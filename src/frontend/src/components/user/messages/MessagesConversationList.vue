@@ -11,7 +11,11 @@
           <h2 id="messages-list-title" class="messages-header-title">
             {{ isAdminMode ? conversationListCopy.titleAdmin : conversationListCopy.titleAccount }}
           </h2>
-          <div class="messages-filter">
+          <div class="messages-header-actions">
+            <el-button v-if="!isAdminMode" size="small" type="primary" @click="emit('createTicket')">
+              {{ conversationListCopy.newTicketCta }}
+            </el-button>
+            <div class="messages-filter">
             <el-select
               :model-value="filter"
               :name="isAdminMode ? 'adminConversationFilter' : 'accountConversationFilter'"
@@ -25,6 +29,7 @@
                 :value="option.value"
               />
             </el-select>
+            </div>
           </div>
         </div>
       </header>
@@ -226,6 +231,13 @@ defineExpose({
 
 .messages-filter {
   width: 10rem;
+}
+
+.messages-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .messages-mobile-primary {

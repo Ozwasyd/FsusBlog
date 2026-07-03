@@ -521,6 +521,7 @@ public static class PublicHotReadFastPath
     private const string BinaryContentType = "application/octet-stream";
     private const string HtmlMediaType = "text/html";
     private const string HtmlContentType = "text/html; charset=utf-8";
+    private const string ServerSsrAotSource = "server-ssr";
     private static readonly Task Completed = Task.CompletedTask;
 
     public static Task TryServeAsync(
@@ -619,7 +620,7 @@ public static class PublicHotReadFastPath
             {
                 PublicHotReadRouteKind.Category => ServeCategory(ctx, snapshot, counters, options),
                 PublicHotReadRouteKind.Tag => ServeTag(ctx, snapshot, counters, options),
-                PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, snapshot, counters, route.ArticleId, options),
+                PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, next, snapshot, counters, route.ArticleId, options),
                 PublicHotReadRouteKind.ArticleList => ServeList(ctx, snapshot, counters, route.ListKey, options),
                 PublicHotReadRouteKind.ArticleHot => ServeList(ctx, snapshot, counters, route.ListKey, options),
                 PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, snapshot, counters, route.ListKey, options),
@@ -745,6 +746,7 @@ public static class PublicHotReadFastPath
 
     private static Task ServeArticle(
         HttpContext ctx,
+        RequestDelegate next,
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         int articleId,
@@ -753,7 +755,7 @@ public static class PublicHotReadFastPath
         if (!snapshot.TryGetArticle(articleId, out PublicBinaryArtifact artifact))
         {
             counters.ArticleMiss();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound);
+            return next(ctx);
         }
 
         counters.ArticleHit(artifact.Frame.Length);
@@ -840,6 +842,7 @@ public static class PublicHotReadFastPath
         ApplyStaticPublicSecurityHeaders(response, isDevelopment);
         response.Headers["Cache-Control"] = string.IsNullOrWhiteSpace(html.CacheControl) ? "public,max-age=60" : html.CacheControl;
         response.Headers["Accept-Ranges"] = "none";
+        response.Headers["X-Fsus-Public-Aot-Source"] = ServerSsrAotSource;
         if (!string.IsNullOrWhiteSpace(html.ETag))
         {
             response.Headers["ETag"] = html.ETag;
@@ -880,6 +883,7 @@ public static class PublicHotReadFastPath
         ApplyStaticPublicSecurityHeaders(response, isDevelopment, nonce);
         response.Headers["Cache-Control"] = string.IsNullOrWhiteSpace(html.CacheControl) ? "public,max-age=60" : html.CacheControl;
         response.Headers["Accept-Ranges"] = "none";
+        response.Headers["X-Fsus-Public-Aot-Source"] = ServerSsrAotSource;
         response.Headers.Remove("Content-Encoding");
         response.Headers.Remove("ETag");
         WriteDiagnosticHeaders(response, options, snapshotVersion, "html", routeKey);

@@ -55,7 +55,7 @@
         </p>
         <a
           :href="PUBLIC_FIXED_PATHS.home"
-          class="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)]"
+          class="mt-6 inline-flex min-h-9 items-center gap-2 px-1 text-sm font-bold text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)]"
           @click="handleEmptyAction"
         >
           {{ view.empty.actionText }}

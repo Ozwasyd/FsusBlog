@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -480,16 +481,7 @@ public class SystemProjectionTests
     }
 
     private static string ReadRepositorySource(string relativePath)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, relativePath)))
-        {
-            directory = directory.Parent;
-        }
-
-        Assert.NotNull(directory);
-        return File.ReadAllText(Path.Combine(directory!.FullName, relativePath));
-    }
+        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
 
     private static string ExtractMapGetBlock(string source, string routeLiteral)
     {

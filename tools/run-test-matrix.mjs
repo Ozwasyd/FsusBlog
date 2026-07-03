@@ -12,6 +12,7 @@ const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
 const schemaFile = path.join(root, 'tests/matrix.schema.json')
 const coverageRegistryFile = path.join(root, 'tests/coverage-registry.json')
 const preflightLogFile = path.join(root, '.tmp/gate-logs/preflight.json')
+const prSmartGateSummaryFile = path.join(root, '.tmp/release-evidence/pr-smart-gate-summary.json')
 const summaryStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
 const coverageAssertionTypes = ['static', 'unit', 'integration', 'runtime', 'browser', 'perf', 'fuzz', 'mutation']
 const runtimeLikeCoverageAssertionTypes = new Set(['runtime', 'browser', 'perf', 'fuzz', 'mutation'])
@@ -19,6 +20,8 @@ const coverageTemplateDescriptionPattern = /^Coverage contract for\b/i
 const genericCoverageMinimumRequirementPattern = /^(static|unit|integration|runtime|browser|perf|fuzz|mutation) evidence declared by tier\b/i
 const cadenceValues = ['pr', 'push', 'nightly', 'release-manual']
 const requiredForValues = ['fast', 'production', 'release-final', 'none']
+const smartGateModeValues = ['always', 'conditional', 'full-only']
+const retentionClassValues = ['must-keep', 'conditional', 'redundant-candidate', 'obsolete']
 const aliases = new Map([
   ['coverage', 'coverage-gate'],
   ['frontend-fast', 'frontend-fast-summary'],
@@ -402,6 +405,30 @@ function validateMatrix(matrix) {
     }
     if ('workflowBootstraps' in tier && typeof tier.workflowBootstraps !== 'boolean') {
       errors.push(`${tier.id}.workflowBootstraps must be boolean`)
+    }
+    if ('prDefault' in tier && typeof tier.prDefault !== 'boolean') {
+      errors.push(`${tier.id}.prDefault must be boolean`)
+    }
+    for (const field of ['triggerPaths', 'triggerFiles', 'triggerCoverage']) {
+      if (field in tier && !Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
+    }
+    if ('triggerReason' in tier && typeof tier.triggerReason !== 'string') {
+      errors.push(`${tier.id}.triggerReason must be string`)
+    }
+    if ('smartGateMode' in tier && !smartGateModeValues.includes(tier.smartGateMode)) {
+      errors.push(`${tier.id}.smartGateMode is invalid: ${tier.smartGateMode}`)
+    }
+    if ('retentionClass' in tier && !retentionClassValues.includes(tier.retentionClass)) {
+      errors.push(`${tier.id}.retentionClass is invalid: ${tier.retentionClass}`)
+    }
+    if (tier.smartGateMode === 'conditional') {
+      if (typeof tier.triggerReason !== 'string' || tier.triggerReason.trim().length === 0) {
+        errors.push(`${tier.id}.smartGateMode=conditional requires triggerReason`)
+      }
+      const triggerCount = (tier.triggerPaths?.length ?? 0) + (tier.triggerFiles?.length ?? 0) + (tier.triggerCoverage?.length ?? 0)
+      if (triggerCount === 0 && tier.prDefault !== true) {
+        errors.push(`${tier.id}.smartGateMode=conditional requires triggerPaths, triggerFiles, triggerCoverage, or prDefault=true`)
+      }
     }
     for (const field of ['timeoutMinutes', 'defaultShards', 'maxParallel']) {
       if (typeof tier[field] !== 'number' || tier[field] < 1) errors.push(`${tier.id}.${field} must be a positive number`)
@@ -825,13 +852,15 @@ function parseCiJobOptions(args) {
 }
 
 function parseCiJobMatrixOptions(args) {
-  const options = { outFile: null, githubOutputFile: null }
+  const options = { outFile: null, githubOutputFile: null, prPlanFile: null }
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
     if (arg === '--out') options.outFile = args[++index]
     else if (arg.startsWith('--out=')) options.outFile = arg.slice('--out='.length)
     else if (arg === '--github-output') options.githubOutputFile = args[++index]
     else if (arg.startsWith('--github-output=')) options.githubOutputFile = arg.slice('--github-output='.length)
+    else if (arg === '--pr-plan') options.prPlanFile = args[++index]
+    else if (arg.startsWith('--pr-plan=')) options.prPlanFile = arg.slice('--pr-plan='.length)
     else throw new Error(`unknown ci-job-matrix option: ${arg}`)
   }
   return options
@@ -919,9 +948,21 @@ function ciJobSchedulerMode(tiers) {
   return ciJobHasParallelWave(tiers) ? 'parallel' : 'serial'
 }
 
-function buildCiJobMatrix(matrix, jobId) {
+function loadSelectedTierIds(prPlanFile) {
+  if (!prPlanFile) return null
+  const abs = path.resolve(root, prPlanFile)
+  if (!fs.existsSync(abs)) throw new Error(`PR smart gate plan does not exist: ${relativeToRoot(abs)}`)
+  const plan = JSON.parse(fs.readFileSync(abs, 'utf8'))
+  return new Set(plan.selectedTierIds ?? plan.selectedTiers?.map((tier) => tier.id) ?? [])
+}
+
+function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = false) {
   const tiers = ciJobTiers(matrix, jobId)
-  if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
+    .filter((tier) => selectedTierIds === null || selectedTierIds.has(tier.id))
+  if (tiers.length === 0) {
+    if (allowEmpty) return { include: [] }
+    throw new Error(`unknown CI job or no required tiers: ${jobId}`)
+  }
 
   const include = []
   for (const tier of tiers) {
@@ -965,7 +1006,7 @@ function buildCiJobMatrix(matrix, jobId) {
 
 function ciJobMatrix(matrix, jobId, args) {
   const options = parseCiJobMatrixOptions(args)
-  const payload = buildCiJobMatrix(matrix, jobId)
+  const payload = buildCiJobMatrix(matrix, jobId, loadSelectedTierIds(options.prPlanFile))
   const maxParallel = Math.max(...payload.include.map((entry) => Number(entry.max_parallel || 1)))
 
   if (options.githubOutputFile) {
@@ -1421,6 +1462,234 @@ function buildCiPlan(matrix, format) {
   }
 }
 
+function parsePrSmartGateOptions(args) {
+  const options = {
+    outFile: null,
+    githubOutputFile: null,
+    changedFilesFile: null,
+    baseRef: process.env.FSUSBLOG_BASE_REF ?? process.env.GITHUB_BASE_REF ?? 'origin/master',
+    eventName: process.env.GITHUB_EVENT_NAME ?? 'local',
+    full: process.env.FSUSBLOG_SMART_GATE_FULL === '1'
+  }
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === '--out') options.outFile = args[++index]
+    else if (arg.startsWith('--out=')) options.outFile = arg.slice('--out='.length)
+    else if (arg === '--github-output') options.githubOutputFile = args[++index]
+    else if (arg.startsWith('--github-output=')) options.githubOutputFile = arg.slice('--github-output='.length)
+    else if (arg === '--changed-files') options.changedFilesFile = args[++index]
+    else if (arg.startsWith('--changed-files=')) options.changedFilesFile = arg.slice('--changed-files='.length)
+    else if (arg === '--base-ref') options.baseRef = args[++index]
+    else if (arg.startsWith('--base-ref=')) options.baseRef = arg.slice('--base-ref='.length)
+    else if (arg === '--event-name') options.eventName = args[++index]
+    else if (arg.startsWith('--event-name=')) options.eventName = arg.slice('--event-name='.length)
+    else if (arg === '--full') options.full = true
+    else if (arg === '--plan-only') options.planOnly = true
+    else throw new Error(`unknown PR smart gate option: ${arg}`)
+  }
+  return options
+}
+
+function readChangedFiles(options) {
+  if (options.changedFilesFile) {
+    const abs = path.resolve(root, options.changedFilesFile)
+    if (!fs.existsSync(abs)) throw new Error(`changed files input does not exist: ${relativeToRoot(abs)}`)
+    return fs.readFileSync(abs, 'utf8')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .sort()
+  }
+
+  const baseRef = options.baseRef || 'origin/master'
+  const diff = git(['diff', '--name-only', `${baseRef}...HEAD`])
+    ?? git(['diff', '--name-only', `${baseRef}`])
+    ?? git(['diff', '--name-only', 'HEAD~1..HEAD'])
+    ?? ''
+  return diff.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).sort()
+}
+
+function wildcardToRegExp(pattern) {
+  const escaped = String(pattern)
+    .replaceAll(path.sep, '/')
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*/g, '\u0000')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\u0000/g, '.*')
+  return new RegExp(`^${escaped}$`, 'u')
+}
+
+function matchesPathPattern(file, pattern) {
+  const normalizedFile = String(file).replaceAll(path.sep, '/')
+  const normalizedPattern = String(pattern).replaceAll(path.sep, '/')
+  if (normalizedPattern.includes('*')) return wildcardToRegExp(normalizedPattern).test(normalizedFile)
+  if (normalizedPattern.endsWith('/')) return normalizedFile.startsWith(normalizedPattern)
+  return normalizedFile === normalizedPattern || normalizedFile.startsWith(`${normalizedPattern}/`)
+}
+
+function tierSmartGateMode(tier) {
+  if (tier.smartGateMode) return tier.smartGateMode
+  if (tier.prDefault === true || tier.requiredFor === 'fast') return 'always'
+  if (
+    tier.localOnly === true
+    || tier.nightlyOnly === true
+    || tier.manualOnly === true
+    || tier.cadence === 'nightly'
+    || tier.cadence === 'release-manual'
+    || tier.requiredFor === 'production'
+    || tier.requiredFor === 'release-final'
+  ) {
+    return 'full-only'
+  }
+  return 'conditional'
+}
+
+function tierTriggerMatches(tier, changedFiles) {
+  const changed = changedFiles ?? []
+  const triggerFiles = tier.triggerFiles ?? []
+  const triggerPaths = tier.triggerPaths ?? []
+  if (triggerFiles.length > 0 && changed.some((file) => triggerFiles.includes(file))) return true
+  if (triggerPaths.length > 0 && changed.some((file) => triggerPaths.some((pattern) => matchesPathPattern(file, pattern)))) return true
+  if ((tier.triggerCoverage?.length ?? 0) > 0 && changed.some((file) => matchesPathPattern(file, 'tests/coverage-registry.json') || matchesPathPattern(file, 'tests/matrix.yml'))) return true
+  return false
+}
+
+function isFullSmartGateMode(options) {
+  return options.full === true
+    || options.eventName === 'push'
+    || options.eventName === 'workflow_dispatch'
+    || process.env.FSUSBLOG_RELEASE_FINAL === '1'
+}
+
+function retentionReport(matrix) {
+  const byClass = new Map()
+  for (const tier of matrix.tiers) {
+    const retentionClass = tier.retentionClass ?? (
+      tier.requiredFor === 'release-final' || tier.risk === 'critical' ? 'must-keep' : 'conditional'
+    )
+    const bucket = byClass.get(retentionClass) ?? []
+    bucket.push(tier.id)
+    byClass.set(retentionClass, bucket)
+  }
+  return {
+    schema: 'fsusblog.test-retention-report.v1',
+    classes: Object.fromEntries([...byClass.entries()].sort(([left], [right]) => left.localeCompare(right))),
+    redundantCandidateCount: byClass.get('redundant-candidate')?.length ?? 0,
+    obsoleteCount: byClass.get('obsolete')?.length ?? 0
+  }
+}
+
+function buildPrSmartGatePlan(matrix, options) {
+  const changedFiles = readChangedFiles(options)
+  const fullMode = isFullSmartGateMode(options)
+  const selectedTiers = []
+  const skippedTiers = []
+
+  for (const tier of matrix.tiers) {
+    const mode = tierSmartGateMode(tier)
+    let selected = false
+    let reason = ''
+
+    if (fullMode) {
+      selected = true
+      reason = 'full gate requested by push/workflow_dispatch/release-final'
+    } else if (mode === 'full-only') {
+      selected = false
+      reason = tier.triggerReason || 'full-only lane skipped for ordinary PR'
+    } else if (mode === 'always' || tier.prDefault === true) {
+      selected = true
+      reason = tier.triggerReason || 'PR default lane'
+    } else if (tierTriggerMatches(tier, changedFiles)) {
+      selected = true
+      reason = tier.triggerReason || 'changed files matched trigger metadata'
+    } else {
+      selected = false
+      reason = tier.triggerReason || 'changed files did not match trigger metadata'
+    }
+
+    const entry = {
+      id: tier.id,
+      ciJob: tier.ciJob,
+      smartGateMode: mode,
+      prDefault: tier.prDefault === true,
+      retentionClass: tier.retentionClass ?? null,
+      triggerReason: tier.triggerReason ?? null,
+      reason
+    }
+    if (selected) selectedTiers.push(entry)
+    else skippedTiers.push(entry)
+  }
+
+  const selectedTierIds = new Set(selectedTiers.map((tier) => tier.id))
+  const selectedJobs = [...new Set(selectedTiers.map((tier) => tier.ciJob))].sort()
+  const skippedJobs = [...new Set(skippedTiers.map((tier) => tier.ciJob).filter((job) => !selectedJobs.includes(job)))].sort()
+
+  return {
+    schema: 'fsusblog.pr-smart-gate.v1',
+    generatedAt: new Date().toISOString(),
+    fullMode,
+    eventName: options.eventName,
+    baseRef: options.baseRef,
+    changedFiles,
+    selectedTiers,
+    skippedTiers,
+    selectedTierIds: [...selectedTierIds].sort(),
+    selectedJobs,
+    skippedJobs,
+    retentionReport: retentionReport(matrix)
+  }
+}
+
+function normalizedOutputName(value) {
+  return String(value).replace(/[^A-Za-z0-9_]/g, '_')
+}
+
+function writePrSmartGateOutputs(matrix, plan, githubOutputFile) {
+  if (!githubOutputFile) return
+  const abs = path.resolve(root, githubOutputFile)
+  ensureOutputDirectory(abs)
+  const selectedJobs = new Set(plan.selectedJobs)
+  const selectedTierIds = new Set(plan.selectedTierIds)
+  const lines = [
+    `pr_smart_gate_summary=${relativeToRoot(prSmartGateSummaryFile)}`,
+    `selected_jobs_json=${JSON.stringify(plan.selectedJobs)}`,
+    `skipped_jobs_json=${JSON.stringify(plan.skippedJobs)}`
+  ]
+  const allJobs = new Set([...plan.selectedJobs, ...plan.skippedJobs])
+  for (const job of [...allJobs].sort()) {
+    lines.push(`${normalizedOutputName(job)}=${selectedJobs.has(job) ? 'true' : 'false'}`)
+    const payload = buildCiJobMatrix(matrix, job, selectedTierIds, true)
+    const maxParallel = payload.include.length === 0
+      ? 1
+      : Math.max(...payload.include.map((entry) => Number(entry.max_parallel || 1)))
+    lines.push(`${normalizedOutputName(job)}_matrix=${JSON.stringify(payload)}`)
+    lines.push(`${normalizedOutputName(job)}_max_parallel=${maxParallel}`)
+  }
+  fs.appendFileSync(abs, `${lines.join('\n')}\n`)
+}
+
+function ciPrPlan(matrix, args) {
+  const options = parsePrSmartGateOptions(args)
+  const plan = buildPrSmartGatePlan(matrix, options)
+  const defaultOut = options.outFile ?? prSmartGateSummaryFile
+  writeTextOutput(`${JSON.stringify(plan, null, 2)}\n`, defaultOut, 'matrix:ci-pr-plan')
+  fs.mkdirSync(path.dirname(prSmartGateSummaryFile), { recursive: true })
+  fs.writeFileSync(prSmartGateSummaryFile, `${JSON.stringify(plan, null, 2)}\n`)
+  writePrSmartGateOutputs(matrix, plan, options.githubOutputFile)
+}
+
+function ciPrSmart(matrix, args) {
+  const options = parsePrSmartGateOptions(args)
+  const plan = buildPrSmartGatePlan(matrix, options)
+  if (options.planOnly === true) {
+    console.log(JSON.stringify(plan, null, 2))
+    return
+  }
+  for (const tierId of plan.selectedTierIds) {
+    runTier(matrix, tierId, ['--no-deps'])
+  }
+}
+
 function ciPlan(matrix, format, outFile) {
   writeTextOutput(`${JSON.stringify(buildCiPlan(matrix, format), null, 2)}\n`, outFile, 'matrix:ci-plan')
 }
@@ -1433,8 +1702,8 @@ function docs(matrix, outFile) {
     '',
     `Version: \`${matrix.version}\``,
     '',
-    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Smart gate | PR default | Retention | Trigger reason | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of matrix.tiers) {
     lines.push([
@@ -1445,6 +1714,10 @@ function docs(matrix, outFile) {
       tier.risk,
       tier.cadence,
       tier.requiredFor,
+      tierSmartGateMode(tier),
+      tier.prDefault === true ? 'yes' : 'no',
+      tier.retentionClass ?? '-',
+      tier.triggerReason ?? '-',
       tier.resourceClass,
       tier.cost,
       String(tier.maxParallel),
@@ -1648,11 +1921,13 @@ function usage() {
   node tools/run-test-matrix.mjs run <tier> [--plan-only] [--no-deps] [--shard i/n]
   node tools/run-test-matrix.mjs ci-tier <tier> [--plan-only] [--no-deps] [--shard i/n]
   node tools/run-test-matrix.mjs ci-job <job> [--plan-only] [--shard i/n]
-  node tools/run-test-matrix.mjs ci-job-matrix <job> [--out file] [--github-output file]
+  node tools/run-test-matrix.mjs ci-job-matrix <job> [--out file] [--github-output file] [--pr-plan file]
   node tools/run-test-matrix.mjs aggregate <job> [--dry-run] [--out file] [--github-needs json]
   node tools/run-test-matrix.mjs ci-fast [--plan-only]
   node tools/run-test-matrix.mjs ci-production [--plan-only]
   node tools/run-test-matrix.mjs ci-release-final [--plan-only]
+  node tools/run-test-matrix.mjs ci-pr-plan [--changed-files file] [--base-ref ref] [--out .tmp/pr-plan.json] [--github-output file]
+  node tools/run-test-matrix.mjs ci-pr-smart [--changed-files file] [--base-ref ref] [--full] [--plan-only]
   node tools/run-test-matrix.mjs ci-plan [--format github-actions] [--out .tmp/ci-plan.json]
   node tools/run-test-matrix.mjs docs [--out docs/testing.generated.md]
   node tools/run-test-matrix.mjs evidence-plan [--out .tmp/release-evidence/test-plan.json]
@@ -1738,6 +2013,14 @@ async function main() {
   }
   if (command === 'ci-plan') {
     ciPlan(matrix, optionValue(args, 'format', 'json'), optionValue(args, 'out'))
+    return
+  }
+  if (command === 'ci-pr-plan') {
+    ciPrPlan(matrix, args)
+    return
+  }
+  if (command === 'ci-pr-smart') {
+    ciPrSmart(matrix, args)
     return
   }
   if (command === 'docs') {

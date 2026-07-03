@@ -346,6 +346,12 @@ defineExpose({
   min-height: 0;
 }
 
+:deep(.el-markdown-editor__command),
+:deep(.el-markdown-editor__action) {
+  min-height: 36px;
+  align-items: center;
+}
+
 .editor-shell__body--split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

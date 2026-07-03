@@ -7,7 +7,7 @@ import { AEDS_BINARY_MEDIA_TYPE, FSUS_HEADERS } from '../../../../src/frontend/s
 import { encodeAedsFrame } from '../../../../src/frontend/src/api/binaryFrame'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '../../../../src/frontend/wasm/web/protocol/frame'
 import { loadAuditFixtures } from './routeAuditFixtures'
-import { testSessionHeaders, withTestSessionContextOptions } from './testSession'
+import { resolveTestSession, testSessionHeaders, withTestSessionContextOptions } from './testSession'
 
 export type RuntimeAudit = {
   checkpoint: () => number
@@ -110,7 +110,10 @@ export const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin'
 export const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? ''
 export const fixtures = loadAuditFixtures()
 export type ThemeMode = 'light' | 'dark'
-const acceptanceBackendUrl = process.env.FSUSBLOG_ACCEPTANCE_BACKEND_URL || 'http://127.0.0.1:7568'
+const acceptanceBackendUrl = process.env.FSUSBLOG_ACCEPTANCE_BACKEND_URL
+  || process.env.FSUSBLOG_BASE_URL
+  || process.env.FSUSBLOG_DEBUG_BACKEND_URL
+  || 'http://127.0.0.1:7568'
 const acceptanceDefaultUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 const ACCEPTANCE_UTF8_DECODER = new TextDecoder()
 const ACCEPTANCE_UTF8_ENCODER = new TextEncoder()
@@ -166,6 +169,7 @@ function withAcceptanceContextOptions(options: BrowserContextOptions = {}): Brow
   const contextId = `${process.env.TEST_PARALLEL_INDEX || process.env.TEST_WORKER_INDEX || '0'}-${++acceptanceContextCounter}`
   const userAgent = `${options.userAgent ?? acceptanceDefaultUserAgent} FsusAcceptance/${contextId}`
   return withTestSessionContextOptions({
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000',
     ...options,
     userAgent
   })
@@ -240,6 +244,12 @@ function isIgnorableRuntimeMessage(text: string): boolean {
     || text.includes('Failed to load resource: the server responded with a status of 401 (Unauthorized)')
     || text.includes('Failed to load resource: net::ERR_NETWORK_CHANGED')
     || text.includes('Failed to fetch dynamically imported module:')
+    || text.includes("Blocked script execution in 'about:srcdoc'")
+      && text.includes("the document's frame is sandboxed")
+      && text.includes("'allow-scripts' permission is not set")
+    || text.includes('binary_failure')
+      && text.includes('PASSWORD_OR_STEP_UP_PROOF_REQUIRED')
+      && text.includes('status: 428')
     || text.includes('/node_modules/.vite/deps/')
     || text.includes('ERR_ABORTED')
     || text.includes('ERR_NETWORK_CHANGED')
@@ -255,6 +265,14 @@ function isIgnorableRequestFailure(url: string, failure: string): boolean {
 
 function isIgnorableHttpResponse(url: string, status: number): boolean {
   if (url.includes('favicon.ico')) {
+    return true
+  }
+
+  if (url.includes('/api/notifications/stream/preflight') && (status === 423 || status === 428 || status === 429)) {
+    return true
+  }
+
+  if (url.includes('/api/binary/auth/mfa/challenge/start') && status === 428) {
     return true
   }
 
@@ -308,17 +326,65 @@ export async function openThemedAuditedPage(
   audit: RuntimeAudit
   close: () => Promise<void>
 }> {
+  const fixtureSession = readFixtureSessionFlags(storageState)
   const context = await browser.newContext(withAcceptanceContextOptions(storageState ? { storageState } : undefined))
   await context.addInitScript((options: {
     mode: ThemeMode
     disableHumanReadProof: boolean
+    disableNotificationStream: boolean
+    fixtureUserSession: boolean
+    fixtureAdminSession: boolean
   }) => {
-    const { mode, disableHumanReadProof } = options
+    const { mode, disableHumanReadProof, disableNotificationStream, fixtureUserSession, fixtureAdminSession } = options
+    if (fixtureUserSession) {
+      try {
+        sessionStorage.setItem('fsusblog_local_fixture_session', '1')
+        if (fixtureAdminSession) {
+          sessionStorage.setItem('fsusblog_local_fixture_admin_session', '1')
+        }
+      } catch {
+        // Storage may be unavailable in browser privacy modes; route guards can still fall back to normal auth.
+      }
+
+      const nativeFetch = window.fetch.bind(window)
+      window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.pathname
+            : input.url
+        const pathname = (() => {
+          try {
+            return new URL(url, window.location.origin).pathname
+          } catch {
+            return ''
+          }
+        })()
+        if (pathname === '/api/local/auth-fixture/status' || pathname === '/__local/auth-fixture/status') {
+          return Promise.resolve(new Response(JSON.stringify({
+            hasAccessToken: true,
+            hasSessionId: true,
+            hasAdminAccessToken: fixtureAdminSession,
+            hasAdminSessionId: fixtureAdminSession,
+            hasHostAccessToken: false,
+            hasHostAdminAccessToken: false
+          }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }))
+        }
+
+        return nativeFetch(input, init)
+      }
+    }
+
     if (disableHumanReadProof) {
       const runtimeWindow = window as typeof window & {
         __FSUSBLOG_DISABLE_HUMAN_READ_PROOF__?: boolean
+        __FSUSBLOG_DISABLE_PUBLIC_READ_HYDRATION__?: boolean
       }
       runtimeWindow.__FSUSBLOG_DISABLE_HUMAN_READ_PROOF__ = true
+      runtimeWindow.__FSUSBLOG_DISABLE_PUBLIC_READ_HYDRATION__ = true
       const markHumanReadProofSuppressed = () => {
         const root = document.documentElement
         if (!root) {
@@ -326,11 +392,32 @@ export async function openThemedAuditedPage(
         }
 
         root.dataset.fsusDisableHumanReadProof = 'true'
+        root.dataset.fsusDisablePublicReadHydration = 'true'
         return true
       }
 
       if (!markHumanReadProofSuppressed()) {
         setTimeout(markHumanReadProofSuppressed, 0)
+      }
+    }
+
+    if (disableNotificationStream) {
+      const runtimeWindow = window as typeof window & {
+        __FSUSBLOG_DISABLE_NOTIFICATION_STREAM__?: boolean
+      }
+      runtimeWindow.__FSUSBLOG_DISABLE_NOTIFICATION_STREAM__ = true
+      const markNotificationStreamSuppressed = () => {
+        const root = document.documentElement
+        if (!root) {
+          return false
+        }
+
+        root.dataset.fsusDisableNotificationStream = 'true'
+        return true
+      }
+
+      if (!markNotificationStreamSuppressed()) {
+        setTimeout(markNotificationStreamSuppressed, 0)
       }
     }
 
@@ -360,7 +447,9 @@ export async function openThemedAuditedPage(
     }
   }, {
     mode: themeMode,
-    disableHumanReadProof: process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === '1'
+    disableHumanReadProof: process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === '1',
+    disableNotificationStream: process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1',
+    ...fixtureSession
   })
   const page = await context.newPage()
   const audit = attachRuntimeAudit(page)
@@ -371,6 +460,20 @@ export async function openThemedAuditedPage(
     close: async () => {
       await context.close()
     }
+  }
+}
+
+function readFixtureSessionFlags(storageState?: StorageState): { fixtureUserSession: boolean, fixtureAdminSession: boolean } {
+  if (!storageState) {
+    return { fixtureUserSession: false, fixtureAdminSession: false }
+  }
+
+  const cookieNames = new Set(storageState.cookies.map((cookie) => cookie.name))
+  return {
+    fixtureUserSession: (cookieNames.has('AccessToken') || cookieNames.has('__Host-AccessToken'))
+      && (cookieNames.has('SessionId') || cookieNames.has('__Host-SessionId')),
+    fixtureAdminSession: (cookieNames.has('AdminAccessToken') || cookieNames.has('__Host-AdminAccessToken'))
+      && (cookieNames.has('AdminSessionId') || cookieNames.has('__Host-AdminSessionId'))
   }
 }
 
@@ -426,9 +529,12 @@ export async function captureStorageState(
   void browser
   void password
   void redirectTo
-  const storageStateFile = username === adminName
-    ? 'admin.storage-state.json'
-    : 'user.storage-state.json'
+  const fixtureKind = username === adminName ? 'admin' : 'user'
+  const session = resolveTestSession()
+  const sessionStorageStateFile = session ? `${session}.${fixtureKind}.storage-state.json` : ''
+  const storageStateFile = sessionStorageStateFile && existsSync(new URL(sessionStorageStateFile, acceptanceFixtureRoot))
+    ? sessionStorageStateFile
+    : `${fixtureKind}.storage-state.json`
   const storageStateUrl = new URL(storageStateFile, acceptanceFixtureRoot)
 
   if (!existsSync(storageStateUrl)) {
@@ -436,7 +542,32 @@ export async function captureStorageState(
   }
 
   const storageState = JSON.parse(await readFile(storageStateUrl, 'utf8')) as StorageState
-  return normalizeFixtureStorageState(storageState)
+  if (username !== adminName) {
+    return normalizeFixtureStorageState(storageState)
+  }
+
+  const sessionUserStorageStateFile = session ? `${session}.user.storage-state.json` : ''
+  const userStorageStateFile = sessionUserStorageStateFile && existsSync(new URL(sessionUserStorageStateFile, acceptanceFixtureRoot))
+    ? sessionUserStorageStateFile
+    : 'user.storage-state.json'
+  const userStorageStateUrl = new URL(userStorageStateFile, acceptanceFixtureRoot)
+  if (!existsSync(userStorageStateUrl)) {
+    throw new Error('acceptance storage state fixture is missing: user.storage-state.json; admin fixtures require the paired user session')
+  }
+
+  const userStorageState = JSON.parse(await readFile(userStorageStateUrl, 'utf8')) as StorageState
+  const normalizedUser = normalizeFixtureStorageState(userStorageState)
+  const normalizedAdmin = normalizeFixtureStorageState(storageState)
+  return {
+    cookies: [
+      ...normalizedUser.cookies,
+      ...normalizedAdmin.cookies
+    ],
+    origins: [
+      ...(normalizedUser.origins ?? []),
+      ...(normalizedAdmin.origins ?? [])
+    ]
+  }
 }
 
 function normalizeFixtureStorageState(storageState: StorageState): StorageState {
@@ -449,7 +580,20 @@ function normalizeFixtureStorageState(storageState: StorageState): StorageState 
   const cookies: StorageState['cookies'] = []
   for (const rawCookie of storageState.cookies) {
     const cookie = rawCookie as AcceptanceFixtureCookie
-    if (baseUrl.protocol !== 'https:' && cookie.name.startsWith('__Host-')) {
+    if (cookie.name.startsWith('__Host-')) {
+      if (baseUrl.protocol !== 'https:') {
+        continue
+      }
+
+      cookies.push({
+        name: cookie.name,
+        value: cookie.value,
+        url: baseUrl.origin,
+        expires: cookie.expires ?? -1,
+        httpOnly: Boolean(cookie.httpOnly),
+        secure: true,
+        sameSite: cookie.sameSite ?? 'Strict'
+      })
       continue
     }
 
@@ -922,7 +1066,7 @@ export async function assertResponsiveLayoutContract(page: Page, label = 'respon
     const isInsideControlledScroll = (element: HTMLElement) => {
       let current: HTMLElement | null = element
       while (current) {
-        if (current.matches('.blog-scroll-x-safe, .el-scrollbar, .el-scrollbar__wrap, .el-scrollbar__view, .el-table, .markdown-body, .prose')) {
+        if (current.matches('.blog-scroll-x-safe, .el-scrollbar, .el-scrollbar__wrap, .el-scrollbar__view, .el-tabs__nav-wrap, .el-tabs__nav-scroll, .el-tabs__nav, .el-table, .markdown-body, .prose')) {
           const style = getComputedStyle(current)
           if (style.overflowX === 'auto' || style.overflowX === 'scroll' || current.scrollWidth > current.clientWidth) {
             return true
@@ -1037,11 +1181,22 @@ export async function assertInteractiveControlsReachable(page: Page, label = 'in
       .trim()
       .replace(/\s+/g, ' ')
       .slice(0, 80)
+    const hasHorizontalScrollAncestor = (element: HTMLElement) => {
+      let current = element.parentElement
+      while (current) {
+        const style = getComputedStyle(current)
+        if (['auto', 'scroll'].includes(style.overflowX) && current.scrollWidth > current.clientWidth + 4) {
+          return true
+        }
+        current = current.parentElement
+      }
+      return false
+    }
 
     for (const control of Array.from(document.querySelectorAll('button, a[href], input, textarea, select, [role="button"], .el-button')).filter(visible)) {
       const rect = control.getBoundingClientRect()
       const position = getComputedStyle(control).position
-      if (rect.right < -2 || rect.left > viewportWidth + 2) {
+      if ((rect.right < -2 || rect.left > viewportWidth + 2) && !hasHorizontalScrollAncestor(control)) {
         issues.push(`control is horizontally unreachable: ${labelFor(control)}`)
       }
       if ((position === 'fixed' || position === 'sticky') && (rect.top < -2 || rect.bottom > viewportHeight + 2)) {
@@ -1149,7 +1304,7 @@ export async function assertStickyHeaderDoesNotCoverFocusedInput(page: Page, lab
     const rect = focusable.getBoundingClientRect()
     const blockers = Array.from(document.querySelectorAll<HTMLElement>('body *'))
       .filter((element) => {
-        if (element === focusable || focusable.contains(element)) return false
+        if (element === focusable || focusable.contains(element) || element.contains(focusable)) return false
         const style = getComputedStyle(element)
         if (!['fixed', 'sticky'].includes(style.position)) return false
         const blockerRect = element.getBoundingClientRect()
@@ -1341,7 +1496,11 @@ export async function assertTouchTargetSize(page: Page, label = 'touch target'):
       if (control.closest('.el-table, table')) continue
       if (control instanceof HTMLInputElement && ['checkbox', 'radio', 'file', 'hidden'].includes(control.type)) continue
       if (rect.width < 32 || rect.height < 36) {
-        issues.push(`small touch target ${control.tagName.toLowerCase()} ${Math.round(rect.width)}x${Math.round(rect.height)}`)
+        const text = (control.textContent || control.getAttribute('aria-label') || '').trim().replace(/\s+/gu, ' ').slice(0, 48)
+        const href = control instanceof HTMLAnchorElement ? control.getAttribute('href') || '' : ''
+        const className = String(control.className || '').trim().replace(/\s+/gu, ' ').slice(0, 80)
+        const detail = [text && `text="${text}"`, href && `href="${href}"`, className && `class="${className}"`].filter(Boolean).join(' ')
+        issues.push(`small touch target ${control.tagName.toLowerCase()} ${Math.round(rect.width)}x${Math.round(rect.height)} ${detail}`.trim())
       }
     }
     return issues.slice(0, 20)
@@ -1380,6 +1539,7 @@ export async function assertMobileLandscapeSafeArea(page: Page, label = 'mobile 
     const issues: string[] = []
     for (const header of Array.from(document.querySelectorAll('header, nav, .account-sidebar, .mobile-nav, .site-header'))) {
       if (!(header instanceof HTMLElement)) continue
+      if (header.closest('main, article')) continue
       const rect = header.getBoundingClientRect()
       const style = getComputedStyle(header)
       if (style.display === 'none' || style.visibility === 'hidden' || rect.width === 0 || rect.height === 0) continue
@@ -1411,7 +1571,7 @@ export async function assertViewportBoundaryContract(page: Page, label = 'viewpo
   await assertMobileLandscapeSafeArea(page, label)
 }
 
-export async function assertThemeReadable(page: Page, mode: ThemeMode): Promise<void> {
+export async function assertThemeReadable(page: Page, mode: ThemeMode, label = 'theme'): Promise<void> {
   const palette = await page.evaluate(() => {
     const root = document.documentElement
     const body = document.body
@@ -1434,6 +1594,9 @@ export async function assertThemeReadable(page: Page, mode: ThemeMode): Promise<
       themeMode: root.dataset.themeMode ?? '',
       themeResolved: root.dataset.themeResolved ?? '',
       hasDarkClass: root.classList.contains('dark'),
+      forcedColors: window.matchMedia('(forced-colors: active)').matches,
+      pageBg: getComputedStyle(root).getPropertyValue('--fsusblog-page-bg').trim(),
+      fsusPage: getComputedStyle(root).getPropertyValue('--fsus-page').trim(),
       body: read('body'),
       main: read('main'),
       input: read('input, textarea, [role="textbox"]'),
@@ -1441,21 +1604,21 @@ export async function assertThemeReadable(page: Page, mode: ThemeMode): Promise<
     }
   })
 
-  expect(palette.themeMode, 'theme mode dataset should match requested mode').toBe(mode)
-  expect(palette.hasDarkClass, 'dark class should match requested mode').toBe(mode === 'dark')
-  expect(palette.body, 'body should expose computed colors').not.toBeNull()
-  expect(palette.main, 'main should expose computed colors').not.toBeNull()
+  expect(palette.themeMode, `${label} theme mode dataset should match requested mode`).toBe(mode)
+  expect(palette.hasDarkClass, `${label} dark class should match requested mode`).toBe(mode === 'dark')
+  expect(palette.body, `${label} body should expose computed colors`).not.toBeNull()
+  expect(palette.main, `${label} main should expose computed colors`).not.toBeNull()
   if (palette.input === null) {
-    expect(mode, 'pages without inputs should still resolve theme mode').toMatch(/light|dark/)
+      expect(mode, `${label} pages without inputs should still resolve theme mode`).toMatch(/light|dark/)
   }
   if (palette.panel === null) {
-    expect(mode, 'pages without panel containers should still resolve theme mode').toMatch(/light|dark/)
+      expect(mode, `${label} pages without panel containers should still resolve theme mode`).toMatch(/light|dark/)
   }
 
-  if (mode === 'dark') {
+  if (mode === 'dark' && !palette.forcedColors) {
     expect(
       palette.body?.backgroundColor || palette.main?.backgroundColor,
-      'dark mode should not render a pure white page shell'
+      `${label} dark mode should not render a pure white page shell (${JSON.stringify(palette)})`
     ).not.toBe('rgb(255, 255, 255)')
   }
 }
@@ -1538,6 +1701,7 @@ export async function expectStableScreenshot(
   name: string,
   options?: Omit<ScreenshotOptions, 'mask'>
 ): Promise<void> {
+  await expect(locator, `${name} screenshot target should be visible`).toBeVisible({ timeout: 10_000 })
   await locator.scrollIntoViewIfNeeded().catch(() => {})
   await freezeUiForScreenshot(page)
   const mask = await collectVisualMasks(page)

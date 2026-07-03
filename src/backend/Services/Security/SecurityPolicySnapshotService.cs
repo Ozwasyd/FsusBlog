@@ -493,36 +493,29 @@ public sealed class SecurityPolicySnapshotHostedService(
             using IServiceScope scope = scopeFactory.CreateScope();
             ISecurityPolicySnapshotService snapshots = scope.ServiceProvider.GetRequiredService<ISecurityPolicySnapshotService>();
 
-            Task<SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot>> antiCrawlerTask =
-                snapshots.LoadActiveOrLastKnownGoodAsync<AntiCrawlerPolicySnapshot>(SecurityPolicyIds.AntiCrawler, cancellationToken);
-            Task<SecurityPolicyLoadResult<PowPolicySnapshot>> powTask =
-                snapshots.LoadActiveOrLastKnownGoodAsync<PowPolicySnapshot>(SecurityPolicyIds.Pow, cancellationToken);
-            Task<SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2>> riskControlTask =
-                snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, cancellationToken);
-            Task<SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot>> perceptionV2Task =
-                snapshots.LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, cancellationToken);
-
-            await Task.WhenAll(antiCrawlerTask, powTask, riskControlTask, perceptionV2Task);
-
-            SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> antiCrawler = await antiCrawlerTask;
+            SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> antiCrawler =
+                await snapshots.LoadActiveOrLastKnownGoodAsync<AntiCrawlerPolicySnapshot>(SecurityPolicyIds.AntiCrawler, cancellationToken);
             if (antiCrawler.Success && antiCrawler.Document is not null)
             {
                 policy.ApplyAntiCrawlerPolicySnapshot(antiCrawler.Document);
             }
 
-            SecurityPolicyLoadResult<PowPolicySnapshot> pow = await powTask;
+            SecurityPolicyLoadResult<PowPolicySnapshot> pow =
+                await snapshots.LoadActiveOrLastKnownGoodAsync<PowPolicySnapshot>(SecurityPolicyIds.Pow, cancellationToken);
             if (pow.Success && pow.Document is not null)
             {
                 policy.ApplyPowPolicySnapshot(pow.Document);
             }
 
-            SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2> riskControl = await riskControlTask;
+            SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2> riskControl =
+                await snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, cancellationToken);
             if (riskControl.Success && riskControl.Document is not null)
             {
                 policy.ApplyRiskControlPolicySnapshot(riskControl.Document);
             }
 
-            SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot> perceptionV2 = await perceptionV2Task;
+            SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot> perceptionV2 =
+                await snapshots.LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, cancellationToken);
             if (perceptionV2.Success && perceptionV2.Document is not null)
             {
                 policy.ApplyPerceptionSealedV2PolicySnapshot(perceptionV2.Document);

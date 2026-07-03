@@ -40,6 +40,28 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
+    public async Task TryServeAsync_DetailMiss_AllowsEndpointFallbackForArtifactBackfill()
+    {
+        var context = CreateContext("/api/binary/article/42.aeds");
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            ctx =>
+            {
+                nextCalled = true;
+                ctx.Response.StatusCode = StatusCodes.Status202Accepted;
+                return Task.CompletedTask;
+            },
+            CreateReadyEmptyStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.True(nextCalled);
+        Assert.Equal(StatusCodes.Status202Accepted, context.Response.StatusCode);
+    }
+
+    [Fact]
     public void RuntimeSnapshot_ExposesArticleFrameLimitOverflow()
     {
         var store = new PublicHotReadStore();
@@ -752,6 +774,7 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal("text/html; charset=utf-8", context.Response.ContentType);
         Assert.Equal(html.ETag, context.Response.Headers.ETag);
         Assert.Equal(html.Bytes.Length, context.Response.ContentLength);
+        Assert.Equal("server-ssr", context.Response.Headers["X-Fsus-Public-Aot-Source"]);
         Assert.Equal(html.Bytes.ToArray(), ((MemoryStream)context.Response.Body).ToArray());
         AssertHtmlSecurityHeaders(context);
     }

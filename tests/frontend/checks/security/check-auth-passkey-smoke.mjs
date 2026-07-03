@@ -10,11 +10,24 @@ import {
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
 const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'auth-passkey-smoke-node';
+const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || baseUrl;
 
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function describePayload(payload) {
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return String(payload);
+  }
+}
+
+function assertOk(result, message) {
+  assert(result.response.ok, `${message}: ${result.response.status} ${describePayload(result.payload)}`);
 }
 
 async function cleanupExistingPasskeys(session) {
@@ -33,7 +46,8 @@ async function cleanupExistingPasskeys(session) {
       await authBinary(`/api/Auth/passkey/credentials/${cred.id}`, {
         method: 'DELETE',
         cookieHeader: session.cookieHeader,
-        deviceFingerprint
+        deviceFingerprint,
+        headers: { Origin: trustedOrigin }
       });
     }
   }
@@ -135,8 +149,7 @@ async function main() {
     cookieHeader: session.cookieHeader,
     deviceFingerprint
   });
-  assert(credsResult.response.ok,
-    `passkey credentials list must return 2xx, got ${credsResult.response.status}`);
+  assertOk(credsResult, 'passkey credentials list must return 2xx');
   const credsData = credsResult.payload?.data ?? credsResult.payload;
   assert(Array.isArray(credsData),
     `passkey credentials list must return array, got ${typeof credsData}`);
@@ -145,10 +158,10 @@ async function main() {
   const regBeginResult = await authBinary('/api/Auth/passkey/register/begin', {
     method: 'POST',
     cookieHeader: session.cookieHeader,
-    deviceFingerprint
+    deviceFingerprint,
+    headers: { Origin: trustedOrigin }
   });
-  assert(regBeginResult.response.ok,
-    `passkey register/begin must return 2xx, got ${regBeginResult.response.status}`);
+  assertOk(regBeginResult, 'passkey register/begin must return 2xx');
 
   const regBeginData = regBeginResult.payload?.data ?? regBeginResult.payload;
   assert(
@@ -174,6 +187,7 @@ async function main() {
     method: 'POST',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
+    headers: { Origin: trustedOrigin },
     body: {
       sessionKey: 'nonexistent-session-key-00000000',
       attestation: {},
@@ -186,30 +200,33 @@ async function main() {
   assert(expiredSessionResult.response.status < 500,
     `passkey register/complete with invalid session must not return 5xx, got ${expiredSessionResult.response.status}`);
 
-  // 5d. delete a non-existent credential returns 404
+  // 5d. credential mutation without step-up is rejected before resource lookup
   const deleteResult = await authBinary('/api/Auth/passkey/credentials/999999', {
     method: 'DELETE',
     cookieHeader: session.cookieHeader,
-    deviceFingerprint
+    deviceFingerprint,
+    headers: { Origin: trustedOrigin }
   });
-  assert(deleteResult.response.status === 404,
-    `passkey delete non-existent credential must return 404, got ${deleteResult.response.status}`);
+  assert(deleteResult.response.status === 428,
+    `passkey delete without step-up must return 428, got ${deleteResult.response.status}`);
 
-  // 5e. rename a non-existent credential returns 404
+  // 5e. credential rename without step-up is rejected before resource lookup
   const renameResult = await authBinary('/api/Auth/passkey/credentials/999999/name', {
     method: 'PUT',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
+    headers: { Origin: trustedOrigin },
     body: { name: 'Test Name' }
   });
-  assert(renameResult.response.status === 404,
-    `passkey rename non-existent credential must return 404, got ${renameResult.response.status}`);
+  assert(renameResult.response.status === 428,
+    `passkey rename without step-up must return 428, got ${renameResult.response.status}`);
 
   // 5f. rename with empty string name returns non-2xx, not 5xx
   const renameEmptyResult = await authBinary('/api/Auth/passkey/credentials/999999/name', {
     method: 'PUT',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
+    headers: { Origin: trustedOrigin },
     body: { name: '' }
   });
   assert(!renameEmptyResult.response.ok,

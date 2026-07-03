@@ -653,6 +653,10 @@ async function preloadBackgroundSearchPhase(manifest: SearchManifest, generation
   }
 }
 
+function preloadBackgroundShard(manifest: SearchManifest, generation: number): Promise<void> {
+  return preloadBackgroundSearchPhase(manifest, generation)
+}
+
 function scheduleDeepSearchPhase(manifest: SearchManifest, generation: number): void {
   if (deepPreloadPromise || selectDeepRoles(manifest).length === 0 || !shouldPreloadBackgroundShard()) {
     return
@@ -717,7 +721,7 @@ function ensureLoadPromise(): Promise<void> {
       loaded = true
       loadedVersion = manifest.currentVersion
       emitSearchPhaseMetric('initial', initialStartedAt, initialRoles, manifest.currentVersion, entries.size)
-      void preloadBackgroundSearchPhase(manifest, generation).catch(() => {})
+      void preloadBackgroundShard(manifest, generation).catch(() => {})
       scheduleDeepSearchPhase(manifest, generation)
     } catch (error) {
       if (!controller.signal.aborted) {

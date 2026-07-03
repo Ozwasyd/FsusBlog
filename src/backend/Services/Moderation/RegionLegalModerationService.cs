@@ -455,7 +455,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
         string contextJson = JsonSerializer.Serialize(context);
         _auditLogChannel.TryWrite(new AuditRecord(
             AuditSourceCatalog.Security,
-            AuditTypeCatalog.Audit,
+            AuditTypeCatalog.Lifecycle,
             DateTime.UtcNow,
             eventInfo,
             Encoding.UTF8.GetBytes(contextJson),
@@ -465,7 +465,7 @@ public sealed class RegionLegalModerationService : IRegionLegalModerationService
             ActorType: AuditActorTypeCatalog.System,
             TargetType: "moderation_region_policy_replay",
             TargetId: commentId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            IsHighValue: true,
+            IsHighValue: false,
             ReasonCode: eventInfo,
             ContextJson: contextJson));
     }

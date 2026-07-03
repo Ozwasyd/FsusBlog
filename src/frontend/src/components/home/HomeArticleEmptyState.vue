@@ -5,7 +5,7 @@
   >
     <a
       href="/archive"
-      class="inline-flex text-sm font-bold text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)]"
+      class="inline-flex min-h-9 items-center px-1 text-sm font-bold text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)]"
     >
       查看归档
     </a>

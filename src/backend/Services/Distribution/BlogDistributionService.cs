@@ -113,14 +113,9 @@ public sealed class BlogDistributionService(
             return cached;
         }
 
-        Task<DistributionSnapshot> snapshotTask = LoadSnapshotAsync(cancellationToken);
-        Task<IReadOnlyList<DistributionTaxonomyRow>> categoriesTask = LoadCategoriesAsync(cancellationToken);
-        Task<IReadOnlyList<DistributionTaxonomyRow>> tagsTask = LoadTagsAsync(cancellationToken);
-        await Task.WhenAll(snapshotTask, categoriesTask, tagsTask);
-
-        DistributionSnapshot snapshot = await snapshotTask;
-        IReadOnlyList<DistributionTaxonomyRow> categories = await categoriesTask;
-        IReadOnlyList<DistributionTaxonomyRow> tags = await tagsTask;
+        DistributionSnapshot snapshot = await LoadSnapshotAsync(cancellationToken);
+        IReadOnlyList<DistributionTaxonomyRow> categories = await LoadCategoriesAsync(cancellationToken);
+        IReadOnlyList<DistributionTaxonomyRow> tags = await LoadTagsAsync(cancellationToken);
 
         var urls = new List<(string Location, DateTimeOffset UpdatedAt, string Priority)>
         {
@@ -208,14 +203,9 @@ public sealed class BlogDistributionService(
 
     private async Task<DistributionSnapshot> LoadSnapshotAsync(CancellationToken cancellationToken)
     {
-        Task<SeoConfigReadModel> seoTask = systemService.GetSeoConfigAsync();
-        Task<SiteComplianceConfigReadModel> complianceTask = systemService.GetSiteComplianceConfigAsync();
-        Task<List<DistributionArticleRow>> rowsTask = LoadDistributionArticlesAsync(cancellationToken);
-        await Task.WhenAll(seoTask, complianceTask, rowsTask);
-
-        SeoConfigReadModel seo = await seoTask;
-        SiteComplianceConfigReadModel compliance = await complianceTask;
-        List<DistributionArticleRow> rows = await rowsTask;
+        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
+        SiteComplianceConfigReadModel compliance = await systemService.GetSiteComplianceConfigAsync();
+        List<DistributionArticleRow> rows = await LoadDistributionArticlesAsync(cancellationToken);
         string baseUrl = NormalizeBaseUrl(seo.BaseUrl);
 
         DateTimeOffset updatedAt = rows.Count == 0

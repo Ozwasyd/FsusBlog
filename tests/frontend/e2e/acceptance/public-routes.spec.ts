@@ -22,6 +22,9 @@ import {
 const articlePath = `/article/${fixtures.articleId}`
 const execFileAsync = promisify(execFile)
 const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0'
+const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis'
+
+test.describe.configure({ mode: 'serial' })
 
 async function resetLocalPowRiskState() {
   if (!resetSecurityTestState) {
@@ -31,7 +34,7 @@ async function resetLocalPowRiskState() {
   try {
     await execFileAsync('docker', [
       'exec',
-      'fsusblog-redis',
+      redisContainer,
       'sh',
       '-c',
       "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL"
@@ -129,8 +132,8 @@ function publicExpectations() {
       expectedUrl: '/login',
       label: 'public-login',
       selectors: [
-        (page) => page.locator('#username'),
-        (page) => page.locator('#password')
+        (page) => page.getByRole('button', { name: /使用通行密钥登录/u }),
+        (page) => page.getByRole('link', { name: /Recovery Key/u })
       ]
     }
   ]

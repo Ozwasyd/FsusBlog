@@ -15,7 +15,7 @@ function decodeFixtureValue(value) {
   }
 }
 
-function readFixtureFile() {
+function readFixtureFile({ ignoreBaseUrl = false } = {}) {
   const candidates = [
     process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE,
     path.resolve(process.cwd(), '.playwright-fixtures.aeds'),
@@ -45,7 +45,7 @@ function readFixtureFile() {
 
   const expectedBaseUrl = String(process.env.FSUSBLOG_BASE_URL ?? '').trim().replace(/\/+$/u, '')
   const fixtureBaseUrl = String(values.baseUrl ?? '').trim().replace(/\/+$/u, '')
-  if (expectedBaseUrl && fixtureBaseUrl && expectedBaseUrl !== fixtureBaseUrl) {
+  if (!ignoreBaseUrl && expectedBaseUrl && fixtureBaseUrl && expectedBaseUrl !== fixtureBaseUrl) {
     return {}
   }
 
@@ -63,5 +63,17 @@ export function readPublicFixtureIds(defaults = {}) {
     articleId: positiveInt(fixtures.articleId, positiveInt(defaults.articleId, 1)),
     categoryId: positiveInt(fixtures.categoryId, positiveInt(defaults.categoryId, 1)),
     tagId: positiveInt(fixtures.tagId, positiveInt(defaults.tagId, 1)),
+  }
+}
+
+export function readPublicFixtures(defaults = {}) {
+  const fixtures = readFixtureFile({ ignoreBaseUrl: true })
+  return {
+    ...fixtures,
+    articleId: positiveInt(fixtures.articleId, positiveInt(defaults.articleId, 1)),
+    categoryId: positiveInt(fixtures.categoryId, positiveInt(defaults.categoryId, 1)),
+    tagId: positiveInt(fixtures.tagId, positiveInt(defaults.tagId, 1)),
+    articleTitle: String(fixtures.articleTitle || defaults.articleTitle || ''),
+    searchKeyword: String(fixtures.searchKeyword || defaults.searchKeyword || '')
   }
 }

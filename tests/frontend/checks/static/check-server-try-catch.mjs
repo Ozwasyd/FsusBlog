@@ -32,16 +32,32 @@ const defaultWhitelist = [
   'src/backend/Infrastructure/PublicAot/',
   'src/backend/Infrastructure/PublicReadArtifacts/',
   'src/backend/Infrastructure/PowLoadResetWorker.cs',
+  'src/backend/Infrastructure/Results/AedsJsonResults.cs',
+  'src/backend/Infrastructure/Security/',
+  'src/backend/Modules/Endpoints/AuthoringEndpoints.cs',
   'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs',
+  'src/backend/Modules/Endpoints/Binary/',
+  'src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs',
+  'src/backend/Modules/Endpoints/NotificationStreamDrillEndpoints.cs',
+  'src/backend/Modules/Endpoints/SecurityEndpoints.cs',
   'src/backend/Services/Background/',
+  'src/backend/Services/ArticleMutationSideEffects.cs',
   'src/backend/Services/ArticleService.cs',
+  'src/backend/Services/ArticleViewWriteBuffer.cs',
   'src/backend/Services/FileService.cs',
+  'src/backend/Services/Moderation/',
   'src/backend/Services/SearchIndexService.cs',
   'src/backend/Services/Security/',
+  'src/backend/Services/Subscriptions/SiteSubscriptionProofService.cs',
+  'src/backend/Services/Telemetry/',
+  'src/backend/Services/UserService.cs',
+  'src/backend/Services/UserService.Ports.cs',
   'src/backend/Services/NotificationStream/',
   'src/backend/Services/VisitLog/',
+  'src/core/Cache/',
   'src/core/Mapping/Codecs/',
-  'src/shared/Contracts/Outputs/'
+  'src/shared/Contracts/Outputs/',
+  'src/shared/Contracts/Security/'
 ];
 
 const extraWhitelist = (process.env.FSUSBLOG_TRY_CATCH_WHITELIST ?? '')

@@ -96,7 +96,6 @@ import { computed, useSlots } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import { FSUSBLOG_THEME_MODE_LABELS, type ThemeModeToggleLabels } from '@/components/ui/themeModeLabels'
 import { FsusUiSiteHeader } from '@/fsusui/siteHeader'
-import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
 import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 
 export type SiteChromeClassValue =
@@ -147,7 +146,7 @@ const props = withDefaults(
     themeModeLabels?: SiteChromeThemeModeLabels
   }>(),
   {
-    siteTitle: PUBLIC_SHELL_DEFAULTS.siteTitle,
+    siteTitle: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
     siteLogoUrl: '',
     siteLogoDarkUrl: '',
     siteWordmarkUrl: '',
@@ -182,7 +181,7 @@ const props = withDefaults(
 const slots = useSlots()
 
 const siteTitleText = computed(
-  () => props.siteTitle?.trim() || PUBLIC_SHELL_DEFAULTS.siteTitle,
+  () => props.siteTitle?.trim() || FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
 )
 const brandImageLight = computed(() => resolveBrandImage('light'))
 const brandImageDark = computed(() => resolveBrandImage('dark'))

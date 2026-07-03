@@ -271,17 +271,20 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
-    public void StartupLoader_LoadsPolicySnapshotsConcurrently()
+    public void StartupLoader_LoadsPolicySnapshotsSequentiallyWithoutSharingScopedDbClientConcurrently()
     {
         string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
         string start = ExtractBetween(service, "public async Task StartAsync", "    public Task StopAsync");
 
-        Assert.Contains("antiCrawlerTask", start, StringComparison.Ordinal);
-        Assert.Contains("powTask", start, StringComparison.Ordinal);
-        Assert.Contains("riskControlTask", start, StringComparison.Ordinal);
-        Assert.Contains("perceptionV2Task", start, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(antiCrawlerTask, powTask, riskControlTask, perceptionV2Task)", start, StringComparison.Ordinal);
-        Assert.DoesNotContain("SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> antiCrawler =\n                await", start, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", start, StringComparison.Ordinal);
+        Assert.DoesNotContain("antiCrawlerTask", start, StringComparison.Ordinal);
+        Assert.DoesNotContain("powTask", start, StringComparison.Ordinal);
+        Assert.DoesNotContain("riskControlTask", start, StringComparison.Ordinal);
+        Assert.DoesNotContain("perceptionV2Task", start, StringComparison.Ordinal);
+        Assert.Contains("SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> antiCrawler =\n                await", start, StringComparison.Ordinal);
+        Assert.Contains("SecurityPolicyLoadResult<PowPolicySnapshot> pow =\n                await", start, StringComparison.Ordinal);
+        Assert.Contains("SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2> riskControl =\n                await", start, StringComparison.Ordinal);
+        Assert.Contains("SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot> perceptionV2 =\n                await", start, StringComparison.Ordinal);
     }
 
     private static AntiCrawlerPolicySnapshot CreateAntiCrawlerSnapshot(string id, string mode)

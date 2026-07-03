@@ -85,6 +85,171 @@ public sealed class CoverageScriptContractTests
             "FSUSBLOG_FRONTEND_COVERAGE_STATEMENT_THRESHOLD=\"${FSUSBLOG_FRONTEND_COVERAGE_STATEMENT_THRESHOLD:-0}\"",
             source,
             StringComparison.Ordinal);
+        Assert.Contains(
+            "export FSUSBLOG_USE_LOCAL_FSUSUI=\"${FSUSBLOG_USE_LOCAL_FSUSUI:-0}\"",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BackendCoverageCollection_ExcludesTimingSensitiveCategories()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "coverage", "collect-backend-coverage.sh");
+
+        Assert.Contains(
+            "--filter \"Category!=Integration&Category!=Concurrency&Category!=Performance\"",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AcceptanceBootstrap_EnablesAnonymousIdentityModeForSecurityRuntime()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "bootstrap-acceptance-env.sh");
+
+        Assert.Contains(
+            "ANONYMOUS_IDENTITY_MODE=\"${FSUSBLOG_ANONYMOUS_IDENTITY_MODE:-1}\"",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$ANONYMOUS_IDENTITY_MODE",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' \"$ANONYMOUS_IDENTITY_MODE\")",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AcceptanceBootstrap_RefreshesRedisAfterFixtureSeeding()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "bootstrap-acceptance-env.sh");
+
+        Assert.Contains("refresh_acceptance_cache_after_fixtures", source, StringComparison.Ordinal);
+        Assert.Contains("redis-cli FLUSHDB", source, StringComparison.Ordinal);
+        Assert.Contains("refresh_acceptance_cache_after_fixtures", ExtractFunction(source, "prepare_fixtures"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AcceptanceBootstrap_DisablesPublicReadRiskChallengeForViewportSweeps()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "bootstrap-acceptance-env.sh");
+
+        Assert.Contains("RISK_PUBLIC_READ_CHALLENGE_ENABLED=\"${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_CHALLENGE_ENABLED:-false}\"", source, StringComparison.Ordinal);
+        Assert.Contains("Security__RiskControl__PublicReadChallenge__Enabled=$RISK_PUBLIC_READ_CHALLENGE_ENABLED", source, StringComparison.Ordinal);
+        Assert.Contains("Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' \"$RISK_PUBLIC_READ_CHALLENGE_ENABLED\")", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AcceptanceBootstrap_RaisesPublicReadRateLimitForViewportSweeps()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "bootstrap-acceptance-env.sh");
+
+        Assert.Contains("PUBLIC_READ_PERMIT_LIMIT=\"${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_PERMIT_LIMIT:-100000}\"", source, StringComparison.Ordinal);
+        Assert.Contains("PUBLIC_READ_QUEUE_LIMIT=\"${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_QUEUE_LIMIT:-10000}\"", source, StringComparison.Ordinal);
+        Assert.Contains("RateLimiting__PublicReadPermitLimit=$PUBLIC_READ_PERMIT_LIMIT", source, StringComparison.Ordinal);
+        Assert.Contains("RateLimiting__PublicReadQueueLimit=$PUBLIC_READ_QUEUE_LIMIT", source, StringComparison.Ordinal);
+        Assert.Contains("RateLimiting__PublicReadPermitLimit=$(printf '%q' \"$PUBLIC_READ_PERMIT_LIMIT\")", source, StringComparison.Ordinal);
+        Assert.Contains("RateLimiting__PublicReadQueueLimit=$(printf '%q' \"$PUBLIC_READ_QUEUE_LIMIT\")", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AcceptanceBootstrap_RaisesNotificationStreamAccountLimitForPressure()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "bootstrap-acceptance-env.sh");
+
+        Assert.Contains("NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT=\"${FSUSBLOG_ACCEPTANCE_NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT:-50}\"", source, StringComparison.Ordinal);
+        Assert.Contains("NotificationStream__MaxConnectionsPerAccount=$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT", source, StringComparison.Ordinal);
+        Assert.Contains("NotificationStream__MaxConnectionsPerAccount=$(printf '%q' \"$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT\")", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AcceptanceBootstrapSecurityResetClearsPersistedRiskEvents()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "bootstrap-acceptance-env.sh");
+        string function = ExtractFunction(source, "reset_security_test_state");
+
+        Assert.Contains("POSTGRES_CONTAINER", function, StringComparison.Ordinal);
+        Assert.Contains("security_risk_event", function, StringComparison.Ordinal);
+        Assert.Contains("expires_at_utc > (now() AT TIME ZONE 'utc')", function, StringComparison.Ordinal);
+        Assert.Contains("FORCE_BOOTSTRAP=1", function, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LegacyTestReloadsAcceptanceUrlsAfterReadingBootstrapEnv()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "test", "legacy-test.sh");
+        string function = ExtractFunction(source, "require_bootstrapped_namespace");
+
+        Assert.Contains("DEBUG_FRONTEND_URL=\"${FSUSBLOG_DEBUG_FRONTEND_URL:-$DEBUG_FRONTEND_URL}\"", function, StringComparison.Ordinal);
+        Assert.Contains("DEBUG_BACKEND_URL=\"${FSUSBLOG_DEBUG_BACKEND_URL:-$DEBUG_BACKEND_URL}\"", function, StringComparison.Ordinal);
+        Assert.Contains("RELEASE_PREVIEW_URL=\"${FSUSBLOG_RELEASE_PREVIEW_URL:-$RELEASE_PREVIEW_URL}\"", function, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LegacyRuntimeSecurityResetClearsHotAndPersistedRiskState()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "test", "legacy-test.sh");
+        string function = ExtractFunction(source, "reset_security_runtime_state");
+
+        Assert.Contains("FSUSBLOG_REDIS_CONTAINER_NAME", function, StringComparison.Ordinal);
+        Assert.Contains("fsus:sec:pow-risk:*", function, StringComparison.Ordinal);
+        Assert.Contains("FSUSBLOG_POSTGRES_CONTAINER_NAME", function, StringComparison.Ordinal);
+        Assert.Contains("security_risk_event", function, StringComparison.Ordinal);
+        Assert.Contains("expires_at_utc > (now() AT TIME ZONE 'utc')", function, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LoadLaneResetsRiskStateImmediatelyBeforeNotificationPressure()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "test", "legacy-test.sh");
+        string function = ExtractFunction(source, "run_load_only");
+
+        int resetIndex = function.IndexOf("reset_security_runtime_state \"pre notification stream pressure\"", StringComparison.Ordinal);
+        int pressureIndex = function.IndexOf("npm run check:load:notification-stream-pressure", StringComparison.Ordinal);
+
+        Assert.True(resetIndex >= 0, "load lane must reset local risk state immediately before notification stream pressure");
+        Assert.True(pressureIndex > resetIndex, "notification stream pressure must run after its dedicated risk reset");
+    }
+
+    [Fact]
+    public void CoverageThresholdLane_UsesArtifactOnlyFrontendDefaults()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "test", "lanes", "coverage-threshold.sh");
+
+        Assert.Contains(
+            "FSUSBLOG_COVERAGE_LINE_THRESHOLD=\"${FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD:-0}\"",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "FSUSBLOG_COVERAGE_BRANCH_THRESHOLD=\"${FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD:-0}\"",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "FSUSBLOG_COVERAGE_FUNCTION_THRESHOLD=\"${FSUSBLOG_FRONTEND_COVERAGE_FUNCTION_THRESHOLD:-0}\"",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ChangedCodeCoverage_DoesNotFallbackWhenBaseDiffIsEmpty()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "coverage", "write-changed-code-coverage.mjs");
+
+        Assert.Contains("return result.status === 0 ? result.stdout.trim() : null", source, StringComparison.Ordinal);
+        Assert.Contains("const changed = diff ?? git(['diff', '--name-only', 'HEAD~1..HEAD']) ?? ''", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("]) || git(['diff', '--name-only', 'HEAD~1..HEAD'])", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FrontendBuildLane_UsesLocalFsusUiReleaseSurface()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "test", "legacy-test.sh");
+
+        Assert.Contains("FSUSBLOG_SKIP_ENSURE_WASM=1", source, StringComparison.Ordinal);
+        Assert.Contains("FSUSBLOG_VITE_WARN_AS_ERROR=1", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FSUSBLOG_USE_LOCAL_FSUSUI=0", source, StringComparison.Ordinal);
     }
 
     public static IEnumerable<object[]> CoverageScriptPaths()
@@ -93,5 +258,18 @@ public sealed class CoverageScriptContractTests
         {
             yield return [script];
         }
+    }
+
+    private static string ExtractFunction(string source, string functionName)
+    {
+        string marker = $"{functionName}()";
+        int start = source.IndexOf(marker, StringComparison.Ordinal);
+        if (start < 0)
+        {
+            return string.Empty;
+        }
+
+        int nextFunction = source.IndexOf("\n}\n\n", start, StringComparison.Ordinal);
+        return nextFunction < 0 ? source[start..] : source[start..(nextFunction + 3)];
     }
 }

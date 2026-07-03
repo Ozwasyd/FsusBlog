@@ -152,6 +152,7 @@ CLIENT_ROOT_TEST_DIRS="$(
     ! -name 'model' \
     ! -name 'property' \
     ! -name 'support' \
+    ! -name 'typecheck' \
     ! -name 'unit' | sort
 )"
 

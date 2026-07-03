@@ -4,6 +4,10 @@ FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑
 
 `tests/coverage-registry.json` 是 matrix `coverage[]` 的机器可读索引。每个 coverage id 必须声明 `description`、`owner`、`risk`、`evidencePaths`、`assertionType`、`failClosedRule` 和 `minimumRequirement`；`description` 必须描述实际覆盖语义，不能保留 `Coverage contract for ...` 这类模板句，`minimumRequirement` 必须写明最低可接受断言或 evidence 形态，不能只重复 tier 类型。`tools/run-test-matrix.mjs validate` 会拒绝未注册的 coverage id、未被对应 tier artifact/evidence 声明的 evidence path、未使用的 registry id，拒绝只指向 unit/property 测试文件却标成非 `unit` 的明显 assertionType 错配，也会拒绝 `runtime` / `browser` / `perf` / `fuzz` / `mutation` 类型只指向静态 docs/source 文件的条目。该 registry 不替代测试本体，只把“这个 coverage 标签由什么证据证明”变成 fail-closed 合同。
 
+普通 PR 使用 smart gate：`plan-pr-risk` 始终运行并生成 `.tmp/pr-plan.json` 与 `.tmp/release-evidence/pr-smart-gate-summary.json`，fast lane 与 backend-qps sentinel 默认保留，coverage / browser / production / release / load / resilience 等重 lane 只在 changed paths、coverage id 或显式 full gate 命中时运行。跳过必须写入 skip evidence；不得 silent skip。`release-final`、push 与手动 full gate 仍执行完整矩阵。
+
+测试瘦身只允许基于机器证据推进。`static-governance` 会运行 `tools/check-test-retention.mjs` 并写入 `.tmp/release-evidence/test-retention-audit.json`，按测试文件归类为 `must-keep`、`conditional`、`review-candidate` 或 `obsolete-candidate`。`must-keep` 覆盖 API/安全/协议/发布/矩阵/治理等契约；`conditional` 代表成本较高但仍由 smart gate 或 release-final 保留的 lane；`review-candidate` 只能进入人工复核，不得自动删除；只有无 coverage、无 matrix 引用、且有人工确认替代覆盖的 `obsolete-candidate` 才能删除。
+
 `coverage-threshold` 会分别校验 merged、backend-only 和 frontend-only coverage。默认 frontend 阈值与常规 merged gate 保持保守一致：`FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD=35`、`FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD=20`、`FSUSBLOG_FRONTEND_COVERAGE_FUNCTION_THRESHOLD=30`；PR/push 可以通过这些环境变量临时调高或降低，但 release evidence 会把 `coverage.frontend` 单独展示，避免 frontend 退化被 merged totals 掩盖。
 
 ---
@@ -68,16 +72,18 @@ node tools/run-test-matrix.mjs aggregate fast-summary --dry-run
 
 | Lane | Scale mode | Current policy | Artifact isolation | Worker policy |
 |---|---|---|---|---|
-| `acceptance` | shard-only | `4` shards, `maxParallel=4` | `acceptance-playwright-1-of-4` ... `4-of-4` | keep `playwrightWorkers=1` |
-| `visual-public` / `visual-console` | shard + worker | each group uses `2` shards, `maxParallel=2`; `visual` aggregate is artifact-only | `visual-public-playwright-1-of-2` / `2-of-2`, `visual-console-playwright-1-of-2` / `2-of-2`, aggregate `visual-playwright` | keep `playwrightWorkers=2`; do not raise without visual baseline evidence |
-| `ux-viewport-smoke` | shard-only | `2` shards, `maxParallel=2` | `ux-viewport-smoke-1-of-2` / `2-of-2` | keep `playwrightWorkers=1` |
+| `acceptance` | shard + guarded worker | `4` shards, `maxParallel=4`; only SPA route audit may raise worker count | `acceptance-playwright-1-of-4` ... `4-of-4` | `acceptance-spa-routes` resolves a local cap from CPU/memory/load; auth, public serial, and console mutation flows stay worker `1` |
+| `visual-public` / `visual-console` | shard + worker | each group uses `2` shards, `maxParallel=2`; `visual` aggregate is artifact-only | `visual-public-playwright-1-of-2` / `2-of-2`, `visual-console-playwright-1-of-2` / `2-of-2`, aggregate `visual-playwright` | lane scripts compute a local cap and pass explicit `--workers`; current cap is `2` for visual baselines |
+| `ux-viewport-smoke` | shard + worker | `2` shards, `maxParallel=2`; spec expands the matrix into route/theme/media/storage case groups | `ux-viewport-smoke-1-of-2` / `2-of-2` | lane script computes a local cap from CPU/memory/load; on 8 CPU with enough memory the cap is `3` |
 | `cross-browser-smoke` | browser matrix | chromium/firefox/webkit matrix, no spec shard | browser-specific artifact | keep worker `1` |
 | `frontend-render-pressure` | single process | no shard; measures DOM/render pressure noise | single artifact | no Playwright worker scaling |
 | `resilience` | single process | no shard; shares fault/runtime state | single artifact | no Playwright worker scaling |
 
-Acceptance parallelism decision（2026-06-15）：在不提高 worker 的前提下采用 `maxParallel=4`。旧 `maxParallel=2` 会把 4 个 acceptance shards 排成两波；`maxParallel=4` 让 4 个独立 shard 同时开始，理论 wall-clock 从两波 shard 总和降为最慢 shard。本轮 evidence 由 `node tools/run-test-matrix.mjs ci-job-matrix acceptance-playwright` 与 `node tools/run-test-matrix.mjs ci-plan --format github-actions` 记录：4 个 `acceptance-playwright-*-of-4` shard、`playwrightWorkers=1`、job `maxParallel=4`。该变更只增加进程级 shard 并发，不提高单 shard 浏览器 worker 数；如果 per-shard job summary 或 flaky evidence 显示任一 shard 新增不稳定，回退路径是把 `tests/matrix.yml` 中的 `acceptance.maxParallel` 降回 `2`，workflow 会从 validate-matrix 输出同步回退。
+Acceptance parallelism decision（2026-06-15 / updated 2026-07-03）：`acceptance` 仍先采用 `maxParallel=4` 的 shard 并发；只有 `acceptance/spa-routes.spec.ts` 这类隔离 route audit 通过 `tools/test/resolve-playwright-workers.mjs acceptance-spa-routes` 提高 worker。`public-routes` 已声明 serial，`auth-flows` 和 console flows 涉及登录态、写作、消息、用户状态变更，继续保持 worker `1`。如果 per-shard job summary 或 flaky evidence 显示新增不稳定，回退路径是 unset `FSUSBLOG_SPA_ROUTES_WORKERS` 或把 resolver profile cap 降回 `1`，workflow 仍从 validate-matrix 输出同步 shard 结构。
 
-`ux-viewport-smoke` sharding plan：smoke 模式覆盖一组 viewport/route/content-boundary 快速断言，适合先按 Playwright 原生 `--shard 1/2`、`2/2` 分片，而不是提高 worker。`check:ux:viewport-smoke` 必须传递 `${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}`；每个 shard 上传 `.tmp/ux/**`、`.tmp/release-evidence/ux-viewport-summary.json` 和 `src/frontend/test-results/playwright/ux-viewport-smoke/**`。`ux-viewport-visual` 与 `ux-viewport-boundaries` 保持单进程，因为它们涉及截图/边界证据，需单独评估后再 shard。
+`ux-viewport-smoke` sharding plan：smoke 模式保留完整 viewport/route/theme/media/content-boundary 覆盖，但不再把所有 case 放进一个 Playwright test 里顺序循环。spec 会按 viewport + theme + media + storage 生成多个 case group，让 Playwright 原生 `--shard 1/2`、`2/2` 和 lane-computed workers 都能实际拆分矩阵。`check:ux:viewport-smoke` 必须传递 `${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}` 并使用 `${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}}`；每个 shard 上传 `.tmp/ux/**`、`.tmp/release-evidence/ux-viewport-summary.json` 和 `src/frontend/test-results/playwright/ux-viewport-smoke/**`。`ux-viewport-visual` 与 `ux-viewport-boundaries` 保持单进程，因为它们涉及截图/边界证据，需单独评估后再 shard。
+
+Session fixture policy：lane 已经能确定实际 worker 数时，必须用 `npm run prepare:playwright:sessions -- --workers <count>` 预生成对应数量的 `pw-*` fixture，并设置 `FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1`，避免每个 Playwright 子命令再触发 global setup 重复准备。直接运行 package script 时仍保留 global setup 兜底。
 
 ### Screenshot evidence tiers
 
@@ -384,7 +390,7 @@ curl -fsS http://127.0.0.1:8080/health/ready
 - `src/frontend/test-results/playwright/` — Playwright trace / screenshot
 - GitHub Actions 的 `quality-gate-artifacts` artifact
 
-GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push、手动 `workflow_dispatch` 触发同一条 `./tools/test.sh production` 门控。CI 需要配置 `GITHUB_PACKAGES_TOKEN` secret，用于安装 `@ozwasyd` 私有包。Playwright worker 数从 `tests/matrix.yml` 的 `playwrightWorkers` tier policy 派生；本地排查时优先复用 matrix policy，只在明确验证隔离性后覆盖。
+GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push、手动 `workflow_dispatch` 触发同一条 `./tools/test.sh production` 门控。CI 需要配置 `GITHUB_PACKAGES_TOKEN` secret，用于安装 `@ozwasyd` 私有包。Playwright worker 数先从 `tests/matrix.yml` 的 `playwrightWorkers` tier policy 派生；`visual-*`、`ux-viewport-smoke` 和 `acceptance-spa-routes` 会在 lane 内按当前 CPU、可用内存和 load 计算更保守的实际 cap，并通过显式 `--workers` 落到 Playwright CLI。
 
 #### Backend affected-test selection
 
@@ -566,7 +572,7 @@ tools/operations/cleanup-retention.sh
 - OWASP ZAP baseline 不得产生 FAIL 级告警；报告必须保留为发布门控 artifact。
 - WebSocket 通知握手、匿名 PoW、重连 cursor、AOT hydration、搜索、上传、视觉和轻量并发门控全部通过。
 - Markdown 代码高亮必须保持 Shiki 输出质量，但 highlighter 只能在实际代码块渲染时懒加载；`FSUSBLOG_VITE_WARN_AS_ERROR=1 npm --prefix src/frontend run build` 不允许出现 chunk size warning。
-- 前端资源大小预算由 `npm --prefix src/frontend run check:asset-size-budget` 执行，默认限制总 `dist` 80 MiB、单 JS 900 KiB、单 CSS 600 KiB、单 Wasm 220 KiB，并输出 `.tmp/frontend/asset-size-budget.json`。
+- 前端资源大小预算由 `npm --prefix src/frontend run check:asset-size-budget` 执行，默认限制客户端 `dist` 总量 80 MiB、单 JS 900 KiB、普通单 CSS 600 KiB、完整应用 CSS 680 KiB、单 Wasm 220 KiB，并输出 `.tmp/frontend/asset-size-budget.json`。
 
 ---
 

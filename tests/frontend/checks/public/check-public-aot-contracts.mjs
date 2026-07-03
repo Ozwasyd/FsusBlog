@@ -100,9 +100,14 @@ function assertStaticContracts() {
   if (!buildScript.includes('vite-public-ssr-build') || !buildScript.includes("'server'")) {
     fail('frontend release build must build and sync dist/server')
   }
-  for (const token of ['/internal/public-aot/manifest', '--concurrency', '--json-report', '--fail-fast']) {
+  for (const token of ['/internal/public-aot/manifest', '/internal/public-aot/health', 'FSUSBLOG_PUBLIC_AOT_CONCURRENCY', '--concurrency', '--json-report', '--fail-fast']) {
     if (!warmScript.includes(token)) {
       fail(`warm script must consume route manifest and expose bounded warm controls: ${token}`)
+    }
+  }
+  for (const token of ["function isAotHitSource(source)", "source === 'server-ssr'", "ok: isAotHitSource(settled)"]) {
+    if (!warmScript.includes(token)) {
+      fail(`warm script must require explicit public AOT source headers: ${token}`)
     }
   }
   for (const token of ['syncHydrationSidecarsToPreviewDist', 'FSUSBLOG_SYNC_PUBLIC_AOT_SIDECARS_TO_DIST', 'aot-cache', 'payloads']) {

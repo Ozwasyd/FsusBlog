@@ -157,7 +157,7 @@ type PendingDecodeRequest = {
 };
 
 const pendingRequests = new Map<number, PendingDecodeRequest>();
-const MAIN_THREAD_DECODE_MAX_BYTES = 8192;
+const MAIN_THREAD_DECODE_MAX_BYTES = 4096;
 const ABORT_RACE_SETTLE_MS = 50;
 const DECODE_WORKER_ACTIVE_LIMIT = 2;
 const DECODE_WORKER_QUEUE_LIMIT = 32;
@@ -492,6 +492,10 @@ function decodeInWorker<T>(buffer: ArrayBuffer, expectedFrameType: FrameType, si
   });
 }
 
+function canUseDecodeWorker(): boolean {
+  return typeof Worker !== 'undefined';
+}
+
 async function loadBinaryAndDecode<T>(
   url: string,
   frameType: FrameType,
@@ -508,7 +512,7 @@ async function loadBinaryAndDecode<T>(
     ...(requestOptions ?? {}),
     ...(signal ? { signal } : {})
   });
-  if (buffer.byteLength <= MAIN_THREAD_DECODE_MAX_BYTES) {
+  if (buffer.byteLength <= MAIN_THREAD_DECODE_MAX_BYTES || !canUseDecodeWorker()) {
     const decodeStartedAt = typeof performance !== 'undefined' ? performance.now() : 0;
     const frame = decode(buffer);
     if (decodeStartedAt > 0) {

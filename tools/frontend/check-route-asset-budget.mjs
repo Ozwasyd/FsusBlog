@@ -31,10 +31,10 @@ const routeBudgets = {
 }
 
 const routeEntries = [
-  { route: 'public-shell', entry: 'src/bootstrap/entry.ts', className: 'public' },
+  { route: 'public-shell', entry: 'src/bootstrap/publicShell.ts', className: 'public' },
   { route: 'admin-dashboard', entry: 'src/views/admin/Dashboard.vue', className: 'heavy' },
-  { route: 'admin-article-editor', entry: 'src/views/admin/article/ArticleEditor.vue', className: 'heavy' },
-  { route: 'admin-ops', entry: 'src/views/admin/OpsHealth.vue', className: 'admin' }
+  { route: 'admin-article-editor', entry: 'src/views/admin/article/Write.vue', className: 'heavy' },
+  { route: 'admin-ops', entry: '_route-admin-ops', className: 'admin' }
 ]
 
 const forbiddenPublicImports = [
@@ -58,37 +58,37 @@ async function readAssetBytes(file) {
   return await readFile(resolve(repoRoot, 'src/frontend/dist', file))
 }
 
-function collectEntryFiles(manifest, entryKey, seen = new Set()) {
+function collectEntryFiles(manifest, entryKey, options = {}) {
+  if (entryKey === 'index.html') return []
   const entry = normalizeManifestEntry(manifest[entryKey])
-  if (!entry || seen.has(entryKey)) return []
-  seen.add(entryKey)
+  if (!entry) return []
 
   const files = []
   if (entry.file) files.push(entry.file)
   for (const css of entry.css ?? []) files.push(css)
   for (const imported of entry.imports ?? []) {
-    files.push(...collectEntryFiles(manifest, imported, seen))
-  }
-  for (const imported of entry.dynamicImports ?? []) {
-    files.push(...collectEntryFiles(manifest, imported, seen))
+    const importedEntry = normalizeManifestEntry(manifest[imported])
+    if (importedEntry?.file) files.push(importedEntry.file)
+    if (options.skipHostEntryCss && imported === 'index.html') {
+      continue
+    }
+    for (const css of importedEntry?.css ?? []) files.push(css)
   }
   return [...new Set(files)]
 }
 
-function countAsyncDependencies(manifest, entryKey, seen = new Set()) {
+function countAsyncDependencies(manifest, entryKey) {
+  if (entryKey === 'index.html') return 0
   const entry = normalizeManifestEntry(manifest[entryKey])
-  if (!entry || seen.has(entryKey)) return 0
-  seen.add(entryKey)
-  let total = entry.dynamicImports?.length ?? 0
-  for (const imported of [...(entry.imports ?? []), ...(entry.dynamicImports ?? [])]) {
-    total += countAsyncDependencies(manifest, imported, seen)
-  }
-  return total
+  return entry?.dynamicImports?.length ?? 0
 }
 
 function resolveEntryKey(manifest, requested) {
   if (manifest[requested]) return requested
+  const normalizedRequested = requested.replace(/^src\//u, '')
+  if (manifest[normalizedRequested]) return normalizedRequested
   const match = Object.keys(manifest).find((key) => key.endsWith(requested) || key.includes(requested))
+    ?? Object.keys(manifest).find((key) => key.endsWith(normalizedRequested) || key.includes(normalizedRequested))
   return match ?? null
 }
 
@@ -107,7 +107,12 @@ for (const routeEntry of routeEntries) {
     continue
   }
 
-  const files = collectEntryFiles(manifest, entryKey)
+  const files = collectEntryFiles(manifest, entryKey, {
+    // publicShell is a dynamic AOT hydration entry. The SPA host entry's
+    // aggregate stylesheet is measured separately by build/asset budgets and
+    // is not part of the public shell runtime chunk itself.
+    skipHostEntryCss: routeEntry.route === 'public-shell'
+  })
   const buffers = await Promise.all(files.map(readAssetBytes))
   const firstEntryBytes = buffers.reduce((sum, bytes) => sum + bytes.byteLength, 0)
   const gzipBytes = buffers.reduce((sum, bytes) => sum + gzipSync(bytes).byteLength, 0)

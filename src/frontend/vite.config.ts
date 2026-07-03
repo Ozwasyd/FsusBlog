@@ -101,11 +101,7 @@ function resolveManualChunk(id: string): string | undefined {
         if (id.includes('/src/views/auth/')) {
             return 'route-auth'
         }
-        if (
-            id.includes('/src/bootstrap/publicShellPrimitives.ts') ||
-            id.includes('/src/bootstrap/entry.ts') ||
-            id.includes('/src/services/themeRuntime.ts')
-        ) {
+        if (id.includes('/src/bootstrap/publicShellPrimitives.ts')) {
             return 'entry-runtime'
         }
         if (
@@ -344,6 +340,10 @@ function setDevelopmentSecurityHeaders(response: any) {
     response.setHeader('Cross-Origin-Embedder-Policy', 'credentialless')
     response.setHeader('Cross-Origin-Opener-Policy', 'same-origin')
     response.setHeader('Cross-Origin-Resource-Policy', 'same-origin')
+    response.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*; worker-src 'self' blob:;"
+    )
 }
 
 function applyDevelopmentSecurityHeaders() {

@@ -118,9 +118,9 @@ describe('layout header consistency matrix', () => {
     expect(accountLayoutSource).toContain('SiteChromeHeaderAdapter')
     expect(count(accountLayoutSource, '<SiteChromeHeaderAdapter')).toBe(1)
     expect(accountLayoutSource).toContain('brand-context="account"')
-    expect(accountLayoutSource).toContain(
-      'aria-controls="account-mobile-drawer"',
-    )
+    expect(accountLayoutSource).toContain('account-mobile-navigation')
+    expect(accountLayoutSource).toContain('account-mobile-group-control')
+    expect(accountLayoutSource).toContain('account-mobile-link-strip')
     expect(accountLayoutSource).toContain('handleLogout')
   })
 

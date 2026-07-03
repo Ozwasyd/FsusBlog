@@ -263,6 +263,16 @@ function expectedAuthState(cell) {
   return { text: '登录', href: '/login' }
 }
 
+function routeForCell(route, cell) {
+  if (cell.sessionState === 'anonymous') {
+    return route.route
+  }
+
+  const separator = route.route.includes('?') ? '&' : '?'
+  const adminFixture = cell.sessionState === 'admin' ? '&fsusLocalFixtureAdmin=1' : ''
+  return `${route.route}${separator}fsusLocalFixtureLogin=1${adminFixture}`
+}
+
 function expectedThemeMode(cell) {
   return cell.themePreference === 'empty' || cell.storageBehavior === 'unavailable'
     ? 'system'
@@ -412,7 +422,7 @@ async function runRouteCell(browser, route, cell) {
 
   try {
     authGate.reset()
-    await page.goto(route.route, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.goto(routeForCell(route, cell), { waitUntil: 'domcontentloaded', timeout: 30000 })
     await page.waitForSelector('#fsus-aot-shell', { timeout: 12000 })
     const pre = await readSnapshot(page)
     assertPreHydrationSnapshot(pre, route, cell)

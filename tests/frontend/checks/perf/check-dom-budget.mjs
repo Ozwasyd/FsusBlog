@@ -169,13 +169,20 @@ async function main() {
     }
   })
 
-  const page = await context.newPage()
   const results = []
   try {
     for (const route of routeBudgets) {
-      const result = await collectRouteMetrics(page, route)
-      results.push(result)
-      fs.writeFileSync(path.join(outDir, `${route.id}.json`), `${JSON.stringify(result, null, 2)}\n`)
+      const page = await context.newPage()
+      try {
+        const result = await collectRouteMetrics(page, route)
+        results.push(result)
+        fs.writeFileSync(path.join(outDir, `${route.id}.json`), `${JSON.stringify(result, null, 2)}\n`)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(`route ${route.id} (${route.path}) failed: ${message}`)
+      } finally {
+        await page.close().catch(() => {})
+      }
     }
   } finally {
     await browser.close()

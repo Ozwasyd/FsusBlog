@@ -31,8 +31,14 @@ public sealed class RelatedReadingServiceTests
         string keywordExtractor = ExtractMethod(source, "private static string[] ExtractKeywords", "private static bool IsCjk");
 
         Assert.Contains("Task.WhenAll(versionTask, articleTask)", build, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(sourceTagIdsTask, candidateIndexTask)", build, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(previousTask, nextTask)", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("sourceTagIdsTask", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("candidateIndexTask", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("previousTask", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("nextTask", build, StringComparison.Ordinal);
+        Assert.Contains("int[] sourceTagIds = await LoadSourceTagIdsAsync", build, StringComparison.Ordinal);
+        Assert.Contains("CandidateIndex candidateIndex = await LoadCandidateIndexAsync", build, StringComparison.Ordinal);
+        Assert.Contains("RelatedArticleRow? previous = await LoadAdjacentAsync", build, StringComparison.Ordinal);
+        Assert.Contains("RelatedArticleRow? next = await LoadAdjacentAsync", build, StringComparison.Ordinal);
         Assert.Contains("LEFT JOIN article_tag", candidateLoader, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadTagMapAsync", build, StringComparison.Ordinal);
         Assert.DoesNotContain("MarkdownContent", keywordMatcher, StringComparison.Ordinal);

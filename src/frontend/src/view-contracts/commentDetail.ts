@@ -68,7 +68,7 @@ export const commentDetailTokens = {
     submitWrap: 'mt-3 flex justify-end',
     guestShell: 'mb-12 py-8 bg-[var(--fsusblog-panel-bg)]/50 flex items-center justify-center border border-[var(--fsusblog-panel-border)]',
     guestText: 'text-xs sm:text-sm font-medium tracking-normal normal-case text-[var(--fsusblog-text-muted)]',
-    guestLink: 'text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)] underline underline-offset-4 font-bold',
+    guestLink: 'inline-flex min-h-9 items-center px-1 text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)] underline underline-offset-4 font-bold',
   }
 } as const
 

@@ -12,7 +12,7 @@ const outFile = path.join(coverageRoot, 'changed-code/Summary.json')
 
 function git(args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' })
-  return result.status === 0 ? result.stdout.trim() : ''
+  return result.status === 0 ? result.stdout.trim() : null
 }
 
 function changedFiles() {
@@ -20,8 +20,9 @@ function changedFiles() {
     return process.env.FSUSBLOG_CHANGED_FILES.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean)
   }
   const base = process.env.FSUSBLOG_CHANGED_BASE || 'origin/master'
-  const diff = git(['diff', '--name-only', `${base}...HEAD`]) || git(['diff', '--name-only', 'HEAD~1..HEAD'])
-  return diff.split(/\r?\n/).map((item) => item.trim()).filter((item) =>
+  const diff = git(['diff', '--name-only', `${base}...HEAD`])
+  const changed = diff ?? git(['diff', '--name-only', 'HEAD~1..HEAD']) ?? ''
+  return changed.split(/\r?\n/).map((item) => item.trim()).filter((item) =>
     item.startsWith('src/backend/') || item.startsWith('src/frontend/src/') || item.startsWith('src/shared/') || item.startsWith('src/core/')
   )
 }

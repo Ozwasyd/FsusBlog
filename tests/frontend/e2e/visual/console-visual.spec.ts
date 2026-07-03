@@ -43,10 +43,10 @@ for (const viewport of viewports) {
 
         for (const route of [
           {
-            path: '/user/profile',
+            path: '/user/identity',
             label: 'user-profile',
             primary: 'main',
-            screenshot: '.account-page > .grid'
+            screenshot: '.identity-center'
           },
           {
             path: '/user/messagebox',
@@ -117,16 +117,29 @@ for (const viewport of viewports) {
             await assertElementInViewport(session.page, primary, `${route.label} main`)
 
             if (route.label === 'manage-users') {
-              if (viewport.name === 'desktop') {
+              const userTable = session.page.locator('.user-table').first()
+              if (await userTable.isVisible().catch(() => false)) {
                 await assertTableLayout(
                   session.page,
-                  session.page.locator('.user-table').first(),
+                  userTable,
                   session.page.locator('.el-pagination').first()
                 )
               } else {
-                const firstCard = session.page.locator('.user-mobile-card').first()
-                await expect(firstCard).toBeVisible()
-                await assertElementInViewport(session.page, firstCard, 'mobile user card')
+                const mobileCard = session.page.locator('.user-mobile-card, .user-resource-list-item').first()
+                if (await mobileCard.isVisible().catch(() => false)) {
+                  await assertElementInViewport(session.page, mobileCard, 'mobile user card')
+                } else {
+                  const accountSearch = session.page.getByLabel('搜索账号标识')
+                    .or(session.page.getByPlaceholder('搜账号 ID / public handle...'))
+                    .or(session.page.getByPlaceholder('搜用户名...'))
+                    .first()
+                  await expect(accountSearch).toBeVisible()
+                  await assertElementHitTarget(
+                    session.page,
+                    session.page.getByRole('button', { name: '查询' }),
+                    'mobile user search button'
+                  )
+                }
               }
             }
 

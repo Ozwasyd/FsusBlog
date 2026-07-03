@@ -102,19 +102,20 @@ public sealed class ReadModelProjectionHotPathContractTests
         Assert.DoesNotContain("ru.Password", commentService, StringComparison.Ordinal);
 
         string adminListMethod = ExtractMethodBlock(userService, "public async Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync");
-        Assert.Contains(".Select(u => new", adminListMethod, StringComparison.Ordinal);
-        Assert.Contains("u.IdentityKind", adminListMethod, StringComparison.Ordinal);
-        Assert.Contains("u.PublicHandle", adminListMethod, StringComparison.Ordinal);
-        Assert.Contains("u.PasskeyEnabled", adminListMethod, StringComparison.Ordinal);
-        Assert.Contains("u.RecoveryEnabled", adminListMethod, StringComparison.Ordinal);
-        Assert.Contains("u.AnonymousCredentialStatus", adminListMethod, StringComparison.Ordinal);
-        Assert.Contains("u.AnonymousCredentialLevel", adminListMethod, StringComparison.Ordinal);
-        Assert.Contains("u.RiskFlags", adminListMethod, StringComparison.Ordinal);
+        string adminWindowMethod = ExtractMethodBlock(userService, "private async Task<List<AdminAccountListItemDto>> LoadAdminAccountListWindowAsync");
+        Assert.Contains("GetDataReaderAsync(sql, parameters.ToArray())", adminWindowMethod, StringComparison.Ordinal);
+        Assert.Contains("identity_kind AS \"IdentityKind\"", adminWindowMethod, StringComparison.Ordinal);
+        Assert.Contains("public_handle AS \"PublicHandle\"", adminWindowMethod, StringComparison.Ordinal);
+        Assert.Contains("passkey_enabled AS \"PasskeyEnabled\"", adminWindowMethod, StringComparison.Ordinal);
+        Assert.Contains("recovery_enabled AS \"RecoveryEnabled\"", adminWindowMethod, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential_status AS \"AnonymousCredentialStatus\"", adminWindowMethod, StringComparison.Ordinal);
+        Assert.Contains("anonymous_credential_level AS \"AnonymousCredentialLevel\"", adminWindowMethod, StringComparison.Ordinal);
+        Assert.Contains("riskflags AS \"RiskFlags\"", adminWindowMethod, StringComparison.Ordinal);
         Assert.DoesNotContain("u.Username.Contains", adminListMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("u.Role", adminListMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("u.LastLoginIp", adminListMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("Password", adminListMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("MfaSecret", adminListMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("role", adminWindowMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lastloginip", adminWindowMethod, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Password", adminWindowMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("MfaSecret", adminWindowMethod, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath)

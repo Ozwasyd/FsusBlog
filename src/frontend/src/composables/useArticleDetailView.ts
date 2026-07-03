@@ -36,6 +36,7 @@ import {
 } from '@/security/challenge-client'
 import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 import type { NotificationStreamArticleRenderPatch, NotificationStreamCommentRenderPatch } from '@/services/notificationStreamTypes'
+import { isPublicReadHydrationSuppressed } from '@/services/publicReadHydrationGuard'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import {
   getCommentPrivacyRuntime,
@@ -246,6 +247,11 @@ export function useArticleDetailView() {
       return
     }
 
+    if (isPublicReadHydrationSuppressed()) {
+      clearCommentState()
+      return
+    }
+
     const articleId = article.value.id
     clearCommentState()
     await nextTick()
@@ -306,6 +312,11 @@ export function useArticleDetailView() {
   }
 
   const loadRelatedReading = async (articleId: number): Promise<void> => {
+    if (isPublicReadHydrationSuppressed()) {
+      relatedReading.value = null
+      return
+    }
+
     try {
       const response = await relatedLoadTask.run(
         async (signal) => await getRelatedReading(articleId, { signal })

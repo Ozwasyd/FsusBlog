@@ -148,6 +148,12 @@ describe('binaryApiClient pow abort handling', () => {
     expect(powMocks.calculate.mock.calls[0][4]).toBe(init?.signal)
   })
 
+  it('buildBinaryPowHeaders gives browser pow enough time for release acceptance difficulty', async () => {
+    await buildBinaryPowHeaders()
+
+    expect(powMocks.calculate.mock.calls[0][3]).toBe(60_000)
+  })
+
   it('buildBinaryPowHeaders aborts before calculate when signal is aborted after challenge', async () => {
     const controller = new AbortController()
     vi.stubGlobal('fetch', vi.fn(async () => {

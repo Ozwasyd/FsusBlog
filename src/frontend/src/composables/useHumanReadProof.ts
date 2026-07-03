@@ -319,10 +319,11 @@ export function useHumanReadProof(options: HumanReadProofOptions): void {
       return
     }
 
-    abortController = new AbortController()
+    const controller = new AbortController()
+    abortController = controller
     await nextTick()
     const target = resolveMainElement()
-    if (!target || abortController.signal.aborted) {
+    if (!target || controller.signal.aborted || abortController !== controller) {
       return
     }
 

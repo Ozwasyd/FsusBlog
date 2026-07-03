@@ -55,7 +55,7 @@
 
           <router-link
             to="/recover"
-            class="inline-flex rounded-[var(--fsus-radius-control)] py-1 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
+            class="inline-flex min-h-9 items-center rounded-[var(--fsus-radius-control)] px-1 text-sm font-semibold text-[var(--fsusblog-text-muted)] transition-colors hover:text-[var(--fsusblog-color-primary)] focus-visible:outline-none"
             :class="focusRingClass"
           >
             {{ copy.recoverLink }}

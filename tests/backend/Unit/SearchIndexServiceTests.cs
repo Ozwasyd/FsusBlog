@@ -619,6 +619,8 @@ public sealed class SearchIndexServiceTests
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/SearchIndexService.cs"));
         string addOrUpdate = ExtractBetween(source, "public Task AddOrUpdateIndexAsync", "public Task DeleteIndexAsync");
         string delete = ExtractBetween(source, "public Task DeleteIndexAsync", "public static string? NormalizeTokenForTests");
+        string incremental = ExtractBetween(source, "private Task ApplyIncrementalSearchIndexAsync", "private string ResolveSearchRoot");
+        string publish = ExtractBetween(source, "private async Task PublishArtifactsAsync", "private static SearchShardData BuildPatchShard");
         string search = ExtractBetween(source, "public Task<List<Article>> SearchAsync", "public Task AddOrUpdateIndexAsync");
         string runtimeDocument = ExtractBetween(source, "private sealed record SearchRuntimeDocument", "private readonly record struct SearchRuntimePosting");
 
@@ -626,6 +628,12 @@ public sealed class SearchIndexServiceTests
         Assert.Contains("ApplyIncrementalSearchIndexAsync", delete, StringComparison.Ordinal);
         Assert.DoesNotContain("RebuildSearchIndexAsync", addOrUpdate, StringComparison.Ordinal);
         Assert.DoesNotContain("RebuildSearchIndexAsync", delete, StringComparison.Ordinal);
+        Assert.Contains("LoadArticlesAsync(db)", incremental, StringComparison.Ordinal);
+        Assert.Contains("BuildArtifacts(articles, dictionary)", incremental, StringComparison.Ordinal);
+        Assert.Contains("PublishArtifactsAsync(root, artifacts, upsertArticleIds, deletedArticleIds)", incremental, StringComparison.Ordinal);
+        Assert.Contains("WriteFileAtomically(aliasPath, artifacts.AliasPackage)", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticlesByIdsAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("PublishIncrementalPatchAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("MarkdownContent.Contains", search, StringComparison.Ordinal);
         Assert.DoesNotContain("ArticleBody", search, StringComparison.Ordinal);
         Assert.DoesNotContain("string Body", runtimeDocument, StringComparison.Ordinal);

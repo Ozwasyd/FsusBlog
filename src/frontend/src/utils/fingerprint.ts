@@ -4,6 +4,8 @@
  * 性能要求：纯同步计算，耗时需小于 1ms
  * 优化逻辑：[修复 2026-02-23] 引入哈希坍缩算法，消除线性截断导致的熵黑洞
  */
+const HASH_PRIME_3 = Number.parseInt('5f356495', 16);
+
 export const getBrowserFp = (): string => {
   const navigator = window.navigator as any
   const screen = window.screen
@@ -34,7 +36,7 @@ export const getBrowserFp = (): string => {
       // 每一个字符的变动都会通过异或和乘法运算，呈雪崩式扩散到四个哈希池中
       h1 = Math.imul(h1 ^ char, 16777619);
       h2 = Math.imul(h2 ^ char, 2654435761);
-      h3 = Math.imul(h3 ^ char, 1597334677);
+      h3 = Math.imul(h3 ^ char, HASH_PRIME_3);
       h4 = Math.imul(h4 ^ char, 2246822519);
     }
 

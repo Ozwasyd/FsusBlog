@@ -9,7 +9,6 @@ import {
 import { dispatchAotActionEvent } from '@/bootstrap/aotActionEvent'
 import { emitRumMetric, emitTelemetry } from '@/services/telemetryBus'
 import { ensureThemeRuntime, setThemeMode, type ThemeMode } from '@/services/themeRuntime'
-import { bootstrapFullApp, commitPreparedFullApp, prepareFullApp } from '@/bootstrap/fullApp'
 import { resetPublicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState'
 import { putPublicRouteSeed, type PublicRouteSeedKind } from '@/public-renderers/publicRouteSeedStore'
 import type { PublicPageSeed } from '@/public-renderers/pageSeed'
@@ -71,10 +70,13 @@ type CriticalStyleLink = {
 
 const CRITICAL_STYLE_READY_TIMEOUT_MS = 450
 const FULL_STYLESHEET_VALIDATION_TIMEOUT_MS = 1500
+const DOCUMENT_INTERACTIVE_FALLBACK_MS = 250
 const HOME_HOT_ARTICLES_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
 const HOME_HOT_ARTICLES_ROOT_MARGIN = '600px 0px 600px 0px'
 const HOME_HOT_ARTICLES_FALLBACK_DELAY_MS = 2500
 const COMMENTS_ISLAND_FALLBACK_DELAY_MS = 2500
+
+type FullAppBootstrapModule = typeof import('@/bootstrap/fullApp')
 
 const PUBLIC_STYLE_FALLBACKS: CriticalStyleLink[] = [
   {
@@ -513,9 +515,18 @@ function waitForDocumentInteractive(): Promise<void> {
   }
 
   return new Promise((resolve) => {
+    let fallbackTimer: number | null = window.setTimeout(() => {
+      fallbackTimer = null
+      complete()
+    }, DOCUMENT_INTERACTIVE_FALLBACK_MS)
+
     const complete = (): void => {
       document.removeEventListener('readystatechange', onReadyStateChange)
       document.removeEventListener('DOMContentLoaded', complete)
+      if (fallbackTimer !== null) {
+        window.clearTimeout(fallbackTimer)
+        fallbackTimer = null
+      }
       resolve()
     }
 
@@ -540,28 +551,32 @@ async function startPublicTakeover(reason: 'pointerdown' | 'keydown' | 'scroll' 
   }
 
   clearDynamicIslands()
-  publicTakeoverPromise = bootstrapFullApp({
-    deferRuntime: true,
-    takeover: 'public-shell'
-  }).then(() => {
-    emitTelemetry('public_shell_takeover_completed', { reason }, 'info')
-  }).catch((error) => {
-    markPublicTakeoverFallback({
-      reason: 'full-app-takeover-failed',
-      source: reason,
-      target: window.location.href
+  publicTakeoverPromise = import('@/bootstrap/fullApp')
+    .then(({ bootstrapFullApp }: FullAppBootstrapModule) => bootstrapFullApp({
+      deferRuntime: true,
+      takeover: 'public-shell'
+    }))
+    .then(() => {
+      emitTelemetry('public_shell_takeover_completed', { reason }, 'info')
     })
-    emitTelemetry('public_shell_takeover_failed', {
-      reason,
-      error: error instanceof Error ? error.message : String(error)
-    }, 'warn')
-    navigateWithDocumentRequest(window.location.href)
-    throw error
-  }).finally(() => {
-    if (getPublicRuntimeOwner() !== 'spa') {
-      publicTakeoverPromise = null
-    }
-  })
+    .catch((error) => {
+      markPublicTakeoverFallback({
+        reason: 'full-app-takeover-failed',
+        source: reason,
+        target: window.location.href
+      })
+      emitTelemetry('public_shell_takeover_failed', {
+        reason,
+        error: error instanceof Error ? error.message : String(error)
+      }, 'warn')
+      navigateWithDocumentRequest(window.location.href)
+      throw error
+    })
+    .finally(() => {
+      if (getPublicRuntimeOwner() !== 'spa') {
+        publicTakeoverPromise = null
+      }
+    })
 
   return await publicTakeoverPromise
 }
@@ -806,6 +821,7 @@ async function navigateWithAtomicPublicTakeover(intent: PublicAtomicNavigationIn
       return
     }
 
+    const { commitPreparedFullApp, prepareFullApp }: FullAppBootstrapModule = await import('@/bootstrap/fullApp')
     const prepared = prepareFullApp({
       deferRuntime: true,
       takeover: 'public-shell'
@@ -887,8 +903,8 @@ async function handleShellAction(actionNode: HTMLElement, anchor: HTMLAnchorElem
     const articleId = hydratedPayload?.pageKind === 'ArticleDetail'
       ? hydratedPayload.articleId
       : Number(actionNode.dataset.aotValue ?? actionNode.dataset.aotId ?? '0')
-    const activationVersion = ++commentsActivationVersion
-    stopArticleCommentsIslandObserver()
+    clearArticleCommentsIslandActivation()
+    const activationVersion = commentsActivationVersion
     await mountArticleCommentsIslandLazy(articleId, 'request', activationVersion)
     return
   }

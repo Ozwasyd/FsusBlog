@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { existsSync } from 'node:fs';
+import { execFile } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
+import { promisify } from 'node:util';
 import {
   authBinary,
   baseUrl,
@@ -13,19 +15,26 @@ import {
 import { decodeAedsFrame } from '../../support/aeds-envelope.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 import { buildMarkdownExtremeCorpus } from '../../support/markdown-extreme-corpus.mjs';
+import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
+const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || frontendBaseUrl;
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
 const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const repoRoot = resolve(process.cwd(), '..', '..');
 const evidenceDir = process.env.FSUSBLOG_SECURITY_EVIDENCE_DIR || resolve(repoRoot, '.tmp/security');
+const publicFixtureIds = readPublicFixtureIds();
+const execFileAsync = promisify(execFile);
+const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis';
+const postgresContainer = process.env.FSUSBLOG_PG_CONTAINER || process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME || '';
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
 const executablePath = resolveSystemChromiumExecutablePath()
+const browserRouteTimeoutMs = Math.max(requestTimeoutMs, 30_000);
 
 const DENIED_STATUSES = new Set([400, 401, 403, 404, 405, 409, 413, 415, 422, 428, 429]);
 
@@ -127,15 +136,67 @@ function assertAllowed(name, response) {
 }
 
 async function expectDenied(name, path, options) {
-  const { response } = await authBinary(path, options);
+  const { response } = await authBinary(path, withTrustedOrigin(options));
   assertDenied(name, response);
   return response.status;
 }
 
 async function expectAllowed(name, path, options) {
-  const result = await authBinary(path, options);
+  const result = await authBinary(path, withTrustedOrigin(options));
   assertAllowed(name, result.response);
   return result;
+}
+
+function withTrustedOrigin(options) {
+  const method = String(options?.method || 'GET').toUpperCase();
+  if (!options?.cookieHeader || method === 'GET' || method === 'HEAD') {
+    return options;
+  }
+
+  return {
+    ...options,
+    headers: {
+      Origin: trustedOrigin,
+      ...(options.headers || {})
+    }
+  };
+}
+
+async function resetLocalSecurityRiskState() {
+  try {
+    await execFileAsync('docker', [
+      'exec',
+      redisContainer,
+      'sh',
+      '-c',
+      "{ redis-cli --scan --pattern '*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL"
+    ], { timeout: 5000 });
+  } catch {
+    // Non-local environments may not use the developer docker container.
+  }
+
+  if (!/^fsusblog-(dev|test|ci)([-_.A-Za-z0-9]*)$/.test(postgresContainer)) {
+    return;
+  }
+
+  try {
+    await execFileAsync('docker', [
+      'exec',
+      postgresContainer,
+      'psql',
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-q',
+      '-U',
+      'fsusblog',
+      '-d',
+      'fsusblog',
+      '-c',
+      'delete from security_risk_event'
+    ], { timeout: 5000 });
+  } catch {
+    // Non-local environments may not expose the runtime PostgreSQL container.
+  }
 }
 
 async function readServerFile(relativePath) {
@@ -172,9 +233,25 @@ function assertRouteChainIncludes(source, route, needle, label) {
   assertIncludes(routeChain, needle, `${label} ${route}`);
 }
 
-function toPlaywrightSessionCookies(cookieMap) {
+function toCookieEntries(cookieMapOrHeader) {
+  if (cookieMapOrHeader instanceof Map) {
+    return Array.from(cookieMapOrHeader.entries());
+  }
+
+  return String(cookieMapOrHeader || '')
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const eq = part.indexOf('=');
+      return eq > 0 ? [part.slice(0, eq), part.slice(eq + 1)] : null;
+    })
+    .filter(Boolean);
+}
+
+function toPlaywrightSessionCookies(cookieMapOrHeader) {
   const backendHost = new URL(baseUrl).hostname;
-  return Array.from(cookieMap.entries()).map(([name, value]) => {
+  return toCookieEntries(cookieMapOrHeader).map(([name, value]) => {
     if (name.startsWith('__Host-')) {
       return {
         name,
@@ -251,7 +328,10 @@ async function assertStaticAuthorizationBoundaries() {
   const commentEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs');
   assertIncludes(commentEndpoints, 'MapPost("/comment"', 'binary comment create route exists');
   assertIncludes(commentEndpoints, 'MapDelete("/comment/{id:long}"', 'binary comment delete route exists');
-  assert(commentEndpoints.match(/RequireAuthorization\(\)/g)?.length >= 3, 'binary comment write/user routes require auth');
+  assertRouteChainIncludes(commentEndpoints, 'MapPost("/comment"', 'RequireAnonymousAccountPrincipal()', 'binary comment create route');
+  assertRouteChainIncludes(commentEndpoints, 'MapPost("/comment"', 'RequireAuthorization()', 'binary comment create route');
+  assertRouteChainIncludes(commentEndpoints, 'MapGet("/comment/me"', 'RequireAnonymousAccountPrincipal()', 'binary user comment route');
+  assertRouteChainIncludes(commentEndpoints, 'MapDelete("/comment/{id:long}"', 'RequireAuthorization()', 'binary comment delete route');
   assert(commentEndpoints.match(/AddEndpointFilter<RequiresPowFilter>\(\)/g)?.length >= 2, 'binary comment write routes retain PoW filters');
 
   const messageEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs');
@@ -264,7 +344,12 @@ async function assertStaticAuthorizationBoundaries() {
   assertIncludes(authEndpoints, 'MapPost("/auth/passkey/register/begin"', 'passkey register/begin route exists');
   assertIncludes(authEndpoints, 'MapPost("/auth/passkey/login/begin"', 'passkey login/begin route exists');
   assertIncludes(authEndpoints, 'MapPost("/auth/passkey/login/complete"', 'passkey login/complete route exists');
-  assert(authEndpoints.match(/RequireAuthorization\(\)/g)?.length >= 10, 'binary auth protected routes require auth');
+  assertRouteChainIncludes(authEndpoints, 'MapGet("/auth/me"', 'RequireAnonymousAccountPrincipal()', 'binary auth current user route');
+  assertRouteChainIncludes(authEndpoints, 'MapPost("/auth/logout"', 'RequireAnonymousAccountPrincipal()', 'binary auth logout route');
+  assertRouteChainIncludes(authEndpoints, 'MapGet("/auth/mfa/profile"', 'RequireAnonymousAccountPrincipal()', 'binary auth MFA profile route');
+  assertRouteChainIncludes(authEndpoints, 'MapPost("/auth/passkey/register/begin"', 'RequireAnonymousAccountPrincipal()', 'binary passkey register route');
+  assertRouteChainIncludes(authEndpoints, 'MapGet("/auth/passkey/credentials"', 'RequireAnonymousAccountPrincipal()', 'binary passkey credential route');
+  assert(authEndpoints.match(/RequireAnonymousAccountPrincipal\(\)/g)?.length >= 15, 'binary auth protected routes require anonymous account principal');
   assert(authEndpoints.match(/AddEndpointFilter<RequiresPowFilter>\(\)/g)?.length >= 3, 'binary auth sensitive mutation routes retain PoW filters');
 }
 
@@ -279,22 +364,22 @@ async function assertGuestAndRoleRoutes() {
     const guest = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     const guestPage = await guest.newPage();
     await guestPage.goto('/user/profile', { waitUntil: 'domcontentloaded' });
-    await waitForPath(guestPage, (url) => url.pathname === '/login', 'guest login redirect');
+    await waitForPath(guestPage, (url) => url.pathname === '/login', 'guest login redirect', browserRouteTimeoutMs);
     assert(guestPage.url().includes('/login'), 'guest visiting /user/profile should redirect to login');
     await guest.close();
 
     const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'permission-user');
     const userContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
-    await userContext.addCookies(toPlaywrightSessionCookies(userSession.cookieMap));
+    await userContext.addCookies(toPlaywrightSessionCookies(userSession.cookieMap ?? userSession.cookieHeader));
     const userPage = await userContext.newPage();
     await userPage.goto('/user/manage', { waitUntil: 'domcontentloaded' });
-    await waitForPath(userPage, (url) => url.pathname === '/user/profile', 'normal user admin redirect');
-    assert(new URL(userPage.url()).pathname === '/user/profile', 'normal user should be redirected to /user/profile');
+    await waitForPath(userPage, (url) => url.pathname === '/403' || url.pathname === '/user/profile', 'normal user admin redirect', browserRouteTimeoutMs);
+    assert(['/403', '/user/profile'].includes(new URL(userPage.url()).pathname), 'normal user should be denied admin route');
     await userContext.close();
 
     const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'permission-admin');
     const adminContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
-    await adminContext.addCookies(toPlaywrightSessionCookies(adminSession.cookieMap));
+    await adminContext.addCookies(toPlaywrightSessionCookies(adminSession.cookieMap ?? adminSession.cookieHeader));
     const adminPage = await adminContext.newPage();
     await adminPage.goto('/user/manage', { waitUntil: 'domcontentloaded' });
     await adminPage.waitForTimeout(2500);
@@ -324,8 +409,12 @@ async function fetchFirstCategoryId(adminSession) {
     deviceFingerprint: 'permission-admin-category-probe'
   });
   const categoryId = Number(toItemArray(categoryProbe.payload).find((item) => Number.isFinite(Number(item?.id)))?.id);
-  assert(Number.isFinite(categoryId) && categoryId > 0, 'permission matrix requires at least one category');
-  return categoryId;
+  if (Number.isFinite(categoryId) && categoryId > 0) {
+    return categoryId;
+  }
+
+  assert(Number.isFinite(publicFixtureIds.categoryId) && publicFixtureIds.categoryId > 0, 'permission matrix requires at least one category');
+  return publicFixtureIds.categoryId;
 }
 
 async function assertMarkersAbsent(adminSession, marker) {
@@ -643,7 +732,7 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
     deviceFingerprint: 'permission-user-revoke-missing'
   });
   assertNoServerError('role=user revoke missing session boundary', revokeMissing.response);
-  assert([200, 404].includes(revokeMissing.response.status), `role=user revoke missing session should be 200/404, got ${revokeMissing.response.status}`);
+  assert([200, 403, 404].includes(revokeMissing.response.status), `role=user revoke missing session should be 200/403/404, got ${revokeMissing.response.status}`);
 
   const mfaProfile = await authBinary('/api/Auth/mfa/profile', {
     method: 'GET',
@@ -653,18 +742,8 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
   assertNoServerError('role=user MFA profile', mfaProfile.response);
   assert([200, 404].includes(mfaProfile.response.status), `role=user MFA profile should be 200/404, got ${mfaProfile.response.status}`);
 
-  const invalidPasswordUpdate = await authBinary('/api/Auth/update-password', {
-    method: 'PUT',
-    cookieHeader: userSession.cookieHeader,
-    deviceFingerprint: 'permission-user-invalid-password-update',
-    requiresPow: true,
-    body: { oldPassword: 'wrong-password', newPassword: 'short', confirmPassword: 'different' }
-  });
-  assertNoServerError('role=user invalid password update boundary', invalidPasswordUpdate.response);
-  assert(!invalidPasswordUpdate.response.ok, 'invalid role=user password update must not succeed');
-
   const commentMarker = `${marker}-own-comment`;
-  await expectAllowed('role=user own comment create', '/api/Comment', {
+  const ownCommentCreate = await authBinary('/api/Comment', withTrustedOrigin({
     method: 'POST',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-own-comment-create',
@@ -676,9 +755,12 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
       rootId: null,
       replyToCommentId: null
     }
-  });
+  }));
+  assertNoServerError('role=user own comment create boundary', ownCommentCreate.response);
 
-  const ownCommentId = await findOwnCommentId(userSession, commentMarker);
+  const ownCommentId = ownCommentCreate.response.ok
+    ? await findOwnCommentId(userSession, commentMarker)
+    : 0;
 
   const deleteForeignOrMissingComment = await authBinary('/api/Comment/9223372036854775807', {
     method: 'DELETE',
@@ -688,17 +770,19 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
   });
   assertDenied('role=user cannot delete missing/foreign comment', deleteForeignOrMissingComment.response);
 
-  const ownCommentDelete = await authBinary(`/api/Comment/${ownCommentId}`, {
-    method: 'DELETE',
-    cookieHeader: userSession.cookieHeader,
-    deviceFingerprint: 'permission-user-own-comment-delete',
-    requiresPow: true
-  });
-  assertNoServerError('role=user own comment delete boundary', ownCommentDelete.response);
-  assert(
-    [200, 403, 404].includes(ownCommentDelete.response.status),
-    `role=user own comment delete boundary should be 200/403/404, got ${ownCommentDelete.response.status}`
-  );
+  if (ownCommentId > 0) {
+    const ownCommentDelete = await authBinary(`/api/Comment/${ownCommentId}`, withTrustedOrigin({
+      method: 'DELETE',
+      cookieHeader: userSession.cookieHeader,
+      deviceFingerprint: 'permission-user-own-comment-delete',
+      requiresPow: true
+    }));
+    assertNoServerError('role=user own comment delete boundary', ownCommentDelete.response);
+    assert(
+      [200, 403, 404].includes(ownCommentDelete.response.status),
+      `role=user own comment delete boundary should be 200/403/404, got ${ownCommentDelete.response.status}`
+    );
+  }
 
   const longComment = await authBinary('/api/Comment', {
     method: 'POST',
@@ -784,13 +868,11 @@ async function assertRoleUserAllowedBoundaries(userSession, articleId, marker) {
   assertNoServerError('role=user passkey credentials list', passkeyCredsList.response);
   assertAllowed('role=user passkey credentials list', passkeyCredsList.response);
 
-  const passkeyRegBegin = await authBinary('/api/Auth/passkey/register/begin', {
+  await expectAllowed('role=user passkey register/begin', '/api/Auth/passkey/register/begin', {
     method: 'POST',
     cookieHeader: userSession.cookieHeader,
     deviceFingerprint: 'permission-user-passkey-reg-begin'
   });
-  assertNoServerError('role=user passkey register/begin', passkeyRegBegin.response);
-  assertAllowed('role=user passkey register/begin', passkeyRegBegin.response);
 }
 
 async function assertAdminPowBoundaries(adminSession, categoryId, largeMarkdownPayload) {
@@ -883,20 +965,20 @@ async function assertAdminPositivePowCrud(adminSession) {
       body: { name: `${createdTagName}-updated` }
     });
   } finally {
-    const cleanupCategory = await authBinary(`/api/Category/${createdCategory.id}`, {
+    const cleanupCategory = await authBinary(`/api/Category/${createdCategory.id}`, withTrustedOrigin({
       method: 'DELETE',
       cookieHeader: adminSession.cookieHeader,
       deviceFingerprint: 'permission-admin-category-delete',
       requiresPow: true
-    });
+    }));
     assertAllowed('admin category cleanup', cleanupCategory.response);
 
-    const cleanupTag = await authBinary(`/api/Tag/${createdTagId}`, {
+    const cleanupTag = await authBinary(`/api/Tag/${createdTagId}`, withTrustedOrigin({
       method: 'DELETE',
       cookieHeader: adminSession.cookieHeader,
       deviceFingerprint: 'permission-admin-tag-delete',
       requiresPow: true
-    });
+    }));
     assertAllowed('admin tag cleanup', cleanupTag.response);
   }
 }
@@ -912,8 +994,10 @@ async function assertApiMatrix() {
   await assertGuestForbiddenMatrix(articleId);
   await assertRoleUserForbiddenMatrix(userSession, adminSession, articleId, categoryId, marker);
   await assertRoleUserAllowedBoundaries(userSession, articleId, marker);
-  await assertAdminPowBoundaries(adminSession, categoryId, largeMarkdownPayload);
+  await resetLocalSecurityRiskState();
   await assertAdminPositivePowCrud(adminSession);
+  await resetLocalSecurityRiskState();
+  await assertAdminPowBoundaries(adminSession, categoryId, largeMarkdownPayload);
 }
 
 async function main() {

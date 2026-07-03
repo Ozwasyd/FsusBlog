@@ -44,18 +44,18 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(shellSource).not.toContain('PublicMobileSearchTrigger')
   })
 
-  it('keeps desktop nav active state static while preserving mobile bottom tab affordance', () => {
-    expect(shellSource).toContain('hasActivePublicNav')
+  it('keeps desktop nav active indicator and mobile bottom tab affordance bounded to the shell', () => {
+    expect(shellSource).toContain('desktopNavRef')
+    expect(shellSource).toContain('activeNavIndicatorEnabled')
     expect(shellSource).toContain('el-public-shell__bottom-tab-bar')
     expect(shellSource).toContain('el-public-shell__bottom-tab-accent')
-    expect(shellSource).not.toContain('desktopNavRef')
-    expect(shellSource).not.toContain('mobileNavRef')
-    expect(shellSource).not.toContain('syncNavIndicators')
-    expect(shellSource).not.toContain('el-public-shell__active-nav-indicator')
-    expect(shellSource).not.toContain('is-indicator-motion')
-    expect(shellSource).not.toContain('--el-public-shell-active-nav-indicator-x')
-    expect(shellSource).not.toContain('--el-public-shell-active-nav-indicator-width')
-    expect(shellSource).not.toContain('--el-public-shell-active-nav-indicator-opacity')
+    expect(shellSource).toContain('mobileNavRef')
+    expect(shellSource).toContain('syncNavIndicator')
+    expect(shellSource).toContain('el-public-shell__active-nav-indicator')
+    expect(shellSource).toContain('is-indicator-motion')
+    expect(shellSource).toContain('--el-public-shell-active-nav-indicator-x')
+    expect(shellSource).toContain('--el-public-shell-active-nav-indicator-width')
+    expect(shellSource).toContain('--el-public-shell-active-nav-indicator-opacity')
   })
 
   it('keeps public nav as links but hands clicks to the SPA router when enabled', () => {
@@ -85,7 +85,8 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
 
   it('renders desktop and mobile theme mode with the shared localized labels', () => {
     expect(shellSource).toContain('variant="menu-button"')
-    expect(shellSource.match(/:labels="FSUSBLOG_THEME_MODE_LABELS"/g)).toHaveLength(2)
+    expect(shellSource).toContain('<ThemeModeToggle visibility="desktop" />')
+    expect(shellSource).toContain(':labels="PUBLIC_THEME_MODE_LABELS"')
     expect(themeModeLabelsSource).toContain("light: '浅色'")
     expect(themeModeLabelsSource).toContain("dark: '深色'")
     expect(themeModeLabelsSource).toContain("system: '跟随系统'")
@@ -93,7 +94,6 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(themeModeLabelsSource).toContain("darkShort: '深'")
     expect(themeModeLabelsSource).toContain("systemShort: '系统'")
     expect(shellSource).not.toContain('visibility="mobile" compact')
-    expect(shellSource).not.toContain('PUBLIC_THEME_MODE_LABELS')
   })
 
   it('keeps the header brand text equal to the configured site title', () => {
@@ -121,7 +121,9 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
   })
 
   it('uses the shared public fallback title before site data loads', () => {
-    expect(shellSource).toContain('PUBLIC_SHELL_DEFAULTS.siteTitle')
+    expect(shellSource).toContain('FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle')
+    expect(shellSource).toContain('FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackDescription')
+    expect(shellSource).not.toContain('PUBLIC_SHELL_DEFAULTS.siteTitle')
     expect(shellSource).not.toContain("siteTitle: '站点'")
   })
 
@@ -142,49 +144,24 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(publicShellCriticalCss).toContain(
       '.el-public-shell__mobile-primary-actions',
     )
-    expect(publicShellCriticalCss).toContain(
-      '--fsusblog-public-header-control-height: var(--fsus-control-height-compact, var(--el-component-size-small, 40px));',
-    )
-    expect(publicShellCriticalCss).toContain(
-      '.el-public-shell__brand-nav,',
-    )
-    expect(publicShellCriticalCss).toContain(
-      '.el-public-shell__desktop-nav {',
-    )
-    expect(publicShellCriticalCss).toContain(
-      'min-height: var(--fsusblog-public-header-control-height);',
-    )
-    expect(publicShellCriticalCss).toContain(
-      '.el-public-shell__desktop-nav .el-public-shell__nav-link.is-active',
-    )
-    expect(publicShellCriticalCss).toContain(
-      'box-shadow: inset 0 -2px 0 var(--fsus-scholarly-blue, var(--fsusblog-color-primary));',
-    )
-    expect(publicShellCriticalCss).toContain(
-      '.el-public-shell__search-control',
-    )
-    expect(publicShellCriticalCss).toContain(
-      '--el-input-height: var(--fsusblog-public-header-control-height);',
-    )
-    expect(publicShellCriticalCss).toContain(
-      '.el-public-shell__theme-toggle',
-    )
-    expect(publicShellCriticalCss).toContain(
-      'height: var(--fsusblog-public-header-control-height);',
-    )
+    expect(shellSource).toContain('brand-nav-class="el-public-shell__brand-nav"')
+    expect(shellSource).toContain('class="el-public-shell__desktop-nav"')
+    expect(publicShellCriticalCss).toContain('min-height: 40px;')
+    expect(shellSource).toContain('el-public-shell__active-nav-indicator')
+    expect(publicShellCriticalCss).toContain('.el-public-shell__search--trigger')
+    expect(publicShellCriticalCss).not.toContain('--el-input-height: var(--fsusblog-public-header-control-height);')
+    expect(publicShellCriticalCss).toContain('.el-theme-mode-toggle')
+    expect(publicShellCriticalCss).toContain('.el-theme-mode-toggle__menu-button')
     expect(publicShellCriticalCss).toContain('white-space: nowrap;')
-    expect(publicShellCriticalCss).toContain('@media (max-width: 374px)')
-    expect(publicShellCriticalCss).toContain('gap: 6px;')
-    expect(publicShellCriticalCss).toContain('min-width: 44px;')
+    expect(publicShellCriticalCss).toContain('@media (max-width: 767px)')
+    expect(publicShellCriticalCss).toContain('min-width: 50px;')
     expect(publicShellCriticalCss).toContain('display: inline-flex;')
     expect(publicShellCriticalCss).toContain('gap: 8px;')
-    expect(shellSource).not.toContain('<div class="el-public-shell__mobile-actions" />')
+    expect(shellSource).toContain('<div class="el-public-shell__mobile-actions" />')
     expect(publicShellCriticalCss).toMatch(
-      /\.el-public-shell__mobile-toolbar\s*\{\s*display:\s*none;\s*margin-top:\s*0;/,
+      /\.el-public-shell__mobile-toolbar\s*\{\s*display:\s*block;\s*margin-top:\s*18px;/,
     )
-    expect(publicShellCriticalCss).toMatch(
-      /\.el-public-shell__mobile-toolbar:has\(\.el-public-shell__mobile-search-row\.is-expanded\)\s*\{\s*display:\s*block;\s*margin-top:\s*12px;/,
-    )
+    expect(publicShellCriticalCss).not.toContain('.el-public-shell__mobile-toolbar:has')
     expect(publicShellCriticalCss).toContain(
       '.el-public-shell__mobile-search-row',
     )
@@ -200,9 +177,25 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(publicShellCriticalCss).toContain(
       '.el-theme-mode-toggle__menu-button',
     )
+    expect(publicShellCriticalCss).toContain('min-height: 40px;')
+  })
+
+  it('keeps mobile bottom tab touch targets in the critical shell CSS', () => {
     expect(publicShellCriticalCss).toContain(
-      'min-height: var(--fsusblog-public-header-control-height);',
+      '#fsus-aot-shell .el-public-shell__brand',
     )
+    expect(publicShellCriticalCss).toContain(
+      '#fsus-aot-shell .el-public-shell__nav-link',
+    )
+    expect(publicShellCriticalCss).toContain('@media (max-height: 520px) and (orientation: landscape)')
+    expect(publicShellCriticalCss).toContain(
+      '#fsus-aot-shell .el-public-shell__bottom-tab-bar',
+    )
+    expect(publicShellCriticalCss).toContain(
+      '#fsus-aot-shell .el-public-shell__bottom-tab-link',
+    )
+    expect(publicShellCriticalCss).toContain('min-height: 3.5rem;')
+    expect(publicShellCriticalCss).toContain('flex: 1 1 0;')
   })
 
   it('applies public main and footer minimum height rules to the current FsusUI shell DOM', () => {
@@ -222,6 +215,18 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(themeRuntimeSource).toContain('reconcileThemeRuntimeAfterHydration')
     expect(themeToggleSource).toContain('onMounted(() =>')
     expect(themeToggleSource).toContain('reconcileThemeRuntimeAfterHydration()')
+  })
+
+  it('keeps body material synchronized with resolved theme tokens', () => {
+    expect(themeRuntimeSource).toContain('function syncBodyThemeMaterial')
+    expect(themeRuntimeSource).toContain("getPropertyValue('--fsusblog-page-bg')")
+    expect(themeRuntimeSource).toContain("getPropertyValue('--fsusblog-text-primary')")
+    expect(themeRuntimeSource).toContain('body.style.backgroundColor = pageBackground')
+    expect(themeRuntimeSource).toContain('body.style.color = textColor')
+    expect(themeRuntimeSource).toContain('body.style.colorScheme = resolvedTheme')
+    expect(themeRuntimeSource.indexOf('syncBodyThemeMaterial()')).toBeLessThan(
+      themeRuntimeSource.indexOf('emitThemeChange(themeModeState.value, resolvedThemeState.value)'),
+    )
   })
 
   it('keeps public SPA shell account-probe free by default', () => {

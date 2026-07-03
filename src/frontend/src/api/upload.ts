@@ -69,6 +69,7 @@ export function getUploadPartMap(uploadId: string, signal?: AbortSignal): Promis
 
 export function uploadPart(
   uploadId: string,
+  uploadToken: string,
   partNumber: number,
   offset: number,
   chunk: Blob,
@@ -84,6 +85,7 @@ export function uploadPart(
       requiresPow: true,
       headers: {
         'Content-Type': 'application/octet-stream',
+        'X-Fsus-Upload-Token': uploadToken,
         'X-Fsus-Upload-Part': String(partNumber),
         'X-Fsus-Upload-Offset': String(offset),
         ...(payloadHash ? { 'X-Fsus-Upload-Payload-Hash': payloadHash } : {})
@@ -93,7 +95,7 @@ export function uploadPart(
   })
 }
 
-export function completeUpload(uploadId: string, sha256?: string, signal?: AbortSignal): Promise<UploadCompleteViewModel> {
+export function completeUpload(uploadId: string, uploadToken: string, sha256?: string, signal?: AbortSignal): Promise<UploadCompleteViewModel> {
   const body = encodeAedsFrame(FrameType.UploadCompleteRequest, encodeUploadCompleteRequest(sha256))
   return requestBinaryOnly<UploadCompleteViewModel>({
     binaryUrl: `/api/binary/upload/${uploadId}/complete`,
@@ -103,7 +105,8 @@ export function completeUpload(uploadId: string, sha256?: string, signal?: Abort
       method: 'POST',
       requiresPow: true,
       headers: {
-        'Content-Type': 'application/octet-stream'
+        'Content-Type': 'application/octet-stream',
+        'X-Fsus-Upload-Token': uploadToken
       },
       body
     }

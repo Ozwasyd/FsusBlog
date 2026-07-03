@@ -298,10 +298,12 @@ describe('AEDS cross-stack contract fixture', () => {
 
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.ArticleList)
-    expect(result.payloadView.byteLength).toBe(284)
+    expect(result.payloadView.byteLength).toBe(301)
 
     expect(mapArticlePageFromPodPayload(result.payloadView)).toEqual({
       total: 17,
+      nextCursor: null,
+      hasMore: false,
       items: [
         {
           id: 11,

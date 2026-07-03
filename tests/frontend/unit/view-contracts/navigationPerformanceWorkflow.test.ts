@@ -14,7 +14,7 @@ describe('navigation performance workflow contract', () => {
     expect(router).toContain('window.setTimeout(() => {')
     expect(router).toContain('progressRequestId')
     expect(router).toContain('function finishProgressNavigation()')
-    expect(router).toContain('if (!options.ssr && !shouldDeferPublicBootstrap) {')
+    expect(router).toContain('if (!options.ssr && !shouldDeferPublicBootstrap && !isSameAccountShellChildSwitch(to, from)) {')
     expect(router).toContain('scheduleProgressForSlowNavigation()')
     expect(router).not.toContain('void loadProgressBar().then((progress) => {\n        progress.start()')
   })

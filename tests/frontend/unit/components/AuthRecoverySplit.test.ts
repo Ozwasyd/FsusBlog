@@ -18,6 +18,10 @@ const authLayoutSource = readFileSync(
   resolve(process.cwd(), 'src/layouts/PublicAuthLayout.vue'),
   'utf8',
 )
+const authCopySource = readFileSync(
+  resolve(process.cwd(), 'src/copy/auth.ts'),
+  'utf8',
+)
 
 describe('auth recovery page split', () => {
   it('routes recovery through the public auth layout', () => {
@@ -31,7 +35,8 @@ describe('auth recovery page split', () => {
 
   it('keeps Recovery Key verification out of Login.vue', () => {
     expect(loginSource).toContain('to="/recover"')
-    expect(loginSource).toContain('使用 Recovery Key 恢复访问')
+    expect(loginSource).toContain('copy.recoverLink')
+    expect(authCopySource).toContain("recoverLink: '使用 Recovery Key 恢复访问'")
     expect(loginSource).not.toContain('verifyRecoveryKey')
     expect(loginSource).not.toContain('recoveryKeyInput')
     expect(loginSource).not.toContain('PasskeyRegisterModal')
@@ -41,7 +46,8 @@ describe('auth recovery page split', () => {
     expect(recoverSource).toContain('verifyRecoveryKey')
     expect(recoverSource).toContain('recoverySessionToken')
     expect(recoverSource).toContain('PasskeyRegisterModal')
-    expect(recoverSource).toContain('绑定新的通行密钥')
+    expect(recoverSource).toContain('copy.bindNewPasskeyCta')
+    expect(authCopySource).toContain("bindNewPasskeyCta: '绑定新的通行密钥'")
     expect(recoverSource).not.toContain('recovery-user-id')
     expect(recoverSource).not.toContain('recoveryUserId')
     expect(recoverSource).not.toContain('账户编号')

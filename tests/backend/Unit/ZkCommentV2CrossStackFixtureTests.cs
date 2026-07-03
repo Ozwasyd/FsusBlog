@@ -61,6 +61,7 @@ public sealed class ZkCommentV2CrossStackFixtureTests
     }
 
     [Fact]
+    [Trait("Category", "Performance")]
     public void RepositoryMclPairingFixture_P99StaysInsideManifestBudget()
     {
         FixtureManifest manifest = LoadManifest();

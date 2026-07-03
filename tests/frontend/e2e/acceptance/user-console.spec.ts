@@ -29,18 +29,18 @@ for (const viewport of [
     let storageState: Awaited<ReturnType<typeof captureStorageState>>
 
     test.beforeAll(async ({ browser }) => {
-      storageState = await captureStorageState(browser, userName, userPassword, '/user/profile')
+      storageState = await captureStorageState(browser, userName, userPassword, '/user/identity')
     })
 
     test('visible user routes load without runtime noise', async ({ browser }) => {
       const expectations = [
         {
-          path: '/user/profile',
-          expectedUrl: '/user/profile',
-          label: 'user-profile',
+          path: '/user/identity',
+          expectedUrl: '/user/identity',
+          label: 'user-identity',
           selectors: [
-            (page) => page.getByRole('heading', { name: '个人资料' }),
-            (page) => page.getByText('个人资料', { exact: true }).first(),
+            (page) => page.getByRole('heading', { name: '身份总览' }),
+            (page) => page.getByRole('heading', { name: '账号生命周期' }),
             (page) => page.getByRole('button', { name: '注销账户' })
           ]
         },
@@ -59,7 +59,7 @@ for (const viewport of [
           label: 'user-messagebox',
           selectors: [
             (page) => page.getByText('我的站内信', { exact: false }),
-            (page) => page.getByText('新建申诉工单', { exact: false })
+            (page) => page.getByRole('button', { name: '提交工单' }).first()
           ]
         }
       ]
@@ -79,26 +79,33 @@ for (const viewport of [
       const session = await openAuditedPage(browser, storageState)
       try {
         const start = session.audit.checkpoint()
-        await session.page.goto('/user/profile', { waitUntil: 'domcontentloaded' })
+        await session.page.goto('/user/identity/sessions', { waitUntil: 'domcontentloaded' })
         await waitForAppReady(session.page)
         await settlePage(session.page)
 
         const revokeOthersButton = session.page.getByRole('button', { name: '下线其他设备' })
         await assertElementHitTarget(session.page, revokeOthersButton, 'revoke other sessions')
-        await revokeOthersButton.click()
-        const revokeDialog = session.page.getByRole('dialog', { name: '下线其他设备' })
-        await expect(revokeDialog).toBeVisible()
-        await revokeDialog.getByRole('button', { name: '确认下线' }).click()
-        await expect(session.page.locator('.el-message').last()).toContainText('其他设备已下线')
-        await assertToastInViewport(session.page)
+        const hasOtherSessions = await session.page.getByRole('listitem').filter({ hasText: '其他设备' }).count() > 0
+        if (hasOtherSessions) {
+          await revokeOthersButton.click()
+          await expect(session.page.locator('.el-message').last()).toContainText('其他设备已下线')
+          await assertToastInViewport(session.page)
+        } else {
+          await expect(revokeOthersButton).toBeDisabled()
+          await expect(session.page.getByRole('dialog', { name: '下线其他设备' })).toHaveCount(0)
+        }
 
+        await session.page.goto('/user/identity', { waitUntil: 'domcontentloaded' })
+        await waitForAppReady(session.page)
+        await settlePage(session.page)
         const dangerButton = session.page.getByRole('button', { name: '注销账户' })
         await dangerButton.click()
         const dialog = session.page.getByRole('dialog', { name: '注销账户' })
         await expect(dialog).toBeVisible()
         await assertElementInViewport(session.page, dialog, 'delete account dialog')
         await assertResponsiveLayoutContract(session.page, 'user-profile-dialog')
-        await expect(dialog).toContainText('DELETE')
+        await expect(dialog).toContainText('注销后账号相关会话、通行密钥、Recovery Key 与匿名凭据都会失效')
+        await expect(dialog.getByRole('button', { name: '确认' })).toBeVisible()
         await session.page.getByRole('button', { name: '取消' }).click()
 
         session.audit.assertCleanSince(start, 'user-profile-security-actions')
@@ -116,14 +123,14 @@ for (const viewport of [
         await settlePage(session.page)
 
         const unique = `Acceptance 工单 ${Date.now()}`
-        if (viewport.size.width < 640) {
-          const newTicketButton = session.page.getByRole('button', { name: '新建工单' })
-          if (await newTicketButton.isVisible().catch(() => false)) {
-            await newTicketButton.click()
-          }
+        const createTicketButton = session.page.getByRole('button', { name: '提交工单' }).first()
+        if (await createTicketButton.isVisible().catch(() => false)) {
+          await createTicketButton.click()
         }
-        const subjectInput = session.page.locator('input[name^="ticketSubject"], input[placeholder*="申诉"], input[placeholder*="系统通知"]').first()
-        const bodyInput = session.page.locator('textarea[name^="ticketBody"], textarea[placeholder*="描述问题"], textarea[placeholder*="消息正文"]').first()
+        const composePanel = session.page.locator('.messages-compose-panel', { hasText: '提交工单' }).first()
+        await expect(composePanel).toBeVisible()
+        const subjectInput = composePanel.locator('input[name^="ticketSubject"], input[placeholder*="工单"], input[placeholder*="主题"]').first()
+        const bodyInput = composePanel.locator('textarea[name^="ticketBody"], textarea[placeholder*="回复内容"], textarea[placeholder*="正文"]').first()
         await expect(subjectInput).toBeVisible()
         await expect(bodyInput).toBeVisible()
         await subjectInput.fill(unique)
@@ -134,7 +141,7 @@ for (const viewport of [
           const url = new URL(response.url())
           return request.method() === 'POST' && url.pathname === '/api/binary/messages/conversations'
         }, { timeout: 60_000 })
-        await session.page.getByRole('button', { name: '提交工单' }).click()
+        await composePanel.getByRole('button', { name: '提交工单' }).click()
 
         const ticketCreateResponse = await ticketCreateResponsePromise
         expect(ticketCreateResponse.ok(), 'ticket create request should succeed').toBe(true)
@@ -160,35 +167,29 @@ for (const viewport of [
       const session = await openAuditedPage(browser, storageState)
       try {
         const start = session.audit.checkpoint()
-        await session.page.goto('/user/profile', { waitUntil: 'domcontentloaded' })
+        await session.page.goto('/user/identity/passkeys', { waitUntil: 'domcontentloaded' })
         await waitForAppReady(session.page)
         await settlePage(session.page)
 
-        // Passkey section heading must be visible
-        const passkeyHeading = session.page.getByRole('heading', { name: '通行密钥' })
+        const passkeyHeading = session.page.getByRole('heading', { name: '通行密钥设备' })
         await expect(passkeyHeading).toBeVisible()
         await assertElementInViewport(session.page, passkeyHeading, 'passkey section heading')
 
-        // Empty state message (no passkeys registered for this test user)
-        const emptyState = session.page.getByText('尚未注册任何通行密钥')
+        const emptyState = session.page.getByText('尚未添加通行密钥')
         await expect(emptyState).toBeVisible()
 
-        // "添加通行密钥" button must be present and have a valid hit target
         const addButton = session.page.getByRole('button', { name: '添加通行密钥' })
         await expect(addButton).toBeVisible()
         await assertElementHitTarget(session.page, addButton, 'add passkey button')
 
-        // Clicking the button opens the registration modal
         await addButton.click()
         const modal = session.page.getByRole('dialog')
         await expect(modal).toBeVisible()
         await assertElementInViewport(session.page, modal, 'passkey register modal')
 
-        // Modal must have a device name input field
         const nameInput = modal.locator('input').first()
         await expect(nameInput).toBeVisible()
 
-        // Cancel closes the modal
         await session.page.getByRole('button', { name: '取消' }).first().click()
         await expect(modal).not.toBeVisible()
 

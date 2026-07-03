@@ -234,8 +234,8 @@ onUnmounted(() => {
           <component :is="Component" :key="appRouteViewKey" />
         </Transition>
       </router-view>
-      <FullAppRuntime v-if="runtimeReady" />
     </div>
+    <FullAppRuntime v-if="runtimeReady" />
   </el-config-provider>
 </template>
 

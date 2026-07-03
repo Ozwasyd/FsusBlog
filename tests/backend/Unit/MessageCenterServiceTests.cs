@@ -353,7 +353,7 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
-    public void MessageCenterRoundTrips_SourceRunsHotReadsInParallelAndTracksPhases()
+    public void MessageCenterRoundTrips_SourceAvoidsScopedDbParallelQueriesAndTracksPhases()
     {
         string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
         string observability = ReadSource("src/backend/Infrastructure/Observability/FsusObservability.cs");
@@ -378,12 +378,12 @@ public sealed class MessageCenterServiceTests
             "private static Task<List<ConversationMessageResponse>> MapMessagesAsync",
             "private async Task<ConversationMessageResponse?> BuildMessageResponseAsync");
 
-        Assert.Contains("Task<int> totalTask", accountList, StringComparison.Ordinal);
-        Assert.Contains("Task<List<AccountConversationRow>> rowsTask", accountList, StringComparison.Ordinal);
-        Assert.Contains("await Task.WhenAll(totalTask, rowsTask)", accountList, StringComparison.Ordinal);
-        Assert.Contains("Task<int> totalTask", adminList, StringComparison.Ordinal);
-        Assert.Contains("Task<List<AccountConversationRow>> rowsTask", adminList, StringComparison.Ordinal);
-        Assert.Contains("await Task.WhenAll(totalTask, rowsTask)", adminList, StringComparison.Ordinal);
+        Assert.Contains("int total = await BuildAccountConversationQuery(accountId, filter).CountAsync()", accountList, StringComparison.Ordinal);
+        Assert.Contains("List<AccountConversationRow> rows = await BuildAccountConversationQuery(accountId, filter)", accountList, StringComparison.Ordinal);
+        Assert.DoesNotContain("await Task.WhenAll(totalTask, rowsTask)", accountList, StringComparison.Ordinal);
+        Assert.Contains("int total = await BuildAdminConversationQuery(filter).CountAsync()", adminList, StringComparison.Ordinal);
+        Assert.Contains("List<AccountConversationRow> rows = await BuildAdminConversationQuery(filter)", adminList, StringComparison.Ordinal);
+        Assert.DoesNotContain("await Task.WhenAll(totalTask, rowsTask)", adminList, StringComparison.Ordinal);
 
         Assert.Contains("LoadLastMessagesSingleQueryAsync", lastMessageMap, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlFunc.AggregateMax", lastMessageMap, StringComparison.Ordinal);

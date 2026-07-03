@@ -48,7 +48,7 @@ describe('upload API requests', () => {
   it('uploadPart sends raw bytes with binary metadata headers', async () => {
     const chunk = new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'image/png' })
 
-    await uploadPart('upload-1', 2, 131072, chunk, 'payload-hash')
+    await uploadPart('upload-1', 'upload-token-1', 2, 131072, chunk, 'payload-hash')
 
     const call = mockBinary.mock.calls[0][0]
     expect(call.binaryUrl).toBe('/api/binary/upload/upload-1/part')
@@ -56,6 +56,7 @@ describe('upload API requests', () => {
     expect(call.requestOptions?.method).toBe('PUT')
     expect(call.requestOptions?.headers).toMatchObject({
       'Content-Type': 'application/octet-stream',
+      'X-Fsus-Upload-Token': 'upload-token-1',
       'X-Fsus-Upload-Part': '2',
       'X-Fsus-Upload-Offset': '131072',
       'X-Fsus-Upload-Payload-Hash': 'payload-hash'
@@ -64,14 +65,15 @@ describe('upload API requests', () => {
   })
 
   it('completeUpload sends an UploadCompleteRequest AEDS frame', async () => {
-    await completeUpload('upload-1', 'abcdef')
+    await completeUpload('upload-1', 'upload-token-1', 'abcdef')
 
     const call = mockBinary.mock.calls[0][0]
     expect(call.binaryUrl).toBe('/api/binary/upload/upload-1/complete')
     expect(call.frameType).toBe(FrameType.UploadComplete)
     expect(call.requestOptions?.method).toBe('POST')
     expect(call.requestOptions?.headers).toMatchObject({
-      'Content-Type': 'application/octet-stream'
+      'Content-Type': 'application/octet-stream',
+      'X-Fsus-Upload-Token': 'upload-token-1'
     })
 
     const frame = readAedsFrame(call.requestOptions?.body)

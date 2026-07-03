@@ -838,7 +838,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 .write-grid {
   display: grid;
   align-items: start;
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 24rem);
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, min(22rem, 38%));
   gap: 2rem;
   padding: 0 1rem;
 }

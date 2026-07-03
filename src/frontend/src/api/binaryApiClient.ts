@@ -64,6 +64,7 @@ type InFlightBinaryRequest = {
 }
 
 const DEFAULT_POW_SCOPE = 'mutation'
+const DEFAULT_POW_TIMEOUT_MS = 60_000
 const inFlightPowHeaders = new Map<string, InFlightPowHeaders>()
 const inFlightBinaryRequests = new Map<string, InFlightBinaryRequest>()
 
@@ -92,7 +93,7 @@ async function buildBinaryPowHeadersFresh(fp: string, signal?: AbortSignal): Pro
   }
 
   throwIfAborted(signal)
-  const { nonce } = await calculate(salt, fp, difficulty, undefined, signal)
+  const { nonce } = await calculate(salt, fp, difficulty, DEFAULT_POW_TIMEOUT_MS, signal)
   throwIfAborted(signal)
 
     return {

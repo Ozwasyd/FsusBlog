@@ -11,6 +11,7 @@ const budgets = {
   totalBytes: Number(process.env.FSUSBLOG_ASSET_TOTAL_BUDGET_BYTES || 80 * 1024 * 1024),
   jsBytes: Number(process.env.FSUSBLOG_ASSET_JS_BUDGET_BYTES || 900 * 1024),
   cssBytes: Number(process.env.FSUSBLOG_ASSET_CSS_BUDGET_BYTES || 600 * 1024),
+  appCssBytes: Number(process.env.FSUSBLOG_ASSET_APP_CSS_BUDGET_BYTES || 680 * 1024),
   wasmBytes: Number(process.env.FSUSBLOG_ASSET_WASM_BUDGET_BYTES || 220 * 1024),
   jsGzipBytes: Number(process.env.FSUSBLOG_ASSET_JS_GZIP_BUDGET_BYTES || 300 * 1024),
   jsBrotliBytes: Number(process.env.FSUSBLOG_ASSET_JS_BROTLI_BUDGET_BYTES || 260 * 1024),
@@ -31,6 +32,10 @@ async function walk(dir, files = []) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const fullPath = resolve(dir, entry.name)
     if (entry.isDirectory()) {
+      const relativeDir = relative(repoRoot, fullPath).replaceAll('\\', '/')
+      if (relativeDir === 'src/frontend/dist/server') {
+        continue
+      }
       await walk(fullPath, files)
     } else {
       const info = await stat(fullPath)
@@ -48,6 +53,7 @@ function budgetFor(file) {
   if (isAdminRouteChunk(file)) return budgets.adminRouteChunkBytes
   if (isEchartsVendorChunk(file)) return budgets.echartsVendorBytes
   if (isElementPlusVendorChunk(file)) return budgets.elementPlusVendorBytes
+  if (isFullAppCss(file)) return budgets.appCssBytes
   if (file.ext === '.js') return budgets.jsBytes
   if (file.ext === '.css') return budgets.cssBytes
   if (file.ext === '.wasm') return budgets.wasmBytes
@@ -78,6 +84,10 @@ function isEchartsVendorChunk(file) {
 
 function isElementPlusVendorChunk(file) {
   return file.ext === '.js' && /(?:^|\/)vendor-element-plus-[A-Za-z0-9_-]+\.js$/u.test(file.path)
+}
+
+function isFullAppCss(file) {
+  return file.ext === '.css' && /(?:^|\/)fullApp-[A-Za-z0-9_-]+\.css$/u.test(file.path)
 }
 
 const files = await walk(distDir)

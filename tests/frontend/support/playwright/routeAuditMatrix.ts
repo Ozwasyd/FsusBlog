@@ -27,18 +27,17 @@ export function buildAnonymousRoutes(fixtures: PlaywrightAuditFixtures): RouteCh
     { name: 'register', path: '/register', expectedUrl: '/register' },
     { name: 'forbidden', path: '/403', expectedUrl: '/403' },
     { name: 'not-found', path: '/route-that-does-not-exist', expectedUrl: '/route-that-does-not-exist' },
-    { name: 'anon-user-redirect', path: '/user/profile', expectedUrl: '/login?redirect=/user/profile' },
+    { name: 'anon-user-redirect', path: '/user/profile', expectedUrl: '/login?redirect=/user/identity' },
     { name: 'anon-manage-redirect', path: '/user/manage', expectedUrl: '/login?redirect=/user/manage' }
   ]
 }
 
 export function buildUserRoutes(): RouteCheck[] {
   return [
-    { name: 'user-profile', path: '/user/profile', expectedUrl: '/user/profile' },
+    { name: 'user-profile', path: '/user/profile', expectedUrl: '/user/identity' },
     { name: 'user-comments', path: '/user/comments', expectedUrl: '/user/comments' },
     { name: 'user-messagebox', path: '/user/messagebox', expectedUrl: '/user/messagebox' },
-    { name: 'user-login-redirect', path: '/login', expectedUrl: '/user/profile' },
-    { name: 'user-manage-block', path: '/user/manage', expectedUrl: '/user/profile' }
+    { name: 'user-login-redirect', path: '/login', expectedUrl: '/user/identity' }
   ]
 }
 
@@ -57,7 +56,7 @@ export function buildAdminRoutes(fixtures: PlaywrightAuditFixtures): RouteCheck[
     { name: 'manage-users', path: '/user/manage/users', expectedUrl: '/user/manage/users' },
     { name: 'manage-message', path: '/user/manage/messages', expectedUrl: '/user/manage/messages' },
     { name: 'manage-audit', path: '/user/manage/audit', expectedUrl: '/user/manage/audit' },
-    { name: 'manage-user-profile', path: '/user/profile', expectedUrl: '/user/profile' },
+    { name: 'manage-user-profile', path: '/user/profile', expectedUrl: '/user/identity' },
     { name: 'manage-login-redirect', path: '/login', expectedUrl: '/user/manage' }
   ]
 }

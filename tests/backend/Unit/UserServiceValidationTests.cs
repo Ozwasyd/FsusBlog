@@ -297,6 +297,9 @@ public class UserServiceValidationTests
 
         Assert.Contains("INSERT INTO user_mfa_profile", method, StringComparison.Ordinal);
         Assert.Contains("ON CONFLICT (user_id) DO UPDATE SET", method, StringComparison.Ordinal);
+        Assert.Contains("CAST(@MfaPendingCreatedAt AS timestamp)", method, StringComparison.Ordinal);
+        Assert.Contains("CAST(@MfaVerifiedAt AS timestamp)", method, StringComparison.Ordinal);
+        Assert.Contains("CAST(@UpdatedAtUtc AS timestamp)", method, StringComparison.Ordinal);
         Assert.Contains("ExecuteCommandAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Updateable<UserMfaProfile>()", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Insertable(profile)", method, StringComparison.Ordinal);

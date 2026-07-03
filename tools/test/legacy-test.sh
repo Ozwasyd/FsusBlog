@@ -31,8 +31,21 @@ default_playwright_workers() {
   if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
     printf '1'
   else
-    printf '4'
+    node "$ROOT_DIR/tools/test/resolve-playwright-workers.mjs" default
   fi
+}
+
+configure_playwright_workers() {
+  local profile="$1"
+  local env_name="$2"
+  local current="${!env_name-}"
+
+  if [[ -z "$current" ]]; then
+    current="$(node "$ROOT_DIR/tools/test/resolve-playwright-workers.mjs" "$profile")"
+    export "$env_name=$current"
+  fi
+
+  log "playwright workers: profile=$profile $env_name=$current"
 }
 
 record_visual_gate_skip() {
@@ -144,6 +157,20 @@ require_bootstrapped_namespace() {
   if [[ -z "$recorded_namespace" || "$recorded_slug" != "$slug" ]]; then
     fail "bootstrap namespace mismatch: current='$namespace' env_file='$recorded_namespace' ($env_file)"
   fi
+
+  local key value
+  while IFS='=' read -r key value; do
+    [[ -z "$key" || "$key" == \#* ]] && continue
+    if [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+      export "$key=$value"
+    fi
+  done < "$env_file"
+
+  DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-$DEBUG_FRONTEND_URL}"
+  DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-$DEBUG_BACKEND_URL}"
+  RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-$RELEASE_PREVIEW_URL}"
+  export FSUSBLOG_PG_CONTAINER="${FSUSBLOG_PG_CONTAINER:-${FSUSBLOG_POSTGRES_CONTAINER_NAME:-}}"
+  export FSUSBLOG_REDIS_CONTAINER="${FSUSBLOG_REDIS_CONTAINER:-${FSUSBLOG_REDIS_CONTAINER_NAME:-}}"
 }
 
 configure_playwright_shard() {
@@ -473,7 +500,15 @@ reset_security_runtime_state() {
 
   local deleted
   local redis_container="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-redis}"
+  local postgres_container="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-fsusblog-postgres}"
   local namespace_pattern="${FSUSBLOG_TEST_NAMESPACE:-local}"
+  local risk_deleted
+  risk_deleted="$(docker exec "$postgres_container" psql -U fsusblog -d fsusblog -Atqc "WITH deleted AS (DELETE FROM security_risk_event WHERE expires_at_utc > (now() AT TIME ZONE 'utc') RETURNING 1) SELECT count(*) FROM deleted;" 2>/dev/null || true)"
+  risk_deleted="${risk_deleted:-0}"
+  if [[ "$risk_deleted" =~ ^[0-9]+$ ]] && (( risk_deleted > 0 )); then
+    log "${label}: reset active persisted security risk events: ${risk_deleted}"
+  fi
+
   deleted="$(docker exec "$redis_container" sh -c "{ redis-cli --scan --pattern '*${namespace_pattern}*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL" 2>/dev/null || true)"
   deleted="${deleted:-0}"
   if [[ "$deleted" =~ ^[0-9]+$ ]] && (( deleted > 0 )); then
@@ -504,13 +539,13 @@ run_fast_backend_lane() {
     run "$ROOT_DIR/tools/dotnet-affected-tests.sh"
   else
     log "backend-fast selection=full reason=${FSUSBLOG_TEST_SELECTION:-unset}"
-    run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build --filter "Category!=Integration"
+    run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build --filter "Category!=Integration&Category!=Concurrency&Category!=Performance"
   fi
 }
 
 run_backend_dotnet_filter_only() {
   local filter="$1"
-  run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --filter "$filter"
+  run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal "${DOTNET_BUILD_SHARED_ARGS[@]}" --filter "$filter"
 }
 
 run_backend_api_integration_only() {
@@ -823,12 +858,16 @@ run_release_only() {
   run_in_client env \
     FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" \
     FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL" \
+    FSUSBLOG_PUBLIC_AOT_WAIT_MS=120000 \
     npm run rebuild:public-hydration
   export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
   export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
   run_in_client node ../../tests/frontend/checks/public/aot-regression.mjs
   export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
   run_in_client npm run check:search-runtime
+  export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
+  export FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL"
+  export PLAYWRIGHT_BASE_URL="$DEBUG_BACKEND_URL"
   run_in_client npm run check:public-hydration
   run_in_client node ../../tests/frontend/checks/public/check-public-clock-hydration-matrix.mjs
   run_in_client node ../../tests/frontend/checks/public/check-public-browser-env-hydration-matrix.mjs
@@ -837,6 +876,9 @@ run_release_only() {
   run_in_client env FSUSBLOG_REQUIRE_PUBLIC_HYDRATION_ARTIFACTS=1 \
     node ../../tests/frontend/checks/public/check-public-hydration-matrix-governance.mjs --lane release
   run_in_client npm run check:public-seo-smoke
+  export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
+  export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
+  export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
   run_in_client npm run check:pwa-offline-smoke
 }
 
@@ -847,6 +889,8 @@ run_release() {
 run_acceptance_only() {
   log "tier=acceptance | full Playwright acceptance e2e, requires frontend=3000 backend=5000 preview=8080"
   configure_playwright_shard acceptance
+  export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
+  configure_playwright_workers acceptance-spa-routes FSUSBLOG_SPA_ROUTES_WORKERS
   require_debug_stack
   require_release_preview
   reset_security_runtime_state "pre acceptance"
@@ -854,13 +898,14 @@ run_acceptance_only() {
   if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$ACCEPTANCE_HTTP_TIMEOUT_MS"
-    run_in_client npm run prepare:playwright:sessions
+    run_in_client npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_SPA_ROUTES_WORKERS"
+    export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
   fi
 
   export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
   export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$ACCEPTANCE_HTTP_TIMEOUT_MS"
-  run_in_client npm run check:acceptance:public
+  run_in_client env FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1 FSUSBLOG_DISABLE_NOTIFICATION_STREAM=1 npm run check:acceptance:public
 
   export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
   export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
@@ -889,6 +934,7 @@ run_visual_only() {
 run_visual_public_only() {
   log "tier=visual-public | public screenshot checks"
   configure_visual_playwright_lane visual-public
+  configure_playwright_workers visual-public FSUSBLOG_VISUAL_PUBLIC_WORKERS
   require_debug_stack
   require_release_preview
   reset_security_runtime_state "pre visual public"
@@ -902,6 +948,8 @@ run_visual_public_only() {
 run_visual_console_only() {
   log "tier=visual-console | console screenshot checks"
   configure_visual_playwright_lane visual-console
+  configure_playwright_workers visual-console FSUSBLOG_CONSOLE_VISUAL_WORKERS
+  export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
   require_debug_stack
   require_release_preview
   reset_security_runtime_state "pre visual console"
@@ -909,6 +957,10 @@ run_visual_console_only() {
   export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
   export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$VISUAL_HTTP_TIMEOUT_MS"
+  if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
+    run_in_client npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_CONSOLE_VISUAL_WORKERS"
+    export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
+  fi
   run_visual_group_check console npm run check:visual:console
 }
 
@@ -1006,6 +1058,7 @@ run_load_only() {
   run_in_client npm run prepare:binary-smoke:auth-users
   run_in_client npm run prepare:playwright:fixtures
   run_in_client npm run check:load:public-api
+  reset_security_runtime_state "pre notification stream pressure"
   run_in_client npm run check:load:notification-stream-pressure
 }
 

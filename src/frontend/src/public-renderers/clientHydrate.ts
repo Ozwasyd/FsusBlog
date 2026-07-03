@@ -1,4 +1,6 @@
 import { createSSRApp, nextTick, type App as VueApp } from 'vue'
+import { createPinia } from 'pinia'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
 import type { PublicHydrationPayload } from './types';
 import {
@@ -82,6 +84,9 @@ export async function hydratePublicPage(payload: PublicHydrationPayload): Promis
 
   if (!mountedPublicShellApp) {
     const app = createSSRApp(createPublicHydrationRootComponent(normalizedPayload));
+    const pinia = createPinia();
+    pinia.use(piniaPluginPersistedstate);
+    app.use(pinia);
     provideFsusUiAppContext(app);
     registerPublicStaticRouterLink(app);
     app.mount(container, true);

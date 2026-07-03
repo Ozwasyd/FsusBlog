@@ -44,6 +44,7 @@ import { useImageUploadPreferences } from '@/composables/useImageUploadPreferenc
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime'
 import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
+import { usePow } from '@/composables/usePow'
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 
 interface ArticleParams {
@@ -247,6 +248,7 @@ const removeDraftSnapshot = (key: string): void => {
 export function useAdminArticleWrite() {
   const route = useRoute()
   const router = useRouter()
+  const powProvider = usePow()
   const formRef = useTemplateRef<FormInstance>('formRef')
   const articleId = computed(() => {
     const raw = route.params.id ?? route.query.id
@@ -1391,6 +1393,7 @@ export function useAdminArticleWrite() {
     if (typeof window !== 'undefined') {
       mountedBrowserSeoBaseUrl.value = window.location.origin
     }
+    powProvider.prewarm()
     void initData()
   })
 

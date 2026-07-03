@@ -4,6 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
+import { readPublicFixtureIds } from '../../tests/frontend/support/public-fixtures.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const matrixFile = path.join(root, '.tmp/contracts/endpoint-depth-matrix.json')
@@ -11,6 +12,11 @@ const outFile = path.join(root, '.tmp/release-evidence/endpoint-depth-summary.js
 const baseUrl = (process.env.FSUSBLOG_BASE_URL || process.env.FSUSBLOG_DEBUG_BACKEND_URL || 'http://127.0.0.1:7568').replace(/\/$/, '')
 const maxCases = positiveInt(process.env.FSUSBLOG_ENDPOINT_DEPTH_RUNTIME_CASES, 48)
 const timeoutMs = positiveInt(process.env.FSUSBLOG_ENDPOINT_DEPTH_TIMEOUT_MS, 15000)
+const expectedUnavailablePublicChecks = new Set([
+  'binary_get_anonymous_credential_root',
+  'binary_get_anonymous_credential_circuit'
+])
+const publicFixtureIds = readPublicFixtureIds()
 
 const AEDS_MAGIC = 0x53444541
 const AEDS_VERSION = 2
@@ -75,16 +81,16 @@ function malformedBody(protocolCase, expectedFrame = 'EmptySuccess') {
 function materializePath(template) {
   return template.replace(/\{([^}:]+)(?::[^}]+)?\}/g, (_, name) => {
     const values = {
-      articleId: '1',
-      categoryId: '1',
+      articleId: String(publicFixtureIds.articleId),
+      categoryId: String(publicFixtureIds.categoryId),
       commentId: '1',
       conversationId: '1',
-      id: '1',
+      id: String(publicFixtureIds.articleId),
       page: '1',
       pathKey: 'home',
       size: '10',
       slug: 'about',
-      tagId: '1',
+      tagId: String(publicFixtureIds.tagId),
       uploadId: 'endpoint-depth-smoke'
     }
     return values[name] ?? '1'
@@ -187,6 +193,9 @@ function selectedCases(cases) {
 
 function expectedStatusesFor(item) {
   const statuses = new Set(item.expectedStatuses ?? [200])
+  if (expectedUnavailablePublicChecks.has(item.operationId) && scenarioName(item) === 'correct-aeds') {
+    statuses.add(503)
+  }
   if (item.scenario === 'wrong-method') return [400, 401, 403, 404, 405, 415]
   if (item.scenario === 'wrong-accept') return [200, 400, 401, 403, 406, 415]
   if (item.scenario === 'wrong-content-type') return [400, 401, 403, 415]

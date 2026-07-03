@@ -6,6 +6,17 @@ import { loadOpenApi, operationsFromOpenApi, root } from './lib/openapi-contract
 const outFile = path.join(root, '.tmp/contracts/endpoint-depth-matrix.json')
 const check = process.argv.includes('--check')
 const operations = operationsFromOpenApi(loadOpenApi())
+const expectedUnavailablePublicChecks = new Set([
+  'binary_get_anonymous_credential_root',
+  'binary_get_anonymous_credential_circuit'
+])
+
+function expectedSuccessStatuses(op, role) {
+  const isAllowedRole = role === op.auth || op.auth === 'anonymous' || (op.auth === 'optional' && role === 'anonymous')
+  if (!isAllowedRole) return [401, 403]
+  const successStatus = op.operation['x-fsus-success-status'] ?? 200
+  return expectedUnavailablePublicChecks.has(op.operationId) ? [successStatus, 503] : [successStatus]
+}
 
 const cases = []
 for (const op of operations) {
@@ -23,7 +34,7 @@ for (const op of operations) {
       http: 'correct',
       security: op.pow ? 'pow-required' : 'none',
       expectedFrame: role === op.auth || op.auth === 'anonymous' || (op.auth === 'optional' && role === 'anonymous') ? op.responseFrame : 'ApiError',
-      expectedStatuses: role === op.auth || op.auth === 'anonymous' || (op.auth === 'optional' && role === 'anonymous') ? [op.operation['x-fsus-success-status'] ?? 200] : [401, 403]
+      expectedStatuses: expectedSuccessStatuses(op, role)
     })
   }
   for (const protocolCase of ['malformed-header', 'wrong-frame', 'truncated', 'oversized']) {

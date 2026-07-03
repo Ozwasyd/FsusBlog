@@ -17,6 +17,7 @@ using System.Security.Cryptography;
 
 namespace FsusBlog.Server.Tests;
 
+[Collection(PublicSpaTemplateLocatorTestCollection.Name)]
 public sealed class PublicAotDocumentServiceTests
 {
     [Fact]

@@ -114,13 +114,19 @@ function combinePlaywrightRequirement(left, right) {
   return 'none'
 }
 
+function usesAction(text, action, majorVersion) {
+  const escapedAction = action.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const escapedVersion = majorVersion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`uses:\\s*${escapedAction}@(?:${escapedVersion}|[a-f0-9]{40}\\s*#\\s*${escapedVersion})(?:\\s|$)`, 'u').test(text)
+}
+
 function annotateWorkflowJob(job) {
   const text = job.lines.join('\n')
   job.hasSetupNode = /uses:\s*actions\/setup-node@/.test(text)
   job.hasSetupDotnet = /uses:\s*actions\/setup-dotnet@/.test(text)
   job.nodeCacheDependencyPaths = new Set([...text.matchAll(/cache-dependency-path:\s*(.*?)\s*$/gm)].map((match) => normalizeYamlScalar(match[1])))
   job.hasNpmLockCache = /cache:\s*npm/.test(text) && job.nodeCacheDependencyPaths.has('src/frontend/package-lock.json')
-  job.hasNugetCache = /uses:\s*actions\/cache@v4/.test(text)
+  job.hasNugetCache = usesAction(text, 'actions/cache', 'v4')
     && /path:\s*~\/\.nuget\/packages/.test(text)
     && /key:\s*nuget-\$\{\{\s*runner\.os\s*\}\}-\$\{\{\s*hashFiles\(/.test(text)
     && text.includes('**/*.csproj')
@@ -128,7 +134,7 @@ function annotateWorkflowJob(job) {
     && text.includes('**/*.targets')
     && text.includes('global.json')
     && text.includes('NuGet.config')
-  job.hasPlaywrightCache = /uses:\s*actions\/cache@v4/.test(text)
+  job.hasPlaywrightCache = usesAction(text, 'actions/cache', 'v4')
     && /path:\s*~\/\.cache\/ms-playwright/.test(text)
     && /key:\s*playwright-\$\{\{\s*runner\.os\s*\}\}-\$\{\{\s*hashFiles\('src\/frontend\/package-lock\.json'\)/.test(text)
   job.npmCiCommands = job.runs.filter((command) => /(?:^|\s)npm\s+--prefix\s+src\/frontend\s+ci(?:\s|$)/.test(command))
@@ -185,6 +191,7 @@ function parseWorkflow(text) {
   let currentJob = null
   let collectingNeeds = null
   let collectingPath = null
+  let collectingRun = null
 
   for (const rawLine of text.split(/\r?\n/)) {
     if (/^jobs:\s*$/.test(rawLine)) {
@@ -198,6 +205,7 @@ function parseWorkflow(text) {
       currentJob = jobMatch[1]
       collectingNeeds = null
       collectingPath = null
+      collectingRun = null
       jobs.set(currentJob, { needs: new Set(), runs: [], timeoutMinutes: null, maxParallel: null, maxParallelOutput: null, uploadPaths: new Set(), lines: [] })
       continue
     }
@@ -222,6 +230,16 @@ function parseWorkflow(text) {
       collectingPath = null
     }
 
+    if (collectingRun?.job === currentJob) {
+      const indent = rawLine.match(/^(\s*)/)?.[1].length ?? 0
+      if (rawLine.trim() === '') continue
+      if (indent > collectingRun.indent) {
+        jobs.get(currentJob).runs.push(rawLine.trim())
+        continue
+      }
+      collectingRun = null
+    }
+
     const timeoutMatch = rawLine.match(/^    timeout-minutes:\s*(\d+)\s*$/)
     if (timeoutMatch) {
       jobs.get(currentJob).timeoutMinutes = Number(timeoutMatch[1])
@@ -233,7 +251,7 @@ function parseWorkflow(text) {
       jobs.get(currentJob).maxParallel = Number(maxParallelMatch[1])
       continue
     }
-    const maxParallelOutputMatch = rawLine.match(/^\s+max-parallel:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.([A-Za-z0-9_]+_max_parallel)\)\s*\}\}\s*$/)
+    const maxParallelOutputMatch = rawLine.match(/^\s+max-parallel:\s*\$\{\{\s*fromJson\(needs\.(?:validate-matrix|plan-pr-risk)\.outputs\.([A-Za-z0-9_]+_max_parallel)\)\s*\}\}\s*$/)
     if (maxParallelOutputMatch) {
       jobs.get(currentJob).maxParallelOutput = maxParallelOutputMatch[1]
       continue
@@ -260,9 +278,14 @@ function parseWorkflow(text) {
       }
     }
 
-    const runMatch = rawLine.match(/^      - run:\s*(.*?)\s*$/)
+    const runMatch = rawLine.match(/^(\s*)-\s+run:\s*(.*?)\s*$/) ?? rawLine.match(/^(\s*)run:\s*(.*?)\s*$/)
     if (runMatch) {
-      jobs.get(currentJob).runs.push(runMatch[1])
+      const [, indent, value] = runMatch
+      if (value === '|' || value === '>') {
+        collectingRun = { job: currentJob, indent: indent.length }
+      } else {
+        jobs.get(currentJob).runs.push(value)
+      }
     }
   }
 
@@ -334,6 +357,10 @@ function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = []) {
   for (const command of job.runs) {
     if (command === 'node tools/run-test-matrix.mjs validate' || command === 'node tools/run-test-matrix.mjs preflight') {
       covered.add('validate-matrix')
+      continue
+    }
+    if (/node\s+tools\/run-test-matrix\.mjs\s+ci-pr-plan(?:\s|$)/.test(command)) {
+      covered.add('pr-smart-gate-plan')
       continue
     }
 

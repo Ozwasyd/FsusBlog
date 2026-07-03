@@ -84,6 +84,23 @@ function playwrightWorkersForTier(tier) {
   return tier.requiresPlaywright === 'none' ? '-' : String(tier.playwrightWorkers)
 }
 
+function tierSmartGateMode(tier) {
+  if (tier.smartGateMode) return tier.smartGateMode
+  if (tier.prDefault === true || tier.requiredFor === 'fast') return 'always'
+  if (
+    tier.localOnly === true
+    || tier.nightlyOnly === true
+    || tier.manualOnly === true
+    || tier.cadence === 'nightly'
+    || tier.cadence === 'release-manual'
+    || tier.requiredFor === 'production'
+    || tier.requiredFor === 'release-final'
+  ) {
+    return 'full-only'
+  }
+  return 'conditional'
+}
+
 function tierRow(tier) {
   return [
     `\`${tier.id}\``,
@@ -93,6 +110,10 @@ function tierRow(tier) {
     tier.risk,
     tier.cadence,
     tier.requiredFor,
+    tierSmartGateMode(tier),
+    tier.prDefault === true ? 'yes' : 'no',
+    tier.retentionClass ?? '-',
+    tier.triggerReason ?? '-',
     tier.resourceClass,
     tier.cost,
     String(tier.maxParallel),
@@ -113,8 +134,8 @@ function tierRow(tier) {
 
 function tableFor(tiers) {
   const lines = [
-    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
-    '|---|---|---|---:|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Smart gate | PR default | Retention | Trigger reason | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of tiers) {
     lines.push(tierRow(tier))

@@ -37,18 +37,25 @@ public sealed class AuditQueryService(
         int page = Math.Clamp(request.Page, 1, MaxAuditPage);
         int pageSize = Math.Clamp(request.PageSize, 1, 200);
         long startedAt = Stopwatch.GetTimestamp();
-        ISugarQueryable<AuditLog> query = ApplyFilters(_db.Queryable<AuditLog>(), request);
-        if (TryDecodeAuditCursor(request.Cursor, out AuditLogCursor cursor))
+        Task<int> totalTask = QueryWithNewClientAsync(queryDb =>
+            ApplyFilters(queryDb.Queryable<AuditLog>(), request).CountAsync(cancellationToken));
+        Task<List<AuditLog>> rowsTask = QueryWithNewClientAsync(queryDb =>
         {
-            query = query.Where(it => it.OccurredAtUtc < cursor.OccurredAtUtc
-                || (it.OccurredAtUtc == cursor.OccurredAtUtc && it.Id < cursor.Id));
-        }
+            ISugarQueryable<AuditLog> query = ApplyFilters(queryDb.Queryable<AuditLog>(), request);
+            if (TryDecodeAuditCursor(request.Cursor, out AuditLogCursor cursor))
+            {
+                query = query.Where(it => it.OccurredAtUtc < cursor.OccurredAtUtc
+                    || (it.OccurredAtUtc == cursor.OccurredAtUtc && it.Id < cursor.Id));
+            }
 
-        List<AuditLog> rows = await SelectListProjection(query, disclosureMode)
-            .OrderByDescending(static it => it.OccurredAtUtc)
-            .OrderByDescending(static it => it.Id)
-            .Take(pageSize + 1)
-            .ToListAsync(cancellationToken);
+            return SelectListProjection(query, disclosureMode)
+                .OrderByDescending(static it => it.OccurredAtUtc)
+                .OrderByDescending(static it => it.Id)
+                .Take(pageSize + 1)
+                .ToListAsync(cancellationToken);
+        });
+        int total = await totalTask;
+        List<AuditLog> rows = await rowsTask;
         bool hasMore = rows.Count > pageSize;
         if (hasMore)
         {
@@ -58,12 +65,11 @@ public sealed class AuditQueryService(
         string? nextCursor = hasMore && rows.Count > 0
             ? EncodeAuditCursor(rows[^1])
             : null;
-        int estimatedTotal = Math.Max((page - 1) * pageSize + rows.Count + (hasMore ? 1 : 0), rows.Count);
-        FsusObservability.RecordAuditList(auditListDbCount: 1, auditListElapsed: FsusObservability.GetElapsed(startedAt));
+        FsusObservability.RecordAuditList(auditListDbCount: 2, auditListElapsed: FsusObservability.GetElapsed(startedAt));
 
         return new AuditLogListResponse(
             [.. rows.Select(row => ToItemResponse(row, disclosureMode))],
-            estimatedTotal,
+            total,
             page,
             pageSize,
             nextCursor,

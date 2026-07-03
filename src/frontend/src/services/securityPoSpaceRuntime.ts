@@ -1,5 +1,6 @@
 import { argon2idAsync } from '@noble/hashes/argon2.js'
 import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
+import { AppErrorCode, createAppError } from '@/utils/appError'
 
 export const POSPACE_ALGORITHM = 'fsu.pospace/argon2id@v1'
 
@@ -87,10 +88,10 @@ export function parsePoSpacePayload(raw: Record<string, unknown>): PoSpaceProvid
   }
 
   if (payload.algorithm !== POSPACE_ALGORITHM) {
-    throw new Error('pospace_algorithm_unsupported')
+    throw createAppError(AppErrorCode.Validation, 'pospace_algorithm_unsupported')
   }
   if (!isValidParameters(payload)) {
-    throw new Error('pospace_parameters_invalid')
+    throw createAppError(AppErrorCode.Validation, 'pospace_parameters_invalid')
   }
   return payload
 }
@@ -243,7 +244,7 @@ function resolveMemoryTier(deviceMemoryGb?: number): PoSpaceMemoryTier {
 function createNonceHex(): string {
   const nonce = new Uint8Array(NONCE_BYTES)
   if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
-    throw new Error('pospace_crypto_unavailable')
+    throw createAppError(AppErrorCode.InfraFailure, 'pospace_crypto_unavailable')
   }
   crypto.getRandomValues(nonce)
   return bytesToHex(nonce)
@@ -252,7 +253,7 @@ function createNonceHex(): string {
 function requireString(value: unknown, field: string): string {
   const normalized = String(value ?? '').trim()
   if (normalized.length === 0) {
-    throw new Error(`pospace_${field}_missing`)
+    throw createAppError(AppErrorCode.Validation, `pospace_${field}_missing`)
   }
   return normalized
 }
@@ -260,7 +261,7 @@ function requireString(value: unknown, field: string): string {
 function requireInteger(value: unknown, field: string): number {
   const parsed = Number.parseInt(String(value ?? ''), 10)
   if (!Number.isSafeInteger(parsed)) {
-    throw new Error(`pospace_${field}_invalid`)
+    throw createAppError(AppErrorCode.Validation, `pospace_${field}_invalid`)
   }
   return parsed
 }
@@ -268,7 +269,7 @@ function requireInteger(value: unknown, field: string): number {
 function requireHex(value: unknown, bytes: number, field: string): string {
   const normalized = String(value ?? '').trim().toLowerCase()
   if (normalized.length !== bytes * 2 || !/^[0-9a-f]+$/.test(normalized)) {
-    throw new Error(`pospace_${field}_invalid`)
+    throw createAppError(AppErrorCode.Validation, `pospace_${field}_invalid`)
   }
   return normalized
 }

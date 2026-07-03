@@ -8,14 +8,13 @@ import {
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
 
-async function submitAndAwaitAuthAlert(page: Page, buttonPattern: RegExp, alertSelector: string) {
-  await page.getByRole('button', { name: buttonPattern }).click()
-  await expect(page.locator(alertSelector)).toBeVisible()
-  return (await page.locator(alertSelector).textContent())?.trim() || ''
-}
-
 async function acceptRegistrationAgreement(page: Page) {
-  await page.locator('label.el-checkbox:has(#agreement)').click()
+  await page.locator('#agreement').evaluate((element) => {
+    const checkbox = element as HTMLInputElement
+    checkbox.checked = true
+    checkbox.dispatchEvent(new Event('input', { bubbles: true }))
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }))
+  })
   await expect(page.locator('#agreement')).toBeChecked()
 }
 
@@ -27,47 +26,31 @@ test.describe('auth flows acceptance', () => {
     await prewarmDevRuntime(browser)
   })
 
-  test('register auto-login redirects to requested page', async ({ browser }) => {
+  test('register entry enables only after agreement and keeps step-up failures inline', async ({ browser }) => {
     const session = await openAuditedPage(browser)
     const randomSuffix = Array.from({ length: 8 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join('')
-    const username = `uiacct${randomSuffix}`
-    const password = 'UiRegisterPass123!'
+    const publicHandle = `uiacct${randomSuffix}`
 
     try {
-      const start = session.audit.checkpoint()
       const redirectTo = '/user/profile'
       await session.page.goto(`/register?redirect=${encodeURIComponent(redirectTo)}`, { waitUntil: 'domcontentloaded' })
       await waitForAppReady(session.page)
 
-      await session.page.locator('#username').fill(username)
-      await session.page.locator('#password').fill(password)
-      await session.page.locator('#confirm-password').fill(password)
+      await session.page.locator('#public-handle').fill(publicHandle)
       await acceptRegistrationAgreement(session.page)
-      await session.page.getByRole('button', { name: /立即注册|安全加固校验中|正在同步账户数据/ }).click()
+      await expect(session.page.getByRole('button', { name: /创建匿名账号并生成 Recovery Key/ })).toBeEnabled()
+      await session.page.getByRole('button', { name: /创建匿名账号并生成 Recovery Key|正在创建匿名账号/ }).click()
 
-      await session.page.waitForFunction(
-        () => {
-          const path = `${location.pathname}${location.search}`
-          return path === '/user/profile' || Boolean(document.querySelector('#register-error'))
-        },
-        undefined,
-        { timeout: 45_000 }
-      )
+      await expect(session.page.locator('#register-error')).toBeVisible({ timeout: 45_000 })
+      await expect(session.page.locator('#register-error')).toContainText(/ANONYMOUS_STEP_UP_PROOF_REQUIRED|匿名账号创建失败/)
+      await expect(session.page.locator('#register-error')).not.toContainText(/^400$/)
 
-      const inlineError = (await session.page.locator('#register-error').allTextContents()).join(' | ').trim()
-      expect(inlineError, 'register should not fail').toBe('')
-
-      await expect
-        .poll(() => {
-          const current = new URL(session.page.url())
-          return `${current.pathname}${current.search}`
-        }, { message: 'register should redirect to requested page after auto-login' })
-        .toBe(redirectTo)
+      const current = new URL(session.page.url())
+      expect(`${current.pathname}${current.search}`).toBe(`/register?redirect=${encodeURIComponent(redirectTo)}`)
 
       await waitForAppReady(session.page)
       await settlePage(session.page)
       await expect(session.page.locator('body')).not.toContainText('400')
-      session.audit.assertCleanSince(start, 'register-auto-login')
     } finally {
       await session.close()
     }
@@ -79,26 +62,21 @@ test.describe('auth flows acceptance', () => {
     try {
       await session.page.goto('/login', { waitUntil: 'domcontentloaded' })
       await waitForAppReady(session.page)
-      await session.page.locator('#username').fill('definitely_missing_user')
-      await session.page.locator('#password').fill('WrongPass123!')
-      let loginErrorText = await submitAndAwaitAuthAlert(session.page, /^登录$|登录中|安全校验中/, '#login-error')
-      if (loginErrorText === '安全校验已刷新，请重新提交') {
-        loginErrorText = await submitAndAwaitAuthAlert(session.page, /^登录$|登录中|安全校验中/, '#login-error')
-      }
 
-      expect(loginErrorText).toMatch(/用户名或密码错误|无法继续登录|锁定/)
-      await expect(session.page.locator('#login-error')).not.toContainText(/^400$/)
+      await expect(session.page.getByRole('heading', { name: '登录' })).toBeVisible()
+      await expect(session.page.getByRole('button', { name: /使用通行密钥登录/ })).toBeVisible()
+      await expect(session.page.getByRole('link', { name: /使用 Recovery Key 恢复访问/ })).toHaveAttribute('href', '/recover')
+      await expect(session.page.locator('#username')).toHaveCount(0)
+      await expect(session.page.locator('#password')).toHaveCount(0)
+      await expect(session.page.locator('#login-error')).toHaveCount(0)
 
       await session.page.goto('/register', { waitUntil: 'domcontentloaded' })
       await waitForAppReady(session.page)
-      await session.page.locator('#username').fill('binaryuser')
-      await session.page.locator('#password').fill('RegisterDuplicate123!')
-      await session.page.locator('#confirm-password').fill('RegisterDuplicate123!')
-      await acceptRegistrationAgreement(session.page)
-      await session.page.getByRole('button', { name: /立即注册|安全加固校验中|正在同步账户数据/ }).click()
+      await session.page.locator('#public-handle').fill('!!')
 
-      await expect(session.page.locator('#register-error')).toContainText(/已存在|已被注册|已被占用/)
-      await expect(session.page.locator('#register-error')).not.toContainText(/^400$/)
+      await expect(session.page.locator('#public-handle-hint')).toBeVisible()
+      await expect(session.page.getByRole('button', { name: /创建匿名账号并生成 Recovery Key/ })).toBeDisabled()
+      await expect(session.page.locator('#register-error')).toHaveCount(0)
       await expect(session.page.locator('body')).not.toContainText('TypeError')
     } finally {
       await session.close()

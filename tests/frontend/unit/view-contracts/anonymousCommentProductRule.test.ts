@@ -15,7 +15,7 @@ describe('anonymous comment product rule contract', () => {
 
   it('loads server CommentPolicySnapshot for article composer controls', () => {
     expect(commentApi).toContain('getCommentPolicySnapshot')
-    expect(commentApi).toContain("binaryUrl: '/api/binary/comment/policy'")
+    expect(commentApi).toContain("binaryRoute: { operationId: 'binary_get_comment_policy' }")
     expect(commentApi).toContain('FrameType.CommentPolicySnapshot')
 
     expect(detailComposable).toContain('getCommentPolicySnapshot')

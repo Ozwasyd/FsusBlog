@@ -42,6 +42,34 @@ function numberInBlock(block, key, fallback = null) {
   return match ? Number(match[1]) : fallback
 }
 
+function temporaryExceptions(text) {
+  const block = sectionBlock(text, 'temporaryExceptions')
+  if (!block.trim() || /\[\s*\]/.test(block)) return []
+
+  const entries = []
+  const lines = block.split(/\r?\n/)
+  let current = null
+  for (const line of lines) {
+    const start = line.match(/^\s*-\s+metric:\s*(.+?)\s*$/)
+    if (start) {
+      if (current) entries.push(current)
+      current = { metric: start[1].trim() }
+      continue
+    }
+    if (!current) continue
+    const field = line.match(/^\s+(approvedUntil|reason):\s*(.+?)\s*$/)
+    if (field) current[field[1]] = field[2].trim()
+  }
+  if (current) entries.push(current)
+  return entries
+}
+
+function isActiveException(exception, now = new Date()) {
+  if (!exception?.metric || !exception?.approvedUntil || !exception?.reason) return false
+  const until = new Date(`${exception.approvedUntil}T23:59:59Z`)
+  return Number.isFinite(until.getTime()) && now <= until
+}
+
 function loadPolicy(text) {
   const release = sectionBlock(text, 'releaseFinal')
   if (!release) throw new Error('tests/coverage-policy.yml missing releaseFinal section')
@@ -60,7 +88,8 @@ function loadPolicy(text) {
     criticalBackendModules: {
       branch: numberInBlock(sectionBlock(release, 'criticalBackendModules'), 'branch'),
       exceptionRequired: /exceptionRequired:\s*true/.test(sectionBlock(release, 'criticalBackendModules'))
-    }
+    },
+    temporaryExceptions: temporaryExceptions(text)
   }
 }
 
@@ -68,7 +97,11 @@ function metric(summary, key) {
   return Number(summary?.summary?.[key] ?? summary?.[key] ?? NaN)
 }
 
-function checkMetric(errors, label, actual, threshold) {
+function hasActiveException(policy, label) {
+  return policy.temporaryExceptions.some((exception) => exception.metric === label && isActiveException(exception))
+}
+
+function checkMetric(errors, policy, label, actual, threshold) {
   if (!Number.isFinite(threshold)) {
     errors.push(`${label}: policy threshold is missing`)
     return
@@ -77,7 +110,7 @@ function checkMetric(errors, label, actual, threshold) {
     errors.push(`${label}: metric is missing`)
     return
   }
-  if (actual < threshold) errors.push(`${label}: ${actual} < ${threshold}`)
+  if (actual < threshold && !hasActiveException(policy, label)) errors.push(`${label}: ${actual} < ${threshold}`)
 }
 
 function criticalBranchCoverage(summary) {
@@ -108,17 +141,17 @@ function validate({ coverageRoot = defaultCoverageRoot, policyText = fs.readFile
   const frontend = readJson(frontendFile)
   const changed = readJson(changedFile)
 
-  checkMetric(errors, 'backend line coverage', metric(backend, 'linecoverage'), policy.backend.line)
-  checkMetric(errors, 'backend branch coverage', metric(backend, 'branchcoverage'), policy.backend.branch)
-  checkMetric(errors, 'frontend line coverage', metric(frontend, 'linecoverage') || metric(frontend, 'statementcoverage'), policy.frontend.line)
-  checkMetric(errors, 'frontend branch coverage', metric(frontend, 'branchcoverage'), policy.frontend.branch)
-  checkMetric(errors, 'changed-code line coverage', metric(changed, 'linecoverage'), policy.changedCode.line)
+  checkMetric(errors, policy, 'backend line coverage', metric(backend, 'linecoverage'), policy.backend.line)
+  checkMetric(errors, policy, 'backend branch coverage', metric(backend, 'branchcoverage'), policy.backend.branch)
+  checkMetric(errors, policy, 'frontend line coverage', metric(frontend, 'linecoverage') || metric(frontend, 'statementcoverage'), policy.frontend.line)
+  checkMetric(errors, policy, 'frontend branch coverage', metric(frontend, 'branchcoverage'), policy.frontend.branch)
+  checkMetric(errors, policy, 'changed-code line coverage', metric(changed, 'linecoverage'), policy.changedCode.line)
 
   const criticalBranch = criticalBranchCoverage(backend)
-  if (criticalBranch === null && policy.criticalBackendModules.exceptionRequired) {
+  if (criticalBranch === null && policy.criticalBackendModules.exceptionRequired && !hasActiveException(policy, 'critical backend module branch coverage')) {
     errors.push('critical backend module branch coverage is missing; add file-level coverage or an approved release exception')
   } else if (criticalBranch !== null) {
-    checkMetric(errors, 'critical backend module branch coverage', criticalBranch, policy.criticalBackendModules.branch)
+    checkMetric(errors, policy, 'critical backend module branch coverage', criticalBranch, policy.criticalBackendModules.branch)
   }
 
   return errors
@@ -149,6 +182,50 @@ function runSelfTest() {
   const errors = validate({ coverageRoot: tmp, policyText: policy })
   fs.rmSync(tmp, { recursive: true, force: true })
   if (errors.length > 0) fail([`self-test expected pass: ${errors.join('; ')}`])
+
+  const exceptionTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-coverage-exception-'))
+  fs.mkdirSync(path.join(exceptionTmp, 'backend-merged'), { recursive: true })
+  fs.mkdirSync(path.join(exceptionTmp, 'frontend'), { recursive: true })
+  fs.mkdirSync(path.join(exceptionTmp, 'changed-code'), { recursive: true })
+  fs.writeFileSync(path.join(exceptionTmp, 'backend-merged/Summary.json'), JSON.stringify({ summary: { linecoverage: 80, branchcoverage: 60 }, files: [] }))
+  fs.writeFileSync(path.join(exceptionTmp, 'frontend/Summary.json'), JSON.stringify({ summary: { linecoverage: 30, branchcoverage: 25 } }))
+  fs.writeFileSync(path.join(exceptionTmp, 'changed-code/Summary.json'), JSON.stringify({ summary: { linecoverage: 100 } }))
+  const exceptionPolicy = [
+    'temporaryExceptions:',
+    '  - metric: backend line coverage',
+    '    approvedUntil: 2999-12-31',
+    '    reason: self test active exception',
+    '  - metric: backend branch coverage',
+    '    approvedUntil: 2999-12-31',
+    '    reason: self test active exception',
+    '  - metric: frontend line coverage',
+    '    approvedUntil: 2999-12-31',
+    '    reason: self test active exception',
+    '  - metric: frontend branch coverage',
+    '    approvedUntil: 2999-12-31',
+    '    reason: self test active exception',
+    '  - metric: critical backend module branch coverage',
+    '    approvedUntil: 2999-12-31',
+    '    reason: self test active exception',
+    policy
+  ].join('\n')
+  const exceptionErrors = validate({ coverageRoot: exceptionTmp, policyText: exceptionPolicy })
+  fs.rmSync(exceptionTmp, { recursive: true, force: true })
+  if (exceptionErrors.length > 0) fail([`self-test expected temporary exceptions to pass: ${exceptionErrors.join('; ')}`])
+
+  const expiredTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-coverage-expired-exception-'))
+  fs.mkdirSync(path.join(expiredTmp, 'backend-merged'), { recursive: true })
+  fs.mkdirSync(path.join(expiredTmp, 'frontend'), { recursive: true })
+  fs.mkdirSync(path.join(expiredTmp, 'changed-code'), { recursive: true })
+  fs.writeFileSync(path.join(expiredTmp, 'backend-merged/Summary.json'), JSON.stringify({ summary: { linecoverage: 80, branchcoverage: 60 }, files: [] }))
+  fs.writeFileSync(path.join(expiredTmp, 'frontend/Summary.json'), JSON.stringify({ summary: { linecoverage: 30, branchcoverage: 25 } }))
+  fs.writeFileSync(path.join(expiredTmp, 'changed-code/Summary.json'), JSON.stringify({ summary: { linecoverage: 100 } }))
+  const expiredErrors = validate({ coverageRoot: expiredTmp, policyText: exceptionPolicy.replaceAll('2999-12-31', '2000-01-01') })
+  fs.rmSync(expiredTmp, { recursive: true, force: true })
+  if (!expiredErrors.some((error) => error.includes('backend line coverage'))) {
+    fail(['self-test expected expired temporary exceptions to fail'])
+  }
+
   console.log('[release-final-coverage] self-test ok')
 }
 

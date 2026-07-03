@@ -1,6 +1,10 @@
 <template>
   <div id="fsus-home-feed-layout" class="blog-page-shell flex flex-col lg:flex-row gap-10 lg:gap-16 xl:gap-20">
-    <div id="fsus-home-main-column" :class="showAside ? 'grow lg:w-2/3' : 'w-full'">
+    <div
+      id="fsus-home-main-column"
+      data-readable-region
+      :class="showAside ? 'w-full max-w-[760px] grow lg:max-w-none lg:w-2/3' : 'mx-auto w-full max-w-[760px]'"
+    >
       <slot name="main" />
     </div>
 
@@ -18,6 +22,14 @@
         />
       </slot>
     </aside>
+    <div
+      v-else
+      id="fsus-home-hot-articles-slot"
+      hidden
+      aria-hidden="true"
+    >
+      <div id="fsus-home-hot-articles-slot-content" />
+    </div>
   </div>
 </template>
 

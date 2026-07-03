@@ -9,6 +9,7 @@ import {
   createPerceptionV2WorkerClient,
   type PerceptionV2WorkerClient
 } from '@/services/securityPerceptionV2Client'
+import { AppErrorCode, createAppError } from '@/utils/appError'
 import type { RenderRecipeV2 } from '@/workers/security/perception-v2.renderer'
 import type {
   PerceptionChallengeAssignment,
@@ -129,12 +130,12 @@ export function createPerceptionChallengeRenderer(workerClient: PerceptionV2Work
     async render(challenge) {
       const recipe = parseRecipe(String(challenge.meta?.recipeJson ?? ''))
       if (!recipe) {
-        throw new Error(GENERIC_PERCEPTION_UNAVAILABLE)
+        throw createAppError(AppErrorCode.InfraFailure, GENERIC_PERCEPTION_UNAVAILABLE)
       }
 
       const rendered = await workerClient.render(recipe)
       if (!rendered.ok) {
-        throw new Error(GENERIC_PERCEPTION_UNAVAILABLE)
+        throw createAppError(AppErrorCode.InfraFailure, GENERIC_PERCEPTION_UNAVAILABLE)
       }
 
       return rendered.result as PerceptionChallengeRenderPayload

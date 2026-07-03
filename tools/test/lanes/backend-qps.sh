@@ -135,8 +135,8 @@ case "$MODE" in
     traffic_mode="cache-invalidation-pressure"
     checks=(dirty-coalescer versioned-hot-cache no-empty-hot-prefix-delete diagnostics-snapshot)
     require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "GetRequiredService<IHotStatsInvalidationCoalescer>()"
-    require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "MarkStatsDirty(\"visit-log-flush\")"
-    require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "MarkHotArticlesDirty(\"article-read-projection\")"
+    require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "MarkStatsDirtyAsync(\"visit-log-flush\""
+    require_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "MarkHotArticlesDirtyAsync(\"article-read-projection\""
     reject_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "InvalidateStatsAsync(token)"
     reject_token "src/backend/Services/VisitLog/VisitLogProcessorService.cs" "InvalidateHotArticlesAsync(token)"
     require_token "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs" "HotArticlesDebounce"
@@ -159,10 +159,15 @@ case "$MODE" in
     ;;
   comment-cursor)
     route="/api/binary/comment/{articleId}"
-    checks=(comment-thread-frame-cache comment-reply-frame-cache user-comment-frame-cache invalidation-prefix)
+    checks=(comment-thread-frame-cache comment-reply-frame-cache user-comment-frame-cache versioned-invalidation)
     require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" "BuildCommentThreadFrameIdentity"
     require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" "WriteCommentReplyCursor"
-    require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "CommentCursorFrame"
+    require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" "CachePolicyId.CommentCursorFrame"
+    require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs" "CachePolicyId.UserCommentCursorFrame"
+    require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "CachePolicyId.CommentCursorVersion"
+    require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "CachePolicyId.UserCommentCursorVersion"
+    reject_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "CachePolicyId.CommentCursorFrame"
+    reject_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "CachePolicyId.UserCommentCursorFrame"
     ;;
   hotread)
     route="/api/binary/category"
@@ -176,7 +181,9 @@ case "$MODE" in
     traffic_mode="db-miss"
     checks=(detail-singleflight search-singleflight hot-singleflight featured-singleflight)
     require_token "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.ArticleDetail"
-    require_token "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.ArticleSearch"
+    require_token "src/backend/Services/ArticleService.cs" "_cacheMissCoordinator.CoordinateAsync("
+    require_token "src/backend/Services/ArticleService.cs" "CachePolicyId.ArticleSearch"
+    require_token "src/backend/Services/ArticleService.cs" "\"article-search\""
     require_token "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.ArticleHot"
     require_token "src/backend/Infrastructure/CoreBridge/Caching/ArticleCoreQueryCache.cs" "AcquireSingleFlightAsync(CachePolicyId.TopArticles"
     ;;
@@ -190,8 +197,9 @@ case "$MODE" in
   related-reading)
     route="/api/binary/article/{articleId}/related.aeds"
     checks=(versioned-related-cache output-cache-tag)
-    require_token "src/backend/Services/Distribution/RelatedReadingService.cs" "related-reading:"
-    require_token "src/backend/Services/Distribution/RelatedReadingService.cs" "ArticleListVersion"
+    require_token "src/backend/Services/Distribution/RelatedReadingService.cs" "GetArticleListVersionAsync"
+    require_token "src/backend/Services/Distribution/RelatedReadingService.cs" "CachePolicyId.RelatedReading"
+    require_token "src/backend/Services/Distribution/RelatedReadingService.cs" "CachePolicyId.ArticleListVersion"
     require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs" "AedsFrameType.ArticleRelatedReading"
     require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs" "CacheTag.ArticleList.ToOutputCacheTag()"
     ;;
@@ -199,8 +207,9 @@ case "$MODE" in
     route="/api/binary/article/list/home/{page}/{size}.aeds"
     traffic_mode="db-miss"
     checks=(keyset-small-pages offset-deep-pages)
-    require_token "src/backend/Services/ArticleService.cs" "PublicKeysetWalkPageThreshold"
-    require_token "src/backend/Services/ArticleService.cs" "page <= PublicKeysetWalkPageThreshold"
+    require_token "src/backend/Services/ArticleService.cs" "ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)"
+    require_token "src/backend/Services/ArticleService.cs" "LoadPublicArticleListPageByKeysetAsync"
+    require_token "src/backend/Services/ArticleService.cs" "ArticleListCursorWhereClause"
     require_token "src/backend/Services/ArticleService.cs" "OFFSET @Offset"
     ;;
   article-detail-miss)
@@ -225,12 +234,13 @@ case "$MODE" in
     checks=(remove-many remove-prefix-many registry-setremove-batch prefix-policy-group dispatcher-batch)
     require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "Task RemoveManyAsync"
     require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "Task RemoveByPrefixManyAsync"
-    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "_db.KeyDeleteAsync(redisKeys.ToArray())"
-    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "_db.SetRemoveAsync(ResolveRegistryKey(policyId), members.ToArray())"
+    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "DeleteKeysAndRegistryMembersAtomicAsync"
+    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "ScriptEvaluateAsync"
+    require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "DeleteKeysAndRegistryMembersScript"
     require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "prefixes.GroupBy(static item => item.PolicyId)"
     require_token "src/backend/Infrastructure/Cache/IUnifiedCache.cs" "DeleteRegisteredKeysByPrefixesAsync(registryKey, resolvedPrefixes"
     require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "RemoveManyAsync"
-    require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "RemoveByPrefixManyAsync"
+    require_token "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs" "CachePolicyId.AdminStatsFrame"
     require_token "src/backend/Infrastructure/Observability/FsusObservability.cs" "fsus.cache.remove_many.keys"
     require_token "src/backend/Infrastructure/Observability/FsusObservability.cs" "fsus.cache.remove_prefix_many.registry_scans"
     ;;

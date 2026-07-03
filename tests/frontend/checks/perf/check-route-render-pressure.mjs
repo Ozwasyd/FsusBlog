@@ -54,7 +54,7 @@ async function measureRoute(page, route) {
 
   const hotStarted = performance.now()
   await page.goto(route, { waitUntil: 'domcontentloaded' })
-  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+  // Route transition pressure tracks render readiness, not background request quiescence.
   await page.waitForTimeout(150)
   const hotReadyMs = Math.round(performance.now() - hotStarted)
 
@@ -136,11 +136,18 @@ async function main() {
       // optional metrics
     }
   })
-  const page = await context.newPage()
   const results = []
   try {
     for (const route of routes) {
-      results.push(await measureRoute(page, route))
+      const page = await context.newPage()
+      try {
+        results.push(await measureRoute(page, route))
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(`route ${route} failed: ${message}`)
+      } finally {
+        await page.close().catch(() => {})
+      }
     }
   } finally {
     await browser.close()

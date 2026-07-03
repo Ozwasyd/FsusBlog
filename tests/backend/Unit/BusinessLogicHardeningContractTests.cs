@@ -15,9 +15,10 @@ public sealed class BusinessLogicHardeningContractTests
 
         Assert.Contains("if (dto.Status == ArticleStatus.Deleted)", update, StringComparison.Ordinal);
         Assert.DoesNotContain("status == ArticleStatus.Deleted ? now : null", update, StringComparison.Ordinal);
-        Assert.Contains(".Where(it => it.Id == id && !it.IsDeleted)", delete, StringComparison.Ordinal);
-        Assert.Contains(".Where(it => it.Id == id && it.IsDeleted)", restore, StringComparison.Ordinal);
-        Assert.Contains(".SetColumns(it => it.Status == ArticleStatus.Draft)", restore, StringComparison.Ordinal);
+        Assert.Contains("AND isdeleted = false", delete, StringComparison.Ordinal);
+        Assert.Contains("AND isdeleted = true", restore, StringComparison.Ordinal);
+        Assert.Contains("status = @Status", restore, StringComparison.Ordinal);
+        Assert.Contains("new SugarParameter(\"@Status\", (int)ArticleStatus.Draft)", restore, StringComparison.Ordinal);
         Assert.DoesNotContain(".SetColumns(it => it.Status == ArticleStatus.Published)", restore, StringComparison.Ordinal);
         Assert.DoesNotContain(".SetColumns(it => it.PublishedAt == now)", restore, StringComparison.Ordinal);
     }

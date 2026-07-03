@@ -33,6 +33,7 @@ describe('admin UX task flow contract', () => {
   const moderationModel = readRepoFile('src/frontend/src/views/admin/moderation/ModerationModel.vue')
   const moderationDictionaries = readRepoFile('src/frontend/src/views/admin/moderation/ModerationDictionaries.vue')
   const moderationReplay = readRepoFile('src/frontend/src/views/admin/moderation/ModerationReplay.vue')
+  const moderationRegionDisplay = readRepoFile('src/frontend/src/utils/moderationRegionDisplay.ts')
   const publicShellState = readRepoFile('src/frontend/src/public-renderers/publicShellState.ts')
   const homeContent = readRepoFile('src/frontend/src/components/public/pages/PublicHomePageContent.vue')
   const filterContent = readRepoFile('src/frontend/src/components/public/pages/PublicFilterPageContent.vue')
@@ -127,6 +128,8 @@ describe('admin UX task flow contract', () => {
     expect(writePage).toContain('全屏写作')
     expect(writeComposable).toContain("return isEdit.value ? '更新文章' : '发布文章'")
     expect(writeComposable).toContain("aiAssistStatusText.value = '草稿检查完成'")
+    expect(writeComposable).toContain('const powProvider = usePow()')
+    expect(writeComposable).toContain('powProvider.prewarm()')
     expect(writeComposable).not.toContain('provider=')
   })
 
@@ -212,7 +215,8 @@ describe('admin UX task flow contract', () => {
 
     expect(moderationDashboard).toContain('模型状态：')
     expect(moderationDashboard).toContain('全局运行状态')
-    expect(moderationDashboard).toContain('中国大陆严格策略')
+    expect(moderationDashboard).toContain('地区策略')
+    expect(moderationRegionDisplay).toContain("'cn-mainland-strict': '中国大陆严格策略'")
     expect(moderationDashboard).not.toContain('model ${overview.modelProvider}')
     expect(moderationDashboard).not.toContain('Global Runtime State')
 

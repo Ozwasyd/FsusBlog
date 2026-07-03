@@ -32,7 +32,7 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
 
         string portOutput = await RunDockerAsync("port", _containerName, "5432/tcp").ConfigureAwait(false);
         int port = ParseMappedPort(portOutput);
-        _adminConnectionString = $"Host=127.0.0.1;Port={port};Database=postgres;Username=postgres;Password=postgres;Pooling=false;Timeout=15;Command Timeout=30";
+        _adminConnectionString = $"Host=127.0.0.1;Port={port};Database=postgres;Username=postgres;Password=postgres;Pooling=false;Timeout=30;Command Timeout=60";
 
         await WaitUntilReadyAsync(_adminConnectionString).ConfigureAwait(false);
     }

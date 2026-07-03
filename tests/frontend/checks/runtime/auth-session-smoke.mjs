@@ -7,6 +7,7 @@ const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
 const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
 const baseDeviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'auth-session-smoke-node';
+const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || baseUrl;
 
 function assert(condition, message) {
   if (!condition) {
@@ -14,9 +15,19 @@ function assert(condition, message) {
   }
 }
 
+function assertRefreshDenied(response, message) {
+  assert(response.status === 401 || response.status === 403, `${message}, got ${response.status}`);
+}
+
 async function callBinary(path, cookieHeader, deviceFingerprint, init = {}) {
+  const method = init.method || 'GET';
+  const headers = {
+    ...(method === 'GET' ? {} : { Origin: trustedOrigin }),
+    ...(init.headers || {})
+  };
   return await authBinary(path, {
     ...init,
+    headers,
     cookieHeader,
     deviceFingerprint,
     timeoutMs: requestTimeoutMs
@@ -30,6 +41,14 @@ async function main() {
   const rememberFp = `${baseDeviceFingerprint}-remember`;
 
   const standard = await loginWithFixtureSessionBypass(userName, userPassword, false, standardFp, requestTimeoutMs);
+  const standardSessionsResult = await callBinary('/api/Auth/sessions', standard.cookieHeader, standardFp);
+  assert(standardSessionsResult.response.ok, `list standard sessions failed: ${standardSessionsResult.response.status}`);
+  const standardSessions = standardSessionsResult.payload?.data ?? standardSessionsResult.payload ?? [];
+  const currentStandardSession = standardSessions.find((item) => item.sessionId === standard.sessionId);
+  assert(currentStandardSession, 'standard session not found before replacement');
+  assert(currentStandardSession.isCurrent === true, 'standard session should be current before replacement');
+  assert(typeof currentStandardSession.mfaVerified === 'boolean', 'standard session mfaVerified should be boolean');
+
   const remembered = await loginWithFixtureSessionBypass(userName, userPassword, true, rememberFp, requestTimeoutMs);
 
   const sessionsResult = await callBinary('/api/Auth/sessions', remembered.cookieHeader, rememberFp);
@@ -39,20 +58,23 @@ async function main() {
 
   const standardSession = sessions.find((item) => item.sessionId === standard.sessionId);
   const rememberedSession = sessions.find((item) => item.sessionId === remembered.sessionId);
-  assert(standardSession, 'standard session not found in session list');
+  assert(!standardSession, 'standard session should be replaced when remember-me login becomes active');
   assert(rememberedSession, 'remember-me session not found in session list');
 
-  assert(standardSession.isCurrent === false, 'standard session should not be current when listing via remember-me cookie');
   assert(rememberedSession.isCurrent === true, 'remember-me session should be current when listing via remember-me cookie');
-  assert(typeof standardSession.mfaVerified === 'boolean', 'standard session mfaVerified should be boolean');
   assert(typeof rememberedSession.mfaVerified === 'boolean', 'remember-me session mfaVerified should be boolean');
+
+  const replacedStandardRefreshResult = await callBinary('/api/Auth/refresh-token', standard.cookieHeader, standardFp, {
+    method: 'POST'
+  });
+  assertRefreshDenied(replacedStandardRefreshResult.response, 'replaced standard session refresh should be denied');
 
   const refreshResult = await callBinary('/api/Auth/refresh-token', remembered.cookieHeader, rememberFp, {
     method: 'POST'
   });
   assert(refreshResult.response.ok, `remember-me refresh failed: ${refreshResult.response.status}`);
 
-  const revokeResult = await callBinary(`/api/Auth/sessions/${encodeURIComponent(remembered.sessionId)}/revoke`, standard.cookieHeader, standardFp, {
+  const revokeResult = await callBinary(`/api/Auth/sessions/${encodeURIComponent(remembered.sessionId)}/revoke`, remembered.cookieHeader, rememberFp, {
     method: 'POST'
   });
   assert(revokeResult.response.ok, `revoke session failed: ${revokeResult.response.status}`);
@@ -60,14 +82,16 @@ async function main() {
   const revokedRefreshResult = await callBinary('/api/Auth/refresh-token', remembered.cookieHeader, rememberFp, {
     method: 'POST'
   });
-  assert(revokedRefreshResult.response.status === 401, `revoked session refresh should return 401, got ${revokedRefreshResult.response.status}`);
+  assertRefreshDenied(revokedRefreshResult.response, 'revoked session refresh should be denied');
 
-  const logoutResult = await callBinary('/api/Auth/logout', standard.cookieHeader, standardFp, {
+  const logoutSession = await loginWithFixtureSessionBypass(userName, userPassword, false, `${baseDeviceFingerprint}-logout`, requestTimeoutMs);
+  const logoutResult = await callBinary('/api/Auth/logout', logoutSession.cookieHeader, `${baseDeviceFingerprint}-logout`, {
     method: 'POST'
   });
   assert(logoutResult.response.ok, `logout failed: ${logoutResult.response.status}`);
 
-  console.log('[auth-session-smoke] ok: standard and remember-me sessions created');
+  console.log('[auth-session-smoke] ok: standard session is replaced by remember-me login');
+  console.log('[auth-session-smoke] ok: replaced standard session can no longer refresh');
   console.log('[auth-session-smoke] ok: remember-me session refresh succeeded before revoke');
   console.log('[auth-session-smoke] ok: revoked remember-me session can no longer refresh');
   console.log('[auth-session-smoke] ok: logout endpoint completes for authenticated session');

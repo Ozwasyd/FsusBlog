@@ -49,6 +49,18 @@ html[data-theme-resolved='dark'] {
   --el-border-color-lighter: var(--fsusblog-header-border);
 }
 
+html,
+body {
+  background: var(--fsusblog-page-bg, Canvas);
+  color: var(--fsusblog-text-primary, CanvasText);
+}
+
+html.dark body,
+html[data-theme-resolved='dark'] body {
+  background: var(--fsusblog-page-bg, #09090b) !important;
+  color: var(--fsusblog-text-primary, #f0f0f4) !important;
+}
+
 /* 公开页首访共用的布局基线（首屏关键路径） */
 #fsus-aot-shell {
   min-height: 100vh;
@@ -111,6 +123,22 @@ html[data-theme-resolved='dark'] {
 
 #fsus-aot-shell .el-public-shell__actions {
   gap: 12px;
+}
+
+#fsus-aot-shell .el-public-shell__brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+
+#fsus-aot-shell .el-public-shell__nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  box-sizing: border-box;
 }
 
 #fsus-aot-shell .el-public-shell__mobile-primary-actions {
@@ -225,6 +253,53 @@ html[data-theme-resolved='dark'] {
     justify-content: flex-start;
     min-width: 0;
   }
+
+  #fsus-aot-shell .el-public-shell__bottom-tab-bar {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    align-items: stretch;
+    min-height: 3.5rem;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  #fsus-aot-shell .el-public-shell__inner {
+    padding-block: 8px;
+  }
+
+  #fsus-aot-shell .el-public-shell__primary-row {
+    gap: 12px;
+  }
+
+  #fsus-aot-shell .el-public-shell__brand-nav,
+  #fsus-aot-shell .el-public-shell__desktop-nav,
+  #fsus-aot-shell .el-public-shell__actions {
+    gap: 10px;
+  }
+
+  #fsus-aot-shell .el-public-shell__brand,
+  #fsus-aot-shell .el-public-shell__nav-link,
+  #fsus-aot-shell .el-public-shell__mobile-search-trigger,
+  #fsus-aot-shell .el-theme-mode-toggle__menu-button,
+  #fsus-aot-shell .el-public-shell__auth-link--desktop {
+    min-height: 36px;
+  }
+}
+
+#fsus-aot-shell .el-public-shell__bottom-tab-link {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.5rem;
+  padding-inline: 0.5rem;
+  box-sizing: border-box;
+  text-decoration: none;
 }
 
 /* 首屏接管稳定层：约束 header/main/footer 的最小尺寸，避免整页下推造成 CLS。 */

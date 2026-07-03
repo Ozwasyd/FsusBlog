@@ -91,11 +91,11 @@ public partial class UserService(
                 @UserId,
                 @MfaSecretEncrypted,
                 @MfaPendingSecretEncrypted,
-                @MfaPendingCreatedAt,
-                @MfaVerifiedAt,
+                CAST(@MfaPendingCreatedAt AS timestamp),
+                CAST(@MfaVerifiedAt AS timestamp),
                 @MfaRecoveryCodesHash,
                 @MfaRecoveryCodesHashVersion,
-                @UpdatedAtUtc
+                CAST(@UpdatedAtUtc AS timestamp)
             )
             ON CONFLICT (user_id) DO UPDATE SET
                 mfa_secret_encrypted = EXCLUDED.mfa_secret_encrypted,
@@ -606,12 +606,12 @@ public partial class UserService(
         if (dto.Status == UserStatusBanned)
         {
             await _blacklistService.BanUserAsync(dto.AccountId, effectiveReason!);
-            _ = NotifyUserBannedAsync(dto.AccountId, effectiveReason!);
+            await NotifyUserBannedAsync(dto.AccountId, effectiveReason!).ConfigureAwait(false);
         }
         else
         {
             await _blacklistService.UnbanUserAsync(dto.AccountId);
-            _ = NotifyUserUnbannedAsync(dto.AccountId);
+            await NotifyUserUnbannedAsync(dto.AccountId).ConfigureAwait(false);
         }
 
         await InvalidateAccountSnapshotAsync(dto.AccountId).ConfigureAwait(false);

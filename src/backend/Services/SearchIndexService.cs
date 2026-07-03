@@ -300,7 +300,7 @@ public sealed partial class SearchIndexService(
 
                     await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
-                    List<SearchSourceArticle> changedArticles = await LoadArticlesByIdsAsync(db, [.. upsertArticleIds]).ConfigureAwait(false);
+                    List<SearchSourceArticle> articles = await LoadArticlesAsync(db).ConfigureAwait(false);
                     string dictionariesDirectory = Path.Combine(root, SearchDictionaryDirectory);
                     Directory.CreateDirectory(dictionariesDirectory);
                     string lexiconPath = Path.Combine(dictionariesDirectory, SearchLexiconBinaryFileName);
@@ -310,8 +310,8 @@ public sealed partial class SearchIndexService(
                         logger);
                     using var dictionary = SearchDictionaryRuntime.Open(lexiconPath);
 
-                    SearchBuildArtifacts changedArtifacts = BuildArtifacts(changedArticles, dictionary);
-                    await PublishIncrementalPatchAsync(root, previousManifest, changedArtifacts, upsertArticleIds, deletedArticleIds).ConfigureAwait(false);
+                    SearchBuildArtifacts artifacts = BuildArtifacts(articles, dictionary);
+                    await PublishArtifactsAsync(root, artifacts, upsertArticleIds, deletedArticleIds).ConfigureAwait(false);
                     _runtimeSnapshot = null;
                     FsusObservability.RecordSearchRuntimeSnapshotMemory(0, "incremental-invalidated");
                 }
@@ -505,67 +505,6 @@ public sealed partial class SearchIndexService(
                 new SearchIndexUpdatePayload(artifacts.Version, "/search/index.manifest.aeds", artifacts.GeneratedAt),
                 new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed));
         }
-    }
-
-    private async Task PublishIncrementalPatchAsync(
-        string root,
-        SearchIndexManifest previousManifest,
-        SearchBuildArtifacts changedArtifacts,
-        IReadOnlyCollection<int> upsertArticleIds,
-        IReadOnlyCollection<int> deletedArticleIds)
-    {
-        Directory.CreateDirectory(root);
-        string patchRoot = Path.Combine(root, SearchPatchDirectory);
-        Directory.CreateDirectory(patchRoot);
-
-        HashSet<int> changedDocumentIds = [.. upsertArticleIds];
-        changedDocumentIds.UnionWith(deletedArticleIds);
-        string incrementalVersion = ComputeVersion(
-            Encoding.UTF8.GetBytes(previousManifest.CurrentVersion),
-            Encoding.UTF8.GetBytes(string.Join(',', changedDocumentIds.Order())),
-            Encoding.UTF8.GetBytes(DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture)));
-        DateTime generatedAt = DateTime.UtcNow;
-
-        var shardManifests = new List<SearchShardManifest>(previousManifest.Shards.Count);
-        lock (SearchIndexWriteGate)
-        {
-            foreach (SearchShardManifest previousShard in previousManifest.Shards)
-            {
-                SearchShardArtifact? changedShard = changedArtifacts.Shards.FirstOrDefault(it => it.Role == previousShard.Role);
-                byte[] patchShardBytes = changedShard is null || (changedShard.Data.Documents.Length == 0 && changedShard.Data.Terms.Length == 0)
-                    ? []
-                    : SerializeShard(changedShard.Data);
-                byte[] patchBytes = SearchIndexDeltaCodec.CreatePatch(
-                    changedDocumentIds.Select(id => (uint)id).Distinct().OrderBy(id => id).ToArray(),
-                    patchShardBytes);
-                string patchFileName = $"index.{previousShard.Role.ToString().ToLowerInvariant()}.{previousShard.FullSha256[..16]}-{incrementalVersion}.patch";
-                string patchPath = Path.Combine(patchRoot, patchFileName);
-                string patchUrl = $"/search/{SearchPatchDirectory}/{patchFileName}";
-                string patchSha = ToLowerHex(SHA256.HashData(patchBytes));
-                WriteFileAtomically(patchPath, patchBytes);
-
-                shardManifests.Add(previousShard with
-                {
-                    PatchUrl = patchUrl,
-                    PatchSha256 = patchSha
-                });
-            }
-
-            SearchIndexManifest manifest = previousManifest with
-            {
-                CurrentVersion = incrementalVersion,
-                GeneratedAt = generatedAt,
-                Shards = shardManifests
-            };
-
-            WriteFileAtomically(Path.Combine(root, SearchManifestFileName), EncodeManifest(manifest));
-        }
-
-        await cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, "main").ConfigureAwait(false);
-        await notificationStreamPublisher.PublishAsync(
-            NotificationStreamEventType.SearchIndexUpdated,
-            new SearchIndexUpdatePayload(incrementalVersion, "/search/index.manifest.aeds", generatedAt),
-            new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed));
     }
 
     private static SearchShardData BuildPatchShard(SearchShardData shard, IReadOnlySet<int> changedDocumentIds)
@@ -1624,17 +1563,6 @@ public sealed partial class SearchIndexService(
         return await LoadSearchSourceArticlesAsync(db, articleRows).ConfigureAwait(false);
     }
 
-    private async Task<List<SearchSourceArticle>> LoadArticlesByIdsAsync(ISqlSugarClient db, int[] articleIds)
-    {
-        if (articleIds.Length == 0)
-        {
-            return [];
-        }
-
-        List<SearchArticleRow> articleRows = await LoadArticleRowsByIdsAsync(db, articleIds).ConfigureAwait(false);
-        return await LoadSearchSourceArticlesAsync(db, articleRows).ConfigureAwait(false);
-    }
-
     private static async Task<List<SearchSourceArticle>> LoadSearchSourceArticlesAsync(ISqlSugarClient db, List<SearchArticleRow> articleRows)
     {
         if (articleRows.Count == 0)
@@ -1708,29 +1636,6 @@ public sealed partial class SearchIndexService(
         DateTime now = DateTime.UtcNow;
         return await db.Queryable<Article, Category>((a, c) => a.CategoryId == c.Id)
             .Where((a, c) => !a.IsDeleted
-                && a.Status == ArticleStatus.Published
-                && (a.PublishedAt == null || a.PublishedAt <= now)
-                && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))
-            .OrderByDescending((a, c) => a.CreateTime)
-            .Select((a, c) => new SearchArticleRow
-            {
-                Id = a.Id,
-                Title = a.Title,
-                Summary = a.Summary,
-                CategoryId = a.CategoryId,
-                CategoryName = c.Name,
-                Views = a.Views,
-                CreateTime = a.CreateTime
-            })
-            .ToListAsync();
-    }
-
-    private static async Task<List<SearchArticleRow>> LoadArticleRowsByIdsAsync(ISqlSugarClient db, int[] articleIds)
-    {
-        DateTime now = DateTime.UtcNow;
-        return await db.Queryable<Article, Category>((a, c) => a.CategoryId == c.Id)
-            .Where((a, c) => articleIds.Contains(a.Id)
-                && !a.IsDeleted
                 && a.Status == ArticleStatus.Published
                 && (a.PublishedAt == null || a.PublishedAt <= now)
                 && (a.ScheduledPublishAt == null || a.ScheduledPublishAt <= now))

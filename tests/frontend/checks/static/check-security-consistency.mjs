@@ -134,6 +134,13 @@ for (const header of ['Content-Security-Policy', 'Cross-Origin-Opener-Policy', '
   }
 }
 
+const viteConfig = readRepoFile('src/frontend/vite.config.ts')
+for (const token of ['Content-Security-Policy', "default-src 'self'", "frame-ancestors 'none'", "object-src 'none'"]) {
+  if (!viteConfig.includes(token)) {
+    violations.push(`src/frontend/vite.config.ts: preview security headers must include ${token}`)
+  }
+}
+
 requireContains(
   'src/frontend/src/fsusui/markdown.ts',
   'sanitizeMarkdownRuntimeHtml',

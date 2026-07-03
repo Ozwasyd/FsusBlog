@@ -147,13 +147,13 @@ node - "$ARTICLE_API_FILE" <<'NODE'
 const fs = require('node:fs');
 const source = fs.readFileSync(process.argv[2], 'utf8');
 const required = [
-  '/api/binary/article/list/home/',
-  '/api/binary/article/list/category/',
-  '/api/binary/article/list/tag/',
-  '/api/binary/article/hot/',
-  '/api/binary/article/featured/',
+  "'binary_get_article_list_home_page_size_aeds'",
+  "'binary_get_article_list_category_categoryId_page_size_aeds'",
+  "'binary_get_article_list_tag_tagId_page_size_aeds'",
+  "'binary_get_article_hot_size_aeds'",
+  "'binary_get_article_featured_size_aeds'",
   "credentials: 'omit'",
-  '/api/binary/admin/article'
+  "'binary_get_admin_article'"
 ];
 for (const token of required) {
   if (!source.includes(token)) {

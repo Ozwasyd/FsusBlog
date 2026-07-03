@@ -279,7 +279,7 @@ public class ArticleService(
             return article;
         }
 
-        return article with { Views = (int)Math.Round(projectedViews.Value) };
+        return article with { Views = (int)Math.Round(projectedViews.Value, MidpointRounding.AwayFromZero) };
     }
 
     private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(
@@ -387,11 +387,11 @@ public class ArticleService(
                     CoverImageUrl = reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
                     CategoryId = reader.GetInt32(fCatId),
                     Views = reader.GetInt32(fViews),
-                    CreateTime = reader.GetDateTime(fTime),
+                    CreateTime = NormalizeArticleListTimestampUtc(reader.GetDateTime(fTime)),
                     IsDeleted = reader.GetBoolean(fIsDel),
                     Status = (ArticleStatus)reader.GetInt32(fStatus),
-                    ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
-                    PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
+                    ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fScheduled)),
+                    PublishedAt = reader.IsDBNull(fPublished) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fPublished)),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
                     Content = content,
                     WordCount = wordCount,
@@ -1461,15 +1461,11 @@ public class ArticleService(
         string countIdentity,
         CancellationToken cancellationToken)
     {
-        Task<int> totalCountTask = GetCachedArticleListTotalCountAsync(countIdentity, whereSql, baseParameters, cancellationToken);
+        int totalCount = await GetCachedArticleListTotalCountAsync(countIdentity, whereSql, baseParameters, cancellationToken);
         var parameters = new List<SugarParameter>(baseParameters.Count + 1);
         parameters.AddRange(baseParameters);
         parameters.Add(new SugarParameter("@Offset", (page - 1) * size));
-        Task<List<ArticleListItemReadModel>> pageItemsTask = LoadPublicArticleListOffsetPageItemsAsync(whereSql, parameters, size, cancellationToken);
-        await Task.WhenAll(totalCountTask, pageItemsTask).ConfigureAwait(false);
-
-        int totalCount = await totalCountTask.ConfigureAwait(false);
-        List<ArticleListItemReadModel> pageItems = await pageItemsTask.ConfigureAwait(false);
+        List<ArticleListItemReadModel> pageItems = await LoadPublicArticleListOffsetPageItemsAsync(whereSql, parameters, size, cancellationToken);
         await AttachArticleListTagsAsync(pageItems, cancellationToken);
         ArticleListItemReadModel? lastItem = pageItems.Count > 0 ? pageItems[^1] : null;
         bool hasMore = totalCount > page * size;
@@ -1601,17 +1597,25 @@ public class ArticleService(
                 Summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum),
                 CoverImageUrl = reader.IsDBNull(fCover) ? null : reader.GetString(fCover),
                 Views = reader.GetInt32(fViews),
-                CreateTime = reader.GetDateTime(fTime),
+                CreateTime = NormalizeArticleListTimestampUtc(reader.GetDateTime(fTime)),
                 CategoryId = reader.GetInt32(fCatId),
                 CategoryName = reader.IsDBNull(fCatName) ? "默认" : reader.GetString(fCatName),
                 IsDeleted = reader.GetBoolean(fDel),
                 Status = (ArticleStatus)reader.GetInt32(fStatus),
-                ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : reader.GetDateTime(fScheduled),
-                PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
+                ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fScheduled)),
+                PublishedAt = reader.IsDBNull(fPublished) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fPublished)),
                 Tags = ArticleReadModelCollections.EmptyTags
             });
         }
     }
+
+    private static DateTime NormalizeArticleListTimestampUtc(DateTime value)
+        => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
 
     private async Task AttachArticleListTagsAsync(List<ArticleListItemReadModel> list, CancellationToken cancellationToken)
     {

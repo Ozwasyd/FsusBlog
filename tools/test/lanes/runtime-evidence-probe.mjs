@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { spawn, spawnSync } from 'node:child_process'
+import { createHmac, randomBytes } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -1347,6 +1348,12 @@ async function publishNotificationDrill({ drillId, count, payloadBytes, routeKey
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(new Error(`timeout after ${timeoutMs}ms`)), timeoutMs)
+  const timestamp = String(Math.floor(Date.now() / 1000))
+  const nonce = randomBytes(16).toString('hex')
+  const requestBody = JSON.stringify({ drillId, count, payloadBytes, routeKey })
+  const signature = createHmac('sha256', notificationDrillSecret)
+    .update(`${timestamp}\n${nonce}\n${requestBody}`, 'utf8')
+    .digest('hex')
   try {
     const response = await fetch(`${baseUrl}${notificationDrillPublishPath}`, {
       method: 'POST',
@@ -1354,20 +1361,23 @@ async function publishNotificationDrill({ drillId, count, payloadBytes, routeKey
         Accept: 'application/json',
         'Content-Type': 'application/json',
         'User-Agent': 'FsusBlog runtime evidence probe',
-        'X-Fsus-Notification-Drill-Secret': notificationDrillSecret
+        'X-Fsus-Notification-Drill-Secret': notificationDrillSecret,
+        'X-Fsus-Notification-Drill-Timestamp': timestamp,
+        'X-Fsus-Notification-Drill-Nonce': nonce,
+        'X-Fsus-Notification-Drill-Signature': signature
       },
       signal: controller.signal,
-      body: JSON.stringify({ drillId, count, payloadBytes, routeKey })
+      body: requestBody
     })
     const text = await response.text()
-    const body = text ? JSON.parse(text) : null
+    const responseBody = text ? JSON.parse(text) : null
     if (!response.ok) {
       throw new Error(`notification drill publish failed: HTTP ${response.status} ${text}`)
     }
-    if (!Array.isArray(body?.eventIds) || body.eventIds.length === 0) {
+    if (!Array.isArray(responseBody?.eventIds) || responseBody.eventIds.length === 0) {
       throw new Error('notification drill publish did not return event ids')
     }
-    return body
+    return responseBody
   } finally {
     clearTimeout(timer)
   }
@@ -2123,6 +2133,28 @@ async function optionalNotificationStreamImpact() {
   })
 }
 
+function faultRecoveryHealthMode() {
+  const mode = (process.env.FSUSBLOG_FAULT_RECOVERY_HEALTH_MODE || 'strict-ready').trim().toLowerCase()
+  if (['strict-ready', 'ready'].includes(mode)) return 'strict-ready'
+  if (['live', 'runtime', 'live-runtime'].includes(mode)) return 'live'
+  throw new Error(`unsupported FSUSBLOG_FAULT_RECOVERY_HEALTH_MODE: ${mode}`)
+}
+
+async function probeFaultRecoveryHealth(label) {
+  const mode = faultRecoveryHealthMode()
+  const path = mode === 'strict-ready' ? '/health/ready' : '/health/live'
+  const result = await runProbeResult(label, [path], { iterations: 1, concurrency: 1 })
+  if (result.status !== 'completed') {
+    throw new Error(`${path} did not recover: ${result.error}`)
+  }
+
+  return {
+    ...result,
+    recoveryHealthMode: mode,
+    recoveryHealthPath: path
+  }
+}
+
 async function probeRedisFinalHealth() {
   const publicReadResult = await runProbeResult('public binary endpoint', [
     '/api/binary/system/seo',
@@ -2148,10 +2180,7 @@ async function probeRedisFinalHealth() {
     throw new Error(`cache path did not recover: ${cachePathResult.error}`)
   }
 
-  const readyResult = await runProbeResult('health ready', ['/health/ready'], { iterations: 1, concurrency: 1 })
-  if (readyResult.status !== 'completed') {
-    throw new Error(`health ready did not recover: ${readyResult.error}`)
-  }
+  const healthResult = await probeFaultRecoveryHealth('fault recovery health')
 
   const authenticatedImpact = await optionalAuthenticatedImpact()
   const notificationStreamImpact = await optionalNotificationStreamImpact()
@@ -2171,7 +2200,7 @@ async function probeRedisFinalHealth() {
     },
     authenticatedImpact,
     notificationStreamImpact,
-    healthReady: readyResult,
+    healthReady: healthResult,
     logScan
   }
 }
@@ -2490,10 +2519,7 @@ async function probePostgresFinalHealth(container) {
     throw new Error(`public binary endpoint did not recover: ${publicReadResult.error}`)
   }
 
-  const healthReady = await runProbeResult('health ready', ['/health/ready'], { iterations: 1, concurrency: 1 })
-  if (healthReady.status !== 'completed') {
-    throw new Error(`health ready did not recover: ${healthReady.error}`)
-  }
+  const healthReady = await probeFaultRecoveryHealth('fault recovery health')
 
   const dbQuery = runPostgresSql(container, 'SELECT 1;')
   if (!dbQuery.ok) {
@@ -3302,7 +3328,8 @@ async function runNotificationSlowConsumerFaultCase() {
         timeoutMs: Math.max(timeoutMs, 20000)
       })
 
-      const replayCursor = Math.max(0, Math.min(...published.eventIds) - 1)
+      const firstPublishedEventId = Math.min(...published.eventIds)
+      const replayCursor = firstPublishedEventId > 1 ? firstPublishedEventId - 1 : firstPublishedEventId
       replay = await openNotificationSocket('notification-drill-replay', { cursor: replayCursor })
       await waitForCondition('notification backlog replay frame', () => {
         return countMatchingEventIds(replay.stats.eventIds, published.eventIds) > 0

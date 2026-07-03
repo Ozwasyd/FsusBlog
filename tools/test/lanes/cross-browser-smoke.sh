@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
+
+CURRENT_TIER="cross-browser-smoke"
+log "tier=cross-browser-smoke | requires release preview=$RELEASE_PREVIEW_URL"
+require_release_preview
+
+previous_playwright_browsers="${FSUSBLOG_PLAYWRIGHT_BROWSERS-}"
+previous_playwright_base_url="${PLAYWRIGHT_BASE_URL-}"
+previous_public_base_url="${FSUSBLOG_PUBLIC_BASE_URL-}"
+previous_output_dir="${PLAYWRIGHT_OUTPUT_DIR-}"
+previous_browsers_path="${PLAYWRIGHT_BROWSERS_PATH-}"
+previous_ld_library_path="${LD_LIBRARY_PATH-}"
+previous_disable_notification_stream="${FSUSBLOG_DISABLE_NOTIFICATION_STREAM-}"
+
+export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/cross-browser'
+export FSUSBLOG_PLAYWRIGHT_BROWSERS="${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit}"
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$ROOT_DIR/.tmp/ms-playwright}"
+export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
+export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
+export FSUSBLOG_DISABLE_NOTIFICATION_STREAM=1
+
+if [[ -d "$ROOT_DIR/.tmp/playwright-system-deps/root/usr/lib/x86_64-linux-gnu" ]]; then
+  export LD_LIBRARY_PATH="$ROOT_DIR/.tmp/playwright-system-deps/root/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
+reset_security_runtime_state "pre cross-browser smoke"
+run_in_client npm run check:cross-browser:smoke
+
+if [[ -n "$previous_playwright_browsers" ]]; then
+  export FSUSBLOG_PLAYWRIGHT_BROWSERS="$previous_playwright_browsers"
+else
+  unset FSUSBLOG_PLAYWRIGHT_BROWSERS
+fi
+
+if [[ -n "$previous_playwright_base_url" ]]; then
+  export PLAYWRIGHT_BASE_URL="$previous_playwright_base_url"
+else
+  unset PLAYWRIGHT_BASE_URL
+fi
+
+if [[ -n "$previous_public_base_url" ]]; then
+  export FSUSBLOG_PUBLIC_BASE_URL="$previous_public_base_url"
+else
+  unset FSUSBLOG_PUBLIC_BASE_URL
+fi
+
+if [[ -n "$previous_output_dir" ]]; then
+  export PLAYWRIGHT_OUTPUT_DIR="$previous_output_dir"
+else
+  unset PLAYWRIGHT_OUTPUT_DIR
+fi
+
+if [[ -n "$previous_browsers_path" ]]; then
+  export PLAYWRIGHT_BROWSERS_PATH="$previous_browsers_path"
+else
+  unset PLAYWRIGHT_BROWSERS_PATH
+fi
+
+if [[ -n "$previous_ld_library_path" ]]; then
+  export LD_LIBRARY_PATH="$previous_ld_library_path"
+else
+  unset LD_LIBRARY_PATH
+fi
+
+if [[ -n "$previous_disable_notification_stream" ]]; then
+  export FSUSBLOG_DISABLE_NOTIFICATION_STREAM="$previous_disable_notification_stream"
+else
+  unset FSUSBLOG_DISABLE_NOTIFICATION_STREAM
+fi

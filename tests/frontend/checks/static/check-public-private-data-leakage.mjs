@@ -77,7 +77,7 @@ for (const forbidden of ['document.cookie', 'localStorage.getItem(\'token\')', '
   assert(!telemetry.includes(forbidden), `RUM must not collect ${forbidden}`)
 }
 
-assert(subscription.includes('SHA256.HashData'), 'subscription must hash email before storage')
+assert(subscription.includes('SiteSubscriptionIdentity.HashEmail(request.Email, configuration)'), 'subscription must hash email before storage')
 assert(!subscription.includes('email ='), 'subscription responses must not echo raw email')
 
 assert(authorPreviewEndpoint.includes('"/api/binary/author"'), 'author implementation must stay on the native binary author prefix')

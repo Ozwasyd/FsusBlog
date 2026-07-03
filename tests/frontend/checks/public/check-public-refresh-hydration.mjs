@@ -862,17 +862,31 @@ function assertShellIdentityPreserved({ before, after }) {
 async function clickPublicNav(page, navKey, expectedPath, expectedKind) {
   const candidates = page.locator(`[data-public-nav="${navKey}"]`)
   const count = await candidates.count()
-  let link = candidates.first()
+  if (count === 0) {
+    throw new Error(`missing public nav target: ${navKey}`)
+  }
 
   for (let index = 0; index < count; index += 1) {
     const candidate = candidates.nth(index)
     if (await candidate.isVisible()) {
-      link = candidate
-      break
+      await candidate.click()
+      await page.waitForURL((url) => url.pathname === expectedPath, { timeout: PUBLIC_RUNTIME_TIMEOUT_MS })
+      await waitForRuntimeRoute(page, {
+        pathname: expectedPath,
+        expectedKind,
+        requireKind: true,
+        requireIdentity: false,
+      })
+      return
     }
   }
 
-  await link.click()
+  await candidates.first().evaluate((element) => {
+    if (!(element instanceof HTMLElement)) {
+      throw new Error('public nav target is not an HTMLElement')
+    }
+    element.click()
+  })
   await page.waitForURL((url) => url.pathname === expectedPath, { timeout: PUBLIC_RUNTIME_TIMEOUT_MS })
   await waitForRuntimeRoute(page, {
     pathname: expectedPath,

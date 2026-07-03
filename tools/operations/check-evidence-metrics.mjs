@@ -730,14 +730,15 @@ function validateAedsDecodeBudget() {
   const summary = readJson('.tmp/frontend/aeds-decode-budget/summary.json', true)
     ?? readJson('.tmp/release-evidence/aeds-decode-budget-summary.json', true)
   if (!summary) return
+  const budget = summary.decodeBudget ?? summary
   assert(summary.status === 'ok', 'aeds-decode-budget.status must be ok')
-  positiveNumber(summary.frameBytes, 'aeds-decode-budget.frameBytes')
-  positiveNumber(summary.payloadBytes, 'aeds-decode-budget.payloadBytes')
-  positiveNumber(summary.clientEnvelopeDecodeMs, 'aeds-decode-budget.clientEnvelopeDecodeMs')
-  positiveNumber(summary.clientPayloadMapMs, 'aeds-decode-budget.clientPayloadMapMs')
-  positiveNumber(summary.clientStructuredCloneMs, 'aeds-decode-budget.clientStructuredCloneMs')
-  assert(summary.copyCount === 0, 'aeds-decode-budget.copyCount must be zero')
-  assert(Number.isFinite(summary.allocBytesPerDecode) && summary.allocBytesPerDecode >= 0, 'aeds-decode-budget.allocBytesPerDecode must be >= 0')
+  positiveNumber(budget.frameBytes, 'aeds-decode-budget.frameBytes')
+  positiveNumber(budget.payloadBytes, 'aeds-decode-budget.payloadBytes')
+  positiveNumber(budget.clientEnvelopeDecodeMs, 'aeds-decode-budget.clientEnvelopeDecodeMs')
+  positiveNumber(budget.clientPayloadMapMs, 'aeds-decode-budget.clientPayloadMapMs')
+  positiveNumber(budget.clientStructuredCloneMs, 'aeds-decode-budget.clientStructuredCloneMs')
+  assert(budget.copyCount === 0, 'aeds-decode-budget.copyCount must be zero')
+  assert(Number.isFinite(budget.allocBytesPerDecode) && budget.allocBytesPerDecode >= 0, 'aeds-decode-budget.allocBytesPerDecode must be >= 0')
 }
 
 function selfTestRuntimeProbe() {

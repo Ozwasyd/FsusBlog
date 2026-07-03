@@ -1,9 +1,4 @@
 <template>
-  <ArticleReadingProgress
-    v-if="articleContentRoot"
-    :content-root="articleContentRoot"
-  />
-
   <ArticleDetailLoadingState v-if="showLoadingState" />
 
   <ArticleDetailErrorState
@@ -24,6 +19,13 @@
       :body-html="initialArticleBodyHtml"
       link-mode="anchor"
     >
+      <template v-if="canRenderBodyRuntime" #header-actions>
+        <ArticleReadingProgress
+          v-if="articleContentRoot"
+          :content-root="articleContentRoot"
+        />
+      </template>
+
       <template v-if="canRenderBodyRuntime" #body>
         <MarkdownRenderer
           ref="articleRendererRef"
@@ -93,6 +95,7 @@
             <el-button
               v-else-if="hasMore"
               key="manual"
+              class="article-comments-load-more"
               link
               :disabled="loadingComments"
               @click="loadMoreComments"
@@ -378,6 +381,12 @@ onMounted(() => {
 
 .animate-loading-bar {
   opacity: 0.28;
+}
+
+.article-comments-load-more {
+  min-width: 8rem;
+  min-height: 2.5rem;
+  padding-inline: 1rem;
 }
 
 .state-fade-enter-active,

@@ -10,6 +10,7 @@ export interface UploadInitViewModel {
   chunkSize: number
   totalParts: number
   expiresAt: string
+  uploadToken: string
 }
 
 export interface UploadStatusViewModel {
@@ -52,7 +53,7 @@ export interface UploadCompleteViewModel {
 }
 
 export function mapUploadInitFromPayload(payload: Uint8Array): UploadInitViewModel {
-  assertLength(payload, 440, 'upload_init_payload_invalid')
+  assertLength(payload, 568, 'upload_init_payload_invalid')
   return {
     uploadId: readFixedUtf8(payload, 0, 64),
     fileName: readFixedUtf8(payload, 64, 256),
@@ -61,7 +62,8 @@ export function mapUploadInitFromPayload(payload: Uint8Array): UploadInitViewMod
     totalBytes: readInt64Number(payload, 416),
     chunkSize: readInt32(payload, 424),
     totalParts: readInt32(payload, 428),
-    expiresAt: readIsoDate(payload, 432)
+    expiresAt: readIsoDate(payload, 432),
+    uploadToken: readFixedUtf8(payload, 440, 128)
   }
 }
 

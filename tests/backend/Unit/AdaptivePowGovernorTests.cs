@@ -1,6 +1,7 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
+using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -19,6 +20,24 @@ public sealed class AdaptivePowGovernorTests
 
         // No requests recorded → RPS = 0 → BASE_DIFFICULTY = 16 bits
         Assert.Equal(16, governor.CurrentGlobalDifficulty);
+    }
+
+    [Fact]
+    public void CurrentGlobalDifficulty_UsesConfiguredBaseDifficultyWhenProvided()
+    {
+        var governor = CreateGovernor(baseDifficulty: 8);
+
+        Assert.Equal(8, governor.CurrentGlobalDifficulty);
+    }
+
+    [Fact]
+    public void CurrentGlobalDifficulty_RespectsConfiguredMaxDifficultyUnderLoad()
+    {
+        var governor = CreateGovernor(baseDifficulty: 8, maxDifficulty: 8);
+
+        RecordRequests(governor, 1001);
+
+        Assert.Equal(8, governor.CurrentGlobalDifficulty);
     }
 
     [Fact]
@@ -105,6 +124,16 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    public async Task GetDifficultyForIpAsync_RespectsConfiguredMaxDifficultyForRiskPenalty()
+    {
+        var governor = CreateGovernor(riskScoreForAnyIp: 9999, baseDifficulty: 8, maxDifficulty: 8);
+
+        int result = await governor.GetDifficultyForIpAsync("1.2.3.4");
+
+        Assert.Equal(8, result);
+    }
+
+    [Fact]
     public async Task GetDifficultyForIpAsync_CacheHitAvoidsCacheQuery()
     {
         // Call the same IP twice – second call should use L1 cache (no extra cache queries)
@@ -155,8 +184,29 @@ public sealed class AdaptivePowGovernorTests
 
     // ─── helpers ──────────────────────────────────────────────────────────
 
-    private static AdaptivePowGovernor CreateGovernor(int riskScoreForAnyIp = 0)
-        => new AdaptivePowGovernor(new StubUnifiedCache(riskScoreForAnyIp));
+    private static AdaptivePowGovernor CreateGovernor(int riskScoreForAnyIp = 0, int? baseDifficulty = null, int? maxDifficulty = null)
+    {
+        IConfiguration? configuration = null;
+        if (baseDifficulty is not null || maxDifficulty is not null)
+        {
+            Dictionary<string, string?> values = [];
+            if (baseDifficulty is not null)
+            {
+                values["Security:Pow:BaseDifficulty"] = baseDifficulty.Value.ToString();
+            }
+
+            if (maxDifficulty is not null)
+            {
+                values["Security:Pow:MaxDifficulty"] = maxDifficulty.Value.ToString();
+            }
+
+            configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(values)
+                .Build();
+        }
+
+        return new AdaptivePowGovernor(new StubUnifiedCache(riskScoreForAnyIp), configuration);
+    }
 
     private static void RecordRequests(AdaptivePowGovernor governor, int count)
     {

@@ -27,7 +27,7 @@ describe('notification stream recovery workflow', () => {
     expect(source).not.toContain('console.warn(errorLabel, error)')
   })
 
-  it('keeps public runtime bootstrap on guest stream without account preflight', () => {
+  it('keeps public runtime bootstrap aligned with hydrated account state', () => {
     const source = readFileSync(
       fileURLToPath(new URL('../../../../src/frontend/src/components/runtime/AppRuntime.vue', import.meta.url)),
       'utf8'
@@ -36,12 +36,41 @@ describe('notification stream recovery workflow', () => {
     expect(source).toContain('const publicRoute = isPublicRouteNow()')
     expect(source).toContain('if (publicRoute) {')
     expect(source).toContain('await ensurePublicShell()')
-    expect(source).toContain("requestNotificationInit(false, '[AppRuntime] 公共访客连接建立受限')")
+    expect(source).toContain('if (isLocalFixtureSessionActive())')
+    expect(source).toContain("await ensureAccountSession({ reason: 'runtime' })")
+    expect(source).toContain("await ensureAdminSession({ reason: 'runtime' })")
+    expect(source).toContain('setPublicShellRuntimeAuthState(resolvePublicShellRuntimeAuthState(')
+    expect(source).toContain('resetPublicShellRuntimeAuthState()')
+    expect(source).toContain("requestNotificationInit(userStore.isLoggedIn, '[AppRuntime] 公共访客连接建立受限')")
     expect(source).toContain("const userTask = ensureAccountSession({ reason: 'runtime' })")
-    expect(source.indexOf('if (publicRoute) {')).toBeLessThan(
-      source.indexOf("const userTask = ensureAccountSession({ reason: 'runtime' })")
-    )
+    const publicRouteIndex = source.indexOf('if (publicRoute) {')
+    const publicFixtureIndex = source.indexOf('if (isLocalFixtureSessionActive())')
+    const publicAccountIndex = source.indexOf("await ensureAccountSession({ reason: 'runtime' })")
+    const nonPublicAccountIndex = source.indexOf("const userTask = ensureAccountSession({ reason: 'runtime' })")
+    expect(publicRouteIndex).toBeLessThan(publicFixtureIndex)
+    expect(publicFixtureIndex).toBeLessThan(publicAccountIndex)
+    expect(publicAccountIndex).toBeLessThan(nonPublicAccountIndex)
+    expect(source).not.toContain("await ensureAccountSession({ reason: 'runtime', forceWhenUnknown: true })")
     expect(source).not.toContain('ensureUserInfo')
+  })
+
+  it('mounts the full runtime for public and non-public route branches', () => {
+    const source = readFileSync(
+      fileURLToPath(new URL('../../../../src/frontend/src/App.vue', import.meta.url)),
+      'utf8'
+    )
+
+    const runtimeMount = '<FullAppRuntime v-if="runtimeReady" />'
+    const runtimeMountIndex = source.indexOf(runtimeMount)
+    const publicRouteIndex = source.indexOf('<router-view v-if="isPublicShellRoute"')
+    const nonPublicRouteIndex = source.indexOf('<div v-else class="app-wrapper')
+    const providerCloseIndex = source.indexOf('</el-config-provider>')
+
+    expect((source.match(new RegExp(runtimeMount, 'g')) ?? []).length).toBe(1)
+    expect(publicRouteIndex).toBeGreaterThan(-1)
+    expect(nonPublicRouteIndex).toBeGreaterThan(publicRouteIndex)
+    expect(runtimeMountIndex).toBeGreaterThan(nonPublicRouteIndex)
+    expect(runtimeMountIndex).toBeLessThan(providerCloseIndex)
   })
 
   it('installs the safe console guard during frontend bootstrap', () => {

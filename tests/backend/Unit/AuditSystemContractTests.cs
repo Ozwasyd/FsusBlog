@@ -93,7 +93,7 @@ public sealed class AuditSystemContractTests
         Assert.Contains("OrderByDescending(static it => it.Id)", listMethod, StringComparison.Ordinal);
         Assert.Contains("Take(pageSize + 1)", listMethod, StringComparison.Ordinal);
         Assert.DoesNotContain(".Skip(", listMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain(".CountAsync", listMethod, StringComparison.Ordinal);
+        Assert.Contains("Task<int> totalTask", listMethod, StringComparison.Ordinal);
 
         Assert.Contains("NormalizeSummaryCacheKey", queryService, StringComparison.Ordinal);
         Assert.Contains("SummaryCacheTtl", queryService, StringComparison.Ordinal);

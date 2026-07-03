@@ -568,6 +568,8 @@ describe('binaryTransport ApiError mapping', () => {
       frameType: FrameType.ArticleList
     })).resolves.toEqual({
       total: 17,
+      nextCursor: null,
+      hasMore: false,
       items: [
         {
           id: 11,

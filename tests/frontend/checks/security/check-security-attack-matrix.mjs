@@ -29,6 +29,7 @@ const FRAME_CATEGORY_WRITE_REQUEST = 33;
 const repoRoot = resolve(process.cwd(), '..', '..');
 const evidenceDir = process.env.FSUSBLOG_SECURITY_EVIDENCE_DIR || resolve(repoRoot, '.tmp/security');
 const execFileAsync = promisify(execFile);
+const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis';
 const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0';
 const maxDeterministicPowDifficulty = Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY ?? '20', 10) || 20;
 const internalErrorPattern = /System\.[A-Za-z]+Exception| at FsusBlog\.|StackTrace|SqlSugarException|PostgresException|Npgsql|Failed to bind parameter|syntax error|unterminated quoted string|relation .* does not exist|column .* does not exist/i;
@@ -56,7 +57,7 @@ async function resetLocalPowRiskState() {
   try {
     await execFileAsync('docker', [
       'exec',
-      'fsusblog-redis',
+      redisContainer,
       'sh',
       '-c',
       "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL"
@@ -154,16 +155,15 @@ function assertBinaryNoServerError(name, result) {
   assertNoInternalErrorText(name, JSON.stringify(result.payload ?? ''));
 }
 
-async function assertSqlInjectionProbeRejectedByLogin(name, payload) {
+async function assertSqlInjectionProbeRejectedByAnonymousBootstrap(name, payload) {
   const result = await withFreshPowBudget(name, async () =>
-    await authBinary('/api/Auth/login', {
+    await authBinary(AUTH_BOOTSTRAP_PATH, {
       method: 'POST',
       deviceFingerprint: name,
-      body: {
-        username: payload,
-        password: userPassword,
-        rememberMe: false
-      },
+      body: encodeAedsFrame(
+        FRAME_AUTH_ANONYMOUS_BOOTSTRAP_REQUEST,
+        encodeAuthAnonymousBootstrapRequest({ publicHandle: payload })
+      ),
       requiresPow: true
     })
   );
@@ -216,7 +216,7 @@ async function assertSqlInjectionProbeSafeForNumericBoundaries(name, payload) {
 
 async function assertSqlInjectionDefenses(adminSession) {
   for (let i = 0; i < sqlInjectionPayloads.length; i += 1) {
-    await assertSqlInjectionProbeRejectedByLogin(`sql injection probe ${i + 1} login`, sqlInjectionPayloads[i]);
+    await assertSqlInjectionProbeRejectedByAnonymousBootstrap(`sql injection probe ${i + 1} anonymous bootstrap`, sqlInjectionPayloads[i]);
   }
 
   for (let i = 0; i < sqlInjectionPayloads.length; i += 1) {

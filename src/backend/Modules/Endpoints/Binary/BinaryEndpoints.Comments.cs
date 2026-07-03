@@ -214,6 +214,7 @@ public static partial class BinaryEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "comment.threads")
         .AddEndpointFilter<RiskAwarePublicReadFilter>();
 
         group.MapGet("/comment/{articleId:int}/thread/{rootId:long}", static async Task<IResult> (
@@ -252,6 +253,7 @@ public static partial class BinaryEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "comment.replies")
         .AddEndpointFilter<RiskAwarePublicReadFilter>();
 
         group.MapGet("/comment/me", static async Task<IResult> (

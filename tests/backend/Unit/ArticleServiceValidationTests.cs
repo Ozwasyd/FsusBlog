@@ -226,6 +226,23 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void LoadArticleDetailFromDbAsync_SourceNormalizesDbTimestampsBeforeServerCacheEncoding()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("CreateTime = NormalizeArticleListTimestampUtc(reader.GetDateTime(fTime))", method, StringComparison.Ordinal);
+        Assert.Contains("ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fScheduled))", method, StringComparison.Ordinal);
+        Assert.Contains("PublishedAt = reader.IsDBNull(fPublished) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fPublished))", method, StringComparison.Ordinal);
+        Assert.True(
+            method.IndexOf("CreateTime = NormalizeArticleListTimestampUtc", StringComparison.Ordinal)
+                < method.IndexOf("ServerCacheBinaryCodec.EncodeArticleDetail(article)", StringComparison.Ordinal),
+            "Article detail timestamps must be normalized before the detail is encoded into the server cache.");
+    }
+
+    [Fact]
     public void ArticleDetailAedsArtifactProjector_SourceUsesSingleSqlForDetailArtifactBackfill()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs"));
@@ -436,7 +453,7 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void LoadPublicArticleListPageByKeysetAsync_SourceUsesSingleOffsetReadAndConcurrentCount()
+    public void LoadPublicArticleListPageByKeysetAsync_SourceUsesSingleOffsetReadWithoutConcurrentScopedDbCommands()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
         int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
@@ -445,9 +462,11 @@ public class ArticleServiceValidationTests
         Assert.True(nextMethod > methodStart, "LoadPublicArticleListOffsetPageItemsAsync must follow LoadPublicArticleListPageByKeysetAsync.");
         string method = source[methodStart..nextMethod];
 
-        Assert.Contains("Task<int> totalCountTask", method, StringComparison.Ordinal);
-        Assert.Contains("Task<List<ArticleListItemReadModel>> pageItemsTask", method, StringComparison.Ordinal);
-        Assert.Contains("await Task.WhenAll(totalCountTask, pageItemsTask)", method, StringComparison.Ordinal);
+        Assert.Contains("int totalCount = await GetCachedArticleListTotalCountAsync", method, StringComparison.Ordinal);
+        Assert.Contains("List<ArticleListItemReadModel> pageItems = await LoadPublicArticleListOffsetPageItemsAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("totalCountTask", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("pageItemsTask", method, StringComparison.Ordinal);
         Assert.Contains("LoadPublicArticleListOffsetPageItemsAsync", method, StringComparison.Ordinal);
         Assert.Contains("parameters.Add(new SugarParameter(\"@Offset\", (page - 1) * size))", method, StringComparison.Ordinal);
         Assert.DoesNotContain("while (currentPage <= page)", method, StringComparison.Ordinal);
@@ -483,6 +502,23 @@ public class ArticleServiceValidationTests
         Assert.Contains("_cache.GetStringAsync(CachePolicyId.ArticleListCount", articleService, StringComparison.Ordinal);
         Assert.Contains("_cache.SetStringAsync(", articleService, StringComparison.Ordinal);
         Assert.Contains("CachePolicyId.ArticleListCount,", articleService, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReadArticleListItemsAsync_NormalizesDbTimestampsToUtcBeforeCacheEncoding()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("private static async Task ReadArticleListItemsAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private static DateTime NormalizeArticleListTimestampUtc", StringComparison.Ordinal);
+        Assert.True(methodStart >= 0, "ReadArticleListItemsAsync must exist.");
+        Assert.True(nextMethod > methodStart, "NormalizeArticleListTimestampUtc must follow ReadArticleListItemsAsync.");
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("CreateTime = NormalizeArticleListTimestampUtc(reader.GetDateTime(fTime))", method, StringComparison.Ordinal);
+        Assert.Contains("ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fScheduled))", method, StringComparison.Ordinal);
+        Assert.Contains("PublishedAt = reader.IsDBNull(fPublished) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fPublished))", method, StringComparison.Ordinal);
+        Assert.Contains("DateTimeKind.Local => value.ToUniversalTime()", source, StringComparison.Ordinal);
+        Assert.Contains("DateTime.SpecifyKind(value, DateTimeKind.Utc)", source, StringComparison.Ordinal);
     }
 
     [Fact]

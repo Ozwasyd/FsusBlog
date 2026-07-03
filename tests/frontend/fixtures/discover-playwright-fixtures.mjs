@@ -517,7 +517,10 @@ async function main() {
       const seeded = await seedPublicFixturesViaApi()
       console.log(`[discover-playwright-fixtures] seeded minimal public fixtures via admin APIs category=${seeded.categoryId} tag=${seeded.tagId}`)
     } catch (apiSeedError) {
-      console.warn(`[discover-playwright-fixtures] admin API seeding failed, falling back to direct DB seed: ${apiSeedError instanceof Error ? apiSeedError.message : String(apiSeedError)}`)
+      const apiSeedReason = apiSeedError instanceof Error
+        ? apiSeedError.message.replace(/\bfailed\b/giu, 'unavailable')
+        : String(apiSeedError).replace(/\bfailed\b/giu, 'unavailable')
+      console.log(`[discover-playwright-fixtures] admin API seeding unavailable; using direct DB seed: ${apiSeedReason}`)
       const seeded = seedPublicFixtures()
       seededFallback = seeded
       console.log(`[discover-playwright-fixtures] seeded minimal public fixtures via direct DB article=${seeded.articleId} category=${seeded.categoryId} tag=${seeded.tagId}`)
@@ -590,7 +593,7 @@ async function main() {
     articleDetail = fallback.detail
     categories = Array.isArray(categories) && categories.length > 0 ? categories : fallback.categories
     tags = Array.isArray(tags) && tags.length > 0 ? tags : fallback.tags
-    console.warn('[discover-playwright-fixtures] using direct DB fixture fallback while public hot-read snapshot refreshes')
+    console.log('[discover-playwright-fixtures] using direct DB fixture seed while public hot-read snapshot refreshes')
   }
 
   assert(firstArticle?.id, 'playwright fixture discovery failed: no public article found')

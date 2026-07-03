@@ -62,6 +62,8 @@ for (const chunkName of [
   assert(viteConfig.includes(`return '${chunkName}'`), `vite admin chunk split missing ${chunkName}`)
 }
 assert(viteConfig.includes('function resolveAdminManualChunk'), 'vite config must keep admin domain chunk resolver')
+assert(!viteConfig.includes("id.includes('/src/bootstrap/entry.ts')"), 'vite config must keep the real entry module out of manual chunks to avoid preload-helper cycles')
+assert(!viteConfig.includes("id.includes('/src/services/themeRuntime.ts')"), 'vite config must keep Vue-backed theme runtime out of early entry-runtime chunks')
 assert(assetBudget.includes('adminRouteChunkBytes'), 'asset budget must define admin route chunk raw budget')
 assert(assetBudget.includes('adminRouteChunkGzipBytes'), 'asset budget must define admin route chunk gzip budget')
 assert(assetBudget.includes('adminRouteChunkBrotliBytes'), 'asset budget must define admin route chunk brotli budget')

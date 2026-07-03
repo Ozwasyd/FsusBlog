@@ -59,8 +59,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="event in events" :key="event.id" class="border-b border-[var(--fsusblog-panel-border)]">
-                <td class="px-5 py-3">{{ formatTime(event.occurredAtUtc) }}</td>
+              <tr v-for="event in eventRows" :key="event.id" class="border-b border-[var(--fsusblog-panel-border)]">
+                <td class="px-5 py-3">{{ event.formattedOccurredAt }}</td>
                 <td class="px-5 py-3">{{ event.source }}</td>
                 <td class="px-5 py-3">{{ event.reason }}</td>
                 <td class="px-5 py-3">{{ event.action }}</td>
@@ -109,6 +109,13 @@ const eventAggregates = computed(() => {
   }
   return Array.from(map.values()).sort((left, right) => right.count - left.count)
 })
+
+const eventRows = computed(() =>
+  events.value.map((event) => ({
+    ...event,
+    formattedOccurredAt: formatTime(event.occurredAtUtc)
+  }))
+)
 
 const formatTime = (value: string | null | undefined): string =>
   value ? new Date(value).toLocaleString() : '-'

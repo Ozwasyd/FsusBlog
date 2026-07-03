@@ -412,7 +412,7 @@ public sealed class ModerationDictionaryService(
         string contextJson = JsonSerializer.Serialize(context);
         auditLogChannel.TryWrite(new AuditRecord(
             AuditSourceCatalog.Security,
-            AuditTypeCatalog.Audit,
+            AuditTypeCatalog.Lifecycle,
             DateTime.UtcNow,
             eventInfo,
             Encoding.UTF8.GetBytes(contextJson),
@@ -422,7 +422,7 @@ public sealed class ModerationDictionaryService(
             ActorType: AuditActorTypeCatalog.System,
             TargetType: targetType,
             TargetId: targetId,
-            IsHighValue: true,
+            IsHighValue: false,
             ReasonCode: eventInfo,
             ContextJson: contextJson));
     }

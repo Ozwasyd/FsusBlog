@@ -33,6 +33,7 @@
         </router-link>
 
         <el-button
+          class="account-header-action"
           link
           @click="openPolicy('guidelines')"
         >
@@ -40,6 +41,7 @@
         </el-button>
 
         <el-button
+          class="account-header-action"
           link
           @click="openPolicy('privacy')"
         >
@@ -47,6 +49,7 @@
         </el-button>
 
         <el-button
+          class="account-header-action"
           link
           :disabled="isLoggingOut"
           @click="handleLogout"
@@ -407,11 +410,17 @@ onBeforeUnmount(() => {
 
 .account-header-link,
 .account-meta-link {
-  @apply inline-flex items-center rounded-[var(--fsus-radius-control-small)] text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex min-h-9 items-center justify-center rounded-[var(--fsus-radius-control-small)] px-2 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-tertiary)] transition-colors hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fsusblog-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+:deep(.account-header-action) {
+  min-height: 2.25rem;
+  padding-inline: 0.5rem;
 }
 
 :deep(.account-header-brand) {
   display: inline-flex;
+  min-height: 2.5rem;
   min-width: 0;
   align-items: center;
   gap: 0.5rem;

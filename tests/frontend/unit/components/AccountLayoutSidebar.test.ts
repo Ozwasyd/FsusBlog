@@ -16,13 +16,17 @@ describe('AccountLayout sidebar navigation framing', () => {
     expect(accountLayoutSource).not.toContain('areaMeta.eyebrow')
     expect(accountLayoutSource).not.toContain('areaMeta.title')
     expect(accountLayoutSource).not.toContain('areaMeta.description')
-    expect(accountLayoutSource).not.toContain('account-shell-area-title')
+    expect(accountLayoutSource).toContain('id="account-shell-area-title"')
+    expect(accountLayoutSource).toContain('aria-labelledby="account-shell-area-title"')
     expect(accountLayoutSource).toContain('account-sidebar-index-label')
   })
 
-  it('keeps the mobile drawer header to a compact area label and close action', () => {
-    expect(accountLayoutSource).toContain('{{ areaMeta.label }}导航')
-    expect(accountLayoutSource).toContain('aria-label="关闭导航"')
+  it('keeps mobile navigation compact without restoring the drawer chrome', () => {
+    expect(accountLayoutSource).toContain('account-mobile-navigation')
+    expect(accountLayoutSource).toContain('account-mobile-group-control')
+    expect(accountLayoutSource).toContain('account-mobile-link-strip')
+    expect(accountLayoutSource).toContain('aria-label="账户导航分组"')
+    expect(accountLayoutSource).not.toContain('aria-label="关闭导航"')
     expect(accountLayoutSource).not.toContain(
       'text-[1.75rem] font-bold leading-none',
     )

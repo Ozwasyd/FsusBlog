@@ -90,6 +90,17 @@ public sealed class HotStatsInvalidationCoalescerTests
     }
 
     [Fact]
+    public void BackendQpsVisitLogEvidenceChecksAsyncDirtyCalls()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/backend-qps.sh"));
+
+        Assert.Contains("MarkStatsDirtyAsync(\\\"visit-log-flush\\\"", source, StringComparison.Ordinal);
+        Assert.Contains("MarkHotArticlesDirtyAsync(\\\"article-read-projection\\\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MarkStatsDirty(\\\"visit-log-flush\\\")", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MarkHotArticlesDirty(\\\"article-read-projection\\\")", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task MarkDirtyAsync_AggregatesDirtyCountsAcrossInstances()
     {
         var cache = CreateSharedCounterCache();

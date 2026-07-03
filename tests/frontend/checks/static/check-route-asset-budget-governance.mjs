@@ -40,6 +40,8 @@ if (fs.existsSync(budgetScriptPath)) {
     'asyncDependencyCount',
     'firstEntryBytes',
     'forbiddenPublicImports',
+    'skipHostEntryCss',
+    "routeEntry.route === 'public-shell'",
     'route-asset-budget.json'
   ]) {
     assert(budgetScript.includes(token), `route budget script missing ${token}`)

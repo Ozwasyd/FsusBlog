@@ -30,6 +30,39 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: pr-smart-gate-plan
+    owner: ServerContractAgent
+    command: node tools/run-test-matrix.mjs ci-pr-plan --out .tmp/pr-plan.json
+    dependsOn: [validate-matrix]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 0
+    cost: low
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: pr
+    requiredFor: fast
+    coverage: [pr-smart-gate-plan]
+    artifacts: [.tmp/pr-plan.json, .tmp/release-evidence/pr-smart-gate-summary.json]
+    evidence: [.tmp/release-evidence/pr-smart-gate-summary.json]
+    ciJob: plan-pr-risk
+    localOnly: false
+    nightlyOnly: false
+    prDefault: true
+    smartGateMode: always
+    retentionClass: must-keep
+    triggerReason: PR smart gate plan and skip evidence must always be generated
+
   - id: frontend-build
     owner: InteropGlueAgent
     command: tools/test/lanes/frontend-build.sh
@@ -226,9 +259,9 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: fast
-    coverage: [gate-integrity, matrix-integrity, evidence-schema]
-    artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/flaky/registry.json]
-    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/flaky/registry.json]
+    coverage: [gate-integrity, matrix-integrity, evidence-schema, test-retention-classification]
+    artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json]
+    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json]
     ciJob: fast-static-governance
     localOnly: false
     nightlyOnly: false
@@ -319,6 +352,12 @@ tiers:
     ciJob: coverage-backend
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend, src/shared, src/core, tests/backend, tools/coverage]
+    triggerFiles: [tests/coverage-policy.yml, tests/coverage-registry.json, tests/matrix.yml]
+    triggerCoverage: [backend-coverage]
+    triggerReason: backend source, backend tests, or coverage governance changed
 
   - id: coverage-frontend
     owner: InteropGlueAgent
@@ -348,6 +387,12 @@ tiers:
     ciJob: coverage-frontend
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/frontend, tests/frontend, tools/coverage]
+    triggerFiles: [tests/coverage-policy.yml, tests/coverage-registry.json, tests/matrix.yml]
+    triggerCoverage: [frontend-coverage]
+    triggerReason: frontend source, frontend tests, or coverage governance changed
 
   - id: coverage-merge
     owner: ServerContractAgent
@@ -377,6 +422,12 @@ tiers:
     ciJob: coverage-merge-threshold
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend, src/shared, src/core, src/frontend, tests/backend, tests/frontend, tools/coverage]
+    triggerFiles: [tests/coverage-policy.yml, tests/coverage-registry.json, tests/matrix.yml]
+    triggerCoverage: [merged-coverage]
+    triggerReason: full coverage inputs or coverage governance changed
 
   - id: coverage-threshold
     owner: ServerContractAgent
@@ -406,6 +457,12 @@ tiers:
     ciJob: coverage-merge-threshold
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: must-keep
+    triggerPaths: [src/backend, src/shared, src/core, src/frontend, tests/backend, tests/frontend, tools/coverage]
+    triggerFiles: [tests/coverage-policy.yml, tests/coverage-registry.json, tests/matrix.yml]
+    triggerCoverage: [coverage-threshold]
+    triggerReason: strict coverage inputs or coverage governance changed
 
   - id: coverage-gate
     owner: ServerContractAgent
@@ -435,6 +492,12 @@ tiers:
     ciJob: coverage-merge-threshold
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: must-keep
+    triggerPaths: [src/backend, src/shared, src/core, src/frontend, tests/backend, tests/frontend, tools/coverage]
+    triggerFiles: [tests/coverage-policy.yml, tests/coverage-registry.json, tests/matrix.yml]
+    triggerCoverage: [backend-frontend-merged]
+    triggerReason: full coverage gate inputs or coverage governance changed
 
   - id: bootstrap
     owner: ServerContractAgent
@@ -494,6 +557,12 @@ tiers:
     ciJob: integration-runtime
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend, src/shared, tests/backend/Integration, tests/frontend/checks/runtime, tests/frontend/checks/resilience, tools/bootstrap-acceptance-env.sh]
+    triggerFiles: [tests/matrix.yml, tests/contracts/openapi-policy.yml]
+    triggerCoverage: [runtime-contract-smoke]
+    triggerReason: backend runtime, API contract, auth, cache, DB, or runtime smoke inputs changed
 
   - id: ci
     owner: ServerContractAgent
@@ -552,6 +621,12 @@ tiers:
     ciJob: release-public
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Infrastructure/PublicAot, src/backend/Modules/Endpoints/PublicAotEndpoints.cs, src/frontend/src/public-renderers, src/frontend/src/components/public, src/frontend/src/bootstrap, tests/frontend/checks/public, tools/frontend]
+    triggerFiles: [tests/matrix.yml, docs/testing.md]
+    triggerCoverage: [release-preview-runtime, aot-hydration-pwa-seo, public-hydration-matrix]
+    triggerReason: public renderer, AOT, hydration, SEO, PWA, or release preview inputs changed
 
   - id: public-hydration-nightly
     owner: InteropGlueAgent
@@ -610,6 +685,12 @@ tiers:
     ciJob: security-runtime
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: must-keep
+    triggerPaths: [src/backend/Infrastructure/Auth, src/backend/Infrastructure/Security, src/backend/Infrastructure/Filters, src/backend/Services/Security, src/backend/Modules/Endpoints, src/frontend/src/services/security, tests/frontend/checks/security, tests/security]
+    triggerFiles: [docs/security.md, tests/matrix.yml]
+    triggerCoverage: [auth-mfa-passkey-pow-permission-dast]
+    triggerReason: auth, MFA, passkey, permission, risk-control, DAST, or security config changed
 
   - id: acceptance
     owner: InteropGlueAgent
@@ -641,6 +722,12 @@ tiers:
     ciJob: acceptance-playwright
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/frontend/src/views, src/frontend/src/router, src/frontend/src/layouts, src/frontend/src/components, tests/frontend/e2e/acceptance, tests/frontend/support/playwright]
+    triggerFiles: [tests/matrix.yml]
+    triggerCoverage: [playwright-acceptance]
+    triggerReason: route, auth flow, console flow, public flow, or acceptance fixture changed
 
   - id: visual-public
     owner: InteropGlueAgent
@@ -672,6 +759,12 @@ tiers:
     ciJob: visual-public-playwright
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/frontend/src/assets, src/frontend/src/components/public, src/frontend/src/public-renderers, tests/frontend/e2e/visual]
+    triggerFiles: [tests/matrix.yml]
+    triggerCoverage: [playwright-visual-public]
+    triggerReason: public visual surface, CSS, or screenshot fixtures changed
 
   - id: visual-console
     owner: InteropGlueAgent
@@ -703,6 +796,12 @@ tiers:
     ciJob: visual-console-playwright
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/frontend/src/assets, src/frontend/src/views/admin, src/frontend/src/components/admin, src/frontend/src/layouts, tests/frontend/e2e/visual]
+    triggerFiles: [tests/matrix.yml]
+    triggerCoverage: [playwright-visual-console]
+    triggerReason: console visual surface, CSS, or screenshot fixtures changed
 
   - id: visual
     owner: InteropGlueAgent
@@ -732,6 +831,12 @@ tiers:
     ciJob: visual-playwright
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/frontend/src/assets, src/frontend/src/views, src/frontend/src/components, tests/frontend/e2e/visual]
+    triggerFiles: [tests/matrix.yml]
+    triggerCoverage: [playwright-visual-aggregate]
+    triggerReason: visual screenshot inputs changed
 
   - id: ux-viewport-smoke
     owner: InteropGlueAgent
@@ -854,10 +959,16 @@ tiers:
     ciJob: frontend-render-pressure
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/frontend/src, tests/frontend/checks/perf, tests/frontend/checks/static/check-dom-depth-static.mjs, tests/frontend/unit/view-contracts]
+    triggerFiles: [tests/matrix.yml]
+    triggerCoverage: [dom-budget, dom-depth-static, route-render-pressure, markdown-render-budget]
+    triggerReason: frontend render pressure, DOM budget, or markdown render budget inputs changed
 
   - id: cross-browser-smoke
     owner: InteropGlueAgent
-    command: npm --prefix src/frontend run check:cross-browser:smoke
+    command: tools/test/lanes/cross-browser-smoke.sh
     dependsOn: [release]
     services: [preview]
     parallelizable: true
@@ -885,6 +996,12 @@ tiers:
     ciJob: cross-browser-smoke
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/frontend/src/assets, src/frontend/src/bootstrap, src/frontend/src/public-renderers, src/frontend/src/services, src/frontend/src/workers, tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts]
+    triggerFiles: [src/frontend/vite.config.ts, tests/matrix.yml]
+    triggerCoverage: [cross-browser-smoke]
+    triggerReason: browser compatibility, service worker, worker, CSS, or public hydration code changed
 
   - id: resilience
     owner: ServerContractAgent
@@ -914,6 +1031,12 @@ tiers:
     ciJob: resilience-runtime
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend, src/frontend/src/api, src/frontend/src/services, src/frontend/src/composables, tests/frontend/checks/resilience, tests/frontend/checks/runtime]
+    triggerFiles: [tests/matrix.yml]
+    triggerCoverage: [upload-search-notification-binary-resilience, public-aot-cache-resilience]
+    triggerReason: upload, search, notification stream, binary transport, or resilience runtime inputs changed
 
   - id: load
     owner: ServerContractAgent
@@ -943,6 +1066,12 @@ tiers:
     ciJob: load-smoke
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Infrastructure/Cache, src/backend/Infrastructure/Execution, src/backend/Services, tests/frontend/checks/load, tests/perf]
+    triggerFiles: [tests/matrix.yml]
+    triggerCoverage: [load-smoke, notification-pressure]
+    triggerReason: performance-sensitive backend, notification pressure, or load policy inputs changed
 
   - id: backend-qps-view-count-flush
     owner: ServerContractAgent
@@ -973,6 +1102,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Services, src/backend/Infrastructure/CoreBridge, src/core/Services, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [view-count-batch-flush]
+    triggerReason: view-count flush, article core bridge, or backend-qps collector changed
 
   - id: backend-qps-visitlog-invalidation
     owner: ServerContractAgent
@@ -1003,6 +1137,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Services/VisitLog, src/backend/Infrastructure/Cache, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [visitlog-hot-stats-invalidation-coalescing]
+    triggerReason: visit log invalidation or backend-qps collector changed
 
   - id: backend-qps-cache-hit
     owner: ServerContractAgent
@@ -1033,6 +1172,12 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    prDefault: true
+    retentionClass: conditional
+    triggerPaths: [src/backend/Infrastructure/Cache, src/backend/Modules/Endpoints/Binary, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [aeds-full-frame-cache-hit]
+    triggerReason: PR sentinel plus binary frame cache hit coverage
 
   - id: backend-qps-comment-cursor
     owner: ServerContractAgent
@@ -1063,6 +1208,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs, src/backend/Infrastructure/Cache, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [comment-cursor-cache]
+    triggerReason: comment cursor cache or backend-qps collector changed
 
   - id: backend-qps-hotread
     owner: ServerContractAgent
@@ -1093,6 +1243,12 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    prDefault: true
+    retentionClass: conditional
+    triggerPaths: [src/backend/Infrastructure/PublicReadArtifacts, src/backend/Modules/Endpoints/Binary, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [public-hot-read-taxonomy]
+    triggerReason: PR sentinel plus public hot-read coverage
 
   - id: backend-qps-cache-miss-singleflight
     owner: ServerContractAgent
@@ -1123,6 +1279,12 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    prDefault: true
+    retentionClass: conditional
+    triggerPaths: [src/backend/Infrastructure/CoreBridge/Caching, src/backend/Infrastructure/Cache, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [cache-miss-singleflight]
+    triggerReason: PR sentinel plus cache miss singleflight coverage
 
   - id: backend-qps-risk-filter
     owner: ServerContractAgent
@@ -1153,6 +1315,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Infrastructure/Security, src/backend/Infrastructure/Bootstrap, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [public-read-risk-filter]
+    triggerReason: public read risk filter or backend-qps collector changed
 
   - id: backend-qps-related-reading
     owner: ServerContractAgent
@@ -1183,6 +1350,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Services/Distribution, src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [related-reading-cache]
+    triggerReason: related reading cache or backend-qps collector changed
 
   - id: backend-qps-list-pagination
     owner: ServerContractAgent
@@ -1213,6 +1385,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Services/ArticleService.cs, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [public-list-deep-page]
+    triggerReason: public list pagination or backend-qps collector changed
 
   - id: backend-qps-article-detail-miss
     owner: ServerContractAgent
@@ -1243,6 +1420,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Services/ArticleEndpointService.cs, src/backend/Infrastructure/PublicReadArtifacts, src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [article-detail-artifact-miss]
+    triggerReason: article detail artifact miss or backend-qps collector changed
 
   - id: backend-qps-cache-registry
     owner: ServerContractAgent
@@ -1273,6 +1455,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Infrastructure/Cache, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [cache-registry-command-reduction]
+    triggerReason: cache registry or backend-qps collector changed
 
   - id: backend-cache-invalidation-batch
     owner: ServerContractAgent
@@ -1303,6 +1490,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Infrastructure/Cache, src/backend/Infrastructure/Observability, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [cache-invalidation-batch-roundtrip-reduction]
+    triggerReason: cache invalidation batching or backend-qps collector changed
 
   - id: backend-qps-index-plan
     owner: ServerContractAgent
@@ -1333,6 +1525,11 @@ tiers:
     ciJob: backend-qps-collectors
     localOnly: false
     nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: conditional
+    triggerPaths: [src/backend/Entities, tools/test/lanes/backend-qps.sh]
+    triggerCoverage: [db-index-plan]
+    triggerReason: database index plan or backend-qps collector changed
 
   - id: backend-qps
     owner: ServerContractAgent
@@ -1362,6 +1559,9 @@ tiers:
     ciJob: backend-qps
     localOnly: false
     nightlyOnly: false
+    smartGateMode: full-only
+    retentionClass: must-keep
+    triggerReason: backend-qps aggregate requires full collector evidence and runs only in full gates
 
   - id: backend-qps-runtime-sequential
     owner: ServerContractAgent
@@ -2905,6 +3105,9 @@ tiers:
     ciJob: production-summary
     localOnly: false
     nightlyOnly: false
+    smartGateMode: full-only
+    retentionClass: must-keep
+    triggerReason: production summary remains a full push/workflow_dispatch/release-final proof
 
   - id: backend-api-integration
     owner: ServerContractAgent

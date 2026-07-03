@@ -103,6 +103,8 @@
   left: 50%;
   top: auto !important;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+  box-sizing: border-box;
+  max-inline-size: calc(100vw - 2rem);
   transform: translate3d(-50%, calc(var(--el-message-stack-y, 0px) * -1), 0);
 }
 
@@ -114,6 +116,19 @@
 
 .fsusblog-motion-toast--viewport-bottom [class~='el-message__icon'] {
   display: none;
+}
+
+.fsusblog-motion-toast--viewport-bottom [class~='el-message__content'],
+.fsusblog-motion-toast--viewport-bottom [aria-live] {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.fsusblog-motion-toast--viewport-bottom [aria-live] {
+  display: inline-block;
 }
 
 @keyframes blog-motion-page-enter {

@@ -27,8 +27,8 @@ public sealed class MessageCenterService(
         long startedAt = Stopwatch.GetTimestamp();
         int pageNum = Math.Max(1, page);
         int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 50);
-        Task<int> totalTask = BuildAccountConversationQuery(accountId, filter).CountAsync();
-        Task<List<AccountConversationRow>> rowsTask = BuildAccountConversationQuery(accountId, filter)
+        int total = await BuildAccountConversationQuery(accountId, filter).CountAsync();
+        List<AccountConversationRow> rows = await BuildAccountConversationQuery(accountId, filter)
             .OrderBy((p, c) => c.LastMessageAt, OrderByType.Desc)
             .Select((p, c) => new AccountConversationRow
             {
@@ -43,11 +43,10 @@ public sealed class MessageCenterService(
             .Skip((pageNum - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
-        await Task.WhenAll(totalTask, rowsTask);
 
-        var items = await BuildConversationListAsync(await rowsTask, includeUnread: true);
+        var items = await BuildConversationListAsync(rows, includeUnread: true);
         FsusObservability.RecordMessageCenterList("account", FsusObservability.GetElapsed(startedAt));
-        return new PageResponse<ConversationListItemResponse> { Items = items, Total = await totalTask };
+        return new PageResponse<ConversationListItemResponse> { Items = items, Total = total };
     }
 
     public async Task<ConversationDetailResponse?> GetAccountConversationDetailAsync(int accountId, long conversationId)
@@ -85,8 +84,8 @@ public sealed class MessageCenterService(
         long startedAt = Stopwatch.GetTimestamp();
         int pageNum = Math.Max(1, page);
         int pageSize = Math.Clamp(size <= 0 ? 20 : size, 1, 100);
-        Task<int> totalTask = BuildAdminConversationQuery(filter).CountAsync();
-        Task<List<AccountConversationRow>> rowsTask = BuildAdminConversationQuery(filter)
+        int total = await BuildAdminConversationQuery(filter).CountAsync();
+        List<AccountConversationRow> rows = await BuildAdminConversationQuery(filter)
             .OrderByDescending(it => it.LastMessageAt)
             .Select(it => new AccountConversationRow
             {
@@ -101,9 +100,7 @@ public sealed class MessageCenterService(
             .Skip((pageNum - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
-        await Task.WhenAll(totalTask, rowsTask);
 
-        List<AccountConversationRow> rows = await rowsTask;
         var unreadMap = await GetConversationUnreadMapAsync(CollectConversationIds(rows));
         foreach (var row in rows)
         {
@@ -115,7 +112,7 @@ public sealed class MessageCenterService(
 
         var items = await BuildConversationListAsync(rows, includeUnread: true);
         FsusObservability.RecordMessageCenterList("admin", FsusObservability.GetElapsed(startedAt));
-        return new PageResponse<ConversationListItemResponse> { Items = items, Total = await totalTask };
+        return new PageResponse<ConversationListItemResponse> { Items = items, Total = total };
     }
 
     public async Task<ConversationDetailResponse?> GetAdminConversationDetailAsync(long conversationId)

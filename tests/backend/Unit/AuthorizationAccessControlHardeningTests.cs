@@ -75,8 +75,9 @@ public sealed class AuthorizationAccessControlHardeningTests
 
         string endpoint = ExtractBetween(source, "publicGroup.MapGet(\"/navigation-snapshot.aeds\"", "var group = app.MapGroup(\"/internal/public-aot\")");
         Assert.Contains(".RequireRateLimiting(\"public_read\")", endpoint, StringComparison.Ordinal);
-        Assert.Contains("MaxNavigationSnapshotPathLength", source, StringComparison.Ordinal);
-        Assert.Contains("normalized.Length > MaxNavigationSnapshotPathLength", source, StringComparison.Ordinal);
+        Assert.Contains("MaxNavigationPathChars", source, StringComparison.Ordinal);
+        Assert.Contains("rawPath.Length > MaxNavigationPathChars", source, StringComparison.Ordinal);
+        Assert.Contains("normalized.Length > MaxNavigationPathChars", source, StringComparison.Ordinal);
     }
 
     [Fact]

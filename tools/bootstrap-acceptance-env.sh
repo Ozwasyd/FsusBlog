@@ -55,15 +55,44 @@ DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:${DEBUG_FRON
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:${DEBUG_BACKEND_PORT}}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:${RELEASE_PREVIEW_PORT}}"
 CORS_ALLOWED_HOSTS_VALUE="${CORS_ALLOWED_HOSTS:-${DEBUG_FRONTEND_URL},${RELEASE_PREVIEW_URL},http://localhost:${DEBUG_FRONTEND_PORT},http://localhost:${RELEASE_PREVIEW_PORT}}"
-POSTGRES_CONTAINER="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-fsusblog-postgres-$NS_SLUG}"
-REDIS_CONTAINER="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-redis-$NS_SLUG}"
+POSTGRES_CONTAINER="${FSUSBLOG_POSTGRES_CONTAINER_NAME:-fsusblog-test-postgres-$NS_SLUG}"
+REDIS_CONTAINER="${FSUSBLOG_REDIS_CONTAINER_NAME:-fsusblog-test-redis-$NS_SLUG}"
+if [[ ! "$POSTGRES_CONTAINER" =~ ^fsusblog-(dev|test|ci)([-_.A-Za-z0-9]*)$ ]]; then
+  POSTGRES_CONTAINER="fsusblog-test-postgres-$NS_SLUG"
+fi
+if [[ ! "$REDIS_CONTAINER" =~ ^fsusblog-(dev|test|ci)([-_.A-Za-z0-9]*)$ ]]; then
+  REDIS_CONTAINER="fsusblog-test-redis-$NS_SLUG"
+fi
 TEST_DATA_ROOT="${FSUSBLOG_DATA_ROOT:-$ROOT_DIR/.tmp/data/$NS_SLUG}"
 POSTGRES_CONNECTION="Host=127.0.0.1;Port=${POSTGRES_PORT};Database=fsusblog;Username=fsusblog;Password=fsusblog_dev;Include Error Detail=true"
 REDIS_CONNECTION="127.0.0.1:${REDIS_PORT}"
 NOTIFICATION_DRILL_SECRET="${FSUSBLOG_NOTIFICATION_DRILL_SECRET:-fsus-notification-drill-$NS_SLUG}"
+JWT_SECRET="${FSUSBLOG_TEST_JWT_SECRET:-fsusblog-local-acceptance-jwt-secret-${NS_SLUG}-change-me}"
+JWT_ISSUER="${FSUSBLOG_TEST_JWT_ISSUER:-FsusBlogServer}"
+JWT_AUDIENCE="${FSUSBLOG_TEST_JWT_AUDIENCE:-FsusBlogClient}"
+JWT_ACCESS_TOKEN_EXPIRES_MINUTES="${FSUSBLOG_TEST_JWT_ACCESS_TOKEN_EXPIRES_MINUTES:-1440}"
+POW_SIGNING_KEY="${FSUSBLOG_TEST_POW_SIGNING_KEY:-fsusblog-local-acceptance-pow-signing-key-${NS_SLUG}}"
+POW_BASE_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_BASE_DIFFICULTY:-8}"
+POW_MAX_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY:-8}"
+CAPTCHA_SIGNING_KEY="${FSUSBLOG_TEST_CAPTCHA_SIGNING_KEY:-fsusblog-local-acceptance-captcha-signing-key-${NS_SLUG}}"
+RECOVERY_KEY_PEPPER="${FSUSBLOG_TEST_RECOVERY_KEY_PEPPER:-fsusblog-local-acceptance-recovery-key-pepper-${NS_SLUG}}"
+MFA_TICKET_SIGNING_KEY="${FSUSBLOG_TEST_MFA_TICKET_SIGNING_KEY:-fsusblog-local-acceptance-mfa-ticket-signing-key-${NS_SLUG}}"
+VISIT_LOG_IP_HASH_PEPPER="${FSUSBLOG_TEST_VISIT_LOG_IP_HASH_PEPPER:-fsusblog-local-acceptance-visit-log-ip-hash-pepper-${NS_SLUG}}"
+MODERATION_PEPPER="${FSUSBLOG_TEST_MODERATION_PEPPER:-fsusblog-local-acceptance-moderation-pepper-${NS_SLUG}}"
+MODERATION_REGION_IP_HASH_KEY="${FSUSBLOG_TEST_MODERATION_REGION_IP_HASH_KEY:-fsusblog-local-acceptance-region-ip-hash-key-${NS_SLUG}}"
+SUBSCRIPTION_EMAIL_HASH_PEPPER="${FSUSBLOG_TEST_SUBSCRIPTION_EMAIL_HASH_PEPPER:-fsusblog-local-acceptance-subscription-email-hash-pepper-${NS_SLUG}}"
+ANONYMOUS_SUBJECT_HASH_PEPPER="${FSUSBLOG_TEST_ANONYMOUS_SUBJECT_HASH_PEPPER:-fsusblog-local-acceptance-anonymous-subject-hash-pepper-${NS_SLUG}}"
+ANONYMOUS_ROOT_ATTESTATION_KEY="${FSUSBLOG_TEST_ANONYMOUS_ROOT_ATTESTATION_KEY:-fsusblog-local-acceptance-anonymous-root-attestation-key-${NS_SLUG}}"
+ANONYMOUS_NULLIFIER_PEPPER="${FSUSBLOG_TEST_ANONYMOUS_NULLIFIER_PEPPER:-fsusblog-local-acceptance-anonymous-nullifier-pepper-${NS_SLUG}}"
+ANONYMOUS_IDENTITY_MODE="${FSUSBLOG_ANONYMOUS_IDENTITY_MODE:-1}"
+RISK_PUBLIC_READ_CHALLENGE_ENABLED="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_CHALLENGE_ENABLED:-false}"
+PUBLIC_READ_PERMIT_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_PERMIT_LIMIT:-100000}"
+PUBLIC_READ_QUEUE_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_QUEUE_LIMIT:-10000}"
+NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT="${FSUSBLOG_ACCEPTANCE_NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT:-50}"
+PERCEPTION_SEALED_TOKEN_KEY="${FSUSBLOG_TEST_PERCEPTION_SEALED_TOKEN_KEY:-000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f}"
 FORCE_BOOTSTRAP="${FSUSBLOG_FORCE_BOOTSTRAP:-${CI:+1}}"
 RESET_SECURITY_TEST_STATE="${FSUSBLOG_RESET_SECURITY_TEST_STATE:-1}"
-POW_READY_MAX_DIFFICULTY="${FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY:-20}"
+POW_READY_MAX_DIFFICULTY="${POW_MAX_DIFFICULTY}"
 
 write_env_file() {
   cat > "$ENV_FILE" <<EOF
@@ -85,9 +114,37 @@ ConnectionStrings__Redis=$REDIS_CONNECTION
 RedisOptions__Configuration=$REDIS_CONNECTION
 RedisOptions__InstanceName=FsusBlog_${NS_SLUG}_
 NotificationStream__DrillSecret=$NOTIFICATION_DRILL_SECRET
+Jwt__SecretKey=$JWT_SECRET
+Jwt__Issuer=$JWT_ISSUER
+Jwt__Audience=$JWT_AUDIENCE
+Jwt__AccessTokenExpiresMinutes=$JWT_ACCESS_TOKEN_EXPIRES_MINUTES
+Security__Pow__SigningKey=$POW_SIGNING_KEY
+Security__Pow__BaseDifficulty=$POW_BASE_DIFFICULTY
+Security__Pow__MaxDifficulty=$POW_MAX_DIFFICULTY
+Security__CaptchaV1__SigningKey=$CAPTCHA_SIGNING_KEY
+Security__PerceptionSealedToken__CurrentKeyVersion=dev
+Security__PerceptionSealedToken__Keys__dev=$PERCEPTION_SEALED_TOKEN_KEY
+Security__RecoveryKeyPepper=$RECOVERY_KEY_PEPPER
+MfaChallenge__TicketSigningKey=$MFA_TICKET_SIGNING_KEY
+VisitLog__IpHashPepper=$VISIT_LOG_IP_HASH_PEPPER
+Moderation__Pepper=$MODERATION_PEPPER
+Moderation__RegionPolicy__IpHashKey=$MODERATION_REGION_IP_HASH_KEY
+Subscription__EmailHashPepper=$SUBSCRIPTION_EMAIL_HASH_PEPPER
+AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer
+AnonymousCredentialIssuer__SubjectHashPepper=$ANONYMOUS_SUBJECT_HASH_PEPPER
+AnonymousCredentialRoot__AttestationKey=$ANONYMOUS_ROOT_ATTESTATION_KEY
+AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root
+AnonymousIdentity__NullifierPepper=$ANONYMOUS_NULLIFIER_PEPPER
+FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$ANONYMOUS_IDENTITY_MODE
+Security__RiskControl__PublicReadChallenge__Enabled=$RISK_PUBLIC_READ_CHALLENGE_ENABLED
+RateLimiting__PublicReadPermitLimit=$PUBLIC_READ_PERMIT_LIMIT
+RateLimiting__PublicReadQueueLimit=$PUBLIC_READ_QUEUE_LIMIT
+NotificationStream__MaxConnectionsPerAccount=$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT
 ASPNETCORE_URLS=http://127.0.0.1:$DEBUG_BACKEND_PORT
 ASPNETCORE_ENVIRONMENT=Development
 CORS_ALLOWED_HOSTS=$CORS_ALLOWED_HOSTS_VALUE
+AuthCookies__AllowInsecureTransportCookies=true
+AuthCookies__AllowLegacyPlainCookieRead=true
 EOF
 }
 
@@ -121,6 +178,23 @@ kill_pid_if_running() {
 find_port_pid() {
   local port="$1"
   ss -ltnp "( sport = :${port} )" 2>/dev/null | awk -F'pid=' 'NR>1 {split($2, a, /[,)]/); if (a[1] != "") {print a[1]; exit}}'
+}
+
+wait_for_port_release() {
+  local port="$1"
+  local pid
+  for ((i=0; i<40; i+=1)); do
+    pid="$(find_port_pid "$port")"
+    if [[ -z "$pid" ]]; then
+      return 0
+    fi
+    sleep 0.25
+  done
+
+  pid="$(find_port_pid "$port")"
+  if [[ -n "$pid" ]]; then
+    kill_pid_if_running "$pid"
+  fi
 }
 
 probe_url() {
@@ -251,6 +325,14 @@ reset_security_test_state() {
   fi
 
   local deleted
+  local risk_deleted
+  risk_deleted="$(docker exec "$POSTGRES_CONTAINER" psql -U fsusblog -d fsusblog -Atqc "WITH deleted AS (DELETE FROM security_risk_event WHERE expires_at_utc > (now() AT TIME ZONE 'utc') RETURNING 1) SELECT count(*) FROM deleted;" 2>/dev/null || true)"
+  risk_deleted="${risk_deleted:-0}"
+  if [[ "$risk_deleted" =~ ^[0-9]+$ ]] && (( risk_deleted > 0 )); then
+    log "reset active persisted security risk events: ${risk_deleted}"
+    FORCE_BOOTSTRAP=1
+  fi
+
   deleted="$(docker exec "$REDIS_CONTAINER" sh -c "{ redis-cli --scan --pattern '*${NS_SLUG}*fsus:sec:pow-risk:*'; redis-cli --scan --pattern 'fsus:sec:pow-risk:*'; } | sort -u | xargs -r redis-cli DEL" 2>/dev/null || true)"
   deleted="${deleted:-0}"
   if [[ "$deleted" =~ ^[0-9]+$ ]] && (( deleted > 0 )); then
@@ -282,9 +364,10 @@ ensure_backend() {
   existing_pid="$(find_port_pid "$DEBUG_BACKEND_PORT")"
   kill_pid_if_running "$existing_pid"
   kill_pid_if_running "$managed_pid"
+  wait_for_port_release "$DEBUG_BACKEND_PORT"
 
   log 'starting managed debug backend'
-  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile" >"$log_file" 2>&1 < /dev/null &
+  nohup setsid bash -lc "cd $(printf '%q' "$ROOT_DIR") && export FSUSBLOG_DATA_ROOT=$(printf '%q' "$TEST_DATA_ROOT") ConnectionStrings__DefaultConnection=$(printf '%q' "$POSTGRES_CONNECTION") ConnectionStrings__Redis=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__Configuration=$(printf '%q' "$REDIS_CONNECTION") RedisOptions__InstanceName=$(printf '%q' "FsusBlog_${NS_SLUG}_") FSUSBLOG_NOTIFICATION_DRILL_SECRET=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") NotificationStream__DrillSecret=$(printf '%q' "$NOTIFICATION_DRILL_SECRET") Jwt__SecretKey=$(printf '%q' "$JWT_SECRET") Jwt__Issuer=$(printf '%q' "$JWT_ISSUER") Jwt__Audience=$(printf '%q' "$JWT_AUDIENCE") Jwt__AccessTokenExpiresMinutes=$(printf '%q' "$JWT_ACCESS_TOKEN_EXPIRES_MINUTES") Security__Pow__SigningKey=$(printf '%q' "$POW_SIGNING_KEY") Security__Pow__BaseDifficulty=$(printf '%q' "$POW_BASE_DIFFICULTY") Security__Pow__MaxDifficulty=$(printf '%q' "$POW_MAX_DIFFICULTY") Security__CaptchaV1__SigningKey=$(printf '%q' "$CAPTCHA_SIGNING_KEY") Security__PerceptionSealedToken__CurrentKeyVersion=dev Security__PerceptionSealedToken__Keys__dev=$(printf '%q' "$PERCEPTION_SEALED_TOKEN_KEY") Security__RecoveryKeyPepper=$(printf '%q' "$RECOVERY_KEY_PEPPER") MfaChallenge__TicketSigningKey=$(printf '%q' "$MFA_TICKET_SIGNING_KEY") VisitLog__IpHashPepper=$(printf '%q' "$VISIT_LOG_IP_HASH_PEPPER") Moderation__Pepper=$(printf '%q' "$MODERATION_PEPPER") Moderation__RegionPolicy__IpHashKey=$(printf '%q' "$MODERATION_REGION_IP_HASH_KEY") Subscription__EmailHashPepper=$(printf '%q' "$SUBSCRIPTION_EMAIL_HASH_PEPPER") AnonymousCredentialIssuer__IssuerPublicKeyId=local-acceptance-issuer AnonymousCredentialIssuer__SubjectHashPepper=$(printf '%q' "$ANONYMOUS_SUBJECT_HASH_PEPPER") AnonymousCredentialRoot__AttestationKey=$(printf '%q' "$ANONYMOUS_ROOT_ATTESTATION_KEY") AnonymousCredentialRoot__AttestationKeyId=local-acceptance-root AnonymousIdentity__NullifierPepper=$(printf '%q' "$ANONYMOUS_NULLIFIER_PEPPER") FSUSBLOG_ANONYMOUS_IDENTITY_MODE=$(printf '%q' "$ANONYMOUS_IDENTITY_MODE") Security__RiskControl__PublicReadChallenge__Enabled=$(printf '%q' "$RISK_PUBLIC_READ_CHALLENGE_ENABLED") RateLimiting__PublicReadPermitLimit=$(printf '%q' "$PUBLIC_READ_PERMIT_LIMIT") RateLimiting__PublicReadQueueLimit=$(printf '%q' "$PUBLIC_READ_QUEUE_LIMIT") NotificationStream__MaxConnectionsPerAccount=$(printf '%q' "$NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT") ASPNETCORE_URLS=http://127.0.0.1:${DEBUG_BACKEND_PORT} ASPNETCORE_ENVIRONMENT=Development CORS_ALLOWED_HOSTS=$(printf '%q' "$CORS_ALLOWED_HOSTS_VALUE") AuthCookies__AllowInsecureTransportCookies=true AuthCookies__AllowLegacyPlainCookieRead=true && exec ./tools/build-with-data-env.sh dotnet run --project src/backend/FsusBlog.Server.csproj --no-launch-profile" >"$log_file" 2>&1 < /dev/null &
   echo $! >"$pid_file"
 
   wait_for_binary_url 'debug backend' "$DEBUG_BACKEND_URL/api/binary/system/seo" 120
@@ -403,14 +486,22 @@ sync_backend_wwwroot_from_client_dist() {
   fi
 }
 
+refresh_acceptance_cache_after_fixtures() {
+  if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
+    docker exec "$REDIS_CONTAINER" redis-cli FLUSHDB >/dev/null
+    log 'refreshed acceptance redis cache after fixture seeding'
+  fi
+}
+
 prepare_fixtures() {
   log 'preparing auth users and playwright fixtures'
   (
     cd "$CLIENT_DIR"
-    FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:binary-smoke:auth-users >/dev/null
-    FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:playwright:fixtures >/dev/null
+    Jwt__SecretKey="$JWT_SECRET" Jwt__Issuer="$JWT_ISSUER" Jwt__Audience="$JWT_AUDIENCE" Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES" FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:binary-smoke:auth-users >/dev/null
+    Jwt__SecretKey="$JWT_SECRET" Jwt__Issuer="$JWT_ISSUER" Jwt__Audience="$JWT_AUDIENCE" Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES" FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:playwright:fixtures >/dev/null
+    refresh_acceptance_cache_after_fixtures
     if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
-      FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:playwright:sessions >/dev/null
+      Jwt__SecretKey="$JWT_SECRET" Jwt__Issuer="$JWT_ISSUER" Jwt__Audience="$JWT_AUDIENCE" Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES" FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:playwright:sessions >/dev/null
     fi
   )
 }

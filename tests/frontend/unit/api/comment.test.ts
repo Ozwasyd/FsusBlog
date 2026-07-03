@@ -29,6 +29,14 @@ import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
+const queryToString = (query: unknown): string => {
+  if (query instanceof URLSearchParams) {
+    return query.toString()
+  }
+
+  return new URLSearchParams(query as Record<string, string>).toString()
+}
+
 describe('comment API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -41,7 +49,7 @@ describe('comment API', () => {
     const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/comment',
+      binaryRoute: { operationId: 'binary_post_comment' },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'POST',
@@ -139,7 +147,7 @@ describe('comment API', () => {
     const call = mockBinary.mock.calls[0][0]
     const body = call.requestOptions?.body as ArrayBuffer
     expect(call).toEqual(expect.objectContaining({
-      binaryUrl: '/api/binary/comment/anonymous',
+      binaryRoute: { operationId: 'binary_post_comment_anonymous' },
       frameType: FrameType.EmptySuccess,
       signal,
       requestOptions: expect.objectContaining({
@@ -181,7 +189,7 @@ describe('comment API', () => {
 
     const call = mockBinary.mock.calls[0][0]
     const body = call.requestOptions?.body as ArrayBuffer
-    expect(call.binaryUrl).toBe('/api/binary/comment')
+    expect(call.binaryRoute).toEqual({ operationId: 'binary_post_comment' })
     expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
     const payload = readAedsPayload(body)
     expect(payload[12]).toBe(3)
@@ -351,7 +359,7 @@ describe('comment API', () => {
     await getAnonymousCredentialRootSnapshot()
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/anonymous-credential/root',
+      binaryRoute: { operationId: 'binary_get_anonymous_credential_root' },
       frameType: FrameType.AnonymousCredentialRootSnapshot,
       requestOptions: expect.objectContaining({
         credentials: 'omit'
@@ -364,7 +372,7 @@ describe('comment API', () => {
     await getAnonymousCredentialCircuitSnapshot()
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/anonymous-credential/circuit',
+      binaryRoute: { operationId: 'binary_get_anonymous_credential_circuit' },
       frameType: FrameType.AnonymousCredentialRootSnapshot,
       requestOptions: expect.objectContaining({
         credentials: 'omit'
@@ -400,7 +408,7 @@ describe('comment API', () => {
     const call = mockBinary.mock.calls[0][0]
     const body = call.requestOptions?.body as ArrayBuffer
     expect(call).toEqual(expect.objectContaining({
-      binaryUrl: '/api/binary/comment/anonymous-ticket',
+      binaryRoute: { operationId: 'binary_post_comment_anonymous_ticket' },
       frameType: FrameType.AnonymousCommentTicketResponse,
       signal,
       requestOptions: expect.objectContaining({
@@ -429,7 +437,7 @@ describe('comment API', () => {
     const call = mockBinary.mock.calls[0][0]
     const body = call.requestOptions?.body as ArrayBuffer
     expect(call).toEqual(expect.objectContaining({
-      binaryUrl: '/api/binary/anonymous-credential/revocation-witness',
+      binaryRoute: { operationId: 'binary_post_anonymous_credential_revocation_witness' },
       frameType: FrameType.AnonymousCredentialRevocationWitnessResponse,
       signal,
       requestOptions: expect.objectContaining({
@@ -446,7 +454,10 @@ describe('comment API', () => {
   it('getComments does not request pow headers', async () => {
     await getComments(5)
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('/api/binary/comment/5')
+    expect(call.binaryRoute).toEqual(expect.objectContaining({
+      operationId: 'binary_get_comment_articleId_int',
+      params: { articleId: 5 }
+    }))
     expect(call.requestOptions).toEqual(expect.objectContaining({ credentials: 'omit' }))
     expect(call.requestOptions?.requiresPow).toBeUndefined()
   })
@@ -454,20 +465,23 @@ describe('comment API', () => {
   it('getComments includes cursor when provided', async () => {
     await getComments(5, 'cursor-abc')
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('cursor=cursor-abc')
+    expect(queryToString(call.binaryRoute?.query)).toContain('cursor=cursor-abc')
   })
 
   it('getComments uses default limit 10', async () => {
     await getComments(5)
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('limit=10')
+    expect(queryToString(call.binaryRoute?.query)).toContain('limit=10')
   })
 
   it('getThreadReplies does not request pow headers', async () => {
     await getThreadReplies(1, 'root-123')
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('/api/binary/comment/1/thread/root-123')
-    expect(call.binaryUrl).toContain('limit=20')
+    expect(call.binaryRoute).toEqual(expect.objectContaining({
+      operationId: 'binary_get_comment_articleId_int_thread_rootId_long',
+      params: { articleId: 1, rootId: 'root-123' }
+    }))
+    expect(queryToString(call.binaryRoute?.query)).toContain('limit=20')
     expect(call.requestOptions).toEqual(expect.objectContaining({ credentials: 'omit' }))
     expect(call.requestOptions?.requiresPow).toBeUndefined()
   })
@@ -475,26 +489,31 @@ describe('comment API', () => {
   it('getThreadReplies includes cursor', async () => {
     await getThreadReplies(1, 'root-123', 'cursor-xyz')
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('cursor=cursor-xyz')
+    expect(queryToString(call.binaryRoute?.query)).toContain('cursor=cursor-xyz')
   })
 
   it('getMyComments calls requestBinaryOnly with user endpoint', async () => {
     await getMyComments()
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('/api/binary/comment/me')
-    expect(call.binaryUrl).toContain('limit=10')
+    expect(call.binaryRoute).toEqual(expect.objectContaining({
+      operationId: 'binary_get_comment_me'
+    }))
+    expect(queryToString(call.binaryRoute?.query)).toContain('limit=10')
   })
 
   it('getMyComments includes cursor when provided', async () => {
     await getMyComments('my-cursor')
     const call = mockBinary.mock.calls[0][0]
-    expect(call.binaryUrl).toContain('cursor=my-cursor')
+    expect(queryToString(call.binaryRoute?.query)).toContain('cursor=my-cursor')
   })
 
   it('deleteComment sends binary delete request', async () => {
     await deleteComment('123')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/comment/123',
+      binaryRoute: {
+        operationId: 'binary_delete_comment_id_long',
+        params: { id: '123' }
+      },
       frameType: FrameType.EmptySuccess,
       requestOptions: expect.objectContaining({
         method: 'DELETE',

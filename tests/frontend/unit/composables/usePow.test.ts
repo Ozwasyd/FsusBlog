@@ -189,4 +189,20 @@ describe('usePow queued worker scheduler', () => {
     await expect(crashed).rejects.toMatchObject({ message: 'pow_worker_thread_crashed' })
     expect(crashWorker.terminated).toBe(true)
   })
+
+  it('passes timeout budget into worker calculation messages', async () => {
+    const pow = await createPow()
+
+    const running = pow.calculate('salt-timeout-budget', 'browser-fp', 4, 12345)
+    const worker = MockWorker.instances[0]
+
+    expect(worker.messages[0]).toMatchObject({
+      runId: 1,
+      timeoutMs: 12345,
+      type: 'CALC'
+    })
+
+    worker.completeMessage(0, 'nonce-timeout-budget')
+    await expect(running).resolves.toMatchObject({ nonce: 'nonce-timeout-budget' })
+  })
 })

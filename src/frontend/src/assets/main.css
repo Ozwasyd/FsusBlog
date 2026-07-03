@@ -20,3 +20,17 @@ html:has(#fsus-aot-shell) {
   --el-bg-color-page: var(--fsus-page);
   --el-border-color-lighter: var(--fsusblog-header-border);
 }
+
+html.dark body,
+html[data-theme-resolved='dark'] body {
+  background: var(--fsusblog-page-bg, #09090b) !important;
+  color: var(--fsusblog-text-primary, #f0f0f4) !important;
+}
+
+html.dark:has(#fsus-aot-shell) body,
+html[data-theme-resolved='dark']:has(#fsus-aot-shell) body,
+html.dark:has(#fsus-aot-shell) #fsus-aot-shell,
+html[data-theme-resolved='dark']:has(#fsus-aot-shell) #fsus-aot-shell {
+  background: var(--fsusblog-page-bg, #09090b) !important;
+  color: var(--fsusblog-text-primary, #f0f0f4) !important;
+}

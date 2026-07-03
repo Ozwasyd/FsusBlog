@@ -68,15 +68,11 @@ public sealed class RelatedReadingService(
             return null;
         }
 
-        Task<int[]> sourceTagIdsTask = LoadSourceTagIdsAsync(articleId, cancellationToken);
-        Task<CandidateIndex> candidateIndexTask = LoadCandidateIndexAsync(articleId, article.CategoryId, now, cancellationToken);
-        await Task.WhenAll(sourceTagIdsTask, candidateIndexTask);
-
-        int[] sourceTagIds = await sourceTagIdsTask;
+        int[] sourceTagIds = await LoadSourceTagIdsAsync(articleId, cancellationToken);
         HashSet<int> sourceTags = sourceTagIds.ToHashSet();
         string[] keywords = ExtractKeywords(article.Title, article.Summary);
 
-        CandidateIndex candidateIndex = await candidateIndexTask;
+        CandidateIndex candidateIndex = await LoadCandidateIndexAsync(articleId, article.CategoryId, now, cancellationToken);
         List<RelatedReadingItem> related = candidateIndex.Rows
             .Select(candidate => ScoreCandidate(article, candidate, sourceTags, candidateIndex.Tags.GetValueOrDefault(candidate.Id), keywords))
             .OrderByDescending(static scored => scored.Score)
@@ -87,12 +83,8 @@ public sealed class RelatedReadingService(
             .Select(static scored => ToItem(scored.Row, scored.Reason))
             .ToList();
 
-        Task<RelatedArticleRow?> previousTask = LoadAdjacentAsync(article, newer: false, now, cancellationToken);
-        Task<RelatedArticleRow?> nextTask = LoadAdjacentAsync(article, newer: true, now, cancellationToken);
-        await Task.WhenAll(previousTask, nextTask);
-
-        RelatedArticleRow? previous = await previousTask;
-        RelatedArticleRow? next = await nextTask;
+        RelatedArticleRow? previous = await LoadAdjacentAsync(article, newer: false, now, cancellationToken);
+        RelatedArticleRow? next = await LoadAdjacentAsync(article, newer: true, now, cancellationToken);
 
         var response = new RelatedReadingResponse(
             related,

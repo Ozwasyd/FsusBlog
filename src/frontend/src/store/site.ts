@@ -7,12 +7,12 @@ import {
   type SiteComplianceConfigPublic
 } from '@/api/system'
 import { readPublicHydrationPayload } from '@/bootstrap/publicHydrationBootstrap'
-import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 import {
   normalizePublicComplianceConfig,
   normalizePublicSiteDescription,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
+import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 
 type SiteBrandConfig = Omit<SeoConfigPublic, 'title' | 'description' | 'keywords' | 'author' | 'ogImage' | 'baseUrl'>
 
@@ -21,8 +21,8 @@ export const DEFAULT_SITE_BRAND_CONFIG: SiteBrandConfig = {
   faviconIcoUrl: '/favicon.ico',
   faviconPngUrl: '',
   appleTouchIconUrl: '/apple-touch-icon.png',
-  manifestName: PUBLIC_SITE_IDENTITY_DEFAULTS.manifestName,
-  manifestShortName: PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName,
+  manifestName: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackManifestName,
+  manifestShortName: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackManifestShortName,
   pwaIcon192Url: '/icons/icon-192.png',
   pwaIcon512Url: '/icons/icon-512.png',
   pwaMaskableIconUrl: '/icons/maskable-512.png',
@@ -37,7 +37,7 @@ export const DEFAULT_SITE_BRAND_CONFIG: SiteBrandConfig = {
   loginIconUrl: ''
 }
 
-const DEFAULT_SITE_KEYWORDS = PUBLIC_SITE_IDENTITY_DEFAULTS.siteKeywords
+const DEFAULT_SITE_KEYWORDS = FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackKeywords
 
 function resolveBaseUrl(): string {
   if (typeof window === 'undefined') {
@@ -55,7 +55,7 @@ export const useSiteStore = defineStore('site', () => {
     title: normalizePublicSiteTitle(payload?.siteTitle ?? payload?.title),
     description: normalizePublicSiteDescription(payload?.siteDescription),
     keywords: DEFAULT_SITE_KEYWORDS,
-    author: PUBLIC_SITE_IDENTITY_DEFAULTS.siteAuthor,
+    author: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackAuthor,
     ogImage: "",
     baseUrl: payload?.baseUrl || resolveBaseUrl(),
     ...DEFAULT_SITE_BRAND_CONFIG,

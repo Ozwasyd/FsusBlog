@@ -73,10 +73,17 @@ describe('user facing workflow contract', () => {
     expect(articleDetailComposable).toContain("toast.success('已提交审核')")
     expect(commentList).toContain('COMMENT_CONTENT_CONSTRAINT.replyRenderLimit')
     expect(articleDetail).toContain('加载更多评论')
+    expect(articleDetail).toContain('article-comments-load-more')
     expect(publicArticleDetail).toContain('id="comments"')
     expect(publicArticleList).toContain('`阅读全文：${item.title}`')
     expect(publicArticleList).toContain('public-article-tag el-tag el-tag--small el-tag--light')
     expect(publicArticleList).not.toContain('<UiTag')
+  })
+
+  it('keeps public article detail constrained to a readable width', () => {
+    expect(publicArticleDetail).toContain('data-readable-region')
+    expect(publicArticleDetail).toContain('max-w-[760px]')
+    expect(publicArticleDetail).not.toContain('max-w-4xl')
   })
 
   it('keeps article reading aids progressive and hash navigation stable', () => {

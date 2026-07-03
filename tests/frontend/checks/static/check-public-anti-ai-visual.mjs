@@ -126,7 +126,7 @@ expectNotIncludes(featured, 'fsusBlogMotionPresets.articleCards', 'FeaturedArtic
 expectIncludes(articleDetail, 'rounded-[var(--fsusblog-reading-radius-media)]', 'PublicArticleDetailPageContent.vue')
 expectIncludes(homeFeedSurface, 'rounded-[var(--fsusblog-reading-radius-panel)]', 'HomeFeedSurface.vue')
 expectIncludes(hotArticlesIsland, 'rounded-[var(--fsusblog-reading-radius-control)]', 'homeHotArticlesIsland.ts')
-expectIncludes(siteStore, 'PUBLIC_SITE_IDENTITY_DEFAULTS.siteKeywords', 'site.ts default keywords source')
+expectIncludes(siteStore, 'FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackKeywords', 'site.ts default keywords source')
 expectIncludes(siteStore, 'normalizePublicSiteDescription(payload?.siteDescription)', 'site.ts default description source')
 expectIncludes(siteIdentityDefaults, '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。', 'publicSiteIdentityDefaults.ts default description')
 expectIncludes(siteIdentityDefaults, '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog', 'publicSiteIdentityDefaults.ts default keywords')

@@ -79,6 +79,7 @@ const authAction = computed(() => {
 
 :deep(.auth-header-brand) {
   display: inline-flex;
+  min-height: 2.5rem;
   min-width: 0;
   align-items: center;
   gap: 0.5rem;

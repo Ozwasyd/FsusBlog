@@ -5,6 +5,7 @@ import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveTestSession } from './test-session.mjs';
 
 const CLAIM_NAME_IDENTIFIER = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
 const CLAIM_NAME = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
@@ -33,8 +34,9 @@ const defaultAdminPermissions = [
 const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || '';
 const pgUser = process.env.FSUSBLOG_PG_USER || 'fsusblog';
 const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog';
-const testSession = process.env.FSUSBLOG_TEST_SESSION || '';
+const testSession = resolveTestSession();
 const persistAuthFixtures = process.env.FSUSBLOG_PERSIST_AUTH_FIXTURES !== '0';
+const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || '';
 
 const jwtSecret = process.env.Jwt__SecretKey
   || process.env.JWT_SECRET
@@ -120,6 +122,35 @@ function runPsqlNumber(sql, description) {
   return value;
 }
 
+function runRedisCli(args, description) {
+  if (!/^fsusblog-(?:dev|test|ci)(?:[-_.a-zA-Z0-9]*)$/.test(redisContainer)) {
+    throw new Error('FSUSBLOG_REDIS_CONTAINER must name a dev/test/ci fixture container before Redis fixtures can run.');
+  }
+
+  const result = spawnSync('docker', [
+    'exec',
+    redisContainer,
+    'redis-cli',
+    ...args
+  ], { encoding: 'utf8' });
+
+  if (result.status !== 0) {
+    throw new Error(`${description} redis fixture command failed: ${result.stderr || result.stdout}`);
+  }
+
+  return result.stdout.trim();
+}
+
+function clearFixtureUserBanCache(handle) {
+  if (!redisContainer) {
+    return;
+  }
+
+  const subjectHash = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, handle);
+  const key = `fsus:sec:blacklist-user:account:${subjectHash}`;
+  runRedisCli(['DEL', key, runtimeCacheKey(key)], `clear fixture user ban cache ${handle}`);
+}
+
 function base64Url(input) {
   return Buffer.from(input)
     .toString('base64')
@@ -162,18 +193,30 @@ function accountSubjectHash(identityKind, subject) {
     .digest('hex');
 }
 
+function runtimeCacheKey(key) {
+  return testSession ? `e2e:${testSession}:${key}` : key;
+}
+
 function randomToken(byteLength = 32) {
   return randomBytes(byteLength).toString('base64url');
 }
 
-export function stableFixtureSessionId(kind, handle) {
+export function stableFixtureSessionId(kind, handle, sessionScope = 'default') {
   const seed = [
     'fsusblog-test-session-v1',
     String(kind || '').trim().toLowerCase(),
     String(testSession || 'default').trim().toLowerCase(),
-    String(handle || '').trim().toLowerCase()
+    String(handle || '').trim().toLowerCase(),
+    String(sessionScope || 'default').trim().toLowerCase()
   ].join(':');
   return createHash('sha256').update(seed, 'utf8').digest('hex').slice(0, 32).toUpperCase();
+}
+
+function fixtureSessionScope({ rememberMe, deviceFingerprint }) {
+  return [
+    rememberMe ? 'remember' : 'standard',
+    String(deviceFingerprint || 'default').trim().toLowerCase()
+  ].join(':');
 }
 
 function buildUserCookieHeader({ accessToken, refreshToken, sessionId }) {
@@ -252,7 +295,24 @@ SELECT id FROM existing
 LIMIT 1;
 `, `fixture user ${normalizedHandle}`);
 
-  const sessionId = stableFixtureSessionId(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
+  runPsql(`
+UPDATE sys_user
+SET status = 0,
+    banreason = NULL,
+    deleted_at = NULL,
+    deleted_reason = NULL,
+    mfaenabled = false
+WHERE id = ${userId};
+
+DELETE FROM user_mfa_profile
+WHERE user_id = ${userId};
+`, `reset fixture user MFA ${normalizedHandle}`);
+  clearFixtureUserBanCache(normalizedHandle);
+
+  const sessionId = stableFixtureSessionId(
+    ANONYMOUS_ACCOUNT_KIND,
+    normalizedHandle,
+    fixtureSessionScope({ rememberMe, deviceFingerprint }));
   const refreshToken = randomToken();
   const accessToken = signJwt({
     [CLAIM_NAME_IDENTIFIER]: String(userId),
@@ -266,6 +326,15 @@ LIMIT 1;
     nbf: nowEpochSeconds(),
     exp: expiresAtEpochSeconds()
   });
+
+  runPsql(`
+UPDATE sys_user_session
+SET revokedat = now(),
+    revokereason = 'login_replaced'
+WHERE userid = ${userId}
+  AND sessionid <> ${sqlString(sessionId)}
+  AND revokedat IS NULL;
+`);
 
   runPsql(`
 INSERT INTO sys_user_session (
@@ -365,7 +434,10 @@ ON CONFLICT (handle) DO UPDATE SET
 RETURNING id;
 `, `fixture admin ${normalizedHandle}`);
 
-  const sessionId = stableFixtureSessionId(ADMIN_PRINCIPAL_KIND, normalizedHandle);
+  const sessionId = stableFixtureSessionId(
+    ADMIN_PRINCIPAL_KIND,
+    normalizedHandle,
+    fixtureSessionScope({ rememberMe, deviceFingerprint }));
   const accessToken = signJwt({
     [CLAIM_NAME_IDENTIFIER]: String(adminId),
     [CLAIM_NAME]: normalizedHandle,
@@ -438,6 +510,67 @@ ON CONFLICT (sessionid) DO UPDATE SET
   };
 }
 
+export function createAdminStepUpProofToken({
+  adminId,
+  sessionId,
+  action = 'admin-sensitive',
+  ttlSeconds = 45
+}) {
+  if (!Number.isFinite(Number(adminId)) || Number(adminId) <= 0) {
+    throw new Error('admin step-up proof requires a valid admin id');
+  }
+  if (!String(sessionId || '').trim()) {
+    throw new Error('admin step-up proof requires a valid session id');
+  }
+
+  const token = randomToken();
+  const identity = [
+    'admin',
+    Number(adminId),
+    String(sessionId).trim(),
+    String(action).trim(),
+    token
+  ].join(':');
+  const key = `fsus:sec:mfa-proof:${identity}`;
+  runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'admin step-up proof');
+  return token;
+}
+
+export function createUserMfaProofToken({
+  userId,
+  handle,
+  action,
+  ttlSeconds = 45
+}) {
+  if (!Number.isFinite(Number(userId)) || Number(userId) <= 0) {
+    throw new Error('user MFA proof requires a valid user id');
+  }
+  const normalizedHandle = String(handle || '').trim().toLowerCase();
+  if (!normalizedHandle) {
+    throw new Error('user MFA proof requires a valid handle');
+  }
+  const normalizedAction = String(action || '').trim().toLowerCase();
+  if (!normalizedAction) {
+    throw new Error('user MFA proof requires a valid action');
+  }
+
+  const token = randomToken();
+  const subject = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
+  const identity = createHash('sha256')
+    .update([
+      'mfa-proof',
+      String(Number(userId)),
+      subject,
+      normalizedAction,
+      token
+    ].join(':'), 'utf8')
+    .digest('hex')
+    .toUpperCase();
+  const key = `fsus:sec:mfa-proof:${identity}`;
+  runRedisCli(['SET', runtimeCacheKey(key), '1', 'EX', String(Math.max(1, ttlSeconds))], 'user MFA proof');
+  return token;
+}
+
 function cookieEntries(cookieHeader, url) {
   return cookieHeader
     .split(';')
@@ -504,6 +637,19 @@ export async function persistAuthFixtureManifest({
     path.join(fixturesDir, manifest.admin.storageStateFile),
     JSON.stringify(fixtureStorageState(admin, baseUrl), null, 2) + '\n',
     'utf8');
+  if (testSession) {
+    const sessionPrefix = testSession.replace(/[^a-z0-9-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase();
+    if (sessionPrefix) {
+      await writeFile(
+        path.join(fixturesDir, `${sessionPrefix}.user.storage-state.json`),
+        JSON.stringify(fixtureStorageState(user, baseUrl), null, 2) + '\n',
+        'utf8');
+      await writeFile(
+        path.join(fixturesDir, `${sessionPrefix}.admin.storage-state.json`),
+        JSON.stringify(fixtureStorageState(admin, baseUrl), null, 2) + '\n',
+        'utf8');
+    }
+  }
   return manifest;
 }
 

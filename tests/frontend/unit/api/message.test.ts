@@ -10,6 +10,14 @@ import { messageApi } from '@/api/message'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
+const queryToString = (query: unknown): string => {
+  if (query instanceof URLSearchParams) {
+    return query.toString()
+  }
+
+  return new URLSearchParams(query as Record<string, string>).toString()
+}
+
 describe('message API binary transport', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -20,9 +28,13 @@ describe('message API binary transport', () => {
     await messageApi.getAccountConversations(2, 20, 'unread')
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/messages/conversations?page=2&size=20&filter=unread',
+      binaryRoute: expect.objectContaining({
+        operationId: 'binary_get_messages_conversations',
+        query: expect.any(URLSearchParams)
+      }),
       frameType: FrameType.ConversationList
     }))
+    expect(queryToString(mockBinary.mock.calls[0][0].binaryRoute?.query)).toBe('page=2&size=20&filter=unread')
   })
 
   it('creates and replies through binary mutation frames', async () => {
@@ -30,7 +42,7 @@ describe('message API binary transport', () => {
     await messageApi.replyAccountConversation(7, { body: 'Reply' })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/messages/conversations',
+      binaryRoute: { operationId: 'binary_post_messages_conversations' },
       frameType: FrameType.ConversationDetail,
       requestOptions: expect.objectContaining({
         method: 'POST',
@@ -39,7 +51,10 @@ describe('message API binary transport', () => {
       })
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/messages/conversations/7/reply',
+      binaryRoute: {
+        operationId: 'binary_post_messages_conversations_id_long_reply',
+        params: { id: 7 }
+      },
       frameType: FrameType.ConversationMessage,
       requestOptions: expect.objectContaining({
         method: 'POST',
@@ -57,24 +72,40 @@ describe('message API binary transport', () => {
     await messageApi.adminSendSystemMessage({ targetAccountId: 3, subject: 'Notice', body: 'Body' })
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/admin/messages/conversations?page=1&size=50&filter=closed',
+      binaryRoute: expect.objectContaining({
+        operationId: 'binary_get_admin_messages_conversations',
+        query: expect.any(URLSearchParams)
+      }),
       frameType: FrameType.ConversationList
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/admin/messages/conversations/9',
+      binaryRoute: {
+        operationId: 'binary_get_admin_messages_conversations_id_long',
+        params: { id: 9 }
+      },
       frameType: FrameType.ConversationDetail
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/admin/messages/conversations/9/reply',
+      binaryRoute: {
+        operationId: 'binary_post_admin_messages_conversations_id_long_reply',
+        params: { id: 9 }
+      },
       frameType: FrameType.ConversationMessage
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/admin/messages/conversations/9/status',
+      binaryRoute: {
+        operationId: 'binary_post_admin_messages_conversations_id_long_status',
+        params: { id: 9 }
+      },
       frameType: FrameType.EmptySuccess
     }))
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
-      binaryUrl: '/api/binary/admin/messages/system-send',
+      binaryRoute: { operationId: 'binary_post_admin_messages_system_send' },
       frameType: FrameType.ConversationDetail
     }))
+    const adminListCall = mockBinary.mock.calls.find(([request]) =>
+      request.binaryRoute?.operationId === 'binary_get_admin_messages_conversations'
+    )?.[0]
+    expect(queryToString(adminListCall?.binaryRoute?.query)).toBe('page=1&size=50&filter=closed')
   })
 })

@@ -43,7 +43,7 @@ function resolveAuthState(input: PublicShellViewInput): Pick<PublicShellState, '
 
   return {
     authLabel: '账户',
-    authHref: '/user/identity'
+    authHref: '/user/profile'
   }
 }
 

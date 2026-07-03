@@ -35,17 +35,42 @@ type UxRoute = Readonly<{
   id: string
   path: string
   expectedUrl: string
+  allowQuery?: boolean
   storage: StorageKind
   injectCorpus: boolean
   screenshotSelector: string
+}>
+
+type UxCase = Readonly<{
+  viewport: UxViewport
+  route: UxRoute
+  theme: ThemeMode
+  media: MediaMode
+}>
+
+type UxCaseGroup = Readonly<{
+  id: string
+  viewport: UxViewport
+  theme: ThemeMode
+  media: MediaMode
+  storage: StorageKind
+  cases: UxCase[]
 }>
 
 const mode = parseMode(process.env.FSUSBLOG_UX_VIEWPORT_MODE)
 const modeConfig = UX_VIEWPORT_MATRIX.modes[mode]
 const themes = modeConfig.themes as ThemeMode[]
 const mediaModes = modeConfig.media as MediaMode[]
-const routeIds = modeConfig.routes === 'all' ? null : new Set(modeConfig.routes)
-const selectedViewports = uxViewportsForMode(mode)
+const themeIds = readOptionalSet('FSUSBLOG_UX_VIEWPORT_THEMES')
+const mediaIds = readOptionalSet('FSUSBLOG_UX_VIEWPORT_MEDIA')
+const viewportIds = readOptionalSet('FSUSBLOG_UX_VIEWPORT_VIEWPORTS')
+const routeIds = readOptionalSet('FSUSBLOG_UX_VIEWPORT_ROUTE_IDS')
+  ?? (modeConfig.routes === 'all' ? null : new Set(modeConfig.routes))
+const selectedThemes = themeIds ? themes.filter((theme) => themeIds.has(theme)) : themes
+const selectedMediaModes = mediaIds ? mediaModes.filter((media) => mediaIds.has(media)) : mediaModes
+const selectedViewports = viewportIds
+  ? uxViewportsForMode(mode).filter((viewport) => viewportIds.has(viewport.name))
+  : uxViewportsForMode(mode)
 const screenshotsEnabled = modeConfig.screenshots === true || process.env.FSUSBLOG_UX_VIEWPORT_SCREENSHOTS === '1'
 const outputRoot = path.resolve(process.cwd(), '../../.tmp/ux')
 const screenshotRoot = path.join(outputRoot, 'screenshots', mode)
@@ -54,26 +79,64 @@ let userStorageStatePromise: Promise<StorageState> | null = null
 let adminStorageStatePromise: Promise<StorageState> | null = null
 
 test.describe(`UX viewport boundaries (${mode})`, () => {
-  test.describe.configure({ timeout: mode === 'boundaries' ? 1_200_000 : 600_000 })
-
-  test('route, viewport, theme, media, and content boundaries stay usable', async ({ browser }) => {
-    const routes = buildUxRoutes().filter((route) => routeIds === null || routeIds.has(route.id))
-    const cases = buildCases(selectedViewports, routes, themes, mediaModes)
-
-    expect(routes.length, `${mode} route matrix should not be empty`).toBeGreaterThan(0)
-    expect(cases.length, `${mode} viewport matrix should not be empty`).toBeGreaterThan(0)
-
-    for (const testCase of cases) {
-      await runUxCase(browser, testCase)
-    }
+  test.describe.configure({
+    mode: mode === 'smoke' ? 'parallel' : 'default',
+    timeout: mode === 'boundaries' ? 1_200_000 : 300_000
   })
+
+  const routes = buildUxRoutes().filter((route) => routeIds === null || routeIds.has(route.id))
+  const cases = buildCases(selectedViewports, routes, selectedThemes, selectedMediaModes)
+
+  if (routes.length === 0 || cases.length === 0) {
+    throw new Error(`${mode} viewport matrix should not be empty`)
+  }
+
+  for (const caseGroup of buildCaseGroups(cases)) {
+    test(`${caseGroup.id} keeps viewport boundaries usable`, async ({ browser }) => {
+      await runUxCaseGroup(browser, caseGroup)
+    })
+  }
 })
+
+function buildCaseGroups(cases: UxCase[]): UxCaseGroup[] {
+  const groups = new Map<string, UxCaseGroup>()
+
+  for (const testCase of cases) {
+    const key = [testCase.viewport.name, testCase.theme, testCase.media, testCase.route.storage].join('|')
+    let group = groups.get(key)
+    if (!group) {
+      const groupNumber = String(groups.size + 1).padStart(3, '0')
+      group = {
+        id: `group-${groupNumber}-${testCase.viewport.name}-${testCase.theme}-${testCase.media}-${testCase.route.storage}`,
+        viewport: testCase.viewport,
+        theme: testCase.theme,
+        media: testCase.media,
+        storage: testCase.route.storage,
+        cases: []
+      }
+      groups.set(key, group)
+    }
+    group.cases.push(testCase)
+  }
+
+  return [...groups.values()]
+}
 
 function parseMode(value: string | undefined): UxViewportMode {
   if (value === 'visual' || value === 'boundaries') {
     return value
   }
   return 'smoke'
+}
+
+function readOptionalSet(name: string): Set<string> | null {
+  const raw = process.env[name]
+  if (!raw) {
+    return null
+  }
+
+  const values = raw.split(',').map((value) => value.trim()).filter(Boolean)
+  return values.length > 0 ? new Set(values) : null
 }
 
 function buildUxRoutes(): UxRoute[] {
@@ -90,6 +153,7 @@ function buildUxRoutes(): UxRoute[] {
     id: route.name,
     path: route.path,
     expectedUrl: route.expectedUrl,
+    allowQuery: route.name === 'user-messagebox',
     storage: 'user' as const,
     injectCorpus: ['user-profile', 'user-comments', 'user-messagebox'].includes(route.name),
     screenshotSelector: route.name === 'user-messagebox' ? '.messages-list-pane, main' : 'main'
@@ -99,6 +163,7 @@ function buildUxRoutes(): UxRoute[] {
     id: route.name,
     path: route.path,
     expectedUrl: route.expectedUrl,
+    allowQuery: route.name === 'manage-message',
     storage: 'admin' as const,
     injectCorpus: ['manage-dashboard', 'manage-write', 'manage-list', 'manage-settings', 'manage-users', 'manage-message'].includes(route.name),
     screenshotSelector: route.name === 'manage-write' ? '.write-editor-panel, main' : 'main'
@@ -112,32 +177,15 @@ function buildCases(
   routes: UxRoute[],
   selectedThemes: ThemeMode[],
   selectedMediaModes: MediaMode[]
-): Array<{
-  viewport: UxViewport
-  route: UxRoute
-  theme: ThemeMode
-  media: MediaMode
-}> {
-  const cases: Array<{
-    viewport: UxViewport
-    route: UxRoute
-    theme: ThemeMode
-    media: MediaMode
-  }> = []
-  const heavyMode = mode === 'boundaries'
+): UxCase[] {
+  const cases: UxCase[] = []
 
   for (const viewport of viewports) {
     for (const theme of selectedThemes) {
       for (const route of routes) {
         cases.push({ viewport, route, theme, media: 'default' as const })
 
-        const shouldProbeMedia = heavyMode
-          || ['public-article', 'public-login', 'user-profile', 'user-messagebox', 'manage-write', 'manage-users'].includes(route.id)
-        if (!shouldProbeMedia) {
-          continue
-        }
-
-        for (const media of selectedMediaModes.filter((candidate) => candidate !== 'default')) {
+        for (const media of extraMediaModesForRoute(route, selectedMediaModes)) {
           cases.push({ viewport, route, theme, media })
         }
       }
@@ -147,53 +195,67 @@ function buildCases(
   return cases
 }
 
-async function runUxCase(
-  browser: Browser,
-  testCase: {
-    viewport: UxViewport
-    route: UxRoute
-    theme: ThemeMode
-    media: MediaMode
+function extraMediaModesForRoute(route: UxRoute, selectedMediaModes: MediaMode[]): MediaMode[] {
+  const nonDefault = selectedMediaModes.filter((candidate) => candidate !== 'default')
+  const shouldProbeMedia = mode === 'boundaries'
+    || ['public-article', 'public-login', 'user-profile', 'user-messagebox', 'manage-write', 'manage-users'].includes(route.id)
+  if (shouldProbeMedia) {
+    return nonDefault
   }
-): Promise<void> {
-  const storageState = await storageStateFor(browser, testCase.route.storage)
-  const session = await openThemedAuditedPage(browser, testCase.theme, storageState)
-  const label = `${testCase.route.id} ${testCase.viewport.name} ${testCase.theme} ${testCase.media}`
+
+  return []
+}
+
+async function runUxCaseGroup(browser: Browser, group: UxCaseGroup): Promise<void> {
+  const storageState = await storageStateFor(browser, group.storage)
+  const session = await openThemedAuditedPage(browser, group.theme, storageState)
 
   try {
-    await session.page.setViewportSize({ width: testCase.viewport.width, height: testCase.viewport.height })
-    await applyMediaMode(session.page, testCase.media)
-    const start = session.audit.checkpoint()
-    await session.page.goto(testCase.route.path, { waitUntil: 'domcontentloaded' })
-    await waitForAppReady(session.page)
-    await applyMediaMode(session.page, testCase.media)
-    await settlePage(session.page)
-
-    await expect
-      .poll(() => {
-        const current = new URL(session.page.url())
-        return `${current.pathname}${current.search}`
-      }, { message: `${label} should land on expected route` })
-      .toBe(testCase.route.expectedUrl)
-
-    if (testCase.route.injectCorpus) {
-      await injectContentBoundaryCorpus(session.page)
-      await settlePage(session.page)
+    await session.page.setViewportSize({ width: group.viewport.width, height: group.viewport.height })
+    await applyMediaMode(session.page, group.media)
+    for (const testCase of group.cases) {
+      await runUxCase(session, testCase)
     }
-
-    await expect(session.page.locator('#app'), `${label} should render one app root`).toHaveCount(1)
-    await expect(session.page.locator('main, #app').first(), `${label} should show main shell`).toBeVisible()
-    await assertThemeReadable(session.page, testCase.theme)
-    await assertViewportBoundaryContract(session.page, label)
-
-    if (screenshotsEnabled && testCase.media === 'default') {
-      await captureUxScreenshot(session.page, testCase.route, testCase.viewport, testCase.theme)
-    }
-
-    session.audit.assertCleanSince(start, label)
   } finally {
     await session.close()
   }
+}
+
+async function runUxCase(
+  session: Awaited<ReturnType<typeof openThemedAuditedPage>>,
+  testCase: UxCase
+): Promise<void> {
+  const label = `${testCase.route.id} ${testCase.viewport.name} ${testCase.theme} ${testCase.media}`
+
+  await applyMediaMode(session.page, testCase.media)
+  const start = session.audit.checkpoint()
+  await session.page.goto(testCase.route.path, { waitUntil: 'domcontentloaded' })
+  await waitForAppReady(session.page)
+  await applyMediaMode(session.page, testCase.media)
+  await settlePage(session.page)
+
+  await expect
+    .poll(() => {
+      const current = new URL(session.page.url())
+      return testCase.route.allowQuery ? current.pathname : `${current.pathname}${current.search}`
+    }, { message: `${label} should land on expected route` })
+    .toBe(testCase.route.expectedUrl)
+
+  if (testCase.route.injectCorpus) {
+    await injectContentBoundaryCorpus(session.page)
+    await settlePage(session.page)
+  }
+
+  await expect(session.page.locator('#app'), `${label} should render one app root`).toHaveCount(1)
+  await expect(session.page.locator('main, #app').first(), `${label} should show main shell`).toBeVisible()
+  await assertThemeReadable(session.page, testCase.theme, label)
+  await assertViewportBoundaryContract(session.page, label)
+
+  if (screenshotsEnabled && testCase.media === 'default') {
+    await captureUxScreenshot(session.page, testCase.route, testCase.viewport, testCase.theme)
+  }
+
+  session.audit.assertCleanSince(start, label)
 }
 
 async function storageStateFor(browser: Browser, storage: StorageKind): Promise<StorageState | undefined> {
@@ -237,6 +299,8 @@ async function injectContentBoundaryCorpus(page: Page): Promise<void> {
     const section = document.createElement('section')
     section.dataset.uxContentBoundaryCorpus = corpus.version
     section.className = 'markdown-body prose fsus-ux-boundary-probe'
+    section.style.maxWidth = '760px'
+    section.style.width = '100%'
     section.setAttribute('aria-label', 'UX content boundary corpus')
 
     const title = document.createElement('h2')

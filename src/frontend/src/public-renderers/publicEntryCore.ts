@@ -9,6 +9,7 @@ import type { PublicPageKind } from '@/public-renderers/publicRenderBase'
 import { renderPublicAotShell, type PublicAotPageAssembly } from '@/public-renderers/scaffold'
 import { registerPublicStaticRouterLink } from '@/public-renderers/publicStaticRouterLink'
 import { renderMarkdownWithFsusRuntime } from '@/fsusui/markdown'
+import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
 
 export const PUBLIC_RENDERER_VERSION = 'public-app-ssr@2026-06-03-fsusui-boundary-3'
 
@@ -105,7 +106,130 @@ export async function renderAotBodyHtml(source: string, baseUrl: string | null =
     baseUrl
   })
 
-  return result.ok ? result.value.html ?? '' : ''
+  const html = result.ok ? result.value.html ?? '' : ''
+  return html.trim() ? html : renderFallbackAotMarkdownHtml(source, baseUrl)
+}
+
+function escapeMarkdownText(value: string): string {
+  return value
+    .replace(/&/gu, '&amp;')
+    .replace(/</gu, '&lt;')
+    .replace(/>/gu, '&gt;')
+    .replace(/"/gu, '&quot;')
+}
+
+function resolveMarkdownUrl(rawUrl: string, baseUrl: string | null): string {
+  const trimmed = rawUrl.trim()
+  if (!baseUrl || /^(?:https?:|data:|mailto:|#)/iu.test(trimmed)) {
+    return escapeMarkdownText(trimmed)
+  }
+
+  try {
+    return escapeMarkdownText(new URL(trimmed, baseUrl).toString())
+  } catch {
+    return escapeMarkdownText(trimmed)
+  }
+}
+
+function renderParagraph(lines: string[]): string {
+  const text = lines.join(' ').trim()
+  return text ? `<p>${escapeMarkdownText(text)}</p>` : ''
+}
+
+function renderFallbackTable(lines: string[]): string {
+  const cells = (line: string): string[] =>
+    line.trim().replace(/^\|/u, '').replace(/\|$/u, '').split('|').map((cell) => cell.trim())
+  const [headerLine, , ...bodyLines] = lines
+  const headers = cells(headerLine ?? '')
+  const rows = bodyLines.map(cells)
+  const thead = `<thead><tr>${headers.map((cell) => `<th>${escapeMarkdownText(cell)}</th>`).join('')}</tr></thead>`
+  const tbody = `<tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeMarkdownText(cell)}</td>`).join('')}</tr>`).join('')}</tbody>`
+  return `<table>${thead}${tbody}</table>`
+}
+
+function renderFallbackAotMarkdownHtml(source: string, baseUrl: string | null): string {
+  const html: string[] = []
+  const paragraph: string[] = []
+  const lines = source.replace(/\r\n?/gu, '\n').split('\n')
+
+  const flushParagraph = (): void => {
+    const rendered = renderParagraph(paragraph.splice(0))
+    if (rendered) {
+      html.push(rendered)
+    }
+  }
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? ''
+    const trimmed = line.trim()
+
+    if (!trimmed) {
+      flushParagraph()
+      continue
+    }
+
+    const fence = trimmed.match(/^```([A-Za-z0-9_-]*)\s*$/u)
+    if (fence) {
+      flushParagraph()
+      const language = fence[1] ? ` class="language-${escapeMarkdownText(fence[1])}"` : ''
+      const codeLines: string[] = []
+      index += 1
+      while (index < lines.length && !/^```\s*$/u.test(lines[index]?.trim() ?? '')) {
+        codeLines.push(lines[index] ?? '')
+        index += 1
+      }
+      html.push(`<pre><code${language}>${escapeMarkdownText(codeLines.join('\n'))}</code></pre>`)
+      continue
+    }
+
+    const heading = trimmed.match(/^(#{1,6})\s+(.+)$/u)
+    if (heading) {
+      flushParagraph()
+      const level = heading[1].length
+      html.push(`<h${level}>${escapeMarkdownText(heading[2])}</h${level}>`)
+      continue
+    }
+
+    const image = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/u)
+    if (image) {
+      flushParagraph()
+      html.push(`<p><img src="${resolveMarkdownUrl(image[2], baseUrl)}" alt="${escapeMarkdownText(image[1])}" loading="lazy" decoding="async"></p>`)
+      continue
+    }
+
+    if (
+      trimmed.startsWith('|')
+      && (lines[index + 1] ?? '').trim().match(/^\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?$/u)
+    ) {
+      flushParagraph()
+      const tableLines = [line, lines[index + 1] ?? '']
+      index += 2
+      while (index < lines.length && (lines[index] ?? '').trim().startsWith('|')) {
+        tableLines.push(lines[index] ?? '')
+        index += 1
+      }
+      index -= 1
+      html.push(renderFallbackTable(tableLines))
+      continue
+    }
+
+    if (trimmed.startsWith('>')) {
+      flushParagraph()
+      const quoteLines: string[] = []
+      while (index < lines.length && (lines[index] ?? '').trim().startsWith('>')) {
+        quoteLines.push((lines[index] ?? '').trim().replace(/^>\s?/u, ''))
+        index += 1
+      }
+      index -= 1
+      html.push(`<blockquote>${renderParagraph(quoteLines)}</blockquote>`)
+      continue
+    }
+
+    paragraph.push(line)
+  }
+
+  flushParagraph()
+  return sanitizeMarkdownRuntimeHtml(html.join('\n'))
 }
 
 function encodePayload(value: unknown): string {

@@ -25,7 +25,7 @@
 
     <el-tabs
       v-model="activeTab"
-      class="blog-motion-task-region"
+      class="blog-motion-task-region settings-tabs blog-scroll-x-safe"
       :class="{
         'blog-motion-task-region--pending': savingSite || savingCompliance || savingPage || refreshingPage,
         'blog-motion-task-region--settled': isTaskHighlighted('settings-site')
@@ -708,5 +708,26 @@ const confirmPageRefresh = async (): Promise<void> => {
 .image-replace-overlay {
   background: var(--fsus-overlay-color, transparent);
   color: var(--fsusblog-page-bg);
+}
+
+.settings-tabs {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.settings-tabs :deep(.el-tabs__header),
+.settings-tabs :deep(.el-tabs__nav-wrap),
+.settings-tabs :deep(.el-tabs__nav-scroll) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.settings-tabs :deep(.el-tabs__nav-scroll) {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.settings-tabs :deep(.el-tabs__nav-scroll::-webkit-scrollbar) {
+  display: none;
 }
 </style>

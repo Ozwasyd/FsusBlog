@@ -80,6 +80,40 @@ public sealed class PublicAotBackfillSchedulerTests
     }
 
     [Fact]
+    public void TrySchedule_NewerInvalidationVersionForSameRouteSupersedesOlderReservation()
+    {
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        var scheduler = new PublicAotBackfillScheduler(configuration);
+        var stale = new PublicAotBackfillRequest(PublicPageKind.ArticleDetail, "article:42", "/article/42", string.Empty, "cache:article:42")
+        {
+            ScheduledInvalidationVersion = 1
+        };
+        var fresh = stale with
+        {
+            ScheduledInvalidationVersion = 2
+        };
+        var duplicateFresh = stale with
+        {
+            ScheduledInvalidationVersion = 2
+        };
+
+        bool staleQueued = scheduler.TrySchedule(stale);
+        bool freshQueued = scheduler.TrySchedule(fresh);
+        bool duplicateFreshQueued = scheduler.TrySchedule(duplicateFresh);
+        scheduler.Complete(stale);
+        bool duplicateWhileFreshInFlight = scheduler.TrySchedule(duplicateFresh);
+        scheduler.Complete(fresh);
+        bool queuedAfterFreshComplete = scheduler.TrySchedule(duplicateFresh);
+
+        Assert.True(staleQueued);
+        Assert.True(freshQueued);
+        Assert.False(duplicateFreshQueued);
+        Assert.False(duplicateWhileFreshInFlight);
+        Assert.True(queuedAfterFreshComplete);
+        Assert.Equal(1, scheduler.InFlightCount);
+    }
+
+    [Fact]
     public void TrySchedule_WhenSsrCircuitIsOpen_DropsWithoutLeakingInFlight()
     {
         IConfiguration configuration = new ConfigurationBuilder()

@@ -164,6 +164,16 @@ describe('useHumanReadProof', () => {
     expect(vi.mocked(submitHumanReadProof).mock.calls[1][0].routeKey).toBe('archive')
   })
 
+  it('does not read a disposed controller when disabled before the first tick settles', async () => {
+    const enabled = ref(true)
+    mountHarness(ref('home'), enabled)
+
+    enabled.value = false
+    await flushPromises()
+
+    expect(observerCallback).toBeNull()
+  })
+
   it('pauses dwell while the document is hidden and resumes after it becomes visible', async () => {
     mountHarness()
     await waitForObserver()
@@ -220,13 +230,13 @@ async function waitForObserver(): Promise<void> {
   expect(observerCallback).not.toBeNull()
 }
 
-function mountHarness(routeKey = ref('home')) {
+function mountHarness(routeKey = ref('home'), enabled = ref(true)) {
   const wrapper = mount(defineComponent({
     setup() {
       useHumanReadProof({
         scope: computed(() => 'site'),
         routeKey: computed(() => routeKey.value),
-        enabled: computed(() => true)
+        enabled: computed(() => enabled.value)
       })
       return () => h('main', { 'data-human-read-root': '' })
     }

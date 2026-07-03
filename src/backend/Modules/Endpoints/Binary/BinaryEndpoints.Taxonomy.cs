@@ -16,6 +16,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models;
 using FsusBlog.Server.Models.Dtos;
@@ -86,6 +87,7 @@ public static partial class BinaryEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "taxonomy.category")
         .AddEndpointFilter<RiskAwarePublicReadFilter>()
         .CacheOutput(HttpCachePolicyCatalog.ApplyCategoryList);
 
@@ -140,6 +142,7 @@ public static partial class BinaryEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "taxonomy.tag")
         .AddEndpointFilter<RiskAwarePublicReadFilter>()
         .CacheOutput(HttpCachePolicyCatalog.ApplyTagList);
 

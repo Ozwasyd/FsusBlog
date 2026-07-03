@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 
 namespace FsusBlog.Server.Tests;
 
+[Collection(PublicSpaTemplateLocatorTestCollection.Name)]
 public sealed class PublicSpaTemplateLocatorTests
 {
     [Fact]

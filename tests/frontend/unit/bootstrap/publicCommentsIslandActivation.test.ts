@@ -159,6 +159,19 @@ async function importPublicShell(): Promise<typeof import('@/bootstrap/publicShe
     prewarmPublicRoute,
     resolvePublicRoutePrewarmTarget: vi.fn(() => null)
   }))
+  vi.doMock('@/public-renderers/publicShellRuntimeState', () => ({
+    resetPublicShellRuntimeAuthState: vi.fn()
+  }))
+  vi.doMock('@/public-renderers/publicRouteSeedStore', () => ({
+    putPublicRouteSeed: vi.fn()
+  }))
+  vi.doMock('@/bootstrap/publicTakeoverState', () => ({
+    getPublicRuntimeOwner: vi.fn(() => 'public-shell'),
+    markPublicTakeoverFallback: vi.fn()
+  }))
+  vi.doMock('@/bootstrap/publicNavigationIntent', () => ({
+    classifyPublicNavigationIntent: vi.fn(() => ({ kind: 'comments-island' }))
+  }))
   vi.doMock('@/api/auth', () => ({
     getMe
   }))
@@ -171,7 +184,10 @@ async function importPublicShell(): Promise<typeof import('@/bootstrap/publicShe
     unmountArticleCommentsIsland
   }))
 
-  return await import('@/bootstrap/publicShell')
+  vi.useRealTimers()
+  const publicShellModule = await import('@/bootstrap/publicShell')
+  vi.useFakeTimers()
+  return publicShellModule
 }
 
 async function bootstrapAndSettleInitialStyles(): Promise<void> {

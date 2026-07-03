@@ -6,8 +6,12 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
-const timeoutMs = Number(process.env.FSUSBLOG_HTTP_TIMEOUT_MS || 15000)
 const waitMs = Number(process.env.FSUSBLOG_PUBLIC_AOT_WAIT_MS || 15000)
+const timeoutMs = Number(
+  process.env.FSUSBLOG_PUBLIC_AOT_FETCH_TIMEOUT_MS
+  || process.env.FSUSBLOG_HTTP_TIMEOUT_MS
+  || Math.min(Math.max(waitMs, 15000), 60000)
+)
 const manifestToken = process.env.FSUSBLOG_PUBLIC_AOT_MANIFEST_TOKEN || ''
 const sidecarSourceDir = process.env.FSUSBLOG_PUBLIC_AOT_SIDECAR_SOURCE_DIR
   || join(repoRoot, 'src', 'backend', 'wwwroot', 'aot-cache', 'payloads')
@@ -18,7 +22,7 @@ function parseArgs(argv) {
   const options = {
     scope: 'all',
     changedSince: '',
-    concurrency: 4,
+    concurrency: Number(process.env.FSUSBLOG_PUBLIC_AOT_CONCURRENCY || 1),
     failFast: false,
     jsonReport: false
   }
@@ -104,6 +108,52 @@ async function fetchManifest(options) {
     .sort((left, right) => left.priority - right.priority || left.path.localeCompare(right.path))
 }
 
+async function fetchPublicAotHealth() {
+  const headers = { Accept: 'application/json' }
+  if (manifestToken) {
+    headers['X-Fsus-Public-Aot-Token'] = manifestToken
+  }
+
+  const { promise } = withTimeout((signal) => fetch(new URL('/internal/public-aot/health', baseUrl), {
+    signal,
+    headers
+  }), timeoutMs)
+  const response = await promise
+  if (!response.ok) {
+    throw new Error(`health => ${response.status}`)
+  }
+
+  const body = await response.json()
+  const report = body?.data ?? body?.Data ?? body
+  const status = report?.status ?? report?.Status
+  const probe = report?.sampleWorkerProbe ?? report?.SampleWorkerProbe
+  const probeStatus = probe?.status ?? probe?.Status
+  if (status !== 'ok' || probeStatus !== 'ok') {
+    throw new Error(`health => ${status ?? 'unknown'}/${probeStatus ?? 'unknown'}`)
+  }
+}
+
+async function waitForPublicAotHealth() {
+  const startedAt = Date.now()
+  let lastError = null
+  while (Date.now() - startedAt < waitMs) {
+    try {
+      await fetchPublicAotHealth()
+      console.log('[warm-public-aot] health=ok')
+      return
+    } catch (error) {
+      lastError = error
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+  }
+
+  if (lastError) {
+    throw lastError
+  }
+
+  throw new Error('health warmup deadline exceeded')
+}
+
 async function fetchHtml(path) {
   const { promise } = withTimeout((signal) => fetch(`${baseUrl}${path}`, {
     signal,
@@ -118,29 +168,61 @@ async function fetchHtml(path) {
   return source
 }
 
+function isAotHitSource(source) {
+  return source === 'server-ssr'
+}
+
+async function fetchHtmlUntil(path, deadlineMs) {
+  let lastError = null
+  while (Date.now() < deadlineMs) {
+    try {
+      return await fetchHtml(path)
+    } catch (error) {
+      lastError = error
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+  }
+
+  if (lastError) {
+    throw lastError
+  }
+
+  throw new Error(`${path} warmup deadline exceeded`)
+}
+
 async function waitForAotHit(path) {
   const startedAt = Date.now()
   let lastSource = 'unknown'
+  let lastError = null
   while (Date.now() - startedAt < waitMs) {
-    lastSource = await fetchHtml(path)
-    if (lastSource !== 'spa-fallback' && lastSource !== 'spa-index') {
-      return lastSource
+    try {
+      lastSource = await fetchHtml(path)
+      lastError = null
+      if (isAotHitSource(lastSource)) {
+        return lastSource
+      }
+    } catch (error) {
+      lastError = error
     }
 
     await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+
+  if (lastError) {
+    throw lastError
   }
 
   return lastSource
 }
 
 async function warmRoute(route) {
-  const first = await fetchHtml(route.path)
+  const first = await fetchHtmlUntil(route.path, Date.now() + waitMs)
   const settled = await waitForAotHit(route.path)
   return {
     ...route,
     first,
     settled,
-    ok: settled !== 'spa-fallback' && settled !== 'spa-index'
+    ok: isAotHitSource(settled)
   }
 }
 
@@ -211,6 +293,7 @@ async function main() {
     throw new Error('manifest returned no routes')
   }
 
+  await waitForPublicAotHealth()
   const results = await runPool(routes, options.concurrency, options.failFast)
   const failed = results.filter((result) => !result.ok)
   if (failed.length === 0) {

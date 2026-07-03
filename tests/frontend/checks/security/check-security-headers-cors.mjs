@@ -45,7 +45,10 @@ function assertCommonSecurityHeaders(response, label) {
   assertHeaderContains(response, 'content-security-policy', "'wasm-unsafe-eval'", label);
   assertHeaderContains(response, 'content-security-policy', "style-src 'self'", label);
   assertHeaderContains(response, 'content-security-policy', "style-src-attr 'unsafe-inline'", label);
+  assertHeaderContains(response, 'content-security-policy', "img-src 'self' data: blob:", label);
   assertHeaderNotContains(response, 'content-security-policy', "style-src 'self' 'unsafe-inline'", label);
+  assertHeaderNotContains(response, 'content-security-policy', 'img-src http:', label);
+  assertHeaderNotContains(response, 'content-security-policy', 'img-src https:', label);
 }
 
 function assertHtmlSecurityHeaders(response, label) {

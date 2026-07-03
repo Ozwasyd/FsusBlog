@@ -95,8 +95,12 @@ const scenarios = [
     id: 'public-guest-stream-without-pow',
     route: '/',
     action: async (page) => {
+      const notificationStreamRequest = page.waitForRequest(
+        (request) => NOTIFICATION_STREAM_PATTERN.test(request.url()),
+        { timeout: 25_000 }
+      )
       await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
-      await page.waitForTimeout(6200)
+      await notificationStreamRequest
     },
     minNotificationStreamRequests: 1,
     maxPowChallenges: 0,
@@ -192,6 +196,15 @@ async function runScenario(browser, scenario) {
     preemptLogs: [],
     consoleMessages: [],
   }
+  const recordNotificationStreamRequest = (url) => {
+    if (!NOTIFICATION_STREAM_PATTERN.test(url)) {
+      return
+    }
+
+    if (!counters.notificationStreamRequests.includes(url)) {
+      counters.notificationStreamRequests.push(url)
+    }
+  }
   const context = await browser.newContext()
   await context.addInitScript(() => {
     Object.defineProperty(navigator, 'hardwareConcurrency', {
@@ -216,13 +229,14 @@ async function runScenario(browser, scenario) {
     if (ADMIN_ME_PATTERN.test(url)) {
       counters.adminMeRequests.push(url)
     }
-    if (NOTIFICATION_STREAM_PATTERN.test(url)) {
-      counters.notificationStreamRequests.push(url)
-    }
+    recordNotificationStreamRequest(url)
     await route.continue()
   })
 
   const page = await context.newPage()
+  page.on('request', (request) => {
+    recordNotificationStreamRequest(request.url())
+  })
   page.on('console', (message) => {
     const text = message.text()
     counters.consoleMessages.push(text)

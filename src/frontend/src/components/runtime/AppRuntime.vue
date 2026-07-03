@@ -5,12 +5,30 @@ import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { markStartup, measureStartup } from '@/bootstrap/startupProfiler'
 import { isPublicSeoPath } from '@/bootstrap/publicShellPrimitives'
 import { safeConsoleWarn } from '@/services/safeConsole'
+import {
+  resetPublicShellRuntimeAuthState,
+  resolvePublicShellRuntimeAuthState,
+  setPublicShellRuntimeAuthState
+} from '@/public-renderers/publicShellRuntimeState'
+import { isLocalFixtureSessionActive } from '@/services/localFixtureSession'
 
-const { userStore, ensureSiteInfo, ensurePublicShell, ensureAccountSession, syncAuthPhase } = useSessionBootstrap()
+const {
+  userStore,
+  adminStore,
+  ensureSiteInfo,
+  ensurePublicShell,
+  ensureAccountSession,
+  ensureAdminSession,
+  syncAuthPhase
+} = useSessionBootstrap()
 const { initNotification, stopNotification } = useNotification()
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+}
+
+type RuntimeWindow = Window & {
+  __FSUSBLOG_DISABLE_NOTIFICATION_STREAM__?: boolean
 }
 
 let hasTriggeredIntent = false
@@ -33,8 +51,13 @@ function isAuthFlowRouteNow(): boolean {
   return path === '/login' || path === '/register'
 }
 
+function isNotificationStreamDisabled(): boolean {
+  return (window as RuntimeWindow).__FSUSBLOG_DISABLE_NOTIFICATION_STREAM__ === true
+    || document.documentElement.dataset.fsusDisableNotificationStream === 'true'
+}
+
 function shouldStartGuestNotifications(): boolean {
-  return !isAuthFlowRouteNow()
+  return !isNotificationStreamDisabled() && !isAuthFlowRouteNow()
 }
 
 const runAfterFirstPaint = (task: () => void): void => {
@@ -54,6 +77,10 @@ const runOnIdle = (task: () => void, timeout = 2500): void => {
 }
 
 const requestNotificationInit = (loggedIn: boolean, errorLabel: string): void => {
+  if (isNotificationStreamDisabled()) {
+    return
+  }
+
   pendingNotificationMode = loggedIn
   if (notificationInitScheduled) {
     return
@@ -83,7 +110,7 @@ watch(
       return
     }
 
-    if (isAuthFlowRouteNow() || (!loggedIn && isPublicRouteNow())) {
+    if (isNotificationStreamDisabled() || isAuthFlowRouteNow() || (!loggedIn && isPublicRouteNow())) {
       return
     }
 
@@ -145,7 +172,17 @@ function bootstrapAuthAndSiteState(): Promise<void> {
 
     if (publicRoute) {
       await ensurePublicShell()
-      requestNotificationInit(false, '[AppRuntime] 公共访客连接建立受限')
+      if (isLocalFixtureSessionActive()) {
+        await ensureAccountSession({ reason: 'runtime' })
+        await ensureAdminSession({ reason: 'runtime' })
+        setPublicShellRuntimeAuthState(resolvePublicShellRuntimeAuthState({
+          accountId: userStore.userInfo?.accountId ?? null,
+          canManage: adminStore.canManage
+        }))
+      } else {
+        resetPublicShellRuntimeAuthState()
+      }
+      requestNotificationInit(userStore.isLoggedIn, '[AppRuntime] 公共访客连接建立受限')
       markStartup('runtime-bootstrap:ready')
       measureStartup('runtime-bootstrap', 'runtime-bootstrap:start', 'runtime-bootstrap:ready')
       return

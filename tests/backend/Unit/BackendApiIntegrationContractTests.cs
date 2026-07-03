@@ -95,6 +95,30 @@ public sealed partial class BackendApiIntegrationContractTests
     }
 
     [Fact]
+    public void PublicReadRiskAwareBinaryEndpoints_RetainRiskActionMetadata()
+    {
+        foreach (string path in Directory.EnumerateFiles(BackendTestPaths.FromRoot("src", "backend", "Modules", "Endpoints", "Binary"), "*.cs"))
+        {
+            string source = File.ReadAllText(path);
+            int searchIndex = 0;
+            while (true)
+            {
+                int filterIndex = source.IndexOf("AddEndpointFilter<RiskAwarePublicReadFilter>()", searchIndex, StringComparison.Ordinal);
+                if (filterIndex < 0)
+                {
+                    break;
+                }
+
+                int routeStart = source.LastIndexOf("group.Map", filterIndex, StringComparison.Ordinal);
+                Assert.True(routeStart >= 0, $"{Path.GetFileName(path)} public read filter must belong to a group.Map route.");
+                string routeChain = source[routeStart..filterIndex];
+                Assert.Contains(".WithRiskAction(RiskActionNames.PublicRead", routeChain, StringComparison.Ordinal);
+                searchIndex = filterIndex + "AddEndpointFilter<RiskAwarePublicReadFilter>()".Length;
+            }
+        }
+    }
+
+    [Fact]
     public void BinaryAdminArticleListEndpoint_RejectsInvalidPaginationInsteadOfCoercing()
     {
         string articles = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs");

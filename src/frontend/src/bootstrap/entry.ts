@@ -1,6 +1,5 @@
 import '@/bootstrap/criticalFonts'
 import { registerServiceWorker } from '@/services/serviceWorkerRuntime'
-import { ensureThemeRuntime } from '@/services/themeRuntime'
 import { installSafeConsoleGuard } from '@/services/safeConsole'
 import {
   hasServerAotShell,
@@ -18,7 +17,6 @@ markStartup('entry')
 measureStartup('server-spa-preload-to-entry', 'server-spa-preload', 'entry')
 measureStartup('server-spa-entry-injected-to-entry', 'server-spa-entry-injected', 'entry')
 
-ensureThemeRuntime()
 void registerServiceWorker()
 
 function isRecoverableBootstrapImportError(error: unknown): boolean {

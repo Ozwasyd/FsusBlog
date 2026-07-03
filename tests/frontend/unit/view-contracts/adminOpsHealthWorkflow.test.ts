@@ -27,7 +27,7 @@ describe('admin ops health workflow contract', () => {
     expect(opsHealth).toContain('opsRecentErrors')
     expect(opsHealth).toContain('error.action')
     expect(opsHealth).toContain('error.message')
-    expect(opsHealth).toContain('statusLabel(error.severity)')
+    expect(opsHealth).toContain('adminStatusLabel[toAdminSystemStatus(error.severity)]')
     expect(opsHealth).toContain('formatOpsErrorTime(error.occurredAt)')
     expect(opsHealth).toContain('error.detail')
     expect(opsHealth).not.toContain('{{ error }}')

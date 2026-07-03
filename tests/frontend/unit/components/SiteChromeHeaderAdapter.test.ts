@@ -80,6 +80,9 @@ describe('SiteChromeHeaderAdapter contract', () => {
   })
 
   it('keeps defineProps defaults independent from script setup locals', () => {
+    expect(adapterSource).toContain('FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle')
+    expect(adapterSource).not.toContain('PUBLIC_SHELL_DEFAULTS.siteTitle')
+    expect(adapterSource).not.toContain('PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle')
     expect(adapterSource).toContain(
       'themeModeLabels: () => FSUSBLOG_THEME_MODE_LABELS',
     )

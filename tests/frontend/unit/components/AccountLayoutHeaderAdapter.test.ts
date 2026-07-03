@@ -22,12 +22,17 @@ describe('AccountLayout header adapter integration', () => {
   it('keeps account-specific header actions and mobile menu entry', () => {
     expect(accountLayoutSource).toContain('<ThemeModeToggle />')
     expect(accountLayoutSource).toContain('主站')
+    expect(accountLayoutSource).toContain('class="account-header-action"')
+    expect(accountLayoutSource).toContain('@apply inline-flex min-h-9 items-center justify-center')
+    expect(accountLayoutSource).toContain(':deep(.account-header-action)')
+    expect(accountLayoutSource).not.toContain('.account-header-action.el-button')
+    expect(accountLayoutSource).toContain('min-height: 2.25rem;')
     expect(accountLayoutSource).toContain("openPolicy('guidelines')")
     expect(accountLayoutSource).toContain("openPolicy('privacy')")
     expect(accountLayoutSource).toContain('handleLogout')
-    expect(accountLayoutSource).toContain(
-      'aria-controls="account-mobile-drawer"',
-    )
+    expect(accountLayoutSource).toContain('account-mobile-navigation')
+    expect(accountLayoutSource).toContain('account-mobile-group-control')
+    expect(accountLayoutSource).toContain('account-mobile-link-strip')
   })
 
   it('passes raw account brand image fields to the adapter', () => {

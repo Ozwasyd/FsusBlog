@@ -69,6 +69,8 @@ const CONVERSATION_MESSAGE_PREVIEW_POD_SIZE = 32
 const CONVERSATION_LIST_ITEM_POD_SIZE = 76
 const CONVERSATION_MESSAGE_POD_SIZE = 48
 const CONVERSATION_DETAIL_POD_SIZE = 36
+const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046
+const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 1
 const ARTICLE_LIST_RECORD_SIZE = 56
 const ARTICLE_LIST_RECORD_WITH_STATUS_SIZE = 76
 const COMPACT_TAG_RECORD_SIZE = 12
@@ -803,7 +805,7 @@ function decodeMutationId(payload) {
 }
 
 function decodeUploadInit(payload) {
-  assertPayloadLength(payload, 440, 'upload_init_payload_invalid')
+  assertPayloadLength(payload, 568, 'upload_init_payload_invalid')
   return {
     uploadId: readFixedUtf8(payload, 0, 64),
     fileName: readFixedUtf8(payload, 64, 256),
@@ -812,7 +814,8 @@ function decodeUploadInit(payload) {
     totalBytes: readInt64FromBytes(payload, 416),
     chunkSize: readInt32(new DataView(payload.buffer, payload.byteOffset, payload.byteLength), 424),
     totalParts: readInt32(new DataView(payload.buffer, payload.byteOffset, payload.byteLength), 428),
-    expiresAt: new Date(readInt64FromBytes(payload, 432)).toISOString().replace('.000Z', 'Z')
+    expiresAt: new Date(readInt64FromBytes(payload, 432)).toISOString().replace('.000Z', 'Z'),
+    uploadToken: readFixedUtf8(payload, 440, 128)
   }
 }
 
@@ -982,7 +985,22 @@ export function decodePublicAotPayload(text) {
 
 function decodeArticlePage(payload) {
   const reader = new BinaryReader(payload)
-  const total = reader.readInt32()
+  let hasCursorMetadata = false
+  let nextCursorUnixMs = 0
+  let hasMore = false
+  let total = reader.readInt32()
+  if (total === ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC) {
+    const version = reader.readInt32()
+    if (version !== ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION) {
+      throw new Error('article_page_cursor_version_invalid')
+    }
+
+    nextCursorUnixMs = Number(reader.readInt64())
+    hasMore = reader.readByte() === 1
+    hasCursorMetadata = true
+    total = reader.readInt32()
+  }
+
   const count = reader.readInt32()
   const tagRecordCount = reader.readInt32()
   if (count < 0 || tagRecordCount < 0) {
@@ -1039,7 +1057,12 @@ function decodeArticlePage(payload) {
   if (reader.remaining() !== 0) {
     throw new Error('article_page_trailing_bytes')
   }
-  return { items, total }
+  return {
+    items,
+    total,
+    nextCursor: hasCursorMetadata && hasMore && nextCursorUnixMs > 0 ? String(nextCursorUnixMs) : null,
+    hasMore
+  }
 }
 
 function decodeArticleDetail(payload) {

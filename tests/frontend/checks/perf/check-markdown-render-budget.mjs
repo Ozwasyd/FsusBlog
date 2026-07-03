@@ -76,7 +76,7 @@ const requirements = [
   ['preview pane uses v-if', /v-if="isPreviewMounted"/u.test(adapter)],
   ['manual refresh for stale large preview', adapter.includes('refreshManualPreview')],
   ['CSS content visibility containment', adapter.includes('content-visibility: auto') && adapter.includes('contain-intrinsic-size: 900px')],
-  ['FsusUI 1.5 markdown renderer dependency', packageJson.dependencies?.['@ozwasyd/element-plus'] === '1.5.0'],
+  ['FsusUI 1.5 markdown renderer dependency', packageJson.dependencies?.['@ozwasyd/element-plus'] === '1.5.1'],
   ['MarkdownRenderer forwards FsusUI activation events', renderer.includes('@features-activated') && renderer.includes("emit('features-activated'")],
   ['MarkdownRenderer has no downstream activation import', !renderer.includes('markdownActivationService') && !renderer.includes('queueFeatureActivation')],
   ['FsusUI default markdown adapters are the runtime source', fsusuiMarkdown.includes('defaultMermaidAdapter') && fsusuiMarkdown.includes('defaultLatexAdapter') && fsusuiMarkdown.includes('defaultCodeHighlightAdapter')]

@@ -229,6 +229,7 @@ export function usePow() {
           browserFp: String(task.browserFp),
           difficulty: Number(task.difficulty),
           runId: task.runId,
+          timeoutMs: Number(task.timeout),
           type: 'CALC'
         });
       } catch {

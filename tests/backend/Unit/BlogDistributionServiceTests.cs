@@ -26,7 +26,7 @@ public sealed class BlogDistributionServiceTests
     }
 
     [Fact]
-    public void BuildSitemapAsync_SourceCachesByArticleListVersionAndLoadsInputsConcurrently()
+    public void BuildSitemapAsync_SourceCachesByArticleListVersionAndAvoidsConcurrentDbUse()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Distribution/BlogDistributionService.cs");
         string build = ExtractMethod(source, "public async Task<string> BuildSitemapAsync", "public async Task<DistributionDiagnosticsCounts> GetDiagnosticsCountsAsync");
@@ -35,9 +35,15 @@ public sealed class BlogDistributionServiceTests
         Assert.Contains("GetArticleListVersionAsync", build, StringComparison.Ordinal);
         Assert.Contains("sitemap:v:{version}", build, StringComparison.Ordinal);
         Assert.Contains("memoryCache.TryGetValue(cacheKey", build, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(snapshotTask, categoriesTask, tagsTask)", build, StringComparison.Ordinal);
+        Assert.Contains("DistributionSnapshot snapshot = await LoadSnapshotAsync(cancellationToken)", build, StringComparison.Ordinal);
+        Assert.Contains("IReadOnlyList<DistributionTaxonomyRow> categories = await LoadCategoriesAsync(cancellationToken)", build, StringComparison.Ordinal);
+        Assert.Contains("IReadOnlyList<DistributionTaxonomyRow> tags = await LoadTagsAsync(cancellationToken)", build, StringComparison.Ordinal);
         Assert.Contains("memoryCache.Set(cacheKey, sitemap", build, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(seoTask, complianceTask, rowsTask)", snapshot, StringComparison.Ordinal);
+        Assert.Contains("SeoConfigReadModel seo = await systemService.GetSeoConfigAsync()", snapshot, StringComparison.Ordinal);
+        Assert.Contains("SiteComplianceConfigReadModel compliance = await systemService.GetSiteComplianceConfigAsync()", snapshot, StringComparison.Ordinal);
+        Assert.Contains("List<DistributionArticleRow> rows = await LoadDistributionArticlesAsync(cancellationToken)", snapshot, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", snapshot, StringComparison.Ordinal);
     }
 
     private static T RunWithCulture<T>(string cultureName, Func<T> action)

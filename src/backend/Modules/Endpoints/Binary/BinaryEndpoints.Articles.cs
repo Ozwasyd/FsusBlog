@@ -12,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models;
 using FsusBlog.Server.Models.Dtos;
@@ -47,6 +48,38 @@ public static partial class BinaryEndpoints
         })
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "article.related")
+        .AddEndpointFilter<RiskAwarePublicReadFilter>()
+        .CacheOutput(static builder => builder
+            .Expire(TimeSpan.FromMinutes(1))
+            .Tag(CacheTag.ArticleList.ToOutputCacheTag()));
+
+        group.MapGet("/article/{id}.aeds", static async Task<IResult> (
+            int id,
+            IArticleEndpointService articles,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            ArticleDetailArtifactPayload artifact = await articles.GetPublicArtifactBackedDetailAsync(id, cancellationToken);
+            if (!artifact.PreencodedFrame.IsEmpty)
+            {
+                return BinaryResults.PreencodedFrame(artifact.PreencodedFrame);
+            }
+
+            var result = await articles.GetByIdAsync(id, canReadPrivate: false, cancellationToken);
+            if (!result.IsSuccess || result.Value is null)
+            {
+                return BinaryResults.FromError(result.Error.Code == ErrorCode.None
+                    ? ErrorDetail.Create(ErrorCode.NotFound, "文章不存在")
+                    : result.Error,
+                    aeds);
+            }
+
+            return BinaryResults.Frame(aeds, AedsFrameType.ArticleDetail, writer => PodBinaryCodec.WriteArticleDetail(result.Value.Value, writer));
+        })
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read")
+        .WithRiskAction(RiskActionNames.PublicRead, "article.detail")
         .AddEndpointFilter<RiskAwarePublicReadFilter>()
         .CacheOutput(static builder => builder
             .Expire(TimeSpan.FromMinutes(1))

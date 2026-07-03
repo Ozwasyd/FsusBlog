@@ -14,7 +14,7 @@ const THEME_MODE_ORDER: ThemeMode[] = ['light', 'dark', 'system']
 
 const themeModeState = ref<ThemeMode>('system')
 const resolvedThemeState = ref<ResolvedTheme>('light')
-const isThemeRuntimeReady = ref(false)
+let isThemeRuntimeReady = false
 
 let themeRootObserver: MutationObserver | null = null
 
@@ -80,9 +80,33 @@ function emitThemeChange(mode: ThemeMode, resolvedTheme: ResolvedTheme): void {
   }))
 }
 
+function syncBodyThemeMaterial(): void {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return
+  }
+
+  const root = document.documentElement
+  const body = document.body
+  if (!body) {
+    return
+  }
+
+  const rootStyle = window.getComputedStyle(root)
+  const resolvedTheme = root.dataset.themeResolved === 'dark' ? 'dark' : 'light'
+  const pageBackground = rootStyle.getPropertyValue('--fsusblog-page-bg').trim()
+    || (resolvedTheme === 'dark' ? '#09090b' : '#F7F7F8')
+  const textColor = rootStyle.getPropertyValue('--fsusblog-text-primary').trim()
+    || (resolvedTheme === 'dark' ? '#f0f0f4' : '#0f0f11')
+
+  body.style.colorScheme = resolvedTheme
+  body.style.backgroundColor = pageBackground
+  body.style.color = textColor
+}
+
 function refreshResolvedTheme(mode = themeModeState.value): void {
   themeModeState.value = normalizeThemeMode(mode, 'system')
   resolvedThemeState.value = readResolvedThemeFromDom()
+  syncBodyThemeMaterial()
   emitThemeChange(themeModeState.value, resolvedThemeState.value)
 }
 
@@ -121,13 +145,13 @@ export function readInitialThemeMode(): ThemeMode {
 }
 
 export function ensureThemeRuntime(): void {
-  if (isThemeRuntimeReady.value) {
+  if (isThemeRuntimeReady) {
     return
   }
 
   syncThemeRuntime(readInitialThemeMode(), false)
   observeThemeRoot()
-  isThemeRuntimeReady.value = true
+  isThemeRuntimeReady = true
 }
 
 export function setThemeMode(mode: ThemeMode): void {

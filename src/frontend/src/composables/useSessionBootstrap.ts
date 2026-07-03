@@ -4,10 +4,11 @@ import { useAppShellStore } from '@/store/appShell'
 import { useAdminStore } from '@/store/admin'
 import { useSiteStore } from '@/store/site'
 import { useUserStore } from '@/store/user'
-import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
+import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 import {
   createLocalFixtureAccountSnapshot,
   createLocalFixtureAdminPrincipal,
+  isLocalFixtureAdminSessionActive,
   isLocalFixtureSessionActive
 } from '@/services/localFixtureSession'
 
@@ -29,7 +30,7 @@ export function useSessionBootstrap() {
   const siteStore = useSiteStore()
   const userStore = useUserStore()
 
-  const baseTitle = computed(() => siteStore.siteInfo.title || PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle)
+  const baseTitle = computed(() => siteStore.siteInfo.title || FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle)
 
   const needsBootstrap = (): boolean => {
     return !appShellStore.isReady || !siteStore.isLoaded
@@ -70,7 +71,11 @@ export function useSessionBootstrap() {
 
   const ensureAdminSession = async (options: AdminSessionEnsureOptions = {}): Promise<void> => {
     if (isLocalFixtureSessionActive()) {
-      adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
+      if (isLocalFixtureAdminSessionActive()) {
+        adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
+      } else {
+        adminStore.clearAdminPrincipal('missing')
+      }
       return
     }
 

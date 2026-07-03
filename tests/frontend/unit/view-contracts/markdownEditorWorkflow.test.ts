@@ -24,13 +24,13 @@ describe('admin markdown editor workflow contract', () => {
   })
 
   it('routes Ctrl/Cmd+S to draft save while Ctrl/Cmd+Enter keeps the submit confirmation path', () => {
-    const keydownBlock = textEditor.slice(
-      textEditor.indexOf('async function handleKeydown'),
-      textEditor.indexOf("if (event.key === 'Tab')")
-    )
-    expect(keydownBlock).toContain("emit('on-draft-save')")
-    expect(keydownBlock).not.toContain("emit('on-save')")
-    expect(keydownBlock).toContain("emit('on-submit')")
+    expect(textEditor).toContain('@save="emitSave"')
+    expect(textEditor).toContain('@submit="emitSubmit"')
+    expect(textEditor).toContain('function emitSave(): void')
+    expect(textEditor).toContain("emit('on-draft-save')")
+    expect(textEditor).toContain("emit('on-save')")
+    expect(textEditor).toContain('function emitSubmit(): void')
+    expect(textEditor).toContain("emit('on-submit')")
     expect(writeEditor).toContain('@draft-save="$emit(\'draft-save\')"')
     expect(writePage).toContain('@draft-save="saveDraftNow"')
     expect(writePage).not.toContain('@save="requestSubmit"')
@@ -58,9 +58,16 @@ describe('admin markdown editor workflow contract', () => {
     expect(commands).toContain("label: '一级标题'")
     expect(commands).toContain("label: '公式'")
     expect(commands).toContain("label: '流程图'")
-    expect(textEditor).toContain('markdown-text-editor__toolbar-group')
-    expect(textEditor).toContain("command.key !== 'undo'")
-    expect(textEditor).toContain("command.key !== 'redo'")
+    expect(textEditor).toContain('ElMarkdownEditor')
+    expect(textEditor).toContain('fsusUiCommands')
+    expect(textEditor).toContain("type BlogCommandKey = Exclude<MarkdownEditorCommandKey, 'undo' | 'redo' | 'image' | 'save'>")
+    expect(textEditor).toContain('fsusCommandKeys.has(command.key as BlogCommandKey)')
+  })
+
+  it('keeps toolbar commands large enough for mobile touch input', () => {
+    expect(adapter).toContain(':deep(.el-markdown-editor__command)')
+    expect(adapter).toContain(':deep(.el-markdown-editor__action)')
+    expect(adapter).toContain('min-height: 36px;')
   })
 
   it('exposes writing status, inspector sections, and secondary view controls', () => {
@@ -76,5 +83,6 @@ describe('admin markdown editor workflow contract', () => {
     expect(writePage).toContain('editorLayoutMode')
     expect(writePage).toContain('editorLayoutModeLabel')
     expect(writePage).toContain('write-grid--wide')
+    expect(writePage).toContain('grid-template-columns: minmax(0, 1fr) minmax(16rem, min(22rem, 38%));')
   })
 })

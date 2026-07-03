@@ -250,6 +250,21 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
+    public void BackendQpsCommentCursorEvidence_TracksVersionedInvalidationContract()
+    {
+        string lane = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/backend-qps.sh"));
+
+        Assert.Contains("versioned-invalidation", lane, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.CommentCursorFrame", lane, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.UserCommentCursorFrame", lane, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.CommentCursorVersion", lane, StringComparison.Ordinal);
+        Assert.Contains("CachePolicyId.UserCommentCursorVersion", lane, StringComparison.Ordinal);
+        Assert.Contains("reject_token \"src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs\" \"CachePolicyId.CommentCursorFrame\"", lane, StringComparison.Ordinal);
+        Assert.Contains("reject_token \"src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs\" \"CachePolicyId.UserCommentCursorFrame\"", lane, StringComparison.Ordinal);
+        Assert.DoesNotContain("require_token \"src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs\" \"CommentCursorFrame\"", lane, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SetStringAsync_SecurityBlacklistUser_StoresRedisValueWithoutExpiry()
     {
         using var memory = new MemoryCache(new MemoryCacheOptions());

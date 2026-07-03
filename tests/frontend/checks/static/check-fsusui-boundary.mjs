@@ -46,6 +46,10 @@ const allowedInternalSelectors = new Map([
   ['src/frontend/src/components/public/PublicBlogLayoutShell.vue', new Set([
     '.el-public-shell__nav-link'
   ])],
+  ['src/frontend/src/components/ui/MarkdownEditorAdapter.vue', new Set([
+    '.el-markdown-editor__action',
+    '.el-markdown-editor__command'
+  ])],
   ['src/frontend/src/public-renderers/clientHydrate.ts', new Set([
     '.el-input',
     '.el-input__inner',
@@ -60,6 +64,11 @@ const allowedInternalSelectors = new Map([
   ])],
   ['src/frontend/src/views/admin/article/Trash.vue', new Set([
     '.el-button'
+  ])],
+  ['src/frontend/src/views/admin/Settings.vue', new Set([
+    '.el-tabs__header',
+    '.el-tabs__nav-scroll',
+    '.el-tabs__nav-wrap'
   ])],
   ['src/frontend/src/views/auth/Register.vue', new Set([
     '.el-button'

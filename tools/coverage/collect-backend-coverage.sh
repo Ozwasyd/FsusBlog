@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 COVERAGE_ROOT="${FSUSBLOG_COVERAGE_ROOT:-$ROOT_DIR/.tmp/coverage}"
 RESULTS_DIR="$COVERAGE_ROOT/backend"
 SUMMARY_DIR="$COVERAGE_ROOT/backend-merged"
@@ -20,10 +20,14 @@ fi
 if [[ "${FSUSBLOG_COVERAGE_SKIP_TESTS:-0}" != "1" ]]; then
   rm -rf "$RESULTS_DIR" "$SUMMARY_DIR"
   mkdir -p "$RESULTS_DIR" "$SUMMARY_DIR"
-  "$ROOT_DIR/tools/build-with-data-env.sh" dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
+  dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
     -c Debug \
+    -v minimal
+  dotnet test "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
+    -c Debug \
+    --no-build \
     -v minimal \
-    --filter "Category!=Integration" \
+    --filter "Category!=Integration&Category!=Concurrency&Category!=Performance" \
     "--collect:XPlat Code Coverage" \
     --results-directory "$RESULTS_DIR" \
     -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura

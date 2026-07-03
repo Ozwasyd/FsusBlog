@@ -79,6 +79,21 @@
       ]
     },
     {
+      "id": "anonymous-account-endpoint-protocol-status-cache-error-frame",
+      "description": "Anonymous account endpoint protocol status cache error frame coverage is produced by the endpoint-depth runtime matrix.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/release-evidence/endpoint-depth-summary.json"
+      ],
+      "assertionType": "runtime",
+      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
+      "minimumRequirement": "Endpoint-depth runtime evidence must include anonymous-account actor rows across protocol, status, cache, and error-frame dimensions.",
+      "tierIds": [
+        "endpoint-depth"
+      ]
+    },
+    {
       "id": "aot-hydration-pwa-seo",
       "description": "AOT Hydration PWA SEO is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
@@ -143,67 +158,6 @@
       "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "security-authenticated-dast"
-      ]
-    },
-    {
-      "id": "risk-control-test-matrix",
-      "description": "RiskControl Test Matrix is covered by a fail-closed security matrix that maps decision, provider, proof, integration, browser, performance and fault coverage.",
-      "owner": "ServerContractAgent",
-      "risk": "critical",
-      "evidencePaths": [
-        "security/risk-control-test-matrix.yml",
-        "tools/security/check-security-matrices.mjs",
-        "tools/test/lanes/risk-control-test-matrix.sh"
-      ],
-      "assertionType": "static",
-      "failClosedRule": "matrix-validate and risk-control-test-matrix require every required RiskControl scenario and p99 budget to be declared before CI can pass.",
-      "minimumRequirement": "The matrix must include allow/challenge/step-up/queue/throttle/block, PoW/Captcha/PoSpace/HumanReadProof/Passkey/AdminStepUp, replay/expired/mismatch failures, integration surfaces, browser failure modes, p99 budgets and fault modes.",
-      "tierIds": [
-        "risk-control-test-matrix"
-      ]
-    },
-    {
-      "id": "perception-v2-test-matrix",
-      "description": "Perception sealed v2 test matrix is covered by a fail-closed security matrix that maps contract-only, provider-only and E2E runtime evidence for comment.create, performance budget and fault coverage.",
-      "owner": "ServerContractAgent",
-      "risk": "critical",
-      "evidencePaths": [
-        "security/perception-v2-test-matrix.yml",
-        "tools/security/check-security-matrices.mjs",
-        "tools/security/check-perception-v2-e2e-evidence.mjs",
-        "tools/test/lanes/perception-v2-test-matrix.sh",
-        "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
-        "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
-        "tests/security/perception-v2/perception-harness.test.mjs",
-        "docs/release-evidence/perception-v2.md",
-        ".tmp/security/perception-v2-e2e-runtime.json",
-        ".tmp/release-evidence/perception-v2-release-evidence.json"
-      ],
-      "assertionType": "runtime",
-      "failClosedRule": "matrix-validate and perception-v2-test-matrix require every perception-sealed@v2 acceptance scenario, validation class and comment.create issue-render-verify-proof-resume E2E runtime artifact before CI can pass; red-team benchmark exits non-zero when configured budgets fail.",
-      "minimumRequirement": "The matrix must include AEDS frame contracts, forbidden payload leak checks, AEAD and constant-time binding failures, issue no DB/Redis write, Redis SETNX/INCR verify gate, async audit, frontend worker/mobile fallbacks, comment.create E2E resume, wrong-answer/expired/replay/action-route mismatch failures, fault modes and performance evidence.",
-      "tierIds": [
-        "perception-v2-test-matrix"
-      ]
-    },
-    {
-      "id": "privacy-zk-comment-matrix",
-      "description": "Privacy ZK Comment Matrix is covered by a fail-closed release gate that maps anonymous transport, proof failure, ticket/nullifier, moderation redaction, frontend runtime and concurrency coverage.",
-      "owner": "ServerContractAgent",
-      "risk": "critical",
-      "evidencePaths": [
-        "security/privacy-zk-comment-matrix.yml",
-        "tools/security/check-security-matrices.mjs",
-        "tools/test/lanes/privacy-zk-comment-matrix.sh",
-        "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
-        "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
-        "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts"
-      ],
-      "assertionType": "unit",
-      "failClosedRule": "matrix-validate and privacy-zk-comment-matrix require every required privacy case, concurrency case and local gate command to be declared before CI can pass.",
-      "minimumRequirement": "The matrix must include no Cookie/Authorization anonymous submit, credential-bearing reject, nullable comment.user_id, fail-closed proof/root/verifier handling, ticket/nullifier lifetime and scope checks, provider/log/admin privacy boundaries, explicit public opt-in, frontend fake timers/worker/Abort evidence and deterministic concurrency pressure tests.",
-      "tierIds": [
-        "privacy-zk-comment-matrix"
       ]
     },
     {
@@ -604,38 +558,6 @@
       ]
     },
     {
-      "id": "perception-sealed-v2-redteam-pr",
-      "description": "Perception sealed v2 PR red-team regression is covered by deterministic synthetic solver benchmarks that fail when aggregate bot success rises above configured thresholds.",
-      "owner": "ServerContractAgent",
-      "risk": "critical",
-      "evidencePaths": [
-        ".tmp/security/perception-v2/pr/perception-v2-report.json",
-        ".tmp/security/perception-v2/pr/perception-v2-report.md"
-      ],
-      "assertionType": "perf",
-      "failClosedRule": "matrix-validate requires the PR red-team lane to emit JSON and Markdown reports, and the runner exits non-zero when configured solver, render, verify, payload, human-success or solve-time thresholds fail.",
-      "minimumRequirement": "The PR profile must cover text-task, localization and micro-interaction samples across family/variant groups without production database input, and must fail closed on significant bot single-try or three-attempt success regressions.",
-      "tierIds": [
-        "perception-v2-redteam-pr"
-      ]
-    },
-    {
-      "id": "perception-sealed-v2-redteam-nightly",
-      "description": "Perception sealed v2 nightly red-team benchmark is covered by the larger deterministic synthetic benchmark report grouped by task kind, family and variant.",
-      "owner": "ServerContractAgent",
-      "risk": "critical",
-      "evidencePaths": [
-        ".tmp/security/perception-v2/nightly/perception-v2-report.json",
-        ".tmp/security/perception-v2/nightly/perception-v2-report.md"
-      ],
-      "assertionType": "perf",
-      "failClosedRule": "matrix-validate requires the nightly red-team lane to emit JSON and Markdown reports, and the scheduled workflow uploads the report artifact even on threshold failure.",
-      "minimumRequirement": "The nightly profile must run a larger synthetic sample set with configurable thresholds, aggregate by task kind/family/variant, and stay independent of production databases and production-path ML inference.",
-      "tierIds": [
-        "perception-v2-redteam-nightly"
-      ]
-    },
-    {
       "id": "contract-static",
       "description": "Contract Static is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
@@ -664,6 +586,24 @@
       "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "coverage-threshold"
+      ]
+    },
+    {
+      "id": "CROSS-BINARY-ENDPOINT-MATRIX",
+      "description": "Cross binary endpoint matrix covers all /api/binary endpoint method, path, request, response, auth, PoW, cache and header dimensions.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "src/frontend/src/generated/fsusBinaryRoutes.ts",
+        "src/shared/Contracts/Validation/fsusblog.openapi.json",
+        "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+        "tests/frontend/fixtures/cross-stack-contract-matrix.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared cross-stack binary endpoint evidence paths.",
+      "minimumRequirement": "The cross-stack contract matrix must include all binary endpoint method, path, request, response, auth, PoW, cache and header dimensions.",
+      "tierIds": [
+        "cross-stack-contract"
       ]
     },
     {
@@ -750,21 +690,6 @@
       ]
     },
     {
-      "id": "anonymous-account-endpoint-protocol-status-cache-error-frame",
-      "description": "Anonymous account endpoint protocol status cache error frame coverage is produced by the endpoint-depth runtime matrix.",
-      "owner": "ServerContractAgent",
-      "risk": "critical",
-      "evidencePaths": [
-        ".tmp/release-evidence/endpoint-depth-summary.json"
-      ],
-      "assertionType": "runtime",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Endpoint-depth runtime evidence must include anonymous-account actor rows across protocol, status, cache, and error-frame dimensions.",
-      "tierIds": [
-        "endpoint-depth"
-      ]
-    },
-    {
       "id": "endpoint-role-protocol-status-cache-error-frame-deprecated",
       "description": "Deprecated legacy endpoint role protocol status cache error frame label retained only as a compatibility marker while actor-based dimensions carry the active anonymous migration coverage.",
       "owner": "ServerContractAgent",
@@ -775,36 +700,6 @@
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
-      "tierIds": [
-        "endpoint-depth"
-      ]
-    },
-    {
-      "id": "identity-kind-admin-principal",
-      "description": "Admin principal identity-kind coverage is produced by the endpoint-depth runtime matrix.",
-      "owner": "ServerContractAgent",
-      "risk": "critical",
-      "evidencePaths": [
-        ".tmp/release-evidence/endpoint-depth-summary.json"
-      ],
-      "assertionType": "runtime",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Endpoint-depth runtime evidence must include an admin-principal identity_kind dimension row.",
-      "tierIds": [
-        "endpoint-depth"
-      ]
-    },
-    {
-      "id": "identity-kind-anonymous-account",
-      "description": "Anonymous account identity-kind coverage is produced by the endpoint-depth runtime matrix.",
-      "owner": "ServerContractAgent",
-      "risk": "critical",
-      "evidencePaths": [
-        ".tmp/release-evidence/endpoint-depth-summary.json"
-      ],
-      "assertionType": "runtime",
-      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Endpoint-depth runtime evidence must include an anonymous-account identity_kind dimension row.",
       "tierIds": [
         "endpoint-depth"
       ]
@@ -994,6 +889,36 @@
       ]
     },
     {
+      "id": "identity-kind-admin-principal",
+      "description": "Admin principal identity-kind coverage is produced by the endpoint-depth runtime matrix.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/release-evidence/endpoint-depth-summary.json"
+      ],
+      "assertionType": "runtime",
+      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
+      "minimumRequirement": "Endpoint-depth runtime evidence must include an admin-principal identity_kind dimension row.",
+      "tierIds": [
+        "endpoint-depth"
+      ]
+    },
+    {
+      "id": "identity-kind-anonymous-account",
+      "description": "Anonymous account identity-kind coverage is produced by the endpoint-depth runtime matrix.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/release-evidence/endpoint-depth-summary.json"
+      ],
+      "assertionType": "runtime",
+      "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
+      "minimumRequirement": "Endpoint-depth runtime evidence must include an anonymous-account identity_kind dimension row.",
+      "tierIds": [
+        "endpoint-depth"
+      ]
+    },
+    {
       "id": "load-2x-peak",
       "description": "Load 2x Peak is covered by runtime artifacts that exercise the named behavior.",
       "owner": "ServerContractAgent",
@@ -1152,6 +1077,62 @@
       ]
     },
     {
+      "id": "perception-sealed-v2-redteam-nightly",
+      "description": "Perception sealed v2 nightly red-team benchmark is covered by the larger deterministic synthetic benchmark report grouped by task kind, family and variant.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/security/perception-v2/nightly/perception-v2-report.json",
+        ".tmp/security/perception-v2/nightly/perception-v2-report.md"
+      ],
+      "assertionType": "perf",
+      "failClosedRule": "matrix-validate requires the nightly red-team lane to emit JSON and Markdown reports, and the scheduled workflow uploads the report artifact even on threshold failure.",
+      "minimumRequirement": "The nightly profile must run a larger synthetic sample set with configurable thresholds, aggregate by task kind/family/variant, and stay independent of production databases and production-path ML inference.",
+      "tierIds": [
+        "perception-v2-redteam-nightly"
+      ]
+    },
+    {
+      "id": "perception-sealed-v2-redteam-pr",
+      "description": "Perception sealed v2 PR red-team regression is covered by deterministic synthetic solver benchmarks that fail when aggregate bot success rises above configured thresholds.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/security/perception-v2/pr/perception-v2-report.json",
+        ".tmp/security/perception-v2/pr/perception-v2-report.md"
+      ],
+      "assertionType": "perf",
+      "failClosedRule": "matrix-validate requires the PR red-team lane to emit JSON and Markdown reports, and the runner exits non-zero when configured solver, render, verify, payload, human-success or solve-time thresholds fail.",
+      "minimumRequirement": "The PR profile must cover text-task, localization and micro-interaction samples across family/variant groups without production database input, and must fail closed on significant bot single-try or three-attempt success regressions.",
+      "tierIds": [
+        "perception-v2-redteam-pr"
+      ]
+    },
+    {
+      "id": "perception-v2-test-matrix",
+      "description": "Perception sealed v2 test matrix is covered by a fail-closed security matrix that maps contract-only, provider-only and E2E runtime evidence for comment.create, performance budget and fault coverage.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "security/perception-v2-test-matrix.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/security/check-perception-v2-e2e-evidence.mjs",
+        "tools/test/lanes/perception-v2-test-matrix.sh",
+        "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
+        "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
+        "tests/security/perception-v2/perception-harness.test.mjs",
+        "docs/release-evidence/perception-v2.md",
+        ".tmp/security/perception-v2-e2e-runtime.json",
+        ".tmp/release-evidence/perception-v2-release-evidence.json"
+      ],
+      "assertionType": "runtime",
+      "failClosedRule": "matrix-validate and perception-v2-test-matrix require every perception-sealed@v2 acceptance scenario, validation class and comment.create issue-render-verify-proof-resume E2E runtime artifact before CI can pass; red-team benchmark exits non-zero when configured budgets fail.",
+      "minimumRequirement": "The matrix must include AEDS frame contracts, forbidden payload leak checks, AEAD and constant-time binding failures, issue no DB/Redis write, Redis SETNX/INCR verify gate, async audit, frontend worker/mobile fallbacks, comment.create E2E resume, wrong-answer/expired/replay/action-route mismatch failures, fault modes and performance evidence.",
+      "tierIds": [
+        "perception-v2-test-matrix"
+      ]
+    },
+    {
       "id": "playwright-acceptance",
       "description": "Playwright Acceptance is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
@@ -1212,6 +1193,41 @@
       "minimumRequirement": "Browser evidence must include the declared Playwright, visual, or public-page artifact and fail closed when the run is missing or failed.",
       "tierIds": [
         "visual-public"
+      ]
+    },
+    {
+      "id": "pr-smart-gate-plan",
+      "description": "PR smart gate planning is covered by generated skip and selected-lane evidence.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/release-evidence/pr-smart-gate-summary.json"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "matrix-validate requires the PR smart gate coverage id to resolve to declared skip evidence paths.",
+      "minimumRequirement": "The PR smart gate plan must record selected jobs, skipped jobs, changed files, and test retention classes.",
+      "tierIds": [
+        "pr-smart-gate-plan"
+      ]
+    },
+    {
+      "id": "privacy-zk-comment-matrix",
+      "description": "Privacy ZK Comment Matrix is covered by a fail-closed release gate that maps anonymous transport, proof failure, ticket/nullifier, moderation redaction, frontend runtime and concurrency coverage.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "security/privacy-zk-comment-matrix.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/test/lanes/privacy-zk-comment-matrix.sh",
+        "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+        "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
+        "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "matrix-validate and privacy-zk-comment-matrix require every required privacy case, concurrency case and local gate command to be declared before CI can pass.",
+      "minimumRequirement": "The matrix must include no Cookie/Authorization anonymous submit, credential-bearing reject, nullable comment.user_id, fail-closed proof/root/verifier handling, ticket/nullifier lifetime and scope checks, provider/log/admin privacy boundaries, explicit public opt-in, frontend fake timers/worker/Abort evidence and deterministic concurrency pressure tests.",
+      "tierIds": [
+        "privacy-zk-comment-matrix"
       ]
     },
     {
@@ -1869,6 +1885,23 @@
       ]
     },
     {
+      "id": "risk-control-test-matrix",
+      "description": "RiskControl Test Matrix is covered by a fail-closed security matrix that maps decision, provider, proof, integration, browser, performance and fault coverage.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "security/risk-control-test-matrix.yml",
+        "tools/security/check-security-matrices.mjs",
+        "tools/test/lanes/risk-control-test-matrix.sh"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "matrix-validate and risk-control-test-matrix require every required RiskControl scenario and p99 budget to be declared before CI can pass.",
+      "minimumRequirement": "The matrix must include allow/challenge/step-up/queue/throttle/block, PoW/Captcha/PoSpace/HumanReadProof/Passkey/AdminStepUp, replay/expired/mismatch failures, integration surfaces, browser failure modes, p99 budgets and fault modes.",
+      "tierIds": [
+        "risk-control-test-matrix"
+      ]
+    },
+    {
       "id": "route-render-pressure",
       "description": "Route Render Pressure is covered by runtime artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",
@@ -2052,6 +2085,21 @@
       "minimumRequirement": "Static source, manifest, or generated-document evidence must be present, current, and checked by matrix validation.",
       "tierIds": [
         "validate-matrix"
+      ]
+    },
+    {
+      "id": "test-retention-classification",
+      "description": "Test retention classification is covered by a static audit that maps test files to must-keep, conditional, review-candidate, or obsolete-candidate classes.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/release-evidence/test-retention-audit.json"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "matrix-validate requires the retention audit evidence to be declared by static-governance; deletion is only allowed for obsolete-candidate files with no coverage or matrix references after human review.",
+      "minimumRequirement": "The audit must include scanned test files, assertion estimates, retention classes, and explicit review/obsolete candidate lists.",
+      "tierIds": [
+        "static-governance"
       ]
     },
     {

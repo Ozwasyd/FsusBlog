@@ -4,6 +4,7 @@ import { resolvePowAsset, type PowAssetKind } from './runtime/assets';
 export type PowModule = {
   solve_pow: (salt: string, browserFp: string, difficulty: number) => string;
   solve_pow_range: (salt: string, browserFp: string, difficulty: number, startNonce: number, step: number) => string;
+  solve_pow_limited: (salt: string, browserFp: string, difficulty: number, startNonce: number, maxAttempts: number) => string | null;
 };
 
 type PowRuntimeModule = {
@@ -22,6 +23,15 @@ type PowRuntimeModule = {
     difficulty: number,
     startNonce: number,
     step: number,
+    outputPtr: number,
+    outputLength: number
+  ) => number;
+  _solve_pow_limited_c: (
+    saltPtr: number,
+    browserFpPtr: number,
+    difficulty: number,
+    startNonce: number,
+    maxAttempts: number,
     outputPtr: number,
     outputLength: number
   ) => number;
@@ -175,12 +185,53 @@ function createPowFacade(module: PowRuntimeModule): PowModule {
     }
   };
 
+  const callLimitedSolver = (
+    salt: string,
+    browserFp: string,
+    difficulty: number,
+    startNonce: number,
+    maxAttempts: number
+  ): string | null => {
+    const saltPtr = writeCString(module, salt);
+    const fpPtr = writeCString(module, browserFp);
+    const outputPtr = module._malloc(maxPowOutputBytes);
+
+    try {
+      const resultLength = module._solve_pow_limited_c(
+        saltPtr,
+        fpPtr,
+        Number(difficulty) || 0,
+        startNonce >>> 0,
+        Math.max(1, maxAttempts >>> 0),
+        outputPtr,
+        maxPowOutputBytes
+      );
+
+      if (resultLength < 0) {
+        return resultLength === -2 ? 'failed_overflow' : 'error_input_invalid';
+      }
+
+      if (resultLength === 0) {
+        return null;
+      }
+
+      return readCString(module, outputPtr, Math.min(resultLength + 1, maxPowOutputBytes));
+    } finally {
+      module._free(outputPtr);
+      module._free(fpPtr);
+      module._free(saltPtr);
+    }
+  };
+
   return {
     solve_pow(salt: string, browserFp: string, difficulty: number): string {
       return callSolver(salt, browserFp, difficulty);
     },
     solve_pow_range(salt: string, browserFp: string, difficulty: number, startNonce: number, step: number): string {
       return callSolver(salt, browserFp, difficulty, startNonce, Math.max(1, step >>> 0));
+    },
+    solve_pow_limited(salt: string, browserFp: string, difficulty: number, startNonce: number, maxAttempts: number): string | null {
+      return callLimitedSolver(salt, browserFp, difficulty, startNonce, maxAttempts);
     }
   };
 }

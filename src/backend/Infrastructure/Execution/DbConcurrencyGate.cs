@@ -115,20 +115,13 @@ public sealed class DbConcurrencyGate : IDbConcurrencyGate
         }
 
         Interlocked.Increment(ref _waitingCount);
-        bool acquired = false;
         try
         {
-            acquired = await reservation.WaitAsync(_options.WaitTimeout, cancellationToken).ConfigureAwait(false);
+            await reservation.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             Interlocked.Decrement(ref _waitingCount);
-        }
-
-        if (!acquired)
-        {
-            LogTimeout(operation);
-            return await onTimeout(cancellationToken).ConfigureAwait(false);
         }
 
         if (!reservation.TryBeginReentrantCall())
@@ -183,8 +176,8 @@ public sealed class DbConcurrencyGate : IDbConcurrencyGate
             }
         }
 
-        public Task<bool> WaitAsync(TimeSpan timeout, CancellationToken cancellationToken)
-            => _reentrantSerial.WaitAsync(timeout, cancellationToken);
+        public Task WaitAsync(CancellationToken cancellationToken)
+            => _reentrantSerial.WaitAsync(cancellationToken);
 
         public void Release()
             => _reentrantSerial.Release();

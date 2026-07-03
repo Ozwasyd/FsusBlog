@@ -20,6 +20,7 @@ interface ResumeSessionSnapshot {
   resumeKey: string
   fileName: string
   sha256: string
+  uploadToken: string
 }
 
 interface PendingAttempt {
@@ -159,12 +160,17 @@ export function useImageUploadRuntime() {
     const fullHash = await sha256Hex(compressed.file)
     let snapshot = readSnapshot(resumeKey)
     let uploadId = ''
+    let uploadToken = ''
     let uploadedParts = new Set<number>()
 
     if (snapshot?.sha256 === fullHash) {
       try {
+        if (!snapshot.uploadToken) {
+          throw createAppError(AppErrorCode.Validation, '上传会话缺少恢复凭证')
+        }
         const status = await getUploadStatus(snapshot.uploadId)
         uploadId = status.uploadId
+        uploadToken = snapshot.uploadToken
         if (status.uploadedPartCount > 0) {
           const map = await getUploadPartMap(snapshot.uploadId)
           uploadedParts = expandUploadedRanges(map.uploadedRanges)
@@ -184,11 +190,16 @@ export function useImageUploadRuntime() {
         sha256: fullHash
       })
       uploadId = init.uploadId
+      uploadToken = init.uploadToken
+      if (!uploadToken) {
+        throw createAppError(AppErrorCode.InfraFailure, '上传初始化缺少恢复凭证')
+      }
       snapshot = {
         uploadId,
         resumeKey,
         fileName: compressed.file.name,
-        sha256: fullHash
+        sha256: fullHash,
+        uploadToken
       }
       persistSnapshot(snapshot)
     }
@@ -220,7 +231,7 @@ export function useImageUploadRuntime() {
 
       try {
         const ack = await retry(
-          () => uploadPart(uploadId, partNumber, start, chunk, payloadHash),
+          () => uploadPart(uploadId, uploadToken, partNumber, start, chunk, payloadHash),
           () => {
             phase.value = 'retrying'
           }
@@ -239,7 +250,7 @@ export function useImageUploadRuntime() {
       }
     }
 
-    const complete = await completeUpload(uploadId, fullHash)
+    const complete = await completeUpload(uploadId, uploadToken, fullHash)
     phase.value = 'completed'
     progress.value = 100
     errorMessage.value = ''

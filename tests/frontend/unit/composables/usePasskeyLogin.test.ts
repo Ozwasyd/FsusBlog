@@ -36,6 +36,7 @@ describe('usePasskeyLogin', () => {
 
   it('uses a standardized UI error and no alert when WebAuthn authentication fails', async () => {
     const alertSpy = vi.fn()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     Object.defineProperty(window, 'alert', {
       configurable: true,
       writable: true,
@@ -61,5 +62,6 @@ describe('usePasskeyLogin', () => {
     expect(error.value).not.toContain('raw webauthn internal detail')
     expect(alertSpy).not.toHaveBeenCalled()
     expect(mocks.passkeyLoginComplete).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
   })
 })

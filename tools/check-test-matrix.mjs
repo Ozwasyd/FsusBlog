@@ -534,6 +534,56 @@ requireFileIncludes(
   'UX viewport smoke script must pass the Playwright shard argument'
 )
 requireFileIncludes(
+  'src/frontend/package.json',
+  'check:ux:viewport-smoke": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_UX_VIEWPORT_MODE=smoke PLAYWRIGHT_OUTPUT_DIR=test-results/playwright/ux-viewport-smoke npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}}',
+  'UX viewport smoke must honor lane-computed Playwright workers'
+)
+requireFileIncludes(
+  'tests/frontend/e2e/ux/viewport-boundaries.spec.ts',
+  'for (const caseGroup of buildCaseGroups(cases))',
+  'UX viewport smoke must expose multiple Playwright tests so workers and shards can split the matrix'
+)
+requireFileIncludes(
+  'tools/test/resolve-playwright-workers.mjs',
+  "name === 'ux-viewport-smoke'",
+  'Playwright browser lanes must resolve workers from the local machine profile'
+)
+requireFileIncludes(
+  'tools/test/lanes/ux-viewport-smoke.sh',
+  'resolve-playwright-workers.mjs" ux-viewport-smoke',
+  'UX viewport smoke lane must compute workers from local CPU, memory, and load'
+)
+requireFileIncludes(
+  'tools/test/lanes/ux-viewport-smoke.sh',
+  'npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_UX_VIEWPORT_WORKERS"',
+  'UX viewport smoke must prepare exactly the worker-counted session fixtures once'
+)
+requireFileIncludes(
+  'src/frontend/package.json',
+  'check:visual:public": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_VISUAL_PUBLIC_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-2}}',
+  'visual public Playwright script must honor matrix or lane-computed workers'
+)
+requireFileIncludes(
+  'tools/frontend/check-console-visual.sh',
+  'workers="${FSUSBLOG_CONSOLE_VISUAL_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-2}}"',
+  'visual console grouped screenshot runner must honor matrix or lane-computed workers'
+)
+requireFileIncludes(
+  'src/frontend/package.json',
+  'check:spa:routes": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_SPA_ROUTES_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}}',
+  'SPA route audit must honor the acceptance lane worker cap'
+)
+requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_SPA_ROUTES_WORKERS"',
+  'acceptance lane must prepare session fixtures for the computed SPA route worker cap'
+)
+requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_CONSOLE_VISUAL_WORKERS"',
+  'visual console lane must prepare session fixtures for the computed screenshot worker cap'
+)
+requireFileIncludes(
   'tools/run-test-matrix.mjs',
   'env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`',
   'matrix runner must pass Playwright shard arguments to direct browser lanes'

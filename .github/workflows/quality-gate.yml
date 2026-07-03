@@ -83,10 +83,71 @@ jobs:
             .tmp/release-evidence/test-plan.json
             docs/testing.generated.md
 
+  plan-pr-risk:
+    name: Plan PR Smart Gate
+    runs-on: ubuntu-latest
+    needs: validate-matrix
+    timeout-minutes: 5
+    outputs:
+      pr_smart_gate_summary: ${{ steps.smart.outputs.pr_smart_gate_summary }}
+      coverage_backend: ${{ steps.smart.outputs.coverage_backend }}
+      coverage_frontend: ${{ steps.smart.outputs.coverage_frontend }}
+      coverage_merge_threshold: ${{ steps.smart.outputs.coverage_merge_threshold }}
+      integration_runtime: ${{ steps.smart.outputs.integration_runtime }}
+      release_public: ${{ steps.smart.outputs.release_public }}
+      security_runtime: ${{ steps.smart.outputs.security_runtime }}
+      acceptance_playwright: ${{ steps.smart.outputs.acceptance_playwright }}
+      visual_public_playwright: ${{ steps.smart.outputs.visual_public_playwright }}
+      visual_console_playwright: ${{ steps.smart.outputs.visual_console_playwright }}
+      visual_playwright: ${{ steps.smart.outputs.visual_playwright }}
+      cross_browser_smoke: ${{ steps.smart.outputs.cross_browser_smoke }}
+      frontend_render_pressure: ${{ steps.smart.outputs.frontend_render_pressure }}
+      resilience_runtime: ${{ steps.smart.outputs.resilience_runtime }}
+      load_smoke: ${{ steps.smart.outputs.load_smoke }}
+      backend_qps_collectors: ${{ steps.smart.outputs.backend_qps_collectors }}
+      backend_qps_collectors_matrix: ${{ steps.smart.outputs.backend_qps_collectors_matrix }}
+      backend_qps_collectors_max_parallel: ${{ steps.smart.outputs.backend_qps_collectors_max_parallel }}
+      backend_qps: ${{ steps.smart.outputs.backend_qps }}
+      production_summary: ${{ steps.smart.outputs.production_summary }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
+      - name: Collect changed files
+        run: |
+          mkdir -p .tmp
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --name-only "${{ github.event.pull_request.base.sha }}...${{ github.sha }}" > .tmp/pr-changed-files.txt
+          else
+            : > .tmp/pr-changed-files.txt
+          fi
+      - id: smart
+        run: |
+          node tools/run-test-matrix.mjs ci-pr-plan \
+            --changed-files .tmp/pr-changed-files.txt \
+            --event-name "${{ github.event_name }}" \
+            --base-ref "${{ github.event.pull_request.base.sha || 'origin/master' }}" \
+            --out .tmp/pr-plan.json \
+            --github-output "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: pr-smart-gate
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            .tmp/pr-plan.json
+            .tmp/pr-changed-files.txt
+            .tmp/release-evidence/pr-smart-gate-summary.json
+
   coverage-backend:
     name: Coverage Backend
     runs-on: ubuntu-latest
-    needs: validate-matrix
+    needs: [validate-matrix, plan-pr-risk]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_backend == 'true'
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -112,7 +173,8 @@ jobs:
   coverage-frontend:
     name: Coverage Frontend
     runs-on: ubuntu-latest
-    needs: validate-matrix
+    needs: [validate-matrix, plan-pr-risk]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_frontend == 'true'
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -137,7 +199,8 @@ jobs:
   coverage-merge-threshold:
     name: Coverage Merge Threshold
     runs-on: ubuntu-latest
-    needs: [coverage-backend, coverage-frontend]
+    needs: [plan-pr-risk, coverage-backend, coverage-frontend]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_merge_threshold == 'true'
     timeout-minutes: 90
     env:
       FSUSBLOG_COVERAGE_LINE_THRESHOLD: '35'
@@ -343,6 +406,7 @@ jobs:
             .tmp/backend-test-governance/**
             .tmp/release-evidence/test-plan.json
             .tmp/release-evidence/doc-sync-summary.json
+            .tmp/release-evidence/test-retention-audit.json
             .tmp/release-evidence/public-hydration-matrix-summary.json
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/flaky/**
@@ -432,7 +496,8 @@ jobs:
   integration-runtime:
     name: Integration Runtime
     runs-on: ubuntu-latest
-    needs: [fast-backend, fast-frontend-unit]
+    needs: [plan-pr-risk, fast-backend, fast-frontend-unit]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.integration_runtime == 'true'
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -503,7 +568,8 @@ jobs:
   release-public:
     name: Release Public
     runs-on: ubuntu-latest
-    needs: integration-runtime
+    needs: [plan-pr-risk, integration-runtime]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.release_public == 'true'
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -542,7 +608,8 @@ jobs:
   security-runtime:
     name: Security Runtime
     runs-on: ubuntu-latest
-    needs: integration-runtime
+    needs: [plan-pr-risk, integration-runtime]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_runtime == 'true'
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -607,7 +674,8 @@ jobs:
   acceptance-playwright:
     name: Acceptance Playwright ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    needs: [validate-matrix, fast-summary, integration-runtime, release-public]
+    needs: [validate-matrix, plan-pr-risk, fast-summary, integration-runtime, release-public]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.acceptance_playwright == 'true'
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -653,7 +721,8 @@ jobs:
   visual-public-playwright:
     name: Visual Public Playwright ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    needs: [validate-matrix, integration-runtime]
+    needs: [validate-matrix, plan-pr-risk, integration-runtime]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.visual_public_playwright == 'true'
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -700,7 +769,8 @@ jobs:
   visual-console-playwright:
     name: Visual Console Playwright ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    needs: [validate-matrix, integration-runtime]
+    needs: [validate-matrix, plan-pr-risk, integration-runtime]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.visual_console_playwright == 'true'
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -747,8 +817,8 @@ jobs:
   visual-playwright:
     name: Visual Playwright Aggregate
     runs-on: ubuntu-latest
-    needs: [visual-public-playwright, visual-console-playwright]
-    if: always()
+    needs: [plan-pr-risk, visual-public-playwright, visual-console-playwright]
+    if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.visual_playwright == 'true')
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -828,7 +898,8 @@ jobs:
   frontend-render-pressure:
     name: Frontend Render Pressure
     runs-on: ubuntu-latest
-    needs: integration-runtime
+    needs: [plan-pr-risk, integration-runtime]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.frontend_render_pressure == 'true'
     timeout-minutes: 35
     env:
       FSUSBLOG_TEST_NAMESPACE: ci-render-pressure-${{ github.run_id }}-${{ github.run_attempt }}
@@ -871,7 +942,8 @@ jobs:
   cross-browser-smoke:
     name: Cross Browser ${{ matrix.browser }}
     runs-on: ubuntu-latest
-    needs: release-public
+    needs: [plan-pr-risk, release-public]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.cross_browser_smoke == 'true'
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -918,7 +990,8 @@ jobs:
   resilience-runtime:
     name: Resilience Runtime
     runs-on: ubuntu-latest
-    needs: integration-runtime
+    needs: [plan-pr-risk, integration-runtime]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.resilience_runtime == 'true'
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -954,7 +1027,8 @@ jobs:
   load-smoke:
     name: Load Smoke
     runs-on: ubuntu-latest
-    needs: integration-runtime
+    needs: [plan-pr-risk, integration-runtime]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.load_smoke == 'true'
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -988,12 +1062,13 @@ jobs:
   backend-qps-collectors:
     name: Backend QPS Collector ${{ matrix.shard_id }}
     runs-on: ubuntu-latest
-    needs: validate-matrix
+    needs: plan-pr-risk
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps_collectors == 'true'
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.backend_qps_collectors_max_parallel) }}
-      matrix: ${{ fromJson(needs.validate-matrix.outputs.backend_qps_collectors_matrix) }}
+      max-parallel: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_max_parallel) }}
+      matrix: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_matrix) }}
     env:
       FSUSBLOG_TEST_NAMESPACE: ci-backend-qps-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
@@ -1028,7 +1103,8 @@ jobs:
   backend-qps:
     name: Backend QPS Aggregate
     runs-on: ubuntu-latest
-    needs: [integration-runtime, backend-qps-collectors]
+    needs: [plan-pr-risk, integration-runtime, backend-qps-collectors]
+    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true'
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -1138,6 +1214,7 @@ jobs:
     name: Production Summary
     runs-on: ubuntu-latest
     needs:
+      - plan-pr-risk
       - validate-matrix
       - coverage-backend
       - coverage-frontend
@@ -1165,7 +1242,7 @@ jobs:
       - backend-qps
       - perf-regression
       - release-evidence
-    if: always()
+    if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true')
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6

@@ -29,7 +29,19 @@ async function waitForApp(page) {
 
 async function addSessionCookies(context, session) {
   const backendHost = new URL(process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568').hostname;
-  await context.addCookies(Array.from(session.cookieMap.entries()).map(([name, value]) => {
+  const cookieEntries = session.cookieMap instanceof Map
+    ? Array.from(session.cookieMap.entries())
+    : String(session.cookieHeader || '')
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const eq = part.indexOf('=');
+        return eq > 0 ? [part.slice(0, eq), part.slice(eq + 1)] : null;
+      })
+      .filter(Boolean);
+
+  await context.addCookies(cookieEntries.map(([name, value]) => {
     if (name.startsWith('__Host-')) {
       return {
         name,

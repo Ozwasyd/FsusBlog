@@ -37,6 +37,11 @@ export type AccountSessionState = 'unknown' | 'guest' | 'authenticated'
 
 export const ACCOUNT_GUEST_NEGATIVE_CACHE_MS = 5 * 60 * 1000
 
+async function broadcastLogoutAcrossTabs(): Promise<void> {
+    const { authBroadcastRuntime } = await import('@/services/authBroadcastRuntime')
+    authBroadcastRuntime.broadcastLogout()
+}
+
 export const useUserStore = defineStore('user', () => {
     const notificationStreamStore = useNotificationStreamStore()
 
@@ -199,8 +204,7 @@ export const useUserStore = defineStore('user', () => {
         } finally {
             clearLocalFixtureSession()
             markGuest()
-            void import('@/services/authBroadcastRuntime')
-                .then(({ authBroadcastRuntime }) => authBroadcastRuntime.broadcastLogout())
+            await broadcastLogoutAcrossTabs()
             isLoggingOut.value = false;
             notificationStreamStore.dispose()
             notificationStreamStore.resetCursor()

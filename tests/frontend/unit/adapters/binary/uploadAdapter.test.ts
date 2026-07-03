@@ -21,7 +21,7 @@ function unixMs(iso: string): number {
 
 describe('mapUploadInitFromPayload', () => {
   it('deserializes upload init data', () => {
-    const bytes = new Uint8Array(440)
+    const bytes = new Uint8Array(568)
     const data = {
       uploadId: 'uid-1',
       fileName: 'photo.jpg',
@@ -30,7 +30,8 @@ describe('mapUploadInitFromPayload', () => {
       totalBytes: 1024,
       chunkSize: 512,
       totalParts: 2,
-      expiresAt: '2026-01-01T00:00:00Z'
+      expiresAt: '2026-01-01T00:00:00Z',
+      uploadToken: 'token-1'
     }
     writeFixed(bytes, 0, 64, data.uploadId)
     writeFixed(bytes, 64, 256, data.fileName)
@@ -40,6 +41,7 @@ describe('mapUploadInitFromPayload', () => {
     writeInt32(bytes, 424, data.chunkSize)
     writeInt32(bytes, 428, data.totalParts)
     writeInt64(bytes, 432, unixMs(data.expiresAt))
+    writeFixed(bytes, 440, 128, data.uploadToken)
 
     expect(mapUploadInitFromPayload(bytes)).toEqual(data)
   })

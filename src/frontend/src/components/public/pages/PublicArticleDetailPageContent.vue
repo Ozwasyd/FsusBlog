@@ -1,6 +1,7 @@
 <template>
   <article
-    class="public-article-detail max-w-4xl mx-auto px-6 sm:px-12 min-h-screen pt-12 sm:pt-16 pb-24"
+    class="public-article-detail mx-auto min-h-screen max-w-[760px] px-6 pt-12 pb-24 sm:px-12 sm:pt-16"
+    data-readable-region
     data-fsus-surface="reading"
     itemscope
     itemtype="https://schema.org/BlogPosting"
@@ -40,6 +41,7 @@
       data-fsus-motion-surface="article-title"
     >
       <ArticleDetailHeader :view="detailView.header" :link-mode="linkMode" />
+      <slot name="header-actions" />
     </header>
 
     <section itemprop="articleBody" class="mt-3 sm:mt-4">

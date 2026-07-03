@@ -5,10 +5,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { authBinary, baseUrl, loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
 import { buildMarkdownExtremeCorpus, fnv1a32, normalizeMarkdownExtremeSize } from '../../support/markdown-extreme-corpus.mjs';
+import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs';
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 
 const frontendBaseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000';
+const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || baseUrl;
 const userName = process.env.FSUSBLOG_USER_USERNAME || 'binaryuser';
 const userPassword = process.env.FSUSBLOG_USER_PASSWORD ?? '';
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
@@ -67,6 +69,35 @@ function attachAudit(page) {
   };
 }
 
+async function addRuntimeIsolation(context) {
+  await context.addInitScript(() => {
+    window.__FSUSBLOG_DISABLE_NOTIFICATION_STREAM__ = true;
+    const markNotificationStreamSuppressed = () => {
+      const root = document.documentElement;
+      if (!root) {
+        return false;
+      }
+
+      root.dataset.fsusDisableNotificationStream = 'true';
+      return true;
+    };
+
+    if (!markNotificationStreamSuppressed()) {
+      setTimeout(markNotificationStreamSuppressed, 0);
+    }
+  });
+}
+
+async function newRuntimeContext(browser, options = {}) {
+  const context = await browser.newContext({
+    baseURL: frontendBaseUrl,
+    extraHTTPHeaders: testSessionHeaders(),
+    ...options
+  });
+  await addRuntimeIsolation(context);
+  return context;
+}
+
 async function waitForApp(page) {
   await page.waitForFunction(() => document.readyState === 'complete' && Boolean(document.querySelector('#app')), undefined, {
     timeout: 45000
@@ -96,7 +127,7 @@ async function waitForApp(page) {
 
 async function addSessionCookies(context, session) {
   const backendHost = new URL(baseUrl).hostname;
-  await context.addCookies(Array.from(session.cookieMap.entries()).map(([name, value]) => {
+  await context.addCookies(toCookieEntries(session.cookieMap ?? session.cookieHeader).map(([name, value]) => {
     if (name.startsWith('__Host-')) {
       return {
         name,
@@ -114,6 +145,22 @@ async function addSessionCookies(context, session) {
       url: frontendBaseUrl
     };
   }));
+}
+
+function toCookieEntries(cookieMapOrHeader) {
+  if (cookieMapOrHeader instanceof Map) {
+    return Array.from(cookieMapOrHeader.entries());
+  }
+
+  return String(cookieMapOrHeader || '')
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const eq = part.indexOf('=');
+      return eq > 0 ? [part.slice(0, eq), part.slice(eq + 1)] : null;
+    })
+    .filter(Boolean);
 }
 
 async function assertNoHorizontalOverflow(page, label, tolerance = 8) {
@@ -208,6 +255,28 @@ async function waitForArticleTitle(page, title) {
   }
 }
 
+async function visitAuditedRoute(context, path, label, options = {}) {
+  const page = await context.newPage();
+  const audit = attachAudit(page);
+  try {
+    console.log(`[check-runtime-resilience] ${label} ${path}`);
+    await page.goto(path, { waitUntil: 'domcontentloaded' });
+    await waitForApp(page);
+    if (options.settleMs) {
+      await page.waitForTimeout(options.settleMs);
+    }
+
+    await assertNoHorizontalOverflow(page, `${label} ${path}`);
+    if (options.after) {
+      await options.after(page);
+    }
+
+    audit();
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
 async function fetchFirstCategoryId(cookieHeader) {
   const categories = await authBinary('/api/Category', {
     method: 'GET',
@@ -230,6 +299,7 @@ async function createExtremeArticle(session) {
     cookieHeader: session.cookieHeader,
     deviceFingerprint: 'runtime-admin-article-create',
     requiresPow: true,
+    headers: { Origin: trustedOrigin },
     timeoutMs: Math.max(60_000, Number(process.env.FSUSBLOG_HTTP_TIMEOUT_MS || '15000') * 4),
     body: {
       title,
@@ -248,18 +318,28 @@ async function createExtremeArticle(session) {
 }
 
 async function cleanupExtremeArticle(session, id) {
+  const trashProofToken = createAdminStepUpProofToken({
+    adminId: session.adminId,
+    sessionId: session.sessionId
+  });
   await authBinary(`/api/Article/${id}`, {
     method: 'DELETE',
     cookieHeader: session.cookieHeader,
     deviceFingerprint: 'runtime-admin-article-delete',
     requiresPow: true,
+    headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': trashProofToken },
     timeoutMs: 60_000
   }).catch(() => null);
+  const permanentProofToken = createAdminStepUpProofToken({
+    adminId: session.adminId,
+    sessionId: session.sessionId
+  });
   await authBinary(`/api/Article/permanent/${id}`, {
     method: 'DELETE',
     cookieHeader: session.cookieHeader,
     deviceFingerprint: 'runtime-admin-article-permanent-delete',
     requiresPow: true,
+    headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': permanentProofToken },
     timeoutMs: 60_000
   }).catch(() => null);
 }
@@ -267,39 +347,24 @@ async function cleanupExtremeArticle(session, id) {
 async function main() {
   const browser = await chromium.launch(systemChromiumLaunchOptions({ headless: true }));
   try {
-    const guest = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
-    const guestPage = await guest.newPage();
-    const auditGuest = attachAudit(guestPage);
+    const guest = await newRuntimeContext(browser);
     const extremeQuery = encodeURIComponent('markdown latex mermaid ' + '<script>'.repeat(40) + ' 边界 搜索')
     for (const path of ['/', '/search?q=blog', '/search?q=blog&sort=recent', `/search?q=${extremeQuery}`, '/about', '/archive']) {
-      console.log(`[check-runtime-resilience] guest ${path}`);
-      await guestPage.goto(path, { waitUntil: 'domcontentloaded' });
-      await waitForApp(guestPage);
-      await assertNoHorizontalOverflow(guestPage, `guest ${path}`);
+      await visitAuditedRoute(guest, path, 'guest');
     }
-    auditGuest();
     await guest.close();
 
     const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'runtime-user');
     const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'runtime-admin');
-    const userContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
+    const userContext = await newRuntimeContext(browser);
     await addSessionCookies(userContext, userSession);
-    const userPage = await userContext.newPage();
-    const auditUser = attachAudit(userPage);
     for (const path of ['/user/profile', '/user/messagebox', '/user/comments', '/user/profile', '/']) {
-      console.log(`[check-runtime-resilience] user ${path}`);
-      await userPage.goto(path, { waitUntil: 'domcontentloaded' });
-      await waitForApp(userPage);
-      await userPage.waitForTimeout(800);
-      await assertNoHorizontalOverflow(userPage, `user ${path}`);
+      await visitAuditedRoute(userContext, path, 'user', { settleMs: 800 });
     }
-    auditUser();
     await userContext.close();
 
-    const adminContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
+    const adminContext = await newRuntimeContext(browser);
     await addSessionCookies(adminContext, adminSession);
-    const adminPage = await adminContext.newPage();
-    const auditAdmin = attachAudit(adminPage);
     let extremeArticle = null;
     try {
       const publicArticle = loadFixtureArticle();
@@ -316,34 +381,25 @@ async function main() {
       '/user/manage',
       '/search?q=blog'
       ]) {
-      console.log(`[check-runtime-resilience] admin ${path}`);
-      await adminPage.goto(path, { waitUntil: 'domcontentloaded' });
-      await waitForApp(adminPage);
-      await adminPage.waitForTimeout(900);
-      await assertNoHorizontalOverflow(adminPage, `admin ${path}`);
-      if (path.startsWith('/article/')) {
-        await waitForArticleTitle(adminPage, publicArticle.title);
-      }
+      await visitAuditedRoute(adminContext, path, 'admin', {
+        settleMs: 900,
+        after: path.startsWith('/article/')
+          ? (page) => waitForArticleTitle(page, publicArticle.title)
+          : null
+      });
     }
     } finally {
       if (extremeArticle) {
         await cleanupExtremeArticle(adminSession, extremeArticle.id);
       }
     }
-    auditAdmin();
     await adminContext.close();
 
-    const mobileAdminContext = await browser.newContext({ baseURL: frontendBaseUrl, viewport: { width: 390, height: 844 }, extraHTTPHeaders: testSessionHeaders() });
+    const mobileAdminContext = await newRuntimeContext(browser, { viewport: { width: 390, height: 844 } });
     await addSessionCookies(mobileAdminContext, adminSession);
-    const mobilePage = await mobileAdminContext.newPage();
-    const auditMobile = attachAudit(mobilePage);
     for (const path of ['/user/profile', '/user/messagebox', '/user/manage/article/write', '/user/manage/users']) {
-      console.log(`[check-runtime-resilience] mobile ${path}`);
-      await mobilePage.goto(path, { waitUntil: 'domcontentloaded' });
-      await waitForApp(mobilePage);
-      await assertNoHorizontalOverflow(mobilePage, `mobile ${path}`);
+      await visitAuditedRoute(mobileAdminContext, path, 'mobile');
     }
-    auditMobile();
     await mobileAdminContext.close();
 
     console.log(`[check-runtime-resilience] ok | frontend=${frontendBaseUrl}`);

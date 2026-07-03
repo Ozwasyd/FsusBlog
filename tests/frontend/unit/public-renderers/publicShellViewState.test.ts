@@ -96,7 +96,7 @@ describe('createPublicShellViewState', () => {
       isAdmin: false
     })).toMatchObject({
       authLabel: '账户',
-      authHref: '/user/identity'
+      authHref: '/user/profile'
     })
 
     expect(createPublicShellViewState({
@@ -158,7 +158,7 @@ describe('publicShellRuntimeAuthState', () => {
     })
     expect(resolvePublicShellRuntimeAuthState({ accountId: 1 })).toEqual({
       authLabel: '账户',
-      authHref: '/user/identity'
+      authHref: '/user/profile'
     })
     expect(resolvePublicShellRuntimeAuthState({ accountId: 1, canManage: true })).toEqual({
       authLabel: '控制板',

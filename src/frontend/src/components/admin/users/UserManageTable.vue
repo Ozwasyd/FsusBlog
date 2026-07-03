@@ -144,6 +144,7 @@
                     class="flex items-center justify-end gap-2 pr-2"
                   >
                     <el-button
+                      class="user-table-action-button"
                       link
                       :type="(rowData as UserListViewItem).status === 0 ? 'danger' : 'success'"
                       size="small"
@@ -268,5 +269,10 @@ const emit = defineEmits<{
 .user-table-v2-frame {
   height: clamp(360px, 58vh, 620px);
   border-block: 1px solid var(--fsusblog-panel-border);
+}
+
+:deep(.user-table-action-button) {
+  min-height: 2.25rem;
+  padding-inline: 0.5rem;
 }
 </style>

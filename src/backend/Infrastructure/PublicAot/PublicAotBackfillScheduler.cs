@@ -7,8 +7,8 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 public sealed class PublicAotBackfillScheduler : IPublicAotBackfillScheduler
 {
     private readonly Channel<PublicAotBackfillRequest> _channel;
-    private readonly ConcurrentDictionary<string, byte> _inFlight = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, byte> _inFlightRouteKeys = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, long> _inFlight = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, long> _inFlightRouteKeys = new(StringComparer.Ordinal);
     private readonly PublicAotSsrRuntimeState _runtimeState;
     private readonly int _queueCapacity;
     internal int InFlightCount => _inFlight.Count;
@@ -45,15 +45,15 @@ public sealed class PublicAotBackfillScheduler : IPublicAotBackfillScheduler
         }
 
         string routeIdentity = BuildRouteIdentity(request);
-        if (!_inFlightRouteKeys.TryAdd(routeIdentity, 0))
+        if (!TryReserve(_inFlightRouteKeys, routeIdentity, request.ScheduledInvalidationVersion))
         {
             _runtimeState.RecordBackfillDropped(request, "duplicate-route-key", InFlightCount);
             return false;
         }
 
-        if (!_inFlight.TryAdd(request.CacheKey, 0))
+        if (!TryReserve(_inFlight, request.CacheKey, request.ScheduledInvalidationVersion))
         {
-            _inFlightRouteKeys.TryRemove(routeIdentity, out _);
+            RemoveReservation(_inFlightRouteKeys, routeIdentity, request.ScheduledInvalidationVersion);
             _runtimeState.RecordBackfillDropped(request, "duplicate-cache-key", InFlightCount);
             return false;
         }
@@ -64,8 +64,8 @@ public sealed class PublicAotBackfillScheduler : IPublicAotBackfillScheduler
             return true;
         }
 
-        _inFlight.TryRemove(request.CacheKey, out _);
-        _inFlightRouteKeys.TryRemove(routeIdentity, out _);
+        RemoveReservation(_inFlight, request.CacheKey, request.ScheduledInvalidationVersion);
+        RemoveReservation(_inFlightRouteKeys, routeIdentity, request.ScheduledInvalidationVersion);
         _runtimeState.RecordBackfillDropped(request, "queue-full", InFlightCount);
         return false;
     }
@@ -75,9 +75,38 @@ public sealed class PublicAotBackfillScheduler : IPublicAotBackfillScheduler
 
     internal void Complete(PublicAotBackfillRequest request)
     {
-        _inFlight.TryRemove(request.CacheKey, out _);
-        _inFlightRouteKeys.TryRemove(BuildRouteIdentity(request), out _);
+        RemoveReservation(_inFlight, request.CacheKey, request.ScheduledInvalidationVersion);
+        RemoveReservation(_inFlightRouteKeys, BuildRouteIdentity(request), request.ScheduledInvalidationVersion);
     }
+
+    private static bool TryReserve(ConcurrentDictionary<string, long> reservations, string key, long version)
+    {
+        while (true)
+        {
+            if (!reservations.TryGetValue(key, out long existingVersion))
+            {
+                if (reservations.TryAdd(key, version))
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (existingVersion >= version)
+            {
+                return false;
+            }
+
+            if (reservations.TryUpdate(key, version, existingVersion))
+            {
+                return true;
+            }
+        }
+    }
+
+    private static void RemoveReservation(ConcurrentDictionary<string, long> reservations, string key, long version)
+        => ((ICollection<KeyValuePair<string, long>>)reservations).Remove(new KeyValuePair<string, long>(key, version));
 
     private static string BuildRouteIdentity(PublicAotBackfillRequest request)
         => string.Create(

@@ -275,7 +275,7 @@
           v-model:current-page="page"
           v-model:page-size="pageSize"
           :total="total"
-          :page-sizes="[25, 50, 100, 200]"
+          :page-sizes="[25, 50]"
           layout="total, sizes, prev, pager, next"
           @current-change="loadAudit"
           @size-change="handleSizeChange"

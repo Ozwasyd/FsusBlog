@@ -35,7 +35,7 @@ describe('AccountLayout navigation density', () => {
   })
 
   it('keeps only terse helpers for complex governance entries', () => {
-    expect(accountNavSource).toContain("helper: 'Verifier'")
+    expect(accountNavSource).toContain("helper: '证明'")
     expect(accountNavSource).toContain("helper: '风险桶'")
     expect(accountNavSource).toContain("helper: 'PoW'")
     expect(accountNavSource).not.toContain('评论、词库与策略')

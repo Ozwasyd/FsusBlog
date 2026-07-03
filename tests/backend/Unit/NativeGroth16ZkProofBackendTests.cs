@@ -148,6 +148,7 @@ public sealed class NativeGroth16ZkProofBackendTests
     }
 
     [Fact]
+    [Trait("Category", "Performance")]
     public async Task MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget()
     {
         byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
@@ -231,7 +232,7 @@ public sealed class NativeGroth16ZkProofBackendTests
     public async Task ProductionZkProofVerifier_NativeBackendTimeoutFailsClosed()
     {
         using var temp = TempNativeZkFixture.Create();
-        var backend = new ConcurrencyProbeProductionZkProofBackend(TimeSpan.FromMilliseconds(500));
+        var backend = new CancellationRequiredProductionZkProofBackend(TimeSpan.FromSeconds(5));
         var logger = new CapturingLogger<ProductionZkProofVerifier>();
         using ProductionZkProofVerifier verifier = CreateProductionVerifier(
             temp,
@@ -260,7 +261,7 @@ public sealed class NativeGroth16ZkProofBackendTests
             overrides: new Dictionary<string, string?>
             {
                 ["AnonymousIdentity:ZkVerifier:MaxConcurrentVerifications"] = "1",
-                ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "1000"
+                ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "30000"
             });
 
         Task<ZkProofVerificationResult>[] tasks = Enumerable
@@ -530,6 +531,30 @@ public sealed class NativeGroth16ZkProofBackendTests
                     return;
                 }
             }
+        }
+    }
+
+    private sealed class CancellationRequiredProductionZkProofBackend(TimeSpan fallbackDelay) : IProductionZkProofBackend
+    {
+        public bool IsAvailable(string backendName)
+            => string.Equals(backendName, ZkProdOptions.NativeGroth16Backend, StringComparison.Ordinal);
+
+        public async Task<ProductionZkProofBackendResult> VerifyAsync(
+            ProductionZkProofBackendRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var canceled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            await using (cancellationToken.Register(static state =>
+                ((TaskCompletionSource)state!).TrySetResult(), canceled).ConfigureAwait(false))
+            {
+                Task completed = await Task.WhenAny(canceled.Task, Task.Delay(fallbackDelay)).ConfigureAwait(false);
+                if (ReferenceEquals(completed, canceled.Task))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+            }
+
+            return ProductionZkProofBackendResult.Accepted();
         }
     }
 

@@ -46,7 +46,7 @@ COPY src/frontend/ /work/FsusBlog.Client/
 
 RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
     cd /opt/vcpkg && \
-    git -c advice.detachedHead=false checkout --detach "${VCPKG_COMMIT}" && \
+    git checkout "${VCPKG_COMMIT}" && \
     test "$(git rev-parse HEAD)" = "${VCPKG_COMMIT}" && \
     /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 

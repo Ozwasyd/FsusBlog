@@ -15,6 +15,8 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleEndpointServiceTests
 {
+    private static readonly TimeSpan ConcurrentColdFrameWaitTimeout = TimeSpan.FromSeconds(30);
+
     [Fact]
     public async Task GetPublicArtifactBackedDetailAsync_Hit_ReturnsFrameWithoutCoreQuery()
     {
@@ -178,10 +180,10 @@ public sealed class ArticleEndpointServiceTests
                 canReadPrivate: true))
             .ToArray();
 
-        await cache.InitialColdReadsCompleted.WaitAsync(TimeSpan.FromSeconds(5));
-        await firstCoreLoadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await cache.InitialColdReadsCompleted.WaitAsync(ConcurrentColdFrameWaitTimeout);
+        await firstCoreLoadStarted.Task.WaitAsync(ConcurrentColdFrameWaitTimeout);
         releaseCore.SetResult(true);
-        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[] results = await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(5));
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[] results = await Task.WhenAll(tasks).WaitAsync(ConcurrentColdFrameWaitTimeout);
 
         Assert.All(results, result => Assert.True(result.HasCachedFrame));
         Assert.Equal(1, Volatile.Read(ref coreLoads));

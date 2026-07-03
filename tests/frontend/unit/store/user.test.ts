@@ -165,6 +165,7 @@ describe('useUserStore', () => {
   })
 
   it('network failure does not mark guest', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockGetMe.mockRejectedValueOnce(new Error('network down'))
     const store = useUserStore()
 
@@ -173,6 +174,8 @@ describe('useUserStore', () => {
     expect(store.userInfo).toBeNull()
     expect(store.accountState).toBe('unknown')
     expect(store.isAuthChecked).toBe(false)
+    expect(errorSpy).toHaveBeenCalledWith('[UserStore] Auth handshake failed:', 'network down')
+    errorSpy.mockRestore()
   })
 
   it('legacy persisted isAuthChecked without accountState migrates to unknown', async () => {

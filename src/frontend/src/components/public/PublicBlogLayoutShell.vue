@@ -1,6 +1,7 @@
 <template>
   <div
     id="fsus-aot-shell"
+    ref="shellRootRef"
     :data-public-hydration-kind="hydrationKind || undefined"
   >
     <a
@@ -153,7 +154,7 @@
       <main id="main-content" class="el-public-shell__main pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:pb-0" tabindex="-1">
         <slot />
       </main>
-      <FullAppRuntime v-if="showRuntime" />
+      <FullAppRuntime v-if="shouldShowRuntime" />
 
       <footer class="el-public-shell__footer">
         <PublicComplianceFooter
@@ -196,10 +197,7 @@ import {
   PUBLIC_FIXED_PATHS,
   PUBLIC_ROUTE_PATHS,
 } from '@/public-renderers/publicRoutePaths'
-import {
-  PUBLIC_SHELL_DEFAULTS,
-  type PublicActiveNav,
-} from '@/public-renderers/publicShellState'
+import type { PublicActiveNav } from '@/public-renderers/publicShellState'
 import {
   createPublicSiteIdentity,
   providePublicSiteIdentity,
@@ -207,11 +205,12 @@ import {
 import { normalizePublicSiteDescription } from '@/public-renderers/publicSiteIdentity'
 import { publicShellRuntimeAuthState } from '@/public-renderers/publicShellRuntimeState'
 import type { SiteComplianceConfigPublic } from '@/api/system'
+import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 
 const SHELL_DEFAULTS = {
   hydrationKind: null,
-  siteTitle: PUBLIC_SHELL_DEFAULTS.siteTitle,
-  siteDescription: PUBLIC_SHELL_DEFAULTS.siteDescription,
+  siteTitle: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
+  siteDescription: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackDescription,
   activeNav: 'none',
   authLabel: '登录',
   authHref: '/login',
@@ -259,8 +258,8 @@ const props = withDefaults(
   }>(),
   {
     hydrationKind: null,
-    siteTitle: PUBLIC_SHELL_DEFAULTS.siteTitle,
-    siteDescription: PUBLIC_SHELL_DEFAULTS.siteDescription,
+    siteTitle: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
+    siteDescription: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackDescription,
     siteLogoUrl: '',
     siteLogoDarkUrl: '',
     siteWordmarkUrl: '',
@@ -297,6 +296,9 @@ const mobileSearchRowRef = ref<HTMLElement>()
 const mobileSearchTriggerRef = ref<HTMLButtonElement>()
 const desktopNavRef = ref<HTMLElement>()
 const mobileNavRef = ref<HTMLElement>()
+const shellRootRef = ref<HTMLElement>()
+const clientRuntimeEnabled = ref(false)
+let hydrationObserver: MutationObserver | null = null
 const FullAppRuntime = defineAsyncComponent(
   () => import('@/components/runtime/AppRuntime.vue'),
 )
@@ -343,6 +345,7 @@ const shouldUseRuntimeAuthState = computed(() =>
   (props.authLabel?.trim() || SHELL_DEFAULTS.authLabel) === SHELL_DEFAULTS.authLabel
   && (props.authHref?.trim() || SHELL_DEFAULTS.authHref) === SHELL_DEFAULTS.authHref
 )
+const shouldShowRuntime = computed(() => props.showRuntime || clientRuntimeEnabled.value)
 const resolvedAuthLabel = computed(() =>
   shouldUseRuntimeAuthState.value
     ? publicShellRuntimeAuthState.value.authLabel
@@ -484,6 +487,34 @@ function handleMobileSearchEscape(event: KeyboardEvent): void {
   closeMobileSearch(true)
 }
 
+function enableRuntimeAfterHydration(): void {
+  if (props.showRuntime || clientRuntimeEnabled.value) {
+    return
+  }
+
+  const shell = shellRootRef.value
+  if (!shell) {
+    return
+  }
+
+  if (shell.dataset.publicHydrated === 'true') {
+    clientRuntimeEnabled.value = true
+    return
+  }
+
+  hydrationObserver?.disconnect()
+  hydrationObserver = new MutationObserver(() => {
+    if (shell.dataset.publicHydrated !== 'true') {
+      return
+    }
+
+    hydrationObserver?.disconnect()
+    hydrationObserver = null
+    clientRuntimeEnabled.value = true
+  })
+  hydrationObserver.observe(shell, { attributes: true, attributeFilter: ['data-public-hydrated'] })
+}
+
 watch(
   () => props.initialSearchQuery,
   (value) => {
@@ -500,11 +531,14 @@ watch(
 )
 
 onMounted(() => {
+  enableRuntimeAfterHydration()
   void syncNavIndicators()
   window.addEventListener('resize', handleIndicatorResize)
 })
 
 onBeforeUnmount(() => {
+  hydrationObserver?.disconnect()
+  hydrationObserver = null
   window.removeEventListener('resize', handleIndicatorResize)
 })
 </script>

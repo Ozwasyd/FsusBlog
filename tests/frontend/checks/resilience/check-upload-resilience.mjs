@@ -11,6 +11,7 @@ import {
 const adminName = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const deviceFingerprint = process.env.FSUSBLOG_DEVICE_FP || 'upload-resilience-node';
+const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || baseUrl;
 const pngSample = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
   'base64'
@@ -35,7 +36,7 @@ async function fetchBinaryFrame(path, cookieHeader, expectedFrameType) {
   return result.payload;
 }
 
-async function uploadPart(uploadId, session, partNumber, offset, payload, expectOk = true) {
+async function uploadPart(uploadId, uploadToken, session, partNumber, offset, payload, expectOk = true) {
   const powHeaders = await buildPowHeaders(deviceFingerprint, requestTimeoutMs);
   const response = await fetch(`${baseUrl}/api/binary/upload/${uploadId}/part`, {
     method: 'PUT',
@@ -43,6 +44,8 @@ async function uploadPart(uploadId, session, partNumber, offset, payload, expect
       Accept: 'application/octet-stream',
       'Content-Type': 'application/octet-stream',
       Cookie: session.cookieHeader,
+      Origin: trustedOrigin,
+      'X-Fsus-Upload-Token': uploadToken,
       'X-Fsus-Upload-Part': String(partNumber),
       'X-Fsus-Upload-Offset': String(offset),
       ...powHeaders
@@ -60,6 +63,7 @@ async function main() {
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
     requiresPow: true,
+    headers: { Origin: trustedOrigin },
     body: {
       fileName: '../invalid<script>.exe',
       mimeType: 'application/x-msdownload',
@@ -75,6 +79,7 @@ async function main() {
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
     requiresPow: true,
+    headers: { Origin: trustedOrigin },
     body: {
       fileName: 'resilience-check.png',
       mimeType: 'image/png',
@@ -86,11 +91,13 @@ async function main() {
   assert(init.response.ok, `upload init failed: ${init.response.status}`);
   const initData = init.payload?.data ?? init.payload;
   const uploadId = initData?.uploadId;
+  const uploadToken = initData?.uploadToken;
   assert(typeof uploadId === 'string' && uploadId.length > 0, 'upload init missing uploadId');
+  assert(typeof uploadToken === 'string' && uploadToken.length > 0, 'upload init missing uploadToken');
 
-  await uploadPart(uploadId, session, 0, 0, pngSample, true);
-  await uploadPart(uploadId, session, 0, 0, pngSample, true);
-  await uploadPart(uploadId, session, 1, pngSample.length + 16, pngSample, false);
+  await uploadPart(uploadId, uploadToken, session, 0, 0, pngSample, true);
+  await uploadPart(uploadId, uploadToken, session, 0, 0, pngSample, true);
+  await uploadPart(uploadId, uploadToken, session, 1, pngSample.length + 16, pngSample, false);
 
   const status = await authBinary(`/api/File/upload/${uploadId}/status`, {
     method: 'GET',
@@ -112,7 +119,8 @@ async function main() {
     method: 'DELETE',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
-    requiresPow: true
+    requiresPow: true,
+    headers: { Origin: trustedOrigin }
   });
   assert(abort.response.ok, `abort upload failed: ${abort.response.status}`);
 
@@ -129,6 +137,7 @@ async function main() {
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
     requiresPow: true,
+    headers: { Origin: trustedOrigin },
     body: {
       fileName: 'resilience-check-2.png',
       mimeType: 'image/png',
@@ -145,7 +154,8 @@ async function main() {
     method: 'DELETE',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
-    requiresPow: true
+    requiresPow: true,
+    headers: { Origin: trustedOrigin }
   });
   assert(cleanupSecond.response.ok, `second upload cleanup failed: ${cleanupSecond.response.status}`);
 
@@ -154,6 +164,7 @@ async function main() {
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
     requiresPow: true,
+    headers: { Origin: trustedOrigin },
     body: {
       fileName: 'tiny-boundary.png',
       mimeType: 'image/png',
@@ -164,13 +175,16 @@ async function main() {
   });
   assert(tinyInit.response.ok, `tiny upload init failed: ${tinyInit.response.status}`);
   const tinyUploadId = (tinyInit.payload?.data ?? tinyInit.payload)?.uploadId;
+  const tinyUploadToken = (tinyInit.payload?.data ?? tinyInit.payload)?.uploadToken;
   assert(typeof tinyUploadId === 'string' && tinyUploadId.length > 0, 'tiny upload init missing uploadId');
-  await uploadPart(tinyUploadId, session, 0, 0, tinySample, true);
+  assert(typeof tinyUploadToken === 'string' && tinyUploadToken.length > 0, 'tiny upload init missing uploadToken');
+  await uploadPart(tinyUploadId, tinyUploadToken, session, 0, 0, tinySample, true);
   const cleanupTiny = await authBinary(`/api/File/upload/${tinyUploadId}`, {
     method: 'DELETE',
     cookieHeader: session.cookieHeader,
     deviceFingerprint,
-    requiresPow: true
+    requiresPow: true,
+    headers: { Origin: trustedOrigin }
   });
   assert(cleanupTiny.response.ok, `tiny upload cleanup failed: ${cleanupTiny.response.status}`);
 

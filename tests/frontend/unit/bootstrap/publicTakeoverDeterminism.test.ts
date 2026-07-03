@@ -216,7 +216,7 @@ describe('public takeover source contracts', () => {
     expect(blogLayout).toContain('siteWordmarkUrl: activeSiteIdentity.value.siteWordmarkUrl')
     expect(blogLayout).toContain('compliance: activeSiteIdentity.value.compliance')
     expect(blogLayout).toContain('renderYear: activeSiteIdentity.value.renderYear')
-    expect(blogLayout.indexOf('setTimeout(() =>')).toBeLessThan(blogLayout.indexOf('void ensureSiteInfo()'))
+    expect(blogLayout.indexOf('setTimeout(() =>')).toBeLessThan(blogLayout.indexOf('void ensurePublicShell()'))
   })
 
   it('syncs public document head from the same active site identity as the shell', () => {

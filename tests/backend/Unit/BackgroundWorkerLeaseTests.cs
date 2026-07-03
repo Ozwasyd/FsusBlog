@@ -84,6 +84,7 @@ public sealed class BackgroundWorkerLeaseTests
     }
 
     [Fact]
+    [Trait("Category", "Concurrency")]
     public async Task TryRunAsLeaderAsync_RenewsLeaseDuringLongWork()
     {
         var cache = new LeaseMemoryCache();
@@ -122,6 +123,25 @@ public sealed class BackgroundWorkerLeaseTests
         Assert.Equal(0, standbyExecutions);
     }
 
+    [Fact]
+    public async Task TryRunAsLeaderAsync_LeaseCacheFailure_SkipsIterationWithoutRunningAction()
+    {
+        var cache = new LeaseMemoryCache { ThrowOnAcquire = true };
+        var lease = CreateLease(cache);
+        int executions = 0;
+
+        bool ran = await lease.TryRunAsLeaderAsync(
+            "scheduled-publish-worker",
+            _ =>
+            {
+                Interlocked.Increment(ref executions);
+                return Task.CompletedTask;
+            });
+
+        Assert.False(ran);
+        Assert.Equal(0, executions);
+    }
+
     [Theory]
     [InlineData("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs", "article-mutation-outbox-dispatcher")]
     [InlineData("src/backend/Services/Background/LogCleanupService.cs", "log-cleanup-worker")]
@@ -158,8 +178,15 @@ public sealed class BackgroundWorkerLeaseTests
         private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
         private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
+        public bool ThrowOnAcquire { get; init; }
+
         public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
         {
+            if (ThrowOnAcquire)
+            {
+                throw new InvalidOperationException("lease cache unavailable");
+            }
+
             string key = $"{policyId}:{identity}";
             DateTimeOffset now = _timeProvider.GetUtcNow();
             DateTimeOffset expiresAt = now.Add(ttl);

@@ -31,7 +31,22 @@ public sealed class BackgroundWorkerLease(
         ValidateOptions(options);
 
         string identity = NormalizeWorkerIdentity(workerName);
-        if (!await AcquireOrRenewAsync(identity, cancellationToken).ConfigureAwait(false))
+        bool hasLeadership;
+        try
+        {
+            hasLeadership = await AcquireOrRenewAsync(identity, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "background-worker-lease-acquire-failed {WorkerIdentity}", identity);
+            return false;
+        }
+
+        if (!hasLeadership)
         {
             return false;
         }
@@ -104,6 +119,11 @@ public sealed class BackgroundWorkerLease(
         }
         catch (OperationCanceledException) when (leaseCancellation.IsCancellationRequested)
         {
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "background-worker-lease-renew-failed {WorkerIdentity}", identity);
+            await leaseCancellation.CancelAsync().ConfigureAwait(false);
         }
     }
 

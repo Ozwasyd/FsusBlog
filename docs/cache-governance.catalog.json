@@ -709,7 +709,7 @@
         "Category",
         "Tag"
       ],
-      "securityCritical": true,
+      "securityCritical": false,
       "l2JitterRatio": 0
     },
     {

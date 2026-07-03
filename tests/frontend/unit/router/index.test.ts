@@ -46,6 +46,29 @@ vi.mock('@/bootstrap/publicShellPrimitives', () => ({
   hasServerAotShell: () => hasServerAotShellResult
 }))
 
+const routeComponentStub = { template: '<div />' }
+
+vi.mock('@/layouts/BlogLayout.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/layouts/PublicAuthLayout.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/layouts/AccountLayout.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/Home.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/ArticleDetail.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/Archive.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/PublicDynamicPage.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/FilterView.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/auth/Login.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/auth/Register.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/auth/Recover.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/user/Profile.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/user/Comments.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/user/Messages.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/user/IdentityCenter.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/admin/Dashboard.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/admin/article/Write.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/admin/article/List.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/error/403.vue', () => ({ default: routeComponentStub }))
+vi.mock('@/views/error/404.vue', () => ({ default: routeComponentStub }))
+
 function ensureBrowserLocation(): void {
   if (typeof globalThis.history === 'undefined' && typeof window !== 'undefined') {
     Object.defineProperty(globalThis, 'history', {

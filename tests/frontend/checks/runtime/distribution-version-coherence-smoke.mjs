@@ -1,22 +1,31 @@
 #!/usr/bin/env node
 
 import { Buffer } from 'node:buffer';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
   authBinary,
   baseUrl,
+  fetchChallenge,
   loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
 import { readAedsResponse } from '../../support/aeds-envelope.mjs';
+import { findEventuallyNamedTaxonomyId } from '../../support/eventual-taxonomy.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
+import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs';
 
 const adminUsername = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || baseUrl;
+const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || publicBaseUrl || baseUrl;
 const timeoutMs = Math.max(requestTimeoutMs, 30_000);
 const coherenceTimeoutMs = Math.max(timeoutMs * 3, 90_000);
 const testSessionIsolation = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1';
-const publicPageBaseUrl = testSessionIsolation ? baseUrl : publicBaseUrl;
+const execFileAsync = promisify(execFile);
+const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0';
+const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis';
+const maxDeterministicPowDifficulty = Number.parseInt(process.env.FSUSBLOG_ACCEPTANCE_POW_MAX_DIFFICULTY ?? '20', 10) || 20;
 const ArticleStatus = Object.freeze({
   Draft: 0,
   Scheduled: 1,
@@ -35,6 +44,49 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function resetLocalSecurityRiskState() {
+  if (!resetSecurityTestState) {
+    return;
+  }
+
+  try {
+    await execFileAsync('docker', [
+      'exec',
+      redisContainer,
+      'sh',
+      '-c',
+      "redis-cli --scan --pattern '*fsus:sec:pow-risk:*' | xargs -r redis-cli DEL"
+    ], { timeout: 5000 });
+  } catch {
+    // Non-local environments may not use the developer docker container.
+  }
+}
+
+async function waitForDeterministicPow(label) {
+  let lastDifficulty = 'unknown';
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    try {
+      const challenge = await fetchChallenge(5000);
+      const difficulty = Number(challenge.difficulty ?? challenge.Difficulty ?? 999);
+      lastDifficulty = Number.isFinite(difficulty) ? String(difficulty) : 'unknown';
+      if (difficulty <= maxDeterministicPowDifficulty) {
+        return;
+      }
+    } catch {
+      lastDifficulty = 'unreachable';
+    }
+
+    await delay(1000);
+  }
+
+  throw new Error(`${label} pow difficulty did not settle below ${maxDeterministicPowDifficulty}; last=${lastDifficulty}`);
+}
+
+async function resetAndWaitForMutationBudget(label) {
+  await resetLocalSecurityRiskState();
+  await waitForDeterministicPow(label);
+}
+
 async function eventually(label, assertion, timeout = coherenceTimeoutMs, interval = 600) {
   const deadline = Date.now() + timeout;
   let lastError = null;
@@ -51,11 +103,16 @@ async function eventually(label, assertion, timeout = coherenceTimeoutMs, interv
 }
 
 async function fetchText(path, base = publicBaseUrl) {
-  const response = await fetchWithTimeout(`${base}${path}`, {
-    headers: {
-      'User-Agent': 'FsusBlog distribution coherence smoke'
-    }
-  }, timeoutMs);
+  let response;
+  try {
+    response = await fetchWithTimeout(`${base}${path}`, {
+      headers: {
+        'User-Agent': 'FsusBlog distribution coherence smoke'
+      }
+    }, timeoutMs);
+  } catch (error) {
+    throw new Error(`${path} request failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
   assert(response.status < 500, `${path} returned ${response.status}`);
   return {
     status: response.status,
@@ -63,20 +120,69 @@ async function fetchText(path, base = publicBaseUrl) {
   };
 }
 
+async function fetchNavigationSnapshotText(path) {
+  let response;
+  try {
+    response = await fetchWithTimeout(`${baseUrl}/api/public/navigation-snapshot.aeds?path=${encodeURIComponent(path)}`, {
+      headers: {
+        Accept: 'application/octet-stream',
+        'User-Agent': 'FsusBlog distribution coherence smoke'
+      }
+    }, timeoutMs);
+  } catch (error) {
+    throw new Error(`${path} navigation snapshot request failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  assert(response.status < 500, `${path} navigation snapshot failed: ${response.status}`);
+  if (!response.ok) {
+    return {
+      status: response.status,
+      text: ''
+    };
+  }
+  const payload = await readAedsResponse(response).catch((error) => {
+    throw new Error(`${path} navigation snapshot decode failed: ${error instanceof Error ? error.message : String(error)}`);
+  });
+  const text = Buffer.from(Object.values(payload?.payload ?? {})).toString('utf8');
+  const decodedBase64Text = [...text.matchAll(/[A-Za-z0-9+/=]{80,}/g)]
+    .map((match) => {
+      try {
+        return Buffer.from(match[0], 'base64').toString('utf8');
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean)
+    .join('\n');
+  return {
+    status: response.status,
+    text: `${text}\n${decodedBase64Text}`
+  };
+}
+
 async function fetchSearchIndexText() {
-  const response = await fetchWithTimeout(`${baseUrl}/search/index.bin`, {}, timeoutMs);
+  let response;
+  try {
+    response = await fetchWithTimeout(`${baseUrl}/search/index.bin`, {}, timeoutMs);
+  } catch (error) {
+    throw new Error(`/search/index.bin request failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
   assert(response.ok, `search index alias failed: ${response.status}`);
   return Buffer.from(await response.arrayBuffer()).toString('utf8');
 }
 
 async function fetchArticlePage(cookieHeader, isDeleted = false, status = undefined) {
   if (!cookieHeader) {
-    const response = await fetchWithTimeout(`${baseUrl}/api/binary/article/list/home/1/10.aeds`, {
-      headers: {
-        Accept: 'application/octet-stream',
-        'X-Fsus-Device-Fp': 'distribution-public-list'
-      }
-    }, timeoutMs);
+    let response;
+    try {
+      response = await fetchWithTimeout(`${baseUrl}/api/binary/article/list/home/1/10.aeds`, {
+        headers: {
+          Accept: 'application/octet-stream',
+          'X-Fsus-Device-Fp': 'distribution-public-list'
+        }
+      }, timeoutMs);
+    } catch (error) {
+      throw new Error(`public article list request failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
     const payload = await readAedsResponse(response).catch(() => null);
     assert(response.ok, `article list public failed: ${response.status}`);
     return Array.isArray(payload?.items) ? payload.items : [];
@@ -100,12 +206,17 @@ async function fetchArticlePage(cookieHeader, isDeleted = false, status = undefi
 
 async function fetchArticleDetail(articleId, cookieHeader = null) {
   if (!cookieHeader) {
-    const response = await fetchWithTimeout(`${baseUrl}/api/binary/article/${articleId}.aeds`, {
-      headers: {
-        Accept: 'application/octet-stream',
-        'X-Fsus-Device-Fp': 'distribution-public-detail'
-      }
-    }, timeoutMs);
+    let response;
+    try {
+      response = await fetchWithTimeout(`${baseUrl}/api/binary/article/${articleId}.aeds`, {
+        headers: {
+          Accept: 'application/octet-stream',
+          'X-Fsus-Device-Fp': 'distribution-public-detail'
+        }
+      }, timeoutMs);
+    } catch (error) {
+      throw new Error(`public article detail ${articleId} request failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
     const payload = await readAedsResponse(response).catch(() => null);
     return { response, payload };
   }
@@ -127,18 +238,24 @@ async function fetchTaxonomy(path, session, namePrefix) {
     method: 'POST',
     cookieHeader: session.cookieHeader,
     requiresPow: true,
+    headers: { Origin: trustedOrigin },
     deviceFingerprint: `${namePrefix.toLowerCase().replaceAll(' ', '-')}-create`,
     body: { name }
   }));
   assert(response.ok, `${path} create failed: ${response.status}`);
 
-  ({ response, payload } = await authBinary(path, {
-    cookieHeader: session.cookieHeader
-  }));
-  assert(response.ok, `${path} reread failed: ${response.status}`);
-  const created = Array.isArray(payload) ? payload.find((item) => item?.name === name) : null;
-  assert(created?.id, `${path} created taxonomy missing`);
-  return Number(created.id);
+  return await findEventuallyNamedTaxonomyId({
+    label: `${path} taxonomy reread`,
+    name,
+    timeoutMs: coherenceTimeoutMs,
+    read: async () => {
+      ({ response, payload } = await authBinary(path, {
+        cookieHeader: session.cookieHeader
+      }));
+      assert(response.ok, `${path} reread failed: ${response.status}`);
+      return payload;
+    }
+  });
 }
 
 async function warmPublicSurfaces(articleId, categoryId, tagId) {
@@ -148,9 +265,9 @@ async function warmPublicSurfaces(articleId, categoryId, tagId) {
     fetchText('/feed/atom.xml', baseUrl),
     fetchText('/feed/feed.json', baseUrl),
     fetchText('/sitemap.xml', baseUrl),
-    fetchText(`/article/${articleId}`, publicPageBaseUrl),
-    fetchText(`/category/${categoryId}`, publicPageBaseUrl),
-    fetchText(`/tag/${tagId}`, publicPageBaseUrl),
+    fetchNavigationSnapshotText(`/article/${articleId}`),
+    fetchText(`/category/${categoryId}`, baseUrl),
+    fetchText(`/tag/${tagId}`, baseUrl),
     fetchSearchIndexText()
   ]);
 }
@@ -172,9 +289,9 @@ async function readPublicSurfaces(articleId, categoryId, tagId, cookieHeader) {
       fetchText('/feed/atom.xml', baseUrl),
       fetchText('/feed/feed.json', baseUrl),
       fetchText('/sitemap.xml', baseUrl),
-      fetchText(`/article/${articleId}`, publicPageBaseUrl),
-      fetchText(`/category/${categoryId}`, publicPageBaseUrl),
-      fetchText(`/tag/${tagId}`, publicPageBaseUrl),
+      fetchNavigationSnapshotText(`/article/${articleId}`),
+      fetchText(`/category/${categoryId}`, baseUrl),
+      fetchText(`/tag/${tagId}`, baseUrl),
       fetchSearchIndexText()
     ]);
 
@@ -266,6 +383,7 @@ async function createArticle(session, categoryId, tagId, title, marker, options 
     method: 'POST',
     cookieHeader: session.cookieHeader,
     requiresPow: true,
+    headers: { Origin: trustedOrigin },
     deviceFingerprint: `distribution-create-${marker}`,
     body: {
       title,
@@ -288,6 +406,7 @@ async function updateArticle(session, articleId, categoryId, tagId, title, marke
     method: 'PUT',
     cookieHeader: session.cookieHeader,
     requiresPow: true,
+    headers: { Origin: trustedOrigin },
     deviceFingerprint: `distribution-update-${marker}`,
     body: {
       title,
@@ -303,16 +422,36 @@ async function updateArticle(session, articleId, categoryId, tagId, title, marke
 }
 
 async function mutateArticle(session, path, method, operation, marker) {
-  const { response } = await authBinary(path, {
+  const proofToken = createAdminStepUpProofToken({
+    adminId: session.adminId,
+    sessionId: session.sessionId
+  });
+  let { response } = await authBinary(path, {
     method,
     cookieHeader: session.cookieHeader,
     requiresPow: true,
+    headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': proofToken },
     deviceFingerprint: `distribution-${operation}-${marker}`
   });
+  if (response.status === 428) {
+    await resetAndWaitForMutationBudget(`distribution ${operation}`);
+    const retryProofToken = createAdminStepUpProofToken({
+      adminId: session.adminId,
+      sessionId: session.sessionId
+    });
+    ({ response } = await authBinary(path, {
+      method,
+      cookieHeader: session.cookieHeader,
+      requiresPow: true,
+      headers: { Origin: trustedOrigin, 'X-Fsus-Mfa-Proof': retryProofToken },
+      deviceFingerprint: `distribution-${operation}-retry-${marker}`
+    }));
+  }
   assert(response.ok, `article ${operation} failed: ${response.status}`);
 }
 
 async function main() {
+  await resetAndWaitForMutationBudget('distribution coherence');
   const session = await loginWithFixtureSessionBypass(adminUsername, adminPassword, false, 'distribution-admin-login', timeoutMs);
   const categoryId = await fetchTaxonomy('/api/Category', session, 'Distribution Category');
   const tagId = await fetchTaxonomy('/api/Tag', session, 'Distribution Tag');
@@ -387,11 +526,21 @@ async function main() {
     console.log('[distribution-version-coherence] ok: delete');
 
     await mutateArticle(session, `/api/Article/restore/${articleId}`, 'PUT', 'restore', markerV2);
-    await eventually('restore distribution coherence', async () => {
+    await eventually('restore draft boundary', async () => {
+      const snapshot = await readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader);
+      assertPublicAbsent(snapshot, articleId, titleV2, markerV2);
+      await assertAdminState(session, articleId, titleV2, ArticleStatus.Draft);
+    });
+    console.log('[distribution-version-coherence] ok: restore-draft-hidden');
+
+    await updateArticle(session, articleId, categoryId, tagId, titleV2, markerV2, {
+      status: ArticleStatus.Published
+    });
+    await eventually('restore republish distribution coherence', async () => {
       const snapshot = await readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader);
       assertPublicPresent(snapshot, articleId, titleV2, markerV2);
     });
-    console.log('[distribution-version-coherence] ok: restore');
+    console.log('[distribution-version-coherence] ok: restore-republish');
 
     await mutateArticle(session, `/api/Article/${articleId}`, 'DELETE', 'delete-before-permanent', markerV2);
     await mutateArticle(session, `/api/Article/permanent/${articleId}`, 'DELETE', 'permanent-delete', markerV2);

@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { decodeSearchManifest, readAedsResponse } from '../../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../../support/http.mjs'
+import { readPublicFixtures } from '../../support/public-fixtures.mjs'
 import { testSessionHeaders } from '../../support/test-session.mjs'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
@@ -13,9 +14,12 @@ const baseUrl =
   || process.env.FSUSBLOG_BASE_URL
   || 'http://127.0.0.1:3000'
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
+const pageNavigationTimeoutMs = Math.max(requestTimeoutMs * 3, 45000)
+const shellReadyTimeoutMs = Math.max(requestTimeoutMs * 2, 30000)
 const executablePath = resolveSystemChromiumExecutablePath()
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
+const publicFixtures = readPublicFixtures()
 
 function assert(condition, message) {
   if (!condition) {
@@ -78,9 +82,9 @@ async function main() {
 
   const articlePage = await fetchAeds('/api/binary/article/list/home/1/5.aeds')
   const items = Array.isArray(articlePage?.items) ? articlePage.items : []
-  assert(items.length > 0, 'no articles available for search runtime smoke')
 
-  const probeArticle = items.find((item) => typeof item?.title === 'string' && item.title.trim().length > 0) ?? items[0]
+  const probeArticle = items.find((item) => typeof item?.title === 'string' && item.title.trim().length > 0)
+    ?? { title: publicFixtures.searchKeyword || publicFixtures.articleTitle }
   const query = pickQueryFromTitle(probeArticle.title)
   assert(query.length > 0, 'failed to derive search query from article title')
 
@@ -137,8 +141,11 @@ async function main() {
   })
 
   try {
-    await page.goto(`/search?q=${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded' })
-    await page.waitForFunction(() => document.readyState === 'complete' && Boolean(document.querySelector('#app')), undefined, { timeout: 30000 })
+    await page.goto(`/search?q=${encodeURIComponent(query)}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: pageNavigationTimeoutMs
+    })
+    await page.waitForSelector('#app', { timeout: shellReadyTimeoutMs })
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(2000)
 

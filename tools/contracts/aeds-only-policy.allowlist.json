@@ -54,6 +54,15 @@
       "patterns": ["JsonApiResponse<PublicAotRouteManifestResponse>", "JsonApiResponse<PublicAotSsrHealthReport>", "/internal/public-aot"],
       "routes": ["/internal/public-aot/manifest", "/internal/public-aot/health"],
       "reason": "Build/backfill tooling manifest and SSR worker diagnostics, protected by optional manifest token; not browser runtime application API."
+    },
+    {
+      "id": "local-auth-fixture-status-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+      "patterns": ["Results.Json(new"],
+      "routes": ["/__local/auth-fixture/status", "/api/local/auth-fixture/status"],
+      "reason": "Development-only Playwright auth fixture status probe, gated by loopback caller and shared secret; production startup rejects enabling this fixture."
     }
   ]
 }

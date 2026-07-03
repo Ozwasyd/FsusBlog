@@ -9,7 +9,13 @@ import type { LayoutCopy } from './contracts'
 export const FSUSBLOG_LAYOUT_COPY = {
   siteHeader: {
     ariaLabel: '站点导航',
-    navAriaLabel: '主导航'
+    navAriaLabel: '主导航',
+    fallbackTitle: "Fsu's Blog",
+    fallbackDescription: '工程记录、性能实验、UI 系统与 FsusBlog 构建过程。',
+    fallbackKeywords: '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog',
+    fallbackAuthor: 'Fsu',
+    fallbackManifestName: "Fsu's Blog",
+    fallbackManifestShortName: 'FsusBlog'
   },
   recommendations: {
     eyebrow: '热门文章',

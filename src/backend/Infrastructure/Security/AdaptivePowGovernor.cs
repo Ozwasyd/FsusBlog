@@ -1,4 +1,5 @@
 ﻿using FsusBlog.Server.Infrastructure.Cache;
+using Microsoft.Extensions.Configuration;
 using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Infrastructure.Security;
@@ -19,6 +20,8 @@ public sealed class AdaptivePowGovernor
     private const int HIGH_LOAD_DIFFICULTY = 24;  // 拥堵期
     private const int WAR_MODE_DIFFICULTY = 28;   // 激战期
     private const int RISK_PENALTY_BITS = 4;
+    private readonly int _baseDifficulty;
+    private readonly int _maxDifficulty;
 
     // ==========================================
     // 性能计数器 (实例级原子操作)
@@ -48,9 +51,11 @@ public sealed class AdaptivePowGovernor
         public required long ExpireAt { get; init; }
     }
 
-    public AdaptivePowGovernor(IUnifiedCache cache)
+    public AdaptivePowGovernor(IUnifiedCache cache, IConfiguration? configuration = null)
     {
         _cache = cache;
+        _baseDifficulty = Math.Clamp(ReadInt(configuration, "Security:Pow:BaseDifficulty", BASE_DIFFICULTY), 1, WAR_MODE_DIFFICULTY);
+        _maxDifficulty = Math.Clamp(ReadInt(configuration, "Security:Pow:MaxDifficulty", WAR_MODE_DIFFICULTY), _baseDifficulty, WAR_MODE_DIFFICULTY);
     }
 
     /// <summary>
@@ -162,11 +167,11 @@ public sealed class AdaptivePowGovernor
         int ewmaRps = Volatile.Read(ref _rpsEwmaScaled) / EWMA_SCALE;
         int rps = Math.Max(currentRps, ewmaRps);
 
-        if (rps > 1000) return WAR_MODE_DIFFICULTY;
-        if (rps > 300) return HIGH_LOAD_DIFFICULTY;
-        if (rps > 100) return ELEVATED_DIFFICULTY;
+        if (rps > 1000) return Math.Min(WAR_MODE_DIFFICULTY, _maxDifficulty);
+        if (rps > 300) return Math.Min(HIGH_LOAD_DIFFICULTY, _maxDifficulty);
+        if (rps > 100) return Math.Min(ELEVATED_DIFFICULTY, _maxDifficulty);
 
-        return BASE_DIFFICULTY;
+        return _baseDifficulty;
     }
 
     private void UpdateRpsEwma(int observedRps)
@@ -179,7 +184,7 @@ public sealed class AdaptivePowGovernor
         Volatile.Write(ref _rpsEwmaScaled, next);
     }
 
-    private static int ApplyRiskPenalty(int globalDiff, int riskScore)
+    private int ApplyRiskPenalty(int globalDiff, int riskScore)
     {
         if (riskScore <= 0)
         {
@@ -187,8 +192,11 @@ public sealed class AdaptivePowGovernor
         }
 
         int penalty = (riskScore / 10) * RISK_PENALTY_BITS;
-        return Math.Min(globalDiff + penalty, WAR_MODE_DIFFICULTY);
+        return Math.Min(globalDiff + penalty, _maxDifficulty);
     }
+
+    private static int ReadInt(IConfiguration? configuration, string key, int fallback)
+        => int.TryParse(configuration?[key], out int value) ? value : fallback;
 
     internal static uint StableIpHashForTests(string ip) => StableIpHash(ip);
 

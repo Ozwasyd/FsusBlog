@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCommentModerationActions } from '@/composables/useCommentModerationActions'
 import type { CommentModerationViewItem } from '@/composables/useCommentModerationQueue'
 import { AppErrorCode, createAppError } from '@/utils/appError'
-import { startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import { verifyMfaChallenge } from '@/api/auth'
 import { blockAnonymousNullifier, revokeAnonymousCredential } from '@/api/authoring'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { promptText, toast } from '@/fsusui/feedback'
@@ -13,12 +13,14 @@ const mocks = vi.hoisted(() => ({
   moderateCommentsBulk: vi.fn(),
   blockAnonymousNullifier: vi.fn(),
   revokeAnonymousCredential: vi.fn(),
-  startMfaChallenge: vi.fn(),
+  ensureAdminSensitiveProof: vi.fn(),
   verifyMfaChallenge: vi.fn(),
   showErrorToast: vi.fn(),
   showWarningToast: vi.fn(),
   promptText: vi.fn(),
-  toastSuccess: vi.fn()
+  toastSuccess: vi.fn(),
+  toastInfo: vi.fn(),
+  toastError: vi.fn()
 }))
 
 vi.mock('@/api/authoring', () => ({
@@ -35,8 +37,13 @@ vi.mock('@/api/authoring', () => ({
 }))
 
 vi.mock('@/api/auth', () => ({
-  startMfaChallenge: mocks.startMfaChallenge,
   verifyMfaChallenge: mocks.verifyMfaChallenge
+}))
+
+vi.mock('@/composables/useAdminSensitiveProof', () => ({
+  useAdminSensitiveProof: () => ({
+    ensureAdminSensitiveProof: mocks.ensureAdminSensitiveProof
+  })
 }))
 
 vi.mock('@/utils/errorPresentation', () => ({
@@ -47,7 +54,9 @@ vi.mock('@/utils/errorPresentation', () => ({
 vi.mock('@/fsusui/feedback', () => ({
   promptText: mocks.promptText,
   toast: {
-    success: mocks.toastSuccess
+    success: mocks.toastSuccess,
+    info: mocks.toastInfo,
+    error: mocks.toastError
   }
 }))
 
@@ -64,10 +73,7 @@ const nullifierItem = {
 describe('useCommentModerationActions anonymous governance', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.startMfaChallenge.mockResolvedValue({
-      verified: true,
-      proofToken: 'proof-admin'
-    })
+    mocks.ensureAdminSensitiveProof.mockResolvedValue('proof-admin')
     mocks.promptText.mockResolvedValue('abuse confirmed')
   })
 
@@ -87,7 +93,7 @@ describe('useCommentModerationActions anonymous governance', () => {
         inputPlaceholder: '说明封禁原因'
       })
     )
-    expect(startMfaChallenge).toHaveBeenCalledWith('admin-sensitive')
+    expect(mocks.ensureAdminSensitiveProof).toHaveBeenCalledTimes(1)
     expect(blockAnonymousNullifier).toHaveBeenCalledWith({
       nullifierHash: 'hash_abc',
       scope: 'article:42',

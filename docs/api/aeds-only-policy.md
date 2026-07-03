@@ -39,6 +39,7 @@ error:    AedsFrameType.ApiError
 | SEO | `/sitemap.xml`, `/robots.txt` | 搜索引擎标准入口 |
 | Ops probe | `/api/ops/health/ready-detail`, `/api/ops/crawler-ranges/status` | admin-only 运维诊断；公网 `/health/ready` 只返回最小状态，后台生产 UI 使用 AEDS 路径读取业务运维数据 |
 | PublicAOT tooling | `/internal/public-aot/manifest`、`/internal/public-aot/health` | 构建/backfill 工具 manifest 与 SSR worker 诊断，非浏览器运行时 API |
+| Local fixture tooling | `/__local/auth-fixture/status`、`/api/local/auth-fixture/status` | Development-only Playwright auth fixture 状态探针；仅 loopback + shared-secret 可调用，生产启动校验拒绝开启 |
 | Third-party moderation provider | HTTP JSON provider contract | 外部 provider 兼容协议 |
 | Evidence/tool/docs | `.tmp/release-evidence/**`, `tools/**`, `docs/**`, tests | 构建、测试、审计、证据文件，不是 runtime API |
 

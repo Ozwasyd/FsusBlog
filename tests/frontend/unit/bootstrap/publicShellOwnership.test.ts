@@ -62,6 +62,13 @@ describe('public shell ownership boundary', () => {
     expect(publicShell).not.toContain("setAttribute('href', authState.authHref)")
   })
 
+  it('installs the store runtime on the hydrated public shell app', () => {
+    expect(clientHydrate).toContain("import { createPinia } from 'pinia'")
+    expect(clientHydrate).toContain("import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'")
+    expect(clientHydrate).toContain('pinia.use(piniaPluginPersistedstate)')
+    expect(clientHydrate).toContain('app.use(pinia)')
+  })
+
   it('dispatches AOT action events through one shared helper', () => {
     expect(publicShell).toContain('dispatchAotActionEvent')
     expect(aotActionBridge).toContain('dispatchAotActionEvent')
