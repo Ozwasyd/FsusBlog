@@ -248,24 +248,50 @@ public static partial class BinaryEndpoints
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapDelete("/admin/article/trash", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
             IArticleEndpointService articles,
+            IAdminPrincipalService adminPrincipals,
+            IAuditEventService auditEvents,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
+            if (stepUp is not null)
+            {
+                await RecordArticleTrashClearAuditAsync(
+                    httpContext,
+                    auditEvents,
+                    destroyedCount: 0,
+                    success: false,
+                    reasonCode: BuildArticleTrashClearStepUpReason(stepUp.Value.StatusCode),
+                    cancellationToken);
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+            }
+
             int count = await articles.ClearTrashAsync(cancellationToken);
             if (count < 0)
             {
+                await RecordArticleTrashClearAuditAsync(
+                    httpContext,
+                    auditEvents,
+                    destroyedCount: 0,
+                    success: false,
+                    reasonCode: "clear_trash_failed",
+                    cancellationToken);
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "清空回收站失败：数据库操作异常"), aeds);
             }
 
-            using var _ = AuditLogScope.Push(
-                AuditSourceCatalog.Article,
-                AuditTypeCatalog.Audit,
-                new KeyValuePair<string, object?>("AuditAction", "trash.clear"),
-                new KeyValuePair<string, object?>("DestroyedCount", count));
+            await RecordArticleTrashClearAuditAsync(
+                httpContext,
+                auditEvents,
+                count,
+                success: true,
+                reasonCode: null,
+                cancellationToken);
             return BinaryResults.Frame(aeds, AedsFrameType.TrashClearResponse, writer => PodBinaryCodec.WriteTrashClearResponse(new TrashClearResponseDto(count), writer));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
+        .RequireRateLimiting("fixed_ip")
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapDelete("/admin/article/{id:int}", static async Task<BinaryFrameResult> (
@@ -337,6 +363,58 @@ public static partial class BinaryEndpoints
         .RequireRateLimiting("fixed_ip")
         .AddEndpointFilter<RequiresPowFilter>();
     }
+
+    private static long ResolveAdminPrincipalId(HttpContext httpContext)
+        => TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out _)
+            ? adminPrincipalId
+            : 0;
+
+    private static Task RecordArticleTrashClearAuditAsync(
+        HttpContext httpContext,
+        IAuditEventService auditEvents,
+        int destroyedCount,
+        bool success,
+        string? reasonCode,
+        CancellationToken cancellationToken)
+    {
+        long adminPrincipalId = ResolveAdminPrincipalId(httpContext);
+        string? actorId = adminPrincipalId > 0
+            ? adminPrincipalId.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : null;
+        string? actorRole = adminPrincipalId > 0
+            ? $"admin:{adminPrincipalId.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+            : null;
+        string outcome = success ? AuditOutcomeCatalog.Success : AuditOutcomeCatalog.Failure;
+
+        return auditEvents.RecordHighValueAsync(new AuditEvent(
+            AuditSourceCatalog.Article,
+            AuditTypeCatalog.Audit,
+            AuditActionCatalog.ArticleTrashCleared,
+            outcome,
+            success ? AuditSeverityCatalog.Critical : AuditSeverityCatalog.Error,
+            success ? "管理员清空文章回收站" : "管理员清空文章回收站失败",
+            ActorType: AuditActorTypeCatalog.Admin,
+            ActorId: actorId,
+            ActorRole: actorRole,
+            TargetType: "article_trash",
+            TargetId: "article_trash",
+            ReasonCode: reasonCode,
+            Context: new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["DestroyedCount"] = destroyedCount,
+                ["outcome"] = outcome,
+                ["TraceIdentifier"] = httpContext.TraceIdentifier
+            }), cancellationToken);
+    }
+
+    private static string BuildArticleTrashClearStepUpReason(int statusCode)
+        => statusCode switch
+        {
+            StatusCodes.Status403Forbidden => "origin_not_allowed",
+            StatusCodes.Status428PreconditionRequired => "mfa_proof_required",
+            StatusCodes.Status401Unauthorized => "unauthorized",
+            _ => "admin_step_up_failed"
+        };
 
     private static bool TryBindArticleListPagination(
         int? page,

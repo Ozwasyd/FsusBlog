@@ -222,6 +222,41 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    public void BinaryArticleTrashClear_IsDestructiveAdminMutationWithStepUpRateLimitAndHighValueAudit()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.Articles.cs");
+        string trashClear = ExtractBetween(
+            source,
+            "group.MapDelete(\"/admin/article/trash\"",
+            "group.MapDelete(\"/admin/article/{id:int}\"");
+
+        Assert.Contains("HttpContext httpContext", trashClear, StringComparison.Ordinal);
+        Assert.Contains("IAdminPrincipalService adminPrincipals", trashClear, StringComparison.Ordinal);
+        Assert.Contains("IAuditEventService auditEvents", trashClear, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)", trashClear, StringComparison.Ordinal);
+        Assert.Contains("BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode)", trashClear, StringComparison.Ordinal);
+        AssertBefore(trashClear, "RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)", "articles.ClearTrashAsync(cancellationToken)");
+        Assert.Contains(".RequireAdminPermission(AdminPermissions.ArticleWrite)", trashClear, StringComparison.Ordinal);
+        Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", trashClear, StringComparison.Ordinal);
+        Assert.Contains(".AddEndpointFilter<RequiresPowFilter>()", trashClear, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleTrashClearAuditAsync", trashClear, StringComparison.Ordinal);
+        Assert.Contains("RecordHighValueAsync(new AuditEvent(", source, StringComparison.Ordinal);
+        Assert.Contains("AuditActionCatalog.ArticleTrashCleared", source, StringComparison.Ordinal);
+        Assert.Contains("AuditOutcomeCatalog.Success", source, StringComparison.Ordinal);
+        Assert.Contains("AuditOutcomeCatalog.Failure", source, StringComparison.Ordinal);
+        Assert.Contains("DestroyedCount", source, StringComparison.Ordinal);
+        Assert.Contains("TraceIdentifier", source, StringComparison.Ordinal);
+        Assert.Contains("AuditActorTypeCatalog.Admin", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveAdminPrincipalId", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RestrictedAccountActions_AreExplicitAndDoNotBypassMessages()
     {
         string policySource = ReadRepoFile(
@@ -640,5 +675,15 @@ public sealed class EndpointPolicyContractTests
         Assert.DoesNotContain("ReadBinaryRequestPayloadAsync", anonymousBranch, StringComparison.Ordinal);
         Assert.DoesNotContain("MfaPasswordProofRequest", anonymousBranch, StringComparison.Ordinal);
         Assert.DoesNotContain("IsMfaVerified()", anonymousBranch, StringComparison.Ordinal);
+    }
+
+    private static void AssertBefore(string source, string earlier, string later)
+    {
+        int earlierIndex = source.IndexOf(earlier, StringComparison.Ordinal);
+        int laterIndex = source.IndexOf(later, StringComparison.Ordinal);
+
+        Assert.True(earlierIndex >= 0, $"Missing earlier marker: {earlier}");
+        Assert.True(laterIndex >= 0, $"Missing later marker: {later}");
+        Assert.True(earlierIndex < laterIndex, $"{earlier} must appear before {later}.");
     }
 }
