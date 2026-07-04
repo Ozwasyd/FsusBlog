@@ -3,6 +3,7 @@ using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Services;
+using Microsoft.Extensions.Configuration;
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
@@ -10,6 +11,12 @@ namespace FsusBlog.Server.Infrastructure.Integrity;
 public interface IIntegrityProofScheduler
 {
     Task<IntegrityProofScheduleResult> ScheduleFromOutboxAsync(
+        int articleId,
+        string eventType,
+        IReadOnlySet<string> completedEdges,
+        CancellationToken cancellationToken = default);
+
+    Task<IntegrityProofScheduleResult> ScheduleArticleRightsProofFromOutboxAsync(
         int articleId,
         string eventType,
         IReadOnlySet<string> completedEdges,
@@ -149,6 +156,7 @@ public sealed class IntegrityProofScheduler(
     IArticleDetailAedsArtifactStore articleDetailArtifacts,
     PublicHotReadStore publicHotReadStore,
     IPublishProofTransparencyLog transparencyLog,
+    IConfiguration configuration,
     ILogger<IntegrityProofScheduler> logger) : IIntegrityProofScheduler
 {
     private const string EmptyArtifactHash = "0000000000000000000000000000000000000000000000000000000000000000";
@@ -185,6 +193,8 @@ public sealed class IntegrityProofScheduler(
         PublishProofInput proof = BuildProofInput(articleId, revision, article, plan, artifacts);
         long proofId = await UpsertProofAsync(proof, plan.FailureCode, cancellationToken).ConfigureAwait(false);
         await transparencyLog.AppendPublishProofAsync(proofId, cancellationToken).ConfigureAwait(false);
+        await ScheduleArticleRightsProofFromOutboxAsync(articleId, eventType, completedEdges, cancellationToken)
+            .ConfigureAwait(false);
         logger.LogInformation(
             "integrity-proof-scheduled {ArticleId} {ArticleRevisionId} {Status} {FailureCode}",
             articleId,
@@ -192,6 +202,92 @@ public sealed class IntegrityProofScheduler(
             plan.Status,
             plan.FailureCode);
         return new IntegrityProofScheduleResult(true, plan.Status, plan.FailureCode, plan.ShouldRetry);
+    }
+
+    public async Task<IntegrityProofScheduleResult> ScheduleArticleRightsProofFromOutboxAsync(
+        int articleId,
+        string eventType,
+        IReadOnlySet<string> completedEdges,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ArticleMutationReplayEdges.Required.All(completedEdges.Contains))
+        {
+            return new IntegrityProofScheduleResult(false, PublishProofStatus.Pending, "required-edges-incomplete", true);
+        }
+
+        ArticleRevision? revision = await LoadLatestRevisionAsync(articleId, cancellationToken).ConfigureAwait(false);
+        if (revision is null)
+        {
+            return new IntegrityProofScheduleResult(false, PublishProofStatus.Pending, "revision-required", true);
+        }
+
+        Article? article = await db.Queryable<Article>().ClearFilter().InSingleAsync(articleId);
+        PublishProofPublicationState publicationState = ResolvePublicationState(eventType, article);
+        ArticleRightsSnapshot? snapshot = await LoadRightsSnapshotAsync(articleId, revision.Id, cancellationToken)
+            .ConfigureAwait(false);
+        if (snapshot is null)
+        {
+            return new IntegrityProofScheduleResult(false, PublishProofStatus.Pending, "rights-snapshot-missing", true);
+        }
+
+        ArticlePublishProof? publishProof = await LoadPublishProofAsync(articleId, revision.Id, cancellationToken)
+            .ConfigureAwait(false);
+        var proof = new ArticleRightsProofInput(
+            ProofVersion: ArticleRightsProofCanonicalPayloadV1.ProofVersion,
+            ArticleId: articleId,
+            ArticleRevisionId: revision.Id,
+            RevisionNo: revision.RevisionNo,
+            ArticleRightsSnapshotId: snapshot.Id,
+            PublishProofId: publishProof?.Id,
+            RightsPolicyHash: NormalizeHashForStorage(snapshot.PolicyHash),
+            ContentCanonicalHash: NormalizeHashForStorage(snapshot.ContentCanonicalHash),
+            IssuedAtUtc: new DateTimeOffset(article?.PublishedAt ?? revision.CreatedAt, TimeSpan.Zero),
+            ProofStatus: PublishProofStatus.Pending,
+            PublicationState: publicationState);
+
+        ArticleRightsProofReadiness readiness = ArticleRightsProofReadiness.Evaluate(
+            proof,
+            rightsSnapshotAvailable: true,
+            contentHashReady: IsReadyHash(snapshot.ContentCanonicalHash),
+            publishProofReady: IsReadyPublishProof(publishProof));
+        PublishProofStatus status = readiness.Status;
+        string? failureCode = readiness.Reason;
+        SiteIntegritySignature? signature = null;
+        if (!snapshot.ProofBindingEnabled && status == PublishProofStatus.Ready)
+        {
+            status = PublishProofStatus.NotPublic;
+            failureCode = "rights-proof-binding-disabled";
+        }
+
+        ArticleRightsProofInput finalized = proof with { ProofStatus = status };
+        if (status == PublishProofStatus.Ready)
+        {
+            try
+            {
+                signature = BuildSigningService().Sign(ArticleRightsProofCanonicalPayloadV1.BuildSigningPayload(finalized));
+            }
+            catch (SiteIntegritySigningUnavailableException ex)
+            {
+                status = PublishProofStatus.Failed;
+                failureCode = $"signing-{ex.Reason}";
+                finalized = finalized with { ProofStatus = status };
+            }
+        }
+
+        long rightsProofId = await UpsertArticleRightsProofAsync(finalized, signature, failureCode, cancellationToken)
+            .ConfigureAwait(false);
+        if (status == PublishProofStatus.Ready)
+        {
+            await transparencyLog.AppendArticleRightsProofAsync(rightsProofId, cancellationToken).ConfigureAwait(false);
+        }
+
+        logger.LogInformation(
+            "article-rights-proof-scheduled {ArticleId} {ArticleRevisionId} {Status} {FailureCode}",
+            articleId,
+            revision.Id,
+            status,
+            failureCode);
+        return new IntegrityProofScheduleResult(true, status, failureCode, status is PublishProofStatus.Pending or PublishProofStatus.Retrying);
     }
 
     private async Task<ArticleRevision?> LoadLatestRevisionAsync(int articleId, CancellationToken cancellationToken)
@@ -243,6 +339,26 @@ public sealed class IntegrityProofScheduler(
             .CountAsync(cancellationToken)
             .ConfigureAwait(false);
     }
+
+    private async Task<ArticleRightsSnapshot?> LoadRightsSnapshotAsync(
+        int articleId,
+        long articleRevisionId,
+        CancellationToken cancellationToken)
+        => await db.Queryable<ArticleRightsSnapshot>()
+            .Where(snapshot => snapshot.ArticleId == articleId && snapshot.ArticleRevisionId == articleRevisionId)
+            .OrderByDescending(snapshot => snapshot.Id)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    private async Task<ArticlePublishProof?> LoadPublishProofAsync(
+        int articleId,
+        long articleRevisionId,
+        CancellationToken cancellationToken)
+        => await db.Queryable<ArticlePublishProof>()
+            .Where(proof => proof.ArticleId == articleId && proof.ArticleRevisionId == articleRevisionId)
+            .OrderByDescending(proof => proof.Id)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
 
     private static PublishProofInput BuildProofInput(
         int articleId,
@@ -374,6 +490,105 @@ public sealed class IntegrityProofScheduler(
         return Convert.ToInt64(rows.Rows[0][0], CultureInfo.InvariantCulture);
     }
 
+    private async Task<long> UpsertArticleRightsProofAsync(
+        ArticleRightsProofInput proof,
+        SiteIntegritySignature? signature,
+        string? failureCode,
+        CancellationToken cancellationToken)
+    {
+        string idempotencyKey = ArticleRightsProofIdempotency.BuildKey(
+            proof.ArticleId,
+            proof.ArticleRevisionId,
+            proof.ProofVersion);
+        DateTime now = DateTime.UtcNow;
+        System.Data.DataTable rows = await db.Ado.GetDataTableAsync(
+            """
+            INSERT INTO article_rights_proof (
+                proof_version,
+                signature_payload_version,
+                article_id,
+                article_revision_id,
+                revision_no,
+                article_rights_snapshot_id,
+                publish_proof_id,
+                idempotency_key,
+                rights_policy_hash,
+                content_canonical_hash,
+                proof_status,
+                signing_key_id,
+                signing_key_version,
+                signing_algorithm,
+                signature,
+                failure_code,
+                failure_detail,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                @ProofVersion,
+                @SignaturePayloadVersion,
+                @ArticleId,
+                @ArticleRevisionId,
+                @RevisionNo,
+                @ArticleRightsSnapshotId,
+                @PublishProofId,
+                @IdempotencyKey,
+                @RightsPolicyHash,
+                @ContentCanonicalHash,
+                @ProofStatus,
+                @SigningKeyId,
+                @SigningKeyVersion,
+                @SigningAlgorithm,
+                @Signature,
+                @FailureCode,
+                @FailureDetail,
+                @CreatedAt,
+                @UpdatedAt
+            )
+            ON CONFLICT (idempotency_key) DO UPDATE
+            SET article_rights_snapshot_id = EXCLUDED.article_rights_snapshot_id,
+                publish_proof_id = EXCLUDED.publish_proof_id,
+                rights_policy_hash = EXCLUDED.rights_policy_hash,
+                content_canonical_hash = EXCLUDED.content_canonical_hash,
+                proof_status = EXCLUDED.proof_status,
+                signing_key_id = EXCLUDED.signing_key_id,
+                signing_key_version = EXCLUDED.signing_key_version,
+                signing_algorithm = EXCLUDED.signing_algorithm,
+                signature = EXCLUDED.signature,
+                failure_code = EXCLUDED.failure_code,
+                failure_detail = EXCLUDED.failure_detail,
+                updated_at = EXCLUDED.updated_at
+            RETURNING id;
+            """,
+            new SugarParameter("@ProofVersion", proof.ProofVersion),
+            new SugarParameter("@SignaturePayloadVersion", ArticleRightsProofCanonicalPayloadV1.SignaturePayloadVersion),
+            new SugarParameter("@ArticleId", proof.ArticleId),
+            new SugarParameter("@ArticleRevisionId", proof.ArticleRevisionId),
+            new SugarParameter("@RevisionNo", proof.RevisionNo),
+            new SugarParameter("@ArticleRightsSnapshotId", proof.ArticleRightsSnapshotId),
+            new SugarParameter("@PublishProofId", proof.PublishProofId.HasValue ? proof.PublishProofId.Value : DBNull.Value),
+            new SugarParameter("@IdempotencyKey", idempotencyKey),
+            new SugarParameter("@RightsPolicyHash", proof.RightsPolicyHash),
+            new SugarParameter("@ContentCanonicalHash", proof.ContentCanonicalHash),
+            new SugarParameter("@ProofStatus", ToStatusToken(proof.ProofStatus)),
+            new SugarParameter("@SigningKeyId", signature is null ? DBNull.Value : signature.KeyId),
+            new SugarParameter("@SigningKeyVersion", signature is null ? DBNull.Value : signature.KeyVersion),
+            new SugarParameter("@SigningAlgorithm", signature is null ? DBNull.Value : signature.Algorithm),
+            new SugarParameter("@Signature", signature is null ? DBNull.Value : signature.SignatureBase64Url),
+            new SugarParameter("@FailureCode", failureCode is null ? DBNull.Value : failureCode),
+            new SugarParameter("@FailureDetail", DBNull.Value),
+            new SugarParameter("@CreatedAt", now),
+            new SugarParameter("@UpdatedAt", now)).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (rows.Rows.Count == 0)
+        {
+            throw new InvalidOperationException("Article rights proof upsert did not return an id.");
+        }
+
+        return Convert.ToInt64(rows.Rows[0][0], CultureInfo.InvariantCulture);
+    }
+
     private static PublishProofPublicationState ResolvePublicationState(string eventType, Article? article)
     {
         PublishProofPublicationState eventState = IntegrityProofOutboxPlanner.ResolvePublicationState(eventType);
@@ -430,6 +645,99 @@ public sealed class IntegrityProofScheduler(
         ArtifactDigestEntry? entry = artifacts.FirstOrDefault(item => item.Kind == kind);
         return entry is { State: ArtifactDigestState.Ready, Sha256Hex.Length: 64 }
             ? entry.Sha256Hex
+            : EmptyArtifactHash;
+    }
+
+    private SiteIntegritySigningService BuildSigningService()
+        => new(BuildSigningRegistry(configuration));
+
+    private static SiteSigningKeyRegistry BuildSigningRegistry(IConfiguration configuration)
+    {
+        IConfigurationSection signing = configuration.GetSection(SiteIntegritySigningStartupPolicy.SectionName);
+        string currentKeyId = RequireConfig(signing["CurrentKeyId"], "current-key-missing");
+        List<SiteSigningKeyRecord> keys = [];
+        foreach (IConfigurationSection keySection in signing.GetSection("Keys").GetChildren())
+        {
+            string keyId = keySection.Key.Trim();
+            if (keyId.Length == 0)
+            {
+                continue;
+            }
+
+            keys.Add(new SiteSigningKeyRecord(
+                KeyId: keyId,
+                Version: ParsePositiveInt(keySection["Version"], 1),
+                Algorithm: NormalizeSigningAlgorithm(RequireConfig(keySection["Algorithm"], "algorithm-missing")),
+                NotBeforeUtc: ParseDateTimeOffset(keySection["NotBeforeUtc"]) ?? DateTimeOffset.UnixEpoch,
+                NotAfterUtc: ParseDateTimeOffset(keySection["NotAfterUtc"]),
+                RevokedAtUtc: ParseDateTimeOffset(keySection["RevokedAtUtc"]),
+                CompromisedAtUtc: ParseDateTimeOffset(keySection["CompromisedAtUtc"]),
+                PublicKeySubjectPublicKeyInfoBase64Url: RequireConfig(keySection["PublicKey"], "public-key-missing"),
+                PrivateKeyPkcs8Base64Url: RequireConfig(keySection["PrivateKey"], "private-key-missing")));
+        }
+
+        if (keys.Count == 0)
+        {
+            throw SiteIntegritySigningUnavailableException.ForKey(currentKeyId, "key-registry-empty");
+        }
+
+        return SiteSigningKeyRegistry.Create(keys, currentKeyId);
+    }
+
+    private static string RequireConfig(string? value, string reason)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw SiteIntegritySigningUnavailableException.ForKey("configured-site-key", reason);
+        }
+
+        return value.Trim();
+    }
+
+    private static string NormalizeSigningAlgorithm(string value)
+        => string.Equals(value, "ecdsa-p256-sha256", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, SiteSigningKeyRecord.EcdsaP256Sha256, StringComparison.Ordinal)
+                ? SiteSigningKeyRecord.EcdsaP256Sha256
+                : value;
+
+    private static int ParsePositiveInt(string? value, int fallback)
+        => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) && parsed > 0
+            ? parsed
+            : fallback;
+
+    private static DateTimeOffset? ParseDateTimeOffset(string? value)
+        => DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out DateTimeOffset parsed)
+            ? parsed.ToUniversalTime()
+            : null;
+
+    private static bool IsReadyPublishProof(ArticlePublishProof? proof)
+        => proof is not null
+            && (string.Equals(proof.ProofStatus, "ready", StringComparison.Ordinal)
+                || string.Equals(proof.ProofStatus, "superseded", StringComparison.Ordinal))
+            && !string.IsNullOrWhiteSpace(proof.SigningKeyId)
+            && !string.IsNullOrWhiteSpace(proof.SignatureBase64Url);
+
+    private static bool IsReadyHash(string value)
+    {
+        string normalized = NormalizeHashForStorage(value);
+        return normalized.Length == 64 && normalized.All(static ch => Uri.IsHexDigit(ch));
+    }
+
+    private static string NormalizeHashForStorage(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return EmptyArtifactHash;
+        }
+
+        string trimmed = value.Trim();
+        if (trimmed.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed["sha256:".Length..];
+        }
+
+        return trimmed.Length == 64 && trimmed.All(static ch => Uri.IsHexDigit(ch))
+            ? trimmed.ToLowerInvariant()
             : EmptyArtifactHash;
     }
 

@@ -9,6 +9,8 @@ The public verification API exposes signed integrity manifests as ordinary JSON 
 | GET | `/integrity/keys.json` | Public site signing key registry. | `public, max-age=60, stale-while-revalidate=300` |
 | GET | `/integrity/article/{articleId}` | Current public publish proof for an article. | ready or superseded proofs are immutable; non-ready states use `no-store` |
 | GET | `/integrity/article/{articleId}/revisions/{revisionNo}` | Publish proof for one public article revision number. | same as article proof |
+| GET | `/integrity/article/{articleId}/rights` | Current public Rights V3 proof for an article. | ready or superseded proofs are immutable; non-ready states use `no-store` |
+| GET | `/integrity/article/{articleId}/revisions/{revisionNo}/rights` | Rights V3 proof for one public article revision number. | same as article proof |
 | GET | `/integrity/revisions/{articleRevisionId}` | Publish proof by persisted `ArticleRevision.Id`. | same as article proof |
 | GET | `/integrity/checkpoints/latest` | Latest signed Merkle checkpoint. | short public manifest cache |
 | GET | `/integrity/checkpoints/{date}` | Daily checkpoint for `yyyy-MM-dd`. | short public manifest cache |
@@ -37,6 +39,27 @@ Pending, failed, retrying, and not-public states expose only the low-sensitive s
 
 The service only reads already generated proof rows and checkpoints. It does not generate proofs, rebuild artifacts, or call external anchoring systems.
 
+## Rights Proof Manifest
+
+A ready or superseded Rights V3 proof contains:
+
+- `manifestVersion`
+- `kind=article-rights-proof`
+- low-sensitive `status`
+- `proofVersion`
+- `hashAlgorithm=sha256`
+- `articleId`
+- `articleRevisionId`
+- `revisionNo`
+- `articleRightsSnapshotId`
+- `publishProofId`
+- `rightsPolicyHash`
+- `contentCanonicalHash`
+- signing key id, key version, algorithm, and Base64Url signature
+- transparency log pointer
+
+Pending, failed, retrying, and not-public Rights V3 states expose only low-sensitive status and coordinates. They do not expose failure details, stack traces, admin principal context, private drafts, comments, user data, IP, user agent, device, session, token, or private key material.
+
 ## Key Registry
 
 `/integrity/keys.json` exposes public key metadata needed to verify signatures:
@@ -54,7 +77,7 @@ Private key fields are never serialized.
 
 1. Fetch `/integrity/keys.json` and select the `keyId` from the proof signature.
 2. Convert the Base64Url public key to DER SubjectPublicKeyInfo.
-3. Rebuild the canonical signing payload described in [Publish Proof](publish-proof.md) or [Merkle Checkpoint](merkle-checkpoint.md).
+3. Rebuild the canonical signing payload described in [Publish Proof](publish-proof.md), [Article Rights Proof](article-rights-proof.md), or [Merkle Checkpoint](merkle-checkpoint.md).
 4. Decode the Base64Url signature.
 5. Verify the payload digest:
 
@@ -62,7 +85,7 @@ Private key fields are never serialized.
 openssl dgst -sha256 -verify site-key.spki.pem -signature proof.sig proof-signing-payload.txt
 ```
 
-For publish proofs, the payload subject is `article:{articleId}:revision:{articleRevisionId}` and includes `revisionNo`. For checkpoints, the payload subject is `checkpoint:{checkpointKind}:{scopeKey}`.
+For publish proofs, the payload subject is `article:{articleId}:revision:{articleRevisionId}` and includes `revisionNo`. For Rights V3 proofs, the payload subject is `article:{articleId}:revision:{articleRevisionId}:rights:{articleRightsSnapshotId}` and includes `publishProofId`. For checkpoints, the payload subject is `checkpoint:{checkpointKind}:{scopeKey}`.
 
 ## Boundary
 

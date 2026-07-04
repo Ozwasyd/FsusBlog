@@ -18,6 +18,7 @@ A valid proof can show:
 - the public content payload for an `articleId`, `articleRevisionId`, and `revisionNo` produced the expected canonical hash;
 - the named public artifacts produced the expected artifact digest values;
 - the configured site signing key signed the publish proof payload;
+- the configured site signing key signed the Rights V3 proof payload when a rights proof is present;
 - the proof appeared in the local transparency log;
 - the log entry is included in a signed local Merkle checkpoint.
 
@@ -41,6 +42,7 @@ It is not a performance optimization and not a privacy system. It is also not a 
 - [Developer Implementation Notes](implementation-notes.md) (`docs/integrity/implementation-notes.md`)
 - [Public Verification Guide](public-verification-guide.md) (`docs/integrity/public-verification-guide.md`)
 - [Article Rights Canonical Hash](article-rights-canonical-hash.md)
+- [Article Rights Proof](article-rights-proof.md)
 - [Publish Proof](publish-proof.md)
 - [Transparency Log](transparency-log.md)
 - [Merkle Checkpoint](merkle-checkpoint.md)

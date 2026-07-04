@@ -53,12 +53,14 @@ Integrity verification endpoints are public JSON sidecars, not `/api/binary/**` 
 | GET | `/integrity/keys.json` | `application/json; charset=utf-8` | short public manifest cache | Public signing key registry; never exposes private keys. |
 | GET | `/integrity/article/{articleId}` | `application/json; charset=utf-8` | immutable for ready/superseded proof; `no-store` otherwise | Current public publish proof for an article. |
 | GET | `/integrity/article/{articleId}/revisions/{revisionNo}` | `application/json; charset=utf-8` | same as proof | Publish proof for one public article revision number. |
+| GET | `/integrity/article/{articleId}/rights` | `application/json; charset=utf-8` | immutable for ready/superseded proof; `no-store` otherwise | Current public Rights V3 proof for an article. |
+| GET | `/integrity/article/{articleId}/revisions/{revisionNo}/rights` | `application/json; charset=utf-8` | same as proof | Rights V3 proof for one public article revision number. |
 | GET | `/integrity/revisions/{articleRevisionId}` | `application/json; charset=utf-8` | same as proof | Publish proof by persisted `ArticleRevision.Id`. |
 | GET | `/integrity/checkpoints/latest` | `application/json; charset=utf-8` | short public manifest cache | Latest signed Merkle checkpoint. |
 | GET | `/integrity/checkpoints/{date}` | `application/json; charset=utf-8` | short public manifest cache | Daily checkpoint using `yyyy-MM-dd`. |
 | GET | `/integrity/log/head` | `application/json; charset=utf-8` | short public manifest cache | Current transparency log head. |
 
-Ready and superseded proof manifests contain `articleId`, `articleRevisionId`, `revisionNo`, canonical hash, artifact digests, signing key id, signature, and transparency log pointer. Pending, failed, retrying, not-public, missing, private, hidden, or deleted cases expose only stable low-sensitive status or an error manifest; they must not expose stack traces, failure details, admin principal context, draft content, user data, IP, device, session, token, or private key material. See [Public Verification API](../integrity/public-verification-api.md) for schema and manual verification.
+Ready and superseded publish proof manifests contain `articleId`, `articleRevisionId`, `revisionNo`, canonical hash, artifact digests, signing key id, signature, and transparency log pointer. Ready and superseded Rights V3 proof manifests contain `articleId`, `articleRevisionId`, `revisionNo`, `articleRightsSnapshotId`, `publishProofId`, `rightsPolicyHash`, `contentCanonicalHash`, signing key id, signature, and transparency log pointer. Pending, failed, retrying, not-public, missing, private, hidden, or deleted cases expose only stable low-sensitive status or an error manifest; they must not expose stack traces, failure details, admin principal context, draft content, user data, IP, user agent, device, session, token, private key material, comments, private messages, or secret material. See [Public Verification API](../integrity/public-verification-api.md) for schema and manual verification.
 
 ### AEDS 通用响应 POD
 

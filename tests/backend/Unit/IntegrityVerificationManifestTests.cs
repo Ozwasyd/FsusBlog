@@ -101,6 +101,8 @@ public sealed class IntegrityVerificationManifestTests
             "/integrity/keys.json",
             "/integrity/article/{articleId:int}",
             "/integrity/article/{articleId:int}/revisions/{revisionNo:int}",
+            "/integrity/article/{articleId:int}/rights",
+            "/integrity/article/{articleId:int}/revisions/{revisionNo:int}/rights",
             "/integrity/revisions/{articleRevisionId:long}",
             "/integrity/checkpoints/latest",
             "/integrity/checkpoints/{date}",
@@ -130,6 +132,8 @@ public sealed class IntegrityVerificationManifestTests
         Assert.Contains("/integrity/keys.json", publicVerification, StringComparison.Ordinal);
         Assert.Contains("/integrity/article/{articleId}", publicVerification, StringComparison.Ordinal);
         Assert.Contains("/integrity/article/{articleId}/revisions/{revisionNo}", publicVerification, StringComparison.Ordinal);
+        Assert.Contains("/integrity/article/{articleId}/rights", publicVerification, StringComparison.Ordinal);
+        Assert.Contains("/integrity/article/{articleId}/revisions/{revisionNo}/rights", publicVerification, StringComparison.Ordinal);
         Assert.Contains("/integrity/revisions/{articleRevisionId}", publicVerification, StringComparison.Ordinal);
         Assert.Contains("/integrity/checkpoints/latest", publicVerification, StringComparison.Ordinal);
         Assert.Contains("/integrity/log/head", publicVerification, StringComparison.Ordinal);
@@ -139,6 +143,8 @@ public sealed class IntegrityVerificationManifestTests
         Assert.Contains("openssl dgst -sha256 -verify", publicVerification, StringComparison.Ordinal);
         Assert.DoesNotContain("revisionId", publicVerification, StringComparison.Ordinal);
         Assert.Contains("/integrity/keys.json", contracts, StringComparison.Ordinal);
+        Assert.Contains("/integrity/article/{articleId}/rights", contracts, StringComparison.Ordinal);
+        Assert.Contains("/integrity/article/{articleId}/revisions/{revisionNo}/rights", contracts, StringComparison.Ordinal);
         Assert.Contains("/integrity/checkpoints/latest", quickReference, StringComparison.Ordinal);
     }
 

@@ -179,6 +179,66 @@ public sealed record IntegrityArtifactDigestManifest(
     string AssetManifest,
     string Feed);
 
+public sealed record ArticleRightsProofManifestResponse(
+    int ManifestVersion,
+    string Kind,
+    string Status,
+    int ProofVersion,
+    string HashAlgorithm,
+    int ArticleId,
+    long ArticleRevisionId,
+    int RevisionNo,
+    long ArticleRightsSnapshotId,
+    long? PublishProofId,
+    string? RightsPolicyHash,
+    string? ContentCanonicalHash,
+    IntegritySignatureManifest? Signature,
+    IntegrityTransparencyLogPointer? TransparencyLog)
+{
+    public static ArticleRightsProofManifestResponse FromProof(ArticleRightsProof proof)
+    {
+        ArgumentNullException.ThrowIfNull(proof);
+        string status = IntegrityProofManifestResponse.NormalizeStatus(proof.ProofStatus);
+        bool exposePayload = IntegrityProofManifestResponse.IsPayloadPublic(status);
+
+        return new ArticleRightsProofManifestResponse(
+            ManifestVersion: 1,
+            Kind: "article-rights-proof",
+            Status: status,
+            ProofVersion: proof.ProofVersion,
+            HashAlgorithm: "sha256",
+            ArticleId: proof.ArticleId,
+            ArticleRevisionId: proof.ArticleRevisionId,
+            RevisionNo: proof.RevisionNo,
+            ArticleRightsSnapshotId: proof.ArticleRightsSnapshotId,
+            PublishProofId: exposePayload ? proof.PublishProofId : null,
+            RightsPolicyHash: exposePayload ? Digest(proof.RightsPolicyHash) : null,
+            ContentCanonicalHash: exposePayload ? Digest(proof.ContentCanonicalHash) : null,
+            Signature: exposePayload && !string.IsNullOrWhiteSpace(proof.SigningKeyId) && !string.IsNullOrWhiteSpace(proof.SignatureBase64Url)
+                ? new IntegritySignatureManifest(
+                    PayloadVersion: proof.SignaturePayloadVersion,
+                    KeyId: proof.SigningKeyId!,
+                    KeyVersion: proof.SigningKeyVersion,
+                    Algorithm: proof.SigningAlgorithm ?? "unknown",
+                    Value: proof.SignatureBase64Url!)
+                : null,
+            TransparencyLog: exposePayload && proof.TransparencyLogEntryId.HasValue && !string.IsNullOrWhiteSpace(proof.TransparencyLogEntryHash)
+                ? new IntegrityTransparencyLogPointer(proof.TransparencyLogEntryId.Value, NormalizeHash(proof.TransparencyLogEntryHash))
+                : null);
+    }
+
+    private static string Digest(string value)
+        => string.Concat("sha256:", NormalizeHash(value));
+
+    private static string NormalizeHash(string value)
+    {
+        string trimmed = value.Trim();
+        return trimmed.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
+            ? trimmed["sha256:".Length..].ToLowerInvariant()
+            : trimmed.ToLowerInvariant();
+    }
+}
+
 public sealed record IntegritySignatureManifest(
     int PayloadVersion,
     string KeyId,
@@ -299,6 +359,10 @@ public interface IIntegrityVerificationManifestService
 
     Task<IntegrityManifestResult> GetRevisionProofAsync(long articleRevisionId, CancellationToken cancellationToken);
 
+    Task<IntegrityManifestResult> GetCurrentArticleRightsProofAsync(int articleId, CancellationToken cancellationToken);
+
+    Task<IntegrityManifestResult> GetArticleRevisionRightsProofAsync(int articleId, int revisionNo, CancellationToken cancellationToken);
+
     Task<IntegrityManifestResult> GetLatestCheckpointAsync(CancellationToken cancellationToken);
 
     Task<IntegrityManifestResult> GetCheckpointAsync(DateOnly date, CancellationToken cancellationToken);
@@ -356,6 +420,32 @@ public sealed class IntegrityVerificationManifestService(
         return await BuildProofResultAsync(proof, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<IntegrityManifestResult> GetCurrentArticleRightsProofAsync(int articleId, CancellationToken cancellationToken)
+    {
+        ArticleRightsProof? proof = await db.Queryable<ArticleRightsProof>()
+            .Where(item => item.ArticleId == articleId)
+            .OrderByDescending(item => item.RevisionNo)
+            .OrderByDescending(item => item.Id)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return await BuildArticleRightsProofResultAsync(proof, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IntegrityManifestResult> GetArticleRevisionRightsProofAsync(
+        int articleId,
+        int revisionNo,
+        CancellationToken cancellationToken)
+    {
+        ArticleRightsProof? proof = await db.Queryable<ArticleRightsProof>()
+            .Where(item => item.ArticleId == articleId && item.RevisionNo == revisionNo)
+            .OrderByDescending(item => item.Id)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return await BuildArticleRightsProofResultAsync(proof, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<IntegrityManifestResult> GetLatestCheckpointAsync(CancellationToken cancellationToken)
     {
         IntegrityMerkleCheckpoint? checkpoint = await db.Queryable<IntegrityMerkleCheckpoint>()
@@ -410,6 +500,28 @@ public sealed class IntegrityVerificationManifestService(
         }
 
         IntegrityProofManifestResponse manifest = IntegrityProofManifestResponse.FromProof(proof);
+        string cache = IntegrityProofManifestResponse.IsPayloadPublic(manifest.Status)
+            ? IntegrityVerificationCacheHeaders.ImmutableProof
+            : IntegrityVerificationCacheHeaders.NoStore;
+
+        return Ok(manifest, cache);
+    }
+
+    private async Task<IntegrityManifestResult> BuildArticleRightsProofResultAsync(
+        ArticleRightsProof? proof,
+        CancellationToken cancellationToken)
+    {
+        if (proof is null)
+        {
+            return NotFound();
+        }
+
+        if (!await IsArticlePublicAsync(proof.ArticleId, cancellationToken).ConfigureAwait(false))
+        {
+            return NotFound("integrity_manifest_not_public");
+        }
+
+        ArticleRightsProofManifestResponse manifest = ArticleRightsProofManifestResponse.FromProof(proof);
         string cache = IntegrityProofManifestResponse.IsPayloadPublic(manifest.Status)
             ? IntegrityVerificationCacheHeaders.ImmutableProof
             : IntegrityVerificationCacheHeaders.NoStore;

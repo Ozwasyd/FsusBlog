@@ -63,6 +63,13 @@ public sealed class TransparencyLogTests
     }
 
     [Fact]
+    public void EntryTypes_DefinesArticleRightsProofAsDistinctPublicIntegrityEntry()
+    {
+        Assert.Equal("article-rights-proof", TransparencyLogEntryTypes.ArticleRightsProof);
+        Assert.NotEqual(TransparencyLogEntryTypes.PublishProof, TransparencyLogEntryTypes.ArticleRightsProof);
+    }
+
+    [Fact]
     public void AppendService_UsesTransactionLockIdempotencyAndProofBackReference()
     {
         string source = ReadRepoFile("src/backend/Infrastructure/Integrity/TransparencyLog.cs");
@@ -80,6 +87,19 @@ public sealed class TransparencyLogTests
         Assert.DoesNotContain("Arweave", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Nethereum", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AppendService_HandlesArticleRightsProofRowsAndBackReference()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/Integrity/TransparencyLog.cs");
+
+        Assert.Contains("AppendArticleRightsProofAsync", source, StringComparison.Ordinal);
+        Assert.Contains("EntryType == TransparencyLogEntryTypes.ArticleRightsProof", source, StringComparison.Ordinal);
+        Assert.Contains("ArticleRightsProof proof = await LoadRightsProofAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ComputeArticleRightsProofPayloadHash", source, StringComparison.Ordinal);
+        Assert.Contains("Updateable<ArticleRightsProof>()", source, StringComparison.Ordinal);
+        Assert.Contains("article-rights-proof-log-payload.v1", source, StringComparison.Ordinal);
     }
 
     private static TransparencyLogEntryRecord BuildEntry(long seq, long proofId, string? prevHash, string payload)

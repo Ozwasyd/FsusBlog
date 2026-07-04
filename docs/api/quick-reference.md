@@ -163,6 +163,8 @@
 | GET | `/integrity/keys.json` | 🔓 | 🗄️ | 公开签名 key registry，不包含 private key |
 | GET | `/integrity/article/{articleId}` | 🔓 | 🗄️ | 当前公开文章 publish proof；ready/superseded immutable，其他状态 no-store |
 | GET | `/integrity/article/{articleId}/revisions/{revisionNo}` | 🔓 | 🗄️ | 指定公开文章 revision number 的 publish proof |
+| GET | `/integrity/article/{articleId}/rights` | 🔓 | 🗄️ | 当前公开文章 Rights V3 proof；ready/superseded immutable，其他状态 no-store |
+| GET | `/integrity/article/{articleId}/revisions/{revisionNo}/rights` | 🔓 | 🗄️ | 指定公开文章 revision number 的 Rights V3 proof |
 | GET | `/integrity/revisions/{articleRevisionId}` | 🔓 | 🗄️ | 按 `ArticleRevision.Id` 查询 publish proof |
 | GET | `/integrity/checkpoints/latest` | 🔓 | 🗄️ | 最新 Merkle checkpoint manifest |
 | GET | `/integrity/checkpoints/{date}` | 🔓 | 🗄️ | `yyyy-MM-dd` UTC daily checkpoint manifest |

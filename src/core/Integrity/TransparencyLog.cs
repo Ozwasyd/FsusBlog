@@ -7,6 +7,7 @@ namespace FsusBlog.Core.Integrity;
 public static class TransparencyLogEntryTypes
 {
     public const string PublishProof = "publish-proof";
+    public const string ArticleRightsProof = "article-rights-proof";
     public const string Checkpoint = "checkpoint";
 }
 

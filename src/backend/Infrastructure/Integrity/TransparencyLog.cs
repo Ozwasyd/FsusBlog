@@ -11,6 +11,8 @@ public interface IPublishProofTransparencyLog
 {
     Task<IntegrityTransparencyLogEntry> AppendPublishProofAsync(long proofId, CancellationToken cancellationToken = default);
 
+    Task<IntegrityTransparencyLogEntry> AppendArticleRightsProofAsync(long proofId, CancellationToken cancellationToken = default);
+
     Task<TransparencyLogVerificationResult> VerifyAsync(CancellationToken cancellationToken = default);
 
     Task<IntegrityTransparencyLogEntry?> GetLatestHeadAsync(CancellationToken cancellationToken = default);
@@ -92,6 +94,78 @@ public sealed class PublishProofTransparencyLog(ISqlSugarClient db) : IPublishPr
         return transaction.Data;
     }
 
+    public async Task<IntegrityTransparencyLogEntry> AppendArticleRightsProofAsync(
+        long proofId,
+        CancellationToken cancellationToken = default)
+    {
+        if (proofId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(proofId), proofId, "Proof id must be positive.");
+        }
+
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await AcquireAppendLockAsync(cancellationToken).ConfigureAwait(false);
+
+            IntegrityTransparencyLogEntry? existing = await db.Queryable<IntegrityTransparencyLogEntry>()
+                .Where(entry => entry.EntryType == TransparencyLogEntryTypes.ArticleRightsProof && entry.ProofId == proofId)
+                .FirstAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (existing is not null)
+            {
+                await LinkRightsProofAsync(proofId, existing, cancellationToken).ConfigureAwait(false);
+                return existing;
+            }
+
+            ArticleRightsProof proof = await LoadRightsProofAsync(proofId, cancellationToken).ConfigureAwait(false);
+            IntegrityTransparencyLogEntry? latest = await GetLatestHeadAsync(cancellationToken).ConfigureAwait(false);
+            long seq = (latest?.Seq ?? 0) + 1;
+            string prevHash = latest?.EntryHash ?? TransparencyLogEntryCanonicalizer.GenesisPreviousHash;
+            DateTime createdAt = DateTime.UtcNow;
+            string entryPayloadHash = ComputeArticleRightsProofPayloadHash(proof);
+            var input = new TransparencyLogEntryInput(
+                Seq: seq,
+                EntryType: TransparencyLogEntryTypes.ArticleRightsProof,
+                ProofId: proof.Id,
+                ArticleId: proof.ArticleId,
+                ArticleRevisionId: proof.ArticleRevisionId,
+                RevisionNo: proof.RevisionNo,
+                EntryPayloadHash: entryPayloadHash,
+                PrevEntryHash: prevHash,
+                CreatedAtUtc: new DateTimeOffset(createdAt, TimeSpan.Zero),
+                SigningKeyId: proof.SigningKeyId,
+                SignatureBase64Url: proof.SignatureBase64Url);
+            string entryHash = TransparencyLogEntryCanonicalizer.ComputeEntryHashHex(input);
+            var entry = new IntegrityTransparencyLogEntry
+            {
+                Seq = seq,
+                EntryType = TransparencyLogEntryTypes.ArticleRightsProof,
+                ProofId = proof.Id,
+                ArticleId = proof.ArticleId,
+                ArticleRevisionId = proof.ArticleRevisionId,
+                RevisionNo = proof.RevisionNo,
+                EntryPayloadHash = entryPayloadHash,
+                PrevEntryHash = prevHash,
+                EntryHash = entryHash,
+                CreatedAt = createdAt,
+                SigningKeyId = proof.SigningKeyId,
+                SignatureBase64Url = proof.SignatureBase64Url
+            };
+
+            entry.Id = await db.Insertable(entry).ExecuteReturnBigIdentityAsync();
+            await LinkRightsProofAsync(proofId, entry, cancellationToken).ConfigureAwait(false);
+            return entry;
+        }).ConfigureAwait(false);
+
+        if (!transaction.IsSuccess || transaction.Data is null)
+        {
+            throw new InvalidOperationException("Failed to append article rights proof transparency log entry.", transaction.ErrorException);
+        }
+
+        return transaction.Data;
+    }
+
     public async Task<TransparencyLogVerificationResult> VerifyAsync(CancellationToken cancellationToken = default)
     {
         List<IntegrityTransparencyLogEntry> entries = await db.Queryable<IntegrityTransparencyLogEntry>()
@@ -136,11 +210,30 @@ public sealed class PublishProofTransparencyLog(ISqlSugarClient db) : IPublishPr
         return proof ?? throw new InvalidOperationException("Publish proof not found.");
     }
 
+    private async Task<ArticleRightsProof> LoadRightsProofAsync(long proofId, CancellationToken cancellationToken)
+    {
+        ArticleRightsProof? proof = await db.Queryable<ArticleRightsProof>()
+            .Where(item => item.Id == proofId)
+            .FirstAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return proof ?? throw new InvalidOperationException("Article rights proof not found.");
+    }
+
     private Task<int> LinkProofAsync(
         long proofId,
         IntegrityTransparencyLogEntry entry,
         CancellationToken cancellationToken)
         => db.Updateable<ArticlePublishProof>()
+            .SetColumns(proof => proof.TransparencyLogEntryId == entry.Id)
+            .SetColumns(proof => proof.TransparencyLogEntryHash == entry.EntryHash)
+            .Where(proof => proof.Id == proofId)
+            .ExecuteCommandAsync(cancellationToken);
+
+    private Task<int> LinkRightsProofAsync(
+        long proofId,
+        IntegrityTransparencyLogEntry entry,
+        CancellationToken cancellationToken)
+        => db.Updateable<ArticleRightsProof>()
             .SetColumns(proof => proof.TransparencyLogEntryId == entry.Id)
             .SetColumns(proof => proof.TransparencyLogEntryHash == entry.EntryHash)
             .Where(proof => proof.Id == proofId)
@@ -188,6 +281,30 @@ public sealed class PublishProofTransparencyLog(ISqlSugarClient db) : IPublishPr
             builder.ToString());
     }
 
+    private static string ComputeArticleRightsProofPayloadHash(ArticleRightsProof proof)
+    {
+        var builder = new StringBuilder(512);
+        AppendLine(builder, "fsusblog.integrity.article-rights-proof-log-payload.v1");
+        AppendLong(builder, "proofId", proof.Id);
+        AppendInt(builder, "proofVersion", proof.ProofVersion);
+        AppendInt(builder, "signaturePayloadVersion", proof.SignaturePayloadVersion);
+        AppendInt(builder, "articleId", proof.ArticleId);
+        AppendLong(builder, "articleRevisionId", proof.ArticleRevisionId);
+        AppendInt(builder, "revisionNo", proof.RevisionNo);
+        AppendLong(builder, "articleRightsSnapshotId", proof.ArticleRightsSnapshotId);
+        AppendNullableLong(builder, "publishProofId", proof.PublishProofId);
+        AppendString(builder, "idempotencyKey", proof.IdempotencyKey);
+        AppendString(builder, "rightsPolicyHash", proof.RightsPolicyHash);
+        AppendString(builder, "contentCanonicalHash", proof.ContentCanonicalHash);
+        AppendString(builder, "proofStatus", proof.ProofStatus);
+        AppendString(builder, "signingKeyId", proof.SigningKeyId);
+        AppendString(builder, "signingAlgorithm", proof.SigningAlgorithm);
+        AppendString(builder, "signature", proof.SignatureBase64Url);
+        return TransparencyLogPayloadHasher.ComputeUtf8HashHex(
+            TransparencyLogEntryTypes.ArticleRightsProof,
+            builder.ToString());
+    }
+
     private static void AppendLine(StringBuilder builder, string value)
         => builder.Append(value).Append('\n');
 
@@ -196,6 +313,17 @@ public sealed class PublishProofTransparencyLog(ISqlSugarClient db) : IPublishPr
 
     private static void AppendLong(StringBuilder builder, string field, long value)
         => AppendLine(builder, $"{field}:i:{value.ToString(CultureInfo.InvariantCulture)}");
+
+    private static void AppendNullableLong(StringBuilder builder, string field, long? value)
+    {
+        if (value.HasValue)
+        {
+            AppendLong(builder, field, value.Value);
+            return;
+        }
+
+        AppendLine(builder, $"{field}:n");
+    }
 
     private static void AppendDateTime(StringBuilder builder, string field, DateTime value)
         => AppendLine(builder, $"{field}:t:{DateTime.SpecifyKind(value, DateTimeKind.Utc).ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", CultureInfo.InvariantCulture)}");

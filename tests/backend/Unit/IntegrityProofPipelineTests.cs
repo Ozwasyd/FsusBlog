@@ -35,6 +35,23 @@ public sealed class IntegrityProofPipelineTests
     }
 
     [Fact]
+    public void OutboxReplay_SchedulesDistinctArticleRightsProofAfterPublishProofPath()
+    {
+        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
+        string pipeline = ReadRepoFile("src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs");
+        string model = ReadRepoFile("src/backend/Infrastructure/Integrity/ArticleRightsProof.cs");
+
+        Assert.Contains("IntegrityProof = \"integrity-proof\"", sideEffects, StringComparison.Ordinal);
+        Assert.Contains("ScheduleArticleRightsProofFromOutboxAsync", pipeline, StringComparison.Ordinal);
+        Assert.Contains("ArticleRightsProofIdempotency.BuildKey", pipeline, StringComparison.Ordinal);
+        Assert.Contains("ArticleRightsProofCanonicalPayloadV1.BuildSigningPayload", pipeline, StringComparison.Ordinal);
+        Assert.Contains("AppendArticleRightsProofAsync", pipeline, StringComparison.Ordinal);
+        Assert.Contains("article_rights_proof", pipeline, StringComparison.Ordinal);
+        Assert.Contains("article:{articleId}:revision:{articleRevisionId}:rights:{proofVersion}", model, StringComparison.Ordinal);
+        Assert.Contains("ProofBindingEnabled", pipeline, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void IntegrityProofFailure_IsRecordedAsNonRequiredEdgeWithoutFailingReplay()
     {
         string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");

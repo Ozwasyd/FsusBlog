@@ -8,11 +8,12 @@ For an article proof, collect:
 
 - `/integrity/keys.json`
 - `/integrity/article/{articleId}` or another public proof route
+- `/integrity/article/{articleId}/rights` when verifying Rights V3 policy binding
 - optional checkpoint manifest from `/integrity/checkpoints/latest` or `/integrity/checkpoints/{date}`
 - optional log head from `/integrity/log/head`
 - the public article artifact bytes you want to compare
 
-The proof manifest identifies `articleId`, `articleRevisionId`, and `revisionNo`. Those names are canonical for IntegrityProof public verification.
+The publish proof manifest identifies `articleId`, `articleRevisionId`, and `revisionNo`. A Rights V3 proof manifest additionally identifies `articleRightsSnapshotId`, `publishProofId`, `rightsPolicyHash`, and `contentCanonicalHash`. Those names are canonical for IntegrityProof public verification.
 
 ## Verification Steps
 
@@ -20,11 +21,12 @@ The proof manifest identifies `articleId`, `articleRevisionId`, and `revisionNo`
 2. Rebuild the canonical hash for the public article payload.
 3. Recompute each artifact digest for PublicAOT, ArticleDetailAeds, PublicHotRead, feed, sitemap, robots, and distribution outputs that are listed by the manifest.
 4. Rebuild the publish proof signing payload.
-5. Select the `keyId` from `/integrity/keys.json`.
-6. Reject unknown, revoked-at-signing-time, compromised, or algorithm-mismatched keys.
-7. Verify the `ECDSA_P256_SHA256` signature.
-8. Verify the transparency log entry hash and previous hash pointer when the manifest includes log coordinates.
-9. Verify the Merkle checkpoint root and inclusion proof when checkpoint data is present.
+5. For Rights V3, rebuild the `article-rights-proof` signing payload and confirm it binds the same `articleRevisionId`, `articleRightsSnapshotId`, `publishProofId`, `rightsPolicyHash`, and `contentCanonicalHash`.
+6. Select the `keyId` from `/integrity/keys.json`.
+7. Reject unknown, revoked-at-signing-time, compromised, or algorithm-mismatched keys.
+8. Verify the `ECDSA_P256_SHA256` signature.
+9. Verify the transparency log entry hash and previous hash pointer when the manifest includes log coordinates.
+10. Verify the Merkle checkpoint root and inclusion proof when checkpoint data is present.
 
 The same checks are automated by:
 
