@@ -3,8 +3,7 @@
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">地区策略</div>
-          <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">策略与词库组合结果</h2>
+          <h2 class="text-xl font-bold text-[var(--fsusblog-text-primary)]">策略与词库组合结果</h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">地区策略结果独立于模型信号，决定提交动作、展示动作和拦截地区。</p>
         </div>
         <el-button :icon="Refresh" :loading="loading" @click="loadPolicies">刷新</el-button>

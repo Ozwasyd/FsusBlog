@@ -9,16 +9,23 @@
     >
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">词库管理</div>
-          <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">运行时词库元数据</h2>
-          <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">高风险词库只展示元数据、校验值、词条数量和证据策略。</p>
+          <h2 class="text-xl font-bold text-[var(--fsusblog-text-primary)]">运行时词库元数据</h2>
+          <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">敏感词库只展示元数据、校验值、词条数量和证据策略。</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <el-tag v-if="snapshot?.lastError" type="danger">载入异常</el-tag>
-          <el-tag v-else type="success">已载入</el-tag>
-          <el-button :icon="Refresh" :loading="loading" @click="loadSnapshot">刷新</el-button>
-          <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadSnapshot">重新载入</el-button>
-          <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackSnapshot">回滚</el-button>
+        <div class="moderation-dictionary-runtime-toolbar">
+          <div
+            class="moderation-dictionary-runtime-status"
+            :class="{ 'moderation-dictionary-runtime-status--danger': snapshot?.lastError }"
+            role="status"
+          >
+            <span class="moderation-dictionary-runtime-status__dot" aria-hidden="true" />
+            <span>{{ snapshot?.lastError ? '载入异常' : '已载入' }}</span>
+          </div>
+          <div class="moderation-dictionary-runtime-actions">
+            <el-button :icon="Refresh" :loading="loading" @click="loadSnapshot">刷新</el-button>
+            <el-button :icon="RefreshRight" type="warning" :loading="reloading" @click="reloadSnapshot">重新载入</el-button>
+            <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackSnapshot">回滚</el-button>
+          </div>
         </div>
       </div>
 
@@ -29,15 +36,14 @@
         </el-select>
         <el-input v-model="filters.dictionaryId" clearable placeholder="词库 ID" aria-label="词库 ID" />
         <el-select v-model="filters.region" clearable placeholder="地区" aria-label="地区">
-          <el-option v-for="region in regionOptions" :key="region" :label="region" :value="region" />
+          <el-option v-for="region in regionOptions" :key="region" :label="formatDictionaryRegion(region)" :value="region" />
         </el-select>
         <el-select v-model="filters.category" clearable placeholder="分类" aria-label="分类">
-          <el-option v-for="category in categoryOptions" :key="category" :label="category" :value="category" />
+          <el-option v-for="category in categoryOptions" :key="category" :label="formatDictionaryCategory(category)" :value="category" />
         </el-select>
         <el-input v-model="filters.status" clearable placeholder="状态" aria-label="状态" />
-        <div class="flex items-center gap-2">
-          <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">高风险</span>
-          <el-switch v-model="filters.highRiskOnly" />
+        <div class="flex items-center">
+          <el-checkbox v-model="filters.highRiskOnly" aria-label="只看敏感词库">只看敏感词库</el-checkbox>
         </div>
       </div>
 
@@ -46,18 +52,24 @@
           <el-table-column label="词库 ID" min-width="230">
             <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
               <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.dictionaryId }}</div>
-              <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">{{ row.source }} / {{ row.reviewedBy }}</div>
+              <div class="mt-1 text-[11px] text-[var(--fsusblog-text-muted)]">
+                {{ formatDictionarySource(row.source) }} / {{ formatDictionaryReviewer(row.reviewedBy) }}
+              </div>
             </template>
           </el-table-column>
-          <el-table-column label="作用范围" width="110" prop="scope" />
-          <el-table-column label="地区" width="130">
-            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ row.region ?? 'GLOBAL' }}</template>
+          <el-table-column label="作用范围" width="110">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ formatDictionaryScope(row.scope) }}</template>
           </el-table-column>
-          <el-table-column label="分类" min-width="170" prop="category" />
+          <el-table-column label="地区" width="130">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ formatDictionaryRegion(row.region) }}</template>
+          </el-table-column>
+          <el-table-column label="分类" min-width="170">
+            <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ formatDictionaryCategory(row.category) }}</template>
+          </el-table-column>
           <el-table-column label="版本" width="140" prop="version" />
           <el-table-column label="证据策略" width="150">
             <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
-              <el-tag :type="evidenceType(row.evidencePolicy)">{{ row.evidencePolicy }}</el-tag>
+              <el-tag :type="evidenceType(row.evidencePolicy)">{{ formatEvidencePolicy(row.evidencePolicy) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="词条数" width="90" align="right" prop="termCount" />
@@ -148,6 +160,7 @@ import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { useMediaQuery } from '@/composables/useMediaQuery'
+import { formatModerationRegionName, formatModerationRiskCategory } from '@/utils/moderationRegionDisplay'
 
 const MainlandChangeConfirmPhrase = 'CONFIRM CN-MAINLAND MODERATION CHANGE'
 
@@ -189,9 +202,46 @@ const hasDictionaryFilters = computed(() =>
 const dictionaryEmptyTitle = computed(() => hasDictionaryFilters.value ? '没有匹配的词库' : '暂无运行时词库')
 const dictionaryEmptyDescription = computed(() =>
   hasDictionaryFilters.value
-    ? '调整作用范围、地区、分类、状态或高风险筛选后再查看。'
+    ? '调整作用范围、地区、分类、状态或敏感词库筛选后再查看。'
     : '运行时词库元数据载入后，会在这里显示校验值、词条数量和证据策略。'
 )
+
+const dictionaryScopeLabels: Record<string, string> = {
+  global: '全局',
+  regional: '地区'
+}
+
+const evidencePolicyLabels: Record<string, string> = {
+  redact: '隐藏明文',
+  show_category_only: '仅显示分类',
+  show_full: '完整展示'
+}
+
+const dictionarySourceLabels: Record<string, string> = {
+  internal_review: '内部审核'
+}
+
+const dictionaryReviewerLabels: Record<string, string> = {
+  'engineering-preset': '工程预设'
+}
+
+const formatDictionaryScope = (scope?: string | null): string =>
+  scope ? dictionaryScopeLabels[scope] ?? scope : '无'
+
+const formatDictionaryRegion = (region?: string | null): string =>
+  formatModerationRegionName(region ?? 'GLOBAL')
+
+const formatDictionaryCategory = (category?: string | null): string =>
+  formatModerationRiskCategory(category)
+
+const formatEvidencePolicy = (policy?: string | null): string =>
+  policy ? evidencePolicyLabels[policy] ?? policy : '无'
+
+const formatDictionarySource = (source?: string | null): string =>
+  source ? dictionarySourceLabels[source] ?? source : '无'
+
+const formatDictionaryReviewer = (reviewer?: string | null): string =>
+  reviewer ? dictionaryReviewerLabels[reviewer] ?? reviewer : '无'
 
 const highRiskCategories = new Set([
   'political_sensitive',
@@ -254,16 +304,16 @@ const detailRows = computed(() => {
   const item = detail.value
   return [
     { label: '词库 ID', value: item.dictionaryId },
-    { label: '作用范围', value: item.scope },
-    { label: '地区', value: item.region ?? 'GLOBAL' },
-    { label: '分类', value: item.category },
+    { label: '作用范围', value: formatDictionaryScope(item.scope) },
+    { label: '地区', value: formatDictionaryRegion(item.region) },
+    { label: '分类', value: formatDictionaryCategory(item.category) },
     { label: '版本', value: item.version },
     { label: '校验值', value: item.checksum },
     { label: '词条数', value: String(item.termCount) },
-    { label: '来源', value: item.source },
-    { label: '复核人', value: item.reviewedBy },
+    { label: '来源', value: formatDictionarySource(item.source) },
+    { label: '复核人', value: formatDictionaryReviewer(item.reviewedBy) },
     { label: '更新时间', value: formatTime(item.updatedAtUtc) },
-    { label: '证据策略', value: item.evidencePolicy },
+    { label: '证据策略', value: formatEvidencePolicy(item.evidencePolicy) },
     { label: '原始词条', value: '已隐藏' }
   ]
 })
@@ -384,6 +434,52 @@ onMounted(() => {
 .moderation-dictionaries-table-scroll {
   max-width: 100%;
   overflow-x: auto;
+}
+
+.moderation-dictionary-runtime-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.moderation-dictionary-runtime-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.moderation-dictionary-runtime-status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--fsusblog-color-success);
+}
+
+.moderation-dictionary-runtime-status--danger .moderation-dictionary-runtime-status__dot {
+  background: var(--fsusblog-color-danger);
+}
+
+.moderation-dictionary-runtime-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (min-width: 1024px) {
+  .moderation-dictionary-runtime-toolbar {
+    align-items: flex-end;
+  }
+
+  .moderation-dictionary-runtime-actions {
+    justify-content: flex-end;
+  }
 }
 
 .moderation-dictionaries-table :deep(.el-table-fixed-column--right.is-first-column) {

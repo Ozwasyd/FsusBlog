@@ -3,8 +3,7 @@
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">审核模型</div>
-          <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">模型风险信号</h2>
+          <h2 class="text-xl font-bold text-[var(--fsusblog-text-primary)]">模型风险信号</h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">地区策略和硬词库优先级高于模型建议；模型输出不得作为最终审核决定。</p>
         </div>
         <el-button :icon="Refresh" :loading="loading" @click="loadStatus">刷新</el-button>
@@ -54,29 +53,29 @@
           <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">受控动作</div>
         </div>
         <div class="space-y-4 p-5">
-          <div class="grid gap-3 md:grid-cols-2">
-            <label class="space-y-2">
-              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">模型来源</span>
-              <el-select v-model="form.provider" placeholder="模型来源" aria-label="模型来源">
+          <div class="moderation-model-runtime-form grid gap-3 md:grid-cols-2">
+            <label class="moderation-model-runtime-field">
+              <span class="moderation-model-runtime-field__label">模型来源</span>
+              <el-select v-model="form.provider" class="moderation-model-runtime-field__control" placeholder="模型来源" aria-label="模型来源">
                 <el-option label="关闭外部模型" value="none" />
                 <el-option label="本地模拟" value="mock" />
                 <el-option label="HTTP JSON" value="http-json" />
                 <el-option label="Fsus CLI" value="fsus-cli" />
               </el-select>
             </label>
-            <label class="space-y-2">
-              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">启用模型</span>
-              <div class="flex h-8 items-center">
+            <label class="moderation-model-runtime-field">
+              <span class="moderation-model-runtime-field__label">启用模型</span>
+              <div class="moderation-model-runtime-field__switch">
                 <el-switch v-model="form.enabled" />
               </div>
             </label>
-            <label class="space-y-2">
-              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">模型配置</span>
-              <el-input v-model="form.modelProfile" placeholder="模型配置名" />
+            <label class="moderation-model-runtime-field">
+              <span class="moderation-model-runtime-field__label">模型配置</span>
+              <el-input v-model="form.modelProfile" class="moderation-model-runtime-field__control" placeholder="模型配置名" />
             </label>
-            <label class="space-y-2">
-              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">阈值配置</span>
-              <el-input v-model="form.thresholdProfile" placeholder="阈值配置名" />
+            <label class="moderation-model-runtime-field">
+              <span class="moderation-model-runtime-field__label">阈值配置</span>
+              <el-input v-model="form.thresholdProfile" class="moderation-model-runtime-field__control" placeholder="阈值配置名" />
             </label>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -85,10 +84,15 @@
             <el-button :icon="RefreshLeft" type="warning" :loading="rollingBack" @click="rollbackRuntime">回滚</el-button>
           </div>
           <AdminStatusMatrix :items="runtimeRows" density="compact" aria-label="模型运行快照" />
-          <el-button :icon="Cpu" disabled>测试样本文本评分</el-button>
-          <RouterLink :to="{ name: 'ManageAuditLog', query: { action: 'model_moderation_scored' } }" class="inline-flex">
-            <el-button :icon="Warning">查看最近模型错误</el-button>
-          </RouterLink>
+          <div class="moderation-model-secondary-actions">
+            <el-button :icon="Cpu" disabled>测试样本文本评分</el-button>
+            <RouterLink
+              :to="{ name: 'ManageAuditLog', query: { action: 'model_moderation_scored' } }"
+              class="moderation-model-secondary-actions__link"
+            >
+              <el-button :icon="Warning">查看最近模型错误</el-button>
+            </RouterLink>
+          </div>
         </div>
       </section>
     </section>
@@ -275,5 +279,53 @@ onMounted(() => {
 <style scoped>
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.moderation-model-runtime-form {
+  align-items: start;
+}
+
+.moderation-model-runtime-field {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.moderation-model-runtime-field__label {
+  display: block;
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.moderation-model-runtime-field__control,
+.moderation-model-runtime-field :deep(.el-select),
+.moderation-model-runtime-field :deep(.el-input) {
+  width: 100%;
+}
+
+.moderation-model-runtime-field__switch {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+}
+
+.moderation-model-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.moderation-model-secondary-actions__link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.moderation-model-secondary-actions :deep(.el-button + .el-button),
+.moderation-model-secondary-actions__link :deep(.el-button) {
+  margin-left: 0;
 }
 </style>

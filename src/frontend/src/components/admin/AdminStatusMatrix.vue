@@ -108,9 +108,9 @@ const emit = defineEmits<{
 .admin-status-matrix--compact .admin-status-matrix__item {
   display: grid;
   min-height: 64px;
-  grid-template-columns: minmax(0, 1fr) minmax(3ch, auto);
+  grid-template-columns: fit-content(45%) minmax(0, 1fr);
   align-content: center;
-  align-items: baseline;
+  align-items: start;
   gap: 4px 14px;
   padding: 14px 16px;
 }
@@ -166,6 +166,7 @@ const emit = defineEmits<{
 
 .admin-status-matrix--compact .admin-status-matrix__value {
   justify-self: end;
+  max-width: 100%;
   margin-top: 0;
   font-size: 13px;
   font-weight: 750;

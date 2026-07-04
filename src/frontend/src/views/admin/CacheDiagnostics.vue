@@ -8,8 +8,13 @@
 
     <FsusUiSettingsSection class="mb-8" title="公开读链路" id="cache-status-title">
       <template #actions>
-        <div class="flex flex-wrap items-center justify-end gap-2">
-          <el-input v-model="articleId" class="w-[10rem]" placeholder="文章 ID" aria-label="文章 ID" />
+        <div class="cache-public-read-actions">
+          <el-input
+            v-model="articleId"
+            class="cache-public-read-actions__input"
+            placeholder="文章 ID"
+            aria-label="文章 ID"
+          />
           <el-button :icon="Search" :loading="loading" @click="loadDiagnostics">检查</el-button>
           <el-button :icon="Refresh" :loading="loading" @click="loadDiagnostics">刷新</el-button>
         </div>
@@ -249,4 +254,40 @@ onMounted(loadDiagnostics)
 </script>
 
 <style scoped>
+.cache-public-read-actions {
+  display: flex;
+  width: clamp(24rem, 38vw, 31rem);
+  max-width: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  white-space: nowrap;
+}
+
+.cache-public-read-actions__input {
+  flex: 1 1 12rem;
+  min-width: 12rem;
+}
+
+.cache-public-read-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+@media (max-width: 640px) {
+  .cache-public-read-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: stretch;
+    white-space: normal;
+  }
+
+  .cache-public-read-actions__input {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .cache-public-read-actions :deep(.el-button) {
+    flex: 1 1 0;
+  }
+}
 </style>

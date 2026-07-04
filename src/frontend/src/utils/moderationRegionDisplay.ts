@@ -3,6 +3,7 @@ const regionDisplayNames: Record<string, string> = {
   UNKNOWN: '未知地区',
   APAC: '亚太',
   COMMONWEALTH: '英联邦地区',
+  CUSTOM: '自定义大区',
   GREATER_CHINA: '大中华区',
   NORTH_AMERICA: '北美',
   EUROPE_NON_EU: '欧洲非欧盟地区',
@@ -10,9 +11,9 @@ const regionDisplayNames: Record<string, string> = {
   AU: '澳大利亚',
   CA: '加拿大',
   'CN-MAINLAND': '中国大陆',
-  'CN-HK': '中国香港',
-  'CN-MO': '中国澳门',
-  'CN-TW': '中国台湾',
+  'CN-HK': '香港',
+  'CN-MO': '澳门',
+  'CN-TW': '台湾',
   EU: '欧盟',
   'EU-DE': '德国',
   'EU-FR': '法国',
@@ -29,6 +30,7 @@ const regionDisplayNames: Record<string, string> = {
 
 const policyTemplateDisplayNames: Record<string, string> = {
   'global-baseline': '全局基线',
+  'region-template': '地区策略模板',
   'cn-mainland-strict': '中国大陆严格策略',
   'eu-illegal-content-baseline': '欧盟非法内容基线',
   'SEAsg-public-harmony-baseline': '新加坡公共秩序基线',
@@ -49,10 +51,23 @@ const sourceTypeLabels: Record<string, string> = {
   dictionary: '词库',
   region: '地区',
   group: '大区',
-  global: '全局'
+  global: '全局',
+  operator_region_policy: '运营地区策略'
+}
+
+const policyTemplateScopeLabels: Record<string, string> = {
+  global: '全局',
+  region: '地区',
+  region_group: '大区'
+}
+
+const reviewRequirementLabels: Record<string, string> = {
+  'operator-review-required': '需要人工复核',
+  'engineering-preset': '工程预设'
 }
 
 const riskCategoryLabels: Record<string, string> = {
+  advertising: '广告引流',
   child_safety: '儿童安全',
   contact_lead: '联系方式引导',
   gambling: '赌博',
@@ -89,6 +104,10 @@ export const formatModerationRegionName = (region?: string | null): string => {
 export const formatModerationRegionVersion = (version?: string | null): string => {
   if (!version) return '无'
 
+  if (version.startsWith('region-policy:')) {
+    return formatModerationRegionName(version.slice('region-policy:'.length))
+  }
+
   if (policyTemplateDisplayNames[version]) {
     return policyTemplateDisplayNames[version]
   }
@@ -107,6 +126,16 @@ export const formatModerationRegionVersion = (version?: string | null): string =
 export const formatModerationSourceType = (sourceType?: string | null): string => {
   if (!sourceType) return '无'
   return sourceTypeLabels[sourceType] ?? sourceType
+}
+
+export const formatModerationPolicyTemplateScope = (scope?: string | null): string => {
+  if (!scope) return '无'
+  return policyTemplateScopeLabels[scope] ?? scope
+}
+
+export const formatModerationReviewRequirement = (reviewer?: string | null): string => {
+  if (!reviewer) return '无'
+  return reviewRequirementLabels[reviewer] ?? reviewer
 }
 
 export const formatModerationRiskCategory = (category?: string | null): string => {

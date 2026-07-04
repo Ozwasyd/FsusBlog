@@ -7,18 +7,11 @@
         class="flex flex-col gap-5 border-b border-[var(--fsusblog-panel-border)] p-5 lg:flex-row lg:items-end lg:justify-between"
       >
         <div>
-          <div
-            class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
-          >
-            地区
-          </div>
-          <h2
-            class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]"
-          >
-            地区定义与生效策略
+          <h2 class="text-xl font-bold text-[var(--fsusblog-text-primary)]">
+            地区生效规则
           </h2>
           <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">
-            默认策略模板是工程预设，不构成法律建议。
+            选择地区后查看继承链、校验值和最终提交/展示动作。
           </p>
         </div>
         <el-button :icon="Refresh" :loading="loading" @click="loadRegions"
@@ -28,37 +21,50 @@
 
       <FsusUiDataList
         class="moderation-regions-mobile-list"
-        :rows="regions"
+        :rows="displayRegions"
         :columns="regionMobileColumns"
         row-key="regionCode"
         :active-key="selectedRegionCode"
         :loading-key="previewLoadingRegion"
         :href="regionPreviewHrefForRow"
         density="compact"
+        :show-header="false"
         aria-label="地区定义列表"
         @row-click="handleMobileRegionClick"
       >
         <template #cell="{ row, column, active }">
           <span
             v-if="column.key === 'region'"
-            class="moderation-regions-mobile-cell moderation-regions-mobile-cell--name"
-            :title="getRegionCode(row)"
+            class="moderation-regions-mobile-summary"
+            :class="{
+              'moderation-regions-mobile-summary--child': isChildRegion(
+                row as ModerationRegionDefinition,
+              ),
+            }"
           >
-            {{ formatRegionName(getRegionCode(row)) }}
+            <span
+              class="moderation-regions-mobile-cell moderation-regions-mobile-title"
+              :class="{
+                'is-active': active,
+              }"
+              :title="getRegionCode(row)"
+            >
+              {{ formatRegionName(getRegionCode(row)) }}
+            </span>
+            <span
+              class="moderation-regions-mobile-cell moderation-regions-mobile-meta"
+              :title="formatRegionListMeta(row as ModerationRegionDefinition)"
+            >
+              {{ formatRegionListMeta(row as ModerationRegionDefinition) }}
+            </span>
           </span>
           <span
-            v-else-if="column.key === 'scope'"
-            class="moderation-regions-mobile-cell moderation-regions-mobile-cell--muted"
-            :title="getRegionDisplayName(row)"
-          >
-            {{ formatRegionScope(row as ModerationRegionDefinition) }}
-          </span>
-          <span
-            v-else
-            class="moderation-regions-mobile-cell moderation-regions-mobile-cell--action"
+            v-else-if="column.key === 'indicator'"
+            class="moderation-regions-mobile-cell moderation-regions-mobile-cell--indicator"
             :class="{ 'is-active': active }"
+            aria-hidden="true"
           >
-            {{ active ? "查看中" : "查看" }}
+            <component :is="ArrowRight" />
           </span>
         </template>
         <template #empty>
@@ -74,7 +80,7 @@
         <el-table
           ref="regionsTableRef"
           v-loading="loading"
-          :data="regions"
+          :data="displayRegions"
           row-key="regionCode"
           highlight-current-row
           @current-change="selectRegion"
@@ -86,9 +92,14 @@
             class-name="moderation-region-table-cell"
           >
             <template #default="{ row }: { row: ModerationRegionDefinition }">
-              <span class="moderation-region-name" :title="row.regionCode">{{
-                formatRegionName(row.regionCode)
-              }}</span>
+              <span
+                class="moderation-region-name"
+                :class="{
+                  'moderation-region-name--child': isChildRegion(row),
+                }"
+                :title="row.regionCode"
+                >{{ formatRegionName(row.regionCode) }}</span
+              >
             </template>
           </el-table-column>
           <el-table-column label="范围" min-width="120">
@@ -224,7 +235,7 @@
             class="p-5"
           >
             <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">
-              {{ step.step }}
+              {{ formatInheritanceStep(step) }}
             </div>
             <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">
               来源：{{ formatSourceType(step.sourceType) }}；{{
@@ -270,75 +281,73 @@
             >{{ warning }}</el-tag
           >
         </div>
-        <div class="blog-scroll-x-safe moderation-regions-rules-scroll">
-          <el-table :data="preview?.rules ?? []" row-key="category">
-            <el-table-column label="分类" min-width="180">
-              <template
-                #default="{ row }: { row: ModerationEffectivePolicyRule }"
-              >
-                <span class="moderation-region-name" :title="row.category">{{
-                  formatRiskCategory(row.category)
-                }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="提交动作" width="180">
-              <template
-                #default="{ row }: { row: ModerationEffectivePolicyRule }"
-              >
+        <FsusUiDataList
+          class="moderation-regions-rules-list"
+          :rows="effectiveRuleRows"
+          :columns="effectiveRuleColumns"
+          row-key="category"
+          density="compact"
+          variant="summary"
+          :show-header="false"
+          :interactive="false"
+          aria-label="生效规则"
+        >
+          <template #cell="{ row }">
+            <div class="moderation-regions-rule-row">
+              <div class="moderation-regions-rule-summary">
                 <span
-                  class="moderation-region-name moderation-region-name--muted"
-                  :title="row.submitAction"
+                  class="moderation-regions-rule-category"
+                  :title="readRuleField(row, 'category')"
                 >
-                  {{ formatPolicyAction(row.submitAction) }}
+                  {{ formatRuleCategory(row) }}
                 </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="展示动作" width="190">
-              <template
-                #default="{ row }: { row: ModerationEffectivePolicyRule }"
-              >
                 <span
-                  class="moderation-region-name moderation-region-name--muted"
-                  :title="row.displayAction"
+                  class="moderation-regions-rule-source"
+                  :title="formatRuleSource(row)"
                 >
-                  {{ formatPolicyAction(row.displayAction) }}
+                  {{ formatRuleSource(row) }}
                 </span>
-              </template>
-            </el-table-column>
-            <el-table-column label="来源" min-width="180">
-              <template
-                #default="{ row }: { row: ModerationEffectivePolicyRule }"
-              >
-                来源：{{ formatSourceType(row.sourceType) }}；{{
-                  formatSourceId(row.sourceId)
-                }}
-              </template>
-            </el-table-column>
-            <template #empty>
-              <AdminInlineEmptyState
-                :title="preview ? '暂无生效规则' : '选择地区查看生效规则'"
-                :description="
-                  preview
-                    ? '当前地区没有返回可展示的提交或展示动作规则。'
-                    : '选择左侧地区后显示继承链计算出的生效规则。'
-                "
-              />
-            </template>
-          </el-table>
-        </div>
+              </div>
+              <dl class="moderation-regions-rule-actions">
+                <div class="moderation-regions-rule-action">
+                  <dt>提交</dt>
+                  <dd :title="readRuleField(row, 'submitAction')">
+                    {{ formatRuleSubmitAction(row) }}
+                  </dd>
+                </div>
+                <div class="moderation-regions-rule-action">
+                  <dt>展示</dt>
+                  <dd :title="readRuleField(row, 'displayAction')">
+                    {{ formatRuleDisplayAction(row) }}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </template>
+          <template #empty>
+            <AdminInlineEmptyState
+              :title="preview ? '暂无生效规则' : '选择地区查看生效规则'"
+              :description="
+                preview
+                  ? '当前地区没有返回可展示的提交或展示动作规则。'
+                  : '选择左侧地区后显示继承链计算出的生效规则。'
+              "
+            />
+          </template>
+        </FsusUiDataList>
       </section>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, shallowRef, watch } from "vue";
+import { computed, nextTick, onMounted, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   getModerationEffectivePolicy,
   listModerationRegions,
   type ModerationEffectivePolicyPreview,
-  type ModerationEffectivePolicyRule,
+  type ModerationEffectivePolicyStep,
   type ModerationRegionDefinition,
 } from "@/api/authoring";
 import AdminInlineEmptyState from "@/components/admin/AdminInlineEmptyState.vue";
@@ -348,7 +357,7 @@ import {
   type FsusUiDataListRow,
   type FsusUiDataListRowKey,
 } from "@/fsusui";
-import { Refresh } from "@/fsusui/icons";
+import { ArrowRight, Refresh } from "@/fsusui/icons";
 import { showErrorToast } from "@/utils/errorPresentation";
 import {
   formatModerationRegionName,
@@ -371,10 +380,38 @@ type RegionsTableInstance = {
 };
 const regionsTableRef = shallowRef<RegionsTableInstance | null>(null);
 const regionMobileColumns: FsusUiDataListColumn[] = [
-  { key: "region", label: "地区", grid: "minmax(0, 1.15fr)" },
-  { key: "scope", label: "范围", grid: "minmax(0, 1fr)" },
-  { key: "action", label: "操作", grid: "minmax(4rem, auto)", align: "end" },
+  { key: "region", label: "地区", grid: "minmax(0, 1fr)" },
+  { key: "indicator", label: "进入", grid: "24px", align: "end" },
 ];
+const effectiveRuleColumns: FsusUiDataListColumn[] = [
+  { key: "rule", label: "规则", grid: "minmax(0, 1fr)" },
+];
+const effectiveRuleRows = computed<FsusUiDataListRow[]>(() =>
+  (preview.value?.rules ?? []).map((rule) => ({ ...rule })),
+);
+
+const regionDisplayOrder: Record<string, number> = {
+  GLOBAL: 0,
+  "CN-MAINLAND": 10,
+  "CN-HK": 11,
+  "CN-MO": 12,
+  "CN-TW": 13,
+  EU: 20,
+  "EU-DE": 21,
+  "EU-FR": 22,
+  "EU-NL": 23,
+  UK: 30,
+  US: 40,
+  "US-CA": 41,
+  "US-TX": 42,
+  CA: 50,
+  AU: 60,
+  NZ: 61,
+  SG: 70,
+  JP: 80,
+  KR: 81,
+  UNKNOWN: 900,
+};
 
 const formatRegionName = (region?: string | null): string =>
   formatModerationRegionName(region);
@@ -393,13 +430,69 @@ const formatChecksum = (checksum?: string | null): string => {
     : checksum;
 };
 
+const getRegionParentCode = (
+  region: ModerationRegionDefinition,
+): string | null => region.parentRegion?.trim() || null;
+
+const isChildRegion = (region: ModerationRegionDefinition): boolean =>
+  getRegionParentCode(region) !== null;
+
+const getRegionDisplayOrder = (regionCode: string): number =>
+  regionDisplayOrder[regionCode] ?? 500;
+
+const compareRegionForDisplay = (
+  left: ModerationRegionDefinition,
+  right: ModerationRegionDefinition,
+): number =>
+  getRegionDisplayOrder(left.regionCode) -
+    getRegionDisplayOrder(right.regionCode) ||
+  formatRegionName(left.regionCode).localeCompare(
+    formatRegionName(right.regionCode),
+    "zh-Hans-CN",
+  ) ||
+  left.regionCode.localeCompare(right.regionCode);
+
+const displayRegions = computed(() => {
+  const regionCodes = new Set(regions.value.map((region) => region.regionCode));
+  const rootRegions: ModerationRegionDefinition[] = [];
+  const childrenByParent = new Map<string, ModerationRegionDefinition[]>();
+
+  for (const region of regions.value) {
+    const parentCode = getRegionParentCode(region);
+    if (parentCode && regionCodes.has(parentCode)) {
+      const children = childrenByParent.get(parentCode) ?? [];
+      children.push(region);
+      childrenByParent.set(parentCode, children);
+      continue;
+    }
+
+    rootRegions.push(region);
+  }
+
+  return rootRegions.sort(compareRegionForDisplay).flatMap((region) => [
+    region,
+    ...(childrenByParent.get(region.regionCode)?.sort(compareRegionForDisplay) ??
+      []),
+  ]);
+});
+
 const formatRegionScope = (region: ModerationRegionDefinition): string => {
   if (region.regionCode === "GLOBAL") return "默认策略";
   if (region.regionCode === "UNKNOWN") return "未知来源";
-  if (region.regionCode.startsWith("EU-")) return "欧盟成员";
-  if (region.regionCode.startsWith("US-")) return "美国州级";
-  if (region.parentRegion) return "子地区";
+  const parentCode = getRegionParentCode(region);
+  if (parentCode) return `${formatRegionName(parentCode)}下属地区`;
   return "独立地区";
+};
+
+const formatRegionListMeta = (region: ModerationRegionDefinition): string => {
+  const parts = [
+    formatRegionScope(region),
+    region.primaryGroup ? formatRegionName(region.primaryGroup) : null,
+    region.policyTemplate ? formatPolicyTemplate(region.policyTemplate) : null,
+    region.enabled ? null : "已关闭",
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(" · ");
 };
 
 const formatSourceId = (sourceId?: string | null): string => {
@@ -409,6 +502,34 @@ const formatSourceId = (sourceId?: string | null): string => {
   const version = formatModerationRegionVersion(sourceId);
   return version !== sourceId ? version : sourceId;
 };
+
+const formatInheritanceStep = (
+  step: ModerationEffectivePolicyStep,
+): string => {
+  const formattedStep = formatModerationRegionVersion(step.step);
+  return step.step.startsWith("region-policy:")
+    ? `${formattedStep}运营策略`
+    : formattedStep;
+};
+
+const readRuleField = (row: FsusUiDataListRow, key: string): string => {
+  const value = row[key];
+  return typeof value === "string" ? value : "";
+};
+
+const formatRuleCategory = (row: FsusUiDataListRow): string =>
+  formatRiskCategory(readRuleField(row, "category"));
+
+const formatRuleSubmitAction = (row: FsusUiDataListRow): string =>
+  formatPolicyAction(readRuleField(row, "submitAction"));
+
+const formatRuleDisplayAction = (row: FsusUiDataListRow): string =>
+  formatPolicyAction(readRuleField(row, "displayAction"));
+
+const formatRuleSource = (row: FsusUiDataListRow): string =>
+  `来源：${formatSourceType(readRuleField(row, "sourceType"))} / ${formatSourceId(
+    readRuleField(row, "sourceId"),
+  )}`;
 
 const getRouteRegion = (): string | null =>
   typeof route.query.region === "string" ? route.query.region : null;
@@ -425,8 +546,6 @@ const regionPreviewHref = (regionCode: string): string => {
 
 const getRegionCode = (row: FsusUiDataListRow): string =>
   String(row.regionCode ?? "");
-const getRegionDisplayName = (row: FsusUiDataListRow): string =>
-  String(row.displayName ?? "");
 const regionPreviewHrefForRow = (row: FsusUiDataListRow): string =>
   regionPreviewHref(getRegionCode(row));
 const handleMobileRegionClick = (
@@ -437,6 +556,10 @@ const handleMobileRegionClick = (
   event.preventDefault();
   void previewRegion(String(key));
 };
+
+const shouldLoadPreview = (regionCode: string): boolean =>
+  selectedRegionCode.value !== regionCode &&
+  previewLoadingRegion.value !== regionCode;
 
 const loadRegions = async (): Promise<void> => {
   loading.value = true;
@@ -449,9 +572,9 @@ const loadRegions = async (): Promise<void> => {
       requestedRegion &&
       regions.value.some((region) => region.regionCode === requestedRegion)
         ? requestedRegion
-        : regions.value[0]!.regionCode;
+        : displayRegions.value[0]?.regionCode ?? regions.value[0]!.regionCode;
 
-    if (initialRegion !== selectedRegionCode.value) {
+    if (shouldLoadPreview(initialRegion)) {
       await loadPreview(initialRegion);
     }
   } catch (error) {
@@ -462,9 +585,9 @@ const loadRegions = async (): Promise<void> => {
 };
 
 const selectRegion = (row?: ModerationRegionDefinition): void => {
-  if (row) {
-    void loadPreview(row.regionCode);
-  }
+  if (!row) return;
+  if (!shouldLoadPreview(row.regionCode)) return;
+  void loadPreview(row.regionCode);
 };
 
 const previewRegion = async (regionCode: string): Promise<void> => {
@@ -479,9 +602,8 @@ const previewRegion = async (regionCode: string): Promise<void> => {
     return;
   }
 
-  if (regionCode !== selectedRegionCode.value) {
-    await loadPreview(regionCode, { reveal: true });
-  }
+  if (!shouldLoadPreview(regionCode)) return;
+  await loadPreview(regionCode, { reveal: true });
 };
 
 const loadPreview = async (
@@ -494,7 +616,7 @@ const loadPreview = async (
     selectedRegionCode.value = regionCode;
     await nextTick();
     regionsTableRef.value?.setCurrentRow(
-      regions.value.find((region) => region.regionCode === regionCode),
+      displayRegions.value.find((region) => region.regionCode === regionCode),
     );
     if (options.reveal) {
       previewSectionRef.value?.scrollIntoView({
@@ -517,7 +639,7 @@ watch(
   () => route.query.region,
   (region) => {
     if (typeof region !== "string") return;
-    if (region === selectedRegionCode.value) return;
+    if (!shouldLoadPreview(region)) return;
     if (!regions.value.some((item) => item.regionCode === region)) return;
 
     void loadPreview(region, { reveal: true });
@@ -526,13 +648,12 @@ watch(
 </script>
 
 <style scoped>
-.moderation-regions-table-scroll,
-.moderation-regions-rules-scroll {
+.moderation-regions-table-scroll {
   max-width: 100%;
   overflow-x: auto;
 }
 
-.moderation-regions-mobile-list {
+.moderation-regions-table-scroll {
   display: none;
 }
 
@@ -545,6 +666,23 @@ watch(
 
 .moderation-region-name--muted {
   color: var(--fsusblog-text-muted);
+}
+
+.moderation-region-name--child {
+  position: relative;
+  padding-left: 14px;
+  color: var(--fsusblog-text-muted);
+  font-weight: 700;
+}
+
+.moderation-region-name--child::before {
+  position: absolute;
+  left: 2px;
+  top: 0.1em;
+  bottom: 0.1em;
+  width: 1px;
+  background: var(--fsusblog-panel-border);
+  content: "";
 }
 
 .moderation-region-preview-link {
@@ -575,34 +713,143 @@ watch(
   min-height: 24px;
 }
 
-@media (max-width: 768px) {
-  .moderation-regions-table-scroll {
-    display: none;
-  }
-
-  .moderation-regions-mobile-list {
-    display: grid;
-  }
-}
-
 .moderation-regions-mobile-cell {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.moderation-regions-mobile-cell--name {
-  font-weight: 760;
+.moderation-regions-mobile-list {
+  display: grid;
+  border-block: 1px solid var(--fsusblog-panel-border);
 }
 
-.moderation-regions-mobile-cell--muted,
-.moderation-regions-mobile-cell--action {
-  color: var(--fsusblog-text-muted);
-  font-weight: 700;
-}
-
-.moderation-regions-mobile-cell--action.is-active {
+.moderation-regions-mobile-list :deep(.el-data-list__row) {
+  position: relative;
+  min-height: 58px;
+  align-items: center;
+  column-gap: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  background: transparent;
   color: var(--fsusblog-text-primary);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.moderation-regions-mobile-list :deep(.el-data-list__row:hover) {
+  background: color-mix(in srgb, var(--el-color-primary) 5%, transparent);
+}
+
+.moderation-regions-mobile-list :deep(.el-data-list__row:focus-visible) {
+  outline: 2px solid
+    color-mix(in srgb, var(--el-color-primary) 42%, transparent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--el-color-primary) 5%, transparent);
+}
+
+.moderation-regions-mobile-list :deep(.el-data-list__row.is-active) {
+  background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
+}
+
+.moderation-regions-mobile-list :deep(.el-data-list__row.is-active)::before {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--el-color-primary);
+  content: "";
+}
+
+.moderation-regions-mobile-list :deep(.el-data-list__cell) {
+  min-width: 0;
+  padding-block: 11px;
+}
+
+.moderation-regions-mobile-list :deep(.el-data-list__cell:first-child) {
+  padding-left: 20px;
+}
+
+.moderation-regions-mobile-list :deep(.el-data-list__cell:last-child) {
+  padding-right: 18px;
+}
+
+.moderation-regions-mobile-list :deep(.el-data-list__cell--end) {
+  text-align: right;
+}
+
+.moderation-regions-mobile-summary {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.moderation-regions-mobile-summary--child {
+  position: relative;
+  padding-left: 18px;
+}
+
+.moderation-regions-mobile-summary--child::before {
+  position: absolute;
+  left: 4px;
+  top: 0.18em;
+  bottom: 0.18em;
+  width: 1px;
+  background: var(--fsusblog-panel-border);
+  content: "";
+}
+
+.moderation-regions-mobile-title {
+  color: var(--fsusblog-text-primary);
+  font-size: 14px;
+  font-weight: 720;
+  line-height: 1.15;
+}
+
+.moderation-regions-mobile-title.is-active {
+  color: var(--fsusblog-text-primary);
+}
+
+.moderation-regions-mobile-meta {
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.moderation-regions-mobile-cell--indicator {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  color: var(--fsusblog-text-muted);
+  opacity: 0.72;
+  transition:
+    color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.moderation-regions-mobile-cell--indicator svg {
+  width: 14px;
+  height: 14px;
+}
+
+.moderation-regions-mobile-list :deep(.el-data-list__row:hover)
+  .moderation-regions-mobile-cell--indicator,
+.moderation-regions-mobile-list :deep(.el-data-list__row:focus-visible)
+  .moderation-regions-mobile-cell--indicator,
+.moderation-regions-mobile-cell--indicator.is-active {
+  color: var(--el-color-primary);
+  opacity: 1;
+  transform: translateX(2px);
 }
 
 .moderation-regions-preview-meta {
@@ -624,5 +871,78 @@ watch(
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--fsusblog-text-muted);
+}
+
+.moderation-regions-rules-list {
+  display: grid;
+}
+
+.moderation-regions-rules-list :deep(.el-data-list__row) {
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+}
+
+.moderation-regions-rule-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.moderation-regions-rule-summary {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.moderation-regions-rule-category {
+  overflow: hidden;
+  color: var(--fsusblog-text-primary);
+  font-size: 13px;
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.moderation-regions-rule-source {
+  overflow: visible;
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.moderation-regions-rule-actions {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.moderation-regions-rule-action {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.moderation-regions-rule-action dt {
+  color: var(--fsusblog-text-muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.moderation-regions-rule-action dd {
+  min-width: 0;
+  margin: 0;
+  overflow: visible;
+  color: var(--fsusblog-text-primary);
+  font-size: 13px;
+  font-weight: 720;
+  line-height: 1.3;
+  white-space: normal;
 }
 </style>

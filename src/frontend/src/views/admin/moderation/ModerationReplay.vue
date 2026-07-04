@@ -2,17 +2,84 @@
   <div class="space-y-8">
     <section class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
       <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-        <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ copy.sectionEyebrow }}</div>
-        <h2 class="mt-2 text-xl font-bold text-[var(--fsusblog-text-primary)]">{{ copy.sectionTitle }}</h2>
+        <h2 class="text-xl font-bold text-[var(--fsusblog-text-primary)]">{{ copy.sectionTitle }}</h2>
         <p class="mt-2 text-[12px] text-[var(--fsusblog-text-muted)]">{{ copy.sectionDescription }}</p>
       </div>
 
-      <div class="grid gap-3 border-b border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-4 md:grid-cols-5">
-        <el-input v-model="form.region" clearable :placeholder="copy.inputRegionPlaceholder" :aria-label="copy.inputRegionAriaLabel" />
-        <el-input v-model="form.policyVersion" clearable :placeholder="copy.inputPolicyVersionPlaceholder" :aria-label="copy.inputPolicyVersionAriaLabel" />
-        <el-input v-model="form.dictionaryId" clearable :placeholder="copy.inputDictionaryIdPlaceholder" :aria-label="copy.inputDictionaryIdAriaLabel" />
-        <el-input-number v-model="form.limit" :min="1" :max="200" controls-position="right" :aria-label="copy.inputLimitAriaLabel" />
-        <el-button type="primary" :icon="DocumentChecked" :loading="loading" @click="runPreview">{{ copy.generatePreviewCta }}</el-button>
+      <div
+        class="moderation-replay-controls"
+        :aria-label="copy.replayParamsAriaLabel"
+        role="group"
+      >
+        <label class="moderation-replay-field">
+          <span class="moderation-replay-field__label">{{
+            copy.regionFieldLabel
+          }}</span>
+          <el-select
+            v-model="form.region"
+            allow-create
+            clearable
+            default-first-option
+            filterable
+            class="moderation-replay-field__control"
+            :loading="regionsLoading"
+            :placeholder="copy.inputRegionPlaceholder"
+            :aria-label="copy.inputRegionAriaLabel"
+          >
+            <el-option
+              v-for="option in replayRegionOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </label>
+        <label class="moderation-replay-field">
+          <span class="moderation-replay-field__label">{{
+            copy.policyVersionFieldLabel
+          }}</span>
+          <el-input
+            v-model="form.policyVersion"
+            clearable
+            class="moderation-replay-field__control"
+            :placeholder="copy.inputPolicyVersionPlaceholder"
+            :aria-label="copy.inputPolicyVersionAriaLabel"
+          />
+        </label>
+        <label class="moderation-replay-field">
+          <span class="moderation-replay-field__label">{{
+            copy.dictionaryIdFieldLabel
+          }}</span>
+          <el-input
+            v-model="form.dictionaryId"
+            clearable
+            class="moderation-replay-field__control"
+            :placeholder="copy.inputDictionaryIdPlaceholder"
+            :aria-label="copy.inputDictionaryIdAriaLabel"
+          />
+        </label>
+        <label class="moderation-replay-field">
+          <span class="moderation-replay-field__label">{{
+            copy.limitFieldLabel
+          }}</span>
+          <el-input-number
+            v-model="form.limit"
+            class="moderation-replay-field__control"
+            :min="1"
+            :max="200"
+            controls-position="right"
+            :aria-label="copy.inputLimitAriaLabel"
+          />
+        </label>
+        <div class="moderation-replay-action">
+          <el-button
+            type="primary"
+            :icon="DocumentChecked"
+            :loading="loading"
+            @click="runPreview"
+            >{{ copy.generatePreviewCta }}</el-button
+          >
+        </div>
       </div>
 
       <AdminStatusMatrix v-if="preview" :items="metrics" density="compact" :aria-label="copy.previewMetricsAriaLabel" />
@@ -73,9 +140,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, shallowRef } from 'vue'
+import { computed, onMounted, reactive, shallowRef } from 'vue'
 import {
+  listModerationRegions,
   previewModerationReplay,
+  type ModerationRegionDefinition,
   type ModerationReplayPreviewItemResponse,
   type ModerationReplayPreviewResponse
 } from '@/api/authoring'
@@ -83,17 +152,36 @@ import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { DocumentChecked } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
+import { formatModerationRegionName } from '@/utils/moderationRegionDisplay'
 import { FSUSBLOG_ADMIN_COPY } from '@/copy'
 
 const copy = FSUSBLOG_ADMIN_COPY.moderationReplay
+const fallbackReplayRegionCodes = ['CN-MAINLAND', 'GLOBAL', 'EU', 'US', 'UNKNOWN']
 
 const loading = shallowRef(false)
+const regionsLoading = shallowRef(false)
+const replayRegions = shallowRef<ModerationRegionDefinition[]>([])
 const preview = shallowRef<ModerationReplayPreviewResponse | null>(null)
 const form = reactive({
   region: 'CN-MAINLAND',
   policyVersion: '',
   dictionaryId: '',
   limit: 50
+})
+
+const replayRegionOptions = computed(() => {
+  const regionCodes = new Set<string>([
+    form.region,
+    ...fallbackReplayRegionCodes,
+    ...replayRegions.value.map((region) => region.regionCode)
+  ])
+
+  return Array.from(regionCodes)
+    .filter(Boolean)
+    .map((value) => ({
+      label: formatModerationRegionName(value),
+      value
+    }))
 })
 
 const metrics = computed<AdminStatusMatrixItem[]>(() => {
@@ -110,6 +198,17 @@ const metrics = computed<AdminStatusMatrixItem[]>(() => {
   ]
 })
 
+const loadReplayRegions = async (): Promise<void> => {
+  regionsLoading.value = true
+  try {
+    replayRegions.value = await listModerationRegions()
+  } catch (error) {
+    showErrorToast(error, copy.regionOptionsErrorToastFallback)
+  } finally {
+    regionsLoading.value = false
+  }
+}
+
 const runPreview = async (): Promise<void> => {
   loading.value = true
   try {
@@ -125,6 +224,10 @@ const runPreview = async (): Promise<void> => {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  void loadReplayRegions()
+})
 </script>
 
 <style scoped>
@@ -132,8 +235,68 @@ const runPreview = async (): Promise<void> => {
   font-variant-numeric: tabular-nums;
 }
 
+.moderation-replay-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  background: var(--fsusblog-page-bg-soft);
+  padding: 16px;
+}
+
+.moderation-replay-field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.moderation-replay-field__label {
+  color: var(--fsusblog-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.moderation-replay-field__control,
+.moderation-replay-action :deep(.el-button) {
+  width: 100%;
+}
+
+.moderation-replay-field :deep(.el-select),
+.moderation-replay-field :deep(.el-input),
+.moderation-replay-field :deep(.el-input-number) {
+  width: 100%;
+}
+
+.moderation-replay-action {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.moderation-replay-action :deep(.el-button) {
+  width: auto;
+  min-width: 168px;
+}
+
 .moderation-replay-table-scroll {
   max-width: 100%;
   overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .moderation-replay-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .moderation-replay-action {
+    justify-content: stretch;
+  }
+
+  .moderation-replay-action :deep(.el-button) {
+    width: 100%;
+  }
 }
 </style>

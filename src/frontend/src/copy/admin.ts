@@ -8,15 +8,20 @@ import type { AdminCopy } from './contracts'
 
 export const FSUSBLOG_ADMIN_COPY = {
   moderationReplay: {
-    sectionEyebrow: '策略回放',
     sectionTitle: '预览差异',
     sectionDescription: '回放执行前必须先生成预览；执行需要管理员通行密钥二次验证、确认短语和高价值审计。',
-    inputRegionPlaceholder: '地区',
+    replayParamsAriaLabel: '回放预览参数',
+    regionFieldLabel: '地区',
+    inputRegionPlaceholder: '选择地区',
     inputRegionAriaLabel: '地区',
+    regionOptionsErrorToastFallback: '地区列表载入失败',
+    policyVersionFieldLabel: '上一版策略',
     inputPolicyVersionPlaceholder: '上一版策略号',
     inputPolicyVersionAriaLabel: '策略版本',
+    dictionaryIdFieldLabel: '词库',
     inputDictionaryIdPlaceholder: '词库 ID',
     inputDictionaryIdAriaLabel: '词库 ID',
+    limitFieldLabel: '扫描数量',
     inputLimitAriaLabel: '扫描数量',
     generatePreviewCta: '生成预览',
     columnComment: '评论',
