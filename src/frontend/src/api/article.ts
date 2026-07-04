@@ -104,6 +104,20 @@ export interface PageResponse<T> {
   hasMore?: boolean
 }
 
+export interface ArticleRightsRequest {
+  enabled?: boolean
+  licenseType?: string | null
+  copyrightHolder?: string | null
+  copyrightYear?: number | null
+  rightsStatement?: string | null
+  attributionTemplate?: string | null
+  copyPolicy?: string | null
+  maxExcerptChars?: number
+  allowCodeCopy?: boolean
+  showPublicBadge?: boolean
+  proofBindingEnabled?: boolean
+}
+
 export interface ArticleWriteRequest {
   title: string
   content: string
@@ -113,6 +127,7 @@ export interface ArticleWriteRequest {
   tagIds: number[]
   status?: ArticlePublishStatus
   scheduledPublishAt?: string | null
+  rights?: ArticleRightsRequest | null
 }
 
 // ================= API 方法 =================
@@ -356,6 +371,13 @@ function normalizeSize(value: number, fallback: number): number {
   return Math.min(Math.max(normalized, 1), 100)
 }
 
+const ArticleWriteRequestVersion = 3
+const RightsFlagEnabled = 1 << 0
+const RightsFlagAllowCodeCopy = 1 << 1
+const RightsFlagShowPublicBadge = 1 << 2
+const RightsFlagProofBindingEnabled = 1 << 3
+const RightsFlagHasCopyrightYear = 1 << 4
+
 function encodeArticleWriteRequest(data: ArticleWriteRequest): Uint8Array {
   const encoder = new TextEncoder()
   const textParts = [
@@ -364,10 +386,19 @@ function encodeArticleWriteRequest(data: ArticleWriteRequest): Uint8Array {
     encoder.encode(data.summary ?? ''),
     encoder.encode(data.coverImageUrl ?? '')
   ]
+  const rights = normalizeArticleRightsRequest(data.rights)
+  const rightsTextParts = [
+    encoder.encode(rights.licenseType),
+    encoder.encode(rights.copyrightHolder),
+    encoder.encode(rights.rightsStatement),
+    encoder.encode(rights.attributionTemplate),
+    encoder.encode(rights.copyPolicy)
+  ]
   const blobLength = textParts.reduce((sum, part) => sum + part.byteLength, 0)
+  const rightsBlobLength = rightsTextParts.reduce((sum, part) => sum + part.byteLength, 0)
   const tagIds = Array.isArray(data.tagIds) ? data.tagIds : []
   const tagBytesLength = tagIds.length * 4
-  const bytes = new Uint8Array(40 + tagBytesLength + 4 + blobLength + 12)
+  const bytes = new Uint8Array(40 + tagBytesLength + 4 + blobLength + 72 + rightsBlobLength)
   const view = new DataView(bytes.buffer)
 
   view.setInt32(0, data.categoryId ?? 0, true)
@@ -398,8 +429,86 @@ function encodeArticleWriteRequest(data: ArticleWriteRequest): Uint8Array {
   view.setInt32(cursor, data.status ?? ArticlePublishStatus.Published, true)
   cursor += 4
   view.setBigInt64(cursor, BigInt(toScheduledPublishAtUnixMs(data.scheduledPublishAt)), true)
+  cursor += 8
+  view.setInt32(cursor, ArticleWriteRequestVersion, true)
+  cursor += 4
+  view.setInt32(cursor, buildRightsFlags(rights), true)
+  cursor += 4
+  view.setInt32(cursor, rights.copyrightYear ?? 0, true)
+  cursor += 4
+  view.setInt32(cursor, rights.maxExcerptChars, true)
+  cursor += 4
+
+  let rightsBlobOffset = 0
+  for (let i = 0; i < rightsTextParts.length; i += 1) {
+    const part = rightsTextParts[i]
+    view.setInt32(cursor, rightsBlobOffset, true)
+    view.setInt32(cursor + 4, part.byteLength, true)
+    cursor += 8
+    rightsBlobOffset += part.byteLength
+  }
+
+  view.setInt32(cursor, rightsBlobLength, true)
+  cursor += 4
+  for (const part of rightsTextParts) {
+    bytes.set(part, cursor)
+    cursor += part.byteLength
+  }
 
   return bytes
+}
+
+interface NormalizedArticleRightsRequest {
+  enabled: boolean
+  licenseType: string
+  copyrightHolder: string
+  copyrightYear: number | null
+  rightsStatement: string
+  attributionTemplate: string
+  copyPolicy: string
+  maxExcerptChars: number
+  allowCodeCopy: boolean
+  showPublicBadge: boolean
+  proofBindingEnabled: boolean
+}
+
+function normalizeArticleRightsRequest(value: ArticleRightsRequest | null | undefined): NormalizedArticleRightsRequest {
+  const rawCopyrightYear = value?.copyrightYear
+  const rawMaxExcerptChars = value?.maxExcerptChars
+  const copyrightYear = typeof rawCopyrightYear === 'number' && Number.isFinite(rawCopyrightYear)
+    ? Math.trunc(rawCopyrightYear)
+    : null
+  const maxExcerptChars = typeof rawMaxExcerptChars === 'number' && Number.isFinite(rawMaxExcerptChars)
+    ? Math.max(0, Math.trunc(rawMaxExcerptChars))
+    : 300
+
+  return {
+    enabled: value?.enabled ?? true,
+    licenseType: normalizeRightsToken(value?.licenseType, 'all-rights-reserved'),
+    copyrightHolder: value?.copyrightHolder ?? '',
+    copyrightYear,
+    rightsStatement: value?.rightsStatement ?? '',
+    attributionTemplate: value?.attributionTemplate ?? '',
+    copyPolicy: normalizeRightsToken(value?.copyPolicy, 'append-attribution'),
+    maxExcerptChars,
+    allowCodeCopy: value?.allowCodeCopy ?? true,
+    showPublicBadge: value?.showPublicBadge ?? true,
+    proofBindingEnabled: value?.proofBindingEnabled ?? true
+  }
+}
+
+function normalizeRightsToken(value: string | null | undefined, fallback: string): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value : fallback
+}
+
+function buildRightsFlags(value: NormalizedArticleRightsRequest): number {
+  let flags = 0
+  if (value.enabled) flags |= RightsFlagEnabled
+  if (value.allowCodeCopy) flags |= RightsFlagAllowCodeCopy
+  if (value.showPublicBadge) flags |= RightsFlagShowPublicBadge
+  if (value.proofBindingEnabled) flags |= RightsFlagProofBindingEnabled
+  if (value.copyrightYear !== null) flags |= RightsFlagHasCopyrightYear
+  return flags
 }
 
 function toScheduledPublishAtUnixMs(value: string | null | undefined): number {

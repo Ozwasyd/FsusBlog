@@ -46,6 +46,8 @@ public class PodSizeCatalogTests
         AssertPositiveSize(PodSizeCatalog.ArticleNoticePod, nameof(PodSizeCatalog.ArticleNoticePod));
         AssertPositiveSize(PodSizeCatalog.ArticleMutationResponsePod, nameof(PodSizeCatalog.ArticleMutationResponsePod));
         AssertPositiveSize(PodSizeCatalog.TrashClearResponsePod, nameof(PodSizeCatalog.TrashClearResponsePod));
+        AssertPositiveSize(PodSizeCatalog.ArticleWriteRequestPod, nameof(PodSizeCatalog.ArticleWriteRequestPod));
+        AssertPositiveSize(PodSizeCatalog.ArticleRightsWriteRequestPod, nameof(PodSizeCatalog.ArticleRightsWriteRequestPod));
 
         AssertPositiveSize(PodSizeCatalog.CommentItemPod, nameof(PodSizeCatalog.CommentItemPod));
         AssertPositiveSize(PodSizeCatalog.UserCommentPod, nameof(PodSizeCatalog.UserCommentPod));

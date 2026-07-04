@@ -1,5 +1,7 @@
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -67,6 +69,18 @@ public class PodBinaryCodecTests
     public void ArticleWriteRequest_RoundTrip_PreservesTextAndTags()
     {
         var scheduledAt = new DateTime(2026, 5, 19, 6, 30, 0, DateTimeKind.Utc);
+        var rights = new ArticleRightsRequestCoreModel(
+            Enabled: true,
+            LicenseType: "CC-BY-4.0",
+            CopyrightHolder: "Fésus",
+            CopyrightYear: 2026,
+            RightsStatement: "Line one\nLine two",
+            AttributionTemplate: "{title} — {holder}",
+            CopyPolicy: "append-attribution",
+            MaxExcerptChars: 300,
+            AllowCodeCopy: true,
+            ShowPublicBadge: false,
+            ProofBindingEnabled: true);
         var request = new ArticleWriteRequestCoreModel(
             "Title",
             "Content",
@@ -75,7 +89,8 @@ public class PodBinaryCodecTests
             3,
             [1, 2, 5],
             1,
-            scheduledAt);
+            scheduledAt,
+            rights);
 
         byte[] encoded = PodBinaryCodec.EncodeArticleWriteRequest(request);
         bool ok = PodBinaryCodec.TryDecodeArticleWriteRequest(encoded, out var decoded);
@@ -89,6 +104,28 @@ public class PodBinaryCodecTests
         Assert.Equal([1, 2, 5], decoded.TagIds);
         Assert.Equal(1, decoded.Status);
         Assert.Equal(scheduledAt, decoded.ScheduledPublishAt);
+        Assert.NotNull(decoded.Rights);
+        Assert.Equal("CC-BY-4.0", decoded.Rights.Value.LicenseType);
+        Assert.Equal("Fésus", decoded.Rights.Value.CopyrightHolder);
+        Assert.Equal(2026, decoded.Rights.Value.CopyrightYear);
+        Assert.Equal("Line one\nLine two", decoded.Rights.Value.RightsStatement);
+        Assert.Equal("{title} — {holder}", decoded.Rights.Value.AttributionTemplate);
+        Assert.Equal("append-attribution", decoded.Rights.Value.CopyPolicy);
+        Assert.Equal(300, decoded.Rights.Value.MaxExcerptChars);
+        Assert.True(decoded.Rights.Value.Enabled);
+        Assert.True(decoded.Rights.Value.AllowCodeCopy);
+        Assert.False(decoded.Rights.Value.ShowPublicBadge);
+        Assert.True(decoded.Rights.Value.ProofBindingEnabled);
+    }
+
+    [Fact]
+    public void ArticleWriteRequest_DecodeRejectsLegacyPayloadWithoutRightsV3Section()
+    {
+        byte[] legacy = EncodeLegacyArticleWriteRequestWithoutRightsV3();
+
+        bool ok = PodBinaryCodec.TryDecodeArticleWriteRequest(legacy, out _);
+
+        Assert.False(ok);
     }
 
     [Fact]
@@ -2069,6 +2106,58 @@ public class PodBinaryCodecTests
         Assert.Equal(dto.Slug, decoded.Slug);
         Assert.Equal(dto.Content, decoded.Content);
     }
+
+    private static byte[] EncodeLegacyArticleWriteRequestWithoutRightsV3()
+    {
+        byte[] title = Encoding.UTF8.GetBytes("Title");
+        byte[] content = Encoding.UTF8.GetBytes("Content");
+        byte[] summary = Encoding.UTF8.GetBytes("Summary");
+        byte[] cover = Encoding.UTF8.GetBytes("/uploads/cover.webp");
+        int blobLength = title.Length + content.Length + summary.Length + cover.Length;
+        int totalLength = 40 + (3 * sizeof(int)) + sizeof(int) + blobLength + sizeof(int) + sizeof(long);
+        byte[] bytes = new byte[totalLength];
+        int cursor = 0;
+
+        WriteInt(bytes, ref cursor, 3);
+        WriteInt(bytes, ref cursor, 3);
+        int blobOffset = 0;
+        WriteSlice(bytes, ref cursor, blobOffset, title.Length);
+        blobOffset += title.Length;
+        WriteSlice(bytes, ref cursor, blobOffset, content.Length);
+        blobOffset += content.Length;
+        WriteSlice(bytes, ref cursor, blobOffset, summary.Length);
+        blobOffset += summary.Length;
+        WriteSlice(bytes, ref cursor, blobOffset, cover.Length);
+
+        WriteInt(bytes, ref cursor, 1);
+        WriteInt(bytes, ref cursor, 2);
+        WriteInt(bytes, ref cursor, 5);
+        WriteInt(bytes, ref cursor, blobLength);
+        title.CopyTo(bytes.AsSpan(cursor));
+        cursor += title.Length;
+        content.CopyTo(bytes.AsSpan(cursor));
+        cursor += content.Length;
+        summary.CopyTo(bytes.AsSpan(cursor));
+        cursor += summary.Length;
+        cover.CopyTo(bytes.AsSpan(cursor));
+        cursor += cover.Length;
+        WriteInt(bytes, ref cursor, 1);
+        BinaryPrimitives.WriteInt64LittleEndian(bytes.AsSpan(cursor, sizeof(long)), new DateTimeOffset(2026, 5, 19, 6, 30, 0, TimeSpan.Zero).ToUnixTimeMilliseconds());
+
+        return bytes;
+    }
+
+    private static void WriteSlice(byte[] target, ref int cursor, int offset, int length)
+    {
+        WriteInt(target, ref cursor, offset);
+        WriteInt(target, ref cursor, length);
+    }
+
+    private static void WriteInt(byte[] target, ref int cursor, int value)
+    {
+        BinaryPrimitives.WriteInt32LittleEndian(target.AsSpan(cursor, sizeof(int)), value);
+        cursor += sizeof(int);
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -2246,4 +2335,5 @@ public class PodBinaryCodecCommentTests
         Assert.NotNull(encoded);
         Assert.True(encoded.Length > 0);
     }
+
 }

@@ -1461,9 +1461,9 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 | `Archived` | 归档隐藏，不进入公开分发 |
 | `Deleted` | 逻辑删除，保留原有回收站语义 |
 
-`CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`。公开读路径必须同时检查 `IsDeleted=false`、`Status=Published`、`PublishedAt<=now`、`ScheduledPublishAt<=now`。
+`CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`、`rights`。公开读路径必须同时检查 `IsDeleted=false`、`Status=Published`、`PublishedAt<=now`、`ScheduledPublishAt<=now`。
 
-Binary 写入帧 `ArticleWriteRequest` 使用旧 `ArticleWriteRequestPod` + `tagIds` + blob 作为主体，并在尾部追加 `status:int32` 与 `scheduledPublishAtUnixMs:int64`；缺省尾部按 `Published`、无定时发布处理。`ArticleDetail` 在 cover blob 与 `isDeleted:byte` 后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`，admin 读取未发布文章时依赖该尾部恢复编辑器状态。
+Binary 写入帧 `ArticleWriteRequest` 当前版本为 V3。payload 使用旧 `ArticleWriteRequestPod` + `tagIds:int32[]` + article blob 作为主体，随后按顺序追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`version:int32=3`、`rightsFlags:int32`、`copyrightYear:int32`、`maxExcerptChars:int32`、`ArticleRightsWriteRequestPod`、rights blob。`rightsFlags` bit 定义为：`1 enabled`、`2 allowCodeCopy`、`4 showPublicBadge`、`8 proofBindingEnabled`、`16 hasCopyrightYear`。`ArticleRightsWriteRequestPod` 只包含 UTF-8 slice：`licenseType`、`copyrightHolder`、`rightsStatement`、`attributionTemplate`、`copyPolicy`。缺少 V3 rights 段的 legacy 写入 payload 必须拒绝，不得再按 `Published` / 无定时发布静默补齐。`ArticleDetail` 在 cover blob 与 `isDeleted:byte` 后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`，admin 读取未发布文章时依赖该尾部恢复编辑器状态。
 
 `GET /api/binary/admin/article` 的 `status` 查询参数仅 admin 可用。公开 `/api/binary/article/**.aeds` 不接受 query string、请求体或 credentials；admin 不带 `status` 时读取所有非删除状态，带 `status=0/1/2/3/4` 时读取对应 draft/scheduled/published/archived/deleted 集合。admin article list 的 `page` / `size` 缺省为 `1` / `10`，显式传入 `page<1`、`size<1` 或 `size>100` 返回 `400`。
 

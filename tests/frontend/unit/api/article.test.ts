@@ -153,6 +153,59 @@ describe('article API (admin)', () => {
     })
   })
 
+  it('createArticle encodes ArticleWriteRequest V3 rights defaults', async () => {
+    const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
+    await createArticle(data)
+
+    const parsed = parseArticleWriteRequestPayload(getMutationPayload())
+
+    expect(parsed.version).toBe(3)
+    expect(parsed.flags).toBe(15)
+    expect(parsed.copyrightYear).toBe(0)
+    expect(parsed.maxExcerptChars).toBe(300)
+    expect(parsed.rights.licenseType).toBe('all-rights-reserved')
+    expect(parsed.rights.copyPolicy).toBe('append-attribution')
+    expect(parsed.rights.copyrightHolder).toBe('')
+    expect(parsed.rights.rightsStatement).toBe('')
+    expect(parsed.rights.attributionTemplate).toBe('')
+  })
+
+  it('createArticle encodes ArticleWriteRequest V3 explicit rights fields', async () => {
+    await createArticle({
+      title: 'T',
+      content: 'C',
+      summary: 'S',
+      categoryId: 1,
+      tagIds: [5, 3],
+      rights: {
+        enabled: true,
+        licenseType: 'CC-BY-4.0',
+        copyrightHolder: 'Fésus',
+        copyrightYear: 2026,
+        rightsStatement: 'Line one\nLine two',
+        attributionTemplate: '{title} — {holder}',
+        copyPolicy: 'append-attribution',
+        maxExcerptChars: 128,
+        allowCodeCopy: true,
+        showPublicBadge: false,
+        proofBindingEnabled: true
+      }
+    })
+
+    const parsed = parseArticleWriteRequestPayload(getMutationPayload())
+
+    expect(parsed.tagIds).toEqual([5, 3])
+    expect(parsed.version).toBe(3)
+    expect(parsed.flags).toBe(27)
+    expect(parsed.copyrightYear).toBe(2026)
+    expect(parsed.maxExcerptChars).toBe(128)
+    expect(parsed.rights.licenseType).toBe('CC-BY-4.0')
+    expect(parsed.rights.copyrightHolder).toBe('Fésus')
+    expect(parsed.rights.rightsStatement).toBe('Line one\nLine two')
+    expect(parsed.rights.attributionTemplate).toBe('{title} — {holder}')
+    expect(parsed.rights.copyPolicy).toBe('append-attribution')
+  })
+
   it('updateArticle calls PUT /Article/:id', async () => {
     const data = { title: 'T', content: 'C', summary: 'S', categoryId: 1, tagIds: [] }
     await updateArticle(10, data)
@@ -225,3 +278,75 @@ describe('article API (admin)', () => {
     expect('uploadArticleAotBundle' in articleApi).toBe(false)
   })
 })
+
+function getMutationPayload(): Uint8Array {
+  const body = mockBinary.mock.calls[0]?.[0]?.requestOptions?.body
+  expect(body).toBeInstanceOf(ArrayBuffer)
+  const frame = body as ArrayBuffer
+  const header = new DataView(frame, 0, 16)
+  expect(header.getUint16(8, true)).toBe(FrameType.ArticleWriteRequest)
+  const payloadLength = header.getUint32(10, true)
+  return new Uint8Array(frame, 16, payloadLength)
+}
+
+function parseArticleWriteRequestPayload(payload: Uint8Array): {
+  tagIds: number[]
+  version: number
+  flags: number
+  copyrightYear: number
+  maxExcerptChars: number
+  rights: Record<'licenseType' | 'copyrightHolder' | 'rightsStatement' | 'attributionTemplate' | 'copyPolicy', string>
+} {
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const decoder = new TextDecoder()
+  const tagCount = view.getInt32(4, true)
+  let cursor = 40
+  const tagIds: number[] = []
+  for (let i = 0; i < tagCount; i += 1) {
+    tagIds.push(view.getInt32(cursor, true))
+    cursor += 4
+  }
+
+  const articleBlobLength = view.getInt32(cursor, true)
+  cursor += 4 + articleBlobLength
+  cursor += 4
+  cursor += 8
+  const version = view.getInt32(cursor, true)
+  cursor += 4
+  const flags = view.getInt32(cursor, true)
+  cursor += 4
+  const copyrightYear = view.getInt32(cursor, true)
+  cursor += 4
+  const maxExcerptChars = view.getInt32(cursor, true)
+  cursor += 4
+
+  const sliceRefs = Array.from({ length: 5 }, () => {
+    const offset = view.getInt32(cursor, true)
+    const length = view.getInt32(cursor + 4, true)
+    cursor += 8
+    return { offset, length }
+  })
+  const rightsBlobLength = view.getInt32(cursor, true)
+  cursor += 4
+  const rightsBlob = payload.subarray(cursor, cursor + rightsBlobLength)
+  const readSlice = (index: number) => {
+    const slice = sliceRefs[index]!
+    expect(slice).toBeDefined()
+    return decoder.decode(rightsBlob.subarray(slice.offset, slice.offset + slice.length))
+  }
+
+  return {
+    tagIds,
+    version,
+    flags,
+    copyrightYear,
+    maxExcerptChars,
+    rights: {
+      licenseType: readSlice(0),
+      copyrightHolder: readSlice(1),
+      rightsStatement: readSlice(2),
+      attributionTemplate: readSlice(3),
+      copyPolicy: readSlice(4)
+    }
+  }
+}

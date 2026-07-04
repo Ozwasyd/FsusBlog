@@ -19,6 +19,10 @@ Rights V3 stores per-article rights policy, per-revision rights snapshots, and p
 
 `article_rights_proof` stores Rights V3 proof creation state. `ux_article_rights_proof_idempotency` makes proof retries safe by idempotency key, and the revision/snapshot/status indexes support retry and operations views.
 
+## Write Path
+
+New article creates and updates normalize the request `rights` payload before writing. When the client omits rights, the write path uses the same defaults as the migration: `enabled=true`, `license_type=all-rights-reserved`, `copy_policy=append-attribution`, `max_excerpt_chars=300`, and `allow_code_copy` / `show_public_badge` / `proof_binding_enabled=true`. The service writes the article row/body/tags, the new `article_revision`, the current `article_rights_policy`, the immutable `article_rights_snapshot`, and the article mutation outbox event in one database transaction. The outbox payload includes `rightsSnapshotId` so projectors can rebuild public artifacts from the frozen snapshot instead of querying mutable policy state.
+
 ## Migration
 
 `20260704-post-article-rights-v3-schema` creates the three tables and indexes after CodeFirst has synchronized the article and revision tables. It then backfills existing content in set-based SQL:
@@ -27,7 +31,7 @@ Rights V3 stores per-article rights policy, per-revision rights snapshots, and p
 2. Each article with at least one `article_revision` receives one `article_rights_snapshot` for the latest revision, chosen by highest `revision_no`, then newest `created_at`, then highest `id`.
 3. Articles without a revision receive only the policy row; the first future revision/publish path is responsible for creating the first snapshot.
 
-The migration is idempotent. A second startup must not duplicate policy rows, snapshot rows, or proof rows.
+The migration is idempotent. A second startup must not duplicate policy rows, snapshot rows, or proof rows. Existing articles inherit the default policy because no historical editor-side rights intent existed before Rights V3; the first post-migration edit can replace that editable policy and creates a fresh snapshot bound to the new revision.
 
 ## Artifact Boundary
 

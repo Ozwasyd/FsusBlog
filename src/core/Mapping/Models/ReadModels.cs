@@ -322,6 +322,19 @@ public sealed record class PasskeyLoginCompleteCoreModel
     public bool RememberMe { get; init; }
 }
 
+public readonly record struct ArticleRightsRequestCoreModel(
+    bool Enabled,
+    string LicenseType,
+    string? CopyrightHolder,
+    int? CopyrightYear,
+    string? RightsStatement,
+    string? AttributionTemplate,
+    string CopyPolicy,
+    int MaxExcerptChars,
+    bool AllowCodeCopy,
+    bool ShowPublicBadge,
+    bool ProofBindingEnabled);
+
 public readonly record struct ArticleWriteRequestCoreModel(
     string Title,
     string Content,
@@ -330,7 +343,8 @@ public readonly record struct ArticleWriteRequestCoreModel(
     int CategoryId,
     IReadOnlyList<int> TagIds,
     int Status = 2,
-    DateTime? ScheduledPublishAt = null);
+    DateTime? ScheduledPublishAt = null,
+    ArticleRightsRequestCoreModel? Rights = null);
 
 public readonly record struct RecentCommentCoreModel(
     RecentCommentPod Pod,

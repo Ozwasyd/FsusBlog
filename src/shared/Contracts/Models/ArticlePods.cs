@@ -127,6 +127,16 @@ public readonly struct ArticleWriteRequestPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleRightsWriteRequestPod
+{
+    public readonly Utf8SliceRef LicenseType;
+    public readonly Utf8SliceRef CopyrightHolder;
+    public readonly Utf8SliceRef RightsStatement;
+    public readonly Utf8SliceRef AttributionTemplate;
+    public readonly Utf8SliceRef CopyPolicy;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct PublicAotBundlePod
 {
     public readonly long GeneratedAtUnixMs;

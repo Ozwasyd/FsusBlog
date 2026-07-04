@@ -387,6 +387,8 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 
 作者工作台生产 API 放在 `/api/binary/author/**`，全部使用 admin 授权和 AEDS frame；浏览器不可访问 JSON envelope，仓内不保留 runtime internal compatibility 层。预览、草稿、修订、管理端 taxonomy、资产、AI 辅助都属于作者私有能力。未发布正文不得进入 feed、search、sitemap、PublicAOT cache，也不得默认发送到外部 AI provider。
 
+文章发布配置包含 Rights V3 策略。admin 创建/更新文章时，`ArticleWriteRequest` 必须使用 V3 frame 写入 `rights` 段；服务端在同一事务内写入文章修订、`article_rights_policy`、`article_rights_snapshot` 和 mutation outbox 的 `rightsSnapshotId`。前端 UI 尚未暴露完整版权面板时也必须写出默认 rights，不允许因为字段缺省让公开 artifact 后续缺失 rights 快照。
+
 ### 预览
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。

@@ -14,10 +14,23 @@ public static partial class PodBinaryCodec
 {
     private const int ArticlePageCursorEnvelopeMagic = 0x41535046; // FSPA
     private const int ArticlePageCursorEnvelopeVersion = 1;
+    private const int ArticleWriteRequestVersion = 3;
+    private const int RightsFlagEnabled = 1 << 0;
+    private const int RightsFlagAllowCodeCopy = 1 << 1;
+    private const int RightsFlagShowPublicBadge = 1 << 2;
+    private const int RightsFlagProofBindingEnabled = 1 << 3;
+    private const int RightsFlagHasCopyrightYear = 1 << 4;
 
     public static void WriteArticleWriteRequest(ArticleWriteRequestCoreModel request, IBufferWriter<byte> destination)
     {
         var payload = new ArrayBufferWriter<byte>(Math.Max(512, request.Title.Length + request.Content.Length + (request.Summary?.Length ?? 0) + (request.CoverImageUrl?.Length ?? 0)));
+        ArticleRightsRequestCoreModel rights = NormalizeArticleRights(request.Rights);
+        var rightsPayload = new ArrayBufferWriter<byte>(Math.Max(256,
+            rights.LicenseType.Length
+            + (rights.CopyrightHolder?.Length ?? 0)
+            + (rights.RightsStatement?.Length ?? 0)
+            + (rights.AttributionTemplate?.Length ?? 0)
+            + rights.CopyPolicy.Length));
         var mutable = new MutableArticleWriteRequestPod
         {
             CategoryId = request.CategoryId,
@@ -26,6 +39,14 @@ public static partial class PodBinaryCodec
             Content = PodUtf8Codec.AppendSlice(request.Content, payload),
             Summary = PodUtf8Codec.AppendSlice(request.Summary ?? string.Empty, payload),
             CoverImageUrl = PodUtf8Codec.AppendSlice(request.CoverImageUrl ?? string.Empty, payload)
+        };
+        var mutableRights = new MutableArticleRightsWriteRequestPod
+        {
+            LicenseType = PodUtf8Codec.AppendSlice(rights.LicenseType, rightsPayload),
+            CopyrightHolder = PodUtf8Codec.AppendSlice(rights.CopyrightHolder ?? string.Empty, rightsPayload),
+            RightsStatement = PodUtf8Codec.AppendSlice(rights.RightsStatement ?? string.Empty, rightsPayload),
+            AttributionTemplate = PodUtf8Codec.AppendSlice(rights.AttributionTemplate ?? string.Empty, rightsPayload),
+            CopyPolicy = PodUtf8Codec.AppendSlice(rights.CopyPolicy, rightsPayload)
         };
 
         var writer = new BinaryPodWriter(destination);
@@ -38,6 +59,12 @@ public static partial class PodBinaryCodec
         writer.WriteBytes(payload.WrittenSpan);
         writer.WriteInt32(request.Status);
         writer.WriteInt64(ToUnixMsOrZero(request.ScheduledPublishAt));
+        writer.WriteInt32(ArticleWriteRequestVersion);
+        writer.WriteInt32(BuildRightsFlags(rights));
+        writer.WriteInt32(rights.CopyrightYear.GetValueOrDefault());
+        writer.WriteInt32(rights.MaxExcerptChars);
+        writer.WritePod(Cast<MutableArticleRightsWriteRequestPod, ArticleRightsWriteRequestPod>(mutableRights));
+        writer.WriteBytes(rightsPayload.WrittenSpan);
     }
 
     public static byte[] EncodeArticleWriteRequest(ArticleWriteRequestCoreModel request)
@@ -70,20 +97,34 @@ public static partial class PodBinaryCodec
             return false;
         }
 
-        int status = 2;
-        DateTime? scheduledPublishAt = null;
-        if (reader.Remaining > 0)
+        if (!reader.TryReadInt32(out int status) ||
+            !reader.TryReadInt64(out long scheduledPublishAtUnixMs) ||
+            !reader.TryReadInt32(out int version) ||
+            version != ArticleWriteRequestVersion ||
+            !reader.TryReadInt32(out int rightsFlags) ||
+            !reader.TryReadInt32(out int copyrightYearValue) ||
+            !reader.TryReadInt32(out int maxExcerptChars) ||
+            !reader.TryReadPod(out ArticleRightsWriteRequestPod rightsPod) ||
+            !reader.TryReadBytes(out ReadOnlySpan<byte> rightsPayloadSpan) ||
+            maxExcerptChars < 0)
         {
-            if (reader.Remaining != sizeof(int) + sizeof(long) ||
-                !reader.TryReadInt32(out status) ||
-                !reader.TryReadInt64(out long scheduledPublishAtUnixMs))
-            {
-                request = default;
-                return false;
-            }
-
-            scheduledPublishAt = FromUnixMsOrNull(scheduledPublishAtUnixMs);
+            request = default;
+            return false;
         }
+
+        DateTime? scheduledPublishAt = FromUnixMsOrNull(scheduledPublishAtUnixMs);
+        var rights = new ArticleRightsRequestCoreModel(
+            Enabled: (rightsFlags & RightsFlagEnabled) != 0,
+            LicenseType: PodProjector.ReadSlice(rightsPod.LicenseType, rightsPayloadSpan),
+            CopyrightHolder: ReadOptionalRightsSlice(rightsPod.CopyrightHolder, rightsPayloadSpan),
+            CopyrightYear: (rightsFlags & RightsFlagHasCopyrightYear) != 0 ? copyrightYearValue : null,
+            RightsStatement: ReadOptionalRightsSlice(rightsPod.RightsStatement, rightsPayloadSpan),
+            AttributionTemplate: ReadOptionalRightsSlice(rightsPod.AttributionTemplate, rightsPayloadSpan),
+            CopyPolicy: PodProjector.ReadSlice(rightsPod.CopyPolicy, rightsPayloadSpan),
+            MaxExcerptChars: maxExcerptChars,
+            AllowCodeCopy: (rightsFlags & RightsFlagAllowCodeCopy) != 0,
+            ShowPublicBadge: (rightsFlags & RightsFlagShowPublicBadge) != 0,
+            ProofBindingEnabled: (rightsFlags & RightsFlagProofBindingEnabled) != 0);
 
         request = new ArticleWriteRequestCoreModel(
             PodProjector.ReadSlice(pod.Title, payloadSpan),
@@ -93,8 +134,76 @@ public static partial class PodBinaryCodec
             pod.CategoryId,
             tagIds,
             status,
-            scheduledPublishAt);
+            scheduledPublishAt,
+            rights);
         return reader.IsConsumed;
+    }
+
+    private static ArticleRightsRequestCoreModel NormalizeArticleRights(ArticleRightsRequestCoreModel? rights)
+    {
+        if (!rights.HasValue)
+        {
+            return DefaultArticleRights();
+        }
+
+        ArticleRightsRequestCoreModel value = rights.Value;
+        return value with
+        {
+            LicenseType = string.IsNullOrWhiteSpace(value.LicenseType) ? "all-rights-reserved" : value.LicenseType,
+            CopyPolicy = string.IsNullOrWhiteSpace(value.CopyPolicy) ? "append-attribution" : value.CopyPolicy,
+            MaxExcerptChars = value.MaxExcerptChars < 0 ? 0 : value.MaxExcerptChars
+        };
+    }
+
+    private static ArticleRightsRequestCoreModel DefaultArticleRights()
+        => new(
+            Enabled: true,
+            LicenseType: "all-rights-reserved",
+            CopyrightHolder: null,
+            CopyrightYear: null,
+            RightsStatement: null,
+            AttributionTemplate: null,
+            CopyPolicy: "append-attribution",
+            MaxExcerptChars: 300,
+            AllowCodeCopy: true,
+            ShowPublicBadge: true,
+            ProofBindingEnabled: true);
+
+    private static int BuildRightsFlags(ArticleRightsRequestCoreModel rights)
+    {
+        int flags = 0;
+        if (rights.Enabled)
+        {
+            flags |= RightsFlagEnabled;
+        }
+
+        if (rights.AllowCodeCopy)
+        {
+            flags |= RightsFlagAllowCodeCopy;
+        }
+
+        if (rights.ShowPublicBadge)
+        {
+            flags |= RightsFlagShowPublicBadge;
+        }
+
+        if (rights.ProofBindingEnabled)
+        {
+            flags |= RightsFlagProofBindingEnabled;
+        }
+
+        if (rights.CopyrightYear.HasValue)
+        {
+            flags |= RightsFlagHasCopyrightYear;
+        }
+
+        return flags;
+    }
+
+    private static string? ReadOptionalRightsSlice(in Utf8SliceRef slice, ReadOnlySpan<byte> payload)
+    {
+        string value = PodProjector.ReadSlice(slice, payload);
+        return value.Length == 0 ? null : value;
     }
 
     public static void WritePublicAotBundle(PublicAotShellBundleContract bundle, IBufferWriter<byte> destination)
@@ -717,6 +826,16 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Content;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Summary;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CoverImageUrl;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableArticleRightsWriteRequestPod
+    {
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef LicenseType;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CopyrightHolder;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RightsStatement;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AttributionTemplate;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CopyPolicy;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

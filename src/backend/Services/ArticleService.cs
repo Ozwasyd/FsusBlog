@@ -1,4 +1,5 @@
-﻿using FsusBlog.Server.Entities;
+﻿using FsusBlog.Core.Integrity;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
@@ -44,6 +45,19 @@ public class ArticleService(
     IArticleViewWriteBuffer _viewWriteBuffer) : IArticleService
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId);
+    private readonly record struct ArticleRevisionCoordinates(long Id, int RevisionNo);
+    private sealed record ArticleRightsWriteModel(
+        bool Enabled,
+        string LicenseType,
+        string? CopyrightHolder,
+        int? CopyrightYear,
+        string? RightsStatement,
+        string? AttributionTemplate,
+        string CopyPolicy,
+        int MaxExcerptChars,
+        bool AllowCodeCopy,
+        bool ShowPublicBadge,
+        bool ProofBindingEnabled);
 
     private const int MaxPageSize = 100;
     private const string ArticleListCursorWhereClause = " AND (a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId))";
@@ -506,6 +520,7 @@ public class ArticleService(
         var coverImageUrl = NormalizeText(dto.CoverImageUrl, 512);
         var tagIds = NormalizeTagIds(dto.TagIds);
         var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
+        ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
         DateTime now = DateTime.UtcNow;
         ArticleStatus status = NormalizeWriteStatus(dto.Status, dto.ScheduledPublishAt, now);
         var article = new Article
@@ -530,8 +545,21 @@ public class ArticleService(
             {
                 await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
             }
-            await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "initial publish");
-            await RecordArticleMutationOutboxAsync(id, "created");
+            ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "initial publish");
+            long rightsSnapshotId = await SaveArticleRightsAsync(
+                id,
+                revision,
+                title,
+                content,
+                safeSummary,
+                coverImageUrl,
+                dto.CategoryId,
+                tagIds,
+                status,
+                article.PublishedAt,
+                article.ScheduledPublishAt,
+                rights);
+            await RecordArticleMutationOutboxAsync(id, "created", rightsSnapshotId);
             return id;
         });
 
@@ -591,7 +619,7 @@ public class ArticleService(
             : ArticleStatus.Published;
     }
 
-    private async Task SaveArticleRevisionAsync(
+    private async Task<ArticleRevisionCoordinates> SaveArticleRevisionAsync(
         int articleId,
         string title,
         string content,
@@ -609,7 +637,7 @@ public class ArticleService(
             new SugarParameter[] { new("@articleId", articleId) });
         long actorAdminPrincipalId = ResolveRevisionAdminPrincipalId();
         string orderedTagIds = string.Join(',', tagIds.OrderBy(static id => id));
-        await _db.Ado.ExecuteCommandAsync(
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
             """
             WITH locked_article AS (
                 SELECT id, xmin::text AS row_version
@@ -657,7 +685,8 @@ public class ArticleService(
                 @diffSummary,
                 @createdByAdminPrincipalId,
                 @createdAt
-            FROM next_revision;
+            FROM next_revision
+            RETURNING id, revision_no;
             """,
             new SugarParameter[]
             {
@@ -672,6 +701,12 @@ public class ArticleService(
                 new("@createdByAdminPrincipalId", actorAdminPrincipalId),
                 new("@createdAt", DateTime.UtcNow)
             });
+        if (!await reader.ReadAsync(Ct).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException($"Article revision was not created for article {articleId}.");
+        }
+
+        return new ArticleRevisionCoordinates(reader.GetInt64(0), reader.GetInt32(1));
     }
 
     private long ResolveRevisionAdminPrincipalId()
@@ -679,13 +714,261 @@ public class ArticleService(
             ? adminPrincipalId
             : 0;
 
-    private Task RecordArticleMutationOutboxAsync(int articleId, string eventType)
+    private async Task<long> SaveArticleRightsAsync(
+        int articleId,
+        ArticleRevisionCoordinates revision,
+        string title,
+        string content,
+        string? summary,
+        string? coverImageUrl,
+        int categoryId,
+        IReadOnlyList<int> tagIds,
+        ArticleStatus status,
+        DateTime? publishedAt,
+        DateTime? scheduledPublishAt,
+        ArticleRightsWriteModel rights)
+    {
+        long policyId = await UpsertArticleRightsPolicyAsync(articleId, rights).ConfigureAwait(false);
+        string contentCanonicalHash = "sha256:" + ArticleCanonicalHashV1.ComputeHashHex(new ArticleCanonicalInput(
+            ArticleId: articleId,
+            ArticleRevisionId: revision.Id,
+            RevisionNo: revision.RevisionNo,
+            PublicRouteKey: $"article:{articleId}",
+            Title: title,
+            Summary: summary,
+            CoverImageUrl: coverImageUrl,
+            CategoryId: categoryId,
+            TagIds: tagIds,
+            Status: (int)status,
+            PublishedAt: publishedAt,
+            ScheduledPublishAt: scheduledPublishAt,
+            MarkdownContent: content));
+        string policyHash = ArticleRightsCanonicalHashV1.ComputeHashHex(new ArticleRightsCanonicalInput(
+            ArticleId: articleId,
+            ArticleRevisionId: revision.Id,
+            RevisionNo: revision.RevisionNo,
+            LicenseType: rights.LicenseType,
+            CopyrightHolder: rights.CopyrightHolder,
+            CopyrightYear: rights.CopyrightYear,
+            RightsStatement: rights.RightsStatement,
+            AttributionTemplate: rights.AttributionTemplate,
+            CopyPolicy: rights.CopyPolicy,
+            MaxExcerptChars: rights.MaxExcerptChars,
+            AllowCodeCopy: rights.AllowCodeCopy,
+            ShowPublicBadge: rights.ShowPublicBadge,
+            CanonicalUrl: null,
+            ContentCanonicalHash: contentCanonicalHash));
+
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            INSERT INTO article_rights_snapshot (
+                article_id,
+                article_revision_id,
+                revision_no,
+                article_rights_policy_id,
+                enabled,
+                license_type,
+                copyright_holder,
+                copyright_year,
+                rights_statement,
+                attribution_template,
+                copy_policy,
+                max_excerpt_chars,
+                allow_code_copy,
+                show_public_badge,
+                proof_binding_enabled,
+                canonical_url,
+                policy_hash,
+                content_canonical_hash,
+                created_at
+            )
+            VALUES (
+                @ArticleId,
+                @ArticleRevisionId,
+                @RevisionNo,
+                @PolicyId,
+                @Enabled,
+                @LicenseType,
+                @CopyrightHolder,
+                @CopyrightYear,
+                @RightsStatement,
+                @AttributionTemplate,
+                @CopyPolicy,
+                @MaxExcerptChars,
+                @AllowCodeCopy,
+                @ShowPublicBadge,
+                @ProofBindingEnabled,
+                @CanonicalUrl,
+                @PolicyHash,
+                @ContentCanonicalHash,
+                @CreatedAt
+            )
+            RETURNING id;
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@ArticleRevisionId", revision.Id),
+            new SugarParameter("@RevisionNo", revision.RevisionNo),
+            new SugarParameter("@PolicyId", policyId),
+            new SugarParameter("@Enabled", rights.Enabled),
+            new SugarParameter("@LicenseType", rights.LicenseType),
+            NullableStringParameter("@CopyrightHolder", rights.CopyrightHolder),
+            NullableInt32Parameter("@CopyrightYear", rights.CopyrightYear),
+            NullableStringParameter("@RightsStatement", rights.RightsStatement),
+            NullableStringParameter("@AttributionTemplate", rights.AttributionTemplate),
+            new SugarParameter("@CopyPolicy", rights.CopyPolicy),
+            new SugarParameter("@MaxExcerptChars", rights.MaxExcerptChars),
+            new SugarParameter("@AllowCodeCopy", rights.AllowCodeCopy),
+            new SugarParameter("@ShowPublicBadge", rights.ShowPublicBadge),
+            new SugarParameter("@ProofBindingEnabled", rights.ProofBindingEnabled),
+            NullableStringParameter("@CanonicalUrl", null),
+            new SugarParameter("@PolicyHash", policyHash),
+            new SugarParameter("@ContentCanonicalHash", contentCanonicalHash),
+            new SugarParameter("@CreatedAt", DateTime.UtcNow));
+        if (!await reader.ReadAsync(Ct).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException($"Article rights snapshot was not created for article {articleId} revision {revision.Id}.");
+        }
+
+        return reader.GetInt64(0);
+    }
+
+    private async Task<long> UpsertArticleRightsPolicyAsync(int articleId, ArticleRightsWriteModel rights)
+    {
+        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+            """
+            INSERT INTO article_rights_policy (
+                article_id,
+                enabled,
+                license_type,
+                copyright_holder,
+                copyright_year,
+                rights_statement,
+                attribution_template,
+                copy_policy,
+                max_excerpt_chars,
+                allow_code_copy,
+                show_public_badge,
+                proof_binding_enabled,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                @ArticleId,
+                @Enabled,
+                @LicenseType,
+                @CopyrightHolder,
+                @CopyrightYear,
+                @RightsStatement,
+                @AttributionTemplate,
+                @CopyPolicy,
+                @MaxExcerptChars,
+                @AllowCodeCopy,
+                @ShowPublicBadge,
+                @ProofBindingEnabled,
+                @Now,
+                @Now
+            )
+            ON CONFLICT (article_id)
+            DO UPDATE SET
+                enabled = EXCLUDED.enabled,
+                license_type = EXCLUDED.license_type,
+                copyright_holder = EXCLUDED.copyright_holder,
+                copyright_year = EXCLUDED.copyright_year,
+                rights_statement = EXCLUDED.rights_statement,
+                attribution_template = EXCLUDED.attribution_template,
+                copy_policy = EXCLUDED.copy_policy,
+                max_excerpt_chars = EXCLUDED.max_excerpt_chars,
+                allow_code_copy = EXCLUDED.allow_code_copy,
+                show_public_badge = EXCLUDED.show_public_badge,
+                proof_binding_enabled = EXCLUDED.proof_binding_enabled,
+                updated_at = EXCLUDED.updated_at
+            RETURNING id;
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@Enabled", rights.Enabled),
+            new SugarParameter("@LicenseType", rights.LicenseType),
+            NullableStringParameter("@CopyrightHolder", rights.CopyrightHolder),
+            NullableInt32Parameter("@CopyrightYear", rights.CopyrightYear),
+            NullableStringParameter("@RightsStatement", rights.RightsStatement),
+            NullableStringParameter("@AttributionTemplate", rights.AttributionTemplate),
+            new SugarParameter("@CopyPolicy", rights.CopyPolicy),
+            new SugarParameter("@MaxExcerptChars", rights.MaxExcerptChars),
+            new SugarParameter("@AllowCodeCopy", rights.AllowCodeCopy),
+            new SugarParameter("@ShowPublicBadge", rights.ShowPublicBadge),
+            new SugarParameter("@ProofBindingEnabled", rights.ProofBindingEnabled),
+            new SugarParameter("@Now", DateTime.UtcNow));
+        if (!await reader.ReadAsync(Ct).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException($"Article rights policy was not upserted for article {articleId}.");
+        }
+
+        return reader.GetInt64(0);
+    }
+
+    private static ArticleRightsWriteModel NormalizeArticleRights(ArticleRightsRequest? request)
+    {
+        if (request is null)
+        {
+            return new ArticleRightsWriteModel(
+                Enabled: true,
+                LicenseType: "all-rights-reserved",
+                CopyrightHolder: null,
+                CopyrightYear: null,
+                RightsStatement: null,
+                AttributionTemplate: null,
+                CopyPolicy: "append-attribution",
+                MaxExcerptChars: 300,
+                AllowCodeCopy: true,
+                ShowPublicBadge: true,
+                ProofBindingEnabled: true);
+        }
+
+        if (request.MaxExcerptChars < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(request.MaxExcerptChars), request.MaxExcerptChars, "MaxExcerptChars cannot be negative.");
+        }
+
+        return new ArticleRightsWriteModel(
+            Enabled: request.Enabled,
+            LicenseType: NormalizeRightsToken(request.LicenseType, "all-rights-reserved", 48),
+            CopyrightHolder: NormalizeOptionalRightsText(request.CopyrightHolder, 256),
+            CopyrightYear: request.CopyrightYear,
+            RightsStatement: NormalizeOptionalRightsText(request.RightsStatement, 4000),
+            AttributionTemplate: NormalizeOptionalRightsText(request.AttributionTemplate, 4000),
+            CopyPolicy: NormalizeRightsToken(request.CopyPolicy, "append-attribution", 48),
+            MaxExcerptChars: request.MaxExcerptChars,
+            AllowCodeCopy: request.AllowCodeCopy,
+            ShowPublicBadge: request.ShowPublicBadge,
+            ProofBindingEnabled: request.ProofBindingEnabled);
+    }
+
+    private static string? NormalizeOptionalRightsText(string? value, int maxLength)
+    {
+        string normalized = NormalizeText(value, maxLength);
+        return normalized.Length == 0 ? null : normalized;
+    }
+
+    private static SugarParameter NullableStringParameter(string name, string? value)
+        => new(name, (object?)value ?? DBNull.Value, System.Data.DbType.String);
+
+    private static SugarParameter NullableInt32Parameter(string name, int? value)
+        => new(name, (object?)value ?? DBNull.Value, System.Data.DbType.Int32);
+
+    private static string NormalizeRightsToken(string? value, string fallback, int maxLength)
+    {
+        string? normalized = NormalizeText(value, maxLength);
+        return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
+    }
+
+    private Task RecordArticleMutationOutboxAsync(int articleId, string eventType, long? rightsSnapshotId = null)
         => _db.Insertable(new ArticleMutationOutboxEvent
         {
             EventId = Guid.NewGuid().ToString("N"),
             AggregateId = articleId,
             EventType = eventType,
-            PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"{eventType}\"}}",
+            PayloadJson = rightsSnapshotId.HasValue
+                ? $"{{\"articleId\":{articleId},\"eventType\":\"{eventType}\",\"rightsSnapshotId\":{rightsSnapshotId.Value}}}"
+                : $"{{\"articleId\":{articleId},\"eventType\":\"{eventType}\"}}",
             Status = "pending",
             RetryCount = 0,
             NextRetryAt = DateTime.UtcNow,
@@ -708,6 +991,7 @@ public class ArticleService(
         var coverImageUrl = NormalizeText(dto.CoverImageUrl, 512);
         var tagIds = NormalizeTagIds(dto.TagIds);
         var safeSummary = string.IsNullOrWhiteSpace(summary) ? GenerateSafeSummary(content) : summary;
+        ArticleRightsWriteModel rights = NormalizeArticleRights(dto.Rights);
         DateTime now = DateTime.UtcNow;
         if (dto.Status == ArticleStatus.Deleted)
         {
@@ -743,8 +1027,21 @@ public class ArticleService(
             articleUpdated = true;
             await _db.Storageable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = DateTime.UtcNow }).ExecuteCommandAsync();
             await ApplyArticleTagsAsync(id, tagIds);
-            await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "article updated");
-            await RecordArticleMutationOutboxAsync(id, "updated");
+            ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "article updated");
+            long rightsSnapshotId = await SaveArticleRightsAsync(
+                id,
+                revision,
+                title,
+                content,
+                safeSummary,
+                coverImageUrl,
+                dto.CategoryId,
+                tagIds,
+                status,
+                publishedAt,
+                scheduledPublishAt,
+                rights);
+            await RecordArticleMutationOutboxAsync(id, "updated", rightsSnapshotId);
         });
 
         ct.ThrowIfCancellationRequested();

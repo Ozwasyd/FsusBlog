@@ -262,7 +262,8 @@ public sealed class ArticleEndpointService(
             CategoryId = request.CategoryId,
             TagIds = CopyTagIds(request.TagIds),
             Status = ToArticleStatus(request.Status),
-            ScheduledPublishAt = request.ScheduledPublishAt
+            ScheduledPublishAt = request.ScheduledPublishAt,
+            Rights = ToRightsRequest(request.Rights)
         };
 
     private static UpdateArticleRequest ToUpdateRequest(ArticleWriteRequestCoreModel request)
@@ -275,8 +276,33 @@ public sealed class ArticleEndpointService(
             CategoryId = request.CategoryId,
             TagIds = CopyTagIds(request.TagIds),
             Status = ToArticleStatus(request.Status),
-            ScheduledPublishAt = request.ScheduledPublishAt
+            ScheduledPublishAt = request.ScheduledPublishAt,
+            Rights = ToRightsRequest(request.Rights)
         };
+
+    private static ArticleRightsRequest? ToRightsRequest(ArticleRightsRequestCoreModel? request)
+    {
+        if (!request.HasValue)
+        {
+            return null;
+        }
+
+        ArticleRightsRequest value = new()
+        {
+            Enabled = request.Value.Enabled,
+            LicenseType = request.Value.LicenseType,
+            CopyrightHolder = request.Value.CopyrightHolder,
+            CopyrightYear = request.Value.CopyrightYear,
+            RightsStatement = request.Value.RightsStatement,
+            AttributionTemplate = request.Value.AttributionTemplate,
+            CopyPolicy = request.Value.CopyPolicy,
+            MaxExcerptChars = request.Value.MaxExcerptChars,
+            AllowCodeCopy = request.Value.AllowCodeCopy,
+            ShowPublicBadge = request.Value.ShowPublicBadge,
+            ProofBindingEnabled = request.Value.ProofBindingEnabled
+        };
+        return value;
+    }
 
     private static ArticleStatus ToArticleStatus(int status)
         => ArticleStatusProjection.Normalize(status);
