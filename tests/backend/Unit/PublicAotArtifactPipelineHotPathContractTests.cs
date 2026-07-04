@@ -1,9 +1,13 @@
 using FsusBlog.Core.Algorithms;
+using System.Buffers.Binary;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
 using System.Runtime.CompilerServices;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -149,7 +153,7 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
             var store = new ArticleDetailAedsFileArtifactStore(
                 env,
                 NullLogger<ArticleDetailAedsFileArtifactStore>.Instance);
-            byte[] frame = new AedsEncoder().Encode(AedsFrameType.ArticleDetail, [0x01, 0x02, 0x03]);
+            byte[] frame = CreateArticleDetailV3Frame();
             await store.WriteAsync(42, frame);
             File.Delete(Path.Combine(root, "runtime-cache", "public", "articles", "42.aeds"));
 
@@ -157,6 +161,121 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
 
             Assert.True(artifact.Found);
             Assert.Equal(frame, artifact.Frame.ToArray());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ArticleDetailAedsArtifactStore_ReadsV3FrameAndRejectsLegacyArticleDetailFrame()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "fsus-aeds-artifact-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var env = new TestWebHostEnvironment(root);
+            var store = new ArticleDetailAedsFileArtifactStore(
+                env,
+                NullLogger<ArticleDetailAedsFileArtifactStore>.Instance);
+            byte[] v3Frame = CreateArticleDetailV3Frame();
+            byte[] legacyFrame = new AedsEncoder().Encode(AedsFrameType.ArticleDetail, [0x01, 0x02, 0x03]);
+
+            await store.WriteAsync(42, v3Frame);
+            ArticleDetailAedsArtifact artifact = await store.TryReadAsync(42);
+
+            Assert.True(artifact.Found);
+            Assert.Equal(v3Frame, artifact.Frame.ToArray());
+            await Assert.ThrowsAsync<InvalidDataException>(() => store.WriteAsync(43, legacyFrame));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ArticleDetailAedsArtifactStore_ReturnsMissForLegacyDiskFrame()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "fsus-aeds-artifact-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var env = new TestWebHostEnvironment(root);
+            var store = new ArticleDetailAedsFileArtifactStore(
+                env,
+                NullLogger<ArticleDetailAedsFileArtifactStore>.Instance);
+            string artifactDir = Path.Combine(root, "runtime-cache", "public", "articles");
+            Directory.CreateDirectory(artifactDir);
+            await File.WriteAllBytesAsync(
+                Path.Combine(artifactDir, "42.aeds"),
+                new AedsEncoder().Encode(AedsFrameType.ArticleDetail, [0x01, 0x02, 0x03]));
+
+            ArticleDetailAedsArtifact artifact = await store.TryReadAsync(42);
+
+            Assert.False(artifact.Found);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ArticleDetailAedsArtifactStore_RejectsNonV3PayloadMagic()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "fsus-aeds-artifact-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var env = new TestWebHostEnvironment(root);
+            var store = new ArticleDetailAedsFileArtifactStore(
+                env,
+                NullLogger<ArticleDetailAedsFileArtifactStore>.Instance);
+            byte[] frame = CreateArticleDetailV3Frame();
+            BinaryPrimitives.WriteUInt32LittleEndian(
+                frame.AsSpan(AedsFrameHeader.Size, sizeof(uint)),
+                0x21444142u);
+
+            await Assert.ThrowsAsync<InvalidDataException>(() => store.WriteAsync(42, frame));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ArticleDetailAedsArtifactMaintenanceService_ClearLegacyPublicArtifactsRemovesOnlyNonV3Frames()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "fsus-aeds-artifact-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var env = new TestWebHostEnvironment(root);
+            string artifactDir = Path.Combine(root, "runtime-cache", "public", "articles");
+            Directory.CreateDirectory(artifactDir);
+            string v3Path = Path.Combine(artifactDir, "1.aeds");
+            string legacyPath = Path.Combine(artifactDir, "2.aeds");
+            await File.WriteAllBytesAsync(v3Path, CreateArticleDetailV3Frame());
+            await File.WriteAllBytesAsync(
+                legacyPath,
+                new AedsEncoder().Encode(AedsFrameType.ArticleDetail, [0x01, 0x02, 0x03]));
+            var service = new ArticleDetailAedsArtifactMaintenanceService(
+                Substitute.For<ISqlSugarClient>(),
+                env,
+                Substitute.For<IServiceScopeFactory>(),
+                Substitute.For<IArticleDetailAedsArtifactProjector>(),
+                NullLogger<ArticleDetailAedsArtifactMaintenanceService>.Instance);
+
+            ArticleDetailAedsArtifactMaintenanceResult result = await service.ClearLegacyPublicArtifactsAsync();
+
+            Assert.Equal(2, result.Scanned);
+            Assert.Equal(1, result.Removed);
+            Assert.Equal(1, result.Skipped);
+            Assert.True(File.Exists(v3Path));
+            Assert.False(File.Exists(legacyPath));
         }
         finally
         {
@@ -230,6 +349,14 @@ public sealed class PublicAotArtifactPipelineHotPathContractTests
 
     private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
+
+    private static byte[] CreateArticleDetailV3Frame()
+    {
+        byte[] payload = new byte[sizeof(uint) + sizeof(int)];
+        BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(0, sizeof(uint)), 0x41524433u);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(sizeof(uint), sizeof(int)), 3);
+        return new AedsEncoder().Encode(AedsFrameType.ArticleDetail, payload);
+    }
 
     private static string ExtractMethodBlock(string source, string signature)
     {

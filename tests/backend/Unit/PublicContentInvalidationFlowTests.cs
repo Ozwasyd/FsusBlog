@@ -223,6 +223,83 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     [Fact]
+    public void AdminCacheAction_ExposesArticleDetailAedsV3CutoverActions()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/Operations/AdminOperationsService.cs");
+        string method = Slice(source, "public async Task<AdminCacheActionResponse> RunCacheActionAsync", "public async Task<IntegrityReportResponse>");
+        string registrations = ReadRepoFile("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
+
+        Assert.Contains("IArticleDetailAedsArtifactMaintenanceService articleDetailAedsMaintenance", source, StringComparison.Ordinal);
+        Assert.Contains("recompute-article-rights", method, StringComparison.Ordinal);
+        Assert.Contains("clear-legacy-public-artifacts", method, StringComparison.Ordinal);
+        Assert.Contains("rebuild-article-detail-aeds-v3", method, StringComparison.Ordinal);
+        Assert.Contains("RecomputeArticleRightsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("ClearLegacyPublicArtifactsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("RebuildArticleDetailAedsV3Async", method, StringComparison.Ordinal);
+        Assert.Contains("AddScoped<IArticleDetailAedsArtifactMaintenanceService, ArticleDetailAedsArtifactMaintenanceService>", registrations, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleMutationOutbox_RightsSnapshotChangesReplayArticleDetailAedsRequiredEdge()
+    {
+        string service = ReadRepoFile("src/backend/Services/ArticleService.cs");
+        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
+        string createMethod = Slice(service, "public async Task<int> CreateAsync", "    public async Task<bool> UpdateAsync");
+        string updateMethod = Slice(service, "public async Task<bool> UpdateAsync", "    public async Task<bool> DeleteAsync");
+        string requiredEdges = Slice(sideEffects, "public static class ArticleMutationReplayEdges", "public sealed record ArticleMutationReplayResult");
+
+        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"created\", rightsSnapshotId)", createMethod, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"updated\", rightsSnapshotId)", updateMethod, StringComparison.Ordinal);
+        Assert.Contains("rightsSnapshotId", service, StringComparison.Ordinal);
+        Assert.Contains("ArticleDetailAeds", requiredEdges, StringComparison.Ordinal);
+        Assert.Contains("ArticleDetailAeds,", requiredEdges, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleDetailAedsArtifactMaintenanceService_RebuildAllUsesPagingAndBoundedConcurrency()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs");
+        string rebuild = Slice(
+            source,
+            "public async Task<ArticleDetailAedsArtifactMaintenanceResult> RebuildArticleDetailAedsV3Async",
+            "    private async Task<IReadOnlyList<int>> LoadPublicArticleIdsPageAsync");
+        string batch = Slice(
+            source,
+            "private async Task<(int Rebuilt, int Failed)> RebuildArticleBatchAsync",
+            "    private async Task<IReadOnlyList<RightsRecomputeCandidate>> LoadRightsRecomputeCandidatesAsync");
+
+        Assert.Contains("LoadPublicArticleIdsPageAsync(lastArticleId, BatchSize", rebuild, StringComparison.Ordinal);
+        Assert.Contains("lastArticleId = articleIds[^1]", rebuild, StringComparison.Ordinal);
+        Assert.Contains("RebuildArticleBatchAsync(articleIds", rebuild, StringComparison.Ordinal);
+        Assert.Contains("Environment.ProcessorCount", batch, StringComparison.Ordinal);
+        Assert.Contains("MaxDegreeOfParallelism = degreeOfParallelism", batch, StringComparison.Ordinal);
+        Assert.Contains("scopeFactory.CreateAsyncScope", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToListAsync(ct).Result", batch, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleDetailAedsArtifactMaintenanceService_RecomputeRightsRepairsSentinelSnapshots()
+    {
+        string source = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs");
+        string recompute = Slice(
+            source,
+            "public async Task<ArticleDetailAedsArtifactMaintenanceResult> RecomputeArticleRightsAsync",
+            "    public async Task<ArticleDetailAedsArtifactMaintenanceResult> ClearLegacyPublicArtifactsAsync");
+        string repair = Slice(
+            source,
+            "private async Task RecomputeRightsSnapshotAsync",
+            "    private async Task<long> InsertDefaultRightsPolicyAsync");
+
+        Assert.Contains("rights-v3:policy-hash:recompute", source, StringComparison.Ordinal);
+        Assert.Contains("rights-v3:content-hash:recompute", source, StringComparison.Ordinal);
+        Assert.Contains("LoadRightsRecomputeCandidatesAsync(lastArticleId, BatchSize", recompute, StringComparison.Ordinal);
+        Assert.Contains("ArticleCanonicalHashV1.ComputeHashHex", repair, StringComparison.Ordinal);
+        Assert.Contains("ArticleRightsCanonicalHashV1.ComputeHashHex", repair, StringComparison.Ordinal);
+        Assert.Contains("INSERT INTO article_rights_snapshot", repair, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (article_id, article_revision_id)", repair, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RedisBackedPublicAotInvalidateAll_SkipsPerMemberRegistryUnregister()
     {
         string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotShellCache.cs");

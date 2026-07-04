@@ -37,6 +37,7 @@ public sealed class AdminOperationsService(
     ISearchIndexService searchIndexService,
     PublicHotArtifactUpdateQueue publicHotArtifactUpdateQueue,
     IPublicAotInvalidationService publicAotInvalidationService,
+    IArticleDetailAedsArtifactMaintenanceService articleDetailAedsMaintenance,
     ICacheInvalidationDispatcher cacheInvalidationDispatcher,
     IUnifiedCache cache,
     ILogger<AdminOperationsService> logger)
@@ -243,11 +244,30 @@ public sealed class AdminOperationsService(
                     cacheInvalidationDispatcher.InvalidateArticleMutationAsync(request.ArticleId, cancellationToken),
                     cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken));
                 return ActionResult(action, "ok", "output/cache tags invalidated");
+            case "recompute-article-rights":
+            {
+                ArticleDetailAedsArtifactMaintenanceResult result =
+                    await articleDetailAedsMaintenance.RecomputeArticleRightsAsync(cancellationToken);
+                return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
+            }
+            case "clear-legacy-public-artifacts":
+            {
+                ArticleDetailAedsArtifactMaintenanceResult result =
+                    await articleDetailAedsMaintenance.ClearLegacyPublicArtifactsAsync(cancellationToken);
+                return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
+            }
+            case "rebuild-article-detail-aeds-v3":
+            {
+                bool all = request.ArticleId is not > 0;
+                ArticleDetailAedsArtifactMaintenanceResult result =
+                    await articleDetailAedsMaintenance.RebuildArticleDetailAedsV3Async(all, request.ArticleId, cancellationToken);
+                return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
+            }
             case "sitemap-feed-refresh":
                 await cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken);
                 return ActionResult(action, "ok", "feed/sitemap cache invalidated");
             default:
-                return ActionResult(action, "unsupported", "supported actions: search-rebuild, aot-rebuild, public-hot-rebuild, output-cache-clear, sitemap-feed-refresh");
+                return ActionResult(action, "unsupported", "supported actions: search-rebuild, aot-rebuild, public-hot-rebuild, output-cache-clear, recompute-article-rights, clear-legacy-public-artifacts, rebuild-article-detail-aeds-v3, sitemap-feed-refresh");
         }
     }
 

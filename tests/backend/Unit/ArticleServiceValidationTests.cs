@@ -289,6 +289,29 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void ArticleDetailAedsArtifactProjector_SourceDoesNotWriteArtifactWithoutCompleteRights()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs"));
+        int methodStart = source.IndexOf("public async Task GenerateAndStoreAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("public Task RemoveAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("HasCompleteArticleRights(article.Rights)", method, StringComparison.Ordinal);
+        Assert.Contains("article_detail_aeds_rights_missing", method, StringComparison.Ordinal);
+        Assert.Contains("await store.RemoveAsync(articleId", method, StringComparison.Ordinal);
+        Assert.Contains("throw new InvalidOperationException", method, StringComparison.Ordinal);
+
+        int rightsGuard = method.IndexOf("HasCompleteArticleRights(article.Rights)", StringComparison.Ordinal);
+        int remove = method.IndexOf("await store.RemoveAsync(articleId", rightsGuard, StringComparison.Ordinal);
+        int throwMissing = method.IndexOf("throw new InvalidOperationException", rightsGuard, StringComparison.Ordinal);
+        int encode = method.IndexOf("PodBinaryCodec.EncodeArticleDetail", StringComparison.Ordinal);
+        Assert.True(rightsGuard >= 0);
+        Assert.True(remove > rightsGuard);
+        Assert.True(throwMissing > remove);
+        Assert.True(encode > throwMissing);
+    }
+
+    [Fact]
     public void PublicHotArtifactProjector_SourceLoadsRightsSnapshotForArticleDetailFrames()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
@@ -299,6 +322,19 @@ public class ArticleServiceValidationTests
         Assert.Contains("LoadArticleRightsMapAsync", method, StringComparison.Ordinal);
         Assert.Contains("Rights =", method, StringComparison.Ordinal);
         Assert.DoesNotContain("new ArticleRightsReadModel()", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublicHotArtifactProjector_SourceSkipsArticleDetailFramesWithoutCompleteRights()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
+        int methodStart = source.IndexOf("private async Task<IReadOnlyList<ArticleDetailReadModel>> LoadArticleDetailsFromDbAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<IReadOnlyList<PopularArticleCoreModel>> LoadHotArticlesFromDbAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("HasCompleteArticleRights", method, StringComparison.Ordinal);
+        Assert.Contains("public_hot_article_detail_rights_missing", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("? rights : article.Rights", method, StringComparison.Ordinal);
     }
 
     [Fact]

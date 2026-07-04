@@ -64,6 +64,20 @@ FSUSBLOG_FINAL_IMAGE_TAG=previous-tag docker compose --env-file .env.production 
 
 If a release specifically needs public AOT disk cache invalidation, set `Lifecycle:ClearAotDiskCacheOnStartup=true` for that rollout only. The default is `false`; rollback is to remove the setting and restart on the previous or current image without the one-shot cleanup. If a later startup task fails after the clear, the host now performs a best-effort restore of the previous `wwwroot/aot-cache` contents before surfacing the bootstrap failure. The same startup rollback pipeline now also restores the previous `wwwroot/search` artifacts, or removes newly created search output, if a later task fails after a search index rebuild. Startup cache prewarm records the prior blacklist cache state for each touched user and restores that cache state if a later bootstrap task fails. Schema migrations are reported as `non_compensable`; database rollback remains an operator-owned backup/restore action instead of an automatic in-process rollback.
 
+## Rights V3 Public Artifact Cutover
+
+ArticleDetail AEDS V3 embeds the rights snapshot and proof summary in the detail payload. Old ArticleDetail `.aeds` files are not compatibility inputs: the file store rejects any ArticleDetail artifact whose inner payload does not start with the V3 `ARD3` magic and version `3`.
+
+Use the admin cache action endpoint for the cutover sequence:
+
+1. Deploy the image and let database migrations complete.
+2. Run `recompute-article-rights` to replace migration sentinel hashes and create any missing latest-revision rights snapshot.
+3. Run `clear-legacy-public-artifacts` to remove old ArticleDetail `.aeds` files that do not satisfy the V3 payload header.
+4. Run `rebuild-article-detail-aeds-v3` with no `articleId` to rebuild all public ArticleDetail artifacts in batches with bounded parallelism. Supplying `articleId` rebuilds one article.
+5. Run the existing PublicAOT rebuild path after the ArticleDetail artifacts are V3-clean so HTML/hydration inputs converge on the same rights payload.
+
+Rollback is image and database-backup based. Do not roll back by re-enabling old ArticleDetail artifact reads or by adding a separate `/article/{id}/rights.aeds` endpoint; a partial rollback would let anonymous reads serve a payload shape that the strict V3 frontend must reject.
+
 ## Daily Checks
 
 - `docker ps` health status is healthy.

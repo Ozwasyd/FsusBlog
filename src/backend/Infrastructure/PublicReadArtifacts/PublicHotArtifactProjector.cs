@@ -188,10 +188,20 @@ public sealed class PublicHotArtifactProjector(
         if (normalizedArticleIds.Length > 0)
         {
             IReadOnlyList<ArticleDetailReadModel> changedArticles = await LoadArticleDetailsFromDbAsync(normalizedArticleIds, ct).ConfigureAwait(false);
+            var changedArticleIds = new HashSet<int>();
             foreach (ArticleDetailReadModel changed in changedArticles)
             {
+                changedArticleIds.Add(changed.Id);
                 ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(changed);
                 articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, value);
+            }
+
+            foreach (int articleId in normalizedArticleIds)
+            {
+                if (!changedArticleIds.Contains(articleId))
+                {
+                    articleFrames.Remove(articleId);
+                }
             }
         }
 
@@ -756,6 +766,13 @@ public sealed class PublicHotArtifactProjector(
                 content = article.Summary;
             }
 
+            if (!rightsMap.TryGetValue(id, out ArticleRightsReadModel? rights) || !HasCompleteArticleRights(rights))
+            {
+                logger.LogWarning("public_hot_article_detail_rights_missing {ArticleId}", id);
+                FsusObservability.RecordOperation("public_hot_read", "article_detail", "rights_missing", TimeSpan.Zero);
+                continue;
+            }
+
             int wordCount = CalculateReadableLength(content);
             result.Add(article with
             {
@@ -764,7 +781,7 @@ public sealed class PublicHotArtifactProjector(
                 EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
                 ShowReadingNotice = wordCount > LongReadThreshold,
                 Tags = tagMap.TryGetValue(id, out var tags) ? tags : [],
-                Rights = rightsMap.TryGetValue(id, out ArticleRightsReadModel? rights) ? rights : article.Rights
+                Rights = rights
             });
         }
 
@@ -988,6 +1005,16 @@ public sealed class PublicHotArtifactProjector(
             ProofStatus = ReadNullableString(reader, "RightsProofStatus")
         };
     }
+
+    private static bool HasCompleteArticleRights(ArticleRightsReadModel? rights)
+        => rights is not null
+            && rights.SnapshotId > 0
+            && rights.ArticleRevisionId > 0
+            && rights.RevisionNo > 0
+            && !string.IsNullOrWhiteSpace(rights.LicenseType)
+            && !string.IsNullOrWhiteSpace(rights.CopyPolicy)
+            && !string.IsNullOrWhiteSpace(rights.PolicyHash)
+            && !string.IsNullOrWhiteSpace(rights.ContentCanonicalHash);
 
     private static string ReadStringOrDefault(DbDataReader reader, string fieldName, string defaultValue)
     {

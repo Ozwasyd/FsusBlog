@@ -197,6 +197,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
             services.AddHostedService<ArticleDetailAedsArtifactBackfillWorker>();
         }
         services.AddScoped<IArticleDetailAedsArtifactProjector, ArticleDetailAedsArtifactProjector>();
+        services.AddScoped<IArticleDetailAedsArtifactMaintenanceService, ArticleDetailAedsArtifactMaintenanceService>();
         return services;
     }
 
