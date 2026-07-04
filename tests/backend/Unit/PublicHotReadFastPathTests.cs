@@ -1197,6 +1197,45 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
+    public void PreencodedArticleDetailHotPath_AvoidsPerRequestAllocationsAfterWarmup()
+    {
+        PublicBinaryArtifact artifact = CreateCompressibleArtifact();
+        StringValues acceptEncoding = new("gzip, br");
+        StringValues accept = new("application/octet-stream,*/*");
+        StringValues ifNoneMatch = new("\"detail\"");
+        const string route = "/api/binary/article/42.aeds";
+
+        _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
+        _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
+        _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
+        _ = PublicHotReadFastPath.TryClassifyRouteForTests(route, out _);
+        for (int i = 0; i < 1000; i++)
+        {
+            _ = PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out _);
+            _ = PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false);
+            _ = PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"");
+            _ = PublicHotReadFastPath.TryClassifyRouteForTests(route, out _);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        bool ok = true;
+        for (int i = 0; i < 1000; i++)
+        {
+            ok &= PublicHotReadFastPath.TrySelectBinaryVariantForTests(acceptEncoding, artifact, out PublicBinaryArtifactVariant variant)
+                && variant.ContentEncoding == "br"
+                && PublicHotReadFastPath.AcceptsArtifactForTests(accept, html: false)
+                && PublicHotReadFastPath.MatchesIfNoneMatchForTests(ifNoneMatch, "\"detail\"")
+                && PublicHotReadFastPath.TryClassifyRouteForTests(route, out PublicHotReadRoute parsed)
+                && parsed.Kind == PublicHotReadRouteKind.ArticleDetail
+                && parsed.ArticleId == 42;
+        }
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(ok);
+        Assert.True(allocated <= 512, $"expected steady-state preencoded ArticleDetail artifact hot path to stay allocation-free; measured {allocated} bytes over 1000 iterations");
+    }
+
+    [Fact]
     public void ProjectorSource_UsesDeterministicPublicListOrdering()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));

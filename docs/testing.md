@@ -66,6 +66,18 @@ node tools/run-test-matrix.mjs aggregate fast-summary --dry-run
 
 每个子 tier 都由 `run-test-matrix` 写入独立 `.tmp/release-evidence/jobs/<job>.json` job summary。CI artifacts 分别为 `frontend-build`、`fast-frontend-unit-1-of-2`、`fast-frontend-unit-2-of-2`、`frontend-runtime-contracts`、`frontend-static-governance`；`fast-summary` 下载这些 artifacts 和 `fast-static-governance`/`fast-backend-*` 后运行 artifact-only aggregate。matrix validator 会拒绝缺少任一 frontend fast 子 tier、`frontend-unit-shard` 失去 shard、或 `fast` 继续依赖旧 monolithic `frontend-fast`。
 
+### Rights V3 test matrix
+
+Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` 承载，属于 `integration-runtime` 证据，不并入 fast gate。它会运行后端 schema migration、canonical hash、write path、V3 codec、projector、proof pipeline、ArticleDetail artifact contract 和 preencoded ArticleDetail artifact hot path 测试，再运行前端 V3 decode、API/view contracts、admin editor flow、public article rendering、PublicAOT hydration 与 code-copy gating 的 Vitest 文件。
+
+本地复现：
+
+```bash
+./tools/test.sh ci-tier rights-v3-test-matrix --no-deps
+```
+
+该 lane 成功后写入 `.tmp/release-evidence/rights-v3-test-matrix.json`。其中必须覆盖：ArticleDetail does not use a separate public rights endpoint、artifact-hit public read does not query rights tables、legacy ArticleDetail payload is rejected、legacy public article artifact is not accepted as V3，以及 preencoded ArticleDetail artifact hot path 性能门禁。schema migration 片段会启动 Docker PostgreSQL fixture；若本机缺少 Docker，应先补环境依赖再重跑，不应跳过该集成切片。
+
 ### Browser lane scaling policy
 
 浏览器 lane 优先通过 shard 扩展，再考虑提高 Playwright workers。shard 提供独立进程、独立 namespace、独立 artifact 和 per-shard `stageDurationsMs.test`；worker 只在 lane 已有稳定 shard 证据后提高。

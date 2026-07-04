@@ -266,6 +266,41 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: rights-v3-test-matrix
+    owner: ServerContractAgent
+    command: tools/test/lanes/rights-v3-test-matrix.sh
+    dependsOn: [validate-matrix]
+    services: [postgres]
+    parallelizable: true
+    exclusiveResources: []
+    phase: 2
+    cost: high
+    resourceClass: database
+    maxParallel: 1
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: full
+    timeoutMinutes: 25
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: pr
+    requiredFor: production
+    coverage: [rights-v3-test-matrix]
+    artifacts: [.tmp/release-evidence/rights-v3-test-matrix.json]
+    evidence: [.tmp/release-evidence/rights-v3-test-matrix.json]
+    ciJob: integration-runtime
+    localOnly: false
+    nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: must-keep
+    triggerPaths: [src/backend, src/shared, src/core, src/frontend, tests/backend, tests/frontend, tools/test/lanes]
+    triggerFiles: [tests/matrix.yml, tests/coverage-registry.json, docs/testing.md]
+    triggerCoverage: [rights-v3-test-matrix]
+    triggerReason: Rights V3 schema, codec, frontend contract, artifact hot path, or test matrix inputs changed
+
   - id: static-governance
     owner: ServerContractAgent
     command: tools/test/lanes/static-governance.sh

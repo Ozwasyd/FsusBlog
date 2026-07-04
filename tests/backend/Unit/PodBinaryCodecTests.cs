@@ -11,6 +11,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.AuthSystem;
@@ -1913,6 +1914,19 @@ public class PodBinaryCodecTests
         bool ok = PodBinaryCodec.TryDecodeArticleDetail(legacy, out _);
 
         Assert.False(ok);
+    }
+
+    [Fact]
+    public void LegacyPublicArticleArtifact_IsNotAcceptedAsArticleDetailV3()
+    {
+        byte[] legacyPayload = EncodeLegacyArticleDetailPayloadWithoutV3Envelope();
+        byte[] legacyFrame = new AedsEncoder().Encode(AedsFrameType.ArticleDetail, legacyPayload);
+
+        bool artifactLooksLikeV3 = ArticleDetailAedsFileArtifactStore.LooksLikeAedsArticleDetailFrame(legacyFrame);
+        bool payloadDecodesAsV3 = PodBinaryCodec.TryDecodeArticleDetail(legacyPayload, out _);
+
+        Assert.False(artifactLooksLikeV3);
+        Assert.False(payloadDecodesAsV3);
     }
 
     [Fact]
