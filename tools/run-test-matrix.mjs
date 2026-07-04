@@ -24,6 +24,7 @@ const smartGateModeValues = ['always', 'conditional', 'full-only']
 const retentionClassValues = ['must-keep', 'conditional', 'redundant-candidate', 'obsolete']
 const aliases = new Map([
   ['coverage', 'coverage-gate'],
+  ['integrity-proof', 'integrity-proof-verification'],
   ['frontend-fast', 'frontend-fast-summary'],
   ['backend-qps-runtime', 'backend-qps'],
   ['endpoint-depth-matrix-generate', 'endpoint-depth'],

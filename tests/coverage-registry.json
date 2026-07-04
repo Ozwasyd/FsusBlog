@@ -2,6 +2,66 @@
   "schema": "fsusblog.coverage-registry.v1",
   "entries": [
     {
+      "id": "integrity-proof-verification",
+      "description": "Integrity proof verifier accepts deterministic canonical hash, artifact digest, signature, transparency log, checkpoint, inclusion proof and public key registry fixtures.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/IntegrityProofVerificationTests.cs"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "The fast integrity-proof-verification lane must fail when any verifier layer rejects the golden proof fixture.",
+      "minimumRequirement": "The C# verifier must accept the golden fixture across canonical hash, artifact digest, signature, log, checkpoint, inclusion and key registry checks.",
+      "tierIds": [
+        "integrity-proof-verification"
+      ]
+    },
+    {
+      "id": "integrity-proof-tamper-matrix",
+      "description": "Integrity proof tamper matrix rejects payload, signature, key id, algorithm, log deletion, log reorder and checkpoint mutations.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/IntegrityProofVerificationTests.cs"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "The fast integrity-proof-verification lane must fail when any required tamper case is accepted.",
+      "minimumRequirement": "Every required tamper case must reject with a layer-specific error code for hash, signature, log or checkpoint diagnosis.",
+      "tierIds": [
+        "integrity-proof-verification"
+      ]
+    },
+    {
+      "id": "integrity-proof-schema-migration",
+      "description": "Integrity proof storage migrations keep proof, transparency log and Merkle checkpoint tables, indexes and constraints in the test gate.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/IntegrityProofVerificationTests.cs"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "The fast integrity-proof-verification lane must fail if required integrity table/index migration fingerprints disappear.",
+      "minimumRequirement": "Schema migration assertions must cover article_publish_proof, integrity_transparency_log and integrity_merkle_checkpoint storage contracts.",
+      "tierIds": [
+        "integrity-proof-verification"
+      ]
+    },
+    {
+      "id": "integrity-proof-release-evidence",
+      "description": "Integrity proof verifier writes machine-readable release evidence for fixture, tamper matrix and external-network policy results.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        ".tmp/release-evidence/integrity-proof-verification.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "The integrity proof lane exits non-zero unless verifier tests pass and the release evidence file records status ok.",
+      "minimumRequirement": "Release evidence must include status, command, fixture list, tamperMatrix, current model names and externalNetwork=false.",
+      "tierIds": [
+        "integrity-proof-verification"
+      ]
+    },
+    {
       "id": "admin-principal-endpoint-protocol-status-cache-error-frame",
       "description": "Admin principal endpoint protocol status cache error frame coverage is produced by the endpoint-depth runtime matrix.",
       "owner": "ServerContractAgent",

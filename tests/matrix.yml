@@ -237,6 +237,35 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: integrity-proof-verification
+    owner: ServerContractAgent
+    command: tools/test/lanes/integrity-proof-verification.sh
+    dependsOn: [validate-matrix]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: medium
+    resourceClass: cpu
+    maxParallel: 4
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: backend
+    timeoutMinutes: 15
+    shardable: false
+    defaultShards: 1
+    risk: critical
+    cadence: pr
+    requiredFor: fast
+    coverage: [integrity-proof-verification, integrity-proof-tamper-matrix, integrity-proof-schema-migration, integrity-proof-release-evidence]
+    artifacts: [tests/backend/Unit/IntegrityProofVerificationTests.cs, tools/integrity/verify-proof-fixtures.mjs, .tmp/release-evidence/integrity-proof-verification.json]
+    evidence: [tests/backend/Unit/IntegrityProofVerificationTests.cs, tools/integrity/verify-proof-fixtures.mjs, .tmp/release-evidence/integrity-proof-verification.json]
+    ciJob: fast-backend
+    localOnly: false
+    nightlyOnly: false
+
   - id: static-governance
     owner: ServerContractAgent
     command: tools/test/lanes/static-governance.sh
@@ -298,7 +327,7 @@ tiers:
   - id: fast
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh fast
-    dependsOn: [frontend-fast-summary, backend-fast, static-governance, public-hydration-fast]
+    dependsOn: [frontend-fast-summary, backend-fast, integrity-proof-verification, static-governance, public-hydration-fast]
     services: []
     parallelizable: true
     exclusiveResources: []
