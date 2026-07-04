@@ -2,6 +2,8 @@
 
 `ArticleRightsCanonicalHashV1` defines the deterministic Rights V3 policy digest used to bind an article revision, a frozen rights policy snapshot, and the article content canonical hash. It is a local canonicalization contract only; it is not legal advice, not a license grant by itself, and not proof that the database or artifacts can never be changed.
 
+The Rights V3 canonical hash is the stable bridge between the frozen rights policy snapshot and the content canonical hash carried by ArticleDetail AEDS V3, PublicAOT hydration, and the article rights proof.
+
 ## Domain
 
 - Domain separator: `fsusblog.rights.article-policy.v1`

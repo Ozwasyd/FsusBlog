@@ -68,6 +68,8 @@ If a release specifically needs public AOT disk cache invalidation, set `Lifecyc
 
 ArticleDetail AEDS V3 embeds the rights snapshot and proof summary in the detail payload. Old ArticleDetail `.aeds` files are not compatibility inputs: the file store rejects any ArticleDetail artifact whose inner payload does not start with the V3 `ARD3` magic and version `3`.
 
+Use the full deployment runbook in [rights-v3-cutover-runbook.md](rights-v3-cutover-runbook.md) for backups, the exact no-compat order, verification, and operator checks. This section is only the short operational summary.
+
 Use the admin cache action endpoint for the cutover sequence:
 
 1. Deploy the image and let database migrations complete.

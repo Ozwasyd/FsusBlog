@@ -1513,9 +1513,9 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 
 `CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`、`rights`。公开读路径必须同时检查 `IsDeleted=false`、`Status=Published`、`PublishedAt<=now`、`ScheduledPublishAt<=now`。
 
-Binary 写入帧 `ArticleWriteRequest` 当前版本为 V3。payload 使用旧 `ArticleWriteRequestPod` + `tagIds:int32[]` + article blob 作为主体，随后按顺序追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`version:int32=3`、`rightsFlags:int32`、`copyrightYear:int32`、`maxExcerptChars:int32`、`ArticleRightsWriteRequestPod`、rights blob。`rightsFlags` bit 定义为：`1 enabled`、`2 allowCodeCopy`、`4 showPublicBadge`、`8 proofBindingEnabled`、`16 hasCopyrightYear`。`ArticleRightsWriteRequestPod` 只包含 UTF-8 slice：`licenseType`、`copyrightHolder`、`rightsStatement`、`attributionTemplate`、`copyPolicy`。缺少 V3 rights 段的 legacy 写入 payload 必须拒绝，不得再按 `Published` / 无定时发布静默补齐。
+Binary 写入帧 **ArticleWriteRequest V3**（`ArticleWriteRequest` 当前版本）使用旧 `ArticleWriteRequestPod` + `tagIds:int32[]` + article blob 作为主体，随后按顺序追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`version:int32=3`、`rightsFlags:int32`、`copyrightYear:int32`、`maxExcerptChars:int32`、`ArticleRightsWriteRequestPod`、rights blob。`rightsFlags` bit 定义为：`1 enabled`、`2 allowCodeCopy`、`4 showPublicBadge`、`8 proofBindingEnabled`、`16 hasCopyrightYear`。`ArticleRightsWriteRequestPod` 只包含 UTF-8 slice：`licenseType`、`copyrightHolder`、`rightsStatement`、`attributionTemplate`、`copyPolicy`。缺少 V3 rights 段的 legacy 写入 payload 必须拒绝，不得再按 `Published` / 无定时发布静默补齐。
 
-Binary 读取帧 `ArticleDetail` 当前 payload 版本为 V3 envelope：`ArticleDetailV3HeaderPod` (`magic=ARD3`, `version=3`) + `ArticleDetailV3RecordPod` + `ArticleDetailTagV3RecordPod[]` + 必备 `ArticleRightsV3RecordPod` + 共享 blob。后端 public artifact、admin detail 和 server cache 都必须从 `article_rights_snapshot` 的冻结读模型投影 rights 字段；不得再解码旧 ArticleDetail tail，也不得新增独立 `/rights.aeds` fallback。
+Binary 读取帧 **ArticleDetail AEDS V3**（`ArticleDetail` 当前 payload 版本）使用 V3 envelope：`ArticleDetailV3HeaderPod` (`magic=ARD3`, `version=3`) + `ArticleDetailV3RecordPod` + `ArticleDetailTagV3RecordPod[]` + 必备 `ArticleRightsV3RecordPod` + 共享 blob。后端 public artifact、admin detail 和 server cache 都必须从 `article_rights_snapshot` 的冻结读模型投影 rights 字段；legacy ArticleDetail payloads 和旧 ArticleDetail tail 必须拒绝，不得新增独立 `/rights.aeds` fallback。
 
 Public Rights V3 presentation 只读取已解码的 `ArticleDetail.rights` / `detailView.rights`，does not request a separate rights endpoint，也不新增 `/rights`、`rights.aeds` 或其它 side channel。公开文章页和 PublicAOT ArticleDetail 由同一个 `PublicArticleDetailPageContent` 渲染可见版权提示与 metadata，PublicAOT ArticleDetail output includes rights metadata：`license`、`copyrightHolder`、`copyrightYear`、rights snapshot id、policy hash、content canonical hash、copy policy。代码块复制增强必须读取 `allowCodeCopy`；当 decoded rights 关闭代码复制时，运行时不得插入复制按钮，并清理已经注入的 code-copy DOM。
 
@@ -1604,7 +1604,7 @@ Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，�
 | GET | `/api/binary/author/ops/backup` | 最近站点备份状态，扫描 database/uploads/DataProtection keyring/config/site-package/restore-drill artifacts |
 | GET | `/api/binary/author/ops/dangerous-operations/policy` | 管理端危险操作等级、admin passkey step-up、强确认和 diff 策略 |
 | GET | `/api/binary/author/cache/diagnostics?articleId={id}` | AOT/PublicHotRead/search/sitemap/feed/comment cache/output cache 诊断，可选单文章定位 |
-| POST | `/api/binary/author/cache/actions` | 手动维护动作：`search-rebuild`、`aot-rebuild`、`public-hot-rebuild`、`output-cache-clear`、`sitemap-feed-refresh` |
+| POST | `/api/binary/author/cache/actions` | 手动维护动作：`search-rebuild`、`aot-rebuild`、`public-hot-rebuild`、`output-cache-clear`、`recompute-article-rights`、`clear-legacy-public-artifacts`、`rebuild-article-detail-aeds-v3`、`sitemap-feed-refresh` |
 | GET | `/api/binary/author/integrity` | 数据一致性巡检报告，覆盖文章正文/修订、taxonomy、评论链、session、uploads/assets、search/sitemap visibility |
 | GET | `/api/binary/author/integrity/fix-preview` | 安全修复 diff 预览；当前只预览无效 `article_tag` 和注销用户 session 撤销 |
 | POST | `/api/binary/author/integrity/fix` | 应用安全修复，必须携带 `X-Fsus-Mfa-Proof` 且 `confirmPhrase=APPLY_SAFE_FIXES` |
