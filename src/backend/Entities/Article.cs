@@ -207,6 +207,85 @@ public class ArticleRevision
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+[SugarTable("article_publish_proof")]
+[SugarIndex("ux_article_publish_proof_idempotency", nameof(IdempotencyKey), OrderByType.Asc, true)]
+[SugarIndex("idx_article_publish_proof_article_revision", nameof(ArticleId), OrderByType.Asc, nameof(ArticleRevisionId), OrderByType.Asc)]
+[SugarIndex("idx_article_publish_proof_status_time", nameof(ProofStatus), OrderByType.Asc, nameof(PublishedAt), OrderByType.Desc)]
+public class ArticlePublishProof
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id { get; set; }
+
+    [SugarColumn(ColumnName = "proof_version")]
+    public int ProofVersion { get; set; } = 1;
+
+    [SugarColumn(ColumnName = "signature_payload_version")]
+    public int SignaturePayloadVersion { get; set; } = 1;
+
+    [SugarColumn(ColumnName = "article_id")]
+    public int ArticleId { get; set; }
+
+    [SugarColumn(ColumnName = "article_revision_id")]
+    public long ArticleRevisionId { get; set; }
+
+    [SugarColumn(ColumnName = "revision_no")]
+    public int RevisionNo { get; set; }
+
+    [SugarColumn(ColumnName = "idempotency_key", Length = 128)]
+    public string IdempotencyKey { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "canonical_hash", Length = 71)]
+    public string CanonicalHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "aot_hash", Length = 71)]
+    public string AotHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "article_detail_aeds_hash", Length = 71)]
+    public string ArticleDetailAedsHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "public_hot_read_hash", Length = 71)]
+    public string PublicHotReadHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "asset_manifest_hash", Length = 71)]
+    public string AssetManifestHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "feed_hash", Length = 71)]
+    public string FeedHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "published_at")]
+    public DateTime PublishedAt { get; set; }
+
+    [SugarColumn(ColumnName = "proof_status", Length = 24)]
+    public string ProofStatus { get; set; } = "pending";
+
+    [SugarColumn(ColumnName = "signing_key_id", Length = 128, IsNullable = true)]
+    public string? SigningKeyId { get; set; }
+
+    [SugarColumn(ColumnName = "signing_key_version", IsNullable = true)]
+    public int? SigningKeyVersion { get; set; }
+
+    [SugarColumn(ColumnName = "signing_algorithm", Length = 32, IsNullable = true)]
+    public string? SigningAlgorithm { get; set; }
+
+    [SugarColumn(ColumnName = "signature", Length = 256, IsNullable = true)]
+    public string? SignatureBase64Url { get; set; }
+
+    [SugarColumn(ColumnName = "failure_code", Length = 64, IsNullable = true)]
+    public string? FailureCode { get; set; }
+
+    [SugarColumn(ColumnName = "failure_detail", Length = 512, IsNullable = true)]
+    public string? FailureDetail { get; set; }
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(ColumnName = "updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(ColumnName = "superseded_at", IsNullable = true)]
+    public DateTime? SupersededAt { get; set; }
+}
+
 [SugarTable("article_mutation_outbox")]
 [SugarIndex("ux_article_mutation_outbox_event_id", nameof(EventId), OrderByType.Asc, true)]
 [SugarIndex("idx_article_mutation_outbox_pending", nameof(Status), OrderByType.Asc, nameof(NextRetryAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
