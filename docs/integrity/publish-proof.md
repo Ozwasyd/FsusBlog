@@ -24,6 +24,7 @@ Core fields:
 - `proof_status`: workflow state.
 - `signing_key_id`, `signing_key_version`, `signing_algorithm`, `signature`: site signing metadata and Base64Url signature.
 - `failure_code`, `failure_detail`: non-secret failure metadata for retry/debug.
+- `transparency_log_entry_id`, `transparency_log_entry_hash`: reverse pointer to the local transparency log entry that recorded this proof snapshot.
 - `created_at`, `updated_at`, `superseded_at`: lifecycle timestamps.
 
 `CreatedByAdminPrincipalId` is not part of `article_publish_proof` and is not exposed through publish proofs. Admin attribution remains an internal authoring/audit concern.
@@ -81,6 +82,8 @@ Publish proof scheduling is driven by `article_mutation_outbox`; public read req
 `integrity-proof` is intentionally not part of `ArticleMutationReplayEdges.Required`. A failed, pending, or retrying proof records its own edge state and reason, but the source outbox event may still become processed once required cache, search, taxonomy, AEDS, PublicHot, and notification side effects are done. Proof generation therefore cannot block publishing, scheduled publishing, cache/search/AEDS/PublicHot refresh, or public reads.
 
 Proof generation classifies missing or not-yet-produced artifacts as `pending`/`retrying`, stale artifacts as `failed`, and deleted or archived publications as `not-public`. Reason codes are normalized to low-cardinality values for retry and operations review. The first local implementation only reads local artifacts and database state; it does not call blockchain, IPFS, Arweave, or other external anchoring services.
+
+After the proof row is upserted, the scheduler appends or reuses a `publish-proof` entry in the local transparency log. The append is idempotent per proof id and updates the proof's reverse pointer to the log head entry. See [Transparency Log](transparency-log.md) for chain verification and operational boundaries.
 
 ## What It Proves
 

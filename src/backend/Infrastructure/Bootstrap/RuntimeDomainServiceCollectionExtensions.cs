@@ -42,6 +42,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<ArticleSearchProjector>();
         services.AddScoped<ArticleRealtimeNotifier>();
         services.AddScoped<ArticleAssetCleanupPolicy>();
+        services.AddScoped<IPublishProofTransparencyLog, PublishProofTransparencyLog>();
         services.AddScoped<IIntegrityProofScheduler, IntegrityProofScheduler>();
         services.AddScoped<IArticleMutationSideEffectCoordinator, ArticleMutationSideEffectCoordinator>();
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();

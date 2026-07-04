@@ -276,6 +276,12 @@ public class ArticlePublishProof
     [SugarColumn(ColumnName = "failure_detail", Length = 512, IsNullable = true)]
     public string? FailureDetail { get; set; }
 
+    [SugarColumn(ColumnName = "transparency_log_entry_id", IsNullable = true)]
+    public long? TransparencyLogEntryId { get; set; }
+
+    [SugarColumn(ColumnName = "transparency_log_entry_hash", Length = 64, IsNullable = true)]
+    public string? TransparencyLogEntryHash { get; set; }
+
     [SugarColumn(ColumnName = "created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -284,6 +290,54 @@ public class ArticlePublishProof
 
     [SugarColumn(ColumnName = "superseded_at", IsNullable = true)]
     public DateTime? SupersededAt { get; set; }
+}
+
+[SugarTable("integrity_transparency_log")]
+[SugarIndex("ux_integrity_transparency_log_seq", nameof(Seq), OrderByType.Asc, true)]
+[SugarIndex("ux_integrity_transparency_log_entry_hash", nameof(EntryHash), OrderByType.Asc, true)]
+[SugarIndex("ux_integrity_transparency_log_proof_entry", nameof(EntryType), OrderByType.Asc, nameof(ProofId), OrderByType.Asc, true)]
+[SugarIndex("idx_integrity_transparency_log_article_revision", nameof(ArticleId), OrderByType.Asc, nameof(ArticleRevisionId), OrderByType.Asc)]
+[SugarIndex("idx_integrity_transparency_log_created_at", nameof(CreatedAt), OrderByType.Desc)]
+public class IntegrityTransparencyLogEntry
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id { get; set; }
+
+    [SugarColumn(ColumnName = "seq")]
+    public long Seq { get; set; }
+
+    [SugarColumn(ColumnName = "entry_type", Length = 32)]
+    public string EntryType { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "proof_id", IsNullable = true)]
+    public long? ProofId { get; set; }
+
+    [SugarColumn(ColumnName = "article_id", IsNullable = true)]
+    public int? ArticleId { get; set; }
+
+    [SugarColumn(ColumnName = "article_revision_id", IsNullable = true)]
+    public long? ArticleRevisionId { get; set; }
+
+    [SugarColumn(ColumnName = "revision_no", IsNullable = true)]
+    public int? RevisionNo { get; set; }
+
+    [SugarColumn(ColumnName = "entry_payload_hash", Length = 64)]
+    public string EntryPayloadHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "prev_entry_hash", Length = 64)]
+    public string PrevEntryHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "entry_hash", Length = 64)]
+    public string EntryHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(ColumnName = "signing_key_id", Length = 128, IsNullable = true)]
+    public string? SigningKeyId { get; set; }
+
+    [SugarColumn(ColumnName = "signature", Length = 256, IsNullable = true)]
+    public string? SignatureBase64Url { get; set; }
 }
 
 [SugarTable("article_mutation_outbox")]

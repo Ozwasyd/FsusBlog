@@ -148,6 +148,7 @@ public sealed class IntegrityProofScheduler(
     ISqlSugarClient db,
     IArticleDetailAedsArtifactStore articleDetailArtifacts,
     PublicHotReadStore publicHotReadStore,
+    IPublishProofTransparencyLog transparencyLog,
     ILogger<IntegrityProofScheduler> logger) : IIntegrityProofScheduler
 {
     private const string EmptyArtifactHash = "0000000000000000000000000000000000000000000000000000000000000000";
@@ -182,7 +183,8 @@ public sealed class IntegrityProofScheduler(
         }
 
         PublishProofInput proof = BuildProofInput(articleId, revision, article, plan, artifacts);
-        await UpsertProofAsync(proof, plan.FailureCode, cancellationToken).ConfigureAwait(false);
+        long proofId = await UpsertProofAsync(proof, plan.FailureCode, cancellationToken).ConfigureAwait(false);
+        await transparencyLog.AppendPublishProofAsync(proofId, cancellationToken).ConfigureAwait(false);
         logger.LogInformation(
             "integrity-proof-scheduled {ArticleId} {ArticleRevisionId} {Status} {FailureCode}",
             articleId,
@@ -279,11 +281,11 @@ public sealed class IntegrityProofScheduler(
             PublicationState: plan.PublicationState);
     }
 
-    private async Task UpsertProofAsync(PublishProofInput proof, string? failureCode, CancellationToken cancellationToken)
+    private async Task<long> UpsertProofAsync(PublishProofInput proof, string? failureCode, CancellationToken cancellationToken)
     {
         string idempotencyKey = PublishProofIdempotency.BuildKey(proof.ArticleId, proof.ArticleRevisionId, proof.ProofVersion);
         DateTime now = DateTime.UtcNow;
-        await db.Ado.ExecuteCommandAsync(
+        System.Data.DataTable rows = await db.Ado.GetDataTableAsync(
             """
             INSERT INTO article_publish_proof (
                 proof_version,
@@ -338,7 +340,8 @@ public sealed class IntegrityProofScheduler(
                 failure_code = EXCLUDED.failure_code,
                 failure_detail = EXCLUDED.failure_detail,
                 updated_at = EXCLUDED.updated_at,
-                superseded_at = EXCLUDED.superseded_at;
+                superseded_at = EXCLUDED.superseded_at
+            RETURNING id;
             """,
             new SugarParameter("@ProofVersion", proof.ProofVersion),
             new SugarParameter("@SignaturePayloadVersion", PublishProofCanonicalPayloadV1.SignaturePayloadVersion),
@@ -361,6 +364,14 @@ public sealed class IntegrityProofScheduler(
             new SugarParameter(
                 "@SupersededAt",
                 proof.ProofStatus == PublishProofStatus.Superseded ? now : DBNull.Value)).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (rows.Rows.Count == 0)
+        {
+            throw new InvalidOperationException("Publish proof upsert did not return an id.");
+        }
+
+        return Convert.ToInt64(rows.Rows[0][0], CultureInfo.InvariantCulture);
     }
 
     private static PublishProofPublicationState ResolvePublicationState(string eventType, Article? article)

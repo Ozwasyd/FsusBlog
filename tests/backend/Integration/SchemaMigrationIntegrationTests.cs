@@ -1,7 +1,10 @@
+using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -96,6 +99,87 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "security_challenge_attempt", "payload"));
         Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_challenge_id"));
         Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_challenge_attempt_challenge"));
+    }
+
+    [Fact]
+    public async Task RunAsync_CreatesIntegrityTransparencyLogOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "integrity_transparency_log"));
+        foreach (string column in new[]
+        {
+            "seq",
+            "entry_type",
+            "proof_id",
+            "article_id",
+            "article_revision_id",
+            "revision_no",
+            "entry_payload_hash",
+            "prev_entry_hash",
+            "entry_hash",
+            "created_at",
+            "signing_key_id",
+            "signature"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "integrity_transparency_log", column),
+                $"integrity_transparency_log.{column} was not created");
+        }
+
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_publish_proof", "transparency_log_entry_id"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "article_publish_proof", "transparency_log_entry_hash"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_integrity_transparency_log_seq"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_integrity_transparency_log_entry_hash"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_integrity_transparency_log_proof_entry"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_integrity_transparency_log_article_revision"));
+    }
+
+    [Fact]
+    public async Task TransparencyLogAppend_IsIdempotentAndChainValidUnderConcurrentProofRetry()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        long proofId = await InsertPublishProofAsync(connectionString);
+
+        using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
+        using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
+        var first = new PublishProofTransparencyLog(firstDb);
+        var second = new PublishProofTransparencyLog(secondDb);
+
+        await Task.WhenAll(
+            first.AppendPublishProofAsync(proofId),
+            second.AppendPublishProofAsync(proofId));
+
+        int logCount = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT COUNT(1) FROM integrity_transparency_log WHERE entry_type = 'publish-proof' AND proof_id = 1;");
+        long logEntryId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT id FROM integrity_transparency_log WHERE proof_id = 1;");
+        long seq = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT seq FROM integrity_transparency_log WHERE proof_id = 1;");
+        long linkedEntryId = await fixture.QueryScalarAsync<long>(
+            connectionString,
+            "SELECT transparency_log_entry_id FROM article_publish_proof WHERE id = 1;");
+        string? linkedEntryHash = await fixture.QueryScalarAsync<string?>(
+            connectionString,
+            "SELECT transparency_log_entry_hash FROM article_publish_proof WHERE id = 1;");
+        TransparencyLogVerificationResult verification = await first.VerifyAsync();
+
+        Assert.Equal(logEntryId, linkedEntryId);
+        Assert.Equal(1, logCount);
+        Assert.Equal(1, seq);
+        Assert.True(verification.IsValid);
+        Assert.Equal(linkedEntryHash, verification.LatestHeadHash);
     }
 
     [Fact]
@@ -1226,6 +1310,57 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         ISchemaMigrationRunner runner = scope.ServiceProvider.GetRequiredService<ISchemaMigrationRunner>();
         await runner.RunAsync(CancellationToken.None);
     }
+
+    private async Task<long> InsertPublishProofAsync(string connectionString)
+        => await fixture.QueryScalarAsync<long>(
+            connectionString,
+            """
+            INSERT INTO article_publish_proof (
+                proof_version,
+                signature_payload_version,
+                article_id,
+                article_revision_id,
+                revision_no,
+                idempotency_key,
+                canonical_hash,
+                aot_hash,
+                article_detail_aeds_hash,
+                public_hot_read_hash,
+                asset_manifest_hash,
+                feed_hash,
+                published_at,
+                proof_status,
+                signing_key_id,
+                signing_key_version,
+                signing_algorithm,
+                signature,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                1,
+                1,
+                910002,
+                920002,
+                2,
+                'article:910002:revision:920002:proof:1',
+                '1111111111111111111111111111111111111111111111111111111111111111',
+                '2222222222222222222222222222222222222222222222222222222222222222',
+                '3333333333333333333333333333333333333333333333333333333333333333',
+                '4444444444444444444444444444444444444444444444444444444444444444',
+                '5555555555555555555555555555555555555555555555555555555555555555',
+                '6666666666666666666666666666666666666666666666666666666666666666',
+                TIMESTAMP '2026-07-04 00:00:00',
+                'ready',
+                'site-key-v1',
+                1,
+                'ECDSA_P256_SHA256',
+                'signature',
+                TIMESTAMP '2026-07-04 00:00:00',
+                TIMESTAMP '2026-07-04 00:00:00'
+            )
+            RETURNING id;
+            """);
 
     private async Task<Legacy20260517Counts> ReadLegacy20260517CountsAsync(string connectionString)
         => new(
