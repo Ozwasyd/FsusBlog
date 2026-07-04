@@ -20,6 +20,7 @@ using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
@@ -109,8 +110,10 @@ public static class WebApplicationCompositionExtensions
         app.UseForwardedHeaders();
         app.UseFsusSecurityHeaders();
         app.UseFsusCoreMiddlewares();
-        app.UseFsusStaticAssets();
         app.UseFsusEndpointPipeline();
+        app.UseFsusPublicHotReadSecurityGate();
+        app.UseFsusPublicHotReadFastPath();
+        app.UseFsusStaticAssets();
     }
 
     public static void MapFsusApplicationRoutes(this WebApplication app)
@@ -293,6 +296,9 @@ public static class WebApplicationCompositionExtensions
             StartupRuntimeState runtimeState,
             CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, systemService, env, runtimeState, ct))
             .AllowAnonymous()
+            .RequireRateLimiting("public_read")
+            .WithRiskAction(RiskActionNames.PublicRead, "public.html.home")
+            .AddEndpointFilter<RiskAwarePublicReadFilter>()
             .WithMetadata(new FsusRouteKindMetadata("public"));
         app.MapFallback((
             HttpContext ctx,
@@ -302,6 +308,9 @@ public static class WebApplicationCompositionExtensions
             IWebHostEnvironment env,
             StartupRuntimeState runtimeState,
             CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, systemService, env, runtimeState, ct))
+            .RequireRateLimiting("public_read")
+            .WithRiskAction(RiskActionNames.PublicRead, "public.html.fallback")
+            .AddEndpointFilter<RiskAwarePublicReadFilter>()
             .WithMetadata(new FsusRouteKindMetadata("public"));
     }
 

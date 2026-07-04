@@ -54,7 +54,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.ConfigureFsusApplication();
 
 var app = builder.Build();
-app.UseFsusPublicHotReadFastPath();
 app.UseFsusApplicationPipeline();
 app.MapFsusApplicationRoutes();
 app.Run();
@@ -64,13 +63,14 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 | 阶段 | 方法 | 职责 |
 |------|------|------|
-| L0 公开热点 | `UseFsusPublicHotReadFastPath` | 在常规管线前命中 `/api/binary/article/**.aeds`、`/api/binary/category.aeds`、`/api/binary/tag.aeds` 与公开 HTML 快照，直接写出预编码 bytes |
 | 安全响应头 | `UseFsusSecurityHeaders` | CSP/HSTS/跨源隔离等头部策略 |
 | 核心中间件 | `UseFsusCoreMiddlewares` | 异常、审计、认证授权、匿名网关头守卫、封禁用户、访问日志兼容占位 |
-| 静态资源 | `UseFsusStaticAssets` | Public AOT cache、SPA 静态文件、fallback |
 | 端点管线 | `UseFsusEndpointPipeline` | OpenTelemetry trace correlation、ResponseCompression、crawler-aware Rate Limiting、OutputCache、API/Binary/健康路由 |
+| 公开读门控 | `UseFsusPublicHotReadSecurityGate` | 对 hot binary artifact 与公开 HTML artifact 候选执行 public_read 风险裁决、PoW challenge 和风险信号写入 |
+| L0 公开热点 | `UseFsusPublicHotReadFastPath` | 在安全门控后命中 `/api/binary/article/**.aeds`、`/api/binary/category.aeds`、`/api/binary/tag.aeds` 与公开 HTML 快照，直接写出预编码 bytes |
+| 静态资源 | `UseFsusStaticAssets` | Public AOT cache、SPA 静态文件、fallback |
 
-`UseFsusEndpointPipeline` 的端点链路顺序必须保持 `UseResponseCompression()` -> `UseOutputCache()` -> `UseCors()` -> `UseAntiforgery()` -> `UseFsusCsrfOriginGuard()` -> `AnonymousGatewayHeaderGuardMiddleware` -> `UseAuthentication()` -> `UseRateLimiter()` -> `BannedUserMiddleware` -> `UseAuthorization()`。ResponseCompression 只覆盖常规端点管线中的动态 API/Binary 响应，PublicHotRead L0 和 Public AOT artifact 命中仍使用各自 artifact-level 预压缩变体。CSRF Origin guard 只在带 Cookie/Authorization 的状态变更请求上执行，要求 `Origin` 或 `Referer` 命中可信来源；匿名网关头守卫只允许显式匿名 profile / runtime `X-Fsus-*` 请求头，拒绝 username/email/role/userId/password/TOTP 等传统账号头和未知 `X-Fsus-*`，且必须在认证前执行，避免外部网关注入头生成业务 principal。`fixed_ip` 限流分区需要读取已认证的 admin principal 才能应用管理端绕过；封禁写入检查仍在限流之后、授权之前执行。
+`UseFsusEndpointPipeline` 的端点链路顺序必须保持 `UseResponseCompression()` -> `UseOutputCache()` -> `UseCors()` -> `UseAntiforgery()` -> `UseFsusCsrfOriginGuard()` -> `AnonymousGatewayHeaderGuardMiddleware` -> `UseAuthentication()` -> `UseRateLimiter()` -> `BannedUserMiddleware` -> `UseAuthorization()`。ResponseCompression 只覆盖常规端点管线中的动态 API/Binary 响应；PublicHotRead L0 和 Public AOT artifact 命中仍使用各自 artifact-level 预压缩变体，但必须先经过 endpoint metadata、`public_read` 限流、审计上下文和 `UseFsusPublicHotReadSecurityGate`。CSRF Origin guard 只在带 Cookie/Authorization 的状态变更请求上执行，要求 `Origin` 或 `Referer` 命中可信来源；匿名网关头守卫只允许显式匿名 profile / runtime `X-Fsus-*` 请求头，拒绝 username/email/role/userId/password/TOTP 等传统账号头和未知 `X-Fsus-*`，且必须在认证前执行，避免外部网关注入头生成业务 principal。`fixed_ip` 限流分区需要读取已认证的 admin principal 才能应用管理端绕过；封禁写入检查仍在限流之后、授权之前执行。
 
 JWT bearer cookie 入口在 `UseAuthentication()` 内完成。`OnMessageReceived` 对同一请求只解析一次 admin cookie preference，并通过 `HttpContext.Items` 复用 admin raw access token 给 `OnTokenValidated`；endpoint metadata/path 决策不得在同一请求内重复扫描，admin session 校验、host-prefixed cookie 优先级和 legacy plain fallback 语义保持不变。
 
@@ -195,7 +195,9 @@ IPublicAotRouteRegistry
 ```text
 Client
   → AEDS Binary（Accept: application/octet-stream）
-    → Kestrel → 公开读 artifact fast path（article detail *.aeds）
+    → Kestrel → Forwarded/Security/Core/EndpointPipeline
+      → public_read 限流 + 公开读风险门控
+      → 公开读 artifact fast path（article detail *.aeds）
       → 命中 → 直接搬运预编码 raw/br/gzip AEDS frame variant → 返回 application/octet-stream
       → 未命中 → singleflight 排队后台 rebuild → 503/stale/SPA fallback，不在请求内同步打 PostgreSQL
     → 其他公开列表/聚合 → L1 readonly raw cache
@@ -280,7 +282,7 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 - 上传分片继续走 raw stream，端点用 request body backed `IFormFile` 交给文件服务，不再把整个分片读入 `MemoryStream` 后克隆成数组。
 - 上传会话 cleanup 由 `UploadSessionCleanupWorker` 后台执行，session init/status/part-map 只发送合并信号；默认 45s signal window 内重复请求记为 dropped/coalesced，不触发清理风暴。`FileService` 保存 session manifest 时同步写入 `.upload-sessions/expires/yyyyMMddHH/{uploadId}` 过期索引，cleanup 主路径只扫描已到期 bucket 内的候选 session；complete/abort/过期删除必须同步清理 index。legacy manifestless/session root sweep 仅作为低频兜底，不作为常规 cleanup 路径。上传 session lock 的 stale 扫描同样挂在后台 cleanup 末尾，`AcquireSessionLockAsync` 只执行单个 uploadId 的引用与 semaphore 等待，不再按每个分片请求扫描 `_sessionLocks` 全表。运行时指标记录 `fsus.upload.cleanup.scanned_sessions`、`deleted_sessions`、`elapsed_ms`、signal accepted/dropped/coalesced，以及 `fsus.upload.session_lock.current_count`、`stale_scanned_count`、`stale_disposed_count`、`cleanup_elapsed_ms`、`acquire_elapsed_ms`。
 - PostgreSQL/ORM entity/command service 是 write model；Public AOT HTML、article detail `.aeds`、search index、list/category/tag/hot snapshot 是 artifact-backed read model；L1/L2/OutputCache 只是加速层，不能作为 CQRS read model 的替代。
-- 公开热点 GET（article list、hot articles、category、tag、detail、公开 HTML）优先由 `PublicHotReadFastPath` 在 `UseFsusApplicationPipeline` 之前命中不可变快照并写出完整预编码 bytes；binary artifact 在构建阶段生成 raw/br/gzip variant，请求时按 `Accept-Encoding` 选择，并支持 variant-aware `ETag` / `If-None-Match` / `304`。hit 路径不访问 PostgreSQL、Redis、`IMemoryCache`、OutputCache、文件系统、OpenTelemetry span 或 AEDS encoder。DB fallback 只允许在后台 projector、修复任务或 `/api/binary/admin/article/**` 管理端路径发生。快照状态（`NotStarted` / `Building` / `Ready` / `Failed`）通过 readiness 暴露；未 Ready 时 L0 路径返回 `503` + `Retry-After`，写入链路不等待完整重建。HTML artifact 的 `routeKey` 会先映射为 URL-safe `pathKey`，`/api/binary/article/html/{pathKey}.html` 只作为诊断/预览命中路径，不计入真实公开页 QPS。
+- 公开热点 GET（article list、hot articles、category、tag、detail、公开 HTML）优先由 `PublicHotReadFastPath` 命中不可变快照并写出完整预编码 bytes；但 fast path 只允许在 ForwardedHeaders、Shield/核心安全中间件、endpoint metadata、`public_read` 限流、审计上下文和 `PublicHotReadSecurityGateMiddleware` 之后执行。binary artifact 在构建阶段生成 raw/br/gzip variant，请求时按 `Accept-Encoding` 选择，并支持 variant-aware `ETag` / `If-None-Match` / `304`。hit 路径不访问 PostgreSQL、Redis、`IMemoryCache`、OutputCache、文件系统、OpenTelemetry span 或 AEDS encoder。DB fallback 只允许在后台 projector、修复任务或 `/api/binary/admin/article/**` 管理端路径发生。快照状态（`NotStarted` / `Building` / `Ready` / `Failed`）通过 readiness 暴露；未 Ready 时 L0 路径返回 `503` + `Retry-After`，写入链路不等待完整重建。HTML artifact 的 `routeKey` 会先映射为 URL-safe `pathKey`，`/api/binary/article/html/{pathKey}.html` 只作为诊断/预览命中路径，不计入真实公开页 QPS。
 - `PublicHotArtifactUpdateWorker` debounce/coalesce 期间必须收集窗口内全部唯一 article ID，并在同一个 snapshot 上依次执行 delta projector 后原子 publish；任一 update 没有有效 article ID 时强制全量 rebuild。不得只使用窗口首个 article ID，否则删除、归档、转草稿或敏感内容修订可能让后续文章的 detail frame 继续被 L0 匿名命中。
 - PublicHot 全量 projector 必须在 `MaxArticleFrames` 截断前统计当前公开文章总量，并把 `publicArticleCount`、`articleFrameLimit`、`articleFrameLimitExceeded` 暴露到 runtime snapshot；一旦公开文章数超过 frame 上限，readiness/runtime 必须 degraded/not_ready，避免仍公开的老文章因预加载容量静默变成 L0 404。
 - 浏览计数不在读取链路产生，而由独立真人阅读 proof 事件更新。
@@ -366,7 +368,7 @@ Binary 文章列表缓存使用 `core:v4:{public|admin}:...:{status}` 身份隔�
 
 `RelatedReadingService` 是相关文章、上一篇、下一篇的唯一查询入口，端点与 PublicAOT article snapshot 共用它。相关性只来自公开文章的分类、标签、正文关键词和发布时间，不读取点赞、收藏、关注、登录用户或画像数据；PublicAOT renderer payload 会携带同一份 `relatedReading`，SPA hydration 后继续使用同一个 view contract 渲染，避免首屏与运行时结构不一致。PublicAOT article detail 生成会先读取 admin/detail 原始视图并在 provider 内执行同一套公开可见性判定；只有 private 读取为空时才回退到公开 detail 读取，因此草稿、定时、归档状态不会被旧公开缓存覆盖，发布后的公开读链也可以帮助 AOT 避免偶发空读。
 
-这些端点使用 output cache 的 ArticleList/Seo tag，响应头使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 与 `Vary: Accept-Encoding, CF-IPCountry, X-Fsus-Region`，条件缓存与 304 语义只由 OutputCache/上游缓存层负责，`DistributionEndpoints` 不按正文手写 ETag 或解析 `If-None-Match`。公开评论、公开 taxonomy 与 related-reading AEDS 端点额外挂 `public_read` 限流和 `RiskAwarePublicReadFilter`：普通用户直接读取，verified crawler 使用独立高额度，social preview bot 不能访问 API，高风险 IP 在动态 API 上先要求 PoW，持续高风险返回 429。`VerifiedCrawler` 只由通过 CIDR/rDNS 验证的 search crawler 设置；AntiCrawler `observe` 模式下的伪造 crawler 可被放行观察，但不得进入 verified-crawler 分区。风险读写通过 `ISecurityRiskSignalSink` / `ISecurityRiskScoreReader` / `ISecurityRiskPolicyProvider`，反爬虫、PoW、ReadProof 和 RateLimiter 只写入各自来源信号；`SecurityRiskEventSink` 先维持 Redis `SecurityPowRisk` 热路径，再把同一事件写入 PostgreSQL `security_risk_event`，按 source/reason/action/subjectHash/routeKey/clientIpHash/deviceFpHash 可查询，Redis miss 时由 `RiskScoreEngine` 按剩余 TTL 对 PostgreSQL 事件线性衰减聚合并回填热缓存。持久化失败只写 structured fallback log，不让公开读、auth、comment 或 notification stream 判定变成 500；后台 `/api/binary/admin/security/**` 改 AntiCrawler/PoW 策略时由原生 security binary endpoint 直接执行 admin 授权、MFA、fixed_ip 限流和审计边界并更新 singleton 快照，外部 `/api/admin/security/**` JSON 已移除，策略热路径只读内存快照，不同步查询 DB。PublicHotRead L0 artifact 命中仍在常规 endpoint 前直接返回，不进入该动态加压路径。PublicAOT backfill 请求会记录排队时的失效版本；写盘前若同一路由或页面在排队后又被文章突变失效，本次 backfill 会丢弃，避免 draft/scheduled/archived 时排队的旧 category/tag 文档在 published 失效后覆盖新状态。测试隔离开启时，PublicAOT cache key 与 backfill 查询必须携带同一个 `X-Fsus-Test-Session`，后台生成通过临时 `HttpContext` 读取对应测试 schema，避免把测试文章写入全局 AOT 缓存。`check:distribution-version-coherence` 会预热公开缓存后，验证 draft/scheduled/archived 隐藏、published 可见，以及 update/delete/restore/permanent-delete 在 public binary list/detail、admin 状态列表/回收站、feed、sitemap、AOT article/category/tag pages 与 search index alias 上保持一致。
+这些端点使用 output cache 的 ArticleList/Seo tag，响应头使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 与 `Vary: Accept-Encoding, CF-IPCountry, X-Fsus-Region`，条件缓存与 304 语义只由 OutputCache/上游缓存层负责，`DistributionEndpoints` 不按正文手写 ETag 或解析 `If-None-Match`。公开评论、公开 taxonomy 与 related-reading AEDS 端点额外挂 `public_read` 限流和 `RiskAwarePublicReadFilter`；公开 HTML 与 PublicHotRead hot binary artifact 候选同样进入 `public_read` 限流，并在 artifact 写出前由 `PublicHotReadSecurityGateMiddleware` 执行同一套公开读风险裁决：普通用户直接读取，verified crawler 使用独立高额度，social preview bot 不能访问 API，高风险 IP 先要求 PoW，持续高风险返回 429。`VerifiedCrawler` 只由通过 CIDR/rDNS 验证的 search crawler 设置；AntiCrawler `observe` 模式下的伪造 crawler 可被放行观察，但不得进入 verified-crawler 分区。风险读写通过 `ISecurityRiskSignalSink` / `ISecurityRiskScoreReader` / `ISecurityRiskPolicyProvider`，反爬虫、PoW、ReadProof 和 RateLimiter 只写入各自来源信号；`SecurityRiskEventSink` 先维持 Redis `SecurityPowRisk` 热路径，再把同一事件写入 PostgreSQL `security_risk_event`，按 source/reason/action/subjectHash/routeKey/clientIpHash/deviceFpHash 可查询，Redis miss 时由 `RiskScoreEngine` 按剩余 TTL 对 PostgreSQL 事件线性衰减聚合并回填热缓存。持久化失败只写 structured fallback log，不让公开读、auth、comment 或 notification stream 判定变成 500；后台 `/api/binary/admin/security/**` 改 AntiCrawler/PoW 策略时由原生 security binary endpoint 直接执行 admin 授权、MFA、fixed_ip 限流和审计边界并更新 singleton 快照，外部 `/api/admin/security/**` JSON 已移除，策略热路径只读内存快照，不同步查询 DB。PublicAOT backfill 请求会记录排队时的失效版本；写盘前若同一路由或页面在排队后又被文章突变失效，本次 backfill 会丢弃，避免 draft/scheduled/archived 时排队的旧 category/tag 文档在 published 失效后覆盖新状态。测试隔离开启时，PublicAOT cache key 与 backfill 查询必须携带同一个 `X-Fsus-Test-Session`，后台生成通过临时 `HttpContext` 读取对应测试 schema，避免把测试文章写入全局 AOT 缓存。`check:distribution-version-coherence` 会预热公开缓存后，验证 draft/scheduled/archived 隐藏、published 可见，以及 update/delete/restore/permanent-delete 在 public binary list/detail、admin 状态列表/回收站、feed、sitemap、AOT article/category/tag pages 与 search index alias 上保持一致。
 
 ## 作者工作台与私有内容边界
 

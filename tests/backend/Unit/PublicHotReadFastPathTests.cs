@@ -708,6 +708,26 @@ public sealed class PublicHotReadFastPathTests
         Assert.False(PublicHotReadFastPath.TryClassifyRouteForTests("/api/binary/article/list/home/0/10.aeds", out _));
     }
 
+    [Theory]
+    [InlineData("/api/binary/article/42.aeds", true)]
+    [InlineData("/api/binary/article/list/home/1/10.aeds", true)]
+    [InlineData("/api/binary/category.aeds", true)]
+    [InlineData("/", true)]
+    [InlineData("/category/7", true)]
+    [InlineData("/tag/fsus", true)]
+    [InlineData("/api/binary/article/42/related.aeds", false)]
+    [InlineData("/assets/app.js", false)]
+    public void RequiresSecurityGateForRequest_CoversBinaryAndPublicHtmlArtifacts(string path, bool expected)
+    {
+        var method = typeof(PublicHotReadFastPath).GetMethod(
+            "RequiresSecurityGateForRequestForTests",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        bool actual = Assert.IsType<bool>(method.Invoke(null, [path]));
+        Assert.Equal(expected, actual);
+    }
+
     [Fact]
     public void PublicHotReadRouteKeys_MapsUnsafeRouteKeysToStableSafeHtmlPaths()
     {

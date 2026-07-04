@@ -640,6 +640,26 @@ public static class PublicHotReadFastPath
             || path.StartsWith(ArticlePrefix + "/", StringComparison.Ordinal)
             || IsPublicHtmlCandidatePath(path.AsSpan());
 
+    internal static bool RequiresSecurityGateForRequest(string? path)
+    {
+        if (string.IsNullOrEmpty(path) || !IsPublicHotReadPath(path))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> span = path.AsSpan();
+        if (IsDynamicRelatedReadingPath(span))
+        {
+            return false;
+        }
+
+        return IsPublicHtmlCandidatePath(span)
+            || TryClassifyRoute(span, path, out _);
+    }
+
+    internal static bool RequiresSecurityGateForRequestForTests(string path)
+        => RequiresSecurityGateForRequest(path);
+
     private static bool IsCategoryPath(string path)
         => string.Equals(path, CategoryPath, StringComparison.Ordinal)
             || string.Equals(path, CategoryPathWithoutSuffix, StringComparison.Ordinal);

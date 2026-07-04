@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Security;
 using Microsoft.AspNetCore.Http;
 using Serilog;
 using Serilog.Core;
@@ -83,6 +84,47 @@ public sealed class RequestAuditContextMiddlewareTests
             LogEvent logEvent = Assert.Single(sink.Events);
             Assert.DoesNotContain(AuditPropertyNames.ActorType, logEvent.Properties.Keys);
             Assert.DoesNotContain("IpHash", logEvent.Properties.Keys);
+        }
+        finally
+        {
+            Log.Logger = previous;
+        }
+    }
+
+    [Fact]
+    public async Task InvokeAsync_PublicReadEndpointMetadata_PushesAuditLogContextForAnonymousGet()
+    {
+        var sink = new CollectingSink();
+        ILogger previous = Log.Logger;
+        Log.Logger = new LoggerConfiguration()
+            .Enrich.FromLogContext()
+            .WriteTo.Sink(sink)
+            .CreateLogger();
+
+        try
+        {
+            var middleware = new RequestAuditContextMiddleware(_ =>
+            {
+                Log.Information("public hot read");
+                return Task.CompletedTask;
+            });
+            var context = new DefaultHttpContext();
+            context.TraceIdentifier = "trace-public-read";
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = "/";
+            context.SetEndpoint(new Endpoint(
+                _ => Task.CompletedTask,
+                new EndpointMetadataCollection(RiskActionRegistry.Default.CreateMetadata(RiskActionNames.PublicRead, "public.html.home")),
+                "public.html.home"));
+
+            await middleware.InvokeAsync(context);
+
+            LogEvent logEvent = Assert.Single(sink.Events);
+            Assert.Equal("\"trace-public-read\"", logEvent.Properties["TraceId"].ToString());
+            Assert.Equal("\"/\"", logEvent.Properties["RequestPath"].ToString());
+            Assert.Contains(AuditPropertyNames.ActorType, logEvent.Properties.Keys);
+            Assert.DoesNotContain("ClientIp", logEvent.Properties.Keys);
+            Assert.DoesNotContain("UserAgent", logEvent.Properties.Keys);
         }
         finally
         {

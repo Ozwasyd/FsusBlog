@@ -1,3 +1,5 @@
+using FsusBlog.Server.Infrastructure.Security;
+
 namespace FsusBlog.Server.Infrastructure.Audit;
 
 public sealed class RequestAuditContextMiddleware(RequestDelegate next)
@@ -27,6 +29,12 @@ public sealed class RequestAuditContextMiddleware(RequestDelegate next)
         if (!HttpMethods.IsGet(context.Request.Method)
             && !HttpMethods.IsHead(context.Request.Method)
             && !HttpMethods.IsOptions(context.Request.Method))
+        {
+            return true;
+        }
+
+        if (RiskActionRegistry.Default.TryGetEndpointMetadata(context.GetEndpoint(), out RiskActionEndpointMetadata metadata)
+            && string.Equals(metadata.ActionName, RiskActionNames.PublicRead, StringComparison.Ordinal))
         {
             return true;
         }

@@ -136,6 +136,39 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
+    public void PublicHotReadFastPath_RunsAfterPublicReadSecurityGateAndBeforeStaticAssets()
+    {
+        string source = ReadCompositionSource();
+        string pipeline = ExtractApplicationPipeline(source);
+
+        AssertBefore(pipeline, "app.UseFsusEndpointPipeline();", "app.UseFsusPublicHotReadSecurityGate();");
+        AssertBefore(pipeline, "app.UseFsusPublicHotReadSecurityGate();", "app.UseFsusPublicHotReadFastPath();");
+        AssertBefore(pipeline, "app.UseFsusPublicHotReadFastPath();", "app.UseFsusStaticAssets();");
+    }
+
+    [Fact]
+    public void Program_DoesNotMountPublicHotReadBeforeApplicationPipeline()
+    {
+        string program = BackendTestPaths.ReadAllTextFromRoot("src", "backend", "Program.cs");
+
+        Assert.DoesNotContain("UseFsusPublicHotReadFastPath", program, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublicHtmlRoutes_UsePublicReadRateLimitAndRiskMetadata()
+    {
+        string source = ReadCompositionSource();
+        string publicRoutes = ExtractPublicRoutes(source);
+
+        Assert.Contains("app.MapGet(\"/\"", publicRoutes, StringComparison.Ordinal);
+        Assert.Contains("app.MapFallback", publicRoutes, StringComparison.Ordinal);
+        Assert.Equal(2, CountOccurrences(publicRoutes, ".RequireRateLimiting(\"public_read\")"));
+        Assert.Equal(2, CountOccurrences(publicRoutes, ".WithRiskAction(RiskActionNames.PublicRead"));
+        Assert.Contains(".WithRiskAction(RiskActionNames.PublicRead, \"public.html.home\")", publicRoutes, StringComparison.Ordinal);
+        Assert.Contains(".WithRiskAction(RiskActionNames.PublicRead, \"public.html.fallback\")", publicRoutes, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NotificationStreamEndpoints_UseDedicatedRateLimiter()
     {
         string source = ReadCompositionSource();
@@ -687,6 +720,28 @@ public sealed class WebApplicationCompositionExtensionsTests
 
         Assert.True(branchStart >= 0, "Unable to locate Public AOT HTML write branch.");
         Assert.True(branchEnd > branchStart, "Unable to locate Public AOT HTML slow-path branch.");
+
+        return source[branchStart..branchEnd];
+    }
+
+    private static string ExtractApplicationPipeline(string source)
+    {
+        int branchStart = source.IndexOf("public static void UseFsusApplicationPipeline", StringComparison.Ordinal);
+        int branchEnd = source.IndexOf("public static void MapFsusApplicationRoutes", branchStart, StringComparison.Ordinal);
+
+        Assert.True(branchStart >= 0, "Unable to locate application pipeline.");
+        Assert.True(branchEnd > branchStart, "Unable to locate end of application pipeline.");
+
+        return source[branchStart..branchEnd];
+    }
+
+    private static string ExtractPublicRoutes(string source)
+    {
+        int branchStart = source.IndexOf("private static void MapFsusPublicRoutes", StringComparison.Ordinal);
+        int branchEnd = source.IndexOf("private static async Task<IResult> ValidateNotificationStreamPreflightAsync", branchStart, StringComparison.Ordinal);
+
+        Assert.True(branchStart >= 0, "Unable to locate public route mapping.");
+        Assert.True(branchEnd > branchStart, "Unable to locate end of public route mapping.");
 
         return source[branchStart..branchEnd];
     }
