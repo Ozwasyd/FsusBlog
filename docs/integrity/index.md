@@ -40,6 +40,7 @@ It is not a performance optimization and not a privacy system. It is also not a 
 - [Operator Runbook](runbook.md) (`docs/integrity/runbook.md`)
 - [Developer Implementation Notes](implementation-notes.md) (`docs/integrity/implementation-notes.md`)
 - [Public Verification Guide](public-verification-guide.md) (`docs/integrity/public-verification-guide.md`)
+- [Article Rights Canonical Hash](article-rights-canonical-hash.md)
 - [Publish Proof](publish-proof.md)
 - [Transparency Log](transparency-log.md)
 - [Merkle Checkpoint](merkle-checkpoint.md)
@@ -49,6 +50,6 @@ It is not a performance optimization and not a privacy system. It is also not a 
 
 ## Data Boundary
 
-Public proof fields are limited to public content coordinates and proof metadata: `articleId`, `articleRevisionId`, `revisionNo`, canonical hash, artifact digest values, signing key metadata, transparency log coordinates, and checkpoint coordinates.
+Public proof fields are limited to public content coordinates and proof metadata: `articleId`, `articleRevisionId`, `revisionNo`, canonical hash, rights policy hash, artifact digest values, signing key metadata, transparency log coordinates, and checkpoint coordinates.
 
 Do not include admin principal id, audit log context, private drafts, private messages, comments, user profiles, IP addresses, user agents, session ids, device fingerprints, tokens, private keys, or raw secret material in proof payloads or public manifests.
