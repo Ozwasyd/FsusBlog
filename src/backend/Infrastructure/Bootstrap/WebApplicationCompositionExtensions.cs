@@ -257,6 +257,7 @@ public static class WebApplicationCompositionExtensions
         app.MapBinaryEndpoints();
         app.MapAuthoringEndpoints();
         app.MapSecurityEndpoints();
+        app.MapAdminIntegrityConsoleEndpoints();
         app.MapPublicAotEndpoints();
 
         app.MapGet("/api/notifications/stream/preflight", (

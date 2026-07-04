@@ -167,6 +167,8 @@
 | GET | `/integrity/checkpoints/latest` | 🔓 | 🗄️ | 最新 Merkle checkpoint manifest |
 | GET | `/integrity/checkpoints/{date}` | 🔓 | 🗄️ | `yyyy-MM-dd` UTC daily checkpoint manifest |
 | GET | `/integrity/log/head` | 🔓 | 🗄️ | transparency log 当前 head |
+| GET | `/api/admin/integrity/console` | 👑🚦 | no-store | 后台 Integrity Proof 状态视图，需 `system.config` |
+| POST | `/api/admin/integrity/console/proofs/{proofId}/retry` | 👑🚦 step-up | no-store | 重试 failed/retrying/pending proof，需 `system.config` 与 admin step-up |
 
 ---
 
