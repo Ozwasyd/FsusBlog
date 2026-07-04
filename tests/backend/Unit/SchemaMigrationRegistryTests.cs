@@ -1,3 +1,4 @@
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using NSubstitute;
@@ -380,6 +381,53 @@ public sealed class SchemaMigrationRegistryTests
     }
 
     [Fact]
+    public void GetDescriptors_ArticleRightsV3Schema_CreatesPolicySnapshotProofTablesAndBackfillsDefaults()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260704-post-article-rights-v3-schema");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("article_rights_policy", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("article_rights_snapshot", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("article_rights_proof", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ux_article_rights_policy_article", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ux_article_rights_snapshot_article_revision", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ux_article_rights_proof_idempotency", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("license_type varchar(48) NOT NULL DEFAULT 'all-rights-reserved'", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("copy_policy varchar(48) NOT NULL DEFAULT 'append-attribution'", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("max_excerpt_chars integer NOT NULL DEFAULT 300", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("allow_code_copy boolean NOT NULL DEFAULT true", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("show_public_badge boolean NOT NULL DEFAULT true", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("proof_binding_enabled boolean NOT NULL DEFAULT true", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("rights-v3:policy-hash:recompute", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("rights-v3:content-hash:recompute", fingerprint, StringComparison.Ordinal);
+        Assert.DoesNotContain("rights.aeds", fingerprint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ArticleRightsV3Entities_MapToExpectedDurableTablesAndUniqueKeys()
+    {
+        Assert.Equal("article_rights_policy", ReadTableName(typeof(ArticleRightsPolicy)));
+        Assert.Equal("article_rights_snapshot", ReadTableName(typeof(ArticleRightsSnapshot)));
+        Assert.Equal("article_rights_proof", ReadTableName(typeof(ArticleRightsProof)));
+
+        Assert.Contains("ux_article_rights_policy_article", ReadIndexNames(typeof(ArticleRightsPolicy)));
+        Assert.Contains("ux_article_rights_snapshot_article_revision", ReadIndexNames(typeof(ArticleRightsSnapshot)));
+        Assert.Contains("ux_article_rights_proof_idempotency", ReadIndexNames(typeof(ArticleRightsProof)));
+
+        Assert.Equal("all-rights-reserved", new ArticleRightsPolicy().LicenseType);
+        Assert.Equal("append-attribution", new ArticleRightsPolicy().CopyPolicy);
+        Assert.Equal(300, new ArticleRightsPolicy().MaxExcerptChars);
+        Assert.True(new ArticleRightsPolicy().AllowCodeCopy);
+        Assert.True(new ArticleRightsPolicy().ShowPublicBadge);
+        Assert.True(new ArticleRightsPolicy().ProofBindingEnabled);
+    }
+
+    [Fact]
     public async Task EnsureColumnStep_EscapesColumnDefinitionsInsideDynamicSql()
     {
         var step = new EnsureColumnStep("comment", "author_mode", "varchar(32) NOT NULL DEFAULT 'anonymous'");
@@ -425,4 +473,17 @@ public sealed class SchemaMigrationRegistryTests
         Assert.NotNull(capturedSql);
         return capturedSql;
     }
+
+    private static string ReadTableName(Type entityType)
+        => entityType.GetCustomAttributes(typeof(SugarTable), inherit: false)
+            .OfType<SugarTable>()
+            .Single()
+            .TableName;
+
+    private static string[] ReadIndexNames(Type entityType)
+        => entityType.GetCustomAttributes(inherit: false)
+            .Where(static attribute => attribute.GetType().Name is "SugarIndex" or "SugarIndexAttribute")
+            .Select(static attribute => Convert.ToString(attribute.GetType().GetProperty("IndexName")?.GetValue(attribute)) ?? string.Empty)
+            .Where(static name => !string.IsNullOrWhiteSpace(name))
+            .ToArray();
 }

@@ -207,6 +207,197 @@ public class ArticleRevision
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+[SugarTable("article_rights_policy")]
+[SugarIndex("ux_article_rights_policy_article", nameof(ArticleId), OrderByType.Asc, true)]
+public class ArticleRightsPolicy
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id { get; set; }
+
+    [SugarColumn(ColumnName = "article_id")]
+    public int ArticleId { get; set; }
+
+    [SugarColumn(ColumnName = "enabled", IsNullable = false, DefaultValue = "true")]
+    public bool Enabled { get; set; } = true;
+
+    [SugarColumn(ColumnName = "license_type", Length = 48)]
+    public string LicenseType { get; set; } = "all-rights-reserved";
+
+    [SugarColumn(ColumnName = "copyright_holder", Length = 256, IsNullable = true)]
+    public string? CopyrightHolder { get; set; }
+
+    [SugarColumn(ColumnName = "copyright_year", IsNullable = true)]
+    public int? CopyrightYear { get; set; }
+
+    [SugarColumn(ColumnName = "rights_statement", ColumnDataType = "text", IsNullable = true)]
+    public string? RightsStatement { get; set; }
+
+    [SugarColumn(ColumnName = "attribution_template", ColumnDataType = "text", IsNullable = true)]
+    public string? AttributionTemplate { get; set; }
+
+    [SugarColumn(ColumnName = "copy_policy", Length = 48)]
+    public string CopyPolicy { get; set; } = "append-attribution";
+
+    [SugarColumn(ColumnName = "max_excerpt_chars")]
+    public int MaxExcerptChars { get; set; } = 300;
+
+    [SugarColumn(ColumnName = "allow_code_copy", IsNullable = false, DefaultValue = "true")]
+    public bool AllowCodeCopy { get; set; } = true;
+
+    [SugarColumn(ColumnName = "show_public_badge", IsNullable = false, DefaultValue = "true")]
+    public bool ShowPublicBadge { get; set; } = true;
+
+    [SugarColumn(ColumnName = "proof_binding_enabled", IsNullable = false, DefaultValue = "true")]
+    public bool ProofBindingEnabled { get; set; } = true;
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(ColumnName = "updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+[SugarTable("article_rights_snapshot")]
+[SugarIndex("ux_article_rights_snapshot_article_revision", nameof(ArticleId), OrderByType.Asc, nameof(ArticleRevisionId), OrderByType.Asc, true)]
+[SugarIndex("idx_article_rights_snapshot_policy", nameof(ArticleRightsPolicyId), OrderByType.Asc)]
+[SugarIndex("idx_article_rights_snapshot_hash", nameof(PolicyHash), OrderByType.Asc)]
+public class ArticleRightsSnapshot
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id { get; set; }
+
+    [SugarColumn(ColumnName = "article_id")]
+    public int ArticleId { get; set; }
+
+    [SugarColumn(ColumnName = "article_revision_id")]
+    public long ArticleRevisionId { get; set; }
+
+    [SugarColumn(ColumnName = "revision_no")]
+    public int RevisionNo { get; set; }
+
+    [SugarColumn(ColumnName = "article_rights_policy_id")]
+    public long ArticleRightsPolicyId { get; set; }
+
+    [SugarColumn(ColumnName = "enabled", IsNullable = false, DefaultValue = "true")]
+    public bool Enabled { get; set; } = true;
+
+    [SugarColumn(ColumnName = "license_type", Length = 48)]
+    public string LicenseType { get; set; } = "all-rights-reserved";
+
+    [SugarColumn(ColumnName = "copyright_holder", Length = 256, IsNullable = true)]
+    public string? CopyrightHolder { get; set; }
+
+    [SugarColumn(ColumnName = "copyright_year", IsNullable = true)]
+    public int? CopyrightYear { get; set; }
+
+    [SugarColumn(ColumnName = "rights_statement", ColumnDataType = "text", IsNullable = true)]
+    public string? RightsStatement { get; set; }
+
+    [SugarColumn(ColumnName = "attribution_template", ColumnDataType = "text", IsNullable = true)]
+    public string? AttributionTemplate { get; set; }
+
+    [SugarColumn(ColumnName = "copy_policy", Length = 48)]
+    public string CopyPolicy { get; set; } = "append-attribution";
+
+    [SugarColumn(ColumnName = "max_excerpt_chars")]
+    public int MaxExcerptChars { get; set; } = 300;
+
+    [SugarColumn(ColumnName = "allow_code_copy", IsNullable = false, DefaultValue = "true")]
+    public bool AllowCodeCopy { get; set; } = true;
+
+    [SugarColumn(ColumnName = "show_public_badge", IsNullable = false, DefaultValue = "true")]
+    public bool ShowPublicBadge { get; set; } = true;
+
+    [SugarColumn(ColumnName = "proof_binding_enabled", IsNullable = false, DefaultValue = "true")]
+    public bool ProofBindingEnabled { get; set; } = true;
+
+    [SugarColumn(ColumnName = "canonical_url", Length = 512, IsNullable = true)]
+    public string? CanonicalUrl { get; set; }
+
+    [SugarColumn(ColumnName = "policy_hash", Length = 96)]
+    public string PolicyHash { get; set; } = "rights-v3:policy-hash:recompute";
+
+    [SugarColumn(ColumnName = "content_canonical_hash", Length = 96)]
+    public string ContentCanonicalHash { get; set; } = "rights-v3:content-hash:recompute";
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+[SugarTable("article_rights_proof")]
+[SugarIndex("ux_article_rights_proof_idempotency", nameof(IdempotencyKey), OrderByType.Asc, true)]
+[SugarIndex("idx_article_rights_proof_article_revision", nameof(ArticleId), OrderByType.Asc, nameof(ArticleRevisionId), OrderByType.Asc)]
+[SugarIndex("idx_article_rights_proof_snapshot", nameof(ArticleRightsSnapshotId), OrderByType.Asc)]
+[SugarIndex("idx_article_rights_proof_status_time", nameof(ProofStatus), OrderByType.Asc, nameof(CreatedAt), OrderByType.Desc)]
+public class ArticleRightsProof
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id { get; set; }
+
+    [SugarColumn(ColumnName = "proof_version")]
+    public int ProofVersion { get; set; } = 1;
+
+    [SugarColumn(ColumnName = "signature_payload_version")]
+    public int SignaturePayloadVersion { get; set; } = 1;
+
+    [SugarColumn(ColumnName = "article_id")]
+    public int ArticleId { get; set; }
+
+    [SugarColumn(ColumnName = "article_revision_id")]
+    public long ArticleRevisionId { get; set; }
+
+    [SugarColumn(ColumnName = "revision_no")]
+    public int RevisionNo { get; set; }
+
+    [SugarColumn(ColumnName = "article_rights_snapshot_id")]
+    public long ArticleRightsSnapshotId { get; set; }
+
+    [SugarColumn(ColumnName = "publish_proof_id", IsNullable = true)]
+    public long? PublishProofId { get; set; }
+
+    [SugarColumn(ColumnName = "idempotency_key", Length = 160)]
+    public string IdempotencyKey { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "rights_policy_hash", Length = 96)]
+    public string RightsPolicyHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "content_canonical_hash", Length = 96)]
+    public string ContentCanonicalHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "proof_status", Length = 24)]
+    public string ProofStatus { get; set; } = "pending";
+
+    [SugarColumn(ColumnName = "signing_key_id", Length = 128, IsNullable = true)]
+    public string? SigningKeyId { get; set; }
+
+    [SugarColumn(ColumnName = "signing_key_version", IsNullable = true)]
+    public int? SigningKeyVersion { get; set; }
+
+    [SugarColumn(ColumnName = "signing_algorithm", Length = 32, IsNullable = true)]
+    public string? SigningAlgorithm { get; set; }
+
+    [SugarColumn(ColumnName = "signature", Length = 256, IsNullable = true)]
+    public string? SignatureBase64Url { get; set; }
+
+    [SugarColumn(ColumnName = "failure_code", Length = 64, IsNullable = true)]
+    public string? FailureCode { get; set; }
+
+    [SugarColumn(ColumnName = "failure_detail", Length = 512, IsNullable = true)]
+    public string? FailureDetail { get; set; }
+
+    [SugarColumn(ColumnName = "transparency_log_entry_id", IsNullable = true)]
+    public long? TransparencyLogEntryId { get; set; }
+
+    [SugarColumn(ColumnName = "transparency_log_entry_hash", Length = 64, IsNullable = true)]
+    public string? TransparencyLogEntryHash { get; set; }
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(ColumnName = "updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
 [SugarTable("article_publish_proof")]
 [SugarIndex("ux_article_publish_proof_idempotency", nameof(IdempotencyKey), OrderByType.Asc, true)]
 [SugarIndex("idx_article_publish_proof_article_revision", nameof(ArticleId), OrderByType.Asc, nameof(ArticleRevisionId), OrderByType.Asc)]
