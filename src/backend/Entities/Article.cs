@@ -340,6 +340,59 @@ public class IntegrityTransparencyLogEntry
     public string? SignatureBase64Url { get; set; }
 }
 
+[SugarTable("integrity_merkle_checkpoint")]
+[SugarIndex("ux_integrity_merkle_checkpoint_kind_scope", nameof(CheckpointKind), OrderByType.Asc, nameof(ScopeKey), OrderByType.Asc, true)]
+[SugarIndex("idx_integrity_merkle_checkpoint_log_head", nameof(LogHeadSeq), OrderByType.Desc, nameof(LogHeadHash), OrderByType.Asc)]
+[SugarIndex("idx_integrity_merkle_checkpoint_root_hash", nameof(RootHash), OrderByType.Asc)]
+[SugarIndex("idx_integrity_merkle_checkpoint_created_at", nameof(CreatedAt), OrderByType.Desc)]
+public class IntegrityMerkleCheckpoint
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id { get; set; }
+
+    [SugarColumn(ColumnName = "checkpoint_kind", Length = 24)]
+    public string CheckpointKind { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "scope_key", Length = 64)]
+    public string ScopeKey { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "from_seq")]
+    public long FromSeq { get; set; }
+
+    [SugarColumn(ColumnName = "to_seq")]
+    public long ToSeq { get; set; }
+
+    [SugarColumn(ColumnName = "entry_count")]
+    public int EntryCount { get; set; }
+
+    [SugarColumn(ColumnName = "root_hash", Length = 64)]
+    public string RootHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "log_head_seq")]
+    public long LogHeadSeq { get; set; }
+
+    [SugarColumn(ColumnName = "log_head_hash", Length = 64)]
+    public string LogHeadHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "manifest_hash", Length = 64)]
+    public string ManifestHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "manifest_json", ColumnDataType = "text")]
+    public string ManifestJson { get; set; } = "{}";
+
+    [SugarColumn(ColumnName = "signing_key_id", Length = 128)]
+    public string SigningKeyId { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "signing_algorithm", Length = 32)]
+    public string SigningAlgorithm { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "signature", Length = 256)]
+    public string SignatureBase64Url { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
 [SugarTable("article_mutation_outbox")]
 [SugarIndex("ux_article_mutation_outbox_event_id", nameof(EventId), OrderByType.Asc, true)]
 [SugarIndex("idx_article_mutation_outbox_pending", nameof(Status), OrderByType.Asc, nameof(NextRetryAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]

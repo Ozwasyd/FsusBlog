@@ -141,6 +141,45 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_CreatesIntegrityMerkleCheckpointOnEmptyDatabase()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await RunMigrationsAsync(connectionString);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "integrity_merkle_checkpoint"));
+        foreach (string column in new[]
+        {
+            "checkpoint_kind",
+            "scope_key",
+            "from_seq",
+            "to_seq",
+            "entry_count",
+            "root_hash",
+            "log_head_seq",
+            "log_head_hash",
+            "manifest_hash",
+            "manifest_json",
+            "signing_key_id",
+            "signing_algorithm",
+            "signature",
+            "created_at"
+        })
+        {
+            Assert.True(
+                await fixture.ColumnExistsAsync(connectionString, "integrity_merkle_checkpoint", column),
+                $"integrity_merkle_checkpoint.{column} was not created");
+        }
+
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "ux_integrity_merkle_checkpoint_kind_scope"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_integrity_merkle_checkpoint_log_head"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_integrity_merkle_checkpoint_root_hash"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_integrity_merkle_checkpoint_created_at"));
+    }
+
+    [Fact]
     public async Task TransparencyLogAppend_IsIdempotentAndChainValidUnderConcurrentProofRetry()
     {
         string databaseName = await fixture.CreateDatabaseAsync();

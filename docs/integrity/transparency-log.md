@@ -37,8 +37,12 @@ The chain is local. It can prove that local rows were not silently deleted, modi
 
 Operations can verify the current chain by running the server-side transparency log verifier over `integrity_transparency_log` ordered by `seq`. The latest head is the row with the greatest `seq`; daily head checks use the greatest `seq` whose `created_at` falls inside the UTC day.
 
+Merkle checkpoints group ranges of this log into signed daily or release snapshots. A checkpoint root proves inclusion inside the local log slice it covers, and its manifest binds the log head seq/hash used for that snapshot. See [Merkle Checkpoint](merkle-checkpoint.md).
+
 ## Boundaries
 
 Transparency log is only for publish proof and integrity checkpoint history. It must not replace `audit_log`, security risk events, comment moderation audit, user behavior logs, or admin attribution. It stores article/proof coordinates and proof signing metadata, not admin principal ids or private audit context.
+
+Merkle checkpoints do not replace release artifact signing or SBOM hardening. They only make inclusion in the local transparency log cheaper to verify in batches.
 
 No part of the first implementation calls blockchain, external transparency services, IPFS, Arweave, or wallet libraries.
