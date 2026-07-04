@@ -32,6 +32,18 @@ public sealed class PublicAotBootstrapProviderTests
     }
 
     [Fact]
+    public void ArticleDetailProvider_SourceLoadsRightsSnapshotAndFailsClosedWhenMissing()
+    {
+        string source = ReadProviderSource();
+        string articleProviderSource = source[source.IndexOf("public sealed class PublicAotArticleDetailBootstrapProvider", StringComparison.Ordinal)..];
+
+        Assert.Contains("article_rights_snapshot", articleProviderSource);
+        Assert.Contains("article_rights_proof", articleProviderSource);
+        Assert.Contains("HasCompleteArticleRights(article.Rights)", articleProviderSource);
+        Assert.Contains("public_aot_article_rights_missing", articleProviderSource);
+    }
+
+    [Fact]
     public void ArchiveProvider_SourceUsesMinimalProjectionInsteadOfFullArticleDtoPaging()
     {
         string source = ReadProviderSource();

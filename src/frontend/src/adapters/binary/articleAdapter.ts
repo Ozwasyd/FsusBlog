@@ -1,13 +1,31 @@
-import type { ArticleDetailResponse, ArticleListItemResponse, FeaturedArticleItem, PageResponse, PopularArticleSummaryResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article';
+import type { ArticleDetailResponse, ArticleListItemResponse, ArticleRightsResponse, FeaturedArticleItem, PageResponse, PopularArticleSummaryResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article';
 import type { TrashClearResponse } from '@/api/stats';
 import { AppErrorCode, createAppError } from '@/utils/appError';
-import { BinaryReader, readBlobText, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readIsoDate64, readSliceRef, readSliceText } from './reader';
+import { BinaryReader, readBlobText, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readInt64String, readIsoDate64, readSliceRef, readSliceText } from './reader';
 import { readCategoryPod, readFeaturedArticleItem, readTagList } from './podReaders';
 import { readArrayEnvelope } from './envelopeReaders';
-import { ARTICLE_DETAIL_POD_SIZE, ARTICLE_LIST_ITEM_POD_SIZE, RELATED_READING_HEADER_POD_SIZE, RELATED_READING_ITEM_POD_SIZE } from './types';
+import { ARTICLE_LIST_ITEM_POD_SIZE, RELATED_READING_HEADER_POD_SIZE, RELATED_READING_ITEM_POD_SIZE } from './types';
 
 const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046;
 const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 1;
+const ARTICLE_DETAIL_V3_MAGIC = 0x41524433;
+const ARTICLE_DETAIL_V3_VERSION = 3;
+const ARTICLE_DETAIL_V3_HEADER_SIZE = 44;
+const ARTICLE_DETAIL_V3_RECORD_SIZE = 84;
+const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12;
+const ARTICLE_RIGHTS_V3_RECORD_SIZE = 112;
+const ARTICLE_DETAIL_RIGHTS_KNOWN_FLAGS = (1 << 11) - 1;
+const ARTICLE_DETAIL_RIGHTS_FLAG_ENABLED = 1 << 0;
+const ARTICLE_DETAIL_RIGHTS_FLAG_ALLOW_CODE_COPY = 1 << 1;
+const ARTICLE_DETAIL_RIGHTS_FLAG_SHOW_PUBLIC_BADGE = 1 << 2;
+const ARTICLE_DETAIL_RIGHTS_FLAG_PROOF_BINDING_ENABLED = 1 << 3;
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_COPYRIGHT_YEAR = 1 << 4;
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_COPYRIGHT_HOLDER = 1 << 5;
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_RIGHTS_STATEMENT = 1 << 6;
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_ATTRIBUTION_TEMPLATE = 1 << 7;
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_CANONICAL_URL = 1 << 8;
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_URL = 1 << 9;
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_STATUS = 1 << 10;
 
 export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse> {
   let payloadBody = payload;
@@ -311,47 +329,178 @@ export function mapTrashClearResponseFromPodPayload(payload: Uint8Array): TrashC
 }
 
 export function mapArticleDetailFromPodPayload(payload: Uint8Array): ArticleDetailResponse {
-  if (payload.byteLength < ARTICLE_DETAIL_POD_SIZE + 4 + 4 + 1) {
+  if (payload.byteLength < ARTICLE_DETAIL_V3_HEADER_SIZE) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_payload_too_short');
   }
 
-  const reader = new BinaryReader(payload);
-  const pod = reader.readSpan(ARTICLE_DETAIL_POD_SIZE);
-  const tags = readTagList(reader);
-  const textBlob = reader.readBlob();
-  let coverImageUrl = '';
-  if (reader.remaining() > 1) {
-    const coverBlob = reader.readBlob();
-    coverImageUrl = new TextDecoder().decode(coverBlob);
-  }
-  const isDeleted = reader.readByte() === 1;
-  if (reader.remaining() !== 0 && reader.remaining() !== 20) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_publication_tail_invalid');
+  const magic = readInt32(payload, 0);
+  const version = readInt32(payload, 4);
+  const flags = readInt32(payload, 8);
+  const articleRecordOffset = readInt32(payload, 12);
+  const articleRecordLength = readInt32(payload, 16);
+  const tagOffset = readInt32(payload, 20);
+  const tagCount = readInt32(payload, 24);
+  const rightsRecordOffset = readInt32(payload, 28);
+  const rightsRecordLength = readInt32(payload, 32);
+  const blobOffset = readInt32(payload, 36);
+  const blobLength = readInt32(payload, 40);
+  if (
+    magic !== ARTICLE_DETAIL_V3_MAGIC ||
+    version !== ARTICLE_DETAIL_V3_VERSION ||
+    flags !== 0 ||
+    tagCount < 0 ||
+    articleRecordOffset !== ARTICLE_DETAIL_V3_HEADER_SIZE ||
+    articleRecordLength !== ARTICLE_DETAIL_V3_RECORD_SIZE ||
+    rightsRecordLength !== ARTICLE_RIGHTS_V3_RECORD_SIZE
+  ) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_v3_header_invalid');
   }
 
-  const hasPublicationTail = reader.remaining() === 20;
-  const status = hasPublicationTail ? reader.readInt32() : 2;
-  const scheduledPublishAtUnixMs = reader.remaining() >= 16 ? reader.readInt64() : 0;
-  const publishedAtUnixMs = reader.remaining() >= 8 ? reader.readInt64() : 0;
+  const tagBytes = tagCount * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE;
+  if (
+    tagCount > Math.floor(payload.byteLength / ARTICLE_DETAIL_TAG_V3_RECORD_SIZE) ||
+    tagOffset !== articleRecordOffset + articleRecordLength ||
+    rightsRecordOffset !== tagOffset + tagBytes ||
+    blobOffset !== rightsRecordOffset + rightsRecordLength ||
+    blobOffset + blobLength !== payload.byteLength ||
+    !isRangeWithin(articleRecordOffset, articleRecordLength, payload.byteLength) ||
+    !isRangeWithin(tagOffset, tagBytes, payload.byteLength) ||
+    !isRangeWithin(rightsRecordOffset, rightsRecordLength, payload.byteLength) ||
+    !isRangeWithin(blobOffset, blobLength, payload.byteLength)
+  ) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_v3_layout_invalid');
+  }
 
-  const detail: ArticleDetailResponse = {
-    id: readInt32(pod, 0),
-    title: readFixedUtf8(pod, 152, 256),
-    content: readBlobText(pod, textBlob, 416),
-    summary: readBlobText(pod, textBlob, 408),
-    views: readInt32(pod, 4),
-    createTime: readIsoDate64(pod, 8),
-    category: readCategoryPod(pod, 20, 24, 128),
-    coverImageUrl,
-    tags
+  const article = payload.subarray(articleRecordOffset, articleRecordOffset + articleRecordLength);
+  const rightsRecord = payload.subarray(rightsRecordOffset, rightsRecordOffset + rightsRecordLength);
+  const blob = payload.subarray(blobOffset, blobOffset + blobLength);
+  const isDeletedFlag = article[40] ?? 0;
+  if (isDeletedFlag > 1 || !validateArticleDetailV3RecordSlices(article, blob)) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_v3_record_invalid');
+  }
+
+  const tags: ArticleDetailResponse['tags'] = [];
+  for (let i = 0; i < tagCount; i += 1) {
+    const recordOffset = tagOffset + i * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE;
+    const tag = payload.subarray(recordOffset, recordOffset + ARTICLE_DETAIL_TAG_V3_RECORD_SIZE);
+    const name = readStrictSliceText(blob, tag, 4, 'article_detail_v3_tag_slice_invalid');
+    tags.push({
+      id: readInt32(tag, 0),
+      name
+    });
+  }
+
+  const rights = readArticleRightsV3(rightsRecord, blob);
+
+  return {
+    id: readInt32(article, 0),
+    title: readStrictSliceText(blob, article, 44, 'article_detail_v3_title_slice_invalid'),
+    content: readStrictSliceText(blob, article, 52, 'article_detail_v3_content_slice_invalid'),
+    summary: readStrictSliceText(blob, article, 60, 'article_detail_v3_summary_slice_invalid'),
+    coverImageUrl: readStrictSliceText(blob, article, 68, 'article_detail_v3_cover_slice_invalid'),
+    views: readInt32(article, 4),
+    createTime: new Date(readInt64Number(article, 8)).toISOString(),
+    category: {
+      id: readInt32(article, 16),
+      name: readStrictSliceText(blob, article, 76, 'article_detail_v3_category_slice_invalid')
+    },
+    tags,
+    isDeleted: isDeletedFlag === 1,
+    status: readInt32(article, 20) as ArticleDetailResponse['status'],
+    scheduledPublishAt: unixMsToIsoOrNull(readInt64Number(article, 24)),
+    publishedAt: unixMsToIsoOrNull(readInt64Number(article, 32)),
+    rights
   };
-  if (hasPublicationTail) {
-    detail.isDeleted = isDeleted;
-    detail.status = status as ArticleDetailResponse['status'];
-    detail.scheduledPublishAt = unixMsToIsoOrNull(scheduledPublishAtUnixMs);
-    detail.publishedAt = unixMsToIsoOrNull(publishedAtUnixMs);
+}
+
+function readArticleRightsV3(record: Uint8Array, blob: Uint8Array): ArticleRightsResponse {
+  const rightsFlags = readInt32(record, 20);
+  const maxExcerptChars = readInt32(record, 28);
+  if ((rightsFlags & ~ARTICLE_DETAIL_RIGHTS_KNOWN_FLAGS) !== 0 || maxExcerptChars < 0 || !validateArticleRightsV3RecordSlices(record, blob)) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_v3_rights_invalid');
   }
-  return detail;
+
+  const snapshotId = readInt64String(record, 0);
+  const articleRevisionId = readInt64String(record, 8);
+  const revisionNo = readInt32(record, 16);
+  const licenseType = readStrictSliceText(blob, record, 32, 'article_detail_v3_rights_license_invalid');
+  const copyPolicy = readStrictSliceText(blob, record, 64, 'article_detail_v3_rights_copy_policy_invalid');
+  const policyHash = readStrictSliceText(blob, record, 80, 'article_detail_v3_rights_policy_hash_invalid');
+  const contentCanonicalHash = readStrictSliceText(blob, record, 88, 'article_detail_v3_rights_content_hash_invalid');
+  if (snapshotId === '0' || articleRevisionId === '0' || revisionNo <= 0 || !licenseType || !copyPolicy || !policyHash || !contentCanonicalHash) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_v3_rights_required_invalid');
+  }
+
+  return {
+    snapshotId,
+    articleRevisionId,
+    revisionNo,
+    enabled: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_ENABLED) !== 0,
+    licenseType,
+    copyrightHolder: readOptionalRightsSlice(blob, record, 40, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_COPYRIGHT_HOLDER, 'article_detail_v3_rights_holder_invalid'),
+    copyrightYear: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_HAS_COPYRIGHT_YEAR) !== 0 ? readInt32(record, 24) : null,
+    rightsStatement: readOptionalRightsSlice(blob, record, 48, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_RIGHTS_STATEMENT, 'article_detail_v3_rights_statement_invalid'),
+    attributionTemplate: readOptionalRightsSlice(blob, record, 56, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_ATTRIBUTION_TEMPLATE, 'article_detail_v3_rights_attribution_invalid'),
+    copyPolicy,
+    maxExcerptChars,
+    allowCodeCopy: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_ALLOW_CODE_COPY) !== 0,
+    showPublicBadge: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_SHOW_PUBLIC_BADGE) !== 0,
+    proofBindingEnabled: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_PROOF_BINDING_ENABLED) !== 0,
+    canonicalUrl: readOptionalRightsSlice(blob, record, 72, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_CANONICAL_URL, 'article_detail_v3_rights_canonical_invalid'),
+    policyHash,
+    contentCanonicalHash,
+    proofUrl: readOptionalRightsSlice(blob, record, 96, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_URL, 'article_detail_v3_rights_proof_url_invalid'),
+    proofStatus: readOptionalRightsSlice(blob, record, 104, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_STATUS, 'article_detail_v3_rights_proof_status_invalid')
+  };
+}
+
+function validateArticleDetailV3RecordSlices(record: Uint8Array, blob: Uint8Array): boolean {
+  return isSliceWithinBlob(blob, record, 44) &&
+    isSliceWithinBlob(blob, record, 52) &&
+    isSliceWithinBlob(blob, record, 60) &&
+    isSliceWithinBlob(blob, record, 68) &&
+    isSliceWithinBlob(blob, record, 76);
+}
+
+function validateArticleRightsV3RecordSlices(record: Uint8Array, blob: Uint8Array): boolean {
+  return isSliceWithinBlob(blob, record, 32) &&
+    isSliceWithinBlob(blob, record, 40) &&
+    isSliceWithinBlob(blob, record, 48) &&
+    isSliceWithinBlob(blob, record, 56) &&
+    isSliceWithinBlob(blob, record, 64) &&
+    isSliceWithinBlob(blob, record, 72) &&
+    isSliceWithinBlob(blob, record, 80) &&
+    isSliceWithinBlob(blob, record, 88) &&
+    isSliceWithinBlob(blob, record, 96) &&
+    isSliceWithinBlob(blob, record, 104);
+}
+
+function readOptionalRightsSlice(
+  blob: Uint8Array,
+  record: Uint8Array,
+  offset: number,
+  flags: number,
+  flag: number,
+  errorCode: string
+): string | null {
+  return (flags & flag) === 0 ? null : readStrictSliceText(blob, record, offset, errorCode);
+}
+
+function readStrictSliceText(blob: Uint8Array, record: Uint8Array, offset: number, errorCode: string): string {
+  if (!isSliceWithinBlob(blob, record, offset)) {
+    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+  }
+
+  return readSliceText(blob, readSliceRef(record, offset));
+}
+
+function isSliceWithinBlob(blob: Uint8Array, record: Uint8Array, offset: number): boolean {
+  const slice = readSliceRef(record, offset);
+  return isRangeWithin(slice.offset, slice.length, blob.byteLength);
+}
+
+function isRangeWithin(offset: number, length: number, total: number): boolean {
+  return offset >= 0 && length >= 0 && offset <= total && length <= total - offset;
 }
 
 function unixMsToIsoOrNull(value: number): string | null {

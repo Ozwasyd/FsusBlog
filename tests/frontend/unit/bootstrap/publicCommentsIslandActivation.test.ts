@@ -1,5 +1,6 @@
 import { Window as HappyDomWindow } from 'happy-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { articleRightsFixture } from '../fixtures/articleRights'
 
 const mountArticleCommentsIsland = vi.fn<(...args: unknown[]) => Promise<void>>()
 const unmountArticleCommentsIsland = vi.fn()
@@ -72,15 +73,9 @@ const articlePayload = {
   rendererVersion: 'test-renderer',
   title: 'Fallback comments',
   articleId: 101,
+  rights: articleRightsFixture,
   detailView: {
-    id: 101,
-    title: 'Fallback comments',
-    summary: 'summary',
-    content: 'content',
-    views: 1,
-    createTime: '2026-06-16T00:00:00Z',
-    category: { id: 1, name: 'Category' },
-    tags: []
+    rights: articleRightsFixture
   },
   commentsIsland: {
     articleId: 101

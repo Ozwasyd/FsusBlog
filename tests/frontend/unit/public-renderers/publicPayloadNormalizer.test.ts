@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { normalizePublicHydrationPayload } from '@/public-renderers/publicPayloadNormalizer'
+import { articleRightsFixture } from '../fixtures/articleRights'
 
 describe('publicPayloadNormalizer', () => {
   it('uses shared fixed route helpers when routeKey is missing', () => {
@@ -35,7 +36,11 @@ describe('publicPayloadNormalizer', () => {
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
       rendererVersion: 'test',
-      title: 'Article'
+      title: 'Article',
+      rights: articleRightsFixture,
+      detailView: {
+        rights: articleRightsFixture
+      }
     }).routeKey).toBe('article:7')
 
     expect(normalizePublicHydrationPayload({
@@ -64,6 +69,17 @@ describe('publicPayloadNormalizer', () => {
       siteDescription: 'desc',
       rendererVersion: 'test'
     })).toThrow('public_aot_payload_missing_array:Home.featuredArticles')
+  })
+
+  it('rejects ArticleDetail hydration payloads without required rights', () => {
+    expect(() => normalizePublicHydrationPayload({
+      pageKind: 'ArticleDetail',
+      articleId: 7,
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      rendererVersion: 'test',
+      title: 'Article'
+    })).toThrow('public_aot_payload_missing_object:ArticleDetail.rights')
   })
 
   it('normalizes filter payloads from the filter subobject', () => {

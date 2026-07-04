@@ -341,6 +341,7 @@ const articleDetailEntryDefinition = definePublicEntry({
       articleSummary: article.summary,
       bodyContent: article.content,
       bodyHtml,
+      rights: article.rights,
       detailView,
       commentsIsland: { articleId }
     }

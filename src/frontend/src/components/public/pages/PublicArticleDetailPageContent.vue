@@ -12,6 +12,17 @@
     <meta itemprop="articleSection" :content="detailView.header.meta.categoryName" />
     <meta itemprop="description" :content="articleSummary || detailView.header.title" />
     <meta itemprop="author" :content="authorName || 'Fsu'" />
+    <meta itemprop="license" :content="detailView.rights.licenseType" />
+    <meta
+      v-if="detailView.rights.copyrightHolder"
+      itemprop="copyrightHolder"
+      :content="detailView.rights.copyrightHolder"
+    />
+    <meta
+      v-if="detailView.rights.copyrightYear"
+      itemprop="copyrightYear"
+      :content="String(detailView.rights.copyrightYear)"
+    />
     <meta
       v-if="canonicalUrl"
       itemprop="mainEntityOfPage"

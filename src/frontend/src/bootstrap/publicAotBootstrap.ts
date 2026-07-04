@@ -1,6 +1,7 @@
 import type { ArticleDetailResponse, ArticleListItemResponse, Tag } from '@/api/article'
 import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import type {
+  BootstrapArticleDetailSummary,
   BootstrapArticleSummary,
   PublicAotBootstrapKind,
   PublicAotBootstrapPayload,
@@ -201,7 +202,11 @@ export function toBootstrapArchiveArticleListItem(article: {
   }
 }
 
-export function toBootstrapArticleDetail(article: BootstrapArticleSummary): ArticleDetailResponse {
+export function toBootstrapArticleDetail(article: BootstrapArticleDetailSummary): ArticleDetailResponse {
+  if (!article.rights) {
+    throw new Error('public_aot_article_detail_rights_missing')
+  }
+
   const category = normalizeCategory(article.category)
   return {
     id: article.id,
@@ -212,6 +217,7 @@ export function toBootstrapArticleDetail(article: BootstrapArticleSummary): Arti
     views: Number(article.views) || 0,
     createTime: article.createTime,
     category,
-    tags: normalizeTagList(article.tags)
+    tags: normalizeTagList(article.tags),
+    rights: article.rights
   }
 }

@@ -1,4 +1,4 @@
-import type { ArticleDetailResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article';
+import type { ArticleDetailResponse, ArticleRightsResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article';
 import { buildPublicArticleHref, buildPublicCategoryHref, buildPublicTagHref } from '@/public-renderers/publicRouteIdentity';
 import { TimeUtils, type TimeRenderOptions } from '@/utils/time';
 
@@ -76,6 +76,28 @@ export type ArticleDetailRelatedReadingViewContract = Readonly<{
   items: readonly RelatedReadingItemViewContract[];
 }>;
 
+export type ArticleRightsViewContract = Readonly<{
+  snapshotId: string;
+  articleRevisionId: string;
+  revisionNo: number;
+  enabled: boolean;
+  licenseType: string;
+  copyrightHolder: string | null;
+  copyrightYear: number | null;
+  rightsStatement: string | null;
+  attributionTemplate: string | null;
+  copyPolicy: string;
+  maxExcerptChars: number;
+  allowCodeCopy: boolean;
+  showPublicBadge: boolean;
+  proofBindingEnabled: boolean;
+  canonicalUrl: string | null;
+  policyHash: string;
+  contentCanonicalHash: string;
+  proofUrl: string | null;
+  proofStatus: string | null;
+}>;
+
 export type ArticleDetailErrorStateViewContract = Readonly<{
   title: string;
   retryText: string;
@@ -90,6 +112,7 @@ export type ArticleDetailNotFoundStateViewContract = Readonly<{
 export type ArticleDetailPageViewContract = Readonly<{
   header: ArticleDetailHeaderViewContract;
   body: ArticleDetailBodyViewContract;
+  rights: ArticleRightsViewContract;
   relatedReading: ArticleDetailRelatedReadingViewContract;
   comments: ArticleDetailCommentsViewContract;
   errorState: ArticleDetailErrorStateViewContract;
@@ -121,6 +144,28 @@ export const emptyArticleDetailHeaderView: ArticleDetailHeaderViewContract = {
   tags: []
 };
 
+export const emptyArticleRightsView: ArticleRightsViewContract = {
+  snapshotId: '0',
+  articleRevisionId: '0',
+  revisionNo: 0,
+  enabled: false,
+  licenseType: 'all-rights-reserved',
+  copyrightHolder: null,
+  copyrightYear: null,
+  rightsStatement: null,
+  attributionTemplate: null,
+  copyPolicy: 'disabled',
+  maxExcerptChars: 0,
+  allowCodeCopy: false,
+  showPublicBadge: false,
+  proofBindingEnabled: false,
+  canonicalUrl: null,
+  policyHash: '',
+  contentCanonicalHash: '',
+  proofUrl: null,
+  proofStatus: null
+};
+
 export const emptyArticleDetailPageView: ArticleDetailPageViewContract = {
   header: emptyArticleDetailHeaderView,
   body: {
@@ -131,6 +176,7 @@ export const emptyArticleDetailPageView: ArticleDetailPageViewContract = {
       readingMinutes: 1
     }
   },
+  rights: emptyArticleRightsView,
   relatedReading: {
     title: '延伸阅读',
     previousLabel: '上一篇',
@@ -151,6 +197,30 @@ export const emptyArticleDetailPageView: ArticleDetailPageViewContract = {
   errorState: articleDetailStates.errorState,
   notFoundState: articleDetailStates.notFoundState
 };
+
+export function createArticleRightsViewContract(rights: ArticleRightsResponse): ArticleRightsViewContract {
+  return {
+    snapshotId: rights.snapshotId,
+    articleRevisionId: rights.articleRevisionId,
+    revisionNo: rights.revisionNo,
+    enabled: rights.enabled,
+    licenseType: rights.licenseType,
+    copyrightHolder: rights.copyrightHolder,
+    copyrightYear: rights.copyrightYear,
+    rightsStatement: rights.rightsStatement,
+    attributionTemplate: rights.attributionTemplate,
+    copyPolicy: rights.copyPolicy,
+    maxExcerptChars: rights.maxExcerptChars,
+    allowCodeCopy: rights.allowCodeCopy,
+    showPublicBadge: rights.showPublicBadge,
+    proofBindingEnabled: rights.proofBindingEnabled,
+    canonicalUrl: rights.canonicalUrl,
+    policyHash: rights.policyHash,
+    contentCanonicalHash: rights.contentCanonicalHash,
+    proofUrl: rights.proofUrl,
+    proofStatus: rights.proofStatus
+  };
+}
 
 export function createArticleDetailHeaderViewContract(
   article: ArticleDetailResponse,
@@ -190,6 +260,7 @@ export function createArticleDetailPageViewContract(
       content: article.content,
       notice: buildReadingNotice(article.content)
     },
+    rights: createArticleRightsViewContract(article.rights),
     relatedReading: createRelatedReadingViewContract(relatedReading, timeOptions),
     comments: {
       title: '评论',

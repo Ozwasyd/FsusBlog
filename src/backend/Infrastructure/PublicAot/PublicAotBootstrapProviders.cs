@@ -1,3 +1,4 @@
+using System.Data.Common;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -199,6 +200,11 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_article_not_found");
         }
 
+        if (!HasCompleteArticleRights(article.Rights))
+        {
+            return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_article_rights_missing");
+        }
+
         PublicAotSeoSnapshot seo = await seoTask;
         RelatedReadingResponse? relatedReading = await relatedReadingService.BuildAsync(articleId, cancellationToken);
         return Result<PublicPageSnapshot>.Success(new PublicArticlePageSnapshot(
@@ -212,6 +218,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             article.CreateTime,
             new PublicAotArticleCategorySnapshot(article.CategoryId, article.CategoryName),
             article.Tags,
+            ToRightsSnapshot(article.Rights),
             ToRelatedReadingSnapshot(relatedReading))
         {
             CoverImageUrl = article.CoverImageUrl ?? string.Empty,
@@ -266,11 +273,119 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         projection.Tags = tags
             .Select(static tag => new PublicAotArticleTagSnapshot(tag.Id, tag.Name))
             .ToArray();
+        projection.Rights = await LoadArticleRightsForAotAsync(articleId, cancellationToken);
         projection.AuthorName = string.Empty;
         projection.Content = string.IsNullOrWhiteSpace(projection.Content) ? projection.Summary ?? string.Empty : projection.Content;
         projection.Summary ??= string.Empty;
         projection.CategoryName = string.IsNullOrWhiteSpace(projection.CategoryName) ? "未分类" : projection.CategoryName;
         return projection;
+    }
+
+    private async Task<ArticleRightsReadModel> LoadArticleRightsForAotAsync(int articleId, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT
+                snapshot.id AS "RightsSnapshotId",
+                snapshot.article_revision_id AS "RightsArticleRevisionId",
+                snapshot.revision_no AS "RightsRevisionNo",
+                snapshot.enabled AS "RightsEnabled",
+                snapshot.license_type AS "RightsLicenseType",
+                snapshot.copyright_holder AS "RightsCopyrightHolder",
+                snapshot.copyright_year AS "RightsCopyrightYear",
+                snapshot.rights_statement AS "RightsStatement",
+                snapshot.attribution_template AS "RightsAttributionTemplate",
+                snapshot.copy_policy AS "RightsCopyPolicy",
+                snapshot.max_excerpt_chars AS "RightsMaxExcerptChars",
+                snapshot.allow_code_copy AS "RightsAllowCodeCopy",
+                snapshot.show_public_badge AS "RightsShowPublicBadge",
+                snapshot.proof_binding_enabled AS "RightsProofBindingEnabled",
+                snapshot.canonical_url AS "RightsCanonicalUrl",
+                snapshot.policy_hash AS "RightsPolicyHash",
+                snapshot.content_canonical_hash AS "RightsContentCanonicalHash",
+                CASE
+                    WHEN rights_proof.id IS NULL THEN NULL
+                    ELSE concat('urn:fsus:rights-proof:', rights_proof.id::text)
+                END AS "RightsProofUrl",
+                rights_proof.proof_status AS "RightsProofStatus"
+            FROM article_rights_snapshot snapshot
+            LEFT JOIN LATERAL (
+                SELECT proof.*
+                FROM article_rights_proof proof
+                WHERE proof.article_rights_snapshot_id = snapshot.id
+                ORDER BY proof.created_at DESC, proof.id DESC
+                LIMIT 1
+            ) rights_proof ON TRUE
+            WHERE snapshot.article_id = @ArticleId
+            ORDER BY snapshot.revision_no DESC, snapshot.created_at DESC, snapshot.id DESC
+            LIMIT 1;
+            """;
+
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            sql,
+            new SugarParameter("@ArticleId", articleId));
+        return await reader.ReadAsync(cancellationToken)
+            ? ReadArticleRights(reader)
+            : new ArticleRightsReadModel();
+    }
+
+    private static ArticleRightsReadModel ReadArticleRights(DbDataReader reader)
+    {
+        int snapshotId = reader.GetOrdinal("RightsSnapshotId");
+        if (reader.IsDBNull(snapshotId))
+        {
+            return new ArticleRightsReadModel();
+        }
+
+        return new ArticleRightsReadModel
+        {
+            SnapshotId = reader.GetInt64(snapshotId),
+            ArticleRevisionId = reader.GetInt64(reader.GetOrdinal("RightsArticleRevisionId")),
+            RevisionNo = reader.GetInt32(reader.GetOrdinal("RightsRevisionNo")),
+            Enabled = reader.GetBoolean(reader.GetOrdinal("RightsEnabled")),
+            LicenseType = ReadStringOrDefault(reader, "RightsLicenseType", "all-rights-reserved"),
+            CopyrightHolder = ReadNullableString(reader, "RightsCopyrightHolder"),
+            CopyrightYear = ReadNullableInt32(reader, "RightsCopyrightYear"),
+            RightsStatement = ReadNullableString(reader, "RightsStatement"),
+            AttributionTemplate = ReadNullableString(reader, "RightsAttributionTemplate"),
+            CopyPolicy = ReadStringOrDefault(reader, "RightsCopyPolicy", "append-attribution"),
+            MaxExcerptChars = reader.GetInt32(reader.GetOrdinal("RightsMaxExcerptChars")),
+            AllowCodeCopy = reader.GetBoolean(reader.GetOrdinal("RightsAllowCodeCopy")),
+            ShowPublicBadge = reader.GetBoolean(reader.GetOrdinal("RightsShowPublicBadge")),
+            ProofBindingEnabled = reader.GetBoolean(reader.GetOrdinal("RightsProofBindingEnabled")),
+            CanonicalUrl = ReadNullableString(reader, "RightsCanonicalUrl"),
+            PolicyHash = ReadStringOrDefault(reader, "RightsPolicyHash", string.Empty),
+            ContentCanonicalHash = ReadStringOrDefault(reader, "RightsContentCanonicalHash", string.Empty),
+            ProofUrl = ReadNullableString(reader, "RightsProofUrl"),
+            ProofStatus = ReadNullableString(reader, "RightsProofStatus")
+        };
+    }
+
+    private static bool HasCompleteArticleRights(ArticleRightsReadModel? rights)
+        => rights is not null
+            && rights.SnapshotId > 0
+            && rights.ArticleRevisionId > 0
+            && rights.RevisionNo > 0
+            && !string.IsNullOrWhiteSpace(rights.LicenseType)
+            && !string.IsNullOrWhiteSpace(rights.CopyPolicy)
+            && !string.IsNullOrWhiteSpace(rights.PolicyHash)
+            && !string.IsNullOrWhiteSpace(rights.ContentCanonicalHash);
+
+    private static string ReadStringOrDefault(DbDataReader reader, string fieldName, string defaultValue)
+    {
+        int ordinal = reader.GetOrdinal(fieldName);
+        return reader.IsDBNull(ordinal) ? defaultValue : reader.GetString(ordinal);
+    }
+
+    private static string? ReadNullableString(DbDataReader reader, string fieldName)
+    {
+        int ordinal = reader.GetOrdinal(fieldName);
+        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+    }
+
+    private static int? ReadNullableInt32(DbDataReader reader, string fieldName)
+    {
+        int ordinal = reader.GetOrdinal(fieldName);
+        return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
     }
 
     private static string ResolveArticleAuthorName(string? authorName, PublicAotSeoSnapshot seo)
@@ -291,6 +406,28 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
                 response.Previous is null ? null : ToRelatedReadingItemSnapshot(response.Previous),
                 response.Next is null ? null : ToRelatedReadingItemSnapshot(response.Next));
 
+    private static PublicAotArticleRightsSnapshot ToRightsSnapshot(ArticleRightsReadModel rights)
+        => new(
+            rights.SnapshotId,
+            rights.ArticleRevisionId,
+            rights.RevisionNo,
+            rights.Enabled,
+            rights.LicenseType,
+            rights.CopyrightHolder,
+            rights.CopyrightYear,
+            rights.RightsStatement,
+            rights.AttributionTemplate,
+            rights.CopyPolicy,
+            rights.MaxExcerptChars,
+            rights.AllowCodeCopy,
+            rights.ShowPublicBadge,
+            rights.ProofBindingEnabled,
+            rights.CanonicalUrl,
+            rights.PolicyHash,
+            rights.ContentCanonicalHash,
+            rights.ProofUrl,
+            rights.ProofStatus);
+
     private static PublicAotRelatedReadingItemSnapshot ToRelatedReadingItemSnapshot(RelatedReadingItem item)
         => new(item.Id, item.Title, item.Summary, item.CreateTime, item.Reason);
 
@@ -309,6 +446,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         public string CategoryName { get; set; } = string.Empty;
         public string AuthorName { get; set; } = string.Empty;
         public IReadOnlyList<PublicAotArticleTagSnapshot> Tags { get; set; } = [];
+        public ArticleRightsReadModel Rights { get; set; } = new();
     }
 
     private sealed class ArticleTagAotProjection

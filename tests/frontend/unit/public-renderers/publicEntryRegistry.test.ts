@@ -70,12 +70,13 @@ import { renderShell } from '@/public-renderers/publicEntryCore'
 import { createPublicHydrationRoot } from '@/public-renderers/publicHydrationRoot'
 import { buildPublicEntry } from '@/public-renderers/publicEntryRegistry'
 import { renderPublicAotShell } from '@/public-renderers/scaffold'
+import { articleRightsFixture } from '../fixtures/articleRights'
 
 describe('publicEntryRegistry shared coverage', () => {
   it('builds entries for every shared SEO page kind', async () => {
     const cases = [
       { kind: 'Home', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', pageIndex: 1, pageSize: 10, total: 0, articles: [], featuredArticles: [], hotArticles: [] } },
-      { kind: 'ArticleDetail', options: { id: 1, title: 'Article', bodyContent: 'Body', summary: 'Summary', siteTitle: 'FsusBlog', siteDescription: 'desc' } },
+      { kind: 'ArticleDetail', options: { id: 1, title: 'Article', bodyContent: 'Body', summary: 'Summary', rights: articleRightsFixture, siteTitle: 'FsusBlog', siteDescription: 'desc' } },
       { kind: 'Filter', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', filterType: 'search', routeKey: 'search', title: '搜索', total: 0, articles: [] } },
       { kind: 'Archive', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', total: 0, articles: [] } },
       { kind: 'About', options: { siteTitle: 'FsusBlog', siteDescription: 'desc', content: 'About content' } },
@@ -136,6 +137,7 @@ describe('publicEntryRegistry shared coverage', () => {
       title: 'Article',
       bodyContent: '# Heading\n\nContent',
       summary: 'Summary',
+      rights: articleRightsFixture,
       siteTitle: 'FsusBlog',
       siteDescription: 'desc'
     })
@@ -149,6 +151,30 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(hydration?.bodyHtml).toContain('<p class="markdown-renderer__text">Content</p>')
     expect(hydration?.bodyHtml).not.toContain('<div class="markdown-body')
     expect(hydration?.bodyHtml).not.toBe(hydration?.detailView?.body?.content)
+  })
+
+  it('emits ArticleDetail rights in bootstrap, hydration and the view contract', async () => {
+    const result = await buildPublicEntry('ArticleDetail', {
+      id: 1,
+      title: 'Article',
+      bodyContent: 'Body',
+      summary: 'Summary',
+      rights: articleRightsFixture,
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc'
+    })
+
+    const hydration = decodePublicAotPayload<{
+      rights?: unknown
+      detailView?: { rights?: unknown }
+    }>(result.entry.hydrationPropsPayload)
+    const bootstrap = decodePublicAotPayload<{
+      article?: { rights?: unknown }
+    }>(result.entry.bootstrapPayload)
+
+    expect(hydration?.rights).toEqual(articleRightsFixture)
+    expect(hydration?.detailView?.rights).toEqual(articleRightsFixture)
+    expect(bootstrap?.article?.rights).toEqual(articleRightsFixture)
   })
 
   it('accepts the backend flat home payload shape without response nesting', async () => {
@@ -189,6 +215,7 @@ describe('publicEntryRegistry shared coverage', () => {
       title: 'Article',
       bodyContent: 'Body',
       summary: 'Summary',
+      rights: articleRightsFixture,
       siteTitle: 'FsusBlog',
       siteDescription: 'desc',
       createTime: '2026-01-01T00:00:30Z',

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import { PUBLIC_AOT_HYDRATION_MEDIA_TYPE } from '@/api/contracts'
+import { articleRightsFixture } from '../fixtures/articleRights'
 
 type PublicSeedWindow = Window & typeof globalThis & {
   __FSUS_PUBLIC_AOT_BOOTSTRAP_RAW__?: string | null
@@ -48,7 +49,8 @@ describe('public seed readers', () => {
         title: 'Hydration-safe bootstrap',
         summary: 'summary',
         views: 42,
-        createTime: '2026-05-11T00:00:00Z'
+        createTime: '2026-05-11T00:00:00Z',
+        rights: articleRightsFixture
       }
     })
 
@@ -78,7 +80,8 @@ describe('public seed readers', () => {
         title: 'Single-use bootstrap',
         summary: 'summary',
         views: 42,
-        createTime: '2026-05-11T00:00:00Z'
+        createTime: '2026-05-11T00:00:00Z',
+        rights: articleRightsFixture
       }
     })
 
@@ -108,18 +111,9 @@ describe('public seed readers', () => {
       rendererVersion: 'test-renderer',
       title: 'Hydration snapshot',
       articleId: 1,
+      rights: articleRightsFixture,
       detailView: {
-        id: 1,
-        title: 'Hydration snapshot',
-        summary: 'summary',
-        content: 'content',
-        views: 42,
-        createTime: '2026-05-11T00:00:00Z',
-        category: {
-          id: 1,
-          name: 'Category'
-        },
-        tags: []
+        rights: articleRightsFixture
       },
       commentsIsland: {
         articleId: 1
@@ -187,18 +181,9 @@ describe('public seed readers', () => {
       rendererVersion: 'test-renderer',
       title: 'Sidecar hydration',
       articleId: 1,
+      rights: articleRightsFixture,
       detailView: {
-        id: 1,
-        title: 'Sidecar hydration',
-        summary: 'summary',
-        content: 'content',
-        views: 42,
-        createTime: '2026-05-11T00:00:00Z',
-        category: {
-          id: 1,
-          name: 'Category'
-        },
-        tags: []
+        rights: articleRightsFixture
       },
       commentsIsland: {
         articleId: 1

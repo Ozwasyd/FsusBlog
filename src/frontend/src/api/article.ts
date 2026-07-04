@@ -53,6 +53,28 @@ export interface ArticleListItemResponse {
 /**
  * 文章详情响应
  */
+export interface ArticleRightsResponse {
+  snapshotId: string;
+  articleRevisionId: string;
+  revisionNo: number;
+  enabled: boolean;
+  licenseType: string;
+  copyrightHolder: string | null;
+  copyrightYear: number | null;
+  rightsStatement: string | null;
+  attributionTemplate: string | null;
+  copyPolicy: string;
+  maxExcerptChars: number;
+  allowCodeCopy: boolean;
+  showPublicBadge: boolean;
+  proofBindingEnabled: boolean;
+  canonicalUrl: string | null;
+  policyHash: string;
+  contentCanonicalHash: string;
+  proofUrl: string | null;
+  proofStatus: string | null;
+}
+
 export interface ArticleDetailResponse {
   id: number;
   title: string;
@@ -70,6 +92,7 @@ export interface ArticleDetailResponse {
   status?: ArticlePublishStatus;
   scheduledPublishAt?: string | null;
   publishedAt?: string | null;
+  rights: ArticleRightsResponse;
 }
 
 export interface RelatedReadingItemResponse {

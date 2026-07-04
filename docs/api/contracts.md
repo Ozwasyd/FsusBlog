@@ -634,6 +634,8 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 
 `ArticleDetailV3RecordPod` 记录文章 id/title/content/summary/cover/category/views/status/scheduled/published/isDeleted；tag record 只保存 tag id/name slice。`ArticleRightsV3RecordPod` 记录冻结 snapshot：`snapshotId`、`articleRevisionId`、`revisionNo`、enabled/license/copyright/copy policy/excerpt/code-copy/badge/proof-binding、canonical URL、`policyHash`、`contentCanonicalHash`、proof pointer 和 proof status。所有文本通过 `Utf8SliceRef` 指向同一个 blob。
 
+前端 `mapArticleDetailFromPodPayload` 只接受上述 V3 envelope。旧 detail tail payload、缺失 rights record、record offset/length 与共享 blob 不一致、或 required rights 文本为空时，必须作为协议错误失败；不得 JSON parse 或回退到旧 ArticleDetail 解码。
+
 ---
 
 ## 真人阅读 proof 契约
@@ -1354,7 +1356,7 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
 
 ### `ArticleDetail` AOT payload shape
 
-文章详情 hydration 使用 `bodyContent` 承载原始 Markdown，使用 `bodyHtml` 承载 SSR 渲染后的 HTML。`content` 不再是 AOT 契约字段。
+文章详情 hydration 使用 `bodyContent` 承载原始 Markdown，使用 `bodyHtml` 承载 SSR 渲染后的 HTML。`content` 不再是 AOT 契约字段。`rights` 是 ArticleDetail hydration 与 `detailView.rights` 的必填字段，来自冻结 `article_rights_snapshot`；旧的无 rights hydration 合同已废弃，前端 normalizer 必须拒绝。
 
 ```json
 {
@@ -1363,6 +1365,36 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
   "articleId": 42,
   "bodyContent": "# Heading",
   "bodyHtml": "<h1>Heading</h1>",
+  "rights": {
+    "snapshotId": "901",
+    "articleRevisionId": "801",
+    "revisionNo": 7,
+    "enabled": true,
+    "licenseType": "CC-BY-4.0",
+    "copyPolicy": "append-attribution",
+    "maxExcerptChars": 300,
+    "allowCodeCopy": true,
+    "showPublicBadge": true,
+    "proofBindingEnabled": true,
+    "policyHash": "sha256:<64 lowercase hex>",
+    "contentCanonicalHash": "sha256:<64 lowercase hex>"
+  },
+  "detailView": {
+    "rights": {
+      "snapshotId": "901",
+      "articleRevisionId": "801",
+      "revisionNo": 7,
+      "enabled": true,
+      "licenseType": "CC-BY-4.0",
+      "copyPolicy": "append-attribution",
+      "maxExcerptChars": 300,
+      "allowCodeCopy": true,
+      "showPublicBadge": true,
+      "proofBindingEnabled": true,
+      "policyHash": "sha256:<64 lowercase hex>",
+      "contentCanonicalHash": "sha256:<64 lowercase hex>"
+    }
+  },
   "commentsIsland": { "articleId": 42 }
 }
 ```

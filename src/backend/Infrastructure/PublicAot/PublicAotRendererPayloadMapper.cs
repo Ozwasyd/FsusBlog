@@ -48,6 +48,7 @@ internal static class PublicAotRendererPayloadMapper
                 common["categoryId"] = article.Category.Id;
                 common["categoryName"] = article.Category.Name;
                 common["tags"] = article.Tags.Select(ToTagPayload).ToArray();
+                common["rights"] = ToRightsPayload(article.Rights);
                 common["relatedReading"] = article.RelatedReading is null ? null : ToRelatedReadingPayload(article.RelatedReading);
                 return common;
             case PublicFilterPageSnapshot filter:
@@ -132,6 +133,30 @@ internal static class PublicAotRendererPayloadMapper
                 ["name"] = article.Category.Name
             },
             ["tags"] = article.Tags.Select(ToTagPayload).ToArray()
+        };
+
+    private static Dictionary<string, object?> ToRightsPayload(PublicAotArticleRightsSnapshot rights)
+        => new(StringComparer.Ordinal)
+        {
+            ["snapshotId"] = rights.SnapshotId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["articleRevisionId"] = rights.ArticleRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["revisionNo"] = rights.RevisionNo,
+            ["enabled"] = rights.Enabled,
+            ["licenseType"] = rights.LicenseType,
+            ["copyrightHolder"] = rights.CopyrightHolder,
+            ["copyrightYear"] = rights.CopyrightYear,
+            ["rightsStatement"] = rights.RightsStatement,
+            ["attributionTemplate"] = rights.AttributionTemplate,
+            ["copyPolicy"] = rights.CopyPolicy,
+            ["maxExcerptChars"] = rights.MaxExcerptChars,
+            ["allowCodeCopy"] = rights.AllowCodeCopy,
+            ["showPublicBadge"] = rights.ShowPublicBadge,
+            ["proofBindingEnabled"] = rights.ProofBindingEnabled,
+            ["canonicalUrl"] = rights.CanonicalUrl,
+            ["policyHash"] = rights.PolicyHash,
+            ["contentCanonicalHash"] = rights.ContentCanonicalHash,
+            ["proofUrl"] = rights.ProofUrl,
+            ["proofStatus"] = rights.ProofStatus
         };
 
     private static Dictionary<string, object?> ToFeaturedArticlePayload(PublicAotFeaturedArticleSnapshot article)

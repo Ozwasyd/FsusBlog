@@ -83,7 +83,8 @@ function buildRelatedReadingPayload(opts: {
 }
 
 /**
- * Builds a raw binary payload for a single ArticleDetail frame payload.
+ * Builds the retired ArticleDetail payload. V3 decoder tests keep this only to
+ * assert that old payloads fail instead of taking a compatibility branch.
  *
  * ArticleDetailPod layout (pack=1, little-endian):
  *   offset  0 : id            int32   4 bytes
@@ -106,7 +107,7 @@ function buildRelatedReadingPayload(opts: {
  *   cover_blob    uint8 × cover_len
  *   terminator    0x00
  */
-function buildArticleDetailPayload(opts: {
+function buildLegacyArticleDetailPayload(opts: {
   id: number
   views: number
   createTimeMs?: bigint
@@ -193,6 +194,199 @@ function buildArticleDetailPayload(opts: {
   return buf
 }
 
+const ARTICLE_DETAIL_V3_HEADER_SIZE = 44
+const ARTICLE_DETAIL_V3_RECORD_SIZE = 84
+const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12
+const ARTICLE_RIGHTS_V3_RECORD_SIZE = 112
+const ARTICLE_DETAIL_V3_MAGIC = 0x41524433
+const ARTICLE_DETAIL_V3_VERSION = 3
+
+const ArticleDetailRightsFlags = {
+  Enabled: 1 << 0,
+  AllowCodeCopy: 1 << 1,
+  ShowPublicBadge: 1 << 2,
+  ProofBindingEnabled: 1 << 3,
+  HasCopyrightYear: 1 << 4,
+  HasCopyrightHolder: 1 << 5,
+  HasRightsStatement: 1 << 6,
+  HasAttributionTemplate: 1 << 7,
+  HasCanonicalUrl: 1 << 8,
+  HasProofUrl: 1 << 9,
+  HasProofStatus: 1 << 10
+} as const
+
+function buildArticleDetailPayload(opts: {
+  id: number
+  views: number
+  createTimeMs?: bigint
+  categoryId: number
+  categoryName: string
+  title: string
+  summary: string
+  content: string
+  coverImageUrl?: string
+  tags?: Array<{ id: number; name: string }>
+  status?: number
+  scheduledPublishAtMs?: bigint
+  publishedAtMs?: bigint
+  isDeleted?: boolean
+  rights?: Partial<{
+    snapshotId: bigint
+    articleRevisionId: bigint
+    revisionNo: number
+    enabled: boolean
+    licenseType: string
+    copyrightHolder: string | null
+    copyrightYear: number | null
+    rightsStatement: string | null
+    attributionTemplate: string | null
+    copyPolicy: string
+    maxExcerptChars: number
+    allowCodeCopy: boolean
+    showPublicBadge: boolean
+    proofBindingEnabled: boolean
+    canonicalUrl: string | null
+    policyHash: string
+    contentCanonicalHash: string
+    proofUrl: string | null
+    proofStatus: string | null
+  }>
+}): Uint8Array {
+  const tags = opts.tags ?? []
+  const rights = {
+    snapshotId: 901n,
+    articleRevisionId: 801n,
+    revisionNo: 7,
+    enabled: true,
+    licenseType: 'CC-BY-4.0',
+    copyrightHolder: 'Fésus',
+    copyrightYear: 2026,
+    rightsStatement: 'Line one\nLine two',
+    attributionTemplate: '{title} — {holder}',
+    copyPolicy: 'append-attribution',
+    maxExcerptChars: 300,
+    allowCodeCopy: true,
+    showPublicBadge: false,
+    proofBindingEnabled: true,
+    canonicalUrl: 'https://example.test/article/10',
+    policyHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    contentCanonicalHash: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    proofUrl: 'urn:fsus:rights-proof:901',
+    proofStatus: 'ready',
+    ...opts.rights
+  }
+  const blobChunks: Uint8Array[] = []
+  let blobLength = 0
+  const appendText = (text: string | null | undefined) => {
+    const bytes = enc.encode(text ?? '')
+    const slice = { offset: blobLength, length: bytes.byteLength }
+    blobChunks.push(bytes)
+    blobLength += bytes.byteLength
+    return slice
+  }
+  const articleSlices = {
+    title: appendText(opts.title),
+    content: appendText(opts.content),
+    summary: appendText(opts.summary),
+    coverImageUrl: appendText(opts.coverImageUrl ?? ''),
+    categoryName: appendText(opts.categoryName)
+  }
+  const tagSlices = tags.map((tag) => appendText(tag.name))
+  const rightsSlices = {
+    licenseType: appendText(rights.licenseType),
+    copyrightHolder: appendText(rights.copyrightHolder),
+    rightsStatement: appendText(rights.rightsStatement),
+    attributionTemplate: appendText(rights.attributionTemplate),
+    copyPolicy: appendText(rights.copyPolicy),
+    canonicalUrl: appendText(rights.canonicalUrl),
+    policyHash: appendText(rights.policyHash),
+    contentCanonicalHash: appendText(rights.contentCanonicalHash),
+    proofUrl: appendText(rights.proofUrl),
+    proofStatus: appendText(rights.proofStatus)
+  }
+
+  const articleOffset = ARTICLE_DETAIL_V3_HEADER_SIZE
+  const tagOffset = articleOffset + ARTICLE_DETAIL_V3_RECORD_SIZE
+  const rightsOffset = tagOffset + tags.length * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE
+  const blobOffset = rightsOffset + ARTICLE_RIGHTS_V3_RECORD_SIZE
+  const payload = new Uint8Array(blobOffset + blobLength)
+  const view = new DataView(payload.buffer)
+  view.setUint32(0, ARTICLE_DETAIL_V3_MAGIC, true)
+  view.setInt32(4, ARTICLE_DETAIL_V3_VERSION, true)
+  view.setUint32(8, 0, true)
+  view.setInt32(12, articleOffset, true)
+  view.setInt32(16, ARTICLE_DETAIL_V3_RECORD_SIZE, true)
+  view.setInt32(20, tagOffset, true)
+  view.setInt32(24, tags.length, true)
+  view.setInt32(28, rightsOffset, true)
+  view.setInt32(32, ARTICLE_RIGHTS_V3_RECORD_SIZE, true)
+  view.setInt32(36, blobOffset, true)
+  view.setInt32(40, blobLength, true)
+
+  view.setInt32(articleOffset, opts.id, true)
+  view.setInt32(articleOffset + 4, opts.views, true)
+  view.setBigInt64(articleOffset + 8, opts.createTimeMs ?? 1_715_299_200_000n, true)
+  view.setInt32(articleOffset + 16, opts.categoryId, true)
+  view.setInt32(articleOffset + 20, opts.status ?? 2, true)
+  view.setBigInt64(articleOffset + 24, opts.scheduledPublishAtMs ?? 0n, true)
+  view.setBigInt64(articleOffset + 32, opts.publishedAtMs ?? 0n, true)
+  payload[articleOffset + 40] = opts.isDeleted ? 1 : 0
+  writeSlice(view, articleOffset + 44, articleSlices.title)
+  writeSlice(view, articleOffset + 52, articleSlices.content)
+  writeSlice(view, articleOffset + 60, articleSlices.summary)
+  writeSlice(view, articleOffset + 68, articleSlices.coverImageUrl)
+  writeSlice(view, articleOffset + 76, articleSlices.categoryName)
+
+  tags.forEach((tag, index) => {
+    const offset = tagOffset + index * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE
+    view.setInt32(offset, tag.id, true)
+    writeSlice(view, offset + 4, tagSlices[index]!)
+  })
+
+  let rightsFlags = 0
+  if (rights.enabled) rightsFlags |= ArticleDetailRightsFlags.Enabled
+  if (rights.allowCodeCopy) rightsFlags |= ArticleDetailRightsFlags.AllowCodeCopy
+  if (rights.showPublicBadge) rightsFlags |= ArticleDetailRightsFlags.ShowPublicBadge
+  if (rights.proofBindingEnabled) rightsFlags |= ArticleDetailRightsFlags.ProofBindingEnabled
+  if (rights.copyrightYear != null) rightsFlags |= ArticleDetailRightsFlags.HasCopyrightYear
+  if (rights.copyrightHolder) rightsFlags |= ArticleDetailRightsFlags.HasCopyrightHolder
+  if (rights.rightsStatement) rightsFlags |= ArticleDetailRightsFlags.HasRightsStatement
+  if (rights.attributionTemplate) rightsFlags |= ArticleDetailRightsFlags.HasAttributionTemplate
+  if (rights.canonicalUrl) rightsFlags |= ArticleDetailRightsFlags.HasCanonicalUrl
+  if (rights.proofUrl) rightsFlags |= ArticleDetailRightsFlags.HasProofUrl
+  if (rights.proofStatus) rightsFlags |= ArticleDetailRightsFlags.HasProofStatus
+
+  view.setBigInt64(rightsOffset, rights.snapshotId, true)
+  view.setBigInt64(rightsOffset + 8, rights.articleRevisionId, true)
+  view.setInt32(rightsOffset + 16, rights.revisionNo, true)
+  view.setInt32(rightsOffset + 20, rightsFlags, true)
+  view.setInt32(rightsOffset + 24, rights.copyrightYear ?? 0, true)
+  view.setInt32(rightsOffset + 28, rights.maxExcerptChars, true)
+  writeSlice(view, rightsOffset + 32, rightsSlices.licenseType)
+  writeSlice(view, rightsOffset + 40, rightsSlices.copyrightHolder)
+  writeSlice(view, rightsOffset + 48, rightsSlices.rightsStatement)
+  writeSlice(view, rightsOffset + 56, rightsSlices.attributionTemplate)
+  writeSlice(view, rightsOffset + 64, rightsSlices.copyPolicy)
+  writeSlice(view, rightsOffset + 72, rightsSlices.canonicalUrl)
+  writeSlice(view, rightsOffset + 80, rightsSlices.policyHash)
+  writeSlice(view, rightsOffset + 88, rightsSlices.contentCanonicalHash)
+  writeSlice(view, rightsOffset + 96, rightsSlices.proofUrl)
+  writeSlice(view, rightsOffset + 104, rightsSlices.proofStatus)
+
+  let blobCursor = blobOffset
+  for (const chunk of blobChunks) {
+    payload.set(chunk, blobCursor)
+    blobCursor += chunk.byteLength
+  }
+
+  return payload
+}
+
+function writeSlice(view: DataView, offset: number, slice: { offset: number; length: number }): void {
+  view.setInt32(offset, slice.offset, true)
+  view.setInt32(offset + 4, slice.length, true)
+}
+
 // ---------------------------------------------------------------------------
 // ArticleDetail adapter tests
 // ---------------------------------------------------------------------------
@@ -267,12 +461,25 @@ describe('mapRelatedReadingFromPodPayload', () => {
 })
 
 describe('mapArticleDetailFromPodPayload', () => {
-  it('reads category.id from offset 20, not from Reserved0 at offset 16', () => {
-    // reserved0 = 999 so if the bug is present the test would give id=999 not 7
-    const payload = buildArticleDetailPayload({
+  it('rejects retired ArticleDetail payloads without the V3 envelope', () => {
+    const payload = buildLegacyArticleDetailPayload({
       id: 1,
       views: 0,
       reserved0: 999,
+      categoryId: 7,
+      categoryName: 'Frontend',
+      title: 'T',
+      summary: '',
+      content: 'c'
+    })
+
+    expect(() => mapArticleDetailFromPodPayload(payload)).toThrow()
+  })
+
+  it('reads V3 category fields and required rights from the V3 envelope', () => {
+    const payload = buildArticleDetailPayload({
+      id: 1,
+      views: 0,
       categoryId: 7,
       categoryName: 'Frontend',
       title: 'T',
@@ -284,6 +491,9 @@ describe('mapArticleDetailFromPodPayload', () => {
 
     expect(result.category.id).toBe(7)
     expect(result.category.name).toBe('Frontend')
+    expect(result.rights.snapshotId).toBe('901')
+    expect(result.rights.articleRevisionId).toBe('801')
+    expect(result.rights.revisionNo).toBe(7)
   })
 
   it('decodes all scalar fields correctly', () => {
@@ -310,6 +520,59 @@ describe('mapArticleDetailFromPodPayload', () => {
     expect(result.category.id).toBe(3)
     expect(result.category.name).toBe('Tech')
     expect(result.createTime).toBe(new Date(Number(createTimeMs)).toISOString())
+    expect(result.rights.licenseType).toBe('CC-BY-4.0')
+    expect(result.rights.copyPolicy).toBe('append-attribution')
+    expect(result.rights.policyHash).toBe('sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+    expect(result.rights.contentCanonicalHash).toBe('sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
+  })
+
+  it('maps ArticleDetail V3 rights fields completely', () => {
+    const payload = buildArticleDetailPayload({
+      id: 10,
+      views: 0,
+      categoryId: 2,
+      categoryName: 'Rights',
+      title: 'Rights article',
+      summary: 'summary',
+      content: 'body',
+      rights: {
+        enabled: false,
+        copyrightHolder: null,
+        copyrightYear: null,
+        rightsStatement: null,
+        attributionTemplate: null,
+        allowCodeCopy: false,
+        showPublicBadge: true,
+        proofBindingEnabled: false,
+        canonicalUrl: null,
+        proofUrl: null,
+        proofStatus: null
+      }
+    })
+
+    const result = mapArticleDetailFromPodPayload(payload)
+
+    expect(result.rights).toEqual({
+      snapshotId: '901',
+      articleRevisionId: '801',
+      revisionNo: 7,
+      enabled: false,
+      licenseType: 'CC-BY-4.0',
+      copyrightHolder: null,
+      copyrightYear: null,
+      rightsStatement: null,
+      attributionTemplate: null,
+      copyPolicy: 'append-attribution',
+      maxExcerptChars: 300,
+      allowCodeCopy: false,
+      showPublicBadge: true,
+      proofBindingEnabled: false,
+      canonicalUrl: null,
+      policyHash: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      contentCanonicalHash: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      proofUrl: null,
+      proofStatus: null
+    })
   })
 
   it('decodes cover image url from the trailing cover blob', () => {
@@ -387,6 +650,38 @@ describe('mapArticleDetailFromPodPayload', () => {
 
   it('throws on a payload that is too short', () => {
     expect(() => mapArticleDetailFromPodPayload(new Uint8Array(4))).toThrow()
+  })
+
+  it('throws when the V3 envelope is missing the rights record', () => {
+    const payload = buildArticleDetailPayload({
+      id: 1,
+      views: 0,
+      categoryId: 1,
+      categoryName: 'Dev',
+      title: 'T',
+      summary: '',
+      content: 'c'
+    })
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    view.setInt32(32, 0, true)
+
+    expect(() => mapArticleDetailFromPodPayload(payload)).toThrow()
+  })
+
+  it('throws when a V3 slice points outside the shared blob', () => {
+    const payload = buildArticleDetailPayload({
+      id: 1,
+      views: 0,
+      categoryId: 1,
+      categoryName: 'Dev',
+      title: 'T',
+      summary: '',
+      content: 'c'
+    })
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    view.setInt32(ARTICLE_DETAIL_V3_HEADER_SIZE + 44, 999_999, true)
+
+    expect(() => mapArticleDetailFromPodPayload(payload)).toThrow()
   })
 })
 

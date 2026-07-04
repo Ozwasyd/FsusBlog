@@ -1,6 +1,6 @@
 import { createSSRApp, type Component } from 'vue'
 import { renderToString } from '@vue/server-renderer'
-import type { ArticleDetailResponse, ArticleListItemResponse, Tag } from '@/api/article'
+import type { ArticleDetailResponse, ArticleListItemResponse, ArticleRightsResponse, Tag } from '@/api/article'
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import { encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 import { provideFsusUiAppContext } from '@/fsusui/appContext'
@@ -59,6 +59,81 @@ export function normalizeTags(value: unknown): Tag[] {
   }).filter((tag) => tag.name.length > 0)
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function toOptionalText(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
+function toRequiredText(value: unknown, fieldName: string): string {
+  const text = typeof value === 'string' ? value.trim() : ''
+  if (!text) {
+    throw new Error(`public_aot_article_rights_invalid:${fieldName}`)
+  }
+
+  return text
+}
+
+function toRequiredIdText(value: unknown, fieldName: string): string {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim()
+  }
+
+  const number = Number(value)
+  if (Number.isFinite(number) && number > 0) {
+    return String(Math.trunc(number))
+  }
+
+  throw new Error(`public_aot_article_rights_invalid:${fieldName}`)
+}
+
+function toOptionalNumber(value: unknown): number | null {
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.trunc(number) : null
+}
+
+function toBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+export function normalizeArticleRights(value: unknown): ArticleRightsResponse {
+  const rights = asRecord(value)
+  if (!rights) {
+    throw new Error('public_aot_article_rights_missing')
+  }
+
+  const revisionNo = toNumber(rights.revisionNo ?? rights.RevisionNo)
+  if (revisionNo <= 0) {
+    throw new Error('public_aot_article_rights_invalid:revisionNo')
+  }
+
+  return {
+    snapshotId: toRequiredIdText(rights.snapshotId ?? rights.SnapshotId, 'snapshotId'),
+    articleRevisionId: toRequiredIdText(rights.articleRevisionId ?? rights.ArticleRevisionId, 'articleRevisionId'),
+    revisionNo,
+    enabled: toBoolean(rights.enabled ?? rights.Enabled, true),
+    licenseType: toRequiredText(rights.licenseType ?? rights.LicenseType, 'licenseType'),
+    copyrightHolder: toOptionalText(rights.copyrightHolder ?? rights.CopyrightHolder),
+    copyrightYear: toOptionalNumber(rights.copyrightYear ?? rights.CopyrightYear),
+    rightsStatement: toOptionalText(rights.rightsStatement ?? rights.RightsStatement),
+    attributionTemplate: toOptionalText(rights.attributionTemplate ?? rights.AttributionTemplate),
+    copyPolicy: toRequiredText(rights.copyPolicy ?? rights.CopyPolicy, 'copyPolicy'),
+    maxExcerptChars: Math.max(0, toNumber(rights.maxExcerptChars ?? rights.MaxExcerptChars, 0)),
+    allowCodeCopy: toBoolean(rights.allowCodeCopy ?? rights.AllowCodeCopy, false),
+    showPublicBadge: toBoolean(rights.showPublicBadge ?? rights.ShowPublicBadge, false),
+    proofBindingEnabled: toBoolean(rights.proofBindingEnabled ?? rights.ProofBindingEnabled, false),
+    canonicalUrl: toOptionalText(rights.canonicalUrl ?? rights.CanonicalUrl),
+    policyHash: toRequiredText(rights.policyHash ?? rights.PolicyHash, 'policyHash'),
+    contentCanonicalHash: toRequiredText(rights.contentCanonicalHash ?? rights.ContentCanonicalHash, 'contentCanonicalHash'),
+    proofUrl: toOptionalText(rights.proofUrl ?? rights.ProofUrl),
+    proofStatus: toOptionalText(rights.proofStatus ?? rights.ProofStatus)
+  }
+}
+
 export function normalizeArticleSummary(value: unknown): ArticleListItemResponse {
   const item = value as Record<string, unknown>
   const category = item.category && typeof item.category === 'object'
@@ -88,7 +163,8 @@ export function normalizeArticleDetail(options: Record<string, unknown>): Articl
     ...normalizeArticleSummary(options),
     id: toNumber(options.articleId ?? options.id),
     content: toText(options.bodyContent ?? options.content, ''),
-    summary: toText(options.summary, '')
+    summary: toText(options.summary, ''),
+    rights: normalizeArticleRights(options.rights ?? options.Rights)
   }
 }
 

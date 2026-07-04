@@ -66,6 +66,14 @@ function requireArray<T>(value: unknown, fieldName: string): readonly T[] {
   return value as readonly T[];
 }
 
+function requireObject<T extends object>(value: unknown, fieldName: string): T {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`public_aot_payload_missing_object:${fieldName}`);
+  }
+
+  return value as T;
+}
+
 export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload) => {
   const routeKey = normalizeRouteKey(payload);
 
@@ -81,6 +89,9 @@ export const normalizePublicHydrationPayload: PublicPayloadNormalizer = (payload
         hotArticles: requireArray(payload.hotArticles, 'Home.hotArticles')
       } as PublicHomeHydrationPayload;
     case 'ArticleDetail':
+      requireObject(payload.rights, 'ArticleDetail.rights');
+      requireObject(payload.detailView, 'ArticleDetail.detailView');
+      requireObject(payload.detailView.rights, 'ArticleDetail.detailView.rights');
       return {
         ...payload,
         routeKey,

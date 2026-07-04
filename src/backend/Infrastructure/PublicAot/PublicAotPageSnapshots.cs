@@ -36,6 +36,27 @@ public sealed record PublicAotArticleTagSnapshot(
     int Id,
     string Name);
 
+public sealed record PublicAotArticleRightsSnapshot(
+    long SnapshotId,
+    long ArticleRevisionId,
+    int RevisionNo,
+    bool Enabled,
+    string LicenseType,
+    string? CopyrightHolder,
+    int? CopyrightYear,
+    string? RightsStatement,
+    string? AttributionTemplate,
+    string CopyPolicy,
+    int MaxExcerptChars,
+    bool AllowCodeCopy,
+    bool ShowPublicBadge,
+    bool ProofBindingEnabled,
+    string? CanonicalUrl,
+    string PolicyHash,
+    string ContentCanonicalHash,
+    string? ProofUrl,
+    string? ProofStatus);
+
 public sealed record PublicAotArticleSummarySnapshot(
     int Id,
     string Title,
@@ -95,6 +116,7 @@ public sealed record PublicArticlePageSnapshot(
     DateTime CreateTime,
     PublicAotArticleCategorySnapshot Category,
     IReadOnlyList<PublicAotArticleTagSnapshot> Tags,
+    PublicAotArticleRightsSnapshot Rights,
     PublicAotRelatedReadingSnapshot? RelatedReading)
     : PublicPageSnapshot(PublicPageKind.ArticleDetail, Seo)
 {

@@ -66,12 +66,41 @@ public sealed class PublicAotRendererPayloadMapperTests
                 CreateTime: DateTime.UnixEpoch,
                 Category: new PublicAotArticleCategorySnapshot(2, "Category"),
                 Tags: [new PublicAotArticleTagSnapshot(3, "Tag")],
+                Rights: Rights(),
                 RelatedReading: null)));
 
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
 
         Assert.False(options.ContainsKey("content"));
         Assert.Equal("# Body", options["bodyContent"]);
+    }
+
+    [Fact]
+    public void ArticleDetailOptions_ExposeRightsForPublicHydration()
+    {
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(new PublicAotRenderRequest(
+            new PublicAotRouteMatch(PublicPageKind.ArticleDetail, PublicPageId.ArticleDetail, "article:42", "/article/42", "/article/42", string.Empty),
+            new PublicArticlePageSnapshot(
+                Seo(),
+                ArticleId: 42,
+                Title: "Article",
+                Content: "# Body",
+                Summary: "Summary",
+                Views: 9,
+                AuthorName: "Author",
+                CreateTime: DateTime.UnixEpoch,
+                Category: new PublicAotArticleCategorySnapshot(2, "Category"),
+                Tags: [],
+                Rights: Rights(),
+                RelatedReading: null)));
+
+        IReadOnlyDictionary<string, object?> options = GetOptions(payload);
+        IReadOnlyDictionary<string, object?> rights = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(options["rights"]);
+
+        Assert.Equal("901", rights["snapshotId"]);
+        Assert.Equal("CC-BY-4.0", rights["licenseType"]);
+        Assert.Equal("append-attribution", rights["copyPolicy"]);
+        Assert.Equal("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", rights["policyHash"]);
     }
 
     [Fact]
@@ -111,4 +140,26 @@ public sealed class PublicAotRendererPayloadMapperTests
 
     private static PublicAotSeoSnapshot Seo()
         => new("FsusBlog", "Description", "https://example.test");
+
+    private static PublicAotArticleRightsSnapshot Rights()
+        => new(
+            SnapshotId: 901,
+            ArticleRevisionId: 801,
+            RevisionNo: 7,
+            Enabled: true,
+            LicenseType: "CC-BY-4.0",
+            CopyrightHolder: "Fsus",
+            CopyrightYear: 2026,
+            RightsStatement: "Reuse with attribution.",
+            AttributionTemplate: "{title} - {holder}",
+            CopyPolicy: "append-attribution",
+            MaxExcerptChars: 300,
+            AllowCodeCopy: true,
+            ShowPublicBadge: true,
+            ProofBindingEnabled: true,
+            CanonicalUrl: "https://fsus.example/article/42",
+            PolicyHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ContentCanonicalHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            ProofUrl: "urn:fsus:rights-proof:901",
+            ProofStatus: "ready");
 }
