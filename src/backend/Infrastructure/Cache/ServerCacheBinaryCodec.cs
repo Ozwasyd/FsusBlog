@@ -15,7 +15,7 @@ internal static class ServerCacheBinaryCodec
     private const uint AdminStatsMagic = 0x42545346; // FSTB
     private const uint RecentCommentStatsMagic = 0x43545346; // FSTC
     private const uint RegionStatsMagic = 0x52545346; // FSTR
-    private const uint Version = 2;
+    private const uint Version = 3;
     private const int ArticleListPageMetadataMarker = -1;
     private const int MaxStringBytes = 2 * 1024 * 1024;
     private const int MaxCollectionCount = 10_000;
@@ -510,6 +510,7 @@ internal static class ServerCacheBinaryCodec
         writer.Write((int)item.Status);
         WriteNullableDateTime(writer, item.ScheduledPublishAt);
         WriteNullableDateTime(writer, item.PublishedAt);
+        WriteArticleRights(writer, item.Rights);
     }
 
     private static ArticleDetailReadModel ReadArticleDetail(BinaryReader reader)
@@ -531,8 +532,80 @@ internal static class ServerCacheBinaryCodec
             IsDeleted = reader.ReadBoolean(),
             Status = (FsusBlog.Server.Entities.ArticleStatus)reader.ReadInt32(),
             ScheduledPublishAt = ReadNullableDateTime(reader),
-            PublishedAt = ReadNullableDateTime(reader)
+            PublishedAt = ReadNullableDateTime(reader),
+            Rights = ReadArticleRights(reader)
         };
+
+    private static void WriteArticleRights(BinaryWriter writer, ArticleRightsReadModel rights)
+    {
+        writer.Write(rights.SnapshotId);
+        writer.Write(rights.ArticleRevisionId);
+        writer.Write(rights.RevisionNo);
+        writer.Write(rights.Enabled);
+        WriteString(writer, rights.LicenseType);
+        WriteNullableString(writer, rights.CopyrightHolder);
+        writer.Write(rights.CopyrightYear.GetValueOrDefault());
+        writer.Write(rights.CopyrightYear.HasValue);
+        WriteNullableString(writer, rights.RightsStatement);
+        WriteNullableString(writer, rights.AttributionTemplate);
+        WriteString(writer, rights.CopyPolicy);
+        writer.Write(rights.MaxExcerptChars);
+        writer.Write(rights.AllowCodeCopy);
+        writer.Write(rights.ShowPublicBadge);
+        writer.Write(rights.ProofBindingEnabled);
+        WriteNullableString(writer, rights.CanonicalUrl);
+        WriteString(writer, rights.PolicyHash);
+        WriteString(writer, rights.ContentCanonicalHash);
+        WriteNullableString(writer, rights.ProofUrl);
+        WriteNullableString(writer, rights.ProofStatus);
+    }
+
+    private static ArticleRightsReadModel ReadArticleRights(BinaryReader reader)
+    {
+        long snapshotId = reader.ReadInt64();
+        long articleRevisionId = reader.ReadInt64();
+        int revisionNo = reader.ReadInt32();
+        bool enabled = reader.ReadBoolean();
+        string licenseType = ReadString(reader);
+        string? copyrightHolder = ReadNullableString(reader);
+        int copyrightYear = reader.ReadInt32();
+        bool hasCopyrightYear = reader.ReadBoolean();
+        string? rightsStatement = ReadNullableString(reader);
+        string? attributionTemplate = ReadNullableString(reader);
+        string copyPolicy = ReadString(reader);
+        int maxExcerptChars = reader.ReadInt32();
+        bool allowCodeCopy = reader.ReadBoolean();
+        bool showPublicBadge = reader.ReadBoolean();
+        bool proofBindingEnabled = reader.ReadBoolean();
+        string? canonicalUrl = ReadNullableString(reader);
+        string policyHash = ReadString(reader);
+        string contentCanonicalHash = ReadString(reader);
+        string? proofUrl = ReadNullableString(reader);
+        string? proofStatus = ReadNullableString(reader);
+
+        return new ArticleRightsReadModel
+        {
+            SnapshotId = snapshotId,
+            ArticleRevisionId = articleRevisionId,
+            RevisionNo = revisionNo,
+            Enabled = enabled,
+            LicenseType = licenseType,
+            CopyrightHolder = copyrightHolder,
+            CopyrightYear = hasCopyrightYear ? copyrightYear : null,
+            RightsStatement = rightsStatement,
+            AttributionTemplate = attributionTemplate,
+            CopyPolicy = copyPolicy,
+            MaxExcerptChars = maxExcerptChars,
+            AllowCodeCopy = allowCodeCopy,
+            ShowPublicBadge = showPublicBadge,
+            ProofBindingEnabled = proofBindingEnabled,
+            CanonicalUrl = canonicalUrl,
+            PolicyHash = policyHash,
+            ContentCanonicalHash = contentCanonicalHash,
+            ProofUrl = proofUrl,
+            ProofStatus = proofStatus
+        };
+    }
 
     private static void WriteTags(BinaryWriter writer, IReadOnlyList<TagReadModel> tags)
     {

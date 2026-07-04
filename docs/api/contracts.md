@@ -85,7 +85,7 @@ AEDS v2 frame header 固定 16 字节，字段顺序为 `Magic:uint32`、`Versio
 | `AdminStats` | `SiteStatsPod` + shared UTF-8 blob + 16B popular records + 32B recent-comment records + 12B region records |
 | `SiteComplianceConfig` | `SiteComplianceConfigPod`，固定宽度 UTF-8 字段；空配置不写占位备案号 |
 
-compact record 内所有文本字段均为 `Utf8SliceRef`，指向当前 payload 的共享 blob。`ArticleList` 的 76B record 在原 56B 公开字段后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`；`status` 值固定为 `Draft=0`、`Scheduled=1`、`Published=2`、`Archived=3`、`Deleted=4`，公开可见性以 [design.md#文章状态枚举](design.md#文章状态枚举) 为准。写请求、Passkey、上传、`ArticleDetail` 和复杂评论游标仍使用 v2 header 包裹的 POD + blob 结构，但不再允许旧 v1 header。
+compact record 内所有文本字段均为 `Utf8SliceRef`，指向当前 payload 的共享 blob。`ArticleList` 的 76B record 在原 56B 公开字段后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`；`status` 值固定为 `Draft=0`、`Scheduled=1`、`Published=2`、`Archived=3`、`Deleted=4`，公开可见性以 [design.md#文章状态枚举](design.md#文章状态枚举) 为准。写请求、Passkey、上传和复杂评论游标仍使用 v2 header 包裹的 POD + blob 结构；`ArticleDetail` 外层仍是 AEDS v2 frame，但 payload 自身使用 `ARD3` V3 envelope，不再允许旧 detail tail payload。
 
 payload 字典化的第一阶段采用兼容 layout：ArticleList/ArticleSearch/Conversation 等重复文本均落到单个 shared UTF-8 blob，records 只保存 `Utf8SliceRef`；前端 ArticlePage decode 不再创建 object records 数组，也不使用 `tagRecords.slice(...)` 复制 tag range。后续若引入 `ArticleListV4` category/tag dictionary，必须保持现有 frame type 的 downgrade 路径和 golden fixture。
 
@@ -600,6 +600,27 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 {
   "content": "Markdown 或 HTML 正文",
   "tocJson": "[{\"level\":2,\"text\":\"标题\",\"anchor\":\"#标题\"}]",
+  "rights": {
+    "snapshotId": 901,
+    "articleRevisionId": 801,
+    "revisionNo": 7,
+    "enabled": true,
+    "licenseType": "CC-BY-4.0",
+    "copyrightHolder": "Fsus",
+    "copyrightYear": 2026,
+    "rightsStatement": "Reuse with attribution.",
+    "attributionTemplate": "{title} - {holder}",
+    "copyPolicy": "append-attribution",
+    "maxExcerptChars": 300,
+    "allowCodeCopy": true,
+    "showPublicBadge": true,
+    "proofBindingEnabled": true,
+    "canonicalUrl": "https://fsus.example/article/42",
+    "policyHash": "sha256:<64 lowercase hex>",
+    "contentCanonicalHash": "sha256:<64 lowercase hex>",
+    "proofUrl": "urn:fsus:rights-proof:901",
+    "proofStatus": "ready"
+  },
   "prevArticle": { "id": 0, "title": "..." },
   "nextArticle": { "id": 2, "title": "..." }
 }
@@ -609,14 +630,9 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 
 源码：`src/shared/Contracts/Models/ArticlePods.cs`
 
-Article POD 为定长结构体，字段按 C++ 内存对齐排列：
-- `Id`：int64
-- `Title`：Utf8Fixed256（256 字节固定宽度 UTF-8）
-- `Summary`：Utf8SliceRef（指向载荷末尾的 blob 区）
-- `CategoryName`：Utf8Fixed128
-- `Tags`：以 Utf8SliceRef 数组形式编码
-- `ViewCount`、`CommentCount`：int32
-- `PublishedAt`：Unix 毫秒时间戳（int64）
+`ArticleDetail` payload 当前为 V3 envelope，外层仍使用 AEDS v2 frame。payload 以 `ArticleDetailV3HeaderPod` 开头，`Magic = 0x41524433` (`ARD3`)、`Version = 3`、`Flags = 0`，随后按 header offset 指向 `ArticleDetailV3RecordPod`、`ArticleDetailTagV3RecordPod[]`、必备 `ArticleRightsV3RecordPod` 和共享 UTF-8 blob。旧 `ArticleDetailPod + tagCount + cover blob + lifecycle tail` payload 已废弃，解码器必须拒绝 invalid magic/version、缺失 rights block、offset/length 不一致和尾随 payload。
+
+`ArticleDetailV3RecordPod` 记录文章 id/title/content/summary/cover/category/views/status/scheduled/published/isDeleted；tag record 只保存 tag id/name slice。`ArticleRightsV3RecordPod` 记录冻结 snapshot：`snapshotId`、`articleRevisionId`、`revisionNo`、enabled/license/copyright/copy policy/excerpt/code-copy/badge/proof-binding、canonical URL、`policyHash`、`contentCanonicalHash`、proof pointer 和 proof status。所有文本通过 `Utf8SliceRef` 指向同一个 blob。
 
 ---
 
@@ -1463,7 +1479,9 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 
 `CreateArticleRequest` 与 `UpdateArticleRequest` 支持 `status`、`scheduledPublishAt`、`rights`。公开读路径必须同时检查 `IsDeleted=false`、`Status=Published`、`PublishedAt<=now`、`ScheduledPublishAt<=now`。
 
-Binary 写入帧 `ArticleWriteRequest` 当前版本为 V3。payload 使用旧 `ArticleWriteRequestPod` + `tagIds:int32[]` + article blob 作为主体，随后按顺序追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`version:int32=3`、`rightsFlags:int32`、`copyrightYear:int32`、`maxExcerptChars:int32`、`ArticleRightsWriteRequestPod`、rights blob。`rightsFlags` bit 定义为：`1 enabled`、`2 allowCodeCopy`、`4 showPublicBadge`、`8 proofBindingEnabled`、`16 hasCopyrightYear`。`ArticleRightsWriteRequestPod` 只包含 UTF-8 slice：`licenseType`、`copyrightHolder`、`rightsStatement`、`attributionTemplate`、`copyPolicy`。缺少 V3 rights 段的 legacy 写入 payload 必须拒绝，不得再按 `Published` / 无定时发布静默补齐。`ArticleDetail` 在 cover blob 与 `isDeleted:byte` 后追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`publishedAtUnixMs:int64`，admin 读取未发布文章时依赖该尾部恢复编辑器状态。
+Binary 写入帧 `ArticleWriteRequest` 当前版本为 V3。payload 使用旧 `ArticleWriteRequestPod` + `tagIds:int32[]` + article blob 作为主体，随后按顺序追加 `status:int32`、`scheduledPublishAtUnixMs:int64`、`version:int32=3`、`rightsFlags:int32`、`copyrightYear:int32`、`maxExcerptChars:int32`、`ArticleRightsWriteRequestPod`、rights blob。`rightsFlags` bit 定义为：`1 enabled`、`2 allowCodeCopy`、`4 showPublicBadge`、`8 proofBindingEnabled`、`16 hasCopyrightYear`。`ArticleRightsWriteRequestPod` 只包含 UTF-8 slice：`licenseType`、`copyrightHolder`、`rightsStatement`、`attributionTemplate`、`copyPolicy`。缺少 V3 rights 段的 legacy 写入 payload 必须拒绝，不得再按 `Published` / 无定时发布静默补齐。
+
+Binary 读取帧 `ArticleDetail` 当前 payload 版本为 V3 envelope：`ArticleDetailV3HeaderPod` (`magic=ARD3`, `version=3`) + `ArticleDetailV3RecordPod` + `ArticleDetailTagV3RecordPod[]` + 必备 `ArticleRightsV3RecordPod` + 共享 blob。后端 public artifact、admin detail 和 server cache 都必须从 `article_rights_snapshot` 的冻结读模型投影 rights 字段；不得再解码旧 ArticleDetail tail，也不得新增独立 `/rights.aeds` fallback。
 
 `GET /api/binary/admin/article` 的 `status` 查询参数仅 admin 可用。公开 `/api/binary/article/**.aeds` 不接受 query string、请求体或 credentials；admin 不带 `status` 时读取所有非删除状态，带 `status=0/1/2/3/4` 时读取对应 draft/scheduled/published/archived/deleted 集合。admin article list 的 `page` / `size` 缺省为 `1` / `10`，显式传入 `page<1`、`size<1` 或 `size>100` 返回 `400`。
 

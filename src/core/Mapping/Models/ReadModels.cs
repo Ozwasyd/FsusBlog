@@ -10,6 +10,27 @@ public readonly record struct ArticleCategoryCoreModel(int Id, string Name);
 
 public readonly record struct TagCoreModel(int Id, string Name);
 
+public readonly record struct ArticleRightsCoreModel(
+    long SnapshotId,
+    long ArticleRevisionId,
+    int RevisionNo,
+    bool Enabled,
+    string LicenseType,
+    string? CopyrightHolder,
+    int? CopyrightYear,
+    string? RightsStatement,
+    string? AttributionTemplate,
+    string CopyPolicy,
+    int MaxExcerptChars,
+    bool AllowCodeCopy,
+    bool ShowPublicBadge,
+    bool ProofBindingEnabled,
+    string? CanonicalUrl,
+    string PolicyHash,
+    string ContentCanonicalHash,
+    string? ProofUrl,
+    string? ProofStatus);
+
 public readonly record struct ArticleListCoreModel(
     ArticleListItemPod Pod,
     int Id,
@@ -44,7 +65,8 @@ public readonly record struct ArticleDetailCoreModel(
     bool IsDeleted,
     int Status = 2,
     DateTime? ScheduledPublishAt = null,
-    DateTime? PublishedAt = null);
+    DateTime? PublishedAt = null,
+    ArticleRightsCoreModel Rights = default);
 
 public readonly record struct PopularArticleCoreModel(PopularArticlePod Pod, int Id, string Title, int Views);
 

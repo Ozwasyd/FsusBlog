@@ -412,7 +412,27 @@ public sealed partial class AedsProtocolCrossLanguageTests
     {
         var createTime = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         var detailPod = FsusBlog.Core.Mapping.Projectors.PodProjector.ProjectArticleDetail(42, 123, createTime, 7, "Life", "Article 42", "Content 42\nHello", "Summary 42", out _);
-        var detail = new FsusBlog.Core.Mapping.Models.ArticleDetailCoreModel(detailPod, 42, "Article 42", "Content 42\nHello", "Summary 42", "/covers/42.png", 123, 0, 0, false, createTime, new FsusBlog.Core.Mapping.Models.ArticleCategoryCoreModel(7, "Life"), [new FsusBlog.Core.Mapping.Models.TagCoreModel(9, "aeds"), new FsusBlog.Core.Mapping.Models.TagCoreModel(10, "blog")], 0, false);
+        var rights = new ArticleRightsCoreModel(
+            SnapshotId: 901,
+            ArticleRevisionId: 801,
+            RevisionNo: 7,
+            Enabled: true,
+            LicenseType: "CC-BY-4.0",
+            CopyrightHolder: "Fsus",
+            CopyrightYear: 2026,
+            RightsStatement: "Reuse with attribution.",
+            AttributionTemplate: "{title} - {holder}",
+            CopyPolicy: "append-attribution",
+            MaxExcerptChars: 300,
+            AllowCodeCopy: true,
+            ShowPublicBadge: true,
+            ProofBindingEnabled: true,
+            CanonicalUrl: "https://fsus.example/article/42",
+            PolicyHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ContentCanonicalHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            ProofUrl: "urn:fsus:rights-proof:901",
+            ProofStatus: "ready");
+        var detail = new FsusBlog.Core.Mapping.Models.ArticleDetailCoreModel(detailPod, 42, "Article 42", "Content 42\nHello", "Summary 42", "/covers/42.png", 123, 0, 0, false, createTime, new FsusBlog.Core.Mapping.Models.ArticleCategoryCoreModel(7, "Life"), [new FsusBlog.Core.Mapping.Models.TagCoreModel(9, "aeds"), new FsusBlog.Core.Mapping.Models.TagCoreModel(10, "blog")], 7, false, 2, null, createTime, rights);
         var payload = new System.Buffers.ArrayBufferWriter<byte>();
         PodBinaryCodec.WriteArticleDetail(detail, payload);
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.ArticleDetail, payload.WrittenSpan.ToArray());

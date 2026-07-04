@@ -63,6 +63,70 @@ public readonly struct ArticleDetailPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV3HeaderPod
+{
+    public readonly uint Magic;
+    public readonly int Version;
+    public readonly uint Flags;
+    public readonly int ArticleRecordOffset;
+    public readonly int ArticleRecordLength;
+    public readonly int TagOffset;
+    public readonly int TagCount;
+    public readonly int RightsRecordOffset;
+    public readonly int RightsRecordLength;
+    public readonly int BlobOffset;
+    public readonly int BlobLength;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV3RecordPod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly long CreateTimeUnixMs;
+    public readonly int CategoryId;
+    public readonly int Status;
+    public readonly long ScheduledPublishAtUnixMs;
+    public readonly long PublishedAtUnixMs;
+    public readonly byte IsDeleted;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef Title;
+    public readonly Utf8SliceRef Content;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef CoverImageUrl;
+    public readonly Utf8SliceRef CategoryName;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailTagV3RecordPod
+{
+    public readonly int Id;
+    public readonly Utf8SliceRef Name;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleRightsV3RecordPod
+{
+    public readonly long SnapshotId;
+    public readonly long ArticleRevisionId;
+    public readonly int RevisionNo;
+    public readonly int Flags;
+    public readonly int CopyrightYear;
+    public readonly int MaxExcerptChars;
+    public readonly Utf8SliceRef LicenseType;
+    public readonly Utf8SliceRef CopyrightHolder;
+    public readonly Utf8SliceRef RightsStatement;
+    public readonly Utf8SliceRef AttributionTemplate;
+    public readonly Utf8SliceRef CopyPolicy;
+    public readonly Utf8SliceRef CanonicalUrl;
+    public readonly Utf8SliceRef PolicyHash;
+    public readonly Utf8SliceRef ContentCanonicalHash;
+    public readonly Utf8SliceRef ProofUrl;
+    public readonly Utf8SliceRef ProofStatus;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct FeaturedArticlePod
 {
     public readonly int Id;

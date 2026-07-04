@@ -342,6 +342,28 @@ public class ArticleService(
                 a.published_at AS "PublishedAt",
                 c.name AS "CategoryName",
                 {{contentExpression}} AS "Content",
+                rights.id AS "RightsSnapshotId",
+                rights.article_revision_id AS "RightsArticleRevisionId",
+                rights.revision_no AS "RightsRevisionNo",
+                rights.enabled AS "RightsEnabled",
+                rights.license_type AS "RightsLicenseType",
+                rights.copyright_holder AS "RightsCopyrightHolder",
+                rights.copyright_year AS "RightsCopyrightYear",
+                rights.rights_statement AS "RightsStatement",
+                rights.attribution_template AS "RightsAttributionTemplate",
+                rights.copy_policy AS "RightsCopyPolicy",
+                rights.max_excerpt_chars AS "RightsMaxExcerptChars",
+                rights.allow_code_copy AS "RightsAllowCodeCopy",
+                rights.show_public_badge AS "RightsShowPublicBadge",
+                rights.proof_binding_enabled AS "RightsProofBindingEnabled",
+                rights.canonical_url AS "RightsCanonicalUrl",
+                rights.policy_hash AS "RightsPolicyHash",
+                rights.content_canonical_hash AS "RightsContentCanonicalHash",
+                CASE
+                    WHEN rights_proof.id IS NULL THEN NULL
+                    ELSE concat('urn:fsus:rights-proof:', rights_proof.id::text)
+                END AS "RightsProofUrl",
+                rights_proof.proof_status AS "RightsProofStatus",
                 COALESCE(
                     array_agg(t.id ORDER BY t.id)
                         FILTER (WHERE t.id IS NOT NULL),
@@ -355,6 +377,20 @@ public class ArticleService(
             FROM article a
             LEFT JOIN category c ON a.categoryid = c.id
             LEFT JOIN article_body ab ON ab.article_id = a.id
+            LEFT JOIN LATERAL (
+                SELECT snapshot.*
+                FROM article_rights_snapshot snapshot
+                WHERE snapshot.article_id = a.id
+                ORDER BY snapshot.revision_no DESC, snapshot.created_at DESC, snapshot.id DESC
+                LIMIT 1
+            ) rights ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT proof.*
+                FROM article_rights_proof proof
+                WHERE proof.article_rights_snapshot_id = rights.id
+                ORDER BY proof.created_at DESC, proof.id DESC
+                LIMIT 1
+            ) rights_proof ON TRUE
             LEFT JOIN article_tag at ON at.articleid = a.id
             LEFT JOIN tag t ON t.id = at.tagid
             WHERE a.id = @Id
@@ -372,6 +408,25 @@ public class ArticleService(
                 a.scheduled_publish_at,
                 a.published_at,
                 c.name,
+                rights.id,
+                rights.article_revision_id,
+                rights.revision_no,
+                rights.enabled,
+                rights.license_type,
+                rights.copyright_holder,
+                rights.copyright_year,
+                rights.rights_statement,
+                rights.attribution_template,
+                rights.copy_policy,
+                rights.max_excerpt_chars,
+                rights.allow_code_copy,
+                rights.show_public_badge,
+                rights.proof_binding_enabled,
+                rights.canonical_url,
+                rights.policy_hash,
+                rights.content_canonical_hash,
+                rights_proof.id,
+                rights_proof.proof_status,
                 ab.markdown_content{{legacyGroupBy}};
             """;
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql, parameters))
@@ -411,7 +466,8 @@ public class ArticleService(
                     WordCount = wordCount,
                     EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
                     ShowReadingNotice = wordCount > LongReadThreshold,
-                    Tags = ReadArticleDetailTags(reader, fTagIds, fTagNames)
+                    Tags = ReadArticleDetailTags(reader, fTagIds, fTagNames),
+                    Rights = ReadArticleRights(reader)
                 };
             }
         }
@@ -457,6 +513,56 @@ public class ArticleService(
         }
 
         return tags;
+    }
+
+    private static ArticleRightsReadModel ReadArticleRights(DbDataReader reader)
+    {
+        int snapshotId = reader.GetOrdinal("RightsSnapshotId");
+        if (reader.IsDBNull(snapshotId))
+        {
+            return new ArticleRightsReadModel();
+        }
+
+        return new ArticleRightsReadModel
+        {
+            SnapshotId = reader.GetInt64(snapshotId),
+            ArticleRevisionId = reader.GetInt64(reader.GetOrdinal("RightsArticleRevisionId")),
+            RevisionNo = reader.GetInt32(reader.GetOrdinal("RightsRevisionNo")),
+            Enabled = reader.GetBoolean(reader.GetOrdinal("RightsEnabled")),
+            LicenseType = ReadStringOrDefault(reader, "RightsLicenseType", "all-rights-reserved"),
+            CopyrightHolder = ReadNullableString(reader, "RightsCopyrightHolder"),
+            CopyrightYear = ReadNullableInt32(reader, "RightsCopyrightYear"),
+            RightsStatement = ReadNullableString(reader, "RightsStatement"),
+            AttributionTemplate = ReadNullableString(reader, "RightsAttributionTemplate"),
+            CopyPolicy = ReadStringOrDefault(reader, "RightsCopyPolicy", "append-attribution"),
+            MaxExcerptChars = reader.GetInt32(reader.GetOrdinal("RightsMaxExcerptChars")),
+            AllowCodeCopy = reader.GetBoolean(reader.GetOrdinal("RightsAllowCodeCopy")),
+            ShowPublicBadge = reader.GetBoolean(reader.GetOrdinal("RightsShowPublicBadge")),
+            ProofBindingEnabled = reader.GetBoolean(reader.GetOrdinal("RightsProofBindingEnabled")),
+            CanonicalUrl = ReadNullableString(reader, "RightsCanonicalUrl"),
+            PolicyHash = ReadStringOrDefault(reader, "RightsPolicyHash", string.Empty),
+            ContentCanonicalHash = ReadStringOrDefault(reader, "RightsContentCanonicalHash", string.Empty),
+            ProofUrl = ReadNullableString(reader, "RightsProofUrl"),
+            ProofStatus = ReadNullableString(reader, "RightsProofStatus")
+        };
+    }
+
+    private static string ReadStringOrDefault(DbDataReader reader, string fieldName, string defaultValue)
+    {
+        int ordinal = reader.GetOrdinal(fieldName);
+        return reader.IsDBNull(ordinal) ? defaultValue : reader.GetString(ordinal);
+    }
+
+    private static string? ReadNullableString(DbDataReader reader, string fieldName)
+    {
+        int ordinal = reader.GetOrdinal(fieldName);
+        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+    }
+
+    private static int? ReadNullableInt32(DbDataReader reader, string fieldName)
+    {
+        int ordinal = reader.GetOrdinal(fieldName);
+        return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
     }
 
     private async Task<string> LoadArticleContentAsync(int articleId, CancellationToken cancellationToken)

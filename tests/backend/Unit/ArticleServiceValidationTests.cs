@@ -226,6 +226,21 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
+    public void LoadArticleDetailFromDbAsync_SourceLoadsRightsSnapshotAndProofInSingleSql()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("LEFT JOIN LATERAL", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("article_rights_snapshot", method, StringComparison.Ordinal);
+        Assert.Contains("article_rights_proof", method, StringComparison.Ordinal);
+        Assert.Contains("Rights = ReadArticleRights(reader", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticleRights", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LoadArticleDetailFromDbAsync_SourceNormalizesDbTimestampsBeforeServerCacheEncoding()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
@@ -256,6 +271,34 @@ public class ArticleServiceValidationTests
         Assert.Contains("ReadArticleDetailTags", method, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadArticleContentAsync(id", method, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadArticleTagMapAsync([id]", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleDetailAedsArtifactProjector_SourceLoadsRightsSnapshotAndProofInSingleSql()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs"));
+        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("LEFT JOIN LATERAL", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("article_rights_snapshot", method, StringComparison.Ordinal);
+        Assert.Contains("article_rights_proof", method, StringComparison.Ordinal);
+        Assert.Contains("Rights = ReadArticleRights(reader", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticleRights", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublicHotArtifactProjector_SourceLoadsRightsSnapshotForArticleDetailFrames()
+    {
+        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
+        int methodStart = source.IndexOf("private async Task<IReadOnlyList<ArticleDetailReadModel>> LoadArticleDetailsFromDbAsync", StringComparison.Ordinal);
+        int nextMethod = source.IndexOf("private async Task<IReadOnlyList<PopularArticleCoreModel>> LoadHotArticlesFromDbAsync", methodStart, StringComparison.Ordinal);
+        string method = source[methodStart..nextMethod];
+
+        Assert.Contains("LoadArticleRightsMapAsync", method, StringComparison.Ordinal);
+        Assert.Contains("Rights =", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("new ArticleRightsReadModel()", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -293,8 +336,8 @@ public class ArticleServiceValidationTests
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
 
-        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"created\")", source, StringComparison.Ordinal);
-        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"updated\")", source, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"created\", rightsSnapshotId)", source, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"updated\", rightsSnapshotId)", source, StringComparison.Ordinal);
         Assert.Contains("RecordArticleMutationOutboxAsync(id, \"deleted\")", source, StringComparison.Ordinal);
         Assert.Contains("RecordArticleMutationOutboxAsync(id, \"restored\")", source, StringComparison.Ordinal);
         Assert.Contains("RecordArticleMutationOutboxAsync(id, \"permanently-deleted\")", source, StringComparison.Ordinal);
@@ -336,7 +379,7 @@ public class ArticleServiceValidationTests
     public void SaveArticleRevisionAsync_SourceAllocatesRevisionNoAtomicallyAndRejectsDeletedArticle()
     {
         string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = articleService.IndexOf("private async Task SaveArticleRevisionAsync", StringComparison.Ordinal);
+        int methodStart = articleService.IndexOf("private async Task<ArticleRevisionCoordinates> SaveArticleRevisionAsync", StringComparison.Ordinal);
         int methodEnd = articleService.IndexOf("private long ResolveRevisionAdminPrincipalId", methodStart, StringComparison.Ordinal);
         string method = articleService[methodStart..methodEnd];
 
@@ -355,7 +398,7 @@ public class ArticleServiceValidationTests
     public void SaveArticleRevisionAsync_SourceUsesAdminPrincipalActor()
     {
         string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = articleService.IndexOf("private async Task SaveArticleRevisionAsync", StringComparison.Ordinal);
+        int methodStart = articleService.IndexOf("private async Task<ArticleRevisionCoordinates> SaveArticleRevisionAsync", StringComparison.Ordinal);
         int methodEnd = articleService.IndexOf("private Task RecordArticleMutationOutboxAsync", StringComparison.Ordinal);
         string method = articleService[methodStart..methodEnd];
 

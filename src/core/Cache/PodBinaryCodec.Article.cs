@@ -5,6 +5,7 @@ using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using FsusBlog.Shared.Contracts.Primitives;
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -14,12 +15,25 @@ public static partial class PodBinaryCodec
 {
     private const int ArticlePageCursorEnvelopeMagic = 0x41535046; // FSPA
     private const int ArticlePageCursorEnvelopeVersion = 1;
+    private const uint ArticleDetailPayloadMagic = 0x41524433; // ARD3
+    private const int ArticleDetailPayloadVersion = 3;
     private const int ArticleWriteRequestVersion = 3;
     private const int RightsFlagEnabled = 1 << 0;
     private const int RightsFlagAllowCodeCopy = 1 << 1;
     private const int RightsFlagShowPublicBadge = 1 << 2;
     private const int RightsFlagProofBindingEnabled = 1 << 3;
     private const int RightsFlagHasCopyrightYear = 1 << 4;
+    private const int ArticleDetailRightsFlagEnabled = 1 << 0;
+    private const int ArticleDetailRightsFlagAllowCodeCopy = 1 << 1;
+    private const int ArticleDetailRightsFlagShowPublicBadge = 1 << 2;
+    private const int ArticleDetailRightsFlagProofBindingEnabled = 1 << 3;
+    private const int ArticleDetailRightsFlagHasCopyrightYear = 1 << 4;
+    private const int ArticleDetailRightsFlagHasCopyrightHolder = 1 << 5;
+    private const int ArticleDetailRightsFlagHasRightsStatement = 1 << 6;
+    private const int ArticleDetailRightsFlagHasAttributionTemplate = 1 << 7;
+    private const int ArticleDetailRightsFlagHasCanonicalUrl = 1 << 8;
+    private const int ArticleDetailRightsFlagHasProofUrl = 1 << 9;
+    private const int ArticleDetailRightsFlagHasProofStatus = 1 << 10;
 
     public static void WriteArticleWriteRequest(ArticleWriteRequestCoreModel request, IBufferWriter<byte> destination)
     {
@@ -526,91 +540,221 @@ public static partial class PodBinaryCodec
 
     public static void WriteArticleDetail(ArticleDetailCoreModel item, IBufferWriter<byte> destination)
     {
-        ArticleDetailPod pod = PodProjector.ProjectArticleDetail(
-            item.Id,
-            item.Views,
-            item.CreateTime,
-            item.Category.Id,
-            item.Category.Name,
-            item.Title,
-            item.Content,
-            item.Summary,
-            out ReadOnlyMemory<byte> payload);
+        var blob = new List<byte>(Math.Max(512, item.Content.Length + item.Title.Length + (item.Summary?.Length ?? 0) + (item.CoverImageUrl?.Length ?? 0)));
+        ArticleRightsCoreModel rights = item.Rights;
+        var article = new MutableArticleDetailV3RecordPod
+        {
+            Id = item.Id,
+            Views = item.Views,
+            CreateTimeUnixMs = PodTimeCodec.ToUnixMs(item.CreateTime),
+            CategoryId = item.Category.Id,
+            Status = item.Status,
+            ScheduledPublishAtUnixMs = ToUnixMsOrZero(item.ScheduledPublishAt),
+            PublishedAtUnixMs = ToUnixMsOrZero(item.PublishedAt),
+            IsDeleted = item.IsDeleted ? (byte)1 : (byte)0,
+            Title = PodUtf8Codec.AppendSlice(item.Title, blob),
+            Content = PodUtf8Codec.AppendSlice(item.Content, blob),
+            Summary = PodUtf8Codec.AppendSlice(item.Summary ?? string.Empty, blob),
+            CoverImageUrl = PodUtf8Codec.AppendSlice(item.CoverImageUrl ?? string.Empty, blob),
+            CategoryName = PodUtf8Codec.AppendSlice(item.Category.Name, blob)
+        };
 
-        var writer = new BinaryPodWriter(destination);
-        writer.WritePod(pod);
-        writer.WriteInt32(item.Tags.Count);
+        var tags = new List<ArticleDetailTagV3RecordPod>(item.Tags.Count);
         foreach (TagCoreModel tag in item.Tags)
         {
-            writer.WritePod(PodProjector.ProjectTag(tag.Id, tag.Name));
+            var mutableTag = new MutableArticleDetailTagV3RecordPod
+            {
+                Id = tag.Id,
+                Name = PodUtf8Codec.AppendSlice(tag.Name, blob)
+            };
+            tags.Add(Cast<MutableArticleDetailTagV3RecordPod, ArticleDetailTagV3RecordPod>(mutableTag));
         }
 
-        writer.WriteBytes(payload.Span);
-        writer.WriteBytes(Encoding.UTF8.GetBytes(item.CoverImageUrl ?? string.Empty));
-        writer.WriteByte(item.IsDeleted ? (byte)1 : (byte)0);
-        writer.WriteInt32(item.Status);
-        writer.WriteInt64(ToUnixMsOrZero(item.ScheduledPublishAt));
-        writer.WriteInt64(ToUnixMsOrZero(item.PublishedAt));
+        var rightsRecord = new MutableArticleRightsV3RecordPod
+        {
+            SnapshotId = rights.SnapshotId,
+            ArticleRevisionId = rights.ArticleRevisionId,
+            RevisionNo = rights.RevisionNo,
+            Flags = BuildArticleDetailRightsFlags(rights),
+            CopyrightYear = rights.CopyrightYear.GetValueOrDefault(),
+            MaxExcerptChars = rights.MaxExcerptChars,
+            LicenseType = PodUtf8Codec.AppendSlice(rights.LicenseType, blob),
+            CopyrightHolder = PodUtf8Codec.AppendSlice(rights.CopyrightHolder ?? string.Empty, blob),
+            RightsStatement = PodUtf8Codec.AppendSlice(rights.RightsStatement ?? string.Empty, blob),
+            AttributionTemplate = PodUtf8Codec.AppendSlice(rights.AttributionTemplate ?? string.Empty, blob),
+            CopyPolicy = PodUtf8Codec.AppendSlice(rights.CopyPolicy, blob),
+            CanonicalUrl = PodUtf8Codec.AppendSlice(rights.CanonicalUrl ?? string.Empty, blob),
+            PolicyHash = PodUtf8Codec.AppendSlice(rights.PolicyHash, blob),
+            ContentCanonicalHash = PodUtf8Codec.AppendSlice(rights.ContentCanonicalHash, blob),
+            ProofUrl = PodUtf8Codec.AppendSlice(rights.ProofUrl ?? string.Empty, blob),
+            ProofStatus = PodUtf8Codec.AppendSlice(rights.ProofStatus ?? string.Empty, blob)
+        };
+
+        int headerSize = Unsafe.SizeOf<ArticleDetailV3HeaderPod>();
+        int articleRecordSize = Unsafe.SizeOf<ArticleDetailV3RecordPod>();
+        int tagRecordSize = Unsafe.SizeOf<ArticleDetailTagV3RecordPod>();
+        int rightsRecordSize = Unsafe.SizeOf<ArticleRightsV3RecordPod>();
+        int articleOffset = headerSize;
+        int tagOffset = articleOffset + articleRecordSize;
+        int rightsOffset = tagOffset + tags.Count * tagRecordSize;
+        int blobOffset = rightsOffset + rightsRecordSize;
+        var header = new MutableArticleDetailV3HeaderPod
+        {
+            Magic = ArticleDetailPayloadMagic,
+            Version = ArticleDetailPayloadVersion,
+            Flags = 0,
+            ArticleRecordOffset = articleOffset,
+            ArticleRecordLength = articleRecordSize,
+            TagOffset = tagOffset,
+            TagCount = tags.Count,
+            RightsRecordOffset = rightsOffset,
+            RightsRecordLength = rightsRecordSize,
+            BlobOffset = blobOffset,
+            BlobLength = blob.Count
+        };
+
+        var writer = new BinaryPodWriter(destination);
+        writer.WritePod(Cast<MutableArticleDetailV3HeaderPod, ArticleDetailV3HeaderPod>(header));
+        writer.WritePod(Cast<MutableArticleDetailV3RecordPod, ArticleDetailV3RecordPod>(article));
+        foreach (ArticleDetailTagV3RecordPod tag in tags)
+        {
+            writer.WritePod(tag);
+        }
+
+        writer.WritePod(Cast<MutableArticleRightsV3RecordPod, ArticleRightsV3RecordPod>(rightsRecord));
+        if (blob.Count > 0)
+        {
+            CollectionsMarshal.AsSpan(blob).CopyTo(destination.GetSpan(blob.Count));
+            destination.Advance(blob.Count);
+        }
     }
 
     public static byte[] EncodeArticleDetail(ArticleDetailCoreModel item)
-        => EncodeToArray(2048 + item.Content.Length, writer => WriteArticleDetail(item, writer));
+        => EncodeToArray(2048 + item.Content.Length + item.Tags.Count * 32, writer => WriteArticleDetail(item, writer));
 
     public static bool TryDecodeArticleDetail(ReadOnlyMemory<byte> bytes, out ArticleDetailCoreModel item)
     {
-        var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadPod(out ArticleDetailPod pod) || !reader.TryReadInt32(out int tagCount) || tagCount < 0)
+        ReadOnlySpan<byte> source = bytes.Span;
+        if (source.Length < Unsafe.SizeOf<ArticleDetailV3HeaderPod>())
         {
             item = default;
             return false;
         }
 
-        var tags = new List<TagCoreModel>(tagCount);
-        for (int i = 0; i < tagCount; i++)
+        var reader = new BinaryPodReader(source);
+        if (!reader.TryReadPod(out ArticleDetailV3HeaderPod header) ||
+            header.Magic != ArticleDetailPayloadMagic ||
+            header.Version != ArticleDetailPayloadVersion ||
+            header.Flags != 0 ||
+            header.TagCount < 0 ||
+            header.ArticleRecordLength != Unsafe.SizeOf<ArticleDetailV3RecordPod>() ||
+            header.RightsRecordLength != Unsafe.SizeOf<ArticleRightsV3RecordPod>() ||
+            header.ArticleRecordOffset != Unsafe.SizeOf<ArticleDetailV3HeaderPod>())
         {
-            if (!reader.TryReadPod(out TagPod tagPod))
+            item = default;
+            return false;
+        }
+
+        int articleOffset = header.ArticleRecordOffset;
+        int articleLength = header.ArticleRecordLength;
+        int tagOffset = header.TagOffset;
+        int tagRecordSize = Unsafe.SizeOf<ArticleDetailTagV3RecordPod>();
+        if (header.TagCount > source.Length / tagRecordSize)
+        {
+            item = default;
+            return false;
+        }
+
+        int tagBytes = header.TagCount * tagRecordSize;
+        int rightsOffset = header.RightsRecordOffset;
+        int rightsLength = header.RightsRecordLength;
+        int blobOffset = header.BlobOffset;
+        int blobLength = header.BlobLength;
+
+        if ((long)tagOffset != (long)articleOffset + articleLength ||
+            (long)rightsOffset != (long)tagOffset + tagBytes ||
+            (long)blobOffset != (long)rightsOffset + rightsLength ||
+            (long)blobOffset + blobLength != source.Length ||
+            !IsRangeWithin(articleOffset, articleLength, source.Length) ||
+            !IsRangeWithin(tagOffset, tagBytes, source.Length) ||
+            !IsRangeWithin(rightsOffset, rightsLength, source.Length) ||
+            !IsRangeWithin(blobOffset, blobLength, source.Length))
+        {
+            item = default;
+            return false;
+        }
+
+        ReadOnlySpan<byte> blob = source.Slice(blobOffset, blobLength);
+        var articleReader = new BinaryPodReader(source.Slice(articleOffset, articleLength));
+        if (!articleReader.TryReadPod(out ArticleDetailV3RecordPod article) ||
+            !articleReader.IsConsumed ||
+            article.IsDeleted > 1 ||
+            !ValidateArticleDetailRecordSlices(article, blob))
+        {
+            item = default;
+            return false;
+        }
+
+        var tags = new List<TagCoreModel>(header.TagCount);
+        var tagReader = new BinaryPodReader(source.Slice(tagOffset, tagBytes));
+        for (int i = 0; i < header.TagCount; i++)
+        {
+            if (!tagReader.TryReadPod(out ArticleDetailTagV3RecordPod tag) ||
+                !IsSliceValid(tag.Name, blob))
             {
                 item = default;
                 return false;
             }
 
-            tags.Add(new TagCoreModel(tagPod.Id, PodUtf8Codec.FromFixed128(tagPod.Name)));
+            tags.Add(new TagCoreModel(tag.Id, PodUtf8Codec.ReadSlice(tag.Name, blob)));
         }
 
-        if (!reader.TryReadBytes(out ReadOnlySpan<byte> payloadSpan))
+        if (!tagReader.IsConsumed)
         {
             item = default;
             return false;
         }
 
-        string? coverImageUrl = null;
-        if (reader.Remaining == 1)
-        {
-            if (!reader.TryReadByte(out byte isDeletedOnly))
-            {
-                item = default;
-                return false;
-            }
-
-            return BuildArticleDetail(pod, tags, payloadSpan, coverImageUrl, isDeletedOnly, 2, null, null, out item)
-                && reader.IsConsumed;
-        }
-
-        if (!reader.TryReadBytes(out ReadOnlySpan<byte> coverImageUrlSpan) || !reader.TryReadByte(out byte isDeleted))
+        var rightsReader = new BinaryPodReader(source.Slice(rightsOffset, rightsLength));
+        if (!rightsReader.TryReadPod(out ArticleRightsV3RecordPod rightsPod) ||
+            !rightsReader.IsConsumed ||
+            !ValidateArticleRightsRecordSlices(rightsPod, blob))
         {
             item = default;
             return false;
         }
 
-        coverImageUrl = coverImageUrlSpan.IsEmpty ? null : Encoding.UTF8.GetString(coverImageUrlSpan);
-        if (!TryReadArticlePublicationTail(ref reader, out int status, out DateTime? scheduledPublishAt, out DateTime? publishedAt))
-        {
-            item = default;
-            return false;
-        }
+        string title = PodUtf8Codec.ReadSlice(article.Title, blob);
+        string content = PodUtf8Codec.ReadSlice(article.Content, blob);
+        string summary = PodUtf8Codec.ReadSlice(article.Summary, blob);
+        string coverImageUrl = PodUtf8Codec.ReadSlice(article.CoverImageUrl, blob);
+        string categoryName = PodUtf8Codec.ReadSlice(article.CategoryName, blob);
+        DateTime createTime = PodTimeCodec.FromUnixMs(article.CreateTimeUnixMs);
+        var category = new ArticleCategoryCoreModel(article.CategoryId, categoryName);
+        int wordCount = content.Count(static ch => !char.IsWhiteSpace(ch));
+        var pod = PodProjector.ProjectArticleDetail(article.Id, article.Views, createTime, article.CategoryId, categoryName, title, content, summary, out _);
 
-        return BuildArticleDetail(pod, tags, payloadSpan, coverImageUrl, isDeleted, status, scheduledPublishAt, publishedAt, out item)
-            && reader.IsConsumed;
+        item = new ArticleDetailCoreModel(
+            pod,
+            article.Id,
+            title,
+            content,
+            summary,
+            coverImageUrl.Length == 0 ? null : coverImageUrl,
+            article.Views,
+            wordCount,
+            Math.Max(1, (wordCount + 299) / 300),
+            wordCount > 5_000,
+            createTime,
+            category,
+            tags,
+            article.CategoryId,
+            article.IsDeleted == 1,
+            article.Status,
+            FromUnixMsOrNull(article.ScheduledPublishAtUnixMs),
+            FromUnixMsOrNull(article.PublishedAtUnixMs),
+            BuildArticleRightsCoreModel(rightsPod, blob));
+        return true;
     }
 
     public static void WriteRelatedReading(RelatedReadingResponse response, IBufferWriter<byte> destination)
@@ -735,81 +879,133 @@ public static partial class PodBinaryCodec
             PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs),
             PodUtf8Codec.ReadSlice(pod.Reason, blob));
 
-    private static bool TryReadArticlePublicationTail(
-        ref BinaryPodReader reader,
-        out int status,
-        out DateTime? scheduledPublishAt,
-        out DateTime? publishedAt)
+    private static int BuildArticleDetailRightsFlags(ArticleRightsCoreModel rights)
     {
-        status = 2;
-        scheduledPublishAt = null;
-        publishedAt = null;
-        if (reader.Remaining == 0)
+        int flags = 0;
+        if (rights.Enabled)
         {
-            return true;
+            flags |= ArticleDetailRightsFlagEnabled;
         }
 
-        if (reader.Remaining != sizeof(int) + sizeof(long) + sizeof(long) ||
-            !reader.TryReadInt32(out status) ||
-            !reader.TryReadInt64(out long scheduledPublishAtUnixMs) ||
-            !reader.TryReadInt64(out long publishedAtUnixMs))
+        if (rights.AllowCodeCopy)
         {
-            return false;
+            flags |= ArticleDetailRightsFlagAllowCodeCopy;
         }
 
-        scheduledPublishAt = FromUnixMsOrNull(scheduledPublishAtUnixMs);
-        publishedAt = FromUnixMsOrNull(publishedAtUnixMs);
-        return true;
+        if (rights.ShowPublicBadge)
+        {
+            flags |= ArticleDetailRightsFlagShowPublicBadge;
+        }
+
+        if (rights.ProofBindingEnabled)
+        {
+            flags |= ArticleDetailRightsFlagProofBindingEnabled;
+        }
+
+        if (rights.CopyrightYear.HasValue)
+        {
+            flags |= ArticleDetailRightsFlagHasCopyrightYear;
+        }
+
+        if (!string.IsNullOrEmpty(rights.CopyrightHolder))
+        {
+            flags |= ArticleDetailRightsFlagHasCopyrightHolder;
+        }
+
+        if (!string.IsNullOrEmpty(rights.RightsStatement))
+        {
+            flags |= ArticleDetailRightsFlagHasRightsStatement;
+        }
+
+        if (!string.IsNullOrEmpty(rights.AttributionTemplate))
+        {
+            flags |= ArticleDetailRightsFlagHasAttributionTemplate;
+        }
+
+        if (!string.IsNullOrEmpty(rights.CanonicalUrl))
+        {
+            flags |= ArticleDetailRightsFlagHasCanonicalUrl;
+        }
+
+        if (!string.IsNullOrEmpty(rights.ProofUrl))
+        {
+            flags |= ArticleDetailRightsFlagHasProofUrl;
+        }
+
+        if (!string.IsNullOrEmpty(rights.ProofStatus))
+        {
+            flags |= ArticleDetailRightsFlagHasProofStatus;
+        }
+
+        return flags;
     }
 
-    private static bool BuildArticleDetail(
-        ArticleDetailPod pod,
-        List<TagCoreModel> tags,
-        ReadOnlySpan<byte> payloadSpan,
-        string? coverImageUrl,
-        byte isDeleted,
-        int status,
-        DateTime? scheduledPublishAt,
-        DateTime? publishedAt,
-        out ArticleDetailCoreModel item)
+    private static bool ValidateArticleDetailRecordSlices(ArticleDetailV3RecordPod record, ReadOnlySpan<byte> blob)
+        => IsSliceValid(record.Title, blob) &&
+           IsSliceValid(record.Content, blob) &&
+           IsSliceValid(record.Summary, blob) &&
+           IsSliceValid(record.CoverImageUrl, blob) &&
+           IsSliceValid(record.CategoryName, blob);
+
+    private static bool ValidateArticleRightsRecordSlices(ArticleRightsV3RecordPod record, ReadOnlySpan<byte> blob)
     {
-        if (isDeleted > 1)
-        {
-            item = default;
-            return false;
-        }
+        const int KnownFlags =
+            ArticleDetailRightsFlagEnabled |
+            ArticleDetailRightsFlagAllowCodeCopy |
+            ArticleDetailRightsFlagShowPublicBadge |
+            ArticleDetailRightsFlagProofBindingEnabled |
+            ArticleDetailRightsFlagHasCopyrightYear |
+            ArticleDetailRightsFlagHasCopyrightHolder |
+            ArticleDetailRightsFlagHasRightsStatement |
+            ArticleDetailRightsFlagHasAttributionTemplate |
+            ArticleDetailRightsFlagHasCanonicalUrl |
+            ArticleDetailRightsFlagHasProofUrl |
+            ArticleDetailRightsFlagHasProofStatus;
 
-        string title = PodUtf8Codec.FromFixed256(pod.Title);
-        string categoryName = PodUtf8Codec.FromFixed128(pod.Category.Name);
-        string summary = PodProjector.ReadSlice(pod.Summary, payloadSpan);
-        string content = PodProjector.ReadSlice(pod.Content, payloadSpan);
-        DateTime createTime = PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs);
-        var category = new ArticleCategoryCoreModel(pod.Category.Id, categoryName);
-        int wordCount = content.Count(static ch => !char.IsWhiteSpace(ch));
-        int estimatedReadingMinutes = Math.Max(1, (wordCount + 299) / 300);
-        bool showReadingNotice = wordCount > 5_000;
-
-        item = new ArticleDetailCoreModel(
-            pod,
-            pod.Id,
-            title,
-            content,
-            summary,
-            coverImageUrl,
-            pod.Views,
-            wordCount,
-            estimatedReadingMinutes,
-            showReadingNotice,
-            createTime,
-            category,
-            tags,
-            pod.Category.Id,
-            isDeleted == 1,
-            status,
-            scheduledPublishAt,
-            publishedAt);
-        return true;
+        return record.MaxExcerptChars >= 0 &&
+            (record.Flags & ~KnownFlags) == 0 &&
+            IsSliceValid(record.LicenseType, blob) &&
+            IsSliceValid(record.CopyrightHolder, blob) &&
+            IsSliceValid(record.RightsStatement, blob) &&
+            IsSliceValid(record.AttributionTemplate, blob) &&
+            IsSliceValid(record.CopyPolicy, blob) &&
+            IsSliceValid(record.CanonicalUrl, blob) &&
+            IsSliceValid(record.PolicyHash, blob) &&
+            IsSliceValid(record.ContentCanonicalHash, blob) &&
+            IsSliceValid(record.ProofUrl, blob) &&
+            IsSliceValid(record.ProofStatus, blob);
     }
+
+    private static ArticleRightsCoreModel BuildArticleRightsCoreModel(ArticleRightsV3RecordPod record, ReadOnlySpan<byte> blob)
+        => new(
+            record.SnapshotId,
+            record.ArticleRevisionId,
+            record.RevisionNo,
+            (record.Flags & ArticleDetailRightsFlagEnabled) != 0,
+            PodUtf8Codec.ReadSlice(record.LicenseType, blob),
+            ReadOptionalArticleDetailRightsSlice(record.CopyrightHolder, blob, ArticleDetailRightsFlagHasCopyrightHolder, record.Flags),
+            (record.Flags & ArticleDetailRightsFlagHasCopyrightYear) != 0 ? record.CopyrightYear : null,
+            ReadOptionalArticleDetailRightsSlice(record.RightsStatement, blob, ArticleDetailRightsFlagHasRightsStatement, record.Flags),
+            ReadOptionalArticleDetailRightsSlice(record.AttributionTemplate, blob, ArticleDetailRightsFlagHasAttributionTemplate, record.Flags),
+            PodUtf8Codec.ReadSlice(record.CopyPolicy, blob),
+            record.MaxExcerptChars,
+            (record.Flags & ArticleDetailRightsFlagAllowCodeCopy) != 0,
+            (record.Flags & ArticleDetailRightsFlagShowPublicBadge) != 0,
+            (record.Flags & ArticleDetailRightsFlagProofBindingEnabled) != 0,
+            ReadOptionalArticleDetailRightsSlice(record.CanonicalUrl, blob, ArticleDetailRightsFlagHasCanonicalUrl, record.Flags),
+            PodUtf8Codec.ReadSlice(record.PolicyHash, blob),
+            PodUtf8Codec.ReadSlice(record.ContentCanonicalHash, blob),
+            ReadOptionalArticleDetailRightsSlice(record.ProofUrl, blob, ArticleDetailRightsFlagHasProofUrl, record.Flags),
+            ReadOptionalArticleDetailRightsSlice(record.ProofStatus, blob, ArticleDetailRightsFlagHasProofStatus, record.Flags));
+
+    private static string? ReadOptionalArticleDetailRightsSlice(Utf8SliceRef slice, ReadOnlySpan<byte> blob, int flag, int flags)
+        => (flags & flag) == 0 ? null : PodUtf8Codec.ReadSlice(slice, blob);
+
+    private static bool IsSliceValid(Utf8SliceRef slice, ReadOnlySpan<byte> blob)
+        => IsRangeWithin(slice.Offset, slice.Length, blob.Length);
+
+    private static bool IsRangeWithin(int offset, int length, int total)
+        => offset >= 0 && length >= 0 && offset <= total && length <= total - offset;
 
     private static long ToUnixMsOrZero(DateTime? value)
         => value.HasValue ? PodTimeCodec.ToUnixMs(value.Value) : 0;
@@ -836,6 +1032,70 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RightsStatement;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AttributionTemplate;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CopyPolicy;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableArticleDetailV3HeaderPod
+    {
+        public uint Magic;
+        public int Version;
+        public uint Flags;
+        public int ArticleRecordOffset;
+        public int ArticleRecordLength;
+        public int TagOffset;
+        public int TagCount;
+        public int RightsRecordOffset;
+        public int RightsRecordLength;
+        public int BlobOffset;
+        public int BlobLength;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableArticleDetailV3RecordPod
+    {
+        public int Id;
+        public int Views;
+        public long CreateTimeUnixMs;
+        public int CategoryId;
+        public int Status;
+        public long ScheduledPublishAtUnixMs;
+        public long PublishedAtUnixMs;
+        public byte IsDeleted;
+        public byte Reserved0;
+        public ushort Reserved1;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Title;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Content;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Summary;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CoverImageUrl;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CategoryName;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableArticleDetailTagV3RecordPod
+    {
+        public int Id;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Name;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct MutableArticleRightsV3RecordPod
+    {
+        public long SnapshotId;
+        public long ArticleRevisionId;
+        public int RevisionNo;
+        public int Flags;
+        public int CopyrightYear;
+        public int MaxExcerptChars;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef LicenseType;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CopyrightHolder;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RightsStatement;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AttributionTemplate;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CopyPolicy;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CanonicalUrl;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef PolicyHash;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ContentCanonicalHash;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ProofUrl;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ProofStatus;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

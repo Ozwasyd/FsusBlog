@@ -94,6 +94,9 @@ public sealed class ArticleProjectionTests
         ArticleDetailResponse result = ArticleProjection.ToResponse(item);
 
         Assert.Equal("# body", result.Content);
+        Assert.Equal(901, result.Rights.SnapshotId);
+        Assert.Equal("CC-BY-4.0", result.Rights.LicenseType);
+        Assert.Equal("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", result.Rights.PolicyHash);
     }
 
     [Fact]
@@ -213,6 +216,31 @@ public sealed class ArticleProjectionTests
             CreateTime = DateTime.UtcNow,
             CategoryId = 1,
             CategoryName = "Cat",
-            Tags = []
+            Tags = [],
+            Rights = BuildRights()
+        };
+
+    private static ArticleRightsReadModel BuildRights()
+        => new()
+        {
+            SnapshotId = 901,
+            ArticleRevisionId = 801,
+            RevisionNo = 7,
+            Enabled = true,
+            LicenseType = "CC-BY-4.0",
+            CopyrightHolder = "Fésus",
+            CopyrightYear = 2026,
+            RightsStatement = "Line one\nLine two",
+            AttributionTemplate = "{title} — {holder}",
+            CopyPolicy = "append-attribution",
+            MaxExcerptChars = 300,
+            AllowCodeCopy = true,
+            ShowPublicBadge = false,
+            ProofBindingEnabled = true,
+            CanonicalUrl = "https://example.test/article/1",
+            PolicyHash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ContentCanonicalHash = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            ProofUrl = "https://example.test/proofs/rights/901",
+            ProofStatus = "ready"
         };
 }

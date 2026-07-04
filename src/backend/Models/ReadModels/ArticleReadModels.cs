@@ -39,6 +39,30 @@ public sealed record class ArticleDetailReadModel
     public ArticleStatus Status { get; init; } = ArticleStatus.Published;
     public DateTime? ScheduledPublishAt { get; init; }
     public DateTime? PublishedAt { get; init; }
+    public ArticleRightsReadModel Rights { get; init; } = new();
+}
+
+public sealed record class ArticleRightsReadModel
+{
+    public long SnapshotId { get; init; }
+    public long ArticleRevisionId { get; init; }
+    public int RevisionNo { get; init; }
+    public bool Enabled { get; init; } = true;
+    public string LicenseType { get; init; } = "all-rights-reserved";
+    public string? CopyrightHolder { get; init; }
+    public int? CopyrightYear { get; init; }
+    public string? RightsStatement { get; init; }
+    public string? AttributionTemplate { get; init; }
+    public string CopyPolicy { get; init; } = "append-attribution";
+    public int MaxExcerptChars { get; init; } = 300;
+    public bool AllowCodeCopy { get; init; } = true;
+    public bool ShowPublicBadge { get; init; } = true;
+    public bool ProofBindingEnabled { get; init; } = true;
+    public string? CanonicalUrl { get; init; }
+    public string PolicyHash { get; init; } = string.Empty;
+    public string ContentCanonicalHash { get; init; } = string.Empty;
+    public string? ProofUrl { get; init; }
+    public string? ProofStatus { get; init; }
 }
 
 public sealed record class TagReadModel

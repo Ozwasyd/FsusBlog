@@ -212,7 +212,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 |----|------|---------|----------------|
 | 0 | `Unknown` | — | — |
 | 1 | `ArticleList` | `ArticleListPod` | `GET /api/binary/article/list/home/{page}/{size}.aeds`；分类/标签列表见 `quick-reference.md` |
-| 2 | `ArticleDetail` | `ArticleDetailPod` | `GET /api/binary/article/{id}.aeds` |
+| 2 | `ArticleDetail` | `ArticleDetailV3HeaderPod` + detail/tag/rights records | `GET /api/binary/article/{id}.aeds` |
 | 3 | `ArticleHot` | `ArticleListPod` | `GET /api/binary/article/hot/{size}.aeds` |
 | 4 | `ArticleSearch` | `ArticleListPod` | 搜索索引 / author cache 诊断，不暴露旧文本业务路径 |
 | 5 | `CommentArticleCursor` | `CommentThreadItemPod` + item blob | `GET /api/binary/comment/{articleId}`；每个 item blob 在 content 后追加必备 `CommentAuthorView` payload 与可空 `replyToAuthor` payload |
@@ -326,7 +326,11 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 类型 | 字节数 |
 |------|--------|
 | `ArticleListPod` | ~512（含 Title/Summary 字段） |
-| `ArticleDetailPod` | ~1024（含内容 SliceRef） |
+| `ArticleDetailPod` | legacy；公开运行时不再接受 |
+| `ArticleDetailV3HeaderPod` | 44 |
+| `ArticleDetailV3RecordPod` | 84 |
+| `ArticleDetailTagV3RecordPod` | 12 |
+| `ArticleRightsV3RecordPod` | 112 |
 
 ### 评论 POD
 

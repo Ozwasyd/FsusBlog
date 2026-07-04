@@ -46,7 +46,8 @@ public static class ArticleProjection
             IsDeleted = item.IsDeleted,
             Status = (int)item.Status,
             ScheduledPublishAt = item.ScheduledPublishAt,
-            PublishedAt = item.PublishedAt
+            PublishedAt = item.PublishedAt,
+            Rights = ToRightsResponse(item.Rights)
         };
     }
 
@@ -147,8 +148,55 @@ public static class ArticleProjection
             item.IsDeleted,
             (int)item.Status,
             item.ScheduledPublishAt,
-            item.PublishedAt);
+            item.PublishedAt,
+            ToRightsCoreModel(item.Rights));
     }
+
+    private static ArticleRightsResponse ToRightsResponse(ArticleRightsReadModel rights)
+        => new()
+        {
+            SnapshotId = rights.SnapshotId,
+            ArticleRevisionId = rights.ArticleRevisionId,
+            RevisionNo = rights.RevisionNo,
+            Enabled = rights.Enabled,
+            LicenseType = rights.LicenseType,
+            CopyrightHolder = rights.CopyrightHolder,
+            CopyrightYear = rights.CopyrightYear,
+            RightsStatement = rights.RightsStatement,
+            AttributionTemplate = rights.AttributionTemplate,
+            CopyPolicy = rights.CopyPolicy,
+            MaxExcerptChars = rights.MaxExcerptChars,
+            AllowCodeCopy = rights.AllowCodeCopy,
+            ShowPublicBadge = rights.ShowPublicBadge,
+            ProofBindingEnabled = rights.ProofBindingEnabled,
+            CanonicalUrl = rights.CanonicalUrl,
+            PolicyHash = rights.PolicyHash,
+            ContentCanonicalHash = rights.ContentCanonicalHash,
+            ProofUrl = rights.ProofUrl,
+            ProofStatus = rights.ProofStatus
+        };
+
+    private static ArticleRightsCoreModel ToRightsCoreModel(ArticleRightsReadModel rights)
+        => new(
+            rights.SnapshotId,
+            rights.ArticleRevisionId,
+            rights.RevisionNo,
+            rights.Enabled,
+            rights.LicenseType,
+            rights.CopyrightHolder,
+            rights.CopyrightYear,
+            rights.RightsStatement,
+            rights.AttributionTemplate,
+            rights.CopyPolicy,
+            rights.MaxExcerptChars,
+            rights.AllowCodeCopy,
+            rights.ShowPublicBadge,
+            rights.ProofBindingEnabled,
+            rights.CanonicalUrl,
+            rights.PolicyHash,
+            rights.ContentCanonicalHash,
+            rights.ProofUrl,
+            rights.ProofStatus);
 
     public static string ResolveDetailContent(ArticleDetailReadModel item)
     {

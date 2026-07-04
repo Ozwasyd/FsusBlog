@@ -168,9 +168,34 @@ public sealed class ArticleServiceCoreAdapter(IArticleCoreService core) : IArtic
             IsDeleted = model.IsDeleted,
             Status = ToArticleStatus(model.Status),
             ScheduledPublishAt = model.ScheduledPublishAt,
-            PublishedAt = model.PublishedAt
+            PublishedAt = model.PublishedAt,
+            Rights = ToArticleRightsReadModel(model.Rights)
         };
     }
+
+    private static ArticleRightsReadModel ToArticleRightsReadModel(ArticleRightsCoreModel model)
+        => new()
+        {
+            SnapshotId = model.SnapshotId,
+            ArticleRevisionId = model.ArticleRevisionId,
+            RevisionNo = model.RevisionNo,
+            Enabled = model.Enabled,
+            LicenseType = model.LicenseType,
+            CopyrightHolder = model.CopyrightHolder,
+            CopyrightYear = model.CopyrightYear,
+            RightsStatement = model.RightsStatement,
+            AttributionTemplate = model.AttributionTemplate,
+            CopyPolicy = model.CopyPolicy,
+            MaxExcerptChars = model.MaxExcerptChars,
+            AllowCodeCopy = model.AllowCodeCopy,
+            ShowPublicBadge = model.ShowPublicBadge,
+            ProofBindingEnabled = model.ProofBindingEnabled,
+            CanonicalUrl = model.CanonicalUrl,
+            PolicyHash = model.PolicyHash,
+            ContentCanonicalHash = model.ContentCanonicalHash,
+            ProofUrl = model.ProofUrl,
+            ProofStatus = model.ProofStatus
+        };
 
     private static ArticleStatus ToArticleStatus(int status)
         => ArticleStatusProjection.Normalize(status);

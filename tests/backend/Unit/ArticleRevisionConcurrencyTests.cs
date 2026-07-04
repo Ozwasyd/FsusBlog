@@ -62,7 +62,7 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
         int articleId = await SeedArticleAsync(db, isDeleted: true);
         ArticleService service = CreateService(db);
 
-        await SaveRevisionInTransactionAsync(db, service, articleId, "deleted article update");
+        await SaveRevisionInTransactionAsync(db, service, articleId, "deleted article update", expectSuccess: false);
 
         int revisionCount = await db.Queryable<ArticleRevision>()
             .CountAsync(revision => revision.ArticleId == articleId);
@@ -166,7 +166,8 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
         SqlSugarClient db,
         ArticleService service,
         int articleId,
-        string diffSummary)
+        string diffSummary,
+        bool expectSuccess = true)
     {
         var result = await db.Ado.UseTranAsync(async () =>
         {
@@ -174,7 +175,15 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
             return true;
         });
 
-        Assert.True(result.IsSuccess, result.ErrorMessage);
+        if (expectSuccess)
+        {
+            Assert.True(result.IsSuccess, result.ErrorMessage);
+        }
+        else
+        {
+            Assert.False(result.IsSuccess);
+            Assert.Contains("Article revision was not created", result.ErrorMessage, StringComparison.Ordinal);
+        }
     }
 
     private static async Task InvokeSaveRevisionAsync(ArticleService service, int articleId, string diffSummary)
@@ -277,6 +286,8 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
             typeof(Category),
             typeof(Tag),
             typeof(ArticleRevision),
+            typeof(ArticleRightsPolicy),
+            typeof(ArticleRightsSnapshot),
             typeof(ArticleMutationOutboxEvent));
 
     private static ArticleService CreateService(SqlSugarClient db)

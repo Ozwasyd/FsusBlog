@@ -741,6 +741,7 @@ public sealed class PublicHotArtifactProjector(
 
         IReadOnlyDictionary<int, string> contentMap = await LoadArticleContentMapAsync([.. articles.Keys], ct).ConfigureAwait(false);
         IReadOnlyDictionary<int, List<TagReadModel>> tagMap = await LoadArticleTagMapAsync([.. articles.Keys], ct).ConfigureAwait(false);
+        IReadOnlyDictionary<int, ArticleRightsReadModel> rightsMap = await LoadArticleRightsMapAsync([.. articles.Keys], ct).ConfigureAwait(false);
         var result = new List<ArticleDetailReadModel>(articles.Count);
         foreach (int id in ids)
         {
@@ -762,7 +763,8 @@ public sealed class PublicHotArtifactProjector(
                 WordCount = wordCount,
                 EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
                 ShowReadingNotice = wordCount > LongReadThreshold,
-                Tags = tagMap.TryGetValue(id, out var tags) ? tags : []
+                Tags = tagMap.TryGetValue(id, out var tags) ? tags : [],
+                Rights = rightsMap.TryGetValue(id, out ArticleRightsReadModel? rights) ? rights : article.Rights
             });
         }
 
@@ -882,6 +884,127 @@ public sealed class PublicHotArtifactProjector(
     {
         IReadOnlyDictionary<int, string> contentMap = await LoadArticleContentMapAsync([articleId], ct).ConfigureAwait(false);
         return contentMap.TryGetValue(articleId, out string? content) ? content : string.Empty;
+    }
+
+    private async Task<IReadOnlyDictionary<int, ArticleRightsReadModel>> LoadArticleRightsMapAsync(
+        IReadOnlyCollection<int> articleIds,
+        CancellationToken ct)
+    {
+        int[] ids = [.. articleIds.Where(static id => id > 0).Distinct()];
+        if (ids.Length == 0)
+        {
+            return new Dictionary<int, ArticleRightsReadModel>();
+        }
+
+        var parameters = new List<SugarParameter>(ids.Length);
+        var parameterNames = new List<string>(ids.Length);
+        for (int i = 0; i < ids.Length; i++)
+        {
+            string parameterName = string.Concat("@ArticleId", i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            parameterNames.Add(parameterName);
+            parameters.Add(new SugarParameter(parameterName, ids[i]));
+        }
+
+        string idListSql = string.Join(", ", parameterNames);
+        string sql = $"""
+            SELECT
+                rights.article_id AS "ArticleId",
+                rights.id AS "RightsSnapshotId",
+                rights.article_revision_id AS "RightsArticleRevisionId",
+                rights.revision_no AS "RightsRevisionNo",
+                rights.enabled AS "RightsEnabled",
+                rights.license_type AS "RightsLicenseType",
+                rights.copyright_holder AS "RightsCopyrightHolder",
+                rights.copyright_year AS "RightsCopyrightYear",
+                rights.rights_statement AS "RightsStatement",
+                rights.attribution_template AS "RightsAttributionTemplate",
+                rights.copy_policy AS "RightsCopyPolicy",
+                rights.max_excerpt_chars AS "RightsMaxExcerptChars",
+                rights.allow_code_copy AS "RightsAllowCodeCopy",
+                rights.show_public_badge AS "RightsShowPublicBadge",
+                rights.proof_binding_enabled AS "RightsProofBindingEnabled",
+                rights.canonical_url AS "RightsCanonicalUrl",
+                rights.policy_hash AS "RightsPolicyHash",
+                rights.content_canonical_hash AS "RightsContentCanonicalHash",
+                CASE
+                    WHEN rights_proof.id IS NULL THEN NULL
+                    ELSE concat('urn:fsus:rights-proof:', rights_proof.id::text)
+                END AS "RightsProofUrl",
+                rights_proof.proof_status AS "RightsProofStatus"
+            FROM (
+                SELECT DISTINCT ON (snapshot.article_id) snapshot.*
+                FROM article_rights_snapshot snapshot
+                WHERE snapshot.article_id IN ({idListSql})
+                ORDER BY snapshot.article_id, snapshot.revision_no DESC, snapshot.created_at DESC, snapshot.id DESC
+            ) rights
+            LEFT JOIN LATERAL (
+                SELECT proof.*
+                FROM article_rights_proof proof
+                WHERE proof.article_rights_snapshot_id = rights.id
+                ORDER BY proof.created_at DESC, proof.id DESC
+                LIMIT 1
+            ) rights_proof ON TRUE;
+            """;
+
+        var map = new Dictionary<int, ArticleRightsReadModel>(ids.Length);
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, parameters).ConfigureAwait(false);
+        int articleIdOrdinal = reader.GetOrdinal("ArticleId");
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            map[reader.GetInt32(articleIdOrdinal)] = ReadArticleRights(reader);
+        }
+
+        return map;
+    }
+
+    private static ArticleRightsReadModel ReadArticleRights(DbDataReader reader)
+    {
+        int snapshotId = reader.GetOrdinal("RightsSnapshotId");
+        if (reader.IsDBNull(snapshotId))
+        {
+            return new ArticleRightsReadModel();
+        }
+
+        return new ArticleRightsReadModel
+        {
+            SnapshotId = reader.GetInt64(snapshotId),
+            ArticleRevisionId = reader.GetInt64(reader.GetOrdinal("RightsArticleRevisionId")),
+            RevisionNo = reader.GetInt32(reader.GetOrdinal("RightsRevisionNo")),
+            Enabled = reader.GetBoolean(reader.GetOrdinal("RightsEnabled")),
+            LicenseType = ReadStringOrDefault(reader, "RightsLicenseType", "all-rights-reserved"),
+            CopyrightHolder = ReadNullableString(reader, "RightsCopyrightHolder"),
+            CopyrightYear = ReadNullableInt32(reader, "RightsCopyrightYear"),
+            RightsStatement = ReadNullableString(reader, "RightsStatement"),
+            AttributionTemplate = ReadNullableString(reader, "RightsAttributionTemplate"),
+            CopyPolicy = ReadStringOrDefault(reader, "RightsCopyPolicy", "append-attribution"),
+            MaxExcerptChars = reader.GetInt32(reader.GetOrdinal("RightsMaxExcerptChars")),
+            AllowCodeCopy = reader.GetBoolean(reader.GetOrdinal("RightsAllowCodeCopy")),
+            ShowPublicBadge = reader.GetBoolean(reader.GetOrdinal("RightsShowPublicBadge")),
+            ProofBindingEnabled = reader.GetBoolean(reader.GetOrdinal("RightsProofBindingEnabled")),
+            CanonicalUrl = ReadNullableString(reader, "RightsCanonicalUrl"),
+            PolicyHash = ReadStringOrDefault(reader, "RightsPolicyHash", string.Empty),
+            ContentCanonicalHash = ReadStringOrDefault(reader, "RightsContentCanonicalHash", string.Empty),
+            ProofUrl = ReadNullableString(reader, "RightsProofUrl"),
+            ProofStatus = ReadNullableString(reader, "RightsProofStatus")
+        };
+    }
+
+    private static string ReadStringOrDefault(DbDataReader reader, string fieldName, string defaultValue)
+    {
+        int ordinal = reader.GetOrdinal(fieldName);
+        return reader.IsDBNull(ordinal) ? defaultValue : reader.GetString(ordinal);
+    }
+
+    private static string? ReadNullableString(DbDataReader reader, string fieldName)
+    {
+        int ordinal = reader.GetOrdinal(fieldName);
+        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+    }
+
+    private static int? ReadNullableInt32(DbDataReader reader, string fieldName)
+    {
+        int ordinal = reader.GetOrdinal(fieldName);
+        return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
     }
 
     private async Task<bool> LegacyArticleContentColumnExistsAsync()

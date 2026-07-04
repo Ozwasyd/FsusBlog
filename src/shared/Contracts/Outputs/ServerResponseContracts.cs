@@ -78,6 +78,7 @@ public record struct ArticleDetailResponse
     public int Status { get; set; }
     public DateTime? ScheduledPublishAt { get; set; }
     public DateTime? PublishedAt { get; set; }
+    public ArticleRightsResponse Rights { get; set; }
 
     public ArticleDetailResponse()
     {
@@ -85,6 +86,43 @@ public record struct ArticleDetailResponse
         Content = string.Empty;
         Tags = [];
         Status = 2;
+        Rights = new ArticleRightsResponse();
+    }
+}
+
+public record struct ArticleRightsResponse
+{
+    public long SnapshotId { get; set; }
+    public long ArticleRevisionId { get; set; }
+    public int RevisionNo { get; set; }
+    public bool Enabled { get; set; }
+    public string LicenseType { get; set; }
+    public string? CopyrightHolder { get; set; }
+    public int? CopyrightYear { get; set; }
+    public string? RightsStatement { get; set; }
+    public string? AttributionTemplate { get; set; }
+    public string CopyPolicy { get; set; }
+    public int MaxExcerptChars { get; set; }
+    public bool AllowCodeCopy { get; set; }
+    public bool ShowPublicBadge { get; set; }
+    public bool ProofBindingEnabled { get; set; }
+    public string? CanonicalUrl { get; set; }
+    public string PolicyHash { get; set; }
+    public string ContentCanonicalHash { get; set; }
+    public string? ProofUrl { get; set; }
+    public string? ProofStatus { get; set; }
+
+    public ArticleRightsResponse()
+    {
+        Enabled = true;
+        LicenseType = "all-rights-reserved";
+        CopyPolicy = "append-attribution";
+        MaxExcerptChars = 300;
+        AllowCodeCopy = true;
+        ShowPublicBadge = true;
+        ProofBindingEnabled = true;
+        PolicyHash = string.Empty;
+        ContentCanonicalHash = string.Empty;
     }
 }
 

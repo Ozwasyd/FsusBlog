@@ -1416,7 +1416,100 @@ public class PodBinaryCodecTests
             pod, id, title, content, null, "/uploads/illustration/test-cover.webp", 10, wordCount,
             Math.Max(1, (wordCount + 299) / 300), false, createTime,
             new ArticleCategoryCoreModel(2, "Dev"),
-            [new TagCoreModel(7, "rust")], 2, false, 3, null, createTime);
+            [new TagCoreModel(7, "rust")], 2, false, 3, null, createTime, Rights: MakeRights());
+    }
+
+    private static ArticleRightsCoreModel MakeRights()
+        => new(
+            SnapshotId: 901,
+            ArticleRevisionId: 801,
+            RevisionNo: 7,
+            Enabled: true,
+            LicenseType: "CC-BY-4.0",
+            CopyrightHolder: "Fésus",
+            CopyrightYear: 2026,
+            RightsStatement: "Line one\nLine two",
+            AttributionTemplate: "{title} — {holder}",
+            CopyPolicy: "append-attribution",
+            MaxExcerptChars: 300,
+            AllowCodeCopy: true,
+            ShowPublicBadge: false,
+            ProofBindingEnabled: true,
+            CanonicalUrl: "https://example.test/article/10",
+            PolicyHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ContentCanonicalHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            ProofUrl: "https://example.test/proofs/rights/901",
+            ProofStatus: "ready");
+
+    private static byte[] EncodeLegacyArticleDetailPayloadWithoutV3Envelope()
+    {
+        var item = MakeDetailItem();
+        ArticleDetailPod pod = PodProjector.ProjectArticleDetail(
+            item.Id,
+            item.Views,
+            item.CreateTime,
+            item.Category.Id,
+            item.Category.Name,
+            item.Title,
+            item.Content,
+            item.Summary,
+            out ReadOnlyMemory<byte> payload);
+        var writer = new ArrayBufferWriter<byte>();
+        WritePod(writer, pod);
+        WriteInt32(writer, item.Tags.Count);
+        foreach (TagCoreModel tag in item.Tags)
+        {
+            WritePod(writer, PodProjector.ProjectTag(tag.Id, tag.Name));
+        }
+
+        WriteBytes(writer, payload.Span);
+        WriteBytes(writer, Encoding.UTF8.GetBytes(item.CoverImageUrl ?? string.Empty));
+        WriteByte(writer, item.IsDeleted ? (byte)1 : (byte)0);
+        WriteInt32(writer, item.Status);
+        WriteInt64(writer, ToUnixMsOrZero(item.ScheduledPublishAt));
+        WriteInt64(writer, ToUnixMsOrZero(item.PublishedAt));
+        return writer.WrittenSpan.ToArray();
+    }
+
+    private static long ToUnixMsOrZero(DateTime? value)
+        => value.HasValue ? new DateTimeOffset(value.Value).ToUnixTimeMilliseconds() : 0;
+
+    private static void WritePod<T>(ArrayBufferWriter<byte> writer, in T value)
+        where T : unmanaged
+    {
+        int size = Marshal.SizeOf<T>();
+        Span<byte> span = writer.GetSpan(size);
+        MemoryMarshal.Write(span, in value);
+        writer.Advance(size);
+    }
+
+    private static void WriteInt32(ArrayBufferWriter<byte> writer, int value)
+    {
+        Span<byte> span = writer.GetSpan(sizeof(int));
+        BinaryPrimitives.WriteInt32LittleEndian(span, value);
+        writer.Advance(sizeof(int));
+    }
+
+    private static void WriteInt64(ArrayBufferWriter<byte> writer, long value)
+    {
+        Span<byte> span = writer.GetSpan(sizeof(long));
+        BinaryPrimitives.WriteInt64LittleEndian(span, value);
+        writer.Advance(sizeof(long));
+    }
+
+    private static void WriteByte(ArrayBufferWriter<byte> writer, byte value)
+    {
+        Span<byte> span = writer.GetSpan(1);
+        span[0] = value;
+        writer.Advance(1);
+    }
+
+    private static void WriteBytes(ArrayBufferWriter<byte> writer, ReadOnlySpan<byte> value)
+    {
+        WriteInt32(writer, value.Length);
+        Span<byte> span = writer.GetSpan(value.Length);
+        value.CopyTo(span);
+        writer.Advance(value.Length);
     }
 
     private static byte[] EncodeWithWriter(Action<IBufferWriter<byte>> write)
@@ -1762,6 +1855,8 @@ public class PodBinaryCodecTests
         bool ok = PodBinaryCodec.TryDecodeArticleDetail(encoded, out var decoded);
 
         Assert.True(ok);
+        Assert.Equal(0x41524433u, BinaryPrimitives.ReadUInt32LittleEndian(encoded.AsSpan(0, sizeof(uint))));
+        Assert.Equal(3, BinaryPrimitives.ReadInt32LittleEndian(encoded.AsSpan(sizeof(uint), sizeof(int))));
         Assert.Equal(10, decoded.Id);
         Assert.Equal("My Post", decoded.Title);
         Assert.Equal("This is the full content of the article.", decoded.Content);
@@ -1770,6 +1865,25 @@ public class PodBinaryCodecTests
         Assert.Equal("Dev", decoded.Category.Name);
         Assert.Equal(3, decoded.Status);
         Assert.Equal(new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc), decoded.PublishedAt);
+        Assert.Equal(901L, decoded.Rights.SnapshotId);
+        Assert.Equal(801L, decoded.Rights.ArticleRevisionId);
+        Assert.Equal(7, decoded.Rights.RevisionNo);
+        Assert.True(decoded.Rights.Enabled);
+        Assert.Equal("CC-BY-4.0", decoded.Rights.LicenseType);
+        Assert.Equal("Fésus", decoded.Rights.CopyrightHolder);
+        Assert.Equal(2026, decoded.Rights.CopyrightYear);
+        Assert.Equal("Line one\nLine two", decoded.Rights.RightsStatement);
+        Assert.Equal("{title} — {holder}", decoded.Rights.AttributionTemplate);
+        Assert.Equal("append-attribution", decoded.Rights.CopyPolicy);
+        Assert.Equal(300, decoded.Rights.MaxExcerptChars);
+        Assert.True(decoded.Rights.AllowCodeCopy);
+        Assert.False(decoded.Rights.ShowPublicBadge);
+        Assert.True(decoded.Rights.ProofBindingEnabled);
+        Assert.Equal("https://example.test/article/10", decoded.Rights.CanonicalUrl);
+        Assert.Equal("sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", decoded.Rights.PolicyHash);
+        Assert.Equal("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", decoded.Rights.ContentCanonicalHash);
+        Assert.Equal("https://example.test/proofs/rights/901", decoded.Rights.ProofUrl);
+        Assert.Equal("ready", decoded.Rights.ProofStatus);
     }
 
     [Fact]
@@ -1789,6 +1903,59 @@ public class PodBinaryCodecTests
     {
         bool ok = PodBinaryCodec.TryDecodeArticleDetail(ReadOnlyMemory<byte>.Empty, out _);
         Assert.False(ok);
+    }
+
+    [Fact]
+    public void ArticleDetail_DecodeRejectsLegacyPayloadWithoutV3Envelope()
+    {
+        byte[] legacy = EncodeLegacyArticleDetailPayloadWithoutV3Envelope();
+
+        bool ok = PodBinaryCodec.TryDecodeArticleDetail(legacy, out _);
+
+        Assert.False(ok);
+    }
+
+    [Fact]
+    public void ArticleDetail_DecodeRejectsInvalidMagicVersionAndTrailingPayload()
+    {
+        var item = MakeDetailItem();
+        byte[] encoded = PodBinaryCodec.EncodeArticleDetail(item);
+
+        byte[] invalidMagic = (byte[])encoded.Clone();
+        BinaryPrimitives.WriteUInt32LittleEndian(invalidMagic.AsSpan(0, sizeof(uint)), 0x21444142u);
+        Assert.False(PodBinaryCodec.TryDecodeArticleDetail(invalidMagic, out _));
+
+        byte[] invalidVersion = (byte[])encoded.Clone();
+        BinaryPrimitives.WriteInt32LittleEndian(invalidVersion.AsSpan(sizeof(uint), sizeof(int)), 2);
+        Assert.False(PodBinaryCodec.TryDecodeArticleDetail(invalidVersion, out _));
+
+        byte[] trailing = new byte[encoded.Length + 1];
+        encoded.CopyTo(trailing.AsSpan());
+        Assert.False(PodBinaryCodec.TryDecodeArticleDetail(trailing, out _));
+    }
+
+    [Fact]
+    public void ArticleDetail_LargeContentRightsAndManyTags_RoundTripPreservesV3Payload()
+    {
+        string content = new('字', 9_000);
+        var item = MakeDetailItem(42, "Long rights article", content) with
+        {
+            Tags = Enumerable.Range(1, 32).Select(static id => new TagCoreModel(id, $"tag-{id}")).ToArray(),
+            Rights = MakeRights() with
+            {
+                RightsStatement = new string('版', 4_096),
+                AttributionTemplate = "{title}\n{url}\n{holder}\n{license}"
+            }
+        };
+
+        byte[] encoded = PodBinaryCodec.EncodeArticleDetail(item);
+        bool ok = PodBinaryCodec.TryDecodeArticleDetail(encoded, out var decoded);
+
+        Assert.True(ok);
+        Assert.Equal(content, decoded.Content);
+        Assert.Equal(32, decoded.Tags.Count);
+        Assert.Equal(new string('版', 4_096), decoded.Rights.RightsStatement);
+        Assert.Equal("{title}\n{url}\n{holder}\n{license}", decoded.Rights.AttributionTemplate);
     }
 
     // ── RelatedReading round-trip ───────────────────────────────────────────
