@@ -1059,6 +1059,51 @@ public sealed class PublicHotReadFastPathTests
         AssertNoStore(context);
     }
 
+    [Theory]
+    [InlineData(StatusCodes.Status404NotFound, "/api/binary/article/0.aeds", "GET", "", "", true)]
+    [InlineData(StatusCodes.Status405MethodNotAllowed, "/api/binary/category.aeds", "OPTIONS", "", "", true)]
+    [InlineData(StatusCodes.Status406NotAcceptable, "/api/binary/article/42.aeds", "GET", "application/json", "", true)]
+    [InlineData(StatusCodes.Status416RangeNotSatisfiable, "/api/binary/article/42.aeds", "GET", "", "bytes=0-1", true)]
+    [InlineData(StatusCodes.Status503ServiceUnavailable, "/api/binary/article/42.aeds", "GET", "", "", false)]
+    public async Task TryServeAsync_ErrorResponses_KeepStaticPublicSecurityHeaders(
+        int statusCode,
+        string path,
+        string method,
+        string accept,
+        string range,
+        bool storeReady)
+    {
+        var context = CreateContext(path);
+        context.Request.Method = method;
+        if (!string.IsNullOrEmpty(accept))
+        {
+            context.Request.Headers.Accept = accept;
+        }
+
+        if (!string.IsNullOrEmpty(range))
+        {
+            context.Request.Headers.Range = range;
+        }
+
+        bool nextCalled = false;
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ =>
+            {
+                nextCalled = true;
+                return Task.CompletedTask;
+            },
+            storeReady ? CreateReadyEmptyStore() : new PublicHotReadStore(),
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.False(nextCalled);
+        Assert.Equal(statusCode, context.Response.StatusCode);
+        AssertNoStore(context);
+        AssertHtmlSecurityHeaders(context);
+    }
+
     [Fact]
     public void BinaryArtifactFactory_ValidatesExpectedFrameAndRejectsCorruption()
     {

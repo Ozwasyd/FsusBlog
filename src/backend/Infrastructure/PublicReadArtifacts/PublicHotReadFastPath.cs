@@ -553,7 +553,7 @@ public static class PublicHotReadFastPath
             }
 
             counters.Rejected();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound);
+            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
         }
 
         bool classified = TryClassifyRoute(span, path, out PublicHotReadRoute route);
@@ -577,13 +577,13 @@ public static class PublicHotReadFastPath
                 return next(ctx);
             }
 
-            return WriteStatus(ctx, StatusCodes.Status405MethodNotAllowed);
+            return WriteStatus(ctx, StatusCodes.Status405MethodNotAllowed, isDevelopment);
         }
 
         if (ctx.Request.Headers.ContainsKey("Range"))
         {
             ctx.Response.Headers.ContentRange = "bytes */0";
-            return WriteStatus(ctx, StatusCodes.Status416RangeNotSatisfiable);
+            return WriteStatus(ctx, StatusCodes.Status416RangeNotSatisfiable, isDevelopment);
         }
 
         if (ctx.Request.ContentLength.GetValueOrDefault() > 0 || ctx.Request.QueryString.HasValue)
@@ -594,12 +594,12 @@ public static class PublicHotReadFastPath
             }
 
             WriteLegacyRouteHint(ctx, path);
-            return WriteStatus(ctx, StatusCodes.Status400BadRequest);
+            return WriteStatus(ctx, StatusCodes.Status400BadRequest, isDevelopment);
         }
 
         if (!AcceptsArtifact(ctx, isHtmlPath))
         {
-            return WriteStatus(ctx, StatusCodes.Status406NotAcceptable);
+            return WriteStatus(ctx, StatusCodes.Status406NotAcceptable, isDevelopment);
         }
 
         if (!store.IsReadyFast && !options.FailOpenWhenNotReady)
@@ -610,7 +610,7 @@ public static class PublicHotReadFastPath
             }
 
             ctx.Response.Headers["Retry-After"] = "1";
-            return WriteStatus(ctx, StatusCodes.Status503ServiceUnavailable);
+            return WriteStatus(ctx, StatusCodes.Status503ServiceUnavailable, isDevelopment);
         }
 
         PublicHotReadSnapshot snapshot = store.Current;
@@ -618,19 +618,19 @@ public static class PublicHotReadFastPath
         {
             return route.Kind switch
             {
-                PublicHotReadRouteKind.Category => ServeCategory(ctx, snapshot, counters, options),
-                PublicHotReadRouteKind.Tag => ServeTag(ctx, snapshot, counters, options),
-                PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, next, snapshot, counters, route.ArticleId, options),
-                PublicHotReadRouteKind.ArticleList => ServeList(ctx, snapshot, counters, route.ListKey, options),
-                PublicHotReadRouteKind.ArticleHot => ServeList(ctx, snapshot, counters, route.ListKey, options),
-                PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, snapshot, counters, route.ListKey, options),
+                PublicHotReadRouteKind.Category => ServeCategory(ctx, snapshot, counters, options, isDevelopment),
+                PublicHotReadRouteKind.Tag => ServeTag(ctx, snapshot, counters, options, isDevelopment),
+                PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, next, snapshot, counters, route.ArticleId, options, isDevelopment),
+                PublicHotReadRouteKind.ArticleList => ServeList(ctx, snapshot, counters, route.ListKey, options, isDevelopment),
+                PublicHotReadRouteKind.ArticleHot => ServeList(ctx, snapshot, counters, route.ListKey, options, isDevelopment),
+                PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, snapshot, counters, route.ListKey, options, isDevelopment),
                 PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, snapshot, counters, route.HtmlRouteKey, options, isDevelopment),
                 PublicHotReadRouteKind.PublicHtml => ServePublicHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment),
-                _ => WriteRejected(ctx, counters)
+                _ => WriteRejected(ctx, counters, isDevelopment)
             };
         }
 
-        return IsDynamicRelatedReadingPath(span) ? next(ctx) : WriteRejected(ctx, counters);
+        return IsDynamicRelatedReadingPath(span) ? next(ctx) : WriteRejected(ctx, counters, isDevelopment);
     }
 
     private static bool IsPublicHotReadPath(string path)
@@ -751,10 +751,10 @@ public static class PublicHotReadFastPath
             && value[(comma + 1)..].Trim().Equals(second, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static Task WriteRejected(HttpContext ctx, PublicHotReadCounters counters)
+    private static Task WriteRejected(HttpContext ctx, PublicHotReadCounters counters, bool isDevelopment)
     {
         counters.Rejected();
-        return WriteStatus(ctx, StatusCodes.Status404NotFound);
+        return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -770,7 +770,8 @@ public static class PublicHotReadFastPath
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         int articleId,
-        PublicHotReadOptions options)
+        PublicHotReadOptions options,
+        bool isDevelopment)
     {
         if (!snapshot.TryGetArticle(articleId, out PublicBinaryArtifact artifact))
         {
@@ -782,7 +783,7 @@ public static class PublicHotReadFastPath
         string artifactKey = options.EnableDiagnosticHeaders
             ? articleId.ToString(System.Globalization.CultureInfo.InvariantCulture)
             : string.Empty;
-        return WriteBinaryFrame(ctx, artifact, options, "article", artifactKey);
+        return WriteBinaryFrame(ctx, artifact, options, "article", artifactKey, isDevelopment);
     }
 
     private static Task ServeList(
@@ -790,49 +791,52 @@ public static class PublicHotReadFastPath
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         in PublicListKey key,
-        PublicHotReadOptions options)
+        PublicHotReadOptions options,
+        bool isDevelopment)
     {
         if (!snapshot.TryGetList(key, out PublicBinaryArtifact artifact))
         {
             counters.ListMiss();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound);
+            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
         }
 
         counters.ListHit(artifact.Frame.Length);
         string artifactKey = options.EnableDiagnosticHeaders ? key.ToString() : string.Empty;
-        return WriteBinaryFrame(ctx, artifact, options, PublicListArtifactKind(key.Kind), artifactKey);
+        return WriteBinaryFrame(ctx, artifact, options, PublicListArtifactKind(key.Kind), artifactKey, isDevelopment);
     }
 
     private static Task ServeCategory(
         HttpContext ctx,
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
-        PublicHotReadOptions options)
+        PublicHotReadOptions options,
+        bool isDevelopment)
     {
         if (!snapshot.TryGetCategory(out PublicBinaryArtifact artifact))
         {
             counters.ListMiss();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound);
+            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
         }
 
         counters.ListHit(artifact.Frame.Length);
-        return WriteBinaryFrame(ctx, artifact, options, "category", "all");
+        return WriteBinaryFrame(ctx, artifact, options, "category", "all", isDevelopment);
     }
 
     private static Task ServeTag(
         HttpContext ctx,
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
-        PublicHotReadOptions options)
+        PublicHotReadOptions options,
+        bool isDevelopment)
     {
         if (!snapshot.TryGetTag(out PublicBinaryArtifact artifact))
         {
             counters.ListMiss();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound);
+            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
         }
 
         counters.ListHit(artifact.Frame.Length);
-        return WriteBinaryFrame(ctx, artifact, options, "tag", "all");
+        return WriteBinaryFrame(ctx, artifact, options, "tag", "all", isDevelopment);
     }
 
     private static Task ServeHtml(
@@ -846,7 +850,7 @@ public static class PublicHotReadFastPath
         if (!snapshot.TryGetHtml(routeKey, out PublicHtmlArtifact html))
         {
             counters.HtmlMiss();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound);
+            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
         }
 
         counters.HtmlHit(html.Bytes.Length);
@@ -954,11 +958,12 @@ public static class PublicHotReadFastPath
         PublicBinaryArtifact artifact,
         PublicHotReadOptions options,
         string artifactKind,
-        string artifactKey)
+        string artifactKey,
+        bool isDevelopment)
     {
         if (!TrySelectBinaryVariant(ctx.Request, artifact, out PublicBinaryArtifactVariant variant))
         {
-            return WriteStatus(ctx, StatusCodes.Status406NotAcceptable);
+            return WriteStatus(ctx, StatusCodes.Status406NotAcceptable, isDevelopment);
         }
 
         ReadOnlyMemory<byte> frame = variant.Frame;
@@ -1349,10 +1354,11 @@ public static class PublicHotReadFastPath
         => path.Equals(CategoryPathWithoutSuffix, StringComparison.OrdinalIgnoreCase)
            || path.Equals(TagPathWithoutSuffix, StringComparison.OrdinalIgnoreCase);
 
-    private static Task WriteStatus(HttpContext ctx, int statusCode)
+    private static Task WriteStatus(HttpContext ctx, int statusCode, bool isDevelopment)
     {
         ctx.Response.StatusCode = statusCode;
         ctx.Response.ContentLength = 0;
+        ApplyStaticPublicSecurityHeaders(ctx.Response, isDevelopment);
         ctx.Response.Headers["Cache-Control"] = "no-store";
         ctx.Response.Headers["Pragma"] = "no-cache";
         ctx.Response.Headers["Expires"] = "0";
