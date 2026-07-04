@@ -341,7 +341,7 @@ const {
 
 const {
   refresh: refreshCodeBlocks
-} = useCodeBlockCopy(() => articleContentRoot.value)
+} = useCodeBlockCopy(() => articleContentRoot.value, () => pageDetailView.value.rights.allowCodeCopy)
 
 const {
   images: lightboxImages,

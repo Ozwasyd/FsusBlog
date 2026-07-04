@@ -25,7 +25,10 @@ async function writeClipboard(text: string): Promise<void> {
   }
 }
 
-export function useCodeBlockCopy(contentRoot: MaybeRefOrGetter<HTMLElement | null>) {
+export function useCodeBlockCopy(
+  contentRoot: MaybeRefOrGetter<HTMLElement | null>,
+  allowCodeCopy: MaybeRefOrGetter<boolean> = true
+) {
   const insertedButtons = new Set<HTMLButtonElement>()
   const resetTimers = new WeakMap<HTMLButtonElement, ReturnType<typeof setTimeout>>()
   const revealControls = useScrollReveal({ ...fsusBlogScrollRevealOptions })
@@ -53,6 +56,10 @@ export function useCodeBlockCopy(contentRoot: MaybeRefOrGetter<HTMLElement | nul
     await nextTick()
     const root = toValue(contentRoot)
     if (!root) {
+      cleanup()
+      return
+    }
+    if (!toValue(allowCodeCopy)) {
       cleanup()
       return
     }
@@ -105,7 +112,7 @@ export function useCodeBlockCopy(contentRoot: MaybeRefOrGetter<HTMLElement | nul
     })
   }
 
-  watch(() => toValue(contentRoot), () => {
+  watch(() => [toValue(contentRoot), toValue(allowCodeCopy)] as const, () => {
     cleanup()
     void enhance()
   }, { flush: 'post' })

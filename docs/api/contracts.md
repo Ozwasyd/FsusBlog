@@ -1515,6 +1515,8 @@ Binary 写入帧 `ArticleWriteRequest` 当前版本为 V3。payload 使用旧 `A
 
 Binary 读取帧 `ArticleDetail` 当前 payload 版本为 V3 envelope：`ArticleDetailV3HeaderPod` (`magic=ARD3`, `version=3`) + `ArticleDetailV3RecordPod` + `ArticleDetailTagV3RecordPod[]` + 必备 `ArticleRightsV3RecordPod` + 共享 blob。后端 public artifact、admin detail 和 server cache 都必须从 `article_rights_snapshot` 的冻结读模型投影 rights 字段；不得再解码旧 ArticleDetail tail，也不得新增独立 `/rights.aeds` fallback。
 
+Public Rights V3 presentation 只读取已解码的 `ArticleDetail.rights` / `detailView.rights`，does not request a separate rights endpoint，也不新增 `/rights`、`rights.aeds` 或其它 side channel。公开文章页和 PublicAOT ArticleDetail 由同一个 `PublicArticleDetailPageContent` 渲染可见版权提示与 metadata，PublicAOT ArticleDetail output includes rights metadata：`license`、`copyrightHolder`、`copyrightYear`、rights snapshot id、policy hash、content canonical hash、copy policy。代码块复制增强必须读取 `allowCodeCopy`；当 decoded rights 关闭代码复制时，运行时不得插入复制按钮，并清理已经注入的 code-copy DOM。
+
 `GET /api/binary/admin/article` 的 `status` 查询参数仅 admin 可用。公开 `/api/binary/article/**.aeds` 不接受 query string、请求体或 credentials；admin 不带 `status` 时读取所有非删除状态，带 `status=0/1/2/3/4` 时读取对应 draft/scheduled/published/archived/deleted 集合。admin article list 的 `page` / `size` 缺省为 `1` / `10`，显式传入 `page<1`、`size<1` 或 `size>100` 返回 `400`。
 
 文章更新请求不得把 `status` 设为 `Deleted`；删除必须走专用 delete endpoint，以便写入回收站状态、失效缓存、搜索、PublicAOT、notification stream 和 outbox。对已删除文章重复删除必须是 no-op，不得重复触发派生副作用。restore 只允许从 `IsDeleted=true` 恢复，并恢复为 `Draft`、清空 `PublishedAt`；发布必须由后续显式发布/更新动作完成，避免把删除前的草稿、归档或定时文章意外公开。`DELETE /api/binary/admin/article/trash` 是批量破坏性操作，要求 admin principal、`article.write`、`fixed_ip`、PoW 和一次性 `X-Fsus-Mfa-Proof`，缺失或复用 proof 返回 `428`，不可信 `Origin` / `Referer` 返回 `403`，并写入包含销毁数量与 outcome 的高价值审计。

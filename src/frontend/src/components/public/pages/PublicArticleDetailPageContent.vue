@@ -13,6 +13,10 @@
     <meta itemprop="description" :content="articleSummary || detailView.header.title" />
     <meta itemprop="author" :content="authorName || 'Fsu'" />
     <meta itemprop="license" :content="detailView.rights.licenseType" />
+    <meta name="fsus:rights-snapshot-id" :content="detailView.rights.snapshotId" />
+    <meta name="fsus:rights-policy-hash" :content="detailView.rights.policyHash" />
+    <meta name="fsus:rights-content-hash" :content="detailView.rights.contentCanonicalHash" />
+    <meta name="fsus:rights-copy-policy" :content="detailView.rights.copyPolicy" />
     <meta
       v-if="detailView.rights.copyrightHolder"
       itemprop="copyrightHolder"
@@ -78,6 +82,56 @@
           />
         </slot>
       </ArticleDetailBody>
+    </section>
+
+    <section
+      v-if="rightsNoticeVisible"
+      class="article-rights-notice mt-8 border-y border-[var(--fsusblog-panel-border)] py-5"
+      data-article-rights-notice
+      :data-rights-snapshot-id="detailView.rights.snapshotId"
+      :data-rights-policy-hash="detailView.rights.policyHash"
+      :data-rights-content-hash="detailView.rights.contentCanonicalHash"
+      aria-labelledby="article-rights-notice-title"
+    >
+      <h2
+        id="article-rights-notice-title"
+        class="text-xs font-bold normal-case tracking-normal text-[var(--fsusblog-text-primary)]"
+      >
+        版权与引用
+      </h2>
+      <p class="mt-3 text-xs leading-6 text-[var(--fsusblog-text-secondary)]">
+        {{ rightsStatementText }}
+      </p>
+      <dl class="mt-4 grid gap-3 text-xs text-[var(--fsusblog-text-secondary)] sm:grid-cols-2">
+        <div>
+          <dt class="font-semibold text-[var(--fsusblog-text-muted)]">许可</dt>
+          <dd class="mt-1">{{ rightsLicenseText }}</dd>
+        </div>
+        <div v-if="rightsHolderText">
+          <dt class="font-semibold text-[var(--fsusblog-text-muted)]">权利人</dt>
+          <dd class="mt-1">{{ rightsHolderText }}</dd>
+        </div>
+        <div>
+          <dt class="font-semibold text-[var(--fsusblog-text-muted)]">复制策略</dt>
+          <dd class="mt-1">{{ rightsCopyPolicyText }}</dd>
+        </div>
+        <div>
+          <dt class="font-semibold text-[var(--fsusblog-text-muted)]">摘录范围</dt>
+          <dd class="mt-1">最多 {{ detailView.rights.maxExcerptChars }} 字符</dd>
+        </div>
+      </dl>
+      <p
+        v-if="detailView.rights.attributionTemplate"
+        class="mt-4 text-xs leading-6 text-[var(--fsusblog-text-tertiary)]"
+      >
+        建议署名：{{ detailView.rights.attributionTemplate }}
+      </p>
+      <p
+        v-if="rightsProofText"
+        class="mt-3 text-xs leading-6 text-[var(--fsusblog-text-tertiary)]"
+      >
+        {{ rightsProofText }}
+      </p>
     </section>
 
     <footer
@@ -238,6 +292,49 @@ const hasRelatedReading = computed(() => (
   || props.detailView.relatedReading.next !== null
   || props.detailView.relatedReading.items.length > 0
 ))
+
+const rightsNoticeVisible = computed(() => props.detailView.rights.enabled && props.detailView.rights.showPublicBadge)
+
+const rightsLicenseText = computed(() => {
+  const licenseType = props.detailView.rights.licenseType
+  if (licenseType === 'all-rights-reserved') return '保留所有权利'
+  return licenseType
+})
+
+const rightsHolderText = computed(() => {
+  const holder = props.detailView.rights.copyrightHolder?.trim()
+  const year = props.detailView.rights.copyrightYear
+  if (holder && year) return `${holder} (${year})`
+  return holder || (year ? String(year) : '')
+})
+
+const rightsStatementText = computed(() => {
+  const statement = props.detailView.rights.rightsStatement?.trim()
+  if (statement) return statement
+  return props.detailView.rights.licenseType === 'all-rights-reserved'
+    ? '本文保留所有权利，引用或转载请遵循页面标注的复制策略。'
+    : `本文按 ${props.detailView.rights.licenseType} 授权，引用时请保留来源和作者信息。`
+})
+
+const rightsCopyPolicyText = computed(() => {
+  const copyPolicy = props.detailView.rights.copyPolicy
+  if (copyPolicy === 'append-attribution') {
+    return props.detailView.rights.allowCodeCopy ? '复制时追加署名，代码块允许复制。' : '复制时追加署名，代码块复制已关闭。'
+  }
+  if (copyPolicy === 'excerpt-only') {
+    return `仅允许摘录复制，摘录上限 ${props.detailView.rights.maxExcerptChars} 字符。`
+  }
+  return '复制增强已关闭。'
+})
+
+const rightsProofText = computed(() => {
+  const proofUrl = props.detailView.rights.proofUrl
+  if (proofUrl) {
+    return `权利证明：${proofUrl}`
+  }
+  const contentHash = props.detailView.rights.contentCanonicalHash
+  return contentHash ? `内容哈希：${contentHash}` : ''
+})
 </script>
 
 <style scoped>
