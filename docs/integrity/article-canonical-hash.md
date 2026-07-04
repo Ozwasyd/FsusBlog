@@ -20,7 +20,7 @@ The canonical hash proves one public article content version as represented by:
 - `ScheduledPublishAt`
 - Markdown content from `ArticleBody.MarkdownContent` or `ArticleRevision.MarkdownContent`
 
-Current published article payloads may bind only `Article.Id` plus current `ArticleBody.MarkdownContent` when no revision exists. Revision payloads must bind `ArticleRevision.Id`, `Article.Id`, and `RevisionNo` together; callers must not invent a separate abstract `revisionId`.
+Current published article payloads may bind only `Article.Id` plus current `ArticleBody.MarkdownContent` when no revision exists. Revision payloads must bind `ArticleRevision.Id`, `Article.Id`, and `RevisionNo` together; callers must not invent a separate abstract revision identifier.
 
 ## Canonical Rules
 

@@ -7,7 +7,7 @@
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
-        "tests/backend/Unit/IntegrityProofVerificationTests.cs"
+        ".tmp/release-evidence/integrity-proof-verification.json"
       ],
       "assertionType": "unit",
       "failClosedRule": "The fast integrity-proof-verification lane must fail when any verifier layer rejects the golden proof fixture.",
@@ -22,7 +22,7 @@
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
-        "tests/backend/Unit/IntegrityProofVerificationTests.cs"
+        ".tmp/release-evidence/integrity-proof-verification.json"
       ],
       "assertionType": "unit",
       "failClosedRule": "The fast integrity-proof-verification lane must fail when any required tamper case is accepted.",
@@ -37,7 +37,7 @@
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
-        "tests/backend/Unit/IntegrityProofVerificationTests.cs"
+        ".tmp/release-evidence/integrity-proof-verification.json"
       ],
       "assertionType": "unit",
       "failClosedRule": "The fast integrity-proof-verification lane must fail if required integrity table/index migration fingerprints disappear.",
@@ -59,6 +59,21 @@
       "minimumRequirement": "Release evidence must include status, command, fixture list, tamperMatrix, current model names and externalNetwork=false.",
       "tierIds": [
         "integrity-proof-verification"
+      ]
+    },
+    {
+      "id": "integrity-proof-docs-consistency",
+      "description": "Integrity proof documentation gate keeps off-chain boundaries, threat model, runbook, implementation notes, public verification guidance and current field names synchronized.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        ".tmp/docs/integrity-proof-docs.json"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "The static-governance lane must fail when IntegrityProof docs describe IPFS, Arweave, chain anchoring, default Ed25519, stale revisionId, or required replay-edge behavior as current capability.",
+      "minimumRequirement": "Docs must cover architecture, threat model, operator runbook, implementation notes, public verification, off-chain local boundary, C#/.NET 10 primary implementation, and current article/artifact field names.",
+      "tierIds": [
+        "static-governance"
       ]
     },
     {

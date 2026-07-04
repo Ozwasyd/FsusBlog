@@ -260,8 +260,8 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: [integrity-proof-verification, integrity-proof-tamper-matrix, integrity-proof-schema-migration, integrity-proof-release-evidence]
-    artifacts: [tests/backend/Unit/IntegrityProofVerificationTests.cs, tools/integrity/verify-proof-fixtures.mjs, .tmp/release-evidence/integrity-proof-verification.json]
-    evidence: [tests/backend/Unit/IntegrityProofVerificationTests.cs, tools/integrity/verify-proof-fixtures.mjs, .tmp/release-evidence/integrity-proof-verification.json]
+    artifacts: [.tmp/release-evidence/integrity-proof-verification.json]
+    evidence: [.tmp/release-evidence/integrity-proof-verification.json]
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -288,9 +288,9 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: fast
-    coverage: [gate-integrity, matrix-integrity, evidence-schema, test-retention-classification]
-    artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json]
-    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json]
+    coverage: [gate-integrity, matrix-integrity, evidence-schema, test-retention-classification, integrity-proof-docs-consistency]
+    artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json, .tmp/docs/integrity-proof-docs.json]
+    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json, .tmp/docs/integrity-proof-docs.json]
     ciJob: fast-static-governance
     localOnly: false
     nightlyOnly: false

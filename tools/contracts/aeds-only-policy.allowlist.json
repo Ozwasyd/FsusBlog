@@ -56,6 +56,24 @@
       "reason": "Build/backfill tooling manifest and SSR worker diagnostics, protected by optional manifest token; not browser runtime application API."
     },
     {
+      "id": "integrity-public-verification-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/IntegrityVerificationEndpoints.cs",
+      "patterns": ["JsonContentType", "Results.Json(result.Body"],
+      "routes": ["/integrity/keys.json", "/integrity/article/{articleId}", "/integrity/article/{articleId}/revisions/{revisionNo}", "/integrity/revisions/{articleRevisionId}", "/integrity/checkpoints/latest", "/integrity/checkpoints/{date}", "/integrity/log/head"],
+      "reason": "Public integrity verification manifests are JSON sidecars for external/offline verification, not internal application API fallback."
+    },
+    {
+      "id": "admin-integrity-console-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/AdminIntegrityConsoleEndpoints.cs",
+      "patterns": ["Results.Json", "IntegrityVerificationJson.Options"],
+      "routes": ["/api/admin/integrity/console", "/api/admin/integrity/console/proofs/{proofId}/retry"],
+      "reason": "Admin-only integrity console is an operations endpoint for proof triage and retry; runtime client APIs remain AEDS/binary."
+    },
+    {
       "id": "local-auth-fixture-status-json",
       "classification": "allowed-exemption",
       "scope": "backend",

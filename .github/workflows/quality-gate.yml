@@ -151,6 +151,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -249,6 +252,9 @@ jobs:
       matrix: ${{ fromJson(needs.validate-matrix.outputs.fast_backend_matrix) }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -274,6 +280,7 @@ jobs:
             .tmp/backend-concurrency/**
             .tmp/backend-golden/**
             .tmp/backend-property/**
+            .tmp/release-evidence/integrity-proof-verification.json
             .tmp/release-evidence/jobs/**
 
   frontend-build:

@@ -2,6 +2,8 @@
 
 Integrity proof verification is local and deterministic. It does not call IPFS, Arweave, chains, wallets, or external network services.
 
+Start from [IntegrityProof](index.md) (`docs/integrity/index.md`) for the system boundary, threat model, operator runbook, implementation notes, and public verification guide.
+
 ## Local Command
 
 Run the verifier and write release evidence:

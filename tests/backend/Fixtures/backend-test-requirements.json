@@ -547,6 +547,22 @@
       ]
     },
     {
+      "path": "src/backend/Modules/Endpoints/IntegrityVerificationEndpoints.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-HTTP-PIPELINE",
+        "BACKEND-GOLDEN-GOVERNANCE",
+        "BACKEND-OBSERVABILITY-PRIVACY"
+      ]
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/AdminIntegrityConsoleEndpoints.cs",
+      "requirements": [
+        "BACKEND-ENDPOINT-AUTH-MATRIX",
+        "BACKEND-SECURITY-MATRIX",
+        "BACKEND-AUDIT-GOLDEN"
+      ]
+    },
+    {
       "path": "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
       "requirements": [
         "BACKEND-ENDPOINT-AUTH-MATRIX",
