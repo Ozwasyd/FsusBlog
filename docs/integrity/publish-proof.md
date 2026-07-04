@@ -74,6 +74,14 @@ Repeated publication of the same `ArticleRevision.Id` and proof version must reu
 
 Scheduled publications remain pending or not-public until the article is actually public. Archived or deleted articles do not continue generating ready public proofs; existing historical proof lookup can be added later as an explicit read feature.
 
+## Outbox Integration
+
+Publish proof scheduling is driven by `article_mutation_outbox`; public read requests do not create or repair proofs. `ArticleMutationOutboxDispatcher` first completes the dispatcher-owned cache invalidation edges and passes the updated edge set into `ArticleMutationSideEffectCoordinator`. The coordinator schedules `integrity-proof` only after every `ArticleMutationReplayEdges.Required` edge has completed.
+
+`integrity-proof` is intentionally not part of `ArticleMutationReplayEdges.Required`. A failed, pending, or retrying proof records its own edge state and reason, but the source outbox event may still become processed once required cache, search, taxonomy, AEDS, PublicHot, and notification side effects are done. Proof generation therefore cannot block publishing, scheduled publishing, cache/search/AEDS/PublicHot refresh, or public reads.
+
+Proof generation classifies missing or not-yet-produced artifacts as `pending`/`retrying`, stale artifacts as `failed`, and deleted or archived publications as `not-public`. Reason codes are normalized to low-cardinality values for retry and operations review. The first local implementation only reads local artifacts and database state; it does not call blockchain, IPFS, Arweave, or other external anchoring services.
+
 ## What It Proves
 
 A valid publish proof proves:

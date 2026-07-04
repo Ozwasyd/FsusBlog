@@ -82,7 +82,7 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Contains("IReadOnlyDictionary<string, string> FailedEdges", sideEffects, StringComparison.Ordinal);
 
         Assert.Contains("LoadCompletedEdgesByOutboxIdAsync", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedEdges", processOne, StringComparison.Ordinal);
+        Assert.Contains("coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedAfterReplay", processOne, StringComparison.Ordinal);
         Assert.Contains("UpsertReplayEdgesAsync", processOne, StringComparison.Ordinal);
         Assert.Contains("ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains)", processOne, StringComparison.Ordinal);
         Assert.Contains("!requiredEdgesComplete", processOne, StringComparison.Ordinal);

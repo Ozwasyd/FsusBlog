@@ -148,7 +148,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                 return false;
             }
 
-            ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedEdges, cancellationToken)
+            ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedAfterReplay, cancellationToken)
                 .ConfigureAwait(false);
             await UpsertReplayEdgesAsync(db, dbGate, item.Id, replay, cancellationToken)
                 .ConfigureAwait(false);

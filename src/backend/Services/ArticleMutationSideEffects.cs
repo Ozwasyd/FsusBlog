@@ -3,6 +3,7 @@ using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
@@ -46,6 +47,7 @@ public static class ArticleMutationReplayEdges
     public const string ArticleDetailAeds = "article-detail-aeds";
     public const string TaxonomyProjection = "taxonomy-projection";
     public const string PublicHotRead = "public-hot-read";
+    public const string IntegrityProof = "integrity-proof";
     public const string Notification = "notification";
 
     public static readonly IReadOnlySet<string> Required = new HashSet<string>(StringComparer.Ordinal)
@@ -67,6 +69,11 @@ public sealed record ArticleMutationReplayResult(
 {
     public static ArticleMutationReplayResult Success(IReadOnlySet<string> completedEdges)
         => new(true, null, completedEdges, new Dictionary<string, string>(StringComparer.Ordinal));
+
+    public static ArticleMutationReplayResult Success(
+        IReadOnlySet<string> completedEdges,
+        IReadOnlyDictionary<string, string> failedEdges)
+        => new(true, null, completedEdges, failedEdges);
 
     public static ArticleMutationReplayResult Failed(
         string error,
@@ -123,6 +130,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
     ITaxonomyCountProjectionService taxonomyProjection,
     IArticleDetailAedsArtifactProjector articleDetailArtifacts,
     PublicHotArtifactUpdateQueue publicHotUpdates,
+    IIntegrityProofScheduler integrityProofScheduler,
     ArticleRealtimeNotifier realtimeNotifier,
     ArticleAssetCleanupPolicy assetCleanupPolicy,
     ILogger<ArticleMutationSideEffectCoordinator> logger) : IArticleMutationSideEffectCoordinator
@@ -289,6 +297,49 @@ public sealed class ArticleMutationSideEffectCoordinator(
             }
         }
 
+        async Task RunOptionalEdgeAsync(string edgeName, Func<Task> effect)
+        {
+            if (completed.Contains(edgeName))
+            {
+                return;
+            }
+
+            try
+            {
+                await effect().ConfigureAwait(false);
+                completed.Add(edgeName);
+                completedDuringReplay.Add(edgeName);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                string error = NormalizeReplayError(ex);
+                failed[edgeName] = error;
+                logger.LogWarning(
+                    ex,
+                    "article-outbox-replay-optional-edge-failed {ArticleId} {EventType} {EdgeName} {Error}",
+                    articleId,
+                    eventType,
+                    edgeName,
+                    error);
+            }
+        }
+
+        async Task ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(string normalized)
+        {
+            if (!ArticleMutationReplayEdges.Required.All(completed.Contains))
+            {
+                return;
+            }
+
+            await RunOptionalEdgeAsync(ArticleMutationReplayEdges.IntegrityProof, () =>
+                    integrityProofScheduler.ScheduleFromOutboxAsync(articleId, normalized, completed, cancellationToken))
+                .ConfigureAwait(false);
+        }
+
         try
         {
             string normalized = eventType.Trim().ToLowerInvariant();
@@ -332,13 +383,20 @@ public sealed class ArticleMutationSideEffectCoordinator(
                             }
                         })
                     .ConfigureAwait(false)
-                || !await RunEdgeAsync(ArticleMutationReplayEdges.Notification, () => realtimeNotifier.PushChangedAsync(articleId, action))
+            )
+            {
+                return FailedResult();
+            }
+
+            await ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(normalized).ConfigureAwait(false);
+
+            if (!await RunEdgeAsync(ArticleMutationReplayEdges.Notification, () => realtimeNotifier.PushChangedAsync(articleId, action))
                     .ConfigureAwait(false))
             {
                 return FailedResult();
             }
 
-            return ArticleMutationReplayResult.Success(completedDuringReplay);
+            return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -372,13 +430,20 @@ public sealed class ArticleMutationSideEffectCoordinator(
                             await _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId).ConfigureAwait(false);
                         })
                     .ConfigureAwait(false)
-                || !await RunEdgeAsync(ArticleMutationReplayEdges.Notification, () => realtimeNotifier.PushChangedAsync(articleId, "Deleted"))
+            )
+            {
+                return FailedResult();
+            }
+
+            await ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(normalized).ConfigureAwait(false);
+
+            if (!await RunEdgeAsync(ArticleMutationReplayEdges.Notification, () => realtimeNotifier.PushChangedAsync(articleId, "Deleted"))
                     .ConfigureAwait(false))
             {
                 return FailedResult();
             }
 
-            return ArticleMutationReplayResult.Success(completedDuringReplay);
+            return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
         }
 
         async Task<ArticleMutationReplayResult> ReplayMissingArticleEdgesAsync(string normalized)
@@ -405,7 +470,9 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 return FailedResult();
             }
 
-            return ArticleMutationReplayResult.Success(completedDuringReplay);
+            await ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(normalized).ConfigureAwait(false);
+
+            return ArticleMutationReplayResult.Success(completedDuringReplay, failed);
         }
 
         ArticleMutationReplayResult FailedResult()

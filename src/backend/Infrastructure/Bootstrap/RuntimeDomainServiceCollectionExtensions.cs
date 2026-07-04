@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 using FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
@@ -41,6 +42,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<ArticleSearchProjector>();
         services.AddScoped<ArticleRealtimeNotifier>();
         services.AddScoped<ArticleAssetCleanupPolicy>();
+        services.AddScoped<IIntegrityProofScheduler, IntegrityProofScheduler>();
         services.AddScoped<IArticleMutationSideEffectCoordinator, ArticleMutationSideEffectCoordinator>();
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();
         services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentService>());
