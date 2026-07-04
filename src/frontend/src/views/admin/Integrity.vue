@@ -7,11 +7,7 @@
     />
 
     <FsusUiSettingsSection
-      class="blog-motion-task-region mb-8"
-      :class="{
-        'blog-motion-task-region--pending': loading || fixing,
-        'blog-motion-task-region--settled': isTaskHighlighted('integrity-report')
-      }"
+      class="mb-8"
       title="一致性结果"
       id="integrity-report-title"
     >
@@ -259,9 +255,6 @@ const confirmPhrase = ref('')
 const mfaProof = ref('')
 const diffPreviewState = ref<DiffPreviewState>('not_loaded')
 const taskFeedback = useAdminTaskFeedback()
-const {
-  isHighlighted: isTaskHighlighted
-} = taskFeedback
 
 const diffRows = computed(() => preview.value?.diffs ?? [])
 const canApplyFix = computed(() =>

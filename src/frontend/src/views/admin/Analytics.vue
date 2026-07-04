@@ -19,7 +19,6 @@
             class="mt-4 border-t border-[var(--fsusblog-panel-border)] pt-4"
             role="status"
             title="暂无访问来源数据"
-            description="有访问记录后将在这里显示分布。"
           />
           <FsusUiDistributionList v-else class="mt-1" density="compact" v-loading="loading">
             <FsusUiDistributionBarRow
@@ -45,7 +44,6 @@
             class="mt-4 border-t border-[var(--fsusblog-panel-border)] pt-4"
             role="status"
             title="暂无地域访问数据"
-            description="有访问记录后将在这里显示分布。"
           />
           <div
             v-else-if="shouldUseRegionChart"

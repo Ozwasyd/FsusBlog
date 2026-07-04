@@ -34,6 +34,25 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    public void OrdinaryAccountStepUpEndpoints_UsePasskeyApiAndReturnMfaProof()
+    {
+        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        string block = ExtractBetween(
+            endpoints,
+            "MapPost(\"/auth/step-up/passkey/begin\"",
+            "group.MapPost(\"/auth/mfa/challenge/start\"");
+
+        Assert.Contains("MapPost(\"/auth/step-up/passkey/begin\"", block, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/auth/step-up/passkey/complete\"", block, StringComparison.Ordinal);
+        Assert.Contains("RequireAnonymousAccountPrincipal()", block, StringComparison.Ordinal);
+        Assert.Contains("BeginActionStepUpAssertionAsync", block, StringComparison.Ordinal);
+        Assert.Contains("CompleteActionStepUpAssertionAsync", block, StringComparison.Ordinal);
+        Assert.Contains("challengeService.CreateProofTokenAsync", block, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.PasskeyLoginBegin", block, StringComparison.Ordinal);
+        Assert.Contains("AedsFrameType.MfaChallengeResult", block, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AdminStepUpEndpoints_BindChallengeToAuthenticatedPrincipalSession()
     {
         string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");

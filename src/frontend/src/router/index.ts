@@ -19,7 +19,9 @@ import {
   buildLocalFixtureAdminUrl,
   createLocalFixtureAccountSnapshot,
   createLocalFixtureAdminPrincipal,
+  ensureLocalFixtureSessionCookies,
   hasCompleteFixtureCookies,
+  isLocalFixtureAdminSessionActive,
   isLocalFixtureQueryEnabled,
   isLocalFixtureSessionActive,
   readFixtureStatus
@@ -262,10 +264,11 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       activateLocalFixtureSession()
     }
     const forceLocalFixtureSession = !options.ssr && isLocalFixtureSessionActive()
+    const fixtureRouteNeedsCookies = forceLocalFixtureSession && Boolean(to.meta.requiresAuth)
 
-    if (manageRoute && forceLocalFixtureSession) {
+    if (fixtureRouteNeedsCookies) {
       const status = await readFixtureStatus()
-      if (!status || !hasCompleteFixtureCookies(status)) {
+      if ((!status || !hasCompleteFixtureCookies(status)) && !await ensureLocalFixtureSessionCookies(to.fullPath)) {
         if (typeof window !== 'undefined') {
           window.location.replace(buildLocalFixtureAdminUrl(to.fullPath))
         }
@@ -273,7 +276,11 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       }
 
       userStore.markAuthenticated(createLocalFixtureAccountSnapshot())
-      adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
+      if (isLocalFixtureAdminSessionActive()) {
+        adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
+      } else {
+        adminStore.clearAdminPrincipal('missing')
+      }
       sessionBootstrap.syncAuthPhase()
     }
 
@@ -307,7 +314,11 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     } else if (manageRoute) {
       if (forceLocalFixtureSession) {
         userStore.markAuthenticated(createLocalFixtureAccountSnapshot())
-        adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
+        if (isLocalFixtureAdminSessionActive()) {
+          adminStore.setAdminPrincipal(createLocalFixtureAdminPrincipal())
+        } else {
+          adminStore.clearAdminPrincipal('missing')
+        }
         sessionBootstrap.syncAuthPhase()
       } else {
         await Promise.all([

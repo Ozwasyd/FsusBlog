@@ -87,7 +87,7 @@ const emit = defineEmits<{
 }
 
 .admin-status-matrix--compact {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
 }
 
 .admin-status-matrix__slot {
@@ -106,17 +106,18 @@ const emit = defineEmits<{
 }
 
 .admin-status-matrix--compact .admin-status-matrix__item {
-  min-height: 44px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 64px;
+  grid-template-columns: minmax(0, 1fr) minmax(3ch, auto);
+  align-content: center;
   align-items: baseline;
-  gap: 2px 10px;
-  padding: 10px 12px;
+  gap: 4px 14px;
+  padding: 14px 16px;
 }
 
 .admin-status-matrix--compact .admin-status-matrix__label {
   gap: 6px;
-  line-height: 1.2;
+  line-height: 1.35;
 }
 
 .admin-status-matrix__label {
@@ -164,15 +165,18 @@ const emit = defineEmits<{
 }
 
 .admin-status-matrix--compact .admin-status-matrix__value {
+  justify-self: end;
   margin-top: 0;
   font-size: 13px;
   font-weight: 750;
-  line-height: 1.2;
+  line-height: 1.35;
+  text-align: end;
 }
 
 .admin-status-matrix--compact .admin-status-matrix__helper {
   grid-column: 1 / -1;
-  margin-top: 2px;
+  margin-top: 0;
+  line-height: 1.45;
 }
 
 .admin-status-matrix__helper {
@@ -264,7 +268,8 @@ const emit = defineEmits<{
   }
 
   .admin-status-matrix--compact .admin-status-matrix__item {
-    min-height: 48px;
+    min-height: 60px;
+    padding: 12px 14px;
   }
 }
 </style>

@@ -319,6 +319,12 @@ public sealed class PasskeyStepUpChallengeProviderTests
             return Task.FromResult((true, "ok"));
         }
 
+        public Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginActionStepUpAssertionAsync(int accountId, string action, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<(bool Success, string Message, string Action)> CompleteActionStepUpAssertionAsync(int accountId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int accountId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(bool Success, string Message)> CompleteRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();

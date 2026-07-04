@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 
 const toastMock = vi.hoisted(() => ({
+  close: vi.fn(),
   info: vi.fn(),
   success: vi.fn(),
   partial: vi.fn(),
@@ -17,6 +18,10 @@ describe('useAdminTaskFeedback', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
+    toastMock.info.mockReturnValue({ close: toastMock.close })
+    toastMock.success.mockReturnValue({ close: toastMock.close })
+    toastMock.partial.mockReturnValue({ close: toastMock.close })
+    toastMock.error.mockReturnValue({ close: toastMock.close })
   })
 
   afterEach(() => {
@@ -39,6 +44,7 @@ describe('useAdminTaskFeedback', () => {
     })
 
     feedback!.succeed('保存完成', '文章', 'article-submit')
+    expect(toastMock.close).toHaveBeenCalledTimes(1)
     expect(feedback!.phase.value).toBe('success')
     expect(feedback!.isHighlighted('article-submit')).toBe(true)
     expect(toastMock.success).toHaveBeenCalledWith({
@@ -87,5 +93,18 @@ describe('useAdminTaskFeedback', () => {
     })
 
     scope.stop()
+  })
+
+  it('closes the active toast when task feedback is cleared or disposed', () => {
+    const scope = effectScope()
+    const feedback = scope.run(() => useAdminTaskFeedback({ settleMs: 0 }))
+
+    feedback!.begin('正在检查', '内容')
+    feedback!.clear()
+    expect(toastMock.close).toHaveBeenCalledTimes(1)
+
+    feedback!.begin('重新检查', '内容')
+    scope.stop()
+    expect(toastMock.close).toHaveBeenCalledTimes(2)
   })
 })

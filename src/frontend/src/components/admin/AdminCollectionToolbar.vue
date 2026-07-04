@@ -7,7 +7,7 @@
       <div class="min-w-0 flex-1">
         <slot name="filters" />
       </div>
-      <div v-if="$slots.actions" class="flex shrink-0 items-center gap-2 lg:justify-end">
+      <div v-if="$slots.actions" class="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 lg:w-auto">
         <slot name="actions" />
       </div>
     </div>

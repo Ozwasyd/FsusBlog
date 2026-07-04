@@ -3,6 +3,7 @@ import type { CurrentUserSnapshot } from '@/api/auth'
 
 const LOCAL_FIXTURE_SESSION_KEY = 'fsusblog_local_fixture_session'
 const LOCAL_FIXTURE_ADMIN_SESSION_KEY = 'fsusblog_local_fixture_admin_session'
+const LOCAL_FIXTURE_SECRET_HEADER = 'X-Fsus-Local-Auth-Fixture-Secret'
 let fixtureCookieRefreshPromise: Promise<boolean> | null = null
 
 interface LocalFixtureStatus {
@@ -127,6 +128,26 @@ function currentRedirectPath(fallback = '/user/manage'): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`
 }
 
+function readLocalFixtureSecret(): string | null {
+  if (!canUseLocalFixtureSession()) {
+    return null
+  }
+
+  const secret = import.meta.env.VITE_FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET?.trim()
+  return secret ? secret : null
+}
+
+function createLocalFixtureHeaders(): Record<string, string> | null {
+  const secret = readLocalFixtureSecret()
+  if (!secret) {
+    return null
+  }
+
+  return {
+    [LOCAL_FIXTURE_SECRET_HEADER]: secret
+  }
+}
+
 export function hasCompleteFixtureCookies(status: LocalFixtureStatus): boolean {
   return Boolean(
     (status.hasAccessToken || status.hasHostAccessToken)
@@ -137,9 +158,15 @@ export function hasCompleteFixtureCookies(status: LocalFixtureStatus): boolean {
 }
 
 export async function readFixtureStatus(): Promise<LocalFixtureStatus | null> {
+  const headers = createLocalFixtureHeaders()
+  if (!headers) {
+    return null
+  }
+
   const response = await fetch('/api/local/auth-fixture/status', {
     cache: 'no-store',
-    credentials: 'include'
+    credentials: 'include',
+    headers
   })
 
   if (!response.ok) {
@@ -153,6 +180,26 @@ export function buildLocalFixtureAdminUrl(redirectPath: string): string {
   const endpoint = new URL('/api/local/auth-fixture/admin', window.location.origin)
   endpoint.searchParams.set('redirect', redirectPath)
   return endpoint.toString()
+}
+
+async function refreshLocalFixtureAdminCookies(redirectPath: string): Promise<boolean> {
+  const headers = createLocalFixtureHeaders()
+  if (!headers) {
+    return false
+  }
+
+  const response = await fetch(buildLocalFixtureAdminUrl(redirectPath), {
+    cache: 'no-store',
+    credentials: 'include',
+    headers
+  })
+
+  if (!response.ok) {
+    return false
+  }
+
+  const status = await readFixtureStatus()
+  return Boolean(status && hasCompleteFixtureCookies(status))
 }
 
 export async function ensureLocalFixtureSessionCookies(redirectPath = currentRedirectPath()): Promise<boolean> {
@@ -171,8 +218,7 @@ export async function ensureLocalFixtureSessionCookies(redirectPath = currentRed
         return true
       }
 
-      void redirectPath
-      return false
+      return await refreshLocalFixtureAdminCookies(redirectPath)
     } catch {
       return false
     } finally {

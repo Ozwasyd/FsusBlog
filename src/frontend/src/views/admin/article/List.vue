@@ -134,7 +134,7 @@
         v-loading="loading"
         :items="articleListView"
         :row-key="getArticleRowKey"
-        compact-query="(max-width: 639px)"
+        compact-query="(max-width: 767px)"
         aria-label="文章列表"
       >
         <template #card="{ item }">
@@ -149,27 +149,26 @@
 
         <template #table>
           <el-table
+            class="article-list-table"
             :data="articleListView"
             :row-key="getArticleRowKey"
             :row-class-name="articleTableRowClassName"
           >
-            <el-table-column prop="id" label="ID" width="80" align="center">
+            <el-table-column prop="id" label="ID" width="96" align="center">
               <template #default="{ row }: { row: ArticleListViewItem }">
-                <span class="tabular-nums">{{ row.id }}</span>
+                <span class="article-id-cell tabular-nums">{{ row.id }}</span>
               </template>
             </el-table-column>
 
             <el-table-column label="内容概要" min-width="320">
               <template #default="{ row }: { row: ArticleListViewItem }">
                 <div class="flex min-w-0 items-start gap-4 py-1">
-                  <div class="article-cover-thumb" aria-hidden="true">
+                  <div v-if="row.coverImageUrl" class="article-cover-thumb" aria-hidden="true">
                     <img
-                      v-if="row.coverImageUrl"
                       :src="row.coverImageUrl"
                       alt=""
                       loading="lazy"
                     >
-                    <span v-else>{{ row.title.slice(0, 1) || '#' }}</span>
                   </div>
                   <div class="min-w-0 flex-1">
                     <el-link
@@ -340,7 +339,7 @@ const {
 const getArticleRowKey = (row: unknown): string => String((row as ArticleListViewItem).id)
 const articleRowMotionClass = (id: number): string => rowMotion.classFor(id)
 const articleTableRowClassName = ({ row }: { row: ArticleListViewItem }): string => articleRowMotionClass(row.id)
-const isCompactPagination = useMediaQuery('(max-width: 639px)')
+const isCompactPagination = useMediaQuery('(max-width: 767px)')
 const articleListResultText = computed(() => `文章列表 · ${total.value} 条结果`)
 const hasArticleRows = computed(() => articleListView.value.length > 0)
 const handleStatusFilterChange = (value: string | number | boolean | undefined): void => {
@@ -391,6 +390,20 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.article-id-cell {
+  display: inline-block;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+.article-list-table :deep(.el-table-fixed-column--right.is-first-column) {
+  border-left: 1px solid var(--fsusblog-panel-border);
+}
+
+.article-list-table :deep(.el-table-fixed-column--right.is-first-column::before) {
+  box-shadow: none;
 }
 
 .article-cover-thumb {

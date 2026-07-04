@@ -321,6 +321,29 @@ export const verifyMfaChallenge = (
     body: encodeAedsFrame(FrameType.MfaChallengeVerifyRequest, encodeMfaChallengeVerifyRequest(payload))
   }
 })
+
+export const userStepUpPasskeyBegin = (action: string, config?: ApiRequestConfig) =>
+  requestBinaryOnly<PasskeyLoginBeginResponse>({
+    binaryRoute: { operationId: 'binary_post_auth_step_up_passkey_begin' },
+    frameType: FrameType.PasskeyLoginBegin,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      body: encodeAedsFrame(FrameType.MfaChallengeStartRequest, encodeStringMutationRequest(action))
+    }
+  })
+
+export const userStepUpPasskeyComplete = (data: PasskeyLoginCompleteRequest, config?: ApiRequestConfig) =>
+  requestBinaryOnly<MfaChallengeResult>({
+    binaryRoute: { operationId: 'binary_post_auth_step_up_passkey_complete' },
+    frameType: FrameType.MfaChallengeResult,
+    signal: config?.signal as AbortSignal | undefined,
+    requestOptions: {
+      method: 'POST',
+      body: encodeAedsFrame(FrameType.PasskeyLoginCompleteRequest, encodePasskeyLoginCompleteRequest(data))
+    }
+  })
+
 /**
  * 获取 PoW 挑战接口
  * 当前挑战仅按 clientIp 生成，不区分 action。

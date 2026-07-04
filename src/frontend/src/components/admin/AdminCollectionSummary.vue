@@ -11,7 +11,7 @@
         {{ description }}
       </p>
     </div>
-    <div v-if="$slots.actions" class="flex shrink-0 flex-wrap items-center gap-2">
+    <div v-if="$slots.actions" class="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
       <slot name="actions" />
     </div>
   </header>

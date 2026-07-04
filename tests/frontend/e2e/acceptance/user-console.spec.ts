@@ -104,7 +104,7 @@ for (const viewport of [
         await expect(dialog).toBeVisible()
         await assertElementInViewport(session.page, dialog, 'delete account dialog')
         await assertResponsiveLayoutContract(session.page, 'user-profile-dialog')
-        await expect(dialog).toContainText('注销后账号相关会话、通行密钥、Recovery Key 与匿名凭据都会失效')
+        await expect(dialog).toContainText('已发布内容不会自动删除')
         await expect(dialog.getByRole('button', { name: '确认' })).toBeVisible()
         await session.page.getByRole('button', { name: '取消' }).click()
 

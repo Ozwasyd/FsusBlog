@@ -53,6 +53,8 @@
 | POST | `/api/binary/auth/mfa/recovery/regenerate` | 🔑 📦 | 重新生成恢复码 |
 | POST | `/api/binary/auth/mfa/challenge/start` | 🔑 📦 | 登录后发起 MFA 挑战（返回挑战令牌） |
 | POST | `/api/binary/auth/mfa/challenge` | 🔓 📦 | 提交 TOTP 码或恢复码完成 MFA |
+| POST | `/api/binary/auth/step-up/passkey/begin` | 🔑 📦 | 普通账号敏感操作 Passkey step-up 开始；`Auth:PasskeyStepUp:Enabled=false` 时 503 fail closed |
+| POST | `/api/binary/auth/step-up/passkey/complete` | 🔑 📦 | 完成普通账号 Passkey step-up，返回同 action 的一次性 `MfaChallengeResult.proofToken`；同受 `Auth:PasskeyStepUp:Enabled` 控制 |
 
 ---
 

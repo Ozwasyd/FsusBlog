@@ -35,7 +35,6 @@
           class="dashboard-analytics-panel__empty"
           role="status"
           title="暂无浏览器性能样本"
-          description="有运行时样本后将在这里显示 P75 和平均值。"
         />
         <dl v-else class="dashboard-analytics-panel__content dashboard-rum-metrics">
           <div
@@ -58,7 +57,6 @@
           class="dashboard-analytics-panel__empty"
           role="status"
           title="暂无 RUM 页面样本"
-          description="有访问记录后将在这里显示分布。"
         />
         <FsusUiDistributionList v-else class="dashboard-analytics-panel__content" density="compact">
           <FsusUiDistributionBarRow
@@ -81,7 +79,6 @@
           class="dashboard-analytics-panel__empty"
           role="status"
           title="暂无 AOT 来源样本"
-          description="有 AOT 运行记录后将在这里显示分布。"
         />
         <FsusUiDistributionList v-else class="dashboard-analytics-panel__content" density="compact">
           <FsusUiDistributionBarRow

@@ -189,7 +189,7 @@ const {
 } = useAdminArticleTrash()
 
 const getTrashRowKey = (row: ArticleTrashViewItem): string => String(row.id)
-const isCompact = useMediaQuery('(max-width: 639px)')
+const isCompact = useMediaQuery('(max-width: 767px)')
 const trashStateText = computed(() => `回收站 · ${total.value} 篇下线稿件`)
 const trashResultText = computed(() => `${total.value} 条记录`)
 const goToArticleList = async (): Promise<void> => {

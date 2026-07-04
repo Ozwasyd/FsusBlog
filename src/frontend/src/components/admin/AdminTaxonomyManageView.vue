@@ -29,7 +29,7 @@
         <el-skeleton :rows="6" animated />
       </div>
 
-      <el-table v-else-if="hasTaxonomyRows" v-loading="loading" :data="filteredList" :row-key="getRowKey">
+      <el-table v-else-if="hasTaxonomyRows" class="taxonomy-table" v-loading="loading" :data="filteredList" :row-key="getRowKey">
         <el-table-column v-if="!isCompact" prop="id" label="ID" width="100" align="center">
           <template #default="{ row }"><span class="tabular-nums">{{ row.id }}</span></template>
         </el-table-column>
@@ -191,6 +191,14 @@ const submitForm = (): void => {
 
 .taxonomy-empty-action {
   min-width: 6.5rem;
+}
+
+.taxonomy-table :deep(.el-table-fixed-column--right.is-first-column) {
+  border-left: 1px solid var(--fsusblog-panel-border);
+}
+
+.taxonomy-table :deep(.el-table-fixed-column--right.is-first-column::before) {
+  box-shadow: none;
 }
 
 @media (max-width: 639px) {

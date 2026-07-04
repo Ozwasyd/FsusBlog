@@ -149,6 +149,19 @@ public sealed class EndpointPolicyContractTests
             "services.AddScoped<IUserSecurityStepUpService, UserSecurityStepUpService>();",
             serviceRegistration,
             StringComparison.Ordinal);
+
+        string ordinaryPasskeyStepUp = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/step-up/passkey/begin\"",
+            "group.MapPost(\"/auth/mfa/challenge/start\"");
+        Assert.Contains("UserSecurityStepUpActions.IsCredentialMutation(action)", ordinaryPasskeyStepUp, StringComparison.Ordinal);
+        Assert.Contains("BeginActionStepUpAssertionAsync", ordinaryPasskeyStepUp, StringComparison.Ordinal);
+        Assert.Contains("CompleteActionStepUpAssertionAsync", ordinaryPasskeyStepUp, StringComparison.Ordinal);
+        Assert.Contains("CreateProofTokenAsync", ordinaryPasskeyStepUp, StringComparison.Ordinal);
+        Assert.Contains("RequireAnonymousAccountPrincipal()", ordinaryPasskeyStepUp, StringComparison.Ordinal);
+        Assert.Contains("configuration.GetValue<bool>(\"Auth:PasskeyStepUp:Enabled\", true)", ordinaryPasskeyStepUp, StringComparison.Ordinal);
+        Assert.Contains("PASSKEY_STEP_UP_DISABLED", ordinaryPasskeyStepUp, StringComparison.Ordinal);
+        Assert.Contains("StatusCodes.Status503ServiceUnavailable", ordinaryPasskeyStepUp, StringComparison.Ordinal);
     }
 
     [Fact]

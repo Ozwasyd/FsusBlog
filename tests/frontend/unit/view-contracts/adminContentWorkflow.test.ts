@@ -29,6 +29,8 @@ describe('admin content governance workflow contract', () => {
   const taxonomyEndpoint = readRepoFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs')
   const authoringEndpoint = readRepoFile('src/backend/Modules/Endpoints/AuthoringEndpoints.cs')
   const dashboardPanel = readRepoFile('src/frontend/src/components/admin/DashboardQuickActionsPanel.vue')
+  const collectionToolbar = readRepoFile('src/frontend/src/components/admin/AdminCollectionToolbar.vue')
+  const collectionSummary = readRepoFile('src/frontend/src/components/admin/AdminCollectionSummary.vue')
 
   it('serializes admin keyword search through frontend and backend list queries', () => {
     expect(articleApi).toContain('params.keyword?.trim()')
@@ -66,8 +68,57 @@ describe('admin content governance workflow contract', () => {
     expect(listComposable).toContain('继续写作')
     expect(listComposable).toContain('调整排期')
     expect(listComposable).toContain('statusTimeLabel')
-    expect(listPage).toContain('article-cover-thumb')
-    expect(compactCard).toContain('article-compact-cover')
+    expect(listPage).toContain('v-if="row.coverImageUrl"')
+    expect(listPage).toContain('class="article-cover-thumb"')
+    expect(listPage).not.toContain('row.title.slice(0, 1)')
+    expect(compactCard).toContain('v-if="row.coverImageUrl"')
+    expect(compactCard).toContain('class="article-compact-cover"')
+    expect(compactCard).not.toContain('row.title.slice(0, 1)')
+  })
+
+  it('keeps article ids on one line in the desktop table', () => {
+    expect(listPage).toContain('width="96"')
+    expect(listPage).toContain('class="article-id-cell tabular-nums"')
+    expect(listPage).toContain('white-space: nowrap')
+    expect(listPage).toContain('word-break: keep-all')
+  })
+
+  it('keeps the fixed action column aligned without segmented shadow seams', () => {
+    expect(listPage).toContain('class="article-list-table"')
+    expect(listPage).toContain('.article-list-table :deep(.el-table-fixed-column--right.is-first-column)')
+    expect(listPage).toContain('.article-list-table :deep(.el-table-fixed-column--right.is-first-column::before)')
+    expect(listPage).toContain('border-left: 1px solid var(--fsusblog-panel-border)')
+    expect(listPage).toContain('box-shadow: none')
+  })
+
+  it('uses compact article cards before tablet width to avoid fixed table clipping', () => {
+    expect(listPage).toContain('compact-query="(max-width: 767px)"')
+    expect(listPage).toContain("const isCompactPagination = useMediaQuery('(max-width: 767px)')")
+    expect(listPage).not.toContain('compact-query="(max-width: 639px)"')
+    expect(listPage).not.toContain("const isCompactPagination = useMediaQuery('(max-width: 639px)')")
+  })
+
+  it('uses compact trash cards before tablet width to avoid fixed table clipping', () => {
+    expect(trashPage).toContain("const isCompact = useMediaQuery('(max-width: 767px)')")
+    expect(trashPage).not.toContain("const isCompact = useMediaQuery('(max-width: 639px)')")
+  })
+
+  it('keeps taxonomy fixed action columns aligned without segmented shadow seams', () => {
+    expect(taxonomyView).toContain('class="taxonomy-table"')
+    expect(taxonomyView).toContain('.taxonomy-table :deep(.el-table-fixed-column--right.is-first-column)')
+    expect(taxonomyView).toContain('.taxonomy-table :deep(.el-table-fixed-column--right.is-first-column::before)')
+    expect(taxonomyView).toContain('border-left: 1px solid var(--fsusblog-panel-border)')
+    expect(taxonomyView).toContain('box-shadow: none')
+  })
+
+  it('keeps collection toolbar primary actions on the trailing edge before desktop breakpoints', () => {
+    expect(collectionToolbar).toContain('class="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 lg:w-auto"')
+    expect(collectionToolbar).not.toContain('lg:justify-end')
+  })
+
+  it('keeps collection summary primary actions on the trailing edge before tablet breakpoints', () => {
+    expect(collectionSummary).toContain('class="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto"')
+    expect(collectionSummary).not.toContain('class="flex shrink-0 flex-wrap items-center gap-2"')
   })
 
   it('makes trash restore explicit and requires title or id before permanent delete', () => {

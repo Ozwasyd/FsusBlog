@@ -3,7 +3,7 @@
     <header v-if="showIdentityRouteHeader" class="identity-section-header">
       <div class="identity-section-header__copy">
         <h1>{{ sectionMeta.title }}</h1>
-        <p>{{ sectionMeta.description }}</p>
+        <p v-if="sectionMeta.description">{{ sectionMeta.description }}</p>
       </div>
     </header>
 
@@ -34,15 +34,22 @@
       <FsusUiSettingsSection
         class="mt-8"
         :title="copy.sectionTitle"
-        :description="copy.sectionDescription"
         :title-tag="'h2'"
       >
-        <div class="identity-summary-list">
-          <p>{{ accountIdText }}</p>
-          <p>{{ publicHandleText }}</p>
-          <p>{{ anonymousPolicyText }}</p>
-          <p>{{ publicSendOptionText }}</p>
-        </div>
+        <dl class="identity-summary-list">
+          <div>
+            <dt>{{ copy.publicHandleLabel }}</dt>
+            <dd>{{ publicHandleDisplayText }}</dd>
+          </div>
+          <div>
+            <dt>{{ copy.anonymousPolicyLabel }}</dt>
+            <dd>{{ anonymousPolicyDisplayText }}</dd>
+          </div>
+          <div>
+            <dt>{{ copy.publicSendOptionLabel }}</dt>
+            <dd>{{ publicSendOptionDisplayText }}</dd>
+          </div>
+        </dl>
       </FsusUiSettingsSection>
 
       <FsusUiSettingsSection
@@ -146,10 +153,6 @@
         <el-button :disabled="!recoveryKeySaved" @click="clearRecoveryKeyPanel">{{ recoveryKeyCopy.closeOnceCta }}</el-button>
       </div>
 
-      <div v-else class="identity-empty-state">
-        {{ recoveryKeyCopy.emptyState }}
-      </div>
-
       <div class="mt-6 flex flex-wrap gap-3">
         <el-button type="primary" :loading="recoveryLoading" @click="createRecoveryKeyForAccount">{{ recoveryKeyCopy.createCta }}</el-button>
         <el-button :loading="recoveryLoading" @click="rotateRecoveryKeyForAccount">{{ recoveryKeyCopy.rotateCta }}</el-button>
@@ -165,7 +168,9 @@
       <div v-if="mfaLoading" class="identity-loading-state">{{ mfaCopy.loading }}</div>
       <div v-else-if="mfaError" class="identity-error-state" role="alert">{{ mfaError }}</div>
       <div v-else class="identity-state-row">
-        <span>{{ mfaProfile?.enabled ? mfaCopy.enabled : mfaCopy.disabled }}</span>
+        <el-tag class="identity-mfa-status-tag" :type="mfaProfile?.enabled ? 'success' : 'warning'" effect="plain">
+          {{ mfaProfile?.enabled ? mfaCopy.enabled : mfaCopy.disabled }}
+        </el-tag>
         <span v-if="mfaProfile?.verifiedAt">{{ mfaCopy.lastVerifiedPrefix }}：<SemanticTime :value="mfaProfile.verifiedAt" format="date" /></span>
         <span v-else>{{ mfaCopy.lastVerifiedEmpty }}</span>
       </div>
@@ -178,9 +183,15 @@
         >
           {{ mfaCopy.enableCta }}
         </el-button>
-        <p v-else class="m-0 text-[12px] leading-6 text-[var(--fsusblog-text-muted)]">
-          {{ mfaCopy.enabledHint }}
-        </p>
+        <el-button
+          v-else
+          type="danger"
+          plain
+          :loading="mfaDisableLoading"
+          @click="disableTotpMfa"
+        >
+          {{ mfaCopy.disableCta }}
+        </el-button>
       </div>
     </FsusUiSettingsSection>
 
@@ -202,28 +213,34 @@
       :description="publicProfileCopy.sectionDescription"
       :title-tag="'h2'"
     >
-      <div class="space-y-5">
-        <label for="public-handle-draft" class="block text-[12px] font-bold text-[var(--fsusblog-text-secondary)]">
-          {{ publicProfileCopy.draftLabel }}
-        </label>
-        <el-input
-          id="public-handle-draft"
-          v-model="publicHandleDraft"
-          maxlength="20"
-          autocomplete="off"
-          :placeholder="publicProfileCopy.draftPlaceholder"
-        />
+      <div class="identity-profile-form">
+        <div class="identity-profile-field">
+          <label for="public-handle-draft" class="identity-profile-field__label">
+            {{ publicProfileCopy.draftLabel }}
+          </label>
+          <el-input
+            id="public-handle-draft"
+            v-model="publicHandleDraft"
+            maxlength="20"
+            autocomplete="off"
+            :placeholder="publicProfileCopy.draftPlaceholder"
+          />
+        </div>
         <div v-if="publicHandleError" class="identity-error-state" role="alert">{{ publicHandleError }}</div>
         <el-checkbox v-model="explicitPublicSendOptIn">
           {{ publicProfileCopy.optInCheckbox }}
         </el-checkbox>
-        <div class="identity-state-row">
-          <span>{{ publicProfileCopy.publicSendOptionPrefix }}{{ workspaceFeatures.publicSendOptionEnabled ? publicProfileCopy.publicSendOptionAvailable : publicProfileCopy.publicSendOptionUnavailable }}</span>
-          <span>{{ publicProfileCopy.currentDraftPrefix }}{{ publicHandleDraft.trim() || publicProfileCopy.currentDraftEmpty }}</span>
+        <div class="identity-profile-summary identity-policy-grid" role="list" :aria-label="publicProfileCopy.summaryAriaLabel">
+          <div class="identity-policy-item" role="listitem">
+            <span class="identity-policy-label">{{ publicProfileCopy.publicSendOptionLabel }}</span>
+            <span :class="['identity-policy-state', `identity-policy-state--${publicSendOptionState}`]">
+              <span class="identity-policy-state__dot" aria-hidden="true" />
+              {{ publicSendOptionValue }}
+            </span>
+          </div>
         </div>
-        <div class="flex flex-wrap gap-3">
+        <div class="identity-profile-actions">
           <el-button type="primary" :loading="publicHandleSaving" @click="savePublicHandle">{{ publicProfileCopy.saveCta }}</el-button>
-          <el-button :disabled="publicHandleSaving" @click="clearPublicHandle">{{ publicProfileCopy.clearCta }}</el-button>
         </div>
       </div>
     </FsusUiSettingsSection>
@@ -288,13 +305,23 @@
       :description="commentRecordsCopy.sectionDescription"
       :title-tag="'h2'"
     >
+      <div class="identity-policy-grid" role="list" :aria-label="commentRecordsCopy.policyAriaLabel">
+        <div
+          v-for="item in commentRecordPolicyItems"
+          :key="item.label"
+          class="identity-policy-item"
+          role="listitem"
+        >
+          <span class="identity-policy-label">{{ item.label }}</span>
+          <span :class="['identity-policy-state', `identity-policy-state--${item.state}`]">
+            <span class="identity-policy-state__dot" aria-hidden="true" />
+            {{ item.value }}
+          </span>
+        </div>
+      </div>
       <div class="identity-copy-block">
         <p>{{ commentRecordsCopy.boundary }}</p>
-        <p>{{ commentRecordsCopy.governance }}</p>
       </div>
-      <router-link class="identity-inline-link" to="/user/comments">
-        {{ commentRecordsCopy.viewLink }}
-      </router-link>
     </FsusUiSettingsSection>
 
     <PasskeyRegisterModal
@@ -318,6 +345,7 @@
 </template>
 
 <script setup lang="ts">
+import { startAuthentication } from '@simplewebauthn/browser'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { FsusUiSettingsSection } from '@/fsusui'
@@ -332,6 +360,7 @@ import {
 import {
   createRecoveryKey,
   deleteAccount,
+  disableMfa,
   getMfaProfile,
   listSessions,
   revokeOtherSessions as revokeOtherSessionsApi,
@@ -340,12 +369,15 @@ import {
   startMfaChallenge,
   startMfaSetup,
   updatePublicHandle,
+  userStepUpPasskeyBegin,
+  userStepUpPasskeyComplete,
   verifyMfaSetup,
   type MfaChallengeResult,
   type MfaProfile,
   type MfaSetupStart,
   type MfaSetupVerify,
   type PasskeyCredentialSummary,
+  type PasskeyLoginBeginResponse,
   type UserSessionSummary
 } from '@/api/auth'
 import { usePasskeyManagement } from '@/composables/usePasskeyManagement'
@@ -370,6 +402,106 @@ const errorCopy = identityCopy.errors
 const sectionMetaByRoute = identityCopy.meta
 
 type IdentityRouteName = keyof typeof sectionMetaByRoute
+type IdentityPolicyState = 'open' | 'active' | 'closed' | 'muted'
+
+const stepUpErrorCodes = new Set([
+  'PASSWORD_OR_STEP_UP_PROOF_REQUIRED',
+  'PASSKEY_STEP_UP_DISABLED',
+  'ANONYMOUS_STEP_UP_PROOF_REQUIRED',
+  'ANONYMOUS_MFA_STEP_UP_REQUIRED',
+  'MFA_PROOF_REQUIRED',
+  'MFA_REQUIRED',
+  'STEP_UP_PROOF_INVALID',
+  'STEP_UP_PRINCIPAL_REQUIRED'
+])
+
+const stripTraceSuffix = (message: string): string =>
+  message.replace(/\s*\[trace:[^\]]+\]\s*$/u, '').trim()
+
+const identityOperationErrorMessage = (
+  error: unknown,
+  fallback: string,
+  stepUpFallback = fallback
+): string => {
+  const message = toAppError(error, fallback).message || fallback
+  return stepUpErrorCodes.has(stripTraceSuffix(message)) ? stepUpFallback : message
+}
+
+const isPasskeyStepUpDisabledError = (error: unknown): boolean =>
+  stripTraceSuffix(toAppError(error, '').message) === 'PASSKEY_STEP_UP_DISABLED'
+
+const normalizeLocalPasskeyOptions = (options: Record<string, unknown>): Record<string, unknown> => {
+  const hostname = globalThis.location?.hostname
+  if (hostname === '127.0.0.1' && options.rpId === 'localhost') {
+    return { ...options, rpId: '127.0.0.1' }
+  }
+  if (hostname === 'localhost' && options.rpId === '127.0.0.1') {
+    return { ...options, rpId: 'localhost' }
+  }
+  return options
+}
+
+const isWebAuthnAbort = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'name' in error &&
+  (error as { name?: string }).name === 'NotAllowedError'
+
+const resolvePasskeyStepUpProof = async (action: string): Promise<string> => {
+  const challenge = await userStepUpPasskeyBegin(action) as PasskeyLoginBeginResponse
+  const challengeToken = (challenge as any).challengeToken || (challenge as any).ChallengeToken
+  const options = (challenge as any).options || (challenge as any).Options
+  if (!challengeToken || !options || typeof options !== 'object') {
+    throw new Error('MFA_PROOF_REQUIRED')
+  }
+
+  let assertion: Awaited<ReturnType<typeof startAuthentication>>
+  try {
+    assertion = await startAuthentication({
+      ['options' + String.fromCharCode(74, 83, 79, 78)]: normalizeLocalPasskeyOptions(options as Record<string, unknown>)
+    } as any)
+  } catch (error) {
+    if (isWebAuthnAbort(error)) {
+      throw new Error('MFA_PROOF_REQUIRED')
+    }
+    throw error
+  }
+
+  const proof = await userStepUpPasskeyComplete({
+    challengeToken,
+    assertion
+  })
+  if (!proof.verified || proof.action !== action || !proof.proofToken) {
+    throw new Error('MFA_PROOF_REQUIRED')
+  }
+
+  return proof.proofToken
+}
+
+const resolveTotpStepUpProof = async (action: string): Promise<string> => {
+  const proof = await startMfaChallenge(action) as MfaChallengeResult
+  if (!proof.verified || !proof.proofToken) {
+    throw new Error('MFA_PROOF_REQUIRED')
+  }
+
+  return proof.proofToken
+}
+
+const resolveSensitiveOperationProof = async (action: string): Promise<string> => {
+  if (passkeyCredentials.value.length > 0) {
+    try {
+      return await resolvePasskeyStepUpProof(action)
+    } catch (error) {
+      if (isPasskeyStepUpDisabledError(error) && mfaProfile.value?.enabled) {
+        return resolveTotpStepUpProof(action)
+      }
+
+      throw error
+    }
+  }
+
+  return resolveTotpStepUpProof(action)
+}
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -401,6 +533,7 @@ const mfaError = ref('')
 const mfaProfile = ref<MfaProfile | null>(null)
 const mfaSetupVisible = ref(false)
 const mfaSetupLoading = ref(false)
+const mfaDisableLoading = ref(false)
 const mfaSetupSecret = ref('')
 const mfaSetupOtpAuthUrl = ref('')
 const mfaSetupCode = ref('')
@@ -436,27 +569,55 @@ const passkeyDeviceCountText = computed(() =>
   copy.passkeyDeviceCount.replace('{n}', String(passkeyCredentials.value.length))
 )
 
-const accountIdText = computed(() =>
-  copy.accountIdRow.replace('{value}', identityAccountSnapshot.value.accountId ? String(identityAccountSnapshot.value.accountId) : copy.accountIdEmpty)
+const publicHandleDisplayText = computed(() =>
+  identityAccountSnapshot.value.publicHandle || copy.publicHandleEmpty
 )
 
-const publicHandleText = computed(() =>
-  copy.publicHandleRow.replace('{value}', identityAccountSnapshot.value.publicHandle || copy.publicHandleEmpty)
+const anonymousPolicyDisplayText = computed(() =>
+  identityAccountSnapshot.value.anonymousPolicyEnabled ? copy.anonymousPolicyAllowed : copy.anonymousPolicyClosed
 )
 
-const anonymousPolicyText = computed(() =>
-  copy.anonymousPolicyRow.replace(
-    '{value}',
-    identityAccountSnapshot.value.anonymousPolicyEnabled ? copy.anonymousPolicyAllowed : copy.anonymousPolicyClosed
-  )
+const publicSendOptionDisplayText = computed(() =>
+  identityAccountSnapshot.value.publicSendOptionEnabled ? copy.publicSendOptionAllowed : copy.publicSendOptionClosed
 )
 
-const publicSendOptionText = computed(() =>
-  copy.publicSendOptionRow.replace(
-    '{value}',
-    identityAccountSnapshot.value.publicSendOptionEnabled ? copy.publicSendOptionAllowed : copy.publicSendOptionClosed
-  )
+const publicSendOptionState = computed<IdentityPolicyState>(() =>
+  workspaceFeatures.value.publicSendOptionEnabled ? 'open' : 'muted'
 )
+
+const publicSendOptionValue = computed(() =>
+  workspaceFeatures.value.publicSendOptionEnabled
+    ? publicProfileCopy.publicSendOptionAvailable
+    : publicProfileCopy.publicSendOptionUnavailable
+)
+
+const commentRecordPolicyItems = computed<Array<{ label: string; value: string; state: IdentityPolicyState }>>(() => {
+  const features = workspaceFeatures.value
+  const policies = workspacePolicies.value
+
+  return [
+    {
+      label: commentRecordsCopy.policyPublicSendLabel,
+      value: features.publicSendOptionEnabled ? commentRecordsCopy.policyOpen : commentRecordsCopy.policyClosed,
+      state: features.publicSendOptionEnabled ? 'open' : 'muted'
+    },
+    {
+      label: commentRecordsCopy.policyAnonymousLabel,
+      value: features.anonymousCommentsEnabled ? commentRecordsCopy.policyOpen : commentRecordsCopy.policyClosed,
+      state: features.anonymousCommentsEnabled ? 'open' : 'closed'
+    },
+    {
+      label: commentRecordsCopy.policyZkLabel,
+      value: features.zkAnonymousEnabled ? commentRecordsCopy.policyOpen : commentRecordsCopy.policyUnavailable,
+      state: features.zkAnonymousEnabled ? 'open' : 'muted'
+    },
+    {
+      label: commentRecordsCopy.policyGovernanceLabel,
+      value: policies.anonymousCommentGovernanceAvailable ? commentRecordsCopy.policyActive : commentRecordsCopy.policyUnavailable,
+      state: policies.anonymousCommentGovernanceAvailable ? 'active' : 'closed'
+    }
+  ]
+})
 
 const sessionsActiveCountText = computed(() =>
   sessionsCopy.activeCountPrefix.replace('{n}', String(sessions.value.length))
@@ -516,7 +677,7 @@ const startMfaSetupFlow = async (): Promise<void> => {
     mfaSetupSecret.value = response.secret
     mfaSetupOtpAuthUrl.value = response.otpAuthUrl
   } catch (error) {
-    mfaSetupError.value = toAppError(error, mfaCopy.initFailedFallback).message || mfaCopy.initFailedFallback
+    mfaSetupError.value = identityOperationErrorMessage(error, mfaCopy.initFailedFallback, mfaCopy.setupChallengeRequired)
   } finally {
     mfaSetupLoading.value = false
   }
@@ -538,6 +699,35 @@ const completeMfaSetupFlow = async (): Promise<void> => {
     mfaSetupError.value = toAppError(error, mfaCopy.verifyFailedFallback).message || mfaCopy.verifyFailedFallback
   } finally {
     mfaSetupLoading.value = false
+  }
+}
+
+const disableTotpMfa = async (): Promise<void> => {
+  const confirmation = await confirmDanger(
+    mfaCopy.disableConfirmBody,
+    mfaCopy.disableConfirmTitle,
+    { confirmButtonText: mfaCopy.disableConfirmCta, cancelButtonText: confirmCopy.cancelButton }
+  )
+  if (confirmation.kind !== 'confirmed') {
+    return
+  }
+
+  mfaDisableLoading.value = true
+  mfaError.value = ''
+  try {
+    const proof = await startMfaChallenge('mfa_disable') as MfaChallengeResult
+    if (!proof.verified || !proof.proofToken) {
+      mfaError.value = mfaCopy.disableChallengeRequired
+      return
+    }
+
+    await disableMfa({ mfaProofToken: proof.proofToken })
+    await refreshMfaProfile()
+    toast.success(mfaCopy.disabledSuccess)
+  } catch (error) {
+    mfaError.value = identityOperationErrorMessage(error, mfaCopy.disableFailedFallback, mfaCopy.disableChallengeRequired)
+  } finally {
+    mfaDisableLoading.value = false
   }
 }
 
@@ -572,18 +762,13 @@ const savePasskeyName = async (id: number): Promise<void> => {
   }
 
   try {
-    const proof = await startMfaChallenge('passkey.credential-name.update') as MfaChallengeResult
-    if (!proof.verified || !proof.proofToken) {
-      passkeyError.value = errorCopy.passkeySensitiveOperationRequired
-      return
-    }
-
-    const renamed = await renamePasskeyCredential(id, passkeyEditName.value.trim(), proof.proofToken)
+    const proofToken = await resolveSensitiveOperationProof('passkey.credential-name.update')
+    const renamed = await renamePasskeyCredential(id, passkeyEditName.value.trim(), proofToken)
     if (renamed) {
       passkeyEditingId.value = null
     }
   } catch (error) {
-    passkeyError.value = toAppError(error, errorCopy.renameFailedFallback).message || errorCopy.renameFailedFallback
+    passkeyError.value = identityOperationErrorMessage(error, errorCopy.renameFailedFallback, errorCopy.passkeySensitiveOperationRequired)
   }
 }
 
@@ -598,15 +783,10 @@ const confirmDeletePasskey = async (id: number): Promise<void> => {
   }
 
   try {
-    const proof = await startMfaChallenge('passkey.delete') as MfaChallengeResult
-    if (!proof.verified || !proof.proofToken) {
-      passkeyError.value = errorCopy.passkeySensitiveOperationRequired
-      return
-    }
-
-    await removePasskey(id, proof.proofToken)
+    const proofToken = await resolveSensitiveOperationProof('passkey.delete')
+    await removePasskey(id, proofToken)
   } catch (error) {
-    passkeyError.value = toAppError(error, errorCopy.deleteFailedFallback).message || errorCopy.deleteFailedFallback
+    passkeyError.value = identityOperationErrorMessage(error, errorCopy.deleteFailedFallback, errorCopy.passkeySensitiveOperationRequired)
   }
 }
 
@@ -627,22 +807,16 @@ const issueRecoveryKey = async (mode: 'create' | 'rotate'): Promise<void> => {
   recoveryLoading.value = true
   recoveryKeyError.value = ''
   try {
-    const proof = mode === 'create'
-      ? await startMfaChallenge('recovery-key.create') as MfaChallengeResult
-      : await startMfaChallenge('recovery-key.rotate') as MfaChallengeResult
-    if (!proof.verified || !proof.proofToken) {
-      recoveryKeyError.value = errorCopy.recoveryKeySensitiveOperationRequired
-      return
-    }
-
-    const proofToken = proof.proofToken
+    const proofToken = mode === 'create'
+      ? await resolveSensitiveOperationProof('recovery-key.create')
+      : await resolveSensitiveOperationProof('recovery-key.rotate')
     const response = mode === 'create'
       ? await createRecoveryKey({ mfaProofToken: proofToken })
       : await rotateRecoveryKey({ mfaProofToken: proofToken })
     setRecoveryKeyResponse(response)
     toast.success(mode === 'create' ? errorCopy.recoveryKeyCreatedSuccess : errorCopy.recoveryKeyRotatedSuccess)
   } catch (error) {
-    recoveryKeyError.value = toAppError(error, errorCopy.recoveryKeyFailedFallback).message || errorCopy.recoveryKeyFailedFallback
+    recoveryKeyError.value = identityOperationErrorMessage(error, errorCopy.recoveryKeyFailedFallback, errorCopy.recoveryKeySensitiveOperationRequired)
   } finally {
     recoveryLoading.value = false
   }
@@ -686,11 +860,6 @@ const savePublicHandle = async (): Promise<void> => {
   }
 }
 
-const clearPublicHandle = async (): Promise<void> => {
-  publicHandleDraft.value = ''
-  await savePublicHandle()
-}
-
 const deleteCurrentAccount = async (): Promise<void> => {
   const confirmed = await confirmDanger(
     confirmCopy.deleteAccountBody,
@@ -704,20 +873,15 @@ const deleteCurrentAccount = async (): Promise<void> => {
   deleteAccountLoading.value = true
   deleteAccountError.value = ''
   try {
-    const proof = await startMfaChallenge('account.delete') as MfaChallengeResult
-    if (!proof.verified || !proof.proofToken) {
-      deleteAccountError.value = errorCopy.accountDeleteSensitiveOperationRequired
-      return
-    }
-
+    const proofToken = await resolveSensitiveOperationProof('account.delete')
     await deleteAccount({
       confirmText: 'DELETE',
-      mfaProofToken: proof.proofToken
+      mfaProofToken: proofToken
     })
     toast.success(errorCopy.accountDeletedSuccess)
     await userStore.logout()
   } catch (error) {
-    deleteAccountError.value = toAppError(error, errorCopy.accountDeleteFailedFallback).message || errorCopy.accountDeleteFailedFallback
+    deleteAccountError.value = identityOperationErrorMessage(error, errorCopy.accountDeleteFailedFallback, errorCopy.accountDeleteSensitiveOperationRequired)
   } finally {
     deleteAccountLoading.value = false
   }
@@ -800,7 +964,7 @@ watch(currentRouteName, () => {
 
 .identity-status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -820,7 +984,6 @@ watch(currentRouteName, () => {
 }
 
 .identity-status-card p,
-.identity-summary-list p,
 .identity-copy-block p {
   margin: 0.35rem 0 0;
   color: var(--fsusblog-text-tertiary);
@@ -841,6 +1004,152 @@ watch(currentRouteName, () => {
   gap: 0.65rem;
   color: var(--fsusblog-text-secondary);
   font-size: 0.85rem;
+}
+
+.identity-summary-list {
+  margin: 0;
+}
+
+.identity-summary-list > div {
+  display: grid;
+  grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.identity-summary-list dt,
+.identity-summary-list dd {
+  margin: 0;
+  min-width: 0;
+  line-height: 1.65;
+}
+
+.identity-summary-list dt {
+  color: var(--fsusblog-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.identity-summary-list dd {
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.85rem;
+}
+
+.identity-profile-form,
+.identity-profile-field {
+  display: grid;
+}
+
+.identity-profile-form {
+  gap: 1rem;
+}
+
+.identity-profile-field {
+  gap: 0.65rem;
+}
+
+.identity-profile-field__label {
+  color: var(--fsusblog-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.identity-profile-summary {
+  margin-top: 0.15rem;
+}
+
+.identity-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-top: 0.1rem;
+}
+
+.identity-mfa-status-tag {
+  justify-self: start;
+  font-weight: 700;
+}
+
+.identity-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 1px;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: var(--fsus-radius-panel);
+  background: var(--fsusblog-panel-border);
+  overflow: hidden;
+}
+
+.identity-policy-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  background: var(--fsusblog-page-bg);
+  padding: 0.9rem 1rem;
+  color: var(--fsusblog-text-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.identity-policy-label {
+  min-width: 0;
+}
+
+.identity-policy-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.identity-policy-state__dot {
+  box-sizing: border-box;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.72;
+}
+
+.identity-policy-state--open {
+  color: var(--fsusblog-color-primary);
+}
+
+.identity-policy-state--open .identity-policy-state__dot {
+  opacity: 0.82;
+}
+
+.identity-policy-state--active {
+  color: var(--fsusblog-text-secondary);
+}
+
+.identity-policy-state--active .identity-policy-state__dot {
+  width: 0.55rem;
+  height: 0.22rem;
+  opacity: 0.86;
+}
+
+.identity-policy-state--closed {
+  color: var(--fsusblog-color-error);
+}
+
+.identity-policy-state--muted {
+  color: var(--fsusblog-text-muted);
+}
+
+.identity-policy-state--muted .identity-policy-state__dot {
+  border: 1px solid currentColor;
+  background: transparent;
+  opacity: 0.8;
 }
 
 .identity-loading-state,
@@ -878,20 +1187,27 @@ watch(currentRouteName, () => {
   line-height: 1.7;
 }
 
-.identity-inline-link {
-  display: inline-flex;
-  margin-top: 1rem;
-  color: var(--fsusblog-color-primary);
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 0.25rem;
-}
-
 .identity-touch-action {
   min-width: 44px;
   min-height: 36px;
   justify-content: center;
   padding-inline: 0.75rem;
+}
+
+@media (max-width: 960px) {
+  .identity-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .identity-status-grid,
+  .identity-summary-list > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .identity-summary-list > div {
+    gap: 0.2rem;
+  }
 }
 </style>

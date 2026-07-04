@@ -17,6 +17,7 @@ public sealed partial class AnonymousGatewayHeaderGuardMiddleware
         "X-Fsus-Challenge-Proof",
         "X-Fsus-Csrf-Token",
         "X-Fsus-Device-Fp",
+        "X-Fsus-Local-Auth-Fixture-Secret",
         "X-Fsus-Mfa-Proof",
         "X-Fsus-Notification-Drill-Nonce",
         "X-Fsus-Notification-Drill-Secret",

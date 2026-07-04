@@ -1,5 +1,6 @@
 import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { toast } from '@/fsusui/feedback'
+import type { ToastHandle } from '@/fsusui/feedback'
 
 export type AdminTaskFeedbackPhase = 'idle' | 'pending' | 'success' | 'error' | 'partial'
 
@@ -37,6 +38,7 @@ export function useAdminTaskFeedback(options: AdminTaskFeedbackOptions = {}) {
   const assertiveMessage = ref('')
   const highlightedKeys = ref<string[]>([])
   let settleTimer: ReturnType<typeof setTimeout> | null = null
+  let activeToast: ToastHandle | null = null
 
   const settleMs = options.settleMs ?? DEFAULT_SETTLE_MS
   const busy = computed(() => phase.value === 'pending')
@@ -66,6 +68,16 @@ export function useAdminTaskFeedback(options: AdminTaskFeedbackOptions = {}) {
     }, settleMs)
   }
 
+  const closeActiveToast = (): void => {
+    activeToast?.close()
+    activeToast = null
+  }
+
+  const replaceToast = (nextToast: ToastHandle): void => {
+    closeActiveToast()
+    activeToast = nextToast
+  }
+
   const setState = (
     nextPhase: AdminTaskFeedbackPhase,
     nextMessage: string,
@@ -82,30 +94,30 @@ export function useAdminTaskFeedback(options: AdminTaskFeedbackOptions = {}) {
 
   const begin = (nextMessage: string, nextDetail = '', keys?: FeedbackKeyInput): void => {
     setState('pending', nextMessage, nextDetail, keys)
-    toast.info({
+    replaceToast(toast.info({
       message: nextMessage,
       detail: nextDetail,
       duration: DEFAULT_TOAST_DURATION_MS
-    })
+    }))
   }
 
   const succeed = (nextMessage: string, nextDetail = '', keys?: FeedbackKeyInput): void => {
     setState('success', nextMessage, nextDetail, keys)
-    toast.success({
+    replaceToast(toast.success({
       message: nextMessage,
       detail: nextDetail,
       duration: DEFAULT_TOAST_DURATION_MS
-    })
+    }))
     scheduleSettle()
   }
 
   const partial = (nextMessage: string, nextDetail = '', keys?: FeedbackKeyInput): void => {
     setState('partial', nextMessage, nextDetail, keys)
-    toast.partial({
+    replaceToast(toast.partial({
       message: nextMessage,
       detail: nextDetail,
       duration: DEFAULT_TOAST_DURATION_MS
-    })
+    }))
     scheduleSettle()
   }
 
@@ -113,16 +125,17 @@ export function useAdminTaskFeedback(options: AdminTaskFeedbackOptions = {}) {
     const nextDetail = errorDetail(error, fallback)
     setState('error', nextMessage, nextDetail, keys)
     assertiveMessage.value = ariaMessage.value
-    toast.error({
+    replaceToast(toast.error({
       message: nextMessage,
       detail: nextDetail,
       duration: ERROR_TOAST_DURATION_MS
-    })
+    }))
     scheduleSettle()
   }
 
   const clear = (): void => {
     clearTimer()
+    closeActiveToast()
     phase.value = 'idle'
     message.value = ''
     detail.value = ''
@@ -133,7 +146,10 @@ export function useAdminTaskFeedback(options: AdminTaskFeedbackOptions = {}) {
   const isHighlighted = (key: string): boolean => highlightedKeys.value.includes(key)
 
   if (getCurrentScope()) {
-    onScopeDispose(clearTimer)
+    onScopeDispose(() => {
+      clearTimer()
+      closeActiveToast()
+    })
   }
 
   return {

@@ -23,10 +23,10 @@
 .dashboard-section-note {
   display: block;
   max-width: 42rem;
-  margin: 0.5rem 0 0;
+  margin: 2px 0 0;
   color: var(--fsusblog-text-muted);
   font-size: 0.8125rem;
-  line-height: 1.6;
+  line-height: 1.45;
 }
 
 .admin-muted-alert {

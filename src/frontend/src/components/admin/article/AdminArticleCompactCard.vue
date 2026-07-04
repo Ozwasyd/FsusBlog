@@ -1,14 +1,12 @@
 <template>
   <article class="article-compact-card" role="listitem">
     <div class="flex min-w-0 items-start gap-3">
-      <div class="article-compact-cover" aria-hidden="true">
+      <div v-if="row.coverImageUrl" class="article-compact-cover" aria-hidden="true">
         <img
-          v-if="row.coverImageUrl"
           :src="row.coverImageUrl"
           alt=""
           loading="lazy"
         >
-        <span v-else>{{ row.title.slice(0, 1) || '#' }}</span>
       </div>
       <div class="min-w-0">
         <el-link

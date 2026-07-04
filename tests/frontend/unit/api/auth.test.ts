@@ -15,7 +15,7 @@ vi.mock('@/api/index', () => ({
 }))
 
 import { requestBinaryOnly } from '@/services/binaryTransport'
-import { adminStepUpPasskeyBegin, beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
+import { adminStepUpPasskeyBegin, beginRecoveryPasskeyRegistration, bootstrapAnonymousAccount, completeRecoveryPasskeyRegistration, createRecoveryKey, deleteAccount, deletePasskey, disableMfa, getMe, getMfaProfile, getPowChallenge, listPasskeys, listSessions, logout, passkeyLoginBegin, passkeyLoginComplete, passkeyRegisterBegin, passkeyRegisterComplete, refreshToken, regenerateMfaRecoveryCodes, renamePasskey, revokeOtherSessions, revokeSession, rotateRecoveryKey, startMfaChallenge, startMfaSetup, updatePublicHandle, userStepUpPasskeyBegin, userStepUpPasskeyComplete, verifyMfaChallenge, verifyMfaSetup, verifyRecoveryKey } from '@/api/auth'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -118,6 +118,33 @@ describe('auth API binary base session flow', () => {
       frameType: FrameType.PasskeyLoginBegin,
       suppressAuthFailureTelemetry: true,
       requestOptions: expect.objectContaining({ method: 'POST' })
+    }))
+  })
+
+  it('ordinary account passkey step-up returns an MFA proof for credential mutations', async () => {
+    await userStepUpPasskeyBegin('account.delete')
+    await userStepUpPasskeyComplete({
+      challengeToken: 'challenge-1',
+      rememberMe: false,
+      assertion: {
+        id: 'credential-id',
+        rawId: 'AQID',
+        response: {
+          clientDataBytes: 'BAUG',
+          authenticatorData: 'BwgJ',
+          signature: 'CgsM',
+          userHandle: 'DQ4P'
+        }
+      }
+    })
+
+    expectBinaryRoute('binary_post_auth_step_up_passkey_begin', FrameType.PasskeyLoginBegin, expect.objectContaining({
+      method: 'POST',
+      body: expect.any(ArrayBuffer)
+    }))
+    expectBinaryRoute('binary_post_auth_step_up_passkey_complete', FrameType.MfaChallengeResult, expect.objectContaining({
+      method: 'POST',
+      body: expect.any(ArrayBuffer)
     }))
   })
 

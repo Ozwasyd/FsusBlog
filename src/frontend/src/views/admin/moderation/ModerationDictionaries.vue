@@ -42,7 +42,7 @@
       </div>
 
       <div class="blog-scroll-x-safe moderation-dictionaries-table-scroll">
-        <el-table v-loading="loading" :data="filteredDictionaries" row-key="dictionaryId" :row-class-name="rowClassName">
+        <el-table class="moderation-dictionaries-table" v-loading="loading" :data="filteredDictionaries" row-key="dictionaryId" :row-class-name="rowClassName">
           <el-table-column label="词库 ID" min-width="230">
             <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
               <div class="font-semibold text-[var(--fsusblog-text-primary)]">{{ row.dictionaryId }}</div>
@@ -74,7 +74,7 @@
           <el-table-column label="更新时间" width="170">
             <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">{{ formatTime(row.updatedAtUtc) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="190" align="right" fixed="right">
+          <el-table-column label="操作" width="190" align="right" :fixed="isCompactDictionaryTable ? false : 'right'">
             <template #default="{ row }: { row: ModerationDictionaryRuntimeItem }">
               <el-button link type="primary" :icon="View" @click="openDetail(row)">详情</el-button>
               <el-button
@@ -147,6 +147,7 @@ import { Check, Close, CopyDocument, Refresh, RefreshLeft, RefreshRight, View } 
 import { promptText, toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 
 const MainlandChangeConfirmPhrase = 'CONFIRM CN-MAINLAND MODERATION CHANGE'
 
@@ -158,6 +159,7 @@ const snapshot = shallowRef<ModerationDictionaryRuntimeSnapshot | null>(null)
 const runtime = shallowRef<ModerationRuntimeStatusResponse | null>(null)
 const detail = shallowRef<ModerationDictionaryRuntimeItem | null>(null)
 const detailVisible = shallowRef(false)
+const isCompactDictionaryTable = useMediaQuery('(max-width: 767px)')
 const taskFeedback = useAdminTaskFeedback()
 const {
   isHighlighted: isTaskHighlighted
@@ -382,5 +384,13 @@ onMounted(() => {
 .moderation-dictionaries-table-scroll {
   max-width: 100%;
   overflow-x: auto;
+}
+
+.moderation-dictionaries-table :deep(.el-table-fixed-column--right.is-first-column) {
+  border-left: 1px solid var(--fsusblog-panel-border);
+}
+
+.moderation-dictionaries-table :deep(.el-table-fixed-column--right.is-first-column::before) {
+  box-shadow: none;
 }
 </style>

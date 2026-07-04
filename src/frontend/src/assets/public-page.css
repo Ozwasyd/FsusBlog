@@ -404,10 +404,10 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
     display: flex;
     align-items: stretch;
     min-height: 3.5rem;
-    background-color: color-mix(in srgb, var(--fsusblog-page-bg) 82%, transparent);
+    background-color: color-mix(in srgb, var(--fsusblog-page-bg) 92%, transparent);
     -webkit-backdrop-filter: blur(12px) saturate(140%);
     backdrop-filter: blur(12px) saturate(140%);
-    border-top: 1px solid color-mix(in srgb, var(--fsusblog-panel-border) 50%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--fsusblog-panel-border) 64%, transparent);
     box-shadow: 0 -1px 0 var(--fsusblog-panel-border);
     padding-bottom: env(safe-area-inset-bottom);
   }

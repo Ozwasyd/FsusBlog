@@ -23,6 +23,8 @@ public interface IPasskeyService
     Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(int accountId, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message)> CompleteStepUpAssertionAsync(int accountId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginActionStepUpAssertionAsync(int accountId, string action, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message, string Action)> CompleteActionStepUpAssertionAsync(int accountId, PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int accountId, CancellationToken cancellationToken = default);
     Task<PasskeyCredentialMutationResult> RemoveCredentialAsync(int accountId, int credId, CancellationToken cancellationToken = default);
     Task<bool> RenameCredentialAsync(int accountId, int credId, string name, CancellationToken cancellationToken = default);
@@ -457,6 +459,59 @@ public sealed class PasskeyService(
         return (true, "step-up 验证成功");
     }
 
+    public async Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginActionStepUpAssertionAsync(
+        int accountId,
+        string action,
+        CancellationToken cancellationToken = default)
+    {
+        string normalizedAction = NormalizeStepUpAction(action);
+        if (!UserSecurityStepUpActions.IsCredentialMutation(normalizedAction))
+        {
+            return (false, "STEP_UP_ACTION_UNSUPPORTED", null);
+        }
+
+        var result = await BeginStepUpAssertionAsync(accountId, cancellationToken).ConfigureAwait(false);
+        if (!result.Success || result.Data is null)
+        {
+            return result;
+        }
+
+        await cache.SetStringAsync(
+            CachePolicyId.SecurityPasskeyAuthChallenge,
+            StepUpActionIdentity(result.Data.Options.ChallengeToken),
+            normalizedAction,
+            TimeSpan.FromMinutes(5),
+            cancellationToken).ConfigureAwait(false);
+
+        return result;
+    }
+
+    public async Task<(bool Success, string Message, string Action)> CompleteActionStepUpAssertionAsync(
+        int accountId,
+        PasskeyLoginCompleteCoreModel request,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await CompleteStepUpAssertionAsync(accountId, request, cancellationToken).ConfigureAwait(false);
+        if (!result.Success)
+        {
+            return (false, result.Message, string.Empty);
+        }
+
+        var action = await cache.ConsumeOnceAndGetAsync<string>(
+            CachePolicyId.SecurityPasskeyAuthChallenge,
+            StepUpActionIdentity(request.ChallengeToken),
+            static bytes => (true, System.Text.Encoding.UTF8.GetString(bytes.Span)),
+            cancellationToken).ConfigureAwait(false);
+
+        string normalizedAction = NormalizeStepUpAction(action.Value);
+        if (!action.Hit || !UserSecurityStepUpActions.IsCredentialMutation(normalizedAction))
+        {
+            return (false, "STEP_UP_ACTION_INVALID", string.Empty);
+        }
+
+        return (true, result.Message, normalizedAction);
+    }
+
     private async Task<PasskeyAssertionState?> LoadPasskeyAssertionStateAsync(
         string credentialId,
         int? accountId,
@@ -577,6 +632,12 @@ public sealed class PasskeyService(
 
     private static string StepUpChallengeIdentity(string challengeToken)
         => $"stepup:{challengeToken}";
+
+    private static string StepUpActionIdentity(string challengeToken)
+        => $"stepup-action:{challengeToken}";
+
+    private static string NormalizeStepUpAction(string? action)
+        => (action ?? string.Empty).Trim();
 
     private static string GenerateChallengeToken()
         => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));

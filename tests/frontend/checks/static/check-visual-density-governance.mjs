@@ -220,7 +220,8 @@ function checkIssueDensityContracts() {
   assertNotContains(adminDashboardPath, /DashboardAuthorAnalyticsPanel|DashboardCommentModerationPanel|DashboardQuickActionsPanel|DashboardPopularArticles|DashboardRecentComments|访客来源|地域访问/, 'ManageDashboard must stay a lightweight overview and link out to dedicated workspaces')
   assertContains(adminAnalyticsPath, /DashboardAuthorAnalyticsPanel/, 'ManageAnalytics must own the author analytics panel')
   assertContains(adminAnalyticsPath, /访客来源[\s\S]*地域访问/, 'ManageAnalytics must own traffic source and region panels')
-  assertContains(path.join(repoRoot, 'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue'), /AdminStatusMatrix/, 'ManageAnalytics content and technical metrics must use AdminStatusMatrix compact density')
+  assertContains(path.join(repoRoot, 'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue'), /AdminStatusMatrix/, 'ManageAnalytics content and technical metrics must use FsusBlog AdminStatusMatrix compact density')
+  assertNotContains(path.join(repoRoot, 'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue'), /FsusUiMetricList|FsusUiMetricItem/, 'ManageAnalytics content and technical metrics must not use the generic FsusUI metric-list control')
   assertNotContains(path.join(repoRoot, 'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue'), /text-2xl|class="[^"]*\bp-6\b[^"]*"[\s\S]{0,240}\{\{\s*metric\.value\s*\}\}/, 'ManageAnalytics metrics must not regress to large KPI cards')
 
   for (const relativePath of dashboardDensityFiles) {
@@ -319,6 +320,31 @@ function checkAdminColorGovernance() {
     statusMatrixPath,
     /background:\s*var\(--fsusblog-color-(?:success|warning|error|primary)\)/,
     'AdminStatusMatrix bars and dots must use muted admin status tokens'
+  )
+  assertContains(
+    statusMatrixPath,
+    /grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*14rem\),\s*1fr\)\);/,
+    'AdminStatusMatrix compact cells must keep enough column width for label/value/helper text'
+  )
+  assertContains(
+    statusMatrixPath,
+    /min-height:\s*64px;/,
+    'AdminStatusMatrix compact cells must not compress label, value, and helper copy into a 44px row'
+  )
+  assertContains(
+    statusMatrixPath,
+    /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(3ch,\s*auto\);/,
+    'AdminStatusMatrix compact cells must align labels and right-side numeric values'
+  )
+  assertContains(
+    statusMatrixPath,
+    /justify-self:\s*end;/,
+    'AdminStatusMatrix compact values must not sit directly after the label text'
+  )
+  assertNotContains(
+    statusMatrixPath,
+    /admin-status-matrix--compact[\s\S]{0,260}min-height:\s*44px;/,
+    'AdminStatusMatrix compact cells must not regress to the over-compressed 44px layout'
   )
 
   const motionPath = path.join(repoRoot, 'src/frontend/src/assets/motion.css')

@@ -759,6 +759,113 @@ public static partial class BinaryEndpoints
         })
         .RequireAnonymousAccountPrincipal();
 
+        group.MapPost("/auth/step-up/passkey/begin", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IPasskeyService passkeyService,
+            IConfiguration configuration,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            if (!configuration.GetValue<bool>("Auth:PasskeyStepUp:Enabled", true))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Forbidden, "PASSKEY_STEP_UP_DISABLED"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.MfaChallengeStartRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodeStringMutationRequest(payload.Payload, out string action) ||
+                string.IsNullOrWhiteSpace(action))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "STEP_UP_ACTION_REQUIRED"), aeds);
+            }
+
+            action = action.Trim();
+            if (!UserSecurityStepUpActions.IsCredentialMutation(action))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Forbidden, "STEP_UP_ACTION_UNSUPPORTED"),
+                    aeds,
+                    StatusCodes.Status403Forbidden);
+            }
+
+            int accountId = EndpointUserContext.From(httpContext).AccountId;
+            var (success, message, data) = await passkeyService.BeginActionStepUpAssertionAsync(accountId, action, cancellationToken);
+            return success && data != null
+                ? BinaryResults.Frame(aeds, AedsFrameType.PasskeyLoginBegin, writer => PodBinaryCodec.WritePasskeyLoginBegin(data.Options, writer))
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, message), aeds, StatusCodes.Status428PreconditionRequired);
+        })
+        .RequireAnonymousAccountPrincipal()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
+        group.MapPost("/auth/step-up/passkey/complete", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
+            IPasskeyService passkeyService,
+            IUserAccountReader users,
+            IMfaChallengeService challengeService,
+            IConfiguration configuration,
+            IAedsEncoder aeds,
+            CancellationToken cancellationToken) =>
+        {
+            if (!configuration.GetValue<bool>("Auth:PasskeyStepUp:Enabled", true))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Forbidden, "PASSKEY_STEP_UP_DISABLED"),
+                    aeds,
+                    StatusCodes.Status503ServiceUnavailable);
+            }
+
+            var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.PasskeyLoginCompleteRequest, cancellationToken);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+
+            if (!PodBinaryCodec.TryDecodePasskeyLoginCompleteRequest(payload.Payload, out var request) ||
+                string.IsNullOrWhiteSpace(request.ChallengeToken) ||
+                request.RawId.Length == 0 ||
+                request.ClientDataBytes.Length == 0 ||
+                request.AuthenticatorData.Length == 0 ||
+                request.Signature.Length == 0)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"), aeds);
+            }
+
+            int accountId = EndpointUserContext.From(httpContext).AccountId;
+            var result = await passkeyService.CompleteActionStepUpAssertionAsync(accountId, request, cancellationToken);
+            if (!result.Success || string.IsNullOrWhiteSpace(result.Action))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Unauthorized, result.Message),
+                    aeds,
+                    StatusCodes.Status401Unauthorized);
+            }
+
+            UserAccountSnapshot? account = await users.GetAccountByIdAsync(accountId);
+            if (account is null)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "用户不存在"), aeds);
+            }
+
+            string proofToken = await challengeService.CreateProofTokenAsync(
+                account.Value.Id,
+                ResolveAccountSubjectHash(account.Value),
+                result.Action,
+                TimeSpan.FromMinutes(5));
+            var proof = new MfaChallengeResultDto(true, result.Action, proofToken, null);
+            return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(proof, writer));
+        })
+        .RequireAnonymousAccountPrincipal()
+        .RequireRateLimiting("fixed_ip")
+        .RequireNoStoreResponse();
+
         group.MapPost("/auth/mfa/challenge/start", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IUserAccountReader users,

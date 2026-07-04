@@ -300,13 +300,22 @@ if (fixtureGateIndex < 0) {
   hardViolations.push('src/router/index.ts: local fixture cookie gate must be explicit in the route guard');
 }
 if (fixtureGateIndex >= 0 && bootstrapIndex >= 0 && fixtureGateIndex > bootstrapIndex) {
-  hardViolations.push('src/router/index.ts: local fixture cookie gate must run before app bootstrap to avoid pre-cookie admin 401s');
+  hardViolations.push('src/router/index.ts: local fixture cookie gate must run before app bootstrap to avoid pre-cookie authenticated-route 401s');
 }
 if (fixtureGateIndex >= 0 && accountSessionIndex >= 0 && fixtureGateIndex > accountSessionIndex) {
   hardViolations.push('src/router/index.ts: local fixture cookie gate must run before account session checks to avoid negative auth cache pollution');
 }
+if (!routerSource.includes('const fixtureRouteNeedsCookies = forceLocalFixtureSession && Boolean(to.meta.requiresAuth)')) {
+  hardViolations.push('src/router/index.ts: local fixture cookie gate must cover every requiresAuth route, not only manage pages');
+}
+if (routerSource.includes('if (manageRoute && forceLocalFixtureSession)')) {
+  hardViolations.push('src/router/index.ts: local fixture cookie gate must not be scoped only to manageRoute');
+}
 if (!routerSource.includes('window.location.replace(buildLocalFixtureAdminUrl(to.fullPath))')) {
   hardViolations.push('src/router/index.ts: local fixture admin cookie redirect must be explicit in the route guard');
+}
+if (!routerSource.includes('isLocalFixtureAdminSessionActive')) {
+  hardViolations.push('src/router/index.ts: local fixture admin principal must remain gated by the admin fixture flag');
 }
 
 const localFixtureSessionPath = join(srcDir, 'services', 'localFixtureSession.ts');

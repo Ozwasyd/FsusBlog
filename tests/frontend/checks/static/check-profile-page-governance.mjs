@@ -11,6 +11,7 @@ const read = (file) => fs.readFileSync(file, 'utf8')
 
 const profilePath = path.join(repoRoot, 'src/frontend/src/views/user/Profile.vue')
 const identityCenterPath = path.join(repoRoot, 'src/frontend/src/views/user/IdentityCenter.vue')
+const identityCopyPath = path.join(repoRoot, 'src/frontend/src/copy/identity.ts')
 const routerPath = path.join(repoRoot, 'src/frontend/src/router/index.ts')
 const accountNavPath = path.join(repoRoot, 'src/frontend/src/layouts/accountNav.ts')
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
@@ -30,6 +31,7 @@ function lineOf(source, token) {
 
 const profile = read(profilePath)
 const identityCenter = read(identityCenterPath)
+const identityCopy = read(identityCopyPath)
 const router = read(routerPath)
 const accountNav = read(accountNavPath)
 
@@ -86,6 +88,11 @@ for (const token of [
   'MfaSetupModal',
   'startMfaSetup',
   'verifyMfaSetup',
+  'disableMfa',
+  'mfaCopy.disableCta',
+  '@click="disableTotpMfa"',
+  'identity-mfa-status-tag',
+  ":type=\"mfaProfile?.enabled ? 'success' : 'warning'\"",
   'PasskeyRegisterModal',
   'createRecoveryKey',
   'rotateRecoveryKey',
@@ -94,6 +101,119 @@ for (const token of [
 ]) {
   if (!identityCenter.includes(token)) {
     fail(identityCenterPath, 1, `Identity center contract is missing ${token}`)
+  }
+}
+
+const plainMfaStatusToken = '<span>{{ mfaProfile?.enabled ? mfaCopy.enabled : mfaCopy.disabled }}</span>'
+if (identityCenter.includes(plainMfaStatusToken)) {
+  fail(identityCenterPath, lineOf(identityCenter, plainMfaStatusToken), 'MFA enabled/disabled state must use an FsusUI status tag, not plain text')
+}
+
+if (identityCenter.includes('mfaCopy.enabledHint')) {
+  fail(identityCenterPath, lineOf(identityCenter, 'mfaCopy.enabledHint'), 'MFA enabled state must show direct actions, not repeat the section description')
+}
+
+if (identityCenter.includes('recoveryKeyCopy.emptyState')) {
+  fail(identityCenterPath, lineOf(identityCenter, 'recoveryKeyCopy.emptyState'), 'Recovery Key page must not render one-line guidance as an empty-state box')
+}
+
+if (!identityCopy.includes('创建或轮换后立即保存；之后不会再次显示。')) {
+  fail(identityCopyPath, 1, 'Recovery Key copy must explain the one-time display behavior in the section hint')
+}
+
+for (const token of [
+  'emptyState: \'明文不保存；仅创建或轮换后显示。\'',
+  '明文不保存；仅创建或轮换后显示。'
+]) {
+  if (identityCopy.includes(token)) {
+    fail(identityCopyPath, lineOf(identityCopy, token), `Recovery Key copy must not keep redundant empty-state text ${token}`)
+  }
+}
+
+for (const token of [
+  'identity-profile-form',
+  'identity-profile-summary identity-policy-grid',
+  'publicSendOptionState',
+  'publicSendOptionValue',
+  'publicProfileCopy.summaryAriaLabel',
+  'publicProfileCopy.publicSendOptionLabel'
+]) {
+  if (!identityCenter.includes(token)) {
+    fail(identityCenterPath, 1, `Identity public-profile page is missing structured status UI ${token}`)
+  }
+}
+
+for (const token of [
+  'publicProfileCopy.publicSendOptionPrefix',
+  'publicProfileCopy.currentDraftPrefix',
+  'publicHandleDraftDisplay',
+  'clearPublicHandle',
+  'publicProfileCopy.clearCta'
+]) {
+  if (identityCenter.includes(token)) {
+    fail(identityCenterPath, lineOf(identityCenter, token), `Identity public-profile page must not use redundant status copy ${token}`)
+  }
+}
+
+for (const token of [
+  'publicSendOptionPrefix',
+  'currentDraftPrefix',
+  '当前草稿',
+  'clearCta',
+  '清空公开称呼'
+]) {
+  if (identityCopy.includes(token)) {
+    fail(identityCopyPath, lineOf(identityCopy, token), `Identity public-profile copy must not keep redundant status text ${token}`)
+  }
+}
+
+for (const token of [
+  'commentRecordPolicyItems',
+  'identity-policy-grid',
+  'identity-policy-state',
+  'identity-policy-state__dot',
+  "type IdentityPolicyState = 'open' | 'active' | 'closed' | 'muted'",
+  "anonymousCommentGovernanceAvailable ? 'active' : 'closed'",
+  '.identity-policy-state--active .identity-policy-state__dot',
+  '.identity-policy-state--muted .identity-policy-state__dot',
+  'background: transparent',
+  'commentRecordsCopy.policyPublicSendLabel',
+  'commentRecordsCopy.policyAnonymousLabel',
+  'commentRecordsCopy.policyZkLabel',
+  'commentRecordsCopy.policyGovernanceLabel',
+  'commentRecordsCopy.policyOpen',
+  'commentRecordsCopy.policyClosed',
+  'commentRecordsCopy.policyActive',
+  'commentRecordsCopy.policyUnavailable'
+]) {
+  if (!identityCenter.includes(token)) {
+    fail(identityCenterPath, 1, `Identity comment-records policy summary is missing ${token}`)
+  }
+}
+
+for (const token of [
+  'identity-inline-link',
+  'commentRecordsCopy.viewLink',
+  'to="/user/comments"',
+  'el-tag :type="item.type"',
+  '<el-tag :type="item.type"'
+]) {
+  if (identityCenter.includes(token)) {
+    fail(identityCenterPath, lineOf(identityCenter, token), `Identity comment-records page must not include redundant or badge-like policy UI ${token}`)
+  }
+}
+
+for (const token of [
+  '公开发送的评论记录。',
+  '匿名评论按站点策略处理。',
+  '查看公开评论记录',
+  "policyEnabled: '可用'"
+]) {
+  if (identityCenter.includes(token)) {
+    fail(identityCenterPath, lineOf(identityCenter, token), `Identity comment-records page must not render low-information copy ${token}`)
+  }
+  if (identityCopy.includes(token)) {
+    fail(identityCopyPath, lineOf(identityCopy, token), `Identity copy must not keep low-information comment-records copy ${token}`)
   }
 }
 
