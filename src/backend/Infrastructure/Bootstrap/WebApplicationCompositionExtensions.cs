@@ -286,6 +286,7 @@ public static class WebApplicationCompositionExtensions
     private static void MapFsusPublicRoutes(this WebApplication app)
     {
         app.MapDistributionEndpoints();
+        app.MapIntegrityVerificationEndpoints();
 
         app.MapGet("/", (
             HttpContext ctx,

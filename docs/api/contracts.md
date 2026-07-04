@@ -44,6 +44,22 @@ HTML L0 只暴露 `/api/binary/article/html/{pathKey}.html` 诊断/预览路径�
 
 未被业务显式捕获的异常只能返回固定、客户端安全的错误消息。`ArgumentException` / malformed request / auth / not-found 等 4xx 映射不得把 `exception.Message`、SQL、配置键、文件路径、后端类型名或 token 片段写入 `ApiError.Message` / `Details`；Development 500 诊断输出仅限本地开发，不构成运行时 API 契约。生产和共享环境的 binary/json 错误响应只暴露稳定错误码、HTTP 状态、固定文案和 trace id。
 
+### Public integrity verification manifests
+
+Integrity verification endpoints are public JSON sidecars, not `/api/binary/**` runtime endpoints. They exist so external verifiers can read public keys, publish proofs, local transparency log heads, and Merkle checkpoints without depending on internal AEDS frames.
+
+| Method | Path | Content-Type | Cache | 说明 |
+|--------|------|--------------|-------|------|
+| GET | `/integrity/keys.json` | `application/json; charset=utf-8` | short public manifest cache | Public signing key registry; never exposes private keys. |
+| GET | `/integrity/article/{articleId}` | `application/json; charset=utf-8` | immutable for ready/superseded proof; `no-store` otherwise | Current public publish proof for an article. |
+| GET | `/integrity/article/{articleId}/revisions/{revisionNo}` | `application/json; charset=utf-8` | same as proof | Publish proof for one public article revision number. |
+| GET | `/integrity/revisions/{articleRevisionId}` | `application/json; charset=utf-8` | same as proof | Publish proof by persisted `ArticleRevision.Id`. |
+| GET | `/integrity/checkpoints/latest` | `application/json; charset=utf-8` | short public manifest cache | Latest signed Merkle checkpoint. |
+| GET | `/integrity/checkpoints/{date}` | `application/json; charset=utf-8` | short public manifest cache | Daily checkpoint using `yyyy-MM-dd`. |
+| GET | `/integrity/log/head` | `application/json; charset=utf-8` | short public manifest cache | Current transparency log head. |
+
+Ready and superseded proof manifests contain `articleId`, `articleRevisionId`, `revisionNo`, canonical hash, artifact digests, signing key id, signature, and transparency log pointer. Pending, failed, retrying, not-public, missing, private, hidden, or deleted cases expose only stable low-sensitive status or an error manifest; they must not expose stack traces, failure details, admin principal context, draft content, user data, IP, device, session, token, or private key material. See [Public Verification API](../integrity/public-verification-api.md) for schema and manual verification.
+
 ### AEDS 通用响应 POD
 
 源码：`src/shared/Contracts/Models/CommonPods.cs`
