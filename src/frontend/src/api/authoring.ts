@@ -5,6 +5,7 @@ import { encodeAedsFrame } from './binaryFrame'
 import { encodeAuthoringJsonRequest } from '@/adapters/binary/authoringAdapter'
 import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
+import type { ArticleRightsRequest } from './article'
 
 export interface ServerDraftSaveRequest {
   draftKey: string
@@ -18,6 +19,7 @@ export interface ServerDraftSaveRequest {
   clientRevision: string
   status: number
   scheduledPublishAt: string | null
+  rights: ArticleRightsRequest
   warningOverrideReason?: string | null
 }
 
@@ -33,6 +35,7 @@ export interface ServerDraftResponse {
   clientRevision: string | null
   status: number
   scheduledPublishAt: string | null
+  rights: ArticleRightsRequest
   updatedAt: string
 }
 

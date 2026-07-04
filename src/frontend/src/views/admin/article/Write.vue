@@ -147,6 +147,140 @@
 
             <details
               class="write-inspector-section"
+              :open="rightsInspectorOpen"
+              @toggle="onRightsInspectorToggle"
+            >
+              <summary class="write-inspector-summary">
+                <span>版权保护</span>
+                <span>Rights V3 发布策略</span>
+              </summary>
+              <section class="write-rights-panel border-t border-[var(--fsusblog-panel-border)]" aria-label="版权保护">
+                <header class="px-4 py-3 border-b border-[var(--fsusblog-panel-border)]">
+                  <div class="text-[13px] font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">版权保护</div>
+                  <p class="mt-1 text-[11px] leading-5 text-[var(--fsusblog-text-tertiary)]">服务器校验为准，提交时写入 ArticleWriteRequest V3。</p>
+                </header>
+                <div class="p-4 space-y-4">
+                  <el-form-item prop="rights.enabled" label="启用策略">
+                    <el-switch
+                      v-model="articleForm.rights.enabled"
+                      aria-label="启用版权策略"
+                      :disabled="submitting"
+                    />
+                  </el-form-item>
+
+                  <el-form-item prop="rights.licenseType" label="许可类型">
+                    <el-select
+                      v-model="articleForm.rights.licenseType"
+                      name="articleRightsLicenseType"
+                      aria-label="版权许可类型"
+                      :disabled="submitting"
+                    >
+                      <el-option
+                        v-for="item in articleRightsLicenseOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+
+                  <el-form-item prop="rights.copyrightHolder" label="权利人">
+                    <el-input
+                      v-model="articleForm.rights.copyrightHolder"
+                      name="articleRightsCopyrightHolder"
+                      aria-label="版权权利人"
+                      maxlength="256"
+                      show-word-limit
+                      :disabled="submitting"
+                    />
+                  </el-form-item>
+
+                  <el-form-item prop="rights.copyrightYear" label="版权年份">
+                    <el-input-number
+                      v-model="articleForm.rights.copyrightYear"
+                      name="articleRightsCopyrightYear"
+                      aria-label="版权年份"
+                      :min="1900"
+                      :max="new Date().getFullYear() + 1"
+                      :step="1"
+                      :disabled="submitting"
+                      controls-position="right"
+                      :value-on-clear="null"
+                    />
+                  </el-form-item>
+
+                  <el-form-item prop="rights.rightsStatement" label="权利声明">
+                    <el-input
+                      v-model="articleForm.rights.rightsStatement"
+                      name="articleRightsStatement"
+                      type="textarea"
+                      :rows="3"
+                      maxlength="4000"
+                      show-word-limit
+                      aria-label="版权权利声明"
+                      :disabled="submitting"
+                    />
+                  </el-form-item>
+
+                  <el-form-item prop="rights.attributionTemplate" label="署名模板">
+                    <el-input
+                      v-model="articleForm.rights.attributionTemplate"
+                      name="articleRightsAttributionTemplate"
+                      type="textarea"
+                      :rows="2"
+                      maxlength="4000"
+                      show-word-limit
+                      aria-label="版权署名模板"
+                      :disabled="submitting"
+                    />
+                  </el-form-item>
+
+                  <el-form-item prop="rights.copyPolicy" label="复制策略">
+                    <el-select
+                      v-model="articleForm.rights.copyPolicy"
+                      name="articleRightsCopyPolicy"
+                      aria-label="版权复制策略"
+                      :disabled="submitting"
+                    >
+                      <el-option
+                        v-for="item in articleRightsCopyPolicyOptions"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"
+                      />
+                    </el-select>
+                  </el-form-item>
+
+                  <el-form-item prop="rights.maxExcerptChars" label="摘录长度">
+                    <el-input-number
+                      v-model="articleForm.rights.maxExcerptChars"
+                      name="articleRightsMaxExcerptChars"
+                      aria-label="最大摘录字符数"
+                      :min="0"
+                      :max="articleRightsExcerptMax"
+                      :step="10"
+                      :disabled="submitting"
+                      controls-position="right"
+                    />
+                  </el-form-item>
+
+                  <div class="grid gap-3">
+                    <el-checkbox v-model="articleForm.rights.allowCodeCopy" :disabled="submitting">
+                      允许代码块复制
+                    </el-checkbox>
+                    <el-checkbox v-model="articleForm.rights.showPublicBadge" :disabled="submitting">
+                      公开页显示版权标识
+                    </el-checkbox>
+                    <el-checkbox v-model="articleForm.rights.proofBindingEnabled" :disabled="submitting">
+                      启用 proof 绑定
+                    </el-checkbox>
+                  </div>
+                </div>
+              </section>
+            </details>
+
+            <details
+              class="write-inspector-section"
               :open="checkInspectorOpen || seoIssues.length > 0 || Boolean(aiAssist)"
               @toggle="onCheckInspectorToggle"
             >
@@ -476,7 +610,6 @@ type SubmitChecklistState = 'pass' | 'warning'
 const route = useRoute()
 
 const {
-  formRef,
   taskFeedback,
   pageLoading,
   submitting,
@@ -517,6 +650,9 @@ const {
   seoChecking,
   seoStatusText,
   articleForm,
+  articleRightsLicenseOptions,
+  articleRightsCopyPolicyOptions,
+  articleRightsExcerptMax,
   rules,
   validateBeforeSubmit,
   saveDraftNow,
@@ -569,6 +705,7 @@ const submitConfirmDialog = ref(false)
 const leaveConfirmDialog = ref(false)
 const editorLayoutMode = ref<EditorLayoutMode>('standard')
 const checkInspectorOpen = ref(false)
+const rightsInspectorOpen = ref(false)
 const previewInspectorOpen = ref(route.query.preview === 'private')
 const resourcesInspectorOpen = ref(false)
 const versionsInspectorOpen = ref(false)
@@ -601,6 +738,10 @@ const isDetailsOpen = (event: Event): boolean => (event.currentTarget as HTMLDet
 
 const onCheckInspectorToggle = (event: Event): void => {
   checkInspectorOpen.value = isDetailsOpen(event)
+}
+
+const onRightsInspectorToggle = (event: Event): void => {
+  rightsInspectorOpen.value = isDetailsOpen(event)
 }
 
 const openPreviewInspector = (): void => {

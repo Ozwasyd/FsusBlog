@@ -156,6 +156,9 @@ public class ArticleDraft
     [SugarColumn(ColumnName = "scheduled_publish_at", IsNullable = true)]
     public DateTime? ScheduledPublishAt { get; set; }
 
+    [SugarColumn(ColumnName = "rights_json", ColumnDataType = "text", IsNullable = true)]
+    public string? RightsJson { get; set; }
+
     [SugarColumn(ColumnName = "client_revision", Length = 64, IsNullable = true)]
     public string? ClientRevision { get; set; }
 

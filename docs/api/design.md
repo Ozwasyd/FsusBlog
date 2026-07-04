@@ -399,7 +399,7 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
 
-服务端草稿以 `ownerAdminPrincipalId + draftKey` 隔离并持久化正文、分类标签、发布状态、定时发布时间和 `clientRevision`；该 owner 来自 independent admin principal 的 `admin_id`，不复用普通匿名账号 `sys_user.id`。浏览器本地缓存是 `useAdminArticleWrite.ts` 管理的 localStorage AEDS payload（`fsus:article-draft:create` / `fsus:article-draft:edit:{id}`），只作为断网和刷新恢复兜底；Pinia 表单状态不是持久草稿真相源。编辑器发现服务端草稿比本地缓存更新时必须先提示恢复/丢弃，不能用本地缓存静默覆盖服务端草稿。
+服务端草稿以 `ownerAdminPrincipalId + draftKey` 隔离并持久化正文、分类标签、发布状态、定时发布时间、Rights V3 `rights` 策略和 `clientRevision`；该 owner 来自 independent admin principal 的 `admin_id`，不复用普通匿名账号 `sys_user.id`。浏览器本地缓存是 `useAdminArticleWrite.ts` 管理的 localStorage AEDS payload（`fsus:article-draft:create` / `fsus:article-draft:edit:{id}`），保存完整草稿 snapshot 作为断网和刷新恢复兜底；Pinia 表单状态不是持久草稿真相源。编辑器发现服务端草稿比本地缓存更新时必须先提示恢复/丢弃，不能用本地缓存静默覆盖服务端草稿。
 
 ### 修订与回滚
 

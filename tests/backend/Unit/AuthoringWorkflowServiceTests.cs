@@ -65,6 +65,27 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
+    public void ServerDraft_SourcePreservesRightsV3Policy()
+    {
+        string dtos = ReadRepoFile("src/backend/Models/Dtos/AuthoringDtos.cs");
+        string entity = ReadRepoFile("src/backend/Entities/Article.cs");
+        string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string frontendApi = ReadRepoFile("src/frontend/src/api/authoring.ts");
+
+        Assert.Contains("ArticleRightsRequest? Rights", dtos, StringComparison.Ordinal);
+        Assert.Contains("ArticleRightsRequest Rights", dtos, StringComparison.Ordinal);
+        Assert.Contains("RightsJson", entity, StringComparison.Ordinal);
+        Assert.Contains("rights_json", entity, StringComparison.Ordinal);
+        Assert.Contains("NormalizeDraftRights(request.Rights)", service, StringComparison.Ordinal);
+        Assert.Contains("LicenseType = \"all-rights-reserved\"", service, StringComparison.Ordinal);
+        Assert.Contains("CopyPolicy = \"append-attribution\"", service, StringComparison.Ordinal);
+        Assert.Contains("SerializeDraftRights", service, StringComparison.Ordinal);
+        Assert.Contains("rights_json", service, StringComparison.Ordinal);
+        Assert.Contains("DeserializeDraftRights(draft.RightsJson)", service, StringComparison.Ordinal);
+        Assert.Contains("rights: ArticleRightsRequest", frontendApi, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RebuildAssetLibraryAsync_SourceUsesTransactionAndLocks()
     {
         string service = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");

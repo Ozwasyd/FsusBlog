@@ -8,6 +8,8 @@ import {
   updateArticle,
   ArticlePublishStatus,
   type ArticleDetailResponse,
+  type ArticleRightsRequest,
+  type ArticleRightsResponse,
   type ArticleWriteRequest
 } from '@/api/article'
 import {
@@ -56,6 +58,7 @@ interface ArticleParams {
   tagIds: number[]
   status: ArticlePublishStatus
   scheduledPublishAt: string
+  rights: ArticleRightsForm
 }
 
 interface ArticleDraftSnapshot extends ArticleParams {
@@ -63,13 +66,6 @@ interface ArticleDraftSnapshot extends ArticleParams {
   sourceArticleId: number | null
   isEdit: boolean
   source: 'local' | 'server'
-  clientRevision: string
-}
-
-interface LocalDraftMetadata {
-  savedAt: number
-  sourceArticleId: number | null
-  isEdit: boolean
   clientRevision: string
 }
 
@@ -84,9 +80,50 @@ interface ArticleSeoPreviewState {
   canonicalValid: boolean
 }
 
+interface ArticleRightsForm {
+  enabled: boolean
+  licenseType: string
+  copyrightHolder: string
+  copyrightYear: number | null
+  rightsStatement: string
+  attributionTemplate: string
+  copyPolicy: string
+  maxExcerptChars: number
+  allowCodeCopy: boolean
+  showPublicBadge: boolean
+  proofBindingEnabled: boolean
+}
+
 const CREATE_DRAFT_KEY = 'fsus:article-draft:create'
 const EDIT_DRAFT_PREFIX = 'fsus:article-draft:edit:'
 const DRAFT_SAVE_DELAY_MS = 700
+const ARTICLE_RIGHTS_LICENSE_TYPES = [
+  'all-rights-reserved',
+  'CC-BY-4.0',
+  'CC-BY-SA-4.0',
+  'CC-BY-NC-4.0',
+  'CC0-1.0'
+] as const
+const ARTICLE_RIGHTS_COPY_POLICIES = [
+  'append-attribution',
+  'excerpt-only',
+  'disabled'
+] as const
+const ARTICLE_RIGHTS_EXCERPT_MAX = 10_000
+
+const articleRightsLicenseOptions = [
+  { label: '保留所有权利', value: 'all-rights-reserved' },
+  { label: 'CC BY 4.0', value: 'CC-BY-4.0' },
+  { label: 'CC BY-SA 4.0', value: 'CC-BY-SA-4.0' },
+  { label: 'CC BY-NC 4.0', value: 'CC-BY-NC-4.0' },
+  { label: 'CC0 1.0', value: 'CC0-1.0' }
+] as const
+
+const articleRightsCopyPolicyOptions = [
+  { label: '复制时追加署名', value: 'append-attribution' },
+  { label: '仅允许摘录复制', value: 'excerpt-only' },
+  { label: '禁用复制增强', value: 'disabled' }
+] as const
 
 const normalizeArticlePublishStatus = (value: unknown): ArticlePublishStatus => {
   const status = Number(value)
@@ -98,6 +135,77 @@ const normalizeArticlePublishStatus = (value: unknown): ArticlePublishStatus => 
     ? status
     : ArticlePublishStatus.Published
 }
+
+const createDefaultArticleRightsForm = (): ArticleRightsForm => ({
+  enabled: true,
+  licenseType: 'all-rights-reserved',
+  copyrightHolder: '',
+  copyrightYear: null,
+  rightsStatement: '',
+  attributionTemplate: '',
+  copyPolicy: 'append-attribution',
+  maxExcerptChars: 300,
+  allowCodeCopy: true,
+  showPublicBadge: true,
+  proofBindingEnabled: true
+})
+
+const cloneArticleRightsForm = (rights: ArticleRightsForm): ArticleRightsForm => ({ ...rights })
+
+const normalizeOptionalRightsText = (value: unknown): string => typeof value === 'string' ? value : ''
+
+const normalizeNullableRightsYear = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  const year = Number(value)
+  return Number.isInteger(year) ? year : null
+}
+
+const normalizeArticleRightsForm = (value: unknown): ArticleRightsForm => {
+  const defaults = createDefaultArticleRightsForm()
+  if (typeof value !== 'object' || value === null) {
+    return defaults
+  }
+
+  const raw = value as Partial<ArticleRightsForm & ArticleRightsRequest & ArticleRightsResponse>
+  const maxExcerptChars = typeof raw.maxExcerptChars === 'number' && Number.isFinite(raw.maxExcerptChars)
+    ? Math.trunc(raw.maxExcerptChars)
+    : defaults.maxExcerptChars
+
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : defaults.enabled,
+    licenseType: normalizeOptionalRightsText(raw.licenseType) || defaults.licenseType,
+    copyrightHolder: normalizeOptionalRightsText(raw.copyrightHolder),
+    copyrightYear: normalizeNullableRightsYear(raw.copyrightYear),
+    rightsStatement: normalizeOptionalRightsText(raw.rightsStatement),
+    attributionTemplate: normalizeOptionalRightsText(raw.attributionTemplate),
+    copyPolicy: normalizeOptionalRightsText(raw.copyPolicy) || defaults.copyPolicy,
+    maxExcerptChars,
+    allowCodeCopy: typeof raw.allowCodeCopy === 'boolean' ? raw.allowCodeCopy : defaults.allowCodeCopy,
+    showPublicBadge: typeof raw.showPublicBadge === 'boolean' ? raw.showPublicBadge : defaults.showPublicBadge,
+    proofBindingEnabled: typeof raw.proofBindingEnabled === 'boolean' ? raw.proofBindingEnabled : defaults.proofBindingEnabled
+  }
+}
+
+const hasNonDefaultArticleRights = (rights: ArticleRightsForm): boolean => {
+  const defaults = createDefaultArticleRightsForm()
+  return Object.keys(defaults).some((key) => rights[key as keyof ArticleRightsForm] !== defaults[key as keyof ArticleRightsForm])
+}
+
+const areArticleRightsSame = (left: ArticleRightsForm, right: ArticleRightsForm): boolean =>
+  left.enabled === right.enabled
+  && left.licenseType === right.licenseType
+  && left.copyrightHolder === right.copyrightHolder
+  && left.copyrightYear === right.copyrightYear
+  && left.rightsStatement === right.rightsStatement
+  && left.attributionTemplate === right.attributionTemplate
+  && left.copyPolicy === right.copyPolicy
+  && left.maxExcerptChars === right.maxExcerptChars
+  && left.allowCodeCopy === right.allowCodeCopy
+  && left.showPublicBadge === right.showPublicBadge
+  && left.proofBindingEnabled === right.proofBindingEnabled
 
 const normalizeDateTimeInput = (value: string | null | undefined): string => {
   if (!value) return ''
@@ -117,12 +225,13 @@ const buildSubmitSuccessMessage = (isEdit: boolean, status: ArticlePublishStatus
   return isEdit ? '博文已成功修订' : '博文已上线发布'
 }
 
-const hasDraftContent = (draft: Pick<ArticleParams, 'title' | 'content' | 'summary' | 'categoryId' | 'tagIds'>): boolean =>
+const hasDraftContent = (draft: Pick<ArticleParams, 'title' | 'content' | 'summary' | 'categoryId' | 'tagIds' | 'rights'>): boolean =>
   draft.title.trim().length > 0
   || draft.content.trim().length > 0
   || draft.summary.trim().length > 0
   || draft.categoryId !== undefined
   || draft.tagIds.length > 0
+  || hasNonDefaultArticleRights(draft.rights)
 
 const stripMarkdownForSeo = (content: string, maxLength = 180): string => content
   .replace(/```[\s\S]*?```/g, ' ')
@@ -181,6 +290,7 @@ const normalizeDraft = (value: unknown): ArticleDraftSnapshot | null => {
     tagIds: Array.isArray(raw.tagIds) ? raw.tagIds.map(Number).filter((item) => Number.isFinite(item)) : [],
     status: normalizeArticlePublishStatus(raw.status),
     scheduledPublishAt: typeof raw.scheduledPublishAt === 'string' ? raw.scheduledPublishAt : '',
+    rights: normalizeArticleRightsForm(raw.rights),
     savedAt: typeof raw.savedAt === 'number' && Number.isFinite(raw.savedAt) ? raw.savedAt : 0,
     sourceArticleId: typeof raw.sourceArticleId === 'number' && Number.isFinite(raw.sourceArticleId) ? raw.sourceArticleId : null,
     isEdit: raw.isEdit === true,
@@ -221,13 +331,7 @@ const writeDraftSnapshot = (key: string, snapshot: ArticleDraftSnapshot): void =
   }
 
   try {
-    const metadata: LocalDraftMetadata = {
-      savedAt: snapshot.savedAt,
-      sourceArticleId: snapshot.sourceArticleId,
-      isEdit: snapshot.isEdit,
-      clientRevision: snapshot.clientRevision
-    }
-    window.localStorage.setItem(key, encodePublicAotPayload(metadata))
+    window.localStorage.setItem(key, encodePublicAotPayload(snapshot))
   } catch {
     // Local draft cache is best-effort and must never block editing.
   }
@@ -304,7 +408,8 @@ export function useAdminArticleWrite() {
     categoryId: undefined,
     tagIds: [],
     status: ArticlePublishStatus.Published,
-    scheduledPublishAt: ''
+    scheduledPublishAt: '',
+    rights: createDefaultArticleRightsForm()
   })
   const submitButtonText = computed(() => {
     if (articleForm.status === ArticlePublishStatus.Draft) return '保存草稿'
@@ -484,6 +589,7 @@ export function useAdminArticleWrite() {
     tagIds: [...articleForm.tagIds],
     status: articleForm.status,
     scheduledPublishAt: articleForm.scheduledPublishAt,
+    rights: cloneArticleRightsForm(articleForm.rights),
     savedAt: Date.now(),
     sourceArticleId: articleId.value,
     isEdit: isEdit.value,
@@ -504,7 +610,8 @@ export function useAdminArticleWrite() {
     status: snapshot.status,
     scheduledPublishAt: snapshot.status === ArticlePublishStatus.Scheduled && snapshot.scheduledPublishAt
       ? snapshot.scheduledPublishAt
-      : null
+      : null,
+    rights: cloneArticleRightsForm(snapshot.rights)
   })
 
   const snapshotFromServerDraft = (draft: ServerDraftResponse): ArticleDraftSnapshot => {
@@ -518,6 +625,7 @@ export function useAdminArticleWrite() {
       tagIds: Array.isArray(draft.tagIds) ? draft.tagIds.map(Number).filter((item) => Number.isFinite(item)) : [],
       status: normalizeArticlePublishStatus(draft.status),
       scheduledPublishAt: normalizeDateTimeInput(draft.scheduledPublishAt),
+      rights: normalizeArticleRightsForm(draft.rights),
       savedAt: Number.isFinite(savedAt) ? savedAt : 0,
       sourceArticleId: draft.articleId,
       isEdit: draft.articleId !== null,
@@ -589,6 +697,7 @@ export function useAdminArticleWrite() {
     && draft.scheduledPublishAt === articleForm.scheduledPublishAt
     && draft.tagIds.length === articleForm.tagIds.length
     && draft.tagIds.every((tagId, index) => tagId === articleForm.tagIds[index])
+    && areArticleRightsSame(draft.rights, articleForm.rights)
 
   const readServerDraftSnapshot = async (signal: AbortSignal): Promise<ArticleDraftSnapshot | null> => {
     try {
@@ -656,6 +765,7 @@ export function useAdminArticleWrite() {
     articleForm.tagIds = [...draft.tagIds]
     articleForm.status = draft.status
     articleForm.scheduledPublishAt = draft.scheduledPublishAt
+    articleForm.rights = cloneArticleRightsForm(draft.rights)
     serverDraftSyncPaused.value = false
     suppressDraftSave = false
   }
@@ -763,6 +873,7 @@ export function useAdminArticleWrite() {
     articleForm.tagIds = Array.isArray(data.tags) ? data.tags.map((item) => Number(item.id)) : []
     articleForm.status = normalizeArticlePublishStatus(data.status)
     articleForm.scheduledPublishAt = normalizeDateTimeInput(data.scheduledPublishAt)
+    articleForm.rights = normalizeArticleRightsForm(data.rights)
   }
 
   const loadArticleDetailIntoForm = async (signal: AbortSignal): Promise<void> => {
@@ -1160,6 +1271,40 @@ export function useAdminArticleWrite() {
     }
   }
 
+  const validateArticleRights = (): boolean => {
+    const licenseType = articleForm.rights.licenseType.trim()
+    const copyPolicy = articleForm.rights.copyPolicy.trim()
+    if (licenseType.trim().length === 0) {
+      showWarningToast('版权许可类型不能为空', '版权许可类型不能为空')
+      return false
+    }
+    if (!ARTICLE_RIGHTS_LICENSE_TYPES.includes(licenseType as typeof ARTICLE_RIGHTS_LICENSE_TYPES[number])) {
+      showWarningToast('版权许可类型不在允许范围内', '版权许可类型不在允许范围内')
+      return false
+    }
+    if (copyPolicy.trim().length === 0) {
+      showWarningToast('复制策略不能为空', '复制策略不能为空')
+      return false
+    }
+    if (!ARTICLE_RIGHTS_COPY_POLICIES.includes(copyPolicy as typeof ARTICLE_RIGHTS_COPY_POLICIES[number])) {
+      showWarningToast('复制策略不在允许范围内', '复制策略不在允许范围内')
+      return false
+    }
+    if (articleForm.rights.copyrightYear !== null) {
+      const currentYear = new Date().getFullYear()
+      if (!Number.isInteger(articleForm.rights.copyrightYear) || articleForm.rights.copyrightYear < 1900 || articleForm.rights.copyrightYear > currentYear + 1) {
+        showWarningToast('版权年份必须是有效年份', '版权年份必须是有效年份')
+        return false
+      }
+    }
+    if (!Number.isInteger(articleForm.rights.maxExcerptChars) || articleForm.rights.maxExcerptChars < 0 || articleForm.rights.maxExcerptChars > ARTICLE_RIGHTS_EXCERPT_MAX) {
+      showWarningToast(`摘录长度必须在 0-${ARTICLE_RIGHTS_EXCERPT_MAX} 之间`, `摘录长度必须在 0-${ARTICLE_RIGHTS_EXCERPT_MAX} 之间`)
+      return false
+    }
+
+    return true
+  }
+
   const validateBeforeSubmit = async (): Promise<boolean> => {
     if (!formRef.value || submitting.value) {
       return false
@@ -1167,6 +1312,10 @@ export function useAdminArticleWrite() {
 
     const validation = await formRef.value.validate()
     if (!isFsusUiOk(validation)) {
+      return false
+    }
+
+    if (!validateArticleRights()) {
       return false
     }
 
@@ -1182,6 +1331,20 @@ export function useAdminArticleWrite() {
     }
     return true
   }
+
+  const buildArticleRightsRequest = (): ArticleRightsRequest => ({
+    enabled: articleForm.rights.enabled,
+    licenseType: articleForm.rights.licenseType.trim(),
+    copyrightHolder: articleForm.rights.copyrightHolder.trim() || null,
+    copyrightYear: articleForm.rights.copyrightYear,
+    rightsStatement: articleForm.rights.rightsStatement.trim() || null,
+    attributionTemplate: articleForm.rights.attributionTemplate.trim() || null,
+    copyPolicy: articleForm.rights.copyPolicy.trim(),
+    maxExcerptChars: articleForm.rights.maxExcerptChars,
+    allowCodeCopy: articleForm.rights.allowCodeCopy,
+    showPublicBadge: articleForm.rights.showPublicBadge,
+    proofBindingEnabled: articleForm.rights.proofBindingEnabled
+  })
 
   const validatePublishState = (): boolean => {
     if (articleForm.status !== ArticlePublishStatus.Scheduled) {
@@ -1215,7 +1378,8 @@ export function useAdminArticleWrite() {
           categoryId: articleForm.categoryId,
           tagIds: [...articleForm.tagIds],
           status: articleForm.status,
-          scheduledPublishAt: articleForm.status === ArticlePublishStatus.Scheduled ? articleForm.scheduledPublishAt : null
+          scheduledPublishAt: articleForm.status === ArticlePublishStatus.Scheduled ? articleForm.scheduledPublishAt : null,
+          rights: buildArticleRightsRequest()
         }
 
         let targetArticleId: number | null = null
@@ -1383,7 +1547,8 @@ export function useAdminArticleWrite() {
       categoryId: articleForm.categoryId,
       tagIds: [...articleForm.tagIds],
       status: articleForm.status,
-      scheduledPublishAt: articleForm.scheduledPublishAt
+      scheduledPublishAt: articleForm.scheduledPublishAt,
+      rights: { ...articleForm.rights }
     }),
     scheduleDraftSave,
     { deep: true }
@@ -1410,6 +1575,7 @@ export function useAdminArticleWrite() {
     articleForm.title = ''
     articleForm.content = ''
     articleForm.summary = ''
+    articleForm.rights = createDefaultArticleRightsForm()
   })
 
   return {
@@ -1455,6 +1621,9 @@ export function useAdminArticleWrite() {
     seoChecking,
     seoStatusText,
     articleForm,
+    articleRightsLicenseOptions,
+    articleRightsCopyPolicyOptions,
+    articleRightsExcerptMax: ARTICLE_RIGHTS_EXCERPT_MAX,
     rules,
     validateBeforeSubmit,
     saveDraftNow,

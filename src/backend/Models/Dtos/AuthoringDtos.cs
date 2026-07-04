@@ -1,5 +1,6 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Server.Models.Requests;
 
 namespace FsusBlog.Server.Models.Dtos;
 
@@ -21,6 +22,7 @@ public sealed record class ServerDraftSaveRequest(
     string? ClientRevision,
     int? Status,
     DateTime? ScheduledPublishAt,
+    ArticleRightsRequest? Rights = null,
     [property: System.ComponentModel.DataAnnotations.MaxLength(500)]
     string? WarningOverrideReason = null);
 
@@ -36,7 +38,8 @@ public sealed record class ServerDraftResponse(
     string? ClientRevision,
     int Status,
     DateTime? ScheduledPublishAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    ArticleRightsRequest Rights);
 
 public sealed record class ArticleRevisionSummaryResponse(
     string Id,

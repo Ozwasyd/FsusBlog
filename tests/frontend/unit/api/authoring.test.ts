@@ -31,6 +31,20 @@ describe('authoring API binary transport', () => {
   })
 
   it('saveServerDraft posts an AEDS author draft request frame', async () => {
+    const rights = {
+      enabled: true,
+      licenseType: 'CC-BY-4.0',
+      copyrightHolder: 'Fsus',
+      copyrightYear: 2026,
+      rightsStatement: 'Reuse with attribution.',
+      attributionTemplate: '{title} - {holder}',
+      copyPolicy: 'append-attribution',
+      maxExcerptChars: 240,
+      allowCodeCopy: true,
+      showPublicBadge: true,
+      proofBindingEnabled: false
+    }
+
     binaryMock.mockResolvedValue({
       draftKey: 'fsus:article-draft:create',
       articleId: null,
@@ -43,10 +57,11 @@ describe('authoring API binary transport', () => {
       clientRevision: 'rev-1',
       status: 0,
       scheduledPublishAt: null,
+      rights,
       updatedAt: '2026-05-18T16:00:00Z'
     })
 
-    await saveServerDraft({
+    const saved = await saveServerDraft({
       draftKey: 'fsus:article-draft:create',
       articleId: null,
       title: 'Draft',
@@ -57,8 +72,11 @@ describe('authoring API binary transport', () => {
       tagIds: [2],
       clientRevision: 'rev-1',
       status: 0,
-      scheduledPublishAt: null
+      scheduledPublishAt: null,
+      rights
     })
+
+    expect(saved.rights).toMatchObject(rights)
 
     const call = binaryMock.mock.calls[0]?.[0]
     expect(call?.binaryUrl).toBe('/api/binary/author/drafts')
@@ -67,7 +85,15 @@ describe('authoring API binary transport', () => {
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-test')
     expectAedsJsonBody(call?.requestOptions?.body, FrameType.AuthorDraftSaveRequest, {
       title: 'Draft',
-      status: 0
+      status: 0,
+      rights: {
+        licenseType: 'CC-BY-4.0',
+        copyrightHolder: 'Fsus',
+        copyrightYear: 2026,
+        copyPolicy: 'append-attribution',
+        maxExcerptChars: 240,
+        proofBindingEnabled: false
+      }
     })
   })
 

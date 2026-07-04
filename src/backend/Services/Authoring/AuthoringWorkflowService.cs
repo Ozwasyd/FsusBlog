@@ -39,12 +39,14 @@ public sealed class AuthoringWorkflowService(
     private const int MaxDraftKeyLength = 96;
     private const int PreviewLength = 24_000;
     private const int WarningOverrideReasonLength = 180;
+    private static readonly JsonSerializerOptions DraftRightsJsonOptions = new(JsonSerializerDefaults.Web);
     private static int assetArticleReferenceStoreEnsured;
 
     public async Task<ServerDraftResponse> SaveDraftAsync(long ownerAdminPrincipalId, ServerDraftSaveRequest request, CancellationToken cancellationToken = default)
     {
         string draftKey = NormalizeDraftKey(request.DraftKey, request.ArticleId);
         string tagIds = string.Join(',', NormalizeTagIds(request.TagIds));
+        ArticleRightsRequest rights = NormalizeDraftRights(request.Rights);
         DateTime now = DateTime.UtcNow;
         var draft = new ArticleDraft
         {
@@ -58,6 +60,7 @@ public sealed class AuthoringWorkflowService(
             TagIds = tagIds,
             MarkdownContent = Normalize(request.Content, 200_000),
             Status = NormalizeArticleStatus(request.Status),
+            RightsJson = SerializeDraftRights(rights),
             ClientRevision = NormalizeNullable(request.ClientRevision, 64),
             CreatedAt = now,
             UpdatedAt = now
@@ -88,6 +91,7 @@ public sealed class AuthoringWorkflowService(
                 client_revision,
                 status,
                 scheduled_publish_at,
+                rights_json,
                 created_at,
                 updated_at
             ) VALUES (
@@ -103,6 +107,7 @@ public sealed class AuthoringWorkflowService(
                 @ClientRevision,
                 @Status,
                 CAST(@ScheduledPublishAt AS timestamp),
+                @RightsJson,
                 @CreatedAt,
                 @UpdatedAt
             )
@@ -117,6 +122,7 @@ public sealed class AuthoringWorkflowService(
                 client_revision = EXCLUDED.client_revision,
                 status = EXCLUDED.status,
                 scheduled_publish_at = EXCLUDED.scheduled_publish_at,
+                rights_json = EXCLUDED.rights_json,
                 updated_at = EXCLUDED.updated_at;
             """,
             new SugarParameter("@OwnerAdminPrincipalId", draft.OwnerAdminPrincipalId),
@@ -131,6 +137,7 @@ public sealed class AuthoringWorkflowService(
             new SugarParameter("@ClientRevision", DbValue(draft.ClientRevision)),
             new SugarParameter("@Status", (int)draft.Status),
             new SugarParameter("@ScheduledPublishAt", DbValue(draft.ScheduledPublishAt)),
+            new SugarParameter("@RightsJson", DbValue(draft.RightsJson)),
             new SugarParameter("@CreatedAt", draft.CreatedAt),
             new SugarParameter("@UpdatedAt", draft.UpdatedAt));
     }
@@ -1244,7 +1251,8 @@ public sealed class AuthoringWorkflowService(
             draft.ClientRevision,
             (int)draft.Status,
             draft.ScheduledPublishAt,
-            draft.UpdatedAt);
+            draft.UpdatedAt,
+            DeserializeDraftRights(draft.RightsJson));
 
     private static ArticleRevisionDetailResponse ToRevisionDetailResponse(ArticleRevision revision)
         => new(
@@ -2507,6 +2515,68 @@ public sealed class AuthoringWorkflowService(
     {
         string value = Normalize(raw, maxLength);
         return value.Length == 0 ? null : value;
+    }
+
+    private static ArticleRightsRequest NormalizeDraftRights(ArticleRightsRequest? request)
+    {
+        if (request is null)
+        {
+            return new ArticleRightsRequest
+            {
+                Enabled = true,
+                LicenseType = "all-rights-reserved",
+                CopyrightHolder = null,
+                CopyrightYear = null,
+                RightsStatement = null,
+                AttributionTemplate = null,
+                CopyPolicy = "append-attribution",
+                MaxExcerptChars = 300,
+                AllowCodeCopy = true,
+                ShowPublicBadge = true,
+                ProofBindingEnabled = true
+            };
+        }
+
+        return new ArticleRightsRequest
+        {
+            Enabled = request.Enabled,
+            LicenseType = NormalizeDraftRightsToken(request.LicenseType, "all-rights-reserved"),
+            CopyrightHolder = NormalizeNullable(request.CopyrightHolder, 256),
+            CopyrightYear = request.CopyrightYear,
+            RightsStatement = NormalizeNullable(request.RightsStatement, 4000),
+            AttributionTemplate = NormalizeNullable(request.AttributionTemplate, 4000),
+            CopyPolicy = NormalizeDraftRightsToken(request.CopyPolicy, "append-attribution"),
+            MaxExcerptChars = Math.Max(0, request.MaxExcerptChars),
+            AllowCodeCopy = request.AllowCodeCopy,
+            ShowPublicBadge = request.ShowPublicBadge,
+            ProofBindingEnabled = request.ProofBindingEnabled
+        };
+    }
+
+    private static string NormalizeDraftRightsToken(string? value, string fallback)
+    {
+        string normalized = Normalize(value, 48);
+        return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
+    }
+
+    private static string SerializeDraftRights(ArticleRightsRequest rights)
+        => JsonSerializer.Serialize(rights, DraftRightsJsonOptions);
+
+    private static ArticleRightsRequest DeserializeDraftRights(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return NormalizeDraftRights(null);
+        }
+
+        try
+        {
+            return NormalizeDraftRights(JsonSerializer.Deserialize<ArticleRightsRequest>(raw, DraftRightsJsonOptions));
+        }
+        catch (JsonException)
+        {
+            return NormalizeDraftRights(null);
+        }
     }
 
     private static object DbValue(string? value)
