@@ -766,7 +766,7 @@ Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `Rea
 
 `CommentArticleCursor`、`CommentThreadReplyCursor` 与 `CommentUserCursor` 的二进制 item payload 先保存 content slice，随后追加两个 `int32 length + CommentAuthorView payload` 段：第一个为必备 `author`，第二个为可空 `replyToAuthor`。固定 POD 不再携带 author display string；缺少必备 author 或 payload 尾部残留数据都必须被前端 adapter 视为 `ProtocolFailure`。
 
-公开评论读取会按 viewer IP 解析出的地区过滤 `comment_blocked_region` 规范化 lookup 行，并把 viewer region 纳入 `CommentCursorFrame` cache identity；cache runtime counters 会按 roots/replies 与规范化 region 记录 hit/miss。`CN-MAINLAND` 严格策略只对 `CN-MAINLAND` viewer 隐藏，不会自动套用到 `CN-HK`、`CN-MO`、`CN-TW`；viewer region 解析为 `UNKNOWN` 时，只要 comment 存在任意 blocked region lookup 行就保守隐藏。评论提交同样按 request IP 解析 submit region：submit region 为 `CN-MAINLAND` 且命中大陆严格类别时直接返回 validation error；其他地区可发布但会记录对应 blocked regions；submit region 为 `UNKNOWN` 时评论进入 `Pending`，同时标记 `hide_until_reviewed=true`。
+公开评论读取会按 viewer IP 解析出的地区过滤 `comment_blocked_region` 规范化 lookup 行，并把 viewer region 纳入 `CommentCursorFrame` cache identity；cache runtime counters 会按 roots/replies 与规范化 region 记录 hit/miss。`CN-MAINLAND` 严格策略只对 `CN-MAINLAND` viewer 隐藏，不会自动套用到 `CN-HK`、`CN-MO`、`CN-TW`；viewer region 解析为 `UNKNOWN` 时，只要 comment 存在任意 blocked region lookup 行就保守隐藏。评论提交同样按 request IP 解析 submit region：submit region 为 `CN-MAINLAND` 且命中大陆严格类别时直接返回 validation error；其他地区可发布但会记录对应 blocked regions；submit region 为 `UNKNOWN` 时评论进入 `Pending`，同时标记 `hide_until_reviewed=true`。`X-Fsus-Region` / `CF-IPCountry` / `X-Geo-Country` 只在 loopback 或 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 命中的可信代理来源上生效，直连请求携带这些头必须按 `connection_ip` 处理。
 
 地区合规结果存储在 `comment_region_compliance`：`comment_id`、`submit_region`、`submit_region_confidence`、`region_provider`、`submit_ip_hash`、`policy_version`、`can_publish`、`requires_manual_review`、`hide_until_reviewed`、`blocked_regions`、`risk_labels`、`decision_reason`、`rule_hits_json`、`created_at_utc`、`updated_at_utc`。其中 `blocked_regions` 继续作为审核展示和 replay diff 的序列化来源；公共读取的可索引过滤写入 `comment_blocked_region(comment_id, region_code)`，主键为 `(comment_id, region_code)`，并有 `(region_code, comment_id)` 索引。IP 只保存由独立 `Moderation:RegionPolicy:IpHashKey` 生成的 HMAC hash；缺失 key 时 fail closed，不使用硬编码或 JWT fallback。轮换该 pepper 后旧 `submit_ip_hash` 不可重算，应通过安全轮换工具清空旧 hash。匿名评论 `moderation_subject_hash` 由 `HMAC-SHA256(Moderation:Pepper, nullifierHash)` 派生，不拼接 scope，不使用裸 SHA-256；缺失 `Moderation:Pepper` 时启动和运行时均 fail closed。策略 replay 通过服务层生成 `RegionPolicyReplayDiff`，用于比较 blocked regions、risk labels、publishability 和公开可见性变化。
 
@@ -1056,7 +1056,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 ### `SeoConfigContract`
 
-`SeoConfig` 同时用于公开 SEO/head/PWA manifest、admin 统一 SEO 设置页和运行时品牌资产。公开端点为 `GET /api/binary/system/seo`，admin 读取为 `GET /api/binary/system/admin/seo`，保存为 `PUT /api/binary/system/seo` + `SeoConfigUpdateRequest`，写入必须携带 PoW。保存后必须失效 system SEO cache、Public AOT shell、动态 `manifest.webmanifest` 和公开 shell hydration。动态 `/manifest.webmanifest` 是 SEO 配置派生资源，服务端按 SEO/PWA 字段缓存序列化后的 manifest bytes，使用派生 bytes hash 生成 ETag；`If-None-Match` 命中时返回 `304` 且不重复写完整 manifest body。
+`SeoConfig` 同时用于公开 SEO/head/PWA manifest、admin 统一 SEO 设置页和运行时品牌资产。公开端点为 `GET /api/binary/system/seo`，admin 读取为 `GET /api/binary/system/admin/seo`，保存为 `PUT /api/binary/system/seo` + `SeoConfigUpdateRequest`，写入必须携带 PoW 和 action=`admin-sensitive` 的 `X-Fsus-Mfa-Proof`，并通过可信 `Origin` / `Referer`。保存后必须失效 system SEO cache、Public AOT shell、动态 `manifest.webmanifest` 和公开 shell hydration。动态 `/manifest.webmanifest` 是 SEO 配置派生资源，服务端按 SEO/PWA 字段缓存序列化后的 manifest bytes，使用派生 bytes hash 生成 ETag；`If-None-Match` 命中时返回 `304` 且不重复写完整 manifest body。
 
 ```json
 {
@@ -1091,7 +1091,7 @@ URL 字段只接受空值、站内绝对路径 `/...` 或 `http/https` 绝对 UR
 
 ### `SiteComplianceConfigContract`
 
-`SiteComplianceConfig` 同时用于公开 footer 与 admin 表单。公开端点为 `GET /api/binary/system/compliance`，admin 读取为 `GET /api/binary/system/admin/compliance`，保存为 `PUT /api/binary/system/compliance` + `SiteComplianceConfigUpdateRequest`，写入必须携带 PoW。
+`SiteComplianceConfig` 同时用于公开 footer 与 admin 表单。公开端点为 `GET /api/binary/system/compliance`，admin 读取为 `GET /api/binary/system/admin/compliance`，保存为 `PUT /api/binary/system/compliance` + `SiteComplianceConfigUpdateRequest`，写入必须携带 PoW 和 action=`admin-sensitive` 的 `X-Fsus-Mfa-Proof`。
 
 ```json
 {
@@ -1125,7 +1125,7 @@ URL 字段只接受空值、站内绝对路径 `/...` 或 `http/https` 绝对 UR
 }
 ```
 
-静态页面当前是固定页集合，读写范围必须一致：`about`、`privacy`、`guidelines`、`copyright`。匿名读取 `/api/binary/system/page/{slug}`、admin 读取 `/api/binary/system/admin/page/{slug}`、admin 写入 `/api/binary/system/page` 与缓存刷新 `/api/binary/system/page/refresh/{slug}` 都必须拒绝 allowlist 之外的 slug。页面保存后服务端会刷新相关缓存和对应 Public AOT 静态页；刷新端点是管理端强制刷新入口，前端设置页可手动调用。
+静态页面当前是固定页集合，读写范围必须一致：`about`、`privacy`、`guidelines`、`copyright`。匿名读取 `/api/binary/system/page/{slug}`、admin 读取 `/api/binary/system/admin/page/{slug}`、admin 写入 `/api/binary/system/page` 与缓存刷新 `/api/binary/system/page/refresh/{slug}` 都必须拒绝 allowlist 之外的 slug。admin 写入和刷新必须携带 PoW 和 action=`admin-sensitive` 的 `X-Fsus-Mfa-Proof`。页面保存后服务端会刷新相关缓存和对应 Public AOT 静态页；刷新端点是管理端强制刷新入口，前端设置页可手动调用。
 
 ---
 
@@ -1216,7 +1216,7 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 
 ### Public AOT Route Manifest
 
-`GET /internal/public-aot/manifest` 返回后端权威公开 SEO route 清单，供预热脚本和内容变更驱动 backfill 使用。该端点只列出公开可访问 route；文章 route 必须满足 `Published`、未删除、已到 `PublishedAt` / `ScheduledPublishAt` 时间。若配置 `PublicAot:ManifestToken`，调用方必须携带 `X-Fsus-Public-Aot-Token`，否则返回 `403`。
+`GET /internal/public-aot/manifest` 返回后端权威公开 SEO route 清单，供预热脚本和内容变更驱动 backfill 使用。该端点只列出公开可访问 route；文章 route 必须满足 `Published`、未删除、已到 `PublishedAt` / `ScheduledPublishAt` 时间。生产环境 `PublicAot:ManifestToken` 是必填独立 secret；调用方必须携带匹配的 `X-Fsus-Public-Aot-Token`，否则返回 `403`。非生产环境可空 token 以支持本地工具链。
 
 `GET /internal/public-aot/health` 返回 Public AOT SSR worker 诊断快照，同样受 `X-Fsus-Public-Aot-Token` 保护并返回 `Cache-Control: no-store`。响应包含 resource check（client root、worker script、prebuilt bundle 与 bundle path）、Node executable probe、`validateBundle` sample worker probe、backfill queue depth/capacity、scheduled/dropped/completed/failed counters、timeout/restart/stderr warning counters、last failure、circuit breaker 状态和 route quarantine 列表。breaker 打开或 route 被 quarantine 时只阻断新的 backfill 调度；公开读必须继续通过 fresh/stale AOT 命中或 SPA fallback 服务，不能因为 SSR worker degraded 阻断匿名阅读。
 
@@ -1551,7 +1551,7 @@ Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，�
 | POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId` |
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 单个修订详情，包含标题、摘要、正文、分类、标签、`createdByAdminPrincipalId` 和审计时间，用于编辑器内比较 |
-| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 回滚到指定修订并触发文章更新链 |
+| POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 回滚到指定修订并触发文章更新链；必须携带 `X-Fsus-Mfa-Proof` |
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
 | GET | `/api/binary/author/assets` | 资产库列表 |
 | DELETE | `/api/binary/author/assets/orphans` | 删除引用计数为 0 的孤儿资产库记录 |
@@ -1591,7 +1591,7 @@ Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，�
 | POST | `/api/binary/author/moderation/model/rollback` | 回滚上一份模型运行快照；必须携带 `X-Fsus-Mfa-Proof` |
 | GET | `/api/binary/author/content/export` | 全站内容备份包，包含每篇 Markdown + frontmatter |
 | GET | `/api/binary/author/articles/{articleId}/export` | Markdown + frontmatter 导出 |
-| POST | `/api/binary/author/articles/import` | Markdown + frontmatter 导入 |
+| POST | `/api/binary/author/articles/import` | Markdown + frontmatter 导入；必须携带 `X-Fsus-Mfa-Proof` |
 | GET | `/api/binary/author/audit` | 结构化审计日志列表，支持 actor/action/target/outcome/severity/time 过滤；默认 `piiMode=pii-redacted`，完整 `IpHash`/`UserAgentHash`/`SessionIdHash`/`DeviceFingerprintHash` 仅限具备 `audit.investigate` 且显式传 `piiMode=investigation` 的 admin，并写高价值审计 |
 | GET | `/api/binary/author/audit/summary` | 当前过滤条件下的审计 facet 与写入 runtime |
 | GET | `/api/binary/author/audit/{id}` | 审计详情、context JSON 与防篡改校验结果；敏感 hash 字段与列表相同，默认 redacted，investigation 读取要求 `audit.investigate` |

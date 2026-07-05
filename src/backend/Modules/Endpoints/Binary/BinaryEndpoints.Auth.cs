@@ -1212,22 +1212,16 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"), aeds);
             }
 
-            Result<RecoveryKeySession> session = await recoveryKeys.GetRecoverySessionAsync(request.MfaProofToken, cancellationToken);
-            if (!session.IsSuccess || session.Value is null)
-            {
-                return RecoveryKeyError(session.Error, aeds);
-            }
-
-            var (success, message) = await passkeyService.CompleteRegistrationAsync(session.Value.AccountId, request, cancellationToken);
-            if (!success)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
-            }
-
             Result<RecoveryKeySession> consumed = await recoveryKeys.ConsumeRecoverySessionAsync(request.MfaProofToken, cancellationToken);
             if (!consumed.IsSuccess || consumed.Value is null)
             {
                 return RecoveryKeyError(consumed.Error, aeds);
+            }
+
+            var (success, message) = await passkeyService.CompleteRegistrationAsync(consumed.Value.AccountId, request, cancellationToken);
+            if (!success)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
             }
 
             await recoveryKeys.ApplyPostPasskeyBindAsync(consumed.Value, cancellationToken);
@@ -1261,7 +1255,7 @@ public static partial class BinaryEndpoints
         group.MapPost("/auth/passkey/register/complete", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IPasskeyService passkeyService,
-            IMfaChallengeService mfaChallengeService,
+            IUserSecurityStepUpService stepUp,
             IUserAccountReader users,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
@@ -1288,22 +1282,14 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "用户不存在"), aeds);
             }
 
-            if (user.Value.MfaEnabled)
+            var stepUpResult = await RequireUserSecurityStepUpAsync(
+                httpContext,
+                stepUp,
+                UserSecurityStepUpActions.PasskeyRegister,
+                cancellationToken);
+            if (stepUpResult is { } rejected)
             {
-                if (string.IsNullOrWhiteSpace(request.MfaProofToken))
-                {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "注册通行密钥需要先完成 MFA 验证"), aeds);
-                }
-
-                bool proofValid = await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
-                    user.Value.Id,
-                    ResolveAccountSubjectHash(user.Value),
-                    "passkey_register",
-                    request.MfaProofToken);
-                if (!proofValid)
-                {
-                    return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "MFA 验证令牌无效或已过期"), aeds);
-                }
+                return BinaryResults.FromError(rejected.Error, aeds, rejected.StatusCode);
             }
 
             var (success, message) = await passkeyService.CompleteRegistrationAsync(user.Value.Id, request, cancellationToken);

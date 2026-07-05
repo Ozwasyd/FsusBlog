@@ -356,10 +356,32 @@ public class CrawlerUpdateWorker(
         string? configured = options.SnapshotPath ?? _configuredSnapshotPath;
         if (!string.IsNullOrWhiteSpace(configured))
         {
-            return configured;
+            string normalized = NormalizeSnapshotPath(configured);
+            return Path.Combine(_dataRoot, "security", normalized);
         }
 
         return Path.Combine(_dataRoot, "security", "crawler-ranges.snapshot.json");
+    }
+
+    private static string NormalizeSnapshotPath(string value)
+    {
+        string normalized = value.Trim().Replace('\\', '/');
+        if (normalized.Length == 0
+            || normalized.Length > 160
+            || Path.IsPathRooted(normalized)
+            || normalized.Contains(':', StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Security:CrawlerCidrs:SnapshotPath must be a relative path under the crawler snapshot data root.");
+        }
+
+        string[] segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0
+            || segments.Any(static segment => segment is "." or ".."))
+        {
+            throw new InvalidOperationException("Security:CrawlerCidrs:SnapshotPath must not contain empty, current, or parent directory segments.");
+        }
+
+        return string.Join(Path.DirectorySeparatorChar, segments);
     }
 
     private static RangeSelection SelectRanges(List<string> remote, IReadOnlyList<string>? snapshot, List<string> config)

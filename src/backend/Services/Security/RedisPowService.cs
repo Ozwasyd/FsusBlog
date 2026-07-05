@@ -22,6 +22,7 @@ public class RedisPowService : IPowService
     private const int MaxNonceUtf8Bytes = 64;
     private const int MaxSignatureUtf8Bytes = 128;
     private const int MaxBrowserFingerprintUtf8Bytes = 256;
+    private const int MaxBindingContextUtf8Bytes = 128;
     private static readonly TimeSpan ProofReplayTtl = TimeSpan.FromMinutes(5);
     private readonly byte[] _cachedPowKey;
     private readonly ILogger<RedisPowService> _logger;
@@ -47,9 +48,10 @@ public class RedisPowService : IPowService
         _cachedPowKey = SHA256.HashData(Encoding.UTF8.GetBytes(secretKey.Trim()));
     }
 
-    public async Task<bool> VerifyAsync(IPowRequest req, string clientIp)
+    public async Task<bool> VerifyAsync(IPowRequest req, string clientIp, string? bindingContext = null)
     {
-        if (!HasValidFieldLengths(req))
+        string normalizedBindingContext = NormalizeBindingContext(bindingContext);
+        if (!HasValidFieldLengths(req) || !IsUtf8LengthInRange(normalizedBindingContext, MaxBindingContextUtf8Bytes))
         {
             _logger.LogWarning("PoW 字段长度超限 | SaltHash={SaltHash}", HashForLog(req.PowSalt));
             return false;
@@ -57,7 +59,7 @@ public class RedisPowService : IPowService
 
         // 1. 签名校验 (防重放与篡改)
         byte[] signatureHash = new byte[32];
-        if (!BasicValidate(req, clientIp, signatureHash))
+        if (!BasicValidate(req, clientIp, normalizedBindingContext, signatureHash))
         {
             _logger.LogInformation("PoW 签名非法 | SaltHash={SaltHash}", HashForLog(req.PowSalt));
             return false;
@@ -70,16 +72,17 @@ public class RedisPowService : IPowService
         return await TryConsumeProofOnceAsync(req, clientIp, signatureHash).ConfigureAwait(false);
     }
 
-    public async Task<PowChallenge> GenerateChallengeAsync(string clientIp)
+    public async Task<PowChallenge> GenerateChallengeAsync(string clientIp, string? bindingContext = null)
     {
         string normalizedIp = NormalizeIp(clientIp);
+        string normalizedBindingContext = NormalizeBindingContext(bindingContext);
         string salt = GenerateRandomSalt();
         long timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         int difficulty = await _governor.GetDifficultyForIpAsync(normalizedIp);
 
         // 性能保障：容量从 128 扩充至 256，物理杜绝溢出可能，彻底消灭 Fallback 回退分配
         Span<byte> buffer = stackalloc byte[256];
-        if (!TryFormatSignatureData(buffer, normalizedIp, salt, difficulty, timestamp, out int bytesWritten))
+        if (!TryFormatSignatureData(buffer, normalizedIp, salt, difficulty, timestamp, normalizedBindingContext, out int bytesWritten))
         {
             throw new InvalidOperationException("PoW signature input exceeds fixed buffer capacity.");
         }
@@ -90,14 +93,14 @@ public class RedisPowService : IPowService
         return new PowChallenge(salt, difficulty, timestamp, Base64UrlEncode(hashResult));
     }
 
-    private bool BasicValidate(IPowRequest req, string ip, byte[] signatureHash)
+    private bool BasicValidate(IPowRequest req, string ip, string bindingContext, byte[] signatureHash)
     {
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         if (!IsTimestampWithinWindow(req.PowTimestamp, now)) return false;
 
         string normalizedIp = NormalizeIp(ip);
         Span<byte> buffer = stackalloc byte[256];
-        if (!TryFormatSignatureData(buffer, normalizedIp, req.PowSalt, req.Difficulty, req.PowTimestamp, out int bytesWritten))
+        if (!TryFormatSignatureData(buffer, normalizedIp, req.PowSalt, req.Difficulty, req.PowTimestamp, bindingContext, out int bytesWritten))
         {
             return false;
         }
@@ -134,7 +137,7 @@ public class RedisPowService : IPowService
         }
     }
 
-    private static bool TryFormatSignatureData(Span<byte> destination, string ip, string salt, int diff, long ts, out int bytesWritten)
+    private static bool TryFormatSignatureData(Span<byte> destination, string ip, string salt, int diff, long ts, string bindingContext, out int bytesWritten)
     {
         int offset = 0;
 
@@ -168,6 +171,15 @@ public class RedisPowService : IPowService
             return false;
         }
         offset += tsBytes;
+
+        if (!string.IsNullOrEmpty(bindingContext))
+        {
+            if (!TryWriteByte((byte)':', destination, ref offset) || !TryWriteUtf8(bindingContext, destination, ref offset))
+            {
+                bytesWritten = 0;
+                return false;
+            }
+        }
 
         bytesWritten = offset;
         return true;
@@ -282,6 +294,9 @@ public class RedisPowService : IPowService
         => Encoding.UTF8.GetByteCount(value) <= maxBytes;
 
     private static string NormalizeIp(string ip) => System.Net.IPAddress.TryParse(ip, out var parsed) ? parsed.ToString() : ip;
+
+    private static string NormalizeBindingContext(string? value)
+        => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
 
     private static string HashForLog(string? value)
     {

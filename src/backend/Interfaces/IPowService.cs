@@ -8,10 +8,10 @@ public interface IPowService
     /// 生成一个新的挑战
     /// </summary>
     /// <param name="clientIp">用于指纹签名的客户端IP</param>
-    Task<PowChallenge> GenerateChallengeAsync(string clientIp);
+    Task<PowChallenge> GenerateChallengeAsync(string clientIp, string? bindingContext = null);
 
     /// <summary>
     /// 验证前端提交的 PoW 结果
     /// </summary>
-    Task<bool> VerifyAsync(IPowRequest req, string clientIp);
+    Task<bool> VerifyAsync(IPowRequest req, string clientIp, string? bindingContext = null);
 }

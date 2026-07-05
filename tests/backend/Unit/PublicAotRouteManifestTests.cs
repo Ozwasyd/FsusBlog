@@ -79,6 +79,25 @@ public sealed class PublicAotRouteManifestTests
         Assert.Contains("X-Fsus-Public-Aot-Token", diagnosticSource);
     }
 
+    [Fact]
+    public void Source_ManifestAndHealthFailClosedInProductionWhenTokenIsMissing()
+    {
+        string endpointSource = ReadRepoFile("src/backend/Modules/Endpoints/PublicAotEndpoints.cs");
+        string validatorSource = ReadRepoFile("src/backend/Infrastructure/Operations/ProductionStartupValidator.cs");
+        string designDoc = ReadRepoFile("docs/api/design.md");
+        string contractsDoc = ReadRepoFile("docs/api/contracts.md");
+
+        Assert.Contains("IWebHostEnvironment environment", endpointSource);
+        Assert.Contains("IsManifestRequestAuthorized(context, configuration, environment)", endpointSource);
+        Assert.Contains("environment.IsProduction()", endpointSource);
+        Assert.DoesNotContain("if (string.IsNullOrWhiteSpace(requiredToken))\n        {\n            return true;", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("Value(\"PublicAot:ManifestToken\")", validatorSource);
+        Assert.Contains("PublicAot:ManifestToken", designDoc);
+        Assert.Contains("生产", designDoc);
+        Assert.Contains("PublicAot:ManifestToken", contractsDoc);
+        Assert.Contains("生产", contractsDoc);
+    }
+
     private static string ReadRepoFile(string relativePath)
     {
         string fullPath = BackendTestPaths.FromRoot(relativePath);

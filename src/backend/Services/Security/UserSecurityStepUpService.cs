@@ -8,6 +8,7 @@ namespace FsusBlog.Server.Services.Security;
 public static class UserSecurityStepUpActions
 {
     public const string AccountDelete = "account.delete";
+    public const string PasskeyRegister = "passkey.register";
     public const string PasskeyDelete = "passkey.delete";
     public const string PasskeyCredentialNameUpdate = "passkey.credential-name.update";
     public const string RecoveryKeyCreate = "recovery-key.create";
@@ -15,6 +16,7 @@ public static class UserSecurityStepUpActions
 
     public static bool IsCredentialMutation(string action)
         => string.Equals(action, AccountDelete, StringComparison.Ordinal)
+            || string.Equals(action, PasskeyRegister, StringComparison.Ordinal)
             || string.Equals(action, PasskeyDelete, StringComparison.Ordinal)
             || string.Equals(action, PasskeyCredentialNameUpdate, StringComparison.Ordinal)
             || string.Equals(action, RecoveryKeyCreate, StringComparison.Ordinal)

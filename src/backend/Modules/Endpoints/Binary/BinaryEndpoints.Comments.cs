@@ -297,16 +297,32 @@ public static partial class BinaryEndpoints
             string? reason,
             HttpContext httpContext,
             ICommentEndpointService commentService,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds) =>
         {
             EndpointUserContext user = EndpointUserContext.From(httpContext);
             string normalizedReason = reason ?? "不符合社区规范";
-            bool success = user.IsAnonymousAccount && user.AccountId > 0
-                ? await commentService.DeleteCommentAsAccountAsync(id, user.AccountId, normalizedReason)
-                : httpContext.User.IsAdminPrincipal()
-                    && TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId)
-                    && httpContext.User.HasAdminPermission(AdminPermissions.CommentModerate)
-                    && await commentService.DeleteCommentAsAdminAsync(id, new AdminPrincipalActor(adminPrincipalId, adminSessionId), normalizedReason);
+            bool success;
+            if (user.IsAnonymousAccount && user.AccountId > 0)
+            {
+                success = await commentService.DeleteCommentAsAccountAsync(id, user.AccountId, normalizedReason);
+            }
+            else if (httpContext.User.IsAdminPrincipal()
+                && TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId)
+                && httpContext.User.HasAdminPermission(AdminPermissions.CommentModerate))
+            {
+                var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
+                if (stepUp is not null)
+                {
+                    return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                }
+
+                success = await commentService.DeleteCommentAsAdminAsync(id, new AdminPrincipalActor(adminPrincipalId, adminSessionId), normalizedReason);
+            }
+            else
+            {
+                success = false;
+            }
 
             return success
                 ? BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess)

@@ -55,7 +55,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 12;
+    private const int SchemaVersion = 13;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
@@ -146,6 +146,7 @@ public static class ProductionStartupValidator
         Value("Security:CaptchaV1:SigningKey"),
         Value($"{PerceptionSealedTokenOptions.SectionName}:CurrentKeyVersion"),
         Value("Security:RecoveryKeyPepper"),
+        Value("PublicAot:ManifestToken"),
         Value("MfaChallenge:TicketSigningKey"),
         Value("Audit:TamperEvidenceKey"),
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
@@ -250,6 +251,7 @@ public static class ProductionStartupValidator
         string? powSigningKey = values["Security:Pow:SigningKey"];
         string? captchaSigningKey = values["Security:CaptchaV1:SigningKey"];
         string? recoveryKeyPepper = values["Security:RecoveryKeyPepper"];
+        string? publicAotManifestToken = values["PublicAot:ManifestToken"];
         string? mfaChallengeTicketSigningKey = values["MfaChallenge:TicketSigningKey"];
         string? auditTamperEvidenceKey = values["Audit:TamperEvidenceKey"];
         string? subjectHashPepper = values["AnonymousCredentialIssuer:SubjectHashPepper"];
@@ -282,6 +284,7 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("Security:Pow:SigningKey", powSigningKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Security:CaptchaV1:SigningKey", captchaSigningKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Security:RecoveryKeyPepper", recoveryKeyPepper, jwtSecret, [], errors);
+        ValidateIndependentSecuritySecret("PublicAot:ManifestToken", publicAotManifestToken, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("MfaChallenge:TicketSigningKey", mfaChallengeTicketSigningKey, jwtSecret, DefaultMfaChallengeTicketSigningKeys, errors);
         ValidateAuditTamperEvidenceKey(auditTamperEvidenceKey, jwtSecret, errors);
         ValidateIndependentSecuritySecret("AnonymousCredentialIssuer:SubjectHashPepper", subjectHashPepper, jwtSecret, DefaultSubjectHashPeppers, errors);

@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { sanitizeMarkdownRuntimeHtml, sanitizePreviewHtml } from '@/utils/safeHtml'
 
 describe('safeHtml sanitizers', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('removes executable preview markup and unsafe urls', () => {
     const sanitized = sanitizePreviewHtml(`
       <h1 onclick="steal()">Title</h1>
@@ -24,5 +28,15 @@ describe('safeHtml sanitizers', () => {
 
     expect(sanitized).toContain('href="https://example.com/docs"')
     expect(sanitized).toContain('rel="noopener noreferrer"')
+  })
+
+  it('removes entity-encoded dangerous urls when document is unavailable', () => {
+    vi.stubGlobal('document', undefined)
+
+    const sanitized = sanitizeMarkdownRuntimeHtml('<p><a href="jav&#x61;script:alert(1)">bad</a></p>')
+
+    expect(sanitized).not.toMatch(/href=/i)
+    expect(sanitized).not.toMatch(/jav&#x61;script|javascript:/i)
+    expect(sanitized).toContain('<a>bad</a>')
   })
 })

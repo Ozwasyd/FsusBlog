@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Net;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Http;
@@ -85,6 +86,25 @@ public sealed class CommentSecurityHardeningTests
         Assert.Matches("^[0-9a-f]{64}$", firstHash);
         Assert.Matches("^[0-9a-f]{64}$", secondHash);
         Assert.NotEqual(firstHash, secondHash);
+    }
+
+    [Fact]
+    public void ClientRegionResolver_IgnoresProxyRegionHeadersFromUntrustedRemote()
+    {
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.10");
+        context.Request.Headers["X-Fsus-Region"] = "US";
+        var resolver = new ClientRegionResolver(
+            CreateRegionPolicyConfiguration(
+                "region-ip-hash-key-with-at-least-thirty-two-chars",
+                trustedProxyEnabled: true),
+            new RegionLegalModerationService());
+
+        ClientRegionResolution resolution = resolver.Resolve(context);
+
+        Assert.Equal("UNKNOWN", resolution.Region);
+        Assert.Equal("connection_ip", resolution.Provider);
+        Assert.Equal(0.35d, resolution.Confidence);
     }
 
     [Fact]
@@ -210,11 +230,12 @@ public sealed class CommentSecurityHardeningTests
     private static string ReadRepoFile(string relativePath)
         => BackendTestPaths.ReadAllTextFromRoot(relativePath);
 
-    private static IConfiguration CreateRegionPolicyConfiguration(string ipHashKey)
+    private static IConfiguration CreateRegionPolicyConfiguration(string ipHashKey, bool trustedProxyEnabled = false)
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Moderation:RegionPolicy:IpHashKey"] = ipHashKey
+                ["Moderation:RegionPolicy:IpHashKey"] = ipHashKey,
+                ["Moderation:RegionPolicy:TrustedProxyEnabled"] = trustedProxyEnabled ? "true" : "false"
             })
             .Build();
 }

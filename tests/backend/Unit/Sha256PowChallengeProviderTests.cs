@@ -130,6 +130,33 @@ public sealed class Sha256PowChallengeProviderTests
         Assert.Equal("pow_verify_failed", attempt.Reason);
     }
 
+    [Fact]
+    public async Task VerifyAsync_RejectsProofIssuedForDifferentChallengeContext()
+    {
+        var fixture = CreateFixture();
+        SecurityChallengeProviderIssueResult issuedA = await fixture.Provider.IssueAsync(CreateIssueRequest(), CancellationToken.None);
+        SecurityChallengeProviderIssueResult issuedB = await fixture.Provider.IssueAsync(
+            CreateIssueRequest(action: "comment.create", routeKey: "comment.create", subjectHash: HashC),
+            CancellationToken.None);
+        string proofA = CreateEncodedProof(issuedA.ProviderPayload);
+
+        SecurityChallengeProviderVerifyResult result = await fixture.Provider.VerifyAsync(
+            CreateVerifyRequest(
+                issuedB.Assignment!.ChallengeId,
+                proofA,
+                action: "comment.create",
+                routeKey: "comment.create",
+                subjectHash: HashC),
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("pow_verify_failed", result.Reason);
+        SecurityChallengeAttemptRequest attempt = Assert.Single(fixture.Persistence.Attempts);
+        Assert.Equal(issuedB.Assignment.ChallengeId, attempt.ChallengeId);
+        Assert.Equal(SecurityChallengeAttemptOutcomes.Failed, attempt.Outcome);
+        Assert.Equal("pow_verify_failed", attempt.Reason);
+    }
+
     private static ProviderFixture CreateFixture()
     {
         var cache = new OneShotCache();
@@ -147,28 +174,36 @@ public sealed class Sha256PowChallengeProviderTests
         return new ProviderFixture(provider, persistence);
     }
 
-    private static SecurityChallengeProviderIssueRequest CreateIssueRequest()
+    private static SecurityChallengeProviderIssueRequest CreateIssueRequest(
+        string action = "public.read",
+        string routeKey = "/article/42",
+        string subjectHash = HashA)
         => new(
             CreateContext(),
             Sha256PowChallengeProvider.WireKind,
-            "public.read",
-            "/article/42",
+            action,
+            routeKey,
             "tenant-main",
-            HashA,
+            subjectHash,
             HashB,
             HashC,
             "risk-policy-v2",
             1,
             Traceparent);
 
-    private static SecurityChallengeProviderVerifyRequest CreateVerifyRequest(string challengeId, string proof)
+    private static SecurityChallengeProviderVerifyRequest CreateVerifyRequest(
+        string challengeId,
+        string proof,
+        string action = "public.read",
+        string routeKey = "/article/42",
+        string subjectHash = HashA)
         => new(
             CreateContext(),
             Sha256PowChallengeProvider.WireKind,
             challengeId,
-            "public.read",
-            "/article/42",
-            HashA,
+            action,
+            routeKey,
+            subjectHash,
             HashB,
             HashC,
             "risk-policy-v2",

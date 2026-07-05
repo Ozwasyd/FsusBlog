@@ -121,15 +121,21 @@ public sealed class EndpointPolicyContractTests
             source,
             "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"",
             "private static BinaryFrameResult RecoveryKeyError");
+        string passkeyRegister = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/passkey/register/complete\"",
+            "group.MapPost(\"/auth/passkey/login/begin\"");
 
         AssertStepUpBoundary(recoveryCreate, "UserSecurityStepUpActions.RecoveryKeyCreate");
         AssertStepUpBoundary(recoveryRotate, "UserSecurityStepUpActions.RecoveryKeyRotate");
         AssertStepUpBoundary(passkeyDelete, "UserSecurityStepUpActions.PasskeyDelete");
         AssertStepUpBoundary(passkeyRename, "UserSecurityStepUpActions.PasskeyCredentialNameUpdate");
+        AssertStepUpBoundary(passkeyRegister, "UserSecurityStepUpActions.PasskeyRegister");
         AssertAnonymousCredentialMutationRejectsBodyProof(recoveryCreate);
         AssertAnonymousCredentialMutationRejectsBodyProof(recoveryRotate);
         AssertAnonymousCredentialMutationRejectsBodyProof(passkeyDelete);
         AssertAnonymousCredentialMutationRejectsBodyProof(passkeyRename);
+        AssertAnonymousCredentialMutationRejectsBodyProof(passkeyRegister);
 
         string stepUpReader = ExtractBetween(
             source,
@@ -547,6 +553,75 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    public void BinaryCommentAdminDelete_RequiresAdminSensitiveStepUpBeforeAdminDelete()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.Comments.cs");
+
+        string deleteRoute = ExtractBetween(
+            source,
+            "group.MapDelete(\"/comment/{id:long}\"",
+            "internal static async Task<BinaryFrameResult> HandleAnonymousCommentTicketAsync");
+
+        Assert.Contains("IAdminPrincipalService adminPrincipals", deleteRoute, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)", deleteRoute, StringComparison.Ordinal);
+        Assert.Contains("BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode)", deleteRoute, StringComparison.Ordinal);
+        AssertBefore(deleteRoute, "RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)", "commentService.DeleteCommentAsAdminAsync");
+    }
+
+    [Fact]
+    public void BinarySystemPublicContentMutations_RequireAdminSensitiveStepUpBeforeMutation()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "Binary",
+            "BinaryEndpoints.System.cs");
+
+        string seo = ExtractBetween(source, "group.MapPut(\"/system/seo\"", "group.MapGet(\"/system/compliance\"");
+        string compliance = ExtractBetween(source, "group.MapPut(\"/system/compliance\"", "group.MapGet(\"/system/page/{slug}\"");
+        string page = ExtractBetween(source, "group.MapPut(\"/system/page\"", "group.MapPost(\"/system/page/refresh/{slug}\"");
+        string refresh = ExtractBetween(source, "group.MapPost(\"/system/page/refresh/{slug}\"", "    }\n}");
+
+        AssertAdminStepUpBefore(seo, "systemService.UpdateSeoConfigAsync");
+        AssertAdminStepUpBefore(compliance, "systemService.UpdateSiteComplianceConfigAsync");
+        AssertAdminStepUpBefore(page, "systemService.UpdatePageContentAsync");
+        AssertAdminStepUpBefore(refresh, "systemService.RefreshPageCacheAsync");
+    }
+
+    [Fact]
+    public void AuthoringDangerousPublishMutations_RequireAdminSensitiveStepUpBeforeMutation()
+    {
+        string source = ReadRepoFile(
+            "src",
+            "backend",
+            "Modules",
+            "Endpoints",
+            "AuthoringEndpoints.cs");
+
+        string rollback = ExtractBetween(
+            source,
+            "group.MapPost(\"/articles/{articleId:int}/revisions/{revisionId:long}/rollback\"",
+            "group.MapPost(\"/articles/{articleId:int}/assets/reindex\"");
+        string import = ExtractBetween(
+            source,
+            "group.MapPost(\"/articles/import\"",
+            "group.MapGet(\"/ops/health\"");
+
+        Assert.Contains("IAdminPrincipalService adminPrincipals", rollback, StringComparison.Ordinal);
+        Assert.Contains("IAdminPrincipalService adminPrincipals", import, StringComparison.Ordinal);
+        AssertBefore(rollback, "RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", "service.RollbackRevisionAsync");
+        AssertBefore(import, "RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", "service.ImportArticleAsync");
+    }
+
+    [Fact]
     public void CommentModerationAndAnonymousGovernancePermissions_DoNotReplaceEachOther()
     {
         string source = ReadRepoFile(
@@ -675,6 +750,14 @@ public sealed class EndpointPolicyContractTests
         Assert.DoesNotContain("ReadBinaryRequestPayloadAsync", anonymousBranch, StringComparison.Ordinal);
         Assert.DoesNotContain("MfaPasswordProofRequest", anonymousBranch, StringComparison.Ordinal);
         Assert.DoesNotContain("IsMfaVerified()", anonymousBranch, StringComparison.Ordinal);
+    }
+
+    private static void AssertAdminStepUpBefore(string handler, string mutationCall)
+    {
+        Assert.Contains("IAdminPrincipalService adminPrincipals", handler, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)", handler, StringComparison.Ordinal);
+        Assert.Contains("BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode)", handler, StringComparison.Ordinal);
+        AssertBefore(handler, "RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)", mutationCall);
     }
 
     private static void AssertBefore(string source, string earlier, string later)

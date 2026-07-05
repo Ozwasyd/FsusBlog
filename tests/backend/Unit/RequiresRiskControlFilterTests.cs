@@ -94,6 +94,31 @@ public sealed class RequiresRiskControlFilterTests
         Assert.Matches("^[0-9a-f]{64}$", request.DeviceFpHash);
     }
 
+    [Fact]
+    public async Task InvokeAsync_MultiChallengeDecisionRejectsSingleProofBeforeBusinessLogic()
+    {
+        SecurityRiskPolicySnapshotV2 policy = CreateMultiChallengePolicy();
+        FilterFixture fixture = CreateFixture(riskScore: 65, policy);
+        fixture.ProofService.NextConsumeResult = SecurityChallengeProofConsumeResult.Success(CreateClaims());
+        var context = CreateContext();
+        AddProofHeaders(context, "single-proof", Sha256PowChallengeProvider.WireKind);
+        bool nextCalled = false;
+
+        object? result = await fixture.Filter.InvokeAsync(
+            new TestEndpointFilterInvocationContext(context),
+            _ =>
+            {
+                nextCalled = true;
+                return ValueTask.FromResult<object?>("ok");
+            });
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status428PreconditionRequired, await ExecuteStatusAsync(result, context));
+        Assert.Empty(fixture.ProofService.ConsumeRequests);
+        SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
+        Assert.Equal("challenge_set_incomplete:2", signal.Detail);
+    }
+
     [Theory]
     [InlineData(RiskActionNames.CommentCreate, "comment.create")]
     [InlineData(RiskActionNames.AuthLogin, "auth.login")]
@@ -567,6 +592,35 @@ public sealed class RequiresRiskControlFilterTests
             ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
             {
                 [RiskActionNames.AuthLogin] = authPolicy
+            }
+        };
+    }
+
+    private static SecurityRiskPolicySnapshotV2 CreateMultiChallengePolicy()
+    {
+        var policy = new SecurityRiskActionPolicy(
+            RiskActionNames.PublicRead,
+            new SecurityRiskActionThresholds(19, 20, 60, 90, 100),
+            Sha256PowChallengeProvider.WireKind,
+            1,
+            null,
+            AnonymousWriteAllowed: true)
+        {
+            HardChallengeKinds = ["perceptionLocalizationV2", Sha256PowChallengeProvider.WireKind],
+            HardChallengeEscalationLevel = 3
+        };
+
+        return CreatePolicy() with
+        {
+            ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+            {
+                [RiskActionNames.PublicRead] = policy
+            },
+            SubsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [SecurityRiskSources.RiskControl] = SecuritySystemModes.Enforce,
+                [SecurityRiskSources.Pow] = SecuritySystemModes.Enforce,
+                [SecurityRiskSources.PerceptionLocalization] = SecuritySystemModes.Enforce
             }
         };
     }

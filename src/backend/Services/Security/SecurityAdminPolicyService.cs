@@ -1053,7 +1053,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                 configuration["Security:CrawlerCidrs:BingUrl"],
                 "https://www.bing.com/toolbox/bingbot.json",
                 "Security:CrawlerCidrs:BingUrl"),
-            NormalizeNullable(configuration["Security:CrawlerCidrs:SnapshotPath"]),
+            NormalizeSnapshotPath(configuration["Security:CrawlerCidrs:SnapshotPath"]),
             ReadStringList(configuration, "AntiCrawler:SocialPreviewAllowedPathPrefixes",
             [
                 "/",
@@ -1134,7 +1134,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             CidrMinUpdateIntervalMinutes = minInterval,
             GoogleCrawlerRangesUrl = NormalizeUrl(request.GoogleCrawlerRangesUrl, current.GoogleCrawlerRangesUrl, nameof(request.GoogleCrawlerRangesUrl)),
             BingCrawlerRangesUrl = NormalizeUrl(request.BingCrawlerRangesUrl, current.BingCrawlerRangesUrl, nameof(request.BingCrawlerRangesUrl)),
-            SnapshotPath = request.SnapshotPath is null ? current.SnapshotPath : NormalizeNullable(request.SnapshotPath),
+            SnapshotPath = request.SnapshotPath is null ? current.SnapshotPath : NormalizeSnapshotPath(request.SnapshotPath),
             SocialPreviewAllowedPathPrefixes = NormalizePathPrefixes(request.SocialPreviewAllowedPathPrefixes, current.SocialPreviewAllowedPathPrefixes),
             BlockedUserAgentKeywords = NormalizeKeywords(request.BlockedUserAgentKeywords, current.BlockedUserAgentKeywords)
         };
@@ -1349,6 +1349,31 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
 
     private static string? NormalizeNullable(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? NormalizeSnapshotPath(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        string normalized = value.Trim().Replace('\\', '/');
+        if (normalized.Length > 160
+            || Path.IsPathRooted(normalized)
+            || normalized.Contains(':', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("Security:CrawlerCidrs:SnapshotPath must be a relative path under the crawler snapshot data root.");
+        }
+
+        string[] segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0
+            || segments.Any(static segment => segment is "." or ".."))
+        {
+            throw new ArgumentException("Security:CrawlerCidrs:SnapshotPath must not contain empty, current, or parent directory segments.");
+        }
+
+        return string.Join('/', segments);
+    }
 
     private static string NormalizeActor(string? actor)
         => string.IsNullOrWhiteSpace(actor) ? "system" : actor.Trim();

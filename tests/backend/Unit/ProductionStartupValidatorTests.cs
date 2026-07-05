@@ -42,6 +42,7 @@ public sealed class ProductionStartupValidatorTests
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
             ["Security:RecoveryKeyPepper"] = TestSecrets.RecoveryKeyPepper,
+            ["PublicAot:ManifestToken"] = "public-aot-manifest-token-with-enough-entropy",
             ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
             ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
@@ -190,6 +191,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Security:Pow:SigningKey", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Security:CaptchaV1:SigningKey", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("PublicAot:ManifestToken", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Moderation:Pepper", StringComparison.Ordinal));
@@ -200,6 +202,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("Security:Pow:SigningKey")]
     [InlineData("Security:CaptchaV1:SigningKey")]
     [InlineData("Security:RecoveryKeyPepper")]
+    [InlineData("PublicAot:ManifestToken")]
     [InlineData("Audit:TamperEvidenceKey")]
     [InlineData("AnonymousCredentialIssuer:SubjectHashPepper")]
     [InlineData("VisitLog:IpHashPepper")]
@@ -220,6 +223,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("Security:Pow:SigningKey")]
     [InlineData("Security:CaptchaV1:SigningKey")]
     [InlineData("Security:RecoveryKeyPepper")]
+    [InlineData("PublicAot:ManifestToken")]
     [InlineData("Audit:TamperEvidenceKey")]
     [InlineData("AnonymousCredentialIssuer:SubjectHashPepper")]
     [InlineData("VisitLog:IpHashPepper")]
@@ -436,7 +440,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(12, report.SchemaVersion);
+        Assert.Equal(13, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -450,6 +454,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Security:CaptchaV1:SigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:PerceptionSealedToken:CurrentKeyVersion", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Security:RecoveryKeyPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("PublicAot:ManifestToken", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("MfaChallenge:TicketSigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Audit:TamperEvidenceKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -722,6 +727,7 @@ public sealed class ProductionStartupValidatorTests
             ["Security:PerceptionSealedToken:CurrentKeyVersion"] = "k1",
             ["Security:PerceptionSealedToken:Keys:k1"] = new string('a', 64),
             ["Security:RecoveryKeyPepper"] = TestSecrets.RecoveryKeyPepper,
+            ["PublicAot:ManifestToken"] = "public-aot-manifest-token-with-enough-entropy",
             ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
             ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,

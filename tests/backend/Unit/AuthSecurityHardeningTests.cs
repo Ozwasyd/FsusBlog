@@ -161,11 +161,21 @@ public sealed class AuthSecurityHardeningTests
             source,
             "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"",
             "private static BinaryFrameResult RecoveryKeyError");
+        string passkeyRegister = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/passkey/register/complete\"",
+            "group.MapPost(\"/auth/passkey/login/begin\"");
+        string recoveryPasskeyBind = ExtractBetween(
+            source,
+            "group.MapPost(\"/auth/recovery-key/passkey/register/complete\"",
+            "group.MapPost(\"/auth/passkey/register/begin\"");
 
         AssertStepUpBeforeMutation(recoveryCreate, "UserSecurityStepUpActions.RecoveryKeyCreate", "recoveryKeys.CreateAsync");
         AssertStepUpBeforeMutation(recoveryRotate, "UserSecurityStepUpActions.RecoveryKeyRotate", "recoveryKeys.RotateAsync");
         AssertStepUpBeforeMutation(passkeyDelete, "UserSecurityStepUpActions.PasskeyDelete", "passkeyService.RemoveCredentialAsync");
         AssertStepUpBeforeMutation(passkeyRename, "UserSecurityStepUpActions.PasskeyCredentialNameUpdate", "passkeyService.RenameCredentialAsync");
+        AssertStepUpBeforeMutation(passkeyRegister, "UserSecurityStepUpActions.PasskeyRegister", "passkeyService.CompleteRegistrationAsync");
+        AssertContainsBefore(recoveryPasskeyBind, "recoveryKeys.ConsumeRecoverySessionAsync", "passkeyService.CompleteRegistrationAsync");
 
         string helper = ExtractBetween(
             source,
@@ -175,6 +185,10 @@ public sealed class AuthSecurityHardeningTests
         Assert.Contains("ErrorDetail.Create(result.ErrorCode, result.Message)", helper, StringComparison.Ordinal);
         Assert.Contains("TryReadMfaProof(httpContext, out string token)", helper, StringComparison.Ordinal);
         Assert.DoesNotContain("ReadBinaryRequestPayloadAsync", helper, StringComparison.Ordinal);
+
+        string service = ReadSource("src/backend/Services/Security/UserSecurityStepUpService.cs");
+        Assert.Contains("public const string PasskeyRegister = \"passkey.register\"", service, StringComparison.Ordinal);
+        Assert.Contains("string.Equals(action, PasskeyRegister, StringComparison.Ordinal)", service, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -201,6 +215,15 @@ public sealed class AuthSecurityHardeningTests
         Assert.True(firstIndex >= 0, $"Missing '{first}'.");
         int secondIndex = source.IndexOf(second, firstIndex + first.Length, StringComparison.Ordinal);
         Assert.True(secondIndex >= 0, $"Missing '{second}' after '{first}'.");
+    }
+
+    private static void AssertContainsBefore(string source, string first, string second)
+    {
+        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
+        Assert.True(firstIndex >= 0, $"Missing '{first}'.");
+        int secondIndex = source.IndexOf(second, StringComparison.Ordinal);
+        Assert.True(secondIndex >= 0, $"Missing '{second}'.");
+        Assert.True(firstIndex < secondIndex, $"'{first}' must appear before '{second}'.");
     }
 
     private static string ExtractBetween(string source, string start, string end)

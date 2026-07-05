@@ -30,8 +30,17 @@ public sealed class Sha256PowChallengeProvider(
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
+        string challengeId = SecurityChallengeContracts.CreateChallengeId();
         string clientIp = request.Context.GetClientIp();
-        PowChallenge challenge = await powService.GenerateChallengeAsync(clientIp);
+        string bindingContext = BuildPowBindingContext(
+            challengeId,
+            request.Action,
+            request.RouteKey,
+            request.SubjectHash,
+            request.ClientIpHash,
+            request.DeviceFpHash,
+            request.PolicyVersion);
+        PowChallenge challenge = await powService.GenerateChallengeAsync(clientIp, bindingContext);
         DateTimeOffset issuedAt = timeProvider.GetUtcNow();
         DateTimeOffset challengeIssuedAt = DateTimeOffset.FromUnixTimeSeconds(challenge.Timestamp);
         if (challengeIssuedAt > issuedAt.AddSeconds(5))
@@ -45,7 +54,6 @@ public sealed class Sha256PowChallengeProvider(
             expiresAt = issuedAt.AddSeconds(ChallengeTtlSeconds);
         }
 
-        string challengeId = SecurityChallengeContracts.CreateChallengeId();
         var payload = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["salt"] = challenge.Salt,
@@ -109,7 +117,15 @@ public sealed class Sha256PowChallengeProvider(
             return SecurityChallengeProviderVerifyResult.Failed("difficulty_insufficient");
         }
 
-        bool verified = await powService.VerifyAsync(proof, clientIp);
+        string bindingContext = BuildPowBindingContext(
+            request.ChallengeId,
+            request.Action,
+            request.RouteKey,
+            request.SubjectHash,
+            request.ClientIpHash,
+            request.DeviceFpHash,
+            request.PolicyVersion);
+        bool verified = await powService.VerifyAsync(proof, clientIp, bindingContext);
         if (!verified)
         {
             await RecordAttemptAsync(request, SecurityChallengeAttemptOutcomes.Failed, "pow_verify_failed", encodedProof, cancellationToken);
@@ -166,4 +182,24 @@ public sealed class Sha256PowChallengeProvider(
 
     private static string HashValue(string value)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static string BuildPowBindingContext(
+        string challengeId,
+        string action,
+        string routeKey,
+        string subjectHash,
+        string clientIpHash,
+        string deviceFpHash,
+        string policyVersion)
+    {
+        var builder = new StringBuilder();
+        builder.Append("challenge=").Append(challengeId).Append('\n');
+        builder.Append("action=").Append(action).Append('\n');
+        builder.Append("route=").Append(routeKey).Append('\n');
+        builder.Append("subject=").Append(subjectHash).Append('\n');
+        builder.Append("client=").Append(clientIpHash).Append('\n');
+        builder.Append("device=").Append(deviceFpHash).Append('\n');
+        builder.Append("policy=").Append(policyVersion);
+        return "risk:" + HashValue(builder.ToString());
+    }
 }

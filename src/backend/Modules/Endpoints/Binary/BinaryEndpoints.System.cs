@@ -55,6 +55,7 @@ public static partial class BinaryEndpoints
         group.MapPut("/system/seo", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ISystemService systemService,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -67,6 +68,12 @@ public static partial class BinaryEndpoints
             if (!PodBinaryCodec.TryDecodeSeoConfig(payload.Payload, out var dto))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "SEO 配置请求体非法"), aeds);
+            }
+
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
             }
 
             await systemService.UpdateSeoConfigAsync(new UpdateSeoConfigRequest
@@ -125,6 +132,7 @@ public static partial class BinaryEndpoints
         group.MapPut("/system/compliance", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ISystemService systemService,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -137,6 +145,12 @@ public static partial class BinaryEndpoints
             if (!PodBinaryCodec.TryDecodeSiteComplianceConfig(payload.Payload, out var dto))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "合规配置请求体非法"), aeds);
+            }
+
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
             }
 
             await systemService.UpdateSiteComplianceConfigAsync(new UpdateSiteComplianceConfigRequest
@@ -214,6 +228,7 @@ public static partial class BinaryEndpoints
         group.MapPut("/system/page", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             ISystemService systemService,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -236,6 +251,12 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "页面标识 (Slug) 不在可管理静态页范围内"), aeds);
             }
 
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+            }
+
             bool success = await systemService.UpdatePageContentAsync(new UpdatePageContentRequest
             {
                 Slug = dto.Slug,
@@ -252,8 +273,10 @@ public static partial class BinaryEndpoints
         .AddEndpointFilter<RequiresPowFilter>();
 
         group.MapPost("/system/page/refresh/{slug}", static async Task<BinaryFrameResult> (
+            HttpContext httpContext,
             string slug,
             ISystemService systemService,
+            IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds) =>
         {
             var slugSpan = slug.AsSpan();
@@ -262,6 +285,12 @@ public static partial class BinaryEndpoints
                 !AllowedPageSlugs.Contains(slug))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "页面标识 (Slug) 不在可管理静态页范围内"), aeds);
+            }
+
+            var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
+            if (stepUp is not null)
+            {
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
             }
 
             bool success = await systemService.RefreshPageCacheAsync(slug);

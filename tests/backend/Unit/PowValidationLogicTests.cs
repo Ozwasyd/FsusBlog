@@ -297,19 +297,19 @@ public sealed class PowValidationLogicTests
 
     private sealed class ThrowingPowService : IPowService
     {
-        public Task<PowChallenge> GenerateChallengeAsync(string clientIp)
+        public Task<PowChallenge> GenerateChallengeAsync(string clientIp, string? bindingContext = null)
             => throw new NotSupportedException();
 
-        public Task<bool> VerifyAsync(IPowRequest req, string clientIp)
+        public Task<bool> VerifyAsync(IPowRequest req, string clientIp, string? bindingContext = null)
             => throw new OverflowException("unit pow failure");
     }
 
     private sealed class RejectingPowService : IPowService
     {
-        public Task<PowChallenge> GenerateChallengeAsync(string clientIp)
+        public Task<PowChallenge> GenerateChallengeAsync(string clientIp, string? bindingContext = null)
             => throw new NotSupportedException();
 
-        public Task<bool> VerifyAsync(IPowRequest req, string clientIp)
+        public Task<bool> VerifyAsync(IPowRequest req, string clientIp, string? bindingContext = null)
             => Task.FromResult(false);
     }
 

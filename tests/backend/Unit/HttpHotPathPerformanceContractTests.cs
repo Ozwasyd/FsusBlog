@@ -36,7 +36,7 @@ public sealed class HttpHotPathPerformanceContractTests
         string identity = ExtractBetween(source, "private static string BuildProofIdentity", "private static TimeSpan ResolveReplayTtl");
 
         Assert.Contains("byte[] signatureHash = new byte[32]", verify, StringComparison.Ordinal);
-        Assert.Contains("BasicValidate(req, clientIp, signatureHash)", verify, StringComparison.Ordinal);
+        Assert.Contains("BasicValidate(req, clientIp, normalizedBindingContext, signatureHash)", verify, StringComparison.Ordinal);
         Assert.Contains("TryConsumeProofOnceAsync(req, clientIp, signatureHash)", verify, StringComparison.Ordinal);
         Assert.DoesNotContain("string.Join", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Encoding.UTF8.GetBytes(material)", source, StringComparison.Ordinal);

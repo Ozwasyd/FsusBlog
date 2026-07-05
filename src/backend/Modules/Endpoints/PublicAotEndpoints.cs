@@ -1,6 +1,8 @@
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Models.Dtos;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Primitives;
 
 namespace FsusBlog.Server.Modules.Endpoints;
@@ -77,9 +79,10 @@ public static class PublicAotEndpoints
             string? changedSince,
             IPublicAotRouteManifestProvider manifestProvider,
             IConfiguration configuration,
+            IWebHostEnvironment environment,
             CancellationToken cancellationToken) =>
         {
-            if (!IsManifestRequestAuthorized(context, configuration))
+            if (!IsManifestRequestAuthorized(context, configuration, environment))
             {
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             }
@@ -101,9 +104,10 @@ public static class PublicAotEndpoints
             HttpContext context,
             PublicAotSsrHealthService healthService,
             IConfiguration configuration,
+            IWebHostEnvironment environment,
             CancellationToken cancellationToken) =>
         {
-            if (!IsManifestRequestAuthorized(context, configuration))
+            if (!IsManifestRequestAuthorized(context, configuration, environment))
             {
                 return Results.StatusCode(StatusCodes.Status403Forbidden);
             }
@@ -207,12 +211,12 @@ public static class PublicAotEndpoints
                 .SelectMany(static value => (value ?? string.Empty).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                 .Any(candidate => string.Equals(candidate, entityTag, StringComparison.Ordinal));
 
-    private static bool IsManifestRequestAuthorized(HttpContext context, IConfiguration configuration)
+    private static bool IsManifestRequestAuthorized(HttpContext context, IConfiguration configuration, IWebHostEnvironment environment)
     {
         string? requiredToken = configuration["PublicAot:ManifestToken"];
         if (string.IsNullOrWhiteSpace(requiredToken))
         {
-            return true;
+            return !environment.IsProduction();
         }
 
         return context.Request.Headers.TryGetValue(ManifestTokenHeader, out var providedToken) &&

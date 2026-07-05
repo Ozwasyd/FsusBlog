@@ -27,8 +27,48 @@ function sanitizeHtmlFallback(html: string): string {
     .replace(/<\s*(script|iframe|object|embed|svg|math|form|input|button|textarea|select|option|link|meta|base)\b[^>]*\/?>/gi, '')
     .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     .replace(/\s+(srcdoc|style|sandbox)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/\s+(href|src|xlink:href|formaction|poster)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, '')
-    .replace(/\s+(href|src|xlink:href|formaction|poster)\s*=\s*javascript:[^\s>]*/gi, '')
+    .replace(/\s+(href|src|xlink:href|formaction|poster)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, sanitizeUrlAttributeFallback)
+}
+
+function sanitizeUrlAttributeFallback(attribute: string, _name: string, rawValue: string): string {
+  const value = rawValue.length >= 2 && (rawValue[0] === '"' || rawValue[0] === "'")
+    ? rawValue.slice(1, -1)
+    : rawValue
+  return isSafeUrl(decodeHtmlEntities(value)) ? attribute : ''
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&#(x[0-9a-f]+|\d+);?/gi, (_match, code: string) => {
+      const radix = code[0]?.toLowerCase() === 'x' ? 16 : 10
+      const raw = code[0]?.toLowerCase() === 'x' ? code.slice(1) : code
+      const parsed = Number.parseInt(raw, radix)
+      if (!Number.isFinite(parsed)) {
+        return ''
+      }
+
+      try {
+        return String.fromCodePoint(parsed)
+      } catch {
+        return ''
+      }
+    })
+    .replace(/&(amp|lt|gt|quot|apos);/gi, (_match, entity: string) => {
+      switch (entity.toLowerCase()) {
+        case 'amp':
+          return '&'
+        case 'lt':
+          return '<'
+        case 'gt':
+          return '>'
+        case 'quot':
+          return '"'
+        case 'apos':
+          return "'"
+        default:
+          return ''
+      }
+    })
 }
 
 function isSafeUrl(value: string): boolean {

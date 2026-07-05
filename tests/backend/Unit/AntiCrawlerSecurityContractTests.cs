@@ -257,6 +257,29 @@ public sealed class AntiCrawlerSecurityContractTests
         Assert.Throws<ArgumentException>(() => service.UpdateAntiCrawlerOptions(request, "test"));
     }
 
+    [Theory]
+    [InlineData("../crawler-ranges.snapshot.json")]
+    [InlineData("/tmp/fsus-crawler-ranges.snapshot.json")]
+    [InlineData("nested/../../crawler-ranges.snapshot.json")]
+    public void SecurityAdminPolicy_RejectsUnsafeSnapshotPathUpdates(string configured)
+    {
+        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var request = CreateAntiCrawlerUpdate(SnapshotPath: configured);
+
+        Assert.Throws<ArgumentException>(() => service.UpdateAntiCrawlerOptions(request, "test"));
+    }
+
+    [Fact]
+    public void CrawlerRanges_SourceResolvesSnapshotUnderDataRoot()
+    {
+        string worker = Read("src/backend/Services/Background/CrawlerUpdateWorker.cs");
+        string snapshotPath = Slice(worker, "private string ResolveSnapshotPath", "    private static RangeSelection SelectRanges");
+
+        Assert.Contains("NormalizeSnapshotPath", worker, StringComparison.Ordinal);
+        Assert.Contains("Path.Combine(_dataRoot, \"security\", normalized)", snapshotPath, StringComparison.Ordinal);
+        Assert.DoesNotContain("return configured;", snapshotPath, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void PublicReadAndReadProof_AreRiskAware()
     {
@@ -449,4 +472,38 @@ public sealed class AntiCrawlerSecurityContractTests
         Assert.True(next > start, $"Missing route end for: {routeSignature}");
         return source[start..next];
     }
+
+    private static AntiCrawlerOptionsUpdateRequest CreateAntiCrawlerUpdate(string? SnapshotPath)
+        => new(
+            Mode: null,
+            PublicReadChallengeEnabled: null,
+            SearchCrawlerVerificationEnabled: null,
+            SocialPreviewGuardEnabled: null,
+            RiskScoringEnabled: null,
+            EventPersistenceEnabled: null,
+            DashboardAggregationEnabled: null,
+            CidrAutoUpdateEnabled: null,
+            IllegalPathHardAbortEnabled: null,
+            RequireChallengeScore: null,
+            BlockScore: null,
+            MaxRiskScore: null,
+            DefaultRiskTtlSeconds: null,
+            ZeroRiskCacheTtlSeconds: null,
+            FixedIpPermitLimit: null,
+            FixedIpQueueLimit: null,
+            VerifiedCrawlerFixedIpPermitLimit: null,
+            PublicReadPermitLimit: null,
+            PublicReadQueueLimit: null,
+            VerifiedCrawlerPublicReadPermitLimit: null,
+            SocialPreviewPublicReadPermitLimit: null,
+            ReadProofPermitLimit: null,
+            CidrUpdateIntervalMinutes: null,
+            CidrInitialDelaySeconds: null,
+            CidrMinUpdateIntervalMinutes: null,
+            GoogleCrawlerRangesUrl: null,
+            BingCrawlerRangesUrl: null,
+            SnapshotPath: SnapshotPath,
+            SocialPreviewAllowedPathPrefixes: null,
+            BlockedUserAgentKeywords: null,
+            Reason: "test");
 }

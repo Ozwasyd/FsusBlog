@@ -209,6 +209,16 @@ internal sealed class NotificationStreamHandshakeService(
         bool consumeProof,
         CancellationToken cancellationToken)
     {
+        if (decision.RequiredChallenges.Count > 1)
+        {
+            await RecordRiskAsync(
+                context,
+                $"challenge_set_incomplete:{decision.RequiredChallenges.Count}",
+                decision.ActionName,
+                cancellationToken);
+            return NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, "risk_challenge_set_incomplete");
+        }
+
         if (!TryReadChallengeProof(context, out string proofToken, out string challengeId, out string challengeKind))
         {
             await RecordRiskAsync(context, "challenge_proof_missing", decision.ActionName, cancellationToken);

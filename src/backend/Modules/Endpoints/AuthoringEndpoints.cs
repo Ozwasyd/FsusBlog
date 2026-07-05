@@ -166,9 +166,16 @@ public static class AuthoringEndpoints
             long revisionId,
             HttpContext context,
             IAedsEncoder aeds,
+            IAdminPrincipalService adminPrincipals,
             AuthoringWorkflowService service,
             CancellationToken cancellationToken) =>
         {
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
             bool rolledBack = await service.RollbackRevisionAsync(ResolveRequiredAdminPrincipalId(context), articleId, revisionId, cancellationToken);
             return rolledBack
                 ? Ok(context, aeds, new { rolledBack })
@@ -1178,6 +1185,7 @@ public static class AuthoringEndpoints
             int articleId,
             HttpContext context,
             IAedsEncoder aeds,
+            IAdminPrincipalService adminPrincipals,
             AuthoringWorkflowService service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
@@ -1208,6 +1216,7 @@ public static class AuthoringEndpoints
         group.MapPost("/articles/import", async (
             HttpContext context,
             IAedsEncoder aeds,
+            IAdminPrincipalService adminPrincipals,
             AuthoringWorkflowService service,
             IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
@@ -1223,6 +1232,12 @@ public static class AuthoringEndpoints
             }
 
             ContentImportRequest request = parsed.Value!;
+            IResult? stepUp = await RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds);
+            if (stepUp is not null)
+            {
+                return stepUp;
+            }
+
             ContentImportResponse response = await service.ImportArticleAsync(request, cancellationToken);
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
