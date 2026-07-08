@@ -11,6 +11,7 @@ type HumanReadProofOptions = {
 const RETRY_SUBMIT_DELAY_MS = 1000
 const READABLE_ROOT_VISIBLE_THRESHOLD = 0.25
 const CHALLENGE_REQUEST_DEFER_MS = 0
+const READ_PROOF_SUBMIT_SAFETY_MS = 250
 
 function isHumanReadProofSuppressed(): boolean {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -133,6 +134,9 @@ export function useHumanReadProof(options: HumanReadProofOptions): void {
     return Math.trunc(dwellMs + Math.max(0, performance.now() - visibleSince))
   }
 
+  const requiredDwellMs = (activeChallenge: HumanReadChallenge): number =>
+    activeChallenge.minDwellMs + READ_PROOF_SUBMIT_SAFETY_MS
+
   const submitIfReady = async (): Promise<void> => {
     const activeChallenge = challenge.value
     if (!activeChallenge || submittedKeys.has(currentKey.value)) {
@@ -140,7 +144,7 @@ export function useHumanReadProof(options: HumanReadProofOptions): void {
     }
 
     const dwell = currentDwellMs()
-    if (dwell < activeChallenge.minDwellMs) {
+    if (dwell < requiredDwellMs(activeChallenge)) {
       scheduleSubmitCheck()
       return
     }
@@ -172,7 +176,7 @@ export function useHumanReadProof(options: HumanReadProofOptions): void {
       return
     }
 
-    const remainingMs = Math.max(0, activeChallenge.minDwellMs - currentDwellMs())
+    const remainingMs = Math.max(0, requiredDwellMs(activeChallenge) - currentDwellMs())
     clearSubmitTimer()
     submitTimer = setTimeout(() => {
       submitTimer = null
@@ -222,12 +226,13 @@ export function useHumanReadProof(options: HumanReadProofOptions): void {
         return
       }
 
-      challenge.value = response
-      if (!challenge.value.token) {
-        challenge.value = null
+      if (!response.token) {
         challengeRequestFinished = true
         return
       }
+      dwellMs = 0
+      visibleSince = visible.value ? performance.now() : -1
+      challenge.value = response
       challengeRequestFinished = true
       scheduleSubmitCheck()
     } catch (error) {

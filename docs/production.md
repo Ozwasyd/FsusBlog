@@ -29,13 +29,25 @@ Required variables:
 - `REDIS_PASSWORD`
 - `Jwt__SecretKey`
 - `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1`
+- `FSUSBLOG_ZK_PROD_ENABLED=true`
+- `FSUSBLOG_ZK_CONFIG_DIR`
+- `FSUSBLOG_ZK_SECRET_DIR`
+- `FSUSBLOG_ZK_NATIVE_VERIFIER_LIB=managed:mcl`
+- `FSUSBLOG_ZK_VERIFYING_KEY_HASH`
+- `FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST`
+- `FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST`
+- `FSUSBLOG_ZK_GROTH16_VERIFYING_KEY`
+- `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID`
+- `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY`
+- `FSUSBLOG_ZK_ISSUER_PRIVATE_KEY`
+- `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH`
 - `SITE_BASEURL`
 - `CORS_ALLOWED_HOSTS`
 - `APP_ALLOWED_HOSTS`
 - `FIDO2_SERVER_DOMAIN`
 - `REVERSE_PROXY_KNOWN_PROXIES` or `REVERSE_PROXY_KNOWN_NETWORKS`
 
-Production validation rejects default JWT secrets, placeholder secrets, empty Redis passwords, missing or disabled `FSUSBLOG_ANONYMOUS_IDENTITY_MODE`, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. Invalid production validation marks `/health/ready` as `503`; operators can inspect the detailed degraded state through `/api/ops/health/ready-detail`.
+Production validation rejects default JWT secrets, placeholder secrets, empty Redis passwords, missing or disabled `FSUSBLOG_ANONYMOUS_IDENTITY_MODE`, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. The production compose file defaults `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` to `1` and `FSUSBLOG_ZK_PROD_ENABLED` to `true`; keep both explicit in the private env file for auditability. ZK-Prod stays fail-closed until real trusted setup manifests, verifying key, issuer keys, root bootstrap evidence, and release smoke evidence are present. Invalid production validation marks `/health/ready` as `503`; operators can inspect the detailed degraded state through `/api/ops/health/ready-detail`.
 
 `FSUSBLOG_ALLOW_INSECURE_STARTUP=true` is a local diagnostics escape hatch only. It must not be used for normal deployment and cannot bypass security-critical validation failures for JWT secrets, wildcard `AllowedHosts`, missing reverse-proxy trust, or HTTP production origins.
 
@@ -47,10 +59,11 @@ Set `FSUSBLOG_BACKUP_ROOT` to a persistent backup volume. `tools/operations/back
 
 ```bash
 export GITHUB_PACKAGES_TOKEN=...
-./tools/build-final-image.sh
-docker compose --env-file .env.production config
-docker compose --env-file .env.production up -d
+./tools/deploy-production.sh --dry-run
+./tools/deploy-production.sh
 ```
+
+`tools/deploy-production.sh` is the one-command deployment entrypoint. It loads `.env.production`, blocks placeholder values, verifies `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` and ZK-Prod default-on flags, checks that `FSUSBLOG_ZK_CONFIG_DIR` and `FSUSBLOG_ZK_SECRET_DIR` contain the real trusted setup manifest, verifying key manifest, Groth16 verifying key, issuer public key and issuer private key, runs `npm --prefix src/frontend run check:privacy-zk-prod-release`, then builds the image and runs `docker compose --env-file .env.production config` plus `up -d`. The compose file mounts those ZK material directories read-only at `/app/config/zk` and `/app/secrets/zk`.
 
 Do not use `.env.production-template` to start production. It is only safe for `docker compose config` structure checks.
 

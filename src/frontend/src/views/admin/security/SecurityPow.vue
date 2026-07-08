@@ -31,21 +31,26 @@
           </div>
         </div>
 
-        <div class="grid gap-3 md:grid-cols-2">
-          <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">运行模式</span>
-            <el-select v-model="draft.mode" class="mt-2 w-full" aria-label="PoW 运行模式">
-              <el-option v-for="mode in modes" :key="mode" :label="formatSecurityMode(mode)" :value="mode" />
-            </el-select>
-          </label>
-          <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">默认难度</span>
-            <el-input-number v-model="draft.defaultDifficulty" class="mt-2 w-full" :min="1" :max="12" controls-position="right" />
-          </label>
-          <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Proof 有效期（秒）</span>
-            <el-input-number v-model="draft.proofTtlSeconds" class="mt-2 w-full" :min="30" :max="3600" controls-position="right" />
-          </label>
+        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+          <div class="grid gap-4 sm:grid-cols-[minmax(0,1.1fr)_minmax(9rem,0.55fr)_minmax(11rem,0.65fr)]">
+            <label class="min-w-0">
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">运行模式</span>
+              <el-select v-model="draft.mode" class="mt-2 w-full" aria-label="PoW 运行模式">
+                <el-option v-for="mode in modes" :key="mode" :label="formatSecurityMode(mode)" :value="mode" />
+              </el-select>
+            </label>
+            <label class="min-w-0">
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">默认难度</span>
+              <el-input-number v-model="draft.defaultDifficulty" class="mt-2 w-full" :min="1" :max="12" controls-position="right" />
+            </label>
+            <label class="min-w-0">
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">Proof 有效期（秒）</span>
+              <el-input-number v-model="draft.proofTtlSeconds" class="mt-2 w-full" :min="30" :max="3600" controls-position="right" />
+            </label>
+          </div>
+        </div>
+
+        <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="toggle in toggles" :key="toggle.key" class="flex items-center justify-between gap-4 bg-[var(--fsusblog-page-bg)] p-5">
             <div>
               <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ toggle.label }}</div>
@@ -144,19 +149,19 @@ const metrics = computed<AdminStatusMatrixItem[]>(() => [
 ])
 
 const statusRows = computed<AdminStatusMatrixItem[]>(() => [
-  { label: '挑战端点', value: overview.value?.policy.options.challengeEndpoint ?? '-' },
+  { label: '验证端点', value: overview.value?.policy.options.challengeEndpoint ?? '-' },
   { label: '端点状态', value: overview.value?.challengeEndpointStatus ?? '-' },
   { label: '验证策略', value: overview.value?.policy.options.verificationStrategy ?? '-' },
-  { label: '1 小时挑战次数', value: overview.value?.challengeRequiredLastHour ?? '-' },
+  { label: '1 小时验证次数', value: overview.value?.challengeRequiredLastHour ?? '-' },
   { label: '自适应难度', value: formatEnabled(overview.value?.policy.options.adaptiveDifficultyEnabled) },
   { label: '重放防护', value: formatEnabled(overview.value?.policy.options.replayProtectionEnabled) },
   { label: '风险分联动', value: formatEnabled(overview.value?.policy.options.riskScoreLinkEnabled) }
 ])
 
 const boundaryRows = [
-  { label: 'PoW 只管理挑战与 Proof', value: 'PoW 页面只管理挑战、Proof TTL、重放防护和难度。' },
+  { label: 'PoW 只管理验证任务与 Proof', value: 'PoW 页面只管理验证任务、Proof TTL、重放防护和难度。' },
   { label: '反爬虫只写入爬虫风险', value: '反爬虫系统不会拥有 PoW；它只写入爬虫类风险信号。' },
-  { label: '风险信号共用', value: '公开读取过滤器读取统一风险分，再引用 security.pow 作为 challenge 能力。' }
+  { label: '风险信号共用', value: '公开读取过滤器读取统一风险分，再引用 security.pow 作为验证能力。' }
 ] as const
 
 const assignDraft = (options: PowPolicyOptions): void => {

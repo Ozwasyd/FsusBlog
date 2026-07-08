@@ -207,11 +207,13 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     pod[6] = 1 // zkProdTrustedSetupVerified
     pod[7] = 1 // zkProdCredentialRequired
     pod[8] = 1 // zkProdCredentialRootReady
+    writeInt32(pod, 9, 2500)
+    writeInt32(pod, 13, 10000)
     const languages = textBytes('zh-CN\nen')
     const snapshotHash = textBytes('9'.repeat(64))
-    writeSliceRef(pod, 9, 0, languages.byteLength)
-    writeSliceRef(pod, 17, languages.byteLength, snapshotHash.byteLength)
-    writeSliceRef(pod, 25, languages.byteLength + snapshotHash.byteLength, 0)
+    writeSliceRef(pod, 17, 0, languages.byteLength)
+    writeSliceRef(pod, 25, languages.byteLength, snapshotHash.byteLength)
+    writeSliceRef(pod, 33, languages.byteLength + snapshotHash.byteLength, 0)
 
     const result = mapCommentPolicySnapshotFromPayload(buildPayload(
       pod,
@@ -225,6 +227,8 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
       defaultAuthorMode: 'zk_anonymous',
       supportedDisplayLanguages: ['zh-CN', 'en'],
       snapshotHash: '9'.repeat(64),
+      commentMaxChars: 2500,
+      commentMaxUtf8Bytes: 10000,
       zkProdEnabled: true,
       zkProdNativeVerifierConfigured: true,
       zkProdTrustedSetupVerified: true,
@@ -323,20 +327,18 @@ describe('anonymous privacy binary adapters', () => {
     const ticketLevel = textBytes('strong_anonymous')
     const ticket = new Uint8Array([25, 26])
     const moderationHash = new Uint8Array([27, 28])
-    const nullifier = new Uint8Array([29, 30])
-    const ticketBlob = buildPayload(ticketLevel, ticket, moderationHash, nullifier)
+    expect(ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE).toBe(40)
+    const ticketBlob = buildPayload(ticketLevel, ticket, moderationHash)
     writeInt64(ticketPod, 0, 20260618n)
     writeInt64(ticketPod, 8, 1780000005000n)
     writeSliceRef(ticketPod, 16, 0, ticketLevel.length)
     writeSliceRef(ticketPod, 24, ticketLevel.length, ticket.length)
     writeSliceRef(ticketPod, 32, ticketLevel.length + ticket.length, moderationHash.length)
-    writeSliceRef(ticketPod, 40, ticketLevel.length + ticket.length + moderationHash.length, nullifier.length)
 
     const ticketResponse = mapAnonymousCommentTicketResponseFromPayload(buildPayload(ticketPod, blobParts(ticketBlob)))
     expect(ticketResponse.credentialLevel).toBe('strong_anonymous')
     expect([...ticketResponse.ticket]).toEqual([25, 26])
     expect([...ticketResponse.moderationSubjectHash]).toEqual([27, 28])
-    expect([...ticketResponse.anonymousNullifierHash]).toEqual([29, 30])
 
     const statePod = new Uint8Array(ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE)
     const status = textBytes('active')

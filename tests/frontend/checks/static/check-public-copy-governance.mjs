@@ -268,7 +268,7 @@ const requiredCopy = [
   },
   {
     path: 'src/frontend/src/view-contracts/filterView.ts',
-    tokens: ['正在完成访问校验', '这个分类还没放文章', '这个标签下还没有文章', '换个词试试']
+    tokens: ['正在完成访问校验', '这个分类还没放文章', '这个标签下还没有文章', '无匹配结果']
   },
   {
     path: 'src/frontend/src/view-contracts/aboutPage.ts',

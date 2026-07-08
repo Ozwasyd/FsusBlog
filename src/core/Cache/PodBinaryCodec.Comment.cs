@@ -14,6 +14,12 @@ namespace FsusBlog.Core.Cache;
 public static partial class PodBinaryCodec
 {
     private const int AnonymousPrivacyMaxPayloadBytes = 16 * 1024;
+    private const int CommentDefaultMaxChars = 1000;
+    private const int CommentDefaultMaxUtf8Bytes = 4096;
+    private const int CommentMinMaxChars = 100;
+    private const int CommentHardMaxChars = 3000;
+    private const int CommentMinMaxUtf8Bytes = 1024;
+    private const int CommentHardMaxUtf8Bytes = 12288;
 
     public static void WriteCommentPolicySnapshot(CommentPolicySnapshotCoreModel snapshot, IBufferWriter<byte> destination)
     {
@@ -29,6 +35,8 @@ public static partial class PodBinaryCodec
             ZkProdTrustedSetupVerified = snapshot.ZkProdTrustedSetupVerified ? (byte)1 : (byte)0,
             ZkProdCredentialRequired = snapshot.ZkProdCredentialRequired ? (byte)1 : (byte)0,
             ZkProdCredentialRootReady = snapshot.ZkProdCredentialRootReady ? (byte)1 : (byte)0,
+            CommentMaxChars = NormalizeCommentMaxChars(snapshot.CommentMaxChars),
+            CommentMaxUtf8Bytes = NormalizeCommentMaxUtf8Bytes(snapshot.CommentMaxUtf8Bytes),
             SupportedDisplayLanguages = PodUtf8Codec.AppendSlice(JoinDisplayLanguages(snapshot.SupportedDisplayLanguages), payload),
             SnapshotHash = PodUtf8Codec.AppendSlice(NormalizePolicySnapshotHash(snapshot.SnapshotHash), payload),
             ZkProdUnavailableReason = PodUtf8Codec.AppendSlice(NormalizeZkProdUnavailableReason(snapshot.ZkProdUnavailableReason), payload)
@@ -54,6 +62,8 @@ public static partial class PodBinaryCodec
             pod.ZkProdTrustedSetupVerified > 1 ||
             pod.ZkProdCredentialRequired > 1 ||
             pod.ZkProdCredentialRootReady > 1 ||
+            !IsCommentMaxCharsValid(pod.CommentMaxChars) ||
+            !IsCommentMaxUtf8BytesValid(pod.CommentMaxUtf8Bytes) ||
             !TryDecodeCommentAuthorMode(pod.DefaultAuthorMode, out string defaultAuthorMode) ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
@@ -68,6 +78,8 @@ public static partial class PodBinaryCodec
             defaultAuthorMode,
             SplitDisplayLanguages(PodProjector.ReadSlice(pod.SupportedDisplayLanguages, payload)),
             PodProjector.ReadSlice(pod.SnapshotHash, payload),
+            pod.CommentMaxChars,
+            pod.CommentMaxUtf8Bytes,
             pod.ZkProdEnabled == 1,
             pod.ZkProdNativeVerifierConfigured == 1,
             pod.ZkProdTrustedSetupVerified == 1,
@@ -91,6 +103,10 @@ public static partial class PodBinaryCodec
             ZkAnonymousEnabled = request.ZkAnonymousEnabled == true ? (byte)1 : (byte)0,
             HasDefaultAuthorMode = hasDefaultAuthorMode ? (byte)1 : (byte)0,
             DefaultAuthorMode = hasDefaultAuthorMode ? EncodeCommentAuthorMode(request.DefaultAuthorMode) : (byte)0,
+            HasCommentMaxChars = request.CommentMaxChars.HasValue ? (byte)1 : (byte)0,
+            HasCommentMaxUtf8Bytes = request.CommentMaxUtf8Bytes.HasValue ? (byte)1 : (byte)0,
+            CommentMaxChars = request.CommentMaxChars.GetValueOrDefault(),
+            CommentMaxUtf8Bytes = request.CommentMaxUtf8Bytes.GetValueOrDefault(),
             SupportedDisplayLanguages = PodUtf8Codec.AppendSlice(JoinDisplayLanguages(request.SupportedDisplayLanguages), payload)
         };
 
@@ -113,6 +129,10 @@ public static partial class PodBinaryCodec
             pod.HasZkAnonymousEnabled > 1 ||
             pod.ZkAnonymousEnabled > 1 ||
             pod.HasDefaultAuthorMode > 1 ||
+            pod.HasCommentMaxChars > 1 ||
+            pod.HasCommentMaxUtf8Bytes > 1 ||
+            (pod.HasCommentMaxChars == 1 && !IsCommentMaxCharsValid(pod.CommentMaxChars)) ||
+            (pod.HasCommentMaxUtf8Bytes == 1 && !IsCommentMaxUtf8BytesValid(pod.CommentMaxUtf8Bytes)) ||
             !TryDecodeCommentAuthorMode(pod.DefaultAuthorMode, out string defaultAuthorMode) ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
@@ -128,7 +148,9 @@ public static partial class PodBinaryCodec
             pod.HasPublicCommentsEnabled == 1 ? pod.PublicCommentsEnabled == 1 : null,
             pod.HasZkAnonymousEnabled == 1 ? pod.ZkAnonymousEnabled == 1 : null,
             pod.HasDefaultAuthorMode == 1 ? defaultAuthorMode : null,
-            languages);
+            languages,
+            pod.HasCommentMaxChars == 1 ? pod.CommentMaxChars : null,
+            pod.HasCommentMaxUtf8Bytes == 1 ? pod.CommentMaxUtf8Bytes : null);
         return reader.IsConsumed;
     }
 
@@ -1359,6 +1381,18 @@ public static partial class PodBinaryCodec
     private static string? NullCommentFieldIfEmpty(string value)
         => value.Length == 0 ? null : value;
 
+    private static int NormalizeCommentMaxChars(int value)
+        => IsCommentMaxCharsValid(value) ? value : CommentDefaultMaxChars;
+
+    private static int NormalizeCommentMaxUtf8Bytes(int value)
+        => IsCommentMaxUtf8BytesValid(value) ? value : CommentDefaultMaxUtf8Bytes;
+
+    private static bool IsCommentMaxCharsValid(int value)
+        => value is >= CommentMinMaxChars and <= CommentHardMaxChars;
+
+    private static bool IsCommentMaxUtf8BytesValid(int value)
+        => value is >= CommentMinMaxUtf8Bytes and <= CommentHardMaxUtf8Bytes;
+
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableCommentPolicySnapshotPod
     {
@@ -1371,6 +1405,8 @@ public static partial class PodBinaryCodec
         public byte ZkProdTrustedSetupVerified;
         public byte ZkProdCredentialRequired;
         public byte ZkProdCredentialRootReady;
+        public int CommentMaxChars;
+        public int CommentMaxUtf8Bytes;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SupportedDisplayLanguages;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SnapshotHash;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ZkProdUnavailableReason;
@@ -1387,6 +1423,10 @@ public static partial class PodBinaryCodec
         public byte ZkAnonymousEnabled;
         public byte HasDefaultAuthorMode;
         public byte DefaultAuthorMode;
+        public byte HasCommentMaxChars;
+        public byte HasCommentMaxUtf8Bytes;
+        public int CommentMaxChars;
+        public int CommentMaxUtf8Bytes;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SupportedDisplayLanguages;
     }
 

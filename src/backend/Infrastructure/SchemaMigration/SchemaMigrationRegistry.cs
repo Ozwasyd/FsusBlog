@@ -1527,6 +1527,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         zk_anonymous_enabled boolean NOT NULL DEFAULT false,
                         default_author_mode varchar(32) NOT NULL DEFAULT 'anonymous',
                         supported_display_languages varchar(128) NOT NULL DEFAULT 'zh-CN,en',
+                        comment_max_chars integer NOT NULL DEFAULT 1000,
+                        comment_max_utf8_bytes integer NOT NULL DEFAULT 4096,
                         snapshot_hash varchar(64) NOT NULL DEFAULT '',
                         updated_reason varchar(256) NULL,
                         changed_by varchar(64) NOT NULL DEFAULT 'system',
@@ -1550,6 +1552,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new EnsureColumnStep("anonymous_comment_policy", "snapshot_hash", "varchar(64) NOT NULL DEFAULT ''"),
                 new EnsureColumnStep("anonymous_comment_policy", "updated_reason", "varchar(256) NULL"),
                 new EnsureColumnStep("anonymous_comment_policy", "changed_by", "varchar(64) NOT NULL DEFAULT 'system'"),
+                new EnsureColumnStep("anonymous_comment_policy", "comment_max_chars", "integer NOT NULL DEFAULT 1000"),
+                new EnsureColumnStep("anonymous_comment_policy", "comment_max_utf8_bytes", "integer NOT NULL DEFAULT 4096"),
                 new EnsureTableStep(
                     "anonymous_credential",
                     """

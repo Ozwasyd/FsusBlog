@@ -1,8 +1,8 @@
 <template>
   <div class="space-y-8">
     <FsusUiSettingsSection
-      title="Captcha 挑战"
-      :description="metricsState ? `kind：${captchaV1}` : ''"
+      title="Captcha 验证"
+      :description="metricsState ? `验证类型：${captchaDisplayName}` : ''"
       id="security-captcha-title"
     >
       <template #actions>
@@ -28,7 +28,7 @@
           <div v-for="attempt in attempts" :key="attempt.attemptId" class="grid gap-3 p-5 md:grid-cols-[1fr_auto]">
             <div class="min-w-0">
               <div class="break-all text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ attempt.challengeId }}</div>
-              <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ attempt.action }} / {{ attempt.routeKey }}</div>
+              <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ formatAttemptContext(attempt.action, attempt.routeKey) }}</div>
             </div>
             <el-tag :type="attempt.outcome === 'verified' ? 'success' : 'warning'">{{ formatOutcome(attempt.outcome) }}</el-tag>
           </div>
@@ -48,6 +48,7 @@ import { Refresh } from '@/fsusui/icons'
 import { showErrorToast } from '@/utils/errorPresentation'
 
 const captchaV1 = 'captchaV1'
+const captchaDisplayName = '图形验证码'
 const loading = shallowRef(false)
 const metricsState = shallowRef<SecurityChallengeMetricsResponse | null>(null)
 
@@ -66,18 +67,56 @@ const formatOutcome = (value: string | null | undefined): string => {
   return value ? labels[value] ?? `结果代码：${value}` : '结果未知'
 }
 
+const formatAttemptContext = (action: string | null | undefined, routeKey: string | null | undefined): string => {
+  const actionText = formatAction(action)
+  const routeText = formatRoute(routeKey)
+  return actionText === routeText ? actionText : `${actionText} / ${routeText}`
+}
+
+const formatAction = (value: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    'admin.comment.batch': '后台批量评论处理',
+    'admin.security.write': '后台安全策略写入',
+    'auth.login': '登录',
+    'auth.passkey.begin': '开始 Passkey 验证',
+    'auth.passkey.complete': '完成 Passkey 验证',
+    'comment.create': '发表评论',
+    'comment.reply': '回复评论',
+    'notification.subscribe': '订阅通知流',
+    'public.read': '公开读取',
+    'recovery-key.verify': '恢复密钥验证'
+  }
+  return value ? labels[value] ?? value : '未知动作'
+}
+
+const formatRoute = (value: string | null | undefined): string => {
+  const labels: Record<string, string> = {
+    'admin.comment.batch': '后台批量评论处理',
+    'admin.security.write': '后台安全策略写入',
+    'auth.login': '登录',
+    'auth.passkey.begin': '开始 Passkey 验证',
+    'auth.passkey.complete': '完成 Passkey 验证',
+    'comment.create': '发表评论',
+    'comment.reply': '回复评论',
+    'notification.subscribe': '订阅通知流',
+    'public.read': '公开读取',
+    'recovery-key.verify': '恢复密钥验证'
+  }
+  return value ? labels[value] ?? value : '未知路径'
+}
+
 const metrics = computed<AdminStatusMatrixItem[]>(() => [
-  { label: '签发', value: metricsState.value?.totalIssued ?? '-' },
-  { label: '尝试', value: metricsState.value?.totalAttempts ?? '-' },
+  { label: '发起', value: metricsState.value?.totalIssued ?? '-' },
+  { label: '提交', value: metricsState.value?.totalAttempts ?? '-' },
   { label: '成功率', value: formatPercent(metricsState.value?.successRate) },
   { label: '失败率', value: formatPercent(metricsState.value?.failureRate) }
 ])
 
 const statusRows = computed<AdminStatusMatrixItem[]>(() => [
-  { label: 'kind', value: captchaV1 },
-  { label: 'verified', value: String(metricsState.value?.verified ?? 0) },
-  { label: 'failed', value: String(metricsState.value?.failed ?? 0) },
-  { label: 'replayed', value: String(metricsState.value?.replayed ?? 0) }
+  { label: '验证类型', value: captchaDisplayName },
+  { label: '通过次数', value: String(metricsState.value?.verified ?? 0) },
+  { label: '失败次数', value: String(metricsState.value?.failed ?? 0) },
+  { label: '重放拦截', value: String(metricsState.value?.replayed ?? 0) }
 ])
 
 const loadMetrics = async (): Promise<void> => {
@@ -85,7 +124,7 @@ const loadMetrics = async (): Promise<void> => {
   try {
     metricsState.value = await getSecurityChallengeMetrics({ kind: captchaV1 })
   } catch (error) {
-    showErrorToast(error, 'Captcha 挑战加载失败')
+    showErrorToast(error, 'Captcha 验证加载失败')
   } finally {
     loading.value = false
   }

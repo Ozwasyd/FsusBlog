@@ -93,7 +93,10 @@ for (const token of requiredPageTokens) {
 const requiredHeaderTokens = [
   '账号筛选',
   'text-[15px]',
-  '封禁与解封会触发强制算力校验'
+  '封禁与解封会触发强制算力校验',
+  'user-filter-actions',
+  'grid-template-columns: minmax(0, 1fr);',
+  'max-width: 44rem;'
 ]
 
 for (const token of requiredHeaderTokens) {
@@ -110,10 +113,19 @@ const requiredTableTokens = [
   'role="listitem"',
   'user-resource-list',
   'user-resource-list-item',
+  'user-resource-list-identity-row flex items-center gap-3',
+  'user-resource-list-meta',
+  'user-resource-list-action-row',
+  'user-resource-surface:has(.el-responsive-collection.is-compact)',
+  'width: min(100%, 44rem);',
+  'margin-inline: auto;',
+  'border-radius: 0;',
   '变更匿名账号状态：',
   'row.displayHandle',
   'row.identityKindLabel',
   'row.credentialSummary',
+  '匿名身份：{{ row.anonymousCredentialText }}',
+  'row.anonymousCredentialText',
   'row.riskFlagsText'
 ]
 
@@ -127,14 +139,34 @@ const requiredComposableTokens = [
   'displayHandle',
   'identityKindLabel',
   'credentialSummary',
+  'anonymousCredentialText',
   'riskFlagsText',
-  'statusText: `${statusLabel} / ${statusCode}`',
+  'statusText: statusLabel',
   "return '账号'"
 ]
 
 for (const token of requiredComposableTokens) {
   if (!composable.includes(token)) {
     fail(composablePath, 1, `Admin user management composable contract is missing ${token}`)
+  }
+}
+
+for (const token of [
+  'statusText: `${statusLabel} / ${statusCode}`',
+  '匿名凭据 ${item.anonymousCredentialStatus}/${item.anonymousCredentialLevel}',
+  "case 'basic':\n        return '基础级'",
+  '`${credentialStatusLabel(item.anonymousCredentialStatus)}，${credentialLevelLabel(item.anonymousCredentialLevel)}`'
+]) {
+  if (composable.includes(token)) {
+    fail(composablePath, lineOf(composable, token), `Admin user management GUI copy must not expose raw status text ${token}`)
+  }
+}
+
+for (const token of [
+  'class="flex items-start gap-3"'
+]) {
+  if (table.includes(token)) {
+    fail(tablePath, lineOf(table, token), `Admin user management compact rows must not top-align account identity with ${token}`)
   }
 }
 

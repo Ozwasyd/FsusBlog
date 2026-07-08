@@ -115,7 +115,6 @@ public sealed class AnonymousCredentialRootStore(ISqlSugarClient db, IConfigurat
 public sealed class AnonymousCredentialRootService(
     IServiceScopeFactory scopeFactory,
     IConfiguration configuration,
-    IZkProofVerifier verifier,
     TimeProvider timeProvider) : IAnonymousCredentialRootService
 {
     private static readonly TimeSpan PositiveCacheTtl = TimeSpan.FromSeconds(30);
@@ -206,7 +205,7 @@ public sealed class AnonymousCredentialRootService(
             record.Value.CircuitNumericId,
             record.Value.PublicInputLayoutVersion,
             configuration.GetValue("AnonymousIdentity:ZkAnonymousCommentsEnabled", false),
-            verifier.IsConfigured,
+            scope.ServiceProvider.GetService<IZkProofVerifier>()?.IsConfigured == true,
             record.Value.CircuitId,
             record.Value.VerifyingKeyHash,
             issuerPublicKeyHash,

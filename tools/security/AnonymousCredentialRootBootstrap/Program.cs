@@ -137,6 +137,7 @@ internal static partial class Program
     private static ServiceProvider BuildProvider(CliOptions options)
     {
         IConfiguration configuration = new ConfigurationBuilder()
+            .AddEnvironmentVariables()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["AnonymousIdentity:ZkAnonymousCommentsEnabled"] = "true"

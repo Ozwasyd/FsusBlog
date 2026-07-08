@@ -270,7 +270,9 @@ export function useFilterView() {
     } catch (error: unknown) {
       if (!isAbortError(error) && lifecycle.isActive() && !signal.aborted) {
         const bootstrapMeta = resolveBootstrapFilterMeta()
-        currentName.value = bootstrapMeta?.filterName || bootstrapMeta?.title || '加载失败'
+        currentName.value = bootstrapMeta?.filterName
+          || bootstrapMeta?.title
+          || (filterType.value === PUBLIC_FILTER_TYPE.tag ? '标签不可用' : '分类不可用')
         invalidTarget.value = Boolean(bootstrapMeta?.isInvalidTarget)
       }
     } finally {

@@ -18,11 +18,68 @@ public sealed class CommentSecurityHardeningTests
 
         Assert.Contains("CommentLimits.CreatePayloadMaxBytes", source);
         Assert.Contains("IsCommentContentWithinLimit(content)", source);
-        Assert.Contains("contentFilterService.ValidateContent(content)", source);
+        Assert.Contains("CommentMarkdownPolicy.ValidateForSubmit(content)", source);
+        Assert.Contains("contentFilterService.ValidateContent(markdownReview.ReviewText)", source);
         Assert.True(
             source.IndexOf("IsCommentContentWithinLimit(content)", StringComparison.Ordinal) <
-            source.IndexOf("contentFilterService.ValidateContent(content)", StringComparison.Ordinal));
+            source.IndexOf("CommentMarkdownPolicy.ValidateForSubmit(content)", StringComparison.Ordinal));
+        Assert.True(
+            source.IndexOf("CommentMarkdownPolicy.ValidateForSubmit(content)", StringComparison.Ordinal) <
+            source.IndexOf("contentFilterService.ValidateContent(markdownReview.ReviewText)", StringComparison.Ordinal));
         Assert.DoesNotContain("ValidateContent(request.Content", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommentCreateEndpoint_UsesMarkdownReviewTextForModerationWithoutChangingStoredSource()
+    {
+        string source = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
+
+        Assert.True(CountOccurrences(source, "CommentMarkdownPolicy.ValidateForSubmit(content)") >= 2);
+        Assert.True(CountOccurrences(source, "contentFilterService.ValidateContent(markdownReview.ReviewText)") >= 2);
+        Assert.True(CountOccurrences(source, "new RegionModerationRequest(") >= 2);
+        Assert.True(CountOccurrences(source, "markdownReview.ReviewText,") >= 2);
+        Assert.Contains("request = request with { Content = content };", source, StringComparison.Ordinal);
+        Assert.Contains("request with { Content = content }", source, StringComparison.Ordinal);
+        Assert.Contains("if (!validation.IsValid)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message), aeds);", source, StringComparison.Ordinal);
+        Assert.Contains("RecordCommentRiskSignalAsync(", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommentCreateService_PublishesBeforeModelDispositionAndWarnsOnAutomaticHide()
+    {
+        string source = ReadRepoFile("src/backend/Services/CommentService.cs");
+
+        Assert.Contains("ModerationStatus = CommentModerationStatus.Approved", source, StringComparison.Ordinal);
+        Assert.Contains("BuildInitialModerationReason(regionDecision)", source, StringComparison.Ordinal);
+        Assert.Contains("NotifyModelRiskHiddenAsync(comment, disposition)", source, StringComparison.Ordinal);
+        Assert.Contains("SendAccountTransactionalNoticeAsync", source, StringComparison.Ordinal);
+        Assert.Contains("评论审核提醒", source, StringComparison.Ordinal);
+        Assert.Contains("本提醒不构成账号处罚", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommentCreateService_AutomaticModelHideInvalidatesPublicCommentAndPushesRemoval()
+    {
+        string source = ReadRepoFile("src/backend/Services/CommentService.cs");
+
+        string automaticBlock = source[
+            source.IndexOf("private async Task ApplyAutomaticModerationDispositionAsync", StringComparison.Ordinal)..
+            source.IndexOf("private async Task<AutomaticModerationTarget?>", StringComparison.Ordinal)];
+
+        Assert.Contains("disposition.NextStatus == CommentModerationStatus.Hidden", automaticBlock, StringComparison.Ordinal);
+        Assert.Contains("PublicArticleChanged: true", automaticBlock, StringComparison.Ordinal);
+        Assert.Contains("PushCommentRemoveAsync(comment.ArticleId", automaticBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CommentModerationQueue_IncludesOnlyBorderlineModelHiddenCommentsInPendingReviewSource()
+    {
+        string source = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+
+        Assert.Contains("model_policy:model_risk_borderline_review", source, StringComparison.Ordinal);
+        Assert.Contains("BuildCommentModerationQueuePredicate", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("model_policy:model_risk_auto_hidden\" && status is null", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,5 +1,5 @@
 <template>
-  <el-dialog
+  <FsusDialog
     :model-value="visible"
     :title="title"
     width="min(92vw, 28rem)"
@@ -108,11 +108,12 @@
         </el-button>
       </div>
     </template>
-  </el-dialog>
+  </FsusDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 import QrcodeVue from 'qrcode.vue'
 import { toast } from '@/fsusui/feedback'
 import { CopyDocument } from '@/fsusui/icons'

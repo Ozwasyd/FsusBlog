@@ -122,6 +122,89 @@ public sealed class CoverageScriptContractTests
     }
 
     [Fact]
+    public void ProductionCompose_DefaultsAnonymousIdentityModeOn()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("ops", "docker", "docker-compose.yml");
+
+        Assert.Contains(
+            "FSUSBLOG_ANONYMOUS_IDENTITY_MODE=${FSUSBLOG_ANONYMOUS_IDENTITY_MODE:-1}",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProductionCompose_DefaultsZkProdGateOnWithRealArtifactInputs()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("ops", "docker", "docker-compose.yml");
+
+        Assert.Contains(
+            "AnonymousIdentity__ZkProd__Enabled=${FSUSBLOG_ZK_PROD_ENABLED:-true}",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AnonymousIdentity__ZkProd__TrustedSetupVerified=${FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED:-true}",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AnonymousIdentity__ZkProd__CredentialReady=${FSUSBLOG_ZK_CREDENTIAL_READY:-true}",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AnonymousIdentity__ZkProd__VerifyingKeyHash=${FSUSBLOG_ZK_VERIFYING_KEY_HASH}",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AnonymousIdentity__ZkVerifier__Enabled=${FSUSBLOG_ZK_VERIFIER_ENABLED:-true}",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeyPath=${FSUSBLOG_ZK_GROTH16_VERIFYING_KEY}",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AnonymousCredentialIssuer__CircuitNative__Enabled=${FSUSBLOG_ZK_CREDENTIAL_ISSUER_ENABLED:-true}",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AnonymousCredentialIssuer__CircuitNative__IssuerPrivateKeyPath=${FSUSBLOG_ZK_ISSUER_PRIVATE_KEY}",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AnonymousCredentialIssuer__CircuitNative__IssuerPublicKeyHash=${FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH}",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProductionCompose_MountsZkProdMaterialDirectoriesReadOnly()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("ops", "docker", "docker-compose.yml");
+
+        Assert.Contains(
+            "${FSUSBLOG_ZK_CONFIG_DIR:?Set FSUSBLOG_ZK_CONFIG_DIR to the host ZK config directory}:/app/config/zk:ro",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "${FSUSBLOG_ZK_SECRET_DIR:?Set FSUSBLOG_ZK_SECRET_DIR to the host ZK secret directory}:/app/secrets/zk:ro",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProductionDeployScript_GuidesZkProdMaterialsBeforeComposeUp()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("tools", "deploy-production.sh");
+
+        Assert.Contains("FSUSBLOG_ZK_CONFIG_DIR", source, StringComparison.Ordinal);
+        Assert.Contains("FSUSBLOG_ZK_SECRET_DIR", source, StringComparison.Ordinal);
+        Assert.Contains("npm --prefix src/frontend run check:privacy-zk-prod-release", source, StringComparison.Ordinal);
+        Assert.Contains("tools/security/bootstrap-anonymous-credential-root.mjs", source, StringComparison.Ordinal);
+        Assert.Contains("tools/build-final-image.sh", source, StringComparison.Ordinal);
+        Assert.Contains("docker compose --env-file", source, StringComparison.Ordinal);
+        Assert.Contains("--dry-run", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AcceptanceBootstrap_RefreshesRedisAfterFixtureSeeding()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("tools", "bootstrap-acceptance-env.sh");

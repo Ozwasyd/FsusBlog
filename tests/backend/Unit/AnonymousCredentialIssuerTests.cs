@@ -109,12 +109,12 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     [Fact]
     public void AnonymousCredentialIssuerConfig_ExplicitlyRejectsBannedAccountsByDefault()
     {
-        foreach (string relativePath in new[]
+        foreach ((string relativePath, string expectedEnabled) in new[]
         {
-            "src/backend/appsettings.json",
-            "src/backend/appsettings.example.json",
-            "src/backend/appsettings.Production.json",
-            "src/backend/appsettings.Production.example.json"
+            ("src/backend/appsettings.json", "\"Enabled\": false"),
+            ("src/backend/appsettings.example.json", "\"Enabled\": false"),
+            ("src/backend/appsettings.Production.json", "\"Enabled\": true"),
+            ("src/backend/appsettings.Production.example.json", "\"Enabled\": true")
         })
         {
             string source = BackendTestPaths.ReadAllTextFromRoot(relativePath);
@@ -124,7 +124,7 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
             Assert.Contains("\"AllowBannedAccountIssuance\": false", source, StringComparison.Ordinal);
             Assert.Contains("\"SubjectHashPepper\"", source, StringComparison.Ordinal);
             Assert.Contains("\"Backend\": \"managed_circuit_native_v2\"", source, StringComparison.Ordinal);
-            Assert.Contains("\"Enabled\": false", source, StringComparison.Ordinal);
+            Assert.Contains(expectedEnabled, source, StringComparison.Ordinal);
         }
     }
 

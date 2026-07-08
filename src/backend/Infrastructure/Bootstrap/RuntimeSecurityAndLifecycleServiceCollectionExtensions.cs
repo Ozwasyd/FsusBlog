@@ -25,7 +25,11 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
         services.AddScoped<IAdminSessionValidationService, AdminSessionValidationService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
-        if (ShouldUseNativeGroth16ZkProofBackend(configuration))
+        if (ShouldUseLocalDevZkProofBackend(configuration))
+        {
+            services.TryAddSingleton<IProductionZkProofBackend, LocalDevZkProofBackend>();
+        }
+        else if (ShouldUseNativeGroth16ZkProofBackend(configuration))
         {
             services.TryAddSingleton<IProductionZkProofBackend, NativeGroth16ZkProofBackend>();
         }
@@ -129,6 +133,9 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         return options.Enabled &&
             ZkProdOptions.IsNativeVerifierBackend(options.VerifierBackend);
     }
+
+    private static bool ShouldUseLocalDevZkProofBackend(IConfiguration configuration)
+        => LocalDevZkProofBackend.IsEnabled(configuration);
 
     private static bool ShouldUseProductionCircuitNativeCredentialIssuer(IConfiguration configuration)
         => CircuitNativeCredentialIssuerOptions.FromConfiguration(configuration).Enabled;

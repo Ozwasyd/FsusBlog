@@ -162,6 +162,34 @@ public sealed class AnonymousCommentTicketServiceTests
         Assert.Empty(proof.Requests);
     }
 
+    [Fact]
+    public async Task IssueAsync_UsesPublishedCommentPolicyHashForTicketTranscript()
+    {
+        const string publishedPolicyHash = "8888888888888888888888888888888888888888888888888888888888888888";
+        var proof = new RecordingProofService(ZkProofVerificationResult.Success());
+        var service = CreateService(
+            proofService: proof,
+            policyService: new FixedCommentPolicyService(new AnonymousCommentPolicySnapshot(
+                true,
+                true,
+                false,
+                CommentAuthorModes.Anonymous,
+                AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)
+            {
+                SnapshotHash = publishedPolicyHash
+            }));
+        AnonymousCommentTicketRequestCoreModel request = ValidRequest() with
+        {
+            PublicInputs = PublicInputsForPolicy(publishedPolicyHash)
+        };
+
+        AnonymousCommentTicketIssueResult result = await service.IssueAsync(request, CancellationToken.None);
+
+        Assert.True(result.Issued);
+        ZkProofVerificationRequest proofRequest = Assert.Single(proof.Requests);
+        Assert.Equal(publishedPolicyHash, proofRequest.PolicyHash);
+    }
+
     [Theory]
     [InlineData("blocked", AnonymousCommentTicketStatuses.NullifierBlocked)]
     [InlineData("scope_limit_exceeded", AnonymousCommentTicketStatuses.ScopeLimitExceeded)]
@@ -286,18 +314,21 @@ public sealed class AnonymousCommentTicketServiceTests
         MutableTimeProvider? time = null,
         IAnonymousCredentialRootService? rootService = null,
         RecordingProofService? proofService = null,
-        ICommentAnonymousNullifierService? nullifierService = null)
+        ICommentAnonymousNullifierService? nullifierService = null,
+        IAnonymousCommentPolicyService? policyService = null)
     {
         time ??= new MutableTimeProvider(DateTimeOffset.Parse("2026-06-19T00:00:00Z"));
         cache ??= new CapturingUnifiedCache(time);
         rootService ??= new FixedRootService(Result<AnonymousCredentialRootSnapshotCoreModel>.Success(CreateRootSnapshot(time)));
         proofService ??= new RecordingProofService(ZkProofVerificationResult.Success());
         nullifierService ??= new RecordingNullifierService();
+        policyService ??= new FixedCommentPolicyService(proofService.CurrentCommentPolicy);
         return new AnonymousCommentTicketService(
             cache,
             rootService,
             proofService,
             nullifierService,
+            policyService,
             BuildConfiguration(),
             time);
     }
@@ -323,6 +354,24 @@ public sealed class AnonymousCommentTicketServiceTests
             ReputationBucket: "rep:low",
             Groth16Proof: Proof,
             PublicInputs: PublicInputs);
+
+    private static byte[] PublicInputsForPolicy(string policyHash)
+        => NativeGroth16PublicInputCodec.Encode(new ProductionZkProofBackendRequest(
+            ActionContext: AnonymousPrivacyContract.CommentCreateActionContext,
+            Scope: "article:42",
+            CircuitId: AnonymousPrivacyContract.CircuitId,
+            VerifyingKeyHash: VerifyingKeyHash,
+            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
+            CredentialEpoch: 20260619,
+            NullifierHash: Convert.ToHexStringLower(Nullifier),
+            CredentialCommitment: Convert.ToHexStringLower(CredentialCommitment),
+            CredentialRoot: Convert.ToHexStringLower(CredentialRoot),
+            CredentialLevel: "strong_anonymous",
+            ReputationBucket: "rep:low",
+            PolicyHash: policyHash,
+            Proof: ReadOnlyMemory<byte>.Empty,
+            RevocationRoot: Convert.ToHexStringLower(RevocationRoot),
+            IssuerPublicKeyHash: new('f', 64))).ToArray();
 
     private static AnonymousCredentialRootSnapshotCoreModel CreateRootSnapshot(TimeProvider time)
         => new(
@@ -417,6 +466,32 @@ public sealed class AnonymousCommentTicketServiceTests
         public void Invalidate()
         {
         }
+    }
+
+    private sealed class FixedCommentPolicyService(AnonymousCommentPolicySnapshot snapshot) : IAnonymousCommentPolicyService
+    {
+        public AnonymousCommentPolicySnapshot Current => snapshot;
+
+        public Task<AnonymousCommentPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(snapshot);
+
+        public AnonymousCommentPolicySnapshot UpdatePolicy(AnonymousCommentPolicyUpdateRequest request, long? adminPrincipalId = null)
+            => throw new NotSupportedException();
+
+        public Task<AnonymousCommentPolicySnapshot> UpdatePolicyAsync(
+            AnonymousCommentPolicyUpdateRequest request,
+            long? adminPrincipalId = null,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public CommentAuthorModeDecision EvaluateAuthorMode(string? requestedAuthorMode, bool publicSendExplicitlySelected)
+            => CommentAuthorModeDecision.Allow(snapshot.DefaultAuthorMode);
+
+        public Task<CommentAuthorModeDecision> EvaluateAuthorModeAsync(
+            string? requestedAuthorMode,
+            bool publicSendExplicitlySelected,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(EvaluateAuthorMode(requestedAuthorMode, publicSendExplicitlySelected));
     }
 
     private sealed class RecordingProofService(

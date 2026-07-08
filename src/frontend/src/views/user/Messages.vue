@@ -94,7 +94,7 @@
       </div>
     </div>
 
-    <el-dialog
+    <FsusDialog
       :model-value="hasPendingConversationSwitch"
       title="当前回复尚未发送"
       width="min(92vw, 28rem)"
@@ -108,9 +108,9 @@
         <el-button @click="handleDiscardDraftAndSwitch">放弃草稿</el-button>
         <el-button type="primary" @click="handleSaveDraftAndSwitch">保存草稿并切换</el-button>
       </template>
-    </el-dialog>
+    </FsusDialog>
 
-    <el-dialog
+    <FsusDialog
       v-model="mobileBackConfirmVisible"
       title="回复草稿尚未发送"
       width="min(92vw, 28rem)"
@@ -122,7 +122,7 @@
         <el-button @click="mobileBackConfirmVisible = false">继续回复</el-button>
         <el-button type="primary" @click="confirmMobileBackToList">返回会话列表</el-button>
       </template>
-    </el-dialog>
+    </FsusDialog>
   </div>
 </template>
 
@@ -133,6 +133,7 @@ import type { ConversationFilter } from '@/api/message'
 import MessagesComposePanel from '@/components/user/messages/MessagesComposePanel.vue'
 import MessagesConversationList from '@/components/user/messages/MessagesConversationList.vue'
 import MessagesThreadPanel from '@/components/user/messages/MessagesThreadPanel.vue'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'

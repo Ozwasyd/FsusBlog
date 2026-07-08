@@ -254,8 +254,11 @@ describe('frontend performance workflow contract', () => {
 
   it('requests human-read proof challenges only after readable dwell becomes visible', () => {
     expect(humanReadProof).toContain('const READABLE_ROOT_VISIBLE_THRESHOLD = 0.25')
+    expect(humanReadProof).toContain('const READ_PROOF_SUBMIT_SAFETY_MS = 250')
     expect(humanReadProof).toContain('const scheduleChallengeRequest')
     expect(humanReadProof).toContain('const requestChallenge')
+    expect(humanReadProof).toContain('const requiredDwellMs')
+    expect(humanReadProof).toContain('visibleSince = visible.value ? performance.now() : -1')
     expect(humanReadProof).toContain('const requestVersion = runtimeVersion')
     expect(humanReadProof).toContain('bindFallbackVisibility(target)')
     expect(humanReadProof).toContain('updateVisibility(rootIntersecting.value)')

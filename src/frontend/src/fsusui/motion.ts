@@ -1,4 +1,5 @@
 export {
+  ElCollapseTransition,
   FsuMotion,
   FsuTransition,
   runMotion,

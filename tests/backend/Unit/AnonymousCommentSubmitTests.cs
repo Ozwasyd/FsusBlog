@@ -42,7 +42,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
 
     [Fact]
-    public async Task CreateStrongAnonymousCommentAsync_ValidTicket_WritesPendingAnonymousCommentGovernanceFieldsAndInvalidatesScope()
+    public async Task CreateStrongAnonymousCommentAsync_ValidTicket_WritesApprovedAnonymousCommentGovernanceFieldsAndInvalidatesPublicScope()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
@@ -69,7 +69,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
                 Encoding.UTF8.GetBytes(ModerationPepper),
                 Encoding.UTF8.GetBytes(NullifierHash))),
             comment.ModerationSubjectHash);
-        Assert.Equal(CommentModerationStatus.Pending, comment.ModerationStatus);
+        Assert.Equal(CommentModerationStatus.Approved, comment.ModerationStatus);
         Assert.DoesNotContain(Convert.ToHexString(Ticket), comment.Content, StringComparison.OrdinalIgnoreCase);
 
         CommentRegionCompliance compliance = Assert.Single(db.Queryable<CommentRegionCompliance>().ToList());
@@ -88,7 +88,7 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.Equal(42, scope.ArticleId);
         Assert.Equal(comment.Id, scope.RootId);
         Assert.Null(scope.AccountId);
-        Assert.False(scope.PublicArticleChanged);
+        Assert.True(scope.PublicArticleChanged);
     }
 
     [Fact]
@@ -500,6 +500,37 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.Equal("hello anonymous", commentService.Request.Content);
         Assert.Equal(RegionCodes.Singapore, commentService.RegionDecision!.SubmitRegion);
         Assert.Equal(1, commentService.AnonymousCreateCalls);
+    }
+
+    [Fact]
+    public async Task AnonymousCommentCreateEndpoint_UsesRuntimeCommentPolicyLimit()
+    {
+        var aeds = new AedsEncoder();
+        var commentService = new CapturingCommentEndpointService();
+        string longContent = new('a', 1200);
+        DefaultHttpContext context = CreateEndpointContext(
+            AedsFrameType.AnonymousCommentCreateRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeAnonymousCommentCreateRequest(CreateRequest(content: longContent))));
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleAnonymousCommentCreateAsync(
+            context,
+            commentService,
+            new AllowingContentFilter(),
+            new FixedClientRegionResolver(),
+            new RegionLegalModerationService(),
+            new NullRiskSignalSink(),
+            FixedZkAnonymousProofService.Available(),
+            aeds,
+            CancellationToken.None,
+            new FixedAnonymousCommentPolicyService(AnonymousCommentPolicySnapshot.Default with
+            {
+                CommentMaxChars = 1500,
+                CommentMaxUtf8Bytes = 6000
+            }));
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.Equal(AedsFrameType.EmptySuccess, decoded.FrameType);
+        Assert.Equal(longContent, commentService.Request.Content);
     }
 
     [Fact]
@@ -1000,6 +1031,32 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     {
         public ValueTask AddRiskAsync(SecurityRiskSignal signal, CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
+    }
+
+    private sealed class FixedAnonymousCommentPolicyService(AnonymousCommentPolicySnapshot snapshot) : IAnonymousCommentPolicyService
+    {
+        public AnonymousCommentPolicySnapshot Current => snapshot;
+
+        public Task<AnonymousCommentPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(snapshot);
+
+        public AnonymousCommentPolicySnapshot UpdatePolicy(AnonymousCommentPolicyUpdateRequest request, long? adminPrincipalId = null)
+            => snapshot;
+
+        public Task<AnonymousCommentPolicySnapshot> UpdatePolicyAsync(
+            AnonymousCommentPolicyUpdateRequest request,
+            long? adminPrincipalId = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(snapshot);
+
+        public CommentAuthorModeDecision EvaluateAuthorMode(string? requestedAuthorMode, bool publicSendExplicitlySelected)
+            => CommentAuthorModeDecision.Allow(requestedAuthorMode ?? snapshot.DefaultAuthorMode);
+
+        public Task<CommentAuthorModeDecision> EvaluateAuthorModeAsync(
+            string? requestedAuthorMode,
+            bool publicSendExplicitlySelected,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(EvaluateAuthorMode(requestedAuthorMode, publicSendExplicitlySelected));
     }
 
     private sealed class FakeBinaryEndpointRequestContext(AedsFrameType expectedFrameType, BinaryRequestPayload payload) : IBinaryEndpointRequestContext

@@ -423,18 +423,15 @@ function readArticleRightsV3(record: Uint8Array, blob: Uint8Array): ArticleRight
   const snapshotId = readInt64String(record, 0);
   const articleRevisionId = readInt64String(record, 8);
   const revisionNo = readInt32(record, 16);
-  const licenseType = readStrictSliceText(blob, record, 32, 'article_detail_v3_rights_license_invalid');
-  const copyPolicy = readStrictSliceText(blob, record, 64, 'article_detail_v3_rights_copy_policy_invalid');
+  const licenseType = readStrictSliceText(blob, record, 32, 'article_detail_v3_rights_license_invalid') || 'all-rights-reserved';
+  const copyPolicy = readStrictSliceText(blob, record, 64, 'article_detail_v3_rights_copy_policy_invalid') || 'append-attribution';
   const policyHash = readStrictSliceText(blob, record, 80, 'article_detail_v3_rights_policy_hash_invalid');
   const contentCanonicalHash = readStrictSliceText(blob, record, 88, 'article_detail_v3_rights_content_hash_invalid');
-  if (snapshotId === '0' || articleRevisionId === '0' || revisionNo <= 0 || !licenseType || !copyPolicy || !policyHash || !contentCanonicalHash) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_v3_rights_required_invalid');
-  }
 
   return {
     snapshotId,
     articleRevisionId,
-    revisionNo,
+    revisionNo: Math.max(0, revisionNo),
     enabled: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_ENABLED) !== 0,
     licenseType,
     copyrightHolder: readOptionalRightsSlice(blob, record, 40, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_COPYRIGHT_HOLDER, 'article_detail_v3_rights_holder_invalid'),

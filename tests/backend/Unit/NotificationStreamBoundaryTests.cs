@@ -349,10 +349,12 @@ public class NotificationStreamBoundaryTests
     [Fact]
     public async Task Handshake_HighRiskAnonymousSubscribeWithoutProofReturnsRiskChallengeRequired()
     {
+        var riskSink = new CapturingRiskSink();
         NotificationStreamHandshakeService service = CreateHandshakeService(
             new TestWebHostEnvironment { EnvironmentName = Environments.Production },
             ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
-            riskScore: 50);
+            riskScore: 50,
+            riskSink: riskSink);
         DefaultHttpContext context = CreateAnonymousHandshakeContext("https://example.com", "example.com");
 
         NotificationStreamHandshakeResult result = await service.ValidateAsync(context, CancellationToken.None, requireWebSocket: false);
@@ -360,6 +362,11 @@ public class NotificationStreamBoundaryTests
         Assert.False(result.IsSuccess);
         Assert.Equal(StatusCodes.Status428PreconditionRequired, result.StatusCode);
         Assert.Equal("risk_challenge_required", result.ErrorCode);
+        SecurityRiskSignal signal = Assert.Single(riskSink.Signals);
+        Assert.Equal(SecurityRiskReason.SecurityChallengeRejected, signal.Reason);
+        Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
+        Assert.Equal(0, signal.Score);
+        Assert.Equal("challenge_proof_missing", signal.Detail);
     }
 
     [Fact]
@@ -548,7 +555,8 @@ public class NotificationStreamBoundaryTests
         int riskScore = 0,
         CapturingProofService? proof = null,
         IPowService? powService = null,
-        INotificationStreamAdmissionService? admissionService = null)
+        INotificationStreamAdmissionService? admissionService = null,
+        CapturingRiskSink? riskSink = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings.Select(static item =>
@@ -567,7 +575,7 @@ public class NotificationStreamBoundaryTests
             new RiskControlContextFactory(),
             new RiskDecisionService(),
             proof ?? new CapturingProofService(),
-            new CapturingRiskSink(),
+            riskSink ?? new CapturingRiskSink(),
             admissionService ?? new AllowingAdmissionService(),
             new NotificationStreamAudienceResolver(),
             new NotificationStreamOriginSnapshotProvider(configuration),

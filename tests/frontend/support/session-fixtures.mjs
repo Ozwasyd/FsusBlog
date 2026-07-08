@@ -49,6 +49,10 @@ const jwtIssuer = process.env.Jwt__Issuer
 const jwtAudience = process.env.Jwt__Audience
   || process.env.FSUSBLOG_JWT_AUDIENCE
   || 'fsusblog-client';
+const anonymousCredentialSubjectHashPepper = process.env.AnonymousCredentialIssuer__SubjectHashPepper
+  || process.env.FSUSBLOG_DEV_ANONYMOUS_SUBJECT_HASH_PEPPER
+  || '';
+const resetAnonymousCredentialIssuanceFixture = process.env.FSUSBLOG_RESET_ANONYMOUS_ISSUANCE_FIXTURE !== '0';
 const accessTokenExpiresMinutes = Number.parseInt(
   process.env.Jwt__AccessTokenExpiresMinutes
   || process.env.FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES
@@ -193,6 +197,39 @@ function accountSubjectHash(identityKind, subject) {
     .digest('hex');
 }
 
+function anonymousCredentialIssuanceSubjectHash(userId) {
+  const pepper = String(anonymousCredentialSubjectHashPepper || '').trim();
+  if (pepper.length < 32) {
+    return '';
+  }
+
+  const key = createHash('sha256').update(pepper, 'utf8').digest();
+  return createHmac('sha256', key)
+    .update(`fsusblog:anonymous-credential-issuance:v1:${userId}`, 'utf8')
+    .digest('hex');
+}
+
+function clearFixtureAnonymousCredentialIssuanceAudit(userId) {
+  if (!resetAnonymousCredentialIssuanceFixture) {
+    return;
+  }
+
+  const subjectHash = anonymousCredentialIssuanceSubjectHash(userId);
+  if (!subjectHash) {
+    return;
+  }
+
+  runPsql(`
+DO $$
+BEGIN
+  IF to_regclass('anonymous_credential_issuance_audit') IS NOT NULL THEN
+    DELETE FROM anonymous_credential_issuance_audit
+    WHERE subject_hash = ${sqlString(subjectHash)};
+  END IF;
+END $$;
+`);
+}
+
 function runtimeCacheKey(key) {
   return testSession ? `e2e:${testSession}:${key}` : key;
 }
@@ -308,6 +345,7 @@ DELETE FROM user_mfa_profile
 WHERE user_id = ${userId};
 `, `reset fixture user MFA ${normalizedHandle}`);
   clearFixtureUserBanCache(normalizedHandle);
+  clearFixtureAnonymousCredentialIssuanceAudit(userId);
 
   const sessionId = stableFixtureSessionId(
     ANONYMOUS_ACCOUNT_KIND,

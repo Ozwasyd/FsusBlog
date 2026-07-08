@@ -5,15 +5,16 @@
 
       <div
         v-if="showSearchSort"
-        class="mb-8 border-y border-[var(--fsusblog-panel-border)] py-4 text-[11px] font-bold leading-relaxed text-[var(--fsusblog-text-muted)]"
+        class="search-result-meta mb-5 border-b border-[var(--fsusblog-panel-border)] pb-5 text-xs font-semibold leading-6 text-[var(--fsusblog-text-muted)]"
         aria-live="polite"
       >
-        搜索范围：全站文章、标签或关键词。当前结果：{{ searchResultStateText }}
+        <span>范围：文章、标签、关键词</span>
+        <span>结果：{{ searchResultStateText }}</span>
       </div>
 
       <div
         v-if="showSearchSort"
-        class="filter-stack mb-16 border-b border-[var(--fsusblog-panel-border)] pb-10 flex items-center gap-8"
+        class="filter-stack mb-8 inline-flex max-w-full items-center gap-6"
         data-fsus-motion-surface="search-panel"
       >
         <span class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">排序</span>
@@ -49,18 +50,24 @@
         @page-next="emit('page-next')"
       />
 
-      <div v-else class="py-24 sm:py-32 md:py-48">
-        <p class="text-[11px] tabular-nums font-bold text-[var(--fsusblog-text-subtle)] normal-case tracking-normal">
-          {{ view.empty.title }}
-        </p>
+      <PublicContentState
+        v-else
+        class="py-12 sm:py-14 md:py-16"
+        :title="view.empty.title"
+        :description="view.empty.description"
+        :tone="view.empty.hasError ? 'error' : 'neutral'"
+        :role="view.empty.hasError ? 'alert' : 'status'"
+        size="page"
+        :aria-live="view.empty.hasError ? 'assertive' : 'polite'"
+      >
         <a
           :href="PUBLIC_FIXED_PATHS.home"
-          class="mt-6 inline-flex min-h-9 items-center gap-2 px-1 text-sm font-bold text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)]"
+          class="inline-flex min-h-9 items-center gap-2 px-1 text-sm font-bold text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)]"
           @click="handleEmptyAction"
         >
           {{ view.empty.actionText }}
         </a>
-      </div>
+      </PublicContentState>
     </div>
 
     <aside class="hidden lg:block lg:w-64 shrink-0">
@@ -81,6 +88,7 @@ import { computed } from 'vue'
 import type { PaginationContract } from '@/ui-contracts/primitives'
 import type { SearchSortMode } from '@/services/localSearch'
 import PublicArticleList from '@/components/public/PublicArticleList.vue'
+import PublicContentState from '@/components/public/PublicContentState.vue'
 import FilterHeader from '@/components/filter/FilterHeader.vue'
 import FilterArticleLoadingState from '@/components/filter/FilterArticleLoadingState.vue'
 import { PUBLIC_FIXED_PATHS } from '@/public-renderers/publicRoutePaths'
@@ -146,18 +154,23 @@ const searchResultStateText = computed(() => {
   }
 
   if (props.view.articles.length === 0) {
-    return props.view.filterType === 'search'
-      ? `${props.view.empty.title}`
-      : '本页暂时没有文章'
+    return '0'
   }
 
-  return `本页显示 ${props.view.articles.length} 篇，${props.view.pagination.pageIndicatorText}`
+  return `${props.view.articles.length} / ${props.view.pagination.pageIndicatorText}`
 })
 </script>
 
 <style scoped>
-.filter-stack {
+.search-result-meta {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+
+.filter-stack {
+  display: inline-flex;
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;

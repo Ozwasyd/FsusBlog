@@ -697,6 +697,23 @@ public sealed class FileServiceTests
     }
 
     [Fact]
+    public async Task InitUploadAsync_ValidIcoRequest_ReturnsSuccess()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var svc = CreateService(root);
+            var result = await svc.InitUploadSessionAsync(new UploadInitRequestDto
+            {
+                FileName = "favicon.ico", MimeType = "image/x-icon", TargetFormat = "ico",
+                TotalBytes = 200, ChunkSize = 200
+            });
+            Assert.True(result.IsSuccess);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public async Task ValidateUploadSessionTokenAsync_RequiresInitToken()
     {
         string root = CreateTempDirectory();
@@ -1468,7 +1485,9 @@ public sealed class FileServiceTests
     [InlineData(".png", true)]
     [InlineData(".gif", true)]
     [InlineData(".webp", true)]
+    [InlineData(".ico", true)]
     [InlineData(".avif", false)]
+    [InlineData(".svg", false)]
     [InlineData(".bmp", false)]
     [InlineData(".exe", false)]
     public void IsAllowedExtension_ReturnsExpected(string ext, bool expected)
@@ -1482,7 +1501,10 @@ public sealed class FileServiceTests
     [InlineData("image/png", true)]
     [InlineData("image/gif", true)]
     [InlineData("image/webp", true)]
+    [InlineData("image/x-icon", true)]
+    [InlineData("image/vnd.microsoft.icon", true)]
     [InlineData("image/avif", false)]
+    [InlineData("image/svg+xml", false)]
     [InlineData("image/bmp", false)]
     [InlineData(null, false)]
     [InlineData("", false)]
@@ -1497,7 +1519,10 @@ public sealed class FileServiceTests
     [InlineData("image/jpeg", "jpeg", true)]
     [InlineData("image/png", "png", true)]
     [InlineData("image/webp", "webp", true)]
+    [InlineData("image/x-icon", "ico", true)]
+    [InlineData("image/vnd.microsoft.icon", "ico", true)]
     [InlineData("image/jpeg", "png", false)]
+    [InlineData("image/svg+xml", "svg", false)]
     [InlineData(null, "jpg", true)]   // null mime means compatible
     [InlineData("", "jpg", true)]     // empty mime means compatible
     public void IsMimeCompatibleWithFormat_ReturnsExpected(string? mimeType, string format, bool expected)

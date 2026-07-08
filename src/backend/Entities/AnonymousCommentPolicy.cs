@@ -23,6 +23,12 @@ public sealed class AnonymousCommentPolicy
     [SugarColumn(ColumnName = "supported_display_languages", Length = 128)]
     public string SupportedDisplayLanguages { get; set; } = "zh-CN,en";
 
+    [SugarColumn(ColumnName = "comment_max_chars")]
+    public int CommentMaxChars { get; set; } = 1000;
+
+    [SugarColumn(ColumnName = "comment_max_utf8_bytes")]
+    public int CommentMaxUtf8Bytes { get; set; } = 4096;
+
     [SugarColumn(ColumnName = "snapshot_hash", Length = 64)]
     public string SnapshotHash { get; set; } = string.Empty;
 

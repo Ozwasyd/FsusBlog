@@ -58,7 +58,8 @@ expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '内容'", 'adm
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '互动'", 'admin nav must expose interaction task group')
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '系统'", 'admin nav must expose system task group')
 expectIncludes('src/frontend/src/layouts/accountNav.ts', "label: '运维'", 'admin nav must expose ops task group')
-expectIncludes('src/frontend/src/layouts/AccountLayout.vue', 'openMobileGroupKey', 'mobile nav must keep one active task group expanded')
+expectIncludes('src/frontend/src/layouts/AccountLayout.vue', 'mobileDrawerVisible', 'mobile nav must use the account drawer state')
+expectIncludes('src/frontend/src/layouts/AccountLayout.vue', 'account-mobile-drawer-trigger', 'mobile nav trigger must live in header actions')
 expectIncludes('src/frontend/src/layouts/AccountLayout.vue', 'account-shell-area-title', 'account shell area label must be non-heading display text')
 expectNotIncludes('src/frontend/src/layouts/AccountLayout.vue', '<h1 class="text-[2.25rem] font-bold leading-[0.9]', 'account shell must not add a second page-level h1')
 
@@ -177,6 +178,8 @@ expectIncludes('src/frontend/src/views/admin/article/Trash.vue', 'AdminCollectio
 expectIncludes('src/frontend/src/views/admin/article/Trash.vue', 'AdminInlineEmptyState', 'article trash empty states must use compact inline semantics')
 expectIncludes('src/frontend/src/views/admin/article/Trash.vue', '恢复下线文章或执行永久删除。', 'article trash header copy must be short and task-oriented')
 expectIncludes('src/frontend/src/views/admin/article/Trash.vue', '回收站 ·', 'article trash state must use compact count wording')
+expectIncludes('src/frontend/src/components/admin/AdminTaxonomyManageView.vue', '<FsusDialog', 'taxonomy create/edit dialog must use the shared Blog dialog shell')
+expectNotIncludes('src/frontend/src/components/admin/AdminTaxonomyManageView.vue', '<el-dialog', 'taxonomy create/edit dialog must not set raw Element dialog placement in the page')
 expectIncludes('src/frontend/src/views/admin/article/Trash.vue', '恢复后重新公开；永久删除不可找回。', 'article trash safety copy must live in compact state, not header')
 expectIncludes('src/frontend/src/views/admin/article/Trash.vue', '回收站暂无下线稿件', 'article trash empty state must use direct inline title copy')
 expectIncludes('src/frontend/src/views/admin/article/Trash.vue', '删除或归档的文章会显示在这里。', 'article trash empty state must explain where items appear')
@@ -227,7 +230,7 @@ expectNotIncludes('src/frontend/src/views/admin/Tag.vue', '删除判断使用管
 expectNotIncludes('src/frontend/src/views/admin/Tag.vue', 'label="真实引用"', 'tag reference column label must not lead with implementation wording')
 expectIncludes('src/frontend/src/public-renderers/publicShellState.ts', '搜索文章、标签或关键词', 'public search placeholder must be specific')
 expectIncludes('src/frontend/src/components/public/HomeFeedSurface.vue', '快速入口', 'home sidebar nav must be named quick entry')
-expectIncludes('src/frontend/src/components/public/pages/PublicFilterPageContent.vue', '搜索范围：全站文章、标签或关键词', 'search results must show scope and state')
+expectIncludes('src/frontend/src/components/public/pages/PublicFilterPageContent.vue', '范围：文章、标签、关键词', 'search results must show scope and state')
 expectIncludes('src/frontend/src/components/home/HomeArticleEmptyState.vue', '查看归档', 'public empty state must include next action')
 
 if (failures.length > 0) {

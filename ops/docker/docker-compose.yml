@@ -37,6 +37,31 @@ services:
       - Fido2__ServerDomain=${FIDO2_SERVER_DOMAIN}
       - Fido2__ServerName=${FIDO2_SERVER_NAME:-FsusBlog}
       - Fido2__Origins__0=${SITE_BASEURL}
+      # 生产默认启用匿名身份/admin principal 平面，避免 legacy sys_user.role=admin 授权兜底。
+      - FSUSBLOG_ANONYMOUS_IDENTITY_MODE=${FSUSBLOG_ANONYMOUS_IDENTITY_MODE:-1}
+      # ZK-Prod 默认开启；缺少真实 trusted setup、VK、issuer key 或 root snapshot 时由 readiness fail-closed。
+      - AnonymousIdentity__ZkProd__Enabled=${FSUSBLOG_ZK_PROD_ENABLED:-true}
+      - AnonymousIdentity__ZkProd__RequireNativeVerifier=true
+      - AnonymousIdentity__ZkProd__RequireCredential=true
+      - AnonymousIdentity__ZkProd__RequireTrustedSetupVerified=true
+      - AnonymousIdentity__ZkProd__AllowDevVerifier=false
+      - AnonymousIdentity__ZkProd__FallbackToLegacyAnonymous=false
+      - AnonymousIdentity__ZkProd__VerifierBackend=native_groth16
+      - AnonymousIdentity__ZkProd__TrustedSetupVerified=${FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED:-true}
+      - AnonymousIdentity__ZkProd__CredentialReady=${FSUSBLOG_ZK_CREDENTIAL_READY:-true}
+      - AnonymousIdentity__ZkProd__VerifyingKeyHash=${FSUSBLOG_ZK_VERIFYING_KEY_HASH}
+      - AnonymousIdentity__ZkProd__TrustedSetupManifestPath=${FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST}
+      - AnonymousIdentity__ZkProd__VerifyingKeyManifestPath=${FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST}
+      - AnonymousIdentity__ZkVerifier__Enabled=${FSUSBLOG_ZK_VERIFIER_ENABLED:-true}
+      - AnonymousIdentity__ZkVerifier__VerifyingKeyHash=${FSUSBLOG_ZK_VERIFYING_KEY_HASH}
+      - AnonymousIdentity__ZkVerifier__NativeGroth16__LibraryPath=${FSUSBLOG_ZK_NATIVE_VERIFIER_LIB:-managed:mcl}
+      - AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeyPath=${FSUSBLOG_ZK_GROTH16_VERIFYING_KEY}
+      - AnonymousIdentity__ZkVerifier__NativeGroth16__VerifyingKeySha256=${FSUSBLOG_ZK_VERIFYING_KEY_HASH}
+      - AnonymousCredentialIssuer__IssuerPublicKeyId=${FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID}
+      - AnonymousCredentialIssuer__CircuitNative__Enabled=${FSUSBLOG_ZK_CREDENTIAL_ISSUER_ENABLED:-true}
+      - AnonymousCredentialIssuer__CircuitNative__IssuerPrivateKeyPath=${FSUSBLOG_ZK_ISSUER_PRIVATE_KEY}
+      - AnonymousCredentialIssuer__CircuitNative__IssuerPublicKeyPath=${FSUSBLOG_ZK_ISSUER_PUBLIC_KEY}
+      - AnonymousCredentialIssuer__CircuitNative__IssuerPublicKeyHash=${FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH}
     networks:
       - fsus-app-network
       - fsus-infra-network
@@ -44,6 +69,8 @@ services:
       - fsus-uploads:/app/wwwroot/uploads
       - fsus-aot-cache:/app/wwwroot/aot-cache
       - fsus-logs:/app/Logs
+      - ${FSUSBLOG_ZK_CONFIG_DIR:?Set FSUSBLOG_ZK_CONFIG_DIR to the host ZK config directory}:/app/config/zk:ro
+      - ${FSUSBLOG_ZK_SECRET_DIR:?Set FSUSBLOG_ZK_SECRET_DIR to the host ZK secret directory}:/app/secrets/zk:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health/live >/dev/null || exit 1"]
       interval: 30s

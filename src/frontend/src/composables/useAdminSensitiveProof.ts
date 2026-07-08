@@ -1,5 +1,6 @@
 import { startAuthentication } from '@simplewebauthn/browser'
 import { adminStepUpPasskeyBegin, adminStepUpPasskeyComplete } from '@/api/auth'
+import { mintLocalFixtureAdminSensitiveProof } from '@/services/localFixtureSession'
 
 const AdminSensitiveAction = 'admin-sensitive'
 
@@ -34,6 +35,11 @@ export function useAdminSensitiveProof() {
     const injectedProofToken = await readInjectedProofToken()
     if (injectedProofToken) {
       return injectedProofToken
+    }
+
+    const localFixtureProofToken = await mintLocalFixtureAdminSensitiveProof()
+    if (localFixtureProofToken) {
+      return localFixtureProofToken
     }
 
     const challenge = await adminStepUpPasskeyBegin()

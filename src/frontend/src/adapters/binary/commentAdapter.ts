@@ -36,6 +36,8 @@ export type CommentPolicySnapshot = {
   defaultAuthorMode: CommentAuthorMode;
   supportedDisplayLanguages: string[];
   snapshotHash: string;
+  commentMaxChars: number;
+  commentMaxUtf8Bytes: number;
   zkProdEnabled: boolean;
   zkProdNativeVerifierConfigured: boolean;
   zkProdTrustedSetupVerified: boolean;
@@ -67,12 +69,14 @@ export function mapCommentPolicySnapshotFromPayload(payload: Uint8Array): Commen
     zkProdTrustedSetupVerified: readBooleanByte(pod, 6, 'comment_policy_snapshot_zk_prod_setup_flag_invalid'),
     zkProdCredentialRequired: readBooleanByte(pod, 7, 'comment_policy_snapshot_zk_prod_credential_flag_invalid'),
     zkProdCredentialRootReady: readBooleanByte(pod, 8, 'comment_policy_snapshot_zk_prod_root_flag_invalid'),
-    supportedDisplayLanguages: readSliceText(blob, readSliceRef(pod, 9))
+    commentMaxChars: readInt32(pod, 9),
+    commentMaxUtf8Bytes: readInt32(pod, 13),
+    supportedDisplayLanguages: readSliceText(blob, readSliceRef(pod, 17))
       .split('\n')
       .map(language => language.trim())
       .filter(Boolean),
-    snapshotHash: readSliceText(blob, readSliceRef(pod, 17)),
-    zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, 25))
+    snapshotHash: readSliceText(blob, readSliceRef(pod, 25)),
+    zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, 33))
   };
 }
 
@@ -146,8 +150,7 @@ export function mapAnonymousCommentTicketResponseFromPayload(payload: Uint8Array
     ticketExpiresAtUnixMs: readInt64Number(pod, 8),
     credentialLevel: readAnonymousSliceText(blob, readSliceRef(pod, 16), 'anonymous_comment_ticket_response_level_invalid'),
     ticket: readAnonymousSliceBytes(blob, readSliceRef(pod, 24), 'anonymous_comment_ticket_response_ticket_invalid'),
-    moderationSubjectHash: readAnonymousSliceBytes(blob, readSliceRef(pod, 32), 'anonymous_comment_ticket_response_moderation_hash_invalid'),
-    anonymousNullifierHash: readAnonymousSliceBytes(blob, readSliceRef(pod, 40), 'anonymous_comment_ticket_response_nullifier_invalid')
+    moderationSubjectHash: readAnonymousSliceBytes(blob, readSliceRef(pod, 32), 'anonymous_comment_ticket_response_moderation_hash_invalid')
   };
 }
 

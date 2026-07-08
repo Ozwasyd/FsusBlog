@@ -1099,6 +1099,8 @@ public class PodBinaryCodecTests
             DefaultAuthorMode: "zk_anonymous",
             SupportedDisplayLanguages: ["zh-CN", "en"],
             SnapshotHash: new string('9', 64),
+            CommentMaxChars: 2500,
+            CommentMaxUtf8Bytes: 10_000,
             ZkProdEnabled: true,
             ZkProdNativeVerifierConfigured: true,
             ZkProdTrustedSetupVerified: true,
@@ -1120,13 +1122,17 @@ public class PodBinaryCodecTests
         Assert.Equal("zk_anonymous", snapshotDecoded.DefaultAuthorMode);
         Assert.Equal(["zh-CN", "en"], snapshotDecoded.SupportedDisplayLanguages);
         Assert.Equal(new string('9', 64), snapshotDecoded.SnapshotHash);
+        Assert.Equal(2500, snapshotDecoded.CommentMaxChars);
+        Assert.Equal(10_000, snapshotDecoded.CommentMaxUtf8Bytes);
 
         var update = new CommentPolicyUpdateRequestCoreModel(
             AnonymousCommentsEnabled: false,
             PublicCommentsEnabled: null,
             ZkAnonymousEnabled: true,
             DefaultAuthorMode: "public",
-            SupportedDisplayLanguages: ["en"]);
+            SupportedDisplayLanguages: ["en"],
+            CommentMaxChars: 2300,
+            CommentMaxUtf8Bytes: 9200);
 
         byte[] updateEncoded = PodBinaryCodec.EncodeCommentPolicyUpdateRequest(update);
         Assert.True(PodBinaryCodec.TryDecodeCommentPolicyUpdateRequest(updateEncoded, out var updateDecoded));
@@ -1135,6 +1141,8 @@ public class PodBinaryCodecTests
         Assert.True(updateDecoded.ZkAnonymousEnabled);
         Assert.Equal("public", updateDecoded.DefaultAuthorMode);
         Assert.Equal(["en"], updateDecoded.SupportedDisplayLanguages);
+        Assert.Equal(2300, updateDecoded.CommentMaxChars);
+        Assert.Equal(9200, updateDecoded.CommentMaxUtf8Bytes);
 
         byte[] retiredSnapshotMode = (byte[])snapshotEncoded.Clone();
         retiredSnapshotMode[3] = 2;

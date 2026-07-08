@@ -341,6 +341,8 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Matches(
             "INSERT INTO anonymous_comment_policy \\([\\s\\S]*snapshot_hash,\\s*changed_by,[\\s\\S]*VALUES \\(1, true, true, false, 'anonymous', 'zh-CN,en', '', 'system', now\\(\\)\\)",
             fingerprint);
+        Assert.Contains("comment_max_chars integer NOT NULL DEFAULT 1000", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("comment_max_utf8_bytes integer NOT NULL DEFAULT 4096", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]

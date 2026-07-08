@@ -14,6 +14,16 @@ let observerCallback: ((entries: ObserverEntry[]) => void) | null = null
 let nowMs = 0
 let mountedWrappers: VueWrapper[] = []
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+  return { promise, resolve, reject }
+}
+
 class FakeIntersectionObserver {
   constructor(callback: (entries: ObserverEntry[]) => void) {
     observerCallback = callback
@@ -86,7 +96,7 @@ describe('useHumanReadProof', () => {
     expect(submitHumanReadProof).not.toHaveBeenCalled()
   })
 
-  it('submits after visible dwell reaches the challenge minimum', async () => {
+  it('submits after visible dwell reaches the challenge minimum plus clock safety', async () => {
     mountHarness()
     await waitForObserver()
 
@@ -94,14 +104,54 @@ describe('useHumanReadProof', () => {
     nowMs = 1000
     await vi.advanceTimersByTimeAsync(1000)
     await flushPromises()
+    expect(submitHumanReadProof).not.toHaveBeenCalled()
 
+    nowMs = 1250
+    await vi.advanceTimersByTimeAsync(250)
+    await flushPromises()
     expect(submitHumanReadProof).toHaveBeenCalledTimes(1)
     expect(vi.mocked(submitHumanReadProof).mock.calls[0][0]).toMatchObject({
       token: 'proof-token',
       scope: 'site',
       routeKey: 'home'
     })
-    expect(vi.mocked(submitHumanReadProof).mock.calls[0][0].dwellMs).toBeGreaterThanOrEqual(1000)
+    expect(vi.mocked(submitHumanReadProof).mock.calls[0][0].dwellMs).toBeGreaterThanOrEqual(1250)
+  })
+
+  it('starts submit dwell from the challenge response instead of pre-challenge visibility', async () => {
+    const deferredChallenge = createDeferred<Awaited<ReturnType<typeof requestHumanReadChallenge>>>()
+    vi.mocked(requestHumanReadChallenge).mockReturnValueOnce(deferredChallenge.promise)
+
+    mountHarness()
+    await waitForObserver()
+
+    await triggerReadableRootVisible()
+    nowMs = 600
+    await vi.advanceTimersByTimeAsync(600)
+    await flushPromises()
+    expect(submitHumanReadProof).not.toHaveBeenCalled()
+
+    deferredChallenge.resolve({
+      token: 'proof-token',
+      scope: 'site',
+      routeKey: 'home',
+      articleId: null,
+      minDwellMs: 1000,
+      issuedAt: '2026-05-13T00:00:00Z',
+      expiresAt: '2026-05-13T00:05:00Z'
+    })
+    await flushPromises()
+
+    nowMs = 1849
+    await vi.advanceTimersByTimeAsync(1249)
+    await flushPromises()
+    expect(submitHumanReadProof).not.toHaveBeenCalled()
+
+    nowMs = 1850
+    await vi.advanceTimersByTimeAsync(1)
+    await flushPromises()
+    expect(submitHumanReadProof).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(submitHumanReadProof).mock.calls[0][0].dwellMs).toBe(1250)
   })
 
   it('does not submit before the dwell threshold', async () => {
@@ -146,8 +196,8 @@ describe('useHumanReadProof', () => {
     await waitForObserver()
 
     await triggerReadableRootVisible()
-    nowMs = 1000
-    await vi.advanceTimersByTimeAsync(1000)
+    nowMs = 1250
+    await vi.advanceTimersByTimeAsync(1250)
     await flushPromises()
 
     routeKey.value = 'archive'
@@ -155,8 +205,8 @@ describe('useHumanReadProof', () => {
     nowMs = 0
     await waitForObserver()
     await triggerReadableRootVisible()
-    nowMs = 1000
-    await vi.advanceTimersByTimeAsync(1000)
+    nowMs = 1250
+    await vi.advanceTimersByTimeAsync(1250)
     await flushPromises()
 
     expect(requestHumanReadChallenge).toHaveBeenCalledTimes(2)
@@ -184,17 +234,17 @@ describe('useHumanReadProof', () => {
     nowMs = 700
     setDocumentVisibility('visible')
 
-    nowMs = 1299
-    await vi.advanceTimersByTimeAsync(599)
+    nowMs = 1549
+    await vi.advanceTimersByTimeAsync(849)
     await flushPromises()
     expect(submitHumanReadProof).not.toHaveBeenCalled()
 
-    nowMs = 1300
+    nowMs = 1550
     await vi.advanceTimersByTimeAsync(1)
     await flushPromises()
 
     expect(submitHumanReadProof).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(submitHumanReadProof).mock.calls[0][0].dwellMs).toBe(1000)
+    expect(vi.mocked(submitHumanReadProof).mock.calls[0][0].dwellMs).toBe(1250)
   })
 
   it('cancels a deferred challenge request on unmount', async () => {

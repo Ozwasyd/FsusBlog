@@ -30,6 +30,13 @@ import {
   classifyPublicNavigationIntent,
   type PublicAtomicNavigationIntent
 } from '@/bootstrap/publicNavigationIntent'
+import {
+  activateLocalFixtureSession,
+  buildLocalFixtureAdminUrl,
+  ensureLocalFixtureSessionCookies,
+  isLocalFixtureQueryEnabled,
+  isLocalFixtureSessionActive
+} from '@/services/localFixtureSession'
 
 function isModifiedEvent(event: MouseEvent): boolean {
   return event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
@@ -460,6 +467,27 @@ function isPublicShellDocument(): boolean {
 
 function currentPublicShellFullPath(): string {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`
+}
+
+function readCurrentPublicShellPath(): string {
+  return currentPublicShellFullPath()
+}
+
+async function preparePublicShellLocalFixtureSession(): Promise<void> {
+  const searchParams = new URLSearchParams(window.location.search)
+  if (isLocalFixtureQueryEnabled(searchParams.get('fsusLocalFixtureLogin'))) {
+    activateLocalFixtureSession()
+  }
+
+  if (!isLocalFixtureSessionActive()) {
+    return
+  }
+
+  if (await ensureLocalFixtureSessionCookies(readCurrentPublicShellPath())) {
+    return
+  }
+
+  window.location.replace(buildLocalFixtureAdminUrl(readCurrentPublicShellPath()))
 }
 
 function requestPublicRoutePrewarm(target: string | null, reason: PublicRoutePrewarmReason): void {
@@ -1039,6 +1067,7 @@ export async function bootstrapPublicShell(): Promise<void> {
   schedulePublicRouteIdlePrewarm()
   const hydrateTask = (async () => {
     await waitForDocumentInteractive()
+    await preparePublicShellLocalFixtureSession()
     await hydratePublicShell()
   })()
 

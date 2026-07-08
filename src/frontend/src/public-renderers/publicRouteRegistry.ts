@@ -78,7 +78,7 @@ const PUBLIC_SEO_ROUTE_DEFINITIONS = Object.freeze([
     kind: 'ArticleDetail',
     path: PUBLIC_ROUTE_PATH_PATTERNS.articleDetail,
     component: () => import('@/views/ArticleDetail.vue'),
-    meta: { title: '文章详情' }
+    meta: { title: '文章详情', localFixtureCredentialBootstrap: true }
   },
   {
     name: PUBLIC_SEO_ROUTE_NAMES.archive,

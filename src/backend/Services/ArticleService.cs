@@ -2,6 +2,7 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -69,9 +70,6 @@ public class ArticleService(
     private const int MaxSummaryLength = 512;
     private const int MaxContentLength = 200_000;
     private const int MaxTagIds = 32;
-    private const int LongReadThreshold = 5_000;
-    private const int ReadingCharsPerMinute = 300;
-
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
     private static int s_legacyArticleContentColumnState;
 
@@ -267,13 +265,13 @@ public class ArticleService(
             return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(cached, cancellationToken));
         }
 
-        int healedWordCount = CalculateReadableLength(healedContent);
+        ReadingEstimate healedReading = ReadingEstimator.Estimate(healedContent);
         var healed = cached with
         {
             Content = healedContent,
-            WordCount = healedWordCount,
-            EstimatedReadingMinutes = Math.Max(1, (healedWordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
-            ShowReadingNotice = healedWordCount > LongReadThreshold
+            WordCount = healedReading.EffectiveChars,
+            EstimatedReadingMinutes = healedReading.Minutes,
+            ShowReadingNotice = healedReading.ShowLongReadNotice
         };
         cancellationToken.ThrowIfCancellationRequested();
         byte[] encodedHealed = ServerCacheBinaryCodec.EncodeArticleDetail(healed);
@@ -446,7 +444,7 @@ public class ArticleService(
                     content = summary;
                 }
 
-                int wordCount = CalculateReadableLength(content);
+                ReadingEstimate reading = ReadingEstimator.Estimate(content);
 
                 article = new ArticleDetailReadModel
                 {
@@ -463,9 +461,9 @@ public class ArticleService(
                     PublishedAt = reader.IsDBNull(fPublished) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fPublished)),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
                     Content = content,
-                    WordCount = wordCount,
-                    EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
-                    ShowReadingNotice = wordCount > LongReadThreshold,
+                    WordCount = reading.EffectiveChars,
+                    EstimatedReadingMinutes = reading.Minutes,
+                    ShowReadingNotice = reading.ShowLongReadNotice,
                     Tags = ReadArticleDetailTags(reader, fTagIds, fTagNames),
                     Rights = ReadArticleRights(reader)
                 };
@@ -690,25 +688,6 @@ public class ArticleService(
         }
         _logger.LogError("创建文章失败 | DbError: {Error}", result.ErrorMessage);
         return 0;
-    }
-
-    private static int CalculateReadableLength(string? content)
-    {
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            return 0;
-        }
-
-        int count = 0;
-        foreach (char ch in content)
-        {
-            if (!char.IsWhiteSpace(ch))
-            {
-                count++;
-            }
-        }
-
-        return count;
     }
 
     private static ArticleStatus NormalizeWriteStatus(ArticleStatus requested, DateTime? scheduledPublishAt, DateTime utcNow)

@@ -60,56 +60,80 @@
 
       <template #mobile-primary-actions>
         <ThemeModeToggle />
+        <button
+          type="button"
+          class="account-mobile-drawer-trigger"
+          :aria-label="`打开账户导航：${currentNavGroupLabel} / ${currentNavItem?.label ?? '当前页面'}`"
+          @click="mobileDrawerVisible = true"
+        >
+          <el-icon :size="18" aria-hidden="true"><Expand /></el-icon>
+        </button>
       </template>
     </SiteChromeHeaderAdapter>
 
-    <section class="account-mobile-navigation lg:hidden" aria-label="移动账户导航">
-      <FsusUiSegmentedControl
-        class="account-mobile-group-control"
-        :model-value="activeMobileGroupKey"
-        :items="mobileGroupSegmentItems"
-        selection-mode="link"
-        aria-label="账户导航分组"
-        @item-click="selectMobileGroupFromSegment"
-        @update:model-value="selectMobileGroupFromSegment"
-      >
-        <template #item="{ item }">
-          <span
-            class="account-mobile-group-label"
-            :aria-current="activeMobileGroupKey === item.value ? 'page' : undefined"
-          >
-            {{ item.label }}
-          </span>
-        </template>
-      </FsusUiSegmentedControl>
-
-      <nav
-        ref="mobileLinkStripRef"
-        class="account-mobile-link-strip"
-        :aria-label="`${selectedMobileGroup?.label ?? areaMeta.label}导航`"
-      >
-        <span
-          class="account-mobile-link-strip__indicator"
-          :style="mobileLinkIndicatorStyle"
-          aria-hidden="true"
-        ></span>
-        <router-link
-          v-for="item in selectedMobileGroup?.items ?? []"
-          :key="item.to"
-          :to="item.to"
-          class="account-mobile-nav-link"
-          :class="{ 'account-mobile-nav-link-active': isNavItemActive(item) }"
-          :data-account-mobile-nav-active="isNavItemActive(item) ? 'true' : undefined"
-          :aria-current="isNavItemActive(item) ? 'page' : undefined"
+    <el-drawer
+      id="account-mobile-drawer"
+      v-model="mobileDrawerVisible"
+      title="账户导航"
+      direction="ltr"
+      size="min(86vw, 22rem)"
+      class="account-mobile-drawer"
+      :motion="fsusBlogMotionPresets.mobileDrawer"
+    >
+      <nav class="account-mobile-drawer-nav" aria-label="账户导航">
+        <section
+          v-for="group in navGroups"
+          :key="group.key"
+          class="account-mobile-drawer-nav__group"
         >
-          <span>{{ item.label }}</span>
-        </router-link>
+          <div
+            v-if="navGroups.length > 1"
+            class="account-nav-group-title"
+            :class="{ 'account-nav-group-title-active': currentNavGroupKey === group.key }"
+          >
+            <span>{{ group.label }}</span>
+            <span v-if="group.helper" class="account-nav-group-helper">{{ group.helper }}</span>
+          </div>
+          <router-link
+            v-for="item in group.items"
+            :key="item.to"
+            :to="item.to"
+            class="account-nav-link account-mobile-drawer-nav__link group"
+            :class="{ 'account-nav-link-active': isNavItemActive(item) }"
+            :aria-current="isNavItemActive(item) ? 'page' : undefined"
+            @click="closeMobileDrawer"
+          >
+            <div class="account-nav-link-label">
+              {{ item.label }}
+            </div>
+            <div v-if="item.helper" class="account-nav-link-helper">
+              {{ item.helper }}
+            </div>
+          </router-link>
+        </section>
       </nav>
-    </section>
+      <div class="account-mobile-drawer-footer" aria-label="账户辅助链接">
+        <el-button
+          class="account-mobile-drawer-policy"
+          link
+          @click="closeMobileDrawer(), openPolicy('guidelines')"
+        >
+          使用规范
+        </el-button>
+        <span class="account-mobile-drawer-footer__divider" aria-hidden="true"></span>
+        <el-button
+          class="account-mobile-drawer-policy"
+          link
+          @click="closeMobileDrawer(), openPolicy('privacy')"
+        >
+          隐私政策
+        </el-button>
+      </div>
+    </el-drawer>
 
     <div class="mx-auto flex w-full max-w-[var(--fsusblog-container-workbench)] flex-1 gap-5 px-4 py-5 sm:px-6 sm:py-8 lg:gap-10 lg:px-10">
       <aside class="hidden lg:block lg:w-[18rem] lg:shrink-0">
-        <div class="sticky top-24 space-y-8 pr-6">
+        <div class="account-sidebar-scroll sticky top-24 space-y-8 pr-6">
           <nav class="space-y-9" aria-label="账户导航">
             <div id="account-shell-area-title" class="account-sidebar-index-label">
               {{ areaMeta.label }}导航
@@ -143,22 +167,12 @@
               </router-link>
             </section>
           </nav>
-
-          <div class="flex flex-wrap items-center gap-x-2.5 border-t border-[var(--fsusblog-panel-border)] pt-8">
-            <el-button link @click="openPolicy('guidelines')">
-              使用规范
-            </el-button>
-            <span class="h-0.5 w-0.5 rounded-[var(--fsus-radius-pill)] bg-[var(--fsusblog-text-muted)]" aria-hidden="true"></span>
-            <el-button link @click="openPolicy('privacy')">
-              隐私政策
-            </el-button>
-          </div>
         </div>
       </aside>
 
-      <main id="account-main" tabindex="-1" class="min-w-0 flex-1 outline-none" aria-labelledby="account-shell-area-title">
+      <main id="account-main" tabindex="-1" class="account-main-scroll min-w-0 flex-1 outline-none" aria-labelledby="account-shell-area-title">
         <router-view v-slot="{ Component }">
-          <FsuTransition :name="fsusBlogMotionPresets.route" mode="out-in" :duration="140">
+          <FsuTransition :name="fsusBlogMotionPresets.route" mode="out-in" :duration="220">
             <component :is="Component" :key="accountRouteViewKey" class="mx-auto w-full min-w-0" :class="[contentViewportClass, contentModeClass, adminContentClass]" />
           </FsuTransition>
         </router-view>
@@ -170,33 +184,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import PolicyModal from '@/components/PolicyModal.vue'
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
-import { FsusUiSegmentedControl } from '@/fsusui'
+import { Expand } from '@/fsusui/icons'
 import { fsusBlogMotionPresets } from '@/fsusui/blogMotion'
 import { FsuTransition } from '@/fsusui/motion'
-import { getAccountNavGroups, type AccountArea, type AccountContentMode, type AccountNavGroup, type AccountNavGroupKey, type AccountNavItem } from '@/layouts/accountNav'
+import { getAccountNavGroups, type AccountArea, type AccountContentMode, type AccountNavGroupKey, type AccountNavItem } from '@/layouts/accountNav'
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext'
 import { showErrorToast } from '@/utils/errorPresentation'
 
 const route = useRoute()
-const router = useRouter()
 const workspaceContext = useAccountWorkspaceContext()
 
 const showPolicy = ref(false)
 const policyType = ref<'privacy' | 'guidelines'>('guidelines')
 const isLoggingOut = ref(false)
-const openMobileGroupKey = ref<AccountNavGroupKey>('self')
-const mobileLinkStripRef = ref<HTMLElement>()
-const mobileLinkIndicatorStyle = ref<CSSProperties>({
-  opacity: '0',
-  transform: 'translate3d(0, 0, 0)',
-  width: '0px'
-})
-let mobileLinkResizeObserver: ResizeObserver | undefined
+const mobileDrawerVisible = ref(false)
 
 const currentArea = computed<AccountArea>(() =>
   workspaceContext.value.surface
@@ -212,21 +218,16 @@ const currentContentMode = computed<AccountContentMode>(() => {
 
 const areaMeta = computed(() => workspaceContext.value.areaMeta)
 const navGroups = computed(() => getAccountNavGroups(workspaceContext.value))
-const mobileGroupSegmentItems = computed(() =>
-  navGroups.value.map((group) => ({
-    label: group.label,
-    value: group.key,
-    to: group.items[0]?.to
-  }))
-)
-const selectedMobileGroup = computed<AccountNavGroup | undefined>(() =>
-  navGroups.value.find((group) => group.key === openMobileGroupKey.value) ?? navGroups.value[0]
-)
 const currentNavGroupKey = computed<AccountNavGroupKey>(() => {
   const activeGroup = [...navGroups.value].reverse().find((group) => group.items.some((item) => isNavItemActive(item)))
   return activeGroup?.key ?? (currentArea.value === 'manage' ? 'content' : 'self')
 })
-const activeMobileGroupKey = computed<AccountNavGroupKey>(() => currentNavGroupKey.value)
+const currentNavGroupLabel = computed(() =>
+  navGroups.value.find((group) => group.key === currentNavGroupKey.value)?.label ?? areaMeta.value.label
+)
+const currentNavItem = computed(() =>
+  [...navGroups.value.flatMap((group) => group.items)].reverse().find((item) => isNavItemActive(item))
+)
 
 const contentViewportClass = computed(() => {
   if (currentContentMode.value === 'wide') {
@@ -297,61 +298,20 @@ const isNavItemActive = (item: AccountNavItem): boolean => {
     return item.match(route.path)
   }
 
+  if (item.to === '/user/manage') {
+    return route.path === item.to
+  }
+
   return route.path === item.to || route.path.startsWith(`${item.to}/`)
-}
-
-const selectMobileGroup = async (key: AccountNavGroupKey): Promise<void> => {
-  const group = navGroups.value.find((candidate) => candidate.key === key)
-  if (!group) {
-    return
-  }
-
-  openMobileGroupKey.value = key
-
-  if (key !== currentNavGroupKey.value) {
-    const target = group.items[0]?.to
-    if (target && target !== route.path) {
-      await router.push(target)
-    }
-  }
-}
-
-const selectMobileGroupFromSegment = (value: string | number | boolean): void => {
-  if (typeof value !== 'string') {
-    return
-  }
-
-  if (!navGroups.value.some((group) => group.key === value)) {
-    return
-  }
-
-  void selectMobileGroup(value as AccountNavGroupKey)
-}
-
-const updateMobileLinkIndicator = async (): Promise<void> => {
-  await nextTick()
-  const strip = mobileLinkStripRef.value
-  const activeLink = strip?.querySelector<HTMLElement>('[data-account-mobile-nav-active="true"]')
-
-  if (!strip || !activeLink) {
-    mobileLinkIndicatorStyle.value = {
-      opacity: '0',
-      transform: 'translate3d(0, 0, 0)',
-      width: '0px'
-    }
-    return
-  }
-
-  mobileLinkIndicatorStyle.value = {
-    opacity: '1',
-    transform: `translate3d(${activeLink.offsetLeft}px, 0, 0)`,
-    width: `${activeLink.offsetWidth}px`
-  }
 }
 
 const openPolicy = (type: 'privacy' | 'guidelines') => {
   policyType.value = type
   showPolicy.value = true
+}
+
+const closeMobileDrawer = (): void => {
+  mobileDrawerVisible.value = false
 }
 
 const handleLogout = async () => {
@@ -368,41 +328,6 @@ const handleLogout = async () => {
     isLoggingOut.value = false
   }
 }
-
-watch(
-  () => route.fullPath,
-  () => {
-    openMobileGroupKey.value = currentNavGroupKey.value
-    void updateMobileLinkIndicator()
-  }
-)
-
-watch(currentNavGroupKey, (key) => {
-  openMobileGroupKey.value = key
-  void updateMobileLinkIndicator()
-}, { immediate: true })
-
-watch(
-  () => selectedMobileGroup.value?.items.map((item) => item.to).join('|'),
-  () => {
-    void updateMobileLinkIndicator()
-  },
-  { flush: 'post' }
-)
-
-onMounted(() => {
-  void updateMobileLinkIndicator()
-  if (typeof ResizeObserver !== 'undefined' && mobileLinkStripRef.value) {
-    mobileLinkResizeObserver = new ResizeObserver(() => {
-      void updateMobileLinkIndicator()
-    })
-    mobileLinkResizeObserver.observe(mobileLinkStripRef.value)
-  }
-})
-
-onBeforeUnmount(() => {
-  mobileLinkResizeObserver?.disconnect()
-})
 </script>
 
 <style scoped>
@@ -437,117 +362,140 @@ onBeforeUnmount(() => {
   text-transform: none;
 }
 
-.account-mobile-navigation {
-  border-bottom: 1px solid var(--fsusblog-panel-border);
-  background: var(--fsusblog-page-bg);
-}
-
-.account-mobile-link-strip {
-  display: flex;
-  min-width: 0;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-}
-
-.account-mobile-link-strip::-webkit-scrollbar {
-  display: none;
-}
-
-.account-mobile-group-control {
-  position: relative;
-  width: calc(100% - 2rem);
-  max-width: calc(100% - 2rem);
-  min-height: 40px;
-  margin: 0.5rem 1rem 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  border-color: var(--fsusblog-panel-border);
-  border-radius: var(--fsus-radius-control);
-  background: var(--fsusblog-page-bg-soft);
-  isolation: isolate;
-}
-
-.account-mobile-group-control::-webkit-scrollbar {
-  display: none;
-}
-
-.account-mobile-group-label {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  justify-content: center;
-  padding-inline: 0.25rem;
-  color: inherit;
-  line-height: 1;
-}
-
-.account-mobile-link-strip {
-  position: relative;
-  gap: 0.375rem;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  scroll-snap-type: x proximity;
-}
-
-.account-mobile-link-strip__indicator {
-  position: absolute;
-  bottom: 0.875rem;
-  left: 0;
-  z-index: 0;
-  height: 2px;
-  border-radius: var(--fsus-radius-pill);
-  background: var(--fsusblog-color-primary);
-  pointer-events: none;
-  transition:
-    transform var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-    width var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-    opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.account-mobile-nav-link {
-  flex: 0 0 auto;
-  border-radius: var(--fsus-radius-control-small);
-  color: var(--fsusblog-text-tertiary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1;
-  text-decoration: none;
-  transition: background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
-    color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-
-.account-mobile-nav-link {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  border: 1px solid transparent;
-  background: transparent;
-  padding: 0 0.875rem;
-  scroll-snap-align: start;
-  z-index: 1;
-}
-
-.account-mobile-nav-link:hover,
-.account-mobile-nav-link-active {
-  border-color: var(--fsusblog-panel-border);
-  background: var(--fsusblog-page-bg-soft);
-  color: var(--fsusblog-text-primary);
-}
-
-.account-mobile-nav-link:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-  outline: none;
-}
-
 .account-nav-link {
   @apply relative block pl-6 py-1 transition-[color,padding-left] duration-[var(--fsus-motion-control-fast)] text-[var(--fsusblog-text-tertiary)] hover:text-[var(--fsusblog-text-primary)] focus-visible:outline-none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .account-mobile-link-strip__indicator {
-    transition-duration: var(--fsus-motion-duration-instant, 1ms);
+.account-mobile-drawer-trigger {
+  display: inline-flex;
+  min-height: 2.5rem;
+  width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--fsus-radius-control-small);
+  background: transparent;
+  color: var(--fsusblog-text-primary);
+  padding: 0;
+  transition:
+    border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+    background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+    color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.account-mobile-drawer-trigger:hover {
+  border-color: var(--fsusblog-panel-border);
+  background: var(--fsusblog-page-bg-soft);
+}
+
+.account-mobile-drawer-trigger:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
+}
+
+:deep(.account-mobile-drawer) {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--fsusblog-page-bg);
+  color: var(--fsusblog-text-primary);
+}
+
+:deep(.account-mobile-drawer .el-drawer__header) {
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  padding: 1rem 1.25rem;
+}
+
+:deep(.account-mobile-drawer .el-drawer__title) {
+  color: var(--fsusblog-text-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+:deep(.account-mobile-drawer .el-drawer__body) {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem;
+}
+
+.account-mobile-drawer-nav {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.account-mobile-drawer-nav__group {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.account-mobile-drawer-nav__link {
+  min-height: 2.75rem;
+  padding-bottom: 0.35rem;
+  padding-top: 0.35rem;
+}
+
+.account-mobile-drawer-footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  border-top: 1px solid var(--fsusblog-panel-border);
+  padding-top: 1rem;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+:deep(.account-mobile-drawer-policy) {
+  min-height: 2.25rem;
+  padding-inline: 0;
+  color: var(--fsusblog-text-tertiary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+:deep(.account-mobile-drawer-policy:hover),
+:deep(.account-mobile-drawer-policy:focus-visible) {
+  color: var(--fsusblog-text-primary);
+}
+
+.account-mobile-drawer-footer__divider {
+  width: 1px;
+  height: 0.875rem;
+  background: var(--fsusblog-panel-border);
+}
+
+.account-sidebar-scroll {
+  max-height: calc(100vh - 7rem);
+  max-height: calc(100dvh - 7rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-bottom: 1.5rem;
+}
+
+.account-main-scroll {
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .account-main-scroll {
+    max-height: calc(100vh - 7rem);
+    max-height: calc(100dvh - 7rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding-bottom: 2rem;
   }
 }
 

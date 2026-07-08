@@ -7,6 +7,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Filters;
@@ -73,6 +74,7 @@ public static partial class BinaryEndpoints
             IRegionLegalModerationService regionLegalModerationService,
             ISecurityRiskSignalSink riskSignals,
             IZkAnonymousProofService zkProofService,
+            IAnonymousCommentPolicyService policyService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
             await HandleAnonymousCommentCreateAsync(
@@ -84,7 +86,8 @@ public static partial class BinaryEndpoints
                 riskSignals,
                 zkProofService,
                 aeds,
-                cancellationToken))
+                cancellationToken,
+                policyService))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .RequireStrongAnonymousRequest();
@@ -97,6 +100,7 @@ public static partial class BinaryEndpoints
             IClientRegionResolver regionResolver,
             IRegionLegalModerationService regionLegalModerationService,
             ISecurityRiskSignalSink riskSignals,
+            IAnonymousCommentPolicyService policyService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -117,12 +121,26 @@ public static partial class BinaryEndpoints
             }
 
             string content = request.Content?.Trim() ?? string.Empty;
-            if (!IsCommentContentWithinLimit(content))
+            AnonymousCommentPolicySnapshot policy = await policyService.GetCurrentAsync(cancellationToken);
+            if (!IsCommentContentWithinLimit(content, policy))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"评论内容不能超过 {CommentLimits.ContentMaxChars} 字或 {CommentLimits.ContentMaxUtf8Bytes} 字节"), aeds);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, BuildCommentLengthError(policy)), aeds);
             }
 
-            ContentValidationResult validation = contentFilterService.ValidateContent(content);
+            CommentMarkdownPolicyResult markdownReview = CommentMarkdownPolicy.ValidateForSubmit(content);
+            if (!markdownReview.IsValid)
+            {
+                await RecordCommentRiskSignalAsync(
+                    httpContext,
+                    riskSignals,
+                    SecurityRiskReason.CommentSpamPattern,
+                    markdownReview.ReasonCode,
+                    score: 7,
+                    cancellationToken);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, markdownReview.PublicMessage), aeds);
+            }
+
+            ContentValidationResult validation = contentFilterService.ValidateContent(markdownReview.ReviewText);
             if (!validation.IsValid)
             {
                 await RecordCommentRiskSignalAsync(
@@ -132,12 +150,11 @@ public static partial class BinaryEndpoints
                     "content_filter",
                     score: 10,
                     cancellationToken);
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message), aeds);
             }
 
             ClientRegionResolution submitRegion = regionResolver.Resolve(httpContext);
             RegionModerationDecision regionDecision = regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
-                content,
+                markdownReview.ReviewText,
                 request.ArticleId,
                 account.AccountId,
                 submitRegion.Region,
@@ -389,7 +406,8 @@ public static partial class BinaryEndpoints
         ISecurityRiskSignalSink riskSignals,
         IZkAnonymousProofService zkProofService,
         IAedsEncoder aeds,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IAnonymousCommentPolicyService? policyService = null)
     {
         if (!IsZkProdTicketReady(zkProofService.CurrentZkProdPolicy))
         {
@@ -416,12 +434,28 @@ public static partial class BinaryEndpoints
         }
 
         string content = request.Content?.Trim() ?? string.Empty;
-        if (!IsCommentContentWithinLimit(content))
+        AnonymousCommentPolicySnapshot policy = policyService is null
+            ? AnonymousCommentPolicySnapshot.Default
+            : await policyService.GetCurrentAsync(cancellationToken);
+        if (!IsCommentContentWithinLimit(content, policy))
         {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"评论内容不能超过 {CommentLimits.ContentMaxChars} 字或 {CommentLimits.ContentMaxUtf8Bytes} 字节"), aeds);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, BuildCommentLengthError(policy)), aeds);
         }
 
-        ContentValidationResult validation = contentFilterService.ValidateContent(content);
+        CommentMarkdownPolicyResult markdownReview = CommentMarkdownPolicy.ValidateForSubmit(content);
+        if (!markdownReview.IsValid)
+        {
+            await RecordCommentRiskSignalAsync(
+                httpContext,
+                riskSignals,
+                SecurityRiskReason.CommentSpamPattern,
+                markdownReview.ReasonCode,
+                score: 7,
+                cancellationToken);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, markdownReview.PublicMessage), aeds);
+        }
+
+        ContentValidationResult validation = contentFilterService.ValidateContent(markdownReview.ReviewText);
         if (!validation.IsValid)
         {
             await RecordCommentRiskSignalAsync(
@@ -431,12 +465,11 @@ public static partial class BinaryEndpoints
                 "anonymous_content_filter",
                 score: 10,
                 cancellationToken);
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message), aeds);
         }
 
         ClientRegionResolution submitRegion = regionResolver.Resolve(httpContext);
         RegionModerationDecision regionDecision = regionLegalModerationService.EvaluateOnSubmit(new RegionModerationRequest(
-            content,
+            markdownReview.ReviewText,
             request.ArticleId,
             0,
             submitRegion.Region,
@@ -472,10 +505,13 @@ public static partial class BinaryEndpoints
             : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "anonymous_comment_submit_failed"), aeds);
     }
 
-    private static bool IsCommentContentWithinLimit(string content)
+    private static bool IsCommentContentWithinLimit(string content, AnonymousCommentPolicySnapshot policy)
         => !string.IsNullOrWhiteSpace(content)
-            && content.Length <= CommentLimits.ContentMaxChars
-            && Encoding.UTF8.GetByteCount(content) <= CommentLimits.ContentMaxUtf8Bytes;
+            && content.Length <= policy.CommentMaxChars
+            && Encoding.UTF8.GetByteCount(content) <= policy.CommentMaxUtf8Bytes;
+
+    private static string BuildCommentLengthError(AnonymousCommentPolicySnapshot policy)
+        => $"评论内容不能超过 {policy.CommentMaxChars} 字或 {policy.CommentMaxUtf8Bytes} 字节";
 
     private static RegionModerationDecision ApplyRiskControlModerationDecision(
         HttpContext httpContext,
@@ -570,6 +606,8 @@ public static partial class BinaryEndpoints
             snapshot.DefaultAuthorMode,
             snapshot.SupportedDisplayLanguages,
             snapshot.SnapshotHash,
+            snapshot.CommentMaxChars,
+            snapshot.CommentMaxUtf8Bytes,
             zkProd.Enabled,
             zkProd.NativeVerifierConfigured,
             zkProd.TrustedSetupVerified,

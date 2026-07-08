@@ -53,6 +53,20 @@ public sealed class DevSeedSqlContractTests
     }
 
     [Fact]
+    public void DevStart_SeedsAnonymousCommentPrivacyFixtureForLocalDemo()
+    {
+        string startScript = BackendTestPaths.ReadAllTextFromRoot("tools/dev/start.sh");
+
+        Assert.Contains("AnonymousIdentity__ZkAnonymousCommentsEnabled", startScript, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentity__ZkVerifier__Enabled", startScript, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentity__ZkVerifier__LocalDevFixture__Enabled", startScript, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentity__ZkProd__Enabled", startScript, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentity__ZkVerifier__NativeGroth16__LibraryPath", startScript, StringComparison.Ordinal);
+        Assert.Contains("tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.vk", startScript, StringComparison.Ordinal);
+        Assert.Contains("tools/dev/bootstrap-anonymous-comment-fixture.sh", startScript, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HistoricalResidueBlocksLegacyDemoPasswordSeed()
     {
         string residue = BackendTestPaths.ReadAllTextFromRoot("tools/check-historical-residue.sh");

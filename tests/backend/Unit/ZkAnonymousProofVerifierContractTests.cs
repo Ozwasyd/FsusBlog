@@ -285,6 +285,15 @@ public sealed class ZkAnonymousProofVerifierContractTests
     }
 
     [Fact]
+    public void AnonymousCredentialRootService_DoesNotConstructorInjectZkVerifierToAvoidStartupCycle()
+    {
+        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialRootService.cs");
+
+        Assert.DoesNotContain("IZkProofVerifier verifier", source, StringComparison.Ordinal);
+        Assert.Contains("GetService<IZkProofVerifier>", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ProductionZkProofVerifier_AcceptsValidConfiguredProofAndCallsBackend()
     {
         var backend = new RecordingProductionZkProofBackend();

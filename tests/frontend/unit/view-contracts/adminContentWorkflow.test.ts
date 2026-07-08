@@ -61,6 +61,8 @@ describe('admin content governance workflow contract', () => {
     expect(listPage).toContain('按分类筛选')
     expect(listPage).toContain('按标签筛选')
     expect(listPage).toContain('@close="removeFilter(chip.key)"')
+    expect(listPage).toContain('article-list-write-button')
+    expect(slice(listPage, '<AdminCollectionToolbar label="文章筛选"', '</AdminCollectionToolbar>')).not.toContain('<template #actions>')
   })
 
   it('shows cover thumbnails, contextual row actions, and status timestamps', () => {
@@ -109,6 +111,13 @@ describe('admin content governance workflow contract', () => {
     expect(taxonomyView).toContain('.taxonomy-table :deep(.el-table-fixed-column--right.is-first-column::before)')
     expect(taxonomyView).toContain('border-left: 1px solid var(--fsusblog-panel-border)')
     expect(taxonomyView).toContain('box-shadow: none')
+  })
+
+  it('routes taxonomy dialogs through the shared Fsus dialog shell', () => {
+    expect(taxonomyView).toContain('<FsusDialog')
+    expect(taxonomyView).toContain("from '@/components/ui/FsusDialog.vue'")
+    expect(taxonomyView).not.toContain('<el-dialog')
+    expect(taxonomyView).toContain('taxonomy-dialog-actions')
   })
 
   it('keeps collection toolbar primary actions on the trailing edge before desktop breakpoints', () => {

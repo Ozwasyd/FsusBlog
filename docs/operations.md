@@ -43,14 +43,13 @@ For Docker packaging:
 
 ```bash
 export GITHUB_PACKAGES_TOKEN=...
-./tools/build-final-image.sh
-docker compose --env-file .env.production config
+./tools/deploy-production.sh --dry-run
 ```
 
 ## Rollout
 
-1. Build and tag the new image.
-2. Start the container with `docker compose --env-file .env.production up -d`.
+1. Run `./tools/deploy-production.sh --dry-run` and resolve every reported `.env.production` or ZK material blocker.
+2. Run `./tools/deploy-production.sh`; it builds the image, runs the ZK-Prod release gate, verifies `docker compose --env-file .env.production config`, and starts the container.
 3. Wait for `/health/live` to pass.
 4. Check `/health/ready`.
 5. Switch or keep gateway traffic only after readiness is `ready`.
@@ -63,6 +62,12 @@ FSUSBLOG_FINAL_IMAGE_TAG=previous-tag docker compose --env-file .env.production 
 ```
 
 If a release specifically needs public AOT disk cache invalidation, set `Lifecycle:ClearAotDiskCacheOnStartup=true` for that rollout only. The default is `false`; rollback is to remove the setting and restart on the previous or current image without the one-shot cleanup. If a later startup task fails after the clear, the host now performs a best-effort restore of the previous `wwwroot/aot-cache` contents before surfacing the bootstrap failure. The same startup rollback pipeline now also restores the previous `wwwroot/search` artifacts, or removes newly created search output, if a later task fails after a search index rebuild. Startup cache prewarm records the prior blacklist cache state for each touched user and restores that cache state if a later bootstrap task fails. Schema migrations are reported as `non_compensable`; database rollback remains an operator-owned backup/restore action instead of an automatic in-process rollback.
+
+## Comment Length Policy
+
+评论长度由后台“匿名评论策略”统一控制，默认 `1000` 字符 / UTF-8 `4096` bytes。管理员可在 `/user/manage/moderation/anonymous-policy` 把上限提高到最多 `3000` 字符 / UTF-8 `12288` bytes；提交需要 admin-sensitive step-up，服务端会写高价值审计并触发现有 anonymous comment policy cache invalidation。
+
+回退无需重启：把策略改回 `1000/4096` 后，新的公开署名和强匿名评论立即按该策略校验；已发布评论不做字符串截断，展示层仍按渲染高度默认折叠长评论。无论策略如何调整，评论 Markdown 禁用图片、raw HTML、危险链接、LaTeX 和 Mermaid 的安全边界不变，创建 frame 仍受 16 KiB payload 上限保护。
 
 ## Rights V3 Public Artifact Cutover
 

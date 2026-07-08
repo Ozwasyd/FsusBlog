@@ -62,6 +62,7 @@ public sealed class AnonymousCommentTicketService(
     IAnonymousCredentialRootService rootService,
     IZkAnonymousProofService proofService,
     ICommentAnonymousNullifierService nullifierService,
+    IAnonymousCommentPolicyService policyService,
     IConfiguration configuration,
     TimeProvider timeProvider) : IAnonymousCommentTicketService
 {
@@ -106,7 +107,8 @@ public sealed class AnonymousCommentTicketService(
         string issuerPublicKeyHash = root.IssuerPublicKeyHash;
         string credentialLevel = NormalizeRequiredToken(request.CredentialLevel, DefaultCredentialLevel, 32);
         string reputationBucket = NormalizeRequiredToken(request.ReputationBucket, DefaultReputationBucket, 64);
-        string policyHash = AnonymousCommentPolicySnapshotHash.Resolve(proofService.CurrentCommentPolicy);
+        AnonymousCommentPolicySnapshot policy = await policyService.GetCurrentAsync(cancellationToken);
+        string policyHash = AnonymousCommentPolicySnapshotHash.Resolve(policy);
         if (!IsHexHash(credentialCommitment, minLength: 32, maxLength: 128) ||
             !IsHexHash(issuerPublicKeyHash, minLength: 32, maxLength: 128) ||
             !IsHexHash(policyHash, minLength: 64, maxLength: 64) ||

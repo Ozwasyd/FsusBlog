@@ -33,9 +33,9 @@ export const getCategories = (config?: { signal?: AbortSignal }) =>
  * 安全性保障：接入 PoW 算力校验，防止针对管理接口的自动化撞库或 CSRF 批量篡改
  */
 export const createCategory = (name: string, config?: RequestInit) =>
-  requestBinaryOnly<null>({
+  requestBinaryOnly<{ id: number }>({
     binaryRoute: { operationId: 'binary_post_category' },
-    frameType: FrameType.EmptySuccess,
+    frameType: FrameType.MutationId,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
       ...config,

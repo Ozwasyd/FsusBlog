@@ -173,9 +173,8 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"分类“{trimmedName}”已存在"), aeds);
             }
 
-            var category = new Category { Name = trimmedName };
-            bool success = await db.Insertable(category).ExecuteCommandAsync() > 0;
-            if (!success)
+            int newId = await db.Insertable(new Category { Name = trimmedName }).ExecuteReturnIdentityAsync();
+            if (newId <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "由于数据库写入异常，分类创建失败"), aeds);
             }
@@ -188,7 +187,7 @@ public static partial class BinaryEndpoints
             await taxonomyProjection.BumpFrameVersionAsync("taxonomy-category-created", cancellationToken);
             await httpCacheInvalidator.InvalidateAsync(CacheTag.Category, CacheTag.ArticleList);
             publicHotUpdates.TryEnqueue(null, "taxonomy-category-created");
-            return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
+            return BinaryResults.Frame(aeds, AedsFrameType.MutationId, writer => PodBinaryCodec.WriteMutationId(newId, writer));
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();

@@ -100,7 +100,7 @@
       </div>
     </section>
 
-    <el-dialog v-model="state.dialogVisible.value" :title="dialogTitle" :width="schema.dialogWidth" destroy-on-close :close-on-click-modal="false">
+    <FsusDialog v-model="state.dialogVisible.value" :title="dialogTitle" :width="schema.dialogWidth" destroy-on-close :close-on-click-modal="false">
       <div class="pt-2">
         <el-form :model="state.form" ref="formRef" :rules="state.rules" label-position="top" @submit.prevent="submitForm">
           <el-form-item :label="schema.nameInputLabel" prop="name">
@@ -113,12 +113,12 @@
         <p :class="['text-[12px] text-[var(--fsusblog-text-muted)] leading-relaxed', schema.dialogNoteClass]">{{ schema.dialogDescription }}</p>
       </div>
       <template #footer>
-        <div class="grid grid-cols-2 gap-5 px-1 border-t border-[var(--fsusblog-panel-border)] pt-6">
+        <div class="taxonomy-dialog-actions">
           <el-button @click="state.dialogVisible.value = false" :disabled="isProcessing">取消</el-button>
           <el-button type="primary" :loading="isProcessing" @click="submitForm">{{ submitButtonText }}</el-button>
         </div>
       </template>
-    </el-dialog>
+    </FsusDialog>
   </div>
 </template>
 
@@ -130,6 +130,7 @@ import { useMediaQuery } from '@/composables/useMediaQuery'
 import AdminCollectionSummary from '@/components/admin/AdminCollectionSummary.vue'
 import AdminCollectionToolbar from '@/components/admin/AdminCollectionToolbar.vue'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 import type { AdminTaxonomyItemBase, AdminTaxonomyManageState, TaxonomySchema } from '@/composables/useAdminTaxonomyManage'
 
 const props = defineProps<{
@@ -191,6 +192,13 @@ const submitForm = (): void => {
 
 .taxonomy-empty-action {
   min-width: 6.5rem;
+}
+
+.taxonomy-dialog-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  padding-inline: 0.25rem;
 }
 
 .taxonomy-table :deep(.el-table-fixed-column--right.is-first-column) {

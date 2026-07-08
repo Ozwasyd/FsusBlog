@@ -26,22 +26,29 @@ interface ResumeSessionSnapshot {
 interface PendingAttempt {
   file: File
   options: ImageCompressionOptions
-  wasmOnly: boolean
+  runtimeOptions: ImageUploadRuntimeOptions
 }
 
 const STORAGE_PREFIX = 'fsus:image-upload-session:'
 const MAX_RETRIES = 3
 
-function buildResumeKey(file: File, options: ImageCompressionOptions): string {
+export interface ImageUploadRuntimeOptions {
+  wasmOnly?: boolean
+  bypassCompression?: boolean
+  targetFormat?: string
+}
+
+function buildResumeKey(file: File, options: ImageCompressionOptions, runtimeOptions?: ImageUploadRuntimeOptions): string {
   return [
     file.name,
     file.size,
     file.lastModified,
-    options.format,
+    runtimeOptions?.targetFormat ?? options.format,
     options.quality,
     options.scaleRatio,
     options.maxEdge,
-    options.preserveAlpha ? 1 : 0
+    options.preserveAlpha ? 1 : 0,
+    runtimeOptions?.bypassCompression ? 'raw' : 'compressed'
   ].join(':')
 }
 
@@ -142,22 +149,25 @@ export function useImageUploadRuntime() {
 
   const canResume = computed(() => phase.value === 'paused' || phase.value === 'error')
 
-  const uploadFile = async (file: File, options: ImageCompressionOptions, runtimeOptions?: { wasmOnly?: boolean }): Promise<string> => {
+  const uploadFile = async (file: File, options: ImageCompressionOptions, runtimeOptions: ImageUploadRuntimeOptions = {}): Promise<string> => {
     phase.value = 'compressing'
     errorMessage.value = ''
     progress.value = 0
     const wasmOnly = runtimeOptions?.wasmOnly ?? false
+    const uploadTargetFormat = (runtimeOptions.targetFormat ?? options.format).trim().toLowerCase()
     pendingAttempt.value = {
       file,
       options: { ...options },
-      wasmOnly
+      runtimeOptions: { ...runtimeOptions, wasmOnly }
     }
 
-    const compressed = await compressImageFileWithRuntime(file, options, { wasmOnly })
-    preview.value = compressed.preview
+    const uploadPayload = runtimeOptions.bypassCompression === true
+      ? { file, preview: null }
+      : await compressImageFileWithRuntime(file, options, { wasmOnly })
+    preview.value = uploadPayload.preview
 
-    const resumeKey = buildResumeKey(file, options)
-    const fullHash = await sha256Hex(compressed.file)
+    const resumeKey = buildResumeKey(file, options, runtimeOptions)
+    const fullHash = await sha256Hex(uploadPayload.file)
     let snapshot = readSnapshot(resumeKey)
     let uploadId = ''
     let uploadToken = ''
@@ -182,10 +192,10 @@ export function useImageUploadRuntime() {
 
     if (!snapshot || !uploadId) {
       const init = await initUploadSession({
-        fileName: compressed.file.name,
-        mimeType: compressed.file.type,
-        targetFormat: options.format,
-        totalBytes: compressed.file.size,
+        fileName: uploadPayload.file.name,
+        mimeType: uploadPayload.file.type,
+        targetFormat: uploadTargetFormat,
+        totalBytes: uploadPayload.file.size,
         chunkSize: 512 * 1024,
         sha256: fullHash
       })
@@ -197,7 +207,7 @@ export function useImageUploadRuntime() {
       snapshot = {
         uploadId,
         resumeKey,
-        fileName: compressed.file.name,
+        fileName: uploadPayload.file.name,
         sha256: fullHash,
         uploadToken
       }
@@ -206,17 +216,17 @@ export function useImageUploadRuntime() {
 
     activeSession.uploadId = uploadId
     activeSession.resumeKey = resumeKey
-    activeSession.fileName = compressed.file.name
+    activeSession.fileName = uploadPayload.file.name
 
     const chunkSize = 512 * 1024
-    const totalParts = Math.ceil(compressed.file.size / chunkSize)
+    const totalParts = Math.ceil(uploadPayload.file.size / chunkSize)
     let uploadedBytes = 0
     uploadedParts.forEach((partNumber) => {
       const start = partNumber * chunkSize
-      const end = Math.min(start + chunkSize, compressed.file.size)
+      const end = Math.min(start + chunkSize, uploadPayload.file.size)
       uploadedBytes += Math.max(0, end - start)
     })
-    progress.value = Math.min(99, Math.round((uploadedBytes / compressed.file.size) * 100))
+    progress.value = Math.min(99, Math.round((uploadedBytes / uploadPayload.file.size) * 100))
     phase.value = 'uploading'
 
     for (let partNumber = 0; partNumber < totalParts; partNumber += 1) {
@@ -225,8 +235,8 @@ export function useImageUploadRuntime() {
       }
 
       const start = partNumber * chunkSize
-      const end = Math.min(start + chunkSize, compressed.file.size)
-      const chunk = compressed.file.slice(start, end)
+      const end = Math.min(start + chunkSize, uploadPayload.file.size)
+      const chunk = uploadPayload.file.slice(start, end)
       const payloadHash = await sha256Hex(chunk)
 
       try {
@@ -238,7 +248,7 @@ export function useImageUploadRuntime() {
         )
 
         uploadedBytes = ack.uploadedBytes
-        progress.value = Math.min(99, Math.round((uploadedBytes / compressed.file.size) * 100))
+        progress.value = Math.min(99, Math.round((uploadedBytes / uploadPayload.file.size) * 100))
         phase.value = 'uploading'
         uploadedParts.add(partNumber)
       } catch (error) {
@@ -268,7 +278,7 @@ export function useImageUploadRuntime() {
       throw createAppError(AppErrorCode.Validation, '没有可恢复的上传任务')
     }
 
-    return uploadFile(attempt.file, attempt.options, { wasmOnly: attempt.wasmOnly })
+    return uploadFile(attempt.file, attempt.options, attempt.runtimeOptions)
   }
 
   const abandon = async (): Promise<void> => {

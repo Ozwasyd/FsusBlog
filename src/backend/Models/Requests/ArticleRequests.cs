@@ -30,6 +30,7 @@ public sealed record class UpdateArticleRequest
 
 public sealed record class ArticleRightsRequest
 {
+    public string? Mode { get; init; }
     public bool Enabled { get; init; } = true;
     public string? LicenseType { get; init; }
     public string? CopyrightHolder { get; init; }

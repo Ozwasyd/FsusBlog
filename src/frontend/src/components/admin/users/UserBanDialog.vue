@@ -1,5 +1,5 @@
 <template>
-  <el-dialog
+  <FsusDialog
     :model-value="visible"
     title="账号封禁处理"
     width="min(92vw, 28rem)"
@@ -57,17 +57,19 @@
       </el-form>
     </div>
     <template #footer>
-      <div class="grid grid-cols-2 gap-6 border-t border-[var(--fsusblog-panel-border)] pt-5">
+      <div class="grid grid-cols-2 gap-6">
         <el-button :disabled="isProcessing" @click="emit('update:visible', false)">取消</el-button>
         <el-button type="danger" :loading="isProcessing" :disabled="!canSubmit" @click="emit('submit')">
           {{ isCalculating ? '安全校验中...' : '确认封禁' }}
         </el-button>
       </div>
     </template>
-  </el-dialog>
+  </FsusDialog>
 </template>
 
 <script setup lang="ts">
+import FsusDialog from '@/components/ui/FsusDialog.vue'
+
 interface Props {
   visible: boolean
   reason: string

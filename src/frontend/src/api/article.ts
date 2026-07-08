@@ -128,6 +128,7 @@ export interface PageResponse<T> {
 }
 
 export interface ArticleRightsRequest {
+  mode?: 'site' | 'custom'
   enabled?: boolean
   licenseType?: string | null
   copyrightHolder?: string | null

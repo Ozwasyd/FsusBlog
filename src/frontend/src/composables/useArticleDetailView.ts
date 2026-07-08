@@ -4,6 +4,7 @@ import { getRelatedReading, type ArticleDetailResponse, type RelatedReadingRespo
 import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
 import {
   createAnonymousComment,
+  createCommentV2,
   createPublicComment,
   deleteComment,
   getCommentPolicySnapshot,
@@ -22,7 +23,7 @@ import { useArticleCommentStream } from '@/composables/useArticleCommentStream'
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle'
 import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness'
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed'
-import { validateCommentContent } from '@/utils/contentFilter'
+import { normalizeCommentContentPolicy, validateCommentContent } from '@/utils/contentFilter'
 import { isAbortError } from '@/utils/errors'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { alertInfo } from '@/fsusui/feedback'
@@ -129,6 +130,9 @@ export function useArticleDetailView() {
   const anonymousCommentsEnabled = ref(true)
   const publicCommentsEnabled = ref(true)
   const zkAnonymousEnabled = ref(false)
+  const commentMaxChars = ref(1000)
+  const commentMaxUtf8Bytes = ref(4096)
+  const commentPolicySnapshotHash = ref('')
   const commentPrivacyUiState = ref<CommentPrivacyUiState>(commentPrivacyRuntime.getUiState())
   const submittingComment = ref(false)
   const replyTarget = ref<ReplyTarget>(null)
@@ -349,6 +353,13 @@ export function useArticleDetailView() {
   const applyCommentPolicySnapshot = (policy: CommentPolicySnapshot): void => {
     anonymousCommentsEnabled.value = policy.anonymousCommentsEnabled
     publicCommentsEnabled.value = policy.publicCommentsEnabled
+    const commentPolicy = normalizeCommentContentPolicy({
+      maxChars: policy.commentMaxChars,
+      maxUtf8Bytes: policy.commentMaxUtf8Bytes
+    })
+    commentMaxChars.value = commentPolicy.maxChars
+    commentMaxUtf8Bytes.value = commentPolicy.maxUtf8Bytes
+    commentPolicySnapshotHash.value = policy.snapshotHash ?? ''
     const zkPolicy = policy as ZkProdCommentPolicySnapshot
     const zkProdAvailable = zkPolicy.zkProdEnabled === undefined
       ? true
@@ -519,8 +530,10 @@ export function useArticleDetailView() {
     if (lifecycle.isActive() && initVersion === routeInitVersion && article.value) {
       if (userStore.isLoggedIn && anonymousCommentsEnabled.value) {
         powProvider.prewarm()
-        void commentPrivacyRuntime.preloadPrivacyMetadata(article.value.id)
-        void commentPrivacyRuntime.prewarmProver()
+        if (zkAnonymousEnabled.value) {
+          void commentPrivacyRuntime.preloadPrivacyMetadata(article.value.id)
+          void commentPrivacyRuntime.prewarmProver()
+        }
       }
     }
   }
@@ -685,12 +698,37 @@ export function useArticleDetailView() {
     showErrorToast('验证已取消。')
   }
 
+  const canAttemptStrongAnonymousSubmit = (): boolean =>
+    zkAnonymousEnabled.value && commentPrivacyUiState.value !== 'unavailable'
+
+  const submitOrdinaryAnonymousComment = async (signal: AbortSignal): Promise<void> => {
+    await createCommentV2(
+      {
+        articleId: article.value!.id,
+        content: commentContent.value,
+        parentId: replyTarget.value?.id ?? null,
+        rootId: replyTarget.value?.rootId ?? null,
+        replyToCommentId: replyTarget.value?.id ?? null,
+        authorMode: 'anonymous',
+        publicSendExplicitlySelected: false,
+        anonymousScope: commentAnonymousScope.value,
+        displayLanguage: commentDisplayLanguage.value,
+        proofToken: null,
+        zkProof: null
+      },
+      { signal }
+    )
+  }
+
   const submitComment = async (): Promise<void> => {
     if (!commentContent.value.trim() || !article.value) {
       return
     }
 
-    const checkResult = validateCommentContent(commentContent.value)
+    const checkResult = validateCommentContent(commentContent.value, {
+      maxChars: commentMaxChars.value,
+      maxUtf8Bytes: commentMaxUtf8Bytes.value
+    })
     if (!checkResult.isValid) {
       showErrorToast(checkResult.message)
       return
@@ -747,14 +785,18 @@ export function useArticleDetailView() {
         async (signal) => {
           if (selectedAuthorMode === 'anonymous') {
             let privacyTicket: CommentPrivacyPreparedTicket | null =
-              commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
-            if (!privacyTicket) {
+              canAttemptStrongAnonymousSubmit()
+                ? commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
+                : null
+            if (!privacyTicket && canAttemptStrongAnonymousSubmit()) {
               await commentPrivacyRuntime.prepareAnonymousTicket(commentAnonymousScope.value)
               privacyTicket = commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)
             }
 
             if (!privacyTicket) {
-              throw new Error('anonymous_comment_ticket_unavailable')
+              await submitOrdinaryAnonymousComment(signal)
+              commentMutationSubmitted = true
+              return
             }
 
             await createAnonymousComment(
@@ -807,12 +849,8 @@ export function useArticleDetailView() {
       }
     } catch (error: unknown) {
       if (!isAbortError(error)) {
-        if (selectedAuthorMode === 'anonymous') {
-          showErrorToast('匿名发布暂不可用，请稍后重试。')
-        } else {
-          console.error('[Comment] Submit failed:', error)
-          showErrorToast(error, '评论发布失败')
-        }
+        console.error('[Comment] Submit failed:', error)
+        showErrorToast(error, selectedAuthorMode === 'anonymous' ? '匿名评论发布失败' : '评论发布失败')
       }
     } finally {
       if (anonymousSubmitScope) {
@@ -838,7 +876,7 @@ export function useArticleDetailView() {
   }
 
   const prepareCommentPrivacyTicket = (): void => {
-    if (!userStore.isLoggedIn || !article.value || !anonymousCommentsEnabled.value) {
+    if (!userStore.isLoggedIn || !article.value || !anonymousCommentsEnabled.value || !zkAnonymousEnabled.value) {
       return
     }
 
@@ -1002,6 +1040,9 @@ export function useArticleDetailView() {
     anonymousCommentsEnabled,
     publicCommentsEnabled,
     zkAnonymousEnabled,
+    commentMaxChars,
+    commentMaxUtf8Bytes,
+    commentPolicySnapshotHash,
     commentPrivacyUiState,
     submittingComment,
     threads,

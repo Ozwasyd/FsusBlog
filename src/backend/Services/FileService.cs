@@ -47,8 +47,8 @@ public sealed partial class FileService : IFileService
     private readonly UploadSessionCleanupQueue? _cleanupQueue;
     private DateTime _lastLegacySessionRootSweepUtc = DateTime.MinValue;
 
-    private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
-    private static readonly string[] _allowedFormats = ["jpg", "jpeg", "png", "gif", "webp"];
+    private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".ico"];
+    private static readonly string[] _allowedFormats = ["jpg", "jpeg", "png", "gif", "webp", "ico"];
     private static readonly ConcurrentDictionary<string, SessionLockEntry> _sessionLocks = new(StringComparer.Ordinal);
 
     public FileService(
@@ -885,6 +885,8 @@ public sealed partial class FileService : IFileService
             "image/png" => true,
             "image/gif" => true,
             "image/webp" => true,
+            "image/x-icon" => true,
+            "image/vnd.microsoft.icon" => true,
             _ => false
         };
     }
@@ -903,6 +905,9 @@ public sealed partial class FileService : IFileService
             "png" => "image/png",
             "gif" => "image/gif",
             "webp" => "image/webp",
+            "ico" => normalizedMime is "image/x-icon" or "image/vnd.microsoft.icon"
+                ? normalizedMime
+                : "image/x-icon",
             _ => string.Empty
         };
 
@@ -2019,6 +2024,10 @@ public sealed partial class FileService : IFileService
             "webp" => read >= 12
                 && header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46
                 && header[8] == 0x57 && header[9] == 0x45 && header[10] == 0x42 && header[11] == 0x50,
+            "ico" => read >= 6
+                && header[0] == 0x00 && header[1] == 0x00
+                && header[2] == 0x01 && header[3] == 0x00
+                && (header[4] != 0x00 || header[5] != 0x00),
             "avif" => read >= 12
                 && header[4] == 0x66 && header[5] == 0x74 && header[6] == 0x79 && header[7] == 0x70
                 && header[8] == 0x61 && header[9] == 0x76 && header[10] == 0x69 && header[11] == 0x66,

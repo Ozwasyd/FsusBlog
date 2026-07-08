@@ -191,7 +191,7 @@ public sealed class AnonymousPrivacyMatrixTests
         Assert.Contains("ProductionZkProofVerifier", backendWrapperFixture, StringComparison.Ordinal);
         Assert.Contains("NativeGroth16ZkProofBackend", backendWrapperFixture, StringComparison.Ordinal);
         Assert.Contains("HashingNativeGroth16FixtureLibrary", backendWrapperFixture, StringComparison.Ordinal);
-        Assert.Contains("CommentModerationStatus.Pending", backendWrapperFixture, StringComparison.Ordinal);
+        Assert.Contains("CommentModerationStatus.Approved", backendWrapperFixture, StringComparison.Ordinal);
         Assert.DoesNotContain("ZkProdSmoke_", backendWrapperFixture, StringComparison.Ordinal);
         Assert.Contains("featureFlagOffExpectedUnavailable", prodSmokeGate, StringComparison.Ordinal);
         Assert.Contains("sensitivePayloadRedacted", prodSmokeGate, StringComparison.Ordinal);

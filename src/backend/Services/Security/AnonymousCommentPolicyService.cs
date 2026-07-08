@@ -4,6 +4,7 @@ using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
@@ -154,7 +155,9 @@ public sealed class AnonymousCommentPolicyService(
             request.PublicCommentsEnabled ?? current.PublicCommentsEnabled,
             request.ZkAnonymousEnabled ?? current.ZkAnonymousEnabled,
             defaultAuthorMode,
-            NormalizeLanguages(request.SupportedDisplayLanguages, current.SupportedDisplayLanguages)),
+            NormalizeLanguages(request.SupportedDisplayLanguages, current.SupportedDisplayLanguages),
+            ResolveRequestedCommentMaxChars(request.CommentMaxChars, current.CommentMaxChars),
+            ResolveRequestedCommentMaxUtf8Bytes(request.CommentMaxUtf8Bytes, current.CommentMaxUtf8Bytes)),
             ChangedBy(adminPrincipalId),
             NormalizeNullable(request.Reason, 256),
             DateTime.UtcNow);
@@ -215,7 +218,9 @@ public sealed class AnonymousCommentPolicyService(
             NormalizeAuthorMode(configuration["AnonymousIdentity:DefaultAuthorMode"], CommentAuthorModes.Anonymous),
             NormalizeLanguages(
                 configuration.GetSection("AnonymousIdentity:SupportedDisplayLanguages").Get<string[]>(),
-                AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)),
+                AnonymousCommentPolicySnapshot.DefaultDisplayLanguages),
+            CommentLimits.NormalizeMaxChars(configuration.GetValue<int?>("AnonymousIdentity:CommentMaxChars")),
+            CommentLimits.NormalizeMaxUtf8Bytes(configuration.GetValue<int?>("AnonymousIdentity:CommentMaxUtf8Bytes"))),
             "configuration",
             "bootstrap_fallback",
             DateTime.UtcNow);
@@ -309,7 +314,9 @@ public sealed class AnonymousCommentPolicyService(
                 NormalizeAuthorMode(entity.DefaultAuthorMode, CommentAuthorModes.Anonymous),
                 NormalizeLanguages(
                     entity.SupportedDisplayLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-                    AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)),
+                    AnonymousCommentPolicySnapshot.DefaultDisplayLanguages),
+                CommentLimits.NormalizeMaxChars(entity.CommentMaxChars),
+                CommentLimits.NormalizeMaxUtf8Bytes(entity.CommentMaxUtf8Bytes)),
             string.IsNullOrWhiteSpace(entity.ChangedBy) ? "database" : entity.ChangedBy,
             NormalizeNullable(entity.UpdatedReason, 256),
             entity.UpdatedAtUtc == default ? DateTime.UtcNow : entity.UpdatedAtUtc,
@@ -324,6 +331,8 @@ public sealed class AnonymousCommentPolicyService(
             ZkAnonymousEnabled = snapshot.ZkAnonymousEnabled,
             DefaultAuthorMode = NormalizeAuthorMode(snapshot.DefaultAuthorMode, CommentAuthorModes.Anonymous),
             SupportedDisplayLanguages = string.Join(',', NormalizeLanguages(snapshot.SupportedDisplayLanguages, AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)),
+            CommentMaxChars = CommentLimits.NormalizeMaxChars(snapshot.CommentMaxChars),
+            CommentMaxUtf8Bytes = CommentLimits.NormalizeMaxUtf8Bytes(snapshot.CommentMaxUtf8Bytes),
             SnapshotHash = snapshot.SnapshotHash,
             UpdatedReason = snapshot.Reason,
             ChangedBy = NormalizeChangedBy(snapshot.ChangedBy),
@@ -375,6 +384,28 @@ public sealed class AnonymousCommentPolicyService(
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         return normalized.Length > 0 ? normalized : fallback;
+    }
+
+    private static int ResolveRequestedCommentMaxChars(int? requested, int current)
+    {
+        if (!requested.HasValue)
+        {
+            return CommentLimits.NormalizeMaxChars(current);
+        }
+
+        CommentLimits.ValidateMaxChars(requested.Value);
+        return requested.Value;
+    }
+
+    private static int ResolveRequestedCommentMaxUtf8Bytes(int? requested, int current)
+    {
+        if (!requested.HasValue)
+        {
+            return CommentLimits.NormalizeMaxUtf8Bytes(current);
+        }
+
+        CommentLimits.ValidateMaxUtf8Bytes(requested.Value);
+        return requested.Value;
     }
 
     private static bool IsAnonymousMode(string mode)

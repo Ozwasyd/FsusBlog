@@ -36,6 +36,20 @@ public sealed class AuthoringNativeAedsEndpointTests
             out var credentialRoute));
         Assert.Equal(AedsFrameType.AnonymousGovernanceActionRequest, credentialRoute.RequestFrame);
         Assert.Equal(AedsFrameType.AnonymousGovernanceActionResponse, credentialRoute.ResponseFrame);
+
+        Assert.True(AuthoringEndpoints.TryResolveRoute(
+            HttpMethods.Get,
+            new PathString("/moderation/anonymous-comment-policy"),
+            out var commentPolicyRoute));
+        Assert.Null(commentPolicyRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.CommentPolicySnapshot, commentPolicyRoute.ResponseFrame);
+
+        Assert.True(AuthoringEndpoints.TryResolveRoute(
+            HttpMethods.Put,
+            new PathString("/moderation/anonymous-comment-policy"),
+            out var commentPolicyUpdateRoute));
+        Assert.Equal(AedsFrameType.CommentPolicyUpdateRequest, commentPolicyUpdateRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.CommentPolicySnapshot, commentPolicyUpdateRoute.ResponseFrame);
     }
 
     [Fact]

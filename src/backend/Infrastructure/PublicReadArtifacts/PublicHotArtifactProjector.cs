@@ -6,6 +6,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
@@ -51,9 +52,6 @@ public sealed class PublicHotArtifactProjector(
 {
     private const int MaxPageSize = 100;
     private const int MaxHotArticlesCount = 100;
-    private const int LongReadThreshold = 5_000;
-    private const int ReadingCharsPerMinute = 300;
-
     private bool? legacyArticleContentColumnExists;
 
     public Task<PublicHotReadSnapshot> RebuildAfterArticleMutationAsync(
@@ -773,13 +771,13 @@ public sealed class PublicHotArtifactProjector(
                 continue;
             }
 
-            int wordCount = CalculateReadableLength(content);
+            ReadingEstimate reading = ReadingEstimator.Estimate(content);
             result.Add(article with
             {
                 Content = content,
-                WordCount = wordCount,
-                EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
-                ShowReadingNotice = wordCount > LongReadThreshold,
+                WordCount = reading.EffectiveChars,
+                EstimatedReadingMinutes = reading.Minutes,
+                ShowReadingNotice = reading.ShowLongReadNotice,
                 Tags = tagMap.TryGetValue(id, out var tags) ? tags : [],
                 Rights = rights
             });
@@ -1104,25 +1102,6 @@ public sealed class PublicHotArtifactProjector(
             .Distinct()
             .Order()
             .ToArray();
-
-    private static int CalculateReadableLength(string? content)
-    {
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            return 0;
-        }
-
-        int count = 0;
-        foreach (char ch in content)
-        {
-            if (!char.IsWhiteSpace(ch))
-            {
-                count++;
-            }
-        }
-
-        return count;
-    }
 
     private async Task<PublicBinaryArtifact> BuildCategoryFrameAsync(long version, PublicHotReadOptions options, CancellationToken ct)
     {

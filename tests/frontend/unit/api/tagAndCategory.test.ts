@@ -7,6 +7,7 @@ vi.mock('@/services/binaryTransport', () => ({
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import { getTags, createTag, updateTag, deleteTag } from '@/api/tag'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '@/api/category'
+import { FrameType } from '@wasm/protocol/frame'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
 
@@ -35,6 +36,7 @@ describe('tag API', () => {
     await createTag('vue')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_tag' },
+      frameType: FrameType.MutationId,
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,
@@ -84,6 +86,7 @@ describe('category API', () => {
     await createCategory('Tech')
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
       binaryRoute: { operationId: 'binary_post_category' },
+      frameType: FrameType.MutationId,
       requestOptions: expect.objectContaining({
         method: 'POST',
         requiresPow: true,

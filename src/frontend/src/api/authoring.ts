@@ -1,5 +1,7 @@
 import type { ApiRequestConfig } from './requestConfig'
 import { FrameType } from '@wasm/protocol/frame'
+import { decode } from '@wasm/aeds'
+import { binaryRequest } from '@/api/binaryApiClient'
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import { encodeAedsFrame } from './binaryFrame'
 import { encodeAuthoringJsonRequest } from '@/adapters/binary/authoringAdapter'
@@ -575,6 +577,31 @@ export interface AnonymousGovernanceActionResponse {
   applied: boolean
 }
 
+export interface AnonymousCommentPolicyResponse {
+  anonymousCommentsEnabled: boolean
+  publicCommentsEnabled: boolean
+  zkAnonymousEnabled: boolean
+  defaultAuthorMode: 'anonymous' | 'public' | 'zk_anonymous'
+  supportedDisplayLanguages: string[]
+  commentMaxChars: number
+  commentMaxUtf8Bytes: number
+  snapshotHash: string
+  changedBy?: string | null
+  reason?: string | null
+  updatedAtUtc?: string | null
+}
+
+export interface AnonymousCommentPolicyUpdateRequest {
+  anonymousCommentsEnabled?: boolean | null
+  publicCommentsEnabled?: boolean | null
+  zkAnonymousEnabled?: boolean | null
+  defaultAuthorMode?: 'anonymous' | 'public' | 'zk_anonymous' | null
+  supportedDisplayLanguages?: string[] | null
+  commentMaxChars?: number | null
+  commentMaxUtf8Bytes?: number | null
+  reason?: string | null
+}
+
 export interface ModerationOverviewResponse {
   pendingCount: number
   rejectedCount: number
@@ -912,6 +939,7 @@ export interface AiAssistResponse {
 
 const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
 const BINARY_API_PREFIX = '/api/binary'
+const authoringJsonDecoder = new TextDecoder()
 
 type AuthoringBinaryRequestOptions = {
   method?: string
@@ -957,6 +985,32 @@ function requestAuthoringBinary<T>(
     requestOptions,
     signal: config?.signal as AbortSignal | undefined
   })
+}
+
+async function requestAuthoringJson<T>(
+  path: string,
+  frameType: FrameType,
+  config?: ApiRequestConfig,
+  options: AuthoringBinaryRequestOptions = {}
+): Promise<T> {
+  const requestOptions: RequestInit = {
+    credentials: 'include',
+    headers: authoringHeaders(config?.mfaProofToken),
+    signal: config?.signal as AbortSignal | undefined
+  }
+  if (options.method) {
+    requestOptions.method = options.method
+  }
+  if (options.requestFrame !== undefined) {
+    requestOptions.body = authoringBody(options.requestFrame, options.request)
+  }
+
+  const frame = decode(await binaryRequest(`${BINARY_API_PREFIX}/author${path}`, requestOptions))
+  if (!frame.ok || frame.frameType !== frameType) {
+    throw new Error(frame.ok ? 'AUTHORING_FRAME_UNEXPECTED' : 'AUTHORING_FRAME_DECODE_FAILED')
+  }
+
+  return JSON.parse(authoringJsonDecoder.decode(frame.payloadView)) as T
 }
 
 export async function saveServerDraft(
@@ -1146,6 +1200,21 @@ export async function listCommentModerationQueue(
 
 export async function getModerationOverview(config?: ApiRequestConfig): Promise<ModerationOverviewResponse> {
   return requestAuthoringBinary<ModerationOverviewResponse>('/moderation/overview', FrameType.ModerationOverview, config)
+}
+
+export async function getAnonymousCommentPolicy(config?: ApiRequestConfig): Promise<AnonymousCommentPolicyResponse> {
+  return requestAuthoringJson<AnonymousCommentPolicyResponse>('/moderation/anonymous-comment-policy', FrameType.CommentPolicySnapshot, config)
+}
+
+export async function updateAnonymousCommentPolicy(
+  request: AnonymousCommentPolicyUpdateRequest,
+  config?: ApiRequestConfig
+): Promise<AnonymousCommentPolicyResponse> {
+  return requestAuthoringJson<AnonymousCommentPolicyResponse>('/moderation/anonymous-comment-policy', FrameType.CommentPolicySnapshot, config, {
+    method: 'PUT',
+    requestFrame: FrameType.CommentPolicyUpdateRequest,
+    request
+  })
 }
 
 export async function getModerationDictionarySnapshot(config?: ApiRequestConfig): Promise<ModerationDictionaryRuntimeSnapshot> {

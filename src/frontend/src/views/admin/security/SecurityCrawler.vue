@@ -31,19 +31,23 @@
           </div>
         </div>
 
-        <div class="grid gap-3 md:grid-cols-2">
-          <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">运行模式</span>
-            <el-select v-model="draft.mode" class="mt-2 w-full" aria-label="反爬虫运行模式">
-              <el-option v-for="mode in modes" :key="mode" :label="formatSecurityMode(mode)" :value="mode" />
-            </el-select>
-          </label>
+        <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
+          <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.65fr)]">
+            <label class="min-w-0">
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">运行模式</span>
+              <el-select v-model="draft.mode" class="mt-2 w-full" aria-label="反爬虫运行模式">
+                <el-option v-for="mode in modes" :key="mode" :label="formatSecurityMode(mode)" :value="mode" />
+              </el-select>
+            </label>
 
-          <label class="bg-[var(--fsusblog-page-bg)] p-5">
-            <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">CIDR 更新间隔（分钟）</span>
-            <el-input-number v-model="draft.cidrUpdateIntervalMinutes" class="mt-2 w-full" :min="draft.cidrMinUpdateIntervalMinutes" :max="1440" controls-position="right" />
-          </label>
+            <label class="min-w-0">
+              <span class="text-[12px] font-bold text-[var(--fsusblog-text-muted)]">CIDR 更新间隔（分钟）</span>
+              <el-input-number v-model="draft.cidrUpdateIntervalMinutes" class="mt-2 w-full" :min="draft.cidrMinUpdateIntervalMinutes" :max="1440" controls-position="right" />
+            </label>
+          </div>
+        </div>
 
+        <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="toggle in toggles" :key="toggle.key" class="flex items-center justify-between gap-4 bg-[var(--fsusblog-page-bg)] p-5">
             <div>
               <div class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ toggle.label }}</div>

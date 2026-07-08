@@ -202,11 +202,62 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
             PublicCommentsEnabled: true,
             ZkAnonymousEnabled: true,
             DefaultAuthorMode: CommentAuthorModes.ZkAnonymous,
-            SupportedDisplayLanguages: ["zh-CN", "en", "fr"]));
+            SupportedDisplayLanguages: ["zh-CN", "en", "fr"],
+            CommentMaxChars: 2500,
+            CommentMaxUtf8Bytes: 10_000));
 
         Assert.True(updated.ZkAnonymousEnabled);
         Assert.Equal(CommentAuthorModes.ZkAnonymous, updated.DefaultAuthorMode);
         Assert.Equal(["zh-CN", "en"], updated.SupportedDisplayLanguages);
+        Assert.Equal(2500, updated.CommentMaxChars);
+        Assert.Equal(10_000, updated.CommentMaxUtf8Bytes);
+    }
+
+    [Fact]
+    public void AnonymousCommentPolicy_DefaultsAndValidatesConfigurableCommentLimits()
+    {
+        var defaults = new AnonymousCommentPolicyService(BuildConfiguration([]));
+        AnonymousCommentPolicySnapshot current = defaults.Current;
+
+        Assert.Equal(1000, current.CommentMaxChars);
+        Assert.Equal(4096, current.CommentMaxUtf8Bytes);
+
+        var configured = new AnonymousCommentPolicyService(BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["AnonymousIdentity:CommentMaxChars"] = "2200",
+            ["AnonymousIdentity:CommentMaxUtf8Bytes"] = "9000"
+        }));
+
+        Assert.Equal(2200, configured.Current.CommentMaxChars);
+        Assert.Equal(9000, configured.Current.CommentMaxUtf8Bytes);
+    }
+
+    [Fact]
+    public void AnonymousCommentPolicy_UpdateRejectsOutOfRangeCommentLimits()
+    {
+        var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
+
+        ArgumentOutOfRangeException lowChars = Assert.Throws<ArgumentOutOfRangeException>(() => service.UpdatePolicy(new AnonymousCommentPolicyUpdateRequest(
+            AnonymousCommentsEnabled: null,
+            PublicCommentsEnabled: null,
+            ZkAnonymousEnabled: null,
+            DefaultAuthorMode: null,
+            SupportedDisplayLanguages: null,
+            CommentMaxChars: 99,
+            CommentMaxUtf8Bytes: null,
+            Reason: "unit")));
+        ArgumentOutOfRangeException highBytes = Assert.Throws<ArgumentOutOfRangeException>(() => service.UpdatePolicy(new AnonymousCommentPolicyUpdateRequest(
+            AnonymousCommentsEnabled: null,
+            PublicCommentsEnabled: null,
+            ZkAnonymousEnabled: null,
+            DefaultAuthorMode: null,
+            SupportedDisplayLanguages: null,
+            CommentMaxChars: null,
+            CommentMaxUtf8Bytes: 12_289,
+            Reason: "unit")));
+
+        Assert.Equal("CommentMaxChars", lowChars.ParamName);
+        Assert.Equal("CommentMaxUtf8Bytes", highBytes.ParamName);
     }
 
     [Fact]
@@ -220,6 +271,8 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
             ZkAnonymousEnabled: null,
             DefaultAuthorMode: "invalid-mode",
             SupportedDisplayLanguages: ["fr", "zh-CN"],
+            CommentMaxChars: null,
+            CommentMaxUtf8Bytes: null,
             Reason: "unit")));
 
         Assert.Equal("DefaultAuthorMode", ex.ParamName);
@@ -237,6 +290,8 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
             ZkAnonymousEnabled = false,
             DefaultAuthorMode = CommentAuthorModes.ZkAnonymous,
             SupportedDisplayLanguages = "en",
+            CommentMaxChars = 1800,
+            CommentMaxUtf8Bytes = 7200,
             ChangedBy = "seed",
             UpdatedReason = "seeded",
             UpdatedAtUtc = new DateTime(2026, 6, 16, 0, 0, 0, DateTimeKind.Utc)
@@ -272,6 +327,8 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
                 ZkAnonymousEnabled: true,
                 DefaultAuthorMode: CommentAuthorModes.Anonymous,
                 SupportedDisplayLanguages: ["fr", "zh-CN"],
+                CommentMaxChars: 2400,
+                CommentMaxUtf8Bytes: 9600,
                 Reason: "policy rollout"),
                 adminPrincipalId: 42);
 
@@ -280,6 +337,8 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
             Assert.True(updated.ZkAnonymousEnabled);
             Assert.Equal(CommentAuthorModes.Anonymous, updated.DefaultAuthorMode);
             Assert.Equal(["zh-CN"], updated.SupportedDisplayLanguages);
+            Assert.Equal(2400, updated.CommentMaxChars);
+            Assert.Equal(9600, updated.CommentMaxUtf8Bytes);
             Assert.Equal("admin:42", updated.ChangedBy);
             Assert.Equal("policy rollout", updated.Reason);
             Assert.NotEmpty(updated.SnapshotHash);
@@ -298,6 +357,8 @@ public sealed class AnonymousCommentGovernanceContractTests(PostgresSchemaMigrat
                 .First(static item => item.Id == 1);
             Assert.True(stored.AnonymousCommentsEnabled);
             Assert.True(stored.PublicCommentsEnabled);
+            Assert.Equal(2400, stored.CommentMaxChars);
+            Assert.Equal(9600, stored.CommentMaxUtf8Bytes);
             Assert.True(stored.ZkAnonymousEnabled);
             Assert.Equal(CommentAuthorModes.Anonymous, stored.DefaultAuthorMode);
             Assert.Equal("zh-CN", stored.SupportedDisplayLanguages);

@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +18,7 @@ public static class LocalAuthFixtureEndpoints
     internal const string AllowLocalAuthFixtureConfigurationKey = "fsus:allowLocalAuthFixture";
     internal const string LocalAuthFixtureSecretConfigurationKey = "fsus:localAuthFixtureSecret";
     private const string LocalAuthFixtureSecretHeaderName = "X-Fsus-Local-Auth-Fixture-Secret";
+    private const string AdminSensitiveAction = "admin-sensitive";
     private const int MaxRedirectPathChars = 2048;
     private const long MaxStorageStateBytes = 256 * 1024;
     private const string UserStorageStateFileName = "user.storage-state.json";
@@ -90,6 +93,34 @@ public static class LocalAuthFixtureEndpoints
         });
         app.MapGet("/api/local/auth-fixture/status", statusHandler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
         app.MapGet("/__local/auth-fixture/status", statusHandler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
+
+        var adminSensitiveProofHandler = async Task<IResult> (
+            HttpContext context,
+            [FromServices] IAdminPrincipalService adminPrincipals,
+            CancellationToken cancellationToken) =>
+        {
+            if (!context.User.TryGetAdminPrincipalId(out long adminPrincipalId) ||
+                string.IsNullOrWhiteSpace(context.User.GetAdminSessionId()) ||
+                !context.User.HasAdminPermission(AdminPermissions.SystemConfig))
+            {
+                return Results.Forbid();
+            }
+
+            string proofToken = await adminPrincipals.CreateAdminStepUpProofTokenAsync(
+                adminPrincipalId,
+                context.User.GetAdminSessionId()!,
+                AdminSensitiveAction,
+                TimeSpan.FromMinutes(5),
+                cancellationToken);
+
+            return Results.Json(new
+            {
+                proofToken,
+                action = AdminSensitiveAction
+            });
+        };
+        app.MapPost("/api/local/auth-fixture/admin-sensitive-proof", adminSensitiveProofHandler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
+        app.MapPost("/__local/auth-fixture/admin-sensitive-proof", adminSensitiveProofHandler).AllowAnonymous().AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
     }
 
     private static async ValueTask<object?> RequireLocalFixtureSecret(

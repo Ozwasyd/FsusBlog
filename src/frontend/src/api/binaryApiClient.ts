@@ -51,12 +51,6 @@ function throwIfAborted(signal?: AbortSignal): void {
   }
 }
 
-type InFlightPowHeaders = {
-  controller: AbortController
-  promise: Promise<Record<string, string>>
-  waiters: Set<symbol>
-}
-
 type InFlightBinaryRequest = {
   controller: AbortController
   promise: Promise<AppResult<ArrayBuffer>>
@@ -65,7 +59,6 @@ type InFlightBinaryRequest = {
 
 const DEFAULT_POW_SCOPE = 'mutation'
 const DEFAULT_POW_TIMEOUT_MS = 60_000
-const inFlightPowHeaders = new Map<string, InFlightPowHeaders>()
 const inFlightBinaryRequests = new Map<string, InFlightBinaryRequest>()
 
 async function buildBinaryPowHeadersFresh(fp: string, signal?: AbortSignal): Promise<Record<string, string>> {
@@ -96,86 +89,18 @@ async function buildBinaryPowHeadersFresh(fp: string, signal?: AbortSignal): Pro
   const { nonce } = await calculate(salt, fp, difficulty, DEFAULT_POW_TIMEOUT_MS, signal)
   throwIfAborted(signal)
 
-    return {
-      [FSUS_HEADERS.deviceFingerprint]: fp,
-      [FSUS_HEADERS.powProof]: encodeBinaryPowProofHeader({ salt, nonce, timestamp, difficulty, signature, browserFp: fp })
+  return {
+    [FSUS_HEADERS.deviceFingerprint]: fp,
+    [FSUS_HEADERS.powProof]: encodeBinaryPowProofHeader({ salt, nonce, timestamp, difficulty, signature, browserFp: fp })
   }
-}
-
-function waitForInFlightPowHeaders(entry: InFlightPowHeaders, signal?: AbortSignal): Promise<Record<string, string>> {
-  return new Promise((resolve, reject) => {
-    const waiter = Symbol('pow-waiter')
-    let settled = false
-
-    const cleanup = () => {
-      signal?.removeEventListener('abort', onAbort)
-      entry.waiters.delete(waiter)
-    }
-
-    const onAbort = () => {
-      if (settled) {
-        return
-      }
-
-      settled = true
-      cleanup()
-      reject(createAbortError())
-      if (entry.waiters.size === 0) {
-        entry.controller.abort()
-      }
-    }
-
-    entry.waiters.add(waiter)
-    signal?.addEventListener('abort', onAbort, { once: true })
-
-    entry.promise.then(
-      (headers) => {
-        if (settled) {
-          return
-        }
-
-        settled = true
-        cleanup()
-        resolve(headers)
-      },
-      (reason) => {
-        if (settled) {
-          return
-        }
-
-        settled = true
-        cleanup()
-        reject(reason)
-      }
-    )
-
-    if (signal?.aborted) {
-      onAbort()
-    }
-  })
 }
 
 export async function buildBinaryPowHeaders(signal?: AbortSignal, powScope: string = DEFAULT_POW_SCOPE): Promise<Record<string, string>> {
   throwIfAborted(signal)
 
   const fp = getBrowserFp()
-  const inFlightKey = `${powScope}:${fp}`
-  let entry = inFlightPowHeaders.get(inFlightKey)
-
-  if (!entry) {
-    const controller = new AbortController()
-    const promise = buildBinaryPowHeadersFresh(fp, controller.signal).finally(() => {
-      inFlightPowHeaders.delete(inFlightKey)
-    })
-    entry = {
-      controller,
-      promise,
-      waiters: new Set()
-    }
-    inFlightPowHeaders.set(inFlightKey, entry)
-  }
-
-  return await waitForInFlightPowHeaders(entry, signal)
+  void powScope
+  return await buildBinaryPowHeadersFresh(fp, signal)
 }
 
 function derivePowScope(url: string, options?: BinaryRequestOptions): string {

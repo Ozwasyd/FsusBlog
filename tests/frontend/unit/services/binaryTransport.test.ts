@@ -260,6 +260,61 @@ describe('binaryTransport ApiError mapping', () => {
     )
   })
 
+  it('retries anonymous public GET routes once with PoW when the first read is challenged', async () => {
+    mockBinaryRequest
+      .mockRejectedValueOnce(new BinaryRequestError(428, 'Binary request failed: 428', encodeApiErrorFrame({
+        status: 428,
+        message: '公开读取请求需要 PoW 凭证',
+        details: 'security.pow',
+        traceId: 'trace-pow'
+      })))
+      .mockResolvedValueOnce(readProtocolFixtureBuffer('category-list-frame.hex'))
+
+    await expect(requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
+      binaryRoute: { operationId: 'binary_get_category_aeds' },
+      frameType: FrameType.CategoryList
+    })).resolves.toEqual([
+      { id: 1, name: 'Tech', articleCount: 2 },
+      { id: 2, name: 'Life', articleCount: 0 }
+    ])
+
+    expect(mockBinaryRequest).toHaveBeenNthCalledWith(
+      1,
+      '/api/binary/category.aeds',
+      expect.objectContaining({ credentials: 'omit' })
+    )
+    expect(mockBinaryRequest).toHaveBeenNthCalledWith(
+      2,
+      '/api/binary/category.aeds',
+      expect.objectContaining({
+        credentials: 'omit',
+        requiresPow: true,
+        powScope: 'public-read:/api/binary/category.aeds'
+      })
+    )
+  })
+
+  it('does not retry raw binary URLs on 428 because their public-read contract is unknown', async () => {
+    mockBinaryRequest.mockRejectedValue(new BinaryRequestError(428, 'Binary request failed: 428', encodeApiErrorFrame({
+      status: 428,
+      message: '公开读取请求需要 PoW 凭证',
+      details: 'security.pow',
+      traceId: 'trace-raw'
+    })))
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/category.aeds',
+      frameType: FrameType.CategoryList
+    })).rejects.toMatchObject({
+      name: 'BinaryTransportError',
+      kind: 'precondition_required',
+      status: 428,
+      traceId: 'trace-raw'
+    })
+
+    expect(mockBinaryRequest).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps credentials included for optional identity routes', async () => {
     mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('identity-account-snapshot-frame.hex'))
 
@@ -444,7 +499,7 @@ describe('binaryTransport ApiError mapping', () => {
     }>({
       binaryUrl: '/api/binary/article/42.aeds',
       frameType: FrameType.ArticleDetail
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       id: 42,
       title: 'Article 42',
       content: 'Content 42\nHello',
@@ -463,7 +518,12 @@ describe('binaryTransport ApiError mapping', () => {
       isDeleted: false,
       status: 2,
       scheduledPublishAt: null,
-      publishedAt: null
+      publishedAt: '2026-01-02T03:04:05.000Z',
+      rights: expect.objectContaining({
+        enabled: true,
+        licenseType: 'CC-BY-4.0',
+        proofStatus: 'ready'
+      })
     })
   })
 
@@ -1027,6 +1087,26 @@ describe('binaryTransport ApiError mapping', () => {
       binaryUrl: '/api/binary/article/list/home/1/10.aeds',
       frameType: FrameType.ArticleList,
       signal: controller.signal
+    })).rejects.toMatchObject({
+      name: 'AbortError',
+      message: 'Failed to fetch'
+    })
+
+    expect(dispatchSpy).not.toHaveBeenCalled()
+  })
+
+  it('treats fetch failures after RequestInit signal abort as canceled without telemetry', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    mockBinaryRequest.mockRejectedValue(new TypeError('Failed to fetch'))
+    const dispatchSpy = vi.mocked(window.dispatchEvent)
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/system/seo',
+      frameType: FrameType.SeoConfig,
+      requestOptions: {
+        signal: controller.signal
+      }
     })).rejects.toMatchObject({
       name: 'AbortError',
       message: 'Failed to fetch'

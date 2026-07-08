@@ -17,6 +17,7 @@ export interface UserListViewItem extends AdminAccountListItem {
   createdAtText: string
   privacyInitializedText: string
   credentialSummary: string
+  anonymousCredentialText: string
   riskFlagsText: string
   statusText: string
   statusLabel: string
@@ -31,6 +32,33 @@ export function useAdminUserManage() {
   const router = useRouter()
 
   const list = shallowRef<AdminAccountListItem[]>([])
+  const credentialStatusLabel = (value: string): string => {
+    switch (value) {
+      case 'active':
+        return '可用'
+      case 'revoked':
+        return '已停用'
+      case 'pending':
+        return '待确认'
+      case 'missing':
+      case '':
+        return '未建立'
+      default:
+        return '未知状态'
+    }
+  }
+
+  const credentialLevelSuffix = (value: string): string => {
+    switch (value) {
+      case 'verified':
+        return '（已验证）'
+      case 'elevated':
+        return '（增强验证）'
+      default:
+        return ''
+    }
+  }
+
   const listView = computed<UserListViewItem[]>(() =>
     list.value.map((item) => {
       const isDeleted = item.status === 2
@@ -39,10 +67,10 @@ export function useAdminUserManage() {
       const statusLabel = isDeleted ? '已注销' : isBanned ? '已封禁' : '正常'
       const displayHandle = item.publicHandle?.trim() || `account-${item.accountId}`
       const identityKindLabel = item.identityKind === 'anonymous_account' ? '匿名账号' : item.identityKind
-      const passkeyText = item.passkeyInitialized ? 'Passkey 已初始化' : 'Passkey 未初始化'
-      const recoveryText = item.recoveryInitialized ? 'Recovery 已初始化' : 'Recovery 未初始化'
-      const anonymousCredentialText = `匿名凭据 ${item.anonymousCredentialStatus}/${item.anonymousCredentialLevel}`
-      const credentialSummary = `${passkeyText} / ${recoveryText} / ${anonymousCredentialText}`
+      const passkeyText = item.passkeyInitialized ? '通行密钥已设置' : '未设置通行密钥'
+      const recoveryText = item.recoveryInitialized ? '恢复密钥已设置' : '未设置恢复密钥'
+      const anonymousCredentialText = `${credentialStatusLabel(item.anonymousCredentialStatus)}${credentialLevelSuffix(item.anonymousCredentialLevel)}`
+      const credentialSummary = `${passkeyText}；${recoveryText}`
       return {
         ...item,
         id: item.accountId,
@@ -52,8 +80,9 @@ export function useAdminUserManage() {
         createdAtText: TimeUtils.toFullLocalString(item.createTime),
         privacyInitializedText: item.privacyInitializedAt ? TimeUtils.toFullLocalString(item.privacyInitializedAt) : '未完成隐私初始化',
         credentialSummary,
+        anonymousCredentialText,
         riskFlagsText: item.riskFlags === 0 ? '无风险标记' : `风险标记 ${item.riskFlags}`,
-        statusText: `${statusLabel} / ${statusCode}`,
+        statusText: statusLabel,
         statusLabel,
         statusCode,
         statusClass: isDeleted ? 'text-[var(--fsusblog-text-muted)]' : isBanned ? 'text-[var(--fsusblog-color-error)]' : 'text-[var(--fsusblog-color-success)]',

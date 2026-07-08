@@ -76,9 +76,9 @@ Glass material 只允许用于以下 surface：
 
 ## 11. Account shell mobile navigation
 
-AccountLayout 移动端使用 FsusUI §8 segment control 承载账号分组展开，并使用 horizontal scrollable tab strip 承载当前分组内的 route links。
+AccountLayout 移动端使用 drawer 承载账号导航，抽屉内部与桌面侧栏保持统一视觉效果：同一套分组标题、route link 字重、active 主色标记、边界和动效。
 
-- Primary group tabs 渲染为横向可滚动 tab strip。
-- 分组 segment 保持 36-40px 控件高度；每个 account route link 保持 44px 最小点击目标。
-- 当账号分组超过 5 个时，前 5 个保持可见，其余分组收纳到 “更多” tab strip expansion。
-- AccountLayout 的主移动端账号菜单不得退回 drawer navigation。
+- 移动端首屏只保留一个账户导航入口，入口展示当前分组和当前页面，不堆叠两行导航。
+- Drawer 内 route link 保持 44px 最小点击目标，active 状态沿用桌面侧栏的主色左侧标记。
+- Drawer 使用站点 motion preset，不自造额外导航控件语言。
+- AccountLayout 移动端不得退回 segmented-control + horizontal tab strip 的双层顶部导航。

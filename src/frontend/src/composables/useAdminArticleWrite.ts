@@ -35,7 +35,7 @@ import {
   type ServerDraftSaveRequest
 } from '@/api/authoring'
 import { createCategory, getCategories, type CategoryItem } from '@/api/category'
-import { getAdminSiteConfig, type SeoConfigAdmin } from '@/api/system'
+import { getAdminSiteComplianceConfig, getAdminSiteConfig, type SeoConfigAdmin, type SiteComplianceConfigAdmin } from '@/api/system'
 import { createTag, getTags, type TagItem } from '@/api/tag'
 import { useAbortableTask } from '@/composables/useAbortableTask'
 import type { ApiRequestConfig } from '@/api/requestConfig'
@@ -81,6 +81,7 @@ interface ArticleSeoPreviewState {
 }
 
 interface ArticleRightsForm {
+  mode: 'site' | 'custom'
   enabled: boolean
   licenseType: string
   copyrightHolder: string
@@ -125,6 +126,15 @@ const articleRightsCopyPolicyOptions = [
   { label: '禁用复制增强', value: 'disabled' }
 ] as const
 
+const resolveLicenseTypeFromCompliance = (compliance: SiteComplianceConfigAdmin | null): string => {
+  const licenseText = `${compliance?.contentLicenseName ?? ''} ${compliance?.contentLicenseUrl ?? ''}`.toLowerCase()
+  if (licenseText.includes('cc0')) return 'CC0-1.0'
+  if (licenseText.includes('by-sa')) return 'CC-BY-SA-4.0'
+  if (licenseText.includes('by-nc')) return 'CC-BY-NC-4.0'
+  if (licenseText.includes('cc-by') || licenseText.includes('/by/')) return 'CC-BY-4.0'
+  return 'all-rights-reserved'
+}
+
 const normalizeArticlePublishStatus = (value: unknown): ArticlePublishStatus => {
   const status = Number(value)
   return status === ArticlePublishStatus.Draft
@@ -136,7 +146,8 @@ const normalizeArticlePublishStatus = (value: unknown): ArticlePublishStatus => 
     : ArticlePublishStatus.Published
 }
 
-const createDefaultArticleRightsForm = (): ArticleRightsForm => ({
+const createDefaultArticleRightsForm = (mode: ArticleRightsForm['mode'] = 'site'): ArticleRightsForm => ({
+  mode,
   enabled: true,
   licenseType: 'all-rights-reserved',
   copyrightHolder: '',
@@ -175,6 +186,7 @@ const normalizeArticleRightsForm = (value: unknown): ArticleRightsForm => {
     : defaults.maxExcerptChars
 
   return {
+    mode: raw.mode === 'custom' ? 'custom' : raw.mode === 'site' ? 'site' : defaults.mode,
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : defaults.enabled,
     licenseType: normalizeOptionalRightsText(raw.licenseType) || defaults.licenseType,
     copyrightHolder: normalizeOptionalRightsText(raw.copyrightHolder),
@@ -190,12 +202,17 @@ const normalizeArticleRightsForm = (value: unknown): ArticleRightsForm => {
 }
 
 const hasNonDefaultArticleRights = (rights: ArticleRightsForm): boolean => {
-  const defaults = createDefaultArticleRightsForm()
+  if (rights.mode === 'site') {
+    return false
+  }
+
+  const defaults = createDefaultArticleRightsForm('custom')
   return Object.keys(defaults).some((key) => rights[key as keyof ArticleRightsForm] !== defaults[key as keyof ArticleRightsForm])
 }
 
 const areArticleRightsSame = (left: ArticleRightsForm, right: ArticleRightsForm): boolean =>
-  left.enabled === right.enabled
+  left.mode === right.mode
+  && left.enabled === right.enabled
   && left.licenseType === right.licenseType
   && left.copyrightHolder === right.copyrightHolder
   && left.copyrightYear === right.copyrightYear
@@ -365,6 +382,7 @@ export function useAdminArticleWrite() {
   const categories = shallowRef<CategoryItem[]>([])
   const tags = shallowRef<TagItem[]>([])
   const siteConfig = ref<SeoConfigAdmin | null>(null)
+  const siteComplianceConfig = ref<SiteComplianceConfigAdmin | null>(null)
   const mountedBrowserSeoBaseUrl = ref('')
   const assetLibrary = shallowRef<AssetLibraryItemResponse[]>([])
   const assetLibraryLoading = ref(false)
@@ -410,6 +428,27 @@ export function useAdminArticleWrite() {
     status: ArticlePublishStatus.Published,
     scheduledPublishAt: '',
     rights: createDefaultArticleRightsForm()
+  })
+  const siteInheritedRights = computed<ArticleRightsForm>(() => {
+    const compliance = siteComplianceConfig.value
+    return {
+      ...createDefaultArticleRightsForm('site'),
+      copyrightHolder: compliance?.copyrightOwner?.trim() || siteConfig.value?.title?.trim() || '',
+      copyrightYear: compliance?.copyrightStartYear ?? null,
+      rightsStatement: compliance?.copyrightText?.trim() || '',
+      attributionTemplate: compliance?.contentLicenseName?.trim() || '',
+      licenseType: resolveLicenseTypeFromCompliance(compliance)
+    }
+  })
+  const articleRightsUsingSiteDefaults = computed(() => articleForm.rights.mode === 'site')
+  const articleRightsInheritanceText = computed(() => {
+    const inherited = siteInheritedRights.value
+    const holder = inherited.copyrightHolder || '未设置版权主体'
+    const year = inherited.copyrightYear ? `${inherited.copyrightYear} 年起` : '按站点年份'
+    const statement = inherited.rightsStatement || '保留所有权利。'
+    return articleRightsUsingSiteDefaults.value
+      ? `当前继承：${holder}，${year}，${statement}`
+      : `自定义本文版权；可从站点默认值继续调整。`
   })
   const submitButtonText = computed(() => {
     if (articleForm.status === ArticlePublishStatus.Draft) return '保存草稿'
@@ -842,6 +881,17 @@ export function useAdminArticleWrite() {
     }
   }
 
+  const refreshSiteComplianceConfig = async (signal?: AbortSignal): Promise<void> => {
+    try {
+      siteComplianceConfig.value = await getAdminSiteComplianceConfig(signal ? buildSignalConfig(signal) : undefined)
+      if (!isEdit.value && articleForm.rights.mode === 'site') {
+        articleForm.rights = cloneArticleRightsForm(siteInheritedRights.value)
+      }
+    } catch {
+      siteComplianceConfig.value = null
+    }
+  }
+
   const refreshAssetLibrary = async (signal?: AbortSignal): Promise<void> => {
     assetLibraryLoading.value = true
     try {
@@ -873,7 +923,7 @@ export function useAdminArticleWrite() {
     articleForm.tagIds = Array.isArray(data.tags) ? data.tags.map((item) => Number(item.id)) : []
     articleForm.status = normalizeArticlePublishStatus(data.status)
     articleForm.scheduledPublishAt = normalizeDateTimeInput(data.scheduledPublishAt)
-    articleForm.rights = normalizeArticleRightsForm(data.rights)
+    articleForm.rights = { ...normalizeArticleRightsForm(data.rights), mode: 'custom' }
   }
 
   const loadArticleDetailIntoForm = async (signal: AbortSignal): Promise<void> => {
@@ -1178,20 +1228,22 @@ export function useAdminArticleWrite() {
     taskFeedback.begin('正在创建分类', trimmed, 'article-taxonomy')
     try {
       await taxonomyTask.run(async (signal) => {
-        await createCategory(trimmed, buildSignalConfig(signal))
+        const result = await createCategory(trimmed, buildSignalConfig(signal))
         await refreshTaxonomy(signal)
-        const created = categories.value.find((item) => item.name === trimmed)
+        const created = categories.value.find((item) => item.id === result.id)
+          ?? categories.value.find((item) => item.name === trimmed)
         if (created) {
           articleForm.categoryId = created.id
+        } else if (result.id > 0) {
+          categories.value = [...categories.value, { id: result.id, name: trimmed, articleCount: 0 }]
+          articleForm.categoryId = result.id
         }
       })
       taskFeedback.succeed('分类已创建并选中', trimmed, 'article-taxonomy')
-      toast.success('分类已创建并选中')
       return true
     } catch (error: unknown) {
       if (!isAbortError(error)) {
         taskFeedback.fail('分类创建失败', error, '分类创建失败，请稍后重试', 'article-taxonomy')
-        showErrorToast(error, '分类创建失败，请稍后重试')
       }
       return false
     } finally {
@@ -1210,20 +1262,22 @@ export function useAdminArticleWrite() {
     taskFeedback.begin('正在创建标签', trimmed, 'article-taxonomy')
     try {
       await taxonomyTask.run(async (signal) => {
-        await createTag(trimmed, buildSignalConfig(signal))
+        const result = await createTag(trimmed, buildSignalConfig(signal))
         await refreshTaxonomy(signal)
-        const created = tags.value.find((item) => item.name === trimmed)
+        const created = tags.value.find((item) => item.id === result.id)
+          ?? tags.value.find((item) => item.name === trimmed)
         if (created && !articleForm.tagIds.includes(created.id)) {
           articleForm.tagIds = [...articleForm.tagIds, created.id]
+        } else if (result.id > 0 && !articleForm.tagIds.includes(result.id)) {
+          tags.value = [...tags.value, { id: result.id, name: trimmed, articleCount: 0 }]
+          articleForm.tagIds = [...articleForm.tagIds, result.id]
         }
       })
       taskFeedback.succeed('标签已创建并关联', trimmed, 'article-taxonomy')
-      toast.success('标签已创建并关联')
       return true
     } catch (error: unknown) {
       if (!isAbortError(error)) {
         taskFeedback.fail('标签创建失败', error, '标签创建失败，请稍后重试', 'article-taxonomy')
-        showErrorToast(error, '标签创建失败，请稍后重试')
       }
       return false
     } finally {
@@ -1237,7 +1291,8 @@ export function useAdminArticleWrite() {
       await initTask.run(async (signal) => {
         await Promise.all([
           refreshTaxonomy(signal),
-          refreshSeoConfig(signal)
+          refreshSeoConfig(signal),
+          refreshSiteComplianceConfig(signal)
         ])
 
         if (signal.aborted) {
@@ -1272,8 +1327,9 @@ export function useAdminArticleWrite() {
   }
 
   const validateArticleRights = (): boolean => {
-    const licenseType = articleForm.rights.licenseType.trim()
-    const copyPolicy = articleForm.rights.copyPolicy.trim()
+    const rights = buildEffectiveArticleRightsForm()
+    const licenseType = rights.licenseType.trim()
+    const copyPolicy = rights.copyPolicy.trim()
     if (licenseType.trim().length === 0) {
       showWarningToast('版权许可类型不能为空', '版权许可类型不能为空')
       return false
@@ -1290,14 +1346,14 @@ export function useAdminArticleWrite() {
       showWarningToast('复制策略不在允许范围内', '复制策略不在允许范围内')
       return false
     }
-    if (articleForm.rights.copyrightYear !== null) {
+    if (rights.copyrightYear !== null) {
       const currentYear = new Date().getFullYear()
-      if (!Number.isInteger(articleForm.rights.copyrightYear) || articleForm.rights.copyrightYear < 1900 || articleForm.rights.copyrightYear > currentYear + 1) {
+      if (!Number.isInteger(rights.copyrightYear) || rights.copyrightYear < 1900 || rights.copyrightYear > currentYear + 1) {
         showWarningToast('版权年份必须是有效年份', '版权年份必须是有效年份')
         return false
       }
     }
-    if (!Number.isInteger(articleForm.rights.maxExcerptChars) || articleForm.rights.maxExcerptChars < 0 || articleForm.rights.maxExcerptChars > ARTICLE_RIGHTS_EXCERPT_MAX) {
+    if (!Number.isInteger(rights.maxExcerptChars) || rights.maxExcerptChars < 0 || rights.maxExcerptChars > ARTICLE_RIGHTS_EXCERPT_MAX) {
       showWarningToast(`摘录长度必须在 0-${ARTICLE_RIGHTS_EXCERPT_MAX} 之间`, `摘录长度必须在 0-${ARTICLE_RIGHTS_EXCERPT_MAX} 之间`)
       return false
     }
@@ -1332,19 +1388,48 @@ export function useAdminArticleWrite() {
     return true
   }
 
-  const buildArticleRightsRequest = (): ArticleRightsRequest => ({
-    enabled: articleForm.rights.enabled,
-    licenseType: articleForm.rights.licenseType.trim(),
-    copyrightHolder: articleForm.rights.copyrightHolder.trim() || null,
-    copyrightYear: articleForm.rights.copyrightYear,
-    rightsStatement: articleForm.rights.rightsStatement.trim() || null,
-    attributionTemplate: articleForm.rights.attributionTemplate.trim() || null,
-    copyPolicy: articleForm.rights.copyPolicy.trim(),
-    maxExcerptChars: articleForm.rights.maxExcerptChars,
-    allowCodeCopy: articleForm.rights.allowCodeCopy,
-    showPublicBadge: articleForm.rights.showPublicBadge,
-    proofBindingEnabled: articleForm.rights.proofBindingEnabled
-  })
+  const buildEffectiveArticleRightsForm = (): ArticleRightsForm =>
+    articleForm.rights.mode === 'site'
+      ? siteInheritedRights.value
+      : articleForm.rights
+
+  const buildArticleRightsRequest = (): ArticleRightsRequest => {
+    const rights = buildEffectiveArticleRightsForm()
+    return {
+      mode: articleForm.rights.mode,
+      enabled: rights.enabled,
+      licenseType: rights.licenseType.trim(),
+      copyrightHolder: rights.copyrightHolder.trim() || null,
+      copyrightYear: rights.copyrightYear,
+      rightsStatement: rights.rightsStatement.trim() || null,
+      attributionTemplate: rights.attributionTemplate.trim() || null,
+      copyPolicy: rights.copyPolicy.trim(),
+      maxExcerptChars: rights.maxExcerptChars,
+      allowCodeCopy: rights.allowCodeCopy,
+      showPublicBadge: rights.showPublicBadge,
+      proofBindingEnabled: rights.proofBindingEnabled
+    }
+  }
+
+  const useSiteRightsDefaults = (): void => {
+    articleForm.rights = cloneArticleRightsForm(siteInheritedRights.value)
+  }
+
+  const useCustomArticleRights = (): void => {
+    articleForm.rights = {
+      ...cloneArticleRightsForm(siteInheritedRights.value),
+      mode: 'custom'
+    }
+  }
+
+  const setArticleRightsMode = (mode: ArticleRightsForm['mode']): void => {
+    if (mode === 'site') {
+      useSiteRightsDefaults()
+      return
+    }
+
+    useCustomArticleRights()
+  }
 
   const validatePublishState = (): boolean => {
     if (articleForm.status !== ArticlePublishStatus.Scheduled) {
@@ -1621,6 +1706,8 @@ export function useAdminArticleWrite() {
     seoChecking,
     seoStatusText,
     articleForm,
+    articleRightsUsingSiteDefaults,
+    articleRightsInheritanceText,
     articleRightsLicenseOptions,
     articleRightsCopyPolicyOptions,
     articleRightsExcerptMax: ARTICLE_RIGHTS_EXCERPT_MAX,
@@ -1647,6 +1734,7 @@ export function useAdminArticleWrite() {
     reindexCurrentArticleAssets,
     cleanupAssetOrphans,
     insertAssetIntoContent,
+    setArticleRightsMode,
     quickCreateCategory,
     quickCreateTag,
     quickCreatingCategory,

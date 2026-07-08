@@ -125,6 +125,85 @@ describe('commentPrivacyWasmProver', () => {
     expect(loadModule).not.toHaveBeenCalled()
   })
 
+  it('loads the public browser prover artifact through a module script tag', async () => {
+    const prewarm = vi.fn().mockResolvedValue(undefined)
+    const prepareProof = vi.fn().mockResolvedValue({
+      proofBytes: new Uint8Array([21, 22, 23]),
+      publicInputs: expectedPublicInputs,
+      nullifierHash: expectedNullifierHash
+    })
+    const appendedScripts: HTMLScriptElement[] = []
+    const appendChild = vi.spyOn(document.head, 'appendChild').mockImplementation((node: Node): Node => {
+      if (node.nodeName === 'SCRIPT') {
+        const script = node as HTMLScriptElement
+        appendedScripts.push(script)
+        queueMicrotask(() => {
+          ;(globalThis as Record<string, unknown>).__fsusCommentPrivacyProverModule = {
+            createCommentPrivacyProver: vi.fn().mockReturnValue({ prewarm, prepareProof })
+          }
+          script.dispatchEvent(new window.Event('load'))
+        })
+      }
+      return node
+    })
+    const prover = createCommentPrivacyWasmProver({
+      loadManifest: vi.fn().mockResolvedValue(manifest),
+      loadArtifact: createArtifactLoader()
+    })
+
+    try {
+      await prover.prewarm()
+      const result = await prover.prepareProof(proofRequest)
+
+      expect(appendedScripts).toHaveLength(1)
+      expect(appendedScripts[0].type).toBe('module')
+      expect(appendedScripts[0].src).toContain('/wasm/comment-privacy-prover.js')
+      expect(prewarm).toHaveBeenCalledWith(expect.objectContaining({ manifest }))
+      expect(prepareProof).toHaveBeenCalledWith(expect.objectContaining({ scope: 'article:42' }))
+      expect(result.proofBytes).toEqual(new Uint8Array([21, 22, 23]))
+      expect(result.publicInputs).toEqual(expectedPublicInputs)
+      expect(result.nullifierHash).toEqual(expectedNullifierHash)
+    } finally {
+      appendChild.mockRestore()
+      delete (globalThis as Record<string, unknown>).__fsusCommentPrivacyProverModule
+    }
+  })
+
+  it('loads the public prover artifact through dynamic import when running inside a worker', async () => {
+    const prewarm = vi.fn().mockResolvedValue(undefined)
+    const prepareProof = vi.fn().mockResolvedValue({
+      proofBytes: new Uint8Array([21, 22, 23]),
+      publicInputs: expectedPublicInputs,
+      nullifierHash: expectedNullifierHash
+    })
+    const importModule = vi.fn().mockResolvedValue({
+      createCommentPrivacyProver: vi.fn().mockReturnValue({ prewarm, prepareProof })
+    })
+    vi.stubGlobal('document', undefined)
+    const prover = createCommentPrivacyWasmProver({
+      loadManifest: vi.fn().mockResolvedValue(manifest),
+      loadArtifact: createArtifactLoader(),
+      importModule
+    } as Parameters<typeof createCommentPrivacyWasmProver>[0] & {
+      importModule: (moduleUrl: string, signal?: AbortSignal) => Promise<unknown>
+    })
+
+    try {
+      await prover.prewarm()
+      const result = await prover.prepareProof(proofRequest)
+
+      expect(importModule).toHaveBeenCalledTimes(1)
+      expect(importModule).toHaveBeenCalledWith('/wasm/comment-privacy-prover.js', undefined)
+      expect(prewarm).toHaveBeenCalledWith(expect.objectContaining({ manifest }))
+      expect(prepareProof).toHaveBeenCalledWith(expect.objectContaining({ scope: 'article:42' }))
+      expect(result.proofBytes).toEqual(new Uint8Array([21, 22, 23]))
+      expect(result.publicInputs).toEqual(expectedPublicInputs)
+      expect(result.nullifierHash).toEqual(expectedNullifierHash)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('delegates proof generation to the loaded wasm prover artifact without console output', async () => {
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})

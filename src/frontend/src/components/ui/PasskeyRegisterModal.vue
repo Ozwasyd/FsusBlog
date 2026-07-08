@@ -1,106 +1,113 @@
 <template>
-  <el-dialog
+  <FsusDialog
     :model-value="visible"
     :title="copy.dialogTitle"
+    class="passkey-register-dialog"
+    modal-class="passkey-register-overlay"
     width="min(92vw, 28rem)"
     destroy-on-close
     :show-close="false"
     @update:model-value="(val: boolean) => !val && handleClose()"
   >
-    <p class="sr-only" role="status" aria-live="polite">{{ stepStatusText }}</p>
+    <div class="passkey-register-modal">
+      <p class="sr-only" role="status" aria-live="polite">{{ stepStatusText }}</p>
 
-    <!-- 步骤 1：设备名称 -->
-    <template v-if="step === 'name'">
-      <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
-        {{ stepNameHint }}
-      </p>
+      <div class="passkey-register-modal__body">
+        <!-- 步骤 1：设备名称 -->
+        <template v-if="step === 'name'">
+          <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
+            {{ stepNameHint }}
+          </p>
 
-      <div>
-        <label for="passkey-register-name" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.deviceNameLabel }}</label>
-        <el-input
-          id="passkey-register-name"
-          ref="nameInput"
-          v-model="friendlyName"
-          type="text"
-          autocomplete="webauthn"
-          :placeholder="copy.deviceNamePlaceholder"
-          :disabled="loading"
-          maxlength="64"
-          show-word-limit
-          @keyup.enter="onNameNext"
-        />
+          <div>
+            <label for="passkey-register-name" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.deviceNameLabel }}</label>
+            <el-input
+              id="passkey-register-name"
+              ref="nameInput"
+              v-model="friendlyName"
+              type="text"
+              autocomplete="webauthn"
+              :placeholder="copy.deviceNamePlaceholder"
+              :disabled="loading"
+              maxlength="64"
+              show-word-limit
+              @keyup.enter="onNameNext"
+            />
+          </div>
+        </template>
+
+        <!-- 步骤 2：MFA 验证（仅当用户已启用 TOTP 时） -->
+        <template v-else-if="step === 'mfa'">
+          <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
+            {{ copy.mfaStepHint }}
+          </p>
+
+          <div class="space-y-4">
+            <div>
+              <label for="passkey-register-mfa-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.mfaCodeLabel }}</label>
+              <el-input
+                id="passkey-register-mfa-code"
+                ref="mfaCodeInput"
+                v-model="mfaCode"
+                type="text"
+                autocomplete="one-time-code"
+                inputmode="numeric"
+                :placeholder="copy.mfaCodePlaceholder"
+                :disabled="loading"
+                @keyup.enter="onMfaVerify"
+              />
+            </div>
+            <div>
+              <label for="passkey-register-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.mfaRecoveryCodeLabel }}</label>
+              <el-input
+                id="passkey-register-recovery-code"
+                v-model="mfaRecoveryCode"
+                type="text"
+                autocomplete="one-time-code"
+                :placeholder="copy.mfaRecoveryCodePlaceholder"
+                :disabled="loading"
+                @keyup.enter="onMfaVerify"
+              />
+            </div>
+          </div>
+        </template>
+
+        <!-- 步骤 3：等待认证器 -->
+        <template v-else-if="step === 'ceremony'">
+          <div class="flex flex-col items-center gap-4 py-8">
+            <div class="h-3 w-32">
+              <el-skeleton animated :rows="1" />
+            </div>
+            <p class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ copy.waitingAuthenticator }}</p>
+          </div>
+        </template>
+
+        <!-- 步骤 4：成功 -->
+        <template v-else-if="step === 'success'">
+          <div class="flex flex-col items-center gap-3 py-4">
+            <div class="w-12 h-12 rounded-[var(--fsus-radius-panel)] bg-[var(--fsusblog-text-primary)] flex items-center justify-center">
+              <Check class="w-6 h-6 text-[var(--fsusblog-page-bg)]" aria-hidden="true" />
+            </div>
+            <p class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">{{ copy.successTitle }}</p>
+            <p class="text-[12px] text-[var(--fsusblog-text-muted)]">{{ copy.successHint }}</p>
+          </div>
+        </template>
+
+        <div v-if="errorMessage" role="alert" class="mt-4 text-[11px] font-medium text-[var(--fsusblog-color-error)]">{{ errorMessage }}</div>
       </div>
-    </template>
-
-    <!-- 步骤 2：MFA 验证（仅当用户已启用 TOTP 时） -->
-    <template v-else-if="step === 'mfa'">
-      <p class="text-sm text-[var(--fsusblog-text-muted)] leading-relaxed mb-6">
-        {{ copy.mfaStepHint }}
-      </p>
-
-      <div class="space-y-4">
-        <div>
-          <label for="passkey-register-mfa-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.mfaCodeLabel }}</label>
-          <el-input
-            id="passkey-register-mfa-code"
-            ref="mfaCodeInput"
-            v-model="mfaCode"
-            type="text"
-            autocomplete="one-time-code"
-            inputmode="numeric"
-            :placeholder="copy.mfaCodePlaceholder"
-            :disabled="loading"
-            @keyup.enter="onMfaVerify"
-          />
-        </div>
-        <div>
-          <label for="passkey-register-recovery-code" class="block text-[11px] font-bold tracking-normal text-[var(--fsusblog-text-muted)] normal-case mb-2">{{ copy.mfaRecoveryCodeLabel }}</label>
-          <el-input
-            id="passkey-register-recovery-code"
-            v-model="mfaRecoveryCode"
-            type="text"
-            autocomplete="one-time-code"
-            :placeholder="copy.mfaRecoveryCodePlaceholder"
-            :disabled="loading"
-            @keyup.enter="onMfaVerify"
-          />
-        </div>
-      </div>
-    </template>
-
-    <!-- 步骤 3：等待认证器 -->
-    <template v-else-if="step === 'ceremony'">
-      <div class="flex flex-col items-center gap-4 py-8">
-        <div class="h-3 w-32">
-          <el-skeleton animated :rows="1" />
-        </div>
-        <p class="text-[11px] font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">{{ copy.waitingAuthenticator }}</p>
-      </div>
-    </template>
-
-    <!-- 步骤 4：成功 -->
-    <template v-else-if="step === 'success'">
-      <div class="flex flex-col items-center gap-3 py-4">
-        <div class="w-12 h-12 rounded-[var(--fsus-radius-panel)] bg-[var(--fsusblog-text-primary)] flex items-center justify-center">
-          <Check class="w-6 h-6 text-[var(--fsusblog-page-bg)]" aria-hidden="true" />
-        </div>
-        <p class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">{{ copy.successTitle }}</p>
-        <p class="text-[12px] text-[var(--fsusblog-text-muted)]">{{ copy.successHint }}</p>
-      </div>
-    </template>
-
-    <div v-if="errorMessage" role="alert" class="mt-4 text-[11px] font-medium text-[var(--fsusblog-color-error)]">{{ errorMessage }}</div>
+    </div>
 
     <template #footer>
-      <div class="dialog-footer flex justify-end gap-5 mt-4">
+      <div class="passkey-register-modal__footer">
         <template v-if="step === 'success'">
-          <el-button type="primary" @click="handleClose">{{ copy.closeCta }}</el-button>
+          <el-button class="passkey-register-modal__button" type="primary" @click="handleClose">{{ copy.closeCta }}</el-button>
         </template>
         <template v-else-if="step === 'ceremony'" />
         <template v-else>
-          <el-button @click="handleClose" :disabled="loading">{{ copy.cancelCta }}</el-button>
+          <el-button class="passkey-register-modal__button" @click="handleClose" :disabled="loading">{{ copy.cancelCta }}</el-button>
           <el-button
             v-if="step === 'name'"
+            class="passkey-register-modal__button"
             type="primary"
             :loading="loading"
             :disabled="loading"
@@ -110,6 +117,7 @@
           </el-button>
           <el-button
             v-if="step === 'mfa'"
+            class="passkey-register-modal__button"
             type="primary"
             :loading="loading"
             :disabled="loading || (!mfaCode.trim() && !mfaRecoveryCode.trim())"
@@ -120,7 +128,7 @@
         </template>
       </div>
     </template>
-  </el-dialog>
+  </FsusDialog>
 </template>
 
 <script setup lang="ts">
@@ -128,6 +136,7 @@ import { Check } from '@/fsusui/icons'
 import { computed, nextTick, ref, watch } from 'vue'
 import { startRegistration } from '@simplewebauthn/browser'
 import { beginRecoveryPasskeyRegistration, completeRecoveryPasskeyRegistration, passkeyRegisterBegin, passkeyRegisterComplete, startMfaChallenge, verifyMfaChallenge } from '@/api/auth'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 import { FSUSBLOG_SECURITY_COPY } from '@/copy'
 
 type Step = 'name' | 'mfa' | 'ceremony' | 'success'
@@ -275,3 +284,64 @@ const runCeremony = async (mfaProofToken: string | undefined) => {
   }
 }
 </script>
+
+<style scoped>
+:global(.fsusblog-dialog.passkey-register-dialog) {
+  max-height: min(82dvh, 34rem);
+}
+
+:global(.passkey-register-dialog .el-dialog__header) {
+  padding: 1.25rem 1.5rem 0.75rem;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+}
+
+:global(.passkey-register-dialog .el-dialog__body) {
+  padding: 0;
+}
+
+:global(.passkey-register-dialog .el-dialog__footer) {
+  padding: 0;
+  border-top: 1px solid var(--fsusblog-panel-border);
+}
+
+:global(.passkey-register-dialog .fsus-dialog__footer) {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.passkey-register-modal__body {
+  padding: 1.25rem 1.5rem;
+}
+
+.passkey-register-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+}
+
+.passkey-register-modal__button {
+  min-height: 2.5rem;
+  padding-inline: 1.1rem;
+}
+
+@media (max-width: 640px) {
+  :global(.fsusblog-dialog.passkey-register-dialog) {
+    width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 2rem);
+  }
+
+  .passkey-register-modal__body {
+    padding: 1rem;
+  }
+
+  .passkey-register-modal__footer {
+    justify-content: stretch;
+    padding: 0.875rem 1rem 1rem;
+  }
+
+  .passkey-register-modal__button {
+    flex: 1 1 0;
+  }
+}
+</style>

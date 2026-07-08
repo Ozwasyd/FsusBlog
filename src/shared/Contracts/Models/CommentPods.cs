@@ -43,6 +43,8 @@ public readonly struct CommentPolicySnapshotPod
     public readonly byte ZkProdTrustedSetupVerified;
     public readonly byte ZkProdCredentialRequired;
     public readonly byte ZkProdCredentialRootReady;
+    public readonly int CommentMaxChars;
+    public readonly int CommentMaxUtf8Bytes;
     public readonly Utf8SliceRef SupportedDisplayLanguages;
     public readonly Utf8SliceRef SnapshotHash;
     public readonly Utf8SliceRef ZkProdUnavailableReason;
@@ -59,6 +61,10 @@ public readonly struct CommentPolicyUpdateRequestPod
     public readonly byte ZkAnonymousEnabled;
     public readonly byte HasDefaultAuthorMode;
     public readonly byte DefaultAuthorMode;
+    public readonly byte HasCommentMaxChars;
+    public readonly byte HasCommentMaxUtf8Bytes;
+    public readonly int CommentMaxChars;
+    public readonly int CommentMaxUtf8Bytes;
     public readonly Utf8SliceRef SupportedDisplayLanguages;
 }
 

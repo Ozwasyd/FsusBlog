@@ -65,6 +65,18 @@ describe('anonymous identity cold-start quality gates', () => {
     expect(composerContract).toContain('zkBlocked')
   })
 
+  it('renders the comment identity selector as a compact reading setting row', () => {
+    expect(composerTemplate).toContain('comment-identity-panel')
+    expect(composerTemplate).toContain('comment-identity-summary')
+    expect(composerTemplate).toContain('comment-identity-badge')
+    expect(composerTemplate).toContain('comment-identity-toggle')
+    expect(composerTemplate).toContain('仅署名')
+    expect(composerTemplate.match(/匿名发布暂不可用/g)).toHaveLength(1)
+    expect(composer).toContain('.comment-identity-panel')
+    expect(composer).toContain('.comment-identity-toggle :deep(.el-checkbox__label)')
+    expect(composerTemplate).not.toContain('mb-3 space-y-2 border border-[var(--fsusblog-panel-border)]')
+  })
+
   it('pins frontend binary frames and author adapters for anonymous identity contracts', () => {
     for (const [name, value] of [
       ['RecoveryKeyCreateResponse', 159],

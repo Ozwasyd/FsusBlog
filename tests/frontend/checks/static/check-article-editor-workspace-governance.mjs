@@ -43,6 +43,11 @@ for (const [file, source, tokens] of [
     'label="历史版本" name="versions"',
     'label="资源" name="resources"',
     'layoutModeDescription',
+    'openPreviewInspector',
+    'setEditorLayoutMode',
+    'editorLayoutModeLabel',
+    '视图：{{ editorLayoutModeLabel }}',
+    'write-layout-control',
     '生成摘要草稿',
     '检查草稿',
     '使用这版摘要',
@@ -71,13 +76,12 @@ for (const [file, source, tokens] of [
 }
 
 const requiredWriteTokens = [
+  'class="write-command-actions',
+  'class="write-submit-button"',
   'class="write-inspector"',
   'class="write-inspector-section"',
-  'openPreviewInspector',
   'openResourcesInspector',
   'openVersionsInspector',
-  "editorLayoutModeLabel",
-  '视图：{{ editorLayoutModeLabel }}',
   '内容检查',
   '生成摘要建议',
   '检查内容',

@@ -7,7 +7,7 @@ namespace FsusBlog.Server.Services.Moderation;
 
 public sealed class CommentModerationDispositionPolicy(IConfiguration configuration) : ICommentModerationDispositionPolicy
 {
-    private static readonly HashSet<string> AutoHideSecondRoundCategories = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> RiskCategoryIds = new(StringComparer.Ordinal)
     {
         "advertising",
         "contact_lead",
@@ -22,96 +22,45 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
         RegionModerationDecision regionDecision,
         AntiSpamModerationResult modelResult)
     {
+        _ = regionDecision;
         string mode = NormalizeMode(configuration["Moderation:AntiSpamModel:Mode"]);
         CommentModerationStatus nextStatus = comment.ModerationStatus;
         bool autoApplied = false;
+        bool requiresHumanReview = false;
         string reason = "score_only";
 
         if (!modelResult.Available || !string.Equals(modelResult.Status, AntiSpamModerationStatuses.Ok, StringComparison.Ordinal))
         {
             reason = "model_unavailable";
         }
-        else if (mode == CommentModerationDispositionModes.AutoLowRiskApprove)
+        else if (IsModelRiskHit(modelResult))
         {
-            reason = DecideAutoLowRiskApprove(modelResult, regionDecision, out nextStatus, out autoApplied);
+            nextStatus = CommentModerationStatus.Hidden;
+            autoApplied = nextStatus != comment.ModerationStatus;
+            double borderlineThreshold = ResolveThreshold("Moderation:AntiSpamModel:BorderlineRiskConfidenceThreshold", 0.90d);
+            requiresHumanReview = modelResult.Confidence < borderlineThreshold;
+            reason = requiresHumanReview ? "model_risk_borderline_review" : "model_risk_auto_hidden";
         }
-        else if (mode == CommentModerationDispositionModes.AutoHideHighRisk)
+        else
         {
-            reason = DecideAutoHideHighRisk(modelResult, comment.ModerationStatus, out nextStatus, out autoApplied);
-        }
-        else if (mode == CommentModerationDispositionModes.StrictAutoModerate)
-        {
-            reason = "strict_auto_moderate_reserved";
+            reason = "model_clean";
         }
 
         return new CommentModerationDisposition(
             nextStatus,
             reason,
             autoApplied,
-            RequiresHumanReview: !autoApplied,
+            requiresHumanReview,
             mode,
-            BuildAuditContext(comment, modelResult, mode, reason, nextStatus, autoApplied));
+            BuildAuditContext(comment, modelResult, mode, reason, nextStatus, autoApplied, requiresHumanReview));
     }
 
-    private string DecideAutoLowRiskApprove(
-        AntiSpamModerationResult modelResult,
-        RegionModerationDecision regionDecision,
-        out CommentModerationStatus nextStatus,
-        out bool autoApplied)
-    {
-        nextStatus = CommentModerationStatus.Pending;
-        autoApplied = false;
-
-        if (!regionDecision.CanPublish)
-        {
-            return "region_blocks_publication";
-        }
-        if (regionDecision.RequiresManualReview || regionDecision.HideUntilReviewed)
-        {
-            return "region_requires_human_review";
-        }
-
-        double threshold = ResolveThreshold("Moderation:AntiSpamModel:AutoApproveConfidenceThreshold", 0.95d);
-        if (IsCleanHighConfidence(modelResult, threshold))
-        {
-            nextStatus = CommentModerationStatus.Approved;
-            autoApplied = true;
-            return "model_clean_high_confidence";
-        }
-
-        return "model_requires_human_review";
-    }
-
-    private string DecideAutoHideHighRisk(
-        AntiSpamModerationResult modelResult,
-        CommentModerationStatus currentStatus,
-        out CommentModerationStatus nextStatus,
-        out bool autoApplied)
-    {
-        nextStatus = currentStatus;
-        autoApplied = false;
-
-        double threshold = ResolveThreshold("Moderation:AntiSpamModel:AutoHideConfidenceThreshold", 0.90d);
-        bool highRiskLabel = modelResult.Label is "risky" or "blocked_candidate";
-        bool highRiskByConfidence = highRiskLabel && modelResult.Confidence >= threshold;
-        bool highRiskBySecondRound = modelResult.NeedsSecondRound
-            && modelResult.Categories.Any(static category => AutoHideSecondRoundCategories.Contains(category.Id));
-        if (highRiskByConfidence || highRiskBySecondRound)
-        {
-            nextStatus = CommentModerationStatus.Hidden;
-            autoApplied = true;
-            return "model_high_risk_auto_hide";
-        }
-
-        return "model_requires_human_review";
-    }
-
-    private static bool IsCleanHighConfidence(AntiSpamModerationResult modelResult, double threshold)
-        => string.Equals(modelResult.Label, "clean", StringComparison.Ordinal)
-            && string.Equals(modelResult.Severity, "low", StringComparison.Ordinal)
-            && modelResult.Confidence >= threshold
-            && !modelResult.NeedsSecondRound
-            && modelResult.Categories.All(static category => category.Severity is not ("high" or "critical"));
+    private static bool IsModelRiskHit(AntiSpamModerationResult modelResult)
+        => modelResult.Label is "risky" or "blocked_candidate"
+            || modelResult.Severity is "high" or "critical"
+            || modelResult.Categories.Any(static category =>
+                category.Severity is "high" or "critical"
+                || RiskCategoryIds.Contains(category.Id));
 
     private double ResolveThreshold(string key, double fallback)
         => Math.Clamp(configuration.GetValue<double?>(key) ?? fallback, 0d, 1d);
@@ -131,7 +80,8 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
         string mode,
         string reason,
         CommentModerationStatus nextStatus,
-        bool autoApplied)
+        bool autoApplied,
+        bool requiresHumanReview)
         => new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["comment_id"] = comment.Id.ToString(CultureInfo.InvariantCulture),
@@ -145,6 +95,7 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
             ["mode"] = mode,
             ["reason"] = reason,
             ["next_status"] = nextStatus.ToString(),
-            ["auto_applied"] = autoApplied ? "true" : "false"
+            ["auto_applied"] = autoApplied ? "true" : "false",
+            ["requires_human_review"] = requiresHumanReview ? "true" : "false"
         };
 }

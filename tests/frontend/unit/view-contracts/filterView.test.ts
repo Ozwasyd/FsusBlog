@@ -28,7 +28,7 @@ describe('createFilterPageViewContract', () => {
   it('uses search-specific empty copy with the query', () => {
     const view = createView(PUBLIC_FILTER_TYPE.search, '“AOT”')
 
-    expect(view.empty.title).toBe('没搜到「AOT」，换个词试试')
+    expect(view.empty.title).toBe('无匹配结果')
   })
 
   it('uses category-specific empty copy', () => {
@@ -46,6 +46,7 @@ describe('createFilterPageViewContract', () => {
   it('uses direct operational copy for load errors', () => {
     const view = createView(PUBLIC_FILTER_TYPE.search, '“AOT”', { hasError: true })
 
-    expect(view.empty.title).toBe('文章列表没取回来，稍后再试')
+    expect(view.empty.title).toBe('内容不可用')
+    expect(view.empty.description).toBe('刷新后重试。')
   })
 })

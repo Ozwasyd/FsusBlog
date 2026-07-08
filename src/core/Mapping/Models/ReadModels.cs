@@ -121,6 +121,8 @@ public readonly record struct CommentPolicySnapshotCoreModel(
     string DefaultAuthorMode,
     IReadOnlyList<string> SupportedDisplayLanguages,
     string SnapshotHash = "",
+    int CommentMaxChars = 1000,
+    int CommentMaxUtf8Bytes = 4096,
     bool ZkProdEnabled = false,
     bool ZkProdNativeVerifierConfigured = false,
     bool ZkProdTrustedSetupVerified = false,
@@ -133,7 +135,9 @@ public readonly record struct CommentPolicyUpdateRequestCoreModel(
     bool? PublicCommentsEnabled,
     bool? ZkAnonymousEnabled,
     string? DefaultAuthorMode,
-    IReadOnlyList<string>? SupportedDisplayLanguages);
+    IReadOnlyList<string>? SupportedDisplayLanguages,
+    int? CommentMaxChars = null,
+    int? CommentMaxUtf8Bytes = null);
 
 public readonly record struct CommentCreateV2RequestCoreModel(
     int ArticleId,

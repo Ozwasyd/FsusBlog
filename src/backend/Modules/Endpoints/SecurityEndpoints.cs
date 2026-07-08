@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
@@ -24,6 +25,7 @@ public static class SecurityEndpoints
     private const string BinaryPrefix = "/api/binary/admin/security";
     private const int DefaultRiskListLimit = 100;
     private const int MaxRiskListLimit = 1000;
+    private static readonly JsonSerializerOptions AuditPayloadJsonOptions = new(JsonSerializerDefaults.Web);
 
     public static IEndpointRouteBuilder MapSecurityEndpoints(this IEndpointRouteBuilder app)
     {
@@ -1706,11 +1708,78 @@ public static class SecurityEndpoints
             ReasonCode: reasonCode,
             Context: new Dictionary<string, object?>(StringComparer.Ordinal)
             {
-                ["payload"] = payload,
+                ["payload"] = NormalizeSecurityAuditPayload(payload),
                 ["actor"] = actor,
                 ["adminPrincipalId"] = adminPrincipalId
             },
             IsHighValue: true), cancellationToken);
+    }
+
+    internal static object? NormalizeSecurityAuditPayload(object? payload)
+    {
+        return payload switch
+        {
+            null => null,
+            string or bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal or DateTime or DateTimeOffset => payload,
+            JsonElement jsonElement => NormalizeJsonElement(jsonElement),
+            IReadOnlyDictionary<string, object?> dictionary => dictionary.ToDictionary(
+                static item => item.Key,
+                static item => NormalizeSecurityAuditPayload(item.Value),
+                StringComparer.Ordinal),
+            System.Collections.IDictionary dictionary => NormalizeDictionaryPayload(dictionary),
+            System.Collections.IEnumerable enumerable => NormalizeEnumerablePayload(enumerable),
+            _ => NormalizeJsonElement(JsonSerializer.SerializeToElement(payload, AuditPayloadJsonOptions))
+        };
+    }
+
+    private static Dictionary<string, object?> NormalizeDictionaryPayload(System.Collections.IDictionary dictionary)
+    {
+        var result = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (System.Collections.DictionaryEntry entry in dictionary)
+        {
+            if (entry.Key is null)
+            {
+                continue;
+            }
+
+            string key = Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty;
+            result[key] = NormalizeSecurityAuditPayload(entry.Value);
+        }
+
+        return result;
+    }
+
+    private static List<object?> NormalizeEnumerablePayload(System.Collections.IEnumerable enumerable)
+    {
+        var result = new List<object?>();
+        foreach (object? item in enumerable)
+        {
+            result.Add(NormalizeSecurityAuditPayload(item));
+        }
+
+        return result;
+    }
+
+    private static object? NormalizeJsonElement(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.Object => element.EnumerateObject().ToDictionary(
+                static property => property.Name,
+                static property => NormalizeJsonElement(property.Value),
+                StringComparer.Ordinal),
+            JsonValueKind.Array => element.EnumerateArray()
+                .Select(static item => NormalizeJsonElement(item))
+                .ToList(),
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number when element.TryGetInt32(out int intValue) => intValue,
+            JsonValueKind.Number when element.TryGetInt64(out long longValue) => longValue,
+            JsonValueKind.Number when element.TryGetDouble(out double doubleValue) => doubleValue,
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null or JsonValueKind.Undefined => null,
+            _ => element.ToString()
+        };
     }
 
     private static string ResolveActor(HttpContext context)

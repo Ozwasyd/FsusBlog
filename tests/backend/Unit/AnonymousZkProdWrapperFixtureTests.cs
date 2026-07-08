@@ -45,7 +45,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
     });
 
     [Fact]
-    public async Task WrapperFixture_HappyPath_NativeVerifierTicketSubmitCreatesPendingAnonymousComment()
+    public async Task WrapperFixture_HappyPath_NativeVerifierTicketSubmitCreatesApprovedAnonymousComment()
     {
         using TempNativeZkFixture temp = TempNativeZkFixture.Create();
         var nativeLibrary = new HashingNativeGroth16FixtureLibrary();
@@ -81,7 +81,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         Assert.Equal("article:42", comment.AnonymousScope);
         Assert.Equal("strong_anonymous", comment.CredentialLevel);
         Assert.Equal("rep-low", comment.ReputationBucket);
-        Assert.Equal(CommentModerationStatus.Pending, comment.ModerationStatus);
+        Assert.Equal(CommentModerationStatus.Approved, comment.ModerationStatus);
 
         CommentRegionCompliance compliance = Assert.Single(db.Queryable<CommentRegionCompliance>().ToList());
         Assert.Equal(comment.Id, compliance.CommentId);
@@ -96,6 +96,7 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         CommentCacheInvalidationScope scope = Assert.Single(dispatcher.CommentScopes)!;
         Assert.Equal(ArticleId, scope.ArticleId);
         Assert.Null(scope.AccountId);
+        Assert.True(scope.PublicArticleChanged);
     }
 
     [Fact]
@@ -202,9 +203,21 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
             new FixedRootService(Result<AnonymousCredentialRootSnapshotCoreModel>.Success(CreateRootSnapshot(temp, time))),
             CreateProofService(temp, nativeLibrary),
             nullifiers ?? new RecordingNullifierService(),
+            CreatePolicyService(),
             configuration,
             time);
     }
+
+    private static IAnonymousCommentPolicyService CreatePolicyService()
+        => new FixedCommentPolicyService(new AnonymousCommentPolicySnapshot(
+            true,
+            true,
+            true,
+            CommentAuthorModes.Anonymous,
+            AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)
+        {
+            SnapshotHash = PolicyHash
+        });
 
     private static IZkAnonymousProofService CreateProofService(
         TempNativeZkFixture temp,
@@ -583,6 +596,32 @@ public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFi
         public Task InvalidateStatsAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateArticleViewAsync(int articleId, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task InvalidateHotArticlesAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class FixedCommentPolicyService(AnonymousCommentPolicySnapshot snapshot) : IAnonymousCommentPolicyService
+    {
+        public AnonymousCommentPolicySnapshot Current => snapshot;
+
+        public Task<AnonymousCommentPolicySnapshot> GetCurrentAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(snapshot);
+
+        public AnonymousCommentPolicySnapshot UpdatePolicy(AnonymousCommentPolicyUpdateRequest request, long? adminPrincipalId = null)
+            => throw new NotSupportedException();
+
+        public Task<AnonymousCommentPolicySnapshot> UpdatePolicyAsync(
+            AnonymousCommentPolicyUpdateRequest request,
+            long? adminPrincipalId = null,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public CommentAuthorModeDecision EvaluateAuthorMode(string? requestedAuthorMode, bool publicSendExplicitlySelected)
+            => CommentAuthorModeDecision.Allow(snapshot.DefaultAuthorMode);
+
+        public Task<CommentAuthorModeDecision> EvaluateAuthorModeAsync(
+            string? requestedAuthorMode,
+            bool publicSendExplicitlySelected,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(EvaluateAuthorMode(requestedAuthorMode, publicSendExplicitlySelected));
     }
 
     // Wrapper-only fixture: release gates reject this hashing proof as production evidence.

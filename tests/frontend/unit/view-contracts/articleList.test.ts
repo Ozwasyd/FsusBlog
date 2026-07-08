@@ -27,17 +27,20 @@ describe('createArticleListCardViewContract', () => {
   it('uses category name from article', () => {
     const vc = createArticleListCardViewContract(mockArticle as never)
     expect(vc.meta.categoryName).toBe('Tech')
+    expect(vc.meta.categoryHref).toBe('/category/1')
   })
 
   it('falls back to default category when no category', () => {
     const noCategory = { ...mockArticle, category: null }
     const vc = createArticleListCardViewContract(noCategory as never)
     expect(vc.meta.categoryName).toBe('通用类')
+    expect(vc.meta.categoryHref).toBeUndefined()
   })
 
   it('maps tags to label with # prefix', () => {
     const vc = createArticleListCardViewContract(mockArticle as never)
     expect(vc.tags[0].label).toBe('#vue')
+    expect(vc.tags[0].href).toBe('/tag/vue')
     expect(vc.tags[0].hiddenOnMobile).toBe(true)
   })
 

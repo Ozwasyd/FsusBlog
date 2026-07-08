@@ -229,6 +229,38 @@ public sealed class NativeGroth16ZkProofBackendTests
     }
 
     [Fact]
+    public void RuntimeServices_RegisterLocalDevZkFixtureBackendOnlyForDevelopmentOptIn()
+    {
+        var developmentServices = new ServiceCollection();
+        developmentServices.AddFsusRuntimeSecurityAndLifecycleServices(BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["ASPNETCORE_ENVIRONMENT"] = "Development",
+            ["AnonymousIdentity:ZkVerifier:LocalDevFixture:Enabled"] = "true",
+            ["AnonymousIdentity:ZkVerifier:Enabled"] = "true",
+            ["AnonymousIdentity:ZkVerifier:Backend"] = "local_dev_fixture"
+        }));
+
+        ServiceDescriptor developmentBackend = Assert.Single(
+            developmentServices,
+            static item => item.ServiceType == typeof(IProductionZkProofBackend));
+        Assert.Equal(typeof(LocalDevZkProofBackend), developmentBackend.ImplementationType);
+
+        var productionServices = new ServiceCollection();
+        productionServices.AddFsusRuntimeSecurityAndLifecycleServices(BuildConfiguration(new Dictionary<string, string?>
+        {
+            ["ASPNETCORE_ENVIRONMENT"] = "Production",
+            ["AnonymousIdentity:ZkVerifier:LocalDevFixture:Enabled"] = "true",
+            ["AnonymousIdentity:ZkVerifier:Enabled"] = "true",
+            ["AnonymousIdentity:ZkVerifier:Backend"] = "local_dev_fixture"
+        }));
+
+        ServiceDescriptor productionBackend = Assert.Single(
+            productionServices,
+            static item => item.ServiceType == typeof(IProductionZkProofBackend));
+        Assert.Equal(typeof(UnavailableProductionZkProofBackend), productionBackend.ImplementationType);
+    }
+
+    [Fact]
     public async Task ProductionZkProofVerifier_NativeBackendTimeoutFailsClosed()
     {
         using var temp = TempNativeZkFixture.Create();

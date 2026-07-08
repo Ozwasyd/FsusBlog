@@ -263,10 +263,31 @@ test('privacy ZK production release gate accepts complete enabled fixture', () =
   })
 })
 
+test('privacy ZK production release gate accepts managed MCL verifier backend marker', () => {
+  withTempDir((dir) => {
+    const fixture = writeEnabledReleaseFixture(dir, {
+      nativeLibrary: 'managed:mcl'
+    })
+    const summary = path.join(dir, 'summary.json')
+
+    const result = runGate(
+      '--config', fixture.config,
+      '--trusted-setup-manifest', fixture.setup,
+      '--smoke-evidence', fixture.smoke,
+      '--root-bootstrap-evidence', fixture.rootBootstrap,
+      '--summary', summary)
+
+    assert.equal(result.status, 0, result.stderr)
+    const parsed = JSON.parse(readFileSync(summary, 'utf8'))
+    assert.equal(parsed.status, 'ok')
+    assert.equal(parsed.enabled, true)
+  })
+})
+
 function writeEnabledReleaseFixture(dir, options = {}) {
   const smokeEvidence = completeSmokeEvidence(dir, options.smokeOverrides ?? {})
   const verifyingKeyHash = smokeEvidence.verifyingKeyHash
-  const nativeLibrary = writeText(dir, 'libfsus_zk_mock.so', 'native')
+  const nativeLibrary = options.nativeLibrary ?? writeText(dir, 'libfsus_zk_mock.so', 'native')
   const issuerPrivateKey = writeText(dir, 'issuer-private.key', 'issuer-secret')
   const issuerPublicKey = writeText(dir, 'issuer-public.key', 'issuer')
   const setup = writeJson(dir, 'trusted-setup.json', setupManifest(verifyingKeyHash))

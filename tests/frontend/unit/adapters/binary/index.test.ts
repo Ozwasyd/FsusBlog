@@ -59,14 +59,16 @@ function writeSliceRef(bytes: Uint8Array, offset: number, sliceOffset: number, l
 function commentPolicyPayload(languages: string): Uint8Array {
   const encodedLanguages = new TextEncoder().encode(languages)
   const snapshotHash = new TextEncoder().encode('9'.repeat(64))
-  const pod = new Uint8Array(33)
+  const pod = new Uint8Array(41)
   pod[0] = 1
   pod[1] = 1
   pod[2] = 1
   pod[3] = 4
-  writeSliceRef(pod, 9, 0, encodedLanguages.byteLength)
-  writeSliceRef(pod, 17, encodedLanguages.byteLength, snapshotHash.byteLength)
-  writeSliceRef(pod, 25, encodedLanguages.byteLength + snapshotHash.byteLength, 0)
+  writeInt32(pod, 9, 1000)
+  writeInt32(pod, 13, 4096)
+  writeSliceRef(pod, 17, 0, encodedLanguages.byteLength)
+  writeSliceRef(pod, 25, encodedLanguages.byteLength, snapshotHash.byteLength)
+  writeSliceRef(pod, 33, encodedLanguages.byteLength + snapshotHash.byteLength, 0)
   return buildPayload(pod, blobParts(encodedLanguages, snapshotHash))
 }
 
@@ -180,6 +182,8 @@ describe('mapFramePayloadToViewModel', () => {
       defaultAuthorMode: 'zk_anonymous',
       supportedDisplayLanguages: ['zh-CN', 'en'],
       snapshotHash: '9'.repeat(64),
+      commentMaxChars: 1000,
+      commentMaxUtf8Bytes: 4096,
       zkProdEnabled: false,
       zkProdNativeVerifierConfigured: false,
       zkProdTrustedSetupVerified: false,

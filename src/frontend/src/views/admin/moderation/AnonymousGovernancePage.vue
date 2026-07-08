@@ -6,6 +6,7 @@
     />
 
     <FsusUiSettingsSection
+      v-if="showRuntimeStatus"
       class="anonymous-governance-section"
       title="运行状态"
       :description="section.caption"
@@ -21,6 +22,7 @@
     </FsusUiSettingsSection>
 
     <FsusUiSettingsSection
+      v-if="showPolicyControls"
       class="anonymous-governance-section"
       title="匿名评论策略"
       description="配置匿名评论与公开发送策略。"
@@ -34,9 +36,9 @@
           </span>
           <el-switch
             :model-value="anonymousCommentsEnabled"
-            :disabled="!canConfigureAnonymousPolicy"
+            :disabled="!canConfigureAnonymousPolicy || loadingPolicy"
             aria-label="匿名评论开关"
-            @change="(value: string | number | boolean) => updatePolicy('anonymousCommentsEnabled', value)"
+            @change="(value: string | number | boolean) => void updatePolicy('anonymousCommentsEnabled', value)"
           />
         </label>
         <label class="anonymous-governance-control">
@@ -46,9 +48,9 @@
           </span>
           <el-switch
             :model-value="publicSendOptionEnabled"
-            :disabled="!canConfigureAnonymousPolicy"
+            :disabled="!canConfigureAnonymousPolicy || loadingPolicy"
             aria-label="公开发送开关"
-            @change="(value: string | number | boolean) => updatePolicy('publicSendOptionEnabled', value)"
+            @change="(value: string | number | boolean) => void updatePolicy('publicSendOptionEnabled', value)"
           />
         </label>
         <label class="anonymous-governance-control">
@@ -58,22 +60,55 @@
           </span>
           <el-switch
             :model-value="zkAnonymousEnabled"
-            :disabled="!canConfigureAnonymousPolicy || !zkAnonymousConfigurable"
+            :disabled="!canConfigureAnonymousPolicy || !zkAnonymousConfigurable || loadingPolicy"
             aria-label="隐私证明开关"
-            @change="(value: string | number | boolean) => updatePolicy('zkAnonymousEnabled', value)"
+            @change="(value: string | number | boolean) => void updatePolicy('zkAnonymousEnabled', value)"
+          />
+        </label>
+        <label class="anonymous-governance-control">
+          <span>
+            <strong>评论字数上限</strong>
+            <small>默认 1000，后台可调至 3000。</small>
+          </span>
+          <el-input-number
+            :model-value="commentMaxChars"
+            :min="100"
+            :max="3000"
+            :step="100"
+            :disabled="!canConfigureAnonymousPolicy || loadingPolicy"
+            controls-position="right"
+            aria-label="评论字数上限"
+            @change="(value: number | undefined) => void updatePolicy('commentMaxChars', value ?? commentMaxChars)"
+          />
+        </label>
+        <label class="anonymous-governance-control">
+          <span>
+            <strong>UTF-8 字节上限</strong>
+            <small>默认 4096，后台可调至 12288，仍受 16KB 帧上限保护。</small>
+          </span>
+          <el-input-number
+            :model-value="commentMaxUtf8Bytes"
+            :min="1024"
+            :max="12288"
+            :step="512"
+            :disabled="!canConfigureAnonymousPolicy || loadingPolicy"
+            controls-position="right"
+            aria-label="UTF-8 字节上限"
+            @change="(value: number | undefined) => void updatePolicy('commentMaxUtf8Bytes', value ?? commentMaxUtf8Bytes)"
           />
         </label>
       </div>
     </FsusUiSettingsSection>
 
     <FsusUiSettingsSection
+      v-if="showGovernanceRecords"
       class="anonymous-governance-section"
       title="治理记录"
       description="匿名主体、标识封禁与资格撤销记录。"
       :title-tag="'h2'"
     >
       <div class="anonymous-governance-records">
-        <section class="anonymous-governance-record-block">
+        <section v-if="showRiskRecords" class="anonymous-governance-record-block">
           <header class="anonymous-governance-record-block__header">
             <div>
               <h3>匿名主体</h3>
@@ -125,7 +160,7 @@
           />
         </section>
 
-        <section class="anonymous-governance-record-block">
+        <section v-if="showNullifierRecords" class="anonymous-governance-record-block">
           <header class="anonymous-governance-record-block__header">
             <div>
               <h3>匿名标识</h3>
@@ -165,7 +200,7 @@
           />
         </section>
 
-        <section class="anonymous-governance-record-block">
+        <section v-if="showCredentialRecords" class="anonymous-governance-record-block">
           <header class="anonymous-governance-record-block__header">
             <div>
               <h3>匿名资格</h3>
@@ -209,6 +244,7 @@
     </FsusUiSettingsSection>
 
     <FsusUiSettingsSection
+      v-if="showZkStatus"
       class="anonymous-governance-section"
       title="隐私证明状态"
       description="查看隐私证明配置状态；不改变登录链路。"
@@ -233,6 +269,10 @@ import { FsusUiSettingsSection } from '@/fsusui'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { useAdminStore, type AnonymousCommentPolicySnapshot } from '@/store/admin'
 import {
+  getAnonymousCommentPolicy,
+  updateAnonymousCommentPolicy,
+  type AnonymousCommentPolicyResponse,
+  type AnonymousCommentPolicyUpdateRequest,
   blockAnonymousGovernanceNullifier,
   getAnonymousGovernanceStatus,
   listAnonymousGovernanceNullifiers,
@@ -278,6 +318,8 @@ const sections = {
 
 type GovernanceSectionKey = keyof typeof sections
 type PolicyBooleanKey = Extract<keyof AnonymousCommentPolicySnapshot, 'anonymousCommentsEnabled' | 'publicSendOptionEnabled' | 'zkAnonymousEnabled'>
+type PolicyNumberKey = Extract<keyof AnonymousCommentPolicySnapshot, 'commentMaxChars' | 'commentMaxUtf8Bytes'>
+type PolicyKey = PolicyBooleanKey | PolicyNumberKey
 
 interface AnonymousRiskRow {
   subject: string
@@ -314,23 +356,42 @@ const governanceStatus = ref<AnonymousGovernanceStatusResponse | null>(null)
 const nullifierRecords = ref<AnonymousNullifierRow[]>([])
 const loadingStatus = ref(false)
 const loadingNullifiers = ref(false)
+const loadingPolicy = ref(false)
 const processingAction = ref<string | null>(null)
 
-const section = computed(() => {
+const sectionKey = computed<GovernanceSectionKey>(() => {
   const key = typeof route.name === 'string' && route.name in sections
     ? route.name as GovernanceSectionKey
     : 'ManageAnonymousCommentPolicy'
-  return sections[key]
+  return key
 })
+
+const section = computed(() => sections[sectionKey.value])
 
 const anonymousCommentsEnabled = computed(() => adminStore.anonymousCommentsEnabled)
 const publicSendOptionEnabled = computed(() => adminStore.publicSendOptionEnabled)
 const zkAnonymousEnabled = computed(() => adminStore.zkAnonymousEnabled)
 const zkAnonymousConfigurable = computed(() => adminStore.zkAnonymousConfigurable)
+const commentMaxChars = computed(() => adminStore.commentMaxChars)
+const commentMaxUtf8Bytes = computed(() => adminStore.commentMaxUtf8Bytes)
 const publicOnlyMode = computed(() => adminStore.publicOnlyMode)
 const canConfigureAnonymousPolicy = computed(() => adminStore.hasPermission('anonymous.comment.configure'))
 const canBlockAnonymousNullifier = computed(() => adminStore.hasPermission('anonymous.nullifier.block'))
 const canRevokeAnonymousCredential = computed(() => adminStore.hasPermission('anonymous.credential.revoke'))
+const showRuntimeStatus = computed(() => sectionKey.value !== 'ManageAnonymousNullifiers')
+const showPolicyControls = computed(() => sectionKey.value === 'ManageAnonymousCommentPolicy')
+const showRiskRecords = computed(() => sectionKey.value === 'ManageAnonymousRisk')
+const showNullifierRecords = computed(() => sectionKey.value === 'ManageAnonymousNullifiers')
+const showCredentialRecords = computed(() => sectionKey.value === 'ManageAnonymousCredentials')
+const showGovernanceRecords = computed(() => showRiskRecords.value || showNullifierRecords.value || showCredentialRecords.value)
+const showZkStatus = computed(() => sectionKey.value === 'ManageZkAnonymousStatus')
+const shouldLoadGovernanceStatus = computed(() =>
+  showRuntimeStatus.value &&
+  (canConfigureAnonymousPolicy.value || canRevokeAnonymousCredential.value)
+)
+const shouldLoadNullifiers = computed(() =>
+  sectionKey.value === 'ManageAnonymousNullifiers' && canBlockAnonymousNullifier.value
+)
 
 const policySignals = computed(() => [
   {
@@ -414,17 +475,73 @@ const zkStatusRows = computed(() => [
   }
 ])
 
-const updatePolicy = (key: PolicyBooleanKey, value: string | number | boolean): void => {
+const mapPolicySnapshotToStore = (snapshot: AnonymousCommentPolicyResponse): Partial<AnonymousCommentPolicySnapshot> => ({
+  anonymousCommentsEnabled: snapshot.anonymousCommentsEnabled,
+  publicSendOptionEnabled: snapshot.publicCommentsEnabled,
+  zkAnonymousEnabled: snapshot.zkAnonymousEnabled,
+  commentMaxChars: snapshot.commentMaxChars,
+  commentMaxUtf8Bytes: snapshot.commentMaxUtf8Bytes,
+  anonymousCommentGovernanceAvailable: true
+})
+
+const loadAnonymousPolicy = async (): Promise<void> => {
+  if (!showPolicyControls.value || !canConfigureAnonymousPolicy.value) {
+    return
+  }
+
+  loadingPolicy.value = true
+  try {
+    const snapshot = await getAnonymousCommentPolicy()
+    adminStore.setAnonymousCommentPolicy(mapPolicySnapshotToStore(snapshot))
+  } catch (error) {
+    showErrorToast(governanceErrorMessage(error, '匿名评论策略加载失败'), '匿名评论策略')
+  } finally {
+    loadingPolicy.value = false
+  }
+}
+
+const buildPolicyUpdateRequest = (key: PolicyKey, value: string | number | boolean): AnonymousCommentPolicyUpdateRequest => {
+  if (key === 'publicSendOptionEnabled') {
+    return { publicCommentsEnabled: Boolean(value), reason: 'admin_policy_update' }
+  }
+
+  if (key === 'commentMaxChars') {
+    return { commentMaxChars: Number(value), reason: 'admin_policy_update' }
+  }
+
+  if (key === 'commentMaxUtf8Bytes') {
+    return { commentMaxUtf8Bytes: Number(value), reason: 'admin_policy_update' }
+  }
+
+  if (key === 'anonymousCommentsEnabled') {
+    return { anonymousCommentsEnabled: Boolean(value), reason: 'admin_policy_update' }
+  }
+
+  return { zkAnonymousEnabled: Boolean(value), reason: 'admin_policy_update' }
+}
+
+const updatePolicy = async (key: PolicyKey, value: string | number | boolean): Promise<void> => {
   if (!canConfigureAnonymousPolicy.value) {
     showWarningToast('当前管理员没有匿名评论策略配置权限')
     return
   }
 
-  adminStore.setAnonymousCommentPolicy({ [key]: Boolean(value) })
+  loadingPolicy.value = true
+  try {
+    const mfaProofToken = await ensureAdminSensitiveProof()
+    const snapshot = await updateAnonymousCommentPolicy(buildPolicyUpdateRequest(key, value), { mfaProofToken })
+    adminStore.setAnonymousCommentPolicy(mapPolicySnapshotToStore(snapshot))
+    toast.success('匿名评论策略已更新')
+  } catch (error) {
+    showErrorToast(governanceErrorMessage(error, '匿名评论策略更新失败'), '匿名评论策略')
+  } finally {
+    loadingPolicy.value = false
+  }
 }
 
 const loadGovernanceStatus = async (): Promise<void> => {
-  if (!canConfigureAnonymousPolicy.value && !canRevokeAnonymousCredential.value) {
+  if (!shouldLoadGovernanceStatus.value) {
+    governanceStatus.value = null
     return
   }
 
@@ -440,7 +557,7 @@ const loadGovernanceStatus = async (): Promise<void> => {
 }
 
 const loadNullifiers = async (): Promise<void> => {
-  if (!canBlockAnonymousNullifier.value) {
+  if (!shouldLoadNullifiers.value) {
     nullifierRecords.value = []
     return
   }
@@ -586,11 +703,13 @@ const formatDate = (value: string | null | undefined): string => {
 }
 
 onMounted(() => {
+  void loadAnonymousPolicy()
   void loadGovernanceStatus()
   void loadNullifiers()
 })
 
 watch(() => route.name, () => {
+  void loadAnonymousPolicy()
   void loadGovernanceStatus()
   void loadNullifiers()
 })

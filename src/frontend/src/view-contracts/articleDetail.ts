@@ -1,9 +1,7 @@
 import type { ArticleDetailResponse, ArticleRightsResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article';
 import { buildPublicArticleHref, buildPublicCategoryHref, buildPublicTagHref } from '@/public-renderers/publicRouteIdentity';
+import { estimateReading } from '@/utils/readingEstimate';
 import { TimeUtils, type TimeRenderOptions } from '@/utils/time';
-
-const READING_CHARS_PER_MINUTE = 300;
-const LONG_READ_THRESHOLD = 5_000;
 
 export type ArticleReadingNoticeContract = Readonly<{
   visible: boolean;
@@ -12,14 +10,12 @@ export type ArticleReadingNoticeContract = Readonly<{
 }>;
 
 function buildReadingNotice(content: string): ArticleReadingNoticeContract {
-  const normalized = content.replace(/\s+/g, '');
-  const wordCount = normalized.length;
-  const estimatedReadingMinutes = Math.max(1, Math.ceil(wordCount / READING_CHARS_PER_MINUTE));
+  const estimate = estimateReading(content);
 
   return {
-    visible: wordCount > LONG_READ_THRESHOLD,
-    wordCount,
-    readingMinutes: estimatedReadingMinutes
+    visible: estimate.showLongReadNotice,
+    wordCount: estimate.effectiveChars,
+    readingMinutes: estimate.minutes
   };
 }
 

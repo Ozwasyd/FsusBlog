@@ -63,10 +63,6 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
-function createAbortError(): DOMException {
-  return new DOMException('The operation was aborted.', 'AbortError')
-}
-
 describe('binaryApiClient credentials handling', () => {
   beforeEach(() => {
     powMocks.calculate.mockReset()
@@ -201,7 +197,7 @@ describe('binaryApiClient pow abort handling', () => {
   })
 })
 
-describe('binaryApiClient pow in-flight dedupe', () => {
+describe('binaryApiClient one-time pow headers', () => {
   beforeEach(() => {
     powMocks.calculate.mockReset()
     powMocks.calculate.mockResolvedValue({ nonce: 'nonce-value', duration: 1 })
@@ -218,23 +214,27 @@ describe('binaryApiClient pow in-flight dedupe', () => {
     vi.mocked(decode).mockReset()
   })
 
-  it('dedupes concurrent pow header builds for same scope', async () => {
-    const calculation = createDeferred<{ nonce: string; duration: number }>()
-    powMocks.calculate.mockReturnValue(calculation.promise)
+  it('uses fresh one-time pow headers for concurrent builds with same scope', async () => {
+    const firstCalculation = createDeferred<{ nonce: string; duration: number }>()
+    const secondCalculation = createDeferred<{ nonce: string; duration: number }>()
+    powMocks.calculate
+      .mockReturnValueOnce(firstCalculation.promise)
+      .mockReturnValueOnce(secondCalculation.promise)
 
     const first = buildBinaryPowHeaders(undefined, 'comment:create')
     const second = buildBinaryPowHeaders(undefined, 'comment:create')
 
-    await vi.waitFor(() => expect(powMocks.calculate).toHaveBeenCalledTimes(1))
-    expect(fetch).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(powMocks.calculate).toHaveBeenCalledTimes(2))
+    expect(fetch).toHaveBeenCalledTimes(2)
 
-    calculation.resolve({ nonce: 'shared-nonce', duration: 2 })
+    firstCalculation.resolve({ nonce: 'first-nonce', duration: 2 })
+    secondCalculation.resolve({ nonce: 'second-nonce', duration: 2 })
 
     const [firstHeaders, secondHeaders] = await Promise.all([first, second])
-    expect(firstHeaders).toEqual(secondHeaders)
+    expect(firstHeaders['X-Fsus-Pow-Proof']).not.toEqual(secondHeaders['X-Fsus-Pow-Proof'])
   })
 
-  it('does not dedupe different pow scopes', async () => {
+  it('builds independent pow headers for different pow scopes', async () => {
     const first = buildBinaryPowHeaders(undefined, 'comment:create')
     const second = buildBinaryPowHeaders(undefined, 'upload:start')
 
@@ -244,56 +244,37 @@ describe('binaryApiClient pow in-flight dedupe', () => {
     expect(powMocks.calculate).toHaveBeenCalledTimes(2)
   })
 
-  it('single waiter abort does not cancel shared pow for remaining waiters', async () => {
+  it('single abort only cancels its own pow build', async () => {
     const firstController = new AbortController()
-    const calculation = createDeferred<{ nonce: string; duration: number }>()
-    powMocks.calculate.mockReturnValue(calculation.promise)
+    const firstCalculation = createDeferred<{ nonce: string; duration: number }>()
+    const secondCalculation = createDeferred<{ nonce: string; duration: number }>()
+    powMocks.calculate
+      .mockReturnValueOnce(firstCalculation.promise)
+      .mockReturnValueOnce(secondCalculation.promise)
 
     const first = buildBinaryPowHeaders(firstController.signal, 'comment:create')
     const second = buildBinaryPowHeaders(undefined, 'comment:create')
 
-    await vi.waitFor(() => expect(powMocks.calculate).toHaveBeenCalledTimes(1))
-    const sharedSignal = powMocks.calculate.mock.calls[0][4] as AbortSignal
+    await vi.waitFor(() => expect(powMocks.calculate).toHaveBeenCalledTimes(2))
+    const firstSignal = powMocks.calculate.mock.calls[0][4] as AbortSignal
+    const secondSignal = powMocks.calculate.mock.calls[1][4] as AbortSignal
 
     firstController.abort()
+    firstCalculation.reject(new DOMException('The operation was aborted.', 'AbortError'))
 
     await expect(first).rejects.toMatchObject({ name: 'AbortError' })
-    expect(sharedSignal.aborted).toBe(false)
+    expect(firstSignal.aborted).toBe(true)
+    expect(secondSignal).toBeUndefined()
 
-    calculation.resolve({ nonce: 'remaining-nonce', duration: 2 })
+    firstCalculation.resolve({ nonce: 'aborted-nonce', duration: 2 })
+    secondCalculation.resolve({ nonce: 'remaining-nonce', duration: 2 })
     await expect(second).resolves.toEqual(expect.objectContaining({
       'X-Fsus-Device-Fp': 'test-browser-fp'
     }))
-    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
-  it('all waiters abort cancels shared pow', async () => {
-    const firstController = new AbortController()
-    const secondController = new AbortController()
-    let sharedSignal: AbortSignal | undefined
-    vi.stubGlobal('fetch', vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
-      sharedSignal = init?.signal as AbortSignal
-      return new Promise((_resolve, reject) => {
-        sharedSignal?.addEventListener('abort', () => reject(createAbortError()), { once: true })
-      })
-    }))
-
-    const first = buildBinaryPowHeaders(firstController.signal, 'comment:create')
-    const second = buildBinaryPowHeaders(secondController.signal, 'comment:create')
-
-    await vi.waitFor(() => expect(sharedSignal).toBeDefined())
-
-    firstController.abort()
-    await expect(first).rejects.toMatchObject({ name: 'AbortError' })
-    expect(sharedSignal?.aborted).toBe(false)
-
-    secondController.abort()
-    await expect(second).rejects.toMatchObject({ name: 'AbortError' })
-    expect(sharedSignal?.aborted).toBe(true)
-    expect(fetch).toHaveBeenCalledTimes(1)
-  })
-
-  it('clears inflight entry after success', async () => {
+  it('builds a fresh pow header after success', async () => {
     await buildBinaryPowHeaders(undefined, 'comment:create')
     await buildBinaryPowHeaders(undefined, 'comment:create')
 
@@ -301,7 +282,7 @@ describe('binaryApiClient pow in-flight dedupe', () => {
     expect(powMocks.calculate).toHaveBeenCalledTimes(2)
   })
 
-  it('clears inflight entry after failure', async () => {
+  it('builds a fresh pow header after failure', async () => {
     vi.stubGlobal('fetch', vi.fn()
       .mockResolvedValueOnce({
         ok: false,

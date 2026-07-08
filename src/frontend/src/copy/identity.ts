@@ -184,15 +184,17 @@ export const FSUSBLOG_IDENTITY_COPY = {
   commentRecords: {
     sectionTitle: '公开评论记录',
     sectionDescription: '账号记录只包含公开发送。',
-    boundary: '匿名发送不进入账号记录，不能在这里找回或删除。',
+    loading: '正在加载公开评论记录。',
+    emptyTitle: '暂无公开评论记录',
+    emptyDescription: '公开发送的评论会显示在这里；匿名发送不会进入账号记录。',
     policyAriaLabel: '当前评论策略',
     policyPublicSendLabel: '公开发送',
     policyAnonymousLabel: '匿名评论',
     policyZkLabel: '增强匿名',
-    policyGovernanceLabel: '匿名治理',
+    policyGovernanceLabel: '匿名评论处理',
     policyOpen: '已开放',
     policyClosed: '已关闭',
-    policyActive: '已启用',
+    policyActive: '按规则处理',
     policyUnavailable: '未开放'
   },
   placeholder: {

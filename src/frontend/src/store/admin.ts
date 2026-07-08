@@ -26,6 +26,8 @@ export interface AnonymousCommentPolicySnapshot {
   zkAnonymousEnabled: boolean
   anonymousCommentGovernanceAvailable: boolean
   zkAnonymousConfigurable: boolean
+  commentMaxChars: number
+  commentMaxUtf8Bytes: number
 }
 
 export interface EnsureAdminSessionFreshOptions {
@@ -37,7 +39,9 @@ const DEFAULT_ANONYMOUS_COMMENT_POLICY: AnonymousCommentPolicySnapshot = Object.
   publicSendOptionEnabled: true,
   zkAnonymousEnabled: false,
   anonymousCommentGovernanceAvailable: true,
-  zkAnonymousConfigurable: true
+  zkAnonymousConfigurable: true,
+  commentMaxChars: 1000,
+  commentMaxUtf8Bytes: 4096
 })
 
 export const useAdminStore = defineStore('admin', () => {
@@ -60,6 +64,8 @@ export const useAdminStore = defineStore('admin', () => {
   const zkAnonymousEnabled = computed(() => anonymousCommentPolicy.value.zkAnonymousEnabled)
   const anonymousCommentGovernanceAvailable = computed(() => anonymousCommentPolicy.value.anonymousCommentGovernanceAvailable)
   const zkAnonymousConfigurable = computed(() => anonymousCommentPolicy.value.zkAnonymousConfigurable)
+  const commentMaxChars = computed(() => anonymousCommentPolicy.value.commentMaxChars)
+  const commentMaxUtf8Bytes = computed(() => anonymousCommentPolicy.value.commentMaxUtf8Bytes)
   const publicOnlyMode = computed(() => !anonymousCommentsEnabled.value && publicSendOptionEnabled.value)
   const totpStepUpRequired = computed(() => adminPrincipal.value?.totpStepUpRequired === true || adminSessionStatus.value === 'step_up_required')
 
@@ -153,6 +159,8 @@ export const useAdminStore = defineStore('admin', () => {
     zkAnonymousEnabled,
     anonymousCommentGovernanceAvailable,
     zkAnonymousConfigurable,
+    commentMaxChars,
+    commentMaxUtf8Bytes,
     publicOnlyMode,
     totpStepUpRequired,
     hasPermission,

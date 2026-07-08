@@ -1,3 +1,5 @@
+using FsusBlog.Server.Models.Dtos;
+
 namespace FsusBlog.Server.Models.CommentIdentity;
 
 public static class CommentAuthorModes
@@ -12,7 +14,9 @@ public sealed record AnonymousCommentPolicySnapshot(
     bool PublicCommentsEnabled,
     bool ZkAnonymousEnabled,
     string DefaultAuthorMode,
-    IReadOnlyList<string> SupportedDisplayLanguages)
+    IReadOnlyList<string> SupportedDisplayLanguages,
+    int CommentMaxChars = CommentLimits.DefaultContentMaxChars,
+    int CommentMaxUtf8Bytes = CommentLimits.DefaultContentMaxUtf8Bytes)
 {
     public string SnapshotHash { get; init; } = string.Empty;
     public string ChangedBy { get; init; } = "configuration";
@@ -35,6 +39,8 @@ public sealed record AnonymousCommentPolicyUpdateRequest(
     bool? ZkAnonymousEnabled,
     string? DefaultAuthorMode,
     IReadOnlyList<string>? SupportedDisplayLanguages,
+    int? CommentMaxChars = null,
+    int? CommentMaxUtf8Bytes = null,
     string? Reason = null);
 
 public sealed record CommentAuthorModeDecision(

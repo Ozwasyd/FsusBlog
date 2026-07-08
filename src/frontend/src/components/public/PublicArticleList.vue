@@ -13,7 +13,16 @@
           {{ item.meta.displayTime }}
         </time>
         <span :class="themeTokens.articleList.metaSeparator" aria-hidden="true">/</span>
-        <span :class="themeTokens.articleList.metaCategory">{{ item.meta.categoryName }}</span>
+        <a
+          v-if="item.meta.categoryHref"
+          :href="item.meta.categoryHref"
+          :class="themeTokens.articleList.metaCategory"
+          data-public-link="category"
+          @click="handleNavigate($event, item.meta.categoryHref)"
+        >
+          {{ item.meta.categoryName }}
+        </a>
+        <span v-else :class="themeTokens.articleList.metaCategory">{{ item.meta.categoryName }}</span>
         <span
           v-if="item.tags.length"
           :class="`${themeTokens.articleList.metaSeparator} hidden sm:inline`"
@@ -24,9 +33,14 @@
           :key="tag.label"
           :class="tag.hiddenOnMobile ? 'hidden sm:inline-flex' : 'inline-flex'"
         >
-          <span class="public-article-tag el-tag el-tag--small el-tag--light">
+          <a
+            :href="tag.href"
+            class="public-article-tag el-tag el-tag--small el-tag--light"
+            data-public-link="tag"
+            @click="handleNavigate($event, tag.href)"
+          >
             {{ tag.label }}
-          </span>
+          </a>
         </span>
       </div>
 
@@ -108,7 +122,11 @@ const paginationButtonClass = [
   themeTokens.focusRing
 ].join(' ');
 
-function handleNavigate(event: MouseEvent, href: string): void {
+function handleNavigate(event: MouseEvent, href?: string): void {
+  if (!href) {
+    return;
+  }
+
   if (!props.spaNavigation) {
     return;
   }

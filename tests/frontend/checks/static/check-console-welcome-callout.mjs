@@ -53,6 +53,7 @@ for (const token of [
 for (const token of [
   'data-console-welcome-callout="true"',
   'console-welcome-callout__header',
+  'console-welcome-callout__actions',
   'data-console-welcome-dismiss="true"',
   'target="_blank"',
   'rel="noopener noreferrer"',
@@ -61,7 +62,7 @@ for (const token of [
   '发现后台问题或需要记录改进项，可以从这里进入项目维护入口。',
   'link.label',
   'grid-template-columns: minmax(0, 1fr) auto',
-  'justify-self: end',
+  'justify-content: flex-end',
   'box-sizing: border-box',
   'width: 100%',
 ]) {

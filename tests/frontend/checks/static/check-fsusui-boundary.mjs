@@ -46,9 +46,43 @@ const allowedInternalSelectors = new Map([
   ['src/frontend/src/components/public/PublicBlogLayoutShell.vue', new Set([
     '.el-public-shell__nav-link'
   ])],
+  ['src/frontend/src/components/admin/AdminTaxonomyManageView.vue', new Set([
+    '.el-table-fixed-column--right'
+  ])],
+  ['src/frontend/src/components/admin/article/ArticleWriteSidebar.vue', new Set([
+    '.el-form-item__content',
+    '.el-textarea',
+    '.el-textarea__inner'
+  ])],
+  ['src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue', new Set([
+    '.el-table-fixed-column--right'
+  ])],
+  ['src/frontend/src/components/admin/users/UserManageHeader.vue', new Set([
+    '.el-button'
+  ])],
+  ['src/frontend/src/components/admin/users/UserManageTable.vue', new Set([
+    '.el-responsive-collection',
+    '.el-responsive-collection__compact'
+  ])],
   ['src/frontend/src/components/ui/MarkdownEditorAdapter.vue', new Set([
     '.el-markdown-editor__action',
     '.el-markdown-editor__command'
+  ])],
+  ['src/frontend/src/components/ui/FsusDialog.vue', new Set([
+    '.el-dialog__body',
+    '.el-dialog__footer',
+    '.el-dialog__header',
+    '.el-overlay-dialog'
+  ])],
+  ['src/frontend/src/components/ui/PasskeyRegisterModal.vue', new Set([
+    '.el-dialog__body',
+    '.el-dialog__footer',
+    '.el-dialog__header'
+  ])],
+  ['src/frontend/src/layouts/AccountLayout.vue', new Set([
+    '.el-drawer__body',
+    '.el-drawer__header',
+    '.el-drawer__title'
   ])],
   ['src/frontend/src/public-renderers/clientHydrate.ts', new Set([
     '.el-input',
@@ -62,8 +96,46 @@ const allowedInternalSelectors = new Map([
     '.el-input',
     '.el-select'
   ])],
+  ['src/frontend/src/views/admin/CacheDiagnostics.vue', new Set([
+    '.el-button'
+  ])],
+  ['src/frontend/src/views/admin/article/List.vue', new Set([
+    '.el-button',
+    '.el-form-item__content',
+    '.el-table-fixed-column--right'
+  ])],
+  ['src/frontend/src/views/admin/article/Write.vue', new Set([
+    '.el-button',
+    '.el-form-item',
+    '.el-form-item__content',
+    '.el-input__count',
+    '.el-input__inner',
+    '.el-input__wrapper'
+  ])],
   ['src/frontend/src/views/admin/article/Trash.vue', new Set([
     '.el-button'
+  ])],
+  ['src/frontend/src/views/admin/moderation/ModerationDictionaries.vue', new Set([
+    '.el-table-fixed-column--right'
+  ])],
+  ['src/frontend/src/views/admin/moderation/ModerationModel.vue', new Set([
+    '.el-button',
+    '.el-input',
+    '.el-select'
+  ])],
+  ['src/frontend/src/views/admin/moderation/ModerationRegions.vue', new Set([
+    '.el-data-list__cell',
+    '.el-data-list__cell--end',
+    '.el-data-list__row'
+  ])],
+  ['src/frontend/src/views/admin/moderation/ModerationReplay.vue', new Set([
+    '.el-button',
+    '.el-input',
+    '.el-input-number',
+    '.el-select'
+  ])],
+  ['src/frontend/src/views/admin/security/SecurityEvents.vue', new Set([
+    '.el-input-number'
   ])],
   ['src/frontend/src/views/admin/Settings.vue', new Set([
     '.el-tabs__header',
@@ -161,6 +233,17 @@ function checkVisualRewriteClasses(file, content) {
   }
 }
 
+function checkRawDialogUsage(file, content) {
+  const fileRel = rel(file)
+  if (!file.endsWith('.vue') || fileRel === 'src/frontend/src/components/ui/FsusDialog.vue') {
+    return
+  }
+
+  if (content.includes('<el-dialog') || content.includes('</el-dialog>')) {
+    warn(file, 'raw-dialog', 'use FsusDialog instead of direct el-dialog')
+  }
+}
+
 function checkMarkdownActivationOwnership(file, content) {
   const fileRel = rel(file)
   if (fileRel === 'src/frontend/src/fsusui/markdown.ts') {
@@ -208,6 +291,7 @@ function checkRequiredAdapters() {
     'index.ts',
     'theme.ts',
     'feedback.ts',
+    'dialog.ts',
     'result.ts',
     'icons.ts',
     'markdown.ts',
@@ -349,6 +433,7 @@ for (const file of walk(srcRoot)) {
   checkProgrammaticImports(file, content)
   checkInternalSelectors(file, content)
   checkVisualRewriteClasses(file, content)
+  checkRawDialogUsage(file, content)
   checkInternalMotionSurfaceOnFsusUiComponents(file, content)
   checkMarkdownActivationOwnership(file, content)
 }

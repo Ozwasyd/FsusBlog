@@ -142,7 +142,10 @@ describe('anonymous comment author workflow contract', () => {
     expect(composerTemplate.toLowerCase()).not.toContain('circuit')
     expect(detailComposable).toContain("const commentAuthorMode = ref<CommentAuthorMode>('anonymous')")
     expect(detailComposable).toContain('await createAnonymousComment')
+    expect(detailComposable).toContain('await createCommentV2')
     expect(detailComposable).toContain('await createPublicComment')
+    expect(detailComposable).toContain("authorMode: 'anonymous'")
+    expect(detailComposable).toContain('publicSendExplicitlySelected: false')
     expect(detailComposable).toContain('publicSendExplicitlySelected: true')
     expect(detailComposable).toContain('anonymousScope: commentAnonymousScope.value')
     expect(detailComposable).toContain('displayLanguage: commentDisplayLanguage.value')
@@ -174,13 +177,15 @@ describe('anonymous comment author workflow contract', () => {
     expect(commentPushBlock).not.toMatch(/\breplyToUserId\b/)
   })
 
-  it('keeps anonymous submit one-shot without public fallback or sensitive console output', () => {
+  it('keeps anonymous submit one-shot with ordinary anonymous fallback and no sensitive console output', () => {
     expect(detailComposable).toContain('anonymousSubmitScopesInFlight')
     expect(detailComposable).toContain('commentPrivacyRuntime.consumePreparedTicket(commentAnonymousScope.value)')
     expect(detailComposable).toContain('commentPrivacyRuntime.prepareAnonymousTicket(commentAnonymousScope.value)')
     expect(detailComposable).toContain('anonymousSubmitScopesInFlight.add(anonymousSubmitScope)')
     expect(detailComposable).toContain('anonymousSubmitScopesInFlight.delete(anonymousSubmitScope)')
     expect(detailComposable).toContain("selectedAuthorMode === 'anonymous'")
+    expect(detailComposable).toContain('canAttemptStrongAnonymousSubmit')
+    expect(detailComposable).toContain('submitOrdinaryAnonymousComment')
     expect(detailComposable).toContain("showErrorToast('匿名发布暂不可用，请稍后重试。')")
     expect(detailComposable).not.toMatch(/console\.(?:error|warn|log)\([^)]*(?:privacyTicket|ticket|proof|credential|nullifier)/i)
   })

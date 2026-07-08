@@ -307,6 +307,12 @@ public static class AuthoringEndpoints
             {
                 return AedsJsonResults.BadRequest(aeds, "author_mode_invalid");
             }
+            catch (ArgumentOutOfRangeException ex) when (
+                ex.ParamName == nameof(AnonymousCommentPolicyUpdateRequest.CommentMaxChars) ||
+                ex.ParamName == nameof(AnonymousCommentPolicyUpdateRequest.CommentMaxUtf8Bytes))
+            {
+                return AedsJsonResults.BadRequest(aeds, "comment_limit_invalid");
+            }
 
             await auditEvents.RecordHighValueAsync(new AuditEvent(
                 AuditSourceCatalog.Admin,
@@ -327,7 +333,9 @@ public static class AuthoringEndpoints
                     ["publicCommentsEnabled"] = snapshot.PublicCommentsEnabled,
                     ["zkAnonymousEnabled"] = snapshot.ZkAnonymousEnabled,
                     ["defaultAuthorMode"] = snapshot.DefaultAuthorMode,
-                    ["supportedDisplayLanguages"] = snapshot.SupportedDisplayLanguages
+                    ["supportedDisplayLanguages"] = snapshot.SupportedDisplayLanguages,
+                    ["commentMaxChars"] = snapshot.CommentMaxChars,
+                    ["commentMaxUtf8Bytes"] = snapshot.CommentMaxUtf8Bytes
                 }), cancellationToken);
             return Ok(context, aeds, snapshot);
         })
@@ -1685,6 +1693,10 @@ public static class AuthoringEndpoints
 
         if (HttpMethods.IsGet(method) && segments is ["moderation", "overview"])
             return Found(null, AedsFrameType.ModerationOverview, out route);
+        if (HttpMethods.IsGet(method) && segments is ["moderation", "anonymous-comment-policy"])
+            return Found(null, AedsFrameType.CommentPolicySnapshot, out route);
+        if (HttpMethods.IsPut(method) && segments is ["moderation", "anonymous-comment-policy"])
+            return Found(AedsFrameType.CommentPolicyUpdateRequest, AedsFrameType.CommentPolicySnapshot, out route);
         if (HttpMethods.IsGet(method) && segments is ["moderation", "dictionaries"])
             return Found(null, AedsFrameType.ModerationDictionarySnapshot, out route);
         if (HttpMethods.IsPost(method) && segments is ["moderation", "dictionaries", "reload"])

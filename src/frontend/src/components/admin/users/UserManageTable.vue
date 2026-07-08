@@ -1,5 +1,5 @@
 <template>
-  <section class="admin-data-surface">
+  <section class="admin-data-surface user-resource-surface">
     <div v-if="showInitialSkeleton" class="px-4 py-6" aria-busy="true">
       <el-skeleton :rows="6" animated />
     </div>
@@ -15,19 +15,19 @@
     >
       <template #card="{ item: row }: { item: UserListViewItem }">
         <div
-          class="user-resource-list-item border-b border-[var(--fsusblog-panel-border)] px-4 py-3"
+          class="user-resource-list-item px-4 py-4"
           :class="rowMotionClass(row.accountId)"
           role="listitem"
           v-memo="[row.accountId, row.displayHandle, row.status, row.riskFlags, rowMotionClass(row.accountId)]"
         >
-          <div class="mb-3 flex items-center gap-3">
+          <div class="user-resource-list-identity-row flex items-center gap-3">
             <div class="shrink-0">
               <el-avatar :size="36">
                 {{ row.initials }}
               </el-avatar>
             </div>
             <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-3">
+              <div class="flex min-w-0 flex-wrap items-center gap-2">
                 <span class="truncate text-sm font-bold text-[var(--fsusblog-text-primary)]">
                   {{ row.displayHandle }}
                 </span>
@@ -35,24 +35,27 @@
                   {{ row.identityKindLabel }}
                 </span>
               </div>
-              <div class="mt-2 flex flex-wrap items-center gap-3 text-[11px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
-                <SemanticTime :value="row.createTime" :text="row.createdAtText" />
-                <span class="text-[var(--fsusblog-text-subtle)]">/</span>
-                <span>{{ row.credentialSummary }}</span>
-                <span class="text-[var(--fsusblog-text-subtle)]">/</span>
-                <span>{{ row.riskFlagsText }}</span>
-              </div>
             </div>
-            <div class="flex shrink-0 flex-col items-center">
-              <span class="mb-1 h-1 w-1 rounded-[var(--fsus-radius-control-small)]" :class="row.statusDotClass" aria-hidden="true" />
-              <span class="text-xs font-semibold normal-case tracking-normal" :class="row.statusClass">
+            <div class="inline-flex shrink-0 items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-[var(--fsus-radius-control-small)]" :class="row.statusDotClass" aria-hidden="true" />
+              <span class="text-xs font-bold normal-case tracking-normal" :class="row.statusClass">
                 {{ row.statusText }}
               </span>
             </div>
           </div>
 
-          <div v-if="!row.isDeleted" class="grid grid-cols-1 gap-2" aria-label="匿名账号高风险操作">
+          <div class="user-resource-list-meta mt-3 text-[12px] leading-5 text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
+            <SemanticTime class="tabular-nums" :value="row.createTime" :text="row.createdAtText" />
+            <span>匿名身份：{{ row.anonymousCredentialText }}</span>
+            <span>{{ row.riskFlagsText }}</span>
+          </div>
+
+          <div class="user-resource-list-action-row mt-3 flex items-center justify-between gap-3 border-t border-[var(--fsusblog-panel-border)] pt-3">
+            <p class="min-w-0 text-[12px] leading-5 text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
+              {{ row.credentialSummary }}
+            </p>
             <el-button
+              v-if="!row.isDeleted"
               :type="row.status === 0 ? 'danger' : 'success'"
               :loading="isProcessing && processingId === row.accountId"
               :aria-label="`变更匿名账号状态：${row.displayHandle}`"
@@ -60,9 +63,9 @@
             >
               {{ row.status === 0 ? '封禁' : '解封' }}
             </el-button>
-          </div>
-          <div v-else class="bg-[var(--fsusblog-panel-bg-soft)] py-3 text-center text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-            已注销账户
+            <span v-else class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+              已注销账户
+            </span>
           </div>
         </div>
       </template>
@@ -128,7 +131,10 @@
                       {{ (rowData as UserListViewItem).credentialSummary }}
                     </span>
                     <span class="text-[11px] text-[var(--fsusblog-text-subtle)]">
-                      {{ (rowData as UserListViewItem).riskFlagsText }}
+                      匿名身份：{{ (rowData as UserListViewItem).anonymousCredentialText }}
+                    </span>
+                    <span class="text-[11px] text-[var(--fsusblog-text-subtle)]">
+                      风险标记：{{ (rowData as UserListViewItem).riskFlagsText }}
                     </span>
                   </div>
 
@@ -269,6 +275,44 @@ const emit = defineEmits<{
 .user-table-v2-frame {
   height: clamp(360px, 58vh, 620px);
   border-block: 1px solid var(--fsusblog-panel-border);
+}
+
+.user-resource-surface:has(.el-responsive-collection.is-compact) {
+  width: min(100%, 44rem);
+  margin-inline: auto;
+  background: var(--fsusblog-panel-bg);
+  box-shadow: none;
+}
+
+:deep(.el-responsive-collection.is-compact) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+:deep(.el-responsive-collection__compact) {
+  display: block;
+  padding-block: 0;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.user-resource-list-item {
+  width: 100%;
+  border-block-end: 1px solid var(--fsusblog-panel-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.user-resource-list-item:last-child {
+  border-block-end: 0;
+}
+
+.user-resource-list-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
 }
 
 :deep(.user-table-action-button) {

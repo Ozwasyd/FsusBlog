@@ -20,6 +20,7 @@ type FilterEmptyStateViewContract = Readonly<{
   hasError: boolean;
   isInvalidTarget: boolean;
   title: string;
+  description: string;
   actionText: string;
   actionRoute: PublicHomeNavigationTarget['route'];
 }>;
@@ -120,14 +121,16 @@ function createFilterEmptyStateViewContract(view: {
   const homeTarget = createPublicHomeNavigationTarget()
   const currentName = normalizeFilterName(view.currentName)
   let title = '这里还没有文章'
+  let description = ''
 
   if (view.hasError) {
-    title = '文章列表没取回来，稍后再试'
+    title = '内容不可用'
+    description = '刷新后重试。'
   } else if (view.isInvalidTarget) {
     title = view.filterType === PUBLIC_FILTER_TYPE.tag ? '没有找到这个标签' : '没有找到这个分类'
   } else if (view.filterType === PUBLIC_FILTER_TYPE.search) {
     title = currentName && currentName !== '全站搜索'
-      ? `没搜到「${currentName}」，换个词试试`
+      ? '无匹配结果'
       : '输入关键词后再查找文章'
   } else if (view.filterType === PUBLIC_FILTER_TYPE.category) {
     title = '这个分类还没放文章'
@@ -139,6 +142,7 @@ function createFilterEmptyStateViewContract(view: {
     hasError: view.hasError,
     isInvalidTarget: view.isInvalidTarget,
     title,
+    description,
     actionText: '返回首页',
     actionRoute: homeTarget.route
   };

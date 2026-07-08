@@ -1,5 +1,6 @@
 import type { ArticleListItemResponse, PageResponse } from '@/api/article';
 import { createPublicArticleDetailNavigationTarget } from '@/public-renderers/publicNavigationTargets'
+import { buildPublicCategoryHref, buildPublicTagHref } from '@/public-renderers/publicRouteIdentity'
 import type { CardContract, PaginationContract } from '@/ui-contracts/primitives';
 import { TimeUtils, type TimeRenderOptions } from '@/utils/time';
 
@@ -17,12 +18,14 @@ export type ArticleListCardViewContract = Readonly<{
     displayTime: string;
     fullTime: string;
     categoryName: string;
+    categoryHref?: string;
   }>;
   tags: readonly ArticleTagViewContract[];
 }>;
 
 type ArticleTagViewContract = Readonly<{
   label: string;
+  href: string;
   hiddenOnMobile?: boolean;
 }>;
 
@@ -42,6 +45,7 @@ export type ArticleListViewContract = Readonly<{
 function toArticleTagView(name: string): ArticleTagViewContract {
   return {
     label: `#${name}`,
+    href: buildPublicTagHref(name),
     hiddenOnMobile: true
   };
 }
@@ -65,7 +69,8 @@ export function createArticleListCardViewContract(
       isoTime: article.createTime,
       displayTime: TimeUtils.toSmartTime(article.createTime, timeOptions),
       fullTime: TimeUtils.toFullLocalString(article.createTime, timeOptions),
-      categoryName: article.category?.name || DEFAULT_CATEGORY
+      categoryName: article.category?.name || DEFAULT_CATEGORY,
+      categoryHref: article.category ? buildPublicCategoryHref(article.category.id) : undefined
     },
     tags: (article.tags || []).slice(0, MAX_TAGS_DISPLAY).map((tag) => toArticleTagView(tag.name))
   };

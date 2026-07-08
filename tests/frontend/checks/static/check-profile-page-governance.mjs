@@ -184,7 +184,14 @@ for (const token of [
   'commentRecordsCopy.policyOpen',
   'commentRecordsCopy.policyClosed',
   'commentRecordsCopy.policyActive',
-  'commentRecordsCopy.policyUnavailable'
+  'commentRecordsCopy.policyUnavailable',
+  'UserCommentsEmptyState',
+  'UserCommentsErrorState',
+  'UserCommentsList',
+  'useUserCommentsPage({ autoload: false })',
+  'ensureCommentRecordsLoaded',
+  'commentRecordsCopy.emptyTitle',
+  'commentRecordsCopy.emptyDescription'
 ]) {
   if (!identityCenter.includes(token)) {
     fail(identityCenterPath, 1, `Identity comment-records policy summary is missing ${token}`)

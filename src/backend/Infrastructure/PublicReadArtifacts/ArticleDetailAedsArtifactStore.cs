@@ -7,6 +7,7 @@ using System.Threading.Channels;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Integrity;
+using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Projections;
@@ -798,9 +799,6 @@ public sealed class ArticleDetailAedsArtifactProjector(
     IArticleDetailAedsArtifactStore store,
     ILogger<ArticleDetailAedsArtifactProjector> logger) : IArticleDetailAedsArtifactProjector
 {
-    private const int LongReadThreshold = 5_000;
-    private const int ReadingCharsPerMinute = 300;
-
     private bool? legacyArticleContentColumnExists;
 
     public async Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default)
@@ -972,7 +970,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                     content = summary;
                 }
 
-                int wordCount = CalculateReadableLength(content);
+                ReadingEstimate reading = ReadingEstimator.Estimate(content);
 
                 article = new ArticleDetailReadModel
                 {
@@ -989,9 +987,9 @@ public sealed class ArticleDetailAedsArtifactProjector(
                     PublishedAt = reader.IsDBNull(fPublished) ? null : reader.GetDateTime(fPublished),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
                     Content = content,
-                    WordCount = wordCount,
-                    EstimatedReadingMinutes = Math.Max(1, (wordCount + ReadingCharsPerMinute - 1) / ReadingCharsPerMinute),
-                    ShowReadingNotice = wordCount > LongReadThreshold,
+                    WordCount = reading.EffectiveChars,
+                    EstimatedReadingMinutes = reading.Minutes,
+                    ShowReadingNotice = reading.ShowLongReadNotice,
                     Tags = ReadArticleDetailTags(reader, fTagIds, fTagNames),
                     Rights = ReadArticleRights(reader)
                 };
@@ -1163,22 +1161,4 @@ public sealed class ArticleDetailAedsArtifactProjector(
         return tagMap;
     }
 
-    private static int CalculateReadableLength(string? content)
-    {
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            return 0;
-        }
-
-        int count = 0;
-        foreach (char ch in content)
-        {
-            if (!char.IsWhiteSpace(ch))
-            {
-                count++;
-            }
-        }
-
-        return count;
-    }
 }

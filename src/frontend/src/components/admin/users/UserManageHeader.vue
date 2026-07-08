@@ -1,6 +1,6 @@
 <template>
-  <section class="mb-12" aria-label="账号筛选">
-    <div class="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between px-8">
+  <section class="mb-10 px-8" aria-label="账号筛选">
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div class="min-w-0">
         <h2 class="flex flex-wrap items-center gap-4 text-[15px] font-bold tracking-normal text-[var(--fsusblog-text-primary)]">
           账号筛选
@@ -13,8 +13,8 @@
         </p>
       </div>
 
-      <div class="user-filter-stack flex flex-col gap-px bg-[var(--fsusblog-panel-bg-soft)] border border-[var(--fsusblog-panel-border)] md:flex-row lg:w-auto">
-        <div class="bg-[var(--fsusblog-page-bg)] p-1 w-full md:w-32">
+      <div class="user-filter-stack grid gap-2">
+        <div class="min-w-0">
           <el-select
             :model-value="status"
             name="userStatusFilter"
@@ -30,7 +30,7 @@
           </el-select>
         </div>
 
-        <div class="bg-[var(--fsusblog-page-bg)] p-1 grow md:grow-0 w-full md:w-56 lg:w-72">
+        <div class="min-w-0">
           <el-input
             :model-value="keyword"
             name="userKeyword"
@@ -50,18 +50,16 @@
           </el-input>
         </div>
 
-        <div class="bg-[var(--fsusblog-page-bg)] p-1">
+        <div class="user-filter-actions flex gap-2">
           <el-button
             type="primary"
             :disabled="loading"
             :loading="loading"
             @click="onSearch"
           >
-              <span v-if="loading">查询中...</span>
+            <span v-if="loading">查询中...</span>
             <span v-else>查询</span>
           </el-button>
-        </div>
-        <div class="bg-[var(--fsusblog-page-bg)] p-1">
           <el-button
             :disabled="loading || activeFilters.length === 0"
             @click="emit('reset')"
@@ -72,7 +70,7 @@
       </div>
     </div>
 
-    <div v-if="activeFilters.length > 0" class="mt-6 flex flex-wrap gap-3 px-8">
+    <div v-if="activeFilters.length > 0" class="mt-6 flex flex-wrap gap-3">
       <el-tag
         v-for="chip in activeFilters"
         :key="chip.key"
@@ -121,9 +119,24 @@ const onStatusChange = (value: number | undefined): void => {
 </script>
 
 <style scoped>
-@media (max-width: 767px) {
+.user-filter-stack {
+  width: 100%;
+  max-width: 44rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.user-filter-actions {
+  align-items: stretch;
+}
+
+.user-filter-actions :deep(.el-button) {
+  min-width: 5rem;
+}
+
+@media (min-width: 640px) {
   .user-filter-stack {
-    width: 100%;
+    grid-template-columns: 10rem minmax(0, 1fr) auto;
+    align-items: stretch;
   }
 }
 </style>

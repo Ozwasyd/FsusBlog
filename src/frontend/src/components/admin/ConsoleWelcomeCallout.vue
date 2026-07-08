@@ -14,6 +14,25 @@
           {{ bodyText }}
         </p>
       </div>
+    </div>
+
+    <div class="console-welcome-callout__actions">
+      <nav
+        v-if="links.length > 0"
+        class="console-welcome-callout__links"
+        aria-label="FsusBlog 维护入口"
+      >
+        <a
+          v-for="link in links"
+          :key="link.key"
+          class="console-welcome-callout__link"
+          :href="link.href"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ link.label }}
+        </a>
+      </nav>
 
       <el-button
         circle
@@ -24,23 +43,6 @@
         @click="dismiss"
       />
     </div>
-
-    <nav
-      v-if="links.length > 0"
-      class="console-welcome-callout__links"
-      aria-label="FsusBlog 维护入口"
-    >
-      <a
-        v-for="link in links"
-        :key="link.key"
-        class="console-welcome-callout__link"
-        :href="link.href"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {{ link.label }}
-      </a>
-    </nav>
   </section>
 </template>
 
@@ -67,18 +69,16 @@ const bodyText = computed(() => (
 <style scoped>
 .console-welcome-callout {
   display: grid;
-  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
   border-block: 1px solid var(--fsusblog-panel-border);
   background: var(--fsusblog-page-bg);
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
 }
 
 .console-welcome-callout__header {
-  display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 1rem;
 }
 
 .console-welcome-callout__copy {
@@ -95,10 +95,18 @@ const bodyText = computed(() => (
 
 .console-welcome-callout__body {
   max-width: 48rem;
-  margin: 0.75rem 0 0;
+  margin: 0.375rem 0 0;
   color: var(--fsusblog-text-tertiary);
   font-size: 0.8125rem;
   line-height: 1.7;
+}
+
+.console-welcome-callout__actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .console-welcome-callout__links {
@@ -133,17 +141,17 @@ const bodyText = computed(() => (
 
 .console-welcome-callout__dismiss {
   flex: 0 0 auto;
-  justify-self: end;
 }
 
-@media (min-width: 768px) {
+@media (max-width: 767px) {
   .console-welcome-callout {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
   }
 
-  .console-welcome-callout__links {
-    justify-content: flex-end;
+  .console-welcome-callout__actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 

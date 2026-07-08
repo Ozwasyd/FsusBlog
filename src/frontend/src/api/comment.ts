@@ -84,6 +84,8 @@ export interface CommentPolicySnapshot {
   defaultAuthorMode: CommentAuthorMode
   supportedDisplayLanguages: string[]
   snapshotHash: string
+  commentMaxChars: number
+  commentMaxUtf8Bytes: number
 }
 
 export interface AnonymousCredentialIssueRequestDto {
@@ -173,7 +175,6 @@ export interface AnonymousCommentTicketResponse {
   credentialLevel: string
   ticket: Uint8Array
   moderationSubjectHash: Uint8Array
-  anonymousNullifierHash: Uint8Array
 }
 
 export interface AnonymousCommentCreateRequestDto {

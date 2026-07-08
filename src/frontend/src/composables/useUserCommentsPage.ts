@@ -12,7 +12,8 @@ import {
 
 type CommentTimeFilter = 'all' | '7d' | '30d'
 
-export function useUserCommentsPage() {
+export function useUserCommentsPage(options: { autoload?: boolean } = {}) {
+  const { autoload = true } = options
   const list = shallowRef<CommentThreadItemContract[]>([])
   const { loading, hasMore, beginLoading, endLoading, setError } = usePagedListState()
   const cursor = ref<string | undefined>(undefined)
@@ -149,9 +150,11 @@ export function useUserCommentsPage() {
     }
   }
 
-  onMounted(() => {
-    void fetchComments()
-  })
+  if (autoload) {
+    onMounted(() => {
+      void fetchComments()
+    })
+  }
 
   onUnmounted(() => {
     commentTask.cancel()

@@ -63,7 +63,8 @@ public partial class CommentService(
         }
 
         string normalizedContent = NormalizeCommentContent(dto.Content);
-        if (!IsCommentContentWithinLimit(normalizedContent))
+        AnonymousCommentPolicySnapshot policySnapshot = await ResolveCommentPolicyAsync(CancellationToken.None);
+        if (!IsCommentContentWithinLimit(normalizedContent, policySnapshot))
         {
             return false;
         }
@@ -129,7 +130,8 @@ public partial class CommentService(
         }
 
         string normalizedContent = NormalizeCommentContent(request.Content);
-        if (!IsCommentContentWithinLimit(normalizedContent))
+        AnonymousCommentPolicySnapshot policySnapshot = await ResolveCommentPolicyAsync(cancellationToken);
+        if (!IsCommentContentWithinLimit(normalizedContent, policySnapshot))
         {
             return false;
         }
@@ -310,7 +312,7 @@ public partial class CommentService(
             IsDeleted = false,
             DeleteReason = null,
             DeleteTime = null,
-            ModerationStatus = CommentModerationStatus.Pending,
+            ModerationStatus = CommentModerationStatus.Approved,
             ModerationReason = BuildInitialModerationReason(regionDecision)
         };
 
@@ -646,12 +648,20 @@ public partial class CommentService(
     {
         if (decision.DecisionReason.Contains("risk_control_queue", StringComparison.Ordinal))
         {
-            return NormalizeNullable(decision.DecisionReason, 256) ?? "risk_control_queue";
+            return NormalizeNullable($"published_{decision.DecisionReason}", 256) ?? "published_risk_control_queue";
         }
 
-        return decision.HideUntilReviewed
-            ? "region_policy:manual_review_no_public_display"
-            : "pending_review";
+        if (decision.HideUntilReviewed)
+        {
+            return "published_region_manual_review_no_public_display";
+        }
+
+        if (decision.RequiresManualReview)
+        {
+            return "published_region_manual_review";
+        }
+
+        return "published_pending_review";
     }
 
     private sealed class AnonymousNullifierRejectedException(string status, string message) : Exception(message)
@@ -720,6 +730,19 @@ public partial class CommentService(
         comment.ModeratedByAdminPrincipalId = null;
         comment.ModeratedAt = moderatedAt;
         WriteAutomaticDispositionAudit(comment, disposition);
+        if (previousStatus == CommentModerationStatus.Approved && disposition.NextStatus == CommentModerationStatus.Hidden)
+        {
+            await cacheInvalidationDispatcher.InvalidateCommentMutationAsync(
+                new CommentCacheInvalidationScope(
+                    ArticleId: comment.ArticleId,
+                    RootId: comment.RootId ?? comment.Id,
+                    AccountId: comment.UserId,
+                    PublicArticleChanged: true,
+                    UserCommentsChanged: comment.UserId is > 0),
+                cancellationToken);
+            await messageService.PushCommentRemoveAsync(comment.ArticleId, comment.Id, comment.RootId ?? comment.Id, comment.ParentId);
+            _ = NotifyModelRiskHiddenAsync(comment, disposition);
+        }
     }
 
     private async Task<AutomaticModerationTarget?> LoadAutomaticModerationTargetAsync(long commentId, CancellationToken cancellationToken)
@@ -1674,10 +1697,15 @@ ORDER BY x.root_id, x.id;
         return content.Trim();
     }
 
-    private static bool IsCommentContentWithinLimit(string content)
+    private async Task<AnonymousCommentPolicySnapshot> ResolveCommentPolicyAsync(CancellationToken cancellationToken)
+        => anonymousCommentPolicyService is null
+            ? AnonymousCommentPolicySnapshot.Default
+            : await anonymousCommentPolicyService.GetCurrentAsync(cancellationToken);
+
+    private static bool IsCommentContentWithinLimit(string content, AnonymousCommentPolicySnapshot policy)
         => !string.IsNullOrWhiteSpace(content)
-            && content.Length <= CommentLimits.ContentMaxChars
-            && Encoding.UTF8.GetByteCount(content) <= CommentLimits.ContentMaxUtf8Bytes;
+            && content.Length <= policy.CommentMaxChars
+            && Encoding.UTF8.GetByteCount(content) <= policy.CommentMaxUtf8Bytes;
 
     private static bool IsAttributableUserComment(string? authorMode, int? userId)
         => userId is > 0
@@ -1753,6 +1781,49 @@ ORDER BY x.root_id, x.id;
             logger,
             $"comment-notify-delete:{userId}",
             LogLevel.Error);
+    }
+
+    private async Task NotifyModelRiskHiddenAsync(Comment comment, CommentModerationDisposition disposition)
+    {
+        if (comment.UserId is not > 0)
+        {
+            logger.LogInformation(
+                "模型审核隐藏匿名评论，跳过站内信提醒 | CommentId: {CommentId} | Reason: {Reason}",
+                comment.Id,
+                disposition.Reason);
+            return;
+        }
+
+        string commentSnippet = BuildCommentNoticeSnippet(comment.Content);
+        string body = string.Concat(
+            "您的评论已由自动审核隐藏，原因是模型命中了内容风险信号。",
+            "评论片段：「",
+            commentSnippet,
+            "」。",
+            "本提醒不构成账号处罚，不会触发封禁、限流、信誉扣分或匿名凭证处理。",
+            disposition.RequiresHumanReview ? "该评论会进入人工复核队列。" : "如有疑问，可通过站内信联系管理员。");
+        await BoundaryExecutor.ExecuteAsync(
+            async () =>
+            {
+                await messageCommandService.SendAccountTransactionalNoticeAsync(
+                    comment.UserId.Value,
+                    "评论审核提醒",
+                    body);
+            },
+            logger,
+            $"comment-model-risk-warning:{comment.UserId.Value}:{comment.Id}",
+            LogLevel.Error);
+    }
+
+    private static string BuildCommentNoticeSnippet(string content)
+    {
+        string normalized = content.ReplaceLineEndings(" ").Trim();
+        if (normalized.Length <= 60)
+        {
+            return normalized;
+        }
+
+        return string.Concat(normalized[..60], "...");
     }
 
     private async Task NotifyReplyAsync(int userId, int articleId, string actor, string? targetDisplayName, string content)

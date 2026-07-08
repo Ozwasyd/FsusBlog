@@ -1,5 +1,6 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { type UploadRequestOptions } from '@ozwasyd/element-plus'
+import type { ImageCompressionOptions } from '@/api/upload'
 import type { ApiRequestConfig } from '@/api/requestConfig'
 import {
   deleteImage,
@@ -24,9 +25,52 @@ import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { DEFAULT_SITE_BRAND_CONFIG } from '@/store/site'
+import {
+  generateBrandIconSet,
+  isRasterBrandIconSource,
+  type BrandIconField,
+  type BrandIconUploadFormat
+} from '@/utils/brandIconGenerator'
+
+type BrandAssetField =
+  | BrandIconField
+  | 'siteLogoUrl'
+  | 'siteLogoDarkUrl'
+  | 'siteWordmarkUrl'
+  | 'adminLogoUrl'
+  | 'adminCollapsedIconUrl'
+  | 'loginLogoUrl'
+  | 'loginIconUrl'
+type BrandAssetUploadFormat = BrandIconUploadFormat | ImageCompressionOptions['format']
+
+const BRAND_ASSET_FIELD_LABELS: Record<BrandAssetField, string> = {
+  faviconIcoUrl: 'ICO favicon',
+  faviconPngUrl: 'PNG favicon',
+  appleTouchIconUrl: 'Apple Touch Icon',
+  pwaIcon192Url: 'PWA 192 图标',
+  pwaIcon512Url: 'PWA 512 图标',
+  pwaMaskableIconUrl: 'PWA maskable 图标',
+  siteLogoUrl: '站点 Logo',
+  siteLogoDarkUrl: '深色站点 Logo',
+  siteWordmarkUrl: '站点字标',
+  adminLogoUrl: '后台 Logo',
+  adminCollapsedIconUrl: '后台折叠图标',
+  loginLogoUrl: '登录 Logo',
+  loginIconUrl: '登录图标'
+}
+
+const RAW_ASSET_UPLOAD_OPTIONS: ImageCompressionOptions = {
+  format: 'png',
+  quality: 100,
+  scaleRatio: 1,
+  maxEdge: 512,
+  preserveAlpha: true
+}
+
+const BRAND_ASSET_FIELDS = new Set<BrandAssetField>(Object.keys(BRAND_ASSET_FIELD_LABELS) as BrandAssetField[])
 
 export function useAdminSettingsPage() {
-  const mountedBrowserBaseUrl = ref((import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/u, ''))
+  const mountedBrowserBaseUrl = ref(typeof window !== 'undefined' ? window.location.origin : '')
 
   const activeTab = ref('site')
   const savingSite = ref(false)
@@ -35,6 +79,8 @@ export function useAdminSettingsPage() {
   const refreshingPage = ref(false)
   const pageLoading = ref(false)
   const imageLoading = ref(false)
+  const brandAssetUploadingField = ref<BrandAssetField | ''>('')
+  const iconSetGenerating = ref(false)
   const siteLoadFailed = ref(false)
   const complianceLoadFailed = ref(false)
   const {
@@ -192,7 +238,7 @@ export function useAdminSettingsPage() {
     const source = value as Record<string, unknown>
     return {
       enabled: readBooleanField(source, 'enabled', 'Enabled'),
-      regionMode: readStringField(source, 'regionMode', 'RegionMode') === 'mainland-cn' ? 'mainland-cn' : 'global',
+      regionMode: 'global',
       copyrightOwner: readStringField(source, 'copyrightOwner', 'CopyrightOwner'),
       copyrightStartYear: readNullableNumberField(source, 'copyrightStartYear', 'CopyrightStartYear'),
       copyrightText: readStringField(source, 'copyrightText', 'CopyrightText'),
@@ -217,21 +263,23 @@ export function useAdminSettingsPage() {
     }
 
     if (/^https?:\/\//u.test(url)) {
-      return url
+      try {
+        const parsed = new URL(url)
+        return mountedBrowserBaseUrl.value && parsed.origin === mountedBrowserBaseUrl.value ? url : ''
+      } catch {
+        return ''
+      }
     }
 
-    const baseURL = normalizedBaseUrl.value || mountedBrowserBaseUrl.value
-    if (!baseURL) {
-      return url
+    if (url.startsWith('//')) {
+      return ''
     }
 
-    return `${baseURL}${url.startsWith('/') ? url : `/${url}`}`
+    return url.startsWith('/') ? url : `/${url}`
   }
 
   const displayUrl = computed(() => resolveAssetDisplayUrl(siteForm.ogImage))
-  const logoPreviewUrl = computed(() => resolveAssetDisplayUrl(siteForm.siteLogoUrl || siteForm.siteWordmarkUrl))
-  const adminLogoPreviewUrl = computed(() => resolveAssetDisplayUrl(siteForm.adminLogoUrl || siteForm.adminCollapsedIconUrl))
-  const loginLogoPreviewUrl = computed(() => resolveAssetDisplayUrl(siteForm.loginLogoUrl || siteForm.loginIconUrl))
+  const resolveBrandAssetPreviewUrl = (field: BrandAssetField): string => resolveAssetDisplayUrl(siteForm[field])
   const computedKeywords = computed(() =>
     siteForm.keywords ? siteForm.keywords.split(',').map((value) => value.trim()).filter((value) => value) : [])
   const hasOgImage = computed(() => Boolean(siteForm.ogImage))
@@ -295,7 +343,7 @@ export function useAdminSettingsPage() {
   })
   const serializeComplianceForm = (): string => JSON.stringify({
     enabled: complianceForm.enabled,
-    regionMode: complianceForm.regionMode,
+    regionMode: 'global',
     copyrightOwner: complianceForm.copyrightOwner.trim(),
     copyrightStartYear: complianceForm.copyrightStartYear,
     copyrightText: complianceForm.copyrightText.trim(),
@@ -400,6 +448,41 @@ export function useAdminSettingsPage() {
 
   const validateHexColor = (color: string): boolean => /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/iu.test(color.trim())
 
+  const isBrandAssetField = (value: string): value is BrandAssetField => BRAND_ASSET_FIELDS.has(value as BrandAssetField)
+
+  const isSvgUpload = (file: File): boolean => file.type.toLowerCase().includes('svg') || /\.svg$/iu.test(file.name)
+
+  const isIcoUpload = (file: File): boolean => {
+    const mimeType = file.type.trim().toLowerCase()
+    return mimeType === 'image/x-icon'
+      || mimeType === 'image/vnd.microsoft.icon'
+      || /\.ico$/iu.test(file.name)
+  }
+
+  const uploadBrandAssetFile = async (
+    file: File,
+    format: BrandAssetUploadFormat,
+    bypassCompression: boolean
+  ): Promise<string> => {
+    const uploadOptions: ImageCompressionOptions = bypassCompression
+      ? RAW_ASSET_UPLOAD_OPTIONS
+      : {
+        ...imageUploadOptions.value,
+        format: format === 'ico' ? 'png' : format,
+        preserveAlpha: format === 'png' ? true : imageUploadOptions.value.preserveAlpha
+      }
+
+    return imageUploadRuntime.uploadFile(
+      file,
+      uploadOptions,
+      {
+        wasmOnly: bypassCompression ? false : wasmOnlyMode.value,
+        bypassCompression,
+        targetFormat: format
+      }
+    )
+  }
+
   const collectComplianceWarnings = (): string[] => {
     const warnings: string[] = []
     const icp = complianceForm.icpRecordNumber.trim()
@@ -482,6 +565,78 @@ export function useAdminSettingsPage() {
       })
     } finally {
       imageLoading.value = false
+    }
+  }
+
+  const handleBrandAssetUpload = async (options: UploadRequestOptions, targetFieldValue: string): Promise<void> => {
+    if (!isBrandAssetField(targetFieldValue)) {
+      showWarningToast('品牌资产字段不受支持', '品牌资产字段不受支持')
+      return
+    }
+
+    const targetField = targetFieldValue
+    const file = options.file as File
+    if (isSvgUpload(file)) {
+      showWarningToast('不支持 SVG 上传，请填写已清洗的 SVG URL', '不支持 SVG 上传，请填写已清洗的 SVG URL')
+      return
+    }
+
+    const isIcoTarget = targetField === 'faviconIcoUrl'
+    if (isIcoTarget && !isIcoUpload(file)) {
+      showWarningToast('ICO favicon 只接受 .ico 文件；PNG/JPG/WebP 请使用图标组生成', 'ICO favicon 只接受 .ico 文件；PNG/JPG/WebP 请使用图标组生成')
+      return
+    }
+    if (!isIcoTarget && !isRasterBrandIconSource(file)) {
+      showWarningToast('品牌资产上传只支持 PNG、JPG 或 WebP', '品牌资产上传只支持 PNG、JPG 或 WebP')
+      return
+    }
+
+    const previousUrl = siteForm[targetField]
+    brandAssetUploadingField.value = targetField
+    try {
+      const url = await uploadBrandAssetFile(file, isIcoTarget ? 'ico' : 'png', isIcoTarget)
+      siteForm[targetField] = url
+      await nextTick()
+      toast.success(`${BRAND_ASSET_FIELD_LABELS[targetField]} 已更新，请保存同步`)
+    } catch (error: unknown) {
+      siteForm[targetField] = previousUrl
+      if (!isAbortError(error)) {
+        showErrorToast(error, `${BRAND_ASSET_FIELD_LABELS[targetField]} 上传失败`)
+      }
+    } finally {
+      brandAssetUploadingField.value = ''
+    }
+  }
+
+  const handleFaviconSetGeneration = async (options: UploadRequestOptions): Promise<void> => {
+    const file = options.file as File
+    if (isSvgUpload(file) || !isRasterBrandIconSource(file)) {
+      showWarningToast('图标组生成只支持 PNG、JPG 或 WebP，不支持 SVG 上传，请填写已清洗的 SVG URL', '图标组生成只支持 PNG、JPG 或 WebP')
+      return
+    }
+
+    const previousUrls = new Map<BrandIconField, string>()
+    iconSetGenerating.value = true
+    try {
+      const generated = await generateBrandIconSet(file)
+      for (const assignment of generated) {
+        previousUrls.set(assignment.field, siteForm[assignment.field])
+        brandAssetUploadingField.value = assignment.field
+        const url = await uploadBrandAssetFile(assignment.file, assignment.format, true)
+        siteForm[assignment.field] = url
+      }
+      await nextTick()
+      toast.success('图标组已生成，请保存同步')
+    } catch (error: unknown) {
+      previousUrls.forEach((url, field) => {
+        siteForm[field] = url
+      })
+      if (!isAbortError(error)) {
+        showErrorToast(error, '图标组生成失败')
+      }
+    } finally {
+      iconSetGenerating.value = false
+      brandAssetUploadingField.value = ''
     }
   }
 
@@ -691,7 +846,7 @@ export function useAdminSettingsPage() {
     taskFeedback.begin('正在保存大陆合规信息', '保存后将刷新公开 footer、RSS 和 AOT 缓存', 'settings-compliance')
     try {
       await complianceTask.run(async (signal) => {
-        await updateSiteComplianceConfig({ ...complianceForm }, buildSignalConfig(signal))
+        await updateSiteComplianceConfig({ ...complianceForm, regionMode: 'global' }, buildSignalConfig(signal))
         if (!signal.aborted) {
           originalComplianceSnapshot.value = serializeComplianceForm()
           taskFeedback.succeed('大陆合规信息已保存', '公开 footer 与缓存已刷新', 'settings-compliance')
@@ -861,15 +1016,15 @@ export function useAdminSettingsPage() {
     complianceLoadFailed,
     pageLoading,
     imageLoading,
+    brandAssetUploadingField,
+    iconSetGenerating,
     siteForm,
     complianceForm,
     currentSlug,
     pageContent,
     pageTargets,
     displayUrl,
-    logoPreviewUrl,
-    adminLogoPreviewUrl,
-    loginLogoPreviewUrl,
+    resolveBrandAssetPreviewUrl,
     hasOgImage,
     computedKeywords,
     normalizedBaseUrl,
@@ -894,6 +1049,8 @@ export function useAdminSettingsPage() {
     resumeImageUpload,
     sanitizeKeywords,
     handleImageAction,
+    handleBrandAssetUpload,
+    handleFaviconSetGeneration,
     handleImageRemove,
     handleImageDelete,
     loadSiteConfig,

@@ -1,5 +1,6 @@
 using System.Reflection;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -122,14 +123,28 @@ public sealed class ArticleServiceTests
         Assert.Equal(expected, result);
     }
 
-    [Theory]
-    [InlineData("hello world", 10)]
-    [InlineData("", 0)]
-    [InlineData("   ", 0)]
-    public void CalculateReadableLength_CountsNonWhitespace(string input, int expected)
+    [Fact]
+    public void ReadingEstimator_UsesContentAwareReadingSpeeds()
     {
-        var result = InvokePrivateStatic<int>("CalculateReadableLength", [input]);
-        Assert.Equal(expected, result);
+        Assert.Equal(1, ReadingEstimator.Estimate(new string('字', 500)).Minutes);
+        Assert.Equal(2, ReadingEstimator.Estimate(new string('字', 501)).Minutes);
+
+        string englishShort = string.Join(' ', Enumerable.Repeat("word", 220));
+        string englishLong = string.Join(' ', Enumerable.Repeat("word", 221));
+        Assert.Equal(1, ReadingEstimator.Estimate(englishShort).Minutes);
+        Assert.Equal(2, ReadingEstimator.Estimate(englishLong).Minutes);
+    }
+
+    [Fact]
+    public void ReadingEstimator_SeparatesCodeAndImagesFromProse()
+    {
+        ReadingEstimate codeEstimate = ReadingEstimator.Estimate($"```cs\n{new string('x', 141)}\n```");
+        Assert.Equal(141, codeEstimate.CodeChars);
+        Assert.Equal(2, codeEstimate.Minutes);
+
+        ReadingEstimate imageEstimate = ReadingEstimator.Estimate(string.Concat(Enumerable.Repeat("![a](/a.png)\n", 6)));
+        Assert.Equal(6, imageEstimate.ImageCount);
+        Assert.Equal(2, imageEstimate.Minutes);
     }
 
     [Theory]

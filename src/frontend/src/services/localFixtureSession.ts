@@ -15,6 +15,11 @@ interface LocalFixtureStatus {
   hasHostAdminAccessToken?: boolean
 }
 
+interface LocalFixtureAdminSensitiveProof {
+  proofToken?: string
+  action?: string
+}
+
 export function isLocalFixtureQueryEnabled(value: unknown): boolean {
   return value === '1'
 }
@@ -227,6 +232,36 @@ export async function ensureLocalFixtureSessionCookies(redirectPath = currentRed
   })()
 
   return fixtureCookieRefreshPromise
+}
+
+export async function mintLocalFixtureAdminSensitiveProof(): Promise<string | null> {
+  if (!isLocalFixtureAdminSessionActive()) {
+    return null
+  }
+
+  const headers = createLocalFixtureHeaders()
+  if (!headers) {
+    return null
+  }
+
+  try {
+    const response = await fetch('/api/local/auth-fixture/admin-sensitive-proof', {
+      cache: 'no-store',
+      credentials: 'include',
+      method: 'POST',
+      headers
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const body = await response.json() as LocalFixtureAdminSensitiveProof
+    const token = body.proofToken?.trim()
+    return body.action === 'admin-sensitive' && token ? token : null
+  } catch {
+    return null
+  }
 }
 
 export function createLocalFixtureAccountSnapshot(): CurrentUserSnapshot {

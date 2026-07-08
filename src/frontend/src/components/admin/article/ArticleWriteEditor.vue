@@ -4,9 +4,10 @@
     v-model="content"
     textarea-id="article-content"
     textarea-name="articleContent"
-    placeholder="写下正文，支持 Markdown 内容..."
+    placeholder="从这里开始写正文。"
     :editor-class="editorSizingClass"
     :preview-class="previewSizingClass"
+    :preview-component="ArticleBodyMarkdownPreview"
     :toolbars-exclude="['save']"
     :loading="loading"
     :saving="saving"
@@ -19,6 +20,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import ArticleBodyMarkdownPreview from '@/components/admin/article/ArticleBodyMarkdownPreview.vue'
 import MarkdownEditorAdapter from '@/components/ui/MarkdownEditorAdapter.vue'
 
 type EditorLayoutMode = 'standard' | 'focus' | 'fullscreen'

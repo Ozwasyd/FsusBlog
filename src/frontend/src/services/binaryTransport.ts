@@ -1,4 +1,4 @@
-import { BinaryRequestError, binaryRequest } from '@/api/binaryApiClient';
+import { BinaryRequestError, binaryRequest, type BinaryRequestOptions } from '@/api/binaryApiClient';
 import { decode } from '@wasm/aeds';
 import { mapFramePayloadToViewModel } from '@/adapters/binary';
 import { readFixedUtf8, readInt32 } from '@/adapters/binary/reader';
@@ -499,7 +499,7 @@ function canUseDecodeWorker(): boolean {
 async function loadBinaryAndDecode<T>(
   url: string,
   frameType: FrameType,
-  requestOptions?: RequestInit & { requiresPow?: boolean },
+  requestOptions?: BinaryRequestOptions,
   signal?: AbortSignal
 ): Promise<T> {
   if (!isBinaryEnabled()) {
@@ -549,7 +549,7 @@ async function loadBinaryAndDecode<T>(
 async function loadBinaryAndDecodeSafe<T>(
   url: string,
   frameType: FrameType,
-  requestOptions?: RequestInit & { requiresPow?: boolean },
+  requestOptions?: BinaryRequestOptions,
   signal?: AbortSignal
 ): Promise<BinaryDecodeResult<T>> {
   return loadBinaryAndDecode<T>(url, frameType, requestOptions, signal)
@@ -645,17 +645,31 @@ export async function requestBinaryOnly<T>(options: {
     query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>;
   };
   frameType: FrameType;
-  requestOptions?: RequestInit & { requiresPow?: boolean };
+  requestOptions?: BinaryRequestOptions;
   signal?: AbortSignal;
   suppressAuthFailureTelemetry?: boolean;
 }): Promise<T> {
-  const { binaryUrl, requestOptions } = resolveBinaryRequest(options);
-  const binaryResult = await loadBinaryAndDecodeSafe<T>(
+  const resolved = resolveBinaryRequest(options);
+  const { binaryUrl, requestOptions } = resolved;
+  const requestSignal = options.signal ?? requestOptions?.signal ?? undefined;
+  let binaryResult = await loadBinaryAndDecodeSafe<T>(
     binaryUrl,
     options.frameType,
     requestOptions,
-    options.signal
+    requestSignal
   );
+  if (shouldRetryPublicReadWithPow(binaryResult, resolved)) {
+    binaryResult = await loadBinaryAndDecodeSafe<T>(
+      binaryUrl,
+      options.frameType,
+      {
+        ...(requestOptions ?? {}),
+        requiresPow: true,
+        powScope: requestOptions?.powScope ?? `public-read:${binaryUrl}`
+      },
+      requestSignal
+    );
+  }
   if (binaryResult.ok) {
     return binaryResult.value;
   }
@@ -724,19 +738,24 @@ function resolveBinaryRequest(options: {
     params?: Record<string, string | number | bigint>;
     query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>;
   };
-  requestOptions?: RequestInit & { requiresPow?: boolean };
-}): { binaryUrl: string; requestOptions?: RequestInit & { requiresPow?: boolean } } {
+  requestOptions?: BinaryRequestOptions;
+}): { binaryUrl: string; requestOptions?: BinaryRequestOptions; retryPublicReadWithPow: boolean } {
   if (options.binaryRoute) {
     const descriptor = fsusBinaryRouteDescriptors[options.binaryRoute.operationId];
     if (!descriptor) {
       throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_descriptor_missing');
     }
     const binaryUrl = buildFsusBinaryRoute(options.binaryRoute.operationId, options.binaryRoute.params, options.binaryRoute.query);
+    const retryPublicReadWithPow = descriptor.auth === 'anonymous'
+      && descriptor.rateLimitPolicy === 'public_read'
+      && descriptor.method === 'GET'
+      && !descriptor.requiresPow;
     if (options.requestOptions?.credentials !== undefined || descriptor.credentialPolicy === 'include') {
-      return { binaryUrl, requestOptions: options.requestOptions };
+      return { binaryUrl, requestOptions: options.requestOptions, retryPublicReadWithPow };
     }
     return {
       binaryUrl,
+      retryPublicReadWithPow,
       requestOptions: {
         ...options.requestOptions,
         credentials: descriptor.credentialPolicy
@@ -744,7 +763,18 @@ function resolveBinaryRequest(options: {
     };
   }
   if (options.binaryUrl) {
-    return { binaryUrl: options.binaryUrl, requestOptions: options.requestOptions };
+    return { binaryUrl: options.binaryUrl, requestOptions: options.requestOptions, retryPublicReadWithPow: false };
   }
   throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
+}
+
+function shouldRetryPublicReadWithPow<T>(
+  result: BinaryDecodeResult<T>,
+  resolved: { requestOptions?: BinaryRequestOptions; retryPublicReadWithPow: boolean }
+): result is BinaryDecodeFailure {
+  return !result.ok
+    && resolved.retryPublicReadWithPow
+    && !resolved.requestOptions?.requiresPow
+    && result.failure.kind === 'precondition_required'
+    && result.failure.status === 428;
 }

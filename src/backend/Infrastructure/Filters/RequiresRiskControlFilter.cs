@@ -79,7 +79,9 @@ public sealed partial class RequiresRiskControlFilter(
             || !TryReadSingleHeader(httpContext, ChallengeIdHeaderName, out string challengeId)
             || !TryReadSingleHeader(httpContext, ChallengeKindHeaderName, out string challengeKind))
         {
-            await RecordRiskAsync(httpContext, "challenge_proof_missing", decision.ActionName, httpContext.RequestAborted);
+            // Missing proof is the normal first leg of a challenge handshake.
+            // Rejected or replayed proof is the risky signal, not requesting the challenge.
+            await RecordRiskAsync(httpContext, "challenge_proof_missing", decision.ActionName, httpContext.RequestAborted, score: 0);
             return Error(httpContext, StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden, "RISK_CHALLENGE_PROOF_REQUIRED");
         }
 
@@ -143,11 +145,11 @@ public sealed partial class RequiresRiskControlFilter(
         return Error(httpContext, statusCode, ErrorCode.Forbidden, message);
     }
 
-    private ValueTask RecordRiskAsync(HttpContext context, string detail, string action, CancellationToken cancellationToken)
+    private ValueTask RecordRiskAsync(HttpContext context, string detail, string action, CancellationToken cancellationToken, int score = 10)
         => riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
             context,
             SecurityRiskReason.SecurityChallengeRejected,
-            10,
+            score,
             RiskSignalTtl,
             SecurityRiskSources.RiskControl,
             string.IsNullOrWhiteSpace(action) ? "risk_control" : action,

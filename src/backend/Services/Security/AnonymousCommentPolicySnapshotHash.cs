@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Models.Dtos;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -38,6 +39,8 @@ internal static class AnonymousCommentPolicySnapshotHash
             snapshot.PublicCommentsEnabled ? "1" : "0",
             snapshot.ZkAnonymousEnabled ? "1" : "0",
             NormalizeAuthorMode(snapshot.DefaultAuthorMode, CommentAuthorModes.Anonymous),
+            CommentLimits.NormalizeMaxChars(snapshot.CommentMaxChars),
+            CommentLimits.NormalizeMaxUtf8Bytes(snapshot.CommentMaxUtf8Bytes),
             string.Join(',', NormalizeLanguages(snapshot.SupportedDisplayLanguages, AnonymousCommentPolicySnapshot.DefaultDisplayLanguages)));
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
     }

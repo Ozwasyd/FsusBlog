@@ -51,6 +51,18 @@ describe('comment privacy runtime workflow contract', () => {
     expect(composer).toContain('privacy-intent')
   })
 
+  it('keeps the empty composer editable so privacy intent can prepare a ticket', () => {
+    expect(composerTemplate).toContain(':disabled="composerInputDisabled"')
+    expect(composer).toContain('const composerInputDisabled = computed(() =>')
+    const inputDisabledBlock = extractConstBlock(composer, 'const composerInputDisabled = computed')
+    expect(inputDisabledBlock).not.toContain('hasContent')
+    expect(inputDisabledBlock).not.toContain('contentModel')
+    expect(inputDisabledBlock).not.toContain('publicIdentityModel')
+    expect(inputDisabledBlock).not.toContain('publicSendConfirmed')
+    expect(composer).toContain('const submitDisabled = computed(() => composerUi.value.disabled || !markdownValidation.value.isValid)')
+    expect(composer).not.toContain('anonymousTicketPreparing')
+  })
+
   it('keeps the composer user-facing and free of proof terminology', () => {
     expect(composerTemplate).toContain('匿名发布暂不可用')
     expect(composerTemplate.toLowerCase()).not.toContain('proof')
@@ -60,3 +72,11 @@ describe('comment privacy runtime workflow contract', () => {
     expect(composerTemplate).not.toContain('凭证')
   })
 })
+
+function extractConstBlock(source: string, signature: string): string {
+  const start = source.indexOf(signature)
+  expect(start).toBeGreaterThanOrEqual(0)
+  const end = source.indexOf('\n\n', start)
+  expect(end).toBeGreaterThan(start)
+  return source.slice(start, end)
+}

@@ -239,26 +239,23 @@ for (const file of componentFacingFiles) {
 
 const accountLayoutPath = join(srcDir, 'layouts', 'AccountLayout.vue');
 const accountLayoutSource = readFileSync(accountLayoutPath, 'utf8');
-if (!accountLayoutSource.includes('activeMobileGroupKey')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation must separate active route group from open group');
+if (!accountLayoutSource.includes('mobileDrawerVisible')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation must be carried by the account drawer state');
 }
-if (!accountLayoutSource.includes('openMobileGroupKey')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation must keep an explicit open group state');
+if (!accountLayoutSource.includes('id="account-mobile-drawer"')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation must use the account drawer surface');
 }
-if (accountLayoutSource.includes("'account-mobile-tab-link-active': openMobileGroupKey === group.key")) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group active state must not be driven by openMobileGroupKey');
+if (!accountLayoutSource.includes('account-mobile-drawer-trigger')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation trigger must live in the header actions');
 }
-if (!/if\s*\(\s*key\s*!==\s*currentNavGroupKey\.value\s*\)[\s\S]*?router\.push\(target\)/.test(accountLayoutSource)) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group changes must navigate to the selected group entry, not leave route and open group mismatched');
+if (!accountLayoutSource.includes("item.to === '/user/manage'")) {
+  hardViolations.push('src/layouts/AccountLayout.vue: /user/manage dashboard route must use exact matching so nested admin routes do not read as dashboard');
 }
-if (!/to:\s*group\.items\[0\]\?\.to/.test(accountLayoutSource)) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group segments must expose each group entry route for router-link navigation semantics');
+if (accountLayoutSource.includes('FsusUiSegmentedControl')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must not use the FsusUI segmented-control adapter');
 }
-if (!accountLayoutSource.includes('selection-mode="link"')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group segments must use link mode instead of radio-only selection semantics');
-}
-if (!accountLayoutSource.includes('FsusUiSegmentedControl')) {
-  hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must use the FsusUI segmented-control adapter');
+if (accountLayoutSource.includes('openMobileGroupKey')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: mobile account drawer must not keep a separate open group state');
 }
 if (accountLayoutSource.includes('class="account-mobile-tab-link"')) {
   hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must not regress to the legacy hand-rolled tab buttons');
@@ -275,11 +272,11 @@ if (!/route\.matched\.findIndex\(\(record\)\s*=>\s*record\.path\s*===\s*'\/user'
 
 const accountNavPath = join(srcDir, 'layouts', 'accountNav.ts');
 const accountNavSource = readFileSync(accountNavPath, 'utf8');
-if (!/label:\s*'身份中心'[\s\S]*?match:\s*\(\)\s*=>\s*false/.test(accountNavSource)) {
-  hardViolations.push('src/layouts/accountNav.ts: top-level 身份中心 shortcut must not participate in active route matching');
+if (!/label:\s*'身份中心'[\s\S]*?to:\s*'\/user\/identity'[\s\S]*?groupKey:\s*'self'[\s\S]*?match:\s*\(path\)\s*=>\s*path\s*===\s*'\/user\/identity'/.test(accountNavSource)) {
+  hardViolations.push('src/layouts/accountNav.ts: 身份中心 must be the single /user/identity entry in the account group');
 }
-if (!/label:\s*'身份总览'[\s\S]*?match:\s*\(path\)\s*=>\s*path\s*===\s*'\/user\/identity'/.test(accountNavSource)) {
-  hardViolations.push('src/layouts/accountNav.ts: 身份总览 must use exact /user/identity matching to avoid double-active subroutes');
+if (/label:\s*'身份总览'[\s\S]*?to:\s*'\/user\/identity'/.test(accountNavSource)) {
+  hardViolations.push('src/layouts/accountNav.ts: /user/identity must not appear as both 身份中心 and 身份总览 in the navigation');
 }
 
 const routerPath = join(srcDir, 'router', 'index.ts');

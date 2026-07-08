@@ -39,6 +39,7 @@ public sealed class AuthoringWorkflowService(
     private const int MaxDraftKeyLength = 96;
     private const int PreviewLength = 24_000;
     private const int WarningOverrideReasonLength = 180;
+    private const string ModelRiskBorderlineReviewReason = "model_policy:model_risk_borderline_review";
     private static readonly JsonSerializerOptions DraftRightsJsonOptions = new(JsonSerializerDefaults.Web);
     private static int assetArticleReferenceStoreEnsured;
 
@@ -870,14 +871,27 @@ public sealed class AuthoringWorkflowService(
         int limit = 50,
         CancellationToken cancellationToken = default)
     {
-        CommentModerationStatus resolvedStatus = status ?? CommentModerationStatus.Pending;
         int normalizedLimit = Math.Clamp(limit, 1, 100);
-        List<CommentModerationQueueRow> rows = await db.Queryable<Comment, Article, CommentRegionCompliance>((c, a, rc) => new object[]
+        var query = db.Queryable<Comment, Article, CommentRegionCompliance>((c, a, rc) => new object[]
             {
                 JoinType.Left, c.ArticleId == a.Id,
                 JoinType.Left, c.Id == rc.CommentId
-            })
-            .Where((c, a, rc) => c.ModerationStatus == resolvedStatus && !c.IsDeleted)
+            });
+
+        if (BuildCommentModerationQueuePredicate(status))
+        {
+            query = query.Where((c, a, rc) => !c.IsDeleted
+                && (c.ModerationStatus == CommentModerationStatus.Pending
+                    || (c.ModerationStatus == CommentModerationStatus.Hidden
+                        && c.ModerationReason == ModelRiskBorderlineReviewReason)));
+        }
+        else
+        {
+            CommentModerationStatus resolvedStatus = status!.Value;
+            query = query.Where((c, a, rc) => c.ModerationStatus == resolvedStatus && !c.IsDeleted);
+        }
+
+        List<CommentModerationQueueRow> rows = await query
             .OrderByDescending((c, a, rc) => c.CreateTime)
             .Take(normalizedLimit)
             .Select((c, a, rc) => new CommentModerationQueueRow
@@ -933,11 +947,14 @@ public sealed class AuthoringWorkflowService(
             counts.Hidden);
     }
 
+    private static bool BuildCommentModerationQueuePredicate(CommentModerationStatus? status)
+        => !status.HasValue || status.Value == CommentModerationStatus.Pending;
+
     private async Task<CommentModerationQueueCounts> LoadCommentModerationQueueCountsAsync(CancellationToken cancellationToken)
     {
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync("""
             SELECT
-                SUM(CASE WHEN moderation_status = @PendingStatus THEN 1 ELSE 0 END)::integer AS pending,
+                SUM(CASE WHEN moderation_status = @PendingStatus OR moderation_reason = @BorderlineReviewReason THEN 1 ELSE 0 END)::integer AS pending,
                 SUM(CASE WHEN moderation_status = @RejectedStatus THEN 1 ELSE 0 END)::integer AS rejected,
                 SUM(CASE WHEN moderation_status = @HiddenStatus THEN 1 ELSE 0 END)::integer AS hidden
             FROM comment
@@ -945,7 +962,8 @@ public sealed class AuthoringWorkflowService(
             """,
             new SugarParameter("@PendingStatus", (int)CommentModerationStatus.Pending),
             new SugarParameter("@RejectedStatus", (int)CommentModerationStatus.Rejected),
-            new SugarParameter("@HiddenStatus", (int)CommentModerationStatus.Hidden));
+            new SugarParameter("@HiddenStatus", (int)CommentModerationStatus.Hidden),
+            new SugarParameter("@BorderlineReviewReason", ModelRiskBorderlineReviewReason));
         if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             return new CommentModerationQueueCounts(0, 0, 0);
@@ -2523,6 +2541,7 @@ public sealed class AuthoringWorkflowService(
         {
             return new ArticleRightsRequest
             {
+                Mode = "site",
                 Enabled = true,
                 LicenseType = "all-rights-reserved",
                 CopyrightHolder = null,
@@ -2539,6 +2558,7 @@ public sealed class AuthoringWorkflowService(
 
         return new ArticleRightsRequest
         {
+            Mode = string.Equals(request.Mode, "custom", StringComparison.OrdinalIgnoreCase) ? "custom" : "site",
             Enabled = request.Enabled,
             LicenseType = NormalizeDraftRightsToken(request.LicenseType, "all-rights-reserved"),
             CopyrightHolder = NormalizeNullable(request.CopyrightHolder, 256),

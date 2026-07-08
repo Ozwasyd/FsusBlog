@@ -1,4 +1,6 @@
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
 using Microsoft.AspNetCore.Http;
 
@@ -43,5 +45,44 @@ public sealed class SecurityNativeAedsEndpointTests
         Assert.True(SecurityEndpoints.TryResolveRoute(HttpMethods.Put, new PathString("/risk-control/options"), out var update));
         Assert.Equal(AedsFrameType.SecurityOverview, update.RequestFrame);
         Assert.Equal(AedsFrameType.SecurityOverview, update.ResponseFrame);
+
+        Assert.True(SecurityEndpoints.TryResolveRoute(HttpMethods.Put, new PathString("/perception-v2/options"), out var perceptionUpdate));
+        Assert.Equal(AedsFrameType.SecurityOverview, perceptionUpdate.RequestFrame);
+        Assert.Equal(AedsFrameType.SecurityOverview, perceptionUpdate.ResponseFrame);
+    }
+
+    [Fact]
+    public void NormalizeSecurityAuditPayload_ConvertsPerceptionSnapshotToAotSafeObjectGraph()
+    {
+        var snapshot = new PerceptionSealedV2PolicySnapshot(
+            "snapshot-1",
+            "policy-1",
+            DateTimeOffset.Parse("2026-07-06T00:00:00Z"),
+            "admin:2",
+            "direct switch",
+            null,
+            new PerceptionSealedV2PolicyOptions(
+                Enabled: true,
+                TextTaskEnabled: true,
+                LocalizationEnabled: true,
+                MicroInteractionEnabled: false,
+                PoSpaceFallbackEnabled: false,
+                EarlyRejectThreshold: 90,
+                MaxAttempts: 3,
+                MinSolveDurationMs: 750,
+                MaxSolveDurationMs: 60000));
+
+        object? normalized = SecurityEndpoints.NormalizeSecurityAuditPayload(snapshot);
+
+        var payload = Assert.IsType<Dictionary<string, object?>>(normalized);
+        Assert.Equal("snapshot-1", payload["snapshotId"]);
+        var options = Assert.IsType<Dictionary<string, object?>>(payload["options"]);
+        Assert.True(Assert.IsType<bool>(options["enabled"]));
+        Assert.Equal(3, Assert.IsType<int>(options["maxAttempts"]));
+        byte[] frame = PublicAotBinaryPayload.EncodeObjectFrame(new Dictionary<string, object?>
+        {
+            ["payload"] = normalized
+        });
+        Assert.NotEmpty(frame);
     }
 }

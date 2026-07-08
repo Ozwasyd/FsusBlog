@@ -49,6 +49,34 @@ public sealed class UnavailableProductionZkProofBackend : IProductionZkProofBack
         => Task.FromResult(ProductionZkProofBackendResult.Rejected("backend_unavailable"));
 }
 
+public sealed class LocalDevZkProofBackend(IConfiguration configuration) : IProductionZkProofBackend
+{
+    public const string BackendName = "local_dev_fixture";
+    private const string EnabledKey = "AnonymousIdentity:ZkVerifier:LocalDevFixture:Enabled";
+    private readonly bool _enabled = IsEnabled(configuration);
+
+    public static bool IsEnabled(IConfiguration configuration)
+        => configuration.GetValue(EnabledKey, false) &&
+            string.Equals(
+                configuration["ASPNETCORE_ENVIRONMENT"] ??
+                Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+                "Development",
+                StringComparison.OrdinalIgnoreCase);
+
+    public bool IsAvailable(string backendName)
+        => _enabled && string.Equals(backendName, BackendName, StringComparison.Ordinal);
+
+    public Task<ProductionZkProofBackendResult> VerifyAsync(
+        ProductionZkProofBackendRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(_enabled
+            ? ProductionZkProofBackendResult.Accepted()
+            : ProductionZkProofBackendResult.Rejected("backend_unavailable"));
+    }
+}
+
 public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
 {
     private const string SectionName = "AnonymousIdentity:ZkVerifier";

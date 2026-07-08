@@ -4,7 +4,7 @@
       v-for="thread in visibleThreadItems"
       :key="thread.id"
       :class="commentDetailTokens.articleList.itemRoot"
-      v-memo="[thread.id, thread.content, thread.replies.length, thread.canDelete]"
+      v-memo="[thread.id, thread.content, thread.replies.length, thread.canDelete, isCommentExpanded(rootCommentKey(thread.id)), isCommentFoldable(rootCommentKey(thread.id), thread.content)]"
     >
       <div :class="commentDetailTokens.articleList.headerRoot">
         <div :class="commentDetailTokens.articleList.headerMeta">
@@ -33,14 +33,31 @@
           {{ thread.time.relativeTimeText }}
         </span>
       </div>
-      <p :class="commentDetailTokens.articleList.content">{{ thread.content }}</p>
+      <div :class="commentDetailTokens.articleList.content">
+        <CommentMarkdownRenderer
+          :content="thread.content"
+          :collapsed-lines="COMMENT_CONTENT_CONSTRAINT.collapsedMarkdownMaxLines"
+          :expanded="isCommentExpanded(rootCommentKey(thread.id))"
+          :collapsible="isCommentFoldable(rootCommentKey(thread.id), thread.content)"
+          @overflow-change="updateCommentOverflow(rootCommentKey(thread.id), $event)"
+        />
+        <el-button
+          v-if="isCommentFoldable(rootCommentKey(thread.id), thread.content)"
+          class="comment-markdown-toggle"
+          link
+          type="primary"
+          @click="toggleCommentExpansion(rootCommentKey(thread.id))"
+        >
+          {{ isCommentExpanded(rootCommentKey(thread.id)) ? '收起' : '展开' }}
+        </el-button>
+      </div>
 
       <section v-if="thread.replies.length > 0 || thread.hasMoreReplies" class="mt-5 border-l border-[var(--fsusblog-panel-border)] pl-4 sm:pl-5 space-y-4">
         <div
           v-for="reply in thread.replies"
           :key="reply.id"
           class="space-y-1"
-          v-memo="[reply.id, reply.content, reply.canDelete]"
+          v-memo="[reply.id, reply.content, reply.canDelete, isCommentExpanded(replyCommentKey(reply.id)), isCommentFoldable(replyCommentKey(reply.id), reply.content)]"
         >
           <div class="flex items-center gap-2 text-[11px] text-[var(--fsusblog-text-muted)]">
             <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.author.displayName }}</strong>
@@ -61,7 +78,24 @@
               删除
             </el-button>
           </div>
-          <p class="text-sm text-[var(--fsusblog-text-tertiary)] leading-relaxed whitespace-pre-wrap break-words">{{ reply.content }}</p>
+          <div class="text-sm text-[var(--fsusblog-text-tertiary)] leading-relaxed break-words">
+            <CommentMarkdownRenderer
+              :content="reply.content"
+              :collapsed-lines="COMMENT_CONTENT_CONSTRAINT.collapsedMarkdownMaxLines"
+              :expanded="isCommentExpanded(replyCommentKey(reply.id))"
+              :collapsible="isCommentFoldable(replyCommentKey(reply.id), reply.content)"
+              @overflow-change="updateCommentOverflow(replyCommentKey(reply.id), $event)"
+            />
+            <el-button
+              v-if="isCommentFoldable(replyCommentKey(reply.id), reply.content)"
+              class="comment-markdown-toggle"
+              link
+              type="primary"
+              @click="toggleCommentExpansion(replyCommentKey(reply.id))"
+            >
+              {{ isCommentExpanded(replyCommentKey(reply.id)) ? '收起' : '展开' }}
+            </el-button>
+          </div>
         </div>
 
         <el-button
@@ -87,6 +121,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { CommentAuthorView, CommentReplyPreviewItem, CommentThreadItem } from '@/api/comment'
+import CommentMarkdownRenderer from '@/components/article/CommentMarkdownRenderer.vue'
 import { commentDetailTokens, type CommentTimeContract } from '@/view-contracts/commentDetail'
 import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 import { TimeUtils } from '@/utils/time'
@@ -145,6 +180,8 @@ const threadItems = computed(() => props.threads.map((thread) => ({
   }))
 })))
 const rootRenderLimit = ref(props.initialRenderLimit ?? COMMENT_CONTENT_CONSTRAINT.rootRenderLimit)
+const expandedCommentKeys = ref(new Set<string>())
+const overflowCommentKeys = ref(new Set<string>())
 const visibleThreadItems = computed(() => threadItems.value.slice(0, rootRenderLimit.value))
 const hiddenRootThreadCount = computed(() => Math.max(0, threadItems.value.length - visibleThreadItems.value.length))
 const hasHiddenRootThreads = computed(() => hiddenRootThreadCount.value > 0)
@@ -153,4 +190,42 @@ const isThreadRepliesLoading = (rootId: string): boolean => props.loadingReplies
 const showMoreRootThreads = (): void => {
   rootRenderLimit.value += COMMENT_CONTENT_CONSTRAINT.rootRenderLimit
 }
+
+const rootCommentKey = (id: string): string => `root:${id}`
+const replyCommentKey = (id: string): string => `reply:${id}`
+const isCommentExpanded = (key: string): boolean => expandedCommentKeys.value.has(key)
+const isCommentFoldable = (key: string, content: string): boolean =>
+  overflowCommentKeys.value.has(key) ||
+  content.length > 360 ||
+  content.split(/\r\n|\r|\n/u).length > COMMENT_CONTENT_CONSTRAINT.collapsedMarkdownMaxLines
+
+const updateCommentOverflow = (key: string, hasOverflow: boolean): void => {
+  const next = new Set(overflowCommentKeys.value)
+  if (hasOverflow) {
+    next.add(key)
+  } else {
+    next.delete(key)
+  }
+  overflowCommentKeys.value = next
+}
+
+const toggleCommentExpansion = (key: string): void => {
+  const next = new Set(expandedCommentKeys.value)
+  if (next.has(key)) {
+    next.delete(key)
+  } else {
+    next.add(key)
+  }
+  expandedCommentKeys.value = next
+}
 </script>
+
+<style scoped>
+.comment-markdown-toggle {
+  margin-top: 0.25rem;
+  min-height: 1.75rem;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+</style>

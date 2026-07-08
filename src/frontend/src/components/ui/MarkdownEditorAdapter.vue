@@ -14,9 +14,9 @@
           {{ editorStatusText }}
         </span>
       </div>
-      <el-radio-group v-model="mode" size="small" :disabled="loading">
+      <el-radio-group class="editor-shell__modes" v-model="mode" size="small" :disabled="loading">
         <el-radio-button value="write">编写</el-radio-button>
-        <el-radio-button class="editor-shell__split-option" value="split">分屏</el-radio-button>
+        <el-radio-button v-if="!hideSplitMode" class="editor-shell__split-option" value="split">分屏</el-radio-button>
         <el-radio-button value="preview">预览</el-radio-button>
       </el-radio-group>
     </header>
@@ -79,7 +79,7 @@
               <p class="preview-panel__state-description">开始编写后将在这里显示预览。</p>
             </div>
             <component
-              :is="provider.previewComponent"
+              :is="resolvedPreviewComponent"
               v-else
               :content="previewContent"
             />
@@ -91,8 +91,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider'
+import { useMediaQuery } from '@/composables/useMediaQuery'
 import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor'
 
 const props = withDefaults(defineProps<{
@@ -102,6 +103,7 @@ const props = withDefaults(defineProps<{
   textareaName?: string
   editorClass?: string
   previewClass?: string
+  previewComponent?: Component
   toolbarsExclude?: string[]
   loading?: boolean
   saving?: boolean
@@ -128,6 +130,8 @@ const mode = ref<MarkdownEditorMode>(provider.value.defaultMode)
 const editorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean } | null>(null)
 const debouncedPreviewContent = ref(props.modelValue)
 const manualPreviewContent = ref(props.modelValue)
+const isNarrowEditor = useMediaQuery('(max-width: 767px)', false)
+const isTouchEditor = useMediaQuery('(hover: none) and (pointer: coarse)', false)
 let previewDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 const MARKDOWN_PREVIEW_DEBOUNCE_MS = 250
@@ -140,12 +144,14 @@ const content = computed({
 })
 
 const isPreviewMounted = computed(() => mode.value === 'preview' || mode.value === 'split')
+const hideSplitMode = computed(() => isNarrowEditor.value || isTouchEditor.value)
 const estimatedPreviewNodes = computed(() => estimateMarkdownNodeCount(content.value))
 const isLargePreviewContent = computed(() =>
   content.value.length > LARGE_PREVIEW_CONTENT_BYTES || estimatedPreviewNodes.value > LARGE_PREVIEW_NODE_ESTIMATE
 )
 const previewContent = computed(() => isLargePreviewContent.value ? manualPreviewContent.value : debouncedPreviewContent.value)
 const isManualPreviewStale = computed(() => manualPreviewContent.value !== content.value)
+const resolvedPreviewComponent = computed(() => props.previewComponent ?? provider.value.previewComponent)
 const editorStatusText = computed(() => {
   if (props.saving) {
     return '保存中'
@@ -161,6 +167,12 @@ const editorStatusText = computed(() => {
 const mergedToolbarsExclude = computed(() => {
   return Array.from(new Set([...(props.toolbarsExclude || []), ...provider.value.defaultToolbarsExclude]))
 })
+
+watch(hideSplitMode, (hide) => {
+  if (hide && mode.value === 'split') {
+    mode.value = 'write'
+  }
+}, { immediate: true })
 
 const handleUploadImg = (files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void => {
   emit('upload-img', files, callback, onError)
@@ -224,6 +236,8 @@ defineExpose({
 .editor-shell-minimal {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  align-self: stretch;
   min-width: 0;
 }
 
@@ -231,7 +245,10 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .editor-shell__meta {
@@ -242,7 +259,14 @@ defineExpose({
   min-width: 0;
 }
 
+.editor-shell__modes {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .preview-panel {
+  width: 100%;
+  min-width: 0;
   height: 100%;
   background: var(--fsusblog-page-bg);
   border-radius: var(--fsus-radius-control);
@@ -343,13 +367,8 @@ defineExpose({
 .editor-shell__body {
   display: flex;
   flex-direction: column;
+  width: 100%;
   min-height: 0;
-}
-
-:deep(.el-markdown-editor__command),
-:deep(.el-markdown-editor__action) {
-  min-height: 36px;
-  align-items: center;
 }
 
 .editor-shell__body--split {

@@ -111,7 +111,8 @@
 }
 
 .account-motion-enter {
-  animation: blog-motion-page-enter var(--blog-motion-panel) var(--blog-motion-ease) both;
+  /* Compatibility marker only. AccountLayout owns account route motion. */
+  animation: none;
 }
 
 .account-section-title {

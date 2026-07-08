@@ -61,6 +61,7 @@ public sealed class RequiresRiskControlFilterTests
         SecurityRiskSignal signal = Assert.Single(fixture.RiskSink.Signals);
         Assert.Equal(SecurityRiskReason.SecurityChallengeRejected, signal.Reason);
         Assert.Equal(SecurityRiskSources.RiskControl, signal.Source);
+        Assert.Equal(0, signal.Score);
         Assert.Equal("challenge_proof_missing", signal.Detail);
     }
 

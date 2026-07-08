@@ -1,31 +1,31 @@
 <template>
   <div class="space-y-8">
     <FsusUiSettingsSection
-      title="挑战状态"
-      :description="metricsState ? `窗口起点：${formatTime(metricsState.windowStartedAtUtc)}` : ''"
+      title="验证任务状态"
+      :description="metricsState ? `统计窗口起点：${formatTime(metricsState.windowStartedAtUtc)}` : ''"
       id="security-challenges-title"
     >
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadMetrics">刷新</el-button>
       </template>
 
-      <AdminStatusMatrix :items="headerMetrics" density="compact" aria-label="挑战状态指标" />
+      <AdminStatusMatrix :items="headerMetrics" density="compact" aria-label="验证任务状态指标" />
     </FsusUiSettingsSection>
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">挑战类型</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">验证任务类型</div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full min-w-full md:min-w-[42rem] text-left text-[12px]">
             <thead class="text-[11px] uppercase text-[var(--fsusblog-text-muted)]">
               <tr class="border-b border-[var(--fsusblog-panel-border)]">
                 <th class="px-5 py-3">类型</th>
-                <th class="px-5 py-3">签发</th>
-                <th class="px-5 py-3">尝试</th>
-                <th class="px-5 py-3">successRate</th>
-                <th class="px-5 py-3">failureRate</th>
+                <th class="px-5 py-3">发起</th>
+                <th class="px-5 py-3">提交</th>
+                <th class="px-5 py-3">通过率</th>
+                <th class="px-5 py-3">失败率</th>
               </tr>
             </thead>
             <tbody>
@@ -37,7 +37,7 @@
                 <td class="px-5 py-3 tabular-nums">{{ formatPercent(row.failureRate) }}</td>
               </tr>
               <tr v-if="kindBreakdown.length === 0">
-                <td colspan="5" class="px-5 py-10 text-center text-[var(--fsusblog-text-muted)]">暂无挑战数据</td>
+                <td colspan="5" class="px-5 py-10 text-center text-[var(--fsusblog-text-muted)]">暂无验证任务数据</td>
               </tr>
             </tbody>
           </table>
@@ -46,7 +46,7 @@
 
       <div class="border-y border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg)]">
         <div class="border-b border-[var(--fsusblog-panel-border)] p-5">
-          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">最近尝试</div>
+          <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">最近提交</div>
         </div>
         <div class="divide-y divide-[var(--fsusblog-panel-border)]">
           <div v-for="attempt in recentAttempts" :key="attempt.attemptId" class="grid gap-3 p-5 md:grid-cols-[1fr_auto]">
@@ -59,7 +59,7 @@
               <div class="mt-1 text-[12px] text-[var(--fsusblog-text-muted)]">{{ formatTime(attempt.attemptedAtUtc) }}</div>
             </div>
           </div>
-          <div v-if="recentAttempts.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无尝试记录</div>
+          <div v-if="recentAttempts.length === 0" class="p-8 text-center text-[12px] text-[var(--fsusblog-text-muted)]">暂无验证提交记录</div>
         </div>
       </div>
     </section>
@@ -99,11 +99,11 @@ const formatOutcome = (value: string | null | undefined): string => {
 }
 
 const headerMetrics = computed<AdminStatusMatrixItem[]>(() => [
-  { label: '签发总量', value: metricsState.value?.totalIssued ?? '-' },
-  { label: '尝试总量', value: metricsState.value?.totalAttempts ?? '-' },
-  { label: '成功', value: metricsState.value?.verified ?? '-' },
-  { label: 'successRate', value: formatPercent(successRate.value) },
-  { label: 'failureRate', value: formatPercent(failureRate.value) }
+  { label: '发起总量', value: metricsState.value?.totalIssued ?? '-' },
+  { label: '提交总量', value: metricsState.value?.totalAttempts ?? '-' },
+  { label: '通过次数', value: metricsState.value?.verified ?? '-' },
+  { label: '通过率', value: formatPercent(successRate.value) },
+  { label: '失败率', value: formatPercent(failureRate.value) }
 ])
 
 const loadMetrics = async (): Promise<void> => {
@@ -111,7 +111,7 @@ const loadMetrics = async (): Promise<void> => {
   try {
     metricsState.value = await getSecurityChallengeMetrics()
   } catch (error) {
-    showErrorToast(error, '挑战状态加载失败')
+    showErrorToast(error, '验证任务状态加载失败')
   } finally {
     loading.value = false
   }

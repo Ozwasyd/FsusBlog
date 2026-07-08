@@ -319,9 +319,40 @@
           </span>
         </div>
       </div>
-      <div class="identity-copy-block">
-        <p>{{ commentRecordsCopy.boundary }}</p>
+      <UserCommentsErrorState
+        v-if="commentRecordsIsError"
+        class="identity-comment-records-state"
+        @retry="fetchCommentRecords"
+      />
+
+      <div
+        v-else-if="commentRecordsLoading && commentRecordList.length === 0"
+        class="identity-loading-state identity-comment-records-state"
+        role="status"
+        aria-live="polite"
+      >
+        {{ commentRecordsCopy.loading }}
       </div>
+
+      <UserCommentsEmptyState
+        v-else-if="commentRecordList.length === 0"
+        class="identity-comment-records-state"
+        :title="commentRecordsCopy.emptyTitle"
+        :description="commentRecordsCopy.emptyDescription"
+      />
+
+      <UserCommentsList
+        v-else
+        class="identity-comment-records-list"
+        :list="commentRecordFilteredList"
+        :loading="commentRecordsLoading"
+        :show-load-more-button="commentRecordsShowLoadMoreButton"
+        :show-end-hint="commentRecordsShowEndHint"
+        :load-more-button-text="commentRecordsLoadMoreButtonText"
+        :end-hint-text="commentRecordsEndHintText"
+        @delete="deleteCommentRecord"
+        @load-more="fetchCommentRecords"
+      />
     </FsusUiSettingsSection>
 
     <PasskeyRegisterModal
@@ -352,6 +383,9 @@ import { FsusUiSettingsSection } from '@/fsusui'
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue'
 import PasskeyRegisterModal from '@/components/ui/PasskeyRegisterModal.vue'
 import SemanticTime from '@/components/ui/SemanticTime.vue'
+import UserCommentsEmptyState from '@/components/user/UserCommentsEmptyState.vue'
+import UserCommentsErrorState from '@/components/user/UserCommentsErrorState.vue'
+import UserCommentsList from '@/components/user/UserCommentsList.vue'
 import {
   ProfileInlineEmptyState,
   ProfileResourceList,
@@ -381,6 +415,7 @@ import {
   type UserSessionSummary
 } from '@/api/auth'
 import { usePasskeyManagement } from '@/composables/usePasskeyManagement'
+import { useUserCommentsPage } from '@/composables/useUserCommentsPage'
 import { useAccountWorkspaceContext } from '@/layouts/accountWorkspaceContext'
 import { useUserStore } from '@/store/user'
 import { confirmDanger, toast } from '@/fsusui/feedback'
@@ -516,6 +551,21 @@ const {
   renamePasskeyCredential
 } = usePasskeyManagement()
 
+const {
+  list: commentRecordList,
+  filteredList: commentRecordFilteredList,
+  loading: commentRecordsLoading,
+  showLoadMoreButton: commentRecordsShowLoadMoreButton,
+  showEndHint: commentRecordsShowEndHint,
+  loadMoreButtonText: commentRecordsLoadMoreButtonText,
+  endHintText: commentRecordsEndHintText,
+  isError: commentRecordsIsError,
+  fetchComments: fetchCommentRecords,
+  onDelete: deleteCommentRecord
+} = useUserCommentsPage({ autoload: false })
+
+const commentRecordsLoaded = ref(false)
+
 const passkeyRegisterVisible = ref(false)
 const passkeyEditingId = ref<number | null>(null)
 const passkeyEditName = ref('')
@@ -559,6 +609,15 @@ const currentRouteName = computed<IdentityRouteName>(() => {
 const sectionMeta = computed(() => sectionMetaByRoute[currentRouteName.value])
 const isSection = (name: IdentityRouteName): boolean => currentRouteName.value === name
 const showIdentityRouteHeader = computed(() => isSection('UserIdentityOverview'))
+
+const ensureCommentRecordsLoaded = (): void => {
+  if (!isSection('UserIdentityCommentRecords') || commentRecordsLoaded.value || commentRecordsLoading.value) {
+    return
+  }
+
+  commentRecordsLoaded.value = true
+  void fetchCommentRecords()
+}
 
 const workspaceFeatures = computed(() => workspaceContext.value.features)
 const workspacePolicies = computed(() => workspaceContext.value.policies)
@@ -908,6 +967,7 @@ const formatSessionDevice = (label: string | null | undefined, fingerprint: stri
 
 onMounted(() => {
   void refreshIdentityData()
+  ensureCommentRecordsLoaded()
 })
 
 watch(
@@ -921,6 +981,7 @@ watch(
 )
 
 watch(currentRouteName, () => {
+  ensureCommentRecordsLoaded()
   if (currentSession.value === null || isSection('UserIdentityOverview')) {
     void refreshIdentityData()
   }
@@ -1073,7 +1134,7 @@ watch(currentRouteName, () => {
 
 .identity-policy-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
   gap: 1px;
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: var(--fsus-radius-panel);
@@ -1087,8 +1148,9 @@ watch(currentRouteName, () => {
   justify-content: space-between;
   gap: 1rem;
   min-width: 0;
+  min-height: 3.7rem;
   background: var(--fsusblog-page-bg);
-  padding: 0.9rem 1rem;
+  padding: 0.95rem 1.1rem;
   color: var(--fsusblog-text-primary);
   font-size: 0.82rem;
   font-weight: 700;
@@ -1097,6 +1159,7 @@ watch(currentRouteName, () => {
 
 .identity-policy-label {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .identity-policy-state {
@@ -1161,6 +1224,11 @@ watch(currentRouteName, () => {
   color: var(--fsusblog-text-secondary);
   font-size: 0.82rem;
   line-height: 1.65;
+}
+
+.identity-comment-records-state,
+.identity-comment-records-list {
+  margin-top: 1.5rem;
 }
 
 .identity-error-state {

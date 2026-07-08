@@ -284,7 +284,7 @@
       </el-reply-composer-shell>
     </section>
 
-    <el-dialog
+    <FsusDialog
       v-model="mobileBackConfirmVisible"
       title="回复草稿尚未发送"
       width="min(92vw, 28rem)"
@@ -296,7 +296,7 @@
         <el-button @click="mobileBackConfirmVisible = false">继续回复</el-button>
         <el-button type="primary" @click="confirmMobileBackToList">返回会话列表</el-button>
       </template>
-    </el-dialog>
+    </FsusDialog>
   </section>
 </template>
 
@@ -312,6 +312,7 @@ import { useAdminMessageCenter } from '@/composables/useAdminMessageCenter'
 import { useInboxSplitView } from '@/composables/useInboxSplitView'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 
 type MessageBubbleVariant = 'self' | 'other' | 'system' | 'muted'
 

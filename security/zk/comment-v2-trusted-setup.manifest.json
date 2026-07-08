@@ -70,7 +70,7 @@
     },
     "wasm_prover_bundle": {
       "path": "artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz",
-      "sha256": "9add1913eea7e2d9ccde3646e00dc47391c9aa2f67f06e48bfa42e4d5b0e342e",
+      "sha256": "7ec54fd43eba00bc4b2043e88fe243e0b8955fd6e6687bf5e4f0dc5c2cff4e52",
       "status": "placeholder"
     }
   },

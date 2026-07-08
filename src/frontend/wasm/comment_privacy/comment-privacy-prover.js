@@ -215,3 +215,7 @@ function throwIfAborted(signal) {
     throw new DOMException('Aborted', 'AbortError')
   }
 }
+
+globalThis.__fsusCommentPrivacyProverModule = Object.freeze({
+  createCommentPrivacyProver
+})

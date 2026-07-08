@@ -1,5 +1,5 @@
 <template>
-  <el-dialog
+  <FsusDialog
     :model-value="visible"
     :title="copy.dialogTitle"
     width="min(92vw, 24rem)"
@@ -58,11 +58,12 @@
         </el-button>
       </div>
     </template>
-  </el-dialog>
+  </FsusDialog>
 </template>
 
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 import { FSUSBLOG_SECURITY_COPY } from '@/copy'
 
 const copy = FSUSBLOG_SECURITY_COPY.mfaChallenge

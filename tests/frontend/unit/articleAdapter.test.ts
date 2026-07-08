@@ -575,6 +575,39 @@ describe('mapArticleDetailFromPodPayload', () => {
     })
   })
 
+  it('accepts structurally valid rights records before proof metadata is generated', () => {
+    const payload = buildArticleDetailPayload({
+      id: 910002,
+      views: 18,
+      categoryId: 1,
+      categoryName: 'Operations Notes',
+      title: 'AEDS And Public AOT Notes',
+      summary: 'A fictional operations note for testing public reading paths.',
+      content: 'Body',
+      rights: {
+        snapshotId: 0n,
+        articleRevisionId: 0n,
+        revisionNo: 0,
+        licenseType: 'all-rights-reserved',
+        copyPolicy: 'append-attribution',
+        policyHash: '',
+        contentCanonicalHash: '',
+        proofUrl: null,
+        proofStatus: null
+      }
+    })
+
+    const result = mapArticleDetailFromPodPayload(payload)
+
+    expect(result.rights.snapshotId).toBe('0')
+    expect(result.rights.articleRevisionId).toBe('0')
+    expect(result.rights.revisionNo).toBe(0)
+    expect(result.rights.licenseType).toBe('all-rights-reserved')
+    expect(result.rights.copyPolicy).toBe('append-attribution')
+    expect(result.rights.policyHash).toBe('')
+    expect(result.rights.contentCanonicalHash).toBe('')
+  })
+
   it('decodes cover image url from the trailing cover blob', () => {
     const payload = buildArticleDetailPayload({
       id: 9,

@@ -146,7 +146,7 @@ const publicStateCopySources = new Map([
 expectIncludes(filterView, '正在完成访问校验', 'filterView.ts pow indicator')
 expectIncludes(filterView, '这个分类还没放文章', 'filterView.ts category empty state')
 expectIncludes(filterView, '这个标签下还没有文章', 'filterView.ts tag empty state')
-expectIncludes(filterView, '换个词试试', 'filterView.ts search empty state')
+expectIncludes(filterView, '无匹配结果', 'filterView.ts search empty state')
 expectIncludes(articleListView, '这里还没有文章', 'articleList.ts empty state')
 expectIncludes(homeEmptyState, '暂时还没有文章', 'HomeArticleEmptyState.vue')
 expectIncludes(homeErrorState, '文章列表暂时无法加载', 'HomeArticleErrorState.vue')

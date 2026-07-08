@@ -49,13 +49,13 @@ const loading = shallowRef(false)
 const overview = shallowRef<SecurityOverviewResponse | null>(null)
 
 const links = [
-  { label: 'RiskControl 控制面', helper: 'active policy、风险聚合、挑战成功/失败率。', name: 'ManageSecurityRiskControl' },
-  { label: 'RiskControl 模拟器', helper: '用生产决策链预演 allow、challenge、queue、block。', name: 'ManageSecuritySimulator' },
-  { label: '挑战状态', helper: 'Captcha、PoSpace 与通用 challenge 的签发和验证结果。', name: 'ManageSecurityChallenges' },
-  { label: '策略版本', helper: '反爬虫、PoW 与 RiskControl 的当前策略和持久化版本。', name: 'ManageSecurityPolicies' },
+  { label: '风险控制', helper: '当前策略、风险聚合、验证任务通过/失败率。', name: 'ManageSecurityRiskControl' },
+  { label: '风险模拟器', helper: '用生产决策链预演放行、验证、排队和拦截。', name: 'ManageSecuritySimulator' },
+  { label: '验证任务', helper: 'Captcha、PoSpace 与通用验证任务的发起、提交和通过结果。', name: 'ManageSecurityChallenges' },
+  { label: '策略版本', helper: '反爬虫、工作量证明与风险控制的当前策略和持久化版本。', name: 'ManageSecurityPolicies' },
   { label: '风险事件', helper: '统一风险总线的来源、原因和最近事件明细。', name: 'ManageSecurityEvents' },
   { label: '反爬虫系统', helper: '爬虫识别、CIDR 更新、风险事件与策略模拟。', name: 'ManageSecurityCrawler' },
-  { label: 'PoW 系统', helper: '挑战签发、Proof 有效期、重放防护与风险分联动。', name: 'ManageSecurityPow' }
+  { label: 'PoW 系统', helper: '验证任务发起、Proof 有效期、重放防护与风险分联动。', name: 'ManageSecurityPow' }
 ] as const
 
 const formatSecurityMode = (mode: string | null | undefined): string => {

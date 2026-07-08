@@ -3,7 +3,7 @@
     <header class="account-page-header">
       <h1 class="account-page-title">系统设置</h1>
       <p class="account-page-description">
-        维护站点元信息、预览图与静态页面内容。高权限操作会触发明确确认，并自动同步至 AOT 缓存层。
+        维护站点信息、预览图与静态页面内容。高权限操作会触发明确确认，并自动同步至 AOT 缓存层。
       </p>
     </header>
 
@@ -36,9 +36,9 @@
       <el-tab-pane label="站点信息" name="site">
         <div class="mt-10 space-y-14 md:space-y-16">
           <section class="profile-section">
-            <header class="mb-12">
-              <h3 class="section-title">站点元信息</h3>
-              <p class="section-caption mt-4">维护基础 URL、公开描述、关键词和社交预览图。</p>
+            <header class="mb-8">
+              <h3 class="section-title">基础信息</h3>
+              <p class="section-caption mt-2">维护基础 URL、公开描述、关键词和社交预览图。</p>
             </header>
 
             <div class="max-w-4xl">
@@ -141,37 +141,106 @@
               </el-form-item>
 
               <section class="mt-12 border-t border-[var(--fsusblog-panel-border)] pt-10" aria-label="浏览器与 PWA 资产">
-                <header class="mb-8">
-                  <h4 class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">浏览器与 PWA</h4>
-                  <p class="mt-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">这些字段会写入 favicon、Apple Touch Icon 与 manifest.webmanifest。</p>
+                <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h4 class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]">浏览器与 PWA</h4>
+                    <p class="mt-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">这些字段会写入 favicon、Apple Touch Icon 与 manifest.webmanifest。</p>
+                  </div>
+                  <el-upload
+                    action="#"
+                    :http-request="handleFaviconSetGeneration"
+                    :show-file-list="false"
+                    accept="image/png,image/jpeg,image/webp"
+                    :disabled="siteFormDisabled || iconSetGenerating"
+                  >
+                    <el-button size="small" :loading="iconSetGenerating" :disabled="siteFormDisabled || iconSetGenerating">
+                      从图片生成图标组
+                    </el-button>
+                  </el-upload>
                 </header>
                 <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
-                  <el-form-item label="SVG favicon">
+                  <el-form-item label="SVG favicon" class="sm:col-span-2">
                     <el-input v-model="siteForm.faviconSvgUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/favicon.svg" />
+                    <div class="mt-3 text-[11px] font-semibold leading-relaxed text-[var(--fsusblog-text-muted)]">
+                      SVG 仅支持填写已清洗的安全 URL；上传入口不会接收 SVG 原文。
+                    </div>
                   </el-form-item>
-                  <el-form-item label="ICO favicon">
-                    <el-input v-model="siteForm.faviconIcoUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/favicon.ico" />
-                  </el-form-item>
-                  <el-form-item label="PNG favicon">
-                    <el-input v-model="siteForm.faviconPngUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/icons/favicon-96.png" />
-                  </el-form-item>
-                  <el-form-item label="Apple Touch Icon">
-                    <el-input v-model="siteForm.appleTouchIconUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/apple-touch-icon.png" />
-                  </el-form-item>
+                </div>
+                <div class="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <BrandAssetUploadField
+                    v-model="siteForm.faviconIcoUrl"
+                    label="ICO favicon"
+                    target-field="faviconIcoUrl"
+                    :disabled="siteFormDisabled"
+                    :uploading="brandAssetUploadingField === 'faviconIcoUrl'"
+                    :preview-url="resolveBrandAssetPreviewUrl('faviconIcoUrl')"
+                    preview-variant="icon"
+                    placeholder="/favicon.ico"
+                    accept="image/x-icon,image/vnd.microsoft.icon,.ico"
+                    @upload="handleBrandAssetUpload"
+                  />
+                  <BrandAssetUploadField
+                    v-model="siteForm.faviconPngUrl"
+                    label="PNG favicon"
+                    target-field="faviconPngUrl"
+                    :disabled="siteFormDisabled"
+                    :uploading="brandAssetUploadingField === 'faviconPngUrl'"
+                    :preview-url="resolveBrandAssetPreviewUrl('faviconPngUrl')"
+                    preview-variant="icon"
+                    placeholder="/icons/favicon-96.png"
+                    @upload="handleBrandAssetUpload"
+                  />
+                  <BrandAssetUploadField
+                    v-model="siteForm.appleTouchIconUrl"
+                    label="Apple Touch Icon"
+                    target-field="appleTouchIconUrl"
+                    :disabled="siteFormDisabled"
+                    :uploading="brandAssetUploadingField === 'appleTouchIconUrl'"
+                    :preview-url="resolveBrandAssetPreviewUrl('appleTouchIconUrl')"
+                    preview-variant="icon"
+                    placeholder="/apple-touch-icon.png"
+                    @upload="handleBrandAssetUpload"
+                  />
+                  <BrandAssetUploadField
+                    v-model="siteForm.pwaIcon192Url"
+                    label="PWA 192 图标"
+                    target-field="pwaIcon192Url"
+                    :disabled="siteFormDisabled"
+                    :uploading="brandAssetUploadingField === 'pwaIcon192Url'"
+                    :preview-url="resolveBrandAssetPreviewUrl('pwaIcon192Url')"
+                    preview-variant="icon"
+                    placeholder="/icons/icon-192.png"
+                    @upload="handleBrandAssetUpload"
+                  />
+                  <BrandAssetUploadField
+                    v-model="siteForm.pwaIcon512Url"
+                    label="PWA 512 图标"
+                    target-field="pwaIcon512Url"
+                    :disabled="siteFormDisabled"
+                    :uploading="brandAssetUploadingField === 'pwaIcon512Url'"
+                    :preview-url="resolveBrandAssetPreviewUrl('pwaIcon512Url')"
+                    preview-variant="icon"
+                    placeholder="/icons/icon-512.png"
+                    @upload="handleBrandAssetUpload"
+                  />
+                  <BrandAssetUploadField
+                    v-model="siteForm.pwaMaskableIconUrl"
+                    label="PWA maskable 图标"
+                    target-field="pwaMaskableIconUrl"
+                    :disabled="siteFormDisabled"
+                    :uploading="brandAssetUploadingField === 'pwaMaskableIconUrl'"
+                    :preview-url="resolveBrandAssetPreviewUrl('pwaMaskableIconUrl')"
+                    preview-variant="icon"
+                    placeholder="/icons/maskable-512.png"
+                    @upload="handleBrandAssetUpload"
+                  />
+                </div>
+                <div class="mt-8 grid grid-cols-1 gap-x-10 sm:grid-cols-2">
                   <el-form-item label="PWA 名称">
                     <el-input v-model="siteForm.manifestName" maxlength="128" show-word-limit :disabled="siteFormDisabled" placeholder="FsusBlog" />
                   </el-form-item>
                   <el-form-item label="PWA 短名称">
                     <el-input v-model="siteForm.manifestShortName" maxlength="128" show-word-limit :disabled="siteFormDisabled" placeholder="FsusBlog" />
-                  </el-form-item>
-                  <el-form-item label="PWA 192 图标">
-                    <el-input v-model="siteForm.pwaIcon192Url" maxlength="256" :disabled="siteFormDisabled" placeholder="/icons/icon-192.png" />
-                  </el-form-item>
-                  <el-form-item label="PWA 512 图标">
-                    <el-input v-model="siteForm.pwaIcon512Url" maxlength="256" :disabled="siteFormDisabled" placeholder="/icons/icon-512.png" />
-                  </el-form-item>
-                  <el-form-item label="PWA maskable 图标">
-                    <el-input v-model="siteForm.pwaMaskableIconUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/icons/maskable-512.png" />
                   </el-form-item>
                   <div class="grid grid-cols-2 gap-4">
                     <el-form-item label="主题色">
@@ -198,46 +267,93 @@
                   <p class="mt-3 text-[12px] leading-relaxed text-[var(--fsusblog-text-tertiary)]">公开页、管理后台与登录页会优先使用这些图片；留空时回退为文字站名。</p>
                 </header>
                 <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
-                  <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5">
-                    <div class="mb-5 flex min-h-12 items-center border-b border-[var(--fsusblog-panel-border)] pb-4">
-                      <img v-if="logoPreviewUrl" :src="logoPreviewUrl" alt="站点品牌预览" class="max-h-10 max-w-full object-contain" />
-                      <span v-else class="text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ siteForm.title || "Fsu's Blog" }}</span>
-                    </div>
-                    <el-form-item label="站点 Logo">
-                      <el-input v-model="siteForm.siteLogoUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/uploads/logo.svg" />
-                    </el-form-item>
-                    <el-form-item label="深色站点 Logo">
-                      <el-input v-model="siteForm.siteLogoDarkUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
-                    </el-form-item>
-                    <el-form-item label="站点字标">
-                      <el-input v-model="siteForm.siteWordmarkUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
-                    </el-form-item>
+                  <section class="space-y-5 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5">
+                    <h5 class="text-sm font-bold text-[var(--fsusblog-text-primary)]">公开站点</h5>
+                    <BrandAssetUploadField
+                      v-model="siteForm.siteLogoUrl"
+                      label="站点 Logo"
+                      target-field="siteLogoUrl"
+                      :disabled="siteFormDisabled"
+                      :uploading="brandAssetUploadingField === 'siteLogoUrl'"
+                      :preview-url="resolveBrandAssetPreviewUrl('siteLogoUrl')"
+                      preview-variant="logo"
+                      placeholder="/uploads/logo.svg"
+                      @upload="handleBrandAssetUpload"
+                    />
+                    <BrandAssetUploadField
+                      v-model="siteForm.siteLogoDarkUrl"
+                      label="深色站点 Logo"
+                      target-field="siteLogoDarkUrl"
+                      :disabled="siteFormDisabled"
+                      :uploading="brandAssetUploadingField === 'siteLogoDarkUrl'"
+                      :preview-url="resolveBrandAssetPreviewUrl('siteLogoDarkUrl')"
+                      preview-variant="logo"
+                      placeholder="可留空"
+                      @upload="handleBrandAssetUpload"
+                    />
+                    <BrandAssetUploadField
+                      v-model="siteForm.siteWordmarkUrl"
+                      label="站点字标"
+                      target-field="siteWordmarkUrl"
+                      :disabled="siteFormDisabled"
+                      :uploading="brandAssetUploadingField === 'siteWordmarkUrl'"
+                      :preview-url="resolveBrandAssetPreviewUrl('siteWordmarkUrl')"
+                      preview-variant="wide"
+                      placeholder="可留空"
+                      @upload="handleBrandAssetUpload"
+                    />
                   </section>
 
-                  <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5">
-                    <div class="mb-5 flex min-h-12 items-center border-b border-[var(--fsusblog-panel-border)] pb-4">
-                      <img v-if="adminLogoPreviewUrl" :src="adminLogoPreviewUrl" alt="后台品牌预览" class="max-h-10 max-w-full object-contain" />
-                      <span v-else class="text-sm font-bold text-[var(--fsusblog-text-primary)]">后台管理</span>
-                    </div>
-                    <el-form-item label="后台 Logo">
-                      <el-input v-model="siteForm.adminLogoUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
-                    </el-form-item>
-                    <el-form-item label="后台折叠图标">
-                      <el-input v-model="siteForm.adminCollapsedIconUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
-                    </el-form-item>
+                  <section class="space-y-5 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5">
+                    <h5 class="text-sm font-bold text-[var(--fsusblog-text-primary)]">后台管理</h5>
+                    <BrandAssetUploadField
+                      v-model="siteForm.adminLogoUrl"
+                      label="后台 Logo"
+                      target-field="adminLogoUrl"
+                      :disabled="siteFormDisabled"
+                      :uploading="brandAssetUploadingField === 'adminLogoUrl'"
+                      :preview-url="resolveBrandAssetPreviewUrl('adminLogoUrl')"
+                      preview-variant="logo"
+                      placeholder="可留空"
+                      @upload="handleBrandAssetUpload"
+                    />
+                    <BrandAssetUploadField
+                      v-model="siteForm.adminCollapsedIconUrl"
+                      label="后台折叠图标"
+                      target-field="adminCollapsedIconUrl"
+                      :disabled="siteFormDisabled"
+                      :uploading="brandAssetUploadingField === 'adminCollapsedIconUrl'"
+                      :preview-url="resolveBrandAssetPreviewUrl('adminCollapsedIconUrl')"
+                      preview-variant="icon"
+                      placeholder="可留空"
+                      @upload="handleBrandAssetUpload"
+                    />
                   </section>
 
-                  <section class="border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5">
-                    <div class="mb-5 flex min-h-12 items-center border-b border-[var(--fsusblog-panel-border)] pb-4">
-                      <img v-if="loginLogoPreviewUrl" :src="loginLogoPreviewUrl" alt="登录品牌预览" class="max-h-10 max-w-full object-contain" />
-                      <span v-else class="text-sm font-bold text-[var(--fsusblog-text-primary)]">登录</span>
-                    </div>
-                    <el-form-item label="登录 Logo">
-                      <el-input v-model="siteForm.loginLogoUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
-                    </el-form-item>
-                    <el-form-item label="登录图标">
-                      <el-input v-model="siteForm.loginIconUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="可留空" />
-                    </el-form-item>
+                  <section class="space-y-5 border border-[var(--fsusblog-panel-border)] bg-[var(--fsusblog-page-bg-soft)] p-5">
+                    <h5 class="text-sm font-bold text-[var(--fsusblog-text-primary)]">登录页</h5>
+                    <BrandAssetUploadField
+                      v-model="siteForm.loginLogoUrl"
+                      label="登录 Logo"
+                      target-field="loginLogoUrl"
+                      :disabled="siteFormDisabled"
+                      :uploading="brandAssetUploadingField === 'loginLogoUrl'"
+                      :preview-url="resolveBrandAssetPreviewUrl('loginLogoUrl')"
+                      preview-variant="logo"
+                      placeholder="可留空"
+                      @upload="handleBrandAssetUpload"
+                    />
+                    <BrandAssetUploadField
+                      v-model="siteForm.loginIconUrl"
+                      label="登录图标"
+                      target-field="loginIconUrl"
+                      :disabled="siteFormDisabled"
+                      :uploading="brandAssetUploadingField === 'loginIconUrl'"
+                      :preview-url="resolveBrandAssetPreviewUrl('loginIconUrl')"
+                      preview-variant="icon"
+                      placeholder="可留空"
+                      @upload="handleBrandAssetUpload"
+                    />
                   </section>
                 </div>
               </section>
@@ -272,9 +388,9 @@
       <el-tab-pane label="大陆合规" name="compliance">
         <div class="mt-10 space-y-14 md:space-y-16">
           <section class="profile-section">
-            <header class="mb-12">
+            <header class="mb-8">
               <h3 class="section-title">大陆合规信息</h3>
-              <p class="section-caption mt-4">维护公开 footer、RSS 版权和大陆部署检查清单。备案信息只负责展示，请以工信部和公安备案平台审核结果为准。</p>
+              <p class="section-caption mt-2">维护公开 footer、RSS 版权和大陆部署检查清单。备案信息只负责展示，请以工信部和公安备案平台审核结果为准。</p>
             </header>
 
             <div v-if="complianceLoadFailed" class="admin-muted-alert admin-muted-alert--danger mb-8 p-5 text-[12px]">
@@ -285,26 +401,21 @@
             </div>
 
             <el-form v-loading="loadingCompliance" :model="complianceForm" label-position="top" @submit.prevent novalidate>
-              <div class="grid grid-cols-1 gap-x-16 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <div class="grid grid-cols-1 gap-x-16 xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <div class="min-w-0">
                   <el-form-item label="启用公开合规展示">
-                    <el-switch
-                      v-model="complianceForm.enabled"
-                      :disabled="complianceFormDisabled"
-                    />
-                    <div class="text-[11px] font-bold text-[var(--fsusblog-text-muted)] mt-4 normal-case tracking-normal">
-                      关闭时不展示备案号和许可说明；基础版权与页脚导航仍会保留。
+                    <div class="settings-compliance-toggle-row flex min-w-0 items-center gap-3">
+                      <el-switch
+                        v-model="complianceForm.enabled"
+                        :disabled="complianceFormDisabled"
+                      />
+                      <span class="min-w-0 text-[11px] font-bold leading-5 text-[var(--fsusblog-text-muted)] normal-case tracking-normal">
+                        关闭时不展示备案号和许可说明；基础版权与页脚导航仍会保留。
+                      </span>
                     </div>
                   </el-form-item>
 
-                  <el-form-item label="部署区域">
-                    <el-radio-group v-model="complianceForm.regionMode" :disabled="complianceFormDisabled">
-                      <el-radio-button value="global">通用</el-radio-button>
-                      <el-radio-button value="mainland-cn">中国大陆</el-radio-button>
-                    </el-radio-group>
-                  </el-form-item>
-
-                  <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+                  <div class="settings-compliance-record-grid grid grid-cols-1 gap-x-10">
                     <el-form-item label="ICP 备案号">
                       <el-input v-model="complianceForm.icpRecordNumber" maxlength="64" show-word-limit :disabled="complianceFormDisabled" placeholder="京ICP备2026000000号-1" />
                     </el-form-item>
@@ -399,9 +510,9 @@
       <el-tab-pane label="媒体策略" name="media">
         <div class="mt-10 space-y-14 md:space-y-16">
           <section class="profile-section">
-            <header class="mb-12">
+            <header class="mb-8">
               <h3 class="section-title">上传与输出策略</h3>
-              <p class="section-caption mt-4">控制封面压缩策略、预览图格式与断点续传行为。</p>
+              <p class="section-caption mt-2">控制封面压缩策略、预览图格式与断点续传行为。</p>
             </header>
 
             <ImageUploadOptionsPanel
@@ -471,7 +582,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <el-dialog
+    <FsusDialog
       :model-value="Boolean(pendingPageSwitchSlug)"
       title="当前页面有未发布修改"
       width="min(92vw, 28rem)"
@@ -492,7 +603,7 @@
           <el-button type="primary" :loading="savingPage || pageLoading" @click="savePageAndSwitch">保存并切换</el-button>
         </div>
       </template>
-    </el-dialog>
+    </FsusDialog>
   </div>
 </template>
 
@@ -500,6 +611,8 @@
 import { Delete, Plus, Warning } from '@/fsusui/icons'
 import { confirmWarning, toast } from '@/fsusui/feedback'
 import SettingsPageEditor from '@/components/admin/settings/SettingsPageEditor.vue'
+import BrandAssetUploadField from '@/components/admin/settings/BrandAssetUploadField.vue'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminSettingsPage } from '@/composables/useAdminSettingsPage'
 
@@ -518,15 +631,15 @@ const {
   complianceLoadFailed,
   pageLoading,
   imageLoading,
+  brandAssetUploadingField,
+  iconSetGenerating,
   siteForm,
   complianceForm,
   currentSlug,
   pageContent,
   pageTargets,
   displayUrl,
-  logoPreviewUrl,
-  adminLogoPreviewUrl,
-  loginLogoPreviewUrl,
+  resolveBrandAssetPreviewUrl,
   hasOgImage,
   computedKeywords,
   normalizedBaseUrl,
@@ -551,6 +664,8 @@ const {
   resumeImageUpload,
   sanitizeKeywords,
   handleImageAction,
+  handleBrandAssetUpload,
+  handleFaviconSetGeneration,
   handleImageRemove,
   handleImageDelete,
   loadSiteConfig,
@@ -684,17 +799,15 @@ const confirmPageRefresh = async (): Promise<void> => {
 @reference "@/assets/main.css";
 
 .section-title {
-  @apply text-[11px] font-bold tracking-normal mb-10 pb-4 border-b border-[var(--fsusblog-panel-border)] text-[var(--fsusblog-text-primary)] normal-case;
-  position: relative;
+  @apply m-0 text-xl font-bold leading-tight tracking-normal text-[var(--fsusblog-text-primary)] normal-case;
 }
 
 .section-title::before {
-  content: "";
-  @apply absolute bottom-[-1px] left-0 h-[2px] w-8 bg-[var(--fsusblog-text-primary)];
+  content: none;
 }
 
 .section-title--inline {
-  @apply mb-2 border-none pb-0;
+  @apply mb-2;
 }
 
 .section-title--inline::before {
@@ -702,7 +815,7 @@ const confirmPageRefresh = async (): Promise<void> => {
 }
 
 .section-caption {
-  @apply text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)] mb-10;
+  @apply m-0 text-[13px] leading-relaxed text-[var(--fsusblog-text-tertiary)];
 }
 
 .image-replace-overlay {

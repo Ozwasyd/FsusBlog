@@ -22,6 +22,7 @@ export interface CommentPrivacyWasmProverOptions {
   loadManifest?: (request: { manifestUrl: string; signal?: AbortSignal }) => Promise<CommentPrivacyProverManifest | null>
   loadArtifact?: (request: { artifactUrl: string; signal?: AbortSignal }) => Promise<Uint8Array | null>
   loadModule?: (moduleUrl: string, signal?: AbortSignal) => Promise<unknown>
+  importModule?: (moduleUrl: string, signal?: AbortSignal) => Promise<unknown>
 }
 
 type WasmProverDelegate = {
@@ -40,12 +41,16 @@ const ARTIFACT_INVALID = 'comment_privacy_prover_artifact_invalid'
 const PROOF_FAILED = 'comment_privacy_prover_failed'
 const PUBLIC_INPUT_TRANSCRIPT_DOMAIN = 'fsus.anonymous.comment.v2.public-inputs'
 const COMMENT_ACTION_CONTEXT = 'comment.create'
+const BROWSER_PROVER_MODULE_GLOBAL = '__fsusCommentPrivacyProverModule'
+const browserProverScriptLoads = new Map<string, Promise<unknown>>()
+const workerProverModuleImports = new Map<string, Promise<unknown>>()
 
 export function createCommentPrivacyWasmProver(options: CommentPrivacyWasmProverOptions = {}): CommentPrivacyWasmProver {
   const manifestUrl = options.manifestUrl ?? DEFAULT_MANIFEST_URL
   const loadManifest = options.loadManifest ?? defaultLoadManifest
   const loadArtifact = options.loadArtifact ?? defaultLoadArtifact
-  const loadModule = options.loadModule ?? defaultLoadModule
+  const importModule = options.importModule ?? defaultImportModule
+  const loadModule = options.loadModule ?? ((moduleUrl, signal) => defaultLoadModule(moduleUrl, signal, importModule))
   let loadedPromise: Promise<LoadedProver> | null = null
 
   const load = async (signal?: AbortSignal): Promise<LoadedProver> => {
@@ -124,8 +129,122 @@ async function defaultLoadArtifact(request: { artifactUrl: string; signal?: Abor
   return new Uint8Array(await response.arrayBuffer())
 }
 
-async function defaultLoadModule(moduleUrl: string): Promise<unknown> {
-  return await import(/* @vite-ignore */ moduleUrl)
+async function defaultLoadModule(
+  moduleUrl: string,
+  signal: AbortSignal | undefined,
+  importModule: NonNullable<CommentPrivacyWasmProverOptions['importModule']>
+): Promise<unknown> {
+  throwIfAborted(signal)
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function' || !document.head) {
+    return await loadWorkerProverModule(moduleUrl, signal, importModule)
+  }
+
+  const loadedModule = getBrowserProverModule()
+  if (loadedModule) {
+    return loadedModule
+  }
+
+  let loadPromise = browserProverScriptLoads.get(moduleUrl)
+  if (!loadPromise) {
+    loadPromise = loadBrowserProverModuleScript(moduleUrl, signal)
+    browserProverScriptLoads.set(moduleUrl, loadPromise)
+  }
+
+  try {
+    return await loadPromise
+  } catch (error) {
+    if (browserProverScriptLoads.get(moduleUrl) === loadPromise) {
+      browserProverScriptLoads.delete(moduleUrl)
+    }
+    throw error
+  }
+}
+
+async function defaultImportModule(moduleUrl: string, signal?: AbortSignal): Promise<unknown> {
+  throwIfAborted(signal)
+  const loaded = await import(/* @vite-ignore */ resolveAbsoluteModuleUrl(moduleUrl))
+  throwIfAborted(signal)
+  return loaded
+}
+
+function resolveAbsoluteModuleUrl(moduleUrl: string): string {
+  if (/^[a-z][a-z0-9+.-]*:/iu.test(moduleUrl)) {
+    return moduleUrl
+  }
+
+  return new URL(moduleUrl, globalThis.location?.href ?? 'http://localhost/').href
+}
+
+async function loadWorkerProverModule(
+  moduleUrl: string,
+  signal: AbortSignal | undefined,
+  importModule: NonNullable<CommentPrivacyWasmProverOptions['importModule']>
+): Promise<unknown> {
+  let loadPromise = workerProverModuleImports.get(moduleUrl)
+  if (!loadPromise) {
+    loadPromise = importModule(moduleUrl, signal)
+    workerProverModuleImports.set(moduleUrl, loadPromise)
+  }
+
+  try {
+    const importedModule = await loadPromise
+    throwIfAborted(signal)
+    return getBrowserProverModule() ?? importedModule
+  } catch (error) {
+    if (workerProverModuleImports.get(moduleUrl) === loadPromise) {
+      workerProverModuleImports.delete(moduleUrl)
+    }
+    throw error
+  }
+}
+
+async function loadBrowserProverModuleScript(moduleUrl: string, signal?: AbortSignal): Promise<unknown> {
+  return await new Promise<unknown>((resolve, reject) => {
+    throwIfAborted(signal)
+    const script = document.createElement('script')
+    let settled = false
+
+    const cleanup = (): void => {
+      script.onload = null
+      script.onerror = null
+      signal?.removeEventListener('abort', abort)
+    }
+    const finish = (callback: () => void): void => {
+      if (settled) {
+        return
+      }
+      settled = true
+      cleanup()
+      callback()
+    }
+    const abort = (): void => {
+      script.remove()
+      finish(() => reject(new DOMException('Aborted', 'AbortError')))
+    }
+
+    script.type = 'module'
+    script.async = true
+    script.src = moduleUrl
+    script.onload = (): void => {
+      finish(() => {
+        const browserModule = getBrowserProverModule()
+        if (browserModule) {
+          resolve(browserModule)
+          return
+        }
+        reject(new Error(ARTIFACT_INVALID))
+      })
+    }
+    script.onerror = (): void => {
+      finish(() => reject(new Error(ARTIFACT_UNAVAILABLE)))
+    }
+    signal?.addEventListener('abort', abort, { once: true })
+    document.head.appendChild(script)
+  })
+}
+
+function getBrowserProverModule(): unknown | null {
+  return asRecord(globalThis)[BROWSER_PROVER_MODULE_GLOBAL] ?? null
 }
 
 function normalizeManifest(manifest: CommentPrivacyProverManifest | null): CommentPrivacyProverManifest {

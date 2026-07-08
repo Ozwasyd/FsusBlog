@@ -30,9 +30,9 @@ describe('AccountLayout header adapter integration', () => {
     expect(accountLayoutSource).toContain("openPolicy('guidelines')")
     expect(accountLayoutSource).toContain("openPolicy('privacy')")
     expect(accountLayoutSource).toContain('handleLogout')
-    expect(accountLayoutSource).toContain('account-mobile-navigation')
-    expect(accountLayoutSource).toContain('account-mobile-group-control')
-    expect(accountLayoutSource).toContain('account-mobile-link-strip')
+    expect(accountLayoutSource).toContain('account-mobile-drawer-trigger')
+    expect(accountLayoutSource).toContain('id="account-mobile-drawer"')
+    expect(accountLayoutSource).toContain('account-mobile-drawer-nav')
   })
 
   it('passes raw account brand image fields to the adapter', () => {

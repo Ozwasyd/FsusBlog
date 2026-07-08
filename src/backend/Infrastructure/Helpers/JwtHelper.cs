@@ -325,7 +325,9 @@ public static class JwtServiceExtensions
             path.StartsWithSegments("/api/binary/admin", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWithSegments("/api/binary/author", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWithSegments("/api/binary/stats", StringComparison.OrdinalIgnoreCase) ||
-            path.StartsWithSegments("/api/binary/system/admin", StringComparison.OrdinalIgnoreCase);
+            path.StartsWithSegments("/api/binary/system/admin", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/api/local/auth-fixture/admin-sensitive-proof", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWithSegments("/__local/auth-fixture/admin-sensitive-proof", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool PolicyRequiresAdminPrincipal(AuthorizationPolicy policy)

@@ -221,7 +221,9 @@ internal sealed class NotificationStreamHandshakeService(
 
         if (!TryReadChallengeProof(context, out string proofToken, out string challengeId, out string challengeKind))
         {
-            await RecordRiskAsync(context, "challenge_proof_missing", decision.ActionName, cancellationToken);
+            // Missing proof is the normal first leg of a challenge handshake.
+            // Rejected or replayed proof is the risky signal, not requesting the challenge.
+            await RecordRiskAsync(context, "challenge_proof_missing", decision.ActionName, cancellationToken, score: 0);
             return legacyPowFailure ?? NotificationStreamHandshakeResult.Failure(StatusCodes.Status428PreconditionRequired, "risk_challenge_required");
         }
 
@@ -397,14 +399,14 @@ internal sealed class NotificationStreamHandshakeService(
             ? SecurityChallengeContracts.ToWireName(parsed)
             : kind.Trim();
 
-    private async ValueTask RecordRiskAsync(HttpContext context, string detail, string action, CancellationToken cancellationToken)
+    private async ValueTask RecordRiskAsync(HttpContext context, string detail, string action, CancellationToken cancellationToken, int score = 10)
     {
         try
         {
             await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
                 context,
                 SecurityRiskReason.SecurityChallengeRejected,
-                10,
+                score,
                 RiskSignalTtl,
                 SecurityRiskSources.RiskControl,
                 string.IsNullOrWhiteSpace(action) ? RiskActionNames.NotificationSubscribe : action,

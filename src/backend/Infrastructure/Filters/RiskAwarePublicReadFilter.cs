@@ -78,10 +78,12 @@ public sealed class RiskAwarePublicReadFilter(
 
         if (!httpContext.Request.Headers.TryGetValue(PowHeaderName, out var proof) || proof.Count != 1)
         {
+            // Requiring a PoW challenge is part of the normal public-read handshake.
+            // Only failed proof validation should raise crawler risk.
             await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
                 httpContext,
                 SecurityRiskReason.PublicReadChallengeRequired,
-                5,
+                0,
                 TimeSpan.FromMinutes(10),
                 SecurityRiskSources.PublicRead,
                 "public_read_challenge_required",
@@ -97,14 +99,6 @@ public sealed class RiskAwarePublicReadFilter(
         IActionResult? validation = await PowValidationLogic.ValidateAsync(httpContext, logger, powService, governor);
         if (validation is not null)
         {
-            await riskSignalSink.AddRiskAsync(new SecurityRiskSignal(
-                httpContext,
-                SecurityRiskReason.PowInvalid,
-                10,
-                TimeSpan.FromMinutes(10),
-                SecurityRiskSources.Pow,
-                "pow_invalid",
-                "public_read_challenge"), httpContext.RequestAborted);
             return EndpointFilterResults.FromActionResult(validation, httpContext);
         }
 

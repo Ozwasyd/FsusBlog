@@ -8,7 +8,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class CommentModerationDispositionPolicyTests
 {
     [Fact]
-    public void Decide_DefaultScoreOnly_KeepsCommentPending()
+    public void Decide_CleanModelResult_KeepsApprovedWithoutHumanReview()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy();
 
@@ -18,74 +18,70 @@ public sealed class CommentModerationDispositionPolicyTests
             CreateModelResult(label: "clean", confidence: 0.99d, severity: "low"));
 
         Assert.False(disposition.AutoApplied);
-        Assert.True(disposition.RequiresHumanReview);
-        Assert.Equal(CommentModerationStatus.Pending, disposition.NextStatus);
+        Assert.False(disposition.RequiresHumanReview);
+        Assert.Equal(CommentModerationStatus.Approved, disposition.NextStatus);
         Assert.Equal(CommentModerationDispositionModes.ScoreOnly, disposition.Mode);
-        Assert.Equal("score_only", disposition.Reason);
+        Assert.Equal("model_clean", disposition.Reason);
     }
 
     [Fact]
-    public void Decide_AutoLowRiskApprove_ApprovesCleanHighConfidenceWhenRegionAllows()
+    public void Decide_RiskyHighConfidence_AutoHidesWithoutHumanReviewQueue()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy(
-            Setting("Moderation:AntiSpamModel:Mode", CommentModerationDispositionModes.AutoLowRiskApprove),
-            Setting("Moderation:AntiSpamModel:AutoApproveConfidenceThreshold", "0.95"));
+            Setting("Moderation:AntiSpamModel:BorderlineRiskConfidenceThreshold", "0.90"));
 
         CommentModerationDisposition disposition = policy.Decide(
             CreateComment(),
             CreateRegionDecision(canPublish: true),
-            CreateModelResult(label: "clean", confidence: 0.98d, severity: "low"));
+            CreateModelResult(label: "blocked_candidate", confidence: 0.94d, severity: "high"));
 
         Assert.True(disposition.AutoApplied);
         Assert.False(disposition.RequiresHumanReview);
-        Assert.Equal(CommentModerationStatus.Approved, disposition.NextStatus);
-        Assert.Equal("model_clean_high_confidence", disposition.Reason);
+        Assert.Equal(CommentModerationStatus.Hidden, disposition.NextStatus);
+        Assert.Equal("model_risk_auto_hidden", disposition.Reason);
     }
 
     [Fact]
-    public void Decide_AutoLowRiskApprove_DoesNotOverrideRegionManualReview()
+    public void Decide_RiskyBorderlineConfidence_AutoHidesAndQueuesHumanReview()
     {
         CommentModerationDispositionPolicy policy = BuildPolicy(
-            Setting("Moderation:AntiSpamModel:Mode", CommentModerationDispositionModes.AutoLowRiskApprove));
+            Setting("Moderation:AntiSpamModel:BorderlineRiskConfidenceThreshold", "0.90"));
 
         CommentModerationDisposition disposition = policy.Decide(
             CreateComment(),
-            CreateRegionDecision(canPublish: true, requiresManualReview: true),
-            CreateModelResult(label: "clean", confidence: 0.99d, severity: "low"));
+            CreateRegionDecision(canPublish: true),
+            CreateModelResult(label: "risky", confidence: 0.84d, severity: "high"));
 
-        Assert.False(disposition.AutoApplied);
+        Assert.True(disposition.AutoApplied);
         Assert.True(disposition.RequiresHumanReview);
-        Assert.Equal(CommentModerationStatus.Pending, disposition.NextStatus);
-        Assert.Equal("region_requires_human_review", disposition.Reason);
+        Assert.Equal(CommentModerationStatus.Hidden, disposition.NextStatus);
+        Assert.Equal("model_risk_borderline_review", disposition.Reason);
     }
 
     [Fact]
-    public void Decide_AutoHideHighRisk_HidesRiskyHighConfidenceComment()
+    public void Decide_HighSeverityCategory_AutoHidesEvenWhenLabelIsNotBlockedCandidate()
     {
-        CommentModerationDispositionPolicy policy = BuildPolicy(
-            Setting("Moderation:AntiSpamModel:Mode", CommentModerationDispositionModes.AutoHideHighRisk),
-            Setting("Moderation:AntiSpamModel:AutoHideConfidenceThreshold", "0.9"));
+        CommentModerationDispositionPolicy policy = BuildPolicy();
 
         CommentModerationDisposition disposition = policy.Decide(
             CreateComment(),
             CreateRegionDecision(canPublish: true),
             CreateModelResult(
-                label: "blocked_candidate",
-                confidence: 0.94d,
+                label: "suspicious",
+                confidence: 0.91d,
                 severity: "high",
-                categories: [new AntiSpamModerationCategorySignal("spam_repeat", 0.94d, "high", "show_category_only")]));
+                categories: [new AntiSpamModerationCategorySignal("spam_repeat", 0.91d, "high", "show_category_only")]));
 
         Assert.True(disposition.AutoApplied);
         Assert.False(disposition.RequiresHumanReview);
         Assert.Equal(CommentModerationStatus.Hidden, disposition.NextStatus);
-        Assert.Equal("model_high_risk_auto_hide", disposition.Reason);
+        Assert.Equal("model_risk_auto_hidden", disposition.Reason);
     }
 
     [Fact]
-    public void Decide_ProviderUnavailable_DoesNotAutoApply()
+    public void Decide_ProviderUnavailable_KeepsApprovedWithoutHumanReviewQueue()
     {
-        CommentModerationDispositionPolicy policy = BuildPolicy(
-            Setting("Moderation:AntiSpamModel:Mode", CommentModerationDispositionModes.AutoLowRiskApprove));
+        CommentModerationDispositionPolicy policy = BuildPolicy();
 
         CommentModerationDisposition disposition = policy.Decide(
             CreateComment(),
@@ -98,8 +94,8 @@ public sealed class CommentModerationDispositionPolicyTests
                 errorCode: "model_timeout"));
 
         Assert.False(disposition.AutoApplied);
-        Assert.True(disposition.RequiresHumanReview);
-        Assert.Equal(CommentModerationStatus.Pending, disposition.NextStatus);
+        Assert.False(disposition.RequiresHumanReview);
+        Assert.Equal(CommentModerationStatus.Approved, disposition.NextStatus);
         Assert.Equal("model_unavailable", disposition.Reason);
     }
 
@@ -120,7 +116,8 @@ public sealed class CommentModerationDispositionPolicyTests
         Assert.Equal("risky", disposition.AuditContext["label"]);
         Assert.Equal("0.95", disposition.AuditContext["confidence"]);
         Assert.Equal(CommentModerationDispositionModes.AutoHideHighRisk, disposition.AuditContext["mode"]);
-        Assert.Equal("model_high_risk_auto_hide", disposition.AuditContext["reason"]);
+        Assert.Equal("model_risk_auto_hidden", disposition.AuditContext["reason"]);
+        Assert.Equal("false", disposition.AuditContext["requires_human_review"]);
     }
 
     private static CommentModerationDispositionPolicy BuildPolicy(params KeyValuePair<string, string?>[] settings)
@@ -141,8 +138,8 @@ public sealed class CommentModerationDispositionPolicyTests
             ArticleId = 10,
             Content = "hello",
             CreateTime = DateTime.UtcNow,
-            ModerationStatus = CommentModerationStatus.Pending,
-            ModerationReason = "pending_review"
+            ModerationStatus = CommentModerationStatus.Approved,
+            ModerationReason = "published_pending_review"
         };
 
     private static RegionModerationDecision CreateRegionDecision(

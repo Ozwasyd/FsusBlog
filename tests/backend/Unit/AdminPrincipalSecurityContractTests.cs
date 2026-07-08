@@ -73,6 +73,8 @@ public sealed class AdminPrincipalSecurityContractTests
         Assert.Contains("AllowLocalAuthFixtureConfigurationKey", endpoints, StringComparison.Ordinal);
         Assert.Contains("fsus:allowLocalAuthFixture", endpoints, StringComparison.Ordinal);
         Assert.Contains("/api/local/auth-fixture/admin", endpoints, StringComparison.Ordinal);
+        Assert.Contains("/api/local/auth-fixture/admin-sensitive-proof", endpoints, StringComparison.Ordinal);
+        Assert.Contains("CreateAdminStepUpProofTokenAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("user.storage-state.json", endpoints, StringComparison.Ordinal);
         Assert.Contains("admin.storage-state.json", endpoints, StringComparison.Ordinal);
         Assert.Contains("AuthCookieService", endpoints, StringComparison.Ordinal);
@@ -115,6 +117,8 @@ public sealed class AdminPrincipalSecurityContractTests
         Assert.Equal(shouldRegister, routes.Contains("/api/local/auth-fixture/admin", StringComparer.Ordinal));
         Assert.Equal(shouldRegister, routes.Contains("/__local/auth-fixture/status", StringComparer.Ordinal));
         Assert.Equal(shouldRegister, routes.Contains("/api/local/auth-fixture/status", StringComparer.Ordinal));
+        Assert.Equal(shouldRegister, routes.Contains("/__local/auth-fixture/admin-sensitive-proof", StringComparer.Ordinal));
+        Assert.Equal(shouldRegister, routes.Contains("/api/local/auth-fixture/admin-sensitive-proof", StringComparer.Ordinal));
     }
 
     [Fact]
@@ -465,6 +469,14 @@ public sealed class AdminPrincipalSecurityContractTests
             "role-admin"));
 
         Assert.False(JwtServiceExtensions.ShouldPreferAdminCookie(roleAdminContext));
+
+        var localFixtureProofContext = new DefaultHttpContext();
+        localFixtureProofContext.Request.Path = "/api/local/auth-fixture/admin-sensitive-proof";
+        Assert.True(JwtServiceExtensions.ShouldPreferAdminCookie(localFixtureProofContext));
+
+        var localFixtureInternalProofContext = new DefaultHttpContext();
+        localFixtureInternalProofContext.Request.Path = "/__local/auth-fixture/admin-sensitive-proof";
+        Assert.True(JwtServiceExtensions.ShouldPreferAdminCookie(localFixtureInternalProofContext));
 
         var principalAdminContext = new DefaultHttpContext();
         principalAdminContext.Request.Path = "/api/binary/auth/admin/me";

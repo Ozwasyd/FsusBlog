@@ -462,12 +462,24 @@ public sealed class EndpointPolicyContractTests
         Assert.Contains("X-Fsus-Local-Auth-Fixture-Secret", source, StringComparison.Ordinal);
         Assert.Contains("CryptographicOperations.FixedTimeEquals", source, StringComparison.Ordinal);
         Assert.Contains("RequireLocalFixtureSecret", source, StringComparison.Ordinal);
+        Assert.Contains("admin-sensitive-proof", source, StringComparison.Ordinal);
+        Assert.Contains("RequireLoopbackCaller", source, StringComparison.Ordinal);
+        Assert.Contains("CreateAdminStepUpProofTokenAsync", source, StringComparison.Ordinal);
+        Assert.Contains("HasAdminPermission(AdminPermissions.SystemConfig)", source, StringComparison.Ordinal);
 
         string adminMapBlock = ExtractBetween(
             source,
             "app.MapGet(\"/__local/auth-fixture/admin\"",
             "var statusHandler");
         Assert.Contains("RequireLocalFixtureSecret", adminMapBlock, StringComparison.Ordinal);
+
+        string proofMapBlock = ExtractBetween(
+            source,
+            "app.MapPost(\"/api/local/auth-fixture/admin-sensitive-proof\"",
+            "private static async ValueTask<object?> RequireLocalFixtureSecret");
+        Assert.Contains("RequireLocalFixtureSecret", proofMapBlock, StringComparison.Ordinal);
+        Assert.Contains("RequireLoopbackCaller", proofMapBlock, StringComparison.Ordinal);
+        Assert.Contains("AllowAnonymous", proofMapBlock, StringComparison.Ordinal);
     }
 
     [Fact]

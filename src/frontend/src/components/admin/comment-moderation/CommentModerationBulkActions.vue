@@ -38,7 +38,7 @@
       已选择 {{ selectedCount }} 条
     </p>
 
-    <el-dialog
+    <FsusDialog
       v-model="previewVisible"
       title="批量审核预演"
       width="min(92vw, 28rem)"
@@ -51,7 +51,7 @@
         审核原因：{{ reason.trim() }}
       </p>
       <template #footer>
-        <div class="grid grid-cols-2 gap-4 border-t border-[var(--fsusblog-panel-border)] pt-6">
+        <div class="grid grid-cols-2 gap-4">
           <el-button :disabled="loading" @click="previewVisible = false">
             返回调整
           </el-button>
@@ -60,12 +60,13 @@
           </el-button>
         </div>
       </template>
-    </el-dialog>
+    </FsusDialog>
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 import { Check, Close, Hide } from '@/fsusui/icons'
 import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring'
 

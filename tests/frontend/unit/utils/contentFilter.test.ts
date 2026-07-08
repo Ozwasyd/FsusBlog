@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  inspectCommentMarkdownContent,
   normalizeModerationText,
   scoreContentRisk,
   COMMENT_CONTENT_CONSTRAINT,
@@ -9,6 +10,13 @@ import {
 } from '@/utils/contentFilter'
 
 describe('validateCommentContent', () => {
+  it('exposes default and hard comment length policy bounds', () => {
+    expect(COMMENT_CONTENT_CONSTRAINT.defaultMaxChars).toBe(1000)
+    expect(COMMENT_CONTENT_CONSTRAINT.defaultMaxUtf8Bytes).toBe(4096)
+    expect(COMMENT_CONTENT_CONSTRAINT.hardMaxChars).toBe(3000)
+    expect(COMMENT_CONTENT_CONSTRAINT.hardMaxUtf8Bytes).toBe(12288)
+  })
+
   it('rejects empty string', () => {
     const r = validateCommentContent('')
     expect(r.isValid).toBe(false)
@@ -25,33 +33,66 @@ describe('validateCommentContent', () => {
     expect(r.isValid).toBe(true)
   })
 
+  it('accepts safe text markdown and extracts review text without control markers', () => {
+    const r = inspectCommentMarkdownContent('**重点** [官网](https://example.com/docs?q=1) `code`')
+    expect(r.isValid).toBe(true)
+    expect(r.reviewText).toContain('重点')
+    expect(r.reviewText).toContain('官网')
+    expect(r.reviewText).toContain('example.com/docs')
+    expect(r.reviewText).toContain('code')
+    expect(r.reviewText).not.toContain('**')
+    expect(r.reviewText).not.toContain('](')
+  })
+
+  it.each([
+    ['inline image', '这里有 ![alt](https://example.com/a.png)'],
+    ['reference image', '这里有 ![alt][img]\n\n[img]: https://example.com/a.png'],
+    ['raw html image', '这里有 <img src="https://example.com/a.png">'],
+    ['raw html block', '<iframe src="https://example.com"></iframe>'],
+    ['dangerous link scheme', '[点这里](javascript:alert(1))'],
+    ['data link scheme', '[点这里](data:text/html,evil)']
+  ])('rejects unsafe comment markdown: %s', (_name, content) => {
+    const r = validateCommentContent(content)
+    expect(r.isValid).toBe(false)
+    expect(r.message).toMatch(/Markdown|HTML|链接|图片/)
+  })
+
   it('rejects content over the shared character limit before risk scoring', () => {
-    const r = validateCommentContent('a'.repeat(COMMENT_CONTENT_CONSTRAINT.maxChars + 1))
+    const r = validateCommentContent('a'.repeat(COMMENT_CONTENT_CONSTRAINT.defaultMaxChars + 1))
     expect(r.isValid).toBe(false)
     expect(r.message).toBe(COMMENT_CONTENT_CONSTRAINT.charLengthMessage)
   })
 
   it('rejects content over the shared UTF-8 byte limit before risk scoring', () => {
-    const r = validateCommentContent('你'.repeat(Math.floor(COMMENT_CONTENT_CONSTRAINT.maxUtf8Bytes / 3) + 1))
+    const r = validateCommentContent('你'.repeat(Math.floor(COMMENT_CONTENT_CONSTRAINT.defaultMaxUtf8Bytes / 3) + 1))
     expect(r.isValid).toBe(false)
     expect(r.message).toBe(COMMENT_CONTENT_CONSTRAINT.byteLengthMessage)
   })
 
-  it('rejects ad/spam content', () => {
-    const r = validateCommentContent('加微信号123456赚钱')
-    expect(r.isValid).toBe(false)
-    expect(r.message).toContain('违规')
+  it('uses the server comment policy when one is provided', () => {
+    const policy = { maxChars: 1500, maxUtf8Bytes: 6000 }
+    const r = validateCommentContent('a'.repeat(COMMENT_CONTENT_CONSTRAINT.defaultMaxChars + 1), policy)
+    const tooLong = validateCommentContent('a'.repeat(policy.maxChars + 1), policy)
+
+    expect(r.isValid).toBe(true)
+    expect(tooLong.isValid).toBe(false)
+    expect(tooLong.message).toContain('1500')
   })
 
-  it('rejects content with zero-width characters', () => {
+  it('allows ad/spam text so post-publish moderation can handle content risk', () => {
+    const r = validateCommentContent('加微信号123456赚钱')
+    expect(r.isValid).toBe(true)
+  })
+
+  it('allows zero-width obfuscation text for post-publish moderation', () => {
     // Zero-width space U+200B separating characters to bypass filter
     const r = validateCommentContent('加\u200B微\u200B信')
-    expect(r.isValid).toBe(false)
+    expect(r.isValid).toBe(true)
   })
 
-  it('normalizes full-width and confusable ad terms before matching', () => {
+  it('allows full-width and confusable ad terms for post-publish moderation', () => {
     const r = validateCommentContent('加ＶＸ处理')
-    expect(r.isValid).toBe(false)
+    expect(r.isValid).toBe(true)
   })
 
   it('exposes explainable risk factors for blocked content', () => {

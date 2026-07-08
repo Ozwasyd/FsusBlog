@@ -1,9 +1,8 @@
 <template>
-  <el-dialog
+  <FsusDialog
     v-model="dialogVisible"
     :title="titleMap[type] || copy.fallbackTitle"
     width="min(92vw, 48rem)"
-    align-center
     @closed="handleAfterLeave"
   >
     <div>
@@ -46,12 +45,13 @@
         </el-button>
       </div>
     </template>
-  </el-dialog>
+  </FsusDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { getPageData } from '@/api/system'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import { FSUSBLOG_AUTH_COPY } from '@/copy'
 

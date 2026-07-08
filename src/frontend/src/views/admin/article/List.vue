@@ -88,18 +88,16 @@
           <el-form-item class="article-list-toolbar-item article-list-toolbar-buttons !m-0">
             <el-button type="primary" :loading="isBusy" @click="handleSearch">搜索</el-button>
             <el-button @click="resetQuery" :disabled="isBusy">重置</el-button>
+            <el-button
+              class="article-list-write-button"
+              type="primary"
+              :icon="Plus"
+              @click="goToWriteArticle"
+            >
+              写新文章
+            </el-button>
           </el-form-item>
         </el-form>
-      </template>
-
-      <template #actions>
-        <el-button
-          type="primary"
-          :icon="Plus"
-          @click="goToWriteArticle"
-        >
-          写新文章
-        </el-button>
       </template>
 
       <div
@@ -370,6 +368,7 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.75rem;
+  width: 100%;
 }
 
 .article-list-toolbar-search {
@@ -385,7 +384,28 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
 }
 
 .article-list-toolbar-buttons {
+  flex: 1 1 18rem;
   min-height: 2rem;
+}
+
+.article-list-toolbar-buttons :deep(.el-form-item__content) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.article-list-toolbar-buttons :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.article-list-toolbar-buttons :deep(.el-button) {
+  min-height: 3rem;
+}
+
+.article-list-toolbar-buttons :deep(.article-list-write-button.el-button) {
+  margin-left: auto;
 }
 
 .tabular-nums {
@@ -473,7 +493,11 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
   }
 
   .article-list-toolbar-buttons {
-    justify-content: flex-start;
+    flex: 1 1 100%;
+  }
+
+  .article-list-toolbar-buttons :deep(.article-list-write-button.el-button) {
+    margin-left: 0;
   }
 
   .article-list-pagination {

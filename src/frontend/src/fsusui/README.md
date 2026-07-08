@@ -11,6 +11,7 @@ The mandatory adapter surface is:
 - `index.ts`: barrel for the stable adapter API.
 - `appContext.ts`: app-level FsusUI injection keys.
 - `feedback.ts`: programmatic message, confirm, loading and toast helpers.
+- `dialog.ts`: modal dialog runtime boundary; Blog-owned dialog shells consume it for placement, scroll and footer behavior.
 - `icons.ts`: icon package re-export boundary.
 - `markdown.ts`: markdown runtime and feature activation boundary.
 - `motion.ts`: FsusUI motion runtime boundary plus Blog-owned surface presets.
@@ -23,7 +24,7 @@ The mandatory adapter surface is:
 
 ## Blog Shells
 
-`components/ui/` contains Blog-owned shells and composition primitives, for example markdown editor wrappers, MFA/passkey modals, `SemanticTime`, `ThemeModeToggle`, `FsusBlogRouteTransition` and `UiTag`.
+`components/ui/` contains Blog-owned shells and composition primitives, for example dialog wrappers, markdown editor wrappers, MFA/passkey modals, `SemanticTime`, `ThemeModeToggle`, `FsusBlogRouteTransition` and `UiTag`.
 
 These files should depend on `@/fsusui/*` adapters instead of package internals. `AsyncMarkdownRenderer.ts` and `markdownEditorProvider.ts` stay in `components/ui/` because they describe Blog composition and lazy-loading policy, not FsusUI runtime ownership.
 

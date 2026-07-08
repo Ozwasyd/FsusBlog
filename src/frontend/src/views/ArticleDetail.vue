@@ -51,6 +51,11 @@
           :anonymous-comments-enabled="anonymousCommentsEnabled"
           :public-comments-enabled="publicCommentsEnabled"
           :zk-anonymous-enabled="zkAnonymousEnabled"
+          :article-id="displayArticleId"
+          :account-id="userStore.userInfo?.accountId ?? null"
+          :comment-max-chars="commentMaxChars"
+          :comment-max-utf8-bytes="commentMaxUtf8Bytes"
+          :policy-snapshot-hash="commentPolicySnapshotHash"
           :privacy-state="commentPrivacyUiState"
           :anonymous-scope="commentAnonymousScope"
           @submit="submitComment"
@@ -193,6 +198,9 @@ const {
   anonymousCommentsEnabled,
   publicCommentsEnabled,
   zkAnonymousEnabled,
+  commentMaxChars,
+  commentMaxUtf8Bytes,
+  commentPolicySnapshotHash,
   commentPrivacyUiState,
   submittingComment,
   threads,

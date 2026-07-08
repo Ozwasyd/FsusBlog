@@ -110,8 +110,9 @@ function checkEnabledProductionReadiness() {
   const nativeLibraryPath = normalizeString(
     process.env.FSUSBLOG_ZK_NATIVE_VERIFIER_LIB
       ?? zkVerifier.NativeLibraryPath
+      ?? zkVerifier.NativeGroth16?.LibraryPath
       ?? zkProd.NativeVerifierLibraryPath)
-  checkExistingFile('native-verifier-library', nativeLibraryPath)
+  checkNativeVerifierLibrary(nativeLibraryPath)
 
   const trustedSetupPath = normalizeString(
     args.trustedSetupManifest
@@ -121,7 +122,8 @@ function checkEnabledProductionReadiness() {
   const setup = checkTrustedSetupManifest(trustedSetupPath)
 
   const expectedVkHash = normalizeString(
-    zkProd.VerifyingKeyHash
+    process.env.FSUSBLOG_ZK_VERIFYING_KEY_HASH
+      ?? zkProd.VerifyingKeyHash
       ?? zkVerifier.VerifyingKeyHash)
   if (!expectedVkHash) {
     errors.push('AnonymousIdentity:ZkProd:VerifyingKeyHash or AnonymousIdentity:ZkVerifier:VerifyingKeyHash is required.')
@@ -156,6 +158,19 @@ function checkEnabledProductionReadiness() {
       ?? zkProd.RootBootstrapEvidencePath
       ?? DEFAULT_ROOT_BOOTSTRAP_EVIDENCE)
   checkRootBootstrapEvidence(rootBootstrapEvidencePath, expectedVkHash, setup)
+}
+
+function checkNativeVerifierLibrary(rawPath) {
+  if (rawPath === 'managed:mcl') {
+    checks.push({
+      id: 'native-verifier-library',
+      status: 'ok',
+      detail: 'managed:mcl'
+    })
+    return rawPath
+  }
+
+  return checkExistingFile('native-verifier-library', rawPath)
 }
 
 function checkFalse(key, value) {

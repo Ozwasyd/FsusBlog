@@ -102,22 +102,25 @@
       <p class="mt-3 text-xs leading-6 text-[var(--fsusblog-text-secondary)]">
         {{ rightsStatementText }}
       </p>
-      <dl class="mt-4 grid gap-3 text-xs text-[var(--fsusblog-text-secondary)] sm:grid-cols-2">
-        <div>
+      <dl class="mt-4 divide-y divide-[var(--fsusblog-panel-border)] text-xs text-[var(--fsusblog-text-secondary)]">
+        <div class="grid gap-1 py-3 first:pt-0 sm:grid-cols-[7rem_1fr] sm:items-baseline">
           <dt class="font-semibold text-[var(--fsusblog-text-muted)]">许可</dt>
-          <dd class="mt-1">{{ rightsLicenseText }}</dd>
+          <dd>{{ rightsLicenseText }}</dd>
         </div>
-        <div v-if="rightsHolderText">
+        <div
+          v-if="rightsHolderText"
+          class="grid gap-1 py-3 first:pt-0 sm:grid-cols-[7rem_1fr] sm:items-baseline"
+        >
           <dt class="font-semibold text-[var(--fsusblog-text-muted)]">权利人</dt>
-          <dd class="mt-1">{{ rightsHolderText }}</dd>
+          <dd>{{ rightsHolderText }}</dd>
         </div>
-        <div>
+        <div class="grid gap-1 py-3 first:pt-0 sm:grid-cols-[7rem_1fr] sm:items-baseline">
           <dt class="font-semibold text-[var(--fsusblog-text-muted)]">复制策略</dt>
-          <dd class="mt-1">{{ rightsCopyPolicyText }}</dd>
+          <dd>{{ rightsCopyPolicyText }}</dd>
         </div>
-        <div>
+        <div class="grid gap-1 py-3 last:pb-0 sm:grid-cols-[7rem_1fr] sm:items-baseline">
           <dt class="font-semibold text-[var(--fsusblog-text-muted)]">摘录范围</dt>
-          <dd class="mt-1">最多 {{ detailView.rights.maxExcerptChars }} 字符</dd>
+          <dd>最多 {{ detailView.rights.maxExcerptChars }} 字符</dd>
         </div>
       </dl>
       <p
