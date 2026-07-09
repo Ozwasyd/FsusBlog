@@ -70,7 +70,17 @@ public static class MerkleCheckpointBuilder
             throw new InvalidOperationException("Empty checkpoint has no inclusion proofs.");
         }
 
-        int index = checkpoint.Leaves.ToList().FindIndex(leaf => leaf.Seq == seq);
+        int index = -1;
+        IReadOnlyList<MerkleLeaf> leaves = checkpoint.Leaves;
+        for (int i = 0; i < leaves.Count; i++)
+        {
+            if (leaves[i].Seq == seq)
+            {
+                index = i;
+                break;
+            }
+        }
+
         if (index < 0)
         {
             throw new InvalidOperationException("Leaf was not found in checkpoint.");

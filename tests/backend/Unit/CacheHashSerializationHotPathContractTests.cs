@@ -190,6 +190,22 @@ public sealed class CacheHashSerializationHotPathContractTests
         Assert.Contains("SiteSubscriptionIdentity.HashEmail(request.Email, configuration)", subscription, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SmallAllocationHotPaths_AvoidKnownAllocatingPatterns()
+    {
+        string resultSource = ReadRepoFile("src/core/Common/Result.cs");
+        Assert.Contains("FirstOrDefault", resultSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach (Result result in results)", resultSource, StringComparison.Ordinal);
+
+        string merkleSource = ReadRepoFile("src/core/Integrity/MerkleCheckpoint.cs");
+        Assert.DoesNotContain(".ToList().FindIndex", merkleSource, StringComparison.Ordinal);
+
+        string auditSource = ReadRepoFile("src/backend/Infrastructure/Audit/AuditTamperEvidence.cs");
+        Assert.DoesNotContain(".Distinct().Take(", auditSource, StringComparison.Ordinal);
+        Assert.Contains("new HashSet<char>(value).Count", auditSource, StringComparison.Ordinal);
+        Assert.Contains("new HashSet<byte>(value).Count", auditSource, StringComparison.Ordinal);
+    }
+
     private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
         => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 

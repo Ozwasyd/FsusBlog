@@ -116,10 +116,10 @@ internal static class AuditTamperEvidence
         => key is { Length: >= MinimumTamperEvidenceKeyByteCount } && HasMinimumByteDiversity(key);
 
     private static bool HasMinimumCharacterDiversity(string value)
-        => value.Distinct().Take(MinimumTamperEvidenceKeyDistinctCharacters).Count() == MinimumTamperEvidenceKeyDistinctCharacters;
+        => new HashSet<char>(value).Count >= MinimumTamperEvidenceKeyDistinctCharacters;
 
     private static bool HasMinimumByteDiversity(byte[] value)
-        => value.Distinct().Take(MinimumTamperEvidenceKeyDistinctCharacters).Count() == MinimumTamperEvidenceKeyDistinctCharacters;
+        => new HashSet<byte>(value).Count >= MinimumTamperEvidenceKeyDistinctCharacters;
 
     internal static bool FixedTimeEqualsHexSha256(string? left, string? right)
     {

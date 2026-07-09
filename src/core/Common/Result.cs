@@ -125,15 +125,5 @@ public static class ResultExtensions
         => result.IsSuccess ? result : recover(result.Error);
 
     public static Result Combine(params Result[] results)
-    {
-        foreach (Result result in results)
-        {
-            if (!result.IsSuccess)
-            {
-                return result;
-            }
-        }
-
-        return Result.Success();
-    }
+        => results.FirstOrDefault(static result => result.IsFailure, Result.Success());
 }
