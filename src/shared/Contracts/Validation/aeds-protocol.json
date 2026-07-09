@@ -70,11 +70,6 @@
     { "name": "FileDeleteRequest", "value": 38 },
     { "name": "AdminChangeUserStatusRequest", "value": 39 },
     { "name": "ArticleWriteRequest", "value": 41 },
-    {
-      "name": "ArticleAotBundleRequest",
-      "value": 42,
-      "comment": "Reserved legacy value. Client-side AOT bundle uploads are no longer accepted."
-    },
     { "name": "AuthDeleteAccountRequest", "value": 47 },
     { "name": "MfaSetupStart", "value": 48 },
     { "name": "MfaSetupVerify", "value": 49 },

@@ -46,6 +46,48 @@ public sealed partial class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    public void LegacyAotUploadFrame42_IsRemovedAcrossProtocolAndCodecSurfaces()
+    {
+        string retiredName = string.Concat("Article", "Aot", "Bundle", "Request");
+        string bundlePod = string.Concat("Public", "Aot", "Bundle", "Pod");
+        string entryPod = string.Concat("Public", "Aot", "Entry", "Pod");
+        string[] retiredTokens = [retiredName, bundlePod, entryPod];
+
+        Assert.DoesNotContain(retiredName, Enum.GetNames<FsusBlog.Shared.AedsFrameType>());
+        Assert.DoesNotContain(retiredName, Enum.GetNames<CoreFrameType>());
+        Assert.Equal((ushort)41, (ushort)CoreFrameType.ArticleWriteRequest);
+        Assert.Equal((ushort)47, (ushort)CoreFrameType.AuthDeleteAccountRequest);
+
+        foreach (string relativePath in new[]
+        {
+            "src/shared/Contracts/Validation/aeds-protocol.json",
+            "src/frontend/wasm/web/protocol/frame.ts",
+            "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "src/core/Algorithms/AEDS_V2_PROTOCOL.md"
+        })
+        {
+            string source = ReadRepoFile(relativePath);
+            foreach (string token in retiredTokens)
+            {
+                Assert.DoesNotContain(token, source, StringComparison.Ordinal);
+            }
+        }
+
+        foreach (string relativeDirectory in new[] { "src", "tests", "benchmarks" })
+        {
+            string directory = BackendTestPaths.FromRoot(relativeDirectory);
+            foreach (string file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+            {
+                string source = File.ReadAllText(file);
+                foreach (string token in retiredTokens)
+                {
+                    Assert.DoesNotContain(token, source, StringComparison.Ordinal);
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void Decoder_RejectsLegacyAdminPasswordResetFrameAsRetired()
     {
         Span<byte> frame = stackalloc byte[FsusBlog.Core.Algorithms.AedsFrameHeader.Size];

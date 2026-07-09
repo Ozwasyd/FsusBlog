@@ -54,7 +54,6 @@ public class PodMappingBenchmarks
 
     private readonly CorePageResult<ArticleListCoreModel> _pageResult;
     private readonly byte[] _encodedArticlePage;
-    private readonly PublicAotShellBundleContract _aotBundle;
     private readonly string[] _searchDocuments;
     private readonly Dictionary<string, Dictionary<int, int>> _searchIndex;
     private readonly IAedsEncoder _aedsEncoder;
@@ -81,25 +80,6 @@ public class PodMappingBenchmarks
                 false)],
             1);
         _encodedArticlePage = PodBinaryCodec.EncodeArticlePage(_pageResult);
-        _aotBundle = new PublicAotShellBundleContract
-        {
-            GeneratedAtUtc = DateTimeOffset.UtcNow,
-            Entries =
-            [
-                new PublicAotShellEntryContract
-                {
-                    PageId = PublicPageId.Home,
-                    RouteKey = "home",
-                    Html = "<main><article>benchmark public AOT shell</article></main>",
-                    BootstrapPayload = "bootstrap",
-                    HydrationPropsPayload = "props",
-                    IslandsPayload = "islands",
-                    RendererVersion = "bench-renderer",
-                    Title = "Benchmark",
-                    BaseUrl = "https://example.test"
-                }
-            ]
-        };
         _searchDocuments = Enumerable.Range(0, 256)
             .Select(i => $"fsus blog search benchmark document {i} category {(i % 8)} tag {(i % 13)} content token {(i % 21)}")
             .ToArray();
@@ -207,21 +187,6 @@ public class PodMappingBenchmarks
         PodBinaryCodec.WriteArticlePage(_pageResult, frame.PayloadWriter);
         frame.Seal(AedsFrameType.ArticleList);
         return frame.WrittenFrame.Length;
-    }
-
-    [Benchmark]
-    public int PublicAotBundle_Encode()
-    {
-        byte[] bytes = PodBinaryCodec.EncodePublicAotBundle(_aotBundle);
-        return bytes.Length;
-    }
-
-    [Benchmark]
-    public int PublicAotBundle_Decode()
-    {
-        byte[] bytes = PodBinaryCodec.EncodePublicAotBundle(_aotBundle);
-        bool ok = PodBinaryCodec.TryDecodePublicAotBundle(bytes, out var bundle);
-        return ok ? bundle.Entries.Count : 0;
     }
 
     [Benchmark]

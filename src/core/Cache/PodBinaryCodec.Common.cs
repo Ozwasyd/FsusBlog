@@ -13,6 +13,8 @@ public static partial class PodBinaryCodec
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private static readonly JsonSerializerOptions AedsJsonPayloadOptions = new(JsonSerializerDefaults.Web);
 
+    private static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;
+
     public static void WriteJsonPayload<T>(T value, IBufferWriter<byte> target)
     {
         using var writer = new Utf8JsonWriter(target);

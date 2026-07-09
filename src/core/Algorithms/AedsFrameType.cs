@@ -45,8 +45,6 @@ public enum AedsFrameType : ushort
     FileDeleteRequest = 38,
     AdminChangeUserStatusRequest = 39,
     ArticleWriteRequest = 41,
-    // Reserved legacy value. Client-side AOT bundle uploads are no longer accepted.
-    ArticleAotBundleRequest = 42,
     AuthDeleteAccountRequest = 47,
     MfaSetupStart = 48,
     MfaSetupVerify = 49,

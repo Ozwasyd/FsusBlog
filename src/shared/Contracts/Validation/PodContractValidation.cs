@@ -60,8 +60,6 @@ public static class PodContractValidation
             && IsReferenceFree<TrashClearResponsePod>()
             && IsReferenceFree<ArticleWriteRequestPod>()
             && IsReferenceFree<ArticleRightsWriteRequestPod>()
-            && IsReferenceFree<PublicAotBundlePod>()
-            && IsReferenceFree<PublicAotEntryPod>()
             && IsReferenceFree<ArticleListPagePod>()
             && IsReferenceFree<ArticleHotListPod>()
             && IsReferenceFree<ArticleFeaturedListPod>()

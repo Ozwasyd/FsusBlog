@@ -257,45 +257,6 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void PublicAotBundle_RoundTrip_PreservesEntries()
-    {
-        var generated = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        var bundle = new PublicAotShellBundleContract
-        {
-            GeneratedAtUtc = generated,
-            Entries =
-            [
-                new PublicAotShellEntryContract
-                {
-                    PageId = PublicPageId.ArticleDetail,
-                    RouteKey = "article:7",
-                    Html = "<main>Article</main>",
-                    ArticleId = 7,
-                    BootstrapPayload = "bootstrap-binary-placeholder",
-                    HydrationPropsPayload = "hydration-binary-placeholder",
-                    RendererVersion = "v1",
-                    IslandsPayload = "[]",
-                    Title = "Article",
-                    BaseUrl = "https://example.test"
-                }
-            ]
-        };
-
-        byte[] encoded = PodBinaryCodec.EncodePublicAotBundle(bundle);
-        bool ok = PodBinaryCodec.TryDecodePublicAotBundle(encoded, out var decoded);
-
-        Assert.True(ok);
-        Assert.Equal(generated, decoded.GeneratedAtUtc);
-        Assert.Single(decoded.Entries);
-        Assert.Equal(PublicPageId.ArticleDetail, decoded.Entries[0].PageId);
-        Assert.Equal("article:7", decoded.Entries[0].RouteKey);
-        Assert.Equal("<main>Article</main>", decoded.Entries[0].Html);
-        Assert.Equal(7, decoded.Entries[0].ArticleId);
-        Assert.Equal("v1", decoded.Entries[0].RendererVersion);
-        Assert.Equal("https://example.test", decoded.Entries[0].BaseUrl);
-    }
-
-    [Fact]
     public void SiteComplianceConfig_RoundTrip_PreservesFooterFields()
     {
         var dto = new SiteComplianceConfigPublicDto

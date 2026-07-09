@@ -201,32 +201,6 @@ public readonly struct ArticleRightsWriteRequestPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct PublicAotBundlePod
-{
-    public readonly long GeneratedAtUnixMs;
-    public readonly int EntryCount;
-    public readonly int Reserved;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public readonly struct PublicAotEntryPod
-{
-    public readonly int PageId;
-    public readonly int ArticleId;
-    public readonly byte HasArticleId;
-    public readonly byte Reserved0;
-    public readonly ushort Reserved1;
-    public readonly Utf8SliceRef RouteKey;
-    public readonly Utf8SliceRef Html;
-    public readonly Utf8SliceRef BootstrapPayload;
-    public readonly Utf8SliceRef HydrationPropsPayload;
-    public readonly Utf8SliceRef RendererVersion;
-    public readonly Utf8SliceRef IslandsPayload;
-    public readonly Utf8SliceRef Title;
-    public readonly Utf8SliceRef BaseUrl;
-}
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ArticleListPagePod
 {
     public readonly PagedPodEnvelope Envelope;

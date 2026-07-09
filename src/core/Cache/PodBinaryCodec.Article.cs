@@ -220,106 +220,6 @@ public static partial class PodBinaryCodec
         return value.Length == 0 ? null : value;
     }
 
-    public static void WritePublicAotBundle(PublicAotShellBundleContract bundle, IBufferWriter<byte> destination)
-    {
-        var payload = new ArrayBufferWriter<byte>(4096);
-        var entries = new List<PublicAotEntryPod>(bundle.Entries.Count);
-        foreach (PublicAotShellEntryContract entry in bundle.Entries)
-        {
-            var mutable = new MutablePublicAotEntryPod
-            {
-                PageId = (int)entry.PageId,
-                ArticleId = entry.ArticleId.GetValueOrDefault(),
-                HasArticleId = entry.ArticleId.HasValue ? (byte)1 : (byte)0,
-                Reserved0 = 0,
-                Reserved1 = 0,
-                RouteKey = PodUtf8Codec.AppendSlice(entry.RouteKey, payload),
-                Html = PodUtf8Codec.AppendSlice(entry.Html, payload),
-                BootstrapPayload = PodUtf8Codec.AppendSlice(entry.BootstrapPayload ?? string.Empty, payload),
-                HydrationPropsPayload = PodUtf8Codec.AppendSlice(entry.HydrationPropsPayload ?? string.Empty, payload),
-                RendererVersion = PodUtf8Codec.AppendSlice(entry.RendererVersion ?? string.Empty, payload),
-                IslandsPayload = PodUtf8Codec.AppendSlice(entry.IslandsPayload ?? string.Empty, payload),
-                Title = PodUtf8Codec.AppendSlice(entry.Title ?? string.Empty, payload),
-                BaseUrl = PodUtf8Codec.AppendSlice(entry.BaseUrl ?? string.Empty, payload)
-            };
-            entries.Add(Cast<MutablePublicAotEntryPod, PublicAotEntryPod>(mutable));
-        }
-
-        var bundlePod = new MutablePublicAotBundlePod
-        {
-            GeneratedAtUnixMs = bundle.GeneratedAtUtc.ToUnixTimeMilliseconds(),
-            EntryCount = entries.Count,
-            Reserved = 0
-        };
-
-        var writer = new BinaryPodWriter(destination);
-        writer.WritePod(Cast<MutablePublicAotBundlePod, PublicAotBundlePod>(bundlePod));
-        foreach (PublicAotEntryPod entry in entries)
-        {
-            writer.WritePod(entry);
-        }
-
-        writer.WriteBytes(payload.WrittenSpan);
-    }
-
-    public static byte[] EncodePublicAotBundle(PublicAotShellBundleContract bundle)
-        => EncodeToArray(4096 + bundle.Entries.Sum(static entry => entry.Html.Length), writer => WritePublicAotBundle(bundle, writer));
-
-    public static bool TryDecodePublicAotBundle(ReadOnlyMemory<byte> source, out PublicAotShellBundleContract bundle)
-    {
-        var reader = new BinaryPodReader(source.Span);
-        if (!reader.TryReadPod(out PublicAotBundlePod header) || header.EntryCount < 0)
-        {
-            bundle = new PublicAotShellBundleContract();
-            return false;
-        }
-
-        var pods = new List<PublicAotEntryPod>(header.EntryCount);
-        for (int i = 0; i < header.EntryCount; i++)
-        {
-            if (!reader.TryReadPod(out PublicAotEntryPod entry) || entry.HasArticleId > 1)
-            {
-                bundle = new PublicAotShellBundleContract();
-                return false;
-            }
-
-            pods.Add(entry);
-        }
-
-        if (!reader.TryReadBytes(out ReadOnlySpan<byte> payloadSpan))
-        {
-            bundle = new PublicAotShellBundleContract();
-            return false;
-        }
-
-        var entries = new List<PublicAotShellEntryContract>(pods.Count);
-        foreach (PublicAotEntryPod pod in pods)
-        {
-            entries.Add(new PublicAotShellEntryContract
-            {
-                PageId = (PublicPageId)pod.PageId,
-                ArticleId = pod.HasArticleId == 1 ? pod.ArticleId : null,
-                RouteKey = PodProjector.ReadSlice(pod.RouteKey, payloadSpan),
-                Html = PodProjector.ReadSlice(pod.Html, payloadSpan),
-                BootstrapPayload = NullIfEmpty(PodProjector.ReadSlice(pod.BootstrapPayload, payloadSpan)),
-                HydrationPropsPayload = NullIfEmpty(PodProjector.ReadSlice(pod.HydrationPropsPayload, payloadSpan)),
-                RendererVersion = NullIfEmpty(PodProjector.ReadSlice(pod.RendererVersion, payloadSpan)),
-                IslandsPayload = NullIfEmpty(PodProjector.ReadSlice(pod.IslandsPayload, payloadSpan)),
-                Title = NullIfEmpty(PodProjector.ReadSlice(pod.Title, payloadSpan)),
-                BaseUrl = NullIfEmpty(PodProjector.ReadSlice(pod.BaseUrl, payloadSpan))
-            });
-        }
-
-        bundle = new PublicAotShellBundleContract
-        {
-            GeneratedAtUtc = DateTimeOffset.FromUnixTimeMilliseconds(header.GeneratedAtUnixMs),
-            Entries = entries
-        };
-        return reader.IsConsumed;
-    }
-
-    private static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;
-
     public static void WriteArticlePage(CorePageResult<ArticleListCoreModel> page, IBufferWriter<byte> destination)
     {
         var blob = new List<byte>(Math.Max(256, page.Items.Count * 128));
@@ -1096,32 +996,6 @@ public static partial class PodBinaryCodec
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ContentCanonicalHash;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ProofUrl;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ProofStatus;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutablePublicAotBundlePod
-    {
-        public long GeneratedAtUnixMs;
-        public int EntryCount;
-        public int Reserved;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutablePublicAotEntryPod
-    {
-        public int PageId;
-        public int ArticleId;
-        public byte HasArticleId;
-        public byte Reserved0;
-        public ushort Reserved1;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RouteKey;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Html;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef BootstrapPayload;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef HydrationPropsPayload;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RendererVersion;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IslandsPayload;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Title;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef BaseUrl;
     }
 
     public static void WriteArticleSearch(IReadOnlyList<ArticleListCoreModel> items, IBufferWriter<byte> destination)
