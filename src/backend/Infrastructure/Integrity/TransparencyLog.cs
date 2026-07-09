@@ -50,7 +50,7 @@ public sealed class PublishProofTransparencyLog(ISqlSugarClient db) : IPublishPr
             IntegrityTransparencyLogEntry? latest = await GetLatestHeadAsync(cancellationToken).ConfigureAwait(false);
             long seq = (latest?.Seq ?? 0) + 1;
             string prevHash = latest?.EntryHash ?? TransparencyLogEntryCanonicalizer.GenesisPreviousHash;
-            DateTime createdAt = DateTime.UtcNow;
+            DateTime createdAt = UtcNowForTimestampColumn();
             string entryPayloadHash = ComputePublishProofPayloadHash(proof);
             var input = new TransparencyLogEntryInput(
                 Seq: seq,
@@ -122,7 +122,7 @@ public sealed class PublishProofTransparencyLog(ISqlSugarClient db) : IPublishPr
             IntegrityTransparencyLogEntry? latest = await GetLatestHeadAsync(cancellationToken).ConfigureAwait(false);
             long seq = (latest?.Seq ?? 0) + 1;
             string prevHash = latest?.EntryHash ?? TransparencyLogEntryCanonicalizer.GenesisPreviousHash;
-            DateTime createdAt = DateTime.UtcNow;
+            DateTime createdAt = UtcNowForTimestampColumn();
             string entryPayloadHash = ComputeArticleRightsProofPayloadHash(proof);
             var input = new TransparencyLogEntryInput(
                 Seq: seq,
@@ -334,4 +334,10 @@ public sealed class PublishProofTransparencyLog(ISqlSugarClient db) : IPublishPr
             value is null
                 ? $"{field}:n"
                 : $"{field}:s:{Convert.ToBase64String(Encoding.UTF8.GetBytes(value.Trim().Normalize(NormalizationForm.FormC)))}");
+
+    private static DateTime UtcNowForTimestampColumn()
+    {
+        DateTime now = DateTime.UtcNow;
+        return new DateTime(now.Ticks - now.Ticks % 10, DateTimeKind.Utc);
+    }
 }

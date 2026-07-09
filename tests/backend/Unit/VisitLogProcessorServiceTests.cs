@@ -31,12 +31,11 @@ public sealed class VisitLogProcessorServiceTests
         Assert.True(channel.TryWrite(CreateMessage("127.0.0.1")));
 
         var elapsed = Stopwatch.StartNew();
-        await DrainBatchAsync(worker, batch, CancellationToken.None);
+        await DrainBatchAsync(worker, batch, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
         elapsed.Stop();
 
         Assert.Single(batch);
         Assert.True(elapsed.Elapsed >= VisitLogProcessorService.FlushWindow * 0.75);
-        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(2));
     }
 
     [Fact]

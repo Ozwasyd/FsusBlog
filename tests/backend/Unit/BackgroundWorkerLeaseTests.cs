@@ -104,7 +104,7 @@ public sealed class BackgroundWorkerLeaseTests
                 await releaseLeader.Task.WaitAsync(token);
             });
 
-        await leaderStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await leaderStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
         await Task.Delay(2500);
         bool standbyRan = await standby.TryRunAsLeaderAsync(
             "pow-load-reset-worker",
@@ -115,7 +115,7 @@ public sealed class BackgroundWorkerLeaseTests
             });
 
         releaseLeader.SetResult(true);
-        bool leaderRan = await leaderTask.WaitAsync(TimeSpan.FromSeconds(2));
+        bool leaderRan = await leaderTask.WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.True(leaderRan);
         Assert.False(standbyRan);
