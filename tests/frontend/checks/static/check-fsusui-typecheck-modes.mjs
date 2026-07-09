@@ -102,16 +102,30 @@ if (failures.length === 0) {
   }
 
   for (const [alias, expected] of [
-    ['@ozwasyd/element-plus', '../../../FsusUI/packages/element-plus/index.ts'],
-    ['@ozwasyd/element-plus/theme', '../../../FsusUI/packages/element-plus/theme.ts'],
-    ['@ozwasyd/element-plus/markdown-runtime', '../../../FsusUI/packages/element-plus/markdown-runtime.ts'],
-    ['@ozwasyd/element-plus/motion', '../../../FsusUI/packages/element-plus/motion.ts'],
-    ['@ozwasyd/element-plus/perception-challenge', '../../../FsusUI/packages/element-plus/perception-challenge.ts'],
-    ['@element-plus/*', '../../../FsusUI/packages/*'],
+    ['@ozwasyd/element-plus', '../../../FsusUI/vue/packages/element-plus/index.ts'],
+    ['@ozwasyd/element-plus/theme', '../../../FsusUI/vue/packages/element-plus/theme.ts'],
+    ['@ozwasyd/element-plus/markdown-runtime', '../../../FsusUI/vue/packages/element-plus/markdown-runtime.ts'],
+    ['@ozwasyd/element-plus/motion', '../../../FsusUI/vue/packages/element-plus/motion.ts'],
+    ['@ozwasyd/element-plus/perception-challenge', '../../../FsusUI/vue/packages/element-plus/perception-challenge.ts'],
+    ['@element-plus/*', '../../../FsusUI/vue/packages/*'],
   ]) {
     if (!localPaths[alias]?.includes(expected)) {
       failures.push(`src/frontend/tsconfig.fsusui-local.json: missing local path mapping ${alias} -> ${expected}`)
     }
+  }
+
+  const localPathEntries = Object.values(localPaths).flat()
+  if (localPathEntries.some((entry) => entry.includes('../../../FsusUI/packages'))) {
+    failures.push('src/frontend/tsconfig.fsusui-local.json: must not reference the old FsusUI root packages path')
+  }
+  if (local.include?.some((entry) => entry.includes('../../../FsusUI/global.d.ts') || entry.includes('../../../FsusUI/typings/'))) {
+    failures.push('src/frontend/tsconfig.fsusui-local.json: must include local FsusUI declarations from ../../../FsusUI/vue')
+  }
+  if (viteAliases.includes('/packages/') && !viteAliases.includes('/vue/packages/')) {
+    failures.push('src/frontend/scripts/fsusui-local.ts: local aliases must resolve through the FsusUI vue/ workspace')
+  }
+  if (localRunner.includes("fromLocal('packages'") || localRunner.includes("path.join(localRoot, 'global.d.ts')")) {
+    failures.push('src/frontend/scripts/run-local-fsusui-typecheck.mjs: local typecheck runner must resolve through the FsusUI vue/ workspace')
   }
 
   for (const token of [

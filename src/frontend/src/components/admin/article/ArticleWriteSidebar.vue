@@ -314,8 +314,8 @@ const coverSectionOpen = ref(false)
   font-weight: 650;
   text-align: left;
   transition:
-    background-color 160ms ease,
-    color 160ms ease;
+    background-color var(--blog-motion-fast) var(--blog-motion-ease),
+    color var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
 .article-sidebar-summary:hover {
@@ -351,7 +351,7 @@ const coverSectionOpen = ref(false)
   border: 1px solid var(--fsusblog-panel-border);
   padding: 0.28rem 0.48rem;
   color: var(--fsusblog-text-secondary);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -373,7 +373,7 @@ const coverSectionOpen = ref(false)
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: translateY(-0.1rem) rotate(45deg);
-  transition: transform 160ms ease;
+  transition: transform var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
 .article-sidebar-section.is-open > .article-sidebar-summary .article-sidebar-summary__chevron {

@@ -129,7 +129,10 @@ const handlePreviewError = (): void => {
   border: 1px solid var(--fsusblog-panel-border-strong);
   border-radius: var(--fsus-radius-popover);
   background: var(--fsusblog-page-bg);
-  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  transition:
+    background-color var(--blog-motion-fast) var(--blog-motion-ease),
+    border-color var(--blog-motion-fast) var(--blog-motion-ease),
+    opacity var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
 .brand-asset-upload-field__preview:hover {

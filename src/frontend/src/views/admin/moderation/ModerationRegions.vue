@@ -736,9 +736,6 @@ watch(
   cursor: pointer;
   text-align: left;
   text-decoration: none;
-  transition:
-    background-color 140ms ease,
-    color 140ms ease;
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__row:hover) {
@@ -832,9 +829,9 @@ watch(
   color: var(--fsusblog-text-muted);
   opacity: 0.72;
   transition:
-    color 140ms ease,
-    opacity 140ms ease,
-    transform 140ms ease;
+    color var(--blog-motion-fast) var(--blog-motion-ease),
+    opacity var(--blog-motion-fast) var(--blog-motion-ease),
+    transform var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
 .moderation-regions-mobile-cell--indicator svg {
@@ -849,6 +846,9 @@ watch(
 .moderation-regions-mobile-cell--indicator.is-active {
   color: var(--fsusblog-color-primary);
   opacity: 1;
+}
+
+.moderation-regions-mobile-cell--indicator.is-active {
   transform: translateX(2px);
 }
 

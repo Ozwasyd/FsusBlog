@@ -83,7 +83,7 @@
       </div>
 
       <el-input
-        v-show="commentComposerMode === 'write'"
+        v-if="commentComposerMode === 'write'"
         ref="editorInputRef"
         v-model="contentModel"
         type="textarea"
@@ -99,7 +99,7 @@
       />
 
       <div
-        v-show="commentComposerMode === 'preview'"
+        v-else
         class="comment-composer-preview"
         :class="{ 'is-empty': !contentModel.trim() }"
       >
@@ -163,7 +163,7 @@
           </div>
         </div>
         <textarea
-          v-show="commentComposerMode === 'write'"
+          v-if="commentComposerMode === 'write'"
           ref="focusEditorInputRef"
           v-model="contentModel"
           class="comment-composer-focus__textarea"
@@ -176,7 +176,7 @@
           @keydown.meta.enter="requestSubmit"
         />
         <div
-          v-show="commentComposerMode === 'preview'"
+          v-else
           class="comment-composer-preview comment-composer-focus__preview"
           :class="{ 'is-empty': !contentModel.trim() }"
         >
@@ -198,8 +198,9 @@
             <span>{{ commentUtf8Bytes }} / {{ commentPolicy.maxUtf8Bytes }} bytes</span>
           </div>
           <div class="comment-composer-focus__actions">
-            <el-button @click="focusModeVisible = false">收起</el-button>
+            <el-button class="comment-composer-focus__action" @click="focusModeVisible = false">收起</el-button>
             <el-button
+              class="comment-composer-focus__action"
               type="primary"
               :disabled="submitDisabled"
               @click="requestSubmit"
@@ -429,6 +430,7 @@ const focusFocusModeEditor = async (): Promise<void> => {
 }
 
 const openFocusMode = (): void => {
+  commentComposerMode.value = 'write'
   focusModeVisible.value = true
   void focusFocusModeEditor()
 }
@@ -942,11 +944,6 @@ watch(() => contentModel.value, (value) => {
   margin-right: auto;
 }
 
-:global(.comment-composer-focus-dialog .el-dialog__footer) {
-  justify-content: stretch;
-  text-align: initial;
-}
-
 :global(.comment-composer-focus-dialog .fsus-dialog__footer) {
   width: 100%;
 }
@@ -956,6 +953,10 @@ watch(() => contentModel.value, (value) => {
   align-items: center;
   justify-content: flex-end;
   gap: 0.75rem;
+}
+
+.comment-composer-focus__action {
+  min-width: 0;
 }
 
 @media (max-width: 520px) {
@@ -996,7 +997,7 @@ watch(() => contentModel.value, (value) => {
     gap: 0.75rem;
   }
 
-  .comment-composer-focus__actions :deep(.el-button) {
+  .comment-composer-focus__action {
     width: 100%;
     margin-left: 0;
   }

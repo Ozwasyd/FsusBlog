@@ -15,7 +15,7 @@
     >
       <template #card="{ item: row }: { item: UserListViewItem }">
         <div
-          class="user-resource-list-item px-4 py-4"
+          class="user-resource-list-item border-b border-[var(--fsusblog-panel-border)] px-4 py-3"
           :class="rowMotionClass(row.accountId)"
           role="listitem"
           v-memo="[row.accountId, row.displayHandle, row.status, row.riskFlags, rowMotionClass(row.accountId)]"

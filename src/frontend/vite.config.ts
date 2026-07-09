@@ -193,7 +193,7 @@ function createLocalFsusUiTransformExcludes(localFsusUiRoot: string | null): Reg
     const normalizedRoot = localFsusUiRoot.replace(/\\/g, '/').replace(/\/+$/, '')
     return [
         ...defaults,
-        new RegExp(`${escapeRegExp(normalizedRoot)}/packages/`),
+        new RegExp(`${escapeRegExp(normalizedRoot)}/vue/packages/`),
     ]
 }
 

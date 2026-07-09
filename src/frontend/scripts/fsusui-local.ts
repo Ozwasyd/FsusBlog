@@ -34,15 +34,15 @@ const requiredThemeCssAssets = [
 const toVitePath = (value: string) => value.replace(/\\/g, '/')
 
 const hasLocalFsusUiSource = (root: string) =>
-  fs.existsSync(path.join(root, 'packages', 'element-plus', 'index.ts')) &&
-  fs.existsSync(path.join(root, 'packages', 'icons-vue', 'src', 'index.ts'))
+  fs.existsSync(path.join(root, 'vue', 'packages', 'element-plus', 'index.ts')) &&
+  fs.existsSync(path.join(root, 'vue', 'packages', 'icons-vue', 'src', 'index.ts'))
 
 const hasLocalWasmAssets = (root: string | null) => {
   if (!root) {
     return false
   }
 
-  const wasmDist = path.join(root, 'packages', 'wasm', 'dist')
+  const wasmDist = path.join(root, 'vue', 'packages', 'wasm', 'dist')
   return requiredWasmAssets.every((fileName) => fs.existsSync(path.join(wasmDist, fileName)))
 }
 
@@ -51,7 +51,7 @@ const hasLocalThemeCssAssets = (root: string | null) => {
     return false
   }
 
-  const themeDist = path.join(root, 'packages', 'theme-chalk', 'dist')
+  const themeDist = path.join(root, 'vue', 'packages', 'theme-chalk', 'dist')
   return requiredThemeCssAssets.every((fileName) => fs.existsSync(path.join(themeDist, fileName)))
 }
 
@@ -65,7 +65,7 @@ export function resolveLocalFsusUiRoot(override?: string | null): string | null 
 
 export function resolveFsusUiWasmDist(localFsusUiRoot: string | null): string {
   if (hasLocalWasmAssets(localFsusUiRoot)) {
-    return path.join(localFsusUiRoot as string, 'packages', 'wasm', 'dist')
+    return path.join(localFsusUiRoot as string, 'vue', 'packages', 'wasm', 'dist')
   }
 
   return path.join(packagedFsusUiRoot, 'es', 'wasm', 'dist')
@@ -79,11 +79,11 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
   }
 
   const root = toVitePath(localFsusUiRoot).replace(/\/+$/, '')
-  const packageRoot = `${root}/packages/element-plus`
+  const packageRoot = `${root}/vue/packages/element-plus`
   const packagedRoot = toVitePath(packagedFsusUiRoot)
   const localWasmReady = hasLocalWasmAssets(localFsusUiRoot)
   const localThemeCssReady = hasLocalThemeCssAssets(localFsusUiRoot)
-  const localThemeDist = `${root}/packages/theme-chalk/dist`
+  const localThemeDist = `${root}/vue/packages/theme-chalk/dist`
 
   return [
     { find: /^@ozwasyd\/element-plus$/, replacement: `${packageRoot}/index.ts` },
@@ -132,21 +132,21 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
         ? `${localThemeDist}/$1.css`
         : `${packagedRoot}/theme-chalk/$1.css`,
     },
-    { find: /^@element-plus\/icons-vue$/, replacement: `${root}/packages/icons-vue/src/index.ts` },
-    { find: /^@element-plus\/icons-vue\/(.+)$/, replacement: `${root}/packages/icons-vue/src/$1` },
-    { find: /^@element-plus\/theme-chalk\/src$/, replacement: `${root}/packages/theme-chalk/src` },
-    { find: /^@element-plus\/theme-chalk\/src\/(.+)$/, replacement: `${root}/packages/theme-chalk/src/$1` },
-    { find: /^@element-plus\/theme-chalk\/(.+)\.css$/, replacement: `${root}/packages/theme-chalk/src/$1.scss` },
+    { find: /^@element-plus\/icons-vue$/, replacement: `${root}/vue/packages/icons-vue/src/index.ts` },
+    { find: /^@element-plus\/icons-vue\/(.+)$/, replacement: `${root}/vue/packages/icons-vue/src/$1` },
+    { find: /^@element-plus\/theme-chalk\/src$/, replacement: `${root}/vue/packages/theme-chalk/src` },
+    { find: /^@element-plus\/theme-chalk\/src\/(.+)$/, replacement: `${root}/vue/packages/theme-chalk/src/$1` },
+    { find: /^@element-plus\/theme-chalk\/(.+)\.css$/, replacement: `${root}/vue/packages/theme-chalk/src/$1.scss` },
     {
       find: /^@element-plus\/wasm$/,
-      replacement: localWasmReady ? `${root}/packages/wasm/index.ts` : `${packagedRoot}/es/wasm.mjs`,
+      replacement: localWasmReady ? `${root}/vue/packages/wasm/index.ts` : `${packagedRoot}/es/wasm.mjs`,
     },
     ...(localWasmReady
       ? [
-        { find: /^@element-plus\/wasm\/(.+)$/, replacement: `${root}/packages/wasm/$1` },
+        { find: /^@element-plus\/wasm\/(.+)$/, replacement: `${root}/vue/packages/wasm/$1` },
       ]
       : []),
-    { find: /^@element-plus\/([^/]+)$/, replacement: `${root}/packages/$1` },
-    { find: /^@element-plus\/([^/]+)\/(.+)$/, replacement: `${root}/packages/$1/$2` },
+    { find: /^@element-plus\/([^/]+)$/, replacement: `${root}/vue/packages/$1` },
+    { find: /^@element-plus\/([^/]+)\/(.+)$/, replacement: `${root}/vue/packages/$1/$2` },
   ]
 }

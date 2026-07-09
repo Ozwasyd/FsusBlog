@@ -38,7 +38,7 @@
       </FsusUiKeyValueGrid>
       <AdminInlineEmptyState
         v-else
-        title="暂无 proof"
+        title="Proof 状态待加载"
         content="加载后显示 proof、log、checkpoint 和 signing key 状态。"
       />
     </FsusUiSettingsSection>
@@ -121,7 +121,7 @@
               <span>{{ formatStatus(key.status) }}</span>
             </div>
           </div>
-          <AdminInlineEmptyState v-else title="暂无 signing key" content="未配置可展示的 signing key registry。" />
+          <AdminInlineEmptyState v-else title="Signing key registry 未配置" content="未配置可展示的 signing key registry。" />
         </FsusUiSettingsSection>
       </div>
     </section>
