@@ -16,18 +16,20 @@ import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 
 type SiteBrandConfig = Omit<SeoConfigPublic, 'title' | 'description' | 'keywords' | 'author' | 'ogImage' | 'baseUrl'>
 
+export const DEFAULT_SITE_OG_IMAGE = '/social/og-image.png'
+
 export const DEFAULT_SITE_BRAND_CONFIG: SiteBrandConfig = {
-  faviconSvgUrl: '/favicon.svg',
-  faviconIcoUrl: '/favicon.ico',
-  faviconPngUrl: '',
-  appleTouchIconUrl: '/apple-touch-icon.png',
+  faviconSvgUrl: '/favicon/favicon.svg',
+  faviconIcoUrl: '/favicon/favicon.ico',
+  faviconPngUrl: '/favicon/favicon-32x32.png',
+  appleTouchIconUrl: '/favicon/apple-touch-icon.png',
   manifestName: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackManifestName,
   manifestShortName: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackManifestShortName,
-  pwaIcon192Url: '/icons/icon-192.png',
-  pwaIcon512Url: '/icons/icon-512.png',
-  pwaMaskableIconUrl: '/icons/maskable-512.png',
-  themeColor: '#0f0f11',
-  backgroundColor: '#fcfcfc',
+  pwaIcon192Url: '/favicon/pwa-192x192.png',
+  pwaIcon512Url: '/favicon/pwa-512x512.png',
+  pwaMaskableIconUrl: '/favicon/maskable-icon-512x512.png',
+  themeColor: '#0B4F7A',
+  backgroundColor: '#FFFFFF',
   siteLogoUrl: '',
   siteLogoDarkUrl: '',
   siteWordmarkUrl: '',
@@ -56,7 +58,7 @@ export const useSiteStore = defineStore('site', () => {
     description: normalizePublicSiteDescription(payload?.siteDescription),
     keywords: DEFAULT_SITE_KEYWORDS,
     author: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackAuthor,
-    ogImage: "",
+    ogImage: DEFAULT_SITE_OG_IMAGE,
     baseUrl: payload?.baseUrl || resolveBaseUrl(),
     ...DEFAULT_SITE_BRAND_CONFIG,
     siteLogoUrl: payload?.siteLogoUrl || DEFAULT_SITE_BRAND_CONFIG.siteLogoUrl,

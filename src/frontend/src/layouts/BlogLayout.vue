@@ -28,6 +28,7 @@ import { PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 import { createPublicTakeoverSeed } from '@/public-renderers/publicSiteIdentity'
 import { createPublicSiteIdentity } from '@/public-renderers/publicSiteIdentityContext'
+import { DEFAULT_SITE_OG_IMAGE } from '@/store/site'
 
 const { siteStore, ensurePublicShell } = useSessionBootstrap()
 const router = useRouter()
@@ -97,10 +98,72 @@ function syncPublicDocumentHead(): void {
     document.head.appendChild(descriptionMeta)
   }
   descriptionMeta.setAttribute('content', activeSiteIdentity.value.siteDescription)
+  syncDefaultBrandHeadAssets()
+}
+
+function syncLinkElement(selector: string, rel: string, href: string, attributes: Record<string, string> = {}): void {
+  if (!href) {
+    return
+  }
+
+  let link = document.querySelector<HTMLLinkElement>(selector)
+  if (!link) {
+    link = document.createElement('link')
+    link.setAttribute('rel', rel)
+    link.dataset.fsusDefaultBrand = 'true'
+    document.head.appendChild(link)
+  }
+
+  link.setAttribute('href', href)
+  for (const [name, value] of Object.entries(attributes)) {
+    link.setAttribute(name, value)
+  }
+}
+
+function syncMetaElement(selector: string, attributes: Record<string, string>, content: string, overwriteExisting = true): void {
+  if (!content) {
+    return
+  }
+
+  let meta = document.querySelector<HTMLMetaElement>(selector)
+  if (!meta) {
+    meta = document.createElement('meta')
+    meta.dataset.fsusDefaultBrand = 'true'
+    for (const [name, value] of Object.entries(attributes)) {
+      meta.setAttribute(name, value)
+    }
+    document.head.appendChild(meta)
+  }
+
+  if (overwriteExisting || meta.dataset.fsusDefaultBrand === 'true') {
+    meta.setAttribute('content', content)
+  }
+}
+
+function syncDefaultBrandHeadAssets(): void {
+  const siteInfo = siteStore.siteInfo
+  syncLinkElement('link[rel~="icon"][type="image/svg+xml"]', 'icon', siteInfo.faviconSvgUrl, { type: 'image/svg+xml' })
+  syncLinkElement('link[rel~="icon"][type="image/x-icon"]', 'icon', siteInfo.faviconIcoUrl, { type: 'image/x-icon' })
+  syncLinkElement('link[rel~="icon"][type="image/png"]', 'icon', siteInfo.faviconPngUrl, { type: 'image/png', sizes: '32x32' })
+  syncLinkElement('link[rel="apple-touch-icon"]', 'apple-touch-icon', siteInfo.appleTouchIconUrl, { sizes: '180x180' })
+  syncMetaElement('meta[name="theme-color"]', { name: 'theme-color' }, siteInfo.themeColor)
+
+  const defaultOgImage = siteInfo.ogImage || DEFAULT_SITE_OG_IMAGE
+  syncMetaElement('meta[property="og:image"]', { property: 'og:image' }, defaultOgImage, false)
+  syncMetaElement('meta[name="twitter:image"]', { name: 'twitter:image' }, defaultOgImage, false)
 }
 
 watch(
-  () => [publicDocumentTitle.value, activeSiteIdentity.value.siteDescription] as const,
+  () => [
+    publicDocumentTitle.value,
+    activeSiteIdentity.value.siteDescription,
+    siteStore.siteInfo.faviconSvgUrl,
+    siteStore.siteInfo.faviconIcoUrl,
+    siteStore.siteInfo.faviconPngUrl,
+    siteStore.siteInfo.appleTouchIconUrl,
+    siteStore.siteInfo.themeColor,
+    siteStore.siteInfo.ogImage
+  ] as const,
   syncPublicDocumentHead,
   { immediate: true }
 )

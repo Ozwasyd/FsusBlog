@@ -538,7 +538,6 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("/sw.js", branch, StringComparison.Ordinal);
         Assert.Contains("/search/index.manifest.aeds", branch, StringComparison.Ordinal);
         Assert.Contains("/search/index.bin", branch, StringComparison.Ordinal);
-        Assert.Contains("/favicon.svg", branch, StringComparison.Ordinal);
         Assert.Contains("/manifest.webmanifest", branch, StringComparison.Ordinal);
         Assert.DoesNotContain("headers.Remove(\"ETag\")", branch, StringComparison.Ordinal);
         Assert.DoesNotContain("headers.Remove(\"Last-Modified\")", branch, StringComparison.Ordinal);
@@ -606,7 +605,6 @@ public sealed class WebApplicationCompositionExtensionsTests
     [InlineData("/sw.js", "self.__fsus_test = 1;")]
     [InlineData("/search/index.manifest.aeds", "manifest-v1")]
     [InlineData("/search/index.bin", "legacy-index-v1")]
-    [InlineData("/favicon.svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>")]
     [InlineData("/manifest.webmanifest", "{\"name\":\"FsusBlog\"}")]
     public async Task StaticNoCacheEntryAssets_ReturnNotModifiedWhenEtagMatches(string path, string contents)
     {

@@ -160,7 +160,7 @@
                 </header>
                 <div class="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
                   <el-form-item label="SVG favicon" class="sm:col-span-2">
-                    <el-input v-model="siteForm.faviconSvgUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/favicon.svg" />
+                    <el-input v-model="siteForm.faviconSvgUrl" maxlength="256" :disabled="siteFormDisabled" placeholder="/favicon/favicon.svg" />
                     <div class="mt-3 text-[11px] font-semibold leading-relaxed text-[var(--fsusblog-text-muted)]">
                       SVG 仅支持填写已清洗的安全 URL；上传入口不会接收 SVG 原文。
                     </div>
@@ -175,7 +175,7 @@
                     :uploading="brandAssetUploadingField === 'faviconIcoUrl'"
                     :preview-url="resolveBrandAssetPreviewUrl('faviconIcoUrl')"
                     preview-variant="icon"
-                    placeholder="/favicon.ico"
+                    placeholder="/favicon/favicon.ico"
                     accept="image/x-icon,image/vnd.microsoft.icon,.ico"
                     @upload="handleBrandAssetUpload"
                   />
@@ -187,7 +187,7 @@
                     :uploading="brandAssetUploadingField === 'faviconPngUrl'"
                     :preview-url="resolveBrandAssetPreviewUrl('faviconPngUrl')"
                     preview-variant="icon"
-                    placeholder="/icons/favicon-96.png"
+                    placeholder="/favicon/favicon-32x32.png"
                     @upload="handleBrandAssetUpload"
                   />
                   <BrandAssetUploadField
@@ -198,7 +198,7 @@
                     :uploading="brandAssetUploadingField === 'appleTouchIconUrl'"
                     :preview-url="resolveBrandAssetPreviewUrl('appleTouchIconUrl')"
                     preview-variant="icon"
-                    placeholder="/apple-touch-icon.png"
+                    placeholder="/favicon/apple-touch-icon.png"
                     @upload="handleBrandAssetUpload"
                   />
                   <BrandAssetUploadField
@@ -209,7 +209,7 @@
                     :uploading="brandAssetUploadingField === 'pwaIcon192Url'"
                     :preview-url="resolveBrandAssetPreviewUrl('pwaIcon192Url')"
                     preview-variant="icon"
-                    placeholder="/icons/icon-192.png"
+                    placeholder="/favicon/pwa-192x192.png"
                     @upload="handleBrandAssetUpload"
                   />
                   <BrandAssetUploadField
@@ -220,7 +220,7 @@
                     :uploading="brandAssetUploadingField === 'pwaIcon512Url'"
                     :preview-url="resolveBrandAssetPreviewUrl('pwaIcon512Url')"
                     preview-variant="icon"
-                    placeholder="/icons/icon-512.png"
+                    placeholder="/favicon/pwa-512x512.png"
                     @upload="handleBrandAssetUpload"
                   />
                   <BrandAssetUploadField
@@ -231,7 +231,7 @@
                     :uploading="brandAssetUploadingField === 'pwaMaskableIconUrl'"
                     :preview-url="resolveBrandAssetPreviewUrl('pwaMaskableIconUrl')"
                     preview-variant="icon"
-                    placeholder="/icons/maskable-512.png"
+                    placeholder="/favicon/maskable-icon-512x512.png"
                     @upload="handleBrandAssetUpload"
                   />
                 </div>
@@ -244,14 +244,14 @@
                   </el-form-item>
                   <div class="grid grid-cols-2 gap-4">
                     <el-form-item label="主题色">
-                      <el-input v-model="siteForm.themeColor" maxlength="7" :disabled="siteFormDisabled" placeholder="#0f0f11">
+                      <el-input v-model="siteForm.themeColor" maxlength="7" :disabled="siteFormDisabled" placeholder="#0B4F7A">
                         <template #prepend>
                           <span class="inline-block h-4 w-4 border border-[var(--fsusblog-panel-border)]" :style="{ backgroundColor: siteForm.themeColor }" />
                         </template>
                       </el-input>
                     </el-form-item>
                     <el-form-item label="启动背景">
-                      <el-input v-model="siteForm.backgroundColor" maxlength="7" :disabled="siteFormDisabled" placeholder="#fcfcfc">
+                      <el-input v-model="siteForm.backgroundColor" maxlength="7" :disabled="siteFormDisabled" placeholder="#FFFFFF">
                         <template #prepend>
                           <span class="inline-block h-4 w-4 border border-[var(--fsusblog-panel-border)]" :style="{ backgroundColor: siteForm.backgroundColor }" />
                         </template>

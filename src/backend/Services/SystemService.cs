@@ -114,14 +114,30 @@ public partial class SystemService(
     private const string MissingPageContent = "页面内容正在准备中，请稍后再试。";
     private const string DefaultIcpRecordUrl = "https://beian.miit.gov.cn/";
     private const string DefaultPoliceRecordUrl = "https://beian.mps.gov.cn/";
-    private const string DefaultFaviconSvgUrl = "/favicon.svg";
-    private const string DefaultFaviconIcoUrl = "/favicon.ico";
-    private const string DefaultAppleTouchIconUrl = "/apple-touch-icon.png";
-    private const string DefaultPwaIcon192Url = "/icons/icon-192.png";
-    private const string DefaultPwaIcon512Url = "/icons/icon-512.png";
-    private const string DefaultPwaMaskableIconUrl = "/icons/maskable-512.png";
-    private const string DefaultThemeColor = "#0f0f11";
-    private const string DefaultBackgroundColor = "#fcfcfc";
+    private const string DefaultOgImage = "/social/og-image.png";
+    private const string DefaultFaviconSvgUrl = "/favicon/favicon.svg";
+    private const string DefaultFaviconIcoUrl = "/favicon/favicon.ico";
+    private const string DefaultFaviconPngUrl = "/favicon/favicon-32x32.png";
+    private const string DefaultAppleTouchIconUrl = "/favicon/apple-touch-icon.png";
+    private const string DefaultPwaIcon192Url = "/favicon/pwa-192x192.png";
+    private const string DefaultPwaIcon512Url = "/favicon/pwa-512x512.png";
+    private const string DefaultPwaMaskableIconUrl = "/favicon/maskable-icon-512x512.png";
+    private const string DefaultThemeColor = "#0B4F7A";
+    private const string DefaultBackgroundColor = "#FFFFFF";
+    private static readonly string[] RetiredDefaultOgImages =
+    [
+        "/og-image.png",
+        "/images/og.png",
+        "/images/og-default.png"
+    ];
+    private static readonly string[] RetiredDefaultFaviconSvgUrls = ["/favicon.svg"];
+    private static readonly string[] RetiredDefaultFaviconIcoUrls = ["/favicon.ico"];
+    private static readonly string[] RetiredDefaultAppleTouchIconUrls = ["/apple-touch-icon.png"];
+    private static readonly string[] RetiredDefaultPwaIcon192Urls = ["/icons/icon-192.png"];
+    private static readonly string[] RetiredDefaultPwaIcon512Urls = ["/icons/icon-512.png"];
+    private static readonly string[] RetiredDefaultPwaMaskableIconUrls = ["/icons/maskable-512.png"];
+    private static readonly string[] RetiredDefaultThemeColors = ["#0f0f11", "#09090b"];
+    private static readonly string[] RetiredDefaultBackgroundColors = ["#fcfcfc", "#f7f7f8"];
 
     private const int MaxSlugLength = 64;
     private const int MaxPageContentLength = 200_000;
@@ -133,7 +149,7 @@ public partial class SystemService(
 
     public async Task<SeoConfigReadModel> GetSeoConfigAsync()
     {
-        return await _cacheMissCoordinator.CoordinateAsync(
+        SeoConfigReadModel result = await _cacheMissCoordinator.CoordinateAsync(
                 CachePolicyId.SystemSeo,
                 "main",
                 ct => BoundaryExecutor.ExecuteValueAsync(
@@ -169,6 +185,8 @@ public partial class SystemService(
                 cancellationToken: default)
             .ConfigureAwait(false)
             ?? new SeoConfigReadModel();
+
+        return NormalizeLoadedSeoConfig(result);
     }
 
     public async Task UpdateSeoConfigAsync(UpdateSeoConfigRequest dto)
@@ -394,6 +412,36 @@ public partial class SystemService(
         return defaultValue;
     }
 
+    private static string GetDefaultAwareValue(List<ConfigItem> list, string key, string defaultValue, IReadOnlyList<string> retiredDefaults)
+    {
+        string value = GetValue(list, key, defaultValue);
+        return DefaultIfRetiredDefault(value, defaultValue, retiredDefaults);
+    }
+
+    private static string DefaultIfRetiredDefault(string? value, string defaultValue, IReadOnlyList<string> retiredDefaults)
+    {
+        return IsRetiredDefaultValue(value, retiredDefaults) ? defaultValue : value ?? string.Empty;
+    }
+
+    private static bool IsRetiredDefaultValue(string? value, IReadOnlyList<string> retiredDefaults)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        string normalized = value.Trim();
+        for (int i = 0; i < retiredDefaults.Count; i++)
+        {
+            if (string.Equals(normalized, retiredDefaults[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static string NormalizeSlug(string? slug)
     {
         if (string.IsNullOrWhiteSpace(slug))
@@ -420,6 +468,35 @@ public partial class SystemService(
         return content.Length > MaxPageContentLength ? content[..MaxPageContentLength] : content;
     }
 
+    private static SeoConfigReadModel NormalizeLoadedSeoConfig(SeoConfigReadModel dto)
+        => NormalizeSeoConfig(new UpdateSeoConfigRequest
+        {
+            Title = dto.Title,
+            Description = dto.Description,
+            Keywords = dto.Keywords,
+            Author = dto.Author,
+            OgImage = DefaultIfRetiredDefault(dto.OgImage, DefaultOgImage, RetiredDefaultOgImages),
+            BaseUrl = dto.BaseUrl,
+            FaviconSvgUrl = DefaultIfRetiredDefault(dto.FaviconSvgUrl, DefaultFaviconSvgUrl, RetiredDefaultFaviconSvgUrls),
+            FaviconIcoUrl = DefaultIfRetiredDefault(dto.FaviconIcoUrl, DefaultFaviconIcoUrl, RetiredDefaultFaviconIcoUrls),
+            FaviconPngUrl = dto.FaviconPngUrl,
+            AppleTouchIconUrl = DefaultIfRetiredDefault(dto.AppleTouchIconUrl, DefaultAppleTouchIconUrl, RetiredDefaultAppleTouchIconUrls),
+            ManifestName = dto.ManifestName,
+            ManifestShortName = dto.ManifestShortName,
+            PwaIcon192Url = DefaultIfRetiredDefault(dto.PwaIcon192Url, DefaultPwaIcon192Url, RetiredDefaultPwaIcon192Urls),
+            PwaIcon512Url = DefaultIfRetiredDefault(dto.PwaIcon512Url, DefaultPwaIcon512Url, RetiredDefaultPwaIcon512Urls),
+            PwaMaskableIconUrl = DefaultIfRetiredDefault(dto.PwaMaskableIconUrl, DefaultPwaMaskableIconUrl, RetiredDefaultPwaMaskableIconUrls),
+            ThemeColor = DefaultIfRetiredDefault(dto.ThemeColor, DefaultThemeColor, RetiredDefaultThemeColors),
+            BackgroundColor = DefaultIfRetiredDefault(dto.BackgroundColor, DefaultBackgroundColor, RetiredDefaultBackgroundColors),
+            SiteLogoUrl = dto.SiteLogoUrl,
+            SiteLogoDarkUrl = dto.SiteLogoDarkUrl,
+            SiteWordmarkUrl = dto.SiteWordmarkUrl,
+            AdminLogoUrl = dto.AdminLogoUrl,
+            AdminCollapsedIconUrl = dto.AdminCollapsedIconUrl,
+            LoginLogoUrl = dto.LoginLogoUrl,
+            LoginIconUrl = dto.LoginIconUrl
+        });
+
     private static SeoConfigReadModel NormalizeSeoConfig(UpdateSeoConfigRequest dto)
     {
         string title = TrimUtf8Bytes(dto.Title, 50);
@@ -432,11 +509,11 @@ public partial class SystemService(
             Description = TrimText(dto.Description, 200),
             Keywords = TrimUtf8Bytes(dto.Keywords, 256),
             Author = string.IsNullOrWhiteSpace(author) ? PublicSiteIdentityDefaults.SiteAuthor : author,
-            OgImage = NormalizeOptionalAssetUrl(dto.OgImage, 256),
+            OgImage = NormalizeAssetUrlOrDefault(dto.OgImage, DefaultOgImage, 256),
             BaseUrl = baseUrl.Length == 0 ? PublicSiteIdentityDefaults.SiteBaseUrl : baseUrl,
             FaviconSvgUrl = NormalizeAssetUrlOrDefault(dto.FaviconSvgUrl, DefaultFaviconSvgUrl, 256),
             FaviconIcoUrl = NormalizeAssetUrlOrDefault(dto.FaviconIcoUrl, DefaultFaviconIcoUrl, 256),
-            FaviconPngUrl = NormalizeOptionalAssetUrl(dto.FaviconPngUrl, 256),
+            FaviconPngUrl = NormalizeAssetUrlOrDefault(dto.FaviconPngUrl, DefaultFaviconPngUrl, 256),
             AppleTouchIconUrl = NormalizeAssetUrlOrDefault(dto.AppleTouchIconUrl, DefaultAppleTouchIconUrl, 256),
             ManifestName = NormalizeManifestText(dto.ManifestName, string.IsNullOrWhiteSpace(title) ? PublicSiteIdentityDefaults.ManifestName : title, 128),
             ManifestShortName = NormalizeManifestText(dto.ManifestShortName, PublicSiteIdentityDefaults.ManifestShortName, 128),
@@ -546,8 +623,21 @@ public partial class SystemService(
 
     private static string NormalizeHexColor(string? value, string fallback)
     {
-        string normalized = TrimUtf8Bytes(value, 32).ToLowerInvariant();
-        return IsHexColor(normalized) ? normalized : fallback;
+        string trimmed = TrimUtf8Bytes(value, 32);
+        if (trimmed.Length == 0)
+        {
+            return fallback;
+        }
+
+        string normalized = trimmed.ToLowerInvariant();
+        if (!IsHexColor(normalized))
+        {
+            return fallback;
+        }
+
+        return string.Equals(normalized, fallback, StringComparison.OrdinalIgnoreCase)
+            ? fallback
+            : normalized;
     }
 
     private static bool IsHexColor(string value)
@@ -673,19 +763,19 @@ public partial class SystemService(
             Description = GetValue(configs, Key_Desc, PublicSiteIdentityDefaults.SiteDescription),
             Keywords = GetValue(configs, Key_Keywords, PublicSiteIdentityDefaults.SiteKeywords),
             Author = GetValue(configs, Key_Author, PublicSiteIdentityDefaults.SiteAuthor),
-            OgImage = GetValue(configs, Key_OgImage, string.Empty),
+            OgImage = GetDefaultAwareValue(configs, Key_OgImage, DefaultOgImage, RetiredDefaultOgImages),
             BaseUrl = GetValue(configs, Key_BaseUrl, PublicSiteIdentityDefaults.SiteBaseUrl),
-            FaviconSvgUrl = GetValue(configs, Key_FaviconSvgUrl, DefaultFaviconSvgUrl),
-            FaviconIcoUrl = GetValue(configs, Key_FaviconIcoUrl, DefaultFaviconIcoUrl),
-            FaviconPngUrl = GetValue(configs, Key_FaviconPngUrl, string.Empty),
-            AppleTouchIconUrl = GetValue(configs, Key_AppleTouchIconUrl, DefaultAppleTouchIconUrl),
+            FaviconSvgUrl = GetDefaultAwareValue(configs, Key_FaviconSvgUrl, DefaultFaviconSvgUrl, RetiredDefaultFaviconSvgUrls),
+            FaviconIcoUrl = GetDefaultAwareValue(configs, Key_FaviconIcoUrl, DefaultFaviconIcoUrl, RetiredDefaultFaviconIcoUrls),
+            FaviconPngUrl = GetValue(configs, Key_FaviconPngUrl, DefaultFaviconPngUrl),
+            AppleTouchIconUrl = GetDefaultAwareValue(configs, Key_AppleTouchIconUrl, DefaultAppleTouchIconUrl, RetiredDefaultAppleTouchIconUrls),
             ManifestName = GetValue(configs, Key_ManifestName, string.Empty),
             ManifestShortName = GetValue(configs, Key_ManifestShortName, PublicSiteIdentityDefaults.ManifestShortName),
-            PwaIcon192Url = GetValue(configs, Key_PwaIcon192Url, DefaultPwaIcon192Url),
-            PwaIcon512Url = GetValue(configs, Key_PwaIcon512Url, DefaultPwaIcon512Url),
-            PwaMaskableIconUrl = GetValue(configs, Key_PwaMaskableIconUrl, DefaultPwaMaskableIconUrl),
-            ThemeColor = GetValue(configs, Key_ThemeColor, DefaultThemeColor),
-            BackgroundColor = GetValue(configs, Key_BackgroundColor, DefaultBackgroundColor),
+            PwaIcon192Url = GetDefaultAwareValue(configs, Key_PwaIcon192Url, DefaultPwaIcon192Url, RetiredDefaultPwaIcon192Urls),
+            PwaIcon512Url = GetDefaultAwareValue(configs, Key_PwaIcon512Url, DefaultPwaIcon512Url, RetiredDefaultPwaIcon512Urls),
+            PwaMaskableIconUrl = GetDefaultAwareValue(configs, Key_PwaMaskableIconUrl, DefaultPwaMaskableIconUrl, RetiredDefaultPwaMaskableIconUrls),
+            ThemeColor = GetDefaultAwareValue(configs, Key_ThemeColor, DefaultThemeColor, RetiredDefaultThemeColors),
+            BackgroundColor = GetDefaultAwareValue(configs, Key_BackgroundColor, DefaultBackgroundColor, RetiredDefaultBackgroundColors),
             SiteLogoUrl = GetValue(configs, Key_SiteLogoUrl, string.Empty),
             SiteLogoDarkUrl = GetValue(configs, Key_SiteLogoDarkUrl, string.Empty),
             SiteWordmarkUrl = GetValue(configs, Key_SiteWordmarkUrl, string.Empty),

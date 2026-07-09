@@ -24,7 +24,7 @@ import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime'
 import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
-import { DEFAULT_SITE_BRAND_CONFIG } from '@/store/site'
+import { DEFAULT_SITE_BRAND_CONFIG, DEFAULT_SITE_OG_IMAGE } from '@/store/site'
 import {
   generateBrandIconSet,
   isRasterBrandIconSource,
@@ -96,7 +96,7 @@ export function useAdminSettingsPage() {
     description: '',
     keywords: '',
     author: '',
-    ogImage: '',
+    ogImage: DEFAULT_SITE_OG_IMAGE,
     baseUrl: '',
     faviconSvgUrl: DEFAULT_SITE_BRAND_CONFIG.faviconSvgUrl,
     faviconIcoUrl: DEFAULT_SITE_BRAND_CONFIG.faviconIcoUrl,
@@ -184,7 +184,7 @@ export function useAdminSettingsPage() {
         description: '',
         keywords: '',
         author: '',
-        ogImage: '',
+        ogImage: DEFAULT_SITE_OG_IMAGE,
         baseUrl: '',
         ...DEFAULT_SITE_BRAND_CONFIG
       }
@@ -196,11 +196,11 @@ export function useAdminSettingsPage() {
       description: readStringField(source, 'description', 'Description'),
       keywords: readStringField(source, 'keywords', 'Keywords'),
       author: readStringField(source, 'author', 'Author'),
-      ogImage: readStringField(source, 'ogImage', 'OgImage'),
+      ogImage: readStringField(source, 'ogImage', 'OgImage') || DEFAULT_SITE_OG_IMAGE,
       baseUrl: readStringField(source, 'baseUrl', 'BaseUrl'),
       faviconSvgUrl: readStringField(source, 'faviconSvgUrl', 'FaviconSvgUrl') || DEFAULT_SITE_BRAND_CONFIG.faviconSvgUrl,
       faviconIcoUrl: readStringField(source, 'faviconIcoUrl', 'FaviconIcoUrl') || DEFAULT_SITE_BRAND_CONFIG.faviconIcoUrl,
-      faviconPngUrl: readStringField(source, 'faviconPngUrl', 'FaviconPngUrl'),
+      faviconPngUrl: readStringField(source, 'faviconPngUrl', 'FaviconPngUrl') || DEFAULT_SITE_BRAND_CONFIG.faviconPngUrl,
       appleTouchIconUrl: readStringField(source, 'appleTouchIconUrl', 'AppleTouchIconUrl') || DEFAULT_SITE_BRAND_CONFIG.appleTouchIconUrl,
       manifestName: readStringField(source, 'manifestName', 'ManifestName') || DEFAULT_SITE_BRAND_CONFIG.manifestName,
       manifestShortName: readStringField(source, 'manifestShortName', 'ManifestShortName') || DEFAULT_SITE_BRAND_CONFIG.manifestShortName,

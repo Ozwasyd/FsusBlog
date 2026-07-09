@@ -1071,19 +1071,19 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
   "description": "站点描述",
   "keywords": "博客,技术,写作",
   "author": "Fsu",
-  "ogImage": "/og-image.jpg",
+  "ogImage": "/social/og-image.png",
   "baseUrl": "https://fsus.blog",
-  "faviconSvgUrl": "/favicon.svg",
-  "faviconIcoUrl": "/favicon.ico",
-  "faviconPngUrl": "/icons/favicon-96.png",
-  "appleTouchIconUrl": "/apple-touch-icon.png",
+  "faviconSvgUrl": "/favicon/favicon.svg",
+  "faviconIcoUrl": "/favicon/favicon.ico",
+  "faviconPngUrl": "/favicon/favicon-32x32.png",
+  "appleTouchIconUrl": "/favicon/apple-touch-icon.png",
   "manifestName": "Fsus Blog",
   "manifestShortName": "Fsus",
-  "pwaIcon192Url": "/icons/icon-192.png",
-  "pwaIcon512Url": "/icons/icon-512.png",
-  "pwaMaskableIconUrl": "/icons/maskable-512.png",
-  "themeColor": "#0f0f11",
-  "backgroundColor": "#fcfcfc",
+  "pwaIcon192Url": "/favicon/pwa-192x192.png",
+  "pwaIcon512Url": "/favicon/pwa-512x512.png",
+  "pwaMaskableIconUrl": "/favicon/maskable-icon-512x512.png",
+  "themeColor": "#0B4F7A",
+  "backgroundColor": "#FFFFFF",
   "siteLogoUrl": "/brand/site-logo.svg",
   "siteLogoDarkUrl": "/brand/site-logo-dark.svg",
   "siteWordmarkUrl": "/brand/site-wordmark.svg",
@@ -1094,7 +1094,7 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 }
 ```
 
-URL 字段只接受空值、站内绝对路径 `/...` 或 `http/https` 绝对 URL；`javascript:`、`data:`、协议相对 URL 和空字节会被后端归一化为默认值或空值。`themeColor` 与 `backgroundColor` 只接受 `#RGB` / `#RRGGBB`。后台不得新增 `/system/brand` 并行主配置端点，品牌资产必须挂在同一个 SEO 配置模型上。
+URL 字段只接受空值、站内绝对路径 `/...` 或 `http/https` 绝对 URL；`javascript:`、`data:`、协议相对 URL 和空字节会被后端归一化为默认值或空值。`themeColor` 与 `backgroundColor` 只接受 `#RGB` / `#RRGGBB`。后台不得新增 `/system/brand` 并行主配置端点，品牌资产必须挂在同一个 SEO 配置模型上。缺省品牌资产来自前端 public 目录中随仓库提交的 `/favicon/*` 与 `/social/*` 文件；根目录旧 favicon / Apple Touch Icon / `/icons/*` 入口不作为品牌资产入口保留。已有后台 SEO 配置中的非默认自定义值继续优先生效；历史内置默认值只在读取投影时折叠为当前缺省值，不做隐式数据迁移。
 
 Admin 设置页的品牌资产上传只是把现有上传结果回填到对应字段，目标语义在客户端区分为 `ogImage`、`brandLogo` 和 `faviconSet`，不改变 SEO 配置 wire model。`brandLogo` 字段上传接受 PNG/JPG/WebP 栅格图并保留手填 URL；SVG 只允许手填已清洗的安全 URL，不做 PNG/JPG/WebP 到 SVG 的自动矢量化。`faviconSet` 生成从一张 PNG/JPG/WebP 源图派生并回填 `faviconIcoUrl`、`faviconPngUrl`、`appleTouchIconUrl`、`pwaIcon192Url`、`pwaIcon512Url` 和 `pwaMaskableIconUrl`；ICO 文件包含 16/32/48 PNG 帧，PNG favicon 为 96px，Apple Touch Icon 为 180px，PWA 图标为 192/512px，maskable 图标为 512px 并保留透明安全边距。生成流程使用透明背景等比填充，不裁切源图。
 

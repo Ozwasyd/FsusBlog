@@ -1,18 +1,30 @@
 {
-  "name": "公开内容",
-  "short_name": "内容",
-  "description": "公共内容与离线阅读支持。",
+  "name": "Fsu’s Blog.",
+  "short_name": "FsuBlog",
+  "description": "A personal blog under Fsu’s Club.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#fcfcfc",
-  "theme_color": "#0f0f11",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0B4F7A",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "64x64",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/favicon/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon/maskable-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

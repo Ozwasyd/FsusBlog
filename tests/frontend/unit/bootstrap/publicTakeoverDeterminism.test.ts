@@ -35,6 +35,8 @@ describe('public takeover site identity', () => {
     name: string
     short_name: string
     description: string
+    theme_color: string
+    background_color: string
   }
 
   it('keeps frontend shell defaults aligned to the public site identity contract', () => {
@@ -45,16 +47,18 @@ describe('public takeover site identity', () => {
     expect(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName).toBe('FsusBlog')
   })
 
-  it('keeps first-paint assets neutral until runtime identity synchronization', () => {
+  it('keeps first-paint loader neutral while static manifest uses the checked-in default brand', () => {
     expect(indexHtml).not.toContain(PUBLIC_SITE_IDENTITY_DEFAULTS.siteTitle)
     expect(indexHtml).not.toContain(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName)
     expect(indexHtml).toContain('<title>站点</title>')
     expect(indexHtml).toContain('data-fsus-loader-title>站点</span>')
     expect(indexHtml).toContain('data-fsus-loader-status>正在加载站点</span>')
 
-    expect(webManifest.name).not.toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestName)
-    expect(webManifest.short_name).not.toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.manifestShortName)
-    expect(webManifest.description).not.toBe(PUBLIC_SITE_IDENTITY_DEFAULTS.siteDescription)
+    expect(webManifest.name).toBe('Fsu’s Blog.')
+    expect(webManifest.short_name).toBe('FsuBlog')
+    expect(webManifest.description).toBe('A personal blog under Fsu’s Club.')
+    expect(webManifest.theme_color).toBe('#0B4F7A')
+    expect(webManifest.background_color).toBe('#FFFFFF')
 
     expect(publicShellPrimitives).toContain('PUBLIC_SITE_IDENTITY_DEFAULTS')
     expect(publicShellPrimitives).toContain('function readLoaderSiteIdentity')

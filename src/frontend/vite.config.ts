@@ -332,6 +332,39 @@ function servePublicAotHydrationSidecars() {
     }
 }
 
+function rejectRetiredBrandEntrypoints() {
+    const retiredBrandEntrypointPaths = new Set([
+        '/favicon.svg',
+        '/favicon.ico',
+        '/apple-touch-icon.png',
+        '/icons/icon-192.png',
+        '/icons/icon-512.png',
+        '/icons/maskable-512.png'
+    ])
+
+    const rejectRetiredPath = (request: any, response: any, next: () => void) => {
+        const pathname = request.url?.split(/[?#]/)[0] ?? ''
+        if (!retiredBrandEntrypointPaths.has(pathname)) {
+            next()
+            return
+        }
+
+        response.statusCode = 404
+        response.end()
+    }
+
+    return {
+        name: 'reject-retired-brand-entrypoints',
+        apply: 'serve' as const,
+        configureServer(server: any) {
+            server.middlewares.use(rejectRetiredPath)
+        },
+        configurePreviewServer(server: any) {
+            server.middlewares.use(rejectRetiredPath)
+        }
+    }
+}
+
 function setDevelopmentSecurityHeaders(response: any) {
     response.setHeader('X-Content-Type-Options', 'nosniff')
     response.setHeader('X-Frame-Options', 'DENY')
@@ -500,6 +533,7 @@ export default defineConfig(({ mode }) => {
         },
         plugins: [
             applyDevelopmentSecurityHeaders(),
+            rejectRetiredBrandEntrypoints(),
             injectPublicSourceCssInDev(),
             fixViteClientWorkerDocumentGuard(),
             serveFsusUiOptimizedWasmAssets(fsusUiWasmDist),

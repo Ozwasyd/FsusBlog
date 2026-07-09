@@ -356,7 +356,6 @@ public static class WebApplicationCompositionExtensions
         if (string.Equals(requestPath, "/sw.js", StringComparison.Ordinal)
             || string.Equals(requestPath, "/search/index.manifest.aeds", StringComparison.Ordinal)
             || string.Equals(requestPath, "/search/index.bin", StringComparison.Ordinal)
-            || string.Equals(requestPath, "/favicon.svg", StringComparison.Ordinal)
             || string.Equals(requestPath, "/manifest.webmanifest", StringComparison.Ordinal))
         {
             headers["Cache-Control"] = "no-cache";
@@ -800,7 +799,6 @@ public static class WebApplicationCompositionExtensions
         }
 
         return path.Equals("/sw.js".AsSpan(), StringComparison.OrdinalIgnoreCase)
-            || path.Equals("/favicon.svg".AsSpan(), StringComparison.OrdinalIgnoreCase)
             || path.Equals("/manifest.webmanifest".AsSpan(), StringComparison.OrdinalIgnoreCase)
             || HasStaticAssetExtension(path);
     }
