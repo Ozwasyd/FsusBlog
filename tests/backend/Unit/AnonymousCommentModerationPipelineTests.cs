@@ -33,6 +33,8 @@ public sealed class AnonymousCommentModerationPipelineTests
             "author_mode",
             "anonymous_display_language",
             "moderation_subject_hash",
+            "anonymous_nullifier_hash",
+            "anonymous_scope",
             "credential_level",
             "reputation_bucket",
             "account_age_bucket",
@@ -45,14 +47,14 @@ public sealed class AnonymousCommentModerationPipelineTests
 
         string requestRecord = models[models.IndexOf("public sealed record AntiSpamModerationRequest", StringComparison.Ordinal)..models.IndexOf("public sealed record AntiSpamModerationCategorySignal", StringComparison.Ordinal)];
         Assert.DoesNotContain("context.UserId", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("AddMetadata(metadata, \"anonymous_nullifier_hash\"", service, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AddMetadata(metadata, \"anonymous_nullifier_hash\"", service, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("IpHash", requestRecord, StringComparison.Ordinal);
         Assert.DoesNotContain("AddMetadata(metadata, \"user_name\"", service, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("AddMetadata(metadata, \"public_handle\"", service, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void AntiSpamProviderRequest_UsesPrivacyAllowListAndSanitizesProviderMetadata()
+    public void AntiSpamModelRequest_UsesPrivacyAllowListAndSanitizesRuntimeMetadata()
     {
         string models = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Moderation/AntiSpamModerationModels.cs");
         string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Moderation/AntiSpamModerationService.cs");
@@ -67,9 +69,12 @@ public sealed class AnonymousCommentModerationPipelineTests
         Assert.DoesNotContain("IpHash", requestRecord, StringComparison.Ordinal);
         Assert.DoesNotContain("DeviceFingerprint", requestRecord, StringComparison.OrdinalIgnoreCase);
 
-        Assert.Contains("SanitizeProviderMetadata", service, StringComparison.Ordinal);
-        Assert.Contains("ForbiddenProviderMetadataKeys", service, StringComparison.Ordinal);
+        Assert.Contains("ValidateModelRequestDocument", service, StringComparison.Ordinal);
+        Assert.Contains("AllowedRequestMetadataFields", service, StringComparison.Ordinal);
+        Assert.Contains("ForbiddenIdentityFields", service, StringComparison.Ordinal);
         Assert.Contains("moderation_subject_hash", service, StringComparison.Ordinal);
+        Assert.Contains("anonymous_nullifier_hash", service, StringComparison.Ordinal);
+        Assert.Contains("anonymous_scope", service, StringComparison.Ordinal);
         Assert.Contains("credential_level", service, StringComparison.Ordinal);
         Assert.Contains("reputation_bucket", service, StringComparison.Ordinal);
         Assert.Contains("account_age_bucket", service, StringComparison.Ordinal);

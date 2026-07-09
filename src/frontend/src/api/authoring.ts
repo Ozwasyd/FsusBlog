@@ -681,8 +681,6 @@ export interface ModerationModelStatusResponse {
   contractVersion: string
   timeoutMs: number
   failOpen: boolean
-  externalProviderAllowed: boolean
-  externalProviderReviewed: boolean
   lastSuccessAtUtc: string | null
   lastErrorCode: string | null
   lastErrorAtUtc: string | null
@@ -711,8 +709,8 @@ export interface ModerationModelRuntimeResponse {
   status: string
   timeoutMs: number
   failOpen: boolean
-  externalProviderAllowed: boolean
-  externalProviderReviewed: boolean
+  runtimePath: string | null
+  runtimeChannel: string
   lastError: string | null
 }
 
@@ -750,7 +748,6 @@ export interface ModerationDictionaryStateRequest {
 
 export interface ModerationModelRuntimeRequest {
   enabled?: boolean | null
-  provider?: string | null
   modelProfile?: string | null
   thresholdProfile?: string | null
   reason?: string | null

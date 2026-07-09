@@ -1,3 +1,5 @@
+using FsusBlog.Server.Services.Moderation;
+
 namespace FsusBlog.Server.Models.Moderation;
 
 public static class ModerationGlobalStates
@@ -36,9 +38,10 @@ public sealed record ModerationModelRuntimeSnapshot(
     string Status,
     int TimeoutMs,
     bool FailOpen,
-    bool ExternalProviderAllowed,
-    bool ExternalProviderReviewed,
-    string? LastError);
+    string? LastError,
+    string? RuntimePath,
+    string RuntimeChannel,
+    FsusAntiSpamModelRuntimeSnapshot? BuiltInRuntime);
 
 public sealed record ModerationRuntimeSnapshot(
     string SnapshotId,

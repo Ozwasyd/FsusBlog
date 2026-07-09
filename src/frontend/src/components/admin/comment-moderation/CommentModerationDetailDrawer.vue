@@ -104,7 +104,7 @@
             <div class="mt-2 text-[12px] font-bold text-[var(--fsusblog-text-muted)]">{{ item.modelConfidenceLabel }}</div>
           </div>
           <div class="bg-[var(--fsusblog-page-bg)] p-5">
-            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">模型来源</div>
+            <div class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">模型运行时</div>
             <div class="mt-2 break-words text-sm font-bold text-[var(--fsusblog-text-primary)]">{{ item.modelProviderLabel }}</div>
             <div class="mt-2 text-[12px] font-bold text-[var(--fsusblog-text-muted)]">{{ item.modelSeverityLabel }}</div>
           </div>

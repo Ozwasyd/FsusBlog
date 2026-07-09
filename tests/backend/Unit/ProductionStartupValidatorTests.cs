@@ -94,23 +94,20 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
-    public void ValidateCore_RejectsReviewedHttpJsonAntiSpamEndpointWithoutSafeAllowlist()
+    public void ValidateCore_RejectsEnabledAntiSpamModelWithoutValidBuiltInRuntime()
     {
         IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
         {
             ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
             ["Moderation:AntiSpamModel:Enabled"] = "true",
-            ["Moderation:AntiSpamModel:Provider"] = "http-json",
-            ["Moderation:AntiSpamModel:AllowExternalProvider"] = "true",
-            ["Moderation:AntiSpamModel:ExternalProviderReviewed"] = "true",
-            ["Moderation:AntiSpamModel:Providers:http-json:Endpoint"] = "https://169.254.169.254/latest/meta-data/",
-            ["Moderation:AntiSpamModel:Providers:http-json:AllowedHosts"] = "169.254.169.254"
+            ["Moderation:AntiSpamModel:RuntimePath"] = "/missing/fsus-antispammodel",
+            ["Moderation:AntiSpamModel:TrustedSigningKey"] = TestSecrets.ModerationPepper
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
 
-        Assert.Contains(errors, static error => error.Contains("Moderation:AntiSpamModel:Providers:http-json:Endpoint", StringComparison.Ordinal));
-        Assert.Contains(errors, static error => error.Contains("private_or_reserved_address", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("Moderation:AntiSpamModel:RuntimePath", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains("fsus_antispam_runtime_missing", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -138,25 +135,6 @@ public sealed class ProductionStartupValidatorTests
 
         Assert.Contains(errors, static error => error.Contains("Security:PerceptionSealedToken:CurrentKeyVersion", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("k2", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void ValidateCore_AcceptsReviewedHttpJsonAntiSpamEndpointWithSafeAllowlist()
-    {
-        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
-        {
-            ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
-            ["Moderation:AntiSpamModel:Enabled"] = "true",
-            ["Moderation:AntiSpamModel:Provider"] = "http-json",
-            ["Moderation:AntiSpamModel:AllowExternalProvider"] = "true",
-            ["Moderation:AntiSpamModel:ExternalProviderReviewed"] = "true",
-            ["Moderation:AntiSpamModel:Providers:http-json:Endpoint"] = "https://8.8.8.8/v1/moderation/score",
-            ["Moderation:AntiSpamModel:Providers:http-json:AllowedHosts"] = "8.8.8.8"
-        });
-
-        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
-
-        Assert.DoesNotContain(errors, static error => error.Contains("Moderation:AntiSpamModel:Providers:http-json:Endpoint", StringComparison.Ordinal));
     }
 
     [Fact]

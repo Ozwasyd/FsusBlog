@@ -55,13 +55,8 @@
         <div class="space-y-4 p-5">
           <div class="moderation-model-runtime-form grid gap-3 md:grid-cols-2">
             <label class="moderation-model-runtime-field">
-              <span class="moderation-model-runtime-field__label">模型来源</span>
-              <el-select v-model="form.provider" class="moderation-model-runtime-field__control" placeholder="模型来源" aria-label="模型来源">
-                <el-option label="关闭外部模型" value="none" />
-                <el-option label="本地模拟" value="mock" />
-                <el-option label="HTTP JSON" value="http-json" />
-                <el-option label="Fsus CLI" value="fsus-cli" />
-              </el-select>
+              <span class="moderation-model-runtime-field__label">模型运行时</span>
+              <div class="moderation-model-runtime-field__static">内置 FsusAntiSpamModel runtime</div>
             </label>
             <label class="moderation-model-runtime-field">
               <span class="moderation-model-runtime-field__label">启用模型</span>
@@ -132,7 +127,6 @@ const {
 
 const form = reactive({
   enabled: false,
-  provider: 'none',
   modelProfile: '',
   thresholdProfile: ''
 })
@@ -141,10 +135,8 @@ const formatEnabled = (value: boolean | null | undefined): string => value ? '�
 
 const formatProvider = (value: string | null | undefined): string => {
   const labels: Record<string, string> = {
-    none: '关闭外部模型',
-    mock: '本地模拟',
-    'http-json': '远程 HTTP',
-    'fsus-cli': 'Fsus CLI'
+    none: '未启用',
+    'fsus-antispammodel': '内置 FsusAntiSpamModel'
   }
   return value ? labels[value] ?? '自定义来源' : '-'
 }
@@ -159,17 +151,13 @@ const formatMode = (value: string | null | undefined): string => {
   return value ? labels[value] ?? value : '-'
 }
 
-const formatReviewed = (value: boolean | null | undefined): string => value ? '已复核' : '未复核'
-
 const statusRows = computed<AdminStatusMatrixItem[]>(() => [
   { label: '启用状态', value: formatEnabled(status.value?.enabled) },
-  { label: '模型来源', value: formatProvider(status.value?.provider) },
+  { label: '模型运行时', value: formatProvider(status.value?.provider) },
   { label: '模型模式', value: formatMode(status.value?.mode) },
   { label: '契约版本', value: status.value?.contractVersion ?? '-' },
   { label: '超时', value: `${status.value?.timeoutMs ?? 0} ms` },
-  { label: '失败时放行', value: status.value?.failOpen ? '是' : '否' },
-  { label: '外部模型', value: status.value?.externalProviderAllowed ? '允许' : '已关闭' },
-  { label: '外部复核', value: formatReviewed(status.value?.externalProviderReviewed) }
+  { label: '失败时放行', value: status.value?.failOpen ? '是' : '否' }
 ])
 
 const runtimeRows = computed<AdminStatusMatrixItem[]>(() => [
@@ -186,7 +174,6 @@ const applyRuntimeToForm = (): void => {
   }
 
   form.enabled = model.enabled
-  form.provider = model.provider
   form.modelProfile = model.modelProfile
   form.thresholdProfile = model.thresholdProfile
 }
@@ -212,12 +199,11 @@ const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const saveRuntime = async (): Promise<void> => {
   saving.value = true
-  taskFeedback.begin('正在保存模型运行配置', `${formatProvider(form.provider)} / ${form.modelProfile || '默认配置'}`, 'moderation-model-runtime')
+  taskFeedback.begin('正在保存模型运行配置', `${formatProvider('fsus-antispammodel')} / ${form.modelProfile || '默认配置'}`, 'moderation-model-runtime')
   try {
     const mfaProofToken = await ensureAdminSensitiveProof()
     runtime.value = await setModerationModelRuntime({
       enabled: form.enabled,
-      provider: form.provider,
       modelProfile: form.modelProfile.trim() || null,
       thresholdProfile: form.thresholdProfile.trim() || null,
       reason: 'model_runtime_update'
@@ -303,6 +289,15 @@ onMounted(() => {
 .moderation-model-runtime-field :deep(.el-select),
 .moderation-model-runtime-field :deep(.el-input) {
   width: 100%;
+}
+
+.moderation-model-runtime-field__static {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  color: var(--fsusblog-text-primary);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .moderation-model-runtime-field__switch {

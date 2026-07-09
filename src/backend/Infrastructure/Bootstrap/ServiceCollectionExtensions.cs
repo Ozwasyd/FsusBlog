@@ -73,8 +73,6 @@ public static class ServiceCollectionExtensions
         services.AddFsusDataProtection(configuration);
         services.AddMemoryCache();
         services.AddHttpClient();
-        services.AddHttpClient(nameof(AntiSpamModerationService))
-            .ConfigurePrimaryHttpMessageHandler(static () => AntiSpamModerationService.CreateHttpJsonProviderHandler());
 
         return services;
     }

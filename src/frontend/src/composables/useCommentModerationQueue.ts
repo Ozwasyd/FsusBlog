@@ -420,7 +420,7 @@ function toViewItem(item: CommentModerationItemResponse): CommentModerationViewI
     regionCanApprove: item.regionCanPublish !== false,
     modelSignalLabel: item.modelUnavailable ? '模型不可用' : modelLabelText(item.modelLabel),
     modelConfidenceLabel: modelConfidence === null ? '模型置信度未记录' : `模型置信度：${modelConfidence}%`,
-    modelProviderLabel: `模型来源：${modelProviderText(item.modelProvider)}`,
+    modelProviderLabel: `模型运行时：${modelProviderText(item.modelProvider)}`,
     modelReasonLabel: item.modelPrimaryReason ? `原因：${item.modelPrimaryReason}` : '原因未记录',
     modelSeverityLabel: `严重度：${modelSeverityText(firstModelSignal?.severity)}`,
     modelCategoriesLabel: `风险类别：${firstModelSignal?.riskCategories.join(', ') || '未记录'}`,
@@ -600,7 +600,7 @@ export function useCommentModerationQueue(options: UseCommentModerationQueueOpti
       chips.push({ key: 'modelLabel', label: `模型：${modelLabelText(filters.modelLabel)}` })
     }
     if (filters.modelProvider) {
-      chips.push({ key: 'modelProvider', label: `模型来源：${modelProviderText(filters.modelProvider)}` })
+      chips.push({ key: 'modelProvider', label: `模型运行时：${modelProviderText(filters.modelProvider)}` })
     }
     if (filters.dateRange) {
       chips.push({ key: 'dateRange', label: `时间：${filters.dateRange[0]} - ${filters.dateRange[1]}` })

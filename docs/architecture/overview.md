@@ -67,7 +67,7 @@ Security is built as infrastructure, not only endpoint code:
 - PoW and rate limits protect high-risk anonymous and auth flows.
 - MFA, Passkey, session isolation, HttpOnly cookies, and RBAC protect identity and admin workflows.
 - Anti-crawler controls classify verified crawlers, social preview bots, unknown bots, and risky public reads.
-- Moderation combines content filtering, region policy, model-provider integration, audit evidence, and admin review workflows.
+- Moderation combines content filtering, region policy, built-in model signal integration, audit evidence, and admin review workflows.
 - Public telemetry and read proof avoid collecting account, token, cookie, raw IP, or private content payloads.
 
 Security changes should be checked against [docs/security.md](../security.md).

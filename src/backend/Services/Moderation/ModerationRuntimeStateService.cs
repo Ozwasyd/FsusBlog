@@ -31,9 +31,7 @@ public sealed class ModerationRuntimeStateService(
     private static readonly HashSet<string> ValidModelProviders = new(StringComparer.Ordinal)
     {
         AntiSpamModerationProviders.None,
-        AntiSpamModerationProviders.Mock,
-        AntiSpamModerationProviders.HttpJson,
-        AntiSpamModerationProviders.FsusCli
+        AntiSpamModerationProviders.BuiltIn
     };
 
     private static readonly HashSet<string> MainlandMandatoryDictionaryIds = new(StringComparer.Ordinal)
@@ -271,25 +269,39 @@ public sealed class ModerationRuntimeStateService(
                 return Result<ModerationRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_invalid");
             }
 
-            string resolvedModelProfile = NormalizeNullable(modelProfile) ?? current.ModelProfile;
-            if (!IsProviderSourceAllowed(configuration, resolvedProvider, resolvedModelProfile))
+            bool nextEnabled = enabled ?? current.Enabled;
+            FsusAntiSpamModelRuntimeSnapshot? runtime = current.BuiltInRuntime;
+            if (nextEnabled)
             {
-                return Result<ModerationRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_source_invalid");
+                Result<FsusAntiSpamModelRuntimeSnapshot> runtimeResult = runtime is null
+                    ? LoadBuiltInRuntime(configuration)
+                    : Result<FsusAntiSpamModelRuntimeSnapshot>.Success(runtime);
+                if (runtimeResult.IsFailure)
+                {
+                    return Result<ModerationRuntimeSnapshot>.Failure(runtimeResult.Error);
+                }
+
+                runtime = runtimeResult.Value!;
+                resolvedProvider = AntiSpamModerationProviders.BuiltIn;
             }
 
             _previousModel = current;
             ModerationModelRuntimeSnapshot nextModel = current with
             {
                 SnapshotId = BuildSnapshotId("model", $"{resolvedProvider}:{enabled?.ToString() ?? "same"}", DateTime.UtcNow),
-                Enabled = enabled ?? current.Enabled,
+                Enabled = nextEnabled,
                 Provider = resolvedProvider,
-                ModelProfile = resolvedModelProfile,
+                ModelProfile = runtime?.ModelProfile ?? NormalizeNullable(modelProfile) ?? current.ModelProfile,
                 ThresholdProfile = NormalizeNullable(thresholdProfile) ?? current.ThresholdProfile,
-                ConfigChecksum = BuildChecksum($"{enabled}:{resolvedProvider}:{modelProfile}:{thresholdProfile}:{DateTime.UtcNow:O}"),
+                ContractVersion = runtime?.ContractVersion ?? current.ContractVersion,
+                ConfigChecksum = runtime?.ConfigChecksum ?? BuildChecksum($"{enabled}:{resolvedProvider}:{modelProfile}:{thresholdProfile}:{DateTime.UtcNow:O}"),
                 LoadedAtUtc = DateTime.UtcNow,
                 LoadedBy = NormalizeActor(changedBy),
                 Status = "loaded",
-                LastError = null
+                LastError = null,
+                RuntimePath = runtime?.RuntimePath ?? current.RuntimePath,
+                RuntimeChannel = runtime?.Channel ?? current.RuntimeChannel,
+                BuiltInRuntime = runtime
             };
             ModerationRuntimeSnapshot next = Current with
             {
@@ -354,9 +366,10 @@ public sealed class ModerationRuntimeStateService(
                 "invalid",
                 800,
                 true,
-                false,
-                false,
-                modelResult.Error.Message);
+                modelResult.Error.Message,
+                null,
+                "stable",
+                null);
         return new ModerationRuntimeSnapshot(
             BuildSnapshotId("runtime", "initial", now),
             ModerationGlobalStates.Enabled,
@@ -372,53 +385,66 @@ public sealed class ModerationRuntimeStateService(
 
     private static Result<ModerationModelRuntimeSnapshot> BuildModelSnapshotResult(IConfiguration configuration, string loadedBy)
     {
-        ModerationModelRuntimeSnapshot snapshot = BuildModelSnapshot(configuration, loadedBy);
-        if (!ValidModelProviders.Contains(snapshot.Provider))
-        {
-            return Result<ModerationModelRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_invalid");
-        }
-
-        if (string.IsNullOrWhiteSpace(snapshot.ContractVersion))
-        {
-            return Result<ModerationModelRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_contract_version_required");
-        }
-
-        if (!IsProviderSourceAllowed(configuration, snapshot.Provider, snapshot.ModelProfile))
-        {
-            return Result<ModerationModelRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_source_invalid");
-        }
-
-        return Result<ModerationModelRuntimeSnapshot>.Success(snapshot);
-    }
-
-    private static ModerationModelRuntimeSnapshot BuildModelSnapshot(IConfiguration configuration, string loadedBy)
-    {
-        string provider = NormalizeProvider(configuration["Moderation:AntiSpamModel:Provider"]);
-        string modelProfile = configuration["Moderation:AntiSpamModel:ModelProfile"] ?? provider;
+        bool enabled = configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled");
+        string channel = NormalizeNullable(configuration["Moderation:AntiSpamModel:RuntimeChannel"]) ?? "stable";
         string thresholdProfile = configuration["Moderation:AntiSpamModel:ThresholdProfile"] ?? "default";
-        string contractVersion = configuration["Moderation:AntiSpamModel:ContractVersion"] ?? AntiSpamModerationContract.DefaultVersion;
         int timeoutMs = Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000);
         bool failOpen = configuration.GetValue<bool?>("Moderation:AntiSpamModel:FailOpen") ?? true;
-        bool externalAllowed = configuration.GetValue<bool>("Moderation:AntiSpamModel:AllowExternalProvider");
-        bool externalReviewed = configuration.GetValue<bool>("Moderation:AntiSpamModel:ExternalProviderReviewed");
-        string checksum = BuildChecksum($"{provider}:{modelProfile}:{thresholdProfile}:{contractVersion}:{timeoutMs}:{failOpen}:{externalAllowed}:{externalReviewed}");
-        return new ModerationModelRuntimeSnapshot(
-            BuildSnapshotId("model", checksum, DateTime.UtcNow),
-            configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled"),
-            provider,
-            modelProfile,
+        if (!enabled)
+        {
+            string checksum = BuildChecksum($"disabled:{channel}:{thresholdProfile}:{timeoutMs}:{failOpen}");
+            return Result<ModerationModelRuntimeSnapshot>.Success(new ModerationModelRuntimeSnapshot(
+                BuildSnapshotId("model", checksum, DateTime.UtcNow),
+                false,
+                AntiSpamModerationProviders.BuiltIn,
+                configuration["Moderation:AntiSpamModel:ModelProfile"] ?? AntiSpamModerationProviders.BuiltIn,
+                thresholdProfile,
+                configuration["Moderation:AntiSpamModel:ContractVersion"] ?? AntiSpamModerationContract.DefaultVersion,
+                checksum,
+                DateTime.UtcNow,
+                NormalizeActor(loadedBy),
+                "disabled",
+                timeoutMs,
+                failOpen,
+                null,
+                configuration["Moderation:AntiSpamModel:RuntimePath"],
+                channel,
+                null));
+        }
+
+        Result<FsusAntiSpamModelRuntimeSnapshot> runtimeResult = LoadBuiltInRuntime(configuration);
+        if (runtimeResult.IsFailure)
+        {
+            return Result<ModerationModelRuntimeSnapshot>.Failure(runtimeResult.Error);
+        }
+
+        FsusAntiSpamModelRuntimeSnapshot runtime = runtimeResult.Value!;
+        return Result<ModerationModelRuntimeSnapshot>.Success(new ModerationModelRuntimeSnapshot(
+            BuildSnapshotId("model", runtime.ConfigChecksum, DateTime.UtcNow),
+            true,
+            AntiSpamModerationProviders.BuiltIn,
+            runtime.ModelProfile,
             thresholdProfile,
-            contractVersion,
-            checksum,
+            runtime.ContractVersion,
+            runtime.ConfigChecksum,
             DateTime.UtcNow,
             NormalizeActor(loadedBy),
             "loaded",
             timeoutMs,
             failOpen,
-            externalAllowed,
-            externalReviewed,
-            null);
+            null,
+            runtime.RuntimePath,
+            runtime.Channel,
+            runtime));
     }
+
+    private static Result<FsusAntiSpamModelRuntimeSnapshot> LoadBuiltInRuntime(IConfiguration configuration)
+        => FsusAntiSpamModelRuntimeLoader.TryLoad(
+            configuration["Moderation:AntiSpamModel:RuntimePath"],
+            new FsusAntiSpamModelRuntimeLoadOptions(
+                configuration.GetValue<bool?>("Moderation:AntiSpamModel:RequireSignature") ?? true,
+                configuration["Moderation:AntiSpamModel:TrustedSigningKey"],
+                NormalizeNullable(configuration["Moderation:AntiSpamModel:RuntimeChannel"]) ?? "stable"));
 
     private static string NormalizeRegion(string? region)
         => (region ?? string.Empty).Trim().ToUpperInvariant() switch
@@ -438,37 +464,14 @@ public sealed class ModerationRuntimeStateService(
             var value => value.Length is > 0 and <= 64 ? value : RegionCodes.Unknown
         };
 
-    private static bool IsProviderSourceAllowed(IConfiguration configuration, string provider, string modelProfile)
-    {
-        if (provider is AntiSpamModerationProviders.None or AntiSpamModerationProviders.Mock)
-        {
-            return true;
-        }
-
-        string configuredSource = NormalizeNullable(configuration["Moderation:AntiSpamModel:ProviderSource"]) ?? modelProfile;
-        string normalizedSource = configuredSource.Trim().Replace('\\', '/').ToLowerInvariant();
-        if (normalizedSource.Contains("legacy/python", StringComparison.Ordinal)
-            || normalizedSource.Contains("/legacy/", StringComparison.Ordinal)
-            || normalizedSource.Contains("legacy-baseline", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        return normalizedSource.StartsWith("mainline-release", StringComparison.Ordinal)
-            || normalizedSource.StartsWith("fsus-antispammodel-mainline", StringComparison.Ordinal)
-            || normalizedSource.StartsWith("fsusantispammodel-mainline", StringComparison.Ordinal);
-    }
-
     private static string NormalizeState(string? value)
         => (value ?? string.Empty).Trim().ToLowerInvariant();
 
     private static string NormalizeProvider(string? provider)
         => (provider ?? AntiSpamModerationProviders.None).Trim().ToLowerInvariant() switch
         {
-            "" => AntiSpamModerationProviders.None,
-            "mock" => AntiSpamModerationProviders.Mock,
-            "http" or "http-json" => AntiSpamModerationProviders.HttpJson,
-            "cli" or "fsus-cli" or "cli-json" => AntiSpamModerationProviders.FsusCli,
+            "" => AntiSpamModerationProviders.BuiltIn,
+            "builtin" or "built-in" or "fsus-antispammodel" => AntiSpamModerationProviders.BuiltIn,
             "none" or "disabled" => AntiSpamModerationProviders.None,
             var value => value
         };

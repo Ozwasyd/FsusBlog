@@ -132,15 +132,15 @@
       <div class="lg:col-span-2">
         <el-select
           :model-value="filters.modelProvider"
-          name="commentModerationModelProvider"
-          aria-label="按模型来源筛选评论"
-          placeholder="模型来源"
+          name="commentModerationModelRuntime"
+          aria-label="按模型运行时筛选评论"
+          placeholder="模型运行时"
           clearable
-          :disabled="loading || modelProviderOptions.length === 0"
-          @update:model-value="onModelProviderChange"
+          :disabled="loading || modelRuntimeOptions.length === 0"
+          @update:model-value="onModelRuntimeChange"
         >
           <el-option
-            v-for="option in modelProviderOptions"
+            v-for="option in modelRuntimeOptions"
             :key="option.value"
             :label="option.label"
             :value="option.value"
@@ -201,7 +201,7 @@ const props = defineProps<{
   hitReasonOptions: ReadonlyArray<{ value: string; label: string }>
   blockedRegionOptions: ReadonlyArray<{ value: string; label: string }>
   modelLabelOptions: ReadonlyArray<{ value: string; label: string }>
-  modelProviderOptions: ReadonlyArray<{ value: string; label: string }>
+  modelRuntimeOptions: ReadonlyArray<{ value: string; label: string }>
   activeFilters: ReadonlyArray<{ key: CommentModerationFilterKey; label: string }>
 }>()
 
@@ -217,7 +217,7 @@ const emit = defineEmits<{
   'update:hitReason': [value: string]
   'update:blockedRegion': [value: string]
   'update:modelLabel': [value: string]
-  'update:modelProvider': [value: string]
+  'update:modelRuntime': [value: string]
   'update:dateRange': [value: [string, string] | null]
 }>()
 
@@ -241,8 +241,8 @@ const onModelLabelChange = (value: string | null): void => {
   emit('update:modelLabel', value ?? '')
 }
 
-const onModelProviderChange = (value: string | null): void => {
-  emit('update:modelProvider', value ?? '')
+const onModelRuntimeChange = (value: string | null): void => {
+  emit('update:modelRuntime', value ?? '')
 }
 
 const onDateRangeChange = (value: unknown): void => {

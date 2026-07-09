@@ -1,13 +1,13 @@
 # Moderation Dictionary Architecture
 
-FsusBlog owns the hard dictionary and region policy layer. Model providers can only emit risk signals; they cannot replace dictionary matching, choose legal actions, or return `blocked_regions`.
+FsusBlog owns the hard dictionary and region policy layer. Built-in model runtime output can only emit risk signals; it cannot replace dictionary matching, choose legal actions, or return `blocked_regions`.
 
 ## Runtime Order
 
 ```text
 1. Hard dictionaries / ContentFilterService
 2. RegionLegalModerationService
-3. Optional model provider risk signal
+3. Optional built-in model risk signal
 4. Manual moderation
 ```
 
@@ -29,7 +29,7 @@ Each dictionary must declare `dictionary_id`, `version`, `scope`, `category`, `s
 
 `regions.yaml` defines built-in and operator custom regions plus region groups. `policy-templates/*.yaml` defines engineering presets with `template_id`, `version`, `source`, `reviewed_by`, `reviewed_at_utc`, `not_legal_advice`, checksum-at-load, and rules. Templates are configuration presets, not legal advice; operators must review them against actual service regions, deployment location, business type, and legal counsel.
 
-Dictionary categories use the same normalized category set as model-provider signals where possible:
+Dictionary categories use the same normalized category set as model risk signals where possible:
 
 ```text
 advertising

@@ -305,7 +305,7 @@ describe('admin UX task flow contract', () => {
     expect(moderationDashboard).not.toContain('model ${overview.modelProvider}')
     expect(moderationDashboard).not.toContain('Global Runtime State')
 
-    expect(moderationModel).toContain('模型来源')
+    expect(moderationModel).toContain('模型运行时')
     expect(moderationModel).toContain('启用状态')
     expect(moderationModel).toContain('class="moderation-model-runtime-form grid gap-3 md:grid-cols-2"')
     expect(moderationModel).toContain('class="moderation-model-runtime-field"')

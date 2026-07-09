@@ -65,7 +65,7 @@ describe('admin comment moderation workflow contract', () => {
     expect(toolbar).toContain('commentModerationUser')
     expect(toolbar).toContain('commentModerationHitReason')
     expect(toolbar).toContain('commentModerationModelLabel')
-    expect(toolbar).toContain('commentModerationModelProvider')
+    expect(toolbar).toContain('commentModerationModelRuntime')
     expect(toolbar).toContain('el-date-picker')
     expect(queueComposable).toContain('filters.keyword')
     expect(queueComposable).toContain('filters.article')

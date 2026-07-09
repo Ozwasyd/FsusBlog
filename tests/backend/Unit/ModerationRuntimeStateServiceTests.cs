@@ -110,57 +110,57 @@ public sealed class ModerationRuntimeStateServiceTests
     }
 
     [Fact]
-    public void ReloadModel_WhenProviderInvalid_KeepsPreviousSnapshot()
+    public void SetModelRuntime_WhenExternalProviderRequested_RejectsChange()
     {
         IConfigurationRoot config = BuildConfig();
         var service = new ModerationRuntimeStateService(config, new TestWebHostEnvironment("Development"));
         ModerationRuntimeSnapshot previous = service.Current;
-        config["Moderation:AntiSpamModel:Provider"] = "unsupported-provider";
 
-        var result = service.ReloadModel("admin");
-
-        Assert.True(result.IsFailure);
-        Assert.Same(previous, service.Current);
-        Assert.Equal("mock", service.Current.Model.Provider);
-    }
-
-    [Theory]
-    [InlineData("legacy/python/model")]
-    [InlineData("../FsusAntiSpamModel/legacy/python")]
-    [InlineData("unknown-provider-bundle")]
-    public void ReloadModel_WhenProviderSourceIsLegacyOrUnknown_KeepsPreviousSnapshot(string modelProfile)
-    {
-        IConfigurationRoot config = BuildConfig();
-        var service = new ModerationRuntimeStateService(config, new TestWebHostEnvironment("Production"));
-        ModerationRuntimeSnapshot previous = service.Current;
-        config["Moderation:AntiSpamModel:Provider"] = "http-json";
-        config["Moderation:AntiSpamModel:ModelProfile"] = modelProfile;
-        config["Moderation:AntiSpamModel:AllowExternalProvider"] = "true";
-        config["Moderation:AntiSpamModel:ExternalProviderReviewed"] = "true";
-
-        var result = service.ReloadModel("admin");
+        var result = service.SetModelRuntime(
+            enabled: true,
+            provider: string.Concat("http", "-", "json"),
+            modelProfile: null,
+            thresholdProfile: null,
+            reason: "unit-test",
+            changedBy: "admin");
 
         Assert.True(result.IsFailure);
-        Assert.Equal("moderation_model_provider_source_invalid", result.Error.Message);
+        Assert.Equal("moderation_model_provider_invalid", result.Error.Message);
         Assert.Same(previous, service.Current);
     }
 
     [Fact]
-    public void SetModelRuntime_WhenModelProfileIsLegacyProductionSource_RejectsChange()
+    public void ReloadModel_WhenBuiltInRuntimeInvalid_KeepsPreviousSnapshot()
+    {
+        IConfigurationRoot config = BuildConfig();
+        var service = new ModerationRuntimeStateService(config, new TestWebHostEnvironment("Production"));
+        ModerationRuntimeSnapshot previous = service.Current;
+        config["Moderation:AntiSpamModel:Enabled"] = "true";
+        config["Moderation:AntiSpamModel:RuntimePath"] = "/missing/fsus-antispammodel";
+
+        var result = service.ReloadModel("admin");
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("fsus_antispam_runtime_missing", result.Error.Message);
+        Assert.Same(previous, service.Current);
+    }
+
+    [Fact]
+    public void SetModelRuntime_WhenRuntimeMissing_RejectsEnablement()
     {
         var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Production"));
         ModerationRuntimeSnapshot previous = service.Current;
 
         var result = service.SetModelRuntime(
             enabled: true,
-            provider: "http-json",
-            modelProfile: "legacy/python/audit-baseline",
+            provider: null,
+            modelProfile: null,
             thresholdProfile: null,
             reason: "unit-test",
             changedBy: "admin");
 
         Assert.True(result.IsFailure);
-        Assert.Equal("moderation_model_provider_source_invalid", result.Error.Message);
+        Assert.Equal("fsus_antispam_runtime_missing", result.Error.Message);
         Assert.Same(previous, service.Current);
     }
 
@@ -190,15 +190,14 @@ public sealed class ModerationRuntimeStateServiceTests
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Moderation:AntiSpamModel:Enabled"] = "true",
-                ["Moderation:AntiSpamModel:Provider"] = "mock",
-                ["Moderation:AntiSpamModel:ModelProfile"] = "mock-v1",
+                ["Moderation:AntiSpamModel:Enabled"] = "false",
+                ["Moderation:AntiSpamModel:ModelProfile"] = "fsus-antispammodel",
                 ["Moderation:AntiSpamModel:ThresholdProfile"] = "default",
                 ["Moderation:AntiSpamModel:ContractVersion"] = AntiSpamModerationContract.DefaultVersion,
                 ["Moderation:AntiSpamModel:TimeoutMs"] = "800",
                 ["Moderation:AntiSpamModel:FailOpen"] = "true",
-                ["Moderation:AntiSpamModel:AllowExternalProvider"] = "false",
-                ["Moderation:AntiSpamModel:ExternalProviderReviewed"] = "false"
+                ["Moderation:AntiSpamModel:RuntimeChannel"] = "stable",
+                ["Moderation:AntiSpamModel:RequireSignature"] = "true"
             })
             .Build();
 

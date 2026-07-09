@@ -256,7 +256,7 @@ public static class AuthoringEndpoints
                 ResolveMainlandStrictStatus(snapshot),
                 snapshot.LastError,
                 configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled"),
-                NormalizeModerationProvider(configuration["Moderation:AntiSpamModel:Provider"]),
+                AntiSpamModerationProviders.BuiltIn,
                 configuration["Moderation:AntiSpamModel:Mode"] ?? "score-only",
                 configuration["Moderation:AntiSpamModel:ContractVersion"] ?? AntiSpamModerationContract.DefaultVersion,
                 Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000));
@@ -872,8 +872,6 @@ public static class AuthoringEndpoints
                 runtimeModel.ContractVersion,
                 runtimeModel.TimeoutMs,
                 runtimeModel.FailOpen,
-                runtimeModel.ExternalProviderAllowed,
-                runtimeModel.ExternalProviderReviewed,
                 lastSuccess.Count > 0 ? lastSuccess[0] : null,
                 lastError.Count > 0 ? lastError[0].ErrorCode : null,
                 lastError.Count > 0 ? lastError[0].CreatedAtUtc : null,
@@ -1868,8 +1866,8 @@ public static class AuthoringEndpoints
             model.Status,
             model.TimeoutMs,
             model.FailOpen,
-            model.ExternalProviderAllowed,
-            model.ExternalProviderReviewed,
+            model.RuntimePath,
+            model.RuntimeChannel,
             model.LastError);
 
     private static int ToHttpStatusCode(ErrorCode code)
@@ -2147,9 +2145,7 @@ public static class AuthoringEndpoints
         return value.ToLowerInvariant() switch
         {
             "disabled" or "off" => "none",
-            "mock" => "mock",
-            "httpjson" or "http-json" => "http-json",
-            "fsuscli" or "fsus-cli" => "fsus-cli",
+            "builtin" or "built-in" or "fsus-antispammodel" => AntiSpamModerationProviders.BuiltIn,
             _ => value
         };
     }

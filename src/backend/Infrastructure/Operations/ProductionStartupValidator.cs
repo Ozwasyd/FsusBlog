@@ -1,3 +1,4 @@
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -305,7 +306,7 @@ public static class ProductionStartupValidator
         ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
         ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
-        ValidateAntiSpamHttpJsonProvider(configuration, enforceProductionRules, errors);
+        ValidateBuiltInAntiSpamRuntime(configuration, enforceProductionRules, errors);
         ValidateCrawlerRangeUrls(configuration, enforceProductionRules, errors);
         ValidateZkProdSettings(configuration, enforceProductionRules, zkProdReadiness ?? ZkProdRuntimeReadiness.Missing, errors);
 
@@ -670,7 +671,7 @@ public static class ProductionStartupValidator
         }
     }
 
-    private static void ValidateAntiSpamHttpJsonProvider(IConfiguration configuration, bool enforceProductionRules, List<string> errors)
+    private static void ValidateBuiltInAntiSpamRuntime(IConfiguration configuration, bool enforceProductionRules, List<string> errors)
     {
         if (!enforceProductionRules)
         {
@@ -678,30 +679,20 @@ public static class ProductionStartupValidator
         }
 
         bool enabled = configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled");
-        string? provider = configuration["Moderation:AntiSpamModel:Provider"];
-        bool isHttpJsonProvider = string.Equals(provider, "http-json", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(provider, "http", StringComparison.OrdinalIgnoreCase);
-        if (!enabled || !isHttpJsonProvider)
+        if (!enabled)
         {
             return;
         }
 
-        bool externalAllowed = configuration.GetValue<bool>("Moderation:AntiSpamModel:AllowExternalProvider");
-        bool externalReviewed = configuration.GetValue<bool>("Moderation:AntiSpamModel:ExternalProviderReviewed");
-        if (!externalAllowed || !externalReviewed)
+        Result<FsusAntiSpamModelRuntimeSnapshot> loaded = FsusAntiSpamModelRuntimeLoader.TryLoad(
+            configuration["Moderation:AntiSpamModel:RuntimePath"],
+            new FsusAntiSpamModelRuntimeLoadOptions(
+                RequireSignature: true,
+                TrustedSigningKey: configuration["Moderation:AntiSpamModel:TrustedSigningKey"],
+                Channel: configuration["Moderation:AntiSpamModel:RuntimeChannel"] ?? "stable"));
+        if (loaded.IsFailure)
         {
-            return;
-        }
-
-        const string endpointKey = "Moderation:AntiSpamModel:Providers:http-json:Endpoint";
-        const string allowlistKey = "Moderation:AntiSpamModel:Providers:http-json:AllowedHosts";
-        AntiSpamModerationService.AntiSpamProviderEndpointValidation validation =
-            AntiSpamModerationService.ValidateHttpJsonProviderEndpointConfiguration(
-                configuration[endpointKey],
-                configuration[allowlistKey]);
-        if (!validation.Allowed)
-        {
-            errors.Add($"{endpointKey} is not allowed for reviewed http-json anti-spam provider: {validation.Reason}.");
+            errors.Add($"Moderation:AntiSpamModel:RuntimePath failed built-in FsusAntiSpamModel runtime validation: {loaded.Error.Message}.");
         }
     }
 

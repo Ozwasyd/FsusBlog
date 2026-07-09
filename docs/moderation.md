@@ -1,6 +1,6 @@
 # Moderation Runtime
 
-FsusBlog owns the moderation provider contract. `FsusAntiSpamModel` is the first-party reference implementation, and third-party providers can integrate when they conform to the FsusBlog provider contract in [`moderation/third-party-model-development.md`](moderation/third-party-model-development.md).
+FsusBlog owns the moderation model runtime boundary. `FsusAntiSpamModel` is loaded as a first-party portable runtime data package by the built-in loader; third parties may provide the same signed portable format, but FsusBlog does not execute third-party model code.
 
 ## Anti-Spam Model
 
@@ -11,40 +11,43 @@ The anti-spam model layer is optional and disabled by default:
   "Moderation": {
     "AntiSpamModel": {
       "Enabled": false,
-      "Provider": "none",
+      "RuntimePath": "/opt/fsusblog/models/fsus-antispammodel/stable",
+      "RuntimeChannel": "stable",
+      "RequireSignature": true,
+      "TrustedSigningKey": "replace-with-runtime-signing-key",
       "Mode": "score-only",
       "AutoApproveConfidenceThreshold": 0.95,
       "AutoHideConfidenceThreshold": 0.9,
       "FailOpen": true,
       "TimeoutMs": 800,
       "MaxContentChars": 2000,
-      "ProviderSource": "mainline-release",
-      "ContractVersion": "fsusblog-moderation-provider-v1"
+      "ContractVersion": "fsusblog-antispam-signal-v1"
     }
   }
 }
 ```
 
-Supported provider selectors:
+The built-in loader reads a model directory containing:
 
-| Provider | Behavior |
-|----------|----------|
-| `none` | Default; no model call and no signal row |
-| `mock` | Local deterministic test signal |
-| `http-json` | External HTTP JSON provider; requires `AllowExternalProvider=true` and `ExternalProviderReviewed=true` |
-| `fsus-cli` | Reserved until the reference model exposes a stable scoring command |
+- `manifest.json`
+- `runtime_config.json`
+- `model_state.json`
+- `weights.int8.json`
+- `threshold_policy.json`
+- `test_vectors.jsonl`
+- `manifest.sig` when signature validation is required
 
-The model provider emits risk signals only. It cannot decide `reject_submit`, `geo_block`, `blocked_regions`, publish, hide, submit action, or display action. Those decisions remain in FsusBlog hard dictionaries, region policy, and the FsusBlog-owned disposition policy.
+The model emits risk signals only. It cannot decide `reject_submit`, `geo_block`, `blocked_regions`, publish, hide, submit action, or display action. Those decisions remain in FsusBlog hard dictionaries, region policy, and the FsusBlog-owned disposition policy.
 
 ## Anonymous Field Boundary
 
-FsusBlog provider requests and export fixtures use an allowlist. Request metadata may include content and anonymous moderation context only: `source`, `comment_id`, `article_id`, `comment_depth`, `region_policy_version`, `author_mode`, `anonymous_display_language`, `moderation_subject_hash`, `credential_level`, `reputation_bucket`, `account_age_bucket`, `anonymous_comments_enabled`, `zk_anonymous_enabled`, `anonymous_proof_level`, `anonymous_credential_level`, `anonymous_nullifier_hash`, `anonymous_scope`, and `submitted_time_bucket`.
+FsusBlog model requests and export fixtures use an allowlist. Request metadata may include content and anonymous moderation context only: `source`, `comment_id`, `article_id`, `comment_depth`, `region_policy_version`, `author_mode`, `anonymous_display_language`, `moderation_subject_hash`, `credential_level`, `reputation_bucket`, `account_age_bucket`, `anonymous_comments_enabled`, `zk_anonymous_enabled`, `anonymous_proof_level`, `anonymous_credential_level`, `anonymous_nullifier_hash`, `anonymous_scope`, and `submitted_time_bucket`.
 
-Provider requests, result metadata, manifests, release fixtures, and local export tooling must not carry legacy identity fields such as `userId`, `username`, `email`, `ip`, `lastIp`, `authorId`, `replyToUserId`, `accountId`, or `publicHandle`. Hashes and anonymous proof fields are allowed only when they are scoped moderation signals, not account recovery handles.
+Model requests, result metadata, manifests, release fixtures, and local export tooling must not carry legacy identity fields such as `userId`, `username`, `email`, `ip`, `lastIp`, `authorId`, `replyToUserId`, `accountId`, or `publicHandle`. Hashes and anonymous proof fields are allowed only when they are scoped moderation signals, not account recovery handles.
 
-Production provider bundles must declare a mainline source. `legacy/python` artifacts from `FsusAntiSpamModel` are audit-only historical references; they may be inspected during migration review, but must not be loaded as the active production moderation provider or copied into provider cache/release bundles.
+Production runtime packages must declare a mainline or trusted third-party source. `legacy/python` artifacts from `FsusAntiSpamModel` are audit-only historical references; they may be inspected during migration review, but must not be loaded as the active production model or copied into runtime cache/release bundles.
 
-For `http-json` and future `fsus-cli` production providers, set `Moderation:AntiSpamModel:ProviderSource=mainline-release` or use a `ModelProfile` prefixed with `mainline-release`. Legacy paths such as `legacy/python` and unknown provider bundle labels are rejected before the runtime snapshot is loaded.
+Runtime reload validates artifact digests, signature policy, runtime format, threshold policy, and `test_vectors.jsonl`. A failed reload keeps the previous active scorer snapshot and records an unavailable/contract-invalid signal or operations event; it must not interrupt the comment moderation path.
 
 Supported disposition modes:
 
@@ -59,9 +62,9 @@ Region policy has higher priority than model disposition. A model signal must no
 
 ## Signal Storage
 
-When enabled, comment creation stores the latest model output in `comment_moderation_signal`. Provider timeout, unavailable, contract invalid, and other errors are persisted as fail-open signal rows with `status=timeout|unavailable|contract_invalid|error`; the comment remains in the normal Pending moderation queue.
+When enabled, comment creation stores the latest model output in `comment_moderation_signal`. Runtime unavailable, contract invalid, and other errors are persisted as fail-open signal rows with `status=unavailable|contract_invalid|error`; the comment remains in the normal Pending moderation queue.
 
-Admin queue responses include the latest model signal metadata: provider, model, contract version, label, confidence, severity, primary reason, risk categories, evidence JSON, raw reason, latency, status, error code, threshold profile, timestamp, and whether the final moderation state was model-auto-applied.
+Admin queue responses include the latest model signal metadata: built-in runtime id, model, contract version, label, confidence, severity, primary reason, risk categories, evidence JSON, raw reason, latency, status, error code, threshold profile, timestamp, and whether the final moderation state was model-auto-applied.
 
 ## Audit
 
@@ -76,8 +79,8 @@ model_moderation_error
 model_moderation_auto_disposition
 ```
 
-Audit context contains low-cardinality metadata such as comment id, provider, model, contract version, label, confidence, status, error code, disposition mode, reason, next status, and whether the status was auto-applied.
+Audit context contains low-cardinality metadata such as comment id, built-in runtime id, model, contract version, label, confidence, status, error code, disposition mode, reason, next status, and whether the status was auto-applied.
 
 ## Queue Usage
 
-The admin comment moderation workbench shows model label, confidence, provider, severity, primary reason, raw reason, and whether the comment was model-auto-disposed. Local filters can narrow the current queue by model label or provider. Bulk and single manual moderation still require the admin passkey step-up proof flow; model output is never an automatic final decision in the default `score-only` mode.
+The admin comment moderation workbench shows model label, confidence, runtime id, severity, primary reason, raw reason, and whether the comment was model-auto-disposed. Local filters can narrow the current queue by model label or runtime id. Bulk and single manual moderation still require the admin passkey step-up proof flow; model output is never an automatic final decision in the default `score-only` mode.

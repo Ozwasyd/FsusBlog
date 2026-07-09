@@ -243,8 +243,6 @@ public sealed record class ModerationModelStatusResponse(
     string ContractVersion,
     int TimeoutMs,
     bool FailOpen,
-    bool ExternalProviderAllowed,
-    bool ExternalProviderReviewed,
     DateTime? LastSuccessAtUtc,
     string? LastErrorCode,
     DateTime? LastErrorAtUtc,
@@ -271,8 +269,8 @@ public sealed record class ModerationModelRuntimeResponse(
     string Status,
     int TimeoutMs,
     bool FailOpen,
-    bool ExternalProviderAllowed,
-    bool ExternalProviderReviewed,
+    string? RuntimePath,
+    string RuntimeChannel,
     string? LastError);
 
 public sealed record class ModerationRuntimeStatusResponse(

@@ -16,7 +16,7 @@
       :hit-reason-options="hitReasonOptions"
       :blocked-region-options="blockedRegionOptions"
       :model-label-options="modelLabelOptions"
-      :model-provider-options="modelProviderOptions"
+      :model-runtime-options="modelProviderOptions"
       :active-filters="activeFilterChips"
       @refresh="refreshAndPrune"
       @search="refreshAndPrune"
@@ -29,7 +29,7 @@
       @update:hit-reason="filters.hitReason = $event"
       @update:blocked-region="filters.blockedRegion = $event"
       @update:model-label="filters.modelLabel = $event"
-      @update:model-provider="filters.modelProvider = $event"
+      @update:model-runtime="filters.modelProvider = $event"
       @update:date-range="filters.dateRange = $event"
     />
 

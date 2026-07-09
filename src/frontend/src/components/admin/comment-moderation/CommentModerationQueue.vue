@@ -365,7 +365,7 @@ const regionMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
 const modelMetaItems = (item: CommentModerationViewItem): DetailMetaItem[] => [
   toMetaItem('模型', item.modelSignalLabel),
   toMetaItem('置信度', stripMetaPrefix(item.modelConfidenceLabel, '模型置信度')),
-  toMetaItem('来源', stripMetaPrefix(item.modelProviderLabel, '模型来源'))
+  toMetaItem('运行时', stripMetaPrefix(item.modelProviderLabel, '模型运行时'))
 ]
 </script>
 

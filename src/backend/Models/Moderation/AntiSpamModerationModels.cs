@@ -2,7 +2,7 @@ namespace FsusBlog.Server.Models.Moderation;
 
 public static class AntiSpamModerationContract
 {
-    public const string DefaultVersion = "fsusblog-moderation-provider-v1";
+    public const string DefaultVersion = "fsusblog-antispam-signal-v1";
 
     public static readonly string[] ForbiddenIdentityFields =
     [
@@ -67,9 +67,7 @@ public static class AntiSpamModerationContract
 public static class AntiSpamModerationProviders
 {
     public const string None = "none";
-    public const string Mock = "mock";
-    public const string HttpJson = "http-json";
-    public const string FsusCli = "fsus-cli";
+    public const string BuiltIn = "fsus-antispammodel";
 }
 
 public static class AntiSpamModerationStatuses
