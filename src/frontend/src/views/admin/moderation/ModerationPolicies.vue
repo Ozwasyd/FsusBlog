@@ -133,7 +133,7 @@ import {
   type RegionPolicyCheckResponse,
   type RegionPolicySummaryResponse
 } from '@/api/authoring'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { Connection, Refresh } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
@@ -259,7 +259,6 @@ const loadPolicies = async (): Promise<void> => {
   }
 }
 
-const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const resolveRegionConfirmPhrase = async (region: string, state: string): Promise<string | null> => {
   if (region !== 'CN-MAINLAND' || state === 'enabled') {

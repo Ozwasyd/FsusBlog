@@ -153,7 +153,7 @@ import {
   type ModerationDictionaryRuntimeSnapshot,
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { Check, Close, CopyDocument, Refresh, RefreshLeft, RefreshRight, View } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
@@ -334,7 +334,6 @@ const loadSnapshot = async (): Promise<void> => {
   }
 }
 
-const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const reloadSnapshot = async (): Promise<void> => {
   reloading.value = true

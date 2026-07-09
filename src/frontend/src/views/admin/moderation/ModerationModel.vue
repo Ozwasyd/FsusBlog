@@ -107,7 +107,7 @@ import {
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { Connection, Cpu, Refresh, RefreshLeft, RefreshRight, Warning } from '@/fsusui/icons'
 import { toast } from '@/fsusui/feedback'
 import { showErrorToast } from '@/utils/errorPresentation'
@@ -195,7 +195,6 @@ const loadStatus = async (): Promise<void> => {
   }
 }
 
-const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const saveRuntime = async (): Promise<void> => {
   saving.value = true

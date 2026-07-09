@@ -205,29 +205,14 @@ export function useArticleDetailView() {
     attributes: commentChallengeAttributes.value
   })
 
-  const commentChallengeClient: SecurityChallengeClient = {
-    async issue(context, options = {}) {
-      if (!options.forceRefresh && commentChallengePreload.value) {
-        const preloaded = commentChallengePreload.value
-        commentChallengePreload.value = null
-        return preloaded
-      }
-
-      return baseCommentChallengeClient.issue(context, options)
-    },
-    refresh(context) {
+  const issueCommentChallenge: SecurityChallengeClient['issue'] = async (context, options = {}) => {
+    if (!options.forceRefresh && commentChallengePreload.value) {
+      const preloaded = commentChallengePreload.value
       commentChallengePreload.value = null
-      return baseCommentChallengeClient.refresh(context)
-    },
-    verify(context, request) {
-      return baseCommentChallengeClient.verify(context, request)
-    },
-    getCachedProof(context) {
-      return baseCommentChallengeClient.getCachedProof(context)
-    },
-    clearProof(context) {
-      baseCommentChallengeClient.clearProof(context)
+      return preloaded
     }
+
+    return baseCommentChallengeClient.issue(context, options)
   }
 
   const detailView = computed(() =>
@@ -645,13 +630,13 @@ export function useArticleDetailView() {
     }
 
     const context = commentChallengeContext()
-    const cached = commentChallengeClient.getCachedProof(context)
+    const cached = baseCommentChallengeClient.getCachedProof(context)
     if (cached) {
       clearCommentChallenge()
       return cached
     }
 
-    const result = await commentChallengeClient.issue(context)
+    const result = await issueCommentChallenge(context)
     if (signal.aborted) {
       return 'pending'
     }
@@ -687,13 +672,13 @@ export function useArticleDetailView() {
   }
 
   const handleCommentChallengeExpired = (): void => {
-    commentChallengeClient.clearProof(commentChallengeContext())
+    baseCommentChallengeClient.clearProof(commentChallengeContext())
     commentChallengePreload.value = null
     showErrorToast('验证已过期，请重试。')
   }
 
   const handleCommentChallengeCancel = (): void => {
-    commentChallengeClient.clearProof(commentChallengeContext())
+    baseCommentChallengeClient.clearProof(commentChallengeContext())
     clearCommentChallenge()
     showErrorToast('验证已取消。')
   }
@@ -1032,7 +1017,14 @@ export function useArticleDetailView() {
     commentChallengeVisible,
     commentChallengeRouteKey,
     commentChallengeAttributes,
-    commentChallengeClient,
+    commentChallengeClient: {
+      ...baseCommentChallengeClient,
+      issue: issueCommentChallenge,
+      refresh(context) {
+        commentChallengePreload.value = null
+        return baseCommentChallengeClient.refresh(context)
+      }
+    },
     handleCommentChallengeVerified,
     handleCommentChallengeError,
     handleCommentChallengeExpired,

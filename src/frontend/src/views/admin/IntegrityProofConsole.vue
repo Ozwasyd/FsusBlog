@@ -136,7 +136,7 @@ import {
   type IntegrityAdminConsoleResponse,
   type IntegrityAdminProofRowResponse
 } from '@/api/integrityConsole'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import {
   FsusUiKeyValueGrid,
@@ -153,7 +153,6 @@ import type { AdminStatusTone } from '@/view-contracts/adminStatus'
 const loading = ref(false)
 const retryingProofId = ref<number | null>(null)
 const consoleState = shallowRef<IntegrityAdminConsoleResponse | null>(null)
-const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const filters = reactive({
   articleId: '',

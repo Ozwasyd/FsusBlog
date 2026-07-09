@@ -58,7 +58,7 @@ const {
   loadArticles
 } = useHomeView()
 const router = useRouter()
-const spaNavigation = usePublicSpaNavigationMode()
+const spaNavigation = usePublicSpaNavigationMode
 const spotlightArticles = computed(() => selectHomeSpotlightCandidates(featuredArticles.value))
 // Hot articles are surfaced by HomeTextFirstRecommendations inside the main
 // column, so the right-side aside stays closed. The HomeFeedSurface layout

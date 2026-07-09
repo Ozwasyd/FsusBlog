@@ -205,7 +205,7 @@ import {
   type PerceptionSealedV2PolicyUpdateRequest
 } from '@/api/security'
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { promptText } from '@/fsusui/feedback'
@@ -219,7 +219,6 @@ const lastSavedOptions = shallowRef<PerceptionSealedV2PolicyOptions | null>(null
 type PerceptionSwitchOptionKey = 'enabled' | 'textTaskEnabled' | 'localizationEnabled' | 'microInteractionEnabled' | 'poSpaceFallbackEnabled'
 const pendingOptionKey = shallowRef<PerceptionSwitchOptionKey | null>(null)
 const taskFeedback = useAdminTaskFeedback()
-const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 const {
   isHighlighted: isTaskHighlighted
 } = taskFeedback

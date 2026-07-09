@@ -161,8 +161,6 @@ const createDefaultArticleRightsForm = (mode: ArticleRightsForm['mode'] = 'site'
   proofBindingEnabled: true
 })
 
-const cloneArticleRightsForm = (rights: ArticleRightsForm): ArticleRightsForm => ({ ...rights })
-
 const normalizeOptionalRightsText = (value: unknown): string => typeof value === 'string' ? value : ''
 
 const normalizeNullableRightsYear = (value: unknown): number | null => {
@@ -628,7 +626,7 @@ export function useAdminArticleWrite() {
     tagIds: [...articleForm.tagIds],
     status: articleForm.status,
     scheduledPublishAt: articleForm.scheduledPublishAt,
-    rights: cloneArticleRightsForm(articleForm.rights),
+    rights: { ...articleForm.rights },
     savedAt: Date.now(),
     sourceArticleId: articleId.value,
     isEdit: isEdit.value,
@@ -650,7 +648,7 @@ export function useAdminArticleWrite() {
     scheduledPublishAt: snapshot.status === ArticlePublishStatus.Scheduled && snapshot.scheduledPublishAt
       ? snapshot.scheduledPublishAt
       : null,
-    rights: cloneArticleRightsForm(snapshot.rights)
+    rights: { ...snapshot.rights }
   })
 
   const snapshotFromServerDraft = (draft: ServerDraftResponse): ArticleDraftSnapshot => {
@@ -804,7 +802,7 @@ export function useAdminArticleWrite() {
     articleForm.tagIds = [...draft.tagIds]
     articleForm.status = draft.status
     articleForm.scheduledPublishAt = draft.scheduledPublishAt
-    articleForm.rights = cloneArticleRightsForm(draft.rights)
+    articleForm.rights = { ...draft.rights }
     serverDraftSyncPaused.value = false
     suppressDraftSave = false
   }
@@ -885,7 +883,7 @@ export function useAdminArticleWrite() {
     try {
       siteComplianceConfig.value = await getAdminSiteComplianceConfig(signal ? buildSignalConfig(signal) : undefined)
       if (!isEdit.value && articleForm.rights.mode === 'site') {
-        articleForm.rights = cloneArticleRightsForm(siteInheritedRights.value)
+        articleForm.rights = { ...siteInheritedRights.value }
       }
     } catch {
       siteComplianceConfig.value = null
@@ -1412,12 +1410,12 @@ export function useAdminArticleWrite() {
   }
 
   const useSiteRightsDefaults = (): void => {
-    articleForm.rights = cloneArticleRightsForm(siteInheritedRights.value)
+    articleForm.rights = { ...siteInheritedRights.value }
   }
 
   const useCustomArticleRights = (): void => {
     articleForm.rights = {
-      ...cloneArticleRightsForm(siteInheritedRights.value),
+      ...siteInheritedRights.value,
       mode: 'custom'
     }
   }

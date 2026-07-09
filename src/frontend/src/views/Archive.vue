@@ -18,7 +18,7 @@ import { buildPublicArchiveRouteKey } from '@/public-renderers/publicRouteIdenti
 
 const { loading, archiveView } = useArchiveView()
 const router = useRouter()
-const spaNavigation = usePublicSpaNavigationMode()
+const spaNavigation = usePublicSpaNavigationMode
 
 useHumanReadProof({
   scope: computed(() => 'site'),

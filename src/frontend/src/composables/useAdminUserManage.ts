@@ -5,7 +5,7 @@ import { usePow } from '@/composables/usePow'
 import { useMutationFlow } from '@/composables/useMutationFlow'
 import { useRowStateMotion } from '@/composables/useRowStateMotion'
 import { useViewTask } from '@/composables/useViewTask'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { TimeUtils } from '@/utils/time'
 import { showWarningToast } from '@/utils/errorPresentation'
 
@@ -103,8 +103,6 @@ export function useAdminUserManage() {
   const loadTask = useViewTask()
   const mutation = useMutationFlow()
   const rowMotion = useRowStateMotion({ visibleLimit: 20 })
-  const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
-
   const buildSignalConfig = (signal: AbortSignal) => ({ signal })
 
   const processingId = ref<number | null>(null)

@@ -94,7 +94,7 @@ import {
   type SecurityMode
 } from '@/api/security'
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Refresh } from '@/fsusui/icons'
 import { promptText, toast } from '@/fsusui/feedback'
@@ -180,7 +180,6 @@ const loadPow = async (): Promise<void> => {
   }
 }
 
-const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const saveOptions = async (): Promise<void> => {
   saving.value = true

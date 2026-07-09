@@ -529,8 +529,6 @@ export function useHomeView() {
     disconnectSecondaryListObserver()
   })
 
-  const loadFeaturedArticles = loadHomeSecondaryArticles
-
   return {
     listView,
     articles,
@@ -546,6 +544,6 @@ export function useHomeView() {
     canGoNext,
     handlePageChange,
     loadArticles,
-    loadFeaturedArticles
+    loadHomeSecondaryArticles
   }
 }

@@ -51,7 +51,7 @@ import {
   type ModerationOverviewResponse,
   type ModerationRuntimeStatusResponse
 } from '@/api/authoring'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import AdminStatusMatrix, { type AdminStatusMatrixItem } from '@/components/admin/AdminStatusMatrix.vue'
 import { FsusUiSettingsSection } from '@/fsusui'
 import { Connection, Refresh } from '@/fsusui/icons'
@@ -133,7 +133,6 @@ const loadDashboard = async (): Promise<void> => {
   }
 }
 
-const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const saveGlobalState = async (): Promise<void> => {
   savingGlobalState.value = true

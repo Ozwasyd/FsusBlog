@@ -281,14 +281,13 @@ import {
   revokeAnonymousGovernanceCredential,
   type AnonymousGovernanceStatusResponse
 } from '@/api/anonymousGovernance'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { isAppError } from '@/utils/appError'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { promptText, toast } from '@/fsusui/feedback'
 
 const route = useRoute()
 const adminStore = useAdminStore()
-const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
 const sections = {
   ManageAnonymousCommentPolicy: {

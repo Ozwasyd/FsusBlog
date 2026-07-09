@@ -94,7 +94,7 @@ import { FsusUiPageHeader } from "@/fsusui"
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 
 const articleId = ref('')
 const markdown = ref('')
@@ -104,7 +104,6 @@ const exporting = ref(false)
 const importing = ref(false)
 const importResult = ref<ContentImportResponse | null>(null)
 const taskFeedback = useAdminTaskFeedback()
-const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 const {
   isHighlighted: isTaskHighlighted
 } = taskFeedback

@@ -34,7 +34,7 @@ const {
   handlePageChange,
   setSearchSortMode
 } = useFilterView()
-const spaNavigation = usePublicSpaNavigationMode()
+const spaNavigation = usePublicSpaNavigationMode
 
 useHumanReadProof({
   scope: computed(() => 'site'),

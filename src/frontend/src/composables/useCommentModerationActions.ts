@@ -7,7 +7,7 @@ import {
   revokeAnonymousCredential,
   type CommentModerationItemResponse
 } from '@/api/authoring'
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { commentModerationStatusLabel, type CommentModerationViewItem } from '@/composables/useCommentModerationQueue'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { AppErrorCode, isAppError } from '@/utils/appError'
@@ -128,8 +128,6 @@ export function useCommentModerationActions() {
     const available = new Set(availableIds)
     selectedIds.value = selectedIds.value.filter((id) => available.has(id))
   }
-
-  const { ensureAdminSensitiveProof } = useAdminSensitiveProof()
 
   const applySingle = async (
     comment: CommentModerationItemResponse,
