@@ -95,6 +95,14 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(shellSource).not.toContain('<el-public-shell')
   })
 
+  it('publishes measured sticky geometry with an SSR-safe fallback', () => {
+    expect(shellSource).toContain("import { usePublicStickyGeometry } from '@/components/public/usePublicStickyGeometry'")
+    expect(shellSource).toContain('usePublicStickyGeometry(shellRootRef)')
+    expect(shellSource).toContain("'--fsusblog-public-header-height-current': 'var(--fsusblog-public-header-height, 4rem)'")
+    expect(shellSource).toContain("'--fsusblog-public-sticky-top': 'var(--fsusblog-public-header-height-current)'")
+    expect(shellSource).toContain("'--fsusblog-public-anchor-offset': 'calc(var(--fsusblog-public-sticky-top) + 0.75rem)'")
+  })
+
   it('renders desktop and mobile theme mode with the shared localized labels', () => {
     expect(shellSource).toContain('variant="menu-button"')
     expect(shellSource).toContain('<ThemeModeToggle visibility="desktop" />')

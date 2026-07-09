@@ -2,6 +2,7 @@
   <div
     id="fsus-aot-shell"
     ref="shellRootRef"
+    :style="publicShellStyle"
     :data-public-hydration-kind="hydrationKind || undefined"
   >
     <a
@@ -12,7 +13,6 @@
     </a>
     <div
       class="el-public-shell is-sticky"
-      :style="publicShellStyle"
       :data-public-hydration-kind="hydrationKind || undefined"
     >
       <SiteChromeHeaderAdapter
@@ -189,6 +189,7 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, r
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
+import { usePublicStickyGeometry } from '@/components/public/usePublicStickyGeometry'
 import FsusUiBottomTabBar from '@/fsusui/FsusUiBottomTabBar.vue'
 import {
   PUBLIC_FIXED_PATHS,
@@ -313,6 +314,9 @@ const PUBLIC_NAV_ITEMS = [
   { key: 'about', label: '关于', href: PUBLIC_FIXED_PATHS.about },
 ]
 const publicShellStyle = {
+  '--fsusblog-public-header-height-current': 'var(--fsusblog-public-header-height, 4rem)',
+  '--fsusblog-public-sticky-top': 'var(--fsusblog-public-header-height-current)',
+  '--fsusblog-public-anchor-offset': 'calc(var(--fsusblog-public-sticky-top) + 0.75rem)',
   '--el-public-shell-mobile-nav-gap': '1.5rem',
   '--el-public-shell-mobile-search-width': '7rem',
   '--el-public-shell-max-width': '64rem',
@@ -329,6 +333,7 @@ const shellIdentity = computed(() =>
     renderYear: props.renderYear ?? null,
   }),
 )
+usePublicStickyGeometry(shellRootRef)
 const mobileSearchButtonLabel = computed(() =>
   mobileSearchExpanded.value ? '取消' : '搜索',
 )
