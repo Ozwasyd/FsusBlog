@@ -2,8 +2,8 @@
 
 .markdown-body {
   color: var(--fsusblog-reading-text);
-  font-size: 1.05rem;
-  line-height: 1.9;
+  font-size: 1rem;
+  line-height: 1.8;
   letter-spacing: 0;
   text-align: left;
   font-weight: 400;
@@ -11,12 +11,6 @@
   overflow-wrap: break-word;
   text-autospace: ideograph-alpha ideograph-numeric;
   text-spacing-trim: space-all;
-}
-
-.markdown-body p {
-  margin-bottom: 1.5em;
-  text-indent: 0;
-  margin-top: 1em;
 }
 
 .blog-markdown-renderer .blog-markdown-feature-error {
@@ -122,7 +116,7 @@
   margin: 2.5rem 3rem !important;
   padding: 0 !important;
   color: var(--fsusblog-reading-quote) !important;
-  font-size: 0.95em;
+  font-size: 1rem;
   font-weight: 300 !important;
   font-style: normal !important;
   background: transparent !important;
@@ -230,8 +224,8 @@
   background: color-mix(in srgb, var(--fsusblog-page-bg) 86%, transparent);
   color: var(--fsusblog-text-muted);
   padding: 0 0.5rem;
-  font-size: 0.625rem;
-  line-height: 1;
+  font-size: 0.75rem;
+  line-height: 1rem;
   opacity: 0;
   transition:
     opacity var(--blog-motion-fast) var(--blog-motion-ease),
@@ -280,7 +274,7 @@
   background-color: var(--fsusblog-reading-code-bg) !important;
   border: 1px solid var(--fsusblog-reading-code-border) !important;
   border-radius: var(--fsus-radius-control, 6px);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   line-height: 1.6;
   overflow-x: auto;
@@ -298,7 +292,7 @@
 .markdown-body :not(pre) > code {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, var(--font-sans), monospace !important;
   font-weight: 500 !important;
-  font-size: 0.85em;
+  font-size: 0.875em;
   background-color: var(--fsusblog-reading-code-bg) !important;
   border: 1px solid var(--fsusblog-reading-code-border);
   color: var(--fsusblog-reading-code-text) !important;
@@ -318,7 +312,7 @@
   display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  font-size: 0.9em;
+  font-size: 0.875em;
   line-height: 1.6;
   text-indent: 0 !important;
 }
@@ -388,7 +382,7 @@
 }
 
 .markdown-body .katex {
-  font-size: 1.05em;
+  font-size: 1em;
   text-indent: 0 !important;
   color: var(--fsusblog-reading-heading);
 }
@@ -418,7 +412,7 @@
 /* KaTeX 错误消息 — 使用主题错误色代替默认红色 */
 .markdown-body .katex-error {
   color: var(--fsusblog-reading-error-text);
-  font-size: 0.9em;
+  font-size: 0.875em;
 }
 
 @media (max-width: 640px) {
@@ -441,7 +435,7 @@
 
 .markdown-body .footnotes {
   margin-top: 6rem;
-  font-size: 0.85em;
+  font-size: 0.875em;
   color: var(--fsusblog-reading-quote);
 }
 

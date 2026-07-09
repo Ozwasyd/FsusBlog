@@ -1,6 +1,6 @@
 import { nextTick, onBeforeUnmount, onMounted, type Ref } from 'vue'
 
-const headerSelector = '.el-public-shell__header'
+const headerSelector = '.fsusblog-public-shell-header'
 const anchorGap = '0.75rem'
 
 export const publicStickyGeometryTokens = {

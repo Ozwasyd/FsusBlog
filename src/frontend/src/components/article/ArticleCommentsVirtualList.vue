@@ -59,7 +59,7 @@
           class="space-y-1"
           v-memo="[reply.id, reply.content, reply.canDelete, isCommentExpanded(replyCommentKey(reply.id)), isCommentFoldable(replyCommentKey(reply.id), reply.content)]"
         >
-          <div class="flex items-center gap-2 text-[11px] text-[var(--fsusblog-text-muted)]">
+          <div class="flex items-center gap-2 text-xs leading-4 text-[var(--fsusblog-text-muted)]">
             <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.author.displayName }}</strong>
             <span v-if="reply.replyToAuthor">回复 @{{ reply.replyToAuthor?.displayName }}</span>
             <span>{{ reply.time.relativeTimeText }}</span>

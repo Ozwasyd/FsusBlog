@@ -21,8 +21,9 @@
   --text: #0F0F11;
   --text-heading: #0F0F11;
   --text-secondary: #5F5F68;
-  --text-tertiary: #8E8E93;
-  --text-muted: #A1A1AA;
+  --text-tertiary: #71717A;
+  --text-muted: #62626A;
+  --text-decorative: #A1A1AA;
   --border: #E4E4E7;
   --border-strong: #D4D4D8;
   --accent: #2A599C;
@@ -34,7 +35,7 @@
   --fsus-page: var(--bg);
   --fsus-paper: var(--surface);
   --fsus-ink: var(--text);
-  --fsus-dot-gray: var(--text-tertiary);
+  --fsus-dot-gray: var(--text-decorative);
   --fsus-border: var(--border);
   --fsus-scholarly-blue: var(--accent);
   --fsusblog-backdrop-blur-soft: 0px;
@@ -52,6 +53,8 @@
   --fsusblog-text-secondary: var(--text-secondary);
   --fsusblog-text-tertiary: var(--text-tertiary);
   --fsusblog-text-muted: var(--text-muted);
+  --fsusblog-text-subtle: var(--text-muted);
+  --fsusblog-text-decorative: var(--text-decorative);
   --fsusblog-color-focus-ring: var(--accent, Highlight);
   --el-color-primary: var(--accent);
   --el-bg-color: var(--surface);
@@ -79,8 +82,9 @@ html[data-theme-resolved='dark'] {
   --text: #F0F0F4;
   --text-heading: #F0F0F4;
   --text-secondary: #A1A1AA;
-  --text-tertiary: #71717A;
-  --text-muted: #52525B;
+  --text-tertiary: #A1A1AA;
+  --text-muted: #B2B2BA;
+  --text-decorative: #52525B;
   --border: #27272A;
   --border-strong: #3F3F46;
   --accent: #4B79CC;
@@ -92,7 +96,7 @@ html[data-theme-resolved='dark'] {
   --fsus-page: var(--bg);
   --fsus-paper: var(--surface);
   --fsus-ink: var(--text);
-  --fsus-dot-gray: var(--text-tertiary);
+  --fsus-dot-gray: var(--text-decorative);
   --fsus-border: var(--border);
   --fsus-scholarly-blue: var(--accent);
   --fsusblog-backdrop-blur-soft: 0px;
@@ -110,6 +114,8 @@ html[data-theme-resolved='dark'] {
   --fsusblog-text-secondary: var(--text-secondary);
   --fsusblog-text-tertiary: var(--text-tertiary);
   --fsusblog-text-muted: var(--text-muted);
+  --fsusblog-text-subtle: var(--text-muted);
+  --fsusblog-text-decorative: var(--text-decorative);
   --fsusblog-color-focus-ring: var(--accent, Highlight);
   --el-color-primary: var(--accent);
   --el-bg-color: var(--surface);

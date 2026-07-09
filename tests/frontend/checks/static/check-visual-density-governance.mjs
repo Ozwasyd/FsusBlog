@@ -33,6 +33,15 @@ const dashboardPopularArticlesPath = path.join(repoRoot, 'src/frontend/src/compo
 const homeTextFirstRecommendationsPath = path.join(repoRoot, 'src/frontend/src/components/home/HomeTextFirstRecommendations.vue')
 const themeTokensPath = path.join(repoRoot, 'src/frontend/src/ui-tokens/themeTokens.ts')
 const productionSourceRoot = path.join(repoRoot, 'src/frontend/src')
+const articleDetailPath = path.join(repoRoot, 'src/frontend/src/views/ArticleDetail.vue')
+const publicPageCssPath = path.join(repoRoot, 'src/frontend/src/assets/public-page.css')
+const publicShellCriticalCssPath = path.join(repoRoot, 'src/frontend/src/assets/public-shell-critical.css')
+const publicShellEmergencyCssPath = path.join(repoRoot, 'src/frontend/public/public-shell-emergency.css')
+const mainCssPath = path.join(repoRoot, 'src/frontend/src/assets/main.css')
+const markdownCssPath = path.join(repoRoot, 'src/frontend/src/assets/markdown.css')
+const publicLayoutRulesPath = path.join(repoRoot, 'docs/public-layout-rules.md')
+const publicRenderersRoot = path.join(repoRoot, 'src/frontend/src/public-renderers')
+const commentDetailViewContractPath = path.join(repoRoot, 'src/frontend/src/view-contracts/commentDetail.ts')
 
 const dashboardPanelPattern = /src\/frontend\/src\/(?:views\/admin\/Dashboard|components\/admin\/Dashboard|views\/admin\/security\/Security|views\/admin\/moderation\/Moderation|components\/admin\/comment-moderation\/CommentModeration)/
 const nonActionHoverPrimaryFiles = new Set([
@@ -182,6 +191,146 @@ function assertNotContains(file, pattern, message) {
   if (match?.index !== undefined) {
     fail(file, lineNumberFromSource(source, match.index), message)
   }
+}
+
+function contrastRatio(foreground, background) {
+  const parseHex = (value) => {
+    const normalized = value.replace('#', '')
+    if (!/^[0-9a-f]{6}$/i.test(normalized)) {
+      throw new Error(`expected six-digit hex color, got ${value}`)
+    }
+
+    return [0, 2, 4].map((offset) => Number.parseInt(normalized.slice(offset, offset + 2), 16) / 255)
+  }
+
+  const relativeLuminance = (value) => parseHex(value)
+    .map((channel) => (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4))
+    .reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0)
+
+  const [lighter, darker] = [relativeLuminance(foreground), relativeLuminance(background)].sort((left, right) => right - left)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+function checkPublicTypographyContract() {
+  const readableSourceFiles = [
+    ...publicEditorialRoots.flatMap((dir) => walk(dir)),
+    ...walk(publicRenderersRoot),
+    articleDetailPath,
+    commentDetailViewContractPath,
+    themeTokensPath
+  ]
+  const forbiddenReadableScale = /text-\[(?:9|10|11)px\]|font-size:\s*(?:0?\.625|0?\.6875|0?\.71875)rem\s*;/
+
+  for (const file of readableSourceFiles) {
+    const lines = read(file).split(/\r?\n/)
+    lines.forEach((line, index) => {
+      if (hasAllowComment(lines, index)) {
+        return
+      }
+
+      if (forbiddenReadableScale.test(line)) {
+        fail(file, index + 1, 'public readable copy must use 12px+ metadata and controls, never 9/10/11px or sub-12px rem scales')
+      }
+    })
+  }
+
+  for (const file of [publicPageCssPath, publicShellCriticalCssPath, publicShellEmergencyCssPath, markdownCssPath]) {
+    assertNotContains(
+      file,
+      /font-size:\s*(?:0?\.(?:625|6875|71875|95|96)rem|(?:9|10|11)px)\s*;/,
+      'public readable CSS must not use 9/10/11px or sub-12px rem typography'
+    )
+  }
+
+  const markdownCss = read(markdownCssPath)
+  const paragraphRuleCount = markdownCss.match(/^\.markdown-body p\s*\{/gm)?.length ?? 0
+  if (paragraphRuleCount !== 1) {
+    fail(markdownCssPath, 1, 'Markdown paragraph spacing must have one authoritative rule')
+  }
+  assertContains(
+    markdownCssPath,
+    /\.markdown-body\s*\{[\s\S]*?font-size:\s*1rem;[\s\S]*?line-height:\s*1\.8;/,
+    'Markdown reading body must use the 16px/1.8 canonical reading scale'
+  )
+
+  assertContains(
+    themeTokensPath,
+    /const metadataText = `text-xs sm:text-sm leading-4 sm:leading-5/,
+    'public metadata must use the 12px/14px readable role scale'
+  )
+  assertContains(
+    themeTokensPath,
+    /title: `ui-article-title text-xl sm:text-2xl lg:text-3xl[\s\S]*?leading-\[1\.1\] sm:leading-\[1\.05\]/,
+    'public display titles must retain the 20/24/30px display role scale'
+  )
+  assertContains(
+    themeTokensPath,
+    /summary: `ui-article-summary mt-2 text-base sm:text-lg[\s\S]*?leading-\[1\.8\] sm:leading-\[1\.9\]/,
+    'public summaries must retain the 16/18px reading role scale'
+  )
+
+  const publicPageCss = read(publicPageCssPath)
+  const publicShellCriticalCss = read(publicShellCriticalCssPath)
+  const publicShellEmergencyCss = read(publicShellEmergencyCssPath)
+  const mainCss = read(mainCssPath)
+  const requiredTokenAssignments = [
+    '--text-tertiary: #71717A;',
+    '--text-muted: #62626A;',
+    '--text-decorative: #A1A1AA;',
+    '--text-tertiary: #A1A1AA;',
+    '--text-muted: #B2B2BA;',
+    '--text-decorative: #52525B;',
+    '--fsus-dot-gray: var(--text-decorative);',
+    '--fsusblog-reading-marker: var(--text-decorative);',
+    '--fsusblog-text-subtle: var(--text-muted);'
+  ]
+  for (const token of requiredTokenAssignments) {
+    assertContains(publicPageCssPath, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `public token contract is missing ${token}`)
+  }
+  for (const token of [
+    '--text-tertiary: #71717A;',
+    '--text-muted: #62626A;',
+    '--text-decorative: #A1A1AA;',
+    '--text-tertiary: #A1A1AA;',
+    '--text-muted: #B2B2BA;',
+    '--text-decorative: #52525B;',
+    '--fsus-dot-gray: var(--text-decorative);',
+    '--fsusblog-text-subtle: var(--text-muted);'
+  ]) {
+    assertContains(publicShellCriticalCssPath, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `critical public shell token contract is missing ${token}`)
+  }
+  assertContains(mainCssPath, /--fsus-dot-gray:\s*var\(--text-decorative\);/, 'hydrated public shell must keep dot gray decorative-only')
+  assertContains(publicShellEmergencyCssPath, /--fsus-dot-gray:\s*var\(--text-decorative\);/, 'emergency public shell must keep dot gray decorative-only')
+
+  for (const [foreground, background, role] of [
+    ['#71717A', '#F7F7F8', 'light tertiary information'],
+    ['#62626A', '#F7F7F8', 'light muted information'],
+    ['#A1A1AA', '#09090B', 'dark tertiary information'],
+    ['#B2B2BA', '#09090B', 'dark muted information']
+  ]) {
+    const ratio = contrastRatio(foreground, background)
+    if (ratio < 4.5) {
+      fail(publicPageCssPath, 1, `${role} contrast must meet WCAG AA 4.5:1; got ${ratio.toFixed(2)}:1`)
+    }
+  }
+
+  for (const [file, source] of [
+    [publicPageCssPath, publicPageCss],
+    [publicShellEmergencyCssPath, publicShellEmergencyCss]
+  ]) {
+    assertContains(file, /#fsus-aot-shell \.ui-article-title\s*\{[\s\S]*?font-size:\s*1\.25rem;[\s\S]*?line-height:\s*1\.1;/, 'AOT title must match the 20px display typography baseline')
+    assertContains(file, /#fsus-aot-shell \.ui-article-summary\s*\{[\s\S]*?font-size:\s*1rem;[\s\S]*?line-height:\s*1\.8;/, 'AOT summary must match the 16px reading typography baseline')
+    assertContains(file, /#fsus-aot-shell \.ui-article-meta[\s\S]*?font-size:\s*0\.75rem;[\s\S]*?line-height:\s*1rem;/, 'AOT metadata must match the 12px readable metadata baseline')
+    if (source.includes('font-size: 1.35rem;') || source.includes('font-size: .96rem;')) {
+      fail(file, 1, 'AOT typography must not retain non-contract 1.35rem or .96rem scales')
+    }
+  }
+
+  assertContains(
+    publicLayoutRulesPath,
+    /### 公开排版角色[\s\S]*?display[\s\S]*?reading[\s\S]*?metadata/,
+    'public layout rules must document display, reading, and metadata typography roles'
+  )
 }
 
 function checkIssueDensityContracts() {
@@ -397,6 +546,7 @@ for (const file of walk(productionSourceRoot)) {
 
 checkDashboardPopularArticlesFocusContract()
 checkIssueDensityContracts()
+checkPublicTypographyContract()
 checkAdminColorGovernance()
 checkAdminStatusDensityGovernance()
 

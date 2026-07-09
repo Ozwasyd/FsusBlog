@@ -19,7 +19,7 @@ html:has(#fsus-aot-shell) {
   --fsus-page: var(--bg);
   --fsus-paper: var(--surface);
   --fsus-ink: var(--text);
-  --fsus-dot-gray: var(--text-tertiary);
+  --fsus-dot-gray: var(--text-decorative);
   --fsus-border: var(--border);
   --fsus-scholarly-blue: var(--accent);
   --el-color-primary: var(--accent);

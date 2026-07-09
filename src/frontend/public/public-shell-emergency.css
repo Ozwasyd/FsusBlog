@@ -8,8 +8,9 @@
   --text: #0F0F11;
   --text-heading: #0F0F11;
   --text-secondary: #5F5F68;
-  --text-tertiary: #8E8E93;
-  --text-muted: #A1A1AA;
+  --text-tertiary: #71717A;
+  --text-muted: #62626A;
+  --text-decorative: #A1A1AA;
   --border: #E4E4E7;
   --border-strong: #D4D4D8;
   --accent: #2A599C;
@@ -21,7 +22,7 @@
   --fsus-page: var(--bg);
   --fsus-paper: var(--surface);
   --fsus-ink: var(--text);
-  --fsus-dot-gray: var(--text-tertiary);
+  --fsus-dot-gray: var(--text-decorative);
   --fsus-border: var(--border);
   --fsus-scholarly-blue: var(--accent);
   --fsusblog-header-bg: var(--surface);
@@ -31,6 +32,9 @@
   --fsusblog-text-primary: var(--text);
   --fsusblog-text-secondary: var(--text-secondary);
   --fsusblog-text-tertiary: var(--text-tertiary);
+  --fsusblog-text-muted: var(--text-muted);
+  --fsusblog-text-subtle: var(--text-muted);
+  --fsusblog-text-decorative: var(--text-decorative);
   --fsusblog-panel-border: var(--border);
   --el-bg-color: var(--surface);
   --el-bg-color-page: var(--bg);
@@ -50,8 +54,9 @@ html[data-theme-resolved='dark'] {
   --text: #F0F0F4;
   --text-heading: #F0F0F4;
   --text-secondary: #A1A1AA;
-  --text-tertiary: #71717A;
-  --text-muted: #52525B;
+  --text-tertiary: #A1A1AA;
+  --text-muted: #B2B2BA;
+  --text-decorative: #52525B;
   --border: #27272A;
   --border-strong: #3F3F46;
   --accent: #4B79CC;
@@ -91,16 +96,48 @@ html[data-theme-resolved='dark'] {
 }
 
 #fsus-aot-shell .ui-article-title {
-  font-size: 1.35rem;
-  line-height: 1.3;
+  font-size: 1.25rem;
+  line-height: 1.1;
   font-weight: 700;
   color: var(--fsusblog-text-primary, CanvasText);
 }
 
 #fsus-aot-shell .ui-article-summary {
-  font-size: .96rem;
-  line-height: 1.75;
+  font-size: 1rem;
+  line-height: 1.8;
   color: var(--fsusblog-text-secondary, GrayText);
+}
+
+#fsus-aot-shell .ui-article-meta,
+#fsus-aot-shell .ui-article-link,
+#fsus-aot-shell .ui-pagination {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+@media (min-width: 640px) {
+  #fsus-aot-shell .ui-article-title {
+    font-size: 1.5rem;
+    line-height: 1.05;
+  }
+
+  #fsus-aot-shell .ui-article-summary {
+    font-size: 1.125rem;
+    line-height: 1.9;
+  }
+
+  #fsus-aot-shell .ui-article-meta,
+  #fsus-aot-shell .ui-article-link,
+  #fsus-aot-shell .ui-pagination {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  #fsus-aot-shell .ui-article-title {
+    font-size: 1.875rem;
+  }
 }
 
 #fsus-aot-shell .ui-pagination {

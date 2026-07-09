@@ -57,6 +57,14 @@ Glass material 只允许用于以下 surface：
 
 公开布局字号使用 12/14/16/18/20px 步进。禁止新增 `0.62rem` 到 `0.95rem` 的任意小数字号；需要紧凑信息时优先使用 12px、14px 与清晰行高。
 
+### 公开排版角色
+
+- `display`：文章标题和页面标题使用 20/24/30px 档位，标题行高与首屏 AOT fallback 保持一致。
+- `reading`：正文、摘要和引用使用 16px 或 18px 档位；Markdown 段落只保留一条权威规则。
+- `metadata`：日期、分类、状态、阅读量和操作文案使用 12px 或 14px 档位，不能以装饰性微缩文字承载信息。
+- `--text-decorative` 与 `--fsusblog-text-decorative` 只用于分隔点、列表 marker 等无语义装饰；日期、分类、状态和操作必须使用达到 AA 的 `muted` 或 `tertiary` token。
+- emergency AOT 与 hydration 后的文章标题、摘要、metadata 必须使用相同的响应式字号和行高契约。
+
 ## 8. 圆角标度规则
 
 公开布局圆角使用 4/6/10/12/24/999px 步进。普通阅读卡片、面板和控件默认不超过 12px；24px 只用于明确的 opt-in expressive surface。

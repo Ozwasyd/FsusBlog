@@ -48,7 +48,7 @@ describe('layout header consistency matrix', () => {
     )
     expect(publicShellSource).toContain('SiteChromeHeaderAdapter')
     expect(count(publicShellSource, '<SiteChromeHeaderAdapter')).toBe(1)
-    expect(publicShellSource).toContain('el-public-shell__header is-sticky')
+    expect(publicShellSource).toContain('fsusblog-public-shell-header el-public-shell__header is-sticky')
     expect(publicShellSource).toContain(
       'el-public-shell__mobile-primary-actions',
     )

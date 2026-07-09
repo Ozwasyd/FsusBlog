@@ -28,7 +28,7 @@ const Probe = defineComponent({
   },
   template: `
     <div ref="root">
-      <header class="el-public-shell__header" data-test-height="64"></header>
+      <header class="fsusblog-public-shell-header" data-test-height="64"></header>
     </div>
   `
 })
@@ -70,7 +70,7 @@ describe('usePublicStickyGeometry', () => {
     await settleGeometry()
 
     const root = wrapper.element
-    const header = root.querySelector<HTMLElement>('.el-public-shell__header')
+    const header = root.querySelector<HTMLElement>('.fsusblog-public-shell-header')
     expect(header).not.toBeNull()
     expect(root.style.getPropertyValue('--fsusblog-public-header-height-current')).toBe('64px')
     expect(root.style.getPropertyValue('--fsusblog-public-sticky-top')).toBe('64px')

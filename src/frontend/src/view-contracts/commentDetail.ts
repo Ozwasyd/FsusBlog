@@ -60,7 +60,7 @@ export const commentDetailTokens = {
     headerRoot: 'flex items-center justify-between gap-3 mb-3',
     headerMeta: 'flex items-center gap-3',
     authorName: 'text-sm font-bold text-[var(--fsusblog-text-primary)] truncate',
-    timeText: 'text-[10px] tabular-nums text-[var(--fsusblog-text-muted)] shrink-0 tabular-nums',
+    timeText: 'text-xs leading-4 tabular-nums text-[var(--fsusblog-text-muted)] shrink-0',
     content: 'text-sm text-[var(--fsusblog-text-tertiary)] leading-relaxed break-words',
   },
   composer: {

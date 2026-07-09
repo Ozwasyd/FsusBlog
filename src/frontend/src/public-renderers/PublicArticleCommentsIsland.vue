@@ -12,7 +12,7 @@
       >
         <div class="flex items-center justify-between gap-6 mb-3">
           <strong class="text-sm font-semibold text-[var(--fsusblog-text-primary)]">{{ comment.author.displayName }}</strong>
-          <time class="text-[10px] tabular-nums normal-case text-[var(--fsusblog-text-muted)]">{{ comment.createTime }}</time>
+          <time class="text-xs leading-4 tabular-nums normal-case text-[var(--fsusblog-text-muted)]">{{ comment.createTime }}</time>
         </div>
         <p class="text-sm leading-relaxed whitespace-pre-wrap text-[var(--fsusblog-text-secondary)]">{{ comment.content }}</p>
         <div v-if="comment.repliesPreview.length > 0" class="mt-3 border-l border-[var(--fsusblog-panel-border)] pl-3 space-y-2">

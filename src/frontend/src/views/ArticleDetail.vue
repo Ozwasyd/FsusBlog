@@ -96,7 +96,7 @@
         >
           <Transition name="state-fade" mode="out-in">
             <div v-if="loadingComments" key="loading" class="flex flex-col items-center gap-5" role="status">
-              <span class="text-[10px] font-bold text-[var(--fsusblog-text-muted)] normal-case ">{{ pageDetailView.comments.loadingText }}</span>
+              <span class="text-xs leading-4 font-semibold text-[var(--fsusblog-text-muted)] normal-case">{{ pageDetailView.comments.loadingText }}</span>
               <div class="w-10 h-px bg-[var(--fsusblog-panel-bg-soft)] overflow-hidden relative">
                 <div class="absolute inset-0 bg-[var(--fsusblog-text-primary)]/20 animate-loading-bar"></div>
               </div>
@@ -114,7 +114,7 @@
             <div
               v-else-if="!hasMore"
               key="end"
-              class="text-[10px] tabular-nums text-[var(--fsusblog-text-subtle)] normal-case px-4"
+              class="text-xs leading-4 tabular-nums text-[var(--fsusblog-text-subtle)] normal-case px-4"
             >
               {{ pageDetailView.comments.endText }}
             </div>

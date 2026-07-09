@@ -89,7 +89,7 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(shellSource).toContain(':site-title="shellIdentity.siteTitle"')
     expect(shellSource).toContain('brand-link-class="el-public-shell__brand"')
     expect(shellSource).toContain(
-      'header-class="el-public-shell__header is-sticky"',
+      'header-class="fsusblog-public-shell-header el-public-shell__header is-sticky"',
     )
     expect(shellSource).toContain('inner-class="el-public-shell__inner"')
     expect(shellSource).not.toContain('<el-public-shell')

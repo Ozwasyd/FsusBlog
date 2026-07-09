@@ -24,7 +24,7 @@
         brand-link-class="el-public-shell__brand"
         :sticky="true"
         max-width="64rem"
-        header-class="el-public-shell__header is-sticky"
+        header-class="fsusblog-public-shell-header el-public-shell__header is-sticky"
         inner-class="el-public-shell__inner"
         primary-row-class="el-public-shell__primary-row"
         brand-nav-class="el-public-shell__brand-nav"

@@ -27,7 +27,7 @@
         </div>
       </template>
     </el-skeleton>
-    <p v-if="view.isPowCalculating" class="text-[9px] tabular-nums text-[var(--fsusblog-text-muted)] normal-case ">
+    <p v-if="view.isPowCalculating" class="text-xs leading-4 tabular-nums text-[var(--fsusblog-text-muted)] normal-case">
       {{ view.indicatorText }}
     </p>
   </template>
