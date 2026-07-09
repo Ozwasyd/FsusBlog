@@ -63,11 +63,46 @@ describe('frontend derived-state watch simplification', () => {
     expect(splitView.mobilePane.value).toBe('list')
   })
 
+  it('preserves inbox split pane timing across breakpoint changes', async () => {
+    const { useInboxSplitView } = await import('@/composables/useInboxSplitView')
+    const selectedConversationId = ref('conversation-1')
+    const splitView = useInboxSplitView(selectedConversationId)
+
+    expect(splitView.mobilePane.value).toBe('detail')
+
+    mediaQueryState.isMobile!.value = true
+    await nextTick()
+    expect(splitView.mobilePane.value).toBe('detail')
+
+    splitView.openListPane()
+    mediaQueryState.isMobile!.value = false
+    await nextTick()
+    expect(splitView.mobilePane.value).toBe('detail')
+
+    mediaQueryState.isMobile!.value = true
+    await nextTick()
+    expect(splitView.mobilePane.value).toBe('list')
+  })
+
+  it('keeps the old mobile initial-pane timing when a conversation is preselected', async () => {
+    const { useInboxSplitView } = await import('@/composables/useInboxSplitView')
+    mediaQueryState.isMobile!.value = true
+
+    const selectedConversationId = ref('conversation-1')
+    const splitView = useInboxSplitView(selectedConversationId)
+
+    expect(splitView.mobilePane.value).toBe('list')
+
+    splitView.openDetailPane()
+    await nextTick()
+    expect(splitView.mobilePane.value).toBe('detail')
+  })
+
   it('does not keep derived-state watches in inbox split view', () => {
     const inboxSplitView = readRepoFile('src/frontend/src/composables/useInboxSplitView.ts')
 
-    expect(inboxSplitView).toContain("const requestedMobilePane = ref<'list' | 'detail'>('list')")
-    expect(inboxSplitView).toContain("const mobilePane = computed<'list' | 'detail'>")
+    expect(inboxSplitView).toContain('const requestedMobilePane = ref<InboxMobilePane | null>(null)')
+    expect(inboxSplitView).toContain('const mobilePane = computed<InboxMobilePane>')
     expect(inboxSplitView).not.toContain('watch(isMobile')
     expect(inboxSplitView).not.toContain('watch(selectedConversationId')
   })
