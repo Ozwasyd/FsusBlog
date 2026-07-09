@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
@@ -398,6 +399,20 @@ public sealed class RequiresRiskControlFilterTests
         Assert.Contains(typeof(AdaptivePowGovernor), constructorParameters);
         Assert.DoesNotContain(typeof(ISecurityChallengeProofService), constructorParameters);
         Assert.DoesNotContain(typeof(IRiskDecisionService), constructorParameters);
+    }
+
+    [Fact]
+    public void RequiresPowFilter_DoesNotKeepMvcAttributeOrRegistration()
+    {
+        string legacyMvcAttribute = "Requires" + "Pow" + "Attribute";
+        string attributePath = BackendTestPaths.FromRoot($"src/backend/Infrastructure/Filters/{legacyMvcAttribute}.cs");
+        string powInitializer = BackendTestPaths.ReadAllTextFromRoot(
+            "src/backend/Infrastructure/Helpers/Initializer/PowServiceInitializer.cs");
+
+        Assert.False(File.Exists(attributePath), "Legacy MVC PoW attribute filter must be removed.");
+        Assert.DoesNotContain(legacyMvcAttribute, powInitializer, StringComparison.Ordinal);
+        Assert.DoesNotContain("IAsyncActionFilter", powInitializer, StringComparison.Ordinal);
+        Assert.DoesNotContain("ServiceFilterAttribute", powInitializer, StringComparison.Ordinal);
     }
 
     private static FilterFixture CreateFixture(int riskScore, SecurityRiskPolicySnapshotV2? policy = null)
