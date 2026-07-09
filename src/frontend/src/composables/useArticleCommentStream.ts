@@ -44,7 +44,7 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
   const loadMoreTrigger = ref<HTMLElement | null>(null)
 
   const threadIdSet = new Set<string>()
-  const threadIndexByRoot = new Map<string, number>()
+  let threadIndexByRoot = new Map<string, number>()
   const replyIdSetByRoot = new Map<string, Set<string>>()
   const replyCursorByRoot = new Map<string, string | null>()
   const replyHasMoreByRoot = new Map<string, boolean>()
@@ -56,24 +56,16 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
   const notifyThreadsChanged = () => triggerRef(threads)
 
   const updateReplySet = (rootId: string, replies: ReadonlyArray<CommentReplyPreviewItem>) => {
-    const set = new Set<string>()
-    for (const item of replies) {
-      set.add(String(item.id))
-    }
-    replyIdSetByRoot.set(rootId, set)
+    replyIdSetByRoot.set(rootId, new Set(replies.map((item) => String(item.id))))
   }
 
   const rebuildThreadIndexes = (items: ReadonlyArray<CommentThreadItem>): void => {
-    threadIndexByRoot.clear()
-    for (let index = 0; index < items.length; index += 1) {
-      threadIndexByRoot.set(String(items[index].rootId), index)
-    }
+    threadIndexByRoot = new Map(items.map((item, index): [string, number] => [String(item.rootId), index]))
   }
 
   const updateThreads = (nextItems: CommentThreadItem[]) => {
     threads.value = nextItems
     threadIdSet.clear()
-    threadIndexByRoot.clear()
     replyIdSetByRoot.clear()
     replyCursorByRoot.clear()
     replyHasMoreByRoot.clear()
@@ -82,10 +74,10 @@ export function useArticleCommentStream(options: UseArticleCommentStreamOptions)
     }
     replyControllerByRoot.clear()
 
+    rebuildThreadIndexes(nextItems)
     for (const item of nextItems) {
       threadIdSet.add(String(item.id))
       const rootId = String(item.rootId)
-      threadIndexByRoot.set(rootId, threadIndexByRoot.size)
       updateReplySet(rootId, item.repliesPreview)
       replyCursorByRoot.set(rootId, item.repliesPreview.length > 0 ? String(item.repliesPreview[item.repliesPreview.length - 1]?.id ?? '') : null)
       replyHasMoreByRoot.set(rootId, item.hasMoreReplies && item.repliesPreview.length < COMMENT_CONTENT_CONSTRAINT.replyRenderLimit)

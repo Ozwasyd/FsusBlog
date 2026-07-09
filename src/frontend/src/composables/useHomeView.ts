@@ -32,6 +32,11 @@ const parsePageQuery = (value: unknown): number => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
 }
 
+const firstArrayOf = <T>(...candidates: (T[] | null | undefined)[]): T[] => {
+  const selected = candidates.find((candidate) => Array.isArray(candidate))
+  return selected ? [...selected] : []
+}
+
 export function useHomeView() {
   const route = useRoute()
   const router = useRouter()
@@ -41,16 +46,14 @@ export function useHomeView() {
   const hasInitialRouteSeed = Boolean(initialBootstrap || initialHydrationView)
   const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationPayload, initialBootstrap)
   const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions))
-  const initialFeaturedArticles = Array.isArray(initialHydrationPayload?.featuredArticles)
-    ? [...initialHydrationPayload.featuredArticles]
-    : Array.isArray(initialBootstrap?.featuredArticles)
-      ? [...initialBootstrap.featuredArticles]
-      : []
-  const initialHotArticles = Array.isArray(initialHydrationPayload?.hotArticles)
-    ? [...initialHydrationPayload.hotArticles]
-    : Array.isArray(initialBootstrap?.hotArticles)
-      ? [...initialBootstrap.hotArticles]
-      : []
+  const initialFeaturedArticles = firstArrayOf(
+    initialHydrationPayload?.featuredArticles,
+    initialBootstrap?.featuredArticles
+  )
+  const initialHotArticles = firstArrayOf(
+    initialHydrationPayload?.hotArticles,
+    initialBootstrap?.hotArticles
+  )
 
   const articleItems = ref<ArticleListItemResponse[]>([])
   const featuredArticles = ref<FeaturedArticleItem[]>(initialFeaturedArticles)

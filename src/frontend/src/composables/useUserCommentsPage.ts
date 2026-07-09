@@ -23,7 +23,6 @@ export function useUserCommentsPage(options: { autoload?: boolean } = {}) {
 
   const pendingDeleteId = ref<string | null>(null)
 
-  const existingIds = new Set<string>()
   const commentTask = useViewTask()
   const deleteTask = useMutationFlow()
   const showLoadMoreButton = computed(() => hasMore.value)
@@ -91,10 +90,7 @@ export function useUserCommentsPage(options: { autoload?: boolean } = {}) {
 
     try {
       if (response) {
-        const uniqueNew = response.data.filter((item) => !existingIds.has(String(item.id)))
-        uniqueNew.forEach((item) => existingIds.add(String(item.id)))
-
-        list.value = [...list.value, ...uniqueNew.map(createUserCommentViewContract)]
+        list.value = [...list.value, ...response.data.map(createUserCommentViewContract)]
 
         cursor.value = response.nextCursor ? String(response.nextCursor) : undefined
         hasMore.value = response.hasMore
@@ -130,7 +126,6 @@ export function useUserCommentsPage(options: { autoload?: boolean } = {}) {
     const originalList = list.value
 
     list.value = list.value.filter((item) => String(item.id) !== targetId)
-    existingIds.delete(targetId)
 
     try {
       await deleteTask.run(async () => {
@@ -142,7 +137,6 @@ export function useUserCommentsPage(options: { autoload?: boolean } = {}) {
 
       if (deleteTask.errorMessage.value) {
         list.value = originalList
-        existingIds.add(targetId)
         showErrorToast(deleteTask.errorMessage.value, '删除失败，请稍后重试')
       }
     } finally {
