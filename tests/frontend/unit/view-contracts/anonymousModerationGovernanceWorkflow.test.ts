@@ -81,7 +81,17 @@ describe('anonymous moderation governance workflow contract', () => {
   })
 
   it('connects anonymous governance actions to real API calls and queue refresh', () => {
+    const imports = Array.from(governance.matchAll(/import\s*\{([\s\S]*?)\}\s*from ['"]([^'"]+)['"]/gu))
+    const authoringPolicyImport = imports.find(([, , source]) => source === '@/api/authoring')?.[1] ?? ''
+    const governanceActionImport = imports.find(([, , source]) => source === '@/api/anonymousGovernance')?.[1] ?? ''
+
     expect(governance).toContain('@/api/anonymousGovernance')
+    expect(authoringPolicyImport).toContain('getAnonymousCommentPolicy')
+    expect(authoringPolicyImport).toContain('updateAnonymousCommentPolicy')
+    expect(authoringPolicyImport).toContain('AnonymousCommentPolicyResponse')
+    expect(authoringPolicyImport).toContain('AnonymousCommentPolicyUpdateRequest')
+    expect(governanceActionImport).not.toContain('getAnonymousCommentPolicy')
+    expect(governanceActionImport).not.toContain('updateAnonymousCommentPolicy')
     expect(governance).toContain('getAnonymousGovernanceStatus')
     expect(governance).toContain('listAnonymousGovernanceNullifiers')
     expect(governance).toContain('blockAnonymousGovernanceNullifier')

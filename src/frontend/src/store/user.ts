@@ -68,27 +68,6 @@ export const useUserStore = defineStore('user', () => {
 
     // ================= 3. Private Helpers =================
 
-    const clearLocalState = () => {
-        if (abortController) {
-            abortController.abort()
-            abortController = null
-        }
-        userInfo.value = null
-        accountState.value = 'unknown'
-        lastVerifiedAt.value = 0
-        isLoading.value = false
-        lastFetchedAt.value = 0
-        fetchPromise = null
-
-        notificationStreamStore.dispose()
-        notificationStreamStore.resetCursor()
-        notificationStreamStore.setStatus('stopped')
-        void notificationStreamRuntime.stop(true)
-        if (typeof sessionStorage !== 'undefined') {
-            sessionStorage.removeItem('notification_stream_guest_pow');
-        }
-    }
-
     // ================= 4. Actions =================
 
     const markGuest = () => {
@@ -111,14 +90,6 @@ export const useUserStore = defineStore('user', () => {
             lastVerifiedAt.value = 0
             lastFetchedAt.value = 0
         }
-    }
-
-    const setUserInfo = (info: CurrentUserSnapshot | null) => {
-        if (!info) {
-            clearLocalState()
-            return
-        }
-        markAuthenticated(info)
     }
 
     const fetchUserInfo = async (force = false) => {
@@ -241,7 +212,6 @@ export const useUserStore = defineStore('user', () => {
         markGuest,
         markAuthenticated,
         invalidateGuestCache,
-        setUserInfo,
         fetchUserInfo,
         ensureUserInfoFresh,
         logout,

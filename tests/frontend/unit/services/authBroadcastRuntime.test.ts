@@ -132,7 +132,7 @@ describe('authBroadcastRuntime', () => {
     const pinia = createRuntimePinia()
     const userStore = useUserStore(pinia)
     const adminStore = useAdminStore(pinia)
-    userStore.setUserInfo(anonymousUser(1) as never)
+    userStore.markAuthenticated(anonymousUser(1) as never)
     adminStore.setAdminPrincipal({
       id: 'admin',
       displayName: 'Admin',
@@ -152,7 +152,7 @@ describe('authBroadcastRuntime', () => {
   it('expired event stops authenticated runtime', () => {
     const pinia = createRuntimePinia()
     const userStore = useUserStore(pinia)
-    userStore.setUserInfo(anonymousUser(1) as never)
+    userStore.markAuthenticated(anonymousUser(1) as never)
 
     MockBroadcastChannel.instances[0]?.dispatch({ type: 'expired', at: Date.now() })
 

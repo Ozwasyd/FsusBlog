@@ -71,20 +71,9 @@ export const useSiteStore = defineStore('site', () => {
 
   const isLoaded = ref(Boolean(payload))
 
-  // [新增] 移动端搜索层显示状态
-  const isMobileSearchOpen = ref(false)
-
   let fetchPromise: Promise<void> | null = null
 
   // ================= Actions =================
-
-  /**
-   * [新增] 修改搜索层可见性 (解决 P1 级单向数据流)
-   * 动作封装：所有状态变更必须通过 Action 触发，便于后续审计与拦截
-   */
-  const setMobileSearchVisible = (visible: boolean) => {
-    isMobileSearchOpen.value = visible
-  }
 
   /**
    * 拉取站点配置 (带任务池去抖)
@@ -130,8 +119,6 @@ export const useSiteStore = defineStore('site', () => {
     siteInfo,
     complianceInfo,
     isLoaded,
-    isMobileSearchOpen,
-    fetchSiteInfo,
-    setMobileSearchVisible
+    fetchSiteInfo
   }
 })

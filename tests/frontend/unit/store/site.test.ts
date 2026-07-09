@@ -34,15 +34,6 @@ describe('useSiteStore', () => {
     expect(store.siteInfo.description).toBe('工程记录、性能实验、UI 系统与 FsusBlog 构建过程。')
     expect(store.siteInfo.keywords).toBe('.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog')
     expect(store.isLoaded).toBe(false)
-    expect(store.isMobileSearchOpen).toBe(false)
-  })
-
-  it('setMobileSearchVisible sets isMobileSearchOpen', () => {
-    const store = useSiteStore()
-    store.setMobileSearchVisible(true)
-    expect(store.isMobileSearchOpen).toBe(true)
-    store.setMobileSearchVisible(false)
-    expect(store.isMobileSearchOpen).toBe(false)
   })
 
   it('fetchSiteInfo calls getSiteConfig and updates siteInfo', async () => {

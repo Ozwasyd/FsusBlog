@@ -272,7 +272,9 @@ import {
   getAnonymousCommentPolicy,
   updateAnonymousCommentPolicy,
   type AnonymousCommentPolicyResponse,
-  type AnonymousCommentPolicyUpdateRequest,
+  type AnonymousCommentPolicyUpdateRequest
+} from '@/api/authoring'
+import {
   blockAnonymousGovernanceNullifier,
   getAnonymousGovernanceStatus,
   listAnonymousGovernanceNullifiers,

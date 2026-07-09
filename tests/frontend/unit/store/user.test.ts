@@ -45,10 +45,10 @@ describe('useUserStore', () => {
     expect(store.isDeleted).toBe(false)
   })
 
-  it('setUserInfo sets user and marks checked', () => {
+  it('markAuthenticated sets user and marks checked', () => {
     const store = useUserStore()
     const mockUser = anonymousUser(1)
-    store.setUserInfo(mockUser)
+    store.markAuthenticated(mockUser)
     expect(store.userInfo).toStrictEqual(mockUser)
     expect(store.userInfo).toEqual(expect.objectContaining({
       accountId: 1,
@@ -62,31 +62,31 @@ describe('useUserStore', () => {
     expect(store.isLoggedIn).toBe(true)
   })
 
-  it('setUserInfo with null clears state', () => {
+  it('markGuest clears user and records a checked guest state', () => {
     const store = useUserStore()
     const mockUser = anonymousUser(1)
-    store.setUserInfo(mockUser)
-    store.setUserInfo(null)
+    store.markAuthenticated(mockUser)
+    store.markGuest()
     expect(store.userInfo).toBeNull()
-    expect(store.accountState).toBe('unknown')
+    expect(store.accountState).toBe('guest')
     expect(store.isLoggedIn).toBe(false)
   })
 
   it('isAdmin stays false for anonymous account snapshots', () => {
     const store = useUserStore()
-    store.setUserInfo(anonymousUser(1) as never)
+    store.markAuthenticated(anonymousUser(1) as never)
     expect(store.isAdmin).toBe(false)
   })
 
   it('isBanned returns true for status 1', () => {
     const store = useUserStore()
-    store.setUserInfo({ ...anonymousUser(1), status: 1, banReason: 'spam' } as never)
+    store.markAuthenticated({ ...anonymousUser(1), status: 1, banReason: 'spam' } as never)
     expect(store.isBanned).toBe(true)
   })
 
   it('isDeleted returns true for status 2', () => {
     const store = useUserStore()
-    store.setUserInfo({ ...anonymousUser(1), status: 2 } as never)
+    store.markAuthenticated({ ...anonymousUser(1), status: 2 } as never)
     expect(store.isDeleted).toBe(true)
   })
 
@@ -200,7 +200,7 @@ describe('useUserStore', () => {
 
   it('ensureUserInfoFresh reuses recent user info', async () => {
     const store = useUserStore()
-    store.setUserInfo(anonymousUser(1) as never)
+    store.markAuthenticated(anonymousUser(1) as never)
 
     await store.ensureUserInfoFresh({ maxAgeMs: 30_000 })
 
@@ -211,7 +211,7 @@ describe('useUserStore', () => {
     const mockUser = anonymousUser(2)
     mockGetMe.mockResolvedValueOnce(mockUser as never)
     const store = useUserStore()
-    store.setUserInfo(anonymousUser(1) as never)
+    store.markAuthenticated(anonymousUser(1) as never)
     store.lastVerifiedAt = Date.now() - 31_000
     store.lastFetchedAt = store.lastVerifiedAt
 
@@ -237,7 +237,7 @@ describe('useUserStore', () => {
 
   it('updateStatus updates userInfo status', () => {
     const store = useUserStore()
-    store.setUserInfo(anonymousUser(1) as never)
+    store.markAuthenticated(anonymousUser(1) as never)
     store.updateStatus(1, 'spam')
     expect(store.userInfo?.status).toBe(1)
     expect(store.userInfo?.banReason).toBe('spam')
@@ -251,7 +251,7 @@ describe('useUserStore', () => {
   it('logout calls logoutApi and clears state', async () => {
     mockLogout.mockResolvedValueOnce(undefined)
     const store = useUserStore()
-    store.setUserInfo(anonymousUser(1) as never)
+    store.markAuthenticated(anonymousUser(1) as never)
     await store.logout()
     expect(mockLogout).toHaveBeenCalled()
     expect(store.userInfo).toBeNull()
