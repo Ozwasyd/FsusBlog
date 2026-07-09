@@ -148,16 +148,6 @@
           "Microsoft.OpenApi": "2.0.0"
         }
       },
-      "Microsoft.AspNetCore.SignalR.StackExchangeRedis": {
-        "type": "Transitive",
-        "resolved": "10.0.7",
-        "contentHash": "b+Gazwfx+rQKRwUnPBAsuXnsg8T6hMSriIATAQ3AqR6HJP0UJZw0+Lcr2dFTDul0SSNnskK+UEkqZO78EMHSHw==",
-        "dependencies": {
-          "MessagePack": "2.5.187",
-          "Microsoft.Extensions.Options": "10.0.7",
-          "StackExchange.Redis": "2.7.27"
-        }
-      },
       "Microsoft.Bcl.AsyncInterfaces": {
         "type": "Transitive",
         "resolved": "1.1.1",
@@ -833,7 +823,6 @@
           "MessagePack": "[2.5.301, )",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.7, )",
           "Microsoft.AspNetCore.OpenApi": "[10.0.9, )",
-          "Microsoft.AspNetCore.SignalR.StackExchangeRedis": "[10.0.7, )",
           "Microsoft.Extensions.Caching.StackExchangeRedis": "[10.0.7, )",
           "Microsoft.OpenApi": "[2.7.5, )",
           "Microsoft.VisualStudio.Azure.Containers.Tools.Targets": "[1.23.0, )",

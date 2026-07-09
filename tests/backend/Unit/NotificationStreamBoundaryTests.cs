@@ -26,21 +26,35 @@ namespace FsusBlog.Server.Tests.Unit;
 public class NotificationStreamBoundaryTests
 {
     [Fact]
-    public void SignalRIdentityProviders_DoNotRegisterLegacyAnonymousAccountIds()
+    public void NotificationStreamRoutes_DoNotRegisterSignalROrLegacyHubPipeline()
     {
         string runtimeServices = BackendTestPaths.ReadAllTextFromRoot(
             "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
-        string signalRInitializer = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Helpers/Initializer/SignalRInitializer.cs");
+        string serverProject = BackendTestPaths.ReadAllTextFromRoot("src/backend/FsusBlog.Server.csproj");
+        string webComposition = BackendTestPaths.ReadAllTextFromRoot(
+            "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs");
+        string viteConfig = BackendTestPaths.ReadAllTextFromRoot("src/frontend/vite.config.ts");
         string fastUserIdProvider = BackendTestPaths.ReadAllTextFromRoot(
             "src/backend/Infrastructure/FastUserIdProvider.cs");
+        string signalRInitializer = BackendTestPaths.FromRoot(
+            "src/backend/Infrastructure/Helpers/Initializer/SignalRInitializer.cs");
+        string signalRPowFilter = BackendTestPaths.FromRoot(
+            "src/backend/Infrastructure/Filters/SignalRPoWFilter.cs");
         string snowflakeProvider = BackendTestPaths.FromRoot(
             "src/backend/Infrastructure/NotificationStream/SnowflakeUserIdProvider.cs");
 
+        Assert.False(File.Exists(signalRInitializer), "SignalRInitializer must be removed.");
+        Assert.False(File.Exists(signalRPowFilter), "SignalRPoWFilter must be removed.");
         Assert.False(File.Exists(snowflakeProvider), "SnowflakeUserIdProvider must be removed.");
+        Assert.Contains("\"/api/notifications/stream/preflight\"", webComposition, StringComparison.Ordinal);
+        Assert.Contains("\"/api/notifications/stream\"", webComposition, StringComparison.Ordinal);
+        Assert.Contains("INotificationStreamHandler", webComposition, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapHub", webComposition, StringComparison.Ordinal);
+        Assert.DoesNotContain("Microsoft.AspNetCore.SignalR", serverProject, StringComparison.Ordinal);
+        Assert.DoesNotContain("SignalR.StackExchangeRedis", serverProject, StringComparison.Ordinal);
+        Assert.DoesNotContain("'/hubs'", viteConfig, StringComparison.Ordinal);
         Assert.DoesNotContain("SnowflakeUserIdProvider", runtimeServices, StringComparison.Ordinal);
         Assert.DoesNotContain("AddSingleton<IUserIdProvider", runtimeServices, StringComparison.Ordinal);
-        Assert.DoesNotContain("AddSingleton<IUserIdProvider", signalRInitializer, StringComparison.Ordinal);
         Assert.DoesNotContain(": IUserIdProvider", fastUserIdProvider, StringComparison.Ordinal);
         Assert.DoesNotContain("HubConnectionContext", fastUserIdProvider, StringComparison.Ordinal);
     }

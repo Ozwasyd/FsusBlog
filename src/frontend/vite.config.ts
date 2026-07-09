@@ -504,11 +504,6 @@ export default defineConfig(({ mode }) => {
             target: apiBaseUrl,
             changeOrigin: true
         },
-        '/hubs': {
-            target: apiBaseUrl,
-            ws: true,
-            changeOrigin: true
-        },
         '^/search/index\\.bin$': {
             target: apiBaseUrl,
             changeOrigin: true

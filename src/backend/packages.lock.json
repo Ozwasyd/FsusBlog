@@ -66,16 +66,6 @@
           "Microsoft.OpenApi": "2.0.0"
         }
       },
-      "Microsoft.AspNetCore.SignalR.StackExchangeRedis": {
-        "type": "Direct",
-        "requested": "[10.0.7, )",
-        "resolved": "10.0.7",
-        "contentHash": "b+Gazwfx+rQKRwUnPBAsuXnsg8T6hMSriIATAQ3AqR6HJP0UJZw0+Lcr2dFTDul0SSNnskK+UEkqZO78EMHSHw==",
-        "dependencies": {
-          "MessagePack": "2.5.187",
-          "StackExchange.Redis": "2.7.27"
-        }
-      },
       "Microsoft.Extensions.ApiDescription.Server": {
         "type": "Direct",
         "requested": "[10.0.7, )",
