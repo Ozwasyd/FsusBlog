@@ -30,7 +30,7 @@
         brand-nav-class="el-public-shell__brand-nav"
         desktop-actions-class="el-public-shell__actions"
         mobile-primary-actions-class="el-public-shell__mobile-primary-actions"
-        mobile-secondary-actions-class="el-public-shell__mobile-toolbar"
+        :mobile-secondary-actions-class="mobileSecondaryActionsClass"
         :show-desktop-theme-toggle="false"
         :show-mobile-theme-toggle="false"
       >
@@ -72,6 +72,8 @@
               :model-value="searchQuery"
               :placeholder="searchPlaceholder"
               label="搜索内容"
+              size="small"
+              style="--el-input-height: 40px"
               clearable
               @focus="emit('search-focus')"
               @input="handleSearchInput"
@@ -137,6 +139,8 @@
                   :model-value="searchQuery"
                   :placeholder="searchPlaceholder"
                   label="搜索内容"
+                  size="small"
+                  style="--el-input-height: 40px"
                   clearable
                   @focus="emit('search-focus')"
                   @input="handleSearchInput"
@@ -151,7 +155,11 @@
         </template>
       </SiteChromeHeaderAdapter>
 
-      <main id="main-content" class="el-public-shell__main pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:pb-0" tabindex="-1">
+      <main
+        id="main-content"
+        class="el-public-shell__main"
+        tabindex="-1"
+      >
         <slot />
       </main>
       <FullAppRuntime v-if="shouldShowRuntime" />
@@ -164,26 +172,14 @@
         />
       </footer>
 
-      <nav
-        v-if="activeNavIndicatorEnabled"
-        class="el-public-shell__bottom-tab-bar sm:hidden"
-        data-fsus-material="glass"
-        aria-label="主导航"
-      >
-        <a
-          v-for="item in PUBLIC_NAV_ITEMS"
-          :key="`bottom-${item.key}`"
-          :href="item.href"
-          class="el-public-shell__bottom-tab-link"
-          :class="{ 'is-active': item.key === activeNav }"
-          :data-public-nav="item.key"
-          :aria-current="item.key === activeNav ? 'page' : undefined"
-          @click="handleNavClick($event, item.href)"
-        >
-          <span class="el-public-shell__bottom-tab-accent" aria-hidden="true" />
-          <span class="el-public-shell__bottom-tab-label">{{ item.label }}</span>
-        </a>
-      </nav>
+      <FsusUiBottomTabBar
+        v-if="shouldShowBottomTabBar"
+        class="fsusblog-public-bottom-tab"
+        label="主导航"
+        :items="PUBLIC_NAV_ITEMS"
+        :active-key="activeNav"
+        @navigate="handleBottomTabNavigate"
+      />
     </div>
   </div>
 </template>
@@ -193,6 +189,7 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, r
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
 import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
+import FsusUiBottomTabBar from '@/fsusui/FsusUiBottomTabBar.vue'
 import {
   PUBLIC_FIXED_PATHS,
   PUBLIC_ROUTE_PATHS,
@@ -335,12 +332,17 @@ const shellIdentity = computed(() =>
 const mobileSearchButtonLabel = computed(() =>
   mobileSearchExpanded.value ? '取消' : '搜索',
 )
+const mobileSecondaryActionsClass = computed(() => [
+  'el-public-shell__mobile-toolbar',
+  { 'is-collapsed': !mobileSearchExpanded.value },
+])
 const activeNavIndicatorEnabled = computed(() =>
   PUBLIC_NAV_ITEMS.some((item) => item.key === props.activeNav),
 )
 const activeNavIndicatorKey = computed(() =>
   activeNavIndicatorEnabled.value ? props.activeNav : '',
 )
+const shouldShowBottomTabBar = computed(() => PUBLIC_NAV_ITEMS.length > 0)
 const shouldUseRuntimeAuthState = computed(() =>
   (props.authLabel?.trim() || SHELL_DEFAULTS.authLabel) === SHELL_DEFAULTS.authLabel
   && (props.authHref?.trim() || SHELL_DEFAULTS.authHref) === SHELL_DEFAULTS.authHref
@@ -423,6 +425,13 @@ function handleNavClick(event: MouseEvent, href: string): void {
 
   event.preventDefault()
   emit('navigate', href)
+}
+
+function handleBottomTabNavigate(
+  item: (typeof PUBLIC_NAV_ITEMS)[number],
+  event: MouseEvent,
+): void {
+  handleNavClick(event, item.href)
 }
 
 function handleSearchInput(value: string | number): void {

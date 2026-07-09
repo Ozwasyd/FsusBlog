@@ -30,6 +30,10 @@ const publicShellCriticalCss = readFileSync(
   resolve(process.cwd(), 'src/assets/public-shell-critical.css'),
   'utf8',
 )
+const bottomTabSource = readFileSync(
+  resolve(process.cwd(), 'src/fsusui/FsusUiBottomTabBar.vue'),
+  'utf8',
+)
 
 describe('PublicBlogLayoutShell responsive header integration', () => {
   it('uses the FsusUI trigger mobile search model without duplicating the trigger', () => {
@@ -44,14 +48,22 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(shellSource).not.toContain('PublicMobileSearchTrigger')
   })
 
-  it('keeps desktop nav active indicator and mobile bottom tab affordance bounded to the shell', () => {
+  it('keeps desktop nav active indicator and uses the FsusUI bottom tab primitive on mobile', () => {
     expect(shellSource).toContain('desktopNavRef')
     expect(shellSource).toContain('activeNavIndicatorEnabled')
-    expect(shellSource).toContain('el-public-shell__bottom-tab-bar')
-    expect(shellSource).toContain('el-public-shell__bottom-tab-accent')
+    expect(shellSource).toContain('FsusUiBottomTabBar')
+    expect(shellSource).toContain('class="fsusblog-public-bottom-tab"')
+    expect(shellSource).toContain(':items="PUBLIC_NAV_ITEMS"')
+    expect(shellSource).toContain(':active-key="activeNav"')
+    expect(shellSource).toContain('@navigate="handleBottomTabNavigate"')
+    expect(bottomTabSource).toContain('position: fixed; inset-inline: 0; inset-block-end: 0;')
+    expect(shellSource).not.toContain('el-public-shell__bottom-tab')
     expect(shellSource).toContain('mobileNavRef')
     expect(shellSource).toContain('syncNavIndicator')
     expect(shellSource).toContain('el-public-shell__active-nav-indicator')
+    expect(shellSource).not.toContain('const publicMainClass = computed')
+    expect(shellSource).not.toContain('const publicMainStyle = computed')
+    expect(shellSource).not.toContain("'--fsus-public-main-padding-bottom'")
     expect(shellSource).toContain('is-indicator-motion')
     expect(shellSource).toContain('--el-public-shell-active-nav-indicator-x')
     expect(shellSource).toContain('--el-public-shell-active-nav-indicator-width')
@@ -157,10 +169,13 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(publicShellCriticalCss).toContain('min-width: 50px;')
     expect(publicShellCriticalCss).toContain('display: inline-flex;')
     expect(publicShellCriticalCss).toContain('gap: 8px;')
+    expect(shellSource).toContain(':mobile-secondary-actions-class="mobileSecondaryActionsClass"')
+    expect(shellSource).toContain('const mobileSecondaryActionsClass = computed')
     expect(shellSource).toContain('<div class="el-public-shell__mobile-actions" />')
     expect(publicShellCriticalCss).toMatch(
       /\.el-public-shell__mobile-toolbar\s*\{\s*display:\s*block;\s*margin-top:\s*18px;/,
     )
+    expect(publicShellCriticalCss).toContain('.el-public-shell__mobile-toolbar.is-collapsed')
     expect(publicShellCriticalCss).not.toContain('.el-public-shell__mobile-toolbar:has')
     expect(publicShellCriticalCss).toContain(
       '.el-public-shell__mobile-search-row',
@@ -180,7 +195,7 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     expect(publicShellCriticalCss).toContain('min-height: 40px;')
   })
 
-  it('keeps mobile bottom tab touch targets in the critical shell CSS', () => {
+  it('keeps FsusUI bottom tab touch targets in the critical shell CSS', () => {
     expect(publicShellCriticalCss).toContain(
       '#fsus-aot-shell .el-public-shell__brand',
     )
@@ -189,13 +204,17 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
     )
     expect(publicShellCriticalCss).toContain('@media (max-height: 520px) and (orientation: landscape)')
     expect(publicShellCriticalCss).toContain(
-      '#fsus-aot-shell .el-public-shell__bottom-tab-bar',
+      '#fsus-aot-shell .fsu-bottom-tab-bar',
     )
     expect(publicShellCriticalCss).toContain(
-      '#fsus-aot-shell .el-public-shell__bottom-tab-link',
+      '#fsus-aot-shell .fsusblog-public-bottom-tab',
     )
-    expect(publicShellCriticalCss).toContain('min-height: 3.5rem;')
+    expect(publicShellCriticalCss).toContain(
+      '#fsus-aot-shell .fsu-bottom-tab-bar__item',
+    )
+    expect(publicShellCriticalCss).toContain('min-block-size: var(--fsus-bottom-tab-height, 56px);')
     expect(publicShellCriticalCss).toContain('flex: 1 1 0;')
+    expect(publicShellCriticalCss).not.toContain('el-public-shell__bottom-tab')
   })
 
   it('applies public main and footer minimum height rules to the current FsusUI shell DOM', () => {
@@ -207,6 +226,7 @@ describe('PublicBlogLayoutShell responsive header integration', () => {
       '#fsus-aot-shell .el-public-shell__footer',
     )
     expect(publicShellCriticalCss).toContain('min-height: 6.5rem;')
+    expect(publicShellCriticalCss).not.toContain('.el-public-shell__footer::after')
   })
 
   it('keeps public AOT theme toggle hydration-safe before reconciling stored mode', () => {

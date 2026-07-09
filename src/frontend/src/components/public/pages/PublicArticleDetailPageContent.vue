@@ -1,6 +1,6 @@
 <template>
   <article
-    class="public-article-detail mx-auto min-h-screen max-w-[760px] px-6 pt-12 pb-24 sm:px-12 sm:pt-16"
+    class="public-article-detail mx-auto min-h-screen max-w-[760px] px-4 pt-6 pb-10 sm:px-12 sm:pt-10 sm:pb-12"
     data-readable-region
     data-fsus-surface="reading"
     itemscope
@@ -59,7 +59,7 @@
       <slot name="header-actions" />
     </header>
 
-    <section itemprop="articleBody" class="mt-3 sm:mt-4">
+    <section itemprop="articleBody" class="mt-8 sm:mt-10">
       <ArticleDetailBody>
         <ArticleReadingNotice
           :notice="detailView.body.notice"
@@ -84,168 +84,156 @@
       </ArticleDetailBody>
     </section>
 
-    <section
-      v-if="rightsNoticeVisible"
-      class="article-rights-notice mt-8 border-y border-[var(--fsusblog-panel-border)] py-5"
-      data-article-rights-notice
-      :data-rights-snapshot-id="detailView.rights.snapshotId"
-      :data-rights-policy-hash="detailView.rights.policyHash"
-      :data-rights-content-hash="detailView.rights.contentCanonicalHash"
-      aria-labelledby="article-rights-notice-title"
+    <div
+      v-if="detailView.header.tags.length > 0 || rightsNoticeVisible || hasRelatedReading"
+      class="article-tail-group mt-8 sm:mt-10 divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]"
+      data-article-tail-group
     >
-      <h2
-        id="article-rights-notice-title"
-        class="text-xs font-bold normal-case tracking-normal text-[var(--fsusblog-text-primary)]"
+      <footer
+        v-if="detailView.header.tags.length > 0"
+        class="py-2.5"
       >
-        版权与引用
-      </h2>
-      <p class="mt-3 text-xs leading-6 text-[var(--fsusblog-text-secondary)]">
-        {{ rightsStatementText }}
-      </p>
-      <dl class="mt-4 divide-y divide-[var(--fsusblog-panel-border)] text-xs text-[var(--fsusblog-text-secondary)]">
-        <div class="grid gap-1 py-3 first:pt-0 sm:grid-cols-[7rem_1fr] sm:items-baseline">
+        <ArticleDetailTagsFooter :view="detailView.header" :link-mode="linkMode" />
+      </footer>
+
+      <section
+        v-if="rightsNoticeVisible"
+        class="article-rights-notice py-4 sm:py-4"
+        data-article-rights-notice
+        :data-rights-snapshot-id="detailView.rights.snapshotId"
+        :data-rights-policy-hash="detailView.rights.policyHash"
+        :data-rights-content-hash="detailView.rights.contentCanonicalHash"
+        aria-labelledby="article-rights-notice-title"
+      >
+        <h2
+          id="article-rights-notice-title"
+          class="text-sm font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]"
+        >
+          版权与引用
+        </h2>
+        <p class="mt-1 text-xs leading-5 text-[var(--fsusblog-text-secondary)]">
+          {{ rightsStatementText }}
+        </p>
+        <dl class="mt-1.5 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs leading-5 text-[var(--fsusblog-text-secondary)]">
           <dt class="font-semibold text-[var(--fsusblog-text-muted)]">许可</dt>
           <dd>{{ rightsLicenseText }}</dd>
-        </div>
-        <div
-          v-if="rightsHolderText"
-          class="grid gap-1 py-3 first:pt-0 sm:grid-cols-[7rem_1fr] sm:items-baseline"
-        >
-          <dt class="font-semibold text-[var(--fsusblog-text-muted)]">权利人</dt>
-          <dd>{{ rightsHolderText }}</dd>
-        </div>
-        <div class="grid gap-1 py-3 first:pt-0 sm:grid-cols-[7rem_1fr] sm:items-baseline">
+          <template v-if="rightsHolderText">
+            <dt class="font-semibold text-[var(--fsusblog-text-muted)]">权利人</dt>
+            <dd>{{ rightsHolderText }}</dd>
+          </template>
           <dt class="font-semibold text-[var(--fsusblog-text-muted)]">复制策略</dt>
           <dd>{{ rightsCopyPolicyText }}</dd>
-        </div>
-        <div class="grid gap-1 py-3 last:pb-0 sm:grid-cols-[7rem_1fr] sm:items-baseline">
           <dt class="font-semibold text-[var(--fsusblog-text-muted)]">摘录范围</dt>
           <dd>最多 {{ detailView.rights.maxExcerptChars }} 字符</dd>
-        </div>
-      </dl>
-      <p
-        v-if="detailView.rights.attributionTemplate"
-        class="mt-4 text-xs leading-6 text-[var(--fsusblog-text-tertiary)]"
-      >
-        建议署名：{{ detailView.rights.attributionTemplate }}
-      </p>
-      <p
-        v-if="rightsProofText"
-        class="mt-3 text-xs leading-6 text-[var(--fsusblog-text-tertiary)]"
-      >
-        {{ rightsProofText }}
-      </p>
-    </section>
-
-    <footer
-      v-if="detailView.header.tags.length > 0"
-      class="mt-10 sm:mt-12 pt-6 sm:pt-8 border-t border-[var(--fsusblog-panel-border)]"
-    >
-      <ArticleDetailTagsFooter :view="detailView.header" :link-mode="linkMode" />
-    </footer>
-
-    <section
-      v-if="hasRelatedReading"
-      id="fsus-related-reading"
-      data-public-related-reading="true"
-      class="mt-10 sm:mt-12 border-t border-[var(--fsusblog-panel-border)] pt-6 sm:pt-8"
-      aria-labelledby="fsus-related-reading-heading"
-    >
-      <div class="flex flex-col gap-8">
-        <div class="flex items-center justify-between gap-6">
-          <h2
-            id="fsus-related-reading-heading"
-            class="text-sm font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]"
-          >
-            {{ detailView.relatedReading.title }}
-          </h2>
-        </div>
-
-        <nav
-          v-if="detailView.relatedReading.previous || detailView.relatedReading.next"
-          class="grid gap-4 sm:grid-cols-2"
-          aria-label="上一篇和下一篇"
+        </dl>
+        <p
+          v-if="detailView.rights.attributionTemplate"
+          class="mt-1.5 text-xs leading-5 text-[var(--fsusblog-text-tertiary)]"
         >
-          <a
-            v-if="detailView.relatedReading.previous"
-            :href="detailView.relatedReading.previous.href"
-            class="group blog-motion-state-change block py-4"
-            data-related-role="previous"
-          >
-            <span class="block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-              {{ detailView.relatedReading.previousLabel }}
-            </span>
-            <span class="blog-link-underline mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)]">
-              {{ detailView.relatedReading.previous.title }}
-            </span>
-            <span class="mt-1 block text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-              {{ detailView.relatedReading.previous.reason }} · {{ detailView.relatedReading.previous.displayTime }}
-            </span>
-          </a>
-          <span v-else class="hidden sm:block"></span>
+          建议署名：{{ detailView.rights.attributionTemplate }}
+        </p>
+        <p
+          v-if="rightsProofText"
+          class="mt-1.5 text-xs leading-5 text-[var(--fsusblog-text-tertiary)]"
+        >
+          {{ rightsProofText }}
+        </p>
+      </section>
 
-          <a
-            v-if="detailView.relatedReading.next"
-            :href="detailView.relatedReading.next.href"
-            class="group blog-motion-state-change block py-4 sm:text-right"
-            data-related-role="next"
-          >
-            <span class="block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-              {{ detailView.relatedReading.nextLabel }}
-            </span>
-            <span class="blog-link-underline mt-2 block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)]">
-              {{ detailView.relatedReading.next.title }}
-            </span>
-            <span class="mt-1 block text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-              {{ detailView.relatedReading.next.reason }} · {{ detailView.relatedReading.next.displayTime }}
-            </span>
-          </a>
-        </nav>
+      <section
+        v-if="hasRelatedReading"
+        id="fsus-related-reading"
+        data-public-related-reading="true"
+        class="article-related-reading pt-5 pb-4 sm:pt-6 sm:pb-5"
+        aria-labelledby="fsus-related-reading-heading"
+      >
+        <h2
+          id="fsus-related-reading-heading"
+          class="text-sm font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]"
+        >
+          {{ detailView.relatedReading.title }}
+        </h2>
 
-        <div v-if="detailView.relatedReading.items.length > 0">
-          <h3 class="text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-            {{ detailView.relatedReading.relatedLabel }}
-          </h3>
-          <ol class="mt-4 grid gap-4">
+        <nav aria-label="延伸阅读文章">
+          <ul class="mt-3 divide-y divide-[var(--fsusblog-panel-border)]">
             <li
-              v-for="item in detailView.relatedReading.items"
-              :key="item.id"
-              class="border-b border-[var(--fsusblog-panel-border)] pb-4 last:border-b-0 last:pb-0"
+              v-if="detailView.relatedReading.previous"
+              class="py-2.5 first:pt-0 last:pb-0"
             >
               <a
-                :href="item.href"
-                class="group block"
-                data-related-role="related"
+                :href="detailView.relatedReading.previous.href"
+                class="group blog-motion-state-change block min-w-0"
+                data-related-role="previous"
               >
-                <span class="block text-sm font-bold leading-6 text-[var(--fsusblog-text-primary)] group-hover:underline">
-                  {{ item.title }}
+                <span class="mb-0.5 block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+                  {{ detailView.relatedReading.previousLabel }}
                 </span>
-                <span class="mt-1 block text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-                  {{ item.reason }} · {{ item.displayTime }}
+                <span class="blog-link-underline text-sm font-bold leading-5 text-[var(--fsusblog-text-primary)]">
+                  {{ detailView.relatedReading.previous.title }}
                 </span>
-                <span
-                  v-if="item.summary"
-                  class="mt-2 block text-xs leading-6 text-[var(--fsusblog-text-muted)]"
-                >
-                  {{ item.summary }}
+                <span class="ml-2 text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+                  {{ detailView.relatedReading.previous.displayTime }}
                 </span>
               </a>
             </li>
-          </ol>
-        </div>
-      </div>
-    </section>
+
+            <li
+              v-if="detailView.relatedReading.next"
+              class="py-2.5 first:pt-0 last:pb-0"
+            >
+              <a
+                :href="detailView.relatedReading.next.href"
+                class="group blog-motion-state-change block min-w-0"
+                data-related-role="next"
+              >
+                <span class="mb-0.5 block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+                  {{ detailView.relatedReading.nextLabel }}
+                </span>
+                <span class="blog-link-underline text-sm font-bold leading-5 text-[var(--fsusblog-text-primary)]">
+                  {{ detailView.relatedReading.next.title }}
+                </span>
+                <span class="ml-2 text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+                  {{ detailView.relatedReading.next.displayTime }}
+                </span>
+              </a>
+            </li>
+
+            <li
+              v-for="item in detailView.relatedReading.items"
+              :key="item.id"
+              class="py-2.5 first:pt-0 last:pb-0"
+            >
+              <a
+                :href="item.href"
+                class="group block min-w-0"
+                data-related-role="related"
+              >
+                <span class="mb-0.5 block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
+                  {{ detailView.relatedReading.relatedLabel }}
+                </span>
+                <span class="blog-link-underline text-sm font-bold leading-5 text-[var(--fsusblog-text-primary)]">
+                  {{ item.title }}
+                </span>
+                <span class="ml-2 text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
+                  {{ item.displayTime }}
+                </span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </section>
+    </div>
 
     <section
       id="fsus-comments-island"
-      class="mt-12 sm:mt-16 border-t border-[var(--fsusblog-panel-border)] pt-8 sm:pt-10"
+      class="mt-6 sm:mt-8"
       data-fsus-surface="reading"
       :data-article-id="String(safeArticleId)"
     >
       <span id="comments" class="sr-only">评论</span>
       <div
         id="fsus-comments-island-content"
-        class="min-h-[10rem]"
+        class="min-h-0"
       >
         <slot name="comments">
           <ArticleDetailCommentsPlaceholder
@@ -343,5 +331,13 @@ const rightsProofText = computed(() => {
 <style scoped>
 .public-article-detail {
   overflow-anchor: none;
+}
+
+@media (max-width: 639px) {
+  .public-article-detail {
+    width: calc(100% + 2rem);
+    margin-right: -1rem;
+    margin-left: -1rem;
+  }
 }
 </style>

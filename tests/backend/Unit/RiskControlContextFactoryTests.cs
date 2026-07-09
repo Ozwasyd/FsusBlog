@@ -5,9 +5,13 @@ using System.Text;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -203,6 +207,42 @@ public sealed class RiskControlContextFactoryTests
         Assert.True(result.SocialPreviewBot);
     }
 
+    [Fact]
+    public void Create_DevelopmentLocalRequest_EnablesLocalBypass()
+    {
+        var context = CreateContext("127.0.0.1");
+
+        RiskControlContext result = new RiskControlContextFactory(
+            new TestWebHostEnvironment(Environments.Development),
+            EmptyConfiguration()).Create(context);
+
+        Assert.True(result.DevelopmentLocalBypass);
+    }
+
+    [Fact]
+    public void Create_FixtureLocalRequest_EnablesLocalBypass()
+    {
+        var context = CreateContext("192.168.1.24");
+
+        RiskControlContext result = new RiskControlContextFactory(
+            new TestWebHostEnvironment(Environments.Production),
+            ConfigurationWith("fsus:allowLocalAuthFixture", "true")).Create(context);
+
+        Assert.True(result.DevelopmentLocalBypass);
+    }
+
+    [Fact]
+    public void Create_ProductionLocalRequest_LeavesLocalBypassDisabled()
+    {
+        var context = CreateContext("127.0.0.1");
+
+        RiskControlContext result = new RiskControlContextFactory(
+            new TestWebHostEnvironment(Environments.Production),
+            EmptyConfiguration()).Create(context);
+
+        Assert.False(result.DevelopmentLocalBypass);
+    }
+
     [Theory]
     [InlineData("short", "invalid_length")]
     [InlineData("valid-length but invalid spaces", "invalid_charset")]
@@ -260,6 +300,27 @@ public sealed class RiskControlContextFactoryTests
 
     private static string Sha256Hex(string value)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    private static IConfiguration EmptyConfiguration()
+        => new ConfigurationBuilder().Build();
+
+    private static IConfiguration ConfigurationWith(string key, string value)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [key] = value
+            })
+            .Build();
+
+    private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ApplicationName { get; set; } = "FsusBlog.Tests";
+        public string WebRootPath { get; set; } = Directory.GetCurrentDirectory();
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = Directory.GetCurrentDirectory();
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
 
     private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 }

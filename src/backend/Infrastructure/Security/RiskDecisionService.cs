@@ -54,6 +54,11 @@ public sealed class RiskDecisionService : IRiskDecisionService
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(policy);
 
+        if (context.DevelopmentLocalBypass)
+        {
+            return RecordAndReturn(Allow(context, policy, currentRiskScore, "development_local_bypass"));
+        }
+
         if (context.VerifiedCrawler)
         {
             return RecordAndReturn(Allow(context, policy, currentRiskScore, "verified_crawler"));

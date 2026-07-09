@@ -94,9 +94,9 @@ function syncBodyThemeMaterial(): void {
   const rootStyle = window.getComputedStyle(root)
   const resolvedTheme = root.dataset.themeResolved === 'dark' ? 'dark' : 'light'
   const pageBackground = rootStyle.getPropertyValue('--fsusblog-page-bg').trim()
-    || (resolvedTheme === 'dark' ? '#09090b' : '#F7F7F8')
+    || (resolvedTheme === 'dark' ? '#09090B' : '#F7F7F8')
   const textColor = rootStyle.getPropertyValue('--fsusblog-text-primary').trim()
-    || (resolvedTheme === 'dark' ? '#f0f0f4' : '#0f0f11')
+    || (resolvedTheme === 'dark' ? '#F0F0F4' : '#0F0F11')
 
   body.style.colorScheme = resolvedTheme
   body.style.backgroundColor = pageBackground

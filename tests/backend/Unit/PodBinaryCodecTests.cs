@@ -1109,6 +1109,9 @@ public class PodBinaryCodecTests
             ZkProdUnavailableReason: string.Empty);
 
         byte[] snapshotEncoded = PodBinaryCodec.EncodeCommentPolicySnapshot(snapshot);
+        int snapshotBlobLength = Encoding.UTF8.GetByteCount("zh-CN\nen") + 64;
+        Assert.Equal(41 + sizeof(int) + snapshotBlobLength, snapshotEncoded.Length);
+        Assert.Equal(snapshotBlobLength, BinaryPrimitives.ReadInt32LittleEndian(snapshotEncoded.AsSpan(41, sizeof(int))));
         Assert.True(PodBinaryCodec.TryDecodeCommentPolicySnapshot(snapshotEncoded, out var snapshotDecoded));
         Assert.True(snapshotDecoded.AnonymousCommentsEnabled);
         Assert.True(snapshotDecoded.PublicCommentsEnabled);
@@ -1135,6 +1138,9 @@ public class PodBinaryCodecTests
             CommentMaxUtf8Bytes: 9200);
 
         byte[] updateEncoded = PodBinaryCodec.EncodeCommentPolicyUpdateRequest(update);
+        int updateBlobLength = Encoding.UTF8.GetByteCount("en");
+        Assert.Equal(26 + sizeof(int) + updateBlobLength, updateEncoded.Length);
+        Assert.Equal(updateBlobLength, BinaryPrimitives.ReadInt32LittleEndian(updateEncoded.AsSpan(26, sizeof(int))));
         Assert.True(PodBinaryCodec.TryDecodeCommentPolicyUpdateRequest(updateEncoded, out var updateDecoded));
         Assert.False(updateDecoded.AnonymousCommentsEnabled);
         Assert.Null(updateDecoded.PublicCommentsEnabled);

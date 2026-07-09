@@ -140,7 +140,7 @@ export function mapSecurityChallengeIssueResponseFromPayload(payload: Uint8Array
   const assignmentsOffset = SECURITY_CHALLENGE_ISSUE_RESPONSE_POD_SIZE;
   const providerPodsOffset = assignmentsOffset + assignmentCount * SECURITY_CHALLENGE_ASSIGNMENT_POD_SIZE;
   const blobOffset = providerPodsOffset + providerPayloadCount * SECURITY_CHALLENGE_PROVIDER_PAYLOAD_POD_SIZE;
-  if (payload.byteLength < blobOffset) {
+  if (payload.byteLength < blobOffset + 4) {
     throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_issue_payload_truncated');
   }
 
@@ -149,7 +149,7 @@ export function mapSecurityChallengeIssueResponseFromPayload(payload: Uint8Array
     assignments.push(readSecurityChallengeAssignment(payload, assignmentsOffset + index * SECURITY_CHALLENGE_ASSIGNMENT_POD_SIZE));
   }
 
-  const blob = payload.subarray(blobOffset);
+  const blob = readBinaryPodBlob(payload, blobOffset, 'security_challenge_issue_payload_truncated');
   const providerPayloads: SecurityChallengeProviderPayload[] = [];
   for (let index = 0; index < providerPayloadCount; index += 1) {
     const offset = providerPodsOffset + index * SECURITY_CHALLENGE_PROVIDER_PAYLOAD_POD_SIZE;
@@ -182,7 +182,7 @@ export function mapSecurityChallengeVerifyResponseFromPayload(payload: Uint8Arra
     throw createAppError(AppErrorCode.ProtocolFailure, 'security_challenge_verify_payload_short');
   }
 
-  const blob = payload.subarray(SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE);
+  const blob = readBinaryPodBlob(payload, SECURITY_CHALLENGE_VERIFY_RESPONSE_POD_SIZE, 'security_challenge_verify_payload_truncated');
   return {
     verified: readByte(payload, 0) === 1,
     kind: mapSecurityChallengeKind(readByte(payload, 1)),
@@ -194,19 +194,35 @@ export function mapSecurityChallengeVerifyResponseFromPayload(payload: Uint8Arra
   };
 }
 
+function readBinaryPodBlob(payload: Uint8Array, offset: number, errorCode: string): Uint8Array {
+  if (offset + 4 > payload.byteLength) {
+    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+  }
+
+  const length = readInt32(payload, offset);
+  const blobStart = offset + 4;
+  const blobEnd = blobStart + length;
+  if (length < 0 || blobEnd > payload.byteLength || blobEnd !== payload.byteLength) {
+    throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
+  }
+
+  return payload.subarray(blobStart, blobEnd);
+}
+
 function encodeSlicePod(values: string[], headerBytes: number, firstSliceOffset = 0): Uint8Array {
   const encodedValues = values.map((value) => textEncoder.encode(value ?? ''));
   const blobBytes = encodedValues.reduce((total, value) => total + value.byteLength, 0);
-  const bytes = new Uint8Array(headerBytes + blobBytes);
+  const bytes = new Uint8Array(headerBytes + 4 + blobBytes);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let blobOffset = 0;
   for (let index = 0; index < encodedValues.length; index += 1) {
     const sliceOffset = firstSliceOffset + index * 8;
     view.setInt32(sliceOffset, blobOffset, true);
     view.setInt32(sliceOffset + 4, encodedValues[index].byteLength, true);
-    bytes.set(encodedValues[index], headerBytes + blobOffset);
+    bytes.set(encodedValues[index], headerBytes + 4 + blobOffset);
     blobOffset += encodedValues[index].byteLength;
   }
+  view.setInt32(headerBytes, blobBytes, true);
   return bytes;
 }
 

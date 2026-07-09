@@ -7,16 +7,64 @@
    Keep this block restricted to first-paint variables and #fsus-aot-shell basics. */
 :root {
   color-scheme: light dark;
-  --fsusblog-page-bg: var(--fsus-page, var(--el-bg-color-page, Canvas));
-  --fsusblog-text-primary: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
-  --fsusblog-text-secondary: var(--el-text-color-regular, CanvasText);
-  --fsusblog-text-tertiary: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
-  --fsusblog-panel-border: var(--fsus-border, var(--el-border-color, ButtonBorder));
+  --bg: #F7F7F8;
+  --surface: #FFFFFF;
+  --surface-subtle: #FCFCFC;
+  --text: #0F0F11;
+  --text-heading: #0F0F11;
+  --text-secondary: #5F5F68;
+  --text-tertiary: #8E8E93;
+  --text-muted: #A1A1AA;
+  --border: #E4E4E7;
+  --border-strong: #D4D4D8;
+  --accent: #2A599C;
+  --accent-hover: #244E89;
+  --accent-subtle: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  --accent-border: color-mix(in srgb, var(--accent) 32%, var(--border));
+  --link: var(--accent);
+  --link-hover: var(--accent-hover);
+  --fsus-page: var(--bg);
+  --fsus-paper: var(--surface);
+  --fsus-ink: var(--text);
+  --fsus-dot-gray: var(--text-tertiary);
+  --fsus-border: var(--border);
+  --fsus-scholarly-blue: var(--accent);
+  --fsusblog-header-bg: var(--surface);
+  --fsusblog-header-border: var(--border);
+  --fsusblog-color-primary: var(--accent, LinkText);
+  --fsusblog-page-bg: var(--bg);
+  --fsusblog-text-primary: var(--text);
+  --fsusblog-text-secondary: var(--text-secondary);
+  --fsusblog-text-tertiary: var(--text-tertiary);
+  --fsusblog-panel-border: var(--border);
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-border-color-lighter: var(--border);
+  --el-text-color-primary: var(--text-heading);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-muted);
 }
 
 html.dark,
 html[data-theme-resolved='dark'] {
   color-scheme: dark;
+  --bg: #09090B;
+  --surface: #121214;
+  --surface-subtle: #1A1A1E;
+  --text: #F0F0F4;
+  --text-heading: #F0F0F4;
+  --text-secondary: #A1A1AA;
+  --text-tertiary: #71717A;
+  --text-muted: #52525B;
+  --border: #27272A;
+  --border-strong: #3F3F46;
+  --accent: #4B79CC;
+  --accent-hover: #6F93D7;
+  --accent-subtle: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --accent-border: color-mix(in srgb, var(--accent) 40%, var(--border));
+  --link: var(--accent);
+  --link-hover: var(--accent-hover);
 }
 
 #fsus-aot-shell {
@@ -72,26 +120,64 @@ html[data-theme-resolved='dark'] {
 
 :root {
   color-scheme: light dark;
-  --fsus-page: #F7F7F8;
-  --fsus-paper: #ffffff;
-  --fsus-ink: #0f0f11;
-  --fsus-dot-gray: #8e8e93;
-  --fsus-border: #E4E4E7;
-  --fsus-scholarly-blue: #2a599c;
+  --bg: #F7F7F8;
+  --surface: #FFFFFF;
+  --surface-subtle: #FCFCFC;
+  --text: #0F0F11;
+  --text-heading: #0F0F11;
+  --text-secondary: #5F5F68;
+  --text-tertiary: #8E8E93;
+  --text-muted: #A1A1AA;
+  --border: #E4E4E7;
+  --border-strong: #D4D4D8;
+  --accent: #2A599C;
+  --accent-hover: #244E89;
+  --accent-subtle: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  --accent-border: color-mix(in srgb, var(--accent) 32%, var(--border));
+  --link: var(--accent);
+  --link-hover: var(--accent-hover);
+  --fsus-page: var(--bg);
+  --fsus-paper: var(--surface);
+  --fsus-ink: var(--text);
+  --fsus-dot-gray: var(--text-tertiary);
+  --fsus-border: var(--border);
+  --fsus-scholarly-blue: var(--accent);
   --fsusblog-backdrop-saturate: 100%;
-  --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 88%, var(--fsus-page));
-  --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 82%, transparent);
-  --el-bg-color: var(--fsusblog-header-bg);
-  --el-bg-color-page: var(--fsus-page);
-  --el-border-color-lighter: var(--fsusblog-header-border);
-  --fsusblog-color-primary: var(--fsus-scholarly-blue, Highlight);
-  --fsusblog-color-surface: var(--fsus-paper, var(--el-fill-color-blank, Canvas));
-  --fsusblog-color-surface-soft: var(--fsus-page, var(--el-fill-color-light, Canvas));
-  --fsusblog-color-surface-muted: var(--el-fill-color, ButtonFace);
-  --fsusblog-color-line: var(--el-border-color-lighter, ButtonBorder);
-  --fsusblog-color-line-strong: var(--fsus-border, var(--el-border-color, ButtonBorder));
-  --fsusblog-color-disabled-bg: var(--el-disabled-bg-color, ButtonFace);
-  --fsusblog-color-disabled-text: var(--el-disabled-text-color, GrayText);
+  --fsusblog-header-bg: var(--surface);
+  --fsusblog-header-border: var(--border);
+  --el-color-primary: var(--accent);
+  --el-color-primary-dark-2: var(--accent-hover);
+  --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));
+  --el-color-primary-light-5: color-mix(in srgb, var(--accent) 48%, var(--surface));
+  --el-color-primary-light-7: color-mix(in srgb, var(--accent) 24%, var(--surface));
+  --el-color-primary-light-8: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  --el-color-primary-light-9: var(--accent-subtle);
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-fill-color-blank: var(--surface);
+  --el-fill-color-light: var(--surface-subtle);
+  --el-fill-color: var(--surface-subtle);
+  --el-fill-color-lighter: var(--surface);
+  --el-fill-color-extra-light: var(--surface);
+  --el-disabled-bg-color: var(--surface-subtle);
+  --el-disabled-text-color: var(--text-muted);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
+  --el-border-color-extra-light: var(--surface-subtle);
+  --el-border-color-dark: var(--border-strong);
+  --el-text-color-primary: var(--text-heading);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-muted);
+  --fsusblog-color-primary: var(--accent, LinkText);
+  --fsusblog-color-surface: var(--surface);
+  --fsusblog-color-surface-soft: var(--surface-subtle);
+  --fsusblog-color-surface-muted: var(--surface-subtle);
+  --fsusblog-color-line: var(--border);
+  --fsusblog-color-line-strong: var(--border-strong);
+  --fsusblog-color-disabled-bg: var(--surface-subtle);
+  --fsusblog-color-disabled-text: var(--text-muted);
   --fsusblog-color-error: var(--el-color-danger, CanvasText);
   --fsusblog-color-error-strong: var(--el-color-danger-dark-2, var(--fsusblog-color-error));
   --fsusblog-color-error-bg: var(--fsusblog-reading-error-bg, color-mix(in srgb, var(--fsusblog-color-error) 10%, var(--fsusblog-page-bg)));
@@ -101,40 +187,41 @@ html[data-theme-resolved='dark'] {
   --fsusblog-color-warning-bg: var(--el-color-warning-light-9, color-mix(in srgb, var(--fsusblog-color-warning) 10%, var(--fsusblog-page-bg)));
   --fsusblog-color-warning-border: var(--el-color-warning-light-5, color-mix(in srgb, var(--fsusblog-color-warning) 36%, transparent));
   --fsusblog-color-warning-text: var(--el-color-warning-dark-2, var(--fsusblog-color-warning));
-  --fsusblog-color-focus-ring: var(--el-a11y-focus-color, var(--fsus-scholarly-blue, Highlight));
-  --fsusblog-page-bg: var(--fsus-page, var(--el-bg-color-page, Canvas));
-  --fsusblog-page-bg-soft: var(--fsus-paper, var(--el-bg-color, Canvas));
+  --fsusblog-color-focus-ring: var(--accent, Highlight);
+  --fsusblog-page-bg: var(--bg);
+  --fsusblog-page-bg-soft: var(--surface);
   --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
   --fsusblog-panel-bg: var(--fsusblog-color-surface);
   --fsusblog-panel-bg-soft: var(--fsusblog-color-surface-soft);
   --fsusblog-panel-border: var(--fsusblog-color-line);
   --fsusblog-panel-border-strong: var(--fsusblog-color-line-strong);
-  --fsusblog-skeleton-bg: var(--el-fill-color-light, #f5f7fa);
+  --fsusblog-skeleton-bg: var(--surface-subtle);
   --fsusblog-overlay-scrim: rgba(15, 15, 17, 0.72);
   --fsusblog-overlay-button-bg: rgba(255, 255, 255, 0.12);
   --fsusblog-overlay-button-fg: rgba(255, 255, 255, 0.92);
   --fsusblog-overlay-button-border: rgba(255, 255, 255, 0.24);
-  --fsusblog-text-primary: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
-  --fsusblog-text-secondary: var(--el-text-color-regular, CanvasText);
-  --fsusblog-text-tertiary: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
-  --fsusblog-text-muted: var(--el-text-color-placeholder, GrayText);
-  --fsusblog-text-subtle: var(--fsus-dot-gray, var(--el-disabled-text-color, GrayText));
-  --fsusblog-reading-text: var(--el-text-color-regular, CanvasText);
-  --fsusblog-reading-heading: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
-  --fsusblog-reading-subheading: var(--el-text-color-regular, CanvasText);
-  --fsusblog-reading-quote: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
-  --fsusblog-reading-link: var(--fsus-scholarly-blue, LinkText);
-  --fsusblog-reading-link-decoration: color-mix(in srgb, var(--fsusblog-reading-link) 56%, transparent);
-  --fsusblog-reading-code-bg: var(--el-fill-color-light, Field);
-  --fsusblog-reading-code-border: var(--el-border-color-lighter, ButtonBorder);
-  --fsusblog-reading-code-text: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
+  --fsusblog-text-primary: var(--text);
+  --fsusblog-text-heading: var(--text-heading);
+  --fsusblog-text-secondary: var(--text-secondary);
+  --fsusblog-text-tertiary: var(--text-tertiary);
+  --fsusblog-text-muted: var(--text-muted);
+  --fsusblog-text-subtle: var(--text-muted);
+  --fsusblog-reading-text: var(--text);
+  --fsusblog-reading-heading: var(--text-heading);
+  --fsusblog-reading-subheading: var(--text-secondary);
+  --fsusblog-reading-quote: var(--text-tertiary);
+  --fsusblog-reading-link: var(--link);
+  --fsusblog-reading-link-decoration: color-mix(in srgb, var(--accent) 56%, transparent);
+  --fsusblog-reading-code-bg: var(--surface-subtle);
+  --fsusblog-reading-code-border: var(--border);
+  --fsusblog-reading-code-text: var(--text);
   --fsusblog-reading-placeholder-bg: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
-  --fsusblog-reading-placeholder-border: var(--fsus-border, var(--el-border-color, ButtonBorder));
+  --fsusblog-reading-placeholder-border: var(--border);
   --fsusblog-reading-error-bg: var(--el-color-danger-light-9, color-mix(in srgb, var(--fsusblog-color-error) 10%, var(--fsusblog-page-bg)));
   --fsusblog-reading-error-border: var(--el-color-danger-light-7, color-mix(in srgb, var(--fsusblog-color-error) 28%, transparent));
   --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
-  --fsusblog-reading-marker: var(--el-text-color-placeholder, GrayText);
-  --fsusblog-reading-rule: var(--el-border-color-lighter, ButtonBorder);
+  --fsusblog-reading-marker: var(--text-muted);
+  --fsusblog-reading-rule: var(--border);
   --fsusblog-reading-radius-control: 6px;
   --fsusblog-reading-radius-panel: 10px;
   --fsusblog-reading-radius-media: 12px;
@@ -143,9 +230,9 @@ html[data-theme-resolved='dark'] {
   --fsusblog-reading-backdrop-blur: 0px;
   --fsusblog-reading-motion-trail: transparent;
   --fsusblog-reading-glow: transparent;
-  --fsusblog-highlight-mark-bg: var(--el-fill-color, Mark);
-  --fsusblog-highlight-mark-text: var(--fsus-ink, var(--el-text-color-primary, MarkText));
-  --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--fsus-border, var(--el-border-color, ButtonBorder)) 65%, transparent);
+  --fsusblog-highlight-mark-bg: var(--surface-subtle);
+  --fsusblog-highlight-mark-text: var(--text);
+  --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--border) 65%, transparent);
   --fsusblog-container-reading: 48rem;
   --fsusblog-container-article: 56rem;
   --fsusblog-container-public: 64rem;
@@ -165,26 +252,64 @@ html[data-theme-resolved='light'] {
 html.dark,
 html[data-theme-resolved='dark'] {
   color-scheme: dark;
-  --fsus-page: #09090b;
-  --fsus-paper: #121214;
-  --fsus-ink: #f0f0f4;
-  --fsus-dot-gray: #a1a1aa;
-  --fsus-border: #303036;
-  --fsus-scholarly-blue: #4B79CC;
+  --bg: #09090B;
+  --surface: #121214;
+  --surface-subtle: #1A1A1E;
+  --text: #F0F0F4;
+  --text-heading: #F0F0F4;
+  --text-secondary: #A1A1AA;
+  --text-tertiary: #71717A;
+  --text-muted: #52525B;
+  --border: #27272A;
+  --border-strong: #3F3F46;
+  --accent: #4B79CC;
+  --accent-hover: #6F93D7;
+  --accent-subtle: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --accent-border: color-mix(in srgb, var(--accent) 40%, var(--border));
+  --link: var(--accent);
+  --link-hover: var(--accent-hover);
+  --fsus-page: var(--bg);
+  --fsus-paper: var(--surface);
+  --fsus-ink: var(--text);
+  --fsus-dot-gray: var(--text-tertiary);
+  --fsus-border: var(--border);
+  --fsus-scholarly-blue: var(--accent);
   --fsusblog-backdrop-saturate: 100%;
-  --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 92%, var(--fsus-page));
-  --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 78%, transparent);
-  --el-bg-color: var(--fsusblog-header-bg);
-  --el-bg-color-page: var(--fsus-page);
-  --el-border-color-lighter: var(--fsusblog-header-border);
-  --fsusblog-color-primary: var(--fsus-scholarly-blue, Highlight);
-  --fsusblog-color-surface: var(--fsus-paper, var(--el-fill-color-blank, Canvas));
-  --fsusblog-color-surface-soft: var(--fsus-page, var(--el-fill-color-light, Canvas));
-  --fsusblog-color-surface-muted: var(--el-fill-color, ButtonFace);
-  --fsusblog-color-line: var(--el-border-color-lighter, ButtonBorder);
-  --fsusblog-color-line-strong: var(--fsus-border, var(--el-border-color, ButtonBorder));
-  --fsusblog-color-disabled-bg: var(--el-disabled-bg-color, ButtonFace);
-  --fsusblog-color-disabled-text: var(--el-disabled-text-color, GrayText);
+  --fsusblog-header-bg: var(--surface);
+  --fsusblog-header-border: var(--border);
+  --el-color-primary: var(--accent);
+  --el-color-primary-dark-2: var(--accent-hover);
+  --el-color-primary-light-3: color-mix(in srgb, var(--accent) 72%, var(--surface));
+  --el-color-primary-light-5: color-mix(in srgb, var(--accent) 48%, var(--surface));
+  --el-color-primary-light-7: color-mix(in srgb, var(--accent) 24%, var(--surface));
+  --el-color-primary-light-8: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  --el-color-primary-light-9: var(--accent-subtle);
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-fill-color-blank: var(--surface);
+  --el-fill-color-light: var(--surface-subtle);
+  --el-fill-color: var(--surface-subtle);
+  --el-fill-color-lighter: var(--surface);
+  --el-fill-color-extra-light: var(--surface);
+  --el-disabled-bg-color: var(--surface-subtle);
+  --el-disabled-text-color: var(--text-muted);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
+  --el-border-color-extra-light: var(--surface-subtle);
+  --el-border-color-dark: var(--border-strong);
+  --el-text-color-primary: var(--text-heading);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-muted);
+  --fsusblog-color-primary: var(--accent, LinkText);
+  --fsusblog-color-surface: var(--surface);
+  --fsusblog-color-surface-soft: var(--surface-subtle);
+  --fsusblog-color-surface-muted: var(--surface-subtle);
+  --fsusblog-color-line: var(--border);
+  --fsusblog-color-line-strong: var(--border-strong);
+  --fsusblog-color-disabled-bg: var(--surface-subtle);
+  --fsusblog-color-disabled-text: var(--text-muted);
   --fsusblog-color-error: var(--el-color-danger, CanvasText);
   --fsusblog-color-error-strong: var(--el-color-danger-light-3, var(--fsusblog-color-error));
   --fsusblog-color-error-bg: var(--fsusblog-reading-error-bg, color-mix(in srgb, var(--fsusblog-color-error) 20%, var(--fsusblog-page-bg)));
@@ -194,35 +319,37 @@ html[data-theme-resolved='dark'] {
   --fsusblog-color-warning-bg: color-mix(in srgb, var(--fsusblog-color-warning) 12%, var(--fsusblog-page-bg));
   --fsusblog-color-warning-border: color-mix(in srgb, var(--fsusblog-color-warning) 48%, transparent);
   --fsusblog-color-warning-text: var(--fsusblog-color-warning);
-  --fsusblog-color-focus-ring: var(--el-a11y-focus-color, var(--fsus-scholarly-blue, Highlight));
-  --fsusblog-page-bg: var(--fsus-page, var(--el-bg-color-page, Canvas));
-  --fsusblog-page-bg-soft: var(--fsus-paper, var(--el-bg-color, Canvas));
+  --fsusblog-color-focus-ring: var(--accent, Highlight);
+  --fsusblog-page-bg: var(--bg);
+  --fsusblog-page-bg-soft: var(--surface);
   --fsusblog-page-bg-muted: color-mix(in srgb, var(--fsusblog-page-bg) 72%, transparent);
   --fsusblog-panel-bg: var(--fsusblog-color-surface);
   --fsusblog-panel-bg-soft: var(--fsusblog-color-surface-soft);
   --fsusblog-panel-border: var(--fsusblog-color-line);
   --fsusblog-panel-border-strong: var(--fsusblog-color-line-strong);
-  --fsusblog-text-primary: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
-  --fsusblog-text-secondary: var(--el-text-color-regular, CanvasText);
-  --fsusblog-text-tertiary: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
-  --fsusblog-text-muted: var(--el-text-color-placeholder, GrayText);
-  --fsusblog-text-subtle: var(--fsus-dot-gray, var(--el-disabled-text-color, GrayText));
-  --fsusblog-reading-text: var(--el-text-color-regular, CanvasText);
-  --fsusblog-reading-heading: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
-  --fsusblog-reading-subheading: var(--el-text-color-regular, CanvasText);
-  --fsusblog-reading-quote: var(--fsus-dot-gray, var(--el-text-color-secondary, GrayText));
-  --fsusblog-reading-link: var(--fsus-scholarly-blue, LinkText);
-  --fsusblog-reading-link-decoration: color-mix(in srgb, var(--fsusblog-reading-link) 56%, transparent);
-  --fsusblog-reading-code-bg: var(--el-fill-color-light, Field);
-  --fsusblog-reading-code-border: var(--el-border-color-lighter, ButtonBorder);
-  --fsusblog-reading-code-text: var(--fsus-ink, var(--el-text-color-primary, CanvasText));
+  --fsusblog-skeleton-bg: var(--surface-subtle);
+  --fsusblog-text-primary: var(--text);
+  --fsusblog-text-heading: var(--text-heading);
+  --fsusblog-text-secondary: var(--text-secondary);
+  --fsusblog-text-tertiary: var(--text-tertiary);
+  --fsusblog-text-muted: var(--text-muted);
+  --fsusblog-text-subtle: var(--text-muted);
+  --fsusblog-reading-text: var(--text);
+  --fsusblog-reading-heading: var(--text-heading);
+  --fsusblog-reading-subheading: var(--text-secondary);
+  --fsusblog-reading-quote: var(--text-tertiary);
+  --fsusblog-reading-link: var(--link);
+  --fsusblog-reading-link-decoration: color-mix(in srgb, var(--accent) 56%, transparent);
+  --fsusblog-reading-code-bg: var(--surface-subtle);
+  --fsusblog-reading-code-border: var(--border);
+  --fsusblog-reading-code-text: var(--text);
   --fsusblog-reading-placeholder-bg: color-mix(in srgb, var(--fsusblog-page-bg) 92%, transparent);
-  --fsusblog-reading-placeholder-border: var(--fsus-border, var(--el-border-color, ButtonBorder));
+  --fsusblog-reading-placeholder-border: var(--border);
   --fsusblog-reading-error-bg: color-mix(in srgb, var(--el-color-danger) 20%, var(--fsusblog-page-bg));
   --fsusblog-reading-error-border: color-mix(in srgb, var(--el-color-danger) 36%, transparent);
   --fsusblog-reading-error-text: var(--el-color-danger, CanvasText);
-  --fsusblog-reading-marker: var(--el-text-color-placeholder, GrayText);
-  --fsusblog-reading-rule: var(--el-border-color-lighter, ButtonBorder);
+  --fsusblog-reading-marker: var(--text-muted);
+  --fsusblog-reading-rule: var(--border);
   --fsusblog-reading-radius-control: 6px;
   --fsusblog-reading-radius-panel: 10px;
   --fsusblog-reading-radius-media: 12px;
@@ -231,9 +358,9 @@ html[data-theme-resolved='dark'] {
   --fsusblog-reading-backdrop-blur: 0px;
   --fsusblog-reading-motion-trail: transparent;
   --fsusblog-reading-glow: transparent;
-  --fsusblog-highlight-mark-bg: var(--el-fill-color, Mark);
-  --fsusblog-highlight-mark-text: var(--fsus-ink, var(--el-text-color-primary, MarkText));
-  --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--fsus-border, var(--el-border-color, ButtonBorder)) 65%, transparent);
+  --fsusblog-highlight-mark-bg: var(--surface-subtle);
+  --fsusblog-highlight-mark-text: var(--text);
+  --fsusblog-highlight-mark-ring: color-mix(in srgb, var(--border) 65%, transparent);
 
 }
 
@@ -362,6 +489,7 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
    - 1px underline (editorial) vs 2px (navigation)
    - color stays primary (content is readable) vs muted→primary (navigation) */
 #fsus-aot-shell .blog-link-underline {
+  display: inline-block;
   border-bottom: 1px solid transparent;
   padding-bottom: 0.25rem;
   transition: border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
@@ -392,92 +520,98 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   font-weight: 700;
 }
 
-/* fsus-allow-shell-material: Mobile bottom tab bar (FsusUI §8 Mobile Navigation Patterns + §6 opt-in glass material)
-   Scoped to mobile via @media so that desktop nav (text-link + Scholarly Blue underline)
-   remains the primary navigation surface per FsusUI §1 Scope Boundary. */
-@media (max-width: 767px) {
-  #fsus-aot-shell .el-public-shell__bottom-tab-bar {
-    position: fixed;
-    inset-inline: 0;
-    bottom: 0;
-    z-index: 30;
-    display: flex;
-    align-items: stretch;
-    min-height: 3.5rem;
-    background-color: color-mix(in srgb, var(--fsusblog-page-bg) 92%, transparent);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    backdrop-filter: blur(12px) saturate(140%);
-    border-top: 1px solid color-mix(in srgb, var(--fsusblog-panel-border) 64%, transparent);
-    box-shadow: 0 -1px 0 var(--fsusblog-panel-border);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  #fsus-aot-shell .el-public-shell__bottom-tab-bar::before {
-    position: absolute;
-    inset: 0 0 auto;
-    height: 1rem;
-    pointer-events: none;
-    content: "";
-    background: linear-gradient(180deg, color-mix(in srgb, var(--fsusblog-page-bg) 28%, transparent), transparent);
-  }
-
-  /* fsus-allow-shell-material: fallback guard for bottom tab bar glass support detection */
-  @supports not (backdrop-filter: blur(1px)) {
-    #fsus-aot-shell .el-public-shell__bottom-tab-bar {
-      background-color: var(--fsusblog-page-bg);
-    }
-  }
+#fsus-aot-shell .fsu-mobile-dock[data-fsus-mobile-dock='bottom'] {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 30;
 }
 
-#fsus-aot-shell .el-public-shell__bottom-tab-link {
+#fsus-aot-shell .fsusblog-public-bottom-tab {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: var(--fsus-z-mobile-dock, 30);
+}
+
+#fsus-aot-shell .fsu-bottom-tab-bar {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-block-size: var(--fsus-bottom-tab-height, 56px);
+  background: var(--fsusblog-panel-bg);
+  border-block-start: 1px solid var(--fsusblog-panel-border);
+}
+
+#fsus-aot-shell .fsu-bottom-tab-bar__item {
   position: relative;
   flex: 1 1 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 3.5rem;
-  padding-inline: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  min-block-size: var(--fsus-bottom-tab-height, 56px);
+  min-width: 0;
+  padding: 4px 8px;
   color: var(--fsusblog-text-muted);
-  outline: none;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
   text-decoration: none;
+  outline: none;
   transition:
     color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
     background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
 }
 
-#fsus-aot-shell .el-public-shell__bottom-tab-link:hover,
-#fsus-aot-shell .el-public-shell__bottom-tab-link:focus-visible {
+#fsus-aot-shell .fsu-bottom-tab-bar__item:hover,
+#fsus-aot-shell .fsu-bottom-tab-bar__item:focus-visible {
   color: var(--fsusblog-text-primary);
+  background: var(--fsusblog-panel-bg-soft);
 }
 
-#fsus-aot-shell .el-public-shell__bottom-tab-link.is-active {
+#fsus-aot-shell .fsu-bottom-tab-bar__item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+}
+
+#fsus-aot-shell .fsu-bottom-tab-bar__item.is-active {
   color: var(--fsusblog-text-primary);
   font-weight: 700;
 }
 
-#fsus-aot-shell .el-public-shell__bottom-tab-link:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-}
-
-#fsus-aot-shell .el-public-shell__bottom-tab-accent {
+#fsus-aot-shell .fsu-bottom-tab-bar__indicator {
   position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 2rem;
+  inset-block-start: 0;
+  inset-inline-start: 50%;
+  width: 32px;
   height: 2px;
-  background-color: transparent;
+  border-radius: var(--fsus-radius-pill, 999px);
+  background: transparent;
+  transform: translateX(-50%);
   transition: background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
 }
 
-#fsus-aot-shell .el-public-shell__bottom-tab-link.is-active .el-public-shell__bottom-tab-accent {
-  background-color: var(--fsusblog-color-primary);
+#fsus-aot-shell .fsu-bottom-tab-bar__item.is-active .fsu-bottom-tab-bar__indicator {
+  background: var(--fsusblog-color-primary);
 }
 
-#fsus-aot-shell .el-public-shell__bottom-tab-label {
-  position: relative;
+#fsus-aot-shell .fsu-bottom-tab-bar__label {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  #fsus-aot-shell {
+    padding-bottom: calc(var(--fsus-bottom-tab-height, 56px) + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 768px) {
+  #fsus-aot-shell .fsusblog-public-bottom-tab {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { getPowChallenge } from '@/api/auth'
+import { SecurityChallengeKind } from '@/api/security'
 import { usePow } from '@/composables/usePow'
 import { invalidateSearchIndexMemory } from '@/services/localSearch'
 import { forwardCacheControlPayload, forwardSearchIndexUpdate, postSwControlMessage } from '@/services/serviceWorkerRuntime'
@@ -14,7 +15,13 @@ import { isAbortError } from '@/utils/errors'
 import { showErrorToast } from '@/utils/errorPresentation'
 import { toast } from '@/fsusui/feedback'
 import { decodePowCache, encodePowCache } from '@/services/powProofCodec'
+import { encodeBinaryPowProofHeader } from '@/services/powProofCodec'
 import { safeConsoleError, safeConsoleWarn } from '@/services/safeConsole'
+import {
+    createSecurityChallengeClient,
+    type SecurityChallengeContext
+} from '@/security/challenge-client'
+import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 
 const currentMode = ref<'auth' | 'guest' | ''>('')
 const isInitializing = ref(false)
@@ -31,9 +38,17 @@ let articleCreatedToastTimer: ReturnType<typeof setTimeout> | null = null
 let pendingArticleCreatedIds: number[] = []
 
 const POW_STORAGE_KEY = 'notification_stream_guest_pow'
+const NOTIFICATION_SUBSCRIBE_ACTION = 'notification.subscribe'
+const NOTIFICATION_SUBSCRIBE_ROUTE_KEY = 'notification.subscribe'
 const GUEST_RECOVERY_POW_FAILURES: ReadonlySet<NotificationStreamFailureCode> = new Set([
     NotificationStreamFailureCodes.PowFailed
 ])
+const RISK_CHALLENGE_RECOVERY_FAILURES: ReadonlySet<NotificationStreamFailureCode> = new Set([
+    NotificationStreamFailureCodes.RiskChallengeRequired,
+    NotificationStreamFailureCodes.RiskChallengeRejected,
+    NotificationStreamFailureCodes.RiskChallengeKindMismatch
+])
+type NotificationSubscribeChallengeProofResult = SecurityChallengeProof | 'allow' | 'unavailable'
 
 function clearReauthRetryTimer(): void {
     if (!reauthRetryTimer) {
@@ -93,6 +108,14 @@ export function useNotification() {
     const { unreadCount } = storeToRefs(notificationStreamStore)
     const router = useRouter()
     const { calculate, prewarm, isCalculating } = usePow()
+    const notificationChallengeClient = createSecurityChallengeClient()
+
+    const notificationChallengeContext = (): SecurityChallengeContext => ({
+        action: NOTIFICATION_SUBSCRIBE_ACTION,
+        routeKey: NOTIFICATION_SUBSCRIBE_ROUTE_KEY,
+        attributes: { mode: 'notification-stream' },
+        deviceFingerprint: getBrowserFp()
+    })
 
     const getOrRefreshPow = async (): Promise<PowParams> => {
         const nowInSeconds = Math.floor(Date.now() / 1000)
@@ -125,6 +148,68 @@ export function useNotification() {
         sessionStorage.setItem(POW_STORAGE_KEY, encodePowCache(pow))
 
         return pow
+    }
+
+    const ensureNotificationSubscribeChallengeProof = async (forceRefresh = false): Promise<NotificationSubscribeChallengeProofResult> => {
+        const context = notificationChallengeContext()
+        if (!forceRefresh) {
+            const cached = notificationChallengeClient.getCachedProof(context)
+            if (cached) {
+                return cached
+            }
+        } else {
+            notificationChallengeClient.clearProof(context)
+        }
+
+        const issue = forceRefresh
+            ? await notificationChallengeClient.refresh(context)
+            : await notificationChallengeClient.issue(context)
+
+        if (issue.status === 'verified' && issue.proof) {
+            return issue.proof
+        }
+
+        if (issue.status === 'allow') {
+            return 'allow'
+        }
+
+        if (
+            issue.status !== 'challenge' ||
+            issue.assignment?.kind !== SecurityChallengeKind.Sha256PowV1 ||
+            !issue.providerPayload
+        ) {
+            return 'unavailable'
+        }
+
+        const payload = issue.providerPayload.payload
+        const salt = payload.salt?.trim()
+        const signature = payload.signature?.trim()
+        const difficulty = Number(payload.difficulty)
+        const timestamp = Number(payload.timestamp)
+        if (!salt || !signature || !Number.isFinite(difficulty) || !Number.isFinite(timestamp)) {
+            return 'unavailable'
+        }
+
+        prewarm()
+        const browserFp = getBrowserFp()
+        const { nonce } = await calculate(salt, browserFp, difficulty)
+        const proof = encodeBinaryPowProofHeader({
+            salt,
+            nonce,
+            timestamp,
+            difficulty,
+            signature,
+            browserFp
+        })
+        const verified = await notificationChallengeClient.verify(context, {
+            challengeId: issue.assignment.challengeId,
+            kind: issue.assignment.kind,
+            action: NOTIFICATION_SUBSCRIBE_ACTION,
+            routeKey: NOTIFICATION_SUBSCRIBE_ROUTE_KEY,
+            providerPayload: { proof }
+        })
+
+        return verified.status === 'verified' && verified.proof ? verified.proof : 'unavailable'
     }
 
     const handleAccountStatusChange = (data: AccountStatusPayload): void => {
@@ -184,6 +269,27 @@ export function useNotification() {
 
     const handleReauthAndRestart = async (failureCode: NotificationStreamFailureCode): Promise<void> => {
         if (failureCode === NotificationStreamFailureCodes.ProtocolMismatch) {
+            return
+        }
+
+        if (RISK_CHALLENGE_RECOVERY_FAILURES.has(failureCode)) {
+            if (isCalculating.value) {
+                scheduleReauthRetry(failureCode, 2000)
+                return
+            }
+
+            const proof = await ensureNotificationSubscribeChallengeProof(true)
+            if (proof === 'unavailable') {
+                return
+            }
+
+            await notificationStreamRuntime.start(
+                undefined,
+                notificationStreamStore.runtime.cursor,
+                'auth',
+                proof === 'allow' ? null : proof
+            )
+            currentMode.value = 'auth'
             return
         }
 
@@ -309,9 +415,21 @@ export function useNotification() {
 
                 currentMode.value = mode
                 if (mode === 'auth') {
-                    await notificationStreamRuntime.start(undefined, notificationStreamStore.runtime.cursor, 'auth')
+                    const proof = await ensureNotificationSubscribeChallengeProof(true)
+                    if (proof === 'unavailable') {
+                        currentMode.value = ''
+                        return
+                    }
+
+                    await notificationStreamRuntime.start(
+                        undefined,
+                        notificationStreamStore.runtime.cursor,
+                        'auth',
+                        proof === 'allow' ? null : proof
+                    )
                 } else {
-                    await notificationStreamRuntime.start(undefined, notificationStreamStore.runtime.cursor, 'guest')
+                    const pow = await getOrRefreshPow()
+                    await notificationStreamRuntime.start(pow, notificationStreamStore.runtime.cursor, 'guest')
                 }
             } catch (error) {
                 if (isAbortError(error)) {

@@ -337,8 +337,8 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 类型 | 字节数 |
 |------|--------|
 | `CommentPod` | ~256 |
-| `CommentPolicySnapshotPod` | 33 |
-| `CommentPolicyUpdateRequestPod` | 16 |
+| `CommentPolicySnapshotPod` | 41 |
+| `CommentPolicyUpdateRequestPod` | 26 |
 | `CommentCreateV2RequestPod` | 80 |
 | `CommentAuthorViewPod` | 36 |
 | `AnonymousCredentialIssueRequestPod` | 48 |

@@ -1,6 +1,7 @@
 import type { ThemeTokenContract } from '@/ui-contracts/theme';
 
 const textPrimary = 'text-[var(--fsusblog-text-primary)]';
+const textHeading = 'text-[var(--fsusblog-text-heading)]';
 const textSecondary = 'text-[var(--fsusblog-text-secondary)]';
 const textTertiary = 'text-[var(--fsusblog-text-tertiary)]';
 const textMuted = 'text-[var(--fsusblog-text-muted)]';
@@ -23,7 +24,7 @@ export const themeTokens: ThemeTokenContract = {
     metaRow: `ui-article-meta min-h-5 flex flex-wrap items-center gap-6 ${metadataText}`,
     metaSeparator: `ui-article-meta-separator ${textSubtle} font-thin`,
     metaCategory: `ui-article-category ${textMuted} ${primaryHover} ${colorTransition} cursor-pointer`,
-    title: `ui-article-title text-xl sm:text-2xl lg:text-3xl font-bold ${textPrimary} group-hover:text-[var(--fsusblog-color-primary)] ${colorTransition} leading-[1.1] sm:leading-[1.05] safe-inline-wrap tracking-normal`,
+    title: `ui-article-title text-xl sm:text-2xl lg:text-3xl font-bold ${textHeading} group-hover:text-[var(--fsusblog-color-primary)] ${colorTransition} leading-[1.1] sm:leading-[1.05] safe-inline-wrap tracking-normal`,
     titleLink: `flex min-h-11 items-center ${microRadius} outline-none ${focusRing} safe-inline-wrap`,
     summary: `ui-article-summary mt-2 text-base sm:text-lg ${textSecondary} leading-[1.8] sm:leading-[1.9] line-clamp-3 font-light`,
     readLink: `ui-article-link mt-4 min-h-11 ${microRadius} text-[10px] sm:text-xs font-bold uppercase tracking-normal ${textPrimary} ${primaryHover} ${colorTransition} flex items-center gap-3 px-2 py-2 -ml-0.5 outline-none ${focusRing}`,
@@ -32,17 +33,17 @@ export const themeTokens: ThemeTokenContract = {
   },
   articleDetail: {
     header: `mb-3 sm:mb-4 pb-3 sm:pb-4 border-b ${lineBorder}`,
-    title: `text-2xl sm:text-4xl lg:text-5xl font-bold ${textPrimary} leading-[1.1] sm:leading-[1.05] tracking-normal mb-8 sm:mb-10`,
+    title: `text-3xl sm:text-4xl lg:text-5xl font-extrabold ${textHeading} leading-[1.05] tracking-normal mb-8 sm:mb-10`,
     metaRow: `flex flex-wrap items-center gap-6 ${metadataText}`,
     metaSeparator: `${textSubtle} font-thin`,
     categoryLink: `inline-flex min-h-9 items-center px-1 ${textMuted} ${primaryHover} ${colorTransition} outline-none ${focusRing}`,
     categoryText: textMuted,
     footer: `mt-12 sm:mt-16 pt-6 sm:pt-8 border-t ${lineBorder}`,
-    tagList: 'flex flex-wrap gap-6 sm:gap-8',
-    tagLink: `inline-flex min-h-9 items-center px-1 text-[11px] sm:text-xs font-bold uppercase tracking-normal ${textMuted} hover:text-[var(--fsusblog-text-primary)] ${colorTransition} outline-none ${focusRing}`,
-    commentsRoot: `mt-12 sm:mt-16 pt-8 sm:pt-10 border-t ${lineBorder} pb-24`,
+    tagList: 'flex flex-wrap gap-x-5 gap-y-2 sm:gap-x-6',
+    tagLink: `inline-flex min-h-8 items-center px-1 text-[11px] sm:text-xs font-bold uppercase tracking-normal ${textMuted} hover:text-[var(--fsusblog-text-primary)] ${colorTransition} outline-none ${focusRing}`,
+    commentsRoot: 'mt-6 sm:mt-8 pb-20',
     commentsHeading: `text-xs font-semibold ${textMuted} uppercase tracking-normal mb-6`,
-    commentsPlaceholderRoot: `flex items-center justify-center gap-2 rounded-[var(--fsusblog-reading-radius-panel)] py-6 text-sm ${textTertiary} font-light normal-case tracking-normal shadow-none`,
+    commentsPlaceholderRoot: `flex items-center justify-center gap-2 py-3 text-xs ${textTertiary} font-medium normal-case tracking-normal shadow-none`,
     commentsPlaceholderDot: `inline-block h-1 w-1 shrink-0 rounded-full bg-[var(--fsusblog-text-muted)] align-middle`,
     commentsPlaceholderText: `${textTertiary}`
   },

@@ -206,6 +206,9 @@ artifacts/zk/**/*.tar.gz
 artifacts/zk/**/tmp/
 artifacts/zk/**/.tmp/
 
+# Local audit reports
+artifacts/dead-code-audit-report.md
+
 # Benchmark / profiling
 BenchmarkDotNet.Artifacts/
 FsusBlog.Core.Benchmarks/BenchmarkDotNet.Artifacts/

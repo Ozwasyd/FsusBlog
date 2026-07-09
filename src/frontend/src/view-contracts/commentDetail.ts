@@ -64,9 +64,9 @@ export const commentDetailTokens = {
     content: 'text-sm text-[var(--fsusblog-text-tertiary)] leading-relaxed break-words',
   },
   composer: {
-    loggedInShell: 'mb-12',
-    submitWrap: 'mt-3 flex justify-end',
-    guestShell: 'mb-12 py-8 bg-[var(--fsusblog-panel-bg)]/50 flex items-center justify-center border border-[var(--fsusblog-panel-border)]',
+    loggedInShell: 'mb-6',
+    submitWrap: 'mt-2 flex justify-end',
+    guestShell: 'mb-4 border-b border-[var(--fsusblog-panel-border)] py-3 flex items-center justify-center',
     guestText: 'text-xs sm:text-sm font-medium tracking-normal normal-case text-[var(--fsusblog-text-muted)]',
     guestLink: 'inline-flex min-h-9 items-center px-1 text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)] underline underline-offset-4 font-bold',
   }

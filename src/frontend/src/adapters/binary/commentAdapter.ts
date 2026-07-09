@@ -46,19 +46,81 @@ export type CommentPolicySnapshot = {
   zkProdUnavailableReason: string;
 };
 
+type CommentPolicySnapshotLayout = {
+  podSize: number;
+  commentMaxCharsOffset?: number;
+  commentMaxUtf8BytesOffset?: number;
+  supportedDisplayLanguagesOffset: number;
+  snapshotHashOffset: number;
+  unavailableReasonOffset: number;
+};
+
+const COMMENT_POLICY_SNAPSHOT_PACKED_LAYOUT: CommentPolicySnapshotLayout = {
+  podSize: COMMENT_POLICY_SNAPSHOT_POD_SIZE,
+  commentMaxCharsOffset: 9,
+  commentMaxUtf8BytesOffset: 13,
+  supportedDisplayLanguagesOffset: 17,
+  snapshotHashOffset: 25,
+  unavailableReasonOffset: 33
+};
+
+const COMMENT_POLICY_SNAPSHOT_LEGACY_PADDED_LAYOUT: CommentPolicySnapshotLayout = {
+  podSize: 48,
+  commentMaxCharsOffset: 12,
+  commentMaxUtf8BytesOffset: 16,
+  supportedDisplayLanguagesOffset: 20,
+  snapshotHashOffset: 28,
+  unavailableReasonOffset: 36
+};
+
+const COMMENT_POLICY_SNAPSHOT_LEGACY_NO_LIMITS_LAYOUT: CommentPolicySnapshotLayout = {
+  podSize: 33,
+  supportedDisplayLanguagesOffset: 9,
+  snapshotHashOffset: 17,
+  unavailableReasonOffset: 25
+};
+
 export function mapCommentCursorFromPodPayload(payload: Uint8Array): CursorResponse<CommentThreadItem> {
   const reader = new BinaryReader(payload);
   return readCursorEnvelope(reader, () => readThreadItemFromReader(reader), 'comment_thread_cursor_count_invalid', 'comment_thread_cursor_trailing_payload_invalid');
 }
 
 export function mapCommentPolicySnapshotFromPayload(payload: Uint8Array): CommentPolicySnapshot {
-  const reader = new BinaryReader(payload);
-  const pod = reader.readSpan(COMMENT_POLICY_SNAPSHOT_POD_SIZE);
-  const blob = reader.readBlob();
-  if (reader.remaining() !== 0) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_trailing_payload_invalid');
+  let firstError: unknown;
+  for (const layout of [
+    COMMENT_POLICY_SNAPSHOT_PACKED_LAYOUT,
+    COMMENT_POLICY_SNAPSHOT_LEGACY_NO_LIMITS_LAYOUT,
+    COMMENT_POLICY_SNAPSHOT_LEGACY_PADDED_LAYOUT
+  ]) {
+    try {
+      const result = tryMapCommentPolicySnapshotFromLayout(payload, layout);
+      if (result) return result;
+    } catch (error) {
+      firstError ??= error;
+    }
   }
 
+  if (firstError) throw firstError;
+  throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_trailing_payload_invalid');
+}
+
+function tryMapCommentPolicySnapshotFromLayout(payload: Uint8Array, layout: CommentPolicySnapshotLayout): CommentPolicySnapshot | null {
+  if (payload.byteLength < layout.podSize + 4) {
+    return null;
+  }
+
+  const blobLength = readInt32(payload, layout.podSize);
+  if (blobLength < 0) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'comment_policy_snapshot_blob_length_invalid');
+  }
+
+  const expectedLength = layout.podSize + 4 + blobLength;
+  if (expectedLength !== payload.byteLength) {
+    return null;
+  }
+
+  const pod = payload.subarray(0, layout.podSize);
+  const blob = payload.subarray(layout.podSize + 4, expectedLength);
   return {
     anonymousCommentsEnabled: readBooleanByte(pod, 0, 'comment_policy_snapshot_anonymous_flag_invalid'),
     publicCommentsEnabled: readBooleanByte(pod, 1, 'comment_policy_snapshot_public_flag_invalid'),
@@ -69,14 +131,14 @@ export function mapCommentPolicySnapshotFromPayload(payload: Uint8Array): Commen
     zkProdTrustedSetupVerified: readBooleanByte(pod, 6, 'comment_policy_snapshot_zk_prod_setup_flag_invalid'),
     zkProdCredentialRequired: readBooleanByte(pod, 7, 'comment_policy_snapshot_zk_prod_credential_flag_invalid'),
     zkProdCredentialRootReady: readBooleanByte(pod, 8, 'comment_policy_snapshot_zk_prod_root_flag_invalid'),
-    commentMaxChars: readInt32(pod, 9),
-    commentMaxUtf8Bytes: readInt32(pod, 13),
-    supportedDisplayLanguages: readSliceText(blob, readSliceRef(pod, 17))
+    commentMaxChars: layout.commentMaxCharsOffset === undefined ? 1000 : readInt32(pod, layout.commentMaxCharsOffset),
+    commentMaxUtf8Bytes: layout.commentMaxUtf8BytesOffset === undefined ? 4096 : readInt32(pod, layout.commentMaxUtf8BytesOffset),
+    supportedDisplayLanguages: readSliceText(blob, readSliceRef(pod, layout.supportedDisplayLanguagesOffset))
       .split('\n')
       .map(language => language.trim())
       .filter(Boolean),
-    snapshotHash: readSliceText(blob, readSliceRef(pod, 25)),
-    zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, 33))
+    snapshotHash: readSliceText(blob, readSliceRef(pod, layout.snapshotHashOffset)),
+    zkProdUnavailableReason: readSliceText(blob, readSliceRef(pod, layout.unavailableReasonOffset))
   };
 }
 

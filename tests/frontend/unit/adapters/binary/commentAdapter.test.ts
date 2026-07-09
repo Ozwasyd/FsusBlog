@@ -238,6 +238,66 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     })
   })
 
+  it('decodes legacy padded policy snapshot payloads from running dev backends', () => {
+    const pod = new Uint8Array(48)
+    pod[0] = 1
+    pod[1] = 1
+    pod[2] = 1
+    pod[3] = 4
+    pod[4] = 1
+    pod[5] = 1
+    pod[6] = 1
+    pod[7] = 1
+    pod[8] = 1
+    writeInt32(pod, 12, 2500)
+    writeInt32(pod, 16, 10000)
+    const languages = textBytes('zh-CN\nen')
+    const snapshotHash = textBytes('9'.repeat(64))
+    writeSliceRef(pod, 20, 0, languages.byteLength)
+    writeSliceRef(pod, 28, languages.byteLength, snapshotHash.byteLength)
+    writeSliceRef(pod, 36, languages.byteLength + snapshotHash.byteLength, 0)
+
+    const result = mapCommentPolicySnapshotFromPayload(buildPayload(
+      pod,
+      blobParts(languages, snapshotHash)
+    ))
+
+    expect(result.commentMaxChars).toBe(2500)
+    expect(result.commentMaxUtf8Bytes).toBe(10000)
+    expect(result.supportedDisplayLanguages).toEqual(['zh-CN', 'en'])
+    expect(result.snapshotHash).toBe('9'.repeat(64))
+    expect(result.defaultAuthorMode).toBe('zk_anonymous')
+  })
+
+  it('decodes legacy policy snapshots without configurable comment limits', () => {
+    const pod = new Uint8Array(33)
+    pod[0] = 1
+    pod[1] = 1
+    pod[2] = 0
+    pod[3] = 1
+    pod[4] = 1
+    pod[5] = 1
+    pod[6] = 1
+    pod[7] = 1
+    pod[8] = 1
+    const languages = textBytes('zh-CN\nen')
+    const snapshotHash = textBytes('9'.repeat(64))
+    writeSliceRef(pod, 9, 0, languages.byteLength)
+    writeSliceRef(pod, 17, languages.byteLength, snapshotHash.byteLength)
+    writeSliceRef(pod, 25, languages.byteLength + snapshotHash.byteLength, 0)
+
+    const result = mapCommentPolicySnapshotFromPayload(buildPayload(
+      pod,
+      blobParts(languages, snapshotHash)
+    ))
+
+    expect(result.commentMaxChars).toBe(1000)
+    expect(result.commentMaxUtf8Bytes).toBe(4096)
+    expect(result.supportedDisplayLanguages).toEqual(['zh-CN', 'en'])
+    expect(result.snapshotHash).toBe('9'.repeat(64))
+    expect(result.defaultAuthorMode).toBe('anonymous')
+  })
+
   it('rejects invalid policy flag bytes', () => {
     const pod = new Uint8Array(COMMENT_POLICY_SNAPSHOT_POD_SIZE)
     pod[0] = 2

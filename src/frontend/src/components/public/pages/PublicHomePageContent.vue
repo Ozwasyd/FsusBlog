@@ -6,7 +6,7 @@
           class="mb-16 sm:mb-24"
           data-fsus-motion-surface="home-hero"
         >
-          <h1 class="text-3xl sm:text-4xl font-bold text-[var(--fsusblog-text-primary)] tracking-normal leading-[1.1]">
+          <h1 class="text-3xl sm:text-4xl font-bold text-[var(--fsusblog-text-heading)] tracking-normal leading-[1.1]">
             {{ siteTitleText }}
           </h1>
           <p class="mt-4 text-base sm:text-lg text-[var(--fsusblog-text-tertiary)] max-w-xl leading-relaxed font-normal">

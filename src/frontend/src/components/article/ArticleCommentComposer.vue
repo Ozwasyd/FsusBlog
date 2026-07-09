@@ -35,13 +35,19 @@
             公开发布后，其他人会看到你的公开名称。
           </p>
         </div>
-        <el-checkbox
-          v-model="publicIdentityModel"
+        <label
           class="comment-identity-toggle"
-          :disabled="publicIdentityDisabled"
+          :class="{ 'is-disabled': publicIdentityDisabled }"
         >
-          公开显示我的名称
-        </el-checkbox>
+          <input
+            v-model="publicIdentityModel"
+            class="comment-identity-toggle__input"
+            type="checkbox"
+            :disabled="publicIdentityDisabled"
+          />
+          <span class="comment-identity-toggle__box" aria-hidden="true" />
+          <span class="comment-identity-toggle__label">公开显示我的名称</span>
+        </label>
       </div>
     </div>
 
@@ -72,7 +78,7 @@
           :disabled="composerInputDisabled"
           @click="openFocusMode"
         >
-          专注写作
+          扩展编辑
         </el-button>
       </div>
 
@@ -81,8 +87,8 @@
         ref="editorInputRef"
         v-model="contentModel"
         type="textarea"
-        :rows="4"
-        :autosize="{ minRows: 4, maxRows: 8 }"
+        :rows="3"
+        :autosize="{ minRows: 3, maxRows: 8 }"
         resize="none"
         aria-label="发表评论"
         :placeholder="placeholderText"
@@ -132,17 +138,16 @@
       </el-button>
     </div>
 
-    <el-dialog
+    <FsusDialog
       v-model="focusModeVisible"
       class="comment-composer-focus-dialog"
-      title="专注写作"
+      title="扩展编辑评论"
       width="min(92vw, 48rem)"
-      append-to-body
       @closed="closeFocusMode"
     >
       <div class="comment-composer-focus__body">
         <div class="comment-composer-toolbar">
-          <div class="comment-composer-mode" role="tablist" aria-label="专注写作模式">
+          <div class="comment-composer-mode" role="tablist" aria-label="扩展编辑模式">
             <button
               v-for="option in commentComposerModeOptions"
               :key="option.value"
@@ -157,13 +162,12 @@
             </button>
           </div>
         </div>
-        <el-input
+        <textarea
           v-show="commentComposerMode === 'write'"
           ref="focusEditorInputRef"
           v-model="contentModel"
-          type="textarea"
-          :rows="12"
-          resize="none"
+          class="comment-composer-focus__textarea"
+          rows="12"
           aria-label="专注撰写评论"
           :placeholder="placeholderText"
           :disabled="composerInputDisabled"
@@ -193,17 +197,19 @@
             <span>{{ commentCharCount }} / {{ commentPolicy.maxChars }} 字</span>
             <span>{{ commentUtf8Bytes }} / {{ commentPolicy.maxUtf8Bytes }} bytes</span>
           </div>
-          <el-button @click="focusModeVisible = false">返回</el-button>
-          <el-button
-            type="primary"
-            :disabled="submitDisabled"
-            @click="requestSubmit"
-          >
-            {{ composerUi.submitBusyText }}
-          </el-button>
+          <div class="comment-composer-focus__actions">
+            <el-button @click="focusModeVisible = false">收起</el-button>
+            <el-button
+              type="primary"
+              :disabled="submitDisabled"
+              @click="requestSubmit"
+            >
+              {{ composerUi.submitBusyText }}
+            </el-button>
+          </div>
         </div>
       </template>
-    </el-dialog>
+    </FsusDialog>
   </div>
 
   <div v-else :class="commentDetailTokens.composer.guestShell" data-fsus-surface="reading">
@@ -221,6 +227,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CommentAuthorMode, CommentAuthorView, CommentDisplayLanguage } from '@/api/comment'
 import CommentMarkdownRenderer from '@/components/article/CommentMarkdownRenderer.vue'
+import FsusDialog from '@/components/ui/FsusDialog.vue'
 import type { CommentPrivacyUiState } from '@/privacy/commentPrivacyTypes'
 import {
   getCommentUtf8ByteLength,
@@ -613,12 +620,12 @@ watch(() => contentModel.value, (value) => {
 
 <style scoped>
 .comment-identity-panel {
-  margin-bottom: 0.875rem;
-  border: 1px solid color-mix(in srgb, var(--fsusblog-panel-border) 82%, transparent);
-  border-radius: 0.5rem;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--fsusblog-panel-bg) 96%, transparent), var(--fsusblog-panel-bg));
-  padding: 0.875rem 1rem;
+  margin-bottom: 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0 0.75rem;
 }
 
 .comment-identity-summary {
@@ -641,14 +648,14 @@ watch(() => contentModel.value, (value) => {
 
 .comment-identity-label {
   color: var(--fsusblog-text-primary);
-  font-size: 0.8125rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 650;
   line-height: 1.35;
 }
 
 .comment-identity-badge {
   display: inline-flex;
-  min-height: 1.5rem;
+  min-height: 1.375rem;
   align-items: center;
   border: 1px solid transparent;
   border-radius: 999px;
@@ -671,33 +678,96 @@ watch(() => contentModel.value, (value) => {
 }
 
 .comment-identity-hint {
-  margin: 0.375rem 0 0;
+  margin: 0.25rem 0 0;
   color: var(--fsusblog-text-muted);
   font-size: 0.75rem;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .comment-identity-toggle {
-  min-height: 2rem;
   flex: 0 0 auto;
+  position: relative;
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.5rem;
   margin-right: -0.125rem;
-}
-
-.comment-identity-toggle :deep(.el-checkbox__label) {
   color: var(--fsusblog-text-tertiary);
+  cursor: pointer;
   font-size: 0.8125rem;
   font-weight: 650;
   line-height: 1.35;
-  padding-left: 0.5rem;
 }
 
-.comment-identity-toggle :deep(.el-checkbox__input.is-disabled + .el-checkbox__label) {
+.comment-identity-toggle.is-disabled {
   color: color-mix(in srgb, var(--fsusblog-text-muted) 88%, transparent);
+  cursor: not-allowed;
+}
+
+.comment-identity-toggle__label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.25rem;
+}
+
+.comment-identity-toggle__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.comment-identity-toggle__box {
+  position: relative;
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--fsusblog-panel-border-strong);
+  border-radius: 0.25rem;
+  background: var(--fsusblog-panel-bg);
+  transition:
+    background-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+    border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+    box-shadow var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.comment-identity-toggle__box::after {
+  content: "";
+  width: 0.35rem;
+  height: 0.6rem;
+  border: solid var(--fsusblog-panel-bg);
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: translateY(-0.05rem) rotate(45deg) scale(0.82);
+  transition: opacity var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.comment-identity-toggle__input:checked + .comment-identity-toggle__box {
+  border-color: var(--fsusblog-color-primary);
+  background: var(--fsusblog-color-primary);
+}
+
+.comment-identity-toggle__input:checked + .comment-identity-toggle__box::after {
+  opacity: 1;
+}
+
+.comment-identity-toggle__input:focus-visible + .comment-identity-toggle__box {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fsusblog-color-focus-ring) 38%, transparent);
+}
+
+.comment-identity-toggle__input:disabled + .comment-identity-toggle__box {
+  border-color: color-mix(in srgb, var(--fsusblog-text-muted) 28%, transparent);
+  background: var(--fsusblog-panel-bg-soft);
 }
 
 .comment-composer-editor {
   display: grid;
-  gap: 0.625rem;
+  gap: 0.375rem;
 }
 
 .comment-composer-draft {
@@ -728,7 +798,7 @@ watch(() => contentModel.value, (value) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   min-width: 0;
 }
 
@@ -744,7 +814,7 @@ watch(() => contentModel.value, (value) => {
 }
 
 .comment-composer-mode__item {
-  min-height: 2rem;
+  min-height: 1.875rem;
   border: 0;
   border-radius: 0.375rem;
   background: transparent;
@@ -753,7 +823,7 @@ watch(() => contentModel.value, (value) => {
   font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1;
-  padding: 0 0.75rem;
+  padding: 0 0.6875rem;
 }
 
 .comment-composer-mode__item.is-active {
@@ -769,17 +839,20 @@ watch(() => contentModel.value, (value) => {
 
 .comment-composer-focus {
   flex: 0 0 auto;
-  min-height: 2rem;
+  min-height: 1.875rem;
+  align-self: center;
   font-size: 0.8125rem;
   font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .comment-composer-preview {
-  min-height: 5.875rem;
+  min-height: 4.75rem;
   border: 1px solid var(--fsusblog-panel-border);
   border-radius: 0.5rem;
   background: var(--fsusblog-panel-bg);
-  padding: 0.875rem 1rem;
+  padding: 0.75rem 0.875rem;
 }
 
 .comment-composer-preview.is-empty {
@@ -818,8 +891,37 @@ watch(() => contentModel.value, (value) => {
   gap: 0.75rem;
 }
 
-.comment-composer-focus__body :deep(.el-textarea__inner) {
-  min-height: min(52vh, 26rem) !important;
+.comment-composer-focus__textarea {
+  width: 100%;
+  min-height: min(52vh, 26rem);
+  box-sizing: border-box;
+  resize: none;
+  border: 1px solid var(--fsusblog-panel-border);
+  border-radius: 0.5rem;
+  background: var(--fsusblog-panel-bg);
+  color: var(--fsusblog-text-primary);
+  font: inherit;
+  line-height: 1.6;
+  outline: none;
+  padding: 0.875rem 1rem;
+  transition:
+    border-color var(--fsus-motion-control-fast) var(--fsus-motion-standard),
+    box-shadow var(--fsus-motion-control-fast) var(--fsus-motion-standard);
+}
+
+.comment-composer-focus__textarea::placeholder {
+  color: var(--fsusblog-text-muted);
+}
+
+.comment-composer-focus__textarea:focus {
+  border-color: color-mix(in srgb, var(--fsusblog-color-primary) 42%, var(--fsusblog-panel-border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fsusblog-color-primary) 34%, transparent);
+}
+
+.comment-composer-focus__textarea:disabled {
+  background: var(--fsusblog-panel-bg-soft);
+  color: var(--fsusblog-text-muted);
+  cursor: not-allowed;
 }
 
 .comment-composer-focus__preview {
@@ -829,6 +931,8 @@ watch(() => contentModel.value, (value) => {
 
 .comment-composer-focus__footer {
   display: flex;
+  width: 100%;
+  box-sizing: border-box;
   align-items: center;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -838,29 +942,63 @@ watch(() => contentModel.value, (value) => {
   margin-right: auto;
 }
 
+:global(.comment-composer-focus-dialog .el-dialog__footer) {
+  justify-content: stretch;
+  text-align: initial;
+}
+
+:global(.comment-composer-focus-dialog .fsus-dialog__footer) {
+  width: 100%;
+}
+
+.comment-composer-focus__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 @media (max-width: 520px) {
   .comment-identity-panel {
-    padding: 0.8125rem 0.875rem;
+    padding: 0 0 0.625rem;
   }
 
   .comment-identity-summary {
     align-items: flex-start;
     flex-direction: column;
-    gap: 0.625rem;
+    gap: 0.5rem;
   }
 
   .comment-identity-toggle {
     margin-right: 0;
   }
 
-  .comment-composer-toolbar,
   .comment-composer-focus__footer {
     align-items: stretch;
     flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .comment-composer-toolbar {
+    align-items: center;
+    flex-direction: row;
   }
 
   .comment-composer-focus__footer .comment-composer-metrics {
+    justify-content: flex-start;
     margin-right: 0;
+  }
+
+  .comment-composer-focus__actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .comment-composer-focus__actions :deep(.el-button) {
+    width: 100%;
+    margin-left: 0;
   }
 }
 </style>

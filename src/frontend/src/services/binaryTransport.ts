@@ -526,6 +526,17 @@ async function loadBinaryAndDecode<T>(
       throw createAppError(AppErrorCode.ProtocolFailure, frame.error ?? 'binary_decode_failed');
     }
 
+    if (frame.frameType === FrameType.ApiError) {
+      const apiError = decodeApiErrorPayload(frame.payloadView);
+      if (apiError) {
+        throw new BinaryRequestError(
+          apiError.status,
+          apiError.message || `Binary request failed: ${apiError.status}`,
+          buffer
+        );
+      }
+    }
+
     if (frame.frameType !== frameType) {
       throw createAppError(AppErrorCode.ProtocolFailure, 'frame_type_unexpected');
     }
@@ -623,17 +634,32 @@ function decodeApiErrorFrame(buffer: ArrayBuffer): {
   traceId: string;
 } | null {
   const frame = decode(buffer);
-  if (!frame.ok || frame.frameType !== FrameType.ApiError || frame.payloadView.byteLength !== 584) {
+  if (!frame.ok || frame.frameType !== FrameType.ApiError) {
+    return null;
+  }
+
+  return decodeApiErrorPayload(frame.payloadView);
+}
+
+function decodeApiErrorPayload(payloadView: Uint8Array): {
+  code: number;
+  category: number;
+  status: number;
+  message: string;
+  details: string;
+  traceId: string;
+} | null {
+  if (payloadView.byteLength !== 584) {
     return null;
   }
 
   return {
-    code: frame.payloadView[0] ?? 0,
-    category: frame.payloadView[1] ?? 0,
-    status: readInt32(frame.payloadView, 4),
-    message: readFixedUtf8(frame.payloadView, 8, 256),
-    details: readFixedUtf8(frame.payloadView, 264, 256),
-    traceId: readFixedUtf8(frame.payloadView, 520, 64)
+    code: payloadView[0] ?? 0,
+    category: payloadView[1] ?? 0,
+    status: readInt32(payloadView, 4),
+    message: readFixedUtf8(payloadView, 8, 256),
+    details: readFixedUtf8(payloadView, 264, 256),
+    traceId: readFixedUtf8(payloadView, 520, 64)
   };
 }
 

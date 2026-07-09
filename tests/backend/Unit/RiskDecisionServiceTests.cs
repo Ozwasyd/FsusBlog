@@ -43,6 +43,19 @@ public sealed class RiskDecisionServiceTests
     }
 
     [Fact]
+    public void Decide_DevelopmentLocalBypass_AllowsRiskControl()
+    {
+        RiskDecision decision = _service.Decide(
+            CreateContext(RiskActionNames.PublicRead) with { DevelopmentLocalBypass = true },
+            CreatePolicy(SecuritySystemModes.Enforce),
+            100);
+
+        Assert.Equal(RiskDecisionKind.Allow, decision.Kind);
+        Assert.Empty(decision.RequiredChallenges);
+        Assert.Contains("development_local_bypass", decision.Reasons);
+    }
+
+    [Fact]
     public void Decide_ChallengeQueueAndBlock_RecordDecisionMetrics()
     {
         var measurements = new List<string>();

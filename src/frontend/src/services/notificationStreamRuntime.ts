@@ -2,6 +2,7 @@ import type { PowParams, NotificationStreamCursor, NotificationStreamEventV2, No
 import { NotificationStreamEventType, NotificationStreamFailureCodes } from '@/services/notificationStreamTypes'
 import { decodeNotificationApiErrorFrame, decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
 import { encodeNotificationStreamPowProof } from '@/services/powProofCodec'
+import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 
 const RECENT_EVENT_WINDOW = 512
 const RETRY_BASE_DELAY_MS = 1000
@@ -71,6 +72,7 @@ export class NotificationStreamRuntime {
   private socket: WebSocket | null = null
   private currentMode: NotificationStreamMode = 'guest'
   private currentPow: PowParams | undefined
+  private currentChallengeProof: SecurityChallengeProof | undefined
   private cursor: NotificationStreamCursor = { lastEventId: 0, recentEventIds: [] }
   private recentEventIds = new Set<number>()
   private readonly recentEventRing = new Array<number>(RECENT_EVENT_WINDOW)
@@ -83,6 +85,7 @@ export class NotificationStreamRuntime {
   private isConnectedFlag = false
   private hasSuccessfulConnection = false
   private requirePreflightOnNextConnect = false
+  private connectGeneration = 0
   private telemetry = {
     preflightCount: 0,
     wsReconnectCount: 0,
@@ -101,10 +104,13 @@ export class NotificationStreamRuntime {
   public async start(
     powParams?: PowParams,
     cursor?: NotificationStreamCursor,
-    mode: NotificationStreamMode = powParams ? 'guest' : 'auth'
+    mode: NotificationStreamMode = powParams ? 'guest' : 'auth',
+    challengeProof?: SecurityChallengeProof | null
   ): Promise<void> {
     this.currentMode = mode
     this.currentPow = powParams
+    this.currentChallengeProof = challengeProof ?? undefined
+    this.connectGeneration += 1
     this.retryCount = 0
     this.isReconnecting = false
     this.clearReconnectTimer()
@@ -113,7 +119,7 @@ export class NotificationStreamRuntime {
       this.restoreCursor(cursor)
     }
 
-    await this.connect(false)
+    await this.connect(false, this.connectGeneration)
   }
 
   public async stop(clearCursor = false): Promise<void> {
@@ -150,7 +156,11 @@ export class NotificationStreamRuntime {
     return { ...this.telemetry }
   }
 
-  private async connect(isReconnect: boolean): Promise<void> {
+  private async connect(isReconnect: boolean, generation: number = this.connectGeneration): Promise<void> {
+    if (generation !== this.connectGeneration) {
+      return
+    }
+
     if (this.socket) {
       this.socket.close(1000, 'reconnect')
     }
@@ -165,9 +175,17 @@ export class NotificationStreamRuntime {
     if (this.currentPow) {
       requestUrl.searchParams.set('pow', encodeNotificationStreamPowProof(this.currentPow))
     }
+    if (this.currentChallengeProof) {
+      requestUrl.searchParams.set('challengeProof', this.currentChallengeProof.proofToken)
+      requestUrl.searchParams.set('challengeId', this.currentChallengeProof.challengeId)
+      requestUrl.searchParams.set('challengeKind', notificationChallengeKindWireName(this.currentChallengeProof.kind))
+    }
 
     if (this.shouldRunHandshakePreflight(isReconnect)) {
       const preflightFailure = await this.runHandshakePreflight(requestUrl)
+      if (generation !== this.connectGeneration) {
+        return
+      }
       if (preflightFailure) {
         this.requirePreflightOnNextConnect = true
         this.isConnectedFlag = false
@@ -178,6 +196,10 @@ export class NotificationStreamRuntime {
       }
 
       this.requirePreflightOnNextConnect = false
+    }
+
+    if (generation !== this.connectGeneration) {
+      return
     }
 
     await this.openWebSocket(requestUrl, isReconnect)
@@ -203,12 +225,19 @@ export class NotificationStreamRuntime {
     }
 
     try {
+      const headers: Record<string, string> = {
+        'Accept': 'application/octet-stream',
+        'X-Fsus-Notification-Stream-Protocol': 'fsus-aeds.v2'
+      }
+      if (this.currentChallengeProof) {
+        headers['X-Fsus-Challenge-Proof'] = this.currentChallengeProof.proofToken
+        headers['X-Fsus-Challenge-Id'] = this.currentChallengeProof.challengeId
+        headers['X-Fsus-Challenge-Kind'] = notificationChallengeKindWireName(this.currentChallengeProof.kind)
+      }
+
       const response = await fetch(preflightUrl, {
         credentials: 'include',
-        headers: {
-          'Accept': 'application/octet-stream',
-          'X-Fsus-Notification-Stream-Protocol': 'fsus-aeds.v2'
-        }
+        headers
       })
       if (response.ok) {
         return null
@@ -414,7 +443,7 @@ export class NotificationStreamRuntime {
         return
       }
 
-      void this.connect(true)
+      void this.connect(true, this.connectGeneration)
     }, delay + jitter)
   }
 
@@ -468,6 +497,39 @@ export class NotificationStreamRuntime {
     }
   }
 
+}
+
+function notificationChallengeKindWireName(kind: SecurityChallengeProof['kind']): string {
+  switch (kind) {
+    case 1:
+      return 'sha256PowV1'
+    case 2:
+      return 'argon2idPoSpaceV1'
+    case 3:
+      return 'captchaV1'
+    case 4:
+      return 'humanReadProofV1'
+    case 5:
+      return 'passkeyStepUpV1'
+    case 6:
+      return 'adminPasskeyStepUpV1'
+    case 7:
+      return 'recoveryKeyProofV1'
+    case 8:
+      return 'anonymousCredentialProofV1'
+    case 9:
+      return 'zkAnonymousCommentProofV1'
+    case 10:
+      return 'perceptionCharacterV2'
+    case 11:
+      return 'perceptionLocalizationV2'
+    case 12:
+      return 'perceptionMicroInteractionV2'
+    case 13:
+      return 'perceptionTextTaskV2'
+    default:
+      return 'unknown'
+  }
 }
 
 export const notificationStreamRuntime = new NotificationStreamRuntime()

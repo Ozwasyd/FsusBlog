@@ -15,38 +15,118 @@
 @import '@ozwasyd/element-plus/dist/el-fsus-theme.css';
 
 :root {
-  --fsus-page: #F7F7F8;
-  --fsus-paper: #ffffff;
-  --fsus-ink: #0f0f11;
-  --fsus-border: #E4E4E7;
-  --fsus-scholarly-blue: #2a599c;
+  --bg: #F7F7F8;
+  --surface: #FFFFFF;
+  --surface-subtle: #FCFCFC;
+  --text: #0F0F11;
+  --text-heading: #0F0F11;
+  --text-secondary: #5F5F68;
+  --text-tertiary: #8E8E93;
+  --text-muted: #A1A1AA;
+  --border: #E4E4E7;
+  --border-strong: #D4D4D8;
+  --accent: #2A599C;
+  --accent-hover: #244E89;
+  --accent-subtle: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  --accent-border: color-mix(in srgb, var(--accent) 32%, var(--border));
+  --link: var(--accent);
+  --link-hover: var(--accent-hover);
+  --fsus-page: var(--bg);
+  --fsus-paper: var(--surface);
+  --fsus-ink: var(--text);
+  --fsus-dot-gray: var(--text-tertiary);
+  --fsus-border: var(--border);
+  --fsus-scholarly-blue: var(--accent);
   --fsusblog-backdrop-blur-soft: 0px;
   --fsusblog-backdrop-saturate: 100%;
-  --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 88%, var(--fsus-page));
-  --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 82%, transparent);
-  --fsusblog-page-bg: var(--fsus-page);
-  --fsusblog-text-primary: var(--fsus-ink);
-  --el-bg-color: var(--fsusblog-header-bg);
-  --el-bg-color-page: var(--fsus-page);
-  --el-border-color-lighter: var(--fsusblog-header-border);
+  --fsusblog-header-bg: var(--surface);
+  --fsusblog-header-border: var(--border);
+  --fsusblog-color-primary: var(--accent, LinkText);
+  --fsusblog-page-bg: var(--bg);
+  --fsusblog-panel-bg: var(--surface);
+  --fsusblog-panel-bg-soft: var(--surface-subtle);
+  --fsusblog-panel-border: var(--border);
+  --fsusblog-panel-border-strong: var(--border-strong);
+  --fsusblog-text-primary: var(--text);
+  --fsusblog-text-heading: var(--text-heading);
+  --fsusblog-text-secondary: var(--text-secondary);
+  --fsusblog-text-tertiary: var(--text-tertiary);
+  --fsusblog-text-muted: var(--text-muted);
+  --fsusblog-color-focus-ring: var(--accent, Highlight);
+  --el-color-primary: var(--accent);
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-fill-color-light: var(--surface-subtle);
+  --el-fill-color: var(--surface-subtle);
+  --el-fill-color-blank: var(--surface);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
+  --el-border-color-dark: var(--border-strong);
+  --el-text-color-primary: var(--text-heading);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-muted);
+  --el-disabled-bg-color: var(--surface-subtle);
+  --el-disabled-text-color: var(--text-muted);
 }
 
 html.dark,
 html[data-theme-resolved='dark'] {
-  --fsus-page: #09090b;
-  --fsus-paper: #121214;
-  --fsus-ink: #f0f0f4;
-  --fsus-border: #303036;
-  --fsus-scholarly-blue: #4B79CC;
+  --bg: #09090B;
+  --surface: #121214;
+  --surface-subtle: #1A1A1E;
+  --text: #F0F0F4;
+  --text-heading: #F0F0F4;
+  --text-secondary: #A1A1AA;
+  --text-tertiary: #71717A;
+  --text-muted: #52525B;
+  --border: #27272A;
+  --border-strong: #3F3F46;
+  --accent: #4B79CC;
+  --accent-hover: #6F93D7;
+  --accent-subtle: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --accent-border: color-mix(in srgb, var(--accent) 40%, var(--border));
+  --link: var(--accent);
+  --link-hover: var(--accent-hover);
+  --fsus-page: var(--bg);
+  --fsus-paper: var(--surface);
+  --fsus-ink: var(--text);
+  --fsus-dot-gray: var(--text-tertiary);
+  --fsus-border: var(--border);
+  --fsus-scholarly-blue: var(--accent);
   --fsusblog-backdrop-blur-soft: 0px;
   --fsusblog-backdrop-saturate: 100%;
-  --fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 92%, var(--fsus-page));
-  --fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 78%, transparent);
-  --fsusblog-page-bg: var(--fsus-page);
-  --fsusblog-text-primary: var(--fsus-ink);
-  --el-bg-color: var(--fsusblog-header-bg);
-  --el-bg-color-page: var(--fsus-page);
-  --el-border-color-lighter: var(--fsusblog-header-border);
+  --fsusblog-header-bg: var(--surface);
+  --fsusblog-header-border: var(--border);
+  --fsusblog-color-primary: var(--accent, LinkText);
+  --fsusblog-page-bg: var(--bg);
+  --fsusblog-panel-bg: var(--surface);
+  --fsusblog-panel-bg-soft: var(--surface-subtle);
+  --fsusblog-panel-border: var(--border);
+  --fsusblog-panel-border-strong: var(--border-strong);
+  --fsusblog-text-primary: var(--text);
+  --fsusblog-text-heading: var(--text-heading);
+  --fsusblog-text-secondary: var(--text-secondary);
+  --fsusblog-text-tertiary: var(--text-tertiary);
+  --fsusblog-text-muted: var(--text-muted);
+  --fsusblog-color-focus-ring: var(--accent, Highlight);
+  --el-color-primary: var(--accent);
+  --el-bg-color: var(--surface);
+  --el-bg-color-page: var(--bg);
+  --el-fill-color-light: var(--surface-subtle);
+  --el-fill-color: var(--surface-subtle);
+  --el-fill-color-blank: var(--surface);
+  --el-border-color: var(--border);
+  --el-border-color-light: var(--border);
+  --el-border-color-lighter: var(--border);
+  --el-border-color-dark: var(--border-strong);
+  --el-text-color-primary: var(--text-heading);
+  --el-text-color-regular: var(--text);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--text-muted);
+  --el-disabled-bg-color: var(--surface-subtle);
+  --el-disabled-text-color: var(--text-muted);
 }
 
 html,
@@ -57,8 +137,8 @@ body {
 
 html.dark body,
 html[data-theme-resolved='dark'] body {
-  background: var(--fsusblog-page-bg, #09090b) !important;
-  color: var(--fsusblog-text-primary, #f0f0f4) !important;
+  background: var(--fsusblog-page-bg, #09090B) !important;
+  color: var(--fsusblog-text-primary, #F0F0F4) !important;
 }
 
 /* 公开页首访共用的布局基线（首屏关键路径） */
@@ -125,11 +205,17 @@ html[data-theme-resolved='dark'] body {
   gap: 12px;
 }
 
+#fsus-aot-shell .el-public-shell__brand-nav,
+#fsus-aot-shell .el-public-shell__desktop-nav {
+  align-items: center;
+}
+
 #fsus-aot-shell .el-public-shell__brand {
   display: inline-flex;
   align-items: center;
   min-height: 40px;
   box-sizing: border-box;
+  white-space: nowrap;
 }
 
 #fsus-aot-shell .el-public-shell__nav-link {
@@ -151,6 +237,19 @@ html[data-theme-resolved='dark'] body {
   min-width: 0;
   margin-top: 12px;
   margin-bottom: 12px;
+}
+
+#fsus-aot-shell .el-public-shell__search {
+  --el-input-height: 40px;
+}
+
+#fsus-aot-shell .el-public-shell__search .el-input {
+  --el-input-height: 40px;
+}
+
+#fsus-aot-shell .el-public-shell__search .el-input__wrapper {
+  height: 40px;
+  min-height: 40px;
 }
 
 #fsus-aot-shell .el-public-shell__mobile-search-row.is-expanded {
@@ -179,6 +278,10 @@ html[data-theme-resolved='dark'] body {
 
 #fsus-aot-shell .el-theme-mode-toggle {
   position: relative;
+}
+
+#fsus-aot-shell .el-theme-mode-toggle--desktop {
+  height: 40px;
 }
 
 #fsus-aot-shell .el-theme-mode-toggle__menu {
@@ -227,7 +330,79 @@ html[data-theme-resolved='dark'] body {
   line-height: 1;
 }
 
+#fsus-aot-shell .fsu-mobile-dock[data-fsus-mobile-dock='bottom'] {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 30;
+}
+
+#fsus-aot-shell .fsusblog-public-bottom-tab {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: var(--fsus-z-mobile-dock, 30);
+}
+
+#fsus-aot-shell .fsu-bottom-tab-bar {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-block-size: var(--fsus-bottom-tab-height, 56px);
+  background: var(--fsusblog-panel-bg);
+  border-block-start: 1px solid var(--fsusblog-panel-border);
+}
+
+#fsus-aot-shell .fsu-bottom-tab-bar__item {
+  position: relative;
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--fsus-bottom-tab-height, 56px);
+  min-width: 0;
+  padding: 4px 8px;
+  box-sizing: border-box;
+  color: var(--fsusblog-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  text-decoration: none;
+}
+
+#fsus-aot-shell .fsu-bottom-tab-bar__item.is-active {
+  color: var(--fsusblog-text-primary);
+  font-weight: 700;
+}
+
+#fsus-aot-shell .fsu-bottom-tab-bar__indicator {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 50%;
+  width: 32px;
+  height: 2px;
+  border-radius: var(--fsus-radius-pill, 999px);
+  background: transparent;
+  transform: translateX(-50%);
+}
+
+#fsus-aot-shell .fsu-bottom-tab-bar__item.is-active .fsu-bottom-tab-bar__indicator {
+  background: var(--fsusblog-color-primary);
+}
+
+#fsus-aot-shell .fsu-bottom-tab-bar__label {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 767px) {
+  #fsus-aot-shell {
+    padding-bottom: calc(var(--fsus-bottom-tab-height, 56px) + env(safe-area-inset-bottom));
+  }
+
   #fsus-aot-shell .el-public-shell__inner {
     padding-block: 20px;
   }
@@ -249,20 +424,20 @@ html[data-theme-resolved='dark'] body {
     margin-top: 18px;
   }
 
+  #fsus-aot-shell .el-public-shell__mobile-toolbar.is-collapsed {
+    display: none;
+    margin-top: 0;
+  }
+
   #fsus-aot-shell .el-public-shell__mobile-actions {
     justify-content: flex-start;
     min-width: 0;
   }
+}
 
-  #fsus-aot-shell .el-public-shell__bottom-tab-bar {
-    position: fixed;
-    inset-inline: 0;
-    bottom: 0;
-    z-index: 30;
-    display: flex;
-    align-items: stretch;
-    min-height: 3.5rem;
-    padding-bottom: env(safe-area-inset-bottom);
+@media (min-width: 768px) {
+  #fsus-aot-shell .fsusblog-public-bottom-tab {
+    display: none;
   }
 }
 
@@ -288,18 +463,6 @@ html[data-theme-resolved='dark'] body {
   #fsus-aot-shell .el-public-shell__auth-link--desktop {
     min-height: 36px;
   }
-}
-
-#fsus-aot-shell .el-public-shell__bottom-tab-link {
-  position: relative;
-  flex: 1 1 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 3.5rem;
-  padding-inline: 0.5rem;
-  box-sizing: border-box;
-  text-decoration: none;
 }
 
 /* 首屏接管稳定层：约束 header/main/footer 的最小尺寸，避免整页下推造成 CLS。 */

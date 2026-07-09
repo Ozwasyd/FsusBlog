@@ -28,17 +28,14 @@ const allowedInternalSelectors = new Map([
     '.el-select',
     '.el-table'
   ])],
-  ['src/frontend/src/assets/public-page.css', new Set([
-    '.el-public-shell__bottom-tab-accent',
-    '.el-public-shell__bottom-tab-bar',
-    '.el-public-shell__bottom-tab-label',
-    '.el-public-shell__bottom-tab-link'
-  ])],
   ['src/frontend/src/assets/public-shell-critical.css', new Set([
+    '.el-input',
+    '.el-input__wrapper',
     '.el-radio-button',
     '.el-radio-button__inner',
     '.el-radio-group',
     '.el-theme-mode-toggle',
+    '.el-theme-mode-toggle--desktop',
     '.el-theme-mode-toggle__menu',
     '.el-theme-mode-toggle__menu-button',
     '.el-theme-mode-toggle__menu-item'

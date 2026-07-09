@@ -89,7 +89,11 @@
           @load-more-replies="loadMoreReplies"
         />
 
-        <div ref="loadMoreTrigger" class="h-32 flex flex-col items-center justify-center mt-8">
+        <div
+          ref="loadMoreTrigger"
+          class="flex flex-col items-center justify-center"
+          :class="commentCursorShellClass"
+        >
           <Transition name="state-fade" mode="out-in">
             <div v-if="loadingComments" key="loading" class="flex flex-col items-center gap-5" role="status">
               <span class="text-[10px] font-bold text-[var(--fsusblog-text-muted)] normal-case ">{{ pageDetailView.comments.loadingText }}</span>
@@ -290,6 +294,12 @@ const pageDetailView = computed(() => (
 const canRenderBodyRuntime = ref(false)
 const canRenderCommentsRuntime = computed(() => spaReady.value && runtimeReady.value)
 const tocMobileOpen = ref(false)
+
+const commentCursorShellClass = computed(() => (
+  !loadingComments.value && !hasMore.value && threads.value.length === 0
+    ? 'min-h-0 mt-2 py-2'
+    : 'h-24 mt-6'
+))
 
 const commentRedirectPath = computed(() => {
   const basePath = route.fullPath.split('#')[0] || route.path

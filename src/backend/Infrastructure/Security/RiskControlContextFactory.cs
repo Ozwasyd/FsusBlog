@@ -1,8 +1,11 @@
+using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
@@ -43,7 +46,10 @@ public sealed record RiskControlContext(
     RiskControlDeviceFingerprintContext DeviceFingerprint,
     RiskControlRegionContext Region,
     bool VerifiedCrawler,
-    bool SocialPreviewBot);
+    bool SocialPreviewBot)
+{
+    public bool DevelopmentLocalBypass { get; init; }
+}
 
 public sealed record RiskControlActorContext(
     string Status,
@@ -66,12 +72,15 @@ public sealed record RiskControlRegionContext(
     string? Source,
     string? Reason);
 
-public sealed class RiskControlContextFactory : IRiskControlContextFactory
+public sealed class RiskControlContextFactory(
+    IWebHostEnvironment? environment = null,
+    IConfiguration? configuration = null) : IRiskControlContextFactory
 {
     private const int MinDeviceFingerprintLength = 8;
     private const int MaxDeviceFingerprintLength = 128;
     private const int MaxRegionHintLength = 64;
     private const string DeviceFingerprintHeader = "X-Fsus-Device-Fp";
+    private const string AllowLocalAuthFixtureConfigurationKey = "fsus:allowLocalAuthFixture";
 
     public RiskControlContext Create(HttpContext context)
     {
@@ -90,7 +99,51 @@ public sealed class RiskControlContextFactory : IRiskControlContextFactory
             ResolveDeviceFingerprint(context),
             ResolveRegion(context),
             IsItemTrue(context, "VerifiedCrawler"),
-            IsItemTrue(context, "SocialPreviewBot"));
+            IsItemTrue(context, "SocialPreviewBot"))
+        {
+            DevelopmentLocalBypass = ShouldBypassForDevelopmentLocalRequest(context)
+        };
+    }
+
+    private bool ShouldBypassForDevelopmentLocalRequest(HttpContext context)
+    {
+        bool enabled = environment?.IsDevelopment() == true
+            || configuration?.GetValue<bool>(AllowLocalAuthFixtureConfigurationKey) == true;
+        return enabled && IsLocalOrPrivateAddress(context.Connection.RemoteIpAddress);
+    }
+
+    private static bool IsLocalOrPrivateAddress(IPAddress? address)
+    {
+        if (address is null)
+        {
+            return true;
+        }
+
+        if (IPAddress.IsLoopback(address))
+        {
+            return true;
+        }
+
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
+        byte[] bytes = address.GetAddressBytes();
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && bytes.Length == 4)
+        {
+            return bytes[0] == 10
+                || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31)
+                || (bytes[0] == 192 && bytes[1] == 168)
+                || (bytes[0] == 169 && bytes[1] == 254);
+        }
+
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 && bytes.Length == 16)
+        {
+            return (bytes[0] & 0xfe) == 0xfc || address.IsIPv6LinkLocal;
+        }
+
+        return false;
     }
 
     private static RiskActionEndpointMetadata? ResolveAction(HttpContext context, out string status)

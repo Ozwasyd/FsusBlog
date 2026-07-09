@@ -55,17 +55,30 @@ checkLines(files.accountShell, [
 
 const publicPageCss = read(files.publicPage)
 const requiredPublicHeaderTokens = [
-  '--fsus-page: #F7F7F8;',
-  '--fsus-paper: #ffffff;',
-  '--fsus-ink: #0f0f11;',
-  '--fsus-dot-gray: #8e8e93;',
-  '--fsus-border: #E4E4E7;',
-  '--fsus-scholarly-blue: #2a599c;',
-  '--fsusblog-header-bg: color-mix(in srgb, var(--fsus-paper) 88%, var(--fsus-page));',
-  '--fsusblog-header-border: color-mix(in srgb, var(--fsus-border) 82%, transparent);',
-  '--el-bg-color: var(--fsusblog-header-bg);',
-  '--el-bg-color-page: var(--fsus-page);',
-  '--el-border-color-lighter: var(--fsusblog-header-border);'
+  '--bg: #F7F7F8;',
+  '--surface: #FFFFFF;',
+  '--surface-subtle: #FCFCFC;',
+  '--text: #0F0F11;',
+  '--text-heading: #0F0F11;',
+  '--text-secondary: #5F5F68;',
+  '--text-tertiary: #8E8E93;',
+  '--text-muted: #A1A1AA;',
+  '--border: #E4E4E7;',
+  '--border-strong: #D4D4D8;',
+  '--accent: #2A599C;',
+  '--accent-hover: #244E89;',
+  '--link: var(--accent);',
+  '--link-hover: var(--accent-hover);',
+  '--fsus-page: var(--bg);',
+  '--fsus-paper: var(--surface);',
+  '--fsus-ink: var(--text);',
+  '--fsus-border: var(--border);',
+  '--fsus-scholarly-blue: var(--accent);',
+  '--fsusblog-header-bg: var(--surface);',
+  '--fsusblog-header-border: var(--border);',
+  '--el-bg-color: var(--surface);',
+  '--el-bg-color-page: var(--bg);',
+  '--el-border-color-lighter: var(--border);'
 ]
 
 for (const token of requiredPublicHeaderTokens) {

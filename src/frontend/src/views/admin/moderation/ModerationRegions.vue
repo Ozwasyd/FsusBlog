@@ -742,18 +742,18 @@ watch(
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__row:hover) {
-  background: color-mix(in srgb, var(--el-color-primary) 5%, transparent);
+  background: color-mix(in srgb, var(--fsusblog-color-primary) 5%, transparent);
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__row:focus-visible) {
   outline: 2px solid
-    color-mix(in srgb, var(--el-color-primary) 42%, transparent);
+    color-mix(in srgb, var(--fsusblog-color-focus-ring) 42%, transparent);
   outline-offset: -2px;
-  background: color-mix(in srgb, var(--el-color-primary) 5%, transparent);
+  background: color-mix(in srgb, var(--fsusblog-color-primary) 5%, transparent);
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__row.is-active) {
-  background: color-mix(in srgb, var(--el-color-primary) 8%, transparent);
+  background: color-mix(in srgb, var(--fsusblog-color-primary) 8%, transparent);
 }
 
 .moderation-regions-mobile-list :deep(.el-data-list__row.is-active)::before {
@@ -763,7 +763,7 @@ watch(
   bottom: 10px;
   width: 2px;
   border-radius: 999px;
-  background: var(--el-color-primary);
+  background: var(--fsusblog-color-primary);
   content: "";
 }
 
@@ -847,7 +847,7 @@ watch(
 .moderation-regions-mobile-list :deep(.el-data-list__row:focus-visible)
   .moderation-regions-mobile-cell--indicator,
 .moderation-regions-mobile-cell--indicator.is-active {
-  color: var(--el-color-primary);
+  color: var(--fsusblog-color-primary);
   opacity: 1;
   transform: translateX(2px);
 }

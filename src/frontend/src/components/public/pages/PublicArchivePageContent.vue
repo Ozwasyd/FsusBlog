@@ -23,7 +23,7 @@
 
     <div v-else class="relative">
       <header class="mb-10 border-b border-[var(--fsusblog-panel-border)] pb-6 sm:mb-12 sm:pb-8">
-        <h1 class="mb-6 text-3xl font-bold tracking-normal text-[var(--fsusblog-text-primary)] sm:text-4xl">
+        <h1 class="mb-6 text-3xl font-bold tracking-normal text-[var(--fsusblog-text-heading)] sm:text-4xl">
           归档
         </h1>
         <div class="flex items-center gap-6 text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
@@ -55,7 +55,7 @@
         >
           <div class="sticky top-24 z-10 bg-[var(--fsusblog-page-bg)] pt-2 pb-3 mb-8 sm:mb-10 flex items-baseline gap-3">
             <span class="text-[var(--fsusblog-text-subtle)] leading-none" aria-hidden="true">·</span>
-            <h2 class="text-2xl font-bold text-[var(--fsusblog-text-primary)] tabular-nums tracking-normal sm:text-3xl">
+            <h2 class="text-2xl font-bold text-[var(--fsusblog-text-heading)] tabular-nums tracking-normal sm:text-3xl">
               {{ yearGroup.year }}
             </h2>
           </div>

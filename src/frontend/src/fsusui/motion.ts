@@ -1,5 +1,6 @@
 export {
   ElCollapseTransition,
+  FsuMobileDock,
   FsuMotion,
   FsuTransition,
   runMotion,

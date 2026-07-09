@@ -8,6 +8,11 @@ const errors = []
 const legacyPageToken = `--fsus-page: #${'f8f9f7'};`
 const legacyBorderToken = `--fsus-border: #${'e4e4df'};`
 const legacyDarkBlueToken = `--fsus-scholarly-blue: #${'7aa2e3'};`
+const legacyGrayPageToken = `--fsus-page: #${'F7F7F8'};`
+const legacyDarkPageToken = `--fsus-page: #${'09090b'};`
+const legacyDarkInkToken = `--fsus-ink: #${'f0f0f4'};`
+const legacyScholarlyBlueToken = `--fsus-scholarly-blue: #${'2a599c'};`
+const legacyDarkScholarlyBlueToken = `--fsus-scholarly-blue: #${'4B79CC'};`
 const legacyFsusBackdropSaturate = `--fsus-${'backdrop-saturate'}`
 const legacyFsusBackdropBlurSoft = `--fsus-${'backdrop-blur-soft'}`
 const legacyTabularNumsVar = `var(--${'tabular-nums'})`
@@ -57,12 +62,33 @@ for (const [path, source] of [
   [publicPagePath, publicPage],
   [publicShellPath, publicShell]
 ]) {
-  expectIncludes(path, source, '--fsus-page: #F7F7F8;', '--fsus-page light token')
-  expectIncludes(path, source, '--fsus-border: #E4E4E7;', '--fsus-border light token')
-  expectIncludes(path, source, '--fsus-scholarly-blue: #4B79CC;', '--fsus-scholarly-blue dark token')
+  expectIncludes(path, source, '--bg: #F7F7F8;', '--bg light token')
+  expectIncludes(path, source, '--surface: #FFFFFF;', '--surface light token')
+  expectIncludes(path, source, '--text: #0F0F11;', '--text light token')
+  expectIncludes(path, source, '--border: #E4E4E7;', '--border light token')
+  expectIncludes(path, source, '--accent: #2A599C;', '--accent light token')
+  expectIncludes(path, source, '--accent-hover: #244E89;', '--accent-hover light token')
+  expectIncludes(path, source, '--link: var(--accent);', '--link accent alias')
+  expectIncludes(path, source, '--link-hover: var(--accent-hover);', '--link-hover accent alias')
+  expectIncludes(path, source, '--bg: #09090B;', '--bg dark token')
+  expectIncludes(path, source, '--surface: #121214;', '--surface dark token')
+  expectIncludes(path, source, '--text: #F0F0F4;', '--text dark token')
+  expectIncludes(path, source, '--border: #27272A;', '--border dark token')
+  expectIncludes(path, source, '--accent: #4B79CC;', '--accent dark token')
+  expectIncludes(path, source, '--accent-hover: #6F93D7;', '--accent-hover dark token')
+  expectIncludes(path, source, '--fsus-page: var(--bg);', '--fsus-page palette alias')
+  expectIncludes(path, source, '--fsus-border: var(--border);', '--fsus-border palette alias')
+  expectIncludes(path, source, '--fsus-scholarly-blue: var(--accent);', '--fsus Scholarly Blue accent alias')
+  expectIncludes(path, source, '--fsusblog-color-primary: var(--accent, LinkText);', '--fsusblog primary accent alias')
+  expectIncludes(path, source, '--fsusblog-color-focus-ring: var(--accent, Highlight);', '--fsusblog focus ring accent alias')
   expectNotIncludes(path, source, legacyPageToken, 'legacy green-tinted page token')
   expectNotIncludes(path, source, legacyBorderToken, 'legacy yellow-tinted border token')
   expectNotIncludes(path, source, legacyDarkBlueToken, 'legacy dark Scholarly Blue token')
+  expectNotIncludes(path, source, legacyGrayPageToken, 'legacy neutral-gray light page token')
+  expectNotIncludes(path, source, legacyDarkPageToken, 'legacy near-black dark page token')
+  expectNotIncludes(path, source, legacyDarkInkToken, 'legacy cool dark ink token')
+  expectNotIncludes(path, source, legacyScholarlyBlueToken, 'legacy light Scholarly Blue token')
+  expectNotIncludes(path, source, legacyDarkScholarlyBlueToken, 'legacy dark Scholarly Blue token')
   expectNotIncludes(path, source, legacyFsusBackdropSaturate, `unregistered ${legacyFsusBackdropSaturate} alias`)
   expectNotIncludes(path, source, legacyFsusBackdropBlurSoft, `unregistered ${legacyFsusBackdropBlurSoft} alias`)
 }

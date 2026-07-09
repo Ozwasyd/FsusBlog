@@ -313,7 +313,7 @@ const coverSectionOpen = ref(false)
 }
 
 .article-sidebar-summary:focus-visible {
-  outline: 2px solid var(--fsusblog-focus-ring, var(--el-color-primary));
+  outline: 2px solid var(--fsusblog-color-focus-ring);
   outline-offset: -2px;
 }
 

@@ -294,6 +294,35 @@ describe('binaryTransport ApiError mapping', () => {
     )
   })
 
+  it('retries anonymous public GET routes when the first read returns an ApiError frame', async () => {
+    mockBinaryRequest
+      .mockResolvedValueOnce(encodeApiErrorFrame({
+        status: 428,
+        message: '公开读取请求需要 PoW 凭证',
+        details: 'security.pow',
+        traceId: 'trace-pow-frame'
+      }))
+      .mockResolvedValueOnce(readProtocolFixtureBuffer('category-list-frame.hex'))
+
+    await expect(requestBinaryOnly<Array<{ id: number; name: string; articleCount: number }>>({
+      binaryRoute: { operationId: 'binary_get_category_aeds' },
+      frameType: FrameType.CategoryList
+    })).resolves.toEqual([
+      { id: 1, name: 'Tech', articleCount: 2 },
+      { id: 2, name: 'Life', articleCount: 0 }
+    ])
+
+    expect(mockBinaryRequest).toHaveBeenNthCalledWith(
+      2,
+      '/api/binary/category.aeds',
+      expect.objectContaining({
+        credentials: 'omit',
+        requiresPow: true,
+        powScope: 'public-read:/api/binary/category.aeds'
+      })
+    )
+  })
+
   it('does not retry raw binary URLs on 428 because their public-read contract is unknown', async () => {
     mockBinaryRequest.mockRejectedValue(new BinaryRequestError(428, 'Binary request failed: 428', encodeApiErrorFrame({
       status: 428,

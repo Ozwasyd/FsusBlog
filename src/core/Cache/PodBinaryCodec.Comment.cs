@@ -43,7 +43,7 @@ public static partial class PodBinaryCodec
         };
 
         var writer = new BinaryPodWriter(destination);
-        writer.WritePod(CastUserPod<MutableCommentPolicySnapshotPod, CommentPolicySnapshotPod>(mutable));
+        WriteCommentPolicySnapshotPod(ref writer, in mutable);
         writer.WriteBytes(payload.WrittenSpan);
     }
 
@@ -53,7 +53,7 @@ public static partial class PodBinaryCodec
     public static bool TryDecodeCommentPolicySnapshot(ReadOnlyMemory<byte> bytes, out CommentPolicySnapshotCoreModel snapshot)
     {
         var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadPod(out CommentPolicySnapshotPod pod) ||
+        if (!TryReadCommentPolicySnapshotPod(ref reader, out var pod) ||
             pod.AnonymousCommentsEnabled > 1 ||
             pod.PublicCommentsEnabled > 1 ||
             pod.ZkAnonymousEnabled > 1 ||
@@ -111,7 +111,7 @@ public static partial class PodBinaryCodec
         };
 
         var writer = new BinaryPodWriter(destination);
-        writer.WritePod(CastUserPod<MutableCommentPolicyUpdateRequestPod, CommentPolicyUpdateRequestPod>(mutable));
+        WriteCommentPolicyUpdateRequestPod(ref writer, in mutable);
         writer.WriteBytes(payload.WrittenSpan);
     }
 
@@ -121,7 +121,7 @@ public static partial class PodBinaryCodec
     public static bool TryDecodeCommentPolicyUpdateRequest(ReadOnlyMemory<byte> bytes, out CommentPolicyUpdateRequestCoreModel request)
     {
         var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadPod(out CommentPolicyUpdateRequestPod pod) ||
+        if (!TryReadCommentPolicyUpdateRequestPod(ref reader, out var pod) ||
             pod.HasAnonymousCommentsEnabled > 1 ||
             pod.AnonymousCommentsEnabled > 1 ||
             pod.HasPublicCommentsEnabled > 1 ||
@@ -1392,6 +1392,121 @@ public static partial class PodBinaryCodec
 
     private static bool IsCommentMaxUtf8BytesValid(int value)
         => value is >= CommentMinMaxUtf8Bytes and <= CommentHardMaxUtf8Bytes;
+
+    private static void WriteCommentPolicySnapshotPod(ref BinaryPodWriter writer, in MutableCommentPolicySnapshotPod pod)
+    {
+        writer.WriteByte(pod.AnonymousCommentsEnabled);
+        writer.WriteByte(pod.PublicCommentsEnabled);
+        writer.WriteByte(pod.ZkAnonymousEnabled);
+        writer.WriteByte(pod.DefaultAuthorMode);
+        writer.WriteByte(pod.ZkProdEnabled);
+        writer.WriteByte(pod.ZkProdNativeVerifierConfigured);
+        writer.WriteByte(pod.ZkProdTrustedSetupVerified);
+        writer.WriteByte(pod.ZkProdCredentialRequired);
+        writer.WriteByte(pod.ZkProdCredentialRootReady);
+        writer.WriteInt32(pod.CommentMaxChars);
+        writer.WriteInt32(pod.CommentMaxUtf8Bytes);
+        writer.WriteSliceRef(pod.SupportedDisplayLanguages);
+        writer.WriteSliceRef(pod.SnapshotHash);
+        writer.WriteSliceRef(pod.ZkProdUnavailableReason);
+    }
+
+    private static bool TryReadCommentPolicySnapshotPod(ref BinaryPodReader reader, out MutableCommentPolicySnapshotPod pod)
+    {
+        if (!reader.TryReadByte(out byte anonymousCommentsEnabled) ||
+            !reader.TryReadByte(out byte publicCommentsEnabled) ||
+            !reader.TryReadByte(out byte zkAnonymousEnabled) ||
+            !reader.TryReadByte(out byte defaultAuthorMode) ||
+            !reader.TryReadByte(out byte zkProdEnabled) ||
+            !reader.TryReadByte(out byte zkProdNativeVerifierConfigured) ||
+            !reader.TryReadByte(out byte zkProdTrustedSetupVerified) ||
+            !reader.TryReadByte(out byte zkProdCredentialRequired) ||
+            !reader.TryReadByte(out byte zkProdCredentialRootReady) ||
+            !reader.TryReadInt32(out int commentMaxChars) ||
+            !reader.TryReadInt32(out int commentMaxUtf8Bytes) ||
+            !reader.TryReadSliceRef(out var supportedDisplayLanguages) ||
+            !reader.TryReadSliceRef(out var snapshotHash) ||
+            !reader.TryReadSliceRef(out var zkProdUnavailableReason))
+        {
+            pod = default;
+            return false;
+        }
+
+        pod = new MutableCommentPolicySnapshotPod
+        {
+            AnonymousCommentsEnabled = anonymousCommentsEnabled,
+            PublicCommentsEnabled = publicCommentsEnabled,
+            ZkAnonymousEnabled = zkAnonymousEnabled,
+            DefaultAuthorMode = defaultAuthorMode,
+            ZkProdEnabled = zkProdEnabled,
+            ZkProdNativeVerifierConfigured = zkProdNativeVerifierConfigured,
+            ZkProdTrustedSetupVerified = zkProdTrustedSetupVerified,
+            ZkProdCredentialRequired = zkProdCredentialRequired,
+            ZkProdCredentialRootReady = zkProdCredentialRootReady,
+            CommentMaxChars = commentMaxChars,
+            CommentMaxUtf8Bytes = commentMaxUtf8Bytes,
+            SupportedDisplayLanguages = supportedDisplayLanguages,
+            SnapshotHash = snapshotHash,
+            ZkProdUnavailableReason = zkProdUnavailableReason
+        };
+        return true;
+    }
+
+    private static void WriteCommentPolicyUpdateRequestPod(ref BinaryPodWriter writer, in MutableCommentPolicyUpdateRequestPod pod)
+    {
+        writer.WriteByte(pod.HasAnonymousCommentsEnabled);
+        writer.WriteByte(pod.AnonymousCommentsEnabled);
+        writer.WriteByte(pod.HasPublicCommentsEnabled);
+        writer.WriteByte(pod.PublicCommentsEnabled);
+        writer.WriteByte(pod.HasZkAnonymousEnabled);
+        writer.WriteByte(pod.ZkAnonymousEnabled);
+        writer.WriteByte(pod.HasDefaultAuthorMode);
+        writer.WriteByte(pod.DefaultAuthorMode);
+        writer.WriteByte(pod.HasCommentMaxChars);
+        writer.WriteByte(pod.HasCommentMaxUtf8Bytes);
+        writer.WriteInt32(pod.CommentMaxChars);
+        writer.WriteInt32(pod.CommentMaxUtf8Bytes);
+        writer.WriteSliceRef(pod.SupportedDisplayLanguages);
+    }
+
+    private static bool TryReadCommentPolicyUpdateRequestPod(ref BinaryPodReader reader, out MutableCommentPolicyUpdateRequestPod pod)
+    {
+        if (!reader.TryReadByte(out byte hasAnonymousCommentsEnabled) ||
+            !reader.TryReadByte(out byte anonymousCommentsEnabled) ||
+            !reader.TryReadByte(out byte hasPublicCommentsEnabled) ||
+            !reader.TryReadByte(out byte publicCommentsEnabled) ||
+            !reader.TryReadByte(out byte hasZkAnonymousEnabled) ||
+            !reader.TryReadByte(out byte zkAnonymousEnabled) ||
+            !reader.TryReadByte(out byte hasDefaultAuthorMode) ||
+            !reader.TryReadByte(out byte defaultAuthorMode) ||
+            !reader.TryReadByte(out byte hasCommentMaxChars) ||
+            !reader.TryReadByte(out byte hasCommentMaxUtf8Bytes) ||
+            !reader.TryReadInt32(out int commentMaxChars) ||
+            !reader.TryReadInt32(out int commentMaxUtf8Bytes) ||
+            !reader.TryReadSliceRef(out var supportedDisplayLanguages))
+        {
+            pod = default;
+            return false;
+        }
+
+        pod = new MutableCommentPolicyUpdateRequestPod
+        {
+            HasAnonymousCommentsEnabled = hasAnonymousCommentsEnabled,
+            AnonymousCommentsEnabled = anonymousCommentsEnabled,
+            HasPublicCommentsEnabled = hasPublicCommentsEnabled,
+            PublicCommentsEnabled = publicCommentsEnabled,
+            HasZkAnonymousEnabled = hasZkAnonymousEnabled,
+            ZkAnonymousEnabled = zkAnonymousEnabled,
+            HasDefaultAuthorMode = hasDefaultAuthorMode,
+            DefaultAuthorMode = defaultAuthorMode,
+            HasCommentMaxChars = hasCommentMaxChars,
+            HasCommentMaxUtf8Bytes = hasCommentMaxUtf8Bytes,
+            CommentMaxChars = commentMaxChars,
+            CommentMaxUtf8Bytes = commentMaxUtf8Bytes,
+            SupportedDisplayLanguages = supportedDisplayLanguages
+        };
+        return true;
+    }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct MutableCommentPolicySnapshotPod

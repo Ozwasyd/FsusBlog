@@ -57,6 +57,8 @@ public class PodSizeCatalogTests
         AssertPositiveSize(PodSizeCatalog.UserCommentPod, nameof(PodSizeCatalog.UserCommentPod));
         AssertPositiveSize(PodSizeCatalog.CommentPolicySnapshotPod, nameof(PodSizeCatalog.CommentPolicySnapshotPod));
         AssertPositiveSize(PodSizeCatalog.CommentPolicyUpdateRequestPod, nameof(PodSizeCatalog.CommentPolicyUpdateRequestPod));
+        Assert.Equal(41, PodSizeCatalog.CommentPolicySnapshotPod);
+        Assert.Equal(26, PodSizeCatalog.CommentPolicyUpdateRequestPod);
         AssertPositiveSize(PodSizeCatalog.CommentCreateV2RequestPod, nameof(PodSizeCatalog.CommentCreateV2RequestPod));
         AssertPositiveSize(PodSizeCatalog.CommentAuthorViewPod, nameof(PodSizeCatalog.CommentAuthorViewPod));
         AssertPositiveSize(PodSizeCatalog.AnonymousCredentialIssueRequestPod, nameof(PodSizeCatalog.AnonymousCredentialIssueRequestPod));
