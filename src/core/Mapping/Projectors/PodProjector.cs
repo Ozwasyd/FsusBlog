@@ -126,10 +126,6 @@ public static class PodProjector
         return Cast<MutableCommentItemPod, CommentItemPod>(tmp);
     }
 
-    [Obsolete("Use ProjectCommentItem(id, createTime, authorMode, displayName, content, out payload).")]
-    public static CommentItemPod ProjectCommentItem(long id, DateTime createTime, string userName, string content, out ReadOnlyMemory<byte> payload)
-        => ProjectCommentItem(id, createTime, "public", userName, content, out payload);
-
     public static UserCommentPod ProjectUserComment(
         long id,
         int articleId,

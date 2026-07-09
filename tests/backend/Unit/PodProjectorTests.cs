@@ -1,3 +1,4 @@
+using System.Reflection;
 using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Shared.Contracts.Models;
@@ -148,6 +149,28 @@ public class PodProjectorTests
         Assert.Equal(123L, pod.Id);
         Assert.Equal(PodTimeCodec.ToUnixMs(createTime), pod.CreateTimeUnixMs);
         Assert.Equal("Nice post!", PodProjector.ReadSlice(pod.Content, payload.Span));
+    }
+
+    [Fact]
+    public void ProjectCommentItem_ExposesOnlySixParameterOverload()
+    {
+        var overloads = typeof(PodProjector)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(static method => method.Name == nameof(PodProjector.ProjectCommentItem))
+            .Select(static method => method.GetParameters().Select(static parameter => parameter.ParameterType).ToArray())
+            .ToArray();
+
+        Type[] parameters = Assert.Single(overloads);
+        Assert.Equal(
+            [
+                typeof(long),
+                typeof(DateTime),
+                typeof(string),
+                typeof(string),
+                typeof(string),
+                typeof(ReadOnlyMemory<byte>).MakeByRefType()
+            ],
+            parameters);
     }
 
     // ── ProjectUserComment ──────────────────────────────────────────────────
