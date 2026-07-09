@@ -1,5 +1,4 @@
 import type { ApiRequestConfig } from './requestConfig';
-import type { PowRequest } from './auth'
 import { FrameType } from '@wasm/protocol/frame';
 import { requestBinaryOnly } from '@/services/binaryTransport';
 import { encodeAedsFrame } from './binaryFrame';
@@ -22,26 +21,7 @@ export interface CommentAuthorView {
   credentialLevel?: string | null
 }
 
-/** * 发布评论所需的 DTO
- * 继承 PowRequest 以包含 nonce, salt 等字段
- */
-export interface CommentDto extends PowRequest {
-  articleId: number
-  content: string
-  parentId?: string | null
-  rootId?: string | null
-  replyToCommentId?: string | null
-  /** @deprecated 匿名模式不应设置 replyToUserId；回复目标必须通过 replyToCommentId 和端上 nullifier/作者快照解析。 */
-  replyToUserId?: number | null
-  authorMode?: CommentAuthorMode | null
-  publicSendExplicitlySelected?: boolean | null
-  anonymousScope?: string | null
-  displayLanguage?: string | null
-  proofToken?: string | null
-  zkProof?: Uint8Array | number[] | null
-}
-
-export interface CommentCreateV2Dto extends PowRequest {
+export interface CommentCreateV2Dto {
   articleId: number
   content: string
   parentId?: string | null
@@ -55,6 +35,12 @@ export interface CommentCreateV2Dto extends PowRequest {
   displayLanguage: CommentDisplayLanguage
   proofToken?: string | null
   zkProof?: Uint8Array | number[] | null
+  powSalt?: string
+  powSignature?: string
+  powTimestamp?: number
+  difficulty?: number
+  powNonce?: string
+  browserFp?: string
 }
 
 export interface AnonymousCommentSubmitDto {
@@ -72,7 +58,7 @@ export interface AnonymousCommentSubmitTicket {
   ticket: Uint8Array | number[]
 }
 
-export type PublicCommentDto = Omit<CommentCreateV2Dto, 'authorMode' | 'publicSendExplicitlySelected'> & {
+export type PublicCommentCreateInput = Omit<CommentCreateV2Dto, 'authorMode' | 'publicSendExplicitlySelected'> & {
   authorMode?: CommentAuthorMode | null
   publicSendExplicitlySelected?: boolean | null
 }
@@ -292,13 +278,6 @@ export function resolveCommentAuthorView(input: {
  * [修复 2026-02-23] 逻辑自洽：所有方法增加可选的 config 参数以支持 AbortSignal 物理中断
  */
 
-/** * 发布评论
- * 安全性保障：启用 requiresPow 策略，物理隔离垃圾评论攻击
- */
-export const createComment = (data: CommentDto, config?: ApiRequestConfig) => {
-  return sendCommentMutation(data, config)
-}
-
 export const createCommentV2 = (data: CommentCreateV2Dto, config?: ApiRequestConfig) => {
   return sendCommentMutation(data, config)
 }
@@ -337,7 +316,7 @@ export const createAnonymousComment = (
   })
 }
 
-export const createPublicComment = (data: PublicCommentDto, config?: ApiRequestConfig) => {
+export const createPublicComment = (data: PublicCommentCreateInput, config?: ApiRequestConfig) => {
   return sendCommentMutation(
     {
       ...data,
@@ -410,7 +389,7 @@ export const issueAnonymousCommentTicket = (
 }
 
 function sendCommentMutation(
-  data: CommentDto | CommentCreateV2Dto,
+  data: CommentCreateV2Dto,
   config?: ApiRequestConfig
 ) {
   const validation = validateCommentContent(data.content ?? '')
@@ -519,7 +498,7 @@ export const deleteComment = (id: string, config?: ApiRequestConfig) =>
     }
   })
 
-export function encodeCommentCreateV2Request(data: CommentDto | CommentCreateV2Dto): Uint8Array {
+export function encodeCommentCreateV2Request(data: CommentCreateV2Dto): Uint8Array {
   const anonymousScope = encodeText(data.anonymousScope ?? '')
   const displayLanguage = encodeText(data.displayLanguage ?? '')
   const proofToken = encodeText(data.proofToken ?? '')
@@ -708,7 +687,7 @@ function writeBlobPart(bytes: Uint8Array, view: DataView, sliceOffset: number, b
   return offset + value.byteLength
 }
 
-function encodeCommentAuthorMode(mode: CommentDto['authorMode'] | CommentCreateV2Dto['authorMode']): number {
+function encodeCommentAuthorMode(mode: CommentCreateV2Dto['authorMode']): number {
   switch ((mode ?? 'anonymous').trim().toLowerCase().replace('-', '_')) {
     case 'anonymous':
       return 1

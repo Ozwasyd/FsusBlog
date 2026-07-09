@@ -8,7 +8,6 @@ vi.mock('@/services/binaryTransport', () => ({
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import {
   createAnonymousComment,
-  createComment,
   createCommentV2,
   createPublicComment,
   getAnonymousCredentialCircuitSnapshot,
@@ -43,9 +42,15 @@ describe('comment API', () => {
     mockBinary.mockResolvedValue({} as never)
   })
 
-  it('createComment sends CommentCreateV2 binary mutation frame', async () => {
-    const dto = { articleId: 1, content: 'Hello', nonce: 'n', salt: 's', answer: 1 }
-    await createComment(dto as never)
+  it('createCommentV2 sends CommentCreateV2 binary mutation frame', async () => {
+    const dto = {
+      articleId: 1,
+      content: 'Hello',
+      authorMode: 'anonymous',
+      publicSendExplicitlySelected: false,
+      displayLanguage: 'zh-CN'
+    } as const
+    await createCommentV2(dto)
     const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
 
     expect(mockBinary).toHaveBeenCalledWith(expect.objectContaining({
@@ -60,7 +65,7 @@ describe('comment API', () => {
     expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
   })
 
-  it('createComment uses CommentCreateV2 for anonymous author fields', async () => {
+  it('createCommentV2 uses CommentCreateV2 for anonymous author fields', async () => {
     const dto = {
       articleId: 9,
       content: 'Hello anonymous mode',
@@ -78,7 +83,7 @@ describe('comment API', () => {
       answer: 1
     }
 
-    await createComment(dto as never)
+    await createCommentV2(dto as never)
 
     const body = mockBinary.mock.calls[0][0].requestOptions?.body as ArrayBuffer
     expect(readAedsFrameType(body)).toBe(FrameType.CommentCreateV2Request)
@@ -348,10 +353,16 @@ describe('comment API', () => {
     })
   })
 
-  it('createComment rejects over-limit content before opening binary transport', async () => {
-    const dto = { articleId: 1, content: 'a'.repeat(COMMENT_CONTENT_CONSTRAINT.maxChars + 1), nonce: 'n', salt: 's', answer: 1 }
+  it('createCommentV2 rejects over-limit content before opening binary transport', async () => {
+    const dto = {
+      articleId: 1,
+      content: 'a'.repeat(COMMENT_CONTENT_CONSTRAINT.maxChars + 1),
+      authorMode: 'anonymous',
+      publicSendExplicitlySelected: false,
+      displayLanguage: 'zh-CN'
+    } as const
 
-    await expect(createComment(dto as never)).rejects.toThrow(COMMENT_CONTENT_CONSTRAINT.charLengthMessage)
+    await expect(createCommentV2(dto)).rejects.toThrow(COMMENT_CONTENT_CONSTRAINT.charLengthMessage)
     expect(mockBinary).not.toHaveBeenCalled()
   })
 

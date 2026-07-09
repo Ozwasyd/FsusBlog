@@ -106,7 +106,7 @@ describe('anonymous identity cold-start quality gates', () => {
     expect(commentApi).toContain('export interface CommentAuthorView')
     expect(commentApi).toContain('export interface CommentCreateV2Dto')
     expect(commentApi).toContain('resolveCommentAuthorView')
-    expect(commentApiTest).toContain('createComment uses CommentCreateV2 for anonymous author fields')
+    expect(commentApiTest).toContain('createCommentV2 uses CommentCreateV2 for anonymous author fields')
     expect(commentApiTest).toContain('requires CommentAuthorView instead of legacy username compatibility')
   })
 

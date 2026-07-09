@@ -184,11 +184,9 @@ describe('comment create binary request compatibility slots', () => {
   it('marks legacy replyToUserId DTO fields deprecated for anonymous migration', () => {
     const source = readRepoFile('src/frontend/src/api/comment.ts')
 
-    for (const name of ['CommentDto', 'CommentCreateV2Dto']) {
-      const block = extractTsInterface(source, name)
-      expect(block).toMatch(/@deprecated[^\n]*匿名模式不应设置 replyToUserId/)
-      expect(block).toContain('replyToUserId?: number | null')
-    }
+    const block = extractTsInterface(source, 'CommentCreateV2Dto')
+    expect(block).toMatch(/@deprecated[^\n]*匿名模式不应设置 replyToUserId/)
+    expect(block).toContain('replyToUserId?: number | null')
   })
 })
 

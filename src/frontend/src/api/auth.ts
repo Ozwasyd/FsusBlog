@@ -90,15 +90,6 @@ export interface RecoveryKeyVerifyResponse {
   recoverySessionToken: string
 }
 
-export interface PowRequest {
-  powSalt?: string
-  powSignature?: string
-  powTimestamp?: number
-  difficulty?: number
-  powNonce?: string
-  browserFp?: string
-}
-
 export interface UserSessionSummary {
   sessionId: string
   deviceFingerprint: string

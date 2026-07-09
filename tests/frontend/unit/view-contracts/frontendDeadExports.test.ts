@@ -34,4 +34,19 @@ describe('frontend dead export cleanup contract', () => {
 
     expect(retiredTokens.filter((token) => source.includes(token))).toEqual([])
   })
+
+  it('does not expose the retired legacy comment creation API', () => {
+    const source = readFrontendSources(repoPath('src/frontend/src'))
+    const commentApi = readFileSync(repoPath('src/frontend/src/api/comment.ts'), 'utf8')
+    const retiredPatterns = [
+      ['createComment', /\bcreateComment\b/u],
+      ['CommentDto', /\bCommentDto\b/u],
+      ['PowRequest', /\bPowRequest\b/u]
+    ] as const
+
+    expect(retiredPatterns.filter(([, pattern]) => pattern.test(source)).map(([name]) => name)).toEqual([])
+    expect(commentApi).toContain('export interface CommentCreateV2Dto')
+    expect(commentApi).toContain('export const createCommentV2')
+    expect(commentApi).toContain('export const createPublicComment')
+  })
 })

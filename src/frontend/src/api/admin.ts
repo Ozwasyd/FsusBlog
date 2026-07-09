@@ -48,7 +48,7 @@ export interface UserQueryDto {
 
 /**
  * PoW 基础字段 (高危操作通用)
- * 对应后端: IPowRequest
+ * 对应后端: PoW 请求契约
  */
 interface PowBaseDto {
   powSalt?: string
