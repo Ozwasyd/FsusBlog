@@ -140,6 +140,12 @@ describe('user facing workflow contract', () => {
     expect(filterContent).toContain('view.empty.actionText')
     expect(archiveContent).toContain('年份快速导航')
     expect(archiveContent).toContain('#archive-year-')
+    expect(archiveContent).toContain('archive-year-section')
+    expect(archiveContent).toContain('archive-year-heading')
+    expect(archiveContent).toContain('--fsusblog-public-sticky-top')
+    expect(archiveContent).toContain('--fsusblog-public-anchor-offset')
+    expect(archiveContent).not.toContain('sticky top-24')
+    expect(archiveContent).not.toContain('.sticky { top:')
   })
 
   it('routes profile settings to the anonymous identity center', () => {

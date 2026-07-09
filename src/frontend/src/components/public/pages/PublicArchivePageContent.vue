@@ -51,9 +51,9 @@
           v-for="yearGroup in view.yearGroups"
           :key="yearGroup.year"
           :id="`archive-year-${yearGroup.year}`"
-          class="relative"
+          class="archive-year-section relative"
         >
-          <div class="sticky top-24 z-10 bg-[var(--fsusblog-page-bg)] pt-2 pb-3 mb-8 sm:mb-10 flex items-baseline gap-3">
+          <div class="archive-year-heading sticky z-10 bg-[var(--fsusblog-page-bg)] pt-2 pb-3 mb-8 sm:mb-10 flex items-baseline gap-3">
             <span class="text-[var(--fsusblog-text-subtle)] leading-none" aria-hidden="true">·</span>
             <h2 class="text-2xl font-bold text-[var(--fsusblog-text-heading)] tabular-nums tracking-normal sm:text-3xl">
               {{ yearGroup.year }}
@@ -145,8 +145,12 @@ function handleNavigate(event: MouseEvent, articleId: string): void {
 <style scoped>
 @reference "@/assets/main.css";
 
-@media (max-width: 640px) {
-  .sticky { top: var(--fsusblog-public-header-height, 4rem); }
+.archive-year-section {
+  scroll-margin-top: var(--fsusblog-public-anchor-offset, calc(var(--fsusblog-public-header-height, 4rem) + 3.5rem));
+}
+
+.archive-year-heading {
+  top: var(--fsusblog-public-sticky-top, var(--fsusblog-public-header-height, 4rem));
 }
 
 .tabular-nums { font-variant-numeric: tabular-nums; }
