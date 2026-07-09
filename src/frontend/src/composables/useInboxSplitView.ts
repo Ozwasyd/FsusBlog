@@ -1,36 +1,26 @@
-import { computed, ref, watch, type Ref } from 'vue'
+import { computed, ref, type Ref } from 'vue'
 import { useMediaQuery } from '@/composables/useMediaQuery'
 
 const MOBILE_BREAKPOINT = 1024
 
 export function useInboxSplitView(selectedConversationId: Readonly<Ref<string>>) {
   const isMobile = useMediaQuery(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-  const mobilePane = ref<'list' | 'detail'>('list')
-
-  watch(isMobile, (nextIsMobile) => {
-    if (!nextIsMobile) {
-      mobilePane.value = 'detail'
-      return
+  const requestedMobilePane = ref<'list' | 'detail'>('list')
+  const mobilePane = computed<'list' | 'detail'>(() => {
+    if (!isMobile.value) {
+      return 'detail'
     }
 
-    if (!selectedConversationId.value) {
-      mobilePane.value = 'list'
-    }
-  }, { immediate: true })
+    return selectedConversationId.value ? requestedMobilePane.value : 'list'
+  })
 
   const openListPane = (): void => {
-    mobilePane.value = 'list'
+    requestedMobilePane.value = 'list'
   }
 
   const openDetailPane = (): void => {
-    mobilePane.value = 'detail'
+    requestedMobilePane.value = 'detail'
   }
-
-  watch(selectedConversationId, (value) => {
-    if (isMobile.value && !value) {
-      mobilePane.value = 'list'
-    }
-  })
 
   return {
     isMobile,

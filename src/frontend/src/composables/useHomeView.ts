@@ -513,7 +513,7 @@ export function useHomeView() {
   })
 
   watch(
-    () => [loading.value, isError.value, listView.value.items.length] as const,
+    () => [loading.value, isError.value, initialViewItems.value?.length, articleItems.value.length] as const,
     () => {
       markRouteReadyIfSettled()
       void scheduleSecondaryListLoad()
