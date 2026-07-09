@@ -49,4 +49,14 @@ describe('frontend dead export cleanup contract', () => {
     expect(commentApi).toContain('export const createCommentV2')
     expect(commentApi).toContain('export const createPublicComment')
   })
+
+  it('does not retain the orphan standalone About page entry', () => {
+    const source = readFrontendSources(repoPath('src/frontend/src'))
+    const publicRouteRegistry = readFileSync(repoPath('src/frontend/src/public-renderers/publicRouteRegistry.ts'), 'utf8')
+    const retiredTokens = ['About.vue', 'useAboutPage']
+
+    expect(retiredTokens.filter((token) => source.includes(token))).toEqual([])
+    expect(publicRouteRegistry).toContain("props: { pageKind: 'About', slug: 'about', title: '关于' }")
+    expect(publicRouteRegistry).toContain("component: () => import('@/views/PublicDynamicPage.vue')")
+  })
 })

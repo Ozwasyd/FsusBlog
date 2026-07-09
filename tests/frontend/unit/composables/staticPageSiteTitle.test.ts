@@ -2,7 +2,6 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { computed, defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAboutPage } from '@/composables/useAboutPage'
 import { useStaticPage } from '@/composables/useStaticPage'
 import { createPublicSiteIdentity, providePublicSiteIdentity } from '@/public-renderers/publicSiteIdentityContext'
 import { createAboutPageViewContract } from '@/view-contracts/aboutPage'
@@ -46,8 +45,12 @@ describe('static public page identity ownership', () => {
 
     const Child = defineComponent({
       setup() {
-        const { aboutView } = useAboutPage()
-        return { aboutView }
+        const { staticPageView } = useStaticPage({
+          kind: 'About',
+          slug: 'about',
+          title: '关于'
+        })
+        return { staticPageView }
       },
       template: '<div />'
     })
@@ -63,8 +66,8 @@ describe('static public page identity ownership', () => {
       }
     })
 
-    expect(wrapper.findComponent(Child).vm.aboutView).not.toHaveProperty('footer')
-    expect(wrapper.findComponent(Child).vm.aboutView.header.title).toBe('关于')
+    expect(wrapper.findComponent(Child).vm.staticPageView).not.toHaveProperty('footer')
+    expect(wrapper.findComponent(Child).vm.staticPageView.header.title).toBe('关于')
   })
 
   it('keeps policy page views free of shell-owned site identity', () => {
@@ -118,13 +121,17 @@ describe('static public page identity ownership', () => {
 
     const Child = defineComponent({
       setup() {
-        const { aboutView } = useAboutPage()
+        const { staticPageView: aboutPageView } = useStaticPage({
+          kind: 'About',
+          slug: 'about',
+          title: '关于'
+        })
         const { staticPageView } = useStaticPage({
           kind: 'Privacy',
           slug: 'privacy',
           title: '隐私政策'
         })
-        return { aboutView, staticPageView }
+        return { aboutPageView, staticPageView }
       },
       template: '<div />'
     })
@@ -141,9 +148,9 @@ describe('static public page identity ownership', () => {
     })
 
     const child = wrapper.findComponent(Child)
-    expect(child.vm.aboutView).not.toHaveProperty('footer')
+    expect(child.vm.aboutPageView).not.toHaveProperty('footer')
     expect(child.vm.staticPageView).not.toHaveProperty('footer')
-    expect(child.vm.aboutView.body.content).toBe('Hydration content')
+    expect(child.vm.aboutPageView.body.content).toBe('Hydration content')
     expect(child.vm.staticPageView.body.content).toBe('Hydration content')
   })
 })
