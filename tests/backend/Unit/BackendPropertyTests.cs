@@ -77,12 +77,12 @@ public sealed class BackendPropertyTests
             int? categoryId = i % 3 == 0 ? i : null;
             int? tagId = i % 5 == 0 ? i + 1 : null;
             bool isDeleted = i % 7 == 0;
-            string listKey = CacheKeyBuilder.ArticleList(page, size, categoryId, tagId, isDeleted);
-            string listKeyAgain = CacheKeyBuilder.ArticleList(page, size, categoryId, tagId, isDeleted);
-            string detailKey = CacheKeyBuilder.ArticleDetail(i + 1);
+            string listKey = TestCacheKeyBuilder.ArticleList(page, size, categoryId, tagId, isDeleted);
+            string listKeyAgain = TestCacheKeyBuilder.ArticleList(page, size, categoryId, tagId, isDeleted);
+            string detailKey = TestCacheKeyBuilder.ArticleDetail(i + 1);
             PublicPageId pageId = publicPages[i % publicPages.Length];
             string routeKey = $"route-{i}:article-{i + 10}";
-            string shellKey = CacheKeyBuilder.PublicAotShell(pageId, routeKey);
+            string shellKey = TestCacheKeyBuilder.PublicAotShell(pageId, routeKey);
             string documentKey = CacheKeyBuilder.PublicAotDocument(pageId, routeKey);
 
             Assert.Equal(listKey, listKeyAgain);
