@@ -55,14 +55,14 @@ public sealed class AuthoringWorkflowService(
             DraftKey = draftKey,
             ArticleId = request.ArticleId,
             Title = Normalize(request.Title, 256),
-            Summary = NormalizeNullable(request.Summary, 512),
-            CoverImageUrl = NormalizeNullable(request.CoverImageUrl, 512),
+            Summary = TextHelpers.NormalizeNullable(request.Summary, 512),
+            CoverImageUrl = TextHelpers.NormalizeNullable(request.CoverImageUrl, 512),
             CategoryId = Math.Max(0, request.CategoryId),
             TagIds = tagIds,
             MarkdownContent = Normalize(request.Content, 200_000),
             Status = NormalizeArticleStatus(request.Status),
             RightsJson = SerializeDraftRights(rights),
-            ClientRevision = NormalizeNullable(request.ClientRevision, 64),
+            ClientRevision = TextHelpers.NormalizeNullable(request.ClientRevision, 64),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -994,7 +994,7 @@ public sealed class AuthoringWorkflowService(
         }
 
         DateTime moderatedAt = DateTime.UtcNow;
-        string? normalizedReason = NormalizeNullable(request.Reason, 256);
+        string? normalizedReason = TextHelpers.NormalizeNullable(request.Reason, 256);
         int count = await db.Updateable<Comment>()
             .SetColumns(it => it.ModerationStatus == request.Status)
             .SetColumns(it => it.ModerationReason == normalizedReason)
@@ -1042,7 +1042,7 @@ public sealed class AuthoringWorkflowService(
         List<CommentModerationStateRow> rows = await LoadCommentModerationStatesAsync(ids, cancellationToken);
         var eligibleRows = new List<CommentModerationStateRow>(rows.Count);
         DateTime moderatedAt = DateTime.UtcNow;
-        string? normalizedReason = NormalizeNullable(request.Reason, 256);
+        string? normalizedReason = TextHelpers.NormalizeNullable(request.Reason, 256);
         foreach (CommentModerationStateRow row in rows)
         {
             if (!IsAllowedModerationTransition(row.Status, request.Status))
@@ -1239,7 +1239,7 @@ public sealed class AuthoringWorkflowService(
         string operation = NormalizeAiAssistOperation(request.Operation);
         string clean = ImageHelper.StripMarkdown(request.Content ?? string.Empty, 240);
         IReadOnlyList<PrepublishIssue> issues = RunPrepublishCheck(request.Title, request.Content ?? string.Empty, clean, null).Issues;
-        string auditTarget = $"operation={operation};provider={provider};mode={providerMode};externalAllowed={externalProviderAllowed};locale={NormalizeNullable(request.Locale, 24) ?? "default"}";
+        string auditTarget = $"operation={operation};provider={provider};mode={providerMode};externalAllowed={externalProviderAllowed};locale={TextHelpers.NormalizeNullable(request.Locale, 24) ?? "default"}";
         WriteAudit(AuditSourceCatalog.Article, "author-ai-assist", actorUserId, auditTarget);
         return new AiAssistResponse(
             enabled,
@@ -1295,7 +1295,7 @@ public sealed class AuthoringWorkflowService(
         CommentModerationModelSignalResponse? latestSignal = row.ModelSignals.FirstOrDefault();
         bool isAnonymousActor = IsAnonymousActor(row);
         string authorDisplayName = ResolveModerationAuthorDisplayName(row);
-        string? nullifierHash = isAnonymousActor ? NormalizeNullable(row.AnonymousNullifierHash, 128) : null;
+        string? nullifierHash = isAnonymousActor ? TextHelpers.NormalizeNullable(row.AnonymousNullifierHash, 128) : null;
         return new CommentModerationItemResponse(
             row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
             row.ArticleId,
@@ -1344,7 +1344,7 @@ public sealed class AuthoringWorkflowService(
 
     private static bool IsAnonymousActor(CommentModerationQueueRow row)
     {
-        string mode = (row.AuthorMode ?? string.Empty).Trim().ToLowerInvariant();
+        string mode = TextHelpers.LowerTrimmed(row.AuthorMode) ?? string.Empty;
         return mode is "" or "anonymous" or "zk_anonymous"
             || !string.IsNullOrWhiteSpace(row.AnonymousNullifierHash)
             || !string.IsNullOrWhiteSpace(row.ModerationSubjectHash);
@@ -1442,7 +1442,7 @@ public sealed class AuthoringWorkflowService(
             reasons.Add("spam-repeat");
         }
 
-        string? reason = NormalizeNullable(storedReason, 64);
+        string? reason = TextHelpers.NormalizeNullable(storedReason, 64);
         if (string.Equals(reason, "pending_review", StringComparison.OrdinalIgnoreCase))
         {
             reasons.Add("pending-review");
@@ -1541,7 +1541,7 @@ public sealed class AuthoringWorkflowService(
         CancellationToken cancellationToken)
     {
         string[] hashes = [.. rows
-            .Select(static row => NormalizeNullable(row.AnonymousNullifierHash, 128))
+            .Select(static row => TextHelpers.NormalizeNullable(row.AnonymousNullifierHash, 128))
             .OfType<string>()
             .Distinct(StringComparer.Ordinal)];
         if (hashes.Length == 0)
@@ -1559,8 +1559,8 @@ public sealed class AuthoringWorkflowService(
 
         foreach (CommentModerationQueueRow row in rows)
         {
-            string? hash = NormalizeNullable(row.AnonymousNullifierHash, 128);
-            string? scope = NormalizeNullable(row.AnonymousScope, 128);
+            string? hash = TextHelpers.NormalizeNullable(row.AnonymousNullifierHash, 128);
+            string? scope = TextHelpers.NormalizeNullable(row.AnonymousScope, 128);
             if (hash is null || scope is null)
             {
                 continue;
@@ -1620,7 +1620,7 @@ public sealed class AuthoringWorkflowService(
             return 0;
         }
 
-        string effectiveReason = NormalizeNullable(reason, 256) ?? "评论审核处置";
+        string effectiveReason = TextHelpers.NormalizeNullable(reason, 256) ?? "评论审核处置";
         var bannedUserIds = new List<int>();
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
@@ -2360,7 +2360,7 @@ public sealed class AuthoringWorkflowService(
         aggregate.ReferenceCount++;
         if (string.IsNullOrWhiteSpace(aggregate.AltText) && !string.IsNullOrWhiteSpace(altText))
         {
-            aggregate.AltText = NormalizeNullable(altText, 256);
+            aggregate.AltText = TextHelpers.NormalizeNullable(altText, 256);
         }
     }
 
@@ -2525,14 +2525,8 @@ public sealed class AuthoringWorkflowService(
 
     private static string Normalize(string? raw, int maxLength)
     {
-        string value = raw?.Trim() ?? string.Empty;
+        string value = TextHelpers.TrimOrEmpty(raw);
         return value.Length > maxLength ? value[..maxLength] : value;
-    }
-
-    private static string? NormalizeNullable(string? raw, int maxLength)
-    {
-        string value = Normalize(raw, maxLength);
-        return value.Length == 0 ? null : value;
     }
 
     private static ArticleRightsRequest NormalizeDraftRights(ArticleRightsRequest? request)
@@ -2561,10 +2555,10 @@ public sealed class AuthoringWorkflowService(
             Mode = string.Equals(request.Mode, "custom", StringComparison.OrdinalIgnoreCase) ? "custom" : "site",
             Enabled = request.Enabled,
             LicenseType = NormalizeDraftRightsToken(request.LicenseType, "all-rights-reserved"),
-            CopyrightHolder = NormalizeNullable(request.CopyrightHolder, 256),
+            CopyrightHolder = TextHelpers.NormalizeNullable(request.CopyrightHolder, 256),
             CopyrightYear = request.CopyrightYear,
-            RightsStatement = NormalizeNullable(request.RightsStatement, 4000),
-            AttributionTemplate = NormalizeNullable(request.AttributionTemplate, 4000),
+            RightsStatement = TextHelpers.NormalizeNullable(request.RightsStatement, 4000),
+            AttributionTemplate = TextHelpers.NormalizeNullable(request.AttributionTemplate, 4000),
             CopyPolicy = NormalizeDraftRightsToken(request.CopyPolicy, "append-attribution"),
             MaxExcerptChars = Math.Max(0, request.MaxExcerptChars),
             AllowCodeCopy = request.AllowCodeCopy,
@@ -2648,7 +2642,7 @@ public sealed class AuthoringWorkflowService(
             return string.Empty;
         }
 
-        string targetLocale = NormalizeNullable(locale, 24) ?? "target-locale";
+        string targetLocale = TextHelpers.NormalizeNullable(locale, 24) ?? "target-locale";
         string clean = ImageHelper.StripMarkdown(content ?? string.Empty, 800);
         return clean.Length == 0
             ? string.Empty
@@ -2920,7 +2914,7 @@ public sealed class AuthoringWorkflowService(
 
     private static string? NormalizePreviewUrl(string? raw, bool allowMailTo)
     {
-        string value = raw?.Trim() ?? string.Empty;
+        string value = TextHelpers.TrimOrEmpty(raw);
         if (value.Length == 0 || value.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase) || value.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
         {
             return null;
@@ -3072,8 +3066,8 @@ fsusMetadataJson: {encodedMetadata}
                 }
 
                 if (values.TryGetValue("title", out string? rawTitle) && !string.IsNullOrWhiteSpace(rawTitle)) title = rawTitle;
-                if (values.TryGetValue("summary", out string? rawSummary)) summary = NormalizeNullable(rawSummary, 512);
-                if (values.TryGetValue("cover", out string? rawCover)) cover = NormalizeNullable(rawCover, 512);
+                if (values.TryGetValue("summary", out string? rawSummary)) summary = TextHelpers.NormalizeNullable(rawSummary, 512);
+                if (values.TryGetValue("cover", out string? rawCover)) cover = TextHelpers.NormalizeNullable(rawCover, 512);
                 if (values.TryGetValue("categoryId", out string? rawCategory) && int.TryParse(rawCategory, out int parsedCategory)) categoryId = Math.Max(1, parsedCategory);
                 if (values.TryGetValue("status", out string? rawStatus) && int.TryParse(rawStatus, out int parsedStatus) && ArticleStatusProjection.IsDefined(parsedStatus)) status = (ArticleStatus)parsedStatus;
                 if (values.TryGetValue("scheduledPublishAt", out string? rawScheduled)
@@ -3115,8 +3109,8 @@ fsusMetadataJson: {encodedMetadata}
                 ArticleId = articleId,
                 RevisionNo = Math.Max(1, revision.RevisionNo),
                 Title = Normalize(revision.Title, 256),
-                Summary = NormalizeNullable(revision.Summary, 512),
-                CoverImageUrl = NormalizeNullable(revision.CoverImageUrl, 512),
+                Summary = TextHelpers.NormalizeNullable(revision.Summary, 512),
+                CoverImageUrl = TextHelpers.NormalizeNullable(revision.CoverImageUrl, 512),
                 CategoryId = Math.Max(1, revision.CategoryId),
                 TagIds = string.Join(',', NormalizeTagIds(revision.TagIds)),
                 MarkdownContent = Normalize(revision.Content, 200_000),

@@ -6,6 +6,7 @@ using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Services.Security;
@@ -334,7 +335,7 @@ public sealed class MfaChallengeService(
             "mfa-proof",
             accountId.ToString(CultureInfo.InvariantCulture),
             subject,
-            action.Trim().ToLowerInvariant(),
+            TextHelpers.LowerTrimmed(action) ?? string.Empty,
             token.Trim());
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(material)));
     }
@@ -349,7 +350,7 @@ public sealed class MfaChallengeService(
     {
         if (!string.IsNullOrWhiteSpace(accountSubjectHash))
         {
-            return accountSubjectHash.Trim().ToLowerInvariant();
+            return TextHelpers.LowerTrimmed(accountSubjectHash) ?? string.Empty;
         }
 
         return AccountSubjectHasher.Create(

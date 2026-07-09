@@ -342,7 +342,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
         try
         {
-            string normalized = eventType.Trim().ToLowerInvariant();
+            string normalized = TextHelpers.LowerTrimmed(eventType) ?? string.Empty;
             if (normalized is "deleted" or "permanently-deleted" or "trash-cleared")
             {
                 return await ReplayDeletedArticleEdgesAsync(normalized).ConfigureAwait(false);

@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Interfaces;
@@ -259,9 +260,7 @@ public static partial class BinaryEndpoints
 
     private static string NormalizeAnonymousCredentialStatus(string? status)
     {
-        string normalized = string.IsNullOrWhiteSpace(status)
-            ? string.Empty
-            : status.Trim().ToLowerInvariant();
+        string normalized = TextHelpers.LowerTrimmed(status) ?? string.Empty;
         return normalized;
     }
 

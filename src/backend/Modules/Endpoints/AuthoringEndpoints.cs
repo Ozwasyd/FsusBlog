@@ -1959,7 +1959,7 @@ public static class AuthoringEndpoints
         => context.User.HasClaim(AdminPermissions.PermissionClaimType, AdminPermissions.AuditInvestigate);
 
     private static string NormalizePiiMode(string? piiMode)
-        => string.IsNullOrWhiteSpace(piiMode) ? "pii-redacted" : piiMode.Trim().ToLowerInvariant();
+        => TextHelpers.LowerTrimmed(piiMode) ?? "pii-redacted";
 
     private static string FormatAuditDisclosureMode(AuditDisclosureMode disclosureMode)
         => disclosureMode == AuditDisclosureMode.Investigation ? "investigation" : "pii-redacted";

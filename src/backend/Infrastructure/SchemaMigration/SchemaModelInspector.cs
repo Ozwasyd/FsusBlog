@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Data;
 using System.Reflection;
+using FsusBlog.Server.Infrastructure.Helpers;
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -265,7 +266,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
     }
 
     internal static string NormalizeIdentifier(string name)
-        => name.Trim().ToLowerInvariant();
+        => TextHelpers.LowerTrimmed(name) ?? string.Empty;
 
     private static SchemaColumnModel BuildColumnModel(PropertyInfo property, SugarColumn? columnAttribute, string columnName)
     {
@@ -337,7 +338,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
     }
 
     private static string NormalizeDeclaredType(string type)
-        => type.Trim().ToLowerInvariant() switch
+        => (TextHelpers.LowerTrimmed(type) ?? string.Empty) switch
         {
             "timestamp" => "timestamp without time zone",
             var value => value
@@ -350,7 +351,7 @@ public sealed class SchemaModelInspector : ISchemaModelInspector
             return udtName.ToLowerInvariant();
         }
 
-        return dataType.Trim().ToLowerInvariant();
+        return TextHelpers.LowerTrimmed(dataType) ?? string.Empty;
     }
 }
 

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Infrastructure.Testing;
 
@@ -74,7 +75,7 @@ public sealed partial class HttpTestSessionKeyScope(IHttpContextAccessor httpCon
             return null;
         }
 
-        string normalized = raw.Trim().ToLowerInvariant();
+        string normalized = TextHelpers.LowerTrimmed(raw) ?? string.Empty;
         return SessionIdPattern().IsMatch(normalized) ? normalized : null;
     }
 
@@ -111,7 +112,7 @@ public sealed class TestSessionValidationMiddleware(RequestDelegate next, IWebHo
             return;
         }
 
-        string session = raw.First()!.Trim().ToLowerInvariant();
+        string session = TextHelpers.LowerTrimmed(raw.First()) ?? string.Empty;
         if (!HttpTestSessionKeyScope.IsValidSessionId(session))
         {
             context.Response.StatusCode = StatusCodes.Status400BadRequest;

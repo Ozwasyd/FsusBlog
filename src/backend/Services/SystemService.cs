@@ -430,7 +430,12 @@ public partial class SystemService(
             return false;
         }
 
-        string normalized = value.Trim();
+        string? normalized = TextHelpers.TrimOrNull(value);
+        if (normalized is null)
+        {
+            return false;
+        }
+
         for (int i = 0; i < retiredDefaults.Count; i++)
         {
             if (string.Equals(normalized, retiredDefaults[i], StringComparison.OrdinalIgnoreCase))
@@ -444,12 +449,7 @@ public partial class SystemService(
 
     private static string NormalizeSlug(string? slug)
     {
-        if (string.IsNullOrWhiteSpace(slug))
-        {
-            return string.Empty;
-        }
-
-        var value = slug.Trim().ToLowerInvariant();
+        string value = TextHelpers.LowerTrimmed(slug) ?? string.Empty;
         if (value.Length > MaxSlugLength)
         {
             value = value[..MaxSlugLength];
@@ -559,7 +559,7 @@ public partial class SystemService(
     }
 
     private static string NormalizeRegionMode(string? value)
-        => string.Equals(value?.Trim(), "mainland-cn", StringComparison.OrdinalIgnoreCase)
+        => string.Equals(TextHelpers.LowerTrimmed(value), "mainland-cn", StringComparison.Ordinal)
             ? "mainland-cn"
             : "global";
 
@@ -666,7 +666,7 @@ public partial class SystemService(
             return string.Empty;
         }
 
-        string normalized = value.Trim();
+        string normalized = TextHelpers.TrimOrEmpty(value);
         return normalized.Length > maxLength ? normalized[..maxLength] : normalized;
     }
 
@@ -677,7 +677,7 @@ public partial class SystemService(
             return string.Empty;
         }
 
-        string normalized = value.Trim();
+        string normalized = TextHelpers.TrimOrEmpty(value);
         if (Encoding.UTF8.GetByteCount(normalized) <= maxBytes)
         {
             return normalized;

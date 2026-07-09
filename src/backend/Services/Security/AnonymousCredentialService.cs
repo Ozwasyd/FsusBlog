@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Helpers;
 using SqlSugar;
 using System.Text.Json;
 
@@ -224,7 +225,7 @@ public sealed class AnonymousCredentialService(ISqlSugarClient db) : IAnonymousC
 
     private static string NormalizeToken(string? value, string fallback)
     {
-        string normalized = (value ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
+        string normalized = TextHelpers.NormalizeModeToken(value) ?? string.Empty;
         return normalized.Length > 0 ? normalized : fallback;
     }
 

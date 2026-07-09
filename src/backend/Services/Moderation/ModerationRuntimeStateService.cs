@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
 
@@ -132,7 +133,7 @@ public sealed class ModerationRuntimeStateService(
                 GlobalState = normalized,
                 ChangedAtUtc = DateTime.UtcNow,
                 ChangedBy = NormalizeActor(changedBy),
-                Reason = NormalizeNullable(reason),
+                Reason = TextHelpers.TrimOrNull(reason),
                 ExpiresAtUtc = expiresAtUtc,
                 LastError = null
             };
@@ -182,7 +183,7 @@ public sealed class ModerationRuntimeStateService(
                 RegionStates = regionStates,
                 ChangedAtUtc = DateTime.UtcNow,
                 ChangedBy = NormalizeActor(changedBy),
-                Reason = NormalizeNullable(reason),
+                Reason = TextHelpers.TrimOrNull(reason),
                 ExpiresAtUtc = expiresAtUtc,
                 LastError = null
             };
@@ -224,7 +225,7 @@ public sealed class ModerationRuntimeStateService(
                 DisabledDictionaryIds = disabled,
                 ChangedAtUtc = DateTime.UtcNow,
                 ChangedBy = NormalizeActor(changedBy),
-                Reason = NormalizeNullable(reason),
+                Reason = TextHelpers.TrimOrNull(reason),
                 LastError = null
             };
             Volatile.Write(ref _snapshot, next);
@@ -291,8 +292,8 @@ public sealed class ModerationRuntimeStateService(
                 SnapshotId = BuildSnapshotId("model", $"{resolvedProvider}:{enabled?.ToString() ?? "same"}", DateTime.UtcNow),
                 Enabled = nextEnabled,
                 Provider = resolvedProvider,
-                ModelProfile = runtime?.ModelProfile ?? NormalizeNullable(modelProfile) ?? current.ModelProfile,
-                ThresholdProfile = NormalizeNullable(thresholdProfile) ?? current.ThresholdProfile,
+                ModelProfile = runtime?.ModelProfile ?? TextHelpers.TrimOrNull(modelProfile) ?? current.ModelProfile,
+                ThresholdProfile = TextHelpers.TrimOrNull(thresholdProfile) ?? current.ThresholdProfile,
                 ContractVersion = runtime?.ContractVersion ?? current.ContractVersion,
                 ConfigChecksum = runtime?.ConfigChecksum ?? BuildChecksum($"{enabled}:{resolvedProvider}:{modelProfile}:{thresholdProfile}:{DateTime.UtcNow:O}"),
                 LoadedAtUtc = DateTime.UtcNow,
@@ -309,7 +310,7 @@ public sealed class ModerationRuntimeStateService(
                 Model = nextModel,
                 ChangedAtUtc = DateTime.UtcNow,
                 ChangedBy = NormalizeActor(changedBy),
-                Reason = NormalizeNullable(reason),
+                Reason = TextHelpers.TrimOrNull(reason),
                 LastError = null
             };
             Volatile.Write(ref _snapshot, next);
@@ -386,7 +387,7 @@ public sealed class ModerationRuntimeStateService(
     private static Result<ModerationModelRuntimeSnapshot> BuildModelSnapshotResult(IConfiguration configuration, string loadedBy)
     {
         bool enabled = configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled");
-        string channel = NormalizeNullable(configuration["Moderation:AntiSpamModel:RuntimeChannel"]) ?? "stable";
+        string channel = TextHelpers.TrimOrNull(configuration["Moderation:AntiSpamModel:RuntimeChannel"]) ?? "stable";
         string thresholdProfile = configuration["Moderation:AntiSpamModel:ThresholdProfile"] ?? "default";
         int timeoutMs = Math.Clamp(configuration.GetValue<int?>("Moderation:AntiSpamModel:TimeoutMs") ?? 800, 100, 10_000);
         bool failOpen = configuration.GetValue<bool?>("Moderation:AntiSpamModel:FailOpen") ?? true;
@@ -444,7 +445,7 @@ public sealed class ModerationRuntimeStateService(
             new FsusAntiSpamModelRuntimeLoadOptions(
                 configuration.GetValue<bool?>("Moderation:AntiSpamModel:RequireSignature") ?? true,
                 configuration["Moderation:AntiSpamModel:TrustedSigningKey"],
-                NormalizeNullable(configuration["Moderation:AntiSpamModel:RuntimeChannel"]) ?? "stable"));
+                TextHelpers.TrimOrNull(configuration["Moderation:AntiSpamModel:RuntimeChannel"]) ?? "stable"));
 
     private static string NormalizeRegion(string? region)
         => (region ?? string.Empty).Trim().ToUpperInvariant() switch
@@ -465,10 +466,10 @@ public sealed class ModerationRuntimeStateService(
         };
 
     private static string NormalizeState(string? value)
-        => (value ?? string.Empty).Trim().ToLowerInvariant();
+        => TextHelpers.LowerTrimmed(value) ?? string.Empty;
 
     private static string NormalizeProvider(string? provider)
-        => (provider ?? AntiSpamModerationProviders.None).Trim().ToLowerInvariant() switch
+        => (TextHelpers.LowerTrimmed(provider) ?? AntiSpamModerationProviders.None) switch
         {
             "" => AntiSpamModerationProviders.BuiltIn,
             "builtin" or "built-in" or "fsus-antispammodel" => AntiSpamModerationProviders.BuiltIn,
@@ -478,12 +479,6 @@ public sealed class ModerationRuntimeStateService(
 
     private static string NormalizeActor(string? actor)
         => string.IsNullOrWhiteSpace(actor) ? "system" : actor.Trim();
-
-    private static string? NormalizeNullable(string? value)
-    {
-        string normalized = (value ?? string.Empty).Trim();
-        return normalized.Length == 0 ? null : normalized;
-    }
 
     private static string BuildSnapshotId(string scope, string value, DateTime timestamp)
         => $"moderation-runtime:{scope}:{BuildChecksum($"{value}:{timestamp:O}")[..12]}";

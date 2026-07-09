@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using FsusBlog.Server.Infrastructure.Helpers;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 
@@ -532,7 +533,7 @@ public sealed class PerceptionSealedTokenService(
 
     private static string NormalizeOptionalHash(string? value, string name)
     {
-        string normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        string normalized = TextHelpers.LowerTrimmed(value) ?? string.Empty;
         if (normalized.Length == 0)
         {
             return string.Empty;

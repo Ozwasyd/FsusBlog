@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Services.Subscriptions;
@@ -286,7 +287,7 @@ internal static class SiteSubscriptionIdentity
 
     private static string NormalizeEmail(string? email)
     {
-        string normalized = email?.Trim().ToLowerInvariant() ?? string.Empty;
+        string normalized = TextHelpers.LowerTrimmed(email) ?? string.Empty;
         return normalized.Length < 5 || !normalized.Contains('@', StringComparison.Ordinal)
             ? string.Empty
             : normalized;

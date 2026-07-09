@@ -8,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Security;
@@ -539,7 +540,7 @@ public partial class CommentService(
 
     private static string HashAnonymousScopeForLog(string? scope)
     {
-        string normalized = string.IsNullOrWhiteSpace(scope) ? "unknown" : scope.Trim();
+        string normalized = TextHelpers.TrimOrNull(scope) ?? "unknown";
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)))[..16];
     }
 
@@ -554,8 +555,8 @@ public partial class CommentService(
             language,
             ticket.Scope,
             ticket.NullifierHash));
-        string credentialLevel = NormalizeNullable(ticket.CredentialLevel, 32) ?? AnonymousCredentialLevels.StrongAnonymous;
-        string reputationBucket = NormalizeNullable(ticket.ReputationBucket, 32) ?? "unrated";
+        string credentialLevel = TextHelpers.NormalizeNullable(ticket.CredentialLevel, 32) ?? AnonymousCredentialLevels.StrongAnonymous;
+        string reputationBucket = TextHelpers.NormalizeNullable(ticket.ReputationBucket, 32) ?? "unrated";
         return new CommentActor(
             UserId: null,
             AuthorMode: CommentAuthorModes.ZkAnonymous,
@@ -595,7 +596,7 @@ public partial class CommentService(
 
     private static string NormalizeAnonymousScope(string? value, int articleId)
     {
-        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+        string normalized = TextHelpers.TrimOrEmpty(value);
         return normalized.Length == 0 ? $"article:{articleId}" : normalized;
     }
 
@@ -636,7 +637,7 @@ public partial class CommentService(
             TimeSpan.FromMinutes(30),
             SecurityRiskSources.RiskControl,
             ResolveCommentRiskAction(httpContext),
-            $"nullifier:{NormalizeNullable(status, 64) ?? "rejected"};scope:{NormalizeNullable(scope, 64) ?? "unknown"}"), cancellationToken);
+            $"nullifier:{TextHelpers.NormalizeNullable(status, 64) ?? "rejected"};scope:{TextHelpers.NormalizeNullable(scope, 64) ?? "unknown"}"), cancellationToken);
     }
 
     private static string ResolveCommentRiskAction(HttpContext httpContext)
@@ -648,7 +649,7 @@ public partial class CommentService(
     {
         if (decision.DecisionReason.Contains("risk_control_queue", StringComparison.Ordinal))
         {
-            return NormalizeNullable($"published_{decision.DecisionReason}", 256) ?? "published_risk_control_queue";
+            return TextHelpers.NormalizeNullable($"published_{decision.DecisionReason}", 256) ?? "published_risk_control_queue";
         }
 
         if (decision.HideUntilReviewed)
@@ -685,7 +686,7 @@ public partial class CommentService(
 
         CommentModerationStatus previousStatus = comment.ModerationStatus;
         DateTime moderatedAt = DateTime.UtcNow;
-        string reason = NormalizeNullable($"model_policy:{disposition.Reason}", 256) ?? disposition.Reason;
+        string reason = TextHelpers.NormalizeNullable($"model_policy:{disposition.Reason}", 256) ?? disposition.Reason;
         AutomaticModerationTarget? target = await LoadAutomaticModerationTargetAsync(comment.Id, cancellationToken);
         if (target is null || target.ModerationStatus != previousStatus)
         {
@@ -1034,7 +1035,7 @@ public partial class CommentService(
     private async Task<bool> DeleteCommentInternalAsync(long id, int currentUserId, bool isAdmin, string reason)
     {
         DateTime deletedAt = DateTime.UtcNow;
-        string? normalizedReason = NormalizeNullable(reason, 256);
+        string? normalizedReason = TextHelpers.NormalizeNullable(reason, 256);
         DeleteCommentRow? row = null;
         bool isAttributableUserComment = false;
         bool deleted = false;
@@ -1641,20 +1642,20 @@ ORDER BY x.root_id, x.id;
         string fallbackName = string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
             ? "未署名用户"
             : ResolveAnonymousDisplayFallback(displayLanguage);
-        string resolvedDisplayName = NormalizeNullable(displayName, 96) ?? fallbackName;
+        string resolvedDisplayName = TextHelpers.NormalizeNullable(displayName, 96) ?? fallbackName;
 
         return new CommentAuthorViewDto(
             mode,
             resolvedDisplayName,
             NormalizeAuthorDisplayLanguage(displayLanguage),
             null,
-            string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal) ? null : NormalizeNullable(anonymousScope, 128),
-            string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal) ? null : NormalizeNullable(credentialLevel, 32));
+            string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal) ? null : TextHelpers.NormalizeNullable(anonymousScope, 128),
+            string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal) ? null : TextHelpers.NormalizeNullable(credentialLevel, 32));
     }
 
     private static string NormalizeAuthorModeForView(string? authorMode)
     {
-        string normalized = (authorMode ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
+        string? normalized = TextHelpers.NormalizeModeToken(authorMode);
         return normalized is CommentAuthorModes.Public or CommentAuthorModes.ZkAnonymous
             ? normalized
             : CommentAuthorModes.Anonymous;
@@ -1672,10 +1673,10 @@ ORDER BY x.root_id, x.id;
         string mode = NormalizeAuthorModeForView(authorMode);
         if (string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal))
         {
-            return NormalizeNullable(publicHandle, 96) ?? "未署名用户";
+            return TextHelpers.NormalizeNullable(publicHandle, 96) ?? "未署名用户";
         }
 
-        return NormalizeNullable(anonymousDisplayName, 96)
+        return TextHelpers.NormalizeNullable(anonymousDisplayName, 96)
             ?? ResolveAnonymousDisplayFallback(anonymousDisplayLanguage);
     }
 
@@ -1694,7 +1695,7 @@ ORDER BY x.root_id, x.id;
             return string.Empty;
         }
 
-        return content.Trim();
+        return TextHelpers.TrimOrEmpty(content);
     }
 
     private async Task<AnonymousCommentPolicySnapshot> ResolveCommentPolicyAsync(CancellationToken cancellationToken)
@@ -1711,28 +1712,17 @@ ORDER BY x.root_id, x.id;
         => userId is > 0
             && string.Equals(authorMode, CommentAuthorModes.Public, StringComparison.Ordinal);
 
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        string trimmed = value.Trim();
-        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
-    }
-
     private static CommentRegionCompliance BuildRegionCompliance(long commentId, RegionModerationDecision decision)
     {
         DateTime now = DateTime.UtcNow;
         return new CommentRegionCompliance
         {
             CommentId = commentId,
-            SubmitRegion = NormalizeNullable(decision.SubmitRegion, 64) ?? RegionCodes.Unknown,
+            SubmitRegion = TextHelpers.NormalizeNullable(decision.SubmitRegion, 64) ?? RegionCodes.Unknown,
             SubmitRegionConfidence = Math.Clamp(decision.SubmitRegionConfidence, 0d, 1d),
-            RegionProvider = NormalizeNullable(decision.RegionProvider, 64) ?? "unknown",
-            SubmitIpHash = NormalizeNullable(decision.SubmitIpHash, 64),
-            PolicyVersion = NormalizeNullable(decision.PolicyVersion, 64) ?? RegionLegalModerationService.CurrentPolicyVersion,
+            RegionProvider = TextHelpers.NormalizeNullable(decision.RegionProvider, 64) ?? "unknown",
+            SubmitIpHash = TextHelpers.NormalizeNullable(decision.SubmitIpHash, 64),
+            PolicyVersion = TextHelpers.NormalizeNullable(decision.PolicyVersion, 64) ?? RegionLegalModerationService.CurrentPolicyVersion,
             CanPublish = decision.CanPublish,
             RequiresManualReview = decision.RequiresManualReview,
             HideUntilReviewed = decision.HideUntilReviewed,
@@ -1742,7 +1732,7 @@ ORDER BY x.root_id, x.id;
                 .Select(static label => label.Trim())
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(static label => label, StringComparer.Ordinal)),
-            DecisionReason = NormalizeNullable(decision.DecisionReason, 256),
+            DecisionReason = TextHelpers.NormalizeNullable(decision.DecisionReason, 256),
             RuleHitsJson = decision.RuleHits.Count == 0 ? null : JsonSerializer.Serialize(decision.RuleHits),
             CreatedAtUtc = now,
             UpdatedAtUtc = now
@@ -1763,7 +1753,7 @@ ORDER BY x.root_id, x.id;
             .Select(region => new CommentBlockedRegion
             {
                 CommentId = commentId,
-                RegionCode = NormalizeNullable(region, 64) ?? RegionCodes.Unknown
+                RegionCode = TextHelpers.NormalizeNullable(region, 64) ?? RegionCodes.Unknown
             })];
         if (rows.Length > 0)
         {

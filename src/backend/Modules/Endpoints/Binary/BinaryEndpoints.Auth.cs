@@ -44,7 +44,7 @@ public static partial class BinaryEndpoints
             ? AccountSubjectHasher.Create(
                 ResolveBinaryIdentityKind(account.IdentityKind),
                 string.Concat("legacy-account:", account.Id.ToString(CultureInfo.InvariantCulture)))
-            : account.AccountSubjectHash.Trim().ToLowerInvariant();
+            : TextHelpers.LowerTrimmed(account.AccountSubjectHash) ?? string.Empty;
 
     private static void MapBinaryAuthEndpoints(IEndpointRouteBuilder group)
     {

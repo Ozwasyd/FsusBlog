@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Shared.Contracts.Security;
@@ -198,8 +199,8 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
             parameters.Iterations,
             parameters.Lanes,
             parameters.TargetDurationMs,
-            nonceHex.Trim().ToLowerInvariant(),
-            proofHex.Trim().ToLowerInvariant());
+            TextHelpers.LowerTrimmed(nonceHex) ?? string.Empty,
+            TextHelpers.LowerTrimmed(proofHex) ?? string.Empty);
         return true;
     }
 
@@ -233,7 +234,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProvider(
         }
 
         parsed = new PoSpaceChallengeParameters(
-            saltHex.Trim().ToLowerInvariant(),
+            TextHelpers.LowerTrimmed(saltHex) ?? string.Empty,
             memoryKib,
             iterations,
             lanes,

@@ -240,7 +240,7 @@ internal static class ServerCacheBinaryCodec
                 Enabled = reader.ReadBoolean(),
                 RegionMode = ReadString(reader),
                 CopyrightOwner = ReadString(reader),
-                CopyrightStartYear = NormalizeNullableYear(reader.ReadInt32()),
+                CopyrightStartYear = NormalizeYearOrNull(reader.ReadInt32()),
                 CopyrightText = ReadString(reader),
                 ContentLicenseName = ReadString(reader),
                 ContentLicenseUrl = ReadString(reader),
@@ -713,6 +713,6 @@ internal static class ServerCacheBinaryCodec
         return count;
     }
 
-    private static int? NormalizeNullableYear(int value)
+    private static int? NormalizeYearOrNull(int value)
         => value > 0 ? value : null;
 }

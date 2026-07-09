@@ -1,5 +1,6 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using System.Globalization;
 
@@ -125,7 +126,7 @@ public sealed class UserSecurityStepUpService(
             ? AccountSubjectHasher.Create(
                 string.IsNullOrWhiteSpace(account.IdentityKind)
                     ? AnonymousIdentityRuntime.AnonymousAccountKind
-                    : account.IdentityKind.Trim(),
+                    : TextHelpers.TrimOrEmpty(account.IdentityKind),
                 string.Concat("legacy-account:", account.Id.ToString(CultureInfo.InvariantCulture)))
-            : account.AccountSubjectHash.Trim().ToLowerInvariant();
+            : TextHelpers.LowerTrimmed(account.AccountSubjectHash) ?? string.Empty;
 }

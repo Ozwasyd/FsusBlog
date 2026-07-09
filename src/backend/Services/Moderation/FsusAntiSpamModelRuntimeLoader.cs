@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.Moderation;
 
 namespace FsusBlog.Server.Services.Moderation;
@@ -330,7 +331,7 @@ public static class FsusAntiSpamModelRuntimeLoader
     }
 
     private static bool IsRuntimeFormat(string? value)
-        => string.Equals(value?.Trim(), RuntimeFormat, StringComparison.Ordinal);
+        => string.Equals(TextHelpers.TrimOrNull(value), RuntimeFormat, StringComparison.Ordinal);
 
     private static T? ReadJson<T>(string runtimePath, string fileName)
         => JsonSerializer.Deserialize<T>(File.ReadAllText(Path.Combine(runtimePath, fileName)), JsonOptions);

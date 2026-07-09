@@ -6,6 +6,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -1300,7 +1301,7 @@ public sealed class AdminOperationsService(
         => new(action, status, detail, DateTimeOffset.UtcNow);
 
     private static string NormalizeAction(string? action)
-        => string.IsNullOrWhiteSpace(action) ? "unknown" : action.Trim().ToLowerInvariant();
+        => TextHelpers.LowerTrimmed(action) ?? "unknown";
 
     private static string NormalizeTaskStatus(string status)
         => status is "ok" or "skipped" ? "ok" : status is "failed" or "rolled_back" ? "degraded" : status;

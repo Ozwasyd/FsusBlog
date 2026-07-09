@@ -1,4 +1,5 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Infrastructure.Auth;
 
@@ -28,7 +29,7 @@ public static class AnonymousIdentityRuntime
 
     internal static string ResolveBackendRole(string? roleValue, string? identityKind, bool anonymousIdentityModeEnabled)
     {
-        string role = string.IsNullOrWhiteSpace(roleValue) ? GuestRole : roleValue.Trim().ToLowerInvariant();
+        string role = TextHelpers.LowerTrimmed(roleValue) ?? GuestRole;
         if (!anonymousIdentityModeEnabled)
         {
             return role;

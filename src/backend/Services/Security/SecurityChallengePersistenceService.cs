@@ -1,5 +1,6 @@
 using System.Data.Common;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using SqlSugar;
 
@@ -335,7 +336,7 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
 
     private static string? NormalizeHash(string? value, string name, bool required)
     {
-        string normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        string normalized = TextHelpers.LowerTrimmed(value) ?? string.Empty;
         if (normalized.Length == 0)
         {
             if (required)

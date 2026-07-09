@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -148,7 +149,7 @@ public sealed class HumanReadProofV1ChallengeProvider(
             return false;
         }
 
-        string normalizedScope = scope.Trim().ToLowerInvariant();
+        string normalizedScope = TextHelpers.LowerTrimmed(scope) ?? string.Empty;
         if (normalizedScope is not ("site" or "article"))
         {
             return false;

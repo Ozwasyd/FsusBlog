@@ -102,7 +102,7 @@ public static class SecurityEndpoints
                     "admin.security.risk_control.simulation_rejected",
                     "管理员提交的 RiskControl 模拟参数无效",
                     "risk_control_simulation",
-                    NormalizeNullable(request.Subject) ?? "invalid",
+                    TextHelpers.TrimOrNull(request.Subject) ?? "invalid",
                     validationError,
                     request,
                     cancellationToken);
@@ -872,20 +872,20 @@ public static class SecurityEndpoints
         ArgumentNullException.ThrowIfNull(riskPolicyProvider);
         ArgumentNullException.ThrowIfNull(riskDecisionService);
 
-        string actionName = NormalizeNullable(request.Action) ?? RiskActionNames.CommentCreate;
+        string actionName = TextHelpers.TrimOrNull(request.Action) ?? RiskActionNames.CommentCreate;
         if (!RiskActionRegistry.Default.TryGet(actionName, out RiskAction action))
         {
             throw new ArgumentException("risk_action_unknown", nameof(request));
         }
 
-        string routeKey = NormalizeNullable(request.RouteKey) ?? action.DefaultRouteKey ?? string.Empty;
+        string routeKey = TextHelpers.TrimOrNull(request.RouteKey) ?? action.DefaultRouteKey ?? string.Empty;
         if (routeKey.Length == 0)
         {
             throw new ArgumentException("risk_route_key_required", nameof(request));
         }
 
-        string clientIp = NormalizeNullable(request.ClientIp) ?? context.GetClientIp();
-        string subject = NormalizeNullable(request.Subject) ?? clientIp;
+        string clientIp = TextHelpers.TrimOrNull(request.ClientIp) ?? context.GetClientIp();
+        string subject = TextHelpers.TrimOrNull(request.Subject) ?? clientIp;
         if (subject.Length == 0)
         {
             throw new ArgumentException("risk_subject_required", nameof(request));
@@ -920,13 +920,13 @@ public static class SecurityEndpoints
 
     private static string? ValidateRiskControlSimulationRequest(RiskControlSimulationRequest request)
     {
-        string actionName = NormalizeNullable(request.Action) ?? RiskActionNames.CommentCreate;
+        string actionName = TextHelpers.TrimOrNull(request.Action) ?? RiskActionNames.CommentCreate;
         if (!RiskActionRegistry.Default.TryGet(actionName, out RiskAction action))
         {
             return "risk_action_unknown";
         }
 
-        string routeKey = NormalizeNullable(request.RouteKey) ?? action.DefaultRouteKey ?? string.Empty;
+        string routeKey = TextHelpers.TrimOrNull(request.RouteKey) ?? action.DefaultRouteKey ?? string.Empty;
         return routeKey.Length == 0 ? "risk_route_key_required" : null;
     }
 
@@ -1132,9 +1132,9 @@ public static class SecurityEndpoints
         string clientIp,
         HttpContext context)
     {
-        string userAgent = NormalizeNullable(request.UserAgent) ?? context.GetUserAgent();
-        string actorStatus = NormalizeNullable(request.ActorStatus) ?? RiskControlActorStatuses.Anonymous;
-        string identityKind = NormalizeNullable(request.IdentityKind) ?? ResolveDefaultIdentityKind(actorStatus);
+        string userAgent = TextHelpers.TrimOrNull(request.UserAgent) ?? context.GetUserAgent();
+        string actorStatus = TextHelpers.TrimOrNull(request.ActorStatus) ?? RiskControlActorStatuses.Anonymous;
+        string identityKind = TextHelpers.TrimOrNull(request.IdentityKind) ?? ResolveDefaultIdentityKind(actorStatus);
         var actor = actorStatus switch
         {
             RiskControlActorStatuses.AdminPrincipal => new RiskControlActorContext(
@@ -1179,7 +1179,7 @@ public static class SecurityEndpoints
 
     private static RiskControlDeviceFingerprintContext BuildDeviceFingerprintContext(string? deviceFingerprint)
     {
-        string? value = NormalizeNullable(deviceFingerprint);
+        string? value = TextHelpers.TrimOrNull(deviceFingerprint);
         if (value is null)
         {
             return new RiskControlDeviceFingerprintContext(RiskControlContextStatuses.Missing, 0, null, "missing");
@@ -1205,7 +1205,7 @@ public static class SecurityEndpoints
 
     private static RiskControlRegionContext BuildRegionContext(string? region)
     {
-        string? value = NormalizeNullable(region);
+        string? value = TextHelpers.TrimOrNull(region);
         if (value is null)
         {
             return new RiskControlRegionContext(RiskControlContextStatuses.Missing, "UNKNOWN", null, "missing");
@@ -1430,7 +1430,7 @@ public static class SecurityEndpoints
         string? kind,
         CancellationToken cancellationToken)
     {
-        string? normalizedKind = NormalizeNullable(kind);
+        string? normalizedKind = TextHelpers.TrimOrNull(kind);
         DateTimeOffset windowStartedAt = DateTimeOffset.UtcNow.AddDays(-1);
         DateTime windowStartedUtc = windowStartedAt.UtcDateTime;
         List<SecurityChallenge> challenges = await db.Queryable<SecurityChallenge>()
@@ -1608,15 +1608,9 @@ public static class SecurityEndpoints
     private static double Rate(int numerator, int denominator)
         => denominator <= 0 ? 0 : Math.Round((double)numerator / denominator, 4, MidpointRounding.AwayFromZero);
 
-    private static string? NormalizeNullable(string? value)
-    {
-        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
-        return normalized.Length == 0 ? null : normalized;
-    }
-
     private static string? NormalizeHashSubject(string? value)
     {
-        string normalized = NormalizeNullable(value) ?? string.Empty;
+        string normalized = TextHelpers.TrimOrNull(value) ?? string.Empty;
         if (normalized.Length != 64)
         {
             return null;

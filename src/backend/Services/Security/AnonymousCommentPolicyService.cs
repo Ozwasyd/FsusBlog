@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
@@ -159,7 +160,7 @@ public sealed class AnonymousCommentPolicyService(
             ResolveRequestedCommentMaxChars(request.CommentMaxChars, current.CommentMaxChars),
             ResolveRequestedCommentMaxUtf8Bytes(request.CommentMaxUtf8Bytes, current.CommentMaxUtf8Bytes)),
             ChangedBy(adminPrincipalId),
-            NormalizeNullable(request.Reason, 256),
+            TextHelpers.NormalizeNullable(request.Reason, 256),
             DateTime.UtcNow);
     }
 
@@ -318,9 +319,9 @@ public sealed class AnonymousCommentPolicyService(
                 CommentLimits.NormalizeMaxChars(entity.CommentMaxChars),
                 CommentLimits.NormalizeMaxUtf8Bytes(entity.CommentMaxUtf8Bytes)),
             string.IsNullOrWhiteSpace(entity.ChangedBy) ? "database" : entity.ChangedBy,
-            NormalizeNullable(entity.UpdatedReason, 256),
+            TextHelpers.NormalizeNullable(entity.UpdatedReason, 256),
             entity.UpdatedAtUtc == default ? DateTime.UtcNow : entity.UpdatedAtUtc,
-            NormalizeNullable(entity.SnapshotHash, 64));
+            TextHelpers.NormalizeNullable(entity.SnapshotHash, 64));
 
     private static AnonymousCommentPolicy ToEntity(AnonymousCommentPolicySnapshot snapshot, long? adminPrincipalId)
         => new()
@@ -370,7 +371,7 @@ public sealed class AnonymousCommentPolicyService(
 
     private static bool TryNormalizeAuthorMode(string? value, out string normalized)
     {
-        normalized = (value ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
+        normalized = TextHelpers.NormalizeModeToken(value) ?? string.Empty;
         return normalized is CommentAuthorModes.Anonymous or
             CommentAuthorModes.Public or
             CommentAuthorModes.ZkAnonymous;
@@ -424,13 +425,4 @@ public sealed class AnonymousCommentPolicyService(
             : normalized.Length <= 64 ? normalized : normalized[..64];
     }
 
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        string normalized = (value ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            return null;
-        }
-        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
 }

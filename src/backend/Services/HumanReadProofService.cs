@@ -308,7 +308,7 @@ public sealed class HumanReadProofService(
 
     private static bool TryNormalizeScope(string? raw, out string scope)
     {
-        scope = (raw ?? string.Empty).Trim().ToLowerInvariant();
+        scope = TextHelpers.LowerTrimmed(raw) ?? string.Empty;
         return scope is "site" or "article";
     }
 

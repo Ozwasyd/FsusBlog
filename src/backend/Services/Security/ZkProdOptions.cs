@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FsusBlog.Server.Infrastructure.Helpers;
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Services.Security;
@@ -33,9 +34,9 @@ public sealed class ZkProdOptions
             AllowDevVerifier = section.GetValue(nameof(AllowDevVerifier), false),
             FallbackToLegacyAnonymous = section.GetValue(nameof(FallbackToLegacyAnonymous), false),
             VerifierBackend = Normalize(section[nameof(VerifierBackend)], NativeGroth16Backend, 64),
-            VerifyingKeyHash = NormalizeNullable(section[nameof(VerifyingKeyHash)], 128),
-            TrustedSetupManifestPath = NormalizeNullable(section[nameof(TrustedSetupManifestPath)], 512),
-            VerifyingKeyManifestPath = NormalizeNullable(section[nameof(VerifyingKeyManifestPath)], 512),
+            VerifyingKeyHash = TextHelpers.NormalizeNullable(section[nameof(VerifyingKeyHash)], 128),
+            TrustedSetupManifestPath = TextHelpers.NormalizeNullable(section[nameof(TrustedSetupManifestPath)], 512),
+            VerifyingKeyManifestPath = TextHelpers.NormalizeNullable(section[nameof(VerifyingKeyManifestPath)], 512),
             TrustedSetupVerified = section.GetValue(nameof(TrustedSetupVerified), false),
             CredentialReady = section.GetValue(nameof(CredentialReady), false)
         };
@@ -59,11 +60,6 @@ public sealed class ZkProdOptions
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        string normalized = Normalize(value, fallback: string.Empty, maxLength);
-        return normalized.Length == 0 ? null : normalized;
-    }
 }
 
 public readonly record struct ZkProdRuntimeReadiness(

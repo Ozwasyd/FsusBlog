@@ -1,5 +1,6 @@
 using System.Globalization;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
 
@@ -66,7 +67,7 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
         => Math.Clamp(configuration.GetValue<double?>(key) ?? fallback, 0d, 1d);
 
     private static string NormalizeMode(string? raw)
-        => (raw ?? CommentModerationDispositionModes.ScoreOnly).Trim().ToLowerInvariant() switch
+        => (TextHelpers.LowerTrimmed(raw) ?? CommentModerationDispositionModes.ScoreOnly) switch
         {
             CommentModerationDispositionModes.AutoLowRiskApprove => CommentModerationDispositionModes.AutoLowRiskApprove,
             CommentModerationDispositionModes.AutoHideHighRisk => CommentModerationDispositionModes.AutoHideHighRisk,

@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
@@ -856,7 +857,7 @@ public sealed partial class FileService : IFileService
         => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 
     private static string NormalizeHash(string? value)
-        => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
+        => TextHelpers.LowerTrimmed(value) ?? string.Empty;
 
     private static string NormalizeExtension(string? ext)
     {
@@ -865,7 +866,7 @@ public sealed partial class FileService : IFileService
             return string.Empty;
         }
 
-        string value = ext.Trim().ToLowerInvariant();
+        string value = TextHelpers.LowerTrimmed(ext) ?? string.Empty;
         return value.StartsWith(".", StringComparison.Ordinal) ? value : "." + value;
     }
 
@@ -879,7 +880,7 @@ public sealed partial class FileService : IFileService
             return false;
         }
 
-        return mimeType.Trim().ToLowerInvariant() switch
+        return (TextHelpers.LowerTrimmed(mimeType) ?? string.Empty) switch
         {
             "image/jpeg" => true,
             "image/png" => true,
@@ -898,7 +899,7 @@ public sealed partial class FileService : IFileService
             return true;
         }
 
-        string normalizedMime = mimeType.Trim().ToLowerInvariant();
+        string normalizedMime = TextHelpers.LowerTrimmed(mimeType) ?? string.Empty;
         string expected = format.ToLowerInvariant() switch
         {
             "jpg" or "jpeg" => "image/jpeg",

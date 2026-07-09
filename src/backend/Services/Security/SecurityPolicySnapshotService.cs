@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Text.Json;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,7 +86,7 @@ public sealed class SecurityPolicySnapshotService(
         string normalizedPolicyId = NormalizePolicyId(policyId);
         string normalizedMode = SecuritySystemModes.Normalize(mode);
         string documentJson = JsonSerializer.Serialize(document, JsonOptions);
-        string? normalizedReason = NormalizeNullable(reason, 128);
+        string? normalizedReason = TextHelpers.NormalizeNullable(reason, 128);
         DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
         SecurityPolicySnapshot? inserted = null;
 
@@ -174,7 +175,7 @@ public sealed class SecurityPolicySnapshotService(
             return new SecurityPolicyRollbackResult<T>(false, default, null, "security_policy_rollback_target_unavailable");
         }
 
-        string? normalizedReason = NormalizeNullable(reason, 128) ?? "rollback";
+        string? normalizedReason = TextHelpers.NormalizeNullable(reason, 128) ?? "rollback";
         DateTime utcNow = timeProvider.GetUtcNow().UtcDateTime;
         SecurityPolicySnapshot? inserted = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
@@ -460,7 +461,7 @@ public sealed class SecurityPolicySnapshotService(
 
     private static string NormalizePolicyId(string? value)
     {
-        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
+        string normalized = TextHelpers.LowerTrimmed(value) ?? string.Empty;
         if (normalized.Length == 0)
         {
             throw new ArgumentException("policy_id is required", nameof(value));
@@ -469,16 +470,6 @@ public sealed class SecurityPolicySnapshotService(
         return normalized.Length <= 64 ? normalized : normalized[..64];
     }
 
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
-        if (normalized.Length == 0)
-        {
-            return null;
-        }
-
-        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
 }
 
 public sealed class SecurityPolicySnapshotHostedService(

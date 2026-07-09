@@ -1,3 +1,5 @@
+using FsusBlog.Server.Infrastructure.Helpers;
+
 namespace FsusBlog.Server.Models.Security;
 
 public static class SecuritySystemModes
@@ -10,9 +12,7 @@ public static class SecuritySystemModes
 
     public static string Normalize(string? mode)
     {
-        string value = string.IsNullOrWhiteSpace(mode)
-            ? Enforce
-            : mode.Trim().ToLowerInvariant();
+        string value = TextHelpers.LowerTrimmed(mode) ?? Enforce;
         return value is Disabled or Observe or Enforce or Strict or Lockdown ? value : Enforce;
     }
 

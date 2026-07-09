@@ -1,6 +1,7 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using SqlSugar;
@@ -73,11 +74,11 @@ public sealed class AnonymousGovernanceService(
                 Math.Max(0, item.UseCount),
                 item.FirstCommentId,
                 item.LastCommentId,
-                NormalizeNullable(item.BlockReason, 128),
+                TextHelpers.NormalizeNullable(item.BlockReason, 128),
                 ToUtcOffset(item.CreatedAtUtc),
                 ToUtcOffset(item.UpdatedAtUtc),
                 item.Blocked
-                    ? [new AnonymousGovernanceBlockHistoryItem("blocked", NormalizeNullable(item.BlockReason, 128), ToUtcOffset(item.UpdatedAtUtc))]
+                    ? [new AnonymousGovernanceBlockHistoryItem("blocked", TextHelpers.NormalizeNullable(item.BlockReason, 128), ToUtcOffset(item.UpdatedAtUtc))]
                     : []))]);
     }
 
@@ -97,7 +98,7 @@ public sealed class AnonymousGovernanceService(
             return Result<AnonymousGovernanceActionResponse>.Failure(ErrorCode.Validation, "anonymous_nullifier_block_request_invalid");
         }
 
-        string reason = NormalizeNullable(request.Reason, 128) ?? "blocked_by_admin";
+        string reason = TextHelpers.NormalizeNullable(request.Reason, 128) ?? "blocked_by_admin";
         bool applied = await nullifierService.BlockAsync(hash, scope, reason, cancellationToken);
         return applied
             ? Result<AnonymousGovernanceActionResponse>.Success(new AnonymousGovernanceActionResponse(true))
@@ -128,8 +129,8 @@ public sealed class AnonymousGovernanceService(
                 handleHash,
                 revocationRoot,
                 rootHash,
-                NormalizeNullable(request.Reason, 128),
-                NormalizeNullable(actorId, 128)),
+                TextHelpers.NormalizeNullable(request.Reason, 128),
+                TextHelpers.NormalizeNullable(actorId, 128)),
             cancellationToken);
         return result.IsSuccess
             ? Result<AnonymousGovernanceActionResponse>.Success(new AnonymousGovernanceActionResponse(true))
@@ -178,8 +179,8 @@ public sealed class AnonymousGovernanceService(
             value.CredentialEpoch,
             rootHash,
             MaskHash(rootHash),
-            NormalizeNullable(value.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
-            NormalizeNullable(value.VerifyingKeyHash, 128),
+            TextHelpers.NormalizeNullable(value.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars),
+            TextHelpers.NormalizeNullable(value.VerifyingKeyHash, 128),
             value.PublicInputLayoutVersion,
             DateTimeOffset.FromUnixTimeMilliseconds(value.RootExpiresAtUnixMs),
             DateTimeOffset.FromUnixTimeMilliseconds(value.RootGraceExpiresAtUnixMs),
@@ -253,17 +254,6 @@ public sealed class AnonymousGovernanceService(
 
     private static string Normalize(string? value)
         => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
-
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        string normalized = Normalize(value);
-        if (normalized.Length == 0)
-        {
-            return null;
-        }
-
-        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
 
     private static string MaskHash(string? value)
     {

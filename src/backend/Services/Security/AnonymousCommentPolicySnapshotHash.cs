@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 
@@ -15,7 +16,7 @@ internal static class AnonymousCommentPolicySnapshotHash
 
     public static string NormalizeHash(string? value)
     {
-        string normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        string normalized = TextHelpers.LowerTrimmed(value) ?? string.Empty;
         if (normalized.Length != 64)
         {
             return string.Empty;
@@ -47,7 +48,7 @@ internal static class AnonymousCommentPolicySnapshotHash
 
     private static string NormalizeAuthorMode(string? value, string fallback)
     {
-        string normalized = (value ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
+        string normalized = TextHelpers.NormalizeModeToken(value) ?? string.Empty;
         return normalized is CommentAuthorModes.Anonymous or
             CommentAuthorModes.Public or
             CommentAuthorModes.ZkAnonymous

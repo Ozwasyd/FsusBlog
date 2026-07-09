@@ -1,6 +1,7 @@
 ﻿using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
@@ -249,7 +250,7 @@ public partial class StatsService(
         string mode = NormalizeRecentCommentAuthorMode(authorMode);
         string? normalizedCredentialLevel = string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
             ? null
-            : NormalizeNullable(credentialLevel, 32);
+            : TextHelpers.NormalizeNullable(credentialLevel, 32);
 
         return new RecentCommentStatItemDto(
             ResolveRecentCommentAuthorDisplayName(mode, publicHandle, anonymousDisplayName),
@@ -257,7 +258,7 @@ public partial class StatsService(
             BuildRecentCommentAuthorBadge(mode, normalizedCredentialLevel),
             string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
                 ? null
-                : NormalizeNullable(anonymousScope, 128),
+                : TextHelpers.NormalizeNullable(anonymousScope, 128),
             normalizedCredentialLevel,
             content,
             createTime);
@@ -265,7 +266,7 @@ public partial class StatsService(
 
     private static string NormalizeRecentCommentAuthorMode(string? authorMode)
     {
-        string normalized = (authorMode ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
+        string? normalized = TextHelpers.NormalizeModeToken(authorMode);
         return normalized is CommentAuthorModes.Public or CommentAuthorModes.ZkAnonymous
             ? normalized
             : CommentAuthorModes.Anonymous;
@@ -275,10 +276,10 @@ public partial class StatsService(
     {
         if (string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal))
         {
-            return NormalizeNullable(publicHandle, 96) ?? "未署名用户";
+            return TextHelpers.NormalizeNullable(publicHandle, 96) ?? "未署名用户";
         }
 
-        string? snapshotName = NormalizeNullable(anonymousDisplayName, 96);
+        string? snapshotName = TextHelpers.NormalizeNullable(anonymousDisplayName, 96);
         if (snapshotName is not null)
         {
             return snapshotName;
@@ -294,17 +295,6 @@ public partial class StatsService(
             && !string.IsNullOrWhiteSpace(credentialLevel)
             ? "已验证匿名凭证"
             : null;
-
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        string? normalized = value?.Trim();
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            return null;
-        }
-
-        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
 
     private async Task<List<RegionStatItemDto>> LoadRegionStatsAsync(CancellationToken cancellationToken)
     {
@@ -353,7 +343,7 @@ public partial class StatsService(
             return "未知地区";
         }
 
-        string trimmed = region.Trim();
+        string trimmed = TextHelpers.TrimOrNull(region) ?? string.Empty;
         return string.Equals(trimmed, "未知", StringComparison.Ordinal) ||
             string.Equals(trimmed, "Unknown", StringComparison.OrdinalIgnoreCase)
             ? "未知地区"

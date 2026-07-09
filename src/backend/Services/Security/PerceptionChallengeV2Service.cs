@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Shared.Contracts.Security;
@@ -96,15 +97,15 @@ public static class PerceptionChallengeV2Hashing
     }
 
     public static string NormalizeStep(string step)
-        => (step ?? string.Empty).Trim().ToLowerInvariant();
+        => TextHelpers.LowerTrimmed(step) ?? string.Empty;
 
     public static double NormalizeCoordinate(double value)
         => double.IsFinite(value) ? Math.Clamp(value, 0d, 1d) : double.NaN;
 
     public static bool FixedTimeEqualsHex(string left, string right)
     {
-        string normalizedLeft = (left ?? string.Empty).Trim().ToLowerInvariant();
-        string normalizedRight = (right ?? string.Empty).Trim().ToLowerInvariant();
+        string normalizedLeft = TextHelpers.LowerTrimmed(left) ?? string.Empty;
+        string normalizedRight = TextHelpers.LowerTrimmed(right) ?? string.Empty;
         return normalizedLeft.Length == normalizedRight.Length &&
                CryptographicOperations.FixedTimeEquals(
                    Encoding.ASCII.GetBytes(normalizedLeft),

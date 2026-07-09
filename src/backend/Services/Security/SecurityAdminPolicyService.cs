@@ -1,3 +1,4 @@
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
@@ -638,7 +639,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             request.Pattern.Trim(),
             NormalizeRuleAction(request.Action),
             Math.Clamp(request.Score, 0, 100),
-            NormalizeNullable(request.Notes),
+            TextHelpers.TrimOrNull(request.Notes),
             NormalizeActor(changedBy),
             now);
         lock (_gate)
@@ -667,7 +668,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
                 Pattern = request.Pattern.Trim(),
                 Action = NormalizeRuleAction(request.Action),
                 Score = Math.Clamp(request.Score, 0, 100),
-                Notes = NormalizeNullable(request.Notes),
+                Notes = TextHelpers.TrimOrNull(request.Notes),
                 UpdatedAtUtc = DateTimeOffset.UtcNow,
                 UpdatedBy = NormalizeActor(changedBy)
             };
@@ -702,7 +703,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             normalizedType,
             request.Value.Trim(),
             NormalizeMatchType(request.Scope),
-            NormalizeNullable(request.Reason),
+            TextHelpers.TrimOrNull(request.Reason),
             request.Enabled,
             now,
             NormalizeActor(changedBy));
@@ -1312,9 +1313,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             : "block";
 
     private static string NormalizeMatchType(string? value)
-        => string.IsNullOrWhiteSpace(value)
-            ? "user-agent"
-            : value.Trim().ToLowerInvariant() switch
+        => (TextHelpers.LowerTrimmed(value) ?? "user-agent") switch
             {
                 "ip" => "ip",
                 "path" => "path",
@@ -1325,9 +1324,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             };
 
     private static string NormalizeRuleAction(string? value)
-        => string.IsNullOrWhiteSpace(value)
-            ? "observe"
-            : value.Trim().ToLowerInvariant() switch
+        => (TextHelpers.LowerTrimmed(value) ?? "observe") switch
             {
                 "allow" => "allow",
                 "block" => "block",
@@ -1346,9 +1343,6 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         string trimmed = value.Trim();
         return trimmed[..Math.Min(trimmed.Length, 80)];
     }
-
-    private static string? NormalizeNullable(string? value)
-        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string? NormalizeSnapshotPath(string? value)
     {
@@ -1409,7 +1403,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             return null;
         }
 
-        return value.Trim().ToLowerInvariant() switch
+        return (TextHelpers.LowerTrimmed(value) ?? string.Empty) switch
         {
             "1" or "true" or "enabled" or "enable" or "on" or "yes" => true,
             "0" or "false" or "disabled" or "disable" or "off" or "no" => false,

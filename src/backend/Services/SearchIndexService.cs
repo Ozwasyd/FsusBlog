@@ -2,6 +2,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
@@ -199,7 +200,7 @@ public sealed partial class SearchIndexService(
     }
 
     private static string NormalizeKeywordForFallback(string keyword)
-        => NormalizeTokenForTests(keyword) ?? keyword.Trim().ToLowerInvariant();
+        => NormalizeTokenForTests(keyword) ?? TextHelpers.LowerTrimmed(keyword) ?? string.Empty;
 
     public static uint HashTokenForTests(string input)
     {

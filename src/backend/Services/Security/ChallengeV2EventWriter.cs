@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Threading.Channels;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Helpers;
 using Microsoft.Extensions.Options;
 
 namespace FsusBlog.Server.Services.Security;
@@ -75,7 +76,7 @@ public readonly record struct ChallengeV2EventKind(string Value, bool IsHighValu
     }
 
     private static string Normalize(string? value)
-        => (value ?? string.Empty).Trim().ToLowerInvariant();
+        => TextHelpers.LowerTrimmed(value) ?? string.Empty;
 }
 
 public sealed record ChallengeV2AuditEvent(

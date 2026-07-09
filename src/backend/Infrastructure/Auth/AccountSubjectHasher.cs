@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Infrastructure.Auth;
 
@@ -15,20 +16,16 @@ public static class AccountSubjectHasher
 
     public static string Create(User user)
     {
-        string identityKind = string.IsNullOrWhiteSpace(user.IdentityKind)
-            ? AnonymousIdentityRuntime.AnonymousAccountKind
-            : user.IdentityKind.Trim();
-        string? subject = NormalizeSubject(user.PasskeyUserHandle)
-            ?? NormalizeSubject(user.PublicHandle);
+        string identityKind = TextHelpers.TrimOrNull(user.IdentityKind) ?? AnonymousIdentityRuntime.AnonymousAccountKind;
+        string? subject = TextHelpers.LowerTrimmed(user.PasskeyUserHandle)
+            ?? TextHelpers.LowerTrimmed(user.PublicHandle);
         return Create(identityKind, subject ?? string.Concat("anonymous-account:", user.Id.ToString(CultureInfo.InvariantCulture)));
     }
 
     public static string Create(string identityKind, string subject)
     {
-        string normalizedKind = string.IsNullOrWhiteSpace(identityKind)
-            ? AnonymousIdentityRuntime.AnonymousAccountKind
-            : identityKind.Trim();
-        string normalizedSubject = NormalizeSubject(subject) ?? string.Empty;
+        string normalizedKind = TextHelpers.TrimOrNull(identityKind) ?? AnonymousIdentityRuntime.AnonymousAccountKind;
+        string normalizedSubject = TextHelpers.LowerTrimmed(subject) ?? string.Empty;
         byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(
             string.Concat(HashPrefix, ':', normalizedKind, ':', normalizedSubject)));
         return Convert.ToHexString(bytes).ToLowerInvariant();
@@ -36,28 +33,18 @@ public static class AccountSubjectHasher
 
     public static string FromPrincipalOrFallback(ClaimsPrincipal principal, int accountId)
     {
-        string? claim = NormalizeSubject(principal.FindFirst(ClaimType)?.Value);
+        string? claim = TextHelpers.LowerTrimmed(principal.FindFirst(ClaimType)?.Value);
         if (claim is { Length: > 0 })
         {
             return claim;
         }
 
-        string? identityKind = NormalizeSubject(principal.FindFirst("identity_kind")?.Value);
+        string? identityKind = TextHelpers.LowerTrimmed(principal.FindFirst("identity_kind")?.Value);
         return Create(
             identityKind ?? AnonymousIdentityRuntime.AnonymousAccountKind,
             string.Concat("anonymous-account:", accountId.ToString(CultureInfo.InvariantCulture)));
     }
 
     public static string BuildCacheKey(string accountSubjectHash)
-        => string.Concat(CacheKeyPrefix, NormalizeSubject(accountSubjectHash) ?? string.Empty);
-
-    private static string? NormalizeSubject(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return value.Trim().ToLowerInvariant();
-    }
+        => string.Concat(CacheKeyPrefix, TextHelpers.LowerTrimmed(accountSubjectHash) ?? string.Empty);
 }

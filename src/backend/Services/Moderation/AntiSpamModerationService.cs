@@ -249,15 +249,15 @@ public sealed class AntiSpamModerationService(
             Label = Normalize(result.Label, 64),
             Severity = Normalize(result.Severity, 32),
             Confidence = Math.Clamp(result.Confidence, 0d, 1d),
-            PrimaryReason = NormalizeNullable(result.PrimaryReason, 128),
+            PrimaryReason = TextHelpers.NormalizeNullable(result.PrimaryReason, 128),
             NeedsSecondRound = result.NeedsSecondRound,
             RiskCategories = result.Categories.Count == 0 ? null : string.Join(',', result.Categories.Select(static item => item.Id).Distinct(StringComparer.Ordinal)),
             EvidenceJson = result.Evidence.Count == 0 ? null : JsonSerializer.Serialize(result.Evidence, JsonOptions),
-            RawReason = NormalizeNullable(result.RawReason, 4_096),
+            RawReason = TextHelpers.NormalizeNullable(result.RawReason, 4_096),
             LatencyMs = Math.Max(0, RoundingHelper.RoundToInt(result.Latency.TotalMilliseconds)),
             Status = Normalize(result.Status, 32),
-            ErrorCode = NormalizeNullable(result.ErrorCode, 64),
-            ThresholdProfile = NormalizeNullable(result.ThresholdProfile, 128),
+            ErrorCode = TextHelpers.NormalizeNullable(result.ErrorCode, 64),
+            ThresholdProfile = TextHelpers.NormalizeNullable(result.ThresholdProfile, 128),
             MetadataJson = result.Metadata.Count == 0 ? null : JsonSerializer.Serialize(result.Metadata, JsonOptions),
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -334,12 +334,6 @@ public sealed class AntiSpamModerationService(
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        string normalized = Normalize(value, maxLength);
-        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
-    }
-
     private static string NormalizeMetadataKey(string key)
-        => key.Trim().ToLowerInvariant().Replace('-', '_');
+        => TextHelpers.NormalizeModeToken(key) ?? string.Empty;
 }

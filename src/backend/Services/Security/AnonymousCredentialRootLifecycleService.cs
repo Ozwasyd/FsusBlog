@@ -1,6 +1,7 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Helpers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -498,7 +499,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
         string circuitId = NormalizeToken(request.CircuitId, AnonymousCredentialIssuerLimits.MaxCircuitIdChars);
         string verifyingKeyHash = NormalizeToken(request.VerifyingKeyHash, 128);
         string issuerPublicKeyHash = ResolveIssuerPublicKeyHash(request.IssuerPublicKeyHash);
-        string? circuitMetadata = NormalizeNullable(request.CircuitMetadata, 4096);
+        string? circuitMetadata = TextHelpers.NormalizeNullable(request.CircuitMetadata, 4096);
         AnonymousCredentialRevocationAccumulatorProfile revocationAccumulatorProfile =
             AnonymousCredentialRevocationAccumulator.ResolveProfileFromCircuitMetadata(circuitMetadata);
         if (request.Epoch <= 0 ||
@@ -535,8 +536,8 @@ public sealed class AnonymousCredentialRootLifecycleService(
             request.ExpiresAtUtc.ToUniversalTime(),
             request.GraceExpiresAtUtc.ToUniversalTime(),
             circuitMetadata,
-            NormalizeNullable(request.Reason, 128),
-            NormalizeNullable(request.ActorId, 128)));
+            TextHelpers.NormalizeNullable(request.Reason, 128),
+            TextHelpers.NormalizeNullable(request.ActorId, 128)));
     }
 
     private static Result<NormalizedRevocation> NormalizeRevocation(AnonymousCredentialRevocationRequest request)
@@ -554,9 +555,9 @@ public sealed class AnonymousCredentialRootLifecycleService(
             request.Epoch,
             handleHash,
             revocationRoot,
-            NormalizeNullable(request.RootHash, 128),
-            NormalizeNullable(request.Reason, 128),
-            NormalizeNullable(request.ActorId, 128)));
+            TextHelpers.NormalizeNullable(request.RootHash, 128),
+            TextHelpers.NormalizeNullable(request.Reason, 128),
+            TextHelpers.NormalizeNullable(request.ActorId, 128)));
     }
 
     private static AnonymousCredentialRootRecord ToRecord(AnonymousCredentialRoot root)
@@ -580,12 +581,6 @@ public sealed class AnonymousCredentialRootLifecycleService(
     {
         string normalized = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
-    }
-
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        string normalized = NormalizeToken(value, maxLength);
-        return normalized.Length == 0 ? null : normalized;
     }
 
     private static string ResolveIssuerPublicKeyHash(string? value)
@@ -707,7 +702,7 @@ internal static class AnonymousCredentialRootAttestation
                 root.CircuitNumericId <= 0 ? 0U : (uint)root.CircuitNumericId,
                 NormalizeToken(root.VerifyingKeyHash, 128),
                 root.PublicInputLayoutVersion <= 0 ? (ushort)0 : (ushort)Math.Min(root.PublicInputLayoutVersion, ushort.MaxValue),
-                NormalizeNullable(root.CircuitMetadata, 4096),
+                TextHelpers.NormalizeNullable(root.CircuitMetadata, 4096),
                 configuration,
                 keyId);
 
@@ -749,7 +744,7 @@ internal static class AnonymousCredentialRootAttestation
             circuitNumericId.ToString(System.Globalization.CultureInfo.InvariantCulture),
             NormalizeToken(verifyingKeyHash, 128).ToLowerInvariant(),
             publicInputLayoutVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            NormalizeNullable(circuitMetadata, 4096) ?? string.Empty);
+            TextHelpers.NormalizeNullable(circuitMetadata, 4096) ?? string.Empty);
         return Convert.ToHexStringLower(HMACSHA256.HashData(
             ResolveKey(configuration),
             Encoding.UTF8.GetBytes(payload)));
@@ -788,11 +783,6 @@ internal static class AnonymousCredentialRootAttestation
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
-    private static string? NormalizeNullable(string? value, int maxLength)
-    {
-        string normalized = NormalizeToken(value, maxLength);
-        return normalized.Length == 0 ? null : normalized;
-    }
 }
 
 public sealed class AnonymousCredentialRootRefreshHostedService(

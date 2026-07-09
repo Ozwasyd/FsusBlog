@@ -5,6 +5,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -1320,7 +1321,7 @@ public sealed class MessageCenterService(
             return query;
         }
 
-        return filter.Trim().ToLowerInvariant() switch
+        return (TextHelpers.LowerTrimmed(filter) ?? string.Empty) switch
         {
             "unread" => query.Where((p, _) => p.UnreadCount > 0),
             "system" => query.Where((_, c) => c.IsSystemSource),
@@ -1347,7 +1348,7 @@ public sealed class MessageCenterService(
             return query;
         }
 
-        return filter.Trim().ToLowerInvariant() switch
+        return (TextHelpers.LowerTrimmed(filter) ?? string.Empty) switch
         {
             "system" => query.Where(it => it.IsSystemSource),
             "open" => query.Where(it => it.Status == ConversationStatus.Open),

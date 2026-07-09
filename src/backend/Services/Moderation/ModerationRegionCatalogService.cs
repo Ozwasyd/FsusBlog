@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Moderation;
 
@@ -170,7 +171,7 @@ public sealed class ModerationRegionCatalogService(
         Dictionary<string, ModerationEffectivePolicyRule> effectiveRules,
         List<string> warnings)
     {
-        string normalizedGroup = NormalizeNullableCode(groupCode) ?? string.Empty;
+        string normalizedGroup = NormalizeOptionalCode(groupCode) ?? string.Empty;
         if (normalizedGroup.Length == 0 || normalizedGroup == ModerationRegionGroups.Global)
         {
             return;
@@ -194,7 +195,7 @@ public sealed class ModerationRegionCatalogService(
         List<string> warnings,
         HashSet<string> visited)
     {
-        string? parentCode = NormalizeNullableCode(region.ParentRegion);
+        string? parentCode = NormalizeOptionalCode(region.ParentRegion);
         if (parentCode is null)
         {
             return;
@@ -227,7 +228,7 @@ public sealed class ModerationRegionCatalogService(
         Dictionary<string, ModerationEffectivePolicyRule> effectiveRules,
         List<string> warnings)
     {
-        string normalizedTemplate = NormalizeNullableId(templateId) ?? string.Empty;
+        string normalizedTemplate = NormalizeOptionalId(templateId) ?? string.Empty;
         if (normalizedTemplate.Length == 0)
         {
             return;
@@ -357,22 +358,22 @@ public sealed class ModerationRegionCatalogService(
         => new(
             NormalizeCode(Required(item, "region_code")),
             Required(item, "display_name").Trim(),
-            NormalizeNullableCode(item.GetValueOrDefault("parent_region")),
-            NormalizeNullableCode(item.GetValueOrDefault("primary_group")),
-            NormalizeNullableId(item.GetValueOrDefault("policy_template")),
+            NormalizeOptionalCode(item.GetValueOrDefault("parent_region")),
+            NormalizeOptionalCode(item.GetValueOrDefault("primary_group")),
+            NormalizeOptionalId(item.GetValueOrDefault("policy_template")),
             ParseBool(item.GetValueOrDefault("enabled"), defaultValue: true),
             ParseBool(item.GetValueOrDefault("builtin"), defaultValue: false),
-            NormalizeNullable(item.GetValueOrDefault("description")));
+            TextHelpers.TrimOrNull(item.GetValueOrDefault("description")));
 
     private static ModerationRegionGroupDefinition ParseGroup(IReadOnlyDictionary<string, string> item)
         => new(
             NormalizeCode(Required(item, "group_code")),
             Required(item, "display_name").Trim(),
-            NormalizeNullableId(item.GetValueOrDefault("policy_template")),
+            NormalizeOptionalId(item.GetValueOrDefault("policy_template")),
             ParseBool(item.GetValueOrDefault("builtin"), defaultValue: false),
             ParseBool(item.GetValueOrDefault("enabled"), defaultValue: true),
             ParseInlineList(item.GetValueOrDefault("regions")).Select(NormalizeCode).ToArray(),
-            NormalizeNullable(item.GetValueOrDefault("description")));
+            TextHelpers.TrimOrNull(item.GetValueOrDefault("description")));
 
     private static ModerationPolicyTemplateDefinition ParseTemplate(string path)
     {
@@ -384,18 +385,18 @@ public sealed class ModerationRegionCatalogService(
             Required(item, "display_action")))];
         string checksum = BuildChecksum(raw);
         return new ModerationPolicyTemplateDefinition(
-            NormalizeNullableId(Required(scalars, "template_id")) ?? throw new InvalidOperationException($"template_id invalid in {path}"),
+            NormalizeOptionalId(Required(scalars, "template_id")) ?? throw new InvalidOperationException($"template_id invalid in {path}"),
             Required(scalars, "version"),
             Required(scalars, "scope"),
-            NormalizeNullableCode(scalars.GetValueOrDefault("region")),
-            NormalizeNullableCode(scalars.GetValueOrDefault("region_group")),
+            NormalizeOptionalCode(scalars.GetValueOrDefault("region")),
+            NormalizeOptionalCode(scalars.GetValueOrDefault("region_group")),
             Required(scalars, "source"),
             Required(scalars, "reviewed_by"),
             ParseNullableDateTime(scalars.GetValueOrDefault("reviewed_at_utc"), path),
             ParseBool(scalars.GetValueOrDefault("is_builtin"), defaultValue: false),
             ParseBool(scalars.GetValueOrDefault("is_enabled"), defaultValue: true),
             ParseBool(scalars.GetValueOrDefault("not_legal_advice"), defaultValue: false),
-            NormalizeNullable(scalars.GetValueOrDefault("description")) ?? string.Empty,
+            TextHelpers.TrimOrNull(scalars.GetValueOrDefault("description")) ?? string.Empty,
             checksum,
             rules);
     }
@@ -515,7 +516,7 @@ public sealed class ModerationRegionCatalogService(
 
     private static DateTime? ParseNullableDateTime(string? value, string path)
     {
-        string? normalized = NormalizeNullable(value);
+        string? normalized = TextHelpers.TrimOrNull(value);
         if (normalized is null)
         {
             return null;
@@ -561,15 +562,15 @@ public sealed class ModerationRegionCatalogService(
         return normalized;
     }
 
-    private static string? NormalizeNullableCode(string? value)
+    private static string? NormalizeOptionalCode(string? value)
     {
-        string normalized = NormalizeNullable(value) ?? string.Empty;
+        string normalized = TextHelpers.TrimOrNull(value) ?? string.Empty;
         return normalized.Length == 0 ? null : NormalizeCode(normalized);
     }
 
-    private static string? NormalizeNullableId(string? value)
+    private static string? NormalizeOptionalId(string? value)
     {
-        string normalized = NormalizeNullable(value) ?? string.Empty;
+        string normalized = TextHelpers.TrimOrNull(value) ?? string.Empty;
         if (normalized.Length == 0)
         {
             return null;
@@ -581,12 +582,6 @@ public sealed class ModerationRegionCatalogService(
         }
 
         return normalized;
-    }
-
-    private static string? NormalizeNullable(string? value)
-    {
-        string normalized = (value ?? string.Empty).Trim();
-        return normalized.Length == 0 ? null : normalized;
     }
 
     private static string BuildChecksum(string value)

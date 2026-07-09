@@ -1,3 +1,5 @@
+using FsusBlog.Server.Infrastructure.Helpers;
+
 namespace FsusBlog.Server.Infrastructure.Cache;
 
 public interface IBackgroundWorkerLease
@@ -140,7 +142,7 @@ public sealed class BackgroundWorkerLease(
     }
 
     private static string NormalizeWorkerIdentity(string workerName)
-        => $"background:{workerName.Trim().ToLowerInvariant()}";
+        => $"background:{TextHelpers.LowerTrimmed(workerName) ?? string.Empty}";
 
     private static string NormalizeNodeId(string nodeId)
         => string.IsNullOrWhiteSpace(nodeId)

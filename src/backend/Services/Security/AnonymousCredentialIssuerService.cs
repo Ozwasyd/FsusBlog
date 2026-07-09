@@ -5,6 +5,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Shared.Contracts.Validation;
 using Microsoft.Extensions.Logging;
 using SqlSugar;
@@ -667,7 +668,7 @@ public sealed class AnonymousCredentialIssuerService(
 
     private static string NormalizeToken(string? value, int maxLength)
     {
-        string normalized = (value ?? string.Empty).Trim().ToLowerInvariant().Replace('-', '_');
+        string normalized = TextHelpers.NormalizeModeToken(value) ?? string.Empty;
         if (normalized.Length <= maxLength)
         {
             return normalized;
