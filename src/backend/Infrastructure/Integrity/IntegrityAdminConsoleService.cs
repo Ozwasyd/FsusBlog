@@ -1,4 +1,5 @@
 using System.Globalization;
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using Microsoft.Extensions.Configuration;
@@ -447,7 +448,7 @@ public sealed class IntegrityAdminConsoleService(
     private static bool IsSha256Like(string? value)
     {
         string normalized = NormalizeHashForPayload(value);
-        return normalized.Length == 64 && normalized.All(Uri.IsHexDigit);
+        return HexText.IsSha256Hex(normalized);
     }
 
     private static DateTimeOffset Utc(DateTime value)

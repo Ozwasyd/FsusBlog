@@ -235,13 +235,9 @@ public sealed class RiskControlContextFactory(
             return new RiskControlDeviceFingerprintContext(RiskControlContextStatuses.Invalid, fingerprint.Length, null, "invalid_length");
         }
 
-        for (int i = 0; i < fingerprint.Length; i++)
+        if (!TextHelpers.HasOnlyAsciiTokenChars(fingerprint, "-_.:"))
         {
-            char ch = fingerprint[i];
-            if (!(char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.' or ':'))
-            {
-                return new RiskControlDeviceFingerprintContext(RiskControlContextStatuses.Invalid, fingerprint.Length, null, "invalid_charset");
-            }
+            return new RiskControlDeviceFingerprintContext(RiskControlContextStatuses.Invalid, fingerprint.Length, null, "invalid_charset");
         }
 
         return new RiskControlDeviceFingerprintContext(
@@ -286,14 +282,10 @@ public sealed class RiskControlContextFactory(
             return false;
         }
 
-        for (int i = 0; i < region.Length; i++)
+        if (!TextHelpers.HasOnlyAsciiTokenChars(region, "-_"))
         {
-            char ch = region[i];
-            if (!(char.IsLetterOrDigit(ch) || ch is '-' or '_'))
-            {
-                region = "UNKNOWN";
-                return false;
-            }
+            region = "UNKNOWN";
+            return false;
         }
 
         region = region switch
@@ -319,20 +311,6 @@ public sealed class RiskControlContextFactory(
     private static string? NormalizeAccountSubjectHash(string? value)
     {
         string normalized = (value ?? string.Empty).Trim();
-        if (normalized.Length != 64)
-        {
-            return null;
-        }
-
-        for (int i = 0; i < normalized.Length; i++)
-        {
-            char c = normalized[i];
-            if (c is not ((>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F')))
-            {
-                return null;
-            }
-        }
-
-        return normalized.ToLowerInvariant();
+        return TextHelpers.IsSha256Hex(normalized) ? normalized.ToLowerInvariant() : null;
     }
 }

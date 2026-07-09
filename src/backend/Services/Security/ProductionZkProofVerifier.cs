@@ -1,3 +1,5 @@
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Models.CommentIdentity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -285,15 +287,7 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
             return false;
         }
 
-        for (int i = 0; i < normalized.Length; i++)
-        {
-            if (!Uri.IsHexDigit(normalized[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return HexText.IsHex(normalized.AsSpan());
     }
 
     private static bool IsToken(string value, int maxLength)
@@ -304,19 +298,7 @@ public sealed class ProductionZkProofVerifier : IZkProofVerifier, IDisposable
             return false;
         }
 
-        for (int i = 0; i < normalized.Length; i++)
-        {
-            char ch = normalized[i];
-            if (char.IsAsciiLetterOrDigit(ch) ||
-                ch is '.' or '_' or '-' or ':' or '/')
-            {
-                continue;
-            }
-
-            return false;
-        }
-
-        return true;
+        return TextHelpers.HasOnlyAsciiTokenChars(normalized, "._-:/");
     }
 
     private static string NormalizeToken(string? value, int maxLength)

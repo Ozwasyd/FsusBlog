@@ -333,7 +333,7 @@ internal sealed record CircuitNativeCredentialIssuerOptions(
             normalized = normalized["sha256:".Length..];
         }
 
-        if (normalized.Length != 64 || normalized.Any(static ch => !Uri.IsHexDigit(ch)))
+        if (!HexText.IsSha256Hex(normalized))
         {
             return string.Empty;
         }

@@ -554,7 +554,7 @@ public sealed class ModerationRegionCatalogService(
     private static string NormalizeCode(string? value)
     {
         string normalized = (value ?? string.Empty).Trim().ToUpperInvariant();
-        if (normalized.Length is 0 or > 64 || normalized.Any(static c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_')))
+        if (normalized.Length is 0 or > 64 || !TextHelpers.HasOnlyAsciiTokenChars(normalized, "-_"))
         {
             throw new InvalidOperationException($"invalid moderation region/group code: {value}");
         }
@@ -576,7 +576,7 @@ public sealed class ModerationRegionCatalogService(
             return null;
         }
 
-        if (normalized.Length > 128 || normalized.Any(static c => !(char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.')))
+        if (normalized.Length > 128 || !TextHelpers.HasOnlyAsciiTokenChars(normalized, "-_."))
         {
             throw new InvalidOperationException($"invalid moderation template id: {value}");
         }

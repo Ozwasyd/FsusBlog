@@ -1,3 +1,5 @@
+using FsusBlog.Core.Common;
+
 namespace FsusBlog.Server.Infrastructure.Helpers;
 
 public static class TextHelpers
@@ -71,6 +73,33 @@ public static class TextHelpers
 
     public static string? LowerTrimmedModeToken(string? value, int maxLength)
         => NormalizeModeToken(value, maxLength);
+
+    public static bool IsSha256Hex(string? value)
+        => HexText.IsSha256Hex(value);
+
+    public static bool HasOnlyAsciiTokenChars(string? value, ReadOnlySpan<char> punctuation)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < value.Length; i++)
+        {
+            if (!IsAsciiTokenChar(value[i], punctuation))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static bool IsAsciiTokenChar(char value, ReadOnlySpan<char> punctuation)
+        => char.IsAsciiLetterOrDigit(value) || punctuation.Contains(value);
+
+    public static bool IsAsciiAlpha(char value)
+        => value is >= 'A' and <= 'Z' or >= 'a' and <= 'z';
 
     private static string? ToLowerInvariantIfNeeded(string? value)
     {

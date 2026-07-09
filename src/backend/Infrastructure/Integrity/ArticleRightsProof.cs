@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Core.Common;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
 
@@ -219,7 +220,7 @@ public static class ArticleRightsProofCanonicalPayloadV1
             trimmed = trimmed["sha256:".Length..];
         }
 
-        if (trimmed.Length != 64 || trimmed.Any(static ch => !Uri.IsHexDigit(ch)))
+        if (!HexText.IsSha256Hex(trimmed))
         {
             throw new ArgumentException("Article rights proof digest must be a SHA-256 hex value.", nameof(value));
         }

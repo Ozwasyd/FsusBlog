@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
@@ -201,7 +202,7 @@ internal static class MerkleCheckpointHashGuards
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
         string trimmed = value.Trim();
-        if (trimmed.Length != 64 || trimmed.Any(static ch => !Uri.IsHexDigit(ch)))
+        if (!HexText.IsSha256Hex(trimmed))
         {
             throw new ArgumentException("Checkpoint hash must be SHA-256 hex.", name);
         }

@@ -198,20 +198,7 @@ public static class ZkProdPolicySnapshotFactory
     private static bool IsHexHash(string value)
     {
         string normalized = ZkProdOptions.Normalize(value, fallback: string.Empty, maxLength: 65);
-        if (normalized.Length != 64)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < normalized.Length; i++)
-        {
-            if (!Uri.IsHexDigit(normalized[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return TextHelpers.IsSha256Hex(normalized);
     }
 
     private static string ResolveUnavailableReason(

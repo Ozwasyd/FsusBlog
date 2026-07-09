@@ -191,7 +191,7 @@ public sealed class PasskeyStepUpV1ChallengeProvider(
                 break;
             }
 
-            chars[written++] = char.IsAsciiLetterOrDigit(ch) || ch is '_' or '-' ? ch : '_';
+            chars[written++] = TextHelpers.IsAsciiTokenChar(ch, "_-") ? ch : '_';
         }
 
         return written == 0 ? fallback : new string(chars[..written]);

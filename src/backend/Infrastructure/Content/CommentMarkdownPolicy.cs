@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using FsusBlog.Server.Infrastructure.Helpers;
 
 namespace FsusBlog.Server.Infrastructure.Content;
 
@@ -233,13 +234,13 @@ public static partial class CommentMarkdownPolicy
         }
 
         int index = remaining[1] == '/' ? 2 : 1;
-        if (index >= remaining.Length || !char.IsAsciiLetter(remaining[index]))
+        if (index >= remaining.Length || !TextHelpers.IsAsciiAlpha(remaining[index]))
         {
             return false;
         }
 
         index++;
-        while (index < remaining.Length && (char.IsAsciiLetterOrDigit(remaining[index]) || remaining[index] is ':' or '-'))
+        while (index < remaining.Length && TextHelpers.IsAsciiTokenChar(remaining[index], ":-"))
         {
             index++;
         }

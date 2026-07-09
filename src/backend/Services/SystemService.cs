@@ -1,4 +1,5 @@
-﻿using FsusBlog.Server.Entities;
+﻿using FsusBlog.Core.Common;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -647,16 +648,7 @@ public partial class SystemService(
             return false;
         }
 
-        for (int i = 1; i < value.Length; i++)
-        {
-            char ch = value[i];
-            if (ch is not ((>= '0' and <= '9') or (>= 'a' and <= 'f')))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return HexText.IsHex(value.AsSpan(1));
     }
 
     private static string TrimText(string? value, int maxLength)

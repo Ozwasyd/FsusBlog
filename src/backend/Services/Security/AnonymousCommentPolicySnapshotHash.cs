@@ -17,20 +17,7 @@ internal static class AnonymousCommentPolicySnapshotHash
     public static string NormalizeHash(string? value)
     {
         string normalized = TextHelpers.LowerTrimmed(value) ?? string.Empty;
-        if (normalized.Length != 64)
-        {
-            return string.Empty;
-        }
-
-        for (int i = 0; i < normalized.Length; i++)
-        {
-            if (!Uri.IsHexDigit(normalized[i]))
-            {
-                return string.Empty;
-            }
-        }
-
-        return normalized;
+        return TextHelpers.IsSha256Hex(normalized) ? normalized : string.Empty;
     }
 
     public static string Compute(AnonymousCommentPolicySnapshot snapshot)

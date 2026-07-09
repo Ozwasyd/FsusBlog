@@ -73,4 +73,27 @@ public sealed class TextHelpersTests
         Assert.Null(TextHelpers.NullIfBlank(" \r\n "));
         Assert.Equal("  value  ", TextHelpers.NullIfBlank("  value  "));
     }
+
+    [Fact]
+    public void IsSha256Hex_RequiresExactlySixtyFourHexCharacters()
+    {
+        Assert.True(TextHelpers.IsSha256Hex(new string('a', 64)));
+        Assert.True(TextHelpers.IsSha256Hex(new string('F', 64)));
+        Assert.False(TextHelpers.IsSha256Hex(null));
+        Assert.False(TextHelpers.IsSha256Hex(string.Empty));
+        Assert.False(TextHelpers.IsSha256Hex(new string('a', 63)));
+        Assert.False(TextHelpers.IsSha256Hex(new string('a', 65)));
+        Assert.False(TextHelpers.IsSha256Hex(new string('g', 64)));
+    }
+
+    [Fact]
+    public void HasOnlyAsciiTokenChars_AllowsOnlyAsciiLettersDigitsAndConfiguredPunctuation()
+    {
+        Assert.True(TextHelpers.HasOnlyAsciiTokenChars("article:/42-abc_def.0", "-_./:"));
+        Assert.False(TextHelpers.HasOnlyAsciiTokenChars(null, "-_./:"));
+        Assert.False(TextHelpers.HasOnlyAsciiTokenChars(string.Empty, "-_./:"));
+        Assert.False(TextHelpers.HasOnlyAsciiTokenChars("article\\42", "-_./:"));
+        Assert.False(TextHelpers.HasOnlyAsciiTokenChars("article?42", "-_./:"));
+        Assert.False(TextHelpers.HasOnlyAsciiTokenChars("文章42", "-_./:"));
+    }
 }

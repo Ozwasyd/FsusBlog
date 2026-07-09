@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Core.Common;
 
 namespace FsusBlog.Core.Integrity;
 
@@ -240,25 +241,13 @@ public static class ArticleRightsCanonicalPayloadV1
             throw new ArgumentException("Hash must be a sha256 digest with 64 hexadecimal characters.", nameof(value));
         }
 
-        Span<char> normalized = stackalloc char[64];
-        for (int i = 0; i < candidate.Length; i++)
+        if (!HexText.IsSha256Hex(candidate))
         {
-            char current = candidate[i];
-            if (!IsHex(current))
-            {
-                throw new ArgumentException("Hash must contain only hexadecimal characters.", nameof(value));
-            }
-
-            normalized[i] = char.ToLowerInvariant(current);
+            throw new ArgumentException("Hash must contain only hexadecimal characters.", nameof(value));
         }
 
-        return ArticleRightsCanonicalHashV1.HashAlgorithm + ":" + new string(normalized);
+        return ArticleRightsCanonicalHashV1.HashAlgorithm + ":" + candidate.ToLowerInvariant();
     }
-
-    private static bool IsHex(char value)
-        => value is >= '0' and <= '9'
-            or >= 'a' and <= 'f'
-            or >= 'A' and <= 'F';
 }
 
 public static class ArticleRightsAttributionTemplateRenderer

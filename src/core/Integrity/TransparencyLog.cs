@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Core.Common;
 
 namespace FsusBlog.Core.Integrity;
 
@@ -177,7 +178,7 @@ public static class TransparencyLogEntryCanonicalizer
     }
 
     internal static bool IsSha256Hex(string value)
-        => value.Length == 64 && value.All(static ch => Uri.IsHexDigit(ch));
+        => HexText.IsSha256Hex(value);
 
     private static void ValidateHash(string value, string name)
     {

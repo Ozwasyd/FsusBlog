@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
@@ -267,7 +268,7 @@ public static class PublishProofCanonicalPayloadV1
             trimmed = trimmed[7..];
         }
 
-        if (trimmed.Length != 64 || trimmed.Any(static ch => !Uri.IsHexDigit(ch)))
+        if (!HexText.IsSha256Hex(trimmed))
         {
             throw new ArgumentException("Publish proof digest must be a SHA-256 hex value.", nameof(value));
         }

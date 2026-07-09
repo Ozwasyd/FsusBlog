@@ -1,4 +1,5 @@
 using System.Globalization;
+using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -720,7 +721,7 @@ public sealed class IntegrityProofScheduler(
     private static bool IsReadyHash(string value)
     {
         string normalized = NormalizeHashForStorage(value);
-        return normalized.Length == 64 && normalized.All(static ch => Uri.IsHexDigit(ch));
+        return HexText.IsSha256Hex(normalized);
     }
 
     private static string NormalizeHashForStorage(string value)
@@ -736,7 +737,7 @@ public sealed class IntegrityProofScheduler(
             trimmed = trimmed["sha256:".Length..];
         }
 
-        return trimmed.Length == 64 && trimmed.All(static ch => Uri.IsHexDigit(ch))
+        return HexText.IsSha256Hex(trimmed)
             ? trimmed.ToLowerInvariant()
             : EmptyArtifactHash;
     }

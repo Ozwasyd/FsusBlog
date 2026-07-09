@@ -564,7 +564,7 @@ public static class RenderRecipeV2Contracts
         int written = 0;
         foreach (char ch in value)
         {
-            if (char.IsAsciiLetterOrDigit(ch))
+            if (IsAsciiAlphanumeric(ch))
             {
                 buffer[written++] = char.ToLowerInvariant(ch);
             }
@@ -572,6 +572,11 @@ public static class RenderRecipeV2Contracts
 
         return new string(buffer[..written]);
     }
+
+    private static bool IsAsciiAlphanumeric(char value)
+        => value is >= '0' and <= '9'
+            or >= 'A' and <= 'Z'
+            or >= 'a' and <= 'z';
 
     private static bool IsSupportedTaskKind(string value)
         => string.Equals(value, "character", StringComparison.Ordinal) ||

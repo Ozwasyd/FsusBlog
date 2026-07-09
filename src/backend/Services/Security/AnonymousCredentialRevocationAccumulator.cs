@@ -518,7 +518,7 @@ public static class AnonymousCredentialRevocationAccumulator
         string normalized = NormalizeHexToken(value, maxLength);
         return normalized.Length >= minLength &&
             normalized.Length <= maxLength &&
-            normalized.All(static ch => Uri.IsHexDigit(ch));
+            HexText.IsHex(normalized.AsSpan());
     }
 
     private static Result<string[]> NormalizeHandles(IEnumerable<string> revokedHandleHashes)
@@ -806,7 +806,7 @@ public static class AnonymousCredentialRevocationAccumulator
         string hex = NormalizeHexToken(value, 4096);
         if (hex.Length > 0 &&
             hex.Length % 2 == 0 &&
-            hex.All(static ch => Uri.IsHexDigit(ch)))
+            HexText.IsHex(hex.AsSpan()))
         {
             return FieldFromHex(hex);
         }

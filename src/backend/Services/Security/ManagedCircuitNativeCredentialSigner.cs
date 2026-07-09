@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Core.Common;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -174,8 +175,7 @@ internal static class ManagedCircuitNativeCredentialSigner
                 text = text[2..];
             }
 
-            if (text.Length == expectedBytes * 2 &&
-                text.All(static ch => Uri.IsHexDigit(ch)))
+            if (HexText.IsFixedLengthHex(text, expectedBytes * 2))
             {
                 key = Convert.FromHexString(text);
                 return true;

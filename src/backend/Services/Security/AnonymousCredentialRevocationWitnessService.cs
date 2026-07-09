@@ -168,7 +168,7 @@ public sealed class AnonymousCredentialRevocationWitnessService(
         string normalized = value.Trim();
         if (normalized.Length == 0 ||
             normalized.Length % 2 != 0 ||
-            !normalized.All(static ch => Uri.IsHexDigit(ch)))
+            !HexText.IsHex(normalized.AsSpan()))
         {
             return false;
         }

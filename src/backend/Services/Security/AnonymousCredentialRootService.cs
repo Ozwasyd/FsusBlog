@@ -103,7 +103,7 @@ public sealed class AnonymousCredentialRootStore(ISqlSugarClient db, IConfigurat
             .Replace("-", string.Empty, StringComparison.Ordinal);
         if (compact.Length > 0 &&
             compact.Length % 2 == 0 &&
-            compact.All(static ch => Uri.IsHexDigit(ch)))
+            HexText.IsHex(compact.AsSpan()))
         {
             return Convert.FromHexString(compact);
         }

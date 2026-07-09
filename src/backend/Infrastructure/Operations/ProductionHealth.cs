@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
@@ -355,7 +356,7 @@ public sealed class ProductionReadinessProbe(
             return TryDecodeBase64UrlPerceptionAeadKey(value[10..], out key);
         }
 
-        return value.Length == 64 && value.All(static ch => Uri.IsHexDigit(ch))
+        return HexText.IsSha256Hex(value)
             ? TryDecodeHexPerceptionAeadKey(value, out key)
             : TryDecodeBase64PerceptionAeadKey(value, out key)
               || TryDecodeBase64UrlPerceptionAeadKey(value, out key);

@@ -338,7 +338,7 @@ public sealed class AnonymousCommentTicketService(
             return false;
         }
 
-        return value.All(static ch => Uri.IsHexDigit(ch));
+        return HexText.IsHex(value.AsSpan());
     }
 }
 

@@ -320,13 +320,9 @@ public sealed class HumanReadProofService(
             return false;
         }
 
-        for (int i = 0; i < routeKey.Length; i++)
+        if (!TextHelpers.HasOnlyAsciiTokenChars(routeKey, "-_./:"))
         {
-            char ch = routeKey[i];
-            if (char.IsControl(ch) || ch == '\\')
-            {
-                return false;
-            }
+            return false;
         }
 
         return true;
@@ -357,13 +353,9 @@ public sealed class HumanReadProofService(
             return false;
         }
 
-        for (int i = 0; i < fingerprint.Length; i++)
+        if (!TextHelpers.HasOnlyAsciiTokenChars(fingerprint, "-_.:"))
         {
-            char ch = fingerprint[i];
-            if (!(char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.' or ':'))
-            {
-                return false;
-            }
+            return false;
         }
 
         return true;

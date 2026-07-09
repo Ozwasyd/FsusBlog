@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using FsusBlog.Core.Common;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace FsusBlog.Server.Infrastructure.Integrity;
@@ -396,7 +397,7 @@ public static class SiteIntegritySigningPayloadCanonicalizer
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
         string trimmed = value.Trim();
-        if (trimmed.Length != 64 || trimmed.Any(static ch => !Uri.IsHexDigit(ch)))
+        if (!HexText.IsSha256Hex(trimmed))
         {
             throw new ArgumentException("DigestSha256Hex must be a 64-character hexadecimal string.", nameof(value));
         }
