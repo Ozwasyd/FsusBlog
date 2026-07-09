@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { getPageData } from '@/api/system'
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
@@ -58,11 +58,10 @@ import { FSUSBLOG_AUTH_COPY } from '@/copy'
 const copy = FSUSBLOG_AUTH_COPY.policyModal
 
 const props = defineProps<{
-  visible: boolean,
   type: 'privacy' | 'guidelines'
 }>()
 
-const emit = defineEmits<{ (e: 'update:visible', value: boolean): void }>()
+const dialogVisible = defineModel<boolean>('visible', { required: true })
 
 const titleMap: Record<string, string> = {
   privacy: copy.privacyTitle,
@@ -76,12 +75,9 @@ const loadedType = ref('')
 
 let abortController: AbortController | null = null
 
-const dialogVisible = computed({
-  get: () => props.visible,
-  set: (value: boolean) => emit('update:visible', value)
-})
-
-const close = () => emit('update:visible', false)
+const close = () => {
+  dialogVisible.value = false
+}
 
 const fetchData = async () => {
   if (abortController) abortController.abort()
@@ -126,7 +122,7 @@ const handleMarkdownError = (renderError: { message?: string }) => {
   error.value = true
 }
 
-watch(() => props.visible, (newVal) => {
+watch(dialogVisible, (newVal) => {
   if (newVal) {
     if (loadedType.value !== props.type) {
       fetchData()

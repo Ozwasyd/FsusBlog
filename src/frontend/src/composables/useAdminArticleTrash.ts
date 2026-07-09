@@ -64,30 +64,53 @@ export function useAdminArticleTrash() {
     }
   }
 
+  const restoreTrashArticle = async (row: ArticleListItemResponse): Promise<void> => {
+    submittingIds.value.add(row.id)
+    try {
+      await mutation.confirmThenRun({
+        message: `确定要恢复文章《${row.title}》吗？恢复后文章将重新对外可见，并同步搜索索引。`,
+        title: '恢复并重新发布',
+        confirmButtonText: '恢复并重新发布'
+      }, async (signal) => {
+        const config: ApiRequestConfig = { signal }
+        await restoreArticle(row.id, config)
+      }, {
+        fallbackMessage: '文章恢复失败',
+        successMessage: '文章已恢复并重新发布',
+        onSuccess: loadData
+      })
+    } finally {
+      submittingIds.value.delete(row.id)
+    }
+  }
+
   const handleRestore = (row: ArticleListItemResponse): void => {
     if (submittingIds.value.has(row.id)) {
       return
     }
 
-    void (async () => {
-      submittingIds.value.add(row.id)
-      try {
-        await mutation.confirmThenRun({
-          message: `确定要恢复文章《${row.title}》吗？恢复后文章将重新对外可见，并同步搜索索引。`,
-          title: '恢复并重新发布',
-          confirmButtonText: '恢复并重新发布'
-        }, async (signal) => {
-          const config: ApiRequestConfig = { signal }
-          await restoreArticle(row.id, config)
-        }, {
-          fallbackMessage: '文章恢复失败',
-          successMessage: '文章已恢复并重新发布',
-          onSuccess: loadData
-        })
-      } finally {
-        submittingIds.value.delete(row.id)
+    void restoreTrashArticle(row)
+  }
+
+  const permanentlyDeleteTrashArticle = async (row: ArticleListItemResponse): Promise<void> => {
+    submittingIds.value.add(row.id)
+    try {
+      if (!await requestPermanentDeleteConfirmation(row)) {
+        return
       }
-    })()
+
+      await mutation.run(async (signal) => {
+        const config: ApiRequestConfig = { signal }
+        await permanentDeleteArticle(row.id, config)
+      }, {
+        fallbackMessage: '文章永久删除失败',
+        successMessage: '文章已永久删除',
+        successType: 'warning',
+        onSuccess: loadData
+      })
+    } finally {
+      submittingIds.value.delete(row.id)
+    }
   }
 
   const handlePermanentDelete = (row: ArticleListItemResponse): void => {
@@ -95,26 +118,7 @@ export function useAdminArticleTrash() {
       return
     }
 
-    void (async () => {
-      submittingIds.value.add(row.id)
-      try {
-        if (!await requestPermanentDeleteConfirmation(row)) {
-          return
-        }
-
-        await mutation.run(async (signal) => {
-          const config: ApiRequestConfig = { signal }
-          await permanentDeleteArticle(row.id, config)
-        }, {
-          fallbackMessage: '文章永久删除失败',
-          successMessage: '文章已永久删除',
-          successType: 'warning',
-          onSuccess: loadData
-        })
-      } finally {
-        submittingIds.value.delete(row.id)
-      }
-    })()
+    void permanentlyDeleteTrashArticle(row)
   }
 
   const requestPermanentDeleteConfirmation = async (row: ArticleListItemResponse): Promise<boolean> => {

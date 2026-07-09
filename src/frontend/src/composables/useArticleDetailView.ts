@@ -566,6 +566,15 @@ export function useArticleDetailView() {
     debounceTimers.set(articleId, timer)
   }
 
+  const confirmDeletedArticleNavigation = async (): Promise<void> => {
+    const confirmed = await alertInfo('该文章内容已被作者移除，正在为您返回首页。', '文章已被删除', {
+      confirmButtonText: '确定'
+    })
+    if (confirmed) {
+      void router.replace('/')
+    }
+  }
+
   const handleRemoteArticleDeleted = (data: ArticleSignalPayload): void => {
     if (!data?.articleId) {
       return
@@ -579,14 +588,7 @@ export function useArticleDetailView() {
       }
       article.value = null
 
-      void (async () => {
-        const confirmed = await alertInfo('该文章内容已被作者移除，正在为您返回首页。', '文章已被删除', {
-          confirmButtonText: '确定'
-        })
-        if (confirmed) {
-          void router.replace('/')
-        }
-      })()
+      void confirmDeletedArticleNavigation()
     }
   }
 
@@ -904,7 +906,7 @@ export function useArticleDetailView() {
     const isAdmin = userStore.isAdmin
     const summary = summarizeCommentContent(payload.content)
 
-    void (async () => {
+    const deleteSelectedComment = async (): Promise<void> => {
       const confirmed = await requestGlobalConfirm({
         title: isAdmin ? '管理员操作' : '删除评论',
         content: isAdmin
@@ -923,7 +925,9 @@ export function useArticleDetailView() {
       } catch (error: unknown) {
         showErrorToast(error, '操作失败')
       }
-    })()
+    }
+
+    void deleteSelectedComment()
   }
 
   const handleArticleBatch = (patches: readonly NotificationStreamArticleRenderPatch[]): void => {

@@ -22,6 +22,8 @@ type ActiveFilterChip = {
   label: string
 }
 
+type ArticleListCommand = 'view' | 'delete'
+
 type AdminArticleListViewItem = ArticleListItemResponse & {
   createdAtText: string
   categoryName: string
@@ -344,52 +346,52 @@ export function useAdminArticleList() {
     })
   }
 
-  const safeDelete = (row: ArticleListItemResponse): void => {
-    void (async () => {
-      if (loading.value) {
-        return
-      }
-
-      loading.value = true
-      rowMotion.markPending(row.id, '正在移入回收站')
-      try {
-        await mutation.confirmThenRun({
-          message: `确定要将文章《${row.title}》移入回收站吗？文章会从公开列表下线，仍可在回收站恢复。`,
-          title: '移入回收站',
-          confirmButtonText: '移入回收站',
-          cancelButtonText: '取消'
-        }, async (signal) => {
-          await deleteArticle(row.id, { signal })
-        }, {
-          fallbackMessage: '文章移入回收站失败',
-          successMessage: '文章已移入回收站',
-          onSuccess: loadData
-        })
-      } finally {
-        rowMotion.clear(row.id)
-        loading.value = false
-      }
-    })()
-  }
-
-  const handleMoreCommand = (command: string, row: ArticleListItemResponse): void => {
-    if (command === 'view') {
-      if (isPubliclyVisibleArticle(row)) {
-        window.open(`/article/${row.id}`, '_blank', 'noopener,noreferrer')
-        return
-      }
-
-      void router.push({
-        name: 'ManageEditArticle',
-        params: { id: String(row.id) },
-        query: { from: route.fullPath, preview: 'private' }
-      })
+  const safeDelete = async (row: ArticleListItemResponse): Promise<void> => {
+    if (loading.value) {
       return
     }
 
-    if (command === 'delete') {
-      safeDelete(row)
+    loading.value = true
+    rowMotion.markPending(row.id, '正在移入回收站')
+    try {
+      await mutation.confirmThenRun({
+        message: `确定要将文章《${row.title}》移入回收站吗？文章会从公开列表下线，仍可在回收站恢复。`,
+        title: '移入回收站',
+        confirmButtonText: '移入回收站',
+        cancelButtonText: '取消'
+      }, async (signal) => {
+        await deleteArticle(row.id, { signal })
+      }, {
+        fallbackMessage: '文章移入回收站失败',
+        successMessage: '文章已移入回收站',
+        onSuccess: loadData
+      })
+    } finally {
+      rowMotion.clear(row.id)
+      loading.value = false
     }
+  }
+
+  const handleMoreCommand = (command: ArticleListCommand, row: ArticleListItemResponse): void => {
+    const actionDispatch: Record<ArticleListCommand, () => void> = {
+      view: () => {
+        if (isPubliclyVisibleArticle(row)) {
+          window.open(`/article/${row.id}`, '_blank', 'noopener,noreferrer')
+          return
+        }
+
+        void router.push({
+          name: 'ManageEditArticle',
+          params: { id: String(row.id) },
+          query: { from: route.fullPath, preview: 'private' }
+        })
+      },
+      delete: () => {
+        void safeDelete(row)
+      }
+    }
+
+    actionDispatch[command]?.()
   }
 
   onMounted(() => {

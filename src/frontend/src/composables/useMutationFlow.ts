@@ -6,6 +6,13 @@ import { requestGlobalConfirm } from '@/composables/useGlobalConfirm'
 
 type MutationMessageType = 'success' | 'warning' | 'error' | 'info'
 
+const messageDispatch: Record<MutationMessageType, (text: string) => void> = {
+  success: (text) => toast.success(text),
+  warning: (text) => toast.warning(text),
+  error: (text) => toast.error(text),
+  info: (text) => toast.info(text)
+}
+
 type MutationConfirmOptions = Readonly<{
   message: string
   title: string
@@ -63,15 +70,7 @@ export function useMutationFlow() {
 
     if (options.successMessage) {
       const type = options.successType ?? 'success'
-      if (type === 'warning') {
-        toast.warning(options.successMessage)
-      } else if (type === 'error') {
-        toast.error(options.successMessage)
-      } else if (type === 'info') {
-        toast.info(options.successMessage)
-      } else {
-        toast.success(options.successMessage)
-      }
+      messageDispatch[type](options.successMessage)
     }
 
     if (postSuccessSyncFailed) {
