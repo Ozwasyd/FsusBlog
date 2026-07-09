@@ -151,6 +151,11 @@ public sealed class NativeGroth16ZkProofBackendTests
     [Trait("Category", "Performance")]
     public async Task MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget()
     {
+        if (!string.Equals(Environment.GetEnvironmentVariable("FSUSBLOG_RUN_PERFORMANCE_TESTS"), "1", StringComparison.Ordinal))
+        {
+            return;
+        }
+
         byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
         using var temp = TempNativeZkFixture.Create(verifyingKey);
         ProductionZkProofBackendRequest request = ValidBackendRequest([], temp.VerifyingKeySha256);

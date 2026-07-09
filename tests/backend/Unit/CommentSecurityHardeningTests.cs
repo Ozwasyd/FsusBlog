@@ -17,11 +17,11 @@ public sealed class CommentSecurityHardeningTests
         string source = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
 
         Assert.Contains("CommentLimits.CreatePayloadMaxBytes", source);
-        Assert.Contains("IsCommentContentWithinLimit(content)", source);
+        Assert.Contains("IsCommentContentWithinLimit(content, policy)", source);
         Assert.Contains("CommentMarkdownPolicy.ValidateForSubmit(content)", source);
         Assert.Contains("contentFilterService.ValidateContent(markdownReview.ReviewText)", source);
         Assert.True(
-            source.IndexOf("IsCommentContentWithinLimit(content)", StringComparison.Ordinal) <
+            source.IndexOf("IsCommentContentWithinLimit(content, policy)", StringComparison.Ordinal) <
             source.IndexOf("CommentMarkdownPolicy.ValidateForSubmit(content)", StringComparison.Ordinal));
         Assert.True(
             source.IndexOf("CommentMarkdownPolicy.ValidateForSubmit(content)", StringComparison.Ordinal) <

@@ -2,6 +2,7 @@ using System.Reflection;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Moderation;
@@ -307,23 +308,23 @@ public class CommentServiceValidationTests
     [InlineData("   ", false)]
     public void IsCommentContentWithinLimit_ReturnsExpectedForBasicInputs(string content, bool expected)
     {
-        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [content]);
+        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [content, AnonymousCommentPolicySnapshot.Default]);
         Assert.Equal(expected, result);
     }
 
     [Fact]
     public void IsCommentContentWithinLimit_RejectsOverCharacterLimit()
     {
-        string longContent = new('a', CommentLimits.ContentMaxChars + 1);
-        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [longContent]);
+        string longContent = new('a', AnonymousCommentPolicySnapshot.Default.CommentMaxChars + 1);
+        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [longContent, AnonymousCommentPolicySnapshot.Default]);
         Assert.False(result);
     }
 
     [Fact]
     public void IsCommentContentWithinLimit_RejectsOverUtf8ByteLimit()
     {
-        string longContent = new('你', (CommentLimits.ContentMaxUtf8Bytes / 3) + 1);
-        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [longContent]);
+        string longContent = new('你', (AnonymousCommentPolicySnapshot.Default.CommentMaxUtf8Bytes / 3) + 1);
+        var result = InvokePrivateStatic<bool>("IsCommentContentWithinLimit", [longContent, AnonymousCommentPolicySnapshot.Default]);
         Assert.False(result);
     }
 

@@ -1542,11 +1542,13 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         zk_anonymous_enabled,
                         default_author_mode,
                         supported_display_languages,
+                        comment_max_chars,
+                        comment_max_utf8_bytes,
                         snapshot_hash,
                         changed_by,
                         updated_at_utc
                     )
-                    VALUES (1, true, true, false, 'anonymous', 'zh-CN,en', '', 'system', now())
+                    VALUES (1, true, true, false, 'anonymous', 'zh-CN,en', 1000, 4096, '', 'system', now())
                     ON CONFLICT (id) DO NOTHING;
                     """),
                 new EnsureColumnStep("anonymous_comment_policy", "snapshot_hash", "varchar(64) NOT NULL DEFAULT ''"),

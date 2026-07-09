@@ -288,7 +288,7 @@ public sealed class OperationsReadinessContractTests
         public string RunBackup(string connectionString)
         {
             RunBashFunction(
-                "source <(sed '$d' tools/operations/backup-site.sh); WORK_DIR=\"$1\"; dump_database",
+                "script_source=\"$(mktemp)\"; sed '$d' tools/operations/backup-site.sh > \"$script_source\"; source \"$script_source\"; rm -f \"$script_source\"; WORK_DIR=\"$1\"; dump_database",
                 connectionString,
                 [_backupRoot]);
             return File.ReadAllText(_resultPath);
@@ -299,7 +299,7 @@ public sealed class OperationsReadinessContractTests
             Directory.CreateDirectory(Path.Combine(_restoreRoot, "package"));
             File.WriteAllText(Path.Combine(_restoreRoot, "package", "database.dump"), "dump");
             RunBashFunction(
-                "set --; source <(sed '$d' tools/operations/restore-site.sh); restore_database",
+                "script_source=\"$(mktemp)\"; sed '$d' tools/operations/restore-site.sh > \"$script_source\"; set --; source \"$script_source\"; rm -f \"$script_source\"; restore_database",
                 connectionString,
                 []);
             return File.ReadAllText(_resultPath);
