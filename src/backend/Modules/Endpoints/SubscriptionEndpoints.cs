@@ -27,21 +27,10 @@ public static class SubscriptionEndpoints
             return null;
         }
 
-        string legacyHash = SiteSubscriptionIdentity.LegacySha256EmailHash(request.Email);
         string channel = SiteSubscriptionIdentity.NormalizeChannel(request.Channel);
         cancellationToken.ThrowIfCancellationRequested();
         await db.Ado.ExecuteCommandAsync(
             """
-            UPDATE site_subscription
-            SET email_hash = @email_hash,
-                hash_version = @hash_version
-            WHERE email_hash = @legacy_email_hash
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM site_subscription
-                  WHERE email_hash = @email_hash
-              );
-
             INSERT INTO site_subscription (email_hash, hash_version, channel, is_enabled, created_at, unsubscribed_at)
             VALUES (@email_hash, @hash_version, @channel, true, @created_at, NULL)
             ON CONFLICT (email_hash) DO UPDATE
@@ -53,7 +42,6 @@ public static class SubscriptionEndpoints
             new SugarParameter[]
             {
                 new SugarParameter("@email_hash", hash),
-                new SugarParameter("@legacy_email_hash", legacyHash),
                 new SugarParameter("@hash_version", SiteSubscriptionIdentity.CurrentHashVersion),
                 new SugarParameter("@channel", channel),
                 new SugarParameter("@created_at", DateTime.UtcNow)
@@ -80,7 +68,6 @@ public static class SubscriptionEndpoints
             return null;
         }
 
-        string legacyHash = SiteSubscriptionIdentity.LegacySha256EmailHash(request.Email);
         string channel = SiteSubscriptionIdentity.NormalizeChannel(request.Channel);
         if (!string.Equals(hash, proof.EmailHash, StringComparison.Ordinal) ||
             !string.Equals(channel, proof.Channel, StringComparison.Ordinal))
@@ -91,7 +78,7 @@ public static class SubscriptionEndpoints
         int count = await db.Updateable<SiteSubscription>()
             .SetColumns(it => it.IsEnabled == false)
             .SetColumns(it => it.UnsubscribedAt == DateTime.UtcNow)
-            .Where(it => (it.EmailHash == proof.EmailHash || it.EmailHash == legacyHash) && it.Channel == proof.Channel)
+            .Where(it => it.EmailHash == proof.EmailHash && it.Channel == proof.Channel)
             .ExecuteCommandAsync(cancellationToken);
         return new SiteSubscriptionBinaryResponse(false, count > 0, channel);
     }

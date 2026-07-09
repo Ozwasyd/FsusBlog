@@ -19,6 +19,7 @@ public interface ISchemaMigrationDescriptor
     bool Transactional { get; }
     IReadOnlyList<SchemaMigrationStep> Steps { get; }
     string Checksum { get; }
+    IReadOnlySet<string> AcceptedChecksums { get; }
 }
 
 public sealed record SchemaMigrationDescriptor(
@@ -26,9 +27,33 @@ public sealed record SchemaMigrationDescriptor(
     string Description,
     SchemaMigrationPhase Phase,
     bool Transactional,
-    IReadOnlyList<SchemaMigrationStep> Steps) : ISchemaMigrationDescriptor
+    IReadOnlyList<SchemaMigrationStep> Steps,
+    IReadOnlyCollection<string>? CompatibleChecksums = null) : ISchemaMigrationDescriptor
 {
     public string Checksum { get; } = ComputeChecksum(MigrationId, Description, Phase, Transactional, Steps);
+    public IReadOnlySet<string> AcceptedChecksums { get; } = BuildAcceptedChecksums(
+        ComputeChecksum(MigrationId, Description, Phase, Transactional, Steps),
+        CompatibleChecksums);
+
+    private static IReadOnlySet<string> BuildAcceptedChecksums(
+        string checksum,
+        IReadOnlyCollection<string>? compatibleChecksums)
+    {
+        var checksums = new HashSet<string>(StringComparer.Ordinal)
+        {
+            checksum
+        };
+
+        if (compatibleChecksums is not null)
+        {
+            foreach (string compatibleChecksum in compatibleChecksums)
+            {
+                checksums.Add(compatibleChecksum);
+            }
+        }
+
+        return checksums;
+    }
 
     private static string ComputeChecksum(
         string migrationId,
@@ -263,6 +288,14 @@ public sealed record RawSqlStep(string Sql) : SchemaMigrationStep
     internal override string Fingerprint => Sql;
     internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
         => db.Ado.ExecuteCommandAsync(Sql);
+}
+
+public sealed record ClearLegacyPublicArtifactsStep : SchemaMigrationStep
+{
+    internal override string Kind => "ClearLegacyPublicArtifacts";
+    internal override string Fingerprint => "runtime-cache/public/articles/*.aeds:article-detail-aeds-v3";
+    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
+        => Task.CompletedTask;
 }
 
 public sealed record AssertSqlStep(string Description, string Sql) : SchemaMigrationStep

@@ -35,7 +35,7 @@ The migration is idempotent. A second startup must not duplicate policy rows, sn
 
 ## Artifact Boundary
 
-The migration does not create a legacy `rights.aeds` endpoint and does not mutate existing PublicAOT, article detail AEDS, PublicHotRead, feed, sitemap, or search artifacts in place. Those outputs remain derived read models. After enabling Rights V3 payloads, run the public artifact cutover from `docs/operations.md`: migrate DB, `recompute-article-rights`, `clear-legacy-public-artifacts`, `rebuild-article-detail-aeds-v3`, then rebuild PublicAOT.
+The migration does not create a legacy `rights.aeds` endpoint and does not mutate PublicAOT, PublicHotRead, feed, sitemap, or search artifacts in place. ArticleDetail AEDS legacy files are cleared by the one-time `20260709-post-clear-legacy-public-artifacts` SchemaMigrationRunner step. After enabling Rights V3 payloads, run the public artifact cutover from `docs/operations.md`: migrate DB, `recompute-article-rights`, `rebuild-article-detail-aeds-v3`, then rebuild PublicAOT.
 
 ArticleDetail artifact readers only accept AEDS `ArticleDetail` frames whose inner payload is V3 (`ARD3`, version `3`). Missing rights snapshots are not encoded as empty/default rights; the projector records the missing-rights state, removes any stale detail artifact for that article, and waits for the rights recompute/rebuild path to repair the derived read model. This is a fail-closed cutover, not a legacy compatibility mode.
 

@@ -58,6 +58,8 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260621-post-message-legacy-identity-columns-finalize", migrationIds);
         Assert.Contains("20260621-pre-sys-user-security-profile-split", migrationIds);
         Assert.Contains("20260621-post-sys-user-security-profile-split-finalize", migrationIds);
+        Assert.Contains("20260709-post-site-subscription-hmac-finalize", migrationIds);
+        Assert.Contains("20260709-post-clear-legacy-public-artifacts", migrationIds);
     }
 
     [Fact]
@@ -408,6 +410,39 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("rights-v3:policy-hash:recompute", fingerprint, StringComparison.Ordinal);
         Assert.Contains("rights-v3:content-hash:recompute", fingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain("rights.aeds", fingerprint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetDescriptors_SiteSubscriptionHmacFinalize_DisablesLegacySha256Rows()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260709-post-site-subscription-hmac-finalize");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("hash_version = 'sha256-legacy'", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("hash_version = 'hmac-v1'", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("is_enabled = false", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("SELECT COUNT(*)", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("FROM site_subscription", fingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDescriptors_ClearLegacyPublicArtifacts_RunsAsOneTimeMigrationStep()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260709-post-clear-legacy-public-artifacts");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.Contains("runtime-cache/public/articles/*.aeds", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("article-detail-aeds-v3", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]

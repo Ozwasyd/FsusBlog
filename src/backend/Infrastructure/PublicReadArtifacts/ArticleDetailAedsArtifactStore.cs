@@ -799,8 +799,6 @@ public sealed class ArticleDetailAedsArtifactProjector(
     IArticleDetailAedsArtifactStore store,
     ILogger<ArticleDetailAedsArtifactProjector> logger) : IArticleDetailAedsArtifactProjector
 {
-    private bool? legacyArticleContentColumnExists;
-
     public async Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default)
     {
         ArticleDetailReadModel? article = await LoadArticleDetailFromDbAsync(articleId, cancellationToken).ConfigureAwait(false);
@@ -829,11 +827,6 @@ public sealed class ArticleDetailAedsArtifactProjector(
     private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(int id, CancellationToken ct)
     {
         DateTime utcNow = DateTime.UtcNow;
-        bool hasLegacyContentColumn = await LegacyArticleContentColumnExistsAsync().ConfigureAwait(false);
-        string contentExpression = hasLegacyContentColumn
-            ? "COALESCE(NULLIF(ab.markdown_content, ''), NULLIF(a.content, ''), '')"
-            : "COALESCE(ab.markdown_content, '')";
-        string legacyGroupBy = hasLegacyContentColumn ? ", a.content" : string.Empty;
         string sql = $$"""
             SELECT
                 a.id AS "Id",
@@ -848,7 +841,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 a.scheduled_publish_at AS "ScheduledPublishAt",
                 a.published_at AS "PublishedAt",
                 c.name AS "CategoryName",
-                {{contentExpression}} AS "Content",
+                COALESCE(ab.markdown_content, '') AS "Content",
                 rights.id AS "RightsSnapshotId",
                 rights.article_revision_id AS "RightsArticleRevisionId",
                 rights.revision_no AS "RightsRevisionNo",
@@ -937,7 +930,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 rights.content_canonical_hash,
                 rights_proof.id,
                 rights_proof.proof_status,
-                ab.markdown_content{{legacyGroupBy}};
+                ab.markdown_content;
             """;
         ArticleDetailReadModel? article = null;
         using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
@@ -1090,37 +1083,7 @@ public sealed class ArticleDetailAedsArtifactProjector(
             .Select(it => it.MarkdownContent)
             .FirstAsync() ?? string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(content) || !await LegacyArticleContentColumnExistsAsync().ConfigureAwait(false))
-        {
-            return content;
-        }
-
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            "SELECT COALESCE(content, '') AS content FROM article WHERE id = @id LIMIT 1;",
-            new[] { new SugarParameter("@id", articleId) });
-        if (await reader.ReadAsync(ct).ConfigureAwait(false) && !reader.IsDBNull(0))
-        {
-            return reader.GetString(0);
-        }
-
-        return string.Empty;
-    }
-
-    private async Task<bool> LegacyArticleContentColumnExistsAsync()
-    {
-        if (legacyArticleContentColumnExists.HasValue)
-        {
-            return legacyArticleContentColumnExists.Value;
-        }
-
-        int exists = await db.Ado.GetIntAsync("""
-            SELECT COUNT(1)
-            FROM information_schema.columns
-            WHERE table_name = 'article'
-              AND column_name = 'content';
-            """);
-        legacyArticleContentColumnExists = exists > 0;
-        return legacyArticleContentColumnExists.Value;
+        return content;
     }
 
     private async Task<Dictionary<int, List<TagReadModel>>> LoadArticleTagMapAsync(IReadOnlyCollection<int> articleIds, CancellationToken ct)

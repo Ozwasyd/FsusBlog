@@ -19,6 +19,7 @@
 
 - `ShieldMiddleware` 将 search crawler、social preview bot、unknown bot 和工具型 UA 分层处理，保留路径攻击硬 abort，其余拒绝返回轻量 403 并记录安全指标。
 - RSS、Atom、JSON Feed、sitemap 和 robots 响应统一使用 CDN 友好缓存头与 ETag；`robots.txt` 明确禁止 `/api/`、搜索索引和私有路径。
+- 运行时 legacy 回退收敛：上传会话清理只依赖 expiration bucket，订阅运行时只使用 HMAC hash，文章正文只读取 `article_body.markdown_content`，认证 Cookie 不再读取 legacy plain fallback，PublicAOT hydration sidecar 只接受内容 SHA-256，ArticleDetail legacy `.aeds` 清理由 SchemaMigrationRunner 一次性执行。
 
 ---
 

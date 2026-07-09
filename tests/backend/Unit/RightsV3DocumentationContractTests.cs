@@ -51,8 +51,8 @@ public sealed class RightsV3DocumentationContractTests
             "backup database",
             "backup runtime artifacts",
             "apply DB migration",
+            "SchemaMigrationRunner clears legacy public artifacts",
             "recompute-article-rights",
-            "clear-legacy-public-artifacts",
             "rebuild-article-detail-aeds-v3",
             "rebuild PublicAOT output",
             "run verification tests"
@@ -66,7 +66,7 @@ public sealed class RightsV3DocumentationContractTests
             previousIndex = index;
         }
 
-        Assert.Contains("legacy public article artifacts must be cleared and rebuilt", runbook, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("legacy public article artifacts must be cleared by SchemaMigrationRunner", runbook, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("no separate public rights endpoint", runbook, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("missing rights snapshot", runbook, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("failed rights proof", runbook, StringComparison.OrdinalIgnoreCase);

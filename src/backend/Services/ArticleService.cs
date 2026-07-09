@@ -71,8 +71,6 @@ public class ArticleService(
     private const int MaxContentLength = 200_000;
     private const int MaxTagIds = 32;
     private readonly IDatabase _redis = _redisConnection.GetDatabase();
-    private static int s_legacyArticleContentColumnState;
-
     private CancellationToken Ct => _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
 
     private CancellationToken ResolveCancellationToken(CancellationToken cancellationToken)
@@ -301,11 +299,6 @@ public class ArticleService(
         CancellationToken cancellationToken)
     {
         DateTime utcNow = DateTime.UtcNow;
-        bool hasLegacyContentColumn = await LegacyArticleContentColumnExistsAsync(cancellationToken).ConfigureAwait(false);
-        string contentExpression = hasLegacyContentColumn
-            ? "COALESCE(NULLIF(ab.markdown_content, ''), NULLIF(a.content, ''), '')"
-            : "COALESCE(ab.markdown_content, '')";
-        string legacyGroupBy = hasLegacyContentColumn ? ", a.content" : string.Empty;
         string visibilitySql = string.Empty;
         var parameters = new List<SugarParameter>
         {
@@ -339,7 +332,7 @@ public class ArticleService(
                 a.scheduled_publish_at AS "ScheduledPublishAt",
                 a.published_at AS "PublishedAt",
                 c.name AS "CategoryName",
-                {{contentExpression}} AS "Content",
+                COALESCE(ab.markdown_content, '') AS "Content",
                 rights.id AS "RightsSnapshotId",
                 rights.article_revision_id AS "RightsArticleRevisionId",
                 rights.revision_no AS "RightsRevisionNo",
@@ -425,7 +418,7 @@ public class ArticleService(
                 rights.content_canonical_hash,
                 rights_proof.id,
                 rights_proof.proof_status,
-                ab.markdown_content{{legacyGroupBy}};
+                ab.markdown_content;
             """;
         using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(sql, parameters))
         {
@@ -571,47 +564,7 @@ public class ArticleService(
             .Select(it => it.MarkdownContent)
             .FirstAsync(cancellationToken) ?? string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(content))
-        {
-            return content;
-        }
-
-        if (!await LegacyArticleContentColumnExistsAsync(cancellationToken))
-        {
-            return content;
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
-            "SELECT COALESCE(content, '') AS content FROM article WHERE id = @id LIMIT 1;",
-            new[] { new SugarParameter("@id", articleId) });
-        if (await reader.ReadAsync(cancellationToken) && !reader.IsDBNull(0))
-        {
-            return reader.GetString(0);
-        }
-
-        return string.Empty;
-    }
-
-    private async Task<bool> LegacyArticleContentColumnExistsAsync(CancellationToken cancellationToken)
-    {
-        int state = Volatile.Read(ref s_legacyArticleContentColumnState);
-        if (state != 0)
-        {
-            return state == 1;
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        int exists = await _db.Ado.GetIntAsync("""
-            SELECT COUNT(1)
-            FROM information_schema.columns
-            WHERE table_name = 'article'
-              AND column_name = 'content';
-            """);
-        cancellationToken.ThrowIfCancellationRequested();
-        bool existsInSchema = exists > 0;
-        Volatile.Write(ref s_legacyArticleContentColumnState, existsInSchema ? 1 : 2);
-        return existsInSchema;
+        return content;
     }
 
     public async Task<int> CreateAsync(CreateArticleRequest dto, CancellationToken cancellationToken = default)

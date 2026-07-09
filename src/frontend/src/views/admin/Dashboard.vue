@@ -100,7 +100,7 @@ const todayActions = computed<Array<{
   to: RouteLocationRaw
 }>>(() => [
   {
-    label: '评论待审',
+    label: '评论审核',
     countText: `${pendingCommentCount.value}`,
     helper: pendingCommentCount.value > 0 ? '进入评论审核队列' : '评论队列已处理完成',
     to: { name: 'ManageModerationComments' }

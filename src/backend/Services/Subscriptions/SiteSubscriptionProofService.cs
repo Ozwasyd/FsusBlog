@@ -253,7 +253,6 @@ internal static class SiteSubscriptionIdentity
 {
     public const string EmailHashPepperConfigurationKey = "Subscription:EmailHashPepper";
     public const string CurrentHashVersion = "hmac-v1";
-    public const string LegacySha256HashVersion = "sha256-legacy";
 
     public static string HashEmail(string? email, IConfiguration configuration)
     {
@@ -272,14 +271,6 @@ internal static class SiteSubscriptionIdentity
         return Convert.ToHexStringLower(HMACSHA256.HashData(
             Encoding.UTF8.GetBytes(pepper),
             Encoding.UTF8.GetBytes(normalized)));
-    }
-
-    public static string LegacySha256EmailHash(string? email)
-    {
-        string normalized = NormalizeEmail(email);
-        return normalized.Length == 0
-            ? string.Empty
-            : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
     }
 
     public static string NormalizeChannel(string? channel)

@@ -52,8 +52,6 @@ public sealed class PublicHotArtifactProjector(
 {
     private const int MaxPageSize = 100;
     private const int MaxHotArticlesCount = 100;
-    private bool? legacyArticleContentColumnExists;
-
     public Task<PublicHotReadSnapshot> RebuildAfterArticleMutationAsync(
         PublicHotReadSnapshot current,
         int articleId,
@@ -872,26 +870,6 @@ public sealed class PublicHotArtifactProjector(
             contentMap[row.ArticleId] = row.MarkdownContent ?? string.Empty;
         }
 
-        int[] missingLegacyIds =
-        [
-            .. ids.Where(id => !contentMap.TryGetValue(id, out string? content) || string.IsNullOrWhiteSpace(content))
-        ];
-        if (missingLegacyIds.Length == 0 || !await LegacyArticleContentColumnExistsAsync().ConfigureAwait(false))
-        {
-            return contentMap;
-        }
-
-        foreach (int articleId in missingLegacyIds)
-        {
-            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-                "SELECT COALESCE(content, '') AS content FROM article WHERE id = @id LIMIT 1;",
-                new[] { new SugarParameter("@id", articleId) });
-            if (await reader.ReadAsync(ct).ConfigureAwait(false) && !reader.IsDBNull(0))
-            {
-                contentMap[articleId] = reader.GetString(0);
-            }
-        }
-
         return contentMap;
     }
 
@@ -1030,23 +1008,6 @@ public sealed class PublicHotArtifactProjector(
     {
         int ordinal = reader.GetOrdinal(fieldName);
         return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
-    }
-
-    private async Task<bool> LegacyArticleContentColumnExistsAsync()
-    {
-        if (legacyArticleContentColumnExists.HasValue)
-        {
-            return legacyArticleContentColumnExists.Value;
-        }
-
-        int exists = await db.Ado.GetIntAsync("""
-            SELECT COUNT(1)
-            FROM information_schema.columns
-            WHERE table_name = 'article'
-              AND column_name = 'content';
-            """);
-        legacyArticleContentColumnExists = exists > 0;
-        return legacyArticleContentColumnExists.Value;
     }
 
     private async Task<Dictionary<int, List<TagReadModel>>> LoadArticleTagMapAsync(IReadOnlyCollection<int> articleIds, CancellationToken ct)

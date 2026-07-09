@@ -376,8 +376,7 @@ public sealed class PublicAotFileShellCache(
         try
         {
             byte[] bytes = File.ReadAllBytes(sidecarPath);
-            return MatchesHash(bytes, sidecar.Sha256Hex) ||
-                MatchesLegacyBase64UrlPayloadHash(bytes, sidecar.Sha256Hex);
+            return MatchesHash(bytes, sidecar.Sha256Hex);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -390,12 +389,6 @@ public sealed class PublicAotFileShellCache(
             Convert.ToHexStringLower(SHA256.HashData(bytes)),
             expectedHash,
             StringComparison.Ordinal);
-
-    private static bool MatchesLegacyBase64UrlPayloadHash(byte[] bytes, string expectedHash)
-    {
-        string legacyPayload = Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-        return MatchesHash(Encoding.ASCII.GetBytes(legacyPayload), expectedHash);
-    }
 
     private static bool TryResolveHydrationSidecar(
         PublicAotCacheEntry entry,

@@ -76,6 +76,8 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 
 持续增长表的管理端列表不得依赖深分页 OFFSET。审计日志列表保留 `page/pageSize` 兼容字段，但服务端排序和翻页以 `occurredAtUtc + id` keyset cursor 为准：首屏不传 `cursor`，后续请求传上一页响应的 `nextCursor`。summary/facet 这类刷新频繁的聚合读取必须使用归一化过滤条件做短 TTL cache 或等价 rollup，不能让每次 UI 刷新都重新触发多路 GroupBy。
 
+作者工作台 cache action 只暴露可重复执行的运行时维护动作，例如 rebuild、invalidate 和 recompute；一次性历史清理必须进入 `SchemaMigrationRunner` 并由 migration history 记录，不再作为 admin cache action 长期暴露。
+
 ---
 
 ## HTTP 方法语义

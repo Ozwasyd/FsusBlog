@@ -169,13 +169,15 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void ArticleService_SourceUsesProcessWideLegacySchemaCapabilityCache()
+    public void ArticleService_SourceDoesNotQueryLegacyArticleContentColumn()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
 
-        Assert.Contains("private static int s_legacyArticleContentColumnState", source, StringComparison.Ordinal);
-        Assert.Contains("Volatile.Read(ref s_legacyArticleContentColumnState)", source, StringComparison.Ordinal);
-        Assert.Contains("Volatile.Write(ref s_legacyArticleContentColumnState", source, StringComparison.Ordinal);
+        Assert.Contains("LEFT JOIN article_body ab ON ab.article_id = a.id", source, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(ab.markdown_content, '')", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("s_legacyArticleContentColumnState", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LegacyArticleContentColumnExistsAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("a.content", source, StringComparison.Ordinal);
         Assert.DoesNotContain("private bool? _legacyArticleContentColumnExists", source, StringComparison.Ordinal);
     }
 

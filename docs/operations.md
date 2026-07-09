@@ -75,13 +75,12 @@ ArticleDetail AEDS V3 embeds the rights snapshot and proof summary in the detail
 
 Use the full deployment runbook in [rights-v3-cutover-runbook.md](rights-v3-cutover-runbook.md) for backups, the exact no-compat order, verification, and operator checks. This section is only the short operational summary.
 
-Use the admin cache action endpoint for the cutover sequence:
+Use the admin cache action endpoint for the remaining cutover sequence:
 
-1. Deploy the image and let database migrations complete.
+1. Deploy the image and let database migrations complete. `SchemaMigrationRunner` clears legacy public artifacts that do not satisfy the V3 payload header.
 2. Run `recompute-article-rights` to replace migration sentinel hashes and create any missing latest-revision rights snapshot.
-3. Run `clear-legacy-public-artifacts` to remove old ArticleDetail `.aeds` files that do not satisfy the V3 payload header.
-4. Run `rebuild-article-detail-aeds-v3` with no `articleId` to rebuild all public ArticleDetail artifacts in batches with bounded parallelism. Supplying `articleId` rebuilds one article.
-5. Run the existing PublicAOT rebuild path after the ArticleDetail artifacts are V3-clean so HTML/hydration inputs converge on the same rights payload.
+3. Run `rebuild-article-detail-aeds-v3` with no `articleId` to rebuild all public ArticleDetail artifacts in batches with bounded parallelism. Supplying `articleId` rebuilds one article.
+4. Run the existing PublicAOT rebuild path after the ArticleDetail artifacts are V3-clean so HTML/hydration inputs converge on the same rights payload.
 
 Rollback is image and database-backup based. Do not roll back by re-enabling old ArticleDetail artifact reads or by adding a separate `/article/{id}/rights.aeds` endpoint; a partial rollback would let anonymous reads serve a payload shape that the strict V3 frontend must reject.
 

@@ -161,7 +161,7 @@ public sealed class AuthCookieServiceSecurityTests
     }
 
     [Fact]
-    public void ReadTokenCookies_DevelopmentRequiresExplicitLegacyPlainCookieFlag()
+    public void ReadTokenCookies_DevelopmentRejectsLegacyPlainCookieFallback()
     {
         var disabled = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
         {
@@ -181,11 +181,34 @@ public sealed class AuthCookieServiceSecurityTests
         var enabledContext = new DefaultHttpContext();
         enabledContext.Request.Headers.Cookie = "AccessToken=plain-access; RefreshToken=plain-refresh; SessionId=plain-session; AdminAccessToken=plain-admin";
 
-        Assert.Equal("plain-access", enabled.ReadAccessToken(enabledContext));
-        Assert.Equal("plain-refresh", enabled.ReadRefreshToken(enabledContext));
-        Assert.Equal("plain-session", enabled.ReadSessionId(enabledContext));
-        Assert.True(enabled.TryReadAdminAccessToken(enabledContext, out string adminToken));
-        Assert.Equal("plain-admin", adminToken);
+        Assert.Null(enabled.ReadAccessToken(enabledContext));
+        Assert.Null(enabled.ReadRefreshToken(enabledContext));
+        Assert.Null(enabled.ReadSessionId(enabledContext));
+        Assert.False(enabled.TryReadAdminAccessToken(enabledContext, out string adminToken));
+        Assert.Equal(string.Empty, adminToken);
+    }
+
+    [Fact]
+    public void ReadTokenCookies_DevelopmentAcceptsCurrentInsecureTransportCookiesWhenConfigured()
+    {
+        var service = new AuthCookieService(CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["AuthCookies:AllowInsecureTransportCookies"] = "true",
+            ["AuthCookies:AllowLegacyPlainCookieRead"] = "false"
+        }), DevelopmentEnv());
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Cookie = string.Join("; ", [
+            "AccessToken=dev-access",
+            "RefreshToken=dev-refresh",
+            "SessionId=dev-session",
+            "AdminAccessToken=dev-admin"
+        ]);
+
+        Assert.Equal("dev-access", service.ReadAccessToken(context));
+        Assert.Equal("dev-refresh", service.ReadRefreshToken(context));
+        Assert.Equal("dev-session", service.ReadSessionId(context));
+        Assert.True(service.TryReadAdminAccessToken(context, out string adminToken));
+        Assert.Equal("dev-admin", adminToken);
     }
 
     private static void AssertProductionCookieAttributes(string cookie)

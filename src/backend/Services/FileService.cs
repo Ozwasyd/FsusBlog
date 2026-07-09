@@ -33,8 +33,6 @@ public sealed partial class FileService : IFileService
     private const string ExpirationBucketFormat = "yyyyMMddHH";
     private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan SessionLockTtl = TimeSpan.FromHours(6);
-    private static readonly TimeSpan ManifestlessSessionGracePeriod = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan LegacySessionRootSweepInterval = TimeSpan.FromHours(1);
 
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<FileService> _logger;
@@ -46,7 +44,6 @@ public sealed partial class FileService : IFileService
     private readonly string _sessionRootAbsolutePath;
     private readonly string _expirationIndexRootPath;
     private readonly UploadSessionCleanupQueue? _cleanupQueue;
-    private DateTime _lastLegacySessionRootSweepUtc = DateTime.MinValue;
 
     private static readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".ico"];
     private static readonly string[] _allowedFormats = ["jpg", "jpeg", "png", "gif", "webp", "ico"];
@@ -1459,9 +1456,6 @@ public sealed partial class FileService : IFileService
             DeleteExpirationIndexes(uploadId);
         }
 
-        (long legacyScanned, long legacyDeleted) = await CleanupLegacySessionRootSweepAsync(nowUtc, cancellationToken);
-        scannedSessions += legacyScanned;
-        deletedSessions += legacyDeleted;
         FsusObservability.RecordUploadSessionCleanup(scannedSessions, deletedSessions, Stopwatch.GetElapsedTime(started));
 
         long lockStarted = Stopwatch.GetTimestamp();
@@ -1504,77 +1498,6 @@ public sealed partial class FileService : IFileService
                 yield return fullBucketPath;
             }
         }
-    }
-
-    private async Task<(long Scanned, long Deleted)> CleanupLegacySessionRootSweepAsync(DateTime nowUtc, CancellationToken cancellationToken)
-    {
-        if (_lastLegacySessionRootSweepUtc != DateTime.MinValue
-            && nowUtc - _lastLegacySessionRootSweepUtc < LegacySessionRootSweepInterval)
-        {
-            return (0, 0);
-        }
-
-        _lastLegacySessionRootSweepUtc = nowUtc;
-        long scanned = 0;
-        long deleted = 0;
-        foreach (string sessionPath in Directory.EnumerateDirectories(_sessionRootPath))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            string fullSessionPath = Path.GetFullPath(sessionPath);
-            if (string.Equals(Path.GetFileName(fullSessionPath), ExpirationIndexDirectoryName, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            string uploadId = Path.GetFileName(fullSessionPath);
-            if (!IsPathUnderSessionRoot(fullSessionPath) || !TryNormalizeUploadId(uploadId, out string normalizedUploadId))
-            {
-                continue;
-            }
-
-            scanned++;
-            string manifestPath = Path.Combine(fullSessionPath, "manifest.aeds");
-            if (!File.Exists(manifestPath))
-            {
-                if (!IsStaleManifestlessSession(fullSessionPath))
-                {
-                    continue;
-                }
-
-                await DeleteSessionDirectoryAsync(normalizedUploadId);
-                deleted++;
-                continue;
-            }
-
-            bool shouldDelete = await BoundaryExecutor.ExecuteValueAsync(
-                async () =>
-                {
-                    UploadSessionRecord? record = await ReadSessionAsync(manifestPath, cancellationToken);
-                    return record is null || record.ExpiresAt <= nowUtc;
-                },
-                _ => true,
-                _logger,
-                $"cleanup-upload-session:{fullSessionPath}");
-            if (shouldDelete)
-            {
-                await DeleteSessionDirectoryAsync(normalizedUploadId);
-                deleted++;
-            }
-        }
-
-        return (scanned, deleted);
-    }
-
-    private static bool IsStaleManifestlessSession(string sessionPath)
-    {
-        DateTime lastActivityUtc = Directory.GetLastWriteTimeUtc(sessionPath);
-        DateTime createdAtUtc = Directory.GetCreationTimeUtc(sessionPath);
-        if (createdAtUtc > lastActivityUtc)
-        {
-            lastActivityUtc = createdAtUtc;
-        }
-
-        return lastActivityUtc <= DateTime.UtcNow.Subtract(ManifestlessSessionGracePeriod);
     }
 
     private static DateTime TruncateToHour(DateTime value)

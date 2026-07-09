@@ -1,5 +1,6 @@
 using System.Data;
 using System.Reflection;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -21,7 +22,8 @@ public sealed class SchemaMigrationRunner(
     ISchemaMigrationRegistry registry,
     ISchemaModelInspector inspector,
     ISchemaMigrationLock migrationLock,
-    ILogger<SchemaMigrationRunner> logger) : ISchemaMigrationRunner
+    ILogger<SchemaMigrationRunner> logger,
+    IArticleDetailAedsArtifactMaintenanceService? articleDetailAedsMaintenance = null) : ISchemaMigrationRunner
 {
     internal const string HistoryTableName = "__fsus_schema_migration_history";
 
@@ -30,6 +32,7 @@ public sealed class SchemaMigrationRunner(
     private readonly ISchemaModelInspector _inspector = inspector;
     private readonly ISchemaMigrationLock _migrationLock = migrationLock;
     private readonly ILogger<SchemaMigrationRunner> _logger = logger;
+    private readonly IArticleDetailAedsArtifactMaintenanceService? _articleDetailAedsMaintenance = articleDetailAedsMaintenance;
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -104,7 +107,7 @@ public sealed class SchemaMigrationRunner(
                 {
                     for (int i = 0; i < descriptor.Steps.Count; i++)
                     {
-                        await descriptor.Steps[i].ExecuteAsync(_db, cancellationToken).ConfigureAwait(false);
+                        await ExecuteStepAsync(descriptor.Steps[i], descriptor, cancellationToken).ConfigureAwait(false);
                     }
                 }).ConfigureAwait(false);
 
@@ -119,12 +122,43 @@ public sealed class SchemaMigrationRunner(
             {
                 for (int i = 0; i < descriptor.Steps.Count; i++)
                 {
-                    await descriptor.Steps[i].ExecuteAsync(_db, cancellationToken).ConfigureAwait(false);
+                    await ExecuteStepAsync(descriptor.Steps[i], descriptor, cancellationToken).ConfigureAwait(false);
                 }
             }
 
             executedDescriptors.Add(descriptor);
         }
+    }
+
+    private async Task ExecuteStepAsync(
+        SchemaMigrationStep step,
+        ISchemaMigrationDescriptor descriptor,
+        CancellationToken cancellationToken)
+    {
+        if (step is not ClearLegacyPublicArtifactsStep)
+        {
+            await step.ExecuteAsync(_db, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (_articleDetailAedsMaintenance is null)
+        {
+            throw new InvalidOperationException(
+                $"Schema migration {descriptor.MigrationId} requires {nameof(IArticleDetailAedsArtifactMaintenanceService)}.");
+        }
+
+        ArticleDetailAedsArtifactMaintenanceResult result =
+            await _articleDetailAedsMaintenance.ClearLegacyPublicArtifactsAsync(cancellationToken).ConfigureAwait(false);
+        if (result.Failed > 0)
+        {
+            throw new InvalidOperationException(
+                $"Schema migration {descriptor.MigrationId} failed to clear legacy public artifacts: {result.ToDetail()}");
+        }
+
+        _logger.LogInformation(
+            "Schema migration {MigrationId} cleared legacy public artifacts: {Detail}",
+            descriptor.MigrationId,
+            result.ToDetail());
     }
 
     private static IReadOnlyList<ISchemaMigrationDescriptor> ValidateAndSort(IReadOnlyList<ISchemaMigrationDescriptor> descriptors)
@@ -158,7 +192,7 @@ public sealed class SchemaMigrationRunner(
                 continue;
             }
 
-            if (!string.Equals(applied.Checksum, descriptor.Checksum, StringComparison.Ordinal))
+            if (!descriptor.AcceptedChecksums.Contains(applied.Checksum))
             {
                 throw new InvalidOperationException(
                     $"Schema migration checksum mismatch for {descriptor.MigrationId}. Applied checksum {applied.Checksum} differs from current descriptor checksum {descriptor.Checksum}.");

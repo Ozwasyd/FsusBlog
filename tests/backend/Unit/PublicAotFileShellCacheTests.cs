@@ -294,7 +294,7 @@ public sealed class PublicAotFileShellCacheTests
     }
 
     [Fact]
-    public async Task TryGetEntryAsync_LegacyBase64UrlHydrationSidecarHash_RestoresDocument()
+    public async Task TryGetEntryAsync_LegacyBase64UrlHydrationSidecarHash_TreatsDocumentAsMiss()
     {
         using var temp = new TempDirectory();
         byte[] sidecarBytes = [1, 2, 3, 4];
@@ -319,9 +319,8 @@ public sealed class PublicAotFileShellCacheTests
 
         PublicAotCacheEntry? restored = await cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion);
 
-        Assert.NotNull(restored);
-        Assert.Equal(entry.RouteKey, restored.RouteKey);
-        Assert.True(File.Exists(path));
+        Assert.Null(restored);
+        Assert.False(File.Exists(path));
     }
 
     [Fact]

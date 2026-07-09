@@ -289,7 +289,7 @@ admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `Ad
 
 admin step-up challenge 绑定 `identity_kind=admin_principal`、`admin_id`、当前 `admin_sid`、action=`admin-sensitive`、challenge token 和过期时间。complete 成功后返回 `MfaChallengeResult(verified=true, action=admin-sensitive, proofToken=...)`；proof 存储使用 `CachePolicyId.SecurityMfaProof`，key 形如 `admin:{adminId}:{adminSid}:admin-sensitive:{token}`，只能消费一次，不能跨 admin principal 或 session 使用。敏感写入继续通过 `X-Fsus-Mfa-Proof` 传递该 proof header；缺失、过期、复用或 session 不匹配返回 `428` + `MFA_PROOF_REQUIRED`。
 
-`POST /api/binary/auth/admin/logout` 会把当前 `admin_session.RevokedAtUtc` 置为当前 UTC 时间、`RevokeReason=logout`，并只清理 `AdminAccessToken` / `AdminSessionId` 及 `__Host-*` admin Cookie，不触碰普通用户 Cookie。普通用户旧未前缀 `AccessToken` / `RefreshToken` / `SessionId` 也只允许在 `Development` 且显式 `AuthCookies:AllowLegacyPlainCookieRead=true` 时读取；生产和非 Development 环境只信任 `__Host-*`，但 logout/clear 仍删除 legacy Cookie 以帮助迁移。`POST /api/binary/auth/admin/sessions/{sessionId}/revoke` 使用 `admin_session` row-version guard；目标不存在返回 `NotFound`，目标已被并发撤销或版本不匹配返回 `Conflict`，成功只写一条 `admin.session.revoked` admin audit。`POST /api/binary/auth/admin/sessions/revoke-others` 必须保留当前 `admin_sid` 对应 session，并逐 session 使用同样的 row-version revoke。
+`POST /api/binary/auth/admin/logout` 会把当前 `admin_session.RevokedAtUtc` 置为当前 UTC 时间、`RevokeReason=logout`，并只清理 `AdminAccessToken` / `AdminSessionId` 及 `__Host-*` admin Cookie，不触碰普通用户 Cookie。普通用户认证读取只接受当前传输模式下签发的 Cookie；旧未前缀 `AccessToken` / `RefreshToken` / `SessionId` 不再作为 fallback，但 logout/clear 仍删除 legacy Cookie 以帮助浏览器收敛。`POST /api/binary/auth/admin/sessions/{sessionId}/revoke` 使用 `admin_session` row-version guard；目标不存在返回 `NotFound`，目标已被并发撤销或版本不匹配返回 `Conflict`，成功只写一条 `admin.session.revoked` admin audit。`POST /api/binary/auth/admin/sessions/revoke-others` 必须保留当前 `admin_sid` 对应 session，并逐 session 使用同样的 row-version revoke。
 
 ### User MFA / TOTP step-up
 
@@ -1613,7 +1613,7 @@ Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，�
 | GET | `/api/binary/author/ops/backup` | 最近站点备份状态，扫描 database/uploads/DataProtection keyring/config/site-package/restore-drill artifacts |
 | GET | `/api/binary/author/ops/dangerous-operations/policy` | 管理端危险操作等级、admin passkey step-up、强确认和 diff 策略 |
 | GET | `/api/binary/author/cache/diagnostics?articleId={id}` | AOT/PublicHotRead/search/sitemap/feed/comment cache/output cache 诊断，可选单文章定位 |
-| POST | `/api/binary/author/cache/actions` | 手动维护动作：`search-rebuild`、`aot-rebuild`、`public-hot-rebuild`、`output-cache-clear`、`recompute-article-rights`、`clear-legacy-public-artifacts`、`rebuild-article-detail-aeds-v3`、`sitemap-feed-refresh` |
+| POST | `/api/binary/author/cache/actions` | 手动维护动作：`search-rebuild`、`aot-rebuild`、`public-hot-rebuild`、`output-cache-clear`、`recompute-article-rights`、`rebuild-article-detail-aeds-v3`、`sitemap-feed-refresh` |
 | GET | `/api/binary/author/integrity` | 数据一致性巡检报告，覆盖文章正文/修订、taxonomy、评论链、session、uploads/assets、search/sitemap visibility |
 | GET | `/api/binary/author/integrity/fix-preview` | 安全修复 diff 预览；当前只预览无效 `article_tag` 和注销用户 session 撤销 |
 | POST | `/api/binary/author/integrity/fix` | 应用安全修复，必须携带 `X-Fsus-Mfa-Proof` 且 `confirmPhrase=APPLY_SAFE_FIXES` |

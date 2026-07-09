@@ -19,15 +19,17 @@ public sealed class SubscriptionEndpointsContractTests
     }
 
     [Fact]
-    public void SubscribeAsync_MigratesLegacySha256EmailHashBeforeUpsert()
+    public void SubscribeAsync_UsesOnlyCurrentHmacHashBeforeUpsert()
     {
         string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Modules", "Endpoints", "SubscriptionEndpoints.cs"));
         string method = ExtractMethodBlock(source, "public static async Task<SiteSubscriptionBinaryResponse?> SubscribeAsync");
 
-        Assert.Contains("SiteSubscriptionIdentity.LegacySha256EmailHash(request.Email)", method, StringComparison.Ordinal);
-        Assert.Contains("@legacy_email_hash", method, StringComparison.Ordinal);
-        Assert.Contains("WHERE email_hash = @legacy_email_hash", method, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("NOT EXISTS", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("SiteSubscriptionIdentity.HashEmail(request.Email, configuration)", method, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (email_hash) DO UPDATE", method, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("hash_version = @hash_version", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LegacySha256EmailHash", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("@legacy_email_hash", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("sha256-legacy", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -43,10 +45,10 @@ public sealed class SubscriptionEndpointsContractTests
         Assert.Contains("SiteSubscriptionUnsubscribeProofClaims proof", method, StringComparison.Ordinal);
         Assert.Contains("IConfiguration configuration", method, StringComparison.Ordinal);
         Assert.Contains("SiteSubscriptionIdentity.HashEmail(request.Email, configuration)", method, StringComparison.Ordinal);
-        Assert.Contains("SiteSubscriptionIdentity.LegacySha256EmailHash(request.Email)", method, StringComparison.Ordinal);
         Assert.Contains("it.EmailHash == proof.EmailHash", method, StringComparison.Ordinal);
-        Assert.Contains("it.EmailHash == legacyHash", method, StringComparison.Ordinal);
         Assert.Contains("it.Channel == proof.Channel", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LegacySha256EmailHash", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("legacyHash", method, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -78,7 +80,9 @@ public sealed class SubscriptionEndpointsContractTests
         Assert.Contains("ColumnName = \"hash_version\"", entity, StringComparison.Ordinal);
         Assert.Contains("public string HashVersion", entity, StringComparison.Ordinal);
         Assert.Contains("hash_version varchar(16) NOT NULL DEFAULT 'hmac-v1'", migration, StringComparison.Ordinal);
-        Assert.Contains("EnsureColumnStep(\"site_subscription\", \"hash_version\", \"varchar(16) NOT NULL DEFAULT 'sha256-legacy'\")", migration, StringComparison.Ordinal);
+        Assert.Contains("20260709-post-site-subscription-hmac-finalize", migration, StringComparison.Ordinal);
+        Assert.Contains("hash_version = 'hmac-v1'", migration, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnsureColumnStep(\"site_subscription\", \"hash_version\", \"varchar(16) NOT NULL DEFAULT 'sha256-legacy'\")", migration, StringComparison.Ordinal);
     }
 
     private static string ExtractMethodBlock(string source, string signature)

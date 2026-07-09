@@ -223,7 +223,7 @@ public sealed class PublicContentInvalidationFlowTests
     }
 
     [Fact]
-    public void AdminCacheAction_ExposesArticleDetailAedsV3CutoverActions()
+    public void AdminCacheAction_ExposesOnlyRuntimeArticleDetailAedsV3Actions()
     {
         string source = ReadRepoFile("src/backend/Infrastructure/Operations/AdminOperationsService.cs");
         string method = Slice(source, "public async Task<AdminCacheActionResponse> RunCacheActionAsync", "public async Task<IntegrityReportResponse>");
@@ -231,11 +231,11 @@ public sealed class PublicContentInvalidationFlowTests
 
         Assert.Contains("IArticleDetailAedsArtifactMaintenanceService articleDetailAedsMaintenance", source, StringComparison.Ordinal);
         Assert.Contains("recompute-article-rights", method, StringComparison.Ordinal);
-        Assert.Contains("clear-legacy-public-artifacts", method, StringComparison.Ordinal);
         Assert.Contains("rebuild-article-detail-aeds-v3", method, StringComparison.Ordinal);
         Assert.Contains("RecomputeArticleRightsAsync", method, StringComparison.Ordinal);
-        Assert.Contains("ClearLegacyPublicArtifactsAsync", method, StringComparison.Ordinal);
         Assert.Contains("RebuildArticleDetailAedsV3Async", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("clear-legacy-public-artifacts", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("ClearLegacyPublicArtifactsAsync", method, StringComparison.Ordinal);
         Assert.Contains("AddScoped<IArticleDetailAedsArtifactMaintenanceService, ArticleDetailAedsArtifactMaintenanceService>", registrations, StringComparison.Ordinal);
     }
 

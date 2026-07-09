@@ -366,7 +366,7 @@ FsusBlog 采用三级角色体系：
 
 - Refresh Token 使用 `SameSite=Strict, HttpOnly, Secure` Cookie
 - 生产环境认证 Cookie 使用 `__Host-*` 前缀、`Path=/`、无 `Domain`、`HttpOnly`、`Secure`、`SameSite=Strict`
-- 生产认证读取只接受 `__Host-AccessToken`、`__Host-RefreshToken`、`__Host-SessionId`、`__Host-AdminAccessToken` 与 `__Host-AdminSessionId`；未前缀 legacy Cookie 只保留在清理路径，或在 `Development` 且显式 `AuthCookies:AllowLegacyPlainCookieRead=true` 时用于普通用户本地迁移。`ASPNETCORE_ENVIRONMENT=Local` 不能单独启用未前缀读取 fallback。AdminPrincipal Cookie 不支持未前缀读取 fallback，生产启动校验拒绝开启该 flag。
+- 认证读取只接受当前传输模式下签发的 Cookie：安全传输使用 `__Host-AccessToken`、`__Host-RefreshToken`、`__Host-SessionId`、`__Host-AdminAccessToken` 与 `__Host-AdminSessionId`；允许本地非安全传输时只由写入端签发未前缀 Cookie。旧未前缀 Cookie 不再作为读取 fallback，只在 logout/clear 路径删除以帮助浏览器收敛。
 - `SameSite=Strict` 阻止跨站请求自动携带 Cookie
 - 前端主调用凭据是 HttpOnly Cookie session / AEDS auth frame；credentialed binary mutation 会在存在 `<meta name="fsus-csrf-token">` 或 `XSRF-TOKEN` cookie 时附带 `X-Fsus-Csrf-Token`，服务端仍保留 `UseAntiforgery()` 与 CSRF Origin guard。匿名强隐私请求显式 `credentials=omit`，不得携带该 token 或 Cookie。高风险写操作还会叠加 PoW、admin step-up proof、RBAC 与 no-store metadata，避免只依赖自动携带 Cookie。
 

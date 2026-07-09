@@ -251,12 +251,6 @@ public sealed class AdminOperationsService(
                     await articleDetailAedsMaintenance.RecomputeArticleRightsAsync(cancellationToken);
                 return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
             }
-            case "clear-legacy-public-artifacts":
-            {
-                ArticleDetailAedsArtifactMaintenanceResult result =
-                    await articleDetailAedsMaintenance.ClearLegacyPublicArtifactsAsync(cancellationToken);
-                return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
-            }
             case "rebuild-article-detail-aeds-v3":
             {
                 bool all = request.ArticleId is not > 0;
@@ -268,7 +262,7 @@ public sealed class AdminOperationsService(
                 await cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken);
                 return ActionResult(action, "ok", "feed/sitemap cache invalidated");
             default:
-                return ActionResult(action, "unsupported", "supported actions: search-rebuild, aot-rebuild, public-hot-rebuild, output-cache-clear, recompute-article-rights, clear-legacy-public-artifacts, rebuild-article-detail-aeds-v3, sitemap-feed-refresh");
+                return ActionResult(action, "unsupported", "supported actions: search-rebuild, aot-rebuild, public-hot-rebuild, output-cache-clear, recompute-article-rights, rebuild-article-detail-aeds-v3, sitemap-feed-refresh");
         }
     }
 

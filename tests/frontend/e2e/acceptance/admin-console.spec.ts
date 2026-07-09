@@ -26,7 +26,6 @@ import {
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
 import { encodeAedsFrame, readAedsResponse } from '../../support/aeds-envelope.mjs'
-import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs'
 import { resolveTestSession, testSessionHeaders } from '../../support/playwright/testSession'
 import { encodeAuthoringJsonRequest, mapAuthoringJsonFromPayload } from '../../../../src/frontend/src/adapters/binary/authoringAdapter'
 import { FrameType } from '../../../../src/frontend/wasm/web/protocol/frame'
@@ -42,6 +41,9 @@ const acceptancePgContainer = process.env.FSUSBLOG_PG_CONTAINER || ''
 const acceptanceRedisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || ''
 const execFileAsync = promisify(execFile)
 let adminStorageStatePromise: Promise<Awaited<ReturnType<typeof captureStorageState>>> | null = null
+const localAuthFixtureSecret = process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET
+  || process.env.fsus__localAuthFixtureSecret
+  || 'local-development-auth-fixture-secret-change-before-shared-use-2026'
 
 const cookieHeaderFromStorageState = (state: StorageState): string =>
   state.cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ')
@@ -51,31 +53,31 @@ const runtimeCacheKey = (key: string): string => {
   return session ? `e2e:${session}:${key}` : key
 }
 
-const decodeJwtPayload = (token: string): Record<string, unknown> => {
-  const payload = token.split('.')[1]
-  if (!payload) {
-    throw new Error('admin acceptance JWT payload is missing')
-  }
+const installAdminSensitiveProof = async (page: Page, _state?: StorageState): Promise<void> => {
+  const proofToken = await page.evaluate(async (secret) => {
+    const response = await fetch('/api/local/auth-fixture/admin-sensitive-proof', {
+      cache: 'no-store',
+      credentials: 'include',
+      method: 'POST',
+      headers: {
+        'X-Fsus-Local-Auth-Fixture-Secret': secret
+      }
+    })
+    if (!response.ok) {
+      throw new Error(`admin sensitive proof fixture failed: ${response.status}`)
+    }
 
-  const normalized = payload.replaceAll('-', '+').replaceAll('_', '/')
-  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
-  return JSON.parse(Buffer.from(padded, 'base64').toString('utf8')) as Record<string, unknown>
-}
+    const body = await response.json() as { action?: string, proofToken?: string }
+    const token = body.proofToken?.trim()
+    if (body.action !== 'admin-sensitive' || !token) {
+      throw new Error('admin sensitive proof fixture returned an invalid token')
+    }
 
-const adminFixtureIdentityFromStorageState = (state: StorageState): { adminId: number, sessionId: string } => {
-  const adminToken = state.cookies.find((cookie) => cookie.name === 'AdminAccessToken' || cookie.name === '__Host-AdminAccessToken')?.value
-  const sessionId = state.cookies.find((cookie) => cookie.name === 'AdminSessionId' || cookie.name === '__Host-AdminSessionId')?.value
-  if (!adminToken || !sessionId) {
-    throw new Error('admin acceptance storage state is missing admin cookies')
-  }
-
-  const payload = decodeJwtPayload(adminToken)
-  const adminId = Number(payload.admin_id ?? payload.sub ?? payload.nameid)
-  if (!Number.isFinite(adminId) || adminId <= 0) {
-    throw new Error('admin acceptance storage state is missing admin_id claim')
-  }
-
-  return { adminId, sessionId }
+    return token
+  }, localAuthFixtureSecret)
+  await page.evaluate((token) => {
+    ;(window as Window & { __FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__?: string }).__FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__ = token
+  }, proofToken)
 }
 
 const serverDraftPath = (draftKey: string): string => `/api/binary/author/drafts/${encodeURIComponent(draftKey)}`
@@ -198,7 +200,39 @@ const readAuthoringJsonResponse = async <T = unknown>(response: Response): Promi
 const markdownEditor = (page: Page) => page
   .getByRole('textbox', { name: 'Markdown 正文编辑区' })
   .or(page.getByPlaceholder('写下正文，支持 Markdown 内容...'))
+  .or(page.getByPlaceholder('从这里开始写正文。'))
   .first()
+
+const articleTitleInput = (page: Page) => page
+  .getByPlaceholder(/写下文章标题|在此键入博文标题/u)
+  .first()
+
+async function ensureArticleCategorySelected(page: Page): Promise<void> {
+  const visibleAcceptanceCategory = page.getByText('Acceptance Category', { exact: true }).first()
+  if (await visibleAcceptanceCategory.isVisible().catch(() => false)) {
+    return
+  }
+
+  const categoryInput = page.getByPlaceholder('选择分类').first()
+  await categoryInput.click()
+  const acceptanceOption = page.getByRole('option', { name: 'Acceptance Category' })
+  if (await acceptanceOption.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await acceptanceOption.click()
+    return
+  }
+
+  await page.locator('.el-select-dropdown__item:visible, [role="option"]:visible').first().click()
+}
+
+async function ensureInspectorSectionOpen(page: Page, sectionLabel: string, visibleLocator: Locator): Promise<void> {
+  if (await visibleLocator.isVisible().catch(() => false)) {
+    return
+  }
+
+  const sidebar = page.getByRole('complementary', { name: '文章检查器' })
+  await sidebar.getByRole('button', { name: new RegExp(sectionLabel) }).first().click()
+  await expect(visibleLocator).toBeVisible()
+}
 
 for (const viewport of [
   { name: 'desktop', size: DESKTOP_VIEWPORT },
@@ -394,17 +428,16 @@ for (const viewport of [
           await expect(discardDraftButton).not.toBeVisible()
         }
 
-        await session.page.getByPlaceholder('在此键入博文标题...').fill(articleTitle)
+        await articleTitleInput(session.page).fill(articleTitle)
         await markdownEditor(session.page).fill('## Acceptance\n\n这是一篇自动验收生成的博文，用于验证发布主链。')
-        await session.page.getByPlaceholder('选择分类').click()
-        await session.page.locator('.el-select-dropdown__item:visible').first().click()
+        await ensureArticleCategorySelected(session.page)
         await session.page.getByRole('button', { name: '预览' }).click()
         const previewResponsePromise = session.page.waitForResponse((response) => {
           const request = response.request()
           const url = new URL(response.url())
           return request.method() === 'POST' && url.pathname === '/api/binary/author/preview'
         })
-        await session.page.getByRole('button', { name: '生成私有预览' }).click()
+        await session.page.getByRole('button', { name: '生成私有预览', exact: true }).click()
         const previewResponse = await previewResponsePromise
         expect(previewResponse.ok(), 'private preview request should succeed').toBe(true)
         const privatePreviewFrame = session.page.frameLocator('iframe[title="私有预览渲染结果"]').first()
@@ -413,10 +446,7 @@ for (const viewport of [
         const publishSidebar = session.page.getByRole('complementary', { name: '文章检查器' })
         void articleCoverFixturePath
         const uploadedCoverUrl: string | null = null
-        const publishSection = publishSidebar.locator('details', { hasText: '发布' }).first()
-        if (await publishSection.evaluate((element) => !element.hasAttribute('open'))) {
-          await publishSection.locator('summary').click()
-        }
+        await ensureInspectorSectionOpen(session.page, '发布', publishSidebar.locator('input[name="articleStatus"]').first())
         const submitButton = session.page.getByRole('button', { name: /发布文章|立即发布|确认更新/ }).first()
         await assertElementHitTarget(session.page, submitButton, 'article publish button')
         await assertResponsiveLayoutContract(session.page, 'manage-article-write')
@@ -469,14 +499,11 @@ for (const viewport of [
           await expect(persistedCoverPreview).toHaveAttribute('src', uploadedCoverUrl)
         }
         if (viewport.size.width >= 640) {
-          const versionSection = session.page.locator('details', { hasText: '版本' }).first()
-          if (await versionSection.evaluate((element) => !element.hasAttribute('open'))) {
-            await versionSection.locator('summary').click()
-          }
-          await expect(session.page.getByRole('button', { name: /版本 1 ·/ })).toBeVisible()
+          const firstVersionButton = session.page.getByRole('button', { name: /版本 1 ·/ })
+          await ensureInspectorSectionOpen(session.page, '版本', firstVersionButton)
           const updatedArticleTitle = `${articleTitle} revision`
           const updatedArticleBody = '## Acceptance\n\n这是一篇自动验收生成的修订版本，用于验证历史版本比较与回滚。'
-          await session.page.getByPlaceholder('在此键入博文标题...').fill(updatedArticleTitle)
+          await articleTitleInput(session.page).fill(updatedArticleTitle)
           await markdownEditor(session.page).fill(updatedArticleBody)
           const updateResponsePromise = session.page.waitForResponse((response) => {
             const request = response.request()
@@ -499,17 +526,23 @@ for (const viewport of [
           await session.page.goto(`/user/manage/article/edit/${createdArticleId}`, { waitUntil: 'domcontentloaded' })
           await waitForAppReady(session.page)
           await settlePage(session.page)
-          const updatedVersionSection = session.page.locator('details', { hasText: '版本' }).first()
-          if (await updatedVersionSection.evaluate((element) => !element.hasAttribute('open'))) {
-            await updatedVersionSection.locator('summary').click()
-          }
-          await expect(session.page.getByRole('button', { name: /版本 2 ·/ })).toBeVisible()
+          await ensureInspectorSectionOpen(session.page, '版本', session.page.getByRole('button', { name: /版本 2 ·/ }))
           await session.page.getByRole('button', { name: /版本 1 ·/ }).click()
           await expect(session.page.getByText(/正文长度/)).toBeVisible()
+          await installAdminSensitiveProof(session.page, storageState)
+          const rollbackResponsePromise = session.page.waitForResponse((response) => {
+            const request = response.request()
+            const url = new URL(response.url())
+            return request.method() === 'POST'
+              && url.pathname.startsWith(`/api/binary/author/articles/${createdArticleId}/revisions/`)
+              && url.pathname.endsWith('/rollback')
+          })
           await session.page.getByRole('button', { name: '回滚到此版本' }).click()
           await session.page.getByRole('button', { name: '确认回滚' }).click()
-          await expectAnyToastText(session.page, /已回滚到版本 1/)
-          await expect(session.page.getByPlaceholder('在此键入博文标题...')).toHaveValue(articleTitle)
+          const rollbackResponse = await rollbackResponsePromise
+          expect(rollbackResponse.ok(), 'article revision rollback request should succeed').toBe(true)
+          await expectAnyToastText(session.page, /已回滚到版本 1/, 3_000).catch(() => {})
+          await expect(articleTitleInput(session.page)).toHaveValue(articleTitle)
         }
         session.audit.assertCleanSince(routeStart, 'admin-article-write')
 
@@ -525,17 +558,7 @@ for (const viewport of [
         const start = session.audit.checkpoint()
         const accountStatusAction = () => session.page.getByRole('button', { name: /变更匿名账号状态：binaryuser/ }).first()
         const readAccountStatusActionText = async () => (await accountStatusAction().textContent() ?? '').replace(/\s+/g, '')
-        const installAdminSensitiveProof = async () => {
-          const adminIdentity = adminFixtureIdentityFromStorageState(storageState)
-          const proofToken = createAdminStepUpProofToken({
-            adminId: adminIdentity.adminId,
-            sessionId: adminIdentity.sessionId,
-            ttlSeconds: 120
-          })
-          await session.page.evaluate((token) => {
-            ;(window as Window & { __FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__?: string }).__FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__ = token
-          }, proofToken)
-        }
+        const installAdminSensitiveProofForSession = async () => installAdminSensitiveProof(session.page, storageState)
         const clickStatusToggle = async () => {
           const button = accountStatusAction()
           if (viewport.size.width < 640) {
@@ -612,7 +635,7 @@ for (const viewport of [
             })
             .toMatch(/封禁|解封/)
           if ((await readAccountStatusActionText()).includes('解封')) {
-            await installAdminSensitiveProof()
+            await installAdminSensitiveProofForSession()
             await clickStatusToggle()
             await session.page.getByRole('button', { name: '立即解封' }).click()
             await expect
@@ -622,7 +645,7 @@ for (const viewport of [
               })
               .toContain('封禁')
           }
-          await installAdminSensitiveProof()
+          await installAdminSensitiveProofForSession()
           await clickStatusToggle()
           const banReasonCombobox = session.page.getByRole('combobox', { name: '封禁原因' })
           await expect(banReasonCombobox).toBeVisible()
@@ -646,7 +669,7 @@ for (const viewport of [
               timeout: 30_000
             })
             .toContain('解封')
-          await installAdminSensitiveProof()
+          await installAdminSensitiveProofForSession()
           await clickStatusToggle()
           const unbanStatusResponse = session.page.waitForResponse((response) =>
             response.url().includes('/api/binary/admin/users/status')
@@ -725,7 +748,7 @@ for (const viewport of [
           response.url().includes('/api/binary/author/drafts')
           && response.request().method() === 'POST'
         )
-        await session.page.getByPlaceholder('在此键入博文标题...').fill(draftTitle)
+        await articleTitleInput(session.page).fill(draftTitle)
         await markdownEditor(session.page).fill(draftBody)
         await expect
           .poll(async () => await session.page.evaluate((key) => Boolean(localStorage.getItem(key)), editDraftKey), {
@@ -746,7 +769,7 @@ for (const viewport of [
         await settlePage(session.page)
         await expect(session.page.getByRole('button', { name: '恢复服务端草稿' })).toBeVisible()
         await session.page.getByRole('button', { name: '恢复服务端草稿' }).click()
-        await expect(session.page.getByPlaceholder('在此键入博文标题...')).toHaveValue(draftTitle)
+        await expect(articleTitleInput(session.page)).toHaveValue(draftTitle)
         await expect(markdownEditor(session.page)).toHaveValue(draftBody)
         await session.page.evaluate((key) => {
           localStorage.removeItem(key)

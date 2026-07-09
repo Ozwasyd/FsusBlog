@@ -7,6 +7,8 @@ public interface ISchemaMigrationRegistry
 
 public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
 {
+    private const string LegacyAuthoringWorkspaceTablesChecksum = "6D43EB5F292169C39F022C7EE5F81591DBD28B3F89F83BB42FE75764B3E1DD77";
+
     private readonly IReadOnlyList<ISchemaMigrationDescriptor> _descriptors =
     [
         BuildUserSessionCompatPreMigration(),
@@ -71,6 +73,8 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildArticleRevisionAtomicRevisionNoMigration(),
         BuildArticlePublishProofMigration(),
         BuildArticleRightsV3SchemaMigration(),
+        BuildSiteSubscriptionHmacFinalizeMigration(),
+        BuildClearLegacyPublicArtifactsMigration(),
         BuildIntegrityTransparencyLogMigration(),
         BuildIntegrityMerkleCheckpointMigration(),
         BuildAuthoringDraftLifecycleMigration(),
@@ -2953,10 +2957,74 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         unsubscribed_at timestamp NULL
                     );
                     """),
-                new EnsureColumnStep("site_subscription", "hash_version", "varchar(16) NOT NULL DEFAULT 'sha256-legacy'"),
+                new EnsureColumnStep("site_subscription", "hash_version", "varchar(16) NOT NULL DEFAULT 'hmac-v1'"),
                 new CreateIndexStep(
                     "idx_site_subscription_email",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_site_subscription_email ON site_subscription(email_hash);")
+            ],
+            CompatibleChecksums: [LegacyAuthoringWorkspaceTablesChecksum]);
+
+    private static ISchemaMigrationDescriptor BuildSiteSubscriptionHmacFinalizeMigration()
+        => new SchemaMigrationDescriptor(
+            "20260709-post-site-subscription-hmac-finalize",
+            "Finalize site subscription HMAC identifiers and disable legacy SHA-256 rows.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new RawSqlStep("""
+                    ALTER TABLE IF EXISTS site_subscription
+                    ALTER COLUMN hash_version SET DEFAULT 'hmac-v1';
+                    """),
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                              AND table_name = 'site_subscription'
+                        ) THEN
+                            UPDATE site_subscription
+                            SET hash_version = 'hmac-v1',
+                                is_enabled = false,
+                                unsubscribed_at = COALESCE(unsubscribed_at, now())
+                            WHERE hash_version = 'sha256-legacy';
+                        END IF;
+                    END $$;
+                    """),
+                new AssertSqlStep(
+                    "Legacy site subscription SHA-256 hash rows should be finalized.",
+                    """
+                    DO $$
+                    DECLARE
+                        legacy_count integer := 0;
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                              AND table_name = 'site_subscription'
+                        ) THEN
+                            SELECT COUNT(*) INTO legacy_count
+                            FROM site_subscription
+                            WHERE hash_version = 'sha256-legacy';
+
+                            IF legacy_count <> 0 THEN
+                                RAISE EXCEPTION 'Legacy site_subscription hash_version rows remain: %', legacy_count;
+                            END IF;
+                        END IF;
+                    END $$;
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildClearLegacyPublicArtifactsMigration()
+        => new SchemaMigrationDescriptor(
+            "20260709-post-clear-legacy-public-artifacts",
+            "Clear legacy ArticleDetail AEDS files after Rights V3 cutover.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: false,
+            Steps:
+            [
+                new ClearLegacyPublicArtifactsStep()
             ]);
 
     private static ISchemaMigrationDescriptor BuildCommentModerationMigration()

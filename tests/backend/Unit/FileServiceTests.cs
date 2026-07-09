@@ -458,7 +458,7 @@ public sealed class FileServiceTests
     }
 
     [Fact]
-    public async Task CleanupExpiredSessionsAsync_RemovesStaleManifestlessSessionDirectory()
+    public async Task CleanupExpiredSessionsAsync_IgnoresLegacyManifestlessRootDirectory()
     {
         ResetSessionLocks();
         string root = CreateTempDirectory();
@@ -474,7 +474,7 @@ public sealed class FileServiceTests
 
             await service.CleanupExpiredSessionsAsync(CancellationToken.None);
 
-            Assert.False(Directory.Exists(sessionPath));
+            Assert.True(Directory.Exists(sessionPath));
         }
         finally
         {
@@ -1153,6 +1153,7 @@ public sealed class FileServiceTests
         Assert.Contains("WriteExpirationIndexAsync", source, StringComparison.Ordinal);
         Assert.Contains("EnumerateExpiredExpirationBuckets", source, StringComparison.Ordinal);
         Assert.Contains("RecordUploadSessionCleanup", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("CleanupLegacySessionRootSweepAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("foreach (string sessionPath in Directory.EnumerateDirectories(_sessionRootPath))", cleanup, StringComparison.Ordinal);
     }
 

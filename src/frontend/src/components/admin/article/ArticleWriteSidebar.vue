@@ -30,6 +30,7 @@
                 name="articleStatus"
                 aria-label="文章状态"
                 :disabled="submitting"
+                :teleported="false"
               >
                 <el-option
                   v-for="item in statusOptions"
@@ -87,7 +88,15 @@
             </template>
             <div class="quick-field-row mt-2">
               <div class="quick-field-control">
-                <el-select v-model="form.categoryId" name="articleCategoryId" aria-label="分类" placeholder="选择分类" clearable :disabled="submitting">
+                <el-select
+                  v-model="form.categoryId"
+                  name="articleCategoryId"
+                  aria-label="分类"
+                  placeholder="选择分类"
+                  clearable
+                  :disabled="submitting"
+                  :teleported="false"
+                >
                   <el-option
                     v-for="c in categories"
                     :key="c.id"
@@ -124,6 +133,7 @@
                   aria-label="文章标签"
                   placeholder="关联标签"
                   :disabled="submitting"
+                  :teleported="false"
                 >
                   <el-option
                     v-for="t in tags"
@@ -376,6 +386,10 @@ const coverSectionOpen = ref(false)
   overflow: hidden;
   gap: 1.25rem;
   padding: 1rem;
+}
+
+.article-sidebar-section.is-open > .article-sidebar-section__body {
+  overflow: visible;
 }
 
 .article-summary-item,

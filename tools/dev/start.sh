@@ -171,7 +171,6 @@ export Fido2__ServerDomain="localhost"
 export Fido2__Origins__0="http://localhost:3000"
 export Fido2__Origins__1="http://127.0.0.1:3000"
 export AuthCookies__AllowInsecureTransportCookies="true"
-export AuthCookies__AllowLegacyPlainCookieRead="true"
 
 backend_pid=""
 frontend_pid=""

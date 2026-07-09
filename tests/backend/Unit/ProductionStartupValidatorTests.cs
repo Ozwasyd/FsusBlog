@@ -355,7 +355,7 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
-    public void ValidateCore_RejectsProductionLegacyPlainCookieRead()
+    public void ValidateCore_IgnoresRemovedLegacyPlainCookieReadSwitch()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
         {
@@ -375,7 +375,7 @@ public sealed class ProductionStartupValidatorTests
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
 
-        Assert.Contains(errors, static error => error.Contains("AuthCookies:AllowLegacyPlainCookieRead", StringComparison.Ordinal));
+        Assert.DoesNotContain(errors, static error => error.Contains("AuthCookies:AllowLegacyPlainCookieRead", StringComparison.Ordinal));
     }
 
     [Fact]

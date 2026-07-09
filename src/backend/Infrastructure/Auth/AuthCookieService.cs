@@ -18,10 +18,10 @@ public sealed class AuthCookieService
     private const string HostAdminAccessTokenCookieName = "__Host-AdminAccessToken";
     private const string HostAdminSessionIdCookieName = "__Host-AdminSessionId";
     private readonly bool _allowInsecureTransportCookies;
-    private readonly bool _allowLegacyPlainCookieRead;
-    private readonly IWebHostEnvironment? _environment;
-    private readonly ILogger<AuthCookieService>? _logger;
-    private int _legacyPlainCookieWarningWritten;
+    private readonly string _accessTokenCookieName;
+    private readonly string _refreshTokenCookieName;
+    private readonly string _sessionIdCookieName;
+    private readonly string _adminAccessTokenCookieName;
 
     public AuthCookieService(
         IConfiguration configuration,
@@ -29,9 +29,11 @@ public sealed class AuthCookieService
         ILogger<AuthCookieService>? logger = null)
     {
         _allowInsecureTransportCookies = configuration.GetValue<bool>("AuthCookies:AllowInsecureTransportCookies");
-        _allowLegacyPlainCookieRead = configuration.GetValue<bool>("AuthCookies:AllowLegacyPlainCookieRead");
-        _environment = environment;
-        _logger = logger;
+        bool useSecureTransportCookies = ShouldUseSecureTransportCookies(environment);
+        _accessTokenCookieName = useSecureTransportCookies ? HostAccessTokenCookieName : AccessTokenCookieName;
+        _refreshTokenCookieName = useSecureTransportCookies ? HostRefreshTokenCookieName : RefreshTokenCookieName;
+        _sessionIdCookieName = useSecureTransportCookies ? HostSessionIdCookieName : SessionIdCookieName;
+        _adminAccessTokenCookieName = useSecureTransportCookies ? HostAdminAccessTokenCookieName : AdminAccessTokenCookieName;
     }
 
     public void SetTokenCookies(HttpContext context, IWebHostEnvironment env, string accessToken, string refreshToken, string? sessionId, DateTime idleExpiresAt)
@@ -81,7 +83,7 @@ public sealed class AuthCookieService
 
     private CookieOptions CreateBaseOptions(IWebHostEnvironment env)
     {
-        bool secure = !env.IsDevelopment() || !_allowInsecureTransportCookies;
+        bool secure = ShouldUseSecureTransportCookies(env);
         return new CookieOptions
         {
             HttpOnly = true,
@@ -133,61 +135,31 @@ public sealed class AuthCookieService
         };
 
     public string? ReadAccessToken(HttpContext context)
-        => ReadUserCookie(context, AccessTokenCookieName, HostAccessTokenCookieName);
+        => ReadCookie(context, _accessTokenCookieName);
 
     public string? ReadRefreshToken(HttpContext context)
-        => ReadUserCookie(context, RefreshTokenCookieName, HostRefreshTokenCookieName);
+        => ReadCookie(context, _refreshTokenCookieName);
 
     public string? ReadSessionId(HttpContext context)
-        => ReadUserCookie(context, SessionIdCookieName, HostSessionIdCookieName);
+        => ReadCookie(context, _sessionIdCookieName);
 
     public bool TryReadAdminAccessToken(HttpContext context, out string token)
     {
-        token = ReadCookie(context, AdminAccessTokenCookieName, HostAdminAccessTokenCookieName, ShouldAllowLegacyPlainCookieRead()) ?? string.Empty;
+        token = ReadCookie(context, _adminAccessTokenCookieName) ?? string.Empty;
         return !string.IsNullOrWhiteSpace(token);
     }
 
     public static string? ResolveAccessTokenCookieName(bool isProduction)
         => isProduction ? HostAccessTokenCookieName : AccessTokenCookieName;
 
-    private string? ReadUserCookie(HttpContext context, string plainName, string hostName)
-        => ReadCookie(context, plainName, hostName, ShouldAllowLegacyPlainCookieRead());
+    private bool ShouldUseSecureTransportCookies(IWebHostEnvironment? env)
+        => env is null || !env.IsDevelopment() || !_allowInsecureTransportCookies;
 
-    private bool ShouldAllowLegacyPlainCookieRead()
+    private static string? ReadCookie(HttpContext context, string cookieName)
     {
-        if (!_allowLegacyPlainCookieRead)
-        {
-            return false;
-        }
-
-        bool isLocalCompatibleEnvironment = _environment?.IsDevelopment() == true;
-        if (!isLocalCompatibleEnvironment)
-        {
-            return false;
-        }
-
-        if (Interlocked.Exchange(ref _legacyPlainCookieWarningWritten, 1) == 0)
-        {
-            _logger?.LogWarning(
-                "AuthCookies:AllowLegacyPlainCookieRead is enabled for {EnvironmentName}; legacy plain user cookies are accepted for local migration only and must remain disabled in production.",
-                _environment?.EnvironmentName ?? "Unknown");
-        }
-
-        return true;
-    }
-
-    private static string? ReadCookie(HttpContext context, string plainName, string hostName, bool allowPlainFallback)
-    {
-        if (context.Request.Cookies.TryGetValue(hostName, out var hostValue) && !string.IsNullOrWhiteSpace(hostValue))
+        if (context.Request.Cookies.TryGetValue(cookieName, out var hostValue) && !string.IsNullOrWhiteSpace(hostValue))
         {
             return hostValue;
-        }
-
-        if (allowPlainFallback &&
-            context.Request.Cookies.TryGetValue(plainName, out var plainValue) &&
-            !string.IsNullOrWhiteSpace(plainValue))
-        {
-            return plainValue;
         }
 
         return null;
