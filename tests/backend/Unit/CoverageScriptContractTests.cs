@@ -95,11 +95,17 @@ public sealed class CoverageScriptContractTests
     public void BackendCoverageCollection_ExcludesTimingSensitiveCategories()
     {
         string source = BackendTestPaths.ReadAllTextFromRoot("tools", "coverage", "collect-backend-coverage.sh");
+        string legacy = BackendTestPaths.ReadAllTextFromRoot("tools", "test", "legacy-test.sh");
 
-        Assert.Contains(
-            "--filter \"Category!=Integration&Category!=Concurrency&Category!=Performance\"",
-            source,
-            StringComparison.Ordinal);
+        Assert.Contains("--filter \"$BACKEND_ORDINARY_TEST_FILTER\"", source, StringComparison.Ordinal);
+        Assert.Contains("ORDINARY_RESULTS_DIR=\"$RESULTS_DIR/ordinary\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("rm -rf \"$RESULTS_DIR\"", source, StringComparison.Ordinal);
+        Assert.Contains("run_backend_dotnet_filter_with_coverage", legacy, StringComparison.Ordinal);
+        Assert.Contains("special-$lane", legacy, StringComparison.Ordinal);
+        foreach (string category in new[] { "ApiIntegration", "SecurityStateMachine", "Concurrency", "Property", "GoldenContract" })
+        {
+            Assert.Contains($"Category={category}", legacy, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

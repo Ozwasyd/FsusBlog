@@ -14,7 +14,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly MethodInfo RestoreImportedRevisions = typeof(AuthoringWorkflowService)

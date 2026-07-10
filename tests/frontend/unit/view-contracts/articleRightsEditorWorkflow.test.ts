@@ -34,7 +34,7 @@ describe('admin article rights editor workflow contract', () => {
     expect(writePage).toContain('articleForm.rights.proofBindingEnabled')
   })
 
-  it('wires rights through defaults, edit loading, local drafts, server drafts, preview, and submit', () => {
+  it('wires rights through defaults, edit loading, server drafts, preview, and submit', () => {
     expect(articleApi).toContain('export interface ArticleRightsRequest')
     expect(authoringApi).toContain('rights: ArticleRightsRequest')
     expect(writeComposable).toContain('interface ArticleRightsForm')
@@ -44,12 +44,22 @@ describe('admin article rights editor workflow contract', () => {
     expect(writeComposable).toContain('getAdminSiteComplianceConfig')
     expect(writeComposable).toContain('siteInheritedRights')
     expect(writeComposable).toContain('setArticleRightsMode')
-    expect(writeComposable).toContain('rights: normalizeArticleRightsForm(raw.rights)')
-    expect(writeComposable).toContain('encodePublicAotPayload(snapshot)')
-    expect(writeComposable).toContain('rights: cloneArticleRightsForm(snapshot.rights)')
+    expect(writeComposable).toContain('encodeLocalDraftMetadata(snapshot)')
+    expect(writeComposable).toContain("schema: 'fsusblog.article-draft-metadata.v1'")
+    expect(writeComposable).not.toContain('toLocalDraftSnapshot')
+    expect(writeComposable).toContain('rights: { ...snapshot.rights }')
     expect(writeComposable).toContain('rights: normalizeArticleRightsForm(draft.rights)')
     expect(writeComposable).toContain("articleForm.rights = { ...normalizeArticleRightsForm(data.rights), mode: 'custom' }")
     expect(writeComposable).toContain('rights: buildArticleRightsRequest()')
+  })
+
+  it('keeps unpublished content out of browser persistence and explains server-only recovery', () => {
+    expect(writePage).toContain('尚未同步的更改只保留在当前页面')
+    expect(writePage).toContain('返回编辑页后只能恢复已同步的服务端草稿')
+    expect(writePage).not.toContain('当前内容已写入浏览器本地缓存')
+    expect(writeComposable).toContain('const requiresLeaveConfirm = computed(() => hasDraftContent(articleForm) || hasLocalDraft.value)')
+    expect(apiDocs).toContain('浏览器 localStorage 只保存不可恢复正文的草稿 metadata')
+    expect(apiDocs).toContain('完整 `rights` 只写入 `ServerDraftSaveRequest`')
   })
 
   it('validates rights enums, year, excerpt length, and required text before submit', () => {

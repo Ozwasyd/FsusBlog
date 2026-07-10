@@ -34,6 +34,7 @@ const requiredStatusChecks = [
   ['DNS readiness', (manifest) => manifest.evidenceSummary?.externalExposure?.dnsReadiness === 'ok'],
   ['DNS delegation', (manifest) => manifest.evidenceSummary?.externalExposure?.dnsDelegation === 'ok'],
   ['live exposure', (manifest) => manifest.evidenceSummary?.externalExposure?.liveExposure === 'ok'],
+  ['viewport legacy parity', (manifest, context) => manifest.evidenceSummary?.gates?.uxViewportCanaryParity === 'ok' && uxViewportCanaryParityOk(manifest, context)],
   ['frontend render pressure', (manifest) => manifest.evidenceSummary?.gates?.frontendRenderPressure === 'ok'],
   ['public AOT cache resilience', (manifest, context) => manifest.evidenceSummary?.gates?.publicAotCacheResilience === 'success' && publicAotCacheResilienceOk(manifest, context)],
   ['public hydration sidecar', (manifest, context) => manifest.evidenceSummary?.gates?.publicHydrationSidecar === 'success' && publicHydrationSidecarOk(manifest, context)],
@@ -53,6 +54,7 @@ const requiredArtifacts = [
   'coverage',
   'jobSummaries',
   'uxViewportSummary',
+  'uxViewportCanaryParity',
   'frontendRenderPressureSummary',
   'aotCacheResilienceSummary',
   'publicHydrationSidecarSummary',
@@ -332,6 +334,30 @@ function publicHydrationSidecarOk(manifest, context) {
         && check.mode === 'sidecar-primary'))
 }
 
+function uxViewportCanaryParityOk(manifest, context) {
+  const report = readArtifactJson(manifest, context, 'uxViewportCanaryParity')
+  return report?.schema === 'fsusblog.ux-viewport-canary-parity.v1'
+    && report.status === 'success'
+    && report.comparison === 'normalized-failure-signature-v2-historical-authority'
+    && report.plannedCaseCount === 70
+    && report.executedCaseCount?.legacy === 70
+    && report.executedCaseCount?.current === 70
+    && report.matchedCaseCount === 70
+    && report.historicalMatchedCaseCount === 70
+    && report.mismatchCount === 0
+    && Array.isArray(report.cases)
+    && report.cases.length === 70
+    && report.cases.every((item) => item?.matches === true
+      && item.runnersMatch === true
+      && item.historicalMatches === true
+      && ['failed', 'timedOut'].includes(item.historical?.outcome)
+      && item.historical?.failureSignature === item.legacy?.failureSignature
+      && item.historical?.failureSignature === item.current?.failureSignature)
+    && report.runners?.legacy?.spec?.startsWith('tests/frontend/fixtures/ux-viewport-legacy/runtime/')
+    && !report.runners?.legacy?.spec?.startsWith('.tmp/')
+    && typeof report.runners?.legacy?.sourceFiles?.['tests/frontend/support/playwright/acceptance-shared.ts'] === 'string'
+}
+
 function publicAotCacheResilienceOk(manifest, context) {
   const report = readArtifactJson(manifest, context, 'aotCacheResilienceSummary')
   const requiredCases = [
@@ -419,7 +445,7 @@ function validateManifest(manifest, options = {}) {
     errors.push(`release closeout requires collected-ok, got ${manifest.status}`)
   }
 
-  for (const key of ['frontendRenderPressureSummary', 'aotCacheResilienceSummary', 'publicHydrationSidecarSummary', 'docSyncSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
+  for (const key of ['uxViewportCanaryParity', 'frontendRenderPressureSummary', 'aotCacheResilienceSummary', 'publicHydrationSidecarSummary', 'docSyncSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
     if (manifest.artifacts?.[key] === null || manifest.artifacts?.[key] === undefined) {
       errors.push(`artifacts.${key} must point to a collected required summary`)
     }
@@ -458,6 +484,7 @@ function runSelfTest() {
         wasmFuzz: 'ok'
       },
       gates: {
+        uxViewportCanaryParity: 'ok',
         frontendRenderPressure: 'ok',
         publicAotCacheResilience: 'success',
         publicHydrationSidecar: 'success',
@@ -484,6 +511,7 @@ function runSelfTest() {
   base.artifacts.soak = 'soak'
   base.artifacts.memoryLeakSummary = 'memoryLeakSummary.json'
   base.artifacts.openHandleSummary = 'openHandleSummary.json'
+  base.artifacts.uxViewportCanaryParity = 'uxViewportCanaryParity.json'
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-manifest-'))
   const manifestFile = path.join(tmpDir, 'manifest.json')
@@ -538,6 +566,34 @@ function runSelfTest() {
       recovered: true,
       durationMs: 1,
       errors: []
+    }))
+  }))
+  const parityFailureSignature = `sha256:${'a'.repeat(64)}`
+  fs.writeFileSync(path.join(tmpDir, 'uxViewportCanaryParity.json'), JSON.stringify({
+    schema: 'fsusblog.ux-viewport-canary-parity.v1',
+    status: 'success',
+    comparison: 'normalized-failure-signature-v2-historical-authority',
+    plannedCaseCount: 70,
+    executedCaseCount: { legacy: 70, current: 70 },
+    matchedCaseCount: 70,
+    historicalMatchedCaseCount: 70,
+    mismatchCount: 0,
+    runners: {
+      legacy: {
+        spec: 'tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/e2e/ux/viewport-boundaries.spec.ts',
+        sourceFiles: {
+          'tests/frontend/support/playwright/acceptance-shared.ts': 'a'.repeat(64)
+        }
+      }
+    },
+    cases: Array.from({ length: 70 }, (_, index) => ({
+      id: `fixture-${index}`,
+      matches: true,
+      runnersMatch: true,
+      historicalMatches: true,
+      historical: { outcome: 'failed', failureSignature: parityFailureSignature },
+      legacy: { outcome: 'failed', failureSignature: parityFailureSignature },
+      current: { outcome: 'failed', failureSignature: parityFailureSignature }
     }))
   }))
   fs.mkdirSync(path.join(tmpDir, 'authenticatedDast'))
@@ -724,6 +780,14 @@ function runSelfTest() {
   const ok = validateManifest(base, { manifestPath: manifestFile })
   if (!ok.ok) {
     fail(`self-test expected ok manifest to pass: ${ok.errors.join('; ')}`)
+  }
+
+  const blockedParity = structuredClone(base)
+  blockedParity.status = 'collected-blocked'
+  blockedParity.evidenceSummary.gates.uxViewportCanaryParity = 'blocked'
+  const blockedParityResult = validateManifest(blockedParity, { manifestPath: manifestFile })
+  if (!blockedParityResult.ok || !blockedParityResult.missingRequired.includes('viewport legacy parity')) {
+    fail(`self-test expected blocked viewport parity to remain an explicit release blocker: ${blockedParityResult.errors.join('; ')}`)
   }
 
   fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({

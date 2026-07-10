@@ -68,7 +68,7 @@ expectIncludes('src/frontend/src/views/admin/article/Write.vue', '内容检查',
 expectIncludes('src/frontend/src/views/admin/article/Write.vue', '版本', 'writer side panel must include revision task')
 expectIncludes('src/frontend/src/views/admin/article/Write.vue', '图片资源和上传策略', 'writer side panel must merge upload and assets into resources')
 expectIncludes('src/frontend/src/views/admin/article/Write.vue', '发布前 checklist', 'publish confirmation must be a checklist')
-expectIncludes('src/frontend/src/views/admin/article/Write.vue', '全屏写作', 'layout mode must explain fullscreen mode')
+expectNotIncludes('src/frontend/src/views/admin/article/Write.vue', '全屏写作', 'automatic wide layout must not expose a vague fullscreen mode label')
 expectNotIncludes('src/frontend/src/views/admin/article/Write.vue', 'label="SEO"', 'SEO must not remain a top-level writer tab')
 expectNotIncludes('src/frontend/src/views/admin/article/Write.vue', 'label="AI"', 'AI must not remain a top-level writer tab')
 expectNotIncludes('src/frontend/src/views/admin/article/Write.vue', 'label="上传"', 'upload must not remain a top-level writer tab')

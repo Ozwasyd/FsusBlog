@@ -1,11 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const repoRoot = path.resolve(__dirname, '../../..')
-const clientRoot = path.join(repoRoot, 'src', 'frontend')
+import { resolvePublicFixtureFile } from './fixture-paths.mjs'
 
 function decodeFixtureValue(value) {
   try {
@@ -18,9 +12,7 @@ function decodeFixtureValue(value) {
 function readFixtureFile({ ignoreBaseUrl = false } = {}) {
   const candidates = [
     process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE,
-    path.resolve(process.cwd(), '.playwright-fixtures.aeds'),
-    path.resolve(process.cwd(), 'src/frontend/.playwright-fixtures.aeds'),
-    path.join(clientRoot, '.playwright-fixtures.aeds'),
+    resolvePublicFixtureFile()
   ].filter(Boolean)
 
   const fixturePath = candidates.find((candidate) => existsSync(candidate))

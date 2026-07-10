@@ -154,6 +154,33 @@ function expectWorkflowSyncFailure(matrixText, expected, message) {
   }
 }
 
+function expectWorkflowTextFailure(transform, expected, message) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-workflow-'))
+  const workflowFile = path.join(tempDir, 'quality-gate.yml')
+  const planFile = path.join(tempDir, 'ci-plan.json')
+  const workflowSource = fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8')
+  fs.writeFileSync(workflowFile, transform(workflowSource))
+  const planResult = spawnSync('node', ['tools/run-test-matrix.mjs', 'ci-plan', '--format', 'github-actions', '--out', planFile], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  if (planResult.status !== 0) {
+    fs.rmSync(tempDir, { recursive: true, force: true })
+    process.exit(planResult.status ?? 1)
+  }
+  const result = spawnSync('node', ['tools/check-workflow-matrix-sync.mjs', planFile, workflowFile], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  fs.rmSync(tempDir, { recursive: true, force: true })
+  const outputText = `${result.stdout ?? ''}${result.stderr ?? ''}`
+  if (result.status === 0 || !outputText.includes(expected)) {
+    console.error(`[test-matrix] ${message}`)
+    console.error(outputText)
+    process.exit(1)
+  }
+}
+
 expectMatrixValidateFailure(
   replaceTierField(matrixSourceText, 'coverage-backend', 'phase', '5'),
   'coverage-merge depends on coverage-backend with later phase 5 > 4',
@@ -170,6 +197,15 @@ expectWorkflowSyncFailure(
   setTierBooleanField(matrixSourceText, 'backend-qps-view-count-flush', 'workflowBootstraps', 'false'),
   'workflow job backend-qps-collectors manually runs bootstrap but tier backend-qps-view-count-flush does not declare workflowBootstraps=true',
   'workflow manual bootstrap must be backed by matrix metadata'
+)
+
+expectWorkflowTextFailure(
+  (workflow) => workflow.replace(
+    '  fast-backend:\n    name: Fast Backend DAG\n    runs-on: ubuntu-latest\n    needs: validate-matrix',
+    '  fast-backend:\n    name: Fast Backend DAG\n    runs-on: ubuntu-latest\n    needs: [validate-matrix, missing-workflow-job]'
+  ),
+  'workflow job fast-backend needs undefined workflow job: missing-workflow-job',
+  'workflow sync must reject undefined GitHub Actions needs before workflow load time'
 )
 
 expectWorkflowSyncFailure(
@@ -232,6 +268,7 @@ run(['ci-job-matrix', 'ux-viewport-smoke', '--out', '.tmp/docs/ux-viewport-smoke
 for (const tierId of [
   'frontend-build',
   'frontend-unit-shard',
+  'frontend-property-model-perf',
   'frontend-runtime-contracts',
   'frontend-static-governance',
   'frontend-fast-summary'
@@ -244,18 +281,14 @@ for (const tierId of [
 }
 {
   const matrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
+  const tierIds = matrix.include.map((entry) => entry.tier).sort()
   requireCondition(
-    matrix.include.every((entry) => entry.tier === 'frontend-unit-shard'),
-    'fast-frontend-unit matrix must run only frontend-unit-shard shards'
-  )
-  const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
-  requireCondition(
-    shards.length === 2 && shards.includes('1/2') && shards.includes('2/2'),
-    'fast-frontend-unit matrix must expand frontend-unit-shard into 2 Vitest shards'
+    JSON.stringify(tierIds) === JSON.stringify(['coverage-frontend', 'frontend-property-model-perf']),
+    'fast-frontend-unit effective plan must retain property/model/perf and replace ordinary unit with coverage'
   )
   requireCondition(
-    matrix.include.every((entry) => /^fast-frontend-unit-\d-of-2$/.test(entry.artifact_name)),
-    'fast-frontend-unit shard artifacts must be named per shard'
+    matrix.include.every((entry) => entry.shard === '' && entry.artifact_name === `fast-frontend-unit-${entry.tier}`),
+    'fast-frontend-unit effective tiers must be unsharded and independently attributable'
   )
 }
 {
@@ -272,14 +305,13 @@ for (const tierId of [
 }
 {
   const matrix = readJsonFile('.tmp/docs/ux-viewport-smoke-matrix.json').matrix
-  const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
   requireCondition(
-    shards.length === 2 && shards.includes('1/2') && shards.includes('2/2'),
-    'ux-viewport-smoke matrix must expand into 2 Playwright shards'
+    matrix.include.length === 1 && matrix.include[0].tier === 'ux-viewport-smoke' && matrix.include[0].shard === '',
+    'ux-viewport-smoke must run as one non-sharded planner execution'
   )
   requireCondition(
-    matrix.include.every((entry) => entry.playwright_workers === 1 && /^ux-viewport-smoke-\d-of-2$/.test(entry.artifact_name)),
-    'ux-viewport-smoke shard artifacts and worker policy must come from matrix metadata'
+    matrix.include[0].playwright_workers === 1 && matrix.include[0].artifact_name === 'ux-viewport-smoke-ux-viewport-smoke',
+    'ux-viewport-smoke worker policy must come from matrix metadata'
   )
 }
 for (const [jobId, file] of [
@@ -302,8 +334,9 @@ run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-
   const aggregatePlan = readJsonFile('.tmp/docs/fast-summary-aggregate-plan.json')
   for (const summaryId of [
     'frontend-build',
-    'fast-frontend-unit-1-of-2',
-    'fast-frontend-unit-2-of-2',
+    'fast-frontend-unit-coverage-frontend',
+    'fast-frontend-unit-frontend-property-model-perf',
+    'fast-backend-coverage-backend',
     'frontend-runtime-contracts',
     'frontend-static-governance'
   ]) {
@@ -312,13 +345,22 @@ run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-
       `fast-summary aggregate plan must require ${summaryId}`
     )
   }
+  requireCondition(
+    !aggregatePlan.requiredArtifactPaths.some((artifact) => artifact.includes('frontend-unit-shard')),
+    'fast-summary aggregate must not require artifacts from a superseded ordinary unit tier'
+  )
+  requireCondition(
+    aggregatePlan.requiredArtifactPaths.includes('.tmp/coverage/frontend/Summary.json'),
+    'fast-summary aggregate must require coverage replacement evidence'
+  )
 }
 run(['ci-tier', 'backend-fast', '--plan-only'])
 {
   const frontendPlan = output(['ci-job', 'fast-frontend-unit', '--plan-only'])
   process.stdout.write(frontendPlan)
-  if (!frontendPlan.includes('./tools/test.sh ci-tier frontend-unit-shard --no-deps --shard 1/2')) {
-    console.error('[test-matrix] fast-frontend-unit plan must include a shard reproduction example')
+  if (!frontendPlan.includes('superseded: frontend-unit-shard -> coverage-frontend')
+      || !frontendPlan.includes('./tools/test.sh ci-tier frontend-property-model-perf --no-deps')) {
+    console.error('[test-matrix] fast-frontend-unit plan must prove coverage substitution while retaining special suites')
     process.exit(1)
   }
 }
@@ -342,6 +384,22 @@ run(['docs', '--out', '.tmp/docs/run-test-matrix-docs-compat.md'])
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
+{
+  const workflowPath = '.tmp/docs/quality-gate-hidden-artifact-regression.yml'
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8')
+    .replace(/\n\s+include-hidden-files: true/u, '')
+  fs.writeFileSync(path.join(root, workflowPath), workflow)
+  const result = spawnSync('node', [
+    'tools/check-workflow-matrix-sync.mjs',
+    '.tmp/docs/run-test-matrix-ci-plan-compat.json',
+    workflowPath
+  ], { cwd: root, encoding: 'utf8' })
+  requireCondition(
+    result.status !== 0 && /include-hidden-files: true/u.test(result.stderr),
+    'workflow checker must reject .tmp artifact uploads that omit include-hidden-files: true'
+  )
+}
+
 for (const script of [
   'tools/ci/check-flaky-registry.mjs',
   'tools/ci/check-flaky-evidence.mjs',
@@ -360,13 +418,8 @@ for (const script of [
 
 requireFileIncludes(
   '.github/workflows/quality-gate.yml',
-  "FSUSBLOG_TEST_SELECTION: ${{ github.event_name == 'pull_request' && 'affected' || 'full' }}",
-  'fast-backend workflow must use affected backend selection on pull_request and full selection otherwise'
-)
-requireFileIncludes(
-  '.github/workflows/quality-gate.yml',
-  'fetch-depth: 0',
-  'fast-backend workflow checkout must fetch enough history for affected backend selection'
+  'FSUSBLOG_TEST_SELECTION: full',
+  'coverage-backed fast-backend workflow must execute the complete ordinary unit selection exactly once'
 )
 requireFileIncludes(
   '.github/workflows/quality-gate.yml',
@@ -420,8 +473,8 @@ requireFileIncludes(
 )
 requireFileIncludes(
   '.github/workflows/quality-gate.yml',
-  'fast_frontend_unit_matrix',
-  'validate-matrix must generate the fast-frontend-unit shard matrix'
+  './tools/test.sh ci-job fast-frontend-unit --fresh',
+  'fast-frontend-unit workflow must run the resource-aware DAG in fresh mode'
 )
 requireFileIncludes(
   '.github/workflows/quality-gate.yml',
@@ -440,8 +493,8 @@ requireFileIncludes(
 )
 requireFileIncludes(
   '.github/workflows/quality-gate.yml',
-  './tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}',
-  'fast-frontend-unit workflow must run generated frontend shard tiers'
+  './tools/test.sh ci-job fast-backend --fresh',
+  'fast-backend workflow must run the resource-aware DAG in fresh mode'
 )
 requireFileIncludes(
   'docs/testing.md',
@@ -490,8 +543,8 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'tests/matrix.yml',
-  'coverage: [playwright-acceptance]\n    artifacts: [src/frontend/test-results/playwright/acceptance, src/frontend/playwright-report]',
-  'acceptance matrix entry must remain identifiable for browser shard policy checks'
+  'coverage: [playwright-acceptance]\n    artifacts: [src/frontend/test-results/playwright/acceptance]\n    evidence: [src/frontend/test-results/playwright/acceptance]',
+  'acceptance matrix entry must expose the governed Playwright test-results artifact'
 )
 requireFileIncludes(
   'tests/matrix.yml',
@@ -520,28 +573,28 @@ requireFileIncludes(
 )
 requireFileIncludes(
   '.github/workflows/quality-gate.yml',
-  'ux_viewport_smoke_matrix',
-  'ux-viewport-smoke workflow must use the generated shard matrix'
+  './tools/test.sh ci-tier ux-viewport-smoke --no-deps --fresh',
+  'ux-viewport-smoke workflow must run one authoritative fresh plan'
 )
 requireFileIncludes(
   '.github/workflows/quality-gate.yml',
-  '${{ matrix.artifact_name }}',
-  'ux-viewport-smoke workflow must isolate artifacts per shard'
+  'name: ux-viewport-smoke',
+  'ux-viewport-smoke workflow must retain one stable artifact'
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}',
-  'UX viewport smoke script must pass the Playwright shard argument'
+  'run-ux-viewport-playwright.mjs smoke',
+  'UX viewport smoke must use the summary-preserving runner'
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'check:ux:viewport-smoke": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_UX_VIEWPORT_MODE=smoke PLAYWRIGHT_OUTPUT_DIR=test-results/playwright/ux-viewport-smoke npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}}',
+  'FSUSBLOG_UX_VIEWPORT_WORKERS=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}} PLAYWRIGHT_OUTPUT_DIR=test-results/playwright/ux-viewport-smoke node ../../tests/frontend/checks/ux/run-ux-viewport-playwright.mjs smoke',
   'UX viewport smoke must honor lane-computed Playwright workers'
 )
 requireFileIncludes(
   'tests/frontend/e2e/ux/viewport-boundaries.spec.ts',
-  'for (const caseGroup of buildCaseGroups(cases))',
-  'UX viewport smoke must expose multiple Playwright tests so workers and shards can split the matrix'
+  'for (const group of plan.groups)',
+  'UX viewport runner must execute the shared route-theme plan'
 )
 requireFileIncludes(
   'tools/test/resolve-playwright-workers.mjs',
@@ -555,7 +608,7 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'tools/test/lanes/ux-viewport-smoke.sh',
-  'npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_UX_VIEWPORT_WORKERS"',
+  'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once',
   'UX viewport smoke must prepare exactly the worker-counted session fixtures once'
 )
 requireFileIncludes(
@@ -574,13 +627,64 @@ requireFileIncludes(
   'SPA route audit must honor the acceptance lane worker cap'
 )
 requireFileIncludes(
+  'src/frontend/package.json',
+  'check:acceptance:public": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}}',
+  'public route audit must honor the isolated acceptance worker cap'
+)
+requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_SPA_ROUTES_WORKERS"',
+  'configure_playwright_workers acceptance-public-routes FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS',
+  'acceptance lane must resolve a public route worker cap from the current machine'
+)
+requireFileIncludes(
+  'tools/test/lanes/ux-viewport-visual.sh',
+  'configure_playwright_workers ux-viewport-visual FSUSBLOG_UX_VIEWPORT_WORKERS',
+  'ux-viewport-visual must resolve a bounded worker cap from the current machine'
+)
+requireFileIncludes(
+  'tools/test/lanes/ux-viewport-boundaries.sh',
+  "profile='ux-viewport-boundaries'",
+  'ux-viewport-boundaries must use its dedicated profile when screenshots are disabled'
+)
+requireFileIncludes(
+  'tools/test/lanes/ux-viewport-boundaries.sh',
+  "profile='ux-viewport-visual'",
+  'ux-viewport-boundaries must fall back to the visual profile when screenshots are enabled'
+)
+requireFileIncludes(
+  'tools/test/lanes/ux-viewport-boundaries.sh',
+  'configure_playwright_workers "$profile" FSUSBLOG_UX_VIEWPORT_WORKERS',
+  'ux-viewport-boundaries must apply its selected worker profile'
+)
+for (const file of [
+  'tools/test/lanes/ux-viewport-smoke.sh',
+  'tools/test/lanes/ux-viewport-visual.sh',
+  'tools/test/lanes/ux-viewport-boundaries.sh'
+]) {
+  requireFileIncludes(
+    file,
+    'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once',
+    `${file} must prepare isolated session fixtures for its computed worker cap`
+  )
+  requireFileIncludes(
+    file,
+    'require_release_preview',
+    `${file} must exercise the release preview instead of the concurrent Vite development server`
+  )
+  requireFileIncludes(
+    file,
+    'PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"',
+    `${file} must direct browser checks through the release preview proxy`
+  )
+}
+requireFileIncludes(
+  'tools/test/legacy-test.sh',
+  'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_SPA_ROUTES_WORKERS" prepare_session_fixtures_once',
   'acceptance lane must prepare session fixtures for the computed SPA route worker cap'
 )
 requireFileIncludes(
   'tools/test/legacy-test.sh',
-  'npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_CONSOLE_VISUAL_WORKERS"',
+  'FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_CONSOLE_VISUAL_WORKERS" prepare_session_fixtures_once',
   'visual console lane must prepare session fixtures for the computed screenshot worker cap'
 )
 requireFileIncludes(

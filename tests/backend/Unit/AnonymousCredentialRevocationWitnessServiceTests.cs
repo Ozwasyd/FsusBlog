@@ -9,7 +9,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AnonymousCredentialRevocationWitnessServiceTests(PostgresSchemaMigrationFixture fixture)
 {
     private const long Epoch = 4096;

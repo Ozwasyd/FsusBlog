@@ -79,6 +79,11 @@ const summary = {
   },
   source: 'frontend-vitest',
   reportPaths: [path.relative(process.cwd(), summaryPath).replaceAll(path.sep, '/')],
+  producer: {
+    runId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
+    sourceCommit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT || null,
+    sourceFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
+  },
   generatedAt: new Date().toISOString()
 };
 fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`);

@@ -3,20 +3,29 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FASTPATH_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"
-PROGRAM_FILE="$ROOT_DIR/src/backend/Program.cs"
+COMPOSITION_FILE="$ROOT_DIR/src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs"
 ARTICLE_ENDPOINTS_FILE="$ROOT_DIR/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs"
 ARTICLE_API_FILE="$ROOT_DIR/src/frontend/src/api/article.ts"
 BINARY_TRANSPORT_FILE="$ROOT_DIR/src/frontend/src/services/binaryTransport.ts"
 
 echo "[public-hot-read] checking middleware order"
-node - "$PROGRAM_FILE" <<'NODE'
+node - "$COMPOSITION_FILE" <<'NODE'
 const fs = require('node:fs');
 const file = process.argv[2];
 const source = fs.readFileSync(file, 'utf8');
-const fast = source.indexOf('UseFsusPublicHotReadFastPath');
-const pipeline = source.indexOf('UseFsusApplicationPipeline');
-if (fast < 0 || pipeline < 0 || fast > pipeline) {
-  console.error('[public-hot-read] UseFsusPublicHotReadFastPath must appear before UseFsusApplicationPipeline');
+const methodStart = source.indexOf('public static void UseFsusApplicationPipeline');
+const methodEnd = source.indexOf('public static void MapFsusApplicationRoutes', methodStart);
+if (methodStart < 0 || methodEnd < 0 || methodEnd <= methodStart) {
+  console.error('[public-hot-read] unable to isolate UseFsusApplicationPipeline');
+  process.exit(1);
+}
+const block = source.slice(methodStart, methodEnd);
+const gate = block.indexOf('UseFsusPublicHotReadSecurityGate');
+const core = block.indexOf('UseFsusCoreMiddlewares');
+const fast = block.indexOf('UseFsusPublicHotReadFastPath');
+const endpoint = block.indexOf('UseFsusEndpointPipeline');
+if (core < 0 || endpoint < 0 || gate < 0 || fast < 0 || !(core < endpoint && endpoint < gate && gate < fast)) {
+  console.error('[public-hot-read] UseFsusEndpointPipeline, UseFsusPublicHotReadSecurityGate, and UseFsusPublicHotReadFastPath must run in protected L0 order');
   process.exit(1);
 }
 NODE

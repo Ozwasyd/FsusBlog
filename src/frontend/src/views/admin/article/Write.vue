@@ -640,7 +640,9 @@
       width="min(92vw, 28rem)"
       :close-on-click-modal="false"
     >
-      <p class="text-sm text-[var(--fsusblog-text-secondary)]">当前内容已写入浏览器本地缓存。离开后未发布的改动不会提交到服务器，但回到编辑页可选择恢复本地缓存。</p>
+      <p class="text-sm text-[var(--fsusblog-text-secondary)]">
+        尚未同步的更改只保留在当前页面，离开后可能丢失。返回编辑页后只能恢复已同步的服务端草稿；浏览器只保留保存时间等不可恢复正文的记录。
+      </p>
       <template #footer>
         <div class="grid grid-cols-2 gap-4">
           <el-button @click="leaveConfirmDialog = false">
@@ -1007,9 +1009,10 @@ const submitQuickCreateTag = async (): Promise<void> => {
 }
 
 .write-command-back {
-  min-height: auto;
+  min-width: 36px;
+  min-height: 36px;
   align-self: flex-start;
-  padding: 0;
+  padding: 0 0.5rem;
   color: var(--fsusblog-text-muted);
   font-size: 0.8125rem;
   font-weight: 700;
@@ -1161,6 +1164,7 @@ const submitQuickCreateTag = async (): Promise<void> => {
 
 .write-title-input :deep(.el-input__inner) {
   height: auto;
+  min-height: 2.25rem;
   color: var(--fsusblog-text-primary);
   font-size: clamp(2.25rem, 5vw, 4rem);
   font-weight: 850;
@@ -1323,6 +1327,17 @@ const submitQuickCreateTag = async (): Promise<void> => {
 }
 
 @media (max-width: 640px) {
+  .write-title-input :deep(.el-input__wrapper) {
+    padding-inline: 0.5rem;
+  }
+
+  .write-title-input :deep(.el-input__count) {
+    display: none;
+  }
+
+  .write-title-input :deep(.el-input__inner) {
+    font-size: clamp(1.5rem, 10vw, 2.25rem);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

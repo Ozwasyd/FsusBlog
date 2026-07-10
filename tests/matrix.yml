@@ -69,11 +69,16 @@ tiers:
     dependsOn: []
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [static-web-assets]
     phase: 1
     cost: medium
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 3
+    memoryGiB: 3
+    executionKey: frontend-release-build
+    executionVariant: ordinary
+    cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/tsconfig*.json, src/frontend/vite.config.ts, src/frontend/scripts, src/frontend/src, src/frontend/wasm, tools/frontend, tools/test/lanes/frontend-build.sh, tools/test/legacy-test.sh]
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -86,8 +91,8 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: [frontend-build]
-    artifacts: [.tmp/frontend/frontend-build.json, .tmp/frontend/frontend-fast-groups.json, src/frontend/dist]
-    evidence: [.tmp/frontend/frontend-build.json, .tmp/frontend/frontend-fast-groups.json]
+    artifacts: [.tmp/frontend/frontend-build.json, .tmp/frontend/timings/frontend-build.json, src/frontend/dist, src/backend/wwwroot]
+    evidence: [.tmp/frontend/frontend-build.json, .tmp/frontend/timings/frontend-build.json]
     ciJob: frontend-build
     localOnly: false
     nightlyOnly: false
@@ -103,6 +108,11 @@ tiers:
     cost: high
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 3
+    memoryGiB: 3
+    executionKey: frontend-unit-tests
+    executionVariant: ordinary
+    cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/vitest.config.ts, src/frontend/vitest.shared.mjs, src/frontend/src, tests/frontend/unit, tools/test/lanes/frontend-unit-shard.sh, tools/test/legacy-test.sh]
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -114,9 +124,43 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [frontend-unit, frontend-property]
-    artifacts: [src/frontend/coverage, .tmp/frontend/frontend-unit-shard.json, .tmp/frontend/frontend-fast-groups.json]
-    evidence: [src/frontend/coverage, .tmp/frontend/frontend-unit-shard.json, .tmp/frontend/frontend-fast-groups.json]
+    coverage: [frontend-unit]
+    artifacts: [.tmp/frontend/frontend-unit-shard.json, .tmp/frontend/timings/frontend-unit-shard.json]
+    evidence: [.tmp/frontend/frontend-unit-shard.json, .tmp/frontend/timings/frontend-unit-shard.json]
+    ciJob: fast-frontend-unit
+    localOnly: false
+    nightlyOnly: false
+
+  - id: frontend-property-model-perf
+    owner: InteropGlueAgent
+    command: tools/test/lanes/frontend-property-model-perf.sh
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 2
+    cpuUnits: 2
+    memoryGiB: 2
+    executionKey: frontend-property-model-perf
+    executionVariant: property
+    cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/vitest.shared.mjs, src/frontend/vitest.property.config.ts, src/frontend/vitest.model.config.ts, src/frontend/vitest.perf.config.ts, src/frontend/src, tests/frontend/property, tests/frontend/model, tests/frontend/benchmarks, tools/test/lanes/frontend-property-model-perf.sh, tools/test/legacy-test.sh]
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: frontend
+    timeoutMinutes: 20
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: fast
+    coverage: [frontend-property]
+    artifacts: [.tmp/frontend/frontend-property-model-perf.json, .tmp/frontend/timings/frontend-property-model-perf.json, .tmp/test-results/vitest/property, .tmp/test-results/vitest/model, .tmp/test-results/vitest/perf]
+    evidence: [.tmp/frontend/frontend-property-model-perf.json, .tmp/frontend/timings/frontend-property-model-perf.json]
     ciJob: fast-frontend-unit
     localOnly: false
     nightlyOnly: false
@@ -132,6 +176,11 @@ tiers:
     cost: high
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 2
+    memoryGiB: 2
+    executionKey: frontend-runtime-contracts
+    executionVariant: runtime
+    cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/src, src/frontend/wasm, tests/frontend/checks/runtime, tests/frontend/checks/security, tests/frontend/checks/wasm, tests/frontend/support, tools/frontend/ensure-wasm.mjs, tools/frontend/install-wasm-codec-deps.sh, tools/test/lanes/frontend-runtime-contracts.sh, tools/test/legacy-test.sh, tools/test/run-command-manifest.mjs, tools/test/run-once.mjs]
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -144,8 +193,8 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: [contract-static]
-    artifacts: [.tmp/frontend/frontend-runtime-contracts.json, .tmp/frontend/frontend-fast-groups.json]
-    evidence: [.tmp/frontend/frontend-runtime-contracts.json, .tmp/frontend/frontend-fast-groups.json]
+    artifacts: [.tmp/frontend/frontend-runtime-contracts.json, .tmp/frontend/timings/frontend-runtime-contracts.json]
+    evidence: [.tmp/frontend/frontend-runtime-contracts.json, .tmp/frontend/timings/frontend-runtime-contracts.json]
     ciJob: frontend-runtime-contracts
     localOnly: false
     nightlyOnly: false
@@ -161,6 +210,11 @@ tiers:
     cost: high
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 2
+    memoryGiB: 2
+    executionKey: frontend-static-governance
+    executionVariant: ordinary
+    cacheInputs: [src/frontend/package.json, src/frontend/src, tests/frontend/checks/static, tests/frontend/checks/ux, tests/frontend/support, tools/check-*.mjs, tools/test/lanes/frontend-static-governance.sh, tools/test/legacy-test.sh, tools/test/run-command-manifest.mjs]
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -173,8 +227,8 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: [frontend-static]
-    artifacts: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/frontend-fast-groups.json]
-    evidence: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/frontend-fast-groups.json]
+    artifacts: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json]
+    evidence: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json]
     ciJob: frontend-static-governance
     localOnly: false
     nightlyOnly: false
@@ -182,7 +236,7 @@ tiers:
   - id: frontend-fast-summary
     owner: InteropGlueAgent
     command: tools/test/lanes/noop.sh frontend-fast-summary
-    dependsOn: [frontend-build, frontend-unit-shard, frontend-runtime-contracts, frontend-static-governance]
+    dependsOn: [frontend-build, frontend-unit-shard, frontend-property-model-perf, frontend-runtime-contracts, frontend-static-governance]
     services: []
     parallelizable: true
     exclusiveResources: []
@@ -202,23 +256,28 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: []
-    artifacts: [.tmp/frontend, src/frontend/coverage, src/frontend/dist]
-    evidence: [.tmp/frontend, src/frontend/coverage]
+    artifacts: [.tmp/frontend, src/frontend/dist]
+    evidence: [.tmp/frontend]
     ciJob: fast-summary
     localOnly: false
     nightlyOnly: false
 
-  - id: backend-fast
+  - id: backend-build-governance
     owner: ServerContractAgent
-    command: tools/test/lanes/backend-fast.sh
+    command: tools/test/lanes/backend-build-governance.sh
     dependsOn: []
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [static-web-assets]
     phase: 1
     cost: high
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 3
+    memoryGiB: 3
+    executionKey: backend-debug-build-governance
+    executionVariant: ordinary
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/check-backend-test-governance.mjs, tools/check-postgres-test-collections.mjs, tools/test/lanes/backend-build-governance.sh, tools/test/legacy-test.sh]
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: true
@@ -230,9 +289,77 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [backend-unit, backend-static]
-    artifacts: [.tmp/gate-logs]
-    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
+    coverage: [backend-static]
+    artifacts: [.tmp/backend-build-governance]
+    evidence: [.tmp/backend-build-governance/summary.json, tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: fast-backend
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-unit
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-unit.sh
+    dependsOn: [backend-build-governance]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    maxParallel: 2
+    cpuUnits: 3
+    memoryGiB: 3
+    executionKey: backend-unit-tests
+    executionVariant: ordinary
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/test/lanes/backend-unit.sh, tools/test/legacy-test.sh]
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: backend
+    timeoutMinutes: 30
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: fast
+    coverage: [backend-unit]
+    artifacts: [.tmp/backend-unit]
+    evidence: [.tmp/backend-unit/summary.json, tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: fast-backend
+    localOnly: false
+    nightlyOnly: false
+
+  - id: backend-fast
+    owner: ServerContractAgent
+    command: tools/test/lanes/backend-fast.sh
+    dependsOn: [backend-build-governance, backend-unit, backend-api-integration, backend-auth-state-machine, backend-concurrency, backend-property, backend-golden]
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: low
+    resourceClass: io
+    maxParallel: 4
+    cpuUnits: 0.25
+    memoryGiB: 0.25
+    executionKey: backend-fast-summary
+    executionVariant: ordinary
+    cacheInputs: [tests/matrix.yml, tools/test/lanes/backend-fast.sh]
+    requiresBootstrap: none
+    requiresNode: false
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: fast
+    coverage: []
+    artifacts: [.tmp/backend-fast]
+    evidence: [.tmp/backend-fast/summary.json]
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -240,7 +367,7 @@ tiers:
   - id: integrity-proof-verification
     owner: ServerContractAgent
     command: tools/test/lanes/integrity-proof-verification.sh
-    dependsOn: [validate-matrix]
+    dependsOn: [validate-matrix, backend-build-governance]
     services: []
     parallelizable: true
     exclusiveResources: []
@@ -382,8 +509,8 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: [frontend-unit-property-model-static, backend-unit]
-    artifacts: [.tmp/gate-logs, src/frontend/coverage]
-    evidence: [.tmp/gate-logs, src/frontend/coverage]
+    artifacts: [.tmp/backend-fast, .tmp/gate-logs]
+    evidence: [.tmp/backend-fast/summary.json, .tmp/gate-logs]
     ciJob: fast-summary
     localOnly: false
     nightlyOnly: false
@@ -391,14 +518,20 @@ tiers:
   - id: coverage-backend
     owner: ServerContractAgent
     command: tools/coverage/collect-backend-coverage.sh
-    dependsOn: []
+    dependsOn: [backend-build-governance, backend-api-integration, backend-auth-state-machine, backend-concurrency, backend-property, backend-golden]
     services: []
     parallelizable: true
-    exclusiveResources: []
-    phase: 2
+    exclusiveResources: [backend-coverlet-instrumentation]
+    phase: 1
     cost: high
     resourceClass: io
     maxParallel: 4
+    cpuUnits: 4
+    memoryGiB: 4
+    executionKey: backend-unit-tests
+    executionVariant: coverage
+    supersedes: [backend-unit]
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/coverage/collect-backend-coverage.sh, tools/coverage/summarize-cobertura.mjs, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: true
@@ -409,15 +542,16 @@ tiers:
     defaultShards: 1
     risk: high
     cadence: pr
-    requiredFor: production
-    coverage: [backend-coverage]
+    requiredFor: fast
+    coverage: [backend-unit, backend-coverage]
     artifacts: [.tmp/coverage/backend, .tmp/coverage/backend-merged]
-    evidence: [.tmp/coverage/backend-merged/Summary.json]
-    ciJob: coverage-backend
+    evidence: [.tmp/coverage/backend-merged/Summary.json, tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
-    smartGateMode: conditional
-    retentionClass: conditional
+    prDefault: true
+    smartGateMode: always
+    retentionClass: must-keep
     triggerPaths: [src/backend, src/shared, src/core, tests/backend, tools/coverage]
     triggerFiles: [tests/coverage-policy.yml, tests/coverage-registry.json, tests/matrix.yml]
     triggerCoverage: [backend-coverage]
@@ -430,10 +564,16 @@ tiers:
     services: []
     parallelizable: true
     exclusiveResources: []
-    phase: 2
+    phase: 1
     cost: high
     resourceClass: io
     maxParallel: 4
+    cpuUnits: 4
+    memoryGiB: 4
+    executionKey: frontend-unit-tests
+    executionVariant: coverage
+    supersedes: [frontend-unit-shard]
+    cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/vitest.config.ts, src/frontend/vitest.shared.mjs, src/frontend/src, tests/frontend/unit, tools/coverage/collect-frontend-coverage.sh]
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -444,15 +584,16 @@ tiers:
     defaultShards: 1
     risk: high
     cadence: pr
-    requiredFor: production
-    coverage: [frontend-coverage]
+    requiredFor: fast
+    coverage: [frontend-unit, frontend-coverage]
     artifacts: [.tmp/coverage/frontend, src/frontend/coverage]
     evidence: [.tmp/coverage/frontend/Summary.json]
-    ciJob: coverage-frontend
+    ciJob: fast-frontend-unit
     localOnly: false
     nightlyOnly: false
-    smartGateMode: conditional
-    retentionClass: conditional
+    prDefault: true
+    smartGateMode: always
+    retentionClass: must-keep
     triggerPaths: [src/frontend, tests/frontend, tools/coverage]
     triggerFiles: [tests/coverage-policy.yml, tests/coverage-registry.json, tests/matrix.yml]
     triggerCoverage: [frontend-coverage]
@@ -479,7 +620,7 @@ tiers:
     defaultShards: 1
     risk: high
     cadence: pr
-    requiredFor: production
+    requiredFor: fast
     coverage: [merged-coverage]
     artifacts: [.tmp/coverage/merged]
     evidence: [.tmp/coverage/merged/Summary.json]
@@ -616,8 +757,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [runtime-contract-smoke]
-    artifacts: [.tmp/acceptance/*.log, src/frontend/test-results/playwright/integration]
-    evidence: [.tmp/acceptance/*.log]
+    artifacts: [.tmp/acceptance/*.log, .tmp/runtime/integration.json]
+    evidence: [.tmp/acceptance/*.log, .tmp/runtime/integration.json]
     ciJob: integration-runtime
     localOnly: false
     nightlyOnly: false
@@ -680,7 +821,7 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [release-preview-runtime, aot-hydration-pwa-seo, public-hydration-clock-matrix, public-hydration-browser-env-matrix, public-hydration-payload-fixture-matrix, public-hydration-dom-diff, public-hydration-sidecar, public-hydration-matrix]
-    artifacts: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json, .tmp/release-evidence/public-hydration-sidecar-summary.json, .tmp/release-evidence/public-hydration-matrix-summary.json, src/frontend/test-results/playwright/release]
+    artifacts: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json, .tmp/release-evidence/public-hydration-sidecar-summary.json, .tmp/release-evidence/public-hydration-matrix-summary.json]
     evidence: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json, .tmp/release-evidence/public-hydration-sidecar-summary.json, .tmp/release-evidence/public-hydration-matrix-summary.json]
     ciJob: release-public
     localOnly: false
@@ -744,7 +885,7 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [auth-mfa-passkey-pow-permission-dast]
-    artifacts: [.tmp/security, src/frontend/test-results/playwright/security]
+    artifacts: [.tmp/security]
     evidence: [.tmp/security]
     ciJob: security-runtime
     localOnly: false
@@ -781,7 +922,7 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [playwright-acceptance]
-    artifacts: [src/frontend/test-results/playwright/acceptance, src/frontend/playwright-report]
+    artifacts: [src/frontend/test-results/playwright/acceptance]
     evidence: [src/frontend/test-results/playwright/acceptance]
     ciJob: acceptance-playwright
     localOnly: false
@@ -912,7 +1053,12 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
-    maxParallel: 2
+    maxParallel: 1
+    cpuUnits: 3
+    memoryGiB: 4
+    executionKey: ux-viewport-smoke
+    executionVariant: runtime
+    cacheInputs: [src/frontend/package.json, src/frontend/playwright.config.ts, src/frontend/src, tests/frontend/e2e/ux, tests/frontend/fixtures/ux-viewport-matrix.json, tests/frontend/fixtures/ux-content-boundary-corpus.json, tests/frontend/support/playwright, tools/test/lanes/ux-viewport-smoke.sh]
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -921,8 +1067,8 @@ tiers:
     playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
-    shardable: true
-    defaultShards: 2
+    shardable: false
+    defaultShards: 1
     risk: high
     cadence: pr
     requiredFor: production
@@ -957,12 +1103,48 @@ tiers:
     cadence: release-manual
     requiredFor: none
     coverage: [ux-viewport-visual, screenshot-evidence]
-    artifacts: [.tmp/ux/viewport-visual.json, .tmp/ux/screenshots/visual, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-visual]
-    evidence: [.tmp/ux/viewport-visual.json, .tmp/ux/screenshots/visual, .tmp/release-evidence/ux-viewport-summary.json]
+    artifacts: [.tmp/ux/viewport-visual.json, .tmp/ux/runs/*/visual/screenshots/**/*.png, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-visual]
+    evidence: [.tmp/ux/viewport-visual.json, .tmp/release-evidence/ux-viewport-summary.json]
     ciJob: ux-viewport-visual
     localOnly: false
     nightlyOnly: false
     manualOnly: true
+
+  - id: ux-viewport-canary-parity
+    owner: InteropGlueAgent
+    command: tools/test/lanes/ux-viewport-canary-parity.sh
+    dependsOn: [bootstrap]
+    services: [postgres, redis, backend, frontend, preview]
+    parallelizable: false
+    exclusiveResources: [playwright-ux-viewport, ux-viewport-legacy-parity]
+    phase: 3
+    cost: very-high
+    resourceClass: browser
+    maxParallel: 1
+    cpuUnits: 3
+    memoryGiB: 4
+    executionKey: ux-viewport-canary-parity
+    executionVariant: runtime
+    cacheInputs: [src/frontend/package.json, src/frontend/playwright.config.ts, src/frontend/src, tests/frontend/e2e/ux/viewport-boundaries.spec.ts, tests/frontend/fixtures/ux-viewport-legacy, tests/frontend/fixtures/ux-viewport-matrix.json, tests/frontend/fixtures/ux-content-boundary-corpus.json, tests/frontend/support/playwright, tools/ux/run-viewport-canary-parity.mjs, tools/test/lanes/ux-viewport-canary-parity.sh]
+    requiresBootstrap: full
+    workflowBootstraps: true
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: chromium
+    playwrightWorkers: 1
+    cacheProfile: full
+    timeoutMinutes: 180
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: production
+    coverage: [ux-viewport-canary-parity]
+    artifacts: [.tmp/release-evidence/ux-viewport-canary-parity.json, .tmp/ux/canary-parity]
+    evidence: [.tmp/release-evidence/ux-viewport-canary-parity.json]
+    ciJob: ux-viewport-canary-parity
+    localOnly: false
+    nightlyOnly: false
 
   - id: ux-viewport-boundaries
     owner: InteropGlueAgent
@@ -988,8 +1170,8 @@ tiers:
     cadence: nightly
     requiredFor: none
     coverage: [ux-viewport-boundary-full, content-boundary-full]
-    artifacts: [.tmp/ux/viewport-boundaries.json, .tmp/ux/screenshots/boundaries, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-boundaries]
-    evidence: [.tmp/ux/viewport-boundaries.json, .tmp/ux/screenshots/boundaries, .tmp/release-evidence/ux-viewport-summary.json]
+    artifacts: [.tmp/ux/viewport-boundaries.json, .tmp/release-evidence/ux-viewport-summary.json, src/frontend/test-results/playwright/ux-viewport-boundaries]
+    evidence: [.tmp/ux/viewport-boundaries.json, .tmp/release-evidence/ux-viewport-summary.json]
     ciJob: ux-viewport-boundaries
     localOnly: false
     nightlyOnly: true
@@ -1009,7 +1191,8 @@ tiers:
     workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
-    requiresPlaywright: none
+    requiresPlaywright: chromium
+    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
     shardable: false
@@ -1090,8 +1273,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [upload-search-notification-binary-resilience, public-aot-cache-resilience]
-    artifacts: [src/frontend/test-results/playwright/resilience, .tmp/release-evidence/aot-cache-resilience-summary.json]
-    evidence: [src/frontend/test-results/playwright/resilience, .tmp/release-evidence/aot-cache-resilience-summary.json]
+    artifacts: [.tmp/runtime/resilience.json, .tmp/release-evidence/aot-cache-resilience-summary.json]
+    evidence: [.tmp/runtime/resilience.json, .tmp/release-evidence/aot-cache-resilience-summary.json]
     ciJob: resilience-runtime
     localOnly: false
     nightlyOnly: false
@@ -1767,8 +1950,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [scale-xs-empty-single]
-    artifacts: [.tmp/scale/scale-xs/summary.json]
-    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    artifacts: [.tmp/scale/scale-xs/summary.json, .tmp/scale/release-summaries/scale-xs.json]
+    evidence: [.tmp/scale/release-summaries/scale-xs.json]
     ciJob: integration-runtime
     localOnly: false
     nightlyOnly: false
@@ -1796,9 +1979,43 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [scale-s-100-articles-1k-comments]
-    artifacts: [.tmp/scale/scale-s/summary.json]
-    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    artifacts: [.tmp/scale/scale-s/summary.json, .tmp/scale/release-summaries/scale-s.json]
+    evidence: [.tmp/scale/release-summaries/scale-s.json]
     ciJob: integration-runtime
+    localOnly: false
+    nightlyOnly: false
+
+  - id: data-scale-evidence-summary
+    owner: ServerContractAgent
+    command: node tools/test/aggregate-data-scale-evidence.mjs
+    dependsOn: [data-scale-xs, data-scale-s]
+    services: []
+    parallelizable: false
+    exclusiveResources: [release-evidence]
+    phase: 4
+    cost: low
+    resourceClass: io
+    maxParallel: 1
+    cpuUnits: 0.5
+    memoryGiB: 0.5
+    executionKey: data-scale-evidence-summary
+    executionVariant: runtime
+    cacheInputs: [tools/test/aggregate-data-scale-evidence.mjs]
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 2
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: production
+    coverage: []
+    artifacts: [.tmp/release-evidence/data-scale-summary.json]
+    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
 
@@ -1825,8 +2042,8 @@ tiers:
     cadence: nightly
     requiredFor: none
     coverage: [scale-m-10k-articles-100k-comments]
-    artifacts: [.tmp/scale/scale-m/summary.json]
-    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    artifacts: [.tmp/scale/scale-m/summary.json, .tmp/scale/release-summaries/scale-m.json]
+    evidence: [.tmp/scale/release-summaries/scale-m.json]
     ciJob: backend-nightly
     localOnly: false
     nightlyOnly: true
@@ -1854,8 +2071,8 @@ tiers:
     cadence: nightly
     requiredFor: none
     coverage: [scale-l-nightly]
-    artifacts: [.tmp/scale/scale-l-nightly/summary.json]
-    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    artifacts: [.tmp/scale/scale-l-nightly/summary.json, .tmp/scale/release-summaries/scale-l-nightly.json]
+    evidence: [.tmp/scale/release-summaries/scale-l-nightly.json]
     ciJob: backend-nightly
     localOnly: false
     nightlyOnly: true
@@ -1883,8 +2100,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [load-baseline]
-    artifacts: [.tmp/perf/load-baseline/summary.json]
-    evidence: [.tmp/release-evidence/perf-summary.json]
+    artifacts: [.tmp/perf/load-baseline/summary.json, .tmp/perf/release-summaries/load-baseline.json]
+    evidence: [.tmp/perf/release-summaries/load-baseline.json]
     ciJob: load-smoke
     localOnly: false
     nightlyOnly: false
@@ -1912,8 +2129,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [load-peak]
-    artifacts: [.tmp/perf/load-expected-peak/summary.json]
-    evidence: [.tmp/release-evidence/perf-summary.json]
+    artifacts: [.tmp/perf/load-expected-peak/summary.json, .tmp/perf/release-summaries/load-expected-peak.json]
+    evidence: [.tmp/perf/release-summaries/load-expected-peak.json]
     ciJob: load-smoke
     localOnly: false
     nightlyOnly: false
@@ -1941,8 +2158,8 @@ tiers:
     cadence: nightly
     requiredFor: none
     coverage: [load-2x-peak]
-    artifacts: [.tmp/perf/load-2x-peak/summary.json]
-    evidence: [.tmp/release-evidence/perf-summary.json]
+    artifacts: [.tmp/perf/load-2x-peak/summary.json, .tmp/perf/release-summaries/load-2x-peak.json]
+    evidence: [.tmp/perf/release-summaries/load-2x-peak.json]
     ciJob: backend-nightly
     localOnly: false
     nightlyOnly: true
@@ -1970,8 +2187,8 @@ tiers:
     cadence: nightly
     requiredFor: none
     coverage: [load-burst]
-    artifacts: [.tmp/perf/load-burst/summary.json]
-    evidence: [.tmp/release-evidence/perf-summary.json]
+    artifacts: [.tmp/perf/load-burst/summary.json, .tmp/perf/release-summaries/load-burst.json]
+    evidence: [.tmp/perf/release-summaries/load-burst.json]
     ciJob: backend-nightly
     localOnly: false
     nightlyOnly: true
@@ -1987,6 +2204,11 @@ tiers:
     cost: medium
     resourceClass: benchmark
     maxParallel: 1
+    cpuUnits: 4
+    memoryGiB: 2
+    executionKey: backend-performance-tests
+    executionVariant: performance
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/backend, tools/test/lanes/perf-regression.sh, tools/test/legacy-test.sh]
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: true
@@ -1999,8 +2221,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [benchmarkdotnet-readiness]
-    artifacts: [BenchmarkDotNet.Artifacts/results]
-    evidence: [BenchmarkDotNet.Artifacts/results]
+    artifacts: [.tmp/backend-perf]
+    evidence: [.tmp/backend-perf/summary.json]
     ciJob: perf-regression
     localOnly: false
     nightlyOnly: false
@@ -2028,8 +2250,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [benchmarkdotnet-regression]
-    artifacts: [BenchmarkDotNet.Artifacts/results/fsusblog-benchmark-regression.json]
-    evidence: [.tmp/release-evidence/perf-summary.json]
+    artifacts: [BenchmarkDotNet.Artifacts/results/fsusblog-benchmark-regression.json, .tmp/perf/release-summaries/backend-benchmark-regression.json]
+    evidence: [.tmp/perf/release-summaries/backend-benchmark-regression.json]
     ciJob: perf-regression
     localOnly: false
     nightlyOnly: false
@@ -2057,9 +2279,43 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [browser-performance-regression]
-    artifacts: [.tmp/perf/browser-performance.json]
-    evidence: [.tmp/release-evidence/perf-summary.json]
+    artifacts: [.tmp/perf/browser-performance.json, .tmp/perf/release-summaries/browser-performance-regression.json]
+    evidence: [.tmp/perf/release-summaries/browser-performance-regression.json]
     ciJob: perf-regression
+    localOnly: false
+    nightlyOnly: false
+
+  - id: performance-evidence-summary
+    owner: ServerContractAgent
+    command: node tools/test/aggregate-performance-evidence.mjs
+    dependsOn: [load-baseline, load-peak, backend-benchmark-regression, browser-performance-regression]
+    services: []
+    parallelizable: false
+    exclusiveResources: [release-evidence]
+    phase: 4
+    cost: low
+    resourceClass: io
+    maxParallel: 1
+    cpuUnits: 0.5
+    memoryGiB: 0.5
+    executionKey: performance-evidence-summary
+    executionVariant: runtime
+    cacheInputs: [tools/test/aggregate-performance-evidence.mjs]
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: none
+    timeoutMinutes: 2
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: production
+    coverage: []
+    artifacts: [.tmp/release-evidence/perf-summary.json]
+    evidence: [.tmp/release-evidence/perf-summary.json]
+    ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
 
@@ -2417,7 +2673,7 @@ tiers:
   - id: release-evidence
     owner: ServerContractAgent
     command: tools/test/lanes/release-evidence.sh
-    dependsOn: []
+    dependsOn: [fast, coverage-gate, bootstrap, release, integration, rights-v3-test-matrix, data-scale-evidence-summary, cross-stack-contract, endpoint-depth, security, security-authenticated-dast, csrf-browser-matrix, risk-control-test-matrix, perception-v2-test-matrix, privacy-zk-comment-matrix, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, ux-viewport-canary-parity, frontend-render-pressure, resilience, fault-injection, load, performance-evidence-summary, backend-qps, aeds-frame-cost, aeds-compression-profile, backend-perf]
     services: []
     parallelizable: false
     exclusiveResources: [release-evidence]
@@ -2437,8 +2693,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [release-evidence-manifest]
-    artifacts: [.tmp/release-evidence]
-    evidence: [.tmp/release-evidence]
+    artifacts: [.tmp/release-evidence/*/manifest.json, .tmp/release-evidence/test-plan.json]
+    evidence: [.tmp/release-evidence/*/manifest.json, .tmp/release-evidence/test-plan.json]
     ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
@@ -2557,7 +2813,7 @@ tiers:
     cadence: release-manual
     requiredFor: release-final
     coverage: [release-admin-console]
-    artifacts: [src/frontend/test-results/playwright/acceptance, src/frontend/playwright-report]
+    artifacts: [src/frontend/test-results/playwright/acceptance]
     evidence: [src/frontend/test-results/playwright/acceptance]
     ciJob: release-final
     localOnly: false
@@ -2588,7 +2844,7 @@ tiers:
     cadence: release-manual
     requiredFor: release-final
     coverage: [release-auth-flow]
-    artifacts: [src/frontend/test-results/playwright/acceptance, src/frontend/playwright-report]
+    artifacts: [src/frontend/test-results/playwright/acceptance]
     evidence: [src/frontend/test-results/playwright/acceptance]
     ciJob: release-final
     localOnly: false
@@ -2863,8 +3119,8 @@ tiers:
     cadence: release-manual
     requiredFor: release-final
     coverage: [release-load-peak]
-    artifacts: [.tmp/perf/load-expected-peak/summary.json]
-    evidence: [.tmp/release-evidence/perf-summary.json]
+    artifacts: [.tmp/perf/load-expected-peak/summary.json, .tmp/perf/release-summaries/load-expected-peak.json]
+    evidence: [.tmp/perf/release-summaries/load-expected-peak.json]
     ciJob: release-final
     localOnly: false
     nightlyOnly: false
@@ -2893,8 +3149,8 @@ tiers:
     cadence: release-manual
     requiredFor: release-final
     coverage: [release-load-burst]
-    artifacts: [.tmp/perf/load-burst/summary.json]
-    evidence: [.tmp/release-evidence/perf-summary.json]
+    artifacts: [.tmp/perf/load-burst/summary.json, .tmp/perf/release-summaries/load-burst.json]
+    evidence: [.tmp/perf/release-summaries/load-burst.json]
     ciJob: release-final
     localOnly: false
     nightlyOnly: false
@@ -2923,8 +3179,8 @@ tiers:
     cadence: release-manual
     requiredFor: release-final
     coverage: [release-data-scale-m]
-    artifacts: [.tmp/scale/scale-m/summary.json]
-    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    artifacts: [.tmp/scale/scale-m/summary.json, .tmp/scale/release-summaries/scale-m.json]
+    evidence: [.tmp/scale/release-summaries/scale-m.json]
     ciJob: release-final
     localOnly: false
     nightlyOnly: false
@@ -3144,7 +3400,7 @@ tiers:
   - id: production
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh production
-    dependsOn: [fast, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
+    dependsOn: [fast, coverage-gate, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, ux-viewport-canary-parity, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]
@@ -3164,8 +3420,8 @@ tiers:
     cadence: pr
     requiredFor: production
     coverage: [full-release-evidence]
-    artifacts: [.tmp/release-evidence, .tmp/security, .tmp/perf, src/frontend/test-results]
-    evidence: [.tmp/release-evidence]
+    artifacts: [.tmp/release-evidence/*/manifest.json, .tmp/security, .tmp/perf, src/frontend/test-results]
+    evidence: [.tmp/release-evidence/*/manifest.json]
     ciJob: production-summary
     localOnly: false
     nightlyOnly: false
@@ -3176,17 +3432,22 @@ tiers:
   - id: backend-api-integration
     owner: ServerContractAgent
     command: tools/test/legacy-test.sh backend-api-integration
-    dependsOn: []
+    dependsOn: [backend-build-governance]
     services: []
     parallelizable: true
-    exclusiveResources: []
-    phase: 2
+    exclusiveResources: [backend-coverlet-instrumentation]
+    phase: 1
     cost: high
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 2
+    memoryGiB: 2
+    executionKey: backend-api-integration-tests
+    executionVariant: runtime
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
     requiresBootstrap: none
-    requiresNode: true
-    requiresDotnet: false
+    requiresNode: false
+    requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: none
     timeoutMinutes: 20
@@ -3194,25 +3455,34 @@ tiers:
     defaultShards: 1
     risk: critical
     cadence: pr
-    requiredFor: production
+    requiredFor: fast
     coverage: [backend-endpoint-api-contract]
-    artifacts: [.tmp/backend-api-integration]
-    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
-    ciJob: cross-stack-contract
+    artifacts: [.tmp/backend-api-integration, .tmp/coverage/backend/special-api-integration/**/coverage.cobertura.xml, .tmp/coverage/backend/special-api-integration/**/coverage.json]
+    evidence: [.tmp/backend-api-integration/summary.json, tests/backend/Fixtures/backend-test-requirements.json]
+    ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
+    prDefault: true
+    smartGateMode: always
+    retentionClass: must-keep
+    triggerReason: backend API integration is a required dependency of the always-on backend coverage union
 
   - id: backend-auth-state-machine
     owner: ServerContractAgent
     command: tools/test/legacy-test.sh backend-auth-state-machine
-    dependsOn: []
+    dependsOn: [backend-build-governance]
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [backend-coverlet-instrumentation]
     phase: 1
     cost: high
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 2
+    memoryGiB: 2
+    executionKey: backend-auth-state-machine-tests
+    executionVariant: model
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: true
@@ -3225,8 +3495,8 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: [backend-auth-mfa-pow-session-state-machine]
-    artifacts: [.tmp/backend-auth-state-machine]
-    evidence: [tests/backend/Unit/BackendAuthStateMachineTests.cs]
+    artifacts: [.tmp/backend-auth-state-machine, .tmp/coverage/backend/special-auth-state-machine/**/coverage.cobertura.xml, .tmp/coverage/backend/special-auth-state-machine/**/coverage.json]
+    evidence: [.tmp/backend-auth-state-machine/summary.json, tests/backend/Unit/BackendAuthStateMachineTests.cs]
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -3234,14 +3504,19 @@ tiers:
   - id: backend-concurrency
     owner: ServerContractAgent
     command: tools/test/legacy-test.sh backend-concurrency
-    dependsOn: []
+    dependsOn: [backend-build-governance]
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [backend-coverlet-instrumentation]
     phase: 1
     cost: medium
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 2
+    memoryGiB: 2
+    executionKey: backend-concurrency-tests
+    executionVariant: model
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: true
@@ -3253,9 +3528,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [backend-race-idempotency-model]
-    artifacts: [.tmp/backend-concurrency]
-    evidence: [tests/backend/Unit/BackendConcurrencyModelTests.cs]
+    coverage: [backend-race-idempotency-model, backend-fault-race-readiness]
+    artifacts: [.tmp/backend-concurrency, .tmp/coverage/backend/special-concurrency/**/coverage.cobertura.xml, .tmp/coverage/backend/special-concurrency/**/coverage.json]
+    evidence: [.tmp/backend-concurrency/summary.json, tests/backend/Unit/BackendConcurrencyModelTests.cs, tests/backend/Fixtures/backend-test-requirements.json]
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -3263,14 +3538,19 @@ tiers:
   - id: backend-property
     owner: ServerContractAgent
     command: tools/test/legacy-test.sh backend-property
-    dependsOn: []
+    dependsOn: [backend-build-governance]
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [backend-coverlet-instrumentation]
     phase: 1
     cost: medium
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 2
+    memoryGiB: 2
+    executionKey: backend-property-tests
+    executionVariant: property
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: true
@@ -3283,8 +3563,8 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: [backend-property-protocol-cache-upload]
-    artifacts: [.tmp/backend-property]
-    evidence: [tests/backend/Unit/BackendPropertyTests.cs]
+    artifacts: [.tmp/backend-property, .tmp/coverage/backend/special-property/**/coverage.cobertura.xml, .tmp/coverage/backend/special-property/**/coverage.json]
+    evidence: [.tmp/backend-property/summary.json, tests/backend/Unit/BackendPropertyTests.cs]
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -3292,14 +3572,19 @@ tiers:
   - id: backend-golden
     owner: ServerContractAgent
     command: tools/test/legacy-test.sh backend-golden
-    dependsOn: []
+    dependsOn: [backend-build-governance]
     services: []
     parallelizable: true
-    exclusiveResources: []
+    exclusiveResources: [backend-coverlet-instrumentation]
     phase: 1
     cost: medium
     resourceClass: cpu
     maxParallel: 4
+    cpuUnits: 2
+    memoryGiB: 2
+    executionKey: backend-golden-tests
+    executionVariant: model
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: true
@@ -3312,8 +3597,8 @@ tiers:
     cadence: pr
     requiredFor: fast
     coverage: [backend-aeds-pod-golden]
-    artifacts: [.tmp/backend-golden]
-    evidence: [tests/backend/Fixtures/aeds-golden-catalog.json]
+    artifacts: [.tmp/backend-golden, .tmp/coverage/backend/special-golden/**/coverage.cobertura.xml, .tmp/coverage/backend/special-golden/**/coverage.json]
+    evidence: [.tmp/backend-golden/summary.json, tests/backend/Fixtures/aeds-golden-catalog.json]
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -3376,35 +3661,6 @@ tiers:
     localOnly: false
     nightlyOnly: true
 
-  - id: backend-chaos
-    owner: ServerContractAgent
-    command: tools/test/legacy-test.sh backend-chaos
-    dependsOn: []
-    services: []
-    parallelizable: false
-    exclusiveResources: [chaos-fixture]
-    phase: 3
-    cost: medium
-    resourceClass: database
-    maxParallel: 1
-    requiresBootstrap: none
-    requiresNode: false
-    requiresDotnet: true
-    requiresPlaywright: none
-    cacheProfile: backend
-    timeoutMinutes: 25
-    shardable: false
-    defaultShards: 1
-    risk: high
-    cadence: pr
-    requiredFor: production
-    coverage: [backend-fault-race-readiness]
-    artifacts: [.tmp/backend-chaos]
-    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
-    ciJob: resilience-runtime
-    localOnly: false
-    nightlyOnly: false
-
   - id: backend-nightly
     owner: ServerContractAgent
     command: tools/test/legacy-test.sh backend-nightly
@@ -3428,8 +3684,8 @@ tiers:
     cadence: nightly
     requiredFor: none
     coverage: [backend-exhaustive-nightly-readiness]
-    artifacts: [.tmp/backend-nightly, BenchmarkDotNet.Artifacts/results]
-    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
+    artifacts: [.tmp/backend-nightly]
+    evidence: [.tmp/backend-nightly/summary.json, tests/backend/Fixtures/backend-test-requirements.json]
     ciJob: backend-nightly
     localOnly: false
     nightlyOnly: true

@@ -240,6 +240,34 @@ defineExpose({
   min-width: 0;
 }
 
+@media (max-width: 640px), (max-height: 520px) and (orientation: landscape) {
+  .messages-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .messages-header-actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .messages-header-actions :deep(.el-button) {
+    align-self: flex-start;
+    min-height: 2.25rem;
+  }
+
+  .messages-filter {
+    width: 100%;
+  }
+
+  .messages-filter :deep(.el-select) {
+    width: 100%;
+  }
+}
+
 .messages-mobile-primary {
   display: flex;
   justify-content: flex-start;

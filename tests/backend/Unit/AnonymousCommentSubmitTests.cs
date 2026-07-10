@@ -34,7 +34,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly byte[] Ticket = Enumerable.Range(0, 32).Select(static value => (byte)(value + 1)).ToArray();

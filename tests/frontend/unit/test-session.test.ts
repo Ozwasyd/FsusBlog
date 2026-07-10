@@ -86,7 +86,7 @@ describe('test session helpers', () => {
   it('resolves fixture file path when session exists', () => {
     process.env.FSUSBLOG_TEST_SESSION = 'worker 9'
     const file = resolveTestSessionFixtureFile('/tmp/example')
-    expect(file).toBe('/tmp/example/.playwright-fixtures/worker-9.aeds')
+    expect(file).toBe('/tmp/example/.tmp/fixtures/local/sessions/worker-9.aeds')
   })
 
   it('returns undefined fixture path when session is disabled', () => {

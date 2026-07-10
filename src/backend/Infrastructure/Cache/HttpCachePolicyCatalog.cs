@@ -28,20 +28,6 @@ public static class HttpCachePolicyCatalog
             .Tag(CacheTag.ArticleList.ToOutputCacheTag());
     }
 
-    public static void ApplyCategoryList(OutputCachePolicyBuilder builder)
-    {
-        builder
-            .Expire(TimeSpan.FromMinutes(5))
-            .Tag(CacheTag.Category.ToOutputCacheTag());
-    }
-
-    public static void ApplyTagList(OutputCachePolicyBuilder builder)
-    {
-        builder
-            .Expire(TimeSpan.FromMinutes(5))
-            .Tag(CacheTag.Tag.ToOutputCacheTag());
-    }
-
     public static void ApplySystemSeo(OutputCachePolicyBuilder builder)
     {
         builder

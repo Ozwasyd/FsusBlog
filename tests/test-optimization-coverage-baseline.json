@@ -1,0 +1,30 @@
+{
+  "schema": "fsusblog.test-optimization-snapshot.v1",
+  "capturedAt": "2026-07-03T09:15:31.067Z",
+  "coverage": {
+    "backend": {
+      "summary": { "linecoverage": 80.3998, "branchcoverage": 59.4028, "methodcoverage": 98.4403 },
+      "totals": {
+        "lines": { "covered": 7039, "total": 8755 },
+        "branches": { "covered": 2268, "total": 3818 },
+        "methods": { "covered": 1641, "total": 1667 }
+      }
+    },
+    "frontend": {
+      "summary": { "linecoverage": 27.78, "branchcoverage": 23.48, "methodcoverage": 19.31 },
+      "totals": {
+        "lines": { "covered": 5639, "total": 20296 },
+        "branches": { "covered": 2979, "total": 12684 },
+        "methods": { "covered": 1168, "total": 6047 }
+      }
+    },
+    "merged": {
+      "summary": { "linecoverage": 43.6405, "branchcoverage": 31.7961, "methodcoverage": 36.4143 },
+      "totals": {
+        "lines": { "covered": 12678, "total": 29051 },
+        "branches": { "covered": 5247, "total": 16502 },
+        "methods": { "covered": 2809, "total": 7714 }
+      }
+    }
+  }
+}

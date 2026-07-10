@@ -56,6 +56,11 @@ const merged = {
     frontendReportPaths: frontendSummary?.reportPaths ?? [],
     mergeMethod: 'covered-over-total-weighted'
   },
+  producer: {
+    runId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
+    sourceCommit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT || null,
+    sourceFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
+  },
   generatedAt: new Date().toISOString()
 };
 fs.writeFileSync(outFile, `${JSON.stringify(merged, null, 2)}\n`);

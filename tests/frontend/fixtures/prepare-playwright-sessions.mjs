@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sanitizeTestSession } from '../support/test-session.mjs';
+import { resolveSessionFixtureDirectory } from '../support/fixture-paths.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -140,7 +141,7 @@ function formatSessionManifest(sessions) {
 async function main() {
   const workers = parseWorkers();
   const sessions = Array.from({ length: workers }, (_, index) => sanitizeTestSession(`pw-${index}`));
-  const fixturesDir = path.join(clientRoot, '.playwright-fixtures');
+  const fixturesDir = resolveSessionFixtureDirectory();
   await mkdir(fixturesDir, { recursive: true });
 
   for (const session of sessions) {

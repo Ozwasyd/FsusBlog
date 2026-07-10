@@ -63,6 +63,6 @@ The rights hash excludes mutable read-path and operational state:
 - PublicAOT, PublicHotRead, search, feed, sitemap, and cache runtime versions;
 - admin principal identity and private draft state;
 - database row timestamps except the article revision coordinate already represented by `articleRevisionId` and `revisionNo`;
-- legal interpretation, external registry state, wallet identity, IPFS, Arweave, blockchain anchoring, and third-party timestamping.
+- external or non-local claims such as legal interpretation, external registry state, wallet identity, IPFS/Arweave persistence, blockchain anchoring, and third-party timestamping; these are not current FsusBlog capabilities.
 
 The hash can show that a specific Rights V3 policy snapshot and content canonical hash were used by FsusBlog's proof pipeline. It does not prove the policy is legally sufficient, that the author owns the work, that backups exist, or that PostgreSQL, Redis, artifacts, or operators can never be compromised.

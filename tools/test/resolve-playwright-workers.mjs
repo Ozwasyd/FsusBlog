@@ -66,7 +66,7 @@ function profilePolicy(name, cpus) {
   if (name === 'ux-viewport-smoke') {
     return {
       memoryPerWorkerGiB: 2.5,
-      cpuCap: cpus >= 12 ? 4 : cpus >= 8 ? 3 : cpus >= 4 ? 2 : 1
+      cpuCap: cpus >= 8 ? 4 : cpus >= 4 ? 2 : 1
     }
   }
 
@@ -77,7 +77,21 @@ function profilePolicy(name, cpus) {
     }
   }
 
-  if (name === 'acceptance-spa-routes') {
+  if (name === 'ux-viewport-visual') {
+    return {
+      memoryPerWorkerGiB: 3.5,
+      cpuCap: cpus >= 8 ? 3 : cpus >= 4 ? 2 : 1
+    }
+  }
+
+  if (name === 'ux-viewport-boundaries') {
+    return {
+      memoryPerWorkerGiB: 2.5,
+      cpuCap: cpus >= 8 ? 4 : cpus >= 4 ? 2 : 1
+    }
+  }
+
+  if (name === 'acceptance-spa-routes' || name === 'acceptance-public-routes') {
     return {
       memoryPerWorkerGiB: 4,
       cpuCap: cpus >= 8 ? 2 : 1

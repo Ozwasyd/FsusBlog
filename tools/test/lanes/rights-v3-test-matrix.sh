@@ -32,7 +32,7 @@ if [[ ! -x "$CLIENT_DIR/node_modules/.bin/vitest" ]]; then
   npm --prefix "$CLIENT_DIR" ci --no-audit --progress=false
 fi
 
-npm --prefix "$CLIENT_DIR" run generate:public-page-manifest
+npm --prefix "$CLIENT_DIR" run check:public-page-manifest-sync
 
 (
   cd "$CLIENT_DIR"

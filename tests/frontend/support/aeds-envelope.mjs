@@ -4,6 +4,12 @@ import { fileURLToPath } from 'node:url'
 
 const UTF8_DECODER = new TextDecoder()
 const UTF8_ENCODER = new TextEncoder()
+const ArticleWriteRequestVersion = 3
+const RightsFlagEnabled = 1 << 0
+const RightsFlagAllowCodeCopy = 1 << 1
+const RightsFlagShowPublicBadge = 1 << 2
+const RightsFlagProofBindingEnabled = 1 << 3
+const RightsFlagHasCopyrightYear = 1 << 4
 const PROTOCOL_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../../src/shared/Contracts/Validation/aeds-protocol.json')
 const AEDS_PROTOCOL = JSON.parse(readFileSync(PROTOCOL_PATH, 'utf8'))
 const AEDS_MAGIC = Number.parseInt(AEDS_PROTOCOL.header.magic, 16)
@@ -74,7 +80,24 @@ const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 1
 const ARTICLE_LIST_RECORD_SIZE = 56
 const ARTICLE_LIST_RECORD_WITH_STATUS_SIZE = 76
 const COMPACT_TAG_RECORD_SIZE = 12
-const ARTICLE_DETAIL_POD_SIZE = 424
+const ARTICLE_DETAIL_V3_MAGIC = 0x41524433
+const ARTICLE_DETAIL_V3_VERSION = 3
+const ARTICLE_DETAIL_V3_HEADER_SIZE = 44
+const ARTICLE_DETAIL_V3_RECORD_SIZE = 84
+const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12
+const ARTICLE_DETAIL_RIGHTS_V3_RECORD_SIZE = 112
+const ARTICLE_DETAIL_RIGHTS_KNOWN_FLAGS = (1 << 11) - 1
+const ARTICLE_DETAIL_RIGHTS_FLAG_ENABLED = 1 << 0
+const ARTICLE_DETAIL_RIGHTS_FLAG_ALLOW_CODE_COPY = 1 << 1
+const ARTICLE_DETAIL_RIGHTS_FLAG_SHOW_PUBLIC_BADGE = 1 << 2
+const ARTICLE_DETAIL_RIGHTS_FLAG_PROOF_BINDING_ENABLED = 1 << 3
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_COPYRIGHT_YEAR = 1 << 4
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_COPYRIGHT_HOLDER = 1 << 5
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_RIGHTS_STATEMENT = 1 << 6
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_ATTRIBUTION_TEMPLATE = 1 << 7
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_CANONICAL_URL = 1 << 8
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_URL = 1 << 9
+const ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_STATUS = 1 << 10
 const TAG_POD_SIZE = 132
 const SEO_CONFIG_POD_SIZE = 5000
 const PAGE_CONTENT_POD_SIZE = 136
@@ -515,10 +538,19 @@ export function encodeArticleWriteRequest(data) {
     UTF8_ENCODER.encode(data.summary ?? ''),
     UTF8_ENCODER.encode(data.coverImageUrl ?? '')
   ]
+  const rights = normalizeArticleRightsRequest(data.rights)
+  const rightsTextParts = [
+    UTF8_ENCODER.encode(rights.licenseType),
+    UTF8_ENCODER.encode(rights.copyrightHolder),
+    UTF8_ENCODER.encode(rights.rightsStatement),
+    UTF8_ENCODER.encode(rights.attributionTemplate),
+    UTF8_ENCODER.encode(rights.copyPolicy)
+  ]
   const blobLength = textParts.reduce((sum, part) => sum + part.byteLength, 0)
+  const rightsBlobLength = rightsTextParts.reduce((sum, part) => sum + part.byteLength, 0)
   const tagIds = Array.isArray(data.tagIds) ? data.tagIds : []
   const tagBytesLength = tagIds.length * 4
-  const bytes = new Uint8Array(40 + tagBytesLength + 4 + blobLength + 12)
+  const bytes = new Uint8Array(40 + tagBytesLength + 4 + blobLength + 72 + rightsBlobLength)
   const view = new DataView(bytes.buffer)
 
   view.setInt32(0, data.categoryId ?? 0, true)
@@ -549,8 +581,71 @@ export function encodeArticleWriteRequest(data) {
   view.setInt32(cursor, data.status ?? 2, true)
   cursor += 4
   view.setBigInt64(cursor, BigInt(toScheduledPublishAtUnixMs(data.scheduledPublishAt)), true)
+  cursor += 8
+  view.setInt32(cursor, ArticleWriteRequestVersion, true)
+  cursor += 4
+  view.setInt32(cursor, buildRightsFlags(rights), true)
+  cursor += 4
+  view.setInt32(cursor, rights.copyrightYear ?? 0, true)
+  cursor += 4
+  view.setInt32(cursor, rights.maxExcerptChars, true)
+  cursor += 4
+
+  let rightsBlobOffset = 0
+  for (const part of rightsTextParts) {
+    view.setInt32(cursor, rightsBlobOffset, true)
+    view.setInt32(cursor + 4, part.byteLength, true)
+    cursor += 8
+    rightsBlobOffset += part.byteLength
+  }
+
+  view.setInt32(cursor, rightsBlobLength, true)
+  cursor += 4
+  for (const part of rightsTextParts) {
+    bytes.set(part, cursor)
+    cursor += part.byteLength
+  }
 
   return bytes
+}
+
+function normalizeArticleRightsRequest(value) {
+  const rawCopyrightYear = value?.copyrightYear
+  const rawMaxExcerptChars = value?.maxExcerptChars
+  const copyrightYear = typeof rawCopyrightYear === 'number' && Number.isFinite(rawCopyrightYear)
+    ? Math.trunc(rawCopyrightYear)
+    : null
+  const maxExcerptChars = typeof rawMaxExcerptChars === 'number' && Number.isFinite(rawMaxExcerptChars)
+    ? Math.max(0, Math.trunc(rawMaxExcerptChars))
+    : 300
+
+  return {
+    enabled: value?.enabled ?? true,
+    licenseType: normalizeRightsToken(value?.licenseType, 'all-rights-reserved'),
+    copyrightHolder: value?.copyrightHolder ?? '',
+    copyrightYear,
+    rightsStatement: value?.rightsStatement ?? '',
+    attributionTemplate: value?.attributionTemplate ?? '',
+    copyPolicy: normalizeRightsToken(value?.copyPolicy, 'append-attribution'),
+    maxExcerptChars,
+    allowCodeCopy: value?.allowCodeCopy ?? true,
+    showPublicBadge: value?.showPublicBadge ?? true,
+    proofBindingEnabled: value?.proofBindingEnabled ?? true
+  }
+}
+
+function normalizeRightsToken(value, fallback) {
+  return typeof value === 'string' && value.trim().length > 0 ? value : fallback
+}
+
+function buildRightsFlags(value) {
+  let flags = 0
+  if (value.enabled) flags |= RightsFlagEnabled
+  if (value.allowCodeCopy) flags |= RightsFlagAllowCodeCopy
+  if (value.showPublicBadge) flags |= RightsFlagShowPublicBadge
+  if (value.proofBindingEnabled) flags |= RightsFlagProofBindingEnabled
+  if (value.copyrightYear !== null) flags |= RightsFlagHasCopyrightYear
+  return flags
 }
 
 function toScheduledPublishAtUnixMs(value) {
@@ -1066,58 +1161,164 @@ function decodeArticlePage(payload) {
 }
 
 function decodeArticleDetail(payload) {
-  const reader = new BinaryReader(payload)
-  const pod = reader.readSpan(ARTICLE_DETAIL_POD_SIZE)
-  const podView = new DataView(pod.buffer, pod.byteOffset, pod.byteLength)
-  const tags = readTagList(reader)
-  const blob = reader.readBlob()
-  let coverImageUrl = ''
-  if (reader.remaining() > 1) {
-    coverImageUrl = UTF8_DECODER.decode(reader.readBlob())
+  if (payload.byteLength < ARTICLE_DETAIL_V3_HEADER_SIZE) {
+    throw new Error('article_detail_payload_too_short')
   }
-  if (reader.remaining() > 0) {
-    const isDeleted = reader.readByte() === 1
-    if (reader.remaining() !== 0 && reader.remaining() !== 20) {
-      throw new Error('article_detail_publication_tail_invalid')
-    }
-    if (reader.remaining() === 20) {
-      const status = reader.readInt32()
-      const scheduledPublishAt = unixMsToIsoOrNull(reader.readInt64())
-      const publishedAt = unixMsToIsoOrNull(reader.readInt64())
-      return {
-        id: readInt32(podView, 0),
-        title: readFixedUtf8(pod, 152, 256),
-        content: readSliceText(blob, readSliceRef(pod, 416)),
-        summary: readSliceText(blob, readSliceRef(pod, 408)),
-        views: readInt32(podView, 4),
-        createTime: new Date(readInt64Number(podView, 8)).toISOString(),
-        category: {
-          id: readInt32(podView, 20),
-          name: readFixedUtf8(pod, 24, 128)
-        },
-        coverImageUrl,
-        tags,
-        isDeleted,
-        status,
-        scheduledPublishAt,
-        publishedAt
-      }
-    }
+
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const magic = readInt32(view, 0)
+  const version = readInt32(view, 4)
+  const flags = readInt32(view, 8)
+  const articleRecordOffset = readInt32(view, 12)
+  const articleRecordLength = readInt32(view, 16)
+  const tagOffset = readInt32(view, 20)
+  const tagCount = readInt32(view, 24)
+  const rightsRecordOffset = readInt32(view, 28)
+  const rightsRecordLength = readInt32(view, 32)
+  const blobOffset = readInt32(view, 36)
+  const blobLength = readInt32(view, 40)
+  if (
+    magic !== ARTICLE_DETAIL_V3_MAGIC ||
+    version !== ARTICLE_DETAIL_V3_VERSION ||
+    flags !== 0 ||
+    tagCount < 0 ||
+    articleRecordOffset !== ARTICLE_DETAIL_V3_HEADER_SIZE ||
+    articleRecordLength !== ARTICLE_DETAIL_V3_RECORD_SIZE ||
+    rightsRecordLength !== ARTICLE_DETAIL_RIGHTS_V3_RECORD_SIZE
+  ) {
+    throw new Error('article_detail_v3_header_invalid')
   }
+
+  const tagBytes = tagCount * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE
+  if (
+    tagCount > Math.floor(payload.byteLength / ARTICLE_DETAIL_TAG_V3_RECORD_SIZE) ||
+    tagOffset !== articleRecordOffset + articleRecordLength ||
+    rightsRecordOffset !== tagOffset + tagBytes ||
+    blobOffset !== rightsRecordOffset + rightsRecordLength ||
+    blobOffset + blobLength !== payload.byteLength ||
+    !isRangeWithin(articleRecordOffset, articleRecordLength, payload.byteLength) ||
+    !isRangeWithin(tagOffset, tagBytes, payload.byteLength) ||
+    !isRangeWithin(rightsRecordOffset, rightsRecordLength, payload.byteLength) ||
+    !isRangeWithin(blobOffset, blobLength, payload.byteLength)
+  ) {
+    throw new Error('article_detail_v3_layout_invalid')
+  }
+
+  const article = payload.subarray(articleRecordOffset, articleRecordOffset + articleRecordLength)
+  const rightsRecord = payload.subarray(rightsRecordOffset, rightsRecordOffset + rightsRecordLength)
+  const blob = payload.subarray(blobOffset, blobOffset + blobLength)
+  const isDeletedFlag = article[40] ?? 0
+  if (isDeletedFlag > 1 || !validateArticleDetailV3RecordSlices(article, blob)) {
+    throw new Error('article_detail_v3_record_invalid')
+  }
+
+  const tags = []
+  for (let i = 0; i < tagCount; i += 1) {
+    const recordOffset = tagOffset + i * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE
+    const tag = payload.subarray(recordOffset, recordOffset + ARTICLE_DETAIL_TAG_V3_RECORD_SIZE)
+    tags.push({
+      id: readInt32FromBytes(tag, 0),
+      name: readStrictSliceText(blob, tag, 4, 'article_detail_v3_tag_slice_invalid')
+    })
+  }
+
   return {
-    id: readInt32(podView, 0),
-    title: readFixedUtf8(pod, 152, 256),
-    content: readSliceText(blob, readSliceRef(pod, 416)),
-    summary: readSliceText(blob, readSliceRef(pod, 408)),
-    views: readInt32(podView, 4),
-    createTime: new Date(readInt64Number(podView, 8)).toISOString(),
+    id: readInt32FromBytes(article, 0),
+    title: readStrictSliceText(blob, article, 44, 'article_detail_v3_title_slice_invalid'),
+    content: readStrictSliceText(blob, article, 52, 'article_detail_v3_content_slice_invalid'),
+    summary: readStrictSliceText(blob, article, 60, 'article_detail_v3_summary_slice_invalid'),
+    coverImageUrl: readStrictSliceText(blob, article, 68, 'article_detail_v3_cover_slice_invalid'),
+    views: readInt32FromBytes(article, 4),
+    createTime: new Date(readInt64FromBytes(article, 8)).toISOString(),
     category: {
-      id: readInt32(podView, 20),
-      name: readFixedUtf8(pod, 24, 128)
+      id: readInt32FromBytes(article, 16),
+      name: readStrictSliceText(blob, article, 76, 'article_detail_v3_category_slice_invalid')
     },
-    coverImageUrl,
-    tags
+    tags,
+    isDeleted: isDeletedFlag === 1,
+    status: readInt32FromBytes(article, 20),
+    scheduledPublishAt: unixMsToIsoOrNull(readInt64FromBytes(article, 24)),
+    publishedAt: unixMsToIsoOrNull(readInt64FromBytes(article, 32)),
+    rights: decodeArticleDetailRightsV3(rightsRecord, blob)
   }
+}
+
+function decodeArticleDetailRightsV3(record, blob) {
+  const rightsFlags = readInt32FromBytes(record, 20)
+  const maxExcerptChars = readInt32FromBytes(record, 28)
+  if ((rightsFlags & ~ARTICLE_DETAIL_RIGHTS_KNOWN_FLAGS) !== 0 || maxExcerptChars < 0 || !validateArticleRightsV3RecordSlices(record, blob)) {
+    throw new Error('article_detail_v3_rights_invalid')
+  }
+
+  const licenseType = readStrictSliceText(blob, record, 32, 'article_detail_v3_rights_license_invalid') || 'all-rights-reserved'
+  const copyPolicy = readStrictSliceText(blob, record, 64, 'article_detail_v3_rights_copy_policy_invalid') || 'append-attribution'
+  return {
+    snapshotId: readInt64String(record, 0),
+    articleRevisionId: readInt64String(record, 8),
+    revisionNo: Math.max(0, readInt32FromBytes(record, 16)),
+    enabled: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_ENABLED) !== 0,
+    licenseType,
+    copyrightHolder: readOptionalArticleDetailRightsSlice(blob, record, 40, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_COPYRIGHT_HOLDER),
+    copyrightYear: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_HAS_COPYRIGHT_YEAR) !== 0 ? readInt32FromBytes(record, 24) : null,
+    rightsStatement: readOptionalArticleDetailRightsSlice(blob, record, 48, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_RIGHTS_STATEMENT),
+    attributionTemplate: readOptionalArticleDetailRightsSlice(blob, record, 56, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_ATTRIBUTION_TEMPLATE),
+    copyPolicy,
+    maxExcerptChars,
+    allowCodeCopy: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_ALLOW_CODE_COPY) !== 0,
+    showPublicBadge: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_SHOW_PUBLIC_BADGE) !== 0,
+    proofBindingEnabled: (rightsFlags & ARTICLE_DETAIL_RIGHTS_FLAG_PROOF_BINDING_ENABLED) !== 0,
+    canonicalUrl: readOptionalArticleDetailRightsSlice(blob, record, 72, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_CANONICAL_URL),
+    policyHash: readStrictSliceText(blob, record, 80, 'article_detail_v3_rights_policy_hash_invalid'),
+    contentCanonicalHash: readStrictSliceText(blob, record, 88, 'article_detail_v3_rights_content_hash_invalid'),
+    proofUrl: readOptionalArticleDetailRightsSlice(blob, record, 96, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_URL),
+    proofStatus: readOptionalArticleDetailRightsSlice(blob, record, 104, rightsFlags, ARTICLE_DETAIL_RIGHTS_FLAG_HAS_PROOF_STATUS)
+  }
+}
+
+function validateArticleDetailV3RecordSlices(record, blob) {
+  return isSliceWithinBlob(blob, record, 44) &&
+    isSliceWithinBlob(blob, record, 52) &&
+    isSliceWithinBlob(blob, record, 60) &&
+    isSliceWithinBlob(blob, record, 68) &&
+    isSliceWithinBlob(blob, record, 76)
+}
+
+function validateArticleRightsV3RecordSlices(record, blob) {
+  return isSliceWithinBlob(blob, record, 32) &&
+    isSliceWithinBlob(blob, record, 40) &&
+    isSliceWithinBlob(blob, record, 48) &&
+    isSliceWithinBlob(blob, record, 56) &&
+    isSliceWithinBlob(blob, record, 64) &&
+    isSliceWithinBlob(blob, record, 72) &&
+    isSliceWithinBlob(blob, record, 80) &&
+    isSliceWithinBlob(blob, record, 88) &&
+    isSliceWithinBlob(blob, record, 96) &&
+    isSliceWithinBlob(blob, record, 104)
+}
+
+function readOptionalArticleDetailRightsSlice(blob, record, offset, flags, flag) {
+  return (flags & flag) === 0 ? null : readStrictSliceText(blob, record, offset, 'article_detail_v3_optional_rights_slice_invalid')
+}
+
+function readStrictSliceText(blob, record, offset, code) {
+  if (!isSliceWithinBlob(blob, record, offset)) {
+    throw new Error(code)
+  }
+
+  return readSliceText(blob, readSliceRef(record, offset))
+}
+
+function isSliceWithinBlob(blob, record, offset) {
+  const slice = readSliceRef(record, offset)
+  return isRangeWithin(slice.offset, slice.length, blob.byteLength)
+}
+
+function isRangeWithin(offset, length, total) {
+  return offset >= 0 && length >= 0 && offset <= total && length <= total - offset
+}
+
+function readInt32FromBytes(bytes, offset) {
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getInt32(offset, true)
 }
 
 function unixMsToIsoOrNull(value) {

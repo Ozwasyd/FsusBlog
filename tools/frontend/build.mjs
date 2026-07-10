@@ -150,11 +150,6 @@ async function syncBackendWebRoot() {
     return;
   }
 
-  if (!(await pathExists(backendWebRoot))) {
-    log(`skipping backend wwwroot sync because target is missing: ${backendWebRoot}`);
-    return;
-  }
-
   await mkdir(backendWebRoot, { recursive: true });
 
   for (const entryName of managedDistEntries) {
@@ -173,8 +168,10 @@ async function syncBackendWebRoot() {
 
 async function main() {
   log(`stage timeout=${stageTimeoutMs}ms`);
-  await runStage('generate-public-page-manifest', process.execPath, [generatePublicPageManifestScript]);
-  await runStage('generate-public-shell-emergency', process.execPath, [generatePublicShellEmergencyScript]);
+  const generatedArgs = process.env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1' ? ['--check'] : [];
+  const generatedAction = generatedArgs.length > 0 ? 'check' : 'generate';
+  await runStage(`${generatedAction}-public-page-manifest`, process.execPath, [generatePublicPageManifestScript, ...generatedArgs]);
+  await runStage(`${generatedAction}-public-shell-emergency`, process.execPath, [generatePublicShellEmergencyScript, ...generatedArgs]);
   if (process.env.FSUSBLOG_SKIP_ENSURE_WASM === '1') {
     log('skipping ensure-wasm because FSUSBLOG_SKIP_ENSURE_WASM=1');
   } else {

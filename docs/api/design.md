@@ -403,7 +403,7 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)、[`useAdminArticleWrite.ts`](../../src/frontend/src/composables/useAdminArticleWrite.ts)。
 
-服务端草稿以 `ownerAdminPrincipalId + draftKey` 隔离并持久化正文、分类标签、发布状态、定时发布时间、Rights V3 `rights` 策略和 `clientRevision`；该 owner 来自 independent admin principal 的 `admin_id`，不复用普通匿名账号 `sys_user.id`。浏览器本地缓存是 `useAdminArticleWrite.ts` 管理的 localStorage AEDS payload（`fsus:article-draft:create` / `fsus:article-draft:edit:{id}`），保存完整草稿 snapshot 作为断网和刷新恢复兜底；Pinia 表单状态不是持久草稿真相源。编辑器发现服务端草稿比本地缓存更新时必须先提示恢复/丢弃，不能用本地缓存静默覆盖服务端草稿。
+服务端草稿以 `ownerAdminPrincipalId + draftKey` 隔离并持久化正文、分类标签、发布状态、定时发布时间、Rights V3 `rights` 策略和 `clientRevision`；该 owner 来自 independent admin principal 的 `admin_id`，不复用普通匿名账号 `sys_user.id`。浏览器 localStorage 的 AEDS payload（`fsus:article-draft:create` / `fsus:article-draft:edit:{id}`）只能保存 schema、保存时间、来源文章、编辑标记和 `clientRevision`，不得保存标题、摘要、正文、封面、分类标签、发布状态或 rights。刷新/跨设备恢复只接受 admin-authenticated server draft；若服务端暂不可用，页面只能提示当前内存中的更改尚未同步，不能把 metadata 当作可恢复草稿覆盖表单。旧的完整或残缺 localStorage snapshot 必须在读取时拒绝并删除。
 
 ### 修订与回滚
 

@@ -6,16 +6,16 @@ import { fileURLToPath } from 'node:url'
 import { authBinary, loginWithFixtureSessionBypass, requestTimeoutMs as defaultRequestTimeoutMs } from '../support/auth-helpers.mjs'
 import { readAedsResponse } from '../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../support/http.mjs'
+import { resolveFixtureAssetDirectory, resolvePublicFixtureFile } from '../support/fixture-paths.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '../../..')
 const clientRoot = path.join(repoRoot, 'src', 'frontend')
-const publicFixtureDir = path.join(clientRoot, 'public', 'fixtures')
+const publicFixtureDir = resolveFixtureAssetDirectory()
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
-const outputPath = process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE
-  || path.join(clientRoot, '.playwright-fixtures.aeds')
+const outputPath = resolvePublicFixtureFile()
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, defaultRequestTimeoutMs)
 const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || ''
 const pgUser = process.env.FSUSBLOG_PG_USER || 'fsusblog'
@@ -417,6 +417,128 @@ upsert_article_tag AS (
   INSERT INTO article_tag(articleid, tagid)
   SELECT (SELECT id FROM final_article), ${tagId}
   ON CONFLICT (articleid, tagid) DO NOTHING
+),
+upsert_revision AS (
+  INSERT INTO article_revision(
+    article_id,
+    revision_no,
+    title,
+    summary,
+    cover_image_url,
+    categoryid,
+    tag_ids,
+    markdown_content,
+    diff_summary,
+    created_by_admin_principal_id,
+    created_at
+  )
+  SELECT
+    id,
+    1,
+    '${title}',
+    '${summary}',
+    '${coverImageUrl}',
+    ${categoryId},
+    '${tagId}',
+    '${markdown}',
+    'acceptance fixture seed',
+    0,
+    NOW()
+  FROM final_article
+  ON CONFLICT (article_id, revision_no) DO UPDATE
+  SET title = EXCLUDED.title,
+      summary = EXCLUDED.summary,
+      cover_image_url = EXCLUDED.cover_image_url,
+      categoryid = EXCLUDED.categoryid,
+      tag_ids = EXCLUDED.tag_ids,
+      markdown_content = EXCLUDED.markdown_content,
+      diff_summary = EXCLUDED.diff_summary,
+      created_at = EXCLUDED.created_at
+  RETURNING id, article_id, revision_no
+),
+upsert_rights_policy AS (
+  INSERT INTO article_rights_policy(
+    article_id,
+    enabled,
+    license_type,
+    copy_policy,
+    max_excerpt_chars,
+    allow_code_copy,
+    show_public_badge,
+    proof_binding_enabled,
+    created_at,
+    updated_at
+  )
+  SELECT
+    id,
+    true,
+    'all-rights-reserved',
+    'append-attribution',
+    300,
+    true,
+    true,
+    true,
+    NOW(),
+    NOW()
+  FROM final_article
+  ON CONFLICT (article_id) DO UPDATE
+  SET enabled = EXCLUDED.enabled,
+      license_type = EXCLUDED.license_type,
+      copy_policy = EXCLUDED.copy_policy,
+      max_excerpt_chars = EXCLUDED.max_excerpt_chars,
+      allow_code_copy = EXCLUDED.allow_code_copy,
+      show_public_badge = EXCLUDED.show_public_badge,
+      proof_binding_enabled = EXCLUDED.proof_binding_enabled,
+      updated_at = EXCLUDED.updated_at
+  RETURNING id, article_id
+),
+upsert_rights_snapshot AS (
+  INSERT INTO article_rights_snapshot(
+    article_id,
+    article_revision_id,
+    revision_no,
+    article_rights_policy_id,
+    enabled,
+    license_type,
+    copy_policy,
+    max_excerpt_chars,
+    allow_code_copy,
+    show_public_badge,
+    proof_binding_enabled,
+    policy_hash,
+    content_canonical_hash,
+    created_at
+  )
+  SELECT
+    revision.article_id,
+    revision.id,
+    revision.revision_no,
+    policy.id,
+    true,
+    'all-rights-reserved',
+    'append-attribution',
+    300,
+    true,
+    true,
+    true,
+    'rights-v3:policy-hash:recompute',
+    'rights-v3:content-hash:recompute',
+    NOW()
+  FROM upsert_revision revision
+  JOIN upsert_rights_policy policy
+    ON policy.article_id = revision.article_id
+  ON CONFLICT (article_id, article_revision_id) DO UPDATE
+  SET article_rights_policy_id = EXCLUDED.article_rights_policy_id,
+      enabled = EXCLUDED.enabled,
+      license_type = EXCLUDED.license_type,
+      copy_policy = EXCLUDED.copy_policy,
+      max_excerpt_chars = EXCLUDED.max_excerpt_chars,
+      allow_code_copy = EXCLUDED.allow_code_copy,
+      show_public_badge = EXCLUDED.show_public_badge,
+      proof_binding_enabled = EXCLUDED.proof_binding_enabled,
+      policy_hash = EXCLUDED.policy_hash,
+      content_canonical_hash = EXCLUDED.content_canonical_hash,
+      created_at = EXCLUDED.created_at
 )
 SELECT id FROM final_article;
 `

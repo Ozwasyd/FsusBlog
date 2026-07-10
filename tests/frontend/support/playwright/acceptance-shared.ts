@@ -1,17 +1,31 @@
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { expect } from '@playwright/test'
-import type { Browser, BrowserContextOptions, Locator, Page, ScreenshotOptions, StorageState } from '@playwright/test'
+import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page, ScreenshotOptions, StorageState } from '@playwright/test'
 import { AEDS_BINARY_MEDIA_TYPE, FSUS_HEADERS } from '../../../../src/frontend/src/api/contracts'
 import { encodeAedsFrame } from '../../../../src/frontend/src/api/binaryFrame'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '../../../../src/frontend/wasm/web/protocol/frame'
+import { resolveAuthFixtureDirectory } from '../fixture-paths.mjs'
 import { loadAuditFixtures } from './routeAuditFixtures'
 import { resolveTestSession, testSessionHeaders, withTestSessionContextOptions } from './testSession'
 
 export type RuntimeAudit = {
   checkpoint: () => number
   assertCleanSince: (start: number, label: string) => void
+}
+
+export type AuditedPageSession = {
+  page: Page
+  audit: RuntimeAudit
+  close: () => Promise<void>
+}
+
+export type ThemedAuditedContext = {
+  context: BrowserContext
+  newPage: () => Promise<AuditedPageSession>
+  close: () => Promise<void>
 }
 
 type RouteExpectation = Readonly<{
@@ -119,7 +133,6 @@ const ACCEPTANCE_UTF8_DECODER = new TextDecoder()
 const ACCEPTANCE_UTF8_ENCODER = new TextEncoder()
 const ACCEPTANCE_API_ERROR_POD_SIZE = 584
 const acceptancePowWasmRoot = new URL('../../../../src/frontend/public/wasm/', import.meta.url)
-const acceptanceFixtureRoot = new URL('../../../../src/frontend/.playwright-fixtures/', import.meta.url)
 const acceptanceNodePowAssetKinds = ['relaxed', 'simd', 'basic'] as const
 const acceptanceNodePowBatchSize = Math.max(
   1,
@@ -321,62 +334,28 @@ export async function openThemedAuditedPage(
   browser: Browser,
   themeMode: ThemeMode = 'light',
   storageState?: StorageState
-): Promise<{
-  page: Page
-  audit: RuntimeAudit
-  close: () => Promise<void>
-}> {
-  const fixtureSession = readFixtureSessionFlags(storageState)
+): Promise<AuditedPageSession> {
+  const auditedContext = await openThemedAuditedContext(browser, themeMode, storageState)
+  const pageSession = await auditedContext.newPage()
+  return {
+    page: pageSession.page,
+    audit: pageSession.audit,
+    close: auditedContext.close
+  }
+}
+
+export async function openThemedAuditedContext(
+  browser: Browser,
+  themeMode: ThemeMode = 'light',
+  storageState?: StorageState
+): Promise<ThemedAuditedContext> {
   const context = await browser.newContext(withAcceptanceContextOptions(storageState ? { storageState } : undefined))
   await context.addInitScript((options: {
     mode: ThemeMode
     disableHumanReadProof: boolean
     disableNotificationStream: boolean
-    fixtureUserSession: boolean
-    fixtureAdminSession: boolean
   }) => {
-    const { mode, disableHumanReadProof, disableNotificationStream, fixtureUserSession, fixtureAdminSession } = options
-    if (fixtureUserSession) {
-      try {
-        sessionStorage.setItem('fsusblog_local_fixture_session', '1')
-        if (fixtureAdminSession) {
-          sessionStorage.setItem('fsusblog_local_fixture_admin_session', '1')
-        }
-      } catch {
-        // Storage may be unavailable in browser privacy modes; route guards can still fall back to normal auth.
-      }
-
-      const nativeFetch = window.fetch.bind(window)
-      window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.pathname
-            : input.url
-        const pathname = (() => {
-          try {
-            return new URL(url, window.location.origin).pathname
-          } catch {
-            return ''
-          }
-        })()
-        if (pathname === '/api/local/auth-fixture/status' || pathname === '/__local/auth-fixture/status') {
-          return Promise.resolve(new Response(JSON.stringify({
-            hasAccessToken: true,
-            hasSessionId: true,
-            hasAdminAccessToken: fixtureAdminSession,
-            hasAdminSessionId: fixtureAdminSession,
-            hasHostAccessToken: false,
-            hasHostAdminAccessToken: false
-          }), {
-            status: 200,
-            headers: { 'content-type': 'application/json' }
-          }))
-        }
-
-        return nativeFetch(input, init)
-      }
-    }
+    const { mode, disableHumanReadProof, disableNotificationStream } = options
 
     if (disableHumanReadProof) {
       const runtimeWindow = window as typeof window & {
@@ -448,32 +427,23 @@ export async function openThemedAuditedPage(
   }, {
     mode: themeMode,
     disableHumanReadProof: process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === '1',
-    disableNotificationStream: process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1',
-    ...fixtureSession
+    disableNotificationStream: process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1'
   })
-  const page = await context.newPage()
-  const audit = attachRuntimeAudit(page)
-
   return {
-    page,
-    audit,
+    context,
+    newPage: async () => {
+      const page = await context.newPage()
+      return {
+        page,
+        audit: attachRuntimeAudit(page),
+        close: async () => {
+          await page.close()
+        }
+      }
+    },
     close: async () => {
       await context.close()
     }
-  }
-}
-
-function readFixtureSessionFlags(storageState?: StorageState): { fixtureUserSession: boolean, fixtureAdminSession: boolean } {
-  if (!storageState) {
-    return { fixtureUserSession: false, fixtureAdminSession: false }
-  }
-
-  const cookieNames = new Set(storageState.cookies.map((cookie) => cookie.name))
-  return {
-    fixtureUserSession: (cookieNames.has('AccessToken') || cookieNames.has('__Host-AccessToken'))
-      && (cookieNames.has('SessionId') || cookieNames.has('__Host-SessionId')),
-    fixtureAdminSession: (cookieNames.has('AdminAccessToken') || cookieNames.has('__Host-AdminAccessToken'))
-      && (cookieNames.has('AdminSessionId') || cookieNames.has('__Host-AdminSessionId'))
   }
 }
 
@@ -532,30 +502,32 @@ export async function captureStorageState(
   const fixtureKind = username === adminName ? 'admin' : 'user'
   const session = resolveTestSession()
   const sessionStorageStateFile = session ? `${session}.${fixtureKind}.storage-state.json` : ''
-  const storageStateFile = sessionStorageStateFile && existsSync(new URL(sessionStorageStateFile, acceptanceFixtureRoot))
+  const storageStateFile = sessionStorageStateFile
+    && existsSync(path.join(resolveAuthFixtureDirectory(), sessionStorageStateFile))
     ? sessionStorageStateFile
     : `${fixtureKind}.storage-state.json`
-  const storageStateUrl = new URL(storageStateFile, acceptanceFixtureRoot)
+  const storageStatePath = path.join(resolveAuthFixtureDirectory(), storageStateFile)
 
-  if (!existsSync(storageStateUrl)) {
+  if (!existsSync(storageStatePath)) {
     throw new Error(`acceptance storage state fixture is missing: ${storageStateFile}; run npm --prefix src/frontend run prepare:playwright:sessions or open with fsusLocalFixtureLogin=1`)
   }
 
-  const storageState = JSON.parse(await readFile(storageStateUrl, 'utf8')) as StorageState
+  const storageState = JSON.parse(await readFile(storageStatePath, 'utf8')) as StorageState
   if (username !== adminName) {
     return normalizeFixtureStorageState(storageState)
   }
 
   const sessionUserStorageStateFile = session ? `${session}.user.storage-state.json` : ''
-  const userStorageStateFile = sessionUserStorageStateFile && existsSync(new URL(sessionUserStorageStateFile, acceptanceFixtureRoot))
+  const userStorageStateFile = sessionUserStorageStateFile
+    && existsSync(path.join(resolveAuthFixtureDirectory(), sessionUserStorageStateFile))
     ? sessionUserStorageStateFile
     : 'user.storage-state.json'
-  const userStorageStateUrl = new URL(userStorageStateFile, acceptanceFixtureRoot)
-  if (!existsSync(userStorageStateUrl)) {
+  const userStorageStatePath = path.join(resolveAuthFixtureDirectory(), userStorageStateFile)
+  if (!existsSync(userStorageStatePath)) {
     throw new Error('acceptance storage state fixture is missing: user.storage-state.json; admin fixtures require the paired user session')
   }
 
-  const userStorageState = JSON.parse(await readFile(userStorageStateUrl, 'utf8')) as StorageState
+  const userStorageState = JSON.parse(await readFile(userStorageStatePath, 'utf8')) as StorageState
   const normalizedUser = normalizeFixtureStorageState(userStorageState)
   const normalizedAdmin = normalizeFixtureStorageState(storageState)
   return {
@@ -1296,9 +1268,23 @@ export async function assertStickyHeaderDoesNotCoverFocusedInput(page: Page, lab
         const rect = element.getBoundingClientRect()
         const style = getComputedStyle(element)
         return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0
-      })
+    })
     if (!focusable) return []
 
+    focusable.setAttribute('data-ux-viewport-probe-focus', 'sticky-focus')
+    let scrollAncestor = focusable.parentElement
+    while (scrollAncestor) {
+      const style = getComputedStyle(scrollAncestor)
+      if (
+        scrollAncestor.scrollHeight > scrollAncestor.clientHeight + 4
+        || scrollAncestor.scrollWidth > scrollAncestor.clientWidth + 4
+        || ['auto', 'scroll'].includes(style.overflowY)
+        || ['auto', 'scroll'].includes(style.overflowX)
+      ) {
+        scrollAncestor.setAttribute('data-ux-viewport-probe-scroll', 'sticky-focus')
+      }
+      scrollAncestor = scrollAncestor.parentElement
+    }
     focusable.focus({ preventScroll: false })
     focusable.scrollIntoView({ block: 'center', inline: 'nearest' })
     const rect = focusable.getBoundingClientRect()
@@ -1477,7 +1463,9 @@ export async function assertFocusOutlineVisible(page: Page, label = 'focus outli
       || style.outlineWidth !== '0px'
       || style.boxShadow !== 'none'
       || style.borderColor !== 'rgba(0, 0, 0, 0)'
-    return { checked: true, visible, detail: `${focusable.tagName.toLowerCase()} ${String(focusable.className).slice(0, 80)}` }
+    const detail = `${focusable.tagName.toLowerCase()} ${String(focusable.className).slice(0, 80)}`
+    focusable.blur()
+    return { checked: true, visible, detail }
   })
 
   expect(result.visible, `${label} should be visible (${result.detail})`).toBe(true)
@@ -1490,6 +1478,7 @@ export async function assertTouchTargetSize(page: Page, label = 'touch target'):
     const issues: string[] = []
     const controls = Array.from(document.querySelectorAll<HTMLElement>('button, a[href], input, textarea, select, .el-button, [role="button"]'))
     for (const control of controls) {
+      if (control.classList.contains('sr-only')) continue
       const rect = control.getBoundingClientRect()
       const style = getComputedStyle(control)
       if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0' || rect.width === 0 || rect.height === 0) continue
@@ -1553,22 +1542,435 @@ export async function assertMobileLandscapeSafeArea(page: Page, label = 'mobile 
   expect(violations, `${label} should preserve usable content height`).toEqual([])
 }
 
+export type UxViewportMediaMode =
+  | 'default'
+  | 'zoom-125'
+  | 'zoom-150'
+  | 'zoom-200'
+  | 'large-text'
+  | 'reduced-motion'
+  | 'high-contrast'
+
+export async function resetUxViewportMediaMode(page: Page): Promise<void> {
+  await page.emulateMedia({
+    reducedMotion: 'no-preference',
+    forcedColors: 'none',
+    contrast: 'no-preference'
+  })
+  await page.evaluate(() => {
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur()
+    }
+    window.getSelection()?.removeAllRanges()
+    for (const element of Array.from(document.querySelectorAll<HTMLElement>('[data-ux-viewport-probe-scroll]'))) {
+      element.scrollTo(0, 0)
+      element.removeAttribute('data-ux-viewport-probe-scroll')
+    }
+    document.querySelectorAll('[data-ux-viewport-probe-focus]')
+      .forEach((element) => element.removeAttribute('data-ux-viewport-probe-focus'))
+    document.querySelectorAll('style[data-ux-viewport-media]').forEach((style) => style.remove())
+    document.documentElement.dataset.uxViewportMedia = 'default'
+    const rootScrollBehavior = document.documentElement.style.scrollBehavior
+    document.documentElement.style.scrollBehavior = 'auto'
+    window.scrollTo(0, 0)
+    document.scrollingElement?.scrollTo(0, 0)
+    document.documentElement.style.scrollBehavior = rootScrollBehavior
+  })
+}
+
+export async function applyUxViewportMediaMode(page: Page, media: UxViewportMediaMode): Promise<void> {
+  if (media === 'reduced-motion') {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+  } else if (media === 'high-contrast') {
+    await page.emulateMedia({ contrast: 'more', forcedColors: 'active' })
+  }
+
+  const content = media === 'large-text'
+    ? 'html { font-size: 20px !important; }'
+    : media === 'zoom-125'
+      ? 'html { zoom: 1.25 !important; }'
+      : media === 'zoom-150'
+        ? 'html { zoom: 1.5 !important; }'
+        : media === 'zoom-200'
+          ? 'html { zoom: 2 !important; }'
+          : ''
+
+  await page.evaluate(({ nextMedia, css }) => {
+    document.querySelectorAll('style[data-ux-viewport-media]').forEach((style) => style.remove())
+    if (css) {
+      const nonceSource = document.querySelector('script[nonce], style[nonce]') as
+        | HTMLScriptElement
+        | HTMLStyleElement
+        | null
+      const nonce = nonceSource?.nonce
+        || (window as Window & { __FSUSBLOG_CSP_NONCE__?: string }).__FSUSBLOG_CSP_NONCE__
+        || nonceSource?.getAttribute('nonce')
+        || ''
+      const style = document.createElement('style')
+      style.setAttribute('data-ux-viewport-media', nextMedia)
+      if (nonce) {
+        style.nonce = nonce
+      }
+      style.textContent = css
+      document.head.appendChild(style)
+    }
+    document.documentElement.dataset.uxViewportMedia = nextMedia
+  }, { nextMedia: media, css: content })
+}
+
+export async function assertUxViewportMediaMode(
+  page: Page,
+  media: UxViewportMediaMode,
+  label = 'UX viewport media'
+): Promise<void> {
+  const state = await page.evaluate(() => ({
+    mode: document.documentElement.dataset.uxViewportMedia ?? '',
+    hasStyle: Boolean(document.querySelector('style[data-ux-viewport-media]')),
+    zoom: Number.parseFloat(getComputedStyle(document.documentElement).zoom || '1'),
+    fontSize: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+    reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+    forcedColors: matchMedia('(forced-colors: active)').matches,
+    highContrast: matchMedia('(prefers-contrast: more)').matches,
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+    hasFocusedElement: document.activeElement !== null
+      && document.activeElement !== document.body
+      && document.activeElement !== document.documentElement,
+    hasProbeState: Boolean(document.querySelector(
+      '[data-ux-viewport-probe-focus], [data-ux-viewport-probe-scroll]'
+    )),
+    selectionRangeCount: window.getSelection()?.rangeCount ?? 0
+  }))
+
+  expect(state.mode, `${label} should expose its active media state`).toBe(media)
+  expect(state.reducedMotion, `${label} reduced-motion state`).toBe(media === 'reduced-motion')
+  expect(state.forcedColors, `${label} forced-colors state`).toBe(media === 'high-contrast')
+  expect(state.highContrast, `${label} contrast state`).toBe(media === 'high-contrast')
+  expect(state.hasStyle, `${label} injected style state`).toBe(
+    ['large-text', 'zoom-125', 'zoom-150', 'zoom-200'].includes(media)
+  )
+  expect([state.scrollX, state.scrollY], `${label} should reset page scroll`).toEqual([0, 0])
+  expect(state.hasFocusedElement, `${label} should clear probe focus`).toBe(false)
+  expect(state.hasProbeState, `${label} should clear temporary probe state`).toBe(false)
+  expect(state.selectionRangeCount, `${label} should clear probe selection`).toBe(0)
+
+  const expectedZoom = media === 'zoom-125'
+    ? 1.25
+    : media === 'zoom-150'
+      ? 1.5
+      : media === 'zoom-200'
+        ? 2
+        : 1
+  expect(state.zoom, `${label} zoom state`).toBeCloseTo(expectedZoom, 2)
+  if (media === 'large-text') {
+    expect(state.fontSize, `${label} large-text state`).toBeCloseTo(20, 1)
+  }
+}
+
+export type ViewportBoundaryReport = Readonly<{
+  horizontalOverflow: string[]
+  responsiveLayout: string[]
+  verticalTrap: string[]
+  interactiveControls: string[]
+  modalActions: string[]
+  drawerHeight: string[]
+  dropdownClipping: string[]
+  readableLineWidth: string[]
+  dashboardGrid: string[]
+  editorPanel: string[]
+  tableResponsive: string[]
+  richContentScroll: string[]
+  touchTargets: string[]
+  mobileLandscape: string[]
+}>
+
+export async function collectViewportBoundaryReport(page: Page): Promise<ViewportBoundaryReport> {
+  return await page.evaluate(() => {
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const report: ViewportBoundaryReport = {
+      horizontalOverflow: [],
+      responsiveLayout: [],
+      verticalTrap: [],
+      interactiveControls: [],
+      modalActions: [],
+      drawerHeight: [],
+      dropdownClipping: [],
+      readableLineWidth: [],
+      dashboardGrid: [],
+      editorPanel: [],
+      tableResponsive: [],
+      richContentScroll: [],
+      touchTargets: [],
+      mobileLandscape: []
+    }
+    const visible = (element: Element): element is HTMLElement => {
+      if (!(element instanceof HTMLElement)) return false
+      const style = getComputedStyle(element)
+      const rect = element.getBoundingClientRect()
+      return style.display !== 'none'
+        && style.visibility !== 'hidden'
+        && style.opacity !== '0'
+        && rect.width > 0
+        && rect.height > 0
+    }
+    const labelFor = (element: HTMLElement) => (
+      element.getAttribute('aria-label')
+      || element.textContent
+      || element.id
+      || element.className
+      || element.tagName
+    ).toString().trim().replace(/\s+/gu, ' ').slice(0, 80)
+    const hasHorizontalScrollAncestor = (element: HTMLElement) => {
+      let current: HTMLElement | null = element
+      while (current) {
+        const style = getComputedStyle(current)
+        if (
+          ['auto', 'scroll'].includes(style.overflowX)
+          && current.scrollWidth > current.clientWidth + 4
+        ) {
+          return true
+        }
+        current = current.parentElement
+      }
+      return false
+    }
+    const hasControlledRichScroll = (element: HTMLElement) => {
+      let current: HTMLElement | null = element
+      while (current) {
+        const style = getComputedStyle(current)
+        if (
+          ['auto', 'scroll'].includes(style.overflowX)
+          || current.matches('.blog-scroll-x-safe, .markdown-body, .prose, pre, .katex-display, .mermaid')
+        ) {
+          if (
+            current.scrollWidth > current.clientWidth + 4
+            || ['auto', 'scroll'].includes(style.overflowX)
+          ) {
+            return true
+          }
+        }
+        current = current.parentElement
+      }
+      return false
+    }
+    const hasVerticalScrollDescendant = (element: HTMLElement) => (
+      Array.from(element.querySelectorAll<HTMLElement>('*')).some((child) => {
+        const style = getComputedStyle(child)
+        return child.scrollHeight > child.clientHeight + 4
+          && ['auto', 'scroll'].includes(style.overflowY)
+      })
+    )
+
+    const documentWidth = document.documentElement.scrollWidth
+    if (documentWidth > viewportWidth + 4) {
+      report.horizontalOverflow.push(`document scrollWidth=${documentWidth} viewport=${viewportWidth}`)
+    }
+
+    const bodyElements = Array.from(document.querySelectorAll<HTMLElement>('body *'))
+    for (const element of bodyElements.filter(visible)) {
+      const rect = element.getBoundingClientRect()
+      if (rect.width > viewportWidth + 4 && !hasHorizontalScrollAncestor(element)) {
+        report.responsiveLayout.push(
+          `wide element ${element.tagName.toLowerCase()} ${labelFor(element)} width=${Math.round(rect.width)}`
+        )
+      }
+    }
+    report.responsiveLayout.splice(20)
+
+    const modals = Array.from(document.querySelectorAll<HTMLElement>('.el-dialog, .el-drawer, [role="dialog"]'))
+      .filter(visible)
+    const documentHeight = Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0)
+    const bodyStyle = getComputedStyle(document.body)
+    const rootStyle = getComputedStyle(document.documentElement)
+    if (
+      documentHeight > viewportHeight + 8
+      && modals.length === 0
+      && [bodyStyle.overflowY, rootStyle.overflowY].some((value) => value === 'hidden' || value === 'clip')
+    ) {
+      report.verticalTrap.push(
+        `page taller than viewport but vertical scroll is disabled (height=${documentHeight}, viewport=${viewportHeight})`
+      )
+    }
+    for (const modal of modals) {
+      const rect = modal.getBoundingClientRect()
+      const scrollable = hasVerticalScrollDescendant(modal)
+      if (rect.height > viewportHeight + 4 && !scrollable) {
+        report.verticalTrap.push(
+          `dialog/drawer is taller than viewport without internal scroll (${Math.round(rect.height)}>${viewportHeight})`
+        )
+      }
+
+      const actions = Array.from(modal.querySelectorAll<HTMLElement>('button, .el-button, [role="button"]'))
+        .filter(visible)
+      const action = actions.at(-1)
+      if (action) {
+        const actionRect = action.getBoundingClientRect()
+        const insideViewport = actionRect.left >= -4
+          && actionRect.right <= viewportWidth + 4
+          && actionRect.top >= -4
+          && actionRect.bottom <= viewportHeight + 4
+        if (!insideViewport && !scrollable) {
+          report.modalActions.push(
+            `modal action is clipped without scroll: ${(action.textContent || action.getAttribute('aria-label') || 'action').trim()}`
+          )
+        }
+      }
+    }
+
+    for (const drawer of Array.from(document.querySelectorAll<HTMLElement>('.el-drawer')).filter(visible)) {
+      const rect = drawer.getBoundingClientRect()
+      if (rect.height > viewportHeight + 4 && !hasVerticalScrollDescendant(drawer)) {
+        report.drawerHeight.push(
+          `drawer exceeds viewport height without scroll (${Math.round(rect.height)}>${viewportHeight})`
+        )
+      }
+    }
+
+    for (const popper of Array.from(document.querySelectorAll<HTMLElement>(
+      '.el-popper, .el-select-dropdown, .el-dropdown-menu, [role="listbox"], [role="menu"]'
+    )).filter(visible)) {
+      const rect = popper.getBoundingClientRect()
+      const style = getComputedStyle(popper)
+      const scrollable = popper.scrollHeight > popper.clientHeight + 4
+        && ['auto', 'scroll'].includes(style.overflowY)
+      if (rect.left < -8 || rect.right > viewportWidth + 8 || (rect.bottom > viewportHeight + 8 && !scrollable)) {
+        report.dropdownClipping.push(
+          `dropdown clipped: ${Math.round(rect.left)},${Math.round(rect.top)} ${Math.round(rect.width)}x${Math.round(rect.height)}`
+        )
+      }
+    }
+
+    const controls = Array.from(document.querySelectorAll<HTMLElement>(
+      'button, a[href], input, textarea, select, [role="button"], .el-button'
+    )).filter(visible)
+    for (const control of controls) {
+      const rect = control.getBoundingClientRect()
+      const position = getComputedStyle(control).position
+      if ((rect.right < -2 || rect.left > viewportWidth + 2) && !hasHorizontalScrollAncestor(control)) {
+        report.interactiveControls.push(`control is horizontally unreachable: ${labelFor(control)}`)
+      }
+      if ((position === 'fixed' || position === 'sticky') && (rect.top < -2 || rect.bottom > viewportHeight + 2)) {
+        report.interactiveControls.push(`fixed/sticky control is outside viewport: ${labelFor(control)}`)
+      }
+
+      if (viewportWidth < 900) {
+        if (control.classList.contains('sr-only')) continue
+        if (control.closest('.el-table, table')) continue
+        if (control instanceof HTMLInputElement && ['checkbox', 'radio', 'file', 'hidden'].includes(control.type)) continue
+        if (rect.width < 32 || rect.height < 36) {
+          const text = (control.textContent || control.getAttribute('aria-label') || '')
+            .trim().replace(/\s+/gu, ' ').slice(0, 48)
+          const href = control instanceof HTMLAnchorElement ? control.getAttribute('href') || '' : ''
+          const className = String(control.className || '').trim().replace(/\s+/gu, ' ').slice(0, 80)
+          const detail = [
+            text && `text="${text}"`,
+            href && `href="${href}"`,
+            className && `class="${className}"`
+          ].filter(Boolean).join(' ')
+          report.touchTargets.push(
+            `small touch target ${control.tagName.toLowerCase()} ${Math.round(rect.width)}x${Math.round(rect.height)} ${detail}`.trim()
+          )
+        }
+      }
+    }
+    report.interactiveControls.splice(20)
+    report.touchTargets.splice(20)
+
+    const maxReadableWidth = Math.min(Math.max(760, viewportWidth * 0.72), 1160)
+    for (const element of Array.from(document.querySelectorAll<HTMLElement>(
+      'article, .markdown-body, .prose, [data-readable-region]'
+    ))) {
+      if (element.closest('.account-page, .admin-page, .write-page, .el-table')) continue
+      const rect = element.getBoundingClientRect()
+      const text = element.textContent?.trim() ?? ''
+      if (text.length >= 160 && rect.width > maxReadableWidth + 8 && rect.height > 0) {
+        report.readableLineWidth.push(
+          `readable region too wide (${Math.round(rect.width)}>${Math.round(maxReadableWidth)})`
+        )
+      }
+    }
+
+    for (const grid of Array.from(document.querySelectorAll<HTMLElement>(
+      '.account-page .grid, .dashboard-grid, [data-dashboard-grid]'
+    )).filter(visible)) {
+      const rect = grid.getBoundingClientRect()
+      if (rect.width > Math.min(viewportWidth, 1800) + 8) {
+        report.dashboardGrid.push(`dashboard grid over-expands: ${Math.round(rect.width)}px`)
+      }
+    }
+
+    const workspace = document.querySelector<HTMLElement>('.write-workspace, .write-layout, [data-editor-workspace]')
+    const editor = document.querySelector<HTMLElement>('.write-editor-panel, [data-editor-panel]')
+    const side = document.querySelector<HTMLElement>('.write-side-panel, [data-editor-side-panel]')
+    if (editor) {
+      const editorRect = editor.getBoundingClientRect()
+      if (editorRect.width > viewportWidth + 4) {
+        report.editorPanel.push(`editor panel exceeds viewport (${Math.round(editorRect.width)}>${viewportWidth})`)
+      }
+      if (workspace && side && viewportWidth >= 1024) {
+        const workspaceRect = workspace.getBoundingClientRect()
+        const sideRect = side.getBoundingClientRect()
+        if (workspaceRect.width > 0 && sideRect.width / workspaceRect.width > 0.48) {
+          report.editorPanel.push(
+            `editor side panel consumes too much width (${Math.round(sideRect.width / workspaceRect.width * 100)}%)`
+          )
+        }
+      }
+    }
+
+    for (const table of Array.from(document.querySelectorAll<HTMLElement>(
+      'table, .el-table, .el-responsive-collection'
+    )).filter(visible)) {
+      const rect = table.getBoundingClientRect()
+      if (rect.width > viewportWidth + 4 && !hasHorizontalScrollAncestor(table)) {
+        report.tableResponsive.push(
+          `table/list overflows without controlled scroll: ${Math.round(rect.width)}px`
+        )
+      }
+    }
+
+    for (const element of Array.from(document.querySelectorAll<HTMLElement>(
+      'pre, code, .katex-display, .katex, .mermaid, svg'
+    ))) {
+      const rect = element.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) continue
+      if (rect.width > viewportWidth + 4 && !hasControlledRichScroll(element)) {
+        report.richContentScroll.push(
+          `wide rich content lacks controlled scroll: ${element.tagName.toLowerCase()} ${Math.round(rect.width)}px`
+        )
+      }
+    }
+    report.richContentScroll.splice(20)
+
+    if (viewportWidth >= viewportHeight && viewportWidth <= 1100 && viewportHeight <= 520) {
+      for (const header of Array.from(document.querySelectorAll<HTMLElement>(
+        'header, nav, .account-sidebar, .mobile-nav, .site-header'
+      )).filter(visible)) {
+        if (header.closest('main, article')) continue
+        const rect = header.getBoundingClientRect()
+        if (rect.height > viewportHeight * 0.34) {
+          report.mobileLandscape.push(
+            `landscape chrome consumes too much height (${Math.round(rect.height)}px of ${viewportHeight}px)`
+          )
+        }
+      }
+    }
+
+    return report
+  })
+}
+
 export async function assertViewportBoundaryContract(page: Page, label = 'viewport boundary'): Promise<void> {
-  await assertResponsiveLayoutContract(page, label)
-  await assertInteractiveControlsReachable(page, label)
-  await assertModalActionsReachable(page, label)
-  await assertDrawerUsableUnderShortHeight(page, label)
-  await assertDropdownNotClipped(page, label)
+  const report = await collectViewportBoundaryReport(page)
+  for (const [boundary, violations] of Object.entries(report)) {
+    expect(violations, `${label} ${boundary} should have no violations`).toEqual([])
+  }
+
   await assertStickyHeaderDoesNotCoverFocusedInput(page, label)
-  await assertReadableLineWidthWithinBounds(page, label)
-  await assertDashboardGridWidthBounds(page, label)
-  await assertEditorPanelRatioBounds(page, label)
-  await assertTableResponsiveStrategy(page, label)
-  await assertKatexMermaidControlledScroll(page, label)
   await assertFocusOutlineVisible(page, label)
-  await assertTouchTargetSize(page, label)
   await assertNoDuplicateStickyBars(page, label)
-  await assertMobileLandscapeSafeArea(page, label)
 }
 
 export async function assertThemeReadable(page: Page, mode: ThemeMode, label = 'theme'): Promise<void> {

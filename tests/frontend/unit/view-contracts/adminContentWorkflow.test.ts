@@ -31,6 +31,7 @@ describe('admin content governance workflow contract', () => {
   const dashboardPanel = readRepoFile('src/frontend/src/components/admin/DashboardQuickActionsPanel.vue')
   const collectionToolbar = readRepoFile('src/frontend/src/components/admin/AdminCollectionToolbar.vue')
   const collectionSummary = readRepoFile('src/frontend/src/components/admin/AdminCollectionSummary.vue')
+  const auditLogPage = readRepoFile('src/frontend/src/views/admin/AuditLog.vue')
 
   it('serializes admin keyword search through frontend and backend list queries', () => {
     expect(articleApi).toContain('params.keyword?.trim()')
@@ -100,6 +101,19 @@ describe('admin content governance workflow contract', () => {
     expect(listPage).not.toContain("const isCompactPagination = useMediaQuery('(max-width: 639px)')")
   })
 
+  it('allows the article status filter to shrink before mobile zoom can push actions offscreen', () => {
+    expect(listPage).toMatch(/@media \(max-width: 639px\) \{[\s\S]*?\.article-list-status-filter \{[\s\S]*?min-width: 0;/)
+  })
+
+  it('keeps the article title editor usable at extreme mobile zoom', () => {
+    const writePage = readRepoFile('src/frontend/src/views/admin/article/Write.vue')
+
+    expect(writePage).toMatch(/\.write-title-input :deep\(\.el-input__inner\) \{[\s\S]*?min-height: 2\.25rem;/)
+    expect(writePage).toMatch(/@media \(max-width: 640px\) \{[\s\S]*?\.write-title-input :deep\(\.el-input__wrapper\) \{[\s\S]*?padding-inline: 0\.5rem;/)
+    expect(writePage).toMatch(/@media \(max-width: 640px\) \{[\s\S]*?\.write-title-input :deep\(\.el-input__count\) \{[\s\S]*?display: none;/)
+    expect(writePage).toMatch(/@media \(max-width: 640px\) \{[\s\S]*?\.write-title-input :deep\(\.el-input__inner\) \{[\s\S]*?font-size: clamp\(1\.5rem, 10vw, 2\.25rem\);/)
+  })
+
   it('uses compact trash cards before tablet width to avoid fixed table clipping', () => {
     expect(trashPage).toContain("const isCompact = useMediaQuery('(max-width: 767px)')")
     expect(trashPage).not.toContain("const isCompact = useMediaQuery('(max-width: 639px)')")
@@ -128,6 +142,12 @@ describe('admin content governance workflow contract', () => {
   it('keeps collection summary primary actions on the trailing edge before tablet breakpoints', () => {
     expect(collectionSummary).toContain('class="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto"')
     expect(collectionSummary).not.toContain('class="flex shrink-0 flex-wrap items-center gap-2"')
+  })
+
+  it('keeps compact audit actions reachable on mobile and short landscape touch screens', () => {
+    expect(auditLogPage).toMatch(/\.audit-compact-row__action \{[\s\S]*?min-width: 36px;[\s\S]*?min-height: 36px;/)
+    expect(auditLogPage).not.toMatch(/@media \(min-width: 640px\) \{[\s\S]*?\.audit-compact-row__action \{[\s\S]*?min-(?:width|height): 32px;/)
+    expect(auditLogPage).toMatch(/@media \(max-width: 640px\) \{[\s\S]*?:deep\(\.audit-filter-grid \.el-date-editor \.el-range-input\) \{[\s\S]*?min-width: 32px;/)
   })
 
   it('makes trash restore explicit and requires title or id before permanent delete', () => {

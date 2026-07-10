@@ -1,0 +1,105 @@
+#!/usr/bin/env node
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
+
+const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
+
+export const dataScaleEvidenceSources = Object.freeze([
+  { tier: 'scale-xs', path: '.tmp/scale/release-summaries/scale-xs.json' },
+  { tier: 'scale-s', path: '.tmp/scale/release-summaries/scale-s.json' }
+])
+
+function parseArgs(argv) {
+  const options = { root: repositoryRoot }
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index]
+    if (argument === '--root') {
+      const value = argv[++index]
+      if (!value) throw new Error('--root requires a path')
+      options.root = path.resolve(value)
+    } else {
+      throw new Error(`unknown option: ${argument}`)
+    }
+  }
+  return options
+}
+
+function resolveSourceFile(root, source) {
+  const direct = path.resolve(root, source.path)
+  if (!direct.startsWith(`${root}${path.sep}`)) throw new Error(`${source.tier} source escapes root`)
+  if (fs.existsSync(direct)) return direct
+
+  const downloadedRoot = path.join(root, '.tmp/downloaded-artifacts')
+  const artifactRelativePaths = [...new Set([source.path, source.path.replace(/^\.tmp\//u, '')])]
+  const matches = fs.existsSync(downloadedRoot)
+    ? fs.readdirSync(downloadedRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .flatMap((entry) => artifactRelativePaths.map((relativePath) => (
+        path.join(downloadedRoot, entry.name, relativePath)
+      )))
+      .filter((candidate) => fs.existsSync(candidate))
+      .sort()
+    : []
+  if (matches.length === 0) throw new Error(`missing ${source.tier} data-scale evidence: ${source.path}`)
+  if (matches.length > 1) throw new Error(`ambiguous ${source.tier} data-scale evidence in downloaded artifacts`)
+  return matches[0]
+}
+
+function readSummary(root, source) {
+  const absolute = resolveSourceFile(root, source)
+  const summary = JSON.parse(fs.readFileSync(absolute, 'utf8'))
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
+    throw new Error(`${source.tier} data-scale evidence must be a JSON object`)
+  }
+  if (summary.tier !== source.tier) {
+    throw new Error(`${source.tier} data-scale evidence tier mismatch: ${String(summary.tier)}`)
+  }
+  if (typeof summary.status !== 'string' || summary.status.length === 0) {
+    throw new Error(`${source.tier} data-scale evidence status is missing`)
+  }
+  return {
+    tier: source.tier,
+    path: source.path,
+    sourceLocation: path.relative(root, absolute).replaceAll(path.sep, '/'),
+    status: summary.status,
+    summary
+  }
+}
+
+function aggregateStatus(entries) {
+  if (entries.every((entry) => entry.status === 'ok')) return 'ok'
+  if (entries.some((entry) => !['ok', 'blocked', 'scheduled'].includes(entry.status))) return 'failed'
+  if (entries.some((entry) => ['blocked', 'scheduled'].includes(entry.status))) return 'blocked'
+  return 'ok'
+}
+
+export function aggregateDataScaleEvidence(rootValue = repositoryRoot) {
+  const root = path.resolve(rootValue)
+  const tiers = dataScaleEvidenceSources.map((source) => readSummary(root, source))
+  const summary = {
+    schema: 'fsusblog.data-scale-evidence-summary.v1',
+    status: aggregateStatus(tiers),
+    requiredTiers: dataScaleEvidenceSources.map((source) => source.tier),
+    tiers,
+    generatedAt: new Date().toISOString()
+  }
+  const output = path.join(root, '.tmp/release-evidence/data-scale-summary.json')
+  fs.mkdirSync(path.dirname(output), { recursive: true })
+  const temporary = `${output}.next-${process.pid}`
+  fs.writeFileSync(temporary, `${JSON.stringify(summary, null, 2)}\n`)
+  fs.renameSync(temporary, output)
+  return { output, summary }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    const options = parseArgs(process.argv.slice(2))
+    const result = aggregateDataScaleEvidence(options.root)
+    console.log(`[data-scale-evidence] wrote ${path.relative(options.root, result.output)}`)
+  } catch (error) {
+    console.error(`[data-scale-evidence] ${error instanceof Error ? error.message : String(error)}`)
+    process.exit(1)
+  }
+}

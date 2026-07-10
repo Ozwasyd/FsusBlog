@@ -14,6 +14,7 @@ ROOT_FILES="$(
     ! -name 'FsusBlog.Server.Tests.csproj' \
     ! -name 'GlobalUsings.cs' \
     ! -name 'TESTING.md' \
+    ! -name 'xunit.runner.json' \
     ! -name 'packages.lock.json' | sort
 )"
 

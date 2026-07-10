@@ -15,7 +15,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]

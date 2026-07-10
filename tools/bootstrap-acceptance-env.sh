@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 SERVER_WWWROOT_DIR="$ROOT_DIR/src/backend/wwwroot"
 FSUSBLOG_TEST_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}"
-NS_SLUG="$(printf '%s' "$FSUSBLOG_TEST_NAMESPACE" | tr -c 'A-Za-z0-9_.-' '-')"
+NS_SLUG="$(printf '%s' "$FSUSBLOG_TEST_NAMESPACE" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_.-' '-' | sed -E 's/^-+|-+$//g')"
+[[ -n "$NS_SLUG" && "$NS_SLUG" != "." && "$NS_SLUG" != ".." ]] || NS_SLUG="local"
+FSUSBLOG_TEST_NAMESPACE="$NS_SLUG"
 TMP_DIR="$ROOT_DIR/.tmp/acceptance/$NS_SLUG"
 ENV_DIR="$ROOT_DIR/.tmp/env"
 FIXTURE_DIR="$ROOT_DIR/.tmp/fixtures/$NS_SLUG"
@@ -109,6 +112,7 @@ FSUSBLOG_POSTGRES_CONTAINER_NAME=$POSTGRES_CONTAINER
 FSUSBLOG_REDIS_CONTAINER_NAME=$REDIS_CONTAINER
 FSUSBLOG_NOTIFICATION_DRILL_SECRET=$NOTIFICATION_DRILL_SECRET
 FSUSBLOG_DATA_ROOT=$TEST_DATA_ROOT
+FSUSBLOG_FIXTURE_SERVICE_GENERATION=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-uninitialized}
 ConnectionStrings__DefaultConnection=$POSTGRES_CONNECTION
 ConnectionStrings__Redis=$REDIS_CONNECTION
 RedisOptions__Configuration=$REDIS_CONNECTION
@@ -148,6 +152,11 @@ EOF
 }
 
 write_env_file
+
+if [[ "${1:-}" == "--prepare-env-only" ]]; then
+  printf '[acceptance:bootstrap] prepared namespace environment: %s\n' "$ENV_FILE"
+  exit 0
+fi
 
 log() {
   printf '[acceptance:bootstrap] %s\n' "$1"
@@ -222,11 +231,24 @@ can_reuse_processes() {
 
 hash_release_inputs() {
   (
-    cd "$CLIENT_DIR"
+    cd "$ROOT_DIR"
     {
-      printf '%s\0' package.json package-lock.json vite.config.ts tsconfig.json index.html
-      find src public scripts -type f -print0 2>/dev/null || true
-    } | sort -z | xargs -0 sha256sum 2>/dev/null | sha256sum | awk '{print $1}'
+      {
+        printf '%s\0' \
+          src/frontend/package.json \
+          src/frontend/package-lock.json \
+          src/frontend/vite.config.ts \
+          src/frontend/tsconfig.json \
+          src/frontend/index.html
+        find src/frontend/src src/frontend/public src/frontend/scripts src/frontend/wasm tools/frontend -type f -print0 2>/dev/null || true
+      } | sort -z | xargs -0 sha256sum 2>/dev/null
+      printf '%s\n' \
+        "VITE_API_BASE_URL=$DEBUG_BACKEND_URL" \
+        "FSUSBLOG_VUE_HYDRATION_DETAILS=${FSUSBLOG_VUE_HYDRATION_DETAILS:-}" \
+        "FSUSBLOG_PUBLIC_SSR_BUILD=${FSUSBLOG_PUBLIC_SSR_BUILD:-}" \
+        "FSUSBLOG_USE_LOCAL_FSUSUI=${FSUSBLOG_USE_LOCAL_FSUSUI:-}" \
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT=${FSUSBLOG_LOCAL_FSUSUI_ROOT:-}"
+    } | sha256sum | awk '{print $1}'
   )
 }
 
@@ -316,6 +338,15 @@ ensure_redis() {
 
   log 'redis failed to become ready'
   exit 1
+}
+
+refresh_fixture_service_generation() {
+  local postgres_identity redis_identity
+  postgres_identity="$(docker inspect --format '{{.Id}}|{{.Created}}' "$POSTGRES_CONTAINER")"
+  redis_identity="$(docker inspect --format '{{.Id}}|{{.Created}}' "$REDIS_CONTAINER")"
+  FSUSBLOG_FIXTURE_SERVICE_GENERATION="$(printf '%s\n%s\n' "$postgres_identity" "$redis_identity" | sha256sum | awk '{print $1}')"
+  export FSUSBLOG_FIXTURE_SERVICE_GENERATION
+  write_env_file
 }
 
 reset_security_test_state() {
@@ -442,14 +473,25 @@ ensure_release_preview() {
     return
   fi
 
-  log 'building release preview bundle'
-  (
-    cd "$CLIENT_DIR"
-    VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm run build:release >/dev/null
-  )
-  printf '%s\n' "$next_fingerprint" >"$fingerprint_file"
+  local frontend_summary="$ROOT_DIR/.tmp/frontend/frontend-build.json"
+  local current_scheduler_build="false"
+  if [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" && -f "$frontend_summary" && -f "$CLIENT_DIR/dist/index.html" && -f "$SERVER_WWWROOT_DIR/index.html" ]]; then
+    current_scheduler_build="$(node -e "const fs=require('node:fs');const value=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.stdout.write(value.status==='success'&&value.schedulerRunId===process.env.FSUSBLOG_TEST_RUN_ID?'true':'false')" "$frontend_summary")"
+  fi
 
-  sync_backend_wwwroot_from_client_dist
+  if [[ "$current_scheduler_build" == "true" ]]; then
+    log 'reusing frontend release bundle produced by this scheduler run'
+  else
+    log 'building release preview bundle through the shared frontend run-once key'
+    (
+      export VITE_API_BASE_URL="$DEBUG_BACKEND_URL"
+      export FSUSBLOG_TEST_NAMESPACE
+      source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
+      ensure_wasm_once
+      run_frontend_fast_build_group
+    )
+  fi
+  printf '%s\n' "$next_fingerprint" >"$fingerprint_file"
 
   kill_pid_if_running "$(read_pid_file "$TMP_DIR/preview.pid")"
   kill_pid_if_running "$(find_port_pid "$RELEASE_PREVIEW_PORT")"
@@ -462,29 +504,6 @@ ensure_release_preview() {
     env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite preview --host 0.0.0.0 --port "$RELEASE_PREVIEW_PORT"
 }
 
-sync_backend_wwwroot_from_client_dist() {
-  log 'syncing backend wwwroot with release preview bundle'
-  local search_source=""
-  rm -rf \
-    "$SERVER_WWWROOT_DIR/.vite" \
-    "$SERVER_WWWROOT_DIR/aot-cache" \
-    "$SERVER_WWWROOT_DIR/assets" \
-    "$SERVER_WWWROOT_DIR/dist" \
-    "$SERVER_WWWROOT_DIR/wasm" \
-    "$SERVER_WWWROOT_DIR/favicon.svg" \
-    "$SERVER_WWWROOT_DIR/index.html" \
-    "$SERVER_WWWROOT_DIR/sw.js" \
-    "$SERVER_WWWROOT_DIR/vite.svg"
-  mkdir -p "$SERVER_WWWROOT_DIR"
-  cp -a "$CLIENT_DIR/dist/." "$SERVER_WWWROOT_DIR/"
-
-  search_source="$(find "$ROOT_DIR/src/backend/bin" -path '*/wwwroot/search' -type d 2>/dev/null | sort | tail -1 || true)"
-  if [[ -n "$search_source" && -d "$search_source" ]]; then
-    rm -rf "$SERVER_WWWROOT_DIR/search"
-    cp -a "$search_source" "$SERVER_WWWROOT_DIR/search"
-  fi
-}
-
 refresh_acceptance_cache_after_fixtures() {
   if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
     docker exec "$REDIS_CONTAINER" redis-cli FLUSHDB >/dev/null
@@ -495,13 +514,22 @@ refresh_acceptance_cache_after_fixtures() {
 prepare_fixtures() {
   log 'preparing auth users and playwright fixtures'
   (
-    cd "$CLIENT_DIR"
-    Jwt__SecretKey="$JWT_SECRET" Jwt__Issuer="$JWT_ISSUER" Jwt__Audience="$JWT_AUDIENCE" Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES" FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:binary-smoke:auth-users >/dev/null
-    Jwt__SecretKey="$JWT_SECRET" Jwt__Issuer="$JWT_ISSUER" Jwt__Audience="$JWT_AUDIENCE" Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES" FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:playwright:fixtures >/dev/null
+    export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
+    export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
+    export FSUSBLOG_DEBUG_BACKEND_URL="$DEBUG_BACKEND_URL"
+    export FSUSBLOG_DEBUG_FRONTEND_URL="$DEBUG_FRONTEND_URL"
+    export FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER"
+    export FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER"
+    export FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER"
+    export Jwt__SecretKey="$JWT_SECRET"
+    export Jwt__Issuer="$JWT_ISSUER"
+    export Jwt__Audience="$JWT_AUDIENCE"
+    export Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES"
+    export AnonymousCredentialIssuer__SubjectHashPepper="$ANONYMOUS_SUBJECT_HASH_PEPPER"
+    # Use the same namespaced run-once keys as every downstream runtime lane.
+    source "$ROOT_DIR/tools/test/lanes/_legacy.sh"
+    prepare_runtime_fixtures_once
     refresh_acceptance_cache_after_fixtures
-    if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
-      Jwt__SecretKey="$JWT_SECRET" Jwt__Issuer="$JWT_ISSUER" Jwt__Audience="$JWT_AUDIENCE" Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES" FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL" PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL" FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER" FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER" npm run prepare:playwright:sessions >/dev/null
-    fi
   )
 }
 
@@ -535,6 +563,7 @@ main() {
   mkdir -p "$SERVER_WWWROOT_DIR"
   ensure_postgres
   ensure_redis
+  refresh_fixture_service_generation
   reset_security_test_state
   ensure_backend
   ensure_release_preview

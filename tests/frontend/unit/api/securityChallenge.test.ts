@@ -39,10 +39,11 @@ describe('security challenge binary API', () => {
     expect(call?.requestOptions?.method).toBe('POST')
     expect((call?.requestOptions?.headers as Headers).get(FSUS_HEADERS.deviceFingerprint)).toBe('fp-captcha-test')
     expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeIssueRequest, (payload) => {
-      expect(readSlice(payload, 0)).toBe('comment.create')
-      expect(readSlice(payload, 8)).toBe('article:42')
-      expect(readSlice(payload, 16)).toBe('fp-captcha-test')
-      expect(JSON.parse(readSlice(payload, 24))).toEqual({ surface: 'comment' })
+      const blob = readPodBlob(payload, 32)
+      expect(readSlice(payload, blob, 0)).toBe('comment.create')
+      expect(readSlice(payload, blob, 8)).toBe('article:42')
+      expect(readSlice(payload, blob, 16)).toBe('fp-captcha-test')
+      expect(JSON.parse(readSlice(payload, blob, 24))).toEqual({ surface: 'comment' })
     })
   })
 
@@ -65,11 +66,12 @@ describe('security challenge binary API', () => {
     expect(call?.frameType).toBe(FrameType.SecurityChallengeVerifyResponse)
     expect(call?.requestOptions?.method).toBe('POST')
     expectAedsPodBody(call?.requestOptions?.body, FrameType.SecurityChallengeVerifyRequest, (payload) => {
+      const blob = readPodBlob(payload, 36)
       expect(payload[0]).toBe(SecurityChallengeKind.CaptchaV1)
-      expect(readSlice(payload, 4, 36)).toBe('01900000-0000-7000-8000-000000000000')
-      expect(readSlice(payload, 12, 36)).toBe('comment.create')
-      expect(readSlice(payload, 20, 36)).toBe('article:42')
-      expect(JSON.parse(readSlice(payload, 28, 36))).toMatchObject({ answerText: 'AEF2', nonceHex: '01000000' })
+      expect(readSlice(payload, blob, 4)).toBe('01900000-0000-7000-8000-000000000000')
+      expect(readSlice(payload, blob, 12)).toBe('comment.create')
+      expect(readSlice(payload, blob, 20)).toBe('article:42')
+      expect(JSON.parse(readSlice(payload, blob, 28))).toMatchObject({ answerText: 'AEF2', nonceHex: '01000000' })
     })
   })
 })
@@ -87,9 +89,15 @@ function expectAedsPodBody(
   assertPayload(bytes.slice(16, 16 + payloadLength))
 }
 
-function readSlice(payload: Uint8Array, sliceOffset: number, blobOffset = 32): string {
+function readPodBlob(payload: Uint8Array, headerBytes: number): Uint8Array {
+  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+  const length = view.getInt32(headerBytes, true)
+  return payload.subarray(headerBytes + 4, headerBytes + 4 + length)
+}
+
+function readSlice(payload: Uint8Array, blob: Uint8Array, sliceOffset: number): string {
   const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
   const offset = view.getInt32(sliceOffset, true)
   const length = view.getInt32(sliceOffset + 4, true)
-  return decoder.decode(payload.subarray(blobOffset + offset, blobOffset + offset + length))
+  return decoder.decode(blob.subarray(offset, offset + length))
 }

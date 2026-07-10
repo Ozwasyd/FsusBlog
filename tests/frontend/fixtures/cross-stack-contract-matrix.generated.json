@@ -985,6 +985,24 @@
         },
         {
           "method": "POST",
+          "path": "/auth/step-up/passkey/begin",
+          "auth": "user",
+          "requestFrame": "MfaChallengeStartRequest",
+          "responseFrame": "PasskeyLoginBegin",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
+          "path": "/auth/step-up/passkey/complete",
+          "auth": "user",
+          "requestFrame": "PasskeyLoginCompleteRequest",
+          "responseFrame": "MfaChallengeResult",
+          "cache": "no-store",
+          "rateLimit": "fixed_ip"
+        },
+        {
+          "method": "POST",
           "path": "/auth/refresh-token",
           "auth": "anonymous",
           "responseFrame": "EmptySuccess"

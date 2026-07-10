@@ -92,7 +92,7 @@ const scenarios = [
     maxPreemptLogs: 0,
   },
   {
-    id: 'public-guest-stream-without-pow',
+    id: 'public-guest-stream-first-preflight-pow',
     route: '/',
     action: async (page) => {
       const notificationStreamRequest = page.waitForRequest(
@@ -103,8 +103,9 @@ const scenarios = [
       await notificationStreamRequest
     },
     minNotificationStreamRequests: 1,
-    maxPowChallenges: 0,
-    maxWorkerInits: 0,
+    minPowChallenges: 1,
+    maxPowChallenges: 1,
+    maxWorkerInits: 1,
     maxPreemptLogs: 0,
   },
   {
@@ -122,7 +123,7 @@ const scenarios = [
     maxPreemptLogs: 0,
   },
   {
-    id: 'concurrent-pow-header-builds',
+    id: 'concurrent-fresh-pow-header-builds',
     route: '/',
     action: async (page) => {
       await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
@@ -135,8 +136,8 @@ const scenarios = [
         ])
       })
     },
-    minPowChallenges: 1,
-    maxPowChallenges: 1,
+    minPowChallenges: 2,
+    maxPowChallenges: 2,
     maxWorkerInits: 1,
     maxPreemptLogs: 0,
   },

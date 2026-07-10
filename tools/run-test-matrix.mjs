@@ -2,15 +2,26 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { spawn, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import {
+  aggregateArtifactPathExists,
+  applySupersedes,
+  createRunId,
+  findLatestRunId,
+  runDag,
+  tierResourceUnits,
+  validateSupersedesRules
+} from './test-matrix/scheduler.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
   ? path.resolve(root, process.env.FSUSBLOG_MATRIX_FILE)
   : path.join(root, 'tests/matrix.yml')
 const schemaFile = path.join(root, 'tests/matrix.schema.json')
-const coverageRegistryFile = path.join(root, 'tests/coverage-registry.json')
+const coverageRegistryFile = process.env.FSUSBLOG_COVERAGE_REGISTRY_FILE
+  ? path.resolve(root, process.env.FSUSBLOG_COVERAGE_REGISTRY_FILE)
+  : path.join(root, 'tests/coverage-registry.json')
 const preflightLogFile = path.join(root, '.tmp/gate-logs/preflight.json')
 const prSmartGateSummaryFile = path.join(root, '.tmp/release-evidence/pr-smart-gate-summary.json')
 const summaryStages = ['setup', 'restore', 'install', 'bootstrap', 'test', 'artifact', 'summary']
@@ -22,6 +33,8 @@ const cadenceValues = ['pr', 'push', 'nightly', 'release-manual']
 const requiredForValues = ['fast', 'production', 'release-final', 'none']
 const smartGateModeValues = ['always', 'conditional', 'full-only']
 const retentionClassValues = ['must-keep', 'conditional', 'redundant-candidate', 'obsolete']
+const executionVariantValues = ['ordinary', 'coverage', 'property', 'model', 'performance', 'runtime']
+const uxViewportTierIds = new Set(['ux-viewport-smoke', 'ux-viewport-visual', 'ux-viewport-boundaries'])
 const aliases = new Map([
   ['coverage', 'coverage-gate'],
   ['integrity-proof', 'integrity-proof-verification'],
@@ -34,11 +47,16 @@ const aliases = new Map([
 const frontendFastSplitIds = [
   'frontend-build',
   'frontend-unit-shard',
+  'frontend-property-model-perf',
   'frontend-runtime-contracts',
   'frontend-static-governance',
   'frontend-fast-summary'
 ]
 const frontendFastExecutableSplitIds = frontendFastSplitIds.filter((tierId) => tierId !== 'frontend-fast-summary')
+const summaryInvocationId = `${process.env.GITHUB_RUN_ID ?? 'local'}-${process.env.GITHUB_RUN_ATTEMPT ?? '0'}-${process.pid}-${Date.now()}`
+const ciSummaryAuthorityId = process.env.GITHUB_RUN_ID && process.env.GITHUB_JOB
+  ? `gha-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT ?? '1'}-${process.env.GITHUB_JOB}`
+  : null
 
 const requiredFields = [
   'id',
@@ -242,6 +260,24 @@ function validateCoverageRegistry(matrix) {
     }
 
     if (entry.id !== coverageId) errors.push(`coverage ${coverageId} registry id mismatch`)
+    const matrixTierIds = new Set(tiers.map((tier) => tier.id))
+    if (!Array.isArray(entry.tierIds) || entry.tierIds.length === 0) {
+      errors.push(`coverage ${coverageId}.tierIds must be non-empty`)
+    } else {
+      const registryTierIds = new Set(entry.tierIds)
+      const duplicateTierIds = entry.tierIds.filter((tierId, index) => entry.tierIds.indexOf(tierId) !== index)
+      if (duplicateTierIds.length > 0) {
+        errors.push(`coverage ${coverageId}.tierIds contains duplicates: ${[...new Set(duplicateTierIds)].join(', ')}`)
+      }
+      for (const tierId of registryTierIds) {
+        if (!(matrix.tiers ?? []).some((tier) => tier.id === tierId)) {
+          errors.push(`coverage ${coverageId}.tierIds references unknown tier: ${tierId}`)
+        }
+      }
+      if (!sameSet(registryTierIds, matrixTierIds)) {
+        errors.push(`coverage ${coverageId}.tierIds must exactly match matrix covering tiers; registry=${[...registryTierIds].sort().join(',')} matrix=${[...matrixTierIds].sort().join(',')}`)
+      }
+    }
     if (typeof entry.description !== 'string' || entry.description.length === 0) {
       errors.push(`coverage ${coverageId}.description missing`)
     } else if (coverageTemplateDescriptionPattern.test(entry.description)) {
@@ -314,6 +350,7 @@ function validateFrontendFastSplit(matrix, byId) {
   const expectedCiJobs = new Map([
     ['frontend-build', 'frontend-build'],
     ['frontend-unit-shard', 'fast-frontend-unit'],
+    ['frontend-property-model-perf', 'fast-frontend-unit'],
     ['frontend-runtime-contracts', 'frontend-runtime-contracts'],
     ['frontend-static-governance', 'frontend-static-governance'],
     ['frontend-fast-summary', 'fast-summary']
@@ -356,6 +393,24 @@ function validateFrontendFastSplit(matrix, byId) {
   return errors
 }
 
+function commandSourcePath(command) {
+  return String(command ?? '')
+    .split(/\s+/u)
+    .map((token) => token.replace(/^['"]|['"]$/gu, ''))
+    .find((token) => token.startsWith('tools/') && fs.existsSync(path.join(root, token))) ?? null
+}
+
+function cacheInputCoversSource(patternValue, sourcePath) {
+  const pattern = String(patternValue).replace(/^\.\//u, '').replaceAll('\\', '/')
+  if (pattern === sourcePath || (!pattern.includes('*') && sourcePath.startsWith(`${pattern.replace(/\/$/u, '')}/`))) return true
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replaceAll('**', '\u0000')
+    .replaceAll('*', '[^/]*')
+    .replaceAll('\u0000', '.*')
+  return new RegExp(`^${escaped}$`, 'u').test(sourcePath)
+}
+
 function validateMatrix(matrix) {
   const errors = []
   const ids = new Set()
@@ -395,6 +450,13 @@ function validateMatrix(matrix) {
     for (const field of ['dependsOn', 'services', 'exclusiveResources', 'coverage', 'artifacts', 'evidence']) {
       if (!Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
     }
+    for (const field of ['supersedes', 'cacheInputs']) {
+      if (field in tier && !Array.isArray(tier[field])) errors.push(`${tier.id}.${field} must be an array`)
+    }
+    const commandSource = commandSourcePath(tier.command)
+    if ((tier.cacheInputs?.length ?? 0) > 0 && commandSource && !tier.cacheInputs.some((input) => cacheInputCoversSource(input, commandSource))) {
+      errors.push(`${tier.id}.cacheInputs must cover command source ${commandSource}`)
+    }
     for (const field of ['parallelizable', 'shardable', 'localOnly', 'nightlyOnly', 'requiresNode', 'requiresDotnet']) {
       if (typeof tier[field] !== 'boolean') errors.push(`${tier.id}.${field} must be boolean`)
     }
@@ -433,6 +495,26 @@ function validateMatrix(matrix) {
     }
     for (const field of ['timeoutMinutes', 'defaultShards', 'maxParallel']) {
       if (typeof tier[field] !== 'number' || tier[field] < 1) errors.push(`${tier.id}.${field} must be a positive number`)
+    }
+    if ('cpuUnits' in tier && (typeof tier.cpuUnits !== 'number' || tier.cpuUnits < 0.1)) {
+      errors.push(`${tier.id}.cpuUnits must be at least 0.1`)
+    }
+    if ('memoryGiB' in tier && (typeof tier.memoryGiB !== 'number' || tier.memoryGiB < 0)) {
+      errors.push(`${tier.id}.memoryGiB must be zero or greater`)
+    }
+    if ('executionKey' in tier && (typeof tier.executionKey !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(tier.executionKey))) {
+      errors.push(`${tier.id}.executionKey is invalid: ${tier.executionKey}`)
+    }
+    if ('executionVariant' in tier && !executionVariantValues.includes(tier.executionVariant)) {
+      errors.push(`${tier.id}.executionVariant is invalid: ${tier.executionVariant}`)
+    }
+    if ((tier.supersedes?.length ?? 0) > 0 && !tier.executionKey) {
+      errors.push(`${tier.id}.supersedes requires executionKey`)
+    }
+    for (const field of ['supersedes', 'cacheInputs']) {
+      if (Array.isArray(tier[field]) && tier[field].some((value) => typeof value !== 'string' || value.length === 0)) {
+        errors.push(`${tier.id}.${field} entries must be non-empty strings`)
+      }
     }
     if (typeof tier.phase === 'number' && tier.phase < 0) errors.push(`${tier.id}.phase must be zero or greater`)
     if (!['low', 'medium', 'high', 'critical'].includes(tier.risk)) {
@@ -534,6 +616,7 @@ function validateMatrix(matrix) {
 
   errors.push(...validateFrontendFastSplit(matrix, byId))
   errors.push(...validateCoverageRegistry(matrix))
+  errors.push(...validateSupersedesRules(matrix.tiers, loadCoverageRegistry().entries))
 
   const visiting = new Set()
   const visited = new Set()
@@ -584,17 +667,23 @@ function printPlan(tiers) {
   }
 }
 
-function namespaceFor(tier, shard) {
-  if (process.env.FSUSBLOG_TEST_NAMESPACE) return namespaceSlug(process.env.FSUSBLOG_TEST_NAMESPACE)
-  const runId = process.env.GITHUB_RUN_ID || 'local'
+function namespaceFor(tier, shard, schedulerRunId = null) {
+  if (process.env.FSUSBLOG_TEST_NAMESPACE?.trim()) return namespaceSlug(process.env.FSUSBLOG_TEST_NAMESPACE)
+  const githubRunId = process.env.GITHUB_RUN_ID
+  const runId = githubRunId || schedulerRunId || 'local'
   const attempt = process.env.GITHUB_RUN_ATTEMPT || '0'
   const job = process.env.MATRIX_JOB || tier.ciJob || tier.id
   const shardValue = shard ?? process.env.MATRIX_SHARD ?? '0'
-  return namespaceSlug(`${runId}-${attempt}-${job}-${shardValue}`)
+  return namespaceSlug(`${runId}-${githubRunId ? attempt : 'fresh'}-${job}-${shardValue}`)
 }
 
 function namespaceSlug(value) {
-  return String(value).replace(/[^A-Za-z0-9_.-]/g, '-')
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/gu, '-')
+    .replace(/^-+|-+$/gu, '')
+  return !normalized || normalized === '.' || normalized === '..' ? 'local' : normalized
 }
 
 function loadNamespaceEnv(namespace) {
@@ -610,17 +699,116 @@ function loadNamespaceEnv(namespace) {
   return values
 }
 
+function prepareNamespaceEnvironmentIfNeeded(tiers, namespace) {
+  if (!tiers.some((tier) => tier.selfBootstraps === true)) return
+  const envFile = path.join(root, '.tmp/env', `${namespaceSlug(namespace)}.env`)
+  if (fs.existsSync(envFile)) return
+  const result = spawnSync('bash', [path.join(root, 'tools/bootstrap-acceptance-env.sh'), '--prepare-env-only'], {
+    cwd: root,
+    env: { ...process.env, FSUSBLOG_TEST_NAMESPACE: namespace },
+    encoding: 'utf8'
+  })
+  if (result.stdout) process.stderr.write(result.stdout)
+  if (result.stderr) process.stderr.write(result.stderr)
+  if (result.status !== 0) throw new Error(`failed to prepare namespace environment for ${namespace}`)
+}
+
+function applyNamespaceBuildEnvironment(tier, env) {
+  if (tier.id === 'frontend-build' && !env.VITE_API_BASE_URL && env.FSUSBLOG_DEBUG_BACKEND_URL) {
+    env.VITE_API_BASE_URL = env.FSUSBLOG_DEBUG_BACKEND_URL
+  }
+  return env
+}
+
+function resourceEnvironmentForTier(tier, baseEnv = {}) {
+  const { cpuUnits, memoryGiB } = tierResourceUnits(tier)
+  const vitestWorkerBudget = Math.max(1, Math.floor(Math.min(cpuUnits, Math.max(1, memoryGiB / 1.5))))
+  const manifestWorkerBudget = Math.max(1, Math.floor(Math.min(cpuUnits, Math.max(1, memoryGiB / 0.75))))
+  const env = {}
+  if (!process.env.FSUSBLOG_VITEST_MAX_WORKERS && !baseEnv.FSUSBLOG_VITEST_MAX_WORKERS) {
+    env.FSUSBLOG_VITEST_MAX_WORKERS = String(vitestWorkerBudget)
+  }
+  if (!process.env.FSUSBLOG_COMMAND_MANIFEST_WORKERS && !baseEnv.FSUSBLOG_COMMAND_MANIFEST_WORKERS) {
+    env.FSUSBLOG_COMMAND_MANIFEST_WORKERS = String(manifestWorkerBudget)
+  }
+  return env
+}
+
+function cleanupSensitiveFixtures(namespace, namespaceEnv = {}) {
+  const configuredRoot = namespaceEnv.FSUSBLOG_FIXTURE_ROOT ?? process.env.FSUSBLOG_FIXTURE_ROOT
+  const evidenceFile = path.join(root, '.tmp/release-evidence/sensitive-fixture-cleanup.json')
+  ensureOutputDirectory(evidenceFile)
+  if (configuredRoot) {
+    fs.writeFileSync(evidenceFile, `${JSON.stringify({
+      schema: 'fsusblog.sensitive-fixture-cleanup.v1',
+      status: 'external-root-skipped',
+      namespace,
+      reason: 'FSUSBLOG_FIXTURE_ROOT is externally managed',
+      generatedAt: new Date().toISOString()
+    }, null, 2)}\n`)
+    return
+  }
+
+  const fixtureRoot = path.join(root, '.tmp/fixtures', namespaceSlug(namespace))
+  const authDirectory = path.join(fixtureRoot, 'auth')
+  const existed = fs.existsSync(authDirectory)
+  fs.rmSync(authDirectory, { recursive: true, force: true })
+  fs.writeFileSync(evidenceFile, `${JSON.stringify({
+    schema: 'fsusblog.sensitive-fixture-cleanup.v1',
+    status: 'ok',
+    namespace,
+    removedAuthDirectory: existed,
+    generatedAt: new Date().toISOString()
+  }, null, 2)}\n`)
+}
+
 function parseRunOptions(args) {
-  const options = { planOnly: false, shard: null, noDeps: false }
+  const options = { planOnly: false, shard: null, noDeps: false, resume: false, fresh: false, maxParallel: null }
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
     if (arg === '--plan-only') options.planOnly = true
     else if (arg === '--no-deps') options.noDeps = true
     else if (arg === '--shard') options.shard = args[++index]
     else if (arg.startsWith('--shard=')) options.shard = arg.slice('--shard='.length)
+    else if (arg === '--resume') options.resume = true
+    else if (arg === '--fresh') options.fresh = true
+    else if (arg === '--max-parallel') options.maxParallel = Number(args[++index])
+    else if (arg.startsWith('--max-parallel=')) options.maxParallel = Number(arg.slice('--max-parallel='.length))
     else throw new Error(`unknown run option: ${arg}`)
   }
+  normalizeSchedulerOptions(options)
   return options
+}
+
+function normalizeSchedulerOptions(options) {
+  if (options.resume && options.fresh) throw new Error('--resume and --fresh are mutually exclusive')
+  if (options.maxParallel !== null && (!Number.isInteger(options.maxParallel) || options.maxParallel < 1)) {
+    throw new Error('--max-parallel must be a positive integer')
+  }
+  if (process.env.CI === 'true' || process.env.CI === '1' || process.env.GITHUB_ACTIONS === 'true') {
+    if (options.resume) console.error('[matrix] CI forces --fresh; ignoring --resume')
+    options.resume = false
+    options.fresh = true
+  } else if (!options.resume && !options.fresh) {
+    options.fresh = true
+  }
+}
+
+function schedulerRunIdentity(targetTierId, options) {
+  const runsRoot = path.join(root, '.tmp/test-runs')
+  const explicitRunId = process.env.FSUSBLOG_TEST_RUN_ID
+  const resumedRunId = options.resume && !explicitRunId ? findLatestRunId(runsRoot, targetTierId) : null
+  return {
+    runsRoot,
+    runId: explicitRunId || resumedRunId || createRunId(targetTierId)
+  }
+}
+
+function applyUxViewportResumeEnvironment(env, tier, resume) {
+  if (!uxViewportTierIds.has(tier.id)) return env
+  if (resume) env.FSUSBLOG_UX_VIEWPORT_RESUME = '1'
+  else env.FSUSBLOG_UX_VIEWPORT_RESUME = '0'
+  return env
 }
 
 function tierReproductionCommand(tier, options = {}) {
@@ -698,27 +886,39 @@ function mergeStageDurations(existing, stage, durationMs) {
   return durations
 }
 
+function frontendFastTimingFiles(tierId) {
+  const slug = safeMatrixValue(tierId) || 'frontend-fast'
+  return {
+    summaryFile: path.join(root, '.tmp/frontend/timings', `${slug}.json`),
+    jsonlFile: path.join(root, '.tmp/frontend/timings', `${slug}.jsonl`)
+  }
+}
+
+function readFrontendFastGroupEvidence(tierId) {
+  const { summaryFile, jsonlFile } = frontendFastTimingFiles(tierId)
+  if (fs.existsSync(summaryFile)) {
+    const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+    return summary.groups ?? []
+  }
+  if (fs.existsSync(jsonlFile)) {
+    return fs.readFileSync(jsonlFile, 'utf8')
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => JSON.parse(line))
+  }
+  return []
+}
+
 function frontendFastGroupEvidence(tier) {
-  if (tier.id !== 'frontend-fast' && !frontendFastExecutableSplitIds.includes(tier.id)) return null
-  const summaryFile = path.join(root, '.tmp/frontend/frontend-fast-groups.json')
-  const jsonlFile = path.join(root, '.tmp/frontend/frontend-fast-groups.jsonl')
+  if (tier.id !== 'frontend-fast' && tier.id !== 'frontend-fast-summary' && !frontendFastExecutableSplitIds.includes(tier.id)) return null
   try {
-    if (fs.existsSync(summaryFile)) {
-      const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
-      return {
-        groupDurationsMs: summary.groupDurationsMs ?? {},
-        groupResults: summary.groups ?? []
-      }
-    }
-    if (fs.existsSync(jsonlFile)) {
-      const groups = fs.readFileSync(jsonlFile, 'utf8')
-        .split(/\r?\n/)
-        .filter(Boolean)
-        .map((line) => JSON.parse(line))
-      return {
-        groupDurationsMs: Object.fromEntries(groups.map((item) => [item.group, Number(item.durationMs) || 0])),
-        groupResults: groups
-      }
+    const tierIds = frontendFastExecutableSplitIds.includes(tier.id)
+      ? [tier.id]
+      : frontendFastExecutableSplitIds
+    const groups = tierIds.flatMap((tierId) => readFrontendFastGroupEvidence(tierId).map((group) => ({ ...group, tierId })))
+    return {
+      groupDurationsMs: Object.fromEntries(groups.map((item) => [`${item.tierId}:${item.group}`, Number(item.durationMs) || 0])),
+      groupResults: groups
     }
   } catch (error) {
     return {
@@ -732,7 +932,9 @@ function frontendFastGroupEvidence(tier) {
 
 function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
   const jobId = summaryJobIdForTier(tier, details)
-  const existing = readExistingJobSummary(jobId)
+  const schedulerRunId = ciSummaryAuthorityId ?? details.schedulerRunId ?? summaryInvocationId
+  const existingCandidate = readExistingJobSummary(jobId)
+  const existing = existingCandidate?.schedulerRunId === schedulerRunId ? existingCandidate : null
   const jobTiers = matrix.tiers
     .filter((item) => item.ciJob === tier.ciJob && item.localOnly !== true && item.nightlyOnly !== true && item.manualOnly !== true)
     .map((item) => item.id)
@@ -765,6 +967,7 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
     commit: git(['rev-parse', 'HEAD']) ?? 'unknown',
     runId: process.env.GITHUB_RUN_ID ?? 'local',
     attempt: process.env.GITHUB_RUN_ATTEMPT ?? '0',
+    schedulerRunId,
     generatedAt: new Date().toISOString(),
     ...(groupEvidence ?? {})
   }
@@ -773,12 +976,21 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
   fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
 }
 
+function resetFreshJobSummaries(entries) {
+  for (const [tier, details] of entries) {
+    const jobId = summaryJobIdForTier(tier, details)
+    const existing = readExistingJobSummary(jobId)
+    if (ciSummaryAuthorityId && existing?.schedulerRunId === ciSummaryAuthorityId) continue
+    fs.rmSync(jobSummaryPath(jobId), { force: true })
+  }
+}
+
 function emitTierReproductionHint(tier, options) {
   console.error(`[matrix:${tier.id}] To reproduce tier locally: ${tierReproductionCommand(tier, options)}`)
   console.error(`[matrix:${tier.id}] To reproduce CI job locally: ${ciJobReproductionCommand(tier.ciJob)}`)
 }
 
-function runTier(matrix, tierId, args) {
+async function runTier(matrix, tierId, args) {
   const options = parseRunOptions(args)
   const all = options.noDeps ? [tierMap(matrix).get(normalizeTierId(tierId))] : planTier(matrix, tierId)
   if (all.some((tier) => !tier)) throw new Error(`unknown tier: ${tierId}`)
@@ -795,60 +1007,92 @@ function runTier(matrix, tierId, args) {
   }
 
   const target = all[all.length - 1]
-  const runNamespace = namespaceFor(target, options.shard)
-
-  for (const tier of all) {
-    const startedAt = Date.now()
-    const namespaceEnv = loadNamespaceEnv(runNamespace)
-    const env = {
-      ...process.env,
-      ...namespaceEnv,
-      CURRENT_TIER: tier.id,
-      MATRIX_JOB: tier.ciJob,
-      FSUSBLOG_TEST_NAMESPACE: runNamespace
-    }
-    const playwrightWorkers = playwrightWorkersForTier(tier)
-    if (playwrightWorkers !== null) {
-      env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkers)
-    }
-    if (options.shard) {
-      const [index, total] = options.shard.split('/')
-      env.MATRIX_SHARD = options.shard
-      env.FSUSBLOG_TEST_SHARD_INDEX = index
-      env.FSUSBLOG_TEST_SHARD_TOTAL = total
-      if (tier.requiresPlaywright !== 'none') {
-        env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
+  const targetTierId = normalizeTierId(tierId)
+  const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
+  const runNamespace = namespaceFor(target, options.shard, runId)
+  prepareNamespaceEnvironmentIfNeeded(all, runNamespace)
+  if (options.fresh) resetFreshJobSummaries(all.map((tier) => [tier, {}]))
+  const result = await runDag({
+    tiers: all,
+    root,
+    runsRoot,
+    runId,
+    targetTierId,
+    mode: options.resume ? 'resume' : 'fresh',
+    resume: options.resume,
+    supersedesUniverse: matrix.tiers,
+    coverageRegistry: loadCoverageRegistry().entries,
+    maxParallel: options.maxParallel ?? undefined,
+    teeOutput: true,
+    envForTier(tier) {
+      const namespaceEnv = loadNamespaceEnv(runNamespace)
+      const env = applyNamespaceBuildEnvironment(tier, {
+        ...namespaceEnv,
+        CURRENT_TIER: tier.id,
+        MATRIX_JOB: tier.ciJob,
+        FSUSBLOG_TEST_NAMESPACE: runNamespace,
+        FSUSBLOG_TEST_RUN_ID: runId
+      })
+      Object.assign(env, resourceEnvironmentForTier(tier, env))
+      const playwrightWorkers = playwrightWorkersForTier(tier)
+      if (playwrightWorkers !== null) env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkers)
+      applyUxViewportResumeEnvironment(env, tier, options.resume)
+      if (options.shard) {
+        const [index, total] = options.shard.split('/')
+        env.MATRIX_SHARD = options.shard
+        env.FSUSBLOG_TEST_SHARD_INDEX = index
+        env.FSUSBLOG_TEST_SHARD_TOTAL = total
+        if (tier.requiresPlaywright !== 'none') env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
+      }
+      return env
+    },
+    onTierStart(tier) {
+      emitTierReproductionHint(tier, options)
+      console.error(`[matrix:${tier.id}] ${tier.command}`)
+    },
+    onTierReused(tier) {
+      console.error(`[matrix:${tier.id}] reused successful checkpoint from ${runId}`)
+    },
+    onTierComplete(tier, tierResult) {
+      const startedAt = Date.now() - tierResult.durationMs
+      if (tierResult.status === 'success') {
+        writeJobSummary(matrix, tier, 'success', startedAt, { schedulerRunId: runId })
+      } else {
+        writeJobSummary(matrix, tier, 'failure', startedAt, {
+          schedulerRunId: runId,
+          failureStage: stageForTier(tier),
+          rootCause: tierResult.reason
+        })
       }
     }
+  })
 
-    emitTierReproductionHint(tier, options)
-    console.error(`[matrix:${tier.id}] ${tier.command}`)
-    const result = spawnSync(tier.command, {
-      cwd: root,
-      env,
-      shell: true,
-      stdio: 'inherit'
-    })
-    if (result.status !== 0) {
-      writeJobSummary(matrix, tier, 'failure', startedAt, {
-        failureStage: stageForTier(tier),
-        rootCause: `${tier.command} exited ${result.status ?? 1}`
-      })
-      process.exit(result.status ?? 1)
-    }
-    writeJobSummary(matrix, tier, 'success', startedAt)
+  console.error(`[matrix:${target.id}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`)
+  if (options.fresh && new Set(['production', 'release-final']).has(targetTierId)) {
+    cleanupSensitiveFixtures(runNamespace, loadNamespaceEnv(runNamespace))
+    console.error(`[matrix:${target.id}] removed namespaced auth fixture cache`)
+  }
+  if (result.status !== 'success') {
+    const exitCode = Number(result.failure?.exitCode) || 1
+    console.error(`[matrix:${result.failure?.tierId ?? target.id}] ${result.failure?.reason ?? 'scheduler failed'}`)
+    process.exit(exitCode)
   }
 }
 
 function parseCiJobOptions(args) {
-  const options = { planOnly: false, shard: null }
+  const options = { planOnly: false, shard: null, resume: false, fresh: false, maxParallel: null }
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
     if (arg === '--plan-only') options.planOnly = true
     else if (arg === '--shard') options.shard = args[++index]
     else if (arg.startsWith('--shard=')) options.shard = arg.slice('--shard='.length)
+    else if (arg === '--resume') options.resume = true
+    else if (arg === '--fresh') options.fresh = true
+    else if (arg === '--max-parallel') options.maxParallel = Number(args[++index])
+    else if (arg.startsWith('--max-parallel=')) options.maxParallel = Number(arg.slice('--max-parallel='.length))
     else throw new Error(`unknown ci-job option: ${arg}`)
   }
+  normalizeSchedulerOptions(options)
   return options
 }
 
@@ -869,6 +1113,10 @@ function parseCiJobMatrixOptions(args) {
 
 function ciJobTiers(matrix, jobId) {
   return matrix.tiers.filter((tier) => tier.ciJob === jobId && tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true)
+}
+
+function effectiveCiJobTiers(matrix, jobId) {
+  return applySupersedes(ciJobTiers(matrix, jobId))
 }
 
 function ciJobExecutionMode(matrix, jobId) {
@@ -958,8 +1206,8 @@ function loadSelectedTierIds(prPlanFile) {
 }
 
 function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = false) {
-  const tiers = ciJobTiers(matrix, jobId)
-    .filter((tier) => selectedTierIds === null || selectedTierIds.has(tier.id))
+  const tiers = applySupersedes(ciJobTiers(matrix, jobId)
+    .filter((tier) => selectedTierIds === null || selectedTierIds.has(tier.id)))
   if (tiers.length === 0) {
     if (allowEmpty) return { include: [] }
     throw new Error(`unknown CI job or no required tiers: ${jobId}`)
@@ -1028,12 +1276,18 @@ function ciJobMatrix(matrix, jobId, args) {
 }
 
 function printCiJobPlan(matrix, jobId) {
-  const tiers = ciJobTiers(matrix, jobId)
+  const declaredTiers = ciJobTiers(matrix, jobId)
+  const tiers = applySupersedes(declaredTiers)
   if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
   console.log(`To reproduce GitHub Actions job "${jobId}" locally:`)
   console.log(`  ${ciJobReproductionCommand(jobId, matrix)}`)
   console.log(`  execution mode: ${ciJobExecutionMode(matrix, jobId)}`)
   console.log(`  scheduler: ${ciJobSchedulerMode(tiers)} (max ${ciJobMaxParallel(tiers)}, debug fallback: FSUSBLOG_CI_JOB_SERIAL=1)`)
+  const effectiveIds = new Set(tiers.map((tier) => tier.id))
+  for (const tier of declaredTiers.filter((tier) => !effectiveIds.has(tier.id))) {
+    const replacement = declaredTiers.find((candidate) => (candidate.supersedes ?? []).includes(tier.id))
+    console.log(`  superseded: ${tier.id} -> ${replacement?.id ?? 'replacement tier'}`)
+  }
   console.log('')
   for (const tier of tiers) {
     const shard = tier.shardable ? ` --shard 1/${tier.defaultShards}` : ''
@@ -1042,134 +1296,91 @@ function printCiJobPlan(matrix, jobId) {
   }
 }
 
-function runCiJobSerial(matrix, tiers, options) {
-  for (const tier of tiers) {
-    const runArgs = ['--no-deps']
-    if (options.shard && tier.shardable) runArgs.push('--shard', options.shard)
-    runTier(matrix, tier.id, runArgs)
-  }
-}
-
-function ciJobChildArgs(tier, options) {
-  const args = [path.join(root, 'tools/run-test-matrix.mjs'), 'ci-tier', tier.id, '--no-deps']
-  if (options.shard && tier.shardable) args.push('--shard', options.shard)
-  return args
-}
-
-function stopActiveCiJobChildren(activeEntries) {
-  for (const { child, tier } of activeEntries) {
-    if (child.exitCode !== null || child.signalCode !== null) continue
-    console.error(`[matrix:ci-job] stopping ${tier.id} after sibling failure`)
-    child.kill('SIGTERM')
-    const timer = setTimeout(() => {
-      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
-    }, 5000)
-    timer.unref?.()
-  }
-}
-
 async function runCiJobScheduled(matrix, jobId, tiers, options) {
-  const pending = [...tiers]
-  const completed = new Set()
-  const tierIds = new Set(tiers.map((tier) => tier.id))
-  const active = new Map()
-  const jobMaxParallel = ciJobMaxParallel(tiers)
-  let firstFailure = null
+  const targetTierId = `ci-job/${jobId}`
+  const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
+  const schedulerMode = options.forceSerial ? 'serial' : 'parallel'
+  const maxParallel = options.forceSerial ? 1 : (options.maxParallel ?? ciJobMaxParallel(tiers))
+  console.error(`[matrix:ci-job:${jobId}] scheduler=${schedulerMode} max=${maxParallel}`)
+  const bootstrapTier = tiers.find((tier) => tier.selfBootstraps === true)
+  if (bootstrapTier) prepareNamespaceEnvironmentIfNeeded(tiers, namespaceFor(bootstrapTier, options.shard, runId))
+  if (options.fresh) {
+    resetFreshJobSummaries(tiers.map((tier) => [tier, {
+      jobId: options.forceSerial ? jobId : `${jobId}-${tier.id}`
+    }]))
+  }
 
-  console.error(`[matrix:ci-job:${jobId}] scheduler=parallel max=${jobMaxParallel}`)
-
-  return await new Promise((resolve) => {
-    const finishIfReady = () => {
-      if ((pending.length === 0 || firstFailure) && active.size === 0) {
-        resolve(firstFailure?.status ?? 0)
-      }
-    }
-
-    const startTier = (tier) => {
-      const env = {
-        ...process.env,
-        FSUSBLOG_CI_JOB_ID: `${jobId}-${tier.id}`,
-        FSUSBLOG_CI_JOB_SCHEDULER: 'parallel'
-      }
-      const child = spawn(process.execPath, ciJobChildArgs(tier, options), {
-        cwd: root,
-        env,
-        stdio: 'inherit'
+  const result = await runDag({
+    tiers,
+    root,
+    runsRoot,
+    runId,
+    targetTierId,
+    mode: options.resume ? 'resume' : 'fresh',
+    resume: options.resume,
+    supersedesUniverse: matrix.tiers,
+    coverageRegistry: loadCoverageRegistry().entries,
+    maxParallel,
+    teeOutput: true,
+    envForTier(tier) {
+      const runNamespace = namespaceFor(tier, options.shard, runId)
+      const env = applyNamespaceBuildEnvironment(tier, {
+        ...loadNamespaceEnv(runNamespace),
+        CURRENT_TIER: tier.id,
+        MATRIX_JOB: tier.ciJob,
+        FSUSBLOG_TEST_NAMESPACE: runNamespace,
+        FSUSBLOG_TEST_RUN_ID: runId,
+        FSUSBLOG_CI_JOB_ID: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
+        FSUSBLOG_CI_JOB_SCHEDULER: schedulerMode
       })
-      active.set(tier.id, { child, tier })
-      console.error(`[matrix:ci-job:${jobId}] started ${tier.id} pid=${child.pid}`)
-      child.on('error', (error) => {
-        active.delete(tier.id)
-        if (!firstFailure) {
-          firstFailure = { status: 1, tier: tier.id, signal: null }
-          console.error(`[matrix:ci-job:${jobId}] ${tier.id} failed to start: ${error.message}`)
-          stopActiveCiJobChildren([...active.values()])
-        }
-        schedule()
+      Object.assign(env, resourceEnvironmentForTier(tier, env))
+      const playwrightWorkers = playwrightWorkersForTier(tier)
+      if (playwrightWorkers !== null) env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkers)
+      applyUxViewportResumeEnvironment(env, tier, options.resume)
+      if (options.shard && tier.shardable) {
+        const [index, total] = options.shard.split('/')
+        env.MATRIX_SHARD = options.shard
+        env.FSUSBLOG_TEST_SHARD_INDEX = index
+        env.FSUSBLOG_TEST_SHARD_TOTAL = total
+        if (tier.requiresPlaywright !== 'none') env.FSUSBLOG_PLAYWRIGHT_SHARD_ARG = `--shard=${index}/${total}`
+      }
+      return env
+    },
+    onTierStart(tier) {
+      emitTierReproductionHint(tier, { noDeps: true, shard: options.shard })
+      console.error(`[matrix:ci-job:${jobId}] started ${tier.id}: ${tier.command}`)
+    },
+    onTierReused(tier) {
+      console.error(`[matrix:ci-job:${jobId}] reused ${tier.id} from ${runId}`)
+    },
+    onTierComplete(tier, tierResult) {
+      const startedAt = Date.now() - tierResult.durationMs
+      const success = tierResult.status === 'success'
+      writeJobSummary(matrix, tier, success ? 'success' : 'failure', startedAt, {
+        jobId: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
+        schedulerRunId: runId,
+        failureStage: success ? null : stageForTier(tier),
+        rootCause: success ? null : tierResult.reason
       })
-      child.on('exit', (code, signal) => {
-        active.delete(tier.id)
-        if (code === 0 && !signal) {
-          completed.add(tier.id)
-          console.error(`[matrix:ci-job:${jobId}] completed ${tier.id}`)
-        } else if (!firstFailure) {
-          firstFailure = {
-            status: code ?? 1,
-            tier: tier.id,
-            signal
-          }
-          console.error(`[matrix:ci-job:${jobId}] ${tier.id} failed status=${code ?? 'signal'} signal=${signal ?? 'none'}`)
-          stopActiveCiJobChildren([...active.values()])
-        }
-        schedule()
-      })
+      console.error(`[matrix:ci-job:${jobId}] ${tier.id} ${tierResult.status}`)
     }
-
-    const schedule = () => {
-      if (firstFailure) {
-        finishIfReady()
-        return
-      }
-
-      let started = false
-      while (active.size < jobMaxParallel) {
-        const activeEntries = [...active.values()]
-        const nextIndex = pending.findIndex((tier) => {
-          const dependenciesDone = internalCiJobDependencies(tier, tierIds).every((dependencyId) => completed.has(dependencyId))
-          return dependenciesDone && canStartCiJobTier(tier, activeEntries, jobMaxParallel)
-        })
-        if (nextIndex < 0) break
-        const [tier] = pending.splice(nextIndex, 1)
-        startTier(tier)
-        started = true
-      }
-
-      if (!started && active.size === 0 && pending.length > 0) {
-        firstFailure = { status: 1, tier: pending[0].id, signal: null }
-        console.error(`[matrix:ci-job:${jobId}] no runnable tiers remain; check dependencies and resource metadata`)
-      }
-      finishIfReady()
-    }
-
-    schedule()
   })
+  console.error(`[matrix:ci-job:${jobId}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`)
+  return result.status === 'success' ? 0 : (Number(result.failure?.exitCode) || 1)
 }
 
 async function runCiJob(matrix, jobId, args) {
   const options = parseCiJobOptions(args)
-  const tiers = ciJobTiers(matrix, jobId)
+  const tiers = effectiveCiJobTiers(matrix, jobId)
   if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
+  if (options.shard && !/^\d+\/\d+$/.test(options.shard)) throw new Error('--shard must use i/n format')
   if (options.planOnly) {
     printCiJobPlan(matrix, jobId)
     return
   }
 
-  if (process.env.FSUSBLOG_CI_JOB_SERIAL === '1' || ciJobSchedulerMode(tiers) === 'serial') {
-    if (process.env.FSUSBLOG_CI_JOB_SERIAL === '1') console.error(`[matrix:ci-job:${jobId}] scheduler=serial forced by FSUSBLOG_CI_JOB_SERIAL=1`)
-    runCiJobSerial(matrix, tiers, options)
-    return
-  }
-
+  options.forceSerial = process.env.FSUSBLOG_CI_JOB_SERIAL === '1' || ciJobSchedulerMode(tiers) === 'serial'
+  if (process.env.FSUSBLOG_CI_JOB_SERIAL === '1') console.error(`[matrix:ci-job:${jobId}] scheduler=serial forced by FSUSBLOG_CI_JOB_SERIAL=1`)
   const status = await runCiJobScheduled(matrix, jobId, tiers, options)
   if (status !== 0) process.exit(status)
 }
@@ -1189,7 +1400,7 @@ function parseAggregateOptions(args) {
 }
 
 function generatedMatrixSummaryIds(matrix, jobId) {
-  const tiers = ciJobTiers(matrix, jobId)
+  const tiers = effectiveCiJobTiers(matrix, jobId)
   const shardSummaryIds = []
   for (const tier of tiers) {
     const totalShards = tier.shardable ? Number(tier.defaultShards) || 1 : 1
@@ -1199,8 +1410,12 @@ function generatedMatrixSummaryIds(matrix, jobId) {
     }
   }
   if (shardSummaryIds.length > 0) return shardSummaryIds
-  if (jobId !== 'fast-backend') return [jobId]
-  return tiers.map((tier) => `${jobId}-${tier.id}`)
+  if (new Set(['fast-backend', 'fast-frontend-unit']).has(jobId)) {
+    return ciJobSchedulerMode(tiers) === 'parallel'
+      ? tiers.map((tier) => `${jobId}-${tier.id}`)
+      : [jobId]
+  }
+  return [jobId]
 }
 
 function aggregateDependencyJobs(matrix, summaryTiers, jobId) {
@@ -1225,7 +1440,7 @@ function aggregateRequiredPaths(matrix, dependencyJobs, summaryTiers) {
   }
   for (const tier of summaryTiers) addTierPaths(tier)
   for (const jobId of dependencyJobs) {
-    for (const tier of ciJobTiers(matrix, jobId)) addTierPaths(tier)
+    for (const tier of effectiveCiJobTiers(matrix, jobId)) addTierPaths(tier)
   }
   return [...paths].filter(requiresAggregateArtifact).sort()
 }
@@ -1290,14 +1505,8 @@ function loadJobSummaries() {
 }
 
 function aggregatePathExists(rel) {
-  const normalized = String(rel ?? '').trim().replace(/^['"]|['"]$/g, '').replaceAll('/', path.sep)
-  if (!normalized) return false
-  const direct = path.join(root, normalized)
-  if (fs.existsSync(direct)) return true
-
   const downloadedRoot = path.join(root, '.tmp/downloaded-artifacts')
-  const suffix = `${path.sep}${normalized}`
-  return findFiles(downloadedRoot, (candidate) => candidate.endsWith(suffix) || candidate.includes(suffix)).length > 0
+  return aggregateArtifactPathExists({ root, downloadedRoot, declaration: rel })
 }
 
 function githubNeedsErrors(rawNeedsJson, dependencyJobs) {
@@ -1679,15 +1888,67 @@ function ciPrPlan(matrix, args) {
   writePrSmartGateOutputs(matrix, plan, options.githubOutputFile)
 }
 
-function ciPrSmart(matrix, args) {
+async function ciPrSmart(matrix, args) {
   const options = parsePrSmartGateOptions(args)
   const plan = buildPrSmartGatePlan(matrix, options)
   if (options.planOnly === true) {
     console.log(JSON.stringify(plan, null, 2))
     return
   }
-  for (const tierId of plan.selectedTierIds) {
-    runTier(matrix, tierId, ['--no-deps'])
+  const byId = tierMap(matrix)
+  const tiers = plan.selectedTierIds.map((tierId) => byId.get(tierId)).filter(Boolean)
+  if (tiers.length === 0) return
+  const targetTierId = 'ci-pr-smart'
+  const schedulerOptions = { resume: false }
+  const { runsRoot, runId } = schedulerRunIdentity(targetTierId, schedulerOptions)
+  const runNamespace = namespaceFor({ ciJob: targetTierId, id: targetTierId }, null, runId)
+  prepareNamespaceEnvironmentIfNeeded(tiers, runNamespace)
+  resetFreshJobSummaries(tiers.map((tier) => [tier, {}]))
+  const result = await runDag({
+    tiers,
+    root,
+    runsRoot,
+    runId,
+    targetTierId,
+    mode: 'fresh',
+    resume: false,
+    supersedesUniverse: matrix.tiers,
+    coverageRegistry: loadCoverageRegistry().entries,
+    teeOutput: true,
+    envForTier(tier) {
+      const env = applyNamespaceBuildEnvironment(tier, {
+        ...loadNamespaceEnv(runNamespace),
+        CURRENT_TIER: tier.id,
+        MATRIX_JOB: tier.ciJob,
+        FSUSBLOG_TEST_NAMESPACE: runNamespace,
+        FSUSBLOG_TEST_RUN_ID: runId,
+        FSUSBLOG_CI_JOB_ID: tier.ciJob,
+        FSUSBLOG_CI_JOB_SCHEDULER: 'dag'
+      })
+      Object.assign(env, resourceEnvironmentForTier(tier, env))
+      const playwrightWorkers = playwrightWorkersForTier(tier)
+      if (playwrightWorkers !== null) env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkers)
+      applyUxViewportResumeEnvironment(env, tier, false)
+      return env
+    },
+    onTierStart(tier) {
+      emitTierReproductionHint(tier, { noDeps: true })
+      console.error(`[matrix:ci-pr-smart] started ${tier.id}: ${tier.command}`)
+    },
+    onTierComplete(tier, tierResult) {
+      const startedAt = Date.now() - tierResult.durationMs
+      const success = tierResult.status === 'success'
+      writeJobSummary(matrix, tier, success ? 'success' : 'failure', startedAt, {
+        schedulerRunId: runId,
+        failureStage: success ? null : stageForTier(tier),
+        rootCause: success ? null : tierResult.reason
+      })
+      console.error(`[matrix:ci-pr-smart] ${tier.id} ${tierResult.status}`)
+    }
+  })
+  console.error(`[matrix:ci-pr-smart] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`)
+  if (result.status !== 'success') {
+    process.exit(Number(result.failure?.exitCode) || 1)
   }
 }
 
@@ -1897,6 +2158,11 @@ function preflight(matrix) {
     process.exit(1)
   }
 
+  // The preflight tier declares the authoritative test plan as its evidence.
+  // Generate it only after validation succeeds so a clean checkout cannot
+  // report a successful tier with a missing output.
+  evidencePlan(matrix, '.tmp/release-evidence/test-plan.json')
+
   writeJobSummary(matrix, tierMap(matrix).get('validate-matrix'), 'success', Date.now(), {
     failureStage: null,
     rootCause: null,
@@ -1919,14 +2185,14 @@ function usage() {
   node tools/run-test-matrix.mjs preflight
   node tools/run-test-matrix.mjs list
   node tools/run-test-matrix.mjs plan <tier>
-  node tools/run-test-matrix.mjs run <tier> [--plan-only] [--no-deps] [--shard i/n]
-  node tools/run-test-matrix.mjs ci-tier <tier> [--plan-only] [--no-deps] [--shard i/n]
-  node tools/run-test-matrix.mjs ci-job <job> [--plan-only] [--shard i/n]
+  node tools/run-test-matrix.mjs run <tier> [--plan-only] [--no-deps] [--shard i/n] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-tier <tier> [--plan-only] [--no-deps] [--shard i/n] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-job <job> [--plan-only] [--shard i/n] [--fresh|--resume] [--max-parallel n]
   node tools/run-test-matrix.mjs ci-job-matrix <job> [--out file] [--github-output file] [--pr-plan file]
   node tools/run-test-matrix.mjs aggregate <job> [--dry-run] [--out file] [--github-needs json]
-  node tools/run-test-matrix.mjs ci-fast [--plan-only]
-  node tools/run-test-matrix.mjs ci-production [--plan-only]
-  node tools/run-test-matrix.mjs ci-release-final [--plan-only]
+  node tools/run-test-matrix.mjs ci-fast [--plan-only] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-production [--plan-only] [--fresh|--resume] [--max-parallel n]
+  node tools/run-test-matrix.mjs ci-release-final [--plan-only] [--fresh|--resume] [--max-parallel n]
   node tools/run-test-matrix.mjs ci-pr-plan [--changed-files file] [--base-ref ref] [--out .tmp/pr-plan.json] [--github-output file]
   node tools/run-test-matrix.mjs ci-pr-smart [--changed-files file] [--base-ref ref] [--full] [--plan-only]
   node tools/run-test-matrix.mjs ci-plan [--format github-actions] [--out .tmp/ci-plan.json]
@@ -1981,11 +2247,11 @@ async function main() {
     return
   }
   if (command === 'run') {
-    runTier(matrix, args[0], args.slice(1))
+    await runTier(matrix, args[0], args.slice(1))
     return
   }
   if (command === 'ci-tier') {
-    runTier(matrix, args[0], args.slice(1))
+    await runTier(matrix, args[0], args.slice(1))
     return
   }
   if (command === 'ci-job') {
@@ -2001,15 +2267,15 @@ async function main() {
     return
   }
   if (command === 'ci-fast') {
-    runTier(matrix, 'fast', args)
+    await runTier(matrix, 'fast', args)
     return
   }
   if (command === 'ci-production') {
-    runTier(matrix, 'production', args)
+    await runTier(matrix, 'production', args)
     return
   }
   if (command === 'ci-release-final') {
-    runTier(matrix, 'release-final', args)
+    await runTier(matrix, 'release-final', args)
     return
   }
   if (command === 'ci-plan') {
@@ -2021,7 +2287,7 @@ async function main() {
     return
   }
   if (command === 'ci-pr-smart') {
-    ciPrSmart(matrix, args)
+    await ciPrSmart(matrix, args)
     return
   }
   if (command === 'docs') {

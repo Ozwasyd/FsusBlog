@@ -36,7 +36,7 @@ public sealed class QualityGateSmartGateContractTests
         string matrix = BackendTestPaths.ReadAllTextFromRoot("tests/matrix.yml");
 
         Assert.Contains("id: coverage-backend", matrix, StringComparison.Ordinal);
-        Assert.Contains("smartGateMode: conditional", TierBlock(matrix, "coverage-backend"), StringComparison.Ordinal);
+        Assert.Contains("smartGateMode: always", TierBlock(matrix, "coverage-backend"), StringComparison.Ordinal);
         Assert.Contains("smartGateMode: conditional", TierBlock(matrix, "integration"), StringComparison.Ordinal);
         Assert.Contains("smartGateMode: conditional", TierBlock(matrix, "security"), StringComparison.Ordinal);
         Assert.Contains("smartGateMode: conditional", TierBlock(matrix, "acceptance"), StringComparison.Ordinal);
@@ -56,7 +56,9 @@ public sealed class QualityGateSmartGateContractTests
         Assert.Contains("plan-pr-risk:", workflow, StringComparison.Ordinal);
         Assert.Contains("ci-pr-plan", workflow, StringComparison.Ordinal);
         Assert.Contains("pr_smart_gate_summary", workflow, StringComparison.Ordinal);
-        Assert.Contains("needs.plan-pr-risk.outputs.coverage_backend", workflow, StringComparison.Ordinal);
+        Assert.Contains("./tools/test.sh ci-job fast-backend --fresh", workflow, StringComparison.Ordinal);
+        Assert.Contains("./tools/test.sh ci-job fast-frontend-unit --fresh", workflow, StringComparison.Ordinal);
+        Assert.Contains("needs: [plan-pr-risk, fast-backend, fast-frontend-unit]", workflow, StringComparison.Ordinal);
         Assert.Contains("needs.plan-pr-risk.outputs.backend_qps_collectors", workflow, StringComparison.Ordinal);
         Assert.Contains("github.event_name != 'pull_request'", workflow, StringComparison.Ordinal);
     }

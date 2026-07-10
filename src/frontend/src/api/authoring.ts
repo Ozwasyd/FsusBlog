@@ -8,6 +8,7 @@ import { encodeAuthoringJsonRequest } from '@/adapters/binary/authoringAdapter'
 import { FSUS_HEADERS } from './contracts'
 import { getBrowserFp } from '@/utils/fingerprint'
 import type { ArticleRightsRequest } from './article'
+import { AppErrorCode, createAppError } from '@/utils/appError'
 
 export interface ServerDraftSaveRequest {
   draftKey: string
@@ -1004,7 +1005,7 @@ async function requestAuthoringJson<T>(
 
   const frame = decode(await binaryRequest(`${BINARY_API_PREFIX}/author${path}`, requestOptions))
   if (!frame.ok || frame.frameType !== frameType) {
-    throw new Error(frame.ok ? 'AUTHORING_FRAME_UNEXPECTED' : 'AUTHORING_FRAME_DECODE_FAILED')
+    throw createAppError(AppErrorCode.ProtocolFailure, frame.ok ? 'AUTHORING_FRAME_UNEXPECTED' : 'AUTHORING_FRAME_DECODE_FAILED')
   }
 
   return JSON.parse(authoringJsonDecoder.decode(frame.payloadView)) as T

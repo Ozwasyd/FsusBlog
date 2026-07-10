@@ -14,7 +14,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-19T00:00:00Z");

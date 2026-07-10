@@ -1,5 +1,5 @@
-import path from 'node:path'
 import type { BrowserContextOptions } from '@playwright/test'
+import { resolveSessionFixtureFile } from '../fixture-paths.mjs'
 
 export const TEST_SESSION_HEADER = 'X-Fsus-Test-Session'
 
@@ -49,11 +49,13 @@ export function withTestSessionContextOptions(options: BrowserContextOptions = {
   }
 }
 
-export function resolveTestSessionFixtureFile(cwd = process.cwd()): string | undefined {
+export function resolveTestSessionFixtureFile(repoRoot?: string): string | undefined {
   const session = resolveTestSession()
   if (!session) {
     return undefined
   }
 
-  return path.resolve(cwd, '.playwright-fixtures', `${session}.aeds`)
+  return resolveSessionFixtureFile(session, repoRoot
+    ? { env: process.env, repoRoot }
+    : { env: process.env })
 }

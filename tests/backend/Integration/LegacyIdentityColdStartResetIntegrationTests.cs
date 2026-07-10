@@ -9,7 +9,7 @@ namespace FsusBlog.Server.Tests;
 
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class LegacyIdentityColdStartResetIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]

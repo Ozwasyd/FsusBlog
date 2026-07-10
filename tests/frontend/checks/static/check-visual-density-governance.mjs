@@ -268,6 +268,21 @@ function checkPublicTypographyContract() {
     /summary: `ui-article-summary mt-2 text-base sm:text-lg[\s\S]*?leading-\[1\.8\] sm:leading-\[1\.9\]/,
     'public summaries must retain the 16/18px reading role scale'
   )
+  assertContains(
+    themeTokensPath,
+    /metaCategory: `ui-article-category inline-flex min-h-9 items-center -mx-1 px-1[\s\S]*?outline-none \$\{focusRing\}/,
+    'public article category links must retain a 36px mobile touch target and visible focus treatment'
+  )
+  assertNotContains(
+    themeTokensPath,
+    /metaCategory: `[^`]*\bsm:min-h-[0-8]\b/,
+    'public article category links must not shrink below the 36px touch target at larger breakpoints'
+  )
+  assertContains(
+    themeTokensPath,
+    /tagLink: `inline-flex min-h-9 items-center px-1 text-xs sm:text-sm leading-4 sm:leading-5[\s\S]*?outline-none \$\{focusRing\}/,
+    'public article tags must retain a 36px mobile touch target and visible focus treatment'
+  )
 
   const publicPageCss = read(publicPageCssPath)
   const publicShellCriticalCss = read(publicShellCriticalCssPath)

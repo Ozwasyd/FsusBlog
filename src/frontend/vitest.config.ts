@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import { createFsusUiAliases, resolveLocalFsusUiRoot } from './scripts/fsusui-local'
+import { createVitestRuntimeOptions } from './vitest.shared.mjs'
 
 const unitSetupFile = fileURLToPath(new URL('./tests/frontend/unit/setup.ts', import.meta.url))
 const disableLocalFsusUi = process.env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
@@ -21,10 +22,10 @@ export default defineConfig({
     ]
   },
   test: {
+    ...createVitestRuntimeOptions('unit'),
     environment: 'node',
     include: ['../../tests/frontend/unit/**/*.test.ts'],
     setupFiles: [unitSetupFile],
-    reporters: ['default'],
     coverage: {
       provider: 'v8',
       allowExternal: true,

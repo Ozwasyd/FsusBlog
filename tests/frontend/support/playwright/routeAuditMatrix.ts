@@ -57,6 +57,6 @@ export function buildAdminRoutes(fixtures: PlaywrightAuditFixtures): RouteCheck[
     { name: 'manage-message', path: '/user/manage/messages', expectedUrl: '/user/manage/messages' },
     { name: 'manage-audit', path: '/user/manage/audit', expectedUrl: '/user/manage/audit' },
     { name: 'manage-user-profile', path: '/user/profile', expectedUrl: '/user/identity' },
-    { name: 'manage-login-redirect', path: '/login', expectedUrl: '/user/manage' }
+    { name: 'manage-login-redirect', path: '/login', expectedUrl: '/user/identity' }
   ]
 }

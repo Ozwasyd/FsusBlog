@@ -1,4 +1,5 @@
 import type { ApiRequestConfig } from './requestConfig'
+import { appErrorFromStatus } from '@/utils/appError'
 
 const ADMIN_SENSITIVE_MFA_HEADER = 'X-Fsus-Mfa-Proof'
 const ENDPOINT = '/api/admin/integrity/console'
@@ -124,7 +125,7 @@ async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
   })
   if (!response.ok) {
     const text = await response.text()
-    throw new Error(text || `HTTP ${response.status}`)
+    throw appErrorFromStatus(response.status, text || `HTTP ${response.status}`)
   }
 
   return await response.json() as T

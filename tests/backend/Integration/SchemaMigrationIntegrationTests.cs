@@ -17,7 +17,7 @@ namespace FsusBlog.Server.Tests;
 
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     private const string Legacy20260517Fixture = "legacy-20260517-minimal.sql";

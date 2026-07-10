@@ -41,9 +41,7 @@ vi.mock('@/api/auth', () => ({
 }))
 
 vi.mock('@/composables/useAdminSensitiveProof', () => ({
-  useAdminSensitiveProof: () => ({
-    ensureAdminSensitiveProof: mocks.ensureAdminSensitiveProof
-  })
+  ensureAdminSensitiveProof: mocks.ensureAdminSensitiveProof
 }))
 
 vi.mock('@/utils/errorPresentation', () => ({

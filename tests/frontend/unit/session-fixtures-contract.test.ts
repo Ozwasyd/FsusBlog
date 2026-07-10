@@ -114,4 +114,24 @@ describe('dev auth fixture persistence contract', () => {
     expect(publicBrowserEnvMatrix).toContain("cell.sessionState === 'admin'")
     expect(publicBrowserEnvMatrix).toContain('fsusLocalFixtureAdmin=1')
   })
+
+  it('rejects the entire legacy credential fixture directory including symbolic links', () => {
+    const fixtureGovernance = readRepoFile('tests/frontend/checks/static/check-test-fixture-secret-governance.mjs')
+
+    expect(fixtureGovernance).toContain("resolve(repoRoot, 'src/frontend/.playwright-fixtures')")
+    expect(fixtureGovernance).toContain('lstatSync(legacyFixtureRoot)')
+    expect(fixtureGovernance).toContain('legacy fixture directory or symbolic link must not remain on disk')
+  })
+
+  it('keeps direct public fixture seeding compatible with rights v3 public AOT', () => {
+    const discoverFixtures = readRepoFile('tests/frontend/fixtures/discover-playwright-fixtures.mjs')
+
+    expect(discoverFixtures).toContain('INSERT INTO article_revision')
+    expect(discoverFixtures).toContain('INSERT INTO article_rights_policy')
+    expect(discoverFixtures).toContain('INSERT INTO article_rights_snapshot')
+    expect(discoverFixtures).toContain('ON CONFLICT (article_id, revision_no) DO UPDATE')
+    expect(discoverFixtures).toContain('ON CONFLICT (article_id, article_revision_id) DO UPDATE')
+    expect(discoverFixtures).toContain("'rights-v3:policy-hash:recompute'")
+    expect(discoverFixtures).toContain("'rights-v3:content-hash:recompute'")
+  })
 })

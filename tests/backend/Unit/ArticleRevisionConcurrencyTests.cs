@@ -16,7 +16,7 @@ using StackExchange.Redis;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly MethodInfo SaveRevisionMethod = typeof(ArticleService)

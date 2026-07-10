@@ -4,9 +4,13 @@ FsusBlog 采用机器可读测试 DAG。`tests/matrix.yml` 是唯一测试拓扑
 
 `tests/coverage-registry.json` 是 matrix `coverage[]` 的机器可读索引。每个 coverage id 必须声明 `description`、`owner`、`risk`、`evidencePaths`、`assertionType`、`failClosedRule` 和 `minimumRequirement`；`description` 必须描述实际覆盖语义，不能保留 `Coverage contract for ...` 这类模板句，`minimumRequirement` 必须写明最低可接受断言或 evidence 形态，不能只重复 tier 类型。`tools/run-test-matrix.mjs validate` 会拒绝未注册的 coverage id、未被对应 tier artifact/evidence 声明的 evidence path、未使用的 registry id，拒绝只指向 unit/property 测试文件却标成非 `unit` 的明显 assertionType 错配，也会拒绝 `runtime` / `browser` / `perf` / `fuzz` / `mutation` 类型只指向静态 docs/source 文件的条目。该 registry 不替代测试本体，只把“这个 coverage 标签由什么证据证明”变成 fail-closed 合同。
 
-普通 PR 使用 smart gate：`plan-pr-risk` 始终运行并生成 `.tmp/pr-plan.json` 与 `.tmp/release-evidence/pr-smart-gate-summary.json`，fast lane 与 backend-qps sentinel 默认保留，coverage / browser / production / release / load / resilience 等重 lane 只在 changed paths、coverage id 或显式 full gate 命中时运行。跳过必须写入 skip evidence；不得 silent skip。`release-final`、push 与手动 full gate 仍执行完整矩阵。
+普通 PR 使用 smart gate：`plan-pr-risk` 始终运行并生成 `.tmp/pr-plan.json` 与 `.tmp/release-evidence/pr-smart-gate-summary.json`，fast lane 与 backend-qps sentinel 默认保留，browser / production / release / load / resilience 等重 lane 只在 changed paths、coverage id 或显式 full gate 命中时运行。backend/frontend coverage 已并入对应 fast `ci-job`，并通过 `supersedes` 替代同一 `executionKey` 的普通 unit 执行；跳过必须写入 skip evidence，不得 silent skip。`release-final`、push 与手动 full gate 仍执行完整矩阵。
 
-测试瘦身只允许基于机器证据推进。`static-governance` 会运行 `tools/check-test-retention.mjs` 并写入 `.tmp/release-evidence/test-retention-audit.json`，按测试文件归类为 `must-keep`、`conditional`、`review-candidate` 或 `obsolete-candidate`。`must-keep` 覆盖 API/安全/协议/发布/矩阵/治理等契约；`conditional` 代表成本较高但仍由 smart gate 或 release-final 保留的 lane；`review-candidate` 只能进入人工复核，不得自动删除；只有无 coverage、无 matrix 引用、且有人工确认替代覆盖的 `obsolete-candidate` 才能删除。
+测试瘦身只允许基于机器证据推进。`static-governance` 会运行 `tools/check-test-retention.mjs` 并写入 `.tmp/release-evidence/test-retention-audit.json`，按测试文件归类为 `must-keep`、`conditional`、`review-candidate` 或 `obsolete-candidate`。audit 对每个测试 ID 保存 framework、tier 调用次数、p50/p95、coverage ID、断言目标、失败历史、唯一证据与 replacement IDs；没有计时或历史样本时必须显式记录证据缺失，不能伪造为零。producer 元数据同时记录 `runId`、`sourceState` 与 `generatedAt`；矩阵内执行自动继承 `FSUSBLOG_TEST_RUN_ID`，而 standalone audit 的 `runId=null` 只能用于诊断，不能成为 release authority。`must-keep` 覆盖 API/安全/协议/发布/矩阵/治理等契约；`conditional` 代表成本较高但仍由 smart gate 或 release-final 保留的 lane；`review-candidate` 只能进入人工复核，不得自动删除；只有 coverage registry、断言目标、critical mutation slice 与矩阵维度均不下降，并为每个被删 test ID 给出已保留 replacement IDs，才允许标为删除。
+
+最终优化报告由 `node tools/test/optimization-report.mjs` 生成，并默认 fail closed：调用方必须显式传入本轮 checkpoint，且其中必须有 `status=success` 的 `production --fresh`，不会扫描旧运行或用 focused fresh 代替；`ux-viewport-boundaries <= 20m`、数据库 `integration <= 4m`、`static-governance <= 20s` 必须全部有成功耗时。production fresh 完成后，必须用 checkpoint 的 run id 显式重跑 `node tools/check-test-retention.mjs --run-id <production-run-id>`，再生成最终报告；报告拒绝 producer run id 不同、audit `generatedAt` 早于 production checkpoint `finishedAt`，或缺少任一时间戳的证据。production checkpoint、预算 checkpoint、retention audit 以及 backend/frontend/merged coverage producer 必须同时匹配当前 `HEAD` 和 worktree fingerprint；coverage 与 retention audit 还必须来自同一个权威 run id，源码在验证后发生任何变化都会使报告失效。报告要求 `tests/test-optimization-snapshot.schema.json` 定义的 before/after snapshot，对 backend、frontend、merged 的 line/branch 百分比逐项证明不下降。仓库内的 `tests/test-optimization-coverage-baseline.json` 是优化前的默认基线；需要捕获新的显式基线时运行 `node tools/test/optimization-report.mjs --capture-snapshot <path>`，缺少任一 line/branch scope 时命令直接失败，也可用 `--baseline-snapshot` / `--current-snapshot` 显式覆盖。critical mutation 默认以 before/after `backend-mutation` 与 `release-mutation-critical-slice` 的 test/scope IDs 完全一致证明未退化；仅当删除命中该 critical scope 时才强制要求 before/after mutation score 与 scope snapshot，scope 外的 UI/viewport 合并则必须同时证明 critical test/scope identity 未改变。
+
+70-case mobile-landscape runner 对照由 `ux-viewport-canary-parity` tier 承担。legacy runner、旧版边界断言 helper、route/fixture/matrix 依赖全部固化在 tracked `tests/frontend/fixtures/ux-viewport-legacy/runtime/`，`manifest.json` 对每个源文件绑定 SHA-256；执行时只复制该 snapshot，禁止从当前 `tests/frontend/support` 回填 legacy helper。历史证据也必须有 70 个逐 case Playwright JSON 失败消息、签名和来源哈希；现存材料只有早停前 20 个 group title，不能推导逐 case 签名，因此 `historical-failure-signatures.json` 明确标记为 `incomplete`，tier 在启动服务前写出 `status=blocked` / `historical-baseline-incomplete` 并失败。全通过的当前 UI、group 名称或现场重新运行都不能替代缺失的历史失败签名。
 
 `coverage-threshold` 会分别校验 merged、backend-only 和 frontend-only coverage。默认 frontend 阈值与常规 merged gate 保持保守一致：`FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD=35`、`FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD=20`、`FSUSBLOG_FRONTEND_COVERAGE_FUNCTION_THRESHOLD=30`；PR/push 可以通过这些环境变量临时调高或降低，但 release evidence 会把 `coverage.frontend` 单独展示，避免 frontend 退化被 merged totals 掩盖。
 
@@ -37,9 +41,9 @@ node tools/docs/generate-testing-docs.mjs --check
 ./tools/test.sh ci-plan --out .tmp/ci-plan.json
 ```
 
-`ci-job <job>` 按 `ciJob` 聚合运行该 Actions job 里的 required matrix tiers；`ci-tier <tier>` 运行单个 tier，默认包含它的 matrix 依赖，可继续传 `--no-deps` 或 `--shard i/n`。每个 tier 执行前都会在日志里打印对应的本地复现命令。完整 tier 与 CI job 对照见 [testing.generated.md](testing.generated.md)。
+`ci-job <job>` 按 `ciJob` 聚合运行该 Actions job 里的 required matrix tiers；`ci-tier <tier>` 运行单个 tier，默认包含它的 matrix 依赖，可继续传 `--no-deps` 或 `--shard i/n`。权威 CI/release 运行必须显式传 `--fresh`；调试中断点续跑使用 `--resume`，并可用 `--max-parallel N` 人工收紧并发。每个 tier 执行前都会在日志里打印对应的本地复现命令。完整 tier 与 CI job 对照见 [testing.generated.md](testing.generated.md)。
 
-Matrix 同时声明调度元数据：`phase` 表示 CI DAG 阶段，`cost` 表示预期耗时，`resourceClass` 标识主要资源（如 `browser`、`database`、`benchmark`），`maxParallel` 约束 shard 并发，`requiresBootstrap` 标明是否依赖本地 runtime bootstrap。GitHub Actions 的 sharded jobs 必须与 matrix `maxParallel` 保持同步；benchmark 类 tier 固定 `maxParallel=1`，避免与噪声较大的浏览器/负载套件共享 runner 时污染结果。
+Matrix 同时声明调度元数据：`phase` 表示 CI DAG 阶段，`cost` 表示预期耗时，`resourceClass` 标识主要资源（如 `browser`、`database`、`benchmark`），`maxParallel` 是 tier 上限，`cpuUnits` / `memoryGiB` 是资源预算，`exclusiveResources` 声明互斥写入或共享服务，`requiresBootstrap` 标明是否依赖本地 runtime bootstrap。runner 按可用 CPU、空闲内存与 load 动态计算实际并发，且不会跨 phase barrier 提前执行；benchmark 类 tier 固定 `maxParallel=1`，避免与噪声较大的浏览器/负载套件共享 runner 时污染结果。
 
 `phase` 是可执行 DAG 契约：任一 tier 的 dependency phase 必须小于等于该 tier phase，`tools/run-test-matrix.mjs validate` 会拒绝 phase 倒挂。`requiresBootstrap != none` 也必须有明确来源：matrix 依赖链能到达 `bootstrap`，或 tier 自身声明 `selfBootstraps: true`，或由 GitHub Actions job 手工先跑 bootstrap 并在 tier 上声明 `workflowBootstraps: true`。`tools/check-workflow-matrix-sync.mjs` 会反向校验 workflow 的手工 bootstrap 与 `workflowBootstraps` 元数据一致。
 
@@ -47,9 +51,19 @@ Matrix 同时声明调度元数据：`phase` 表示 CI DAG 阶段，`cost` 表�
 
 Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`requiresPlaywright` 表示运行时需求，`cacheProfile` 表示依赖缓存需求。`cacheProfile=frontend` 必须使用 `actions/setup-node` 的 npm cache，并固定 `cache-dependency-path: src/frontend/package-lock.json`；`cacheProfile=backend` 必须使用 `~/.nuget/packages`，key 固定由 `*.csproj`、`*.props`、`*.targets`、`global.json`、`NuGet.config` 共同计算；`full` 同时要求两者。Playwright tier 只安装声明的浏览器：`chromium` tier 只安装 Chromium，cross-browser tier 使用 `${{ matrix.browser }}`。
 
+### Resource-aware scheduler 与断点恢复
+
+每次 DAG 执行写入 `.tmp/test-runs/<run-id>/checkpoint.json` 与独立 tier 日志。checkpoint 记录运行模式、权威性、`sourceState`、输入指纹、依赖指纹、耗时、完成 tier 和首个失败点；`--resume` 只复用指纹仍匹配且必需产物未变化的成功 tier，源码、命令、shard 或关键环境变化只让受影响节点及其下游失效。tier 未显式声明 `cacheInputs` 时，runner 会按 backend/frontend/shared 范围推导输入；显式输入也会自动补入 matrix、coverage registry、共享 lane、run-once 与对应 Vitest 配置，避免“声明过窄”造成误复用。`--fresh` 不读取旧进度，checkpoint 标记 `authoritative=true`，是提交、CI 和 release evidence 的唯一有效模式。
+
+首个 tier 失败后，scheduler 会终止仍在运行的子进程组并不再启动新节点；每个 tier 前后都比较 tracked worktree 状态、mode 与 index，测试若新增 tracked diff 即失败。fresh 运行会先清理该 tier 所拥有的 `.tmp`/coverage/test-result 产物并验证内容与 mtime provenance，旧文件不能掩盖 no-op producer。测试阶段只能校验 tracked generated manifest；需要更新 tracked 生成物时必须通过显式生成命令在测试前完成，测试本身不得重写。`executionKey` 表示同一测试集合，coverage variant 只有在 coverage ID 为目标普通 tier 的超集时才能通过 `supersedes` 替代普通执行；property、model、performance、runtime、security、protocol、migration、concurrency 与 release evidence 不允许被 coverage 隐式替代。
+
+共享准备操作由 `tools/test/run-once.mjs` 按 namespace 和输入指纹执行一次。锁包含 owner token、PID 存活校验和 heartbeat；必需输出按内容状态验证，Wasm 使用完整 `public/wasm/`，认证 fixture 使用完整 auth 目录，release build 同时验证两个 index 输出。Playwright fixture 默认写入 `.tmp/fixtures/<namespace>/`；auth 目录固定 `0700`、cookie/storage-state 文件固定 `0600`，旧 `src/frontend/.playwright-fixtures/` 不得保留。fresh `production` / `release-final` 无论成功或失败都会在 scheduler 返回后删除默认 namespace 的 auth 目录，并写 `.tmp/release-evidence/sensitive-fixture-cleanup.json`；显式外部 `FSUSBLOG_FIXTURE_ROOT` 由调用方负责清理。
+
+xUnit 通过 `tests/backend/xunit.runner.json` 启用 stop-on-fail；filtered tier 先复用一次 `backend-filtered-build`，随后统一 `dotnet test --no-build`。每个 ordinary/special/filtered lane 都写入 `.tmp/test-results/backend/<lane>.trx`，retention audit 以稳定 `Class.Method` identity 汇总真实 p50、p95 与失败历史。所有使用 `PostgresSchemaMigrationFixture` 的测试类必须进入 `SchemaMigrationPostgresCollectionA/B` 之一；两个 collection 各自持有隔离 Postgres container，每个测试仍创建唯一数据库。`postgres-test-collections.json` 当前登记 28 个 fixture-backed class、227 个估算 case，checker 从源码重新发现 class 与 `Fact`/`Theory` case，拒绝漏 annotation、重复/遗漏 manifest 或 `estimatedFacts` 漂移。低 CPU、低于约 6 GiB 可用内存或高 load 时，`DOTNET_PROCESSOR_COUNT` 自动降为 `1`；其余机器最多并行两个 collection。
+
 ### Frontend fast split
 
-前端 fast gate 拆成独立 tier：`frontend-build`、`frontend-unit-shard`、`frontend-runtime-contracts`、`frontend-static-governance`、`frontend-fast-summary`。`frontend-build` 只运行一次并上传 `src/frontend/dist/**` 与 `.tmp/frontend/frontend-build.json`；`frontend-unit-shard` 保留 Vitest shard；`frontend-runtime-contracts` 单独覆盖 worker/a11y/binary/runtime/wasm checks；`frontend-static-governance` 单独覆盖前端静态治理，并把 `check-gate-integrity`、`check-test-matrix` 这类全局 static governance 留给 `static-governance` job，避免重复。
+前端 fast gate 拆成独立 tier：`frontend-build`、`frontend-unit-shard`、`frontend-property-model-perf`、`frontend-runtime-contracts`、`frontend-static-governance`、`frontend-fast-summary`。`frontend-build` 只运行一次并上传 `src/frontend/dist/**` 与 `.tmp/frontend/frontend-build.json`；普通 Vitest unit 由 `coverage-frontend` 以同一 `executionKey` 覆盖执行一次，原 `frontend-unit-shard` 仅保留为无 coverage 的调试入口；property/model/perf 继续由独立 tier 执行，不会被 coverage 替代。`frontend-runtime-contracts` 单独覆盖 worker/a11y/binary/runtime/wasm checks；`frontend-static-governance` 单独覆盖前端静态治理，并把 `check-gate-integrity`、`check-test-matrix` 这类全局 static governance 留给 `static-governance` job，避免重复。
 
 本地复现命令：
 
@@ -57,14 +71,16 @@ Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`re
 ./tools/test.sh ci-tier frontend-build --no-deps
 ./tools/test.sh ci-tier frontend-unit-shard --no-deps --shard 1/2
 ./tools/test.sh ci-tier frontend-unit-shard --no-deps --shard 2/2
+./tools/test.sh ci-tier frontend-property-model-perf --no-deps
+./tools/test.sh ci-job fast-frontend-unit --fresh
 ./tools/test.sh ci-tier frontend-runtime-contracts --no-deps
 ./tools/test.sh ci-tier frontend-static-governance --no-deps
 node tools/run-test-matrix.mjs aggregate fast-summary --dry-run
 ```
 
-`--shard i/n` 会注入 `FSUSBLOG_TEST_SHARD_INDEX/TOTAL`，`run_frontend_unit_shard_lane()` 将其转换成 Vitest `--shard=i/n`，只传给 `test:unit:fast`、`test:property`、`check:frontend-state-machines` 和 `check:frontend-perf-regression`。build、runtime-contracts、static-governance 不再随每个 unit shard 重复执行。
+`--shard i/n` 会注入 `FSUSBLOG_TEST_SHARD_INDEX/TOTAL`，`run_frontend_unit_shard_lane()` 将其转换成 Vitest `--shard=i/n`，只传给普通 `test:unit:fast` 调试入口。Vitest worker 数按 CPU、空闲内存和 load 动态计算，默认 `bail=1`；只有显式 diagnostic 模式才使用 `bail=0`。每个 config 同时输出独立 JSON/JUnit 耗时报告。build、property/model/perf、runtime-contracts、static-governance 不随 unit 重复执行。
 
-每个子 tier 都由 `run-test-matrix` 写入独立 `.tmp/release-evidence/jobs/<job>.json` job summary。CI artifacts 分别为 `frontend-build`、`fast-frontend-unit-1-of-2`、`fast-frontend-unit-2-of-2`、`frontend-runtime-contracts`、`frontend-static-governance`；`fast-summary` 下载这些 artifacts 和 `fast-static-governance`/`fast-backend-*` 后运行 artifact-only aggregate。matrix validator 会拒绝缺少任一 frontend fast 子 tier、`frontend-unit-shard` 失去 shard、或 `fast` 继续依赖旧 monolithic `frontend-fast`。
+每个有效子 tier 都由 `run-test-matrix` 写入独立 `.tmp/release-evidence/jobs/<job-tier>.json` job summary。CI artifacts 为 `frontend-build`、一个包含 coverage 与 property/model/perf 的 `fast-frontend-unit`、`frontend-runtime-contracts`、`frontend-static-governance`；`fast-summary` 下载这些 artifacts 和 `fast-static-governance`/`fast-backend` 后运行 artifact-only aggregate。matrix validator 会拒绝缺少任一 frontend fast 子 tier、coverage 替代范围越界、或 `fast` 继续依赖旧 monolithic `frontend-fast`。
 
 ### Rights V3 test matrix
 
@@ -84,16 +100,21 @@ Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` �
 
 | Lane | Scale mode | Current policy | Artifact isolation | Worker policy |
 |---|---|---|---|---|
-| `acceptance` | shard + guarded worker | `4` shards, `maxParallel=4`; only SPA route audit may raise worker count | `acceptance-playwright-1-of-4` ... `4-of-4` | `acceptance-spa-routes` resolves a local cap from CPU/memory/load; auth, public serial, and console mutation flows stay worker `1` |
+| `acceptance` | shard + guarded worker | `4` shards, `maxParallel=4`; isolated route audits may raise worker count | `acceptance-playwright-1-of-4` ... `4-of-4` | `acceptance-spa-routes` and the fully isolated `acceptance-public-routes` resolve a local cap from CPU/memory/load; auth and console mutation flows stay worker `1` |
 | `visual-public` / `visual-console` | shard + worker | each group uses `2` shards, `maxParallel=2`; `visual` aggregate is artifact-only | `visual-public-playwright-1-of-2` / `2-of-2`, `visual-console-playwright-1-of-2` / `2-of-2`, aggregate `visual-playwright` | lane scripts compute a local cap and pass explicit `--workers`; current cap is `2` for visual baselines |
-| `ux-viewport-smoke` | shard + worker | `2` shards, `maxParallel=2`; spec expands the matrix into route/theme/media/storage case groups | `ux-viewport-smoke-1-of-2` / `2-of-2` | lane script computes a local cap from CPU/memory/load; on 8 CPU with enough memory the cap is `3` |
+| `ux-viewport-smoke` | shared planner + guarded worker | one non-sharded plan，`10 routes / 20 route-theme groups / 120 navigations / 336 cases` | one `ux-viewport-smoke` artifact | lane script computes a local cap from CPU/memory/load; CI policy currently caps this authoritative plan at worker `1` |
+| `ux-viewport-visual` / `ux-viewport-boundaries` | guarded worker | one process retains the complete matrix and final evidence summary | one mode artifact plus screenshot directory | lane scripts compute a CPU/memory/load cap and prebuild one isolated session fixture per worker; the release-preview path permits up to `3` screenshot workers and `4` no-screenshot boundary workers on an 8-core host |
 | `cross-browser-smoke` | browser matrix | chromium/firefox/webkit matrix, no spec shard | browser-specific artifact | keep worker `1` |
 | `frontend-render-pressure` | single process | no shard; measures DOM/render pressure noise | single artifact | no Playwright worker scaling |
 | `resilience` | single process | no shard; shares fault/runtime state | single artifact | no Playwright worker scaling |
 
-Acceptance parallelism decision（2026-06-15 / updated 2026-07-03）：`acceptance` 仍先采用 `maxParallel=4` 的 shard 并发；只有 `acceptance/spa-routes.spec.ts` 这类隔离 route audit 通过 `tools/test/resolve-playwright-workers.mjs acceptance-spa-routes` 提高 worker。`public-routes` 已声明 serial，`auth-flows` 和 console flows 涉及登录态、写作、消息、用户状态变更，继续保持 worker `1`。如果 per-shard job summary 或 flaky evidence 显示新增不稳定，回退路径是 unset `FSUSBLOG_SPA_ROUTES_WORKERS` 或把 resolver profile cap 降回 `1`，workflow 仍从 validate-matrix 输出同步 shard 结构。
+Acceptance parallelism decision（2026-06-15 / updated 2026-07-10）：`acceptance` 仍先采用 `maxParallel=4` 的 shard 并发；`acceptance/spa-routes.spec.ts` 与关闭 human-read proof、notification stream 后的 `public-routes.spec.ts` 通过 `tools/test/resolve-playwright-workers.mjs` 提高 worker。未关闭这两个共享风险来源的 public route run 仍保持 serial；`auth-flows` 和 console flows 涉及登录态、写作、消息、用户状态变更，继续保持 worker `1`。如果 per-shard job summary 或 flaky evidence 显示新增不稳定，回退路径是 unset 对应 worker 环境变量或把 resolver profile cap 降回 `1`，workflow 仍从 validate-matrix 输出同步 shard 结构。
 
-`ux-viewport-smoke` sharding plan：smoke 模式保留完整 viewport/route/theme/media/content-boundary 覆盖，但不再把所有 case 放进一个 Playwright test 里顺序循环。spec 会按 viewport + theme + media + storage 生成多个 case group，让 Playwright 原生 `--shard 1/2`、`2/2` 和 lane-computed workers 都能实际拆分矩阵。`check:ux:viewport-smoke` 必须传递 `${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}` 并使用 `${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}}`；每个 shard 上传 `.tmp/ux/**`、`.tmp/release-evidence/ux-viewport-summary.json` 和 `src/frontend/test-results/playwright/ux-viewport-smoke/**`。`ux-viewport-visual` 与 `ux-viewport-boundaries` 保持单进程，因为它们涉及截图/边界证据，需单独评估后再 shard。
+三个 UX 模式共享 `uxViewportPlan.mjs` 纯规划器：smoke 固定 `336` cases，visual 固定 `378` cases，boundaries 固定 `14 × 2 × 7 × 33 = 6468` cases。boundaries 以 `route + theme` 为 66 个稳定 group；每个 group 复用一个 browser context，但每个 viewport 冷启动新 page 并只导航一次，因此导航数从 6468 降到 `33 × 2 × 14 = 924`。每个 viewport 依次运行 media step，步骤间执行 `default → target → default` 的 focus、selection、window/inner scroll、probe 与临时 style 完整复位；DOM 边界往返合并为一份结构化报告，焦点检查仍单独保留。
+
+progress 以稳定 group/step ID 写入 `.tmp/ux/runs/`；`FSUSBLOG_UX_VIEWPORT_RESUME=1` 只续跑失败和未执行的 route-theme group，fresh 权威运行不读取旧 progress。Playwright 默认 `maxFailures=1`，只有 `FSUSBLOG_PLAYWRIGHT_DIAGNOSTIC_ALL_FAILURES=1` 才显式改为 `0`。`run-ux-viewport-playwright.mjs` 无论 Playwright 成功或失败都会写 current-run summary，并保留原始失败退出码。trace、截图、console/pageerror/request audit、路由、触控面积、overflow、主题与 content-boundary 断言全部保留。
+
+三个 UX lane 都用同一命名空间的 release preview 承载浏览器访问，fixture 仍通过 debug backend 准备；这样保留 production bundle、API proxy 与 runtime audit，却避免并发 Vite 模块转换导致的 `ERR_INSUFFICIENT_RESOURCES`。lane 为实际 worker 数预生成隔离 session fixture；较低资源或较高负载会由 resolver 自动降低并发，覆盖内容不变。截图文件以 viewport/theme/route 命名，default media 仅写一次，因此并发 worker 不会覆盖 evidence。
 
 Session fixture policy：lane 已经能确定实际 worker 数时，必须用 `npm run prepare:playwright:sessions -- --workers <count>` 预生成对应数量的 `pw-*` fixture，并设置 `FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1`，避免每个 Playwright 子命令再触发 global setup 重复准备。直接运行 package script 时仍保留 global setup 兜底。
 
@@ -111,7 +132,7 @@ Flaky 治理由 `tests/flaky.yml` 和 `tools/ci/check-flaky-registry.mjs` 控制
 
 `load` 与 WebSocket pressure 检查会写入 `.tmp/perf/load-public-api.json` 和 `.tmp/perf/notification-stream-pressure.json`，release evidence 会把 `.tmp/perf/` 作为性能证据归档。默认参数来自 `tests/perf/perf-policy.yml`：HTTP load baseline 为 `concurrency=10`、`rounds=6`、`durationMs=30000`；WebSocket pressure 为 `connections=50`、`durationMs=30000`。
 
-`tests/perf/perf-policy.yml` 是 load profile 的唯一策略源。`tools/test/lanes/load-profile.sh <profile>` 与 `runtime-evidence-probe.mjs load-profile` 必须从该文件读取 baseline / expected-peak / 2x-peak / burst 的 `concurrency`、`rounds`、`durationMs` 与预算阈值；只有显式环境变量 `FSUSBLOG_LOAD_PROFILE_CONCURRENCY`、`FSUSBLOG_LOAD_PROFILE_ROUNDS`、`FSUSBLOG_LOAD_PROFILE_DURATION_MS` 可以覆盖执行参数。每个 load profile summary 必须同时写入 `policy.file`、`profileName`、`declared`、`effective`、`thresholds`、`thresholdEvaluation`、`overrideSource` 与 `overrideSources`，release evidence 校验会拒绝没有解释的 policy/effective 不一致或没有 threshold 对照的 performance profile。`load-profile.sh` 必须把 runtime probe 的 status 透传到 `.tmp/release-evidence/perf-summary.json`，不得无条件写 `status:"ok"`。
+`tests/perf/perf-policy.yml` 是 load profile 的唯一策略源。`tools/test/lanes/load-profile.sh <profile>` 与 `runtime-evidence-probe.mjs load-profile` 必须从该文件读取 baseline / expected-peak / 2x-peak / burst 的 `concurrency`、`rounds`、`durationMs` 与预算阈值；只有显式环境变量 `FSUSBLOG_LOAD_PROFILE_CONCURRENCY`、`FSUSBLOG_LOAD_PROFILE_ROUNDS`、`FSUSBLOG_LOAD_PROFILE_DURATION_MS` 可以覆盖执行参数。每个 load profile summary 必须同时写入 `policy.file`、`profileName`、`declared`、`effective`、`thresholds`、`thresholdEvaluation`、`overrideSource` 与 `overrideSources`，release evidence 校验会拒绝没有解释的 policy/effective 不一致或没有 threshold 对照的 performance profile。各 load profile、backend BenchmarkDotNet regression 与 browser performance regression 分别写入 `.tmp/perf/release-summaries/` 下的唯一 summary，禁止共享 writer；`performance-evidence-summary` 在 `release-evidence` 前要求 baseline、expected-peak、backend benchmark 与 browser 四类输入齐全，再原子生成 `.tmp/release-evidence/perf-summary.json`。聚合状态保留各 producer 的真实 status，任何 failed 优先于 blocked，不能无条件写 `status:"ok"`。
 
 性能证据默认采用项目内基线：single process、Kestrel-only、无 nginx、无 CDN、无 reverse-proxy cache、无代理压缩层计入结果。nginx/Caddy/CDN 可以作为生产部署层存在，但相关数据必须写入独立的 `optional_deployment_layer`，并标记 `counted_as_project_baseline=false`。
 
@@ -328,7 +349,7 @@ graceful shutdown drill 同样由 `runtime-evidence-probe.mjs fault-injection` �
 
 disk/artifact storage write-failure drill 同样由 `runtime-evidence-probe.mjs fault-injection` 执行，case 名为 `disk-artifact-storage-write-failure`。probe 只在 `.tmp/fault-injection-storage/<namespace>/` 下创建临时 artifact 目录，将目标目录设为不可写，触发一次写入失败并分类为受控错误，然后恢复权限、验证写入恢复并清理目录。证据必须包含 `targetPath`、`expectedErrorClassification`、`writeFailureResult.status=expected-error`、`recoveryResult.status=completed`、`cleanupResult.status=completed`、`recoveryDurationMs` 与 `finalHealthStatus=healthy`；直接写生产目录、留下测试目录或只记录 observed-only 状态都不算完成。
 
-data-scale lanes 必须生成真实、可查询、可清理的 fixture。`tools/data-scale/seed.sh` 按 `FSUSBLOG_TEST_NAMESPACE` 写入 namespace 前缀数据：`scale-xs=1/0`、`scale-s=100/1,000`、`scale-m=10,000/100,000`、`scale-l-nightly=100,000/1,000,000`（article/comment）。seed summary 必须包含 `declared`、`expected`、`observed`、`coverage`、`search`、`artifacts` 和 `durationMs`；`runtime-evidence-probe.mjs data-scale` 必须读取该 seed summary，并按同一 namespace 前缀复核 PostgreSQL 中 article、comment、category、tag、article_body、article_tag、root comment 和 nested comment 数量。声明值、seed 实测值、probe 实测值任一不一致都必须失败。`tools/data-scale/cleanup.sh` 只删除同 namespace/tier 前缀数据，并在 `cleanup.json` 中证明 remaining 为 0；不能用全库 truncate 或只丢弃 manifest 代替清理。
+data-scale lanes 必须生成真实、可查询、可清理的 fixture。`tools/data-scale/seed.sh` 按 `FSUSBLOG_TEST_NAMESPACE` 写入 namespace 前缀数据：`scale-xs=1/0`、`scale-s=100/1,000`、`scale-m=10,000/100,000`、`scale-l-nightly=100,000/1,000,000`（article/comment）。seed summary 必须包含 `declared`、`expected`、`observed`、`coverage`、`search`、`artifacts` 和 `durationMs`；`runtime-evidence-probe.mjs data-scale` 必须读取该 seed summary，并按同一 namespace 前缀复核 PostgreSQL 中 article、comment、category、tag、article_body、article_tag、root comment 和 nested comment 数量。声明值、seed 实测值、probe 实测值任一不一致都必须失败。`tools/data-scale/cleanup.sh` 只删除同 namespace/tier 前缀数据，并在 `cleanup.json` 中证明 remaining 为 0；不能用全库 truncate 或只丢弃 manifest 代替清理。每个 tier 必须把 release summary 写入 `.tmp/scale/release-summaries/<tier>.json`，禁止共享 writer；production 的 `data-scale-evidence-summary` 只有在 `scale-xs` 与 `scale-s` 两份输入齐全时才原子生成 `.tmp/release-evidence/data-scale-summary.json`，并保留两档完整实测与清理证据。
 
 ---
 
@@ -406,7 +427,9 @@ GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push
 
 #### Backend affected-test selection
 
-`Quality Gate / Fast Backend` 在 `pull_request` 上设置 `FSUSBLOG_TEST_SELECTION=affected`，并用完整 git history 计算 PR base 到当前提交的 changed files。`main` / `master` push、`workflow_dispatch`、release/manual full gates 使用 `FSUSBLOG_TEST_SELECTION=full`，继续运行完整 non-integration backend tests。
+`Quality Gate / Fast Backend` 现在固定 `FSUSBLOG_TEST_SELECTION=full`：`coverage-backend` 与普通 `backend-unit` 共享 `executionKey`，coverage 成功时替代同一批普通 non-integration unit，避免执行两遍但不缩小覆盖。`tools/dotnet-affected-tests.sh` 仍保留为本地或显式 PR diagnostic 入口；它不参与权威 coverage-backed CI 凭证。
+
+ordinary coverage 明确排除 `Integration`、`ApiIntegration`、`Concurrency`、`Performance`、`Property`、`GoldenContract` 与 `SecurityStateMachine`；其中 API integration、auth state machine、concurrency、property、golden 各自只运行一次并同时输出 Coverlet JSON 与 Cobertura。六个 collector 共用 `backend-coverlet-instrumentation` 互斥资源，最终按源码位置和 JSON branch identity 做精确 union，再执行 backend coverage gate。旧 `backend-chaos` 与 `backend-concurrency` 使用完全相同的 `Category=Concurrency` 选择，已由后者替代；fault/race coverage ID、runtime summary 和 mergeable coverage 均保留，nightly soak/performance 不受该替代影响。
 
 `tools/dotnet-affected-tests.sh` 的 changed-file 规则保持保守：
 
@@ -414,7 +437,7 @@ GitHub Actions 中 `Quality Gate` 会在 `pull_request`、`main` / `master` push
 - `src/backend/`、`src/shared/`、`src/core/`、`tests/backend/`、solution/build props、`global.json` 等 backend/shared/core/test 或构建输入变更时，升级为 `selection=affected effective=full`。
 - 鉴权、安全、权限相关路径，例如 `Infrastructure/Auth`、`BannedUserMiddleware`、`JwtHelper`、`Infrastructure/Security`、`Modules/Endpoints/Auth`、`src/shared/Contracts/Security` 以及 backend auth/security 测试变更，会记录 `reason=auth-security-sensitive` 并运行完整 non-integration backend tests；fast-backend 的独立 auth state-machine tier 仍照常运行。
 
-日志必须同时能看出请求策略和最终策略：`run_fast_backend_lane()` 输出 `backend-fast selection=affected|full`，affected 脚本输出 `effective=skip|full` 与 `reason=...`。
+显式使用 affected diagnostic 时，日志必须同时显示请求策略和最终策略：`run_backend_unit_lane()` 输出 `backend-unit selection=affected|full`，affected 脚本输出 `effective=skip|full` 与 `reason=...`。
 
 #### Backend build parallelism
 

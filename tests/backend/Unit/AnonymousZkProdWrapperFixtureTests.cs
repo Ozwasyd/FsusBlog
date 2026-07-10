@@ -28,7 +28,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class AnonymousZkProdWrapperFixtureTests(PostgresSchemaMigrationFixture fixture)
 {
     private const int ArticleId = 42;

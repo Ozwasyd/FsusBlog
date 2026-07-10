@@ -1,6 +1,7 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
+import { createVitestRuntimeOptions } from './vitest.shared.mjs'
 
 const unitSetupFile = fileURLToPath(new URL('./tests/frontend/unit/setup.ts', import.meta.url))
 
@@ -13,9 +14,9 @@ export default defineConfig({
     }
   },
   test: {
+    ...createVitestRuntimeOptions('property'),
     environment: 'node',
     include: ['../../tests/frontend/property/**/*.test.ts'],
-    setupFiles: [unitSetupFile],
-    reporters: ['default']
+    setupFiles: [unitSetupFile]
   }
 })

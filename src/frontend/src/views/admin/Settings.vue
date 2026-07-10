@@ -105,6 +105,7 @@
                     </p>
                     <el-button
                       v-if="hasOgImage"
+                      class="settings-image-action"
                       link
                       type="danger"
                       :icon="Delete"
@@ -115,6 +116,7 @@
                     </el-button>
                     <el-button
                       v-if="hasOgImage"
+                      class="settings-image-action"
                       link
                       type="danger"
                       :icon="Delete"
@@ -242,7 +244,7 @@
                   <el-form-item label="PWA 短名称">
                     <el-input v-model="siteForm.manifestShortName" maxlength="128" show-word-limit :disabled="siteFormDisabled" placeholder="FsusBlog" />
                   </el-form-item>
-                  <div class="grid grid-cols-2 gap-4">
+                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <el-form-item label="主题色">
                       <el-input v-model="siteForm.themeColor" maxlength="7" :disabled="siteFormDisabled" placeholder="#0B4F7A">
                         <template #prepend>
@@ -821,6 +823,11 @@ const confirmPageRefresh = async (): Promise<void> => {
 .image-replace-overlay {
   background: var(--fsus-overlay-color, transparent);
   color: var(--fsusblog-page-bg);
+}
+
+.settings-image-action {
+  min-height: 2.25rem;
+  padding-inline: 0.25rem;
 }
 
 .settings-tabs {

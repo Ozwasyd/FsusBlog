@@ -221,11 +221,37 @@ function hotArticle(id, overrides = {}) {
   }
 }
 
+function createArticleRights(id, overrides = {}) {
+  return {
+    snapshotId: `${id}01`,
+    articleRevisionId: `${id}00`,
+    revisionNo: 1,
+    enabled: true,
+    licenseType: 'all-rights-reserved',
+    copyrightHolder: 'Fixture Owner',
+    copyrightYear: 2026,
+    rightsStatement: 'All rights reserved.',
+    attributionTemplate: null,
+    copyPolicy: 'append-attribution',
+    maxExcerptChars: 300,
+    allowCodeCopy: true,
+    showPublicBadge: true,
+    proofBindingEnabled: true,
+    canonicalUrl: `https://example.com/article/${id}`,
+    policyHash: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+    contentCanonicalHash: 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+    proofUrl: null,
+    proofStatus: 'pending',
+    ...overrides,
+  }
+}
+
 function articleDetail(id, overrides = {}) {
   return {
     ...articleSummary(id),
     bodyContent: 'Minimal payload fixture body.',
     authorName: 'Payload Harness',
+    rights: createArticleRights(id),
     relatedReading: {
       related: [],
       previous: null,
@@ -757,6 +783,8 @@ function assertArticleFixture(fixture, hydrationPayload, bootstrapPayload, domSn
   assert(hydrationPayload.title === bootstrapPayload.article.title, `${fixture.id} article title drift`)
   assert(typeof hydrationPayload.bodyHtml === 'string', `${fixture.id} missing bodyHtml`)
   assert(hydrationPayload.bodyContent === bootstrapPayload.article.content, `${fixture.id} article body content drift`)
+  assert(hydrationPayload.rights?.policyHash === bootstrapPayload.article.rights?.policyHash, `${fixture.id} article rights policy hash drift`)
+  assert(hydrationPayload.detailView?.rights?.contentCanonicalHash === bootstrapPayload.article.rights?.contentCanonicalHash, `${fixture.id} article detail rights hash drift`)
   assert(Array.isArray(bootstrapPayload.relatedReading?.related), `${fixture.id} missing normalized relatedReading.related`)
 
   if (fixture.dimensions.includes('article-detail:no-tags')) {

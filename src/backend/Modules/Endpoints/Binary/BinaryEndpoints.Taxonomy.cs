@@ -88,8 +88,7 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "taxonomy.category")
-        .AddEndpointFilter<RiskAwarePublicReadFilter>()
-        .CacheOutput(HttpCachePolicyCatalog.ApplyCategoryList);
+        .AddEndpointFilter<RiskAwarePublicReadFilter>();
 
         group.MapGet("/tag", static async Task<IResult> (
             ISqlSugarClient db,
@@ -143,8 +142,7 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "taxonomy.tag")
-        .AddEndpointFilter<RiskAwarePublicReadFilter>()
-        .CacheOutput(HttpCachePolicyCatalog.ApplyTagList);
+        .AddEndpointFilter<RiskAwarePublicReadFilter>();
 
         group.MapPost("/category", static async Task<BinaryFrameResult> (
             HttpContext httpContext,

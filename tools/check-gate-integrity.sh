@@ -162,8 +162,8 @@ jobs:
       - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
   coverage:
     steps:
-      - run: ./tools/test.sh coverage-backend
-      - run: ./tools/test.sh coverage-frontend
+      - run: ./tools/test.sh ci-job fast-backend --fresh
+      - run: ./tools/test.sh ci-job fast-frontend-unit --fresh
       - run: ./tools/test.sh coverage-merge
       - run: ./tools/test.sh coverage-threshold
   production:
@@ -371,7 +371,7 @@ function scanWorkflow(file) {
       }
     }
 
-    for (const required of ['./tools/test.sh coverage-backend', './tools/test.sh coverage-frontend', './tools/test.sh coverage-merge', './tools/test.sh coverage-threshold']) {
+    for (const required of ['./tools/test.sh ci-job fast-backend --fresh', './tools/test.sh ci-job fast-frontend-unit --fresh', './tools/test.sh coverage-merge', './tools/test.sh coverage-threshold']) {
       if (!text.includes(required)) {
         addError(`${file} does not run ${required}`);
       }

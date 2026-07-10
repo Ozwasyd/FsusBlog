@@ -112,6 +112,31 @@ function createCompliance(startYear) {
   }
 }
 
+function createArticleRights(clockCase, timestampCase) {
+  const suffix = `${clockCase.id}:${timestampCase.label}`
+  return {
+    snapshotId: '420101',
+    articleRevisionId: '420001',
+    revisionNo: 1,
+    enabled: true,
+    licenseType: 'all-rights-reserved',
+    copyrightHolder: 'FsusBlog',
+    copyrightYear: 2026,
+    rightsStatement: 'All rights reserved.',
+    attributionTemplate: null,
+    copyPolicy: 'append-attribution',
+    maxExcerptChars: 300,
+    allowCodeCopy: true,
+    showPublicBadge: true,
+    proofBindingEnabled: true,
+    canonicalUrl: `https://example.com/article/4201?clock=${encodeURIComponent(suffix)}`,
+    policyHash: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+    contentCanonicalHash: 'sha256:1111111111111111111111111111111111111111111111111111111111111111',
+    proofUrl: null,
+    proofStatus: 'pending',
+  }
+}
+
 function createArticleOptions(clockCase, timestampCase) {
   const createTime = timestampCase.timestamp ?? isoMinusSeconds(clockCase.ssrClock, timestampCase.offsetSeconds)
   return {
@@ -123,6 +148,7 @@ function createArticleOptions(clockCase, timestampCase) {
     category: { id: 7, name: 'Clock' },
     tags: [{ id: 9, name: 'hydration' }],
     authorName: 'Clock Harness',
+    rights: createArticleRights(clockCase, timestampCase),
     relatedReading: {
       related: [
         {

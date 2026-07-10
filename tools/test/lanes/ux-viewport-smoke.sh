@@ -6,9 +6,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 FSUSBLOG_TEST_LEGACY_SOURCE_ONLY=1 source "$ROOT_DIR/tools/test/legacy-test.sh"
 
 require_debug_stack
+require_release_preview
 
 export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
-export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
+export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
 export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
 if [[ -z "${FSUSBLOG_UX_VIEWPORT_WORKERS:-}" ]]; then
   FSUSBLOG_UX_VIEWPORT_WORKERS="$(node "$ROOT_DIR/tools/test/resolve-playwright-workers.mjs" ux-viewport-smoke)"
@@ -17,7 +18,7 @@ fi
 echo "[ux-viewport-smoke] playwright workers=${FSUSBLOG_UX_VIEWPORT_WORKERS}"
 
 if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
-  run_in_client npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_UX_VIEWPORT_WORKERS"
+  FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once
   export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
 fi
 

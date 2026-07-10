@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { Buffer } from 'node:buffer'
 import path from 'node:path'
 import { resolveTestSessionFixtureFile } from './testSession'
+import { resolvePublicFixtureFile } from '../fixture-paths.mjs'
 
 export type PlaywrightAuditFixtures = {
   generatedAt: string
@@ -28,7 +29,7 @@ function resolveFixtureFile(): string {
     return sessionFixture
   }
 
-  return path.resolve(process.cwd(), '.playwright-fixtures.aeds')
+  return resolvePublicFixtureFile()
 }
 
 export function loadAuditFixtures(): PlaywrightAuditFixtures {

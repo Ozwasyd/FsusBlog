@@ -3970,6 +3970,102 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
       }
     },
+    "/api/binary/auth/step-up/passkey/begin": {
+      "post": {
+        "operationId": "binary_post_auth_step_up_passkey_begin",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/auth/step-up/passkey/begin",
+        "responses": {
+          "200": {
+            "description": "PasskeyLoginBegin AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "MfaChallengeStartRequest",
+        "x-fsus-response-frame": "PasskeyLoginBegin",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "user",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "/auth/step-up/passkey/begin",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
+      }
+    },
+    "/api/binary/auth/step-up/passkey/complete": {
+      "post": {
+        "operationId": "binary_post_auth_step_up_passkey_complete",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "/auth/step-up/passkey/complete",
+        "responses": {
+          "200": {
+            "description": "MfaChallengeResult AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "PasskeyLoginCompleteRequest",
+        "x-fsus-response-frame": "MfaChallengeResult",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "user",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "fixed_ip",
+        "x-fsus-test-surface": "/auth/step-up/passkey/complete",
+        "x-fsus-source": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/auth.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authAdapter.ts"
+      }
+    },
     "/api/binary/auth/admin/step-up/passkey/begin": {
       "post": {
         "operationId": "binary_post_auth_admin_step_up_passkey_begin",

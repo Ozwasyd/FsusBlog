@@ -1,0 +1,35 @@
+{
+  "schema": "fsusblog.ux-viewport-historical-failures.v1",
+  "status": "incomplete",
+  "expectedCaseCount": 70,
+  "capturedCaseCount": 0,
+  "reason": "The retained pre-optimization output stopped after 20 group failures and contains titles only, not isolated route/theme/media error messages. It cannot establish 70 case-level failure signatures.",
+  "retainedObservation": {
+    "sha256": "f47d25c12487f0343d4e040e6d8d7ab76991453a6147f3077da1399ae4d9cc6c",
+    "groupFailureCount": 20,
+    "containsCaseFailureMessages": false
+  },
+  "observedGroupFailures": [
+    "group-169-mobile-landscape-light-default-anonymous keeps viewport boundaries usable",
+    "group-170-mobile-landscape-light-zoom-125-anonymous keeps viewport boundaries usable",
+    "group-171-mobile-landscape-light-zoom-150-anonymous keeps viewport boundaries usable",
+    "group-172-mobile-landscape-light-zoom-200-anonymous keeps viewport boundaries usable",
+    "group-173-mobile-landscape-light-large-text-anonymous keeps viewport boundaries usable",
+    "group-174-mobile-landscape-light-reduced-motion-anonymous keeps viewport boundaries usable",
+    "group-175-mobile-landscape-light-high-contrast-anonymous keeps viewport boundaries usable",
+    "group-177-mobile-landscape-light-zoom-125-user keeps viewport boundaries usable",
+    "group-178-mobile-landscape-light-zoom-150-user keeps viewport boundaries usable",
+    "group-179-mobile-landscape-light-zoom-200-user keeps viewport boundaries usable",
+    "group-183-mobile-landscape-light-default-admin keeps viewport boundaries usable",
+    "group-184-mobile-landscape-light-zoom-125-admin keeps viewport boundaries usable",
+    "group-185-mobile-landscape-light-zoom-150-admin keeps viewport boundaries usable",
+    "group-186-mobile-landscape-light-zoom-200-admin keeps viewport boundaries usable",
+    "group-187-mobile-landscape-light-large-text-admin keeps viewport boundaries usable",
+    "group-188-mobile-landscape-light-reduced-motion-admin keeps viewport boundaries usable",
+    "group-189-mobile-landscape-light-high-contrast-admin keeps viewport boundaries usable",
+    "group-190-mobile-landscape-dark-default-anonymous keeps viewport boundaries usable",
+    "group-191-mobile-landscape-dark-zoom-125-anonymous keeps viewport boundaries usable",
+    "group-192-mobile-landscape-dark-zoom-150-anonymous keeps viewport boundaries usable"
+  ],
+  "cases": []
+}

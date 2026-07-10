@@ -15,7 +15,7 @@ vi.mock('@simplewebauthn/browser', () => ({
   startAuthentication: mocks.startAuthentication
 }))
 
-import { useAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 
 type AdminSensitiveProofWindow = Window & {
   __FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__?: string | (() => string | Promise<string>)
@@ -30,7 +30,7 @@ describe('useAdminSensitiveProof', () => {
   it('uses an injected non-production admin proof token before starting browser passkey step-up', async () => {
     ;(window as AdminSensitiveProofWindow).__FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__ = () => ' proof-admin '
 
-    await expect(useAdminSensitiveProof().ensureAdminSensitiveProof()).resolves.toBe('proof-admin')
+    await expect(ensureAdminSensitiveProof()).resolves.toBe('proof-admin')
 
     expect(mocks.adminStepUpPasskeyBegin).not.toHaveBeenCalled()
     expect(mocks.startAuthentication).not.toHaveBeenCalled()
@@ -40,7 +40,7 @@ describe('useAdminSensitiveProof', () => {
   it('consumes a static injected proof token once', async () => {
     ;(window as AdminSensitiveProofWindow).__FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__ = 'proof-once'
 
-    await expect(useAdminSensitiveProof().ensureAdminSensitiveProof()).resolves.toBe('proof-once')
+    await expect(ensureAdminSensitiveProof()).resolves.toBe('proof-once')
 
     expect((window as AdminSensitiveProofWindow).__FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__).toBeUndefined()
   })

@@ -16,8 +16,9 @@ describe('comment perception v2 challenge flow wiring', () => {
 
     expect(composable).toContain("const COMMENT_CREATE_CHALLENGE_ACTION = 'comment.create'")
     expect(composable).toContain('ensureCommentCreateChallengeProof')
-    expect(composable).toContain('commentChallengeClient.issue(context)')
+    expect(composable).toContain('const result = await issueCommentChallenge(context)')
     expect(composable).toContain('commentChallengePreload.value = result')
+    expect(composable).toContain('issue: issueCommentChallenge')
     expect(composable).toContain('proofToken: challengeProof?.proofToken ?? null')
     expect(composable).toContain('commentMutationSubmitted = true')
   })

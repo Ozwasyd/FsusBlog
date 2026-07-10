@@ -9,7 +9,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
@@ -248,7 +248,7 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
             AllowCodeCopy = true,
             ShowPublicBadge = true,
             ProofBindingEnabled = true,
-            CanonicalUrl = $"https://fsus.blog/articles/{articleId}",
+            CanonicalUrl = $"https://example.test/articles/{articleId}",
             PolicyHash = new string('a', 64),
             ContentCanonicalHash = new string('b', 64),
             CreatedAt = DateTime.UtcNow.AddMinutes(-4)

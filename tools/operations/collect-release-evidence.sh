@@ -18,23 +18,9 @@ FUZZ_DIR="${FSUSBLOG_FUZZ_EVIDENCE_DIR:-$ROOT_DIR/.tmp/fuzz}"
 mkdir -p "$OUT_DIR"
 
 restore_downloaded_artifacts() {
-  local downloaded_dir="$ROOT_DIR/.tmp/downloaded-artifacts"
-  local artifact_dir name
-  [[ -d "$downloaded_dir" ]] || return 0
-
-  for artifact_dir in "$downloaded_dir"/*; do
-    [[ -d "$artifact_dir" ]] || continue
-    for name in gate-logs release-evidence docs frontend ux perf security coverage fault-injection fuzz soak operations; do
-      if [[ -d "$artifact_dir/$name" ]]; then
-        mkdir -p "$ROOT_DIR/.tmp/$name"
-        cp -a "$artifact_dir/$name/." "$ROOT_DIR/.tmp/$name/"
-      fi
-    done
-    if [[ -d "$artifact_dir/jobs" ]]; then
-      mkdir -p "$ROOT_DIR/.tmp/release-evidence/jobs"
-      cp -a "$artifact_dir/jobs/." "$ROOT_DIR/.tmp/release-evidence/jobs/"
-    fi
-  done
+  bash "$ROOT_DIR/tools/operations/restore-downloaded-artifacts.sh" \
+    "$ROOT_DIR/.tmp/downloaded-artifacts" \
+    "$ROOT_DIR/.tmp"
 }
 
 restore_downloaded_artifacts
@@ -147,6 +133,25 @@ authenticated_dast_status_or_missing() {
 
 wasm_fuzz_status_or_missing() {
   semantic_status_or_missing "$1" '(.status == "ok") and ((.seedsRun // 0) > 0)'
+}
+
+ux_viewport_canary_parity_status_or_missing() {
+  semantic_status_or_missing "$1" '
+    (.schema == "fsusblog.ux-viewport-canary-parity.v1")
+    and (.status == "success")
+    and (.comparison == "normalized-failure-signature-v2-historical-authority")
+    and (.plannedCaseCount == 70)
+    and (.executedCaseCount.legacy == 70)
+    and (.executedCaseCount.current == 70)
+    and (.matchedCaseCount == 70)
+    and (.historicalMatchedCaseCount == 70)
+    and (.mismatchCount == 0)
+    and ((.cases // []) | length == 70)
+    and all(.cases[]?; .matches == true and .runnersMatch == true and .historicalMatches == true)
+    and ((.runners.legacy.spec // "") | startswith("tests/frontend/fixtures/ux-viewport-legacy/runtime/"))
+    and (((.runners.legacy.spec // "") | startswith(".tmp/")) | not)
+    and ((.runners.legacy.sourceFiles["tests/frontend/support/playwright/acceptance-shared.ts"] // "") | length == 64)
+  '
 }
 
 fault_injection_status_or_missing() {
@@ -470,6 +475,7 @@ PUBLIC_HYDRATION_SIDECAR_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evid
 PUBLIC_HYDRATION_MATRIX_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json" public-hydration-matrix-summary.json)"
 UX_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/ux" ux)"
 UX_VIEWPORT_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json" ux-viewport-summary.json)"
+UX_VIEWPORT_CANARY_PARITY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/ux-viewport-canary-parity.json" ux-viewport-canary-parity.json)"
 FRONTEND_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json" frontend-render-pressure-summary.json)"
 PUBLISH_ARTIFACTS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json" publish-artifacts-summary.json)"
 BACKEND_QPS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json" backend-qps-summary.json)"
@@ -525,6 +531,7 @@ SOAK_STATUS_VALUE="$(short_soak_status_or_missing "$SOAK_DIR/short/summary.json"
 AUTHENTICATED_DAST_STATUS_VALUE="$(authenticated_dast_status_or_missing "$SECURITY_DIR/authenticated-dast/summary.json")"
 WASM_FUZZ_STATUS_VALUE="$(wasm_fuzz_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
+UX_VIEWPORT_CANARY_PARITY_STATUS_VALUE="$(ux_viewport_canary_parity_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-canary-parity.json")"
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
 PUBLISH_ARTIFACTS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json")"
 BACKEND_QPS_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json")"
@@ -563,6 +570,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$SOAK_STATUS_VALUE" != "ok" \
   || "$AUTHENTICATED_DAST_STATUS_VALUE" != "ok" \
   || "$WASM_FUZZ_STATUS_VALUE" != "ok" \
+  || "$UX_VIEWPORT_CANARY_PARITY_STATUS_VALUE" != "ok" \
   || "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE" != "ok" \
   || "$AOT_CACHE_RESILIENCE_STATUS_VALUE" != "success" \
   || "$PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE" != "success" \
@@ -632,6 +640,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "publicHydrationMatrixSummary": $PUBLIC_HYDRATION_MATRIX_SUMMARY,
     "ux": $UX_ARTIFACT,
     "uxViewportSummary": $UX_VIEWPORT_SUMMARY,
+    "uxViewportCanaryParity": $UX_VIEWPORT_CANARY_PARITY,
     "frontendRenderPressureSummary": $FRONTEND_RENDER_PRESSURE_SUMMARY,
     "publishArtifactsSummary": $PUBLISH_ARTIFACTS_SUMMARY,
     "backendQpsSummary": $BACKEND_QPS_SUMMARY,
@@ -679,6 +688,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "gates": {
       "visualGateSkip": $VISUAL_GATE_SKIP,
       "uxViewport": "$UX_VIEWPORT_STATUS_VALUE",
+      "uxViewportCanaryParity": "$UX_VIEWPORT_CANARY_PARITY_STATUS_VALUE",
       "frontendRenderPressure": "$FRONTEND_RENDER_PRESSURE_STATUS_VALUE",
       "publicHydrationDetector": "$PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE",
       "publicHydrationClockMatrix": "$PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE",

@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { readFile } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { promisify } from 'node:util'
@@ -26,7 +27,9 @@ import {
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
 import { encodeAedsFrame, readAedsResponse } from '../../support/aeds-envelope.mjs'
+import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs'
 import { resolveTestSession, testSessionHeaders } from '../../support/playwright/testSession'
+import { resolveAuthFixtureManifest } from '../../support/fixture-paths.mjs'
 import { encodeAuthoringJsonRequest, mapAuthoringJsonFromPayload } from '../../../../src/frontend/src/adapters/binary/authoringAdapter'
 import { FrameType } from '../../../../src/frontend/wasm/web/protocol/frame'
 
@@ -41,9 +44,7 @@ const acceptancePgContainer = process.env.FSUSBLOG_PG_CONTAINER || ''
 const acceptanceRedisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || ''
 const execFileAsync = promisify(execFile)
 let adminStorageStatePromise: Promise<Awaited<ReturnType<typeof captureStorageState>>> | null = null
-const localAuthFixtureSecret = process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET
-  || process.env.fsus__localAuthFixtureSecret
-  || 'local-development-auth-fixture-secret-change-before-shared-use-2026'
+let adminFixtureIdPromise: Promise<number> | null = null
 
 const cookieHeaderFromStorageState = (state: StorageState): string =>
   state.cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ')
@@ -53,28 +54,34 @@ const runtimeCacheKey = (key: string): string => {
   return session ? `e2e:${session}:${key}` : key
 }
 
-const installAdminSensitiveProof = async (page: Page, _state?: StorageState): Promise<void> => {
-  const proofToken = await page.evaluate(async (secret) => {
-    const response = await fetch('/api/local/auth-fixture/admin-sensitive-proof', {
-      cache: 'no-store',
-      credentials: 'include',
-      method: 'POST',
-      headers: {
-        'X-Fsus-Local-Auth-Fixture-Secret': secret
-      }
-    })
-    if (!response.ok) {
-      throw new Error(`admin sensitive proof fixture failed: ${response.status}`)
+const resolveAdminFixtureId = async (): Promise<number> => {
+  adminFixtureIdPromise ??= (async () => {
+    const manifestPath = resolveAuthFixtureManifest()
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { admin?: { id?: number } }
+    const adminId = Number(manifest.admin?.id)
+    if (!Number.isInteger(adminId) || adminId <= 0) {
+      throw new Error('acceptance admin fixture manifest is missing a valid admin id')
     }
+    return adminId
+  })()
+  return await adminFixtureIdPromise
+}
 
-    const body = await response.json() as { action?: string, proofToken?: string }
-    const token = body.proofToken?.trim()
-    if (body.action !== 'admin-sensitive' || !token) {
-      throw new Error('admin sensitive proof fixture returned an invalid token')
-    }
+const resolveAdminSessionId = (state?: StorageState): string => {
+  const sessionId = state?.cookies.find((cookie) =>
+    cookie.name === 'AdminSessionId' || cookie.name === '__Host-AdminSessionId'
+  )?.value?.trim()
+  if (!sessionId) {
+    throw new Error('acceptance admin storage state is missing an admin session id')
+  }
+  return sessionId
+}
 
-    return token
-  }, localAuthFixtureSecret)
+const installAdminSensitiveProof = async (page: Page, state?: StorageState): Promise<void> => {
+  const proofToken = createAdminStepUpProofToken({
+    adminId: await resolveAdminFixtureId(),
+    sessionId: resolveAdminSessionId(state)
+  })
   await page.evaluate((token) => {
     ;(window as Window & { __FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__?: string }).__FSUSBLOG_ADMIN_SENSITIVE_PROOF_TOKEN__ = token
   }, proofToken)
@@ -540,7 +547,10 @@ for (const viewport of [
           await session.page.getByRole('button', { name: '回滚到此版本' }).click()
           await session.page.getByRole('button', { name: '确认回滚' }).click()
           const rollbackResponse = await rollbackResponsePromise
-          expect(rollbackResponse.ok(), 'article revision rollback request should succeed').toBe(true)
+          expect(
+            rollbackResponse.ok(),
+            `article revision rollback request should succeed (status ${rollbackResponse.status()})`
+          ).toBe(true)
           await expectAnyToastText(session.page, /已回滚到版本 1/, 3_000).catch(() => {})
           await expect(articleTitleInput(session.page)).toHaveValue(articleTitle)
         }

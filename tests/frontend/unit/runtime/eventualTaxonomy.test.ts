@@ -36,10 +36,13 @@ describe('acceptance runtime isolation helpers', () => {
     expect(source).not.toContain("'exec',\n      'fsusblog-redis'")
   })
 
-  it('runs public route acceptance serially to avoid notification preflight rate-limit noise', () => {
+  it('keeps unsuppressed public routes serial but parallelizes the fully isolated acceptance lane', () => {
     const source = readFileSync(resolve(repoRoot, 'tests/frontend/e2e/acceptance/public-routes.spec.ts'), 'utf8')
 
-    expect(source).toContain("test.describe.configure({ mode: 'serial' })")
+    expect(source).toContain('process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === \'1\'')
+    expect(source).toContain('process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === \'1\'')
+    expect(source).toMatch(/\?\s*'parallel'\s*:\s*'serial'/)
+    expect(source).toContain('test.describe.configure({ mode: publicRouteExecutionMode })')
   })
 
   it('does not treat recoverable notification stream preflight responses as page runtime noise', () => {
@@ -77,6 +80,76 @@ describe('acceptance runtime isolation helpers', () => {
     expect(lane).toContain('FSUSBLOG_DISABLE_NOTIFICATION_STREAM=1')
     expect(support).toContain('__FSUSBLOG_DISABLE_NOTIFICATION_STREAM__')
     expect(runtime).toContain('__FSUSBLOG_DISABLE_NOTIFICATION_STREAM__')
+  })
+
+  it('feeds public route acceptance an adaptive worker cap in the isolated lane', () => {
+    const packageJson = readFileSync(resolve(repoRoot, 'src/frontend/package.json'), 'utf8')
+    const lane = readFileSync(resolve(repoRoot, 'tools/test/legacy-test.sh'), 'utf8')
+    const resolver = readFileSync(resolve(repoRoot, 'tools/test/resolve-playwright-workers.mjs'), 'utf8')
+
+    expect(packageJson).toContain('FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}')
+    expect(lane).toContain('configure_playwright_workers acceptance-public-routes FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS')
+    expect(resolver).toContain("name === 'acceptance-public-routes'")
+  })
+
+  it('gives the exhaustive UX viewport lanes bounded adaptive workers with isolated sessions', () => {
+    const smokeLane = readFileSync(resolve(repoRoot, 'tools/test/lanes/ux-viewport-smoke.sh'), 'utf8')
+    const visualLane = readFileSync(resolve(repoRoot, 'tools/test/lanes/ux-viewport-visual.sh'), 'utf8')
+    const boundariesLane = readFileSync(resolve(repoRoot, 'tools/test/lanes/ux-viewport-boundaries.sh'), 'utf8')
+    const resolver = readFileSync(resolve(repoRoot, 'tools/test/resolve-playwright-workers.mjs'), 'utf8')
+
+    for (const lane of [smokeLane, visualLane, boundariesLane]) {
+      expect(lane).toContain('FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"')
+      expect(lane).toContain('FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_UX_VIEWPORT_WORKERS" prepare_session_fixtures_once')
+      expect(lane).toContain('require_release_preview')
+      expect(lane).toContain('PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"')
+      expect(lane).not.toContain('PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"')
+    }
+
+    expect(visualLane).toContain('configure_playwright_workers ux-viewport-visual FSUSBLOG_UX_VIEWPORT_WORKERS')
+    expect(boundariesLane).toContain("profile='ux-viewport-boundaries'")
+    expect(boundariesLane).toContain("profile='ux-viewport-visual'")
+    expect(boundariesLane).toContain('configure_playwright_workers "$profile" FSUSBLOG_UX_VIEWPORT_WORKERS')
+    expect(resolver).toMatch(/if \(name === 'ux-viewport-visual'\) \{[\s\S]*?memoryPerWorkerGiB: 3\.5[\s\S]*?cpuCap: cpus >= 8 \? 3 : cpus >= 4 \? 2 : 1/)
+    expect(resolver).toMatch(/if \(name === 'ux-viewport-boundaries'\) \{[\s\S]*?memoryPerWorkerGiB: 2\.5[\s\S]*?cpuCap: cpus >= 8 \? 4 : cpus >= 4 \? 2 : 1/)
+    expect(resolver).toMatch(/if \(name === 'ux-viewport-smoke'\) \{[\s\S]*?memoryPerWorkerGiB: 2\.5[\s\S]*?cpuCap: cpus >= 8 \? 4 : cpus >= 4 \? 2 : 1/)
+  })
+
+  it('parallelizes viewport case groups only when per-worker session isolation is enabled', () => {
+    const source = readFileSync(resolve(repoRoot, 'tests/frontend/e2e/ux/viewport-boundaries.spec.ts'), 'utf8')
+
+    expect(source).toContain("const usesIsolatedSessions = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1'")
+    expect(source).toMatch(/const viewportExecutionMode = mode === 'smoke' \|\| usesIsolatedSessions\s*\?\s*'parallel'\s*:\s*'default'/)
+    expect(source).toContain('mode: viewportExecutionMode')
+  })
+
+  it('asserts the admin article list canonical pagination query without permitting arbitrary query state', () => {
+    const source = readFileSync(resolve(repoRoot, 'tests/frontend/e2e/ux/viewport-boundaries.spec.ts'), 'utf8')
+
+    expect(source).toContain("route.name === 'manage-list' ? { page: '1', size: '10' } : undefined")
+    expect(source).toContain('testCase.route.expectedQuery')
+    expect(source).toContain('searchParams.entries()')
+  })
+
+  it('clears the accessibility focus probe before checking duplicate sticky chrome', () => {
+    const source = readFileSync(resolve(repoRoot, 'tests/frontend/support/playwright/acceptance-shared.ts'), 'utf8')
+    const focusHelper = source.slice(
+      source.indexOf('export async function assertFocusOutlineVisible'),
+      source.indexOf('export async function assertNoDuplicateStickyBars')
+    )
+
+    expect(focusHelper).toContain('focusable.blur()')
+    expect(focusHelper.indexOf('focusable.blur()')).toBeGreaterThan(focusHelper.indexOf('focusable.focus'))
+  })
+
+  it('excludes visually hidden skip links from mobile touch-target measurements', () => {
+    const source = readFileSync(resolve(repoRoot, 'tests/frontend/support/playwright/acceptance-shared.ts'), 'utf8')
+    const touchTargetHelper = source.slice(
+      source.indexOf('export async function assertTouchTargetSize'),
+      source.indexOf('export async function assertNoDuplicateStickyBars')
+    )
+
+    expect(touchTargetHelper).toContain("control.classList.contains('sr-only')")
   })
 
   it('disables notification stream during cross-browser smoke before the first navigation', () => {

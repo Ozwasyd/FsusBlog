@@ -310,8 +310,27 @@ function validateBackendQpsSequential() {
 }
 
 function validateDataScale() {
-  const summary = readJson('.tmp/release-evidence/data-scale-summary.json', true)
-  if (!summary) return
+  const aggregate = readJson('.tmp/release-evidence/data-scale-summary.json', true)
+  if (!aggregate) return
+  assert(aggregate.schema === 'fsusblog.data-scale-evidence-summary.v1', 'data-scale-summary.schema mismatch')
+  assert(aggregate.status === 'ok', 'data-scale-summary.status must be ok')
+  assert(
+    JSON.stringify(aggregate.requiredTiers) === JSON.stringify(['scale-xs', 'scale-s']),
+    'data-scale-summary.requiredTiers must be scale-xs and scale-s'
+  )
+  assert(Array.isArray(aggregate.tiers) && aggregate.tiers.length === 2, 'data-scale-summary.tiers must contain both required tiers')
+  const byTier = new Map(aggregate.tiers.map((entry) => [entry?.tier, entry]))
+  assert(byTier.size === 2, 'data-scale-summary.tiers must not contain duplicates')
+  for (const tier of aggregate.requiredTiers) {
+    const entry = byTier.get(tier)
+    assert(entry?.status === 'ok', `data-scale-summary.${tier}.status must be ok`)
+    assert(typeof entry?.sourceLocation === 'string' && entry.sourceLocation.length > 0, `data-scale-summary.${tier}.sourceLocation missing`)
+    assert(entry?.summary?.tier === tier, `data-scale-summary.${tier}.tier mismatch`)
+    validateDataScaleTierSummary(entry.summary)
+  }
+}
+
+function validateDataScaleTierSummary(summary) {
   assert(summary.status === 'ok', 'data-scale-summary.status must be ok')
   assert(summary.seed?.status === 'ok', 'data-scale-summary.seed.status must be ok')
   assert(summary.cleanup?.status === 'ok', 'data-scale-summary.cleanup.status must be ok')
@@ -741,6 +760,31 @@ function validateAedsDecodeBudget() {
   assert(Number.isFinite(budget.allocBytesPerDecode) && budget.allocBytesPerDecode >= 0, 'aeds-decode-budget.allocBytesPerDecode must be >= 0')
 }
 
+function validateUxViewportCanaryParity() {
+  const summary = readJson('.tmp/release-evidence/ux-viewport-canary-parity.json', true)
+  if (!summary) return
+  assert(summary.schema === 'fsusblog.ux-viewport-canary-parity.v1', 'ux-viewport-canary-parity.schema mismatch')
+  assert(summary.status === 'success', 'ux-viewport-canary-parity.status must be success')
+  assert(summary.comparison === 'normalized-failure-signature-v2-historical-authority', 'ux-viewport-canary-parity.comparison must include historical authority')
+  assert(summary.plannedCaseCount === 70, 'ux-viewport-canary-parity.plannedCaseCount must be 70')
+  assert(summary.executedCaseCount?.legacy === 70, 'ux-viewport-canary-parity legacy execution count must be 70')
+  assert(summary.executedCaseCount?.current === 70, 'ux-viewport-canary-parity current execution count must be 70')
+  assert(summary.matchedCaseCount === 70, 'ux-viewport-canary-parity.matchedCaseCount must be 70')
+  assert(summary.historicalMatchedCaseCount === 70, 'ux-viewport-canary-parity.historicalMatchedCaseCount must be 70')
+  assert(summary.mismatchCount === 0, 'ux-viewport-canary-parity.mismatchCount must be zero')
+  assert(Array.isArray(summary.cases) && summary.cases.length === 70, 'ux-viewport-canary-parity.cases must contain 70 cases')
+  assert(summary.runners?.legacy?.spec?.startsWith('tests/frontend/fixtures/ux-viewport-legacy/runtime/'), 'ux-viewport-canary-parity legacy runner must use tracked snapshot')
+  assert(!summary.runners?.legacy?.spec?.startsWith('.tmp/'), 'ux-viewport-canary-parity legacy runner must not use .tmp source')
+  assert(summary.runners?.legacy?.sourceFiles?.['tests/frontend/support/playwright/acceptance-shared.ts'], 'ux-viewport-canary-parity must bind the independent legacy assertion helper')
+  for (const [index, item] of summary.cases.entries()) {
+    const label = `ux-viewport-canary-parity.cases[${index}]`
+    assert(item.matches === true && item.runnersMatch === true && item.historicalMatches === true, `${label} must match both runners and history`)
+    assert(['failed', 'timedOut'].includes(item.historical?.outcome), `${label}.historical must retain a failure outcome`)
+    assert(item.historical?.failureSignature === item.legacy?.failureSignature, `${label} legacy signature must match history`)
+    assert(item.historical?.failureSignature === item.current?.failureSignature, `${label} current signature must match history`)
+  }
+}
+
 function selfTestRuntimeProbe() {
   return {
     measurementSource: 'runtime-http-probe',
@@ -798,6 +842,7 @@ function main() {
   validateAedsFrameCost()
   validateAedsCompressionProfile()
   validateAedsDecodeBudget()
+  validateUxViewportCanaryParity()
   console.log('[evidence-metrics] ok')
 }
 
@@ -1013,7 +1058,7 @@ function runSelfTest() {
 
     let missingSearchArtifactFailedAsExpected = false
     try {
-      validateDataScale()
+      validateDataScaleTierSummary(JSON.parse(fs.readFileSync(dataScaleSummaryFile, 'utf8')))
     } catch {
       missingSearchArtifactFailedAsExpected = true
     }

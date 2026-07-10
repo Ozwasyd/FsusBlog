@@ -1,0 +1,165 @@
+{
+  "schema": "fsusblog.test-retention-replacements.v1",
+  "tierReplacements": [
+    {
+      "from": "backend-chaos",
+      "to": "backend-concurrency",
+      "coverageIds": [
+        "backend-fault-race-readiness",
+        "backend-race-idempotency-model"
+      ],
+      "reason": "backend-chaos duplicated the same Category=Concurrency selection; backend-concurrency now owns the fault/race evidence and emits the same runtime summary plus mergeable Cobertura coverage."
+    }
+  ],
+  "deletedTests": [
+    {
+      "id": "vitest:tests/frontend/e2e/ux/viewport-boundaries.spec.ts#casegroup-id-keeps-viewport-boundaries-usable-1f4f602b2f",
+      "path": "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a"
+      ],
+      "reason": "The ordinal case-group test was replaced by the exact 336/378/6468 pure-plan proof plus the route-theme context and cold-navigation runtime contract."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-compact-audit-actions-reachable-on-mobile-touch-sc-479bf54d43",
+      "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-compact-audit-actions-reachable-on-mobile-and-shor-c7e2d3c64f"
+      ],
+      "reason": "The same audit action contract now also covers short landscape touch screens and rejects the former desktop-only size override."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#keeps-destructive-social-preview-actions-reachable-on-mo-65e7882ceb",
+      "path": "tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#keeps-destructive-social-preview-actions-reachable-on-mo-d234cbb786"
+      ],
+      "reason": "The same settings action contract now covers short landscape touch screens and rejects the former desktop-only size override."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-message-controls-usable-on-narrow-mobile-viewports-178dd339a7",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-message-controls-usable-on-narrow-mobile-and-short-8ba89e8128"
+      ],
+      "reason": "The message control contract was expanded from narrow mobile width to the same width plus short landscape viewports."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts#wires-rights-through-defaults-edit-loading-local-drafts--6196c42ca5",
+      "path": "tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts#wires-rights-through-defaults-edit-loading-server-drafts-0e4299f7a3",
+        "vitest:tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts#keeps-unpublished-content-out-of-browser-persistence-and-6246491004",
+        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#round-trips-only-non-recoverable-metadata-through-the-re-d20ec77d2c",
+        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#rejects-legacy-browser-payloads-that-contain-unpublished-5097953009",
+        "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#never-promotes-local-only-metadata-to-a-restorable-form--8f4eadd3f1"
+      ],
+      "reason": "The former browser-restorable full draft assertion was intentionally split into a server-authoritative draft workflow contract and executable codec tests proving that unpublished content is never persisted or promoted from local metadata."
+    }
+  ],
+  "assertionReplacements": [
+    {
+      "before": "behavior:${caseGroup.id} keeps viewport boundaries usable",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db"
+      ],
+      "after": [
+        "assert.deepEqual(boundaries.counts, {"
+      ],
+      "reason": "The dynamic group placeholder was replaced by an exact matrix-count assertion over the shared pure planner."
+    },
+    {
+      "before": "expect(auditLogPage).toMatch(/@media \\(min-width: 640px\\)",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-compact-audit-actions-reachable-on-mobile-and-shor-c7e2d3c64f"
+      ],
+      "after": [
+        "expect(auditLogPage).not.toMatch(/@media \\(min-width: 640px\\) \\{[\\s\\S]*?\\.audit-compact-row__action \\{[\\s\\S]*?min-(?:width|height)"
+      ],
+      "reason": "The regression proof now forbids the desktop-only minimum touch-size override that caused short-landscape overflow."
+    },
+    {
+      "before": "expect(file).toBe('/tmp/example/.playwright-fixtures/worker-9.aeds')",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/test-session.test.ts#resolves-fixture-file-path-when-session-exists-8557a2c90f"
+      ],
+      "after": [
+        "expect(file).toBe('/tmp/example/.tmp/fixtures/local/sessions/worker-9.aeds')"
+      ],
+      "reason": "Fixture-path governance intentionally moved generated sessions out of tracked paths into the namespaced .tmp fixture root."
+    },
+    {
+      "before": "expect(messagesConversationList).toContain('@media (max-width: 640px)')",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-message-controls-usable-on-narrow-mobile-and-short-8ba89e8128"
+      ],
+      "after": [
+        "expect(messagesConversationList).toContain('@media (max-width: 640px), (max-height: 520px) and (orientation: landscape)')"
+      ],
+      "reason": "The media-query assertion is a strict superset that retains mobile width and adds short landscape coverage."
+    },
+    {
+      "before": "expect(settingsPage).toMatch(/@media \\(min-width: 640px\\)",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#keeps-destructive-social-preview-actions-reachable-on-mo-d234cbb786"
+      ],
+      "after": [
+        "expect(settingsPage).not.toMatch(/@media \\(min-width: 640px\\)"
+      ],
+      "reason": "The regression proof now forbids the desktop-only minimum touch-size override that caused short-landscape overflow."
+    },
+    {
+      "before": "Assert.Contains(\"needs.plan-pr-risk.outputs.coverage_backend\", workflow, StringComparison.Ordinal)",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/QualityGateSmartGateContractTests.cs#QualityGateSmartGateContractTests.Workflow_HasPrRiskPlanJobAndConditionsHeavyJobs"
+      ],
+      "after": [
+        "Assert.Contains(\"./tools/test.sh ci-job fast-backend --fresh\", workflow, StringComparison.Ordinal)",
+        "Assert.Contains(\"./tools/test.sh ci-job fast-frontend-unit --fresh\", workflow, StringComparison.Ordinal)"
+      ],
+      "reason": "Coverage is now an explicit member of each resource-aware fast DAG rather than a conditional standalone workflow output; the contract requires both authoritative fresh job commands."
+    },
+    {
+      "before": "Assert.Contains(\"smartGateMode: conditional\", TierBlock(matrix, \"coverage-backend\"), StringComparison.Ordinal)",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/QualityGateSmartGateContractTests.cs#QualityGateSmartGateContractTests.Matrix_UsesConditionalSmartGateForProductionHeavyLanes"
+      ],
+      "after": [
+        "Assert.Contains(\"smartGateMode: always\", TierBlock(matrix, \"coverage-backend\"), StringComparison.Ordinal)"
+      ],
+      "reason": "Backend coverage moved into the always-on fast DAG and supersedes its ordinary unit execution, so the stronger contract rejects conditional omission."
+    },
+    {
+      "before": "expect(lane).toContain('npm run prepare:playwright:sessions -- --workers \"$FSUSBLOG_UX_VIEWPORT_WORKERS\"')",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/runtime/eventualTaxonomy.test.ts#gives-the-exhaustive-ux-viewport-lanes-bounded-adaptive--09f8ef4233"
+      ],
+      "after": [
+        "expect(lane).toContain('FSUSBLOG_PLAYWRIGHT_WORKERS=\"$FSUSBLOG_UX_VIEWPORT_WORKERS\" prepare_session_fixtures_once')"
+      ],
+      "reason": "Session preparation is now fingerprinted and namespace-scoped through the shared run-once helper while preserving the resolved viewport worker count."
+    },
+    {
+      "before": "expect(writeComposable).toContain('encodePublicAotPayload(toLocalDraftSnapshot(snapshot))')",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts#wires-rights-through-defaults-edit-loading-server-drafts-0e4299f7a3"
+      ],
+      "after": [
+        "expect(writeComposable).toContain('encodeLocalDraftMetadata(snapshot)')",
+        "expect(writeComposable).not.toContain('toLocalDraftSnapshot')"
+      ],
+      "reason": "The replacement proves the browser payload uses the metadata-only codec and explicitly forbids reconstruction of a restorable unpublished snapshot."
+    },
+    {
+      "before": "expect(writeComposable).toContain('rights: normalizeArticleRightsForm(raw.rights)')",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts#wires-rights-through-defaults-edit-loading-server-drafts-0e4299f7a3"
+      ],
+      "after": [
+        "expect(writeComposable).toContain('rights: normalizeArticleRightsForm(draft.rights)')"
+      ],
+      "reason": "Rights restoration now reads the typed server draft object, preserving the same normalization while eliminating the unsafe generic local payload."
+    }
+  ]
+}

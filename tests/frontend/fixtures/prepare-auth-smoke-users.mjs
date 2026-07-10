@@ -25,7 +25,7 @@ async function main() {
   console.log(`[prepare-auth-users] prepared anonymous account fixture: ${userName} (id=${fixtures.user.userId})`);
   console.log(`[prepare-auth-users] prepared admin principal fixture: ${adminName} (id=${fixtures.admin.adminId})`);
   if (manifest) {
-    console.log('[prepare-auth-users] wrote persistent fixture storage states under src/frontend/.playwright-fixtures');
+    console.log('[prepare-auth-users] wrote namespaced persistent fixture storage states');
   }
 }
 

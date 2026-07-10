@@ -7,9 +7,10 @@ SERVER_TEST_PROJ="$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj"
 BUILD_ENV_RUNNER="$ROOT_DIR/tools/build-with-data-env.sh"
 export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"
 COVERAGE_ROOT="${FSUSBLOG_COVERAGE_ROOT:-$ROOT_DIR/.tmp/coverage}"
+BACKEND_TRX_DIR="${FSUSBLOG_BACKEND_TRX_DIR:-$ROOT_DIR/.tmp/test-results/backend}"
 GATE_LOG_DIR="${FSUSBLOG_GATE_LOG_DIR:-$ROOT_DIR/.tmp/gate-logs}"
-FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-$ROOT_DIR/.tmp/frontend/frontend-fast-groups.jsonl}"
-FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-$ROOT_DIR/.tmp/frontend/frontend-fast-groups.json}"
+FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-}"
+FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-}"
 
 FAST_HTTP_TIMEOUT_MS="${FSUSBLOG_FAST_HTTP_TIMEOUT_MS:-15000}"
 INTEGRATION_HTTP_TIMEOUT_MS="${FSUSBLOG_INTEGRATION_HTTP_TIMEOUT_MS:-15000}"
@@ -26,6 +27,7 @@ DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:7568}"
 RELEASE_PREVIEW_URL="${FSUSBLOG_RELEASE_PREVIEW_URL:-http://127.0.0.1:8080}"
 DOTNET_BUILD_SHARED_ARGS=(/p:UseSharedCompilation=true /p:NuGetAudit=false)
 DOTNET_BUILD_PARALLEL_ARGS=()
+BACKEND_ORDINARY_TEST_FILTER="${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-Category!=Integration&Category!=ApiIntegration&Category!=Concurrency&Category!=Performance&Category!=Property&Category!=GoldenContract&Category!=SecurityStateMachine}"
 
 default_playwright_workers() {
   if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
@@ -82,6 +84,28 @@ NODE
   log "tier=visual | skip evidence: $out_file"
 }
 
+write_visual_playwright_skip_evidence() {
+  local group="$1"
+  local output_dir="$CLIENT_DIR/test-results/playwright/visual-$group"
+  local output_file="$output_dir/skip.json"
+  mkdir -p "$output_dir"
+  node - "$output_file" "$group" <<'NODE'
+const fs = require('node:fs')
+const outputFile = process.argv[2]
+const group = process.argv[3]
+fs.writeFileSync(outputFile, `${JSON.stringify({
+  schema: 'fsusblog.playwright.visual-skip.v1',
+  status: 'skipped',
+  group,
+  reason: process.env.FSUSBLOG_VISUAL_SKIP_REASON,
+  approver: process.env.FSUSBLOG_VISUAL_SKIP_APPROVER,
+  impact: process.env.FSUSBLOG_VISUAL_SKIP_IMPACT,
+  rerunUrl: process.env.FSUSBLOG_VISUAL_SKIP_RERUN_URL,
+  generatedAt: new Date().toISOString()
+}, null, 2)}\n`)
+NODE
+}
+
 print_artifact_hint() {
   printf '[test:%s] diagnostics: .tmp/acceptance/*.log and src/frontend/test-results/playwright are preserved when present\n' "${CURRENT_TIER:-unknown}" >&2
 }
@@ -136,7 +160,12 @@ configure_dotnet_build_parallelism() {
 }
 
 namespace_slug() {
-  printf '%s' "${1:-local}" | tr -c 'A-Za-z0-9_.-' '-'
+  local slug
+  slug="$(printf '%s' "${1:-local}" | tr -c 'A-Za-z0-9_.-' '-')"
+  if [[ -z "$slug" || "$slug" == "." || "$slug" == ".." ]]; then
+    slug='local'
+  fi
+  printf '%s' "$slug"
 }
 
 require_bootstrapped_namespace() {
@@ -179,6 +208,8 @@ configure_playwright_shard() {
   local total="${FSUSBLOG_TEST_SHARD_TOTAL:-}"
 
   if [[ -z "$index" && -z "$total" ]]; then
+    export PLAYWRIGHT_OUTPUT_DIR="${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/$lane}"
+    log "playwright unsharded output=$PLAYWRIGHT_OUTPUT_DIR"
     return
   fi
   if [[ ! "$index" =~ ^[0-9]+$ || ! "$total" =~ ^[0-9]+$ ]]; then
@@ -226,6 +257,153 @@ run_in_client() {
   )
 }
 
+test_input_fingerprint() {
+  "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-once.mjs" fingerprint --root "$ROOT_DIR" "$@"
+}
+
+run_once_command() {
+  local key="$1"
+  local fingerprint="$2"
+  local cwd="$3"
+  local required_output="$4"
+  shift 4
+  local -a args=(
+    run
+    --root "$ROOT_DIR/.tmp/run-once"
+    --namespace "${FSUSBLOG_TEST_NAMESPACE:-local}"
+    --key "$key"
+    --fingerprint "$fingerprint"
+    --cwd "$cwd"
+  )
+  if [[ -n "$required_output" && "$required_output" != "-" ]]; then
+    local output
+    while IFS= read -r output; do
+      [[ -n "$output" ]] && args+=(--require-output "$output")
+    done < <(printf '%s\n' "$required_output" | tr '|' '\n')
+  fi
+  run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-once.mjs" "${args[@]}" -- "$@"
+}
+
+fixture_root_path() {
+  "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/support/fixture-paths.mjs"
+}
+
+ensure_wasm_once() {
+  local fingerprint
+  fingerprint="$(test_input_fingerprint \
+    --path src/frontend/wasm \
+    --path tools/frontend/ensure-wasm.mjs \
+    --path tools/frontend/install-wasm-codec-deps.sh \
+    --path tools/test/legacy-test.sh \
+    --value ensure-wasm-v1)"
+  run_once_command \
+    ensure-wasm \
+    "$fingerprint" \
+    "$CLIENT_DIR" \
+    public/wasm \
+    npm run ensure:wasm
+}
+
+prepare_auth_fixtures_once() {
+  local fingerprint fixture_root
+  fixture_root="$(fixture_root_path)"
+  fingerprint="$(test_input_fingerprint \
+    --path tests/frontend/fixtures/prepare-auth-smoke-users.mjs \
+    --path tests/frontend/support/session-fixtures.mjs \
+    --path tests/frontend/support/fixture-paths.mjs \
+    --path tests/frontend/support/test-session.mjs \
+    --path tools/test/legacy-test.sh \
+    --value auth-fixtures-v2 \
+    --value "namespace=${FSUSBLOG_TEST_NAMESPACE:-local}" \
+    --value "service-generation=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unbootstrapped}" \
+    --secret-env FSUSBLOG_BASE_URL \
+    --secret-env FSUSBLOG_DEBUG_BACKEND_URL \
+    --secret-env FSUSBLOG_PG_CONTAINER \
+    --secret-env FSUSBLOG_PG_USER \
+    --secret-env FSUSBLOG_PG_DB \
+    --secret-env FSUSBLOG_REDIS_CONTAINER \
+    --secret-env FSUSBLOG_REDIS_CONTAINER_NAME \
+    --secret-env FSUSBLOG_USER_USERNAME \
+    --secret-env FSUSBLOG_ADMIN_USERNAME \
+    --secret-env FSUSBLOG_DEVICE_FP \
+    --secret-env Jwt__SecretKey \
+    --secret-env JWT_SECRET \
+    --secret-env FSUSBLOG_JWT_SECRET \
+    --secret-env FSUSBLOG_TEST_SESSION_SECRET \
+    --secret-env Jwt__Issuer \
+    --secret-env FSUSBLOG_JWT_ISSUER \
+    --secret-env Jwt__Audience \
+    --secret-env FSUSBLOG_JWT_AUDIENCE \
+    --secret-env AnonymousCredentialIssuer__SubjectHashPepper \
+    --secret-env FSUSBLOG_DEV_ANONYMOUS_SUBJECT_HASH_PEPPER \
+    --secret-env FSUSBLOG_PERSIST_AUTH_FIXTURES \
+    --secret-env FSUSBLOG_RESET_ANONYMOUS_ISSUANCE_FIXTURE \
+    --secret-env Jwt__AccessTokenExpiresMinutes \
+    --secret-env FSUSBLOG_JWT_ACCESS_TOKEN_EXPIRES_MINUTES \
+    --secret-env FSUSBLOG_TEST_SESSION \
+    --secret-env FSUSBLOG_TEST_SESSION_ISOLATION \
+    --secret-env TEST_PARALLEL_INDEX \
+    --secret-env TEST_WORKER_INDEX)"
+  run_once_command \
+    auth-fixtures \
+    "$fingerprint" \
+    "$CLIENT_DIR" \
+    "$fixture_root/auth" \
+    npm run prepare:binary-smoke:auth-users
+}
+
+prepare_public_fixtures_once() {
+  local fingerprint fixture_root
+  fixture_root="$(fixture_root_path)"
+  fingerprint="$(test_input_fingerprint \
+    --path tests/frontend/fixtures/discover-playwright-fixtures.mjs \
+    --path tests/frontend/support/aeds-envelope.mjs \
+    --path tests/frontend/support/fixture-paths.mjs \
+    --path tools/test/legacy-test.sh \
+    --value "${FSUSBLOG_TEST_NAMESPACE:-local}" \
+    --value "service-generation=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unbootstrapped}" \
+    --value "${FSUSBLOG_BASE_URL:-$DEBUG_BACKEND_URL}" \
+    --value "${FSUSBLOG_PG_CONTAINER:-}" \
+    --value "${FSUSBLOG_REDIS_CONTAINER:-}")"
+  run_once_command \
+    public-fixtures \
+    "$fingerprint" \
+    "$CLIENT_DIR" \
+    "$fixture_root/public.aeds" \
+    npm run prepare:playwright:fixtures
+}
+
+prepare_session_fixtures_once() {
+  local fingerprint fixture_root workers
+  fixture_root="$(fixture_root_path)"
+  workers="${FSUSBLOG_PLAYWRIGHT_WORKERS:-4}"
+  fingerprint="$(test_input_fingerprint \
+    --path tests/frontend/fixtures/prepare-playwright-sessions.mjs \
+    --path tests/frontend/support/session-fixtures.mjs \
+    --path tests/frontend/support/fixture-paths.mjs \
+    --path tools/test/legacy-test.sh \
+    --value "namespace=${FSUSBLOG_TEST_NAMESPACE:-local}" \
+    --value "service-generation=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unbootstrapped}" \
+    --value "playwright-workers=$workers" \
+    --secret-env Jwt__SecretKey \
+    --secret-env FSUSBLOG_TEST_SESSION_SECRET \
+    --secret-env AnonymousCredentialIssuer__SubjectHashPepper)"
+  run_once_command \
+    session-fixtures \
+    "$fingerprint" \
+    "$CLIENT_DIR" \
+    "$fixture_root/sessions" \
+    env FSUSBLOG_PLAYWRIGHT_WORKERS="$workers" npm run prepare:playwright:sessions -- --workers "$workers"
+}
+
+prepare_runtime_fixtures_once() {
+  prepare_auth_fixtures_once
+  prepare_public_fixtures_once
+  if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
+    prepare_session_fixtures_once
+  fi
+}
+
 run_vitest_script() {
   local script="$1"
   if [[ -n "${FSUSBLOG_VITEST_SHARD_ARG:-}" ]]; then
@@ -233,6 +411,11 @@ run_vitest_script() {
   else
     run_in_client npm run "$script"
   fi
+}
+
+run_vitest_script_unsharded() {
+  local script="$1"
+  run_in_client npm run "$script"
 }
 
 configure_visual_playwright_lane() {
@@ -309,6 +492,12 @@ run_visual_group_check() {
 }
 
 prepare_frontend_fast_group_timings() {
+  local timing_scope
+  timing_scope="${FSUSBLOG_FRONTEND_FAST_TIMING_SCOPE:-${CURRENT_TIER:-frontend-fast}}"
+  timing_scope="$(printf '%s' "$timing_scope" | tr -cs 'A-Za-z0-9_.-' '-' | sed -E 's/^-+|-+$//g')"
+  [[ -n "$timing_scope" && "$timing_scope" != "." && "$timing_scope" != ".." ]] || timing_scope="frontend-fast"
+  FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-$ROOT_DIR/.tmp/frontend/timings/$timing_scope.jsonl}"
+  FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-$ROOT_DIR/.tmp/frontend/timings/$timing_scope.json}"
   mkdir -p "$(dirname "$FRONTEND_FAST_GROUP_TIMINGS_JSONL")"
   : > "$FRONTEND_FAST_GROUP_TIMINGS_JSONL"
   rm -f "$FRONTEND_FAST_GROUP_TIMINGS_JSON"
@@ -530,52 +719,166 @@ bootstrap_acceptance_env() {
   require_bootstrapped_namespace
 }
 
-run_fast_backend_lane() {
-  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
-  configure_dotnet_build_parallelism
-  run "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/FsusBlog.slnx" -c Debug -warnaserror -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
+run_backend_build_governance_lane() {
+  run_backend_governance_checks
+  ensure_backend_filtered_build
+  write_backend_split_summary backend-build-governance governance-and-debug-build
+}
+
+run_backend_unit_lane() {
   if [[ "${FSUSBLOG_TEST_SELECTION:-}" == "affected" ]]; then
-    log "backend-fast selection=affected"
+    log "backend-unit selection=affected"
     run "$ROOT_DIR/tools/dotnet-affected-tests.sh"
   else
-    log "backend-fast selection=full reason=${FSUSBLOG_TEST_SELECTION:-unset}"
-    run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build --filter "Category!=Integration&Category!=Concurrency&Category!=Performance"
+    log "backend-unit selection=full reason=${FSUSBLOG_TEST_SELECTION:-unset}"
+    run_backend_dotnet_filter_only "$BACKEND_ORDINARY_TEST_FILTER" backend-unit
   fi
+  write_backend_split_summary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
+}
+
+run_backend_fast_summary_lane() {
+  log "backend-fast | artifact-only summary; build/governance and unit ran in dependency tiers"
+  write_backend_split_summary backend-fast dependency-summary
+}
+
+run_fast_backend_lane() {
+  run_backend_build_governance_lane
+  run_backend_unit_lane
+  run_backend_fast_summary_lane
+}
+
+configure_dotnet_test_processors() {
+  export DOTNET_PROCESSOR_COUNT
+  DOTNET_PROCESSOR_COUNT="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/resolve-dotnet-test-processors.mjs")"
+  log "dotnet test processor count=$DOTNET_PROCESSOR_COUNT"
+}
+
+ensure_backend_filtered_build() {
+  local fingerprint
+  configure_dotnet_build_parallelism
+  fingerprint="$(test_input_fingerprint \
+    --path Directory.Build.props \
+    --path FsusBlog.slnx \
+    --path src/backend \
+    --path src/core \
+    --path src/shared \
+    --path tests/backend \
+    --path tools/build-with-data-env.sh \
+    --path tools/test/legacy-test.sh \
+    --value backend-filtered-debug-v1)"
+  run_once_command \
+    backend-filtered-build \
+    "$fingerprint" \
+    "$ROOT_DIR" \
+    'tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.deps.json|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.runtimeconfig.json' \
+    "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/FsusBlog.slnx" -c Debug -warnaserror -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
+}
+
+backend_trx_file() {
+  local lane
+  lane="$(namespace_slug "${1:-backend}")"
+  mkdir -p "$BACKEND_TRX_DIR"
+  printf '%s/%s.trx' "$BACKEND_TRX_DIR" "$lane"
 }
 
 run_backend_dotnet_filter_only() {
   local filter="$1"
-  run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal "${DOTNET_BUILD_SHARED_ARGS[@]}" --filter "$filter"
+  local lane="${2:-${CURRENT_TIER:-backend}}"
+  local trx_file
+  trx_file="$(backend_trx_file "$lane")"
+  configure_dotnet_test_processors
+  ensure_backend_filtered_build
+  rm -f "$trx_file"
+  run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build "${DOTNET_BUILD_SHARED_ARGS[@]}" --filter "$filter" --logger "trx;LogFileName=$trx_file"
+}
+
+run_backend_dotnet_filter_with_coverage() {
+  local lane="$1"
+  local filter="$2"
+  local results_dir="$COVERAGE_ROOT/backend/special-$lane"
+  local trx_file
+  trx_file="$(backend_trx_file "backend-$lane")"
+  configure_dotnet_test_processors
+  ensure_backend_filtered_build
+  rm -rf "$results_dir"
+  rm -f "$trx_file"
+  mkdir -p "$results_dir"
+  run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" \
+    -c Debug \
+    -v minimal \
+    --no-build \
+    "${DOTNET_BUILD_SHARED_ARGS[@]}" \
+    --filter "$filter" \
+    --logger "trx;LogFileName=$trx_file" \
+    "--collect:XPlat Code Coverage" \
+    --results-directory "$results_dir" \
+    -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json,cobertura
+}
+
+run_backend_governance_checks() {
+  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+  run "$ROOT_DIR/tools/check-postgres-test-collections.mjs"
+}
+
+write_backend_split_summary() {
+  local lane="$1"
+  local selection="$2"
+  local out_file="$ROOT_DIR/.tmp/$lane/summary.json"
+  mkdir -p "$(dirname "$out_file")"
+  node - "$out_file" "$lane" "$selection" <<'NODE'
+const fs = require('node:fs')
+const outFile = process.argv[2]
+const lane = process.argv[3]
+const selection = process.argv[4]
+fs.writeFileSync(outFile, `${JSON.stringify({
+  schema: 'fsusblog.backend.split-lane.v1',
+  lane,
+  selection,
+  status: 'success',
+  generatedAt: new Date().toISOString()
+}, null, 2)}\n`)
+NODE
 }
 
 run_backend_api_integration_only() {
-  run_backend_dotnet_filter_only "Category=ApiIntegration"
+  run_backend_dotnet_filter_with_coverage api-integration "Category=ApiIntegration"
+  write_backend_split_summary backend-api-integration "Category=ApiIntegration"
 }
 
 run_backend_auth_state_machine_only() {
-  run_backend_dotnet_filter_only "Category=SecurityStateMachine"
+  run_backend_dotnet_filter_with_coverage auth-state-machine "Category=SecurityStateMachine"
+  write_backend_split_summary backend-auth-state-machine "Category=SecurityStateMachine"
 }
 
 run_backend_concurrency_only() {
-  run_backend_dotnet_filter_only "Category=Concurrency"
+  run_backend_dotnet_filter_with_coverage concurrency "Category=Concurrency"
+  write_backend_split_summary backend-concurrency "Category=Concurrency"
 }
 
 run_backend_property_only() {
-  run_backend_dotnet_filter_only "Category=Property"
+  run_backend_dotnet_filter_with_coverage property "Category=Property"
+  write_backend_split_summary backend-property "Category=Property"
 }
 
 run_backend_golden_only() {
-  run_backend_dotnet_filter_only "Category=GoldenContract"
+  run_backend_dotnet_filter_with_coverage golden "Category=GoldenContract"
+  write_backend_split_summary backend-golden "Category=GoldenContract"
 }
 
 run_backend_test_governance_only() {
-  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+  run_backend_governance_checks
+  write_backend_split_summary backend-test-governance governance
 }
 
 run_backend_perf_only() {
-  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+  local trx_lane="${1:-backend-perf}"
+  run_backend_governance_checks
+  FSUSBLOG_RUN_PERFORMANCE_TESTS=1 run_backend_dotnet_filter_only \
+    "FullyQualifiedName=FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget" \
+    "$trx_lane"
   configure_dotnet_build_parallelism
   run "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" -c Release -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
+  write_backend_split_summary backend-perf native-p99-and-benchmark-project-release-build
 }
 
 run_backend_mutation_only() {
@@ -583,20 +886,16 @@ run_backend_mutation_only() {
   run dotnet tool run dotnet-stryker --config-file "$ROOT_DIR/stryker-config.json"
 }
 
-run_backend_chaos_only() {
-  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
-  run_backend_dotnet_filter_only "Category=Concurrency"
-}
-
 run_backend_nightly_only() {
-  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
-  run_backend_dotnet_filter_only "Category=Property|Category=GoldenContract|Category=Concurrency|Category=SecurityStateMachine|Category=ApiIntegration"
-  run_backend_perf_only
+  run_backend_governance_checks
+  run_backend_dotnet_filter_only "Category=Property|Category=GoldenContract|Category=Concurrency|Category=SecurityStateMachine|Category=ApiIntegration" backend-nightly-selection
+  run_backend_perf_only backend-nightly-performance
   if [[ "${FSUSBLOG_RUN_BACKEND_MUTATION_FULL:-0}" == "1" ]]; then
     run_backend_mutation_only
   else
     log "skip backend mutation full run (set FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1)"
   fi
+  write_backend_split_summary backend-nightly exhaustive-readiness
 }
 
 run_cross_stack_contract_only() {
@@ -605,7 +904,41 @@ run_cross_stack_contract_only() {
 }
 
 run_frontend_fast_build_group() {
-  run_in_client env FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_VITE_WARN_AS_ERROR=1 npm run build
+  local fingerprint
+  local -a fingerprint_args=(
+    --path src/frontend/index.html
+    --path src/frontend/package.json
+    --path src/frontend/package-lock.json
+    --path src/frontend/public
+    --path src/frontend/vite.config.ts
+    --path src/frontend/scripts
+    --path src/frontend/src
+    --path tools/frontend
+    --path tools/test/legacy-test.sh
+    --value frontend-release-build-v2
+  )
+  local key value tsconfig
+  for tsconfig in "$CLIENT_DIR"/tsconfig*.json; do
+    [[ -f "$tsconfig" ]] || continue
+    fingerprint_args+=(--path "${tsconfig#"$ROOT_DIR/"}")
+  done
+  while IFS='=' read -r key value; do
+    fingerprint_args+=(--value "$key=$value")
+  done < <(env | LC_ALL=C sort | awk -F= '$1 ~ /^VITE_/ {print}')
+  for key in \
+    FSUSBLOG_VUE_HYDRATION_DETAILS \
+    FSUSBLOG_PUBLIC_SSR_BUILD \
+    FSUSBLOG_USE_LOCAL_FSUSUI \
+    FSUSBLOG_LOCAL_FSUSUI_ROOT; do
+    fingerprint_args+=(--value "$key=${!key:-}")
+  done
+  fingerprint="$(test_input_fingerprint "${fingerprint_args[@]}")"
+  run_once_command \
+    frontend-release-build \
+    "$fingerprint" \
+    "$CLIENT_DIR" \
+    'dist|../backend/wwwroot' \
+    env FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_VALIDATE_GENERATED_ONLY=1 FSUSBLOG_VITE_WARN_AS_ERROR=1 npm run build:release
 }
 
 write_frontend_split_summary() {
@@ -621,12 +954,31 @@ fs.writeFileSync(outFile, `${JSON.stringify({
   schema: 'fsusblog.frontend-fast.split-lane.v1',
   lane,
   status: 'success',
+  schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID || null,
+  generatedAt: new Date().toISOString()
+}, null, 2)}\n`)
+NODE
+}
+
+write_runtime_lane_summary() {
+  local lane="$1"
+  local out_file="$ROOT_DIR/.tmp/runtime/$lane.json"
+  mkdir -p "$(dirname "$out_file")"
+  node - "$out_file" "$lane" <<'NODE'
+const fs = require('node:fs')
+const outFile = process.argv[2]
+const lane = process.argv[3]
+fs.writeFileSync(outFile, `${JSON.stringify({
+  schema: 'fsusblog.runtime-lane.v1',
+  lane,
+  status: 'success',
   generatedAt: new Date().toISOString()
 }, null, 2)}\n`)
 NODE
 }
 
 run_frontend_fast_build_lane() {
+  ensure_wasm_once
   prepare_frontend_fast_group_timings
   run_frontend_fast_group build run_frontend_fast_build_group
   write_frontend_fast_group_summary
@@ -638,9 +990,6 @@ run_frontend_fast_tests_group_body() {
     run_vitest_script test:unit:fast
   fi
 
-  run_vitest_script test:property
-  run_vitest_script check:frontend-state-machines
-  run_vitest_script check:frontend-perf-regression
 }
 
 run_frontend_fast_tests_group() {
@@ -655,14 +1004,23 @@ run_frontend_unit_shard_lane() {
   write_frontend_split_summary frontend-unit-shard
 }
 
+run_frontend_property_model_perf_group_body() {
+  run_vitest_script_unsharded test:property
+  run_vitest_script_unsharded check:frontend-state-machines
+  run_vitest_script_unsharded check:frontend-perf-regression
+}
+
+run_frontend_property_model_perf_lane() {
+  prepare_frontend_fast_group_timings
+  run_frontend_fast_group property-model-perf run_frontend_property_model_perf_group_body
+  write_frontend_fast_group_summary
+  write_frontend_split_summary frontend-property-model-perf
+}
+
 run_frontend_fast_runtime_contracts_group_body() {
-  run_in_client npm run check:worker-contracts
-  run_in_client npm run check:a11y:deep
-  run_in_client npm run check:contract:binary-matrix
-  run_in_client npm run check:contract:negative-matrix
-  run_in_client npm run check:coherence:runtime-matrix
-  run_in_client npm run check:image-codec-wasm
-  run_in_client npm run check:image-codec-wasm-runtime
+  run_in_client "${FSUSBLOG_NODE:-node}" \
+    ../../tools/test/run-command-manifest.mjs \
+    ../../tests/frontend/checks/runtime/manifest.json
 }
 
 run_frontend_fast_runtime_contracts_group() {
@@ -670,6 +1028,7 @@ run_frontend_fast_runtime_contracts_group() {
 }
 
 run_frontend_runtime_contracts_lane() {
+  ensure_wasm_once
   prepare_frontend_fast_group_timings
   run_frontend_fast_runtime_contracts_group
   write_frontend_fast_group_summary
@@ -677,29 +1036,9 @@ run_frontend_runtime_contracts_lane() {
 }
 
 run_frontend_fast_static_governance_group_body() {
-  run_in_client npm run check:frontend-test-governance
-  run_in_client npm run check:contract:api-parity
-  run_in_client npm run check:contract:frame-schema
-  run_in_client npm run check:cross-stack-test-governance
-  run_in_client npm run check:modern-standards
-  run_in_client npm run check:result-boundaries
-  run_in_client npm run check:error-code-alignment
-  run_in_client npm run check:no-runtime-message-branching
-  run_in_client npm run check:security-consistency
-  run_in_client npm run check:server-try-catch
-  run_in_client npm run check:asset-size-budget
-  run_in_client npm run check:public-private-data-leakage
-  run_in_client npm run check:public-aot-contracts
-  run_in_client npm run check:pwa-offline-policy
-  run_in_client npm run check:views-constraints
-  run "$ROOT_DIR/tools/check-public-hot-read-fastpath.sh"
-  run "$ROOT_DIR/tools/check-historical-residue.sh"
-  run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/checks/static/check-historical-residue-fixture.mjs"
-  run "$ROOT_DIR/tools/check-cache-governance.sh"
-  run "$ROOT_DIR/tools/check-test-hygiene.sh"
-  run "$ROOT_DIR/tools/operations/check-slo-definition.mjs"
-  run "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" --self-test
-  run "$ROOT_DIR/tools/operations/check-release-slo-alerts.mjs" --self-test
+  run_in_client "${FSUSBLOG_NODE:-node}" \
+    ../../tools/test/run-command-manifest.mjs \
+    ../../tests/frontend/checks/static/manifest.json
 }
 
 run_frontend_fast_static_governance_group() {
@@ -721,6 +1060,7 @@ run_frontend_fast_summary_lane() {
 run_fast_frontend_lane() {
   run_frontend_fast_build_lane
   run_frontend_unit_shard_lane
+  run_frontend_property_model_perf_lane
   run_frontend_runtime_contracts_lane
   run_frontend_static_governance_lane
   run_frontend_fast_summary_lane
@@ -728,7 +1068,7 @@ run_fast_frontend_lane() {
 
 run_fast_only() {
   log "tier=fast | no running services required"
-  run_in_client npm run ensure:wasm
+  ensure_wasm_once
   # The frontend release build syncs hashed assets into src/backend/wwwroot.
   # Keep it ahead of the .NET StaticWebAssets pass so the manifest and files
   # are read from one coherent generation instead of racing on deleted chunks.
@@ -742,15 +1082,14 @@ run_fast() {
 
 run_integration_only() {
   log "tier=integration | debug runtime validation, requires frontend=3000 backend=5000"
-  run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --filter "Category=Integration"
+  run_backend_dotnet_filter_only "Category=Integration" integration
   require_debug_stack
 
   export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
   export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$INTEGRATION_HTTP_TIMEOUT_MS"
 
-  run_in_client npm run prepare:binary-smoke:auth-users
-  run_in_client npm run prepare:playwright:fixtures
+  prepare_runtime_fixtures_once
   run_in_client npm run check:auth-session-smoke
   run_in_client npm run check:pow-runtime
   run_in_client npm run check:binary-smoke
@@ -762,6 +1101,7 @@ run_integration_only() {
   run_in_client npm run check:distribution-version-coherence
   run_in_client npm run check:sw-search-runtime
   run_in_client npm run check:search-runtime
+  write_runtime_lane_summary integration
 }
 
 run_integration() {
@@ -891,6 +1231,7 @@ run_acceptance_only() {
   configure_playwright_shard acceptance
   export FSUSBLOG_TEST_SESSION_ISOLATION="${FSUSBLOG_TEST_SESSION_ISOLATION:-1}"
   configure_playwright_workers acceptance-spa-routes FSUSBLOG_SPA_ROUTES_WORKERS
+  configure_playwright_workers acceptance-public-routes FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS
   require_debug_stack
   require_release_preview
   reset_security_runtime_state "pre acceptance"
@@ -898,7 +1239,7 @@ run_acceptance_only() {
   if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
     export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
     export FSUSBLOG_HTTP_TIMEOUT_MS="$ACCEPTANCE_HTTP_TIMEOUT_MS"
-    run_in_client npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_SPA_ROUTES_WORKERS"
+    FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_SPA_ROUTES_WORKERS" prepare_session_fixtures_once
     export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
   fi
 
@@ -958,7 +1299,7 @@ run_visual_console_only() {
   export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$VISUAL_HTTP_TIMEOUT_MS"
   if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
-    run_in_client npm run prepare:playwright:sessions -- --workers "$FSUSBLOG_CONSOLE_VISUAL_WORKERS"
+    FSUSBLOG_PLAYWRIGHT_WORKERS="$FSUSBLOG_CONSOLE_VISUAL_WORKERS" prepare_session_fixtures_once
     export FSUSBLOG_SKIP_PLAYWRIGHT_SESSION_PREP=1
   fi
   run_visual_group_check console npm run check:visual:console
@@ -994,8 +1335,7 @@ run_security_only() {
   export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$SECURITY_HTTP_TIMEOUT_MS"
 
-  run_in_client npm run prepare:binary-smoke:auth-users
-  run_in_client npm run prepare:playwright:fixtures
+  prepare_runtime_fixtures_once
   run_in_client npm run check:api-contracts
   run_in_client npm run check:auth-session-smoke
   run_in_client npm run check:security:auth-mfa
@@ -1028,8 +1368,7 @@ run_resilience_only() {
   export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$RESILIENCE_HTTP_TIMEOUT_MS"
 
-  run_in_client npm run prepare:binary-smoke:auth-users
-  run_in_client npm run prepare:playwright:fixtures
+  prepare_runtime_fixtures_once
   run_in_client npm run check:aot-cache-resilience
   run_in_client npm run check:resilience:runtime
   run_in_client npm run check:resilience:upload
@@ -1037,6 +1376,7 @@ run_resilience_only() {
   run_in_client npm run check:search-runtime
   run_in_client npm run check:binary-smoke
   run_in_client npm run check:binary-contract-smoke
+  write_runtime_lane_summary resilience
 }
 
 run_resilience() {
@@ -1055,8 +1395,7 @@ run_load_only() {
   export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$LOAD_HTTP_TIMEOUT_MS"
 
-  run_in_client npm run prepare:binary-smoke:auth-users
-  run_in_client npm run prepare:playwright:fixtures
+  prepare_runtime_fixtures_once
   run_in_client npm run check:load:public-api
   reset_security_runtime_state "pre notification stream pressure"
   run_in_client npm run check:load:notification-stream-pressure
@@ -1133,7 +1472,7 @@ run_production() {
 
 usage() {
   cat <<'EOF'
-Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-chaos|backend-nightly|cross-stack-contract>
+Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-nightly|cross-stack-contract>
 
 Tiers:
   fast         Static and local-only validation; no running services required.
@@ -1160,7 +1499,6 @@ Tiers:
   backend-test-governance       Backend traceability/profile/static governance tier.
   backend-perf                  Backend BenchmarkDotNet build/readiness tier.
   backend-mutation              Backend Stryker.NET mutation tier.
-  backend-chaos                 Backend deterministic fault/concurrency readiness tier.
   backend-nightly               Backend exhaustive nightly readiness tier. Set FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1 to include full mutation.
   cross-stack-contract          Frontend/backend binary contract, API parity, schema sync, negative and coherence governance tier.
 EOF
@@ -1260,10 +1598,6 @@ main() {
     backend-mutation)
       CURRENT_TIER="backend-mutation"
       run_tier "backend-mutation" run_backend_mutation_only
-      ;;
-    backend-chaos)
-      CURRENT_TIER="backend-chaos"
-      run_tier "backend-chaos" run_backend_chaos_only
       ;;
     backend-nightly)
       CURRENT_TIER="backend-nightly"

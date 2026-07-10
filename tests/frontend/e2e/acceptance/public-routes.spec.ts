@@ -23,8 +23,12 @@ const articlePath = `/article/${fixtures.articleId}`
 const execFileAsync = promisify(execFile)
 const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0'
 const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process.env.FSUSBLOG_REDIS_CONTAINER_NAME || 'fsusblog-redis'
+const publicRouteExecutionMode = process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === '1'
+  && process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1'
+  ? 'parallel'
+  : 'serial'
 
-test.describe.configure({ mode: 'serial' })
+test.describe.configure({ mode: publicRouteExecutionMode })
 
 async function resetLocalPowRiskState() {
   if (!resetSecurityTestState) {

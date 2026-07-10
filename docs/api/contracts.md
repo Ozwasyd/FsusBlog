@@ -1549,13 +1549,13 @@ delete、restore、permanent-delete 必须先读取 article `xmin`，写入时�
 
 Authoring binary 写入请求 body 最大 1 MiB。`ServerDraftSaveRequest` 字段上限为：`DraftKey` 96、`Title` 200、`Content` 262144、`Summary` 500、`CoverImageUrl` 2048、`ClientRevision` 128、`WarningOverrideReason` 500；超限请求在 Markdown、内容过滤、快照构建或持久化前按 validation fail closed。
 
-Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，字段与 `ArticleWriteRequest.rights` 一一对应：`enabled`、`licenseType`、`copyrightHolder`、`copyrightYear`、`rightsStatement`、`attributionTemplate`、`copyPolicy`、`maxExcerptChars`、`allowCodeCopy`、`showPublicBadge`、`proofBindingEnabled`。新文章默认选择“继承站点设置”，管理端会读取站点合规版权配置生成当前生效的文章版权值，并在提交时写入完整 `ArticleWriteRequest.rights` 快照；这不是发布后继续动态跟随站点配置。用户切换为“自定义本文版权”后才允许修改单篇文章字段；编辑既有文章时从冻结 `ArticleDetail.rights` 载入当前策略并进入自定义模式。浏览器本地缓存和 `ServerDraftSaveRequest.rights` 都必须保存完整对象与 UI 模式标记，私有预览、发布前检查和最终提交共享同一份草稿请求构造。客户端会提前校验 enum values、`copyrightYear`、`maxExcerptChars` 和必填文本字段，但 server-side validation remains authoritative，服务端仍按 Article write path 规范化并拒绝非法或缺失的 V3 rights payload。
+Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，字段与 `ArticleWriteRequest.rights` 一一对应：`enabled`、`licenseType`、`copyrightHolder`、`copyrightYear`、`rightsStatement`、`attributionTemplate`、`copyPolicy`、`maxExcerptChars`、`allowCodeCopy`、`showPublicBadge`、`proofBindingEnabled`。新文章默认选择“继承站点设置”，管理端会读取站点合规版权配置生成当前生效的文章版权值，并在提交时写入完整 `ArticleWriteRequest.rights` 快照；这不是发布后继续动态跟随站点配置。用户切换为“自定义本文版权”后才允许修改单篇文章字段；编辑既有文章时从冻结 `ArticleDetail.rights` 载入当前策略并进入自定义模式。浏览器 localStorage 只保存不可恢复正文的草稿 metadata，不保存 `rights`、标题、摘要、正文或其他未发布内容；完整 `rights` 只写入 `ServerDraftSaveRequest`，私有预览、发布前检查和最终提交共享同一份当前表单构造。客户端会提前校验 enum values、`copyrightYear`、`maxExcerptChars` 和必填文本字段，但 server-side validation remains authoritative，服务端仍按 Article write path 规范化并拒绝非法或缺失的 V3 rights payload。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/binary/author/drafts` | 保存服务端草稿，按 `ownerAdminPrincipalId + draftKey` 幂等覆盖；owner 来自 admin principal `admin_id`，payload 包含 `status`、`scheduledPublishAt` 与完整 `rights` |
 | GET | `/api/binary/author/drafts/{draftKey}` | 读取服务端草稿；不存在时返回 `success=true,data=null`，存在时返回 `updatedAt`、`clientRevision`、发布状态、定时发布时间与 `rights` |
-| DELETE | `/api/binary/author/drafts/{draftKey}` | 丢弃服务端草稿；编辑器同步清除浏览器本地兜底缓存 |
+| DELETE | `/api/binary/author/drafts/{draftKey}` | 丢弃服务端草稿；编辑器同步清除浏览器中的草稿 metadata |
 | POST | `/api/binary/author/preview` | admin-only 私有预览，输出经过转义的 Markdown/AOT-like HTML，根节点带 `data-preview-only=true`、`data-markdown-renderer=server-preview`，不写 PublicAOT cache |
 | POST | `/api/binary/author/prepublish-check` | 发布前检查标题、SEO 描述、封面 URL、Markdown 结构、链接、图片 alt 与危险 HTML |
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId` |

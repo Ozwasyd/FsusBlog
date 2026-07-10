@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { authBinary, baseUrl, loginWithFixtureSessionBypass } from '../../support/auth-helpers.mjs';
 import { buildMarkdownExtremeCorpus, fnv1a32, normalizeMarkdownExtremeSize } from '../../support/markdown-extreme-corpus.mjs';
 import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs';
+import { readPublicFixtures } from '../../support/public-fixtures.mjs';
 import { systemChromiumLaunchOptions } from '../../support/system-chromium.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 
@@ -206,21 +205,9 @@ async function waitForPublicArticleReadable(id, timeoutMs = 30_000) {
 }
 
 function loadFixtureArticle() {
-  const fixturePath = resolve(process.cwd(), '.playwright-fixtures.aeds');
-  assert(existsSync(fixturePath), `playwright fixture file missing: ${fixturePath}`);
-
-  const values = new Map();
-  for (const line of readFileSync(fixturePath, 'utf8').split(/\r?\n/u)) {
-    const separator = line.indexOf('\t');
-    if (separator <= 0) {
-      continue;
-    }
-
-    values.set(line.slice(0, separator), Buffer.from(line.slice(separator + 1), 'base64url').toString('utf8'));
-  }
-
-  const id = Number(values.get('articleId'));
-  const title = String(values.get('articleTitle') ?? '').trim();
+  const fixtures = readPublicFixtures();
+  const id = Number(fixtures.articleId);
+  const title = String(fixtures.articleTitle ?? '').trim();
   assert(Number.isFinite(id) && id > 0, 'playwright fixture articleId missing');
   assert(title.length > 0, 'playwright fixture articleTitle missing');
   return { id, title };

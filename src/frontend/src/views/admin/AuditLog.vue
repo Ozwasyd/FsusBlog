@@ -744,7 +744,8 @@ onMounted(() => {
 }
 
 .audit-compact-row__action {
-  min-height: 32px;
+  min-width: 36px;
+  min-height: 36px;
   padding-inline: 6px;
 }
 
@@ -758,6 +759,12 @@ onMounted(() => {
 :deep(.audit-filter-grid .el-date-editor) {
   width: 100%;
   max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  :deep(.audit-filter-grid .el-date-editor .el-range-input) {
+    min-width: 32px;
+  }
 }
 
 @media (min-width: 1024px) {

@@ -5,6 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="${FSUSBLOG_OPENAPI_OUT_DIR:-$ROOT_DIR/.tmp/contracts/openapi}"
 OUT_FILE="$OUT_DIR/fsusblog.openapi.json"
 SNAPSHOT_FILE="$ROOT_DIR/src/shared/Contracts/Validation/fsusblog.openapi.json"
+UPDATE_SNAPSHOT="${FSUSBLOG_OPENAPI_UPDATE_SNAPSHOT:-0}"
+if [[ "${1:-}" == "--update-snapshot" ]]; then
+  UPDATE_SNAPSHOT=1
+elif [[ -n "${1:-}" ]]; then
+  printf 'Usage: %s [--update-snapshot]\n' "$0" >&2
+  exit 2
+fi
 mkdir -p "$OUT_DIR"
 
 if [[ "${FSUSBLOG_OPENAPI_BUILD:-1}" == "1" ]]; then
@@ -43,5 +50,13 @@ if [[ ! -f "$OUT_FILE" ]]; then
   fi
 fi
 
-cp "$OUT_FILE" "$SNAPSHOT_FILE"
-printf '[openapi] wrote %s and %s\n' "$OUT_FILE" "$SNAPSHOT_FILE"
+if [[ "$UPDATE_SNAPSHOT" == "1" ]]; then
+  cp "$OUT_FILE" "$SNAPSHOT_FILE"
+  printf '[openapi] wrote %s and updated %s\n' "$OUT_FILE" "$SNAPSHOT_FILE"
+elif ! cmp -s "$OUT_FILE" "$SNAPSHOT_FILE"; then
+  printf '[openapi] generated contract differs from tracked snapshot; inspect %s or rerun with --update-snapshot\n' "$OUT_FILE" >&2
+  diff -u "$SNAPSHOT_FILE" "$OUT_FILE" >&2 || true
+  exit 1
+else
+  printf '[openapi] generated contract matches tracked snapshot: %s\n' "$OUT_FILE"
+fi

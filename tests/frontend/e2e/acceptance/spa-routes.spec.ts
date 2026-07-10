@@ -172,16 +172,14 @@ function articleDetailRoot(page: Page): Locator {
 
 async function openAuditedPage(
   browser: Browser,
-  storageState?: StorageState,
-  localFixtureAdmin = false,
-  localFixtureSession = Boolean(storageState)
+  storageState?: StorageState
 ): Promise<{
   page: Page
   audit: RuntimeAudit
   close: () => Promise<void>
 }> {
   const context = await browser.newContext(withTestSessionContextOptions(storageState ? { storageState } : undefined))
-  await context.addInitScript((options: { localFixtureSession: boolean; localFixtureAdmin: boolean }) => {
+  await context.addInitScript(() => {
     const runtimeWindow = window as typeof window & {
       __FSUSBLOG_DISABLE_HUMAN_READ_PROOF__?: boolean
       __FSUSBLOG_DISABLE_PUBLIC_READ_HYDRATION__?: boolean
@@ -207,19 +205,6 @@ async function openAuditedPage(
       setTimeout(markRuntimeSuppressed, 0)
     }
 
-    if (options.localFixtureSession) {
-      try {
-        sessionStorage.setItem('fsusblog_local_fixture_session', '1')
-        if (options.localFixtureAdmin) {
-          sessionStorage.setItem('fsusblog_local_fixture_admin_session', '1')
-        }
-      } catch {
-        // Ignore storage access errors in browser privacy modes.
-      }
-    }
-  }, {
-    localFixtureSession,
-    localFixtureAdmin
   })
   const page = await context.newPage()
   const audit = attachRuntimeAudit(page)
@@ -454,7 +439,7 @@ test.describe('SPA route audit', () => {
     const storageState = await loadRouteStorageState(browser, adminName, adminPassword, '/user/manage')
 
     for (const route of adminRoutes) {
-      const session = await openAuditedPage(browser, storageState, false, false)
+      const session = await openAuditedPage(browser, storageState)
       try {
         await expectRoute(session.page, session.audit, route)
       } finally {

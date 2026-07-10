@@ -1,0 +1,48 @@
+{
+  "schema": "fsusblog.ux-viewport-legacy-snapshot.v1",
+  "runtimeRoot": "runtime",
+  "historicalBaseline": "historical-failure-signatures.json",
+  "provenance": {
+    "capturedAt": "2026-07-10T07:00:00.000Z",
+    "assertionSemanticsSourceCommit": "d7a1cd35bcb5d23867361dc70c9a6e6d7503934a",
+    "description": "Pre-optimization route/media-grouped viewport runner with its independent boundary assertion helper.",
+    "compatibilityChanges": [
+      "Namespace-scoped fixture path resolution only; boundary and theme assertion bodies are unchanged.",
+      "Route filters, canonical manage-list query checking, and isolated-session scheduling are retained from the captured legacy runner workspace."
+    ]
+  },
+  "files": [
+    {
+      "path": "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
+      "sha256": "bf7ffda935d2fb51b51ac2a910003bf8046547ebbb211995cc3c98c70d76a291"
+    },
+    {
+      "path": "tests/frontend/fixtures/ux-content-boundary-corpus.json",
+      "sha256": "a638ea6775f75d0fe4779f1b6132f1fa4536df6572ee0ec19fa1b364ced7acc7"
+    },
+    {
+      "path": "tests/frontend/fixtures/ux-viewport-matrix.json",
+      "sha256": "2ab6ad2356d8a1ddc5e57ad4955d6519e0b083f91ae93db284d0073adfb90054"
+    },
+    {
+      "path": "tests/frontend/support/fixture-paths.mjs",
+      "sha256": "24775a9d37868e01f599bb1f5dd7e4379b5d9e4fa04940e512c56d376adc0616"
+    },
+    {
+      "path": "tests/frontend/support/playwright/acceptance-shared.ts",
+      "sha256": "1a8c4e1f8139502a6d70963889b1b6244c9bacce69da7383a889489ff387b10f"
+    },
+    {
+      "path": "tests/frontend/support/playwright/routeAuditFixtures.ts",
+      "sha256": "cf5e90aef5536c519d83541b210c58619e958dae3bf19b5801b19e83cd05ff12"
+    },
+    {
+      "path": "tests/frontend/support/playwright/routeAuditMatrix.ts",
+      "sha256": "58bb9653f0afc92ec4fd86f9147d639467ea536f3408536170a3c2e4c733ded3"
+    },
+    {
+      "path": "tests/frontend/support/playwright/testSession.ts",
+      "sha256": "044b4bdd91f21255d175abd0bb84595c5cee0e25efe971b1f826100fabe85337"
+    }
+  ]
+}

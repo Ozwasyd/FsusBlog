@@ -1,7 +1,8 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const repoRoot = resolve(process.cwd(), '..', '..')
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const scanRoots = [
   'tests/frontend',
   'tests/backend',
@@ -104,12 +105,6 @@ const requiredMarkers = [
   }
 ]
 
-const storageStateFiles = [
-  'src/frontend/.playwright-fixtures/admin.storage-state.json',
-  'src/frontend/.playwright-fixtures/user.storage-state.json',
-  'src/frontend/.playwright-fixtures/auth-fixtures.json'
-]
-
 const violations = []
 
 function walk(dir) {
@@ -155,9 +150,42 @@ for (const rule of requiredMarkers) {
   }
 }
 
-for (const file of storageStateFiles) {
-  if (existsSync(resolve(repoRoot, file))) {
-    violations.push(`${file}: fixture credential storage state must not remain on disk`)
+const legacyFixtureRoot = resolve(repoRoot, 'src/frontend/.playwright-fixtures')
+try {
+  lstatSync(legacyFixtureRoot)
+  violations.push('src/frontend/.playwright-fixtures: legacy fixture directory or symbolic link must not remain on disk')
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error
+}
+
+function checkPrivateAuthFixturePath(path) {
+  const rel = relative(repoRoot, path).replace(/\\/g, '/')
+  const stats = lstatSync(path)
+  if (stats.isSymbolicLink()) {
+    violations.push(`${rel}: auth fixture paths must not be symbolic links`)
+    return
+  }
+  if (stats.isDirectory()) {
+    if ((stats.mode & 0o777) !== 0o700) {
+      violations.push(`${rel}: auth fixture directories must use mode 0700`)
+    }
+    for (const entry of readdirSync(path)) {
+      checkPrivateAuthFixturePath(join(path, entry))
+    }
+    return
+  }
+  if ((stats.mode & 0o777) !== 0o600) {
+    violations.push(`${rel}: auth fixture files must use mode 0600`)
+  }
+}
+
+const namespacedFixtureRoot = resolve(repoRoot, '.tmp/fixtures')
+if (existsSync(namespacedFixtureRoot)) {
+  for (const namespace of readdirSync(namespacedFixtureRoot)) {
+    const authDirectory = join(namespacedFixtureRoot, namespace, 'auth')
+    if (existsSync(authDirectory)) {
+      checkPrivateAuthFixturePath(authDirectory)
+    }
   }
 }
 

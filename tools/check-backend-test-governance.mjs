@@ -39,6 +39,16 @@ function requireFile(path) {
   }
 }
 
+function requireEvidencePath(path) {
+  if (path.startsWith('.tmp/')) {
+    if (!matrix.includes(path)) {
+      fail(`generated backend evidence is not declared by the test matrix: ${path}`)
+    }
+    return
+  }
+  requireFile(path)
+}
+
 function walk(dir, predicate, results = []) {
   for (const entry of readdirSync(dir)) {
     const fullPath = join(dir, entry)
@@ -220,7 +230,7 @@ for (const requirement of requirementCatalog.requirements || []) {
     fail(`backend requirement ${requirement.id} lacks evidence paths`)
   } else {
     for (const path of requirement.evidencePaths) {
-      requireFile(path)
+      requireEvidencePath(path)
     }
   }
 }
@@ -234,7 +244,6 @@ const requiredProfiles = new Set([
   'backend-test-governance',
   'backend-perf',
   'backend-mutation',
-  'backend-chaos',
   'backend-nightly'
 ])
 

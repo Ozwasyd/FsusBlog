@@ -1,25 +1,30 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import type { Browser, Page, StorageState } from '@playwright/test'
+import type { Browser, Page, StorageState, TestInfo } from '@playwright/test'
 import {
   UX_CONTENT_BOUNDARY_CORPUS,
   UX_VIEWPORT_MATRIX,
+  type AuditedPageSession,
   type ThemeMode,
   type UxViewport,
+  type UxViewportMediaMode,
   type UxViewportMode,
   adminName,
   adminPassword,
+  applyUxViewportMediaMode,
   assertThemeReadable,
+  assertUxViewportMediaMode,
   assertViewportBoundaryContract,
   captureStorageState,
   fixtures,
   freezeUiForScreenshot,
-  openThemedAuditedPage,
+  openThemedAuditedContext,
+  resetUxViewportMediaMode,
   settlePage,
   userName,
   userPassword,
-  uxViewportsForMode,
   waitForAppReady
 } from '../../support/playwright/acceptance-shared'
 import {
@@ -27,116 +32,157 @@ import {
   buildAnonymousRoutes,
   buildUserRoutes
 } from '../../support/playwright/routeAuditMatrix'
+import { buildUxViewportPlan } from '../../support/playwright/uxViewportPlan.mjs'
+// @ts-ignore The progress store intentionally stays a pure Node module shared with node:test.
+import { openUxViewportProgress, recordUxViewportGroupResult } from '../../support/playwright/uxViewportProgress.mjs'
 
 type StorageKind = 'anonymous' | 'user' | 'admin'
-type MediaMode = 'default' | 'zoom-125' | 'zoom-150' | 'zoom-200' | 'large-text' | 'reduced-motion' | 'high-contrast'
 
 type UxRoute = Readonly<{
   id: string
   path: string
   expectedUrl: string
+  expectedQuery?: Readonly<Record<string, string>>
   allowQuery?: boolean
   storage: StorageKind
   injectCorpus: boolean
   screenshotSelector: string
 }>
 
-type UxCase = Readonly<{
-  viewport: UxViewport
-  route: UxRoute
-  theme: ThemeMode
-  media: MediaMode
+type PlannedStep = Readonly<{
+  id: string
+  media: UxViewportMediaMode
 }>
 
-type UxCaseGroup = Readonly<{
+type PlannedViewport = Readonly<{
   id: string
   viewport: UxViewport
-  theme: ThemeMode
-  media: MediaMode
-  storage: StorageKind
-  cases: UxCase[]
+  steps: PlannedStep[]
 }>
 
+type PlannedGroup = Readonly<{
+  id: string
+  route: UxRoute
+  theme: ThemeMode
+  storage: StorageKind
+  viewports: PlannedViewport[]
+}>
+
+type UxPlan = Readonly<{
+  mode: UxViewportMode
+  fingerprint: string
+  groups: PlannedGroup[]
+  counts: Readonly<{
+    routes: number
+    routeThemeGroups: number
+    navigations: number
+    cases: number
+  }>
+}>
+
+const repositoryRoot = fileURLToPath(new URL('../../../../', import.meta.url))
 const mode = parseMode(process.env.FSUSBLOG_UX_VIEWPORT_MODE)
 const modeConfig = UX_VIEWPORT_MATRIX.modes[mode]
-const themes = modeConfig.themes as ThemeMode[]
-const mediaModes = modeConfig.media as MediaMode[]
-const themeIds = readOptionalSet('FSUSBLOG_UX_VIEWPORT_THEMES')
-const mediaIds = readOptionalSet('FSUSBLOG_UX_VIEWPORT_MEDIA')
-const viewportIds = readOptionalSet('FSUSBLOG_UX_VIEWPORT_VIEWPORTS')
-const routeIds = readOptionalSet('FSUSBLOG_UX_VIEWPORT_ROUTE_IDS')
-  ?? (modeConfig.routes === 'all' ? null : new Set(modeConfig.routes))
-const selectedThemes = themeIds ? themes.filter((theme) => themeIds.has(theme)) : themes
-const selectedMediaModes = mediaIds ? mediaModes.filter((media) => mediaIds.has(media)) : mediaModes
-const selectedViewports = viewportIds
-  ? uxViewportsForMode(mode).filter((viewport) => viewportIds.has(viewport.name))
-  : uxViewportsForMode(mode)
-const screenshotsEnabled = modeConfig.screenshots === true || process.env.FSUSBLOG_UX_VIEWPORT_SCREENSHOTS === '1'
-const outputRoot = path.resolve(process.cwd(), '../../.tmp/ux')
-const screenshotRoot = path.join(outputRoot, 'screenshots', mode)
+const screenshotsEnabled = modeConfig.screenshots === true
+  || readBooleanFlag('FSUSBLOG_UX_VIEWPORT_SCREENSHOTS')
+const usesIsolatedSessions = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1'
+const viewportExecutionMode = mode === 'smoke' || usesIsolatedSessions
+  ? 'parallel'
+  : 'default'
+const resume = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RESUME')
+const plan = buildUxViewportPlan({
+  matrix: UX_VIEWPORT_MATRIX,
+  routes: buildUxRoutes(),
+  mode,
+  filters: {
+    routeIds: readOptionalList('FSUSBLOG_UX_VIEWPORT_ROUTE_IDS'),
+    themes: readOptionalList('FSUSBLOG_UX_VIEWPORT_THEMES'),
+    viewportIds: readOptionalList('FSUSBLOG_UX_VIEWPORT_VIEWPORTS'),
+    media: readOptionalList('FSUSBLOG_UX_VIEWPORT_MEDIA')
+  }
+}) as UxPlan
+const progressRun = await openUxViewportProgress({
+  root: repositoryRoot,
+  plan,
+  resume,
+  runId: process.env.FSUSBLOG_UX_VIEWPORT_RUN_ID,
+  runToken: process.env.FSUSBLOG_UX_VIEWPORT_RUN_TOKEN,
+  outputDir: process.env.FSUSBLOG_UX_VIEWPORT_CURRENT_OUTPUT_DIR
+})
+const screenshotRoot = path.join(
+  repositoryRoot,
+  progressRun.progress.artifacts.root,
+  'screenshots'
+)
 
 let userStorageStatePromise: Promise<StorageState> | null = null
 let adminStorageStatePromise: Promise<StorageState> | null = null
 
 test.describe(`UX viewport boundaries (${mode})`, () => {
   test.describe.configure({
-    mode: mode === 'smoke' ? 'parallel' : 'default',
+    mode: viewportExecutionMode,
     timeout: mode === 'boundaries' ? 1_200_000 : 300_000
   })
 
-  const routes = buildUxRoutes().filter((route) => routeIds === null || routeIds.has(route.id))
-  const cases = buildCases(selectedViewports, routes, selectedThemes, selectedMediaModes)
+  for (const group of plan.groups) {
+    test(group.id, async ({ browser }, testInfo) => {
+      test.skip(
+        resume && progressRun.completedGroupIds.has(group.id),
+        `completed by UX viewport run ${progressRun.progress.runId}`
+      )
 
-  if (routes.length === 0 || cases.length === 0) {
-    throw new Error(`${mode} viewport matrix should not be empty`)
-  }
+      try {
+        await runUxRouteThemeGroup(browser, group)
+      } catch (error) {
+        await recordUxViewportGroupResult({
+          run: progressRun,
+          plan,
+          groupId: group.id,
+          status: 'failed',
+          error,
+          artifacts: currentTestArtifacts(testInfo)
+        })
+        throw error
+      }
 
-  for (const caseGroup of buildCaseGroups(cases)) {
-    test(`${caseGroup.id} keeps viewport boundaries usable`, async ({ browser }) => {
-      await runUxCaseGroup(browser, caseGroup)
+      await recordUxViewportGroupResult({
+        run: progressRun,
+        plan,
+        groupId: group.id,
+        status: 'passed',
+        artifacts: currentTestArtifacts(testInfo)
+      })
     })
   }
 })
 
-function buildCaseGroups(cases: UxCase[]): UxCaseGroup[] {
-  const groups = new Map<string, UxCaseGroup>()
-
-  for (const testCase of cases) {
-    const key = [testCase.viewport.name, testCase.theme, testCase.media, testCase.route.storage].join('|')
-    let group = groups.get(key)
-    if (!group) {
-      const groupNumber = String(groups.size + 1).padStart(3, '0')
-      group = {
-        id: `group-${groupNumber}-${testCase.viewport.name}-${testCase.theme}-${testCase.media}-${testCase.route.storage}`,
-        viewport: testCase.viewport,
-        theme: testCase.theme,
-        media: testCase.media,
-        storage: testCase.route.storage,
-        cases: []
-      }
-      groups.set(key, group)
-    }
-    group.cases.push(testCase)
-  }
-
-  return [...groups.values()]
-}
-
 function parseMode(value: string | undefined): UxViewportMode {
+  if (!value || value === 'smoke') {
+    return 'smoke'
+  }
   if (value === 'visual' || value === 'boundaries') {
     return value
   }
-  return 'smoke'
+  throw new Error(`unknown UX viewport mode: ${value}`)
 }
 
-function readOptionalSet(name: string): Set<string> | null {
-  const raw = process.env[name]
-  if (!raw) {
-    return null
+function readBooleanFlag(name: string): boolean {
+  const value = process.env[name]
+  if (!value || value === '0') {
+    return false
   }
+  if (value === '1') {
+    return true
+  }
+  throw new Error(`unknown UX viewport boolean filter ${name}: ${value}`)
+}
 
-  const values = raw.split(',').map((value) => value.trim()).filter(Boolean)
-  return values.length > 0 ? new Set(values) : null
+function readOptionalList(name: string): string[] | undefined {
+  const raw = process.env[name]
+  if (raw === undefined) {
+    return undefined
+  }
+  return raw.split(',').map((value) => value.trim()).filter(Boolean)
 }
 
 function buildUxRoutes(): UxRoute[] {
@@ -163,6 +209,7 @@ function buildUxRoutes(): UxRoute[] {
     id: route.name,
     path: route.path,
     expectedUrl: route.expectedUrl,
+    expectedQuery: route.name === 'manage-list' ? { page: '1', size: '10' } : undefined,
     allowQuery: route.name === 'manage-message',
     storage: 'admin' as const,
     injectCorpus: ['manage-dashboard', 'manage-write', 'manage-list', 'manage-settings', 'manage-users', 'manage-message'].includes(route.name),
@@ -172,90 +219,81 @@ function buildUxRoutes(): UxRoute[] {
   return [...publicRoutes, ...userRoutes, ...adminRoutes]
 }
 
-function buildCases(
-  viewports: UxViewport[],
-  routes: UxRoute[],
-  selectedThemes: ThemeMode[],
-  selectedMediaModes: MediaMode[]
-): UxCase[] {
-  const cases: UxCase[] = []
+async function runUxRouteThemeGroup(browser: Browser, group: PlannedGroup): Promise<void> {
+  const storageState = await storageStateFor(browser, group.storage)
+  const auditedContext = await openThemedAuditedContext(browser, group.theme, storageState)
 
-  for (const viewport of viewports) {
-    for (const theme of selectedThemes) {
-      for (const route of routes) {
-        cases.push({ viewport, route, theme, media: 'default' as const })
+  try {
+    for (const viewportPlan of group.viewports) {
+      const pageSession = await auditedContext.newPage()
+      try {
+        await pageSession.page.setViewportSize({
+          width: viewportPlan.viewport.width,
+          height: viewportPlan.viewport.height
+        })
+        await resetUxViewportMediaMode(pageSession.page)
+        await assertUxViewportMediaMode(
+          pageSession.page,
+          'default',
+          `${viewportPlan.id} pre-navigation reset`
+        )
 
-        for (const media of extraMediaModesForRoute(route, selectedMediaModes)) {
-          cases.push({ viewport, route, theme, media })
+        const navigationAuditStart = pageSession.audit.checkpoint()
+        await pageSession.page.goto(group.route.path, { waitUntil: 'domcontentloaded' })
+        await waitForAppReady(pageSession.page)
+        await settlePage(pageSession.page)
+        if (group.route.injectCorpus) {
+          await injectContentBoundaryCorpus(pageSession.page)
+          await settlePage(pageSession.page)
+        }
+
+        let includesNavigationAudit = true
+        for (const step of viewportPlan.steps) {
+          await test.step(step.id, async () => {
+            const auditStart = includesNavigationAudit
+              ? navigationAuditStart
+              : pageSession.audit.checkpoint()
+            await resetUxViewportMediaMode(pageSession.page)
+            await assertUxViewportMediaMode(pageSession.page, 'default', `${step.id} reset`)
+            await applyUxViewportMediaMode(pageSession.page, step.media)
+            await assertUxViewportMediaMode(pageSession.page, step.media, step.id)
+            await settlePage(pageSession.page)
+            await assertUxCombination(pageSession, group, viewportPlan, step)
+            pageSession.audit.assertCleanSince(auditStart, step.id)
+            includesNavigationAudit = false
+          })
+        }
+
+        await resetUxViewportMediaMode(pageSession.page)
+        await assertUxViewportMediaMode(
+          pageSession.page,
+          'default',
+          `${viewportPlan.id} final reset`
+        )
+        if (screenshotsEnabled) {
+          await captureUxScreenshot(
+            pageSession.page,
+            group.route,
+            viewportPlan.viewport,
+            group.theme
+          )
+        }
+      } finally {
+        try {
+          await resetUxViewportMediaMode(pageSession.page)
+          await assertUxViewportMediaMode(
+            pageSession.page,
+            'default',
+            `${viewportPlan.id} close reset`
+          )
+        } finally {
+          await pageSession.close()
         }
       }
     }
-  }
-
-  return cases
-}
-
-function extraMediaModesForRoute(route: UxRoute, selectedMediaModes: MediaMode[]): MediaMode[] {
-  const nonDefault = selectedMediaModes.filter((candidate) => candidate !== 'default')
-  const shouldProbeMedia = mode === 'boundaries'
-    || ['public-article', 'public-login', 'user-profile', 'user-messagebox', 'manage-write', 'manage-users'].includes(route.id)
-  if (shouldProbeMedia) {
-    return nonDefault
-  }
-
-  return []
-}
-
-async function runUxCaseGroup(browser: Browser, group: UxCaseGroup): Promise<void> {
-  const storageState = await storageStateFor(browser, group.storage)
-  const session = await openThemedAuditedPage(browser, group.theme, storageState)
-
-  try {
-    await session.page.setViewportSize({ width: group.viewport.width, height: group.viewport.height })
-    await applyMediaMode(session.page, group.media)
-    for (const testCase of group.cases) {
-      await runUxCase(session, testCase)
-    }
   } finally {
-    await session.close()
+    await auditedContext.close()
   }
-}
-
-async function runUxCase(
-  session: Awaited<ReturnType<typeof openThemedAuditedPage>>,
-  testCase: UxCase
-): Promise<void> {
-  const label = `${testCase.route.id} ${testCase.viewport.name} ${testCase.theme} ${testCase.media}`
-
-  await applyMediaMode(session.page, testCase.media)
-  const start = session.audit.checkpoint()
-  await session.page.goto(testCase.route.path, { waitUntil: 'domcontentloaded' })
-  await waitForAppReady(session.page)
-  await applyMediaMode(session.page, testCase.media)
-  await settlePage(session.page)
-
-  await expect
-    .poll(() => {
-      const current = new URL(session.page.url())
-      return testCase.route.allowQuery ? current.pathname : `${current.pathname}${current.search}`
-    }, { message: `${label} should land on expected route` })
-    .toBe(testCase.route.expectedUrl)
-
-  if (testCase.route.injectCorpus) {
-    await injectContentBoundaryCorpus(session.page)
-    await settlePage(session.page)
-  }
-
-  await expect(session.page.locator('#app'), `${label} should render one app root`).toHaveCount(1)
-  await expect(session.page.locator('main, #app').first(), `${label} should show main shell`).toBeVisible()
-  await assertThemeReadable(session.page, testCase.theme, label)
-  await assertViewportBoundaryContract(session.page, label)
-
-  if (screenshotsEnabled && testCase.media === 'default') {
-    await captureUxScreenshot(session.page, testCase.route, testCase.viewport, testCase.theme)
-  }
-
-  session.audit.assertCleanSince(start, label)
 }
 
 async function storageStateFor(browser: Browser, storage: StorageKind): Promise<StorageState | undefined> {
@@ -272,29 +310,43 @@ async function storageStateFor(browser: Browser, storage: StorageKind): Promise<
   return await adminStorageStatePromise
 }
 
-async function applyMediaMode(page: Page, media: MediaMode): Promise<void> {
-  if (media === 'reduced-motion') {
-    await page.emulateMedia({ reducedMotion: 'reduce' })
-  } else if (media === 'high-contrast') {
-    await page.emulateMedia({ contrast: 'more', forcedColors: 'active' } as Parameters<Page['emulateMedia']>[0])
+async function assertUxCombination(
+  session: AuditedPageSession,
+  testCase: PlannedGroup,
+  viewportPlan: PlannedViewport,
+  step: PlannedStep
+): Promise<void> {
+  const label = `${testCase.route.id} ${viewportPlan.viewport.name} ${testCase.theme} ${step.media}`
+  const expectedLocation = new URL(testCase.route.expectedUrl, session.page.url())
+  await expect
+    .poll(() => {
+      const current = new URL(session.page.url())
+      return testCase.route.allowQuery || testCase.route.expectedQuery
+        ? current.pathname
+        : `${current.pathname}${current.search}`
+    }, { message: `${label} should land on expected route` })
+    .toBe(testCase.route.allowQuery || testCase.route.expectedQuery
+      ? expectedLocation.pathname
+      : `${expectedLocation.pathname}${expectedLocation.search}`)
+
+  if (testCase.route.expectedQuery) {
+    await expect
+      .poll(() => Object.fromEntries(new URL(session.page.url()).searchParams.entries()), {
+        message: `${label} should keep its canonical query state`
+      })
+      .toEqual(testCase.route.expectedQuery)
   }
 
-  if (media === 'large-text') {
-    await page.addStyleTag({ content: 'html { font-size: 20px !important; }' })
-  } else if (media === 'zoom-125') {
-    await page.addStyleTag({ content: 'html { zoom: 1.25; }' })
-  } else if (media === 'zoom-150') {
-    await page.addStyleTag({ content: 'html { zoom: 1.5; }' })
-  } else if (media === 'zoom-200') {
-    await page.addStyleTag({ content: 'html { zoom: 2; }' })
-  }
+  await expect(session.page.locator('#app'), `${label} should render one app root`).toHaveCount(1)
+  await expect(session.page.locator('main, #app').first(), `${label} should show main shell`).toBeVisible()
+  await assertThemeReadable(session.page, testCase.theme, label)
+  await assertViewportBoundaryContract(session.page, label)
 }
 
 async function injectContentBoundaryCorpus(page: Page): Promise<void> {
   await page.evaluate((corpus) => {
     const host = document.querySelector('main') ?? document.body
-    const existing = document.querySelector('[data-ux-content-boundary-corpus]')
-    existing?.remove()
+    document.querySelector('[data-ux-content-boundary-corpus]')?.remove()
 
     const section = document.createElement('section')
     section.dataset.uxContentBoundaryCorpus = corpus.version
@@ -348,7 +400,12 @@ async function injectContentBoundaryCorpus(page: Page): Promise<void> {
   }, UX_CONTENT_BOUNDARY_CORPUS)
 }
 
-async function captureUxScreenshot(page: Page, route: UxRoute, viewport: UxViewport, theme: ThemeMode): Promise<void> {
+async function captureUxScreenshot(
+  page: Page,
+  route: UxRoute,
+  viewport: UxViewport,
+  theme: ThemeMode
+): Promise<void> {
   await freezeUiForScreenshot(page)
   const target = page.locator(route.screenshotSelector).first()
   await expect(target, `${route.id} screenshot target`).toBeVisible()
@@ -364,6 +421,13 @@ async function captureUxScreenshot(page: Page, route: UxRoute, viewport: UxViewp
     animations: 'disabled',
     caret: 'hide'
   })
+}
+
+function currentTestArtifacts(testInfo: TestInfo): string[] {
+  return testInfo.attachments
+    .map((attachment) => attachment.path)
+    .filter((file): file is string => Boolean(file))
+    .map((file) => path.relative(repositoryRoot, file).replaceAll(path.sep, '/'))
 }
 
 function sanitizeFilename(value: string): string {

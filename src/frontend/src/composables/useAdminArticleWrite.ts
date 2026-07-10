@@ -46,6 +46,7 @@ import { useImageUploadPreferences } from '@/composables/useImageUploadPreferenc
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime'
 import { useImageUploadFlow } from '@/composables/useImageUploadFlow'
 import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
+import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { usePow } from '@/composables/usePow'
 import { decodePublicAotPayload, encodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
 
@@ -67,6 +68,24 @@ interface ArticleDraftSnapshot extends ArticleParams {
   isEdit: boolean
   source: 'local' | 'server'
   clientRevision: string
+}
+
+export interface LocalDraftMetadataSource {
+  savedAt: number
+  sourceArticleId: number | null
+  isEdit: boolean
+  clientRevision: string
+}
+
+export interface LocalDraftMetadata extends LocalDraftMetadataSource {
+  schema: 'fsusblog.article-draft-metadata.v1'
+  source: 'local'
+}
+
+export interface LocalDraftRecovery<TDraft> {
+  draft: TDraft | null
+  savedAt: number | null
+  hasLocalMetadataWithoutRestorableDraft: boolean
 }
 
 interface ArticleSeoPreviewState {
@@ -98,6 +117,14 @@ interface ArticleRightsForm {
 const CREATE_DRAFT_KEY = 'fsus:article-draft:create'
 const EDIT_DRAFT_PREFIX = 'fsus:article-draft:edit:'
 const DRAFT_SAVE_DELAY_MS = 700
+const LOCAL_DRAFT_METADATA_KEYS = new Set([
+  'schema',
+  'savedAt',
+  'sourceArticleId',
+  'isEdit',
+  'source',
+  'clientRevision'
+])
 const ARTICLE_RIGHTS_LICENSE_TYPES = [
   'all-rights-reserved',
   'CC-BY-4.0',
@@ -286,35 +313,63 @@ const slugifyTitle = (title: string): string => {
   return slug || 'draft-preview'
 }
 
-const normalizeDraft = (value: unknown): ArticleDraftSnapshot | null => {
+export const normalizeLocalDraftMetadata = (value: unknown): LocalDraftMetadata | null => {
   if (typeof value !== 'object' || value === null) {
     return null
   }
 
-  const raw = value as Partial<ArticleDraftSnapshot>
-  if (typeof raw.title !== 'string' || typeof raw.content !== 'string' || typeof raw.summary !== 'string') {
+  const raw = value as Partial<LocalDraftMetadata>
+  if (Object.keys(raw).some((key) => !LOCAL_DRAFT_METADATA_KEYS.has(key))
+      || raw.schema !== 'fsusblog.article-draft-metadata.v1'
+      || raw.source !== 'local'
+      || typeof raw.savedAt !== 'number'
+      || !Number.isFinite(raw.savedAt)
+      || typeof raw.isEdit !== 'boolean'
+      || typeof raw.clientRevision !== 'string'
+      || (raw.sourceArticleId !== null
+        && (typeof raw.sourceArticleId !== 'number' || !Number.isFinite(raw.sourceArticleId)))) {
     return null
   }
 
   return {
-    title: raw.title,
-    content: raw.content,
-    summary: raw.summary,
-    coverImageUrl: typeof raw.coverImageUrl === 'string' ? raw.coverImageUrl : '',
-    categoryId: typeof raw.categoryId === 'number' && Number.isFinite(raw.categoryId) ? raw.categoryId : undefined,
-    tagIds: Array.isArray(raw.tagIds) ? raw.tagIds.map(Number).filter((item) => Number.isFinite(item)) : [],
-    status: normalizeArticlePublishStatus(raw.status),
-    scheduledPublishAt: typeof raw.scheduledPublishAt === 'string' ? raw.scheduledPublishAt : '',
-    rights: normalizeArticleRightsForm(raw.rights),
-    savedAt: typeof raw.savedAt === 'number' && Number.isFinite(raw.savedAt) ? raw.savedAt : 0,
-    sourceArticleId: typeof raw.sourceArticleId === 'number' && Number.isFinite(raw.sourceArticleId) ? raw.sourceArticleId : null,
-    isEdit: raw.isEdit === true,
-    source: raw.source === 'server' ? 'server' : 'local',
-    clientRevision: typeof raw.clientRevision === 'string' ? raw.clientRevision : ''
+    schema: 'fsusblog.article-draft-metadata.v1',
+    savedAt: raw.savedAt,
+    sourceArticleId: raw.sourceArticleId,
+    isEdit: raw.isEdit,
+    source: 'local',
+    clientRevision: raw.clientRevision
   }
 }
 
-const readDraftSnapshot = (key: string): ArticleDraftSnapshot | null => {
+export const toLocalDraftMetadata = (snapshot: LocalDraftMetadataSource): LocalDraftMetadata => ({
+  schema: 'fsusblog.article-draft-metadata.v1',
+  savedAt: snapshot.savedAt,
+  sourceArticleId: snapshot.sourceArticleId,
+  isEdit: snapshot.isEdit,
+  source: 'local',
+  clientRevision: snapshot.clientRevision
+})
+
+export const encodeLocalDraftMetadata = (snapshot: LocalDraftMetadataSource): string =>
+  encodePublicAotPayload(toLocalDraftMetadata(snapshot))
+
+export const decodeLocalDraftMetadata = (encoded: string): LocalDraftMetadata | null =>
+  normalizeLocalDraftMetadata(decodePublicAotPayload(encoded))
+
+export function resolveLocalDraftRecovery<TDraft extends { savedAt: number }>(
+  localMetadata: LocalDraftMetadata | null,
+  serverDraft: TDraft | null,
+  isServerDraftRestorable: (draft: TDraft) => boolean
+): LocalDraftRecovery<TDraft> {
+  const draft = serverDraft && isServerDraftRestorable(serverDraft) ? serverDraft : null
+  return {
+    draft,
+    savedAt: Math.max(localMetadata?.savedAt ?? 0, serverDraft?.savedAt ?? 0) || null,
+    hasLocalMetadataWithoutRestorableDraft: localMetadata !== null && draft === null
+  }
+}
+
+const readDraftMetadata = (key: string): LocalDraftMetadata | null => {
   if (typeof window === 'undefined') {
     return null
   }
@@ -325,7 +380,7 @@ const readDraftSnapshot = (key: string): ArticleDraftSnapshot | null => {
       return null
     }
 
-    const parsed = normalizeDraft(decodePublicAotPayload(raw))
+    const parsed = decodeLocalDraftMetadata(raw)
     if (!parsed) {
       window.localStorage.removeItem(key)
     }
@@ -340,19 +395,19 @@ const readDraftSnapshot = (key: string): ArticleDraftSnapshot | null => {
   }
 }
 
-const writeDraftSnapshot = (key: string, snapshot: ArticleDraftSnapshot): void => {
+const writeLocalDraftMetadata = (key: string, snapshot: ArticleDraftSnapshot): void => {
   if (typeof window === 'undefined') {
     return
   }
 
   try {
-    window.localStorage.setItem(key, encodePublicAotPayload(snapshot))
+    window.localStorage.setItem(key, encodeLocalDraftMetadata(snapshot))
   } catch {
-    // Local draft cache is best-effort and must never block editing.
+    // Local draft metadata is best-effort and must never block editing.
   }
 }
 
-const removeDraftSnapshot = (key: string): void => {
+const removeLocalDraftMetadata = (key: string): void => {
   if (typeof window === 'undefined') {
     return
   }
@@ -461,20 +516,18 @@ export function useAdminArticleWrite() {
     return isEdit.value ? '更新后会生成新的文章版本并刷新公开缓存。' : '发布后文章会进入公开阅读页并同步搜索索引。'
   })
   const draftKey = computed(() => (isEdit.value && articleId.value !== null ? `${EDIT_DRAFT_PREFIX}${articleId.value}` : CREATE_DRAFT_KEY))
-  const hasLocalDraft = computed(() => pendingDraft.value !== null || draftSavedAt.value !== null)
-  const pendingDraftSourceLabel = computed(() => pendingDraft.value?.source === 'server' ? '服务端草稿' : '本地缓存')
+  const hasLocalDraft = computed(() => pendingDraft.value !== null)
+  const pendingDraftSourceLabel = computed(() => '服务端草稿')
   const pendingDraftDescription = computed(() => {
     if (draftConflictText.value) {
       return draftConflictText.value
     }
 
-    return pendingDraft.value?.source === 'server'
-      ? '恢复会覆盖当前表单，丢弃会删除服务端草稿与本地兜底缓存。'
-      : '恢复会覆盖当前表单，丢弃只清除浏览器内缓存。'
+    return '恢复会覆盖当前表单，丢弃会删除服务端草稿与浏览器中的保存记录。'
   })
-  const draftRestoreButtonText = computed(() => pendingDraft.value?.source === 'server' ? '恢复服务端草稿' : '恢复本地缓存')
-  const draftDiscardButtonText = computed(() => pendingDraft.value?.source === 'server' ? '丢弃服务端草稿' : '丢弃缓存')
-  const requiresLeaveConfirm = computed(() => articleForm.content.length > 50 || hasLocalDraft.value)
+  const draftRestoreButtonText = computed(() => '恢复服务端草稿')
+  const draftDiscardButtonText = computed(() => '丢弃服务端草稿')
+  const requiresLeaveConfirm = computed(() => hasDraftContent(articleForm) || hasLocalDraft.value)
   const selectedRevisionLabel = computed(() => selectedRevision.value ? `版本 ${selectedRevision.value.revisionNo}` : '未选择历史版本')
   const canGeneratePrivatePreview = computed(() => articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0)
   const seoPreview = computed<ArticleSeoPreviewState>(() => {
@@ -673,7 +726,7 @@ export function useAdminArticleWrite() {
 
   const saveServerDraftSnapshot = async (snapshot: ArticleDraftSnapshot): Promise<void> => {
     if (serverDraftSyncPaused.value) {
-      draftStatusText.value = `本地缓存已保存 ${new Date(snapshot.savedAt).toLocaleTimeString()}，请先处理服务端草稿冲突`
+      draftStatusText.value = '当前更改尚未同步，请先处理已有服务端草稿'
       return
     }
 
@@ -689,7 +742,7 @@ export function useAdminArticleWrite() {
       draftStatusText.value = `服务端草稿已保存 ${new Date(draftSavedAt.value).toLocaleTimeString()}`
     } catch {
       if (token === serverDraftSaveToken) {
-        draftStatusText.value = `本地缓存已保存 ${new Date(snapshot.savedAt).toLocaleTimeString()}，服务端草稿暂不可用`
+        draftStatusText.value = '服务端草稿暂不可用；当前页面仍保留更改，请勿关闭'
         if (!serverDraftSyncPaused.value && typeof window !== 'undefined') {
           if (serverDraftRetryTimer !== null) {
             window.clearTimeout(serverDraftRetryTimer)
@@ -709,9 +762,9 @@ export function useAdminArticleWrite() {
     }
 
     const snapshot = buildDraftSnapshot()
-    writeDraftSnapshot(draftKey.value, snapshot)
+    writeLocalDraftMetadata(draftKey.value, snapshot)
     draftSavedAt.value = snapshot.savedAt
-    draftStatusText.value = `本地缓存已保存 ${new Date(snapshot.savedAt).toLocaleTimeString()}`
+    draftStatusText.value = '正在保存服务端草稿…'
     void saveServerDraftSnapshot(snapshot)
   }
 
@@ -745,51 +798,35 @@ export function useAdminArticleWrite() {
     }
   }
 
-  const chooseDraftCandidate = (
-    localDraft: ArticleDraftSnapshot | null,
-    serverDraft: ArticleDraftSnapshot | null
-  ): ArticleDraftSnapshot | null => {
-    const validLocal = localDraft && hasDraftContent(localDraft) && !isDraftSameAsForm(localDraft) ? localDraft : null
-    const validServer = serverDraft && hasDraftContent(serverDraft) && !isDraftSameAsForm(serverDraft) ? serverDraft : null
-    if (validLocal && validServer) {
-      const isSameRevisionServerCopyLossy = validLocal.clientRevision.trim().length > 0
-        && validLocal.clientRevision === validServer.clientRevision
-        && validLocal.content !== validServer.content
-        && validLocal.content.length > validServer.content.length
-      if (isSameRevisionServerCopyLossy) {
-        return validLocal
-      }
-
-      return validServer.savedAt >= validLocal.savedAt ? validServer : validLocal
-    }
-
-    return validServer ?? validLocal
-  }
-
   const detectDraftCandidates = async (signal: AbortSignal): Promise<void> => {
-    const localDraft = readDraftSnapshot(draftKey.value)
+    const localMetadata = readDraftMetadata(draftKey.value)
     const serverDraft = await readServerDraftSnapshot(signal)
     if (signal.aborted) {
       return
     }
 
-    const draft = chooseDraftCandidate(localDraft, serverDraft)
+    const recovery = resolveLocalDraftRecovery(
+      localMetadata,
+      serverDraft,
+      (candidate) => hasDraftContent(candidate) && !isDraftSameAsForm(candidate)
+    )
+    const draft = recovery.draft
     if (!draft) {
       pendingDraft.value = null
       draftConflictText.value = ''
       serverDraftSyncPaused.value = false
-      draftSavedAt.value = Math.max(localDraft?.savedAt ?? 0, serverDraft?.savedAt ?? 0) || null
+      draftSavedAt.value = recovery.savedAt
+      if (recovery.hasLocalMetadataWithoutRestorableDraft) {
+        draftStatusText.value = '未找到可恢复的服务端草稿；浏览器只保留了保存时间记录'
+      }
       return
     }
 
     pendingDraft.value = draft
     draftSavedAt.value = draft.savedAt
-    const hasConflict = localDraft && serverDraft && !isDraftSameAsForm(localDraft) && !isDraftSameAsForm(serverDraft)
-    draftConflictText.value = hasConflict
-      ? `同时存在服务端草稿和本地缓存，已优先显示${draft.source === 'server' ? '服务端草稿' : '本地缓存'}；恢复会覆盖当前表单。`
-      : ''
+    draftConflictText.value = ''
     serverDraftSyncPaused.value = draft.source === 'server'
-    draftStatusText.value = `发现 ${new Date(draft.savedAt).toLocaleString()} 保存的${draft.source === 'server' ? '服务端草稿' : '本地缓存'}`
+    draftStatusText.value = `发现 ${new Date(draft.savedAt).toLocaleString()} 保存的服务端草稿`
   }
 
   const applyDraftToForm = (draft: ArticleDraftSnapshot): void => {
@@ -823,7 +860,7 @@ export function useAdminArticleWrite() {
 
   const discardLocalDraft = async (): Promise<void> => {
     const shouldDiscardServerDraft = pendingDraft.value?.source === 'server'
-    removeDraftSnapshot(draftKey.value)
+    removeLocalDraftMetadata(draftKey.value)
     if (shouldDiscardServerDraft) {
       try {
         await discardServerDraft(draftKey.value)
@@ -838,12 +875,12 @@ export function useAdminArticleWrite() {
     serverDraftSyncPaused.value = false
     draftSavedAt.value = null
     draftStatusText.value = ''
-    toast.success(shouldDiscardServerDraft ? '服务端草稿已丢弃' : '本地缓存已丢弃')
+    toast.success('服务端草稿已丢弃')
   }
 
   const clearLocalDraft = (): void => {
     clearDraftSaveTimer()
-    removeDraftSnapshot(draftKey.value)
+    removeLocalDraftMetadata(draftKey.value)
     pendingDraft.value = null
     draftConflictText.value = ''
     serverDraftSyncPaused.value = false
@@ -990,7 +1027,8 @@ export function useAdminArticleWrite() {
     taskFeedback.begin('正在回滚历史版本', `目标版本 ${selectedRevision.value.revisionNo}`, 'article-revision')
     try {
       const revisionNo = selectedRevision.value.revisionNo
-      const rolledBack = await rollbackArticleRevision(articleId.value, selectedRevision.value.id)
+      const mfaProofToken = await ensureAdminSensitiveProof()
+      const rolledBack = await rollbackArticleRevision(articleId.value, selectedRevision.value.id, { mfaProofToken })
       if (!rolledBack) {
         showWarningToast('历史版本不存在或已被清理', '历史版本不存在或已被清理')
         taskFeedback.partial('历史版本回滚未执行', '目标版本不存在或已被清理', 'article-revision')

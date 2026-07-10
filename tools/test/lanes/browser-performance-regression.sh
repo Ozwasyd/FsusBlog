@@ -3,7 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 OUT_FILE="$ROOT_DIR/.tmp/perf/browser-performance.json"
-mkdir -p "$(dirname "$OUT_FILE")" "$ROOT_DIR/.tmp/release-evidence"
+RELEASE_SUMMARY_DIR="$ROOT_DIR/.tmp/perf/release-summaries"
+mkdir -p "$(dirname "$OUT_FILE")" "$RELEASE_SUMMARY_DIR"
 
 ROUTE_PRESSURE="$ROOT_DIR/.tmp/frontend/route-render-pressure.json"
 DOM_BUDGET="$ROOT_DIR/.tmp/frontend/dom-budget.json"
@@ -37,7 +38,7 @@ if [[ -f "$ROUTE_PRESSURE" ]]; then
       generatedAt: now | todate
     }' > "$OUT_FILE"
   status="$(jq -r '.status' "$OUT_FILE")"
-  jq -n --arg status "$status" '{status:$status, browserPerformance:".tmp/perf/browser-performance.json", generatedAt: now | todate}' > "$ROOT_DIR/.tmp/release-evidence/perf-summary.json"
+  jq -n --arg status "$status" '{status:$status, browserPerformance:".tmp/perf/browser-performance.json", generatedAt: now | todate}' > "$RELEASE_SUMMARY_DIR/browser-performance-regression.json"
 else
   jq -n '{
     status: "blocked",
@@ -45,6 +46,6 @@ else
     requiredArtifact: ".tmp/frontend/route-render-pressure.json",
     generatedAt: now | todate
   }' > "$OUT_FILE"
-  jq -n '{status:"blocked", browserPerformance:".tmp/perf/browser-performance.json", generatedAt: now | todate}' > "$ROOT_DIR/.tmp/release-evidence/perf-summary.json"
+  jq -n '{status:"blocked", browserPerformance:".tmp/perf/browser-performance.json", generatedAt: now | todate}' > "$RELEASE_SUMMARY_DIR/browser-performance-regression.json"
 fi
 printf '[browser-performance] wrote %s\n' "$OUT_FILE"

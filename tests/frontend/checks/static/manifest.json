@@ -1,0 +1,30 @@
+{
+  "schema": "fsusblog.test-command-manifest.v1",
+  "lane": "frontend-static-governance",
+  "commands": [
+    { "id": "frontend-test-governance", "script": "check:frontend-test-governance", "access": "read" },
+    { "id": "test-execution-optimization", "script": "check:test-execution-optimization", "access": "read" },
+    { "id": "api-parity", "script": "check:contract:api-parity", "access": "read" },
+    { "id": "frame-schema", "script": "check:contract:frame-schema", "access": "read" },
+    { "id": "cross-stack-test-governance", "script": "check:cross-stack-test-governance", "access": "read" },
+    { "id": "modern-standards", "script": "check:modern-standards", "access": "read" },
+    { "id": "result-boundaries", "script": "check:result-boundaries", "access": "read" },
+    { "id": "error-code-alignment", "script": "check:error-code-alignment", "access": "read" },
+    { "id": "runtime-message-branching", "script": "check:no-runtime-message-branching", "access": "read" },
+    { "id": "security-consistency", "script": "check:security-consistency", "access": "read" },
+    { "id": "server-try-catch", "script": "check:server-try-catch", "access": "read" },
+    { "id": "asset-size-budget", "script": "check:asset-size-budget", "access": "write" },
+    { "id": "public-private-data-leakage", "script": "check:public-private-data-leakage", "access": "read" },
+    { "id": "public-aot-contracts", "script": "check:public-aot-contracts", "access": "read" },
+    { "id": "pwa-offline-policy", "script": "check:pwa-offline-policy", "access": "read" },
+    { "id": "views-constraints", "script": "check:views-constraints", "access": "write" },
+    { "id": "public-hot-read-fastpath", "command": ["bash", "../../tools/check-public-hot-read-fastpath.sh"], "access": "read" },
+    { "id": "historical-residue", "command": ["bash", "../../tools/check-historical-residue.sh"], "access": "read" },
+    { "id": "historical-residue-fixture", "command": ["node", "../../tests/frontend/checks/static/check-historical-residue-fixture.mjs"], "access": "read" },
+    { "id": "cache-governance", "command": ["bash", "../../tools/check-cache-governance.sh"], "access": "read" },
+    { "id": "test-hygiene", "command": ["bash", "../../tools/check-test-hygiene.sh"], "access": "read" },
+    { "id": "slo-definition", "command": ["node", "../../tools/operations/check-slo-definition.mjs"], "access": "read" },
+    { "id": "release-evidence-self-test", "command": ["node", "../../tools/operations/check-release-evidence-manifest.mjs", "--self-test"], "access": "write" },
+    { "id": "release-slo-alerts-self-test", "command": ["node", "../../tools/operations/check-release-slo-alerts.mjs", "--self-test"], "access": "write" }
+  ]
+}

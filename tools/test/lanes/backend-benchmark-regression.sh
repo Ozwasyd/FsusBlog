@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 OUT_DIR="$ROOT_DIR/BenchmarkDotNet.Artifacts/results"
 ARTIFACT_ROOT="$ROOT_DIR/BenchmarkDotNet.Artifacts"
-mkdir -p "$OUT_DIR" "$ROOT_DIR/.tmp/release-evidence"
+RELEASE_SUMMARY_DIR="$ROOT_DIR/.tmp/perf/release-summaries"
+mkdir -p "$OUT_DIR" "$RELEASE_SUMMARY_DIR"
 
 "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" -c Release -v minimal /p:NuGetAudit=false
 
@@ -38,5 +39,5 @@ jq -n \
     regressionPolicy: {nightlyPercent: 5, releasePercent: 10},
     generatedAt: now | todate
   }' > "$OUT_DIR/fsusblog-benchmark-regression.json"
-jq -n '{status:"ok", artifact:"BenchmarkDotNet.Artifacts/results/fsusblog-benchmark-regression.json", generatedAt: now | todate}' > "$ROOT_DIR/.tmp/release-evidence/perf-summary.json"
+jq -n '{status:"ok", artifact:"BenchmarkDotNet.Artifacts/results/fsusblog-benchmark-regression.json", generatedAt: now | todate}' > "$RELEASE_SUMMARY_DIR/backend-benchmark-regression.json"
 printf '[backend-benchmark-regression] wrote %s\n' "$OUT_DIR/fsusblog-benchmark-regression.json"

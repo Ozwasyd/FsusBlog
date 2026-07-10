@@ -38,7 +38,7 @@ public sealed record PublicAotArticleTagSnapshot(
 
 public sealed record PublicAotArticleRightsSnapshot(
     long SnapshotId,
-    long ArticleRevisionId,
+    long RevisionId,
     int RevisionNo,
     bool Enabled,
     string LicenseType,

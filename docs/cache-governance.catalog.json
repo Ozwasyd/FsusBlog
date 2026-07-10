@@ -827,22 +827,6 @@
       "varyByRouteValue": []
     },
     {
-      "method": "ApplyCategoryList",
-      "tags": [
-        "Category"
-      ],
-      "varyByQuery": [],
-      "varyByRouteValue": []
-    },
-    {
-      "method": "ApplyTagList",
-      "tags": [
-        "Tag"
-      ],
-      "varyByQuery": [],
-      "varyByRouteValue": []
-    },
-    {
       "method": "ApplySystemSeo",
       "tags": [
         "Seo"

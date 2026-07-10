@@ -26,7 +26,7 @@ describe('usePublicSpaNavigationMode', () => {
       routeKey: 'home',
       rendererVersion: 'test'
     })
-    const spaNavigation = usePublicSpaNavigationMode()
+    const spaNavigation = usePublicSpaNavigationMode
 
     expect(spaNavigation.value).toBe(false)
 
@@ -40,6 +40,6 @@ describe('usePublicSpaNavigationMode', () => {
   it('keeps direct SPA public renders navigable when no AOT hydration seed exists', async () => {
     const { usePublicSpaNavigationMode } = await loadSpaNavigationModeWithSeed(null)
 
-    expect(usePublicSpaNavigationMode().value).toBe(true)
+    expect(usePublicSpaNavigationMode.value).toBe(true)
   })
 })

@@ -1,7 +1,51 @@
-import { existsSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig, type BrowserName } from '@playwright/test'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
+const uxViewportMode = process.env.FSUSBLOG_UX_VIEWPORT_MODE
+const resumesUxViewportRun = process.env.FSUSBLOG_UX_VIEWPORT_RESUME === '1'
+const diagnosticAllFailures = process.env.FSUSBLOG_PLAYWRIGHT_DIAGNOSTIC_ALL_FAILURES === '1'
+const configuredOutputDir = path.resolve(process.cwd(), process.env.PLAYWRIGHT_OUTPUT_DIR || 'test-results/playwright')
+
+if (uxViewportMode) {
+  if (resumesUxViewportRun && !process.env.FSUSBLOG_UX_VIEWPORT_RUN_ID) {
+    const pointerFile = path.join(repositoryRoot, '.tmp/ux', `current-${uxViewportMode}-run.json`)
+    const pointer = JSON.parse(readFileSync(pointerFile, 'utf8')) as {
+      runId?: string
+      runToken?: string
+      mode?: string
+    }
+    if (!pointer.runId || pointer.mode !== uxViewportMode) {
+      throw new Error(`Invalid UX viewport resume pointer: ${pointerFile}`)
+    }
+    process.env.FSUSBLOG_UX_VIEWPORT_RUN_ID = pointer.runId
+    if (pointer.runToken) {
+      process.env.FSUSBLOG_UX_VIEWPORT_RUN_TOKEN = pointer.runToken
+    }
+  }
+
+  if (!resumesUxViewportRun) {
+    process.env.FSUSBLOG_UX_VIEWPORT_RUN_ID ||= [
+      'ux',
+      uxViewportMode,
+      Date.now().toString(36),
+      randomUUID()
+    ].join('-')
+    process.env.FSUSBLOG_UX_VIEWPORT_RUN_TOKEN ||= randomUUID()
+  }
+}
+
+const outputDir = uxViewportMode && process.env.FSUSBLOG_UX_VIEWPORT_RUN_ID
+  ? path.join(configuredOutputDir, 'runs', process.env.FSUSBLOG_UX_VIEWPORT_RUN_ID)
+  : configuredOutputDir
+
+if (uxViewportMode) {
+  process.env.FSUSBLOG_UX_VIEWPORT_CURRENT_OUTPUT_DIR = outputDir
+}
 const configuredWorkers = Number(process.env.FSUSBLOG_PLAYWRIGHT_WORKERS || '')
 const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0
   ? Math.floor(configuredWorkers)
@@ -54,13 +98,14 @@ export default defineConfig({
   testDir: '../../tests/frontend/e2e',
   fullyParallel: true,
   workers,
+  maxFailures: diagnosticAllFailures ? 0 : 1,
   globalSetup: '../../tests/frontend/support/playwright/global-setup.ts',
   timeout: 240_000,
   expect: {
     timeout: 15_000
   },
   reporter: 'list',
-  outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR || 'test-results/playwright',
+  outputDir,
   use: {
     baseURL,
     headless: true,

@@ -35,7 +35,9 @@
       "risk": "high",
       "requirements": [
         "BACKEND-CONCURRENCY-RACES",
-        "BACKEND-IDEMPOTENCY"
+        "BACKEND-IDEMPOTENCY",
+        "BACKEND-REDIS-DB-FAULTS",
+        "BACKEND-CHAOS-TESTING"
       ],
       "evidencePaths": [
         "tests/backend/Unit/BackendConcurrencyModelTests.cs"
@@ -114,27 +116,14 @@
       ]
     },
     {
-      "id": "backend-chaos",
-      "command": "tools/test/legacy-test.sh backend-chaos",
-      "risk": "high",
-      "requirements": [
-        "BACKEND-REDIS-DB-FAULTS",
-        "BACKEND-CHAOS-TESTING",
-        "BACKEND-SOAK-TESTING"
-      ],
-      "evidencePaths": [
-        "tests/backend/Fixtures/backend-test-requirements.json",
-        "tools/check-backend-test-governance.mjs"
-      ]
-    },
-    {
       "id": "backend-nightly",
       "command": "tools/test/legacy-test.sh backend-nightly",
       "risk": "critical",
       "requirements": [
         "BACKEND-NIGHTLY-EXHAUSTIVE",
         "BACKEND-BACKUP-RESTORE",
-        "BACKEND-CONTRACT-FUZZ"
+        "BACKEND-CONTRACT-FUZZ",
+        "BACKEND-SOAK-TESTING"
       ],
       "evidencePaths": [
         "tests/backend/Fixtures/backend-test-requirements.json",

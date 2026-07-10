@@ -1,0 +1,197 @@
+import { createHash } from 'node:crypto'
+
+const UX_VIEWPORT_PLAN_VERSION = 'fsusblog-ux-viewport-plan-v1'
+const FULL_MEDIA_ROUTE_IDS = new Set([
+  'public-article',
+  'public-login',
+  'user-profile',
+  'user-messagebox',
+  'manage-write',
+  'manage-users'
+])
+
+export const UX_VIEWPORT_MOBILE_LANDSCAPE_CANARY_ROUTE_IDS = Object.freeze([
+  'public-home',
+  'user-profile',
+  'manage-dashboard',
+  'manage-audit',
+  'manage-settings'
+])
+
+export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
+  const config = matrix?.modes?.[mode]
+  if (!config) {
+    throw new Error(`unknown UX viewport mode: ${String(mode)}`)
+  }
+
+  const uniqueRoutes = indexUnique(routes, (route) => route.id, 'route')
+  const uniqueViewports = indexUnique(matrix.viewports, (viewport) => viewport.name, 'viewport')
+  const modeRoutes = config.routes === 'all'
+    ? [...uniqueRoutes.values()]
+    : config.routes.map((routeId) => requireEntry(uniqueRoutes, routeId, `mode ${mode} route`))
+  const modeViewports = config.viewports.map((viewportId) => (
+    requireEntry(uniqueViewports, viewportId, `mode ${mode} viewport`)
+  ))
+
+  const selectedRoutes = selectKnown(modeRoutes, (route) => route.id, filters.routeIds, 'route', true)
+  const selectedThemes = selectKnown(config.themes, (theme) => theme, filters.themes, 'theme')
+  const selectedViewports = selectKnown(modeViewports, (viewport) => viewport.name, filters.viewportIds, 'viewport')
+  const selectedMedia = selectKnown(config.media, (media) => media, filters.media, 'media')
+
+  const groups = []
+  for (const route of selectedRoutes) {
+    const routeMedia = mediaForRoute(mode, route.id, selectedMedia)
+    if (routeMedia.length === 0) {
+      continue
+    }
+
+    for (const theme of selectedThemes) {
+      const groupId = `route-theme:${route.id}:${theme}`
+      groups.push({
+        id: groupId,
+        route,
+        theme,
+        storage: route.storage,
+        viewports: selectedViewports.map((viewport) => ({
+          id: `navigation:${route.id}:${theme}:${viewport.name}`,
+          viewport,
+          steps: routeMedia.map((media) => ({
+            id: `case:${route.id}:${theme}:${viewport.name}:${media}`,
+            routeId: route.id,
+            theme,
+            viewportId: viewport.name,
+            media,
+            screenshot: config.screenshots === true && media === 'default'
+          }))
+        }))
+      })
+    }
+  }
+
+  if (groups.length === 0) {
+    throw new Error(`UX viewport plan ${mode} is empty after applying filters`)
+  }
+
+  const cases = groups.reduce((total, group) => (
+    total + group.viewports.reduce((subtotal, viewport) => subtotal + viewport.steps.length, 0)
+  ), 0)
+  const plan = {
+    version: UX_VIEWPORT_PLAN_VERSION,
+    matrixVersion: matrix.version,
+    mode,
+    groups,
+    selection: {
+      routeIds: [...new Set(groups.map((group) => group.route.id))],
+      themes: [...new Set(groups.map((group) => group.theme))],
+      viewportIds: [...new Set(groups.flatMap((group) => (
+        group.viewports.map((viewport) => viewport.viewport.name)
+      )))],
+      media: [...new Set(groups.flatMap((group) => (
+        group.viewports.flatMap((viewport) => viewport.steps.map((step) => step.media))
+      )))]
+    },
+    counts: {
+      routes: new Set(groups.map((group) => group.route.id)).size,
+      routeThemeGroups: groups.length,
+      navigations: groups.reduce((total, group) => total + group.viewports.length, 0),
+      cases
+    }
+  }
+
+  return {
+    ...plan,
+    fingerprint: createHash('sha256')
+      .update(JSON.stringify(fingerprintPayload(plan)))
+      .digest('hex')
+  }
+}
+
+export function listUxViewportCases(plan) {
+  return plan.groups.flatMap((group) => (
+    group.viewports.flatMap((viewport) => viewport.steps.map((step) => ({
+      ...step,
+      groupId: group.id,
+      navigationId: viewport.id
+    })))
+  ))
+}
+
+function mediaForRoute(mode, routeId, selectedMedia) {
+  if (mode === 'boundaries' || FULL_MEDIA_ROUTE_IDS.has(routeId)) {
+    return selectedMedia
+  }
+  return selectedMedia.filter((media) => media === 'default')
+}
+
+function selectKnown(entries, identify, requestedValues, label, preserveRequestedOrder = false) {
+  if (requestedValues === undefined || requestedValues === null) {
+    return [...entries]
+  }
+
+  const requested = normalizeFilter(requestedValues)
+  const known = new Set(entries.map(identify))
+  const unknown = requested.filter((value) => !known.has(value))
+  if (unknown.length > 0) {
+    throw new Error(`unknown UX viewport filter ${label}: ${unknown.join(', ')}`)
+  }
+
+  if (preserveRequestedOrder) {
+    const indexed = new Map(entries.map((entry) => [identify(entry), entry]))
+    return requested.map((value) => indexed.get(value))
+  }
+
+  const selected = new Set(requested)
+  return entries.filter((entry) => selected.has(identify(entry)))
+}
+
+function normalizeFilter(values) {
+  const normalized = typeof values === 'string' ? values.split(',') : [...values]
+  return [...new Set(normalized.map((value) => String(value).trim()).filter(Boolean))]
+}
+
+function indexUnique(entries, identify, label) {
+  const indexed = new Map()
+  for (const entry of entries ?? []) {
+    const id = identify(entry)
+    if (!id || indexed.has(id)) {
+      throw new Error(`invalid or duplicate UX viewport ${label}: ${String(id)}`)
+    }
+    indexed.set(id, entry)
+  }
+  return indexed
+}
+
+function requireEntry(entries, id, label) {
+  const entry = entries.get(id)
+  if (!entry) {
+    throw new Error(`unknown UX viewport ${label}: ${id}`)
+  }
+  return entry
+}
+
+function fingerprintPayload(plan) {
+  return {
+    version: plan.version,
+    matrixVersion: plan.matrixVersion,
+    mode: plan.mode,
+    groups: plan.groups.map((group) => ({
+      id: group.id,
+      storage: group.storage,
+      route: {
+        id: group.route.id,
+        path: group.route.path,
+        expectedUrl: group.route.expectedUrl,
+        expectedQuery: group.route.expectedQuery,
+        allowQuery: group.route.allowQuery,
+        injectCorpus: group.route.injectCorpus,
+        screenshotSelector: group.route.screenshotSelector
+      },
+      viewports: group.viewports.map((viewport) => ({
+        id: viewport.id,
+        width: viewport.viewport.width,
+        height: viewport.viewport.height,
+        steps: viewport.steps.map((step) => step.id)
+      }))
+    }))
+  }
+}

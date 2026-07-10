@@ -2,9 +2,9 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolveAuthFixtureDirectory } from './fixture-paths.mjs';
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { resolveTestSession } from './test-session.mjs';
 
 const CLAIM_NAME_IDENTIFIER = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier';
@@ -14,11 +14,6 @@ const ACCOUNT_SUBJECT_HASH_PREFIX = 'fsus:account-subject:v1';
 const ANONYMOUS_ACCOUNT_KIND = 'anonymous_account';
 const ADMIN_PRINCIPAL_KIND = 'admin_principal';
 const ADMIN_PERMISSION_CLAIM = 'admin_permission';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, '../../..');
-const clientRoot = path.join(repoRoot, 'src', 'frontend');
-
 const defaultAdminPermissions = [
   'article.write',
   'article.publish',
@@ -637,6 +632,14 @@ function fixtureStorageState(fixture, url) {
   };
 }
 
+async function writePrivateJson(file, value) {
+  await writeFile(file, JSON.stringify(value, null, 2) + '\n', {
+    encoding: 'utf8',
+    mode: 0o600
+  });
+  await chmod(file, 0o600);
+}
+
 export async function persistAuthFixtureManifest({
   user,
   admin,
@@ -646,8 +649,9 @@ export async function persistAuthFixtureManifest({
     return null;
   }
 
-  const fixturesDir = path.join(clientRoot, '.playwright-fixtures');
-  await mkdir(fixturesDir, { recursive: true });
+  const fixturesDir = resolveAuthFixtureDirectory();
+  await mkdir(fixturesDir, { recursive: true, mode: 0o700 });
+  await chmod(fixturesDir, 0o700);
   const manifest = {
     generatedAt: new Date().toISOString(),
     baseUrl,
@@ -663,29 +667,22 @@ export async function persistAuthFixtureManifest({
     }
   };
 
-  await writeFile(
-    path.join(fixturesDir, 'auth-fixtures.json'),
-    JSON.stringify(manifest, null, 2) + '\n',
-    'utf8');
-  await writeFile(
+  await writePrivateJson(path.join(fixturesDir, 'auth-fixtures.json'), manifest);
+  await writePrivateJson(
     path.join(fixturesDir, manifest.user.storageStateFile),
-    JSON.stringify(fixtureStorageState(user, baseUrl), null, 2) + '\n',
-    'utf8');
-  await writeFile(
+    fixtureStorageState(user, baseUrl));
+  await writePrivateJson(
     path.join(fixturesDir, manifest.admin.storageStateFile),
-    JSON.stringify(fixtureStorageState(admin, baseUrl), null, 2) + '\n',
-    'utf8');
+    fixtureStorageState(admin, baseUrl));
   if (testSession) {
     const sessionPrefix = testSession.replace(/[^a-z0-9-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase();
     if (sessionPrefix) {
-      await writeFile(
+      await writePrivateJson(
         path.join(fixturesDir, `${sessionPrefix}.user.storage-state.json`),
-        JSON.stringify(fixtureStorageState(user, baseUrl), null, 2) + '\n',
-        'utf8');
-      await writeFile(
+        fixtureStorageState(user, baseUrl));
+      await writePrivateJson(
         path.join(fixturesDir, `${sessionPrefix}.admin.storage-state.json`),
-        JSON.stringify(fixtureStorageState(admin, baseUrl), null, 2) + '\n',
-        'utf8');
+        fixtureStorageState(admin, baseUrl));
     }
   }
   return manifest;

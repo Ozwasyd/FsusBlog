@@ -8,6 +8,7 @@ const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf
 describe('user facing workflow contract', () => {
   const messagesPage = readRepoFile('src/frontend/src/views/user/Messages.vue')
   const messagesConversationList = readRepoFile('src/frontend/src/components/user/messages/MessagesConversationList.vue')
+  const themeTokens = readRepoFile('src/frontend/src/ui-tokens/themeTokens.ts')
   const messagesThreadPanel = readRepoFile('src/frontend/src/components/user/messages/MessagesThreadPanel.vue')
   const messagesInbox = readRepoFile('src/frontend/src/composables/useAccountMessagesInbox.ts')
   const loginPage = readRepoFile('src/frontend/src/views/auth/Login.vue')
@@ -48,6 +49,20 @@ describe('user facing workflow contract', () => {
     expect(messagesThreadPanel).toContain('replyDisabled || !replyBody.trim()')
     expect(messagesPage).toContain('showMobileTicketCompose')
     expect(messagesConversationList).toContain('conversationListCopy.newTicketCta')
+  })
+
+  it('keeps message controls usable on narrow mobile and short landscape viewports', () => {
+    expect(messagesConversationList).toContain('@media (max-width: 640px), (max-height: 520px) and (orientation: landscape)')
+    expect(messagesConversationList).toContain('.messages-header-actions {\n    width: 100%;\n    align-items: stretch;\n    flex-direction: column;')
+    expect(messagesConversationList).toContain('.messages-filter {\n    width: 100%;')
+    expect(messagesConversationList).toContain('.messages-filter :deep(.el-select) {\n    width: 100%;')
+  })
+
+  it('does not shrink public taxonomy touch targets at the width-only desktop breakpoint', () => {
+    expect(themeTokens).toMatch(/metaCategory: `[^`]*min-h-9[^`]*`/)
+    expect(themeTokens).toMatch(/tagLink: `[^`]*min-h-9[^`]*`/)
+    expect(themeTokens).not.toContain('sm:min-h-5')
+    expect(themeTokens).not.toContain('sm:min-h-8')
   })
 
   it('keeps auth copy and MFA modes aligned with backend expectations', () => {
@@ -177,6 +192,10 @@ describe('user facing workflow contract', () => {
     expect(userCommentsPage).toContain('匿名评论不进入账号记录')
     expect(userCommentsPage).toContain('暂无公开评论记录')
     expect(aboutContent).toContain('回到首页')
+    expect(forbiddenPage).toContain('<main')
+    expect(forbiddenPage).toContain('aria-labelledby="forbidden-page-title"')
+    expect(notFoundPage).toContain('<main')
+    expect(notFoundPage).toContain('aria-labelledby="not-found-page-title"')
     expect(forbiddenPage).toContain('redirect: route.fullPath')
     expect(notFoundPage).toContain('to="/search"')
     expect(notFoundPage).toContain('to="/archive"')

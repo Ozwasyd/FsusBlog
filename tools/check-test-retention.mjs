@@ -3,20 +3,38 @@ import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import {
+  auditTestRecords,
+  inferTierIdsForFile,
+  isTestInventoryPath,
+  normalizeReplacementManifest,
+  retentionSourceState,
+  reviewCandidateFiles,
+  vitestHistoryEntries,
+  xunitTrxHistoryEntries
+} from './test-retention/audit.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const defaultOut = path.join(root, '.tmp/release-evidence/test-retention-audit.json')
 const retentionClasses = new Set(['must-keep', 'conditional', 'redundant-candidate', 'obsolete'])
 
 function parseArgs(argv) {
-  const options = { out: defaultOut }
+  const options = {
+    out: defaultOut,
+    runId: String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim() || null
+  }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--out') {
       options.out = path.resolve(root, argv[index + 1] ?? '')
       index += 1
+    } else if (arg === '--run-id') {
+      const value = String(argv[index + 1] ?? '').trim()
+      if (!value) throw new Error('--run-id requires a non-empty value')
+      options.runId = value
+      index += 1
     } else if (arg === '--help' || arg === '-h') {
-      console.log('Usage: node tools/check-test-retention.mjs [--out .tmp/release-evidence/test-retention-audit.json]')
+      console.log('Usage: node tools/check-test-retention.mjs [--out .tmp/release-evidence/test-retention-audit.json] [--run-id <production-run-id>]')
       process.exit(0)
     } else {
       throw new Error(`unknown argument: ${arg}`)
@@ -100,29 +118,6 @@ function walk(dir, files = []) {
   return files
 }
 
-function isAuditedTestFile(file) {
-  if (file.startsWith('tests/backend/')) {
-    return /(?:Tests?|Fixture|Collection)\.cs$/.test(file)
-      || /tests\/backend\/Fixtures\/.*\.(json|jsonc|sql|txt)$/.test(file)
-  }
-  if (file.startsWith('tests/frontend/')) {
-    return /\.(test|spec)\.ts$/.test(file)
-      || /tests\/frontend\/checks\/.*\.mjs$/.test(file)
-      || /tests\/frontend\/support\/.*\.(mjs|ts)$/.test(file)
-      || /tests\/frontend\/fixtures\/.*\.mjs$/.test(file)
-  }
-  if (file.startsWith('tools/test/')) {
-    return /\.(sh|mjs)$/.test(file)
-  }
-  if (file.startsWith('tools/coverage/')) {
-    return /\.(sh|mjs)$/.test(file)
-  }
-  return /^tools\/check-.*\.(mjs|sh)$/.test(file)
-    || /^tools\/docs\/generate-testing-docs\.mjs$/.test(file)
-    || /^tools\/check-workflow-matrix-sync\.mjs$/.test(file)
-    || /^tools\/run-test-matrix\.mjs$/.test(file)
-}
-
 function wildcardToRegExp(pattern) {
   const escaped = pattern
     .split('*')
@@ -194,7 +189,7 @@ function retentionClassForTier(tier) {
   return tier.requiredFor === 'release-final' || tier.risk === 'critical' ? 'must-keep' : 'conditional'
 }
 
-function buildAudit() {
+async function buildAudit({ runId = null } = {}) {
   const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
   const coverageRegistry = JSON.parse(fs.readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8'))
   const fileToCoverage = new Map()
@@ -204,13 +199,17 @@ function buildAudit() {
   const auditedFiles = [...new Set([
     ...walk(path.join(root, 'tests')),
     ...walk(path.join(root, 'tools'))
-  ])].filter(isAuditedTestFile).sort()
+  ])].filter(isTestInventoryPath).sort()
   const fileToTextReferences = buildTextReferenceIndex(auditedFiles)
 
   for (const entry of coverageRegistry.entries ?? []) {
     for (const evidencePath of entry.evidencePaths ?? []) {
-      if (evidencePath.includes('*') || evidencePath.startsWith('.tmp/')) continue
-      addMapSet(fileToCoverage, evidencePath, entry.id)
+      if (evidencePath.startsWith('.tmp/')) continue
+      for (const file of auditedFiles) {
+        if (!pathMatchesPattern(file, evidencePath)) continue
+        addMapSet(fileToCoverage, file, entry.id)
+        for (const tierId of entry.tierIds ?? []) addMapSet(fileToTiers, file, tierId)
+      }
     }
   }
 
@@ -231,7 +230,12 @@ function buildAudit() {
 
   const files = auditedFiles.map((file) => {
     const coverageIds = [...(fileToCoverage.get(file) ?? [])].sort()
-    const tierIds = [...new Set([...(fileToTiers.get(file) ?? []), ...(fileToCommandTiers.get(file) ?? [])])].sort()
+    const source = fs.readFileSync(path.join(root, file), 'utf8')
+    const tierIds = [...new Set([
+      ...(fileToTiers.get(file) ?? []),
+      ...(fileToCommandTiers.get(file) ?? []),
+      ...inferTierIdsForFile(file, source)
+    ])].sort()
     const tierRetention = [...(fileToTierRetention.get(file) ?? [])].sort()
     const textReferences = [...(fileToTextReferences.get(file) ?? [])].sort()
     const reasons = []
@@ -279,31 +283,197 @@ function buildAudit() {
     return acc
   }, { totalFiles: files.length, assertionEstimate: 0 })
 
+  const reviewCandidates = files.filter((file) => file.retentionClass === 'review-candidate').map((file) => file.path)
+  const fileMetadata = new Map(files.map((file) => [file.path, {
+    coverageIds: file.coverageIds,
+    tierIds: file.tierIds,
+    retentionClass: file.retentionClass
+  }]))
+  const testRecords = await auditTestRecords({
+    root,
+    files: auditedFiles,
+    fileMetadata,
+    timingHistory: loadTimingHistory(),
+    failureHistory: loadFailureHistory()
+  })
+  const candidateReviews = reviewCandidateFiles(reviewCandidates, testRecords)
+  const replaceableReviews = candidateReviews.filter((review) => review.decision === 'replaceable')
+  const replacementManifestPath = path.join(root, 'tests/test-retention-replacements.json')
+  const replacementManifest = normalizeReplacementManifest(
+    fs.existsSync(replacementManifestPath)
+      ? JSON.parse(fs.readFileSync(replacementManifestPath, 'utf8'))
+      : {},
+    testRecords
+  )
+  const retainedCoverageIds = [...new Set(testRecords.flatMap((record) => record.coverageIds))].sort()
+  const uniqueAssertionTargets = new Set(testRecords.flatMap((record) => record.assertionTargets)).size
+  const sourceState = await retentionSourceState(root)
+  const generatedAt = new Date().toISOString()
+
   return {
-    schema: 'fsusblog.test-retention-audit.v1',
-    generatedAt: new Date().toISOString(),
+    schema: 'fsusblog.test-retention-audit.v2',
+    generatedAt,
+    sourceState,
+    producer: {
+      runId,
+      generatedAt,
+      sourceState
+    },
     policy: {
       automaticDeletion: false,
-      deletionRule: 'Only obsolete-candidate files with no coverage ids, no matrix tier references, and a human-reviewed replacement may be deleted.',
+      deletionRule: 'Delete or merge only records marked replaceable with exact replacement test IDs, identical coverage IDs, no protected risk tags, and no unique assertion evidence.',
       ordinaryPr: 'Run must-keep and PR-default lanes; conditionally select heavy lanes by trigger metadata; record skipped lanes in PR smart gate evidence.',
       releaseFinal: 'Run the full matrix and require release-final evidence before tagging or publishing.'
     },
     counts,
     files,
-    reviewCandidates: files.filter((file) => file.retentionClass === 'review-candidate').map((file) => file.path),
-    obsoleteCandidates: files.filter((file) => file.retentionClass === 'obsolete-candidate').map((file) => file.path)
+    testRecords,
+    reviewCandidates,
+    candidateReviews,
+    replaceableCandidates: replaceableReviews.map((review) => review.path),
+    deletedCandidates: [],
+    deletedTests: replacementManifest.deletedTests,
+    assertionReplacements: replacementManifest.assertionReplacements,
+    tierReplacements: replacementManifest.tierReplacements,
+    obsoleteCandidates: files.filter((file) => file.retentionClass === 'obsolete-candidate').map((file) => file.path),
+    retainedEvidence: {
+      coverageIds: retainedCoverageIds,
+      coverageIdCount: retainedCoverageIds.length,
+      uniqueAssertionTargetCount: uniqueAssertionTargets,
+      testRecordCount: testRecords.length,
+      reviewedTestCount: candidateReviews.reduce((total, review) => total + review.tests.length, 0),
+      reviewedCandidateCount: candidateReviews.length,
+      unreviewedCandidateCount: candidateReviews.filter((review) => review.reviewed !== true).length
+    }
   }
+}
+
+function visitJsonFiles(dir, files = []) {
+  if (!fs.existsSync(dir)) return files
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const absolute = path.join(dir, entry.name)
+    if (entry.isDirectory()) visitJsonFiles(absolute, files)
+    else if (entry.name.endsWith('.json')) files.push(absolute)
+  }
+  return files
+}
+
+function visitTrxFiles(dir, files = []) {
+  if (!fs.existsSync(dir)) return files
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const absolute = path.join(dir, entry.name)
+    if (entry.isDirectory()) visitTrxFiles(absolute, files)
+    else if (entry.name.endsWith('.trx')) files.push(absolute)
+  }
+  return files
+}
+
+function addHistory(map, key, value) {
+  if (!key) return
+  const values = map.get(key) ?? []
+  values.push(value)
+  map.set(key, values)
+}
+
+function loadTimingHistory() {
+  const history = new Map()
+  for (const file of visitTrxFiles(path.join(root, '.tmp/test-results/backend'))) {
+    try {
+      for (const result of xunitTrxHistoryEntries(fs.readFileSync(file, 'utf8'))) {
+        if (Number.isFinite(result.durationMs)) addHistory(history, result.id, result.durationMs)
+      }
+    } catch {
+      // Ignore partial TRX files left by an interrupted diagnostic run.
+    }
+  }
+  const roots = [
+    path.join(root, '.tmp/test-results/vitest'),
+    path.join(root, '.tmp/test-runs')
+  ]
+  for (const historyRoot of roots) {
+    for (const file of visitJsonFiles(historyRoot)) {
+      try {
+        const payload = JSON.parse(fs.readFileSync(file, 'utf8'))
+        for (const result of vitestHistoryEntries(root, payload)) {
+          if (Number.isFinite(result.durationMs)) addHistory(history, result.id, result.durationMs)
+        }
+        for (const result of payload.testResults ?? []) {
+          const key = result.testId ?? result.id ?? result.name ?? result.file ?? result.testFilePath
+          const durationMs = Number(result.duration ?? result.durationMs)
+          if (Number.isFinite(durationMs)) addHistory(history, key, durationMs)
+        }
+        for (const [tierId, completed] of Object.entries(payload.completed ?? {})) {
+          const durationMs = Number(completed?.durationMs)
+          if (Number.isFinite(durationMs)) addHistory(history, `tier:${tierId}`, durationMs)
+        }
+      } catch {
+        // Ignore unrelated or partial diagnostic JSON.
+      }
+    }
+  }
+  return history
+}
+
+function loadFailureHistory() {
+  const history = new Map()
+  for (const file of visitTrxFiles(path.join(root, '.tmp/test-results/backend'))) {
+    try {
+      const observedAt = fs.statSync(file).mtime.toISOString()
+      for (const result of xunitTrxHistoryEntries(fs.readFileSync(file, 'utf8'))) {
+        addHistory(history, result.id, {
+          failed: result.failed,
+          at: result.at ?? observedAt
+        })
+      }
+    } catch {
+      // Ignore partial TRX files left by an interrupted diagnostic run.
+    }
+  }
+  const roots = [
+    path.join(root, '.tmp/test-results/vitest'),
+    path.join(root, '.tmp/test-runs')
+  ]
+  for (const historyRoot of roots) {
+    for (const file of visitJsonFiles(historyRoot)) {
+      try {
+        const payload = JSON.parse(fs.readFileSync(file, 'utf8'))
+        const observedAt = payload.generatedAt ?? fs.statSync(file).mtime.toISOString()
+        for (const result of vitestHistoryEntries(root, payload)) {
+          addHistory(history, result.id, {
+            failed: result.failed,
+            at: observedAt
+          })
+        }
+        for (const result of payload.testResults ?? []) {
+          const key = result.testId ?? result.id ?? result.name ?? result.file ?? result.testFilePath
+          addHistory(history, key, {
+            failed: result.status === 'failed' || result.status === 'failure',
+            at: payload.generatedAt ?? null
+          })
+        }
+        if (payload.failedAt?.tierId) {
+          addHistory(history, `tier:${payload.failedAt.tierId}`, {
+            failed: true,
+            at: payload.failedAt.at ?? payload.updatedAt ?? null
+          })
+        }
+      } catch {
+        // Ignore unrelated or partial diagnostic JSON.
+      }
+    }
+  }
+  return history
 }
 
 try {
   const options = parseArgs(process.argv.slice(2))
-  const audit = buildAudit()
+  const audit = await buildAudit({ runId: options.runId })
   if (audit.counts.totalFiles === 0) {
     throw new Error('no test files were scanned')
   }
   fs.mkdirSync(path.dirname(options.out), { recursive: true })
   fs.writeFileSync(options.out, `${JSON.stringify(audit, null, 2)}\n`)
-  console.log(`[test-retention] ok files=${audit.counts.totalFiles} assertions=${audit.counts.assertionEstimate} mustKeep=${audit.counts['must-keep'] ?? 0} conditional=${audit.counts.conditional ?? 0} review=${audit.counts['review-candidate'] ?? 0} obsolete=${audit.counts['obsolete-candidate'] ?? 0}`)
+  console.log(`[test-retention] ok files=${audit.counts.totalFiles} tests=${audit.testRecords.length} assertions=${audit.counts.assertionEstimate} mustKeep=${audit.counts['must-keep'] ?? 0} conditional=${audit.counts.conditional ?? 0} review=${audit.counts['review-candidate'] ?? 0} replaceable=${audit.replaceableCandidates.length} obsolete=${audit.counts['obsolete-candidate'] ?? 0}`)
 } catch (error) {
   console.error(`[test-retention] ${error instanceof Error ? error.message : String(error)}`)
   process.exit(1)

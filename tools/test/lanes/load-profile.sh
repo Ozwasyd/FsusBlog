@@ -15,12 +15,13 @@ if [[ ! -f "$OUT_DIR/summary.json" ]]; then
   exit "$probe_status"
 fi
 
-mkdir -p "$ROOT_DIR/.tmp/release-evidence"
+RELEASE_SUMMARY_DIR="$ROOT_DIR/.tmp/perf/release-summaries"
+mkdir -p "$RELEASE_SUMMARY_DIR"
 jq -n \
   --arg profile "$PROFILE" \
   --arg file ".tmp/perf/load-$PROFILE/summary.json" \
   --slurpfile summary "$OUT_DIR/summary.json" \
   '{status:$summary[0].status, profile:$profile, summary:$file, policy:$summary[0].policy, declared:$summary[0].declared, effective:$summary[0].effective, thresholds:$summary[0].thresholds, thresholdEvaluation:$summary[0].thresholdEvaluation, overrideSource:$summary[0].overrideSource, overrideSources:$summary[0].overrideSources, metrics:$summary[0].metrics, generatedAt: now | todate}' \
-  > "$ROOT_DIR/.tmp/release-evidence/perf-summary.json"
+  > "$RELEASE_SUMMARY_DIR/load-$PROFILE.json"
 printf '[load-profile] wrote %s\n' "$OUT_DIR/summary.json"
 exit "$probe_status"

@@ -91,7 +91,21 @@ public sealed class TaxonomyCountProjectionService(
 
     public async Task<long> BumpFrameVersionAsync(string reason, CancellationToken cancellationToken = default)
     {
+        string? rawPreviousVersion = await cache.GetStringAsync(CachePolicyId.TaxonomyFrameVersion, "main", cancellationToken).ConfigureAwait(false);
+        long previousVersion = long.TryParse(rawPreviousVersion, out long parsedPreviousVersion) && parsedPreviousVersion > 0
+            ? parsedPreviousVersion
+            : 0;
         long version = await cache.IncrementAsync(CachePolicyId.TaxonomyFrameVersion, "main", 1, cancellationToken).ConfigureAwait(false);
+        await cache.RemoveManyAsync(
+            [
+                new(CachePolicyId.CategoryFrame, "all"),
+                new(CachePolicyId.TagFrame, "all"),
+                new(CachePolicyId.CategoryFrame, $"v:{previousVersion}:all"),
+                new(CachePolicyId.TagFrame, $"v:{previousVersion}:all"),
+                new(CachePolicyId.CategoryFrame, $"v:{version}:all"),
+                new(CachePolicyId.TagFrame, $"v:{version}:all")
+            ],
+            cancellationToken).ConfigureAwait(false);
         FsusObservability.RecordTaxonomyFrameVersion(version, reason);
         return version;
     }

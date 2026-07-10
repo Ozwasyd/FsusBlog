@@ -137,7 +137,62 @@ function createAuthGate() {
   }
 }
 
+function createScriptGate() {
+  let released = true
+  let waiters = []
+  return {
+    reset() {
+      released = false
+      waiters = []
+    },
+    release() {
+      released = true
+      for (const resolve of waiters.splice(0)) {
+        resolve()
+      }
+    },
+    async wait() {
+      if (released) {
+        return
+      }
+      await new Promise((resolve) => {
+        waiters.push(resolve)
+      })
+    },
+  }
+}
+
+async function installScriptGate(context, scriptGate) {
+  await context.route(/.*\.(?:js|mjs)(?:\?.*)?$/u, async (requestRoute) => {
+    await scriptGate.wait()
+    await requestRoute.continue()
+  })
+}
+
 async function installAuthFixture(context, cell, authGate) {
+  await context.route('**/api/local/auth-fixture/status', async (requestRoute) => {
+    await requestRoute.fulfill({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        hasAccessToken: true,
+        hasSessionId: true,
+        hasAdminAccessToken: true,
+        hasAdminSessionId: true,
+        hasHostAccessToken: true,
+        hasHostAdminAccessToken: true,
+      }),
+    })
+  })
+
+  await context.route('**/api/local/auth-fixture/admin**', async (requestRoute) => {
+    await requestRoute.fulfill({
+      status: 204,
+      headers: { 'content-type': 'application/json' },
+      body: '',
+    })
+  })
+
   await context.route('**/api/binary/auth/me', async (requestRoute) => {
     await authGate.wait()
     if (cell.sessionState === 'admin' || cell.sessionState === 'user') {
@@ -360,9 +415,11 @@ async function waitForAuthLabel(page, expected) {
 }
 
 function assertPreHydrationSnapshot(snapshot, route, cell) {
+  assert(snapshot, `${cell.id}/${route.id}: pre-hydration snapshot was not captured`)
   assert(snapshot.appCount === 1, `${cell.id}/${route.id}: #app count ${snapshot.appCount}`)
   assert(snapshot.shellCount === 1, `${cell.id}/${route.id}: #fsus-aot-shell count ${snapshot.shellCount}`)
   assert(snapshot.shellKind === route.expectedKind, `${cell.id}/${route.id}: shell kind ${snapshot.shellKind}`)
+  assert(snapshot.shellHydrated === false, `${cell.id}/${route.id}: pre-hydration snapshot was already hydrated`)
   assert(snapshot.hasHeader, `${cell.id}/${route.id}: public shell header missing before auth resolution`)
   assert(snapshot.hasFooter, `${cell.id}/${route.id}: public shell footer missing before auth resolution`)
   assert(snapshot.authText === '登录', `${cell.id}/${route.id}: auth text mutated before gated session resolution: ${snapshot.authText}`)
@@ -407,6 +464,7 @@ async function runRouteCell(browser, route, cell) {
   }
 
   const authGate = createAuthGate()
+  const scriptGate = createScriptGate()
   const context = await browser.newContext({
     baseURL: baseUrl,
     viewport: VIEWPORTS[cell.viewport],
@@ -415,6 +473,7 @@ async function runRouteCell(browser, route, cell) {
     javaScriptEnabled: true,
   })
   await context.addInitScript(seedBrowserStateScript(cell))
+  await installScriptGate(context, scriptGate)
   await installAuthFixture(context, cell, authGate)
   const page = await context.newPage()
   page.setDefaultTimeout(12000)
@@ -422,10 +481,12 @@ async function runRouteCell(browser, route, cell) {
 
   try {
     authGate.reset()
-    await page.goto(routeForCell(route, cell), { waitUntil: 'domcontentloaded', timeout: 30000 })
+    scriptGate.reset()
+    await page.goto(routeForCell(route, cell), { waitUntil: 'commit', timeout: 30000 })
     await page.waitForSelector('#fsus-aot-shell', { timeout: 12000 })
     const pre = await readSnapshot(page)
     assertPreHydrationSnapshot(pre, route, cell)
+    scriptGate.release()
     await waitForHydration(page, route.expectedKind)
     authGate.release()
     await waitForAuthLabel(page, expectedAuthState(cell))
@@ -445,16 +506,18 @@ async function runRouteCell(browser, route, cell) {
     ]
 
     if (cell.storageBehavior === 'cleared-after-reload') {
-      authGate.reset()
       await page.evaluate(() => {
         window.localStorage.clear()
         window.sessionStorage.clear()
         window.name = `${window.name || ''} fsus-browser-env-storage-cleared`
       })
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
+      authGate.reset()
+      scriptGate.reset()
+      await page.reload({ waitUntil: 'commit', timeout: 30000 })
       await page.waitForSelector('#fsus-aot-shell', { timeout: 12000 })
       const reloadPre = await readSnapshot(page)
       assertPreHydrationSnapshot(reloadPre, route, cell)
+      scriptGate.release()
       await waitForHydration(page, route.expectedKind)
       authGate.release()
       await waitForAuthLabel(page, expectedAuthState(cell))
@@ -470,6 +533,7 @@ async function runRouteCell(browser, route, cell) {
     row.status = 'success'
     return row
   } catch (error) {
+    scriptGate.release()
     authGate.release()
     row.error = error instanceof Error ? error.message : String(error)
     return row

@@ -122,6 +122,8 @@ function usesAction(text, action, majorVersion) {
 
 function annotateWorkflowJob(job) {
   const text = job.lines.join('\n')
+  job.uploadArtifactCount = [...text.matchAll(/uses:\s*actions\/upload-artifact@/g)].length
+  job.hiddenUploadArtifactCount = [...text.matchAll(/include-hidden-files:\s*true/g)].length
   job.hasSetupNode = /uses:\s*actions\/setup-node@/.test(text)
   job.hasSetupDotnet = /uses:\s*actions\/setup-dotnet@/.test(text)
   job.nodeCacheDependencyPaths = new Set([...text.matchAll(/cache-dependency-path:\s*(.*?)\s*$/gm)].map((match) => normalizeYamlScalar(match[1])))
@@ -141,15 +143,18 @@ function annotateWorkflowJob(job) {
   job.playwrightInstallCommands = job.runs.filter((command) => /playwright\s+install/.test(command))
   job.flakyGovernedCommands = job.runs.filter((command) => /tools\/ci\/run-flaky-governed\.mjs/.test(command))
   job.usesMatrixTierCommand = /(?:^|\s)(?:\.\/)?tools\/test\.sh\s+ci-tier\s+\$\{\{\s*matrix\.tier\s*\}\}\s+--no-deps(?:\s|$)/.test(text)
+  job.scheduledCiJobs = new Set([...text.matchAll(/(?:^|\s)(?:\.\/)?tools\/test\.sh\s+ci-job\s+([A-Za-z0-9_-]+)([^\n]*)/g)]
+    .filter((match) => /(?:^|\s)--fresh(?:\s|$)/.test(match[2]))
+    .map((match) => match[1]))
   job.usesGeneratedFastBackendMatrix = /matrix:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.fast_backend_matrix\)\s*\}\}/.test(text)
   job.usesGeneratedFastBackendMaxParallel = /max-parallel:\s*\$\{\{\s*fromJson\(needs\.validate-matrix\.outputs\.fast_backend_max_parallel\)\s*\}\}/.test(text)
   job.generatesFastBackendMatrix = /node tools\/run-test-matrix\.mjs ci-job-matrix fast-backend --github-output "\$GITHUB_OUTPUT"/.test(text)
   job.usesFastSummaryAggregate = /node tools\/run-test-matrix\.mjs aggregate fast-summary(?:\s|$)/.test(text)
   job.usesMatrixPlaywrightWorkers = /FSUSBLOG_PLAYWRIGHT_WORKERS:\s*\$\{\{\s*matrix\.playwright_workers\s*\}\}/.test(text)
   job.playwrightWorkerEnvValues = new Set([...text.matchAll(/FSUSBLOG_PLAYWRIGHT_WORKERS:\s*['"]?(\d+)['"]?/g)].map((match) => Number(match[1])))
-  job.downloadsFastBackendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-backend-\*/.test(text)
+  job.downloadsFastBackendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /(?:name:\s*fast-backend|pattern:\s*fast-backend-\*)/.test(text)
   job.downloadsFrontendBuildArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*frontend-build/.test(text)
-  job.downloadsFastFrontendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /pattern:\s*fast-frontend-unit-\*/.test(text)
+  job.downloadsFastFrontendArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /(?:name:\s*fast-frontend-unit|pattern:\s*fast-frontend-unit-\*)/.test(text)
   job.downloadsFrontendRuntimeContractsArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*frontend-runtime-contracts/.test(text)
   job.downloadsFrontendStaticGovernanceArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*frontend-static-governance/.test(text)
   job.downloadsFastStaticArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-static-governance/.test(text)
@@ -364,6 +369,14 @@ function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = []) {
       continue
     }
 
+    const ciJobMatch = command.match(/(?:^|\s)(?:\.\/)?tools\/test\.sh\s+ci-job\s+([A-Za-z0-9_-]+)/)
+    if (ciJobMatch) {
+      if (job.scheduledCiJobs.has(ciJobMatch[1])) {
+        for (const tierId of plannedTierIds) covered.add(tierId)
+      }
+      continue
+    }
+
     const testMatch = command.match(/(?:^|\s)(?:\.\/)?tools\/test\.sh\s+(?:ci-tier\s+)?([A-Za-z0-9_-]+)/)
     if (!testMatch) continue
     if (/\$\{\{\s*matrix\.tier\s*\}\}/.test(command)) continue
@@ -378,37 +391,14 @@ function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = []) {
   return covered
 }
 
-function validateGeneratedFastBackendMatrix(workflowJob, planJob, tiersById, errors) {
-  if (planJob.id !== 'fast-backend') return
-
-  const fastBackendTiers = planJob.tiers
-    .map((tierId) => tiersById.get(tierId))
-    .filter(Boolean)
-
-  if (fastBackendTiers.length <= 1) return
-
-  const canRunAsGeneratedMatrix = fastBackendTiers.every((tier) =>
-    tier.parallelizable === true
-    && (tier.exclusiveResources?.length ?? 0) === 0
-    && (tier.services?.length ?? 0) === 0
-  )
-  if (!canRunAsGeneratedMatrix) return
-
-  if (!workflowJob.usesGeneratedFastBackendMatrix) {
-    errors.push('workflow job fast-backend must use the generated fast_backend_matrix from validate-matrix outputs')
+function validateScheduledFastDag(workflowJob, planJob, errors) {
+  if (!new Set(['fast-backend', 'fast-frontend-unit']).has(planJob.id)) return
+  if ((planJob.tiers?.length ?? 0) <= 1) return
+  if (!workflowJob.scheduledCiJobs.has(planJob.id)) {
+    errors.push(`workflow job ${planJob.id} must run the resource-aware ci-job DAG with explicit --fresh`)
   }
-  if (!workflowJob.usesGeneratedFastBackendMaxParallel) {
-    errors.push('workflow job fast-backend must use the generated fast_backend_max_parallel from validate-matrix outputs')
-  }
-  if (!workflowJob.usesMatrixTierCommand) {
-    errors.push('workflow job fast-backend must run exactly one ci-tier per matrix tier')
-  }
-
-  const serialBackendRuns = workflowJob.runs.filter((command) =>
-    /(?:^|\s)(?:\.\/)?tools\/test\.sh\s+(?:backend-fast|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden)\s+--no-deps(?:\s|$)/.test(command)
-  )
-  if (serialBackendRuns.length > 1) {
-    errors.push(`workflow job fast-backend serially runs ${serialBackendRuns.length} backend fast tiers instead of the generated matrix`)
+  if (workflowJob.usesMatrixTierCommand) {
+    errors.push(`workflow job ${planJob.id} must not expand superseded tiers into a GitHub matrix`)
   }
 }
 
@@ -423,7 +413,7 @@ function validateFastSummaryAggregate(workflowJob, planJob, errors) {
     errors.push('workflow job fast-summary must aggregate artifacts with tools/run-test-matrix.mjs aggregate fast-summary')
   }
   if (!workflowJob.downloadsFastBackendArtifacts) {
-    errors.push('workflow job fast-summary must download fast-backend-* artifacts before aggregating')
+    errors.push('workflow job fast-summary must download fast-backend artifacts before aggregating')
   }
   if (!workflowJob.downloadsFrontendBuildArtifacts) {
     errors.push('workflow job fast-summary must download frontend-build artifacts before aggregating')
@@ -616,8 +606,18 @@ function main() {
   const planJobsById = new Map(plan.jobs.map((job) => [job.id, job]))
   const requiredJobIds = new Set(requiredPlanJobs.map((job) => job.id))
 
-  if (requiredJobIds.has('fast-backend') && !workflowJobs.get('validate-matrix')?.generatesFastBackendMatrix) {
-    errors.push('workflow job validate-matrix must generate fast_backend_matrix through tools/run-test-matrix.mjs ci-job-matrix')
+  for (const [jobId, workflowJob] of workflowJobs.entries()) {
+    for (const need of workflowJob.needs) {
+      if (!workflowJobs.has(need)) {
+        errors.push(`workflow job ${jobId} needs undefined workflow job: ${need}`)
+      }
+    }
+    if (
+      [...workflowJob.uploadPaths].some((uploadPath) => normalizeArtifactPath(uploadPath).startsWith('.tmp/'))
+      && workflowJob.hiddenUploadArtifactCount !== workflowJob.uploadArtifactCount
+    ) {
+      errors.push(`workflow job ${jobId} uploads .tmp evidence but not every upload-artifact step sets include-hidden-files: true`)
+    }
   }
 
   for (const jobId of workflowJobs.keys()) {
@@ -645,7 +645,8 @@ function main() {
     const jobHasShards = job.tiers.some((tierId) => tiersById.get(tierId)?.shardable === true)
     const expectedMaxParallelOutput = `${job.id.replaceAll('-', '_')}_max_parallel`
     const usesExpectedMaxParallelOutput = workflowJob.maxParallelOutput === expectedMaxParallelOutput
-    if (jobHasShards && actualMaxParallel !== Number(job.maxParallel) && !usesExpectedMaxParallelOutput) {
+    const usesScheduledCiJob = workflowJob.scheduledCiJobs.has(job.id)
+    if (jobHasShards && !usesScheduledCiJob && actualMaxParallel !== Number(job.maxParallel) && !usesExpectedMaxParallelOutput) {
       errors.push(`workflow job ${job.id} max-parallel ${actualMaxParallel ?? 'missing'} does not match ci-plan ${job.maxParallel}`)
     }
 
@@ -656,7 +657,7 @@ function main() {
     }
 
     if (job.id !== 'production-summary') {
-      validateGeneratedFastBackendMatrix(workflowJob, job, tiersById, errors)
+      validateScheduledFastDag(workflowJob, job, errors)
       validateFastSummaryAggregate(workflowJob, job, errors)
       const coveredTiers = coveredTiersForWorkflowJob(workflowJob, tiersById, job.tiers)
       validateWorkflowBootstrapMetadata(job.id, workflowJob, actualNeeds, planJobsById, tiersById, coveredTiers, errors)

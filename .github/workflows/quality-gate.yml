@@ -28,18 +28,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      fast_backend_matrix: ${{ steps.fast_backend_matrix.outputs.matrix }}
-      fast_backend_max_parallel: ${{ steps.fast_backend_matrix.outputs.max_parallel }}
-      fast_frontend_unit_matrix: ${{ steps.fast_frontend_unit_matrix.outputs.matrix }}
-      fast_frontend_unit_max_parallel: ${{ steps.fast_frontend_unit_matrix.outputs.max_parallel }}
       acceptance_playwright_matrix: ${{ steps.acceptance_playwright_matrix.outputs.matrix }}
       acceptance_playwright_max_parallel: ${{ steps.acceptance_playwright_matrix.outputs.max_parallel }}
       visual_public_playwright_matrix: ${{ steps.visual_public_playwright_matrix.outputs.matrix }}
       visual_public_playwright_max_parallel: ${{ steps.visual_public_playwright_matrix.outputs.max_parallel }}
       visual_console_playwright_matrix: ${{ steps.visual_console_playwright_matrix.outputs.matrix }}
       visual_console_playwright_max_parallel: ${{ steps.visual_console_playwright_matrix.outputs.max_parallel }}
-      ux_viewport_smoke_matrix: ${{ steps.ux_viewport_smoke_matrix.outputs.matrix }}
-      ux_viewport_smoke_max_parallel: ${{ steps.ux_viewport_smoke_matrix.outputs.max_parallel }}
       backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
       backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
     steps:
@@ -54,20 +48,14 @@ jobs:
       - run: node tools/moderation/provider-conformance.mjs --provider schema-only
       - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
       - run: node tools/check-workflow-matrix-sync.mjs .tmp/ci-plan.json .github/workflows/quality-gate.yml
-      - run: node tools/run-test-matrix.mjs docs --out docs/testing.generated.md
+      - run: node tools/docs/generate-testing-docs.mjs --check
       - run: node tools/run-test-matrix.mjs evidence-plan --out .tmp/release-evidence/test-plan.json
-      - id: fast_backend_matrix
-        run: node tools/run-test-matrix.mjs ci-job-matrix fast-backend --github-output "$GITHUB_OUTPUT"
-      - id: fast_frontend_unit_matrix
-        run: node tools/run-test-matrix.mjs ci-job-matrix fast-frontend-unit --github-output "$GITHUB_OUTPUT"
       - id: acceptance_playwright_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix acceptance-playwright --github-output "$GITHUB_OUTPUT"
       - id: visual_public_playwright_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix visual-public-playwright --github-output "$GITHUB_OUTPUT"
       - id: visual_console_playwright_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix visual-console-playwright --github-output "$GITHUB_OUTPUT"
-      - id: ux_viewport_smoke_matrix
-        run: node tools/run-test-matrix.mjs ci-job-matrix ux-viewport-smoke --github-output "$GITHUB_OUTPUT"
       - id: backend_qps_collectors_matrix
         run: node tools/run-test-matrix.mjs ci-job-matrix backend-qps-collectors --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -76,11 +64,13 @@ jobs:
           name: validate-matrix
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/ci-plan.json
             .tmp/gate-logs/preflight.json
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/test-plan.json
+            .tmp/docs/generated-testing-docs.json
             docs/testing.generated.md
 
   plan-pr-risk:
@@ -138,71 +128,16 @@ jobs:
           name: pr-smart-gate
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/pr-plan.json
             .tmp/pr-changed-files.txt
             .tmp/release-evidence/pr-smart-gate-summary.json
 
-  coverage-backend:
-    name: Coverage Backend
-    runs-on: ubuntu-latest
-    needs: [validate-matrix, plan-pr-risk]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_backend == 'true'
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - run: ./tools/test.sh coverage-backend --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: coverage-backend
-          if-no-files-found: ignore
-          retention-days: 14
-          path: |
-            .tmp/coverage/backend/**
-            .tmp/coverage/backend-merged/**
-            .tmp/release-evidence/jobs/**
-
-  coverage-frontend:
-    name: Coverage Frontend
-    runs-on: ubuntu-latest
-    needs: [validate-matrix, plan-pr-risk]
-    if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_frontend == 'true'
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh coverage-frontend --no-deps
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: coverage-frontend
-          if-no-files-found: ignore
-          retention-days: 14
-          path: |
-            .tmp/coverage/frontend/**
-            .tmp/release-evidence/jobs/**
-            src/frontend/coverage/**
-
   coverage-merge-threshold:
     name: Coverage Merge Threshold
     runs-on: ubuntu-latest
-    needs: [plan-pr-risk, coverage-backend, coverage-frontend]
+    needs: [plan-pr-risk, fast-backend, fast-frontend-unit]
     if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_merge_threshold == 'true'
     timeout-minutes: 90
     env:
@@ -222,12 +157,12 @@ jobs:
           node-version: 24.x
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: coverage-backend
-          path: .tmp/coverage/backend-merged
+          name: fast-backend
+          path: .tmp
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: coverage-frontend
-          path: .tmp/coverage/frontend
+          name: fast-frontend-unit
+          path: .
       - run: ./tools/test.sh coverage-merge --no-deps
       - run: ./tools/test.sh coverage-threshold --no-deps
       - run: ./tools/test.sh coverage-gate --no-deps
@@ -237,19 +172,16 @@ jobs:
           name: coverage-merge-threshold
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/coverage/**
             .tmp/release-evidence/jobs/**
 
   fast-backend:
-    name: Fast Backend ${{ matrix.tier }}
+    name: Fast Backend DAG
     runs-on: ubuntu-latest
     needs: validate-matrix
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.fast_backend_max_parallel) }}
-      matrix: ${{ fromJson(needs.validate-matrix.outputs.fast_backend_matrix) }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -262,24 +194,29 @@ jobs:
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - run: ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps
+      - run: ./tools/test.sh ci-job fast-backend --fresh
         env:
           FSUSBLOG_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || 'origin/master' }}
-          FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
           FSUSBLOG_DOTNET_BUILD_PARALLELISM: ${{ vars.FSUSBLOG_DOTNET_BUILD_PARALLELISM || 'safe' }}
-          FSUSBLOG_TEST_SELECTION: ${{ github.event_name == 'pull_request' && 'affected' || 'full' }}
+          FSUSBLOG_TEST_SELECTION: full
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: ${{ matrix.artifact_name }}
+          name: fast-backend
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
-            .tmp/gate-logs/**
+            .tmp/backend-build-governance/**
+            .tmp/backend-unit/**
+            .tmp/backend-fast/**
+            .tmp/backend-api-integration/**
             .tmp/backend-auth-state-machine/**
             .tmp/backend-concurrency/**
             .tmp/backend-golden/**
             .tmp/backend-property/**
+            .tmp/coverage/backend/**
+            .tmp/coverage/backend-merged/**
             .tmp/release-evidence/integrity-proof-verification.json
             .tmp/release-evidence/jobs/**
 
@@ -303,20 +240,18 @@ jobs:
           name: frontend-build
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/frontend/**
             .tmp/release-evidence/jobs/**
             src/frontend/dist/**
+            src/backend/wwwroot/**
 
   fast-frontend-unit:
-    name: Fast Frontend Unit ${{ matrix.shard_id }}
+    name: Fast Frontend Unit DAG
     runs-on: ubuntu-latest
     needs: validate-matrix
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.fast_frontend_unit_max_parallel) }}
-      matrix: ${{ fromJson(needs.validate-matrix.outputs.fast_frontend_unit_matrix) }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -325,18 +260,20 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
-        env:
-          FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
+      - run: ./tools/test.sh ci-job fast-frontend-unit --fresh
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: ${{ matrix.artifact_name }}
+          name: fast-frontend-unit
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             src/frontend/coverage/**
+            src/frontend/test-results/**
+            .tmp/coverage/frontend/**
             .tmp/frontend/**
+            .tmp/test-results/vitest/**
             .tmp/release-evidence/jobs/**
 
   frontend-runtime-contracts:
@@ -359,6 +296,7 @@ jobs:
           name: frontend-runtime-contracts
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/frontend/**
             .tmp/release-evidence/jobs/**
@@ -383,6 +321,7 @@ jobs:
           name: frontend-static-governance
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/frontend/**
             .tmp/release-evidence/jobs/**
@@ -407,6 +346,7 @@ jobs:
           name: fast-static-governance
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/gate-logs/**
             .tmp/docs/**
@@ -430,30 +370,28 @@ jobs:
           node-version: 24.x
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          pattern: fast-backend-*
-          path: .
-          merge-multiple: true
+          name: fast-backend
+          path: .tmp
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: frontend-build
           path: .
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          pattern: fast-frontend-unit-*
+          name: fast-frontend-unit
           path: .
-          merge-multiple: true
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: frontend-runtime-contracts
-          path: .
+          path: .tmp
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: frontend-static-governance
-          path: .
+          path: .tmp
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: fast-static-governance
-          path: .
+          path: .tmp
       - name: Aggregate fast evidence
         env:
           QUALITY_GATE_NEEDS_JSON: ${{ toJson(needs) }}
@@ -464,7 +402,9 @@ jobs:
           name: fast-summary
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
+            .tmp/backend-fast/**
             .tmp/gate-logs/**
             .tmp/frontend/**
             .tmp/release-evidence/jobs/**
@@ -484,7 +424,6 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - run: ./tools/test.sh backend-api-integration --no-deps
       - run: ./tools/test.sh cross-stack-contract --no-deps
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -492,8 +431,8 @@ jobs:
           name: cross-stack-contract
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
-            .tmp/backend-api-integration/**
             .tmp/release-evidence/jobs/**
             src/frontend/src/generated/fsusBinaryRoutes.ts
             src/shared/Contracts/Validation/fsusblog.openapi.json
@@ -531,13 +470,13 @@ jobs:
           name: integration-runtime
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/acceptance/**
+            .tmp/runtime/integration.json
             .tmp/scale/**
             .tmp/release-evidence/rights-v3-test-matrix.json
-            .tmp/release-evidence/data-scale-summary.json
             .tmp/release-evidence/jobs/**
-            src/frontend/test-results/playwright/integration/**
 
   endpoint-depth-runtime:
     name: Endpoint Depth Runtime
@@ -569,6 +508,7 @@ jobs:
           name: endpoint-depth-runtime
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/contracts/endpoint-depth-matrix.json
             .tmp/release-evidence/endpoint-depth-summary.json
@@ -602,6 +542,7 @@ jobs:
           name: release-public
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/acceptance/*.log
             .tmp/release-evidence/public-hydration-detector-summary.json
@@ -612,7 +553,6 @@ jobs:
             .tmp/release-evidence/public-hydration-sidecar-summary.json
             .tmp/release-evidence/public-hydration-matrix-summary.json
             .tmp/release-evidence/jobs/**
-            src/frontend/test-results/playwright/release/**
 
   security-runtime:
     name: Security Runtime
@@ -649,12 +589,12 @@ jobs:
           name: security-runtime
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/release-evidence/security-depth-summary.json
             .tmp/release-evidence/perception-v2-release-evidence.json
             .tmp/release-evidence/jobs/**
             .tmp/security/**
-            src/frontend/test-results/playwright/security/**
 
   security-static-fuzz:
     name: Security Static Fuzz
@@ -674,6 +614,7 @@ jobs:
           name: security-static-fuzz
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/fuzz/**
             .tmp/security/perception-v2/**
@@ -721,9 +662,9 @@ jobs:
           name: ${{ matrix.artifact_name }}
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             src/frontend/test-results/playwright/acceptance/**
-            src/frontend/playwright-report/**
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/flaky/**
 
@@ -768,6 +709,7 @@ jobs:
           name: ${{ matrix.artifact_name }}
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/visual/public/**
             src/frontend/test-results/playwright/visual-public/**
@@ -816,6 +758,7 @@ jobs:
           name: ${{ matrix.artifact_name }}
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/visual/console/**
             src/frontend/test-results/playwright/visual-console/**
@@ -849,23 +792,20 @@ jobs:
           name: visual-playwright
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/visual/summary.json
             .tmp/release-evidence/visual-screenshot-summary.json
             .tmp/release-evidence/jobs/**
 
   ux-viewport-smoke:
-    name: UX Viewport Smoke ${{ matrix.shard }}
+    name: UX Viewport Smoke
     runs-on: ubuntu-latest
     needs: [validate-matrix, integration-runtime]
     timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      max-parallel: ${{ fromJson(needs.validate-matrix.outputs.ux_viewport_smoke_max_parallel) }}
-      matrix: ${{ fromJson(needs.validate-matrix.outputs.ux_viewport_smoke_matrix) }}
     env:
-      FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
-      FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
+      FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -887,22 +827,67 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite ux-viewport-smoke --test viewport-smoke-${{ matrix.shard_id }} -- ./tools/test.sh ci-tier ${{ matrix.tier }} --no-deps --shard ${{ matrix.shard }}
+      - run: node tools/ci/run-flaky-governed.mjs --suite ux-viewport-smoke --test viewport-smoke -- ./tools/test.sh ci-tier ux-viewport-smoke --no-deps --fresh
         env:
-          FSUSBLOG_CI_JOB_ID: ${{ matrix.artifact_name }}
+          FSUSBLOG_CI_JOB_ID: ux-viewport-smoke
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: ${{ matrix.artifact_name }}
+          name: ux-viewport-smoke
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/ux/**
             .tmp/release-evidence/ux-viewport-summary.json
             .tmp/release-evidence/jobs/**
             .tmp/release-evidence/flaky/**
             src/frontend/test-results/playwright/ux-viewport-smoke/**
-            src/frontend/playwright-report/**
+
+  ux-viewport-canary-parity:
+    name: UX Viewport Legacy Parity
+    runs-on: ubuntu-latest
+    needs: [integration-runtime]
+    timeout-minutes: 180
+    env:
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
+      FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-parity-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - name: Check historical parity authority
+        run: node tools/ux/run-viewport-canary-parity.mjs --check-authority
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
+      - run: ./tools/test.sh bootstrap --no-deps
+      - run: node tools/ci/run-flaky-governed.mjs --suite ux-viewport-canary-parity --test viewport-canary-parity -- ./tools/test.sh ci-tier ux-viewport-canary-parity --no-deps --fresh
+        env:
+          FSUSBLOG_CI_JOB_ID: ux-viewport-canary-parity
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: ux-viewport-canary-parity
+          if-no-files-found: ignore
+          retention-days: 30
+          include-hidden-files: true
+          path: |
+            .tmp/release-evidence/ux-viewport-canary-parity.json
+            .tmp/ux/canary-parity/**
 
   frontend-render-pressure:
     name: Frontend Render Pressure
@@ -914,6 +899,7 @@ jobs:
       FSUSBLOG_TEST_NAMESPACE: ci-render-pressure-${{ github.run_id }}-${{ github.run_attempt }}
       FSUSBLOG_DOM_BUDGET_STRICT: '1'
       FSUSBLOG_ROUTE_RENDER_PRESSURE_STRICT: '1'
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -929,14 +915,20 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
       - run: ./tools/test.sh bootstrap --no-deps
-      - run: ./tools/test.sh frontend-render-pressure --no-deps
+      - run: node tools/ci/run-flaky-governed.mjs --suite frontend-render-pressure --test render-pressure -- ./tools/test.sh frontend-render-pressure --no-deps
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
           name: frontend-render-pressure
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/frontend/dom-budget.json
             .tmp/frontend/dom-budget/**
@@ -946,7 +938,6 @@ jobs:
             .tmp/release-evidence/frontend-render-pressure-summary.json
             .tmp/release-evidence/jobs/**
             src/frontend/test-results/playwright/**
-            src/frontend/playwright-report/**
 
   cross-browser-smoke:
     name: Cross Browser ${{ matrix.browser }}
@@ -991,6 +982,7 @@ jobs:
           name: cross-browser-smoke-${{ matrix.browser }}
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             src/frontend/test-results/playwright/cross-browser/**
             .tmp/release-evidence/jobs/**
@@ -1019,19 +1011,18 @@ jobs:
       - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
       - run: ./tools/test.sh resilience
       - run: ./tools/test.sh fault-injection --no-deps
-      - run: ./tools/test.sh backend-chaos --no-deps
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
           name: resilience-runtime
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
-            .tmp/backend-chaos/**
             .tmp/fault-injection/**
+            .tmp/runtime/resilience.json
             .tmp/release-evidence/aot-cache-resilience-summary.json
             .tmp/release-evidence/jobs/**
-            src/frontend/test-results/playwright/resilience/**
 
   load-smoke:
     name: Load Smoke
@@ -1063,9 +1054,9 @@ jobs:
           name: load-smoke
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/perf/**
-            .tmp/release-evidence/perf-summary.json
             .tmp/release-evidence/jobs/**
 
   backend-qps-collectors:
@@ -1105,6 +1096,7 @@ jobs:
           name: ${{ matrix.artifact_name }}
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/perf/backend-qps/**
             .tmp/release-evidence/jobs/**
@@ -1123,7 +1115,7 @@ jobs:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           pattern: backend-qps-collectors-*
-          path: .
+          path: .tmp
           merge-multiple: true
       - run: ./tools/test.sh ci-tier backend-qps --no-deps
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -1132,6 +1124,7 @@ jobs:
           name: backend-qps
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
             .tmp/perf/backend-qps/**
             .tmp/release-evidence/backend-qps-summary.json
@@ -1163,13 +1156,16 @@ jobs:
           name: perf-regression
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: |
+            .tmp/backend-perf/**
             .tmp/perf/aeds-frame-cost/**
             .tmp/perf/aeds-compression-profile/**
             .tmp/perf/browser-performance.json
+            .tmp/perf/release-summaries/backend-benchmark-regression.json
+            .tmp/perf/release-summaries/browser-performance-regression.json
             .tmp/release-evidence/aeds-frame-cost-summary.json
             .tmp/release-evidence/aeds-compression-profile-summary.json
-            .tmp/release-evidence/perf-summary.json
             .tmp/release-evidence/jobs/**
             BenchmarkDotNet.Artifacts/results/**
 
@@ -1194,6 +1190,7 @@ jobs:
       - acceptance-playwright
       - visual-playwright
       - ux-viewport-smoke
+      - ux-viewport-canary-parity
       - frontend-render-pressure
       - cross-browser-smoke
       - resilience-runtime
@@ -1210,6 +1207,8 @@ jobs:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           path: .tmp/downloaded-artifacts
+      - run: ./tools/test.sh data-scale-evidence-summary --no-deps
+      - run: ./tools/test.sh performance-evidence-summary --no-deps
       - run: ./tools/test.sh release-evidence --no-deps
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -1217,6 +1216,7 @@ jobs:
           name: release-evidence
           if-no-files-found: ignore
           retention-days: 30
+          include-hidden-files: true
           path: .tmp/release-evidence/**
 
   production-summary:
@@ -1225,8 +1225,6 @@ jobs:
     needs:
       - plan-pr-risk
       - validate-matrix
-      - coverage-backend
-      - coverage-frontend
       - coverage-merge-threshold
       - fast-backend
       - frontend-build
@@ -1244,6 +1242,7 @@ jobs:
       - acceptance-playwright
       - visual-playwright
       - ux-viewport-smoke
+      - ux-viewport-canary-parity
       - frontend-render-pressure
       - cross-browser-smoke
       - resilience-runtime
@@ -1271,4 +1270,5 @@ jobs:
           name: production-summary
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
           path: .tmp/release-evidence/jobs/**

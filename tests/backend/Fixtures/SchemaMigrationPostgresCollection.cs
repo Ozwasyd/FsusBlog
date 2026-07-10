@@ -1,4 +1,7 @@
 namespace FsusBlog.Server.Tests;
 
-[CollectionDefinition(nameof(SchemaMigrationPostgresCollection), DisableParallelization = true)]
-public sealed class SchemaMigrationPostgresCollection : ICollectionFixture<PostgresSchemaMigrationFixture>;
+[CollectionDefinition(nameof(SchemaMigrationPostgresCollectionA))]
+public sealed class SchemaMigrationPostgresCollectionA : ICollectionFixture<PostgresSchemaMigrationFixture>;
+
+[CollectionDefinition(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class SchemaMigrationPostgresCollectionB : ICollectionFixture<PostgresSchemaMigrationFixture>;

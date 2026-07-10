@@ -1,0 +1,45 @@
+{
+  "schema": "fsusblog.postgres-test-collections.v1",
+  "collections": [
+    {
+      "id": "SchemaMigrationPostgresCollectionA",
+      "estimatedFacts": 112,
+      "tests": [
+        { "path": "Integration/SchemaMigrationIntegrationTests.cs", "class": "SchemaMigrationIntegrationTests" },
+        { "path": "Unit/AnonymousCommentSubmitTests.cs", "class": "AnonymousCommentSubmitTests" },
+        { "path": "Unit/AdminSessionValidationServiceTests.cs", "class": "AdminSessionValidationServiceTests" },
+        { "path": "Unit/SecurityRiskEventPersistenceTests.cs", "class": "SecurityRiskEventPersistenceTests" },
+        { "path": "Unit/SecurityChallengePersistenceTests.cs", "class": "SecurityChallengePersistenceTests" },
+        { "path": "Unit/AnonymousZkProdWrapperFixtureTests.cs", "class": "AnonymousZkProdWrapperFixtureTests" },
+        { "path": "Unit/ArticleRevisionConcurrencyTests.cs", "class": "ArticleRevisionConcurrencyTests" },
+        { "path": "Unit/PasskeySignCountConcurrencyTests.cs", "class": "PasskeySignCountConcurrencyTests" },
+        { "path": "Unit/AuthoringUserBanConcurrencyTests.cs", "class": "AuthoringUserBanConcurrencyTests" },
+        { "path": "Integration/LegacyIdentityColdStartResetIntegrationTests.cs", "class": "LegacyIdentityColdStartResetIntegrationTests" },
+        { "path": "Unit/AuthoringBulkModerationTransactionTests.cs", "class": "AuthoringBulkModerationTransactionTests" },
+        { "path": "Unit/IntegrityAdminConsoleServiceTests.cs", "class": "IntegrityAdminConsoleServiceTests" },
+        { "path": "Unit/AuthoringRevisionRestoreTests.cs", "class": "AuthoringRevisionRestoreTests" },
+        { "path": "Unit/UserSessionLoginConcurrencyTests.cs", "class": "UserSessionLoginConcurrencyTests" }
+      ]
+    },
+    {
+      "id": "SchemaMigrationPostgresCollectionB",
+      "estimatedFacts": 115,
+      "tests": [
+        { "path": "Unit/AnonymousCredentialIssuerTests.cs", "class": "AnonymousCredentialIssuerTests" },
+        { "path": "Unit/AnonymousCredentialRootLifecycleTests.cs", "class": "AnonymousCredentialRootLifecycleTests" },
+        { "path": "Unit/AnonymousCommentGovernanceContractTests.cs", "class": "AnonymousCommentGovernanceContractTests" },
+        { "path": "Unit/SecurityPolicySnapshotPersistenceTests.cs", "class": "SecurityPolicySnapshotPersistenceTests" },
+        { "path": "Unit/AdminSessionManagementTests.cs", "class": "AdminSessionManagementTests" },
+        { "path": "Unit/IntegrityVerificationManifestServiceTests.cs", "class": "IntegrityVerificationManifestServiceTests" },
+        { "path": "Unit/RecoveryKeyServiceBehaviorTests.cs", "class": "RecoveryKeyServiceBehaviorTests" },
+        { "path": "Unit/ArticleRightsWritePathTests.cs", "class": "ArticleRightsWritePathTests" },
+        { "path": "Unit/AnonymousGovernanceAdminEndpointTests.cs", "class": "AnonymousGovernanceAdminEndpointTests" },
+        { "path": "Unit/LogCleanupServiceTests.cs", "class": "LogCleanupServiceTests" },
+        { "path": "Unit/AuthoringAssetLibraryRebuildTests.cs", "class": "AuthoringAssetLibraryRebuildTests" },
+        { "path": "Unit/AuthoringDraftConcurrencyTests.cs", "class": "AuthoringDraftConcurrencyTests" },
+        { "path": "Unit/UserPublicHandleConcurrencyTests.cs", "class": "UserPublicHandleConcurrencyTests" },
+        { "path": "Unit/AnonymousCredentialRevocationWitnessServiceTests.cs", "class": "AnonymousCredentialRevocationWitnessServiceTests" }
+      ]
+    }
+  ]
+}

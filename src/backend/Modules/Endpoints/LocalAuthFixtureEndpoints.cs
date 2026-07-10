@@ -163,7 +163,35 @@ public static class LocalAuthFixtureEndpoints
 
     private static string ResolveStorageStatePath(IWebHostEnvironment environment, string fileName)
     {
-        return Path.Combine(ResolveRepoRoot(environment), "src", "frontend", ".playwright-fixtures", fileName);
+        string repoRoot = ResolveRepoRoot(environment);
+        string? configuredRoot = Environment.GetEnvironmentVariable("FSUSBLOG_FIXTURE_ROOT");
+        string fixtureRoot = string.IsNullOrWhiteSpace(configuredRoot)
+            ? Path.Combine(repoRoot, ".tmp", "fixtures", ResolveFixtureNamespace())
+            : Path.GetFullPath(configuredRoot, repoRoot);
+        return Path.Combine(fixtureRoot, "auth", fileName);
+    }
+
+    private static string ResolveFixtureNamespace()
+    {
+        string raw = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_NAMESPACE") ?? "local";
+        var normalized = new StringBuilder(raw.Length);
+        bool previousWasInvalid = false;
+        foreach (char value in raw.Trim().ToLowerInvariant())
+        {
+            if (char.IsAsciiLetterOrDigit(value) || value is '_' or '.' or '-')
+            {
+                normalized.Append(value);
+                previousWasInvalid = false;
+            }
+            else if (!previousWasInvalid)
+            {
+                normalized.Append('-');
+                previousWasInvalid = true;
+            }
+        }
+
+        string result = normalized.ToString().Trim('-');
+        return string.IsNullOrWhiteSpace(result) || result is "." or ".." ? "local" : result;
     }
 
     private static async Task<(bool Success, string Message)> RefreshPersistedAuthFixturesAsync(

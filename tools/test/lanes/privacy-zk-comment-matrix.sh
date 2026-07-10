@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+export FSUSBLOG_RUN_PERFORMANCE_TESTS=1
 node "$ROOT_DIR/tools/verify-zk-privacy-matrix.mjs"
 node "$ROOT_DIR/tools/crypto/check-zk-comment-v2-manifests.mjs"
 npm --prefix "$ROOT_DIR/src/frontend" run check:privacy-zk

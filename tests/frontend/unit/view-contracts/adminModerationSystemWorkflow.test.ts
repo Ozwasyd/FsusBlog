@@ -118,9 +118,10 @@ describe('admin moderation system workflow contract', () => {
     expect(policies).not.toContain('>地区策略</div>\n          <h2')
     expect(policyTemplates).not.toContain('>策略模板</div>\n        <h2')
     expect(model).not.toContain('>审核模型</div>\n          <h2')
-    expect(statusMatrix).toContain('grid-template-columns: fit-content(45%) minmax(0, 1fr);')
+    expect(statusMatrix).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));')
+    expect(statusMatrix).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));')
     expect(statusMatrix).toContain('max-width: 100%')
-    expect(statusMatrix).not.toContain('grid-template-columns: minmax(0, 1fr) minmax(3ch, auto);')
+    expect(statusMatrix).toContain('admin-status-matrix--compact .admin-status-matrix__value')
     expect(replay).not.toContain('copy.sectionEyebrow')
     expect(adminCopy).not.toContain('sectionEyebrow')
 

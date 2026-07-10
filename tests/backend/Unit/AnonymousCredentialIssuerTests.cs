@@ -31,7 +31,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
-[Collection(nameof(SchemaMigrationPostgresCollection))]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly BigInteger CircuitNativeScalarOrder = BigInteger.Parse(

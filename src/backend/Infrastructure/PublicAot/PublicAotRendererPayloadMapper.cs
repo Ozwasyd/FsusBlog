@@ -139,7 +139,7 @@ internal static class PublicAotRendererPayloadMapper
         => new(StringComparer.Ordinal)
         {
             ["snapshotId"] = rights.SnapshotId.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["articleRevisionId"] = rights.ArticleRevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["articleRevisionId"] = rights.RevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["revisionNo"] = rights.RevisionNo,
             ["enabled"] = rights.Enabled,
             ["licenseType"] = rights.LicenseType,

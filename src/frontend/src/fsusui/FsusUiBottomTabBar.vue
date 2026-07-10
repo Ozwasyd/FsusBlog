@@ -1,12 +1,12 @@
 <template>
-  <FsuMobileDock
-    class="fsu-bottom-tab-bar"
-    :label="label"
-    position="bottom"
-    :motion="motion"
-    :disabled="disabled"
-    :safe-area="safeArea"
-    :immediate="immediate"
+  <nav
+    ref="root"
+    class="fsu-mobile-dock fsu-bottom-tab-bar"
+    :class="{ 'fsu-mobile-dock--safe-area': safeArea }"
+    :style="dockStyle"
+    :aria-label="label"
+    data-fsus-mobile-dock="bottom"
+    :data-fsus-motion-preset="motion"
     style="position: fixed; inset-inline: 0; inset-block-end: 0; z-index: var(--fsus-z-mobile-dock, 30);"
     data-fsus-bottom-tab-bar
   >
@@ -23,11 +23,12 @@
       <span class="fsu-bottom-tab-bar__indicator" aria-hidden="true" />
       <span class="fsu-bottom-tab-bar__label">{{ item.label }}</span>
     </a>
-  </FsuMobileDock>
+  </nav>
 </template>
 
 <script setup lang="ts">
-import { FsuMobileDock, type MotionPresetName } from '@/fsusui/motion'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import type { MotionPresetName } from '@/fsusui/motion'
 
 type BottomTabItem = Readonly<{
   key: string
@@ -35,7 +36,7 @@ type BottomTabItem = Readonly<{
   href: string
 }>
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     items: readonly BottomTabItem[]
     activeKey?: string
@@ -59,7 +60,37 @@ const emit = defineEmits<{
   navigate: [item: BottomTabItem, event: MouseEvent]
 }>()
 
+const root = ref<HTMLElement>()
+const dockStyle = computed(() =>
+  props.safeArea
+    ? {
+        paddingBottom:
+          'max(var(--fsus-mobile-dock-padding-bottom, 0px), env(safe-area-inset-bottom))',
+      }
+    : undefined,
+)
+
+async function play(): Promise<void> {
+  await nextTick()
+  if (!root.value) return
+  const { runMotion } = await import('@/fsusui/motion')
+  runMotion(root.value, { name: props.motion, disabled: props.disabled })
+}
+
+onMounted(() => {
+  if (props.immediate) void play()
+})
+
+watch(
+  () => [props.motion, props.disabled, props.safeArea],
+  () => {
+    if (props.immediate) void play()
+  },
+)
+
 function handleItemClick(item: BottomTabItem, event: MouseEvent): void {
   emit('navigate', item, event)
 }
+
+defineExpose({ play })
 </script>

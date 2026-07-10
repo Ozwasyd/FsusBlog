@@ -492,6 +492,10 @@ const handleMoveToTrash = (row: ArticleListViewItem): void => handleMoreCommand(
     width: 100%;
   }
 
+  .article-list-status-filter {
+    min-width: 0;
+  }
+
   .article-list-toolbar-buttons {
     flex: 1 1 100%;
   }

@@ -144,7 +144,7 @@ public sealed class PublicAotRendererPayloadMapperTests
     private static PublicAotArticleRightsSnapshot Rights()
         => new(
             SnapshotId: 901,
-            ArticleRevisionId: 801,
+            RevisionId: 801,
             RevisionNo: 7,
             Enabled: true,
             LicenseType: "CC-BY-4.0",

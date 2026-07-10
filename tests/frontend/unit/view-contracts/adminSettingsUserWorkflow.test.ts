@@ -63,6 +63,17 @@ describe('admin settings and user governance workflow contract', () => {
     expect(settingsPage).toContain('删除服务器文件')
   })
 
+  it('keeps destructive social-preview actions reachable on mobile and short landscape touch screens', () => {
+    expect(settingsPage).toMatch(/<el-button[\s\S]*?class="settings-image-action"[\s\S]*?@click="confirmImageRemove"/)
+    expect(settingsPage).toMatch(/<el-button[\s\S]*?class="settings-image-action"[\s\S]*?@click="confirmImageDelete"/)
+    expect(settingsPage).toMatch(/\.settings-image-action \{[\s\S]*?min-height: 2\.25rem;/)
+    expect(settingsPage).not.toMatch(/@media \(min-width: 640px\) \{[\s\S]*?\.settings-image-action \{[\s\S]*?min-height: 2rem;/)
+  })
+
+  it('stacks PWA color inputs before mobile zoom can collapse their editable area', () => {
+    expect(settingsPage).toContain('class="grid grid-cols-1 gap-4 sm:grid-cols-2"')
+  })
+
   it('exposes brand asset uploads and favicon set generation without SVG rasterization', () => {
     expect(settingsPage).toContain('BrandAssetUploadField')
     expect(settingsPage).toContain('handleBrandAssetUpload')
