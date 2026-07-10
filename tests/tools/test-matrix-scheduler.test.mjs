@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -7,6 +8,11 @@ import process from 'node:process'
 import { setTimeout as delay } from 'node:timers/promises'
 import test from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import {
+  artifactSubstitutionBindingDigest,
+  digestDeclaredOutputs
+} from '../../tools/test-matrix/local-profile.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs')
@@ -57,6 +63,138 @@ function tier(id, overrides = {}) {
 
 const stableSnapshot = async () => ({ fingerprint: 'stable', entries: {} })
 
+function digestFile(file) {
+  return `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
+}
+
+async function createCheckpointEvidenceFixture(runDag, name = 'scheduler-checkpoint-evidence') {
+  const temp = createTempDir(name)
+  const runsRoot = path.join(temp, 'runs')
+  const summaryPath = '.tmp/local-production/build-static/summary.json'
+  const artifactPath = '.tmp/local-production/build-static/production.log'
+  const artifactDirectoryPath = '.tmp/local-production/build-static/evidence-directory'
+  const artifactDirectoryFile = `${artifactDirectoryPath}/nested/result.txt`
+  const artifactWildcardPath = '.tmp/local-production/build-static/evidence-wildcard/**/*.json'
+  const artifactWildcardFile = '.tmp/local-production/build-static/evidence-wildcard/nested/result.json'
+  const summaryOnlyPath = '.tmp/local-production/summary-only/security-authenticated-dast.json'
+  const result = await runDag({
+    tiers: [tier('local-production-build-static', {
+      artifacts: [summaryPath],
+      evidence: [summaryPath]
+    })],
+    root: temp,
+    runsRoot,
+    runId: 'production-fresh',
+    targetTierId: 'production',
+    mode: 'fresh',
+    maxParallel: 1,
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (_current, context) => {
+      const summaryFile = path.join(temp, summaryPath)
+      const artifactFile = path.join(temp, artifactPath)
+      const artifactDirectoryOutput = path.join(temp, artifactDirectoryFile)
+      const artifactWildcardOutput = path.join(temp, artifactWildcardFile)
+      const summaryOnlyFile = path.join(temp, summaryOnlyPath)
+      fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
+      fs.mkdirSync(path.dirname(artifactDirectoryOutput), { recursive: true })
+      fs.mkdirSync(path.dirname(artifactWildcardOutput), { recursive: true })
+      fs.mkdirSync(path.dirname(summaryOnlyFile), { recursive: true })
+      fs.writeFileSync(summaryFile, '{"status":"success"}\n')
+      fs.writeFileSync(artifactFile, 'fresh bundle\n')
+      fs.writeFileSync(artifactDirectoryOutput, 'directory evidence\n')
+      fs.writeFileSync(artifactWildcardOutput, '{"status":"success"}\n')
+      fs.writeFileSync(summaryOnlyFile, '{"status":"collected-blocked"}\n')
+      context.writeOutput('fresh bundle\n')
+      return { code: 0, signal: null }
+    }
+  })
+  const projection = {
+    schema: 'fsusblog.local-profile-projection.v1',
+    profileId: 'production',
+    runId: 'production-fresh',
+    sourceState: result.checkpoint.sourceState,
+    executionSource: 'fresh',
+    status: 'success',
+    logicalTierCount: 2,
+    executedTierCount: 1,
+    summaryOnlyTierCount: 1,
+    logicalTierIds: ['production', 'security-authenticated-dast'],
+    entries: {
+      production: {
+        tierId: 'production',
+        evidenceKind: 'executed',
+        physicalBundleId: 'build-static',
+        status: 'success',
+        executionSource: 'fresh',
+        durationMs: 1,
+        testIds: ['command:production'],
+        artifactProofMode: 'matrix-runtime-artifacts',
+        matrixRuntimePaths: [
+          artifactDirectoryPath,
+          artifactWildcardPath,
+          artifactPath
+        ].sort(),
+        artifactSubstitutionProofs: {},
+        artifactDigests: digestDeclaredOutputs(temp, [
+          artifactPath,
+          artifactDirectoryPath,
+          artifactWildcardPath
+        ])
+      },
+      'security-authenticated-dast': {
+        tierId: 'security-authenticated-dast',
+        evidenceKind: 'summary-only',
+        physicalBundleId: null,
+        status: 'collected-blocked',
+        executionSource: 'external-environment',
+        durationMs: null,
+        testIds: [],
+        artifactDigests: { [summaryOnlyPath]: digestFile(path.join(temp, summaryOnlyPath)) }
+      }
+    }
+  }
+  return {
+    temp,
+    result,
+    projection,
+    attachOptions: {
+      root: temp,
+      expectedRevision: result.checkpoint.revision,
+      snapshotWorktree: stableSnapshot
+    },
+    summaryPath,
+    artifactPaths: {
+      direct: artifactPath,
+      directoryFile: artifactDirectoryFile,
+      wildcardFile: artifactWildcardFile
+    }
+  }
+}
+
+function addArtifactSubstitutionProof(fixture) {
+  const entry = fixture.projection.entries.production
+  const canonicalPath = '.tmp/local-production/build-static/canonical/missing.json'
+  const actualPaths = [
+    fixture.artifactPaths.direct,
+    '.tmp/local-production/build-static/evidence-wildcard/**/*.json'
+  ].sort()
+  const actualDigests = Object.fromEntries(actualPaths.map((actualPath) => [
+    actualPath,
+    entry.artifactDigests[actualPath]
+  ]))
+  const canonicalDigest = artifactSubstitutionBindingDigest(canonicalPath, actualDigests)
+  entry.artifactProofMode = 'matrix-runtime-artifacts-with-substitutions'
+  entry.matrixRuntimePaths = [...new Set([...entry.matrixRuntimePaths, canonicalPath])].sort()
+  entry.artifactDigests[canonicalPath] = canonicalDigest
+  entry.artifactSubstitutionProofs[canonicalPath] = {
+    canonicalPath,
+    canonicalDigest,
+    actualPaths,
+    actualDigests
+  }
+  return { canonicalPath, actualPaths, canonicalDigest }
+}
+
 test('runDag executes independent tiers concurrently before their dependent tier', async () => {
   const { runDag } = await loadScheduler()
   assert.equal(typeof runDag, 'function')
@@ -103,6 +241,267 @@ test('runDag executes independent tiers concurrently before their dependent tier
   assert.ok(Object.hasOwn(checkpoint.sourceState, 'commit'))
 })
 
+test('checkpoint evidence attach is atomic, run-bound, and preserves physical scheduler tiers', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+  assert.equal(typeof attachCheckpointEvidence, 'function')
+  const { result, projection, attachOptions } = await createCheckpointEvidenceFixture(runDag)
+
+  const attached = await attachCheckpointEvidence(result.checkpointPath, 'production-fresh', {
+    logicalTierProjection: projection
+  }, attachOptions)
+  const persisted = JSON.parse(fs.readFileSync(result.checkpointPath, 'utf8'))
+
+  assert.deepEqual(attached.logicalTierProjection, projection)
+  assert.deepEqual(persisted.logicalTierProjection, projection)
+  assert.deepEqual(Object.keys(persisted.tiers), ['local-production-build-static'])
+  assert.deepEqual(persisted.completedTiers, ['local-production-build-static'])
+  await assert.rejects(
+    attachCheckpointEvidence(result.checkpointPath, 'another-run', { logicalTierProjection: projection }, {
+      ...attachOptions,
+      expectedRevision: attached.revision
+    }),
+    /checkpoint run production-fresh does not match expected run another-run/u
+  )
+  await assert.rejects(
+    attachCheckpointEvidence(result.checkpointPath, 'production-fresh', { logicalTierProjection: projection }, attachOptions),
+    /checkpoint revision .* does not match expected revision/u
+  )
+  assert.equal(JSON.parse(fs.readFileSync(result.checkpointPath, 'utf8')).status, 'success')
+})
+
+test('checkpoint evidence attach rejects deep projection entry tampering and persists failure', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+  const cases = [
+    {
+      name: 'tier-id',
+      mutate: (projection) => { projection.entries.production.tierId = 'other' },
+      pattern: /tierId must match its key/u
+    },
+    {
+      name: 'status',
+      mutate: (projection) => { projection.entries.production.status = 'failure' },
+      pattern: /status must be success/u
+    },
+    {
+      name: 'source',
+      mutate: (projection) => { projection.entries.production.executionSource = 'cache' },
+      pattern: /executionSource must be fresh/u
+    },
+    {
+      name: 'test-ids',
+      mutate: (projection) => { projection.entries.production.testIds = [] },
+      pattern: /testIds do not match its evidenceKind/u
+    },
+    {
+      name: 'digests',
+      mutate: (projection) => {
+        const artifactPath = Object.keys(projection.entries.production.artifactDigests)[0]
+        projection.entries.production.artifactDigests[artifactPath] = `sha256:${'0'.repeat(64)}`
+      },
+      pattern: /artifact digest does not match/u
+    },
+    {
+      name: 'physical-bundle',
+      mutate: (projection) => { projection.entries.production.physicalBundleId = 'other' },
+      pattern: /physical bundle local-production-other must be fresh and successful/u
+    },
+    {
+      name: 'substitution-proofs',
+      mutate: (projection) => { projection.entries.production.artifactSubstitutionProofs = null },
+      pattern: /artifactSubstitutionProofs must be an object/u
+    }
+  ]
+
+  for (const fixtureCase of cases) {
+    const { result, projection, attachOptions } = await createCheckpointEvidenceFixture(
+      runDag,
+      `scheduler-checkpoint-entry-${fixtureCase.name}`
+    )
+    fixtureCase.mutate(projection)
+    await assert.rejects(
+      attachCheckpointEvidence(result.checkpointPath, 'production-fresh', {
+        logicalTierProjection: projection
+      }, attachOptions),
+      fixtureCase.pattern
+    )
+    const persisted = JSON.parse(fs.readFileSync(result.checkpointPath, 'utf8'))
+    assert.equal(persisted.status, 'failure')
+    assert.equal(persisted.failurePoint, 'production')
+    assert.match(persisted.failure.reason, /checkpoint evidence finalization failed/u)
+    assert.deepEqual(persisted.ungeneratedEvidence, [{
+      tierId: 'production',
+      declaration: 'logicalTierProjection'
+    }])
+  }
+})
+
+test('checkpoint evidence attach rejects tampered bundle summaries and changed source state', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+
+  const tampered = await createCheckpointEvidenceFixture(runDag, 'scheduler-checkpoint-summary-tamper')
+  let tamperedBuilderCalled = false
+  fs.appendFileSync(path.join(tampered.temp, tampered.summaryPath), '{"tampered":true}\n')
+  await assert.rejects(
+    attachCheckpointEvidence(tampered.result.checkpointPath, 'production-fresh', () => {
+      tamperedBuilderCalled = true
+      return { logicalTierProjection: tampered.projection }
+    }, tampered.attachOptions),
+    /checkpoint output digest does not match current bundle summary/u
+  )
+  assert.equal(tamperedBuilderCalled, false)
+  assert.equal(JSON.parse(fs.readFileSync(tampered.result.checkpointPath, 'utf8')).status, 'failure')
+
+  const changedSource = await createCheckpointEvidenceFixture(runDag, 'scheduler-checkpoint-source-tamper')
+  await assert.rejects(
+    attachCheckpointEvidence(changedSource.result.checkpointPath, 'production-fresh', {
+      logicalTierProjection: changedSource.projection
+    }, {
+      ...changedSource.attachOptions,
+      snapshotWorktree: async () => ({ fingerprint: 'changed', entries: {} })
+    }),
+    /sourceState does not match the current repository source/u
+  )
+  assert.equal(JSON.parse(fs.readFileSync(changedSource.result.checkpointPath, 'utf8')).status, 'failure')
+})
+
+test('checkpoint evidence attach recomputes direct, directory, and wildcard declaration digests', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+  for (const declarationKind of ['direct', 'directoryFile', 'wildcardFile']) {
+    const fixture = await createCheckpointEvidenceFixture(
+      runDag,
+      `scheduler-checkpoint-${declarationKind}-tamper`
+    )
+    fs.appendFileSync(path.join(fixture.temp, fixture.artifactPaths[declarationKind]), 'tampered\n')
+    await assert.rejects(
+      attachCheckpointEvidence(fixture.result.checkpointPath, 'production-fresh', {
+        logicalTierProjection: fixture.projection
+      }, fixture.attachOptions),
+      /artifact digest does not match/u
+    )
+    assert.equal(JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8')).status, 'failure')
+  }
+})
+
+test('checkpoint evidence attach accepts a missing canonical artifact only with a bound substitution proof', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+  const fixture = await createCheckpointEvidenceFixture(runDag, 'scheduler-checkpoint-substitution-success')
+  const { canonicalPath } = addArtifactSubstitutionProof(fixture)
+  assert.equal(fs.existsSync(path.join(fixture.temp, canonicalPath)), false)
+  const attached = await attachCheckpointEvidence(fixture.result.checkpointPath, 'production-fresh', {
+    logicalTierProjection: fixture.projection
+  }, fixture.attachOptions)
+  assert.equal(attached.status, 'success')
+  assert.deepEqual(
+    attached.logicalTierProjection.entries.production.artifactSubstitutionProofs,
+    fixture.projection.entries.production.artifactSubstitutionProofs
+  )
+})
+
+test('checkpoint evidence attach rejects tampered substitution bindings and undeclared synthetic digests', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+  const cases = [
+    {
+      name: 'canonical-key',
+      mutate(fixture, proof) {
+        fixture.projection.entries.production.artifactSubstitutionProofs[proof.canonicalPath].canonicalPath = 'other'
+      },
+      pattern: /substitution canonicalPath must match its key/u
+    },
+    {
+      name: 'actual-digests',
+      mutate(fixture, proof) {
+        const actualPath = proof.actualPaths[0]
+        fixture.projection.entries.production.artifactSubstitutionProofs[proof.canonicalPath]
+          .actualDigests[actualPath] = `sha256:${'0'.repeat(64)}`
+      },
+      pattern: /substitution actual digest must match artifactDigests/u
+    },
+    {
+      name: 'binding-digest',
+      mutate(fixture, proof) {
+        fixture.projection.entries.production.artifactSubstitutionProofs[proof.canonicalPath]
+          .canonicalDigest = `sha256:${'0'.repeat(64)}`
+      },
+      pattern: /substitution canonicalDigest is invalid/u
+    },
+    {
+      name: 'actual-file',
+      mutate(fixture) {
+        fs.appendFileSync(path.join(fixture.temp, fixture.artifactPaths.direct), 'tampered\n')
+      },
+      pattern: /artifact digest does not match/u
+    }
+  ]
+  for (const fixtureCase of cases) {
+    const fixture = await createCheckpointEvidenceFixture(
+      runDag,
+      `scheduler-checkpoint-substitution-${fixtureCase.name}`
+    )
+    const proof = addArtifactSubstitutionProof(fixture)
+    fixtureCase.mutate(fixture, proof)
+    await assert.rejects(
+      attachCheckpointEvidence(fixture.result.checkpointPath, 'production-fresh', {
+        logicalTierProjection: fixture.projection
+      }, fixture.attachOptions),
+      fixtureCase.pattern
+    )
+    assert.equal(JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8')).status, 'failure')
+  }
+
+  const synthetic = await createCheckpointEvidenceFixture(runDag, 'scheduler-checkpoint-undeclared-synthetic')
+  synthetic.projection.entries.production.artifactDigests[
+    '.tmp/local-production/build-static/undeclared-synthetic.json'
+  ] = `sha256:${'f'.repeat(64)}`
+  await assert.rejects(
+    attachCheckpointEvidence(synthetic.result.checkpointPath, 'production-fresh', {
+      logicalTierProjection: synthetic.projection
+    }, synthetic.attachOptions),
+    /artifact is missing or invalid: .*undeclared-synthetic/u
+  )
+  assert.equal(JSON.parse(fs.readFileSync(synthetic.result.checkpointPath, 'utf8')).status, 'failure')
+})
+
+test('checkpoint evidence builder failure is persisted instead of leaving a success checkpoint', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+  const { result, attachOptions } = await createCheckpointEvidenceFixture(runDag, 'scheduler-checkpoint-builder-failure')
+  await assert.rejects(
+    attachCheckpointEvidence(result.checkpointPath, 'production-fresh', () => {
+      throw new Error('projection builder exploded')
+    }, attachOptions),
+    /projection builder exploded/u
+  )
+  const persisted = JSON.parse(fs.readFileSync(result.checkpointPath, 'utf8'))
+  assert.equal(persisted.status, 'failure')
+  assert.match(persisted.failure.reason, /projection builder exploded/u)
+})
+
+test('checkpoint evidence generation and attach reject a concurrent writer for the same run', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+  const { result, projection, attachOptions } = await createCheckpointEvidenceFixture(runDag, 'scheduler-checkpoint-attach-lock')
+  let enterBuilder
+  let releaseBuilder
+  const builderEntered = new Promise((resolve) => { enterBuilder = resolve })
+  const builderRelease = new Promise((resolve) => { releaseBuilder = resolve })
+  const firstWriter = attachCheckpointEvidence(result.checkpointPath, 'production-fresh', async () => {
+    enterBuilder()
+    await builderRelease
+    return { logicalTierProjection: projection }
+  }, attachOptions)
+
+  await builderEntered
+  await assert.rejects(
+    attachCheckpointEvidence(result.checkpointPath, 'production-fresh', {
+      logicalTierProjection: projection
+    }, attachOptions),
+    /test matrix run production-fresh is already active/u
+  )
+  releaseBuilder()
+  const attached = await firstWriter
+  assert.equal(attached.status, 'success')
+  assert.deepEqual(attached.logicalTierProjection, projection)
+  assert.equal(JSON.parse(fs.readFileSync(result.checkpointPath, 'utf8')).status, 'success')
+})
+
 test('runDag honors exclusive resources, load-adjusted CPU, memory, and maxParallel limits', async () => {
   const { runDag } = await loadScheduler()
   assert.equal(typeof runDag, 'function')
@@ -138,6 +537,57 @@ test('runDag honors exclusive resources, load-adjusted CPU, memory, and maxParal
   assert.equal(result.status, 'success')
   assert.equal(sharedOverlap, false)
   assert.equal(maxActive, 1, 'load-adjusted CPU and available memory should serialize these tiers')
+})
+
+test('runDag refuses an oversized first tier without spawning it', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-unschedulable-resource')
+  let executions = 0
+  const result = await runDag({
+    tiers: [tier('oversized', { cpuUnits: 5, memoryGiB: 2 })],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'unschedulable-resource',
+    maxParallel: 1,
+    systemResources: { cpuCount: 4, availableMemoryGiB: 4, load1: 0 },
+    snapshotWorktree: stableSnapshot,
+    executeTier: async () => {
+      executions += 1
+      return { code: 0, signal: null }
+    }
+  })
+
+  assert.equal(executions, 0)
+  assert.equal(result.status, 'failure')
+  assert.equal(result.failure.tierId, 'oversized')
+  assert.match(result.failure.reason, /unschedulable resource request.*cpu=5\/4/u)
+})
+
+test('runDag accepts an explicit measured CPU envelope without discarding it for recorded load', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-explicit-cpu-envelope')
+  let active = 0
+  let peak = 0
+  const result = await runDag({
+    tiers: [tier('one', { cpuUnits: 4, memoryGiB: 1 }), tier('two', { cpuUnits: 4, memoryGiB: 1 })],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'explicit-cpu-envelope',
+    maxParallel: 2,
+    systemResources: { cpuCount: 8, availableCpuUnits: 8, availableMemoryGiB: 4, load1: 7 },
+    snapshotWorktree: stableSnapshot,
+    executeTier: async () => {
+      active += 1
+      peak = Math.max(peak, active)
+      await delay(20)
+      active -= 1
+      return { code: 0, signal: null }
+    }
+  })
+
+  assert.equal(result.status, 'success')
+  assert.equal(result.checkpoint.resourceBudget.cpuUnits, 8)
+  assert.equal(peak, 2)
 })
 
 test('runDag stops the whole POSIX process group on the first tier failure', { skip: process.platform === 'win32' }, async () => {

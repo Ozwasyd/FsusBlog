@@ -28,8 +28,17 @@ public sealed class FileServiceTests
         yield return ["."];
         yield return [".."];
         yield return [new string('a', 65)];
-        yield return [Guid.NewGuid().ToString("D")];
-        yield return ["{" + Guid.NewGuid().ToString("D") + "}"];
+        yield return ["00000000-0000-4000-8000-000000000001"];
+        yield return ["{00000000-0000-4000-8000-000000000002}"];
+    }
+
+    [Fact]
+    public void InvalidUploadIds_AreStableAcrossDiscoveryAndExecution()
+    {
+        string[] discovery = InvalidUploadIds().Select(static values => Assert.IsType<string>(values[0])).ToArray();
+        string[] execution = InvalidUploadIds().Select(static values => Assert.IsType<string>(values[0])).ToArray();
+
+        Assert.Equal(discovery, execution);
     }
 
     [Fact]

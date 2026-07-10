@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -12,15 +13,33 @@ import {
 import { snapshotGitWorktree } from '../../tools/test-matrix/scheduler.mjs'
 
 function emptyAudit() {
+  const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
   return {
     schema: 'fsusblog.test-retention-audit.v2',
+    snapshotRole: 'before-test-reduction',
     generatedAt: '2026-07-10T03:00:01Z',
+    sourceState,
     producer: {
       runId: 'production-fresh',
       generatedAt: '2026-07-10T03:00:01Z',
-      sourceState: { commit: 'test-commit', worktreeFingerprint: 'test-fingerprint' }
+      sourceState
     },
     retainedEvidence: { coverageIds: [], uniqueAssertionTargetCount: 0, testRecordCount: 0 },
+    catalogSnapshot: {
+      matrixTierIds: [],
+      productionRequiredTierIds: [],
+      matrixArtifactPaths: [],
+      matrixEvidencePaths: [],
+      coverageIds: [],
+      requirementIds: [],
+      releaseEvidencePaths: [],
+      sourceDigests: {}
+    },
+    replacementManifestBaseline: {
+      deletedTestIds: [],
+      assertionBeforeTargets: [],
+      tierFromIds: []
+    },
     testRecords: [],
     reviewCandidates: [],
     candidateReviews: []
@@ -45,20 +64,46 @@ function coverageSnapshots(overrides = {}) {
 }
 
 function mutationSnapshots(overrides = {}) {
+  const sourceState = { commit: 'c'.repeat(40), worktreeFingerprint: 'd'.repeat(64) }
   return {
-    before: { score: 82, scope: ['src/core/**', 'src/backend/Infrastructure/Auth/**'], mutantCount: 100 },
-    after: { score: 84, scope: ['src/core/**', 'src/backend/Infrastructure/Auth/**'], mutantCount: 105 },
-    ...overrides
+    before: {
+      score: 82,
+      scope: ['Algorithms/AedsEncoder.cs'],
+      mutantCount: 100,
+      ...(overrides.before ?? {})
+    },
+    after: {
+      schema: 'fsusblog.stryker-authority.v1',
+      status: 'success',
+      tierId: 'release-mutation-critical-slice',
+      sliceId: 'release-mutation-critical-slice',
+      score: 100,
+      scope: ['Algorithms/AedsEncoder.cs'],
+      mutantCount: 45,
+      executedMutants: 45,
+      statuses: { killed: 45 },
+      thresholds: { break: 70, high: 85, low: 70 },
+      rawReport: { path: '.tmp/mutation/backend-critical/reports/backend-mutation-critical.json', sha256: 'e'.repeat(64) },
+      config: { path: 'stryker-critical-config.json', sha256: 'f'.repeat(64) },
+      producer: {
+        runId: 'mutation-fresh',
+        sourceState,
+        generatedAt: '2026-07-10T02:30:00Z'
+      },
+      ...(overrides.after ?? {})
+    }
   }
 }
 
 function finalCheckpoints({ integrationMs = 200_000, staticMs = 15_000, boundariesMs = 1_100_000 } = {}) {
+  const sourceState = { commit: 'c'.repeat(40), worktreeFingerprint: 'd'.repeat(64) }
   return [
     {
       runId: 'production-fresh',
       targetTierId: 'production',
       mode: 'fresh',
       status: 'success',
+      sourceState,
       finishedAt: '2026-07-10T03:00:00Z',
       updatedAt: '2026-07-10T03:00:00Z',
       tiers: {
@@ -72,13 +117,89 @@ function finalCheckpoints({ integrationMs = 200_000, staticMs = 15_000, boundari
       targetTierId: 'ux-viewport-boundaries',
       mode: 'fresh',
       status: 'success',
+      sourceState,
       finishedAt: '2026-07-10T02:00:00Z',
       updatedAt: '2026-07-10T02:00:00Z',
       tiers: {
         'ux-viewport-boundaries': { durationMs: boundariesMs, status: 'success' }
       }
+    },
+    {
+      runId: 'mutation-fresh',
+      targetTierId: 'release-mutation-critical-slice',
+      mode: 'fresh',
+      status: 'success',
+      sourceState,
+      finishedAt: '2026-07-10T02:30:00Z',
+      updatedAt: '2026-07-10T02:30:00Z',
+      tiers: {
+        'release-mutation-critical-slice': { durationMs: 300_000, status: 'success', reused: false }
+      }
     }
   ]
+}
+
+function projectedProductionCheckpoint() {
+  const sourceState = { commit: 'c'.repeat(40), worktreeFingerprint: 'd'.repeat(64) }
+  const executedTierIds = [
+    'integration',
+    'static-governance',
+    ...Array.from({ length: 74 }, (_, index) => `logical-${String(index + 1).padStart(2, '0')}`)
+  ]
+  const logicalTierIds = [...executedTierIds, 'security-authenticated-dast'].sort()
+  const entries = Object.fromEntries(logicalTierIds.map((tierId) => {
+    if (tierId === 'security-authenticated-dast') {
+      return [tierId, {
+        tierId,
+        evidenceKind: 'summary-only',
+        physicalBundleId: null,
+        status: 'collected-blocked',
+        executionSource: 'external-environment',
+        durationMs: null,
+        testIds: ['summary-only:security-authenticated-dast'],
+        artifactDigests: { '.tmp/local-production/summary-only/security-authenticated-dast.json': `sha256:${'a'.repeat(64)}` }
+      }]
+    }
+    return [tierId, {
+      tierId,
+      evidenceKind: 'executed',
+      physicalBundleId: tierId === 'integration' || tierId === 'static-governance' ? 'runtime-browser' : 'build-static',
+      status: 'success',
+      executionSource: 'fresh',
+      durationMs: tierId === 'integration' ? 200_000 : tierId === 'static-governance' ? 15_000 : 1,
+      testIds: [`test:${tierId}`],
+      artifactDigests: { [`.tmp/local-production/${tierId}.log`]: `sha256:${'b'.repeat(64)}` }
+    }]
+  }))
+  return {
+    runId: 'production-fresh',
+    targetTierId: 'production',
+    mode: 'fresh',
+    status: 'success',
+    sourceState,
+    finishedAt: '2026-07-10T03:00:00Z',
+    updatedAt: '2026-07-10T03:00:00Z',
+    tiers: {
+      'local-production-build-static': { durationMs: 50_000, status: 'success' },
+      'local-production-backend-tests': { durationMs: 100_000, status: 'success' },
+      'local-production-frontend-tests': { durationMs: 90_000, status: 'success' },
+      'local-production-runtime-browser': { durationMs: 80_000, status: 'success' },
+      'local-production-performance-evidence': { durationMs: 70_000, status: 'success' }
+    },
+    logicalTierProjection: {
+      schema: 'fsusblog.local-profile-projection.v1',
+      profileId: 'production',
+      runId: 'production-fresh',
+      sourceState,
+      executionSource: 'fresh',
+      status: 'success',
+      logicalTierCount: 77,
+      executedTierCount: 76,
+      summaryOnlyTierCount: 1,
+      logicalTierIds,
+      entries
+    }
+  }
 }
 
 test('optimization report proves retained coverage and sorts tier and test timings', () => {
@@ -184,6 +305,100 @@ test('optimization report fails closed when baseline test ids or assertion targe
   assert.deepEqual(report.deletionSafety.undeclaredTestIds, ['baseline-unique'])
 })
 
+test('optimization report fails closed when matrix artifacts, release evidence, or requirements disappear', () => {
+  const before = {
+    ...emptyAudit(),
+    catalogSnapshot: {
+      matrixTierIds: ['production', 'release-evidence'],
+      productionRequiredTierIds: ['production', 'release-evidence'],
+      matrixArtifactPaths: ['.tmp/release-evidence', '.tmp/runtime/production.json'],
+      matrixEvidencePaths: ['.tmp/release-evidence/manifest.json'],
+      coverageIds: ['release-evidence-manifest'],
+      requirementIds: ['BACKEND-TRACEABILITY'],
+      releaseEvidencePaths: ['.tmp/release-evidence', '.tmp/release-evidence/manifest.json'],
+      sourceDigests: { matrix: 'sha256:before' }
+    }
+  }
+  const after = {
+    ...emptyAudit(),
+    catalogSnapshot: {
+      matrixTierIds: ['production'],
+      productionRequiredTierIds: ['production'],
+      matrixArtifactPaths: ['.tmp/runtime/production.json'],
+      matrixEvidencePaths: [],
+      coverageIds: [],
+      requirementIds: [],
+      releaseEvidencePaths: [],
+      sourceDigests: { matrix: 'sha256:after' }
+    }
+  }
+
+  const report = buildOptimizationReport({ before, after })
+
+  assert.equal(report.retainedCoverage.status, 'weaker')
+  assert.deepEqual(report.retainedCoverage.dimensions.missingTierIds, ['release-evidence'])
+  assert.deepEqual(report.retainedCoverage.dimensions.missingProductionRequiredTierIds, ['release-evidence'])
+  assert.deepEqual(report.retainedCoverage.dimensions.missingMatrixArtifactPaths, ['.tmp/release-evidence'])
+  assert.deepEqual(report.retainedCoverage.dimensions.missingMatrixEvidencePaths, ['.tmp/release-evidence/manifest.json'])
+  assert.deepEqual(report.retainedCoverage.dimensions.missingRequirementIds, ['BACKEND-TRACEABILITY'])
+  assert.deepEqual(report.retainedCoverage.dimensions.missingReleaseEvidencePaths, [
+    '.tmp/release-evidence',
+    '.tmp/release-evidence/manifest.json'
+  ])
+})
+
+test('optimization report separates declarations from an older baseline campaign', () => {
+  const before = {
+    ...emptyAudit(),
+    testRecords: [{ id: 'current-test', assertionTargets: ['current assertion'] }],
+    retainedEvidence: { coverageIds: [], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
+    replacementManifestBaseline: {
+      deletedTestIds: ['historically-deleted-test'],
+      assertionBeforeTargets: ['current assertion'],
+      tierFromIds: []
+    }
+  }
+  const after = {
+    ...before,
+    deletedTests: [{
+      id: 'historically-deleted-test',
+      path: 'tests/old.test.ts',
+      replacementTestIds: ['current-test'],
+      reason: 'deleted before this campaign baseline'
+    }],
+    assertionReplacements: [{
+      before: 'current assertion',
+      replacementTestIds: ['current-test'],
+      after: ['current assertion'],
+      reason: 'replaced before this campaign baseline'
+    }]
+  }
+
+  const report = buildOptimizationReport({ before, after })
+
+  assert.equal(report.deletionSafety.status, 'not-applicable')
+  assert.deepEqual(report.deletionSafety.historicalDeclarationIds, ['historically-deleted-test'])
+  assert.equal(report.deletionSafety.invalidDeclarations.length, 0)
+  assert.equal(report.assertionReplacementSafety.status, 'not-applicable')
+  assert.deepEqual(report.assertionReplacementSafety.historicalBeforeTargets, ['current assertion'])
+  assert.equal(report.assertionReplacementSafety.invalidDeclarations.length, 0)
+})
+
+test('final authority requires a source-bound before snapshot', () => {
+  const before = { ...emptyAudit(), snapshotRole: undefined }
+  const report = buildOptimizationReport({
+    before,
+    after: emptyAudit(),
+    checkpoints: finalCheckpoints(),
+    coverageSnapshots: coverageSnapshots(),
+    mutationSnapshots: mutationSnapshots(),
+    finalAuthority: true
+  })
+
+  assert.equal(report.baselineAuthority.status, 'fail')
+  assert.ok(report.finalAuthority.errors.some((error) => /before snapshot role/u.test(error)))
+})
+
 test('optimization report accepts an explicit live tier replacement with retained coverage', () => {
   const report = buildOptimizationReport({
     before: {
@@ -211,6 +426,242 @@ test('optimization report accepts an explicit live tier replacement with retaine
     ['backend-chaos', 'backend-concurrency']
   ])
   assert.equal(report.retainedCoverage.status, 'same')
+})
+
+test('production-membership replacement preserves the standalone canary and cannot authorize its deletion or coverage loss', () => {
+  const canaryTier = 'ux-viewport-canary-parity'
+  const replacementTier = 'ux-viewport-plan-progress'
+  const canaryCoverage = 'ux-viewport-canary-parity'
+  const replacementCoverage = 'ux-viewport-plan-progress'
+  const canaryArtifact = '.tmp/release-evidence/ux-viewport-canary-parity.json'
+  const replacementArtifact = '.tmp/ux/viewport-plan-progress.json'
+  const canaryRecord = {
+    id: 'canary-governance-proof',
+    tierIds: [canaryTier],
+    coverageIds: [canaryCoverage],
+    assertionTargets: ['historical parity remains fail closed']
+  }
+  const replacementRecord = {
+    id: 'plan-progress-proof',
+    tierIds: [replacementTier],
+    coverageIds: [replacementCoverage],
+    assertionTargets: ['plan progress remains executable']
+  }
+  const membershipReplacement = {
+    from: canaryTier,
+    to: replacementTier,
+    scope: 'production-membership',
+    coverageIds: [replacementCoverage],
+    catalogReplacements: {
+      productionRequiredTierIds: [{ from: canaryTier, to: replacementTier }]
+    },
+    reason: 'the blocked parity audit remains standalone while production executes plan/progress governance'
+  }
+  const before = {
+    ...emptyAudit(),
+    retainedEvidence: { coverageIds: [canaryCoverage], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
+    testRecords: [canaryRecord],
+    catalogSnapshot: {
+      ...emptyAudit().catalogSnapshot,
+      matrixTierIds: [canaryTier],
+      productionRequiredTierIds: [canaryTier],
+      matrixArtifactPaths: [canaryArtifact],
+      matrixEvidencePaths: [canaryArtifact],
+      coverageIds: [canaryCoverage],
+      releaseEvidencePaths: [canaryArtifact]
+    }
+  }
+  const after = {
+    ...before,
+    retainedEvidence: { coverageIds: [canaryCoverage, replacementCoverage], uniqueAssertionTargetCount: 2, testRecordCount: 2 },
+    testRecords: [canaryRecord, replacementRecord],
+    catalogSnapshot: {
+      ...before.catalogSnapshot,
+      matrixTierIds: [canaryTier, replacementTier],
+      productionRequiredTierIds: [replacementTier],
+      matrixArtifactPaths: [canaryArtifact, replacementArtifact],
+      matrixEvidencePaths: [canaryArtifact, replacementArtifact],
+      coverageIds: [canaryCoverage, replacementCoverage],
+      releaseEvidencePaths: [canaryArtifact]
+    },
+    tierReplacements: [membershipReplacement]
+  }
+
+  const report = buildOptimizationReport({ before, after })
+  assert.notEqual(report.retainedCoverage.status, 'weaker', JSON.stringify(report.retainedCoverage))
+  assert.deepEqual(report.retainedCoverage.dimensions.invalidTierReplacements, [])
+  assert.deepEqual(report.retainedCoverage.dimensions.missingTierIds, [])
+  assert.deepEqual(report.retainedCoverage.dimensions.missingProductionRequiredTierIds, [])
+  assert.deepEqual(report.retainedCoverage.dimensions.replacedTierIds, [{
+    from: canaryTier,
+    to: replacementTier,
+    scope: 'production-membership',
+    coverageIds: [replacementCoverage],
+    reason: membershipReplacement.reason
+  }])
+
+  const deletedCanary = buildOptimizationReport({
+    before,
+    after: {
+      ...after,
+      retainedEvidence: { coverageIds: [replacementCoverage], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
+      testRecords: [replacementRecord],
+      catalogSnapshot: {
+        ...after.catalogSnapshot,
+        matrixTierIds: [replacementTier],
+        matrixArtifactPaths: [replacementArtifact],
+        matrixEvidencePaths: [replacementArtifact],
+        coverageIds: [replacementCoverage],
+        releaseEvidencePaths: []
+      }
+    }
+  })
+  assert.equal(deletedCanary.retainedCoverage.status, 'weaker')
+  assert.deepEqual(deletedCanary.retainedCoverage.dimensions.missingTierIds, [canaryTier])
+  assert.ok(deletedCanary.retainedCoverage.dimensions.invalidTierReplacements[0].reasons.some((reason) => /not retained as a standalone tier/u.test(reason)))
+
+  const removedCanaryCoverage = buildOptimizationReport({
+    before,
+    after: {
+      ...after,
+      retainedEvidence: { coverageIds: [replacementCoverage], uniqueAssertionTargetCount: 2, testRecordCount: 2 },
+      testRecords: [{ ...canaryRecord, coverageIds: [] }, replacementRecord],
+      catalogSnapshot: {
+        ...after.catalogSnapshot,
+        coverageIds: [replacementCoverage]
+      }
+    }
+  })
+  assert.equal(removedCanaryCoverage.retainedCoverage.status, 'weaker')
+  assert.deepEqual(removedCanaryCoverage.retainedCoverage.missingCoverageIds, [canaryCoverage])
+  assert.deepEqual(removedCanaryCoverage.retainedCoverage.dimensions.missingCatalogCoverageIds, [canaryCoverage])
+})
+
+test('optimization report rejects malformed replacement scopes and catalog mappings even without audit normalization', () => {
+  const before = {
+    ...emptyAudit(),
+    retainedEvidence: { coverageIds: ['old-coverage'], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
+    testRecords: [{ id: 'old-proof', tierIds: ['old-tier'], assertionTargets: ['old behavior'] }],
+    catalogSnapshot: {
+      ...emptyAudit().catalogSnapshot,
+      matrixTierIds: ['old-tier'],
+      productionRequiredTierIds: ['old-tier'],
+      coverageIds: ['old-coverage']
+    }
+  }
+  const afterBase = {
+    ...before,
+    retainedEvidence: { coverageIds: ['old-coverage', 'new-coverage'], uniqueAssertionTargetCount: 2, testRecordCount: 2 },
+    testRecords: [
+      { id: 'old-proof', tierIds: ['old-tier'], assertionTargets: ['old behavior'] },
+      { id: 'new-proof', tierIds: ['new-tier'], assertionTargets: ['new behavior'] }
+    ],
+    catalogSnapshot: {
+      ...before.catalogSnapshot,
+      matrixTierIds: ['old-tier', 'new-tier'],
+      productionRequiredTierIds: ['new-tier'],
+      coverageIds: ['old-coverage', 'new-coverage']
+    }
+  }
+  const valid = {
+    from: 'old-tier',
+    to: 'new-tier',
+    scope: 'production-membership',
+    coverageIds: ['new-coverage'],
+    catalogReplacements: {
+      productionRequiredTierIds: [{ from: 'old-tier', to: 'new-tier' }]
+    },
+    reason: 'membership-only replacement'
+  }
+  const malformed = [
+    { ...valid, scope: 'production-only' },
+    { ...valid, catalogReplacements: { productionRequiredTierIds: [] } },
+    {
+      ...valid,
+      catalogReplacements: {
+        productionRequiredTierIds: valid.catalogReplacements.productionRequiredTierIds,
+        coverageIds: [{ from: 'old-coverage', to: 'new-coverage' }]
+      }
+    },
+    {
+      ...valid,
+      scope: 'tier',
+      catalogReplacements: {
+        coverageIds: [
+          { from: 'old-coverage', to: 'new-coverage' },
+          { from: 'old-coverage', to: 'another-coverage' }
+        ]
+      }
+    }
+  ]
+
+  for (const replacement of malformed) {
+    const report = buildOptimizationReport({
+      before,
+      after: { ...afterBase, tierReplacements: [replacement] }
+    })
+    assert.equal(report.retainedCoverage.status, 'weaker', JSON.stringify(report.retainedCoverage))
+    assert.equal(report.retainedCoverage.dimensions.invalidTierReplacements.length, 1)
+  }
+})
+
+test('tier replacement explicitly maps every removed production catalog dimension', () => {
+  const canaryArtifact = '.tmp/release-evidence/ux-viewport-canary-parity.json'
+  const boundaryArtifact = '.tmp/ux/viewport-boundaries.json'
+  const before = {
+    ...emptyAudit(),
+    retainedEvidence: { coverageIds: ['ux-viewport-canary-parity', 'ux-viewport-boundary'], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
+    testRecords: [{ id: 'viewport-proof', tierIds: ['ux-viewport-canary-parity'], assertionTargets: ['viewport behavior'] }],
+    catalogSnapshot: {
+      ...emptyAudit().catalogSnapshot,
+      matrixTierIds: ['ux-viewport-canary-parity', 'ux-viewport-boundaries'],
+      productionRequiredTierIds: ['ux-viewport-canary-parity'],
+      matrixArtifactPaths: [canaryArtifact, boundaryArtifact],
+      matrixEvidencePaths: [canaryArtifact, boundaryArtifact],
+      coverageIds: ['ux-viewport-canary-parity', 'ux-viewport-boundary'],
+      releaseEvidencePaths: [canaryArtifact, boundaryArtifact]
+    }
+  }
+  const after = {
+    ...before,
+    retainedEvidence: { coverageIds: ['ux-viewport-boundary'], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
+    testRecords: [{ id: 'viewport-proof', tierIds: ['ux-viewport-boundaries'], assertionTargets: ['viewport behavior'] }],
+    catalogSnapshot: {
+      ...before.catalogSnapshot,
+      matrixTierIds: ['ux-viewport-boundaries'],
+      productionRequiredTierIds: ['ux-viewport-boundaries'],
+      matrixArtifactPaths: [boundaryArtifact],
+      matrixEvidencePaths: [boundaryArtifact],
+      coverageIds: ['ux-viewport-boundary'],
+      releaseEvidencePaths: [boundaryArtifact]
+    },
+    tierReplacements: [{
+      from: 'ux-viewport-canary-parity',
+      to: 'ux-viewport-boundaries',
+      coverageIds: ['ux-viewport-boundary'],
+      reason: 'boundaries retains the executable viewport behavior without claiming unavailable historical parity',
+      catalogReplacements: {
+        productionRequiredTierIds: [{ from: 'ux-viewport-canary-parity', to: 'ux-viewport-boundaries' }],
+        coverageIds: [{ from: 'ux-viewport-canary-parity', to: 'ux-viewport-boundary' }],
+        matrixArtifactPaths: [{ from: canaryArtifact, to: boundaryArtifact }],
+        matrixEvidencePaths: [{ from: canaryArtifact, to: boundaryArtifact }],
+        releaseEvidencePaths: [{ from: canaryArtifact, to: boundaryArtifact }]
+      }
+    }]
+  }
+
+  const report = buildOptimizationReport({ before, after })
+  assert.equal(report.retainedCoverage.status, 'same', JSON.stringify(report.retainedCoverage))
+  assert.deepEqual(report.retainedCoverage.missingCoverageIds, [])
+  assert.deepEqual(report.retainedCoverage.dimensions.missingProductionRequiredTierIds, [])
+  assert.equal(report.retainedCoverage.dimensions.replacedCatalogDimensions.length, 5)
+
+  const undeclared = buildOptimizationReport({
+    before,
+    after: { ...after, tierReplacements: [{ ...after.tierReplacements[0], catalogReplacements: {} }] }
+  })
+  assert.equal(undeclared.retainedCoverage.status, 'weaker')
+  assert.ok(undeclared.retainedCoverage.dimensions.missingMatrixArtifactPaths.includes(canaryArtifact))
 })
 
 test('optimization report accepts an explicit deletion only with a live replacement and preserved assertions', () => {
@@ -412,7 +863,7 @@ test('optimization report CLI refuses to manufacture a proof without the baselin
       '--markdown', markdown
     ], { cwd: path.resolve('.'), encoding: 'utf8' })
     assert.notEqual(result.status, 0)
-    assert.match(`${result.stdout}\n${result.stderr}`, /missing baseline retention audit/u)
+    assert.match(`${result.stdout}\n${result.stderr}`, /authoritative --before path must be tests\/test-retention-before\.json/u)
   } finally {
     for (const file of [after, out, markdown]) rmSync(file, { force: true })
   }
@@ -555,7 +1006,7 @@ test('final authority compares backend, frontend, and merged line and branch sna
     finalAuthority: true
   })
   assert.equal(passing.coverageMetrics.status, 'pass')
-  assert.equal(passing.finalAuthority.status, 'pass')
+  assert.equal(passing.finalAuthority.status, 'pass', JSON.stringify(passing.finalAuthority))
 
   const regressed = buildOptimizationReport({
     before: base,
@@ -583,6 +1034,43 @@ test('final authority compares backend, frontend, and merged line and branch sna
   })
   assert.equal(missing.coverageMetrics.status, 'not-measured')
   assert.equal(missing.finalAuthority.status, 'fail')
+})
+
+test('physical production checkpoints require an exact source-bound 77-tier logical projection', () => {
+  const production = projectedProductionCheckpoint()
+  const audit = {
+    ...emptyAudit(),
+    catalogSnapshot: {
+      ...emptyAudit().catalogSnapshot,
+      productionRequiredTierIds: production.logicalTierProjection.logicalTierIds
+    }
+  }
+  const supporting = finalCheckpoints().slice(1)
+  const missingProjection = buildOptimizationReport({
+    before: audit,
+    after: audit,
+    checkpoints: [{ ...production, logicalTierProjection: undefined }, ...supporting],
+    viewportSummaries: [],
+    coverageSnapshots: coverageSnapshots(),
+    mutationSnapshots: mutationSnapshots(),
+    finalAuthority: true
+  })
+  assert.equal(missingProjection.logicalProjection.status, 'fail')
+  assert.equal(missingProjection.finalAuthority.status, 'fail')
+
+  const projected = buildOptimizationReport({
+    before: audit,
+    after: audit,
+    checkpoints: [production, ...supporting],
+    viewportSummaries: [],
+    coverageSnapshots: coverageSnapshots(),
+    mutationSnapshots: mutationSnapshots(),
+    finalAuthority: true
+  })
+  assert.equal(projected.logicalProjection.status, 'pass')
+  assert.equal(projected.performanceBudgets.find((item) => item.id === 'integration').checkpointRunId, 'production-fresh')
+  assert.equal(projected.performanceBudgets.find((item) => item.id === 'static-governance').status, 'pass')
+  assert.equal(projected.finalAuthority.status, 'pass', JSON.stringify(projected.finalAuthority))
 })
 
 test('final authority requires a non-regressing critical mutation slice with retained scope', () => {
@@ -619,6 +1107,7 @@ test('final authority requires a non-regressing critical mutation slice with ret
     viewportSummaries: [],
     coverageSnapshots: coverageSnapshots(),
     mutationSnapshots: mutationSnapshots({
+      before: { score: 82, scope: ['src/core/**', 'src/backend/Infrastructure/Auth/**'], mutantCount: 100 },
       after: { score: 81.9, scope: ['src/core/**'], mutantCount: 90 }
     }),
     finalAuthority: true
@@ -641,7 +1130,7 @@ test('final authority requires a non-regressing critical mutation slice with ret
   assert.equal(missing.finalAuthority.status, 'fail')
 })
 
-test('out-of-scope replacements retain critical mutation proof through exact scope identity', () => {
+test('out-of-scope replacements require a source-bound executed critical mutation slice', () => {
   const criticalRecord = {
     id: 'shell:tools/test/legacy-test.sh',
     tierIds: ['backend-mutation', 'release-mutation-critical-slice'],
@@ -670,19 +1159,19 @@ test('out-of-scope replacements retain critical mutation proof through exact sco
     checkpoints: finalCheckpoints(),
     viewportSummaries: [],
     coverageSnapshots: coverageSnapshots(),
-    mutationSnapshots: null,
+    mutationSnapshots: mutationSnapshots(),
     finalAuthority: true
   })
 
   assert.equal(report.criticalMutationSlice.status, 'pass')
-  assert.equal(report.criticalMutationSlice.evidenceMode, 'scope-identity')
+  assert.equal(report.criticalMutationSlice.evidenceMode, 'executed-current-slice')
   assert.equal(report.criticalMutationSlice.actualDeletionCount, 1)
   assert.equal(report.criticalMutationSlice.criticalDeletionCount, 0)
   assert.deepEqual(report.criticalMutationSlice.outOfScopeDeletionIds, [removedUiRecord.id])
   assert.equal(report.finalAuthority.status, 'pass')
 })
 
-test('zero actual deletions retain critical mutation proof through identical test and scope ids', () => {
+test('zero actual deletions still require a source-bound executed critical mutation slice', () => {
   const criticalRecord = {
     id: 'shell:tools/test/legacy-test.sh',
     tierIds: ['backend-mutation', 'release-mutation-critical-slice'],
@@ -696,18 +1185,54 @@ test('zero actual deletions retain critical mutation proof through identical tes
     checkpoints: finalCheckpoints(),
     viewportSummaries: [],
     coverageSnapshots: coverageSnapshots(),
-    mutationSnapshots: null,
+    mutationSnapshots: mutationSnapshots(),
     finalAuthority: true
   })
 
   assert.equal(report.criticalMutationSlice.status, 'pass')
-  assert.equal(report.criticalMutationSlice.evidenceMode, 'scope-identity')
+  assert.equal(report.criticalMutationSlice.evidenceMode, 'executed-current-slice')
   assert.deepEqual(report.criticalMutationSlice.before.testIds, ['shell:tools/test/legacy-test.sh'])
   assert.equal(report.finalAuthority.status, 'pass')
+
+  const missing = buildOptimizationReport({
+    before,
+    after,
+    checkpoints: finalCheckpoints(),
+    viewportSummaries: [],
+    coverageSnapshots: coverageSnapshots(),
+    mutationSnapshots: null,
+    finalAuthority: true
+  })
+  assert.equal(missing.criticalMutationSlice.status, 'not-measured')
+  assert.equal(missing.finalAuthority.status, 'fail')
+})
+
+test('final mutation authority rejects a mismatched run or source even with a passing score', () => {
+  const base = emptyAudit()
+  const wrongRun = mutationSnapshots({
+    after: {
+      producer: {
+        ...mutationSnapshots().after.producer,
+        runId: 'unrelated-mutation-run'
+      }
+    }
+  })
+  const report = buildOptimizationReport({
+    before: base,
+    after: base,
+    checkpoints: finalCheckpoints(),
+    viewportSummaries: [],
+    coverageSnapshots: coverageSnapshots(),
+    mutationSnapshots: wrongRun,
+    finalAuthority: true
+  })
+  assert.equal(report.mutationAuthority.status, 'fail')
+  assert.ok(report.mutationAuthority.errors.some((error) => /run id/u.test(error)))
+  assert.equal(report.finalAuthority.status, 'fail')
 })
 
 test('final authority binds checkpoints, coverage, and retention audit to one source state', () => {
-  const sourceState = { commit: 'abc123', worktreeFingerprint: 'dirty-fingerprint' }
+  const sourceState = { commit: 'c'.repeat(40), worktreeFingerprint: 'd'.repeat(64) }
   const addProducer = (coverage) => Object.fromEntries(Object.entries(coverage).map(([id, summary]) => [id, {
     ...summary,
     producer: { runId: 'production-fresh', sourceCommit: sourceState.commit, sourceFingerprint: sourceState.worktreeFingerprint }
@@ -830,15 +1355,17 @@ test('historical report construction remains compatible but explicitly marks mis
 test('optimization report CLI rejects a focused-only checkpoint even when every other proof is present', async () => {
   const token = `${process.pid}-${Date.now()}-focused`
   const files = Object.fromEntries([
-    'before', 'after', 'baselineSnapshot', 'currentSnapshot', 'checkpoint', 'out', 'markdown'
+    'forgedBefore', 'after', 'baselineSnapshot', 'currentSnapshot', 'checkpoint', 'mutationCheckpoint',
+    'mutationEvidence', 'rawReport', 'mutationConfig', 'out', 'markdown'
   ].map((name) => [name, `.tmp/test-optimization-${name}-${token}.json`]))
   files.markdown = `.tmp/test-optimization-${token}.md`
   mkdirSync('.tmp', { recursive: true })
   const worktree = await snapshotGitWorktree(path.resolve('.'))
   const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: path.resolve('.'), encoding: 'utf8' }).stdout.trim()
   const sourceState = { commit, worktreeFingerprint: worktree.fingerprint }
+  const trackedBefore = JSON.parse(readFileSync('tests/test-retention-before.json', 'utf8'))
   const base = {
-    ...emptyAudit(),
+    ...trackedBefore,
     generatedAt: '2026-07-10T03:00:01Z',
     sourceState,
     producer: {
@@ -874,20 +1401,55 @@ test('optimization report CLI rejects a focused-only checkpoint even when every 
     sourceState,
     tiers: Object.fromEntries(finalCheckpoints().flatMap((checkpoint) => Object.entries(checkpoint.tiers)))
   }
-  writeFileSync(files.before, `${JSON.stringify(base)}\n`)
+  writeFileSync(files.forgedBefore, `${JSON.stringify(base)}\n`)
   writeFileSync(files.after, `${JSON.stringify(base)}\n`)
   writeFileSync(files.baselineSnapshot, `${JSON.stringify(beforeEvidence)}\n`)
   writeFileSync(files.currentSnapshot, `${JSON.stringify(afterEvidence)}\n`)
   writeFileSync(files.checkpoint, `${JSON.stringify(focusedCheckpoint)}\n`)
+  writeFileSync(files.rawReport, '{}\n')
+  writeFileSync(files.mutationConfig, '{}\n')
+  const mutationEvidence = {
+    ...mutationSnapshots().after,
+    rawReport: {
+      path: files.rawReport,
+      sha256: createHash('sha256').update(readFileSync(files.rawReport)).digest('hex')
+    },
+    config: {
+      path: files.mutationConfig,
+      sha256: createHash('sha256').update(readFileSync(files.mutationConfig)).digest('hex')
+    },
+    producer: {
+      ...mutationSnapshots().after.producer,
+      sourceState
+    }
+  }
+  writeFileSync(files.mutationEvidence, `${JSON.stringify(mutationEvidence)}\n`)
+  writeFileSync(files.mutationCheckpoint, `${JSON.stringify({
+    ...finalCheckpoints()[2],
+    sourceState
+  })}\n`)
 
   try {
+    const forged = spawnSync(process.execPath, [
+      'tools/test/optimization-report.mjs',
+      '--before', files.forgedBefore,
+      '--after', files.after,
+      '--checkpoint', files.checkpoint,
+      '--out', files.out,
+      '--markdown', files.markdown
+    ], { cwd: path.resolve('.'), encoding: 'utf8' })
+    assert.notEqual(forged.status, 0)
+    assert.match(forged.stderr, /authoritative --before path must be tests\/test-retention-before\.json/u)
+
     const result = spawnSync(process.execPath, [
       'tools/test/optimization-report.mjs',
-      '--before', files.before,
+      '--before', 'tests/test-retention-before.json',
       '--after', files.after,
       '--baseline-snapshot', files.baselineSnapshot,
       '--current-snapshot', files.currentSnapshot,
       '--checkpoint', files.checkpoint,
+      '--checkpoint', files.mutationCheckpoint,
+      '--mutation-evidence', files.mutationEvidence,
       '--out', files.out,
       '--markdown', files.markdown
     ], { cwd: path.resolve('.'), encoding: 'utf8' })
@@ -903,11 +1465,13 @@ test('optimization report CLI rejects a focused-only checkpoint even when every 
     })}\n`)
     const successful = spawnSync(process.execPath, [
       'tools/test/optimization-report.mjs',
-      '--before', files.before,
+      '--before', 'tests/test-retention-before.json',
       '--after', files.after,
       '--baseline-snapshot', files.baselineSnapshot,
       '--current-snapshot', files.currentSnapshot,
       '--checkpoint', files.checkpoint,
+      '--checkpoint', files.mutationCheckpoint,
+      '--mutation-evidence', files.mutationEvidence,
       '--out', files.out,
       '--markdown', files.markdown
     ], { cwd: path.resolve('.'), encoding: 'utf8' })

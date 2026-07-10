@@ -1,5 +1,9 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+
+const gibibyte = 1024 ** 3
+const defaultMinimumFreeBytes = 4 * gibibyte
 
 const generatedDirectories = Object.freeze([
   '.tmp',
@@ -33,12 +37,61 @@ export function localProductionGeneratedDirectories() {
   return [...generatedDirectories]
 }
 
+function dockerRootDirectory() {
+  const result = spawnSync('docker', ['info', '--format', '{{.DockerRootDir}}'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  const directory = String(result.stdout ?? '').trim()
+  if (result.status !== 0 || !directory) {
+    throw new Error(`unable to resolve DockerRootDir: ${String(result.stderr ?? '').trim() || `exit ${result.status ?? 'unknown'}`}`)
+  }
+  return directory
+}
+
+function availableBytes(directory) {
+  const stats = fs.statfsSync(directory)
+  return Number(stats.bavail) * Number(stats.bsize)
+}
+
+export function assertLocalProductionCapacity({
+  root,
+  minimumFreeBytes = defaultMinimumFreeBytes,
+  resolveDockerRootDirectory = dockerRootDirectory,
+  measureAvailableBytes = availableBytes
+}) {
+  const resolvedRoot = path.resolve(root)
+  const resolvedDockerRoot = path.resolve(resolveDockerRootDirectory())
+  const targets = [...new Set([resolvedRoot, resolvedDockerRoot])]
+  const measurements = targets.map((directory) => ({
+    directory,
+    availableBytes: measureAvailableBytes(directory)
+  }))
+  const shortages = measurements.filter((measurement) => measurement.availableBytes < minimumFreeBytes)
+  if (shortages.length > 0) {
+    const requiredGiB = (minimumFreeBytes / gibibyte).toFixed(1)
+    const details = shortages
+      .map(({ directory, availableBytes: bytes }) => `${directory} has ${(bytes / gibibyte).toFixed(1)} GiB`)
+      .join('; ')
+    throw new Error(`fresh production requires at least ${requiredGiB} GiB free on repository and Docker data filesystems: ${details}`)
+  }
+  return { minimumFreeBytes, measurements }
+}
+
 export function cleanLocalProductionOutputs(root) {
   const resolvedRoot = path.resolve(root)
-  const emscriptenCache = path.join(resolvedRoot, '.tmp/emscripten-cache')
-  const preservedCache = path.join(resolvedRoot, `.fsusblog-emscripten-cache-${process.pid}`)
-  fs.rmSync(preservedCache, { recursive: true, force: true })
-  if (fs.existsSync(emscriptenCache)) fs.renameSync(emscriptenCache, preservedCache)
+  const dependencyCaches = [
+    ['emscripten', '.tmp/emscripten-cache'],
+    ['dependencies', '.tmp/dependency-cache'],
+    ['dotnet', '.tmp/data-root/cache']
+  ].map(([id, relative]) => ({
+    target: path.join(resolvedRoot, relative),
+    preserved: path.join(resolvedRoot, `.fsusblog-${id}-cache-${process.pid}`)
+  }))
+  for (const cache of dependencyCaches) {
+    fs.rmSync(cache.preserved, { recursive: true, force: true })
+    if (fs.existsSync(cache.target)) fs.renameSync(cache.target, cache.preserved)
+  }
   try {
     for (const relativeDirectory of generatedDirectories) {
       const target = path.resolve(resolvedRoot, relativeDirectory)
@@ -48,9 +101,10 @@ export function cleanLocalProductionOutputs(root) {
       fs.rmSync(target, { recursive: true, force: true })
     }
   } finally {
-    if (fs.existsSync(preservedCache)) {
-      fs.mkdirSync(path.dirname(emscriptenCache), { recursive: true })
-      fs.renameSync(preservedCache, emscriptenCache)
+    for (const cache of dependencyCaches) {
+      if (!fs.existsSync(cache.preserved)) continue
+      fs.mkdirSync(path.dirname(cache.target), { recursive: true })
+      fs.renameSync(cache.preserved, cache.target)
     }
   }
 }

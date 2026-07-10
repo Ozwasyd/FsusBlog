@@ -16,11 +16,22 @@ const configFile = path.join(repoRoot, 'src/frontend/playwright.config.ts')
 const specFile = path.join(repoRoot, 'tests/frontend/e2e/ux/viewport-boundaries.spec.ts')
 const sharedFile = path.join(repoRoot, 'tests/frontend/support/playwright/acceptance-shared.ts')
 
-test('Playwright fails fast by default and has an explicit all-failures diagnostic override', async () => {
+test('Playwright has no suite timeout or maximum failure cutoff during diagnostics', async () => {
   const source = await readFile(configFile, 'utf8')
 
-  assert.match(source, /FSUSBLOG_PLAYWRIGHT_DIAGNOSTIC_ALL_FAILURES/u)
-  assert.match(source, /maxFailures:\s*diagnosticAllFailures\s*\?\s*0\s*:\s*1/u)
+  assert.match(source, /timeout:\s*0/u)
+  assert.doesNotMatch(source, /maxFailures/u)
+  assert.doesNotMatch(source, /FSUSBLOG_PLAYWRIGHT_DIAGNOSTIC_ALL_FAILURES/u)
+  assert.match(source, /FSUSBLOG_PLAYWRIGHT_TRACE/u)
+  assert.match(source, /trace:\s*traceMode/u)
+
+  const spec = await readFile(specFile, 'utf8')
+  const describeConfig = sliceBetween(
+    spec,
+    'test.describe(`UX viewport boundaries',
+    'const testGroups = parityBatch'
+  )
+  assert.doesNotMatch(describeConfig, /timeout/u)
 })
 
 test('viewport runner owns one route-theme context and one cold page navigation per viewport', async () => {
@@ -28,7 +39,8 @@ test('viewport runner owns one route-theme context and one cold page navigation 
 
   assert.match(source, /buildUxViewportPlan/u)
   assert.match(source, /openUxViewportProgress/u)
-  assert.match(source, /for \(const group of plan\.groups\)/u)
+  assert.match(source, /const testGroups = parityBatch[\s\S]*?: plan\.groups/u)
+  assert.match(source, /for \(const group of testGroups\)/u)
   assert.match(source, /openThemedAuditedContext\(browser, group\.theme/u)
   assert.match(source, /for \(const viewportPlan of group\.viewports\)/u)
   assert.match(source, /auditedContext\.newPage\(\)/u)
@@ -104,6 +116,27 @@ test('media helpers make every matrix state explicit and resettable', async () =
   assert.match(mediaHelpers, /hasFocusedElement/u)
   assert.match(mediaHelpers, /should reset page scroll/u)
   assert.match(mediaHelpers, /should clear probe focus/u)
+})
+
+test('readable-width checks compare logical width instead of injected zoom geometry', async () => {
+  const source = await readFile(sharedFile, 'utf8')
+  const focusedContract = sliceBetween(
+    source,
+    'export async function assertReadableLineWidthWithinBounds',
+    'export async function assertDashboardGridWidthBounds'
+  )
+  const aggregateContract = sliceBetween(
+    source,
+    'export async function collectViewportBoundaryReport',
+    'export async function assertViewportBoundaryContract'
+  )
+
+  for (const contract of [focusedContract, aggregateContract]) {
+    assert.match(contract, /getComputedStyle\(document\.documentElement\)\.zoom/u)
+    assert.match(contract, /const logicalWidth = rect\.width \/ rootZoom/u)
+    assert.match(contract, /logicalWidth > maxReadableWidth \+ 8/u)
+  }
+  assert.match(aggregateContract, /header\.closest\('main, article, footer'\)/u)
 })
 
 test('acceptance storage states use the namespaced auth fixture directory', async () => {

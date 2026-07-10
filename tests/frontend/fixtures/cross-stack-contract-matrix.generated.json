@@ -829,7 +829,7 @@
           "auth": "admin",
           "pow": true,
           "requestFrame": "CategoryWriteRequest",
-          "responseFrame": "EmptySuccess"
+          "responseFrame": "MutationId"
         },
         {
           "method": "PUT",
@@ -2158,5 +2158,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 206
+  "openapiOperationCount": 208
 }

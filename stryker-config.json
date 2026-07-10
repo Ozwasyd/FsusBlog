@@ -1,30 +1,31 @@
 {
   "stryker-config": {
     "solution": "FsusBlog.slnx",
-    "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+    "configuration": "Debug",
     "test-case-filter": "Category!=Integration",
     "mutation-level": "Complete",
-    "threshold-high": 85,
-    "threshold-low": 70,
-    "threshold-break": 70,
+    "thresholds": {
+      "high": 85,
+      "low": 70,
+      "break": 70
+    },
     "reporters": [
       "progress",
       "html",
       "json"
     ],
     "report-file-name": "backend-mutation",
-    "output": ".tmp/mutation/backend",
     "mutate": [
-      "src/core/Algorithms/**/*.cs",
-      "src/core/Cache/**/*.cs",
-      "src/core/Mapping/**/*.cs",
-      "src/backend/Infrastructure/Auth/**/*.cs",
-      "src/backend/Infrastructure/Binary/**/*.cs",
-      "src/backend/Infrastructure/Cache/**/*.cs",
-      "src/backend/Infrastructure/Filters/**/*.cs",
-      "src/backend/Infrastructure/Middlewares/**/*.cs",
-      "src/backend/Infrastructure/NotificationStream/**/*.cs",
-      "src/backend/Services/**/*.cs"
+      "Algorithms/**/*.cs",
+      "Cache/**/*.cs",
+      "Mapping/**/*.cs",
+      "Infrastructure/Auth/**/*.cs",
+      "Infrastructure/Binary/**/*.cs",
+      "Infrastructure/Cache/**/*.cs",
+      "Infrastructure/Filters/**/*.cs",
+      "Infrastructure/Middlewares/**/*.cs",
+      "Infrastructure/NotificationStream/**/*.cs",
+      "Services/**/*.cs"
     ],
     "ignore-methods": [
       "ToString",

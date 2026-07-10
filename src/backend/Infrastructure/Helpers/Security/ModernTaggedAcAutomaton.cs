@@ -168,6 +168,7 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
             rentedRuleEpochs = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
             ruleRemaining = rentedRuleRemaining.AsSpan(0, _multiWordRules.Length);
             ruleEpochs = rentedRuleEpochs.AsSpan(0, _multiWordRules.Length);
+            ruleEpochs.Clear();
             scanEpoch = NextScanEpoch();
         }
 

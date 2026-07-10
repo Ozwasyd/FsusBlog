@@ -101,6 +101,9 @@ describe('public hydration invariant guards', () => {
       expect(browserEnvHydrationCheck).toContain(dimension)
     }
     expect(browserEnvHydrationCheck).toContain('encodeIdentityAccountSnapshotFrame')
+    expect(browserEnvHydrationCheck).toContain('waitForExactRouteReadiness')
+    expect(browserEnvHydrationCheck).toContain('routeReadiness')
+    expect(browserEnvHydrationCheck).toContain('exact-route-aot-readiness')
     expect(browserEnvHydrationCheck).toContain('reducedMotion')
     expect(browserEnvHydrationCheck).toContain('colorScheme: cell.colorScheme')
     expect(browserEnvHydrationCheck).toContain('auth-gated-until-after-hydration')

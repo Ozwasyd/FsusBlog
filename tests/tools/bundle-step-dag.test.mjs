@@ -27,3 +27,36 @@ test('executeStepDag rejects a missing dependency before it starts work', async 
     /unknown dependency/u
   )
 })
+
+test('executeStepDag continues independent branches and aggregates their failures', async () => {
+  const started = []
+  const first = new Error('backend failed')
+  const second = new Error('frontend failed')
+  const steps = [
+    { id: 'backend', dependsOn: [] },
+    { id: 'frontend', dependsOn: [] },
+    { id: 'backend-summary', dependsOn: ['backend'] },
+    { id: 'frontend-summary', dependsOn: ['frontend'] },
+    { id: 'static', dependsOn: [] },
+    { id: 'static-summary', dependsOn: ['static'] }
+  ]
+
+  await assert.rejects(
+    executeStepDag(steps, 2, async (step) => {
+      started.push(step.id)
+      if (step.id === 'backend') throw first
+      if (step.id === 'frontend') throw second
+    }),
+    (error) => {
+      assert.ok(error instanceof AggregateError)
+      assert.match(error.message, /backend, frontend/u)
+      assert.deepEqual(error.errors, [first, second])
+      return true
+    }
+  )
+
+  assert.ok(started.includes('static'))
+  assert.ok(started.includes('static-summary'))
+  assert.ok(!started.includes('backend-summary'))
+  assert.ok(!started.includes('frontend-summary'))
+})

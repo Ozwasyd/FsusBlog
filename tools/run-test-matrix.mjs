@@ -3,11 +3,13 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import {
   aggregateArtifactPathExists,
   applySupersedes,
+  attachCheckpointEvidence,
   createRunId,
   findLatestRunId,
   runDag,
@@ -15,6 +17,7 @@ import {
   validateSupersedesRules
 } from './test-matrix/scheduler.mjs'
 import {
+  buildLocalProfileProjection,
   createLocalBundleTiers,
   localBundleSummaryPath,
   localProfileSystemResources,
@@ -22,8 +25,8 @@ import {
   validateLocalProfiles
 } from './test-matrix/local-profile.mjs'
 import { parseMatrix } from './test-matrix/parse-matrix.mjs'
-import { cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
-import { cleanupLocalRuntime } from './test-matrix/local-runtime-cleanup.mjs'
+import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
+import { cleanupLocalRuntime, cleanupStaleLocalRuntimes } from './test-matrix/local-runtime-cleanup.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -679,12 +682,16 @@ function resourceEnvironmentForTier(tier, baseEnv = {}) {
   const { cpuUnits, memoryGiB } = tierResourceUnits(tier)
   const vitestWorkerBudget = Math.max(1, Math.floor(Math.min(cpuUnits, Math.max(1, memoryGiB / 1.5))))
   const manifestWorkerBudget = Math.max(1, Math.floor(Math.min(cpuUnits, Math.max(1, memoryGiB / 0.75))))
+  const playwrightWorkerBudget = Math.max(1, Math.floor(Math.min(cpuUnits, Math.max(1, memoryGiB))))
   const env = {}
   if (!process.env.FSUSBLOG_VITEST_MAX_WORKERS && !baseEnv.FSUSBLOG_VITEST_MAX_WORKERS) {
     env.FSUSBLOG_VITEST_MAX_WORKERS = String(vitestWorkerBudget)
   }
   if (!process.env.FSUSBLOG_COMMAND_MANIFEST_WORKERS && !baseEnv.FSUSBLOG_COMMAND_MANIFEST_WORKERS) {
     env.FSUSBLOG_COMMAND_MANIFEST_WORKERS = String(manifestWorkerBudget)
+  }
+  if (!process.env.FSUSBLOG_PLAYWRIGHT_WORKERS && !baseEnv.FSUSBLOG_PLAYWRIGHT_WORKERS) {
+    env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkerBudget)
   }
   return env
 }
@@ -951,31 +958,46 @@ function shouldUseLocalProfile(matrix, tierId, options) {
     && Boolean(matrix.localProfiles?.[targetTierId])
 }
 
-function writeSummaryOnlyEvidence(profileId, profile, runId) {
+function fileDigest(file) {
+  return `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
+}
+
+function writeSummaryOnlyEvidence(profileId, profile, runId, sourceState) {
+  const evidence = {}
   for (const tierId of profile.summaryOnly ?? []) {
     const outFile = path.join(root, `.tmp/local-${profileId}/summary-only/${tierId}.json`)
-    fs.mkdirSync(path.dirname(outFile), { recursive: true })
-    fs.writeFileSync(outFile, `${JSON.stringify({
+    const payload = {
       schema: 'fsusblog.local-production.summary-only.v1',
       tierId,
       status: 'collected-blocked',
       executionSource: 'external-environment',
       schedulerRunId: runId,
+      sourceState,
       generatedAt: new Date().toISOString()
-    }, null, 2)}\n`)
+    }
+    fs.mkdirSync(path.dirname(outFile), { recursive: true })
+    fs.writeFileSync(outFile, `${JSON.stringify(payload, null, 2)}\n`)
+    evidence[tierId] = {
+      ...payload,
+      evidencePath: relativeToRoot(outFile),
+      artifactDigest: fileDigest(outFile)
+    }
   }
+  return evidence
 }
 
 function projectLocalBundleSummaries(matrix, profileId, profile, runId, completedTierIds) {
   const byId = tierMap(matrix)
   const projected = []
+  const bundleSummaries = {}
   for (const bundle of profile.bundles) {
     const physicalTierId = `local-${profileId}-${bundle.id}`
     if (!completedTierIds.has(physicalTierId)) continue
     const summaryFile = path.join(root, localBundleSummaryPath(profileId, bundle.id))
     const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
-    const errors = validateLocalBundleSummary(summary, bundle)
+    const errors = validateLocalBundleSummary(summary, bundle, { expectedRunId: runId })
     if (errors.length > 0) throw new Error(`${bundle.id} bundle evidence invalid: ${errors.join('; ')}`)
+    bundleSummaries[bundle.id] = summary
     for (const tierId of bundle.members) {
       const tier = byId.get(tierId)
       const member = summary.members[tierId]
@@ -990,7 +1012,7 @@ function projectLocalBundleSummaries(matrix, profileId, profile, runId, complete
       projected.push(tierId)
     }
   }
-  return projected
+  return { projectedTierIds: projected, bundleSummaries }
 }
 
 async function runLocalProfile(matrix, profileId, options) {
@@ -1009,13 +1031,16 @@ async function runLocalProfile(matrix, profileId, options) {
     return
   }
 
+  const staleCleanup = cleanupStaleLocalRuntimes({ root })
+  console.error(`[matrix:${profileId}] stale runtime cleanup namespaces=${staleCleanup.namespaces.length} processes=${staleCleanup.terminatedPids.length} containers=${staleCleanup.removedContainers.length}`)
   cleanLocalProductionOutputs(root)
+  const capacity = assertLocalProductionCapacity({ root })
+  console.error(`[matrix:${profileId}] capacity preflight=${capacity.measurements.map(({ directory, availableBytes }) => `${directory}:${(availableBytes / (1024 ** 3)).toFixed(1)}GiB`).join(',')}`)
   const target = physicalTiers.at(-1)
   target.selfBootstraps = true
   const { runsRoot, runId } = schedulerRunIdentity(profileId, { ...options, fresh: true, resume: false })
   const runNamespace = namespaceFor({ id: profileId, ciJob: `local-${profileId}` }, null, runId)
   prepareNamespaceEnvironmentIfNeeded(physicalTiers, runNamespace)
-  writeSummaryOnlyEvidence(profileId, profile, runId)
 
   let result
   try {
@@ -1030,7 +1055,9 @@ async function runLocalProfile(matrix, profileId, options) {
       maxParallel: Math.min(options.maxParallel ?? profile.maxParallel, profile.maxParallel),
       wallClockBudgetMs: profile.budgetMs,
       systemResources: localProfileSystemResources(profile, {
-        cpuCount: os.availableParallelism?.() ?? os.cpus().length
+        cpuCount: os.availableParallelism?.() ?? os.cpus().length,
+        availableMemoryGiB: os.freemem() / (1024 ** 3),
+        load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
       }),
       teeOutput: true,
       envForTier(tier) {
@@ -1043,7 +1070,6 @@ async function runLocalProfile(matrix, profileId, options) {
           FSUSBLOG_LOCAL_PROFILE: profileId,
           FSUSBLOG_PHYSICAL_BUNDLE_ID: tier.physicalBundleId,
           FSUSBLOG_DOTNET_BUILD_PARALLELISM: 'auto',
-          FSUSBLOG_PLAYWRIGHT_WORKERS: '2',
           FSUSBLOG_BACKEND_COVERAGE_LINE_THRESHOLD: '80.3998',
           FSUSBLOG_BACKEND_COVERAGE_BRANCH_THRESHOLD: '59.4028',
           FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD: '27.78',
@@ -1059,13 +1085,36 @@ async function runLocalProfile(matrix, profileId, options) {
       }
     })
 
-    const completedTierIds = new Set(result.checkpoint.completedTiers ?? [])
     let projectedTierIds = []
-    try {
-      projectedTierIds = projectLocalBundleSummaries(matrix, profileId, profile, runId, completedTierIds)
-    } catch (error) {
-      result.status = 'failure'
-      result.failure = { tierId: profileId, exitCode: 1, reason: error.message }
+    const completedTierIds = new Set(result.checkpoint.completedTiers ?? [])
+    if (result.status === 'success') {
+      try {
+        const expectedRevision = result.checkpoint.revision
+        const buildProjectionEvidence = (lockedCheckpoint) => {
+          const lockedCompletedTierIds = new Set(lockedCheckpoint.completedTiers ?? [])
+          const projectionInput = projectLocalBundleSummaries(matrix, profileId, profile, runId, lockedCompletedTierIds)
+          const summaryOnlyEvidence = writeSummaryOnlyEvidence(profileId, profile, runId, result.checkpoint.sourceState)
+          const logicalTierProjection = buildLocalProfileProjection({
+            profileId,
+            profile,
+            tiers: matrix.tiers,
+            checkpoint: lockedCheckpoint,
+            bundleSummaries: projectionInput.bundleSummaries,
+            summaryOnlyEvidence
+          })
+          return { logicalTierProjection }
+        }
+        result.checkpoint = await attachCheckpointEvidence(
+          result.checkpointPath,
+          runId,
+          buildProjectionEvidence,
+          { root, expectedRevision }
+        )
+        projectedTierIds = result.checkpoint.logicalTierProjection.logicalTierIds
+      } catch (error) {
+        result.status = 'failure'
+        result.failure = { tierId: profileId, exitCode: 1, reason: error.message }
+      }
     }
     const ungeneratedTierIds = profile.bundles
       .filter((bundle) => !completedTierIds.has(`local-${profileId}-${bundle.id}`))

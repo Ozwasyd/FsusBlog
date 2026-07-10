@@ -11,6 +11,35 @@ SUMMARY_DIR="$COVERAGE_ROOT/backend-merged"
 SUMMARY_FILE="$SUMMARY_DIR/Summary.json"
 EXPECTED_RESULT_LANES=(ordinary special-api-integration special-auth-state-machine special-concurrency special-property special-golden)
 
+prune_vstest_serialized_attachment_copies() {
+  local lane_dir="$1"
+  local serialized_dir serialized_cobertura serialized_json primary_cobertura primary_json
+  local -a serialized_cobertura_files serialized_json_files
+
+  while IFS= read -r -d '' serialized_dir; do
+    mapfile -d '' serialized_cobertura_files < <(find "$serialized_dir" -type f -name 'coverage.cobertura.xml' -print0)
+    mapfile -d '' serialized_json_files < <(find "$serialized_dir" -type f -name 'coverage.json' -print0)
+    if [[ "${#serialized_cobertura_files[@]}" != "1" || "${#serialized_json_files[@]}" != "1" ]]; then
+      continue
+    fi
+
+    serialized_cobertura="${serialized_cobertura_files[0]}"
+    serialized_json="${serialized_json_files[0]}"
+    while IFS= read -r -d '' primary_cobertura; do
+      if [[ "$primary_cobertura" == "$serialized_dir"/* ]]; then
+        continue
+      fi
+      primary_json="$(dirname "$primary_cobertura")/coverage.json"
+      if [[ -f "$primary_json" ]] &&
+        cmp -s "$serialized_cobertura" "$primary_cobertura" &&
+        cmp -s "$serialized_json" "$primary_json"; then
+        rm -rf "$serialized_dir"
+        break
+      fi
+    done < <(find "$lane_dir" -type f -name 'coverage.cobertura.xml' -print0)
+  done < <(find "$lane_dir" -mindepth 1 -maxdepth 1 -type d -name '_ser*' -print0)
+}
+
 if [[ "${1:-}" == "--dry-run" ]]; then
   jq -n --arg script "collect-backend-coverage" --arg out "$SUMMARY_FILE" '{
     script: $script,
@@ -63,6 +92,10 @@ for lane in "${EXPECTED_RESULT_LANES[@]}"; do
   cobertura_count=0
   json_count=0
   if [[ -d "$lane_dir" ]]; then
+    # VSTest copies collector attachments into a top-level _ser* transport
+    # directory after the run. Remove only byte-identical copies; independent
+    # or divergent reports remain visible to the exact-one fail-closed check.
+    prune_vstest_serialized_attachment_copies "$lane_dir"
     cobertura_count="$(find "$lane_dir" -type f -name 'coverage.cobertura.xml' | wc -l)"
     json_count="$(find "$lane_dir" -type f -name 'coverage.json' | wc -l)"
   fi

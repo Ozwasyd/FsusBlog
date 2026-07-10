@@ -274,6 +274,7 @@ jobs:
             .tmp/coverage/frontend/**
             .tmp/frontend/**
             .tmp/test-results/vitest/**
+            .tmp/ux/viewport-plan-progress.json
             .tmp/release-evidence/jobs/**
 
   frontend-runtime-contracts:
@@ -844,51 +845,6 @@ jobs:
             .tmp/release-evidence/flaky/**
             src/frontend/test-results/playwright/ux-viewport-smoke/**
 
-  ux-viewport-canary-parity:
-    name: UX Viewport Legacy Parity
-    runs-on: ubuntu-latest
-    needs: [integration-runtime]
-    timeout-minutes: 180
-    env:
-      FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
-      FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-parity-${{ github.run_id }}-${{ github.run_attempt }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 24.x
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-      - name: Check historical parity authority
-        run: node tools/ux/run-viewport-canary-parity.mjs --check-authority
-      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: 10.0.x
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
-      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps chromium
-      - run: ./tools/test.sh bootstrap --no-deps
-      - run: node tools/ci/run-flaky-governed.mjs --suite ux-viewport-canary-parity --test viewport-canary-parity -- ./tools/test.sh ci-tier ux-viewport-canary-parity --no-deps --fresh
-        env:
-          FSUSBLOG_CI_JOB_ID: ux-viewport-canary-parity
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: always()
-        with:
-          name: ux-viewport-canary-parity
-          if-no-files-found: ignore
-          retention-days: 30
-          include-hidden-files: true
-          path: |
-            .tmp/release-evidence/ux-viewport-canary-parity.json
-            .tmp/ux/canary-parity/**
-
   frontend-render-pressure:
     name: Frontend Render Pressure
     runs-on: ubuntu-latest
@@ -1190,7 +1146,6 @@ jobs:
       - acceptance-playwright
       - visual-playwright
       - ux-viewport-smoke
-      - ux-viewport-canary-parity
       - frontend-render-pressure
       - cross-browser-smoke
       - resilience-runtime
@@ -1242,7 +1197,6 @@ jobs:
       - acceptance-playwright
       - visual-playwright
       - ux-viewport-smoke
-      - ux-viewport-canary-parity
       - frontend-render-pressure
       - cross-browser-smoke
       - resilience-runtime

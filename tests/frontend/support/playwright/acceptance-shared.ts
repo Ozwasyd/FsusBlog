@@ -1312,6 +1312,7 @@ export async function assertReadableLineWidthWithinBounds(page: Page, label = 'r
   const violations = await page.evaluate(() => {
     const viewportWidth = window.innerWidth
     const maxReadableWidth = Math.min(Math.max(760, viewportWidth * 0.72), 1160)
+    const rootZoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom || '1') || 1
     const issues: string[] = []
     for (const element of Array.from(document.querySelectorAll('article, .markdown-body, .prose, [data-readable-region]'))) {
       if (!(element instanceof HTMLElement)) continue
@@ -1319,8 +1320,9 @@ export async function assertReadableLineWidthWithinBounds(page: Page, label = 'r
       const rect = element.getBoundingClientRect()
       const text = element.textContent?.trim() ?? ''
       if (text.length < 160 || rect.width === 0 || rect.height === 0) continue
-      if (rect.width > maxReadableWidth + 8) {
-        issues.push(`readable region too wide (${Math.round(rect.width)}>${Math.round(maxReadableWidth)})`)
+      const logicalWidth = rect.width / rootZoom
+      if (logicalWidth > maxReadableWidth + 8) {
+        issues.push(`readable region too wide (${Math.round(logicalWidth)}>${Math.round(maxReadableWidth)})`)
       }
     }
     return issues
@@ -1879,15 +1881,17 @@ export async function collectViewportBoundaryReport(page: Page): Promise<Viewpor
     report.touchTargets.splice(20)
 
     const maxReadableWidth = Math.min(Math.max(760, viewportWidth * 0.72), 1160)
+    const rootZoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom || '1') || 1
     for (const element of Array.from(document.querySelectorAll<HTMLElement>(
       'article, .markdown-body, .prose, [data-readable-region]'
     ))) {
       if (element.closest('.account-page, .admin-page, .write-page, .el-table')) continue
       const rect = element.getBoundingClientRect()
       const text = element.textContent?.trim() ?? ''
-      if (text.length >= 160 && rect.width > maxReadableWidth + 8 && rect.height > 0) {
+      const logicalWidth = rect.width / rootZoom
+      if (text.length >= 160 && logicalWidth > maxReadableWidth + 8 && rect.height > 0) {
         report.readableLineWidth.push(
-          `readable region too wide (${Math.round(rect.width)}>${Math.round(maxReadableWidth)})`
+          `readable region too wide (${Math.round(logicalWidth)}>${Math.round(maxReadableWidth)})`
         )
       }
     }
@@ -1948,7 +1952,7 @@ export async function collectViewportBoundaryReport(page: Page): Promise<Viewpor
       for (const header of Array.from(document.querySelectorAll<HTMLElement>(
         'header, nav, .account-sidebar, .mobile-nav, .site-header'
       )).filter(visible)) {
-        if (header.closest('main, article')) continue
+        if (header.closest('main, article, footer')) continue
         const rect = header.getBoundingClientRect()
         if (rect.height > viewportHeight * 0.34) {
           report.mobileLandscape.push(

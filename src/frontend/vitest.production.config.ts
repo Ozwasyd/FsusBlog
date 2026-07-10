@@ -4,6 +4,7 @@ import model from './vitest.model.config'
 import perf from './vitest.perf.config'
 import property from './vitest.property.config'
 import unit from './vitest.config'
+import { createVitestRuntimeOptions } from './vitest.shared.mjs'
 
 function project(name: string, config: Record<string, any>) {
   return {
@@ -17,6 +18,7 @@ function project(name: string, config: Record<string, any>) {
 
 export default defineConfig({
   test: {
+    ...createVitestRuntimeOptions('production'),
     projects: [
       project('unit', unit as Record<string, any>),
       project('property', property as Record<string, any>),

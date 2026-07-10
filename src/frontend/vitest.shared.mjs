@@ -48,7 +48,6 @@ export function createVitestRuntimeOptions(lane, {
 } = {}) {
   const coverage = argv.includes('--coverage')
   const diagnostic = env.FSUSBLOG_VITEST_DIAGNOSTIC === '1'
-    || env.FSUSBLOG_VITEST_BAIL === '0'
   const reportLane = coverage
     ? `${lane}-coverage`
     : (diagnostic ? `${lane}-diagnostic` : lane)
@@ -58,15 +57,11 @@ export function createVitestRuntimeOptions(lane, {
   const shard = shardIndex && shardTotal
     ? `shard-${shardIndex}-of-${shardTotal}`
     : sanitizeSegment(env.FSUSBLOG_VITEST_REPORT_ID, 'unsharded')
-  const configuredBail = Number.parseInt(String(env.FSUSBLOG_VITEST_BAIL ?? ''), 10)
-  const bail = Number.isFinite(configuredBail) && configuredBail >= 0
-    ? configuredBail
-    : (diagnostic ? 0 : 1)
   const laneRoot = new URL(`${normalizedLane}/`, reportRoot)
 
   return {
     maxWorkers: resolveVitestWorkerCount({ env, cpuCount, freeMemoryBytes, load1 }),
-    bail,
+    bail: 0,
     reporters: ['default', 'json', 'junit'],
     outputFile: {
       json: fileURLToPath(new URL(`${shard}.json`, laneRoot)),

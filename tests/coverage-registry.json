@@ -1849,15 +1849,16 @@
     },
     {
       "id": "release-mutation-critical-slice",
-      "description": "Release Mutation Critical Slice is covered by mutation summaries that exercise the named behavior.",
+      "description": "Release mutation evidence executes the AEDS v2 wire-frame encoder and validator boundary against the full non-integration backend test selection.",
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
-        ".tmp/mutation/backend"
+        ".tmp/mutation/backend-critical/reports/backend-mutation-critical.json",
+        ".tmp/mutation/backend-critical/authority.json"
       ],
       "assertionType": "mutation",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
-      "minimumRequirement": "Mutation evidence must include the declared mutation summary for the critical slice and fail closed on surviving mutants beyond policy.",
+      "minimumRequirement": "The AedsEncoder critical-slice report must execute mutants, include NoCoverage in the score, and fail below a 70 percent mutation score.",
       "tierIds": [
         "release-mutation-critical-slice"
       ]
@@ -2184,11 +2185,12 @@
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
-        ".tmp/release-evidence/test-retention-audit.json"
+        ".tmp/release-evidence/test-retention-audit.json",
+        "tests/test-retention-before.json"
       ],
       "assertionType": "static",
-      "failClosedRule": "matrix-validate requires the retention audit evidence to be declared by static-governance; final authority additionally rejects an audit whose producer runId differs from the production checkpoint or whose generatedAt predates checkpoint completion.",
-      "minimumRequirement": "The audit must include scanned test files, assertion estimates, retention classes, explicit review/obsolete candidate lists, and producer runId/sourceState/generatedAt metadata.",
+      "failClosedRule": "matrix-validate requires both the tracked before snapshot and current retention audit to be declared by static-governance; final authority rejects a missing source binding, undeclared test/assertion loss, catalog loss, a producer runId that differs from the production checkpoint, or an audit generated before checkpoint completion.",
+      "minimumRequirement": "The before snapshot must bind commit/worktree fingerprint and preserve test/assertion/tier/coverage/timing/failure plus matrix artifact, release evidence, requirement catalog, three-scope coverage, and critical mutation identity; the current audit must preserve or explicitly replace those dimensions.",
       "tierIds": [
         "static-governance"
       ]
@@ -2222,6 +2224,24 @@
       "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "resilience"
+      ]
+    },
+    {
+      "id": "ux-viewport-plan-progress",
+      "description": "The production viewport planner and progress/resume state machine retain exact route/theme/media counts, stable identities, bounded local risk selection, isolated navigation ownership, and resumable group accounting without claiming unavailable historical parity.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/tools/ux-viewport-plan.test.mjs",
+        "tests/tools/ux-viewport-progress.test.mjs",
+        "tests/tools/ux-viewport-runtime-contract.test.mjs",
+        ".tmp/ux/viewport-plan-progress.json"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "The tier must execute all three Node test files and emit a source/run-bound success summary; missing tests, failed progress/resume invariants, or a missing summary fail the tier.",
+      "minimumRequirement": "The exact smoke/visual/boundaries plans, progress/resume accounting, route-theme isolation, and cold-navigation runtime contract must all pass in the same fresh tier run.",
+      "tierIds": [
+        "ux-viewport-plan-progress"
       ]
     },
     {

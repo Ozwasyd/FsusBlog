@@ -67,7 +67,10 @@ On Windows, a manual override can use `$env:FSUSBLOG_REPO_ROOT = (Get-Location).
 - `./tools/test.sh backend-perf`
   - `backend-perf-readiness`: validates backend performance readiness by building the BenchmarkDotNet project in Release. It does not claim a benchmark result; use `backend-benchmark-regression` for real benchmark evidence.
 - `./tools/test.sh backend-mutation`
-  - Runs Stryker.NET with `stryker-config.json`.
+  - Runs the repository-pinned Stryker.NET full nightly scope from solution context with `stryker-config.json`; project-relative globs are required and reports are written through `--output` to `.tmp/mutation/backend`.
+  - `backend-mutation-critical` runs from the Core source-project context with `stryker-critical-config.json` and the backend test project for the reviewed AEDS v2 wire-frame release slice; it selects the direct `AedsEncoderTests` unit-test slice, writes the raw report plus `.tmp/mutation/backend-critical/authority.json`, and fails when no mutant was executed. The authority sidecar binds raw/config digests, scope, filter, score, scheduler run and source state so optimization evidence cannot reuse an old or unrelated mutation result. Keeping unrelated governance tests out of this filter prevents fresh cleanup of external release evidence from blocking mutation discovery.
+  - The runner exports `FSUSBLOG_MUTATION_BUILD=1` so only that Debug build disables the incompatible .NET 10 OpenAPI XML source generator; ordinary Debug/Release builds retain it.
+  - `MemberData` / theory case values must be deterministic across discovery and execution so Stryker can bind coverage to stable test IDs.
   - This tier is intended for nightly/manual evidence, not the default fast gate.
 - `./tools/test.sh backend-chaos`
   - Runs backend governance plus deterministic concurrency/fault-readiness tests.
@@ -95,6 +98,7 @@ On Windows, a manual override can use `$env:FSUSBLOG_REPO_ROOT = (Get-Location).
 - `./tools/test.sh production`
   - Production CI gate.
   - Runs `fast`, bootstraps `3000/7568/8080` once, then runs `integration + release + acceptance + visual + security + resilience + load + backend-qps` against the shared environment.
+  - The backend production union is deterministically sharded by test method. Each shard instruments an isolated copy of the same fresh build, and the runner rejects any gap, overlap, non-passing TRX result, or incomplete coverage output.
   - Allows schema-valid `collected-blocked` release evidence for external production handoff; this is not a final publish credential.
 - `./tools/test.sh release-final`
   - Final publish credential for manual release candidates.

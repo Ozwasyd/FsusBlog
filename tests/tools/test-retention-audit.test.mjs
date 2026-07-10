@@ -8,6 +8,7 @@ import test from 'node:test'
 
 import {
   auditTestRecords,
+  compactRetentionBaseline,
   extractTestRecords,
   inferTierIdsForFile,
   isTestInventoryPath,
@@ -249,6 +250,7 @@ test('retentionSourceState binds evidence to commit and excludes ignored .tmp fi
 
 test('retention audit CLI records scheduler or explicit production run identity in producer metadata', () => {
   const output = `.tmp/test-retention-producer-${process.pid}-${Date.now()}.json`
+  const baselineOutput = `.tmp/test-retention-before-${process.pid}-${Date.now()}.json`
   const environmentOutput = `.tmp/test-retention-producer-env-${process.pid}-${Date.now()}.json`
   try {
     execFileSync(process.execPath, [
@@ -267,6 +269,40 @@ test('retention audit CLI records scheduler or explicit production run identity 
     assert.deepEqual(audit.producer.sourceState, audit.sourceState)
     assert.match(audit.producer.sourceState.commit, /^[0-9a-f]{40}$/u)
     assert.match(audit.producer.sourceState.worktreeFingerprint, /^[0-9a-f]{64}$/u)
+    assert.ok(audit.catalogSnapshot.matrixTierIds.includes('production'))
+    assert.ok(audit.catalogSnapshot.productionRequiredTierIds.includes('production'))
+    assert.ok(audit.catalogSnapshot.productionRequiredTierIds.includes('static-governance'))
+    assert.ok(audit.catalogSnapshot.matrixArtifactPaths.includes('.tmp/release-evidence'))
+    assert.ok(audit.catalogSnapshot.matrixEvidencePaths.includes('.tmp/release-evidence/test-retention-audit.json'))
+    assert.ok(audit.catalogSnapshot.requirementIds.includes('BACKEND-TRACEABILITY'))
+    assert.ok(audit.catalogSnapshot.releaseEvidencePaths.some((item) => item.startsWith('.tmp/release-evidence')))
+
+    const baseline = JSON.parse(readFileSync('tests/test-retention-before.json', 'utf8'))
+    assert.equal(baseline.snapshotRole, 'before-test-reduction')
+    assert.equal(baseline.sourceState.commit, 'df337d2bef3df65447637fc715e73a1436e76a5f')
+    assert.match(baseline.sourceState.worktreeFingerprint, /^[0-9a-f]{64}$/u)
+    assert.ok(baseline.catalogSnapshot.productionRequiredTierIds.includes('production'))
+    assert.ok(baseline.testRecords.length > 0)
+    assert.equal(baseline.files, undefined)
+    assert.deepEqual(Object.keys(baseline.optimizationEvidence.coverage).sort(), ['backend', 'frontend', 'merged'])
+    assert.equal(baseline.optimizationEvidence.criticalMutationSlice.evidenceMode, 'scope-identity')
+    assert.ok(baseline.optimizationEvidence.criticalMutationSlice.testIds.length > 0)
+    assert.equal(baseline.replacementManifestBaseline.deletedTestIds.length, 5)
+    assert.equal(baseline.replacementManifestBaseline.assertionBeforeTargets.length, 10)
+
+    assert.throws(() => execFileSync(process.execPath, [
+      'tools/check-test-retention.mjs',
+      '--out', baselineOutput,
+      '--capture-before', baselineOutput,
+      '--run-id', 'forged-after-deletion-before'
+    ], {
+      cwd: path.resolve('.'),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe']
+    }), (error) => {
+      assert.match(String(error.stderr), /authoritative before snapshot already exists/u)
+      return true
+    })
 
     execFileSync(process.execPath, [
       'tools/check-test-retention.mjs',
@@ -279,8 +315,84 @@ test('retention audit CLI records scheduler or explicit production run identity 
     assert.equal(JSON.parse(readFileSync(environmentOutput, 'utf8')).producer.runId, 'scheduler-production-run')
   } finally {
     rmSync(output, { force: true })
+    rmSync(baselineOutput, { force: true })
     rmSync(environmentOutput, { force: true })
   }
+})
+
+test('compact before snapshot preserves deletion evidence and rejects an unbound audit', () => {
+  const sourceState = {
+    commit: 'a'.repeat(40),
+    worktreeFingerprint: 'b'.repeat(64)
+  }
+  const audit = {
+    schema: 'fsusblog.test-retention-audit.v2',
+    generatedAt: '2026-07-10T03:00:01.000Z',
+    sourceState,
+    producer: { runId: 'before-run', generatedAt: '2026-07-10T03:00:01.000Z', sourceState },
+    policy: { automaticDeletion: false },
+    files: [{ path: 'tests/example.test.mjs' }],
+    testRecords: [{
+      id: 'node-test:tests/example.test.mjs#keeps-contract',
+      path: 'tests/example.test.mjs',
+      framework: 'node-test',
+      assertionTargets: ['assert.equal(value, 1)'],
+      coverageIds: ['contract-id'],
+      tierIds: ['static-governance'],
+      invocationCount: 1,
+      tierInvocationCount: 1,
+      timing: { samples: 2, p50Ms: 4, p95Ms: 6 },
+      failureHistory: { runs: 2, failures: 0, lastFailureAt: null },
+      riskTags: ['release'],
+      replacementTestIds: [],
+      uniqueEvidence: true,
+      equivalentTo: null
+    }],
+    retainedEvidence: { coverageIds: ['contract-id'], testRecordCount: 1, uniqueAssertionTargetCount: 1 },
+    deletedTests: [{ id: 'historically-deleted-test' }],
+    assertionReplacements: [{ before: 'historical assertion' }],
+    tierReplacements: [{ from: 'historical-tier' }],
+    catalogSnapshot: {
+      matrixTierIds: ['static-governance'],
+      productionRequiredTierIds: ['static-governance'],
+      matrixArtifactPaths: ['.tmp/release-evidence/test-retention-audit.json'],
+      matrixEvidencePaths: ['.tmp/release-evidence/test-retention-audit.json'],
+      coverageIds: ['contract-id'],
+      requirementIds: ['BACKEND-TRACEABILITY'],
+      releaseEvidencePaths: ['.tmp/release-evidence/test-retention-audit.json'],
+      sourceDigests: { matrix: 'sha256:matrix' }
+    }
+  }
+  const optimizationEvidence = {
+    coverage: {
+      backend: { summary: { linecoverage: 80, branchcoverage: 60 } },
+      frontend: { summary: { linecoverage: 70, branchcoverage: 50 } },
+      merged: { summary: { linecoverage: 75, branchcoverage: 55 } }
+    },
+    criticalMutationSlice: {
+      evidenceMode: 'scope-identity',
+      testIds: ['node-test:tests/example.test.mjs#keeps-contract'],
+      scopeIds: ['release-mutation-critical-slice']
+    }
+  }
+
+  const baseline = compactRetentionBaseline(audit, { optimizationEvidence })
+
+  assert.equal(baseline.snapshotRole, 'before-test-reduction')
+  assert.deepEqual(baseline.sourceState, sourceState)
+  assert.deepEqual(baseline.testRecords, audit.testRecords)
+  assert.deepEqual(baseline.catalogSnapshot, audit.catalogSnapshot)
+  assert.deepEqual(baseline.optimizationEvidence, optimizationEvidence)
+  assert.deepEqual(baseline.replacementManifestBaseline, {
+    deletedTestIds: ['historically-deleted-test'],
+    assertionBeforeTargets: ['historical assertion'],
+    tierFromIds: ['historical-tier']
+  })
+  assert.equal(baseline.files, undefined)
+  assert.throws(
+    () => compactRetentionBaseline({ ...audit, sourceState: null }, { optimizationEvidence }),
+    /source state/u
+  )
 })
 
 test('percentile reports p50 and p95 from timing history', () => {
@@ -544,5 +656,93 @@ test('replacement manifest requires live replacement tests and assertion targets
   assert.throws(
     () => normalizeReplacementManifest({ schema: 'unknown', deletedTests: [] }, currentRecords),
     /replacement manifest schema/u
+  )
+})
+
+test('production-membership replacement requires an exact mapping and a retained standalone source tier', () => {
+  const currentRecords = [
+    {
+      id: 'canary-test',
+      assertionTargets: ['historical parity remains fail closed'],
+      tierIds: ['ux-viewport-canary-parity'],
+      coverageIds: ['ux-viewport-canary-parity']
+    },
+    {
+      id: 'plan-progress-test',
+      assertionTargets: ['plan progress remains executable'],
+      tierIds: ['ux-viewport-plan-progress'],
+      coverageIds: ['ux-viewport-plan-progress']
+    }
+  ]
+  const replacement = {
+    from: 'ux-viewport-canary-parity',
+    to: 'ux-viewport-plan-progress',
+    scope: 'production-membership',
+    coverageIds: ['ux-viewport-plan-progress'],
+    catalogReplacements: {
+      productionRequiredTierIds: [{
+        from: 'ux-viewport-canary-parity',
+        to: 'ux-viewport-plan-progress'
+      }]
+    },
+    reason: 'retain the blocked canary standalone while replacing only production membership'
+  }
+  const manifest = {
+    schema: 'fsusblog.test-retention-replacements.v1',
+    tierReplacements: [replacement]
+  }
+
+  const normalized = normalizeReplacementManifest(manifest, currentRecords)
+  assert.equal(normalized.tierReplacements[0].scope, 'production-membership')
+
+  assert.throws(
+    () => normalizeReplacementManifest({
+      ...manifest,
+      tierReplacements: [{ ...replacement, scope: 'production-only' }]
+    }, currentRecords),
+    /unsupported replacement scope/u
+  )
+  assert.throws(
+    () => normalizeReplacementManifest({
+      ...manifest,
+      tierReplacements: [{
+        ...replacement,
+        catalogReplacements: { productionRequiredTierIds: [] }
+      }]
+    }, currentRecords),
+    /must not be empty/u
+  )
+  assert.throws(
+    () => normalizeReplacementManifest({
+      ...manifest,
+      tierReplacements: [{
+        ...replacement,
+        catalogReplacements: {
+          productionRequiredTierIds: replacement.catalogReplacements.productionRequiredTierIds,
+          coverageIds: [{ from: 'ux-viewport-canary-parity', to: 'ux-viewport-plan-progress' }]
+        }
+      }]
+    }, currentRecords),
+    /production-membership cannot authorize coverageIds/u
+  )
+  assert.throws(
+    () => normalizeReplacementManifest({
+      ...manifest,
+      tierReplacements: [{
+        ...replacement,
+        scope: 'tier',
+        catalogReplacements: {
+          coverageIds: [
+            { from: 'ux-viewport-canary-parity', to: 'ux-viewport-plan-progress' },
+            { from: 'ux-viewport-canary-parity', to: 'another-coverage-id' }
+          ]
+        }
+      }]
+    }, currentRecords),
+    /source is duplicated/u
+  )
+  assert.throws(
+    () => normalizeReplacementManifest(manifest, currentRecords.slice(1)),
+    /requires the source tier to remain standalone/u
   )
 })

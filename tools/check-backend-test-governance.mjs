@@ -18,8 +18,14 @@ const aedsCatalog = JSON.parse(readFileSync(resolve(root, aedsCatalogPath), 'utf
 const matrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
 const matrixTierCommands = new Map(parseMatrix(matrix).tiers.map((tier) => [tier.id, tier.command]))
 const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8')
+const legacyTest = readFileSync(resolve(root, 'tools/test/legacy-test.sh'), 'utf8')
+const serverProject = readFileSync(resolve(root, 'src/backend/FsusBlog.Server.csproj'), 'utf8')
 const toolManifest = JSON.parse(readFileSync(resolve(root, 'dotnet-tools.json'), 'utf8'))
 const strykerConfig = JSON.parse(readFileSync(resolve(root, 'stryker-config.json'), 'utf8'))
+const criticalStrykerConfigPath = resolve(root, 'stryker-critical-config.json')
+const criticalStrykerConfig = existsSync(criticalStrykerConfigPath)
+  ? JSON.parse(readFileSync(criticalStrykerConfigPath, 'utf8'))
+  : {}
 const errors = []
 const testShDelegatesToMatrix = testSh.includes('tools/run-test-matrix.mjs')
   && testSh.includes('run "$tier"')
@@ -333,13 +339,71 @@ if (!toolManifest.tools?.['dotnet-stryker']) {
 }
 
 const stryker = strykerConfig['stryker-config'] || {}
-for (const key of ['solution', 'project', 'test-case-filter', 'mutate']) {
+for (const key of ['solution', 'test-case-filter', 'mutate']) {
   if (!stryker[key]) {
     fail(`stryker-config.json lacks ${key}`)
   }
 }
-if ((stryker['threshold-break'] ?? 0) < 70 || (stryker['threshold-high'] ?? 0) < 85) {
+if ('project' in stryker) {
+  fail('solution-scoped mutation must not pin Stryker project to a test-project path')
+}
+if (stryker.configuration !== 'Debug') {
+  fail('solution-scoped mutation must use the tested Debug solution configuration')
+}
+const strykerThresholds = stryker.thresholds || {}
+if ((strykerThresholds.break ?? 0) < 70 || (strykerThresholds.high ?? 0) < 85) {
   fail('Stryker thresholds are below issue #40 minimums')
+}
+for (const legacyKey of ['threshold-high', 'threshold-low', 'threshold-break', 'output']) {
+  if (legacyKey in stryker) {
+    fail(`Stryker.NET 4.14 config must not contain unsupported key ${legacyKey}`)
+  }
+}
+if (!legacyTest.includes('--output "$output_dir"')) {
+  fail('backend mutation runner must pass the report output directory through the supported CLI option')
+}
+if (!legacyTest.includes('export FSUSBLOG_MUTATION_BUILD')) {
+  fail('backend mutation runner must export the dedicated MSBuild marker')
+}
+if (!legacyTest.includes('check-stryker-report.mjs')) {
+  fail('backend mutation runner must reject reports that execute no mutants')
+}
+if (stryker.mutate.some((pattern) => pattern.startsWith('src/'))) {
+  fail('solution-scoped Stryker mutate globs must be relative to each project root')
+}
+
+const criticalStryker = criticalStrykerConfig['stryker-config'] || {}
+const expectedCriticalMutationFiles = [
+  'Algorithms/AedsEncoder.cs'
+]
+if ('solution' in criticalStryker || criticalStryker.configuration !== 'Debug' ||
+    JSON.stringify(criticalStryker['test-projects'] || []) !== JSON.stringify(['../../tests/backend/FsusBlog.Server.Tests.csproj'])) {
+  fail('critical Stryker config must run from the Core source-project context with the backend test project')
+}
+if (JSON.stringify(criticalStryker.mutate || []) !== JSON.stringify(expectedCriticalMutationFiles)) {
+  fail('critical Stryker config must retain the reviewed AEDS v2 wire-frame scope')
+}
+if (criticalStryker['test-case-filter'] !== 'FullyQualifiedName~FsusBlog.Server.Tests.Unit.AedsEncoderTests') {
+  fail('critical Stryker config must select the direct AedsEncoder unit-test slice without unrelated release-evidence prerequisites')
+}
+if ((criticalStryker.thresholds?.break ?? 0) < 70 || criticalStryker['report-file-name'] !== 'backend-mutation-critical') {
+  fail('critical Stryker config must fail below 70 and write the dedicated report name')
+}
+if (!legacyTest.includes('backend-mutation-critical')) {
+  fail('legacy test runner must expose the dedicated critical mutation tier')
+}
+if (!legacyTest.includes('"$ROOT_DIR/src/core"')) {
+  fail('critical mutation runner must execute from the Core source-project directory')
+}
+for (const contract of [
+  'PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" GeneratePathProperty="true"',
+  'Target Name="DisableCompileTimeOpenApiXmlGeneratorForMutation"',
+  "Condition=\"'$(FSUSBLOG_MUTATION_BUILD)' == '1'\"",
+  'Analyzer Remove="$(PkgMicrosoft_AspNetCore_OpenApi)/analyzers/dotnet/cs/Microsoft.AspNetCore.OpenApi.SourceGenerators.dll"'
+]) {
+  if (!serverProject.includes(contract)) {
+    fail(`Stryker build must disable only the incompatible OpenAPI XML source generator: missing ${contract}`)
+  }
 }
 
 for (const path of [

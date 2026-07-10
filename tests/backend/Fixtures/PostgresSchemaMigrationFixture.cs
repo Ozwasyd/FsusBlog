@@ -41,7 +41,7 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
     {
         if (!string.IsNullOrWhiteSpace(_containerName))
         {
-            _ = await TryRunDockerAsync("rm", "-f", _containerName).ConfigureAwait(false);
+            _ = await TryRunDockerAsync("rm", "-f", "-v", _containerName).ConfigureAwait(false);
         }
     }
 

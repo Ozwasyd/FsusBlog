@@ -31,44 +31,54 @@ export async function executeStepDag(steps, maxParallel, execute) {
   if (typeof execute !== 'function') throw new Error('execute must be a function')
 
   const states = new Map(steps.map((step) => [step.id, 'pending']))
-  const completed = new Set()
-  const active = new Set()
-  let failure = null
+  const failures = []
+  const active = new Map()
 
-  await new Promise((resolve, reject) => {
-    const schedule = () => {
-      if (failure) {
-        if (active.size === 0) reject(failure)
-        return
-      }
+  const start = (step, index) => {
+    states.set(step.id, 'running')
+    const current = Promise.resolve()
+      .then(() => execute(step))
+      .then(
+        () => states.set(step.id, 'success'),
+        (reason) => {
+          states.set(step.id, 'failure')
+          failures.push({ index, step, reason })
+        }
+      )
+      .finally(() => active.delete(step.id))
+    active.set(step.id, current)
+  }
 
-      while (active.size < limit) {
-        const next = steps.find((step) => states.get(step.id) === 'pending'
-          && (step.dependsOn ?? []).every((dependency) => completed.has(dependency)))
-        if (!next) break
-        states.set(next.id, 'running')
-        const current = Promise.resolve()
-          .then(() => execute(next))
-          .then(() => {
-            states.set(next.id, 'success')
-            completed.add(next.id)
-          })
-          .catch((error) => {
-            states.set(next.id, 'failure')
-            failure = error
-          })
-          .finally(() => {
-            active.delete(current)
-            schedule()
-          })
-        active.add(current)
-      }
-
-      if (active.size === 0) {
-        if (completed.size === steps.length) resolve()
-        else reject(new Error('step DAG has unresolved dependencies or a cycle'))
-      }
+  while ([...states.values()].some((state) => state === 'pending' || state === 'running')) {
+    let admitted = false
+    while (active.size < limit) {
+      const index = steps.findIndex((step) => states.get(step.id) === 'pending'
+        && (step.dependsOn ?? []).every((dependency) => states.get(dependency) === 'success'))
+      if (index < 0) break
+      start(steps[index], index)
+      admitted = true
     }
-    schedule()
-  })
+
+    if (active.size > 0) {
+      await Promise.race(active.values())
+      continue
+    }
+
+    const blocked = steps.filter((step) => states.get(step.id) === 'pending'
+      && (step.dependsOn ?? []).some((dependency) => ['failure', 'blocked'].includes(states.get(dependency))))
+    if (blocked.length > 0) {
+      for (const step of blocked) states.set(step.id, 'blocked')
+      continue
+    }
+    if (!admitted) throw new Error('step DAG has unresolved dependencies or a cycle')
+  }
+
+  failures.sort((left, right) => left.index - right.index)
+  if (failures.length === 1) throw failures[0].reason
+  if (failures.length > 1) {
+    throw new AggregateError(
+      failures.map((failure) => failure.reason),
+      `step DAG failed in ${failures.length} independent branches: ${failures.map((failure) => failure.step.id).join(', ')}`
+    )
+  }
 }

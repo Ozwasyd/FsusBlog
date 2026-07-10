@@ -499,6 +499,28 @@ const handleLogout = async () => {
   }
 }
 
+@media (max-height: 520px) and (orientation: landscape) {
+  :deep(.account-site-header__inner) {
+    padding-block: 0.5rem;
+  }
+
+  :deep(.account-site-header__primary-row) {
+    gap: 0.75rem;
+  }
+
+  :deep(.account-site-header__actions) {
+    display: none;
+  }
+
+  :deep(.account-site-header__mobile-actions) {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+}
+
 .account-nav-link:focus-visible {
   border-radius: var(--fsus-radius-control-small);
   box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);

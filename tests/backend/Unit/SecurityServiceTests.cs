@@ -116,18 +116,21 @@ public class ModernAcAutomatonTests
     [Fact]
     public void TryFindBest_TaggedAndRule_PreservesPriorityWithSharedComponents()
     {
-        var ac = new ModernTaggedAcAutomaton<string>();
-        ac.Build(
-        [
-            new ModernTaggedAcRule<string>("alpha+beta", "low", 3),
-            new ModernTaggedAcRule<string>("alpha+gamma", "high", 1),
-            new ModernTaggedAcRule<string>("delta", "single", 2)
-        ]);
+        for (int iteration = 0; iteration < 8; iteration++)
+        {
+            var ac = new ModernTaggedAcAutomaton<string>();
+            ac.Build(
+            [
+                new ModernTaggedAcRule<string>("alpha+beta", "low", 3),
+                new ModernTaggedAcRule<string>("alpha+gamma", "high", 1),
+                new ModernTaggedAcRule<string>("delta", "single", 2)
+            ]);
 
-        Assert.True(ac.TryFindBest("alpha beta gamma", out string? payload));
-        Assert.Equal("high", payload);
-        Assert.True(ac.TryFindBest("alpha beta", out payload));
-        Assert.Equal("low", payload);
+            Assert.True(ac.TryFindBest("alpha beta gamma", out string? payload));
+            Assert.Equal("high", payload);
+            Assert.True(ac.TryFindBest("alpha beta", out payload));
+            Assert.Equal("low", payload);
+        }
     }
 
     [Fact]

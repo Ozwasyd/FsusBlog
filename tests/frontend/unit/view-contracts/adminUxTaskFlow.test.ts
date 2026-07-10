@@ -41,6 +41,7 @@ describe('admin UX task flow contract', () => {
   const uxCheck = readRepoFile('tests/frontend/checks/ux/check-ux-semantics.mjs')
   const usabilityScript = readRepoFile('docs/ux/usability-test-script.md')
   const findingsValidator = readRepoFile('tools/ux/validate-usability-findings.mjs')
+  const a11ySmoke = readRepoFile('tests/frontend/checks/runtime/check-a11y-smoke.mjs')
 
   it('groups admin navigation by task without changing route paths', () => {
     const workspaceContext = readRepoFile('src/frontend/src/layouts/accountWorkspaceContext.ts')
@@ -95,6 +96,11 @@ describe('admin UX task flow contract', () => {
     expect(accountLayout).not.toContain('account-mobile-group-control')
     expect(accountLayout).toContain('account-nav-link-active')
     expect(accountLayout).toContain("item.to === '/user/manage'")
+  })
+
+  it('targets the visible taxonomy modal instead of the hidden account drawer in a11y smoke', () => {
+    expect(a11ySmoke).toContain("locator('.fsusblog-dialog:visible').first()")
+    expect(a11ySmoke).not.toContain("locator('.el-dialog, [role=\"dialog\"]').first()")
   })
 
   it('keeps profile resource rows bounded for long device and credential names', () => {

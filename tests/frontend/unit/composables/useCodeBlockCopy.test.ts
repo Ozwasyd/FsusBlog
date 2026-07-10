@@ -3,10 +3,15 @@ import { defineComponent, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useCodeBlockCopy } from '@/composables/article/useCodeBlockCopy'
 
+const { revealMock, killMock } = vi.hoisted(() => ({
+  revealMock: vi.fn(),
+  killMock: vi.fn()
+}))
+
 vi.mock('@ozwasyd/element-plus/motion', () => ({
   useScrollReveal: () => ({
-    reveal: vi.fn(),
-    kill: vi.fn()
+    reveal: revealMock,
+    kill: killMock
   })
 }))
 
@@ -53,6 +58,28 @@ describe('useCodeBlockCopy', () => {
 
     expect(wrapper.element.querySelector('.fsus-code-copy-button')).toBeNull()
     expect(wrapper.element.querySelector('pre')?.hasAttribute('data-fsus-code-copy')).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('keeps code copy usable when motion reveal cannot initialize', async () => {
+    revealMock.mockImplementationOnce(() => {
+      throw new ReferenceError('ScrollTrigger environment is unavailable')
+    })
+    const wrapper = mount(defineComponent({
+      setup() {
+        const root = ref<HTMLElement | null>(null)
+        const controls = useCodeBlockCopy(() => root.value, true)
+        return { root, refreshCodeCopy: controls.refresh }
+      },
+      template: '<div><div ref="root"><pre><code>const value = 1</code></pre></div></div>'
+    }))
+
+    await nextTick()
+    await (wrapper.vm as unknown as { refreshCodeCopy: () => Promise<void> }).refreshCodeCopy()
+
+    expect(wrapper.element.querySelector('.fsus-code-copy-button')).not.toBeNull()
+    expect(wrapper.element.querySelector('pre')?.getAttribute('data-fsus-code-copy')).toBe('true')
 
     wrapper.unmount()
   })

@@ -28,6 +28,7 @@ describe('frontend performance workflow contract', () => {
   const publicShell = readRepoFile('src/frontend/src/bootstrap/publicShell.ts')
   const appRuntime = readRepoFile('src/frontend/src/components/runtime/AppRuntime.vue')
   const fullApp = readRepoFile('src/frontend/src/bootstrap/fullApp.ts')
+  const mainCss = readRepoFile('src/frontend/src/assets/main.css')
   const homeView = readRepoFile('src/frontend/src/composables/useHomeView.ts')
   const publicHomeContent = readRepoFile('src/frontend/src/components/public/pages/PublicHomePageContent.vue')
   const humanReadProof = readRepoFile('src/frontend/src/composables/useHumanReadProof.ts')
@@ -36,6 +37,13 @@ describe('frontend performance workflow contract', () => {
   const telemetryBus = readRepoFile('src/frontend/src/services/telemetryBus.ts')
   const telemetryService = readRepoFile('src/frontend/src/services/telemetryService.ts')
   const packageJson = readRepoFile('src/frontend/package.json')
+
+  it('keeps message styles in the full FsusUI bundle without importing them twice', () => {
+    expect(mainCss).toContain("@import '@ozwasyd/element-plus/dist/index.css';")
+    expect(mainCss).toContain("@import '@/assets/public-shell-foundation.css';")
+    expect(mainCss).not.toContain("@import '@/assets/public-shell-critical.css';")
+    expect(mainCss).not.toContain("@import '@ozwasyd/element-plus/theme-chalk/el-message.css';")
+  })
 
   it('keeps normal AEDS worker aborts on a cancel protocol instead of worker reset', () => {
     expect(binaryTransport).toContain('const WORKER_IDLE_TTL_MS = 30000')

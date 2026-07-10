@@ -126,7 +126,9 @@
       ],
       "evidencePaths": [
         "dotnet-tools.json",
-        "stryker-config.json"
+        "stryker-config.json",
+        "stryker-critical-config.json",
+        "tools/test/check-stryker-report.mjs"
       ]
     },
     {

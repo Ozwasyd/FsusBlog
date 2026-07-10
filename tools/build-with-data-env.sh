@@ -10,17 +10,18 @@ else
   DATA_ROOT="${ROOT_DIR}/.tmp/data-root"
   mkdir -p "${DATA_ROOT}"
 fi
+DEPENDENCY_CACHE_ROOT="${FSUSBLOG_DOTNET_DEPENDENCY_CACHE_ROOT:-${ROOT_DIR}/.tmp/dependency-cache/dotnet}"
 
 export TMPDIR="${DATA_ROOT}/tmp"
 export TMP="${DATA_ROOT}/tmp"
 export TEMP="${DATA_ROOT}/tmp"
-export DOTNET_CLI_HOME="${DATA_ROOT}/cache/dev/dotnet-cli"
-export NUGET_PACKAGES="${DATA_ROOT}/cache/dev/nuget/packages"
-export NUGET_HTTP_CACHE_PATH="${DATA_ROOT}/cache/dev/nuget/http-cache"
-export NUGET_SCRATCH="${DATA_ROOT}/cache/dev/nuget/scratch"
-export XDG_CACHE_HOME="${DATA_ROOT}/cache/dev/xdg-cache"
-export XDG_CONFIG_HOME="${DATA_ROOT}/cache/dev/xdg-config"
-export XDG_STATE_HOME="${DATA_ROOT}/cache/dev/xdg-state"
+export DOTNET_CLI_HOME="${DEPENDENCY_CACHE_ROOT}/dotnet-cli"
+export NUGET_PACKAGES="${DEPENDENCY_CACHE_ROOT}/nuget/packages"
+export NUGET_HTTP_CACHE_PATH="${DEPENDENCY_CACHE_ROOT}/nuget/http-cache"
+export NUGET_SCRATCH="${DATA_ROOT}/tmp/nuget-scratch"
+export XDG_CACHE_HOME="${DEPENDENCY_CACHE_ROOT}/xdg-cache"
+export XDG_CONFIG_HOME="${DEPENDENCY_CACHE_ROOT}/xdg-config"
+export XDG_STATE_HOME="${DEPENDENCY_CACHE_ROOT}/xdg-state"
 export MSBUILDDEBUGPATH="${DATA_ROOT}/tmp/msbuild"
 export MSBUILDDISABLENODEREUSE=1
 mkdir -p \

@@ -35,6 +35,14 @@ describe('AccountLayout header adapter integration', () => {
     expect(accountLayoutSource).toContain('account-mobile-drawer-nav')
   })
 
+  it('compacts account chrome for short landscape viewports', () => {
+    expect(accountLayoutSource).toContain('@media (max-height: 520px) and (orientation: landscape)')
+    expect(accountLayoutSource).toMatch(/:deep\(\.account-site-header__inner\) \{[\s\S]*?padding-block: 0\.5rem;/u)
+    expect(accountLayoutSource).toMatch(/:deep\(\.account-site-header__primary-row\) \{[\s\S]*?gap: 0\.75rem;/u)
+    expect(accountLayoutSource).toMatch(/:deep\(\.account-site-header__actions\) \{[\s\S]*?display: none;/u)
+    expect(accountLayoutSource).toMatch(/:deep\(\.account-site-header__mobile-actions\) \{[\s\S]*?display: inline-flex;/u)
+  })
+
   it('passes raw account brand image fields to the adapter', () => {
     expect(accountContextSource).toContain(
       'brandImages: AccountWorkspaceBrandImages',

@@ -283,8 +283,8 @@ for (const tierId of [
   const matrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
   const tierIds = matrix.include.map((entry) => entry.tier).sort()
   requireCondition(
-    JSON.stringify(tierIds) === JSON.stringify(['coverage-frontend', 'frontend-property-model-perf']),
-    'fast-frontend-unit effective plan must retain property/model/perf and replace ordinary unit with coverage'
+    JSON.stringify(tierIds) === JSON.stringify(['coverage-frontend', 'frontend-property-model-perf', 'ux-viewport-plan-progress']),
+    'fast-frontend-unit effective plan must retain property/model/perf and viewport governance while replacing ordinary unit with coverage'
   )
   requireCondition(
     matrix.include.every((entry) => entry.shard === '' && entry.artifact_name === `fast-frontend-unit-${entry.tier}`),

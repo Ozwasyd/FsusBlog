@@ -21,6 +21,9 @@ public sealed class TextNormalizerTests
     [Fact]
     public void NormalizeWithPhraseMappingsForTests_UsesLongestPhraseBeforeCharMap()
     {
+        Result initialization = TextNormalizer.Initialize(NullLogger.Instance);
+        Assert.True(initialization.IsSuccess);
+
         string result = TextNormalizer.NormalizeWithPhraseMappingsForTests(
             "乾燥機與伺服器",
             new Dictionary<string, string>

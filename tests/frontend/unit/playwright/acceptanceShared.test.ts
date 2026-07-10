@@ -1,8 +1,30 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { afterAll, describe, expect, it } from 'vitest'
 
-import {
+const fixtureRoot = mkdtempSync(join(tmpdir(), 'fsusblog-acceptance-shared-unit-'))
+const fixtureFile = join(fixtureRoot, 'public.aeds')
+const originalFixtureFile = process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE
+const fixturePayload = {
+  generatedAt: '2026-07-10T00:00:00.000Z',
+  baseUrl: 'http://127.0.0.1:3000',
+  articleId: '1',
+  articleTitle: 'Unit fixture',
+  categoryId: '1',
+  tagId: '1',
+  searchKeyword: 'fixture',
+  bodyProbeText: 'fixture body',
+  showReadingNotice: 'false',
+  wordCount: '10',
+  estimatedReadingMinutes: '1'
+}
+writeFileSync(fixtureFile, `${Object.entries(fixturePayload)
+  .map(([key, value]) => `${key}\t${Buffer.from(value).toString('base64url')}`)
+  .join('\n')}\n`)
+process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE = fixtureFile
+
+const {
   DESKTOP_VIEWPORT,
   MOBILE_LANDSCAPE_VIEWPORT,
   MOBILE_VIEWPORT,
@@ -11,9 +33,15 @@ import {
   ULTRA_WIDE_VIEWPORT,
   UX_CONTENT_BOUNDARY_CORPUS,
   UX_VIEWPORT_MATRIX
-} from '../../support/playwright/acceptance-shared'
+} = await import('../../support/playwright/acceptance-shared')
 
 const repoRoot = resolve(__dirname, '../../../..')
+
+afterAll(() => {
+  if (originalFixtureFile === undefined) delete process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE
+  else process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE = originalFixtureFile
+  rmSync(fixtureRoot, { recursive: true, force: true })
+})
 
 describe('playwright acceptance shared helper', () => {
   it('loads shared viewport helpers through the frontend toolchain', () => {

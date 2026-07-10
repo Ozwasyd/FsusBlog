@@ -65,7 +65,7 @@
 		<PackageReference Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
 		<PackageReference Include="MessagePack" Version="2.5.301" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
-		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" GeneratePathProperty="true" />
 		<PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.7">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -88,6 +88,12 @@
 		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
 		<PackageReference Include="SqlSugarCoreNoDrive" Version="5.1.4.213" />
 	</ItemGroup>
+
+	<Target Name="DisableCompileTimeOpenApiXmlGeneratorForMutation" BeforeTargets="CoreCompile" Condition="'$(FSUSBLOG_MUTATION_BUILD)' == '1'">
+		<ItemGroup>
+			<Analyzer Remove="$(PkgMicrosoft_AspNetCore_OpenApi)/analyzers/dotnet/cs/Microsoft.AspNetCore.OpenApi.SourceGenerators.dll" />
+		</ItemGroup>
+	</Target>
 
 	<ItemGroup>
 				<ProjectReference Include="..\core\FsusBlog.Core.csproj" />

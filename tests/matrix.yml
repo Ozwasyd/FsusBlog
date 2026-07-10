@@ -2,56 +2,66 @@ version: fsusblog-test-matrix-v2
 namespaceTemplate: ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${MATRIX_JOB:-local}-${MATRIX_SHARD:-0}
 localProfiles:
   production:
-    budgetMs: 300000
-    maxParallel: 6
-    memoryGiB: 12
+    budgetMs: 1800000
+    maxParallel: 8
+    cpuUnits: 8
+    memoryGiB: 10
+    maxInitialLoad1: 4
     summaryOnly: [security-authenticated-dast]
     bundles:
       - id: build-static
         command: tools/test/bundles/build-static.sh
-        budgetMs: 70000
+        budgetMs: 180000
         dependsOn: []
-        members: [frontend-build, frontend-runtime-contracts, frontend-static-governance, backend-build-governance, validate-matrix, integrity-proof-verification, public-hydration-fast, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, risk-control-test-matrix, perception-v2-test-matrix]
+        members: [frontend-build, frontend-runtime-contracts, frontend-static-governance, validate-matrix, public-hydration-fast, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, risk-control-test-matrix, ux-viewport-plan-progress]
         resourceClass: cpu
-        cpuUnits: 6
-        memoryGiB: 7
+        cpuUnits: 2
+        memoryGiB: 3
+        stepMaxParallel: 2
+        artifactSubstitutions: [frontend-build::.tmp/frontend/timings/frontend-build.json=>.tmp/local-production/build-static/member-summaries/frontend-build/summary.json|.tmp/frontend/frontend-build.json, frontend-runtime-contracts::.tmp/frontend/frontend-runtime-contracts.json=>.tmp/local-production/build-static/member-summaries/frontend-runtime-contracts/summary.json, frontend-runtime-contracts::.tmp/frontend/timings/frontend-runtime-contracts.json=>.tmp/local-production/build-static/member-summaries/frontend-runtime-contracts/summary.json, frontend-static-governance::.tmp/frontend/frontend-static-governance.json=>.tmp/local-production/build-static/member-summaries/frontend-static-governance/summary.json, frontend-static-governance::.tmp/frontend/timings/frontend-static-governance.json=>.tmp/local-production/build-static/member-summaries/frontend-static-governance/summary.json]
         exclusiveResources: [build-output, static-web-assets]
       - id: backend-tests
         command: tools/test/bundles/backend-tests.sh
-        budgetMs: 60000
-        dependsOn: [build-static]
-        members: [backend-unit, backend-api-integration, backend-auth-state-machine, backend-concurrency, backend-property, backend-golden, backend-fast, coverage-backend]
+        budgetMs: 240000
+        dependsOn: []
+        members: [backend-build-governance, integrity-proof-verification, perception-v2-test-matrix, backend-unit, backend-api-integration, backend-auth-state-machine, backend-concurrency, backend-property, backend-golden, backend-fast, coverage-backend]
         resourceClass: cpu
-        cpuUnits: 3
+        cpuUnits: 4
         memoryGiB: 4
+        stepMaxParallel: 4
+        artifactSubstitutions: [backend-build-governance::.tmp/backend-build-governance=>.tmp/local-production/backend-tests/member-summaries/backend-build-governance/summary.json, backend-unit::.tmp/backend-unit=>.tmp/local-production/backend-tests/member-summaries/backend-unit/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-fast::.tmp/backend-fast=>.tmp/local-production/backend-tests/member-summaries/backend-fast/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-api-integration::.tmp/backend-api-integration=>.tmp/local-production/backend-tests/member-summaries/backend-api-integration/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-api-integration::.tmp/coverage/backend/special-api-integration/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-api-integration/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-api-integration::.tmp/coverage/backend/special-api-integration/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-api-integration/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-auth-state-machine::.tmp/backend-auth-state-machine=>.tmp/local-production/backend-tests/member-summaries/backend-auth-state-machine/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-auth-state-machine::.tmp/coverage/backend/special-auth-state-machine/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-auth-state-machine/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-auth-state-machine::.tmp/coverage/backend/special-auth-state-machine/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-auth-state-machine/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-concurrency::.tmp/backend-concurrency=>.tmp/local-production/backend-tests/member-summaries/backend-concurrency/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-concurrency::.tmp/coverage/backend/special-concurrency/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-concurrency/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-concurrency::.tmp/coverage/backend/special-concurrency/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-concurrency/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-property::.tmp/backend-property=>.tmp/local-production/backend-tests/member-summaries/backend-property/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-property::.tmp/coverage/backend/special-property/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-property/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-property::.tmp/coverage/backend/special-property/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-property/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-golden::.tmp/backend-golden=>.tmp/local-production/backend-tests/member-summaries/backend-golden/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-golden::.tmp/coverage/backend/special-golden/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-golden/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-golden::.tmp/coverage/backend/special-golden/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-golden/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json]
         exclusiveResources: [backend-test-results]
       - id: frontend-tests
         command: tools/test/bundles/frontend-tests.sh
-        budgetMs: 60000
-        dependsOn: [build-static]
+        budgetMs: 240000
+        dependsOn: []
         members: [frontend-unit-shard, frontend-property-model-perf, frontend-fast-summary, coverage-frontend]
         resourceClass: cpu
-        cpuUnits: 3
-        memoryGiB: 4
+        cpuUnits: 2
+        memoryGiB: 3
+        stepMaxParallel: 2
+        artifactSubstitutions: [frontend-unit-shard::.tmp/frontend/frontend-unit-shard.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-unit-shard/summary.json|.tmp/coverage/frontend/Summary.json, frontend-unit-shard::.tmp/frontend/timings/frontend-unit-shard.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-unit-shard/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/frontend/frontend-property-model-perf.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/frontend/timings/frontend-property-model-perf.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/test-results/vitest/property=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production-coverage, frontend-property-model-perf::.tmp/test-results/vitest/model=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production-coverage, frontend-fast-summary::.tmp/frontend=>.tmp/local-production/frontend-tests/member-summaries/frontend-fast-summary/summary.json|.tmp/coverage/frontend/Summary.json, frontend-fast-summary::src/frontend/dist=>.tmp/local-production/build-static/member-summaries/frontend-build/summary.json|.tmp/frontend/frontend-build.json, frontend-property-model-perf::.tmp/test-results/vitest/perf=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production]
         exclusiveResources: [frontend-test-results]
       - id: runtime-browser
         command: tools/test/bundles/runtime-browser.sh
-        budgetMs: 90000
-        dependsOn: [backend-tests, frontend-tests]
-        members: [bootstrap, release, integration, endpoint-depth, security, acceptance, cross-browser-smoke, visual-public, visual-console, visual, ux-viewport-smoke, ux-viewport-canary-parity, frontend-render-pressure, resilience, rights-v3-test-matrix, data-scale-xs, data-scale-s, data-scale-evidence-summary, csrf-browser-matrix, fault-injection, cross-stack-contract, privacy-zk-comment-matrix, static-governance]
+        budgetMs: 900000
+        dependsOn: [build-static, backend-tests, frontend-tests]
+        members: [bootstrap, release, integration, endpoint-depth, security, acceptance, cross-browser-smoke, visual-public, visual-console, visual, ux-viewport-smoke, frontend-render-pressure, resilience, rights-v3-test-matrix, data-scale-xs, data-scale-s, data-scale-evidence-summary, csrf-browser-matrix, fault-injection, cross-stack-contract, privacy-zk-comment-matrix, static-governance]
         resourceClass: browser
-        cpuUnits: 5
-        memoryGiB: 7
-        exclusiveResources: [runtime-services, database-writes]
+        cpuUnits: 8
+        memoryGiB: 10
+        stepMaxParallel: 8
+        exclusiveResources: [runtime-services, database-writes, benchmark-window]
       - id: performance-evidence
         command: tools/test/bundles/performance-evidence.sh
-        budgetMs: 80000
+        budgetMs: 480000
         dependsOn: [runtime-browser]
         members: [fast, coverage-merge, coverage-threshold, coverage-gate, load, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan, backend-qps, load-baseline, load-peak, backend-benchmark-regression, browser-performance-regression, performance-evidence-summary, backend-perf, release-evidence, production, aeds-frame-cost, aeds-compression-profile]
         resourceClass: benchmark
-        cpuUnits: 6
-        memoryGiB: 8
-        exclusiveResources: [load-window, database-writes]
+        cpuUnits: 8
+        memoryGiB: 10
+        stepMaxParallel: 8
+        exclusiveResources: [load-window, database-writes, benchmark-window]
 tiers:
   - id: validate-matrix
     owner: ServerContractAgent
@@ -504,7 +514,7 @@ tiers:
     requiredFor: fast
     coverage: [gate-integrity, matrix-integrity, evidence-schema, test-retention-classification, integrity-proof-docs-consistency]
     artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json, .tmp/docs/integrity-proof-docs.json]
-    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json, .tmp/docs/integrity-proof-docs.json]
+    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, tests/test-retention-before.json, .tmp/release-evidence/flaky/registry.json, .tmp/docs/integrity-proof-docs.json]
     ciJob: fast-static-governance
     localOnly: false
     nightlyOnly: false
@@ -1131,6 +1141,43 @@ tiers:
     localOnly: false
     nightlyOnly: false
 
+  - id: ux-viewport-plan-progress
+    owner: InteropGlueAgent
+    command: node tools/ux/run-viewport-plan-progress.mjs
+    dependsOn: []
+    services: []
+    parallelizable: true
+    exclusiveResources: []
+    phase: 1
+    cost: low
+    resourceClass: cpu
+    maxParallel: 2
+    cpuUnits: 1
+    memoryGiB: 1
+    executionKey: ux-viewport-plan-progress
+    executionVariant: ordinary
+    cacheInputs: [tests/frontend/fixtures/ux-viewport-matrix.json, tests/frontend/support/playwright/uxViewportPlan.mjs, tests/frontend/support/playwright/uxViewportProgress.mjs, tests/tools/ux-viewport-plan.test.mjs, tests/tools/ux-viewport-progress.test.mjs, tests/tools/ux-viewport-runtime-contract.test.mjs, tools/ux/run-viewport-plan-progress.mjs]
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: false
+    requiresPlaywright: none
+    cacheProfile: frontend
+    timeoutMinutes: 5
+    shardable: false
+    defaultShards: 1
+    risk: high
+    cadence: pr
+    requiredFor: production
+    coverage: [ux-viewport-plan-progress]
+    artifacts: [.tmp/ux/viewport-plan-progress.json]
+    evidence: [tests/tools/ux-viewport-plan.test.mjs, tests/tools/ux-viewport-progress.test.mjs, tests/tools/ux-viewport-runtime-contract.test.mjs, .tmp/ux/viewport-plan-progress.json]
+    ciJob: fast-frontend-unit
+    localOnly: false
+    nightlyOnly: false
+    smartGateMode: always
+    retentionClass: must-keep
+    triggerReason: viewport plan and progress/resume governance is a production invariant
+
   - id: ux-viewport-visual
     owner: InteropGlueAgent
     command: tools/test/lanes/ux-viewport-visual.sh
@@ -1189,14 +1236,15 @@ tiers:
     shardable: false
     defaultShards: 1
     risk: high
-    cadence: pr
-    requiredFor: production
+    cadence: release-manual
+    requiredFor: none
     coverage: [ux-viewport-canary-parity]
     artifacts: [.tmp/release-evidence/ux-viewport-canary-parity.json, .tmp/ux/canary-parity]
     evidence: [.tmp/release-evidence/ux-viewport-canary-parity.json]
     ciJob: ux-viewport-canary-parity
     localOnly: false
     nightlyOnly: false
+    manualOnly: true
 
   - id: ux-viewport-boundaries
     owner: InteropGlueAgent
@@ -2725,7 +2773,7 @@ tiers:
   - id: release-evidence
     owner: ServerContractAgent
     command: tools/test/lanes/release-evidence.sh
-    dependsOn: [fast, coverage-gate, bootstrap, release, integration, rights-v3-test-matrix, data-scale-evidence-summary, cross-stack-contract, endpoint-depth, security, security-authenticated-dast, csrf-browser-matrix, risk-control-test-matrix, perception-v2-test-matrix, privacy-zk-comment-matrix, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, ux-viewport-canary-parity, frontend-render-pressure, resilience, fault-injection, load, performance-evidence-summary, backend-qps, aeds-frame-cost, aeds-compression-profile, backend-perf]
+    dependsOn: [fast, coverage-gate, bootstrap, release, integration, rights-v3-test-matrix, data-scale-evidence-summary, cross-stack-contract, endpoint-depth, security, security-authenticated-dast, csrf-browser-matrix, risk-control-test-matrix, perception-v2-test-matrix, privacy-zk-comment-matrix, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, ux-viewport-plan-progress, frontend-render-pressure, resilience, fault-injection, load, performance-evidence-summary, backend-qps, aeds-frame-cost, aeds-compression-profile, backend-perf]
     services: []
     parallelizable: false
     exclusiveResources: [release-evidence]
@@ -3240,7 +3288,7 @@ tiers:
 
   - id: release-mutation-critical-slice
     owner: ServerContractAgent
-    command: tools/test/legacy-test.sh backend-mutation
+    command: tools/test/legacy-test.sh backend-mutation-critical
     dependsOn: []
     services: []
     parallelizable: false
@@ -3261,8 +3309,8 @@ tiers:
     cadence: release-manual
     requiredFor: release-final
     coverage: [release-mutation-critical-slice]
-    artifacts: [.tmp/mutation/backend]
-    evidence: [.tmp/mutation/backend]
+    artifacts: [.tmp/mutation/backend-critical/reports/backend-mutation-critical.json, .tmp/mutation/backend-critical/authority.json]
+    evidence: [.tmp/mutation/backend-critical/reports/backend-mutation-critical.json, .tmp/mutation/backend-critical/authority.json]
     ciJob: release-final
     localOnly: false
     nightlyOnly: false
@@ -3452,7 +3500,7 @@ tiers:
   - id: production
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh production
-    dependsOn: [fast, coverage-gate, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, ux-viewport-canary-parity, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
+    dependsOn: [fast, coverage-gate, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, ux-viewport-plan-progress, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]

@@ -48,11 +48,11 @@ if [[ -f "$ENV_FILE" ]]; then
   done < "$ENV_FILE"
 fi
 
-POSTGRES_PORT="${FSUSBLOG_POSTGRES_PORT:-$(find_free_port 20000 30000)}"
-REDIS_PORT="${FSUSBLOG_REDIS_PORT:-$(find_free_port 30001 40000)}"
-DEBUG_BACKEND_PORT="${FSUSBLOG_DEBUG_BACKEND_PORT:-$(find_free_port 40001 46000)}"
-DEBUG_FRONTEND_PORT="${FSUSBLOG_DEBUG_FRONTEND_PORT:-$(find_free_port 46001 51000)}"
-RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-$(find_free_port 51001 56000)}"
+POSTGRES_PORT="${FSUSBLOG_POSTGRES_PORT:-$(find_free_port 20000 21999)}"
+REDIS_PORT="${FSUSBLOG_REDIS_PORT:-$(find_free_port 22000 23999)}"
+DEBUG_BACKEND_PORT="${FSUSBLOG_DEBUG_BACKEND_PORT:-$(find_free_port 24000 25999)}"
+DEBUG_FRONTEND_PORT="${FSUSBLOG_DEBUG_FRONTEND_PORT:-$(find_free_port 26000 27999)}"
+RELEASE_PREVIEW_PORT="${FSUSBLOG_RELEASE_PREVIEW_PORT:-$(find_free_port 28000 29999)}"
 
 DEBUG_FRONTEND_URL="${FSUSBLOG_DEBUG_FRONTEND_URL:-http://127.0.0.1:${DEBUG_FRONTEND_PORT}}"
 DEBUG_BACKEND_URL="${FSUSBLOG_DEBUG_BACKEND_URL:-http://127.0.0.1:${DEBUG_BACKEND_PORT}}"
@@ -92,6 +92,12 @@ RISK_PUBLIC_READ_CHALLENGE_ENABLED="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_CHALLENGE_
 PUBLIC_READ_PERMIT_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_PERMIT_LIMIT:-100000}"
 PUBLIC_READ_QUEUE_LIMIT="${FSUSBLOG_ACCEPTANCE_PUBLIC_READ_QUEUE_LIMIT:-10000}"
 NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT="${FSUSBLOG_ACCEPTANCE_NOTIFICATION_STREAM_MAX_CONNECTIONS_PER_ACCOUNT:-50}"
+ACCEPTANCE_LOG_MAX_KIB="${FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB:-262144}"
+if [[ ! "$ACCEPTANCE_LOG_MAX_KIB" =~ ^[0-9]+$ ]] || (( ACCEPTANCE_LOG_MAX_KIB < 1024 )); then
+  printf '[acceptance:bootstrap] FSUSBLOG_ACCEPTANCE_LOG_MAX_KIB must be an integer >= 1024\n' >&2
+  exit 1
+fi
+ulimit -f "$ACCEPTANCE_LOG_MAX_KIB"
 PERCEPTION_SEALED_TOKEN_KEY="${FSUSBLOG_TEST_PERCEPTION_SEALED_TOKEN_KEY:-000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f}"
 FORCE_BOOTSTRAP="${FSUSBLOG_FORCE_BOOTSTRAP:-${CI:+1}}"
 RESET_SECURITY_TEST_STATE="${FSUSBLOG_RESET_SECURITY_TEST_STATE:-1}"
@@ -433,9 +439,23 @@ start_background_if_needed() {
 
   log "starting $label"
   nohup setsid bash -lc "cd ${escaped_client_dir} && exec ${escaped_cmd}" >"$log_file" 2>&1 < /dev/null &
-  echo $! >"$pid_file"
+  local started_pid=$!
+  echo "$started_pid" >"$pid_file"
 
-  wait_for_url "$label" "$url" 180
+  for ((i=0; i<180; i+=1)); do
+    if probe_url "$url"; then
+      return 0
+    fi
+    if ! kill -0 "$started_pid" >/dev/null 2>&1; then
+      log "$label process exited before becoming ready at $url"
+      tail -20 "$log_file" >&2 || true
+      return 1
+    fi
+    sleep 1
+  done
+
+  log "$label did not become ready at $url"
+  return 1
 }
 
 ensure_debug_frontend() {
@@ -451,7 +471,7 @@ ensure_debug_frontend() {
     "$DEBUG_FRONTEND_URL/" \
     "$TMP_DIR/dev-server.pid" \
     "$TMP_DIR/dev-server.log" \
-    env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite --host 0.0.0.0 --port "$DEBUG_FRONTEND_PORT"
+    env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite --host 0.0.0.0 --port "$DEBUG_FRONTEND_PORT" --strictPort
 }
 
 ensure_release_preview() {
@@ -500,7 +520,7 @@ ensure_release_preview() {
     "$RELEASE_PREVIEW_URL/" \
     "$TMP_DIR/preview.pid" \
     "$TMP_DIR/preview.log" \
-    env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite preview --host 0.0.0.0 --port "$RELEASE_PREVIEW_PORT"
+    env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite preview --host 0.0.0.0 --port "$RELEASE_PREVIEW_PORT" --strictPort
 }
 
 refresh_acceptance_cache_after_fixtures() {

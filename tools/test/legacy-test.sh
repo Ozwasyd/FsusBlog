@@ -602,21 +602,24 @@ run_parallel() {
       fi
 
       completed=$((completed + 1))
-      local child_status child_label
-      IFS=$'\t' read -r child_status child_label < "$status_file"
-      if [[ "$child_status" != "0" ]]; then
-        for pid in "${pids[@]}"; do
-          kill "$pid" >/dev/null 2>&1 || true
-        done
-        wait >/dev/null 2>&1 || true
-        rm -rf "$status_dir"
-        fail "parallel group failed: $group/${child_label:-unknown} (exit $child_status)"
-      fi
     done
     sleep 0.1
   done
   wait >/dev/null 2>&1 || true
+
+  local -a failures=()
+  for status_file in "${status_files[@]}"; do
+    local child_status child_label
+    IFS=$'\t' read -r child_status child_label < "$status_file"
+    if [[ "$child_status" != "0" ]]; then
+      failures+=("${child_label:-unknown}:$child_status")
+    fi
+  done
   rm -rf "$status_dir"
+
+  if (( ${#failures[@]} > 0 )); then
+    fail "parallel group failed: $group (${failures[*]})"
+  fi
 
   log "parallel group done: $group"
 }
@@ -886,9 +889,52 @@ run_backend_perf_only() {
   write_backend_split_summary backend-perf native-p99-and-benchmark-project-release-build
 }
 
-run_backend_mutation_only() {
+run_backend_mutation_with_config() {
+  local config_path="$1"
+  local output_dir="$2"
+  local report_name="$3"
+  local working_dir="${4:-$ROOT_DIR}"
+  local authority_tier="${5:-}"
+  local authority_out="${6:-}"
   run dotnet tool restore
-  run dotnet tool run dotnet-stryker --config-file "$ROOT_DIR/stryker-config.json"
+  run rm -rf "$output_dir"
+  local FSUSBLOG_MUTATION_BUILD=1
+  export FSUSBLOG_MUTATION_BUILD
+  (
+    cd "$working_dir"
+    run dotnet tool run dotnet-stryker \
+      --config-file "$config_path" \
+      --output "$output_dir"
+  )
+  if [[ -n "$authority_tier" || -n "$authority_out" ]]; then
+    if [[ -z "$authority_tier" || -z "$authority_out" ]]; then
+      fail "Stryker authority requires both tier and output path"
+    fi
+    run node "$ROOT_DIR/tools/test/check-stryker-report.mjs" \
+      "$output_dir/reports/$report_name.json" \
+      --config "$config_path" \
+      --tier "$authority_tier" \
+      --out "$authority_out"
+  else
+    run node "$ROOT_DIR/tools/test/check-stryker-report.mjs" "$output_dir/reports/$report_name.json"
+  fi
+}
+
+run_backend_mutation_only() {
+  run_backend_mutation_with_config \
+    "$ROOT_DIR/stryker-config.json" \
+    "$ROOT_DIR/.tmp/mutation/backend" \
+    backend-mutation
+}
+
+run_backend_mutation_critical_only() {
+  run_backend_mutation_with_config \
+    "$ROOT_DIR/stryker-critical-config.json" \
+    "$ROOT_DIR/.tmp/mutation/backend-critical" \
+    backend-mutation-critical \
+    "$ROOT_DIR/src/core" \
+    release-mutation-critical-slice \
+    "$ROOT_DIR/.tmp/mutation/backend-critical/authority.json"
 }
 
 run_backend_nightly_only() {
@@ -1320,11 +1366,12 @@ run_visual() {
 
 run_security_only() {
   log "tier=security | auth/mfa/passkey/pow/permission/a11y gates"
-  run "$ROOT_DIR/tools/security/check-security-matrices.mjs"
-  run "$ROOT_DIR/tools/security/check-zap-warn-policy.mjs"
-  run "$ROOT_DIR/tools/security/generate-sbom.sh"
-  run "$ROOT_DIR/tools/security/check-supply-chain-audit.sh"
-  run "$ROOT_DIR/tools/security/check-production-network-baseline.sh"
+  run_parallel "security-static" \
+    "security-matrices::\"$ROOT_DIR/tools/security/check-security-matrices.mjs\"" \
+    "zap-warn-policy::\"$ROOT_DIR/tools/security/check-zap-warn-policy.mjs\"" \
+    "sbom::\"$ROOT_DIR/tools/security/generate-sbom.sh\"" \
+    "supply-chain::\"$ROOT_DIR/tools/security/check-supply-chain-audit.sh\"" \
+    "network-baseline::\"$ROOT_DIR/tools/security/check-production-network-baseline.sh\""
   if [[ -n "${FSUSBLOG_FIREWALL_POLICY_EVIDENCE:-}" ]]; then
     run "$ROOT_DIR/tools/security/verify-production-firewall-policy-evidence.sh" "$FSUSBLOG_FIREWALL_POLICY_EVIDENCE"
   fi
@@ -1342,23 +1389,41 @@ run_security_only() {
   export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
   export FSUSBLOG_HTTP_TIMEOUT_MS="$SECURITY_HTTP_TIMEOUT_MS"
 
-  prepare_runtime_fixtures_once
-  run_in_client npm run check:api-contracts
-  run_in_client npm run check:auth-session-smoke
-  run_in_client npm run check:security:auth-mfa
-  run_in_client npm run check:security:auth-passkey
-  reset_security_runtime_state "pre permission matrix"
-  run_in_client npm run check:security:permissions
-  run_in_client npm run check:security:headers-cors
-  run_in_client npm run check:security:attack-matrix
-  reset_security_runtime_state "post attack matrix"
-  run_in_client npm run check:security:notification-stream-binary
-  reset_security_runtime_state "pre a11y smoke"
-  run_in_client npm run check:a11y:smoke
+  local -a security_failures=()
+  run_security_stage() {
+    local label="$1"
+    shift
+    set +e
+    "$@"
+    local status=$?
+    set -e
+    if (( status != 0 )); then
+      security_failures+=("$label:$status")
+      log "security stage failed, continuing: $label (exit $status)"
+    fi
+  }
+
+  run_security_stage "prepare-runtime-fixtures" prepare_runtime_fixtures_once
+  run_security_stage "api-contracts" run_in_client npm run check:api-contracts
+  run_security_stage "auth-session" run_in_client npm run check:auth-session-smoke
+  run_security_stage "auth-mfa" run_in_client npm run check:security:auth-mfa
+  run_security_stage "auth-passkey" run_in_client npm run check:security:auth-passkey
+  run_security_stage "reset-pre-permission" reset_security_runtime_state "pre permission matrix"
+  run_security_stage "permissions" run_in_client npm run check:security:permissions
+  run_security_stage "headers-cors" run_in_client npm run check:security:headers-cors
+  run_security_stage "attack-matrix" run_in_client npm run check:security:attack-matrix
+  run_security_stage "reset-post-attack" reset_security_runtime_state "post attack matrix"
+  run_security_stage "notification-stream-binary" run_in_client npm run check:security:notification-stream-binary
+  run_security_stage "reset-pre-a11y" reset_security_runtime_state "pre a11y smoke"
+  run_security_stage "a11y" run_in_client npm run check:a11y:smoke
   if [[ "${FSUSBLOG_SKIP_ZAP:-0}" != "1" ]]; then
-    run_in_client npm run check:security:dast
+    run_security_stage "dast" run_in_client npm run check:security:dast
   fi
-  reset_security_runtime_state "post security gate"
+  run_security_stage "reset-post-gate" reset_security_runtime_state "post security gate"
+  unset -f run_security_stage
+  if (( ${#security_failures[@]} > 0 )); then
+    fail "security runtime failures (${security_failures[*]})"
+  fi
 }
 
 run_security() {
@@ -1481,7 +1546,7 @@ run_production() {
 
 usage() {
   cat <<'EOF'
-Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-nightly|cross-stack-contract>
+Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-mutation-critical|backend-nightly|cross-stack-contract>
 
 Tiers:
   fast         Static and local-only validation; no running services required.
@@ -1508,6 +1573,7 @@ Tiers:
   backend-test-governance       Backend traceability/profile/static governance tier.
   backend-perf                  Backend BenchmarkDotNet build/readiness tier.
   backend-mutation              Backend Stryker.NET mutation tier.
+  backend-mutation-critical     Release-critical AEDS/JWT/cache/binary/notification Stryker slice.
   backend-nightly               Backend exhaustive nightly readiness tier. Set FSUSBLOG_RUN_BACKEND_MUTATION_FULL=1 to include full mutation.
   cross-stack-contract          Frontend/backend binary contract, API parity, schema sync, negative and coherence governance tier.
 EOF
@@ -1607,6 +1673,10 @@ main() {
     backend-mutation)
       CURRENT_TIER="backend-mutation"
       run_tier "backend-mutation" run_backend_mutation_only
+      ;;
+    backend-mutation-critical)
+      CURRENT_TIER="backend-mutation-critical"
+      run_tier "backend-mutation-critical" run_backend_mutation_critical_only
       ;;
     backend-nightly)
       CURRENT_TIER="backend-nightly"

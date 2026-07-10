@@ -5,6 +5,11 @@ import path from 'node:path'
 import process from 'node:process'
 import { spawn, spawnSync } from 'node:child_process'
 
+import {
+  artifactSubstitutionBindingDigest,
+  digestDeclaredOutputs
+} from './local-profile.mjs'
+
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
 const protectedSupersedesPattern = /(^|[^a-z])(property|model|perf|performance|benchmark|runtime)([^a-z]|$)/i
 const protectedAssertionTypes = new Set(['runtime', 'browser', 'perf', 'fuzz', 'mutation'])
@@ -680,8 +685,11 @@ function defaultSystemResources() {
 function resourceBudget(resources) {
   const cpuCount = Math.max(1, Number(resources.cpuCount) || 1)
   const load1 = Math.max(0, Number(resources.load1) || 0)
+  const explicitCpuUnits = Number(resources.availableCpuUnits)
   return {
-    cpuUnits: Math.max(1, cpuCount - Math.ceil(load1)),
+    cpuUnits: Number.isFinite(explicitCpuUnits) && explicitCpuUnits > 0
+      ? Math.min(cpuCount, explicitCpuUnits)
+      : Math.max(1, cpuCount - Math.ceil(load1)),
     memoryGiB: Math.max(0.1, Number(resources.availableMemoryGiB) || 0.1)
   }
 }
@@ -740,7 +748,6 @@ function canStartTier(tier, activeEntries, maxParallel, budget) {
   if (sameClass.length >= Math.max(1, Number(tier.maxParallel) || 1)) return false
   if (sameClass.some((entry) => sameClass.length >= Math.max(1, Number(entry.tier.maxParallel) || 1))) return false
 
-  if (activeEntries.length === 0) return true
   const usage = activeUsage(activeEntries)
   const { cpuUnits, memoryGiB } = tierResourceUnits(tier)
   return usage.cpuUnits + cpuUnits <= budget.cpuUnits && usage.memoryGiB + memoryGiB <= budget.memoryGiB
@@ -761,6 +768,7 @@ function readCheckpoint(checkpointFile) {
 }
 
 function writeCheckpoint(checkpointFile, checkpoint) {
+  checkpoint.revision = Math.max(0, Number(checkpoint.revision) || 0) + 1
   checkpoint.updatedAt = new Date().toISOString()
   checkpoint.completedTiers = Object.entries(checkpoint.tiers)
     .filter(([, value]) => value.status === 'success')
@@ -769,6 +777,342 @@ function writeCheckpoint(checkpointFile, checkpoint) {
   const temporaryFile = `${checkpointFile}.next-${process.pid}`
   fs.writeFileSync(temporaryFile, `${JSON.stringify(checkpoint, null, 2)}\n`)
   fs.renameSync(temporaryFile, checkpointFile)
+}
+
+function plainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function sameCheckpointSource(left, right) {
+  return String(left?.commit ?? '') === String(right?.commit ?? '')
+    && String(left?.worktreeFingerprint ?? '') === String(right?.worktreeFingerprint ?? '')
+}
+
+function bundleSummaryOutput(checkpoint, root, bundleId) {
+  if (!/^[a-z0-9][a-z0-9-]*$/u.test(String(bundleId ?? ''))) {
+    throw new Error(`logicalTierProjection physicalBundleId is invalid: ${String(bundleId)}`)
+  }
+  const physicalTierId = `local-${checkpoint.targetTierId}-${bundleId}`
+  const physical = checkpoint.tiers?.[physicalTierId]
+  if (physical?.status !== 'success' || physical?.reused !== false) {
+    throw new Error(`logicalTierProjection physical bundle ${physicalTierId} must be fresh and successful`)
+  }
+  const summaryPath = `.tmp/local-${checkpoint.targetTierId}/${bundleId}/summary.json`
+  const recordedDigest = physical.outputs?.[summaryPath]
+  if (typeof recordedDigest !== 'string' || !recordedDigest.startsWith('file:')) {
+    throw new Error(`checkpoint output has no recorded digest for ${summaryPath}`)
+  }
+  const absoluteSummary = path.resolve(root, summaryPath)
+  if (!absoluteSummary.startsWith(`${root}${path.sep}`) || !fs.existsSync(absoluteSummary)) {
+    throw new Error(`checkpoint bundle summary is missing: ${summaryPath}`)
+  }
+  const currentDigest = outputPathFingerprint(absoluteSummary)
+  if (recordedDigest !== currentDigest) {
+    throw new Error(`checkpoint output digest does not match current bundle summary: ${summaryPath}`)
+  }
+  return { physicalTierId, summaryPath }
+}
+
+function validateCheckpointBundleSummaries(checkpoint, root) {
+  const prefix = `local-${checkpoint.targetTierId}-`
+  const physicalTierIds = Object.keys(checkpoint.tiers ?? {})
+    .filter((tierId) => tierId.startsWith(prefix))
+    .sort()
+  if (physicalTierIds.length === 0) {
+    throw new Error(`checkpoint ${checkpoint.runId} has no local physical bundle tiers`)
+  }
+  for (const physicalTierId of physicalTierIds) {
+    bundleSummaryOutput(checkpoint, root, physicalTierId.slice(prefix.length))
+  }
+}
+
+function sameSortedStrings(left, right) {
+  return Array.isArray(left)
+    && Array.isArray(right)
+    && left.length === right.length
+    && left.every((value, index) => value === right[index])
+}
+
+function validateArtifactSubstitutionProofs(entry, tierId) {
+  if (!plainObject(entry.artifactSubstitutionProofs)) {
+    throw new Error(`logicalTierProjection entry ${tierId} artifactSubstitutionProofs must be an object`)
+  }
+  if (!Array.isArray(entry.matrixRuntimePaths)
+    || entry.matrixRuntimePaths.some((declaration) => typeof declaration !== 'string' || !declaration.trim())
+    || new Set(entry.matrixRuntimePaths).size !== entry.matrixRuntimePaths.length
+    || entry.matrixRuntimePaths.some((declaration, index) => index > 0 && entry.matrixRuntimePaths[index - 1] > declaration)) {
+    throw new Error(`logicalTierProjection entry ${tierId} matrixRuntimePaths must be sorted unique non-empty strings`)
+  }
+  const canonicalPaths = Object.keys(entry.artifactSubstitutionProofs).sort()
+  const expectedProofMode = canonicalPaths.length > 0
+    ? 'matrix-runtime-artifacts-with-substitutions'
+    : (entry.matrixRuntimePaths.length > 0 ? 'matrix-runtime-artifacts' : 'command-log-and-test-ids')
+  if (entry.artifactProofMode !== expectedProofMode) {
+    throw new Error(`logicalTierProjection entry ${tierId} artifactProofMode must be ${expectedProofMode}`)
+  }
+  for (const declaration of entry.matrixRuntimePaths) {
+    if (!Object.hasOwn(entry.artifactDigests, declaration)) {
+      throw new Error(`logicalTierProjection entry ${tierId} is missing matrix runtime digest: ${declaration}`)
+    }
+  }
+  for (const canonicalPath of canonicalPaths) {
+    if (!entry.matrixRuntimePaths.includes(canonicalPath)) {
+      throw new Error(`logicalTierProjection entry ${tierId} substitution canonical path is not declared: ${canonicalPath}`)
+    }
+    const proof = entry.artifactSubstitutionProofs[canonicalPath]
+    if (!plainObject(proof)) {
+      throw new Error(`logicalTierProjection entry ${tierId} substitution proof must be an object: ${canonicalPath}`)
+    }
+    const expectedFields = ['actualDigests', 'actualPaths', 'canonicalDigest', 'canonicalPath']
+    if (!sameSortedStrings(Object.keys(proof).sort(), expectedFields)) {
+      throw new Error(`logicalTierProjection entry ${tierId} substitution proof has unexpected fields: ${canonicalPath}`)
+    }
+    if (proof.canonicalPath !== canonicalPath) {
+      throw new Error(`logicalTierProjection entry ${tierId} substitution canonicalPath must match its key: ${canonicalPath}`)
+    }
+    if (!Array.isArray(proof.actualPaths)
+      || proof.actualPaths.length === 0
+      || proof.actualPaths.some((actualPath) => typeof actualPath !== 'string' || !actualPath.trim())
+      || new Set(proof.actualPaths).size !== proof.actualPaths.length
+      || proof.actualPaths.some((actualPath, index) => index > 0 && proof.actualPaths[index - 1] > actualPath)
+      || proof.actualPaths.some((actualPath) => canonicalPaths.includes(actualPath))) {
+      throw new Error(`logicalTierProjection entry ${tierId} substitution actualPaths are invalid: ${canonicalPath}`)
+    }
+    if (!plainObject(proof.actualDigests)
+      || !sameSortedStrings(Object.keys(proof.actualDigests).sort(), proof.actualPaths)) {
+      throw new Error(`logicalTierProjection entry ${tierId} substitution actualDigests must exactly match actualPaths: ${canonicalPath}`)
+    }
+    for (const actualPath of proof.actualPaths) {
+      const actualDigest = proof.actualDigests[actualPath]
+      if (!/^sha256:[a-f0-9]{64}$/u.test(String(actualDigest ?? ''))) {
+        throw new Error(`logicalTierProjection entry ${tierId} substitution actual digest must be sha256: ${actualPath}`)
+      }
+      if (entry.artifactDigests[actualPath] !== actualDigest) {
+        throw new Error(`logicalTierProjection entry ${tierId} substitution actual digest must match artifactDigests: ${actualPath}`)
+      }
+    }
+    const bindingDigest = artifactSubstitutionBindingDigest(canonicalPath, proof.actualDigests)
+    if (proof.canonicalDigest !== bindingDigest) {
+      throw new Error(`logicalTierProjection entry ${tierId} substitution canonicalDigest is invalid: ${canonicalPath}`)
+    }
+    if (entry.artifactDigests[canonicalPath] !== bindingDigest) {
+      throw new Error(`logicalTierProjection entry ${tierId} substitution canonical digest must match artifactDigests: ${canonicalPath}`)
+    }
+  }
+  return new Set(canonicalPaths)
+}
+
+function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
+  if (!plainObject(entry)) throw new Error(`logicalTierProjection entry ${tierId} must be an object`)
+  if (!tierId || entry.tierId !== tierId) {
+    throw new Error(`logicalTierProjection entry ${tierId} tierId must match its key`)
+  }
+  if (!['executed', 'summary-only'].includes(entry.evidenceKind)) {
+    throw new Error(`logicalTierProjection entry ${tierId} evidenceKind is invalid`)
+  }
+  const summaryOnly = entry.evidenceKind === 'summary-only'
+  const expectedStatus = summaryOnly ? 'collected-blocked' : 'success'
+  const expectedSource = summaryOnly ? 'external-environment' : 'fresh'
+  if (entry.status !== expectedStatus) {
+    throw new Error(`logicalTierProjection entry ${tierId} status must be ${expectedStatus}`)
+  }
+  if (entry.executionSource !== expectedSource) {
+    throw new Error(`logicalTierProjection entry ${tierId} executionSource must be ${expectedSource}`)
+  }
+  if (!Array.isArray(entry.testIds)
+    || entry.testIds.some((testId) => typeof testId !== 'string' || !testId.trim())
+    || new Set(entry.testIds).size !== entry.testIds.length
+    || entry.testIds.some((testId, index) => index > 0 && entry.testIds[index - 1] > testId)) {
+    throw new Error(`logicalTierProjection entry ${tierId} testIds must be sorted unique non-empty strings`)
+  }
+  if ((!summaryOnly && entry.testIds.length === 0) || (summaryOnly && entry.testIds.length !== 0)) {
+    throw new Error(`logicalTierProjection entry ${tierId} testIds do not match its evidenceKind`)
+  }
+  if (!plainObject(entry.artifactDigests) || Object.keys(entry.artifactDigests).length === 0) {
+    throw new Error(`logicalTierProjection entry ${tierId} artifactDigests must be a non-empty object`)
+  }
+  const substitutionCanonicalPaths = summaryOnly
+    ? new Set()
+    : validateArtifactSubstitutionProofs(entry, tierId)
+  for (const [artifactPath, digest] of Object.entries(entry.artifactDigests)) {
+    if (!artifactPath.trim() || path.isAbsolute(artifactPath) || artifactPath === '..' || artifactPath.startsWith('../')) {
+      throw new Error(`logicalTierProjection entry ${tierId} artifact digest path is invalid`)
+    }
+    if (!/^sha256:[a-f0-9]{64}$/u.test(String(digest))) {
+      throw new Error(`logicalTierProjection entry ${tierId} artifactDigests must contain sha256 digests`)
+    }
+    let currentDigest
+    if (substitutionCanonicalPaths.has(artifactPath)) {
+      currentDigest = digest
+    } else if (summaryOnly) {
+      const absoluteArtifact = path.resolve(root, artifactPath)
+      if (artifactPath.includes('*')
+        || artifactPath.includes('?')
+        || !absoluteArtifact.startsWith(`${root}${path.sep}`)
+        || !fs.existsSync(absoluteArtifact)
+        || !fs.lstatSync(absoluteArtifact).isFile()
+        || fs.lstatSync(absoluteArtifact).isSymbolicLink()) {
+        throw new Error(`logicalTierProjection entry ${tierId} artifact is missing or invalid: ${artifactPath}`)
+      }
+      currentDigest = `sha256:${sha256(fs.readFileSync(absoluteArtifact))}`
+    } else {
+      let declaredDigests
+      try {
+        declaredDigests = digestDeclaredOutputs(root, [artifactPath])
+      } catch (error) {
+        throw new Error(`logicalTierProjection entry ${tierId} artifact is missing or invalid: ${artifactPath} (${error.message})`)
+      }
+      currentDigest = Object.values(declaredDigests)[0]
+    }
+    if (currentDigest !== digest) {
+      throw new Error(`logicalTierProjection entry ${tierId} artifact digest does not match: ${artifactPath}`)
+    }
+  }
+  if (summaryOnly) {
+    if (entry.physicalBundleId !== null) {
+      throw new Error(`logicalTierProjection entry ${tierId} physicalBundleId must be null`)
+    }
+    if (entry.durationMs !== null) {
+      throw new Error(`logicalTierProjection entry ${tierId} durationMs must be null`)
+    }
+  } else {
+    if (!Number.isFinite(entry.durationMs) || entry.durationMs < 0) {
+      throw new Error(`logicalTierProjection entry ${tierId} durationMs must be non-negative`)
+    }
+    bundleSummaryOutput(checkpoint, root, entry.physicalBundleId)
+  }
+  if (!projection.logicalTierIds.includes(tierId)) {
+    throw new Error(`logicalTierProjection entry ${tierId} is not declared in logicalTierIds`)
+  }
+}
+
+function validateCheckpointEvidence(checkpoint, evidence, root) {
+  if (!plainObject(evidence)) {
+    throw new Error('checkpoint evidence must be an object')
+  }
+  const supportedFields = new Set(['logicalTierProjection'])
+  for (const field of Object.keys(evidence)) {
+    if (!supportedFields.has(field)) throw new Error(`unsupported checkpoint evidence field: ${field}`)
+  }
+  const projection = evidence.logicalTierProjection
+  if (!plainObject(projection) || projection.schema !== 'fsusblog.local-profile-projection.v1') {
+    throw new Error('logicalTierProjection must use schema fsusblog.local-profile-projection.v1')
+  }
+  if (projection.runId !== checkpoint.runId) {
+    throw new Error(`logicalTierProjection run ${projection.runId} does not match checkpoint run ${checkpoint.runId}`)
+  }
+  if (projection.executionSource !== 'fresh') {
+    throw new Error('logicalTierProjection executionSource must be fresh')
+  }
+  if (projection.profileId !== checkpoint.targetTierId || projection.status !== 'success') {
+    throw new Error('logicalTierProjection profileId/status must match a successful checkpoint target')
+  }
+  if (!projection.entries || typeof projection.entries !== 'object' || Array.isArray(projection.entries)) {
+    throw new Error('logicalTierProjection entries must be an object')
+  }
+  const entryIds = Object.keys(projection.entries).sort()
+  if (!Number.isInteger(projection.logicalTierCount) || projection.logicalTierCount !== entryIds.length) {
+    throw new Error('logicalTierProjection logicalTierCount must match its entries')
+  }
+  if (!Array.isArray(projection.logicalTierIds)
+    || projection.logicalTierIds.some((tierId) => typeof tierId !== 'string' || !tierId.trim())
+    || new Set(projection.logicalTierIds).size !== projection.logicalTierIds.length
+    || projection.logicalTierIds.some((tierId, index) => index > 0 && projection.logicalTierIds[index - 1] > tierId)) {
+    throw new Error('logicalTierProjection logicalTierIds must be sorted unique non-empty strings')
+  }
+  const declaredTierIds = projection.logicalTierIds
+  if (declaredTierIds.length !== entryIds.length
+    || declaredTierIds.some((tierId, index) => tierId !== entryIds[index])) {
+    throw new Error('logicalTierProjection logicalTierIds must exactly match its entries')
+  }
+  const summaryOnlyTierCount = Object.values(projection.entries)
+    .filter((entry) => entry?.evidenceKind === 'summary-only').length
+  if (!Number.isInteger(projection.summaryOnlyTierCount)
+    || !Number.isInteger(projection.executedTierCount)
+    || projection.summaryOnlyTierCount !== summaryOnlyTierCount
+    || projection.executedTierCount !== entryIds.length - summaryOnlyTierCount) {
+    throw new Error('logicalTierProjection executed/summary-only counts must match its entries')
+  }
+  if (String(projection.sourceState?.commit ?? '') !== String(checkpoint.sourceState?.commit ?? '')
+    || String(projection.sourceState?.worktreeFingerprint ?? '') !== String(checkpoint.sourceState?.worktreeFingerprint ?? '')) {
+    throw new Error('logicalTierProjection sourceState must match the checkpoint')
+  }
+  for (const tierId of entryIds) validateProjectionEntry(projection.entries[tierId], tierId, projection, checkpoint, root)
+}
+
+async function validateCurrentCheckpointSource(checkpoint, root, snapshotWorktree) {
+  const snapshot = await (snapshotWorktree ?? (() => snapshotGitWorktree(root)))()
+  const current = {
+    commit: gitHead(root),
+    worktreeFingerprint: snapshot?.fingerprint
+  }
+  if (!String(current.worktreeFingerprint ?? '').trim() || !sameCheckpointSource(current, checkpoint.sourceState)) {
+    throw new Error('checkpoint sourceState does not match the current repository source')
+  }
+}
+
+function persistEvidenceFailure(checkpointFile, expectedRunId, error) {
+  const checkpoint = readCheckpoint(checkpointFile)
+  if (!checkpoint || checkpoint.runId !== expectedRunId || checkpoint.status !== 'success') return
+  const failure = {
+    tierId: checkpoint.targetTierId,
+    exitCode: 1,
+    signal: null,
+    reason: `checkpoint evidence finalization failed: ${error.message}`,
+    changedPaths: []
+  }
+  checkpoint.status = 'failure'
+  checkpoint.failure = failure
+  checkpoint.failurePoint = checkpoint.targetTierId
+  checkpoint.finishedAt = new Date().toISOString()
+  checkpoint.ungeneratedEvidence = [{
+    tierId: checkpoint.targetTierId,
+    declaration: 'logicalTierProjection'
+  }]
+  writeCheckpoint(checkpointFile, checkpoint)
+}
+
+export async function attachCheckpointEvidence(checkpointFileValue, expectedRunId, evidenceOrBuilder, options = {}) {
+  const checkpointFile = path.resolve(checkpointFileValue)
+  const runDirectory = path.dirname(checkpointFile)
+  const runsRoot = path.dirname(runDirectory)
+  const root = path.resolve(options.root ?? '')
+  if (!options.root) throw new Error('checkpoint evidence attach requires options.root')
+  if (!Number.isInteger(options.expectedRevision) || options.expectedRevision <= 0) {
+    throw new Error('checkpoint evidence attach requires a positive expectedRevision')
+  }
+  const releaseLock = acquireRunLock(runsRoot, expectedRunId)
+  let finalizationStarted = false
+  try {
+    const checkpoint = readCheckpoint(checkpointFile)
+    if (!checkpoint) throw new Error(`missing or invalid scheduler checkpoint: ${checkpointFileValue}`)
+    if (checkpoint.runId !== expectedRunId) {
+      throw new Error(`checkpoint run ${checkpoint.runId} does not match expected run ${expectedRunId}`)
+    }
+    if (checkpoint.revision !== options.expectedRevision) {
+      throw new Error(`checkpoint revision ${checkpoint.revision} does not match expected revision ${options.expectedRevision}`)
+    }
+    if (checkpoint.status !== 'success') {
+      throw new Error(`checkpoint ${checkpoint.runId} must be successful before attaching evidence`)
+    }
+    finalizationStarted = true
+    await validateCurrentCheckpointSource(checkpoint, root, options.snapshotWorktree)
+    validateCheckpointBundleSummaries(checkpoint, root)
+    const evidence = typeof evidenceOrBuilder === 'function'
+      ? await evidenceOrBuilder(checkpoint)
+      : evidenceOrBuilder
+    await validateCurrentCheckpointSource(checkpoint, root, options.snapshotWorktree)
+    validateCheckpointBundleSummaries(checkpoint, root)
+    validateCheckpointEvidence(checkpoint, evidence, root)
+    checkpoint.logicalTierProjection = evidence.logicalTierProjection
+    writeCheckpoint(checkpointFile, checkpoint)
+    return checkpoint
+  } catch (error) {
+    if (finalizationStarted) persistEvidenceFailure(checkpointFile, expectedRunId, error)
+    throw error
+  } finally {
+    releaseLock()
+  }
 }
 
 function safeRunId(value) {
@@ -1071,11 +1415,18 @@ async function runDagUnlocked(options) {
 
     if (active.size === 0) {
       if (pending.length > 0 && !firstFailure) {
+        const barrierPhase = Math.min(...pending.map(tierPhase))
+        const readyTier = pending.find((tier) => tierPhase(tier) === barrierPhase && dependenciesReady(tier))
+        const request = readyTier ? tierResourceUnits(readyTier) : null
+        const unschedulable = request
+          && (request.cpuUnits > budget.cpuUnits || request.memoryGiB > budget.memoryGiB)
         firstFailure = {
-          tierId: pending[0].id,
+          tierId: readyTier?.id ?? pending[0].id,
           exitCode: 1,
           signal: null,
-          reason: 'no runnable tiers remain; check DAG dependencies and resource metadata',
+          reason: unschedulable
+            ? `unschedulable resource request for ${readyTier.id}: cpu=${request.cpuUnits}/${budget.cpuUnits}, memoryGiB=${request.memoryGiB}/${budget.memoryGiB}`
+            : 'no runnable tiers remain; check DAG dependencies and resource metadata',
           changedPaths: []
         }
       }

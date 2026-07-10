@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/Quality/">
+    <Project Path="backend/FsusBlog.Server.Tests.csproj" />
+  </Folder>
+</Solution>

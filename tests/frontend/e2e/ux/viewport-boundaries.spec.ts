@@ -127,8 +127,7 @@ let adminStorageStatePromise: Promise<StorageState> | null = null
 
 test.describe(`UX viewport boundaries (${mode})`, () => {
   test.describe.configure({
-    mode: viewportExecutionMode,
-    timeout: mode === 'boundaries' ? 1_200_000 : 300_000
+    mode: viewportExecutionMode
   })
 
   const testGroups = parityBatch

@@ -132,7 +132,7 @@ public sealed class AedsEncoderTests
         Result<AedsDecodeResult> result = _enc.TryDecode(new byte[4]);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("too short", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("AEDS frame too short", result.Error.Message);
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public sealed class AedsEncoderTests
         Result<AedsDecodeResult> result = _enc.TryDecode(frame);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("crc", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("AEDS payload crc mismatch", result.Error.Message);
     }
 
     [Fact]
@@ -214,6 +214,24 @@ public sealed class AedsEncoderTests
         Result<AedsDecodeResult> result = _enc.TryDecode(writer.WrittenMemory);
 
         Assert.False(result.IsSuccess);
+        Assert.Equal("AEDS frame type unsupported", result.Error.Message);
+    }
+
+    [Theory]
+    [InlineData(40)]
+    [InlineData(43)]
+    [InlineData(44)]
+    [InlineData(45)]
+    [InlineData(46)]
+    public void TryDecode_RejectsEveryRetiredFrameType(int frameTypeRaw)
+    {
+        byte[] frame = _enc.Encode(AedsFrameType.ArticleList, []);
+        BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(8, 2), checked((ushort)frameTypeRaw));
+
+        Result<AedsDecodeResult> result = _enc.TryDecode(frame);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("AEDS frame type retired", result.Error.Message);
     }
 
     [Fact]
@@ -226,6 +244,44 @@ public sealed class AedsEncoderTests
         Result<AedsDecodeResult> result = _enc.TryDecode(trimmed);
 
         Assert.False(result.IsSuccess);
+        Assert.Equal("AEDS payload length mismatch", result.Error.Message);
+    }
+
+    [Fact]
+    public void WriteHeader_AcceptsAndPersistsMaximumV2Flags()
+    {
+        byte[] payload = [1, 2, 3, 4];
+        var writer = new ArrayBufferWriter<byte>();
+
+        _enc.WriteHeader(AedsFrameType.ArticleDetail, payload, writer, flags: ushort.MaxValue);
+
+        Assert.Equal(AedsFrameHeader.Size, writer.WrittenCount);
+        ReadOnlySpan<byte> header = writer.WrittenSpan;
+        Assert.Equal(AedsEncoder.Magic, BinaryPrimitives.ReadUInt32LittleEndian(header[0..4]));
+        Assert.Equal(ushort.MaxValue, BinaryPrimitives.ReadUInt16LittleEndian(header[6..8]));
+        Assert.Equal((ushort)AedsFrameType.ArticleDetail, BinaryPrimitives.ReadUInt16LittleEndian(header[8..10]));
+        Assert.Equal((uint)payload.Length, BinaryPrimitives.ReadUInt32LittleEndian(header[10..14]));
+        Assert.Equal(AedsCrc16.Compute(payload), BinaryPrimitives.ReadUInt16LittleEndian(header[14..16]));
+    }
+
+    [Fact]
+    public void Encode_RejectsUnsupportedVersionWithExactReason()
+    {
+        ArgumentOutOfRangeException error = Assert.Throws<ArgumentOutOfRangeException>(
+            () => _enc.Encode(AedsFrameType.ArticleList, [], version: 1));
+
+        Assert.Equal("version", error.ParamName);
+        Assert.StartsWith("AEDS v2 is the only supported wire version.", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Encode_RejectsFlagsLargerThanUInt16WithExactReason()
+    {
+        ArgumentOutOfRangeException error = Assert.Throws<ArgumentOutOfRangeException>(
+            () => _enc.Encode(AedsFrameType.ArticleList, [], flags: (uint)ushort.MaxValue + 1));
+
+        Assert.Equal("flags", error.ParamName);
+        Assert.StartsWith("AEDS v2 flags are uint16.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

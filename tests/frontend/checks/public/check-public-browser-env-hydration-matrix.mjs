@@ -22,6 +22,7 @@ const baseUrl = (
 ).replace(/\/+$/u, '')
 const publicFixtureIds = readPublicFixtureIds()
 const executablePath = resolveSystemChromiumExecutablePath()
+const exactRouteReadinessTimeoutMs = Number.parseInt(process.env.FSUSBLOG_PUBLIC_AOT_WAIT_MS || '30000', 10)
 
 const HYDRATION_KEYWORDS = [
   'Hydration',
@@ -328,6 +329,51 @@ function routeForCell(route, cell) {
   return `${route.route}${separator}fsusLocalFixtureLogin=1${adminFixture}`
 }
 
+async function waitForExactRouteReadiness(route, cell) {
+  const exactRoute = routeForCell(route, cell)
+  const startedAt = Date.now()
+  const deadline = startedAt + exactRouteReadinessTimeoutMs
+  let attempts = 0
+  let firstKind = null
+  let lastKind = null
+  let lastStatus = 0
+  let lastError = null
+
+  while (Date.now() < deadline) {
+    attempts += 1
+    try {
+      const remainingMs = Math.max(1, deadline - Date.now())
+      const response = await fetch(`${baseUrl}${exactRoute}`, {
+        signal: AbortSignal.timeout(Math.min(3000, remainingMs)),
+      })
+      const html = await response.text()
+      const kind = html.match(/data-public-hydration-kind="([^"]+)"/u)?.[1] ?? null
+      if (attempts === 1) firstKind = kind
+      lastKind = kind
+      lastStatus = response.status
+      lastError = null
+      if (response.ok && kind === route.expectedKind) {
+        return {
+          exactRoute,
+          attempts,
+          firstKind,
+          finalKind: kind,
+          finalStatus: response.status,
+          durationMs: Date.now() - startedAt,
+        }
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+
+  throw new Error(
+    `${cell.id}/${route.id}: exact route did not become public-AOT ready within ${exactRouteReadinessTimeoutMs}ms `
+      + `(route=${exactRoute}, status=${lastStatus}, kind=${lastKind ?? 'none'}, error=${lastError ?? 'none'})`
+  )
+}
+
 function expectedThemeMode(cell) {
   return cell.themePreference === 'empty' || cell.storageBehavior === 'unavailable'
     ? 'system'
@@ -463,6 +509,13 @@ async function runRouteCell(browser, route, cell) {
     }
   }
 
+  try {
+    row.routeReadiness = await waitForExactRouteReadiness(route, cell)
+  } catch (error) {
+    row.error = error instanceof Error ? error.message : String(error)
+    return row
+  }
+
   const authGate = createAuthGate()
   const scriptGate = createScriptGate()
   const context = await browser.newContext({
@@ -497,6 +550,7 @@ async function runRouteCell(browser, route, cell) {
     row.preHydration = pre
     row.afterHydration = final
     row.assertions = [
+      'exact-route-aot-readiness',
       'single-public-shell',
       'auth-gated-until-after-hydration',
       'theme-state-hydration-safe',

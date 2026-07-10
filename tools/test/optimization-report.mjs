@@ -1,12 +1,15 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs'
+import { tierReplacementStructureErrors } from '../test-retention/audit.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+const authoritativeBeforePath = path.join(repoRoot, 'tests/test-retention-before.json')
 
 const budgetDefinitions = [
   { id: 'ux-viewport-boundaries', maxDurationMs: 20 * 60_000 },
@@ -28,24 +31,109 @@ function recordDimensionIds(audit, field) {
   )).filter(Boolean))
 }
 
+function catalogDimensionIds(audit, field) {
+  return new Set((audit?.catalogSnapshot?.[field] ?? []).filter(Boolean))
+}
+
 function retainedDimensionProof(before, after) {
   const beforeFrameworks = recordDimensionIds(before, 'framework')
   const afterFrameworks = recordDimensionIds(after, 'framework')
   const beforeRiskTags = recordDimensionIds(before, 'riskTags')
   const afterRiskTags = recordDimensionIds(after, 'riskTags')
-  const beforeTierIds = recordDimensionIds(before, 'tierIds')
-  const afterTierIds = recordDimensionIds(after, 'tierIds')
-  const tierReplacements = new Map((after?.tierReplacements ?? []).map((entry) => [entry.from, entry]))
-  const replacedTierIds = [...beforeTierIds]
-    .filter((id) => !afterTierIds.has(id) && afterTierIds.has(tierReplacements.get(id)?.to))
-    .map((id) => ({
-      from: id,
-      to: tierReplacements.get(id).to,
-      coverageIds: tierReplacements.get(id).coverageIds,
-      reason: tierReplacements.get(id).reason
-    }))
-    .sort((left, right) => left.from.localeCompare(right.from))
-  const replacedFromIds = new Set(replacedTierIds.map((entry) => entry.from))
+  const beforeTierIds = new Set([
+    ...recordDimensionIds(before, 'tierIds'),
+    ...catalogDimensionIds(before, 'matrixTierIds')
+  ])
+  const afterTierIds = new Set([
+    ...recordDimensionIds(after, 'tierIds'),
+    ...catalogDimensionIds(after, 'matrixTierIds')
+  ])
+  const catalogDimensions = [
+    ['MatrixArtifactPaths', 'matrixArtifactPaths'],
+    ['MatrixEvidencePaths', 'matrixEvidencePaths'],
+    ['ProductionRequiredTierIds', 'productionRequiredTierIds'],
+    ['CatalogCoverageIds', 'coverageIds'],
+    ['RequirementIds', 'requirementIds'],
+    ['RequirementProfileIds', 'requirementProfileIds'],
+    ['RequirementEvidencePaths', 'requirementEvidencePaths'],
+    ['ReleaseEvidencePaths', 'releaseEvidencePaths']
+  ]
+  const catalogFieldNames = new Set(catalogDimensions.map(([, field]) => field))
+  const afterCatalogSets = new Map(catalogDimensions.map(([, field]) => [field, catalogDimensionIds(after, field)]))
+  const beforeCatalogSets = new Map(catalogDimensions.map(([, field]) => [field, catalogDimensionIds(before, field)]))
+  const afterCoverageIds = new Set([
+    ...catalogDimensionIds(after, 'coverageIds'),
+    ...(after?.retainedEvidence?.coverageIds ?? [])
+  ])
+  const authorizedCatalog = new Map(catalogDimensions.map(([, field]) => [field, new Set()]))
+  const invalidTierReplacements = []
+  const replacedTierIds = []
+  const replacedCatalogDimensions = []
+  const seenFrom = new Set()
+  for (const replacement of after?.tierReplacements ?? []) {
+    const from = String(replacement?.from ?? '')
+    const to = String(replacement?.to ?? '')
+    const replacementScope = String(replacement?.scope ?? 'tier')
+    const reasons = [...tierReplacementStructureErrors(replacement)]
+    if (!from || !beforeTierIds.has(from)) reasons.push('from tier did not exist in baseline')
+    if (!to || !afterTierIds.has(to)) reasons.push('to tier is not retained after replacement')
+    if (replacementScope === 'tier' && afterTierIds.has(from)) reasons.push('from tier still exists after replacement')
+    if (replacementScope === 'production-membership') {
+      const beforeProduction = beforeCatalogSets.get('productionRequiredTierIds')
+      const afterProduction = afterCatalogSets.get('productionRequiredTierIds')
+      if (!beforeProduction.has(from)) reasons.push('from tier was not production-required in baseline')
+      if (afterProduction.has(from)) reasons.push('from tier is still production-required after replacement')
+      if (!afterProduction.has(to)) reasons.push('to tier is not production-required after replacement')
+      if (!afterTierIds.has(from)) reasons.push('from tier is not retained as a standalone tier after production-membership replacement')
+    }
+    if (!String(replacement?.reason ?? '').trim()) reasons.push('reason is empty')
+    if (seenFrom.has(from)) reasons.push('from tier is declared more than once')
+    seenFrom.add(from)
+    const coverageIds = [...new Set(replacement?.coverageIds ?? [])]
+    if (coverageIds.length === 0) reasons.push('coverageIds is empty')
+    const missingReplacementCoverage = coverageIds.filter((id) => !afterCoverageIds.has(id))
+    if (missingReplacementCoverage.length > 0) reasons.push(`replacement coverage ids are missing: ${missingReplacementCoverage.join(', ')}`)
+
+    const pendingCatalog = []
+    for (const [field, mappings] of Object.entries(replacement?.catalogReplacements ?? {})) {
+      if (!catalogFieldNames.has(field)) {
+        continue
+      }
+      if (!Array.isArray(mappings)) {
+        continue
+      }
+      for (const mapping of mappings) {
+        const catalogFrom = String(mapping?.from ?? '')
+        const catalogTo = String(mapping?.to ?? '')
+        if (!beforeCatalogSets.get(field).has(catalogFrom)) reasons.push(`${field} replacement source did not exist: ${catalogFrom || 'missing'}`)
+        if (afterCatalogSets.get(field).has(catalogFrom)) reasons.push(`${field} replacement source still exists: ${catalogFrom}`)
+        if (!afterCatalogSets.get(field).has(catalogTo)) reasons.push(`${field} replacement target is not retained: ${catalogTo || 'missing'}`)
+        pendingCatalog.push({ field, from: catalogFrom, to: catalogTo })
+      }
+    }
+
+    if (reasons.length > 0) {
+      invalidTierReplacements.push({ from: from || null, to: to || null, reasons })
+      continue
+    }
+    replacedTierIds.push({ from, to, scope: replacementScope, coverageIds, reason: replacement.reason })
+    for (const mapping of pendingCatalog) {
+      authorizedCatalog.get(mapping.field).add(mapping.from)
+      replacedCatalogDimensions.push({ tierFrom: from, ...mapping })
+    }
+  }
+  replacedTierIds.sort((left, right) => left.from.localeCompare(right.from))
+  replacedCatalogDimensions.sort((left, right) => left.field.localeCompare(right.field) || left.from.localeCompare(right.from))
+  const replacedFromIds = new Set(replacedTierIds.filter((entry) => entry.scope === 'tier').map((entry) => entry.from))
+  const catalogProof = Object.fromEntries(catalogDimensions.flatMap(([label, field]) => {
+    const beforeIds = catalogDimensionIds(before, field)
+    const afterIds = catalogDimensionIds(after, field)
+    return [
+      [`missing${label}`, [...beforeIds].filter((id) => !afterIds.has(id) && !authorizedCatalog.get(field).has(id)).sort()],
+      [`added${label}`, [...afterIds].filter((id) => !beforeIds.has(id)).sort()],
+      [`retained${label}`, [...beforeIds].filter((id) => afterIds.has(id)).sort()]
+    ]
+  }))
   return {
     missingFrameworks: [...beforeFrameworks].filter((id) => !afterFrameworks.has(id)).sort(),
     addedFrameworks: [...afterFrameworks].filter((id) => !beforeFrameworks.has(id)).sort(),
@@ -56,7 +144,11 @@ function retainedDimensionProof(before, after) {
     missingTierIds: [...beforeTierIds].filter((id) => !afterTierIds.has(id) && !replacedFromIds.has(id)).sort(),
     addedTierIds: [...afterTierIds].filter((id) => !beforeTierIds.has(id)).sort(),
     retainedTierIds: [...beforeTierIds].filter((id) => afterTierIds.has(id)).sort(),
-    replacedTierIds
+    replacedTierIds,
+    invalidTierReplacements,
+    replacedCatalogDimensions,
+    authorizedCatalogReplacementIds: Object.fromEntries([...authorizedCatalog].map(([field, ids]) => [field, [...ids].sort()])),
+    ...catalogProof
   }
 }
 
@@ -189,11 +281,19 @@ function normalizedMutationSnapshot(snapshot) {
     score,
     scope,
     sliceId: String(snapshot.sliceId ?? snapshot.criticalSliceId ?? ''),
-    mutantCount: Number.isFinite(mutantCountCandidate) ? mutantCountCandidate : mutants.length
+    mutantCount: Number.isFinite(mutantCountCandidate) ? mutantCountCandidate : mutants.length,
+    executedMutants: Number(snapshot.executedMutants ?? 0),
+    schema: snapshot.schema ?? null,
+    status: snapshot.status ?? null,
+    tierId: snapshot.tierId ?? null,
+    thresholds: snapshot.thresholds ?? null,
+    rawReport: snapshot.rawReport ?? null,
+    config: snapshot.config ?? null,
+    producer: snapshot.producer ?? null
   }
 }
 
-function criticalMutationProof(beforeAudit, afterAudit, snapshots) {
+function criticalMutationProof(beforeAudit, afterAudit, snapshots, finalAuthority = false) {
   const beforeTestIds = recordIds(beforeAudit)
   const afterTestIds = recordIds(afterAudit)
   const actualDeletions = [...beforeTestIds].filter((id) => !afterTestIds.has(id)).sort()
@@ -208,11 +308,61 @@ function criticalMutationProof(beforeAudit, afterAudit, snapshots) {
     const missingScope = beforeIdentity.scopeIds.filter((id) => !afterIdentity.scopeIds.includes(id))
     const addedScope = afterIdentity.scopeIds.filter((id) => !beforeIdentity.scopeIds.includes(id))
     const exact = missingTestIds.length === 0 && addedTestIds.length === 0 && missingScope.length === 0 && addedScope.length === 0
+    if (!finalAuthority) {
+      return {
+        status: exact ? 'pass' : 'fail',
+        evidenceMode: 'scope-identity',
+        before: beforeIdentity,
+        after: afterIdentity,
+        missingTestIds,
+        addedTestIds,
+        missingScope,
+        addedScope,
+        actualDeletionCount: actualDeletions.length,
+        criticalDeletionCount: 0,
+        outOfScopeDeletionIds: actualDeletions,
+        errors: exact ? [] : ['critical mutation slice test/scope ids changed without a critical-scope test deletion']
+      }
+    }
+
+    const executed = normalizedMutationSnapshot(snapshots?.after)
+    const errors = []
+    if (!exact) errors.push('critical mutation slice test/scope ids changed without a critical-scope test deletion')
+    if (!executed || !Number.isFinite(executed.score)) {
+      errors.push('source-bound current critical mutation evidence is missing')
+    } else {
+      if (executed.schema !== 'fsusblog.stryker-authority.v1' || executed.status !== 'success') {
+        errors.push('current critical mutation evidence schema/status is invalid')
+      }
+      if (executed.tierId !== 'release-mutation-critical-slice') {
+        errors.push('current critical mutation evidence is bound to the wrong tier')
+      }
+      if (!Number.isFinite(executed.executedMutants) || executed.executedMutants <= 0) {
+        errors.push('current critical mutation evidence executed no mutants')
+      }
+      if (executed.scope.length === 0) errors.push('current critical mutation scope is missing')
+      const breakThreshold = Number(executed.thresholds?.break)
+      if (!Number.isFinite(breakThreshold) || executed.score + Number.EPSILON < breakThreshold) {
+        errors.push('current critical mutation score does not satisfy the configured break threshold')
+      }
+      if (!/^(?:sha256:)?[0-9a-f]{64}$/u.test(String(executed.rawReport?.sha256 ?? ''))
+        || !/^(?:sha256:)?[0-9a-f]{64}$/u.test(String(executed.config?.sha256 ?? ''))) {
+        errors.push('current critical mutation raw/config digests are missing')
+      }
+      const beforeScore = mutationScore(snapshots?.before)
+      if (Number.isFinite(beforeScore)) {
+        if (executed.score + Number.EPSILON < beforeScore) {
+          errors.push(`critical mutation slice score regressed from ${beforeScore} to ${executed.score}`)
+        }
+      } else if (executed.score + Number.EPSILON < 100) {
+        errors.push('critical mutation baseline score is missing and current score is not the non-regressing maximum')
+      }
+    }
     return {
-      status: exact ? 'pass' : 'fail',
-      evidenceMode: 'scope-identity',
+      status: errors.length === 0 ? 'pass' : executed ? 'fail' : 'not-measured',
+      evidenceMode: 'executed-current-slice',
       before: beforeIdentity,
-      after: afterIdentity,
+      after: executed,
       missingTestIds,
       addedTestIds,
       missingScope,
@@ -220,7 +370,7 @@ function criticalMutationProof(beforeAudit, afterAudit, snapshots) {
       actualDeletionCount: actualDeletions.length,
       criticalDeletionCount: 0,
       outOfScopeDeletionIds: actualDeletions,
-      errors: exact ? [] : ['critical mutation slice test/scope ids changed without a critical-scope test deletion']
+      errors
     }
   }
 
@@ -269,8 +419,10 @@ function deletionProof(before, after) {
   const declarations = new Map((after?.deletedTests ?? [])
     .filter((entry) => entry?.id)
     .map((entry) => [entry.id, entry]))
+  const baselineDeclarationIds = new Set(before?.replacementManifestBaseline?.deletedTestIds ?? [])
   const invalidDeclarations = []
   const validDeletedTestIds = []
+  const historicalDeclarationIds = []
 
   for (const id of removedTestIds) {
     const declaration = declarations.get(id)
@@ -289,6 +441,10 @@ function deletionProof(before, after) {
   }
 
   for (const [id, declaration] of declarations) {
+    if (baselineDeclarationIds.has(id) || (!beforeIds.has(id) && !afterIds.has(id))) {
+      historicalDeclarationIds.push(id)
+      continue
+    }
     if (!beforeIds.has(id) || afterIds.has(id)) {
       invalidDeclarations.push({
         id,
@@ -299,7 +455,8 @@ function deletionProof(before, after) {
   }
 
   const undeclaredTestIds = removedTestIds.filter((id) => !declarations.has(id))
-  const status = removedTestIds.length === 0 && declarations.size === 0
+  const activeDeclarationCount = declarations.size - historicalDeclarationIds.length
+  const status = removedTestIds.length === 0 && activeDeclarationCount === 0
     ? 'not-applicable'
     : undeclaredTestIds.length === 0 && invalidDeclarations.length === 0 ? 'pass' : 'fail'
 
@@ -309,6 +466,7 @@ function deletionProof(before, after) {
     validDeletedTestIds: validDeletedTestIds.sort(),
     undeclaredTestIds,
     invalidDeclarations,
+    historicalDeclarationIds: historicalDeclarationIds.sort(),
     deletedTests: [...declarations.values()].sort((left, right) => left.id.localeCompare(right.id))
   }
 }
@@ -318,9 +476,16 @@ function assertionReplacementProof(before, after) {
   const afterTargets = assertionTargetIds(after)
   const afterTestIds = recordIds(after)
   const declarations = after?.assertionReplacements ?? []
+  const baselineBeforeTargets = new Set(before?.replacementManifestBaseline?.assertionBeforeTargets ?? [])
   const validBeforeTargets = []
   const invalidDeclarations = []
+  const historicalBeforeTargets = []
   for (const declaration of declarations) {
+    if (baselineBeforeTargets.has(declaration?.before)
+      || (!beforeTargets.has(declaration?.before) && !afterTargets.has(declaration?.before))) {
+      historicalBeforeTargets.push(declaration.before)
+      continue
+    }
     const reasons = []
     const replacements = [...new Set(declaration?.replacementTestIds ?? [])]
     const afterAssertionTargets = [...new Set(declaration?.after ?? [])]
@@ -337,9 +502,12 @@ function assertionReplacementProof(before, after) {
     else validBeforeTargets.push(declaration.before)
   }
   return {
-    status: declarations.length === 0 ? 'not-applicable' : invalidDeclarations.length === 0 ? 'pass' : 'fail',
+    status: declarations.length === historicalBeforeTargets.length
+      ? 'not-applicable'
+      : invalidDeclarations.length === 0 ? 'pass' : 'fail',
     validBeforeTargets: [...new Set(validBeforeTargets)].sort(),
     invalidDeclarations,
+    historicalBeforeTargets: [...new Set(historicalBeforeTargets)].sort(),
     replacements: declarations
   }
 }
@@ -347,7 +515,9 @@ function assertionReplacementProof(before, after) {
 function coverageProof(before, after, deletionSafety, assertionReplacementSafety) {
   const beforeIds = new Set(before?.retainedEvidence?.coverageIds ?? [])
   const afterIds = new Set(after?.retainedEvidence?.coverageIds ?? [])
-  const missingCoverageIds = [...beforeIds].filter((id) => !afterIds.has(id)).sort()
+  const dimensions = retainedDimensionProof(before, after)
+  const authorizedCoverageIds = new Set(dimensions.authorizedCatalogReplacementIds?.coverageIds ?? [])
+  const missingCoverageIds = [...beforeIds].filter((id) => !afterIds.has(id) && !authorizedCoverageIds.has(id)).sort()
   const addedCoverageIds = [...afterIds].filter((id) => !beforeIds.has(id)).sort()
   const beforeTestIds = recordIds(before)
   const afterTestIds = recordIds(after)
@@ -367,7 +537,6 @@ function coverageProof(before, after, deletionSafety, assertionReplacementSafety
   const afterTargets = Number(after?.retainedEvidence?.uniqueAssertionTargetCount ?? 0)
   const beforeTests = Number(before?.retainedEvidence?.testRecordCount ?? 0)
   const afterTests = Number(after?.retainedEvidence?.testRecordCount ?? 0)
-  const dimensions = retainedDimensionProof(before, after)
   const notWeaker = missingCoverageIds.length === 0
     && missingTestIds.length === 0
     && missingAssertionTargets.length === 0
@@ -376,6 +545,15 @@ function coverageProof(before, after, deletionSafety, assertionReplacementSafety
     && dimensions.missingFrameworks.length === 0
     && dimensions.missingRiskTags.length === 0
     && dimensions.missingTierIds.length === 0
+    && dimensions.invalidTierReplacements.length === 0
+    && dimensions.missingMatrixArtifactPaths.length === 0
+    && dimensions.missingMatrixEvidencePaths.length === 0
+    && dimensions.missingProductionRequiredTierIds.length === 0
+    && dimensions.missingCatalogCoverageIds.length === 0
+    && dimensions.missingRequirementIds.length === 0
+    && dimensions.missingRequirementProfileIds.length === 0
+    && dimensions.missingRequirementEvidencePaths.length === 0
+    && dimensions.missingReleaseEvidencePaths.length === 0
     && afterTargets >= beforeTargets
     && afterTests + deletionSafety.validDeletedTestIds.length >= beforeTests
   const stronger = notWeaker && (addedCoverageIds.length > 0 || afterTargets > beforeTargets || afterTests > beforeTests)
@@ -464,15 +642,91 @@ function selectAuthoritativeCheckpoint(checkpoints, finalAuthority) {
 }
 
 function completedEntries(checkpoint) {
-  return Object.entries(checkpoint?.tiers ?? checkpoint?.completed ?? {})
+  const projected = checkpoint?.logicalTierProjection?.entries
+  const source = projected && typeof projected === 'object'
+    ? projected
+    : (checkpoint?.tiers ?? checkpoint?.completed ?? {})
+  return Object.entries(source)
     .map(([id, value]) => ({
       id,
       durationMs: Number(value?.durationMs ?? 0),
       status: value?.status ?? 'success',
+      evidenceKind: value?.evidenceKind ?? 'executed',
+      reused: value?.reused === true,
       fingerprint: value?.fingerprint ?? value?.inputFingerprint ?? null,
       log: value?.log ?? value?.logFile ?? null
     }))
-    .filter((entry) => Number.isFinite(entry.durationMs) && entry.durationMs >= 0)
+    .filter((entry) => entry.evidenceKind === 'executed' && Number.isFinite(entry.durationMs) && entry.durationMs >= 0)
+}
+
+function logicalProjectionProof({ required, authoritative, expectedTierIds }) {
+  if (!required) return { required: false, status: 'compatibility', errors: [] }
+  const physicalTierIds = Object.keys(authoritative?.tiers ?? {}).filter((id) => id.startsWith('local-production-'))
+  if (physicalTierIds.length === 0) {
+    return { required: false, status: 'compatibility', errors: [] }
+  }
+  const errors = []
+  const projection = authoritative?.logicalTierProjection
+  const entries = projection?.entries && typeof projection.entries === 'object' ? projection.entries : {}
+  const entryIds = Object.keys(entries).sort()
+  const declaredIds = Array.isArray(projection?.logicalTierIds) ? [...projection.logicalTierIds].sort() : []
+  const expected = [...new Set(expectedTierIds ?? [])].sort()
+  if (projection?.schema !== 'fsusblog.local-profile-projection.v1'
+    || projection?.profileId !== 'production'
+    || projection?.executionSource !== 'fresh'
+    || projection?.status !== 'success') {
+    errors.push('production logical tier projection schema/status is invalid')
+  }
+  if (String(projection?.runId ?? '') !== String(authoritative?.runId ?? '')) {
+    errors.push('production logical tier projection run id does not match its checkpoint')
+  }
+  if (!sameSourceState(projection?.sourceState, authoritative?.sourceState)) {
+    errors.push('production logical tier projection source state does not match its checkpoint')
+  }
+  if (Number(projection?.logicalTierCount) !== expected.length
+    || expected.length !== 77
+    || JSON.stringify(declaredIds) !== JSON.stringify(expected)
+    || JSON.stringify(entryIds) !== JSON.stringify(expected)) {
+    errors.push('production logical tier projection must cover the exact 77-tier closure once')
+  }
+  let executedTierCount = 0
+  let summaryOnlyTierCount = 0
+  for (const [tierId, entry] of Object.entries(entries)) {
+    if (entry?.tierId !== tierId) errors.push(`${tierId} projection key/id mismatch`)
+    if (entry?.evidenceKind === 'executed') {
+      executedTierCount += 1
+      if (entry.status !== 'success' || entry.executionSource !== 'fresh') errors.push(`${tierId} executed projection is not successful fresh evidence`)
+      if (!Number.isFinite(Number(entry.durationMs)) || Number(entry.durationMs) < 0) errors.push(`${tierId} executed projection duration is invalid`)
+      if (!String(entry.physicalBundleId ?? '')) errors.push(`${tierId} executed projection is missing its physical bundle`)
+      if (!Array.isArray(entry.testIds) || entry.testIds.length === 0) errors.push(`${tierId} executed projection has no test ids`)
+    } else if (entry?.evidenceKind === 'summary-only') {
+      summaryOnlyTierCount += 1
+      if (entry.status !== 'collected-blocked' || entry.executionSource !== 'external-environment') {
+        errors.push(`${tierId} summary-only projection must remain explicit collected-blocked external evidence`)
+      }
+    } else {
+      errors.push(`${tierId} projection evidenceKind is invalid`)
+    }
+    const digests = Object.values(entry?.artifactDigests ?? {})
+    if (digests.length === 0 || digests.some((digest) => !/^sha256:[0-9a-f]{64}$/u.test(String(digest)))) {
+      errors.push(`${tierId} projection artifact digests are missing or invalid`)
+    }
+  }
+  if (executedTierCount !== 76
+    || summaryOnlyTierCount !== 1
+    || Number(projection?.executedTierCount) !== executedTierCount
+    || Number(projection?.summaryOnlyTierCount) !== summaryOnlyTierCount) {
+    errors.push('production logical tier projection must contain 76 executed and 1 summary-only tier')
+  }
+  return {
+    required: true,
+    status: errors.length === 0 ? 'pass' : 'fail',
+    physicalTierIds,
+    logicalTierCount: entryIds.length,
+    executedTierCount,
+    summaryOnlyTierCount,
+    errors
+  }
 }
 
 function performanceBudgets(checkpoints, authoritative) {
@@ -515,6 +769,41 @@ function sameSourceState(left, right) {
     && String(left.worktreeFingerprint ?? '') === String(right.worktreeFingerprint ?? '')
 }
 
+function mutationAuthorityProof({ required, evidence, checkpoints, currentSourceState }) {
+  if (!required) return { required: false, status: 'compatibility', errors: [] }
+  const errors = []
+  const tierId = 'release-mutation-critical-slice'
+  const checkpoint = freshCheckpoints(checkpoints).find((candidate) => checkpointTarget(candidate) === tierId)
+  const tier = checkpoint?.tiers?.[tierId] ?? checkpoint?.completed?.[tierId]
+  if (!checkpoint || checkpoint.status !== 'success') {
+    errors.push('successful release-mutation-critical-slice fresh checkpoint is required')
+  } else if (!tier || tier.status !== 'success' || tier.reused === true) {
+    errors.push('release-mutation-critical-slice checkpoint must contain a non-reused successful tier result')
+  }
+  if (evidence?.schema !== 'fsusblog.stryker-authority.v1'
+    || evidence?.status !== 'success'
+    || evidence?.tierId !== tierId) {
+    errors.push('source-bound Stryker authority evidence is missing or invalid')
+  }
+  const producer = evidence?.producer
+  if (!producer || String(producer.runId ?? '') !== String(checkpoint?.runId ?? '')) {
+    errors.push('Stryker authority run id does not match the mutation checkpoint')
+  }
+  if (!sameSourceState(producer?.sourceState, checkpoint?.sourceState)) {
+    errors.push('Stryker authority source state does not match the mutation checkpoint')
+  }
+  if (currentSourceState && !sameSourceState(producer?.sourceState, currentSourceState)) {
+    errors.push('Stryker authority was not produced from the current repository source state')
+  }
+  return {
+    required: true,
+    status: errors.length === 0 ? 'pass' : 'fail',
+    checkpointRunId: checkpoint?.runId ?? null,
+    producer: producer ?? null,
+    errors
+  }
+}
+
 function retentionAuditAuthorityProof({ required, authoritative, after }) {
   if (!required) return { required: false, status: 'compatibility', errors: [] }
   const errors = []
@@ -551,6 +840,51 @@ function retentionAuditAuthorityProof({ required, authoritative, after }) {
     runId: producer?.runId ?? null,
     generatedAt: auditGeneratedAt,
     checkpointFinishedAt,
+    errors
+  }
+}
+
+function baselineAuthorityProof({ required, before }) {
+  if (!required) return { required: false, status: 'compatibility', errors: [] }
+  const errors = []
+  if (before?.schema !== 'fsusblog.test-retention-audit.v2') {
+    errors.push('before snapshot schema is missing or unsupported')
+  }
+  if (before?.snapshotRole !== 'before-test-reduction') {
+    errors.push('before snapshot role must be before-test-reduction')
+  }
+  if (!/^[0-9a-f]{40}$/u.test(String(before?.sourceState?.commit ?? ''))) {
+    errors.push('before snapshot commit binding is missing or invalid')
+  }
+  if (!/^[0-9a-f]{64}$/u.test(String(before?.sourceState?.worktreeFingerprint ?? ''))) {
+    errors.push('before snapshot worktree fingerprint binding is missing or invalid')
+  }
+  if (!Number.isFinite(Date.parse(before?.generatedAt ?? ''))) {
+    errors.push('before snapshot generatedAt is missing or invalid')
+  }
+  for (const field of [
+    'matrixTierIds',
+    'productionRequiredTierIds',
+    'matrixArtifactPaths',
+    'matrixEvidencePaths',
+    'coverageIds',
+    'requirementIds',
+    'releaseEvidencePaths'
+  ]) {
+    if (!Array.isArray(before?.catalogSnapshot?.[field])) {
+      errors.push(`before snapshot catalog ${field} is missing`)
+    }
+  }
+  for (const field of ['deletedTestIds', 'assertionBeforeTargets', 'tierFromIds']) {
+    if (!Array.isArray(before?.replacementManifestBaseline?.[field])) {
+      errors.push(`before snapshot replacement manifest baseline ${field} is missing`)
+    }
+  }
+  return {
+    required: true,
+    status: errors.length === 0 ? 'pass' : 'fail',
+    sourceState: before?.sourceState ?? null,
+    generatedAt: before?.generatedAt ?? null,
     errors
   }
 }
@@ -596,8 +930,11 @@ function finalAuthorityProof({
   deletionSafety,
   assertionReplacementSafety,
   retention,
+  baselineAuthority,
   retentionAuditAuthority,
-  sourceAuthority
+  sourceAuthority,
+  mutationAuthority,
+  logicalProjection
 }) {
   if (!required) return { required: false, status: 'compatibility', errors: [] }
   const errors = []
@@ -613,8 +950,11 @@ function finalAuthorityProof({
   if (deletionSafety.status === 'fail') errors.push('test deletion safety proof failed')
   if (assertionReplacementSafety.status === 'fail') errors.push('assertion replacement safety proof failed')
   if (retention.unreviewedCandidates > 0) errors.push(`${retention.unreviewedCandidates} retention candidates remain unreviewed`)
+  if (baselineAuthority.status === 'fail') errors.push(...baselineAuthority.errors)
   if (retentionAuditAuthority.status === 'fail') errors.push(...retentionAuditAuthority.errors)
   if (sourceAuthority.status === 'fail') errors.push(...sourceAuthority.errors)
+  if (mutationAuthority.status === 'fail') errors.push(...mutationAuthority.errors)
+  if (logicalProjection.status === 'fail') errors.push(...logicalProjection.errors)
   return { required: true, status: errors.length === 0 ? 'pass' : 'fail', errors: [...new Set(errors)] }
 }
 
@@ -650,9 +990,23 @@ export function buildOptimizationReport({
   const criticalMutationSlice = criticalMutationProof(before, after, mutationSnapshots ?? {
     before: before?.optimizationEvidence?.criticalMutationSlice,
     after: after?.optimizationEvidence?.criticalMutationSlice
+  }, finalAuthority)
+  const mutationAuthority = mutationAuthorityProof({
+    required: finalAuthority,
+    evidence: mutationSnapshots?.after ?? null,
+    checkpoints,
+    currentSourceState
+  })
+  const logicalProjection = logicalProjectionProof({
+    required: finalAuthority,
+    authoritative,
+    expectedTierIds: after?.catalogSnapshot?.productionRequiredTierIds
+      ?? before?.catalogSnapshot?.productionRequiredTierIds
+      ?? []
   })
   const retention = retentionReview(after)
   const budgets = performanceBudgets(checkpoints, authoritative)
+  const baselineAuthority = baselineAuthorityProof({ required: finalAuthority, before })
   const retentionAuditAuthority = retentionAuditAuthorityProof({
     required: finalAuthority,
     authoritative,
@@ -676,8 +1030,11 @@ export function buildOptimizationReport({
     deletionSafety,
     assertionReplacementSafety,
     retention,
+    baselineAuthority,
     retentionAuditAuthority,
-    sourceAuthority
+    sourceAuthority,
+    mutationAuthority,
+    logicalProjection
   })
   const topSlowTests = (after?.testRecords ?? [])
     .filter((record) => Number(record?.timing?.p95Ms) >= 0 && Number(record?.timing?.samples) > 0)
@@ -701,11 +1058,14 @@ export function buildOptimizationReport({
       checkpoint: authoritative.checkpointFile ?? null
     } : null,
     finalAuthority: authority,
+    baselineAuthority,
     retentionAuditAuthority,
     sourceAuthority,
     retainedCoverage,
     coverageMetrics,
     criticalMutationSlice,
+    mutationAuthority,
+    logicalProjection,
     deletionSafety,
     assertionReplacementSafety,
     retentionReview: retention,
@@ -733,6 +1093,10 @@ export function renderOptimizationMarkdown(report) {
     ...report.retentionAuditAuthority.errors.map((error) => `- ${error}`),
     `Source authority: ${report.sourceAuthority.status}`,
     ...report.sourceAuthority.errors.map((error) => `- ${error}`),
+    `Mutation authority: ${report.mutationAuthority.status}`,
+    ...report.mutationAuthority.errors.map((error) => `- ${error}`),
+    `Production logical projection: ${report.logicalProjection.status}`,
+    ...report.logicalProjection.errors.map((error) => `- ${error}`),
     '',
     `Retained coverage: ${report.retainedCoverage.status}`,
     `Reviewed candidates: ${report.retentionReview.reviewedCandidates}; unreviewed: ${report.retentionReview.unreviewedCandidates}`,
@@ -782,18 +1146,19 @@ export function renderOptimizationMarkdown(report) {
 
 function parseArgs(argv) {
   const options = {
-    before: '.tmp/release-evidence/test-retention-before.json',
+    before: 'tests/test-retention-before.json',
     after: '.tmp/release-evidence/test-retention-audit.json',
     baselineSnapshot: 'tests/test-optimization-coverage-baseline.json',
     currentSnapshot: null,
     checkpoints: [],
+    mutationEvidence: null,
     captureSnapshot: null,
     out: '.tmp/release-evidence/test-optimization-report.json',
     markdown: '.tmp/release-evidence/test-optimization-report.md'
   }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (!['--before', '--after', '--baseline-snapshot', '--current-snapshot', '--checkpoint', '--capture-snapshot', '--out', '--markdown'].includes(arg)) {
+    if (!['--before', '--after', '--baseline-snapshot', '--current-snapshot', '--checkpoint', '--mutation-evidence', '--capture-snapshot', '--out', '--markdown'].includes(arg)) {
       throw new Error(`unknown option: ${arg}`)
     }
     const value = argv[++index]
@@ -807,6 +1172,48 @@ function parseArgs(argv) {
 function readJson(relative, fallback = null) {
   const absolute = path.resolve(repoRoot, relative)
   return fs.existsSync(absolute) ? JSON.parse(fs.readFileSync(absolute, 'utf8')) : fallback
+}
+
+function validateFileDigestBinding(binding, label) {
+  const relative = String(binding?.path ?? '')
+  const expected = String(binding?.sha256 ?? '').replace(/^sha256:/u, '')
+  if (!relative || !/^[0-9a-f]{64}$/u.test(expected)) {
+    throw new Error(`${label} path/digest binding is missing or invalid`)
+  }
+  const absolute = path.resolve(repoRoot, relative)
+  const rel = path.relative(repoRoot, absolute)
+  if (!rel || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel) || !fs.existsSync(absolute)) {
+    throw new Error(`${label} must resolve to an existing repository file`)
+  }
+  const actual = createHash('sha256').update(fs.readFileSync(absolute)).digest('hex')
+  if (actual !== expected) throw new Error(`${label} digest does not match current file content`)
+}
+
+function validateAuthoritativeBeforeSourceDigests(before) {
+  const commit = String(before?.sourceState?.commit ?? '')
+  if (!/^[0-9a-f]{40}$/u.test(commit)) {
+    throw new Error('authoritative before snapshot commit binding is missing or invalid')
+  }
+  const sources = {
+    matrix: 'tests/matrix.yml',
+    coverageRegistry: 'tests/coverage-registry.json',
+    requirementCatalog: 'tests/backend/Fixtures/backend-test-requirements.json',
+    optimizationCoverageBaseline: 'tests/test-optimization-coverage-baseline.json'
+  }
+  for (const [id, relative] of Object.entries(sources)) {
+    const expected = String(before?.catalogSnapshot?.sourceDigests?.[id] ?? '')
+    if (!/^sha256:[0-9a-f]{64}$/u.test(expected)) {
+      throw new Error(`authoritative before snapshot source digest is missing for ${relative}`)
+    }
+    const source = spawnSync('git', ['show', `${commit}:${relative}`], {
+      cwd: repoRoot,
+      encoding: 'buffer',
+      maxBuffer: 16 * 1024 * 1024
+    })
+    if (source.status !== 0) throw new Error(`cannot resolve authoritative before source ${relative}`)
+    const actual = `sha256:${createHash('sha256').update(source.stdout).digest('hex')}`
+    if (actual !== expected) throw new Error(`authoritative before source digest mismatch for ${relative}`)
+  }
 }
 
 function discoveredCheckpoints() {
@@ -881,6 +1288,9 @@ async function main() {
     console.log(`[test-optimization] captured ${path.relative(repoRoot, destination)}`)
     return
   }
+  if (path.resolve(repoRoot, options.before) !== authoritativeBeforePath) {
+    throw new Error('authoritative --before path must be tests/test-retention-before.json')
+  }
   const before = readJson(options.before)
   const after = readJson(options.after)
   if (!before) throw new Error(`missing baseline retention audit: ${options.before}`)
@@ -888,6 +1298,7 @@ async function main() {
   if (before.schema !== 'fsusblog.test-retention-audit.v2') {
     throw new Error(`unsupported baseline retention audit schema: ${before.schema ?? 'missing'}`)
   }
+  validateAuthoritativeBeforeSourceDigests(before)
   if (after.schema !== 'fsusblog.test-retention-audit.v2') {
     throw new Error(`unsupported retention audit schema: ${after.schema ?? 'missing'}`)
   }
@@ -910,6 +1321,13 @@ async function main() {
   if (options.checkpoints.length === 0) {
     throw new Error('final optimization authority requires explicit --checkpoint paths from this verification run')
   }
+  if (!options.mutationEvidence) {
+    throw new Error('final optimization authority requires explicit --mutation-evidence from this verification run')
+  }
+  const mutationEvidence = readJson(options.mutationEvidence)
+  if (!mutationEvidence) throw new Error(`missing mutation authority evidence: ${options.mutationEvidence}`)
+  validateFileDigestBinding(mutationEvidence.rawReport, 'Stryker raw report')
+  validateFileDigestBinding(mutationEvidence.config, 'Stryker config')
   const worktree = await snapshotGitWorktree(repoRoot)
   const commitResult = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' })
   const currentSourceState = {
@@ -927,7 +1345,7 @@ async function main() {
     },
     mutationSnapshots: {
       before: baselineSnapshot?.criticalMutationSlice,
-      after: currentSnapshot?.criticalMutationSlice
+      after: mutationEvidence
     },
     finalAuthority: true,
     currentSourceState

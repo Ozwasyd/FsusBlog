@@ -29,14 +29,38 @@ function ownedContainerNames(namespace) {
 }
 
 function defaultRemoveContainer(name) {
-  spawnSync('docker', ['rm', '--force', name], { stdio: 'ignore' })
+  spawnSync('docker', ['rm', '--force', '--volumes', name], { stdio: 'ignore' })
 }
 
-function defaultKillProcess(pid) {
+function defaultKillProcess(pid, root, pidFileName) {
+  if (process.platform !== 'win32') {
+    try {
+      const resolvedRoot = fs.realpathSync(root)
+      const cwd = fs.realpathSync(`/proc/${pid}/cwd`)
+      const command = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ')
+      const withinRoot = cwd === resolvedRoot || cwd.startsWith(`${resolvedRoot}${path.sep}`)
+      const expectedCommand = pidFileName === 'backend.pid'
+        ? /(?:dotnet.+FsusBlog\.Server|FsusBlog\.Server)/u.test(command)
+        : /(?:^|\s|\/)vite(?:\s|$)/u.test(command)
+      if (!withinRoot || !expectedCommand) return false
+    } catch {
+      return false
+    }
+  }
   try {
-    process.kill(pid, 'SIGTERM')
+    if (process.platform !== 'win32') {
+      process.kill(-pid, 'SIGTERM')
+    } else {
+      process.kill(pid, 'SIGTERM')
+    }
     return true
-  } catch {
+  } catch (error) {
+    if (process.platform !== 'win32' && error.code === 'ESRCH') {
+      try {
+        process.kill(pid, 'SIGTERM')
+        return true
+      } catch {}
+    }
     return false
   }
 }
@@ -83,7 +107,7 @@ export function cleanupLocalRuntime({
     for (const entry of fs.readdirSync(runtimeDirectory)) {
       if (!entry.endsWith('.pid')) continue
       const value = Number.parseInt(fs.readFileSync(path.join(runtimeDirectory, entry), 'utf8').trim(), 10)
-      if (Number.isInteger(value) && value > 1 && killProcess(value)) terminatedPids.push(value)
+      if (Number.isInteger(value) && value > 1 && killProcess(value, resolvedRoot, entry)) terminatedPids.push(value)
     }
   }
 
@@ -97,4 +121,41 @@ export function cleanupLocalRuntime({
   }
 
   return { namespace: slug, removedContainers, skippedContainers, terminatedPids }
+}
+
+export function cleanupStaleLocalRuntimes({
+  root,
+  removeContainer = defaultRemoveContainer,
+  killProcess = defaultKillProcess
+}) {
+  const resolvedRoot = path.resolve(root)
+  const namespaces = new Set()
+  const acceptanceRoot = path.join(resolvedRoot, '.tmp', 'acceptance')
+  const envRoot = path.join(resolvedRoot, '.tmp', 'env')
+
+  if (fs.existsSync(acceptanceRoot)) {
+    for (const entry of fs.readdirSync(acceptanceRoot, { withFileTypes: true })) {
+      if (entry.isDirectory() && namespaceSlug(entry.name) === entry.name) namespaces.add(entry.name)
+    }
+  }
+  if (fs.existsSync(envRoot)) {
+    for (const entry of fs.readdirSync(envRoot, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith('.env')) continue
+      const namespace = entry.name.slice(0, -4)
+      if (namespaceSlug(namespace) === namespace) namespaces.add(namespace)
+    }
+  }
+
+  const cleanups = [...namespaces].sort().map((namespace) => cleanupLocalRuntime({
+    root: resolvedRoot,
+    namespace,
+    removeContainer,
+    killProcess
+  }))
+  return {
+    namespaces: cleanups.map((cleanup) => cleanup.namespace),
+    removedContainers: cleanups.flatMap((cleanup) => cleanup.removedContainers),
+    skippedContainers: cleanups.flatMap((cleanup) => cleanup.skippedContainers),
+    terminatedPids: cleanups.flatMap((cleanup) => cleanup.terminatedPids)
+  }
 }

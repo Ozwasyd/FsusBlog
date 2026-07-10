@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -20,13 +21,24 @@ const routes = UX_VIEWPORT_MODEL_ROUTE_IDS.map((id) => ({
 }))
 const fullPlan = buildUxViewportPlan({ matrix, routes, mode: 'boundaries' })
 const riskPlan = buildUxViewportPlan({ matrix, routes, mode: 'boundaries', filters: { riskMatrix: true } })
+const playwrightBaseUrl = String(process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || '').trim()
+const resume = process.env.FSUSBLOG_UX_VIEWPORT_RESUME === '1'
+const detectedCpuCount = os.availableParallelism?.() ?? os.cpus().length
+const configuredWorkers = Number.parseInt(String(process.env.FSUSBLOG_UX_VIEWPORT_WORKERS ?? ''), 10)
+const workerCapacity = Number.isInteger(configuredWorkers) && configuredWorkers > 0
+  ? Math.min(configuredWorkers, detectedCpuCount)
+  : detectedCpuCount
+const riskWorkers = Math.max(1, Math.min(riskPlan.counts.routeThemeGroups, workerCapacity))
 
 if (fullPlan.counts.cases !== 6468) throw new Error(`full UX model must contain 6468 cases, got ${fullPlan.counts.cases}`)
 if (riskPlan.counts.navigations > 48) throw new Error(`risk UX runtime exceeds 48 navigations: ${riskPlan.counts.navigations}`)
+if (!/^https?:\/\/[^/]+/u.test(playwrightBaseUrl)) {
+  throw new Error('local production UX risk requires PLAYWRIGHT_BASE_URL or FSUSBLOG_DEBUG_FRONTEND_URL from the active namespace')
+}
 
 const cli = path.join(frontend, 'node_modules/@playwright/test/cli.js')
-const args = [cli, 'test', '--workers=2', 'ux/viewport-boundaries.spec.ts']
-const runId = `local-production-risk-${Date.now()}`
+const args = [cli, 'test', `--workers=${riskWorkers}`, 'ux/viewport-boundaries.spec.ts']
+const freshRunId = `local-production-risk-${Date.now()}`
 const child = spawn(process.execPath, args, {
   cwd: frontend,
   env: {
@@ -34,10 +46,16 @@ const child = spawn(process.execPath, args, {
     FSUSBLOG_UX_VIEWPORT_MODE: 'boundaries',
     FSUSBLOG_UX_VIEWPORT_RISK_MATRIX: '1',
     FSUSBLOG_UX_VIEWPORT_SCREENSHOTS: '1',
-    FSUSBLOG_UX_VIEWPORT_WORKERS: '2',
-    FSUSBLOG_UX_VIEWPORT_RESUME: '0',
-    FSUSBLOG_UX_VIEWPORT_RUN_ID: runId,
-    FSUSBLOG_UX_VIEWPORT_RUN_TOKEN: `${runId}-token`,
+    FSUSBLOG_UX_VIEWPORT_WORKERS: String(riskWorkers),
+    FSUSBLOG_PLAYWRIGHT_WORKERS: String(riskWorkers),
+    FSUSBLOG_TEST_SESSION_ISOLATION: '1',
+    FSUSBLOG_PLAYWRIGHT_TRACE: 'off',
+    FSUSBLOG_UX_VIEWPORT_RESUME: resume ? '1' : '0',
+    ...(resume ? {} : {
+      FSUSBLOG_UX_VIEWPORT_RUN_ID: freshRunId,
+      FSUSBLOG_UX_VIEWPORT_RUN_TOKEN: `${freshRunId}-token`
+    }),
+    PLAYWRIGHT_BASE_URL: playwrightBaseUrl,
     PLAYWRIGHT_OUTPUT_DIR: 'test-results/playwright/local-production-risk'
   },
   stdio: 'inherit'
@@ -55,10 +73,12 @@ if (summary.status !== 'ok' || summary.plannedNavigationCount !== riskPlan.count
 const evidence = {
   schema: 'fsusblog.local-production.ux-risk.v1',
   status: 'success',
-  executionSource: 'fresh',
+  executionSource: resume ? 'resume' : 'fresh',
   fullModel: fullPlan.counts,
   runtimeRisk: riskPlan.counts,
   selection: riskPlan.selection,
+  workers: riskWorkers,
+  playwrightBaseUrl,
   runtimeSummary: summary,
   generatedAt: new Date().toISOString()
 }

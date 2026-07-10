@@ -35,7 +35,7 @@ function expectNotIncludes(path, source, needle, label = needle) {
 }
 
 const publicPagePath = 'src/frontend/src/assets/public-page.css'
-const publicShellPath = 'src/frontend/src/assets/public-shell-critical.css'
+const publicShellPath = 'src/frontend/src/assets/public-shell-foundation.css'
 const motionPath = 'src/frontend/src/assets/motion.css'
 const tailwindPath = 'src/frontend/src/assets/tailwind.css'
 const markdownPath = 'src/frontend/src/assets/markdown.css'

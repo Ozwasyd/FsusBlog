@@ -298,7 +298,7 @@ test('case invocations use the real legacy snapshot and current runner with exac
     assert.equal(invocation.env.FSUSBLOG_UX_VIEWPORT_THEMES, 'dark')
     assert.equal(invocation.env.FSUSBLOG_UX_VIEWPORT_VIEWPORTS, 'mobile-landscape')
     assert.equal(invocation.env.FSUSBLOG_UX_VIEWPORT_MEDIA, 'high-contrast')
-    assert.equal(invocation.env.FSUSBLOG_PLAYWRIGHT_DIAGNOSTIC_ALL_FAILURES, '1')
+    assert.equal('FSUSBLOG_PLAYWRIGHT_DIAGNOSTIC_ALL_FAILURES' in invocation.env, false)
     assert.ok(invocation.args.includes('--reporter=json'))
   }
   assert.ok(legacy.args.some((entry) => entry.includes('mobile-landscape-dark-high-contrast-')))

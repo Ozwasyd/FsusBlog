@@ -27,7 +27,7 @@ const themeRuntimeSource = readFileSync(
   'utf8',
 )
 const publicShellCriticalCss = readFileSync(
-  resolve(process.cwd(), 'src/assets/public-shell-critical.css'),
+  resolve(process.cwd(), 'src/assets/public-shell-foundation.css'),
   'utf8',
 )
 const bottomTabSource = readFileSync(

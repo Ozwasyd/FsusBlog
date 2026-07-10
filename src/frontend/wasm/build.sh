@@ -177,13 +177,17 @@ if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUIL
 fi
 
 node "${ROOT_DIR}/../../tools/frontend/write-comment-privacy-prover-manifest.mjs"
-tar -czf "${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz" \
-  -C "${OUT_DIR}" \
+PROVER_BUNDLE="${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz"
+PROVER_BUNDLE_TAR="${PROVER_BUNDLE}.tmp-$$.tar"
+tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode=0644 \
+  -C "${OUT_DIR}" -cf "${PROVER_BUNDLE_TAR}" \
   comment-privacy-prover.js \
   comment_privacy_runtime.js \
   comment_privacy_runtime.wasm \
   comment-privacy-prover.zkey \
   comment-privacy-prover.manifest.json
+gzip -n -9 -f "${PROVER_BUNDLE_TAR}"
+mv -f "${PROVER_BUNDLE_TAR}.gz" "${PROVER_BUNDLE}"
 node "${ROOT_DIR}/../../tools/frontend/ensure-wasm.mjs" write-manifest
 
 echo "Wasm artifacts emitted to ${OUT_DIR}"

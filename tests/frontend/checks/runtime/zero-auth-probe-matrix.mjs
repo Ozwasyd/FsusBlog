@@ -11,6 +11,7 @@ const { chromium } = require(require.resolve('@playwright/test', { paths: [proce
 
 const baseUrl = (
   process.env.PLAYWRIGHT_BASE_URL
+  || process.env.FSUSBLOG_DEBUG_FRONTEND_URL
   || process.env.FSUSBLOG_PUBLIC_BASE_URL
   || process.env.FSUSBLOG_BASE_URL
   || 'http://127.0.0.1:3000'
@@ -162,8 +163,9 @@ async function runPublicNavigationScenario(browser) {
       waitUntil: 'domcontentloaded',
       timeout: 20_000,
     })
-    await page.waitForSelector('#fsus-aot-shell, #app', { timeout: 10_000 })
-    await page.click('a[href="/about"]')
+    const aboutLink = page.locator('a[href="/about"]:visible').first()
+    await aboutLink.waitFor({ state: 'visible', timeout: 0 })
+    await aboutLink.click()
     await page.waitForURL(/\/about(?:[?#].*)?$/u, { timeout: 15_000 })
     await page.waitForTimeout(1800)
   } finally {

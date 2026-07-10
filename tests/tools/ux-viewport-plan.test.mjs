@@ -8,6 +8,10 @@ import {
   buildUxViewportPlan,
   listUxViewportCases
 } from '../frontend/support/playwright/uxViewportPlan.mjs'
+import {
+  buildViewportPlanProgressSummary,
+  viewportPlanProgressTestFiles
+} from '../../tools/ux/run-viewport-plan-progress.mjs'
 
 const matrix = JSON.parse(await readFile(
   new URL('../frontend/fixtures/ux-viewport-matrix.json', import.meta.url),
@@ -56,6 +60,33 @@ const routes = routeIds.map((id) => ({
   id,
   storage: id.startsWith('public-') ? 'anonymous' : id.startsWith('user-') ? 'user' : 'admin'
 }))
+
+test('plan/progress tier summary binds the exact executable governance suite to its fresh run', () => {
+  const summary = buildViewportPlanProgressSummary({
+    env: {
+      FSUSBLOG_TEST_RUN_ID: 'production-fresh',
+      FSUSBLOG_TEST_SOURCE_COMMIT: 'a'.repeat(40),
+      FSUSBLOG_TEST_SOURCE_FINGERPRINT: 'b'.repeat(64)
+    },
+    generatedAt: '2026-07-11T00:00:00.000Z'
+  })
+
+  assert.equal(summary.status, 'success')
+  assert.equal(summary.executionSource, 'fresh')
+  assert.equal(summary.schedulerRunId, 'production-fresh')
+  assert.equal(summary.sourceState.commit, 'a'.repeat(40))
+  assert.deepEqual(summary.testFiles, [...viewportPlanProgressTestFiles])
+  assert.deepEqual(summary.testFiles, [
+    'tests/tools/ux-viewport-plan.test.mjs',
+    'tests/tools/ux-viewport-progress.test.mjs',
+    'tests/tools/ux-viewport-runtime-contract.test.mjs'
+  ])
+
+  const standalone = buildViewportPlanProgressSummary({ env: {}, generatedAt: '2026-07-11T00:00:00.000Z' })
+  assert.equal(standalone.executionSource, 'standalone')
+  assert.equal(standalone.schedulerRunId, null)
+  assert.equal(standalone.sourceState, null)
+})
 
 test('shared planner preserves the exact smoke, visual, and boundaries coverage budgets', () => {
   const smoke = buildUxViewportPlan({ matrix, routes, mode: 'smoke' })

@@ -7,6 +7,23 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
+const xunitRunner = JSON.parse(await readFile(path.join(root, 'tests/backend/xunit.runner.json'), 'utf8'))
+assert.equal(xunitRunner.stopOnFail, false, 'xUnit must collect all failures in each run')
+const legacyRunner = await readFile(path.join(root, 'tools/test/legacy-test.sh'), 'utf8')
+const parallelHelper = legacyRunner.slice(
+  legacyRunner.indexOf('run_parallel()'),
+  legacyRunner.indexOf('\nprobe_url()')
+)
+assert.doesNotMatch(parallelHelper, /kill "\$pid"/, 'parallel groups must not kill peers after one failure')
+assert.match(parallelHelper, /local -a failures=\(\)/u)
+assert.match(parallelHelper, /parallel group failed: \$group \(\$\{failures\[\*\]\}\)/u)
+const securityRunner = legacyRunner.slice(
+  legacyRunner.indexOf('run_security_only()'),
+  legacyRunner.indexOf('\nrun_security()')
+)
+assert.match(securityRunner, /run_parallel "security-static"/u)
+assert.match(securityRunner, /local -a security_failures=\(\)/u)
+assert.match(securityRunner, /security stage failed, continuing/u)
 
 async function importRequired(relativePath) {
   const absolutePath = path.join(root, relativePath)
@@ -39,7 +56,7 @@ const fastOptions = vitest.createVitestRuntimeOptions('unit-core', {
   load1: 0,
   argv: []
 })
-assert.equal(fastOptions.bail, 1, 'fast Vitest runs must fail fast')
+assert.equal(fastOptions.bail, 0, 'fast Vitest runs must collect all failures')
 assert.match(fastOptions.outputFile.json, /unit-core[\\/]shard-2-of-4\.json$/u)
 assert.match(fastOptions.outputFile.junit, /unit-core[\\/]shard-2-of-4\.xml$/u)
 assert.deepEqual(fastOptions.reporters, ['default', 'json', 'junit'])
@@ -47,7 +64,7 @@ assert.deepEqual(fastOptions.reporters, ['default', 'json', 'junit'])
 const coverageOptions = vitest.createVitestRuntimeOptions('unit-core', {
   env: {}, cpuCount: 8, freeMemoryBytes: 16 * 1024 ** 3, load1: 0, argv: ['--coverage']
 })
-assert.equal(coverageOptions.bail, 1, 'coverage must keep fail-fast unless diagnostics are explicit')
+assert.equal(coverageOptions.bail, 0, 'coverage must collect all failures')
 assert.match(coverageOptions.outputFile.json, /unit-core-coverage[\\/]unsharded\.json$/u)
 
 const diagnosticOptions = vitest.createVitestRuntimeOptions('unit-core', {
@@ -58,6 +75,15 @@ const diagnosticOptions = vitest.createVitestRuntimeOptions('unit-core', {
   argv: ['--coverage']
 })
 assert.equal(diagnosticOptions.bail, 0, 'explicit diagnostic runs must collect all failures')
+
+const ignoredBailOverride = vitest.createVitestRuntimeOptions('unit-core', {
+  env: { FSUSBLOG_VITEST_BAIL: '1' },
+  cpuCount: 8,
+  freeMemoryBytes: 16 * 1024 ** 3,
+  load1: 0,
+  argv: []
+})
+assert.equal(ignoredBailOverride.bail, 0, 'Vitest must not restore a maximum failure cutoff')
 
 const fixturePaths = await importRequired('tests/frontend/support/fixture-paths.mjs')
 const fixtureEnv = { FSUSBLOG_TEST_NAMESPACE: 'CI shard/2' }

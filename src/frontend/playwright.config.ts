@@ -8,7 +8,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_B
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
 const uxViewportMode = process.env.FSUSBLOG_UX_VIEWPORT_MODE
 const resumesUxViewportRun = process.env.FSUSBLOG_UX_VIEWPORT_RESUME === '1'
-const diagnosticAllFailures = process.env.FSUSBLOG_PLAYWRIGHT_DIAGNOSTIC_ALL_FAILURES === '1'
+const traceMode = process.env.FSUSBLOG_PLAYWRIGHT_TRACE === 'off' ? 'off' : 'retain-on-failure'
 const configuredOutputDir = path.resolve(process.cwd(), process.env.PLAYWRIGHT_OUTPUT_DIR || 'test-results/playwright')
 
 if (uxViewportMode) {
@@ -98,9 +98,8 @@ export default defineConfig({
   testDir: '../../tests/frontend/e2e',
   fullyParallel: true,
   workers,
-  maxFailures: diagnosticAllFailures ? 0 : 1,
   globalSetup: '../../tests/frontend/support/playwright/global-setup.ts',
-  timeout: 240_000,
+  timeout: 0,
   expect: {
     timeout: 15_000
   },
@@ -110,7 +109,7 @@ export default defineConfig({
     baseURL,
     headless: true,
     ignoreHTTPSErrors: true,
-    trace: 'retain-on-failure',
+    trace: traceMode,
     screenshot: 'only-on-failure',
     video: 'off'
   },

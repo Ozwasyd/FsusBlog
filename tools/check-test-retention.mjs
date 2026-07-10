@@ -2,9 +2,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import {
   auditTestRecords,
+  buildRetentionCatalogSnapshot,
+  compactRetentionBaseline,
   inferTierIdsForFile,
   isTestInventoryPath,
   normalizeReplacementManifest,
@@ -21,7 +25,9 @@ const retentionClasses = new Set(['must-keep', 'conditional', 'redundant-candida
 function parseArgs(argv) {
   const options = {
     out: defaultOut,
-    runId: String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim() || null
+    runId: String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim() || null,
+    captureBefore: null,
+    auditInput: null
   }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
@@ -33,8 +39,14 @@ function parseArgs(argv) {
       if (!value) throw new Error('--run-id requires a non-empty value')
       options.runId = value
       index += 1
+    } else if (arg === '--capture-before') {
+      options.captureBefore = path.resolve(root, argv[index + 1] ?? '')
+      index += 1
+    } else if (arg === '--audit-input') {
+      options.auditInput = path.resolve(root, argv[index + 1] ?? '')
+      index += 1
     } else if (arg === '--help' || arg === '-h') {
-      console.log('Usage: node tools/check-test-retention.mjs [--out .tmp/release-evidence/test-retention-audit.json] [--run-id <production-run-id>]')
+      console.log('Usage: node tools/check-test-retention.mjs [--out .tmp/release-evidence/test-retention-audit.json] [--run-id <production-run-id>] [--capture-before tests/test-retention-before.json] [--audit-input <existing-audit.json>]')
       process.exit(0)
     } else {
       throw new Error(`unknown argument: ${arg}`)
@@ -190,8 +202,13 @@ function retentionClassForTier(tier) {
 }
 
 async function buildAudit({ runId = null } = {}) {
-  const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
-  const coverageRegistry = JSON.parse(fs.readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8'))
+  const matrixText = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
+  const coverageRegistryText = fs.readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8')
+  const requirementCatalogText = fs.readFileSync(path.join(root, 'tests/backend/Fixtures/backend-test-requirements.json'), 'utf8')
+  const optimizationCoverageBaselineText = fs.readFileSync(path.join(root, 'tests/test-optimization-coverage-baseline.json'), 'utf8')
+  const matrix = parseMatrix(matrixText)
+  const coverageRegistry = JSON.parse(coverageRegistryText)
+  const requirementCatalog = JSON.parse(requirementCatalogText)
   const fileToCoverage = new Map()
   const fileToTiers = new Map()
   const fileToTierRetention = new Map()
@@ -309,6 +326,17 @@ async function buildAudit({ runId = null } = {}) {
   const uniqueAssertionTargets = new Set(testRecords.flatMap((record) => record.assertionTargets)).size
   const sourceState = await retentionSourceState(root)
   const generatedAt = new Date().toISOString()
+  const catalogSnapshot = buildRetentionCatalogSnapshot({
+    matrix,
+    coverageRegistry,
+    requirementCatalog,
+    sourceTexts: {
+      matrix: matrixText,
+      coverageRegistry: coverageRegistryText,
+      requirementCatalog: requirementCatalogText,
+      optimizationCoverageBaseline: optimizationCoverageBaselineText
+    }
+  })
 
   return {
     schema: 'fsusblog.test-retention-audit.v2',
@@ -344,8 +372,110 @@ async function buildAudit({ runId = null } = {}) {
       reviewedTestCount: candidateReviews.reduce((total, review) => total + review.tests.length, 0),
       reviewedCandidateCount: candidateReviews.length,
       unreviewedCandidateCount: candidateReviews.filter((review) => review.reviewed !== true).length
+    },
+    catalogSnapshot
+  }
+}
+
+function currentCatalogSnapshot() {
+  const matrixText = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
+  const coverageRegistryText = fs.readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8')
+  const requirementCatalogText = fs.readFileSync(path.join(root, 'tests/backend/Fixtures/backend-test-requirements.json'), 'utf8')
+  const optimizationCoverageBaselineText = fs.readFileSync(path.join(root, 'tests/test-optimization-coverage-baseline.json'), 'utf8')
+  return buildRetentionCatalogSnapshot({
+    matrix: parseMatrix(matrixText),
+    coverageRegistry: JSON.parse(coverageRegistryText),
+    requirementCatalog: JSON.parse(requirementCatalogText),
+    sourceTexts: {
+      matrix: matrixText,
+      coverageRegistry: coverageRegistryText,
+      requirementCatalog: requirementCatalogText,
+      optimizationCoverageBaseline: optimizationCoverageBaselineText
+    }
+  })
+}
+
+function baselineOptimizationEvidence(audit) {
+  const coveragePath = path.join(root, 'tests/test-optimization-coverage-baseline.json')
+  const snapshot = JSON.parse(fs.readFileSync(coveragePath, 'utf8'))
+  if (snapshot?.schema !== 'fsusblog.test-optimization-snapshot.v1') {
+    throw new Error(`unsupported optimization coverage baseline schema: ${snapshot?.schema ?? 'missing'}`)
+  }
+  const scopeIds = ['backend-mutation', 'release-mutation-critical-slice']
+  const testIds = (audit?.testRecords ?? [])
+    .filter((record) => (record?.tierIds ?? []).some((tierId) => scopeIds.includes(tierId)))
+    .map((record) => record.id)
+    .filter(Boolean)
+    .sort()
+  return {
+    coverageBaselinePath: 'tests/test-optimization-coverage-baseline.json',
+    coverage: snapshot.coverage,
+    criticalMutationSlice: {
+      evidenceMode: 'scope-identity',
+      testIds: [...new Set(testIds)],
+      scopeIds
     }
   }
+}
+
+function loadAuditInput(file) {
+  if (!fs.existsSync(file)) throw new Error(`audit input does not exist: ${toRepoPath(file)}`)
+  const audit = JSON.parse(fs.readFileSync(file, 'utf8'))
+  if (audit?.schema !== 'fsusblog.test-retention-audit.v2') {
+    throw new Error(`audit input must use fsusblog.test-retention-audit.v2, got ${audit?.schema ?? 'missing'}`)
+  }
+  const commit = String(audit?.sourceState?.commit ?? '')
+  if (!/^[0-9a-f]{40}$/u.test(commit)) {
+    throw new Error('audit input source commit is missing or invalid')
+  }
+  for (const relative of [
+    'tests/matrix.yml',
+    'tests/coverage-registry.json',
+    'tests/backend/Fixtures/backend-test-requirements.json',
+    'tests/test-optimization-coverage-baseline.json'
+  ]) {
+    const baseline = spawnSync('git', ['show', `${commit}:${relative}`], {
+      cwd: root,
+      encoding: 'buffer',
+      maxBuffer: 16 * 1024 * 1024
+    })
+    if (baseline.status !== 0) {
+      throw new Error(`cannot read ${relative} from audit input commit ${commit}`)
+    }
+    const current = fs.readFileSync(path.join(root, relative))
+    if (!baseline.stdout.equals(current)) {
+      throw new Error(`cannot augment audit input because ${relative} differs from source commit ${commit}`)
+    }
+  }
+  return { ...audit, catalogSnapshot: audit.catalogSnapshot ?? currentCatalogSnapshot() }
+}
+
+function validateTrackedBeforeSnapshot() {
+  const relative = 'tests/test-retention-before.json'
+  const absolute = path.join(root, relative)
+  if (!fs.existsSync(absolute)) throw new Error(`missing authoritative before snapshot: ${relative}`)
+  const baseline = JSON.parse(fs.readFileSync(absolute, 'utf8'))
+  compactRetentionBaseline(baseline)
+  const sources = {
+    matrix: 'tests/matrix.yml',
+    coverageRegistry: 'tests/coverage-registry.json',
+    requirementCatalog: 'tests/backend/Fixtures/backend-test-requirements.json',
+    optimizationCoverageBaseline: 'tests/test-optimization-coverage-baseline.json'
+  }
+  for (const [id, sourcePath] of Object.entries(sources)) {
+    const expected = String(baseline?.catalogSnapshot?.sourceDigests?.[id] ?? '')
+    const source = spawnSync('git', ['show', `${baseline.sourceState.commit}:${sourcePath}`], {
+      cwd: root,
+      encoding: 'buffer',
+      maxBuffer: 16 * 1024 * 1024
+    })
+    if (source.status !== 0) throw new Error(`cannot resolve before snapshot source ${sourcePath}`)
+    const actual = `sha256:${createHash('sha256').update(source.stdout).digest('hex')}`
+    if (actual !== expected) {
+      throw new Error(`before snapshot source digest mismatch for ${sourcePath}`)
+    }
+  }
+  return baseline
 }
 
 function visitJsonFiles(dir, files = []) {
@@ -467,12 +597,38 @@ function loadFailureHistory() {
 
 try {
   const options = parseArgs(process.argv.slice(2))
-  const audit = await buildAudit({ runId: options.runId })
+  const authoritativeBefore = path.join(root, 'tests/test-retention-before.json')
+  if (options.captureBefore && fs.existsSync(authoritativeBefore)) {
+    throw new Error('authoritative before snapshot already exists: tests/test-retention-before.json')
+  }
+  if (options.captureBefore && path.resolve(options.captureBefore) !== path.resolve(authoritativeBefore)) {
+    throw new Error('before snapshot must be captured at tests/test-retention-before.json')
+  }
+  if (options.auditInput && !options.captureBefore) {
+    throw new Error('--audit-input is only valid with --capture-before')
+  }
+  const audit = options.auditInput
+    ? loadAuditInput(options.auditInput)
+    : await buildAudit({ runId: options.runId })
+  if (!options.captureBefore) {
+    validateTrackedBeforeSnapshot()
+  }
   if (audit.counts.totalFiles === 0) {
     throw new Error('no test files were scanned')
   }
   fs.mkdirSync(path.dirname(options.out), { recursive: true })
   fs.writeFileSync(options.out, `${JSON.stringify(audit, null, 2)}\n`)
+  if (options.captureBefore) {
+    if (fs.existsSync(options.captureBefore)) {
+      throw new Error(`refusing to overwrite existing before snapshot: ${toRepoPath(options.captureBefore)}`)
+    }
+    const baseline = compactRetentionBaseline(audit, {
+      optimizationEvidence: baselineOptimizationEvidence(audit)
+    })
+    fs.mkdirSync(path.dirname(options.captureBefore), { recursive: true })
+    fs.writeFileSync(options.captureBefore, `${JSON.stringify(baseline)}\n`)
+    console.log(`[test-retention] captured before snapshot ${toRepoPath(options.captureBefore)} commit=${baseline.sourceState.commit} fingerprint=${baseline.sourceState.worktreeFingerprint}`)
+  }
   console.log(`[test-retention] ok files=${audit.counts.totalFiles} tests=${audit.testRecords.length} assertions=${audit.counts.assertionEstimate} mustKeep=${audit.counts['must-keep'] ?? 0} conditional=${audit.counts.conditional ?? 0} review=${audit.counts['review-candidate'] ?? 0} replaceable=${audit.replaceableCandidates.length} obsolete=${audit.counts['obsolete-candidate'] ?? 0}`)
 } catch (error) {
   console.error(`[test-retention] ${error instanceof Error ? error.message : String(error)}`)

@@ -5,11 +5,14 @@ import { FrameType } from '@wasm/protocol/frame'
 const unitWindow = new Window()
 ;(globalThis as { window?: Window }).window = unitWindow
 ;(globalThis as { document?: Document }).document = unitWindow.document
+;(globalThis as { Node?: typeof Node }).Node = unitWindow.Node
 ;(globalThis as { Element?: typeof Element }).Element = unitWindow.Element
 ;(globalThis as { HTMLElement?: typeof HTMLElement }).HTMLElement = unitWindow.HTMLElement
 ;(globalThis as { SVGElement?: typeof SVGElement }).SVGElement = unitWindow.SVGElement
 ;(globalThis as { localStorage?: Storage }).localStorage = unitWindow.localStorage
 ;(globalThis as { sessionStorage?: Storage }).sessionStorage = unitWindow.sessionStorage
+;(globalThis as { getComputedStyle?: typeof globalThis.getComputedStyle }).getComputedStyle =
+  unitWindow.getComputedStyle.bind(unitWindow) as typeof globalThis.getComputedStyle
 ;(globalThis as { requestAnimationFrame?: (cb: FrameRequestCallback) => number }).requestAnimationFrame =
   (cb: FrameRequestCallback): number => setTimeout(() => cb(Date.now()), 0) as unknown as number
 ;(globalThis as { cancelAnimationFrame?: (id: number) => void }).cancelAnimationFrame =

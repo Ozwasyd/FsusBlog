@@ -20,6 +20,7 @@ public sealed class ReleaseFinalStabilityContractTests
 
         Assert.Contains("Timeout=30", source, StringComparison.Ordinal);
         Assert.Contains("Command Timeout=60", source, StringComparison.Ordinal);
+        Assert.Contains("TryRunDockerAsync(\"rm\", \"-f\", \"-v\", _containerName)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Timeout=15;Command Timeout=30", source, StringComparison.Ordinal);
     }
 }

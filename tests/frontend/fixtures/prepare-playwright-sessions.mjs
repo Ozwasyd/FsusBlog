@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,10 +11,17 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '../../..');
 const clientRoot = path.join(repoRoot, 'src', 'frontend');
 const fixtureScriptRoot = path.join(repoRoot, 'tests', 'frontend', 'fixtures');
-const pgContainer = process.env.FSUSBLOG_PG_CONTAINER || '';
+const backendBaseUrl = process.env.FSUSBLOG_BASE_URL
+  || process.env.FSUSBLOG_DEBUG_BACKEND_URL
+  || '';
+const pgContainer = process.env.FSUSBLOG_PG_CONTAINER
+  || process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME
+  || '';
 const pgUser = process.env.FSUSBLOG_PG_USER || 'fsusblog';
 const pgDb = process.env.FSUSBLOG_PG_DB || 'fsusblog';
-const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || 'fsusblog-redis';
+const redisContainer = process.env.FSUSBLOG_REDIS_CONTAINER
+  || process.env.FSUSBLOG_REDIS_CONTAINER_NAME
+  || '';
 
 function parseWorkers() {
   const flagIndex = process.argv.indexOf('--workers');
@@ -24,18 +31,26 @@ function parseWorkers() {
 }
 
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
-    cwd: clientRoot,
-    env: process.env,
-    encoding: 'utf8',
-    stdio: options.stdio || 'pipe'
+  return new Promise((resolve, reject) => {
+    const stdio = options.stdio || 'pipe';
+    const child = spawn(command, args, {
+      cwd: clientRoot,
+      env: options.env || process.env,
+      stdio
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk) => { stdout += chunk; });
+    child.stderr?.on('data', (chunk) => { stderr += chunk; });
+    child.once('error', reject);
+    child.once('close', (code, signal) => {
+      if (code !== 0 || signal) {
+        reject(new Error(stderr || stdout || `${command} failed (${signal || `exit ${code}`})`));
+        return;
+      }
+      resolve(stdout.trim());
+    });
   });
-
-  if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || `${command} failed`);
-  }
-
-  return result.stdout.trim();
 }
 
 function assertSafeFixtureContainer(container, label) {
@@ -44,7 +59,13 @@ function assertSafeFixtureContainer(container, label) {
   }
 }
 
-function runPsql(sql) {
+function assertActiveNamespaceUrl(value, label) {
+  if (!/^https?:\/\/[^/]+/u.test(value)) {
+    throw new Error(`${label} must name the active namespace HTTP origin.`);
+  }
+}
+
+async function runPsql(sql) {
   assertSafeFixtureContainer(pgContainer, 'FSUSBLOG_PG_CONTAINER');
   return run('docker', [
     'exec',
@@ -62,7 +83,8 @@ function runPsql(sql) {
   ]);
 }
 
-function runRedis(args) {
+async function runRedis(args) {
+  assertSafeFixtureContainer(redisContainer, 'FSUSBLOG_REDIS_CONTAINER');
   return run('docker', [
     'exec',
     '-i',
@@ -76,7 +98,7 @@ function schemaForSession(session) {
   return `fsus_e2e_${session.replaceAll('-', '_')}`;
 }
 
-function clonePublicSchema(session) {
+async function clonePublicSchema(session) {
   const schema = schemaForSession(session);
   const sql = `
 DROP SCHEMA IF EXISTS "${schema}" CASCADE;
@@ -97,34 +119,26 @@ BEGIN
 END $$;
 `;
 
-  runPsql(sql);
+  await runPsql(sql);
 }
 
-function cleanupRedis(session) {
+async function cleanupRedis(session) {
   const pattern = `e2e:${session}:*`;
-  const keys = runRedis(['--scan', '--pattern', pattern])
+  const keys = (await runRedis(['--scan', '--pattern', pattern]))
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
 
   if (keys.length > 0) {
-    runRedis(['DEL', ...keys]);
+    await runRedis(['DEL', ...keys]);
   }
 }
 
-function runNodeScript(script, env) {
-  const result = spawnSync(process.execPath, [script], {
-    cwd: clientRoot,
-    env: {
-      ...process.env,
-      ...env
-    },
+async function runNodeScript(script, env) {
+  await run(process.execPath, [script], {
+    env: { ...process.env, ...env },
     stdio: 'inherit'
   });
-
-  if (result.status !== 0) {
-    throw new Error(`${path.basename(script)} failed with exit ${result.status}`);
-  }
 }
 
 function encodeValue(value) {
@@ -139,26 +153,32 @@ function formatSessionManifest(sessions) {
 }
 
 async function main() {
+  assertActiveNamespaceUrl(backendBaseUrl, 'FSUSBLOG_BASE_URL or FSUSBLOG_DEBUG_BACKEND_URL');
   const workers = parseWorkers();
   const sessions = Array.from({ length: workers }, (_, index) => sanitizeTestSession(`pw-${index}`));
   const fixturesDir = resolveSessionFixtureDirectory();
   await mkdir(fixturesDir, { recursive: true });
 
-  for (const session of sessions) {
+  await Promise.all(sessions.map(async (session) => {
     console.log(`[prepare-playwright-sessions] preparing ${session}`);
-    clonePublicSchema(session);
-    cleanupRedis(session);
+    await Promise.all([
+      clonePublicSchema(session),
+      cleanupRedis(session)
+    ]);
 
     const fixtureFile = path.join(fixturesDir, `${session}.aeds`);
     const env = {
+      FSUSBLOG_BASE_URL: backendBaseUrl,
+      FSUSBLOG_PG_CONTAINER: pgContainer,
+      FSUSBLOG_REDIS_CONTAINER: redisContainer,
       FSUSBLOG_TEST_SESSION: session,
       FSUSBLOG_TEST_SESSION_ISOLATION: '1',
       FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE: fixtureFile
     };
 
-    runNodeScript(path.join(fixtureScriptRoot, 'prepare-auth-smoke-users.mjs'), env);
-    runNodeScript(path.join(fixtureScriptRoot, 'discover-playwright-fixtures.mjs'), env);
-  }
+    await runNodeScript(path.join(fixtureScriptRoot, 'prepare-auth-smoke-users.mjs'), env);
+    await runNodeScript(path.join(fixtureScriptRoot, 'discover-playwright-fixtures.mjs'), env);
+  }));
 
   await writeFile(
     path.join(fixturesDir, 'sessions.aeds'),

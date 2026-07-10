@@ -36,6 +36,8 @@ for (const configName of vitestConfigs) {
       "from './vitest.property.config'",
       "from './vitest.model.config'",
       "from './vitest.perf.config'",
+      "from './vitest.shared.mjs'",
+      "createVitestRuntimeOptions('production')",
       'projects:'
     ])
   } else {
@@ -89,8 +91,20 @@ requireIncludes('tests/frontend/fixtures/discover-playwright-fixtures.mjs', [
   'resolveFixtureAssetDirectory'
 ])
 requireIncludes('tests/frontend/fixtures/prepare-playwright-sessions.mjs', [
-  'resolveSessionFixtureDirectory'
+  'resolveSessionFixtureDirectory',
+  'Promise.all(sessions.map',
+  "import { spawn } from 'node:child_process'",
+  'process.env.FSUSBLOG_DEBUG_BACKEND_URL',
+  'process.env.FSUSBLOG_POSTGRES_CONTAINER_NAME',
+  'process.env.FSUSBLOG_REDIS_CONTAINER_NAME',
+  'FSUSBLOG_BASE_URL: backendBaseUrl',
+  'FSUSBLOG_PG_CONTAINER: pgContainer',
+  'FSUSBLOG_REDIS_CONTAINER: redisContainer',
+  "assertSafeFixtureContainer(redisContainer, 'FSUSBLOG_REDIS_CONTAINER')"
 ])
+if (read('tests/frontend/fixtures/prepare-playwright-sessions.mjs').includes('spawnSync')) {
+  errors.push('prepare-playwright-sessions.mjs must not serialize isolated session workers with spawnSync')
+}
 requireIncludes('tests/frontend/support/public-fixtures.mjs', [
   'resolvePublicFixtureFile'
 ])
@@ -148,7 +162,24 @@ if (frontendBuildSource.includes('skipping backend wwwroot sync because target i
 
 requireIncludes('tools/contracts/export-openapi.sh', [
   '--update-snapshot',
-  'cmp -s "$OUT_FILE" "$SNAPSHOT_FILE"'
+  'cmp -s "$OUT_FILE" "$SNAPSHOT_FILE"',
+  'generate-cross-stack-contract.mjs',
+  'OpenApiDocumentsDirectory="$RUNTIME_OUT_DIR"'
+])
+requireIncludes('src/frontend/wasm/build.sh', [
+  '--sort=name',
+  '--mtime=@0',
+  '--numeric-owner',
+  'gzip -n -9'
+])
+requireIncludes('tools/test/bundles/run-bundle.mjs', [
+  "FSUSBLOG_OPENAPI_BUILD=0 tools/test/legacy-test.sh cross-stack-contract",
+  "resources: { cpuUnits: 8, memoryGiB: 8, exclusiveResources: ['benchmark-window'] }"
+])
+requireIncludes('tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs', [
+  'process.env.FSUSBLOG_DEBUG_FRONTEND_URL',
+  "page.locator('a[href=\"/about\"]:visible').first()",
+  "waitFor({ state: 'visible', timeout: 0 })"
 ])
 if (read('tools/test/lanes/rights-v3-test-matrix.sh').includes('generate:public-page-manifest')) {
   errors.push('rights-v3 test lane must validate, not regenerate, the tracked public page manifest')

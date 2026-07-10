@@ -829,7 +829,7 @@
           "auth": "admin",
           "pow": true,
           "requestFrame": "CategoryWriteRequest",
-          "responseFrame": "EmptySuccess"
+          "responseFrame": "MutationId"
         },
         {
           "method": "PUT",

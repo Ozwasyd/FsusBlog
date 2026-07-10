@@ -20,6 +20,119 @@ function shortHash(value) {
   return createHash('sha256').update(String(value)).digest('hex').slice(0, 10)
 }
 
+function sha256(value) {
+  return createHash('sha256').update(String(value)).digest('hex')
+}
+
+function sortedUnique(values) {
+  return [...new Set((values ?? []).filter((value) => String(value ?? '').trim()).map(String))].sort()
+}
+
+export function buildRetentionCatalogSnapshot({
+  matrix,
+  coverageRegistry,
+  requirementCatalog,
+  sourceTexts = {}
+}) {
+  const tiers = matrix?.tiers ?? []
+  const tiersById = new Map(tiers.map((tier) => [tier?.id, tier]))
+  const productionRequiredTierIds = new Set()
+  const visitProductionDependency = (tierId) => {
+    if (!tierId || productionRequiredTierIds.has(tierId)) return
+    productionRequiredTierIds.add(tierId)
+    for (const dependencyId of tiersById.get(tierId)?.dependsOn ?? []) visitProductionDependency(dependencyId)
+  }
+  visitProductionDependency('production')
+  const matrixArtifactPaths = sortedUnique(tiers.flatMap((tier) => tier?.artifacts ?? []))
+  const matrixEvidencePaths = sortedUnique(tiers.flatMap((tier) => tier?.evidence ?? []))
+  const coverageEvidencePaths = sortedUnique((coverageRegistry?.entries ?? []).flatMap((entry) => entry?.evidencePaths ?? []))
+  const releaseEvidencePaths = sortedUnique([
+    ...matrixArtifactPaths,
+    ...matrixEvidencePaths,
+    ...coverageEvidencePaths
+  ].filter((item) => /(?:^|\/)(?:release-evidence|release|jobs)(?:\/|$)|manifest/iu.test(item)))
+
+  return {
+    matrixTierIds: sortedUnique(tiers.map((tier) => tier?.id)),
+    productionRequiredTierIds: sortedUnique([...productionRequiredTierIds]),
+    matrixArtifactPaths,
+    matrixEvidencePaths,
+    coverageIds: sortedUnique((coverageRegistry?.entries ?? []).map((entry) => entry?.id)),
+    requirementIds: sortedUnique((requirementCatalog?.requirements ?? []).map((entry) => entry?.id)),
+    requirementProfileIds: sortedUnique((requirementCatalog?.profiles ?? []).map((entry) => entry?.id)),
+    requirementEvidencePaths: sortedUnique((requirementCatalog?.requirements ?? []).flatMap((entry) => entry?.evidencePaths ?? [])),
+    releaseEvidencePaths,
+    sourceDigests: Object.fromEntries(Object.entries(sourceTexts)
+      .map(([id, value]) => [id, `sha256:${sha256(value)}`])
+      .sort(([left], [right]) => left.localeCompare(right)))
+  }
+}
+
+export function compactRetentionBaseline(audit, { optimizationEvidence = audit?.optimizationEvidence } = {}) {
+  if (audit?.schema !== 'fsusblog.test-retention-audit.v2') {
+    throw new Error(`before snapshot requires fsusblog.test-retention-audit.v2, got ${audit?.schema ?? 'missing'}`)
+  }
+  const commit = String(audit?.sourceState?.commit ?? '')
+  const worktreeFingerprint = String(audit?.sourceState?.worktreeFingerprint ?? '')
+  if (!/^[0-9a-f]{40}$/u.test(commit) || !/^[0-9a-f]{64}$/u.test(worktreeFingerprint)) {
+    throw new Error('before snapshot source state must contain a full commit and worktree fingerprint')
+  }
+  if (!Array.isArray(audit?.testRecords) || audit.testRecords.length === 0) {
+    throw new Error('before snapshot requires test records')
+  }
+  const requiredCatalogFields = [
+    'matrixTierIds',
+    'productionRequiredTierIds',
+    'matrixArtifactPaths',
+    'matrixEvidencePaths',
+    'coverageIds',
+    'requirementIds',
+    'releaseEvidencePaths'
+  ]
+  for (const field of requiredCatalogFields) {
+    if (!Array.isArray(audit?.catalogSnapshot?.[field])) {
+      throw new Error(`before snapshot catalog is missing ${field}`)
+    }
+  }
+  for (const scope of ['backend', 'frontend', 'merged']) {
+    const summary = optimizationEvidence?.coverage?.[scope]?.summary
+    if (!Number.isFinite(Number(summary?.linecoverage)) || !Number.isFinite(Number(summary?.branchcoverage))) {
+      throw new Error(`before snapshot optimization evidence is missing ${scope} line/branch coverage`)
+    }
+  }
+  if (optimizationEvidence?.criticalMutationSlice?.evidenceMode !== 'scope-identity'
+    || !Array.isArray(optimizationEvidence?.criticalMutationSlice?.testIds)
+    || optimizationEvidence.criticalMutationSlice.testIds.length === 0
+    || !Array.isArray(optimizationEvidence?.criticalMutationSlice?.scopeIds)
+    || optimizationEvidence.criticalMutationSlice.scopeIds.length === 0) {
+    throw new Error('before snapshot optimization evidence is missing the critical mutation scope identity')
+  }
+  const replacementManifestBaseline = audit?.replacementManifestBaseline ?? {
+    deletedTestIds: sortedUnique((audit.deletedTests ?? []).map((entry) => entry?.id)),
+    assertionBeforeTargets: sortedUnique((audit.assertionReplacements ?? []).map((entry) => entry?.before)),
+    tierFromIds: sortedUnique((audit.tierReplacements ?? []).map((entry) => entry?.from))
+  }
+  for (const field of ['deletedTestIds', 'assertionBeforeTargets', 'tierFromIds']) {
+    if (!Array.isArray(replacementManifestBaseline[field])) {
+      throw new Error(`before snapshot replacement manifest baseline is missing ${field}`)
+    }
+  }
+
+  return {
+    schema: audit.schema,
+    snapshotRole: 'before-test-reduction',
+    generatedAt: audit.generatedAt,
+    sourceState: audit.sourceState,
+    producer: audit.producer ?? null,
+    policy: audit.policy ?? null,
+    testRecords: audit.testRecords,
+    retainedEvidence: audit.retainedEvidence,
+    catalogSnapshot: audit.catalogSnapshot,
+    replacementManifestBaseline,
+    optimizationEvidence
+  }
+}
+
 function slug(value) {
   return String(value)
     .normalize('NFKD')
@@ -375,6 +488,83 @@ export function inferTierIdsForFile(file, source = '', explicitCategory = undefi
   return [...tiers].sort()
 }
 
+const tierReplacementScopes = new Set(['tier', 'production-membership'])
+const tierReplacementCatalogFields = new Set([
+  'matrixArtifactPaths',
+  'matrixEvidencePaths',
+  'productionRequiredTierIds',
+  'coverageIds',
+  'requirementIds',
+  'requirementProfileIds',
+  'requirementEvidencePaths',
+  'releaseEvidencePaths'
+])
+
+export function tierReplacementStructureErrors(entry) {
+  const from = String(entry?.from ?? '').trim()
+  const to = String(entry?.to ?? '').trim()
+  const scope = entry?.scope === undefined ? 'tier' : String(entry.scope)
+  const errors = []
+  if (!tierReplacementScopes.has(scope)) errors.push(`unsupported replacement scope: ${scope || 'missing'}`)
+
+  const rawCatalogReplacements = entry?.catalogReplacements
+  if (rawCatalogReplacements !== undefined
+    && (rawCatalogReplacements === null || typeof rawCatalogReplacements !== 'object' || Array.isArray(rawCatalogReplacements))) {
+    errors.push('catalogReplacements must be an object')
+    return errors
+  }
+
+  const catalogReplacements = rawCatalogReplacements ?? {}
+  const fields = Object.keys(catalogReplacements)
+  if (scope === 'production-membership' && !fields.includes('productionRequiredTierIds')) {
+    errors.push('production-membership requires a productionRequiredTierIds mapping')
+  }
+
+  for (const [field, mappings] of Object.entries(catalogReplacements)) {
+    if (!tierReplacementCatalogFields.has(field)) {
+      errors.push(`unknown catalog replacement field: ${field}`)
+      continue
+    }
+    if (scope === 'production-membership' && field !== 'productionRequiredTierIds') {
+      errors.push(`production-membership cannot authorize ${field}`)
+    }
+    if (!Array.isArray(mappings)) {
+      errors.push(`${field} catalog replacements must be an array`)
+      continue
+    }
+    if (mappings.length === 0) {
+      errors.push(`${field} catalog replacements must not be empty`)
+      continue
+    }
+    if (scope === 'production-membership' && field === 'productionRequiredTierIds' && mappings.length !== 1) {
+      errors.push('production-membership requires exactly one productionRequiredTierIds mapping')
+    }
+
+    const seenSources = new Set()
+    for (const mapping of mappings) {
+      const mappingFrom = String(mapping?.from ?? '').trim()
+      const mappingTo = String(mapping?.to ?? '').trim()
+      if (!mappingFrom || !mappingTo) {
+        errors.push(`${field} catalog replacement requires non-empty from and to`)
+        continue
+      }
+      if (mappingFrom === mappingTo) {
+        errors.push(`${field} catalog replacement ${mappingFrom} must change value`)
+      }
+      if (seenSources.has(mappingFrom)) {
+        errors.push(`${field} catalog replacement source is duplicated: ${mappingFrom}`)
+      }
+      seenSources.add(mappingFrom)
+      if (scope === 'production-membership'
+        && field === 'productionRequiredTierIds'
+        && (mappingFrom !== from || mappingTo !== to)) {
+        errors.push('production-membership mapping must match the declared tier from and to')
+      }
+    }
+  }
+  return errors
+}
+
 export function normalizeReplacementManifest(manifest, currentRecords) {
   if (Object.keys(manifest ?? {}).length > 0 && manifest?.schema !== 'fsusblog.test-retention-replacements.v1') {
     throw new Error(`replacement manifest schema must be fsusblog.test-retention-replacements.v1, got ${manifest?.schema ?? 'missing'}`)
@@ -436,6 +626,14 @@ export function normalizeReplacementManifest(manifest, currentRecords) {
     if (entry.from === entry.to) throw new Error(`tier replacement ${entry.from} must change tier id`)
     if (seenTierReplacements.has(entry.from)) throw new Error(`duplicate tier replacement: ${entry.from}`)
     seenTierReplacements.add(entry.from)
+    const structureErrors = tierReplacementStructureErrors(entry)
+    if (structureErrors.length > 0) {
+      throw new Error(`tier replacement ${entry.from} is invalid: ${structureErrors.join('; ')}`)
+    }
+    const replacementScope = entry.scope ?? 'tier'
+    if (replacementScope === 'production-membership' && !currentTierIds.has(entry.from)) {
+      throw new Error(`production-membership replacement ${entry.from} requires the source tier to remain standalone`)
+    }
     if (!currentTierIds.has(entry.to)) throw new Error(`tier replacement ${entry.from} references missing replacement tier: ${entry.to}`)
     if (!String(entry?.reason ?? '').trim()) throw new Error(`tier replacement ${entry.from} lacks reason`)
     if (!Array.isArray(entry?.coverageIds) || entry.coverageIds.length === 0) {

@@ -9,6 +9,23 @@
         "backend-race-idempotency-model"
       ],
       "reason": "backend-chaos duplicated the same Category=Concurrency selection; backend-concurrency now owns the fault/race evidence and emits the same runtime summary plus mergeable Cobertura coverage."
+    },
+    {
+      "from": "ux-viewport-canary-parity",
+      "to": "ux-viewport-plan-progress",
+      "scope": "production-membership",
+      "coverageIds": [
+        "ux-viewport-plan-progress"
+      ],
+      "catalogReplacements": {
+        "productionRequiredTierIds": [
+          {
+            "from": "ux-viewport-canary-parity",
+            "to": "ux-viewport-plan-progress"
+          }
+        ]
+      },
+      "reason": "The incomplete historical signatures cannot prove parity and remain fail-closed in their standalone tier; production now executes the exact planner, progress/resume, and runtime ownership contracts without claiming that unavailable historical parity was established."
     }
   ],
   "deletedTests": [
@@ -160,6 +177,26 @@
         "expect(writeComposable).toContain('rights: normalizeArticleRightsForm(draft.rights)')"
       ],
       "reason": "Rights restoration now reads the typed server draft object, preserving the same normalization while eliminating the unsafe generic local payload."
+    },
+    {
+      "before": "Assert.Contains(\"too short\", result.Error.Message, StringComparison.OrdinalIgnoreCase)",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AedsEncoderTests.cs#AedsEncoderTests.TryDecode_FailsForTooShortFrame"
+      ],
+      "after": [
+        "Assert.Equal(\"AEDS frame too short\", result.Error.Message)"
+      ],
+      "reason": "The same decoder error-path test now requires the complete stable protocol error message instead of accepting any case-insensitive substring."
+    },
+    {
+      "before": "Assert.Contains(\"crc\", result.Error.Message, StringComparison.OrdinalIgnoreCase)",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AedsEncoderTests.cs#AedsEncoderTests.TryDecode_FailsForCorruptedPayload"
+      ],
+      "after": [
+        "Assert.Equal(\"AEDS payload crc mismatch\", result.Error.Message)"
+      ],
+      "reason": "The same corrupted-payload test now verifies the complete CRC failure contract and is strictly stronger than the former substring assertion."
     }
   ]
 }

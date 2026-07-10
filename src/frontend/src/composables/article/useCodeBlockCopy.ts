@@ -74,7 +74,6 @@ export function useCodeBlockCopy(
       pre.setAttribute(ENHANCED_ATTR, 'true')
       pre.classList.add('fsus-code-copy-host')
       pre.setAttribute('data-fsus-motion-surface', 'article-code-block')
-      revealControls.reveal(pre, fsusBlogScrollRevealOptions)
 
       const button = document.createElement('button')
       button.type = 'button'
@@ -109,6 +108,12 @@ export function useCodeBlockCopy(
 
       pre.appendChild(button)
       insertedButtons.add(button)
+      try {
+        revealControls.reveal(pre, fsusBlogScrollRevealOptions)
+      } catch {
+        // Copy is a content right and must remain usable when motion is unavailable.
+        pre.removeAttribute('data-fsus-motion-surface')
+      }
     })
   }
 

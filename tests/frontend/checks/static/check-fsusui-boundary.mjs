@@ -28,7 +28,7 @@ const allowedInternalSelectors = new Map([
     '.el-select',
     '.el-table'
   ])],
-  ['src/frontend/src/assets/public-shell-critical.css', new Set([
+  ['src/frontend/src/assets/public-shell-foundation.css', new Set([
     '.el-input',
     '.el-input__wrapper',
     '.el-radio-button',
@@ -205,7 +205,7 @@ function checkProgrammaticImports(file, content) {
 
 function checkInternalSelectors(file, content) {
   const fileRel = rel(file)
-  const allowPublicShell = fileRel === 'src/frontend/src/assets/public-shell-critical.css'
+  const allowPublicShell = fileRel === 'src/frontend/src/assets/public-shell-foundation.css'
   const allowedSelectors = allowedInternalSelectors.get(fileRel)
   const selectorPattern = /(?::deep\()?\.el-[a-z0-9_-]+/gi
   for (const match of content.matchAll(selectorPattern)) {

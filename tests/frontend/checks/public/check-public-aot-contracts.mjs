@@ -288,6 +288,8 @@ function assertStaticContracts() {
     'storageBehavior',
     'createScriptGate',
     'installScriptGate',
+    'waitForExactRouteReadiness',
+    'exact-route-aot-readiness',
     "waitUntil: 'commit'",
     '/api/local/auth-fixture/status',
     'motionPreference',
