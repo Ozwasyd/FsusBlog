@@ -59,7 +59,7 @@ function commandArguments(entry) {
     : entry.command
 }
 
-async function execute(entry, { cwd, env }) {
+export async function executeManifestEntry(entry, { cwd, env }) {
   const command = commandArguments(entry)
   console.log(`[command-manifest] start id=${entry.id} access=${entry.access}`)
   const startedAt = Date.now()
@@ -82,7 +82,7 @@ async function runReadOnly(commands, options) {
   const workers = resolveManifestWorkers({ env: options.env })
   for (let index = 0; index < commands.length; index += workers) {
     const batch = commands.slice(index, index + workers)
-    const results = await Promise.allSettled(batch.map((command) => execute(command, options)))
+    const results = await Promise.allSettled(batch.map((command) => executeManifestEntry(command, options)))
     const failed = results.find((result) => result.status === 'rejected')
     if (failed) throw failed.reason
   }
@@ -95,7 +95,7 @@ export async function runCommandManifest(manifest, { cwd = process.cwd(), env = 
   const readOnly = manifest.commands.filter((command) => command.access === 'read')
   const writing = manifest.commands.filter((command) => command.access === 'write')
   await runReadOnly(readOnly, { cwd, env })
-  for (const command of writing) await execute(command, { cwd, env })
+  for (const command of writing) await executeManifestEntry(command, { cwd, env })
 }
 
 async function main(argv) {

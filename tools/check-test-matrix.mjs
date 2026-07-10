@@ -593,7 +593,7 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'tests/frontend/e2e/ux/viewport-boundaries.spec.ts',
-  'for (const group of plan.groups)',
+  'for (const group of testGroups)',
   'UX viewport runner must execute the shared route-theme plan'
 )
 requireFileIncludes(

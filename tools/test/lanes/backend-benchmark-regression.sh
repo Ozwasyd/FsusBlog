@@ -7,7 +7,9 @@ ARTIFACT_ROOT="$ROOT_DIR/BenchmarkDotNet.Artifacts"
 RELEASE_SUMMARY_DIR="$ROOT_DIR/.tmp/perf/release-summaries"
 mkdir -p "$OUT_DIR" "$RELEASE_SUMMARY_DIR"
 
-"$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" -c Release -v minimal /p:NuGetAudit=false
+if [[ -z "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
+  "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" -c Release -v minimal /p:NuGetAudit=false
+fi
 
 rm -f "$OUT_DIR"/*.json
 
@@ -15,6 +17,7 @@ rm -f "$OUT_DIR"/*.json
   --project "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" \
   -c Release \
   --no-build \
+  --no-restore \
   -- \
   --filter "${FSUSBLOG_BENCHMARK_FILTER:-*Aeds*}" \
   --artifacts "$ARTIFACT_ROOT" \

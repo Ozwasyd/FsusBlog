@@ -1,5 +1,57 @@
 version: fsusblog-test-matrix-v2
 namespaceTemplate: ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${MATRIX_JOB:-local}-${MATRIX_SHARD:-0}
+localProfiles:
+  production:
+    budgetMs: 300000
+    maxParallel: 6
+    memoryGiB: 12
+    summaryOnly: [security-authenticated-dast]
+    bundles:
+      - id: build-static
+        command: tools/test/bundles/build-static.sh
+        budgetMs: 70000
+        dependsOn: []
+        members: [frontend-build, frontend-runtime-contracts, frontend-static-governance, backend-build-governance, validate-matrix, integrity-proof-verification, public-hydration-fast, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, risk-control-test-matrix, perception-v2-test-matrix]
+        resourceClass: cpu
+        cpuUnits: 6
+        memoryGiB: 7
+        exclusiveResources: [build-output, static-web-assets]
+      - id: backend-tests
+        command: tools/test/bundles/backend-tests.sh
+        budgetMs: 60000
+        dependsOn: [build-static]
+        members: [backend-unit, backend-api-integration, backend-auth-state-machine, backend-concurrency, backend-property, backend-golden, backend-fast, coverage-backend]
+        resourceClass: cpu
+        cpuUnits: 3
+        memoryGiB: 4
+        exclusiveResources: [backend-test-results]
+      - id: frontend-tests
+        command: tools/test/bundles/frontend-tests.sh
+        budgetMs: 60000
+        dependsOn: [build-static]
+        members: [frontend-unit-shard, frontend-property-model-perf, frontend-fast-summary, coverage-frontend]
+        resourceClass: cpu
+        cpuUnits: 3
+        memoryGiB: 4
+        exclusiveResources: [frontend-test-results]
+      - id: runtime-browser
+        command: tools/test/bundles/runtime-browser.sh
+        budgetMs: 90000
+        dependsOn: [backend-tests, frontend-tests]
+        members: [bootstrap, release, integration, endpoint-depth, security, acceptance, cross-browser-smoke, visual-public, visual-console, visual, ux-viewport-smoke, ux-viewport-canary-parity, frontend-render-pressure, resilience, rights-v3-test-matrix, data-scale-xs, data-scale-s, data-scale-evidence-summary, csrf-browser-matrix, fault-injection, cross-stack-contract, privacy-zk-comment-matrix, static-governance]
+        resourceClass: browser
+        cpuUnits: 5
+        memoryGiB: 7
+        exclusiveResources: [runtime-services, database-writes]
+      - id: performance-evidence
+        command: tools/test/bundles/performance-evidence.sh
+        budgetMs: 80000
+        dependsOn: [runtime-browser]
+        members: [fast, coverage-merge, coverage-threshold, coverage-gate, load, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan, backend-qps, load-baseline, load-peak, backend-benchmark-regression, browser-performance-regression, performance-evidence-summary, backend-perf, release-evidence, production, aeds-frame-cost, aeds-compression-profile]
+        resourceClass: benchmark
+        cpuUnits: 6
+        memoryGiB: 8
+        exclusiveResources: [load-window, database-writes]
 tiers:
   - id: validate-matrix
     owner: ServerContractAgent

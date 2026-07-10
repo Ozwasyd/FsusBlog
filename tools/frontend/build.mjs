@@ -180,7 +180,7 @@ async function main() {
 
   await Promise.all([
     runStage('vue-tsc', vueTscBin, []),
-    runStage('vite-build', viteBin, ['build'])
+    runStage('vite-build', viteBin, ['build', '--logLevel', 'warn'])
   ]);
   await runStage('vite-public-ssr-build', process.execPath, [buildPublicSsrBundleScript]);
   await syncStableSpaEntryAlias();

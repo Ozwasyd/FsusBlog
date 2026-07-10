@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { spawnSync } from 'node:child_process'
@@ -13,6 +14,16 @@ import {
   tierResourceUnits,
   validateSupersedesRules
 } from './test-matrix/scheduler.mjs'
+import {
+  createLocalBundleTiers,
+  localBundleSummaryPath,
+  localProfileSystemResources,
+  validateLocalBundleSummary,
+  validateLocalProfiles
+} from './test-matrix/local-profile.mjs'
+import { parseMatrix } from './test-matrix/parse-matrix.mjs'
+import { cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
+import { cleanupLocalRuntime } from './test-matrix/local-runtime-cleanup.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -88,63 +99,6 @@ const requiredFields = [
   'localOnly',
   'nightlyOnly'
 ]
-
-function parseValue(raw) {
-  const value = String(raw ?? '').trim()
-  if (value === '[]') return []
-  if (value.startsWith('[') && value.endsWith(']')) {
-    const inner = value.slice(1, -1).trim()
-    if (inner === '') return []
-    return inner.split(',').map((item) => parseValue(item))
-  }
-  if (value === 'true') return true
-  if (value === 'false') return false
-  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value)
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-    return value.slice(1, -1)
-  }
-  return value
-}
-
-function parseMatrix(text) {
-  const matrix = { tiers: [] }
-  let current = null
-  let inTiers = false
-
-  for (const rawLine of text.split(/\r?\n/)) {
-    const withoutComment = rawLine.replace(/\s+#.*$/, '')
-    if (!withoutComment.trim()) continue
-
-    const topMatch = withoutComment.match(/^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (topMatch && !rawLine.startsWith(' ')) {
-      const [, key, value] = topMatch
-      if (key === 'tiers') {
-        inTiers = true
-        current = null
-        continue
-      }
-      matrix[key] = parseValue(value)
-      continue
-    }
-
-    if (!inTiers) continue
-
-    const itemMatch = withoutComment.match(/^\s{2}-\s+([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (itemMatch) {
-      current = {}
-      matrix.tiers.push(current)
-      current[itemMatch[1]] = parseValue(itemMatch[2])
-      continue
-    }
-
-    const fieldMatch = withoutComment.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (fieldMatch && current) {
-      current[fieldMatch[1]] = parseValue(fieldMatch[2])
-    }
-  }
-
-  return matrix
-}
 
 function loadMatrix() {
   if (!fs.existsSync(matrixFile)) {
@@ -615,6 +569,7 @@ function validateMatrix(matrix) {
   }
 
   errors.push(...validateFrontendFastSplit(matrix, byId))
+  errors.push(...validateLocalProfiles(matrix.localProfiles, matrix.tiers))
   errors.push(...validateCoverageRegistry(matrix))
   errors.push(...validateSupersedesRules(matrix.tiers, loadCoverageRegistry().entries))
 
@@ -763,7 +718,7 @@ function cleanupSensitiveFixtures(namespace, namespaceEnv = {}) {
 }
 
 function parseRunOptions(args) {
-  const options = { planOnly: false, shard: null, noDeps: false, resume: false, fresh: false, maxParallel: null }
+  const options = { planOnly: false, shard: null, noDeps: false, resume: false, fresh: false, maxParallel: null, logicalDag: false }
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
     if (arg === '--plan-only') options.planOnly = true
@@ -772,6 +727,7 @@ function parseRunOptions(args) {
     else if (arg.startsWith('--shard=')) options.shard = arg.slice('--shard='.length)
     else if (arg === '--resume') options.resume = true
     else if (arg === '--fresh') options.fresh = true
+    else if (arg === '--logical-dag') options.logicalDag = true
     else if (arg === '--max-parallel') options.maxParallel = Number(args[++index])
     else if (arg.startsWith('--max-parallel=')) options.maxParallel = Number(arg.slice('--max-parallel='.length))
     else throw new Error(`unknown run option: ${arg}`)
@@ -968,12 +924,187 @@ function writeJobSummary(matrix, tier, status, startedAt, details = {}) {
     runId: process.env.GITHUB_RUN_ID ?? 'local',
     attempt: process.env.GITHUB_RUN_ATTEMPT ?? '0',
     schedulerRunId,
+    physicalBundleId: details.physicalBundleId ?? existing?.physicalBundleId ?? null,
+    executionSource: details.executionSource ?? existing?.executionSource ?? 'fresh',
+    testIds: [...new Set([...(existing?.testIds ?? []), ...(details.testIds ?? [])])].sort(),
+    artifactDigests: {
+      ...(existing?.artifactDigests ?? {}),
+      ...(details.artifactDigests ?? {})
+    },
     generatedAt: new Date().toISOString(),
     ...(groupEvidence ?? {})
   }
   const outFile = jobSummaryPath(jobId)
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
   fs.writeFileSync(outFile, `${JSON.stringify(summary, null, 2)}\n`)
+}
+
+function isCiEnvironment() {
+  return process.env.CI === 'true' || process.env.CI === '1' || process.env.GITHUB_ACTIONS === 'true'
+}
+
+function shouldUseLocalProfile(matrix, tierId, options) {
+  const targetTierId = normalizeTierId(tierId)
+  return !isCiEnvironment()
+    && options.logicalDag !== true
+    && options.noDeps !== true
+    && Boolean(matrix.localProfiles?.[targetTierId])
+}
+
+function writeSummaryOnlyEvidence(profileId, profile, runId) {
+  for (const tierId of profile.summaryOnly ?? []) {
+    const outFile = path.join(root, `.tmp/local-${profileId}/summary-only/${tierId}.json`)
+    fs.mkdirSync(path.dirname(outFile), { recursive: true })
+    fs.writeFileSync(outFile, `${JSON.stringify({
+      schema: 'fsusblog.local-production.summary-only.v1',
+      tierId,
+      status: 'collected-blocked',
+      executionSource: 'external-environment',
+      schedulerRunId: runId,
+      generatedAt: new Date().toISOString()
+    }, null, 2)}\n`)
+  }
+}
+
+function projectLocalBundleSummaries(matrix, profileId, profile, runId, completedTierIds) {
+  const byId = tierMap(matrix)
+  const projected = []
+  for (const bundle of profile.bundles) {
+    const physicalTierId = `local-${profileId}-${bundle.id}`
+    if (!completedTierIds.has(physicalTierId)) continue
+    const summaryFile = path.join(root, localBundleSummaryPath(profileId, bundle.id))
+    const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+    const errors = validateLocalBundleSummary(summary, bundle)
+    if (errors.length > 0) throw new Error(`${bundle.id} bundle evidence invalid: ${errors.join('; ')}`)
+    for (const tierId of bundle.members) {
+      const tier = byId.get(tierId)
+      const member = summary.members[tierId]
+      const startedAt = Date.now() - Math.max(0, Number(member.durationMs) || 0)
+      writeJobSummary(matrix, tier, 'success', startedAt, {
+        schedulerRunId: runId,
+        physicalBundleId: bundle.id,
+        executionSource: 'fresh',
+        testIds: member.testIds,
+        artifactDigests: member.artifactDigests
+      })
+      projected.push(tierId)
+    }
+  }
+  return projected
+}
+
+async function runLocalProfile(matrix, profileId, options) {
+  if (options.resume) throw new Error(`local ${profileId} profile is fresh-only; use --logical-dag --resume for diagnostics`)
+  const profile = matrix.localProfiles[profileId]
+  const physicalTiers = createLocalBundleTiers(profileId, profile)
+  if (options.planOnly) {
+    printPlan(physicalTiers.map((tier) => ({
+      ...tier,
+      ciJob: `local-${profileId}`,
+      timeoutMinutes: Math.ceil(tier.budgetMs / 60_000),
+      risk: 'critical',
+      shardable: false,
+      defaultShards: 1
+    })))
+    return
+  }
+
+  cleanLocalProductionOutputs(root)
+  const target = physicalTiers.at(-1)
+  target.selfBootstraps = true
+  const { runsRoot, runId } = schedulerRunIdentity(profileId, { ...options, fresh: true, resume: false })
+  const runNamespace = namespaceFor({ id: profileId, ciJob: `local-${profileId}` }, null, runId)
+  prepareNamespaceEnvironmentIfNeeded(physicalTiers, runNamespace)
+  writeSummaryOnlyEvidence(profileId, profile, runId)
+
+  let result
+  try {
+    result = await runDag({
+      tiers: physicalTiers,
+      root,
+      runsRoot,
+      runId,
+      targetTierId: profileId,
+      mode: 'fresh',
+      resume: false,
+      maxParallel: Math.min(options.maxParallel ?? profile.maxParallel, profile.maxParallel),
+      wallClockBudgetMs: profile.budgetMs,
+      systemResources: localProfileSystemResources(profile, {
+        cpuCount: os.availableParallelism?.() ?? os.cpus().length
+      }),
+      teeOutput: true,
+      envForTier(tier) {
+        const env = applyNamespaceBuildEnvironment(tier, {
+          ...loadNamespaceEnv(runNamespace),
+          CURRENT_TIER: tier.id,
+          MATRIX_JOB: `local-${profileId}`,
+          FSUSBLOG_TEST_NAMESPACE: runNamespace,
+          FSUSBLOG_TEST_RUN_ID: runId,
+          FSUSBLOG_LOCAL_PROFILE: profileId,
+          FSUSBLOG_PHYSICAL_BUNDLE_ID: tier.physicalBundleId,
+          FSUSBLOG_DOTNET_BUILD_PARALLELISM: 'auto',
+          FSUSBLOG_PLAYWRIGHT_WORKERS: '2',
+          FSUSBLOG_BACKEND_COVERAGE_LINE_THRESHOLD: '80.3998',
+          FSUSBLOG_BACKEND_COVERAGE_BRANCH_THRESHOLD: '59.4028',
+          FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD: '27.78',
+          FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD: '23.48',
+          FSUSBLOG_COVERAGE_LINE_THRESHOLD: '43.6405',
+          FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: '31.7961'
+        })
+        Object.assign(env, resourceEnvironmentForTier(tier, env))
+        return env
+      },
+      onTierStart(tier) {
+        console.error(`[matrix:${profileId}] bundle=${tier.physicalBundleId} budgetMs=${tier.budgetMs} command=${tier.command}`)
+      }
+    })
+
+    const completedTierIds = new Set(result.checkpoint.completedTiers ?? [])
+    let projectedTierIds = []
+    try {
+      projectedTierIds = projectLocalBundleSummaries(matrix, profileId, profile, runId, completedTierIds)
+    } catch (error) {
+      result.status = 'failure'
+      result.failure = { tierId: profileId, exitCode: 1, reason: error.message }
+    }
+    const ungeneratedTierIds = profile.bundles
+      .filter((bundle) => !completedTierIds.has(`local-${profileId}-${bundle.id}`))
+      .flatMap((bundle) => bundle.members)
+    const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
+    fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
+    fs.writeFileSync(summaryFile, `${JSON.stringify({
+      schema: 'fsusblog.local-production.run.v1',
+      status: result.status,
+      executionSource: 'fresh',
+      schedulerRunId: runId,
+      budgetMs: profile.budgetMs,
+      durationMs: Math.max(0, Date.now() - Date.parse(result.checkpoint.startedAt)),
+      physicalBundles: physicalTiers.map((tier) => ({
+        id: tier.physicalBundleId,
+        status: result.checkpoint.tiers?.[tier.id]?.status ?? 'not-run',
+        durationMs: result.checkpoint.tiers?.[tier.id]?.durationMs ?? 0
+      })),
+      projectedTierIds,
+      summaryOnlyTierIds: profile.summaryOnly ?? [],
+      ungeneratedTierIds,
+      failure: result.failure ?? null,
+      generatedAt: new Date().toISOString()
+    }, null, 2)}\n`)
+
+    console.error(`[matrix:${profileId}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)} summary=${relativeToRoot(summaryFile)}`)
+  } finally {
+    cleanupSensitiveFixtures(runNamespace, loadNamespaceEnv(runNamespace))
+    const cleanup = cleanupLocalRuntime({ root, namespace: runNamespace })
+    const cleanupFile = path.join(root, `.tmp/local-${profileId}/runtime-cleanup.json`)
+    fs.mkdirSync(path.dirname(cleanupFile), { recursive: true })
+    fs.writeFileSync(cleanupFile, `${JSON.stringify({ ...cleanup, generatedAt: new Date().toISOString() }, null, 2)}\n`)
+    console.error(`[matrix:${profileId}] runtime cleanup=${relativeToRoot(cleanupFile)} containers=${cleanup.removedContainers.length}`)
+  }
+
+  if (result.status !== 'success') {
+    console.error(`[matrix:${result.failure?.tierId ?? profileId}] ${result.failure?.reason ?? 'local profile failed'}`)
+    process.exit(Number(result.failure?.exitCode) || 1)
+  }
 }
 
 function resetFreshJobSummaries(entries) {
@@ -992,6 +1123,10 @@ function emitTierReproductionHint(tier, options) {
 
 async function runTier(matrix, tierId, args) {
   const options = parseRunOptions(args)
+  if (shouldUseLocalProfile(matrix, tierId, options)) {
+    await runLocalProfile(matrix, normalizeTierId(tierId), options)
+    return
+  }
   const all = options.noDeps ? [tierMap(matrix).get(normalizeTierId(tierId))] : planTier(matrix, tierId)
   if (all.some((tier) => !tier)) throw new Error(`unknown tier: ${tierId}`)
 

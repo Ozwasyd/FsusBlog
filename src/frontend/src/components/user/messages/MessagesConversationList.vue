@@ -12,11 +12,12 @@
             {{ isAdminMode ? conversationListCopy.titleAdmin : conversationListCopy.titleAccount }}
           </h2>
           <div class="messages-header-actions">
-            <el-button v-if="!isAdminMode" size="small" type="primary" @click="emit('createTicket')">
+            <el-button v-if="!isAdminMode" class="messages-header-create-ticket" size="small" type="primary" @click="emit('createTicket')">
               {{ conversationListCopy.newTicketCta }}
             </el-button>
             <div class="messages-filter">
             <el-select
+              class="messages-filter-control"
               :model-value="filter"
               :name="isAdminMode ? 'adminConversationFilter' : 'accountConversationFilter'"
               size="small"
@@ -254,7 +255,7 @@ defineExpose({
     gap: 0.5rem;
   }
 
-  .messages-header-actions :deep(.el-button) {
+  .messages-header-create-ticket {
     align-self: flex-start;
     min-height: 2.25rem;
   }
@@ -263,7 +264,7 @@ defineExpose({
     width: 100%;
   }
 
-  .messages-filter :deep(.el-select) {
+  .messages-filter-control {
     width: 100%;
   }
 }

@@ -55,7 +55,7 @@ describe('user facing workflow contract', () => {
     expect(messagesConversationList).toContain('@media (max-width: 640px), (max-height: 520px) and (orientation: landscape)')
     expect(messagesConversationList).toContain('.messages-header-actions {\n    width: 100%;\n    align-items: stretch;\n    flex-direction: column;')
     expect(messagesConversationList).toContain('.messages-filter {\n    width: 100%;')
-    expect(messagesConversationList).toContain('.messages-filter :deep(.el-select) {\n    width: 100%;')
+    expect(messagesConversationList).toContain('.messages-filter-control {\n    width: 100%;')
   })
 
   it('does not shrink public taxonomy touch targets at the width-only desktop breakpoint', () => {

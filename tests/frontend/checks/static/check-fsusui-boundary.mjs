@@ -91,6 +91,7 @@ const allowedInternalSelectors = new Map([
   ['src/frontend/src/views/admin/AuditLog.vue', new Set([
     '.el-date-editor',
     '.el-input',
+    '.el-range-input',
     '.el-select'
   ])],
   ['src/frontend/src/views/admin/CacheDiagnostics.vue', new Set([

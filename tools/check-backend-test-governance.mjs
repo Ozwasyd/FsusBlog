@@ -3,6 +3,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { parseMatrix } from './test-matrix/parse-matrix.mjs'
+
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const requirementCatalogPath = 'tests/backend/Fixtures/backend-test-requirements.json'
 const aedsCatalogPath = 'tests/backend/Fixtures/aeds-golden-catalog.json'
@@ -14,6 +16,7 @@ const backendPathGovernanceAllowedFiles = new Set([
 const requirementCatalog = JSON.parse(readFileSync(resolve(root, requirementCatalogPath), 'utf8'))
 const aedsCatalog = JSON.parse(readFileSync(resolve(root, aedsCatalogPath), 'utf8'))
 const matrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
+const matrixTierCommands = new Map(parseMatrix(matrix).tiers.map((tier) => [tier.id, tier.command]))
 const testSh = readFileSync(resolve(root, 'tools/test.sh'), 'utf8')
 const toolManifest = JSON.parse(readFileSync(resolve(root, 'dotnet-tools.json'), 'utf8'))
 const strykerConfig = JSON.parse(readFileSync(resolve(root, 'stryker-config.json'), 'utf8'))
@@ -22,11 +25,7 @@ const testShDelegatesToMatrix = testSh.includes('tools/run-test-matrix.mjs')
   && testSh.includes('run "$tier"')
 
 function expectedProfileCommand(profileId) {
-  if (profileId === 'backend-perf') {
-    return 'tools/test/lanes/perf-regression.sh'
-  }
-
-  return `tools/test/legacy-test.sh ${profileId}`
+  return matrixTierCommands.get(profileId)
 }
 
 function fail(message) {
@@ -243,6 +242,7 @@ const requiredProfiles = new Set([
   'backend-golden',
   'backend-test-governance',
   'backend-perf',
+  'backend-benchmark-regression',
   'backend-mutation',
   'backend-nightly'
 ])
@@ -251,6 +251,10 @@ for (const profile of requirementCatalog.profiles || []) {
   requiredProfiles.delete(profile.id)
 
   const expectedCommand = expectedProfileCommand(profile.id)
+  if (!expectedCommand) {
+    fail(`tests/matrix.yml lacks tier command for backend profile ${profile.id}`)
+    continue
+  }
   if (profile.command !== expectedCommand) {
     fail(`backend profile ${profile.id} has invalid command ${profile.command}; expected ${expectedCommand}`)
   }

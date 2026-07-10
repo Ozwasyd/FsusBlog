@@ -754,6 +754,11 @@ configure_dotnet_test_processors() {
 }
 
 ensure_backend_filtered_build() {
+  if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" \
+    && -f "$ROOT_DIR/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" ]]; then
+    log "reuse backend build from local physical build bundle"
+    return
+  fi
   local fingerprint
   configure_dotnet_build_parallelism
   fingerprint="$(test_input_fingerprint \
@@ -1082,7 +1087,9 @@ run_fast() {
 
 run_integration_only() {
   log "tier=integration | debug runtime validation, requires frontend=3000 backend=5000"
-  run_backend_dotnet_filter_only "Category=Integration" integration
+  if [[ "${FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS:-0}" != "1" ]]; then
+    run_backend_dotnet_filter_only "Category=Integration" integration
+  fi
   require_debug_stack
 
   export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
@@ -1348,7 +1355,9 @@ run_security_only() {
   run_in_client npm run check:security:notification-stream-binary
   reset_security_runtime_state "pre a11y smoke"
   run_in_client npm run check:a11y:smoke
-  run_in_client npm run check:security:dast
+  if [[ "${FSUSBLOG_SKIP_ZAP:-0}" != "1" ]]; then
+    run_in_client npm run check:security:dast
+  fi
   reset_security_runtime_state "post security gate"
 }
 

@@ -628,6 +628,11 @@ function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs }) {
   child.stderr?.on('data', (chunk) => writeOutput(chunk, true))
 
   let settled = false
+  let budgetExpired = false
+  const tierBudgetMs = Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0
+    ? Number(tier.budgetMs)
+    : null
+  let budgetTimer = null
   const promise = new Promise((resolve) => {
     child.once('error', (error) => {
       if (settled) return
@@ -637,8 +642,21 @@ function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs }) {
     child.once('close', (code, signal) => {
       if (settled) return
       settled = true
-      resolve({ code: code ?? 1, signal })
+      if (budgetTimer) clearTimeout(budgetTimer)
+      resolve(budgetExpired
+        ? { code: 124, signal: null, error: new Error(`bundle budget exceeded (${tierBudgetMs}ms)`) }
+        : { code: code ?? 1, signal })
     })
+    if (tierBudgetMs !== null) {
+      budgetTimer = setTimeout(() => {
+        if (settled) return
+        budgetExpired = true
+        signalProcessTree(child, 'SIGTERM')
+        const killTimer = setTimeout(() => signalProcessTree(child, 'SIGKILL'), terminationGraceMs)
+        killTimer.unref?.()
+      }, tierBudgetMs)
+      budgetTimer.unref?.()
+    }
   })
 
   return {
@@ -680,6 +698,25 @@ function activeUsage(activeEntries) {
   return {
     cpuUnits: activeEntries.reduce((total, entry) => total + tierResourceUnits(entry.tier).cpuUnits, 0),
     memoryGiB: activeEntries.reduce((total, entry) => total + tierResourceUnits(entry.tier).memoryGiB, 0)
+  }
+}
+
+function criticalPath(tiers, tierResults) {
+  const selectedIds = new Set(tiers.map((tier) => tier.id))
+  const paths = new Map()
+  for (const tier of tiers) {
+    const dependencies = (tier.dependsOn ?? []).filter((dependencyId) => selectedIds.has(dependencyId))
+    const longestDependency = dependencies
+      .map((dependencyId) => paths.get(dependencyId) ?? { durationMs: 0, tierIds: [] })
+      .sort((left, right) => right.durationMs - left.durationMs)[0] ?? { durationMs: 0, tierIds: [] }
+    paths.set(tier.id, {
+      durationMs: longestDependency.durationMs + Math.max(0, Number(tierResults[tier.id]?.durationMs) || 0),
+      tierIds: [...longestDependency.tierIds, tier.id]
+    })
+  }
+  return [...paths.values()].sort((left, right) => right.durationMs - left.durationMs)[0] ?? {
+    durationMs: 0,
+    tierIds: []
   }
 }
 
@@ -776,6 +813,9 @@ async function runDagUnlocked(options) {
   const budget = resourceBudget(resources)
   const maxParallel = Math.max(1, Math.floor(Number(options.maxParallel) || resources.cpuCount || 1))
   const terminationGraceMs = Math.max(0, Number(options.terminationGraceMs) || 5000)
+  const wallClockBudgetMs = Number.isFinite(Number(options.wallClockBudgetMs)) && Number(options.wallClockBudgetMs) > 0
+    ? Number(options.wallClockBudgetMs)
+    : null
   const mode = options.mode ?? (options.resume === true ? 'resume' : 'fresh')
   if (!['fresh', 'resume'].includes(mode)) throw new Error(`invalid scheduler mode: ${mode}`)
   if (options.resume === true && mode !== 'resume') throw new Error('resume=true requires mode=resume')
@@ -802,6 +842,14 @@ async function runDagUnlocked(options) {
     startedAt: previous?.startedAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     resourceBudget: budget,
+    budgetMs: wallClockBudgetMs,
+    timedOut: false,
+    resourcePeaks: {
+      load1: Math.max(0, Number(os.loadavg()[0]) || 0),
+      usedMemoryGiB: Math.max(0, (os.totalmem() - os.freemem()) / (1024 ** 3)),
+      reservedCpuUnits: 0,
+      reservedMemoryGiB: 0
+    },
     maxParallel,
     sourceState,
     completedTiers: [],
@@ -817,6 +865,25 @@ async function runDagUnlocked(options) {
   const active = new Map()
   const reusedTiers = []
   let firstFailure = null
+  const sampleResourcePeaks = () => {
+    const usage = activeUsage([...active.values()])
+    checkpoint.resourcePeaks.load1 = Math.max(checkpoint.resourcePeaks.load1, Math.max(0, Number(os.loadavg()[0]) || 0))
+    checkpoint.resourcePeaks.usedMemoryGiB = Math.max(
+      checkpoint.resourcePeaks.usedMemoryGiB,
+      Math.max(0, (os.totalmem() - os.freemem()) / (1024 ** 3))
+    )
+    checkpoint.resourcePeaks.reservedCpuUnits = Math.max(checkpoint.resourcePeaks.reservedCpuUnits, usage.cpuUnits)
+    checkpoint.resourcePeaks.reservedMemoryGiB = Math.max(checkpoint.resourcePeaks.reservedMemoryGiB, usage.memoryGiB)
+  }
+  const resourceTimer = setInterval(sampleResourcePeaks, 500)
+  resourceTimer.unref?.()
+  let budgetTimer = null
+  const budgetPromise = wallClockBudgetMs === null
+    ? null
+    : new Promise((resolve) => {
+        budgetTimer = setTimeout(() => resolve({ budgetExpired: true }), wallClockBudgetMs)
+        budgetTimer.unref?.()
+      })
 
   const dependenciesReady = (tier) => (tier.dependsOn ?? []).every((dependencyId) => completed.has(dependencyId) || !byId.has(dependencyId))
   const dependencyFingerprint = (tier) => fingerprint((tier.dependsOn ?? []).map((dependencyId) => ({
@@ -915,6 +982,7 @@ async function runDagUnlocked(options) {
       })
     }
     active.set(tier.id, entry)
+    sampleResourcePeaks()
     return true
   }
 
@@ -1014,9 +1082,32 @@ async function runDagUnlocked(options) {
       break
     }
 
-    const { tierId, settled } = await Promise.race([...active.entries()].map(([tierId, entry]) => (
+    const activePromises = [...active.entries()].map(([tierId, entry]) => (
       entry.promise.then((settled) => ({ tierId, settled }))
-    )))
+    ))
+    const outcome = await Promise.race(budgetPromise && !firstFailure
+      ? [...activePromises, budgetPromise]
+      : activePromises)
+    if (outcome.budgetExpired) {
+      const timedOutTierId = active.keys().next().value ?? pending[0]?.id ?? checkpoint.targetTierId
+      firstFailure = {
+        tierId: timedOutTierId,
+        exitCode: 124,
+        signal: null,
+        reason: `wall-clock budget exceeded (${wallClockBudgetMs}ms)`,
+        changedPaths: []
+      }
+      checkpoint.timedOut = true
+      checkpoint.failure = firstFailure
+      checkpoint.failurePoint = timedOutTierId
+      writeCheckpoint(checkpointFile, checkpoint)
+      for (const entry of active.values()) {
+        entry.cancelRequested = true
+        entry.terminate()
+      }
+      continue
+    }
+    const { tierId, settled } = outcome
     const entry = active.get(tierId)
     active.delete(tierId)
     const recorded = recordSettled(entry, settled)
@@ -1039,6 +1130,20 @@ async function runDagUnlocked(options) {
   checkpoint.failure = firstFailure
   checkpoint.failurePoint = firstFailure?.tierId ?? null
   checkpoint.finishedAt = new Date().toISOString()
+  if (budgetTimer) clearTimeout(budgetTimer)
+  clearInterval(resourceTimer)
+  sampleResourcePeaks()
+  checkpoint.criticalPath = criticalPath(tiers, checkpoint.tiers)
+  checkpoint.ungeneratedEvidence = firstFailure
+    ? tiers.flatMap((tier) => {
+        const result = checkpoint.tiers[tier.id]
+        if (result?.status === 'success') return []
+        return [...new Set([...(tier.artifacts ?? []), ...(tier.evidence ?? [])])].map((declaration) => ({
+          tierId: tier.id,
+          declaration
+        }))
+      })
+    : []
   writeCheckpoint(checkpointFile, checkpoint)
 
   return {

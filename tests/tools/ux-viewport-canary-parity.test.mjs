@@ -8,10 +8,12 @@ import test from 'node:test'
 import {
   buildMobileLandscapeCanaryCases,
   buildParityEvidence,
+  buildPlaywrightBatchInvocation,
   buildPlaywrightCaseInvocation,
   inspectLegacySnapshot,
   normalizeFailureMessage,
   parsePlaywrightCaseReport,
+  parsePlaywrightBatchReport,
   prepareLegacyWorkspace,
   renderLegacyConfig,
   resolveParityPaths,
@@ -301,6 +303,31 @@ test('case invocations use the real legacy snapshot and current runner with exac
   }
   assert.ok(legacy.args.some((entry) => entry.includes('mobile-landscape-dark-high-contrast-')))
   assert.ok(current.args.includes('ux/viewport-boundaries.spec.ts'))
+})
+
+test('batch invocations execute 70 isolated cases in exactly two Playwright processes', () => {
+  const paths = resolveParityPaths('/repo')
+  const cases = buildMobileLandscapeCanaryCases(matrix)
+  const legacy = buildPlaywrightBatchInvocation({ runner: 'legacy', cases, paths })
+  const current = buildPlaywrightBatchInvocation({ runner: 'current', cases, paths })
+
+  for (const invocation of [legacy, current]) {
+    assert.equal(invocation.env.FSUSBLOG_UX_VIEWPORT_PARITY_BATCH, '1')
+    assert.equal(invocation.env.FSUSBLOG_UX_VIEWPORT_ROUTE_IDS.split(',').length, 5)
+    assert.equal(invocation.env.FSUSBLOG_UX_VIEWPORT_MEDIA.split(',').length, 7)
+    assert.ok(invocation.args.includes('--workers=1'))
+  }
+
+  const report = {
+    suites: [{
+      specs: cases.map((entry) => ({
+        title: `case:${entry.routeId}:${entry.theme}:${entry.viewportId}:${entry.media}`,
+        tests: [{ results: [{ status: 'passed', duration: 1 }] }]
+      }))
+    }],
+    errors: []
+  }
+  assert.equal(parsePlaywrightBatchReport(report, cases, 'current').length, 70)
 })
 
 test('generated legacy config uses a Playwright-loadable filesystem import', () => {

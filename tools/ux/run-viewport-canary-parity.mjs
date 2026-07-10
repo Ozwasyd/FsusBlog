@@ -174,6 +174,93 @@ export function buildPlaywrightCaseInvocation({ runner, caseInfo, paths, runId =
   }
 }
 
+export function buildPlaywrightBatchInvocation({ runner, cases, paths, runId = 'canary-parity' }) {
+  if (runner !== 'legacy' && runner !== 'current') throw new Error(`unknown viewport canary runner: ${String(runner)}`)
+  assertPlannedCases(cases)
+  const executionId = sanitizeSegment(`${runId}-${runner}-batch`)
+  const reportFile = path.join(paths.workRoot, 'reports', `${runner}-batch.json`)
+  const outputDir = path.join(paths.workRoot, 'playwright-output', runner)
+  return {
+    command: process.execPath,
+    args: [
+      paths.playwrightCli,
+      'test',
+      `--config=${runner === 'legacy' ? paths.legacyConfig : paths.frontendConfig}`,
+      '--workers=1',
+      '--reporter=json',
+      'ux/viewport-boundaries.spec.ts'
+    ],
+    cwd: paths.frontendRoot,
+    reportFile,
+    outputDir,
+    env: {
+      FSUSBLOG_UX_VIEWPORT_MODE: 'boundaries',
+      FSUSBLOG_UX_VIEWPORT_ROUTE_IDS: UX_VIEWPORT_MOBILE_LANDSCAPE_CANARY_ROUTE_IDS.join(','),
+      FSUSBLOG_UX_VIEWPORT_THEMES: EXPECTED_THEMES.join(','),
+      FSUSBLOG_UX_VIEWPORT_VIEWPORTS: VIEWPORT_ID,
+      FSUSBLOG_UX_VIEWPORT_MEDIA: EXPECTED_MEDIA.join(','),
+      FSUSBLOG_UX_VIEWPORT_SCREENSHOTS: '0',
+      FSUSBLOG_UX_VIEWPORT_RESUME: '0',
+      FSUSBLOG_UX_VIEWPORT_PARITY_BATCH: '1',
+      FSUSBLOG_PLAYWRIGHT_DIAGNOSTIC_ALL_FAILURES: '1',
+      FSUSBLOG_PLAYWRIGHT_WORKERS: '1',
+      FSUSBLOG_UX_VIEWPORT_WORKERS: '1',
+      FSUSBLOG_UX_VIEWPORT_RUN_ID: executionId,
+      FSUSBLOG_UX_VIEWPORT_RUN_TOKEN: randomUUID(),
+      PLAYWRIGHT_JSON_OUTPUT_FILE: reportFile,
+      PLAYWRIGHT_OUTPUT_DIR: outputDir,
+      NODE_PATH: paths.nodeModules
+    }
+  }
+}
+
+export function parsePlaywrightBatchReport(report, cases, runner) {
+  assertPlannedCases(cases)
+  if (!report || !Array.isArray(report.suites) || (report.errors ?? []).length > 0) {
+    throw new Error(`${runner} Playwright batch report is invalid`)
+  }
+  const specs = report.suites.flatMap(collectReportSpecs)
+  return cases.map((caseInfo) => {
+    const title = `case:${caseInfo.routeId}:${caseInfo.theme}:${caseInfo.viewportId}:${caseInfo.media}`
+    const matches = specs.filter((spec) => spec.title === title || spec.title.startsWith(`${title} `))
+    if (matches.length !== 1 || (matches[0].tests ?? []).length !== 1) {
+      throw new Error(`${runner} Playwright batch must contain exactly one test for ${caseInfo.id}`)
+    }
+    const results = matches[0].tests[0].results ?? []
+    if (results.length !== 1) throw new Error(`${runner} Playwright batch has invalid result count for ${caseInfo.id}`)
+    const result = results[0]
+    if (!['passed', 'failed', 'timedOut'].includes(result.status)) {
+      throw new Error(`${runner} Playwright case ${caseInfo.id} was not fully executed: ${String(result.status)}`)
+    }
+    if (result.status === 'passed') {
+      return {
+        id: caseInfo.id,
+        runner,
+        outcome: 'passed',
+        failureSignature: 'passed',
+        normalizedFailure: null,
+        durationMs: finiteDuration(result.duration),
+        source: RESULT_SOURCE
+      }
+    }
+    const messages = [...new Set([
+      ...(result.errors ?? []).map((error) => error?.message),
+      result.error?.message
+    ].filter(Boolean).map((message) => normalizeFailureMessage(message, caseInfo)).filter(Boolean))].sort()
+    if (messages.length === 0) throw new Error(`${runner} Playwright failure has no error for ${caseInfo.id}`)
+    const normalizedFailure = messages.join('\n---\n')
+    return {
+      id: caseInfo.id,
+      runner,
+      outcome: result.status,
+      failureSignature: `sha256:${sha256Text(normalizedFailure)}`,
+      normalizedFailure,
+      durationMs: finiteDuration(result.duration),
+      source: RESULT_SOURCE
+    }
+  })
+}
+
 export function renderLegacyConfig({ frontendConfig, legacyTestDir, globalSetup, tsconfig }) {
   return [
     `import baseConfig from ${JSON.stringify(frontendConfig)}`,
@@ -414,38 +501,44 @@ export function buildParityEvidence({
   assertPlannedCases(cases)
   const legacy = indexCompleteResults(legacyResults, cases, 'legacy')
   const current = indexCompleteResults(currentResults, cases, 'current')
-  const historical = indexHistoricalResults(historicalResults, cases)
+  const historical = historicalResults?.length === EXPECTED_CASE_COUNT
+    ? indexHistoricalResults(historicalResults, cases)
+    : null
   const comparisons = cases.map((caseInfo) => {
     const legacyResult = legacy.get(caseInfo.id)
     const currentResult = current.get(caseInfo.id)
-    const historicalResult = historical.get(caseInfo.id)
+    const historicalResult = historical?.get(caseInfo.id) ?? null
     const runnersMatch = legacyResult.outcome === currentResult.outcome
       && legacyResult.failureSignature === currentResult.failureSignature
-    const historicalMatches = historicalResult.outcome === legacyResult.outcome
+    const historicalMatches = historicalResult === null ? null : historicalResult.outcome === legacyResult.outcome
       && historicalResult.outcome === currentResult.outcome
       && historicalResult.failureSignature === legacyResult.failureSignature
       && historicalResult.failureSignature === currentResult.failureSignature
-    const matches = runnersMatch && historicalMatches
+    const matches = runnersMatch && historicalMatches !== false
     return {
       ...caseInfo,
       matches,
       runnersMatch,
       historicalMatches,
-      historical: compactResult(historicalResult),
+      historical: historicalResult ? compactResult(historicalResult) : null,
       legacy: compactResult(legacyResult),
       current: compactResult(currentResult)
     }
   })
   const mismatches = comparisons.filter((entry) => !entry.matches)
   const matchedCaseCount = comparisons.length - mismatches.length
-  const historicalMatchedCaseCount = comparisons.filter((entry) => entry.historicalMatches).length
+  const historicalMatchedCaseCount = historical === null
+    ? null
+    : comparisons.filter((entry) => entry.historicalMatches).length
 
   return {
     schema: EVIDENCE_SCHEMA,
     status: mismatches.length === 0 ? 'success' : 'failed',
     generatedAt,
-    executionMode: 'isolated-playwright-case-pairs',
-    comparison: 'normalized-failure-signature-v2-historical-authority',
+    executionMode: 'two-playwright-batches-with-isolated-cases',
+    comparison: historical === null
+      ? 'normalized-failure-signature-v2-runner-parity'
+      : 'normalized-failure-signature-v2-historical-authority',
     matrixVersion,
     selection: {
       routeIds: [...UX_VIEWPORT_MOBILE_LANDSCAPE_CANARY_ROUTE_IDS],
@@ -530,23 +623,19 @@ async function runCli() {
     await assertRuntimePrerequisites(paths)
     snapshot = await inspectLegacySnapshot(paths)
     runners = await runnerMetadata(paths, snapshot)
-    const historicalResults = validateHistoricalFailureBaseline(snapshot.baseline, cases)
+    const historicalResults = snapshot.baseline.status === 'ready'
+      ? validateHistoricalFailureBaseline(snapshot.baseline, cases)
+      : []
     const runRoot = path.join(paths.workRoot, `run-${Date.now()}-${randomUUID()}`)
     paths.workRoot = runRoot
     paths.legacyConfig = path.join(runRoot, 'playwright.legacy.config.mjs')
     await prepareLegacyWorkspace(paths)
     await preflightServices()
 
-    for (const [index, caseInfo] of cases.entries()) {
-      const legacy = await executePlaywrightCase({ runner: 'legacy', caseInfo, paths })
-      const current = await executePlaywrightCase({ runner: 'current', caseInfo, paths })
-      legacyResults.push(legacy)
-      currentResults.push(current)
-      console.log(
-        `[ux-viewport-canary-parity] ${index + 1}/${cases.length} ${caseInfo.id} `
-        + `legacy=${legacy.outcome} current=${current.outcome}`
-      )
-    }
+    ;[legacyResults, currentResults] = await Promise.all([
+      executePlaywrightBatch({ runner: 'legacy', cases, paths }),
+      executePlaywrightBatch({ runner: 'current', cases, paths })
+    ])
 
     const finalSnapshot = await inspectLegacySnapshot(paths)
     const finalRunners = await runnerMetadata(paths, finalSnapshot)
@@ -586,6 +675,34 @@ async function runCli() {
     console.error(`[ux-viewport-canary-parity] evidence=${relative(paths.root, paths.outFile)}`)
     return 1
   }
+}
+
+async function executePlaywrightBatch({ runner, cases, paths }) {
+  const invocation = buildPlaywrightBatchInvocation({ runner, cases, paths, runId: `parity-${Date.now()}` })
+  await mkdir(path.dirname(invocation.reportFile), { recursive: true })
+  await mkdir(invocation.outputDir, { recursive: true })
+  await rm(invocation.reportFile, { force: true })
+  const processResult = await spawnAndCapture(invocation.command, invocation.args, {
+    cwd: invocation.cwd,
+    env: { ...process.env, ...invocation.env }
+  })
+  let report
+  try {
+    report = JSON.parse(await readFile(invocation.reportFile, 'utf8'))
+  } catch (error) {
+    const tail = processResult.output.trim().split('\n').slice(-12).join('\n')
+    throw new Error(`${runner} Playwright batch report missing (exit ${processResult.exitCode})${tail ? `\n${tail}` : ''}`, { cause: error })
+  }
+  const results = parsePlaywrightBatchReport(report, cases, runner).map((result) => ({
+    ...result,
+    exitCode: processResult.exitCode,
+    reportPath: relative(paths.root, invocation.reportFile)
+  }))
+  const expectedExitCode = results.every((result) => result.outcome === 'passed') ? 0 : 1
+  if (processResult.exitCode !== expectedExitCode) {
+    throw new Error(`${runner} Playwright batch exit/report mismatch: exit=${processResult.exitCode}`)
+  }
+  return results
 }
 
 async function executePlaywrightCase({ runner, caseInfo, paths }) {
@@ -639,6 +756,18 @@ export async function prepareLegacyWorkspace(paths) {
   const nodeModulesLink = path.join(legacyRoot, 'node_modules')
   await rm(legacyRoot, { recursive: true, force: true })
   await cp(path.join(paths.legacySnapshotRoot, 'runtime'), legacyRoot, { recursive: true })
+  const legacySpec = await readFile(path.join(legacyTestDir, 'ux/viewport-boundaries.spec.ts'), 'utf8')
+  const batchSpec = legacySpec
+    .replace(
+      "const key = [testCase.viewport.name, testCase.theme, testCase.media, testCase.route.storage].join('|')",
+      "const key = [testCase.route.id, testCase.viewport.name, testCase.theme, testCase.media].join('|')"
+    )
+    .replace(
+      'id: `group-${groupNumber}-${testCase.viewport.name}-${testCase.theme}-${testCase.media}-${testCase.route.storage}`',
+      'id: `case:${testCase.route.id}:${testCase.theme}:${testCase.viewport.name}:${testCase.media}`'
+    )
+  if (batchSpec === legacySpec) throw new Error('legacy parity batch instrumentation did not apply')
+  await writeFile(path.join(legacyTestDir, 'ux/viewport-boundaries.spec.ts'), batchSpec)
   await mkdir(path.dirname(frontendLink), { recursive: true })
   await symlink(paths.frontendRoot, frontendLink, 'dir')
   await symlink(paths.nodeModules, nodeModulesLink, 'dir')
@@ -782,6 +911,13 @@ function collectReportTests(suite) {
   return [
     ...(suite.specs ?? []).flatMap((spec) => spec.tests ?? []),
     ...(suite.suites ?? []).flatMap(collectReportTests)
+  ]
+}
+
+function collectReportSpecs(suite) {
+  return [
+    ...(suite.specs ?? []),
+    ...(suite.suites ?? []).flatMap(collectReportSpecs)
   ]
 }
 

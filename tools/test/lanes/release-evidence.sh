@@ -3,7 +3,9 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/run-test-matrix.mjs" evidence-plan --out "$ROOT_DIR/.tmp/release-evidence/test-plan.json"
-if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" ]]; then
+  log "local bundle evidence is projected after physical bundle completion"
+elif [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
   run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-job-summaries.mjs" --require-plan
 else
   run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-job-summaries.mjs"

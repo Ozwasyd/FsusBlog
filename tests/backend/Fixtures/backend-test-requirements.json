@@ -104,6 +104,20 @@
       ]
     },
     {
+      "id": "backend-benchmark-regression",
+      "command": "tools/test/lanes/backend-benchmark-regression.sh",
+      "risk": "high",
+      "requirements": [
+        "BACKEND-PERF-BENCHMARKS",
+        "BACKEND-LOAD-STRESS-CAPACITY"
+      ],
+      "evidencePaths": [
+        "tools/test/lanes/backend-benchmark-regression.sh",
+        "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+        "benchmarks/core/Program.cs"
+      ]
+    },
+    {
       "id": "backend-mutation",
       "command": "tools/test/legacy-test.sh backend-mutation",
       "risk": "high",

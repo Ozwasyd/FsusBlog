@@ -84,6 +84,7 @@ describe('test session helpers', () => {
   })
 
   it('resolves fixture file path when session exists', () => {
+    delete process.env.FSUSBLOG_TEST_NAMESPACE
     process.env.FSUSBLOG_TEST_SESSION = 'worker 9'
     const file = resolveTestSessionFixtureFile('/tmp/example')
     expect(file).toBe('/tmp/example/.tmp/fixtures/local/sessions/worker-9.aeds')

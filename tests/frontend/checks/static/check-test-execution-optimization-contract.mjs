@@ -30,10 +30,20 @@ const vitestConfigs = readdirSync(path.join(root, 'src/frontend'))
 
 read('src/frontend/vitest.shared.mjs')
 for (const configName of vitestConfigs) {
-  requireIncludes(`src/frontend/${configName}`, [
-    "from './vitest.shared.mjs'",
-    'createVitestRuntimeOptions('
-  ])
+  if (configName === 'vitest.production.config.ts') {
+    requireIncludes(`src/frontend/${configName}`, [
+      "from './vitest.config'",
+      "from './vitest.property.config'",
+      "from './vitest.model.config'",
+      "from './vitest.perf.config'",
+      'projects:'
+    ])
+  } else {
+    requireIncludes(`src/frontend/${configName}`, [
+      "from './vitest.shared.mjs'",
+      'createVitestRuntimeOptions('
+    ])
+  }
 }
 
 const packageJson = JSON.parse(read('src/frontend/package.json') || '{}')

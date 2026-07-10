@@ -18,6 +18,16 @@ export const UX_VIEWPORT_MOBILE_LANDSCAPE_CANARY_ROUTE_IDS = Object.freeze([
   'manage-settings'
 ])
 
+export const UX_VIEWPORT_MODEL_ROUTE_IDS = Object.freeze([
+  'public-home', 'public-article', 'public-archive', 'public-about', 'public-privacy',
+  'public-guidelines', 'public-copyright', 'public-category', 'public-tag', 'public-search',
+  'public-login', 'public-register', 'public-forbidden', 'public-not-found',
+  'public-anon-user-redirect', 'public-anon-manage-redirect', 'user-profile', 'user-comments',
+  'user-messagebox', 'user-login-redirect', 'manage-dashboard', 'manage-write', 'manage-edit',
+  'manage-list', 'manage-trash', 'manage-category', 'manage-tag', 'manage-settings',
+  'manage-users', 'manage-message', 'manage-audit', 'manage-user-profile', 'manage-login-redirect'
+])
+
 export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
   const config = matrix?.modes?.[mode]
   if (!config) {
@@ -38,7 +48,7 @@ export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
   const selectedViewports = selectKnown(modeViewports, (viewport) => viewport.name, filters.viewportIds, 'viewport')
   const selectedMedia = selectKnown(config.media, (media) => media, filters.media, 'media')
 
-  const groups = []
+  let groups = []
   for (const route of selectedRoutes) {
     const routeMedia = mediaForRoute(mode, route.id, selectedMedia)
     if (routeMedia.length === 0) {
@@ -68,6 +78,11 @@ export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
     }
   }
 
+  if (filters.riskMatrix === true) {
+    if (mode !== 'boundaries') throw new Error('UX viewport risk matrix requires boundaries mode')
+    groups = buildRiskGroups({ selectedRoutes, selectedThemes, selectedViewports, selectedMedia })
+  }
+
   if (groups.length === 0) {
     throw new Error(`UX viewport plan ${mode} is empty after applying filters`)
   }
@@ -82,13 +97,19 @@ export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
     groups,
     selection: {
       routeIds: [...new Set(groups.map((group) => group.route.id))],
-      themes: [...new Set(groups.map((group) => group.theme))],
-      viewportIds: [...new Set(groups.flatMap((group) => (
-        group.viewports.map((viewport) => viewport.viewport.name)
-      )))],
-      media: [...new Set(groups.flatMap((group) => (
-        group.viewports.flatMap((viewport) => viewport.steps.map((step) => step.media))
-      )))]
+      themes: filters.riskMatrix === true
+        ? [...selectedThemes]
+        : [...new Set(groups.map((group) => group.theme))],
+      viewportIds: filters.riskMatrix === true
+        ? selectedViewports.map((viewport) => viewport.name)
+        : [...new Set(groups.flatMap((group) => (
+            group.viewports.map((viewport) => viewport.viewport.name)
+          )))],
+      media: filters.riskMatrix === true
+        ? [...selectedMedia]
+        : [...new Set(groups.flatMap((group) => (
+            group.viewports.flatMap((viewport) => viewport.steps.map((step) => step.media))
+          )))]
     },
     counts: {
       routes: new Set(groups.map((group) => group.route.id)).size,
@@ -104,6 +125,41 @@ export function buildUxViewportPlan({ matrix, routes, mode, filters = {} }) {
       .update(JSON.stringify(fingerprintPayload(plan)))
       .digest('hex')
   }
+}
+
+function buildRiskGroups({ selectedRoutes, selectedThemes, selectedViewports, selectedMedia }) {
+  const routesById = new Map(selectedRoutes.map((route) => [route.id, route]))
+  const anchors = ['public-article', 'user-profile', 'manage-users'].map((routeId) => (
+    requireEntry(routesById, routeId, 'risk matrix route')
+  ))
+  const groups = new Map()
+  for (const [viewportIndex, viewport] of selectedViewports.entries()) {
+    for (const [themeIndex, theme] of selectedThemes.entries()) {
+      const route = anchors[(viewportIndex * selectedThemes.length + themeIndex) % anchors.length]
+      const groupId = `route-theme:${route.id}:${theme}`
+      const group = groups.get(groupId) ?? {
+        id: groupId,
+        route,
+        theme,
+        storage: route.storage,
+        viewports: []
+      }
+      group.viewports.push({
+        id: `navigation:${route.id}:${theme}:${viewport.name}`,
+        viewport,
+        steps: selectedMedia.map((media) => ({
+          id: `case:${route.id}:${theme}:${viewport.name}:${media}`,
+          routeId: route.id,
+          theme,
+          viewportId: viewport.name,
+          media,
+          screenshot: media === 'default'
+        }))
+      })
+      groups.set(groupId, group)
+    }
+  }
+  return [...groups.values()]
 }
 
 export function listUxViewportCases(plan) {

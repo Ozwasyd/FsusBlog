@@ -28,7 +28,9 @@ function createRunnerFixture(temp) {
   const schedulerDirectory = path.join(toolsDirectory, 'test-matrix')
   fs.mkdirSync(schedulerDirectory, { recursive: true })
   fs.copyFileSync(path.join(root, 'tools/run-test-matrix.mjs'), path.join(toolsDirectory, 'run-test-matrix.mjs'))
-  fs.copyFileSync(schedulerFile, path.join(schedulerDirectory, 'scheduler.mjs'))
+  for (const file of ['scheduler.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs']) {
+    fs.copyFileSync(path.join(root, 'tools/test-matrix', file), path.join(schedulerDirectory, file))
+  }
   return path.join(toolsDirectory, 'run-test-matrix.mjs')
 }
 
@@ -187,6 +189,59 @@ test('runDag stops the whole POSIX process group on the first tier failure', { s
     }
   }
   assert.equal(alive, false, `grandchild ${grandchildPid} survived sibling failure`)
+})
+
+test('runDag enforces a wall-clock deadline and records the timed-out tier', { skip: process.platform === 'win32' }, async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-deadline')
+  const slowFile = path.join(temp, 'slow.mjs')
+  fs.writeFileSync(slowFile, 'setInterval(() => {}, 1000)\n')
+
+  const result = await runDag({
+    tiers: [tier('slow', { command: `${JSON.stringify(process.execPath)} ${JSON.stringify(slowFile)}` })],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'deadline',
+    maxParallel: 1,
+    wallClockBudgetMs: 150,
+    terminationGraceMs: 50,
+    systemResources: { cpuCount: 8, availableMemoryGiB: 8, load1: 0 },
+    snapshotWorktree: stableSnapshot
+  })
+
+  assert.equal(result.status, 'failure')
+  assert.equal(result.failure.tierId, 'slow')
+  assert.equal(result.failure.reason, 'wall-clock budget exceeded (150ms)')
+  assert.equal(result.checkpoint.budgetMs, 150)
+  assert.equal(result.checkpoint.timedOut, true)
+  assert.deepEqual(result.checkpoint.criticalPath.tierIds, ['slow'])
+  assert.ok(result.checkpoint.resourcePeaks.usedMemoryGiB > 0)
+  assert.ok(Array.isArray(result.checkpoint.ungeneratedEvidence))
+})
+
+test('runDag enforces an individual physical bundle budget', { skip: process.platform === 'win32' }, async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-bundle-deadline')
+  const slowFile = path.join(temp, 'slow.mjs')
+  fs.writeFileSync(slowFile, 'setInterval(() => {}, 1000)\n')
+
+  const result = await runDag({
+    tiers: [tier('bundle', {
+      command: `${JSON.stringify(process.execPath)} ${JSON.stringify(slowFile)}`,
+      budgetMs: 120
+    })],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'bundle-deadline',
+    maxParallel: 1,
+    terminationGraceMs: 50,
+    systemResources: { cpuCount: 8, availableMemoryGiB: 8, load1: 0 },
+    snapshotWorktree: stableSnapshot
+  })
+
+  assert.equal(result.status, 'failure')
+  assert.equal(result.failure.exitCode, 124)
+  assert.equal(result.failure.reason, 'bundle budget exceeded (120ms)')
 })
 
 test('resume reuses successful tiers only while input and dependency fingerprints match', async () => {
@@ -695,8 +750,8 @@ test('viewport CLI resume reaches Playwright progress while fresh clears ambient
     '    executionKey: viewport-smoke',
     '    executionVariant: runtime',
     '    requiresPlaywright: chromium',
-    `    artifacts: [${JSON.stringify(artifact)}]`,
-    `    evidence: [${JSON.stringify(artifact)}]`,
+    '    artifacts: [viewport-output.json]',
+    '    evidence: [viewport-output.json]',
     '    ciJob: ux-viewport-smoke'
   ].join('\n'))
 
@@ -1285,8 +1340,8 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
     '    phase: 1',
     '    resourceClass: cpu',
     '    maxParallel: 2',
-    '    cpuUnits: 1',
-    '    memoryGiB: 0.1',
+    '    cpuUnits: 0.1',
+    '    memoryGiB: 0.01',
     '    cacheInputs: []',
     `    executionKey: ${id}`,
     '    executionVariant: ordinary',

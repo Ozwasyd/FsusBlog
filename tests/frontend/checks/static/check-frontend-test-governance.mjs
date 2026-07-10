@@ -7,6 +7,10 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const pkg = JSON.parse(readFileSync(resolve(root, 'src/frontend/package.json'), 'utf8'))
 const matrix = readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8')
 const legacyTestSh = readFileSync(resolve(root, 'tools/test/legacy-test.sh'), 'utf8')
+const localBundleRunner = readFileSync(resolve(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8')
+const productionVitestConfig = readFileSync(resolve(root, 'src/frontend/vitest.production.config.ts'), 'utf8')
+const runtimeManifest = readFileSync(resolve(root, 'tests/frontend/checks/runtime/manifest.json'), 'utf8')
+const staticManifest = readFileSync(resolve(root, 'tests/frontend/checks/static/manifest.json'), 'utf8')
 const viteConfig = readFileSync(resolve(root, 'src/frontend/vite.config.ts'), 'utf8')
 const errors = []
 
@@ -29,6 +33,11 @@ function requireFile(path) {
 function legacyFastGateRuns(script) {
   return legacyTestSh.includes(`npm run ${script}`)
     || legacyTestSh.includes(`run_vitest_script ${script}`)
+    || runtimeManifest.includes(`"script": "${script}"`)
+    || staticManifest.includes(`"script": "${script}"`)
+    || (script === 'test:property' && productionVitestConfig.includes('vitest.property.config'))
+    || (script === 'check:frontend-state-machines' && productionVitestConfig.includes('vitest.model.config'))
+    || (script === 'check:frontend-perf-regression' && productionVitestConfig.includes('vitest.perf.config'))
 }
 
 const coverageProfiles = [

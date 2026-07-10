@@ -5,6 +5,8 @@ import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
+import { integrityProofCommand } from './proof-command.mjs'
+
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..'))
 const defaultOut = path.join(root, '.tmp/release-evidence/integrity-proof-verification.json')
 
@@ -21,12 +23,7 @@ function parseArgs(argv) {
 
 const options = parseArgs(process.argv.slice(2))
 const filter = 'FullyQualifiedName~IntegrityProofVerification'
-const command = [
-  'test',
-  'tests/backend/FsusBlog.Server.Tests.csproj',
-  '--filter',
-  filter
-]
+const command = integrityProofCommand(process.env)
 
 const result = spawnSync('dotnet', command, {
   cwd: root,

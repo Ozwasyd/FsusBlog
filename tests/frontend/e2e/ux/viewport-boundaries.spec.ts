@@ -32,7 +32,10 @@ import {
   buildAnonymousRoutes,
   buildUserRoutes
 } from '../../support/playwright/routeAuditMatrix'
-import { buildUxViewportPlan } from '../../support/playwright/uxViewportPlan.mjs'
+import {
+  UX_VIEWPORT_MODEL_ROUTE_IDS,
+  buildUxViewportPlan
+} from '../../support/playwright/uxViewportPlan.mjs'
 // @ts-ignore The progress store intentionally stays a pure Node module shared with node:test.
 import { openUxViewportProgress, recordUxViewportGroupResult } from '../../support/playwright/uxViewportProgress.mjs'
 
@@ -85,20 +88,24 @@ const mode = parseMode(process.env.FSUSBLOG_UX_VIEWPORT_MODE)
 const modeConfig = UX_VIEWPORT_MATRIX.modes[mode]
 const screenshotsEnabled = modeConfig.screenshots === true
   || readBooleanFlag('FSUSBLOG_UX_VIEWPORT_SCREENSHOTS')
+const parityBatch = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_PARITY_BATCH')
 const usesIsolatedSessions = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1'
 const viewportExecutionMode = mode === 'smoke' || usesIsolatedSessions
   ? 'parallel'
   : 'default'
 const resume = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RESUME')
+const uxRoutes = buildUxRoutes()
+assertRuntimeRouteCatalog(uxRoutes)
 const plan = buildUxViewportPlan({
   matrix: UX_VIEWPORT_MATRIX,
-  routes: buildUxRoutes(),
+  routes: uxRoutes,
   mode,
   filters: {
     routeIds: readOptionalList('FSUSBLOG_UX_VIEWPORT_ROUTE_IDS'),
     themes: readOptionalList('FSUSBLOG_UX_VIEWPORT_THEMES'),
     viewportIds: readOptionalList('FSUSBLOG_UX_VIEWPORT_VIEWPORTS'),
-    media: readOptionalList('FSUSBLOG_UX_VIEWPORT_MEDIA')
+    media: readOptionalList('FSUSBLOG_UX_VIEWPORT_MEDIA'),
+    riskMatrix: readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RISK_MATRIX')
   }
 }) as UxPlan
 const progressRun = await openUxViewportProgress({
@@ -124,7 +131,17 @@ test.describe(`UX viewport boundaries (${mode})`, () => {
     timeout: mode === 'boundaries' ? 1_200_000 : 300_000
   })
 
-  for (const group of plan.groups) {
+  const testGroups = parityBatch
+    ? plan.groups.flatMap((group) => group.viewports.flatMap((viewportPlan) => (
+        viewportPlan.steps.map((step) => ({
+          ...group,
+          id: step.id,
+          viewports: [{ ...viewportPlan, steps: [step] }]
+        }))
+      )))
+    : plan.groups
+
+  for (const group of testGroups) {
     test(group.id, async ({ browser }, testInfo) => {
       test.skip(
         resume && progressRun.completedGroupIds.has(group.id),
@@ -134,24 +151,28 @@ test.describe(`UX viewport boundaries (${mode})`, () => {
       try {
         await runUxRouteThemeGroup(browser, group)
       } catch (error) {
+        if (!parityBatch) {
+          await recordUxViewportGroupResult({
+            run: progressRun,
+            plan,
+            groupId: group.id,
+            status: 'failed',
+            error,
+            artifacts: currentTestArtifacts(testInfo)
+          })
+        }
+        throw error
+      }
+
+      if (!parityBatch) {
         await recordUxViewportGroupResult({
           run: progressRun,
           plan,
           groupId: group.id,
-          status: 'failed',
-          error,
+          status: 'passed',
           artifacts: currentTestArtifacts(testInfo)
         })
-        throw error
       }
-
-      await recordUxViewportGroupResult({
-        run: progressRun,
-        plan,
-        groupId: group.id,
-        status: 'passed',
-        artifacts: currentTestArtifacts(testInfo)
-      })
     })
   }
 })
@@ -217,6 +238,14 @@ function buildUxRoutes(): UxRoute[] {
   }))
 
   return [...publicRoutes, ...userRoutes, ...adminRoutes]
+}
+
+function assertRuntimeRouteCatalog(routes: UxRoute[]): void {
+  const actual = routes.map((route) => route.id)
+  const expected = [...UX_VIEWPORT_MODEL_ROUTE_IDS]
+  if (actual.length !== expected.length || actual.some((routeId, index) => routeId !== expected[index])) {
+    throw new Error(`UX viewport runtime route catalog drift: actual=${actual.join(',')} expected=${expected.join(',')}`)
+  }
 }
 
 async function runUxRouteThemeGroup(browser: Browser, group: PlannedGroup): Promise<void> {

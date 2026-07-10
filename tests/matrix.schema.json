@@ -6,6 +6,38 @@
   "properties": {
     "version": { "type": "string", "pattern": "^fsusblog-test-matrix-v[0-9]+$" },
     "namespaceTemplate": { "type": "string" },
+    "localProfiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["budgetMs", "maxParallel", "memoryGiB", "bundles", "summaryOnly"],
+        "properties": {
+          "budgetMs": { "type": "number", "minimum": 1 },
+          "maxParallel": { "type": "number", "minimum": 1 },
+          "memoryGiB": { "type": "number", "minimum": 0 },
+          "summaryOnly": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+          "bundles": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["id", "command", "budgetMs", "dependsOn", "members", "resourceClass", "cpuUnits", "memoryGiB", "exclusiveResources"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+                "command": { "type": "string", "minLength": 1 },
+                "budgetMs": { "type": "number", "minimum": 1 },
+                "dependsOn": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+                "members": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+                "resourceClass": { "type": "string", "enum": ["cpu", "io", "browser", "network", "benchmark", "database"] },
+                "cpuUnits": { "type": "number", "minimum": 0.1 },
+                "memoryGiB": { "type": "number", "minimum": 0 },
+                "exclusiveResources": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+              }
+            }
+          }
+        }
+      }
+    },
     "tiers": {
       "type": "array",
       "minItems": 1,

@@ -86,43 +86,66 @@ optimize_pow_wasm() {
   fi
 }
 
-pushd "${BUILD_SIMD_DIR}" >/dev/null
-emcmake cmake --fresh .. \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DWASM_SIMD=ON \
-  -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
-  -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_SIMD_DIR}" \
-  "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
-cmake --build .
-popd >/dev/null
+WASM_JOBS_PER_MODE="${FSUSBLOG_WASM_JOBS_PER_MODE:-2}"
 
-pushd "${BUILD_BASIC_DIR}" >/dev/null
-emcmake cmake --fresh .. \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DWASM_SIMD=OFF \
-  -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
-  -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_BASIC_DIR}" \
-  "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
-cmake --build .
-popd >/dev/null
+build_simd() {
+  cd "${BUILD_SIMD_DIR}"
+  emcmake cmake --fresh .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DWASM_SIMD=ON \
+    -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
+    -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_SIMD_DIR}" \
+    "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
+  cmake --build . --parallel "${WASM_JOBS_PER_MODE}"
+}
 
-pushd "${BUILD_RELAXED_POW_DIR}" >/dev/null
-emcmake cmake --fresh ../pow \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DWASM_RELAXED_SIMD=ON \
-  -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_RELAXED_POW_DIR}" \
-  "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
-cmake --build .
-popd >/dev/null
+build_basic() {
+  cd "${BUILD_BASIC_DIR}"
+  emcmake cmake --fresh .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DWASM_SIMD=OFF \
+    -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
+    -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_BASIC_DIR}" \
+    "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
+  cmake --build . --parallel "${WASM_JOBS_PER_MODE}"
+}
 
-pushd "${BUILD_THREADS_POW_DIR}" >/dev/null
-emcmake cmake --fresh ../pow \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DWASM_THREADS=ON \
-  -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_THREADS_POW_DIR}" \
-  "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
-cmake --build .
-popd >/dev/null
+build_relaxed_pow() {
+  cd "${BUILD_RELAXED_POW_DIR}"
+  emcmake cmake --fresh ../pow \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DWASM_RELAXED_SIMD=ON \
+    -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_RELAXED_POW_DIR}" \
+    "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
+  cmake --build . --parallel "${WASM_JOBS_PER_MODE}"
+}
+
+build_threads_pow() {
+  cd "${BUILD_THREADS_POW_DIR}"
+  emcmake cmake --fresh ../pow \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DWASM_THREADS=ON \
+    -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_THREADS_POW_DIR}" \
+    "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
+  cmake --build . --parallel "${WASM_JOBS_PER_MODE}"
+}
+
+build_pids=()
+build_simd & build_pids+=("$!")
+build_basic & build_pids+=("$!")
+build_relaxed_pow & build_pids+=("$!")
+build_threads_pow & build_pids+=("$!")
+
+build_failed=0
+for build_pid in "${build_pids[@]}"; do
+  if ! wait "$build_pid"; then
+    build_failed=1
+  fi
+done
+if [[ "$build_failed" == "1" ]]; then
+  echo "[build:wasm] one or more parallel build modes failed" >&2
+  exit 1
+fi
 
 cp -f "${STAGE_SIMD_DIR}/aeds_decoder.js" "${OUT_DIR}/aeds_decoder.js"
 cp -f "${STAGE_SIMD_DIR}/aeds_decoder.wasm" "${OUT_DIR}/aeds_decoder.wasm"

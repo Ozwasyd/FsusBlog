@@ -4,6 +4,7 @@ import test from 'node:test'
 
 import {
   UX_VIEWPORT_MOBILE_LANDSCAPE_CANARY_ROUTE_IDS,
+  UX_VIEWPORT_MODEL_ROUTE_IDS,
   buildUxViewportPlan,
   listUxViewportCases
 } from '../frontend/support/playwright/uxViewportPlan.mjs'
@@ -48,6 +49,8 @@ const routeIds = [
   'manage-user-profile',
   'manage-login-redirect'
 ]
+
+assert.deepEqual(routeIds, UX_VIEWPORT_MODEL_ROUTE_IDS)
 
 const routes = routeIds.map((id) => ({
   id,
@@ -110,6 +113,25 @@ test('planner keeps matrix media order inside one cold navigation per viewport',
     plan.groups[0].viewports[0].steps.map((entry) => entry.media),
     matrix.modes.boundaries.media
   )
+})
+
+test('local production risk plan covers every dimension within 48 navigations', () => {
+  const plan = buildUxViewportPlan({
+    matrix,
+    routes,
+    mode: 'boundaries',
+    filters: { riskMatrix: true }
+  })
+
+  assert.equal(plan.counts.navigations, 28)
+  assert.equal(plan.counts.cases, 196)
+  assert.ok(plan.counts.navigations <= 48)
+  assert.deepEqual(plan.selection.themes, matrix.modes.boundaries.themes)
+  assert.deepEqual(plan.selection.viewportIds, matrix.modes.boundaries.viewports)
+  assert.deepEqual(plan.selection.media, matrix.modes.boundaries.media)
+  assert.ok(plan.selection.routeIds.some((id) => id.startsWith('public-')))
+  assert.ok(plan.selection.routeIds.some((id) => id.startsWith('user-')))
+  assert.ok(plan.selection.routeIds.some((id) => id.startsWith('manage-')))
 })
 
 test('unknown filters fail closed even when another requested value is valid', () => {
