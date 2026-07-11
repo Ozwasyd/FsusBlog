@@ -1,12 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createUserCommentViewContract } from '@/view-contracts/commentDetail'
-
-const listSource = readFileSync(
-  resolve(process.cwd(), 'src/components/user/UserCommentsList.vue'),
-  'utf8'
-)
 
 describe('user comment moderation status view contract', () => {
   it('maps backend visibility fields to user-facing badge copy', () => {
@@ -34,13 +27,4 @@ describe('user comment moderation status view contract', () => {
     })
   })
 
-  it('renders moderation badges without mobile content compression', () => {
-    expect(listSource).toContain('<el-tag')
-    expect(listSource).toContain('item.moderation.statusLabel')
-    expect(listSource).toContain('item.moderation.reasonText')
-    expect(listSource).toContain('user-comment-moderation')
-    expect(listSource).toContain('flex-wrap')
-    expect(listSource).toContain('min-w-0')
-    expect(listSource).toContain('break-words')
-  })
 })

@@ -1,5 +1,57 @@
 # Database Migration Runbook
 
+This document is the historical/final-state catalog for legacy descriptors. New
+production changes must follow [Online Database Migration Protocol](online-database-migration.md)
+and [Online Migration Operations](online-database-migration-operations.md). The only
+production release entry is `tools/deployment/release-rollout.sh`: it executes an
+explicit Expand before candidate start; production `serve` performs only read-only
+compatibility checks. Backfill resumes from durable checkpoints, while Contract is a
+separate destructive operation after observation and backup gates.
+
+Do not replay this legacy catalog through the online Contract command. Pre-protocol
+descriptors are `LegacyBootstrapOnly` and require an isolated restore/cold bootstrap.
+Expand/Backfill can degrade without restarting the web process by retaining the
+N/N-1 bridge or pausing the durable token. After destructive Contract, code rollback
+cannot recreate removed data: isolate the write path and restore a verified backup
+before selecting a compatible retained image/database pair.
+
+## Zero-Downtime Migration Qualification
+
+Issue #1031 qualification is an isolated Test-topology gate around the production
+Expand/Backfill/Contract protocol. Its private plan supplies
+`target.migrationServerDll` and
+`migrationQualification.{scenarioTemplate,timeoutSeconds,expandMigrationId,backfillMigrationId,contractMigrationId}`.
+The resolved template always contains exactly these ten scenarios:
+
+| Order | Scenario | Required observation |
+|---:|---|---|
+| 1 | Expand with old Active | old release is ready before Expand and still serves an AEDS read afterward |
+| 2 | Blue/Green concurrent read/write | both direct origins read and perform bounded idempotent bridge writes with exact release headers |
+| 3 | Backfill checkpoint/resume | pause is durable, resume token is hash-only, resume completes without row-count regression |
+| 4 | Missing Expand | candidate qualification readiness returns 503 `schema_incompatible` |
+| 5 | Contract during rollback window | command is rejected with previous-release/rollback-manifest issues |
+| 6 | Qualified Contract | destructive command succeeds and a separate marker binds rollout/release with `rollbackCompatible=false` |
+| 7 | Migration lock | real PostgreSQL advisory-lock timeout returns `schema_advisory_lock_timeout` |
+| 8 | Database disconnect | isolated failed connection returns `schema_database_unavailable` |
+| 9 | Partial Backfill failure | failed checkpoint and failure count persist, then resume reaches completed without regression |
+| 10 | History integrity | checksum mismatch and unknown history record are both reported with a history hash |
+
+`tools/deployment/rehearsal-schema-qualification-probe.mjs` is the repository-owned
+adapter for fault/checkpoint operations. It runs only with
+`ASPNETCORE_ENVIRONMENT=Test` and `FSUSBLOG_ROLLOUT_REHEARSAL=1`, rejects production-
+like database IDs, and reads only a private env file. Blue/Green HTTP uses application
+routes `POST /api/release-evidence/schema-bridge/write` and
+`GET /api/release-evidence/schema-qualification/readiness`; these routes are absent
+unless `SchemaMigration:QualificationEnabled=true` in the exact `Test` environment,
+and still require admin `system.config` plus `fixed_ip`.
+
+Before Contract, no-restart rollback is additive: keep the source Active, stop or
+tear down the candidate, retain the bridge, and pause/resume the durable Backfill
+checkpoint. During or after a qualified Contract, the marker is authoritative. If
+`rollbackCompatible=false`, do not route an old image back to the modified database;
+isolate writes and restore a verified backup or apply a forward repair with a
+compatible retained release.
+
 ## 字段最终态表
 
 The table below is the authoritative final-state inventory for legacy identity columns that are either removed from the physical schema or retained only for an explicit compatibility purpose. Keep it synchronized with `src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs`; `tools/db/migration-doc-lint.mjs` fails when the registry and this table diverge.
@@ -22,6 +74,7 @@ The table below is the authoritative final-state inventory for legacy identity c
 | `sys_user.mfapendingcreatedat` | dropped | no | migrated to user_mfa_profile.mfa_pending_created_at | 20260621-post-sys-user-security-profile-split-finalize |
 | `sys_user.mfaverifiedat` | dropped | no | migrated to user_mfa_profile.mfa_verified_at | 20260621-post-sys-user-security-profile-split-finalize |
 | `sys_user.mfarecoverycodeshash` | dropped | no | migrated to user_mfa_profile.mfa_recovery_codes_hash | 20260621-post-sys-user-security-profile-split-finalize |
+| `sys_user.account_subject_hash` | present nullable during rolling expand | yes | stable account subject projection; startup gate requires every row populated | n/a |
 | `comment.user_id` | present nullable | yes | explicit public attribution compatibility | n/a |
 | `comment.reply_to_user_id` | present nullable | yes | legacy public reply projection | n/a |
 | `comment.moderated_by_user_id` | dropped | no | renamed to comment.moderated_by_admin_principal_id | 20260621-pre-comment-moderation-admin-principal-attribution |
@@ -53,7 +106,7 @@ The migration fail-fast checks shrinking fields before applying the current sche
 - `sys_systemconfig.key` must be at most 64 characters.
 - `sys_systemconfig.value` must be at most 512 characters after legacy `Page_*` and `sys:page:*` entries have moved to `page_content`.
 
-If any shrinking field contains oversized data, startup fails with a message containing `Legacy 20260517 length check failed`, the table name, column name, affected row count, observed max length, and expected max length. Do not truncate production data in place. Export the offending rows, decide the canonical replacement values, update them explicitly, then rerun the migration.
+If any shrinking field contains oversized data, the isolated legacy bootstrap fails with a message containing `Legacy 20260517 length check failed`, the table name, column name, affected row count, observed max length, and expected max length. Do not truncate production data in place. Export the offending rows, decide the canonical replacement values, update them explicitly, then rerun the isolated migration.
 
 The upgrade also moves legacy content and messaging structures:
 
@@ -66,7 +119,7 @@ The upgrade also moves legacy content and messaging structures:
 - `sys_visit_log` is extended into the human-read event source with `site_read` defaults.
 - `sys_visit_log.userid` and `sys_visit_log.user_id` are dropped after human-read attribution is finalized.
 
-Rollback is backup based. Schema migrations are intentionally `non_compensable`; use the pre-migration site package or database dump if the isolated rehearsal or production startup check fails.
+Rollback for this legacy bootstrap path is backup based and its mutation descriptor remains `non_compensable`. Production serve startup now performs read-only schema compatibility checks; it does not execute this legacy mutation path. If an isolated legacy bootstrap or an explicitly approved destructive Contract step fails, keep serving through the compatible image/bridge while it remains valid, or restore the pre-migration site package and database dump according to the online migration runbook.
 
 ## Rights V3 Schema Backfill
 
@@ -76,28 +129,37 @@ Rollback is backup based. Schema migrations are intentionally `non_compensable`;
 - `article_rights_snapshot`
 - `article_rights_proof`
 
-The migration runs after CodeFirst so it can rely on the final `article` and `article_revision` table shapes. It backfills one default policy row for every existing article because historical articles had no editor-authored Rights V3 intent, then creates one rights snapshot for the latest revision of each article that already has revisions. The latest revision is selected by highest `revision_no`, then newest `created_at`, then highest `id`. Snapshot hashes are seeded with `rights-v3:policy-hash:recompute` and `rights-v3:content-hash:recompute`; later Rights V3 canonicalizer/proof work must replace those sentinels before treating the proof as ready.
+Within the isolated legacy bootstrap, the migration runs after CodeFirst so it can rely on the final `article` and `article_revision` table shapes. It backfills one default policy row for every existing article because historical articles had no editor-authored Rights V3 intent, then creates one rights snapshot for the latest revision of each article that already has revisions. The latest revision is selected by highest `revision_no`, then newest `created_at`, then highest `id`. Snapshot hashes are seeded with `rights-v3:policy-hash:recompute` and `rights-v3:content-hash:recompute`; later Rights V3 canonicalizer/proof work must replace those sentinels before treating the proof as ready.
 
-The backfill is intentionally set-based and guarded by unique indexes, so repeating startup must keep row counts stable. Articles without revisions get a policy row only and wait for the write path to create their first snapshot. After the migration, create/update writes normalize omitted rights to the same defaults and store policy + revision snapshot + outbox `rightsSnapshotId` in one transaction.
+The backfill is intentionally set-based and guarded by unique indexes, so repeating the isolated legacy bootstrap must keep row counts stable. Articles without revisions get a policy row only and wait for the write path to create their first snapshot. After the migration, create/update writes normalize omitted rights to the same defaults and store policy + revision snapshot + outbox `rightsSnapshotId` in one transaction.
 
 This migration does not write or serve a legacy `rights.aeds` artifact. Public read outputs remain derived artifacts: PublicAOT HTML, article detail AEDS, PublicHotRead, feeds, sitemap, search, and asset manifests must be invalidated or rebuilt through the normal mutation/outbox/projector path after Rights V3 payloads become part of the public frame. Rollback is backup based; a no-restart degradation is to pause Rights V3 proof scheduling/retry while leaving existing public artifacts in place.
 
-## Anonymous Identity Cold-Start Reset
+## Account Subject Physical Projection Cutover
 
-The anonymous-identity cutover intentionally deletes legacy users and historical comments. It is not a data migration and it does not preserve old password login, old `role=admin` semantics, old MFA secrets, old refresh sessions, passkeys bound to legacy users, or historical comment threads.
+The anonymous-account cutover preserves existing accounts and comments. `20260711-pre-account-subject-hash-expand` adds nullable `sys_user.account_subject_hash` so the old and new binaries can overlap during a rolling deployment. `20260711-post-account-subject-hash-backfill` then scans missing or malformed rows in `id` keyset batches of 256 and computes each digest with the same C# `AccountSubjectHasher` used by account creation. The migration intentionally does not duplicate .NET case-folding in PostgreSQL SQL, and it is non-transactional so an interrupted run resumes from rows that still need projection.
 
-Run the reset only against an isolated restored database first:
+Before activating the new binary:
 
-1. Create a full site backup and restore it to an isolated PostgreSQL database.
-2. Start the server once with `FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS`.
-3. Confirm `sys_user`, `sys_user_session`, `passkey_credential`, `account_recovery_key`, `anonymous_credential`, `anonymous_credential_issuance_audit`, `comment`, `comment_anonymous_nullifier`, `comment_blocked_region`, `comment_region_compliance`, and `comment_moderation_signal` all contain zero legacy/user-bound rows.
-4. Confirm user-bound `msg_participant_state`, `msg_message`, and `msg_conversation` rows have been removed.
-5. Confirm public ZK circuit/root metadata such as `anonymous_credential_root`, `anonymous_credential_epoch`, and `anonymous_credential_revocation` is either preserved for the new anonymous system or rebuilt by the root lifecycle process; it is not deleted as legacy user data.
-6. Repeat the same guarded startup on the production cold-start database only after the rehearsal result is accepted.
+1. Drain writers running the previous binary, while keeping read traffic available.
+2. Confirm both migration ids are successful in `__fsus_schema_migration_history`.
+3. Run the exact completion query below; the result must be `0`.
 
-If `FSUSBLOG_CONFIRM_IDENTITY_RESET` is missing or has any other value, `LegacyIdentityColdStartResetOperation` fails before opening the destructive transaction. The operation keeps table structures in place for CodeFirst compatibility and deletes rows in dependency order: comment-derived rows, comments, user-bound recovery keys, anonymous credentials, credential issuance audit rows, user-bound messages, passkey credentials, sessions, then users. After the database transaction commits, it clears legacy user cache entries for blacklist/blocking, unread-message counts, and user-comment cursors. Rollback is backup based; do not run this operation without a fresh restore point.
+```sql
+SELECT COUNT(*)
+FROM sys_user
+WHERE account_subject_hash IS NULL OR account_subject_hash = '';
+```
 
-The anonymous account schema migration keeps `sys_user` but changes its meaning after reset:
+4. Also confirm every non-null value matches lowercase SHA-256 hex: `account_subject_hash ~ '^[0-9a-f]{64}$'`.
+5. Start the candidate and confirm startup task `accountSubjectHashInvariant=ok` before routing traffic.
+6. Create one anonymous account with a public handle and one without a public handle; both rows must receive a physical digest before the account response is returned.
+
+The column remains nullable only for rolling-schema compatibility. It is not optional to the new runtime: token issuance, account-state/blacklist caches, MFA step-up, binary auth and notification admission fail closed when the physical value is absent or malformed. The account snapshot cache namespace is `account:subject-v1:*`, so snapshots written before this projection are never accepted. The permanent startup gate reruns the count/format invariant even after migration history is complete, catching a stale writer that reintroduces null rows.
+
+Rollback does not require a destructive data action. Route traffic back to the previous binary while leaving the additive column in place, correct or backfill affected rows, then retry the candidate. Do not delete projected values or reintroduce account-id-derived runtime fallbacks.
+
+The anonymous account schema keeps `sys_user` as its account container:
 
 - physical `username`, `password`, `role`, `lastusernameupdatetime`, and `last_username_update_time` are dropped by `20260621-post-user-legacy-identity-columns-finalize`; they are not mapped by the `User` entity and must not appear in restored final-state schemas.
 - `public_handle` is nullable and uniquely indexed when present.

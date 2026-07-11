@@ -19,6 +19,17 @@ public interface IPasskeyService
 {
     Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int accountId, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message)> CompleteRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default);
+    Task<RecoveryPasskeyRegistrationResult> CompleteRecoveryRegistrationAsync(
+        RecoveryKeySession session,
+        string recoverySessionHash,
+        string recoveryRequestHash,
+        PasskeyRegisterCompleteCoreModel request,
+        CancellationToken cancellationToken = default);
+    Task<RecoveryPasskeyRegistrationResult?> TryResolveRecoveryRegistrationAsync(
+        string recoverySessionHash,
+        string recoveryRequestHash,
+        string registrationSessionKey,
+        CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default);
     Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginStepUpAssertionAsync(int accountId, CancellationToken cancellationToken = default);
@@ -32,9 +43,46 @@ public interface IPasskeyService
 
 public sealed record PasskeyRegBeginData(PasskeyRegisterBeginCoreModel Options);
 public sealed record PasskeyAuthBeginData(PasskeyLoginBeginCoreModel Options);
+public enum RecoveryPasskeyRegistrationStatus
+{
+    Completed,
+    AlreadyCompleted,
+    ValidationFailed,
+    Conflict,
+    RetryableFailure
+}
+
+public readonly record struct RecoveryPasskeyRegistrationResult(
+    RecoveryPasskeyRegistrationStatus Status,
+    string Message)
+{
+    public bool IsSuccess => Status is RecoveryPasskeyRegistrationStatus.Completed or RecoveryPasskeyRegistrationStatus.AlreadyCompleted;
+
+    public static RecoveryPasskeyRegistrationResult Completed()
+        => new(RecoveryPasskeyRegistrationStatus.Completed, "通行密钥注册成功");
+
+    public static RecoveryPasskeyRegistrationResult AlreadyCompleted()
+        => new(RecoveryPasskeyRegistrationStatus.AlreadyCompleted, "RECOVERY_PASSKEY_ALREADY_COMPLETED");
+
+    public static RecoveryPasskeyRegistrationResult ValidationFailed(string message)
+        => new(RecoveryPasskeyRegistrationStatus.ValidationFailed, message);
+
+    public static RecoveryPasskeyRegistrationResult Conflict(string message)
+        => new(RecoveryPasskeyRegistrationStatus.Conflict, message);
+
+    public static RecoveryPasskeyRegistrationResult RetryableFailure()
+        => new(RecoveryPasskeyRegistrationStatus.RetryableFailure, "RECOVERY_PASSKEY_RETRYABLE");
+}
+
 internal readonly record struct PasskeyAccountMetadata(string Name, string DisplayName, byte[] UserHandle);
 internal sealed record PasskeyAssertionState(PasskeyCredential Credential, User User, string RowVersion);
 internal readonly record struct PasskeyDeleteState(bool UserFound, bool CredentialFound, bool Deleted, int Remaining);
+internal sealed record PasskeyRegistrationValidationResult(bool Success, string Message, PasskeyCredential? Credential)
+{
+    public static PasskeyRegistrationValidationResult Rejected(string message) => new(false, message, null);
+
+    public static PasskeyRegistrationValidationResult Accepted(PasskeyCredential credential) => new(true, "通行密钥验证成功", credential);
+}
 public readonly record struct PasskeyCredentialMutationResult(bool Success, string Message, bool NotFound)
 {
     public static PasskeyCredentialMutationResult Succeeded(string message) => new(true, message, false);
@@ -127,6 +175,216 @@ public sealed class PasskeyService(
         PasskeyRegisterCompleteCoreModel request,
         CancellationToken cancellationToken = default)
     {
+        PasskeyRegistrationValidationResult validation = await ValidateRegistrationAsync(accountId, request, cancellationToken);
+        if (!validation.Success || validation.Credential is null)
+        {
+            return (false, validation.Message);
+        }
+
+        await db.Insertable(validation.Credential).ExecuteCommandAsync();
+        await db.Updateable<User>()
+            .Where(u => u.Id == accountId)
+            .SetColumns(u => u.PasskeyEnabled == true)
+            .ExecuteCommandAsync();
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
+        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
+
+        return (true, "通行密钥注册成功");
+    }
+
+    public async Task<RecoveryPasskeyRegistrationResult> CompleteRecoveryRegistrationAsync(
+        RecoveryKeySession session,
+        string recoverySessionHash,
+        string recoveryRequestHash,
+        PasskeyRegisterCompleteCoreModel request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (session.AccountId <= 0 ||
+            !IsSha256Hex(recoverySessionHash) ||
+            !IsSha256Hex(recoveryRequestHash))
+        {
+            return RecoveryPasskeyRegistrationResult.Conflict("RECOVERY_PASSKEY_COMPLETION_INVALID");
+        }
+
+        RecoveryPasskeyRegistrationResult? replay = await ResolveRecoveryCompletionAsync(
+            recoverySessionHash,
+            recoveryRequestHash,
+            cancellationToken);
+        if (replay is { } existing)
+        {
+            if (existing.IsSuccess)
+            {
+                await FinalizeRegistrationCachesAsync(session.AccountId, request.SessionKey, cancellationToken);
+            }
+            return existing;
+        }
+
+        PasskeyRegistrationValidationResult validation;
+        try
+        {
+            validation = await ValidateRegistrationAsync(session.AccountId, request, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Recovery Passkey validation dependency failed. RecoverySessionHash={RecoverySessionHash} ExceptionType={ExceptionType}",
+                ShortHash(recoverySessionHash),
+                exception.GetType().Name);
+            return RecoveryPasskeyRegistrationResult.RetryableFailure();
+        }
+
+        if (!validation.Success || validation.Credential is null)
+        {
+            return RecoveryPasskeyRegistrationResult.ValidationFailed(validation.Message);
+        }
+
+        return await PersistRecoveryRegistrationAsync(
+            session,
+            recoverySessionHash,
+            recoveryRequestHash,
+            request.SessionKey,
+            validation.Credential,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<RecoveryPasskeyRegistrationResult> PersistRecoveryRegistrationAsync(
+        RecoveryKeySession session,
+        string recoverySessionHash,
+        string recoveryRequestHash,
+        string registrationSessionKey,
+        PasskeyCredential credential,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RecoveryPasskeyRegistrationResult? replay = await ResolveRecoveryCompletionAsync(
+            recoverySessionHash,
+            recoveryRequestHash,
+            cancellationToken);
+        if (replay is { } existing)
+        {
+            if (existing.IsSuccess)
+            {
+                await FinalizeRegistrationCachesAsync(session.AccountId, registrationSessionKey, cancellationToken);
+            }
+            return existing;
+        }
+
+        credential.RecoverySessionHash = recoverySessionHash;
+        credential.RecoveryRequestHash = recoveryRequestHash;
+        RecoveryPasskeyRegistrationResult? concurrentOutcome = null;
+        SqlSugar.DbResult<bool> transaction;
+        try
+        {
+            transaction = await db.Ado.UseTranAsync(async () =>
+            {
+                concurrentOutcome = await ResolveRecoveryCompletionAsync(
+                    recoverySessionHash,
+                    recoveryRequestHash,
+                    cancellationToken);
+                if (concurrentOutcome is not null)
+                {
+                    return;
+                }
+
+                credential.Id = await db.Insertable(credential).ExecuteReturnIdentityAsync();
+                if (session.RevokePasskeys)
+                {
+                    await db.Deleteable<PasskeyCredential>()
+                        .Where(item => item.AccountId == session.AccountId &&
+                            item.Id != credential.Id &&
+                            item.CreatedAt < session.IssuedAtUtc)
+                        .ExecuteCommandAsync();
+                }
+
+                int userUpdated = await db.Updateable<User>()
+                    .SetColumns(user => user.PasskeyEnabled == true)
+                    .Where(user => user.Id == session.AccountId && user.Status != 2 && user.DeletedAt == null)
+                    .ExecuteCommandAsync();
+                if (userUpdated != 1)
+                {
+                    throw new InvalidOperationException("Recovery account is no longer available.");
+                }
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Recovery Passkey persistence failed before commit. RecoverySessionHash={RecoverySessionHash} ExceptionType={ExceptionType}",
+                ShortHash(recoverySessionHash),
+                exception.GetType().Name);
+            return RecoveryPasskeyRegistrationResult.RetryableFailure();
+        }
+
+        RecoveryPasskeyRegistrationResult outcome;
+        if (!transaction.IsSuccess)
+        {
+            RecoveryPasskeyRegistrationResult? committed = await ResolveRecoveryCompletionAsync(
+                recoverySessionHash,
+                recoveryRequestHash,
+                cancellationToken);
+            if (committed is null)
+            {
+                logger.LogWarning(
+                    transaction.ErrorException,
+                    "Recovery Passkey transaction rolled back. RecoverySessionHash={RecoverySessionHash}",
+                    ShortHash(recoverySessionHash));
+                return RecoveryPasskeyRegistrationResult.RetryableFailure();
+            }
+            outcome = committed.Value;
+        }
+        else
+        {
+            outcome = concurrentOutcome ?? RecoveryPasskeyRegistrationResult.Completed();
+        }
+
+        if (outcome.IsSuccess)
+        {
+            await FinalizeRegistrationCachesAsync(session.AccountId, registrationSessionKey, cancellationToken);
+        }
+        return outcome;
+    }
+
+    public async Task<RecoveryPasskeyRegistrationResult?> TryResolveRecoveryRegistrationAsync(
+        string recoverySessionHash,
+        string recoveryRequestHash,
+        string registrationSessionKey,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        PasskeyCredential? completed = await db.Queryable<PasskeyCredential>()
+            .Where(item => item.RecoverySessionHash == recoverySessionHash)
+            .FirstAsync();
+        if (completed is null)
+        {
+            return null;
+        }
+
+        if (!string.Equals(completed.RecoveryRequestHash, recoveryRequestHash, StringComparison.Ordinal))
+        {
+            return RecoveryPasskeyRegistrationResult.Conflict(
+                "RECOVERY_PASSKEY_ALREADY_COMPLETED_WITH_DIFFERENT_REQUEST");
+        }
+
+        await FinalizeRegistrationCachesAsync(completed.AccountId, registrationSessionKey, cancellationToken);
+        return RecoveryPasskeyRegistrationResult.AlreadyCompleted();
+    }
+
+    private async Task<PasskeyRegistrationValidationResult> ValidateRegistrationAsync(
+        int accountId,
+        PasskeyRegisterCompleteCoreModel request,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         var cached = await cache.TryGetAsync<PasskeyRegisterBeginCoreModel>(
             CachePolicyId.SecurityPasskeyRegChallenge,
@@ -137,30 +395,28 @@ public sealed class PasskeyService(
             cancellationToken);
         if (!cached.Hit || cached.Value is null)
         {
-            return (false, "注册会话已过期，请重新开始");
+            return PasskeyRegistrationValidationResult.Rejected("注册会话已过期，请重新开始");
         }
 
-        var options = ToCredentialCreateOptions(cached.Value);
-        AuthenticatorAttestationRawResponse attestationResponse = ToAttestationResponse(request);
-
-        // 检查上限（并发保护）
         int existingCount = await db.Queryable<PasskeyCredential>()
             .Where(c => c.AccountId == accountId)
             .CountAsync();
         if (existingCount >= MaxCredentialsPerUser)
         {
-            return (false, $"已达到 {MaxCredentialsPerUser} 枚通行密钥上限");
+            return PasskeyRegistrationValidationResult.Rejected($"已达到 {MaxCredentialsPerUser} 枚通行密钥上限");
         }
 
         RegisteredPublicKeyCredential result;
         try
         {
-            result = await fido2.MakeNewCredentialAsync(new MakeNewCredentialParams
-            {
-                AttestationResponse = attestationResponse,
-                OriginalOptions = options,
-                IsCredentialIdUniqueToUserCallback = IsCredentialIdUniqueAsync
-            });
+            result = await fido2.MakeNewCredentialAsync(
+                new MakeNewCredentialParams
+                {
+                    AttestationResponse = ToAttestationResponse(request),
+                    OriginalOptions = ToCredentialCreateOptions(cached.Value),
+                    IsCredentialIdUniqueToUserCallback = IsCredentialIdUniqueAsync
+                },
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -170,42 +426,68 @@ public sealed class PasskeyService(
                 await ResolveAccountSubjectHashForLogAsync(accountId, cancellationToken),
                 HashForLog(request.SessionKey),
                 ex.GetType().Name);
-            return (false, "通行密钥验证失败，请重试");
+            return PasskeyRegistrationValidationResult.Rejected("通行密钥验证失败，请重试");
         }
 
-        await cache.RemoveAsync(CachePolicyId.SecurityPasskeyRegChallenge, request.SessionKey, cancellationToken);
-
-        string credentialIdBase64 = Base64Url.EncodeToString(result.Id);
-        string publicKeyBase64 = Base64Url.EncodeToString(result.PublicKey);
-        string aaGuid = Guid.Empty.ToString();
-
-        string? transportsStr = result.Transports is { Length: > 0 }
-            ? string.Join(",", result.Transports.Select(t => t.ToEnumMemberValue()))
+        string? transports = result.Transports is { Length: > 0 }
+            ? string.Join(",", result.Transports.Select(static value => value.ToEnumMemberValue()))
             : null;
+        string? friendlyName = string.IsNullOrWhiteSpace(request.FriendlyName)
+            ? null
+            : request.FriendlyName.Trim()[..Math.Min(64, request.FriendlyName.Trim().Length)];
 
-        var credential = new PasskeyCredential
+        return PasskeyRegistrationValidationResult.Accepted(new PasskeyCredential
         {
             AccountId = accountId,
-            CredentialId = credentialIdBase64,
-            PublicKey = publicKeyBase64,
+            CredentialId = Base64Url.EncodeToString(result.Id),
+            PublicKey = Base64Url.EncodeToString(result.PublicKey),
             SignCount = (long)result.SignCount,
-            DeviceFriendlyName = string.IsNullOrWhiteSpace(request.FriendlyName) ? null : request.FriendlyName.Trim()[..Math.Min(64, request.FriendlyName.Trim().Length)],
-            AaGuid = aaGuid,
-            Transports = transportsStr,
+            DeviceFriendlyName = friendlyName,
+            AaGuid = Guid.Empty.ToString(),
+            Transports = transports,
             BackupEligible = result.IsBackupEligible,
             BackupState = result.IsBackedUp,
             CreatedAt = DateTime.UtcNow
-        };
-
-        await db.Insertable(credential).ExecuteCommandAsync();
-        await db.Updateable<User>()
-            .Where(u => u.Id == accountId)
-            .SetColumns(u => u.PasskeyEnabled == true)
-            .ExecuteCommandAsync();
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
-
-        return (true, "通行密钥注册成功");
+        });
     }
+
+    private async Task<RecoveryPasskeyRegistrationResult?> ResolveRecoveryCompletionAsync(
+        string recoverySessionHash,
+        string recoveryRequestHash,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        PasskeyCredential? completed = await db.Queryable<PasskeyCredential>()
+            .Where(item => item.RecoverySessionHash == recoverySessionHash)
+            .FirstAsync();
+        if (completed is null)
+        {
+            return null;
+        }
+
+        return string.Equals(completed.RecoveryRequestHash, recoveryRequestHash, StringComparison.Ordinal)
+            ? RecoveryPasskeyRegistrationResult.AlreadyCompleted()
+            : RecoveryPasskeyRegistrationResult.Conflict("RECOVERY_PASSKEY_ALREADY_COMPLETED_WITH_DIFFERENT_REQUEST");
+    }
+
+    private async Task FinalizeRegistrationCachesAsync(
+        int accountId,
+        string registrationSessionKey,
+        CancellationToken cancellationToken)
+    {
+        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, accountId, cancellationToken).ConfigureAwait(false);
+        await cache.RemoveAsync(
+            CachePolicyId.SecurityPasskeyRegChallenge,
+            registrationSessionKey,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static bool IsSha256Hex(string value)
+        => value.Length == 64 && value.All(static character =>
+            character is >= '0' and <= '9' or >= 'A' and <= 'F');
+
+    private static string ShortHash(string value)
+        => value.Length <= 16 ? value : value[..16];
 
     private async Task<bool> IsCredentialIdUniqueAsync(IsCredentialIdUniqueToUserParams param, CancellationToken ct)
     {
@@ -310,7 +592,7 @@ public sealed class PasskeyService(
                 "Passkey assertion failed. ChallengeHash={ChallengeHash} CredentialHash={CredentialHash} AccountSubjectHash={AccountSubjectHash} ExceptionType={ExceptionType}",
                 HashForLog(request.ChallengeToken),
                 HashForLog(credentialIdBase64),
-                AccountSubjectHasher.Create(user),
+                ResolveAccountSubjectHashForLog(user),
                 ex.GetType().Name);
             FsusObservability.RecordPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(started), "verify_failed");
             return (false, "通行密钥验证失败，请重试", null);
@@ -529,6 +811,7 @@ public sealed class PasskeyService(
                    u.id AS user_id,
                    u.public_handle AS public_handle,
                    u.identity_kind AS identity_kind,
+                   u.account_subject_hash AS account_subject_hash,
                    u.passkey_enabled AS passkey_enabled,
                    u.passkey_user_handle AS passkey_user_handle,
                    u.recovery_enabled AS recovery_enabled,
@@ -571,6 +854,9 @@ public sealed class PasskeyService(
             IdentityKind = reader.IsDBNull(reader.GetOrdinal("identity_kind"))
                 ? AnonymousIdentityRuntime.AnonymousAccountKind
                 : reader.GetString(reader.GetOrdinal("identity_kind")),
+            AccountSubjectHash = reader.IsDBNull(reader.GetOrdinal("account_subject_hash"))
+                ? null
+                : reader.GetString(reader.GetOrdinal("account_subject_hash")),
             PasskeyEnabled = !reader.IsDBNull(reader.GetOrdinal("passkey_enabled")) && reader.GetBoolean(reader.GetOrdinal("passkey_enabled")),
             PasskeyUserHandle = reader.IsDBNull(reader.GetOrdinal("passkey_user_handle")) ? null : reader.GetString(reader.GetOrdinal("passkey_user_handle")),
             RecoveryEnabled = !reader.IsDBNull(reader.GetOrdinal("recovery_enabled")) && reader.GetBoolean(reader.GetOrdinal("recovery_enabled")),
@@ -695,10 +981,13 @@ public sealed class PasskeyService(
     private async Task<string> ResolveAccountSubjectHashForLogAsync(int accountId, CancellationToken cancellationToken)
     {
         User? user = await db.Queryable<User>().InSingleAsync(accountId);
-        return user is null
-            ? AccountSubjectHasher.Create(AnonymousIdentityRuntime.AnonymousAccountKind, string.Concat("anonymous-account:", accountId.ToString(System.Globalization.CultureInfo.InvariantCulture)))
-            : AccountSubjectHasher.Create(user);
+        return user is null ? string.Empty : ResolveAccountSubjectHashForLog(user);
     }
+
+    private static string ResolveAccountSubjectHashForLog(User user)
+        => AccountSubjectHashRequirement.TryResolve(user.AccountSubjectHash, out string accountSubjectHash)
+            ? accountSubjectHash
+            : string.Empty;
 
     private static string HashForLog(string? value)
         => string.IsNullOrWhiteSpace(value)

@@ -1,8 +1,11 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Reflection;
 
 namespace FsusBlog.Server.Tests;
 
@@ -22,25 +25,69 @@ public sealed class PublicAotNodeWorkerScriptTests
     }
 
     [Fact]
-    public void ServerPublicSsrScript_ExposesLineProtocolWorkerCommands()
+    public async Task ServerPublicSsrScript_ExecutesLineProtocolWorkerCommands()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotNodeSsrRenderer.cs");
-        string coreScript = ReadRepoFile("src/frontend/scripts/server-public-ssr.worker-core.mjs");
-        string viteScript = ReadRepoFile("src/frontend/scripts/server-public-ssr.vite.mjs");
-        string bundleScript = ReadRepoFile("src/frontend/scripts/server-public-ssr.bundle.mjs");
+        using var temp = new TempDirectory();
+        string workerScript = Path.Combine(temp.Path, "runtime-worker.mjs");
+        string okPayload = PublicAotBinaryPayload.EncodeObject(
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["ok"] = true
+            });
+        string failurePayload = PublicAotBinaryPayload.EncodeObject(
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["ok"] = false,
+                ["error"] = "runtime-artifact-protocol-rejected"
+            });
+        await File.WriteAllTextAsync(workerScript, $$"""
+            import { createInterface } from 'node:readline'
 
-        Assert.Contains("--worker", source);
-        Assert.Contains("server-public-ssr.vite.mjs", source);
-        Assert.Contains("server-public-ssr.bundle.mjs", source);
-        Assert.Contains("public_aot_production_worker_must_use_prebuilt_bundle", source);
-        Assert.Contains("requestId", source);
-        Assert.Contains("buildEntry", coreScript);
-        Assert.Contains("validateBundle", coreScript);
-        Assert.Contains("shutdown", coreScript);
-        Assert.Contains("createServer", viteScript);
-        Assert.Contains("ssrLoadModule", viteScript);
-        Assert.DoesNotContain("createServer", bundleScript);
-        Assert.DoesNotContain("ssrLoadModule", bundleScript);
+            const okPayload = '{{okPayload}}'
+            const failurePayload = '{{failurePayload}}'
+            const input = createInterface({ input: process.stdin, crlfDelay: Infinity })
+            input.once('line', (line) => {
+              const parts = line.split('\t')
+              const requestId = parts[0] ?? ''
+              const command = parts[1] ?? ''
+              const encodedRequest = parts[2] ?? ''
+              const valid = requestId.length > 0 &&
+                command === 'validateBundle' &&
+                /^[A-Za-z0-9_-]+$/.test(encodedRequest)
+              process.stdout.write(`${requestId}\t${valid ? okPayload : failurePayload}\n`)
+              input.close()
+            })
+            """);
+        IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>
+        {
+            ["PublicAot:SsrClientRoot"] = temp.Path,
+            ["PublicAot:SsrWorkerScript"] = "./runtime-worker.mjs",
+            ["PublicAot:SsrWorkerMode"] = "PerRequest",
+            ["PublicAot:SsrRequestTimeoutSeconds"] = "5"
+        });
+        var runtimeState = new PublicAotSsrRuntimeState(configuration);
+        await using var renderer = new PublicAotNodeSsrRenderer(
+            new TestWebHostEnvironment(temp.Path, "Development"),
+            configuration,
+            runtimeState,
+            NullLogger<PublicAotNodeSsrRenderer>.Instance);
+        var bundle = new PublicAotShellBundleContract
+        {
+            Entries =
+            [
+                new PublicAotShellEntryContract
+                {
+                    PageId = PublicPageId.Home,
+                    RouteKey = "home",
+                    Html = "<main data-runtime-artifact=\"home\"></main>"
+                }
+            ]
+        };
+
+        var result = await renderer.ValidateBundleAsync(bundle);
+
+        Assert.True(result.IsSuccess, result.Error.Message);
+        Assert.NotNull(runtimeState.CreateSnapshot(0, 1).LastWorkerStartUtc);
     }
 
     [Fact]
@@ -55,17 +102,21 @@ public sealed class PublicAotNodeWorkerScriptTests
     [Fact]
     public void PooledWorkerPipeLoops_StartDirectlyAndPropagateCancellation()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotNodeSsrRenderer.cs");
+        Type workerClient = typeof(PublicAotNodeSsrRenderer).GetNestedType("NodeWorkerClient", BindingFlags.NonPublic)!;
+        string restart = RuntimeMetadataInspection.DescribeMethods(workerClient, "RestartAsync");
+        string stdout = RuntimeMetadataInspection.DescribeMethods(workerClient, "ReadStdoutLoopAsync");
+        string stderr = RuntimeMetadataInspection.DescribeMethods(workerClient, "ReadStderrLoopAsync");
+        string stop = RuntimeMetadataInspection.DescribeMethods(workerClient, "StopCurrentWorkerAsync");
 
-        Assert.DoesNotContain("Task.Run(() => ReadStdoutLoopAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Task.Run(() => ReadStderrLoopAsync", source, StringComparison.Ordinal);
-        Assert.Contains("_stdoutLoop = ReadStdoutLoopAsync(process, generation, _lifetimeCts.Token);", source, StringComparison.Ordinal);
-        Assert.Contains("_stderrLoop = ReadStderrLoopAsync(process, generation, _lifetimeCts.Token);", source, StringComparison.Ordinal);
-        Assert.Contains("ReadStdoutLoopAsync(Process process, int generation, CancellationToken cancellationToken)", source, StringComparison.Ordinal);
-        Assert.Contains("ReadStderrLoopAsync(Process process, int generation, CancellationToken cancellationToken)", source, StringComparison.Ordinal);
-        Assert.Contains("ReadLineAsync(cancellationToken)", source, StringComparison.Ordinal);
-        Assert.Contains("catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)", source, StringComparison.Ordinal);
-        Assert.Contains("lifetimeCts.Cancel();", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.Run", restart, StringComparison.Ordinal);
+        Assert.Contains("ReadStdoutLoopAsync", restart, StringComparison.Ordinal);
+        Assert.Contains("ReadStderrLoopAsync", restart, StringComparison.Ordinal);
+        Assert.Contains("CancellationTokenSource.get_Token", restart, StringComparison.Ordinal);
+        Assert.Contains("StreamReader.ReadLineAsync", stdout, StringComparison.Ordinal);
+        Assert.Contains("StreamReader.ReadLineAsync", stderr, StringComparison.Ordinal);
+        Assert.Contains("OperationCanceledException", stdout, StringComparison.Ordinal);
+        Assert.Contains("OperationCanceledException", stderr, StringComparison.Ordinal);
+        Assert.Contains("CancellationTokenSource.Cancel", stop, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -115,13 +166,6 @@ public sealed class PublicAotNodeWorkerScriptTests
 
         Assert.Equal("failed", status.Status);
         Assert.Contains("public_aot_production_worker_must_use_prebuilt_bundle", status.Error);
-    }
-
-    private static string ReadRepoFile(string relativePath)
-    {
-        string fullPath = BackendTestPaths.FromRoot(relativePath);
-        Assert.True(File.Exists(fullPath), $"{relativePath} must exist.");
-        return File.ReadAllText(fullPath);
     }
 
     private static IConfiguration CreateConfiguration(Dictionary<string, string?> values)

@@ -1,11 +1,26 @@
-using System.Runtime.CompilerServices;
+using System.Diagnostics;
 using System.Net;
+using System.Reflection;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -14,87 +29,124 @@ public sealed class CommentSecurityHardeningTests
     [Fact]
     public void CommentCreateEndpoint_CapsPayloadAndChecksLengthBeforeContentFilter()
     {
-        string source = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
-
-        Assert.Contains("CommentLimits.CreatePayloadMaxBytes", source);
-        Assert.Contains("IsCommentContentWithinLimit(content, policy)", source);
-        Assert.Contains("CommentMarkdownPolicy.ValidateForSubmit(content)", source);
-        Assert.Contains("contentFilterService.ValidateContent(markdownReview.ReviewText)", source);
-        Assert.True(
-            source.IndexOf("IsCommentContentWithinLimit(content, policy)", StringComparison.Ordinal) <
-            source.IndexOf("CommentMarkdownPolicy.ValidateForSubmit(content)", StringComparison.Ordinal));
-        Assert.True(
-            source.IndexOf("CommentMarkdownPolicy.ValidateForSubmit(content)", StringComparison.Ordinal) <
-            source.IndexOf("contentFilterService.ValidateContent(markdownReview.ReviewText)", StringComparison.Ordinal));
-        Assert.DoesNotContain("ValidateContent(request.Content", source, StringComparison.Ordinal);
+        Assert.Equal(16 * 1024, CommentLimits.CreatePayloadMaxBytes);
+        IReadOnlyList<IReadOnlyList<string>> handlers = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferenceSequencesContaining(
+                typeof(BinaryEndpoints),
+                "IsCommentContentWithinLimit",
+                "CommentMarkdownPolicy.ValidateForSubmit",
+                "IContentFilterService.ValidateContent");
+        Assert.True(handlers.Count >= 2);
+        foreach (IReadOnlyList<string> handler in handlers)
+        {
+            int lengthCheck = FindReference(handler, "IsCommentContentWithinLimit");
+            int markdownReview = FindReference(handler, "CommentMarkdownPolicy.ValidateForSubmit");
+            int reviewText = FindReference(handler, "CommentMarkdownPolicyResult.get_ReviewText");
+            int contentFilter = FindReference(handler, "IContentFilterService.ValidateContent");
+            Assert.True(lengthCheck < markdownReview);
+            Assert.True(markdownReview < reviewText);
+            Assert.True(reviewText < contentFilter);
+        }
     }
 
     [Fact]
     public void CommentCreateEndpoint_UsesMarkdownReviewTextForModerationWithoutChangingStoredSource()
     {
-        string source = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
-
-        Assert.True(CountOccurrences(source, "CommentMarkdownPolicy.ValidateForSubmit(content)") >= 2);
-        Assert.True(CountOccurrences(source, "contentFilterService.ValidateContent(markdownReview.ReviewText)") >= 2);
-        Assert.True(CountOccurrences(source, "new RegionModerationRequest(") >= 2);
-        Assert.True(CountOccurrences(source, "markdownReview.ReviewText,") >= 2);
-        Assert.Contains("request = request with { Content = content };", source, StringComparison.Ordinal);
-        Assert.Contains("request with { Content = content }", source, StringComparison.Ordinal);
-        Assert.Contains("if (!validation.IsValid)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, validation.Message), aeds);", source, StringComparison.Ordinal);
-        Assert.Contains("RecordCommentRiskSignalAsync(", source, StringComparison.Ordinal);
+        IReadOnlyList<IReadOnlyList<string>> handlers = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferenceSequencesContaining(
+                typeof(BinaryEndpoints),
+                "CommentMarkdownPolicy.ValidateForSubmit",
+                "RegionModerationRequest..ctor",
+                "RecordCommentRiskSignalAsync");
+        Assert.True(handlers.Count >= 2);
+        foreach (IReadOnlyList<string> handler in handlers)
+        {
+            Assert.Contains(handler, static reference => reference.Contains("CommentMarkdownPolicyResult.get_ReviewText", StringComparison.Ordinal));
+            Assert.Contains(handler, static reference => reference.Contains("set_Content", StringComparison.Ordinal));
+            Assert.Contains(handler, static reference => reference.Contains("ContentValidationResult.get_IsValid", StringComparison.Ordinal));
+            Assert.DoesNotContain(handler, static reference => reference.Contains("ContentValidationResult.get_Message", StringComparison.Ordinal));
+        }
     }
 
     [Fact]
     public void CommentCreateService_PublishesBeforeModelDispositionAndWarnsOnAutomaticHide()
     {
-        string source = ReadRepoFile("src/backend/Services/CommentService.cs");
+        IReadOnlyList<string> creation = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferencesInOrderContaining(
+                typeof(CommentService),
+                "Comment.set_ModerationStatus",
+                "ApplyAutomaticModerationDispositionAsync");
+        Assert.True(
+            FindReference(creation, "Comment.set_ModerationStatus") <
+            FindReference(creation, "ApplyAutomaticModerationDispositionAsync"));
 
-        Assert.Contains("ModerationStatus = CommentModerationStatus.Approved", source, StringComparison.Ordinal);
-        Assert.Contains("BuildInitialModerationReason(regionDecision)", source, StringComparison.Ordinal);
-        Assert.Contains("NotifyModelRiskHiddenAsync(comment, disposition)", source, StringComparison.Ordinal);
-        Assert.Contains("SendAccountTransactionalNoticeAsync", source, StringComparison.Ordinal);
-        Assert.Contains("评论审核提醒", source, StringComparison.Ordinal);
-        Assert.Contains("本提醒不构成账号处罚", source, StringComparison.Ordinal);
+        string creationBody = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(CommentService),
+            "BuildInitialModerationReason",
+            "set_ModerationStatus");
+        Assert.Contains("BuildInitialModerationReason", creationBody, StringComparison.Ordinal);
+        Assert.Contains("Comment.set_ModerationStatus", creationBody, StringComparison.Ordinal);
+
+        string notice = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(CommentService),
+            "评论审核提醒",
+            "本提醒不构成账号处罚");
+        Assert.Contains("SendAccountTransactionalNoticeAsync", notice, StringComparison.Ordinal);
     }
 
     [Fact]
     public void CommentCreateService_AutomaticModelHideInvalidatesPublicCommentAndPushesRemoval()
     {
-        string source = ReadRepoFile("src/backend/Services/CommentService.cs");
+        string automaticBlock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(CommentService),
+            "PushCommentRemoveAsync",
+            "NotifyModelRiskHiddenAsync");
+        Assert.Contains("CommentCacheInvalidationScope..ctor", automaticBlock, StringComparison.Ordinal);
+        Assert.Contains("PushCommentRemoveAsync", automaticBlock, StringComparison.Ordinal);
 
-        string automaticBlock = source[
-            source.IndexOf("private async Task ApplyAutomaticModerationDispositionAsync", StringComparison.Ordinal)..
-            source.IndexOf("private async Task<AutomaticModerationTarget?>", StringComparison.Ordinal)];
-
-        Assert.Contains("disposition.NextStatus == CommentModerationStatus.Hidden", automaticBlock, StringComparison.Ordinal);
-        Assert.Contains("PublicArticleChanged: true", automaticBlock, StringComparison.Ordinal);
-        Assert.Contains("PushCommentRemoveAsync(comment.ArticleId", automaticBlock, StringComparison.Ordinal);
+        MethodInfo apply = typeof(CommentService).GetMethod(
+            "ApplyAutomaticModerationDispositionAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        Type stateMachine = apply.GetCustomAttribute<System.Runtime.CompilerServices.AsyncStateMachineAttribute>()!.StateMachineType;
+        MethodInfo moveNext = stateMachine.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        Assert.Contains((int)CommentModerationStatus.Hidden, RuntimeMetadataInspection.DescribeInt32Constants(moveNext));
     }
 
     [Fact]
     public void CommentModerationQueue_IncludesOnlyBorderlineModelHiddenCommentsInPendingReviewSource()
     {
-        string source = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string queue = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(AuthoringWorkflowService),
+            "model_policy:model_risk_borderline_review",
+            "BuildCommentModerationQueuePredicate");
 
-        Assert.Contains("model_policy:model_risk_borderline_review", source, StringComparison.Ordinal);
-        Assert.Contains("BuildCommentModerationQueuePredicate", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("model_policy:model_risk_auto_hidden\" && status is null", source, StringComparison.Ordinal);
+        Assert.Contains("model_policy:model_risk_borderline_review", queue, StringComparison.Ordinal);
+        Assert.Contains("BuildCommentModerationQueuePredicate", queue, StringComparison.Ordinal);
+        Assert.DoesNotContain("model_policy:model_risk_auto_hidden", queue, StringComparison.Ordinal);
     }
 
     [Fact]
     public void CommentCreateService_RequiresPublicArticleAndVisibleReplyAncestors()
     {
-        string source = ReadRepoFile("src/backend/Services/CommentService.cs");
+        string create = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(CommentService),
+            "a.status = @PublishedStatus",
+            "FROM article a, comment pc, comment rc");
 
-        Assert.Contains("a.status = @PublishedStatus", source);
-        Assert.Contains("a.published_at IS NULL OR a.published_at <= @Now", source);
-        Assert.Contains("a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now", source);
-        Assert.Contains("pc.moderation_status = @ApprovedStatus", source);
-        Assert.Contains("rc.moderation_status = @ApprovedStatus", source);
-        Assert.Contains("FROM article a, comment pc, comment rc", source);
-        Assert.Contains("COALESCE(pc.root_id, pc.id) = @RootId", source);
-        Assert.Contains("RootId: comment.RootId ?? comment.Id", source);
+        Assert.Contains("a.status = @PublishedStatus", create);
+        Assert.Contains("a.published_at IS NULL OR a.published_at <= @Now", create);
+        Assert.Contains("a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now", create);
+        Assert.Contains("pc.moderation_status = @ApprovedStatus", create);
+        Assert.Contains("rc.moderation_status = @ApprovedStatus", create);
+        Assert.Contains("FROM article a, comment pc, comment rc", create);
+        Assert.Contains("COALESCE(pc.root_id, pc.id) = @RootId", create);
+
+        string invalidation = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(CommentService),
+            "CommentCacheInvalidationScope..ctor",
+            "InvalidateCommentMutationAsync");
+        Assert.Contains("Comment.get_RootId", invalidation, StringComparison.Ordinal);
+        Assert.Contains("Comment.get_Id", invalidation, StringComparison.Ordinal);
         Assert.Equal(CommentLimits.ContentMaxChars, 1000);
         Assert.Equal(CommentLimits.ContentMaxUtf8Bytes, 4096);
     }
@@ -102,26 +154,32 @@ public sealed class CommentSecurityHardeningTests
     [Fact]
     public void CommentRegionCompliance_AppliesSubmitAndViewerRegionPolicy()
     {
-        string endpointSource = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
-        string serviceSource = ReadRepoFile("src/backend/Services/CommentService.cs");
-        string authoringSource = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string submitEndpoint = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(BinaryEndpoints),
+            "IClientRegionResolver.Resolve",
+            "IRegionLegalModerationService.EvaluateOnSubmit");
+        Assert.Contains("CreateAttributablePublicCommentAsync", submitEndpoint, StringComparison.Ordinal);
+        Assert.Contains("CreateStrongAnonymousCommentAsync", submitEndpoint, StringComparison.Ordinal);
 
-        Assert.Contains("IClientRegionResolver regionResolver", endpointSource);
-        Assert.Contains("regionLegalModerationService.EvaluateOnSubmit", endpointSource);
-        Assert.Contains("CreateAttributablePublicCommentAsync(account, request, regionDecision)", endpointSource);
-        Assert.Contains(":region:{NormalizeCommentFrameRegion(viewerRegion)}", endpointSource);
-        Assert.Contains("RecordCommentFrameCacheResult(\"roots\", viewerRegion", endpointSource);
-        Assert.Contains("RecordCommentFrameCacheResult(\"replies\", viewerRegion", endpointSource);
+        string publicFrames = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(BinaryEndpoints),
+            "RecordCommentFrameCacheResult",
+            ":region:");
+        Assert.Contains("roots", publicFrames, StringComparison.Ordinal);
+        Assert.Contains("replies", publicFrames, StringComparison.Ordinal);
+        Assert.Contains("NormalizeCommentFrameRegion", publicFrames, StringComparison.Ordinal);
 
-        Assert.Contains("CommentRegionCompliance", serviceSource);
-        Assert.Contains("RegionDecision = regionDecision", serviceSource);
-        Assert.Contains("BlockedRegions = RegionLegalModerationService.SerializeRegions", serviceSource);
-        Assert.Contains("CommentBlockedRegion", serviceSource);
-        Assert.Contains("comment_blocked_region br", serviceSource);
+        string service = RuntimeMetadataInspection.DescribeType(typeof(CommentService));
+        Assert.Contains(nameof(CommentRegionCompliance), service, StringComparison.Ordinal);
+        Assert.Contains("set_RegionDecision", service, StringComparison.Ordinal);
+        Assert.Contains("RegionLegalModerationService.SerializeRegions", service, StringComparison.Ordinal);
+        Assert.Contains(nameof(CommentBlockedRegion), service, StringComparison.Ordinal);
+        Assert.Contains("comment_blocked_region br", service, StringComparison.Ordinal);
 
-        Assert.Contains("IsRegionApprovalAllowed", authoringSource);
-        Assert.Contains("RegionCanPublish", authoringSource);
-        Assert.Contains("RegionLegalModerationService.DeserializeRegions", authoringSource);
+        string authoring = RuntimeMetadataInspection.DescribeType(typeof(AuthoringWorkflowService));
+        Assert.Contains("IsRegionApprovalAllowed", authoring, StringComparison.Ordinal);
+        Assert.Contains("get_RegionCanPublish", authoring, StringComparison.Ordinal);
+        Assert.Contains("RegionLegalModerationService.DeserializeRegions", authoring, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -165,127 +223,236 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
-    public void RegionIpHashPepperRotationTool_InvalidatesStoredSubmitIpHashes()
+    public async Task RegionIpHashPepperRotationTool_InvalidatesStoredSubmitIpHashes()
     {
-        string source = ReadRepoFile("tools/security/rotate-region-ip-hash-pepper.sh");
+        string root = Directory.CreateTempSubdirectory("fsus-region-pepper-").FullName;
+        try
+        {
+            string capture = Path.Combine(root, "psql-input.sql");
+            string psql = Path.Combine(root, "psql");
+            await File.WriteAllTextAsync(psql, $"#!/usr/bin/env bash\ncat > '{capture}'\n");
+            File.SetUnixFileMode(
+                psql,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            string tool = BackendTestPaths.FromRoot("tools", "security", "rotate-region-ip-hash-pepper.sh");
 
-        Assert.Contains("UPDATE comment_region_compliance", source, StringComparison.Ordinal);
-        Assert.Contains("submit_ip_hash = NULL", source, StringComparison.Ordinal);
-        Assert.Contains("FSUSBLOG_CONFIRM_REGION_IP_HASH_ROTATION", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsusblog-region-ip-hash-development-key", source, StringComparison.Ordinal);
+            ProcessResult refused = await RunRotationToolAsync(tool, root, confirm: null);
+            Assert.Equal(2, refused.ExitCode);
+            Assert.Contains("FSUSBLOG_CONFIRM_REGION_IP_HASH_ROTATION", refused.StandardError, StringComparison.Ordinal);
+            Assert.DoesNotContain("fsusblog-region-ip-hash-development-key", refused.StandardError, StringComparison.Ordinal);
+            Assert.False(File.Exists(capture));
+
+            ProcessResult applied = await RunRotationToolAsync(
+                tool,
+                root,
+                "INVALIDATE_OLD_REGION_IP_HASHES");
+            Assert.Equal(0, applied.ExitCode);
+            string sql = await File.ReadAllTextAsync(capture);
+            Assert.Contains("UPDATE comment_region_compliance", sql, StringComparison.Ordinal);
+            Assert.Contains("submit_ip_hash = NULL", sql, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
     public void CommentRegionCompliance_PublicReadFiltersAvoidUnsupportedSqlSugarStringComparison()
     {
-        string serviceSource = ReadRepoFile("src/backend/Services/CommentService.cs");
+        string publicReads = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(CommentService),
+            "comment_blocked_region br",
+            "br.region_code = @ViewerRegion");
 
-        Assert.DoesNotContain("rc.BlockedRegions != string.Empty", serviceSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("position(@BlockedToken in crc.blocked_regions)", serviceSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("@BlockedToken", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("comment_blocked_region br", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("br.region_code = @ViewerRegion", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("@ConservativeUnknownViewer = true", serviceSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("rc.BlockedRegions", publicReads, StringComparison.Ordinal);
+        Assert.DoesNotContain("position(@BlockedToken in crc.blocked_regions)", publicReads, StringComparison.Ordinal);
+        Assert.DoesNotContain("@BlockedToken", publicReads, StringComparison.Ordinal);
+        Assert.Contains("comment_blocked_region br", publicReads, StringComparison.Ordinal);
+        Assert.Contains("br.region_code = @ViewerRegion", publicReads, StringComparison.Ordinal);
+        Assert.Contains("@ConservativeUnknownViewer = true", publicReads, StringComparison.Ordinal);
     }
 
     [Fact]
     public void UserCommentHistory_ExposesModerationStatusWithoutInternalReasons()
     {
-        string serviceSource = ReadRepoFile("src/backend/Services/CommentService.cs");
-        string projectionSource = ReadRepoFile("src/backend/Infrastructure/Projections/CommentProjection.cs");
-        string responseSource = ReadRepoFile("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
+        string userCommentsBlock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(CommentService),
+            "set_ModerationStatus",
+            "set_HasBlockedRegions");
 
-        string userCommentsBlock = serviceSource[
-            serviceSource.IndexOf("public async Task<CursorResponse<UserCommentResponse>> GetAttributableCommentsAsync", StringComparison.Ordinal)..
-            serviceSource.IndexOf("public Task<bool> DeleteCommentAsync", StringComparison.Ordinal)];
-
-        Assert.Contains("ModerationStatus = c.ModerationStatus", userCommentsBlock, StringComparison.Ordinal);
-        Assert.Contains("HasBlockedRegions", userCommentsBlock, StringComparison.Ordinal);
-        Assert.Contains("c.AuthorMode == CommentAuthorModes.Public", userCommentsBlock, StringComparison.Ordinal);
+        Assert.Contains("set_ModerationStatus", userCommentsBlock, StringComparison.Ordinal);
+        Assert.Contains("set_HasBlockedRegions", userCommentsBlock, StringComparison.Ordinal);
+        Assert.Contains("get_AuthorMode", userCommentsBlock, StringComparison.Ordinal);
+        Assert.Contains("public", userCommentsBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("ModerationReason", userCommentsBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("DecisionReason", userCommentsBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("RuleHitsJson", userCommentsBlock, StringComparison.Ordinal);
 
-        Assert.Contains("ModerationStatusLabel", projectionSource, StringComparison.Ordinal);
-        Assert.Contains("VisibilityReasonCode", projectionSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("ModerationReason", responseSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("DecisionReason", responseSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("RuleHitsJson", responseSource, StringComparison.Ordinal);
+        string projection = RuntimeMetadataInspection.DescribeType(typeof(CommentProjection));
+        Assert.Contains("set_ModerationStatusLabel", projection, StringComparison.Ordinal);
+        Assert.Contains("set_VisibilityReasonCode", projection, StringComparison.Ordinal);
+        string[] publicProperties = typeof(UserCommentResponse).GetProperties().Select(static property => property.Name).ToArray();
+        Assert.Contains(nameof(UserCommentResponse.ModerationStatusLabel), publicProperties);
+        Assert.Contains(nameof(UserCommentResponse.VisibilityReasonCode), publicProperties);
+        Assert.DoesNotContain("ModerationReason", publicProperties);
+        Assert.DoesNotContain("DecisionReason", publicProperties);
+        Assert.DoesNotContain("RuleHitsJson", publicProperties);
     }
 
     [Fact]
-    public void CommentModerationEndpoints_RequireRateLimitAndAdminSensitiveAdminStepUpProof()
+    public async Task CommentModerationEndpoints_RequireRateLimitAndAdminSensitiveAdminStepUpProof()
     {
-        string source = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint queue = EndpointContractApplication.Find(
+            app,
+            "/api/binary/author/comments/moderation",
+            HttpMethods.Get);
+        RouteEndpoint bulk = EndpointContractApplication.Find(
+            app,
+            "/api/binary/author/comments/moderation/bulk",
+            HttpMethods.Post);
+        RouteEndpoint single = EndpointContractApplication.Find(
+            app,
+            "/api/binary/author/comments/{commentId:long}/moderation",
+            HttpMethods.Post);
+        Assert.All(new[] { queue, bulk, single }, static endpoint => Assert.Equal(
+            "fixed_ip",
+            Assert.IsType<EnableRateLimitingAttribute>(
+                endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName));
+        Assert.IsType<AdminSensitiveStepUpMetadata>(bulk.Metadata.GetMetadata<AdminSensitiveStepUpMetadata>());
+        Assert.IsType<AdminSensitiveStepUpMetadata>(single.Metadata.GetMetadata<AdminSensitiveStepUpMetadata>());
 
-        Assert.Contains("RequireAdminSensitiveStepUpAsync", source);
-        Assert.Contains("ValidateAndConsumeAdminStepUpProofTokenAsync", source);
-        Assert.Contains("AedsJsonResults.PreconditionRequired", source);
-        Assert.Contains("MFA_PROOF_REQUIRED", source);
-        Assert.True(CountOccurrences(source, ".RequireRateLimiting(\"fixed_ip\")") >= 3);
+        string stepUp = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringEndpoints),
+            "RequireAdminSensitiveStepUpAsync");
+        Assert.Contains("ValidateAndConsumeAdminStepUpProofTokenAsync", stepUp, StringComparison.Ordinal);
+        Assert.Contains("AedsJsonResults.PreconditionRequired", stepUp, StringComparison.Ordinal);
+        Assert.Contains("MFA_PROOF_REQUIRED", stepUp, StringComparison.Ordinal);
     }
 
     [Fact]
     public void CommentModerationService_UsesCasStateMachineAndRealtimePush()
     {
-        string source = ReadRepoFile("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringWorkflowService),
+            nameof(AuthoringWorkflowService.ModerateCommentAsync),
+            nameof(AuthoringWorkflowService.ModerateCommentsAsync));
 
-        Assert.Contains("IsAllowedModerationTransition", source);
-        Assert.Contains("it.ModerationStatus == current.Status", source);
-        Assert.Contains("it.ModerationStatus == row.Status", source);
-        Assert.Contains("PushCommentAddAsync", source);
-        Assert.Contains("PushCommentRemoveAsync", source);
-        Assert.Contains("CommentCacheInvalidationScope", source);
-        Assert.Contains("SendAccountTransactionalNoticeAsync", source);
+        Assert.Contains("IsAllowedModerationTransition", runtimeShape);
+        Assert.Contains("Comment.get_ModerationStatus", runtimeShape);
+        Assert.Contains("CommentModerationStateRow.get_Status", runtimeShape);
+        Assert.Contains("PushCommentAddAsync", runtimeShape);
+        Assert.Contains("PushCommentRemoveAsync", runtimeShape);
+        Assert.Contains("CommentCacheInvalidationScope", runtimeShape);
+        Assert.Contains("SendAccountTransactionalNoticeAsync", runtimeShape);
+
+        MethodInfo transition = typeof(AuthoringWorkflowService).GetMethod(
+            "IsAllowedModerationTransition",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        Assert.True((bool)transition.Invoke(null, [CommentModerationStatus.Pending, CommentModerationStatus.Approved])!);
+        Assert.True((bool)transition.Invoke(null, [CommentModerationStatus.Approved, CommentModerationStatus.Hidden])!);
+        Assert.True((bool)transition.Invoke(null, [CommentModerationStatus.Hidden, CommentModerationStatus.Approved])!);
+        Assert.False((bool)transition.Invoke(null, [(CommentModerationStatus)99, CommentModerationStatus.Approved])!);
     }
 
     [Fact]
-    public void CommentCacheInvalidation_BumpsScopedVersionsWithoutGlobalCommentOutputTag()
+    public async Task CommentCacheInvalidation_BumpsScopedVersionsWithoutGlobalCommentOutputTag()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs");
+        IUnifiedCache cache = Substitute.For<IUnifiedCache>();
+        cache.IncrementAsync(
+                Arg.Any<CachePolicyId>(),
+                Arg.Any<string>(),
+                Arg.Any<long>(),
+                Arg.Any<CancellationToken>())
+            .Returns(1L);
+        IHttpCacheInvalidator httpCache = Substitute.For<IHttpCacheInvalidator>();
+        var dispatcher = new CacheInvalidationDispatcher(cache, httpCache);
 
-        Assert.Contains("CachePolicyId.CommentCursorVersion", source);
-        Assert.Contains("article:{scope.ArticleId.Value}", source);
-        Assert.Contains("article:{scope.ArticleId.Value}:root:{scope.RootId.Value}", source);
-        Assert.Contains("CachePolicyId.UserCommentCursorVersion", source);
-        Assert.Contains("account:{scope.AccountId.Value}", source);
-        Assert.DoesNotContain("CacheTag.Comment", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("RemoveByPrefixAsync(CachePolicyId.CommentCursor, string.Empty", source, StringComparison.Ordinal);
+        await dispatcher.InvalidateCommentMutationAsync(new CommentCacheInvalidationScope(
+            ArticleId: 42,
+            RootId: 81,
+            AccountId: 7,
+            PublicArticleChanged: true,
+            UserCommentsChanged: true));
+
+        await cache.Received(1).IncrementAsync(CachePolicyId.CommentCursorVersion, "article:42", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.CommentCursorVersion, "article:42:root:81", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.UserCommentCursorVersion, "account:7", 1, Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().RemoveByPrefixAsync(
+            CachePolicyId.CommentCursor,
+            string.Empty,
+            Arg.Any<CancellationToken>());
+        Assert.DoesNotContain(
+            httpCache.ReceivedCalls(),
+            static call => call.GetArguments()
+                .OfType<CacheTag[]>()
+                .Any(tags => tags.Contains(CacheTag.Comment)));
     }
 
     [Fact]
     public void SchemaMigrationRegistry_ContainsPublicCommentHotPathIndexes()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+        IReadOnlyList<ISchemaMigrationDescriptor> descriptors = new SchemaMigrationRegistry().GetDescriptors();
+        string hotPath = Fingerprint(descriptors, "20260603-post-comment-public-hot-path-indexes");
+        string region = Fingerprint(descriptors, "20260610-post-comment-region-compliance");
+        string blockedRegion = Fingerprint(descriptors, "20260628-post-comment-blocked-region-lookup");
 
-        Assert.Contains("idx_comment_public_roots", source);
-        Assert.Contains("idx_comment_public_replies", source);
-        Assert.Contains("idx_comment_public_reply_count", source);
-        Assert.Contains("idx_comment_public_create_time_desc", source);
-        Assert.Contains("idx_comment_region_compliance_comment", source);
-        Assert.Contains("idx_comment_region_compliance_submit_region", source);
-        Assert.Contains("comment_blocked_region", source);
-        Assert.Contains("PRIMARY KEY(comment_id, region_code)", source);
-        Assert.Contains("idx_comment_blocked_region_region_comment", source);
-        Assert.Contains("WHERE parent_id IS NULL AND moderation_status = 1 AND is_deleted = false", source);
-        Assert.Contains("WHERE parent_id IS NOT NULL AND moderation_status = 1 AND is_deleted = false", source);
+        Assert.Contains("idx_comment_public_roots", hotPath);
+        Assert.Contains("idx_comment_public_replies", hotPath);
+        Assert.Contains("idx_comment_public_reply_count", hotPath);
+        Assert.Contains("idx_comment_public_create_time_desc", hotPath);
+        Assert.Contains("WHERE parent_id IS NULL AND moderation_status = 1 AND is_deleted = false", hotPath);
+        Assert.Contains("WHERE parent_id IS NOT NULL AND moderation_status = 1 AND is_deleted = false", hotPath);
+        Assert.Contains("idx_comment_region_compliance_comment", region);
+        Assert.Contains("idx_comment_region_compliance_submit_region", region);
+        Assert.Contains("comment_blocked_region", blockedRegion);
+        Assert.Contains("PRIMARY KEY(comment_id, region_code)", blockedRegion);
+        Assert.Contains("idx_comment_blocked_region_region_comment", blockedRegion);
     }
 
-    private static int CountOccurrences(string source, string value)
+    private static int FindReference(IReadOnlyList<string> references, string fact)
     {
-        int count = 0;
-        int index = 0;
-        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        int index = references.ToList().FindIndex(reference => reference.Contains(fact, StringComparison.Ordinal));
+        Assert.True(index >= 0, $"Missing runtime reference '{fact}'.");
+        return index;
+    }
+
+    private static string Fingerprint(IReadOnlyList<ISchemaMigrationDescriptor> descriptors, string migrationId)
+        => string.Join('\n', Assert.Single(descriptors, descriptor => descriptor.MigrationId == migrationId)
+            .Steps
+            .Select(static step => step.Fingerprint));
+
+    private static async Task<ProcessResult> RunRotationToolAsync(string tool, string shimDirectory, string? confirm)
+    {
+        var startInfo = new ProcessStartInfo
         {
-            count++;
-            index += value.Length;
+            FileName = "/bin/bash",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        startInfo.ArgumentList.Add(tool);
+        startInfo.Environment["PATH"] = $"{shimDirectory}:/usr/bin:/bin";
+        startInfo.Environment["FSUSBLOG_DATABASE_URL"] = "postgresql://test.invalid/fsus";
+        startInfo.Environment["FSUSBLOG_REGION_IP_HASH_ROTATION_DRY_RUN"] = "0";
+        if (confirm is null)
+        {
+            startInfo.Environment.Remove("FSUSBLOG_CONFIRM_REGION_IP_HASH_ROTATION");
+        }
+        else
+        {
+            startInfo.Environment["FSUSBLOG_CONFIRM_REGION_IP_HASH_ROTATION"] = confirm;
         }
 
-        return count;
+        using Process process = Process.Start(startInfo)!;
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+        Task<string> stderr = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        return new ProcessResult(process.ExitCode, await stdout, await stderr);
     }
 
-    private static string ReadRepoFile(string relativePath)
-        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
+    private sealed record ProcessResult(int ExitCode, string StandardOutput, string StandardError);
 
     private static IConfiguration CreateRegionPolicyConfiguration(string ipHashKey, bool trustedProxyEnabled = false)
         => new ConfigurationBuilder()

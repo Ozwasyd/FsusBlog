@@ -2,7 +2,7 @@ using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -291,25 +291,38 @@ public sealed class ContentFilterServiceTests
     [Fact]
     public void ContentFilterService_DictionaryRetryDoesNotUseThreadSleep()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "Security", "ContentFilterService.cs"));
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ContentFilterService));
+        string asynchronousRetry = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ContentFilterService),
+            "WaitForReloadRetryAsync");
+        string startupRetry = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
+            typeof(ContentFilterService),
+            "WaitHandle.WaitOne");
 
-        Assert.DoesNotContain("Thread.Sleep", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(".GetAwaiter().GetResult()", source, StringComparison.Ordinal);
-        Assert.Contains("WaitForReloadRetryAsync", source, StringComparison.Ordinal);
-        Assert.Contains("WaitForStartupReloadRetry", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Thread.Sleep", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("WaitForReloadRetryAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("WaitForStartupReloadRetry", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Task.Delay", asynchronousRetry, StringComparison.Ordinal);
+        Assert.Contains("WaitHandle.WaitOne", startupRetry, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAwaiter", startupRetry, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetResult", startupRetry, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ContentFilterService_UsesUnifiedTaggedAutomaton()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "Security", "ContentFilterService.cs"));
+        string[] fields = typeof(ContentFilterService)
+            .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            .Select(static field => field.Name)
+            .ToArray();
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ContentFilterService));
 
-        Assert.DoesNotContain("_sensitiveSearch", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("_adSearch", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("_contactSearch", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("TopRedLineRegex", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(".ContainsAny(bufferSpan)", source, StringComparison.Ordinal);
-        Assert.Contains("TryFindBest(bufferSpan", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_sensitiveSearch", fields);
+        Assert.DoesNotContain("_adSearch", fields);
+        Assert.DoesNotContain("_contactSearch", fields);
+        Assert.DoesNotContain("TopRedLineRegex", fields);
+        Assert.DoesNotContain("ContainsAny", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryFindBest", runtimeShape, StringComparison.Ordinal);
     }
 
     private static string CreateTempDirectory()

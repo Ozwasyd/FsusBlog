@@ -1,90 +1,52 @@
-using FsusBlog.Server.Tests.TestInfrastructure;
+using System.Net;
+using System.Security.Claims;
+using FsusBlog.Server.Infrastructure;
+using FsusBlog.Server.Infrastructure.Audit;
+using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class HttpHotPathPerformanceContractTests
 {
     [Fact]
-    public void RequestAuditContext_UsesGatedDirectScopeAndLowerHexHashing()
+    public void RequestAuditSnapshot_ProducesStableLowerHexHashesAndCachesParsedIdentity()
     {
-        string middleware = ReadRepoFile("src/backend/Infrastructure/Audit/RequestAuditContextMiddleware.cs");
-        string auditRecord = ReadRepoFile("src/backend/Infrastructure/Audit/AuditRecord.cs");
+        var context = new DefaultHttpContext();
+        context.TraceIdentifier = "trace-hot-path";
+        context.Request.Method = HttpMethods.Post;
+        context.Request.Path = "/api/binary/comment";
+        context.Request.Headers.UserAgent = "FsusBlog/benchmark";
+        context.Request.Headers["X-Fsus-Device-Fp"] = "device-fingerprint";
+        context.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.10");
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, "42")],
+            "benchmark"));
 
-        Assert.Contains("ShouldAttachAuditContext", middleware, StringComparison.Ordinal);
-        Assert.Contains("PushLogContext", auditRecord, StringComparison.Ordinal);
-        Assert.DoesNotContain("new ReadOnlyDictionary", auditRecord, StringComparison.Ordinal);
-        Assert.DoesNotContain("Encoding.UTF8.GetBytes(value.Trim())", auditRecord, StringComparison.Ordinal);
-        Assert.Contains("Convert.ToHexStringLower", auditRecord, StringComparison.Ordinal);
+        RequestAuditContextSnapshot first = RequestAuditContextSnapshot.FromHttpContext(context);
+        RequestAuditContextSnapshot second = RequestAuditContextSnapshot.FromHttpContext(context);
+
+        Assert.Equal("user", first.ActorType);
+        Assert.Equal("42", first.AccountId);
+        Assert.Equal(first.IpHash, second.IpHash);
+        Assert.Equal(first.UserAgentHash, second.UserAgentHash);
+        Assert.Equal(64, first.IpHash?.Length);
+        Assert.Equal(first.IpHash, first.IpHash?.ToLowerInvariant());
+        Assert.Equal(42L, FastUserIdProvider.GetOrParseUserId(context));
+        Assert.True(context.Items.ContainsKey(FastUserIdProvider.ParsedUserIdItemKey));
     }
 
-    [Fact]
-    public void FastUserIdParsing_UsesRequestItemCacheAndNoSubFallback()
+    [Theory]
+    [InlineData("GET", "/", false)]
+    [InlineData("HEAD", "/articles", false)]
+    [InlineData("POST", "/api/binary/comment", true)]
+    [InlineData("GET", "/api/binary/auth/profile", true)]
+    [InlineData("GET", "/api/admin/stats", true)]
+    public void RequestAuditGate_AttachesOnlyToStatefulOrSensitiveRequests(string method, string path, bool expected)
     {
-        string provider = ReadRepoFile("src/backend/Infrastructure/FastUserIdProvider.cs");
-        string extensions = ReadRepoFile("src/backend/Infrastructure/Helpers/ClaimsPrincipalExtensions.cs");
+        var context = new DefaultHttpContext();
+        context.Request.Method = method;
+        context.Request.Path = path;
 
-        Assert.Contains("ParsedUserIdItemKey", provider, StringComparison.Ordinal);
-        Assert.Contains("GetOrParseUserId", provider, StringComparison.Ordinal);
-        Assert.DoesNotContain("FindFirst(\"sub\")", extensions, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void PowReplayIdentity_UsesSpanHashingWithoutStringJoinMaterialization()
-    {
-        string source = ReadRepoFile("src/backend/Services/Security/RedisPowService.cs");
-        string verify = ExtractBetween(source, "public async Task<bool> VerifyAsync", "public async Task<PowChallenge> GenerateChallengeAsync");
-        string identity = ExtractBetween(source, "private static string BuildProofIdentity", "private static TimeSpan ResolveReplayTtl");
-
-        Assert.Contains("byte[] signatureHash = new byte[32]", verify, StringComparison.Ordinal);
-        Assert.Contains("BasicValidate(req, clientIp, normalizedBindingContext, signatureHash)", verify, StringComparison.Ordinal);
-        Assert.Contains("TryConsumeProofOnceAsync(req, clientIp, signatureHash)", verify, StringComparison.Ordinal);
-        Assert.DoesNotContain("string.Join", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Encoding.UTF8.GetBytes(material)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("SHA256.HashData", identity, StringComparison.Ordinal);
-        Assert.Contains("Convert.ToHexString(signatureHash)", identity, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ObservabilityHotPath_UsesFrozenAllowlistAndGatedTraceMaterialization()
-    {
-        string observability = ReadRepoFile("src/backend/Infrastructure/Observability/FsusObservability.cs");
-        string middleware = ReadRepoFile("src/backend/Infrastructure/Observability/ObservabilityCorrelationMiddleware.cs");
-
-        Assert.Contains("FrozenSet<string>", observability, StringComparison.Ordinal);
-        Assert.Contains("ToFrozenSet", observability, StringComparison.Ordinal);
-        Assert.Contains("ShouldMaterializeTraceId", middleware, StringComparison.Ordinal);
-        Assert.DoesNotContain("string traceId = activity.TraceId.ToString();", middleware, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void VisitAndCrawlerHotPaths_AvoidSplitUserAgentJoinAndSmallIpByteArrays()
-    {
-        string httpContextExtensions = ReadRepoFile("src/backend/Infrastructure/Helpers/HttpContextExtensions.cs");
-        string crawlerDetector = ReadRepoFile("src/backend/Services/Security/CrawlerDetectorService.cs");
-        string visitLogProcessor = ReadRepoFile("src/backend/Services/VisitLog/VisitLogProcessorService.cs");
-
-        Assert.DoesNotContain(".Split(", httpContextExtensions, StringComparison.Ordinal);
-        Assert.DoesNotContain("Headers.UserAgent.ToString()", httpContextExtensions, StringComparison.Ordinal);
-        Assert.Contains("MaxUserAgentLength", httpContextExtensions, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAddressBytes()", crawlerDetector, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAddressBytes()", visitLogProcessor, StringComparison.Ordinal);
-        Assert.Contains("TryWriteBytes", crawlerDetector, StringComparison.Ordinal);
-        Assert.Contains("TryWriteBytes", visitLogProcessor, StringComparison.Ordinal);
-    }
-
-    private static string ReadRepoFile(string relativePath)
-    {
-        string fullPath = BackendTestPaths.FromRoot(relativePath);
-        Assert.True(File.Exists(fullPath), $"{relativePath} must exist.");
-        return File.ReadAllText(fullPath);
-    }
-
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Could not find start marker '{start}'.");
-        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Could not find end marker '{end}'.");
-        return source[startIndex..endIndex];
+        Assert.Equal(expected, RequestAuditContextMiddleware.ShouldAttachAuditContext(context));
     }
 }

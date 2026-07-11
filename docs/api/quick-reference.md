@@ -381,8 +381,19 @@
 | POST | `/_fsus/testing/notification-stream/publish` | 🔓 | Development/Test-only notification resilience drill；需 `X-Fsus-Notification-Drill-Secret`，生产不映射 |
 | POST | `/api/binary/telemetry/rum` | 🔓🚦 | AEDS RUM 批量遥测入口 |
 | GET | `/health/live` | 🔓 | JSON 存活探针（仅检查进程） |
-| GET | `/health/ready` | 🔓 | JSON 最小就绪探针（仅 `status` / `checkedAt`，HTTP 200/503 表示 ready/not ready） |
-| GET | `/api/ops/health/ready-detail` | 👑 | 详细就绪报告（配置、Observability、启动状态、DB、Redis、runtime、RiskControl/perception-sealed@v2 gate） |
+| GET | `/health/ready` | 🔓 | JSON 最小就绪探针（仅 `status` / `checkedAt`，HTTP 200/503 表示 ready/not ready）；响应 `X-Fsus-Release-Id` / `X-Fsus-Release-Slot` 供 loopback 与公网切流核验，不表示认证身份 |
+| GET | `/api/ops/health/ready-detail` | 👑 | 详细就绪报告（不可变 release ID/slot/commit/image digest、配置、Observability、启动状态、DB、Redis、runtime、RiskControl/perception-sealed@v2 gate） |
+| GET | `/api/ops/deployment/status` | 👑🚦 loopback | 发布运行态、generation、普通 HTTP/notification/background 独立计数与 drain blockers；要求 `system.config` |
+| POST | `/api/ops/deployment/activate` | 👑🚦 loopback | 以 `releaseId + slot + generation` CAS 激活 Ready Candidate；幂等；要求 `system.config` |
+| POST | `/api/ops/deployment/drain` | 👑🚦 loopback | 以 `releaseId + slot + generation` CAS 开始排空；幂等，立即使 readiness 503；要求 `system.config` |
+| GET | `/api/ops/deployment/fence/status` | 👑🚦 loopback | 校验 Redis active-release fence 与本地 release/slot/generation 所有权；要求 `system.config` |
+| POST | `/api/ops/deployment/fence/acquire` | 👑🚦 loopback | CAS 获取或单调推进 active-release fence；旧 generation/token 不得复用 |
+| POST | `/api/ops/deployment/fence/revoke` | 👑🚦 loopback | 精确撤销当前 fence 所有者；身份不匹配返回 409 |
+| GET | `/api/ops/deployment/notification-stream/restart/status` | 👑🚦 loopback | 读取当前 1012 restart epoch、原因与连接排空快照 |
+| POST | `/api/ops/deployment/notification-stream/restart` | 👑🚦 loopback | 按精确 release/slot/generation 触发一次有序 1012 重连 |
+| POST | `/api/ops/deployment/notification-stream/drill/publish` | 👑🚦 loopback | 仅显式启用的发布演练事件；校验 active fence 后发布 1..32 个可对账 event ID，生产默认 404 |
+| POST | `/api/release-evidence/schema-bridge/write` | 👑🚦 Test-only | 仅 environment=`Test` + `SchemaMigration:QualificationEnabled=true` 映射；`system.config`；执行有界幂等双槽 qualification write，生产不映射 |
+| GET | `/api/release-evidence/schema-qualification/readiness` | 👑🚦 Test-only | 同一双重 guard；missing Expand 返回 503 `schema_incompatible`，生产不映射 |
 
 通知通道是 AEDS WebSocket notification stream，不是标准 Server-Sent Events，不使用 `EventSource` 或 `text/event-stream`。
 

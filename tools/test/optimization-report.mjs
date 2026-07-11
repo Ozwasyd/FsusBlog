@@ -6,7 +6,13 @@ import process from 'node:process'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { snapshotGitWorktree } from '../test-matrix/scheduler.mjs'
-import { tierReplacementStructureErrors } from '../test-retention/audit.mjs'
+import {
+  compactRetentionKey,
+  decodeCompactRetentionIndex,
+  isCompactRetentionBaseline,
+  tierReplacementStructureErrors,
+  validateCompactRetentionBaseline
+} from '../test-retention/audit.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const authoritativeBeforePath = path.join(repoRoot, 'tests/test-retention-before.json')
@@ -17,18 +23,56 @@ const budgetDefinitions = [
   { id: 'static-governance', maxDurationMs: 20_000 }
 ]
 
-function recordIds(audit) {
-  return new Set((audit?.testRecords ?? []).map((record) => record?.id).filter(Boolean))
+function recordIds(audit, hashed = isCompactRetentionBaseline(audit)) {
+  if (isCompactRetentionBaseline(audit)) {
+    return new Set(decodeCompactRetentionIndex(audit.testIndex, 'before snapshot test index'))
+  }
+  return new Set((audit?.testRecords ?? [])
+    .map((record) => record?.id)
+    .filter(Boolean)
+    .map((id) => hashed ? compactRetentionKey(id) : id))
 }
 
-function assertionTargetIds(audit) {
-  return new Set((audit?.testRecords ?? []).flatMap((record) => record?.assertionTargets ?? []).filter(Boolean))
+function assertionTargetIds(audit, hashed = isCompactRetentionBaseline(audit)) {
+  if (isCompactRetentionBaseline(audit)) {
+    return new Set(decodeCompactRetentionIndex(audit.assertionIndex, 'before snapshot assertion index'))
+  }
+  return new Set((audit?.testRecords ?? [])
+    .flatMap((record) => record?.assertionTargets ?? [])
+    .filter(Boolean)
+    .map((target) => hashed ? compactRetentionKey(target) : target))
 }
 
 function recordDimensionIds(audit, field) {
+  if (isCompactRetentionBaseline(audit)) {
+    const compactField = field === 'framework' ? 'frameworks' : field
+    return new Set((audit?.recordDimensions?.[compactField] ?? []).filter(Boolean))
+  }
   return new Set((audit?.testRecords ?? []).flatMap((record) => (
     field === 'framework' ? [record?.framework] : record?.[field] ?? []
   )).filter(Boolean))
+}
+
+function compactBaselineIndexSet(index, label) {
+  return new Set(decodeCompactRetentionIndex(index, label))
+}
+
+function assertionsOwnedByTests(audit, testKeys) {
+  if (!isCompactRetentionBaseline(audit)) {
+    const records = new Map((audit?.testRecords ?? [])
+      .filter((record) => record?.id)
+      .map((record) => [record.id, record]))
+    return new Set([...testKeys].flatMap((id) => records.get(id)?.assertionTargets ?? []))
+  }
+  const testValues = decodeCompactRetentionIndex(audit.testIndex, 'before snapshot test index')
+  const assertionValues = decodeCompactRetentionIndex(audit.assertionIndex, 'before snapshot assertion index')
+  const selected = new Set(testKeys)
+  const assertions = new Set()
+  for (const [testIndex, , assertionIndexes] of audit.assertionIndex.owners) {
+    if (!selected.has(testValues[testIndex])) continue
+    for (const assertionIndex of assertionIndexes) assertions.add(assertionValues[assertionIndex])
+  }
+  return assertions
 }
 
 function catalogDimensionIds(audit, field) {
@@ -227,7 +271,16 @@ export function buildOptimizationSnapshot({
   return snapshot
 }
 
-function mutationScopeFromAudit(audit) {
+function mutationScopeFromAudit(audit, hashed = isCompactRetentionBaseline(audit)) {
+  if (isCompactRetentionBaseline(audit)) {
+    return {
+      testIds: decodeCompactRetentionIndex(
+        audit?.optimizationEvidence?.criticalMutationSlice?.testIdIndex,
+        'before snapshot critical mutation test index'
+      ),
+      scopeIds: [...new Set(audit?.optimizationEvidence?.criticalMutationSlice?.scopeIds ?? [])].sort()
+    }
+  }
   const tierIds = new Set()
   const testIds = []
   for (const record of audit?.testRecords ?? []) {
@@ -235,7 +288,7 @@ function mutationScopeFromAudit(audit) {
       id === 'backend-mutation' || id === 'release-mutation-critical-slice'
     ))
     if (mutationTierIds.length === 0) continue
-    testIds.push(record.id)
+    testIds.push(hashed ? compactRetentionKey(record.id) : record.id)
     for (const id of mutationTierIds) tierIds.add(id)
   }
   return {
@@ -294,11 +347,12 @@ function normalizedMutationSnapshot(snapshot) {
 }
 
 function criticalMutationProof(beforeAudit, afterAudit, snapshots, finalAuthority = false) {
-  const beforeTestIds = recordIds(beforeAudit)
-  const afterTestIds = recordIds(afterAudit)
+  const hashed = isCompactRetentionBaseline(beforeAudit)
+  const beforeTestIds = recordIds(beforeAudit, hashed)
+  const afterTestIds = recordIds(afterAudit, hashed)
   const actualDeletions = [...beforeTestIds].filter((id) => !afterTestIds.has(id)).sort()
-  const beforeIdentity = mutationScopeFromAudit(beforeAudit)
-  const afterIdentity = mutationScopeFromAudit(afterAudit)
+  const beforeIdentity = mutationScopeFromAudit(beforeAudit, hashed)
+  const afterIdentity = mutationScopeFromAudit(afterAudit, hashed)
   const criticalTestIds = new Set(beforeIdentity.testIds)
   const criticalDeletions = actualDeletions.filter((id) => criticalTestIds.has(id))
 
@@ -413,13 +467,19 @@ function criticalMutationProof(beforeAudit, afterAudit, snapshots, finalAuthorit
 }
 
 function deletionProof(before, after) {
-  const beforeIds = recordIds(before)
-  const afterIds = recordIds(after)
+  const hashed = isCompactRetentionBaseline(before)
+  const beforeIds = recordIds(before, hashed)
+  const afterIds = recordIds(after, hashed)
   const removedTestIds = [...beforeIds].filter((id) => !afterIds.has(id)).sort()
   const declarations = new Map((after?.deletedTests ?? [])
     .filter((entry) => entry?.id)
-    .map((entry) => [entry.id, entry]))
-  const baselineDeclarationIds = new Set(before?.replacementManifestBaseline?.deletedTestIds ?? [])
+    .map((entry) => [hashed ? compactRetentionKey(entry.id) : entry.id, entry]))
+  const baselineDeclarationIds = hashed
+    ? compactBaselineIndexSet(
+        before?.replacementManifestBaseline?.deletedTestIndex,
+        'before snapshot historical deletion index'
+      )
+    : new Set(before?.replacementManifestBaseline?.deletedTestIds ?? [])
   const invalidDeclarations = []
   const validDeletedTestIds = []
   const historicalDeclarationIds = []
@@ -428,7 +488,9 @@ function deletionProof(before, after) {
     const declaration = declarations.get(id)
     if (!declaration) continue
     const replacements = [...new Set(declaration.replacementTestIds ?? [])]
-    const missingReplacementTestIds = replacements.filter((replacement) => !afterIds.has(replacement))
+    const missingReplacementTestIds = replacements.filter((replacement) => (
+      !afterIds.has(hashed ? compactRetentionKey(replacement) : replacement)
+    ))
     const reasons = []
     if (replacements.length === 0) reasons.push('replacementTestIds is empty')
     if (missingReplacementTestIds.length > 0) reasons.push(`replacement tests are missing: ${missingReplacementTestIds.join(', ')}`)
@@ -447,7 +509,7 @@ function deletionProof(before, after) {
     }
     if (!beforeIds.has(id) || afterIds.has(id)) {
       invalidDeclarations.push({
-        id,
+        id: declaration.id,
         reasons: [!beforeIds.has(id) ? 'test id did not exist in baseline' : 'test id still exists after the claimed deletion'],
         replacementTestIds: [...new Set(declaration.replacementTestIds ?? [])]
       })
@@ -472,34 +534,45 @@ function deletionProof(before, after) {
 }
 
 function assertionReplacementProof(before, after) {
-  const beforeTargets = assertionTargetIds(before)
-  const afterTargets = assertionTargetIds(after)
-  const afterTestIds = recordIds(after)
+  const hashed = isCompactRetentionBaseline(before)
+  const beforeTargets = assertionTargetIds(before, hashed)
+  const afterTargets = assertionTargetIds(after, hashed)
+  const afterTestIds = recordIds(after, hashed)
   const declarations = after?.assertionReplacements ?? []
-  const baselineBeforeTargets = new Set(before?.replacementManifestBaseline?.assertionBeforeTargets ?? [])
+  const baselineBeforeTargets = hashed
+    ? compactBaselineIndexSet(
+        before?.replacementManifestBaseline?.assertionBeforeIndex,
+        'before snapshot historical assertion index'
+      )
+    : new Set(before?.replacementManifestBaseline?.assertionBeforeTargets ?? [])
   const validBeforeTargets = []
   const invalidDeclarations = []
   const historicalBeforeTargets = []
   for (const declaration of declarations) {
-    if (baselineBeforeTargets.has(declaration?.before)
-      || (!beforeTargets.has(declaration?.before) && !afterTargets.has(declaration?.before))) {
-      historicalBeforeTargets.push(declaration.before)
+    const beforeKey = hashed ? compactRetentionKey(declaration?.before) : declaration?.before
+    if (baselineBeforeTargets.has(beforeKey)
+      || (!beforeTargets.has(beforeKey) && !afterTargets.has(beforeKey))) {
+      historicalBeforeTargets.push(beforeKey)
       continue
     }
     const reasons = []
     const replacements = [...new Set(declaration?.replacementTestIds ?? [])]
     const afterAssertionTargets = [...new Set(declaration?.after ?? [])]
-    if (!beforeTargets.has(declaration?.before)) reasons.push('before assertion target did not exist in baseline')
-    if (afterTargets.has(declaration?.before)) reasons.push('before assertion target still exists after the claimed replacement')
+    if (!beforeTargets.has(beforeKey)) reasons.push('before assertion target did not exist in baseline')
+    if (afterTargets.has(beforeKey)) reasons.push('before assertion target still exists after the claimed replacement')
     if (!String(declaration?.reason ?? '').trim()) reasons.push('reason is empty')
     if (replacements.length === 0) reasons.push('replacementTestIds is empty')
-    const missingReplacementTestIds = replacements.filter((id) => !afterTestIds.has(id))
+    const missingReplacementTestIds = replacements.filter((id) => (
+      !afterTestIds.has(hashed ? compactRetentionKey(id) : id)
+    ))
     if (missingReplacementTestIds.length > 0) reasons.push(`replacement tests are missing: ${missingReplacementTestIds.join(', ')}`)
     if (afterAssertionTargets.length === 0) reasons.push('after assertion targets are empty')
-    const missingAfterTargets = afterAssertionTargets.filter((target) => !afterTargets.has(target))
+    const missingAfterTargets = afterAssertionTargets.filter((target) => (
+      !afterTargets.has(hashed ? compactRetentionKey(target) : target)
+    ))
     if (missingAfterTargets.length > 0) reasons.push(`replacement assertion targets are missing: ${missingAfterTargets.join(', ')}`)
     if (reasons.length > 0) invalidDeclarations.push({ before: declaration?.before ?? null, reasons })
-    else validBeforeTargets.push(declaration.before)
+    else validBeforeTargets.push(beforeKey)
   }
   return {
     status: declarations.length === historicalBeforeTargets.length
@@ -519,21 +592,18 @@ function coverageProof(before, after, deletionSafety, assertionReplacementSafety
   const authorizedCoverageIds = new Set(dimensions.authorizedCatalogReplacementIds?.coverageIds ?? [])
   const missingCoverageIds = [...beforeIds].filter((id) => !afterIds.has(id) && !authorizedCoverageIds.has(id)).sort()
   const addedCoverageIds = [...afterIds].filter((id) => !beforeIds.has(id)).sort()
-  const beforeTestIds = recordIds(before)
-  const afterTestIds = recordIds(after)
+  const hashed = isCompactRetentionBaseline(before)
+  const beforeTestIds = recordIds(before, hashed)
+  const afterTestIds = recordIds(after, hashed)
   const authorizedDeletedIds = new Set(deletionSafety.validDeletedTestIds)
   const missingTestIds = [...beforeTestIds]
     .filter((id) => !afterTestIds.has(id) && !authorizedDeletedIds.has(id))
     .sort()
   const addedTestIds = [...afterTestIds].filter((id) => !beforeTestIds.has(id)).sort()
-  const beforeAssertionTargets = assertionTargetIds(before)
-  const afterAssertionTargets = assertionTargetIds(after)
+  const beforeAssertionTargets = assertionTargetIds(before, hashed)
+  const afterAssertionTargets = assertionTargetIds(after, hashed)
   const authorizedAssertionReplacements = new Set(assertionReplacementSafety.validBeforeTargets)
-  const beforeRecordsById = new Map((before?.testRecords ?? [])
-    .filter((record) => record?.id)
-    .map((record) => [record.id, record]))
-  const assertionsCoveredByDeletedTests = new Set([...authorizedDeletedIds]
-    .flatMap((id) => beforeRecordsById.get(id)?.assertionTargets ?? []))
+  const assertionsCoveredByDeletedTests = assertionsOwnedByTests(before, authorizedDeletedIds)
   const missingAssertionTargets = [...beforeAssertionTargets]
     .filter((target) => !afterAssertionTargets.has(target)
       && !authorizedAssertionReplacements.has(target)
@@ -855,7 +925,7 @@ function retentionAuditAuthorityProof({ required, authoritative, after }) {
 function baselineAuthorityProof({ required, before }) {
   if (!required) return { required: false, status: 'compatibility', errors: [] }
   const errors = []
-  if (before?.schema !== 'fsusblog.test-retention-audit.v2') {
+  if (!isCompactRetentionBaseline(before) && before?.schema !== 'fsusblog.test-retention-audit.v2') {
     errors.push('before snapshot schema is missing or unsupported')
   }
   if (before?.snapshotRole !== 'before-test-reduction') {
@@ -867,7 +937,14 @@ function baselineAuthorityProof({ required, before }) {
   if (!/^[0-9a-f]{64}$/u.test(String(before?.sourceState?.worktreeFingerprint ?? ''))) {
     errors.push('before snapshot worktree fingerprint binding is missing or invalid')
   }
-  if (!Number.isFinite(Date.parse(before?.generatedAt ?? ''))) {
+  if (isCompactRetentionBaseline(before)) {
+    try {
+      decodeCompactRetentionIndex(before?.testIndex, 'before snapshot test index')
+      decodeCompactRetentionIndex(before?.assertionIndex, 'before snapshot assertion index')
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error))
+    }
+  } else if (!Number.isFinite(Date.parse(before?.generatedAt ?? ''))) {
     errors.push('before snapshot generatedAt is missing or invalid')
   }
   for (const field of [
@@ -883,9 +960,25 @@ function baselineAuthorityProof({ required, before }) {
       errors.push(`before snapshot catalog ${field} is missing`)
     }
   }
-  for (const field of ['deletedTestIds', 'assertionBeforeTargets', 'tierFromIds']) {
-    if (!Array.isArray(before?.replacementManifestBaseline?.[field])) {
-      errors.push(`before snapshot replacement manifest baseline ${field} is missing`)
+  if (isCompactRetentionBaseline(before)) {
+    for (const [field, label] of [
+      ['deletedTestIndex', 'historical deletion index'],
+      ['assertionBeforeIndex', 'historical assertion index']
+    ]) {
+      try {
+        decodeCompactRetentionIndex(before?.replacementManifestBaseline?.[field], `before snapshot ${label}`)
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error))
+      }
+    }
+    if (!Array.isArray(before?.replacementManifestBaseline?.tierFromIds)) {
+      errors.push('before snapshot replacement manifest baseline tierFromIds is missing')
+    }
+  } else {
+    for (const field of ['deletedTestIds', 'assertionBeforeTargets', 'tierFromIds']) {
+      if (!Array.isArray(before?.replacementManifestBaseline?.[field])) {
+        errors.push(`before snapshot replacement manifest baseline ${field} is missing`)
+      }
     }
   }
   return {
@@ -1303,15 +1396,16 @@ async function main() {
   const after = readJson(options.after)
   if (!before) throw new Error(`missing baseline retention audit: ${options.before}`)
   if (!after) throw new Error(`missing retention audit: ${options.after}`)
-  if (before.schema !== 'fsusblog.test-retention-audit.v2') {
+  if (!isCompactRetentionBaseline(before) && before.schema !== 'fsusblog.test-retention-audit.v2') {
     throw new Error(`unsupported baseline retention audit schema: ${before.schema ?? 'missing'}`)
   }
+  if (isCompactRetentionBaseline(before)) validateCompactRetentionBaseline(before)
   validateAuthoritativeBeforeSourceDigests(before)
   if (after.schema !== 'fsusblog.test-retention-audit.v2') {
     throw new Error(`unsupported retention audit schema: ${after.schema ?? 'missing'}`)
   }
   const baselineSnapshot = readOptimizationSnapshot(options.baselineSnapshot, { optional: true })
-    ?? (before.optimizationEvidence ? {
+    ?? (before.optimizationEvidence && !isCompactRetentionBaseline(before) ? {
         coverage: before.optimizationEvidence.coverage ?? null,
         criticalMutationSlice: before.optimizationEvidence.criticalMutationSlice ?? null
       } : null)

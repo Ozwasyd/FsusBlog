@@ -1,5 +1,6 @@
 using Fido2NetLib;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
@@ -24,6 +25,8 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IUserSecurityStepUpService, UserSecurityStepUpService>();
         services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
         services.AddScoped<IAdminSessionValidationService, AdminSessionValidationService>();
+        services.AddSingleton<IUserSessionValidationCache, UserSessionValidationCache>();
+        services.AddScoped<IUserSessionValidationService, UserSessionValidationService>();
         services.AddScoped<IRecoveryKeyService, RecoveryKeyService>();
         if (ShouldUseLocalDevZkProofBackend(configuration))
         {
@@ -113,8 +116,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
         services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
         services.AddScoped<ISchemaMigrationRunner, SchemaMigrationRunner>();
-        services.AddScoped<LegacyIdentityColdStartResetOperation>();
-        services.AddScoped<ILegacyIdentityColdStartResetOperation>(sp => sp.GetRequiredService<LegacyIdentityColdStartResetOperation>());
+        services.AddScoped<IAccountSubjectHashInvariantGate, AccountSubjectHashInvariantGate>();
         if (!OpenApiExportMode.IsEnabled(configuration))
         {
             services.AddHostedService<ProductionStartupValidationHostedService>();

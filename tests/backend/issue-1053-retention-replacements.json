@@ -1,0 +1,8 @@
+{
+  "schema": "fsusblog.issue-test-retention-replacements.v1",
+  "issue": 1053,
+  "baseline": "tests/test-retention-before.json",
+  "expectedDeletedTestIds": 0,
+  "deletedTests": [],
+  "reason": "Issue #1053 changes token-result and Cookie handoff behavior without deleting an existing backend test ID; frontend source-lock deletions are owned by issue #1049."
+}

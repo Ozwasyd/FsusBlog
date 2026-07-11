@@ -1,201 +1,278 @@
-using FsusBlog.Server.Tests.TestInfrastructure;
+using System.Data;
+using System.Reflection;
+using System.Text.Json;
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Services.Abstractions;
+using FsusBlog.Core.Services.Gateways;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Responses;
+using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.AuthSystem;
+using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class AdminAnonymousAccountGovernanceContractTests
 {
     [Fact]
-    public void AdminUserBinaryEndpoints_DoNotExposeLegacyPasswordReset()
+    public async Task AdminUserEndpointSurface_ExposesListAndStatusWithoutLegacyCredentialMutation()
     {
-        string endpoints = Read("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs");
+        await using WebApplication app = CreateBinaryEndpointApplication();
+        RouteEndpoint[] routes = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => (endpoint.RoutePattern.RawText ?? string.Empty)
+                .Contains("/admin/users", StringComparison.Ordinal))
+            .ToArray();
 
-        Assert.DoesNotContain("/admin/users/reset-pwd", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("AdminResetUserPasswordRequest", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryDecodeAdminResetUserPasswordRequest", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("AdminResetPasswordAsync", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("AdminResetPwdDto", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserPasswordReset", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("管理员强制重置用户密码", endpoints, StringComparison.Ordinal);
-
-        Assert.Contains("AuditActionCatalog.AnonymousAccountStatusChanged", endpoints, StringComparison.Ordinal);
-        Assert.Contains("管理员变更匿名账号状态", endpoints, StringComparison.Ordinal);
-        Assert.Contains("TargetType: \"anonymous_account\"", endpoints, StringComparison.Ordinal);
+        Assert.Collection(
+            routes.OrderBy(static endpoint => endpoint.RoutePattern.RawText, StringComparer.Ordinal),
+            list =>
+            {
+                AssertRoute(list, "/api/binary/admin/users", HttpMethods.Get);
+                AssertPermission(list, AdminPermissions.AdminManage);
+            },
+            status =>
+            {
+                AssertRoute(status, "/api/binary/admin/users/status", HttpMethods.Put);
+                AssertPermission(status, AdminPermissions.AdminManage);
+            });
+        Assert.DoesNotContain(routes, endpoint =>
+            (endpoint.RoutePattern.RawText ?? string.Empty).Contains("password", StringComparison.OrdinalIgnoreCase)
+            || (endpoint.RoutePattern.RawText ?? string.Empty).Contains("reset-pwd", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void AdminAccountListContract_UsesAnonymousAccountFields()
+    public void AdminAccountContracts_SerializeAndRoundTripOnlyAnonymousGovernanceFields()
     {
-        string outputs = Read("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
-        string authContracts = Read("src/shared/Contracts/AuthSystem/AuthSystemContracts.cs");
-        string userPods = Read("src/shared/Contracts/Models/UserPods.cs");
-        string adapter = Read("src/frontend/src/adapters/binary/userAdapter.ts");
-        string api = Read("src/frontend/src/api/admin.ts");
+        DateTime created = new(2026, 7, 11, 8, 0, 0, DateTimeKind.Utc);
+        DateTime privacyInitialized = created.AddDays(-1);
+        var dto = new AdminAccountListItemDto(
+            AccountId: 37,
+            IdentityKind: AnonymousIdentityRuntime.AnonymousAccountKind,
+            PublicHandle: "quiet-reader",
+            PasskeyInitialized: true,
+            RecoveryInitialized: false,
+            PrivacyInitializedAt: privacyInitialized,
+            AnonymousCredentialStatus: "active",
+            AnonymousCredentialLevel: "basic",
+            RiskFlags: 4,
+            Status: 1,
+            CreateTime: created,
+            DeletedAt: null);
 
-        foreach (string source in new[] { outputs, authContracts, userPods })
+        using JsonDocument json = JsonDocument.Parse(JsonSerializer.Serialize(
+            dto,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        string[] actualFields = json.RootElement.EnumerateObject()
+            .Select(static property => property.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        string[] expectedFields =
+        [
+            "accountId",
+            "anonymousCredentialLevel",
+            "anonymousCredentialStatus",
+            "createTime",
+            "deletedAt",
+            "identityKind",
+            "passkeyInitialized",
+            "privacyInitializedAt",
+            "publicHandle",
+            "recoveryInitialized",
+            "riskFlags",
+            "status"
+        ];
+        Assert.Equal(expectedFields.Order(StringComparer.Ordinal), actualFields);
+        Assert.DoesNotContain(actualFields, field =>
+            field.Contains("password", StringComparison.OrdinalIgnoreCase)
+            || field.Contains("lastLoginIp", StringComparison.OrdinalIgnoreCase)
+            || field.Contains("session", StringComparison.OrdinalIgnoreCase)
+            || field.Contains("device", StringComparison.OrdinalIgnoreCase)
+            || field.Contains("private", StringComparison.OrdinalIgnoreCase));
+
+        var page = new AdminUserPageContract
         {
-            Assert.Contains("AccountId", source, StringComparison.Ordinal);
-            Assert.Contains("IdentityKind", source, StringComparison.Ordinal);
-            Assert.Contains("PublicHandle", source, StringComparison.Ordinal);
-            Assert.Contains("Passkey", source, StringComparison.Ordinal);
-            Assert.Contains("Recovery", source, StringComparison.Ordinal);
-            Assert.Contains("AnonymousCredentialStatus", source, StringComparison.Ordinal);
-            Assert.Contains("AnonymousCredentialLevel", source, StringComparison.Ordinal);
-            Assert.Contains("RiskFlags", source, StringComparison.Ordinal);
-        }
+            Total = 1,
+            Items =
+            [
+                new AdminAccountListItemContract(
+                    dto.AccountId,
+                    dto.IdentityKind,
+                    dto.PublicHandle,
+                    dto.PasskeyInitialized,
+                    dto.RecoveryInitialized,
+                    dto.PrivacyInitializedAt,
+                    dto.AnonymousCredentialStatus,
+                    dto.AnonymousCredentialLevel,
+                    dto.RiskFlags,
+                    dto.Status,
+                    dto.CreateTime,
+                    dto.DeletedAt)
+            ]
+        };
 
-        Assert.DoesNotContain("LastLoginIp", ExtractDeclaration(outputs, "public readonly record struct AdminAccountListItemDto"), StringComparison.Ordinal);
-        Assert.DoesNotContain("LastLoginIp", ExtractDeclaration(authContracts, "public readonly record struct AdminAccountListItemContract"), StringComparison.Ordinal);
-        Assert.DoesNotContain("LastLoginIp", ExtractTypeBlock(userPods, "public readonly struct UserListItemPod"), StringComparison.Ordinal);
+        Assert.True(PodBinaryCodec.TryDecodeAdminUserPage(
+            PodBinaryCodec.EncodeAdminUserPage(page),
+            out AdminUserPageContract decoded));
+        AdminAccountListItemContract account = Assert.Single(decoded.Items);
+        Assert.Equal(37, account.AccountId);
+        Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, account.IdentityKind);
+        Assert.Equal("quiet-reader", account.PublicHandle);
+        Assert.Equal("active", account.AnonymousCredentialStatus);
+        Assert.Equal(4, account.RiskFlags);
+    }
 
-        foreach (string source in new[] { adapter, api })
+    [Fact]
+    public async Task GetAdminUserListAsync_ExecutesPublicHandlePrefixQueryAndReturnsAnonymousFields()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        string? executedSql = null;
+        SugarParameter[]? executedParameters = null;
+        DataTable table = CreateAdminAccountTable();
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(call =>
+            {
+                executedSql = call.ArgAt<string>(0);
+                executedParameters = call.ArgAt<SugarParameter[]>(1);
+                return Task.FromResult((IDataReader)table.CreateDataReader());
+            });
+        UserService service = CreateUserService(db);
+
+        PageResult<AdminAccountListItemDto> result = await service.GetAdminUserListAsync(new UserQueryDto
         {
-            Assert.Contains("accountId", source, StringComparison.Ordinal);
-            Assert.Contains("identityKind", source, StringComparison.Ordinal);
-            Assert.Contains("publicHandle", source, StringComparison.Ordinal);
-            Assert.Contains("passkeyInitialized", source, StringComparison.Ordinal);
-            Assert.Contains("recoveryInitialized", source, StringComparison.Ordinal);
-            Assert.Contains("anonymousCredentialStatus", source, StringComparison.Ordinal);
-            Assert.Contains("anonymousCredentialLevel", source, StringComparison.Ordinal);
-            Assert.Contains("riskFlags", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("lastLoginIp", source, StringComparison.Ordinal);
-        }
+            Page = 1,
+            PageSize = 20,
+            Keyword = "  Quiet-Reader  ",
+            Status = 1
+        });
 
-        Assert.Contains("public readonly record struct AdminAccountListItemDto", outputs, StringComparison.Ordinal);
-        Assert.DoesNotContain("public readonly record struct UserListDto", outputs, StringComparison.Ordinal);
-        Assert.Contains("public readonly record struct AdminAccountListItemContract", authContracts, StringComparison.Ordinal);
-        Assert.DoesNotContain("public readonly record struct UserListItemContract", authContracts, StringComparison.Ordinal);
+        AdminAccountListItemDto account = Assert.Single(result.Items);
+        Assert.Equal(37, account.AccountId);
+        Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, account.IdentityKind);
+        Assert.Equal("quiet-reader", account.PublicHandle);
+        Assert.NotNull(executedSql);
+        Assert.Contains("public_handle LIKE @SearchPublicHandlePrefix", executedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("username", executedSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("password", executedSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lastlogin", executedSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("role", executedSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(executedParameters!, parameter =>
+            parameter.ParameterName == "@SearchPublicHandlePrefix"
+            && Equals(parameter.Value, "quiet-reader%"));
+        Assert.Contains(executedParameters!, parameter =>
+            parameter.ParameterName == "@Status"
+            && Equals(parameter.Value, 1));
     }
 
     [Fact]
-    public void AdminAccountListQuery_DoesNotSearchUsernameOrProjectRole()
+    public async Task AuthEndpointSurfaceAndApplicationPorts_DoNotExposeUsernameLookupOrPasswordReset()
     {
-        string userService = Read("src/backend/Services/UserService.cs");
-        string method = ExtractMethod(userService, "public async Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync");
-        string observability = Read("src/backend/Infrastructure/Observability/FsusObservability.cs");
-        string migrations = Read("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+        await using WebApplication app = CreateBinaryEndpointApplication();
+        string[] routes = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Select(static endpoint => endpoint.RoutePattern.RawText ?? string.Empty)
+            .ToArray();
 
-        Assert.Contains("identity_kind AS", userService, StringComparison.Ordinal);
-        Assert.Contains("public_handle AS", userService, StringComparison.Ordinal);
-        Assert.Contains("passkey_enabled AS", userService, StringComparison.Ordinal);
-        Assert.Contains("recovery_enabled AS", userService, StringComparison.Ordinal);
-        Assert.Contains("anonymous_credential_status AS", userService, StringComparison.Ordinal);
-        Assert.Contains("anonymous_credential_level AS", userService, StringComparison.Ordinal);
-        Assert.Contains("riskflags AS", userService, StringComparison.Ordinal);
-        Assert.Contains("privacy_initialized_at AS", userService, StringComparison.Ordinal);
-
-        Assert.DoesNotContain("u.Username.Contains", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("u.Role", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("u.LastLoginIp", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("u.Password", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Skip(", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".CountAsync()", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Contains(keyword)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("IdentityKind.Contains", method, StringComparison.Ordinal);
-        Assert.Contains("ORDER BY createtime DESC, id DESC", userService, StringComparison.Ordinal);
-        Assert.Contains("public_handle LIKE @SearchPublicHandlePrefix", userService, StringComparison.Ordinal);
-        Assert.Contains("ApplyAdminAccountSearch", method, StringComparison.Ordinal);
-        Assert.Contains("LoadAdminAccountListWindowAsync", method, StringComparison.Ordinal);
-        Assert.Contains("RecordAdminAccountListQuery", method, StringComparison.Ordinal);
-        Assert.Contains("fsus.admin.account_list.query_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.admin.account_list.count_used", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.admin.account_list.count_skipped", observability, StringComparison.Ordinal);
-        Assert.Contains("idx_user_admin_list_time_id", migrations, StringComparison.Ordinal);
-        Assert.Contains("idx_user_admin_list_status_time_id", migrations, StringComparison.Ordinal);
-        Assert.Contains("idx_user_admin_list_identity_time_id", migrations, StringComparison.Ordinal);
-        Assert.Contains("idx_user_public_handle_prefix", migrations, StringComparison.Ordinal);
-        Assert.Contains("public_handle text_pattern_ops", migrations, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void BinaryAuthEndpoints_DoNotExposeUsernameLookupRoute()
-    {
-        string authEndpoints = Read("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string applicationPorts = Read("src/backend/Interfaces/UserApplicationPorts.cs");
-        string userPorts = Read("src/backend/Services/UserService.Ports.cs");
-        string openApi = Read("src/shared/Contracts/Validation/fsusblog.openapi.json");
-        string residue = Read("tools/check-historical-residue.sh");
-
-        Assert.DoesNotContain("/auth/find/{username}", authEndpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAccountByUsernameAsync", authEndpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAccountByUsernameAsync", applicationPorts, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAccountByUsernameAsync", userPorts, StringComparison.Ordinal);
-        Assert.DoesNotContain("/api/binary/auth/find/{username}", openApi, StringComparison.Ordinal);
-        Assert.Contains("legacy username account lookup endpoint", residue, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void UserApplicationPorts_DoNotCarryLegacyAdminResetPasswordPath()
-    {
-        foreach (string path in new[]
+        Assert.DoesNotContain(routes, route => route.Contains("{username}", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(routes, route => route.Contains("reset-pwd", StringComparison.OrdinalIgnoreCase));
+        foreach (Type port in new[]
         {
-            "src/backend/Interfaces/IUserService.cs",
-            "src/backend/Interfaces/UserApplicationPorts.cs",
-            "src/backend/Services/UserService.Ports.cs",
-            "src/backend/Infrastructure/CoreBridge/Adapters/UserServiceCoreAdapter.cs",
-            "src/backend/Infrastructure/CoreBridge/Gateways/UserCoreGateway.cs",
-            "src/core/Services/Abstractions/IUserCoreService.cs",
-            "src/core/Services/Gateways/IUserCoreGateway.cs",
-            "src/core/Services/Implementations/UserCoreService.cs"
+            typeof(IUserService),
+            typeof(IUserCoreService),
+            typeof(IUserCoreGateway)
         })
         {
-            string source = Read(path);
-            Assert.DoesNotContain("AdminResetPasswordAsync", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("AdminResetPwdDto", source, StringComparison.Ordinal);
+            MethodInfo[] methods = port.GetMethods();
+            Assert.DoesNotContain(methods, method => method.Name.Contains("Username", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(methods, method => method.Name.Contains("ResetPassword", StringComparison.OrdinalIgnoreCase));
         }
     }
 
-    [Fact]
-    public void DangerousOperationPolicy_DoesNotAdvertisePasswordResetGovernance()
+    private static DataTable CreateAdminAccountTable()
     {
-        string operations = Read("src/backend/Infrastructure/Operations/AdminOperationsService.cs");
-
-        Assert.DoesNotContain("重置密码", operations, StringComparison.Ordinal);
-        Assert.DoesNotContain("password-reset", operations, StringComparison.Ordinal);
-        Assert.Contains("批量封禁匿名账号", operations, StringComparison.Ordinal);
-        Assert.Contains("撤销账号会话", operations, StringComparison.Ordinal);
-        Assert.Contains("anonymous-account-suspend", operations, StringComparison.Ordinal);
-        Assert.Contains("session-revoke", operations, StringComparison.Ordinal);
+        var table = new DataTable();
+        table.Columns.Add("Id", typeof(int));
+        table.Columns.Add("IdentityKind", typeof(string));
+        table.Columns.Add("PublicHandle", typeof(string));
+        table.Columns.Add("PasskeyEnabled", typeof(bool));
+        table.Columns.Add("RecoveryEnabled", typeof(bool));
+        table.Columns.Add("PrivacyInitializedAt", typeof(DateTime));
+        table.Columns.Add("AnonymousCredentialStatus", typeof(string));
+        table.Columns.Add("AnonymousCredentialLevel", typeof(string));
+        table.Columns.Add("RiskFlags", typeof(int));
+        table.Columns.Add("Status", typeof(int));
+        table.Columns.Add("CreateTime", typeof(DateTime));
+        table.Columns.Add("DeletedAt", typeof(DateTime));
+        table.Rows.Add(
+            37,
+            AnonymousIdentityRuntime.AnonymousAccountKind,
+            "quiet-reader",
+            true,
+            false,
+            DateTime.UtcNow.AddDays(-2),
+            "active",
+            "basic",
+            4,
+            1,
+            DateTime.UtcNow.AddDays(-3),
+            DBNull.Value);
+        return table;
     }
 
-    private static string Read(string relativePath)
-        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
+    private static UserService CreateUserService(ISqlSugarClient db)
+        => new(
+            _db: db,
+            _logger: NullLogger<UserService>.Instance,
+            _jwtHelper: Substitute.For<IJwtHelper>(),
+            _cache: Substitute.For<IUnifiedCache>(),
+            _blacklistService: Substitute.For<IBlacklistService>(),
+            _messageCommandService: Substitute.For<IMessageCommandService>(),
+            _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
+            _totpService: Substitute.For<ITotpService>(),
+            _authRiskService: Substitute.For<IAuthRiskService>(),
+            _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
 
-    private static string ExtractMethod(string source, string signature)
-        => ExtractTypeBlock(source, signature);
-
-    private static string ExtractTypeBlock(string source, string signature)
+    private static WebApplication CreateBinaryEndpointApplication()
     {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
-
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
-        {
-            if (source[i] == '{')
-            {
-                depth++;
-            }
-            else if (source[i] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source.Substring(braceStart, i - braceStart + 1);
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Unable to extract method body: {signature}");
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Services.AddAuthorization();
+        builder.Services.AddOutputCache();
+        WebApplication app = builder.Build();
+        app.MapBinaryEndpoints();
+        return app;
     }
 
-    private static string ExtractDeclaration(string source, string signature)
+    private static void AssertRoute(RouteEndpoint endpoint, string route, string method)
     {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Unable to locate declaration: {signature}");
-        int end = source.IndexOf(");", start, StringComparison.Ordinal);
-        Assert.True(end > start, $"Unable to locate declaration end: {signature}");
-        return source.Substring(start, end - start + 2);
+        Assert.Equal(route.TrimStart('/'), endpoint.RoutePattern.RawText?.TrimStart('/'));
+        Assert.Contains(method, Assert.IsAssignableFrom<IHttpMethodMetadata>(
+            endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()).HttpMethods);
+    }
+
+    private static void AssertPermission(RouteEndpoint endpoint, string permission)
+    {
+        AuthorizationPolicy policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
+        ClaimsAuthorizationRequirement requirement = Assert.Single(policy.Requirements
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(item => item.ClaimType == AdminPermissions.PermissionClaimType));
+        Assert.Contains(permission, requirement.AllowedValues ?? []);
     }
 }

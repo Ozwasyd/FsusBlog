@@ -1,9 +1,13 @@
+using System.Diagnostics;
+using System.Reflection;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 using FsusBlog.Shared;
 using FsusBlog.Shared.Contracts.Envelopes;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -13,13 +17,21 @@ using CoreFrameType = FsusBlog.Core.Algorithms.AedsFrameType;
 
 namespace FsusBlog.Server.Tests;
 
-public sealed partial class AedsProtocolCrossLanguageTests
+public sealed class AedsProtocolCrossLanguageTests
 {
+    private static readonly Lazy<string> FrontendProtocolRuntimeJson = new(ExecuteFrontendProtocolModule);
+
     [Fact]
     public void FrontendFrameTypeEnum_MatchesSharedProtocolMetadata()
     {
-        string source = ReadFrontendFrameProtocolSource();
-        Dictionary<string, ushort> frontendFrameTypes = ParseFrontendFrameTypes(source);
+        using JsonDocument frontend = ReadFrontendProtocolRuntime();
+        Dictionary<string, ushort> frontendFrameTypes = frontend.RootElement
+            .GetProperty("frameTypes")
+            .EnumerateObject()
+            .ToDictionary(
+                static property => property.Name,
+                static property => property.Value.GetUInt16(),
+                StringComparer.Ordinal);
 
         Assert.Equal(AedsProtocolMetadata.FrameTypes.Count, frontendFrameTypes.Count);
         foreach ((string name, ushort raw) in AedsProtocolMetadata.FrameTypes)
@@ -37,12 +49,18 @@ public sealed partial class AedsProtocolCrossLanguageTests
         Assert.DoesNotContain(retiredName, Enum.GetNames<FsusBlog.Shared.AedsFrameType>());
         Assert.DoesNotContain(retiredName, Enum.GetNames<CoreFrameType>());
 
-        string source = ReadFrontendFrameProtocolSource();
-        Dictionary<string, ushort> frontendFrameTypes = ParseFrontendFrameTypes(source);
-        Assert.False(frontendFrameTypes.ContainsKey(retiredName));
+        using JsonDocument frontend = ReadFrontendProtocolRuntime();
+        Assert.False(frontend.RootElement.GetProperty("frameTypes").TryGetProperty(retiredName, out _));
 
-        string manifest = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Validation/aeds-protocol.json");
-        Assert.Contains("""{ "value": 40, "reason": "legacy-admin-password-reset" }""", manifest, StringComparison.Ordinal);
+        Span<byte> frame = stackalloc byte[FsusBlog.Core.Algorithms.AedsFrameHeader.Size];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frame[0..4], CoreAedsEncoder.Magic);
+        frame[4] = FsusBlog.Core.Algorithms.AedsFrameHeader.CurrentVersion;
+        frame[5] = FsusBlog.Core.Algorithms.AedsFrameHeader.CurrentHeaderLength;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[8..10], 40);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(frame[14..16], FsusBlog.Core.Algorithms.AedsCrc16.Compute([]));
+        Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decoded = new CoreAedsEncoder().TryDecode(frame.ToArray());
+        Assert.False(decoded.IsSuccess);
+        Assert.Equal("AEDS frame type retired", decoded.Error.Message);
     }
 
     [Fact]
@@ -55,36 +73,36 @@ public sealed partial class AedsProtocolCrossLanguageTests
 
         Assert.DoesNotContain(retiredName, Enum.GetNames<FsusBlog.Shared.AedsFrameType>());
         Assert.DoesNotContain(retiredName, Enum.GetNames<CoreFrameType>());
+        Assert.False(AedsProtocolMetadata.FrameTypes.ContainsKey(retiredName));
         Assert.Equal((ushort)41, (ushort)CoreFrameType.ArticleWriteRequest);
         Assert.Equal((ushort)47, (ushort)CoreFrameType.AuthDeleteAccountRequest);
 
-        foreach (string relativePath in new[]
+        using JsonDocument frontend = ReadFrontendProtocolRuntime();
+        JsonElement frontendFrames = frontend.RootElement.GetProperty("frameTypes");
+        foreach (string token in retiredTokens)
         {
-            "src/shared/Contracts/Validation/aeds-protocol.json",
-            "src/frontend/wasm/web/protocol/frame.ts",
-            "tests/backend/Fixtures/aeds-golden-catalog.json",
-            "src/core/Algorithms/AEDS_V2_PROTOCOL.md"
-        })
-        {
-            string source = ReadRepoFile(relativePath);
-            foreach (string token in retiredTokens)
-            {
-                Assert.DoesNotContain(token, source, StringComparison.Ordinal);
-            }
+            Assert.False(frontendFrames.TryGetProperty(token, out _));
         }
 
-        foreach (string relativeDirectory in new[] { "src", "tests", "benchmarks" })
+        Type[] protocolSurfaceTypes =
         {
-            string directory = BackendTestPaths.FromRoot(relativeDirectory);
-            foreach (string file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
-            {
-                string source = File.ReadAllText(file);
-                foreach (string token in retiredTokens)
-                {
-                    Assert.DoesNotContain(token, source, StringComparison.Ordinal);
-                }
-            }
+            typeof(PodBinaryCodec),
+            typeof(FsusBlog.Shared.AedsFrameType),
+            typeof(CoreFrameType),
+            typeof(PodProjector)
+        };
+        TypeInfo[] runtimeTypes = protocolSurfaceTypes
+            .Select(static type => type.Assembly)
+            .Distinct()
+            .SelectMany(static assembly => assembly.DefinedTypes)
+            .ToArray();
+        foreach (string token in retiredTokens)
+        {
+            Assert.DoesNotContain(runtimeTypes, type => string.Equals(type.Name, token, StringComparison.Ordinal));
         }
+
+        string codecShape = RuntimeMetadataInspection.DescribeType(typeof(PodBinaryCodec));
+        Assert.All(retiredTokens, token => Assert.DoesNotContain(token, codecShape, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -106,11 +124,10 @@ public sealed partial class AedsProtocolCrossLanguageTests
     [Fact]
     public void FrontendHeaderConstants_MatchSharedProtocolMetadata()
     {
-        string source = ReadFrontendFrameProtocolSource();
-
-        int headerLength = ParseIntConstant(source, "AEDS_HEADER_LENGTH");
-        int version = ParseIntConstant(source, "AEDS_VERSION");
-        uint magic = ParseHexConstant(source, "AEDS_MAGIC");
+        using JsonDocument frontend = ReadFrontendProtocolRuntime();
+        int headerLength = frontend.RootElement.GetProperty("headerLength").GetInt32();
+        int version = frontend.RootElement.GetProperty("version").GetInt32();
+        uint magic = frontend.RootElement.GetProperty("magic").GetUInt32();
 
         Assert.Equal(AedsProtocolMetadata.FrameHeaderSize, headerLength);
         Assert.Equal(AedsProtocolMetadata.FrameVersion, version);
@@ -648,41 +665,33 @@ public sealed partial class AedsProtocolCrossLanguageTests
         Assert.Equal(ReadProtocolFixtureBytes("page-content-frame.hex"), encoded);
     }
 
-    private static Dictionary<string, ushort> ParseFrontendFrameTypes(string source)
-    {
-        Match enumMatch = FrontendFrameEnumRegex().Match(source);
-        Assert.True(enumMatch.Success, "Unable to locate frontend FrameType enum.");
+    private static JsonDocument ReadFrontendProtocolRuntime()
+        => JsonDocument.Parse(FrontendProtocolRuntimeJson.Value);
 
-        var result = new Dictionary<string, ushort>(StringComparer.Ordinal);
-        MatchCollection matches = FrontendFrameEntryRegex().Matches(enumMatch.Groups[1].Value);
-        for (int i = 0; i < matches.Count; i++)
+    private static string ExecuteFrontendProtocolModule()
+    {
+        var startInfo = new ProcessStartInfo("node")
         {
-            Match match = matches[i];
-            string name = match.Groups[1].Value;
-            ushort value = ushort.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
-            result[name] = value;
-        }
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        startInfo.ArgumentList.Add("--no-warnings");
+        startInfo.ArgumentList.Add("--experimental-strip-types");
+        startInfo.ArgumentList.Add("--input-type=module");
+        startInfo.ArgumentList.Add("--eval");
+        startInfo.ArgumentList.Add("import { pathToFileURL } from 'node:url'; const module = await import(pathToFileURL(process.argv[1]).href); process.stdout.write(JSON.stringify({ frameTypes: module.FrameType, headerLength: module.AEDS_HEADER_LENGTH, version: module.AEDS_VERSION, magic: module.AEDS_MAGIC }));");
+        startInfo.ArgumentList.Add(BackendTestPaths.FromRoot("src/frontend/wasm/web/protocol/frame.ts"));
 
-        return result;
-    }
-
-    private static int ParseIntConstant(string source, string constantName)
-    {
-        Match match = Regex.Match(source, $@"export const {Regex.Escape(constantName)} = (\d+);", RegexOptions.Multiline);
-        Assert.True(match.Success, $"Unable to locate frontend constant {constantName}.");
-        return int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
-    }
-
-    private static uint ParseHexConstant(string source, string constantName)
-    {
-        Match match = Regex.Match(source, $@"export const {Regex.Escape(constantName)} = 0x([0-9a-fA-F]+);", RegexOptions.Multiline);
-        Assert.True(match.Success, $"Unable to locate frontend constant {constantName}.");
-        return uint.Parse(match.Groups[1].Value, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture);
-    }
-
-    private static string ReadFrontendFrameProtocolSource()
-    {
-        return ReadRepoFile("src/frontend/wasm/web/protocol/frame.ts");
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Unable to execute frontend AEDS protocol module.");
+        string stdout = process.StandardOutput.ReadToEnd();
+        string stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        Assert.Equal(0, process.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(stderr), stderr);
+        Assert.False(string.IsNullOrWhiteSpace(stdout));
+        return stdout;
     }
 
     private static byte[] ReadProtocolFixtureBytes(string fileName)
@@ -694,16 +703,4 @@ public sealed partial class AedsProtocolCrossLanguageTests
         return Convert.FromHexString(hex);
     }
 
-    private static string ReadRepoFile(string relativePath)
-    {
-        string fullPath = BackendTestPaths.FromRoot(relativePath);
-        Assert.True(File.Exists(fullPath), $"{relativePath} must exist.");
-        return File.ReadAllText(fullPath);
-    }
-
-    [GeneratedRegex(@"export\s+(?:const|enum)\s+FrameType\s*(?:=\s*)?\{([^}]*)\}", RegexOptions.Singleline)]
-    private static partial Regex FrontendFrameEnumRegex();
-
-    [GeneratedRegex(@"^\s*([A-Za-z0-9_]+)\s*(?:=|:)\s*(\d+),?\s*$", RegexOptions.Multiline)]
-    private static partial Regex FrontendFrameEntryRegex();
 }

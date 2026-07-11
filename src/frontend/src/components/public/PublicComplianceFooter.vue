@@ -1,36 +1,56 @@
 <template>
-  <div class="flex flex-col gap-8 text-xs font-bold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-    <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-      <div class="min-w-0 space-y-3">
-        <div class="text-[1.25rem] font-bold tracking-normal text-[var(--fsusblog-text-primary)]">
-          {{ siteTitleText }}
-        </div>
-        <p class="leading-relaxed">
+  <div class="public-colophon">
+    <div class="public-colophon__primary">
+      <p class="public-colophon__identity">
+        <strong class="public-colophon__brand">{{ siteTitleText }}</strong>
+        <span class="public-colophon__separator" aria-hidden="true">·</span>
+        <span>
           ©<template v-if="copyrightYearText"> {{ copyrightYearText }}</template> {{ copyrightOwnerText }}。{{ copyrightNoticeText }}
-        </p>
-        <p v-if="licenseText" class="leading-relaxed">
-          除特别注明外，本站内容采用
-          <a
-            v-if="licenseHref"
-            :href="licenseHref"
-            class="blog-link-state inline-flex min-h-10 items-center"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="打开内容许可协议"
-          >
-            {{ licenseText }}
-          </a>
-          <span v-else>{{ licenseText }}</span>
-          许可协议。
-        </p>
-      </div>
+        </span>
+      </p>
+      <a
+        href="/feed/rss.xml"
+        class="blog-link-state public-colophon__link public-colophon__rss"
+        aria-label="打开 RSS 订阅"
+      >
+        RSS
+      </a>
+    </div>
 
-      <div v-if="recordLinks.length" class="flex flex-col items-start gap-2 sm:items-end">
+    <div class="public-colophon__secondary">
+      <p v-if="licenseText" class="public-colophon__license">
+        除特别注明外，内容采用
+        <a
+          v-if="licenseHref"
+          :href="licenseHref"
+          class="blog-link-state public-colophon__link"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="打开内容许可协议"
+        >
+          {{ licenseText }}
+        </a>
+        <span v-else>{{ licenseText }}</span>
+        许可。
+      </p>
+
+      <nav class="public-colophon__policy-links" aria-label="站点政策">
+        <a :href="PUBLIC_FIXED_PATHS.privacy" class="blog-link-state public-colophon__link">隐私</a>
+        <a :href="PUBLIC_FIXED_PATHS.guidelines" class="blog-link-state public-colophon__link">守则</a>
+        <a :href="PUBLIC_FIXED_PATHS.copyright" class="blog-link-state public-colophon__link">版权</a>
+      </nav>
+
+      <div
+        v-if="recordLinks.length"
+        class="public-colophon__records"
+        role="group"
+        aria-label="站点备案"
+      >
         <a
           v-for="record in recordLinks"
           :key="record.key"
           :href="record.href"
-          class="blog-link-state inline-flex min-h-10 max-w-full items-center gap-2 break-all"
+          class="blog-link-state public-colophon__link public-colophon__record-link"
           target="_blank"
           rel="noopener noreferrer"
           :aria-label="record.ariaLabel"
@@ -48,17 +68,9 @@
           <span>{{ record.label }}</span>
         </a>
       </div>
-    </div>
 
-    <nav class="flex flex-wrap gap-x-8 gap-y-2" aria-label="站点页脚导航">
-      <a :href="PUBLIC_FIXED_PATHS.privacy" class="blog-link-state inline-flex min-h-10 items-center">隐私政策</a>
-      <a :href="PUBLIC_FIXED_PATHS.guidelines" class="blog-link-state inline-flex min-h-10 items-center">用户守则</a>
-      <a :href="PUBLIC_FIXED_PATHS.copyright" class="blog-link-state inline-flex min-h-10 items-center">版权声明</a>
-      <a href="/feed/rss.xml" class="blog-link-state inline-flex min-h-10 items-center" aria-label="打开 RSS 订阅">RSS 订阅</a>
-      <a href="#top" class="blog-link-state inline-flex min-h-10 items-center gap-2 group" aria-label="回到页面顶部">
-        回到顶部 <el-icon class="transition-transform group-hover:-translate-y-px motion-reduce:transform-none" aria-hidden="true"><Top /></el-icon>
-      </a>
-    </nav>
+      <a href="#top" class="blog-link-state public-colophon__link" aria-label="回到页面顶部">回到顶部</a>
+    </div>
   </div>
 </template>
 
@@ -70,7 +82,6 @@ import {
   normalizePublicComplianceConfig,
   normalizePublicSiteTitle
 } from '@/public-renderers/publicSiteIdentity'
-import { Top } from '@/fsusui/icons'
 
 const props = defineProps<{
   siteTitle: string

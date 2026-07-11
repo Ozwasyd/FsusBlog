@@ -1,6 +1,8 @@
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using Microsoft.Extensions.Options;
 using System.Runtime.InteropServices;
@@ -12,10 +14,12 @@ public sealed class LifecycleHostedBootstrapService(
     IWebHostEnvironment environment,
     StartupRuntimeState runtimeState,
     IOptions<LifecycleBootstrapOptions> options,
-    ILogger<LifecycleHostedBootstrapService> logger) : IHostedService
+    ILogger<LifecycleHostedBootstrapService> logger,
+    DeploymentRuntimeState? deploymentRuntimeState = null,
+    IConfiguration? configuration = null) : IHostedService
 {
     private const string SchemaMigrationTask = "schemaMigration";
-    private const string LegacyIdentityResetTask = "legacyIdentityReset";
+    private const string AccountSubjectHashInvariantTask = "accountSubjectHashInvariant";
     private const string SearchIndexTask = "searchIndex";
     private const string CacheInitializerTask = "cacheInitializer";
     private const string AotDiskCacheTask = "aotDiskCache";
@@ -44,12 +48,14 @@ public sealed class LifecycleHostedBootstrapService(
             runtimeState.ReportStartupTask(BootstrapRollbackTask, "skipped", "not_needed");
 
             runtimeState.ReportStartupTask(BootstrapTask, "ok");
+            deploymentRuntimeState?.MarkStartupCompleted();
             Console.WriteLine("Hello,world.System Ready (API Engine Mode).");
         }
         catch (Exception ex)
         {
             await RollbackCompensationsAsync(compensations, cancellationToken);
             runtimeState.ReportStartupTask(BootstrapTask, "failed", ex.GetType().Name);
+            deploymentRuntimeState?.MarkStartupFailed("bootstrap", "deployment_bootstrap_failed");
             logger.LogCritical(ex, "System Halt.");
             if (!environment.IsDevelopment())
             {
@@ -71,21 +77,16 @@ public sealed class LifecycleHostedBootstrapService(
             {
                 var migrationRunner = scopedServices.GetRequiredService<ISchemaMigrationRunner>();
                 await migrationRunner.RunAsync(cancellationToken);
-                return StartupTaskOutcome.Ok("non_compensable");
+                return StartupTaskOutcome.Ok("compatibility_check");
             });
 
         yield return new StartupTaskStep(
-            LegacyIdentityResetTask,
+            AccountSubjectHashInvariantTask,
             async cancellationToken =>
             {
-                if (!LegacyIdentityColdStartResetOperation.IsRequestedFromEnvironment())
-                {
-                    return StartupTaskOutcome.Skipped("not_requested");
-                }
-
-                var resetOperation = scopedServices.GetRequiredService<ILegacyIdentityColdStartResetOperation>();
-                LegacyIdentityColdStartResetResult result = await resetOperation.RunFromEnvironmentAsync(cancellationToken);
-                return StartupTaskOutcome.Ok($"users:{result.UsersDeleted};comments:{result.CommentsDeleted}");
+                var gate = scopedServices.GetRequiredService<IAccountSubjectHashInvariantGate>();
+                await gate.EnsureAsync(cancellationToken);
+                return StartupTaskOutcome.Ok("physical_projection_complete");
             });
 
         yield return new StartupTaskStep(
@@ -134,19 +135,19 @@ public sealed class LifecycleHostedBootstrapService(
             return StartupTaskOutcome.Skipped("disabled");
         }
 
-        if (string.IsNullOrWhiteSpace(environment.WebRootPath))
+        string? aotCacheDir = ResolveAotDiskCacheRoot();
+        if (string.IsNullOrWhiteSpace(aotCacheDir))
         {
-            logger.LogWarning("Skipping AOT disk cache clear because WebRootPath is unavailable.");
-            return StartupTaskOutcome.Skipped("web_root_unavailable");
+            logger.LogWarning("Skipping AOT disk cache clear because its storage root is unavailable.");
+            return StartupTaskOutcome.Skipped("storage_root_unavailable");
         }
 
-        string aotCacheDir = Path.Combine(environment.WebRootPath, "aot-cache");
         if (!Directory.Exists(aotCacheDir))
         {
             return StartupTaskOutcome.Skipped("directory_missing");
         }
 
-        string backupRoot = Path.Combine(Path.GetTempPath(), "fsus-startup-aot-cache-backups");
+        string backupRoot = ResolveInstanceBackupRoot("aot-cache");
         string backupDir = Path.Combine(backupRoot, Guid.NewGuid().ToString("N"));
 
         try
@@ -181,7 +182,7 @@ public sealed class LifecycleHostedBootstrapService(
         var searchCompiler = scopedServices.GetRequiredService<ISearchIndexService>();
         string searchRoot = ResolveSearchIndexRoot();
         bool searchRootExisted = Directory.Exists(searchRoot);
-        string backupRoot = Path.Combine(Path.GetTempPath(), "fsus-startup-search-index-backups");
+        string backupRoot = ResolveInstanceBackupRoot("search-index");
         string backupDir = Path.Combine(backupRoot, Guid.NewGuid().ToString("N"));
 
         try
@@ -314,6 +315,22 @@ public sealed class LifecycleHostedBootstrapService(
 
     private string ResolveSearchIndexRoot()
     {
+        string? derivedRoot = configuration?["ReleaseStorage:DerivedRoot"]
+            ?? configuration?["FSUSBLOG_RELEASE_DERIVED_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_DERIVED_ROOT");
+        string? releaseId = configuration?["FSUSBLOG_RELEASE_ID"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ID");
+        if (!string.IsNullOrWhiteSpace(derivedRoot) || !string.IsNullOrWhiteSpace(releaseId))
+        {
+            if (string.IsNullOrWhiteSpace(derivedRoot) || string.IsNullOrWhiteSpace(releaseId))
+            {
+                throw new InvalidOperationException(
+                    "Release-scoped search startup requires both derived root and release identity.");
+            }
+
+            return ReleaseStorageLayout.BuildReleaseDerivedPath(derivedRoot, releaseId, "search");
+        }
+
         string root = environment.WebRootPath;
         if (string.IsNullOrWhiteSpace(root))
         {
@@ -321,6 +338,56 @@ public sealed class LifecycleHostedBootstrapService(
         }
 
         return Path.Combine(root, "search");
+    }
+
+    private string? ResolveAotDiskCacheRoot()
+    {
+        string? derivedRoot = configuration?["ReleaseStorage:DerivedRoot"]
+            ?? configuration?["FSUSBLOG_RELEASE_DERIVED_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_DERIVED_ROOT");
+        string? releaseId = configuration?["FSUSBLOG_RELEASE_ID"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ID");
+        if (!string.IsNullOrWhiteSpace(derivedRoot) || !string.IsNullOrWhiteSpace(releaseId))
+        {
+            if (string.IsNullOrWhiteSpace(derivedRoot) || string.IsNullOrWhiteSpace(releaseId))
+            {
+                throw new InvalidOperationException(
+                    "Release-scoped PublicAOT startup requires both derived root and release identity.");
+            }
+
+            return ReleaseStorageLayout.BuildReleaseDerivedPath(derivedRoot, releaseId, "public-aot");
+        }
+
+        return string.IsNullOrWhiteSpace(environment.WebRootPath)
+            ? null
+            : Path.Combine(environment.WebRootPath, "aot-cache");
+    }
+
+    private string ResolveInstanceBackupRoot(string kind)
+    {
+        string slot = NormalizeBackupIdentity(
+            configuration?["FSUSBLOG_RELEASE_SLOT"] ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_SLOT"),
+            "local");
+        string releaseId = NormalizeBackupIdentity(
+            configuration?["FSUSBLOG_RELEASE_ID"] ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ID"),
+            "development");
+        return Path.Combine(
+            Path.GetTempPath(),
+            "fsus-startup-backups",
+            slot,
+            releaseId,
+            Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            kind);
+    }
+
+    private static string NormalizeBackupIdentity(string? value, string fallback)
+    {
+        string candidate = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        return candidate.Length is >= 1 and <= 128
+            && candidate.All(static character => char.IsAsciiLetterOrDigit(character)
+                || character is '.' or '_' or '-')
+            ? candidate
+            : fallback;
     }
 
     private void RestoreSearchIndexArtifacts(string searchRoot, bool searchRootExisted, string backupDir)

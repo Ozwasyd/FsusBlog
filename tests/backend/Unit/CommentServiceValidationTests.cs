@@ -9,7 +9,6 @@ using FsusBlog.Server.Services.Moderation;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -224,31 +223,53 @@ public class CommentServiceValidationTests
     [Fact]
     public void CommentCursorQueries_UseIndexedKeysetPredicates()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "CommentService.cs"));
+        string roots = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
+            typeof(CommentService),
+            "c.id < @Cursor",
+            "ORDER BY c.id DESC");
+        string replies = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
+            typeof(CommentService),
+            "c.id > @Cursor",
+            "ORDER BY c.id");
+        string publicPaging = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentService),
+            nameof(CommentService.GetCommentThreadsByCursorAsync),
+            nameof(CommentService.GetThreadRepliesByCursorAsync),
+            nameof(CommentService.GetAttributableCommentsAsync));
 
-        Assert.Contains("c.id < @Cursor", source);
-        Assert.Contains("c.id > @Cursor", source);
-        Assert.Contains("SliceMapToResponse", source);
-        Assert.DoesNotContain(".Skip(", source);
-        Assert.DoesNotContain(" OFFSET ", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("c.id < @Cursor", roots);
+        Assert.Contains("c.id > @Cursor", replies);
+        Assert.Contains("SliceMapToResponse", publicPaging);
+        Assert.DoesNotContain("Enumerable.Skip", roots, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enumerable.Skip", replies, StringComparison.Ordinal);
+        Assert.DoesNotContain(" OFFSET ", roots, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(" OFFSET ", replies, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void CommentThreadPreviewQuery_UsesSqlPerRootWindowLimit()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "CommentService.cs"));
+        string runtimeShape = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
+            typeof(CommentService),
+            "ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id)",
+            "WHERE x.rn <= @PreviewLimit");
 
-        Assert.Contains("ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id)", source);
-        Assert.Contains("WHERE x.rn <= @PreviewLimit", source);
-        Assert.DoesNotContain("previews.Count < limit", source);
+        Assert.Contains("ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id)", runtimeShape);
+        Assert.Contains("WHERE x.rn <= @PreviewLimit", runtimeShape);
+        Assert.DoesNotContain("List.get_Count", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
     public void PublicReplyReadQueries_DoNotProjectReplyToUserIdForAuthorNames()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "CommentService.cs"));
-        string repliesQuery = ExtractBetween(source, "private async Task<List<ReplyRow>> QueryThreadRepliesAsync", "private static List<SugarParameter> BuildPublicCommentReadParameters");
-        string previewQuery = ExtractBetween(source, "private async Task<Dictionary<long, List<CommentReplyPreviewItemDto>>> QueryThreadRepliesPreviewMapAsync", "private static CommentReplyItemDto MapReplyRow");
+        string repliesQuery = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
+            typeof(CommentService),
+            "LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id",
+            "c.id > @Cursor");
+        string previewQuery = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
+            typeof(CommentService),
+            "LEFT JOIN comment pc ON c.reply_to_comment_id = pc.id",
+            "ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.id)");
 
         Assert.DoesNotContain("reply_to_user_id", repliesQuery, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ReplyToUserId", repliesQuery, StringComparison.Ordinal);
@@ -268,15 +289,6 @@ public class CommentServiceValidationTests
     // Note: DeleteCommentAsync always queries DB first, so no pure validation path to test without DB mock
 
     // ── Private static helpers via reflection ──────────────────────────────────
-
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
-    }
 
     private static T InvokePrivateStatic<T>(string methodName, object?[] args)
     {

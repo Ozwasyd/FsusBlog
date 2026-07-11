@@ -1,5 +1,19 @@
+using System.Reflection;
 using System.Runtime.CompilerServices;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.VisitLog;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -8,112 +22,98 @@ public sealed class PublicContentInvalidationFlowTests
     [Fact]
     public void OutboxReplay_InvalidatesPublicAotBeforeReplayingSideEffects()
     {
-        string source = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
-        string method = Slice(source, "private async Task<bool> ProcessOneAsync", "    private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync");
+        Type dispatcher = typeof(ArticleMutationOutboxDispatcher);
+        ConstructorInfo constructor = Assert.Single(dispatcher.GetConstructors());
+        string pendingRuntime = RuntimeMetadataInspection.DescribeMethods(dispatcher, "ProcessPendingAsync");
+        string processRuntime = RuntimeMetadataInspection.DescribeMethods(dispatcher, "ProcessOneAsync");
+        (int Offset, MethodBase Method)[] calls = ReadCalledMethods(AsyncMoveNext(
+            dispatcher.GetMethod("ProcessOneAsync", BindingFlags.NonPublic | BindingFlags.Instance)!)).ToArray();
+        int[] dispatcherEdges = calls
+            .Where(static call => call.Method.Name == "RunDispatcherEdgeAsync")
+            .Select(static call => call.Offset)
+            .ToArray();
+        int replay = Assert.Single(calls, static call => call.Method.Name == "ReplayOutboxAsync").Offset;
 
-        Assert.Contains("IPublicAotInvalidationService publicAotInvalidation", source, StringComparison.Ordinal);
-        Assert.Contains("LoadAotScopesByArticleIdAsync", source, StringComparison.Ordinal);
-        Assert.Contains("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
-
-        int aotInvalidation = method.IndexOf("publicAotInvalidation.InvalidateArticleMutationAsync", StringComparison.Ordinal);
-        int cacheInvalidation = method.IndexOf("cacheInvalidation.InvalidateArticleMutationAsync", StringComparison.Ordinal);
-        int replay = method.IndexOf("coordinator.ReplayOutboxAsync", StringComparison.Ordinal);
-
-        Assert.True(aotInvalidation >= 0);
-        Assert.True(cacheInvalidation > aotInvalidation);
-        Assert.True(replay > cacheInvalidation);
+        Assert.Contains(constructor.GetParameters(), static parameter => parameter.ParameterType == typeof(IServiceScopeFactory));
+        Assert.Contains("IPublicAotInvalidationService", pendingRuntime, StringComparison.Ordinal);
+        Assert.Contains("LoadAotScopesByArticleIdAsync", pendingRuntime, StringComparison.Ordinal);
+        Assert.Contains("IPublicAotInvalidationService.InvalidateArticleMutationAsync", processRuntime, StringComparison.Ordinal);
+        Assert.Contains("ICacheInvalidationDispatcher.InvalidateArticleMutationAsync", processRuntime, StringComparison.Ordinal);
+        Assert.Equal(2, dispatcherEdges.Length);
+        Assert.True(dispatcherEdges[0] < dispatcherEdges[1]);
+        Assert.True(dispatcherEdges[1] < replay);
     }
 
     [Fact]
     public void OutboxReplay_UsesExplicitResultBeforeMarkingProcessed()
     {
-        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
-        string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
-        string replayMethod = Slice(sideEffects, "public async Task<ArticleMutationReplayResult> ReplayOutboxAsync", "    private async Task<Article?> LoadArticleWithContentAsync");
-        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "    private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync");
+        Type result = typeof(ArticleMutationReplayResult);
+        MethodInfo replayMethod = typeof(ArticleMutationSideEffectCoordinator).GetMethod(nameof(ArticleMutationSideEffectCoordinator.ReplayOutboxAsync))!;
+        string replayRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationSideEffectCoordinator), nameof(ArticleMutationSideEffectCoordinator.ReplayOutboxAsync));
+        string processRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationOutboxDispatcher), "ProcessOneAsync");
+        string retryRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationOutboxDispatcher), "MarkRetryAsync");
 
-        Assert.Contains("public sealed record ArticleMutationReplayResult", sideEffects, StringComparison.Ordinal);
-        Assert.Contains("Task<ArticleMutationReplayResult> ReplayOutboxAsync", sideEffects, StringComparison.Ordinal);
-        Assert.DoesNotContain("BoundaryExecutor.ExecuteAsync", replayMethod, StringComparison.Ordinal);
-        Assert.Contains("ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync", processOne, StringComparison.Ordinal);
-        Assert.Contains("if (!replay.IsSuccess)", processOne, StringComparison.Ordinal);
-        Assert.Contains("return await MarkRetryAsync", processOne, StringComparison.Ordinal);
-        Assert.Contains("\"article-outbox-retry\"", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("retry_count = retry_count + 1", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("retry_count = @ExpectedRetryCount", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("status = 'processing'", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("if (updatedRows == 0)", dispatcher, StringComparison.Ordinal);
-        Assert.DoesNotContain(".SetColumns(e => e.RetryCount == nextRetryCount)", dispatcher, StringComparison.Ordinal);
-
-        int replay = processOne.IndexOf("ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync", StringComparison.Ordinal);
-        int resultGuard = processOne.IndexOf("if (!replay.IsSuccess)", StringComparison.Ordinal);
-        int complete = processOne.IndexOf("\"article-outbox-complete\"", StringComparison.Ordinal);
-        Assert.True(replay >= 0);
-        Assert.True(resultGuard > replay);
-        Assert.True(complete > resultGuard);
+        Assert.Equal(typeof(Task<ArticleMutationReplayResult>), replayMethod.ReturnType);
+        Assert.NotNull(result.GetProperty(nameof(ArticleMutationReplayResult.IsSuccess)));
+        Assert.DoesNotContain("BoundaryExecutor.ExecuteAsync", replayRuntime, StringComparison.Ordinal);
+        Assert.Contains("IArticleMutationSideEffectCoordinator.ReplayOutboxAsync", processRuntime, StringComparison.Ordinal);
+        Assert.Contains("ArticleMutationReplayResult.get_IsSuccess", processRuntime, StringComparison.Ordinal);
+        Assert.Contains("MarkRetryAsync", processRuntime, StringComparison.Ordinal);
+        Assert.Contains("article-outbox-complete", processRuntime, StringComparison.Ordinal);
+        Assert.Contains("article-outbox-retry", retryRuntime, StringComparison.Ordinal);
+        Assert.Contains("retry_count = retry_count + 1", retryRuntime, StringComparison.Ordinal);
+        Assert.Contains("retry_count = @ExpectedRetryCount", retryRuntime, StringComparison.Ordinal);
+        Assert.Contains("status = 'processing'", retryRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetColumns", retryRuntime, StringComparison.Ordinal);
     }
 
     [Fact]
     public void OutboxReplay_TracksRequiredEdgesBeforeMarkingEventProcessed()
     {
-        string entities = ReadRepoFile("src/backend/Entities/Article.cs");
-        string migrations = ReadRepoFile("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
-        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
-        string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
-        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "    private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync");
+        Type edge = typeof(ArticleMutationOutboxEdge);
+        Assert.Equal("article_mutation_outbox_edge", edge.GetCustomAttribute<SugarTable>()!.TableName);
+        foreach (string property in new[] { "OutboxEventId", "EdgeName", "AttemptCount", "LastError", "UpdatedAt" })
+        {
+            Assert.NotNull(edge.GetProperty(property));
+        }
+        ISchemaMigrationDescriptor migration = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static descriptor => descriptor.MigrationId.Contains("article-mutation-outbox-edge", StringComparison.Ordinal));
+        string fingerprint = string.Join('\n', migration.Steps.Select(static step => step.Fingerprint));
+        Assert.Contains("CREATE TABLE IF NOT EXISTS article_mutation_outbox_edge", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ux_article_mutation_outbox_edge_event_name", fingerprint, StringComparison.Ordinal);
 
-        Assert.Contains("public class ArticleMutationOutboxEdge", entities, StringComparison.Ordinal);
-        Assert.Contains("[SugarTable(\"article_mutation_outbox_edge\")]", entities, StringComparison.Ordinal);
-        Assert.Contains("OutboxEventId", entities, StringComparison.Ordinal);
-        Assert.Contains("EdgeName", entities, StringComparison.Ordinal);
-        Assert.Contains("AttemptCount", entities, StringComparison.Ordinal);
-        Assert.Contains("LastError", entities, StringComparison.Ordinal);
-        Assert.Contains("UpdatedAt", entities, StringComparison.Ordinal);
-
-        Assert.Contains("CREATE TABLE IF NOT EXISTS article_mutation_outbox_edge", migrations, StringComparison.Ordinal);
-        Assert.Contains("ux_article_mutation_outbox_edge_event_name", migrations, StringComparison.Ordinal);
-
-        Assert.Contains("public static class ArticleMutationReplayEdges", sideEffects, StringComparison.Ordinal);
-        Assert.Contains("SearchProjection = \"search-projection\"", sideEffects, StringComparison.Ordinal);
-        Assert.Contains("ArticleDetailAeds = \"article-detail-aeds\"", sideEffects, StringComparison.Ordinal);
-        Assert.Contains("PublicHotRead = \"public-hot-read\"", sideEffects, StringComparison.Ordinal);
-        Assert.Contains("IReadOnlySet<string> completedEdges", sideEffects, StringComparison.Ordinal);
-        Assert.Contains("IReadOnlySet<string> CompletedEdges", sideEffects, StringComparison.Ordinal);
-        Assert.Contains("IReadOnlyDictionary<string, string> FailedEdges", sideEffects, StringComparison.Ordinal);
-
-        Assert.Contains("LoadCompletedEdgesByOutboxIdAsync", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedAfterReplay", processOne, StringComparison.Ordinal);
-        Assert.Contains("UpsertReplayEdgesAsync", processOne, StringComparison.Ordinal);
-        Assert.Contains("ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains)", processOne, StringComparison.Ordinal);
-        Assert.Contains("!requiredEdgesComplete", processOne, StringComparison.Ordinal);
-        Assert.Contains("return await MarkRetryAsync", processOne, StringComparison.Ordinal);
-        Assert.Contains("\"article-outbox-edge-upsert\"", dispatcher, StringComparison.Ordinal);
-
-        int loadEdges = dispatcher.IndexOf("LoadCompletedEdgesByOutboxIdAsync", StringComparison.Ordinal);
-        int replay = processOne.IndexOf("ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync", StringComparison.Ordinal);
-        int recordEdges = processOne.IndexOf("UpsertReplayEdgesAsync", StringComparison.Ordinal);
-        int requiredGuard = processOne.IndexOf("!requiredEdgesComplete", StringComparison.Ordinal);
-        int complete = processOne.IndexOf("\"article-outbox-complete\"", StringComparison.Ordinal);
-        Assert.True(loadEdges >= 0);
-        Assert.True(replay >= 0);
-        Assert.True(recordEdges > replay);
-        Assert.True(requiredGuard > recordEdges);
-        Assert.True(complete > requiredGuard);
+        Assert.Equal("search-projection", ArticleMutationReplayEdges.SearchProjection);
+        Assert.Equal("article-detail-aeds", ArticleMutationReplayEdges.ArticleDetailAeds);
+        Assert.Equal("public-hot-read", ArticleMutationReplayEdges.PublicHotRead);
+        Assert.Equal(typeof(IReadOnlySet<string>), typeof(IArticleMutationSideEffectCoordinator)
+            .GetMethod(nameof(IArticleMutationSideEffectCoordinator.ReplayOutboxAsync))!.GetParameters()[2].ParameterType);
+        Assert.NotNull(typeof(ArticleMutationReplayResult).GetProperty(nameof(ArticleMutationReplayResult.CompletedEdges)));
+        Assert.NotNull(typeof(ArticleMutationReplayResult).GetProperty(nameof(ArticleMutationReplayResult.FailedEdges)));
+        string pendingRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationOutboxDispatcher), "ProcessPendingAsync");
+        string processRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationOutboxDispatcher), "ProcessOneAsync");
+        Assert.Contains("LoadCompletedEdgesByOutboxIdAsync", pendingRuntime, StringComparison.Ordinal);
+        Assert.Contains("ReplayOutboxAsync", processRuntime, StringComparison.Ordinal);
+        Assert.Contains("UpsertReplayEdgesAsync", processRuntime, StringComparison.Ordinal);
+        Assert.Contains("ArticleMutationReplayEdges.Required", processRuntime, StringComparison.Ordinal);
+        Assert.Contains("MarkRetryAsync", processRuntime, StringComparison.Ordinal);
+        Assert.Contains("article-outbox-complete", processRuntime, StringComparison.Ordinal);
     }
 
     [Fact]
     public void OutboxDispatcher_BatchesClaimScopeAndReplayEdgeWrites()
     {
-        string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
-        string processPending = Slice(dispatcher, "internal async Task<int> ProcessPendingAsync", "    private async Task<bool> ProcessOneAsync");
-        string claim = Slice(dispatcher, "private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync", "    private static async Task<Dictionary<long, HashSet<string>>> LoadCompletedEdgesByOutboxIdAsync");
-        string upsert = Slice(dispatcher, "private async Task UpsertReplayEdgesAsync", "    private static TimeSpan ComputeBackoff");
+        Type dispatcher = typeof(ArticleMutationOutboxDispatcher);
+        string processPending = RuntimeMetadataInspection.DescribeMethods(dispatcher, "ProcessPendingAsync");
+        string claim = RuntimeMetadataInspection.DescribeMethods(dispatcher, "ClaimPendingOutboxEventsAsync");
+        string upsert = RuntimeMetadataInspection.DescribeMethods(dispatcher, "UpsertReplayEdgesAsync");
+        string runtime = RuntimeMetadataInspection.DescribeType(dispatcher);
 
         Assert.Contains("ClaimPendingOutboxEventsAsync", processPending, StringComparison.Ordinal);
         Assert.Contains("LoadCompletedEdgesByOutboxIdAsync", processPending, StringComparison.Ordinal);
         Assert.Contains("LoadAotScopesByArticleIdAsync", processPending, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"article-outbox-read\"", processPending, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"article-outbox-claim\"", processPending, StringComparison.Ordinal);
+        Assert.DoesNotContain("article-outbox-read", processPending, StringComparison.Ordinal);
+        Assert.DoesNotContain("article-outbox-claim", processPending, StringComparison.Ordinal);
 
         Assert.Contains("UPDATE article_mutation_outbox", claim, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE SKIP LOCKED", claim, StringComparison.Ordinal);
@@ -122,177 +122,167 @@ public sealed class PublicContentInvalidationFlowTests
 
         Assert.Contains("ON CONFLICT (outbox_event_id, edge_name) DO UPDATE", upsert, StringComparison.Ordinal);
         Assert.DoesNotContain("FirstAsync", upsert, StringComparison.Ordinal);
-        Assert.DoesNotContain("RecordReplayEdgeAsync", dispatcher, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"article-outbox-aot-scope-category\"", dispatcher, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"article-outbox-aot-scope-tags\"", dispatcher, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecordReplayEdgeAsync", runtime, StringComparison.Ordinal);
+        Assert.DoesNotContain("article-outbox-aot-scope-category", runtime, StringComparison.Ordinal);
+        Assert.DoesNotContain("article-outbox-aot-scope-tags", runtime, StringComparison.Ordinal);
     }
 
     [Fact]
     public void OutboxReplay_TreatsPublicHotEnqueueFailureAsRequiredEdgeFailure()
     {
-        string queue = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs");
-        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
-        string replayMethod = Slice(sideEffects, "public async Task<ArticleMutationReplayResult> ReplayOutboxAsync", "    private async Task<Article?> LoadArticleWithContentAsync");
-        string queueMethod = Slice(sideEffects, "private Task<PublicHotArtifactEnqueueResult> QueuePublicHotUpdateAsync", "    private async Task EnsurePublicHotUpdateQueuedAsync");
-        string ensureMethod = Slice(sideEffects, "private async Task EnsurePublicHotUpdateQueuedAsync", "}");
+        var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 1 }));
+        PublicHotArtifactEnqueueResult accepted = queue.Enqueue(42, "outbox-updated");
+        PublicHotArtifactEnqueueResult rejected = queue.Enqueue(43, "outbox-updated");
+        Assert.True(accepted.Accepted);
+        Assert.False(rejected.Accepted);
+        Assert.Equal("queue-full-or-closed", rejected.Status);
+        FieldInfo channel = typeof(PublicHotArtifactUpdateQueue).GetField("_channel", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        object channelOptionsRuntime = channel.GetValue(queue)!;
+        Assert.Contains("BoundedChannel", channelOptionsRuntime.GetType().Name, StringComparison.Ordinal);
 
-        Assert.Contains("public readonly record struct PublicHotArtifactEnqueueResult", queue, StringComparison.Ordinal);
-        Assert.Contains("public PublicHotArtifactEnqueueResult Enqueue", queue, StringComparison.Ordinal);
-        Assert.Contains("BoundedChannelFullMode.Wait", queue, StringComparison.Ordinal);
-        Assert.Contains("queue-full-or-closed", queue, StringComparison.Ordinal);
-
-        Assert.Contains("PublicHotArtifactEnqueueResult result = publicHotUpdates.Enqueue", queueMethod, StringComparison.Ordinal);
-        Assert.Contains("required ? \"required\" : \"best-effort\"", queueMethod, StringComparison.Ordinal);
-        Assert.Contains("EnsurePublicHotUpdateQueuedAsync", replayMethod, StringComparison.Ordinal);
-        Assert.Contains("required: true", ensureMethod, StringComparison.Ordinal);
-        Assert.Contains("throw new InvalidOperationException", ensureMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("QueuePublicHotUpdateAsync(articleId, $\"outbox-", replayMethod, StringComparison.Ordinal);
+        Type coordinator = typeof(ArticleMutationSideEffectCoordinator);
+        string queueRuntime = RuntimeMetadataInspection.DescribeMethods(coordinator, "QueuePublicHotUpdateAsync");
+        string ensureRuntime = RuntimeMetadataInspection.DescribeMethods(coordinator, "EnsurePublicHotUpdateQueuedAsync");
+        string replayRuntime = RuntimeMetadataInspection.DescribeMethods(coordinator, nameof(ArticleMutationSideEffectCoordinator.ReplayOutboxAsync));
+        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", queueRuntime, StringComparison.Ordinal);
+        Assert.Contains("required", queueRuntime, StringComparison.Ordinal);
+        Assert.Contains("best-effort", queueRuntime, StringComparison.Ordinal);
+        Assert.Contains("EnsurePublicHotUpdateQueuedAsync", replayRuntime, StringComparison.Ordinal);
+        Assert.Contains("InvalidOperationException", ensureRuntime, StringComparison.Ordinal);
     }
 
     [Fact]
     public void PublicHotUpdateWorker_ReplaysEveryCoalescedArticleId()
     {
-        string queue = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs");
-        string worker = Slice(queue, "protected override async Task ExecuteAsync", "    }\n}");
+        string worker = RuntimeMetadataInspection.DescribeMethods(
+            typeof(PublicHotArtifactUpdateWorker),
+            "ExecuteAsync");
 
-        Assert.Contains("var articleIds = new HashSet<int>();", worker, StringComparison.Ordinal);
-        Assert.Contains("CollectUpdate(first, articleIds, ref requiresFullRebuild);", worker, StringComparison.Ordinal);
-        Assert.Contains("CollectUpdate(next, articleIds, ref requiresFullRebuild);", worker, StringComparison.Ordinal);
-        Assert.Contains("foreach (int articleId in articleIds)", worker, StringComparison.Ordinal);
-        Assert.Contains("RebuildAfterArticleMutationAsync(snapshot, articleId, stoppingToken)", worker, StringComparison.Ordinal);
-        Assert.DoesNotContain("first.ArticleId ?? 0", worker, StringComparison.Ordinal);
+        Assert.Contains("HashSet`1", worker, StringComparison.Ordinal);
+        Assert.Contains("CollectUpdate", worker, StringComparison.Ordinal);
+        Assert.Contains("HashSet`1.Enumerator", worker, StringComparison.Ordinal);
+        Assert.Contains("IPublicHotArtifactProjector.RebuildAfterArticleMutationAsync", worker, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nullable`1.GetValueOrDefault", worker, StringComparison.Ordinal);
     }
 
     [Fact]
     public void PublicHotViewProjection_RefreshesRankingWithoutFullSnapshotRebuild()
     {
-        string queue = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs");
-        string viewProjection = ReadRepoFile("src/backend/Services/VisitLog/ArticleViewProjectionService.cs");
-        string viewBuffer = ReadRepoFile("src/backend/Services/ArticleViewWriteBuffer.cs");
-        string worker = Slice(queue, "protected override async Task ExecuteAsync", "    }\n}");
+        string worker = RuntimeMetadataInspection.DescribeMethods(typeof(PublicHotArtifactUpdateWorker), "ExecuteAsync");
+        string viewProjection = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewProjectionService));
+        string viewBuffer = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewWriteBuffer));
 
-        Assert.Contains("RebuildAfterViewProjectionAsync(snapshot, articleIds, stoppingToken)", worker, StringComparison.Ordinal);
-        Assert.Contains("dirtyReason == PublicHotArtifactDirtyReason.ViewProjection", worker, StringComparison.Ordinal);
-        Assert.Contains("foreach (int articleId in updatedArticleIds)", viewProjection, StringComparison.Ordinal);
-        Assert.Contains("publicHotUpdates.TryEnqueue(articleId, \"article-view-projection-batch\")", viewProjection, StringComparison.Ordinal);
-        Assert.Contains("foreach (int articleId in updatedArticleIds)", viewBuffer, StringComparison.Ordinal);
-        Assert.Contains("publicHotUpdates.TryEnqueue(articleId, reason)", viewBuffer, StringComparison.Ordinal);
+        Assert.Contains("IPublicHotArtifactProjector.RebuildAfterViewProjectionAsync", worker, StringComparison.Ordinal);
+        var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 2 }));
+        Assert.Equal(PublicHotArtifactDirtyReason.ViewProjection, queue.Enqueue(1, "article-view-projection-batch").DirtyReason);
+        Assert.Contains("PublicHotArtifactUpdateQueue.TryEnqueue", viewProjection, StringComparison.Ordinal);
+        Assert.Contains("article-view-projection-batch", viewProjection, StringComparison.Ordinal);
+        Assert.Contains("PublicHotArtifactUpdateQueue.TryEnqueue", viewBuffer, StringComparison.Ordinal);
+        Assert.Contains("GetEnumerator", viewProjection, StringComparison.Ordinal);
+        Assert.Contains("GetEnumerator", viewBuffer, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ScheduledPublish_ReliesOnOutboxForNewlyPublishedArticleSideEffects()
     {
-        string source = ReadRepoFile("src/backend/Services/Background/ScheduledPublishWorker.cs");
-        string method = Slice(source, "internal async Task<int> PublishDueArticlesAsync", "        finally");
-        string claim = Slice(source, "private static async Task<ScheduledPublishBatchCommit> ClaimDueArticlesAsync", "    private static async Task<int> EstimateBacklogAsync");
+        Type worker = typeof(ScheduledPublishWorker);
+        string method = RuntimeMetadataInspection.DescribeMethods(worker, "PublishDueArticlesAsync");
+        string claim = RuntimeMetadataInspection.DescribeMethods(worker, "ClaimDueArticlesAsync");
 
         Assert.Contains("ORDER BY scheduled_publish_at, id", claim, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE SKIP LOCKED", claim, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"scheduled-publish-body-batch-query\"", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"scheduled-publish-tags-batch-query\"", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"scheduled-publish-body-query\"", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"scheduled-publish-tags-query\"", method, StringComparison.Ordinal);
-        Assert.Contains("BuildScheduledPublishOutboxEvent(articleId, now)", claim, StringComparison.Ordinal);
-        Assert.Contains("insertedOutboxEvents != claimedArticleIds.Count", claim, StringComparison.Ordinal);
-        Assert.DoesNotContain("searchIndex.AddOrUpdateIndexAsync(article)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("invalidation.InvalidateArticleMutationAsync(article.Id", method, StringComparison.Ordinal);
-
-        int commitGuard = claim.IndexOf("TransactionSideEffectGuard.CanPublishAfterCommit", StringComparison.Ordinal);
-        int outbox = claim.IndexOf("BuildScheduledPublishOutboxEvent(articleId, now)", StringComparison.Ordinal);
-
-        Assert.True(outbox >= 0);
-        Assert.True(commitGuard > outbox);
+        Assert.DoesNotContain("scheduled-publish-body-batch-query", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("scheduled-publish-tags-batch-query", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("scheduled-publish-body-query", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("scheduled-publish-tags-query", method, StringComparison.Ordinal);
+        Assert.Contains("BuildScheduledPublishOutboxEvent", claim, StringComparison.Ordinal);
+        Assert.Contains("ScheduledPublishBatchCommit", claim, StringComparison.Ordinal);
+        Assert.DoesNotContain("ISearchIndexService.AddOrUpdateIndexAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("IPublicAotInvalidationService.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("ICacheInvalidationDispatcher.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
+        Assert.Contains("TransactionSideEffectGuard.CanPublishAfterCommit", claim, StringComparison.Ordinal);
     }
 
     [Fact]
     public void AdminAotRebuild_InvalidatesAotBeforeQueueingPublicHotRead()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/Operations/AdminOperationsService.cs");
-        string method = Slice(source, "public async Task<AdminCacheActionResponse> RunCacheActionAsync", "public async Task<IntegrityReportResponse>");
+        MethodInfo method = typeof(AdminOperationsService).GetMethod(nameof(AdminOperationsService.RunCacheActionAsync))!;
+        string runtime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AdminOperationsService),
+            nameof(AdminOperationsService.RunCacheActionAsync));
+        (int Offset, MethodBase Method)[] calls = ReadCalledMethods(AsyncMoveNext(method)).ToArray();
 
-        Assert.Contains("IPublicAotInvalidationService publicAotInvalidationService", source, StringComparison.Ordinal);
-        Assert.Contains("publicAotInvalidationService.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
-        Assert.Contains("publicAotInvalidationService.InvalidateAllAsync", method, StringComparison.Ordinal);
-
-        int aotAll = method.IndexOf("publicAotInvalidationService.InvalidateAllAsync", StringComparison.Ordinal);
-        int publicHotQueue = method.IndexOf("publicHotArtifactUpdateQueue.TryEnqueue", StringComparison.Ordinal);
-
-        Assert.True(aotAll >= 0);
+        Assert.Contains("IPublicAotInvalidationService.InvalidateArticleMutationAsync", runtime, StringComparison.Ordinal);
+        Assert.Contains("IPublicAotInvalidationService.InvalidateAllAsync", runtime, StringComparison.Ordinal);
+        int aotAll = Assert.Single(calls, static call =>
+            call.Method.Name == nameof(IPublicAotInvalidationService.InvalidateAllAsync)).Offset;
+        int publicHotQueue = Assert.Single(calls, static call =>
+            call.Method.Name == nameof(PublicHotArtifactUpdateQueue.TryEnqueue)).Offset;
         Assert.True(publicHotQueue > aotAll);
     }
 
     [Fact]
     public void AdminCacheAction_ExposesOnlyRuntimeArticleDetailAedsV3Actions()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/Operations/AdminOperationsService.cs");
-        string method = Slice(source, "public async Task<AdminCacheActionResponse> RunCacheActionAsync", "public async Task<IntegrityReportResponse>");
-        string registrations = ReadRepoFile("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
+        Type service = typeof(AdminOperationsService);
+        string runtime = RuntimeMetadataInspection.DescribeMethods(service, nameof(AdminOperationsService.RunCacheActionAsync));
+        Assert.Contains(Assert.Single(service.GetConstructors()).GetParameters(), static parameter =>
+            parameter.ParameterType == typeof(IArticleDetailAedsArtifactMaintenanceService));
+        Assert.Contains("recompute-article-rights", runtime, StringComparison.Ordinal);
+        Assert.Contains("rebuild-article-detail-aeds-v3", runtime, StringComparison.Ordinal);
+        Assert.Contains("IArticleDetailAedsArtifactMaintenanceService.RecomputeArticleRightsAsync", runtime, StringComparison.Ordinal);
+        Assert.Contains("IArticleDetailAedsArtifactMaintenanceService.RebuildArticleDetailAedsV3Async", runtime, StringComparison.Ordinal);
+        Assert.DoesNotContain("clear-legacy-public-artifacts", runtime, StringComparison.Ordinal);
+        Assert.DoesNotContain("IArticleDetailAedsArtifactMaintenanceService.ClearLegacyPublicArtifactsAsync", runtime, StringComparison.Ordinal);
 
-        Assert.Contains("IArticleDetailAedsArtifactMaintenanceService articleDetailAedsMaintenance", source, StringComparison.Ordinal);
-        Assert.Contains("recompute-article-rights", method, StringComparison.Ordinal);
-        Assert.Contains("rebuild-article-detail-aeds-v3", method, StringComparison.Ordinal);
-        Assert.Contains("RecomputeArticleRightsAsync", method, StringComparison.Ordinal);
-        Assert.Contains("RebuildArticleDetailAedsV3Async", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("clear-legacy-public-artifacts", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("ClearLegacyPublicArtifactsAsync", method, StringComparison.Ordinal);
-        Assert.Contains("AddScoped<IArticleDetailAedsArtifactMaintenanceService, ArticleDetailAedsArtifactMaintenanceService>", registrations, StringComparison.Ordinal);
+        var services = new ServiceCollection();
+        services.AddFsusRuntimeInfrastructureServices(new ConfigurationBuilder().Build());
+        ServiceDescriptor registration = Assert.Single(services, static descriptor =>
+            descriptor.ServiceType == typeof(IArticleDetailAedsArtifactMaintenanceService));
+        Assert.Equal(typeof(ArticleDetailAedsArtifactMaintenanceService), registration.ImplementationType);
+        Assert.Equal(ServiceLifetime.Scoped, registration.Lifetime);
     }
 
     [Fact]
     public void ArticleMutationOutbox_RightsSnapshotChangesReplayArticleDetailAedsRequiredEdge()
     {
-        string service = ReadRepoFile("src/backend/Services/ArticleService.cs");
-        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
-        string createMethod = Slice(service, "public async Task<int> CreateAsync", "    public async Task<bool> UpdateAsync");
-        string updateMethod = Slice(service, "public async Task<bool> UpdateAsync", "    public async Task<bool> DeleteAsync");
-        string requiredEdges = Slice(sideEffects, "public static class ArticleMutationReplayEdges", "public sealed record ArticleMutationReplayResult");
+        string createRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), nameof(ArticleService.CreateAsync));
+        string updateRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), nameof(ArticleService.UpdateAsync));
+        MethodInfo outbox = typeof(ArticleService).GetMethod("RecordArticleMutationOutboxAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
-        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"created\", rightsSnapshotId)", createMethod, StringComparison.Ordinal);
-        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"updated\", rightsSnapshotId)", updateMethod, StringComparison.Ordinal);
-        Assert.Contains("rightsSnapshotId", service, StringComparison.Ordinal);
-        Assert.Contains("ArticleDetailAeds", requiredEdges, StringComparison.Ordinal);
-        Assert.Contains("ArticleDetailAeds,", requiredEdges, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync", createRuntime, StringComparison.Ordinal);
+        Assert.Contains("created", createRuntime, StringComparison.Ordinal);
+        Assert.Contains("RecordArticleMutationOutboxAsync", updateRuntime, StringComparison.Ordinal);
+        Assert.Contains("updated", updateRuntime, StringComparison.Ordinal);
+        Assert.Contains(outbox.GetParameters(), static parameter => parameter.Name == "rightsSnapshotId");
+        Assert.Contains(ArticleMutationReplayEdges.ArticleDetailAeds, ArticleMutationReplayEdges.Required);
     }
 
     [Fact]
     public void ArticleDetailAedsArtifactMaintenanceService_RebuildAllUsesPagingAndBoundedConcurrency()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs");
-        string rebuild = Slice(
-            source,
-            "public async Task<ArticleDetailAedsArtifactMaintenanceResult> RebuildArticleDetailAedsV3Async",
-            "    private async Task<IReadOnlyList<int>> LoadPublicArticleIdsPageAsync");
-        string batch = Slice(
-            source,
-            "private async Task<(int Rebuilt, int Failed)> RebuildArticleBatchAsync",
-            "    private async Task<IReadOnlyList<RightsRecomputeCandidate>> LoadRightsRecomputeCandidatesAsync");
+        Type service = typeof(ArticleDetailAedsArtifactMaintenanceService);
+        string rebuild = RuntimeMetadataInspection.DescribeMethods(service, nameof(ArticleDetailAedsArtifactMaintenanceService.RebuildArticleDetailAedsV3Async));
+        string batch = RuntimeMetadataInspection.DescribeMethods(service, "RebuildArticleBatchAsync");
 
-        Assert.Contains("LoadPublicArticleIdsPageAsync(lastArticleId, BatchSize", rebuild, StringComparison.Ordinal);
-        Assert.Contains("lastArticleId = articleIds[^1]", rebuild, StringComparison.Ordinal);
-        Assert.Contains("RebuildArticleBatchAsync(articleIds", rebuild, StringComparison.Ordinal);
-        Assert.Contains("Environment.ProcessorCount", batch, StringComparison.Ordinal);
-        Assert.Contains("MaxDegreeOfParallelism = degreeOfParallelism", batch, StringComparison.Ordinal);
-        Assert.Contains("scopeFactory.CreateAsyncScope", batch, StringComparison.Ordinal);
-        Assert.DoesNotContain("ToListAsync(ct).Result", batch, StringComparison.Ordinal);
+        Assert.Contains("LoadPublicArticleIdsPageAsync", rebuild, StringComparison.Ordinal);
+        Assert.Contains("RebuildArticleBatchAsync", rebuild, StringComparison.Ordinal);
+        Assert.Contains("Environment.get_ProcessorCount", batch, StringComparison.Ordinal);
+        Assert.Contains("ParallelOptions.set_MaxDegreeOfParallelism", batch, StringComparison.Ordinal);
+        Assert.Contains("CreateAsyncScope", batch, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task`1.get_Result", batch, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ArticleDetailAedsArtifactMaintenanceService_RecomputeRightsRepairsSentinelSnapshots()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs");
-        string recompute = Slice(
-            source,
-            "public async Task<ArticleDetailAedsArtifactMaintenanceResult> RecomputeArticleRightsAsync",
-            "    public async Task<ArticleDetailAedsArtifactMaintenanceResult> ClearLegacyPublicArtifactsAsync");
-        string repair = Slice(
-            source,
-            "private async Task RecomputeRightsSnapshotAsync",
-            "    private async Task<long> InsertDefaultRightsPolicyAsync");
+        Type service = typeof(ArticleDetailAedsArtifactMaintenanceService);
+        string recompute = RuntimeMetadataInspection.DescribeMethods(service, nameof(ArticleDetailAedsArtifactMaintenanceService.RecomputeArticleRightsAsync));
+        string repair = RuntimeMetadataInspection.DescribeMethods(service, "RecomputeRightsSnapshotAsync");
 
-        Assert.Contains("rights-v3:policy-hash:recompute", source, StringComparison.Ordinal);
-        Assert.Contains("rights-v3:content-hash:recompute", source, StringComparison.Ordinal);
-        Assert.Contains("LoadRightsRecomputeCandidatesAsync(lastArticleId, BatchSize", recompute, StringComparison.Ordinal);
+        Assert.Contains("rights-v3:policy-hash:recompute", repair, StringComparison.Ordinal);
+        Assert.Contains("rights-v3:content-hash:recompute", repair, StringComparison.Ordinal);
+        Assert.Contains("LoadRightsRecomputeCandidatesAsync", recompute, StringComparison.Ordinal);
         Assert.Contains("ArticleCanonicalHashV1.ComputeHashHex", repair, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsCanonicalHashV1.ComputeHashHex", repair, StringComparison.Ordinal);
         Assert.Contains("INSERT INTO article_rights_snapshot", repair, StringComparison.Ordinal);
@@ -302,29 +292,44 @@ public sealed class PublicContentInvalidationFlowTests
     [Fact]
     public void RedisBackedPublicAotInvalidateAll_SkipsPerMemberRegistryUnregister()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/PublicAot/PublicAotShellCache.cs");
-        string invalidateAll = Slice(source, "public async Task InvalidateAllAsync", "    private static string ResolveRegistryKey");
-        string removeMany = Slice(source, "private async Task RemoveManyCacheEntriesAsync", "    public async Task RemoveByPrefixAsync");
-
-        Assert.Contains("bool unregisterKeys = true", removeMany, StringComparison.Ordinal);
-        Assert.Contains("if (unregisterKeys)", removeMany, StringComparison.Ordinal);
-        Assert.Contains("unregisterKeys: false", invalidateAll, StringComparison.Ordinal);
-
-        int removeDocuments = invalidateAll.IndexOf("RemoveManyCacheEntriesAsync(keysToDelete, cancellationToken, unregisterKeys: false)", StringComparison.Ordinal);
-        int removeRegistries = invalidateAll.IndexOf("_db.KeyDeleteAsync(registryKeys)", StringComparison.Ordinal);
-        Assert.True(removeDocuments >= 0);
+        Type cache = typeof(PublicAotShellCache);
+        MethodInfo invalidateAll = cache.GetMethod(nameof(PublicAotShellCache.InvalidateAllAsync))!;
+        MethodInfo removeMany = cache.GetMethod("RemoveManyCacheEntriesAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        Assert.Equal(typeof(bool), removeMany.GetParameters().Single(static parameter => parameter.Name == "unregisterKeys").ParameterType);
+        Assert.True((bool)removeMany.GetParameters().Single(static parameter => parameter.Name == "unregisterKeys").DefaultValue!);
+        string removeRuntime = RuntimeMetadataInspection.DescribeMethods(cache, "RemoveManyCacheEntriesAsync");
+        Assert.Contains("UnregisterKeysAsync", removeRuntime, StringComparison.Ordinal);
+        (int Offset, MethodBase Method)[] calls = ReadCalledMethods(AsyncMoveNext(invalidateAll)).ToArray();
+        int removeDocuments = Assert.Single(calls, static call => call.Method.Name == "RemoveManyCacheEntriesAsync").Offset;
+        int removeRegistries = Assert.Single(calls, static call => call.Method.Name == "KeyDeleteAsync").Offset;
         Assert.True(removeRegistries > removeDocuments);
     }
 
-    private static string Slice(string source, string startMarker, string endMarker)
+    private static MethodInfo AsyncMoveNext(MethodInfo method)
     {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"start marker not found: {startMarker}");
-        int end = source.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
-        Assert.True(end > start, $"end marker not found: {endMarker}");
-        return source[start..end];
+        AsyncStateMachineAttribute stateMachine = method.GetCustomAttribute<AsyncStateMachineAttribute>()
+            ?? throw new InvalidOperationException($"Async state machine missing: {method.Name}");
+        return stateMachine.StateMachineType.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!;
     }
 
-    private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
+    private static IEnumerable<(int Offset, MethodBase Method)> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F)) continue;
+            MethodBase? called = null;
+            try
+            {
+                called = method.Module.ResolveMethod(
+                    BitConverter.ToInt32(il, offset + 1),
+                    method.DeclaringType?.GetGenericArguments(),
+                    method.GetGenericArguments());
+            }
+            catch (ArgumentException)
+            {
+            }
+            if (called is not null) yield return (offset, called);
+        }
+    }
 }

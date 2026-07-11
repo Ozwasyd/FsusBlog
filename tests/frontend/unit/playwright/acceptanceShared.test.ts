@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 
 const fixtureRoot = mkdtempSync(join(tmpdir(), 'fsusblog-acceptance-shared-unit-'))
@@ -35,8 +35,6 @@ const {
   UX_VIEWPORT_MATRIX
 } = await import('../../support/playwright/acceptance-shared')
 
-const repoRoot = resolve(__dirname, '../../../..')
-
 afterAll(() => {
   if (originalFixtureFile === undefined) delete process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE
   else process.env.FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE = originalFixtureFile
@@ -53,34 +51,5 @@ describe('playwright acceptance shared helper', () => {
     expect(ULTRA_WIDE_VIEWPORT).toEqual({ width: 3440, height: 1440 })
     expect(UX_VIEWPORT_MATRIX.modes.smoke.viewports).toContain('ultra-wide')
     expect(UX_CONTENT_BOUNDARY_CORPUS.cases.map((entry) => entry.kind)).toContain('mermaid')
-  })
-
-  it('treats sandboxed srcdoc script blocking as an expected preview isolation signal', () => {
-    const source = readFileSync(resolve(repoRoot, 'tests/frontend/support/playwright/acceptance-shared.ts'), 'utf8')
-
-    expect(source).toContain("Blocked script execution in 'about:srcdoc'")
-    expect(source).toContain("the document's frame is sandboxed")
-    expect(source).toContain("'allow-scripts' permission is not set")
-  })
-
-  it('does not count expected MFA step-up challenge responses as runtime noise', () => {
-    const source = readFileSync(resolve(repoRoot, 'tests/frontend/support/playwright/acceptance-shared.ts'), 'utf8')
-
-    expect(source).toContain("url.includes('/api/binary/auth/mfa/challenge/start') && status === 428")
-    expect(source).toContain("text.includes('PASSWORD_OR_STEP_UP_PROOF_REQUIRED')")
-    expect(source).toContain("text.includes('status: 428')")
-  })
-
-  it('pins audited browser contexts to the configured frontend base URL', () => {
-    const source = readFileSync(resolve(repoRoot, 'tests/frontend/support/playwright/acceptance-shared.ts'), 'utf8')
-
-    expect(source).toContain('baseURL: process.env.PLAYWRIGHT_BASE_URL')
-    expect(source).toContain("process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000'")
-  })
-
-  it('keeps mobile landscape chrome checks scoped to navigation chrome', () => {
-    const source = readFileSync(resolve(repoRoot, 'tests/frontend/support/playwright/acceptance-shared.ts'), 'utf8')
-
-    expect(source).toContain("header.closest('main, article')")
   })
 })

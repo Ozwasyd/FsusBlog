@@ -1,10 +1,21 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using SqlSugar;
+using System.Reflection;
+using System.Security.Claims;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -121,35 +132,72 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
-    public void ResolveNextVersionAsync_SourceUsesCounterReturningUpdateInsteadOfSnapshotMax()
+    public async Task ResolveNextVersionAsync_RuntimeUsesCounterReturningUpdateInsteadOfSnapshotMax()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
-        int methodStart = source.IndexOf("private async Task<long> ResolveNextVersionAsync", StringComparison.Ordinal);
-        int methodEnd = source.IndexOf("private async Task EnsureVersionCounterAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..methodEnd];
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient db = CreateDb(connectionString);
+        CreateTable(db);
+        await db.Insertable(new SecurityPolicyVersionCounter
+        {
+            PolicyId = SecurityPolicyIds.AntiCrawler,
+            LastVersion = 0,
+            UpdatedAtUtc = BaselineNow.UtcDateTime
+        }).ExecuteCommandAsync();
+        var sql = new List<string>();
+        db.Aop.OnLogExecuting = (statement, _) => sql.Add(statement);
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
 
-        Assert.Contains("SecurityPolicyVersionCounter", source, StringComparison.Ordinal);
-        Assert.Contains("UPDATE security_policy_version_counter", method, StringComparison.Ordinal);
-        Assert.Contains("RETURNING last_version", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("FOR UPDATE", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("OrderBy(item => item.Version, OrderByType.Desc)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("latest?.Version", method, StringComparison.Ordinal);
+        SecurityPolicySnapshotRecord record = await service.ActivateAsync(
+            SecurityPolicyIds.AntiCrawler,
+            SecuritySystemModes.Observe,
+            CreateAntiCrawlerSnapshot("counter-runtime", SecuritySystemModes.Observe),
+            7,
+            "counter-runtime",
+            CancellationToken.None);
+
+        string[] counterStatements = sql.Where(static statement =>
+            statement.Contains("security_policy_version_counter", StringComparison.OrdinalIgnoreCase)).ToArray();
+        Assert.Equal(1, record.Version);
+        string update = Assert.Single(counterStatements, static statement =>
+            statement.Contains("UPDATE", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("RETURNING last_version", update, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("FOR UPDATE", update, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(counterStatements, static statement =>
+            statement.Contains("MAX(version)", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void ResolveNextVersionAsync_SourceUsesSingleReturningUpdateOnHotPath()
+    public async Task ResolveNextVersionAsync_RuntimeUsesSingleReturningUpdateOnHotPath()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
-        int methodStart = source.IndexOf("private async Task<long> ResolveNextVersionAsync", StringComparison.Ordinal);
-        int methodEnd = source.IndexOf("private async Task EnsureVersionCounterAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..methodEnd];
+        string connectionString = await CreateConnectionStringAsync();
+        using SqlSugarClient db = CreateDb(connectionString);
+        CreateTable(db);
+        await db.Insertable(new SecurityPolicyVersionCounter
+        {
+            PolicyId = SecurityPolicyIds.Pow,
+            LastVersion = 40,
+            UpdatedAtUtc = BaselineNow.UtcDateTime
+        }).ExecuteCommandAsync();
+        var sql = new List<string>();
+        db.Aop.OnLogExecuting = (statement, _) => sql.Add(statement);
+        var service = new SecurityPolicySnapshotService(db, new StaticTimeProvider(BaselineNow));
 
-        Assert.Contains("UPDATE security_policy_version_counter", method, StringComparison.Ordinal);
-        Assert.Contains("RETURNING last_version", method, StringComparison.Ordinal);
-        Assert.Contains("EnsureVersionCounterAsync(policyId, cancellationToken)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("SELECT last_version", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("FOR UPDATE", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("db.Updateable<SecurityPolicyVersionCounter>()", method, StringComparison.Ordinal);
+        SecurityPolicySnapshotRecord record = await service.ActivateAsync(
+            SecurityPolicyIds.Pow,
+            SecuritySystemModes.Enforce,
+            CreatePowSnapshot("hot-counter", SecuritySystemModes.Enforce),
+            7,
+            "hot-counter",
+            CancellationToken.None);
+
+        string[] counterStatements = sql.Where(static statement =>
+            statement.Contains("security_policy_version_counter", StringComparison.OrdinalIgnoreCase)).ToArray();
+        Assert.Equal(41, record.Version);
+        string update = Assert.Single(counterStatements);
+        Assert.Contains("UPDATE", update, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RETURNING last_version", update, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("SELECT last_version", update, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("FOR UPDATE", update, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -218,73 +266,141 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
-    public void SecurityEndpoints_RequireAdminStepUpAndPersistPolicySnapshotsForWrites()
+    public async Task SecurityEndpoints_RequireAdminStepUpAndPersistPolicySnapshotsForWrites()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Services.AddAuthorization();
+        await using WebApplication app = builder.Build();
+        app.MapSecurityEndpoints();
+        RouteEndpoint riskUpdate = FindRoute(app, "/api/binary/admin/security/risk-control/options", HttpMethods.Put);
+        RouteEndpoint riskRollback = FindRoute(app, "/api/binary/admin/security/risk-control/options/rollback", HttpMethods.Post);
+        RouteEndpoint perceptionUpdate = FindRoute(app, "/api/binary/admin/security/perception-v2/options", HttpMethods.Put);
+        RouteEndpoint perceptionRollback = FindRoute(app, "/api/binary/admin/security/perception-v2/options/rollback", HttpMethods.Post);
+        RouteEndpoint[] mutations = [riskUpdate, riskRollback, perceptionUpdate, perceptionRollback];
 
-        Assert.Contains("X-Fsus-Mfa-Proof", source, StringComparison.Ordinal);
-        Assert.Contains("AedsJsonResults.PreconditionRequired", source, StringComparison.Ordinal);
-        Assert.Contains("ISecurityPolicySnapshotService policySnapshots", source, StringComparison.Ordinal);
-        Assert.Contains("policySnapshots.ActivateAsync", source, StringComparison.Ordinal);
-        Assert.Contains("policySnapshots.RollbackAsync", source, StringComparison.Ordinal);
-        Assert.Contains("SecurityPolicyIds.RiskControl", source, StringComparison.Ordinal);
-        Assert.Contains("SecurityPolicyIds.PerceptionSealedV2", source, StringComparison.Ordinal);
-        Assert.Contains("/risk-control/options", source, StringComparison.Ordinal);
-        Assert.Contains("/perception-v2/options", source, StringComparison.Ordinal);
-        Assert.Contains("admin.security.risk_control.options_updated", source, StringComparison.Ordinal);
-        Assert.Contains("admin.security.risk_control.options_rolled_back", source, StringComparison.Ordinal);
-        Assert.Contains("admin.security.perception_v2.options_updated", source, StringComparison.Ordinal);
-        Assert.Contains("admin.security.perception_v2.options_rolled_back", source, StringComparison.Ordinal);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync", source, StringComparison.Ordinal);
+        Assert.Equal("X-Fsus-Mfa-Proof", typeof(SecurityEndpoints)
+            .GetField("MfaProofHeader", BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetRawConstantValue());
+        Assert.NotNull(riskUpdate.Metadata.GetMetadata<AdminSensitiveStepUpMetadata>());
+        foreach (RouteEndpoint endpoint in mutations)
+        {
+            MethodInfo handler = endpoint.Metadata.GetMetadata<MethodInfo>()!;
+            Assert.Contains(handler.GetParameters(), static parameter =>
+                parameter.ParameterType == typeof(ISecurityPolicySnapshotService));
+            string runtimeShape = RuntimeMetadataInspection.DescribeMethods(handler.DeclaringType!, handler.Name);
+            Assert.Contains("RequireAdminSensitiveStepUpAsync", runtimeShape, StringComparison.Ordinal);
+        }
+        string endpointRuntime = RuntimeMetadataInspection.DescribeType(typeof(SecurityEndpoints));
+        Assert.Contains("ISecurityPolicySnapshotService.ActivateAsync", endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains("ISecurityPolicySnapshotService.RollbackAsync", endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains(SecurityPolicyIds.RiskControl, endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains(SecurityPolicyIds.PerceptionSealedV2, endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains("admin.security.risk_control.options_updated", endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains("admin.security.risk_control.options_rolled_back", endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains("admin.security.perception_v2.options_updated", endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains("admin.security.perception_v2.options_rolled_back", endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains("PreconditionRequired", endpointRuntime, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SecurityEndpoints_AttributePolicyMutationActorsToAdminPrincipal()
+    public async Task SecurityEndpoints_AttributePolicyMutationActorsToAdminPrincipal()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
+        MethodInfo resolveActor = typeof(SecurityEndpoints).GetMethod("ResolveActor", BindingFlags.NonPublic | BindingFlags.Static)!;
+        MethodInfo resolveId = typeof(SecurityEndpoints).GetMethod("ResolveAdminPrincipalId", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var context = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+                new Claim("admin_id", "42")
+            ], "unit"))
+        };
 
-        Assert.DoesNotContain("context.GetUserId()", source, StringComparison.Ordinal);
-        Assert.Contains("private static string ResolveActor(HttpContext context)", source, StringComparison.Ordinal);
-        Assert.Contains("=> FormatAdminActor(ResolveAdminPrincipalId(context));", source, StringComparison.Ordinal);
-        Assert.Contains("context.User.IsAdminPrincipal()", source, StringComparison.Ordinal);
-        Assert.Contains("context.User.TryGetAdminPrincipalId(out long adminPrincipalId)", source, StringComparison.Ordinal);
-        Assert.Contains("throw new UnauthorizedAccessException(\"admin_principal_missing\")", source, StringComparison.Ordinal);
-        Assert.Contains("string.Concat(\"admin:\", adminPrincipalId.ToString(CultureInfo.InvariantCulture))", source, StringComparison.Ordinal);
-        Assert.Contains("ActorType: AuditActorTypeCatalog.Admin", source, StringComparison.Ordinal);
-        Assert.Contains("ActorId: adminPrincipalId.ToString(CultureInfo.InvariantCulture)", source, StringComparison.Ordinal);
-        Assert.Contains("[\"adminPrincipalId\"] = adminPrincipalId", source, StringComparison.Ordinal);
-        Assert.Contains("policySnapshots.ActivateAsync", source, StringComparison.Ordinal);
-        Assert.Contains("ResolveAdminPrincipalId(context)", source, StringComparison.Ordinal);
+        Assert.Equal(42L, resolveId.Invoke(null, [context]));
+        Assert.Equal("admin:42", resolveActor.Invoke(null, [context]));
+        var audit = new CapturingAuditEventService();
+        MethodInfo recordAudit = typeof(SecurityEndpoints).GetMethod("RecordSecurityAuditAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+        await (Task)recordAudit.Invoke(null,
+        [
+            context,
+            audit,
+            "admin.security.runtime",
+            "runtime",
+            "security_policy_snapshot",
+            "snapshot-42",
+            "runtime",
+            new { Value = 1 },
+            CancellationToken.None
+        ])!;
+        AuditEvent recorded = Assert.Single(audit.Events);
+        Assert.Equal(AuditActorTypeCatalog.Admin, recorded.ActorType);
+        Assert.Equal("42", recorded.ActorId);
+        Assert.Equal("admin:42", recorded.ActorRole);
+        Assert.Equal(42L, recorded.Context!["adminPrincipalId"]);
+
+        context.User = new ClaimsPrincipal(new ClaimsIdentity());
+        TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() => resolveId.Invoke(null, [context]));
+        Assert.IsType<UnauthorizedAccessException>(exception.InnerException);
+        Assert.Equal("admin_principal_missing", exception.InnerException!.Message);
+
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(SecurityEndpoints));
+        Assert.DoesNotContain("GetUserId", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IsAdminPrincipal", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryGetAdminPrincipalId", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("adminPrincipalId", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void StartupLoader_LoadsRiskControlAndPerceptionV2ActiveOrLastKnownGoodPolicy()
+    public async Task StartupLoader_LoadsRiskControlAndPerceptionV2ActiveOrLastKnownGoodPolicy()
     {
-        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
+        ISecurityPolicySnapshotService snapshots = Substitute.For<ISecurityPolicySnapshotService>();
+        SecurityRiskPolicySnapshotV2 risk = CreateRiskControlSnapshot();
+        PerceptionSealedV2PolicySnapshot perception = CreatePerceptionSnapshot();
+        snapshots.LoadActiveOrLastKnownGoodAsync<AntiCrawlerPolicySnapshot>(SecurityPolicyIds.AntiCrawler, Arg.Any<CancellationToken>())
+            .Returns(new SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot>(false, null, null, false, "missing"));
+        snapshots.LoadActiveOrLastKnownGoodAsync<PowPolicySnapshot>(SecurityPolicyIds.Pow, Arg.Any<CancellationToken>())
+            .Returns(new SecurityPolicyLoadResult<PowPolicySnapshot>(false, null, null, false, "missing"));
+        snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, Arg.Any<CancellationToken>())
+            .Returns(new SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2>(true, risk, null, false, "active"));
+        snapshots.LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, Arg.Any<CancellationToken>())
+            .Returns(new SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot>(true, perception, null, true, "last_known_good"));
+        using ServiceProvider services = new ServiceCollection()
+            .AddScoped(_ => snapshots)
+            .BuildServiceProvider();
+        ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
+        var loader = new SecurityPolicySnapshotHostedService(
+            services.GetRequiredService<IServiceScopeFactory>(),
+            policy,
+            NullLogger<SecurityPolicySnapshotHostedService>.Instance);
 
-        Assert.Contains("public const string RiskControl = \"risk-control\"", service, StringComparison.Ordinal);
-        Assert.Contains("public const string PerceptionSealedV2 = \"perception-sealed-v2\"", service, StringComparison.Ordinal);
-        Assert.Contains("LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>", service, StringComparison.Ordinal);
-        Assert.Contains("LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>", service, StringComparison.Ordinal);
-        Assert.Contains("policy.ApplyRiskControlPolicySnapshot", service, StringComparison.Ordinal);
-        Assert.Contains("policy.ApplyPerceptionSealedV2PolicySnapshot", service, StringComparison.Ordinal);
+        await loader.StartAsync(CancellationToken.None);
+
+        Assert.Equal("risk-control", SecurityPolicyIds.RiskControl);
+        Assert.Equal("perception-sealed-v2", SecurityPolicyIds.PerceptionSealedV2);
+        await snapshots.Received(1).LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, Arg.Any<CancellationToken>());
+        await snapshots.Received(1).LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, Arg.Any<CancellationToken>());
+        policy.Received(1).ApplyRiskControlPolicySnapshot(risk);
+        policy.Received(1).ApplyPerceptionSealedV2PolicySnapshot(perception);
     }
 
     [Fact]
-    public void StartupLoader_LoadsPolicySnapshotsSequentiallyWithoutSharingScopedDbClientConcurrently()
+    public async Task StartupLoader_LoadsPolicySnapshotsSequentiallyWithoutSharingScopedDbClientConcurrently()
     {
-        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/SecurityPolicySnapshotService.cs");
-        string start = ExtractBetween(service, "public async Task StartAsync", "    public Task StopAsync");
+        var snapshots = new ConcurrencyTrackingSnapshotService();
+        using ServiceProvider services = new ServiceCollection()
+            .AddScoped<ISecurityPolicySnapshotService>(_ => snapshots)
+            .BuildServiceProvider();
+        var loader = new SecurityPolicySnapshotHostedService(
+            services.GetRequiredService<IServiceScopeFactory>(),
+            Substitute.For<ISecurityAdminPolicyService>(),
+            NullLogger<SecurityPolicySnapshotHostedService>.Instance);
 
-        Assert.DoesNotContain("Task.WhenAll", start, StringComparison.Ordinal);
-        Assert.DoesNotContain("antiCrawlerTask", start, StringComparison.Ordinal);
-        Assert.DoesNotContain("powTask", start, StringComparison.Ordinal);
-        Assert.DoesNotContain("riskControlTask", start, StringComparison.Ordinal);
-        Assert.DoesNotContain("perceptionV2Task", start, StringComparison.Ordinal);
-        Assert.Contains("SecurityPolicyLoadResult<AntiCrawlerPolicySnapshot> antiCrawler =\n                await", start, StringComparison.Ordinal);
-        Assert.Contains("SecurityPolicyLoadResult<PowPolicySnapshot> pow =\n                await", start, StringComparison.Ordinal);
-        Assert.Contains("SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2> riskControl =\n                await", start, StringComparison.Ordinal);
-        Assert.Contains("SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot> perceptionV2 =\n                await", start, StringComparison.Ordinal);
+        await loader.StartAsync(CancellationToken.None);
+
+        Assert.Equal(1, snapshots.MaxConcurrentLoads);
+        Assert.Equal(
+            [SecurityPolicyIds.AntiCrawler, SecurityPolicyIds.Pow, SecurityPolicyIds.RiskControl, SecurityPolicyIds.PerceptionSealedV2],
+            snapshots.PolicyIds);
     }
 
     private static AntiCrawlerPolicySnapshot CreateAntiCrawlerSnapshot(string id, string mode)
@@ -332,6 +448,47 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             ChallengeEndpoint: "/api/binary/auth/pow-challenge",
             VerificationStrategy: "RedisPowService"));
 
+    private static SecurityRiskPolicySnapshotV2 CreateRiskControlSnapshot()
+    {
+        var defaultAction = new SecurityRiskActionPolicy(
+            "*",
+            new SecurityRiskActionThresholds(10, 25, 50, 75, 90),
+            "sha256PowV1",
+            1,
+            null,
+            AnonymousWriteAllowed: true);
+        return new SecurityRiskPolicySnapshotV2(
+            "risk-policy-runtime",
+            "risk-policy-v2",
+            BaselineNow,
+            SecuritySystemModes.Enforce,
+            200,
+            125,
+            "risk-policy-lkg",
+            defaultAction,
+            new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal),
+            new Dictionary<string, string>(StringComparer.Ordinal));
+    }
+
+    private static PerceptionSealedV2PolicySnapshot CreatePerceptionSnapshot()
+        => new(
+            "perception-runtime",
+            "perception-v2",
+            BaselineNow,
+            "admin:42",
+            "runtime",
+            null,
+            new PerceptionSealedV2PolicyOptions(
+                Enabled: true,
+                TextTaskEnabled: true,
+                LocalizationEnabled: true,
+                MicroInteractionEnabled: false,
+                PoSpaceFallbackEnabled: false,
+                EarlyRejectThreshold: 90,
+                MaxAttempts: 3,
+                MinSolveDurationMs: 750,
+                MaxSolveDurationMs: 60_000));
+
     private Task<string> CreateConnectionStringAsync()
         => PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
 
@@ -357,13 +514,56 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
 
-    private static string ExtractBetween(string source, string start, string end)
+    private static RouteEndpoint FindRoute(WebApplication app, string route, string method)
+        => Assert.Single(((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => string.Equals(
+                    endpoint.RoutePattern.RawText?.TrimStart('/'),
+                    route.TrimStart('/'),
+                    StringComparison.Ordinal)
+                && endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods.Contains(method, StringComparer.Ordinal) == true));
+
+    private sealed class ConcurrencyTrackingSnapshotService : ISecurityPolicySnapshotService
     {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
+        private int _activeLoads;
+        public int MaxConcurrentLoads { get; private set; }
+        public List<string> PolicyIds { get; } = [];
+
+        public Task<SecurityPolicySnapshotRecord> ActivateAsync<T>(
+            string policyId,
+            string mode,
+            T document,
+            long? createdByAdminId,
+            string? reason,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public async Task<SecurityPolicyLoadResult<T>> LoadActiveOrLastKnownGoodAsync<T>(
+            string policyId,
+            CancellationToken cancellationToken = default)
+        {
+            int active = Interlocked.Increment(ref _activeLoads);
+            MaxConcurrentLoads = Math.Max(MaxConcurrentLoads, active);
+            PolicyIds.Add(policyId);
+            try
+            {
+                await Task.Yield();
+                return new SecurityPolicyLoadResult<T>(false, default, null, false, "missing");
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _activeLoads);
+            }
+        }
+
+        public Task<SecurityPolicyRollbackResult<T>> RollbackAsync<T>(
+            string policyId,
+            long? targetVersion,
+            long? createdByAdminId,
+            string? reason,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 
     private sealed class CapturingAuditEventService : IAuditEventService

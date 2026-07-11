@@ -14,6 +14,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
+[Trait("Category", "Concurrency")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
@@ -132,19 +133,30 @@ public sealed class NativeGroth16ZkProofBackendTests
     }
 
     [Fact]
-    public void NativeGroth16PublicInputCodec_UsesSingleOwnedBufferWithoutPerStringByteArrays()
+    public void NativeGroth16PublicInputCodec_ReturnsSingleOwnedBufferWithinAllocationBudget()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/NativeGroth16ZkProofBackend.cs");
-        string codec = source[source.IndexOf("internal static class NativeGroth16PublicInputCodec", StringComparison.Ordinal)..];
-        string encode = ExtractBetween(codec, "public static ReadOnlyMemory<byte> Encode", "private static void WriteString");
-        string writeString = ExtractBetween(codec, "private static void WriteString", "private static void WriteInt32");
+        ProductionZkProofBackendRequest request = ValidBackendRequest([], new string('f', 64));
+        for (int index = 0; index < 32; index++)
+        {
+            _ = NativeGroth16PublicInputCodec.Encode(request);
+        }
 
-        Assert.Contains("return writer.WrittenMemory", encode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".ToArray()", encode, StringComparison.Ordinal);
-        Assert.Contains("Encoding.UTF8.GetByteCount(value)", writeString, StringComparison.Ordinal);
-        Assert.Contains("Encoding.UTF8.GetBytes(value, span)", writeString, StringComparison.Ordinal);
-        Assert.DoesNotContain("Encoding.UTF8.GetBytes(value)", writeString, StringComparison.Ordinal);
-        Assert.DoesNotContain("byte[] bytes", writeString, StringComparison.Ordinal);
+        const int iterations = 512;
+        int encodedBytes = 0;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        ReadOnlyMemory<byte> encoded = default;
+        for (int index = 0; index < iterations; index++)
+        {
+            encoded = NativeGroth16PublicInputCodec.Encode(request);
+            encodedBytes += encoded.Length;
+        }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(MemoryMarshal.TryGetArray(encoded, out ArraySegment<byte> segment));
+        Assert.NotNull(segment.Array);
+        Assert.True(segment.Count > 0);
+        Assert.Equal(segment.Count * iterations, encodedBytes);
+        Assert.InRange(allocated / iterations, 1, 1024);
     }
 
     [Fact]
@@ -378,15 +390,6 @@ public sealed class NativeGroth16ZkProofBackendTests
             new FixedRootReader(CredentialRoot, CredentialEpoch),
             backend,
             logger ?? new CapturingLogger<ProductionZkProofVerifier>());
-    }
-
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
     }
 
     private static IConfiguration BuildNativeConfiguration(TempNativeZkFixture temp, bool missingLibrary)

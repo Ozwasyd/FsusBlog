@@ -45,6 +45,12 @@ const acceptanceRedisContainer = process.env.FSUSBLOG_REDIS_CONTAINER || process
 const execFileAsync = promisify(execFile)
 let adminStorageStatePromise: Promise<Awaited<ReturnType<typeof captureStorageState>>> | null = null
 let adminFixtureIdPromise: Promise<number> | null = null
+let acceptanceModerationCommentSequence = 0
+
+type PendingModerationFixture = {
+  commentId: string
+  content: string
+}
 
 const cookieHeaderFromStorageState = (state: StorageState): string =>
   state.cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ')
@@ -195,6 +201,84 @@ const postAuthorPreview = async (payload: unknown, state?: StorageState): Promis
   body: encodeAedsFrame(FrameType.ArticlePreviewRequest, encodeAuthoringJsonRequest(payload))
 })
 
+const postgresTextLiteral = (value: string): string =>
+  "'" + value.replace(/'/g, "''") + "'"
+
+const runLocalAcceptanceSql = async (sql: string): Promise<void> => {
+  assertLocalAcceptancePgContainer()
+  await execFileAsync('docker', [
+    'exec',
+    acceptancePgContainer,
+    'psql',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-U',
+    'fsusblog',
+    '-d',
+    'fsusblog',
+    '-c',
+    sql
+  ], { timeout: 10_000 })
+}
+
+const seedPendingModerationComment = async (variant: string): Promise<PendingModerationFixture> => {
+  const articleId = String(fixtures.articleId)
+  if (!/^\d+$/u.test(articleId)) {
+    throw new Error('acceptance article fixture id must be numeric')
+  }
+
+  const sequence = ++acceptanceModerationCommentSequence
+  const commentId = (
+    BigInt(Date.now()) * 10_000n
+    + BigInt(process.pid % 1000) * 10n
+    + BigInt(sequence)
+  ).toString()
+  const content = '[acceptance moderation ' + variant + '] pending anonymous comment ' + commentId
+  const values = [
+    commentId,
+    articleId,
+    postgresTextLiteral(content),
+    'CURRENT_TIMESTAMP',
+    postgresTextLiteral('anonymous'),
+    'NULL',
+    postgresTextLiteral('acceptance-anonymous'),
+    postgresTextLiteral('Acceptance Anonymous'),
+    postgresTextLiteral('en'),
+    postgresTextLiteral('acceptance-nullifier-' + commentId),
+    postgresTextLiteral('acceptance:article:' + articleId),
+    postgresTextLiteral('acceptance-subject-' + commentId),
+    postgresTextLiteral('basic'),
+    postgresTextLiteral('acceptance'),
+    postgresTextLiteral('known'),
+    'NULL',
+    'NULL',
+    'NULL',
+    '0',
+    'false',
+    '0',
+    postgresTextLiteral('acceptance-pending-review'),
+    'NULL'
+  ].join(', ')
+
+  await runLocalAcceptanceSql(
+    'INSERT INTO comment (' +
+      'id, article_id, content, create_time, author_mode, public_handle, anonymous_handle, ' +
+      'anonymous_display_name, anonymous_display_language, anonymous_nullifier_hash, anonymous_scope, ' +
+      'moderation_subject_hash, credential_level, reputation_bucket, account_age_bucket, parent_id, root_id, ' +
+      'reply_to_comment_id, depth, is_deleted, moderation_status, moderation_reason, moderated_at' +
+    ') VALUES (' + values + ');'
+  )
+
+  return { commentId, content }
+}
+
+const removeModerationCommentFixture = async (commentId: string): Promise<void> => {
+  if (!/^\d+$/u.test(commentId)) {
+    throw new Error('acceptance moderation comment id must be numeric')
+  }
+  await runLocalAcceptanceSql('DELETE FROM comment WHERE id = ' + commentId + ';')
+}
+
 const readAuthoringJsonResponse = async <T = unknown>(response: Response): Promise<T> => {
   const decoded = await readAedsResponse(response)
   if (decoded && typeof decoded === 'object' && 'payload' in decoded && decoded.payload instanceof Uint8Array) {
@@ -266,8 +350,9 @@ for (const viewport of [
           expectedUrl: '/user/manage',
           label: 'manage-dashboard',
           selectors: [
-            (page) => page.locator('main .account-page-title'),
-            (page) => page.getByText('回收站状态', { exact: false })
+            (page) => page.getByRole('heading', { name: '站点工作台' }),
+            (page) => page.getByRole('list', { name: '今日待处理任务' }),
+            (page) => page.locator('dl[aria-label="站点统计摘要"]')
           ]
         },
         {
@@ -316,6 +401,16 @@ for (const viewport of [
           ]
         },
         {
+          path: '/user/manage/integrity-proof',
+          expectedUrl: '/user/manage/integrity-proof',
+          label: 'manage-integrity-proof',
+          selectors: [
+            (page) => page.getByRole('heading', { name: 'Integrity Proof' }),
+            (page) => page.getByText('状态总览', { exact: true }),
+            (page) => page.getByText(/暂无 proof|Article/u).first()
+          ]
+        },
+        {
           path: '/user/manage/users',
           expectedUrl: '/user/manage/users',
           label: 'manage-users',
@@ -341,6 +436,93 @@ for (const viewport of [
           await expectRouteAndShell(session.page, session.audit, route)
           await assertResponsiveLayoutContract(session.page, route.label)
         }
+      } finally {
+        await session.close()
+      }
+    })
+
+    test('module IA preserves deep links, browser back, local current state and account actions', async ({ browser }) => {
+      const session = await openAuditedPage(browser, storageState)
+      try {
+        await session.page.goto('/user/manage/tag', { waitUntil: 'domcontentloaded' })
+        await waitForAppReady(session.page)
+        await settlePage(session.page)
+        await expect(session.page).toHaveURL(/\/user\/manage\/tag$/)
+
+        const mobile = viewport.size.width < 1024
+        let navigationScope = session.page.locator('aside').first()
+        if (mobile) {
+          const trigger = session.page.getByRole('button', { name: /打开账户导航/ })
+          await assertElementHitTarget(session.page, trigger, 'module IA mobile drawer trigger')
+          await trigger.click()
+          navigationScope = session.page.getByRole('dialog', { name: /管理导航 · 内容/ })
+          await expect(navigationScope).toBeVisible()
+          await expect.poll(() => navigationScope.evaluate((drawer) => (
+            drawer.contains(document.activeElement)
+          ))).toBe(true)
+        }
+
+        const moduleNavigation = navigationScope.getByRole('navigation', { name: '管理一级模块' })
+        const localNavigation = navigationScope.getByRole('navigation', { name: '内容局部导航' })
+        await expect(moduleNavigation.getByRole('link')).toHaveCount(6)
+        await expect(moduleNavigation.getByRole('link', { name: /^内容/ })).toHaveAttribute('aria-current', 'location')
+        await expect(localNavigation.getByRole('link', { name: /^标签/ })).toHaveAttribute('aria-current', 'page')
+
+        if (mobile) {
+          const moduleTarget = moduleNavigation.getByRole('link', { name: /^内容/ })
+          const localTarget = localNavigation.getByRole('link', { name: /^标签/ })
+          await assertElementHitTarget(session.page, moduleTarget, 'mobile admin module target')
+          await assertElementHitTarget(session.page, localTarget, 'mobile admin local target')
+          const [moduleBox, localBox] = await Promise.all([
+            moduleTarget.boundingBox(),
+            localTarget.boundingBox()
+          ])
+          expect(moduleBox, 'mobile admin module target should have a bounding box').not.toBeNull()
+          expect(localBox, 'mobile admin local target should have a bounding box').not.toBeNull()
+          expect(moduleBox!.height, 'mobile admin module target should be at least 44px high')
+            .toBeGreaterThanOrEqual(44)
+          expect(localBox!.height, 'mobile admin local target should be at least 44px high')
+            .toBeGreaterThanOrEqual(44)
+        }
+
+        await localNavigation.getByRole('link', { name: /^分类/ }).click()
+        await expect(session.page).toHaveURL(/\/user\/manage\/category$/)
+        await waitForAppReady(session.page)
+        await settlePage(session.page)
+        await session.page.goBack({ waitUntil: 'domcontentloaded' })
+        await waitForAppReady(session.page)
+        await settlePage(session.page)
+        await expect(session.page).toHaveURL(/\/user\/manage\/tag$/)
+
+        if (mobile) {
+          await session.page.getByRole('button', { name: /打开账户导航/ }).click()
+          navigationScope = session.page.getByRole('dialog', { name: /管理导航 · 内容/ })
+        } else {
+          navigationScope = session.page.locator('aside').first()
+          const sidebarOverflow = await navigationScope.locator('.account-sidebar-frame').evaluate((element) => (
+            getComputedStyle(element).overflowY
+          ))
+          expect(sidebarOverflow).not.toMatch(/auto|scroll/)
+        }
+        await expect(
+          navigationScope.getByRole('navigation', { name: '内容局部导航' })
+            .getByRole('link', { name: /^标签/ })
+        ).toHaveAttribute('aria-current', 'page')
+
+        await session.page.reload({ waitUntil: 'domcontentloaded' })
+        await waitForAppReady(session.page)
+        await settlePage(session.page)
+        await expect(session.page).toHaveURL(/\/user\/manage\/tag$/)
+
+        const accountMenuTrigger = session.page.locator('button[aria-label="打开账号菜单"]:visible').first()
+        await assertElementHitTarget(session.page, accountMenuTrigger, 'account header menu trigger')
+        await accountMenuTrigger.click()
+        const accountMenu = session.page.locator('[role="menu"][aria-label="账号菜单"]:visible').last()
+        await expect(accountMenu).toBeVisible()
+        await expect(accountMenu.getByRole('menuitem', { name: '账户中心' })).toBeVisible()
+        await expect(accountMenu.getByRole('menuitem', { name: '使用规范' })).toBeVisible()
+        await expect(accountMenu.getByRole('menuitem', { name: '隐私政策' })).toBeVisible()
+        await expect(accountMenu.getByRole('menuitem', { name: '登出' })).toBeVisible()
       } finally {
         await session.close()
       }
@@ -374,6 +556,61 @@ for (const viewport of [
         await assertNoHorizontalOverflow(session.page)
       } finally {
         await session.close()
+      }
+    })
+
+    test('moderation workbench applies a real pending-comment action', async ({ browser }) => {
+      const moderationFixture = await seedPendingModerationComment(viewport.name)
+      let session: Awaited<ReturnType<typeof openAuditedPage>> | null = null
+
+      try {
+        session = await openAuditedPage(browser, storageState)
+        const page = session.page
+        const start = session.audit.checkpoint()
+
+        await page.goto('/user/manage/moderation/comments', { waitUntil: 'domcontentloaded' })
+        await waitForAppReady(page)
+        await settlePage(page)
+
+        const queue = page.getByRole('region', { name: '评论审核队列' })
+        const searchInput = page.getByLabel('搜索评论内容')
+        await expect(queue).toBeVisible()
+        await searchInput.fill(moderationFixture.commentId)
+        await searchInput.press('Enter')
+        await expect(queue.getByText(moderationFixture.content, { exact: true })).toBeVisible()
+
+        await queue.locator('button:visible').filter({ hasText: /^详情$/u }).first().click()
+        const detailDrawer = page.locator('.el-drawer:visible').last()
+        await expect(detailDrawer).toBeVisible()
+        await expect(detailDrawer.getByText(moderationFixture.content, { exact: true })).toBeVisible()
+        await installAdminSensitiveProof(page, storageState)
+
+        const moderationResponsePromise = page.waitForResponse((response) => {
+          const request = response.request()
+          const url = new URL(response.url())
+          return request.method() === 'POST'
+            && url.pathname === '/api/binary/author/comments/' + moderationFixture.commentId + '/moderation'
+        })
+        await detailDrawer.locator('button:visible').filter({ hasText: /^通过评论$/u }).click()
+        const moderationResponse = await moderationResponsePromise
+
+        expect(
+          moderationResponse.ok(),
+          'admin comment moderation request should succeed (status ' + moderationResponse.status() + ')'
+        ).toBe(true)
+        await expectAnyToastText(page, /评论审核状态已更新/)
+        await expect(queue.getByText(moderationFixture.content, { exact: true })).toHaveCount(0, {
+          timeout: 30_000
+        })
+
+        await page.getByRole('radio', { name: '已通过', exact: true }).click()
+        await expect(queue.getByText(moderationFixture.content, { exact: true })).toBeVisible({
+          timeout: 30_000
+        })
+        session.audit.assertCleanSince(start, 'admin-comment-moderation-action')
+      } finally {
+        await session?.close()
+        await removeModerationCommentFixture(moderationFixture.commentId)
       }
     })
 
@@ -412,7 +649,10 @@ for (const viewport of [
         await session.page.goto('/user/manage', { waitUntil: 'domcontentloaded' })
         await waitForAppReady(session.page)
         await settlePage(session.page)
-        await expect(session.page.getByText('评论审核')).toBeVisible()
+        await expect(session.page.getByRole('link', { name: /待审评论/ })).toBeVisible()
+        await expect(session.page.getByRole('link', { name: /待处理工单/ })).toBeVisible()
+        await expect(session.page.getByRole('link', { name: /缓存异常/ })).toBeVisible()
+        await expect(session.page.getByRole('link', { name: /写新文章/ })).toBeVisible()
 
         const analyticsPanel = session.page.locator('.dashboard-analytics-grid, .dashboard-analytics').first()
         const operationsPanel = session.page.locator('.dashboard-operations-panel, [data-testid=\"dashboard-operations-panel\"]').first()
@@ -734,9 +974,18 @@ for (const viewport of [
         const mobileNavTrigger = session.page.getByRole('button', { name: /打开账户导航/ })
         await assertElementHitTarget(session.page, mobileNavTrigger, 'mobile account navigation trigger')
         await mobileNavTrigger.click()
-        const mobileNavigation = session.page.getByRole('dialog', { name: '账户导航' })
+        let mobileNavigation = session.page.getByRole('dialog', { name: /管理导航 · 内容/ })
         await expect(mobileNavigation).toBeVisible()
-        await expect(mobileNavigation.getByText('互动')).toBeVisible()
+        const interactionModuleLink = mobileNavigation.getByRole('link', { name: /^互动/ }).first()
+        await assertElementHitTarget(session.page, interactionModuleLink, 'mobile interaction module link')
+        await interactionModuleLink.click()
+        await expect(session.page).toHaveURL(/\/user\/manage\/moderation$/)
+        await waitForAppReady(session.page)
+        await settlePage(session.page)
+
+        await mobileNavTrigger.click()
+        mobileNavigation = session.page.getByRole('dialog', { name: /管理导航 · 互动/ })
+        await expect(mobileNavigation).toBeVisible()
         const mobileUserLink = mobileNavigation.getByRole('link', { name: /用户/ }).first()
         await assertElementHitTarget(session.page, mobileUserLink, 'mobile user navigation link')
         await mobileUserLink.click()

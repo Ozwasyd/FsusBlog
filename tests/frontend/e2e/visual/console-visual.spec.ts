@@ -93,7 +93,7 @@ for (const viewport of viewports) {
         const storageState = await adminStorageStatePromise
 
         for (const route of [
-          { path: '/user/manage', label: 'manage-dashboard', primary: 'main', screenshot: 'header.account-page-header' },
+          { path: '/user/manage', label: 'manage-dashboard', primary: 'main', screenshot: '.dashboard-wrapper' },
           { path: '/user/manage/article/write', label: 'manage-write', primary: 'main', screenshot: '.write-editor-panel' },
           { path: '/user/manage/settings', label: 'manage-settings', primary: 'main', screenshot: 'header.account-page-header' },
           {
@@ -148,6 +148,17 @@ for (const viewport of viewports) {
               await assertElementHitTarget(session.page, titleInput, 'article title input')
             }
 
+            if (route.label === 'manage-dashboard') {
+              await expect(session.page.getByRole('list', { name: '今日待处理任务' })).toBeVisible()
+              await expect(session.page.getByRole('link', { name: /待审评论/ })).toBeVisible()
+              await expect(session.page.getByRole('link', { name: /待处理工单/ })).toBeVisible()
+              await expect(session.page.getByRole('link', { name: /缓存异常/ })).toBeVisible()
+              await expect(session.page.getByRole('link', { name: /写新文章/ })).toBeVisible()
+              await expect(session.page.locator('dl[aria-label="站点统计摘要"]')).toBeVisible()
+              await expect(session.page.locator('.dashboard-stat-card')).toHaveCount(0)
+              await expect(session.page.locator('.dashboard-stat-ledger .el-icon')).toHaveCount(0)
+            }
+
             if (viewport.screenshot) {
               const screenshotTarget = session.page.locator(route.screenshot ?? route.primary).first()
               await expectStableScreenshot(
@@ -164,4 +175,55 @@ for (const viewport of viewports) {
       })
     })
   }
+}
+
+for (const theme of themes) {
+  test.describe(`dashboard 768px first fold (${theme})`, () => {
+    test.use({ viewport: { width: 1366, height: 768 } })
+    test.describe.configure({ timeout: 360_000 })
+
+    test('shows every task, the summary and the migrated help action', async ({ browser }) => {
+      adminStorageStatePromise ??= captureStorageState(browser, adminName, adminPassword, '/user/manage')
+      const session = await openThemedAuditedPage(browser, theme, await adminStorageStatePromise)
+
+      try {
+        await session.page.goto('/user/manage', { waitUntil: 'domcontentloaded' })
+        await waitForAppReady(session.page)
+        await settlePage(session.page)
+
+        const workbench = session.page.locator('.dashboard-wrapper')
+        const taskList = session.page.getByRole('list', { name: '今日待处理任务' })
+        const summary = session.page.locator('.dashboard-summary')
+        const desktopSidebar = session.page.locator('aside .account-sidebar-frame')
+        await expect(workbench).toBeVisible()
+        await expect(desktopSidebar.getByRole('navigation', { name: '管理一级模块' }).getByRole('link')).toHaveCount(6)
+        expect(await desktopSidebar.evaluate((element) => getComputedStyle(element).overflowY))
+          .not.toMatch(/auto|scroll/)
+        await expect(taskList.getByRole('link')).toHaveCount(4)
+        await expect(taskList).toBeVisible()
+        await expect(summary).toBeVisible()
+        const taskBox = await taskList.boundingBox()
+        const summaryBox = await summary.boundingBox()
+        expect(taskBox, 'dashboard task list should have a 768px-fold bounding box').not.toBeNull()
+        expect(summaryBox, 'dashboard summary should have a 768px-fold bounding box').not.toBeNull()
+        expect(taskBox!.y, 'dashboard task list should start inside the first fold').toBeGreaterThanOrEqual(0)
+        expect(
+          summaryBox!.y + summaryBox!.height,
+          'dashboard summary should end inside the 768px first fold'
+        ).toBeLessThanOrEqual(770)
+
+        const helpTrigger = session.page.locator('.dashboard-help-menu__trigger')
+        if (await helpTrigger.count()) {
+          await assertElementHitTarget(session.page, helpTrigger, 'dashboard help and feedback trigger')
+          await helpTrigger.click()
+          await expect(session.page.getByRole('navigation', { name: '帮助与反馈入口' })).toBeVisible()
+        }
+
+        await assertThemeReadable(session.page, theme)
+        await assertNoHorizontalOverflow(session.page, 4)
+      } finally {
+        await session.close()
+      }
+    })
+  })
 }

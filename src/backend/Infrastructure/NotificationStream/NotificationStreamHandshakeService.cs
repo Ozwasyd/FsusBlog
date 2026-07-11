@@ -12,6 +12,7 @@ using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using System.Diagnostics;
+using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -61,7 +62,8 @@ internal sealed class NotificationStreamHandshakeService(
     INotificationStreamAudienceResolver audienceResolver,
     NotificationStreamOriginSnapshotProvider originSnapshotProvider,
     IWebHostEnvironment environment,
-    ILoggerFactory loggerFactory) : INotificationStreamHandshakeService
+    ILoggerFactory loggerFactory,
+    DeploymentRuntimeState? deploymentRuntime = null) : INotificationStreamHandshakeService
 {
     private const string Protocol = "fsus-aeds.v2";
     private const string ChallengeProofHeaderName = "X-Fsus-Challenge-Proof";
@@ -77,6 +79,13 @@ internal sealed class NotificationStreamHandshakeService(
         CancellationToken cancellationToken,
         bool requireWebSocket = true)
     {
+        if (deploymentRuntime is not null && !deploymentRuntime.CanAcceptNotificationStream)
+        {
+            return NotificationStreamHandshakeResult.Failure(
+                StatusCodes.Status503ServiceUnavailable,
+                deploymentRuntime.IsDraining ? "deployment_draining" : "deployment_not_active");
+        }
+
         if (requireWebSocket && !context.WebSockets.IsWebSocketRequest)
         {
             return NotificationStreamHandshakeResult.Failure(StatusCodes.Status426UpgradeRequired, "websocket_required");

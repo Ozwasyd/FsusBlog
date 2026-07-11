@@ -34,9 +34,7 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
                                    .Select(u => new BannedUserCacheRow
                                    {
                                        Id = u.Id,
-                                       IdentityKind = u.IdentityKind,
-                                       PasskeyUserHandle = u.PasskeyUserHandle,
-                                       PublicHandle = u.PublicHandle,
+                                       AccountSubjectHash = u.AccountSubjectHash,
                                        BanReason = u.BanReason
                                    })
                                    .ToListAsync();
@@ -75,10 +73,13 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
     }
 
     private async Task<CacheInitializationRollbackEntry> LoadRollbackEntryAsync(BannedUserCacheRow user)
-        => new(
+    {
+        string accountSubjectHash = user.RequiredAccountSubjectHash;
+        return new CacheInitializationRollbackEntry(
             user.Id,
-            user.AccountSubjectHash,
-            await _blacklist.GetBanStateAsync(user.Id, user.AccountSubjectHash).ConfigureAwait(false));
+            accountSubjectHash,
+            await _blacklist.GetBanStateAsync(user.Id, accountSubjectHash).ConfigureAwait(false));
+    }
 
     private static string BuildAccountSubjectCacheKey(string accountSubjectHash)
         => AccountSubjectHasher.BuildCacheKey(accountSubjectHash);
@@ -87,21 +88,12 @@ public class CacheInitializer(ISqlSugarClient _db, IBlacklistService _blacklist,
     {
         public int Id { get; init; }
 
-        public string? IdentityKind { get; init; }
-
-        public string? PasskeyUserHandle { get; init; }
-
-        public string? PublicHandle { get; init; }
+        public string? AccountSubjectHash { get; init; }
 
         public string? BanReason { get; init; }
 
-        public string AccountSubjectHash => AccountSubjectHasher.Create(new User
-        {
-            Id = Id,
-            IdentityKind = IdentityKind ?? AnonymousIdentityRuntime.AnonymousAccountKind,
-            PasskeyUserHandle = PasskeyUserHandle,
-            PublicHandle = PublicHandle
-        });
+        public string RequiredAccountSubjectHash
+            => AccountSubjectHashRequirement.Require(AccountSubjectHash, "blacklist-cache-initializer");
     }
 
     public async Task RollbackAsync(CacheInitializationResult result, CancellationToken cancellationToken = default)

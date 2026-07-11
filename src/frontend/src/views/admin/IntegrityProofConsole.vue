@@ -21,6 +21,22 @@
       </div>
     </FsusUiSettingsSection>
 
+    <FsusUiSettingsSection
+      v-if="loadErrorMessage"
+      class="mb-8"
+      title="读取失败"
+      id="integrity-proof-error-title"
+    >
+      <AdminInlineEmptyState
+        title="Proof 状态读取失败"
+        :content="loadErrorMessage"
+      >
+        <template #actions>
+          <el-button type="primary" :loading="loading" @click="loadConsole">重新加载</el-button>
+        </template>
+      </AdminInlineEmptyState>
+    </FsusUiSettingsSection>
+
     <FsusUiSettingsSection class="mb-8" title="状态总览" id="integrity-proof-status-title">
       <FsusUiKeyValueGrid v-if="consoleState" class="grid gap-4 md:grid-cols-4">
         <FsusUiKeyValueItem label="Proof">
@@ -153,6 +169,7 @@ import type { AdminStatusTone } from '@/view-contracts/adminStatus'
 const loading = ref(false)
 const retryingProofId = ref<number | null>(null)
 const consoleState = shallowRef<IntegrityAdminConsoleResponse | null>(null)
+const loadErrorMessage = ref('')
 
 const filters = reactive({
   articleId: '',
@@ -169,6 +186,7 @@ function optionalNumber(value: string): number | null {
 
 async function loadConsole(): Promise<void> {
   loading.value = true
+  loadErrorMessage.value = ''
   try {
     consoleState.value = await getIntegrityAdminConsole({
       articleId: optionalNumber(filters.articleId),
@@ -176,6 +194,9 @@ async function loadConsole(): Promise<void> {
       revisionNo: optionalNumber(filters.revisionNo)
     })
   } catch (error) {
+    loadErrorMessage.value = error instanceof Error && error.message
+      ? error.message
+      : 'Integrity Proof 状态暂时不可用，请重新加载。'
     showErrorToast(error)
   } finally {
     loading.value = false

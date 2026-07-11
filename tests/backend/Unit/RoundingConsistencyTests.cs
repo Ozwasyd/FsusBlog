@@ -1,5 +1,5 @@
+using System.Reflection;
 using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -13,26 +13,61 @@ public sealed class RoundingConsistencyTests
     }
 
     [Fact]
-    public void ProductionMathRoundCalls_UseAwayFromZero()
+    public void ProductionMathRoundCalls_UseExplicitMidpointMode()
     {
-        string backendRoot = Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend");
-        string[] files = Directory.GetFiles(backendRoot, "*.cs", SearchOption.AllDirectories);
-
-        foreach (string file in files)
+        MethodInfo[] callers = typeof(RoundingHelper).Assembly
+            .GetTypes()
+            .SelectMany(static type => type.GetMethods(
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance))
+            .ToArray();
+        var roundCalls = new List<(MethodInfo Caller, MethodBase Callee)>();
+        foreach (MethodInfo caller in callers)
         {
-            string relative = Path.GetRelativePath(BackendTestPaths.RepositoryRoot, file).Replace('\\', '/');
-            string[] lines = File.ReadAllLines(file);
-            for (int i = 0; i < lines.Length; i++)
+            foreach (MethodBase callee in ReadCalledMethods(caller))
             {
-                string line = lines[i];
-                if (!line.Contains("Math.Round(", StringComparison.Ordinal))
+                if (callee.DeclaringType == typeof(Math) && callee.Name == nameof(Math.Round))
                 {
-                    continue;
+                    roundCalls.Add((caller, callee));
                 }
+            }
+        }
 
-                Assert.True(
-                    line.Contains("MidpointRounding.AwayFromZero", StringComparison.Ordinal),
-                    $"{relative}:{i + 1} uses Math.Round without explicit AwayFromZero");
+        Assert.NotEmpty(roundCalls);
+        Assert.All(roundCalls, static call => Assert.Contains(
+            call.Callee.GetParameters(),
+            static parameter => parameter.ParameterType == typeof(MidpointRounding)));
+    }
+
+    private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
+    {
+        byte[]? il = method.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
+        {
+            yield break;
+        }
+
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F))
+            {
+                continue;
+            }
+
+            MethodBase? called = null;
+            try
+            {
+                called = method.Module.ResolveMethod(
+                    BitConverter.ToInt32(il, offset + 1),
+                    method.DeclaringType?.GetGenericArguments(),
+                    method.GetGenericArguments());
+            }
+            catch (ArgumentException)
+            {
+            }
+
+            if (called is not null)
+            {
+                yield return called;
             }
         }
     }

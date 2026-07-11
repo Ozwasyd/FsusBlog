@@ -17,9 +17,11 @@ function fail(relativePath, message) {
 
 const publicShellPath = 'src/frontend/src/bootstrap/publicShell.ts'
 const publicNavigationIntentPath = 'src/frontend/src/bootstrap/publicNavigationIntent.ts'
+const articleDetailViewPath = 'src/frontend/src/composables/useArticleDetailView.ts'
 const packageJsonPath = 'src/frontend/package.json'
 const publicShell = read(publicShellPath)
 const publicNavigationIntent = read(publicNavigationIntentPath)
+const articleDetailView = read(articleDetailViewPath)
 const packageJson = JSON.parse(read(packageJsonPath))
 
 for (const token of [
@@ -59,6 +61,16 @@ if (publicShell.includes('isPublicAtomicTakeoverEnabled')) {
 
 if (publicNavigationIntent.includes('VITE_PUBLIC_ATOMIC_TAKEOVER')) {
   fail(publicNavigationIntentPath, 'retired atomic takeover feature flag must not classify public navigation')
+}
+
+for (const token of [
+  "import { isPublicReadHydrationSuppressed } from '@/services/publicReadHydrationGuard'",
+  'if (isPublicReadHydrationSuppressed())',
+  'clearCommentState()'
+]) {
+  if (!articleDetailView.includes(token)) {
+    fail(articleDetailViewPath, `public read hydration guard integration missing: ${token}`)
+  }
 }
 
 const scripts = packageJson.scripts ?? {}

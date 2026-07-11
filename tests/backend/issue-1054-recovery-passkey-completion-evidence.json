@@ -1,0 +1,147 @@
+{
+  "schema": "fsusblog.issue-1054.recovery-passkey-completion-evidence.v1",
+  "issue": 1054,
+  "status": "implementation-present-validation-not-run",
+  "productionFiles": [
+    "src/backend/Services/Security/RecoveryKeyService.cs",
+    "src/backend/Services/Security/PasskeyService.cs",
+    "src/backend/Entities/PasskeyCredential.cs",
+    "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs"
+  ],
+  "testFiles": [
+    "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+    "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
+    "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs"
+  ],
+  "documentation": [
+    "docs/security.md",
+    "docs/architecture.md",
+    "docs/api/design.md",
+    "docs/api/contracts.md",
+    "docs/recovery-passkey-completion.md"
+  ],
+  "completionInvariants": {
+    "states": ["pending", "completing", "completed"],
+    "claimPrimitive": "redis-compare-and-set",
+    "completionLeaseSeconds": 90,
+    "failureRestoresExactClaimToPending": true,
+    "rawRecoverySessionPersisted": false,
+    "durableSessionHash": "sha256",
+    "durableRequestHash": "canonical-aeds-sha256",
+    "uniqueRecoverySessionHash": true,
+    "transactionalWrites": ["new-credential", "old-credential-revocation", "passkey-enabled"],
+    "sameRequestReplay": "idempotent-success",
+    "differentRequestReplay": "conflict"
+  },
+  "acceptanceMappings": [
+    {
+      "criterion": "authenticator validation failure restores pending and allows retry",
+      "testIds": [
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs#RecoveryPasskeyCompletionStateTests.AuthenticatorValidationFailure_RestoresPendingSessionAndAllowsRetry",
+        "xunit:tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs#RecoveryPasskeyCompletionIntegrationTests.AuthenticatorFailure_DoesNotPersistCredentialOrConsumeRegistrationChallenge"
+      ]
+    },
+    {
+      "criterion": "database failure rolls back all credential/account changes and leaves the session retryable",
+      "testIds": [
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs#RecoveryPasskeyCompletionStateTests.DatabaseFailure_RestoresPendingSessionAndAllowsSameRequestRetry",
+        "xunit:tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs#RecoveryPasskeyCompletionIntegrationTests.PersistenceFailure_RollsBackCredentialRevocationAndPasskeyFlag",
+        "xunit:tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs#RecoveryPasskeyCompletionIntegrationTests.DatabaseUniqueConstraintException_LeavesRecoveryCompletionRetryableAndUncommitted"
+      ]
+    },
+    {
+      "criterion": "concurrent submissions produce one logical completion",
+      "testIds": [
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs#RecoveryPasskeyCompletionStateTests.ConcurrentDoubleSubmit_AllowsOnlyOneLogicalCompletion",
+        "xunit:tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs#RecoveryPasskeyCompletionIntegrationTests.ConcurrentPersistence_UsesUniqueRecoveryHashForOneLogicalCompletion"
+      ]
+    },
+    {
+      "criterion": "response loss and post-commit cache failure replay as idempotent success without another credential mutation",
+      "testIds": [
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs#RecoveryPasskeyCompletionStateTests.ResponseLostAfterCommit_ReplayReturnsIdempotentSuccessWithoutSecondMutation",
+        "xunit:tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs#RecoveryPasskeyCompletionIntegrationTests.SnapshotFailureAfterDatabaseCommit_ReplayFinalizesWithoutSecondCredentialMutation"
+      ]
+    },
+    {
+      "criterion": "different-request replay is rejected and expired pending sessions do not mutate credentials",
+      "testIds": [
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs#RecoveryPasskeyCompletionStateTests.CompletedSession_ReplayWithDifferentRequestIsRejected",
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs#RecoveryPasskeyCompletionStateTests.ExpiredPendingSession_RejectsWithoutCallingPasskeyMutation"
+      ]
+    },
+    {
+      "criterion": "credential insert, old credential revocation and PasskeyEnabled commit together",
+      "testIds": [
+        "xunit:tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs#RecoveryPasskeyCompletionIntegrationTests.Persistence_CommitsNewCredentialOldCredentialRevocationAndPasskeyFlagTogether"
+      ]
+    },
+    {
+      "criterion": "the durable marker migration is idempotent and enforces one completion per recovery session",
+      "testIds": [
+        "xunit:tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs#RecoveryPasskeyCompletionIntegrationTests.Migration_UpgradesLegacyPasskeyTableIdempotentlyAndEnforcesUniqueSessionHash"
+      ]
+    },
+    {
+      "criterion": "rolling deployment keeps already-issued legacy four-field recovery sessions readable as pending",
+      "testIds": [
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs#RecoveryPasskeyCompletionStateTests.LegacyPendingEnvelope_RemainsReadableAcrossDeployment"
+      ]
+    },
+    {
+      "criterion": "an expired completing lease is atomically recovered to pending and the request can complete successfully",
+      "testIds": [
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs#RecoveryPasskeyCompletionStateTests.ExpiredCompletingLease_RecoversPendingAndCompletesSameRequestRetry"
+      ]
+    },
+    {
+      "criterion": "the actual mapped complete endpoint preserves AEDS EmptySuccess and ApiError response frames",
+      "testIds": [
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs#RecoveryPasskeyCompletionEndpointTests.MappedCompleteEndpoint_SuccessEmitsAedsEmptySuccess",
+        "xunit:tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs#RecoveryPasskeyCompletionEndpointTests.MappedCompleteEndpoint_StateMachineFailureEmitsAedsApiError"
+      ]
+    },
+    {
+      "criterion": "a raw recovery token reaches PostgreSQL only as its SHA-256 session marker plus the canonical AEDS request hash",
+      "testIds": [
+        "xunit:tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs#RecoveryPasskeyCompletionIntegrationTests.RawRecoveryToken_FlowsThroughCompletionAsSha256AndCanonicalRequestHashOnly"
+      ]
+    }
+  ],
+  "rollback": {
+    "withoutRestart": "Pause new recovery-key verify traffic at an external gateway while leaving complete open for already issued sessions to drain; this repository does not expose an application runtime switch for that action.",
+    "databaseRule": "Retain recovery_session_hash, recovery_request_hash and the unique index across application rollback.",
+    "forbiddenFallback": "Do not return to consuming the recovery session before WebAuthn validation/database commit."
+  },
+  "staticAudit": {
+    "productionPathsObserved": true,
+    "listedTestIdsResolved": true,
+    "productionCodeGapsObserved": [],
+    "uncoveredAcceptanceBranches": []
+  },
+  "centralGovernanceReadback": [
+    {
+      "path": "tests/coverage-registry.json",
+      "status": "present-not-verified",
+      "coverageId": "backend-recovery-passkey-idempotent-completion",
+      "tierIds": ["backend-unit", "backend-auth-state-machine", "backend-concurrency", "integration"],
+      "evidencePaths": [
+        "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+        "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
+        "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
+        "tests/backend/issue-1054-recovery-passkey-completion-evidence.json"
+      ]
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "status": "present-not-verified",
+      "profileIds": ["backend-auth-state-machine", "backend-concurrency"],
+      "requirementIds": ["BACKEND-AUTH-STATE-MACHINE", "BACKEND-SECURITY-MATRIX", "BACKEND-CONCURRENCY-RACES", "BACKEND-IDEMPOTENCY", "BACKEND-REDIS-DB-FAULTS"]
+    }
+  ],
+  "verification": {
+    "commandsExecuted": [],
+    "result": "not-run-by-instruction"
+  }
+}

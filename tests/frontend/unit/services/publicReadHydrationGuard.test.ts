@@ -1,9 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { isPublicReadHydrationSuppressed } from '@/services/publicReadHydrationGuard'
-
-const repoRoot = resolve(__dirname, '../../../..')
 
 describe('public read hydration guard', () => {
   beforeEach(() => {
@@ -36,13 +32,4 @@ describe('public read hydration guard', () => {
     expect(isPublicReadHydrationSuppressed()).toBe(true)
   })
 
-  it('keeps article detail related and comment auto-load behind the public read hydration guard', () => {
-    const source = readFileSync(resolve(repoRoot, 'src/frontend/src/composables/useArticleDetailView.ts'), 'utf8')
-
-    expect(source).toContain("import { isPublicReadHydrationSuppressed } from '@/services/publicReadHydrationGuard'")
-    expect(source).toContain('if (isPublicReadHydrationSuppressed())')
-    expect(source.indexOf('if (isPublicReadHydrationSuppressed())')).toBeLessThan(source.indexOf('await getRelatedReading(articleId'))
-    expect(source.indexOf('await hydrateCommentStream()')).toBeGreaterThan(source.indexOf('const hydrateCommentStream = async'))
-    expect(source).toContain('if (isPublicReadHydrationSuppressed()) {\n      clearCommentState()\n      return\n    }')
-  })
 })

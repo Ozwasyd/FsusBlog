@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { authBinary, loginWithFixtureSessionBypass, requestTimeoutMs as defaultRequestTimeoutMs } from '../support/auth-helpers.mjs'
@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '../../..')
 const clientRoot = path.join(repoRoot, 'src', 'frontend')
 const publicFixtureDir = resolveFixtureAssetDirectory()
+const checkedInCoverFixtureDir = path.join(clientRoot, 'public', 'fixtures')
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
 const outputPath = resolvePublicFixtureFile()
@@ -44,14 +45,14 @@ const seedPublicHomeArticles = [
   },
   {
     title: 'Acceptance Focus Smoke Note',
-    summary: 'Acceptance fixture with a cover image for the public home spotlight region.',
+    summary: 'Acceptance fixture whose cover records keyboard focus traversal.',
     markdown: 'Acceptance focus fixture body for public home screenshot coverage.',
     coverImageUrl: '/fixtures/acceptance-cover-focus.svg',
     views: 30
   },
   {
     title: 'Acceptance Hot Read Note',
-    summary: 'Acceptance fixture for the public home hot articles region.',
+    summary: 'Acceptance fixture whose cover records a hot-read latency profile.',
     markdown: 'Acceptance hot-read fixture body for public home screenshot coverage.',
     coverImageUrl: '/fixtures/acceptance-cover-hot.svg',
     views: 18
@@ -65,44 +66,15 @@ function assertSafeFixtureContainer(container, label) {
   }
 }
 
-function escapeXml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;')
-}
-
-function buildCoverSvg({ title, accent, background }) {
-  const safeTitle = escapeXml(title)
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-label="${safeTitle}">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${background}"/>
-      <stop offset="1" stop-color="#f8fafc"/>
-    </linearGradient>
-  </defs>
-  <rect width="960" height="640" fill="url(#g)"/>
-  <rect x="80" y="80" width="800" height="480" rx="28" fill="#ffffff" opacity=".78"/>
-  <path d="M160 430 C280 330 348 384 442 292 C520 216 626 250 792 164 L792 488 L160 488 Z" fill="${accent}" opacity=".18"/>
-  <circle cx="760" cy="168" r="54" fill="${accent}" opacity=".24"/>
-  <rect x="152" y="146" width="148" height="18" rx="9" fill="${accent}"/>
-  <text x="152" y="236" fill="#111827" font-family="Inter, Arial, sans-serif" font-size="46" font-weight="750">${safeTitle}</text>
-  <text x="152" y="292" fill="#64748b" font-family="Inter, Arial, sans-serif" font-size="24">FsusBlog public fixture</text>
-</svg>
-`
-}
-
 async function writePublicCoverFixtures() {
-  const variants = [
-    { accent: '#2563eb', background: '#dbeafe' },
-    { accent: '#0f766e', background: '#ccfbf1' },
-    { accent: '#b45309', background: '#fef3c7' }
-  ]
+  const managedCoverFiles = new Set([
+    'acceptance-cover-primary.svg',
+    'acceptance-cover-focus.svg',
+    'acceptance-cover-hot.svg'
+  ])
 
   await mkdir(publicFixtureDir, { recursive: true })
-  await Promise.all(seedPublicHomeArticles.map(async (article, index) => {
+  await Promise.all(seedPublicHomeArticles.map(async (article) => {
     const prefix = '/fixtures/'
     const coverImageUrl = String(article.coverImageUrl ?? '')
     if (!coverImageUrl.startsWith(prefix) || coverImageUrl.slice(prefix.length).includes('/')) {
@@ -110,13 +82,14 @@ async function writePublicCoverFixtures() {
     }
 
     const fileName = coverImageUrl.slice(prefix.length)
-    const variant = variants[index % variants.length]
-    const svg = buildCoverSvg({
-      title: article.title,
-      accent: variant.accent,
-      background: variant.background
-    })
-    await writeFile(path.join(publicFixtureDir, fileName), svg, 'utf8')
+    if (!managedCoverFiles.has(fileName)) {
+      return
+    }
+
+    await copyFile(
+      path.join(checkedInCoverFixtureDir, fileName),
+      path.join(publicFixtureDir, fileName)
+    )
   }))
 }
 

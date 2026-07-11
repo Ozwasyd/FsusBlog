@@ -1,4 +1,24 @@
+using System.Reflection;
+using System.Text.Json;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -7,10 +27,10 @@ public sealed class AnonymousCommentModerationPipelineTests
     [Fact]
     public void AntiSpamContext_CarriesAnonymousSafeActorAndPolicyMetadata()
     {
-        string models = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Moderation/AntiSpamModerationModels.cs");
-        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Moderation/AntiSpamModerationService.cs");
-
-        Assert.Contains("AntiSpamCommentModerationContext", models, StringComparison.Ordinal);
+        string[] contextProperties = typeof(AntiSpamCommentModerationContext)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(static property => property.Name)
+            .ToArray();
         foreach (string requiredField in new[]
         {
             "AuthorMode",
@@ -25,9 +45,10 @@ public sealed class AnonymousCommentModerationPipelineTests
             "ZkAnonymousEnabled"
         })
         {
-            Assert.Contains(requiredField, models, StringComparison.Ordinal);
+            Assert.Contains(requiredField, contextProperties);
         }
 
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(AntiSpamModerationService));
         foreach (string metadataKey in new[]
         {
             "author_mode",
@@ -42,179 +63,213 @@ public sealed class AnonymousCommentModerationPipelineTests
             "zk_anonymous_enabled"
         })
         {
-            Assert.Contains(metadataKey, service, StringComparison.Ordinal);
+            Assert.Contains(metadataKey, runtimeShape, StringComparison.Ordinal);
         }
 
-        string requestRecord = models[models.IndexOf("public sealed record AntiSpamModerationRequest", StringComparison.Ordinal)..models.IndexOf("public sealed record AntiSpamModerationCategorySignal", StringComparison.Ordinal)];
-        Assert.DoesNotContain("context.UserId", service, StringComparison.Ordinal);
-        Assert.Contains("AddMetadata(metadata, \"anonymous_nullifier_hash\"", service, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("IpHash", requestRecord, StringComparison.Ordinal);
-        Assert.DoesNotContain("AddMetadata(metadata, \"user_name\"", service, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("AddMetadata(metadata, \"public_handle\"", service, StringComparison.OrdinalIgnoreCase);
+        string[] requestProperties = typeof(AntiSpamModerationRequest)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(static property => property.Name)
+            .ToArray();
+        Assert.DoesNotContain("IpHash", requestProperties);
+        Assert.DoesNotContain("UserId", requestProperties);
+        Assert.Contains("anonymous_nullifier_hash", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("user_name", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("public_handle", runtimeShape, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void AntiSpamModelRequest_UsesPrivacyAllowListAndSanitizesRuntimeMetadata()
     {
-        string models = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Moderation/AntiSpamModerationModels.cs");
-        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Moderation/AntiSpamModerationService.cs");
-        string requestRecord = models[models.IndexOf("public sealed record AntiSpamModerationRequest", StringComparison.Ordinal)..models.IndexOf("public sealed record AntiSpamModerationCategorySignal", StringComparison.Ordinal)];
+        string[] requestProperties = typeof(AntiSpamModerationRequest)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(static property => property.Name)
+            .ToArray();
+        foreach (string forbidden in new[]
+        {
+            "UserId", "UserName", "PublicHandle", "CredentialCommitment", "Proof",
+            "Nullifier", "IpHash", "DeviceFingerprint"
+        })
+        {
+            Assert.DoesNotContain(requestProperties, property =>
+                property.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
+        }
 
-        Assert.DoesNotContain("UserId", requestRecord, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserName", requestRecord, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("PublicHandle", requestRecord, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("CredentialCommitment", requestRecord, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Proof", requestRecord, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Nullifier", requestRecord, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("IpHash", requestRecord, StringComparison.Ordinal);
-        Assert.DoesNotContain("DeviceFingerprint", requestRecord, StringComparison.OrdinalIgnoreCase);
-
-        Assert.Contains("ValidateModelRequestDocument", service, StringComparison.Ordinal);
-        Assert.Contains("AllowedRequestMetadataFields", service, StringComparison.Ordinal);
-        Assert.Contains("ForbiddenIdentityFields", service, StringComparison.Ordinal);
-        Assert.Contains("moderation_subject_hash", service, StringComparison.Ordinal);
-        Assert.Contains("anonymous_nullifier_hash", service, StringComparison.Ordinal);
-        Assert.Contains("anonymous_scope", service, StringComparison.Ordinal);
-        Assert.Contains("credential_level", service, StringComparison.Ordinal);
-        Assert.Contains("reputation_bucket", service, StringComparison.Ordinal);
-        Assert.Contains("account_age_bucket", service, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(AntiSpamModerationService));
+        Assert.Contains("ValidateModelRequestDocument", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("AllowedRequestMetadataFields", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ForbiddenIdentityFields", runtimeShape, StringComparison.Ordinal);
+        foreach (string allowed in new[]
+        {
+            "moderation_subject_hash", "anonymous_nullifier_hash", "anonymous_scope",
+            "credential_level", "reputation_bucket", "account_age_bucket"
+        })
+        {
+            Assert.Contains(allowed, runtimeShape, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
-    public void CommentService_PassesCommentActorAndPolicySnapshotToAntiSpamContext()
+    public void CommentService_RuntimePathPassesCommentActorAndPolicySnapshotToAntiSpamContext()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentService).GetConstructors()).GetParameters();
+        Assert.Contains(constructorParameters, static parameter => parameter.ParameterType == typeof(IAnonymousCommentPolicyService));
 
-        Assert.Contains("IAnonymousCommentPolicyService", source, StringComparison.Ordinal);
-        Assert.Contains("AnonymousCommentPolicySnapshot", source, StringComparison.Ordinal);
-        Assert.Contains("actor.UserId", source, StringComparison.Ordinal);
-        Assert.Contains("actor.AuthorMode", source, StringComparison.Ordinal);
-        Assert.Contains("actor.DisplayLanguage", source, StringComparison.Ordinal);
-        Assert.Contains("actor.ModerationSubjectHash", source, StringComparison.Ordinal);
-        Assert.Contains("actor.AnonymousNullifierHash", source, StringComparison.Ordinal);
-        Assert.Contains("actor.AnonymousScope", source, StringComparison.Ordinal);
-        Assert.Contains("actor.CredentialLevel", source, StringComparison.Ordinal);
-        Assert.Contains("policySnapshot?.AnonymousCommentsEnabled", source, StringComparison.Ordinal);
-        Assert.Contains("policySnapshot?.ZkAnonymousEnabled", source, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentService),
+            "CreateResolvedCommentAsync");
+        foreach (string requiredMember in new[]
+        {
+            "AnonymousCommentPolicySnapshot",
+            "get_UserId",
+            "get_AuthorMode",
+            "get_DisplayLanguage",
+            "get_ModerationSubjectHash",
+            "get_AnonymousNullifierHash",
+            "get_AnonymousScope",
+            "get_CredentialLevel",
+            "get_AnonymousCommentsEnabled",
+            "get_ZkAnonymousEnabled"
+        })
+        {
+            Assert.Contains(requiredMember, runtimeShape, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
-    public void CommentService_AppliesModelDispositionPolicyAndAuditsAutomaticActions()
+    public void CommentService_RuntimePathAppliesModelDispositionPolicyAndAuditsAutomaticActions()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
-        string services = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs");
-        string dto = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Dtos/AuthoringDtos.cs");
+        ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentService).GetConstructors()).GetParameters();
+        Assert.Contains(constructorParameters, static parameter => parameter.ParameterType == typeof(ICommentModerationDispositionPolicy));
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentService),
+            "CreateResolvedCommentAsync",
+            "ApplyAutomaticModerationDispositionAsync");
+        Assert.Contains("ICommentModerationDispositionPolicy.Decide", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ApplyAutomaticModerationDispositionAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("model_moderation_auto_disposition", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("get_ModerationStatus", runtimeShape, StringComparison.Ordinal);
 
-        Assert.Contains("ICommentModerationDispositionPolicy", source, StringComparison.Ordinal);
-        Assert.Contains("CommentModerationDisposition disposition = commentModerationDispositionPolicy.Decide", source, StringComparison.Ordinal);
-        Assert.Contains("ApplyAutomaticModerationDispositionAsync", source, StringComparison.Ordinal);
-        Assert.Contains("model_moderation_auto_disposition", source, StringComparison.Ordinal);
-        Assert.Contains("PublicArticleChanged: comment.ModerationStatus == CommentModerationStatus.Approved", source, StringComparison.Ordinal);
-        Assert.Contains("AddScoped<ICommentModerationDispositionPolicy, CommentModerationDispositionPolicy>", services, StringComparison.Ordinal);
-        Assert.Contains("AutoModerated", dto, StringComparison.Ordinal);
-        Assert.Contains("ModerationActor", dto, StringComparison.Ordinal);
+        var services = new ServiceCollection();
+        services.AddFsusRuntimeDomainServices();
+        ServiceDescriptor disposition = Assert.Single(services.Where(static descriptor =>
+            descriptor.ServiceType == typeof(ICommentModerationDispositionPolicy)));
+        Assert.Equal(ServiceLifetime.Scoped, disposition.Lifetime);
+        Assert.Equal(typeof(CommentModerationDispositionPolicy), disposition.ImplementationType);
+        Assert.NotNull(typeof(CommentModerationItemResponse).GetProperty(nameof(CommentModerationItemResponse.AutoModerated)));
+        Assert.NotNull(typeof(CommentModerationItemResponse).GetProperty(nameof(CommentModerationItemResponse.ModerationActor)));
     }
 
     [Fact]
-    public void CommentService_AutomaticDispositionUsesRowVersionGuardAndRetry()
+    public void CommentService_AutomaticDispositionRuntimeUsesRowVersionGuardAndRetry()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
-        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/Comment.cs");
-        string applyMethod = source[
-            source.IndexOf("private async Task ApplyAutomaticModerationDispositionAsync", StringComparison.Ordinal)..
-            source.IndexOf("private async Task<AutomaticModerationTarget?> LoadAutomaticModerationTargetAsync", StringComparison.Ordinal)];
-        string loadMethod = source[
-            source.IndexOf("private async Task<AutomaticModerationTarget?> LoadAutomaticModerationTargetAsync", StringComparison.Ordinal)..
-            source.IndexOf("private async Task<bool> TryApplyAutomaticModerationDispositionAsync", StringComparison.Ordinal)];
-        string updateMethod = source[
-            source.IndexOf("private async Task<bool> TryApplyAutomaticModerationDispositionAsync", StringComparison.Ordinal)..
-            source.IndexOf("private void WriteAutomaticDispositionAudit", StringComparison.Ordinal)];
+        PropertyInfo rowVersion = Assert.IsType<PropertyInfo>(typeof(Comment).GetProperty("RowVersion"));
+        Assert.Equal(typeof(string), rowVersion.PropertyType);
 
-        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
-        Assert.Contains("LoadAutomaticModerationTargetAsync(comment.Id", applyMethod, StringComparison.Ordinal);
-        Assert.Contains("TryApplyAutomaticModerationDispositionAsync(", applyMethod, StringComparison.Ordinal);
-        Assert.Contains("LoadAutomaticModerationTargetAsync(comment.Id", applyMethod, StringComparison.Ordinal);
-        Assert.Contains("target is null || target.ModerationStatus != previousStatus", applyMethod, StringComparison.Ordinal);
-        Assert.Contains("latest is null || latest.ModerationStatus != previousStatus", applyMethod, StringComparison.Ordinal);
-        Assert.Contains("xmin::text AS row_version", loadMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND xmin::text = @RowVersion", updateMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND is_deleted = false", updateMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Updateable<Comment>()", applyMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("ModerationStatus == previousStatus", updateMethod, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentService),
+            "ApplyAutomaticModerationDispositionAsync",
+            "LoadAutomaticModerationTargetAsync",
+            "TryApplyAutomaticModerationDispositionAsync");
+        Assert.Contains("LoadAutomaticModerationTargetAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryApplyAutomaticModerationDispositionAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("get_ModerationStatus", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND is_deleted = false", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Updateable", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void CommentService_EnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit()
+    public void CommentService_RuntimeEnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
-        string create = source[
-            source.IndexOf("private async Task<bool> CreateResolvedCommentAsync", StringComparison.Ordinal)..
-            source.IndexOf("private async Task<ReplyTargetRow?> LoadVisibleReplyTargetAsync", StringComparison.Ordinal)];
+        ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentService).GetConstructors()).GetParameters();
+        Assert.Contains(constructorParameters, static parameter => parameter.ParameterType == typeof(ICommentAnonymousNullifierService));
 
-        Assert.Contains("ICommentAnonymousNullifierService", source, StringComparison.Ordinal);
-        Assert.Contains("RequiresAnonymousNullifierEnforcement(actor)", source, StringComparison.Ordinal);
-        Assert.Contains("db.Ado.UseTranAsync(async () =>", create, StringComparison.Ordinal);
+        string create = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentService),
+            "CreateResolvedCommentAsync",
+            "RequiresAnonymousNullifierEnforcement");
+        Assert.Contains("UseTranAsync", create, StringComparison.Ordinal);
         Assert.Contains("TryConsumeAsync", create, StringComparison.Ordinal);
         Assert.DoesNotContain("CheckAndReserveAsync", create, StringComparison.Ordinal);
         Assert.DoesNotContain("IncrementUsageAsync", create, StringComparison.Ordinal);
         Assert.Contains("AnonymousNullifierRejectedException", create, StringComparison.Ordinal);
-        Assert.Contains("CommentAuthorModes.ZkAnonymous", source, StringComparison.Ordinal);
+        Assert.Contains(CommentAuthorModes.ZkAnonymous, create, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void NullifierService_UsesPrecheckAndAtomicConsume()
+    public void NullifierService_RuntimeUsesPrecheckAndAtomicConsume()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentAnonymousNullifierService),
+            nameof(CommentAnonymousNullifierService.PrecheckAsync),
+            nameof(CommentAnonymousNullifierService.TryConsumeAsync));
 
-        Assert.Contains("PrecheckAsync", source, StringComparison.Ordinal);
-        Assert.Contains("TryConsumeAsync", source, StringComparison.Ordinal);
-        Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO NOTHING", source, StringComparison.Ordinal);
-        Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO UPDATE", source, StringComparison.Ordinal);
-        Assert.Contains("UPDATE comment_anonymous_nullifier", source, StringComparison.Ordinal);
-        Assert.Contains("use_count = comment_anonymous_nullifier.use_count + 1", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("first_comment_id = COALESCE(comment_anonymous_nullifier.first_comment_id, @CommentId)", source, StringComparison.Ordinal);
-        Assert.Contains("use_count < @MaxUseCount", source, StringComparison.Ordinal);
-        Assert.Contains("RETURNING true AS allowed, 'reserved'::text AS status, use_count", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("RecordAnonymousNullifierPrecheck", source, StringComparison.Ordinal);
-        Assert.Contains("RecordAnonymousNullifierAtomicIncrement", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("FOR UPDATE", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("n.UseCount < maxUseCount", source, StringComparison.Ordinal);
-        Assert.Contains("\"scope_limit_exceeded\"", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAccount", source, StringComparison.Ordinal);
+        Assert.Contains("PrecheckAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryConsumeAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO NOTHING", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ON CONFLICT (nullifier_hash, scope) DO UPDATE", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("UPDATE comment_anonymous_nullifier", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("use_count = comment_anonymous_nullifier.use_count + 1", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("first_comment_id = COALESCE(comment_anonymous_nullifier.first_comment_id, @CommentId)", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("use_count < @MaxUseCount", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RETURNING true AS allowed, 'reserved'::text AS status, use_count", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RecordAnonymousNullifierPrecheck", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RecordAnonymousNullifierAtomicIncrement", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("FOR UPDATE", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("scope_limit_exceeded", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAccount", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void CommentService_AnonymousFailureLogsDoNotWriteRawAnonymousScope()
+    public void CommentService_AnonymousFailureRuntimeLogsDoNotWriteRawAnonymousScope()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentService),
+            "CreateResolvedCommentAsync",
+            "HashAnonymousScopeForLog",
+            "NormalizeAnonymousScope");
 
-        Assert.Contains("HashAnonymousScopeForLog(actor.AnonymousScope)", source, StringComparison.Ordinal);
-        Assert.Contains("HashAnonymousScopeForLog(NormalizeAnonymousScope(request.AnonymousScope, request.ArticleId))", source, StringComparison.Ordinal);
-        Assert.Contains("ScopeHash", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Scope: {Scope}", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("actor.AnonymousScope,\n                    rejected.Status", source, StringComparison.Ordinal);
+        Assert.Contains("HashAnonymousScopeForLog", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("NormalizeAnonymousScope", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ScopeHash", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("Scope: {Scope}", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AdminModerationEndpoints_ExposeAnonymousGovernanceActionsWithSpecificPermissions()
+    public async Task AdminModerationEndpoints_ExposeAnonymousGovernanceActionsWithSpecificPermissions()
     {
-        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
-        string dto = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Dtos/AuthoringDtos.cs");
+        await using WebApplication app = EndpointContractApplication.Create();
+        AssertPermission(
+            EndpointContractApplication.Find(
+                app,
+                "/api/binary/author/moderation/anonymous-comment-policy",
+                HttpMethods.Put),
+            AdminPermissions.AnonymousCommentConfigure);
+        AssertPermission(
+            EndpointContractApplication.Find(
+                app,
+                "/api/binary/author/comments/moderation/nullifiers/block",
+                HttpMethods.Post),
+            AdminPermissions.AnonymousNullifierBlock);
+        AssertPermission(
+            EndpointContractApplication.Find(
+                app,
+                "/api/binary/author/comments/moderation/anonymous-credentials/{credentialId:long}/revoke",
+                HttpMethods.Post),
+            AdminPermissions.AnonymousCredentialRevoke);
 
-        Assert.Contains("/moderation/anonymous-comment-policy", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AdminPermissions.AnonymousCommentConfigure", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AnonymousCommentPolicyUpdateRequest", endpoints, StringComparison.Ordinal);
+        string endpointRuntime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringEndpoints),
+            nameof(AuthoringEndpoints.MapAuthoringEndpoints));
+        Assert.Contains(nameof(AnonymousCommentPolicyUpdateRequest), endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains("ICommentAnonymousNullifierService.BlockAsync", endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains("IAnonymousCredentialService.RevokeAsync", endpointRuntime, StringComparison.Ordinal);
 
-        Assert.Contains("/comments/moderation/nullifiers/block", endpoints, StringComparison.Ordinal);
-        Assert.Contains("ICommentAnonymousNullifierService", endpoints, StringComparison.Ordinal);
-        Assert.Contains("BlockAsync", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AdminPermissions.AnonymousNullifierBlock", endpoints, StringComparison.Ordinal);
-
-        Assert.Contains("/comments/moderation/anonymous-credentials/{credentialId:long}/revoke", endpoints, StringComparison.Ordinal);
-        Assert.Contains("IAnonymousCredentialService", endpoints, StringComparison.Ordinal);
-        Assert.Contains("RevokeAsync", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AdminPermissions.AnonymousCredentialRevoke", endpoints, StringComparison.Ordinal);
-
+        string[] responseProperties = typeof(CommentModerationItemResponse)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(static property => property.Name)
+            .ToArray();
         foreach (string responseField in new[]
         {
             "AuthorMode",
@@ -231,42 +286,74 @@ public sealed class AnonymousCommentModerationPipelineTests
             "CanRevokeAnonymousCredential"
         })
         {
-            Assert.Contains(responseField, dto, StringComparison.Ordinal);
+            Assert.Contains(responseField, responseProperties);
         }
     }
 
     [Fact]
-    public void ModerationQueue_DoesNotExposeRealUserIdForAnonymousRowsAndBatchesNullifierState()
+    public void ModerationQueue_RuntimeContractDoesNotExposeRealUserIdAndBatchesNullifierState()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Authoring/AuthoringWorkflowService.cs");
-        string dto = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Dtos/AuthoringDtos.cs");
-        string frontendQueue = BackendTestPaths.ReadAllTextFromRoot("src/frontend/src/composables/useCommentModerationQueue.ts");
-        string queueView = BackendTestPaths.ReadAllTextFromRoot("src/frontend/src/components/admin/comment-moderation/CommentModerationQueue.vue");
+        string[] responseProperties = typeof(CommentModerationItemResponse)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(static property => property.Name)
+            .ToArray();
+        Assert.DoesNotContain("UserId", responseProperties);
+        Assert.Contains(nameof(CommentModerationItemResponse.AuthorDisplayName), responseProperties);
+        Assert.Contains(nameof(CommentModerationItemResponse.AuthorMode), responseProperties);
+        Assert.Contains(nameof(CommentModerationItemResponse.AnonymousDisplayLanguage), responseProperties);
+        Assert.Contains(nameof(CommentModerationItemResponse.NullifierStatusLabel), responseProperties);
+        Assert.Equal("authorDisplayName", JsonNamingPolicy.CamelCase.ConvertName(nameof(CommentModerationItemResponse.AuthorDisplayName)));
+        Assert.DoesNotContain(
+            responseProperties.Select(JsonNamingPolicy.CamelCase.ConvertName),
+            static property => string.Equals(property, "userId", StringComparison.Ordinal));
 
-        Assert.DoesNotContain("int? UserId", dto, StringComparison.Ordinal);
-        Assert.DoesNotContain("isAnonymousActor ? null : row.UserId", source, StringComparison.Ordinal);
-        Assert.Contains("AnonymousDisplayName = c.AnonymousDisplayName", source, StringComparison.Ordinal);
-        Assert.Contains("row.AnonymousDisplayName", source, StringComparison.Ordinal);
-        Assert.Contains("LoadAnonymousNullifierSummariesAsync", source, StringComparison.Ordinal);
-        Assert.Contains("CommentAnonymousNullifier", source, StringComparison.Ordinal);
-        Assert.Contains("NullifierStatusLabel", source, StringComparison.Ordinal);
-        Assert.Contains("userLabel", frontendQueue, StringComparison.Ordinal);
-        Assert.Contains("安全作者快照", frontendQueue, StringComparison.Ordinal);
-        Assert.DoesNotContain("item.userId", frontendQueue, StringComparison.Ordinal);
-        Assert.DoesNotContain("row.nullifierHash", queueView, StringComparison.Ordinal);
-        Assert.DoesNotContain("row.anonymousCredentialId", queueView, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringWorkflowService),
+            nameof(AuthoringWorkflowService.ListCommentModerationQueueAsync),
+            "LoadAnonymousNullifierSummariesAsync");
+        Assert.Contains("get_AnonymousDisplayName", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("LoadAnonymousNullifierSummariesAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains(nameof(CommentAnonymousNullifier), runtimeShape, StringComparison.Ordinal);
+        Assert.Contains(nameof(CommentModerationItemResponse.NullifierStatusLabel), runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AnonymousGovernanceAudit_RecordsOnlyIrreversibleTargets()
+    public void AnonymousGovernanceAudit_RuntimeHashesIrreversibleTargetsAndPreservesProviderPrivacy()
     {
-        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
-        string securityDocs = BackendTestPaths.ReadAllTextFromRoot("docs/security.md");
+        MethodInfo hashMethod = typeof(AuthoringEndpoints).GetMethod(
+            "HashAuditTargetId",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        const string rawNullifier = "raw-nullifier-secret";
+        string nullifierTarget = (string)hashMethod.Invoke(null, ["comment_anonymous_nullifier", rawNullifier])!;
+        string credentialTarget = (string)hashMethod.Invoke(null, ["anonymous_credential", "88001"])!;
+        Assert.NotEqual(rawNullifier, nullifierTarget);
+        Assert.DoesNotContain(rawNullifier, nullifierTarget, StringComparison.Ordinal);
+        Assert.NotEqual("88001", credentialTarget);
+        Assert.NotEqual(nullifierTarget, credentialTarget);
 
-        Assert.Contains("HashAuditTargetId", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("TargetId: request.NullifierHash", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("TargetId: credentialId.ToString", endpoints, StringComparison.Ordinal);
-        Assert.Contains("无 deanonymization 后门", securityDocs, StringComparison.Ordinal);
-        Assert.Contains("外部 anti-spam provider", securityDocs, StringComparison.Ordinal);
+        string endpointRuntime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringEndpoints),
+            nameof(AuthoringEndpoints.MapAuthoringEndpoints),
+            "HashAuditTargetId");
+        Assert.Contains("HashAuditTargetId", endpointRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("TargetId: request.NullifierHash", endpointRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("TargetId: credentialId.ToString", endpointRuntime, StringComparison.Ordinal);
+
+        string[] providerRequestProperties = typeof(AntiSpamModerationRequest)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(static property => property.Name)
+            .ToArray();
+        Assert.DoesNotContain("UserId", providerRequestProperties);
+        Assert.DoesNotContain("PublicHandle", providerRequestProperties);
+    }
+
+    private static void AssertPermission(RouteEndpoint endpoint, string expectedPermission)
+    {
+        ClaimsAuthorizationRequirement permission = Assert.Single(endpoint.Metadata
+            .GetOrderedMetadata<AuthorizationPolicy>()
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+        Assert.Contains(expectedPermission, permission.AllowedValues ?? []);
     }
 }

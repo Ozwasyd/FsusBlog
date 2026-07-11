@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
@@ -192,9 +193,9 @@ public static partial class BinaryEndpoints
         .RequireAuthorization()
         .RequireRateLimiting("fixed_ip")
         .WithRiskAction(RiskActionNames.CommentCreate)
-        .AddEndpointFilter<CommentRiskActionFilter>()
-        .AddEndpointFilter<RequiresRiskControlFilter>()
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<CommentRiskActionFilter>()
+        .AddEndpointFilterWithMetadata<RequiresRiskControlFilter>()
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapGet("/comment/{articleId:int}", static async Task<IResult> (
             int articleId,
@@ -232,7 +233,7 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "comment.threads")
-        .AddEndpointFilter<RiskAwarePublicReadFilter>();
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
 
         group.MapGet("/comment/{articleId:int}/thread/{rootId:long}", static async Task<IResult> (
             int articleId,
@@ -271,7 +272,7 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "comment.replies")
-        .AddEndpointFilter<RiskAwarePublicReadFilter>();
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>();
 
         group.MapGet("/comment/me", static async Task<IResult> (
             HttpContext httpContext,
@@ -346,7 +347,8 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "未找到该评论或无权删除"), aeds);
         })
         .RequireAuthorization()
-        .AddEndpointFilter<RequiresPowFilter>();
+        .WithAdminSensitiveStepUp(adminPrincipalBranchOnly: true)
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
     }
 
     internal static async Task<BinaryFrameResult> HandleAnonymousCommentTicketAsync(

@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
@@ -33,6 +34,7 @@ namespace FsusBlog.Server.Services;
 public sealed partial class SearchIndexService(
     IServiceScopeFactory scopeFactory,
     IWebHostEnvironment environment,
+    IConfiguration configuration,
     INotificationStreamPublisher notificationStreamPublisher,
     IUnifiedCache cache,
     ILogger<SearchIndexService> logger) : ISearchIndexService
@@ -65,7 +67,7 @@ public sealed partial class SearchIndexService(
     private const int TermMetadataSize = 24;
     private const int DocMetadataSize = 52;
     private const int DictionaryMetadataSize = 16;
-    private static readonly Lock SearchIndexWriteGate = new();
+    private static readonly SemaphoreSlim SearchIndexWriteGate = new(1, 1);
     private volatile SearchRuntimeSnapshot? _runtimeSnapshot;
     private static readonly FrozenDictionary<SearchShardRole, int> DefaultLoadPhase = new Dictionary<SearchShardRole, int>
     {
@@ -333,6 +335,14 @@ public sealed partial class SearchIndexService(
 
     private string ResolveSearchRoot()
     {
+        string? derivedRoot = configuration["ReleaseStorage:DerivedRoot"]
+            ?? configuration["FSUSBLOG_RELEASE_DERIVED_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_DERIVED_ROOT");
+        if (!string.IsNullOrWhiteSpace(derivedRoot))
+        {
+            return ResolveReleaseScopedSearchRoot(derivedRoot, ResolveReleaseId());
+        }
+
         string root = environment.WebRootPath;
         if (string.IsNullOrWhiteSpace(root))
         {
@@ -340,6 +350,49 @@ public sealed partial class SearchIndexService(
         }
 
         return Path.Combine(root, SearchIndexDirectory);
+    }
+
+    private string ResolveSearchPublicBase()
+    {
+        string? derivedRoot = configuration["ReleaseStorage:DerivedRoot"]
+            ?? configuration["FSUSBLOG_RELEASE_DERIVED_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_DERIVED_ROOT");
+        return string.IsNullOrWhiteSpace(derivedRoot)
+            ? "/search"
+            : ResolveReleaseScopedSearchPublicBase(ResolveReleaseId());
+    }
+
+    private string ResolveReleaseId()
+    {
+        string releaseId = configuration["FSUSBLOG_RELEASE_ID"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ID")
+            ?? string.Empty;
+        return NormalizeSearchReleaseId(releaseId);
+    }
+
+    internal static string ResolveReleaseScopedSearchRoot(string derivedRoot, string releaseId)
+        => ReleaseStorageLayout.BuildReleaseDerivedPath(
+            derivedRoot,
+            NormalizeSearchReleaseId(releaseId),
+            SearchIndexDirectory);
+
+    internal static string ResolveReleaseScopedSearchPublicBase(string releaseId)
+        => $"/release-derived/{NormalizeSearchReleaseId(releaseId)}/search";
+
+    private static string NormalizeSearchReleaseId(string releaseId)
+    {
+        if (releaseId.Length is < 6 or > 128
+            || !char.IsAsciiLetterOrDigit(releaseId[0])
+            || releaseId.Any(static character => !char.IsAsciiLetterOrDigit(character)
+                && character is not '.' and not '_' and not '-')
+            || releaseId.Equals("latest", StringComparison.OrdinalIgnoreCase)
+            || releaseId.Equals("current", StringComparison.OrdinalIgnoreCase)
+            || releaseId.Equals("final-current", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Release-scoped search storage requires a safe immutable FSUSBLOG_RELEASE_ID.");
+        }
+
+        return releaseId;
     }
 
     private SearchBuildArtifacts BuildArtifacts(List<SearchSourceArticle> articles, SearchDictionaryRuntime dictionary)
@@ -415,34 +468,34 @@ public sealed partial class SearchIndexService(
         IReadOnlyCollection<int> deletedArticleIds)
     {
         Directory.CreateDirectory(root);
+        string publicBase = ResolveSearchPublicBase();
         string patchRoot = Path.Combine(root, SearchPatchDirectory);
         Directory.CreateDirectory(patchRoot);
 
-        string aliasPath = Path.Combine(root, SearchAliasFileName);
         string manifestPath = Path.Combine(root, SearchManifestFileName);
-        SearchIndexManifest? previousManifest = ReadManifest(manifestPath);
-        IReadOnlyList<SearchShardManifest> previousShards = previousManifest?.Shards ?? [];
-
-        var shardManifests = new List<SearchShardManifest>(artifacts.Shards.Length);
-
-        HashSet<int> changedDocumentIds = [.. upsertArticleIds];
-        changedDocumentIds.UnionWith(deletedArticleIds);
-
-        lock (SearchIndexWriteGate)
+        SearchIndexManifest? previousManifest = null;
+        await SearchIndexWriteGate.WaitAsync().ConfigureAwait(false);
+        try
         {
+            previousManifest = ReadManifest(manifestPath);
+            IReadOnlyList<SearchShardManifest> previousShards = previousManifest?.Shards ?? [];
+            var shardManifests = new List<SearchShardManifest>(artifacts.Shards.Length);
+            var generationFiles = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal);
+            HashSet<int> changedDocumentIds = [.. upsertArticleIds];
+            changedDocumentIds.UnionWith(deletedArticleIds);
+
             foreach (SearchShardArtifact shard in artifacts.Shards)
             {
                 string shardVersionedFile = $"index.{shard.Role.ToString().ToLowerInvariant()}.{artifacts.Version}.bin";
-                string shardVersionedPath = Path.Combine(root, shardVersionedFile);
-                string shardUrl = $"/search/{shardVersionedFile}";
-                WriteFileAtomically(shardVersionedPath, shard.Bytes);
+                string shardUrl = $"{publicBase}/{shardVersionedFile}";
+                generationFiles[shardVersionedFile] = shard.Bytes;
 
                 SearchShardManifest? previousShard = previousShards.FirstOrDefault(it => it.Role == shard.Role);
                 string? patchUrl = null;
                 string? patchSha = null;
                 if (previousShard is not null
                     && changedDocumentIds.Count > 0
-                    && File.Exists(Path.Combine(environment.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot"), previousShard.FullUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar))))
+                    && File.Exists(ResolvePublishedArtifactPath(root, previousShard.FullUrl)))
                 {
                     SearchShardData patchShard = BuildPatchShard(shard.Data, changedDocumentIds);
                     byte[] patchShardBytes = patchShard.Documents.Length == 0 && patchShard.Terms.Length == 0
@@ -459,10 +512,9 @@ public sealed partial class SearchIndexService(
                         shard.Bytes.Length))
                     {
                         string patchFileName = $"index.{shard.Role.ToString().ToLowerInvariant()}.{previousShard.FullSha256[..16]}-{artifacts.Version}.patch";
-                        string patchPath = Path.Combine(patchRoot, patchFileName);
-                        patchUrl = $"/search/{SearchPatchDirectory}/{patchFileName}";
+                        patchUrl = $"{publicBase}/{SearchPatchDirectory}/{patchFileName}";
                         patchSha = ToLowerHex(SHA256.HashData(patchBytes));
-                        WriteFileAtomically(patchPath, patchBytes);
+                        generationFiles[Path.Combine(SearchPatchDirectory, patchFileName)] = patchBytes;
                     }
                     else
                     {
@@ -494,8 +546,35 @@ public sealed partial class SearchIndexService(
                 ["archive"],
                 []);
 
-            WriteFileAtomically(aliasPath, artifacts.AliasPackage);
-            WriteFileAtomically(manifestPath, EncodeManifest(manifest));
+            generationFiles[SearchAliasFileName] = artifacts.AliasPackage;
+            generationFiles[SearchManifestFileName] = EncodeManifest(manifest);
+            string lexiconPath = Path.Combine(root, SearchDictionaryDirectory, SearchLexiconBinaryFileName);
+            if (File.Exists(lexiconPath))
+            {
+                generationFiles[Path.Combine(SearchDictionaryDirectory, SearchLexiconBinaryFileName)] =
+                    await File.ReadAllBytesAsync(lexiconPath).ConfigureAwait(false);
+            }
+
+            ReleaseDerivedArtifactPublisher? publisher = ResolveReleaseDerivedPublisher();
+            if (publisher is not null)
+            {
+                await PublishReleaseDerivedArtifactsAsync(publisher, generationFiles).ConfigureAwait(false);
+            }
+            else
+            {
+                foreach ((string relativePath, ReadOnlyMemory<byte> payload) in generationFiles
+                             .Where(static pair => !string.Equals(pair.Key, SearchManifestFileName, StringComparison.Ordinal))
+                             .OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+                {
+                    WriteFileAtomically(Path.Combine(root, relativePath), payload.ToArray());
+                }
+
+                WriteFileAtomically(manifestPath, generationFiles[SearchManifestFileName].ToArray());
+            }
+        }
+        finally
+        {
+            SearchIndexWriteGate.Release();
         }
 
         if (!string.Equals(previousManifest?.CurrentVersion, artifacts.Version, StringComparison.Ordinal))
@@ -503,9 +582,81 @@ public sealed partial class SearchIndexService(
             await cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, "main").ConfigureAwait(false);
             await notificationStreamPublisher.PublishAsync(
                 NotificationStreamEventType.SearchIndexUpdated,
-                new SearchIndexUpdatePayload(artifacts.Version, "/search/index.manifest.aeds", artifacts.GeneratedAt),
+                new SearchIndexUpdatePayload(artifacts.Version, $"{publicBase}/index.manifest.aeds", artifacts.GeneratedAt),
                 new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed));
         }
+    }
+
+    private ReleaseDerivedArtifactPublisher? ResolveReleaseDerivedPublisher()
+    {
+        string? derivedRoot = configuration["ReleaseStorage:DerivedRoot"]
+            ?? configuration["FSUSBLOG_RELEASE_DERIVED_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_DERIVED_ROOT");
+        if (string.IsNullOrWhiteSpace(derivedRoot))
+        {
+            return null;
+        }
+
+        return new ReleaseDerivedArtifactPublisher(derivedRoot, ResolveReleaseId());
+    }
+
+    internal static Task<ReleaseDerivedArtifactGeneration> PublishReleaseDerivedArtifactsAsync(
+        ReleaseDerivedArtifactPublisher publisher,
+        IReadOnlyDictionary<string, ReadOnlyMemory<byte>> files,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(publisher);
+        if (!files.ContainsKey(SearchManifestFileName))
+        {
+            throw new ArgumentException("Search release-derived publication requires index.manifest.aeds.", nameof(files));
+        }
+
+        string generation = BuildSearchPublicationGeneration(files);
+        return publisher.PublishGenerationAndProjectAsync(
+            SearchIndexDirectory,
+            generation,
+            files,
+            [SearchManifestFileName],
+            cancellationToken);
+    }
+
+    internal static string BuildSearchPublicationGeneration(
+        IReadOnlyDictionary<string, ReadOnlyMemory<byte>> files)
+    {
+        using IncrementalHash digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach ((string path, ReadOnlyMemory<byte> payload) in files.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        {
+            byte[] pathBytes = Encoding.UTF8.GetBytes(path.Replace(Path.DirectorySeparatorChar, '/'));
+            digest.AppendData(pathBytes);
+            digest.AppendData(new byte[] { 0 });
+            digest.AppendData(payload.Span);
+            digest.AppendData(new byte[] { 0 });
+        }
+
+        return $"search-{Convert.ToHexStringLower(digest.GetHashAndReset())}";
+    }
+
+    private static string ResolvePublishedArtifactPath(string root, string publicUrl)
+    {
+        int searchSegment = publicUrl.IndexOf("/search/", StringComparison.Ordinal);
+        if (searchSegment < 0)
+        {
+            throw new InvalidOperationException("Search artifact URL is outside the release search scope.");
+        }
+
+        string relativePath = publicUrl[(searchSegment + "/search/".Length)..]
+            .Replace('/', Path.DirectorySeparatorChar);
+        string candidate = Path.GetFullPath(Path.Combine(root, relativePath));
+        string rootPrefix = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) + Path.DirectorySeparatorChar;
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (!candidate.StartsWith(rootPrefix, comparison))
+        {
+            throw new InvalidOperationException("Search artifact URL escaped the release search scope.");
+        }
+
+        return candidate;
     }
 
     private static SearchShardData BuildPatchShard(SearchShardData shard, IReadOnlySet<int> changedDocumentIds)
@@ -829,9 +980,30 @@ public sealed partial class SearchIndexService(
 
     private static void WriteFileAtomically(string path, byte[] bytes)
     {
-        string temp = $"{path}.tmp";
-        File.WriteAllBytes(temp, bytes);
-        File.Move(temp, path, true);
+        string temp = Path.Combine(
+            Path.GetDirectoryName(path)!,
+            $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            using (var stream = new FileStream(temp, new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.Write,
+                Share = FileShare.None,
+                BufferSize = 81920,
+                Options = FileOptions.WriteThrough
+            }))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(temp, path, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temp);
+        }
     }
 
     private static string ComputeVersion(params byte[][] payloads)

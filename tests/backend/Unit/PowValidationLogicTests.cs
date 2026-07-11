@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -9,7 +10,7 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -146,23 +147,45 @@ public sealed class PowValidationLogicTests
     }
 
     [Fact]
-    public void PowValidationLogic_LoggingContract_DoesNotPrintRawClientIp()
+    public void PowValidationLogic_LoggingContract_UsesHashedClientIdentityParameters()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Filters/PowValidationLogic.cs");
-        string hashing = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Security/VisitLogIpHashing.cs");
-        string crawlerDetector = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CrawlerDetectorService.cs");
-        string userService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        MethodInfo accessDenied = typeof(PowValidationLogic).GetMethod(
+            "LogAccessDenied",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("PoW access-denied logger was not found.");
+        Assert.Equal(
+            ["logger", "clientIpHash", "traceId", "reason"],
+            accessDenied.GetParameters().Select(static parameter => parameter.Name).ToArray());
+        Assert.DoesNotContain(accessDenied.GetParameters(), static parameter =>
+            string.Equals(parameter.Name, "clientIp", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parameter.Name, "ip", StringComparison.OrdinalIgnoreCase));
 
-        Assert.DoesNotContain("| IP: {IP}", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("LogAccessDenied(logger, clientIp,", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("clientIp, httpContext.TraceIdentifier", source, StringComparison.Ordinal);
-        Assert.Contains("ClientIpHash", source, StringComparison.Ordinal);
-        Assert.Contains("VisitLog:IpHashPepper", hashing, StringComparison.Ordinal);
+        Assert.Equal("VisitLog:IpHashPepper", VisitLogIpHashing.PepperKey);
+        const string ip = "203.0.113.44";
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [VisitLogIpHashing.PepperKey] = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy"
+            })
+            .Build();
+        string ipHash = VisitLogIpHashing.HashIp(ip, configuration);
+        Assert.Matches("^[0-9a-f]{64}$", ipHash);
+        Assert.DoesNotContain(ip, ipHash, StringComparison.Ordinal);
 
-        Assert.DoesNotContain("{IP}", crawlerDetector, StringComparison.Ordinal);
-        Assert.DoesNotContain("{IpAddress}", userService, StringComparison.Ordinal);
-        Assert.Contains("ClientIpHash", crawlerDetector, StringComparison.Ordinal);
-        Assert.Contains("ClientIpHash", userService, StringComparison.Ordinal);
+        MethodInfo crawlerHasher = typeof(CrawlerDetectorService).GetMethod(
+            "ResolveClientIpHashForLog",
+            BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            types: [typeof(string), typeof(IConfiguration)],
+            modifiers: null)
+            ?? throw new InvalidOperationException("Crawler client identity hasher was not found.");
+        Assert.Equal(ipHash, crawlerHasher.Invoke(null, [ip, configuration]));
+
+        MethodInfo userLoginFailure = typeof(UserService).GetMethod(
+            "LogLoginFailure",
+            BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("User login failure logger was not found.");
+        Assert.Equal("clientIpHash", userLoginFailure.GetParameters()[1].Name);
     }
 
     private static PowFixture CreateFixture()

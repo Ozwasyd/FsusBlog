@@ -127,6 +127,169 @@ post_deploy_smoke_status_or_missing() {
   '
 }
 
+gateway_transition_status_or_missing() {
+  semantic_status_or_missing "$1" '
+    (.status == "ok")
+    and (.generation | type == "number" and . >= 1)
+    and (.durationMs | type == "number" and . >= 0)
+    and (
+      (
+        .schema == "fsusblog.gateway-transition-evidence.v1"
+        and (.kind == "switch" or .kind == "rollback")
+        and .checks.targetIdentity == true
+        and .checks.targetReadiness == true
+        and .checks.sourcePublicRelease == true
+        and .checks.stagedConfigTest == true
+        and .checks.stateBegin == true
+        and .checks.upstreamInstall == true
+        and .checks.activeConfigTest == true
+        and .checks.reload == true
+        and .checks.publicReleaseProbe == true
+        and .checks.targetLoopbackAfterReload == true
+        and .checks.stateCommit == true
+        and .checks.sourceRuntimeStatus == true
+        and .checks.targetRuntimeStatus == true
+        and .checks.targetActivation == true
+        and (
+          (.checks.sourceDrain == true and .checks.sourceDrainDeferred == false)
+          or (.checks.sourceDrain == false and .checks.sourceDrainDeferred == true)
+        )
+        and .lifecycle.sourceBefore.releaseId == .source.releaseId
+        and .lifecycle.sourceBefore.slot == .source.slot
+        and .lifecycle.sourceBefore.mode == "active"
+        and .lifecycle.sourceBefore.state == "active"
+        and .lifecycle.sourceBefore.canReceiveTraffic == true
+        and .lifecycle.targetBefore.releaseId == .target.releaseId
+        and .lifecycle.targetBefore.slot == .target.slot
+        and .lifecycle.targetBefore.mode == "candidate"
+        and .lifecycle.targetBefore.state == "ready"
+        and .lifecycle.targetBefore.canReceiveTraffic == false
+        and .lifecycle.targetBefore.canClaimBackgroundWork == false
+        and .lifecycle.targetAfterActivation.releaseId == .target.releaseId
+        and .lifecycle.targetAfterActivation.slot == .target.slot
+        and .lifecycle.targetAfterActivation.mode == "active"
+        and .lifecycle.targetAfterActivation.state == "active"
+        and .lifecycle.targetAfterActivation.canReceiveTraffic == true
+        and .lifecycle.targetAfterActivation.canClaimBackgroundWork == true
+        and .lifecycle.sourceAfterDrain.releaseId == .source.releaseId
+        and .lifecycle.sourceAfterDrain.slot == .source.slot
+        and (
+          (
+            .checks.sourceDrain == true
+            and .lifecycle.sourceAfterDrain.mode == "draining"
+            and .lifecycle.sourceAfterDrain.state == "draining"
+            and .lifecycle.sourceAfterDrain.canReceiveTraffic == false
+            and .lifecycle.sourceAfterDrain.canClaimBackgroundWork == false
+            and .lifecycle.sourceAfterDrain.drain.requested == true
+            and .lifecycle.sourceAfterDrain.drain.drained == true
+            and .lifecycle.sourceAfterDrain.drain.timedOut == false
+            and (.lifecycle.sourceAfterDrain.drain.blockers | type == "array" and length == 0)
+          )
+          or
+          (
+            .checks.sourceDrainDeferred == true
+            and .lifecycle.sourceAfterDrain.mode == "active"
+            and .lifecycle.sourceAfterDrain.state == "active"
+            and .lifecycle.sourceAfterDrain.drain.requested == false
+          )
+        )
+      )
+      or
+      (
+        .schema == "fsusblog.gateway-recovery-evidence.v1"
+        and .kind == "recovery"
+        and (.action == "restore-source" or .action == "commit-target")
+        and .checks.activeConfigTest == true
+        and .checks.reload == true
+        and .checks.publicReleaseProbe == true
+        and .checks.stateResolution == true
+        and (
+          (
+            .action == "restore-source"
+            and .checks.sourceRuntime == true
+            and .checks.sourceRuntimeStatus == true
+            and .checks.targetNeutralized == true
+            and .lifecycle.sourceBefore.releaseId == .source.releaseId
+            and .lifecycle.sourceBefore.slot == .source.slot
+            and .lifecycle.sourceBefore.mode == "active"
+            and .lifecycle.sourceBefore.state == "active"
+            and .lifecycle.sourceBefore.canReceiveTraffic == true
+            and (
+              .lifecycle.targetAfterActivation == null
+              or (
+                .lifecycle.targetAfterActivation.releaseId == .target.releaseId
+                and .lifecycle.targetAfterActivation.slot == .target.slot
+                and .lifecycle.targetAfterActivation.canReceiveTraffic == false
+                and .lifecycle.targetAfterActivation.canClaimBackgroundWork == false
+              )
+            )
+          )
+          or (
+            .action == "commit-target"
+            and .checks.targetRuntime == true
+            and .checks.targetRuntimeStatus == true
+            and .checks.targetActivation == true
+            and .checks.sourceRuntimeStatus == true
+            and .checks.sourceDrain == true
+            and .lifecycle.sourceBefore.releaseId == .source.releaseId
+            and .lifecycle.sourceBefore.slot == .source.slot
+            and .lifecycle.sourceBefore.mode == "active"
+            and .lifecycle.sourceBefore.state == "active"
+            and .lifecycle.targetBefore.releaseId == .target.releaseId
+            and .lifecycle.targetBefore.slot == .target.slot
+            and (
+              (.lifecycle.targetBefore.mode == "candidate" and .lifecycle.targetBefore.state == "ready" and .lifecycle.targetBefore.canReceiveTraffic == false)
+              or (.lifecycle.targetBefore.mode == "active" and .lifecycle.targetBefore.state == "active" and .lifecycle.targetBefore.canReceiveTraffic == true)
+            )
+            and .lifecycle.targetAfterActivation.releaseId == .target.releaseId
+            and .lifecycle.targetAfterActivation.slot == .target.slot
+            and .lifecycle.targetAfterActivation.mode == "active"
+            and .lifecycle.targetAfterActivation.state == "active"
+            and .lifecycle.targetAfterActivation.canReceiveTraffic == true
+            and .lifecycle.sourceAfterDrain.releaseId == .source.releaseId
+            and .lifecycle.sourceAfterDrain.slot == .source.slot
+            and .lifecycle.sourceAfterDrain.mode == "draining"
+            and .lifecycle.sourceAfterDrain.state == "draining"
+            and .lifecycle.sourceAfterDrain.canReceiveTraffic == false
+            and .lifecycle.sourceAfterDrain.drain.requested == true
+            and .lifecycle.sourceAfterDrain.drain.drained == true
+            and .lifecycle.sourceAfterDrain.drain.timedOut == false
+            and (.lifecycle.sourceAfterDrain.drain.blockers | type == "array" and length == 0)
+          )
+        )
+      )
+    )
+  '
+}
+
+release_rollout_status_or_missing() {
+  local file="$1"
+  if [[ ! -f "$file" ]]; then
+    printf 'missing'
+    return
+  fi
+
+  if node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" verify --evidence "$file" >/dev/null 2>&1 \
+    && jq -e \
+      --arg releaseId "${FSUSBLOG_RELEASE_ID:-}" \
+      --arg releaseSlot "${FSUSBLOG_RELEASE_SLOT:-}" \
+      --arg imageDigest "${FSUSBLOG_IMAGE_DIGEST:-}" '
+        .schema == "fsusblog.release-rollout-evidence.v1"
+        and .status == "pass"
+        and (.errors | type == "array" and length == 0)
+        and .target.releaseId == $releaseId
+        and .target.slot == $releaseSlot
+        and .target.imageDigest == $imageDigest
+        and (.gatewayGeneration | type == "number" and . >= 1)
+        and (.stages | type == "array" and length == 15)
+      ' "$file" >/dev/null 2>&1; then
+    printf 'ok'
+    return
+  fi
+
+  jq -r 'if .status == "pass" then "invalid" else (.status // "invalid") end' "$file" 2>/dev/null || printf 'invalid'
+}
+
 authenticated_dast_status_or_missing() {
   semantic_status_or_missing "$1" '(.status == "ok") and (.activeScan.executed == true)'
 }
@@ -433,6 +596,18 @@ SBOM="$(copy_if_present "$SECURITY_DIR/sbom" sbom)"
 SECURITY_MATRICES="$(copy_if_present "$ROOT_DIR/security" security-matrices)"
 RESTORE_DRILL="$(copy_if_present "$OPERATIONS_DIR/backup-restore-drill.json" backup-restore-drill.json)"
 SMOKE="$(copy_if_present "$OPERATIONS_DIR/post-deploy-smoke.json" post-deploy-smoke.json)"
+GATEWAY_TRANSITION_SOURCE="${FSUSBLOG_GATEWAY_TRANSITION_EVIDENCE:-/var/lib/fsusblog/deployment/evidence/latest.json}"
+GATEWAY_TRANSITION="$(copy_if_present "$GATEWAY_TRANSITION_SOURCE" gateway-transition.json)"
+RELEASE_ROLLOUT_SOURCE="${FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE:-$OPERATIONS_DIR/release-rollout.json}"
+RELEASE_ROLLOUT="$(copy_if_present "$RELEASE_ROLLOUT_SOURCE" release-rollout.json)"
+if [[ -f "$RELEASE_ROLLOUT_SOURCE" ]]; then
+  node "$ROOT_DIR/tools/operations/collect-release-rollout-bundle.mjs" \
+    --input "$RELEASE_ROLLOUT_SOURCE" \
+    --output "$OUT_DIR/release-rollout-bundle" >/dev/null
+  RELEASE_ROLLOUT_BUNDLE='"release-rollout-bundle"'
+else
+  RELEASE_ROLLOUT_BUNDLE='null'
+fi
 SLO_ALERTS="$(copy_if_present "$OPERATIONS_DIR/slo-alert-fixture.json" slo-alert-fixture.json)"
 RETENTION_CLEANUP="$(copy_if_present "$OPERATIONS_DIR/retention-cleanup.json" retention-cleanup.json)"
 COVERAGE_ARTIFACT="$(copy_if_present "$COVERAGE_DIR" coverage)"
@@ -484,6 +659,7 @@ PRODUCTION_LIVE_DIGEST="$(artifact_digest_json "$PRODUCTION_LIVE")"
 FIREWALL_POLICY_DIGEST="$(artifact_digest_json "$FIREWALL_POLICY")"
 DNS_READY_DIGEST="$(artifact_digest_json "$DNS_READY")"
 DNS_DELEGATION_DIGEST="$(artifact_digest_json "$DNS_DELEGATION")"
+RELEASE_ROLLOUT_DIGEST="$(artifact_digest_json "$RELEASE_ROLLOUT")"
 
 PRODUCTION_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/production-exposure-status.json")"
 LIVE_STATUS_VALUE="$(result_status_or_missing "$SECURITY_DIR/production-exposure-live.json")"
@@ -496,11 +672,37 @@ SUPPLY_CHAIN_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/supply-chain/
 SBOM_STATUS_VALUE="$(json_status_or_missing "$SECURITY_DIR/sbom/summary.json")"
 BACKUP_RESTORE_STATUS_VALUE="$(backup_restore_status_or_missing "$OPERATIONS_DIR/backup-restore-drill.json")"
 POST_DEPLOY_SMOKE_STATUS_VALUE="$(post_deploy_smoke_status_or_missing "$OPERATIONS_DIR/post-deploy-smoke.json")"
+GATEWAY_TRANSITION_STATUS_VALUE="$(gateway_transition_status_or_missing "$GATEWAY_TRANSITION_SOURCE")"
+RELEASE_ROLLOUT_STATUS_VALUE="$(release_rollout_status_or_missing "$RELEASE_ROLLOUT_SOURCE")"
 SLO_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/slo-alert-fixture.json")"
 SLO_CRITICAL_COUNT="$(slo_critical_count_or_zero "$OPERATIONS_DIR/slo-alert-fixture.json")"
 RETENTION_STATUS_VALUE="$(json_status_or_missing "$OPERATIONS_DIR/retention-cleanup.json")"
 IMAGE_DIGEST_VALUE="${FSUSBLOG_IMAGE_DIGEST:-unknown}"
 IMAGE_DIGEST_STATUS="$([[ "$IMAGE_DIGEST_VALUE" == "unknown" || -z "$IMAGE_DIGEST_VALUE" ]] && printf 'missing' || printf 'present')"
+RELEASE_MANIFEST_FILE="${FSUSBLOG_RELEASE_MANIFEST:-}"
+RELEASE_IDENTITY_STATUS="missing"
+RELEASE_IDENTITY_MANIFEST='{"status":"missing"}'
+if [[ -n "$RELEASE_MANIFEST_FILE" && -f "$RELEASE_MANIFEST_FILE" ]]; then
+  release_check_args=(
+    --manifest "$RELEASE_MANIFEST_FILE"
+    --release-id "${FSUSBLOG_RELEASE_ID:-}"
+    --image-ref "${FSUSBLOG_IMAGE_REF:-}"
+    --image-digest "${FSUSBLOG_IMAGE_DIGEST:-}"
+    --commit-sha "${FSUSBLOG_COMMIT_SHA:-}"
+  )
+  if [[ -n "${FSUSBLOG_RELEASE_ID:-}" \
+    && -n "${FSUSBLOG_IMAGE_REF:-}" \
+    && -n "${FSUSBLOG_IMAGE_DIGEST:-}" \
+    && -n "${FSUSBLOG_COMMIT_SHA:-}" \
+    && "${FSUSBLOG_RELEASE_SLOT:-}" =~ ^[a-z][a-z0-9-]{0,31}$ ]] \
+    && node "$ROOT_DIR/tools/release/check-release-manifest.mjs" "${release_check_args[@]}" >/dev/null; then
+    RELEASE_IDENTITY_STATUS="ok"
+    RELEASE_IDENTITY_MANIFEST="$(jq -c --arg releaseSlot "$FSUSBLOG_RELEASE_SLOT" '. + {releaseSlot: $releaseSlot}' "$RELEASE_MANIFEST_FILE")"
+  else
+    RELEASE_IDENTITY_STATUS="failed"
+    RELEASE_IDENTITY_MANIFEST='{"status":"failed"}'
+  fi
+fi
 EXTERNAL_BLOCKERS="$(blockers_json_or_empty "$SECURITY_DIR/production-exposure-status.json")"
 REQUEST_SUMMARY="$(request_summary_json)"
 COVERAGE_SUMMARY="$(coverage_summary_json)"
@@ -543,6 +745,8 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$COVERAGE_STATUS_VALUE" != "ok" \
   || "$BACKUP_RESTORE_STATUS_VALUE" != "ok" \
   || "$POST_DEPLOY_SMOKE_STATUS_VALUE" != "ok" \
+  || "$GATEWAY_TRANSITION_STATUS_VALUE" != "ok" \
+  || "$RELEASE_ROLLOUT_STATUS_VALUE" != "ok" \
   || "$SLO_STATUS_VALUE" != "ok" \
   || "$SLO_CRITICAL_COUNT" != "0" \
   || "$FAULT_STATUS_VALUE" != "ok" \
@@ -563,6 +767,7 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$MEMORY_LEAK_STATUS_VALUE" != "ok" \
   || "$OPEN_HANDLE_STATUS_VALUE" != "ok" \
   || "$DOC_SYNC_STATUS_VALUE" != "ok" \
+  || "$RELEASE_IDENTITY_STATUS" != "ok" \
   || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
   MANIFEST_STATUS="collected-blocked"
 fi
@@ -580,6 +785,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "workflow": "${GITHUB_WORKFLOW:-unknown}"
   },
   "imageDigest": "$IMAGE_DIGEST_VALUE",
+  "releaseIdentity": $RELEASE_IDENTITY_MANIFEST,
   "publishArtifacts": $(if [[ -f "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json" ]]; then jq -c '.' "$ROOT_DIR/.tmp/release-evidence/publish-artifacts-summary.json"; else jq -n -c '{status: "missing", wwwrootBytes: 0, clientRuntimeBytes: 0, totalPublishBytes: 0, fileCount: 0, largestFiles: []}'; fi),
   "artifacts": {
     "productionExposureStatus": $PRODUCTION_STATUS,
@@ -596,6 +802,9 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "securityMatrices": $SECURITY_MATRICES,
     "backupRestoreDrill": $RESTORE_DRILL,
     "postDeploySmoke": $SMOKE,
+    "gatewayTransition": $GATEWAY_TRANSITION,
+    "releaseRollout": $RELEASE_ROLLOUT,
+    "releaseRolloutBundle": $RELEASE_ROLLOUT_BUNDLE,
     "sloAlerts": $SLO_ALERTS,
     "retentionCleanup": $RETENTION_CLEANUP,
     "coverage": $COVERAGE_ARTIFACT,
@@ -647,17 +856,21 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "productionExposureLive": $PRODUCTION_LIVE_DIGEST,
     "firewallPolicy": $FIREWALL_POLICY_DIGEST,
     "dnsReadiness": $DNS_READY_DIGEST,
-    "dnsDelegation": $DNS_DELEGATION_DIGEST
+    "dnsDelegation": $DNS_DELEGATION_DIGEST,
+    "releaseRollout": $RELEASE_ROLLOUT_DIGEST
   },
   "evidenceSummary": {
     "image": {
       "digest": "$IMAGE_DIGEST_VALUE",
-      "status": "$IMAGE_DIGEST_STATUS"
+      "status": "$IMAGE_DIGEST_STATUS",
+      "releaseIdentityStatus": "$RELEASE_IDENTITY_STATUS"
     },
     "coverage": $COVERAGE_SUMMARY,
     "operations": {
       "backupRestoreDrill": "$BACKUP_RESTORE_STATUS_VALUE",
       "postDeploySmoke": "$POST_DEPLOY_SMOKE_STATUS_VALUE",
+      "gatewayTransition": "$GATEWAY_TRANSITION_STATUS_VALUE",
+      "releaseRollout": "$RELEASE_ROLLOUT_STATUS_VALUE",
       "sloAlerts": "$SLO_STATUS_VALUE",
       "sloCriticalFiring": $SLO_CRITICAL_COUNT,
       "retentionCleanup": "$RETENTION_STATUS_VALUE",

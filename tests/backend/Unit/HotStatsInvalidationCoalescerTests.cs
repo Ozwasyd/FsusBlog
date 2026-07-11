@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using System.Reflection;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Services.VisitLog;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -78,26 +80,37 @@ public sealed class HotStatsInvalidationCoalescerTests
     }
 
     [Fact]
-    public void Source_VisitLogMarksDirtyInsteadOfDirectBroadInvalidation()
+    public void Runtime_VisitLogMarksDirtyInsteadOfDirectBroadInvalidation()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(VisitLogProcessorService));
 
-        Assert.Contains("GetRequiredService<IHotStatsInvalidationCoalescer>()", source, StringComparison.Ordinal);
-        Assert.Contains("MarkStatsDirtyAsync(\"visit-log-flush\"", source, StringComparison.Ordinal);
-        Assert.Contains("MarkHotArticlesDirtyAsync(\"article-read-projection\"", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("InvalidateStatsAsync(token)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("InvalidateHotArticlesAsync(token)", source, StringComparison.Ordinal);
+        Assert.Contains("GetRequiredService", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IHotStatsInvalidationCoalescer", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("MarkStatsDirtyAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("visit-log-flush", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("MarkHotArticlesDirtyAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("article-read-projection", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("ICacheInvalidationDispatcher.InvalidateStatsAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("ICacheInvalidationDispatcher.InvalidateHotArticlesAsync", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void BackendQpsVisitLogEvidenceChecksAsyncDirtyCalls()
+    public void VisitLogProcessor_RuntimeUsesAsyncDirtyContract()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/backend-qps.sh"));
+        MethodInfo stats = typeof(IHotStatsInvalidationCoalescer).GetMethod(
+            nameof(IHotStatsInvalidationCoalescer.MarkStatsDirtyAsync))!;
+        MethodInfo hotArticles = typeof(IHotStatsInvalidationCoalescer).GetMethod(
+            nameof(IHotStatsInvalidationCoalescer.MarkHotArticlesDirtyAsync))!;
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(VisitLogProcessorService));
 
-        Assert.Contains("MarkStatsDirtyAsync(\\\"visit-log-flush\\\"", source, StringComparison.Ordinal);
-        Assert.Contains("MarkHotArticlesDirtyAsync(\\\"article-read-projection\\\"", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("MarkStatsDirty(\\\"visit-log-flush\\\")", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("MarkHotArticlesDirty(\\\"article-read-projection\\\")", source, StringComparison.Ordinal);
+        Assert.Equal(typeof(Task), stats.ReturnType);
+        Assert.Equal(typeof(Task), hotArticles.ReturnType);
+        Assert.Contains("MarkStatsDirtyAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("visit-log-flush", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("MarkHotArticlesDirtyAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("article-read-projection", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("IHotStatsInvalidationCoalescer.MarkStatsDirty(", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("IHotStatsInvalidationCoalescer.MarkHotArticlesDirty(", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]

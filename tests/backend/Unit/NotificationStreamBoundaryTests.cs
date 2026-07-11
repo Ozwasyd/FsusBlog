@@ -1,62 +1,118 @@
 using System.Buffers.Binary;
+using System.Diagnostics.Metrics;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Net.WebSockets;
 using System.Text;
+using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using StackExchange.Redis;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public class NotificationStreamBoundaryTests
 {
+    private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    [Fact]
+    public async Task DrainingDeployment_RejectsNewHandshakeBeforeAdmissionWithRetryableCode()
+    {
+        IConfiguration deploymentConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FSUSBLOG_RELEASE_ID"] = "20260711010101-0123456789ab",
+                ["FSUSBLOG_RELEASE_SLOT"] = "blue",
+                ["FSUSBLOG_COMMIT_SHA"] = "0123456789abcdef0123456789abcdef01234567",
+                ["FSUSBLOG_IMAGE_DIGEST"] = $"sha256:{new string('a', 64)}",
+                ["FSUSBLOG_IMAGE_REF"] = $"ghcr.io/fsusblog/app@sha256:{new string('a', 64)}",
+                ["FSUSBLOG_DEPLOYMENT_MODE"] = "candidate",
+                ["FSUSBLOG_DEPLOYMENT_GENERATION"] = "7"
+            })
+            .Build();
+        var deployment = new DeploymentRuntimeState(
+            new ReleaseIdentityProvider(deploymentConfiguration),
+            deploymentConfiguration,
+            new TestWebHostEnvironment(),
+            TimeProvider.System);
+        deployment.MarkStartupCompleted();
+        deployment.ReportReadiness(gatesReady: true);
+        var request = new DeploymentControlRequest("20260711010101-0123456789ab", "blue", 7, 5);
+        Assert.True(deployment.Activate(request, deployment.CreateSnapshot(0)).Accepted);
+        Assert.True(deployment.BeginDrain(request, TimeSpan.FromSeconds(5), deployment.CreateSnapshot(0)).Accepted);
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment(),
+            ["NotificationStream:AllowedOrigins:0=https://example.com"],
+            deploymentRuntime: deployment);
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(
+            CreateHandshakeContext("https://example.com", "example.com"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, result.StatusCode);
+        Assert.Equal("deployment_draining", result.ErrorCode);
+
+        var handler = new NotificationStreamHandler(
+            service,
+            Substitute.For<INotificationStreamSessionService>(),
+            new BinaryEnvelopePolicy());
+        DefaultHttpContext handlerContext = CreateHandshakeContext("https://example.com", "example.com");
+        handlerContext.Response.Body = new MemoryStream();
+        await handler.HandleAsync(handlerContext, CancellationToken.None);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, handlerContext.Response.StatusCode);
+        Assert.Equal("5", handlerContext.Response.Headers.RetryAfter);
+        Assert.Equal("deployment_draining", handlerContext.Response.Headers["X-Fsus-Notification-Stream-Error-Code"]);
+    }
+
     [Fact]
     public void NotificationStreamRoutes_DoNotRegisterSignalROrLegacyHubPipeline()
     {
-        string runtimeServices = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
-        string serverProject = BackendTestPaths.ReadAllTextFromRoot("src/backend/FsusBlog.Server.csproj");
-        string webComposition = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs");
-        string viteConfig = BackendTestPaths.ReadAllTextFromRoot("src/frontend/vite.config.ts");
-        string fastUserIdProvider = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/FastUserIdProvider.cs");
-        string signalRInitializer = BackendTestPaths.FromRoot(
-            "src/backend/Infrastructure/Helpers/Initializer/SignalRInitializer.cs");
-        string signalRPowFilter = BackendTestPaths.FromRoot(
-            "src/backend/Infrastructure/Filters/SignalRPoWFilter.cs");
-        string snowflakeProvider = BackendTestPaths.FromRoot(
-            "src/backend/Infrastructure/NotificationStream/SnowflakeUserIdProvider.cs");
+        string compositionRuntime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(WebApplicationCompositionExtensions),
+            "MapFsusApiRoutes");
+        Assert.Contains("/api/notifications/stream/preflight", compositionRuntime, StringComparison.Ordinal);
+        Assert.Contains("/api/notifications/stream", compositionRuntime, StringComparison.Ordinal);
+        Assert.Contains("INotificationStreamHandler", compositionRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapHub", compositionRuntime, StringComparison.Ordinal);
 
-        Assert.False(File.Exists(signalRInitializer), "SignalRInitializer must be removed.");
-        Assert.False(File.Exists(signalRPowFilter), "SignalRPoWFilter must be removed.");
-        Assert.False(File.Exists(snowflakeProvider), "SnowflakeUserIdProvider must be removed.");
-        Assert.Contains("\"/api/notifications/stream/preflight\"", webComposition, StringComparison.Ordinal);
-        Assert.Contains("\"/api/notifications/stream\"", webComposition, StringComparison.Ordinal);
-        Assert.Contains("INotificationStreamHandler", webComposition, StringComparison.Ordinal);
-        Assert.DoesNotContain("MapHub", webComposition, StringComparison.Ordinal);
-        Assert.DoesNotContain("Microsoft.AspNetCore.SignalR", serverProject, StringComparison.Ordinal);
-        Assert.DoesNotContain("SignalR.StackExchangeRedis", serverProject, StringComparison.Ordinal);
-        Assert.DoesNotContain("'/hubs'", viteConfig, StringComparison.Ordinal);
-        Assert.DoesNotContain("SnowflakeUserIdProvider", runtimeServices, StringComparison.Ordinal);
-        Assert.DoesNotContain("AddSingleton<IUserIdProvider", runtimeServices, StringComparison.Ordinal);
-        Assert.DoesNotContain(": IUserIdProvider", fastUserIdProvider, StringComparison.Ordinal);
-        Assert.DoesNotContain("HubConnectionContext", fastUserIdProvider, StringComparison.Ordinal);
+        Assembly serverAssembly = typeof(NotificationStreamHandler).Assembly;
+        Assert.DoesNotContain(serverAssembly.GetReferencedAssemblies(), static reference =>
+            reference.Name?.Contains("SignalR", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.DoesNotContain(serverAssembly.DefinedTypes, static type => type.Name is
+            "SignalRInitializer" or "SignalRPoWFilter" or "SnowflakeUserIdProvider");
+
+        var services = new ServiceCollection();
+        services.AddFsusRuntimeInfrastructureServices(new ConfigurationBuilder().Build());
+        Assert.DoesNotContain(services, static descriptor =>
+            descriptor.ServiceType.FullName?.Contains("SignalR", StringComparison.OrdinalIgnoreCase) == true
+            || descriptor.ServiceType.Name == "IUserIdProvider"
+            || descriptor.ImplementationType?.Name == "SnowflakeUserIdProvider");
+        Assert.DoesNotContain(typeof(FastUserIdProvider).GetInterfaces(), static contract =>
+            contract.Name == "IUserIdProvider");
+        Assert.DoesNotContain("HubConnectionContext", RuntimeMetadataInspection.DescribeType(typeof(FastUserIdProvider)), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -77,7 +133,7 @@ public class NotificationStreamBoundaryTests
     public async Task Admission_DeniesBannedAccount()
     {
         var blacklist = Substitute.For<IBlacklistService>();
-        blacklist.GetBanStateAsync(42, "subject-hash-42")
+        blacklist.GetBanStateAsync(42, StableAccountSubjectHash)
             .Returns(Task.FromResult(new BanStateSnapshot(true, "manual", "blocked")));
         var users = Substitute.For<IUserAccountReader>();
         users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(new UserAccountSnapshot(
@@ -86,7 +142,7 @@ public class NotificationStreamBoundaryTests
             "blocked",
             false,
             null,
-            AccountSubjectHash: "subject-hash-42")));
+            AccountSubjectHash: StableAccountSubjectHash)));
         var admission = new NotificationStreamAdmissionService(blacklist, users);
 
         var result = await admission.ValidateAsync("42", CancellationToken.None);
@@ -101,7 +157,7 @@ public class NotificationStreamBoundaryTests
     public async Task Admission_DeniesDeletedAccount()
     {
         var blacklist = Substitute.For<IBlacklistService>();
-        blacklist.GetBanStateAsync(42, "subject-hash-42")
+        blacklist.GetBanStateAsync(42, StableAccountSubjectHash)
             .Returns(Task.FromResult(new BanStateSnapshot(false, null, null)));
         var users = Substitute.For<IUserAccountReader>();
         users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(new UserAccountSnapshot(
@@ -110,7 +166,7 @@ public class NotificationStreamBoundaryTests
             null,
             false,
             null,
-            AccountSubjectHash: "subject-hash-42")));
+            AccountSubjectHash: StableAccountSubjectHash)));
         var admission = new NotificationStreamAdmissionService(blacklist, users);
 
         var result = await admission.ValidateAsync("42", CancellationToken.None);
@@ -124,7 +180,7 @@ public class NotificationStreamBoundaryTests
     public async Task Admission_CachesAccountStateAcrossReconnectsButStillChecksBanState()
     {
         var blacklist = Substitute.For<IBlacklistService>();
-        blacklist.GetBanStateAsync(42, "subject-hash-42")
+        blacklist.GetBanStateAsync(42, StableAccountSubjectHash)
             .Returns(Task.FromResult(new BanStateSnapshot(false, null, null)));
         var users = Substitute.For<IUserAccountReader>();
         users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(new UserAccountSnapshot(
@@ -133,7 +189,7 @@ public class NotificationStreamBoundaryTests
             "active",
             false,
             null,
-            AccountSubjectHash: "subject-hash-42")));
+            AccountSubjectHash: StableAccountSubjectHash)));
         var admission = new NotificationStreamAdmissionService(blacklist, users, new NotificationStreamAccountAdmissionCache());
 
         NotificationStreamAdmissionResult first = await admission.ValidateAsync("42", CancellationToken.None);
@@ -142,7 +198,29 @@ public class NotificationStreamBoundaryTests
         Assert.True(first.IsAllowed);
         Assert.True(second.IsAllowed);
         await users.Received(1).GetAccountByIdAsync(42);
-        await blacklist.Received(2).GetBanStateAsync(42, "subject-hash-42");
+        await blacklist.Received(2).GetBanStateAsync(42, StableAccountSubjectHash);
+    }
+
+    [Fact]
+    public async Task Admission_MissingPhysicalSubjectFailsClosedWithoutBanLookup()
+    {
+        var blacklist = Substitute.For<IBlacklistService>();
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(Task.FromResult<UserAccountSnapshot?>(new UserAccountSnapshot(
+            42,
+            0,
+            null,
+            false,
+            null,
+            AccountSubjectHash: null)));
+        var admission = new NotificationStreamAdmissionService(blacklist, users);
+
+        NotificationStreamAdmissionResult result = await admission.ValidateAsync("42", CancellationToken.None);
+
+        Assert.False(result.IsAllowed);
+        Assert.Equal(StatusCodes.Status401Unauthorized, result.StatusCode);
+        Assert.Equal("account_subject_invalid", result.ErrorCode);
+        await blacklist.DidNotReceive().GetBanStateAsync(Arg.Any<int>(), Arg.Any<string>());
     }
 
     [Fact]
@@ -254,40 +332,76 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
-    public void Handshake_SourceChecksOriginBeforeAnonymousPow()
+    public async Task Handshake_RuntimeChecksOriginBeforeAnonymousPow()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamHandshakeService.cs"));
-        string validate = ExtractMethodBlock(source, "public async Task<NotificationStreamHandshakeResult> ValidateAsync");
-        string validateOrigin = ExtractMethodBlock(source, "private NotificationStreamHandshakeResult? ValidateOrigin");
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
-        string runtimeServices = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
+        MethodInfo validate = typeof(NotificationStreamHandshakeService).GetMethod(nameof(NotificationStreamHandshakeService.ValidateAsync))!;
+        (int Offset, MethodBase Method)[] calls = ReadCalledMethods(AsyncMoveNext(validate)).ToArray();
+        int validateOrigin = Assert.Single(calls, static call => call.Method.Name == "ValidateOrigin").Offset;
+        int validatePow = Assert.Single(calls, static call => call.Method.Name == "ValidateAnonymousSubscribeGateAsync").Offset;
+        Assert.True(validateOrigin < validatePow);
 
-        Assert.Contains("ValidateOrigin(context)", validate, StringComparison.Ordinal);
-        Assert.Contains("origin_not_allowed", source, StringComparison.Ordinal);
-        Assert.True(
-            validate.IndexOf("ValidateOrigin(context)", StringComparison.Ordinal) <
-            validate.IndexOf("ValidateAnonymousSubscribeGateAsync", StringComparison.Ordinal));
-        Assert.Contains("PowValidationLogic.ValidateFromQueryAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Seo:BaseUrl", source, StringComparison.Ordinal);
-        Assert.Contains("Fido2:Origins", source, StringComparison.Ordinal);
-        Assert.Contains("CORS_ALLOWED_HOSTS", source, StringComparison.Ordinal);
-        Assert.Contains("IsDevelopment()", source, StringComparison.Ordinal);
-        Assert.Contains("localhost", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("NotificationStreamOriginSnapshot", source, StringComparison.Ordinal);
-        Assert.Contains("originSnapshotProvider.Current", validateOrigin, StringComparison.Ordinal);
-        Assert.Contains("ChangeToken.OnChange(configuration.GetReloadToken", source, StringComparison.Ordinal);
-        Assert.Contains("fsus.notification_stream.handshake.origin_validation_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.notification.handshake.origin_cache.elapsed", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.notification.handshake.origin_cache.hit_ratio", observability, StringComparison.Ordinal);
-        Assert.Contains("RecordNotificationStreamOriginCacheAccess", source, StringComparison.Ordinal);
-        Assert.Contains("RecordNotificationStreamOriginCacheRebuild", source, StringComparison.Ordinal);
-        Assert.Contains("fsus.notification_stream.admission.account_state_cache", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.notification_stream.admission.db_read_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.notification_stream.admission.rejected_reason_count", observability, StringComparison.Ordinal);
-        Assert.Contains("AddSingleton<NotificationStreamOriginSnapshotProvider>", runtimeServices, StringComparison.Ordinal);
-        Assert.Contains("AddSingleton<NotificationStreamAccountAdmissionCache>", runtimeServices, StringComparison.Ordinal);
-        Assert.DoesNotContain("BuildAllowedOrigins", validateOrigin, StringComparison.Ordinal);
-        Assert.DoesNotContain("BuildAllowedHosts", validateOrigin, StringComparison.Ordinal);
+        var measurements = new HashSet<string>(StringComparer.Ordinal);
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Name.Contains("notification", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+
+        var proof = new CapturingProofService();
+        NotificationStreamHandshakeService service = CreateHandshakeService(
+            new TestWebHostEnvironment { EnvironmentName = Environments.Production },
+            ["Seo:BaseUrl=https://example.com", "CORS_ALLOWED_HOSTS=https://example.com", "Fido2:Origins:0=https://example.com"],
+            riskScore: 50,
+            proof);
+        DefaultHttpContext rejected = CreateAnonymousHandshakeContext("https://evil.example", "example.com");
+        AddRiskControlHeaders(rejected);
+
+        NotificationStreamHandshakeResult result = await service.ValidateAsync(rejected, CancellationToken.None, requireWebSocket: false);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("origin_not_allowed", result.ErrorCode);
+        Assert.Empty(proof.ConsumeRequests);
+        Assert.Contains("fsus.notification_stream.handshake.origin_validation_elapsed_ms", measurements);
+        Assert.Contains("fsus.notification.handshake.origin_cache.elapsed", measurements);
+        listener.RecordObservableInstruments();
+        Assert.Contains("fsus.notification.handshake.origin_cache.hit_ratio", measurements);
+
+        string runtime = RuntimeMetadataInspection.DescribeType(typeof(NotificationStreamHandshakeService));
+        Assert.Contains("PowValidationLogic.ValidateFromQueryAsync", runtime, StringComparison.Ordinal);
+        Assert.Contains("Seo:BaseUrl", runtime, StringComparison.Ordinal);
+        Assert.Contains("Fido2:Origins", runtime, StringComparison.Ordinal);
+        Assert.Contains("CORS_ALLOWED_HOSTS", runtime, StringComparison.Ordinal);
+        Assert.Contains("localhost", runtime, StringComparison.OrdinalIgnoreCase);
+        string originRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamHandshakeService), "ValidateOrigin");
+        Assert.Contains("NotificationStreamOriginSnapshotProvider.get_Current", originRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildAllowedOrigins", originRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildAllowedHosts", originRuntime, StringComparison.Ordinal);
+
+        var registrations = new ServiceCollection();
+        registrations.AddFsusRuntimeInfrastructureServices(new ConfigurationBuilder().Build());
+        Assert.Equal(ServiceLifetime.Singleton, Assert.Single(registrations, static descriptor =>
+            descriptor.ServiceType == typeof(NotificationStreamOriginSnapshotProvider)).Lifetime);
+        Assert.Equal(ServiceLifetime.Singleton, Assert.Single(registrations, static descriptor =>
+            descriptor.ServiceType == typeof(NotificationStreamAccountAdmissionCache)).Lifetime);
+
+        var blacklist = Substitute.For<IBlacklistService>();
+        blacklist.GetBanStateAsync(42, StableAccountSubjectHash).Returns(new BanStateSnapshot(false, null, null));
+        var users = Substitute.For<IUserAccountReader>();
+        users.GetAccountByIdAsync(42).Returns(new UserAccountSnapshot(42, 1, "active", false, null, StableAccountSubjectHash));
+        var admission = new NotificationStreamAdmissionService(blacklist, users, new NotificationStreamAccountAdmissionCache());
+        await admission.ValidateAsync("42", CancellationToken.None);
+        await admission.ValidateAsync("42", CancellationToken.None);
+        users.GetAccountByIdAsync(43).Returns((UserAccountSnapshot?)null);
+        await admission.ValidateAsync("43", CancellationToken.None);
+        Assert.Contains("fsus.notification_stream.admission.account_state_cache", measurements);
+        Assert.Contains("fsus.notification_stream.admission.db_read_count", measurements);
+        Assert.Contains("fsus.notification_stream.admission.rejected_reason_count", measurements);
     }
 
     [Fact]
@@ -384,14 +498,20 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
-    public void Handshake_SourceKeepsLegacyPowCompatibilityAndNotificationRiskAction()
+    public void Handshake_RuntimeKeepsLegacyPowCompatibilityAndNotificationRiskAction()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamHandshakeService.cs"));
+        string runtime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(NotificationStreamHandshakeService),
+            "ValidateAnonymousSubscribeGateAsync");
 
-        Assert.Contains("PowValidationLogic.ValidateFromQueryAsync", source, StringComparison.Ordinal);
-        Assert.Contains("RiskActionNames.NotificationSubscribe", source, StringComparison.Ordinal);
-        Assert.Contains("X-Fsus-Challenge-Proof", source, StringComparison.Ordinal);
-        Assert.Contains("challengeProof", source, StringComparison.Ordinal);
+        Assert.Contains("PowValidationLogic.ValidateFromQueryAsync", runtime, StringComparison.Ordinal);
+        Assert.Contains(RiskActionNames.NotificationSubscribe, runtime, StringComparison.Ordinal);
+        Assert.Equal("X-Fsus-Challenge-Proof", typeof(NotificationStreamHandshakeService)
+            .GetField("ChallengeProofHeaderName", BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetRawConstantValue());
+        Assert.Equal("challengeProof", typeof(NotificationStreamHandshakeService)
+            .GetField("ChallengeProofQueryName", BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetRawConstantValue());
     }
 
     [Fact]
@@ -454,84 +574,160 @@ public class NotificationStreamBoundaryTests
     [Fact]
     public void BacklogReplay_MissedGapRequiresCursorFloorProbe()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamBacklogStore.cs"));
-        string method = ExtractMethodBlock(source, "private async Task<RouteReplayRead> ReadRouteReplayAsync");
+        MethodInfo method = typeof(NotificationStreamBacklogStore).GetMethod(
+            "ReadRouteReplayAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        string runtime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(NotificationStreamBacklogStore),
+            "ReadRouteReplayAsync");
+        MethodBase[] calls = ReadCalledMethods(AsyncMoveNext(method)).Select(static call => call.Method).ToArray();
 
-        Assert.Contains("IBatch batch = _database.CreateBatch()", method, StringComparison.Ordinal);
-        Assert.Contains("batch.Execute()", method, StringComparison.Ordinal);
-        Assert.Contains("cursorFloorTask", method, StringComparison.Ordinal);
-        Assert.Contains("Order.Descending", method, StringComparison.Ordinal);
-        Assert.Contains("HasRetainedCursorFloor", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("_database.StreamRangeAsync(streamKey, count: 1)", method, StringComparison.Ordinal);
+        Assert.Contains(calls, static call => call.Name == nameof(IDatabase.CreateBatch));
+        Assert.Contains(calls, static call => call.DeclaringType == typeof(IBatch) && call.Name == nameof(IBatch.Execute));
+        Assert.Equal(3, calls.Count(static call => call.DeclaringType == typeof(IBatch) && call.Name == nameof(IBatch.StreamRangeAsync)));
+        Assert.Contains("HasRetainedCursorFloor", runtime, StringComparison.Ordinal);
+        Assert.DoesNotContain(calls, static call => call.DeclaringType == typeof(IDatabase) && call.Name == nameof(IDatabase.StreamRangeAsync));
     }
 
     [Fact]
-    public void BacklogReplay_SourceBatchesRouteReadsAndRecordsRedisCommandCount()
+    public async Task BacklogReplay_RuntimeBatchesRouteReadsAndRecordsRedisCommandCount()
     {
-        string backlog = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamBacklogStore.cs"));
-        string metrics = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamMetrics.cs"));
-        string replay = ExtractMethodBlock(backlog, "public async Task<NotificationStreamReplayBatch> ReplayAsync");
+        var measurements = new HashSet<string>(StringComparer.Ordinal);
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Name.StartsWith("fsus.notification_stream.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<int>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        var database = Substitute.For<IDatabase>();
+        var batch = Substitute.For<IBatch>();
+        var keyScope = Substitute.For<IRuntimeKeyScope>();
+        redis.GetDatabase().Returns(database);
+        database.CreateBatch(Arg.Any<object?>()).Returns(batch);
+        keyScope.PrefixKey(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        batch.StreamRangeAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<int?>(),
+                Arg.Any<Order>(),
+                Arg.Any<CommandFlags>())
+            .Returns(
+                Task.FromResult(new[] { StreamEntry("100-0", [0x64]) }),
+                Task.FromResult(new[] { StreamEntry("51-0", [0x33]) }),
+                Task.FromResult(new[] { StreamEntry("50-0", [0x32]) }));
+        var store = new NotificationStreamBacklogStore(redis, keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
 
-        Assert.Contains("ReadRouteReplaysAsync", backlog, StringComparison.Ordinal);
-        Assert.Contains("IBatch batch = _database.CreateBatch()", backlog, StringComparison.Ordinal);
-        Assert.Contains("redisCommandCount", replay, StringComparison.Ordinal);
-        Assert.Contains("RecordReplay(frames.Count, missedGap, replayRoutes.Count, scannedEntries, dedupedEntries, redisCommandCount)", replay, StringComparison.Ordinal);
-        Assert.Contains("fsus.notification_stream.replay_redis_commands", metrics, StringComparison.Ordinal);
-        Assert.Contains("fsus.notification_stream.publish_fanout", metrics, StringComparison.Ordinal);
-        Assert.Contains("fsus.notification_stream.publish_allocation_estimate_bytes", metrics, StringComparison.Ordinal);
+        NotificationStreamReplayBatch replay = await store.ReplayAsync(
+            new NotificationStreamCursor(50),
+            "42",
+            new HashSet<string>(StringComparer.Ordinal));
+        NotificationStreamMetrics.RecordPublishFanout(
+            2,
+            new NotificationStreamGroupTarget(NotificationStreamTargetCollections.ContentFeed),
+            128);
+        foreach (SharedNotificationStreamFrame frame in replay.Frames) frame.Release();
+
+        batch.Received(1).Execute();
+        Assert.Contains("fsus.notification_stream.replay_redis_commands", measurements);
+        Assert.Contains("fsus.notification_stream.publish_fanout", measurements);
+        Assert.Contains("fsus.notification_stream.publish_allocation_estimate_bytes", measurements);
+        string replayRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamBacklogStore), nameof(NotificationStreamBacklogStore.ReplayAsync));
+        Assert.Contains("ReadRouteReplaysAsync", replayRuntime, StringComparison.Ordinal);
+        Assert.Contains("NotificationStreamMetrics.RecordReplay", replayRuntime, StringComparison.Ordinal);
+        Assert.Contains(typeof(NotificationStreamMetrics).GetMethod("RecordReplay", BindingFlags.Public | BindingFlags.Static)!.GetParameters(),
+            static parameter => parameter.Name == "redisCommandCount");
     }
 
     [Fact]
-    public void BacklogAppend_SourceUsesSingleFieldStreamAddWithoutPerPublishNameValueArray()
+    public async Task BacklogAppend_RuntimeUsesSingleFieldStreamAddWithoutPerPublishNameValueArray()
     {
-        string backlog = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamBacklogStore.cs"));
-        string append = ExtractMethodBlock(backlog, "public async Task<Result> AppendAsync");
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        var database = Substitute.For<IDatabase>();
+        var keyScope = Substitute.For<IRuntimeKeyScope>();
+        redis.GetDatabase().Returns(database);
+        keyScope.PrefixKey(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        database.StreamAddAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<RedisValue?>(),
+                Arg.Any<int?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CommandFlags>())
+            .Returns((RedisValue)"100-0");
+        var store = new NotificationStreamBacklogStore(redis, keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
+        SharedNotificationStreamFrame frame = SharedNotificationStreamFrame.FromArray([1, 2, 3]);
 
-        Assert.Contains("StreamAddAsync(", append, StringComparison.Ordinal);
-        Assert.Contains("\"f\"", append, StringComparison.Ordinal);
-        Assert.Contains("frame.BufferMemory", append, StringComparison.Ordinal);
-        Assert.DoesNotContain("NameValueEntry[]", append, StringComparison.Ordinal);
-        Assert.DoesNotContain("new(\"f\", frame.BufferMemory)", append, StringComparison.Ordinal);
-        Assert.DoesNotContain("string.Create(CultureInfo.InvariantCulture", append, StringComparison.Ordinal);
+        var result = await store.AppendAsync(100, "u:42", frame, CancellationToken.None);
+        frame.Release();
+
+        Assert.True(result.IsSuccess);
+        var call = Assert.Single(database.ReceivedCalls(), static candidate => candidate.GetMethodInfo().Name == nameof(IDatabase.StreamAddAsync));
+        object?[] arguments = call.GetArguments();
+        Assert.Equal("f", arguments[1]?.ToString());
+        Assert.DoesNotContain(arguments, static argument => argument is NameValueEntry[]);
+        Assert.Equal("100-0", arguments[3]?.ToString());
     }
 
     [Fact]
-    public void SessionService_SourceClosesSocketUnderSendGate()
+    public void SessionService_RuntimeClosesSocketUnderSendGate()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamSessionService.cs"));
-        string pump = ExtractMethodBlock(source, "private async Task PumpConnectionAsync");
-        string close = ExtractMethodBlock(source, "private static async Task CloseSocketAsync");
+        string pump = RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamSessionService), "PumpConnectionAsync");
+        string close = RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamSessionService), "CloseSocketAsync");
 
-        Assert.Contains("CloseSocketAsync(socket, sendGate)", pump, StringComparison.Ordinal);
-        Assert.Contains("connection.IsClosed", pump, StringComparison.Ordinal);
-        Assert.Contains("sendGate.WaitAsync", close, StringComparison.Ordinal);
-        Assert.Contains("socket.CloseAsync", close, StringComparison.Ordinal);
+        Assert.Contains("CloseSocketAsync", pump, StringComparison.Ordinal);
+        Assert.Contains("NotificationStreamConnection.get_IsClosed", pump, StringComparison.Ordinal);
+        Assert.Contains("SemaphoreSlim.WaitAsync", close, StringComparison.Ordinal);
+        Assert.Contains("WebSocket.CloseAsync", close, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DrillPublishEndpoint_SourceIsTestOnlyAndSecretProtected()
+    public async Task DrillPublishEndpoint_RuntimeIsTestOnlyAndSecretProtected()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Modules", "Endpoints", "NotificationStreamDrillEndpoints.cs"));
+        WebApplicationBuilder productionBuilder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = Environments.Production });
+        await using WebApplication production = productionBuilder.Build();
+        production.MapNotificationStreamDrillEndpoints();
+        Assert.Empty(FindRoutes(production, "/_fsus/testing/notification-stream/publish"));
 
-        Assert.Contains("IsDevelopment()", source, StringComparison.Ordinal);
-        Assert.Contains("IsEnvironment(\"Test\")", source, StringComparison.Ordinal);
-        Assert.Contains("X-Fsus-Notification-Drill-Secret", source, StringComparison.Ordinal);
-        Assert.Contains("INotificationStreamPublisher", source, StringComparison.Ordinal);
-        Assert.Contains("NotificationStreamTargetRouteCodec.TryEncode", source, StringComparison.Ordinal);
-        Assert.Contains("/_fsus/testing/notification-stream/publish", source, StringComparison.Ordinal);
+        WebApplicationBuilder testBuilder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Test" });
+        await using WebApplication test = testBuilder.Build();
+        test.MapNotificationStreamDrillEndpoints();
+        RouteEndpoint endpoint = Assert.Single(FindRoutes(test, "/_fsus/testing/notification-stream/publish"));
+        MethodInfo handler = endpoint.Metadata.GetMetadata<MethodInfo>()!;
+        Assert.Contains(handler.GetParameters(), static parameter => parameter.ParameterType == typeof(INotificationStreamPublisher));
+        Assert.Equal("X-Fsus-Notification-Drill-Secret", typeof(NotificationStreamDrillEndpoints)
+            .GetField("DrillSecretHeader", BindingFlags.NonPublic | BindingFlags.Static)!
+            .GetRawConstantValue());
+        Assert.Contains("NotificationStreamTargetRouteCodec.TryEncode",
+            RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamDrillEndpoints), "PublishAsync"),
+            StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SessionService_SourceGatesDrillSendDelayToDevelopmentOrTest()
+    public void SessionService_RuntimeGatesDrillSendDelayToDevelopmentOrTest()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "NotificationStream", "NotificationStreamSessionService.cs"));
+        NotificationStreamSessionService production = CreateSessionService(new TestWebHostEnvironment { EnvironmentName = Environments.Production });
+        NotificationStreamSessionService test = CreateSessionService(new TestWebHostEnvironment { EnvironmentName = "Test" });
+        var context = new DefaultHttpContext();
+        context.Request.QueryString = new QueryString("?drillSlowConsumer=true&drillReadDelayMs=75&drillQueueCapacity=64");
+        MethodInfo delay = typeof(NotificationStreamSessionService).GetMethod("ResolveDrillSendDelay", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        MethodInfo capacity = typeof(NotificationStreamSessionService).GetMethod("ResolveDrillQueueCapacity", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
-        Assert.Contains("drillSlowConsumer", source, StringComparison.Ordinal);
-        Assert.Contains("drillQueueCapacity", source, StringComparison.Ordinal);
-        Assert.Contains("manager.RegisterConnection(", source, StringComparison.Ordinal);
-        Assert.Contains("context.GetClientIp()", source, StringComparison.Ordinal);
-        Assert.Contains("IsDevelopment()", source, StringComparison.Ordinal);
-        Assert.Contains("IsEnvironment(\"Test\")", source, StringComparison.Ordinal);
+        Assert.Null(delay.Invoke(production, [context]));
+        Assert.Null(capacity.Invoke(production, [context]));
+        Assert.Equal(TimeSpan.FromMilliseconds(75), delay.Invoke(test, [context]));
+        Assert.Equal(64, capacity.Invoke(test, [context]));
+        string runRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(NotificationStreamSessionService), nameof(NotificationStreamSessionService.RunAsync));
+        Assert.Contains("NotificationStreamConnectionManager.RegisterConnection", runRuntime, StringComparison.Ordinal);
+        Assert.Contains("HttpContextExtensions.GetClientIp", runRuntime, StringComparison.Ordinal);
     }
 
     private sealed class ThrowingWebSocketFeature : IHttpWebSocketFeature
@@ -548,7 +744,7 @@ public class NotificationStreamBoundaryTests
         public string ApplicationName { get; set; } = "FsusBlog.Server.Tests";
         public string WebRootPath { get; set; } = string.Empty;
         public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
-        public string ContentRootPath { get; set; } = BackendTestPaths.RepositoryRoot;
+        public string ContentRootPath { get; set; } = string.Empty;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
@@ -570,7 +766,8 @@ public class NotificationStreamBoundaryTests
         CapturingProofService? proof = null,
         IPowService? powService = null,
         INotificationStreamAdmissionService? admissionService = null,
-        CapturingRiskSink? riskSink = null)
+        CapturingRiskSink? riskSink = null,
+        DeploymentRuntimeState? deploymentRuntime = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings.Select(static item =>
@@ -594,7 +791,8 @@ public class NotificationStreamBoundaryTests
             new NotificationStreamAudienceResolver(),
             new NotificationStreamOriginSnapshotProvider(configuration),
             environment,
-            NullLoggerFactory.Instance);
+            NullLoggerFactory.Instance,
+            deploymentRuntime);
     }
 
     private static DefaultHttpContext CreateHandshakeContext(string origin, string host)
@@ -781,30 +979,60 @@ public class NotificationStreamBoundaryTests
         }
     }
 
-    private static string ExtractMethodBlock(string source, string signature)
+    private static NotificationStreamSessionService CreateSessionService(IWebHostEnvironment environment)
     {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+        var manager = new NotificationStreamConnectionManager(
+            new ConfigurationBuilder().Build(),
+            NullLogger<NotificationStreamConnectionManager>.Instance);
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        redis.GetDatabase().Returns(Substitute.For<IDatabase>());
+        var backlog = new NotificationStreamBacklogStore(
+            redis,
+            Substitute.For<IRuntimeKeyScope>(),
+            NullLogger<NotificationStreamBacklogStore>.Instance);
+        return new NotificationStreamSessionService(
+            manager,
+            backlog,
+            new TestNotificationFrameCodec(),
+            environment,
+            NullLogger<NotificationStreamSessionService>.Instance);
+    }
 
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
+    private static RouteEndpoint[] FindRoutes(WebApplication app, string route)
+        => ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => string.Equals(
+                endpoint.RoutePattern.RawText?.TrimStart('/'),
+                route.TrimStart('/'),
+                StringComparison.Ordinal))
+            .ToArray();
+
+    private static MethodInfo AsyncMoveNext(MethodInfo method)
+    {
+        AsyncStateMachineAttribute stateMachine = method.GetCustomAttribute<AsyncStateMachineAttribute>()
+            ?? throw new InvalidOperationException($"Async state machine missing: {method.Name}");
+        return stateMachine.StateMachineType.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!;
+    }
+
+    private static IEnumerable<(int Offset, MethodBase Method)> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
         {
-            if (source[i] == '{')
+            if (il[offset] is not (0x28 or 0x6F)) continue;
+            MethodBase? called = null;
+            try
             {
-                depth++;
+                called = method.Module.ResolveMethod(
+                    BitConverter.ToInt32(il, offset + 1),
+                    method.DeclaringType?.GetGenericArguments(),
+                    method.GetGenericArguments());
             }
-            else if (source[i] == '}')
+            catch (ArgumentException)
             {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(i + 1)];
-                }
             }
+            if (called is not null) yield return (offset, called);
         }
-
-        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 }

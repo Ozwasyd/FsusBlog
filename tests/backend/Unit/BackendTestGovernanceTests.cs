@@ -1,5 +1,14 @@
 using System.Text.Json.Nodes;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -54,23 +63,121 @@ public sealed class BackendTestGovernanceTests
     }
 
     [Fact]
-    public void EndpointFamilies_CoverEveryEndpointFile()
+    public async Task EndpointFamilies_CoverEveryRuntimeRouteAndMethod()
     {
-        string root = BackendTestPaths.RepositoryRoot;
-        var expected = Directory
-            .EnumerateFiles(BackendTestPaths.FromRoot("src", "backend", "Modules", "Endpoints"), "*.cs", SearchOption.AllDirectories)
-            .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
-            .Where(static path => !path.EndsWith("Adapters.cs", StringComparison.Ordinal))
-            .Order(StringComparer.Ordinal)
-            .ToArray();
-
-        var actual = ReadRequirementsFixture()["endpointFamilies"]!
+        JsonObject fixture = ReadRequirementsFixture();
+        var knownRequirements = fixture["requirements"]!
             .AsArray()
-            .Select(static node => node!["path"]!.GetValue<string>())
-            .Order(StringComparer.Ordinal)
+            .Select(static node => node!["id"]!.GetValue<string>())
+            .ToHashSet(StringComparer.Ordinal);
+        EndpointFamilyContract[] families = fixture["endpointFamilies"]!
+            .AsArray()
+            .Select(static node => EndpointFamilyContract.From(node!.AsObject()))
             .ToArray();
+        Assert.NotEmpty(families);
+        Assert.Equal(families.Length, families.Select(static family => family.Id).Distinct(StringComparer.Ordinal).Count());
+        Assert.All(families, family =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(family.Id));
+            Assert.True(family.RoutePrefixes.Length + family.RoutePatterns.Length > 0);
+            Assert.NotEmpty(family.Requirements);
+            Assert.All(family.Requirements, requirement => Assert.Contains(requirement, knownRequirements));
+        });
 
-        Assert.Equal(expected, actual);
+        WebApplicationBuilder mainBuilder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Development
+        });
+        mainBuilder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["fsus:allowLocalAuthFixture"] = "true"
+        });
+        mainBuilder.Services.AddAuthorization();
+        mainBuilder.Services.AddOutputCache();
+        await using WebApplication main = mainBuilder.Build();
+        MapGovernedEndpoints(main);
+
+        WebApplicationBuilder qualificationBuilder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = "Test"
+        });
+        qualificationBuilder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["SchemaMigration:QualificationEnabled"] = "true"
+        });
+        qualificationBuilder.Services.AddAuthorization();
+        await using WebApplication qualification = qualificationBuilder.Build();
+        qualification.MapReleaseSchemaQualificationEndpoints();
+
+        RouteEndpoint[] runtimeEndpoints = main.DataSources
+            .Concat(qualification.DataSources)
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .ToArray();
+        Assert.NotEmpty(runtimeEndpoints);
+
+        var routeMethods = new List<string>();
+        foreach (RouteEndpoint endpoint in runtimeEndpoints)
+        {
+            string route = NormalizeRoute(endpoint.RoutePattern.RawText);
+            string[] methods = endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods
+                .Order(StringComparer.Ordinal)
+                .ToArray() ?? [];
+            Assert.NotEmpty(methods);
+            EndpointFamilyContract[] matches = families.Where(family => family.Matches(route)).ToArray();
+            Assert.NotEmpty(matches);
+            string[] tags = endpoint.Metadata.GetMetadata<ITagsMetadata>()?.Tags.ToArray() ?? [];
+            string? routeKind = endpoint.Metadata.GetMetadata<FsusRouteKindMetadata>()?.RouteKind;
+            Assert.True(
+                tags.Length > 0 || !string.IsNullOrWhiteSpace(routeKind) || matches.Length > 0,
+                $"runtime endpoint {route} is missing tag or family metadata");
+            routeMethods.AddRange(methods.Select(method => $"{method} {route}"));
+        }
+
+        Assert.Equal(routeMethods.Count, routeMethods.Distinct(StringComparer.Ordinal).Count());
+        Assert.All(
+            families,
+            family => Assert.Contains(runtimeEndpoints, endpoint => family.Matches(NormalizeRoute(endpoint.RoutePattern.RawText))));
+    }
+
+    private static void MapGovernedEndpoints(WebApplication app)
+    {
+        app.MapBinaryEndpoints();
+        app.MapAuthoringEndpoints();
+        app.MapSecurityEndpoints();
+        app.MapAdminIntegrityConsoleEndpoints();
+        app.MapPublicAotEndpoints();
+        app.MapDistributionEndpoints();
+        app.MapIntegrityVerificationEndpoints();
+        app.MapLocalAuthFixtureEndpoints();
+        app.MapNotificationStreamDrillEndpoints();
+    }
+
+    private static string NormalizeRoute(string? route)
+        => string.Concat('/', (route ?? string.Empty).Trim().TrimStart('/'));
+
+    private sealed record EndpointFamilyContract(
+        string Id,
+        string[] RoutePrefixes,
+        string[] RoutePatterns,
+        string[] Requirements)
+    {
+        public static EndpointFamilyContract From(JsonObject value)
+            => new(
+                value["id"]!.GetValue<string>(),
+                ReadValues(value, "routePrefixes"),
+                ReadValues(value, "routePatterns"),
+                ReadValues(value, "requirements"));
+
+        public bool Matches(string route)
+            => RoutePatterns.Contains(route, StringComparer.Ordinal)
+                || RoutePrefixes.Any(prefix => string.Equals(route, prefix, StringComparison.Ordinal)
+                    || route.StartsWith(string.Concat(prefix, '/'), StringComparison.Ordinal));
+
+        private static string[] ReadValues(JsonObject value, string property)
+            => value[property]?.AsArray()
+                .Select(static node => node!.GetValue<string>())
+                .ToArray() ?? [];
     }
 
     private static void AssertEvidencePathsExist(JsonArray paths)

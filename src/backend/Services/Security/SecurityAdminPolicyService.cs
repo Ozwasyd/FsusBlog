@@ -2,7 +2,6 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
-using System.Security.Cryptography;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -12,6 +11,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     private const int MaxRuntimeSnapshots = 512;
     private readonly object _gate = new();
     private readonly IConfiguration _configuration;
+    private readonly ISecurityRandomSource _randomSource;
     private AntiCrawlerPolicySnapshot _currentAntiCrawler;
     private AntiCrawlerPolicySnapshot? _previousAntiCrawler;
     private PowPolicySnapshot _currentPow;
@@ -27,9 +27,12 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
     private readonly List<AntiCrawlerListEntryResponse> _allowlist = [];
     private readonly List<AntiCrawlerListEntryResponse> _blocklist = [];
 
-    public SecurityAdminPolicyService(IConfiguration configuration)
+    public SecurityAdminPolicyService(
+        IConfiguration configuration,
+        ISecurityRandomSource? randomSource = null)
     {
         _configuration = configuration;
+        _randomSource = randomSource ?? CryptographicSecurityRandomSource.Instance;
         DateTimeOffset now = DateTimeOffset.UtcNow;
         _currentAntiCrawler = new AntiCrawlerPolicySnapshot(
             CreateSnapshotId("anti-crawler", now),
@@ -367,7 +370,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         Volatile.Write(ref _currentRiskPolicy, ApplyPerceptionV2Projection(snapshot, _currentPerceptionV2, updatedAtUtc));
     }
 
-    private static SecurityRiskPolicySnapshotV2 ApplyRiskControlConfigurationFallbacks(
+    private SecurityRiskPolicySnapshotV2 ApplyRiskControlConfigurationFallbacks(
         SecurityRiskPolicySnapshotV2 snapshot,
         IConfiguration configuration,
         DateTimeOffset updatedAtUtc)
@@ -391,7 +394,7 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
         };
     }
 
-    private static SecurityRiskPolicySnapshotV2 ApplyRiskControlUpdate(
+    private SecurityRiskPolicySnapshotV2 ApplyRiskControlUpdate(
         SecurityRiskPolicySnapshotV2 current,
         RiskControlPolicyUpdateRequest request,
         DateTimeOffset updatedAtUtc,
@@ -1419,6 +1422,6 @@ public sealed class SecurityAdminPolicyService : ISecurityAdminPolicyService
             : null;
     }
 
-    private static string CreateSnapshotId(string prefix, DateTimeOffset timestamp)
-        => $"{prefix}-{timestamp:yyyyMMddHHmmssfff}-{Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8))}";
+    private string CreateSnapshotId(string prefix, DateTimeOffset timestamp)
+        => $"{prefix}-{timestamp:yyyyMMddHHmmssfff}-{Convert.ToHexStringLower(_randomSource.GetBytes(8))}";
 }

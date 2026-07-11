@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using FsusBlog.Server.Infrastructure.NotificationStream;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -9,43 +8,53 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class NotificationStreamConnectionManagerTests
 {
     [Fact]
-    public void Source_RegistersAndRemovesConnectionsWithoutGlobalIndexGate()
+    public void RegisterAndRemove_MaintainsUserAndGroupIndexesIndependently()
     {
-        string source = ReadManagerSource();
+        NotificationStreamConnectionManager manager = CreateManager();
+        manager.RegisterConnection("content-user", "42", ["content"]);
+        manager.RegisterConnection("admin-user", "99", ["admin"]);
 
-        Assert.DoesNotContain("_indexGate", source, StringComparison.Ordinal);
-        Assert.Contains("AddToIndex(_byUserId, userId, connectionId)", source, StringComparison.Ordinal);
-        Assert.Contains("RemoveFromIndex(_byUserId, connection.UserId, connectionId)", source, StringComparison.Ordinal);
-        Assert.Contains("ResolveConnectionsSnapshot", source, StringComparison.Ordinal);
+        Assert.Equal(1, Publish(manager, new NotificationStreamUserTarget("42")));
+        Assert.Equal(1, Publish(manager, new NotificationStreamGroupTarget("content")));
+        Assert.Equal(1, Publish(manager, new NotificationStreamUserTarget("99")));
+        Assert.Equal(1, Publish(manager, new NotificationStreamGroupTarget("admin")));
+
+        manager.RemoveConnection("content-user");
+
+        Assert.Equal(0, Publish(manager, new NotificationStreamUserTarget("42")));
+        Assert.Equal(0, Publish(manager, new NotificationStreamGroupTarget("content")));
+        Assert.Equal(1, Publish(manager, new NotificationStreamUserTarget("99")));
+        Assert.Equal(1, Publish(manager, new NotificationStreamGroupTarget("admin")));
     }
 
     [Fact]
-    public void Source_PublishUsesCachedIndexSnapshotsInsteadOfPerPublishToArray()
+    public void Publish_ObservesIndexSnapshotAfterMembershipChanges()
     {
-        string source = ReadManagerSource();
-        string publishPath = ExtractBetween(
-            source,
-            "public int Publish(",
-            "    private static void AddToIndex");
+        NotificationStreamConnectionManager manager = CreateManager();
+        manager.RegisterConnection("first", "42", []);
+        manager.RegisterConnection("second", "42", []);
 
-        Assert.Contains("ConnectionIndexBucket", source, StringComparison.Ordinal);
-        Assert.Contains(".Snapshot", publishPath, StringComparison.Ordinal);
-        Assert.DoesNotContain(".ToArray()", publishPath, StringComparison.Ordinal);
-        Assert.Contains("NotificationStreamMetrics.RecordPublishFanout", source, StringComparison.Ordinal);
+        Assert.Equal(2, Publish(manager, new NotificationStreamUserTarget("42")));
+
+        manager.RemoveConnection("first");
+        Assert.Equal(1, Publish(manager, new NotificationStreamUserTarget("42")));
+
+        manager.RegisterConnection("third", "42", []);
+        Assert.Equal(2, Publish(manager, new NotificationStreamUserTarget("42")));
     }
 
     [Fact]
-    public void Source_MultiUserTargetAvoidsPerUserArraySnapshotsAndDedupesOnce()
+    public void Publish_MultiUserTargetDeduplicatesRepeatedUserIdsOnce()
     {
-        string source = ReadManagerSource();
-        string method = ExtractBetween(
-            source,
-            "private IReadOnlyList<NotificationStreamConnection> ResolveMultiUser",
-            "    private static void AddToIndex");
+        NotificationStreamConnectionManager manager = CreateManager();
+        manager.RegisterConnection("user-10", "10", []);
+        manager.RegisterConnection("user-20", "20", []);
 
-        Assert.Contains("seenConnectionIds", method, StringComparison.Ordinal);
-        Assert.Contains(".Snapshot", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".ToArray()", method, StringComparison.Ordinal);
+        int delivered = Publish(
+            manager,
+            new NotificationStreamMultiUserTarget(["10", "10", "20", "20", "missing"]));
+
+        Assert.Equal(2, delivered);
     }
 
     [Fact]
@@ -119,21 +128,22 @@ public sealed class NotificationStreamConnectionManagerTests
         Assert.Equal(["u:10", "u:20", "u:30"], routes);
     }
 
-    private static string ReadManagerSource()
-        => BackendTestPaths.ReadAllTextFromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "NotificationStream",
-            "NotificationStreamConnectionManager.cs");
-
-    private static string ExtractBetween(string source, string start, string end)
+    private static NotificationStreamConnectionManager CreateManager()
     {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection()
+            .Build();
+        return new NotificationStreamConnectionManager(
+            configuration,
+            NullLogger<NotificationStreamConnectionManager>.Instance);
+    }
+
+    private static int Publish(NotificationStreamConnectionManager manager, NotificationStreamTarget target)
+    {
+        SharedNotificationStreamFrame frame = SharedNotificationStreamFrame.FromArray([1, 2, 3]);
+        int delivered = manager.Publish(frame, target);
+        frame.Release();
+        return delivered;
     }
 }
 

@@ -8,13 +8,19 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SqlSugar;
@@ -171,19 +177,30 @@ public sealed class AnonymousCredentialRootEndpointTests
     }
 
     [Fact]
-    public void AnonymousCredentialRootEndpoints_AreAnonymousPublicReadAedsOnly()
+    public async Task AnonymousCredentialRootEndpoints_AreAnonymousPublicReadAedsOnly()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs");
-        string handler = ExtractMethod(source, "HandleAnonymousCredentialRootAsync", "HandleAnonymousCredentialIssueAsync");
+        await using WebApplication app = EndpointContractApplication.Create();
+        foreach (string route in new[]
+        {
+            "/api/binary/anonymous-credential/root",
+            "/api/binary/anonymous-credential/circuit"
+        })
+        {
+            RouteEndpoint endpoint = EndpointContractApplication.Find(app, route, HttpMethods.Get);
+            Assert.NotNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+            Assert.Equal(
+                "public_read",
+                Assert.IsType<EnableRateLimitingAttribute>(
+                    endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
+        }
 
-        Assert.Contains("MapGet(\"/anonymous-credential/root\"", source, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/anonymous-credential/circuit\"", source, StringComparison.Ordinal);
-        Assert.Contains(".AllowAnonymous()", source, StringComparison.Ordinal);
-        Assert.Contains(".RequireRateLimiting(\"public_read\")", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.AnonymousCredentialRootSnapshot", source, StringComparison.Ordinal);
-        Assert.Contains("anonymous_root_unavailable", source, StringComparison.Ordinal);
+        string handler = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            nameof(BinaryEndpoints.HandleAnonymousCredentialRootAsync));
+        Assert.Contains("WriteAnonymousCredentialRootSnapshot", handler, StringComparison.Ordinal);
+        Assert.Contains("anonymous_root_unavailable", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserId", handler, StringComparison.Ordinal);
-        Assert.DoesNotContain(".User", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpContext.get_User", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("Cookie", handler, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Session", handler, StringComparison.OrdinalIgnoreCase);
     }
@@ -243,20 +260,28 @@ public sealed class AnonymousCredentialRootEndpointTests
     }
 
     [Fact]
-    public void AnonymousCredentialRevocationWitnessEndpoint_IsStrongAnonymousPublicReadAedsOnly()
+    public async Task AnonymousCredentialRevocationWitnessEndpoint_IsStrongAnonymousPublicReadAedsOnly()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs");
-        string handler = ExtractMethod(source, "HandleAnonymousCredentialRevocationWitnessAsync", "HandleAnonymousCredentialIssueAsync");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint endpoint = EndpointContractApplication.Find(
+            app,
+            "/api/binary/anonymous-credential/revocation-witness",
+            HttpMethods.Post);
+        Assert.NotNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        Assert.NotNull(endpoint.Metadata.GetMetadata<StrongAnonymousRequestMetadata>());
+        Assert.NotNull(endpoint.Metadata.GetMetadata<NoStoreResponseMetadata>());
+        Assert.Equal(
+            "public_read",
+            Assert.IsType<EnableRateLimitingAttribute>(
+                endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
 
-        Assert.Contains("MapPost(\"/anonymous-credential/revocation-witness\"", source, StringComparison.Ordinal);
-        Assert.Contains(".AllowAnonymous()", source, StringComparison.Ordinal);
-        Assert.Contains(".RequireRateLimiting(\"public_read\")", source, StringComparison.Ordinal);
-        Assert.Contains(".RequireNoStoreResponse()", source, StringComparison.Ordinal);
-        Assert.Contains(".RequireStrongAnonymousRequest()", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.AnonymousCredentialRevocationWitnessRequest", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.AnonymousCredentialRevocationWitnessResponse", source, StringComparison.Ordinal);
+        string handler = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            nameof(BinaryEndpoints.HandleAnonymousCredentialRevocationWitnessAsync));
+        Assert.Contains("TryDecodeAnonymousCredentialRevocationWitnessRequest", handler, StringComparison.Ordinal);
+        Assert.Contains("WriteAnonymousCredentialRevocationWitnessResponse", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserId", handler, StringComparison.Ordinal);
-        Assert.DoesNotContain(".User", handler, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpContext.get_User", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("Cookie", handler, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Session", handler, StringComparison.OrdinalIgnoreCase);
     }
@@ -367,15 +392,6 @@ public sealed class AnonymousCredentialRootEndpointTests
 
         Assert.True(decoded.IsSuccess, decoded.Error.Message);
         return decoded.Value;
-    }
-
-    private static string ExtractMethod(string source, string startMarker, string endMarker)
-    {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"{startMarker} not found");
-        int end = source.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
-        Assert.True(end > start, $"{endMarker} not found after {startMarker}");
-        return source[start..end];
     }
 
     private sealed class CapturingRootService(Result<AnonymousCredentialRootSnapshotCoreModel> result) : IAnonymousCredentialRootService

@@ -1,6 +1,6 @@
 import { nextTick, onBeforeUnmount, onMounted, type Ref } from 'vue'
 
-const headerSelector = '.fsusblog-public-shell-header'
+export const publicStickyHeaderSelector = '[data-public-shell-header]'
 const anchorGap = '0.75rem'
 
 export const publicStickyGeometryTokens = {
@@ -15,7 +15,7 @@ export function usePublicStickyGeometry(rootRef: Ref<HTMLElement | undefined>): 
   let lastPublishedHeight = ''
 
   const resolveHeader = (): HTMLElement | null =>
-    rootRef.value?.querySelector<HTMLElement>(headerSelector) ?? null
+    rootRef.value?.querySelector<HTMLElement>(publicStickyHeaderSelector) ?? null
 
   const publish = (): void => {
     const root = rootRef.value

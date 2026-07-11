@@ -29,6 +29,8 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     public static IServiceCollection AddFsusRuntimeInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<StartupRuntimeState>();
+        services.AddSingleton<DeploymentRuntimeState>();
+        services.AddSingleton<DeploymentDrainCoordinator>();
         services.AddBinaryRuntime();
         services.AddNotificationRuntime();
         services.AddCrawlerAndSearchRuntime(configuration);

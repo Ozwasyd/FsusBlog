@@ -20,6 +20,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddUserRuntimePorts();
         services.AddGeneralDomainServices();
         services.AddCoreBridgeServices();
+        services.AddHostedService<DeploymentLifecycleHostedService>();
 
         return services;
     }

@@ -19,7 +19,7 @@ rm -f "$OUT_DIR"/*.json
   --no-build \
   --no-restore \
   -- \
-  --filter "${FSUSBLOG_BENCHMARK_FILTER:-*Aeds*}" \
+  --filter "${FSUSBLOG_BENCHMARK_FILTER:-*HotPath*}" \
   --artifacts "$ARTIFACT_ROOT" \
   --exporters json
 
@@ -29,18 +29,9 @@ if [[ "${#reports[@]}" -eq 0 ]]; then
   exit 1
 fi
 
-report_paths_json="$(printf '%s\n' "${reports[@]#$ROOT_DIR/}" | jq -R . | jq -s .)"
-jq -n \
-  --argjson reportCount "${#reports[@]}" \
-  --arg filter "${FSUSBLOG_BENCHMARK_FILTER:-*Aeds*}" \
-  --argjson reportPaths "$report_paths_json" '{
-    status: "ok",
-    suite: "backend-benchmark-regression",
-    filter: $filter,
-    reportCount: $reportCount,
-    reportPaths: $reportPaths,
-    regressionPolicy: {nightlyPercent: 5, releasePercent: 10},
-    generatedAt: now | todate
-  }' > "$OUT_DIR/fsusblog-benchmark-regression.json"
-jq -n '{status:"ok", artifact:"BenchmarkDotNet.Artifacts/results/fsusblog-benchmark-regression.json", generatedAt: now | todate}' > "$RELEASE_SUMMARY_DIR/backend-benchmark-regression.json"
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/perf/check-backend-benchmark-regression.mjs" \
+  --reports "$OUT_DIR" \
+  --budgets "$ROOT_DIR/tests/performance/backend-hotpath-budgets.json" \
+  --output "$OUT_DIR/fsusblog-benchmark-regression.json" \
+  --release-summary "$RELEASE_SUMMARY_DIR/backend-benchmark-regression.json"
 printf '[backend-benchmark-regression] wrote %s\n' "$OUT_DIR/fsusblog-benchmark-regression.json"

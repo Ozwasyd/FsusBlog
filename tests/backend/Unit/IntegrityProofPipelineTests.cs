@@ -1,7 +1,7 @@
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Services;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Services.Background;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -10,61 +10,80 @@ public sealed class IntegrityProofPipelineTests
     [Fact]
     public void OutboxReplay_SchedulesIntegrityProofAfterRequiredEdgesWithoutRequiringIt()
     {
-        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
-        string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
-        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "    private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync");
-        string replayMethod = Slice(sideEffects, "public async Task<ArticleMutationReplayResult> ReplayOutboxAsync", "    private async Task<Article?> LoadArticleWithContentAsync");
+        Assert.Equal("integrity-proof", ArticleMutationReplayEdges.IntegrityProof);
+        Assert.DoesNotContain(ArticleMutationReplayEdges.IntegrityProof, ArticleMutationReplayEdges.Required);
+        Assert.Contains(
+            typeof(ArticleMutationSideEffectCoordinator).GetConstructors().Single().GetParameters(),
+            static parameter => parameter.ParameterType == typeof(IIntegrityProofScheduler));
 
-        Assert.Contains("IntegrityProof = \"integrity-proof\"", sideEffects, StringComparison.Ordinal);
-        Assert.Contains("IIntegrityProofScheduler integrityProofScheduler", sideEffects, StringComparison.Ordinal);
-        Assert.DoesNotContain("IntegrityProof,", Slice(sideEffects, "public static readonly IReadOnlySet<string> Required", "    };"), StringComparison.Ordinal);
+        string processOne = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(ArticleMutationOutboxDispatcher),
+            "ReplayOutboxAsync",
+            "get_AggregateId",
+            "get_EventType");
+        Assert.Contains("get_CompletedEdges", processOne, StringComparison.Ordinal);
 
-        Assert.Contains("coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedAfterReplay", processOne, StringComparison.Ordinal);
-        Assert.Contains("ArticleMutationReplayEdges.Required.All(completed.Contains)", replayMethod, StringComparison.Ordinal);
-        Assert.Contains("RunOptionalEdgeAsync(ArticleMutationReplayEdges.IntegrityProof", replayMethod, StringComparison.Ordinal);
-        Assert.Contains("integrityProofScheduler.ScheduleFromOutboxAsync", replayMethod, StringComparison.Ordinal);
+        IReadOnlyList<string> requiredGuard = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferencesInOrderContaining(
+                typeof(ArticleMutationSideEffectCoordinator),
+                "ArticleMutationReplayEdges.Required",
+                "RunOptionalEdgeAsync",
+                "IIntegrityProofScheduler.ScheduleFromOutboxAsync");
+        Assert.True(
+            FindReference(requiredGuard, "ArticleMutationReplayEdges.Required") <
+            FindReference(requiredGuard, "RunOptionalEdgeAsync"));
 
-        int publicHot = replayMethod.IndexOf("ArticleMutationReplayEdges.PublicHotRead", replayMethod.IndexOf("try", StringComparison.Ordinal), StringComparison.Ordinal);
-        int requiredGuard = replayMethod.IndexOf("ArticleMutationReplayEdges.Required.All(completed.Contains)", StringComparison.Ordinal);
-        int proof = replayMethod.IndexOf("RunOptionalEdgeAsync(ArticleMutationReplayEdges.IntegrityProof", StringComparison.Ordinal);
-        int schedule = replayMethod.IndexOf("await ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(normalized)", StringComparison.Ordinal);
-
-        Assert.True(publicHot >= 0);
-        Assert.True(schedule > publicHot);
-        Assert.True(proof > requiredGuard);
+        IReadOnlyList<IReadOnlyList<string>> replayBranches = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferenceSequencesContaining(
+                typeof(ArticleMutationSideEffectCoordinator),
+                "ArticleMutationReplayEdges.PublicHotRead",
+                "ScheduleIntegrityProofIfRequiredEdgesCompleteAsync");
+        Assert.All(replayBranches, branch => Assert.True(
+            FindReference(branch, "ArticleMutationReplayEdges.PublicHotRead") <
+            FindReference(branch, "ScheduleIntegrityProofIfRequiredEdgesCompleteAsync")));
     }
 
     [Fact]
     public void OutboxReplay_SchedulesDistinctArticleRightsProofAfterPublishProofPath()
     {
-        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
-        string pipeline = ReadRepoFile("src/backend/Infrastructure/Integrity/IntegrityProofPipeline.cs");
-        string model = ReadRepoFile("src/backend/Infrastructure/Integrity/ArticleRightsProof.cs");
-
-        Assert.Contains("IntegrityProof = \"integrity-proof\"", sideEffects, StringComparison.Ordinal);
+        Assert.Equal("integrity-proof", ArticleMutationReplayEdges.IntegrityProof);
+        string pipeline = RuntimeMetadataInspection.DescribeMethods(
+            typeof(IntegrityProofScheduler),
+            nameof(IntegrityProofScheduler.ScheduleFromOutboxAsync),
+            nameof(IntegrityProofScheduler.ScheduleArticleRightsProofFromOutboxAsync));
         Assert.Contains("ScheduleArticleRightsProofFromOutboxAsync", pipeline, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsProofIdempotency.BuildKey", pipeline, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsProofCanonicalPayloadV1.BuildSigningPayload", pipeline, StringComparison.Ordinal);
         Assert.Contains("AppendArticleRightsProofAsync", pipeline, StringComparison.Ordinal);
         Assert.Contains("article_rights_proof", pipeline, StringComparison.Ordinal);
-        Assert.Contains("article:{articleId}:revision:{articleRevisionId}:rights:{proofVersion}", model, StringComparison.Ordinal);
-        Assert.Contains("ProofBindingEnabled", pipeline, StringComparison.Ordinal);
+        Assert.Contains("get_ProofBindingEnabled", pipeline, StringComparison.Ordinal);
+
+        Assert.Equal(
+            "article:910002:revision:810002:rights:1",
+            ArticleRightsProofIdempotency.BuildKey(910002, 810002, 1));
     }
 
     [Fact]
     public void IntegrityProofFailure_IsRecordedAsNonRequiredEdgeWithoutFailingReplay()
     {
-        string sideEffects = ReadRepoFile("src/backend/Services/ArticleMutationSideEffects.cs");
-        string dispatcher = ReadRepoFile("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs");
-        string replayMethod = Slice(sideEffects, "public async Task<ArticleMutationReplayResult> ReplayOutboxAsync", "    private async Task<Article?> LoadArticleWithContentAsync");
-        string processOne = Slice(dispatcher, "private async Task<bool> ProcessOneAsync", "    private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync");
+        string optionalEdge = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(ArticleMutationSideEffectCoordinator),
+            "article-outbox-replay-optional-edge-failed",
+            "Dictionary");
+        Assert.Contains("set_Item", optionalEdge, StringComparison.Ordinal);
 
-        Assert.Contains("async Task RunOptionalEdgeAsync", replayMethod, StringComparison.Ordinal);
-        Assert.Contains("failed[edgeName] = error;", replayMethod, StringComparison.Ordinal);
-        Assert.Contains("return ArticleMutationReplayResult.Success(completedDuringReplay, failed)", replayMethod, StringComparison.Ordinal);
-        Assert.Contains("replay.CompletedEdges.Count + replay.FailedEdges.Count", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains)", processOne, StringComparison.Ordinal);
-        Assert.DoesNotContain("ArticleMutationReplayEdges.Required.All(completedAfterReplay.Contains) && !replay.FailedEdges", processOne, StringComparison.Ordinal);
+        string replay = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleMutationSideEffectCoordinator),
+            nameof(ArticleMutationSideEffectCoordinator.ReplayOutboxAsync));
+        Assert.Contains("ArticleMutationReplayResult.Success", replay, StringComparison.Ordinal);
+        Assert.Contains("get_FailedEdges", RuntimeMetadataInspection.DescribeType(typeof(ArticleMutationOutboxDispatcher)), StringComparison.Ordinal);
+
+        string processOne = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(ArticleMutationOutboxDispatcher),
+            "get_CompletedEdges",
+            "get_FailedEdges");
+        Assert.Contains("ArticleMutationReplayEdges.Required", processOne, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enumerable.Any", processOne, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -152,15 +171,10 @@ public sealed class IntegrityProofPipelineTests
         Assert.False(plan.ShouldRetry);
     }
 
-    private static string Slice(string source, string startMarker, string endMarker)
+    private static int FindReference(IReadOnlyList<string> references, string fact)
     {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"start marker not found: {startMarker}");
-        int end = source.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
-        Assert.True(end > start, $"end marker not found: {endMarker}");
-        return source[start..end];
+        int index = references.ToList().FindIndex(reference => reference.Contains(fact, StringComparison.Ordinal));
+        Assert.True(index >= 0, $"Missing runtime reference '{fact}'.");
+        return index;
     }
-
-    private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 }

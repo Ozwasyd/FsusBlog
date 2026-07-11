@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -11,7 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -560,6 +561,45 @@ public sealed class FileServiceTests
 
             Assert.Equal(0, GetSessionLockCount());
             await Assert.ThrowsAsync<ObjectDisposedException>(async () => await entry.Semaphore.WaitAsync());
+        }
+        finally
+        {
+            ResetSessionLocks();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CleanupExpiredSessionsAsync_LeasesCommitTempCleanupAndPreservesRetentionWindow()
+    {
+        ResetSessionLocks();
+        string root = CreateTempDirectory();
+        try
+        {
+            var service = CreateService(root);
+            string incomingRoot = Path.Combine(root, "wwwroot", "uploads", "illustration", ".incoming");
+            string staleDirectory = Path.Combine(incomingRoot, "retired-release-instance");
+            string freshDirectory = Path.Combine(incomingRoot, "other-live-instance");
+            Directory.CreateDirectory(staleDirectory);
+            Directory.CreateDirectory(freshDirectory);
+            string staleFile = Path.Combine(staleDirectory, "stale.tmp");
+            string freshFile = Path.Combine(freshDirectory, "fresh.tmp");
+            await File.WriteAllTextAsync(staleFile, "stale");
+            await File.WriteAllTextAsync(freshFile, "fresh");
+            File.SetLastWriteTimeUtc(staleFile, DateTime.UtcNow.AddDays(-2));
+            int commitChecks = 0;
+
+            await service.CleanupExpiredSessionsAsync(
+                CancellationToken.None,
+                _ =>
+                {
+                    Interlocked.Increment(ref commitChecks);
+                    return Task.CompletedTask;
+                });
+
+            Assert.False(File.Exists(staleFile));
+            Assert.True(File.Exists(freshFile));
+            Assert.True(commitChecks >= 1);
         }
         finally
         {
@@ -1128,27 +1168,34 @@ public sealed class FileServiceTests
     [Fact]
     public void UploadHotPathSource_DoesNotReopenWrittenFilesForHashOrSignature()
     {
-        string source = ReadFileServiceSource();
-        string uploadPart = ExtractMethodBlock(source, "public async Task<Result<UploadPartAckDto>> UploadPartAsync");
-        string complete = ExtractMethodBlock(source, "public async Task<Result<UploadCompleteDto>> CompleteUploadAsync");
+        string uploadPart = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(FileService),
+            "WritePartToWorkingFileAndComputeHashAsync");
+        string complete = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(FileService),
+            "AnalyzeWorkingUploadAsync",
+            "AssembleUploadAsync");
 
-        Assert.DoesNotContain("ComputeSha256Async(partPath", uploadPart, StringComparison.Ordinal);
-        Assert.DoesNotContain("ComputeSha256Async(tempPath", complete, StringComparison.Ordinal);
-        Assert.DoesNotContain("ValidateImageSignatureAsync(tempPath", complete, StringComparison.Ordinal);
+        Assert.DoesNotContain("ComputeSha256Async", uploadPart, StringComparison.Ordinal);
+        Assert.DoesNotContain("ComputeSha256Async", complete, StringComparison.Ordinal);
+        Assert.DoesNotContain("ValidateImageSignatureAsync", complete, StringComparison.Ordinal);
         Assert.Contains("WritePartToWorkingFileAndComputeHashAsync", uploadPart, StringComparison.Ordinal);
         Assert.Contains("AnalyzeWorkingUploadAsync", complete, StringComparison.Ordinal);
         Assert.Contains("AssembleUploadAsync", complete, StringComparison.Ordinal);
-        Assert.Contains("ValidateImageSignature(assembled.Header", complete, StringComparison.Ordinal);
+        Assert.Contains("ValidateImageSignature", complete, StringComparison.Ordinal);
     }
 
     [Fact]
     public void UploadSessionStorage_UsesRandomPrivateManifestTempFiles()
     {
-        string source = ReadFileServiceSource();
-        string saveSession = ExtractMethodBlock(source, "private async Task SaveSessionAsync");
+        string saveSession = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(FileService),
+            "Path.GetRandomFileName",
+            "File.Replace",
+            "CreatePrivateWriteOptions");
 
-        Assert.DoesNotContain("manifestPath + \".tmp\"", saveSession, StringComparison.Ordinal);
-        Assert.Contains("Path.GetRandomFileName()", saveSession, StringComparison.Ordinal);
+        Assert.DoesNotContain(".tmp", saveSession, StringComparison.Ordinal);
+        Assert.Contains("Path.GetRandomFileName", saveSession, StringComparison.Ordinal);
         Assert.Contains("File.Replace", saveSession, StringComparison.Ordinal);
         Assert.Contains("CreatePrivateWriteOptions", saveSession, StringComparison.Ordinal);
     }
@@ -1156,23 +1203,29 @@ public sealed class FileServiceTests
     [Fact]
     public void UploadSessionCleanup_SourceUsesExpirationBucketIndex()
     {
-        string source = ReadFileServiceSource();
-        string cleanup = ExtractMethodBlock(source, "internal async Task CleanupExpiredSessionsAsync");
+        string cleanup = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(FileService),
+            "EnumerateExpiredExpirationBuckets",
+            "RecordUploadSessionCleanup");
 
-        Assert.Contains("WriteExpirationIndexAsync", source, StringComparison.Ordinal);
-        Assert.Contains("EnumerateExpiredExpirationBuckets", source, StringComparison.Ordinal);
-        Assert.Contains("RecordUploadSessionCleanup", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("CleanupLegacySessionRootSweepAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("foreach (string sessionPath in Directory.EnumerateDirectories(_sessionRootPath))", cleanup, StringComparison.Ordinal);
+        Assert.NotNull(typeof(FileService).GetMethod("WriteExpirationIndexAsync", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.Contains("EnumerateExpiredExpirationBuckets", cleanup, StringComparison.Ordinal);
+        Assert.Contains("RecordUploadSessionCleanup", cleanup, StringComparison.Ordinal);
+        Assert.Null(typeof(FileService).GetMethod("CleanupLegacySessionRootSweepAsync", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.DoesNotContain("Directory.EnumerateDirectories", cleanup, StringComparison.Ordinal);
     }
 
     [Fact]
     public void UploadSessionLockCleanup_RunsOutsideAcquireHotPath()
     {
-        string source = ReadFileServiceSource();
-        string acquire = ExtractMethodBlock(source, "private static async Task<SessionLockLease> AcquireSessionLockAsync");
-        string cleanup = ExtractMethodBlock(source, "internal async Task CleanupExpiredSessionsAsync");
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string acquire = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(FileService),
+            "RecordUploadSessionLockAcquire");
+        string cleanup = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(FileService),
+            "CleanupStaleSessionLocks",
+            "RecordUploadSessionLockCleanup");
+        string observability = RuntimeMetadataInspection.DescribeType(typeof(FsusObservability));
 
         Assert.DoesNotContain("CleanupStaleSessionLocks", acquire, StringComparison.Ordinal);
         Assert.Contains("RecordUploadSessionLockAcquire", acquire, StringComparison.Ordinal);
@@ -1395,37 +1448,6 @@ public sealed class FileServiceTests
 
     private static string GetIllustrationFolder(string root)
         => Path.Combine(root, "wwwroot", "uploads", "illustration");
-
-    private static string ReadFileServiceSource()
-    {
-        return File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "FileService.cs"));
-    }
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
-
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
-        {
-            if (source[i] == '{')
-            {
-                depth++;
-            }
-            else if (source[i] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(i + 1)];
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Unable to extract method body: {signature}");
-    }
 
     private sealed class TestWebHostEnvironment(string root) : IWebHostEnvironment
     {

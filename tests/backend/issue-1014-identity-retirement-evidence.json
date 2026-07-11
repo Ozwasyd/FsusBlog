@@ -1,0 +1,138 @@
+{
+  "schema": "fsusblog.issue-1014.identity-retirement-evidence.v1",
+  "issue": 1014,
+  "status": "implementation-and-central-wiring-complete-validation-pending",
+  "handoff": "docs/issue-1014-identity-retirement-handoff.md",
+  "productionFiles": [
+    "src/backend/Entities/User.cs",
+    "src/backend/Services/UserService.cs",
+    "src/backend/Services/UserService.Ports.cs",
+    "src/backend/Infrastructure/Auth/AccountSubjectHasher.cs",
+    "src/backend/Infrastructure/Auth/AccountSubjectHashRequirement.cs",
+    "src/backend/Infrastructure/Auth/AccountSubjectHashInvariantGate.cs",
+    "src/backend/Infrastructure/NotificationStream/NotificationStreamAdmissionService.cs",
+    "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
+    "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+    "src/backend/Infrastructure/SchemaMigration/AccountSubjectHashBackfillStep.cs",
+    "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs",
+    "src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs",
+    "src/backend/Infrastructure/Bootstrap/RuntimeSecurityAndLifecycleServiceCollectionExtensions.cs",
+    "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+    "src/backend/Services/Security/UserSecurityStepUpService.cs"
+  ],
+  "documents": [
+    "docs/anonymous-identity-smoke-flow.md",
+    "docs/database-migration.md",
+    "docs/api/design.md",
+    "docs/api/contracts.md",
+    "docs/security.md",
+    "docs/architecture.md",
+    "docs/issue-1014-identity-retirement-handoff.md",
+    "docs/dead-code-audit-tracking.md",
+    "docs/planning/dead-code-audit-index.json"
+  ],
+  "acceptanceMappings": [
+    {
+      "criterion": "new anonymous accounts persist a physical subject projection",
+      "testIds": [
+        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BootstrapAnonymousAccountAsync_AnonymousIdentityMode_CreatesPasswordlessAnonymousContainer",
+        "xunit:tests/backend/Unit/UserServiceValidationTests.cs#UserServiceValidationTests.BootstrapAnonymousAccountAsync_WithoutHandlePersistsIdBasedPhysicalSubjectInTransaction"
+      ]
+    },
+    {
+      "criterion": "cached account reads use the physical projection without request-time rehashing",
+      "testIds": [
+        "xunit:tests/backend/Unit/AccountSubjectHashProjectionTests.cs#AccountSubjectHashProjectionTests.AccountSnapshot_UsesPhysicalProjectionWithoutRehashingMutableHandles",
+        "xunit:tests/backend/Unit/AccountSubjectHashProjectionTests.cs#AccountSubjectHashProjectionTests.CacheProjection_RuntimePathVersionsNamespaceAndRejectsMissingField",
+        "xunit:tests/backend/Unit/AccountSubjectHashProjectionTests.cs#AccountSubjectHashProjectionTests.Requirement_RejectsMissingOrMalformedProjection"
+      ]
+    },
+    {
+      "criterion": "rolling migration is additive, resumable, canonical, idempotent, and invariant checked",
+      "testIds": [
+        "xunit:tests/backend/Unit/SchemaMigrationRegistryTests.cs#SchemaMigrationRegistryTests.GetDescriptors_AccountSubjectProjection_UsesCompatibleExpandAndCanonicalBackfill",
+        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent",
+        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation",
+        "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
+      ]
+    },
+    {
+      "criterion": "missing physical subject fails closed at established runtime boundaries",
+      "testIds": [
+        "xunit:tests/backend/Unit/JwtHelperTests.cs#JwtHelperTests.GenerateAccessToken_MissingPhysicalSubjectFailsClosed",
+        "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_AccountWithoutPhysicalSubjectClaimFailsClosedBeforeLookup",
+        "xunit:tests/backend/Unit/NotificationStreamBoundaryTests.cs#NotificationStreamBoundaryTests.Admission_MissingPhysicalSubjectFailsClosedWithoutBanLookup",
+        "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserSecurityStepUpServiceTests.MissingOrMalformedPhysicalSubject_FailsClosedBeforeProofValidation",
+        "xunit:tests/backend/Unit/UserSecurityStepUpServiceTests.cs#UserIdentityRetirementBinaryEndpointTests.MfaChallengeStart_MissingOrMalformedPhysicalSubjectReturnsAccountSubjectRequired"
+      ]
+    },
+    {
+      "criterion": "startup checks the permanent invariant after migration and before later bootstrap work",
+      "testIds": [
+        "xunit:tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs#LifecycleHostedBootstrapServiceTests.StartAsync_ChecksPhysicalAccountSubjectProjectionAfterSchemaMigration",
+        "xunit:tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs#LifecycleHostedBootstrapServiceTests.StartAsync_StopsRemainingTasks_WhenAccountSubjectProjectionIsIncomplete"
+      ]
+    }
+  ],
+  "retiredSurfaceInspection": {
+    "liveProductionDefinitionObserved": false,
+    "liveDependencyInjectionRegistrationObserved": false,
+    "liveLifecycleInvocationObserved": false,
+    "liveOperationsControlObserved": false,
+    "intentionalHistoricalResiduePaths": [
+      "docs/planning/dead-code-audit-index.json",
+      "tests/test-retention-replacements.json",
+      "tests/issue-1036-retention-replacements.json",
+      "tests/issue-1036-governance-handoff.json"
+    ],
+    "claimScope": "static path and symbol inspection only; not an executed residue checker"
+  },
+  "knownTestGaps": [],
+  "governanceStageGate": {
+    "status": "aligned-blocked",
+    "paths": [
+      "docs/dead-code-audit-tracking.md",
+      "docs/planning/dead-code-audit-index.json"
+    ],
+    "triggerIds": [
+      "physical-account-subject-expand-backfill-verified",
+      "production-account-subject-invalid-count-zero",
+      "retired-identity-reset-surface-and-control-absent",
+      "full-issue-verification-complete"
+    ],
+    "reason": "The prose tracker and machine index now use the same non-destructive, executable evidence contract. Every trigger remains unsatisfied until its real result paths exist."
+  },
+  "externalAcceptance": [
+    {
+      "criterion": "account-subject Expand Backfill and permanent invariant integration verification executes",
+      "status": "not-run"
+    },
+    {
+      "criterion": "production null blank or malformed account_subject_hash count is zero",
+      "status": "not-observed"
+    },
+    {
+      "criterion": "retired identity-reset control is absent from deployed operations configuration",
+      "status": "not-observed"
+    },
+    {
+      "criterion": "repository residue report distinguishes historical audit records from live reset surface",
+      "status": "not-run"
+    },
+    {
+      "criterion": "unified backend and Playwright verification completes",
+      "status": "not-run"
+    }
+  ],
+  "centralGovernanceFilesModified": [
+    "docs/dead-code-audit-tracking.md",
+    "docs/planning/dead-code-audit-index.json",
+    "tests/coverage-registry.json",
+    "tests/matrix.yml",
+    "tests/backend/Fixtures/backend-test-requirements.json"
+  ],
+  "verification": {
+    "commandsExecuted": [],
+    "result": "not-run-by-instruction"
+  }
+}

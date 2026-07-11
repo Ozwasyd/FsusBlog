@@ -181,10 +181,7 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             ILoggerFactory loggerFactory) =>
         {
-            var slugSpan = slug.AsSpan();
-            if (slugSpan.IsEmpty ||
-                !FastCharValidator.IsAlphaNumericHyphen(slugSpan) ||
-                !AllowedPageSlugs.Contains(slug))
+            if (!IsAllowedStaticPageSlug(slug))
             {
                 var logger = loggerFactory.CreateLogger("BinarySystemEndpoints");
                 logger.LogWarning("拦截到非法的二进制页面请求 Slug: {Slug}", slug);
@@ -204,10 +201,7 @@ public static partial class BinaryEndpoints
             IAedsEncoder aeds,
             ILoggerFactory loggerFactory) =>
         {
-            var slugSpan = slug.AsSpan();
-            if (slugSpan.IsEmpty ||
-                !FastCharValidator.IsAlphaNumericHyphen(slugSpan) ||
-                !AllowedPageSlugs.Contains(slug))
+            if (!IsAllowedStaticPageSlug(slug))
             {
                 var logger = loggerFactory.CreateLogger("BinarySystemEndpoints");
                 logger.LogWarning("拦截到非法的管理页面请求 Slug: {Slug}", slug);
@@ -243,10 +237,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "页面内容请求体非法"), aeds);
             }
 
-            var slugSpan = (dto.Slug ?? string.Empty).AsSpan();
-            if (slugSpan.IsEmpty ||
-                !FastCharValidator.IsAlphaNumericHyphen(slugSpan) ||
-                !AllowedPageSlugs.Contains(dto.Slug ?? string.Empty))
+            if (!IsAllowedStaticPageSlug(dto.Slug))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "页面标识 (Slug) 不在可管理静态页范围内"), aeds);
             }
@@ -279,10 +270,7 @@ public static partial class BinaryEndpoints
             IAdminPrincipalService adminPrincipals,
             IAedsEncoder aeds) =>
         {
-            var slugSpan = slug.AsSpan();
-            if (slugSpan.IsEmpty ||
-                !FastCharValidator.IsAlphaNumericHyphen(slugSpan) ||
-                !AllowedPageSlugs.Contains(slug))
+            if (!IsAllowedStaticPageSlug(slug))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "页面标识 (Slug) 不在可管理静态页范围内"), aeds);
             }

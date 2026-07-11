@@ -1,0 +1,179 @@
+{
+  "schema": "fsusblog.issue-test-retention-replacements.v1",
+  "issue": 1040,
+  "baseline": "tests/test-retention-before.json",
+  "expectedDeletedTestIds": 12,
+  "deletedTests": [
+    {
+      "id": "xunit:tests/backend/Unit/BusinessLogicHardeningContractTests.cs#BusinessLogicHardeningContractTests.ArticleMutationPaths_DoNotBypassDeleteOrRepublishOnRestore",
+      "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.DeleteAndRestore_EnforceStateMachineAndRestoreToDraft",
+        "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.DeleteAsync_StaleRowVersionFailsWithoutChangingArticleState",
+        "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.PermanentDeleteAndClearTrash_NeverRemoveActiveArticles"
+      ],
+      "reason": "PostgreSQL state transitions now prove delete guards, draft-only restore, stale-version rejection, and trash-only permanent removal without reading implementation text."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BusinessLogicHardeningContractTests.cs#BusinessLogicHardeningContractTests.CommentMutationPaths_InvalidateAfterAutoDispositionAndDeleteUnderLock",
+      "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs#CommentMutationPostgresConcurrencyTests.DeleteCommentAsync_ConcurrentWritersProduceOneDeleteAndOneInvalidation",
+        "xunit:tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs#CommentMutationPostgresConcurrencyTests.DeleteCommentAsync_DatabaseFailureRollsBackAndSkipsInvalidation",
+        "xunit:tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs#CommentMutationPostgresConcurrencyTests.DeleteCommentAsync_DeletedArticleTargetIsInvisibleAndProducesNoSideEffects",
+        "xunit:tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs#CommentMutationPostgresConcurrencyTests.ModerateCommentAsync_ConcurrentCasAllowsOneWriteAndOneInvalidation",
+        "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_AutoHiddenDispositionInvalidatesUsingFinalStatus",
+        "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ArticleDeletedAfterPrecheck_IsRejected",
+        "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ParentHiddenAfterPrecheck_IsRejected",
+        "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.CreateStrongAnonymousCommentAsync_ValidReply_UsesServerSideReplyProjectionWithoutReplyUserId",
+        "xunit:tests/backend/Unit/AnonymousCommentSubmitTests.cs#AnonymousCommentSubmitTests.DeleteCommentAsync_AccountCannotDeleteStrongAnonymousCommentEvenWhenLegacyUserIdMatches"
+      ],
+      "reason": "Real database locks, rollback, visibility checks, concurrent CAS, and observable invalidation counts replace source-order assertions."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BusinessLogicHardeningContractTests.cs#BusinessLogicHardeningContractTests.AccountBanState_ProtectsDeletedUsersAndStableDbBans",
+      "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs#AuthoringUserBanConcurrencyTests.ModerateCommentsAsync_ConcurrentAccountDeletionDoesNotRestoreBannedStatus",
+        "xunit:tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs#AuthoringUserBanConcurrencyTests.AdminChangeStatusAsync_ConcurrentAccountDeletionDoesNotRestoreBannedStatus",
+        "xunit:tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs#AuthoringUserBanConcurrencyTests.AdminChangeStatusAsync_ConcurrentRowVersionMismatchReturnsConflictWithoutBlacklistWrite",
+        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.BlacklistService_BanAndUnbanCannotResurrectDeletedAccount",
+        "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.BannedAndDeletedUsers_HaveNoWriteBoundary"
+      ],
+      "reason": "Database races prove deleted accounts stay terminal and stale moderation writes cannot restore status or emit blacklist side effects."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BusinessLogicHardeningContractTests.cs#BusinessLogicHardeningContractTests.SecurityChallengeAttempts_DoNotDowngradeTerminalStatus",
+      "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/SecurityChallengePersistenceTests.cs#SecurityChallengePersistenceTests.RecordAttemptAsync_ConcurrentOutcomesCannotDowngradeVerifiedChallenge"
+      ],
+      "reason": "Eight barrier-released PostgreSQL attempt writers persist their audit rows while the verified terminal state remains unchanged."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BusinessLogicHardeningContractTests.cs#BusinessLogicHardeningContractTests.SearchPolicyCrawlerAndFilterFallbacks_FailPredictably",
+      "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/SearchIndexServiceTests.cs#SearchIndexServiceTests.TokenizeForTests_FallsBackToUnigram_ForUnknownCjkSegment",
+        "xunit:tests/backend/Unit/AnonymousCommentPolicyTests.cs#AnonymousCommentPolicyTests.AnonymousCommentPolicy_DefaultsToAnonymousAndRejectsImplicitPublicMode",
+        "xunit:tests/backend/Unit/CrawlerDetectorServiceTests.cs#CrawlerDetectorServiceTests.VerifyByReverseDnsAsync_WhenSemaphoreWaitTimesOut_ReturnsFalse",
+        "xunit:tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs#CrawlerRangeSyncBehaviorTests.SynchronizeOnceAsync_FallsBackToConfigWhenRemoteAndSnapshotAreUnavailable",
+        "xunit:tests/backend/Unit/ContentFilterServiceTests.cs#ContentFilterServiceTests.ReloadKeywords_UpdatesUnifiedRuleSearch"
+      ],
+      "reason": "Search, policy, crawler, and filter fallback outputs are exercised through their public behavior rather than source markers."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BusinessLogicHardeningContractTests.cs#BusinessLogicHardeningContractTests.CommentCursorPolicies_AreResolvedThroughConfigurableProvider",
+      "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PaginationAndProjectionTests.cs#PaginationAndProjectionTests.CommentCursorPolicyResolver_AppliesTenantOverrideAndClamps"
+      ],
+      "reason": "The resolver output now proves tenant override selection and safety clamping directly."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BusinessLogicHardeningContractTests.cs#BusinessLogicHardeningContractTests.LegacyArticleViewSeedAndChallengeIssueContracts_DoNotLeakRuntimeState",
+      "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleViewWriteBufferTests.cs#ArticleViewWriteBufferTests.FlushAsync_CoalescesSameArticleAndFlushesMultipleArticles",
+        "xunit:tests/backend/Unit/SecurityChallengeOrchestratorTests.cs#SecurityChallengeOrchestratorTests.IssueAsync_ProviderFailure_FailsClosedAndWritesRisk",
+        "xunit:tests/backend/Unit/SecurityChallengeOrchestratorTests.cs#SecurityChallengeOrchestratorTests.IssueAsync_MultipleChallenges_ReturnsEnvelopeAssignments"
+      ],
+      "reason": "Runtime view aggregation and provider-first challenge issue behavior remain executable; legacy/backfill prose is documented separately."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs#ConcurrencyRaceHardeningContractTests.AnonymousNullifierConsume_IsSingleAtomicSpendInsideCommentTransaction",
+      "path": "tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.TryConsumeAsync_SameScopeRaceStopsAtPolicyLimitWithStableState",
+        "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_SameNullifierRaceCommitsOnlyAllowedComments",
+        "xunit:tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs#AnonymousNullifierPostgresConcurrencyTests.CreateStrongAnonymousCommentAsync_FailureAfterConsumeRollsBackCommentAndNullifier"
+      ],
+      "reason": "Barrier-controlled PostgreSQL races and an injected transaction failure prove the policy limit, first/last comment links, and absence of half-committed rows."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs#ConcurrencyRaceHardeningContractTests.ChallengeAndPowReplayWindows_DoNotUseBoundaryQuantizedKeys",
+      "path": "tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/SecurityChallengeVerifyRateLimiterTests.cs#SecurityChallengeVerifyRateLimiterTests.TryAcquireAsync_TimeBoundaryDoesNotResetCounterIdentity",
+        "xunit:tests/backend/Unit/RedisPowServiceTests.cs#RedisPowServiceTests.VerifyAsync_ConsumesValidProofOnce",
+        "xunit:tests/backend/Unit/RedisPowServiceTests.cs#RedisPowServiceTests.ResolveReplayTtl_HandlesExtremeTimestampsWithoutThrowing"
+      ],
+      "reason": "Controlled-time limiter behavior and one-time proof consumption pin the replay window without checking key implementation strings."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs#ConcurrencyRaceHardeningContractTests.ArticleDestructiveMutations_AreVersionGuardedAndTrashScoped",
+      "path": "tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.DeleteAsync_StaleRowVersionFailsWithoutChangingArticleState",
+        "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.DeleteAsync_ConcurrentWritersAllowExactlyOneStateTransition",
+        "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.PermanentlyDeleteArticleAsync_ConcurrentWritersAllowExactlyOneRemoval",
+        "xunit:tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs#ArticleDestructiveMutationBehaviorTests.PermanentDeleteAndClearTrash_NeverRemoveActiveArticles"
+      ],
+      "reason": "PostgreSQL row-version and double-writer races prove one destructive transition and trash scoping at the persistence boundary."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs#ConcurrencyRaceHardeningContractTests.AnonymousCredentialRevoke_WritesRevocationHandleWhenMetadataProvidesIt",
+      "path": "tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs#AnonymousCredentialRootLifecycleTests.RootLifecycle_CircuitFriendlyAccumulatorEntersProductionSnapshotAndRevokesWithCircuitRoot",
+        "xunit:tests/backend/Unit/AnonymousCredentialRootLifecycleTests.cs#AnonymousCredentialRootLifecycleTests.Revocation_UpdatesAccumulatorAndInvalidatesRootSnapshotCache"
+      ],
+      "reason": "Actual revocation-handle persistence, accumulator mutation, production snapshot exclusion, and cache invalidation replace transaction source inspection."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs#ConcurrencyRaceHardeningContractTests.UserSessionAndMfaPaths_KeepExistingConcurrencyGuards",
+      "path": "tests/backend/Unit/ConcurrencyRaceHardeningContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.RefreshTokenAsync_ConcurrentReplayAllowsOneRotationThenRevokesSession",
+        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.VerifyMfaOrRecoveryCodeAsync_ConcurrentConsumptionPersistsExactlyOnce",
+        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#UserAuthPostgresConcurrencyTests.BlacklistService_BanAndUnbanCannotResurrectDeletedAccount",
+        "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#BackendAuthStateMachineTests.RecoveryCode_CanMoveMfaForwardOnlyOnce"
+      ],
+      "reason": "Held-row PostgreSQL races make both callers observe stale auth state, then prove refresh replay revocation and one-time recovery-code CAS."
+    }
+  ],
+  "centralRegistryReadback": [
+    {
+      "path": "tests/coverage-registry.json",
+      "status": "present-not-verified",
+      "requestedCoverageIds": [
+        "backend-race-idempotency-model",
+        "backend-auth-mfa-pow-session-state-machine",
+        "backend-fault-race-readiness"
+      ]
+    },
+    {
+      "path": "tests/matrix.yml",
+      "status": "present-not-verified",
+      "requestedTiers": [
+        "backend-unit",
+        "backend-concurrency",
+        "backend-auth-state-machine",
+        "backend-mutation",
+        "production"
+      ]
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "status": "present-not-verified",
+      "requestedOwners": [
+        "AnonymousNullifierPostgresConcurrencyTests",
+        "ArticleDestructiveMutationBehaviorTests",
+        "CommentMutationPostgresConcurrencyTests",
+        "UserAuthPostgresConcurrencyTests",
+        "SecurityChallengePersistenceTests",
+        "AuthoringUserBanConcurrencyTests"
+      ]
+    },
+    {
+      "path": "tests/backend/Fixtures/postgres-test-collections.json",
+      "status": "present-not-verified",
+      "requestedChange": "Add the four new Collection B owners (AnonymousNullifierPostgresConcurrencyTests: 4 facts, ArticleDestructiveMutationBehaviorTests: 5 facts, CommentMutationPostgresConcurrencyTests: 4 facts, UserAuthPostgresConcurrencyTests: 3 facts) and increment Collection A SecurityChallengePersistenceTests by one fact."
+    },
+    {
+      "path": "tools/test/lanes/static-governance.sh",
+      "status": "present-not-verified",
+      "requestedChange": "Remove both deleted mixed source-contract owners and recognize issue-1040 behavior suites plus this retention handoff."
+    }
+  ]
+}

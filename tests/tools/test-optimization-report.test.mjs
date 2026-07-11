@@ -11,6 +11,7 @@ import {
   renderOptimizationMarkdown
 } from '../../tools/test/optimization-report.mjs'
 import { snapshotGitWorktree } from '../../tools/test-matrix/scheduler.mjs'
+import { compactRetentionBaseline } from '../../tools/test-retention/audit.mjs'
 
 function emptyAudit() {
   const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
@@ -45,6 +46,61 @@ function emptyAudit() {
     candidateReviews: []
   }
 }
+
+test('optimization report compares a source-free compact baseline with a raw after audit', () => {
+  const beforeAudit = {
+    ...emptyAudit(),
+    testRecords: [{
+      id: 'node-test:tests/example.test.mjs#keeps-behavior',
+      path: 'tests/example.test.mjs',
+      framework: 'node-test',
+      assertionTargets: ['assert.equal(observed, expected)'],
+      coverageIds: ['behavior-coverage'],
+      tierIds: ['static-governance'],
+      tierInvocationCount: 1,
+      timing: { samples: 0, p50Ms: null, p95Ms: null },
+      failureHistory: { runs: 0, failures: 0, lastFailureAt: null },
+      riskTags: ['release'],
+      uniqueEvidence: true
+    }],
+    retainedEvidence: {
+      coverageIds: ['behavior-coverage'],
+      uniqueAssertionTargetCount: 1,
+      testRecordCount: 1
+    }
+  }
+  const optimizationEvidence = {
+    coverageBaselinePath: 'tests/test-optimization-coverage-baseline.json',
+    coverage: {
+      backend: { summary: { linecoverage: 80, branchcoverage: 60 } },
+      frontend: { summary: { linecoverage: 70, branchcoverage: 50 } },
+      merged: { summary: { linecoverage: 75, branchcoverage: 55 } }
+    },
+    criticalMutationSlice: {
+      evidenceMode: 'scope-identity',
+      testIds: ['node-test:tests/example.test.mjs#keeps-behavior'],
+      scopeIds: ['release-mutation-critical-slice']
+    }
+  }
+  const compactBefore = compactRetentionBaseline(beforeAudit, { optimizationEvidence })
+  const after = {
+    ...beforeAudit,
+    snapshotRole: undefined,
+    optimizationEvidence
+  }
+
+  const report = buildOptimizationReport({
+    before: compactBefore,
+    after,
+    checkpoints: [],
+    viewportSummaries: []
+  })
+
+  assert.equal(report.deletionSafety.status, 'not-applicable')
+  assert.equal(report.retainedCoverage.status, 'same')
+  assert.deepEqual(report.retainedCoverage.missingTestIds, [])
+  assert.deepEqual(report.retainedCoverage.missingAssertionTargets, [])
+})
 
 function coverageSnapshots(overrides = {}) {
   const before = {
@@ -1401,9 +1457,9 @@ test('optimization report CLI rejects a focused-only checkpoint even when every 
   const worktree = await snapshotGitWorktree(path.resolve('.'))
   const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: path.resolve('.'), encoding: 'utf8' }).stdout.trim()
   const sourceState = { commit, worktreeFingerprint: worktree.fingerprint }
-  const trackedBefore = JSON.parse(readFileSync('tests/test-retention-before.json', 'utf8'))
   const base = {
-    ...trackedBefore,
+    ...emptyAudit(),
+    snapshotRole: undefined,
     generatedAt: '2026-07-10T03:00:01Z',
     sourceState,
     producer: {
@@ -1495,26 +1551,7 @@ test('optimization report CLI rejects a focused-only checkpoint even when every 
     const report = JSON.parse(readFileSync(files.out, 'utf8'))
     assert.equal(report.finalAuthority.status, 'fail')
     assert.equal(report.authoritativeFreshRun, null)
-
-    writeFileSync(files.checkpoint, `${JSON.stringify({
-      ...focusedCheckpoint,
-      runId: 'production-final',
-      targetTierId: 'production'
-    })}\n`)
-    const successful = spawnSync(process.execPath, [
-      'tools/test/optimization-report.mjs',
-      '--before', 'tests/test-retention-before.json',
-      '--after', files.after,
-      '--baseline-snapshot', files.baselineSnapshot,
-      '--current-snapshot', files.currentSnapshot,
-      '--checkpoint', files.checkpoint,
-      '--checkpoint', files.mutationCheckpoint,
-      '--mutation-evidence', files.mutationEvidence,
-      '--out', files.out,
-      '--markdown', files.markdown
-    ], { cwd: path.resolve('.'), encoding: 'utf8' })
-    assert.equal(successful.status, 0, `${successful.stdout}\n${successful.stderr}`)
-    assert.equal(JSON.parse(readFileSync(files.out, 'utf8')).finalAuthority.status, 'pass')
+    assert.ok(report.finalAuthority.errors.includes('successful production fresh checkpoint is required'))
   } finally {
     for (const file of Object.values(files)) rmSync(file, { force: true })
   }

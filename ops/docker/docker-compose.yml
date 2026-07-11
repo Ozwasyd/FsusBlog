@@ -4,21 +4,40 @@
 services:
   # 1. 业务核心：融合后的前后端全栈应用 (Kestrel 托管)
   fsusblog.server:
-    build:
-      context: ../..
-      dockerfile: ops/docker/FsusBlog.Server.Dockerfile
-      target: final
-      args:
-        GITHUB_PACKAGES_TOKEN: ${GITHUB_PACKAGES_TOKEN}
-      secrets:
-        - github_packages_token
     # [修改日期 2026-03-01] 逻辑自洽：容器重命名为 fsus-app，因为它现在同时包含了 UI 和 API
-    container_name: fsus-app
-    image: ${DOCKER_REGISTRY-}fsusblogapp
+    container_name: ${FSUSBLOG_CONTAINER_NAME:?Set slot-specific container name (fsus-app-blue or fsus-app-green)}
+    image: ${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest from release-manifest.json}
+    pull_policy: always
+    labels:
+      io.fsusblog.release.slot: ${FSUSBLOG_RELEASE_SLOT:?Set blue or green release slot}
+      io.fsusblog.release.id: ${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}
+      io.fsusblog.release.commit: ${FSUSBLOG_COMMIT_SHA:?Set commitSha from release-manifest.json}
+      io.fsusblog.release.image-ref: ${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest}
+      io.fsusblog.release.image-digest: ${FSUSBLOG_IMAGE_DIGEST:?Set image digest from release-manifest.json}
+      io.fsusblog.deployment.project: ${FSUSBLOG_COMPOSE_PROJECT_NAME:?Set slot-specific Compose project}
+      io.fsusblog.deployment.mode: ${FSUSBLOG_DEPLOYMENT_MODE:-candidate}
+      io.fsusblog.deployment.generation: ${FSUSBLOG_DEPLOYMENT_GENERATION:?Set immutable candidate runtime generation}
     restart: always
-    stop_grace_period: 30s
+    stop_grace_period: ${FSUSBLOG_STOP_GRACE_PERIOD:-60s}
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=${FSUSBLOG_ASPNETCORE_ENVIRONMENT:-Production}
+      - FSUSBLOG_RELEASE_ID=${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}
+      - FSUSBLOG_RELEASE_SLOT=${FSUSBLOG_RELEASE_SLOT:?Set the candidate or active release slot}
+      - FSUSBLOG_IMAGE_REF=${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest}
+      - FSUSBLOG_IMAGE_DIGEST=${FSUSBLOG_IMAGE_DIGEST:?Set image digest from release-manifest.json}
+      - FSUSBLOG_COMMIT_SHA=${FSUSBLOG_COMMIT_SHA:?Set commitSha from release-manifest.json}
+      - FSUSBLOG_RELEASE_MANIFEST_PATH=/app/release-manifest.json
+      - FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE=${FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE:?Set the exact currently active N-1 release id}
+      - FSUSBLOG_DEPLOYMENT_MODE=${FSUSBLOG_DEPLOYMENT_MODE:-candidate}
+      - FSUSBLOG_DEPLOYMENT_GENERATION=${FSUSBLOG_DEPLOYMENT_GENERATION:?Set immutable candidate runtime generation}
+      - FSUSBLOG_DRAIN_TIMEOUT_SECONDS=${FSUSBLOG_DRAIN_TIMEOUT_SECONDS:-45}
+      - FSUSBLOG_RELEASE_ASSET_ROOT=/app/release-assets
+      - FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived
+      - Deployment__NotificationStreamDrillEnabled=${FSUSBLOG_DEPLOYMENT_NOTIFICATION_DRILL_ENABLED:-false}
+      - SchemaMigration__QualificationEnabled=${FSUSBLOG_SCHEMA_QUALIFICATION_ENABLED:-false}
+      - FSUSBLOG_DATA_ROOT=/app/data
+      - DataProtection__KeyRingPath=/app/data-protection/keyring
+      - DataProtection__ApplicationName=FsusBlog
       # 数据库连接：由外部 .env 驱动
       # Username=/Password= 是 PostgreSQL/Npgsql 连接串凭据关键字；不要在 appsettings*.json 中恢复 Admin:Username/Admin:Password/Admin:Role 应用身份配置。
       - ConnectionStrings__DefaultConnection=Host=${EXTERNAL_DB_HOST};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}
@@ -69,6 +88,11 @@ services:
       - fsus-uploads:/app/wwwroot/uploads
       - fsus-aot-cache:/app/wwwroot/aot-cache
       - fsus-logs:/app/Logs
+      - fsus-slot-data:/app/data
+      - fsus-data-protection:/app/data-protection
+      - ${FSUSBLOG_RELEASE_ASSET_STORE:?Set the host append-only release asset store}/releases:/app/release-assets:ro
+      - ${FSUSBLOG_RELEASE_MANIFEST_HOST_PATH:?Set the validated host release manifest path}:/app/release-manifest.json:ro
+      - fsus-release-derived:/app/release-derived
       - ${FSUSBLOG_ZK_CONFIG_DIR:?Set FSUSBLOG_ZK_CONFIG_DIR to the host ZK config directory}:/app/config/zk:ro
       - ${FSUSBLOG_ZK_SECRET_DIR:?Set FSUSBLOG_ZK_SECRET_DIR to the host ZK secret directory}:/app/secrets/zk:ro
     healthcheck:
@@ -86,15 +110,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "2.00"
-          memory: 2048M
+          cpus: ${FSUSBLOG_SLOT_CPU_LIMIT:-2.00}
+          memory: ${FSUSBLOG_SLOT_MEMORY_LIMIT:-2048M}
         reservations:
-          cpus: "0.50"
-          memory: 512M
+          cpus: ${FSUSBLOG_SLOT_CPU_RESERVATION:-0.50}
+          memory: ${FSUSBLOG_SLOT_MEMORY_RESERVATION:-512M}
     #[修改日期 2026-03-01]
     # 物理对接：Kestrel 仅绑定宿主机回环地址，公网只应进入 OpenResty/Nginx 的 80/443。
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${FSUSBLOG_SLOT_PORT:?Set blue=8081 or green=8082}:8080"
 
   # =========================================================================
   # [修改日期 2026-03-01]
@@ -110,9 +134,14 @@ networks:
 # 定义具名卷，确保持久化数据由 Docker 引擎统一管理权限映射
 volumes:
   fsus-uploads:
+    name: ${FSUSBLOG_SHARED_UPLOADS_VOLUME:?Set the existing shared uploads volume explicitly}
   fsus-aot-cache:
+    name: ${FSUSBLOG_SLOT_AOT_CACHE_VOLUME:?Set slot-specific AOT cache volume}
   fsus-logs:
-
-secrets:
-  github_packages_token:
-    environment: GITHUB_PACKAGES_TOKEN
+    name: ${FSUSBLOG_SLOT_LOGS_VOLUME:?Set slot-specific logs volume}
+  fsus-slot-data:
+    name: ${FSUSBLOG_SLOT_DATA_VOLUME:?Set slot-specific data volume}
+  fsus-data-protection:
+    name: ${FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME:?Set the shared DataProtection volume explicitly}
+  fsus-release-derived:
+    name: ${FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME:-fsusblog-release-derived}

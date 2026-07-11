@@ -35,12 +35,7 @@ public sealed class RelatedReadingService(
             return null;
         }
 
-        DateTime now = DateTime.UtcNow;
-        Task<long> versionTask = GetArticleListVersionAsync(cancellationToken).AsTask();
-        Task<RelatedArticleRow?> articleTask = LoadPublicArticleAsync(articleId, now, cancellationToken);
-        await Task.WhenAll(versionTask, articleTask);
-
-        long version = await versionTask;
+        long version = await GetArticleListVersionAsync(cancellationToken);
         string cacheKey = $"article:{articleId}:v:{version}";
         if (memoryCache.TryGetValue(cacheKey, out RelatedReadingResponse? cached) && cached is not null)
         {
@@ -60,7 +55,8 @@ public sealed class RelatedReadingService(
             return sharedCached.Value;
         }
 
-        RelatedArticleRow? article = await articleTask;
+        DateTime now = DateTime.UtcNow;
+        RelatedArticleRow? article = await LoadPublicArticleAsync(articleId, now, cancellationToken);
 
         if (article is null)
         {
@@ -364,7 +360,7 @@ public sealed class RelatedReadingService(
         return count;
     }
 
-    private static string[] ExtractKeywords(params string?[] values)
+    internal static string[] ExtractKeywords(params string?[] values)
     {
         string text = string.Join(' ', values.Where(static value => !string.IsNullOrWhiteSpace(value))).ToLowerInvariant();
         var tokens = new List<string>(16);
@@ -417,6 +413,42 @@ public sealed class RelatedReadingService(
     private static RelatedReadingItem ToItem(RelatedArticleRow row, string reason)
         => new(row.Id, row.Title, row.Summary, row.CreateTime, reason);
 
+    internal static RelatedReadingBenchmarkResult ScoreCandidateForBenchmark(
+        int sourceCategoryId,
+        DateTime sourcePublishedAt,
+        IReadOnlyCollection<int> sourceTagIds,
+        int candidateCategoryId,
+        DateTime candidatePublishedAt,
+        IReadOnlyCollection<int> candidateTagIds,
+        string candidateTitle,
+        string? candidateSummary,
+        string[] keywords)
+    {
+        var source = new RelatedArticleRow
+        {
+            Id = 1,
+            CategoryId = sourceCategoryId,
+            CreateTime = sourcePublishedAt,
+            PublishedAt = sourcePublishedAt
+        };
+        var candidate = new RelatedArticleRow
+        {
+            Id = 2,
+            CategoryId = candidateCategoryId,
+            CreateTime = candidatePublishedAt,
+            PublishedAt = candidatePublishedAt,
+            Title = candidateTitle,
+            Summary = candidateSummary
+        };
+        ScoredRelatedArticle scored = ScoreCandidate(
+            source,
+            candidate,
+            sourceTagIds.ToHashSet(),
+            candidateTagIds.ToHashSet(),
+            keywords);
+        return new RelatedReadingBenchmarkResult(scored.Score, scored.PublishedDistance, scored.Reason);
+    }
+
     private sealed class RelatedArticleRow
     {
         public int Id { get; init; }
@@ -434,3 +466,5 @@ public sealed class RelatedReadingService(
 
     private sealed record ScoredRelatedArticle(RelatedArticleRow Row, int Score, int PublishedDistance, string Reason);
 }
+
+internal readonly record struct RelatedReadingBenchmarkResult(int Score, int PublishedDistance, string Reason);

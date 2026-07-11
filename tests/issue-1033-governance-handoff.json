@@ -1,0 +1,19 @@
+{
+  "schema": "fsusblog.issue-1033.governance-handoff.v1",
+  "issue": 1033,
+  "status": "implementation-landed-in-worktree-validation-pending",
+  "localCommit": "1e0dd109",
+  "deletedFiles": 8,
+  "deletedTestIds": 30,
+  "centralRetention": "tests/test-retention-replacements.json",
+  "authoritativeOwners": [
+    "tools/check-test-matrix.mjs",
+    "tools/check-backend-test-governance.mjs",
+    "tools/test/optimization-report.mjs"
+  ],
+  "documentation": "docs/testing/issues-1033-1035-test-governance-retirements.md",
+  "verification": {
+    "commandsExecutedInCurrentLandingPhase": [],
+    "result": "not-run-by-instruction"
+  }
+}

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NSubstitute;
 using SqlSugar;
+using System.Reflection;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -59,20 +60,22 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     }
 
     [Fact]
-    public void RootSnapshot_UsesPreNormalizedLookupForVerifierHotPath()
+    public void RootSnapshot_RuntimeUsesPreNormalizedLookupForVerifierHotPath()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialRootLifecycleService.cs");
-        string snapshot = ExtractBetween(source, "public sealed record AnonymousCredentialRootRuntimeSnapshot", "public sealed class AnonymousCredentialRootLifecycleService");
-        string fullCheck = ExtractBetween(
-            source,
-            "public bool IsRootAccepted(\n        string rootHash,\n        string revocationRootHash,\n        string issuerPublicKeyHash,\n        long epoch)",
-            "public async Task<Result<AnonymousCredentialRootRecord>> RotateAsync");
+        PropertyInfo lookup = typeof(AnonymousCredentialRootRuntimeSnapshot)
+            .GetProperty(nameof(AnonymousCredentialRootRuntimeSnapshot.AcceptedRootLookup))!;
+        Assert.True(lookup.PropertyType.IsGenericType);
+        Assert.Equal(typeof(IReadOnlyDictionary<,>), lookup.PropertyType.GetGenericTypeDefinition());
+        Type keyType = lookup.PropertyType.GenericTypeArguments[0];
+        Assert.Equal(typeof(ValueTuple<long, string, string, string>), keyType);
 
-        Assert.Contains("AcceptedRootLookup", snapshot, StringComparison.Ordinal);
-        Assert.Contains("Dictionary<(long Epoch, string RootHash, string RevocationRootHash, string IssuerPublicKeyHash)", source, StringComparison.Ordinal);
-        Assert.Contains("TryGetValue((epoch, rootHash, revocationRootHash, issuerPublicKeyHash)", fullCheck, StringComparison.Ordinal);
-        Assert.DoesNotContain("NormalizeToken(rootHash", fullCheck, StringComparison.Ordinal);
-        Assert.DoesNotContain("foreach (AnonymousCredentialAcceptedRoot root in snapshot.AcceptedRoots)", fullCheck, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AnonymousCredentialRootLifecycleService),
+            nameof(AnonymousCredentialRootLifecycleService.IsRootAccepted));
+        Assert.Contains("get_AcceptedRootLookup", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryGetValue", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("NormalizeToken", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetEnumerator", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -717,15 +720,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
             UpdatedAtUtc = BaselineNow.UtcDateTime,
             Status = status
         }).ExecuteCommand();
-
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
-    }
 
     private sealed class CapturingAuditEventService : IAuditEventService
     {

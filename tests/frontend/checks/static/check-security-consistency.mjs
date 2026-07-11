@@ -141,6 +141,13 @@ for (const token of ['Content-Security-Policy', "default-src 'self'", "frame-anc
   }
 }
 
+const routerSource = readRepoFile('src/frontend/src/router/index.ts')
+for (const pattern of [/\bmeta\b[^\n]*\broles\b/u, /to[.]meta[.]roles/u, /meta:\s*\{\s*roles:/u]) {
+  if (pattern.test(routerSource)) {
+    violations.push(`src/frontend/src/router/index.ts: route authorization must not restore legacy role metadata ${pattern}`)
+  }
+}
+
 requireContains(
   'src/frontend/src/fsusui/markdown.ts',
   'sanitizeMarkdownRuntimeHtml',

@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -22,11 +23,17 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Validation;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using SqlSugar;
+using System.Reflection;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -109,22 +116,22 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     [Fact]
     public void AnonymousCredentialIssuerConfig_ExplicitlyRejectsBannedAccountsByDefault()
     {
-        foreach ((string relativePath, string expectedEnabled) in new[]
+        foreach ((string relativePath, bool expectedEnabled) in new[]
         {
-            ("src/backend/appsettings.json", "\"Enabled\": false"),
-            ("src/backend/appsettings.example.json", "\"Enabled\": false"),
-            ("src/backend/appsettings.Production.json", "\"Enabled\": true"),
-            ("src/backend/appsettings.Production.example.json", "\"Enabled\": true")
+            ("src/backend/appsettings.json", false),
+            ("src/backend/appsettings.example.json", false),
+            ("src/backend/appsettings.Production.json", true),
+            ("src/backend/appsettings.Production.example.json", true)
         })
         {
-            string source = BackendTestPaths.ReadAllTextFromRoot(relativePath);
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddJsonFile(BackendTestPaths.FromRoot(relativePath), optional: false, reloadOnChange: false)
+                .Build();
 
-            Assert.Contains("\"AnonymousCredentialIssuer\"", source, StringComparison.Ordinal);
-            Assert.Contains("\"CircuitNative\"", source, StringComparison.Ordinal);
-            Assert.Contains("\"AllowBannedAccountIssuance\": false", source, StringComparison.Ordinal);
-            Assert.Contains("\"SubjectHashPepper\"", source, StringComparison.Ordinal);
-            Assert.Contains("\"Backend\": \"managed_circuit_native_v2\"", source, StringComparison.Ordinal);
-            Assert.Contains(expectedEnabled, source, StringComparison.Ordinal);
+            Assert.False(configuration.GetValue<bool>("AnonymousCredentialIssuer:AllowBannedAccountIssuance"));
+            Assert.NotNull(configuration["AnonymousCredentialIssuer:SubjectHashPepper"]);
+            Assert.Equal("managed_circuit_native_v2", configuration["AnonymousCredentialIssuer:CircuitNative:Backend"]);
+            Assert.Equal(expectedEnabled, configuration.GetValue<bool>("AnonymousCredentialIssuer:CircuitNative:Enabled"));
         }
     }
 
@@ -190,14 +197,19 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     }
 
     [Fact]
-    public void ManagedCircuitNativeCredentialSigner_VerifyKeepsSubgroupChecksOnPublicKeyAndNoncePoint()
+    public void ManagedCircuitNativeCredentialSigner_VerifyRuntimeKeepsSubgroupChecksOnPublicKeyAndNoncePoint()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/ManagedCircuitNativeCredentialSigner.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ManagedCircuitNativeCredentialSigner),
+            nameof(ManagedCircuitNativeCredentialSigner.Verify),
+            "IsInPrimeOrderSubgroup",
+            "MultiplyUnreduced",
+            "ReadPublicKey");
 
-        Assert.Contains("IsInPrimeOrderSubgroup(point)", source, StringComparison.Ordinal);
-        Assert.Contains("MultiplyUnreduced(point, ScalarOrder)", source, StringComparison.Ordinal);
-        Assert.Contains("CurvePoint issuerPublicKey = ReadPublicKey(publicKey);", source, StringComparison.Ordinal);
-        Assert.Contains("CurvePoint noncePoint = ReadPublicKey(signature[..PublicKeyBytes]);", source, StringComparison.Ordinal);
+        Assert.Contains("IsInPrimeOrderSubgroup", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("MultiplyUnreduced", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ReadPublicKey", runtimeShape, StringComparison.Ordinal);
+        Assert.True(runtimeShape.Split("ReadPublicKey", StringSplitOptions.None).Length - 1 >= 2);
     }
 
     [Fact]
@@ -317,18 +329,24 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     }
 
     [Fact]
-    public void ProductionCircuitNativeCredentialIssuer_UsesBoundedConcurrencyAndDoesNotLogPayloads()
+    public void ProductionCircuitNativeCredentialIssuer_RuntimeUsesBoundedConcurrencyAndDoesNotLogPayloads()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
+        FieldInfo signatureSlots = typeof(ProductionCircuitNativeCredentialIssuer).GetField(
+            "_signatureSlots",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        Assert.Equal(typeof(SemaphoreSlim), signatureSlots.FieldType);
+        Assert.NotNull(typeof(CircuitNativeCredentialIssuerOptions).GetProperty("MaxConcurrentSignatures"));
 
-        Assert.Contains("SemaphoreSlim", source, StringComparison.Ordinal);
-        Assert.Contains("MaxConcurrentSignatures", source, StringComparison.Ordinal);
-        Assert.Contains("WaitAsync(queueTimeout, cancellationToken)", source, StringComparison.Ordinal);
-        Assert.Contains("TimeoutMs", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("LogInformation", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("LogDebug", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("material.CredentialRequest", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("signature}", source, StringComparison.OrdinalIgnoreCase);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ProductionCircuitNativeCredentialIssuer),
+            nameof(ProductionCircuitNativeCredentialIssuer.SignAsync));
+
+        Assert.Contains("SemaphoreSlim.WaitAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("get_TimeoutMs", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("LogInformation", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("LogDebug", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_CredentialRequest", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("signature}", runtimeShape, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -476,33 +494,46 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     }
 
     [Fact]
-    public void IssuerService_VerifiesReturnedIssuerSignatureBeforePersistingAudit()
+    public async Task IssuerService_VerifiesReturnedIssuerSignatureBeforePersistingAudit()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
-        string issueMethod = source[
-            source.IndexOf("public async Task<Result<AnonymousCredentialIssueResponseCoreModel>> IssueAsync", StringComparison.Ordinal)..
-            source.IndexOf("private Task RecordIssuanceAuditAsync", StringComparison.Ordinal)];
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedUser(db, status: 0);
+        var credentialIssuer = new CapturingCircuitNativeCredentialIssuer { ForceVerifyFailure = true };
+        var service = CreateService(db, new CapturingAuditEventService(), credentialIssuer: credentialIssuer);
 
-        Assert.Contains("VerifyIssuerSignature", issueMethod, StringComparison.Ordinal);
-        Assert.True(
-            issueMethod.IndexOf("VerifyIssuerSignature", StringComparison.Ordinal) <
-            issueMethod.IndexOf("issuanceAudit.TryRecordIssuedAsync", StringComparison.Ordinal),
-            "issuer signature must be verified before the issuance audit row is persisted");
+        Result<AnonymousCredentialIssueResponseCoreModel> result = await service.IssueAsync(
+            42,
+            CreateIssueRequest(),
+            "trace-verify-before-persist",
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("anonymous_credential_issuer_unavailable", result.Error.Message);
+        Assert.Empty(await db.Queryable<AnonymousCredentialIssuanceAudit>().ToListAsync());
     }
 
     [Fact]
-    public void IssuerService_SuccessPathUsesIssuanceAuditRowWithoutSecondHighValueAuditInsert()
+    public async Task IssuerService_SuccessPathUsesIssuanceAuditRowWithoutSecondHighValueAuditInsert()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
-        string issueMethod = source[
-            source.IndexOf("public async Task<Result<AnonymousCredentialIssueResponseCoreModel>> IssueAsync", StringComparison.Ordinal)..
-            source.IndexOf("private Task RecordIssuanceAuditAsync", StringComparison.Ordinal)];
-        string successAuditPath = issueMethod[
-            issueMethod.IndexOf("bool recorded = await issuanceAudit.TryRecordIssuedAsync", StringComparison.Ordinal)..
-            issueMethod.IndexOf("long expiresAtUnixMs", StringComparison.Ordinal)];
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedUser(db, status: 0);
+        var auditEvents = new CapturingAuditEventService();
+        var service = CreateService(
+            db,
+            auditEvents,
+            credentialIssuer: new CapturingCircuitNativeCredentialIssuer());
 
-        Assert.Contains("issuanceAudit.TryRecordIssuedAsync", successAuditPath, StringComparison.Ordinal);
-        Assert.DoesNotContain("RecordIssuanceAuditAsync(subjectHash, epoch, AnonymousCredentialIssuanceStatuses.Issued", successAuditPath, StringComparison.Ordinal);
+        Result<AnonymousCredentialIssueResponseCoreModel> result = await service.IssueAsync(
+            42,
+            CreateIssueRequest(),
+            "trace-success-audit",
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error.Message);
+        Assert.Single(await db.Queryable<AnonymousCredentialIssuanceAudit>().ToListAsync());
+        Assert.Empty(auditEvents.Events);
     }
 
     [Fact]
@@ -552,27 +583,56 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     }
 
     [Fact]
-    public void IssuerService_DoesNotWriteRawUserIdToIssuanceStoreOrHighValueAudit()
+    public void IssuerService_RuntimeContractDoesNotWriteRawUserIdToIssuanceStoreOrHighValueAudit()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
+        string[] entityProperties = typeof(AnonymousCredentialIssuanceAudit)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(static property => property.Name)
+            .ToArray();
+        string[] writeProperties = typeof(AnonymousCredentialIssuanceAuditWrite)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(static property => property.Name)
+            .ToArray();
+        Assert.DoesNotContain("UserId", entityProperties);
+        Assert.DoesNotContain("UserId", writeProperties);
+        Assert.Contains("SubjectHash", entityProperties);
+        Assert.Contains("SubjectHash", writeProperties);
 
-        Assert.DoesNotContain("int UserId,", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("(user_id, epoch, status", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ON CONFLICT(user_id, epoch)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ActorId: userId.ToString", source, StringComparison.Ordinal);
-        Assert.Contains("SubjectHash", source, StringComparison.Ordinal);
-        Assert.Contains("ActorId: ShortSubjectHash(subjectHash)", source, StringComparison.Ordinal);
+        string storeShape = RuntimeMetadataInspection.DescribeType(typeof(AnonymousCredentialIssuanceAuditStore));
+        Assert.DoesNotContain("user_id", storeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("subject_hash", storeShape, StringComparison.OrdinalIgnoreCase);
+        string issuerShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AnonymousCredentialIssuerService),
+            "RecordIssuanceAuditAsync",
+            "ShortSubjectHash");
+        Assert.Contains("ShortSubjectHash", issuerShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void IssuerService_SourceRequiresIndependentSubjectHashPepperWithoutFallbacks()
+    public async Task IssuerService_RuntimeRequiresIndependentSubjectHashPepperWithoutFallbacks()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCredentialIssuerService.cs");
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        SeedUser(db, status: 0);
+        foreach (IReadOnlyDictionary<string, string?> values in new[]
+        {
+            new Dictionary<string, string?> { ["Jwt:SecretKey"] = new string('j', 64) },
+            new Dictionary<string, string?> { ["AnonymousCredentialIssuer:SubjectHashPepper"] = "too-short" }
+        })
+        {
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+            var service = new AnonymousCredentialIssuerService(
+                db,
+                new AnonymousCredentialIssuanceAuditStore(db),
+                new CapturingCircuitNativeCredentialIssuer(),
+                new CapturingAuditEventService(),
+                configuration);
 
-        Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", source, StringComparison.Ordinal);
-        Assert.Contains("must be configured with at least 32 characters", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("configuration[\"Jwt:SecretKey\"]", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("development-anonymous-credential-subject-hash-pepper", source, StringComparison.Ordinal);
+            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.IssueAsync(42, CreateIssueRequest(), "trace-pepper", CancellationToken.None));
+            Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", error.Message, StringComparison.Ordinal);
+            Assert.Contains("at least 32 characters", error.Message, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -840,19 +900,42 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     }
 
     [Fact]
-    public void AnonymousCredentialIssueEndpoint_RequiresAuthRateLimitAndNoStore()
+    public async Task AnonymousCredentialIssueEndpoint_RequiresAuthRateLimitAndNoStore()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint endpoint = EndpointContractApplication.Find(
+            app,
+            "/api/binary/anonymous-credential/issue",
+            HttpMethods.Post);
+        Assert.Null(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        ClaimsAuthorizationRequirement identity = Assert.Single(endpoint.Metadata
+            .GetOrderedMetadata<AuthorizationPolicy>()
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(static requirement => requirement.ClaimType == "identity_kind"));
+        Assert.Contains(AnonymousIdentityRuntime.AnonymousAccountKind, identity.AllowedValues ?? []);
+        Assert.Equal(
+            "fixed_ip",
+            Assert.IsType<EnableRateLimitingAttribute>(
+                endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
+        Assert.NotNull(endpoint.Metadata.GetMetadata<NoStoreResponseMetadata>());
+        Assert.Equal(16 * 1024, AnonymousCredentialIssuerLimits.MaxIssueRequestFrameBytes);
 
-        Assert.Contains("MapPost(\"/anonymous-credential/issue\"", source, StringComparison.Ordinal);
-        Assert.Contains(".RequireAnonymousAccountPrincipal()", source, StringComparison.Ordinal);
-        Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", source, StringComparison.Ordinal);
-        Assert.Contains(".RequireNoStoreResponse()", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.AnonymousCredentialIssueRequest", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.AnonymousCredentialIssueResponse", source, StringComparison.Ordinal);
-        Assert.Contains("AnonymousCredentialIssuerLimits.MaxIssueRequestFrameBytes", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HandleAnonymousCredentialIssueAsync(\n        HttpContext httpContext,\n        IAedsEncoder aeds,\n        IAnonymousCredentialIssuerService issuer,\n        CancellationToken", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("int userId = httpContext.GetUserId();", source, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            nameof(BinaryEndpoints.HandleAnonymousCredentialIssueAsync));
+        Assert.Contains("TryDecodeAnonymousCredentialIssueRequest", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("WriteAnonymousCredentialIssueResponse", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IUserAccountReader", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserId", runtimeShape, StringComparison.Ordinal);
+
+        MethodInfo[] handlers = typeof(BinaryEndpoints)
+            .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+            .Where(static method => method.Name == nameof(BinaryEndpoints.HandleAnonymousCredentialIssueAsync))
+            .ToArray();
+        Assert.NotEmpty(handlers);
+        Assert.All(handlers, handler =>
+            Assert.Contains(handler.GetParameters(), static parameter => parameter.ParameterType == typeof(IUserAccountReader)));
     }
 
     private static AnonymousCredentialIssuerService CreateService(

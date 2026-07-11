@@ -23,6 +23,7 @@ public readonly record struct UserAccountSnapshot(
 
 public readonly record struct SessionTokenResponseDto(
     string AccessToken,
+    DateTimeOffset AccessTokenExpiresAtUtc,
     string RefreshToken,
     string SessionId,
     DateTime RefreshTokenExpiresAt);

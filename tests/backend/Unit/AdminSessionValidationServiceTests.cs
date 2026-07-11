@@ -4,6 +4,8 @@ using System.Text;
 using System.Reflection;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Caching.Memory;
@@ -16,15 +18,17 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public void JwtBearerEvents_ValidateAdminSessionAfterTokenSignature()
+    public void JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature()
     {
-        string jwt = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/JwtHelper.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(JwtServiceExtensions),
+            nameof(JwtServiceExtensions.AddJwtAuthentication));
 
-        Assert.Contains("OnTokenValidated", jwt, StringComparison.Ordinal);
-        Assert.Contains("IAdminSessionValidationService", jwt, StringComparison.Ordinal);
-        Assert.Contains("ValidateAsync(context.Principal", jwt, StringComparison.Ordinal);
-        Assert.Contains("ClearAdminSessionCookies", jwt, StringComparison.Ordinal);
-        Assert.Contains("context.Fail", jwt, StringComparison.Ordinal);
+        Assert.Contains("JwtBearerEvents.set_OnTokenValidated", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IAdminSessionValidationService", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IAdminSessionValidationService.ValidateAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("AuthCookieService.ClearAdminSessionCookies", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ResultContext`1.Fail", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -73,38 +77,47 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
-    public void ValidateAsync_SourceUsesRowVersionGuardForLastSeenTouch()
+    public void ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminSessionValidationService.cs");
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        Type serviceType = typeof(AdminSessionValidationService);
+        TimeSpan snapshotTtl = (TimeSpan)serviceType
+            .GetField("AdminSessionValidationSnapshotTtl", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetValue(null)!;
+        TimeSpan touchInterval = (TimeSpan)serviceType
+            .GetField("AdminSessionTouchMinInterval", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetValue(null)!;
+        Assert.Equal(TimeSpan.FromSeconds(10), snapshotTtl);
+        Assert.Equal(TimeSpan.FromSeconds(45), touchInterval);
 
-        Assert.Contains("LoadAdminSessionValidationStateAsync", source, StringComparison.Ordinal);
-        Assert.Contains("TryTouchAdminSessionAsync(session, now", source, StringComparison.Ordinal);
-        Assert.Contains("AdminSessionValidationSnapshot", source, StringComparison.Ordinal);
-        Assert.Contains("MemoryCacheEntryOptions", source, StringComparison.Ordinal);
-        Assert.Contains("AdminSessionValidationSnapshotTtl", source, StringComparison.Ordinal);
-        Assert.Contains("AdminSessionTouchMinInterval", source, StringComparison.Ordinal);
-        Assert.Contains("TryGetValidationSnapshot", source, StringComparison.Ordinal);
-        Assert.Contains("SetValidationSnapshot", source, StringComparison.Ordinal);
-        Assert.Contains("ShouldTouchAdminSession", source, StringComparison.Ordinal);
-        Assert.Contains("JOIN admin_principal ap ON ap.id = s.adminprincipalid", source, StringComparison.Ordinal);
-        Assert.Contains("ap.status AS principal_status", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Queryable<AdminPrincipal>().InSingleAsync", source, StringComparison.Ordinal);
-        Assert.Contains("xmin::text AS row_version", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND xmin::text = @RowVersion", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND accesstokenhash = @AccessTokenHash", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND idleexpiresatutc = @IdleExpiresAtUtc", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ValidateCurrentSessionAfterTouchConflictAsync", source, StringComparison.Ordinal);
-        Assert.Contains("RecordAdminSessionValidationDbRead", source, StringComparison.Ordinal);
-        Assert.Contains("RecordAdminSessionValidationCacheHit", source, StringComparison.Ordinal);
-        Assert.Contains("RecordAdminSessionTouchSkipped", source, StringComparison.Ordinal);
-        Assert.Contains("RecordAdminSessionTouch", source, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            serviceType,
+            nameof(AdminSessionValidationService.ValidateAsync),
+            "LoadAdminSessionValidationStateAsync",
+            "TryTouchAdminSessionAsync",
+            "ValidateCurrentSessionAfterTouchConflictAsync",
+            "TryGetValidationSnapshot",
+            "SetValidationSnapshot",
+            "ShouldTouchAdminSession");
+        Assert.Contains("AdminSessionValidationSnapshot", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("MemoryCacheEntryOptions", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("JOIN admin_principal ap ON ap.id = s.adminprincipalid", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ap.status AS principal_status", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND accesstokenhash = @AccessTokenHash", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND idleexpiresatutc = @IdleExpiresAtUtc", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RecordAdminSessionValidationDbRead", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionValidationCacheHit", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionTouchSkipped", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RecordAdminSessionTouch", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin_session_conflict", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("InSingleAsync", runtimeShape, StringComparison.Ordinal);
+
+        string observability = RuntimeMetadataInspection.DescribeType(typeof(FsusObservability));
         Assert.Contains("fsus.admin.session.validation.db_read_count", observability, StringComparison.Ordinal);
         Assert.Contains("fsus.admin.session.validation.cache_hit", observability, StringComparison.Ordinal);
         Assert.Contains("fsus.admin.session.touch_skipped", observability, StringComparison.Ordinal);
         Assert.Contains("fsus.admin.session.touch_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.DoesNotContain("Invalid(\"admin_session_conflict\")", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Where(s => s.SessionId == sessionId && s.RevokedAtUtc == null)", source, StringComparison.Ordinal);
     }
 
     [Fact]

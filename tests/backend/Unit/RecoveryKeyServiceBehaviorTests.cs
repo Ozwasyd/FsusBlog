@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Globalization;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
@@ -7,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
 
@@ -17,14 +19,21 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public async Task VerifyAsync_WithOnlyRecoveryKey_SucceedsAndRevokesRequestedCredentials()
+    public async Task VerifyAsync_WithOnlyRecoveryKey_CreatesPendingSessionWithoutPrematurePasskeyRevocation()
     {
         using SqlSugarClient db = await CreateDbAsync();
         CreateTables(db);
         int userId = SeedUser(db);
         SeedSession(db, userId, "session-current");
         SeedPasskey(db, userId, "old-credential", DateTime.UtcNow.AddMinutes(-5));
-        RecoveryKeyService service = CreateService(db);
+        var validationCache = Substitute.For<IUserSessionValidationCache>();
+        IReadOnlyList<UserSessionValidationCacheState>? publishedSessions = null;
+        validationCache.PublishManyAsync(
+                Arg.Do<IReadOnlyList<UserSessionValidationCacheState>>(states => publishedSessions = states),
+                true,
+                Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        RecoveryKeyService service = CreateService(db, validationCache);
 
         Result<RecoveryKeyCreateResponseCoreModel> created = await service.CreateAsync(userId, CancellationToken.None);
         Assert.True(created.IsSuccess);
@@ -59,23 +68,63 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         UserSession session = await db.Queryable<UserSession>().SingleAsync(s => s.SessionId == "session-current");
         Assert.NotNull(session.RevokedAt);
         Assert.Equal("recovery_key_verified", session.RevokeReason);
+        UserSessionValidationCacheState publishedSession = Assert.Single(publishedSessions!);
+        Assert.Equal("session-current", publishedSession.SessionId);
+        Assert.True(publishedSession.RevokedAtUtc.HasValue);
+        Assert.False(string.IsNullOrWhiteSpace(publishedSession.RowVersion));
 
         Result<RecoveryKeySession> recoverySession = await service.GetRecoverySessionAsync(
             verified.Value.RecoverySessionToken,
             CancellationToken.None);
         Assert.True(recoverySession.IsSuccess);
         Assert.NotNull(recoverySession.Value);
-        SeedPasskey(db, userId, "new-credential", recoverySession.Value.IssuedAtUtc.AddSeconds(1));
-
-        await service.ApplyPostPasskeyBindAsync(recoverySession.Value, CancellationToken.None);
-
-        string[] remainingCredentialIds = await db.Queryable<PasskeyCredential>()
+        Assert.True(recoverySession.Value.RevokePasskeys);
+        string[] credentialIdsBeforeCompletion = await db.Queryable<PasskeyCredential>()
             .Where(c => c.AccountId == userId)
             .Select(c => c.CredentialId)
             .ToArrayAsync();
-        Assert.Equal(["new-credential"], remainingCredentialIds);
-        user = await db.Queryable<User>().SingleAsync(u => u.Id == userId);
-        Assert.True(user.PasskeyEnabled);
+        Assert.Equal(["old-credential"], credentialIdsBeforeCompletion);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_RevocationPublicationFailureRollsBackDatabaseAndCleansPossiblePartialFence()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        int userId = SeedUser(db);
+        SeedSession(db, userId, "session-publication-failure");
+        var validationCache = Substitute.For<IUserSessionValidationCache>();
+        validationCache.PublishManyAsync(
+                Arg.Any<IReadOnlyList<UserSessionValidationCacheState>>(),
+                true,
+                Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromException(new InvalidOperationException("forced recovery publication failure")));
+        validationCache.InvalidateManyAsync(
+                Arg.Any<IReadOnlyList<UserSessionValidationCacheState>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        RecoveryKeyService service = CreateService(db, validationCache);
+        Result<RecoveryKeyCreateResponseCoreModel> created = await service.CreateAsync(userId, CancellationToken.None);
+        Assert.True(created.IsSuccess);
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.VerifyAsync(
+                new RecoveryKeyVerifyRequestCoreModel(created.Value.RecoveryKey, true, false),
+                "203.0.113.21",
+                "unit-test",
+                CancellationToken.None));
+
+        Assert.Equal("forced recovery publication failure", error.Message);
+        RecoveryKeyCredential key = await db.Queryable<RecoveryKeyCredential>()
+            .SingleAsync(item => item.AccountId == userId);
+        Assert.Null(key.UsedAt);
+        UserSession session = await db.Queryable<UserSession>()
+            .SingleAsync(item => item.SessionId == "session-publication-failure");
+        Assert.Null(session.RevokedAt);
+        await validationCache.Received(1).InvalidateManyAsync(
+            Arg.Is<IReadOnlyList<UserSessionValidationCacheState>>(states =>
+                states.Count == 1 && states[0].SessionId == "session-publication-failure"),
+            CancellationToken.None);
     }
 
     [Fact]
@@ -151,31 +200,64 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
-    public void RecoveryKeyService_BoundsInputBeforeHmacOrPbkdfAndUsesLookupScopedLimiter()
+    public void RecoveryKeyService_BoundsInputAndDerivesAttemptIdentityOnlyFromLookup()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/RecoveryKeyService.cs");
-        string verify = ExtractBetween(source, "public async Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync", "private async Task<Result<RecoveryKeyVerifyResponseCoreModel>> RecordVerificationFailureAsync");
-        string normalize = ExtractBetween(source, "private static string NormalizeRecoveryKey", "private static bool TryParseRecoveryKeyLookup");
-        string attempts = ExtractBetween(source, "private static string BuildAttemptIdentity", "private static string BuildSessionIdentity");
+        FieldInfo maxCharsField = typeof(RecoveryKeyService).GetField(
+            "MaxRecoveryKeyChars",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Recovery key input limit was not found.");
+        Assert.Equal(256, Assert.IsType<int>(maxCharsField.GetRawConstantValue()));
 
-        Assert.Contains("MaxRecoveryKeyChars", source, StringComparison.Ordinal);
-        Assert.Contains("normalized.Length > MaxRecoveryKeyChars", verify, StringComparison.Ordinal);
-        Assert.Contains("normalized.Length > MaxRecoveryKeyChars", normalize, StringComparison.Ordinal);
-        Assert.Contains("lookupIdentity", attempts, StringComparison.Ordinal);
-        Assert.DoesNotContain("clientIp", attempts, StringComparison.Ordinal);
-        Assert.DoesNotContain("userAgent", attempts, StringComparison.Ordinal);
+        MethodInfo normalize = typeof(RecoveryKeyService).GetMethod(
+            "NormalizeRecoveryKey",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Recovery key normalizer was not found.");
+        string overlong = "  frk_" + new string('a', 4096) + "  ";
+        string normalized = Assert.IsType<string>(normalize.Invoke(null, [overlong]));
+        Assert.Equal(overlong.Trim(), normalized);
+        Assert.True(normalized.Length > 256);
+
+        MethodInfo buildAttemptIdentity = typeof(RecoveryKeyService).GetMethod(
+            "BuildAttemptIdentity",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Recovery attempt identity builder was not found.");
+        ParameterInfo parameter = Assert.Single(buildAttemptIdentity.GetParameters());
+        Assert.Equal(typeof(string), parameter.ParameterType);
+        string first = Assert.IsType<string>(buildAttemptIdentity.Invoke(null, ["lookup-a"]));
+        string repeated = Assert.IsType<string>(buildAttemptIdentity.Invoke(null, ["lookup-a"]));
+        string second = Assert.IsType<string>(buildAttemptIdentity.Invoke(null, ["lookup-b"]));
+        Assert.Equal(first, repeated);
+        Assert.NotEqual(first, second);
+        Assert.Matches("^[0-9A-F]{32}$", first);
     }
 
     [Fact]
-    public void RecoveryKeyService_LocksCandidateRowBeforeVerifyingSecret()
+    public async Task VerifyAsync_LocksCandidateRowBeforeConsumingValidSecret()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/RecoveryKeyService.cs");
-        string verify = ExtractBetween(source, "public async Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync", "public async Task<Result<RecoveryKeySession>> GetRecoverySessionAsync");
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        int accountId = SeedUser(db);
+        RecoveryKeyService service = CreateService(db);
+        Result<RecoveryKeyCreateResponseCoreModel> created = await service.CreateAsync(accountId, CancellationToken.None);
+        Assert.True(created.IsSuccess);
+        var executedSql = new List<string>();
+        db.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
 
-        Assert.Contains("UseTranAsync", verify, StringComparison.Ordinal);
-        Assert.Contains("LoadRecoveryKeyCredentialForUpdateAsync", verify, StringComparison.Ordinal);
-        Assert.Contains("FOR UPDATE", source, StringComparison.OrdinalIgnoreCase);
-        AssertContainsAfter(verify, "LoadRecoveryKeyCredentialForUpdateAsync", "VerifyRecoveryKey");
+        Result<RecoveryKeyVerifyResponseCoreModel> verified = await service.VerifyAsync(
+            new RecoveryKeyVerifyRequestCoreModel(created.Value.RecoveryKey, false, false),
+            "203.0.113.20",
+            "unit-test",
+            CancellationToken.None);
+
+        string lockedLookup = Assert.Single(executedSql.Where(static sql =>
+            sql.Contains("account_recovery_key", StringComparison.OrdinalIgnoreCase)
+            && sql.Contains("FOR UPDATE", StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains("lookup_id_hash", lockedLookup, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("key_hash =", lockedLookup, StringComparison.OrdinalIgnoreCase);
+        Assert.True(verified.IsSuccess);
+        RecoveryKeyCredential consumed = await db.Queryable<RecoveryKeyCredential>()
+            .SingleAsync(item => item.AccountId == accountId);
+        Assert.NotNull(consumed.UsedAt);
     }
 
     private Task<SqlSugarClient> CreateDbAsync()
@@ -225,7 +307,9 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         }).ExecuteCommand();
     }
 
-    private static RecoveryKeyService CreateService(SqlSugarClient db)
+    private static RecoveryKeyService CreateService(
+        SqlSugarClient db,
+        IUserSessionValidationCache? validationCache = null)
         => new(
             db,
             CreateCache(),
@@ -234,25 +318,10 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
                 {
                     ["Security:RecoveryKeyPepper"] = "unit-test-recovery-key-pepper-with-enough-entropy"
                 })
-                .Build());
-
-    private static string ExtractBetween(string source, string startMarker, string endMarker)
-    {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        int end = source.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
-        Assert.True(end > start, $"Missing end marker: {endMarker}");
-        return source[start..end];
-    }
-
-    private static void AssertContainsAfter(string source, string first, string second)
-    {
-        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
-        int secondIndex = source.IndexOf(second, StringComparison.Ordinal);
-        Assert.True(firstIndex >= 0, $"Missing marker: {first}");
-        Assert.True(secondIndex >= 0, $"Missing marker: {second}");
-        Assert.True(secondIndex > firstIndex, $"{second} must appear after {first}");
-    }
+                .Build(),
+            Substitute.For<IPasskeyService>(),
+            NullLogger<RecoveryKeyService>.Instance,
+            validationCache ?? Substitute.For<IUserSessionValidationCache>());
 
     private static IUnifiedCache CreateCache()
     {

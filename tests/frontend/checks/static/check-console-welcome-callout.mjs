@@ -35,6 +35,7 @@ for (const token of [
   'window.__FSUSBLOG_CONSOLE_WELCOME_CALLOUT__',
   'shouldShowConsoleWelcomeCallout',
   'buildConsoleWelcomeCalloutLinks',
+  'buildConsoleSupportLinks',
   'https://github.com/Ozwasyd/FsusBlog/issues/new/choose',
 ]) {
   expectIncludes('src/frontend/src/config/consoleWelcomeCallout.ts', token, token)
@@ -69,8 +70,31 @@ for (const token of [
   expectIncludes('src/frontend/src/components/admin/ConsoleWelcomeCallout.vue', token, token)
 }
 
-expectIncludes('src/frontend/src/views/admin/Dashboard.vue', '<ConsoleWelcomeCallout', 'dashboard callout placement')
-expectIncludes('src/frontend/src/views/admin/Dashboard.vue', 'consoleWelcomeUserKey', 'per-user dismissal key')
+expectNotIncludes('src/frontend/src/views/admin/Dashboard.vue', '<ConsoleWelcomeCallout', 'dashboard callout placement')
+expectNotIncludes('src/frontend/src/views/admin/Dashboard.vue', 'consoleWelcomeUserKey', 'dashboard callout user key')
+expectNotIncludes('src/frontend/src/views/admin/Dashboard.vue', 'GitHub', 'dashboard GitHub prompt')
+expectNotIncludes('src/frontend/src/views/admin/Dashboard.vue', 'Issue', 'dashboard issue prompt')
+expectIncludes(
+  'src/frontend/src/views/admin/Dashboard.vue',
+  'AdminDashboardTaskWorkbench',
+  'dashboard task workbench'
+)
+for (const token of [
+  '帮助与反馈',
+  '帮助与反馈入口',
+  'helpLinks',
+  'target="_blank"',
+  'rel="noopener noreferrer"',
+]) {
+  expectIncludes('src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue', token, token)
+}
+for (const token of ['GitHub', 'Issue', '仓库维护', '<ConsoleWelcomeCallout']) {
+  expectNotIncludes(
+    'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue',
+    token,
+    `dashboard help menu ${token}`
+  )
+}
 expectIncludes('src/frontend/src/vite-env.d.ts', '__FSUSBLOG_CONSOLE_WELCOME_CALLOUT__', 'runtime window override type')
 expectIncludes('docs/frontend/console-welcome-callout.md', 'ConsoleWelcomeCallout.Enabled', 'configuration docs')
 expectIncludes('src/frontend/package.json', 'check:console-welcome-callout', 'npm script')
@@ -84,6 +108,11 @@ expectIncludes(
   'tests/frontend/unit/composables/useConsoleWelcomeCallout.test.ts',
   'configured three-link maintenance order',
   'three-link unit coverage'
+)
+expectIncludes(
+  'tests/frontend/unit/composables/useConsoleWelcomeCallout.test.ts',
+  'keeps feedback available in the help menu after the first-run banner is disabled',
+  'help-menu migration coverage'
 )
 
 expectNotIncludes('src/frontend/src/config/consoleWelcomeCallout.ts', 'diagnostic', 'diagnostic issue URL attachment')

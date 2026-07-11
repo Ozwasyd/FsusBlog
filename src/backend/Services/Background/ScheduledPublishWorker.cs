@@ -4,6 +4,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Background;
@@ -13,7 +14,8 @@ public sealed class ScheduledPublishWorker(
     ILogger<ScheduledPublishWorker> logger,
     TimeProvider timeProvider,
     ScheduledPublishRuntimeState runtimeState,
-    IBackgroundWorkerLease workerLease) : BackgroundService
+    IBackgroundWorkerLease workerLease,
+    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
 
@@ -55,7 +57,7 @@ public sealed class ScheduledPublishWorker(
 
                     ScheduledPublishBatchCommit commit = await dbGate.ExecuteAsync(
                         "scheduled-publish-batch-commit",
-                        gateCt => ClaimDueArticlesAsync(db, now, logger, gateCt),
+                        gateCt => ClaimDueArticlesAsync(db, now, logger, activeReleaseCommitGuard, gateCt),
                         _ => Task.FromResult(ScheduledPublishBatchCommit.Timeout),
                         cancellationToken);
                     if (!commit.Committed)
@@ -120,6 +122,7 @@ public sealed class ScheduledPublishWorker(
         ISqlSugarClient db,
         DateTime now,
         ILogger<ScheduledPublishWorker> logger,
+        IActiveReleaseCommitGuard? commitGuard,
         CancellationToken cancellationToken)
     {
         List<int> claimedArticleIds = [];
@@ -168,6 +171,11 @@ public sealed class ScheduledPublishWorker(
             if (insertedOutboxEvents != claimedArticleIds.Count)
             {
                 throw new InvalidOperationException("Scheduled publish outbox batch did not match claimed article count.");
+            }
+
+            if (commitGuard is not null)
+            {
+                await commitGuard.EnsureCurrentAsync(cancellationToken).ConfigureAwait(false);
             }
         });
 

@@ -1,4 +1,5 @@
 import { emitTelemetry } from '@/services/telemetryBus'
+import { resolveServiceWorkerScriptUrl } from '@/config/releaseStorage'
 import type { CacheControlPayload, SearchIndexUpdatePayload } from '@/services/notificationStreamTypes'
 
 export type SwControlMessage =
@@ -53,7 +54,9 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   bindListener()
   if (!registrationPromise) {
     const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')
-    registrationPromise = navigator.serviceWorker.register(`${base}sw.js`, {
+    registrationPromise = navigator.serviceWorker.register(resolveServiceWorkerScriptUrl(
+      base,
+      import.meta.env.VITE_FSUSBLOG_BUILD_ID), {
       scope: '/',
       type: 'module',
       updateViaCache: 'none'

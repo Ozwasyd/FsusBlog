@@ -3,6 +3,7 @@
     v-if="articles.length > 0"
     class="home-text-first-recommendations mb-8 sm:mb-10"
     aria-labelledby="home-text-first-recommendations-title"
+    data-home-editorial-secondary
   >
     <header class="mb-4 border-b border-[var(--fsusblog-panel-border)] pb-3">
       <div
@@ -14,7 +15,11 @@
     </header>
 
     <ol role="list" class="grid gap-3 sm:grid-cols-2 sm:gap-4">
-      <li v-for="(article, index) in articles" :key="article.id">
+      <li
+        v-for="(article, index) in articles"
+        :key="article.id"
+        :data-article-id="article.id"
+      >
         <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(article.id)">
           <a
             :href="href"
@@ -50,7 +55,7 @@ import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 const copy = FSUSBLOG_LAYOUT_COPY.recommendations
 
 defineProps<{
-  articles: PopularArticleSummaryResponse[]
+  articles: readonly PopularArticleSummaryResponse[]
 }>()
 
 const focusRingClass = themeTokens.focusRing

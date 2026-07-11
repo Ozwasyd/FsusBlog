@@ -2,11 +2,15 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -433,16 +437,29 @@ public class SystemProjectionTests
     }
 
     [Fact]
-    public void BinarySystemEndpoints_SeoRoutes_UseMatchingProjectionTypes()
+    public async Task BinarySystemEndpoints_SeoRoutes_UseMatchingProjectionTypes()
     {
-        var source = ReadRepositorySource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs");
-        var publicSeoBlock = ExtractMapGetBlock(source, "\"/system/seo\"");
-        var adminSeoBlock = ExtractMapGetBlock(source, "\"/system/admin/seo\"");
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Services.AddAuthorization();
+        builder.Services.AddOutputCache();
+        await using WebApplication app = builder.Build();
+        app.MapBinaryEndpoints();
 
-        Assert.Contains("SystemProjection.ToPublicDto(data)", publicSeoBlock, StringComparison.Ordinal);
-        Assert.DoesNotContain("SystemProjection.ToAdminDto(data)", publicSeoBlock, StringComparison.Ordinal);
-        Assert.Contains("SystemProjection.ToAdminDto(data)", adminSeoBlock, StringComparison.Ordinal);
-        Assert.DoesNotContain("SystemProjection.ToPublicDto(data)", adminSeoBlock, StringComparison.Ordinal);
+        MethodInfo publicHandler = FindRouteHandler(app, "/api/binary/system/seo");
+        MethodInfo adminHandler = FindRouteHandler(app, "/api/binary/system/admin/seo");
+        MethodBase[] publicCalls = ReadCalledMethods(AsyncMoveNext(publicHandler)).ToArray();
+        MethodBase[] adminCalls = ReadCalledMethods(AsyncMoveNext(adminHandler)).ToArray();
+        MethodInfo publicProjection = typeof(SystemProjection).GetMethod(
+            nameof(SystemProjection.ToPublicDto),
+            [typeof(SeoConfigReadModel)])!;
+        MethodInfo adminProjection = typeof(SystemProjection).GetMethod(
+            nameof(SystemProjection.ToAdminDto),
+            [typeof(SeoConfigReadModel)])!;
+
+        Assert.Contains(publicProjection, publicCalls);
+        Assert.DoesNotContain(adminProjection, publicCalls);
+        Assert.Contains(adminProjection, adminCalls);
+        Assert.DoesNotContain(publicProjection, adminCalls);
     }
 
     [Fact]
@@ -480,18 +497,42 @@ public class SystemProjectionTests
         Assert.Equal("X", contract.Content);
     }
 
-    private static string ReadRepositorySource(string relativePath)
-        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
-
-    private static string ExtractMapGetBlock(string source, string routeLiteral)
+    private static MethodInfo FindRouteHandler(WebApplication app, string route)
     {
-        var routeIndex = source.IndexOf($"group.MapGet({routeLiteral}", StringComparison.Ordinal);
-        Assert.True(routeIndex >= 0, $"Missing MapGet route {routeLiteral}");
+        RouteEndpoint endpoint = Assert.Single(((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(candidate => string.Equals(
+                candidate.RoutePattern.RawText?.TrimStart('/'),
+                route.TrimStart('/'),
+                StringComparison.Ordinal)));
+        return endpoint.Metadata.GetMetadata<MethodInfo>()
+            ?? throw new InvalidOperationException($"Handler metadata missing for {route}.");
+    }
 
-        var nextRouteIndex = source.IndexOf("group.Map", routeIndex + 1, StringComparison.Ordinal);
-        return nextRouteIndex >= 0
-            ? source[routeIndex..nextRouteIndex]
-            : source[routeIndex..];
+    private static MethodInfo AsyncMoveNext(MethodInfo method)
+    {
+        AsyncStateMachineAttribute stateMachine = method.GetCustomAttribute<AsyncStateMachineAttribute>()
+            ?? throw new InvalidOperationException($"Async state machine missing for {method.Name}.");
+        return stateMachine.StateMachineType.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!;
+    }
+
+    private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F)) continue;
+            MethodBase? called = null;
+            try
+            {
+                called = method.Module.ResolveMethod(BitConverter.ToInt32(il, offset + 1));
+            }
+            catch (ArgumentException)
+            {
+            }
+            if (called is not null) yield return called;
+        }
     }
 }
 

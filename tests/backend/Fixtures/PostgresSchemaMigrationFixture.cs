@@ -79,6 +79,42 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
         await command.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
+    public async Task ExecuteSqlFileAsync(string connectionString, string sqlPath)
+    {
+        if (!File.Exists(sqlPath))
+        {
+            throw new FileNotFoundException("PostgreSQL test SQL file was not found.", sqlPath);
+        }
+
+        var builder = new NpgsqlConnectionStringBuilder(connectionString);
+        string host = builder.Host ?? "127.0.0.1";
+        string password = builder.Password ?? "postgres";
+        string username = builder.Username ?? "postgres";
+        string database = builder.Database ?? throw new InvalidOperationException("Connection string database is required for SQL file execution.");
+        var environment = new Dictionary<string, string?>
+        {
+            ["PGPASSWORD"] = password
+        };
+        string[] args =
+        [
+            "-v", "ON_ERROR_STOP=1",
+            "-h", host,
+            "-p", builder.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "-U", username,
+            "-d", database,
+            "-f", sqlPath
+        ];
+
+        try
+        {
+            _ = await RunProcessAsync("psql", args, throwOnNonZeroExitCode: true, environment).ConfigureAwait(false);
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            await ExecuteSqlFileInsidePostgresContainerAsync(sqlPath, username, password, database).ConfigureAwait(false);
+        }
+    }
+
     public async Task<T> QueryScalarAsync<T>(string connectionString, string sql)
     {
         await using var connection = new NpgsqlConnection(connectionString);
@@ -151,6 +187,37 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
             "-U", username,
             "-d", database,
             containerDumpPath).ConfigureAwait(false);
+    }
+
+    private async Task ExecuteSqlFileInsidePostgresContainerAsync(
+        string sqlPath,
+        string username,
+        string password,
+        string database)
+    {
+        if (string.IsNullOrWhiteSpace(_containerName))
+        {
+            throw new InvalidOperationException("PostgreSQL container is not initialized and local psql is unavailable.");
+        }
+
+        string containerSqlPath = $"/tmp/fsus-test-{Guid.NewGuid():N}.sql";
+        await RunDockerAsync("cp", sqlPath, $"{_containerName}:{containerSqlPath}").ConfigureAwait(false);
+        try
+        {
+            await RunDockerAsync(
+                "exec",
+                "-e", $"PGPASSWORD={password}",
+                _containerName,
+                "psql",
+                "-v", "ON_ERROR_STOP=1",
+                "-U", username,
+                "-d", database,
+                "-f", containerSqlPath).ConfigureAwait(false);
+        }
+        finally
+        {
+            _ = await TryRunDockerAsync("exec", _containerName, "rm", "-f", containerSqlPath).ConfigureAwait(false);
+        }
     }
 
     public async Task<bool> ColumnExistsAsync(string connectionString, string tableName, string columnName)

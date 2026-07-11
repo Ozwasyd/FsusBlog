@@ -2,9 +2,9 @@ using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -180,17 +180,27 @@ public sealed class RiskControlContextFactoryTests
     }
 
     [Fact]
-    public void RiskControlContextFactory_SourceKeepsAdminPrincipalOutOfUserIdSlot()
+    public void RiskControlContextFactory_SerializedAdminActorKeepsUserIdSlotEmpty()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Security/RiskControlContextFactory.cs");
+        var context = CreateContext(
+            "203.0.113.10",
+            CreatePrincipal(
+                7,
+                new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+                new Claim("admin_id", "7"),
+                new Claim("admin_sid", "sid-admin-serialization")));
 
-        Assert.DoesNotContain(
-            "RiskControlActorStatuses.AdminPrincipal,\n                AnonymousIdentityRuntime.AdminPrincipalKind,\n                userId,",
-            source,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain("Assert.Equal(\"7\", result.Actor.UserId)", BackendTestPaths.ReadAllTextFromRoot(
-            "tests/backend/Unit/RiskControlContextFactoryTests.cs"),
-            StringComparison.Ordinal);
+        RiskControlActorContext actor = new RiskControlContextFactory().Create(context).Actor;
+        using JsonDocument document = JsonDocument.Parse(JsonSerializer.Serialize(actor));
+
+        Assert.Equal(RiskControlActorStatuses.AdminPrincipal, actor.Status);
+        Assert.Null(actor.UserId);
+        Assert.Null(actor.AccountSubjectHash);
+        Assert.Null(actor.SessionId);
+        Assert.Equal("7", actor.AdminPrincipalId);
+        Assert.Equal("sid-admin-serialization", actor.AdminSessionId);
+        Assert.Equal(JsonValueKind.Null, document.RootElement.GetProperty(nameof(actor.UserId)).ValueKind);
+        Assert.Equal("7", document.RootElement.GetProperty(nameof(actor.AdminPrincipalId)).GetString());
     }
 
     [Fact]

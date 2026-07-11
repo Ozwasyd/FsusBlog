@@ -6,7 +6,7 @@ using FsusBlog.Server.Infrastructure.Helpers.Security;
 using Microsoft.Extensions.Logging.Abstractions;
 
 [MemoryDiagnoser]
-public partial class ContentFilterBenchmarks
+public partial class ContentFilterHotPathBenchmarks
 {
     private static readonly string[] ContactRules =
     [

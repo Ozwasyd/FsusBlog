@@ -1,0 +1,275 @@
+{
+  "schemaVersion": "fsus.background-service-classification.v1",
+  "issue": 1030,
+  "allowedClassifications": [
+    "active-singleton",
+    "multi-consumer-safe",
+    "instance-local"
+  ],
+  "services": [
+    {
+      "type": "AdminAuditLogWriterWorker",
+      "source": "src/backend/Infrastructure/Audit/AdminAuditLogWriterWorker.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "channel event carries one audit record identity and is consumed by one local reader",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 10,
+      "fence": "not-required",
+      "replaySource": "admin audit channel"
+    },
+    {
+      "type": "AuditLogWriterWorker",
+      "source": "src/backend/Infrastructure/Audit/AuditLogWriterWorker.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "channel event is scoped to the accepting process and consumed by one local reader",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 10,
+      "fence": "not-required",
+      "replaySource": "audit log channel"
+    },
+    {
+      "type": "HotStatsInvalidationCoalescer",
+      "source": "src/backend/Infrastructure/Cache/HotStatsInvalidationCoalescer.cs",
+      "classification": "instance-local",
+      "idempotency": "cache version publication is monotonic and repeated invalidation is safe",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 5,
+      "fence": "not-required",
+      "replaySource": "shared cache version"
+    },
+    {
+      "type": "NotificationStreamLocalFanoutWorker",
+      "source": "src/backend/Infrastructure/NotificationStream/NotificationStreamLocalFanoutQueue.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "event id and per-connection recent-event window suppress replay duplicates",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 10,
+      "fence": "not-required",
+      "replaySource": "Redis notification backlog"
+    },
+    {
+      "type": "ActiveReleaseFenceRefreshWorker",
+      "source": "src/backend/Infrastructure/Operations/ActiveReleaseFence.cs",
+      "classification": "instance-local",
+      "idempotency": "read-only refresh replaces one process-local snapshot",
+      "drain": "cancel",
+      "maxDrainSeconds": 2,
+      "fence": "self",
+      "replaySource": "Redis active release fence"
+    },
+    {
+      "type": "ConfigurationHealthSnapshotRefreshWorker",
+      "source": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+      "classification": "instance-local",
+      "idempotency": "read-only refresh replaces one process-local health snapshot",
+      "drain": "cancel",
+      "maxDrainSeconds": 2,
+      "fence": "not-required",
+      "replaySource": "configuration and dependency probes"
+    },
+    {
+      "type": "PowLoadResetWorker",
+      "source": "src/backend/Infrastructure/PowLoadResetWorker.cs",
+      "classification": "active-singleton",
+      "idempotency": "one bounded reset window identified by worker lease",
+      "drain": "finish-current",
+      "maxDrainSeconds": 5,
+      "fence": "active-release+worker-lease+pre-commit",
+      "replaySource": "shared PoW counters"
+    },
+    {
+      "type": "PublicAotFileShellCacheInvalidationSubscriber",
+      "source": "src/backend/Infrastructure/PublicAot/PublicAotFileShellCacheInvalidationSubscriber.cs",
+      "classification": "instance-local",
+      "idempotency": "repeated cache eviction by route is safe",
+      "drain": "cancel",
+      "maxDrainSeconds": 2,
+      "fence": "not-required",
+      "replaySource": "Redis invalidation pubsub and cache miss rebuild"
+    },
+    {
+      "type": "ArticleDetailAedsArtifactBackfillWorker",
+      "source": "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs",
+      "classification": "instance-local",
+      "idempotency": "article id is deduplicated and immutable artifact replacement is atomic",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 15,
+      "fence": "not-required",
+      "replaySource": "article database projection"
+    },
+    {
+      "type": "PublicHotReadStartupWarmupService",
+      "source": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+      "classification": "instance-local",
+      "idempotency": "complete process-local snapshot replaces prior snapshot atomically",
+      "drain": "finish-current",
+      "maxDrainSeconds": 20,
+      "fence": "not-required",
+      "replaySource": "public read database projection"
+    },
+    {
+      "type": "PublicHotArtifactUpdateWorker",
+      "source": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs",
+      "classification": "instance-local",
+      "idempotency": "coalesced update reasons rebuild and atomically replace a complete snapshot",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 15,
+      "fence": "not-required",
+      "replaySource": "public read database projection"
+    },
+    {
+      "type": "PublicHotReadMetricFlushWorker",
+      "source": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+      "classification": "instance-local",
+      "idempotency": "striped process-local counters are collected once and exported as deltas",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 2,
+      "fence": "not-required",
+      "replaySource": "process-local metric counters"
+    },
+    {
+      "type": "SecurityRiskEventWriterWorker",
+      "source": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "risk event identity is fixed before enqueue and one local reader persists it",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 10,
+      "fence": "not-required",
+      "replaySource": "security risk event channel"
+    },
+    {
+      "type": "ArticleViewFlushWorker",
+      "source": "src/backend/Services/ArticleViewWriteBuffer.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "per-process deltas are atomically removed only after durable database increment",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 10,
+      "fence": "not-required",
+      "replaySource": "article view write buffer"
+    },
+    {
+      "type": "ArticleMutationOutboxDispatcher",
+      "source": "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs",
+      "classification": "active-singleton",
+      "idempotency": "transactional outbox claim and delivery state identify each mutation edge",
+      "drain": "finish-current",
+      "maxDrainSeconds": 15,
+      "fence": "active-release+worker-lease+pre-commit",
+      "replaySource": "article mutation outbox table"
+    },
+    {
+      "type": "CrawlerUpdateWorker",
+      "source": "src/backend/Services/Background/CrawlerUpdateWorker.cs",
+      "classification": "active-singleton",
+      "idempotency": "range checkpoint and upsert make a repeated crawl window safe",
+      "drain": "finish-current",
+      "maxDrainSeconds": 20,
+      "fence": "active-release+worker-lease+pre-commit",
+      "replaySource": "crawler range checkpoint"
+    },
+    {
+      "type": "LogCleanupService",
+      "source": "src/backend/Services/Background/LogCleanupService.cs",
+      "classification": "active-singleton",
+      "idempotency": "retention delete predicate is stable for a cleanup cutoff",
+      "drain": "finish-current",
+      "maxDrainSeconds": 20,
+      "fence": "active-release+worker-lease+pre-commit",
+      "replaySource": "database retention predicate"
+    },
+    {
+      "type": "PublicAotBackfillWorker",
+      "source": "src/backend/Services/Background/PublicAotBackfillWorker.cs",
+      "classification": "active-singleton",
+      "idempotency": "route key is deduplicated and artifact replacement is atomic",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 20,
+      "fence": "active-release+worker-lease+pre-commit",
+      "replaySource": "public AOT route registry"
+    },
+    {
+      "type": "ScheduledPublishWorker",
+      "source": "src/backend/Services/Background/ScheduledPublishWorker.cs",
+      "classification": "active-singleton",
+      "idempotency": "FOR UPDATE SKIP LOCKED transition and outbox write share one transaction",
+      "drain": "finish-current",
+      "maxDrainSeconds": 15,
+      "fence": "active-release+worker-lease+pre-commit",
+      "replaySource": "scheduled article rows and mutation outbox"
+    },
+    {
+      "type": "UploadSessionCleanupWorker",
+      "source": "src/backend/Services/Background/UploadSessionCleanupWorker.cs",
+      "classification": "active-singleton",
+      "idempotency": "expired upload session id and object deletion are retry-safe",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 15,
+      "fence": "active-release+worker-lease+pre-commit",
+      "replaySource": "upload session table"
+    },
+    {
+      "type": "AnonymousCredentialRootRefreshHostedService",
+      "source": "src/backend/Services/Security/AnonymousCredentialRootLifecycleService.cs",
+      "classification": "instance-local",
+      "idempotency": "read-only root refresh replaces one local immutable snapshot",
+      "drain": "cancel",
+      "maxDrainSeconds": 2,
+      "fence": "not-required",
+      "replaySource": "anonymous credential root store"
+    },
+    {
+      "type": "ChallengeV2AuditEventWriterWorker",
+      "source": "src/backend/Services/Security/ChallengeV2EventWriter.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "attempt identity is assigned before enqueue and one local reader persists each batch",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 5,
+      "fence": "not-required",
+      "replaySource": "challenge v2 audit queue"
+    },
+    {
+      "type": "RumTelemetryFlushWorker",
+      "source": "src/backend/Services/Telemetry/RumTelemetryService.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "each accepted request batch belongs to one process-local queue consumer",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 5,
+      "fence": "not-required",
+      "replaySource": "RUM telemetry channel"
+    },
+    {
+      "type": "ArticleViewProjectionRepairWorker",
+      "source": "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs",
+      "classification": "active-singleton",
+      "idempotency": "repair checkpoint and projection version reject older writes",
+      "drain": "finish-current",
+      "maxDrainSeconds": 15,
+      "fence": "active-release+worker-lease+pre-commit",
+      "replaySource": "visit log projection checkpoint"
+    },
+    {
+      "type": "VisitLogProcessorService",
+      "source": "src/backend/Services/VisitLog/VisitLogProcessorService.cs",
+      "classification": "multi-consumer-safe",
+      "idempotency": "one process-local reader persists each accepted visit event",
+      "drain": "explicit-flush",
+      "maxDrainSeconds": 10,
+      "fence": "not-required",
+      "replaySource": "visit log channel"
+    }
+  ],
+  "drainParticipants": [
+    { "name": "article-view", "source": "src/backend/Services/ArticleViewWriteBuffer.cs", "strategy": "explicit-flush", "maxDrainSeconds": 10, "replaySource": "database delta reconciliation" },
+    { "name": "audit-log", "source": "src/backend/Infrastructure/Audit/AuditLogRuntimeState.cs", "strategy": "explicit-flush", "maxDrainSeconds": 10, "replaySource": "structured application log" },
+    { "name": "admin-audit-log", "source": "src/backend/Infrastructure/Audit/AdminAuditLogChannel.cs", "strategy": "explicit-flush", "maxDrainSeconds": 10, "replaySource": "high-value audit fallback log" },
+    { "name": "visit-log", "source": "src/backend/Services/VisitLog/VisitLogProcessorService.cs", "strategy": "explicit-flush", "maxDrainSeconds": 10, "replaySource": "request log evidence" },
+    { "name": "rum-telemetry", "source": "src/backend/Services/Telemetry/RumTelemetryService.cs", "strategy": "explicit-flush", "maxDrainSeconds": 5, "replaySource": "browser retry" },
+    { "name": "security-risk", "source": "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs", "strategy": "explicit-flush", "maxDrainSeconds": 10, "replaySource": "security audit log" },
+    { "name": "challenge-v2-audit", "source": "src/backend/Services/Security/ChallengeV2EventWriter.cs", "strategy": "explicit-flush", "maxDrainSeconds": 5, "replaySource": "challenge attempt store" },
+    { "name": "public-hot-update", "source": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs", "strategy": "explicit-flush", "maxDrainSeconds": 15, "replaySource": "full database projection" },
+    { "name": "article-detail-aeds", "source": "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs", "strategy": "explicit-flush", "maxDrainSeconds": 15, "replaySource": "article database projection" },
+    { "name": "public-aot-backfill", "source": "src/backend/Services/Background/PublicAotBackfillWorker.cs", "strategy": "explicit-flush", "maxDrainSeconds": 20, "replaySource": "public AOT route registry" },
+    { "name": "upload-cleanup", "source": "src/backend/Services/Background/UploadSessionCleanupWorker.cs", "strategy": "explicit-flush", "maxDrainSeconds": 15, "replaySource": "upload session table" },
+    { "name": "notification-stream", "source": "src/backend/Infrastructure/NotificationStream/NotificationStreamRestartProtocol.cs", "strategy": "close-1012", "maxDrainSeconds": 10, "replaySource": "Redis notification backlog; replay miss forces full resync" }
+  ]
+}

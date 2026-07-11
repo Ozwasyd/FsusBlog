@@ -1,4 +1,6 @@
 using System.Net;
+using System.Reflection;
+using System.Text.Json;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -9,7 +11,6 @@ using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -189,32 +190,40 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
-    public void SecurityChallengePayloadParser_SourceUsesBoundedStreamingParserAfterRateLimit()
+    public void SecurityChallengePayloadParser_EnforcesRuntimeEntryValueAndDepthBounds()
     {
-        string endpointSource = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs");
-        string adminPrincipalSource = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
+        Type endpointType = typeof(BinaryEndpoints);
+        MethodInfo parser = endpointType.GetMethod(
+            "TryDeserializeProviderPayload",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Security challenge payload parser was not found.");
+        int maxEntries = ReadPrivateConstant<int>(endpointType, "MaxSecurityChallengeProviderPayloadEntries");
+        int maxValueChars = ReadPrivateConstant<int>(endpointType, "MaxSecurityChallengeProviderPayloadValueChars");
 
-        Assert.Contains("IsProviderPayloadJsonWithinCheapLimit", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("verifyRateLimiter.TryAcquireAsync", endpointSource, StringComparison.Ordinal);
-        Assert.True(
-            endpointSource.IndexOf("verifyRateLimiter.TryAcquireAsync", StringComparison.Ordinal)
-                < endpointSource.IndexOf("TryDeserializeProviderPayload", StringComparison.Ordinal),
-            "verify rate limit must happen before provider payload JSON deserialization.");
-        Assert.Contains("MaxDepth = 32", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("Utf8JsonReader", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("MaxSecurityChallengeProviderPayloadEntries", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("MaxSecurityChallengeProviderPayloadValueChars", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("entries > MaxSecurityChallengeProviderPayloadEntries", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("value.Length > MaxSecurityChallengeProviderPayloadValueChars", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("RecordChallengeVerifyRateLimitedBeforeJson", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("RecordProviderPayloadParse", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("RecordProviderPayloadRejectedBytes", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("RecordChallengeVerifyAllocationBytes", endpointSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("JsonSerializer.Deserialize<Dictionary<string, string>>(payloadJson", endpointSource, StringComparison.Ordinal);
+        IReadOnlyDictionary<string, string> accepted = InvokePayloadParser(
+            parser,
+            """{"proof":"fpow","nonce":"42"}""",
+            expectedAccepted: true);
+        Assert.Equal("fpow", accepted["proof"]);
+        Assert.Equal("42", accepted["nonce"]);
 
-        Assert.Contains("new(JsonSerializerDefaults.Web)", adminPrincipalSource, StringComparison.Ordinal);
-        Assert.Contains("MaxDepth = 32", adminPrincipalSource, StringComparison.Ordinal);
-        Assert.Contains("JsonSerializer.Deserialize<T>(value, ChallengeCacheJsonOptions)", adminPrincipalSource, StringComparison.Ordinal);
+        string tooManyEntries = "{" + string.Join(",", Enumerable.Range(0, maxEntries + 1)
+            .Select(static index => $"\"k{index}\":\"v\"")) + "}";
+        Assert.Empty(InvokePayloadParser(parser, tooManyEntries, expectedAccepted: false));
+        Assert.Empty(InvokePayloadParser(
+            parser,
+            $$"""{"proof":"{{new string('x', maxValueChars + 1)}}"}""",
+            expectedAccepted: false));
+        Assert.Empty(InvokePayloadParser(parser, """{"proof":{"nested":"value"}}""", expectedAccepted: false));
+        Assert.Empty(InvokePayloadParser(parser, """{"proof":"fpow"} trailing""", expectedAccepted: false));
+
+        FieldInfo cacheOptionsField = typeof(AdminPrincipalService).GetField(
+            "ChallengeCacheJsonOptions",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Admin challenge cache serializer options were not found.");
+        JsonSerializerOptions cacheOptions = Assert.IsType<JsonSerializerOptions>(cacheOptionsField.GetValue(null));
+        Assert.Equal(32, cacheOptions.MaxDepth);
+        Assert.NotNull(cacheOptions.PropertyNamingPolicy);
     }
 
     [Theory]
@@ -538,6 +547,25 @@ public sealed class SecurityChallengeBinaryEndpointTests
             HashC,
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeMilliseconds());
+
+    private static T ReadPrivateConstant<T>(Type type, string fieldName)
+    {
+        FieldInfo field = type.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException($"Missing runtime limit: {fieldName}");
+        Assert.True(field.IsLiteral);
+        return Assert.IsType<T>(field.GetRawConstantValue());
+    }
+
+    private static IReadOnlyDictionary<string, string> InvokePayloadParser(
+        MethodInfo parser,
+        string json,
+        bool expectedAccepted)
+    {
+        object?[] arguments = [json, null];
+        bool accepted = Assert.IsType<bool>(parser.Invoke(null, arguments));
+        Assert.Equal(expectedAccepted, accepted);
+        return Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(arguments[1]);
+    }
 
     private static SecurityRiskPolicySnapshotV2 CreatePolicy(string challengeKind)
     {

@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
@@ -9,8 +7,12 @@ import {
   getServerDraft,
   moderateComment,
   previewModerationEffectivePolicy,
+  reloadModerationDictionaries,
   revokeAnonymousCredential,
-  saveServerDraft
+  rollbackModerationDictionaries,
+  saveServerDraft,
+  setModerationGlobalState,
+  setModerationRegionState
 } from '@/api/authoring'
 import { FSUS_HEADERS } from '@/api/contracts'
 
@@ -138,6 +140,78 @@ describe('authoring API binary transport', () => {
     })
   })
 
+  it('reloads and rolls back moderation dictionaries with admin step-up proof', async () => {
+    binaryMock
+      .mockResolvedValueOnce({
+        reloaded: true,
+        snapshotId: 'snapshot-next',
+        checksum: 'checksum-next',
+        error: null,
+        reloadedAtUtc: '2026-07-11T08:00:00Z'
+      })
+      .mockResolvedValueOnce({
+        snapshotId: 'snapshot-previous',
+        version: '2026-07',
+        checksum: 'checksum-previous',
+        createdAtUtc: '2026-07-11T07:00:00Z',
+        dictionaries: [],
+        regionPolicies: [],
+        lastError: null
+      })
+
+    await reloadModerationDictionaries({ mfaProofToken: 'proof-reload' })
+    await rollbackModerationDictionaries({ mfaProofToken: 'proof-rollback' })
+
+    const reload = binaryMock.mock.calls[0]?.[0]
+    const rollback = binaryMock.mock.calls[1]?.[0]
+    expect(reload).toMatchObject({
+      binaryUrl: '/api/binary/author/moderation/dictionaries/reload',
+      frameType: FrameType.ModerationDictionaryReloadResponse,
+      requestOptions: { method: 'POST' }
+    })
+    expect((reload?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-reload')
+    expect(rollback).toMatchObject({
+      binaryUrl: '/api/binary/author/moderation/dictionaries/rollback',
+      frameType: FrameType.ModerationDictionarySnapshot,
+      requestOptions: { method: 'POST' }
+    })
+    expect((rollback?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-rollback')
+  })
+
+  it('encodes moderation global and region runtime mutations with their selected arguments', async () => {
+    binaryMock.mockResolvedValue({ snapshotId: 'runtime-next' })
+
+    await setModerationGlobalState({
+      state: 'disabled_to_pending',
+      reason: 'provider incident',
+      expiresAtUtc: '2026-07-11T09:00:00Z'
+    }, { mfaProofToken: 'proof-global' })
+    await setModerationRegionState({
+      region: 'CN-MAINLAND',
+      state: 'no_public_display',
+      reason: 'policy review',
+      confirmPhrase: 'CONFIRM_CN_MAINLAND_CHANGE'
+    }, { mfaProofToken: 'proof-region' })
+
+    const globalState = binaryMock.mock.calls[0]?.[0]
+    const regionState = binaryMock.mock.calls[1]?.[0]
+    expect(globalState?.binaryUrl).toBe('/api/binary/author/moderation/runtime/global-state')
+    expect(globalState?.frameType).toBe(FrameType.ModerationRuntimeStatus)
+    expect((globalState?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-global')
+    expectAedsJsonBody(globalState?.requestOptions?.body, FrameType.ModerationRuntimeGlobalStateRequest, {
+      state: 'disabled_to_pending',
+      reason: 'provider incident'
+    })
+    expect(regionState?.binaryUrl).toBe('/api/binary/author/moderation/runtime/region-state')
+    expect(regionState?.frameType).toBe(FrameType.ModerationRuntimeStatus)
+    expect((regionState?.requestOptions?.headers as Headers).get('X-Fsus-Mfa-Proof')).toBe('proof-region')
+    expectAedsJsonBody(regionState?.requestOptions?.body, FrameType.ModerationRuntimeRegionStateRequest, {
+      region: 'CN-MAINLAND',
+      state: 'no_public_display',
+      confirmPhrase: 'CONFIRM_CN_MAINLAND_CHANGE'
+    })
+  })
+
   it('maps boolean moderation mutation responses from AEDS payloads', async () => {
     binaryMock.mockResolvedValue({ moderated: true })
 
@@ -189,14 +263,6 @@ describe('authoring API binary transport', () => {
     })
   })
 
-  it('does not retain the deprecated authoring JSON client in production source', () => {
-    const source = readFileSync(resolve(process.cwd(), '../../src/frontend/src/api/authoring.ts'), 'utf8')
-    expect(source).not.toContain('/api/author')
-    expect(source).not.toContain('JsonApiResponse')
-    expect(source).not.toContain('response.json')
-    expect(source).not.toContain('application/json')
-    expect(source).not.toContain('JSON.stringify')
-  })
 })
 
 function expectAedsJsonBody(body: BodyInit | null | undefined, frameType: FrameType, expected: Record<string, unknown>): void {

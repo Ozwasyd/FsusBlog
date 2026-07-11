@@ -58,7 +58,8 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         var jwt = Substitute.For<IJwtHelper>();
         int refreshCounter = 0;
         jwt.GenerateRefreshToken().Returns(_ => $"refresh-token-{Interlocked.Increment(ref refreshCounter)}");
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns(
+            new IssuedAccessToken("access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
 
         return new UserService(
             _db: db,
@@ -69,6 +70,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
             _messageCommandService: Substitute.For<IMessageCommandService>(),
             _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
             _totpService: Substitute.For<ITotpService>(),
-            _authRiskService: Substitute.For<IAuthRiskService>());
+            _authRiskService: Substitute.For<IAuthRiskService>(),
+            _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
     }
 }

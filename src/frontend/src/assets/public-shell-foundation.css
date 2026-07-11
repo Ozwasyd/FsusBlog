@@ -254,20 +254,63 @@ html[data-theme-resolved='dark'] body {
   width: 100%;
 }
 
+#fsus-aot-shell .public-chrome-action,
 #fsus-aot-shell .el-public-shell__mobile-search-trigger,
-#fsus-aot-shell .el-theme-mode-toggle__menu-button {
-  min-width: 50px;
+#fsus-aot-shell .el-public-shell__header .el-theme-mode-toggle__menu-button {
+  display: inline-flex;
+  min-width: 40px;
   min-height: 40px;
-  border: 1px solid var(--el-border-color-lighter);
+  align-items: center;
+  justify-content: center;
+  border: 0;
   border-radius: var(--el-border-radius-small);
-  padding: 0 12px;
-  background: var(--el-bg-color);
-  color: var(--el-text-color-primary);
+  padding: 0 8px;
+  background: transparent;
+  color: var(--el-text-color-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
+  text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+#fsus-aot-shell .public-chrome-action:hover,
+#fsus-aot-shell .public-chrome-action:focus-visible,
+#fsus-aot-shell .el-public-shell__mobile-search-trigger:hover,
+#fsus-aot-shell .el-public-shell__mobile-search-trigger:focus-visible,
+#fsus-aot-shell .el-public-shell__header .el-theme-mode-toggle__menu-button:hover,
+#fsus-aot-shell .el-public-shell__header .el-theme-mode-toggle__menu-button:focus-visible {
+  color: var(--el-text-color-primary);
+}
+
+#fsus-aot-shell .public-chrome-action:focus-visible,
+#fsus-aot-shell .el-public-shell__mobile-search-trigger:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+  outline: none;
+}
+
+#fsus-aot-shell .public-chrome-search {
+  position: relative;
+}
+
+#fsus-aot-shell .public-chrome-search__panel {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 60;
+  width: min(22rem, calc(100vw - 32px));
+  padding: 10px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-popover, 10px);
+  background: var(--el-bg-color);
+  box-shadow: var(--fsus-shadow-panel-light, none);
+  box-sizing: border-box;
+}
+
+#fsus-aot-shell .el-public-shell__search--desktop-trigger {
+  width: 100%;
 }
 
 #fsus-aot-shell .el-theme-mode-toggle {
@@ -324,79 +367,82 @@ html[data-theme-resolved='dark'] body {
   line-height: 1;
 }
 
-#fsus-aot-shell .fsu-mobile-dock[data-fsus-mobile-dock='bottom'] {
-  position: fixed;
-  inset-inline: 0;
-  inset-block-end: 0;
-  z-index: 30;
-}
-
-#fsus-aot-shell .fsusblog-public-bottom-tab {
-  position: fixed;
-  inset-inline: 0;
-  inset-block-end: 0;
-  z-index: var(--fsus-z-mobile-dock, 30);
-}
-
-#fsus-aot-shell .fsu-bottom-tab-bar {
-  display: flex;
-  align-items: stretch;
-  width: 100%;
-  min-block-size: var(--fsus-bottom-tab-height, 56px);
-  background: var(--fsusblog-panel-bg);
-  border-block-start: 1px solid var(--fsusblog-panel-border);
-}
-
-#fsus-aot-shell .fsu-bottom-tab-bar__item {
-  position: relative;
-  flex: 1 1 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-block-size: var(--fsus-bottom-tab-height, 56px);
-  min-width: 0;
-  padding: 4px 8px;
-  box-sizing: border-box;
+#fsus-aot-shell .public-colophon {
+  display: grid;
+  gap: 10px;
   color: var(--fsusblog-text-muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1.15;
-  text-align: center;
-  text-decoration: none;
+  line-height: 1.5;
 }
 
-#fsus-aot-shell .fsu-bottom-tab-bar__item.is-active {
+#fsus-aot-shell .public-colophon__primary,
+#fsus-aot-shell .public-colophon__secondary,
+#fsus-aot-shell .public-colophon__identity,
+#fsus-aot-shell .public-colophon__policy-links,
+#fsus-aot-shell .public-colophon__records {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+#fsus-aot-shell .public-colophon__primary {
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+
+#fsus-aot-shell .public-colophon__identity {
+  gap: 6px;
+  margin: 0;
+}
+
+#fsus-aot-shell .public-colophon__brand {
   color: var(--fsusblog-text-primary);
+  font-size: 14px;
   font-weight: 700;
 }
 
-#fsus-aot-shell .fsu-bottom-tab-bar__indicator {
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline-start: 50%;
-  width: 32px;
-  height: 2px;
-  border-radius: var(--fsus-radius-pill, 999px);
-  background: transparent;
-  transform: translateX(-50%);
+#fsus-aot-shell .public-colophon__separator {
+  color: var(--fsusblog-text-decorative);
 }
 
-#fsus-aot-shell .fsu-bottom-tab-bar__item.is-active .fsu-bottom-tab-bar__indicator {
-  background: var(--fsusblog-color-primary);
+#fsus-aot-shell .public-colophon__secondary {
+  gap: 2px 18px;
+  color: var(--fsusblog-text-tertiary);
+  font-weight: 500;
 }
 
-#fsus-aot-shell .fsu-bottom-tab-bar__label {
-  overflow: hidden;
+#fsus-aot-shell .public-colophon__license {
+  margin: 0;
+}
+
+#fsus-aot-shell .public-colophon__policy-links,
+#fsus-aot-shell .public-colophon__records {
+  gap: 2px 14px;
+}
+
+#fsus-aot-shell .public-colophon__link {
+  display: inline-flex;
+  min-height: 40px;
   max-width: 100%;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  align-items: center;
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+#fsus-aot-shell .public-colophon__rss {
+  flex: 0 0 auto;
+  color: var(--fsusblog-text-secondary);
+  font-weight: 700;
+}
+
+#fsus-aot-shell .public-colophon__record-link {
+  gap: 8px;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 767px) {
-  #fsus-aot-shell {
-    padding-bottom: calc(var(--fsus-bottom-tab-height, 56px) + env(safe-area-inset-bottom));
-  }
-
   #fsus-aot-shell .el-public-shell__inner {
     padding-block: 20px;
   }
@@ -427,11 +473,19 @@ html[data-theme-resolved='dark'] body {
     justify-content: flex-start;
     min-width: 0;
   }
-}
 
-@media (min-width: 768px) {
-  #fsus-aot-shell .fsusblog-public-bottom-tab {
-    display: none;
+  #fsus-aot-shell .el-public-shell__footer {
+    padding-bottom: max(2.5rem, calc(1.5rem + env(safe-area-inset-bottom)));
+  }
+
+  #fsus-aot-shell .public-colophon__primary {
+    align-items: flex-start;
+  }
+
+  #fsus-aot-shell .public-colophon__secondary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
   }
 }
 
@@ -453,6 +507,7 @@ html[data-theme-resolved='dark'] body {
   #fsus-aot-shell .el-public-shell__brand,
   #fsus-aot-shell .el-public-shell__nav-link,
   #fsus-aot-shell .el-public-shell__mobile-search-trigger,
+  #fsus-aot-shell .el-public-shell__mobile-nav-menu-trigger,
   #fsus-aot-shell .el-theme-mode-toggle__menu-button,
   #fsus-aot-shell .el-public-shell__auth-link--desktop {
     min-height: 36px;

@@ -1,58 +1,73 @@
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests;
 
-public sealed class ScheduledPublishWorkerTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public void ScheduledPublish_SourceWritesOnlyOutboxWithPublishedStateCommit()
+    public async Task PublishDueArticlesAsync_CommitsPublishedStateAndOutboxWithoutSideEffectServices()
     {
-        string source = ReadSource("src/backend/Services/Background/ScheduledPublishWorker.cs");
-        string method = Slice(source, "internal async Task<int> PublishDueArticlesAsync", "        finally");
-        string claim = Slice(source, "private static async Task<ScheduledPublishBatchCommit> ClaimDueArticlesAsync", "    private static async Task<int> EstimateBacklogAsync");
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        int dueArticleId = InsertScheduledArticle(db, "due", DateTime.UtcNow.AddMinutes(-5));
+        using ServiceProvider provider = CreateWorkerProvider(db);
+        var worker = CreateWorker(provider);
 
-        Assert.Contains("db.Ado.UseTranAsync", claim, StringComparison.Ordinal);
-        Assert.Contains("BuildScheduledPublishOutboxEvent(articleId, now)", source, StringComparison.Ordinal);
-        Assert.Contains("ArticleMutationOutboxEvent", source, StringComparison.Ordinal);
-        Assert.Contains("\"scheduled-published\"", source, StringComparison.Ordinal);
-        Assert.Contains("TransactionSideEffectGuard.CanPublishAfterCommit", claim, StringComparison.Ordinal);
-        Assert.DoesNotContain("it remains scheduled for retry", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("ISearchIndexService", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("IPublicAotInvalidationService", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("ICacheInvalidationDispatcher", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("searchIndex.AddOrUpdateIndexAsync", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("publicAotInvalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("invalidation.InvalidateArticleMutationAsync", method, StringComparison.Ordinal);
+        int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
 
-        int outbox = claim.IndexOf("BuildScheduledPublishOutboxEvent(articleId, now)", StringComparison.Ordinal);
-        int commitGuard = claim.IndexOf("TransactionSideEffectGuard.CanPublishAfterCommit", StringComparison.Ordinal);
-        Assert.True(outbox >= 0);
-        Assert.True(commitGuard > outbox);
+        Article article = await db.Queryable<Article>().InSingleAsync(dueArticleId);
+        ArticleMutationOutboxEvent outbox = Assert.Single(
+            await db.Queryable<ArticleMutationOutboxEvent>().ToListAsync());
+        Assert.Equal(1, published);
+        Assert.Equal(ArticleStatus.Published, article.Status);
+        Assert.Null(article.ScheduledPublishAt);
+        Assert.NotNull(article.PublishedAt);
+        Assert.Equal(dueArticleId, outbox.AggregateId);
+        Assert.Equal("article", outbox.AggregateType);
+        Assert.Equal("scheduled-published", outbox.EventType);
+        Assert.Equal("pending", outbox.Status);
+        Assert.Equal(0, outbox.RetryCount);
+        Assert.Contains($"\"articleId\":{dueArticleId}", outbox.PayloadJson, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ScheduledPublish_SourceClaimsAndOutboxesDueArticlesInOneBatchTransaction()
+    public async Task PublishDueArticlesAsync_ClaimsDueRowsWithLockingBatchAndLeavesFutureRowsScheduled()
     {
-        string source = ReadSource("src/backend/Services/Background/ScheduledPublishWorker.cs");
-        string publish = Slice(source, "internal async Task<int> PublishDueArticlesAsync", "        finally");
-        string claim = Slice(source, "private static async Task<ScheduledPublishBatchCommit> ClaimDueArticlesAsync", "    private static async Task<int> EstimateBacklogAsync");
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        int firstDueId = InsertScheduledArticle(db, "first", DateTime.UtcNow.AddMinutes(-10));
+        int secondDueId = InsertScheduledArticle(db, "second", DateTime.UtcNow.AddMinutes(-5));
+        int futureId = InsertScheduledArticle(db, "future", DateTime.UtcNow.AddHours(1));
+        var executedSql = new List<string>();
+        db.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
+        using ServiceProvider provider = CreateWorkerProvider(db);
+        var worker = CreateWorker(provider);
 
-        Assert.Contains("\"scheduled-publish-batch-commit\"", publish, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"scheduled-publish-due-query\"", publish, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"scheduled-publish-commit\"", publish, StringComparison.Ordinal);
-        Assert.DoesNotContain("foreach (Article article in due)", publish, StringComparison.Ordinal);
+        int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
 
-        Assert.Contains("UPDATE article", claim, StringComparison.Ordinal);
-        Assert.Contains("FOR UPDATE SKIP LOCKED", claim, StringComparison.Ordinal);
-        Assert.Contains("RETURNING id", claim, StringComparison.Ordinal);
-        Assert.Contains("BuildScheduledPublishOutboxEvent(articleId, now)", claim, StringComparison.Ordinal);
-        Assert.Contains("db.Insertable(outboxEvents).ExecuteCommandAsync", claim, StringComparison.Ordinal);
-        Assert.Contains("ScheduledPublishBatchCommit", source, StringComparison.Ordinal);
+        List<Article> articles = await db.Queryable<Article>().OrderBy(static article => article.Id).ToListAsync();
+        List<ArticleMutationOutboxEvent> outbox = await db.Queryable<ArticleMutationOutboxEvent>()
+            .OrderBy(static item => item.AggregateId)
+            .ToListAsync();
+        string claimSql = Assert.Single(executedSql.Where(static sql =>
+            sql.Contains("UPDATE article", StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains("FOR UPDATE SKIP LOCKED", claimSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RETURNING id", claimSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(2, published);
+        Assert.Equal([firstDueId, secondDueId], outbox.Select(static item => item.AggregateId).ToArray());
+        Assert.All(outbox, static item => Assert.Equal("scheduled-published", item.EventType));
+        Assert.Equal(ArticleStatus.Published, articles.Single(article => article.Id == firstDueId).Status);
+        Assert.Equal(ArticleStatus.Published, articles.Single(article => article.Id == secondDueId).Status);
+        Assert.Equal(ArticleStatus.Scheduled, articles.Single(article => article.Id == futureId).Status);
+        Assert.NotNull(articles.Single(article => article.Id == futureId).ScheduledPublishAt);
     }
 
     [Fact]
@@ -77,16 +92,50 @@ public sealed class ScheduledPublishWorkerTests
         Assert.Equal(nameof(InvalidOperationException), snapshot.LastError);
     }
 
-    private static string ReadSource(string relativePath)
-        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
-
-    private static string Slice(string source, string startMarker, string endMarker)
+    private async Task<SqlSugarClient> CreateDatabaseAsync()
     {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
-        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
-        Assert.True(end > start, $"Missing end marker: {endMarker}");
-        return source[start..end];
+        SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(db, typeof(Article), typeof(ArticleMutationOutboxEvent));
+        return db;
+    }
+
+    private static int InsertScheduledArticle(SqlSugarClient db, string title, DateTime scheduledAt)
+        => db.Insertable(new Article
+        {
+            Title = title,
+            CategoryId = 1,
+            Status = ArticleStatus.Scheduled,
+            ScheduledPublishAt = scheduledAt,
+            PublishedAt = null,
+            CreateTime = scheduledAt.AddHours(-1),
+            IsDeleted = false
+        }).ExecuteReturnIdentity();
+
+    private static ServiceProvider CreateWorkerProvider(ISqlSugarClient db)
+        => new ServiceCollection()
+            .AddSingleton(db)
+            .AddSingleton<ISqlSugarClient>(db)
+            .AddSingleton<IDbConcurrencyGate, ImmediateDbConcurrencyGate>()
+            .BuildServiceProvider();
+
+    private static ScheduledPublishWorker CreateWorker(ServiceProvider provider)
+        => new(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<ScheduledPublishWorker>.Instance,
+            TimeProvider.System,
+            new ScheduledPublishRuntimeState(),
+            new TestBackgroundWorkerLease());
+
+    private sealed class ImmediateDbConcurrencyGate : IDbConcurrencyGate
+    {
+        public Task<T> ExecuteAsync<T>(
+            string operation,
+            Func<CancellationToken, Task<T>> action,
+            Func<CancellationToken, Task<T>> onTimeout,
+            CancellationToken cancellationToken = default)
+            => action(cancellationToken);
+
+        public DbConcurrencyGateSnapshot GetSnapshot() => new(1, 0, 0);
     }
 
     private sealed class TestBackgroundWorkerLease : IBackgroundWorkerLease

@@ -160,8 +160,23 @@ public sealed class ArticleProjectionTests
     {
         var page = new ArticleListPageReadModel
         {
-            Items = [BuildListItem() with { Id = 5 }, BuildListItem() with { Id = 6 }],
-            Total = 99
+            Items =
+            [
+                BuildListItem() with
+                {
+                    Id = 5,
+                    Tags =
+                    [
+                        new TagReadModel { Id = 1, Name = "one" },
+                        new TagReadModel { Id = 2, Name = "two" },
+                        new TagReadModel { Id = 3, Name = "three" }
+                    ]
+                },
+                BuildListItem() with { Id = 6, Tags = ArticleReadModelCollections.EmptyTags }
+            ],
+            Total = 99,
+            NextCursor = "cursor-6",
+            HasMore = true
         };
 
         PageResponse<ArticleListItemResponse> result = ArticleProjection.ToResponsePage(page);
@@ -170,6 +185,10 @@ public sealed class ArticleProjectionTests
         Assert.Equal(2, result.Items.Count);
         Assert.Equal(5, result.Items[0].Id);
         Assert.Equal(6, result.Items[1].Id);
+        Assert.Equal("cursor-6", result.NextCursor);
+        Assert.True(result.HasMore);
+        Assert.Equal([1, 2], result.Items[0].Tags.Select(static tag => tag.Id));
+        Assert.Empty(result.Items[1].Tags);
     }
 
     // ─── ToTagResponse ───────────────────────────────────────────────────────

@@ -71,7 +71,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "用户状态变更请求体非法"), aeds);
             }
 
-            if (request.Status is not 0 and not 1)
+            if (!IsSupportedAdminAccountStatus(request.Status))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "用户状态变更仅允许封禁或解封"), aeds);
             }

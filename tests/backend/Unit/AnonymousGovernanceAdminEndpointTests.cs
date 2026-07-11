@@ -1,8 +1,16 @@
+using System.Reflection;
 using System.Text.Json;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -12,35 +20,50 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousGovernanceAdminEndpointTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public void AdminAnonymousGovernanceEndpoints_AreBinaryAdminStepUpAndPermissionGated()
+    public async Task AdminAnonymousGovernanceEndpoints_AreBinaryAdminStepUpAndPermissionGated()
     {
-        string composition = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs");
-        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousGovernance.cs");
+        await using WebApplication app = EndpointContractApplication.Create();
+        var expected = new (string Route, string Method, string Permission)[]
+        {
+            ("/api/binary/admin/anonymous-governance/status", HttpMethods.Get, AdminPermissions.AnonymousCommentConfigure),
+            ("/api/binary/admin/anonymous-governance/nullifiers", HttpMethods.Get, AdminPermissions.AnonymousNullifierBlock),
+            ("/api/binary/admin/anonymous-governance/nullifiers/block", HttpMethods.Post, AdminPermissions.AnonymousNullifierBlock),
+            ("/api/binary/admin/anonymous-governance/credentials/revoke", HttpMethods.Post, AdminPermissions.AnonymousCredentialRevoke)
+        };
+        foreach ((string route, string method, string permission) in expected)
+        {
+            AssertPermission(EndpointContractApplication.Find(app, route, method), permission);
+        }
 
-        Assert.Contains("MapBinaryAnonymousGovernanceEndpoints(group)", composition, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/admin/anonymous-governance/status\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/admin/anonymous-governance/nullifiers\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/admin/anonymous-governance/nullifiers/block\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/admin/anonymous-governance/credentials/revoke\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AdminPermissions.AnonymousCommentConfigure", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AdminPermissions.AnonymousNullifierBlock", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AdminPermissions.AnonymousCredentialRevoke", endpoints, StringComparison.Ordinal);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync", endpoints, StringComparison.Ordinal);
-        Assert.True(CountOccurrences(endpoints, "RequireAnonymousGovernance") >= 4);
-        Assert.True(CountOccurrences(endpoints, "RecordHighValueAsync") >= 4);
-        Assert.Contains("AnonymousGovernanceStatusRead", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AnonymousGovernanceNullifiersRead", endpoints, StringComparison.Ordinal);
-        Assert.Contains("HashAuditTargetId(\"anonymous_governance_status\", \"status\")", endpoints, StringComparison.Ordinal);
-        Assert.Contains("HashAuditTargetId(\"comment_anonymous_nullifier\", \"collection\")", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("/author/comments/moderation", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("Results.Json", endpoints, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            "MapBinaryAnonymousGovernanceEndpoints",
+            "HandleAnonymousGovernanceStatusAsync",
+            "HandleAnonymousGovernanceNullifiersAsync",
+            "HandleAnonymousGovernanceNullifierBlockAsync",
+            "HandleAnonymousGovernanceCredentialRevokeAsync",
+            "RequireAnonymousGovernanceReadAsync",
+            "RecordAnonymousGovernanceStatusReadAuditAsync",
+            "RecordAnonymousGovernanceNullifiersReadAuditAsync");
+        Assert.Contains("RequireAdminSensitiveStepUpAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.True(CountOccurrences(runtimeShape, "RequireAnonymousGovernance") >= 4);
+        Assert.True(CountOccurrences(runtimeShape, "RecordHighValueAsync") >= 4);
+        Assert.Contains("AnonymousGovernanceStatusRead", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("AnonymousGovernanceNullifiersRead", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("anonymous_governance_status", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("comment_anonymous_nullifier", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("/author/comments/moderation", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("Results.Json", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AnonymousGovernanceDtos_DoNotExposeDeanonymizationFields()
+    public void AnonymousGovernanceRuntimeDtos_DoNotExposeDeanonymizationFields()
     {
-        string dto = BackendTestPaths.ReadAllTextFromRoot("src/backend/Models/Dtos/AnonymousGovernanceDtos.cs");
-        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousGovernanceService.cs");
+        PropertyInfo[] dtoProperties = typeof(AnonymousGovernanceStatusResponse).Assembly.DefinedTypes
+            .Where(static type => type.Namespace == typeof(AnonymousGovernanceStatusResponse).Namespace)
+            .Where(static type => type.Name.StartsWith("AnonymousGovernance", StringComparison.Ordinal))
+            .SelectMany(static type => type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            .ToArray();
 
         foreach (string forbidden in new[]
         {
@@ -54,13 +77,16 @@ public sealed class AnonymousGovernanceAdminEndpointTests(PostgresSchemaMigratio
             "Secret"
         })
         {
-            Assert.DoesNotContain(forbidden, dto, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(dtoProperties, property =>
+                property.Name.Contains(forbidden, StringComparison.OrdinalIgnoreCase));
         }
 
-        Assert.Contains("MaskHash", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAccount", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("Queryable<User>", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("Navigate", dto, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(AnonymousGovernanceService));
+        Assert.Contains("MaskHash", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetAccount", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("FsusBlog.Server.Entities.User", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain(dtoProperties, static property =>
+            property.Name.Contains("Navigate", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -109,6 +135,16 @@ public sealed class AnonymousGovernanceAdminEndpointTests(PostgresSchemaMigratio
         }
 
         return count;
+    }
+
+    private static void AssertPermission(RouteEndpoint endpoint, string expectedPermission)
+    {
+        ClaimsAuthorizationRequirement permission = Assert.Single(endpoint.Metadata
+            .GetOrderedMetadata<AuthorizationPolicy>()
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+        Assert.Contains(expectedPermission, permission.AllowedValues ?? []);
     }
 
     private Task<SqlSugarClient> CreateGovernanceDbAsync()

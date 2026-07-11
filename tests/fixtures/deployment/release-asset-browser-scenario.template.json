@@ -1,0 +1,44 @@
+{
+  "schema": "fsusblog.release-asset-compatibility-scenario.v1",
+  "drillId": "replace-with-unique-rollout-asset-browser-drill",
+  "oldReleaseId": "replace-with-source-release-id",
+  "newReleaseId": "replace-with-target-release-id",
+  "oldFrontendBaseUrl": "http://127.0.0.1:5080",
+  "publicBaseUrl": "http://127.0.0.1:18080",
+  "oldBackendBaseUrl": "http://127.0.0.1:5080",
+  "newBackendBaseUrl": "http://127.0.0.1:5081",
+  "browser": {
+    "required": true,
+    "bindingKeyFile": "/run/fsus/secrets/asset-browser-binding.key",
+    "newFrontendBaseUrl": "http://127.0.0.1:18080",
+    "newIndexPath": "/release-assets/replace-with-target-release-id/index.html",
+    "expectedCacheNamespace": "fsus-static-v4:replace-with-source-release-id",
+    "holdToken": "replace-with-unique-browser-hold-token",
+    "timeoutMs": 60000
+  },
+  "compatibilityRequests": {
+    "oldFrontendToNewBackend": [
+      {
+        "id": "old-browser-new-backend-home",
+        "method": "GET",
+        "path": "/api/binary/article/list/home/1/10.aeds",
+        "expectedStatuses": [200],
+        "expectedHeaders": { "content-type": "application/octet-stream" }
+      }
+    ],
+    "newFrontendToOldBackend": [
+      {
+        "id": "new-browser-old-backend-home",
+        "method": "GET",
+        "path": "/api/binary/article/list/home/1/10.aeds",
+        "expectedStatuses": [200],
+        "expectedHeaders": { "content-type": "application/octet-stream" }
+      }
+    ]
+  },
+  "retention": {
+    "untilUtc": "2099-01-01T00:00:00.000Z",
+    "requiredProtectionReason": "retention-window"
+  },
+  "requestTimeoutMs": 10000
+}

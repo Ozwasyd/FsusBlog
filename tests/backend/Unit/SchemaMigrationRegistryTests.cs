@@ -1,6 +1,7 @@
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 using NSubstitute;
 using SqlSugar;
 
@@ -60,6 +61,50 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260621-post-sys-user-security-profile-split-finalize", migrationIds);
         Assert.Contains("20260709-post-site-subscription-hmac-finalize", migrationIds);
         Assert.Contains("20260709-post-clear-legacy-public-artifacts", migrationIds);
+        Assert.Contains("20260711-post-recovery-passkey-completion-idempotency", migrationIds);
+        Assert.Contains("20260711-pre-account-subject-hash-expand", migrationIds);
+        Assert.Contains("20260711-post-account-subject-hash-backfill", migrationIds);
+    }
+
+    [Fact]
+    public void GetDescriptors_AccountSubjectProjection_UsesCompatibleExpandAndCanonicalBackfill()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor expand = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260711-pre-account-subject-hash-expand");
+        ISchemaMigrationDescriptor backfill = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260711-post-account-subject-hash-backfill");
+        string expandFingerprint = string.Join('\n', expand.Steps.Select(static step => step.Fingerprint));
+        string backfillFingerprint = string.Join('\n', backfill.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, expand.Phase);
+        Assert.Contains("sys_user.account_subject_hash:varchar(64) NULL", expandFingerprint, StringComparison.Ordinal);
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, backfill.Phase);
+        Assert.False(backfill.Transactional);
+        Assert.Contains("csharp-canonical-hasher", backfillFingerprint, StringComparison.Ordinal);
+        Assert.Contains("account_subject_hash IS NULL", backfillFingerprint, StringComparison.Ordinal);
+        Assert.Contains("ck_sys_user_account_subject_hash_format", backfillFingerprint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetDescriptors_RecoveryPasskeyCompletion_AddsDurableRequestBoundIdempotencyMarker()
+    {
+        var registry = new SchemaMigrationRegistry();
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260711-post-recovery-passkey-completion-idempotency");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.True(descriptor.Transactional);
+        Assert.Contains("passkey_credential.recovery_session_hash:varchar(64) NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("passkey_credential.recovery_request_hash:varchar(64) NULL", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ux_passkey_recovery_session_hash", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("WHERE recovery_session_hash IS NOT NULL", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -266,15 +311,20 @@ public sealed class SchemaMigrationRegistryTests
     [Fact]
     public void GetDescriptors_StaticGuardsPreventLegacyModerationAndUsernameMigrationResidue()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+        IReadOnlyList<ISchemaMigrationDescriptor> descriptors = new SchemaMigrationRegistry().GetDescriptors();
+        EnsureColumnStep[] ensuredColumns = descriptors
+            .SelectMany(static descriptor => descriptor.Steps)
+            .OfType<EnsureColumnStep>()
+            .ToArray();
+        string fingerprints = string.Join('\n', descriptors
+            .SelectMany(static descriptor => descriptor.Steps)
+            .Select(static step => step.Fingerprint));
 
-        Assert.DoesNotMatch(
-            "EnsureColumnStep\\([^\\n]*\"moderated_by_user_id\"",
-            source);
+        Assert.DoesNotContain(ensuredColumns, static step =>
+            string.Equals(step.ColumnName, "moderated_by_user_id", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(
             "ALTER TABLE sys_user ALTER COLUMN username",
-            source,
+            fingerprints,
             StringComparison.Ordinal);
     }
 
@@ -302,13 +352,15 @@ public sealed class SchemaMigrationRegistryTests
             registry.GetDescriptors(),
             static item => item.MigrationId == "20260629-post-article-view-projection-watermark");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        string runner = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs");
+        string runnerRuntime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(SchemaMigrationRunner),
+            nameof(SchemaMigrationRunner.RunAsync));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.Contains("article_view_projection_watermark", fingerprint, StringComparison.Ordinal);
         Assert.Contains("last_visit_log_id integer NOT NULL DEFAULT 0", fingerprint, StringComparison.Ordinal);
         Assert.Contains("last_full_reconcile_utc timestamp", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("article_view_projection_watermark", runner, StringComparison.Ordinal);
+        Assert.Contains("article_view_projection_watermark", runnerRuntime, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -320,14 +372,16 @@ public sealed class SchemaMigrationRegistryTests
             registry.GetDescriptors(),
             static item => item.MigrationId == "20260629-post-asset-library-article-ref");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        string runner = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs");
+        string runnerRuntime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(SchemaMigrationRunner),
+            nameof(SchemaMigrationRunner.RunAsync));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.Contains("asset_library_article_ref", fingerprint, StringComparison.Ordinal);
         Assert.Contains("PRIMARY KEY (url, article_id)", fingerprint, StringComparison.Ordinal);
         Assert.Contains("reference_count integer NOT NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_asset_library_article_ref_article", fingerprint, StringComparison.Ordinal);
-        Assert.Contains("asset_library_article_ref", runner, StringComparison.Ordinal);
+        Assert.Contains("asset_library_article_ref", runnerRuntime, StringComparison.Ordinal);
     }
 
     [Fact]

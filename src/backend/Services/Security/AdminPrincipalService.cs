@@ -112,7 +112,11 @@ public sealed record AdminAuthClientContext(string ClientIp, string? DeviceFinge
             : null;
 }
 
-public sealed record AdminSessionTokens(string AccessToken, string SessionId, DateTime IdleExpiresAtUtc);
+public sealed record AdminSessionTokens(
+    string AccessToken,
+    DateTimeOffset AccessTokenExpiresAtUtc,
+    string SessionId,
+    DateTime IdleExpiresAtUtc);
 
 internal sealed record AdminPasskeyAssertionState(AdminPasskeyCredential Credential, AdminPrincipal Principal, string RowVersion);
 
@@ -898,10 +902,10 @@ public sealed class AdminPrincipalService(
             StepUpVerified = stepUpVerified
         };
 
-        string token = jwtHelper.GenerateAdminAccessToken(principal, session, ParsePermissions(principal.Permissions), stepUpVerified);
-        session.AccessTokenHash = HashForStorage(token);
+        IssuedAccessToken token = jwtHelper.GenerateAdminAccessToken(principal, session, ParsePermissions(principal.Permissions), stepUpVerified);
+        session.AccessTokenHash = HashForStorage(token.Token);
         await db.Insertable(session).ExecuteCommandAsync();
-        return new AdminSessionTokens(token, session.SessionId, session.IdleExpiresAtUtc);
+        return new AdminSessionTokens(token.Token, token.ExpiresAtUtc, session.SessionId, session.IdleExpiresAtUtc);
     }
 
     private async Task<bool> RootAdminExistsAsync(CancellationToken cancellationToken)

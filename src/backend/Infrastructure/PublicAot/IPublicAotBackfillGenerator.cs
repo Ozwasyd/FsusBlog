@@ -2,5 +2,8 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public interface IPublicAotBackfillGenerator
 {
-    Task GenerateAndStoreAsync(PublicAotBackfillRequest request, CancellationToken cancellationToken = default);
+    Task GenerateAndStoreAsync(
+        PublicAotBackfillRequest request,
+        CancellationToken cancellationToken = default,
+        Func<CancellationToken, Task>? beforeCommit = null);
 }

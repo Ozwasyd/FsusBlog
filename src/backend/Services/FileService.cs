@@ -9,6 +9,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Background;
@@ -29,10 +30,13 @@ public sealed partial class FileService : IFileService
     private const int ManifestFlushPartInterval = 8;
     private const string WorkingUploadFileName = "upload.tmp";
     private const string UploadPartBitmapFileName = "parts.bitmap";
+    private const string UploadCommitTempDirectoryName = ".incoming";
     private const string ExpirationIndexDirectoryName = "expires";
     private const string ExpirationBucketFormat = "yyyyMMddHH";
     private static readonly TimeSpan SessionTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan SessionLockTtl = TimeSpan.FromHours(6);
+    private static readonly TimeSpan UploadCommitTempRetention = TimeSpan.FromHours(24);
+    private static readonly TimeSpan UploadCommitTempCleanupLeaseTtl = TimeSpan.FromMinutes(2);
 
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<FileService> _logger;
@@ -100,27 +104,36 @@ public sealed partial class FileService : IFileService
         string fileName = $"{Guid.NewGuid():N}{extension}";
         string filePath = Path.Combine(_folderPath, fileName);
         string relativeUrl = $"{_cleanSubFolderWeb}/{fileName}";
+        string commitTempRoot = GetUploadCommitTempRoot();
+        string tempPath = Path.Combine(commitTempRoot, $"{fileName}.{Path.GetRandomFileName()}.tmp");
 
         return await BoundaryExecutor.ExecuteValueAsync(
             async () =>
             {
-                await using var stream = new FileStream(filePath, new FileStreamOptions
+                EnsureRestrictedDirectory(commitTempRoot);
+                try
                 {
-                    Mode = FileMode.Create,
-                    Access = FileAccess.Write,
-                    Share = FileShare.None,
-                    BufferSize = 81920,
-                    Options = FileOptions.Asynchronous
-                });
-                await file.CopyToAsync(stream);
+                    await using (var stream = new FileStream(tempPath, CreatePrivateWriteOptions(FileMode.CreateNew)))
+                    {
+                        await file.CopyToAsync(stream);
+                        await stream.FlushAsync();
+                        stream.Flush(flushToDisk: true);
+                    }
 
-                return new FileUploadResult
+                    File.Move(tempPath, filePath, overwrite: false);
+
+                    return new FileUploadResult
+                    {
+                        Success = true,
+                        Url = relativeUrl,
+                        RelativeUrl = relativeUrl,
+                        PhysicalPath = filePath
+                    };
+                }
+                finally
                 {
-                    Success = true,
-                    Url = relativeUrl,
-                    RelativeUrl = relativeUrl,
-                    PhysicalPath = filePath
-                };
+                    TryDeleteFile(tempPath);
+                }
             },
             _ => new FileUploadResult { Success = false, Message = "写入失败" },
             _logger,
@@ -435,7 +448,16 @@ public sealed partial class FileService : IFileService
             var record = await LoadSessionAsync(normalizedUploadId, cancellationToken);
             if (record is null)
             {
+                CommittedUploadResolution committed = await TryResolveCommittedUploadAsync(
+                    normalizedUploadId,
+                    NormalizeHash(sha256),
+                    cancellationToken);
                 RetireSessionLock(normalizedUploadId);
+                if (committed.Found)
+                {
+                    return committed.Result;
+                }
+
                 return Result<UploadCompleteDto>.Failure(ErrorCode.NotFound, "上传会话不存在或已过期");
             }
 
@@ -460,7 +482,7 @@ public sealed partial class FileService : IFileService
             }
 
             string extension = "." + record.TargetFormat.TrimStart('.').ToLowerInvariant();
-            string fileName = $"{Guid.NewGuid():N}{extension}";
+            string fileName = $"{normalizedUploadId}{extension}";
             string finalPath = Path.Combine(_folderPath, fileName);
             string relativeUrl = $"{_cleanSubFolderWeb}/{fileName}";
             string tempPath = Path.Combine(GetSessionPath(normalizedUploadId), $"assembled{extension}");
@@ -475,13 +497,13 @@ public sealed partial class FileService : IFileService
                 async () => usesWorkingFile
                     ? await AnalyzeWorkingUploadAsync(
                         sourcePath,
-                        computeHash: expectedHash.Length > 0,
+                        computeHash: true,
                         cancellationToken)
                     : await AssembleUploadAsync(
                         normalizedUploadId,
                         orderedParts,
                         tempPath,
-                        computeHash: expectedHash.Length > 0,
+                        computeHash: true,
                         cancellationToken),
                 _ => ErrorDetail.Create(ErrorCode.InfraFailure, "上传文件合并失败"),
                 _logger,
@@ -511,19 +533,218 @@ public sealed partial class FileService : IFileService
                 return Result<UploadCompleteDto>.Failure(ErrorCode.Validation, "文件签名与目标格式不一致");
             }
 
-            File.Move(sourcePath, finalPath, true);
+            Result<UploadCompleteDto> commit = await CommitVerifiedUploadAsync(
+                normalizedUploadId,
+                sourcePath,
+                finalPath,
+                relativeUrl,
+                record.MimeType,
+                assembled,
+                record.TargetFormat,
+                cancellationToken);
+            if (!commit.IsSuccess)
+            {
+                return commit;
+            }
+
             await DeleteSessionDirectoryAsync(normalizedUploadId);
+            return commit;
+        }
+        finally { }
+    }
+
+    private async Task<Result<UploadCompleteDto>> CommitVerifiedUploadAsync(
+        string uploadId,
+        string sourcePath,
+        string finalPath,
+        string relativeUrl,
+        string mimeType,
+        AssembledUploadFile assembled,
+        string targetFormat,
+        CancellationToken cancellationToken)
+    {
+        string commitTempRoot = GetUploadCommitTempRoot();
+        string commitTempPath = Path.Combine(
+            commitTempRoot,
+            $"{uploadId}.{targetFormat}.{Path.GetRandomFileName()}.tmp");
+        EnsureRestrictedDirectory(commitTempRoot);
+        try
+        {
+            await CopyFileDurablyAsync(sourcePath, commitTempPath, cancellationToken);
+            try
+            {
+                File.Move(commitTempPath, finalPath, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(finalPath))
+            {
+                CommittedUploadResolution concurrentCommit = await TryResolveCommittedUploadAsync(
+                    uploadId,
+                    assembled.Sha256,
+                    cancellationToken);
+                if (!concurrentCommit.Found)
+                {
+                    return Result<UploadCompleteDto>.Failure(ErrorCode.Conflict, "上传成品路径已被不同内容占用");
+                }
+
+                return concurrentCommit.Result;
+            }
 
             return Result<UploadCompleteDto>.Success(new UploadCompleteDto
             {
-                UploadId = normalizedUploadId,
+                UploadId = uploadId,
                 Url = relativeUrl,
                 RelativeUrl = relativeUrl,
-                MimeType = record.MimeType,
-                TotalBytes = new FileInfo(finalPath).Length
+                MimeType = mimeType,
+                TotalBytes = assembled.Length
             });
         }
-        finally { }
+        catch (IOException exception)
+        {
+            _logger.LogError(exception, "Atomic upload commit failed for {UploadId}", uploadId);
+            return Result<UploadCompleteDto>.Failure(ErrorCode.InfraFailure, "上传成品原子提交失败");
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            _logger.LogError(exception, "Atomic upload commit was denied for {UploadId}", uploadId);
+            return Result<UploadCompleteDto>.Failure(ErrorCode.InfraFailure, "上传成品原子提交失败");
+        }
+        finally
+        {
+            TryDeleteFile(commitTempPath);
+        }
+    }
+
+    private async Task<CommittedUploadResolution> TryResolveCommittedUploadAsync(
+        string uploadId,
+        string expectedSha256,
+        CancellationToken cancellationToken)
+    {
+        string[] candidates = _allowedExtensions
+            .Select(extension => Path.Combine(_folderPath, uploadId + extension))
+            .Where(File.Exists)
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            return CommittedUploadResolution.NotFound;
+        }
+
+        if (candidates.Length != 1)
+        {
+            return new CommittedUploadResolution(
+                true,
+                Result<UploadCompleteDto>.Failure(ErrorCode.Conflict, "上传成品存在多个冲突版本"));
+        }
+
+        string finalPath = candidates[0];
+        string extension = NormalizeExtension(Path.GetExtension(finalPath));
+        string format = extension.TrimStart('.');
+        if (!await ValidateImageSignatureAsync(finalPath, format, cancellationToken))
+        {
+            return new CommittedUploadResolution(
+                true,
+                Result<UploadCompleteDto>.Failure(ErrorCode.Conflict, "已提交上传成品签名无效"));
+        }
+
+        if (expectedSha256.Length > 0)
+        {
+            if (expectedSha256.Length != 64
+                || expectedSha256.Any(static character => !char.IsAsciiHexDigit(character)))
+            {
+                return new CommittedUploadResolution(
+                    true,
+                    Result<UploadCompleteDto>.Failure(ErrorCode.Validation, "上传文件校验值格式非法"));
+            }
+
+            string actualSha256 = await ComputeSha256Async(finalPath, cancellationToken);
+            if (!string.Equals(actualSha256, expectedSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                return new CommittedUploadResolution(
+                    true,
+                    Result<UploadCompleteDto>.Failure(ErrorCode.Conflict, "上传成品路径已被不同内容占用"));
+            }
+        }
+
+        string relativeUrl = $"{_cleanSubFolderWeb}/{Path.GetFileName(finalPath)}";
+        return new CommittedUploadResolution(
+            true,
+            Result<UploadCompleteDto>.Success(new UploadCompleteDto
+            {
+                UploadId = uploadId,
+                Url = relativeUrl,
+                RelativeUrl = relativeUrl,
+                MimeType = MimeTypeForExtension(extension),
+                TotalBytes = new FileInfo(finalPath).Length
+            }));
+    }
+
+    private string GetUploadCommitTempRoot()
+    {
+        string slot = NormalizeStorageIdentity(Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_SLOT"), "local");
+        string release = NormalizeStorageIdentity(Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ID"), "development");
+        string generation = NormalizeStorageIdentity(
+            Environment.GetEnvironmentVariable("FSUSBLOG_DEPLOYMENT_GENERATION"),
+            Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+        return Path.Combine(_folderPath, UploadCommitTempDirectoryName, $"{slot}-{release}-{generation}-{Environment.ProcessId}");
+    }
+
+    private static string NormalizeStorageIdentity(string? value, string fallback)
+    {
+        string candidate = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        return candidate.Length <= 128
+            && candidate.All(static character => char.IsAsciiLetterOrDigit(character)
+                || character is '.' or '_' or '-')
+            ? candidate
+            : fallback;
+    }
+
+    private static string MimeTypeForExtension(string extension)
+        => extension.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".ico" => "image/x-icon",
+            _ => "application/octet-stream"
+        };
+
+    private static async Task CopyFileDurablyAsync(
+        string sourcePath,
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
+        await using var source = new FileStream(sourcePath, new FileStreamOptions
+        {
+            Mode = FileMode.Open,
+            Access = FileAccess.Read,
+            Share = FileShare.Read,
+            BufferSize = UploadStreamBufferSize,
+            Options = FileOptions.Asynchronous | FileOptions.SequentialScan
+        });
+        await using var destination = new FileStream(destinationPath, CreatePrivateWriteOptions(FileMode.CreateNew));
+        await source.CopyToAsync(destination, UploadStreamBufferSize, cancellationToken);
+        await destination.FlushAsync(cancellationToken);
+        destination.Flush(flushToDisk: true);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // A later instance-scoped cleanup lease removes crash leftovers.
+        }
+    }
+
+    private readonly record struct CommittedUploadResolution(
+        bool Found,
+        Result<UploadCompleteDto> Result)
+    {
+        public static CommittedUploadResolution NotFound { get; }
+            = new(false, default);
     }
 
     private static IReadOnlyList<int> UploadedParts(UploadSessionRecord record)
@@ -1382,7 +1603,9 @@ public sealed partial class FileService : IFileService
         }
     }
 
-    internal async Task CleanupExpiredSessionsAsync(CancellationToken cancellationToken)
+    internal async Task CleanupExpiredSessionsAsync(
+        CancellationToken cancellationToken,
+        Func<CancellationToken, Task>? beforeCommit = null)
     {
         long started = Stopwatch.GetTimestamp();
         long scannedSessions = 0;
@@ -1390,6 +1613,7 @@ public sealed partial class FileService : IFileService
         var deletedUploadIds = new List<string>();
         if (!Directory.Exists(_sessionRootPath))
         {
+            await CleanupUploadCommitTempsAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
             FsusObservability.RecordUploadSessionCleanup(scannedSessions, deletedSessions, Stopwatch.GetElapsedTime(started));
             return;
         }
@@ -1404,6 +1628,7 @@ public sealed partial class FileService : IFileService
                 string uploadId = Path.GetFileName(indexPath);
                 if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
                 {
+                    await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
                     File.Delete(indexPath);
                     continue;
                 }
@@ -1413,6 +1638,7 @@ public sealed partial class FileService : IFileService
                 string manifestPath = GetManifestPath(normalizedUploadId);
                 if (!File.Exists(manifestPath))
                 {
+                    await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
                     File.Delete(indexPath);
                     continue;
                 }
@@ -1428,9 +1654,14 @@ public sealed partial class FileService : IFileService
                     $"cleanup-upload-session:{sessionPath}");
                 if (shouldDelete)
                 {
-                    await DeleteSessionDirectoryAsync(normalizedUploadId, deleteIndexes: false);
+                    await DeleteSessionDirectoryAsync(
+                        normalizedUploadId,
+                        deleteIndexes: false,
+                        beforeCommit: beforeCommit,
+                        cancellationToken: cancellationToken);
                     if (File.Exists(indexPath))
                     {
+                        await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
                         File.Delete(indexPath);
                     }
 
@@ -1442,29 +1673,63 @@ public sealed partial class FileService : IFileService
                 UploadSessionRecord? freshRecord = await ReadSessionAsync(manifestPath, cancellationToken);
                 if (freshRecord is not null)
                 {
+                    await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
                     await WriteExpirationIndexAsync(freshRecord, cancellationToken);
                 }
 
+                await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
                 File.Delete(indexPath);
             }
 
+            await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
             DeleteDirectoryIfEmpty(bucketPath);
         }
 
         foreach (string uploadId in deletedUploadIds)
         {
+            await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
             DeleteExpirationIndexes(uploadId);
         }
 
         FsusObservability.RecordUploadSessionCleanup(scannedSessions, deletedSessions, Stopwatch.GetElapsedTime(started));
 
         long lockStarted = Stopwatch.GetTimestamp();
+        await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
         int disposedLocks = CleanupStaleSessionLocks(DateTimeOffset.UtcNow, out int scannedLocks);
         FsusObservability.RecordUploadSessionLockCleanup(
             _sessionLocks.Count,
             scannedLocks,
             disposedLocks,
             Stopwatch.GetElapsedTime(lockStarted));
+
+        await CleanupUploadCommitTempsAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task CleanupUploadCommitTempsAsync(
+        Func<CancellationToken, Task>? beforeCommit,
+        CancellationToken cancellationToken)
+    {
+        string incomingRoot = Path.Combine(_folderPath, UploadCommitTempDirectoryName);
+        string currentInstanceDirectoryName = Path.GetFileName(GetUploadCommitTempRoot());
+        await using UploadCommitTempCleanupLease? lease = await UploadCommitTempCleanupLease.TryAcquireAsync(
+            incomingRoot,
+            currentInstanceDirectoryName,
+            UploadCommitTempCleanupLeaseTtl,
+            cancellationToken).ConfigureAwait(false);
+        if (lease is null)
+        {
+            return;
+        }
+
+        await lease.ExecuteAsync(
+            currentInstanceDirectoryName,
+            DateTimeOffset.UtcNow.Subtract(UploadCommitTempRetention),
+            dryRun: false,
+            beforeDelete: async (_, commitToken) =>
+            {
+                await EnsureCleanupCommitBoundaryAsync(beforeCommit, commitToken).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     private IEnumerable<string> EnumerateExpiredExpirationBuckets(DateTime nowUtc)
@@ -1513,7 +1778,11 @@ public sealed partial class FileService : IFileService
         Directory.Delete(path);
     }
 
-    private async Task DeleteSessionDirectoryAsync(string uploadId, bool deleteIndexes = true)
+    private async Task DeleteSessionDirectoryAsync(
+        string uploadId,
+        bool deleteIndexes = true,
+        Func<CancellationToken, Task>? beforeCommit = null,
+        CancellationToken cancellationToken = default)
     {
         if (!TryNormalizeUploadId(uploadId, out string normalizedUploadId))
         {
@@ -1524,16 +1793,17 @@ public sealed partial class FileService : IFileService
         string sessionPath = GetSessionPath(uploadId);
         if (deleteIndexes)
         {
+            await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
             DeleteExpirationIndexes(uploadId);
         }
 
         if (Directory.Exists(sessionPath))
         {
             await BoundaryExecutor.ExecuteAsync(
-                () =>
+                async () =>
                 {
+                    await EnsureCleanupCommitBoundaryAsync(beforeCommit, cancellationToken).ConfigureAwait(false);
                     Directory.Delete(sessionPath, true);
-                    return Task.CompletedTask;
                 },
                 _logger,
                 $"upload-session-delete:{sessionPath}");
@@ -1541,6 +1811,11 @@ public sealed partial class FileService : IFileService
 
         RetireSessionLock(uploadId);
     }
+
+    private static Task EnsureCleanupCommitBoundaryAsync(
+        Func<CancellationToken, Task>? beforeCommit,
+        CancellationToken cancellationToken)
+        => beforeCommit is null ? Task.CompletedTask : beforeCommit(cancellationToken);
 
     private void RequestUploadSessionCleanup()
         => _cleanupQueue?.TryRequestScan();

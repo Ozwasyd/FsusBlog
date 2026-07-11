@@ -12,6 +12,7 @@ interface ImportMetaEnv {
   readonly VITE_FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET?: string
   readonly VITE_FSUSBLOG_PRIVATE_DEPLOYMENT?: string
   readonly VITE_FSUSBLOG_DEPLOYMENT_MODE?: string
+  readonly VITE_FSUSBLOG_BUILD_ID?: string
 }
 
 interface ImportMeta {

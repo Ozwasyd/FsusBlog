@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1.7
+ARG VCPKG_COMMIT=eae1680538b86f962455c27abca2aad0dc304a4d
 ## =========================================================================
 # 阶段 1：.NET 基础运行环境 (Alpine)
 # 单容器承载 Kestrel + 静态资源 + Node SSR worker。
@@ -9,8 +10,8 @@ EXPOSE 8080
 
 USER root
 RUN apk add --no-cache icu-data-full icu-libs krb5-libs nodejs
-RUN mkdir -p /app/wwwroot/uploads /app/Dictionaries && \
-    chown -R $APP_UID:$APP_UID /app/wwwroot/uploads /app/Dictionaries
+RUN mkdir -p /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived && \
+    chown -R $APP_UID:$APP_UID /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived
 
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 ENV PATH="${PATH}:/usr/bin:/usr/share/dotnet"
@@ -21,7 +22,7 @@ USER $APP_UID
 # 只用于导出受信 wasm artifact，不进入 final build 运行时链路。
 ## =========================================================================
 FROM emscripten/emsdk:latest@sha256:e1b3e665245524ac6b62b180f9ccf9bd22308e6bb034f5fd9090df54fdbdfba6 AS wasm-builder
-ARG VCPKG_COMMIT=eae1680538b86f962455c27abca2aad0dc304a4d
+ARG VCPKG_COMMIT
 WORKDIR /work
 
 RUN apt-get update && \
@@ -134,6 +135,8 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
 # Release 镜像只消费外部准备好的 wasm 工件包。
 ## =========================================================================
 FROM node:20-alpine AS frontend-build
+ARG FSUSBLOG_RELEASE_ID=local-unversioned
+ENV VITE_FSUSBLOG_BUILD_ID=${FSUSBLOG_RELEASE_ID}
 WORKDIR /app
 
 COPY src/frontend/package*.json ./
@@ -171,8 +174,18 @@ RUN npm run build:release
 # 阶段 4：终极生成镜像 (融合前后端)
 ## =========================================================================
 FROM base AS final
+ARG FSUSBLOG_RELEASE_ID=local-unversioned
+ARG FSUSBLOG_COMMIT_SHA=0000000000000000000000000000000000000000
+ARG VCPKG_COMMIT
 WORKDIR /app
 ENV FSUSBLOG_ZK_GROTH16_NATIVE_LIBRARY=/app/native/zk/libfsus_zk_groth16.so
+LABEL org.opencontainers.image.version="${FSUSBLOG_RELEASE_ID}" \
+      org.opencontainers.image.revision="${FSUSBLOG_COMMIT_SHA}" \
+      io.fsusblog.release.manifest-schema="fsusblog.release-manifest.v1" \
+      io.fsusblog.build.vcpkg-commit="${VCPKG_COMMIT}" \
+      io.fsusblog.runtime.node="required" \
+      io.fsusblog.runtime.npm="forbidden" \
+      io.fsusblog.runtime.publish-ready-to-run="false"
 
 COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
 COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app/dist ./wwwroot

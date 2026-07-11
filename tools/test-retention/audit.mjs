@@ -28,6 +28,160 @@ function sortedUnique(values) {
   return [...new Set((values ?? []).filter((value) => String(value ?? '').trim()).map(String))].sort()
 }
 
+const compactBaselineSchema = 'fsusblog.test-retention-baseline.v3'
+const compactHashEncoding = 'sha256-128-base64url-fixed-22'
+const compactHashWidth = 22
+
+export function compactRetentionKey(value) {
+  return createHash('sha256')
+    .update(String(value))
+    .digest()
+    .subarray(0, 16)
+    .toString('base64url')
+}
+
+function contentDigest(value) {
+  return `sha256:${sha256(JSON.stringify(value))}`
+}
+
+function compactStringIndex(values, label) {
+  const normalized = sortedUnique(values)
+  const keys = normalized.map(compactRetentionKey).sort()
+  if (new Set(keys).size !== normalized.length) {
+    throw new Error(`${label} contains a truncated SHA-256 collision`)
+  }
+  return {
+    count: keys.length,
+    width: compactHashWidth,
+    values: keys.join(''),
+    fullSetDigest: contentDigest(normalized)
+  }
+}
+
+export function decodeCompactRetentionIndex(index, label = 'compact retention index') {
+  const count = Number(index?.count)
+  const width = Number(index?.width)
+  const values = String(index?.values ?? '')
+  if (!Number.isInteger(count) || count < 0 || width !== compactHashWidth) {
+    throw new Error(`${label} count/width is invalid`)
+  }
+  if (values.length !== count * width || !/^[A-Za-z0-9_-]*$/u.test(values)) {
+    throw new Error(`${label} fixed-width payload is invalid`)
+  }
+  const decoded = Array.from({ length: count }, (_, indexValue) => (
+    values.slice(indexValue * width, (indexValue + 1) * width)
+  ))
+  if (new Set(decoded).size !== decoded.length
+    || decoded.some((value, indexValue) => indexValue > 0 && decoded[indexValue - 1] >= value)) {
+    throw new Error(`${label} values must be unique and sorted`)
+  }
+  if (!/^sha256:[0-9a-f]{64}$/u.test(String(index?.fullSetDigest ?? ''))) {
+    throw new Error(`${label} full-set digest is invalid`)
+  }
+  return decoded
+}
+
+export function isCompactRetentionBaseline(value) {
+  return value?.schema === compactBaselineSchema
+}
+
+export function validateCompactRetentionBaseline(baseline) {
+  if (!isCompactRetentionBaseline(baseline)) {
+    throw new Error(`before snapshot requires ${compactBaselineSchema}, got ${baseline?.schema ?? 'missing'}`)
+  }
+  if (baseline.snapshotRole !== 'before-test-reduction') {
+    throw new Error('before snapshot role must be before-test-reduction')
+  }
+  const commit = String(baseline?.sourceState?.commit ?? '')
+  const worktreeFingerprint = String(baseline?.sourceState?.worktreeFingerprint ?? '')
+  if (!/^[0-9a-f]{40}$/u.test(commit) || !/^[0-9a-f]{64}$/u.test(worktreeFingerprint)) {
+    throw new Error('before snapshot source state must contain a full commit and worktree fingerprint')
+  }
+  if (baseline.hashEncoding !== compactHashEncoding) {
+    throw new Error(`before snapshot hash encoding must be ${compactHashEncoding}`)
+  }
+  const testKeys = decodeCompactRetentionIndex(baseline.testIndex, 'before snapshot test index')
+  const assertionKeys = decodeCompactRetentionIndex(baseline.assertionIndex, 'before snapshot assertion index')
+  const pathKeys = decodeCompactRetentionIndex(baseline.pathIndex, 'before snapshot path index')
+  const owners = baseline?.assertionIndex?.owners
+  if (!Array.isArray(owners) || owners.length !== testKeys.length) {
+    throw new Error('before snapshot assertion ownership index is incomplete')
+  }
+  const ownerTestIndexes = new Set()
+  for (const owner of owners) {
+    if (!Array.isArray(owner) || owner.length !== 3) {
+      throw new Error('before snapshot assertion owner tuple is invalid')
+    }
+    const [testIndex, pathIndex, assertionIndexes] = owner
+    if (!Number.isInteger(testIndex) || testIndex < 0 || testIndex >= testKeys.length
+      || !Number.isInteger(pathIndex) || pathIndex < 0 || pathIndex >= pathKeys.length
+      || !Array.isArray(assertionIndexes)
+      || assertionIndexes.some((value) => !Number.isInteger(value) || value < 0 || value >= assertionKeys.length)
+      || new Set(assertionIndexes).size !== assertionIndexes.length) {
+      throw new Error('before snapshot assertion owner tuple points outside an index')
+    }
+    if (ownerTestIndexes.has(testIndex)) {
+      throw new Error('before snapshot assertion ownership repeats a test index')
+    }
+    ownerTestIndexes.add(testIndex)
+  }
+  if (Number(baseline?.retainedEvidence?.testRecordCount) !== testKeys.length
+    || Number(baseline?.retainedEvidence?.uniqueAssertionTargetCount) !== assertionKeys.length) {
+    throw new Error('before snapshot retained-evidence counts do not match compact indexes')
+  }
+  for (const field of [
+    'frameworks',
+    'riskTags',
+    'tierIds',
+    'coverageIds'
+  ]) {
+    if (!Array.isArray(baseline?.recordDimensions?.[field])) {
+      throw new Error(`before snapshot record dimension ${field} is missing`)
+    }
+  }
+  for (const field of [
+    'matrixTierIds',
+    'productionRequiredTierIds',
+    'matrixArtifactPaths',
+    'matrixEvidencePaths',
+    'coverageIds',
+    'requirementIds',
+    'releaseEvidencePaths'
+  ]) {
+    if (!Array.isArray(baseline?.catalogSnapshot?.[field])) {
+      throw new Error(`before snapshot catalog is missing ${field}`)
+    }
+  }
+  decodeCompactRetentionIndex(
+    baseline?.replacementManifestBaseline?.deletedTestIndex,
+    'before snapshot historical deletion index'
+  )
+  decodeCompactRetentionIndex(
+    baseline?.replacementManifestBaseline?.assertionBeforeIndex,
+    'before snapshot historical assertion index'
+  )
+  if (!Array.isArray(baseline?.replacementManifestBaseline?.tierFromIds)) {
+    throw new Error('before snapshot replacement manifest baseline is missing tierFromIds')
+  }
+  const mutation = baseline?.optimizationEvidence?.criticalMutationSlice
+  if (mutation?.evidenceMode !== 'scope-identity'
+    || !Array.isArray(mutation?.scopeIds)
+    || mutation.scopeIds.length === 0) {
+    throw new Error('before snapshot critical mutation scope identity is missing')
+  }
+  decodeCompactRetentionIndex(mutation?.testIdIndex, 'before snapshot critical mutation test index')
+  if (!/^sha256:[0-9a-f]{64}$/u.test(String(baseline?.historySummary?.digest ?? ''))
+    || !/^sha256:[0-9a-f]{64}$/u.test(String(baseline?.contentDigest ?? ''))) {
+    throw new Error('before snapshot deterministic summary digest is missing or invalid')
+  }
+  const unsigned = { ...baseline }
+  delete unsigned.contentDigest
+  if (contentDigest(unsigned) !== baseline.contentDigest) {
+    throw new Error('before snapshot content digest does not match its deterministic payload')
+  }
+  return baseline
+}
+
 export function buildRetentionCatalogSnapshot({
   matrix,
   coverageRegistry,
@@ -69,6 +223,9 @@ export function buildRetentionCatalogSnapshot({
 }
 
 export function compactRetentionBaseline(audit, { optimizationEvidence = audit?.optimizationEvidence } = {}) {
+  if (isCompactRetentionBaseline(audit)) {
+    return validateCompactRetentionBaseline(audit)
+  }
   if (audit?.schema !== 'fsusblog.test-retention-audit.v2') {
     throw new Error(`before snapshot requires fsusblog.test-retention-audit.v2, got ${audit?.schema ?? 'missing'}`)
   }
@@ -118,19 +275,107 @@ export function compactRetentionBaseline(audit, { optimizationEvidence = audit?.
     }
   }
 
-  return {
-    schema: audit.schema,
-    snapshotRole: 'before-test-reduction',
-    generatedAt: audit.generatedAt,
-    sourceState: audit.sourceState,
-    producer: audit.producer ?? null,
-    policy: audit.policy ?? null,
-    testRecords: audit.testRecords,
-    retainedEvidence: audit.retainedEvidence,
-    catalogSnapshot: audit.catalogSnapshot,
-    replacementManifestBaseline,
-    optimizationEvidence
+  const testIds = sortedUnique(audit.testRecords.map((record) => record?.id))
+  const assertionTargets = sortedUnique(audit.testRecords.flatMap((record) => record?.assertionTargets ?? []))
+  const paths = sortedUnique(audit.testRecords.map((record) => record?.path))
+  const testIndex = compactStringIndex(testIds, 'before snapshot test IDs')
+  const assertionIndex = compactStringIndex(assertionTargets, 'before snapshot assertion targets')
+  const pathIndex = compactStringIndex(paths, 'before snapshot paths')
+  const testKeyToIndex = new Map(decodeCompactRetentionIndex(testIndex).map((value, index) => [value, index]))
+  const assertionKeyToIndex = new Map(decodeCompactRetentionIndex(assertionIndex).map((value, index) => [value, index]))
+  const pathKeyToIndex = new Map(decodeCompactRetentionIndex(pathIndex).map((value, index) => [value, index]))
+  assertionIndex.owners = audit.testRecords
+    .map((record) => [
+      testKeyToIndex.get(compactRetentionKey(record.id)),
+      pathKeyToIndex.get(compactRetentionKey(record.path)),
+      sortedUnique(record.assertionTargets)
+        .map((target) => assertionKeyToIndex.get(compactRetentionKey(target)))
+        .sort((left, right) => left - right)
+    ])
+    .sort((left, right) => left[0] - right[0])
+
+  const normalizedHistory = audit.testRecords
+    .map((record) => [
+      compactRetentionKey(record.id),
+      Number(record?.tierInvocationCount ?? record?.invocationCount ?? 0),
+      Number(record?.timing?.samples ?? 0),
+      Number.isFinite(Number(record?.timing?.p50Ms)) ? Number(record.timing.p50Ms) : null,
+      Number.isFinite(Number(record?.timing?.p95Ms)) ? Number(record.timing.p95Ms) : null,
+      Number(record?.failureHistory?.runs ?? 0),
+      Number(record?.failureHistory?.failures ?? 0)
+    ])
+    .sort((left, right) => left[0].localeCompare(right[0]))
+
+  const compactOptimizationEvidence = {
+    coverageBaseline: {
+      path: String(optimizationEvidence?.coverageBaselinePath ?? 'tests/test-optimization-coverage-baseline.json'),
+      sourceDigest: audit?.catalogSnapshot?.sourceDigests?.optimizationCoverageBaseline ?? null,
+      scopes: ['backend', 'frontend', 'merged'],
+      summaryDigest: contentDigest(optimizationEvidence?.coverage ?? {})
+    },
+    criticalMutationSlice: {
+      evidenceMode: 'scope-identity',
+      testIdIndex: compactStringIndex(
+        optimizationEvidence?.criticalMutationSlice?.testIds,
+        'before snapshot critical mutation test IDs'
+      ),
+      scopeIds: sortedUnique(optimizationEvidence?.criticalMutationSlice?.scopeIds),
+      identityDigest: contentDigest({
+        testIds: sortedUnique(optimizationEvidence?.criticalMutationSlice?.testIds),
+        scopeIds: sortedUnique(optimizationEvidence?.criticalMutationSlice?.scopeIds)
+      })
+    }
   }
+
+  const baseline = {
+    schema: compactBaselineSchema,
+    snapshotRole: 'before-test-reduction',
+    sourceState: audit.sourceState,
+    hashEncoding: compactHashEncoding,
+    testIndex,
+    assertionIndex,
+    pathIndex,
+    recordDimensions: {
+      frameworks: sortedUnique(audit.testRecords.map((record) => record?.framework)),
+      riskTags: sortedUnique(audit.testRecords.flatMap((record) => record?.riskTags ?? [])),
+      tierIds: sortedUnique(audit.testRecords.flatMap((record) => record?.tierIds ?? [])),
+      coverageIds: sortedUnique(audit.testRecords.flatMap((record) => record?.coverageIds ?? []))
+    },
+    historySummary: {
+      timingRecordCount: audit.testRecords.filter((record) => Number(record?.timing?.samples ?? 0) > 0).length,
+      timingSampleCount: audit.testRecords.reduce((total, record) => total + Number(record?.timing?.samples ?? 0), 0),
+      tierInvocationCount: audit.testRecords.reduce(
+        (total, record) => total + Number(record?.tierInvocationCount ?? record?.invocationCount ?? 0),
+        0
+      ),
+      failureRunCount: audit.testRecords.reduce((total, record) => total + Number(record?.failureHistory?.runs ?? 0), 0),
+      failureCount: audit.testRecords.reduce((total, record) => total + Number(record?.failureHistory?.failures ?? 0), 0),
+      digest: contentDigest(normalizedHistory)
+    },
+    retainedEvidence: {
+      coverageIds: sortedUnique(audit?.retainedEvidence?.coverageIds),
+      testRecordCount: testIds.length,
+      uniqueAssertionTargetCount: assertionTargets.length,
+      reviewedTestCount: Number(audit?.retainedEvidence?.reviewedTestCount ?? 0),
+      reviewedCandidateCount: Number(audit?.retainedEvidence?.reviewedCandidateCount ?? 0),
+      unreviewedCandidateCount: Number(audit?.retainedEvidence?.unreviewedCandidateCount ?? 0)
+    },
+    catalogSnapshot: audit.catalogSnapshot,
+    replacementManifestBaseline: {
+      deletedTestIndex: compactStringIndex(
+        replacementManifestBaseline.deletedTestIds,
+        'before snapshot historical deletion IDs'
+      ),
+      assertionBeforeIndex: compactStringIndex(
+        replacementManifestBaseline.assertionBeforeTargets,
+        'before snapshot historical assertion targets'
+      ),
+      tierFromIds: sortedUnique(replacementManifestBaseline.tierFromIds)
+    },
+    optimizationEvidence: compactOptimizationEvidence
+  }
+  baseline.contentDigest = contentDigest(baseline)
+  return validateCompactRetentionBaseline(baseline)
 }
 
 function slug(value) {

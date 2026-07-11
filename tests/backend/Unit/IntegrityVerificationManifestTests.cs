@@ -1,8 +1,16 @@
+using System.Reflection;
 using System.Text.Json;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -89,12 +97,11 @@ public sealed class IntegrityVerificationManifestTests
     }
 
     [Fact]
-    public void PublicEndpointContract_IsAnonymousJsonSidecarOutsideAedsBinaryPath()
+    public async Task PublicEndpointContract_IsAnonymousJsonSidecarOutsideAedsBinaryPath()
     {
-        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/IntegrityVerificationEndpoints.cs");
-        string manifests = ReadRepoFile("src/backend/Infrastructure/Integrity/IntegrityVerificationManifest.cs");
-        string composition = ReadRepoFile("src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs");
-        string services = ReadRepoFile("src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs");
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        await using WebApplication app = builder.Build();
+        app.MapIntegrityVerificationEndpoints();
 
         foreach (string route in new[]
         {
@@ -109,43 +116,97 @@ public sealed class IntegrityVerificationManifestTests
             "/integrity/log/head"
         })
         {
-            Assert.Contains($"MapGet(\"{route}\"", endpoints, StringComparison.Ordinal);
+            RouteEndpoint endpoint = EndpointContractApplication.Find(app, route, HttpMethods.Get);
+            Assert.NotNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+            Assert.DoesNotContain(
+                "/api/binary",
+                endpoint.RoutePattern.RawText ?? string.Empty,
+                StringComparison.Ordinal);
         }
 
-        Assert.Contains(".AllowAnonymous()", endpoints, StringComparison.Ordinal);
-        Assert.Contains("application/json; charset=utf-8", endpoints, StringComparison.Ordinal);
-        Assert.Contains("IntegrityVerificationCacheHeaders.ImmutableProof", manifests, StringComparison.Ordinal);
-        Assert.Contains("IntegrityVerificationCacheHeaders.NoStore", endpoints + manifests, StringComparison.Ordinal);
-        Assert.Contains("IntegrityVerificationCacheHeaders.PublicManifest", manifests, StringComparison.Ordinal);
-        Assert.DoesNotContain("/api/binary", endpoints, StringComparison.Ordinal);
-        Assert.Contains("app.MapIntegrityVerificationEndpoints();", composition, StringComparison.Ordinal);
-        Assert.Contains("AddScoped<IIntegrityVerificationManifestService, IntegrityVerificationManifestService>", services, StringComparison.Ordinal);
+        Assert.Equal(
+            "application/json; charset=utf-8",
+            typeof(IntegrityVerificationEndpoints).GetField(
+                "JsonContentType",
+                BindingFlags.Static | BindingFlags.NonPublic)!.GetRawConstantValue());
+        Assert.Equal("public, max-age=31536000, immutable", IntegrityVerificationCacheHeaders.ImmutableProof);
+        Assert.Equal("no-store", IntegrityVerificationCacheHeaders.NoStore);
+        Assert.Equal("public, max-age=60, stale-while-revalidate=300", IntegrityVerificationCacheHeaders.PublicManifest);
+
+        string endpointRuntime = RuntimeMetadataInspection.DescribeType(typeof(IntegrityVerificationEndpoints));
+        Assert.Contains("Results.Json", endpointRuntime, StringComparison.Ordinal);
+        string composition = RuntimeMetadataInspection.DescribeType(typeof(WebApplicationCompositionExtensions));
+        Assert.Contains("MapIntegrityVerificationEndpoints", composition, StringComparison.Ordinal);
+
+        var services = new ServiceCollection();
+        services.AddFsusRuntimeDomainServices();
+        ServiceDescriptor registration = Assert.Single(
+            services,
+            static descriptor => descriptor.ServiceType == typeof(IIntegrityVerificationManifestService));
+        Assert.Equal(typeof(IntegrityVerificationManifestService), registration.ImplementationType);
+        Assert.Equal(ServiceLifetime.Scoped, registration.Lifetime);
     }
 
     [Fact]
-    public void Documentation_RegistersPublicVerificationApiAndManualSignatureCheck()
+    public async Task PublicVerificationRuntime_RegistersRoutesAndVerifiesWithPublicKeyOnly()
     {
-        string publicVerification = ReadRepoFile("docs/integrity/public-verification-api.md");
-        string contracts = ReadRepoFile("docs/api/contracts.md");
-        string quickReference = ReadRepoFile("docs/api/quick-reference.md");
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        await using WebApplication app = builder.Build();
+        app.MapIntegrityVerificationEndpoints();
+        string[] routes = app.DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Select(static endpoint => endpoint.RoutePattern.RawText ?? string.Empty)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(
+            new[]
+            {
+                "/integrity/article/{articleId:int}",
+                "/integrity/article/{articleId:int}/revisions/{revisionNo:int}",
+                "/integrity/article/{articleId:int}/revisions/{revisionNo:int}/rights",
+                "/integrity/article/{articleId:int}/rights",
+                "/integrity/checkpoints/latest",
+                "/integrity/checkpoints/{date}",
+                "/integrity/keys.json",
+                "/integrity/log/head",
+                "/integrity/revisions/{articleRevisionId:long}"
+            },
+            routes);
 
-        Assert.Contains("/integrity/keys.json", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("/integrity/article/{articleId}", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("/integrity/article/{articleId}/revisions/{revisionNo}", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("/integrity/article/{articleId}/rights", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("/integrity/article/{articleId}/revisions/{revisionNo}/rights", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("/integrity/revisions/{articleRevisionId}", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("/integrity/checkpoints/latest", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("/integrity/log/head", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("articleRevisionId", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("revisionNo", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("AEDS", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("openssl dgst -sha256 -verify", publicVerification, StringComparison.Ordinal);
-        Assert.DoesNotContain("revisionId", publicVerification, StringComparison.Ordinal);
-        Assert.Contains("/integrity/keys.json", contracts, StringComparison.Ordinal);
-        Assert.Contains("/integrity/article/{articleId}/rights", contracts, StringComparison.Ordinal);
-        Assert.Contains("/integrity/article/{articleId}/revisions/{revisionNo}/rights", contracts, StringComparison.Ordinal);
-        Assert.Contains("/integrity/checkpoints/latest", quickReference, StringComparison.Ordinal);
+        DateTimeOffset issuedAt = new(2026, 7, 4, 10, 11, 12, TimeSpan.Zero);
+        SiteSigningKeyRecord privateKey = SiteSigningKeyRecord.CreateEcdsaP256(
+            "site-key-runtime",
+            version: 1,
+            issuedAt.AddMinutes(-1));
+        var payload = new SiteIntegritySigningPayload(
+            "article-publish-proof",
+            "articleRevisionId:810002:revisionNo:3",
+            new string('a', 64),
+            issuedAt,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["ArticleDetailAeds"] = new string('b', 64),
+                ["PublicHotRead"] = new string('c', 64),
+                ["PublicAOT"] = new string('d', 64)
+            });
+        SiteIntegritySignature signature = new SiteIntegritySigningService(
+            SiteSigningKeyRegistry.Create([privateKey], privateKey.KeyId)).Sign(payload);
+        var publicVerifier = new SiteIntegritySigningService(
+            SiteSigningKeyRegistry.Create([privateKey.WithoutPrivateKey()], privateKey.KeyId));
+
+        SiteIntegritySignatureVerificationResult accepted = publicVerifier.Verify(payload, signature);
+        Assert.True(accepted.Accepted);
+        Assert.Equal("accepted", accepted.Code);
+        Assert.DoesNotContain(
+            privateKey.PrivateKeyPkcs8Base64Url!,
+            JsonSerializer.Serialize(publicVerifier.Registry.PublicKeys),
+            StringComparison.Ordinal);
+        SiteIntegritySignatureVerificationResult tampered = publicVerifier.Verify(
+            payload with { DigestSha256Hex = new string('e', 64) },
+            signature);
+        Assert.False(tampered.Accepted);
+        Assert.Equal("payload-signature-invalid", tampered.Code);
     }
 
     private static ArticlePublishProof ReadyProof()
@@ -228,6 +289,4 @@ public sealed class IntegrityVerificationManifestTests
         }
     }
 
-    private static string ReadRepoFile(string relativePath)
-        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
 }

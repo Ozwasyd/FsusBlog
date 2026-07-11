@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -165,20 +166,7 @@ public sealed class PublicAotDocumentService(
     }
 
     private static bool TryResolveHydrationSidecarPath(string webRoot, string relativePath, out string targetPath)
-    {
-        targetPath = Path.GetFullPath(Path.Combine(webRoot, relativePath));
-        return IsPathWithinDirectory(webRoot, targetPath);
-    }
-
-    private static bool IsPathWithinDirectory(string directory, string candidatePath)
-    {
-        string root = Path.GetFullPath(directory);
-        string candidate = Path.GetFullPath(candidatePath);
-        string relative = Path.GetRelativePath(root, candidate);
-        return relative.Length == 0 ||
-            (!relative.StartsWith("..", StringComparison.Ordinal) &&
-             !Path.IsPathRooted(relative));
-    }
+        => CanonicalPathBoundary.TryResolveRelative(webRoot, relativePath, out targetPath);
 
     private static string BuildHeadLinks(string rawTemplate, SpaAssetSet assetSet, SeoConfigReadModel seo)
     {

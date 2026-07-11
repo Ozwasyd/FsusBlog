@@ -39,12 +39,10 @@ public static partial class BinaryEndpoints
     private static string ResolveBinaryIdentityKind(string? identityKind)
         => string.IsNullOrWhiteSpace(identityKind) ? AnonymousIdentityRuntime.AnonymousAccountKind : identityKind.Trim();
 
-    private static string ResolveAccountSubjectHash(UserAccountSnapshot account)
-        => string.IsNullOrWhiteSpace(account.AccountSubjectHash)
-            ? AccountSubjectHasher.Create(
-                ResolveBinaryIdentityKind(account.IdentityKind),
-                string.Concat("legacy-account:", account.Id.ToString(CultureInfo.InvariantCulture)))
-            : TextHelpers.LowerTrimmed(account.AccountSubjectHash) ?? string.Empty;
+    private static bool TryResolveAccountSubjectHash(
+        UserAccountSnapshot account,
+        out string accountSubjectHash)
+        => AccountSubjectHashRequirement.TryResolve(account.AccountSubjectHash, out accountSubjectHash);
 
     private static void MapBinaryAuthEndpoints(IEndpointRouteBuilder group)
     {
@@ -83,14 +81,21 @@ public static partial class BinaryEndpoints
 
             if (result.SessionTokens is { } tokens)
             {
-                authCookieService.SetTokenCookies(httpContext, env, tokens.AccessToken, tokens.RefreshToken, tokens.SessionId, tokens.RefreshTokenExpiresAt);
+                authCookieService.SetTokenCookies(
+                    httpContext,
+                    env,
+                    tokens.AccessToken,
+                    tokens.AccessTokenExpiresAtUtc,
+                    tokens.RefreshToken,
+                    tokens.SessionId,
+                    tokens.RefreshTokenExpiresAt);
             }
 
             return AuthBinaryResponseWriter.LoginFlow(aeds, result.Flow);
         })
         .RequireRateLimiting("fixed_ip")
         .AllowAnonymous()
-        .AddEndpointFilter<RequiresPowFilter>()
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>()
         .RequireNoStoreResponse();
 
         group.MapPost("/auth/admin/bootstrap/passkey/begin", static async Task<BinaryFrameResult> (
@@ -144,7 +149,13 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, result.Message), aeds, StatusCodes.Status403Forbidden);
             }
 
-            authCookieService.SetAdminSessionCookies(httpContext, env, result.Tokens.AccessToken, result.Tokens.SessionId, result.Tokens.IdleExpiresAtUtc);
+            authCookieService.SetAdminSessionCookies(
+                httpContext,
+                env,
+                result.Tokens.AccessToken,
+                result.Tokens.AccessTokenExpiresAtUtc,
+                result.Tokens.SessionId,
+                result.Tokens.IdleExpiresAtUtc);
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .AllowAnonymous()
@@ -195,7 +206,13 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, result.Message), aeds);
             }
 
-            authCookieService.SetAdminSessionCookies(httpContext, env, result.Tokens.AccessToken, result.Tokens.SessionId, result.Tokens.IdleExpiresAtUtc);
+            authCookieService.SetAdminSessionCookies(
+                httpContext,
+                env,
+                result.Tokens.AccessToken,
+                result.Tokens.AccessTokenExpiresAtUtc,
+                result.Tokens.SessionId,
+                result.Tokens.IdleExpiresAtUtc);
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .AllowAnonymous()
@@ -500,7 +517,7 @@ public static partial class BinaryEndpoints
         .RequireAnonymousAccountPrincipal()
         .AllowRestrictedAccountAction(RestrictedAccountAction.DeleteOwnAccount)
         .RequireNoStoreResponse()
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapGet("/auth/sessions", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -562,9 +579,10 @@ public static partial class BinaryEndpoints
                 string setupAction = account?.MfaEnabled == true ? "mfa_setup_rebind" : "mfa_setup";
                 if (account is null ||
                     !TryReadMfaProof(httpContext, out string proofToken) ||
+                    !TryResolveAccountSubjectHash(account.Value, out string accountSubjectHash) ||
                     !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
                         userId,
-                        ResolveAccountSubjectHash(account.Value),
+                        accountSubjectHash,
                         setupAction,
                         proofToken))
                 {
@@ -663,9 +681,10 @@ public static partial class BinaryEndpoints
                 UserAccountSnapshot? account = await users.GetAccountByIdAsync(userId);
                 if (account is null ||
                     !TryReadMfaProof(httpContext, out string proofToken) ||
+                    !TryResolveAccountSubjectHash(account.Value, out string accountSubjectHash) ||
                     !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
                         userId,
-                        ResolveAccountSubjectHash(account.Value),
+                        accountSubjectHash,
                         "mfa_disable",
                         proofToken))
                 {
@@ -720,9 +739,10 @@ public static partial class BinaryEndpoints
                 UserAccountSnapshot? account = await users.GetAccountByIdAsync(userId);
                 if (account is null ||
                     !TryReadMfaProof(httpContext, out string proofToken) ||
+                    !TryResolveAccountSubjectHash(account.Value, out string accountSubjectHash) ||
                     !await mfaChallengeService.ValidateAndConsumeProofTokenAsync(
                         userId,
-                        ResolveAccountSubjectHash(account.Value),
+                        accountSubjectHash,
                         "mfa_recovery_regenerate",
                         proofToken))
                 {
@@ -854,9 +874,17 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "用户不存在"), aeds);
             }
 
+            if (!TryResolveAccountSubjectHash(account.Value, out string accountSubjectHash))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Unauthorized, "ACCOUNT_SUBJECT_REQUIRED"),
+                    aeds,
+                    StatusCodes.Status401Unauthorized);
+            }
+
             string proofToken = await challengeService.CreateProofTokenAsync(
                 account.Value.Id,
-                ResolveAccountSubjectHash(account.Value),
+                accountSubjectHash,
                 result.Action,
                 TimeSpan.FromMinutes(5));
             var proof = new MfaChallengeResultDto(true, result.Action, proofToken, null);
@@ -896,6 +924,14 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "用户不存在"), aeds);
             }
 
+            if (!TryResolveAccountSubjectHash(user.Value, out string accountSubjectHash))
+            {
+                return BinaryResults.FromError(
+                    ErrorDetail.Create(ErrorCode.Unauthorized, "ACCOUNT_SUBJECT_REQUIRED"),
+                    aeds,
+                    StatusCodes.Status401Unauthorized);
+            }
+
             if (!user.Value.MfaEnabled)
             {
                 if (IsAdminSensitiveAction(action))
@@ -916,7 +952,7 @@ public static partial class BinaryEndpoints
 
                 string proofToken = await challengeService.CreateProofTokenAsync(
                     user.Value.Id,
-                    ResolveAccountSubjectHash(user.Value),
+                    accountSubjectHash,
                     action,
                     TimeSpan.FromMinutes(5));
                 var noMfa = new MfaChallengeResultDto(true, action, proofToken, null);
@@ -927,7 +963,7 @@ public static partial class BinaryEndpoints
             var risk = await loginWorkflow.EvaluateLoginRiskAsync(userId, httpContext.GetClientIp(), deviceFp, httpContext.GetUserAgent(), cancellationToken);
             var ticket = await challengeService.CreateActionChallengeAsync(
                 user.Value.Id,
-                ResolveAccountSubjectHash(user.Value),
+                accountSubjectHash,
                 action,
                 risk.RequiresMfa);
             var challenge = new MfaChallengeResultDto(false, action, ticket.TicketId, null);
@@ -991,7 +1027,14 @@ public static partial class BinaryEndpoints
                     return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "LOGIN_FINALIZE_FAILED"), aeds);
                 }
 
-                authCookieService.SetTokenCookies(httpContext, env, login.Data.Value.AccessToken, login.Data.Value.RefreshToken, login.Data.Value.SessionId, login.Data.Value.RefreshTokenExpiresAt);
+                authCookieService.SetTokenCookies(
+                    httpContext,
+                    env,
+                    login.Data.Value.AccessToken,
+                    login.Data.Value.AccessTokenExpiresAtUtc,
+                    login.Data.Value.RefreshToken,
+                    login.Data.Value.SessionId,
+                    login.Data.Value.RefreshTokenExpiresAt);
                 var loginResult = new MfaChallengeResultDto(
                     true,
                     "login",
@@ -1030,7 +1073,7 @@ public static partial class BinaryEndpoints
 
             string? sessionId = authCookieService.ReadSessionId(httpContext);
             var (success, newTokens, expiresAt) = await sessions.RefreshTokenWithExpiryAsync(oldRefreshToken, sessionId, cancellationToken);
-            if (!success || newTokens == null)
+            if (!success || newTokens == null || newTokens.Value.AccessTokenExpiresAtUtc is not { } accessTokenExpiresAtUtc)
             {
                 authCookieService.ClearTokenCookies(httpContext);
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "刷新凭证已失效"), aeds);
@@ -1040,6 +1083,7 @@ public static partial class BinaryEndpoints
                 httpContext,
                 env,
                 newTokens.Value.AccessToken,
+                accessTokenExpiresAtUtc,
                 newTokens.Value.RefreshToken,
                 newTokens.Value.SessionId,
                 expiresAt);
@@ -1151,8 +1195,8 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip")
         .WithRiskAction(RiskActionNames.RecoveryKeyVerify)
-        .AddEndpointFilter<RequiresRiskControlFilter>()
-        .AddEndpointFilter<RequiresPowFilter>()
+        .AddEndpointFilterWithMetadata<RequiresRiskControlFilter>()
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>()
         .RequireNoStoreResponse();
 
         group.MapPost("/auth/recovery-key/passkey/register/begin", static async Task<BinaryFrameResult> (
@@ -1192,7 +1236,6 @@ public static partial class BinaryEndpoints
         group.MapPost("/auth/recovery-key/passkey/register/complete", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
             IRecoveryKeyService recoveryKeys,
-            IPasskeyService passkeyService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
         {
@@ -1212,19 +1255,15 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "请求参数无效"), aeds);
             }
 
-            Result<RecoveryKeySession> consumed = await recoveryKeys.ConsumeRecoverySessionAsync(request.MfaProofToken, cancellationToken);
-            if (!consumed.IsSuccess || consumed.Value is null)
+            Result<RecoveryPasskeyBindOutcome> completion = await recoveryKeys.CompletePasskeyBindAsync(
+                request.MfaProofToken,
+                request,
+                cancellationToken);
+            if (!completion.IsSuccess)
             {
-                return RecoveryKeyError(consumed.Error, aeds);
+                return RecoveryKeyError(completion.Error, aeds);
             }
 
-            var (success, message) = await passkeyService.CompleteRegistrationAsync(consumed.Value.AccountId, request, cancellationToken);
-            if (!success)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, message), aeds);
-            }
-
-            await recoveryKeys.ApplyPostPasskeyBindAsync(consumed.Value, cancellationToken);
             return BinaryResults.Frame(aeds, AedsFrameType.EmptySuccess, PodBinaryCodec.WriteEmptySuccess);
         })
         .AllowAnonymous()
@@ -1312,7 +1351,7 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip")
         .WithRiskAction(RiskActionNames.AuthPasskeyBegin)
-        .AddEndpointFilter<RequiresRiskControlFilter>()
+        .AddEndpointFilterWithMetadata<RequiresRiskControlFilter>()
         .RequireNoStoreResponse();
 
         group.MapPost("/auth/passkey/login/complete", static async Task<BinaryFrameResult> (
@@ -1362,6 +1401,7 @@ public static partial class BinaryEndpoints
                 httpContext,
                 env,
                 login.Data.Value.AccessToken,
+                login.Data.Value.AccessTokenExpiresAtUtc,
                 login.Data.Value.RefreshToken,
                 login.Data.Value.SessionId,
                 login.Data.Value.RefreshTokenExpiresAt);
@@ -1376,7 +1416,7 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("fixed_ip")
         .WithRiskAction(RiskActionNames.AuthPasskeyComplete)
-        .AddEndpointFilter<RequiresRiskControlFilter>()
+        .AddEndpointFilterWithMetadata<RequiresRiskControlFilter>()
         .RequireNoStoreResponse();
 
         group.MapGet("/auth/passkey/credentials", static async Task<BinaryFrameResult> (

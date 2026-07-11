@@ -248,9 +248,6 @@ if (!accountLayoutSource.includes('id="account-mobile-drawer"')) {
 if (!accountLayoutSource.includes('account-mobile-drawer-trigger')) {
   hardViolations.push('src/layouts/AccountLayout.vue: mobile account navigation trigger must live in the header actions');
 }
-if (!accountLayoutSource.includes("item.to === '/user/manage'")) {
-  hardViolations.push('src/layouts/AccountLayout.vue: /user/manage dashboard route must use exact matching so nested admin routes do not read as dashboard');
-}
 if (accountLayoutSource.includes('FsusUiSegmentedControl')) {
   hardViolations.push('src/layouts/AccountLayout.vue: mobile account group navigation must not use the FsusUI segmented-control adapter');
 }
@@ -272,6 +269,20 @@ if (!/route\.matched\.findIndex\(\(record\)\s*=>\s*record\.path\s*===\s*'\/user'
 
 const accountNavPath = join(srcDir, 'layouts', 'accountNav.ts');
 const accountNavSource = readFileSync(accountNavPath, 'utf8');
+if (!accountNavSource.includes("match: (path) => path === '/user/manage'")) {
+  hardViolations.push('src/layouts/accountNav.ts: /user/manage dashboard route must use exact matching so nested admin routes do not read as dashboard');
+}
+if (!accountNavSource.includes('ACCOUNT_GLOBAL_MODULE_LIMIT = 7')) {
+  hardViolations.push('src/layouts/accountNav.ts: account/admin persistent navigation must cap first-level modules at seven');
+}
+const accountNavigationPanelPath = join(srcDir, 'components', 'account', 'AccountNavigationPanel.vue');
+const accountNavigationPanelSource = readFileSync(accountNavigationPanelPath, 'utf8');
+if (!accountLayoutSource.includes('AccountNavigationPanel')) {
+  hardViolations.push('src/layouts/AccountLayout.vue: account/admin navigation must use the shared module and local navigation panel');
+}
+if (!accountNavigationPanelSource.includes('account-global-module-nav') || !accountNavigationPanelSource.includes('account-local-navigation')) {
+  hardViolations.push('src/components/account/AccountNavigationPanel.vue: navigation panel must separate global modules from current-module leaves');
+}
 if (!/label:\s*'身份中心'[\s\S]*?to:\s*'\/user\/identity'[\s\S]*?groupKey:\s*'self'[\s\S]*?match:\s*\(path\)\s*=>\s*path\s*===\s*'\/user\/identity'/.test(accountNavSource)) {
   hardViolations.push('src/layouts/accountNav.ts: 身份中心 must be the single /user/identity entry in the account group');
 }

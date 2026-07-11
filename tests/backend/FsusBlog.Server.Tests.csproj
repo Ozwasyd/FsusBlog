@@ -19,6 +19,7 @@
     <PackageReference Include="IP2Location.IPGeolocation" Version="9.1.1" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols" Version="8.2.0" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.7" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageReference Include="Nethermind.MclBindings" Version="1.0.5" />
     <PackageReference Include="Npgsql" Version="10.0.3" />

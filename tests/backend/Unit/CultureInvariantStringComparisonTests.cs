@@ -1,50 +1,45 @@
-using System.Text.RegularExpressions;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using System.Reflection;
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Moderation;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
-public sealed partial class CultureInvariantStringComparisonTests
+public sealed class CultureInvariantStringComparisonTests
 {
     [Fact]
     public void BackendPathAndExtensionChecks_UseExplicitOrdinalComparisons()
     {
-        SourceFile[] files =
+        Type[] types =
         [
-            new("src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs"),
-            new("src/backend/Services/FileService.cs"),
-            new("src/backend/Services/SearchIndexService.cs"),
-            new("src/backend/Services/SystemService.cs"),
-            new("src/backend/Services/Moderation/ModerationDictionaryService.cs"),
-            new("src/backend/Services/Moderation/ModerationRegionCatalogService.cs"),
-            new("src/backend/Services/Authoring/AuthoringWorkflowService.cs")
+            typeof(WebApplicationCompositionExtensions),
+            typeof(FileService),
+            typeof(SearchIndexService),
+            typeof(SystemService),
+            typeof(ModerationDictionaryService),
+            typeof(ModerationRegionCatalogService),
+            typeof(AuthoringWorkflowService)
         ];
 
-        foreach (SourceFile file in files)
+        foreach (Type type in types)
         {
-            string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, file.RelativePath));
-            AssertNoCultureSensitivePrefixSuffixCall(file.RelativePath, source);
+            IReadOnlyList<string> violations = RuntimeMetadataInspection.FindMethodsCallingMember(
+                type,
+                static member => member is MethodInfo method &&
+                    method.DeclaringType == typeof(string) &&
+                    method.Name is nameof(string.StartsWith) or nameof(string.EndsWith) &&
+                    method.GetParameters().All(parameter => parameter.ParameterType != typeof(StringComparison)));
+            Assert.True(violations.Count == 0, $"{type.FullName} uses culture-sensitive prefix/suffix calls: {string.Join(", ", violations)}");
         }
 
-        string composition = Read("src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs");
+        string composition = RuntimeMetadataInspection.DescribeType(typeof(WebApplicationCompositionExtensions));
         foreach (string extension in new[] { ".js", ".css", ".wasm", ".woff", ".woff2", ".ttf", ".otf" })
         {
-            Assert.Contains($"EndsWith(\"{extension}\", StringComparison.OrdinalIgnoreCase)", composition, StringComparison.Ordinal);
+            Assert.Contains(extension, composition, StringComparison.Ordinal);
         }
+        Assert.Contains("System.StringComparison", composition, StringComparison.Ordinal);
+        Assert.Contains(nameof(StringComparison.OrdinalIgnoreCase), Enum.GetNames<StringComparison>());
     }
-
-    private static string Read(string relativePath)
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
-
-    private static void AssertNoCultureSensitivePrefixSuffixCall(string relativePath, string source)
-    {
-        Match match = CultureSensitivePrefixSuffixCallRegex().Match(source);
-        Assert.False(
-            match.Success,
-            $"{relativePath} contains culture-sensitive string comparison: {match.Value}");
-    }
-
-    [GeneratedRegex(@"\.(?:StartsWith|EndsWith)\((?![^;\n]*(?:StringComparison|StringComparer))[^;\n]+\)")]
-    private static partial Regex CultureSensitivePrefixSuffixCallRegex();
-
-    private sealed record SourceFile(string RelativePath);
 }

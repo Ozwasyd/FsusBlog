@@ -1,40 +1,33 @@
 # Anonymous Identity Smoke Flow
 
-This runbook verifies cold-start anonymous identity mode after the legacy identity cutover. The reset is destructive by design: old users and historical comments are intentionally cleared, including legacy sessions, legacy Passkey rows, recovery-key rows, anonymous credential rows, credential issuance audit rows, MFA recovery-code hashes, comment nullifier/moderation rows, and user-bound message state.
+This runbook verifies anonymous identity mode after the account-subject physical projection cutover. Existing users, comments, credentials, sessions and message state are preserved; release acceptance is a deterministic expand/backfill/readiness sequence, not a destructive maintenance action.
 
-Run these checks first against an isolated restored database. Do not run the production cold-start reset until the rehearsal result has been accepted.
+Run these checks first against an isolated restored database, then repeat the same read-only acceptance queries against production before routing traffic to the candidate.
 
 ## Preconditions
 
 1. Restore the latest site backup into an isolated PostgreSQL database.
 2. Point the backend at that database and enable anonymous identity mode.
-3. Set `FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS` for exactly one guarded startup.
-4. Remove `FSUSBLOG_CONFIRM_IDENTITY_RESET` after the reset startup completes.
-5. Keep `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` available for first admin bootstrap.
+3. Apply `20260711-pre-account-subject-hash-expand`, drain previous-version account writers, then apply `20260711-post-account-subject-hash-backfill`.
+4. Keep `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` available for first admin bootstrap.
 
 ## Checklist
 
-### cold-start reset
+### physical account-subject projection
 
-Start the backend once with `FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS`. Confirm these production tables still exist and contain zero legacy rows:
+Confirm existing account and comment counts are unchanged by the projection migration. Then run the same invalid-projection predicate used by the permanent startup gate:
 
-- `sys_user`
-- `sys_user_session`
-- `passkey_credential`
-- `account_recovery_key`
-- `anonymous_credential`
-- `anonymous_credential_issuance_audit`
-- `comment`
-- `comment_anonymous_nullifier`
-- `comment_region_compliance`
-- `comment_moderation_signal`
-- `msg_participant_state`
-- user-bound `msg_message`
-- user-bound `msg_conversation`
+```sql
+SELECT COUNT(*) AS invalid_account_subject_count
+FROM sys_user
+WHERE account_subject_hash IS NULL
+   OR btrim(account_subject_hash) = ''
+   OR account_subject_hash !~ '^[0-9a-f]{64}$';
+```
 
-Do not treat public ZK circuit/root metadata as legacy identity residue. `anonymous_credential_root`, `anonymous_credential_epoch`, and `anonymous_credential_revocation` are preserved or rebuilt by the anonymous credential root lifecycle, not by deleting old users.
+The result must be `0`. Confirm the candidate reports `accountSubjectHashInvariant=ok` before it receives traffic. After migration history is already present, temporarily injecting a null into an isolated rehearsal database must make the candidate fail readiness/startup; restoring the projected digest must recover startup without deleting account data.
 
-Restart without `FSUSBLOG_CONFIRM_IDENTITY_RESET` and confirm the reset no longer runs. A missing or different confirmation value must fail before destructive SQL starts.
+Create one anonymous account with a public handle and one without. Confirm both inserts persist `account_subject_hash`, issued access tokens carry that exact value, and subsequent public-handle or Passkey-handle changes do not change it. Confirm an old account snapshot payload without the field misses the `account:subject-v1:*` cache namespace and is reread from PostgreSQL.
 
 ### bootstrap admin
 
@@ -89,7 +82,7 @@ The gate is backed by `security/privacy-zk-comment-matrix.yml` and covers anonym
 
 Attach the smoke notes to the issue or release evidence with:
 
-- reset database row counts
+- pre/post account and comment row counts plus the zero-result invalid account-subject query
 - admin bootstrap principal id
 - Passkey registration/login result
 - Recovery Key create and recovery result, without plaintext key material

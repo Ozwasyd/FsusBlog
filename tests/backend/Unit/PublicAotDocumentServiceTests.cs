@@ -13,6 +13,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Reflection;
 using System.Security.Cryptography;
 
 namespace FsusBlog.Server.Tests;
@@ -21,18 +22,59 @@ namespace FsusBlog.Server.Tests;
 public sealed class PublicAotDocumentServiceTests
 {
     [Fact]
-    public void Source_CachesPreparedTemplateHeadLinksAndHydrationSidecarExists()
+    public async Task ComposeAsync_CachesPreparedTemplateHeadLinksAndHydrationSidecarExistence()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "PublicAot", "PublicAotDocumentService.cs"));
-        string compose = ExtractMethodBlock(source, "public async Task<Result<string>> ComposeAsync");
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            string templatePath = Path.Combine(root, "wwwroot", "index.html");
+            await File.AppendAllTextAsync(templatePath, $"\n<!-- unique:{Guid.NewGuid():N} -->");
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Production),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(),
+                NullLogger<PublicAotDocumentService>.Instance);
+            string hydrationPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+            {
+                ["pageKind"] = "Home",
+                ["cacheProbe"] = Guid.NewGuid().ToString("N")
+            });
+            PublicAotShellEntryContract entry = CreateEntry(hydrationPayload);
+            FieldInfo preparedCache = StaticCacheField("PreparedTemplateCache");
+            FieldInfo headLinksCache = StaticCacheField("HeadLinksCache");
+            FieldInfo sidecarCache = StaticCacheField("HydrationSidecarExistsCache");
+            int preparedBefore = CacheCount(preparedCache);
+            int headBefore = CacheCount(headLinksCache);
+            int sidecarBefore = CacheCount(sidecarCache);
 
-        Assert.Contains("PreparedTemplateCache", source, StringComparison.Ordinal);
-        Assert.Contains("HeadLinksCache", source, StringComparison.Ordinal);
-        Assert.Contains("HydrationSidecarExistsCache", source, StringComparison.Ordinal);
-        Assert.Contains("GetPreparedTemplateAsync", compose, StringComparison.Ordinal);
-        Assert.Contains("GetHeadLinks", compose, StringComparison.Ordinal);
-        Assert.DoesNotContain("PreparePublicDocumentTemplate(rawTemplate)", compose, StringComparison.Ordinal);
-        Assert.Contains("HydrationSidecarExistsCache.TryAdd", source, StringComparison.Ordinal);
+            Result<string> first = await service.ComposeAsync(entry);
+            Assert.True(first.IsSuccess, first.Error.Message);
+            string sidecarUrl = ExtractAttribute(first.Value!, "data-aeds-src");
+            string sidecarPath = Path.Combine(root, "wwwroot", sidecarUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            DateTime firstWrite = File.GetLastWriteTimeUtc(sidecarPath);
+            int preparedAfterFirst = CacheCount(preparedCache);
+            int headAfterFirst = CacheCount(headLinksCache);
+            int sidecarAfterFirst = CacheCount(sidecarCache);
+
+            Result<string> second = await service.ComposeAsync(entry);
+
+            Assert.True(second.IsSuccess, second.Error.Message);
+            Assert.Equal(first.Value, second.Value);
+            Assert.Equal(preparedBefore + 1, preparedAfterFirst);
+            Assert.Equal(headBefore + 1, headAfterFirst);
+            Assert.Equal(sidecarBefore + 1, sidecarAfterFirst);
+            Assert.Equal(preparedAfterFirst, CacheCount(preparedCache));
+            Assert.Equal(headAfterFirst, CacheCount(headLinksCache));
+            Assert.Equal(sidecarAfterFirst, CacheCount(sidecarCache));
+            Assert.Equal(firstWrite, File.GetLastWriteTimeUtc(sidecarPath));
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -295,31 +337,17 @@ public sealed class PublicAotDocumentServiceTests
         return await File.ReadAllBytesAsync(sidecarPath);
     }
 
-    private static string ExtractMethodBlock(string source, string signature)
+    private static FieldInfo StaticCacheField(string name)
+        => typeof(PublicAotDocumentService).GetField(name, BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException($"Public AOT document cache was not found: {name}");
+
+    private static int CacheCount(FieldInfo field)
     {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing method signature: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart > start, $"Missing method body: {signature}");
-
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
-        {
-            if (source[i] == '{')
-            {
-                depth++;
-            }
-            else if (source[i] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(i + 1)];
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Unable to extract method: {signature}");
+        object cache = field.GetValue(null)
+            ?? throw new InvalidOperationException($"Public AOT document cache was null: {field.Name}");
+        PropertyInfo count = cache.GetType().GetProperty("Count")
+            ?? throw new InvalidOperationException($"Public AOT document cache has no count: {field.Name}");
+        return Assert.IsType<int>(count.GetValue(cache));
     }
 
     private static PublicAotShellEntryContract CreateEntry(string hydrationPayload)

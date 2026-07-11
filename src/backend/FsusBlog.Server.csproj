@@ -6,6 +6,8 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<TieredCompilation>true</TieredCompilation>
 		<TieredPGO>true</TieredPGO>
+		<PublishReadyToRun>false</PublishReadyToRun>
+		<ReadyToRunUseCrossgen2>false</ReadyToRunUseCrossgen2>
 		<ServerGarbageCollection>true</ServerGarbageCollection>
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 		<SpaRoot>..\frontend</SpaRoot>
@@ -18,6 +20,11 @@
 
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<AssemblyMetadata Include="FsusBlog.PublishReadyToRun" Value="$(PublishReadyToRun)" />
+		<AssemblyMetadata Include="FsusBlog.ReadyToRunUseCrossgen2" Value="$(ReadyToRunUseCrossgen2)" />
+	</ItemGroup>
 
 	<PropertyGroup>
 		<ClientProjectDir>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(SpaRoot)'))</ClientProjectDir>

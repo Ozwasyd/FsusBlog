@@ -89,6 +89,20 @@ public static partial class BinaryEndpoints
     private static bool IsAdminSensitiveAction(string action)
         => string.Equals(action.Trim(), AdminSensitiveAction, StringComparison.Ordinal);
 
+    internal static bool IsSupportedAdminAccountStatus(int status)
+        => status is 0 or 1;
+
+    internal static bool IsValidSystemMessageTarget(long? targetAccountId)
+        => targetAccountId is > 0;
+
+    internal static bool IsAllowedStaticPageSlug(string? slug)
+    {
+        ReadOnlySpan<char> value = (slug ?? string.Empty).AsSpan();
+        return !value.IsEmpty
+            && FastCharValidator.IsAlphaNumericHyphen(value)
+            && AllowedPageSlugs.Contains(slug!);
+    }
+
     private static async Task<(ErrorDetail Error, int StatusCode)?> RequireAdminSensitiveStepUpAsync(
         HttpContext httpContext,
         IAdminPrincipalService adminPrincipals)

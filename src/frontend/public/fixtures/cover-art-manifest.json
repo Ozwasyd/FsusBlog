@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "cropSafeArea": {
+    "token": "center-80",
+    "leftPercent": 10,
+    "topPercent": 10,
+    "rightPercent": 90,
+    "bottomPercent": 90
+  },
+  "positiveExamples": [
+    {
+      "id": "acceptance-public-route-audit",
+      "path": "/fixtures/acceptance-cover-primary.svg",
+      "concept": "route-audit-interface",
+      "contentType": "interface-evidence",
+      "embeddedArticleCopy": false,
+      "darkSafe": true
+    },
+    {
+      "id": "acceptance-focus-traversal",
+      "path": "/fixtures/acceptance-cover-focus.svg",
+      "concept": "keyboard-focus-traversal",
+      "contentType": "interaction-diagram",
+      "embeddedArticleCopy": false,
+      "darkSafe": true
+    },
+    {
+      "id": "acceptance-hot-read-profile",
+      "path": "/fixtures/acceptance-cover-hot.svg",
+      "concept": "hot-read-profile",
+      "contentType": "performance-chart",
+      "embeddedArticleCopy": false,
+      "darkSafe": true
+    },
+    {
+      "id": "demo-public-route-map",
+      "path": "/fixtures/demo-public-preview-route-map.svg",
+      "concept": "public-route-map",
+      "contentType": "architecture-diagram",
+      "embeddedArticleCopy": false,
+      "darkSafe": true
+    },
+    {
+      "id": "demo-aeds-frame-inspection",
+      "path": "/fixtures/demo-aeds-frame-inspection.svg",
+      "concept": "aeds-frame-inspection",
+      "contentType": "binary-output",
+      "embeddedArticleCopy": false,
+      "darkSafe": true
+    }
+  ],
+  "negativeExamples": [
+    {
+      "id": "article-title-card",
+      "reason": "Repeats the page H1 or category inside the bitmap."
+    },
+    {
+      "id": "recolored-abstract-curve",
+      "reason": "Repeats one decorative composition with palette swaps."
+    },
+    {
+      "id": "decorative-gradient-glow",
+      "reason": "Adds unrelated gradient, glow, or atmosphere instead of evidence."
+    },
+    {
+      "id": "empty-media-placeholder",
+      "reason": "Reserves a blank image card when no usable cover exists."
+    }
+  ]
+}

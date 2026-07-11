@@ -1,6 +1,8 @@
+using System.Reflection;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
+using Microsoft.Extensions.Logging;
 using Serilog.Events;
 using Serilog.Parsing;
 
@@ -161,12 +163,20 @@ public sealed class AuditLogEventMapperTests
     }
 
     [Fact]
-    public void AuditLogEventMapper_SourceDoesNotFallbackFromUserIdToActorId()
+    public void AuditLogEventMapper_RuntimeDoesNotFallbackFromUserIdToActorId()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Audit/AuditLogEventMapper.cs");
+        var mapper = new AuditLogEventMapper();
+        LogEvent logEvent = CreateLogEvent(
+            DateTimeOffset.UtcNow,
+            LogEventLevel.Information,
+            "legacy user-id only",
+            null,
+            new LogEventProperty("UserId", new ScalarValue("42")));
 
-        Assert.DoesNotContain("?? TryGetString(logEvent, \"UserId\")", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ActorId: TryGetString(logEvent, AuditPropertyNames.ActorId) ??", source, StringComparison.Ordinal);
+        AuditRecord? record = mapper.Map(logEvent);
+        Assert.NotNull(record);
+        Assert.Null(record!.ActorType);
+        Assert.Null(record.ActorId);
     }
 
     [Theory]
@@ -276,7 +286,6 @@ public sealed class AuditLogEventMapperTests
     [Fact]
     public void BackendLogTemplates_DoNotDirectlyLogZkSecrets()
     {
-        string backendRoot = Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend");
         string[] sensitiveTokens =
         [
             "Proof",
@@ -290,37 +299,21 @@ public sealed class AuditLogEventMapperTests
             "IssuerSignature",
             "IssuerResponse"
         ];
-        var violations = new List<string>();
+        IReadOnlyList<string> runtimeViolations = RuntimeMetadataInspection.FindMethodsWithLiteralAndMember(
+            typeof(AuditLogEventMapper).Assembly,
+            literal => sensitiveTokens.Any(token => literal.Contains(token, StringComparison.Ordinal)),
+            static member => member.Name.StartsWith("Log", StringComparison.Ordinal)
+                && member.DeclaringType?.Namespace?.StartsWith("Microsoft.Extensions.Logging", StringComparison.Ordinal) == true);
+        string[] generatedViolations = typeof(AuditLogEventMapper).Assembly.DefinedTypes
+            .SelectMany(static type => type.DeclaredMethods)
+            .Select(method => (Method: method, Contract: method.GetCustomAttribute<LoggerMessageAttribute>()))
+            .Where(static item => item.Contract is not null)
+            .Where(item => sensitiveTokens.Any(token =>
+                item.Contract!.Message.Contains(token, StringComparison.Ordinal)))
+            .Select(static item => $"{item.Method.DeclaringType?.FullName}.{item.Method.Name}")
+            .ToArray();
 
-        foreach (string file in Directory.EnumerateFiles(backendRoot, "*.cs", SearchOption.AllDirectories))
-        {
-            int lineNumber = 0;
-            foreach (string line in File.ReadLines(file))
-            {
-                lineNumber++;
-                string trimmed = line.Trim();
-                if (!IsLoggingTemplateOrCall(trimmed)
-                    || !sensitiveTokens.Any(token => trimmed.Contains(token, StringComparison.Ordinal)))
-                {
-                    continue;
-                }
-
-                violations.Add($"{Path.GetRelativePath(BackendTestPaths.RepositoryRoot, file)}:{lineNumber}:{trimmed}");
-            }
-        }
-
-        Assert.Empty(violations);
-    }
-
-    private static bool IsLoggingTemplateOrCall(string trimmed)
-    {
-        if (trimmed.Contains("[LoggerMessage", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return trimmed.StartsWith("Log", StringComparison.Ordinal)
-            || trimmed.Contains(".Log", StringComparison.Ordinal);
+        Assert.Empty(runtimeViolations.Concat(generatedViolations));
     }
 
     private static LogEvent CreateLogEvent(

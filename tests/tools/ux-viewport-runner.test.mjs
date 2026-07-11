@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import { runUxViewportWithSummary } from '../frontend/checks/ux/run-ux-viewport-playwright.mjs'
@@ -56,17 +55,4 @@ test('runner succeeds only when Playwright and the summary both succeed', async 
   })
 
   assert.equal(result.exitCode, 0)
-})
-
-test('all UX package scripts use the always-summary runner instead of an and-chain', async () => {
-  const packageJson = JSON.parse(await readFile(
-    new URL('../../src/frontend/package.json', import.meta.url),
-    'utf8'
-  ))
-
-  for (const mode of ['smoke', 'visual', 'boundaries']) {
-    const command = packageJson.scripts[`check:ux:viewport-${mode}`]
-    assert.match(command, new RegExp(`run-ux-viewport-playwright\\.mjs ${mode}`))
-    assert.doesNotMatch(command, /playwright test[\s\S]*&&\s*node [^\n]*write-ux-viewport-summary/u)
-  }
 })

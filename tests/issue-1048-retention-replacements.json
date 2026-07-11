@@ -1,0 +1,291 @@
+{
+  "schema": "fsusblog.issue-test-retention-replacements.v1",
+  "issue": 1048,
+  "baseline": "tests/test-retention-before.json",
+  "expectedDeletedTestIds": 38,
+  "deletedTests": [
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.CoverageScripts_DryRunEmitsContractSchema",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.CoverageScripts_DryRunEmitsContractSchemaAndTerminates"
+      ],
+      "reason": "The dry-run contract now also enforces a bounded process lifetime and captures stdout and stderr without reading script source."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.FrontendCoverageCollection_DefaultsLocalVitestThresholdsToArtifactOnly",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Coverage ownership and threshold wiring are parsed once by the structured matrix checker."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.BackendCoverageCollection_ExcludesTimingSensitiveCategories",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": [
+        "node-script:tools/check-test-matrix.mjs",
+        "node-test:tests/tools/backend-trx-contract.test.mjs#controlled-filtered-lane-dry-run-writes-stable-lane-trx--3fd50b3c61"
+      ],
+      "reason": "Structured tier ownership plus a controlled filtered-lane execution replace shell-fragment assertions."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.AcceptanceBootstrap_EnablesAnonymousIdentityModeForSecurityRuntime",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Acceptance runtime configuration belongs to the structured tier contract rather than an xUnit shell-source assertion."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.ProductionCompose_DefaultsAnonymousIdentityModeOn",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Production configuration wiring is owned by the structured deployment and matrix gate."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.ProductionCompose_DefaultsZkProdGateOnWithRealArtifactInputs",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/security/check-privacy-zk-prod-release.mjs"],
+      "reason": "The dedicated production ZK release checker owns artifact and configuration readiness."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.ProductionCompose_MountsZkProdMaterialDirectoriesReadOnly",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/security/check-privacy-zk-prod-release.mjs"],
+      "reason": "Read-only production ZK material ownership is centralized in the production ZK release checker."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.ProductionDeployScript_GuidesZkProdMaterialsBeforeComposeUp",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/security/check-privacy-zk-prod-release.mjs"],
+      "reason": "The production ZK checker executes the material contract instead of matching deploy-script tokens."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.AcceptanceBootstrap_RefreshesRedisAfterFixtureSeeding",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Acceptance bootstrap ownership is represented by the structured runtime tier contract."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.AcceptanceBootstrap_DisablesPublicReadRiskChallengeForViewportSweeps",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Viewport acceptance configuration is owned by the structured tier contract and viewport behavior evidence."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.AcceptanceBootstrap_RaisesPublicReadRateLimitForViewportSweeps",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Viewport acceptance rate-limit wiring is governed once by the matrix contract."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.AcceptanceBootstrap_RaisesNotificationStreamAccountLimitForPressure",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Notification pressure ownership is represented by the structured load-tier contract."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.AcceptanceBootstrapSecurityResetClearsPersistedRiskEvents",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Security reset sequencing belongs to the governed acceptance tier rather than shell function text."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.LegacyTestReloadsAcceptanceUrlsAfterReadingBootstrapEnv",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Runtime URL handoff is represented by the structured acceptance tier contract."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.LegacyRuntimeSecurityResetClearsHotAndPersistedRiskState",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Security reset wiring has one matrix owner and is no longer proved by helper-name matching."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.LoadLaneResetsRiskStateImmediatelyBeforeNotificationPressure",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Load dependency ordering is parsed from the structured tier graph."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.CoverageThresholdLane_UsesArtifactOnlyFrontendDefaults",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Coverage thresholds and evidence ownership are governed by the structured matrix checker."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.ChangedCodeCoverage_DoesNotFallbackWhenBaseDiffIsEmpty",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Changed-code coverage is retained through its executable coverage lane and single structured owner."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/CoverageScriptContractTests.cs#CoverageScriptContractTests.FrontendBuildLane_UsesLocalFsusUiReleaseSurface",
+      "path": "tests/backend/Unit/CoverageScriptContractTests.cs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "The frontend build dependency surface is governed by the matrix rather than shell-source matching."
+    },
+    {
+      "id": "node-test:tests/tools/backend-trx-contract.test.mjs#every-filtered-backend-helper-writes-a-stable-lane-trx-r-1b5aa1d6ad",
+      "path": "tests/tools/backend-trx-contract.test.mjs",
+      "replacementTestIds": ["node-test:tests/tools/backend-trx-contract.test.mjs#controlled-filtered-lane-dry-run-writes-stable-lane-trx--3fd50b3c61"],
+      "reason": "A controlled filtered lane now writes and parses actual passing TRX files."
+    },
+    {
+      "id": "node-test:tests/tools/backend-trx-contract.test.mjs#ordinary-backend-coverage-writes-its-own-stable-lane-trx-4ac3bb5308",
+      "path": "tests/tools/backend-trx-contract.test.mjs",
+      "replacementTestIds": ["node-test:tests/tools/backend-trx-contract.test.mjs#controlled-filtered-lane-dry-run-writes-stable-lane-trx--3fd50b3c61"],
+      "reason": "The dry-run covers both ordinary and coverage lane TRX names and result content."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#playwright-fails-fast-by-default-and-has-an-explicit-all-fbb0989c9a",
+      "path": "tests/tools/ux-viewport-runtime-contract.test.mjs",
+      "replacementTestIds": ["node-script:tools/check-test-matrix.mjs"],
+      "reason": "Playwright failure policy belongs to the structured matrix owner."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+      "path": "tests/tools/ux-viewport-runtime-contract.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-progress.test.mjs#resume-reuses-only-completed-route-theme-groups-when-the-89a72eba6d",
+        "node-test:tests/tools/ux-viewport-runner.test.mjs#runner-always-writes-the-current-run-summary-after-playw-e02a7c66c2"
+      ],
+      "reason": "Progress resumption and runner/summary ordering are now executed directly."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-boundary-contract-uses-one-structural-evaluate--f06ca252b3",
+      "path": "tests/tools/ux-viewport-runtime-contract.test.mjs",
+      "replacementTestIds": ["playwright-dynamic:tests/frontend/e2e/ux/viewport-boundaries.spec.ts"],
+      "reason": "The browser boundary suite executes structural, focus, sticky, and content probes directly."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#media-helpers-make-every-matrix-state-explicit-and-reset-738433f403",
+      "path": "tests/tools/ux-viewport-runtime-contract.test.mjs",
+      "replacementTestIds": ["playwright-dynamic:tests/frontend/e2e/ux/viewport-boundaries.spec.ts"],
+      "reason": "Browser viewport execution observes media application and reset behavior instead of helper source tokens."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#acceptance-storage-states-use-the-namespaced-auth-fixtur-5cf843c6f7",
+      "path": "tests/tools/ux-viewport-runtime-contract.test.mjs",
+      "replacementTestIds": ["vitest:tests/frontend/unit/playwright/acceptanceShared.test.ts#loads-shared-viewport-helpers-through-the-frontend-toolc-1738c0d314"],
+      "reason": "The imported acceptance helper is exercised through the frontend toolchain rather than scanned as source."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#summary-reports-current-progress-counts-and-never-collec-9ef1831868",
+      "path": "tests/tools/ux-viewport-runtime-contract.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#summary-follows-the-current-run-pointer-and-ignores-stal-073d5badd0",
+        "node-test:tests/tools/ux-viewport-progress.test.mjs#concurrent-group-completion-merges-results-through-atomi-a587719635"
+      ],
+      "reason": "Current-run selection, stale exclusion, progress counts and atomic completion remain observable filesystem behavior."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#visual-summary-requires-exactly-one-screenshot-per-plann-fc9d2a4fe5",
+      "path": "tests/tools/ux-viewport-runtime-contract.test.mjs",
+      "replacementTestIds": ["node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#visual-summary-requires-one-current-run-screenshot-per-p-002284738e"],
+      "reason": "The replacement writes an incomplete and then complete current visual run and observes exact screenshot counts."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-runner.test.mjs#all-ux-package-scripts-use-the-always-summary-runner-ins-fb4bc9acb6",
+      "path": "tests/tools/ux-viewport-runner.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-runner.test.mjs#runner-always-writes-the-current-run-summary-after-playw-e02a7c66c2",
+        "node-script:tools/check-test-matrix.mjs"
+      ],
+      "reason": "Runner behavior is executed directly and package/matrix wiring has one structured owner."
+    },
+    {
+      "id": "node-test:tests/tools/data-scale-evidence-summary.test.mjs#lane-matrix-registry-and-workflow-assign-one-writer-to-t-668f063449",
+      "path": "tests/tools/data-scale-evidence-summary.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/data-scale-evidence-summary.test.mjs#data-scale-aggregate-retains-both-production-tiers-and-r-c1afda4385",
+        "node-script:tools/check-test-matrix.mjs"
+      ],
+      "reason": "The aggregator output is executed while matrix ownership is parsed once."
+    },
+    {
+      "id": "node-test:tests/tools/performance-evidence-summary.test.mjs#lane-and-matrix-contracts-assign-one-writer-to-the-aggre-8cef309edd",
+      "path": "tests/tools/performance-evidence-summary.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/performance-evidence-summary.test.mjs#performance-evidence-producers-stay-isolated-and-the-fre-02a4e67e46",
+        "node-script:tools/check-test-matrix.mjs"
+      ],
+      "reason": "Actual aggregate output retains the four evidence classes and the matrix checker owns writer topology."
+    },
+    {
+      "id": "node-test:tests/tools/quality-gate-artifact-layout.test.mjs#fast-summary-restores-artifacts-rooted-below-tmp-back-in-616642f9c5",
+      "path": "tests/tools/quality-gate-artifact-layout.test.mjs",
+      "replacementTestIds": ["node-script:tools/check-workflow-matrix-sync.mjs"],
+      "reason": "Workflow artifact destinations are parsed by the single workflow/matrix synchronization owner."
+    },
+    {
+      "id": "node-test:tests/tools/quality-gate-artifact-layout.test.mjs#backend-qps-aggregate-restores-collector-artifacts-back--96c2f2f612",
+      "path": "tests/tools/quality-gate-artifact-layout.test.mjs",
+      "replacementTestIds": ["node-script:tools/check-workflow-matrix-sync.mjs"],
+      "reason": "Backend QPS artifact download ownership is centralized in the workflow synchronization parser."
+    },
+    {
+      "id": "node-test:tests/tools/quality-gate-artifact-layout.test.mjs#matrix-validation-uses-the-authoritative-testing-docs-ch-782e1a4d8b",
+      "path": "tests/tools/quality-gate-artifact-layout.test.mjs",
+      "replacementTestIds": ["node-script:tools/docs/generate-testing-docs.mjs"],
+      "reason": "Generated testing documentation has one semantic check-mode owner rather than workflow text assertions."
+    },
+    {
+      "id": "node-test:tests/tools/quality-gate-artifact-layout.test.mjs#matrix-aggregate-delegates-artifact-declarations-to-the--b2a467d549",
+      "path": "tests/tools/quality-gate-artifact-layout.test.mjs",
+      "replacementTestIds": ["node-test:tests/tools/quality-gate-artifact-layout.test.mjs#aggregate-artifact-lookup-expands-single-and-recursive-w-958d7a8cf6"],
+      "reason": "Wildcard artifact lookup is imported and executed against local and downloaded layouts."
+    },
+    {
+      "id": "node-test:tests/tools/release-evidence-artifact-restore.test.mjs#release-evidence-collector-delegates-downloaded-artifact-f311ed4021",
+      "path": "tests/tools/release-evidence-artifact-restore.test.mjs",
+      "replacementTestIds": ["node-test:tests/tools/release-evidence-artifact-restore.test.mjs#release-evidence-restores-both-stripped-tmp-and-mixed-ro-e780bfdcf5"],
+      "reason": "The restore helper is executed over stripped, mixed and legacy layouts instead of checking its caller text."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs#BackendTestPathsTests.FixtureAndCatalogTests_UseSharedRepositoryRootHelper",
+      "path": "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
+      "replacementTestIds": ["node-script:tools/check-backend-test-governance.mjs"],
+      "reason": "Shared repository-root usage is a single static governance concern, not a test that scans sibling tests."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs#BackendTestPathsTests.SourceReadingContractTests_UseSharedRepositoryRootHelper",
+      "path": "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
+      "replacementTestIds": ["node-script:tools/check-backend-test-governance.mjs"],
+      "reason": "The backend static checker uniquely owns repository-root helper consistency."
+    }
+  ],
+  "centralRegistryReadback": [
+    {
+      "path": "tests/test-retention-replacements.json",
+      "status": "present-not-verified",
+      "operation": "merged-exact-deleted-tests",
+      "deletedTestIds": 38
+    },
+    {
+      "path": "tests/coverage-registry.json",
+      "status": "present-not-verified",
+      "requestedCoverageIds": ["test-tool-artifact-behavior"]
+    },
+    {
+      "path": "tests/matrix.yml",
+      "status": "present-not-verified",
+      "requestedTiers": [
+        "backend-test-governance",
+        "static-governance",
+        "ux-viewport-plan-progress",
+        "data-scale-evidence-summary",
+        "performance-evidence-summary",
+        "release-evidence",
+        "production"
+      ]
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "status": "present-not-verified",
+      "requestedOwners": [
+        "CoverageScriptContractTests",
+        "BackendTestPathsTests",
+        "backend-trx-contract.test.mjs"
+      ]
+    }
+  ]
+}

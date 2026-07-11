@@ -1,0 +1,154 @@
+{
+  "schema": "fsusblog.test-suite-convergence-plan.v1",
+  "trackingIssue": 1051,
+  "stages": [
+    {
+      "order": 0,
+      "name": "authoritative-before-evidence",
+      "issues": [1032]
+    },
+    {
+      "order": 1,
+      "name": "low-risk-direct-cleanup",
+      "issues": [1033, 1034, 1035, 1036]
+    },
+    {
+      "order": 2,
+      "name": "replacement-before-deletion",
+      "issues": [1037, 1038, 1039, 1040, 1041, 1042]
+    },
+    {
+      "order": 3,
+      "name": "mixed-file-method-split",
+      "issues": [1043, 1044, 1045, 1046, 1047, 1048, 1049, 1050]
+    }
+  ],
+  "issueDependencies": {
+    "1033": [1032],
+    "1034": [1032],
+    "1035": [1032],
+    "1036": [1032],
+    "1037": [1032, 1033],
+    "1038": [1032, 1033],
+    "1039": [1032, 1033],
+    "1040": [1032, 1033],
+    "1041": [1032, 1033],
+    "1042": [1032, 1033],
+    "1043": [1032, 1037],
+    "1044": [1032, 1037],
+    "1045": [1032, 1037, 1040],
+    "1046": [1032, 1037, 1040],
+    "1047": [1032, 1040, 1042],
+    "1048": [1032, 1033],
+    "1049": [1032, 1035, 1036, 1039, 1042],
+    "1050": [1032, 1042],
+    "1051": [1032, 1033, 1034, 1035, 1036, 1037, 1038, 1039, 1040, 1041, 1042, 1043, 1044, 1045, 1046, 1047, 1048, 1049, 1050]
+  },
+  "beforeSnapshot": "tests/test-retention-before.json",
+  "defaultAfterSnapshot": ".tmp/release-evidence/test-retention-audit.json",
+  "replacementSources": [
+    "tests/test-retention-replacements.json",
+    "tests/**/issue-*-retention*.json",
+    "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+  ],
+  "sourceLockingOwners": {
+    "backend": "tools/check-test-suite-convergence.mjs",
+    "frontend": "tests/frontend/checks/static/check-frontend-test-governance.mjs"
+  },
+  "finalEvidencePaths": [
+    ".tmp/release-evidence/test-retention-audit.json",
+    ".tmp/coverage/backend-merged/Summary.json",
+    ".tmp/coverage/frontend/Summary.json",
+    ".tmp/coverage/merged/Summary.json",
+    ".tmp/coverage/scope-snapshot.json",
+    ".tmp/mutation/backend-critical/authority.json",
+    ".tmp/release-evidence/test-plan.json",
+    ".tmp/release-evidence/test-quality-summary.json",
+    ".tmp/release-evidence/test-optimization-report.json",
+    ".tmp/release-evidence/issue-1051-child-issues.json",
+    ".tmp/release-evidence/perf-summary.json",
+    ".tmp/release-evidence/ux-viewport-summary.json"
+  ],
+  "finalEvidenceContracts": [
+    {
+      "path": ".tmp/coverage/scope-snapshot.json",
+      "assertions": [
+        { "field": "status", "equals": "ok" },
+        { "field": "summary.linecoverage", "finiteNumber": true },
+        { "field": "summary.branchcoverage", "finiteNumber": true }
+      ]
+    },
+    {
+      "path": ".tmp/mutation/backend-critical/authority.json",
+      "assertions": [
+        { "field": "schema", "equals": "fsusblog.stryker-authority.v1" },
+        { "field": "status", "equals": "success" },
+        { "field": "tierId", "equals": "release-mutation-critical-slice" },
+        { "field": "producer.runId", "nonEmpty": true }
+      ]
+    },
+    {
+      "path": ".tmp/release-evidence/test-plan.json",
+      "assertions": [
+        { "field": "schema", "equals": "fsusblog.release-evidence.test-plan.v1" },
+        { "field": "commit", "nonEmpty": true }
+      ]
+    },
+    {
+      "path": ".tmp/release-evidence/test-quality-summary.json",
+      "assertions": [
+        { "field": "schema", "equals": "fsusblog.test-quality.v1" },
+        { "field": "status", "equals": "ok" }
+      ]
+    },
+    {
+      "path": ".tmp/release-evidence/test-optimization-report.json",
+      "assertions": [
+        { "field": "schema", "equals": "fsusblog.test-optimization-report.v2" },
+        { "field": "authoritativeFreshRun.status", "equals": "success" },
+        { "field": "authoritativeFreshRun.runId", "nonEmpty": true },
+        { "field": "finalAuthority.status", "equals": "pass" },
+        { "field": "coverageMetrics.status", "equals": "pass" },
+        { "field": "criticalMutationSlice.status", "equals": "pass" },
+        { "field": "mutationAuthority.status", "equals": "pass" },
+        { "field": "logicalProjection.status", "equals": "pass" },
+        { "field": "retainedCoverage.status", "oneOf": ["same", "stronger"] },
+        { "field": "deletionSafety.status", "equals": "pass" },
+        { "field": "assertionReplacementSafety.status", "equals": "pass" },
+        { "field": "retentionAuditAuthority.status", "equals": "pass" },
+        { "field": "sourceAuthority.status", "equals": "pass" }
+      ]
+    },
+    {
+      "path": ".tmp/release-evidence/issue-1051-child-issues.json",
+      "assertions": [
+        { "field": "schema", "equals": "fsusblog.issue-1051-child-status.v1" },
+        { "field": "status", "equals": "closed" },
+        { "field": "repository", "nonEmpty": true },
+        { "field": "issueCount", "equals": 19 }
+      ]
+    },
+    {
+      "path": ".tmp/release-evidence/perf-summary.json",
+      "assertions": [
+        { "field": "schema", "equals": "fsusblog.performance-evidence-summary.v1" },
+        { "field": "status", "equals": "ok" }
+      ]
+    },
+    {
+      "path": ".tmp/release-evidence/ux-viewport-summary.json",
+      "assertions": [
+        { "field": "status", "equals": "ok" },
+        { "field": "runId", "nonEmpty": true }
+      ]
+    }
+  ],
+  "centralIntegration": [
+    { "path": "tests/test-retention-replacements.json", "status": "present-not-verified" },
+    { "path": "tests/coverage-registry.json", "status": "present-not-verified" },
+    { "path": "tests/matrix.yml", "status": "present-not-verified" },
+    { "path": "tests/backend/Fixtures/backend-test-requirements.json", "status": "present-not-verified" },
+    { "path": "tools/test/lanes/static-governance.sh", "status": "present-not-verified" },
+    { "path": "docs/testing.md", "status": "present-not-verified" }
+  ]
+}

@@ -6,7 +6,7 @@ using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using System.Reflection;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -1125,37 +1125,33 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
-    public void FastPathSource_DoesNotReferenceRequestScopedOrIoHotPathDependencies()
+    public void FastPathRuntime_DoesNotReferenceRequestScopedOrIoHotPathDependencies()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"));
-        string fastPathSource = source[
-            source.IndexOf("public static class PublicHotReadFastPath", StringComparison.Ordinal)
-            ..source.IndexOf("public readonly record struct PublicHotReadCounterSnapshot", StringComparison.Ordinal)];
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(PublicHotReadFastPath));
 
-        Assert.DoesNotContain("RequestServices", fastPathSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("File.", fastPathSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("IConnectionMultiplexer", fastPathSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("IMemoryCache", fastPathSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("Activity", fastPathSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("ILogger", fastPathSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("IAedsEncoder", fastPathSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("BinaryResults", fastPathSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpContext.get_RequestServices", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.IO.File", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("IConnectionMultiplexer", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("IMemoryCache", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Diagnostics.Activity", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("ILogger", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("IAedsEncoder", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("BinaryResults", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void FastPathSource_UsesRouteClassifierInsteadOfMatcherChain()
+    public void FastPathRuntime_UsesRouteClassifierInsteadOfMatcherChain()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"));
-        int start = source.IndexOf("public static Task TryServeAsync", StringComparison.Ordinal);
-        int end = source.IndexOf("private static bool IsPublicHotReadPath", start, StringComparison.Ordinal);
-        string tryServe = source[start..end];
+        MethodInfo tryServe = typeof(PublicHotReadFastPath).GetMethod(nameof(PublicHotReadFastPath.TryServeAsync))!;
+        MethodBase[] calls = ReadCalledMethods(tryServe).ToArray();
 
-        Assert.Contains("TryClassifyRoute", tryServe, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryMatchArticleDetail", tryServe, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryMatchArticleList", tryServe, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryMatchArticleHot", tryServe, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryMatchArticleFeatured", tryServe, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryMatchArticleHtml", tryServe, StringComparison.Ordinal);
+        Assert.Contains(calls, static method => method.Name == "TryClassifyRoute");
+        Assert.DoesNotContain(calls, static method => method.Name is
+            "TryMatchArticleDetail" or
+            "TryMatchArticleList" or
+            "TryMatchArticleHot" or
+            "TryMatchArticleFeatured" or
+            "TryMatchArticleHtml");
     }
 
     [Fact]
@@ -1236,11 +1232,31 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
-    public void ProjectorSource_UsesDeterministicPublicListOrdering()
+    public void ProjectorRuntime_UsesDeterministicPublicListOrdering()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(PublicHotArtifactProjector),
+            "ORDER BY a.createtime DESC, a.id DESC");
 
-        Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", source, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", runtimeShape, StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F)) continue;
+            MethodBase? called = null;
+            try
+            {
+                called = method.Module.ResolveMethod(BitConverter.ToInt32(il, offset + 1));
+            }
+            catch (ArgumentException)
+            {
+            }
+            if (called is not null) yield return called;
+        }
     }
 
     private static DefaultHttpContext CreateContext(string path)

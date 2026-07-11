@@ -1,6 +1,6 @@
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -54,12 +54,17 @@ public sealed class AntiSpamModerationServiceTests
     [Fact]
     public void SchemaMigrationRegistry_CreatesCommentModerationSignalTableAndIndexes()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"));
+        var registry = new SchemaMigrationRegistry();
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            registry.GetDescriptors(),
+            static item => item.MigrationId == "20260610-post-comment-moderation-signal");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
-        Assert.Contains("comment_moderation_signal", source);
-        Assert.Contains("idx_comment_moderation_signal_comment_id", source);
-        Assert.Contains("idx_comment_moderation_signal_label_confidence", source);
-        Assert.Contains("idx_comment_moderation_signal_second_round", source);
-        Assert.Contains("BuildCommentModerationSignalMigration()", source);
+        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+        Assert.True(descriptor.Transactional);
+        Assert.Contains("comment_moderation_signal", fingerprint);
+        Assert.Contains("idx_comment_moderation_signal_comment_id", fingerprint);
+        Assert.Contains("idx_comment_moderation_signal_label_confidence", fingerprint);
+        Assert.Contains("idx_comment_moderation_signal_second_round", fingerprint);
     }
 }

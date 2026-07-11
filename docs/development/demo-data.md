@@ -37,12 +37,20 @@ The seed inserts or refreshes:
 - one fictional anonymous account container
 - one disabled mock admin principal for attribution
 - fictional categories and tags
-- two fictional published articles
+- two fictional published articles with distinct content-evidence covers: a
+  public route map and an AEDS frame inspection; neither asset embeds the
+  article title or UI copy
 - one approved anonymous comment
 - one pending anonymous moderation queue comment
 - fictional audit/security events
 
 The seed does not include real production content, real domains, real emails, real IP addresses, real logs, tokens, or private identifiers.
+
+The demo covers are deterministic SVG fixtures under
+`src/frontend/public/fixtures/`. They use the same `center-80` crop-safe area as
+the public home and article-detail renderers. Removing either `coverimageurl`
+is supported and intentionally falls back to the complete text hierarchy; the
+seed does not establish a requirement that published articles have covers.
 
 No real personal data, production logs, production domains, tokens, emails, or IP addresses are included.
 

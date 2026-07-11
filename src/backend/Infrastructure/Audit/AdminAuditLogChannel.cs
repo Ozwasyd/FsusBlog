@@ -31,6 +31,8 @@ public sealed class AdminAuditLogChannel(
 
     internal ChannelReader<AdminAuditLog> Reader => _channel.Reader;
 
+    public long QueuedCount => Math.Max(0, Volatile.Read(ref _queuedCount));
+
     public async ValueTask EnqueueAsync(AdminAuditLog audit, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

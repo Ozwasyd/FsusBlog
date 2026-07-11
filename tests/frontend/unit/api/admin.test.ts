@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -11,8 +9,6 @@ import { requestBinaryOnly } from '@/services/binaryTransport'
 import { adminChangeStatus, getAdminUserList } from '@/api/admin'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
-const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
-const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
 
 describe('admin API binary mutations', () => {
   beforeEach(() => {
@@ -49,37 +45,5 @@ describe('admin API binary mutations', () => {
     const payload = new DataView(frame, 16)
     expect(payload.getInt32(0, true)).toBe(10)
     expect(payload.getInt32(4, true)).toBe(1)
-  })
-
-  it('AdminChangeStatusDto uses accountId at the naming layer', () => {
-    const adminApi = readRepoFile('src/frontend/src/api/admin.ts')
-
-    expect(adminApi).toContain('accountId: number')
-    expect(adminApi).not.toContain('userId: number')
-    expect(adminApi).not.toContain('data.userId')
-  })
-
-  it('keeps admin status DTO and callers on accountId naming', () => {
-    const adminApi = readRepoFile('src/frontend/src/api/admin.ts')
-    const adminUserManage = readRepoFile('src/frontend/src/composables/useAdminUserManage.ts')
-
-    expect(adminApi).toContain('export interface AdminChangeStatusDto extends PowBaseDto {\n  accountId: number')
-    expect(adminApi).toContain('view.setInt32(0, data.accountId, true)')
-    expect(adminApi).not.toMatch(/AdminChangeStatusDto[\s\S]*?userId: number/)
-    expect(adminApi).not.toContain('data.userId')
-    expect(adminUserManage).toContain('adminChangeStatus({ accountId: row.accountId, status: 0 }')
-    expect(adminUserManage).toContain('accountId: targetUser.accountId')
-    expect(adminUserManage).not.toContain('userId: row.accountId')
-    expect(adminUserManage).not.toContain('userId: targetUser.accountId')
-  })
-
-  it('does not export or encode legacy admin password reset', () => {
-    const adminApi = readRepoFile('src/frontend/src/api/admin.ts')
-
-    expect(adminApi).not.toContain('adminResetPassword')
-    expect(adminApi).not.toContain('AdminResetPwdDto')
-    expect(adminApi).not.toContain('AdminResetUserPasswordRequest')
-    expect(adminApi).not.toContain('/api/binary/admin/users/reset-pwd')
-    expect(adminApi).not.toContain('encodeAdminResetPasswordRequest')
   })
 })

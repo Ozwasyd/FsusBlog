@@ -25,6 +25,7 @@ using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
@@ -103,17 +104,60 @@ public static class WebApplicationCompositionExtensions
     private static long SpaHeadInjectionBuildCount;
     private static long SpaHeadInjectionHitCount;
 
+    private sealed record PipelineStage(string Id, Action<WebApplication> Configure);
+
+    private static readonly PipelineStage[] ApplicationPipelineStages =
+    [
+        new("forwarded-headers", static app => app.UseForwardedHeaders()),
+        new("security-headers", static app => app.UseFsusSecurityHeaders()),
+        new("deployment-request-tracking", static app => app.UseMiddleware<DeploymentRequestTrackingMiddleware>()),
+        new("core-middlewares", static app => app.UseFsusCoreMiddlewares()),
+        new("endpoint-pipeline", static app => app.UseFsusEndpointPipeline()),
+        new("public-read-security-gate", static app => app.UseFsusPublicHotReadSecurityGate()),
+        new("public-hot-read-fast-path", static app => app.UseFsusPublicHotReadFastPath()),
+        new("static-assets", static app => app.UseFsusStaticAssets())
+    ];
+
+    private static readonly PipelineStage[] EndpointPipelineStages =
+    [
+        new("routing", static app => app.UseRouting()),
+        new("observability-correlation", static app => app.UseMiddleware<ObservabilityCorrelationMiddleware>()),
+        new("endpoint-metadata-headers", static app => app.UseFsusEndpointMetadataHeaders()),
+        new("websockets", static app => app.UseWebSockets()),
+        new("test-session-validation", static app =>
+        {
+            if (HttpTestSessionKeyScope.IsIsolationEnabled(app.Environment))
+            {
+                app.UseMiddleware<TestSessionValidationMiddleware>();
+            }
+        }),
+        new("response-compression", static app => app.UseResponseCompression()),
+        new("output-cache", static app => app.UseOutputCache()),
+        new("cors", static app => app.UseCors()),
+        new("antiforgery", static app => app.UseAntiforgery()),
+        new("csrf-origin-guard", static app => app.UseFsusCsrfOriginGuard()),
+        new("anonymous-gateway-header-guard", static app => app.UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>()),
+        new("authentication", static app => app.UseAuthentication()),
+        new("rate-limiter", static app => app.UseRateLimiter()),
+        new("banned-user", static app => app.UseMiddleware<BannedUserMiddleware>()),
+        new("authorization", static app => app.UseAuthorization()),
+        new("request-audit-context", static app => app.UseMiddleware<RequestAuditContextMiddleware>())
+    ];
+
+    internal static IReadOnlyList<string> ApplicationPipelineStageIds
+        => ApplicationPipelineStages.Select(static stage => stage.Id).ToArray();
+
+    internal static IReadOnlyList<string> EndpointPipelineStageIds
+        => EndpointPipelineStages.Select(static stage => stage.Id).ToArray();
+
     private sealed record CachedDynamicManifest(byte[] Bytes, string Etag);
 
     public static void UseFsusApplicationPipeline(this WebApplication app)
     {
-        app.UseForwardedHeaders();
-        app.UseFsusSecurityHeaders();
-        app.UseFsusCoreMiddlewares();
-        app.UseFsusEndpointPipeline();
-        app.UseFsusPublicHotReadSecurityGate();
-        app.UseFsusPublicHotReadFastPath();
-        app.UseFsusStaticAssets();
+        foreach (PipelineStage stage in ApplicationPipelineStages)
+        {
+            stage.Configure(app);
+        }
     }
 
     public static void MapFsusApplicationRoutes(this WebApplication app)
@@ -125,9 +169,11 @@ public static class WebApplicationCompositionExtensions
 
     private static void UseFsusSecurityHeaders(this WebApplication app)
     {
+        ReleaseIdentitySnapshot releaseIdentity = app.Services.GetRequiredService<IReleaseIdentityProvider>().Current;
         app.Use(async (ctx, next) =>
         {
             var headers = ctx.Response.Headers;
+            ReleaseIdentityResponseHeaders.Apply(headers, releaseIdentity);
             headers["X-Content-Type-Options"] = "nosniff";
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
             headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), browsing-topics=()";
@@ -190,6 +236,8 @@ public static class WebApplicationCompositionExtensions
             await next();
         });
 
+        UseReleaseScopedStaticAssets(app);
+
         app.UseStaticFiles(new StaticFileOptions
         {
             ContentTypeProvider = provider,
@@ -202,28 +250,36 @@ public static class WebApplicationCompositionExtensions
         }
     }
 
-    private static void UseFsusEndpointPipeline(this WebApplication app)
+    private static void UseReleaseScopedStaticAssets(WebApplication app)
     {
-        app.UseRouting();
-        app.UseMiddleware<ObservabilityCorrelationMiddleware>();
-        app.UseFsusEndpointMetadataHeaders();
-        app.UseWebSockets();
-        if (HttpTestSessionKeyScope.IsIsolationEnabled(app.Environment))
+        string? releaseAssetRoot = app.Configuration["FSUSBLOG_RELEASE_ASSET_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ASSET_ROOT");
+        string? releaseDerivedRoot = app.Configuration["FSUSBLOG_RELEASE_DERIVED_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_DERIVED_ROOT");
+        if (app.Environment.IsProduction()
+            && (string.IsNullOrWhiteSpace(releaseAssetRoot) || string.IsNullOrWhiteSpace(releaseDerivedRoot)))
         {
-            app.UseMiddleware<TestSessionValidationMiddleware>();
+            throw new InvalidOperationException(
+                "Production requires FSUSBLOG_RELEASE_ASSET_ROOT and FSUSBLOG_RELEASE_DERIVED_ROOT before SPA fallback registration.");
         }
 
-        app.UseResponseCompression();
-        app.UseOutputCache();
-        app.UseCors();
-        app.UseAntiforgery();
-        app.UseFsusCsrfOriginGuard();
-        app.UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>();
-        app.UseAuthentication();
-        app.UseRateLimiter();
-        app.UseMiddleware<BannedUserMiddleware>();
-        app.UseAuthorization();
-        app.UseMiddleware<RequestAuditContextMiddleware>();
+        if (!string.IsNullOrWhiteSpace(releaseAssetRoot))
+        {
+            app.UseFsusReleaseAssets(releaseAssetRoot);
+        }
+
+        if (!string.IsNullOrWhiteSpace(releaseDerivedRoot))
+        {
+            app.UseFsusReleaseDerivedArtifacts(releaseDerivedRoot);
+        }
+    }
+
+    private static void UseFsusEndpointPipeline(this WebApplication app)
+    {
+        foreach (PipelineStage stage in EndpointPipelineStages)
+        {
+            stage.Configure(app);
+        }
     }
 
     private static void UseFsusEndpointMetadataHeaders(this WebApplication app)
@@ -249,7 +305,12 @@ public static class WebApplicationCompositionExtensions
     {
         app.MapLocalAuthFixtureEndpoints();
         app.MapNotificationStreamDrillEndpoints();
+        app.MapReleaseSchemaQualificationEndpoints();
         app.MapProductionHealthEndpoints();
+        app.MapDeploymentControlEndpoints();
+        app.MapActiveReleaseFenceEndpoints();
+        app.MapNotificationStreamRestartEndpoints();
+        app.MapNotificationStreamDeploymentDrillEndpoints();
     }
 
     private static void MapFsusApiRoutes(this WebApplication app)
@@ -330,6 +391,10 @@ public static class WebApplicationCompositionExtensions
 
         ctx.Response.Headers["X-Fsus-Notification-Stream-Error-Code"] = result.ErrorCode ?? "notification_handshake_failed";
         ctx.Response.Headers["X-Fsus-Notification-Stream-Status-Code"] = result.StatusCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (result.StatusCode == StatusCodes.Status503ServiceUnavailable)
+        {
+            ctx.Response.Headers["Retry-After"] = "5";
+        }
         ErrorDetail error = ApiErrorSemanticMapper.CreateError(
             result.StatusCode,
             result.ErrorCode ?? "notification_handshake_failed",

@@ -1,6 +1,7 @@
 ﻿using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Infrastructure;
 
@@ -12,7 +13,8 @@ namespace FsusBlog.Server.Infrastructure;
 public sealed partial class PowLoadResetWorker(
     AdaptivePowGovernor governor,
     ILogger<PowLoadResetWorker> logger,
-    IBackgroundWorkerLease workerLease) : BackgroundService
+    IBackgroundWorkerLease workerLease,
+    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
     // AdaptivePowGovernor 依赖 RPS (Requests Per Second) 计算
     // 因此这里必须调整为 1秒 触发一次，配合 Governor 内部的 Environment.TickCount64 检查
@@ -28,15 +30,17 @@ public sealed partial class PowLoadResetWorker(
                 while (await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
                 {
                     await workerLease.TryRunAsLeaderAsync("pow-load-reset-worker",
-                            _ =>
+                            async leaseToken =>
                             {
+                                if (activeReleaseCommitGuard is not null)
+                                {
+                                    await activeReleaseCommitGuard.EnsureCurrentAsync(leaseToken).ConfigureAwait(false);
+                                }
                                 governor.Tick();
                                 if (logger.IsEnabled(LogLevel.Debug))
                                 {
                                     LogHeartbeatTick(governor.CurrentGlobalDifficulty);
                                 }
-
-                                return Task.CompletedTask;
                             },
                             token)
                         .ConfigureAwait(false);

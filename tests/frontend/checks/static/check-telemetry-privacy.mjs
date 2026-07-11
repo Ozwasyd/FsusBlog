@@ -38,4 +38,8 @@ for (const token of forbidden) {
   assert(!source.includes(token), `telemetry must not collect sensitive field: ${token}`)
 }
 
+for (const token of ['/api/telemetry/rum', 'application/json', 'response.json', 'JSON.stringify']) {
+  assert(!source.includes(token), `telemetry must not retain JSON fallback compatibility: ${token}`)
+}
+
 console.log('[check-telemetry-privacy] ok')

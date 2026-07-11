@@ -1,58 +1,106 @@
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Caching.Memory;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class RelatedReadingServiceTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class RelatedReadingServiceTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public void BuildAsync_SourceUsesLightweightCandidatesAndUnifiedCache()
+    public async Task BuildAsync_ColdReadIsBoundedAndMemoryHitExecutesNoDatabaseCommand()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Distribution/RelatedReadingService.cs");
-        string build = ExtractMethod(source, "public async Task<RelatedReadingResponse?> BuildAsync", "private async ValueTask<long> GetArticleListVersionAsync");
-        string candidateLoader = ExtractMethod(source, "private async Task<CandidateIndex> LoadCandidateIndexAsync", "private async Task<RelatedArticleRow?> LoadAdjacentAsync");
-        string keywordMatcher = ExtractMethod(source, "private static int CountKeywordMatches", "private static string[] ExtractKeywords");
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(db, typeof(Category), typeof(Tag), typeof(Article), typeof(ArticleTag));
+        DateTime publishedAt = DateTime.UtcNow.AddHours(-2);
+        int categoryId = db.Insertable(new Category { Name = "Performance" }).ExecuteReturnIdentity();
+        int tagId = db.Insertable(new Tag { Name = "cache" }).ExecuteReturnIdentity();
+        int sourceId = InsertArticle(db, categoryId, "Source cache article", publishedAt);
+        int candidateId = InsertArticle(db, categoryId, "Candidate cache article", publishedAt.AddMinutes(-10));
+        db.Insertable([
+            new ArticleTag { ArticleId = sourceId, TagId = tagId },
+            new ArticleTag { ArticleId = candidateId, TagId = tagId }
+        ]).ExecuteCommand();
 
-        Assert.Contains("CachePolicyId.RelatedReading", build, StringComparison.Ordinal);
-        Assert.Contains("cache.TryGetAsync", build, StringComparison.Ordinal);
-        Assert.Contains("cache.SetRawAsync", build, StringComparison.Ordinal);
-        Assert.Contains("LoadCandidateIndexAsync", build, StringComparison.Ordinal);
-        Assert.DoesNotContain("LeftJoin<ArticleBody>", candidateLoader, StringComparison.Ordinal);
-        Assert.DoesNotContain("MarkdownContent = body.MarkdownContent", candidateLoader, StringComparison.Ordinal);
-        Assert.DoesNotContain("candidate.MarkdownContent", keywordMatcher, StringComparison.Ordinal);
+        IUnifiedCache cache = Substitute.For<IUnifiedCache>();
+        cache.GetStringAsync(
+                CachePolicyId.ArticleListVersion,
+                "main",
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<string?>("42"));
+        cache.TryGetAsync(
+                CachePolicyId.RelatedReading,
+                Arg.Any<string>(),
+                Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, RelatedReadingResponse? Value)>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new CacheReadResult<RelatedReadingResponse>(false, null)));
+        cache.SetRawAsync(
+                CachePolicyId.RelatedReading,
+                Arg.Any<string>(),
+                Arg.Any<byte[]>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var commands = new List<string>();
+        db.Aop.OnLogExecuting = (sql, _) => commands.Add(sql);
+        var service = new RelatedReadingService(db, cache, memory);
+
+        RelatedReadingResponse? cold = await service.BuildAsync(sourceId);
+        Assert.NotNull(cold);
+        Assert.Contains(cold.Related, item => item.Id == candidateId);
+        Assert.InRange(commands.Count, 4, 5);
+        Assert.DoesNotContain(commands, sql => sql.Contains("article_body", StringComparison.OrdinalIgnoreCase));
+
+        int coldCommandCount = commands.Count;
+        RelatedReadingResponse? hit = await service.BuildAsync(sourceId);
+        Assert.Same(cold, hit);
+        Assert.Equal(coldCommandCount, commands.Count);
     }
 
     [Fact]
-    public void BuildAsync_SourceConvergesRoundTripsAndKeywordAllocations()
+    public void KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Distribution/RelatedReadingService.cs");
-        string build = ExtractMethod(source, "public async Task<RelatedReadingResponse?> BuildAsync", "private static (bool Success, RelatedReadingResponse? Value) DecodeRelatedReading");
-        string candidateLoader = ExtractMethod(source, "private async Task<CandidateIndex> LoadCandidateIndexAsync", "private async Task<RelatedArticleRow?> LoadAdjacentAsync");
-        string keywordMatcher = ExtractMethod(source, "private static int CountKeywordMatches", "private static string[] ExtractKeywords");
-        string keywordExtractor = ExtractMethod(source, "private static string[] ExtractKeywords", "private static bool IsCjk");
+        string[] keywords = RelatedReadingService.ExtractKeywords(
+            "PostgreSQL cache concurrency",
+            "notification stream performance");
+        RelatedReadingBenchmarkResult result = RelatedReadingService.ScoreCandidateForBenchmark(
+            7,
+            DateTime.UnixEpoch.AddDays(100),
+            [1, 2],
+            7,
+            DateTime.UnixEpoch.AddDays(95),
+            [2, 3],
+            "PostgreSQL cache performance",
+            "notification stream",
+            keywords);
 
-        Assert.Contains("Task.WhenAll(versionTask, articleTask)", build, StringComparison.Ordinal);
-        Assert.DoesNotContain("sourceTagIdsTask", build, StringComparison.Ordinal);
-        Assert.DoesNotContain("candidateIndexTask", build, StringComparison.Ordinal);
-        Assert.DoesNotContain("previousTask", build, StringComparison.Ordinal);
-        Assert.DoesNotContain("nextTask", build, StringComparison.Ordinal);
-        Assert.Contains("int[] sourceTagIds = await LoadSourceTagIdsAsync", build, StringComparison.Ordinal);
-        Assert.Contains("CandidateIndex candidateIndex = await LoadCandidateIndexAsync", build, StringComparison.Ordinal);
-        Assert.Contains("RelatedArticleRow? previous = await LoadAdjacentAsync", build, StringComparison.Ordinal);
-        Assert.Contains("RelatedArticleRow? next = await LoadAdjacentAsync", build, StringComparison.Ordinal);
-        Assert.Contains("LEFT JOIN article_tag", candidateLoader, StringComparison.Ordinal);
-        Assert.DoesNotContain("LoadTagMapAsync", build, StringComparison.Ordinal);
-        Assert.DoesNotContain("MarkdownContent", keywordMatcher, StringComparison.Ordinal);
-        Assert.Contains("string.Create", keywordExtractor, StringComparison.Ordinal);
-        Assert.DoesNotContain("Substring", keywordExtractor, StringComparison.Ordinal);
-        Assert.DoesNotContain("ToArray()", keywordExtractor, StringComparison.Ordinal);
+        Assert.True(result.Score >= 100);
+        Assert.Equal(5, result.PublishedDistance);
+        Assert.Contains("同分类", result.Reason, StringComparison.Ordinal);
+        Assert.Contains("共同标签", result.Reason, StringComparison.Ordinal);
+        Assert.Contains("全文关键词", result.Reason, StringComparison.Ordinal);
+        Assert.Contains("发布时间接近", result.Reason, StringComparison.Ordinal);
     }
 
-    private static string ExtractMethod(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
-    }
+    private static int InsertArticle(SqlSugarClient db, int categoryId, string title, DateTime publishedAt)
+        => db.Insertable(new Article
+        {
+            Title = title,
+            Summary = "cache notification PostgreSQL",
+            CategoryId = categoryId,
+            Views = 1,
+            CreateTime = publishedAt,
+            PublishedAt = publishedAt,
+            ScheduledPublishAt = null,
+            Status = ArticleStatus.Published,
+            IsDeleted = false
+        }).ExecuteReturnIdentity();
 }

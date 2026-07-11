@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { computed, createApp, h, nextTick } from 'vue'
 import {
+  buildConsoleSupportLinks,
   buildConsoleWelcomeCalloutLinks,
   resolveConsoleWelcomeCalloutConfig,
   shouldShowConsoleWelcomeCallout
@@ -59,6 +60,33 @@ describe('console welcome callout', () => {
       { key: 'issue', label: '新建 Issue', href: 'https://github.com/Ozwasyd/FsusBlog/issues/new/choose' },
       { key: 'community', label: '讨论区', href: 'https://github.com/Ozwasyd/FsusBlog/discussions' }
     ])
+  })
+
+  it('keeps feedback available in the help menu after the first-run banner is disabled', () => {
+    const config = resolveConsoleWelcomeCalloutConfig({
+      enabled: false,
+      showOnFirstRun: false,
+      contributeUrl: 'https://example.com/guide',
+      issueUrl: 'https://github.com/Ozwasyd/FsusBlog/issues/new/choose',
+      communityUrl: 'https://github.com/Ozwasyd/FsusBlog/discussions'
+    })
+
+    expect(buildConsoleWelcomeCalloutLinks(config)).toEqual([])
+    expect(buildConsoleSupportLinks(config)).toEqual([
+      { key: 'contribute', label: '查看维护说明', href: 'https://example.com/guide' },
+      { key: 'issue', label: '提交问题', href: 'https://github.com/Ozwasyd/FsusBlog/issues/new/choose' },
+      { key: 'community', label: '参与讨论', href: 'https://github.com/Ozwasyd/FsusBlog/discussions' }
+    ])
+  })
+
+  it('does not expose support links when external links or private deployment policy forbid them', () => {
+    expect(buildConsoleSupportLinks(resolveConsoleWelcomeCalloutConfig({
+      externalLinksEnabled: false
+    }))).toEqual([])
+    expect(buildConsoleSupportLinks(resolveConsoleWelcomeCalloutConfig({
+      privateDeployment: true,
+      hideForPrivateDeployment: true
+    }))).toEqual([])
   })
 
   it('persists dismissal per user key', () => {

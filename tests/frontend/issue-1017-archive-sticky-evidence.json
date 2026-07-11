@@ -1,0 +1,104 @@
+{
+  "schema": "fsusblog.issue-1017.archive-sticky-offset-evidence.v1",
+  "issue": 1017,
+  "status": "implementation-intact-static-and-browser-owners-landed-validation-pending",
+  "liveIssueSnapshot": {
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1017",
+    "state": "closed",
+    "closedAt": "2026-07-09T22:14:34Z",
+    "originalImplementationCommit": "238dd232",
+    "ownerCommentId": 4930029594,
+    "ownerCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1017#issuecomment-4930029594",
+    "historicalValidationClaimOnly": true
+  },
+  "dependencySnapshot": {
+    "issue": 1016,
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1016",
+    "state": "closed",
+    "originalImplementationCommit": "c5f98e10",
+    "ownerCommentId": 4929982964,
+    "ownerCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1016#issuecomment-4929982964",
+    "historicalValidationClaimOnly": true
+  },
+  "currentWorkspaceAudit": {
+    "archiveComponent": "src/frontend/src/components/public/pages/PublicArchivePageContent.vue",
+    "spaConsumer": "src/frontend/src/views/Archive.vue",
+    "aotConsumer": "src/frontend/src/public-renderers/pageAssemblies.ts",
+    "productionFilesModifiedByThisPass": [],
+    "observedContract": {
+      "yearSectionId": "archive-year-${yearGroup.year}",
+      "yearNavigationHash": "#archive-year-${yearGroup.year}",
+      "sectionSelector": ".archive-year-section",
+      "scrollMarginTop": "var(--fsusblog-public-anchor-offset, calc(var(--fsusblog-public-header-height, 4rem) + 3.5rem))",
+      "headingSelector": ".archive-year-heading",
+      "stickyTop": "var(--fsusblog-public-sticky-top, var(--fsusblog-public-header-height, 4rem))",
+      "top24Present": false,
+      "genericStickySelectorPresent": false,
+      "currentYearFilterPresent": false
+    },
+    "verificationStatus": "source-audited-not-executed"
+  },
+  "acceptanceMappings": [
+    {
+      "criterion": "preserve every archive year id/hash and do not hide the current year",
+      "source": "src/frontend/src/components/public/pages/PublicArchivePageContent.vue",
+      "staticOwner": "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs"
+    },
+    {
+      "criterion": "remove top-24 and reject generic scoped sticky overrides",
+      "source": "src/frontend/src/components/public/pages/PublicArchivePageContent.vue",
+      "staticOwner": "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs"
+    },
+    {
+      "criterion": "consume exact public anchor and sticky tokens with fallbacks",
+      "source": "src/frontend/src/components/public/pages/PublicArchivePageContent.vue",
+      "staticOwner": "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs"
+    },
+    {
+      "criterion": "SPA and public AOT retain the same archive consumer",
+      "sources": [
+        "src/frontend/src/views/Archive.vue",
+        "src/frontend/src/public-renderers/pageAssemblies.ts"
+      ],
+      "staticOwner": "node-script:tests/frontend/checks/static/check-visual-density-governance.mjs"
+    },
+    {
+      "criterion": "hash navigation leaves the year target below the measured header",
+      "testId": "playwright:tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts#keeps hash targets below the header and closes the sticky-layer gap",
+      "viewports": [
+        "desktop",
+        "mobile"
+      ],
+      "measurement": "computed scroll margin and header geometry with header-relative polling tolerance"
+    },
+    {
+      "criterion": "sticky year heading settles flush with the measured public header",
+      "testId": "playwright:tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts#keeps hash targets below the header and closes the sticky-layer gap",
+      "viewports": [
+        "desktop",
+        "mobile"
+      ],
+      "measurement": "computed sticky top and header bottom with header-relative polling tolerance"
+    }
+  ],
+  "scopePreservation": {
+    "visualChange": false,
+    "archiveDataChange": false,
+    "routerChange": false,
+    "aotBehaviorChange": false,
+    "fsusUiChange": false,
+    "currentYearSuppression": false,
+    "deletedOrReplacedTests": [
+      "tests/frontend/unit/view-contracts/archiveStickyGeometryContract.test.ts -> consolidated visual-density checker plus Playwright geometry measurement"
+    ]
+  },
+  "handoff": {
+    "documentation": "docs/issue-1017-archive-sticky-offset-handoff.md",
+    "centralGovernance": "tests/frontend/issue-1017-governance-handoff.json"
+  },
+  "verification": {
+    "commandsExecuted": [],
+    "result": "not-run-by-instruction",
+    "historicalResultsAcceptedAsCurrent": false
+  }
+}

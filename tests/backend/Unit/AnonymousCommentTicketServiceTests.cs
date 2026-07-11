@@ -12,9 +12,13 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Validation;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -107,8 +111,12 @@ public sealed class AnonymousCommentTicketServiceTests
 
         Assert.Equal(first, second);
         Assert.Equal(ExpectedModerationSubjectHash(), first);
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCommentTicketService.cs");
-        Assert.DoesNotContain("scope}:{nullifierHash", source, StringComparison.Ordinal);
+        MethodInfo method = typeof(AnonymousCommentTicketService).GetMethod(
+            nameof(AnonymousCommentTicketService.CreateModerationSubjectHash),
+            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+        Assert.Equal(
+            new string?[] { "nullifierHash", "configuration" },
+            method.GetParameters().Select(static parameter => parameter.Name).ToArray());
     }
 
     [Fact]
@@ -209,11 +217,14 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
-    public void AnonymousCommentTicketIssue_UsesPrecheckInsteadOfReservation()
+    public void AnonymousCommentTicketIssue_RuntimeUsesPrecheckInsteadOfReservation()
     {
-        string ticketService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AnonymousCommentTicketService.cs");
-        string issue = ExtractMethodBlock(ticketService, "public async Task<AnonymousCommentTicketIssueResult> IssueAsync");
-        string nullifierService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
+        string issue = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AnonymousCommentTicketService),
+            nameof(AnonymousCommentTicketService.IssueAsync));
+        string nullifierService = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentAnonymousNullifierService),
+            nameof(CommentAnonymousNullifierService.PrecheckAsync));
 
         Assert.Contains("PrecheckAsync", issue, StringComparison.Ordinal);
         Assert.DoesNotContain("CheckAndReserveAsync", issue, StringComparison.Ordinal);
@@ -296,17 +307,23 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
-    public void BinaryEndpoint_RequiresStrongAnonymousAndBinaryFrames()
+    public async Task BinaryEndpoint_RequiresStrongAnonymousAndBinaryFrames()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint endpoint = EndpointContractApplication.Find(
+            app,
+            "/api/binary/comment/anonymous-ticket",
+            HttpMethods.Post);
+        Assert.NotNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        Assert.NotNull(endpoint.Metadata.GetMetadata<StrongAnonymousRequestMetadata>());
 
-        Assert.Contains("MapPost(\"/comment/anonymous-ticket\"", source, StringComparison.Ordinal);
-        Assert.Contains("AllowAnonymous()", source, StringComparison.Ordinal);
-        Assert.Contains("RequireStrongAnonymousRequest()", source, StringComparison.Ordinal);
-        Assert.Contains("CurrentZkProdPolicy", source, StringComparison.Ordinal);
-        Assert.Contains("anonymous_comment_ticket_unavailable", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.AnonymousCommentTicketRequest", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.AnonymousCommentTicketResponse", source, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            nameof(BinaryEndpoints.HandleAnonymousCommentTicketAsync));
+        Assert.Contains("CurrentZkProdPolicy", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("anonymous_comment_ticket_unavailable", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryDecodeAnonymousCommentTicketRequest", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("WriteAnonymousCommentTicketResponse", runtimeShape, StringComparison.Ordinal);
     }
 
     private static AnonymousCommentTicketService CreateService(
@@ -429,33 +446,6 @@ public sealed class AnonymousCommentTicketServiceTests
         Result<AedsDecodeResult> decoded = aeds.TryDecode(frame);
         Assert.True(decoded.IsSuccess, decoded.Error.Message);
         return decoded.Value;
-    }
-
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing method: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart >= 0, $"Missing body: {signature}");
-        int depth = 0;
-        for (int index = braceStart; index < source.Length; index++)
-        {
-            if (source[index] == '{')
-            {
-                depth++;
-            }
-            else if (source[index] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[braceStart..(index + 1)];
-                }
-            }
-        }
-
-        Assert.Fail($"Unclosed method: {signature}");
-        return string.Empty;
     }
 
     private sealed class FixedRootService(Result<AnonymousCredentialRootSnapshotCoreModel> result) : IAnonymousCredentialRootService

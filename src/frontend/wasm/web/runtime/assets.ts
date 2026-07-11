@@ -1,6 +1,11 @@
 const baseUrl = (import.meta.env?.BASE_URL || '/').replace(/\/?$/, '/');
+const frontendBuildId = import.meta.env?.VITE_FSUSBLOG_BUILD_ID?.trim() || '';
+const releaseAssetBase = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/.test(frontendBuildId)
+  && !['latest', 'current', 'final-current'].includes(frontendBuildId.toLowerCase())
+  ? `${baseUrl}release-assets/${frontendBuildId}/`
+  : baseUrl;
 
-export const WASM_PUBLIC_BASE = `${baseUrl}wasm`;
+export const WASM_PUBLIC_BASE = `${releaseAssetBase}wasm`;
 
 export const AEDS_MODULE_URL = `${WASM_PUBLIC_BASE}/aeds_decoder.js`;
 export const AEDS_WASM_URL = `${WASM_PUBLIC_BASE}/aeds_decoder.wasm`;

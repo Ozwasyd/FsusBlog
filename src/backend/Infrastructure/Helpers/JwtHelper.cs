@@ -25,11 +25,16 @@ public class JwtSettings
     public int AccessTokenExpiresMinutes { get; set; } = 15;
 }
 
+public readonly record struct IssuedAccessToken(string Token, DateTimeOffset ExpiresAtUtc)
+{
+    public static implicit operator string(IssuedAccessToken issuedToken) => issuedToken.Token;
+}
+
 // 2. 服务接口
 public interface IJwtHelper
 {
-    string GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false);
-    string GenerateAdminAccessToken(AdminPrincipal principal, AdminSession session, IReadOnlyCollection<string> permissions, bool stepUpVerified = false);
+    IssuedAccessToken GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false);
+    IssuedAccessToken GenerateAdminAccessToken(AdminPrincipal principal, AdminSession session, IReadOnlyCollection<string> permissions, bool stepUpVerified = false);
     string GenerateRefreshToken();
 }
 
@@ -40,6 +45,7 @@ public interface IJwtHelper
 public class JwtHelper : IJwtHelper
 {
     private readonly JwtSettings _settings;
+    private readonly IConfiguration? _configuration;
 
     // 核心优化 1：预计算签名凭证。由于服务是单例，避免每次签发 Token 时重复申请 byte[] 和对象
     private readonly SigningCredentials _credentials;
@@ -47,9 +53,10 @@ public class JwtHelper : IJwtHelper
     // 核心优化 2：JwtSecurityTokenHandler 是线程安全的，全局复用避免高频实例化开销
     private static readonly JwtSecurityTokenHandler _tokenHandler = new();
 
-    public JwtHelper(IOptions<JwtSettings> options)
+    public JwtHelper(IOptions<JwtSettings> options, IConfiguration? configuration = null)
     {
         _settings = options.Value;
+        _configuration = configuration;
 
         // 使用 UTF8 支持更复杂的密钥字符 (在启动时执行一次)
         var key = Encoding.UTF8.GetBytes(_settings.SecretKey);
@@ -59,7 +66,7 @@ public class JwtHelper : IJwtHelper
             SecurityAlgorithms.HmacSha256Signature);
     }
 
-    public string GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false)
+    public IssuedAccessToken GenerateAccessToken(User user, string? sessionId = null, bool mfaVerified = false)
     {
         // 核心优化 3：使用数组代替 List<Claim>，省去底层 List 对象的分配开销
         string identityKind = string.IsNullOrWhiteSpace(user.IdentityKind)
@@ -69,7 +76,9 @@ public class JwtHelper : IJwtHelper
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new("identity_kind", identityKind),
-            new(AccountSubjectHasher.ClaimType, AccountSubjectHasher.Create(user))
+            new(
+                AccountSubjectHasher.ClaimType,
+                AccountSubjectHashRequirement.Require(user.AccountSubjectHash, "access-token-issuance"))
         };
         if (!string.IsNullOrWhiteSpace(sessionId))
         {
@@ -77,20 +86,24 @@ public class JwtHelper : IJwtHelper
         }
         claims.Add(new Claim("mfa", mfaVerified ? "1" : "0"));
 
+        DateTimeOffset issuedAtUtc = TruncateToUnixSecond(DateTimeOffset.UtcNow);
+        DateTimeOffset expiresAtUtc = issuedAtUtc.AddMinutes(ResolveAccessTokenExpiresMinutes());
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(_settings.AccessTokenExpiresMinutes),
+            IssuedAt = issuedAtUtc.UtcDateTime,
+            NotBefore = issuedAtUtc.UtcDateTime,
+            Expires = expiresAtUtc.UtcDateTime,
             Issuer = _settings.Issuer,
             Audience = _settings.Audience,
             SigningCredentials = _credentials
         };
 
         var token = _tokenHandler.CreateToken(tokenDescriptor);
-        return _tokenHandler.WriteToken(token);
+        return new IssuedAccessToken(_tokenHandler.WriteToken(token), expiresAtUtc);
     }
 
-    public string GenerateAdminAccessToken(
+    public IssuedAccessToken GenerateAdminAccessToken(
         AdminPrincipal principal,
         AdminSession session,
         IReadOnlyCollection<string> permissions,
@@ -114,17 +127,21 @@ public class JwtHelper : IJwtHelper
             claims.Add(new Claim(AdminPermissions.PermissionClaimType, permission));
         }
 
+        DateTimeOffset issuedAtUtc = TruncateToUnixSecond(DateTimeOffset.UtcNow);
+        DateTimeOffset expiresAtUtc = issuedAtUtc.AddMinutes(ResolveAccessTokenExpiresMinutes());
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(_settings.AccessTokenExpiresMinutes),
+            IssuedAt = issuedAtUtc.UtcDateTime,
+            NotBefore = issuedAtUtc.UtcDateTime,
+            Expires = expiresAtUtc.UtcDateTime,
             Issuer = _settings.Issuer,
             Audience = _settings.Audience,
             SigningCredentials = _credentials
         };
 
         var token = _tokenHandler.CreateToken(tokenDescriptor);
-        return _tokenHandler.WriteToken(token);
+        return new IssuedAccessToken(_tokenHandler.WriteToken(token), expiresAtUtc);
     }
 
     /// <summary>
@@ -136,6 +153,13 @@ public class JwtHelper : IJwtHelper
         RandomNumberGenerator.Fill(randomBytes);
         return WebEncoders.Base64UrlEncode(randomBytes);
     }
+
+    private static DateTimeOffset TruncateToUnixSecond(DateTimeOffset value)
+        => DateTimeOffset.FromUnixTimeSeconds(value.ToUnixTimeSeconds());
+
+    private int ResolveAccessTokenExpiresMinutes()
+        => _configuration?.GetValue<int?>("Jwt:AccessTokenExpiresMinutes")
+            ?? _settings.AccessTokenExpiresMinutes;
 
 }
 
@@ -222,27 +246,39 @@ public static class JwtServiceExtensions
                 },
                 OnTokenValidated = async context =>
                 {
-                    if (context.Principal?.IsAdminPrincipal() != true)
+                    if (context.Principal?.IsAdminPrincipal() == true)
                     {
+                        string accessToken = context.SecurityToken is JwtSecurityToken jwtToken
+                            ? jwtToken.RawData
+                            : string.Empty;
+                        if (string.IsNullOrWhiteSpace(accessToken) &&
+                            context.HttpContext.Items[AdminAccessTokenItemKey] is string cachedAdminAccessToken &&
+                            !string.IsNullOrWhiteSpace(cachedAdminAccessToken))
+                        {
+                            accessToken = cachedAdminAccessToken;
+                        }
+
+                        var adminValidator = context.HttpContext.RequestServices.GetRequiredService<IAdminSessionValidationService>();
+                        AdminSessionValidationResult adminResult = await adminValidator.ValidateAsync(
+                            context.Principal,
+                            accessToken,
+                            context.HttpContext.RequestAborted);
+                        if (!adminResult.IsValid)
+                        {
+                            context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>().ClearAdminSessionCookies(context.HttpContext);
+                            context.Fail(adminResult.Reason);
+                        }
                         return;
                     }
 
-                    string accessToken = context.SecurityToken is JwtSecurityToken jwtToken
-                        ? jwtToken.RawData
-                        : string.Empty;
-                    if (string.IsNullOrWhiteSpace(accessToken) &&
-                        context.HttpContext.Items[AdminAccessTokenItemKey] is string cachedAdminAccessToken &&
-                        !string.IsNullOrWhiteSpace(cachedAdminAccessToken))
+                    var userValidator = context.HttpContext.RequestServices.GetRequiredService<IUserSessionValidationService>();
+                    UserSessionValidationResult userResult = await userValidator.ValidateAsync(
+                        context.Principal,
+                        context.HttpContext.RequestAborted);
+                    if (!userResult.IsValid)
                     {
-                        accessToken = cachedAdminAccessToken;
-                    }
-
-                    var validator = context.HttpContext.RequestServices.GetRequiredService<IAdminSessionValidationService>();
-                    AdminSessionValidationResult result = await validator.ValidateAsync(context.Principal, accessToken, context.HttpContext.RequestAborted);
-                    if (!result.IsValid)
-                    {
-                        context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>().ClearAdminSessionCookies(context.HttpContext);
-                        context.Fail(result.Reason);
+                        context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>().ClearUserSessionCookies(context.HttpContext);
+                        context.Fail(userResult.Reason);
                     }
                 },
                 OnForbidden = async context =>

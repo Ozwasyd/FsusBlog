@@ -1,4 +1,10 @@
+using System.Buffers.Binary;
+using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -6,8 +12,14 @@ using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Middlewares;
+using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.NotificationStream;
+using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Services.VisitLog;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -190,34 +202,36 @@ public class BackgroundWorkflowSourceTests
     [Fact]
     public void ContentFilterReload_SourceUsesSerializedQueueInsteadOfWatcherTaskRun()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/Security/ContentFilterService.cs"));
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ContentFilterService));
 
-        Assert.Contains("Channel.CreateBounded<string>", source, StringComparison.Ordinal);
-        Assert.Contains("ProcessReloadQueueAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Task.Run(async () => await ReloadFromWatcherAsync", source, StringComparison.Ordinal);
-        Assert.Contains("ReadAllLinesCoreAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Channel.CreateBounded", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ProcessReloadQueueAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReloadFromWatcherAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ReadAllLinesCoreAsync", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
     public void NotificationStreamPublish_SourceQueuesLocalFanoutAndBatchesMultiRouteBacklog()
     {
-        string publisher = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/NotificationStream/RedisNotificationStreamPublisher.cs"));
-        string backlog = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/NotificationStream/NotificationStreamBacklogStore.cs"));
+        string publisher = RuntimeMetadataInspection.DescribeType(typeof(RedisNotificationStreamPublisher));
+        string backlog = RuntimeMetadataInspection.DescribeType(typeof(NotificationStreamBacklogStore));
 
         Assert.Contains("NotificationStreamLocalFanoutQueue", publisher, StringComparison.Ordinal);
-        Assert.Contains("TryEnqueue(frame, target)", publisher, StringComparison.Ordinal);
-        Assert.Contains("IBatch batch = _database.CreateBatch()", backlog, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(writes)", backlog, StringComparison.Ordinal);
+        Assert.Contains("TryEnqueue", publisher, StringComparison.Ordinal);
+        Assert.Contains("IDatabase.CreateBatch", backlog, StringComparison.Ordinal);
+        Assert.Contains("Task.WhenAll", backlog, StringComparison.Ordinal);
     }
 
     [Fact]
     public void UploadSessionCleanup_SourceRunsInBackgroundWorker()
     {
-        string fileService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/FileService.cs"));
-        string worker = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/Background/UploadSessionCleanupWorker.cs"));
+        string fileService = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(FileService),
+            "RequestUploadSessionCleanup");
+        string worker = RuntimeMetadataInspection.DescribeType(typeof(UploadSessionCleanupWorker));
 
-        Assert.DoesNotContain("await CleanupExpiredSessionsAsync(cancellationToken);", fileService, StringComparison.Ordinal);
-        Assert.Contains("RequestUploadSessionCleanup()", fileService, StringComparison.Ordinal);
+        Assert.DoesNotContain("CleanupExpiredSessionsAsync", fileService, StringComparison.Ordinal);
+        Assert.Contains("RequestUploadSessionCleanup", fileService, StringComparison.Ordinal);
         Assert.Contains("UploadSessionCleanupWorker", worker, StringComparison.Ordinal);
         Assert.Contains("RunCleanupOnceAsync", worker, StringComparison.Ordinal);
     }
@@ -225,9 +239,9 @@ public class BackgroundWorkflowSourceTests
     [Fact]
     public void VisitProjectionAndPublicHot_SourceCoalesceBackgroundWork()
     {
-        string projection = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/ArticleViewProjectionService.cs"));
-        string repair = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs"));
-        string publicHotQueue = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactUpdateQueue.cs"));
+        string projection = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewProjectionService));
+        string repair = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewProjectionRepairWorker));
+        string publicHotQueue = RuntimeMetadataInspection.DescribeType(typeof(PublicHotArtifactUpdateQueue));
 
         Assert.Contains("IncreaseViewCountsAsync", projection, StringComparison.Ordinal);
         Assert.Contains("MaxPerBatchViewInvalidations", projection, StringComparison.Ordinal);
@@ -239,8 +253,11 @@ public class BackgroundWorkflowSourceTests
     [Fact]
     public void ArticleViewProjectionRepairWorker_SourceUsesIncrementalWatermarkBeforeFullReconcile()
     {
-        string repair = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs"));
-        string reconcile = ExtractMethodBlock(repair, "internal async Task<int> ReconcileOnceAsync");
+        string repair = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewProjectionRepairWorker));
+        string reconcile = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(ArticleViewProjectionRepairWorker),
+            "WHERE id > @LastVisitLogId",
+            "MAX(id)");
 
         Assert.Contains("article_view_projection_watermark", repair, StringComparison.Ordinal);
         Assert.Contains("WHERE id > @LastVisitLogId", reconcile, StringComparison.Ordinal);
@@ -248,34 +265,6 @@ public class BackgroundWorkflowSourceTests
         Assert.Contains("COALESCE(MAX(id), 0)", repair, StringComparison.Ordinal);
         Assert.Contains("RunFullReconcileAsync", repair, StringComparison.Ordinal);
         Assert.DoesNotContain("GROUP BY article_id", reconcile, StringComparison.Ordinal);
-    }
-
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing method signature: {signature}");
-
-        int brace = source.IndexOf('{', start);
-        Assert.True(brace >= 0, $"Missing method body for: {signature}");
-
-        int depth = 0;
-        for (int index = brace; index < source.Length; index++)
-        {
-            if (source[index] == '{')
-            {
-                depth++;
-            }
-            else if (source[index] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[brace..(index + 1)];
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Unterminated method body: {signature}");
     }
 
     [Fact]
@@ -297,31 +286,71 @@ public class BackgroundWorkflowSourceTests
     }
 
     [Fact]
-    public void DataScale_SourceLinksSeedArtifactRebuildEvidenceToProbe()
+    public async Task DataScaleScripts_EmitIsolatedArtifactRebuildEvidence()
     {
-        string seed = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/data-scale/seed.sh"));
-        string probe = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/data-scale/probe.sh"));
-        string runtimeProbe = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/runtime-evidence-probe.mjs"));
+        using var fixture = DataScaleToolFixture.Create();
 
-        Assert.Contains("artifact-rebuild.json", seed, StringComparison.Ordinal);
-        Assert.Contains("sourceFixtureNamespace", seed, StringComparison.Ordinal);
-        Assert.Contains("probe-required", seed, StringComparison.Ordinal);
-        Assert.DoesNotContain("'status', 'not-triggered'", seed, StringComparison.Ordinal);
+        ProcessResult seed = await fixture.RunAsync("seed.sh", "scale-xs");
+        Assert.Equal(0, seed.ExitCode);
+        using (JsonDocument seedSummary = JsonDocument.Parse(
+            await File.ReadAllTextAsync(Path.Combine(fixture.OutputDirectory, "seed.json"))))
+        {
+            Assert.Equal("ok", seedSummary.RootElement.GetProperty("status").GetString());
+        }
 
-        Assert.Contains("artifact-rebuild.json", probe, StringComparison.Ordinal);
-        Assert.Contains("artifactEvidenceFile", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("sourceFixtureNamespace", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("artifactEvidenceReady", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("unsupported", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("catch (probeError)", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("data-scale artifact rebuild hook missing", runtimeProbe, StringComparison.Ordinal);
+        string evidencePath = Path.Combine(fixture.OutputDirectory, "artifact-rebuild.json");
+        using (JsonDocument seedEvidence = JsonDocument.Parse(await File.ReadAllTextAsync(evidencePath)))
+        {
+            Assert.Equal("probe-required", seedEvidence.RootElement.GetProperty("status").GetString());
+            Assert.Equal(DataScaleToolFixture.Namespace, seedEvidence.RootElement.GetProperty("sourceFixtureNamespace").GetString());
+            Assert.Equal("tools/data-scale/probe.sh scale-xs", seedEvidence.RootElement.GetProperty("rebuildCommand").GetString());
+        }
+
+        ProcessResult probe = await fixture.RunAsync("probe.sh", "scale-xs");
+        Assert.Equal(0, probe.ExitCode);
+        Assert.Contains("summary.json", probe.StandardOutput, StringComparison.Ordinal);
+        Assert.Equal(evidencePath, (await File.ReadAllTextAsync(fixture.ArtifactEnvironmentCapture)).Trim());
+        Assert.Contains(
+            "runtime-evidence-probe.mjs data-scale scale-xs",
+            await File.ReadAllTextAsync(fixture.NodeInvocationCapture),
+            StringComparison.Ordinal);
+        using (JsonDocument probeEvidence = JsonDocument.Parse(await File.ReadAllTextAsync(evidencePath)))
+        {
+            Assert.Equal("ok", probeEvidence.RootElement.GetProperty("status").GetString());
+            Assert.Equal(DataScaleToolFixture.Namespace, probeEvidence.RootElement.GetProperty("sourceFixtureNamespace").GetString());
+        }
+
+        ProcessResult empty = await fixture.RunAsync("seed.sh", "scale-xs", outputDirectory: string.Empty);
+        Assert.NotEqual(0, empty.ExitCode);
+        Assert.Contains("must not be empty", empty.StandardError, StringComparison.Ordinal);
+        ProcessResult traversal = await fixture.RunAsync("probe.sh", "scale-xs", outputDirectory: "../escape");
+        Assert.NotEqual(0, traversal.ExitCode);
+        Assert.Contains("must be an absolute path", traversal.StandardError, StringComparison.Ordinal);
+        ProcessResult systemPath = await fixture.RunAsync(
+            "seed.sh",
+            "scale-xs",
+            outputDirectory: "/etc/fsusblog-data-scale-source-lock");
+        Assert.NotEqual(0, systemPath.ExitCode);
+        Assert.Contains("must stay under", systemPath.StandardError, StringComparison.Ordinal);
+
+        string symlink = Path.Combine(fixture.Root, "escape-link");
+        Directory.CreateSymbolicLink(symlink, "/etc");
+        ProcessResult symlinkEscape = await fixture.RunAsync(
+            "probe.sh",
+            "scale-xs",
+            outputDirectory: Path.Combine(symlink, "fsusblog-data-scale-source-lock"));
+        Assert.NotEqual(0, symlinkEscape.ExitCode);
+        Assert.Contains("must stay under", symlinkEscape.StandardError, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DataScale_CommentSeedDoesNotEnumerateIdentityColumns()
+    public async Task DataScaleSeed_GeneratedSqlOmitsRetiredIdentityColumns()
     {
-        string seed = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/data-scale/seed.sh"));
-        string[] insertBlocks = seed
+        using var fixture = DataScaleToolFixture.Create();
+        ProcessResult seed = await fixture.RunAsync("seed.sh", "scale-xs");
+        Assert.Equal(0, seed.ExitCode);
+        string generatedSql = await File.ReadAllTextAsync(fixture.SqlCapture);
+        string[] insertBlocks = generatedSql
             .Split("INSERT INTO comment(", StringSplitOptions.RemoveEmptyEntries)
             .Skip(1)
             .Select(block => block[..block.IndexOf(')')])
@@ -339,48 +368,267 @@ public class BackgroundWorkflowSourceTests
     }
 
     [Fact]
-    public void BackendQps_SourceRequiresRuntimeCountersForCoreScenarios()
+    public async Task RuntimeEvidenceTools_EmitAndValidateRequiredCountersAndObservability()
     {
-        string runtimeProbe = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/runtime-evidence-probe.mjs"));
+        string tempRoot = Directory.CreateTempSubdirectory("fsus-runtime-evidence-").FullName;
+        try
+        {
+            string bin = Path.Combine(tempRoot, "bin");
+            Directory.CreateDirectory(bin);
+            string docker = Path.Combine(bin, "docker");
+            await File.WriteAllTextAsync(docker, RuntimeEvidenceFakeDocker);
+            File.SetUnixFileMode(docker, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            await File.WriteAllTextAsync(Path.Combine(tempRoot, "postgres-counter"), "100\n");
+            await File.WriteAllTextAsync(Path.Combine(tempRoot, "redis-counter"), "200\n");
 
-        Assert.Contains("requiredBackendQpsCounterModes", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("'cache-hit'", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("'hotread'", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("'cache-miss-singleflight'", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("captureBackendQpsCounterSnapshot", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("readPostgresCommandCounter", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("readRedisCommandCounter", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("cacheEvents", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("backendQpsCountersComplete", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("backend-qps runtime counters missing", runtimeProbe, StringComparison.Ordinal);
-        Assert.DoesNotContain("per-request DB command counter is not exposed to backend-qps probe", runtimeProbe, StringComparison.Ordinal);
-        Assert.DoesNotContain("per-request Redis command counter is not exposed to backend-qps probe", runtimeProbe, StringComparison.Ordinal);
+            using var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            Task server = ServeAedsProbeResponseAsync(listener, frameType: 9);
+            string evidenceFile = Path.Combine(tempRoot, "backend-qps.json");
+            ProcessResult collector = await RunProcessAsync(
+                "node",
+                [
+                    BackendTestPaths.FromRoot("tools", "test", "lanes", "runtime-evidence-probe.mjs"),
+                    "backend-qps",
+                    "hotread",
+                    evidenceFile
+                ],
+                new Dictionary<string, string?>
+                {
+                    ["PATH"] = $"{bin}:/usr/bin:/bin",
+                    ["FSUSBLOG_BASE_URL"] = $"http://127.0.0.1:{port}",
+                    ["FSUSBLOG_TEST_NAMESPACE"] = "source-lock-runtime-evidence",
+                    ["FSUSBLOG_BACKEND_QPS_REQUESTS"] = "1",
+                    ["FSUSBLOG_BACKEND_QPS_CONCURRENCY"] = "1",
+                    ["FSUSBLOG_POSTGRES_CONTAINER_NAME"] = "fake-postgres",
+                    ["FSUSBLOG_REDIS_CONTAINER_NAME"] = "fake-redis",
+                    ["FSUSBLOG_FAKE_COUNTER_ROOT"] = tempRoot,
+                    ["DOTNET_ReadyToRun"] = "0",
+                    ["DOTNET_TieredPGO"] = "1"
+                });
+            Assert.Equal(0, collector.ExitCode);
+            await server.WaitAsync(TimeSpan.FromSeconds(5));
+
+            using JsonDocument evidence = JsonDocument.Parse(await File.ReadAllTextAsync(evidenceFile));
+            JsonElement root = evidence.RootElement;
+            Assert.Equal("ok", root.GetProperty("status").GetString());
+            Assert.Equal("hotread", root.GetProperty("scenario").GetString());
+            JsonElement counterPolicy = root.GetProperty("runtimeMeasurement").GetProperty("counterPolicy");
+            Assert.Equal("ok", counterPolicy.GetProperty("status").GetString());
+            Assert.True(counterPolicy.GetProperty("required").GetBoolean());
+            JsonElement counters = root.GetProperty("runtimeMeasurement").GetProperty("measuredCounters");
+            foreach (string counter in new[] { "dbCommands", "redisCommands", "cacheEvents", "dbGatePressure" })
+            {
+                Assert.Equal("ok", counters.GetProperty(counter).GetProperty("status").GetString());
+            }
+
+            JsonElement runtime = root.GetProperty("runtimeMeasurement").GetProperty("runtime");
+            Assert.Equal("extended-runtime-evidence", runtime.GetProperty("observabilityLevel").GetString());
+            JsonElement extended = runtime.GetProperty("extendedObservability");
+            Assert.Equal("complete", extended.GetProperty("status").GetString());
+            string[] requiredCategories = extended.GetProperty("requiredCategories")
+                .EnumerateArray()
+                .Select(static category => category.GetString()!)
+                .ToArray();
+            Assert.Equal(new[] { "managedRuntime", "threadOrConnection", "storageOrCacheLatency" }, requiredCategories);
+            foreach (string category in requiredCategories)
+            {
+                Assert.Equal("ok", extended.GetProperty("categories").GetProperty(category).GetProperty("status").GetString());
+            }
+
+            string runtimeFile = Path.Combine(tempRoot, "runtime.json");
+            await File.WriteAllTextAsync(runtimeFile, runtime.GetRawText());
+            ProcessResult accepted = await RunProcessAsync(
+                "node",
+                [
+                    BackendTestPaths.FromRoot("tools", "operations", "check-evidence-metrics.mjs"),
+                    "--validate-runtime-probe",
+                    runtimeFile
+                ]);
+            Assert.Equal(0, accepted.ExitCode);
+            using JsonDocument validation = JsonDocument.Parse(accepted.StandardOutput);
+            Assert.Equal("fsusblog.runtime-probe-validation.v1", validation.RootElement.GetProperty("schema").GetString());
+            Assert.Equal("ok", validation.RootElement.GetProperty("status").GetString());
+
+            JsonObject tampered = JsonNode.Parse(runtime.GetRawText())!.AsObject();
+            tampered["extendedObservability"]!["categories"]!.AsObject().Remove("storageOrCacheLatency");
+            string tamperedFile = Path.Combine(tempRoot, "runtime-tampered.json");
+            await File.WriteAllTextAsync(tamperedFile, tampered.ToJsonString());
+            ProcessResult rejected = await RunProcessAsync(
+                "node",
+                [
+                    BackendTestPaths.FromRoot("tools", "operations", "check-evidence-metrics.mjs"),
+                    "--validate-runtime-probe",
+                    tamperedFile
+                ]);
+            Assert.NotEqual(0, rejected.ExitCode);
+            Assert.Contains("storageOrCacheLatency", rejected.StandardError, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
     }
 
-    [Fact]
-    public void RuntimeEvidence_SourceCollectsExtendedObservabilityFields()
+    private static async Task ServeAedsProbeResponseAsync(TcpListener listener, ushort frameType)
     {
-        string runtimeProbe = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/runtime-evidence-probe.mjs"));
-        string evidenceValidator = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/operations/check-evidence-metrics.mjs"));
-        string testingDocs = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "docs/testing.md"));
-
-        Assert.Contains("buildExtendedObservability", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("extendedObservability", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("managedRuntime", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("threadOrConnection", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("storageOrCacheLatency", runtimeProbe, StringComparison.Ordinal);
-        Assert.Contains("observabilityLevel", runtimeProbe, StringComparison.Ordinal);
-
-        Assert.Contains("validateExtendedObservability", evidenceValidator, StringComparison.Ordinal);
-        Assert.Contains("requiredExtendedObservabilityCategories", evidenceValidator, StringComparison.Ordinal);
-        Assert.Contains("basic-runtime-evidence", evidenceValidator, StringComparison.Ordinal);
-        Assert.Contains("extended-runtime-evidence", evidenceValidator, StringComparison.Ordinal);
-
-        Assert.Contains("extendedObservability", testingDocs, StringComparison.Ordinal);
-        Assert.Contains("managedRuntime", testingDocs, StringComparison.Ordinal);
-        Assert.Contains("threadOrConnection", testingDocs, StringComparison.Ordinal);
-        Assert.Contains("storageOrCacheLatency", testingDocs, StringComparison.Ordinal);
+        using TcpClient client = await listener.AcceptTcpClientAsync();
+        await using NetworkStream stream = client.GetStream();
+        byte[] request = new byte[4096];
+        _ = await stream.ReadAsync(request);
+        byte[] frame = new byte[16];
+        BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(8, 2), frameType);
+        byte[] headers = Encoding.ASCII.GetBytes(
+            "HTTP/1.1 200 OK\r\n" +
+            "Content-Type: application/octet-stream\r\n" +
+            "Cache-Control: public, max-age=60\r\n" +
+            $"Content-Length: {frame.Length}\r\n" +
+            "Connection: close\r\n\r\n");
+        await stream.WriteAsync(headers);
+        await stream.WriteAsync(frame);
     }
+
+    private static async Task<ProcessResult> RunProcessAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        IReadOnlyDictionary<string, string?>? environment = null)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = fileName,
+            WorkingDirectory = BackendTestPaths.RepositoryRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        if (environment is not null)
+        {
+            foreach ((string key, string? value) in environment)
+            {
+                startInfo.Environment[key] = value;
+            }
+        }
+
+        using Process process = Process.Start(startInfo)!;
+        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+        Task<string> stderr = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        return new ProcessResult(process.ExitCode, await stdout, await stderr);
+    }
+
+    private sealed class DataScaleToolFixture : IDisposable
+    {
+        public const string Namespace = "source-lock-data-scale";
+
+        private DataScaleToolFixture(string root)
+        {
+            Root = root;
+            OutputDirectory = Path.Combine(root, "output");
+            SqlCapture = Path.Combine(root, "seed.sql");
+            NodeInvocationCapture = Path.Combine(root, "node-invocation.txt");
+            ArtifactEnvironmentCapture = Path.Combine(root, "artifact-environment.txt");
+            string bin = Path.Combine(root, "bin");
+            Directory.CreateDirectory(bin);
+            DockerPath = Path.Combine(bin, "docker");
+            NodePath = Path.Combine(bin, "fake-node");
+            File.WriteAllText(DockerPath, DataScaleFakeDocker);
+            File.WriteAllText(NodePath, DataScaleFakeNode);
+            File.SetUnixFileMode(DockerPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            File.SetUnixFileMode(NodePath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        public string Root { get; }
+        public string OutputDirectory { get; }
+        public string SqlCapture { get; }
+        public string NodeInvocationCapture { get; }
+        public string ArtifactEnvironmentCapture { get; }
+        private string DockerPath { get; }
+        private string NodePath { get; }
+
+        public static DataScaleToolFixture Create()
+            => new(Directory.CreateTempSubdirectory("fsus-data-scale-tools-").FullName);
+
+        public Task<ProcessResult> RunAsync(string script, string tier, string? outputDirectory = null)
+        {
+            string selectedOutput = outputDirectory ?? OutputDirectory;
+            return RunProcessAsync(
+                "/bin/bash",
+                [BackendTestPaths.FromRoot("tools", "data-scale", script), tier],
+                new Dictionary<string, string?>
+                {
+                    ["PATH"] = $"{Path.GetDirectoryName(DockerPath)}:/usr/bin:/bin",
+                    ["FSUSBLOG_DATA_SCALE_OUT_DIR"] = selectedOutput,
+                    ["FSUSBLOG_TEST_NAMESPACE"] = Namespace,
+                    ["FSUSBLOG_FAKE_PSQL_INPUT"] = SqlCapture,
+                    ["FSUSBLOG_NODE"] = NodePath,
+                    ["FSUSBLOG_FAKE_NODE_INVOCATION"] = NodeInvocationCapture,
+                    ["FSUSBLOG_FAKE_ARTIFACT_ENVIRONMENT"] = ArtifactEnvironmentCapture
+                });
+        }
+
+        public void Dispose() => Directory.Delete(Root, recursive: true);
+    }
+
+    private const string DataScaleFakeDocker = """
+        #!/usr/bin/env bash
+        set -euo pipefail
+        if [[ "$*" == *"pg_isready"* ]]; then
+          exit 0
+        fi
+        if [[ "$*" == *"psql"* ]]; then
+          cat > "$FSUSBLOG_FAKE_PSQL_INPUT"
+          printf '%s\n' '{"status":"ok","tier":"scale-xs","namespace":"source-lock-data-scale"}'
+          exit 0
+        fi
+        exit 91
+        """;
+
+    private const string DataScaleFakeNode = """
+        #!/usr/bin/env bash
+        set -euo pipefail
+        printf '%s\n' "$*" > "$FSUSBLOG_FAKE_NODE_INVOCATION"
+        printf '%s\n' "$FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE" > "$FSUSBLOG_FAKE_ARTIFACT_ENVIRONMENT"
+        output="${*: -1}"
+        printf '%s\n' '{"status":"ok","schema":"fsusblog.data-scale-tier-summary.v1"}' > "$output"
+        printf '%s\n' '{"status":"ok","sourceFixtureNamespace":"source-lock-data-scale","unsupported":[]}' > "$FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE"
+        """;
+
+    private const string RuntimeEvidenceFakeDocker = """
+        #!/usr/bin/env bash
+        set -euo pipefail
+        root="${FSUSBLOG_FAKE_COUNTER_ROOT:?}"
+        if [[ "$*" == *"redis-cli PING"* ]]; then
+          printf 'PONG\n'
+          exit 0
+        fi
+        if [[ "$*" == *"redis-cli INFO commandstats"* ]]; then
+          value="$(cat "$root/redis-counter")"
+          value=$((value + 1))
+          printf '%s\n' "$value" > "$root/redis-counter"
+          printf 'cmdstat_get:calls=%s,usec=1,usec_per_call=1.0\n' "$value"
+          exit 0
+        fi
+        if [[ "$*" == *"psql"* && "$*" == *"select 1;"* ]]; then
+          printf '1\n'
+          exit 0
+        fi
+        if [[ "$*" == *"psql"* ]]; then
+          value="$(cat "$root/postgres-counter")"
+          value=$((value + 1))
+          printf '%s\n' "$value" > "$root/postgres-counter"
+          printf '%s\n' "$value"
+          exit 0
+        fi
+        exit 92
+        """;
+
+    private sealed record ProcessResult(int ExitCode, string StandardOutput, string StandardError);
 }
 
 public class MiddlewareResultsTests
@@ -735,14 +983,24 @@ public class ApiBinaryResponseMiddlewareTests
     }
 
     [Fact]
-    public void Source_RequiresExplicitMetadataBeforeLegacyCaptureStream()
+    public void Runtime_RequiresExplicitMetadataBeforeLegacyCaptureStream()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs");
-        int optInCheck = source.IndexOf("RequiresLegacyBinaryEnvelopeFallback(context)", StringComparison.Ordinal);
-        int capture = source.IndexOf("new PooledCaptureStream", StringComparison.Ordinal);
+        IReadOnlyList<string> references = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferencesInOrderContaining(
+                typeof(ApiBinaryResponseMiddleware),
+                "RequiresLegacyBinaryEnvelopeFallback",
+                "PooledCaptureStream..ctor");
+        int optInCheck = references.ToList().FindIndex(
+            reference => reference.Contains("RequiresLegacyBinaryEnvelopeFallback", StringComparison.Ordinal));
+        int capture = references.ToList().FindIndex(
+            reference => reference.Contains("PooledCaptureStream..ctor", StringComparison.Ordinal));
 
         Assert.True(optInCheck >= 0);
         Assert.True(capture > optInCheck);
-        Assert.Contains("GetMetadata<LegacyBinaryEnvelopeFallbackMetadata>()", source, StringComparison.Ordinal);
+        string metadataCheck = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ApiBinaryResponseMiddleware),
+            "RequiresLegacyBinaryEnvelopeFallback");
+        Assert.Contains("LegacyBinaryEnvelopeFallbackMetadata", metadataCheck, StringComparison.Ordinal);
+        Assert.Contains("EndpointMetadataCollectionExtensions.GetMetadata", metadataCheck, StringComparison.Ordinal);
     }
 }

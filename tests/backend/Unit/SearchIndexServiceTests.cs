@@ -1,8 +1,10 @@
 using System.Numerics;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -46,16 +48,17 @@ public sealed class SearchIndexServiceTests
     }
 
     [Fact]
-    public void TokenFingerprint_SourceUsesSingleMurmurHashPass()
+    public void TokenFingerprint_RuntimeUsesSingleMurmurHashPass()
     {
-        string service = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/SearchIndexService.cs"));
-        string searchHashingPath = Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/Search/SearchTokenHashing.cs");
-        string fingerprintForTests = ExtractMethod(service, "public static ulong TokenFingerprintForTests", "internal static void ValidateDictionaryHeaderForTests");
+        MethodInfo fingerprint = typeof(SearchIndexService).GetMethod(nameof(SearchIndexService.TokenFingerprintForTests))!;
+        MethodInfo hash = typeof(SearchIndexService).GetMethod(nameof(SearchIndexService.HashTokenForTests))!;
+        MethodBase[] calls = ReadCalledMethods(fingerprint).Select(static item => item.Method).ToArray();
 
-        Assert.False(File.Exists(searchHashingPath));
-        Assert.Contains("=> HashTokenForTests(input)", fingerprintForTests, StringComparison.Ordinal);
-        Assert.DoesNotContain("SearchTokenHashing", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("Fingerprint64", service, StringComparison.Ordinal);
+        Assert.Contains(hash, calls);
+        Assert.DoesNotContain(typeof(SearchIndexService).Assembly.DefinedTypes, static type => type.Name == "SearchTokenHashing");
+        Assert.DoesNotContain(typeof(SearchIndexService).GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance),
+            static method => method.Name == "Fingerprint64");
+        Assert.Equal(SearchIndexService.HashTokenForTests("single-pass"), SearchIndexService.TokenFingerprintForTests("single-pass"));
     }
 
     [Fact]
@@ -590,56 +593,71 @@ public sealed class SearchIndexServiceTests
     }
 
     [Fact]
-    public void SearchIndexService_SourceUsesBoundedTopKForwardIndexAndDfHistogram()
+    public void SearchIndexService_RuntimeUsesBoundedTopKForwardIndexAndDfHistogram()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/SearchIndexService.cs"));
+        Type service = typeof(SearchIndexService);
+        Type runtimeSnapshot = service.GetNestedType("SearchRuntimeSnapshot", BindingFlags.NonPublic)!;
+        Type shardData = service.GetNestedType("SearchShardData", BindingFlags.NonPublic)!;
+        string topK = RuntimeMetadataInspection.DescribeMethods(runtimeSnapshot, "SelectTopRuntimeCandidates");
+        string histogram = RuntimeMetadataInspection.DescribeMethods(service, "ResolveDocumentFrequencyCutoff");
 
-        Assert.Contains("PriorityQueue<SearchRuntimeCandidate", source, StringComparison.Ordinal);
-        Assert.Contains("BuildForwardIndex(terms)", source, StringComparison.Ordinal);
-        Assert.Contains("ForwardIndex", source, StringComparison.Ordinal);
-        Assert.Contains("BuildRuntimePostingBlocks", source, StringComparison.Ordinal);
-        Assert.Contains("ArrayPool<int>.Shared.Rent(documentCount + 1)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(".OrderByDescending(entry => entry.Score)", source, StringComparison.Ordinal);
+        Assert.Contains("PriorityQueue", topK, StringComparison.Ordinal);
+        Assert.Contains("PriorityQueue`2.Enqueue", topK, StringComparison.Ordinal);
+        Assert.Contains("Array.Sort", topK, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enumerable.OrderByDescending", topK, StringComparison.Ordinal);
+        Assert.NotNull(service.GetMethod("BuildForwardIndex", BindingFlags.NonPublic | BindingFlags.Static));
+        Assert.NotNull(shardData.GetProperty("ForwardIndex"));
+        Assert.NotNull(service.GetMethod("BuildRuntimePostingBlocks", BindingFlags.NonPublic | BindingFlags.Static));
+        Assert.Contains("ArrayPool`1.Rent", histogram, StringComparison.Ordinal);
+        Assert.Contains("ArrayPool`1.Return", histogram, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SearchIndexService_SourceIncrementsSearchCacheVersionWhenManifestVersionChanges()
+    public void SearchIndexService_RuntimeIncrementsSearchCacheVersionBeforePublishingManifestChange()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/SearchIndexService.cs"));
-        int versionChanged = source.IndexOf("!string.Equals(previousManifest?.CurrentVersion, artifacts.Version", StringComparison.Ordinal);
-        int publish = source.IndexOf("NotificationStreamEventType.SearchIndexUpdated", versionChanged, StringComparison.Ordinal);
-        string block = source[versionChanged..publish];
+        MethodInfo publish = typeof(SearchIndexService).GetMethod("PublishArtifactsAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        (int Offset, MethodBase Method)[] calls = ReadCalledMethods(AsyncMoveNext(publish)).ToArray();
+        (int Offset, MethodBase Method) increment = Assert.Single(calls, static call =>
+            call.Method.Name == "IncrementAsync"
+            && call.Method.DeclaringType?.Name.Contains("UnifiedCache", StringComparison.Ordinal) == true);
+        (int Offset, MethodBase Method) notification = Assert.Single(calls, static call =>
+            call.Method.Name == "PublishAsync"
+            && call.Method.DeclaringType?.Name.Contains("NotificationStreamPublisher", StringComparison.Ordinal) == true);
 
-        Assert.Contains("cache.IncrementAsync(CachePolicyId.ArticleSearchVersion, \"main\")", block, StringComparison.Ordinal);
+        Assert.True(increment.Offset < notification.Offset);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(typeof(SearchIndexService), "PublishArtifactsAsync");
+        Assert.Contains("main", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SearchIndexService_SourceUsesIncrementalMutationPathAndSafeFallback()
+    public void SearchIndexService_RuntimeUsesIncrementalMutationPathAndSafeFallback()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/SearchIndexService.cs"));
-        string addOrUpdate = ExtractBetween(source, "public Task AddOrUpdateIndexAsync", "public Task DeleteIndexAsync");
-        string delete = ExtractBetween(source, "public Task DeleteIndexAsync", "public static string? NormalizeTokenForTests");
-        string incremental = ExtractBetween(source, "private Task ApplyIncrementalSearchIndexAsync", "private string ResolveSearchRoot");
-        string publish = ExtractBetween(source, "private async Task PublishArtifactsAsync", "private static SearchShardData BuildPatchShard");
-        string search = ExtractBetween(source, "public Task<List<Article>> SearchAsync", "public Task AddOrUpdateIndexAsync");
-        string runtimeDocument = ExtractBetween(source, "private sealed record SearchRuntimeDocument", "private readonly record struct SearchRuntimePosting");
+        Type service = typeof(SearchIndexService);
+        string addOrUpdate = RuntimeMetadataInspection.DescribeMethods(service, nameof(SearchIndexService.AddOrUpdateIndexAsync));
+        string delete = RuntimeMetadataInspection.DescribeMethods(service, nameof(SearchIndexService.DeleteIndexAsync));
+        string incremental = RuntimeMetadataInspection.DescribeMethods(service, "ApplyIncrementalSearchIndexAsync");
+        string publish = RuntimeMetadataInspection.DescribeMethods(service, "PublishArtifactsAsync");
+        string search = RuntimeMetadataInspection.DescribeMethods(service, nameof(SearchIndexService.SearchAsync));
+        Type runtimeDocument = service.GetNestedType("SearchRuntimeDocument", BindingFlags.NonPublic)!;
 
         Assert.Contains("ApplyIncrementalSearchIndexAsync", addOrUpdate, StringComparison.Ordinal);
         Assert.Contains("ApplyIncrementalSearchIndexAsync", delete, StringComparison.Ordinal);
         Assert.DoesNotContain("RebuildSearchIndexAsync", addOrUpdate, StringComparison.Ordinal);
         Assert.DoesNotContain("RebuildSearchIndexAsync", delete, StringComparison.Ordinal);
-        Assert.Contains("LoadArticlesAsync(db)", incremental, StringComparison.Ordinal);
-        Assert.Contains("BuildArtifacts(articles, dictionary)", incremental, StringComparison.Ordinal);
-        Assert.Contains("PublishArtifactsAsync(root, artifacts, upsertArticleIds, deletedArticleIds)", incremental, StringComparison.Ordinal);
-        Assert.Contains("WriteFileAtomically(aliasPath, artifacts.AliasPackage)", publish, StringComparison.Ordinal);
-        Assert.DoesNotContain("LoadArticlesByIdsAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("PublishIncrementalPatchAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("MarkdownContent.Contains", search, StringComparison.Ordinal);
+        Assert.Contains("LoadArticlesAsync", incremental, StringComparison.Ordinal);
+        Assert.Contains("BuildArtifacts", incremental, StringComparison.Ordinal);
+        Assert.Contains("PublishArtifactsAsync", incremental, StringComparison.Ordinal);
+        Assert.Contains("RebuildSearchIndexAsync", incremental, StringComparison.Ordinal);
+        Assert.Contains("WriteFileAtomically", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain(service.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static),
+            static method => method.Name is "LoadArticlesByIdsAsync" or "PublishIncrementalPatchAsync");
+        Assert.DoesNotContain("MarkdownContent", search, StringComparison.Ordinal);
         Assert.DoesNotContain("ArticleBody", search, StringComparison.Ordinal);
-        Assert.DoesNotContain("string Body", runtimeDocument, StringComparison.Ordinal);
-        Assert.Contains("SnippetWindow", runtimeDocument, StringComparison.Ordinal);
-        Assert.Contains("EstimatedMemoryBytes", source, StringComparison.Ordinal);
-        Assert.Contains("RecordSearchRuntimeSnapshotMemory", source, StringComparison.Ordinal);
+        Assert.Null(runtimeDocument.GetProperty("Body"));
+        Assert.NotNull(runtimeDocument.GetProperty("SnippetWindow"));
+        Type runtimeSnapshot = service.GetNestedType("SearchRuntimeSnapshot", BindingFlags.NonPublic)!;
+        Assert.NotNull(runtimeSnapshot.GetProperty("EstimatedMemoryBytes"));
+        Assert.Contains("RecordSearchRuntimeSnapshotMemory", incremental, StringComparison.Ordinal);
     }
 
     // ── Private static helpers via reflection ──────────────────────────────────
@@ -650,13 +668,32 @@ public sealed class SearchIndexServiceTests
         return (T)method.Invoke(null, args)!;
     }
 
-    private static string ExtractBetween(string source, string start, string end)
+    private static MethodInfo AsyncMoveNext(MethodInfo method)
     {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
+        AsyncStateMachineAttribute stateMachine = method.GetCustomAttribute<AsyncStateMachineAttribute>()
+            ?? throw new InvalidOperationException($"Async state machine missing: {method.Name}");
+        return stateMachine.StateMachineType.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!;
+    }
+
+    private static IEnumerable<(int Offset, MethodBase Method)> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F)) continue;
+            MethodBase? called = null;
+            try
+            {
+                called = method.Module.ResolveMethod(
+                    BitConverter.ToInt32(il, offset + 1),
+                    method.DeclaringType?.GetGenericArguments(),
+                    method.GetGenericArguments());
+            }
+            catch (ArgumentException)
+            {
+            }
+            if (called is not null) yield return (offset, called);
+        }
     }
 
     [Theory]
@@ -759,12 +796,4 @@ public sealed class SearchIndexServiceTests
         return h1;
     }
 
-    private static string ExtractMethod(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
-    }
 }

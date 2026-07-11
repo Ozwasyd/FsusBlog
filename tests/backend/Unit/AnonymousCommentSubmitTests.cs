@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +11,8 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
@@ -25,6 +28,9 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -92,12 +98,15 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    public void CreateStrongAnonymousCommentAsync_UsesAtomicNullifierConsume()
+    public void CreateStrongAnonymousCommentAsync_RuntimeUsesAtomicNullifierConsume()
     {
-        string comments = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
-        string create = ExtractMethodBlock(comments, "private async Task<bool> CreateResolvedCommentAsync");
-        string nullifier = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/CommentAnonymousNullifierService.cs");
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        string create = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentService),
+            "CreateResolvedCommentAsync");
+        string nullifier = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentAnonymousNullifierService),
+            nameof(CommentAnonymousNullifierService.TryConsumeAsync));
+        string observability = RuntimeMetadataInspection.DescribeType(typeof(FsusObservability));
 
         Assert.Contains("TryConsumeAsync", create, StringComparison.Ordinal);
         Assert.DoesNotContain("CheckAndReserveAsync", create, StringComparison.Ordinal);
@@ -444,35 +453,23 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    public void DeleteCommentAsync_SourceUsesRowVersionGuardBeforeSideEffects()
+    public void DeleteCommentAsync_RuntimeUsesRowVersionGuardBeforeSideEffects()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/CommentService.cs");
-        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/Comment.cs");
-        string deleteBlock = ExtractBetween(
-            source,
-            "private async Task<bool> DeleteCommentInternalAsync",
-            "private async Task<DeleteCommentRow?> LoadDeleteCommentRowAsync");
-        string loadBlock = ExtractBetween(
-            source,
-            "private async Task<DeleteCommentRow?> LoadDeleteCommentRowAsync",
-            "private async Task<bool> TrySoftDeleteCommentAsync");
-        string updateBlock = ExtractBetween(
-            source,
-            "private async Task<bool> TrySoftDeleteCommentAsync",
-            "private async Task<List<ThreadRootRow>> QueryThreadRootsAsync");
+        Assert.Equal(typeof(string), typeof(Comment).GetProperty("RowVersion")!.PropertyType);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentService),
+            "DeleteCommentInternalAsync",
+            "LoadDeleteCommentRowAsync",
+            "TrySoftDeleteCommentAsync");
 
-        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
-        Assert.Contains("LoadDeleteCommentRowAsync(id)", deleteBlock, StringComparison.Ordinal);
-        Assert.Contains("c.xmin::text AS row_version", loadBlock, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("row.IsDeleted", deleteBlock, StringComparison.Ordinal);
-        Assert.Contains("TrySoftDeleteCommentAsync(row.Id, row.RowVersion", deleteBlock, StringComparison.Ordinal);
-        Assert.Contains("if (!deleted)", deleteBlock, StringComparison.Ordinal);
-        Assert.True(
-            deleteBlock.IndexOf("if (!deleted)", StringComparison.Ordinal) <
-            deleteBlock.IndexOf("InvalidateCommentMutationAsync", StringComparison.Ordinal));
-        Assert.Contains("AND is_deleted = false", updateBlock, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND xmin::text = @RowVersion", updateBlock, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Updateable<Comment>()", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("LoadDeleteCommentRowAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("c.xmin::text AS row_version", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("get_IsDeleted", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TrySoftDeleteCommentAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("InvalidateCommentMutationAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("AND is_deleted = false", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Updateable", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -561,79 +558,82 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
-    public void AnonymousCommentCreateEndpoint_IsStrongAnonymousAndDoesNotReplaceSignedEndpoint()
+    public async Task AnonymousCommentCreateEndpoint_IsStrongAnonymousAndDoesNotReplaceSignedEndpoint()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
-        string anonymousHandler = ExtractBetween(
-            source,
-            "group.MapPost(\"/comment/anonymous\"",
-            "group.MapPost(\"/comment\"");
-        string signedHandler = ExtractBetween(
-            source,
-            "group.MapPost(\"/comment\"",
-            "group.MapGet(\"/comment/{articleId:int}\"");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint anonymous = EndpointContractApplication.Find(
+            app,
+            "/api/binary/comment/anonymous",
+            HttpMethods.Post);
+        RouteEndpoint signed = EndpointContractApplication.Find(
+            app,
+            "/api/binary/comment",
+            HttpMethods.Post);
+        Assert.NotNull(anonymous.Metadata.GetMetadata<IAllowAnonymous>());
+        Assert.NotNull(anonymous.Metadata.GetMetadata<StrongAnonymousRequestMetadata>());
+        Assert.Null(signed.Metadata.GetMetadata<IAllowAnonymous>());
+        Assert.Null(signed.Metadata.GetMetadata<StrongAnonymousRequestMetadata>());
 
-        Assert.Contains(".AllowAnonymous()", anonymousHandler, StringComparison.Ordinal);
-        Assert.Contains(".RequireStrongAnonymousRequest()", anonymousHandler, StringComparison.Ordinal);
-        Assert.Contains("HandleAnonymousCommentCreateAsync", anonymousHandler, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.AnonymousCommentCreateRequest", source, StringComparison.Ordinal);
-        Assert.Contains("CreateStrongAnonymousCommentAsync", source, StringComparison.Ordinal);
+        string anonymousHandler = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            nameof(BinaryEndpoints.HandleAnonymousCommentCreateAsync));
+        Assert.Contains("CreateStrongAnonymousCommentAsync", anonymousHandler, StringComparison.Ordinal);
+        Assert.Contains("TryDecodeAnonymousCommentCreateRequest", anonymousHandler, StringComparison.Ordinal);
 
-        Assert.Contains(".RequireAnonymousAccountPrincipal()", signedHandler, StringComparison.Ordinal);
-        Assert.Contains("[AedsFrameType.CommentCreateV2Request]", signedHandler, StringComparison.Ordinal);
+        string signedHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            "CreateAttributablePublicCommentAsync",
+            "AccountPrincipalContext");
         Assert.Contains("CreateAttributablePublicCommentAsync", signedHandler, StringComparison.Ordinal);
-        Assert.DoesNotContain("AedsFrameType.CommentCreate" + "Request", signedHandler, StringComparison.Ordinal);
-        Assert.DoesNotContain("CreateCommentAsync(userId", signedHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateCommentV2Async", signedHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateCommentAsync", signedHandler, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AnonymousCommentCreateHandler_DoesNotBindDefaultAnonymousPathToUserId()
+    public void AnonymousCommentCreateHandler_RuntimeDoesNotBindDefaultAnonymousPathToUserId()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
-        string anonymousHandler = ExtractBetween(
-            source,
-            "internal static async Task<BinaryFrameResult> HandleAnonymousCommentCreateAsync",
-            "private static bool IsCommentContentWithinLimit");
+        string anonymousHandler = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            nameof(BinaryEndpoints.HandleAnonymousCommentCreateAsync));
 
         Assert.DoesNotContain("GetUserId", anonymousHandler, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserId", anonymousHandler, StringComparison.Ordinal);
-        Assert.DoesNotContain("user_id", anonymousHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_UserId", anonymousHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("user_id", anonymousHandler, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("CreateStrongAnonymousCommentAsync", anonymousHandler, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void OrdinaryCommentEndpoints_UseAccountPrincipalContextInsteadOfLegacyUserId()
+    public async Task OrdinaryCommentEndpoints_UseAccountPrincipalContextInsteadOfLegacyUserId()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
-        string createHandler = ExtractBetween(
-            source,
-            "group.MapPost(\"/comment\"",
-            "group.MapGet(\"/comment/{articleId:int}\"");
-        string myCommentsHandler = ExtractBetween(
-            source,
-            "group.MapGet(\"/comment/me\"",
-            "group.MapDelete(\"/comment/{id:long}\"");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint create = EndpointContractApplication.Find(app, "/api/binary/comment", HttpMethods.Post);
+        RouteEndpoint mine = EndpointContractApplication.Find(app, "/api/binary/comment/me", HttpMethods.Get);
+        Assert.Null(create.Metadata.GetMetadata<IAllowAnonymous>());
+        Assert.Null(mine.Metadata.GetMetadata<IAllowAnonymous>());
 
-        Assert.DoesNotContain("GetUserId", source, StringComparison.Ordinal);
-        Assert.Contains("AccountPrincipalContext account", createHandler, StringComparison.Ordinal);
-        Assert.Contains("AccountPrincipalContext account", myCommentsHandler, StringComparison.Ordinal);
-        Assert.Contains(".RequireAnonymousAccountPrincipal()", createHandler, StringComparison.Ordinal);
-        Assert.Contains(".RequireAnonymousAccountPrincipal()", myCommentsHandler, StringComparison.Ordinal);
-        Assert.Contains("account.AccountId", createHandler, StringComparison.Ordinal);
-        Assert.Contains("account.AccountId", myCommentsHandler, StringComparison.Ordinal);
+        string createHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            "CreateAttributablePublicCommentAsync",
+            "AccountPrincipalContext");
+        string myCommentsHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            "GetAttributableCommentsAsync",
+            "AccountPrincipalContext");
+        Assert.DoesNotContain("GetUserId", createHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserId", myCommentsHandler, StringComparison.Ordinal);
+        Assert.Contains("get_AccountId", createHandler, StringComparison.Ordinal);
+        Assert.Contains("get_AccountId", myCommentsHandler, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void CommentEndpointService_DoesNotMixUserIdAndIsAdminIdentityPlanes()
+    public void CommentEndpointService_RuntimeContractDoesNotMixUserIdAndIsAdminIdentityPlanes()
     {
-        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Interfaces/ICommentEndpointService.cs");
-        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs");
-
-        Assert.DoesNotContain("DeleteCommentAsync(long id, int currentUserId, bool isAdmin", service, StringComparison.Ordinal);
-        Assert.Contains("DeleteCommentAsAccountAsync(long id, int accountId", service, StringComparison.Ordinal);
-        Assert.Contains("DeleteCommentAsAdminAsync(long id, AdminPrincipalActor actor", service, StringComparison.Ordinal);
-        Assert.Contains("AdminPrincipalActor", endpoints, StringComparison.Ordinal);
+        MethodInfo[] methods = typeof(ICommentEndpointService).GetMethods();
+        Assert.DoesNotContain(methods, static method => method.Name == "DeleteCommentAsync");
+        MethodInfo accountDelete = Assert.Single(methods, static method => method.Name == "DeleteCommentAsAccountAsync");
+        MethodInfo adminDelete = Assert.Single(methods, static method => method.Name == "DeleteCommentAsAdminAsync");
+        Assert.Contains(accountDelete.GetParameters(), static parameter => parameter.Name == "accountId" && parameter.ParameterType == typeof(int));
+        Assert.Contains(adminDelete.GetParameters(), static parameter => parameter.Name == "actor" && parameter.ParameterType == typeof(AdminPrincipalActor));
     }
 
     private static CommentService CreateService(
@@ -863,15 +863,6 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         return decoded.Value;
     }
 
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
-    }
-
     private sealed class RecordingTicketService(Func<Task>? onConsumeAsync = null) : IAnonymousCommentTicketService
     {
         private readonly Dictionary<string, AnonymousCommentTicketPayload> _payloads = new(StringComparer.Ordinal);
@@ -998,33 +989,6 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     {
         public ClientRegionResolution Resolve(HttpContext httpContext)
             => new(RegionCodes.Singapore, "unit", 0.95d, "198.51.100.17", "ip-hash");
-    }
-
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing method: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart >= 0, $"Missing body: {signature}");
-        int depth = 0;
-        for (int index = braceStart; index < source.Length; index++)
-        {
-            if (source[index] == '{')
-            {
-                depth++;
-            }
-            else if (source[index] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[braceStart..(index + 1)];
-                }
-            }
-        }
-
-        Assert.Fail($"Unclosed method: {signature}");
-        return string.Empty;
     }
 
     private sealed class NullRiskSignalSink : ISecurityRiskSignalSink

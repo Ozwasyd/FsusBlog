@@ -56,16 +56,20 @@ public class BannedUserMiddleware(RequestDelegate _next)
             || HttpMethods.IsPatch(method);
 
         string? accountIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (int.TryParse(accountIdClaim, out int accountId))
+        string? accountSubjectClaim = context.User.FindFirst(AccountSubjectHasher.ClaimType)?.Value;
+        if (!int.TryParse(accountIdClaim, out int accountId)
+            || !AccountSubjectHashRequirement.TryResolve(accountSubjectClaim, out string accountSubjectHash))
         {
-            string accountSubjectHash = AccountSubjectHasher.FromPrincipalOrFallback(context.User, accountId);
-            bool forceAccountStateRefresh = endpoint?.Metadata.GetMetadata<ForceAccountStateRefreshMetadata>() != null;
-            UserAccountSnapshot? user = await GetAccountStateAsync(accountId, accountSubjectHash, users, accountStateCache, forceRefresh: forceAccountStateRefresh);
-            if (user == null || user.Value.DeletedAt.HasValue || user.Value.Status == 2)
-            {
-                await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);
-                return;
-            }
+            await MiddlewareResults.WriteErrorAsync(context, "账户身份无效", StatusCodes.Status401Unauthorized);
+            return;
+        }
+
+        bool forceAccountStateRefresh = endpoint?.Metadata.GetMetadata<ForceAccountStateRefreshMetadata>() != null;
+        UserAccountSnapshot? user = await GetAccountStateAsync(accountId, accountSubjectHash, users, accountStateCache, forceRefresh: forceAccountStateRefresh);
+        if (user == null || user.Value.DeletedAt.HasValue || user.Value.Status == 2)
+        {
+            await MiddlewareResults.WriteErrorAsync(context, "账户已注销", StatusCodes.Status401Unauthorized);
+            return;
         }
 
         if (isWriteAction)
@@ -77,21 +81,17 @@ public class BannedUserMiddleware(RequestDelegate _next)
             }
 
             // 4. 提取账号标识与稳定 subject hash
-            if (int.TryParse(accountIdClaim, out int accountIdForBan))
-            {
-                // 5. 高性能校验：直接命中 Redis
-                string accountSubjectHash = AccountSubjectHasher.FromPrincipalOrFallback(context.User, accountIdForBan);
-                BanStateSnapshot banState = await blacklist.GetBanStateAsync(accountIdForBan, accountSubjectHash);
+            // 5. 高性能校验：直接命中 Redis
+            BanStateSnapshot banState = await blacklist.GetBanStateAsync(accountId, accountSubjectHash);
 
-                if (banState.IsBanned)
-                {
-                    await MiddlewareResults.WriteErrorAsync(
-                        context,
-                        BannedWriteMessage,
-                        StatusCodes.Status423Locked,
-                        details: BannedWriteErrorCode);
-                    return;
-                }
+            if (banState.IsBanned)
+            {
+                await MiddlewareResults.WriteErrorAsync(
+                    context,
+                    BannedWriteMessage,
+                    StatusCodes.Status423Locked,
+                    details: BannedWriteErrorCode);
+                return;
             }
         }
 
@@ -113,13 +113,21 @@ public class BannedUserMiddleware(RequestDelegate _next)
         }
 
         UserAccountSnapshot? snapshot = await users.GetAccountByIdAsync(accountId);
-        if (snapshot.HasValue)
+        if (snapshot.HasValue
+            && AccountSubjectHashRequirement.TryResolve(
+                snapshot.Value.AccountSubjectHash,
+                out string physicalAccountSubjectHash)
+            && string.Equals(
+                physicalAccountSubjectHash,
+                accountSubjectHash,
+                StringComparison.Ordinal))
         {
             cache.Set(cacheKey, snapshot.Value, AccountStateCacheOptions);
         }
         else
         {
             cache.Remove(cacheKey);
+            return null;
         }
 
         return snapshot;

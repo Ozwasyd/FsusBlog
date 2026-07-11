@@ -106,7 +106,7 @@ async function installAuthFixture(context, authMode) {
 
 async function inspectHeader(page, width, route, theme, authMode) {
   await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 15000 })
-  await page.waitForSelector('.el-public-shell', { timeout: 10000 })
+  await page.waitForSelector('#fsus-aot-shell > .el-public-shell', { timeout: 10000 })
   await page.waitForFunction(() => {
     const shell = document.querySelector('#fsus-aot-shell')
     return Boolean(shell && (!shell.getAttribute('data-public-hydration-kind') || shell.dataset.publicHydrated === 'true'))
@@ -134,16 +134,22 @@ async function inspectHeader(page, width, route, theme, authMode) {
   const state = await page.evaluate(() => {
     const rootStyle = getComputedStyle(document.documentElement)
     const header = document.querySelector('.el-public-shell__header')
-    const shell = document.querySelector('.el-public-shell')
+    const shell = document.querySelector('#fsus-aot-shell > .el-public-shell')
     const primaryActions = document.querySelector('.el-public-shell__mobile-primary-actions')
     const mobileToolbar = document.querySelector('.el-public-shell__mobile-toolbar')
     const mobileSearchRow = document.querySelector('.el-public-shell__mobile-search-row')
     const trigger = document.querySelector('.el-public-shell__mobile-search-trigger')
+    const mobileMenu = document.querySelector('.el-public-shell__mobile-nav-menu')
+    const mobileMenuTrigger = document.querySelector('.el-public-shell__mobile-nav-menu-trigger')
+    const mobileMenuPanel = document.querySelector('.el-public-shell__mobile-nav-menu-panel')
     const menuButton = document.querySelector('.el-theme-mode-toggle__menu-button')
+    const mobileThemeButton = document.querySelector('.el-theme-mode-toggle--mobile .el-theme-mode-toggle__menu-button')
     const desktopActions = document.querySelector('.el-public-shell__actions')
     const desktopNav = document.querySelector('.el-public-shell__desktop-nav')
-    const desktopSearch = document.querySelector('.el-public-shell__search--desktop')
+    const desktopSearchTrigger = document.querySelector('.public-chrome-search__trigger')
     const authLink = document.querySelector('.el-public-shell__auth-link')
+    const mobileAuthLink = document.querySelector('.el-public-shell__auth-link--mobile')
+    const colophon = document.querySelector('.public-colophon')
     const headerStyle = header ? getComputedStyle(header) : null
     const getDisplay = (element) => element ? getComputedStyle(element).display : null
     const getWidth = (element) => element ? Number.parseFloat(getComputedStyle(element).width) : null
@@ -172,6 +178,11 @@ async function inspectHeader(page, width, route, theme, authMode) {
       blurToken: rootStyle.getPropertyValue('--fsusblog-backdrop-blur-soft'),
       saturateToken: rootStyle.getPropertyValue('--fsusblog-backdrop-saturate'),
       hasShell: Boolean(shell),
+      hasPublicHeaderHook: Boolean(document.querySelector('[data-public-shell-header]')),
+      mobileNavMode: shell?.getAttribute('data-mobile-nav-mode') ?? '',
+      consumerMobileNavMode: shell?.getAttribute('data-public-mobile-nav-mode') ?? '',
+      hasBottomTab: Boolean(document.querySelector('[data-fsus-bottom-tab-bar], .el-public-shell__bottom-tab, .fsusblog-public-bottom-tab')),
+      hasLegacyConsumerMenu: Boolean(document.querySelector('.public-mobile-nav-menu')),
       headerBackground: headerStyle?.backgroundColor ?? '',
       headerBackgroundImage: headerStyle?.backgroundImage ?? '',
       headerBorderBottomColor: headerStyle?.borderBottomColor ?? '',
@@ -180,26 +191,42 @@ async function inspectHeader(page, width, route, theme, authMode) {
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       primaryActionsDisplay: getDisplay(primaryActions),
       mobileToolbarDisplay: getDisplay(mobileToolbar),
+      mobileToolbarCollapsed: mobileToolbar?.classList.contains('is-collapsed') ?? false,
       mobileSearchRowDisplay: getDisplay(mobileSearchRow),
+      mobileSearchTag: trigger?.tagName ?? '',
+      mobileSearchHref: trigger?.getAttribute('href') ?? '',
       triggerText: trigger?.textContent?.trim() ?? '',
       triggerExpanded: trigger?.getAttribute('aria-expanded') ?? '',
+      mobileMenuText: mobileMenuTrigger?.textContent?.trim() ?? '',
+      mobileMenuExpanded: mobileMenuTrigger?.getAttribute('aria-expanded') ?? '',
+      hasMobileMenu: Boolean(mobileMenu),
+      hasMobileMenuPanel: Boolean(mobileMenuPanel),
+      menuInPrimaryActions: Boolean(primaryActions && mobileMenu && primaryActions.contains(mobileMenu)),
+      searchInPrimaryActions: Boolean(primaryActions && trigger && primaryActions.contains(trigger)),
+      themeInMenuPanel: Boolean(mobileMenuPanel && mobileThemeButton && mobileMenuPanel.contains(mobileThemeButton)),
+      authInMenuPanel: Boolean(mobileMenuPanel && mobileAuthLink && mobileMenuPanel.contains(mobileAuthLink)),
       menuText: menuButton?.textContent?.trim() ?? '',
       menuAria: menuButton?.getAttribute('aria-label') ?? '',
       desktopActionsDisplay: getDisplay(desktopActions),
       desktopNavDisplay: getDisplay(desktopNav),
-      desktopSearchWidth: getWidth(desktopSearch),
+      desktopSearchWidth: getWidth(desktopSearchTrigger),
+      desktopSearchExpanded: desktopSearchTrigger?.getAttribute('aria-expanded') ?? '',
+      hasPersistentDesktopInput: Boolean(document.querySelector('.public-chrome-search--desktop input')),
       innerBox: getBox(document.querySelector('.el-public-shell__inner')),
       primaryBox: getBox(document.querySelector('.el-public-shell__primary-row')),
       brandBox: getBox(document.querySelector('.el-public-shell__brand')),
       desktopNavLinkBox: getBox(document.querySelector('.el-public-shell__desktop-nav .el-public-shell__nav-link')),
-      desktopSearchBox: getBox(desktopSearch),
+      desktopSearchBox: getBox(desktopSearchTrigger),
       desktopThemeBox: getBox(document.querySelector('.el-theme-mode-toggle--desktop')),
       desktopAuthBox: getBox(document.querySelector('.el-public-shell__actions .el-public-shell__auth-link')),
       mobileSearchBox: getBox(trigger),
-      mobileThemeBox: getBox(document.querySelector('.el-theme-mode-toggle--mobile .el-theme-mode-toggle__menu-button')),
-      mobileAuthBox: getBox(document.querySelector('.el-public-shell__auth-link--mobile')),
+      mobileMenuBox: getBox(mobileMenuTrigger),
       authText: authLink?.textContent?.trim() ?? '',
       authHref: authLink?.getAttribute('href') ?? '',
+      hasColophon: Boolean(colophon),
+      hasPrimaryColophon: Boolean(colophon?.querySelector('.public-colophon__primary')),
+      hasSecondaryColophon: Boolean(colophon?.querySelector('.public-colophon__secondary')),
+      hasRssColophonLink: Boolean(colophon?.querySelector('.public-colophon__primary a[href="/feed/rss.xml"]')),
       oldMobileTheme: Boolean(document.querySelector('.el-public-shell__mobile-actions .el-theme-mode-toggle')),
       oldMobileSearch: Boolean(document.querySelector('.el-public-shell__search--mobile')),
       gradientOrDecor: [...document.querySelectorAll('.el-public-shell, .el-public-shell *')]
@@ -212,6 +239,15 @@ async function inspectHeader(page, width, route, theme, authMode) {
 
   const label = `${theme.name} ${authMode.name} ${width} ${route}`
   assert(state.hasShell, `${label}: missing public shell`)
+  assert(state.hasPublicHeaderHook, `${label}: stable FsusUI public header hook is missing`)
+  assert(state.mobileNavMode === 'menu', `${label}: mobile nav mode ${state.mobileNavMode}`)
+  assert(state.consumerMobileNavMode === 'menu', `${label}: consumer mobile nav mode ${state.consumerMobileNavMode}`)
+  assert(!state.hasBottomTab, `${label}: fixed bottom navigation must not render`)
+  assert(!state.hasLegacyConsumerMenu, `${label}: Blog-owned mobile menu must not render`)
+  assert(state.hasColophon, `${label}: public colophon missing`)
+  assert(state.hasPrimaryColophon, `${label}: primary colophon row missing`)
+  assert(state.hasSecondaryColophon, `${label}: secondary colophon row missing`)
+  assert(state.hasRssColophonLink, `${label}: RSS colophon link missing`)
   assert(state.resolvedTheme === theme.expectedResolved, `${label}: resolved theme ${state.resolvedTheme}`)
   assert(normalizeCssValue(state.blurToken) === '0px', `${label}: blur token ${state.blurToken}`)
   assert(normalizeCssValue(state.saturateToken) === '100%', `${label}: saturate token ${state.saturateToken}`)
@@ -236,11 +272,16 @@ async function inspectHeader(page, width, route, theme, authMode) {
     assert(state.primaryActionsDisplay !== 'none', `${label}: mobile primary actions hidden`)
     assert(state.desktopActionsDisplay === 'none', `${label}: desktop actions visible on mobile`)
     assert(state.desktopNavDisplay === 'none', `${label}: desktop nav visible on mobile`)
+    assert(state.mobileSearchTag === 'A', `${label}: mobile search trigger tag ${state.mobileSearchTag}`)
+    assert(state.mobileSearchHref === '/search', `${label}: mobile search fallback href ${state.mobileSearchHref}`)
+    assert(state.menuInPrimaryActions, `${label}: FsusUI menu is not owned by mobile primary actions`)
+    assert(state.searchInPrimaryActions, `${label}: FsusUI search trigger is not owned by mobile primary actions`)
+    assert(state.themeInMenuPanel, `${label}: mobile theme must stay inside the menu utility group`)
+    assert(state.authInMenuPanel, `${label}: mobile auth must stay inside the menu utility group`)
     for (const [boxLabel, box] of [
       ['brand', state.brandBox],
       ['mobile search', state.mobileSearchBox],
-      ['mobile theme', state.mobileThemeBox],
-      ['mobile auth', state.mobileAuthBox],
+      ['mobile menu', state.mobileMenuBox],
     ]) {
       assertBoxMetric(box, 'height', 40, `${label}: ${boxLabel}`)
       assertBoxMetric(
@@ -254,25 +295,79 @@ async function inspectHeader(page, width, route, theme, authMode) {
       assert(['搜索', '取消'].includes(state.triggerText), `${label}: trigger text ${state.triggerText}`)
       assert(['false', 'true'].includes(state.triggerExpanded), `${label}: trigger expanded ${state.triggerExpanded}`)
       if (initiallyExpanded) {
+        assert(!state.mobileToolbarCollapsed, `${label}: expanded search toolbar is marked collapsed`)
         assert(state.mobileToolbarDisplay !== 'none', `${label}: search route toolbar hidden`)
         assert(state.mobileSearchRowDisplay !== 'none', `${label}: search route row hidden`)
       } else {
+        assert(state.mobileToolbarCollapsed, `${label}: collapsed search toolbar class missing`)
         assert(state.mobileToolbarDisplay === 'none', `${label}: collapsed search route toolbar display ${state.mobileToolbarDisplay}`)
         assert(state.mobileSearchRowDisplay === 'none', `${label}: collapsed search route row display ${state.mobileSearchRowDisplay}`)
       }
     } else {
       assert(state.triggerText === '搜索', `${label}: trigger text ${state.triggerText}`)
       assert(state.triggerExpanded === 'false', `${label}: trigger expanded ${state.triggerExpanded}`)
+      assert(state.mobileToolbarCollapsed, `${label}: collapsed mobile toolbar class missing`)
       assert(state.mobileToolbarDisplay === 'none', `${label}: collapsed mobile toolbar display ${state.mobileToolbarDisplay}`)
       assert(state.mobileSearchRowDisplay === 'none', `${label}: collapsed search row display ${state.mobileSearchRowDisplay}`)
     }
+    assert(state.hasMobileMenu, `${label}: native mobile menu missing`)
+    assert(state.hasMobileMenuPanel, `${label}: FsusUI mobile menu panel missing`)
+    assert(state.mobileMenuText === '菜单', `${label}: mobile menu text ${state.mobileMenuText}`)
+    assert(state.mobileMenuExpanded === 'false', `${label}: mobile menu expanded ${state.mobileMenuExpanded}`)
     assert(state.menuText === theme.menuText, `${label}: menu text ${state.menuText}`)
     assert(state.menuAria === theme.menuAria, `${label}: menu aria ${state.menuAria}`)
 
-    if (!initiallyExpanded) {
-      await page.click('.el-public-shell__mobile-search-trigger')
-      await page.waitForSelector('.el-public-shell__mobile-search-row', { state: 'visible', timeout: 5000 })
+    await page.click('.el-public-shell__mobile-nav-menu-trigger')
+    await page.waitForSelector('.el-public-shell__mobile-nav-menu-panel', { state: 'visible', timeout: 5000 })
+    const mobileMenuState = await page.evaluate(() => {
+      const primaryActions = document.querySelector('.el-public-shell__mobile-primary-actions')
+      const panel = document.querySelector('.el-public-shell__mobile-nav-menu-panel')
+      const getHeight = (selector) => {
+        const element = panel?.querySelector(selector)
+        return element ? Number(element.getBoundingClientRect().height.toFixed(2)) : 0
+      }
+      return {
+        expanded: document.querySelector('.el-public-shell__mobile-nav-menu-trigger')?.getAttribute('aria-expanded') ?? '',
+        current: panel?.querySelector('.el-public-shell__mobile-nav-link[aria-current="page"]')?.getAttribute('data-public-nav') ?? '',
+        linkCount: panel?.querySelectorAll('.el-public-shell__mobile-nav-link').length ?? 0,
+        panelInPrimaryActions: Boolean(primaryActions && panel && primaryActions.contains(panel)),
+        themeInPanel: Boolean(panel?.querySelector('.el-theme-mode-toggle')),
+        authInPanel: Boolean(panel?.querySelector('.el-public-shell__auth-link')),
+        themeHeight: getHeight('.el-theme-mode-toggle__menu-button'),
+        authHeight: getHeight('.el-public-shell__auth-link'),
+      }
+    })
+    assert(mobileMenuState.expanded === 'true', `${label}: menu did not expand`)
+    assert(mobileMenuState.linkCount === 3, `${label}: FsusUI menu link count ${mobileMenuState.linkCount}`)
+    assert(mobileMenuState.panelInPrimaryActions, `${label}: FsusUI menu panel is outside primary actions`)
+    assert(mobileMenuState.themeInPanel, `${label}: mobile theme utility is missing from menu panel`)
+    assert(mobileMenuState.authInPanel, `${label}: mobile auth utility is missing from menu panel`)
+    assertNear(mobileMenuState.themeHeight, 40, 1, `${label}: mobile theme menu height`)
+    assertNear(mobileMenuState.authHeight, 40, 1, `${label}: mobile auth menu height`)
+    if (!route.startsWith('/search')) {
+      assert(Boolean(mobileMenuState.current), `${label}: menu current item missing`)
     }
+    await page.press('.el-public-shell__mobile-nav-menu-trigger', 'Escape')
+    const menuFocusRestored = await page.evaluate(() => {
+      const trigger = document.querySelector('.el-public-shell__mobile-nav-menu-trigger')
+      return trigger?.getAttribute('aria-expanded') === 'false' && document.activeElement === trigger
+    })
+    assert(menuFocusRestored, `${label}: Escape did not close menu and restore focus`)
+
+    if (initiallyExpanded) {
+      await page.press('.el-public-shell__mobile-search-row input', 'Escape')
+      const initiallyExpandedFocusRestored = await page.evaluate(() => {
+        const trigger = document.querySelector('.el-public-shell__mobile-search-trigger')
+        const toolbar = document.querySelector('.el-public-shell__mobile-toolbar')
+        return trigger?.getAttribute('aria-expanded') === 'false'
+          && document.activeElement === trigger
+          && toolbar?.classList.contains('is-collapsed')
+      })
+      assert(initiallyExpandedFocusRestored, `${label}: initial mobile search Escape did not collapse and restore focus`)
+    }
+
+    await page.click('.el-public-shell__mobile-search-trigger')
+    await page.waitForSelector('.el-public-shell__mobile-search-row', { state: 'visible', timeout: 5000 })
     const expanded = await page.evaluate(() => {
       const trigger = document.querySelector('.el-public-shell__mobile-search-trigger')
       const toolbar = document.querySelector('.el-public-shell__mobile-toolbar')
@@ -293,16 +388,26 @@ async function inspectHeader(page, width, route, theme, authMode) {
     assert(expanded.triggerExpanded === 'true', `${label}: expanded aria ${expanded.triggerExpanded}`)
     assert(expanded.toolbarDisplay !== 'none', `${label}: expanded toolbar display ${expanded.toolbarDisplay}`)
     assert(expanded.searchWidth >= expanded.rowWidth - 2, `${label}: expanded search width ${expanded.searchWidth}, row ${expanded.rowWidth}`)
-    if (!initiallyExpanded) {
-      assert(expanded.activeInput, `${label}: expanded search input not focused`)
-    }
+    assert(expanded.activeInput, `${label}: expanded search input not focused`)
     assert(expanded.placeholder.startsWith('搜索文章、标签或关键词'), `${label}: search placeholder ${expanded.placeholder}`)
+    await page.press('.el-public-shell__mobile-search-row input', 'Escape')
+    const mobileSearchFocusRestored = await page.evaluate(() => {
+      const trigger = document.querySelector('.el-public-shell__mobile-search-trigger')
+      const toolbar = document.querySelector('.el-public-shell__mobile-toolbar')
+      return trigger?.getAttribute('aria-expanded') === 'false'
+        && document.activeElement === trigger
+        && toolbar?.classList.contains('is-collapsed')
+        && getComputedStyle(toolbar).display === 'none'
+    })
+    assert(mobileSearchFocusRestored, `${label}: mobile search Escape did not collapse and restore focus`)
   } else {
     assert(state.desktopActionsDisplay !== 'none', `${label}: desktop actions hidden`)
     assert(state.desktopNavDisplay !== 'none', `${label}: desktop nav hidden`)
     assert(state.primaryActionsDisplay === 'none', `${label}: mobile primary actions visible on desktop`)
     assert(state.mobileToolbarDisplay === 'none', `${label}: mobile toolbar visible on desktop`)
-    assert(state.desktopSearchWidth >= 170 && state.desktopSearchWidth <= 180, `${label}: desktop search width ${state.desktopSearchWidth}`)
+    assert(state.desktopSearchWidth >= 40, `${label}: desktop search trigger width ${state.desktopSearchWidth}`)
+    assert(state.desktopSearchExpanded === 'false', `${label}: desktop search initially expanded`)
+    assert(!state.hasPersistentDesktopInput, `${label}: desktop input must be on demand`)
     for (const [boxLabel, box] of [
       ['brand', state.brandBox],
       ['desktop nav', state.desktopNavLinkBox],
@@ -318,6 +423,25 @@ async function inspectHeader(page, width, route, theme, authMode) {
         `${label}: ${boxLabel} center delta`,
       )
     }
+
+    await page.click('.public-chrome-search__trigger')
+    await page.waitForSelector('.public-chrome-search__panel input', { state: 'visible', timeout: 5000 })
+    const desktopSearchState = await page.evaluate(() => {
+      const trigger = document.querySelector('.public-chrome-search__trigger')
+      const input = document.querySelector('.public-chrome-search__panel input')
+      return {
+        expanded: trigger?.getAttribute('aria-expanded') ?? '',
+        activeInput: document.activeElement === input,
+      }
+    })
+    assert(desktopSearchState.expanded === 'true', `${label}: desktop search did not expand`)
+    assert(desktopSearchState.activeInput, `${label}: desktop search input not focused`)
+    await page.press('.public-chrome-search__panel input', 'Escape')
+    const desktopFocusRestored = await page.evaluate(() => {
+      const trigger = document.querySelector('.public-chrome-search__trigger')
+      return trigger?.getAttribute('aria-expanded') === 'false' && document.activeElement === trigger
+    })
+    assert(desktopFocusRestored, `${label}: desktop Escape did not restore search trigger focus`)
   }
 }
 

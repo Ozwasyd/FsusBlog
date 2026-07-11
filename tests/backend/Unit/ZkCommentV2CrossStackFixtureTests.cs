@@ -103,9 +103,7 @@ public sealed class ZkCommentV2CrossStackFixtureTests
     {
         JsonObject trustedSetup = BackendTestPaths.ReadJsonFromRoot("security", "zk", "comment-v2-trusted-setup.manifest.json");
         JsonObject verifyingKey = BackendTestPaths.ReadJsonFromRoot("config", "zk", "anonymous-comment-v2-verifying-key.manifest.json");
-        string readme = BackendTestPaths.ReadAllTextFromRoot("circuits", "anonymous-comment-v2", "README.md");
 
-        Assert.Contains("This is not a trusted setup result", readme, StringComparison.Ordinal);
         Assert.False(trustedSetup["production_usable"]!.GetValue<bool>());
         Assert.NotEqual("verified", trustedSetup["ceremony_status"]!.GetValue<string>());
         Assert.False(string.IsNullOrWhiteSpace(trustedSetup["fail_closed_reason"]!.GetValue<string>()));

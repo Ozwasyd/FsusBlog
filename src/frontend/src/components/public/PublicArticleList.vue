@@ -6,6 +6,7 @@
       v-memo="[item.id, item.title, item.summary, item.meta.displayTime, item.meta.categoryName]"
       :class="themeTokens.articleList.card"
       :data-fsus-motion-index="index"
+      :data-article-id="item.id"
       data-fsus-motion-surface="article-card"
     >
       <div :class="themeTokens.articleList.metaRow">
@@ -60,6 +61,7 @@
       </p>
 
       <a
+        v-if="showReadCta"
         :href="item.href"
         :class="themeTokens.articleList.readLink"
         :aria-label="`阅读全文：${item.title}`"
@@ -104,11 +106,13 @@ import type { PaginationContract } from '@/ui-contracts/primitives';
 
 const props = withDefaults(defineProps<{
   spaNavigation?: boolean;
+  showReadCta?: boolean;
   items: readonly ArticleListCardViewContract[];
   pagination: PaginationContract;
   showPagination: boolean;
 }>(), {
-  spaNavigation: false
+  spaNavigation: false,
+  showReadCta: true
 });
 
 const emit = defineEmits<{

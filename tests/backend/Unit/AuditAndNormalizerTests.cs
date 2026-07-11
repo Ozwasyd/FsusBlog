@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
+using System.Collections.Frozen;
+using System.Reflection;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.PublicAot;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Serilog.Events;
 using Serilog.Parsing;
@@ -189,17 +191,31 @@ public class AuditLogEventMapperTests
     }
 
     [Fact]
-    public void ClassifySource_SourceUsesPrecompiledLookupAndBoundedCache()
+    public void ClassifySource_RuntimeUsesPrecompiledLookupAndBoundedCache()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Audit/AuditLogEventMapper.cs");
-        string method = ExtractMethodBlock(source, "private static string ClassifySource");
+        Type mapperType = typeof(AuditLogEventMapper);
+        FieldInfo exactCatalog = mapperType.GetField("SourceContextExactCatalog", BindingFlags.Static | BindingFlags.NonPublic)!;
+        FieldInfo cacheField = mapperType.GetField("SourceContextCatalogCache", BindingFlags.Static | BindingFlags.NonPublic)!;
+        int limit = (int)mapperType.GetField("SourceContextCacheLimit", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetRawConstantValue()!;
+        Assert.Equal(typeof(FrozenDictionary<string, string>), exactCatalog.FieldType);
+        Assert.Equal(typeof(ConcurrentDictionary<string, string>), cacheField.FieldType);
+        Assert.Equal(256, limit);
 
-        Assert.Contains("FrozenDictionary", source, StringComparison.Ordinal);
-        Assert.Contains("ConcurrentDictionary<string, string>", source, StringComparison.Ordinal);
-        Assert.Contains("SourceContextCacheLimit", source, StringComparison.Ordinal);
-        Assert.Contains("TryGetValue(sourceContext", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("sourceContext switch", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("var value when value.Contains", method, StringComparison.Ordinal);
+        var cache = (ConcurrentDictionary<string, string>)cacheField.GetValue(null)!;
+        cache.Clear();
+        var mapper = new AuditLogEventMapper();
+        for (int index = 0; index < limit * 4; index++)
+        {
+            mapper.Map(MakeWithSourceContext($"Unknown.Component.{index}"));
+        }
+        Assert.InRange(cache.Count, 1, limit);
+
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            mapperType,
+            "ClassifySource",
+            "AddSourceContextCacheEntry");
+        Assert.Contains("TryGetValue", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -290,30 +306,4 @@ public class AuditLogEventMapperTests
         return payload;
     }
 
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
-
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
-        {
-            if (source[i] == '{')
-            {
-                depth++;
-            }
-            else if (source[i] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(i + 1)];
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Unable to extract method body: {signature}");
-    }
 }

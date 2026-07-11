@@ -12,6 +12,8 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class BannedUserMiddlewareIdentityKindTests
 {
+    private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
     [Fact]
     public async Task InvokeAsync_AdminPrincipalWithMissingSysUser_AllowsNextWithoutUserOrBanLookup()
     {
@@ -146,7 +148,7 @@ public sealed class BannedUserMiddlewareIdentityKindTests
     [Fact]
     public async Task InvokeAsync_AnonymousAccountUsesAccountSubjectHashForAccountStateCache()
     {
-        const string accountSubjectHash = "subject-hash-001";
+        const string accountSubjectHash = StableAccountSubjectHash;
         bool nextCalled = false;
         var middleware = new BannedUserMiddleware(context =>
         {
@@ -171,14 +173,14 @@ public sealed class BannedUserMiddlewareIdentityKindTests
         Assert.Equal(StatusCodes.Status204NoContent, second.Response.StatusCode);
         await users.Received(1).GetAccountByIdAsync(42);
         await users.DidNotReceive().GetAccountByIdAsync(84);
-        Assert.True(cache.TryGetValue("account:state:subject-hash-001", out UserAccountSnapshot _));
+        Assert.True(cache.TryGetValue("account:state:" + StableAccountSubjectHash, out UserAccountSnapshot _));
         await blacklist.DidNotReceive().GetBanStateAsync(Arg.Any<int>(), Arg.Any<string>());
     }
 
     [Fact]
     public async Task InvokeAsync_AnonymousAccountUsesAccountSubjectHashForBanLookup()
     {
-        const string accountSubjectHash = "subject-hash-001";
+        const string accountSubjectHash = StableAccountSubjectHash;
         bool nextCalled = false;
         var middleware = new BannedUserMiddleware(context =>
         {
@@ -224,6 +226,31 @@ public sealed class BannedUserMiddlewareIdentityKindTests
         await blacklist.DidNotReceive().GetBanStateAsync(Arg.Any<int>(), Arg.Any<string>());
     }
 
+    [Fact]
+    public async Task InvokeAsync_AccountWithoutPhysicalSubjectClaimFailsClosedBeforeLookup()
+    {
+        bool nextCalled = false;
+        var middleware = new BannedUserMiddleware(_ =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        var users = Substitute.For<IUserAccountReader>();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        ClaimsPrincipal principal = CreatePrincipal(
+            42,
+            new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind));
+        var context = CreateContext("POST", principal);
+
+        await middleware.InvokeAsync(context, blacklist, users, cache);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+        await users.DidNotReceive().GetAccountByIdAsync(Arg.Any<int>());
+        await blacklist.DidNotReceive().GetBanStateAsync(Arg.Any<int>(), Arg.Any<string>());
+    }
+
     private static DefaultHttpContext CreateContext(string method, ClaimsPrincipal user)
     {
         var context = new DefaultHttpContext();
@@ -246,16 +273,16 @@ public sealed class BannedUserMiddlewareIdentityKindTests
             new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
             new Claim("admin_id", adminId.ToString()));
 
-    private static ClaimsPrincipal CreateAnonymousAccount(int userId, string? accountSubjectHash = null)
-        => accountSubjectHash is { Length: > 0 }
-            ? CreatePrincipal(
-                userId,
-                new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
-                new Claim("account_subject_hash", accountSubjectHash))
-            : CreatePrincipal(userId, new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind));
+    private static ClaimsPrincipal CreateAnonymousAccount(
+        int userId,
+        string accountSubjectHash = StableAccountSubjectHash)
+        => CreatePrincipal(
+            userId,
+            new Claim("identity_kind", AnonymousIdentityRuntime.AnonymousAccountKind),
+            new Claim("account_subject_hash", accountSubjectHash));
 
     private static ClaimsPrincipal CreateLegacyUser(int userId)
-        => CreatePrincipal(userId);
+        => CreatePrincipal(userId, new Claim("account_subject_hash", StableAccountSubjectHash));
 
     private static ClaimsPrincipal CreatePrincipal(int id, params Claim[] additionalClaims)
     {
@@ -268,8 +295,8 @@ public sealed class BannedUserMiddlewareIdentityKindTests
     }
 
     private static UserAccountSnapshot CreateActiveUser(int userId)
-        => new(userId, 0, null, false, null);
+        => new(userId, 0, null, false, null, AccountSubjectHash: StableAccountSubjectHash);
 
     private static UserAccountSnapshot CreateDeletedUser(int userId)
-        => new(userId, 2, null, false, DateTime.UtcNow);
+        => new(userId, 2, null, false, DateTime.UtcNow, AccountSubjectHash: StableAccountSubjectHash);
 }

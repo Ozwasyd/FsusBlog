@@ -15,6 +15,67 @@ function requireContains(file, needle, message) {
 }
 
 const openResty = read('deploy/production-openresty.conf')
+
+function parseLimitRequestZones(source) {
+  const zones = new Map()
+  const pattern = /^\s*limit_req_zone\s+\S+\s+zone=([A-Za-z0-9_]+):([^\s;]+)\s+rate=([^\s;]+)\s*;/gm
+  for (const match of source.matchAll(pattern)) {
+    zones.set(match[1], { storage: match[2], rate: match[3] })
+  }
+  return zones
+}
+
+function parseLocationBlocks(source) {
+  const locations = new Map()
+  const pattern = /^\s*location\s+(.+?)\s*\{/gm
+  for (const match of source.matchAll(pattern)) {
+    const bodyStart = match.index + match[0].length
+    let depth = 1
+    let cursor = bodyStart
+    while (cursor < source.length && depth > 0) {
+      if (source[cursor] === '{') depth += 1
+      if (source[cursor] === '}') depth -= 1
+      cursor += 1
+    }
+    if (depth !== 0) {
+      violations.push(`deploy/production-openresty.conf: unterminated location ${match[1]}`)
+      continue
+    }
+    locations.set(match[1].trim(), source.slice(bodyStart, cursor - 1))
+  }
+  return locations
+}
+
+function parseLimitRequest(block) {
+  const match = /^\s*limit_req\s+zone=([A-Za-z0-9_]+)\s+burst=(\d+)\s+nodelay\s*;/m.exec(block)
+  return match ? { zone: match[1], burst: Number.parseInt(match[2], 10) } : null
+}
+
+const limitZones = parseLimitRequestZones(openResty)
+for (const [zone, expectedRate] of [
+  ['fsus_global_limit', '10r/s'],
+  ['fsus_auth_limit', '5r/m'],
+  ['fsus_admin_limit', '30r/m']
+]) {
+  const parsed = limitZones.get(zone)
+  if (!parsed || parsed.rate !== expectedRate) {
+    violations.push(`deploy/production-openresty.conf: ${zone} must declare rate=${expectedRate}`)
+  }
+}
+
+const locationBlocks = parseLocationBlocks(openResty)
+for (const [selector, expectedZone] of [
+  ['~ ^/api/binary/auth(/|$)', 'fsus_auth_limit'],
+  ['~ ^/api/binary/admin(/|$)', 'fsus_admin_limit'],
+  ['~ ^/api/binary/author(/|$)', 'fsus_admin_limit']
+]) {
+  const block = locationBlocks.get(selector)
+  const limit = block ? parseLimitRequest(block) : null
+  if (!limit || limit.zone !== expectedZone || limit.burst <= 0) {
+    violations.push(`deploy/production-openresty.conf: location ${selector} must use ${expectedZone} with a positive burst`)
+  }
+}
+
 for (const needle of [
   'ssl_protocols TLSv1.2 TLSv1.3;',
   'ssl_ciphers ',

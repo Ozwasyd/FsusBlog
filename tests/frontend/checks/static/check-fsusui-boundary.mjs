@@ -40,9 +40,6 @@ const allowedInternalSelectors = new Map([
     '.el-theme-mode-toggle__menu-button',
     '.el-theme-mode-toggle__menu-item'
   ])],
-  ['src/frontend/src/components/public/PublicBlogLayoutShell.vue', new Set([
-    '.el-public-shell__nav-link'
-  ])],
   ['src/frontend/src/components/admin/AdminTaxonomyManageView.vue', new Set([
     '.el-table-fixed-column--right'
   ])],

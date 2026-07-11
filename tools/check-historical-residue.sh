@@ -5,7 +5,7 @@ SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_DIR="${FSUSBLOG_HISTORICAL_RESIDUE_ROOT:-$SCRIPT_ROOT}"
 cd "$ROOT_DIR"
 
-IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX='^(docs/(api/(design|contracts)[.]md|database-migration[.]md|anonymous-identity-smoke-flow[.]md)|src/backend/Infrastructure/Operations/LegacyIdentityColdStartResetOperation[.]cs|tools/db/.*|tests/(backend|frontend)/.*)$'
+IDENTITY_MAINTENANCE_ALLOW_PATH_REGEX='^(docs/(api/(design|contracts)[.]md|database-migration[.]md|anonymous-identity-smoke-flow[.]md)|tools/db/.*|tests/(backend|frontend)/.*)$'
 
 run_residue_check() {
   local description="$1"
@@ -498,10 +498,27 @@ run_residue_check \
   src/core/Cache/PodBinaryCodec.User.cs src/backend/Services/UserService.cs src/frontend/src/api/auth.ts src/frontend/src/adapters/binary/authAdapter.ts src/frontend/src/views/user/IdentityCenter.vue
 
 run_residue_check \
+  "retired cleanup and HumanRead source-reading tests" \
+  "retired cleanup/HumanRead source-reading test residue detected" \
+  '\b(?:LogCleanupServiceTests|UploadSessionCleanupQueueTests|HumanReadProofServiceTests)\b|\bBackendTestPaths[.](?:ReadAllTextFromRoot|PathFromRoot|FromRoot|RepositoryRoot)\b|\bFile[.](?:ReadAllText(?:Async)?|ReadAllLines(?:Async)?|OpenText)[(]|\b(?:ReadSource|ReadRepoFile|ReadProductionFile)[(]' \
+  "" \
+  tests/backend/Unit/LogCleanupServiceTests.cs \
+  tests/backend/Unit/UploadSessionCleanupQueueTests.cs \
+  tests/backend/Unit/HumanReadProofServiceTests.cs \
+  tests/backend/Unit/LogCleanupDatabaseBehaviorTests.cs \
+  tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs \
+  tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs \
+  tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs \
+  tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs \
+  tests/backend/Unit/HumanReadProofRequestBindingTests.cs \
+  tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs \
+  tests/backend/Helpers/TestInfrastructure/HumanReadProofTestHarness.cs
+
+run_residue_check \
   "human-read visit user binding" \
   "human-read visit user-bound residue detected" \
   'context[.]GetUserId[(][)]|VisitLogMessage[(][^;\n]*UserId|msg[.]UserId|public[[:space:]]+int[?][[:space:]]+UserId\b|new[[:space:]]+VisitLog[[:space:]]*[{][^}]*UserId[[:space:]]*=|\bRegisteredVisits\b|\bAnonymousVisits\b|registeredVisits|anonymousVisits|v[.]UserId' \
-  '^(src/backend/Infrastructure/Operations/LegacyIdentityColdStartResetOperation[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationConsistencyChecker[.]cs)$' \
+  '^(src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry[.]cs|src/backend/Infrastructure/SchemaMigration/SchemaMigrationConsistencyChecker[.]cs)$' \
   src/backend/Entities/VisitLog.cs src/backend/Services/HumanReadProofService.cs src/backend/Services/VisitLog src/backend/Services/StatsService.cs src/backend/Infrastructure/CoreBridge src/backend/Infrastructure/Cache src/shared/Contracts src/core src/frontend/src tests/frontend/fixtures
 
 run_residue_check \

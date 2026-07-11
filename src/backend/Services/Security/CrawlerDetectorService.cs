@@ -90,7 +90,7 @@ public class CrawlerDetectorService(
         return false;
     }
 
-    private static string NormalizeCrawlerUserAgent(string userAgent)
+    internal static string NormalizeCrawlerUserAgent(string userAgent)
     {
         int length = Math.Min(userAgent.Length, MaxUserAgentLength);
         var builder = new StringBuilder(length);

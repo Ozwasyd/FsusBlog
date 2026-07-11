@@ -1,0 +1,208 @@
+{
+  "schema": "fsusblog.issue-test-retention-replacements.v1",
+  "issue": 1050,
+  "baseline": "tests/test-retention-before.json",
+  "expectedDeletedTestIds": 15,
+  "deletedTests": [
+    {
+      "id": "xunit:tests/backend/Unit/LogCleanupServiceTests.cs#LogCleanupServiceTests.SourceUsesLeaderLeaseAndServerSideLimitDelete",
+      "path": "tests/backend/Unit/LogCleanupServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs#LogCleanupWorkerBehaviorTests.RunCleanupAsLeaderAsync_GrantedLeaseUsesInjectedClockForEveryRetentionTarget",
+        "xunit:tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs#LogCleanupWorkerBehaviorTests.RunCleanupAsLeaderAsync_LeaseDeniedSkipsCleanup",
+        "xunit:tests/backend/Unit/LogCleanupDatabaseBehaviorTests.cs#LogCleanupDatabaseBehaviorTests.CleanupVisitLogsAsync_DeletesExpiredRowsInPagesAndKeepsCutoffBoundary",
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
+      ],
+      "reason": "A lease fake proves non-leaders skip work, while a real PostgreSQL test proves cutoff, LIMIT paging, and retained boundary behavior without reading implementation text; the historical-residue owner prevents the mixed source-reading suite from returning."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/LogCleanupServiceTests.cs#LogCleanupServiceTests.SourceRunsIndependentCleanupPassesConcurrentlyAndHoistsParameters",
+      "path": "tests/backend/Unit/LogCleanupServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs#LogCleanupWorkerBehaviorTests.CleanupVisitLogsAsync_MaxChunksStopsFurtherBatches",
+        "xunit:tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs#LogCleanupWorkerBehaviorTests.CleanupVisitLogsAsync_SingleBatchFailurePropagates",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh",
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
+      ],
+      "reason": "Observable chunk bounds and failure propagation replace private SQL-helper assertions; concurrency/performance evidence belongs to #1042's backend benchmark lane, and the static owner rejects source-reader regression."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/LogCleanupServiceTests.cs#LogCleanupServiceTests.CleanupVisitLogsAsync_ServerSideLimitDeletesAllExpiredRowsInPages",
+      "path": "tests/backend/Unit/LogCleanupServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/LogCleanupDatabaseBehaviorTests.cs#LogCleanupDatabaseBehaviorTests.CleanupVisitLogsAsync_DeletesExpiredRowsInPagesAndKeepsCutoffBoundary"
+      ],
+      "reason": "The database behavior moved unchanged to the responsibility-specific PostgreSQL test and adds an explicit cutoff assertion."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/UploadSessionCleanupQueueTests.cs#UploadSessionCleanupQueueTests.TryRequestScan_BuffersSignalsArrivingDuringCleanup",
+      "path": "tests/backend/Unit/UploadSessionCleanupQueueTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs#UploadSessionCleanupQueueBehaviorTests.TryRequestScan_BoundedCapacityRejectsTheFirstOverflow",
+        "xunit:tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs#UploadSessionCleanupWorkerBehaviorTests.RunCleanupUntilSignalsFlushedAsync_SignalDuringCleanupIsNotLost"
+      ],
+      "reason": "The queue capacity and a real worker cleanup callback now prove that a signal arriving during cleanup causes another scan."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/UploadSessionCleanupQueueTests.cs#UploadSessionCleanupQueueTests.TryRequestScan_WhenChannelIsFullMarksOverflow",
+      "path": "tests/backend/Unit/UploadSessionCleanupQueueTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs#UploadSessionCleanupQueueBehaviorTests.TryRequestScan_BoundedCapacityRejectsTheFirstOverflow",
+        "xunit:tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs#UploadSessionCleanupQueueBehaviorTests.ConsumeOverflowedSignal_ConsumesOverflowOnlyOnce"
+      ],
+      "reason": "Dedicated behavior tests own bounded overflow and one-shot overflow consumption."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/UploadSessionCleanupQueueTests.cs#UploadSessionCleanupQueueTests.SourceUsesWaitModeAndRetriesOverflowAfterCleanup",
+      "path": "tests/backend/Unit/UploadSessionCleanupQueueTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs#UploadSessionCleanupWorkerBehaviorTests.RunCleanupUntilSignalsFlushedAsync_OverflowRequestsASecondScan",
+        "xunit:tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs#UploadSessionCleanupWorkerBehaviorTests.RunCleanupUntilSignalsFlushedAsync_LeaseDeniedPreservesOverflowForNextLeaderAttempt",
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
+      ],
+      "reason": "The actual worker executes a second scan after overflow and preserves the overflow marker when leadership is denied; the static owner rejects the retired helper-name/channel-mode source test and new repository readers."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/UploadSessionCleanupQueueTests.cs#UploadSessionCleanupQueueTests.TryRequestScan_DefaultWindowCoalescesRepeatedSignals",
+      "path": "tests/backend/Unit/UploadSessionCleanupQueueTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs#UploadSessionCleanupQueueBehaviorTests.TryRequestScan_DefaultWindowCoalescesUntilClockReachesBoundary"
+      ],
+      "reason": "A controllable TimeProvider now proves coalescing before the exact default-window boundary and acceptance at the boundary."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_ValidArticleProof_WritesSingleHumanReadEvent",
+      "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ValidArticleProofWritesExactlyOneEventAndUsesBoundedLeases"
+      ],
+      "reason": "The moved behavior additionally proves one event only plus the replay and viewer lease TTLs observed through the cache contract."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_AuthenticatedAccount_DoesNotWriteUserIdToVisitLog",
+      "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.AuthenticatedSubmission_PersistsOnlyAnonymousViewerAndProofDimensions"
+      ],
+      "reason": "An authenticated submission is projected, inserted into PostgreSQL, queried, reflected, and serialized to prove no reversible account identifier is persisted."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.HumanReadAndStats_SourceDoNotUseVisitLogUserIdAsIdentityDimension",
+      "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.AuthenticatedSubmission_PersistsOnlyAnonymousViewerAndProofDimensions",
+        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.StatsContracts_SerializeOnlyAggregateReadAndAnonymousViewerDimensions",
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
+      ],
+      "reason": "Reflection, serialization, and a real persistence round trip replace cross-stack source-string searches; the static owner rejects source-reader regression plus visit user/raw-IP identity residue."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_SourceCachesTrustedOriginsAndUsesCurrentAuthorityFastPath",
+      "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/HumanReadProofRequestBindingTests.cs#HumanReadProofRequestBindingTests.CreateChallengeAsync_CurrentOrConfiguredOriginAndRefererAreAccepted",
+        "xunit:tests/backend/Unit/HumanReadProofRequestBindingTests.cs#HumanReadProofRequestBindingTests.CreateChallengeAsync_UntrustedOriginWithoutRefererIsRejected",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh",
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
+      ],
+      "reason": "Current-authority, configured-origin, referer, and rejection behavior are executed directly; trusted-origin cache performance evidence is delegated to #1042, and source-reader regression is statically rejected."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_ReplayedProof_DoesNotWriteSecondEvent",
+      "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ReplayedProofDoesNotWriteSecondEvent"
+      ],
+      "reason": "Replay rejection and single-write behavior moved to the submission behavior file."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_TamperedRoute_DoesNotWriteEvent",
+      "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_TamperedRouteDoesNotWriteEvent",
+        "xunit:tests/backend/Unit/HumanReadProofRequestBindingTests.cs#HumanReadProofRequestBindingTests.SubmitAsync_ChangedScopeAndArticleAreRejected"
+      ],
+      "reason": "Route, scope, and article binding are now direct token-submission behavior."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.CreateChallengeAsync_DirectApiContextWithoutBrowserHeaders_IsRejected",
+      "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/HumanReadProofRequestBindingTests.cs#HumanReadProofRequestBindingTests.CreateChallengeAsync_MissingBrowserHeadersAreRejected"
+      ],
+      "reason": "The replacement exercises missing UA, device fingerprint, fetch metadata, and origin/referer independently."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_DwellShorterThanChallengeMinimum_IsRejected",
+      "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_DwellShorterThanChallengeMinimumIsRejected"
+      ],
+      "reason": "The dwell behavior moved to the submission file and now asserts the stable rejection status."
+    }
+  ],
+  "staticAuditOwners": [
+    {
+      "id": "shell:tools/check-historical-residue.sh",
+      "fixtureId": "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs",
+      "guards": [
+        "retired LogCleanupServiceTests/UploadSessionCleanupQueueTests/HumanReadProofServiceTests suites",
+        "repository source readers in the seven replacement suites and HumanRead harness",
+        "HumanRead visit-log user binding",
+        "HumanRead raw visit-IP persistence"
+      ],
+      "verificationStatus": "not-run"
+    }
+  ],
+  "sharedRegistryEvidence": [
+    {
+      "path": "tests/coverage-registry.json",
+      "observedCoverageIds": [
+        "backend-log-cleanup-behavior",
+        "backend-upload-cleanup-queue-behavior",
+        "backend-human-read-proof-behavior"
+      ],
+      "verificationStatus": "not-run"
+    },
+    {
+      "path": "tests/matrix.yml",
+      "observedTierIds": [
+        "backend-unit",
+        "integration",
+        "backend-concurrency",
+        "resilience",
+        "privacy-zk-comment-matrix",
+        "production"
+      ],
+      "remainingRuntimeEvidence": [
+        "background services",
+        "stats",
+        "production fresh"
+      ],
+      "verificationStatus": "not-run"
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "observedOwners": [
+        "LogCleanupDatabaseBehaviorTests",
+        "LogCleanupWorkerBehaviorTests",
+        "UploadSessionCleanupQueueBehaviorTests",
+        "UploadSessionCleanupWorkerBehaviorTests",
+        "HumanReadProofSubmissionBehaviorTests",
+        "HumanReadProofRequestBindingTests",
+        "HumanReadProofPersistencePrivacyTests"
+      ],
+      "verificationStatus": "not-run"
+    },
+    {
+      "path": "tests/frontend/checks/static/manifest.json",
+      "observedOwner": "historical-residue-fixture",
+      "verificationStatus": "not-run"
+    }
+  ]
+}

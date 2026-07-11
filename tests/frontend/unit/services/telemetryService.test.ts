@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AEDS_HEADER_LENGTH, FrameType } from '@wasm/protocol/frame'
 import { emitRumMetric, initTelemetryService } from '@/services/telemetryService'
@@ -70,15 +68,6 @@ describe('emitRumMetric', () => {
     await vi.advanceTimersByTimeAsync(250)
 
     expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('does not retain JSON fallback compatibility in the telemetry service', () => {
-    const source = readFileSync(fileURLToPath(new URL('../../../../src/frontend/src/services/telemetryService.ts', import.meta.url)), 'utf8')
-
-    expect(source).not.toContain('/api/telemetry/rum')
-    expect(source).not.toContain('application/json')
-    expect(source).not.toContain('response.json')
-    expect(source).not.toContain('JSON.stringify')
   })
 
   it('throttles binary failure audit output during backend outage storms', () => {

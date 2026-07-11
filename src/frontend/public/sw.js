@@ -1,9 +1,18 @@
-const STATIC_CACHE = 'fsus-static-v4'
-const SHELL_CACHE = 'fsus-shell-v5'
-const SEARCH_CACHE = 'fsus-search-v4'
-const SEARCH_META_CACHE = 'fsus-search-meta-v4'
-const SEARCH_ALIAS_PATH = '/search/index.bin'
-const SEARCH_MANIFEST_PATH = '/search/index.manifest.aeds'
+const BUILD_ID_CANDIDATE = new URL(self.location.href).searchParams.get('build') ?? ''
+const FRONTEND_BUILD_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/.test(BUILD_ID_CANDIDATE)
+  && !['latest', 'current', 'final-current'].includes(BUILD_ID_CANDIDATE.toLowerCase())
+  ? BUILD_ID_CANDIDATE
+  : ''
+const CACHE_NAMESPACE = FRONTEND_BUILD_ID ? `:${FRONTEND_BUILD_ID}` : ''
+const STATIC_CACHE = `fsus-static-v4${CACHE_NAMESPACE}`
+const SHELL_CACHE = `fsus-shell-v5${CACHE_NAMESPACE}`
+const SEARCH_CACHE = `fsus-search-v4${CACHE_NAMESPACE}`
+const SEARCH_META_CACHE = `fsus-search-meta-v4${CACHE_NAMESPACE}`
+const SEARCH_PUBLIC_BASE = FRONTEND_BUILD_ID
+  ? `/release-derived/${FRONTEND_BUILD_ID}/search`
+  : '/search'
+const SEARCH_ALIAS_PATH = `${SEARCH_PUBLIC_BASE}/index.bin`
+const SEARCH_MANIFEST_PATH = `${SEARCH_PUBLIC_BASE}/index.manifest.aeds`
 const SEARCH_MANIFEST_MAGIC = 0x4d495346
 const SEARCH_MANIFEST_BINARY_VERSION = 1
 const SEARCH_MANIFEST_MIN_CHECK_INTERVAL_MS = 30000
@@ -86,7 +95,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  if (url.pathname.startsWith('/search/index.') || url.pathname.startsWith('/search/patches/')) {
+  if (url.pathname.startsWith(`${SEARCH_PUBLIC_BASE}/index.`) || url.pathname.startsWith(`${SEARCH_PUBLIC_BASE}/patches/`)) {
     event.respondWith(cacheSearchAsset(request))
     return
   }
@@ -376,7 +385,7 @@ async function pruneStaleSearchShards(searchCache, manifest) {
   const keys = await searchCache.keys()
   await Promise.all(keys.map(async (request) => {
     const url = new URL(request.url)
-    const isSearchShard = url.pathname.startsWith('/search/index.') || url.pathname.startsWith('/search/patches/')
+    const isSearchShard = url.pathname.startsWith(`${SEARCH_PUBLIC_BASE}/index.`) || url.pathname.startsWith(`${SEARCH_PUBLIC_BASE}/patches/`)
     if (!isSearchShard || url.pathname === SEARCH_MANIFEST_PATH || url.pathname === SEARCH_ALIAS_PATH) {
       return
     }

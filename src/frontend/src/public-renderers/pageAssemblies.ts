@@ -14,7 +14,7 @@ import type { ArchivePageViewContract } from '@/view-contracts/archive'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
 import type { ArticleListViewContract } from '@/view-contracts/articleList'
 import type { FilterPageViewContract } from '@/view-contracts/filterView'
-import { selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
+import { createHomeEditorialPageState } from '@/view-contracts/homeSpotlight'
 
 export function createPublicHomePageAssembly(input: {
   view: ArticleListViewContract
@@ -22,41 +22,47 @@ export function createPublicHomePageAssembly(input: {
   hotArticles: readonly PopularArticleSummaryResponse[]
   showAside?: boolean
 }): PublicAotPageAssembly {
-  const featuredArticles = [...input.featuredArticles]
-  const hotArticles = [...input.hotArticles]
-  const spotlightArticles = selectHomeSpotlightCandidates(featuredArticles)
-  // SSR path must stay in lock-step with views/Home.vue: the homepage no
-  // longer renders a right-side "热门文章" aside (HomeTextFirstRecommendations
-  // inside the main column already surfaces hotArticles under the same
-  // heading). Forcing showAside=false keeps the SSR HTML and client DOM
-  // identical so Vue hydration does not see a phantom aside node.
+  const editorialState = createHomeEditorialPageState({
+    view: input.view,
+    featuredArticles: input.featuredArticles,
+    hotArticles: input.hotArticles
+  })
+  const editorialComposition = editorialState.composition
+  // Public AOT, hydration, and the SPA route all use the same editorial
+  // selector. The right-side aside remains absent so no independent hot list
+  // can reintroduce duplicate article IDs.
   const showAside = false
 
   return {
     component: PublicHomePageContent,
     props: {
-      view: input.view,
+      view: editorialState.view,
       loading: false,
       isError: false,
       spaNavigation: false,
-      showAside
+      showAside,
+      hasRecommendations: editorialState.hasRecommendations,
+      showArticleCta: false
     },
     slots: {
       featured: () => {
-        if (spotlightArticles.length > 0) {
-          return h(FeaturedArticlesSection, {
-            articles: spotlightArticles,
-            loading: false
-          })
+        const lead = editorialComposition.leadArticle
+          ? h(FeaturedArticlesSection, {
+              article: editorialComposition.leadArticle,
+              loading: false
+            })
+          : null
+        const secondary = editorialComposition.secondaryArticles.length > 0
+          ? h(HomeTextFirstRecommendations, {
+              articles: editorialComposition.secondaryArticles
+            })
+          : null
+
+        if (!lead && !secondary) {
+          return createCommentVNode('v-if', true)
         }
 
-        if (hotArticles.length > 0) {
-          return h(HomeTextFirstRecommendations, {
-            articles: hotArticles
-          })
-        }
-
-        return createCommentVNode('v-if', true)
+        return [lead, secondary]
       },
       aside: () => createCommentVNode('v-if', true)
     }

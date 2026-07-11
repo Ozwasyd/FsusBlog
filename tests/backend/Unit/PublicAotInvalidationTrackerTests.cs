@@ -192,12 +192,28 @@ public sealed class PublicAotInvalidationTrackerTests
     }
 
     [Fact]
-    public void TrackerSource_DoesNotRebuildUnscopedPagePrefix()
+    public void Tracker_DoesNotTreatScopedPrefixAsUnscopedPageInvalidation()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "PublicAot", "PublicAotInvalidationTracker.cs"));
+        var tracker = new PublicAotInvalidationTracker();
+        string cacheKey = CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, "category:7");
+        string scopedPrefix = "session-42:" + CacheKeyBuilder.PublicAotDocument(PublicPageId.Filter, string.Empty);
+        var scoped = new PublicAotBackfillRequest(PublicPageKind.Filter, "category:7", "/category/7", string.Empty, cacheKey)
+        {
+            PagePrefixKey = scopedPrefix,
+            ScheduledInvalidationVersion = tracker.GetCurrentVersion(cacheKey, scopedPrefix)
+        };
+        var unscoped = scoped with
+        {
+            PagePrefixKey = string.Empty,
+            ScheduledInvalidationVersion = tracker.GetCurrentVersion(cacheKey, string.Empty)
+        };
 
-        Assert.DoesNotContain("CacheKeyBuilder.PublicAotDocument", source, StringComparison.Ordinal);
-        Assert.Contains("GetCurrentVersion(string cacheKey, string pagePrefixKey)", source, StringComparison.Ordinal);
+        tracker.MarkPrefix(scopedPrefix);
+
+        Assert.True(tracker.WasInvalidatedAfter(scoped));
+        Assert.False(tracker.WasInvalidatedAfter(unscoped));
+        Assert.Equal(0, tracker.GetCurrentVersion(cacheKey, string.Empty));
+        Assert.True(tracker.GetCurrentVersion(cacheKey, scopedPrefix) > 0);
     }
     private sealed class RecordingAotCache : IPublicAotShellCache
     {

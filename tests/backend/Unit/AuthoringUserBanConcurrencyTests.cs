@@ -240,7 +240,8 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             _messageCommandService: messages,
             _messageRealtimePublisher: realtime,
             _totpService: Substitute.For<ITotpService>(),
-            _authRiskService: Substitute.For<IAuthRiskService>());
+            _authRiskService: Substitute.For<IAuthRiskService>(),
+            _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
     }
 
     private sealed class RecordingBlacklistService : IBlacklistService

@@ -62,5 +62,6 @@ public enum CachePolicyId
     RelatedReading = 57,
     TaxonomyFrameVersion = 58,
     AccountSnapshot = 59,
-    AccountSnapshotVersion = 60
+    AccountSnapshotVersion = 60,
+    SecurityUserSessionValidation = 61
 }

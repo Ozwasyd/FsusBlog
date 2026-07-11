@@ -256,7 +256,7 @@ public static class AnonymousCredentialRevocationAccumulator
         }
 
         string expectedRoot = ComputeRootCore(epoch, issuer, normalizedHandles.Value);
-        if (!string.Equals(expectedRoot, root, StringComparison.OrdinalIgnoreCase))
+        if (!FixedHexEquals(expectedRoot, root))
         {
             return Result<AnonymousCredentialNonMembershipWitness>.Failure(ErrorCode.Validation, "anonymous_credential_revocation_root_mismatch");
         }
@@ -306,7 +306,7 @@ public static class AnonymousCredentialRevocationAccumulator
             return Result<AnonymousCredentialNonMembershipWitness>.Failure(ErrorCode.Validation, "anonymous_credential_witness_invalid");
         }
 
-        if (!string.Equals(tree.Value.RootHash, root, StringComparison.OrdinalIgnoreCase))
+        if (!FixedHexEquals(tree.Value.RootHash, root))
         {
             return Result<AnonymousCredentialNonMembershipWitness>.Failure(ErrorCode.Validation, "anonymous_credential_revocation_root_mismatch");
         }
@@ -492,7 +492,7 @@ public static class AnonymousCredentialRevocationAccumulator
         }
 
         key = ResolveCircuitFriendlyLeafKey(handle);
-        if (!string.Equals(witness.LeafKey, FormatCircuitFriendlyLeafKey(key), StringComparison.OrdinalIgnoreCase))
+        if (!FixedHexEquals(witness.LeafKey, FormatCircuitFriendlyLeafKey(key)))
         {
             return false;
         }

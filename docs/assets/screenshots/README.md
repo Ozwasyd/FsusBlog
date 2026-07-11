@@ -29,6 +29,25 @@ The screenshots come from the Playwright route audit fixtures and manual full-ro
 - no tokens or object storage URLs
 - no private roadmap or internal-only notes
 
+## Cover Evidence Rules
+
+Public home and article screenshots use the reviewed fixtures registered in
+[`cover-art-manifest.json`](../../../src/frontend/public/fixtures/cover-art-manifest.json).
+The assets depict route-audit UI, focus traversal, performance measurements,
+route structure, or binary-frame output; they do not embed an article title,
+category, site name, or CTA. Each concept has a distinct composition rather
+than a palette-swapped abstract template.
+
+Capture review must inspect both the 4:3 home crop and 16:9 article crop. The
+key evidence stays inside the shared `center-80` safe area, and the renderer
+adds only a neutral 1px boundary—no gradient, glow, colored backing surface,
+filter, or decorative shadow. Dark captures must be reviewed for large bright
+regions instead of applying an automatic darkening filter. A missing or blank
+cover URL renders the complete text hierarchy without an empty media box.
+
+The Do/Don't examples and full review checklist live in
+[`public-layout-rules.md`](../../public-layout-rules.md#12-内容驱动的封面规范).
+
 ## Brand And Asset Rights
 
 The screenshots do not include a separate logo file, trademark artwork, generated bitmap illustration, or production brand asset. The visible `FsusBlog` wordmark is rendered as plain text for documentation context. Code is covered by the repository license; screenshots and brand usage should be treated as documentation examples unless a later brand policy says otherwise.
@@ -41,7 +60,7 @@ Regenerate the PNG files by running the manual route screenshot audit from the f
 FSUSBLOG_MANUAL_SCREENSHOT_RUNTIME_AUDIT=0 FSUSBLOG_MANUAL_SCREENSHOT_LAYOUT_AUDIT=0 FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1 npm --prefix src/frontend run capture:manual-layout-screenshots
 ```
 
-The manual audit derives its coverage from the frontend router table. It writes full route screenshots under `FSUSBLOG_MANUAL_SCREENSHOT_DIR` or `.tmp/manual-layout-screenshots/current`, and copies the selected documentation aliases above into this directory when `FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1` is set. Leave the audit flags enabled for layout QA; set them to `0` only for capture-only documentation refreshes. This is the only screenshot capture path for these documentation assets.
+The manual audit derives its coverage from the frontend router table. It writes full route screenshots under `FSUSBLOG_MANUAL_SCREENSHOT_DIR` or `.tmp/manual-layout-screenshots/current`, and copies the selected documentation aliases above into this directory when `FSUSBLOG_MANUAL_SCREENSHOT_WRITE_DOCS_ASSETS=1` is set. Leave the audit flags enabled for layout QA; set them to `0` only for capture-only documentation refreshes. This is the only screenshot capture path for these documentation assets. Run it after changing a checked-in cover fixture or either cover container so all public-preview PNG aliases are refreshed from the live route, not edited or synthesized independently.
 
 For targeted local review or CI matrix jobs, keep each Playwright shard at
 `--workers=1` and split the route matrix with deterministic filters:

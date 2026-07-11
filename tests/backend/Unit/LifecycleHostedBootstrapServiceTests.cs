@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -39,7 +40,9 @@ public sealed class LifecycleHostedBootstrapServiceTests
             Assert.True(File.Exists(Path.Combine(aotCacheDir, "stale.txt")));
             Assert.False(runtimeState.SystemCachesClearedOnStartup);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["schemaMigration"].Status);
-            Assert.Equal("non_compensable", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
+            Assert.Equal("compatibility_check", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Status);
+            Assert.Equal("physical_projection_complete", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Detail);
             Assert.Equal("skipped", runtimeState.GetStartupTasks()["bootstrapRollback"].Status);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["searchIndex"].Status);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["cacheInitializer"].Status);
@@ -84,7 +87,7 @@ public sealed class LifecycleHostedBootstrapServiceTests
             Assert.Equal("skipped", runtimeState.GetStartupTasks()["bootstrapRollback"].Status);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["aotDiskCache"].Status);
             Assert.Equal("cleared", runtimeState.GetStartupTasks()["aotDiskCache"].Detail);
-            Assert.Equal("non_compensable", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
+            Assert.Equal("compatibility_check", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
             Assert.Equal("no_entries", runtimeState.GetStartupTasks()["cacheInitializer"].Detail);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["bootstrap"].Status);
             await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
@@ -98,13 +101,9 @@ public sealed class LifecycleHostedBootstrapServiceTests
     }
 
     [Fact]
-    public async Task StartAsync_RunsLegacyIdentityReset_WhenConfirmationIsPresent()
+    public async Task StartAsync_ChecksPhysicalAccountSubjectProjectionAfterSchemaMigration()
     {
         string root = CreateTempRoot();
-        string? previousConfirmation = Environment.GetEnvironmentVariable(LegacyIdentityColdStartResetOperation.ConfirmationEnvironmentVariable);
-        Environment.SetEnvironmentVariable(
-            LegacyIdentityColdStartResetOperation.ConfirmationEnvironmentVariable,
-            LegacyIdentityColdStartResetOperation.RequiredConfirmation);
         try
         {
             var runtimeState = new StartupRuntimeState();
@@ -112,22 +111,18 @@ public sealed class LifecycleHostedBootstrapServiceTests
                 out ISchemaMigrationRunner migrationRunner,
                 out ISearchIndexService searchIndexService,
                 out ICacheInitializer cacheInitializer);
-            var resetOperation = services.GetRequiredService<ILegacyIdentityColdStartResetOperation>();
-            resetOperation.RunFromEnvironmentAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(
-                new LegacyIdentityColdStartResetResult(
-                    UsersDeleted: 1,
-                    SessionsDeleted: 2,
-                    PasskeyCredentialsDeleted: 3,
-                    AccountRecoveryKeysDeleted: 4,
-                    AnonymousCredentialsDeleted: 5,
-                    AnonymousCredentialIssuanceAuditsDeleted: 6,
-                    CommentAnonymousNullifiersDeleted: 7,
-                    CommentsDeleted: 4,
-                    CommentRegionComplianceDeleted: 8,
-                    CommentModerationSignalsDeleted: 9,
-                    MessageParticipantStatesDeleted: 10,
-                    UserBoundMessagesDeleted: 11,
-                    UserBoundConversationsDeleted: 12)));
+            var invariantGate = services.GetRequiredService<IAccountSubjectHashInvariantGate>();
+            var order = new List<string>();
+            migrationRunner.RunAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+            {
+                order.Add("migration");
+                return Task.CompletedTask;
+            });
+            invariantGate.EnsureAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+            {
+                order.Add("invariant");
+                return Task.CompletedTask;
+            });
 
             var service = new LifecycleHostedBootstrapService(
                 services,
@@ -139,19 +134,17 @@ public sealed class LifecycleHostedBootstrapServiceTests
             await service.StartAsync(CancellationToken.None);
 
             Assert.Equal("ok", runtimeState.GetStartupTasks()["schemaMigration"].Status);
-            Assert.Equal("ok", runtimeState.GetStartupTasks()["legacyIdentityReset"].Status);
-            Assert.Equal("users:1;comments:4", runtimeState.GetStartupTasks()["legacyIdentityReset"].Detail);
+            Assert.Equal("ok", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Status);
+            Assert.Equal("physical_projection_complete", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Detail);
+            Assert.Equal(["migration", "invariant"], order);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["searchIndex"].Status);
             await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
-            await resetOperation.Received(1).RunFromEnvironmentAsync(Arg.Any<CancellationToken>());
+            await invariantGate.Received(1).EnsureAsync(Arg.Any<CancellationToken>());
             await searchIndexService.Received(1).BuildIndexAsync(Arg.Is<List<FsusBlog.Server.Entities.Article>>(items => items.Count == 0));
             await cacheInitializer.Received(1).InitializeAsync();
         }
         finally
         {
-            Environment.SetEnvironmentVariable(
-                LegacyIdentityColdStartResetOperation.ConfirmationEnvironmentVariable,
-                previousConfirmation);
             Directory.Delete(root, recursive: true);
         }
     }
@@ -333,6 +326,47 @@ public sealed class LifecycleHostedBootstrapServiceTests
         }
     }
 
+    [Fact]
+    public async Task StartAsync_StopsRemainingTasks_WhenAccountSubjectProjectionIsIncomplete()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            var runtimeState = new StartupRuntimeState();
+            ServiceProvider services = CreateServices(
+                out ISchemaMigrationRunner migrationRunner,
+                out ISearchIndexService searchIndexService,
+                out ICacheInitializer cacheInitializer);
+            var invariantGate = services.GetRequiredService<IAccountSubjectHashInvariantGate>();
+            invariantGate.EnsureAsync(Arg.Any<CancellationToken>())
+                .Returns(_ => Task.FromException(new InvalidOperationException("projection incomplete")));
+            var service = new LifecycleHostedBootstrapService(
+                services,
+                new TestWebHostEnvironment(root),
+                runtimeState,
+                Options.Create(new LifecycleBootstrapOptions { ClearAotDiskCacheOnStartup = true }),
+                Substitute.For<ILogger<LifecycleHostedBootstrapService>>());
+
+            await service.StartAsync(CancellationToken.None);
+
+            IReadOnlyDictionary<string, StartupLifecycleTaskReport> tasks = runtimeState.GetStartupTasks();
+            Assert.Equal("ok", tasks["schemaMigration"].Status);
+            Assert.Equal("failed", tasks["accountSubjectHashInvariant"].Status);
+            Assert.Equal("InvalidOperationException", tasks["accountSubjectHashInvariant"].Detail);
+            Assert.False(tasks.ContainsKey("aotDiskCache"));
+            Assert.False(tasks.ContainsKey("searchIndex"));
+            Assert.False(tasks.ContainsKey("cacheInitializer"));
+            Assert.Equal("failed", tasks["bootstrap"].Status);
+            await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
+            await searchIndexService.DidNotReceive().BuildIndexAsync(Arg.Any<List<FsusBlog.Server.Entities.Article>>());
+            await cacheInitializer.DidNotReceive().InitializeAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static ServiceProvider CreateServices(
         out ISchemaMigrationRunner migrationRunner,
         out ISearchIndexService searchIndexService,
@@ -367,26 +401,12 @@ public sealed class LifecycleHostedBootstrapServiceTests
         cacheInitializer.RollbackAsync(Arg.Any<CacheInitializationResult>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        var resetOperation = Substitute.For<ILegacyIdentityColdStartResetOperation>();
-        resetOperation.RunFromEnvironmentAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(
-            new LegacyIdentityColdStartResetResult(
-                UsersDeleted: 0,
-                SessionsDeleted: 0,
-                PasskeyCredentialsDeleted: 0,
-                AccountRecoveryKeysDeleted: 0,
-                AnonymousCredentialsDeleted: 0,
-                AnonymousCredentialIssuanceAuditsDeleted: 0,
-                CommentAnonymousNullifiersDeleted: 0,
-                CommentsDeleted: 0,
-                CommentRegionComplianceDeleted: 0,
-                CommentModerationSignalsDeleted: 0,
-                MessageParticipantStatesDeleted: 0,
-                UserBoundMessagesDeleted: 0,
-                UserBoundConversationsDeleted: 0)));
+        var invariantGate = Substitute.For<IAccountSubjectHashInvariantGate>();
+        invariantGate.EnsureAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
         var services = new ServiceCollection();
         services.AddSingleton(migrationRunner);
-        services.AddSingleton(resetOperation);
+        services.AddSingleton(invariantGate);
         services.AddSingleton(searchIndexService);
         services.AddSingleton(cacheInitializer);
         return services.BuildServiceProvider();

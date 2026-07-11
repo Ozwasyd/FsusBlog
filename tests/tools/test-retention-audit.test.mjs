@@ -9,6 +9,8 @@ import test from 'node:test'
 import {
   auditTestRecords,
   compactRetentionBaseline,
+  compactRetentionKey,
+  decodeCompactRetentionIndex,
   extractTestRecords,
   inferTierIdsForFile,
   isTestInventoryPath,
@@ -16,6 +18,7 @@ import {
   percentile,
   reviewCandidateFiles,
   retentionSourceState,
+  validateCompactRetentionBaseline,
   vitestHistoryEntries,
   vitestTestId,
   xunitMethodHistoryId,
@@ -282,13 +285,19 @@ test('retention audit CLI records scheduler or explicit production run identity 
     assert.equal(baseline.sourceState.commit, 'df337d2bef3df65447637fc715e73a1436e76a5f')
     assert.match(baseline.sourceState.worktreeFingerprint, /^[0-9a-f]{64}$/u)
     assert.ok(baseline.catalogSnapshot.productionRequiredTierIds.includes('production'))
-    assert.ok(baseline.testRecords.length > 0)
+    assert.equal(baseline.schema, 'fsusblog.test-retention-baseline.v3')
+    assert.ok(baseline.testIndex.count > 0)
+    assert.equal(decodeCompactRetentionIndex(baseline.testIndex).length, baseline.testIndex.count)
+    assert.equal(baseline.testRecords, undefined)
+    assert.equal(baseline.generatedAt, undefined)
+    assert.equal(baseline.producer, undefined)
     assert.equal(baseline.files, undefined)
-    assert.deepEqual(Object.keys(baseline.optimizationEvidence.coverage).sort(), ['backend', 'frontend', 'merged'])
+    assert.deepEqual(baseline.optimizationEvidence.coverageBaseline.scopes, ['backend', 'frontend', 'merged'])
     assert.equal(baseline.optimizationEvidence.criticalMutationSlice.evidenceMode, 'scope-identity')
-    assert.ok(baseline.optimizationEvidence.criticalMutationSlice.testIds.length > 0)
-    assert.equal(baseline.replacementManifestBaseline.deletedTestIds.length, 5)
-    assert.equal(baseline.replacementManifestBaseline.assertionBeforeTargets.length, 10)
+    assert.ok(baseline.optimizationEvidence.criticalMutationSlice.testIdIndex.count > 0)
+    assert.equal(baseline.replacementManifestBaseline.deletedTestIndex.count, 5)
+    assert.equal(baseline.replacementManifestBaseline.assertionBeforeIndex.count, 10)
+    validateCompactRetentionBaseline(baseline)
 
     assert.throws(() => execFileSync(process.execPath, [
       'tools/check-test-retention.mjs',
@@ -378,17 +387,31 @@ test('compact before snapshot preserves deletion evidence and rejects an unbound
 
   const baseline = compactRetentionBaseline(audit, { optimizationEvidence })
 
+  assert.equal(baseline.schema, 'fsusblog.test-retention-baseline.v3')
   assert.equal(baseline.snapshotRole, 'before-test-reduction')
   assert.deepEqual(baseline.sourceState, sourceState)
-  assert.deepEqual(baseline.testRecords, audit.testRecords)
   assert.deepEqual(baseline.catalogSnapshot, audit.catalogSnapshot)
-  assert.deepEqual(baseline.optimizationEvidence, optimizationEvidence)
-  assert.deepEqual(baseline.replacementManifestBaseline, {
-    deletedTestIds: ['historically-deleted-test'],
-    assertionBeforeTargets: ['historical assertion'],
-    tierFromIds: ['historical-tier']
-  })
+  assert.equal(baseline.testRecords, undefined)
+  assert.equal(baseline.generatedAt, undefined)
+  assert.equal(baseline.producer, undefined)
+  assert.deepEqual(decodeCompactRetentionIndex(baseline.testIndex), [
+    compactRetentionKey('node-test:tests/example.test.mjs#keeps-contract')
+  ])
+  assert.deepEqual(decodeCompactRetentionIndex(baseline.assertionIndex), [
+    compactRetentionKey('assert.equal(value, 1)')
+  ])
+  assert.deepEqual(decodeCompactRetentionIndex(baseline.replacementManifestBaseline.deletedTestIndex), [
+    compactRetentionKey('historically-deleted-test')
+  ])
+  assert.deepEqual(decodeCompactRetentionIndex(baseline.replacementManifestBaseline.assertionBeforeIndex), [
+    compactRetentionKey('historical assertion')
+  ])
+  assert.deepEqual(baseline.replacementManifestBaseline.tierFromIds, ['historical-tier'])
+  assert.deepEqual(baseline.optimizationEvidence.coverageBaseline.scopes, ['backend', 'frontend', 'merged'])
+  assert.equal(baseline.optimizationEvidence.criticalMutationSlice.testIdIndex.count, 1)
   assert.equal(baseline.files, undefined)
+  assert.doesNotMatch(JSON.stringify(baseline), /example\.test|assert\.equal|2026-07-10T/u)
+  validateCompactRetentionBaseline(baseline)
   assert.throws(
     () => compactRetentionBaseline({ ...audit, sourceState: null }, { optimizationEvidence }),
     /source state/u

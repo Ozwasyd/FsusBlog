@@ -8,7 +8,6 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -525,19 +524,37 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
-    public void RedisGate_AttemptCounterUsesSingleRedisScript()
+    public async Task RedisGate_AttemptCounterUsesSingleRedisScript()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/PerceptionChallengeV2Service.cs");
-        string registerAttempt = ExtractBetween(
-            source,
-            "public async Task<PerceptionChallengeV2AttemptGateResult> RegisterAttemptAsync",
-            "public async Task<PerceptionChallengeV2ConsumeResult> TryConsumeOnceAsync");
+        var database = Substitute.For<IDatabase>();
+        database.ScriptEvaluateAsync(
+                Arg.Any<string>(),
+                Arg.Any<RedisKey[]>(),
+                Arg.Any<RedisValue[]>(),
+                Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(RedisResult.Create((RedisValue)1L)));
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
+        var gate = new RedisPerceptionChallengeV2Gate(
+            redis,
+            new DefaultRuntimeKeyScope(),
+            new MutableTimeProvider(BaselineNow));
 
-        Assert.Contains("ScriptEvaluateAsync", registerAttempt, StringComparison.Ordinal);
-        Assert.Contains("redis.call('INCR'", registerAttempt, StringComparison.Ordinal);
-        Assert.Contains("redis.call('PEXPIRE'", registerAttempt, StringComparison.Ordinal);
-        Assert.DoesNotContain("StringIncrementAsync", registerAttempt, StringComparison.Ordinal);
-        Assert.DoesNotContain("KeyExpireAsync", registerAttempt, StringComparison.Ordinal);
+        PerceptionChallengeV2AttemptGateResult result = await gate.RegisterAttemptAsync(
+            "challenge-script-contract",
+            BaselineNow.AddMinutes(5),
+            maxAttempts: 3,
+            CancellationToken.None);
+
+        Assert.True(result.Allowed, result.Reason);
+        var scriptCall = Assert.Single(database.ReceivedCalls().Where(static call =>
+            call.GetMethodInfo().Name == nameof(IDatabase.ScriptEvaluateAsync)));
+        string script = Assert.IsType<string>(scriptCall.GetArguments()[0]);
+        Assert.Contains("redis.call('INCR'", script, StringComparison.Ordinal);
+        Assert.Contains("redis.call('PEXPIRE'", script, StringComparison.Ordinal);
+        string[] callNames = database.ReceivedCalls().Select(static call => call.GetMethodInfo().Name).ToArray();
+        Assert.DoesNotContain("StringIncrementAsync", callNames);
+        Assert.DoesNotContain("KeyExpireAsync", callNames);
     }
 
     [Fact]
@@ -894,12 +911,4 @@ public sealed class PerceptionChallengeV2ServiceTests
         public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Could not find start marker '{start}'.");
-        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Could not find end marker '{end}'.");
-        return source[startIndex..endIndex];
-    }
 }

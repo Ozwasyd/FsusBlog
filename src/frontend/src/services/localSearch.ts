@@ -1,5 +1,6 @@
 import type { ArticleListItemResponse, PageResponse } from '@/api/article'
 import { withBinaryAccept } from '@/api/contracts'
+import { resolveReleaseSearchManifestUrl } from '@/config/releaseStorage'
 import { mapArticleSearchFromPodPayload } from '@/adapters/binary/articleAdapter'
 import { rankSearchPage } from '@/services/searchRanking'
 import { subscribeServiceWorkerMessages } from '@/services/serviceWorkerRuntime'
@@ -30,8 +31,10 @@ type SearchManifest = {
   deepRoles: string[]
 }
 
-function resolveSearchManifestUrl(): string {
-  return `${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}search/index.manifest.aeds`
+export function resolveSearchManifestUrl(): string {
+  return resolveReleaseSearchManifestUrl(
+    import.meta.env.BASE_URL || '/',
+    import.meta.env.VITE_FSUSBLOG_BUILD_ID)
 }
 
 const SEARCH_MANIFEST_URL = resolveSearchManifestUrl()

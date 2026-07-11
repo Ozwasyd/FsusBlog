@@ -81,17 +81,31 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
-    public void RecordAttemptAsync_UsesReturningMetricsWithoutPostTransactionAttemptChallengeReloads()
+    public async Task RecordAttemptAsync_UsesReturningMetricsWithoutPostTransactionReloads()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/Security/SecurityChallengePersistenceService.cs"));
-        string record = ExtractMethodBlock(source, "public async Task<SecurityChallengeAttempt> RecordAttemptAsync");
+        using SqlSugarClient db = await CreateDbAsync();
+        CreateTables(db);
+        var service = new SecurityChallengePersistenceService(db);
+        SecurityChallengeIssueRequest issue = CreateIssueRequest();
+        await service.IssueAsync(issue, CancellationToken.None);
+        var executedSql = new List<string>();
+        db.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
 
-        Assert.Contains("RETURNING", source, StringComparison.Ordinal);
-        Assert.Contains("ReadChallengeMetricContextAsync", record, StringComparison.Ordinal);
-        Assert.DoesNotContain("storedAttempt", record, StringComparison.Ordinal);
-        Assert.DoesNotContain("storedChallenge", record, StringComparison.Ordinal);
-        Assert.DoesNotContain("SingleAsync(item => item.AttemptId", record, StringComparison.Ordinal);
-        Assert.DoesNotContain("SingleAsync(item => item.ChallengeId", record, StringComparison.Ordinal);
+        SecurityChallengeAttempt attempt = await service.RecordAttemptAsync(
+            CreateAttemptRequest(issue.ChallengeId, SecurityChallengeAttemptOutcomes.Verified),
+            CancellationToken.None);
+
+        string update = Assert.Single(executedSql.Where(static sql =>
+            sql.Contains("UPDATE security_challenge", StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains("RETURNING", update, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("kind", update, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("action", update, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("policy_version", update, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(executedSql, static sql =>
+            sql.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase));
+        Assert.False(string.IsNullOrWhiteSpace(attempt.AttemptId));
+        Assert.Equal(issue.ChallengeId, attempt.ChallengeId);
+        Assert.Equal(SecurityChallengeAttemptOutcomes.Verified, attempt.Outcome);
     }
 
     [Fact]
@@ -205,6 +219,66 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
         Assert.Equal(2, await db.Queryable<SecurityChallengeAttempt>().CountAsync());
     }
 
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    [Trait("Category", "SecurityStateMachine")]
+    public async Task RecordAttemptAsync_ConcurrentOutcomesCannotDowngradeVerifiedChallenge()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        var setupService = new SecurityChallengePersistenceService(setupDb);
+        SecurityChallengeIssueRequest request = CreateIssueRequest();
+        await setupService.IssueAsync(request, CancellationToken.None);
+        await setupService.RecordAttemptAsync(
+            CreateAttemptRequest(request.ChallengeId, SecurityChallengeAttemptOutcomes.Verified),
+            CancellationToken.None);
+        SecurityChallenge verified = await setupDb.Queryable<SecurityChallenge>()
+            .SingleAsync(item => item.ChallengeId == request.ChallengeId);
+        Assert.NotNull(verified.VerifiedAtUtc);
+
+        string[] concurrentOutcomes =
+        [
+            SecurityChallengeAttemptOutcomes.Failed,
+            SecurityChallengeAttemptOutcomes.Replayed,
+            SecurityChallengeAttemptOutcomes.Expired,
+            SecurityChallengeAttemptOutcomes.Revoked,
+            SecurityChallengeAttemptOutcomes.Verified,
+            SecurityChallengeAttemptOutcomes.Failed,
+            SecurityChallengeAttemptOutcomes.Replayed,
+            SecurityChallengeAttemptOutcomes.Revoked
+        ];
+        using var barrier = new Barrier(concurrentOutcomes.Length);
+        Task<SecurityChallengeAttempt>[] writes = concurrentOutcomes
+            .Select(outcome => StartTogetherAsync(
+                barrier,
+                async () =>
+                {
+                    using SqlSugarClient concurrentDb = PostgresSqlSugarTestClient.Create(connectionString);
+                    var service = new SecurityChallengePersistenceService(concurrentDb);
+                    return await service.RecordAttemptAsync(
+                        CreateAttemptRequest(request.ChallengeId, outcome, $"concurrent-{outcome}"),
+                        CancellationToken.None);
+                }))
+            .ToArray();
+
+        SecurityChallengeAttempt[] attempts = await Task.WhenAll(writes)
+            .WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(
+            concurrentOutcomes.OrderBy(static outcome => outcome).ToArray(),
+            attempts.Select(static attempt => attempt.Outcome).OrderBy(static outcome => outcome).ToArray());
+        SecurityChallenge stored = await setupDb.Queryable<SecurityChallenge>()
+            .SingleAsync(item => item.ChallengeId == request.ChallengeId);
+        Assert.Equal(SecurityChallengeStatuses.Verified, stored.Status);
+        Assert.Equal(verified.VerifiedAtUtc, stored.VerifiedAtUtc);
+        Assert.Null(stored.RevokedAtUtc);
+        Assert.Equal(
+            concurrentOutcomes.Length + 1,
+            await setupDb.Queryable<SecurityChallengeAttempt>()
+                .CountAsync(item => item.ChallengeId == request.ChallengeId));
+    }
+
     private static SecurityChallengeIssueRequest CreateIssueRequest(string? challengeId = null)
     {
         DateTime now = DateTime.UtcNow;
@@ -251,31 +325,17 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
             typeof(SecurityChallengeAttempt));
     }
 
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing method signature: {signature}");
-
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart >= 0, $"Missing method body: {signature}");
-
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
-        {
-            if (source[i] == '{')
+    private static Task<T> StartTogetherAsync<T>(Barrier barrier, Func<Task<T>> action)
+        => Task.Factory.StartNew(
+            async () =>
             {
-                depth++;
-            }
-            else if (source[i] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(i + 1)];
-                }
-            }
-        }
+                Assert.True(
+                    barrier.SignalAndWait(TimeSpan.FromSeconds(30)),
+                    "Timed out waiting for concurrent challenge attempts.");
+                return await action();
+            },
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
 
-        throw new InvalidOperationException($"Unable to extract method body: {signature}");
-    }
 }

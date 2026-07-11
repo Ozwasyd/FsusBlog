@@ -194,7 +194,7 @@ public partial class StatsService(
             return result;
     }
 
-    private async Task<List<RecentCommentStatItemDto>> LoadRecentCommentsAsync(CancellationToken cancellationToken)
+    internal async Task<List<RecentCommentStatItemDto>> LoadRecentCommentsAsync(CancellationToken cancellationToken)
     {
         var recentQuery = _db.Queryable<Comment>()
             .Where(c => c.ModerationStatus == CommentModerationStatus.Approved && !c.IsDeleted)
@@ -238,7 +238,7 @@ public partial class StatsService(
         return recentComments;
     }
 
-    private static RecentCommentStatItemDto CreateRecentCommentStatItem(
+    internal static RecentCommentStatItemDto CreateRecentCommentStatItem(
         string? authorMode,
         string? publicHandle,
         string? anonymousDisplayName,
@@ -296,7 +296,7 @@ public partial class StatsService(
             ? "已验证匿名凭证"
             : null;
 
-    private async Task<List<RegionStatItemDto>> LoadRegionStatsAsync(CancellationToken cancellationToken)
+    internal async Task<List<RegionStatItemDto>> LoadRegionStatsAsync(CancellationToken cancellationToken)
     {
         const string regionSql = """
             WITH normalized_regions AS (

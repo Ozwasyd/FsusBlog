@@ -1,61 +1,129 @@
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class StatsPerformanceContractTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class StatsPerformanceContractTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public void BinaryStatsSubEndpoints_DoNotLoadFullAdminStatsCoreModel()
+    public async Task RecentCommentsAndRegions_EachExecuteOneNarrowCommandWithoutOverviewQueries()
     {
-        string source = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Stats.cs");
-        string recent = ExtractRouteBlock(source, "stats/recent-comments");
-        string regions = ExtractRouteBlock(source, "stats/regions");
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(db, typeof(Comment));
+        db.Ado.ExecuteCommand("""
+            CREATE TABLE region_read_stats (
+                region text NULL,
+                read_count bigint NOT NULL,
+                updated_at_utc timestamp without time zone NOT NULL
+            );
+            """);
+        DateTime now = DateTime.UtcNow;
+        db.Insertable(new[]
+        {
+            new Comment
+            {
+                Id = 1,
+                ArticleId = 10,
+                Content = "public measured comment",
+                CreateTime = now.AddMinutes(-1),
+                AuthorMode = CommentAuthorModes.Public,
+                PublicHandle = "Public Query",
+                UserId = 7001,
+                ModerationStatus = CommentModerationStatus.Approved,
+                IsDeleted = false
+            },
+            new Comment
+            {
+                Id = 2,
+                ArticleId = 10,
+                Content = "anonymous measured comment",
+                CreateTime = now.AddMinutes(-2),
+                AuthorMode = CommentAuthorModes.Anonymous,
+                AnonymousDisplayName = "Query Budget",
+                AnonymousScope = "article:10",
+                CredentialLevel = "basic",
+                UserId = 7002,
+                ModerationStatus = CommentModerationStatus.Approved,
+                IsDeleted = false
+            },
+            new Comment
+            {
+                Id = 3,
+                ArticleId = 10,
+                Content = "zk measured comment",
+                CreateTime = now.AddMinutes(-3),
+                AuthorMode = CommentAuthorModes.ZkAnonymous,
+                AnonymousDisplayName = "Verified Query",
+                AnonymousScope = "article:10",
+                CredentialLevel = "verified",
+                UserId = 7003,
+                ModerationStatus = CommentModerationStatus.Approved,
+                IsDeleted = false
+            }
+        }).ExecuteCommand();
+        db.Ado.ExecuteCommand(
+            "INSERT INTO region_read_stats(region, read_count, updated_at_utc) VALUES (@Region, @Count, @Now);",
+            new SugarParameter("@Region", "中国-北京"),
+            new SugarParameter("@Count", 4L),
+            new SugarParameter("@Now", now));
 
-        Assert.Contains("GetAdminRecentCommentsAsync", recent, StringComparison.Ordinal);
-        Assert.Contains("GetAdminRegionStatsAsync", regions, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAdminStatsAsync", recent, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAdminStatsAsync", regions, StringComparison.Ordinal);
+        var executedSql = new List<string>();
+        db.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
+        var service = new StatsService(
+            db,
+            Substitute.For<IUnifiedCache>(),
+            Substitute.For<ICacheMissCoordinator>(),
+            Substitute.For<IDbConcurrencyGate>(),
+            NullLogger<StatsService>.Instance);
+
+        List<FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto> comments =
+            await service.LoadRecentCommentsAsync(CancellationToken.None);
+        Assert.Equal(3, comments.Count);
+        FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto publicComment = comments[0];
+        Assert.Equal("Public Query", publicComment.AuthorDisplayName);
+        Assert.Equal(CommentAuthorModes.Public, publicComment.AuthorMode);
+        Assert.Null(publicComment.AuthorBadge);
+        Assert.Null(publicComment.AuthorScopeLabel);
+        Assert.Null(publicComment.CredentialLevel);
+
+        FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto anonymousComment = comments[1];
+        Assert.Equal("Query Budget", anonymousComment.AuthorDisplayName);
+        Assert.Equal(CommentAuthorModes.Anonymous, anonymousComment.AuthorMode);
+        Assert.Null(anonymousComment.AuthorBadge);
+        Assert.Equal("article:10", anonymousComment.AuthorScopeLabel);
+        Assert.Equal("basic", anonymousComment.CredentialLevel);
+
+        FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto zkComment = comments[2];
+        Assert.Equal("Verified Query", zkComment.AuthorDisplayName);
+        Assert.Equal(CommentAuthorModes.ZkAnonymous, zkComment.AuthorMode);
+        Assert.Equal("已验证匿名凭证", zkComment.AuthorBadge);
+        Assert.Equal("article:10", zkComment.AuthorScopeLabel);
+        Assert.Equal("verified", zkComment.CredentialLevel);
+        Assert.DoesNotContain(comments, static item =>
+            item.AuthorDisplayName is "7001" or "7002" or "7003");
+        Assert.Single(executedSql);
+        Assert.Contains("comment", executedSql[0], StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("daily_read_stats", executedSql[0], StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("event_type_read_stats", executedSql[0], StringComparison.OrdinalIgnoreCase);
+
+        executedSql.Clear();
+        List<FsusBlog.Shared.Contracts.Outputs.RegionStatItemDto> regions =
+            await service.LoadRegionStatsAsync(CancellationToken.None);
+        Assert.Single(regions);
+        Assert.Equal("中国-北京", regions[0].Region);
+        Assert.Single(executedSql);
+        Assert.Contains("region_read_stats", executedSql[0], StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("daily_read_stats", executedSql[0], StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("event_type_read_stats", executedSql[0], StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
-    public void StatsCoreQueryCache_SourceUsesSingleFlightForColdMisses()
-    {
-        string source = ReadRepoFile("src/backend/Infrastructure/CoreBridge/Caching/StatsCoreQueryCache.cs");
-
-        Assert.Contains("AcquireSingleFlightAsync", source, StringComparison.Ordinal);
-        Assert.Contains("await using", source, StringComparison.Ordinal);
-        Assert.Contains("TryGetAsync(CachePolicyId.AdminStats", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void StatsCachePolicies_AreSplitByOverviewRecentRegionsAndFrame()
-    {
-        string policyIds = ReadRepoFile("src/backend/Infrastructure/Cache/CachePolicyId.cs");
-        string registry = ReadRepoFile("src/backend/Infrastructure/Cache/CachePolicyRegistry.cs");
-        string invalidation = ReadRepoFile("src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs");
-
-        Assert.Contains("AdminStatsOverview", policyIds, StringComparison.Ordinal);
-        Assert.Contains("AdminStatsRecentComments", policyIds, StringComparison.Ordinal);
-        Assert.Contains("AdminStatsRegions", policyIds, StringComparison.Ordinal);
-        Assert.Contains("CachePolicyId.AdminStatsOverview", registry, StringComparison.Ordinal);
-        Assert.Contains("CachePolicyId.AdminStatsRecentComments", registry, StringComparison.Ordinal);
-        Assert.Contains("CachePolicyId.AdminStatsRegions", registry, StringComparison.Ordinal);
-        Assert.Contains("new(CachePolicyId.AdminStatsOverview", invalidation, StringComparison.Ordinal);
-        Assert.Contains("new(CachePolicyId.AdminStatsRecentComments", invalidation, StringComparison.Ordinal);
-        Assert.Contains("new(CachePolicyId.AdminStatsRegions", invalidation, StringComparison.Ordinal);
-    }
-
-    private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
-
-    private static string ExtractRouteBlock(string source, string route)
-    {
-        int routeIndex = source.IndexOf(route, StringComparison.Ordinal);
-        Assert.True(routeIndex >= 0, $"Missing route: {route}");
-        int start = source.LastIndexOf("group.MapGet", routeIndex, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing MapGet start for route: {route}");
-        int end = source.IndexOf("}).RequireAdminPermission", routeIndex, StringComparison.Ordinal);
-        Assert.True(end > start, $"Missing MapGet end for route: {route}");
-        return source[start..end];
-    }
 }

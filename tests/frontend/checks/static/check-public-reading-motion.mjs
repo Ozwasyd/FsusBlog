@@ -132,12 +132,18 @@ expectIncludes(publicPageCss, '--fsusblog-overlay-scrim: rgba(15, 15, 17, 0.72);
 expectIncludes(publicPageCss, '--fsusblog-overlay-button-bg: rgba(255, 255, 255, 0.12);', 'public-page.css')
 expectIncludes(publicPageCss, '--fsusblog-overlay-button-fg: rgba(255, 255, 255, 0.92);', 'public-page.css')
 expectIncludes(publicPageCss, '--fsusblog-overlay-button-border: rgba(255, 255, 255, 0.24);', 'public-page.css')
-expectIncludes(publicPageCss, '.fsu-bottom-tab-bar', 'public-page.css FsusUI bottom tab fallback')
-expectIncludes(publicPageCss, '.fsu-bottom-tab-bar__item', 'public-page.css FsusUI bottom tab items')
-expectIncludes(publicPageCss, '#fsus-aot-shell .fsusblog-public-bottom-tab', 'public-page.css Blog-owned bottom tab fixed fallback')
+expectIncludes(publicPageCss, '.public-colophon__primary', 'public-page.css compact colophon primary row')
+expectNotMatches(publicPageCss, /\.public-mobile-nav-menu/, 'public-page.css must not reimplement FsusUI PublicShell mobile navigation')
+expectNotMatches(publicPageCss, /\.fsu-bottom-tab-bar/, 'public-page.css must not keep fixed bottom tab fallbacks')
+expectNotMatches(publicPageCss, /\.fsusblog-public-bottom-tab/, 'public-page.css must not keep Blog fixed bottom tab selectors')
+expectNotMatches(
+  publicPageCss,
+  /#fsus-aot-shell\s*\{\s*padding-bottom:[^}]*safe-area-inset-bottom/,
+  'public-page.css must not reserve global bottom-dock safe area'
+)
 expectNotMatches(publicPageCss, /el-public-shell__bottom-tab/, 'public-page.css must not keep local PublicShell bottom tab selectors')
-expectNotMatches(publicPageCss, /repeating-linear-gradient/, 'public-page.css bottom tab must not use noise gradients')
-expectNotMatches(publicPageCss, /mix-blend-mode:\s*soft-light/, 'public-page.css bottom tab must not use blend-mode decoration')
+expectNotMatches(publicPageCss, /repeating-linear-gradient/, 'public-page.css chrome must not use noise gradients')
+expectNotMatches(publicPageCss, /mix-blend-mode:\s*soft-light/, 'public-page.css chrome must not use blend-mode decoration')
 expectNotMatches(publicPageCss, /\[class\*=["'](?:fade-in|slide-in|animate-)/, 'public-page.css reduced-motion selector must not use broad class* matching')
 expectIncludes(publicPageCss, '.slide-in-from-right-1', 'public-page.css reduced-motion precise selector')
 expectIncludes(publicPageCss, '--fsusblog-reading-shadow-floating: 0 8px 24px rgba(15, 23, 42, 0.32);', 'public-page.css dark reading shadow')

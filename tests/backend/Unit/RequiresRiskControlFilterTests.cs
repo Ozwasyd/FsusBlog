@@ -3,12 +3,13 @@ using System.Security.Claims;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.DependencyInjection;
@@ -404,15 +405,24 @@ public sealed class RequiresRiskControlFilterTests
     [Fact]
     public void RequiresPowFilter_DoesNotKeepMvcAttributeOrRegistration()
     {
-        string legacyMvcAttribute = "Requires" + "Pow" + "Attribute";
-        string attributePath = BackendTestPaths.FromRoot($"src/backend/Infrastructure/Filters/{legacyMvcAttribute}.cs");
-        string powInitializer = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Helpers/Initializer/PowServiceInitializer.cs");
+        const string legacyTypeName = "FsusBlog.Server.Infrastructure.Filters.RequiresPowAttribute";
+        Assert.Null(typeof(RequiresPowFilter).Assembly.GetType(legacyTypeName, throwOnError: false));
 
-        Assert.False(File.Exists(attributePath), "Legacy MVC PoW attribute filter must be removed.");
-        Assert.DoesNotContain(legacyMvcAttribute, powInitializer, StringComparison.Ordinal);
-        Assert.DoesNotContain("IAsyncActionFilter", powInitializer, StringComparison.Ordinal);
-        Assert.DoesNotContain("ServiceFilterAttribute", powInitializer, StringComparison.Ordinal);
+        var services = new ServiceCollection();
+        services.AddPowServices();
+
+        Assert.Contains(services, static descriptor =>
+            descriptor.ServiceType == typeof(IPowService)
+            && descriptor.ImplementationType == typeof(RedisPowService)
+            && descriptor.Lifetime == ServiceLifetime.Singleton);
+        Assert.Contains(services, static descriptor =>
+            descriptor.ServiceType == typeof(AdaptivePowGovernor)
+            && descriptor.Lifetime == ServiceLifetime.Singleton);
+        Assert.DoesNotContain(services, static descriptor =>
+            typeof(IAsyncActionFilter).IsAssignableFrom(descriptor.ServiceType)
+            || (descriptor.ImplementationType is not null
+                && typeof(IAsyncActionFilter).IsAssignableFrom(descriptor.ImplementationType))
+            || string.Equals(descriptor.ServiceType.FullName, legacyTypeName, StringComparison.Ordinal));
     }
 
     private static FilterFixture CreateFixture(int riskScore, SecurityRiskPolicySnapshotV2? policy = null)

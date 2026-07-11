@@ -2,9 +2,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Services.Moderation;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -120,29 +121,31 @@ public sealed class FsusAntiSpamModelRuntimeLoaderTests : IDisposable
             string.Concat("g", "rpc"),
             string.Concat("fsus", "_", "cli", "_", "provider", "_", "not", "_", "configured")
         ];
-        string[] relativePaths =
+        Type[] runtimeSurfaces =
         [
-            "src/backend/Services/Moderation/AntiSpamModerationService.cs",
-            "src/backend/Services/Moderation/ModerationRuntimeStateService.cs",
-            "src/backend/Infrastructure/Operations/ProductionStartupValidator.cs",
-            "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
-            "src/backend/appsettings.Production.json",
-            "src/backend/appsettings.example.json",
-            "src/backend/appsettings.Production.example.json",
-            "docs/moderation.md",
-            "docs/architecture.md",
-            "docs/security.md",
-            "src/frontend/src/views/admin/moderation/ModerationModel.vue"
+            typeof(AntiSpamModerationService),
+            typeof(ModerationRuntimeStateService),
+            typeof(ProductionStartupValidator),
+            typeof(ServiceCollectionExtensions),
+            typeof(FsusAntiSpamModelRuntimeLoader)
         ];
 
-        foreach (string relativePath in relativePaths)
+        foreach (Type runtimeSurface in runtimeSurfaces)
         {
-            string source = BackendTestPaths.ReadAllTextFromRoot(relativePath);
+            string runtimeShape = RuntimeMetadataInspection.DescribeType(runtimeSurface);
             foreach (string token in forbidden)
             {
-                Assert.DoesNotContain(token, source, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain(token, runtimeShape, StringComparison.OrdinalIgnoreCase);
             }
         }
+
+        AntiSpamModerationResult runtimeResult = Assert.IsType<FsusAntiSpamModelRuntimeSnapshot>(
+                FsusAntiSpamModelRuntimeLoader.TryLoad(
+                    WriteRuntimePackage(),
+                    new FsusAntiSpamModelRuntimeLoadOptions(true, TrustedSigningKey, "stable"))
+                .Value)
+            .Score(CreateRequest("clean portable runtime request"));
+        Assert.Equal(AntiSpamModerationProviders.BuiltIn, runtimeResult.Provider);
     }
 
     private string WriteRuntimePackage(

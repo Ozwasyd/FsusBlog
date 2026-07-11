@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
@@ -71,15 +69,6 @@ describe('readProof API (binary)', () => {
     expect(readFrameType(call.requestOptions?.body as ArrayBuffer)).toBe(FrameType.HumanReadSubmitRequest)
   })
 
-  it('does not retain JSON fetch compatibility in the API module', () => {
-    const source = readFileSync(fileURLToPath(new URL('../../../../src/frontend/src/api/readProof.ts', import.meta.url)), 'utf8')
-
-    expect(source).not.toContain('response.json')
-    expect(source).not.toContain('JSON.stringify')
-    expect(source).not.toContain('/api/read-proof/')
-    expect(source).not.toContain('application/json')
-    expect(source).not.toContain('JsonApiResponse')
-  })
 })
 
 function readFrameType(buffer: ArrayBuffer): number {

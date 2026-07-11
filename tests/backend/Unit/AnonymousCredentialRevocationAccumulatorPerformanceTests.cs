@@ -1,7 +1,7 @@
-using System.Runtime.CompilerServices;
+using System.Collections.Concurrent;
+using System.Reflection;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -10,19 +10,31 @@ public sealed class AnonymousCredentialRevocationAccumulatorPerformanceTests
     private static readonly string IssuerPublicKeyHash = new('f', 64);
 
     [Fact]
-    public void CircuitFriendlyRoot_UsesEpochScopedCacheAndBinarySearchNeighbors()
+    public void CircuitFriendlyRoot_RuntimeUsesEpochScopedCacheAndBinarySearchNeighbors()
     {
-        string source = ReadRepoFile("src/backend/Services/Security/AnonymousCredentialRevocationAccumulator.cs");
-        string resolveNeighbors = ExtractMethodBlock(source, "private static (string Previous, string Next) ResolveNeighbors");
+        Type accumulator = typeof(AnonymousCredentialRevocationAccumulator);
+        FieldInfo cache = accumulator.GetFields(BindingFlags.Static | BindingFlags.NonPublic)
+            .Single(static field => field.Name.Contains("CircuitFriendlyTreeCache", StringComparison.Ordinal)
+                && field.FieldType.IsGenericType
+                && field.FieldType.GetGenericTypeDefinition() == typeof(ConcurrentDictionary<,>));
+        Assert.Contains("CircuitFriendlyTreeCacheKey", cache.FieldType.GenericTypeArguments[0].Name, StringComparison.Ordinal);
+        int maxEntries = (int)accumulator
+            .GetField("CircuitFriendlyRootCacheMaxEntries", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetRawConstantValue()!;
+        Assert.InRange(maxEntries, 1, 4096);
 
-        Assert.Contains("ConcurrentDictionary<CircuitFriendlyTreeCacheKey", source, StringComparison.Ordinal);
-        Assert.Contains("GetOrBuildCircuitFriendlySparseTree", source, StringComparison.Ordinal);
-        Assert.Contains("TryEvictCircuitFriendlyTreeCacheEpoch", source, StringComparison.Ordinal);
-        Assert.Contains("CircuitFriendlyRootCacheMaxEntries", source, StringComparison.Ordinal);
-        Assert.Contains("ClearCircuitFriendlyRootCacheForTests", source, StringComparison.Ordinal);
-        Assert.Contains("Array.BinarySearch", resolveNeighbors, StringComparison.Ordinal);
-        Assert.Contains("~index", resolveNeighbors, StringComparison.Ordinal);
-        Assert.DoesNotContain("foreach (string current in sortedHandles)", resolveNeighbors, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            accumulator,
+            "GetOrBuildCircuitFriendlySparseTree",
+            "TryEvictCircuitFriendlyTreeCacheEpoch",
+            "ClearCircuitFriendlyRootCacheForTests",
+            "ResolveNeighbors");
+
+        Assert.Contains("GetOrBuildCircuitFriendlySparseTree", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryEvictCircuitFriendlyTreeCacheEpoch", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ClearCircuitFriendlyRootCacheForTests", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Array.BinarySearch", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetEnumerator", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -61,32 +73,4 @@ public sealed class AnonymousCredentialRevocationAccumulatorPerformanceTests
         return root.Value!;
     }
 
-    private static string ReadRepoFile(string relativePath, [CallerFilePath] string sourceFile = "")
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
-
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing method signature: {signature}");
-        int brace = source.IndexOf('{', start);
-        Assert.True(brace >= 0, $"Missing method body: {signature}");
-        int depth = 0;
-        for (int index = brace; index < source.Length; index++)
-        {
-            if (source[index] == '{')
-            {
-                depth++;
-            }
-            else if (source[index] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(index + 1)];
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Could not extract method block: {signature}");
-    }
 }

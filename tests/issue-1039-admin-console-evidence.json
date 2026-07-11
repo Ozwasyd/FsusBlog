@@ -1,0 +1,58 @@
+{
+  "schema": "fsusblog.issue-1039.admin-console-evidence.v1",
+  "issue": 1039,
+  "status": "implementation-complete-validation-pending",
+  "backend": {
+    "endpointMetadataAndRequests": [
+      "tests/backend/Unit/AdminConsistencyContractTests.cs",
+      "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
+      "tests/backend/Unit/ModerationConsoleContractTests.cs",
+      "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs"
+    ],
+    "serialization": [
+      "anonymous account JSON and AEDS round trip with sensitive-field exclusion",
+      "taxonomy blocking count",
+      "moderation count/evidence policy without raw terms",
+      "integrity operational statuses without private keys or internal failure detail"
+    ],
+    "persistenceAndServiceBehavior": [
+      "PostgreSQL linked-tag delete keeps the tag and article_tag row",
+      "account status concurrency and row-version conflict preserve deletion/blacklist invariants",
+      "moderation reload, rollback and state changes audit and invalidate",
+      "PostgreSQL integrity retry changes failed to retrying and clears internal failure summary"
+    ]
+  },
+  "frontend": {
+    "api": [
+      "tests/frontend/unit/api/admin.test.ts",
+      "tests/frontend/unit/api/authoring.test.ts",
+      "tests/frontend/unit/api/integrityConsole.test.ts"
+    ],
+    "componentAndRouting": [
+      "tests/frontend/unit/views/IntegrityProofConsole.test.ts",
+      "tests/frontend/unit/router/index.test.ts",
+      "tests/frontend/unit/layouts/accountNavModules.test.ts"
+    ],
+    "browser": [
+      "tests/frontend/e2e/acceptance/admin-console.spec.ts"
+    ]
+  },
+  "retention": {
+    "issueManifest": "tests/backend/issue-1039-retention-replacements.json",
+    "centralManifest": "tests/test-retention-replacements.json",
+    "expectedDeletedTestIds": 15
+  },
+  "coverageIds": [
+    "backend-admin-console-endpoint-behavior",
+    "backend-admin-console-persistence-behavior",
+    "frontend-admin-console-behavior"
+  ],
+  "documentation": [
+    "docs/testing/admin-console-behavior-tests.md"
+  ],
+  "verification": {
+    "commandsExecuted": [],
+    "result": "not-run-by-instruction"
+  }
+}
+

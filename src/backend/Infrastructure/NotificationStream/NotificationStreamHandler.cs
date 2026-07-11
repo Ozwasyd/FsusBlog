@@ -22,6 +22,10 @@ internal sealed class NotificationStreamHandler(
             NotificationStreamMetrics.RecordHandshakeFailure(result.ErrorCode ?? "unknown");
             context.Response.Headers["X-Fsus-Notification-Stream-Error-Code"] = result.ErrorCode ?? "notification_handshake_failed";
             context.Response.Headers["X-Fsus-Notification-Stream-Status-Code"] = result.StatusCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (result.StatusCode == StatusCodes.Status503ServiceUnavailable)
+            {
+                context.Response.Headers["Retry-After"] = "5";
+            }
             await envelopePolicy.WriteApiErrorAsync(
                 context,
                 context.Response.Body,
@@ -46,6 +50,18 @@ internal sealed class NotificationStreamHandler(
                 context.Response.Body,
                 ErrorDetail.Create(ErrorCode.Validation, "notification_connection_limit", traceId: context.TraceIdentifier),
                 StatusCodes.Status429TooManyRequests);
+        }
+        catch (NotificationStreamDeploymentUnavailableException ex)
+        {
+            NotificationStreamMetrics.RecordHandshakeFailure(ex.ErrorCode);
+            context.Response.Headers["Retry-After"] = "5";
+            context.Response.Headers["X-Fsus-Notification-Stream-Error-Code"] = ex.ErrorCode;
+            context.Response.Headers["X-Fsus-Notification-Stream-Status-Code"] = StatusCodes.Status503ServiceUnavailable.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await envelopePolicy.WriteApiErrorAsync(
+                context,
+                context.Response.Body,
+                ErrorDetail.Create(ErrorCode.Validation, ex.ErrorCode, traceId: context.TraceIdentifier),
+                StatusCodes.Status503ServiceUnavailable);
         }
     }
 }

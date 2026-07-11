@@ -57,6 +57,8 @@ public sealed class PublicHotArtifactUpdateQueue
 
     internal ChannelReader<PublicHotArtifactUpdate> Reader => _channel.Reader;
 
+    public int QueuedCount => _channel.Reader.CanCount ? _channel.Reader.Count : 0;
+
     private static PublicHotArtifactDirtyReason ClassifyReason(string reason)
     {
         if (reason.Contains("view-projection", StringComparison.OrdinalIgnoreCase))

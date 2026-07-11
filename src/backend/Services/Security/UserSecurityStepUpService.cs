@@ -1,8 +1,6 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Auth;
-using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
-using System.Globalization;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -88,12 +86,22 @@ public sealed class UserSecurityStepUpService(
                 StatusCodes.Status401Unauthorized);
         }
 
+        if (!AccountSubjectHashRequirement.TryResolve(
+                account.Value.AccountSubjectHash,
+                out string accountSubjectHash))
+        {
+            return UserSecurityStepUpResult.Rejected(
+                ErrorCode.Unauthorized,
+                "ACCOUNT_SUBJECT_REQUIRED",
+                StatusCodes.Status401Unauthorized);
+        }
+
         string proofToken = Normalize(request.Proof.MfaProofToken);
         if (!string.IsNullOrWhiteSpace(proofToken))
         {
             bool accepted = await mfaChallenges.ValidateAndConsumeProofTokenAsync(
                 account.Value.Id,
-                ResolveAccountSubjectHash(account.Value),
+                accountSubjectHash,
                 action,
                 proofToken).ConfigureAwait(false);
             return accepted
@@ -120,13 +128,4 @@ public sealed class UserSecurityStepUpService(
 
     private static string Normalize(string? value)
         => (value ?? string.Empty).Trim();
-
-    private static string ResolveAccountSubjectHash(UserAccountSnapshot account)
-        => string.IsNullOrWhiteSpace(account.AccountSubjectHash)
-            ? AccountSubjectHasher.Create(
-                string.IsNullOrWhiteSpace(account.IdentityKind)
-                    ? AnonymousIdentityRuntime.AnonymousAccountKind
-                    : TextHelpers.TrimOrEmpty(account.IdentityKind),
-                string.Concat("legacy-account:", account.Id.ToString(CultureInfo.InvariantCulture)))
-            : TextHelpers.LowerTrimmed(account.AccountSubjectHash) ?? string.Empty;
 }

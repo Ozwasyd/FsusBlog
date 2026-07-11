@@ -73,6 +73,18 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             $"SELECT COUNT(1) FROM {SchemaMigrationRunner.HistoryTableName};");
         bool auditLogExists = await fixture.TableExistsAsync(connectionString, "sys_audit_log");
         bool rumMetricExists = await fixture.TableExistsAsync(connectionString, "frontend_rum_metric");
+        bool anonymousPolicyExists = await fixture.TableExistsAsync(connectionString, "anonymous_comment_policy");
+        bool anonymousCredentialExists = await fixture.TableExistsAsync(connectionString, "anonymous_credential");
+        bool anonymousNullifierExists = await fixture.TableExistsAsync(connectionString, "comment_anonymous_nullifier");
+        string? defaultAuthorMode = await fixture.QueryScalarAsync<string>(
+            connectionString,
+            "SELECT default_author_mode FROM anonymous_comment_policy WHERE id = 1;");
+        int defaultCommentMaxChars = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT comment_max_chars FROM anonymous_comment_policy WHERE id = 1;");
+        int defaultCommentMaxUtf8Bytes = await fixture.QueryScalarAsync<int>(
+            connectionString,
+            "SELECT comment_max_utf8_bytes FROM anonymous_comment_policy WHERE id = 1;");
 
         Assert.Equal("# legacy body", markdown);
         Assert.Equal("# about from config", pageContent);
@@ -81,6 +93,15 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal(new SchemaMigrationRegistry().GetDescriptors().Count, historyCount);
         Assert.True(auditLogExists);
         Assert.True(rumMetricExists);
+        Assert.True(anonymousPolicyExists);
+        Assert.True(anonymousCredentialExists);
+        Assert.True(anonymousNullifierExists);
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "anonymous_comment_policy", "snapshot_hash"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "anonymous_credential", "account_binding_hash"));
+        Assert.True(await fixture.ColumnExistsAsync(connectionString, "comment_anonymous_nullifier", "nullifier_hash"));
+        Assert.Equal("anonymous", defaultAuthorMode);
+        Assert.Equal(1000, defaultCommentMaxChars);
+        Assert.Equal(4096, defaultCommentMaxUtf8Bytes);
     }
 
     [Fact]

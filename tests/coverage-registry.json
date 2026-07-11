@@ -2,6 +2,67 @@
   "schema": "fsusblog.coverage-registry.v1",
   "entries": [
     {
+      "id": "blue-green-slot-orchestration",
+      "description": "Single-host blue/green slots keep independent containers, projects, loopback ports, release digests and derived volumes while sharing only controlled state and protecting the active slot.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/tools/deployment-slots.test.mjs",
+        "tools/deployment/slot-preflight.sh",
+        "tools/deployment/image-runtime-contract.sh",
+        "tests/backend/Unit/FsusHostRuntimeTuningTests.cs",
+        "ops/docker/FsusBlog.Server.Dockerfile",
+        "src/backend/FsusBlog.Server.csproj",
+        "ops/docker/docker-compose.yml",
+        "docs/issue-1025-blue-green-slots-handoff.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "The static-governance lane must fail when slots collide, bind publicly, lose durable active state, stop the active slot, bypass capacity checks, accept an unpinned vcpkg or mismatched Node/npm/ReadyToRun image contract, or a failed candidate changes the active runtime.",
+      "minimumRequirement": "Behavior evidence must cover two concurrent releases, separate probes, idempotent start/stop/status, active-slot recovery, candidate failure containment, port conflict, invalid digest, insufficient resources, compiled ReadyToRun metadata and target-image label plus executable checks.",
+      "tierIds": [
+        "backend-unit",
+        "static-governance"
+      ]
+    },
+    {
+      "id": "atomic-gateway-switch-rollback",
+      "description": "OpenResty keeps one controlled loopback upstream and moves traffic between immutable blue/green releases through validated, fsynced, atomic switch, rollback and restart-recovery transitions.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/tools/gateway-switch.test.mjs",
+        "tools/deployment/gateway-switch.sh",
+        "tools/deployment/gateway-rollback.sh",
+        "tools/deployment/gateway-recover.sh",
+        "deploy/production-openresty.conf",
+        "docs/issue-1026-gateway-switch-handoff.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "The static-governance lane must fail if an unready or mismatched release can receive traffic, a config/reload failure changes the durable active release, concurrent transitions bypass the host lock, public release headers disagree, or recovery guesses an unknown slot.",
+      "minimumRequirement": "Behavior evidence must cover blue-to-green switch and rollback under sustained requests, exact loopback-only generation, pre/post release probes, staged and active config validation, reload restoration, durable generation commits, lock contention, interrupted-transition diagnosis/recovery and mismatched rollback rejection.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
+      "id": "immutable-release-identity",
+      "description": "Production release identity binds one commit, immutable registry digest, frontend/Wasm hashes, runtime slot, readiness and release evidence without mutable deployment tags.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/tools/release-manifest.test.mjs",
+        "tests/backend/Unit/ReleaseIdentityTests.cs",
+        "tools/operations/test-release-evidence-fixture.sh",
+        "docs/issue-1024-release-identity-handoff.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "The static-governance lane must reject mutable or inconsistent manifests, pulled image digests or labels, missing production runtime identity, and release evidence that does not match its commit and image digest.",
+      "minimumRequirement": "Evidence must cover manifest creation and immutability, digest/OCI label verification, no-build deploy dry-run, production startup/readiness identity, and release evidence coherence.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
       "id": "integrity-proof-verification",
       "description": "Integrity proof verifier accepts deterministic canonical hash, artifact digest, signature, transparency log, checkpoint, inclusion proof and public key registry fixtures.",
       "owner": "ServerContractAgent",
@@ -271,13 +332,20 @@
       "owner": "ServerContractAgent",
       "risk": "critical",
       "evidencePaths": [
-        "tests/backend/Unit/BackendAuthStateMachineTests.cs"
+        "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/SecurityChallengePersistenceTests.cs"
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
-        "backend-auth-state-machine"
+        "backend-auth-state-machine",
+        "backend-unit",
+        "backend-mutation",
+        "production"
       ]
     },
     {
@@ -302,7 +370,9 @@
       "risk": "critical",
       "evidencePaths": [
         ".tmp/backend-api-integration/summary.json",
-        "tests/backend/Fixtures/backend-test-requirements.json"
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/DevSeedSqlContractTests.cs"
       ],
       "assertionType": "integration",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -333,13 +403,19 @@
       "risk": "high",
       "evidencePaths": [
         ".tmp/backend-concurrency/summary.json",
-        "tests/backend/Fixtures/backend-test-requirements.json"
+        "tests/backend/Fixtures/backend-test-requirements.json",
+        "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
+        "tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs",
+        "tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs"
       ],
       "assertionType": "runtime",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "Runtime summary evidence must include a success or explicit non-success status with concrete measured fields or reasoned unavailable fields.",
       "tierIds": [
-        "backend-concurrency"
+        "backend-concurrency",
+        "backend-unit",
+        "backend-mutation",
+        "production"
       ]
     },
     {
@@ -408,13 +484,24 @@
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
-        "tests/backend/Unit/BackendConcurrencyModelTests.cs"
+        "tests/backend/Unit/BackendConcurrencyModelTests.cs",
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/DevSeedSqlContractTests.cs",
+        "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
+        "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs"
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
       "minimumRequirement": "The referenced unit or property test evidence must execute assertions for this behavior, not merely prove that a source file exists.",
       "tierIds": [
-        "backend-concurrency"
+        "backend-concurrency",
+        "backend-unit",
+        "backend-mutation",
+        "production"
       ]
     },
     {
@@ -503,7 +590,9 @@
       "owner": "ServerContractAgent",
       "risk": "high",
       "evidencePaths": [
-        ".tmp/perf/release-summaries/backend-benchmark-regression.json"
+        ".tmp/perf/release-summaries/backend-benchmark-regression.json",
+        "tests/performance/backend-hotpath-budgets.json",
+        "tools/perf/check-backend-benchmark-regression.mjs"
       ],
       "assertionType": "perf",
       "failClosedRule": "matrix-validate requires this coverage id to resolve to declared evidence paths; runtime-like assertion types must not rely only on static docs/source files.",
@@ -1310,7 +1399,10 @@
         "tools/security/check-security-matrices.mjs",
         "tools/test/lanes/privacy-zk-comment-matrix.sh",
         "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
-        "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts"
+        "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
+        "tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts",
+        "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+        "tests/frontend/unit/components/ArticleCommentComposer.test.ts"
       ],
       "assertionType": "unit",
       "failClosedRule": "matrix-validate and privacy-zk-comment-matrix require every required privacy case, concurrency case and local gate command to be declared before CI can pass.",
@@ -2318,6 +2410,1007 @@
       "minimumRequirement": "Performance evidence must include the declared measurement summary and the counters, latency, or budget fields required by this lane.",
       "tierIds": [
         "backend-qps-visitlog-invalidation"
+      ]
+    },
+    {
+      "id": "backend-runtime-fallback-retirement-a3",
+      "description": "The six A3 runtime fallbacks stay retired across upload cleanup, subscription hashing, article content, cookie reads, PublicAOT hashes and legacy artifact cleanup, while external milestones remain explicitly unverified until real release evidence exists.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs",
+        "tests/backend/issue-1013-runtime-fallback-milestones.json",
+        "tests/backend/issue-1013-runtime-fallback-evidence.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject restoration of a retired fallback or any completed external milestone that lacks an exact run id, count and history artifact.",
+      "minimumRequirement": "One executable acceptance owner must cover all six retirements and the milestone manifest must preserve deferred-unverified truth until release observations are attached.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "static-governance"
+      ]
+    },
+    {
+      "id": "backend-physical-account-subject-retirement",
+      "description": "Ordinary account identity uses one persisted physical subject projection across writes, cached reads, JWT, notification, blacklist and binary step-up boundaries, with resumable backfill and no request-time internal-id derivation or destructive reset surface.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/UserServiceValidationTests.cs",
+        "tests/backend/Unit/AccountSubjectHashProjectionTests.cs",
+        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "tests/backend/Unit/UserSecurityStepUpServiceTests.cs",
+        "tests/backend/Unit/NotificationStreamBoundaryTests.cs",
+        "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
+        "tests/backend/Unit/JwtHelperTests.cs",
+        "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+        "tests/backend/issue-1014-identity-retirement-evidence.json",
+        "docs/issue-1014-identity-retirement-handoff.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject a new account without a physical projection, mutable-handle rehashing, missing or malformed projection acceptance, proof consumption before subject validation, non-resumable backfill, startup past an incomplete projection, or restoration of the retired reset surface.",
+      "minimumRequirement": "Unit and PostgreSQL owners must cover creation, cache projection, additive migration and resume, permanent invariant ordering, notification/JWT/blacklist boundaries, service step-up and real binary AEDS ACCOUNT_SUBJECT_REQUIRED responses; final closure additionally requires observed production zero-count and deployed-control absence.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "static-governance"
+      ]
+    },
+    {
+      "id": "dead-code-audit-governance",
+      "description": "Dead-code audit governance keeps the recovered-report boundary, current validation, stage dependencies and truthful completion state machine-readable without inventing the missing historical findings.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/tools/dead-code-audit-index.test.mjs",
+        "tools/governance/check-dead-code-audit-index.mjs",
+        "docs/planning/dead-code-audit-index.json",
+        "tests/issue-1015-dead-code-audit-evidence.json"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "Reject malformed audit ownership, fabricated source-report completion, incomplete stage evidence or a final closeout that bypasses --require-complete.",
+      "minimumRequirement": "The default checker and fixture-backed Node suite must report every blocker while allowing explicitly deferred external milestones, with final closure using the stricter mode.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
+      "id": "frontend-public-shell-sticky-geometry",
+      "description": "The public shell publishes measured header height, sticky top and anchor offset tokens from the real application-owned header selector while preserving the SSR and AOT fallback.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "src/frontend/src/components/public/usePublicStickyGeometry.ts",
+        "tests/frontend/unit/components/usePublicStickyGeometry.test.ts",
+        "tests/issue-1016-sticky-geometry-evidence.json"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "Reject an internal-library selector dependency, missing geometry token, stale resize value, leaked observer or listener, or loss of the static no-JavaScript fallback.",
+      "minimumRequirement": "Executable fake-layout evidence must cover initial measurement, ResizeObserver updates, viewport resize and unmount cleanup against the app-owned public header selector.",
+      "tierIds": [
+        "frontend-unit-shard"
+      ]
+    },
+    {
+      "id": "frontend-public-archive-sticky-geometry",
+      "description": "Archive year anchors and sticky headings consume the measured public-header geometry in both SPA and AOT rendering at desktop and mobile viewports.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "src/frontend/src/components/public/pages/PublicArchivePageContent.vue",
+        "tests/frontend/checks/static/check-visual-density-governance.mjs",
+        "tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts",
+        "tests/frontend/issue-1017-archive-sticky-evidence.json"
+      ],
+      "assertionType": "browser",
+      "failClosedRule": "Reject guessed offsets, hidden current-year sections, generic sticky selectors, broken hash clearance or a sticky heading that does not settle against the measured header.",
+      "minimumRequirement": "The consolidated visual-density checker must own archive selectors and token fallbacks, and Playwright must measure hash navigation plus sticky placement at desktop and mobile viewports.",
+      "tierIds": [
+        "frontend-static-governance",
+        "acceptance"
+      ]
+    },
+    {
+      "id": "frontend-public-typography",
+      "description": "Public display, reading and metadata roles stay readable and contrast-safe across hydrated, AOT and emergency first paint without restoring sub-12px information text or mismatched scales.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "src/frontend/src/ui-tokens/themeTokens.ts",
+        "src/frontend/src/assets/public-page.css",
+        "src/frontend/public/public-shell-emergency.css",
+        "src/frontend/src/assets/markdown.css",
+        "tests/frontend/checks/static/check-visual-density-governance.mjs",
+        "tests/issue-1018-public-typography-evidence.json",
+        "docs/issue-1018-public-typography-handoff.md"
+      ],
+      "assertionType": "static",
+      "failClosedRule": "Reject sub-12px information-bearing text, duplicate Markdown paragraph ownership, Light or Dark contrast below 4.5:1, decorative gray used as readable copy, or divergent hydrated and first-paint typography roles.",
+      "minimumRequirement": "The consolidated visual-density checker must calculate information-text contrast and compare exact display, reading and metadata sizes and line heights across the hydrated and emergency public shells.",
+      "tierIds": [
+        "frontend-static-governance"
+      ]
+    },
+    {
+      "id": "frontend-public-home-editorial",
+      "description": "Public home uses one shared deterministic editorial composition across AOT, hydration and SPA takeover with one lead, bounded secondary recommendations, a deduplicated feed and a complete coverless text hierarchy.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "src/frontend/src/view-contracts/homeSpotlight.ts",
+        "src/frontend/src/views/Home.vue",
+        "src/frontend/src/public-renderers/pageAssemblies.ts",
+        "tests/frontend/unit/view-contracts/homeSpotlight.test.ts",
+        "tests/frontend/e2e/visual/public-visual.spec.ts",
+        "docs/issue-1019-public-home-editorial-handoff.md",
+        ".tmp/visual/public"
+      ],
+      "assertionType": "browser",
+      "failClosedRule": "Reject independent recommendation selectors, cross-collection duplicate article ids, more than one lead, a cover-required lead, duplicate site hero, restored hot-list duplication, or more than one ordinary article primary link.",
+      "minimumRequirement": "Pure unit evidence must cover ordering, identity exclusion, immutability, coverless and empty cases while visual-public covers desktop and mobile Light and Dark rendered hierarchy.",
+      "tierIds": [
+        "frontend-unit-shard",
+        "visual-public"
+      ]
+    },
+    {
+      "id": "frontend-public-content-driven-covers",
+      "description": "Public cover media remains content evidence with shared crop-safe presentation, neutral framing and a first-class text-only fallback rather than decorative placeholders, gradients, filters or embedded copy.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "src/frontend/src/view-contracts/coverArt.ts",
+        "src/frontend/src/components/home/FeaturedArticlesSection.vue",
+        "src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue",
+        "src/frontend/public/fixtures/cover-art-manifest.json",
+        "tests/frontend/unit/view-contracts/coverArt.test.ts",
+        "tests/frontend/e2e/visual/public-visual.spec.ts",
+        "docs/issue-1020-content-cover-handoff.md",
+        ".tmp/visual/public"
+      ],
+      "assertionType": "browser",
+      "failClosedRule": "Reject empty media placeholders, embedded article or CTA copy, decorative SVG effects, runtime darkening filters, non-centered crop geometry, non-neutral framing, or title and body hierarchy that depends on a cover.",
+      "minimumRequirement": "Unit evidence must cover URL normalization, text fallback, manifest diversity and SVG restrictions while visual-public checks home and detail crop, boundary, filter, background and shadow behavior across configured themes and viewports.",
+      "tierIds": [
+        "frontend-unit-shard",
+        "visual-public"
+      ]
+    },
+    {
+      "id": "frontend-public-editorial-chrome",
+      "description": "The public header and footer use the alias-resolved FsusUI PublicShell with an explicit menu mobile mode, native no-JavaScript search navigation, disclosed mobile theme and auth actions, no fixed bottom navigation, and editorial colophon behavior across narrow, desktop, light and dark scenarios.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "src/frontend/src/components/public/PublicBlogLayoutShell.vue",
+        "src/frontend/src/components/public/PublicComplianceFooter.vue",
+        "src/frontend/src/fsusui/publicShell.ts",
+        "tests/frontend/checks/public/check-public-header-material.mjs",
+        "tests/frontend/e2e/visual/public-visual.spec.ts",
+        "docs/issue-1021-public-chrome-handoff.md",
+        ".tmp/visual/public"
+      ],
+      "assertionType": "browser",
+      "failClosedRule": "Reject a consumer-reimplemented public shell, implicit mobile mode, persistent desktop input, missing native search href, mobile utilities outside the disclosed menu, fixed bottom navigation, missing stable header hook, or loss of the public colophon.",
+      "minimumRequirement": "The visual-public lane must execute both the focused material matrix and Playwright visual suite against the alias-resolved PublicShell and cover narrow, desktop, light, dark, logged-out and admin states.",
+      "tierIds": [
+        "visual-public"
+      ]
+    },
+    {
+      "id": "frontend-admin-task-first-dashboard",
+      "description": "The admin landing page presents one task-first workbench with four concurrently started and independently failing sources, direct task actions, a compact three-value summary and responsive Light and Dark behavior without restoring analytics-card clutter.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "src/frontend/src/views/admin/Dashboard.vue",
+        "src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue",
+        "src/frontend/src/composables/useAdminDashboardWorkbench.ts",
+        "src/frontend/src/view-contracts/adminDashboard.ts",
+        "tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts",
+        "tests/frontend/unit/composables/useAdminDashboardWorkbench.test.ts",
+        "tests/frontend/unit/view-contracts/adminDashboardWorkbench.test.ts",
+        "tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts",
+        "tests/frontend/e2e/visual/console-visual.spec.ts",
+        "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+        "tests/frontend/checks/static/check-visual-density-governance.mjs",
+        "src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts",
+        "docs/issue-1022-admin-dashboard-handoff.md",
+        ".tmp/visual/console"
+      ],
+      "assertionType": "browser",
+      "failClosedRule": "Reject a dashboard that starts sources serially, lets one failure erase unrelated tasks, restores analytics panels or icon KPI cards, loses a direct action, expands feedback by default, or breaks the declared desktop, mobile, Light and Dark hierarchy.",
+      "minimumRequirement": "Unit owners must prove four requests start before any resolves and retain isolated zero, loading, error and high-load states; visual-console must render the workbench across the configured theme and viewport matrix.",
+      "tierIds": [
+        "frontend-unit-shard",
+        "visual-console"
+      ]
+    },
+    {
+      "id": "frontend-admin-information-architecture",
+      "description": "The account and admin console derives module and leaf navigation from route, permission, feature and policy state, keeps one mobile Drawer with measured 44px targets, avoids desktop nested scrolling and preserves deep-link and history current state.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "src/frontend/src/layouts/accountNav.ts",
+        "src/frontend/src/layouts/accountWorkspaceContext.ts",
+        "src/frontend/src/layouts/AccountLayout.vue",
+        "src/frontend/src/components/account/AccountNavigationPanel.vue",
+        "src/frontend/src/components/account/AccountHeaderMenu.vue",
+        "tests/frontend/unit/layouts/accountNavModules.test.ts",
+        "tests/frontend/unit/components/account/AccountNavigationPanel.test.ts",
+        "tests/frontend/e2e/acceptance/admin-console.spec.ts",
+        "tests/frontend/e2e/visual/console-visual.spec.ts",
+        "tests/frontend/checks/static/check-visual-density-governance.mjs",
+        "docs/issue-1023-admin-ia-handoff.md",
+        "src/frontend/test-results/playwright/acceptance",
+        ".tmp/visual/console"
+      ],
+      "assertionType": "browser",
+      "failClosedRule": "Reject unauthorized or empty modules, an invalid first-leaf fallback, stale current state after deep-link or browser history, multiple mobile drawers, module or local targets below 44px, desktop sidebar overflow or header actions that escape the active module boundary.",
+      "minimumRequirement": "Unit owners must cover module filtering and route-derived selection while acceptance measures mobile target height and navigation behavior and visual-console retains responsive console hierarchy.",
+      "tierIds": [
+        "frontend-unit-shard",
+        "acceptance",
+        "visual-console"
+      ]
+    },
+    {
+      "id": "deployment-runtime-lifecycle",
+      "description": "Blue/green runtimes use candidate, ready, active and draining states with generation CAS, request accounting, bounded parallel drain and fail-closed lifecycle recovery.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/DeploymentRuntimeStateTests.cs",
+        "tests/backend/Unit/NotificationStreamBoundaryTests.cs",
+        "tests/tools/gateway-switch.test.mjs",
+        "tests/tools/deployment-slots.test.mjs"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject candidate traffic ownership, mismatched generation activation, admission during drain, unreported blockers, or gateway evidence that omits activation and complete source drain.",
+      "minimumRequirement": "Executable owners must cover lifecycle CAS and idempotency, ordinary and notification admission, host stopping, source and target switching, and interrupted transition recovery.",
+      "tierIds": [
+        "backend-unit",
+        "backend-api-integration",
+        "bootstrap",
+        "resilience",
+        "static-governance",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-online-schema-migration-protocol",
+      "description": "Online schema changes follow classified Expand, resumable Backfill and gated Contract phases while production serving performs read-only compatibility checks.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs",
+        "tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs",
+        "tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs",
+        "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "tests/backend/Unit/ProductionHealthTests.cs",
+        "tests/tools/online-schema-migration-wrapper.test.mjs",
+        "tests/backend/issue-1028-online-migration-evidence.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject startup mutation, unclassified descriptors, unsafe Expand, non-resumable Backfill, ungated Contract, history drift or wrapper contract drift.",
+      "minimumRequirement": "Policy, compatibility, coordinator, PostgreSQL backfill and production-health suites plus the host wrapper contract must cover phase ordering, locking, durable resume, checksums and fail-closed readiness.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "static-governance"
+      ]
+    },
+    {
+      "id": "blue-green-release-storage-lifecycle",
+      "description": "Release storage separates shared durable data from instance-local temporaries and release-addressed derived and immutable assets across blue and green generations.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs",
+        "src/backend/Services/SearchIndexService.cs",
+        "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs",
+        "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
+        "tests/backend/Unit/PublicAotFileShellCacheTests.cs",
+        "tests/tools/release-storage-lifecycle.test.mjs",
+        "tests/frontend/unit/wasmReleaseAssets.test.ts",
+        "tests/frontend/unit/releaseStorage.test.ts",
+        "tests/backend/issue-1029-storage-lifecycle-evidence.json",
+        "docs/issue-1029-storage-lifecycle-handoff.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject cross-instance temp reuse, mutable active-release paths, missing retained releases, unsafe garbage collection, browser URLs that lose immutable release identity, publication lock timeout mutation, conflicting generation reuse, wrong-release reactivation, or a compatibility manifest projected before its complete generation.",
+      "minimumRequirement": "Backend, Node and frontend owners must cover path classification, retention, garbage collection, release URLs and blue-green compatibility without clearing the active release; production Search and PublicAOT writers must additionally prove cross-process serialization, complete commit-last Search generations, independent per-artifact PublicAOT pointers and retained rollback reactivation.",
+      "tierIds": [
+        "backend-unit",
+        "frontend-unit-shard",
+        "static-governance",
+        "release",
+        "production"
+      ]
+    },
+    {
+      "id": "append-only-release-assets",
+      "description": "Frontend, Wasm and static assets are materialized under immutable release identities, hash checked, retained through compatibility windows and garbage-collected only from an explicit applied plan.",
+      "owner": "InteropGlueAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/tools/release-storage-lifecycle.test.mjs",
+        "tests/frontend/unit/wasmReleaseAssets.test.ts",
+        "tests/frontend/unit/releaseStorage.test.ts"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject asset overwrite, path traversal, hash conflict, premature retained-release deletion or a release-scoped Wasm URL that falls back to mutable active paths.",
+      "minimumRequirement": "The materializer, garbage-collection planner and frontend URL resolvers must demonstrate append-only hashes, retained N-1 assets and explicit applied deletion.",
+      "tierIds": [
+        "frontend-unit-shard",
+        "static-governance",
+        "release",
+        "production"
+      ]
+    },
+    {
+      "id": "atomic-idempotent-upload-commit",
+      "description": "Multipart and direct uploads publish complete files atomically, make retries idempotent and clean only leased instance-local temporary candidates.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/ReleaseStorageLifecycleTests.cs"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "Reject partial final files, duplicate commits, cross-instance temporary cleanup, nonexclusive cleanup leases or retention-window violations.",
+      "minimumRequirement": "Executable upload lifecycle tests must cover multipart retry, direct commit, atomic finalization, lease exclusion and exact cleanup candidate selection.",
+      "tierIds": [
+        "backend-unit",
+        "release",
+        "production"
+      ]
+    },
+    {
+      "id": "active-release-fence-drain-restart",
+      "description": "Only the active release may claim singleton work or commit side effects, all classified participants drain in parallel, and notification clients preserve cursor semantics across restart and replay miss.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/ActiveReleaseFenceContractTests.cs",
+        "tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts",
+        "tools/check-background-service-classification.mjs",
+        "tests/backend/Fixtures/background-service-classification.json",
+        "tests/backend/issue-1030-implementation-evidence.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject stale-generation commits, unclassified workers, discarded drain errors, target acquisition identity drift, restart codes other than 1012 or replay-miss flows that reuse an invalid cursor.",
+      "minimumRequirement": "Fence CAS, worker commit guard, all-error classification, bounded participant drain and frontend restart policy must each have executable evidence.",
+      "tierIds": [
+        "backend-unit",
+        "frontend-unit-shard",
+        "static-governance",
+        "resilience",
+        "production"
+      ]
+    },
+    {
+      "id": "zero-downtime-release-rehearsal",
+      "description": "The release rehearsal seals ordered rollout stages, continuous traffic and resource probes, worker reconciliation, old-asset compatibility, recovery records and an allowlisted immutable evidence bundle.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/tools/release-rollout-state.test.mjs",
+        "tools/deployment/release-worker-drill.mjs",
+        "tests/tools/release-worker-drill.test.mjs",
+        "tools/deployment/release-worker-reconciliation.mjs",
+        "tests/tools/release-worker-reconciliation.test.mjs",
+        "tools/deployment/release-worker-observer-service.mjs",
+        "tests/tools/release-worker-observer-service.test.mjs",
+        "tests/fixtures/deployment/release-worker-observer-service-plan.template.json",
+        "tools/deployment/release-worker-normal-observer.mjs",
+        "tests/tools/release-worker-normal-observer.test.mjs",
+        "tests/fixtures/deployment/release-worker-normal-observer-plan.template.json",
+        "tests/tools/release-rollout-evidence.test.mjs",
+        "tests/tools/release-rollout-bundle.test.mjs",
+        "tools/deployment/release-resource-probe.mjs",
+        "tests/tools/release-rollout-probes.test.mjs",
+        "tools/deployment/release-traffic-probe.mjs",
+        "tools/deployment/release-traffic-evidence-verify.mjs",
+        "tests/tools/release-traffic-probe-session.test.mjs",
+        "tests/fixtures/deployment/release-traffic-session-scenario.json",
+        "tools/deployment/release-notification-probe.mjs",
+        "tests/tools/release-notification-probe.test.mjs",
+        "tests/fixtures/deployment/release-notification-resync-scenario.template.json",
+        "tools/deployment/release-asset-compatibility-probe.mjs",
+        "tests/tools/release-asset-compatibility-probe.test.mjs",
+        "tools/deployment/release-asset-browser-session.mjs",
+        "tools/deployment/release-asset-compatibility-evidence-verify.mjs",
+        "tests/fixtures/deployment/release-asset-browser-scenario.template.json",
+        "tests/frontend/e2e/acceptance/release-asset-compatibility.spec.ts",
+        "tools/deployment/release-migration-qualification.mjs",
+        "tests/tools/release-migration-qualification.test.mjs",
+        "tests/fixtures/deployment/release-migration-qualification-scenario.template.json",
+        "tools/deployment/rehearsal-schema-qualification-probe.mjs",
+        "tests/tools/rehearsal-schema-qualification-probe.test.mjs",
+        "tools/deployment/zero-downtime-rehearsal.sh",
+        "tools/deployment/zero-downtime-rehearsal-plan.mjs",
+        "tests/tools/zero-downtime-rehearsal.test.mjs",
+        "tests/fixtures/deployment/zero-downtime-rehearsal-plan.template.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject missing or reordered stages, artifact drift, truncated probe errors, unsigned traffic or browser bindings, synthetic worker results, stale coordination signals, migration qualification drift, old-asset 404s or an unrecognized bundle artifact.",
+      "minimumRequirement": "Independent Node and browser owners must cover stage sealing, bundle allowlisting, twelve traffic classes and signed sessions, notification resync, resource budgets, normal and forced-source reconciliation, ten-case online migration qualification and N-1 Service Worker asset compatibility.",
+      "tierIds": [
+        "static-governance",
+        "release",
+        "acceptance",
+        "resilience",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-security-hardening-boundary-and-ast",
+      "description": "Backend security hardening is owned by executable boundary suites and one fixture-backed Roslyn analyzer for canonical paths, input limits, cryptography, disclosure and uploads.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/SecurityHardening",
+        "security/backend-source-policy.json",
+        "tests/tools/security-source-analyzer.test.mjs",
+        "tests/backend/issue-1037-security-hardening-evidence.json",
+        "tests/backend/issue-1037-retention-replacements.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject missing behavior suites, missing positive and negative analyzer fixtures, incomplete 19-ID replacement mapping or any repository analyzer diagnostic.",
+      "minimumRequirement": "Five behavior boundaries and the fixture-backed analyzer must jointly cover canonical paths, limits, cryptography, disclosure and upload policy with all diagnostics retained.",
+      "tierIds": [
+        "backend-unit",
+        "static-governance",
+        "backend-mutation",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-endpoint-security-metadata-and-testserver",
+      "description": "Endpoint security tests prove real filter metadata, permission and fixed-IP policy, stable AEDS failures and TestServer pipeline behavior for anonymous, authenticated and admin routes.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/EndpointPolicyContractTests.cs",
+        "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+        "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+        "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+        "tests/backend/issue-1038-endpoint-security-evidence.json",
+        "tests/backend/issue-1038-retention-replacements.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject missing real filter metadata, changed filter order, bare admin-role authorization, unstable auth failure frames or TestServer routes that bypass the production pipeline.",
+      "minimumRequirement": "Four rewritten owners must cover endpoint metadata, auth and risk control, admin principal policy and full API integration across anonymous, login, admin, notification and binary callers.",
+      "tierIds": [
+        "backend-unit",
+        "backend-api-integration",
+        "security",
+        "backend-auth-state-machine",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-admin-console-endpoint-behavior",
+      "description": "Admin taxonomy, account governance, moderation and integrity console endpoints execute their methods, permissions, step-up, rate limits and stable binary contracts.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/AdminConsistencyContractTests.cs",
+        "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
+        "tests/backend/Unit/ModerationConsoleContractTests.cs",
+        "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
+        "tests/issue-1039-admin-console-evidence.json",
+        "tests/backend/issue-1039-retention-replacements.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject legacy credential mutation, missing permission or step-up enforcement, invalid moderation writes, private-key disclosure or inconsistent admin binary contracts.",
+      "minimumRequirement": "Executable endpoint owners must cover anonymous account governance, taxonomy consistency, moderation controls and integrity retry through real policy and serialization boundaries.",
+      "tierIds": [
+        "backend-unit",
+        "backend-api-integration",
+        "security",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-admin-console-persistence-behavior",
+      "description": "Admin console operations preserve linked taxonomy data, anonymous account fields, moderation state, integrity retry transitions and sanitized persisted results.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/AdminConsistencyContractTests.cs",
+        "tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs",
+        "tests/backend/Unit/ModerationConsoleContractTests.cs",
+        "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
+        "tests/issue-1039-admin-console-evidence.json",
+        "tests/backend/issue-1039-retention-replacements.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject destructive linked-data changes, username or password residue, unconfirmed moderation mutations, replayable step-up proofs or persistence responses exposing internal failure details.",
+      "minimumRequirement": "The four behavior owners must exercise service and persistence outcomes in addition to endpoint metadata.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "security",
+        "production"
+      ]
+    },
+    {
+      "id": "frontend-admin-console-behavior",
+      "description": "Frontend admin routes, APIs and views enforce permission-aware navigation, one-use step-up operations, explicit empty states and recoverable error presentation.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/frontend/unit/api/admin.test.ts",
+        "tests/frontend/unit/api/authoring.test.ts",
+        "tests/frontend/unit/api/integrityConsole.test.ts",
+        "tests/frontend/unit/views/IntegrityProofConsole.test.ts",
+        "tests/frontend/unit/router/index.test.ts",
+        "tests/frontend/unit/layouts/accountNavModules.test.ts",
+        "tests/issue-1039-admin-console-evidence.json",
+        "tests/backend/issue-1039-retention-replacements.json",
+        "tests/frontend/e2e/acceptance/admin-console.spec.ts"
+      ],
+      "assertionType": "browser",
+      "failClosedRule": "Reject unauthorized module exposure, missing step-up consumption, incorrect moderation arguments, absent empty states or an admin route that fails rendered acceptance.",
+      "minimumRequirement": "Vitest API and view owners plus the admin Playwright suite must cover authorization, mutation payloads, retry, empty and failure states.",
+      "tierIds": [
+        "frontend-unit-shard",
+        "acceptance",
+        "security",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-concurrency-state-machine-behavior",
+      "description": "Anonymous nullifier consumption, destructive article mutation, comment mutation, account lifecycle, refresh and MFA recovery, and security challenge outcomes are proven through PostgreSQL races and observable state-machine effects rather than source text.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs",
+        "tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs",
+        "tests/backend/Unit/SecurityChallengePersistenceTests.cs",
+        "tests/backend/issue-1040-retention-replacements.json",
+        "docs/testing/issue-1040-concurrency-state-machines.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject lost updates, duplicate terminal transitions, stale writes, partial database state, repeated external side effects, refresh replay acceptance, recovery-code double use or a challenge terminal state that can be overwritten.",
+      "minimumRequirement": "The concurrency lane must execute the real PostgreSQL race owners with bounded synchronization and assert final rows, return values, cache invalidations and notification counts.",
+      "tierIds": [
+        "backend-concurrency"
+      ]
+    },
+    {
+      "id": "backend-executable-data-test-governance",
+      "description": "Recovery-key throttling, subscription proof consumption and demo seed invariants are owned by executable service, endpoint, cache and PostgreSQL behavior instead of SQL or implementation-string assertions.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs",
+        "tests/backend/Unit/SubscriptionEndpointsContractTests.cs",
+        "tests/backend/Unit/DevSeedSqlContractTests.cs",
+        "docs/issue-1041-executable-data-test-governance.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject non-atomic attempt counts, credential existence disclosure, replayable subscription proofs, pre-committed failed mutations, non-idempotent demo seed data, legacy credential residue or invalid seeded relations.",
+      "minimumRequirement": "Backend behavior must execute production services and endpoint frames, controlled counters and clocks, and repeat the real seed SQL against PostgreSQL while inspecting persisted rows.",
+      "tierIds": [
+        "backend-unit",
+        "backend-api-integration",
+        "backend-concurrency"
+      ]
+    },
+    {
+      "id": "backend-passkey-behavior-governance",
+      "description": "Passkey coverage preserves cache policy, anonymous-safe metadata, stored random-handle ownership, entity mapping, AEDS round trips and optimistic PostgreSQL races without constructor or private SQL source locks.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/PasskeyServiceTests.cs",
+        "tests/backend/Unit/PasskeySignCountConcurrencyTests.cs",
+        "tests/backend/Unit/PodBinaryCodecTests.cs",
+        "docs/passkey-test-governance.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject changed security cache policy, internal-account-derived handles, mutable metadata aliases, legacy entity identity, stale sign-count double writes, divergent first-registration handles, deletion of the final recovery-less credential or lost credential-list fields.",
+      "minimumRequirement": "Ordinary, concurrency and golden owners must jointly execute public Passkey behavior, PostgreSQL stale-writer races and AEDS credential round trips.",
+      "tierIds": [
+        "backend-unit",
+        "backend-concurrency",
+        "backend-golden"
+      ]
+    },
+    {
+      "id": "backend-anonymous-identity-behavior",
+      "description": "Anonymous and public comment identity, persisted policy, DTO and AEDS serialization, ZK proof validation and frontend privacy transport are behavior-owned without leaking account credentials or retaining cross-file source locks.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/ActorResolverBehaviorTests.cs",
+        "tests/backend/Unit/AnonymousCommentPolicyTests.cs",
+        "tests/backend/Integration/AnonymousCommentPolicyPersistenceTests.cs",
+        "tests/backend/Unit/AnonymousIdentitySerializationTests.cs",
+        "tests/backend/Unit/ZkProofVerifierTests.cs",
+        "tests/frontend/unit/components/ArticleCommentComposer.test.ts",
+        "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
+        "docs/testing/issue-1045-anonymous-identity-behavior-handoff.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject account ID retention in anonymous mode, unstored public handles, mutable or non-persisted policy, legacy identity fields, direct-proof downgrade, verifier metadata mismatch, credential-bearing transport or reusable privacy challenges.",
+      "minimumRequirement": "Backend unit and integration plus mounted frontend privacy owners must cover actor resolution, policy reload, serialization, proof failure and valid proof, binary mutations and single-use runtime behavior.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "frontend-unit-shard",
+        "privacy-zk-comment-matrix"
+      ]
+    },
+    {
+      "id": "backend-risk-control-behavior",
+      "description": "Crawler synchronization, anti-crawler policy and pipeline partitioning, comment risk frame handling and decision modes are exercised through controlled I/O, TestServer and production objects rather than private method or configuration strings.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs",
+        "tests/backend/Unit/AntiCrawlerPolicyBehaviorTests.cs",
+        "tests/backend/Unit/AntiCrawlerPipelineTests.cs",
+        "tests/backend/Unit/CommentRiskActionFilterTests.cs",
+        "tests/backend/Unit/SecurityRiskPolicySnapshotV2Tests.cs",
+        "tests/frontend/checks/static/check-infra-security-governance.mjs",
+        "docs/testing/issue-1046-risk-control-behavior-handoff.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject unsafe provider URLs or paths, non-atomic snapshots, incorrect crawler partitions, unbounded risk writes, malformed or oversized body acceptance, lost non-seekable body reset, or wrong allow, challenge, queue and block effects.",
+      "minimumRequirement": "Backend unit and risk-control lanes must execute provider fallbacks, cancellation, policy replacement, TestServer partitions, AEDS body boundaries and structured gateway ownership.",
+      "tierIds": [
+        "backend-unit",
+        "risk-control-test-matrix"
+      ]
+    },
+    {
+      "id": "backend-projection-serialization-behavior",
+      "description": "Statistics privacy, taxonomy reconciliation, article status and read-model projection, cache behavior, public AOT payloads and AEDS naming are proven through mapping, PostgreSQL, codec and golden behavior rather than source-shape assertions.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/StatsRecentCommentPrivacyBehaviorTests.cs",
+        "tests/backend/Unit/StatsPerformanceContractTests.cs",
+        "tests/backend/Unit/TaxonomyProjectionTests.cs",
+        "tests/backend/Integration/TaxonomyProjectionPersistenceTests.cs",
+        "tests/backend/Unit/ArticleStatusProjectionTests.cs",
+        "tests/backend/Unit/ArticleProjectionTests.cs",
+        "tests/backend/Unit/ArticleCoreQueryCacheBehaviorTests.cs",
+        "tests/backend/Unit/PublicAotBinaryPayloadTests.cs",
+        "tests/backend/Unit/AedsFrameNamingTests.cs",
+        "docs/testing/issue-1047-projection-serialization-handoff.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject account identity leakage, widened stats queries, stale taxonomy frames, invalid status normalization, unstable projection pages, split cache ownership, broken Unicode or decimal payload round trips, or divergent frame identities and protocol catalogs.",
+      "minimumRequirement": "Backend unit, integration and golden lanes must execute privacy mapping, query counts, persistent reconciliation, status projection, cache hit and single-flight behavior, payload round trips and structured frame catalog checks.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "backend-golden"
+      ]
+    },
+    {
+      "id": "backend-hotpath-executable-measurement",
+      "description": "Backend hot paths retain observable query, concurrency, cancellation, transport and projection behavior while BenchmarkDotNet summaries enforce mean and allocation budgets for the same production paths.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/StatsPerformanceContractTests.cs",
+        "tests/backend/Unit/RelatedReadingServiceTests.cs",
+        "tests/backend/Unit/ParallelOperationsHotPathContractTests.cs",
+        "tests/backend/Unit/BinaryTransportHotPathContractTests.cs",
+        "tests/backend/Unit/HttpHotPathPerformanceContractTests.cs",
+        "tests/backend/Unit/SecurityModerationHotPathContractTests.cs",
+        "tests/backend/Unit/ArticleStatusProjectionTests.cs",
+        "benchmarks/core/ServerHotPathBenchmarks.cs",
+        "benchmarks/core/ContentFilterBenchmarks.cs",
+        "tests/performance/backend-hotpath-budgets.json",
+        ".tmp/perf/release-summaries/backend-benchmark-regression.json"
+      ],
+      "assertionType": "perf",
+      "failClosedRule": "Reject widened query counts, lost parallel start or cancellation semantics, broken segmented binary behavior, changed security or projection output, or any mean/allocation budget regression.",
+      "minimumRequirement": "Final-source behavior suites must execute PostgreSQL counters and controlled concurrency or transport boundaries, and the benchmark summary must enforce every declared hot-path mean and allocation budget.",
+      "tierIds": [
+        "backend-unit",
+        "backend-benchmark-regression",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-audit-behavior",
+      "description": "Audit projection, tamper evidence and fallback persistence preserve structured identities, disclosure modes, invariant chains and durable records through failures.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/AuditProjectionBehaviorTests.cs",
+        "tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs",
+        "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject missing durable security events, weak or truncated MACs, culture-dependent chain identities, unintended disclosure or fallback loss after a store failure.",
+      "minimumRequirement": "Projection, tamper and fallback suites must execute canonical serialization, chain verification, disclosure and durable write behavior.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-operations-readiness-behavior",
+      "description": "Production readiness, backup and restore scripts, and dangerous admin operations report every failed probe, block unsafe inputs and require diff plus step-up for changes.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs",
+        "tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs",
+        "tests/backend/Unit/AdminOperationsBehaviorTests.cs"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject hidden readiness failures, backup or restore invocation after invalid input, dangerous operations without confirmation or evidence that drops a blocked path.",
+      "minimumRequirement": "Executable owners must cover aggregated readiness, scheduled and blocked backup or restore paths, and guarded integrity operations.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-public-aot-artifact-behavior",
+      "description": "PublicAOT article artifacts accept only V3 frames, preserve memory and disk TTL semantics, reject legacy payloads and remove only explicitly retired artifacts.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "Reject non-V3 or wrong-magic writes, serving expired or legacy frames, clearing current artifacts or benchmark regressions that bypass the artifact hot path.",
+      "minimumRequirement": "The artifact behavior suite must cover V3 write and read, memory TTL, legacy miss and scoped cleanup, with the benchmark lane retaining the hot-path owner.",
+      "tierIds": [
+        "backend-unit",
+        "backend-benchmark-regression",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-log-cleanup-behavior",
+      "description": "Log cleanup deletes only expired rows in bounded chunks, preserves cutoff and critical rows, honors cancellation and limits, and executes only under the acquired leader lease.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/LogCleanupDatabaseBehaviorTests.cs",
+        "tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject deletion at the cutoff, unbounded chunk loops, continued work after failure or cancellation, cleanup without the lease, or loss of high-value audit rows.",
+      "minimumRequirement": "Database and worker suites must cover exact retention rows, paging, max chunks, clock use, cancellation, failure and lease denial.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "backend-concurrency",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-upload-cleanup-queue-behavior",
+      "description": "Upload cleanup uses bounded coalescing signals, retains overflow for the next leader and keeps requests arriving during a cleanup cycle.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
+        "tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject unbounded queue growth, lost overflow, repeated overflow consumption, cleanup after lease denial or a signal dropped during active cleanup.",
+      "minimumRequirement": "Queue and worker behavior suites must cover capacity, coalescing, one-shot overflow, second scans, in-flight signals and lease preservation.",
+      "tierIds": [
+        "backend-unit",
+        "backend-concurrency",
+        "resilience",
+        "production"
+      ]
+    },
+    {
+      "id": "backend-human-read-proof-behavior",
+      "description": "Human-read proofs bind browser origin, scope, article and dwell time, reject replay and tampering, and persist only anonymous aggregate viewer dimensions.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs",
+        "tests/backend/Unit/HumanReadProofRequestBindingTests.cs",
+        "tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject missing browser binding, short dwell acceptance, replayed or tampered writes, identity persistence or stats contracts that expose nonaggregate viewer data.",
+      "minimumRequirement": "Submission, request-binding and persistence suites must cover valid and invalid proofs, one-shot recording, origin policy, privacy serialization and PostgreSQL rows.",
+      "tierIds": [
+        "backend-unit",
+        "integration",
+        "privacy-zk-comment-matrix",
+        "production"
+      ]
+    },
+    {
+      "id": "test-tool-artifact-behavior",
+      "description": "Test tooling proves bounded coverage dry-runs, real TRX output, atomic viewport progress, fresh aggregate summaries and mixed artifact restoration through executable filesystem and subprocess boundaries instead of source-string assertions.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "tests/backend/Unit/CoverageScriptContractTests.cs",
+        "tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs",
+        "tests/tools/backend-trx-contract.test.mjs",
+        "tests/tools/ux-viewport-runner.test.mjs",
+        "tests/tools/ux-viewport-progress.test.mjs",
+        "tests/tools/ux-viewport-runtime-contract.test.mjs",
+        "tests/tools/data-scale-evidence-summary.test.mjs",
+        "tests/tools/performance-evidence-summary.test.mjs",
+        "tests/tools/quality-gate-artifact-layout.test.mjs",
+        "tests/tools/release-evidence-artifact-restore.test.mjs",
+        "tests/issue-1048-retention-replacements.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject an unbounded dry-run, unstable or synthetic TRX result, stale viewport result reuse, aggregate omission, wildcard layout drift, mixed-root restore failure or a replacement that reads sibling implementation text as its primary proof.",
+      "minimumRequirement": "Controlled subprocess and temporary-filesystem owners must execute coverage, TRX, viewport, data/performance aggregation and release artifact restoration with fresh and failing cases while preserving all errors.",
+      "tierIds": [
+        "backend-test-governance",
+        "static-governance",
+        "ux-viewport-plan-progress",
+        "data-scale-evidence-summary",
+        "performance-evidence-summary",
+        "release-evidence",
+        "production"
+      ]
+    },
+    {
+      "id": "frontend-source-locking-convergence",
+      "description": "Frontend source-locking tests converge through one machine-readable migration plan into direct unit, browser, performance and static-governance owners with every removed test ID explicitly retained.",
+      "owner": "InteropGlueAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs",
+        "tests/frontend/checks/static/check-frontend-test-governance.mjs",
+        "tests/issue-1049-retention-replacements.json",
+        ".tmp/frontend/frontend-unit-shard.json",
+        ".tmp/perf/release-summaries/browser-performance-regression.json",
+        "src/frontend/test-results/playwright/acceptance",
+        "src/frontend/test-results"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject an undeclared whole-file or selective deletion, missing replacement owner, self-reference, stale delegated allowlist, source-reading unit contract or final suite output that omits unit, browser, performance or production evidence.",
+      "minimumRequirement": "The migration plan and 41-ID issue manifest must resolve every source-locked owner to an existing direct test or consolidated checker, and final unit, acceptance, browser-performance and production artifacts must all be present.",
+      "tierIds": [
+        "frontend-unit-shard",
+        "static-governance",
+        "browser-performance-regression",
+        "acceptance",
+        "production"
+      ]
+    },
+    {
+      "id": "test-suite-convergence",
+      "description": "The final suite-convergence gate reconciles the authoritative baseline, every issue-local replacement declaration, frontend migration plans, live child-issue state and the final after snapshot without hiding multiple errors.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt",
+        "tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt",
+        "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs",
+        "tests/issue-1048-retention-replacements.json",
+        "tests/issue-1049-retention-replacements.json",
+        "tests/backend/issue-1050-retention-replacements.json",
+        "tests/backend/issue-1050-cleanup-human-read.md",
+        "tests/backend/issue-1051-backend-source-lock-retention-replacements.json",
+        "tests/backend/issue-1052-retention-replacements.json",
+        "tests/backend/issue-1053-retention-replacements.json",
+        "tests/backend/issue-1054-retention-replacements.json",
+        "tests/backend/issue-1055-retention-replacements.json",
+        "tests/issue-1051-suite-convergence.json",
+        ".tmp/release-evidence/test-suite-convergence.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject undeclared deletions, conflicting replacement sets, missing targets, invalid stage order, source-reading backend tests, stale issue state or final evidence not bound to the authoritative after run.",
+      "minimumRequirement": "Fixture-backed implementation mode must report all structural errors, while final mode additionally requires live closed child issues and matching coverage, mutation, timing and source-state authority.",
+      "tierIds": [
+        "static-governance",
+        "production",
+        "release-final"
+      ]
+    },
+    {
+      "id": "backend-user-session-revocation-enforcement",
+      "description": "Ordinary JWT principals remain authorized only while their sid is active; every revocation producer publishes a distributed revoked snapshot before PostgreSQL commit, rolls back on publication failure and compensates failed commits without adding session lookups to anonymous public traffic or the independent admin plane.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/UserSessionValidationServiceTests.cs",
+        "tests/backend/Unit/UserSessionJwtAuthenticationTests.cs",
+        "tests/backend/Unit/UserSessionMappedBoundaryTests.cs",
+        "tests/backend/Unit/UserServiceValidationTests.cs",
+        "tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs",
+        "tests/backend/Integration/UserSessionRevocationIntegrationTests.cs",
+        "tests/backend/issue-1052-user-session-revocation-evidence.json",
+        "docs/user-session-revocation.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject an ordinary principal with a revoked, expired, deleted, mismatched or stale-resurrected session, any database commit that precedes its distributed revocation fence, any publication failure that still commits, any failed-commit cleanup that can authorize stale active state, any fail-open Redis path, or any ordinary-session lookup on public anonymous requests.",
+      "minimumRequirement": "Unit and integration owners must cover warmed-cache revoke, logout, revoke-others, login replacement, account deletion, recovery-key revocation, publication failure rollback, commit-failure invalidation, publish-before-commit ordering, refresh replay, cache-miss versus revoke, mapped notification-stream and protected-binary rejection, DB-only reloadable fallback, admin isolation and zero public-anonymous store reads.",
+      "tierIds": [
+        "backend-unit",
+        "backend-auth-state-machine",
+        "backend-concurrency",
+        "integration"
+      ]
+    },
+    {
+      "id": "backend-auth-cookie-jwt-expiry-alignment",
+      "description": "Ordinary and admin access cookies receive the exact absolute expiry returned by JWT issuance across login, refresh, MFA and Passkey paths, including reloadable expiry changes.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+        "src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs",
+        "tests/backend/Unit/AuthCookieExpiryFlowTests.cs",
+        "tests/backend/Unit/AuthCookieServiceSecurityTests.cs",
+        "tests/backend/Unit/JwtHelperTests.cs",
+        "tests/backend/Unit/UserServiceValidationTests.cs",
+        "tests/backend/issue-1053-auth-cookie-expiry-evidence.json",
+        "tests/backend/issue-1053-central-handoff.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject a cookie expiry later than JWT exp, a cookie-local duration snapshot, JWT reparsing in the cookie service, or a reloadable issuance change that is not carried to the HTTP handoff.",
+      "minimumRequirement": "Executable tests must compare returned expiry, JWT exp and cookie Expires for 1, 15 and 60 minutes across ordinary, restricted and admin issuance plus refresh rotation; mapped anonymous bootstrap, MFA, refresh, Passkey, admin bootstrap/login and Development fixture flows must carry the exact issued or persisted expiry into Set-Cookie, with fixture-runner failure emitting no authentication cookie.",
+      "tierIds": [
+        "backend-unit",
+        "backend-auth-state-machine"
+      ]
+    },
+    {
+      "id": "backend-recovery-passkey-idempotent-completion",
+      "description": "Recovery Passkey completion uses a compare-and-set lease plus a durable session and request hash so failures remain retryable and one logical completion commits credential, revocation and account state atomically.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs",
+        "tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs",
+        "tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs",
+        "tests/backend/issue-1054-recovery-passkey-completion-evidence.json"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject pre-validation session consumption, partial credential commits, duplicate logical completion, different-request replay success, raw recovery token persistence or loss of legacy pending-envelope compatibility.",
+      "minimumRequirement": "State, mapped binary endpoint and PostgreSQL owners must cover authenticator and database failure, concurrent double submit, response loss, same-request replay, different-request conflict, pending/completing expiry, EmptySuccess/ApiError frames, raw-token hashing, atomic credential mutation and idempotent unique-marker migration.",
+      "tierIds": [
+        "backend-unit",
+        "backend-auth-state-machine",
+        "backend-concurrency",
+        "integration"
+      ]
+    },
+    {
+      "id": "backend-rate-limiter-rejection-sampler-bounded",
+      "description": "Rate-limiter rejection sampling normalizes raw paths into bounded logical buckets, retains exactly four writes per bucket and rotates whole minute windows with one CAS publication.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs",
+        "tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json",
+        "tests/backend/issue-1055-retention-replacements.json",
+        "benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "Reject missing hard-cap, raw-path normalization, single rotation, concurrent four-write semantics or stable saturated-capacity latency evidence.",
+      "minimumRequirement": "Behavior must cover 10000 raw paths, 10000 logical buckets, 20000-way concurrency, minute rotation, five caller families and the 64-to-4096 saturated p95 comparison.",
+      "tierIds": [
+        "backend-unit",
+        "backend-concurrency"
       ]
     }
   ]

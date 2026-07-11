@@ -11,6 +11,7 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -49,7 +50,7 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.related")
-        .AddEndpointFilter<RiskAwarePublicReadFilter>()
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>()
         .CacheOutput(static builder => builder
             .Expire(TimeSpan.FromMinutes(1))
             .Tag(CacheTag.ArticleList.ToOutputCacheTag()));
@@ -80,7 +81,7 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "article.detail")
-        .AddEndpointFilter<RiskAwarePublicReadFilter>()
+        .AddEndpointFilterWithMetadata<RiskAwarePublicReadFilter>()
         .CacheOutput(static builder => builder
             .Expire(TimeSpan.FromMinutes(1))
             .Tag(CacheTag.ArticleList.ToOutputCacheTag()));
@@ -218,7 +219,7 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "发布失败：数据库操作异常"), aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPut("/admin/article/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -245,7 +246,7 @@ public static partial class BinaryEndpoints
                 : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "更新失败：数据库操作异常"), aeds);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
-        .AddEndpointFilter<RequiresPowFilter>();
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapDelete("/admin/article/trash", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -292,7 +293,8 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .RequireRateLimiting("fixed_ip")
-        .AddEndpointFilter<RequiresPowFilter>();
+        .WithAdminSensitiveStepUp()
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapDelete("/admin/article/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -315,7 +317,8 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .RequireRateLimiting("fixed_ip")
-        .AddEndpointFilter<RequiresPowFilter>();
+        .WithAdminSensitiveStepUp()
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapPut("/admin/article/restore/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -338,7 +341,8 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .RequireRateLimiting("fixed_ip")
-        .AddEndpointFilter<RequiresPowFilter>();
+        .WithAdminSensitiveStepUp()
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
         group.MapDelete("/admin/article/permanent/{id:int}", static async Task<BinaryFrameResult> (
             int id,
@@ -361,7 +365,8 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .RequireRateLimiting("fixed_ip")
-        .AddEndpointFilter<RequiresPowFilter>();
+        .WithAdminSensitiveStepUp()
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
     }
 
     private static long ResolveAdminPrincipalId(HttpContext httpContext)

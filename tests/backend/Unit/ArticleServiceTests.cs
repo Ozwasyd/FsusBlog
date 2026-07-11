@@ -4,7 +4,6 @@ using FsusBlog.Server.Infrastructure.Content;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
 using FsusBlog.Shared.Contracts.Outputs;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -40,22 +39,15 @@ public sealed class ArticleServiceTests
     }
 
     [Fact]
-    public void GetHotArticlesAsync_FiltersSeedIdsByArticleIdColumn()
+    public void GetHotArticlesAsync_RuntimeFiltersSeedIdsByArticleIdColumn()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Services", "ArticleService.cs"));
-        int methodStart = source.IndexOf(
-            "public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync",
-            StringComparison.Ordinal);
-        int methodEnd = source.IndexOf(
-            "public async Task<List<FeaturedArticleSummaryDto>> GetFeaturedArticlesAsync",
-            methodStart,
-            StringComparison.Ordinal);
+        string runtimeShape = FsusBlog.Server.Tests.Unit.RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleService),
+            nameof(ArticleService.GetHotArticlesAsync));
 
-        Assert.True(methodStart >= 0 && methodEnd > methodStart, "GetHotArticlesAsync source block should be discoverable");
-        string method = source[methodStart..methodEnd];
-
-        Assert.Contains(".In(a => a.Id, ids)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".In(ids)", method, StringComparison.Ordinal);
+        Assert.Contains("System.Linq.Expressions.Expression", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Article.get_Id", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("SqlSugar.ISugarQueryable", runtimeShape, StringComparison.Ordinal);
     }
 
     [Theory]

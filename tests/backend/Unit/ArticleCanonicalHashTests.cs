@@ -1,5 +1,4 @@
 using FsusBlog.Core.Integrity;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -106,23 +105,23 @@ public sealed class ArticleCanonicalHashTests
     }
 
     [Fact]
-    public void Source_IsCoreOnlyAndDoesNotReferenceExternalAnchors()
+    public void RuntimeType_IsCoreOnlyAndDoesNotReferenceExternalAnchors()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src",
-            "core",
-            "Integrity",
-            "ArticleCanonicalHashV1.cs"));
+        Assert.Equal("FsusBlog.Core", typeof(ArticleCanonicalHashV1).Assembly.GetName().Name);
+        Assert.DoesNotContain(
+            typeof(ArticleCanonicalHashV1).Assembly.GetReferencedAssemblies(),
+            static reference => reference.Name?.Contains("FsusBlog.Server", StringComparison.Ordinal) == true ||
+                                reference.Name?.Contains("SqlSugar", StringComparison.Ordinal) == true);
 
-        Assert.DoesNotContain("FsusBlog.Server", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("SqlSugar", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpContext", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Redis", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("IPFS", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Arweave", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Nethereum", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ArticleCanonicalHashV1));
+        Assert.DoesNotContain("FsusBlog.Server", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("SqlSugar", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpContext", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("Redis", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("IPFS", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Arweave", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Nethereum", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("HttpClient", runtimeShape, StringComparison.Ordinal);
     }
 
     private static ArticleCanonicalInput Baseline()

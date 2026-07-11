@@ -18,8 +18,9 @@ The mandatory adapter surface is:
 - `primitiveAdapters.ts`: Blog primitive variants to FsusUI semantic variants.
 - `renderPipeline.ts`: render-pipeline contract adapter.
 - `result.ts`: FsusUI result envelope helpers.
+- `publicShell.ts`: exports the alias-resolved `ElPublicShell` component plus the stable `inline | menu | bottom | none` mobile-navigation contract. `PublicBlogLayoutShell` consumes that adapter and selects `menu` explicitly; the workspace alias is source consumption, not an npm publication.
 - `theme.ts`: FsusUI public theme-mode contract re-export. It must import `ThemeMode`, `ResolvedTheme`, `themeModes`, `normalizeThemeMode`, `syncThemeMode` and the test helpers from `@ozwasyd/element-plus/theme` instead of declaring Blog-local equivalents.
-- `FsusUiBottomTabBar.vue`: public mobile navigation adapter for the FsusUI bottom-tab / mobile-dock contract while the published package catches up with the sibling FsusUI source.
+- `FsusUiBottomTabBar.vue`: legacy opt-in adapter for app-like consumers. The public blog shell must not import it or reserve fixed-dock padding; keep it isolated until remaining explicit consumers migrate to the released FsusUI API.
 
 `motion.ts` owns the auditable Blog-side motion boundary: it re-exports the FsusUI runtime (`FsuMotion`, `vMotion`, `useScrollReveal`, `runMotion`, motion types) and keeps Blog-owned surface mappings such as `FsusBlogMotionSurface` and `fsusBlogMotionPresets`. `blogMotion.ts` remains as a compatibility re-export for existing call sites. `FsusPerceptionChallenge` and the perception-challenge types come from `@ozwasyd/element-plus/perception-challenge`. Add new adapters to `index.ts` only when they are intended as general Blog adapter API; otherwise import them explicitly from call sites.
 

@@ -1,7 +1,8 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.Background;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -154,28 +155,42 @@ public sealed class PublicAotBackfillSchedulerTests
     }
 
     [Fact]
-    public void PublicAotBackfillWorker_SourceDoesNotMutateSingletonHttpContextAccessor()
+    public void PublicAotBackfillWorker_UsesScopedSessionKeyScopeWithoutHttpContextMutation()
     {
-        string source = ReadSource("src/backend/Services/Background/PublicAotBackfillWorker.cs");
+        Type[] runtimeTypes = typeof(PublicAotBackfillWorker).GetConstructors()
+            .SelectMany(static constructor => constructor.GetParameters())
+            .Select(static parameter => parameter.ParameterType)
+            .Concat(typeof(PublicAotBackfillWorker).GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .Select(static field => field.FieldType))
+            .ToArray();
+        MethodInfo processMoveNext = StateMachineMoveNext(typeof(PublicAotBackfillWorker), "ProcessRequestAsync");
+        IReadOnlyList<(int Offset, MethodBase Method)> calls = ReadCalledMethods(processMoveNext);
 
-        Assert.DoesNotContain("IHttpContextAccessor", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("DefaultHttpContext", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpContext =", source, StringComparison.Ordinal);
-        Assert.Contains("BeginScope(request.TestSessionId)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(typeof(IHttpContextAccessor), runtimeTypes);
+        Assert.DoesNotContain(typeof(DefaultHttpContext), runtimeTypes);
+        Assert.Contains(calls, static call =>
+            call.Method.DeclaringType == typeof(ITestSessionKeyScope)
+            && call.Method.Name == nameof(ITestSessionKeyScope.BeginScope));
     }
 
     [Fact]
-    public void PublicAotFileShellCache_SourceWritesTempFileThenAtomicMove()
+    public void PublicAotFileShellCache_WritesTempThenMovesBeforePublishingMemoryEntry()
     {
-        string source = ReadSource("src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs");
+        MethodInfo moveNext = StateMachineMoveNext(typeof(PublicAotFileShellCache), nameof(PublicAotFileShellCache.SetAsync));
+        IReadOnlyList<(int Offset, MethodBase Method)> calls = ReadCalledMethods(moveNext);
+        int tempWrite = FindCallOffset(calls, typeof(File), nameof(File.WriteAllBytesAsync));
+        int atomicMove = FindCallOffset(calls, typeof(File), nameof(File.Move));
+        int memoryPublish = calls
+            .Where(static call => call.Method.Name == "set_Item"
+                && call.Method.DeclaringType?.IsGenericType == true
+                && call.Method.DeclaringType.GetGenericTypeDefinition() == typeof(System.Collections.Concurrent.ConcurrentDictionary<,>))
+            .Select(static call => call.Offset)
+            .DefaultIfEmpty(-1)
+            .First();
 
-        int tempWrite = source.IndexOf("File.WriteAllBytesAsync(tempPath, payload, cancellationToken)", StringComparison.Ordinal);
-        int atomicMove = source.IndexOf("File.Move(tempPath, targetPath, overwrite: true)", StringComparison.Ordinal);
-        int memoryPublish = source.IndexOf("_memoryCache[entry.CacheKey] = CreateMemoryCacheEntry(entry)", StringComparison.Ordinal);
-
-        Assert.True(tempWrite >= 0, "Public AOT cache must write complete payload to a temp file first.");
-        Assert.True(atomicMove > tempWrite, "Public AOT cache must atomically move the temp file into place after the write.");
-        Assert.True(memoryPublish > atomicMove, "Memory cache publish must happen only after the atomic file move.");
+        Assert.True(tempWrite >= 0);
+        Assert.True(atomicMove > tempWrite);
+        Assert.True(memoryPublish > atomicMove);
     }
 
     [Fact]
@@ -197,6 +212,48 @@ public sealed class PublicAotBackfillSchedulerTests
         Assert.Null(keyScope.SessionId);
     }
 
-    private static string ReadSource(string relativePath)
-        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
+    private static MethodInfo StateMachineMoveNext(Type type, string methodName)
+    {
+        MethodInfo method = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+            ?? throw new InvalidOperationException($"Async runtime method was not found: {type.Name}.{methodName}");
+        AsyncStateMachineAttribute stateMachine = method.GetCustomAttribute<AsyncStateMachineAttribute>()
+            ?? throw new InvalidOperationException($"Async state machine was not found: {type.Name}.{methodName}");
+        return stateMachine.StateMachineType.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)
+            ?? throw new InvalidOperationException($"Async MoveNext was not found: {type.Name}.{methodName}");
+    }
+
+    private static IReadOnlyList<(int Offset, MethodBase Method)> ReadCalledMethods(MethodInfo method)
+    {
+        var calls = new List<(int Offset, MethodBase Method)>();
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F))
+            {
+                continue;
+            }
+
+            try
+            {
+                MethodBase? called = method.Module.ResolveMethod(
+                    BitConverter.ToInt32(il, offset + 1),
+                    method.DeclaringType?.GetGenericArguments(),
+                    method.GetGenericArguments());
+                if (called is not null)
+                {
+                    calls.Add((offset, called));
+                }
+            }
+            catch (ArgumentException)
+            {
+            }
+        }
+        return calls;
+    }
+
+    private static int FindCallOffset(IReadOnlyList<(int Offset, MethodBase Method)> calls, Type declaringType, string name)
+        => calls.Where(call => call.Method.DeclaringType == declaringType && call.Method.Name == name)
+            .Select(static call => call.Offset)
+            .DefaultIfEmpty(-1)
+            .First();
 }

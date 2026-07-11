@@ -302,9 +302,17 @@ public class TotpServiceTests
     [Fact]
     public void TotpService_SourceUsesInvariantCultureForOtpFormatting()
     {
-        string source = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/TotpService.cs");
+        byte[] secret = Encoding.ASCII.GetBytes("12345678901234567890");
+        const long timestep = 59 / 30;
+        string invariant = RunWithCulture(
+            CultureInfo.InvariantCulture,
+            () => InvokeComputeTotp(secret, timestep));
+        string arabic = RunWithCulture(
+            CultureInfo.GetCultureInfo("ar-SA"),
+            () => InvokeComputeTotp(secret, timestep));
 
-        Assert.Contains("otp.ToString(\"D6\", CultureInfo.InvariantCulture)", source, StringComparison.Ordinal);
+        Assert.Equal(invariant, arabic);
+        Assert.Matches("^[0-9]{6}$", arabic);
     }
 
     // ── GenerateRecoveryCodes ─────────────────────────────────────────────────
@@ -560,16 +568,18 @@ public class TotpServiceTests
     [Fact]
     public void TotpService_SourceUsesMemoryHardArgon2idForRecoveryCodes()
     {
-        string source = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/TotpService.cs");
+        TotpService.RecoveryCodeHashPolicy production = TotpService.RecoveryCodeHashPolicy.Production;
+        var service = MakeService(productionHashPolicy: true);
+        string hash = service.HashRecoveryCodes(["ABCDEF1234"]);
+        RecoveryCodeConsumeResult accepted = service.ConsumeRecoveryCode(hash, "abcdef1234");
+        RecoveryCodeConsumeResult rejected = service.ConsumeRecoveryCode(hash, "0000000000");
 
-        Assert.Contains("new Argon2id", source, StringComparison.Ordinal);
-        Assert.Contains("MemorySize = policy.MemoryKib", source, StringComparison.Ordinal);
-        Assert.Contains("RecoveryCodeHashPolicy.Production", source, StringComparison.Ordinal);
-        Assert.Contains("RecoveryCodeArgon2MemoryKib = 64 * 1024", source, StringComparison.Ordinal);
-        Assert.Contains("RecoveryCodeArgon2Iterations = 3", source, StringComparison.Ordinal);
-        Assert.Contains("RecoveryCodeArgon2Parallelism = 4", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryConsumeRecoveryCode", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("v2$pbkdf2-sha256", source, StringComparison.Ordinal);
+        Assert.Equal(64 * 1024, production.MemoryKib);
+        Assert.Equal(3, production.Iterations);
+        Assert.Equal(4, production.Parallelism);
+        Assert.Matches("^v3\\$argon2id\\$m=65536,t=3,p=4\\$[0-9A-F]{32}\\$[0-9A-F]{64}$", hash);
+        Assert.True(accepted.Success);
+        Assert.False(rejected.Success);
     }
 
     [Fact]

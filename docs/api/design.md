@@ -46,9 +46,13 @@ HTTP shell 契约由 `src/shared/Contracts/Validation/fsusblog.openapi.json` 提
 
 鉴权要求以 `/api/binary/**` 端点声明为准。公开、登录、admin、PoW、MFA、Passkey 等边界必须在 binary 端点内直接校验；不存在文本端点作为权限参照。
 
+普通账号 bearer token 的签名有效不等于会话仍有效。所有需要普通账号 principal 的 binary 端点在 JWT `OnTokenValidated` 阶段统一校验 `sid`：默认读跨实例共享的短 TTL Redis L2 版本快照，miss 时只按 session 主键做一次 PostgreSQL 精确回源。单会话撤销、撤销其他会话和 refresh replay 的 DB 更新必须与 revoked snapshot 发布成对出现，使旧 access token 无需等待 JWT `exp` 即失效；公开 hot-read 没有认证 principal，不进入 session cache/DB 链路。admin principal 保持独立的 admin session validator，不复用普通 `sys_user_session`。实现与回退约束见 [user-session-revocation.md](../user-session-revocation.md)。
+
+普通账号的安全 subject 是 `sys_user.account_subject_hash` 物理投影。迁移用与应用相同的 C# canonical hasher 分批回填，新账号在返回 bootstrap 响应前写入该字段；JWT、MFA、binary auth、notification stream、blacklist 和 account-state cache 只能读取投影值。缺失或格式错误时必须 fail closed，不能从 account id、public handle、Passkey handle 或旧 cache payload 重新派生。滚动发布通过 nullable Expand 列兼容旧二进制，但候选接流量前必须通过永久启动不变量门禁。
+
 高价值认证动作可以在既有 binary 路径上叠加 RiskControl proof，而不是新增平行登录 API。生产用户登录入口只保留 Passkey、Recovery Key 与必要 step-up；`auth.passkey.begin`、`auth.passkey.complete`、`recovery-key.verify` 必须通过 endpoint metadata 声明 action，并统一用 `RequiresRiskControlFilter` 返回 AEDS `ApiError`；缺 challenge proof 返回 428，block/throttle 返回 429。叠加 RiskControl 不删除 legacy PoW、admin step-up 或 MFA proof 边界；需要两个 proof 的端点必须明确登记到 [contracts.md](contracts.md#安全挑战契约) 与本文件头部表。`auth.login` 只作为 legacy 风控 action 名保留，不对应生产用户侧 password endpoint。
 
-账号安全凭据变更的 step-up 证明必须是 action 绑定的一次性 proof token，经 `X-Fsus-Mfa-Proof` 传递。普通账号可通过 `/api/binary/auth/step-up/passkey/begin|complete` 用当前账号 Passkey 断言换取对应 action 的一次性 proof；该 proof 与 TOTP challenge 完成后签发的 proof 使用同一消费边界。该 Passkey step-up 通道受 `Auth:PasskeyStepUp:Enabled` 独立开关保护，默认开启；关闭时 begin/complete 都返回 503 + `PASSKEY_STEP_UP_DISABLED`，不得生成 challenge 或 mint proof。匿名身份模式下，Recovery Key create/rotate、Passkey register/delete/rename、account delete 等生产敏感操作不得把旧 `MfaPasswordProofRequest` 或 request body 内 proof 当作 proof；非匿名 legacy password fallback 如保留，必须隔离到兼容路径，不能进入匿名生产 endpoint。Recovery Key passkey bind 必须先 consume 一次性 recovery session，再执行 passkey credential insert，避免同一恢复会话重复绑定。
+账号安全凭据变更的 step-up 证明必须是 action 绑定的一次性 proof token，经 `X-Fsus-Mfa-Proof` 传递。普通账号可通过 `/api/binary/auth/step-up/passkey/begin|complete` 用当前账号 Passkey 断言换取对应 action 的一次性 proof；该 proof 与 TOTP challenge 完成后签发的 proof 使用同一消费边界。该 Passkey step-up 通道受 `Auth:PasskeyStepUp:Enabled` 独立开关保护，默认开启；关闭时 begin/complete 都返回 503 + `PASSKEY_STEP_UP_DISABLED`，不得生成 challenge 或 mint proof。匿名身份模式下，Recovery Key create/rotate、Passkey register/delete/rename、account delete 等生产敏感操作不得把旧 `MfaPasswordProofRequest` 或 request body 内 proof 当作 proof；非匿名 legacy password fallback 如保留，必须隔离到兼容路径，不能进入匿名生产 endpoint。Recovery Key passkey bind 不得在 WebAuthn 校验和数据库提交前消费 recovery session；服务端必须先用原子 compare-and-set 把会话从 `pending` 认领为带短租约的 `completing`，失败时恢复 `pending`，并以 recovery token hash + 规范化完成请求 hash 的数据库唯一标记提供并发单次提交和响应丢失后的同请求幂等重放。完整状态、事务与回退约束见 [recovery-passkey-completion.md](../recovery-passkey-completion.md)。
 
 Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤销选项，不接受用户输入 account id。新 Recovery Key 明文格式为 `frk_<lookupId>_<secret>`，其中 `lookupId` 是 128-bit hex 随机值；服务端只用 peppered `lookup_id_hash` 定位候选记录，再校验完整 key 的 peppered PBKDF2 hash。旧无 lookup id 的 key 不扫描全表兼容，会按通用失败和限流处理，用户需重新生成新格式 Recovery Key。
 
@@ -72,9 +76,11 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 | 消息系统使用 binary 消息路径 | `/api/binary/messages/conversations` |
 | 管理端以 binary admin 资源路径区分 | `/api/binary/admin/users`、`/api/binary/stats` |
 | 作者工作台生产前端使用原生 AEDS endpoint；不保留 legacy JSON runtime 兼容层 | `/api/binary/author/drafts`、`/api/binary/author/audit`、`/api/binary/author/moderation/overview` |
-| 健康检查与通知独立于业务路径 | `/health/live`、`/health/ready`、`/api/ops/health/ready-detail`、`/api/notifications/stream` |
+| 健康检查、发布控制与通知独立于业务路径 | `/health/live`、`/health/ready`、`/api/ops/health/ready-detail`、`/api/ops/deployment/status|activate|drain`、`/api/ops/deployment/fence/**`、`/api/ops/deployment/notification-stream/**`、`/api/notifications/stream` |
 
 持续增长表的管理端列表不得依赖深分页 OFFSET。审计日志列表保留 `page/pageSize` 兼容字段，但服务端排序和翻页以 `occurredAtUtc + id` keyset cursor 为准：首屏不传 `cursor`，后续请求传上一页响应的 `nextCursor`。summary/facet 这类刷新频繁的聚合读取必须使用归一化过滤条件做短 TTL cache 或等价 rollup，不能让每次 UI 刷新都重新触发多路 GroupBy。
+
+发布控制端点是宿主机 ops JSON 协议，不是业务 API 或 AEDS fallback。读取/写入都必须同时通过独立 admin principal 的 `system.config` 权限与 loopback source 限制；activate/drain body 固定携带运行实例的 `releaseId + slot + generation`，以 CAS 拒绝发往错误容器或旧 generation 的请求。Candidate readiness 只证明依赖/运行时门禁完成，不表示可接流量；网关必须显式激活。Draining 会让 readiness 立即失败，但公共 readiness body 仍只保留 `status/checkedAt`。这组端点不改变 `ApiResponse`、AEDS frame、`X-Fsus-*` release header、PoW 或 RiskControl 语义。
 
 作者工作台 cache action 只暴露可重复执行的运行时维护动作，例如 rebuild、invalidate 和 recompute；一次性历史清理必须进入 `SchemaMigrationRunner` 并由 migration history 记录，不再作为 admin cache action 长期暴露。
 
@@ -96,6 +102,7 @@ Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AED
 匿名身份模式下，新账号 onboarding 必须走 `POST /api/binary/auth/anonymous/bootstrap`，请求 frame 为 `AuthAnonymousBootstrapRequest`；该路径只初始化匿名账号容器和当前 session，不接受用户提供的登录密码，也不得复用旧 username/password 契约。旧 `/api/binary/auth/register` 与 `/api/binary/auth/login` password endpoints 不再是生产 API；旧 password-auth request 编号已经从 AEDS frame catalog 下线，不能作为 legacy/test frame 继续消费。AEDS 数值 `40` 已作为 legacy admin password reset slot 退休，`43`/`44`/`45`/`46` 已作为 legacy username/password auth slots 退休；这些数值不再生成 frame 名、POD、codec 或 OpenAPI 契约。
 `GET /api/binary/auth/me` 只输出 `IdentityAccountSnapshot` 匿名账号容器：`accountId`、`identityKind`、`publicHandle`、Passkey/Recovery/TOTP 状态、anonymous credential 状态和账号封禁/注销状态。该响应不得暴露内部 `sys_user.username`、`sys_user.role`、旧兼容 `id` 或 `internalUserId`，客户端也不得从普通账号快照推断 admin 权限；后台权限只能来自 independent admin principal 与 admin session Cookie。
 `GET /api/binary/auth/sessions` 只返回普通账号可操作的 session id、设备指纹、设备标签、最近活跃时间、当前会话标记和 MFA 状态；不得把 `sys_user_session.last_ip` 或原始客户端 IP 透出给 IdentityCenter 或前端 adapter。原始 IP 只允许留在服务端风险判定、审计哈希或独立 admin session 管理边界。
+认证成功响应不把 access/refresh token 放入 AEDS body；HTTP 层只通过 HttpOnly Cookie 承载。JWT 签发结果是 access token 字符串与绝对 `ExpiresAtUtc` 的原子结果，登录、MFA、Passkey、refresh rotation 和 admin session 写 Cookie 时必须使用该同一绝对时间；Cookie 层不得再次读取过期分钟配置或解析 JWT，以免配置 reload 边界产生两套生命周期。
 管理端账号定位只允许通过 accountId 查询 `/api/binary/auth/{id:int}` 或 `/api/binary/admin/users` 的匿名账号搜索维度完成；旧 `/api/binary/auth/find/{username}` 已下线，`sys_user.username` 不再作为常规管理 API 查询键。
 TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account label 必须使用非识别 `FsusBlog:account:{accountId}`，`/mfa/setup/start`、`/mfa/disable` 和 `/mfa/recovery/regenerate` 必须通过 `X-Fsus-Mfa-Proof` 消费对应 action 的一次性 proof，不接收旧 username/password body proof；TOTP recovery code 不得混同账户 `Recovery Key`。
 `PUT /api/binary/auth/public-handle` 是唯一用户侧公开称呼写入入口，使用 `AuthUpdatePublicHandleRequest` + `StringMutationRequestPod`；空字符串表示清空。评论 public send 只能读取已持久化的 `public_handle`，未设置时拒绝 public mode，不能回退内部 username 或合成 user id。
@@ -174,6 +181,7 @@ TOTP 在匿名身份模式下只作为敏感操作 step-up。TOTP issuer account
 | 测试工具 | `X-Fsus-Notification-Drill-Secret` / `X-Fsus-Notification-Drill-Timestamp` / `X-Fsus-Notification-Drill-Nonce` / `X-Fsus-Notification-Drill-Signature` | 请求 | 仅 Development/Test 映射的 notification slow-consumer resilience drill 凭据；secret 必须匹配配置，signature 为 timestamp + nonce + body 的 HMAC，timestamp 窗口为 60 秒，nonce 一次性。 |
 | AOT 运维 | `X-Fsus-Public-Aot-Token` | 请求 | `GET /internal/public-aot/manifest` 与 `GET /internal/public-aot/health` 在配置 `PublicAot:ManifestToken` 时要求的 tooling token。 |
 | 可观测性 | `X-Fsus-Trace-Id` | 响应 | 与 `HttpContext.TraceIdentifier`、OpenTelemetry trace 和审计上下文对齐的排障 ID；不是认证凭据。 |
+| 发布身份 | `X-Fsus-Release-Id` / `X-Fsus-Release-Slot` | 响应 | 所有应用响应携带的非敏感 immutable release identity；Blue/Green 控制面同时核对 loopback 与公网实际 upstream。它们不是认证、授权或缓存变体输入，不得包含 commit、digest、token、用户身份或完整配置。 |
 | L0 artifact | `X-Fsus-Frame-Encoding` | 响应 | `.aeds` artifact 命中时标记 raw/br/gzip variant。 |
 | L0 诊断 | `X-Fsus-HotRead-Version` / `X-Fsus-HotRead-Artifact` / `X-Fsus-HotRead-Key` | 响应 | PublicHotRead 诊断头，默认关闭；只能通过 `PublicHotRead:EnableDiagnosticHeaders=true` 打开。 |
 
@@ -280,6 +288,22 @@ AEDS wire protocol 是传输层版本，不等同于 URL 版本。当前运行�
 ### 测试 drill 入口
 
 `POST /_fsus/testing/notification-stream/publish` 只在 `Development` / `Test` 环境映射，且必须携带 `X-Fsus-Notification-Drill-Secret`。它通过真实 `INotificationStreamPublisher` 发布 `CacheControl` 测试事件，返回发布 event id 与 route key，用于 resilience lane 验证慢消费者关闭、心跳未饿死、正常连接业务帧投递和 cursor backlog replay。该路径不属于生产业务 API；生产环境不映射，未配置 secret 时返回 `404`。
+
+### Test-only schema qualification bridge
+
+在线迁移资格的 HTTP bridge 不是生产业务 API，也不是第二个 migration 入口。
+`MapReleaseSchemaQualificationEndpoints` 只有在 environment 精确为 `Test` 且
+`SchemaMigration:QualificationEnabled=true` 时才注册：
+
+- `POST /api/release-evidence/schema-bridge/write`：执行 source/target 双槽的有界、
+  幂等 qualification write；
+- `GET /api/release-evidence/schema-qualification/readiness`：把隔离 missing-Expand
+  注入映射为明确的 503 `schema_incompatible`。
+
+两条 route 即使已注册也必须通过 admin `system.config` 与 `fixed_ip`，并返回精确
+`X-Fsus-Release-Id` / `X-Fsus-Release-Slot` 和 `Cache-Control: no-store`。生产环境不会
+注册，配置开关不能把 Development 或 Production 变成 Test。请求/响应为窄 JSON
+tooling contract，不进入 AEDS runtime API，也不能被公开客户端或正常发布脚本使用。
 
 ### 审计与缓存清理
 

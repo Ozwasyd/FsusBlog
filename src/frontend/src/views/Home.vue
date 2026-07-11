@@ -1,35 +1,32 @@
 <template>
   <PublicHomePageContent
-    :view="listView"
+    :view="editorialView"
     :loading="loading"
     :is-error="isError"
     :spa-navigation="spaNavigation"
     :show-aside="showHomeAside"
+    :has-recommendations="hasEditorialRecommendations"
+    :show-article-cta="false"
     @retry="loadArticles(true)"
     @navigate="navigateToArticle"
     @page-prev="handlePageChange(currentPage - 1)"
     @page-next="handlePageChange(currentPage + 1)"
   >
     <template #featured>
-      <!-- Only render featured section after data is loaded or explicitly ready.
-           Avoid rendering during hydration window to prevent DOM mismatch. -->
       <FeaturedArticlesSection
-        v-if="homeSecondaryLayout === 'loading' || homeSecondaryLayout === 'spotlight'"
-        :articles="spotlightArticles"
+        v-if="featuredLoading || editorialComposition.leadArticle"
+        :article="editorialComposition.leadArticle"
         :loading="featuredLoading"
       />
       <HomeTextFirstRecommendations
-        v-else-if="homeSecondaryLayout === 'text-first'"
-        :articles="hotArticles"
+        v-if="!featuredLoading && editorialComposition.secondaryArticles.length > 0"
+        :articles="editorialComposition.secondaryArticles"
       />
     </template>
     <template #aside>
-      <!-- aside slot removed: HomeTextFirstRecommendations (featured slot)
-           already surfaces the same hotArticles widget under the "热门文章"
-           heading, and the right-side list was creating a duplicate
-           "热门文章" surface on the homepage hero. The HomeFeedSurface is
-           told showAside=false below so the layout collapses to a single
-           full-width column instead of leaving an empty sidebar slot. -->
+      <!-- The home editorial selector owns every recommendation. Keeping the
+           aside empty prevents an independently selected hot list from
+           reintroducing duplicate article IDs. -->
     </template>
   </PublicHomePageContent>
 </template>
@@ -44,7 +41,7 @@ import { useHomeView } from '@/composables/useHomeView'
 import { useHumanReadProof } from '@/composables/useHumanReadProof'
 import { usePublicSpaNavigationMode } from '@/composables/usePublicSpaNavigationMode'
 import { buildPublicHomeRouteKey } from '@/public-renderers/publicRouteIdentity'
-import { resolveHomeSecondaryLayout, selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
+import { createHomeEditorialPageState } from '@/view-contracts/homeSpotlight'
 
 const {
   listView,
@@ -59,17 +56,19 @@ const {
 } = useHomeView()
 const router = useRouter()
 const spaNavigation = usePublicSpaNavigationMode
-const spotlightArticles = computed(() => selectHomeSpotlightCandidates(featuredArticles.value))
-// Hot articles are surfaced by HomeTextFirstRecommendations inside the main
-// column, so the right-side aside stays closed. The HomeFeedSurface layout
-// collapses to a single full-width column in this mode.
-const showHomeAside = false
-// Hydration invariant: secondary home layout uses the same pure selector for SSR, hydration, and takeover.
-const homeSecondaryLayout = computed(() => resolveHomeSecondaryLayout({
-  loading: featuredLoading.value,
-  spotlightCandidates: spotlightArticles.value,
+// Hydration invariant: AOT/SSR, hydration, and SPA takeover all use the same
+// pure selector and preserve each backend source's ordering.
+const editorialState = computed(() => createHomeEditorialPageState({
+  view: listView.value,
+  featuredArticles: featuredArticles.value,
   hotArticles: hotArticles.value
 }))
+const editorialComposition = computed(() => editorialState.value.composition)
+const editorialView = computed(() => editorialState.value.view)
+const hasEditorialRecommendations = computed(() => editorialState.value.hasRecommendations)
+// Secondary recommendations stay in the main editorial line, so the home
+// shell has one readable column on both narrow and wide viewports.
+const showHomeAside = false
 useHumanReadProof({
   scope: computed(() => 'site'),
   routeKey: computed(() => buildPublicHomeRouteKey()),

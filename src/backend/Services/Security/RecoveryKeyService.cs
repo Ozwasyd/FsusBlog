@@ -1,4 +1,5 @@
 using System.Buffers.Text;
+using System.Buffers;
 using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -7,6 +8,7 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using SqlSugar;
 
@@ -18,20 +20,41 @@ public sealed record class RecoveryKeySession(
     DateTime IssuedAtUtc,
     DateTime ExpiresAtUtc);
 
+public readonly record struct RecoveryPasskeyBindOutcome(bool WasIdempotentReplay);
+
+internal enum RecoveryPasskeyCompletionState
+{
+    Pending,
+    Completing,
+    Completed
+}
+
+internal sealed record RecoverySessionEnvelope(
+    RecoveryKeySession Session,
+    RecoveryPasskeyCompletionState State,
+    string? RequestHash,
+    string? LeaseId,
+    DateTime? LeaseExpiresAtUtc);
+
 public interface IRecoveryKeyService
 {
     Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateAsync(int accountId, CancellationToken cancellationToken = default);
     Task<Result<RecoveryKeyCreateResponseCoreModel>> RotateAsync(int accountId, CancellationToken cancellationToken = default);
     Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync(RecoveryKeyVerifyRequestCoreModel request, string clientIp, string? userAgent, CancellationToken cancellationToken = default);
     Task<Result<RecoveryKeySession>> GetRecoverySessionAsync(string token, CancellationToken cancellationToken = default);
-    Task<Result<RecoveryKeySession>> ConsumeRecoverySessionAsync(string token, CancellationToken cancellationToken = default);
-    Task ApplyPostPasskeyBindAsync(RecoveryKeySession session, CancellationToken cancellationToken = default);
+    Task<Result<RecoveryPasskeyBindOutcome>> CompletePasskeyBindAsync(
+        string token,
+        PasskeyRegisterCompleteCoreModel request,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class RecoveryKeyService(
     ISqlSugarClient db,
     IUnifiedCache cache,
-    IConfiguration configuration) : IRecoveryKeyService
+    IConfiguration configuration,
+    IPasskeyService passkeys,
+    ILogger<RecoveryKeyService> logger,
+    IUserSessionValidationCache userSessionValidationCache) : IRecoveryKeyService
 {
     private const string RecoveryKeyPrefix = "frk_";
     private const char RecoveryKeySeparator = '_';
@@ -44,6 +67,7 @@ public sealed class RecoveryKeyService(
     private const int MaxFailedAttempts = 8;
     private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan RecoverySessionTtl = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan CompletionLeaseTtl = TimeSpan.FromSeconds(90);
 
     public Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateAsync(int accountId, CancellationToken cancellationToken = default)
         => CreateOrRotateAsync(accountId, rotate: false, cancellationToken);
@@ -84,6 +108,8 @@ public sealed class RecoveryKeyService(
         }
 
         Result<RecoveryKeyVerifyResponseCoreModel>? transactionResult = null;
+        List<UserSessionValidationCacheState> revokedSessions = [];
+        bool publicationAttempted = false;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             RecoveryKeyCredential? credential = await LoadRecoveryKeyCredentialForUpdateAsync(lookupIdHash, cancellationToken).ConfigureAwait(false);
@@ -118,11 +144,35 @@ public sealed class RecoveryKeyService(
 
             if (request.RevokeSessions)
             {
-                await db.Updateable<UserSession>()
-                    .SetColumns(s => s.RevokedAt == now)
-                    .SetColumns(s => s.RevokeReason == "recovery_key_verified")
-                    .Where(s => s.UserId == credential.AccountId && s.RevokedAt == null)
-                    .ExecuteCommandAsync();
+                using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                    """
+                    UPDATE sys_user_session
+                    SET revokedat = @RevokedAt,
+                        revokereason = 'recovery_key_verified'
+                    WHERE userid = @AccountId
+                      AND revokedat IS NULL
+                    RETURNING sessionid,
+                              userid,
+                              revokedat,
+                              idleexpiresat,
+                              absoluteexpiresat,
+                              xmin::text AS row_version;
+                    """,
+                    new SugarParameter("@RevokedAt", now),
+                    new SugarParameter("@AccountId", credential.AccountId));
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    revokedSessions.Add(new UserSessionValidationCacheState(
+                        reader.GetString(0),
+                        reader.GetInt32(1),
+                        AsUtc(reader.GetDateTime(2)),
+                        AsUtc(reader.GetDateTime(3)),
+                        AsUtc(reader.GetDateTime(4)),
+                        reader.GetString(5),
+                        0,
+                        null,
+                        AnonymousIdentityRuntime.AnonymousAccountKind));
+                }
             }
 
             string token = GenerateSecretToken();
@@ -131,19 +181,50 @@ public sealed class RecoveryKeyService(
             await cache.SetStringAsync(
                 CachePolicyId.SecurityRecoveryKeySession,
                 BuildSessionIdentity(token),
-                EncodeSession(session),
+                EncodeSessionEnvelope(ToPendingEnvelope(session)),
                 RecoverySessionTtl,
                 cancellationToken).ConfigureAwait(false);
 
             transactionResult = Result<RecoveryKeyVerifyResponseCoreModel>.Success(
                 new RecoveryKeyVerifyResponseCoreModel(token, expiresAt));
+
+            publicationAttempted = revokedSessions.Count > 0;
+            await userSessionValidationCache.PublishManyAsync(
+                revokedSessions,
+                allowOverwrite: true,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         });
         if (!transaction.IsSuccess)
         {
+            if (publicationAttempted)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions).ConfigureAwait(false);
+            }
+
             throw transaction.ErrorException ?? new InvalidOperationException("Recovery key verification transaction failed.");
         }
 
         return transactionResult ?? Result<RecoveryKeyVerifyResponseCoreModel>.Failure(ErrorCode.Unauthorized, "RECOVERY_KEY_INVALID");
+    }
+
+    private async Task BestEffortInvalidateRevocationSnapshotsAsync(
+        IReadOnlyList<UserSessionValidationCacheState> revokedSessions)
+    {
+        try
+        {
+            await userSessionValidationCache.InvalidateManyAsync(
+                revokedSessions,
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // Leaving the pre-commit revoked snapshot in place is conservative: it can
+            // deny an active session after rollback, but cannot resurrect a revoked one.
+            logger.LogWarning(
+                ex,
+                "Failed to clean up {SessionCount} pre-commit recovery revocation snapshots",
+                revokedSessions.Count);
+        }
     }
 
     public async Task<Result<RecoveryKeySession>> GetRecoverySessionAsync(string token, CancellationToken cancellationToken = default)
@@ -153,58 +234,271 @@ public sealed class RecoveryKeyService(
             return Result<RecoveryKeySession>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_INVALID");
         }
 
-        string? encoded = await cache.GetStringAsync(
-            CachePolicyId.SecurityRecoveryKeySession,
-            BuildSessionIdentity(token),
-            cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(encoded) || !TryDecodeSession(encoded, out RecoveryKeySession? session) || session is null)
+        string identity = BuildSessionIdentity(token);
+        for (int attempt = 0; attempt < 3; attempt++)
         {
-            return Result<RecoveryKeySession>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_INVALID");
+            string? encoded = await cache.GetStringAsync(
+                CachePolicyId.SecurityRecoveryKeySession,
+                identity,
+                cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(encoded) || !TryDecodeSessionEnvelope(encoded, out RecoverySessionEnvelope? envelope) || envelope is null)
+            {
+                return Result<RecoveryKeySession>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_INVALID");
+            }
+
+            DateTime now = DateTime.UtcNow;
+            if (envelope.Session.ExpiresAtUtc <= now)
+            {
+                await cache.RemoveAsync(CachePolicyId.SecurityRecoveryKeySession, identity, cancellationToken).ConfigureAwait(false);
+                return Result<RecoveryKeySession>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_EXPIRED");
+            }
+
+            if (envelope.State == RecoveryPasskeyCompletionState.Pending)
+            {
+                return Result<RecoveryKeySession>.Success(envelope.Session);
+            }
+
+            if (envelope.State == RecoveryPasskeyCompletionState.Completed)
+            {
+                return Result<RecoveryKeySession>.Failure(ErrorCode.Conflict, "RECOVERY_PASSKEY_ALREADY_COMPLETED");
+            }
+
+            if (envelope.LeaseExpiresAtUtc > now)
+            {
+                return Result<RecoveryKeySession>.Failure(ErrorCode.Conflict, "RECOVERY_PASSKEY_COMPLETION_IN_PROGRESS");
+            }
+
+            RecoverySessionEnvelope pending = ToPendingEnvelope(envelope.Session);
+            if (await TryReplaceSessionEnvelopeAsync(identity, encoded, pending, cancellationToken).ConfigureAwait(false))
+            {
+                return Result<RecoveryKeySession>.Success(envelope.Session);
+            }
         }
 
-        RecoveryKeySession resolvedSession = session;
-        if (resolvedSession.ExpiresAtUtc <= DateTime.UtcNow)
-        {
-            await cache.RemoveAsync(CachePolicyId.SecurityRecoveryKeySession, BuildSessionIdentity(token), cancellationToken).ConfigureAwait(false);
-            return Result<RecoveryKeySession>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_EXPIRED");
-        }
-
-        return Result<RecoveryKeySession>.Success(resolvedSession);
+        return Result<RecoveryKeySession>.Failure(ErrorCode.Conflict, "RECOVERY_PASSKEY_COMPLETION_IN_PROGRESS");
     }
 
-    public async Task<Result<RecoveryKeySession>> ConsumeRecoverySessionAsync(string token, CancellationToken cancellationToken = default)
-    {
-        Result<RecoveryKeySession> session = await GetRecoverySessionAsync(token, cancellationToken).ConfigureAwait(false);
-        if (!session.IsSuccess || session.Value is null)
-        {
-            return session;
-        }
-
-        bool consumed = await cache.ConsumeOnceAsync(
-            CachePolicyId.SecurityRecoveryKeySession,
-            BuildSessionIdentity(token),
-            cancellationToken).ConfigureAwait(false);
-        return consumed
-            ? session
-            : Result<RecoveryKeySession>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_INVALID");
-    }
-
-    public async Task ApplyPostPasskeyBindAsync(RecoveryKeySession session, CancellationToken cancellationToken = default)
+    public async Task<Result<RecoveryPasskeyBindOutcome>> CompletePasskeyBindAsync(
+        string token,
+        PasskeyRegisterCompleteCoreModel request,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (session.RevokePasskeys)
+        if (string.IsNullOrWhiteSpace(token))
         {
-            await db.Deleteable<PasskeyCredential>()
-                .Where(c => c.AccountId == session.AccountId && c.CreatedAt < session.IssuedAtUtc)
-                .ExecuteCommandAsync();
+            return Result<RecoveryPasskeyBindOutcome>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_INVALID");
         }
 
-        await db.Updateable<User>()
-            .SetColumns(u => u.PasskeyEnabled == true)
-            .Where(u => u.Id == session.AccountId)
-            .ExecuteCommandAsync();
-        await AccountSnapshotCacheInvalidator.BumpVersionAsync(cache, session.AccountId, cancellationToken).ConfigureAwait(false);
+        string identity = BuildSessionIdentity(token);
+        string recoverySessionHash = HashRecoverySessionToken(token);
+        string recoveryRequestHash = HashRecoveryPasskeyRequest(request);
+        Result<RecoveryPasskeyBindOutcome>? durable = await TryResolveDurableCompletionAsync(
+            recoverySessionHash,
+            recoveryRequestHash,
+            request.SessionKey,
+            cancellationToken).ConfigureAwait(false);
+        if (durable.HasValue)
+        {
+            return durable.Value;
+        }
+
+        RecoverySessionEnvelope? claimedEnvelope = null;
+        string? claimedEncoded = null;
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            string? encoded = await cache.GetStringAsync(
+                CachePolicyId.SecurityRecoveryKeySession,
+                identity,
+                cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(encoded) || !TryDecodeSessionEnvelope(encoded, out RecoverySessionEnvelope? envelope) || envelope is null)
+            {
+                return Result<RecoveryPasskeyBindOutcome>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_INVALID");
+            }
+
+            DateTime now = DateTime.UtcNow;
+            if (envelope.Session.ExpiresAtUtc <= now)
+            {
+                await cache.RemoveAsync(CachePolicyId.SecurityRecoveryKeySession, identity, cancellationToken).ConfigureAwait(false);
+                return Result<RecoveryPasskeyBindOutcome>.Failure(ErrorCode.Unauthorized, "RECOVERY_SESSION_EXPIRED");
+            }
+
+            if (envelope.State == RecoveryPasskeyCompletionState.Completed)
+            {
+                durable = await TryResolveDurableCompletionAsync(
+                    recoverySessionHash,
+                    recoveryRequestHash,
+                    request.SessionKey,
+                    cancellationToken).ConfigureAwait(false);
+                return durable ?? Result<RecoveryPasskeyBindOutcome>.Failure(
+                    ErrorCode.InfraFailure,
+                    "RECOVERY_PASSKEY_COMPLETION_STATE_INVALID");
+            }
+
+            if (envelope.State == RecoveryPasskeyCompletionState.Completing)
+            {
+                if (envelope.LeaseExpiresAtUtc > now)
+                {
+                    string reason = string.Equals(envelope.RequestHash, recoveryRequestHash, StringComparison.Ordinal)
+                        ? "RECOVERY_PASSKEY_COMPLETION_IN_PROGRESS"
+                        : "RECOVERY_PASSKEY_COMPLETION_BOUND_TO_ANOTHER_REQUEST";
+                    return Result<RecoveryPasskeyBindOutcome>.Failure(ErrorCode.Conflict, reason);
+                }
+
+                RecoverySessionEnvelope pending = ToPendingEnvelope(envelope.Session);
+                _ = await TryReplaceSessionEnvelopeAsync(identity, encoded, pending, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            string leaseId = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(16));
+            var completing = envelope with
+            {
+                State = RecoveryPasskeyCompletionState.Completing,
+                RequestHash = recoveryRequestHash,
+                LeaseId = leaseId,
+                LeaseExpiresAtUtc = Min(envelope.Session.ExpiresAtUtc, now.Add(CompletionLeaseTtl))
+            };
+            if (await TryReplaceSessionEnvelopeAsync(identity, encoded, completing, cancellationToken).ConfigureAwait(false))
+            {
+                claimedEnvelope = completing;
+                claimedEncoded = EncodeSessionEnvelope(completing);
+                break;
+            }
+        }
+
+        if (claimedEnvelope is null || string.IsNullOrWhiteSpace(claimedEncoded))
+        {
+            return Result<RecoveryPasskeyBindOutcome>.Failure(ErrorCode.Conflict, "RECOVERY_PASSKEY_COMPLETION_IN_PROGRESS");
+        }
+
+        try
+        {
+            RecoveryPasskeyRegistrationResult registration = await passkeys.CompleteRecoveryRegistrationAsync(
+                claimedEnvelope.Session,
+                recoverySessionHash,
+                recoveryRequestHash,
+                request,
+                cancellationToken).ConfigureAwait(false);
+            if (!registration.IsSuccess)
+            {
+                await RestorePendingAfterFailureAsync(identity, claimedEncoded, claimedEnvelope.Session).ConfigureAwait(false);
+                ErrorCode code = registration.Status switch
+                {
+                    RecoveryPasskeyRegistrationStatus.ValidationFailed => ErrorCode.Validation,
+                    RecoveryPasskeyRegistrationStatus.Conflict => ErrorCode.Conflict,
+                    _ => ErrorCode.InfraFailure
+                };
+                return Result<RecoveryPasskeyBindOutcome>.Failure(code, registration.Message);
+            }
+
+            var completed = claimedEnvelope with
+            {
+                State = RecoveryPasskeyCompletionState.Completed,
+                LeaseId = null,
+                LeaseExpiresAtUtc = null
+            };
+            _ = await TryReplaceSessionEnvelopeAsync(
+                identity,
+                claimedEncoded,
+                completed,
+                cancellationToken).ConfigureAwait(false);
+            return Result<RecoveryPasskeyBindOutcome>.Success(new RecoveryPasskeyBindOutcome(
+                registration.Status == RecoveryPasskeyRegistrationStatus.AlreadyCompleted));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await RestorePendingAfterFailureAsync(identity, claimedEncoded, claimedEnvelope.Session).ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            await RestorePendingAfterFailureAsync(identity, claimedEncoded, claimedEnvelope.Session).ConfigureAwait(false);
+            logger.LogWarning(
+                exception,
+                "Recovery Passkey completion failed safely before response. RecoverySessionHash={RecoverySessionHash} ExceptionType={ExceptionType}",
+                recoverySessionHash[..16],
+                exception.GetType().Name);
+            return Result<RecoveryPasskeyBindOutcome>.Failure(ErrorCode.InfraFailure, "RECOVERY_PASSKEY_RETRYABLE");
+        }
     }
+
+    private async Task<Result<RecoveryPasskeyBindOutcome>?> TryResolveDurableCompletionAsync(
+        string recoverySessionHash,
+        string recoveryRequestHash,
+        string registrationSessionKey,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RecoveryPasskeyRegistrationResult? completed = await passkeys.TryResolveRecoveryRegistrationAsync(
+            recoverySessionHash,
+            recoveryRequestHash,
+            registrationSessionKey,
+            cancellationToken).ConfigureAwait(false);
+        if (completed is null)
+        {
+            return null;
+        }
+
+        if (!completed.Value.IsSuccess)
+        {
+            return Result<RecoveryPasskeyBindOutcome>.Failure(
+                ErrorCode.Conflict,
+                completed.Value.Message);
+        }
+
+        return Result<RecoveryPasskeyBindOutcome>.Success(new RecoveryPasskeyBindOutcome(true));
+    }
+
+    private async Task<bool> TryReplaceSessionEnvelopeAsync(
+        string identity,
+        string expectedEncoded,
+        RecoverySessionEnvelope replacement,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        TimeSpan remaining = replacement.Session.ExpiresAtUtc - DateTime.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        return await cache.TrySetStringIfValueAsync(
+            CachePolicyId.SecurityRecoveryKeySession,
+            identity,
+            EncodeSessionEnvelope(replacement),
+            identity,
+            expectedEncoded,
+            remaining,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task RestorePendingAfterFailureAsync(
+        string identity,
+        string completingEncoded,
+        RecoveryKeySession session)
+    {
+        try
+        {
+            _ = await TryReplaceSessionEnvelopeAsync(
+                identity,
+                completingEncoded,
+                ToPendingEnvelope(session),
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Recovery Passkey completion lease could not be released. SessionIdentity={SessionIdentity} ExceptionType={ExceptionType}",
+                identity,
+                exception.GetType().Name);
+        }
+    }
+
+    internal static RecoverySessionEnvelope ToPendingEnvelope(RecoveryKeySession session)
+        => new(session, RecoveryPasskeyCompletionState.Pending, null, null, null);
+
+    private static DateTime Min(DateTime left, DateTime right)
+        => left <= right ? left : right;
 
     private async Task<Result<RecoveryKeyCreateResponseCoreModel>> CreateOrRotateAsync(int accountId, bool rotate, CancellationToken cancellationToken)
     {
@@ -490,41 +784,152 @@ public sealed class RecoveryKeyService(
     private static string BuildAttemptIdentity(string lookupIdentity)
         => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(lookupIdentity)))[..32];
 
-    private static string BuildSessionIdentity(string token)
+    internal static string BuildSessionIdentity(string token)
         => $"token:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)))[..32]}";
 
-    private static string EncodeSession(RecoveryKeySession session)
+    internal static string HashRecoverySessionToken(string token)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+    internal static string HashRecoveryPasskeyRequest(PasskeyRegisterCompleteCoreModel request)
+    {
+        var payload = new ArrayBufferWriter<byte>(512);
+        PodBinaryCodec.WritePasskeyRegisterCompleteRequest(request, payload);
+        return Convert.ToHexString(SHA256.HashData(payload.WrittenSpan));
+    }
+
+    internal static string EncodeSessionEnvelope(RecoverySessionEnvelope envelope)
         => string.Join(
             '|',
-            session.AccountId.ToString(CultureInfo.InvariantCulture),
-            session.RevokePasskeys ? "1" : "0",
-            session.IssuedAtUtc.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture),
-            session.ExpiresAtUtc.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture));
+            "v2",
+            envelope.State switch
+            {
+                RecoveryPasskeyCompletionState.Pending => "pending",
+                RecoveryPasskeyCompletionState.Completing => "completing",
+                RecoveryPasskeyCompletionState.Completed => "completed",
+                _ => throw new ArgumentOutOfRangeException(nameof(envelope))
+            },
+            envelope.Session.AccountId.ToString(CultureInfo.InvariantCulture),
+            envelope.Session.RevokePasskeys ? "1" : "0",
+            envelope.Session.IssuedAtUtc.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture),
+            envelope.Session.ExpiresAtUtc.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture),
+            envelope.RequestHash ?? "-",
+            envelope.LeaseId ?? "-",
+            envelope.LeaseExpiresAtUtc?.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture) ?? "-1");
 
-    private static bool TryDecodeSession(string value, out RecoveryKeySession? session)
+    internal static bool TryDecodeSessionEnvelope(string value, out RecoverySessionEnvelope? envelope)
     {
-        session = null;
+        envelope = null;
         string[] parts = value.Split('|');
-        if (parts.Length != 4 ||
-            !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int accountId) ||
-            !long.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out long issuedTicks) ||
-            !long.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out long expiresTicks))
+        if (parts.Length == 4)
+        {
+            if (!TryDecodeSessionFields(parts[0], parts[1], parts[2], parts[3], out RecoveryKeySession? legacySession) ||
+                legacySession is null)
+            {
+                return false;
+            }
+
+            envelope = ToPendingEnvelope(legacySession);
+            return true;
+        }
+
+        if (parts.Length != 9 || !string.Equals(parts[0], "v2", StringComparison.Ordinal) ||
+            !TryDecodeSessionFields(parts[2], parts[3], parts[4], parts[5], out RecoveryKeySession? session) ||
+            session is null)
         {
             return false;
         }
 
-        if (accountId <= 0 || (parts[1] != "0" && parts[1] != "1"))
+        RecoveryPasskeyCompletionState state = parts[1] switch
+        {
+            "pending" => RecoveryPasskeyCompletionState.Pending,
+            "completing" => RecoveryPasskeyCompletionState.Completing,
+            "completed" => RecoveryPasskeyCompletionState.Completed,
+            _ => (RecoveryPasskeyCompletionState)(-1)
+        };
+        if (!Enum.IsDefined(state))
+        {
+            return false;
+        }
+
+        string? requestHash = parts[6] == "-" ? null : parts[6];
+        string? leaseId = parts[7] == "-" ? null : parts[7];
+        DateTime? leaseExpiresAtUtc = null;
+        if (parts[8] != "-1")
+        {
+            if (!long.TryParse(parts[8], NumberStyles.None, CultureInfo.InvariantCulture, out long leaseTicks) ||
+                !TryCreateUtc(leaseTicks, out DateTime leaseExpiry))
+            {
+                return false;
+            }
+            leaseExpiresAtUtc = leaseExpiry;
+        }
+
+        bool fieldsValid = state switch
+        {
+            RecoveryPasskeyCompletionState.Pending => requestHash is null && leaseId is null && leaseExpiresAtUtc is null,
+            RecoveryPasskeyCompletionState.Completing =>
+                requestHash is { Length: 64 } && leaseId is not null && leaseExpiresAtUtc.HasValue,
+            RecoveryPasskeyCompletionState.Completed => requestHash is { Length: 64 } && leaseId is null && leaseExpiresAtUtc is null,
+            _ => false
+        };
+        if (!fieldsValid)
+        {
+            return false;
+        }
+
+        envelope = new RecoverySessionEnvelope(session, state, requestHash, leaseId, leaseExpiresAtUtc);
+        return true;
+    }
+
+    private static bool TryDecodeSessionFields(
+        string accountValue,
+        string revokePasskeysValue,
+        string issuedValue,
+        string expiresValue,
+        out RecoveryKeySession? session)
+    {
+        session = null;
+        if (!int.TryParse(accountValue, NumberStyles.None, CultureInfo.InvariantCulture, out int accountId) ||
+            accountId <= 0 ||
+            (revokePasskeysValue != "0" && revokePasskeysValue != "1") ||
+            !long.TryParse(issuedValue, NumberStyles.None, CultureInfo.InvariantCulture, out long issuedTicks) ||
+            !long.TryParse(expiresValue, NumberStyles.None, CultureInfo.InvariantCulture, out long expiresTicks) ||
+            !TryCreateUtc(issuedTicks, out DateTime issuedAtUtc) ||
+            !TryCreateUtc(expiresTicks, out DateTime expiresAtUtc) ||
+            expiresAtUtc <= issuedAtUtc)
         {
             return false;
         }
 
         session = new RecoveryKeySession(
             accountId,
-            parts[1] == "1",
-            new DateTime(issuedTicks, DateTimeKind.Utc),
-            new DateTime(expiresTicks, DateTimeKind.Utc));
+            revokePasskeysValue == "1",
+            issuedAtUtc,
+            expiresAtUtc);
         return true;
     }
+
+    private static bool TryCreateUtc(long ticks, out DateTime value)
+    {
+        try
+        {
+            value = new DateTime(ticks, DateTimeKind.Utc);
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            value = default;
+            return false;
+        }
+    }
+
+    private static DateTime AsUtc(DateTime value)
+        => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
 
     private readonly record struct RecoveryKeyGeneration(string RecoveryKey, string LookupIdHash);
 }

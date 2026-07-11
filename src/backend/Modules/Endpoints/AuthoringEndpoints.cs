@@ -7,6 +7,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -1103,6 +1104,7 @@ public static class AuthoringEndpoints
             return Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .WithAdminSensitiveStepUp()
         .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/comments/{commentId:long}/moderation", async (
@@ -1152,6 +1154,7 @@ public static class AuthoringEndpoints
                 : AedsJsonResults.NotFound(aeds, "comment_not_found");
         })
         .RequireAdminPermission(AdminPermissions.CommentModerate)
+        .WithAdminSensitiveStepUp()
         .RequireRateLimiting("fixed_ip");
 
         group.MapGet("/content/export", async (

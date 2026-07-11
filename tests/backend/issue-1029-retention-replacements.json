@@ -1,0 +1,45 @@
+{
+  "schema": "fsusblog.issue-test-retention-replacements.v1",
+  "issue": 1029,
+  "baseline": "tests/test-retention-before.json",
+  "expectedDeletedTestIds": 0,
+  "deletedTests": [],
+  "reason": "Issue #1029 adds executable storage lifecycle, upload atomicity, compatibility, retention, and garbage-collection coverage without deleting or replacing an existing test ID.",
+  "centralRegistryReadback": [
+    {
+      "path": "tests/coverage-registry.json",
+      "status": "present-not-verified",
+      "requestedCoverageIds": [
+        "blue-green-release-storage-lifecycle",
+        "append-only-release-assets",
+        "atomic-idempotent-upload-commit"
+      ]
+    },
+    {
+      "path": "tests/matrix.yml",
+      "status": "present-not-verified",
+      "requestedTiers": [
+        "backend-unit",
+        "frontend-unit",
+        "static-governance",
+        "release",
+        "production-fresh"
+      ]
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "status": "present-not-verified",
+      "requestedOwners": [
+        "tests/backend/Unit/ReleaseStorageLifecycleTests.cs",
+        "tests/tools/release-storage-lifecycle.test.mjs",
+        "tests/frontend/unit/wasmReleaseAssets.test.ts",
+        "tests/frontend/unit/releaseStorage.test.ts"
+      ]
+    },
+    {
+      "path": "tools/test/lanes/static-governance.sh",
+      "status": "present-not-verified",
+      "requestedChange": "Include the release storage lifecycle Node contract test in the release/storage governance bundle."
+    }
+  ]
+}

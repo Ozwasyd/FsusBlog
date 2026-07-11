@@ -1,5 +1,7 @@
+using System.IO.Compression;
 using System.Reflection;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.ResponseCompression;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Interfaces;
@@ -8,6 +10,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests;
@@ -15,18 +18,40 @@ namespace FsusBlog.Server.Tests;
 public sealed class ServiceCollectionExtensionsTests
 {
     [Fact]
-    public void AddFsusApiFoundation_RegistersFastestResponseCompressionForApiPayloads()
+    public void AddFsusApiFoundation_ConfiguresFastestResponseCompressionForApiPayloads()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs"));
+        var services = new ServiceCollection();
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ASPNETCORE_ENVIRONMENT"] = Environments.Development,
+                ["ConnectionStrings:Redis"] = "localhost:6379,connectTimeout=50",
+                ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+                ["Jwt:Issuer"] = "FsusBlog.Tests",
+                ["Jwt:Audience"] = "FsusBlog.Tests"
+            })
+            .Build();
 
-        Assert.Contains("services.AddResponseCompression", source, StringComparison.Ordinal);
-        Assert.Contains("BrotliCompressionProvider", source, StringComparison.Ordinal);
-        Assert.Contains("GzipCompressionProvider", source, StringComparison.Ordinal);
-        Assert.Contains("CompressionLevel.Fastest", source, StringComparison.Ordinal);
-        Assert.Contains("\"application/json\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"application/vnd.fsus.aeds\"", source, StringComparison.Ordinal);
+        services.AddFsusApiFoundation(configuration);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ResponseCompressionOptions responseOptions = provider
+            .GetRequiredService<IOptions<ResponseCompressionOptions>>()
+            .Value;
+        BrotliCompressionProviderOptions brotliOptions = provider
+            .GetRequiredService<IOptions<BrotliCompressionProviderOptions>>()
+            .Value;
+        GzipCompressionProviderOptions gzipOptions = provider
+            .GetRequiredService<IOptions<GzipCompressionProviderOptions>>()
+            .Value;
+
+        Assert.True(responseOptions.EnableForHttps);
+        Assert.Contains(responseOptions.Providers, static providerType => providerType == typeof(BrotliCompressionProvider));
+        Assert.Contains(responseOptions.Providers, static providerType => providerType == typeof(GzipCompressionProvider));
+        Assert.Equal(CompressionLevel.Fastest, brotliOptions.Level);
+        Assert.Equal(CompressionLevel.Fastest, gzipOptions.Level);
+        Assert.Contains("application/json", responseOptions.MimeTypes);
+        Assert.Contains("application/vnd.fsus.aeds", responseOptions.MimeTypes);
     }
 
     [Fact]
@@ -59,6 +84,36 @@ public sealed class ServiceCollectionExtensionsTests
 
             Assert.Equal("persistent-key-ring", protector.Unprotect(protectedValue));
             Assert.NotEmpty(Directory.EnumerateFiles(keyRingPath, "*.xml"));
+        }
+        finally
+        {
+            if (Directory.Exists(keyRingPath))
+            {
+                Directory.Delete(keyRingPath, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void AddFsusApiFoundation_ProductionRejectsDifferentDataProtectionApplicationName()
+    {
+        string keyRingPath = Path.Combine(Path.GetTempPath(), "fsusblog-data-protection-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var services = new ServiceCollection();
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ASPNETCORE_ENVIRONMENT"] = Environments.Production,
+                    ["DataProtection:KeyRingPath"] = keyRingPath,
+                    ["DataProtection:ApplicationName"] = "FsusBlog.Candidate"
+                })
+                .Build();
+
+            InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+                () => services.AddFsusApiFoundation(configuration));
+
+            Assert.Contains("FsusBlog", exception.Message, StringComparison.Ordinal);
         }
         finally
         {

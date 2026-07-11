@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 112,
+      "estimatedFacts": 119,
       "tests": [
         { "path": "Integration/SchemaMigrationIntegrationTests.cs", "class": "SchemaMigrationIntegrationTests" },
         { "path": "Unit/AnonymousCommentSubmitTests.cs", "class": "AnonymousCommentSubmitTests" },
@@ -14,16 +14,17 @@
         { "path": "Unit/ArticleRevisionConcurrencyTests.cs", "class": "ArticleRevisionConcurrencyTests" },
         { "path": "Unit/PasskeySignCountConcurrencyTests.cs", "class": "PasskeySignCountConcurrencyTests" },
         { "path": "Unit/AuthoringUserBanConcurrencyTests.cs", "class": "AuthoringUserBanConcurrencyTests" },
-        { "path": "Integration/LegacyIdentityColdStartResetIntegrationTests.cs", "class": "LegacyIdentityColdStartResetIntegrationTests" },
+        { "path": "Integration/AccountSubjectHashMigrationIntegrationTests.cs", "class": "AccountSubjectHashMigrationIntegrationTests" },
         { "path": "Unit/AuthoringBulkModerationTransactionTests.cs", "class": "AuthoringBulkModerationTransactionTests" },
         { "path": "Unit/IntegrityAdminConsoleServiceTests.cs", "class": "IntegrityAdminConsoleServiceTests" },
         { "path": "Unit/AuthoringRevisionRestoreTests.cs", "class": "AuthoringRevisionRestoreTests" },
-        { "path": "Unit/UserSessionLoginConcurrencyTests.cs", "class": "UserSessionLoginConcurrencyTests" }
+        { "path": "Unit/UserSessionLoginConcurrencyTests.cs", "class": "UserSessionLoginConcurrencyTests" },
+        { "path": "Unit/SubscriptionEndpointsContractTests.cs", "class": "SubscriptionEndpointsContractTests" }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 115,
+      "estimatedFacts": 127,
       "tests": [
         { "path": "Unit/AnonymousCredentialIssuerTests.cs", "class": "AnonymousCredentialIssuerTests" },
         { "path": "Unit/AnonymousCredentialRootLifecycleTests.cs", "class": "AnonymousCredentialRootLifecycleTests" },
@@ -38,7 +39,10 @@
         { "path": "Unit/AuthoringAssetLibraryRebuildTests.cs", "class": "AuthoringAssetLibraryRebuildTests" },
         { "path": "Unit/AuthoringDraftConcurrencyTests.cs", "class": "AuthoringDraftConcurrencyTests" },
         { "path": "Unit/UserPublicHandleConcurrencyTests.cs", "class": "UserPublicHandleConcurrencyTests" },
-        { "path": "Unit/AnonymousCredentialRevocationWitnessServiceTests.cs", "class": "AnonymousCredentialRevocationWitnessServiceTests" }
+        { "path": "Unit/AnonymousCredentialRevocationWitnessServiceTests.cs", "class": "AnonymousCredentialRevocationWitnessServiceTests" },
+        { "path": "Unit/RecoveryKeyAttemptLimiterContractTests.cs", "class": "RecoveryKeyAttemptLimiterContractTests" },
+        { "path": "Unit/DevSeedSqlContractTests.cs", "class": "DevSeedSqlContractTests" },
+        { "path": "Integration/RecoveryPasskeyCompletionIntegrationTests.cs", "class": "RecoveryPasskeyCompletionIntegrationTests" }
       ]
     }
   ]

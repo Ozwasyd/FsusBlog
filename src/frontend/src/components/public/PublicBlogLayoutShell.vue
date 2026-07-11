@@ -11,99 +11,129 @@
     >
       跳到主要内容
     </a>
-    <div
-      class="el-public-shell is-sticky"
+    <FsusUiPublicShell
+      class="is-sticky"
+      :style="publicShellStyle"
+      :hydration-kind="hydrationKind || undefined"
       :data-public-hydration-kind="hydrationKind || undefined"
+      :data-public-mobile-nav-mode="PUBLIC_MOBILE_NAV_MODE"
+      :brand="shellIdentity.siteTitle"
+      :brand-href="PUBLIC_FIXED_PATHS.home"
+      :nav-items="PUBLIC_NAV_ITEMS"
+      :active-nav="activeNav"
+      active-nav-motion="indicator"
+      :mobile-nav-mode="PUBLIC_MOBILE_NAV_MODE"
+      :mobile-nav-label="layoutCopy.navAriaLabel"
+      :mobile-nav-menu-label="layoutCopy.mobileNavMenuLabel"
+      mobile-search-mode="trigger"
+      :mobile-search-trigger-label="layoutCopy.searchTriggerLabel"
+      :mobile-search-cancel-label="layoutCopy.searchCancelLabel"
+      :show-search="true"
+      :search-action="PUBLIC_ROUTE_PATHS.search"
+      search-name="q"
+      :search-query="searchQuery"
+      :search-placeholder="searchPlaceholder"
+      :search-aria-label="layoutCopy.searchAriaLabel"
+      :spa-search="spaSearch"
+      :sticky="true"
+      max-width="64rem"
+      @update:search-query="handleSearchInput"
+      @search="handleSearch"
+      @search-focus="emit('search-focus')"
+      @click="handlePublicShellClick"
     >
-      <SiteChromeHeaderAdapter
-        :site-title="shellIdentity.siteTitle"
-        :site-logo-url="shellIdentity.siteLogoUrl"
-        :site-logo-dark-url="shellIdentity.siteLogoDarkUrl"
-        :site-wordmark-url="shellIdentity.siteWordmarkUrl"
-        :brand-href="PUBLIC_FIXED_PATHS.home"
-        brand-link-class="el-public-shell__brand"
-        :sticky="true"
-        max-width="64rem"
-        header-class="fsusblog-public-shell-header el-public-shell__header is-sticky"
-        inner-class="el-public-shell__inner"
-        primary-row-class="el-public-shell__primary-row"
-        brand-nav-class="el-public-shell__brand-nav"
-        desktop-actions-class="el-public-shell__actions"
-        mobile-primary-actions-class="el-public-shell__mobile-primary-actions"
-        :mobile-secondary-actions-class="mobileSecondaryActionsClass"
-        :show-desktop-theme-toggle="false"
-        :show-mobile-theme-toggle="false"
-      >
-        <template #desktop-nav>
-          <div
-            ref="desktopNavRef"
-            class="el-public-shell__desktop-nav"
-            :class="{ 'is-indicator-motion': activeNavIndicatorEnabled }"
-          >
-            <a
-              v-for="item in PUBLIC_NAV_ITEMS"
-              :key="item.key"
-              :href="item.href"
-              :aria-current="item.key === activeNav ? 'page' : undefined"
-              class="el-public-shell__nav-link"
-              :class="{ 'is-active': item.key === activeNav }"
-              :data-public-nav="item.key"
-              @click="handleNavClick($event, item.href)"
-            >
-              {{ item.label }}
-            </a>
-            <span
-              v-if="activeNavIndicatorEnabled"
-              class="el-public-shell__active-nav-indicator"
-              aria-hidden="true"
-              :data-active-nav="activeNavIndicatorKey"
-            />
-          </div>
-        </template>
+      <template #brand>
+        <span v-if="hasBrandImage" class="fsusblog-public-brand-mark">
+          <img
+            v-if="brandImageLight"
+            :src="brandImageLight"
+            :alt="shellIdentity.siteTitle"
+            class="fsusblog-public-brand-image fsusblog-public-brand-image--light"
+            width="224"
+            height="44"
+            loading="eager"
+            decoding="async"
+          />
+          <img
+            v-if="brandImageDark"
+            :src="brandImageDark"
+            :alt="shellIdentity.siteTitle"
+            class="fsusblog-public-brand-image fsusblog-public-brand-image--dark"
+            width="224"
+            height="44"
+            loading="eager"
+            decoding="async"
+          />
+        </span>
+        <template v-else>{{ shellIdentity.siteTitle }}</template>
+      </template>
 
-        <template #desktop-actions>
-          <form
-            class="el-public-shell__search el-public-shell__search--desktop"
-            :action="PUBLIC_ROUTE_PATHS.search"
-            method="get"
-            @submit="handleSearchSubmit"
-          >
-            <el-input
-              :model-value="searchQuery"
-              :placeholder="searchPlaceholder"
-              label="搜索内容"
-              size="small"
-              style="--el-input-height: 40px"
-              clearable
-              @focus="emit('search-focus')"
-              @input="handleSearchInput"
-              @keydown.enter="handleSearchEnter"
-            />
-            <input type="hidden" name="q" :value="searchQuery" />
-          </form>
-          <ThemeModeToggle visibility="desktop" />
+      <template #desktop-search>
+        <div
+          ref="desktopSearchContainerRef"
+          class="public-chrome-search public-chrome-search--desktop"
+          @keydown.esc="handleDesktopSearchEscape"
+        >
           <a
-            :href="resolvedAuthHref"
-            class="el-public-shell__action-link el-public-shell__auth-link el-public-shell__auth-link--desktop"
-            data-public-nav="auth"
+            ref="desktopSearchTriggerRef"
+            :href="PUBLIC_ROUTE_PATHS.search"
+            class="public-chrome-action public-chrome-search__trigger"
+            :aria-label="layoutCopy.searchAriaLabel"
+            :aria-expanded="desktopSearchExpanded"
+            :aria-controls="desktopSearchPanelId"
+            @click="handleDesktopSearchTrigger"
           >
-            {{ resolvedAuthLabel }}
+            {{ layoutCopy.searchTriggerLabel }}
           </a>
-        </template>
+          <Transition name="public-chrome-search-panel">
+            <div
+              v-if="desktopSearchExpanded"
+              :id="desktopSearchPanelId"
+              ref="desktopSearchPanelRef"
+              class="public-chrome-search__panel"
+            >
+              <form
+                class="el-public-shell__search el-public-shell__search--desktop-trigger"
+                :action="PUBLIC_ROUTE_PATHS.search"
+                method="get"
+                role="search"
+                @submit="handleSearchSubmit"
+              >
+                <el-input
+                  :model-value="searchQuery"
+                  :placeholder="searchPlaceholder"
+                  :label="layoutCopy.searchAriaLabel"
+                  size="small"
+                  style="--el-input-height: 40px"
+                  clearable
+                  @focus="emit('search-focus')"
+                  @input="handleSearchInput"
+                  @keydown.enter="handleSearchEnter"
+                />
+                <input type="hidden" name="q" :value="searchQuery" />
+              </form>
+            </div>
+          </Transition>
+        </div>
+      </template>
 
-        <template #mobile-primary-actions>
-          <button
-            ref="mobileSearchTriggerRef"
-            type="button"
-            class="el-public-shell__mobile-search-trigger"
-            :class="{ 'is-expanded': mobileSearchExpanded }"
-            :aria-expanded="mobileSearchExpanded"
-            :aria-controls="mobileSearchRowId"
-            :aria-label="mobileSearchButtonLabel"
-            @click="toggleMobileSearch"
-          >
-            {{ mobileSearchButtonLabel }}
-          </button>
+      <template #desktop-actions>
+        <ThemeModeToggle visibility="desktop" variant="menu-button" />
+        <a
+          :href="resolvedAuthHref"
+          class="el-public-shell__action-link el-public-shell__auth-link el-public-shell__auth-link--desktop"
+          data-public-nav="auth"
+        >
+          {{ resolvedAuthLabel }}
+        </a>
+      </template>
+
+      <template #mobile-menu-actions>
+        <div
+          class="fsusblog-public-mobile-menu-utilities"
+          role="group"
+          :aria-label="layoutCopy.mobileUtilityAriaLabel"
+        >
           <ThemeModeToggle
             visibility="mobile"
             variant="menu-button"
@@ -116,81 +146,38 @@
           >
             {{ resolvedAuthLabel }}
           </a>
-        </template>
+        </div>
+      </template>
 
-        <template #mobile-secondary-actions>
-          <Transition name="el-public-shell-mobile-search">
-            <div
-              v-show="mobileSearchExpanded"
-              :id="mobileSearchRowId"
-              ref="mobileSearchRowRef"
-              class="el-public-shell__mobile-search-row"
-              :class="{ 'is-expanded': mobileSearchExpanded }"
-              :aria-hidden="!mobileSearchExpanded"
-            >
-              <form
-                class="el-public-shell__search el-public-shell__search--trigger"
-                :action="PUBLIC_ROUTE_PATHS.search"
-                method="get"
-                @submit="handleSearchSubmit"
-                @keydown.esc="handleMobileSearchEscape"
-              >
-                <el-input
-                  :model-value="searchQuery"
-                  :placeholder="searchPlaceholder"
-                  label="搜索内容"
-                  size="small"
-                  style="--el-input-height: 40px"
-                  clearable
-                  @focus="emit('search-focus')"
-                  @input="handleSearchInput"
-                  @keydown.enter="handleSearchEnter"
-                />
-                <input type="hidden" name="q" :value="searchQuery" />
-              </form>
-            </div>
-          </Transition>
-
-          <div class="el-public-shell__mobile-actions" />
-        </template>
-      </SiteChromeHeaderAdapter>
-
-      <main
+      <div
         id="main-content"
-        class="el-public-shell__main"
+        class="fsusblog-public-main-target"
         tabindex="-1"
       >
         <slot />
-      </main>
+      </div>
       <FullAppRuntime v-if="shouldShowRuntime" />
 
-      <footer class="el-public-shell__footer">
+      <template #footer>
         <PublicComplianceFooter
           :site-title="shellIdentity.siteTitle"
           :compliance="shellIdentity.compliance"
           :render-year="shellIdentity.renderYear"
         />
-      </footer>
-
-      <FsusUiBottomTabBar
-        v-if="shouldShowBottomTabBar"
-        class="fsusblog-public-bottom-tab"
-        label="主导航"
-        :items="PUBLIC_NAV_ITEMS"
-        :active-key="activeNav"
-        @navigate="handleBottomTabNavigate"
-      />
-    </div>
+      </template>
+    </FsusUiPublicShell>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ThemeModeToggle from '@/components/ui/ThemeModeToggle.vue'
-import SiteChromeHeaderAdapter from '@/components/layout/SiteChromeHeaderAdapter.vue'
 import PublicComplianceFooter from '@/components/public/PublicComplianceFooter.vue'
 import { usePublicStickyGeometry } from '@/components/public/usePublicStickyGeometry'
-import FsusUiBottomTabBar from '@/fsusui/FsusUiBottomTabBar.vue'
+import {
+  FSUSBLOG_PUBLIC_MOBILE_NAV_MODE,
+  FsusUiPublicShell,
+} from '@/fsusui/publicShell'
 import {
   PUBLIC_FIXED_PATHS,
   PUBLIC_ROUTE_PATHS,
@@ -205,6 +192,9 @@ import { publicShellRuntimeAuthState } from '@/public-renderers/publicShellRunti
 import type { SiteComplianceConfigPublic } from '@/api/system'
 import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 
+const layoutCopy = FSUSBLOG_LAYOUT_COPY.siteHeader
+const PUBLIC_MOBILE_NAV_MODE = FSUSBLOG_PUBLIC_MOBILE_NAV_MODE
+
 const SHELL_DEFAULTS = {
   hydrationKind: null,
   siteTitle: FSUSBLOG_LAYOUT_COPY.siteHeader.fallbackTitle,
@@ -212,7 +202,7 @@ const SHELL_DEFAULTS = {
   activeNav: 'none',
   authLabel: '登录',
   authHref: '/login',
-  searchPlaceholder: '搜索文章、标签或关键词',
+  searchPlaceholder: FSUSBLOG_LAYOUT_COPY.siteHeader.searchPlaceholder,
   initialSearchQuery: '',
   spaSearch: false,
   spaNavigation: false,
@@ -264,7 +254,7 @@ const props = withDefaults(
     activeNav: 'none',
     authLabel: '登录',
     authHref: '/login',
-    searchPlaceholder: '搜索文章、标签或关键词',
+    searchPlaceholder: FSUSBLOG_LAYOUT_COPY.siteHeader.searchPlaceholder,
     initialSearchQuery: '',
     spaSearch: false,
     spaNavigation: false,
@@ -288,12 +278,11 @@ const siteDescriptionText = computed(() =>
 )
 const compliance = computed(() => props.compliance ?? null)
 const searchQuery = ref(props.initialSearchQuery)
-const mobileSearchExpanded = ref(props.initialSearchQuery.trim().length > 0)
-const mobileSearchRowId = 'public-shell-mobile-search'
-const mobileSearchRowRef = ref<HTMLElement>()
-const mobileSearchTriggerRef = ref<HTMLButtonElement>()
-const desktopNavRef = ref<HTMLElement>()
-const mobileNavRef = ref<HTMLElement>()
+const desktopSearchExpanded = ref(false)
+const desktopSearchPanelId = 'public-shell-desktop-search'
+const desktopSearchContainerRef = ref<HTMLElement>()
+const desktopSearchPanelRef = ref<HTMLElement>()
+const desktopSearchTriggerRef = ref<HTMLAnchorElement>()
 const shellRootRef = ref<HTMLElement>()
 const clientRuntimeEnabled = ref(false)
 let hydrationObserver: MutationObserver | null = null
@@ -333,21 +322,18 @@ const shellIdentity = computed(() =>
     renderYear: props.renderYear ?? null,
   }),
 )
+const brandImageLight = computed(() => firstPresent(
+  shellIdentity.value.siteWordmarkUrl,
+  shellIdentity.value.siteLogoUrl,
+  shellIdentity.value.siteLogoDarkUrl,
+))
+const brandImageDark = computed(() => firstPresent(
+  shellIdentity.value.siteWordmarkUrl,
+  shellIdentity.value.siteLogoDarkUrl,
+  shellIdentity.value.siteLogoUrl,
+))
+const hasBrandImage = computed(() => Boolean(brandImageLight.value || brandImageDark.value))
 usePublicStickyGeometry(shellRootRef)
-const mobileSearchButtonLabel = computed(() =>
-  mobileSearchExpanded.value ? '取消' : '搜索',
-)
-const mobileSecondaryActionsClass = computed(() => [
-  'el-public-shell__mobile-toolbar',
-  { 'is-collapsed': !mobileSearchExpanded.value },
-])
-const activeNavIndicatorEnabled = computed(() =>
-  PUBLIC_NAV_ITEMS.some((item) => item.key === props.activeNav),
-)
-const activeNavIndicatorKey = computed(() =>
-  activeNavIndicatorEnabled.value ? props.activeNav : '',
-)
-const shouldShowBottomTabBar = computed(() => PUBLIC_NAV_ITEMS.length > 0)
 const shouldUseRuntimeAuthState = computed(() =>
   (props.authLabel?.trim() || SHELL_DEFAULTS.authLabel) === SHELL_DEFAULTS.authLabel
   && (props.authHref?.trim() || SHELL_DEFAULTS.authHref) === SHELL_DEFAULTS.authHref
@@ -366,52 +352,8 @@ const resolvedAuthHref = computed(() =>
 
 providePublicSiteIdentity(shellIdentity)
 
-function clearNavIndicator(nav: HTMLElement): void {
-  nav.style.removeProperty('--el-public-shell-active-nav-indicator-x')
-  nav.style.removeProperty('--el-public-shell-active-nav-indicator-width')
-  nav.style.setProperty('--el-public-shell-active-nav-indicator-opacity', '0')
-}
-
-function syncNavIndicator(nav: HTMLElement | undefined): void {
-  if (!nav) {
-    return
-  }
-
-  if (!activeNavIndicatorEnabled.value || !activeNavIndicatorKey.value) {
-    clearNavIndicator(nav)
-    return
-  }
-
-  const activeLink = Array.from(
-    nav.querySelectorAll<HTMLElement>('.el-public-shell__nav-link'),
-  ).find((link) => link.dataset.publicNav === activeNavIndicatorKey.value)
-
-  if (!activeLink) {
-    clearNavIndicator(nav)
-    return
-  }
-
-  const navRect = nav.getBoundingClientRect()
-  const linkRect = activeLink.getBoundingClientRect()
-  nav.style.setProperty(
-    '--el-public-shell-active-nav-indicator-x',
-    `${Math.max(0, linkRect.left - navRect.left + nav.scrollLeft)}px`,
-  )
-  nav.style.setProperty(
-    '--el-public-shell-active-nav-indicator-width',
-    `${Math.max(0, linkRect.width)}px`,
-  )
-  nav.style.setProperty('--el-public-shell-active-nav-indicator-opacity', '1')
-}
-
-async function syncNavIndicators(): Promise<void> {
-  await nextTick()
-  syncNavIndicator(desktopNavRef.value)
-  syncNavIndicator(mobileNavRef.value)
-}
-
-function handleIndicatorResize(): void {
-  void syncNavIndicators()
+function firstPresent(...values: Array<string | null | undefined>): string {
+  return values.find((value) => value?.trim())?.trim() ?? ''
 }
 
 function isModifiedClick(event: MouseEvent): boolean {
@@ -432,11 +374,17 @@ function handleNavClick(event: MouseEvent, href: string): void {
   emit('navigate', href)
 }
 
-function handleBottomTabNavigate(
-  item: (typeof PUBLIC_NAV_ITEMS)[number],
-  event: MouseEvent,
-): void {
-  handleNavClick(event, item.href)
+function handlePublicShellClick(event: MouseEvent): void {
+  if (!(event.target instanceof Element)) {
+    return
+  }
+
+  const link = event.target.closest<HTMLAnchorElement>('a[data-public-nav]')
+  if (!link) {
+    return
+  }
+
+  handleNavClick(event, link.getAttribute('href') ?? '')
 }
 
 function handleSearchInput(value: string | number): void {
@@ -470,35 +418,55 @@ function handleSearchEnter(event: Event | KeyboardEvent): void {
   submitSearch(event)
 }
 
-async function focusMobileSearchInput(): Promise<void> {
+async function focusDesktopSearchInput(): Promise<void> {
   await nextTick()
-  mobileSearchRowRef.value?.querySelector<HTMLInputElement>('input')?.focus()
+  desktopSearchPanelRef.value?.querySelector<HTMLInputElement>('input')?.focus()
 }
 
-async function focusMobileSearchTrigger(): Promise<void> {
+async function focusDesktopSearchTrigger(): Promise<void> {
   await nextTick()
-  mobileSearchTriggerRef.value?.focus()
+  desktopSearchTriggerRef.value?.focus()
 }
 
-function closeMobileSearch(restoreFocus = false): void {
-  mobileSearchExpanded.value = false
+function closeDesktopSearch(restoreFocus = false): void {
+  desktopSearchExpanded.value = false
   if (restoreFocus) {
-    void focusMobileSearchTrigger()
+    void focusDesktopSearchTrigger()
   }
 }
 
-function toggleMobileSearch(): void {
-  mobileSearchExpanded.value = !mobileSearchExpanded.value
-  if (mobileSearchExpanded.value) {
-    void focusMobileSearchInput()
-  } else {
-    void focusMobileSearchTrigger()
+function handleDesktopSearchTrigger(event: MouseEvent): void {
+  if (isModifiedClick(event)) {
+    return
   }
-}
 
-function handleMobileSearchEscape(event: KeyboardEvent): void {
   event.preventDefault()
-  closeMobileSearch(true)
+  desktopSearchExpanded.value = !desktopSearchExpanded.value
+  if (desktopSearchExpanded.value) {
+    void focusDesktopSearchInput()
+  } else {
+    void focusDesktopSearchTrigger()
+  }
+}
+
+function handleDesktopSearchEscape(event: KeyboardEvent): void {
+  if (!desktopSearchExpanded.value) {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  closeDesktopSearch(true)
+}
+
+function handleDocumentPointerDown(event: PointerEvent): void {
+  if (!desktopSearchExpanded.value || !(event.target instanceof Node)) {
+    return
+  }
+
+  if (!desktopSearchContainerRef.value?.contains(event.target)) {
+    closeDesktopSearch(false)
+  }
 }
 
 function enableRuntimeAfterHydration(): void {
@@ -533,26 +501,62 @@ watch(
   () => props.initialSearchQuery,
   (value) => {
     searchQuery.value = value
-    mobileSearchExpanded.value = value.trim().length > 0
-  },
-)
-
-watch(
-  () => props.activeNav,
-  () => {
-    void syncNavIndicators()
   },
 )
 
 onMounted(() => {
   enableRuntimeAfterHydration()
-  void syncNavIndicators()
-  window.addEventListener('resize', handleIndicatorResize)
+  document.addEventListener('pointerdown', handleDocumentPointerDown)
 })
 
 onBeforeUnmount(() => {
   hydrationObserver?.disconnect()
   hydrationObserver = null
-  window.removeEventListener('resize', handleIndicatorResize)
+  document.removeEventListener('pointerdown', handleDocumentPointerDown)
 })
 </script>
+
+<style scoped>
+.fsusblog-public-brand-mark {
+  display: inline-flex;
+  min-width: 0;
+  max-width: min(14rem, 42vw);
+  align-items: center;
+}
+
+.fsusblog-public-brand-image {
+  display: block;
+  max-height: 1.75rem;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.fsusblog-public-brand-image--dark {
+  display: none;
+}
+
+:global(html.dark) .fsusblog-public-brand-image--light,
+:global(html[data-theme-resolved='dark']) .fsusblog-public-brand-image--light {
+  display: none;
+}
+
+:global(html.dark) .fsusblog-public-brand-image--dark,
+:global(html[data-theme-resolved='dark']) .fsusblog-public-brand-image--dark {
+  display: block;
+}
+
+.fsusblog-public-main-target {
+  min-width: 0;
+}
+
+.fsusblog-public-mobile-menu-utilities {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.375rem;
+  padding: 0.375rem 0.125rem 0;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+</style>

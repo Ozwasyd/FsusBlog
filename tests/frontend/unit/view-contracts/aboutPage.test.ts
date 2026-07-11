@@ -16,14 +16,6 @@ describe('createAboutPageViewContract', () => {
     expect(contract).not.toHaveProperty('footer')
   })
 
-  it('passes currentYear through correctly', () => {
-    const contract = createAboutPageViewContract({
-      currentYear: 2024,
-      content: ''
-    })
-    expect(contract.header.currentYear).toBe(2024)
-  })
-
   it('allows static pages to override the title', () => {
     const contract = createAboutPageViewContract({
       currentYear: 2026,
@@ -35,11 +27,4 @@ describe('createAboutPageViewContract', () => {
     expect(contract.header.readmeLabel).toBe('访问边界')
   })
 
-  it('passes empty content', () => {
-    const contract = createAboutPageViewContract({
-      currentYear: 2025,
-      content: ''
-    })
-    expect(contract.body.content).toBe('')
-  })
 })

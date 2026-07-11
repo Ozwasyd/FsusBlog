@@ -5,17 +5,27 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Collections.Frozen;
+using System.Diagnostics.Metrics;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests;
 
@@ -52,57 +62,232 @@ public sealed class ProductionHealthTests
     }
 
     [Fact]
-    public void ProductionHealthEndpoints_PublicReadyIsMinimalAndDetailRequiresAdmin()
+    public void PublicReadinessReport_ExposesOnlyStableSchemaIncompatibleCode()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Operations/ProductionHealth.cs");
-        string publicReady = ExtractBetween(
-            source,
-            "endpoints.MapGet(\"/health/ready\"",
-            "endpoints.MapGet(\"/api/ops/health/ready-detail\"");
-        string readyDetail = ExtractBetween(
-            source,
-            "endpoints.MapGet(\"/api/ops/health/ready-detail\"",
-            "endpoints.MapGet(\"/api/ops/crawler-ranges/status\"");
+        var detailed = new ProductionHealthReport(
+            "not_ready",
+            DateTimeOffset.Parse("2026-07-11T02:00:00Z"),
+            new Dictionary<string, object?>
+            {
+                ["schemaCompatibility"] = new ProductionOnlineSchemaCompatibilityHealthCheck(
+                    "failed",
+                    "schema_incompatible",
+                    "20260720-current",
+                    "20260801-schema",
+                    [new OnlineSchemaCompatibilityIssue(
+                        "schema_release_outside_manifest",
+                        OnlineSchemaCompatibilitySeverity.Error,
+                        Detail: "protected detail")],
+                    "schema_incompatible")
+            });
 
-        Assert.Contains("ProductionReadinessPublicReport.Create(report)", publicReady, StringComparison.Ordinal);
-        Assert.DoesNotContain("TypedResults.Json(report", publicReady, StringComparison.Ordinal);
-        Assert.Contains("TypedResults.Json(report", readyDetail, StringComparison.Ordinal);
-        Assert.Contains(".RequireAdminPermission(AdminPermissions.AuditRead)", readyDetail, StringComparison.Ordinal);
+        IReadOnlyDictionary<string, object?> report = ProductionReadinessPublicReport.Create(detailed);
+        string json = System.Text.Json.JsonSerializer.Serialize(report);
+
+        Assert.Equal(["checkedAt", "code", "status"], report.Keys.OrderBy(static key => key, StringComparer.Ordinal).ToArray());
+        Assert.Equal("schema_incompatible", report["code"]);
+        Assert.DoesNotContain("schema_release_outside_manifest", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("20260801-schema", json, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ProductionReadiness_UsesShortTtlSnapshotCacheForPublicProbe()
+    public void ReleaseStorageReadiness_BindsSharedKeyRingAndMaterializedAssetsToRuntimeIdentity()
     {
-        string health = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Operations/ProductionHealth.cs");
-        string serviceCollection = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Bootstrap/RuntimePublicAotServiceCollectionExtensions.cs");
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
-        string publicReady = ExtractBetween(
-            health,
-            "endpoints.MapGet(\"/health/ready\"",
-            "endpoints.MapGet(\"/api/ops/health/ready-detail\"");
-        string readyDetail = ExtractBetween(
-            health,
-            "endpoints.MapGet(\"/api/ops/health/ready-detail\"",
-            "endpoints.MapGet(\"/api/ops/crawler-ranges/status\"");
+        string root = Path.Combine(Path.GetTempPath(), "fsusblog-release-storage-health-" + Guid.NewGuid().ToString("N"));
+        string keyRing = Path.Combine(root, "keyring");
+        string assets = Path.Combine(root, "assets");
+        const string releaseId = "release-health-001";
+        const string slot = "green";
+        Directory.CreateDirectory(keyRing);
+        Directory.CreateDirectory(Path.Combine(assets, releaseId));
+        File.WriteAllText(
+            Path.Combine(assets, releaseId, "asset-manifest.json"),
+            $$"""
+            {
+              "schema": "fsusblog.release-assets.v1",
+              "releaseId": "{{releaseId}}",
+              "slot": "{{slot}}",
+              "frontendBuildId": "{{releaseId}}",
+              "files": [{ "path": "index.html" }]
+            }
+            """);
 
-        Assert.Contains("ProductionReadinessSnapshotCache", health, StringComparison.Ordinal);
-        Assert.Contains("ReadinessSnapshotTtl", health, StringComparison.Ordinal);
-        Assert.Contains("SemaphoreSlim", health, StringComparison.Ordinal);
-        Assert.Contains("GetSnapshotAsync", health, StringComparison.Ordinal);
+        try
+        {
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["DataProtection:KeyRingPath"] = keyRing,
+                    ["DataProtection:ApplicationName"] = "FsusBlog",
+                    ["FSUSBLOG_RELEASE_ASSET_ROOT"] = assets
+                })
+                .Build();
+            var identity = new ReleaseIdentitySnapshot(
+                releaseId,
+                slot,
+                new string('a', 40),
+                $"registry.example/fsusblog@sha256:{new string('b', 64)}",
+                $"sha256:{new string('b', 64)}",
+                Configured: true);
 
-        Assert.Contains("ProductionReadinessSnapshotCache snapshotCache", publicReady, StringComparison.Ordinal);
-        Assert.Contains("snapshotCache.GetSnapshotAsync(forceRefresh: false", publicReady, StringComparison.Ordinal);
-        Assert.DoesNotContain("probe.CheckAsync", publicReady, StringComparison.Ordinal);
+            ProductionReleaseStorageHealthCheck result = ProductionReleaseStorageReadiness.Evaluate(
+                configuration,
+                new TestWebHostEnvironment(root, Environments.Production),
+                identity);
 
-        Assert.Contains("bool forceRefresh", readyDetail, StringComparison.Ordinal);
-        Assert.Contains("snapshotCache.GetSnapshotAsync(forceRefresh", readyDetail, StringComparison.Ordinal);
-        Assert.Contains(".RequireAdminPermission(AdminPermissions.AuditRead)", readyDetail, StringComparison.Ordinal);
+            Assert.Equal("ok", result.Status);
+            Assert.True(result.Required);
+            Assert.True(result.DataProtectionReady);
+            Assert.True(result.DataProtectionCanRead);
+            Assert.True(result.DataProtectionCanWrite);
+            Assert.True(result.AssetManifestExists);
+            Assert.True(result.AssetIdentityMatches);
+            Assert.Equal(1, result.AssetCount);
+            Assert.Empty(result.Errors);
+            Assert.Empty(Directory.EnumerateFiles(keyRing, ".fsus-probe-*.tmp"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 
-        Assert.Contains("AddSingleton<ProductionReadinessSnapshotCache>", serviceCollection, StringComparison.Ordinal);
-        Assert.Contains("fsus.readiness.snapshot.cache_access", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.readiness.snapshot.fresh_check_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.readiness.snapshot.dependency_check_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.readiness.snapshot.age_ms", observability, StringComparison.Ordinal);
+    [Fact]
+    public void ReleaseStorageReadiness_FailsClosedWhenMaterializedSlotDoesNotMatchRuntime()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "fsusblog-release-storage-health-" + Guid.NewGuid().ToString("N"));
+        string keyRing = Path.Combine(root, "keyring");
+        string assets = Path.Combine(root, "assets");
+        const string releaseId = "release-health-002";
+        Directory.CreateDirectory(keyRing);
+        Directory.CreateDirectory(Path.Combine(assets, releaseId));
+        File.WriteAllText(
+            Path.Combine(assets, releaseId, "asset-manifest.json"),
+            $$"""
+            {
+              "schema": "fsusblog.release-assets.v1",
+              "releaseId": "{{releaseId}}",
+              "slot": "blue",
+              "frontendBuildId": "{{releaseId}}",
+              "files": [{ "path": "index.html" }]
+            }
+            """);
+
+        try
+        {
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["DataProtection:KeyRingPath"] = keyRing,
+                    ["DataProtection:ApplicationName"] = "FsusBlog",
+                    ["FSUSBLOG_RELEASE_ASSET_ROOT"] = assets
+                })
+                .Build();
+            var identity = new ReleaseIdentitySnapshot(
+                releaseId,
+                "green",
+                new string('a', 40),
+                $"registry.example/fsusblog@sha256:{new string('b', 64)}",
+                $"sha256:{new string('b', 64)}",
+                Configured: true);
+
+            ProductionReleaseStorageHealthCheck result = ProductionReleaseStorageReadiness.Evaluate(
+                configuration,
+                new TestWebHostEnvironment(root, Environments.Production),
+                identity);
+
+            Assert.Equal("failed", result.Status);
+            Assert.False(result.AssetIdentityMatches);
+            Assert.Contains("release_asset_identity_mismatch", result.Errors);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ProductionHealthEndpoints_PublicReadyIsMinimalAndDetailRequiresAdmin()
+    {
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Services.AddAuthorization();
+        await using WebApplication app = builder.Build();
+        app.MapProductionHealthEndpoints();
+        RouteEndpoint publicReady = FindRoute(app, "/health/ready");
+        RouteEndpoint readyDetail = FindRoute(app, "/api/ops/health/ready-detail");
+        MethodInfo publicHandler = publicReady.Metadata.GetMetadata<MethodInfo>()!;
+        MethodInfo detailHandler = readyDetail.Metadata.GetMetadata<MethodInfo>()!;
+        MethodBase[] publicCalls = ReadCalledMethods(AsyncMoveNext(publicHandler)).ToArray();
+        MethodBase[] detailCalls = ReadCalledMethods(AsyncMoveNext(detailHandler)).ToArray();
+
+        Assert.Contains(publicCalls, static method =>
+            method.DeclaringType == typeof(ProductionReadinessPublicReport)
+            && method.Name == nameof(ProductionReadinessPublicReport.Create));
+        Assert.DoesNotContain(detailCalls, static method => method.DeclaringType == typeof(ProductionReadinessPublicReport));
+        Assert.Contains(detailCalls, static method => method.Name == "Json");
+        AuthorizationPolicy policy = Assert.Single(readyDetail.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
+        ClaimsAuthorizationRequirement permission = Assert.Single(policy.Requirements.OfType<ClaimsAuthorizationRequirement>());
+        Assert.Contains(AdminPermissions.AuditRead, permission.AllowedValues ?? []);
+    }
+
+    [Fact]
+    public async Task ProductionReadiness_UsesShortTtlSnapshotCacheForPublicProbe()
+    {
+        FieldInfo ttlField = typeof(ProductionReadinessSnapshotCache).GetField(
+            "ReadinessSnapshotTtl",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.Equal(TimeSpan.FromSeconds(5), ttlField.GetValue(null));
+        Assert.Equal(typeof(SemaphoreSlim), typeof(ProductionReadinessSnapshotCache)
+            .GetField("_refreshGate", BindingFlags.NonPublic | BindingFlags.Instance)!.FieldType);
+        Assert.Equal(typeof(bool), typeof(ProductionReadinessSnapshotCache)
+            .GetMethod(nameof(ProductionReadinessSnapshotCache.GetSnapshotAsync))!
+            .GetParameters()[0].ParameterType);
+
+        var services = new ServiceCollection();
+        services.AddFsusRuntimePublicAotServices();
+        ServiceDescriptor registration = Assert.Single(services, static descriptor =>
+            descriptor.ServiceType == typeof(ProductionReadinessSnapshotCache));
+        Assert.Equal(ServiceLifetime.Singleton, registration.Lifetime);
+
+        var measurements = new HashSet<string>(StringComparer.Ordinal);
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Name.StartsWith("fsus.readiness.snapshot.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+        int refreshCount = 0;
+        var cache = new ProductionReadinessSnapshotCache(
+            _ => Task.FromResult(CreateReadinessReport(Interlocked.Increment(ref refreshCount))),
+            TimeSpan.FromMinutes(1));
+        await cache.GetSnapshotAsync(forceRefresh: false, CancellationToken.None);
+        await cache.GetSnapshotAsync(forceRefresh: false, CancellationToken.None);
+
+        Assert.Equal(1, refreshCount);
+        Assert.Contains("fsus.readiness.snapshot.cache_access", measurements);
+        Assert.Contains("fsus.readiness.snapshot.fresh_check_elapsed_ms", measurements);
+        Assert.Contains("fsus.readiness.snapshot.dependency_check_count", measurements);
+        Assert.Contains("fsus.readiness.snapshot.age_ms", measurements);
+
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Services.AddAuthorization();
+        await using WebApplication app = builder.Build();
+        app.MapProductionHealthEndpoints();
+        MethodInfo publicHandler = FindRoute(app, "/health/ready").Metadata.GetMetadata<MethodInfo>()!;
+        MethodInfo detailHandler = FindRoute(app, "/api/ops/health/ready-detail").Metadata.GetMetadata<MethodInfo>()!;
+        var context = new DefaultHttpContext
+        {
+            RequestServices = new ServiceCollection().BuildServiceProvider()
+        };
+        _ = await (Task<IResult>)publicHandler.Invoke(null, [cache, context, CancellationToken.None])!;
+        Assert.Equal(1, refreshCount);
+        _ = await (Task<IResult>)detailHandler.Invoke(null, [cache, context, CancellationToken.None, true])!;
+        Assert.Equal(2, refreshCount);
     }
 
     [Fact]
@@ -147,18 +332,46 @@ public sealed class ProductionHealthTests
     }
 
     [Fact]
-    public void RuntimeHealth_DegradesWhenPublicHotArticleFrameLimitIsExceeded()
+    public async Task RuntimeHealth_DegradesWhenPublicHotArticleFrameLimitIsExceeded()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Operations/ProductionHealth.cs");
-        string runtime = ExtractBetween(
-            source,
-            "private async Task<RuntimeHealthSnapshot> CheckRuntimeAsync",
-            "    private async Task<ProductionRiskControlHealthCheck>");
+        string root = Path.Combine(Path.GetTempPath(), "fsusblog-health-frame-limit-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "wwwroot"));
+        File.WriteAllText(Path.Combine(root, "wwwroot", "index.html"), "<html></html>");
+        try
+        {
+            var store = new PublicHotReadStore();
+            store.Publish(new PublicHotReadSnapshot(
+                1,
+                FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+                FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+                default,
+                default,
+                FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+                publicArticleCount: 2,
+                articleFrameLimit: 1));
+            using ServiceProvider services = new ServiceCollection()
+                .AddSingleton(store)
+                .BuildServiceProvider();
+            IConfiguration configuration = new ConfigurationBuilder().Build();
+            var environment = new TestWebHostEnvironment(root, Environments.Development);
+            var probe = new ProductionReadinessProbe(
+                configuration,
+                environment,
+                services,
+                CreateConfigurationSnapshot(configuration, environment, services),
+                NullLogger<ProductionReadinessProbe>.Instance);
 
-        Assert.Contains("publicHotRead.ArticleFrameLimitExceeded", runtime, StringComparison.Ordinal);
-        Assert.Contains("&& !publicHotRead.ArticleFrameLimitExceeded", runtime, StringComparison.Ordinal);
-        Assert.Contains("? \"ok\"", runtime, StringComparison.Ordinal);
-        Assert.Contains(": \"degraded\"", runtime, StringComparison.Ordinal);
+            ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+            var runtime = Assert.IsType<RuntimeHealthSnapshot>(report.Checks["runtime"]);
+            Assert.Equal("degraded", runtime.Status);
+            Assert.NotNull(runtime.PublicHotRead);
+            Assert.True(runtime.PublicHotRead.ArticleFrameLimitExceeded);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -643,12 +856,37 @@ public sealed class ProductionHealthTests
             => $"{policyId}:{identity}:{version}";
     }
 
-    private static string ExtractBetween(string source, string start, string end)
+    private static RouteEndpoint FindRoute(WebApplication app, string route)
+        => Assert.Single(((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => string.Equals(
+                endpoint.RoutePattern.RawText?.TrimStart('/'),
+                route.TrimStart('/'),
+                StringComparison.Ordinal)));
+
+    private static MethodInfo AsyncMoveNext(MethodInfo method)
     {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
+        AsyncStateMachineAttribute stateMachine = method.GetCustomAttribute<AsyncStateMachineAttribute>()
+            ?? throw new InvalidOperationException($"Async state machine missing: {method.Name}");
+        return stateMachine.StateMachineType.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!;
+    }
+
+    private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F)) continue;
+            MethodBase? called = null;
+            try
+            {
+                called = method.Module.ResolveMethod(BitConverter.ToInt32(il, offset + 1));
+            }
+            catch (ArgumentException)
+            {
+            }
+            if (called is not null) yield return called;
+        }
     }
 }

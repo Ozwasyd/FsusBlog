@@ -8,10 +8,33 @@
 
 - [错误码枚举](#错误码枚举)
 - [负响应](#负响应)
+- [生产就绪详情](#生产就绪详情)
 - [AEDS v2 帧格式](#aeds-v2-帧格式)
 - [AedsFrameType 枚举](#aedsframetype-枚举)
 - [POD 大小目录](#pod-大小目录)
 - [C++ POD 对齐规则](#c-pod-对齐规则)
+
+---
+
+## 生产就绪详情
+
+公开 `GET /health/ready` 固定只返回 `status` 与 `checkedAt`。受保护的 `GET /api/ops/health/ready-detail` 需要 admin `audit.read` 权限；其 `checks.release` 是 JSON 运维检查，不是 AEDS frame，字段为 `status`、`releaseId`、`releaseSlot`、完整 `commitSha`、不可变 `imageRef=repository@sha256:...`、`imageDigest` 与可选 `error`。`checks.deployment` 额外返回 release/slot/mode/state/generation、`canReceiveTraffic`、`canClaimBackgroundWork` 和 drain snapshot；Draining 会绕过 readiness cache 立即把整体结果变为 `not_ready`。所有应用响应 header 另带 `X-Fsus-Release-Id`、`X-Fsus-Release-Slot`，仅用于网关核验实际 upstream，不改变 body 或 AEDS frame。生产环境缺少任一发布身份字段、使用可变 release/image 引用或 digest 不一致时，`checks.release.status=failed`、`error=release_identity_invalid`，整体 readiness 必须为 `not_ready`。
+
+发布控制的 JSON schema 为：请求 `{releaseId:string,slot:string,generation:int64,timeoutSeconds?:int32}`；响应 `{accepted:boolean,idempotent:boolean,status:string,errorCode?:string,snapshot:DeploymentRuntimeSnapshot}`。status 直接返回 snapshot。只有 admin `system.config` + loopback source 可访问；错误 identity/generation/state 返回 409，`trusted_host_required` 返回 403。drain 超时的 snapshot 必须保持 `drained=false,timedOut=true` 并列出 `blockers`，禁止把硬终止改写为成功。notification stream 在 Candidate/Draining 分别返回 `deployment_not_active` / `deployment_draining` 和 503 可重试语义。
+
+Active-release fence 的 ops JSON 只在 `/api/ops/deployment/fence/status|acquire|revoke` 使用，身份键为 `releaseId + slot + generation + imageDigest`；generation 必须正数且单调，CAS expected identity 不匹配时 409，不能把 Redis 断连当作本地成功。Notification restart 请求同样绑定 release/slot/generation，成功连接以 WebSocket close code `1012` 表示可识别服务重启，并通过 cursor replay 恢复。演练发布请求 `{releaseId,slot,generation,drillId,count,dryRun}` 的 `count` 为 1..32；生产配置默认关闭并返回 404，启用也不会绕过 admin `system.config`、loopback、active runtime 或 fence 校验。
+
+Schema migration qualification 使用窄 JSON 负响应，不进入 AEDS `ApiError` 枚举：
+
+| route | HTTP | JSON code | 语义 |
+|---|---:|---|---|
+| `POST /api/release-evidence/schema-bridge/write` | 400 | `schema_qualification_write_invalid` | operationId/sequence 不满足有界 tooling contract |
+| `GET /api/release-evidence/schema-qualification/readiness` | 503 | `schema_incompatible` | 隔离资格场景已标记 missing Expand，candidate 不可继续 |
+
+两条 route 只在 environment 精确为 `Test` 且
+`SchemaMigration:QualificationEnabled=true` 时存在，注册后仍要求 admin
+`system.config` + `fixed_ip`。响应携带 release ID/slot header 和 `no-store`；生产不
+注册，因此不得把这些 code 当作公开 runtime compatibility fallback。
 
 ---
 

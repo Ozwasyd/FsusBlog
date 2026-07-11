@@ -644,6 +644,33 @@ const accountId = user?.id ?? 0
     }
   },
   {
+    name: 'retired cleanup HumanRead mixed suite',
+    expected: 'retired cleanup/HumanRead source-reading test residue detected',
+    files: {
+      'tests/backend/Unit/UploadSessionCleanupQueueTests.cs': `
+namespace FsusBlog.Tests.Unit;
+public sealed class UploadSessionCleanupQueueTests
+{
+    public void SourceUsesWaitModeAndRetriesOverflowAfterCleanup() {}
+}
+`
+    }
+  },
+  {
+    name: 'cleanup HumanRead behavior source reader',
+    expected: 'retired cleanup/HumanRead source-reading test residue detected',
+    files: {
+      'tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs': `
+namespace FsusBlog.Tests.Unit;
+public sealed class HumanReadProofSubmissionBehaviorTests
+{
+    public string ReadImplementation() => File.ReadAllText(
+        BackendTestPaths.PathFromRoot("src", "backend", "Services", "HumanReadProofService.cs"));
+}
+`
+    }
+  },
+  {
     name: 'human-read visit user binding',
     expected: 'human-read visit user-bound residue detected',
     files: {
@@ -652,6 +679,19 @@ namespace FsusBlog.Server.Entities;
 public class VisitLog
 {
     public int? UserId { get; set; }
+}
+`
+    }
+  },
+  {
+    name: 'human-read raw visit ip persistence',
+    expected: 'human-read raw visit-ip persistence residue detected',
+    files: {
+      'src/backend/Entities/VisitLog.cs': `
+namespace FsusBlog.Server.Entities;
+public class VisitLog
+{
+    public string? IP { get; set; }
 }
 `
     }
@@ -698,13 +738,6 @@ const allowedMaintenanceFixture = {
   'docs/database-migration.md': `
 Legacy migration notes may mention /api/binary/auth/login, AuthLoginRequest, username, password, and sys_user while documenting residue removal.
 `,
-  'src/backend/Infrastructure/Operations/LegacyIdentityColdStartResetOperation.cs': `
-namespace FsusBlog.Server.Infrastructure.Operations;
-internal sealed class LegacyIdentityColdStartResetOperation
-{
-    private const string Confirmation = "FSUSBLOG_CONFIRM_IDENTITY_RESET=DELETE_LEGACY_USERS";
-}
-`,
   'tools/db/verify-legacy-upgrade-20260517.sh': `
 #!/usr/bin/env bash
 set -euo pipefail
@@ -742,6 +775,13 @@ export const createPublicComment = () => undefined
   'src/frontend/src/public-renderers/publicRouteRegistry.ts': `
 export const publicAboutRoute = {
   component: () => import('@/views/PublicDynamicPage.vue')
+}
+`,
+  'tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs': `
+namespace FsusBlog.Tests.Unit;
+public sealed class HumanReadProofSubmissionBehaviorTests
+{
+    public void SubmitAsync_ValidArticleProofWritesExactlyOneEvent() {}
 }
 `
 }

@@ -6,6 +6,7 @@ using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Shared.Contracts.Validation;
 
@@ -112,7 +113,7 @@ public sealed class AnonymousCommentTicketService(
         if (!IsHexHash(credentialCommitment, minLength: 32, maxLength: 128) ||
             !IsHexHash(issuerPublicKeyHash, minLength: 32, maxLength: 128) ||
             !IsHexHash(policyHash, minLength: 64, maxLength: 64) ||
-            !string.Equals(issuerPublicKeyHash, root.IssuerPublicKeyHash, StringComparison.OrdinalIgnoreCase))
+            !SecurityStringComparisons.FixedTimeEqualsHex(issuerPublicKeyHash, root.IssuerPublicKeyHash))
         {
             return AnonymousCommentTicketIssueResult.Failure(AnonymousCommentTicketStatuses.ValidationFailed);
         }

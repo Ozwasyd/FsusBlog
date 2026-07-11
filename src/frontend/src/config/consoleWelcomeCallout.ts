@@ -26,6 +26,12 @@ export interface ConsoleWelcomeCalloutLink {
   href: string
 }
 
+export interface ConsoleSupportLink {
+  key: 'contribute' | 'issue' | 'community'
+  label: string
+  href: string
+}
+
 export type ConsoleWelcomeCalloutRuntimeOverride = Partial<ConsoleWelcomeCalloutConfig>
 
 const DEFAULT_CONFIG: ConsoleWelcomeCalloutConfig = {
@@ -138,6 +144,24 @@ export function shouldShowConsoleWelcomeCallout(config: ConsoleWelcomeCalloutCon
   }
 
   return !(config.privateDeployment && config.hideForPrivateDeployment)
+}
+
+export function buildConsoleSupportLinks(
+  config: ConsoleWelcomeCalloutConfig
+): ConsoleSupportLink[] {
+  if (!config.externalLinksEnabled) {
+    return []
+  }
+
+  if (config.privateDeployment && config.hideForPrivateDeployment) {
+    return []
+  }
+
+  return [
+    { key: 'contribute', label: '查看维护说明', href: config.contributeUrl },
+    { key: 'issue', label: '提交问题', href: config.issueUrl },
+    { key: 'community', label: '参与讨论', href: config.communityUrl }
+  ].filter((link): link is ConsoleSupportLink => Boolean(link.href))
 }
 
 export function buildConsoleWelcomeCalloutLinks(

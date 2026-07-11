@@ -27,7 +27,12 @@ public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : 
                 static payload => DecodeSnapshotEnvelope(payload),
                 CancellationToken.None)
             .ConfigureAwait(false);
-        if (cached.Hit && cached.Value is { } envelope && envelope.Version == version)
+        if (cached.Hit
+            && cached.Value is { } envelope
+            && envelope.Version == version
+            && AccountSubjectHashRequirement.TryResolve(
+                envelope.Snapshot.AccountSubjectHash,
+                out _))
         {
             FsusObservability.RecordAccountSnapshotCacheHit(hit: true);
             return envelope.Snapshot;
@@ -36,7 +41,8 @@ public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : 
         FsusObservability.RecordAccountSnapshotCacheHit(hit: false);
         FsusObservability.RecordAccountSnapshotDbReadCount();
         UserAccountSnapshot? snapshot = await users.GetAccountSnapshotProjectionAsync(id).ConfigureAwait(false);
-        if (snapshot.HasValue)
+        if (snapshot.HasValue
+            && AccountSubjectHashRequirement.TryResolve(snapshot.Value.AccountSubjectHash, out _))
         {
             byte[] payload = JsonSerializer.SerializeToUtf8Bytes(
                 new AccountSnapshotCacheEnvelope(version, snapshot.Value),
@@ -63,7 +69,11 @@ public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : 
     }
 
     private static string BuildSnapshotIdentity(int id, long version)
-        => string.Concat("account:", id.ToString(CultureInfo.InvariantCulture), ":v", version.ToString(CultureInfo.InvariantCulture));
+        => string.Concat(
+            "account:subject-v1:",
+            id.ToString(CultureInfo.InvariantCulture),
+            ":v",
+            version.ToString(CultureInfo.InvariantCulture));
 
     private static (bool Success, AccountSnapshotCacheEnvelope? Value) DecodeSnapshotEnvelope(ReadOnlyMemory<byte> payload)
     {
@@ -93,7 +103,7 @@ public sealed class UserAccountReader(UserService users, IUnifiedCache cache) : 
             user.RecoveryEnabled,
             user.AnonymousCredentialStatus,
             user.AnonymousCredentialLevel,
-            AccountSubjectHasher.Create(user));
+            user.AccountSubjectHash);
 
     internal static IdentityAccountSnapshotCoreModel ToAnonymousAccountSnapshot(UserAccountSnapshot account)
         => new(

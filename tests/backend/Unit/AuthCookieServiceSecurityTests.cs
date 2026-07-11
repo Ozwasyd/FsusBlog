@@ -1,9 +1,14 @@
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
+using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -15,7 +20,7 @@ public sealed class AuthCookieServiceSecurityTests
         var service = new AuthCookieService(CreateConfiguration());
         var context = new DefaultHttpContext();
 
-        service.SetTokenCookies(context, ProductionEnv(), "access-token", "refresh-token", "session-123", DateTime.UtcNow.AddDays(7));
+        service.SetTokenCookies(context, ProductionEnv(), "access-token", DateTimeOffset.UtcNow.AddMinutes(15), "refresh-token", "session-123", DateTime.UtcNow.AddDays(7));
 
         string[] setCookies = ReadSetCookieHeaders(context);
 
@@ -34,7 +39,7 @@ public sealed class AuthCookieServiceSecurityTests
         }));
         var context = new DefaultHttpContext();
 
-        service.SetTokenCookies(context, ProductionEnv(), "access-token", "refresh-token", "session-123", DateTime.UtcNow.AddDays(7));
+        service.SetTokenCookies(context, ProductionEnv(), "access-token", DateTimeOffset.UtcNow.AddMinutes(15), "refresh-token", "session-123", DateTime.UtcNow.AddDays(7));
 
         string[] setCookies = ReadSetCookieHeaders(context);
         Assert.Contains(setCookies, static cookie => cookie.StartsWith("__Host-RefreshToken=", StringComparison.Ordinal));
@@ -47,7 +52,7 @@ public sealed class AuthCookieServiceSecurityTests
         var service = new AuthCookieService(CreateConfiguration());
         var context = new DefaultHttpContext();
 
-        service.SetTokenCookies(context, ProductionEnv(), "access-token", "refresh-token", sessionId: null, DateTime.UtcNow.AddDays(7));
+        service.SetTokenCookies(context, ProductionEnv(), "access-token", DateTimeOffset.UtcNow.AddMinutes(15), "refresh-token", sessionId: null, DateTime.UtcNow.AddDays(7));
 
         string[] setCookies = ReadSetCookieHeaders(context);
         Assert.Contains(setCookies, static cookie => cookie.StartsWith("__Host-AccessToken=", StringComparison.Ordinal));
@@ -55,15 +60,58 @@ public sealed class AuthCookieServiceSecurityTests
         Assert.DoesNotContain(setCookies, static cookie => cookie.StartsWith("__Host-SessionId=", StringComparison.Ordinal));
     }
 
-    [Fact]
-    public void AuthCookieService_SourceDoesNotParseJwtWhenWritingCookies()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(15)]
+    [InlineData(60)]
+    [Trait("Category", "SecurityStateMachine")]
+    public void AccessTokenCookies_UseExactIssuedJwtExpiry_ForOrdinaryAndAdminTokens(int expiresMinutes)
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Auth/AuthCookieService.cs"));
+        var jwt = new JwtHelper(Options.Create(new JwtSettings
+        {
+            SecretKey = TestSecrets.JwtSigningKey,
+            Issuer = "cookie-expiry-tests",
+            Audience = "cookie-expiry-tests",
+            AccessTokenExpiresMinutes = expiresMinutes
+        }));
+        var cookies = new AuthCookieService(CreateConfiguration());
 
-        Assert.Contains("SetTokenCookies(HttpContext context, IWebHostEnvironment env, string accessToken, string refreshToken, string? sessionId, DateTime idleExpiresAt)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("JwtSecurityTokenHandler", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ReadJwtToken", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ReadSessionId(string accessToken)", source, StringComparison.Ordinal);
+        IssuedAccessToken ordinary = jwt.GenerateAccessToken(new User
+        {
+            Id = 42,
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            PasskeyUserHandle = "cookie-expiry-account",
+            AccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }, sessionId: "ordinary-session", mfaVerified: true);
+        var ordinaryContext = new DefaultHttpContext();
+        cookies.SetTokenCookies(
+            ordinaryContext,
+            ProductionEnv(),
+            ordinary.Token,
+            ordinary.ExpiresAtUtc,
+            "refresh-token",
+            "ordinary-session",
+            DateTime.UtcNow.AddDays(7));
+
+        var adminPrincipal = new AdminPrincipal { Id = 7, Handle = "root" };
+        var adminSession = new AdminSession { SessionId = "admin-session", AdminPrincipalId = adminPrincipal.Id };
+        IssuedAccessToken admin = jwt.GenerateAdminAccessToken(
+            adminPrincipal,
+            adminSession,
+            [AdminPermissions.AdminManage]);
+        var adminContext = new DefaultHttpContext();
+        cookies.SetAdminSessionCookies(
+            adminContext,
+            ProductionEnv(),
+            admin.Token,
+            admin.ExpiresAtUtc,
+            adminSession.SessionId,
+            DateTime.UtcNow.AddHours(8));
+
+        AssertIssuedExpiryMatchesJwt(ordinary);
+        AssertIssuedExpiryMatchesJwt(admin);
+        Assert.Equal(ordinary.ExpiresAtUtc, ReadCookieExpiry(ordinaryContext, "__Host-AccessToken"));
+        Assert.Equal(admin.ExpiresAtUtc, ReadCookieExpiry(adminContext, "__Host-AdminAccessToken"));
     }
 
     [Fact]
@@ -88,6 +136,21 @@ public sealed class AuthCookieServiceSecurityTests
         {
             Assert.Contains(setCookies, cookie => cookie.StartsWith(cookieName + "=", StringComparison.Ordinal));
         }
+    }
+
+    [Fact]
+    public void ClearUserSessionCookies_DoesNotClearIndependentAdminSessionCookies()
+    {
+        var service = new AuthCookieService(CreateConfiguration());
+        var context = new DefaultHttpContext();
+
+        service.ClearUserSessionCookies(context);
+
+        string[] setCookies = ReadSetCookieHeaders(context);
+        Assert.Contains(setCookies, cookie => cookie.StartsWith("AccessToken=", StringComparison.Ordinal));
+        Assert.Contains(setCookies, cookie => cookie.StartsWith("__Host-AccessToken=", StringComparison.Ordinal));
+        Assert.DoesNotContain(setCookies, cookie => cookie.StartsWith("AdminAccessToken=", StringComparison.Ordinal));
+        Assert.DoesNotContain(setCookies, cookie => cookie.StartsWith("__Host-AdminAccessToken=", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -236,6 +299,27 @@ public sealed class AuthCookieServiceSecurityTests
             .Where(static value => value is not null)
             .Select(static value => value!)
             .ToArray();
+
+    private static void AssertIssuedExpiryMatchesJwt(IssuedAccessToken issuedToken)
+    {
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(issuedToken.Token);
+        Assert.Equal(issuedToken.ExpiresAtUtc, new DateTimeOffset(DateTime.SpecifyKind(jwt.ValidTo, DateTimeKind.Utc)));
+    }
+
+    private static DateTimeOffset ReadCookieExpiry(DefaultHttpContext context, string cookieName)
+    {
+        string cookie = Assert.Single(
+            ReadSetCookieHeaders(context),
+            value => value.StartsWith(cookieName + "=", StringComparison.Ordinal));
+        string expires = Assert.Single(
+            cookie.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            static attribute => attribute.StartsWith("expires=", StringComparison.OrdinalIgnoreCase));
+        return DateTimeOffset.ParseExact(
+            expires["expires=".Length..],
+            "R",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+    }
 
     private static IConfiguration CreateConfiguration(Dictionary<string, string?>? values = null)
         => new ConfigurationBuilder()

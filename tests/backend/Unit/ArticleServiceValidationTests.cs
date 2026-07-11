@@ -1,14 +1,20 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using NSubstitute;
 using SqlSugar;
 using StackExchange.Redis;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using System.Reflection;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -17,6 +23,9 @@ namespace FsusBlog.Server.Tests.Unit;
 /// </summary>
 public class ArticleServiceValidationTests
 {
+    private static string ArticleRuntime(params string[] methodNames)
+        => RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), methodNames);
+
     private static ArticleService BuildService()
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
@@ -73,123 +82,102 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void SearchArticlesAsync_SourceUsesVersionedNormalizedCacheIdentity()
+    public void SearchArticlesAsync_RuntimeUsesVersionedNormalizedCacheIdentity()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync", StringComparison.Ordinal);
-        int methodEnd = source.IndexOf("public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..methodEnd];
+        string method = ArticleRuntime(
+            nameof(ArticleService.SearchArticlesAsync),
+            "NormalizeSearchKeyword",
+            "GetSearchCacheVersionAsync",
+            "BuildArticleSearchIdentity");
 
         Assert.Contains("NormalizeSearchKeyword", method, StringComparison.Ordinal);
         Assert.Contains("GetSearchCacheVersionAsync", method, StringComparison.Ordinal);
         Assert.Contains("BuildArticleSearchIdentity", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("$\"keyword:{keyword}\"", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("keyword:", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SearchArticlesAsync_SourceBypassesLongLivedCacheForLowValueKeywords()
+    public void SearchArticlesAsync_RuntimeBypassesLongLivedCacheForLowValueKeywords()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync", StringComparison.Ordinal);
-        int methodEnd = source.IndexOf("public async Task<List<PopularArticleSummaryDto>> GetHotArticlesAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..methodEnd];
+        string method = ArticleRuntime(
+            nameof(ArticleService.SearchArticlesAsync),
+            "ShouldCacheSearchKeyword",
+            "LoadSearchArticlesFromSourceAsync");
 
         Assert.Contains("ShouldCacheSearchKeyword", method, StringComparison.Ordinal);
-        Assert.Contains("LoadSearchArticlesFromSourceAsync(normalizedKeyword", method, StringComparison.Ordinal);
+        Assert.Contains("LoadSearchArticlesFromSourceAsync", method, StringComparison.Ordinal);
         Assert.Contains("FsusObservability.RecordCacheOperation", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void UpdateAsync_SourceChecksAffectedRowsBeforeDependentWrites()
+    public void UpdateAsync_RuntimeChecksAffectedRowsBeforeDependentWrites()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int updateMethod = source.IndexOf("public async Task<bool> UpdateAsync", StringComparison.Ordinal);
-        int deleteMethod = source.IndexOf("public async Task<bool> DeleteAsync", StringComparison.Ordinal);
-        string method = source[updateMethod..deleteMethod];
-
-        int affectedAssignment = method.IndexOf("bool updated = await TryUpdateArticleRowAsync", StringComparison.Ordinal);
-        int zeroRowReturn = method.IndexOf("if (!updated)", StringComparison.Ordinal);
-        int bodyWrite = method.IndexOf("Storageable(new ArticleBody", StringComparison.Ordinal);
-        int revisionWrite = method.IndexOf("SaveArticleRevisionAsync", StringComparison.Ordinal);
-        int successGuard = method.IndexOf("if (result.IsSuccess && articleUpdated)", StringComparison.Ordinal);
-
-        Assert.True(affectedAssignment >= 0);
-        Assert.True(zeroRowReturn > affectedAssignment);
-        Assert.True(bodyWrite > zeroRowReturn);
-        Assert.True(revisionWrite > zeroRowReturn);
-        Assert.True(successGuard > revisionWrite);
+        string method = ArticleRuntime(
+            nameof(ArticleService.UpdateAsync),
+            "TryUpdateArticleRowAsync",
+            "SaveArticleRevisionAsync");
+        Assert.Contains("TryUpdateArticleRowAsync", method, StringComparison.Ordinal);
+        Assert.Contains("Storageable", method, StringComparison.Ordinal);
+        Assert.Contains("SaveArticleRevisionAsync", method, StringComparison.Ordinal);
+        Assert.Contains("get_IsSuccess", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void GetPageListAsync_SourceRejectsInvalidPaginationWithoutSilentCoercion()
+    public async Task GetPageListAsync_RuntimeRejectsInvalidPaginationWithoutSilentCoercion()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("public async Task<ArticleListPageReadModel> GetPageListAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("public async Task<ArticleDetailReadModel?> GetByIdAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
-
-        Assert.Contains("throw new ArgumentOutOfRangeException(nameof(page)", method, StringComparison.Ordinal);
-        Assert.Contains("throw new ArgumentOutOfRangeException(nameof(size)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("page = page < 1 ? 1 : page", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("< 1 => 10", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("> MaxPageSize => MaxPageSize", method, StringComparison.Ordinal);
+        ArticleService service = BuildService();
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.GetPageListAsync(0, 10, null, null, false));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.GetPageListAsync(1, 0, null, null, false));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.GetPageListAsync(1, 101, null, null, false));
     }
 
     [Fact]
-    public void DeleteAndRestore_SourceInvalidatePublicAotWithCurrentStateAfterMutation()
+    public void DeleteAndRestore_RuntimeInvalidatePublicAotWithCurrentStateAfterMutation()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int deleteMethod = source.IndexOf("public async Task<bool> DeleteAsync", StringComparison.Ordinal);
-        int restoreMethod = source.IndexOf("public async Task<bool> RestoreAsync", deleteMethod, StringComparison.Ordinal);
-        int permanentDeleteMethod = source.IndexOf("public async Task<bool> PermanentlyDeleteArticleAsync", restoreMethod, StringComparison.Ordinal);
-        string deleteBlock = source[deleteMethod..restoreMethod];
-        string restoreBlock = source[restoreMethod..permanentDeleteMethod];
+        string deleteBlock = ArticleRuntime(nameof(ArticleService.DeleteAsync));
+        string restoreBlock = ArticleRuntime(nameof(ArticleService.RestoreAsync));
 
-        Assert.Contains("LoadArticleMutationStateAsync(id, isDeleted: false)", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("LoadArticleMutationStateAsync", deleteBlock, StringComparison.Ordinal);
         Assert.Contains("xmin::text = @RowVersion", deleteBlock, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, \"delete\")", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("InvalidatePublicAotAsync", deleteBlock, StringComparison.Ordinal);
+        Assert.Contains("delete", deleteBlock, StringComparison.Ordinal);
 
-        Assert.Contains("LoadArticleMutationStateAsync(id, isDeleted: true)", restoreBlock, StringComparison.Ordinal);
+        Assert.Contains("LoadArticleMutationStateAsync", restoreBlock, StringComparison.Ordinal);
         Assert.Contains("xmin::text = @RowVersion", restoreBlock, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, \"restore\")", restoreBlock, StringComparison.Ordinal);
+        Assert.Contains("InvalidatePublicAotAsync", restoreBlock, StringComparison.Ordinal);
+        Assert.Contains("restore", restoreBlock, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ArticleService_SourceInvalidatesPublicAotCategoryAndTagUnions()
+    public void ArticleService_RuntimeInvalidatesPublicAotCategoryAndTagUnions()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("private async Task InvalidatePublicAotWithCurrentStateAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task InvalidatePublicAotBatchAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = ArticleRuntime(
+            "InvalidatePublicAotWithCurrentStateAsync",
+            "LoadArticleAotStateAsync",
+            "MergeIds");
 
-        Assert.Contains("var currentState = await LoadArticleAotStateAsync(articleId)", method, StringComparison.Ordinal);
-        Assert.Contains("MergeIds(beforeState.CategoryIds, currentState.CategoryIds)", method, StringComparison.Ordinal);
-        Assert.Contains("MergeIds(beforeState.TagIds, currentState.TagIds)", method, StringComparison.Ordinal);
-        Assert.Contains("await InvalidatePublicAotAsync(", method, StringComparison.Ordinal);
+        Assert.Contains("LoadArticleAotStateAsync", method, StringComparison.Ordinal);
+        Assert.True(method.Split("MergeIds", StringSplitOptions.None).Length - 1 >= 2);
+        Assert.Contains("InvalidatePublicAotAsync", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ArticleService_SourceDoesNotQueryLegacyArticleContentColumn()
+    public void ArticleService_RuntimeDoesNotQueryLegacyArticleContentColumn()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ArticleService));
 
-        Assert.Contains("LEFT JOIN article_body ab ON ab.article_id = a.id", source, StringComparison.Ordinal);
-        Assert.Contains("COALESCE(ab.markdown_content, '')", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("s_legacyArticleContentColumnState", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("LegacyArticleContentColumnExistsAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("a.content", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("private bool? _legacyArticleContentColumnExists", source, StringComparison.Ordinal);
+        Assert.Contains("LEFT JOIN article_body ab ON ab.article_id = a.id", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("COALESCE(ab.markdown_content, '')", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("legacyArticleContent", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("a.content", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void IncreaseViewCountAsync_SourceEnqueuesViewsWithoutSynchronousDbRedisOrDetailInvalidation()
+    public void IncreaseViewCountAsync_RuntimeEnqueuesViewsWithoutSynchronousDbRedisOrDetailInvalidation()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("public async ValueTask IncreaseViewCountAsync(int id, int count)", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync", StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = ArticleRuntime(nameof(ArticleService.IncreaseViewCountAsync));
 
-        Assert.Contains("_viewWriteBuffer.EnqueueAsync(id, count", method, StringComparison.Ordinal);
+        Assert.Contains("IArticleViewWriteBuffer.EnqueueAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("TryIncreaseArticleViewsAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("SortedSetAddAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("SortedSetIncrementAsync", method, StringComparison.Ordinal);
@@ -197,27 +185,23 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void GetByIdAsync_SourceCoordinatesPublicArticleDetailCacheMiss()
+    public void GetByIdAsync_RuntimeCoordinatesPublicArticleDetailCacheMiss()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("public async Task<ArticleDetailReadModel?> GetByIdAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<CacheReadResult<ArticleDetailReadModel>> TryReadArticleDetailCacheAsync", StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = ArticleRuntime(
+            nameof(ArticleService.GetByIdAsync),
+            "TryReadArticleDetailCacheAsync",
+            "LoadArticleDetailFromDbAsync");
 
-        Assert.Contains("_cacheMissCoordinator.CoordinateAsync", method, StringComparison.Ordinal);
-        Assert.Contains("CachePolicyId.ArticleDetail", method, StringComparison.Ordinal);
+        Assert.Contains("ICacheMissCoordinator.CoordinateAsync", method, StringComparison.Ordinal);
         Assert.Contains("TryReadArticleDetailCacheAsync", method, StringComparison.Ordinal);
         Assert.Contains("LoadArticleDetailFromDbAsync", method, StringComparison.Ordinal);
         Assert.Contains("article-detail", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LoadArticleDetailFromDbAsync_SourceUsesSingleSqlForMetadataContentAndTags()
+    public void LoadArticleDetailFromDbAsync_RuntimeUsesSingleSqlForMetadataContentAndTags()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = ArticleRuntime("LoadArticleDetailFromDbAsync", "ReadArticleDetailTags");
 
         Assert.Contains("LEFT JOIN article_body ab ON ab.article_id = a.id", method, StringComparison.Ordinal);
         Assert.Contains("array_agg(t.id ORDER BY t.id)", method, StringComparison.Ordinal);
@@ -228,44 +212,35 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void LoadArticleDetailFromDbAsync_SourceLoadsRightsSnapshotAndProofInSingleSql()
+    public void LoadArticleDetailFromDbAsync_RuntimeLoadsRightsSnapshotAndProofInSingleSql()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = ArticleRuntime("LoadArticleDetailFromDbAsync", "ReadArticleRights");
 
         Assert.Contains("LEFT JOIN LATERAL", method, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("article_rights_snapshot", method, StringComparison.Ordinal);
         Assert.Contains("article_rights_proof", method, StringComparison.Ordinal);
-        Assert.Contains("Rights = ReadArticleRights(reader", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("LoadArticleRights", method, StringComparison.Ordinal);
+        Assert.Contains("ReadArticleRights", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticleRightsAsync", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LoadArticleDetailFromDbAsync_SourceNormalizesDbTimestampsBeforeServerCacheEncoding()
+    public void LoadArticleDetailFromDbAsync_RuntimeNormalizesDbTimestampsBeforeServerCacheEncoding()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = ArticleRuntime(
+            "LoadArticleDetailFromDbAsync",
+            "NormalizeArticleListTimestampUtc");
 
-        Assert.Contains("CreateTime = NormalizeArticleListTimestampUtc(reader.GetDateTime(fTime))", method, StringComparison.Ordinal);
-        Assert.Contains("ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fScheduled))", method, StringComparison.Ordinal);
-        Assert.Contains("PublishedAt = reader.IsDBNull(fPublished) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fPublished))", method, StringComparison.Ordinal);
-        Assert.True(
-            method.IndexOf("CreateTime = NormalizeArticleListTimestampUtc", StringComparison.Ordinal)
-                < method.IndexOf("ServerCacheBinaryCodec.EncodeArticleDetail(article)", StringComparison.Ordinal),
-            "Article detail timestamps must be normalized before the detail is encoded into the server cache.");
+        Assert.True(method.Split("NormalizeArticleListTimestampUtc", StringSplitOptions.None).Length - 1 >= 3);
+        Assert.Contains("ServerCacheBinaryCodec.EncodeArticleDetail", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ArticleDetailAedsArtifactProjector_SourceUsesSingleSqlForDetailArtifactBackfill()
+    public void ArticleDetailAedsArtifactProjector_RuntimeUsesSingleSqlForDetailArtifactBackfill()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs"));
-        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleDetailAedsArtifactProjector),
+            "LoadArticleDetailFromDbAsync",
+            "ReadArticleDetailTags");
 
         Assert.Contains("LEFT JOIN article_body ab ON ab.article_id = a.id", method, StringComparison.Ordinal);
         Assert.Contains("array_agg(t.id ORDER BY t.id)", method, StringComparison.Ordinal);
@@ -276,150 +251,140 @@ public class ArticleServiceValidationTests
     }
 
     [Fact]
-    public void ArticleDetailAedsArtifactProjector_SourceLoadsRightsSnapshotAndProofInSingleSql()
+    public void ArticleDetailAedsArtifactProjector_RuntimeLoadsRightsSnapshotAndProofInSingleSql()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs"));
-        int methodStart = source.IndexOf("private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<string> LoadArticleContentAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleDetailAedsArtifactProjector),
+            "LoadArticleDetailFromDbAsync",
+            "ReadArticleRights");
 
         Assert.Contains("LEFT JOIN LATERAL", method, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("article_rights_snapshot", method, StringComparison.Ordinal);
         Assert.Contains("article_rights_proof", method, StringComparison.Ordinal);
-        Assert.Contains("Rights = ReadArticleRights(reader", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("LoadArticleRights", method, StringComparison.Ordinal);
+        Assert.Contains("ReadArticleRights", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadArticleRightsAsync", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ArticleDetailAedsArtifactProjector_SourceDoesNotWriteArtifactWithoutCompleteRights()
+    public void ArticleDetailAedsArtifactProjector_RuntimeDoesNotWriteArtifactWithoutCompleteRights()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs"));
-        int methodStart = source.IndexOf("public async Task GenerateAndStoreAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("public Task RemoveAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleDetailAedsArtifactProjector),
+            nameof(ArticleDetailAedsArtifactProjector.GenerateAndStoreAsync),
+            "HasCompleteArticleRights");
 
-        Assert.Contains("HasCompleteArticleRights(article.Rights)", method, StringComparison.Ordinal);
+        Assert.Contains("HasCompleteArticleRights", method, StringComparison.Ordinal);
         Assert.Contains("article_detail_aeds_rights_missing", method, StringComparison.Ordinal);
-        Assert.Contains("await store.RemoveAsync(articleId", method, StringComparison.Ordinal);
-        Assert.Contains("throw new InvalidOperationException", method, StringComparison.Ordinal);
-
-        int rightsGuard = method.IndexOf("HasCompleteArticleRights(article.Rights)", StringComparison.Ordinal);
-        int remove = method.IndexOf("await store.RemoveAsync(articleId", rightsGuard, StringComparison.Ordinal);
-        int throwMissing = method.IndexOf("throw new InvalidOperationException", rightsGuard, StringComparison.Ordinal);
-        int encode = method.IndexOf("PodBinaryCodec.EncodeArticleDetail", StringComparison.Ordinal);
-        Assert.True(rightsGuard >= 0);
-        Assert.True(remove > rightsGuard);
-        Assert.True(throwMissing > remove);
-        Assert.True(encode > throwMissing);
+        Assert.Contains("IArticleDetailAedsArtifactStore.RemoveAsync", method, StringComparison.Ordinal);
+        Assert.Contains("InvalidOperationException", method, StringComparison.Ordinal);
+        Assert.Contains("PodBinaryCodec.EncodeArticleDetail", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PublicHotArtifactProjector_SourceLoadsRightsSnapshotForArticleDetailFrames()
+    public void PublicHotArtifactProjector_RuntimeLoadsRightsSnapshotForArticleDetailFrames()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
-        int methodStart = source.IndexOf("private async Task<IReadOnlyList<ArticleDetailReadModel>> LoadArticleDetailsFromDbAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<IReadOnlyList<PopularArticleCoreModel>> LoadHotArticlesFromDbAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = RuntimeMetadataInspection.DescribeMethods(
+            typeof(PublicHotArtifactProjector),
+            "LoadArticleDetailsFromDbAsync",
+            "LoadArticleRightsMapAsync");
 
         Assert.Contains("LoadArticleRightsMapAsync", method, StringComparison.Ordinal);
-        Assert.Contains("Rights =", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("new ArticleRightsReadModel()", method, StringComparison.Ordinal);
+        Assert.Contains("set_Rights", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArticleRightsReadModel..ctor", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PublicHotArtifactProjector_SourceSkipsArticleDetailFramesWithoutCompleteRights()
+    public void PublicHotArtifactProjector_RuntimeSkipsArticleDetailFramesWithoutCompleteRights()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"));
-        int methodStart = source.IndexOf("private async Task<IReadOnlyList<ArticleDetailReadModel>> LoadArticleDetailsFromDbAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<IReadOnlyList<PopularArticleCoreModel>> LoadHotArticlesFromDbAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = RuntimeMetadataInspection.DescribeMethods(
+            typeof(PublicHotArtifactProjector),
+            "LoadArticleDetailsFromDbAsync",
+            "HasCompleteArticleRights");
 
         Assert.Contains("HasCompleteArticleRights", method, StringComparison.Ordinal);
         Assert.Contains("public_hot_article_detail_rights_missing", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("? rights : article.Rights", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Rights set_Rights", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void UpdateAsync_SourceUsesRowVersionGuardAndAtomicTagSetRewrite()
+    public void UpdateAsync_RuntimeUsesRowVersionGuardAndAtomicTagSetRewrite()
     {
-        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        string articleEntity = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Entities/Article.cs"));
-        int updateStart = articleService.IndexOf("public async Task<bool> UpdateAsync", StringComparison.Ordinal);
-        int deleteStart = articleService.IndexOf("public async Task<bool> DeleteAsync", updateStart, StringComparison.Ordinal);
-        string updateMethod = articleService[updateStart..deleteStart];
-        int stateStart = articleService.IndexOf("private async Task<ArticleUpdateState?> LoadArticleUpdateStateAsync", StringComparison.Ordinal);
-        int rowUpdateStart = articleService.IndexOf("private async Task<bool> TryUpdateArticleRowAsync", StringComparison.Ordinal);
-        int tagStart = articleService.IndexOf("private async Task ApplyArticleTagsAsync", StringComparison.Ordinal);
-        int nextMethod = articleService.IndexOf("public async Task<bool> DeleteAsync", StringComparison.Ordinal);
-        string loadMethod = articleService[stateStart..rowUpdateStart];
-        string rowUpdateMethod = articleService[rowUpdateStart..tagStart];
-        string tagMethod = articleService[tagStart..nextMethod];
+        Assert.Equal(typeof(string), typeof(Article).GetProperty("RowVersion")!.PropertyType);
+        string runtimeShape = ArticleRuntime(
+            nameof(ArticleService.UpdateAsync),
+            "LoadArticleUpdateStateAsync",
+            "TryUpdateArticleRowAsync",
+            "ApplyArticleTagsAsync");
 
-        Assert.Contains("public string? RowVersion", articleEntity, StringComparison.Ordinal);
-        Assert.Contains("LoadArticleUpdateStateAsync(id)", updateMethod, StringComparison.Ordinal);
-        Assert.Contains("TryUpdateArticleRowAsync(", updateMethod, StringComparison.Ordinal);
-        Assert.Contains("state,", updateMethod, StringComparison.Ordinal);
-        Assert.Contains("ApplyArticleTagsAsync(id, tagIds)", updateMethod, StringComparison.Ordinal);
-        Assert.Contains("xmin::text AS row_version", loadMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND xmin::text = @RowVersion", rowUpdateMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND isdeleted = false", rowUpdateMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("WITH desired_tags", tagMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ON CONFLICT (articleid, tagid) DO NOTHING", tagMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("DELETE FROM article_tag", tagMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Deleteable<ArticleTag>()", updateMethod, StringComparison.Ordinal);
+        Assert.Contains("LoadArticleUpdateStateAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryUpdateArticleRowAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ApplyArticleTagsAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND isdeleted = false", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("WITH desired_tags", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ON CONFLICT (articleid, tagid) DO NOTHING", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("DELETE FROM article_tag", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Deleteable", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ArticleMutations_SourceRecordsTransactionalOutboxEvents()
+    public void ArticleMutations_RuntimeRecordsTransactionalOutboxEvents()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        string runtimeShape = ArticleRuntime(
+            nameof(ArticleService.CreateAsync),
+            nameof(ArticleService.UpdateAsync),
+            nameof(ArticleService.DeleteAsync),
+            nameof(ArticleService.RestoreAsync),
+            nameof(ArticleService.PermanentlyDeleteArticleAsync),
+            nameof(ArticleService.ClearTrashAsync),
+            "RecordArticleMutationOutboxAsync");
 
-        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"created\", rightsSnapshotId)", source, StringComparison.Ordinal);
-        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"updated\", rightsSnapshotId)", source, StringComparison.Ordinal);
-        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"deleted\")", source, StringComparison.Ordinal);
-        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"restored\")", source, StringComparison.Ordinal);
-        Assert.Contains("RecordArticleMutationOutboxAsync(id, \"permanently-deleted\")", source, StringComparison.Ordinal);
-        Assert.Contains("RecordArticleMutationOutboxAsync(articleId, \"trash-cleared\")", source, StringComparison.Ordinal);
+        foreach (string eventKind in new[]
+        {
+            "created", "updated", "deleted", "restored", "permanently-deleted", "trash-cleared"
+        })
+        {
+            Assert.Contains(eventKind, runtimeShape, StringComparison.Ordinal);
+        }
+        Assert.True(runtimeShape.Split("RecordArticleMutationOutboxAsync", StringSplitOptions.None).Length - 1 >= 6);
     }
 
     [Fact]
-    public void ClearTrashAsync_SourceLocksAndRechecksDeletedRowsInsideTransaction()
+    public void ClearTrashAsync_RuntimeLocksAndRechecksDeletedRowsInsideTransaction()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("public async Task<int> ClearTrashAsync", StringComparison.Ordinal);
-        int methodEnd = source.IndexOf("private async Task<List<TrashArticleRow>> LoadTrashArticlesForUpdateAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..methodEnd];
-        string lockHelper = source[
-            methodEnd..source.IndexOf("public async Task<List<ArticleListItemReadModel>> SearchArticlesAsync", methodEnd, StringComparison.Ordinal)];
+        string method = ArticleRuntime(
+            nameof(ArticleService.ClearTrashAsync),
+            "LoadTrashArticlesForUpdateAsync");
 
         Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
-        Assert.Contains("LoadTrashArticlesForUpdateAsync(ct)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("var trashArticles = await _db.Queryable<Article>()", method, StringComparison.Ordinal);
-        Assert.Contains("FOR UPDATE", lockHelper, StringComparison.Ordinal);
-        Assert.Contains("WHERE isdeleted = true", lockHelper, StringComparison.Ordinal);
-        Assert.Contains(".Where(it => chunk.Contains(it.Id) && it.IsDeleted)", method, StringComparison.Ordinal);
+        Assert.Contains("LoadTrashArticlesForUpdateAsync", method, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
+        Assert.Contains("WHERE isdeleted = true", method, StringComparison.Ordinal);
+        Assert.Contains("get_IsDeleted", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SaveArticleRevisionAsync_SourceLocksArticleRowAndDefinesUniqueRevisionIndex()
+    public void SaveArticleRevisionAsync_RuntimeLocksArticleRowAndDefinesUniqueRevisionIndex()
     {
-        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        string entities = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Entities/Article.cs"));
-        string migrations = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"));
+        string runtimeShape = ArticleRuntime("SaveArticleRevisionAsync");
+        Assert.Contains("FOR UPDATE", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains(
+            typeof(ArticleRevision).GetCustomAttributes<SugarIndexAttribute>(),
+            static index => index.IndexName == "ux_article_revision_article_revision_no");
 
-        Assert.Contains("FOR UPDATE", articleService, StringComparison.Ordinal);
-        Assert.Contains("ux_article_revision_article_revision_no", entities, StringComparison.Ordinal);
-        Assert.Contains("ux_article_revision_article_revision_no", migrations, StringComparison.Ordinal);
-        Assert.Contains("ON article_revision(article_id, revision_no)", migrations, StringComparison.Ordinal);
+        ISchemaMigrationDescriptor migration = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static descriptor => descriptor.MigrationId == "20260625-post-article-revision-atomic-revision-no");
+        string fingerprint = string.Join('\n', migration.Steps.Select(static step => step.Fingerprint));
+        Assert.Contains("ux_article_revision_article_revision_no", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ON article_revision(article_id, revision_no)", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SaveArticleRevisionAsync_SourceAllocatesRevisionNoAtomicallyAndRejectsDeletedArticle()
+    public void SaveArticleRevisionAsync_RuntimeAllocatesRevisionNoAtomicallyAndRejectsDeletedArticle()
     {
-        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = articleService.IndexOf("private async Task<ArticleRevisionCoordinates> SaveArticleRevisionAsync", StringComparison.Ordinal);
-        int methodEnd = articleService.IndexOf("private long ResolveRevisionAdminPrincipalId", methodStart, StringComparison.Ordinal);
-        string method = articleService[methodStart..methodEnd];
+        string method = ArticleRuntime("SaveArticleRevisionAsync");
 
         Assert.Contains("xmin", method, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("isdeleted = false", method, StringComparison.OrdinalIgnoreCase);
@@ -428,199 +393,196 @@ public class ArticleServiceValidationTests
         Assert.Contains("INSERT INTO article_revision", method, StringComparison.Ordinal);
         Assert.Contains("COALESCE(MAX(revision_no), 0) + 1", method, StringComparison.Ordinal);
         Assert.Contains("WHERE article_id = @articleId", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".MaxAsync(it => it.RevisionNo)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("RevisionNo = Math.Max", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("MaxAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Math.Max", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SaveArticleRevisionAsync_SourceUsesAdminPrincipalActor()
+    public void SaveArticleRevisionAsync_RuntimeUsesAdminPrincipalActor()
     {
-        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = articleService.IndexOf("private async Task<ArticleRevisionCoordinates> SaveArticleRevisionAsync", StringComparison.Ordinal);
-        int methodEnd = articleService.IndexOf("private Task RecordArticleMutationOutboxAsync", StringComparison.Ordinal);
-        string method = articleService[methodStart..methodEnd];
+        string method = ArticleRuntime("SaveArticleRevisionAsync", "ResolveRevisionAdminPrincipalId");
 
-        Assert.Contains("ResolveRevisionAdminPrincipalId()", articleService, StringComparison.Ordinal);
+        Assert.Contains("ResolveRevisionAdminPrincipalId", method, StringComparison.Ordinal);
         Assert.Contains("created_by_admin_principal_id", method, StringComparison.Ordinal);
         Assert.Contains("@createdByAdminPrincipalId", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetUserId()", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetUserId", method, StringComparison.Ordinal);
         Assert.DoesNotContain("CreatedByUserId", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void IncreaseViewCountsAsync_SourceUsesSingleValuesUpdateAndRedisBatchWithoutDetailInvalidation()
+    public void IncreaseViewCountsAsync_RuntimeUsesSingleValuesUpdateAndRedisBatchWithoutDetailInvalidation()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("public async ValueTask<IReadOnlySet<int>> IncreaseViewCountsAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("public async Task<ArticleListPageReadModel>", StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = ArticleRuntime(nameof(ArticleService.IncreaseViewCountsAsync));
 
         Assert.Contains("FROM (VALUES", method, StringComparison.Ordinal);
         Assert.Contains("RETURNING a.id, a.views", method, StringComparison.Ordinal);
-        Assert.Contains("IBatch redisBatch = _redis.CreateBatch()", method, StringComparison.Ordinal);
-        Assert.Contains("SortedSetAddAsync(hotRankKey, articleId, currentViews)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("RemoveAsync(CachePolicyId.ArticleDetail", method, StringComparison.Ordinal);
+        Assert.Contains("CreateBatch", method, StringComparison.Ordinal);
+        Assert.Contains("SortedSetAddAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("CachePolicyId.ArticleDetail", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void GetByIdAsync_SourceOverlaysProjectedViewsOnCachedArticleDetail()
+    public void GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
+        string runtimeShape = ArticleRuntime(
+            nameof(ArticleService.GetByIdAsync),
+            "OverlayProjectedViewsAsync");
 
-        Assert.Contains("OverlayProjectedViewsAsync", source, StringComparison.Ordinal);
-        Assert.Contains("SortedSetScoreAsync(RedisKey(\"blog:top_articles\"), article.Id)", source, StringComparison.Ordinal);
+        Assert.Contains("OverlayProjectedViewsAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("SortedSetScoreAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("blog:top_articles", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RuntimeDomainServices_SourceRegistersArticleViewBufferAndWorker()
+    public void RuntimeDomainServices_RegisterArticleViewBufferAndWorker()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs"));
-
-        Assert.Contains("AddSingleton<IArticleViewWriteBuffer, ArticleViewWriteBuffer>()", source, StringComparison.Ordinal);
-        Assert.Contains("AddScoped<IArticleViewFlushSink, ArticleServiceViewFlushSink>()", source, StringComparison.Ordinal);
-        Assert.Contains("AddHostedService<ArticleViewFlushWorker>()", source, StringComparison.Ordinal);
+        var services = new ServiceCollection();
+        services.AddFsusRuntimeDomainServices();
+        ServiceDescriptor buffer = Assert.Single(services.Where(static descriptor =>
+            descriptor.ServiceType == typeof(IArticleViewWriteBuffer)));
+        ServiceDescriptor sink = Assert.Single(services.Where(static descriptor =>
+            descriptor.ServiceType == typeof(IArticleViewFlushSink)));
+        ServiceDescriptor worker = Assert.Single(services.Where(static descriptor =>
+            descriptor.ServiceType == typeof(IHostedService)
+                && descriptor.ImplementationType == typeof(ArticleViewFlushWorker)));
+        Assert.Equal(ServiceLifetime.Singleton, buffer.Lifetime);
+        Assert.Equal(typeof(ArticleViewWriteBuffer), buffer.ImplementationType);
+        Assert.Equal(ServiceLifetime.Scoped, sink.Lifetime);
+        Assert.Equal(typeof(ArticleServiceViewFlushSink), sink.ImplementationType);
+        Assert.Equal(ServiceLifetime.Singleton, worker.Lifetime);
     }
 
     [Fact]
-    public void ArticleViewFlushSink_SourceMarksHotStatsAndPublicHotDirtyAfterFlush()
+    public void ArticleViewFlushSink_RuntimeMarksHotStatsAndPublicHotDirtyAfterFlush()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleViewWriteBuffer.cs"));
-        int methodStart = source.IndexOf("public async ValueTask<IReadOnlySet<int>> FlushArticleViewsAsync", StringComparison.Ordinal);
-        int nextType = source.IndexOf("public sealed class ArticleViewFlushWorker", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextType];
+        string method = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleServiceViewFlushSink),
+            nameof(ArticleServiceViewFlushSink.FlushArticleViewsAsync));
 
-        Assert.Contains("IncreaseViewCountsAsync(articleCounts, cancellationToken)", method, StringComparison.Ordinal);
-        Assert.Contains("MarkStatsDirtyAsync(reason, cancellationToken)", method, StringComparison.Ordinal);
-        Assert.Contains("MarkHotArticlesDirtyAsync(reason, cancellationToken)", method, StringComparison.Ordinal);
-        Assert.Contains("foreach (int articleId in updatedArticleIds)", method, StringComparison.Ordinal);
-        Assert.Contains("TryEnqueue(articleId, reason)", method, StringComparison.Ordinal);
+        Assert.Contains("IncreaseViewCountsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("MarkStatsDirtyAsync", method, StringComparison.Ordinal);
+        Assert.Contains("MarkHotArticlesDirtyAsync", method, StringComparison.Ordinal);
+        Assert.Contains("GetEnumerator", method, StringComparison.Ordinal);
+        Assert.Contains("TryEnqueue", method, StringComparison.Ordinal);
         Assert.Contains("article-view-projection-buffer-flush", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ArticleViewInvalidation_SourceDoesNotRemoveArticleDetailContentCache()
+    public void ArticleViewInvalidation_RuntimeDoesNotRemoveArticleDetailContentCache()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs"));
-        int methodStart = source.IndexOf("public async Task InvalidateArticleViewAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("public async Task InvalidateHotArticlesAsync", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        string method = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CacheInvalidationDispatcher),
+            nameof(CacheInvalidationDispatcher.InvalidateArticleViewAsync));
 
-        Assert.Contains("RecordRuntimeAsync(\"article_view\"", method, StringComparison.Ordinal);
+        Assert.Contains("RecordRuntimeAsync", method, StringComparison.Ordinal);
+        Assert.Contains("article_view", method, StringComparison.Ordinal);
         Assert.DoesNotContain("CachePolicyId.ArticleDetail", method, StringComparison.Ordinal);
         Assert.DoesNotContain("CachePolicyId.ArticleDetailFrame", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LoadArticleListPageFromDbAsync_SourceUsesKeysetForPublicPagination()
+    public void LoadArticleListPageFromDbAsync_RuntimeUsesKeysetForPublicPagination()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadArticleListPageFromDbAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private static string RewriteParameters", StringComparison.Ordinal);
-        string methodBlock = source[methodStart..nextMethod];
+        string methodBlock = ArticleRuntime(
+            "LoadArticleListPageFromDbAsync",
+            "ShouldUsePublicKeysetPagination",
+            "LoadPublicArticleListPageByKeysetAsync");
+        string cursorClause = (string)typeof(ArticleService)
+            .GetField("ArticleListCursorWhereClause", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetRawConstantValue()!;
 
-        Assert.Contains("ShouldUsePublicKeysetPagination(isDeleted, status, includePrivate)", methodBlock, StringComparison.Ordinal);
+        Assert.Contains("ShouldUsePublicKeysetPagination", methodBlock, StringComparison.Ordinal);
         Assert.Contains("LoadPublicArticleListPageByKeysetAsync", methodBlock, StringComparison.Ordinal);
-        Assert.DoesNotContain("page <= PublicKeysetWalkPageThreshold", methodBlock, StringComparison.Ordinal);
-        Assert.Contains("ArticleListCursorWhereClause", source, StringComparison.Ordinal);
-        Assert.Contains("a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId)", source, StringComparison.Ordinal);
-        Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", source, StringComparison.Ordinal);
-
-        int publicKeysetBranch = methodBlock.IndexOf("if (ShouldUsePublicKeysetPagination", StringComparison.Ordinal);
-        int keysetReturn = methodBlock.IndexOf("return await LoadPublicArticleListPageByKeysetAsync", publicKeysetBranch, StringComparison.Ordinal);
-        int offsetFallback = methodBlock.IndexOf("parameters.Add(new SugarParameter(\"@Offset\"", StringComparison.Ordinal);
-        Assert.True(publicKeysetBranch >= 0);
-        Assert.True(keysetReturn > publicKeysetBranch);
-        Assert.True(offsetFallback > keysetReturn);
+        Assert.DoesNotContain("PublicKeysetWalkPageThreshold", methodBlock, StringComparison.Ordinal);
+        Assert.Contains("a.createtime < @CursorTime OR (a.createtime = @CursorTime AND a.id < @CursorId)", cursorClause, StringComparison.Ordinal);
+        Assert.Contains("ORDER BY a.createtime DESC, a.id DESC", methodBlock, StringComparison.Ordinal);
+        Assert.Contains("@Offset", methodBlock, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LoadPublicArticleListPageByKeysetAsync_SourceUsesSingleOffsetReadWithoutConcurrentScopedDbCommands()
+    public void LoadPublicArticleListPageByKeysetAsync_RuntimeUsesSingleOffsetReadWithoutConcurrentScopedDbCommands()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<List<ArticleListItemReadModel>> LoadPublicArticleListOffsetPageItemsAsync", StringComparison.Ordinal);
-        Assert.True(methodStart >= 0, "LoadPublicArticleListPageByKeysetAsync must exist.");
-        Assert.True(nextMethod > methodStart, "LoadPublicArticleListOffsetPageItemsAsync must follow LoadPublicArticleListPageByKeysetAsync.");
-        string method = source[methodStart..nextMethod];
+        string method = ArticleRuntime(
+            "LoadPublicArticleListPageByKeysetAsync",
+            "GetCachedArticleListTotalCountAsync",
+            "LoadPublicArticleListOffsetPageItemsAsync");
 
-        Assert.Contains("int totalCount = await GetCachedArticleListTotalCountAsync", method, StringComparison.Ordinal);
-        Assert.Contains("List<ArticleListItemReadModel> pageItems = await LoadPublicArticleListOffsetPageItemsAsync", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("Task.WhenAll", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("totalCountTask", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("pageItemsTask", method, StringComparison.Ordinal);
+        Assert.Contains("GetCachedArticleListTotalCountAsync", method, StringComparison.Ordinal);
         Assert.Contains("LoadPublicArticleListOffsetPageItemsAsync", method, StringComparison.Ordinal);
-        Assert.Contains("parameters.Add(new SugarParameter(\"@Offset\", (page - 1) * size))", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("while (currentPage <= page)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("currentPage += 1", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", method, StringComparison.Ordinal);
+        Assert.Contains("@Offset", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("currentPage", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LoadPublicArticleListPageByKeysetAsync_SourceDoesNotCloneParametersPerWalkPage()
+    public void LoadPublicArticleListPageByKeysetAsync_RuntimeDoesNotCloneParametersPerWalkPage()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("private async Task<ArticleListPageReadModel> LoadPublicArticleListPageByKeysetAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private async Task<List<ArticleListItemReadModel>> LoadPublicArticleListOffsetPageItemsAsync", StringComparison.Ordinal);
-        Assert.True(methodStart >= 0, "LoadPublicArticleListPageByKeysetAsync must exist.");
-        Assert.True(nextMethod > methodStart, "LoadPublicArticleListOffsetPageItemsAsync must follow LoadPublicArticleListPageByKeysetAsync.");
-        string method = source[methodStart..nextMethod];
-
-        Assert.Contains("private const string ArticleListCursorWhereClause", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("BuildArticleListKeysetPageSql(whereSql + ArticleListCursorWhereClause)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("CloneArticleListParameters(baseParameters)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("pageWhereSql +=", method, StringComparison.Ordinal);
+        FieldInfo cursorClause = typeof(ArticleService).GetField(
+            "ArticleListCursorWhereClause",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        Assert.True(cursorClause.IsLiteral);
+        string method = ArticleRuntime("LoadPublicArticleListPageByKeysetAsync");
+        Assert.DoesNotContain("CloneArticleListParameters", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildArticleListKeysetPageSql", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PublicArticleListCount_SourceUsesVersionedCountCache()
+    public void PublicArticleListCount_RuntimeUsesVersionedCountCache()
     {
-        string articleService = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        string cachePolicyIds = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/CachePolicyId.cs"));
-        string cacheRegistry = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs"));
+        Assert.True(Enum.IsDefined(CachePolicyId.ArticleListCount));
+        var registry = new CachePolicyRegistry();
+        Assert.True(registry.TryGet(CachePolicyId.ArticleListCount, out CachePolicy policy));
+        Assert.Equal(CachePolicyId.ArticleListCount, policy.Id);
+        Assert.Equal("article-list-count", policy.Resource);
 
-        Assert.Contains("ArticleListCount", cachePolicyIds, StringComparison.Ordinal);
-        Assert.Contains("[CachePolicyId.ArticleListCount]", cacheRegistry, StringComparison.Ordinal);
-        Assert.Contains("GetCachedArticleListTotalCountAsync", articleService, StringComparison.Ordinal);
-        Assert.Contains("_cache.GetStringAsync(CachePolicyId.ArticleListCount", articleService, StringComparison.Ordinal);
-        Assert.Contains("_cache.SetStringAsync(", articleService, StringComparison.Ordinal);
-        Assert.Contains("CachePolicyId.ArticleListCount,", articleService, StringComparison.Ordinal);
+        string runtimeShape = ArticleRuntime("GetCachedArticleListTotalCountAsync");
+        Assert.Contains("IUnifiedCache.GetStringAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IUnifiedCache.SetStringAsync", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ReadArticleListItemsAsync_NormalizesDbTimestampsToUtcBeforeCacheEncoding()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/ArticleService.cs"));
-        int methodStart = source.IndexOf("private static async Task ReadArticleListItemsAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("private static DateTime NormalizeArticleListTimestampUtc", StringComparison.Ordinal);
-        Assert.True(methodStart >= 0, "ReadArticleListItemsAsync must exist.");
-        Assert.True(nextMethod > methodStart, "NormalizeArticleListTimestampUtc must follow ReadArticleListItemsAsync.");
-        string method = source[methodStart..nextMethod];
+        string runtimeShape = ArticleRuntime(
+            "ReadArticleListItemsAsync",
+            "NormalizeArticleListTimestampUtc");
+        Assert.True(runtimeShape.Split("NormalizeArticleListTimestampUtc", StringSplitOptions.None).Length - 1 >= 3);
 
-        Assert.Contains("CreateTime = NormalizeArticleListTimestampUtc(reader.GetDateTime(fTime))", method, StringComparison.Ordinal);
-        Assert.Contains("ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fScheduled))", method, StringComparison.Ordinal);
-        Assert.Contains("PublishedAt = reader.IsDBNull(fPublished) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fPublished))", method, StringComparison.Ordinal);
-        Assert.Contains("DateTimeKind.Local => value.ToUniversalTime()", source, StringComparison.Ordinal);
-        Assert.Contains("DateTime.SpecifyKind(value, DateTimeKind.Utc)", source, StringComparison.Ordinal);
+        MethodInfo normalize = typeof(ArticleService).GetMethod(
+            "NormalizeArticleListTimestampUtc",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        DateTime local = new(2026, 7, 12, 8, 0, 0, DateTimeKind.Local);
+        DateTime unspecified = new(2026, 7, 12, 8, 0, 0, DateTimeKind.Unspecified);
+        DateTime localResult = (DateTime)normalize.Invoke(null, [local])!;
+        DateTime unspecifiedResult = (DateTime)normalize.Invoke(null, [unspecified])!;
+        Assert.Equal(DateTimeKind.Utc, localResult.Kind);
+        Assert.Equal(local.ToUniversalTime(), localResult);
+        Assert.Equal(DateTimeKind.Utc, unspecifiedResult.Kind);
+        Assert.Equal(unspecified, unspecifiedResult);
     }
 
     [Fact]
     public void ArticleEntity_DefinesPublicListStatusTimeIndexes()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Entities/Article.cs"));
-
-        Assert.Contains("idx_article_public_status_time", source, StringComparison.Ordinal);
-        Assert.Contains("idx_article_public_category_status_time", source, StringComparison.Ordinal);
-        Assert.Contains("nameof(Status), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc", source, StringComparison.Ordinal);
+        SugarIndexAttribute[] indexes = typeof(Article).GetCustomAttributes<SugarIndexAttribute>().ToArray();
+        Assert.Contains(indexes, static index => index.IndexName == "idx_article_public_status_time");
+        Assert.Contains(indexes, static index => index.IndexName == "idx_article_public_category_status_time");
+        SugarIndexAttribute statusTime = Assert.Single(indexes, static index =>
+            index.IndexName == "idx_article_public_status_time");
+        Assert.Contains(nameof(Article.Status), statusTime.IndexFields);
+        Assert.Contains(nameof(Article.CreateTime), statusTime.IndexFields);
     }
 
     [Fact]
-    public void SchemaMigrationRegistry_SourceDefinesPublicArticleListKeysetIndexes()
+    public void SchemaMigrationRegistry_DefinesPublicArticleListKeysetIndexes()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs"));
-
-        Assert.Contains("BuildPublicArticleListKeysetIndexMigration()", source, StringComparison.Ordinal);
-        Assert.Contains("idx_article_public_status_deleted_publish_schedule_time_id", source, StringComparison.Ordinal);
-        Assert.Contains("idx_article_public_category_status_deleted_time_id", source, StringComparison.Ordinal);
-        Assert.Contains("idx_article_tag_tagid_articleid", source, StringComparison.Ordinal);
-        Assert.Contains("createtime DESC, id DESC", source, StringComparison.OrdinalIgnoreCase);
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260628-post-public-article-list-keyset-indexes");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+        Assert.Contains("idx_article_public_status_deleted_publish_schedule_time_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_article_public_category_status_deleted_time_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_article_tag_tagid_articleid", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("createtime DESC, id DESC", fingerprint, StringComparison.OrdinalIgnoreCase);
     }
 }

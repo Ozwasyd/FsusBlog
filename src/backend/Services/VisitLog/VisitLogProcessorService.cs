@@ -61,6 +61,8 @@ public class VisitLogChannel
 
     public long SaturatedWriteCount => Volatile.Read(ref _saturatedWriteCount);
 
+    public int QueuedCount => _channel.Reader.CanCount ? _channel.Reader.Count : 0;
+
     public ChannelReader<VisitLogMessage> Reader => _channel.Reader;
 }
 

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Claims;
+using System.Diagnostics.Metrics;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -196,23 +197,48 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
-    public void SecurityRiskEventWriter_SourcePersistsFlushWithBatchInsert()
+    public async Task SecurityRiskEventWriter_PersistsBatchesRetriesByHalvesAndEmitsRuntimeMetrics()
     {
-        string writer = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Security/SecurityRiskEventWriter.cs"));
-        string persistence = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Security/SecurityRiskEventPersistence.cs"));
-        string observability = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Observability/FsusObservability.cs"));
-        string persist = ExtractMethodBlock(writer, "internal async Task PersistSafelyAsync");
+        var measurements = new List<(string Name, double Value)>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Name.StartsWith("fsus.security.risk_event.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, _, _) => measurements.Add((instrument.Name, value)));
+        listener.SetMeasurementEventCallback<double>((instrument, value, _, _) => measurements.Add((instrument.Name, value)));
+        listener.Start();
 
-        Assert.Contains("Task AppendBatchAsync(IReadOnlyList<SecurityRiskEventWrite> writes", persistence, StringComparison.Ordinal);
-        Assert.Contains("store.AppendBatchAsync(batch, cancellationToken)", persist, StringComparison.Ordinal);
-        Assert.DoesNotContain("foreach (SecurityRiskEventWrite write in batch)", persist, StringComparison.Ordinal);
-        Assert.Contains("RetryBatchByHalvesAsync", writer, StringComparison.Ordinal);
-        Assert.Contains("RecordSecurityRiskEventBatch", writer, StringComparison.Ordinal);
-        Assert.Contains("fsus.security.risk_event.batch_size", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.security.risk_event.flush_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.security.risk_event.inserted_rows", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.security.risk_event.failed_batches", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.security.risk_event.fallback_single_inserts", observability, StringComparison.Ordinal);
+        var store = new BatchFailingRiskEventStore();
+        await using ServiceProvider provider = new ServiceCollection()
+            .AddScoped<ISecurityRiskEventStore>(_ => store)
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        var queue = new SecurityRiskEventWriteQueue(
+            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 8, BatchSize = 3, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriteQueue>());
+        var worker = new SecurityRiskEventWriterWorker(
+            queue,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new SecurityRiskEventWriterOptions { BatchSize = 3, FlushWindowMs = 10 }),
+            new CapturingLogger<SecurityRiskEventWriterWorker>());
+        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("batch-1"), "auth:login", 1)));
+        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("batch-2"), "auth:login", 2)));
+        Assert.True(queue.TryWrite(CreateWrite(SecurityRiskIdentity.HashIdentity("batch-3"), "auth:login", 3)));
+
+        int flushed = await worker.FlushOnceAsync(CancellationToken.None);
+
+        Assert.Equal(3, flushed);
+        Assert.Equal(3, store.SingleWrites.Count);
+        Assert.True(store.BatchAppendCount > 1);
+        Assert.NotNull(typeof(ISecurityRiskEventStore).GetMethod(nameof(ISecurityRiskEventStore.AppendBatchAsync)));
+        Assert.Contains(measurements, static item => item is ("fsus.security.risk_event.batch_size", 3));
+        Assert.Contains(measurements, static item => item.Name == "fsus.security.risk_event.flush_elapsed_ms" && item.Value >= 0);
+        Assert.Contains(measurements, static item => item is ("fsus.security.risk_event.inserted_rows", 3));
+        Assert.Contains(measurements, static item => item.Name == "fsus.security.risk_event.failed_batches" && item.Value >= 1);
+        Assert.Contains(measurements, static item => item is ("fsus.security.risk_event.fallback_single_inserts", 3));
     }
 
     [Fact]
@@ -572,6 +598,34 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);
     }
 
+    private sealed class BatchFailingRiskEventStore : ISecurityRiskEventStore
+    {
+        public List<SecurityRiskEventWrite> SingleWrites { get; } = [];
+        public int BatchAppendCount { get; private set; }
+
+        public Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
+        {
+            SingleWrites.Add(write);
+            return Task.CompletedTask;
+        }
+
+        public Task AppendBatchAsync(IReadOnlyList<SecurityRiskEventWrite> writes, CancellationToken cancellationToken = default)
+        {
+            BatchAppendCount++;
+            throw new InvalidOperationException("force recursive batch fallback");
+        }
+
+        public Task<IReadOnlyList<SecurityRiskEventRecord>> QueryAsync(SecurityRiskEventQuery query, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);
+
+        public Task<IReadOnlyList<SecurityRiskEventRecord>> ListActiveForScoreAsync(
+            SecurityRiskScoreQuery query,
+            DateTimeOffset now,
+            int limit,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SecurityRiskEventRecord>>([]);
+    }
+
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow()
@@ -605,34 +659,6 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         public void Dispose()
         {
         }
-    }
-
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing method signature: {signature}");
-
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart >= 0, $"Missing method body: {signature}");
-
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
-        {
-            if (source[i] == '{')
-            {
-                depth++;
-            }
-            else if (source[i] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(i + 1)];
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 
     private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

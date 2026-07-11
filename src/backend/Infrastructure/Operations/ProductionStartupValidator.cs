@@ -308,9 +308,22 @@ public static class ProductionStartupValidator
         ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
         ValidateBuiltInAntiSpamRuntime(configuration, enforceProductionRules, errors);
         ValidateCrawlerRangeUrls(configuration, enforceProductionRules, errors);
+        ValidateReleaseIdentity(configuration, enforceProductionRules, errors);
         ValidateZkProdSettings(configuration, enforceProductionRules, zkProdReadiness ?? ZkProdRuntimeReadiness.Missing, errors);
 
         return new ProductionStartupValidationReport(SchemaVersion, enforceProductionRules, requirements, errors);
+    }
+
+    private static void ValidateReleaseIdentity(
+        IConfiguration configuration,
+        bool enforceProductionRules,
+        List<string> errors)
+    {
+        ReleaseIdentitySnapshot snapshot = ReleaseIdentityProvider.Resolve(configuration);
+        foreach (string error in ReleaseIdentityProvider.Validate(snapshot, enforceProductionRules))
+        {
+            errors.Add($"Release identity invalid: {error}.");
+        }
     }
 
     private static RequiredSettingRule ConnectionString(string name)

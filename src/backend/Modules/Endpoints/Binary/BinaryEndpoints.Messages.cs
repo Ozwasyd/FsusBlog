@@ -236,7 +236,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "系统消息请求体非法"), aeds);
             }
 
-            if (!request.TargetAccountId.HasValue || request.TargetAccountId.Value <= 0)
+            if (!IsValidSystemMessageTarget(request.TargetAccountId))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "系统消息必须指定目标账号"), aeds);
             }

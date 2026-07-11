@@ -12,6 +12,65 @@ namespace FsusBlog.Server.Tests.Unit;
 public class AuditLogStoreTests
 {
     [Fact]
+    public async Task WriteBatchAsync_PersistsStructuredAuditFieldsAndTamperEvidence()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        SugarParameter[]? capturedParameters = null;
+        db.Ado.Returns(ado);
+        ConfigureChainTail(db, "previous-record-hash");
+        ado.ExecuteCommandAsync(
+                Arg.Any<string>(),
+                Arg.Do<SugarParameter[]>(parameters => capturedParameters = parameters))
+            .Returns(Task.FromResult(1));
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Audit:TamperEvidenceKey"] = "unit-test-audit-tamper-evidence-key-with-enough-entropy"
+            })
+            .Build();
+        var store = new AuditLogStore(db, configuration);
+        var record = new AuditRecord(
+            AuditSourceCatalog.Admin,
+            AuditTypeCatalog.Audit,
+            new DateTime(2026, 7, 11, 10, 0, 0, DateTimeKind.Utc),
+            "admin changed a security policy",
+            null,
+            Action: "admin.security.policy.updated",
+            Outcome: AuditOutcomeCatalog.Success,
+            Severity: AuditSeverityCatalog.Warning,
+            ActorType: AuditActorTypeCatalog.Admin,
+            ActorId: "7",
+            ActorRole: "owner",
+            TargetType: "security-policy",
+            TargetId: "policy-3",
+            IsHighValue: true,
+            TraceId: "trace-9",
+            RequestPath: "/api/authoring/security/policy",
+            RequestMethod: "POST",
+            IpHash: "ip-hash",
+            UserAgentHash: "ua-hash",
+            SessionIdHash: "session-hash",
+            DeviceFingerprintHash: "device-hash",
+            ReasonCode: "manual-change",
+            ContextJson: "{\"version\":3}");
+
+        await store.WriteBatchAsync([record], CancellationToken.None);
+
+        Assert.NotNull(capturedParameters);
+        Assert.Equal("admin.security.policy.updated", ReadStringParameter(capturedParameters!, "@action_0"));
+        Assert.Equal("7", ReadStringParameter(capturedParameters!, "@actor_id_0"));
+        Assert.Equal("owner", ReadStringParameter(capturedParameters!, "@actor_role_0"));
+        Assert.Equal("security-policy", ReadStringParameter(capturedParameters!, "@target_type_0"));
+        Assert.Equal("policy-3", ReadStringParameter(capturedParameters!, "@target_id_0"));
+        Assert.Equal("ip-hash", ReadStringParameter(capturedParameters!, "@ip_hash_0"));
+        Assert.Equal("{\"version\":3}", ReadStringParameter(capturedParameters!, "@context_json_0"));
+        Assert.Equal("previous-record-hash", ReadStringParameter(capturedParameters!, "@prev_hash_0"));
+        Assert.Equal(64, ReadStringParameter(capturedParameters!, "@record_hash_0")!.Length);
+        Assert.Equal(64, ReadStringParameter(capturedParameters!, "@record_mac_0")!.Length);
+    }
+
+    [Fact]
     public async Task WriteBatchAsync_LinksRecordsWithinTheSameChain()
     {
         var db = Substitute.For<ISqlSugarClient>();

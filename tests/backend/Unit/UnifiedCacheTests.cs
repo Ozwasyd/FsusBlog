@@ -6,7 +6,6 @@ using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using StackExchange.Redis;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -130,39 +129,62 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
-    public void RemoveManyAsync_SourceUsesSingleLuaScriptForDeleteAndRegistryRemoval()
+    public async Task RemoveManyAsync_SourceUsesSingleLuaScriptForDeleteAndRegistryRemoval()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
-        string method = ExtractMethodBlock(source, "public async Task RemoveManyAsync");
-        string helper = ExtractMethodBlock(source, "private async Task<int> DeleteKeysAndRegistryMembersAtomicAsync");
-
-        Assert.Contains("DeleteKeysAndRegistryMembersAtomicAsync", method, StringComparison.Ordinal);
-        Assert.Contains("ScriptEvaluateAsync", helper, StringComparison.Ordinal);
-        Assert.Contains("DeleteKeysAndRegistryMembersScript", helper, StringComparison.Ordinal);
-        Assert.DoesNotContain("KeyDeleteAsync(redisKeys.ToArray())", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("SetRemoveAsync(ResolveRegistryKey(policyId), members.ToArray())", method, StringComparison.Ordinal);
+        await RemoveManyAsync_DeletesRedisKeysAndRegistryMembersAtomically();
     }
 
     [Fact]
-    public void RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce()
+    public async Task RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        UnifiedCache cache = CreateCache(memory, db);
+        string registryKey = UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.PublicAotDocument);
+        string first = cache.BuildKey(CachePolicyId.PublicAotDocument, "route:home:v1");
+        string second = cache.BuildKey(CachePolicyId.PublicAotDocument, "route:archive:v1");
+        string untouched = cache.BuildKey(CachePolicyId.PublicAotDocument, "route:article:42");
+        db.KeyExistsAsync(Arg.Is<RedisKey>(key => key.ToString() == registryKey), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(true));
+        db.SetScan(
+                Arg.Is<RedisKey>(key => key.ToString() == registryKey),
+                Arg.Any<RedisValue>(),
+                Arg.Any<int>(),
+                Arg.Any<long>(),
+                Arg.Any<int>(),
+                Arg.Any<CommandFlags>())
+            .Returns([(RedisValue)first, (RedisValue)second, (RedisValue)untouched]);
+        db.KeyDeleteAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(2L));
+        db.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>()).Returns(Task.FromResult(2L));
 
-        Assert.Contains("RemoveByPrefixManyAsync", source, StringComparison.Ordinal);
-        Assert.Contains("prefixes.GroupBy(static item => item.PolicyId)", source, StringComparison.Ordinal);
-        Assert.Contains("DeleteRegisteredKeysByPrefixesAsync(registryKey, resolvedPrefixes", source, StringComparison.Ordinal);
-        Assert.Contains("_db.SetScan(registryKey, pageSize: PrefixInvalidationBatchSize)", source, StringComparison.Ordinal);
-        Assert.Contains("DeleteKeysByPrefixesScanAsync(resolvedPrefixes", source, StringComparison.Ordinal);
-        Assert.Contains("BuildCommonPrefix(prefixes)", source, StringComparison.Ordinal);
+        await cache.RemoveByPrefixManyAsync(
+        [
+            new(CachePolicyId.PublicAotDocument, "route:home:"),
+            new(CachePolicyId.PublicAotDocument, "route:archive:")
+        ]);
+
+        _ = db.Received(1).SetScan(
+            Arg.Is<RedisKey>(key => key.ToString() == registryKey),
+            Arg.Any<RedisValue>(),
+            Arg.Any<int>(),
+            Arg.Any<long>(),
+            Arg.Any<int>(),
+            Arg.Any<CommandFlags>());
+        await db.Received(1).KeyDeleteAsync(
+            Arg.Is<RedisKey[]>(keys => keys.Length == 2
+                && keys.Any(key => key.ToString() == first)
+                && keys.Any(key => key.ToString() == second)
+                && keys.All(key => key.ToString() != untouched)),
+            Arg.Any<CommandFlags>());
+        Assert.Contains(first, memory.RemovedKeys);
+        Assert.Contains(second, memory.RemovedKeys);
+        Assert.DoesNotContain(untouched, memory.RemovedKeys);
     }
 
     [Fact]
-    public void RemoveByPrefix_SourceUsesPagedSetScanInsteadOfSetMembers()
+    public async Task RemoveByPrefix_SourceUsesPagedSetScanInsteadOfSetMembers()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/IUnifiedCache.cs"));
-
-        Assert.Contains(".SetScan(", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("SetMembersAsync", source, StringComparison.Ordinal);
+        await RemoveByPrefixMany_SourceGroupsByPolicyAndScansRegistryOnce();
     }
 
     [Fact]
@@ -232,36 +254,49 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
-    public void CommentMutationInvalidation_UsesVersionBumpsInsteadOfCursorPrefixScans()
+    public async Task CommentMutationInvalidation_UsesVersionBumpsInsteadOfCursorPrefixScans()
     {
-        string invalidation = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs"));
-        string method = ExtractMethodBlock(invalidation, "public async Task InvalidateCommentMutationAsync");
-        string commentsEndpoint = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs"));
-        string queryCache = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/CoreBridge/Caching/CommentCoreQueryCache.cs"));
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.IncrementAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(1L));
+        var dispatcher = new CacheInvalidationDispatcher(cache, Substitute.For<IHttpCacheInvalidator>());
 
-        Assert.Contains("IncrementCommentCursorVersionsAsync", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("RemoveByPrefixManyAsync", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("CachePolicyId.CommentCursor,", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("CachePolicyId.UserCommentCursor,", method, StringComparison.Ordinal);
-        Assert.Contains("ReadCommentCursorVersionAsync", commentsEndpoint, StringComparison.Ordinal);
-        Assert.Contains("ReadCommentCursorVersionAsync", queryCache, StringComparison.Ordinal);
-        Assert.Contains("CommentCursorVersion", commentsEndpoint, StringComparison.Ordinal);
-        Assert.Contains("CommentCursorVersion", queryCache, StringComparison.Ordinal);
+        await dispatcher.InvalidateCommentMutationAsync(new CommentCacheInvalidationScope(
+            ArticleId: 42,
+            RootId: 7,
+            AccountId: 9,
+            PublicArticleChanged: true,
+            UserCommentsChanged: true));
+
+        await cache.Received(1).IncrementAsync(CachePolicyId.CommentCursorVersion, "article:42", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.CommentCursorVersion, "article:42:root:7", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.UserCommentCursorVersion, "account:9", 1, Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().RemoveByPrefixAsync(
+            Arg.Is<CachePolicyId>(policy => policy is CachePolicyId.CommentCursor or CachePolicyId.UserCommentCursor),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().RemoveByPrefixManyAsync(Arg.Any<IReadOnlyList<CachePrefixIdentity>>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public void BackendQpsCommentCursorEvidence_TracksVersionedInvalidationContract()
+    public async Task BackendQpsCommentCursorEvidence_TracksVersionedInvalidationContract()
     {
-        string lane = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "tools/test/lanes/backend-qps.sh"));
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.IncrementAsync(Arg.Any<CachePolicyId>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(1L));
+        var dispatcher = new CacheInvalidationDispatcher(cache, Substitute.For<IHttpCacheInvalidator>());
 
-        Assert.Contains("versioned-invalidation", lane, StringComparison.Ordinal);
-        Assert.Contains("CachePolicyId.CommentCursorFrame", lane, StringComparison.Ordinal);
-        Assert.Contains("CachePolicyId.UserCommentCursorFrame", lane, StringComparison.Ordinal);
-        Assert.Contains("CachePolicyId.CommentCursorVersion", lane, StringComparison.Ordinal);
-        Assert.Contains("CachePolicyId.UserCommentCursorVersion", lane, StringComparison.Ordinal);
-        Assert.Contains("reject_token \"src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs\" \"CachePolicyId.CommentCursorFrame\"", lane, StringComparison.Ordinal);
-        Assert.Contains("reject_token \"src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs\" \"CachePolicyId.UserCommentCursorFrame\"", lane, StringComparison.Ordinal);
-        Assert.DoesNotContain("require_token \"src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs\" \"CommentCursorFrame\"", lane, StringComparison.Ordinal);
+        await dispatcher.InvalidateCommentMutationAsync();
+
+        await cache.Received(1).IncrementAsync(CachePolicyId.CommentCursorVersion, "global", 1, Arg.Any<CancellationToken>());
+        await cache.Received(1).IncrementAsync(CachePolicyId.UserCommentCursorVersion, "global", 1, Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().RemoveAsync(CachePolicyId.CommentCursorFrame, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await cache.DidNotReceive().RemoveAsync(CachePolicyId.UserCommentCursorFrame, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        var registry = new CachePolicyRegistry();
+        Assert.False(AssertPolicy(registry, CachePolicyId.CommentCursorFrame).RegisterKeysForPrefixInvalidation);
+        Assert.False(AssertPolicy(registry, CachePolicyId.UserCommentCursorFrame).RegisterKeysForPrefixInvalidation);
+        Assert.False(AssertPolicy(registry, CachePolicyId.CommentCursorVersion).RegisterKeysForPrefixInvalidation);
+        Assert.False(AssertPolicy(registry, CachePolicyId.UserCommentCursorVersion).RegisterKeysForPrefixInvalidation);
     }
 
     [Fact]
@@ -284,6 +319,49 @@ public sealed class UnifiedCacheTests
             Arg.Is<RedisKey>(key => key.ToString() == "fsus:sec:blacklist-user:42"),
             Arg.Any<RedisValue>(),
             Arg.Is<TimeSpan?>(expiry => !expiry.HasValue),
+            Arg.Any<When>(),
+            Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task TrySetStringIfValueAsync_UsesRedisConditionAndPublishesL1OnlyAfterCommit()
+    {
+        using var memory = new RemoveTrackingMemoryCache();
+        var db = Substitute.For<IDatabase>();
+        var transaction = Substitute.For<ITransaction>();
+        db.CreateTransaction(Arg.Any<object?>()).Returns(transaction);
+        transaction.StringSetAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<When>(),
+                Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(true));
+        transaction.ExecuteAsync(Arg.Any<CommandFlags>()).Returns(Task.FromResult(true));
+        UnifiedCache cache = CreateCache(memory, db);
+        string targetKey = cache.BuildKey(CachePolicyId.CommentCursorVersion, "article:42");
+
+        bool updated = await cache.TrySetStringIfValueAsync(
+            CachePolicyId.CommentCursorVersion,
+            "article:42",
+            "8",
+            "article:42:expected",
+            "7");
+
+        Assert.True(updated);
+        transaction.Received(1).AddCondition(Arg.Any<Condition>());
+        await transaction.Received(1).StringSetAsync(
+            Arg.Is<RedisKey>(key => key.ToString() == targetKey),
+            Arg.Is<RedisValue>(value => Encoding.UTF8.GetString((byte[])value!) == "8"),
+            Arg.Any<TimeSpan?>(),
+            When.Always,
+            CommandFlags.None);
+        await transaction.Received(1).ExecuteAsync(CommandFlags.None);
+        Assert.Contains(targetKey, memory.CreatedKeys);
+        await db.DidNotReceive().StringSetAsync(
+            Arg.Any<RedisKey>(),
+            Arg.Any<RedisValue>(),
+            Arg.Any<TimeSpan?>(),
             Arg.Any<When>(),
             Arg.Any<CommandFlags>());
     }
@@ -812,67 +890,68 @@ public sealed class UnifiedCacheTests
     }
 
     [Fact]
-    public void AcquireSingleFlightAsync_DoesNotUseMemoryCacheEvictionForSingleFlight()
+    public async Task AcquireSingleFlightAsync_DoesNotUseMemoryCacheEvictionForSingleFlight()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
-        string method = ExtractMethodBlock(source, "public async Task<IAsyncDisposable> AcquireSingleFlightAsync");
+        using var memory = new RemoveTrackingMemoryCache();
+        UnifiedCache cache = CreateCache(memory, Substitute.For<IDatabase>());
 
-        Assert.DoesNotContain("memoryCache.GetOrCreate(lockKey", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("RegisterPostEvictionCallback", method, StringComparison.Ordinal);
-        Assert.Contains("_singleFlightEntries.GetOrAdd", method, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void AcquireSingleFlightAsync_SourceBacksOffAndConditionallyRemovesRetiredEntry()
-    {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
-        string method = ExtractMethodBlock(source, "public async Task<IAsyncDisposable> AcquireSingleFlightAsync");
-
-        Assert.Contains("await Task.Yield()", method, StringComparison.Ordinal);
-        Assert.Contains("singleFlight.TryRetireIfIdle()", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("_singleFlightEntries.TryRemove(new KeyValuePair<string, SingleFlightEntry>(lockKey, singleFlight));\n                continue;", method, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SingleFlightEntry_SourceUsesInterlockedReferenceCounting()
-    {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Cache", "IUnifiedCache.cs"));
-        string type = ExtractTypeBlock(source, "internal sealed class SingleFlightEntry");
-
-        Assert.Contains("Interlocked.CompareExchange(ref _referenceCount", type, StringComparison.Ordinal);
-        Assert.Contains("Volatile.Read(ref _referenceCount)", type, StringComparison.Ordinal);
-        Assert.DoesNotContain("lock (_sync)", type, StringComparison.Ordinal);
-    }
-
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
-
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
+        await using (await cache.AcquireSingleFlightAsync(CachePolicyId.ArticleListFrame, "article:list:memory-owner"))
         {
-            if (source[i] == '{')
-            {
-                depth++;
-            }
-            else if (source[i] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(i + 1)];
-                }
-            }
+            Assert.Equal(1, GetSingleFlightEntryCount(cache));
+            Assert.Empty(memory.CreatedKeys);
         }
 
-        throw new InvalidOperationException($"Unable to extract method body: {signature}");
+        Assert.Equal(0, GetSingleFlightEntryCount(cache));
+        Assert.Empty(memory.CreatedKeys);
     }
 
-    private static string ExtractTypeBlock(string source, string signature)
-        => ExtractMethodBlock(source, signature);
+    [Fact]
+    public async Task AcquireSingleFlightAsync_SourceBacksOffAndConditionallyRemovesRetiredEntry()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        UnifiedCache cache = CreateCache(memory, Substitute.For<IDatabase>());
+        Task[] contenders = Enumerable.Range(0, 64).Select(async _ =>
+        {
+            await using IAsyncDisposable lease = await cache.AcquireSingleFlightAsync(
+                CachePolicyId.ArticleListFrame,
+                "article:list:contended");
+            await Task.Yield();
+        }).ToArray();
+
+        await Task.WhenAll(contenders).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal(0, GetSingleFlightEntryCount(cache));
+    }
+
+    [Fact]
+    public async Task SingleFlightEntry_SourceUsesInterlockedReferenceCounting()
+    {
+        var entry = new UnifiedCache.SingleFlightEntry();
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        const int contenders = 64;
+        var acquired = new CountdownEvent(contenders);
+        Task[] holders = Enumerable.Range(0, contenders).Select(async _ =>
+        {
+            Assert.True(entry.TryAddReference());
+            acquired.Signal();
+            await release.Task;
+            entry.ReleaseReference();
+        }).ToArray();
+        Assert.True(acquired.Wait(TimeSpan.FromSeconds(5)));
+
+        entry.MarkRetired();
+        Assert.False(entry.TryAddReference());
+        await entry.Semaphore.WaitAsync();
+        entry.Semaphore.Release();
+        release.SetResult();
+        await Task.WhenAll(holders);
+        await Assert.ThrowsAsync<ObjectDisposedException>(async () => await entry.Semaphore.WaitAsync());
+    }
+
+    private static CachePolicy AssertPolicy(CachePolicyRegistry registry, CachePolicyId policyId)
+    {
+        Assert.True(registry.TryGet(policyId, out CachePolicy policy));
+        return policy;
+    }
 
     private static UnifiedCache CreateCache(IMemoryCache memory, IDatabase db)
     {

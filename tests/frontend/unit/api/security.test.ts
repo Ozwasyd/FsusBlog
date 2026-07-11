@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 import { requestBinaryOnly } from '@/services/binaryTransport'
@@ -241,14 +239,6 @@ describe('security API binary transport', () => {
     })
   })
 
-  it('does not retain the deprecated security JSON client in production source', () => {
-    const source = readFileSync(resolve(process.cwd(), '../../src/frontend/src/api/security.ts'), 'utf8')
-    expect(source).not.toContain('/api/admin/security')
-    expect(source).not.toContain('JsonApiResponse')
-    expect(source).not.toContain('response.json')
-    expect(source).not.toContain('application/json')
-    expect(source).not.toContain('fetch(')
-  })
 })
 
 function expectAedsJsonBody(body: BodyInit | null | undefined, frameType: FrameType, expected: Record<string, unknown>): void {

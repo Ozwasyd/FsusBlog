@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import type { Router } from 'vue-router'
@@ -203,11 +201,16 @@ describe('account router meta and guards', () => {
     expect(router.currentRoute.value.path).toBe('/403')
   })
 
-  it('statically blocks legacy router role meta checks from returning', () => {
-    const routerSourcePath = fileURLToPath(new URL('../../../../src/frontend/src/router/index.ts', import.meta.url))
-    const routerSource = readFileSync(routerSourcePath, 'utf8')
+  it('integrity proof console is denied unless the admin has system.config', async () => {
+    adminStore.canManage = true
+    adminStore.hasPermission.mockImplementation((permission: string) => permission !== 'system.config')
+    const router = await createTestRouter()
 
-    expect(routerSource).not.toMatch(/\bmeta\b[^\n]*\broles\b/)
-    expect(routerSource).not.toContain('to.meta.roles')
+    await router.push('/user/manage/integrity-proof')
+
+    expect(ensureAdminSession).toHaveBeenCalledTimes(1)
+    expect(adminStore.hasPermission).toHaveBeenCalledWith('system.config')
+    expect(router.currentRoute.value.path).toBe('/403')
   })
+
 })

@@ -1,0 +1,133 @@
+{
+  "schema": "fsusblog.issue-1038.endpoint-security-contract-evidence.v1",
+  "issue": 1038,
+  "status": "implementation-complete-central-wiring-present-validation-pending",
+  "dependencyObservation": {
+    "observedAt": "2026-07-11",
+    "dependencies": [
+      {
+        "issue": 1032,
+        "state": "OPEN",
+        "comments": 0
+      },
+      {
+        "issue": 1037,
+        "state": "OPEN",
+        "comments": 0
+      }
+    ],
+    "interpretation": "The local master contains the #1032 implementation commit and the #1037 implementation. Central governance and auth metadata wiring are present; GitHub closure and functional verification remain pending."
+  },
+  "productionMetadata": {
+    "implementation": "src/backend/Infrastructure/Policies/EndpointPolicyMetadata.cs",
+    "types": [
+      "EndpointFilterBoundaryMetadata",
+      "AdminSensitiveStepUpMetadata"
+    ],
+    "behaviorPreservation": "AddEndpointFilterWithMetadata<TFilter> records final enumerable metadata and still calls the real AddEndpointFilter<TFilter> registration.",
+    "wiredFiles": [
+      "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+      "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+      "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+      "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+      "src/backend/Modules/Endpoints/SecurityEndpoints.cs"
+    ]
+  },
+  "executableInfrastructure": {
+    "helper": "tests/backend/Helpers/TestInfrastructure/EndpointSecurityTestHost.cs",
+    "endpointCatalogSource": "WebApplication/IEndpointRouteBuilder.DataSources",
+    "testServerPipeline": [
+      "ApiBinaryResponseMiddleware",
+      "routing",
+      "test principal injection",
+      "rate limiter",
+      "BannedUserMiddleware",
+      "authorization",
+      "real mapped binary endpoint filters and handlers"
+    ],
+    "controlledDoubles": [
+      "IAdminPrincipalService",
+      "IArticleEndpointService",
+      "IUserSessionCommandService",
+      "IPasskeyService",
+      "IPowService",
+      "ISecurityChallengeProofService",
+      "ISecurityRiskScoreReader",
+      "IRiskDecisionService",
+      "ISecurityRiskSignalSink"
+    ]
+  },
+  "rewrittenSuites": [
+    {
+      "path": "tests/backend/Unit/EndpointPolicyContractTests.cs",
+      "authority": "final endpoint metadata",
+      "sourceReadsRemaining": 0
+    },
+    {
+      "path": "tests/backend/Unit/AuthRiskControlEndpointContractTests.cs",
+      "authority": "final endpoint metadata plus TestServer behavior",
+      "sourceReadsRemaining": 0
+    },
+    {
+      "path": "tests/backend/Unit/AdminPrincipalSecurityContractTests.cs",
+      "authority": "runtime local fixture registration, actual endpoint cookie selection, HttpContext decision cache",
+      "sourceReadsRemaining": 0
+    },
+    {
+      "path": "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
+      "authority": "generated protocol metadata, structured golden/requirements catalogs, final endpoint metadata, TestServer behavior",
+      "endpointSourceRegexReadsRemaining": 0
+    }
+  ],
+  "behaviorScenarios": [
+    "unauthenticated and ordinary-account denial on an admin mutation",
+    "admin permission missing, PoW missing, step-up missing, invalid proof, expired proof, wrong-scope proof, and valid proof",
+    "banned write returns stable 423 AEDS error while an explicitly restricted account action remains reachable",
+    "AllowAnonymous passkey risk leg is not preempted by banned-account middleware",
+    "RiskControl short-circuits PoW on recovery/comment until risk proof acceptance",
+    "passkey risk proof reaches the passkey handler without an invented PoW requirement",
+    "fixed_ip limiter short-circuits RiskControl with stable 429 AEDS error",
+    "invalid admin pagination rejects before article service work",
+    "incompatible human-read Accept returns stable 406 AEDS error"
+  ],
+  "retention": {
+    "manifest": "tests/backend/issue-1038-retention-replacements.json",
+    "expectedDeletedTestIds": 40,
+    "preservedIds": "Behavior-compatible baseline IDs were retained where their implementation changed from source shape to executable metadata/behavior."
+  },
+  "mutationEvidencePlan": {
+    "status": "pending-unified-validation",
+    "requiredMutations": [
+      "remove an authorization/permission claim from a critical endpoint",
+      "swap RiskControl and PoW filter order",
+      "remove banned-account short-circuit",
+      "remove admin-sensitive step-up marker or handler proof validation",
+      "accept expired or wrong-scope risk proof",
+      "remove fixed_ip rate policy",
+      "remove NoStoreResponseMetadata",
+      "delete a generated AEDS frame from the golden catalog"
+    ],
+    "survivingMutants": null,
+    "killedMutants": null,
+    "verificationRunId": null
+  },
+  "documentation": [
+    "docs/testing/issue-1038-endpoint-security-contract-replacements.md"
+  ],
+  "centralWiring": {
+    "status": "present-not-verified",
+    "coverageId": "backend-endpoint-security-metadata-and-testserver",
+    "paths": [
+      "tests/coverage-registry.json",
+      "tests/matrix.yml",
+      "tests/backend/Fixtures/backend-test-requirements.json",
+      "tests/test-retention-replacements.json"
+    ]
+  },
+  "verification": {
+    "commandsExecuted": [
+      "git diff --check -- <issue-1038 paths>"
+    ],
+    "result": "read-only whitespace inspection only; no build, test, restore, lint, syntax, governance, runtime, or mutation validation was run"
+  }
+}

@@ -5,6 +5,7 @@ using System.Text;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Shared.Contracts.Outputs;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
@@ -235,26 +236,12 @@ public sealed class PublicAotNodeSsrRenderer(
 
     private static string ResolveWorkerScriptPath(string clientRoot, string workerScript)
     {
-        string root = Path.GetFullPath(clientRoot);
-        string candidate = Path.GetFullPath(Path.IsPathRooted(workerScript)
-            ? workerScript
-            : Path.Combine(root, workerScript));
-        if (!IsPathWithinDirectory(root, candidate))
+        if (!CanonicalPathBoundary.TryResolveCandidate(clientRoot, workerScript, out string candidate))
         {
             throw new InvalidOperationException("public_aot_worker_script_outside_client_root");
         }
 
         return candidate;
-    }
-
-    private static bool IsPathWithinDirectory(string directory, string candidatePath)
-    {
-        string root = Path.GetFullPath(directory);
-        string candidate = Path.GetFullPath(candidatePath);
-        string relative = Path.GetRelativePath(root, candidate);
-        return relative.Length == 0 ||
-            (!relative.StartsWith("..", StringComparison.Ordinal) &&
-             !Path.IsPathRooted(relative));
     }
 
     private Result<RendererCommandResponse> ParseResponse(string stdout)

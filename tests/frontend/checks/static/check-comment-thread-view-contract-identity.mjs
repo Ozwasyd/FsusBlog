@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(fileURLToPath(new URL('../../../..', import.meta.url)))
 const viewContractsRoot = join(repoRoot, 'src/frontend/src/view-contracts')
+const commentApiPath = join(repoRoot, 'src/frontend/src/api/comment.ts')
 const forbidden = [
   /CommentThreadItemContract[\s\S]*?\buserName\b/,
   /\buserName\b[\s\S]*?CommentThreadItem/
@@ -18,6 +19,12 @@ for (const file of listSourceFiles(viewContractsRoot)) {
       violations.push(`${relative(repoRoot, file)} matches ${pattern}`)
     }
   }
+}
+
+const commentApi = readFileSync(commentApiPath, 'utf8')
+const createV2 = commentApi.match(/export interface CommentCreateV2Dto(?: extends [^{]+)? \{[\s\S]*?\n\}/u)?.[0] ?? ''
+if (!/@deprecated[^\n]*匿名模式不应设置 replyToUserId/u.test(createV2) || !createV2.includes('replyToUserId?: number | null')) {
+  violations.push('src/frontend/src/api/comment.ts must keep replyToUserId explicitly deprecated during anonymous migration')
 }
 
 if (violations.length > 0) {

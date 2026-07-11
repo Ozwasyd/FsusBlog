@@ -423,6 +423,11 @@ function assertDeferredSpaOnly(html, label) {
 
 function assertPublicChrome(html, label) {
   expectIncludesAny(html, ['aria-label="主导航"', 'aria-label="Primary navigation"'], `${label} public nav`);
+  expectIncludes(html, 'data-mobile-nav-mode="menu"', `${label} explicit mobile nav mode`);
+  expectIncludes(html, '<details', `${label} native no-js mobile menu`);
+  expectIncludes(html, 'href="/search"', `${label} no-js search fallback`);
+  expectNotIncludes(html, 'data-fsus-bottom-tab-bar', `${label} fixed bottom navigation`);
+  expectNotIncludes(html, 'fsusblog-public-bottom-tab', `${label} Blog fixed bottom navigation`);
   expectIncludes(html, 'href="/feed/rss.xml"', `${label} rss footer link`);
   expectIncludes(html, '回到顶部', `${label} footer back to top`);
 }

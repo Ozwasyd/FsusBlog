@@ -451,6 +451,7 @@ async function captureRouteScreenshot(page: Page, route: ManualRoute, viewport: 
   await expect(page.locator('#app'), `${route.name} should render one app root`).toHaveCount(1)
   await assertManualThemeReadable(page, theme, route.name)
   await assertThemeModeToggleStyled(page, route.name)
+  await assertContentDrivenCoverContract(page, route, viewport, theme)
   if (strictLayoutAudit) {
     await assertResponsiveLayoutContract(page, `${route.name} ${viewport.name} ${theme}`)
   }
@@ -488,24 +489,113 @@ async function waitForHomeSecondaryContent(page: Page): Promise<void> {
       return true
     }
 
-    const hasMainSecondary = Boolean(
-      document.querySelector('.featured-articles-section')
-      || document.querySelector('.home-text-first-recommendations')
-    )
-    if (!hasMainSecondary) {
-      return false
-    }
-
-    const asideHost = document.getElementById('fsus-home-hot-articles-slot')
-    if (!asideHost) {
-      return true
-    }
-
     return Boolean(
-      document.querySelector('[data-dynamic-island="home-hot-articles"]')
-      || document.querySelector('[data-home-hot-articles-aside]')
+      document.querySelector('[data-home-editorial-lead]')
+      || document.querySelector('[data-home-editorial-secondary]')
     )
   }, undefined, { timeout: 15_000 })
+}
+
+async function assertContentDrivenCoverContract(
+  page: Page,
+  route: ManualRoute,
+  viewport: ManualViewport,
+  theme: ThemeMode
+): Promise<void> {
+  if (route.name !== 'Home' && route.name !== 'ArticleDetail') {
+    return
+  }
+
+  const result = await page.evaluate(async () => {
+    const containers = Array.from(document.querySelectorAll<HTMLElement>('[data-content-cover]'))
+    const findings: string[] = []
+    const luminance: number[] = []
+
+    for (const container of containers) {
+      const image = container.querySelector<HTMLImageElement>('img')
+      if (!image) {
+        findings.push('cover container has no image')
+        continue
+      }
+
+      const source = image.currentSrc || image.src
+      if (!source.trim()) findings.push('cover image has a blank source')
+      if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+        findings.push(`cover image did not load: ${source}`)
+      }
+
+      const containerStyle = getComputedStyle(container)
+      const imageStyle = getComputedStyle(image)
+      if (container.dataset.coverSafeArea !== 'center-80') findings.push('cover safe area is not center-80')
+      if (imageStyle.objectFit !== 'cover') findings.push(`cover object-fit is ${imageStyle.objectFit}`)
+      if (imageStyle.objectPosition !== '50% 50%') findings.push(`cover object-position is ${imageStyle.objectPosition}`)
+      if (containerStyle.backgroundImage !== 'none') findings.push('cover container has a background image')
+      if (!container.classList.contains('shadow-none')) findings.push('cover container does not explicitly disable shadows')
+      if (imageStyle.filter !== 'none') findings.push('cover image has a runtime filter')
+      if (containerStyle.borderTopStyle === 'none' || Number.parseFloat(containerStyle.borderTopWidth) < 1) {
+        findings.push('cover container has no neutral boundary')
+      }
+
+      const heading = container.dataset.contentCover === 'editorial-lead'
+        ? container.closest('a')?.querySelector<HTMLElement>('h1')
+        : container.parentElement?.querySelector<HTMLElement>('header h1')
+      if (heading) {
+        const coverRect = container.getBoundingClientRect()
+        const headingRect = heading.getBoundingClientRect()
+        const overlaps = coverRect.left < headingRect.right
+          && coverRect.right > headingRect.left
+          && coverRect.top < headingRect.bottom
+          && coverRect.bottom > headingRect.top
+        if (overlaps) findings.push('cover overlaps the adjacent article heading')
+        if (!heading.textContent?.trim() || getComputedStyle(heading).color === 'rgba(0, 0, 0, 0)') {
+          findings.push('adjacent article heading is not readable')
+        }
+      }
+
+      try {
+        const sourceUrl = new URL(source, window.location.href)
+        if (sourceUrl.origin === window.location.origin && sourceUrl.pathname.endsWith('.svg')) {
+          const svg = await fetch(sourceUrl.href).then(async (response) => await response.text())
+          for (const forbidden of ['<text', '<linearGradient', '<radialGradient', '<filter', '<feDropShadow']) {
+            if (svg.includes(forbidden)) findings.push(`cover fixture contains forbidden ${forbidden}`)
+          }
+          if (!svg.includes('data-cover-concept=')) findings.push('cover fixture has no semantic concept marker')
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = 32
+        canvas.height = 32
+        const context = canvas.getContext('2d', { willReadFrequently: true })
+        if (context && image.complete && image.naturalWidth > 0) {
+          context.drawImage(image, 0, 0, canvas.width, canvas.height)
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+          let weighted = 0
+          let count = 0
+          for (let index = 0; index < pixels.length; index += 4) {
+            if (pixels[index + 3] === 0) continue
+            weighted += (0.2126 * pixels[index]! + 0.7152 * pixels[index + 1]! + 0.0722 * pixels[index + 2]!) / 255
+            count++
+          }
+          if (count > 0) luminance.push(weighted / count)
+        }
+      } catch (error) {
+        findings.push(`cover inspection failed: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    }
+
+    return {
+      count: containers.length,
+      findings,
+      luminance
+    }
+  })
+
+  expect(result.findings, `${route.name} ${viewport.name} ${theme} cover contract`).toEqual([])
+  expect(result.count, `${route.name} should render at most one content cover`).toBeLessThanOrEqual(1)
+  for (const value of result.luminance) {
+    expect(value, `${route.name} ${theme} cover should retain visible detail`).toBeGreaterThan(0.08)
+    expect(value, `${route.name} ${theme} cover should avoid a large bright block`).toBeLessThan(theme === 'dark' ? 0.62 : 0.82)
+  }
 }
 
 async function assertManualThemeReadable(page: Page, mode: ThemeMode, label: string): Promise<void> {

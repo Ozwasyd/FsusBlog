@@ -1,9 +1,9 @@
+using System.Reflection;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Services.Security;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Net;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -256,43 +256,36 @@ public class ModernAcAutomatonTests
     }
 
     [Fact]
-    public void ModernAcAutomaton_UsesCompactDoubleArrayTransitionsInHotScan()
+    public void ModernAcAutomaton_UsesCompactDoubleArrayTransitionsInRuntimeShape()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
-        int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
-        int containsEnd = source.IndexOf("private int NextState", containsStart, StringComparison.Ordinal);
-        Assert.True(containsStart >= 0);
-        Assert.True(containsEnd > containsStart);
-        string containsAnySource = source[containsStart..containsEnd];
-
-        Assert.Contains("compact alphabet", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("_base", source, StringComparison.Ordinal);
-        Assert.Contains("_check", source, StringComparison.Ordinal);
-        Assert.Contains("_outputLink", source, StringComparison.Ordinal);
-        Assert.Contains("NextState(", containsAnySource, StringComparison.Ordinal);
-        Assert.DoesNotContain("FindChildFast", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ChildrenOffset", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ChildrenCount", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(string.Concat("Legacy", "ModernAcAutomaton"), source, StringComparison.Ordinal);
-        Assert.DoesNotContain(string.Concat("UseLegacy", "ChildRange"), source, StringComparison.Ordinal);
-        Assert.DoesNotContain(string.Concat("FSUSBLOG_SECURITY_MODERN_AC_USE_", "LEGACY_CHILD_RANGE"), source, StringComparison.Ordinal);
+        Type type = typeof(ModernAcAutomaton);
+        Dictionary<string, Type> fields = type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+            .ToDictionary(static field => field.Name, static field => field.FieldType, StringComparer.Ordinal);
+        Assert.Equal(typeof(int[]), fields["_base"]);
+        Assert.Equal(typeof(int[]), fields["_check"]);
+        Assert.Equal(typeof(int[]), fields["_outputLink"]);
+        Assert.Equal(typeof(int[]), fields["_alphabetMap"]);
+        Assert.NotNull(type.GetMethod("NextState", BindingFlags.NonPublic | BindingFlags.Instance));
+        Assert.Null(type.GetMethod("FindChildFast", BindingFlags.NonPublic | BindingFlags.Instance));
+        Assert.DoesNotContain(fields.Keys, static name =>
+            name.Contains("ChildrenOffset", StringComparison.Ordinal)
+            || name.Contains("ChildrenCount", StringComparison.Ordinal)
+            || name.Contains("Legacy", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
     public void ModernAcAutomaton_CompositeMatchingUsesInvertedIndexInHotScan()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src", "backend", "Infrastructure", "Helpers", "Security", "ModernAcAutomaton.cs"));
-        int containsStart = source.IndexOf("public bool ContainsAny", StringComparison.Ordinal);
-        int containsEnd = source.IndexOf("private int NextState", containsStart, StringComparison.Ordinal);
-        Assert.True(containsStart >= 0);
-        Assert.True(containsEnd > containsStart);
-        string containsAnySource = source[containsStart..containsEnd];
+        Type type = typeof(ModernAcAutomaton);
+        Assert.Equal(typeof(int[]), type.GetField("_componentRuleOffsets", BindingFlags.NonPublic | BindingFlags.Instance)?.FieldType);
+        Assert.Equal(typeof(int[]), type.GetField("_componentRuleIds", BindingFlags.NonPublic | BindingFlags.Instance)?.FieldType);
 
-        Assert.Contains("_componentRuleOffsets", source, StringComparison.Ordinal);
-        Assert.Contains("_componentRuleIds", source, StringComparison.Ordinal);
-        Assert.Contains("ProcessMatches(", containsAnySource, StringComparison.Ordinal);
-        Assert.Contains("TryMarkCompositeComponent", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("i < _multiWordRules.Length", containsAnySource, StringComparison.Ordinal);
+        MethodInfo containsAny = type.GetMethod(nameof(ModernAcAutomaton.ContainsAny))!;
+        MethodInfo processMatches = type.GetMethod("ProcessMatches", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("Composite match processor was not found.");
+        Assert.Contains(ReadCalledMethods(containsAny), method => method == processMatches);
+        Assert.Contains(ReadCalledMethods(processMatches), static method => method.Name == "TryMarkCompositeComponent");
+        Assert.DoesNotContain(ReadReferencedFields(containsAny), static field => field.Name == "_multiWordRules");
     }
 
     private static bool NaiveContains(IEnumerable<string> rules, string text)
@@ -313,6 +306,40 @@ public class ModernAcAutomatonTests
         }
 
         return false;
+    }
+
+    private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
+        => ReadMemberTokens(method, [0x28, 0x6F]).OfType<MethodBase>();
+
+    private static IEnumerable<FieldInfo> ReadReferencedFields(MethodInfo method)
+        => ReadMemberTokens(method, [0x7B, 0x7C, 0x7D, 0x7E, 0x7F, 0x80]).OfType<FieldInfo>();
+
+    private static IEnumerable<MemberInfo> ReadMemberTokens(MethodInfo method, byte[] opcodes)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (!opcodes.Contains(il[offset]))
+            {
+                continue;
+            }
+
+            MemberInfo? member = null;
+            try
+            {
+                member = method.Module.ResolveMember(
+                    BitConverter.ToInt32(il, offset + 1),
+                    method.DeclaringType?.GetGenericArguments(),
+                    method.GetGenericArguments());
+            }
+            catch (ArgumentException)
+            {
+            }
+            if (member is not null)
+            {
+                yield return member;
+            }
+        }
     }
 }
 

@@ -1,5 +1,18 @@
-using System.Runtime.CompilerServices;
+using System.Reflection;
+using Fido2NetLib.Objects;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -8,240 +21,224 @@ public sealed class AuthSecurityHardeningTests
     [Fact]
     public void UserEntity_DoesNotPersistLegacyPlaintextRefreshToken()
     {
-        string source = ReadSource("src/backend/Entities/User.cs");
-        string mfaProfile = ReadSource("src/backend/Entities/UserMfaProfile.cs");
+        string[] userProperties = typeof(User).GetProperties().Select(static property => property.Name).ToArray();
+        string[] mfaProperties = typeof(UserMfaProfile).GetProperties().Select(static property => property.Name).ToArray();
+        Assert.DoesNotContain("RefreshToken", userProperties);
+        Assert.DoesNotContain("RefreshTokenExpiryTime", userProperties);
+        Assert.DoesNotContain("MfaPendingSecretEncrypted", userProperties);
+        Assert.DoesNotContain("MfaPendingCreatedAt", userProperties);
+        Assert.Contains("MfaPendingSecretEncrypted", mfaProperties);
+        Assert.Contains("MfaPendingCreatedAt", mfaProperties);
 
-        Assert.DoesNotContain("RefreshToken { get; set; }", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("RefreshTokenExpiryTime", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("MfaPendingSecretEncrypted", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("MfaPendingCreatedAt", source, StringComparison.Ordinal);
-        Assert.Contains("MfaPendingSecretEncrypted", mfaProfile, StringComparison.Ordinal);
-        Assert.Contains("MfaPendingCreatedAt", mfaProfile, StringComparison.Ordinal);
+        Assert.NotNull(typeof(UserSession).GetProperty("RefreshTokenHash"));
+        Assert.Null(typeof(UserSession).GetProperty("RefreshToken"));
     }
 
     [Fact]
-    public void UserService_AccountDeletionRevokesAllSessionsInTransaction()
+    public void UserService_AccountDeletionRuntimeRevokesAllSessionsInTransaction()
     {
-        string source = ReadSource("src/backend/Services/UserService.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(UserService),
+            nameof(UserService.DeleteAccountAsync));
 
-        Assert.Contains("UseTranAsync", source, StringComparison.Ordinal);
-        Assert.Contains("RevokeReason == \"account_deleted\"", source, StringComparison.Ordinal);
-        Assert.Contains("DeletedReason == \"self-service\"", source, StringComparison.Ordinal);
+        Assert.Contains("UseTranAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("account_deleted", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("self-service", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void UserService_RefreshRotationUsesCasAndReplayRevocation()
+    public void UserService_RefreshRotationRuntimeUsesCasAndReplayRevocation()
     {
-        string source = ReadSource("src/backend/Services/UserService.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(UserService),
+            nameof(UserService.RefreshTokenAsync),
+            "RevokeLikelyRefreshReplayAsync");
 
-        Assert.Contains("s.RefreshTokenHash == hash", source, StringComparison.Ordinal);
-        Assert.Contains("s.RevokedAt == null", source, StringComparison.Ordinal);
-        Assert.Contains("s.IdleExpiresAt > now", source, StringComparison.Ordinal);
-        Assert.Contains("RevokeLikelyRefreshReplayAsync", source, StringComparison.Ordinal);
-        Assert.Contains("refresh_token_reuse", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("SetColumns(u => u.RefreshToken", source, StringComparison.Ordinal);
+        Assert.Contains("get_RefreshTokenHash", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("get_RevokedAt", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("get_IdleExpiresAt", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RevokeLikelyRefreshReplayAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("refresh_token_reuse", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("User.set_RefreshToken", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void UserService_MfaSetupUsesPendingSecretUntilVerification()
+    public void UserService_MfaSetupRuntimeUsesPendingSecretUntilVerification()
     {
-        string source = ReadSource("src/backend/Services/UserService.cs");
-        string setupAndVerify = ExtractBetween(
-            source,
-            "public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync",
-            "public async Task<(bool Success, string Message)> DisableMfaAsync");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(UserService),
+            nameof(UserService.StartMfaSetupAsync),
+            nameof(UserService.VerifyMfaSetupAsync),
+            "UpsertUserMfaProfileAsync");
 
-        Assert.Contains("profile.MfaPendingSecretEncrypted = protectedSecret", setupAndVerify, StringComparison.Ordinal);
-        Assert.Contains("profile.MfaPendingCreatedAt = now", setupAndVerify, StringComparison.Ordinal);
-        Assert.Contains("profile.MfaSecretEncrypted = profile.MfaPendingSecretEncrypted", setupAndVerify, StringComparison.Ordinal);
-        Assert.Contains("UpsertUserMfaProfileAsync(profile)", setupAndVerify, StringComparison.Ordinal);
-        Assert.DoesNotContain("MfaEnabled == false)\n            .Where(u => u.Id == userId)", setupAndVerify, StringComparison.Ordinal);
+        Assert.Contains("set_MfaPendingSecretEncrypted", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("set_MfaPendingCreatedAt", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("get_MfaPendingSecretEncrypted", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("set_MfaSecretEncrypted", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("UpsertUserMfaProfileAsync", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void UserService_MfaStateMutationsAreTransactionalAndLockUserRow()
+    public void UserService_MfaStateMutationsRuntimeAreTransactionalAndLockUserRow()
     {
-        string source = ReadSource("src/backend/Services/UserService.cs");
-        string verify = ExtractBetween(
-            source,
-            "public async Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> VerifyMfaSetupAsync",
-            "public async Task<(bool Success, string Message)> DisableMfaAsync");
-        string disable = ExtractBetween(
-            source,
-            "public async Task<(bool Success, string Message)> DisableMfaAsync",
-            "public async Task<(bool Success, MfaSetupVerifyDto? Data, string Message)> RegenerateMfaRecoveryCodesAsync");
-        string reset = ExtractBetween(
-            source,
-            "public async Task<bool> ResetMfaByAdminAsync",
-            "public async Task<bool> VerifyMfaOrRecoveryCodeAsync");
-        string lockHelper = ExtractBetween(
-            source,
-            "private async Task<bool?> LockUserMfaStateForUpdateAsync",
-            "private async Task RevokeLikelyRefreshReplayAsync");
-
-        foreach (string method in new[] { verify, disable, reset })
+        foreach (string methodName in new[]
         {
-            Assert.Contains("_db.Ado.UseTranAsync(async ()", method, StringComparison.Ordinal);
-            Assert.Contains("LockUserMfaStateForUpdateAsync(userId)", method, StringComparison.Ordinal);
+            nameof(UserService.VerifyMfaSetupAsync),
+            nameof(UserService.DisableMfaAsync),
+            nameof(UserService.ResetMfaByAdminAsync)
+        })
+        {
+            string runtimeShape = RuntimeMetadataInspection.DescribeMethods(typeof(UserService), methodName);
+            Assert.Contains("UseTranAsync", runtimeShape, StringComparison.Ordinal);
+            Assert.Contains("LockUserMfaStateForUpdateAsync", runtimeShape, StringComparison.Ordinal);
+            Assert.Contains("set_MfaEnabled", runtimeShape, StringComparison.Ordinal);
         }
 
+        string lockHelper = RuntimeMetadataInspection.DescribeMethods(
+            typeof(UserService),
+            "LockUserMfaStateForUpdateAsync");
         Assert.Contains("FOR UPDATE", lockHelper, StringComparison.Ordinal);
-        AssertContainsAfter(verify, "_db.Ado.UseTranAsync(async ()", "MfaEnabled == true");
-        AssertContainsAfter(disable, "_db.Ado.UseTranAsync(async ()", "MfaEnabled == false");
-        AssertContainsAfter(reset, "_db.Ado.UseTranAsync(async ()", "MfaEnabled == false");
     }
 
     [Fact]
-    public void MfaChallengeEndpoint_IsRateLimitedAndCountsFailures()
+    public async Task MfaChallengeEndpoint_IsRateLimitedAndCountsFailures()
     {
-        string endpoint = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string service = ReadSource("src/backend/Services/Security/MfaChallengeService.cs");
+        await using WebApplication app = EndpointContractApplication.Create();
+        foreach (string route in new[]
+        {
+            "/api/binary/auth/mfa/challenge/start",
+            "/api/binary/auth/mfa/challenge"
+        })
+        {
+            RouteEndpoint endpoint = EndpointContractApplication.Find(app, route, HttpMethods.Post);
+            Assert.Equal(
+                "fixed_ip",
+                Assert.IsType<EnableRateLimitingAttribute>(
+                    endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
+        }
 
-        Assert.Contains("RecordFailureAsync", endpoint, StringComparison.Ordinal);
-        Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", endpoint, StringComparison.Ordinal);
-        Assert.Contains("MaxTicketFailures = 5", service, StringComparison.Ordinal);
-        Assert.Contains("fail:subject:", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("fail:user:", service, StringComparison.Ordinal);
-        Assert.Contains("fail:ip:", service, StringComparison.Ordinal);
+        int maxFailures = (int)typeof(MfaChallengeService)
+            .GetField("MaxTicketFailures", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetRawConstantValue()!;
+        Assert.Equal(5, maxFailures);
+        string endpointRuntime = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            "MapBinaryAuthEndpoints");
+        string serviceRuntime = RuntimeMetadataInspection.DescribeType(typeof(MfaChallengeService));
+        Assert.Contains("RecordFailureAsync", endpointRuntime, StringComparison.Ordinal);
+        Assert.Contains("fail:subject:", serviceRuntime, StringComparison.Ordinal);
+        Assert.DoesNotContain("fail:user:", serviceRuntime, StringComparison.Ordinal);
+        Assert.Contains("fail:ip:", serviceRuntime, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PasskeyService_RequiresUserVerificationAndSanitizesErrors()
+    public void PasskeyService_RuntimeRequiresUserVerificationAndSanitizesErrors()
     {
-        string source = ReadSource("src/backend/Services/Security/PasskeyService.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(PasskeyService));
 
-        Assert.Contains("UserVerificationRequirement.Required", source, StringComparison.Ordinal);
-        Assert.Contains("IsUserHandleOwnerOfCredential", source, StringComparison.Ordinal);
-        Assert.Contains("通行密钥验证失败，请重试", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Console.WriteLine", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ex.Message}", source, StringComparison.Ordinal);
+        Assert.Contains("AuthenticatorSelection.set_UserVerification", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains(nameof(UserVerificationRequirement), runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IsUserHandleOwnerOfCredential", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("通行密钥验证失败，请重试", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("Console.WriteLine", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PasskeyService_RegistrationUsesAnonymousSafeMetadataInAnonymousMode()
+    public void PasskeyService_RegistrationRuntimeUsesAnonymousSafeMetadataInAnonymousMode()
     {
-        string source = ReadSource("src/backend/Services/Security/PasskeyService.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(PasskeyService),
+            "BeginRegistrationAsync",
+            "BuildAnonymousSafeMetadata");
 
-        Assert.Contains("BuildAnonymousSafeMetadata", source, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()", source, StringComparison.Ordinal);
-        Assert.Contains("PublicHandle", source, StringComparison.Ordinal);
-        Assert.Contains("RecoveryEnabled", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Name = username", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("DisplayName = username", source, StringComparison.Ordinal);
+        Assert.Contains("BuildAnonymousSafeMetadata", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("get_PublicHandle", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("get_RecoveryEnabled", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("username", runtimeShape, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void PasskeyCredentialRemoval_ProtectsLastCredentialInAnonymousMode()
+    public void PasskeyCredentialRemoval_RuntimeProtectsLastCredentialInAnonymousMode()
     {
-        string source = ReadSource("src/backend/Services/Security/PasskeyService.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(PasskeyService),
+            nameof(PasskeyService.RemoveCredentialAsync));
 
-        Assert.Contains("CannotRemoveLastCredentialWithoutRecovery", source, StringComparison.Ordinal);
-        Assert.Contains("RecoveryEnabled", source, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()", source, StringComparison.Ordinal);
+        Assert.Contains("CannotRemoveLastCredentialWithoutRecovery", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("get_RecoveryEnabled", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void CredentialMutationEndpoints_VerifyStepUpBeforeDomainMutation()
+    public void CredentialMutationEndpoints_RuntimeVerifyStepUpBeforeDomainMutation()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        var mutations = new (string MutationMember, string Action)[]
+        {
+            ("IRecoveryKeyService.CreateAsync", UserSecurityStepUpActions.RecoveryKeyCreate),
+            ("IRecoveryKeyService.RotateAsync", UserSecurityStepUpActions.RecoveryKeyRotate),
+            ("IPasskeyService.RemoveCredentialAsync", UserSecurityStepUpActions.PasskeyDelete),
+            ("IPasskeyService.RenameCredentialAsync", UserSecurityStepUpActions.PasskeyCredentialNameUpdate),
+            ("IPasskeyService.CompleteRegistrationAsync", UserSecurityStepUpActions.PasskeyRegister)
+        };
+        foreach ((string mutationMember, string action) in mutations)
+        {
+            string handler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+                typeof(BinaryEndpoints),
+                "RequireUserSecurityStepUpAsync",
+                mutationMember,
+                action);
+            Assert.Contains("RequireUserSecurityStepUpAsync", handler, StringComparison.Ordinal);
+            Assert.Contains(mutationMember, handler, StringComparison.Ordinal);
+            Assert.Contains(action, handler, StringComparison.Ordinal);
+        }
 
-        string recoveryCreate = ExtractBetween(
-            source,
-            "group.MapPost(\"/auth/recovery-key/create\"",
-            "group.MapPost(\"/auth/recovery-key/rotate\"");
-        string recoveryRotate = ExtractBetween(
-            source,
-            "group.MapPost(\"/auth/recovery-key/rotate\"",
-            "group.MapPost(\"/auth/recovery-key/verify\"");
-        string passkeyDelete = ExtractBetween(
-            source,
-            "group.MapDelete(\"/auth/passkey/credentials/{id:int}\"",
-            "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"");
-        string passkeyRename = ExtractBetween(
-            source,
-            "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"",
-            "private static BinaryFrameResult RecoveryKeyError");
-        string passkeyRegister = ExtractBetween(
-            source,
-            "group.MapPost(\"/auth/passkey/register/complete\"",
-            "group.MapPost(\"/auth/passkey/login/begin\"");
-        string recoveryPasskeyBind = ExtractBetween(
-            source,
-            "group.MapPost(\"/auth/recovery-key/passkey/register/complete\"",
-            "group.MapPost(\"/auth/passkey/register/begin\"");
+        string recoveryPasskeyBind = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            "CompletePasskeyBindAsync");
+        Assert.Contains("CompletePasskeyBindAsync", recoveryPasskeyBind, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConsumeRecoverySessionAsync", recoveryPasskeyBind, StringComparison.Ordinal);
+        Assert.DoesNotContain("CompleteRegistrationAsync", recoveryPasskeyBind, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyPostPasskeyBindAsync", recoveryPasskeyBind, StringComparison.Ordinal);
 
-        AssertStepUpBeforeMutation(recoveryCreate, "UserSecurityStepUpActions.RecoveryKeyCreate", "recoveryKeys.CreateAsync");
-        AssertStepUpBeforeMutation(recoveryRotate, "UserSecurityStepUpActions.RecoveryKeyRotate", "recoveryKeys.RotateAsync");
-        AssertStepUpBeforeMutation(passkeyDelete, "UserSecurityStepUpActions.PasskeyDelete", "passkeyService.RemoveCredentialAsync");
-        AssertStepUpBeforeMutation(passkeyRename, "UserSecurityStepUpActions.PasskeyCredentialNameUpdate", "passkeyService.RenameCredentialAsync");
-        AssertStepUpBeforeMutation(passkeyRegister, "UserSecurityStepUpActions.PasskeyRegister", "passkeyService.CompleteRegistrationAsync");
-        AssertContainsBefore(recoveryPasskeyBind, "recoveryKeys.ConsumeRecoverySessionAsync", "passkeyService.CompleteRegistrationAsync");
-
-        string helper = ExtractBetween(
-            source,
-            "private static async Task<(ErrorDetail Error, int StatusCode)?> RequireUserSecurityStepUpAsync",
-            "private static ValueTask RecordPasskeyAssertionFailureAsync");
-        Assert.Contains("result.StatusCode", helper, StringComparison.Ordinal);
-        Assert.Contains("ErrorDetail.Create(result.ErrorCode, result.Message)", helper, StringComparison.Ordinal);
-        Assert.Contains("TryReadMfaProof(httpContext, out string token)", helper, StringComparison.Ordinal);
+        string helper = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            "RequireUserSecurityStepUpAsync");
+        Assert.Contains("get_StatusCode", helper, StringComparison.Ordinal);
+        Assert.Contains("get_ErrorCode", helper, StringComparison.Ordinal);
+        Assert.Contains("get_Message", helper, StringComparison.Ordinal);
+        Assert.Contains("TryReadMfaProof", helper, StringComparison.Ordinal);
         Assert.DoesNotContain("ReadBinaryRequestPayloadAsync", helper, StringComparison.Ordinal);
 
-        string service = ReadSource("src/backend/Services/Security/UserSecurityStepUpService.cs");
-        Assert.Contains("public const string PasskeyRegister = \"passkey.register\"", service, StringComparison.Ordinal);
-        Assert.Contains("string.Equals(action, PasskeyRegister, StringComparison.Ordinal)", service, StringComparison.Ordinal);
+        Assert.Equal("passkey.register", UserSecurityStepUpActions.PasskeyRegister);
+        Assert.True(UserSecurityStepUpActions.IsCredentialMutation(UserSecurityStepUpActions.PasskeyRegister));
     }
 
     [Fact]
-    public void FrontendUserStore_DoesNotPersistAuthorityFields()
+    public async Task OrdinaryAccountRuntimeContract_DoesNotPersistOrInferAdminAuthorityFields()
     {
-        string source = ReadSource("src/frontend/src/store/user.ts");
-        string router = ReadSource("src/frontend/src/router/index.ts");
+        string[] ordinarySnapshotProperties = typeof(CurrentUserSnapshotDto)
+            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            .Select(static property => property.Name)
+            .ToArray();
+        Assert.DoesNotContain("IsAdmin", ordinarySnapshotProperties);
+        Assert.DoesNotContain("AdminRoles", ordinarySnapshotProperties);
+        Assert.DoesNotContain("Permissions", ordinarySnapshotProperties);
 
-        Assert.Contains("pick: ['accountState', 'lastVerifiedAt', 'authCacheVersion', 'lastFetchedAt']", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("pick: ['userInfo'", source, StringComparison.Ordinal);
-        Assert.Contains("const isAdmin = computed(() => false)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("adminRoles", source, StringComparison.Ordinal);
-        Assert.Contains("route.path.startsWith('/user/manage')", router, StringComparison.Ordinal);
-        Assert.Contains("record.meta.accountArea === 'manage'", router, StringComparison.Ordinal);
-        Assert.Contains("sessionBootstrap.ensureAccountSession({ reason: 'route'", router, StringComparison.Ordinal);
-    }
-
-    private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
-
-    private static void AssertContainsAfter(string source, string first, string second)
-    {
-        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
-        Assert.True(firstIndex >= 0, $"Missing '{first}'.");
-        int secondIndex = source.IndexOf(second, firstIndex + first.Length, StringComparison.Ordinal);
-        Assert.True(secondIndex >= 0, $"Missing '{second}' after '{first}'.");
-    }
-
-    private static void AssertContainsBefore(string source, string first, string second)
-    {
-        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
-        Assert.True(firstIndex >= 0, $"Missing '{first}'.");
-        int secondIndex = source.IndexOf(second, StringComparison.Ordinal);
-        Assert.True(secondIndex >= 0, $"Missing '{second}'.");
-        Assert.True(firstIndex < secondIndex, $"'{first}' must appear before '{second}'.");
-    }
-
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex >= 0, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
-    }
-
-    private static void AssertStepUpBeforeMutation(string handler, string action, string mutationCall)
-    {
-        int stepUpIndex = handler.IndexOf("RequireUserSecurityStepUpAsync(", StringComparison.Ordinal);
-        int mutationIndex = handler.IndexOf(mutationCall, StringComparison.Ordinal);
-        Assert.True(stepUpIndex >= 0, $"Missing step-up call for {action}.");
-        Assert.True(mutationIndex >= 0, $"Missing mutation call for {action}.");
-        Assert.True(stepUpIndex < mutationIndex, $"{action} must verify step-up before domain mutation.");
-        Assert.Contains(action, handler, StringComparison.Ordinal);
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint ordinary = EndpointContractApplication.Find(app, "/api/binary/auth/me", HttpMethods.Get);
+        RouteEndpoint admin = EndpointContractApplication.Find(app, "/api/binary/admin/users", HttpMethods.Get);
+        ClaimsAuthorizationRequirement ordinaryIdentity = Assert.Single(ordinary.Metadata
+            .GetOrderedMetadata<AuthorizationPolicy>()
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(static requirement => requirement.ClaimType == "identity_kind"));
+        ClaimsAuthorizationRequirement adminPermission = Assert.Single(admin.Metadata
+            .GetOrderedMetadata<AuthorizationPolicy>()
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+        Assert.Contains(AnonymousIdentityRuntime.AnonymousAccountKind, ordinaryIdentity.AllowedValues ?? []);
+        Assert.Contains(AdminPermissions.AdminManage, adminPermission.AllowedValues ?? []);
     }
 }

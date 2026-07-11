@@ -76,6 +76,37 @@ public sealed class AuditLogWriterWorkerTests
     }
 
     [Fact]
+    public async Task PersistSafelyAsync_WritesOnlyDurableRecordsToFallbackAfterStoreFailure()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IAuditLogStore, AlwaysFailAuditLogStore>();
+
+        await using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+
+        var channel = new AuditLogChannel();
+        var runtimeState = new AuditLogRuntimeState(channel);
+        var fallbackWriter = new RecordingAuditFallbackWriter();
+        var worker = new AuditLogWriterWorker(
+            channel,
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            runtimeState,
+            fallbackWriter,
+            NullLogger<AuditLogWriterWorker>.Instance);
+        AuditRecord ordinary = new("request", "business", DateTime.UtcNow, "ordinary", null);
+        AuditRecord durable = new("security", "security", DateTime.UtcNow, "durable", null);
+
+        await worker.PersistSafelyAsync([ordinary, durable], CancellationToken.None);
+
+        AuditRecord recorded = Assert.Single(fallbackWriter.Records);
+        Assert.Equal("durable", recorded.EventInfo);
+        Assert.Equal(2, runtimeState.Snapshot().WriteFailureCount);
+    }
+
+    [Fact]
     public async Task PersistSafelyAsync_DoesNotDegradeWhenServiceProviderWasDisposedDuringShutdown()
     {
         var services = new ServiceCollection();
@@ -148,6 +179,29 @@ public sealed class AuditLogWriterWorkerTests
             }
 
             Interlocked.Increment(ref _probe.SuccessfulBatches);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class AlwaysFailAuditLogStore : IAuditLogStore
+    {
+        public Task WriteBatchAsync(IReadOnlyList<AuditRecord> records, CancellationToken cancellationToken)
+            => throw new InvalidOperationException("simulated persistent store failure");
+    }
+
+    private sealed class RecordingAuditFallbackWriter : IAuditFallbackWriter
+    {
+        public List<AuditRecord> Records { get; } = [];
+
+        public Task WriteAsync(AuditRecord record, Exception reason, CancellationToken cancellationToken)
+        {
+            Records.Add(record);
+            return Task.CompletedTask;
+        }
+
+        public Task WriteBatchAsync(IReadOnlyList<AuditRecord> records, Exception reason, CancellationToken cancellationToken)
+        {
+            Records.AddRange(records);
             return Task.CompletedTask;
         }
     }

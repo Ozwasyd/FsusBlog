@@ -1,0 +1,8 @@
+{
+  "schema": "fsusblog.issue-test-retention-replacements.v1",
+  "issue": 1016,
+  "baseline": "tests/test-retention-before.json",
+  "expectedDeletedTestIds": 0,
+  "deletedTests": [],
+  "reason": "Issue #1016 strengthens the existing sticky-geometry behavior owner without deleting or replacing a test id. The separately deleted PublicBlogLayoutShell source test belongs to another active source-locking migration and is not claimed by this issue."
+}

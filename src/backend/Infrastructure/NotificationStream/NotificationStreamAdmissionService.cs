@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Collections.Concurrent;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Observability;
@@ -50,11 +49,16 @@ internal sealed class NotificationStreamAdmissionService(
             return NotificationStreamAdmissionResult.Denied(StatusCodes.Status401Unauthorized, "account_deleted");
         }
 
-        string accountSubjectHash = string.IsNullOrWhiteSpace(userSnapshot.Value.AccountSubjectHash)
-            ? AccountSubjectHasher.Create(
-                userSnapshot.Value.IdentityKind,
-                string.Concat("legacy-account:", numericUserId.ToString(CultureInfo.InvariantCulture)))
-            : userSnapshot.Value.AccountSubjectHash;
+        if (!AccountSubjectHashRequirement.TryResolve(
+                userSnapshot.Value.AccountSubjectHash,
+                out string accountSubjectHash))
+        {
+            FsusObservability.RecordNotificationStreamAdmissionRejected("account_subject_invalid");
+            return NotificationStreamAdmissionResult.Denied(
+                StatusCodes.Status401Unauthorized,
+                "account_subject_invalid");
+        }
+
         var banState = await blacklistService.GetBanStateAsync(numericUserId, accountSubjectHash);
         if (banState.IsBanned)
         {
@@ -89,7 +93,8 @@ internal sealed class NotificationStreamAccountAdmissionCache
 
         cancellationToken.ThrowIfCancellationRequested();
         UserAccountSnapshot? loaded = await users.GetAccountByIdAsync(accountId).ConfigureAwait(false);
-        if (loaded.HasValue)
+        if (loaded.HasValue
+            && AccountSubjectHashRequirement.TryResolve(loaded.Value.AccountSubjectHash, out _))
         {
             _entries[accountId] = new CacheEntry(loaded.Value, DateTimeOffset.UtcNow.Add(EntryTtl).UtcTicks);
         }

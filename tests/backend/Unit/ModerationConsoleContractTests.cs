@@ -1,79 +1,396 @@
-using FsusBlog.Server.Tests.TestInfrastructure;
+using System.Net;
+using System.Security.Claims;
+using System.Text.Json;
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Models.Moderation;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Security;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using System.Threading.RateLimiting;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ModerationConsoleContractTests
 {
     [Fact]
-    public void AuthoringEndpoints_ExposeModerationConsoleSurfacesWithAdminStepUpForHighRiskReload()
+    public void AuthoringEndpoints_ExposeModerationMethodsPermissionsAndRateLimitMetadata()
     {
-        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
+        IModerationDictionaryService dictionaries = Substitute.For<IModerationDictionaryService>();
+        IAdminPrincipalService adminPrincipals = Substitute.For<IAdminPrincipalService>();
+        IAuditEventService auditEvents = Substitute.For<IAuditEventService>();
+        ICacheInvalidationDispatcher invalidation = Substitute.For<ICacheInvalidationDispatcher>();
+        using TestServer server = CreateServer(dictionaries, adminPrincipals, auditEvents, invalidation);
+        EndpointDataSource source = server.Services.GetRequiredService<EndpointDataSource>();
 
-        Assert.Contains("MapGet(\"/moderation/overview\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/moderation/dictionaries\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/dictionaries/reload\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/dictionaries/rollback\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/dictionaries/{dictionaryId}/enable\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/dictionaries/{dictionaryId}/disable\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/moderation/policies\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/moderation/regions\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/moderation/region-groups\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/moderation/policy-templates\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/moderation/effective-policy/{regionCode}\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/effective-policy/preview\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/replay/preview\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/moderation/runtime/status\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/runtime/global-state\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/runtime/region-state\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/moderation/model/status\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/model/runtime\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/model/reload\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/moderation/model/rollback\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", endpoints, StringComparison.Ordinal);
-        Assert.Contains("RecordHighValueAsync", endpoints, StringComparison.Ordinal);
-        Assert.Contains("admin.moderation.dictionary_reloaded", endpoints, StringComparison.Ordinal);
-        Assert.Contains("admin.moderation.replay_previewed", endpoints, StringComparison.Ordinal);
-        Assert.Contains("admin.moderation.runtime_region_state_changed", endpoints, StringComparison.Ordinal);
-        Assert.Contains("admin.moderation.model_runtime_changed", endpoints, StringComparison.Ordinal);
-        Assert.Contains("admin.moderation.effective_policy_previewed", endpoints, StringComparison.Ordinal);
-        Assert.Contains("cacheInvalidation.InvalidateCommentMutationAsync(null, cancellationToken)", endpoints, StringComparison.Ordinal);
+        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries", HttpMethods.Get, rateLimited: false);
+        AssertEndpoint(source, "/api/binary/author/moderation/runtime/status", HttpMethods.Get, rateLimited: false);
+        AssertEndpoint(source, "/api/binary/author/moderation/runtime/global-state", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(source, "/api/binary/author/moderation/runtime/region-state", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries/reload", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries/rollback", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries/{dictionaryId}/enable", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries/{dictionaryId}/disable", HttpMethods.Post, rateLimited: true);
     }
 
     [Fact]
-    public void RuntimeDictionaryMetadata_DoesNotExposeRawTermsToAdminConsole()
+    public async Task ReloadAndRollbackEndpoints_EnforcePermissionAndStepUpThenAuditAndInvalidate()
     {
-        string models = ReadRepoFile("src/backend/Models/Moderation/ModerationDictionaryModels.cs");
-        string service = ReadRepoFile("src/backend/Services/Moderation/ModerationDictionaryService.cs");
+        ModerationDictionaryRuntimeSnapshot snapshot = RuntimeSnapshot();
+        IModerationDictionaryService dictionaries = Substitute.For<IModerationDictionaryService>();
+        dictionaries.GetRuntimeSnapshot().Returns(snapshot);
+        dictionaries.Reload().Returns(Result.Success());
+        dictionaries.Rollback().Returns(Result.Success());
+        IAdminPrincipalService adminPrincipals = Substitute.For<IAdminPrincipalService>();
+        adminPrincipals.ValidateAndConsumeAdminStepUpProofTokenAsync(
+                Arg.Any<long>(),
+                Arg.Any<string>(),
+                "admin-sensitive",
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(true);
+        IAuditEventService auditEvents = Substitute.For<IAuditEventService>();
+        ICacheInvalidationDispatcher invalidation = Substitute.For<ICacheInvalidationDispatcher>();
+        using TestServer server = CreateServer(dictionaries, adminPrincipals, auditEvents, invalidation);
+        using HttpClient client = server.CreateClient();
 
-        Assert.Contains("string EvidencePolicy", models, StringComparison.Ordinal);
-        Assert.Contains("int TermCount", models, StringComparison.Ordinal);
-        Assert.Contains("ResolveEvidencePolicy(item.Terms)", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("IReadOnlyList<ModerationDictionaryTerm> Terms", ExtractRuntimeItem(models), StringComparison.Ordinal);
+        using var forbidden = new HttpRequestMessage(HttpMethod.Post, "/api/binary/author/moderation/dictionaries/reload");
+        forbidden.Headers.Add("Origin", "https://console.example.test");
+        forbidden.Headers.Add("X-Fsus-Mfa-Proof", "proof-forbidden");
+        using HttpResponseMessage forbiddenResponse = await client.SendAsync(forbidden);
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
+
+        using var missingStepUp = CreateAdminRequest("/api/binary/author/moderation/dictionaries/reload", proof: null);
+        using HttpResponseMessage missingStepUpResponse = await client.SendAsync(missingStepUp);
+        Assert.Equal((HttpStatusCode)StatusCodes.Status428PreconditionRequired, missingStepUpResponse.StatusCode);
+
+        using var reload = CreateAdminRequest("/api/binary/author/moderation/dictionaries/reload", "proof-reload");
+        using var rollback = CreateAdminRequest("/api/binary/author/moderation/dictionaries/rollback", "proof-rollback");
+        using HttpResponseMessage reloadResponse = await client.SendAsync(reload);
+        using HttpResponseMessage rollbackResponse = await client.SendAsync(rollback);
+
+        Assert.Equal(HttpStatusCode.OK, reloadResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, rollbackResponse.StatusCode);
+        _ = dictionaries.Received(1).Reload();
+        _ = dictionaries.Received(1).Rollback();
+        await adminPrincipals.Received(2).ValidateAndConsumeAdminStepUpProofTokenAsync(
+            39,
+            "admin-session-39",
+            "admin-sensitive",
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+        await auditEvents.Received(1).RecordHighValueAsync(
+            Arg.Is<AuditEvent>(item => item.Action == "admin.moderation.dictionary_reloaded"
+                && item.Outcome == AuditOutcomeCatalog.Success),
+            Arg.Any<CancellationToken>());
+        await auditEvents.Received(1).RecordHighValueAsync(
+            Arg.Is<AuditEvent>(item => item.Action == "admin.moderation.dictionary_rolled_back"
+                && item.Outcome == AuditOutcomeCatalog.Success),
+            Arg.Any<CancellationToken>());
+        await invalidation.Received(2).InvalidateCommentMutationAsync(null, Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public void RegionPolicyChecks_ProtectCnMainlandMandatoryRules()
+    public async Task GlobalRuntimeEndpoint_DeserializesMutationThenAuditsAndInvalidatesChangedState()
     {
-        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
+        var request = new ModerationRuntimeGlobalStateRequest(
+            State: ModerationGlobalStates.DisabledToPending,
+            Reason: "provider incident");
+        var requestContext = new FixedJsonRequestContext(
+            AedsFrameType.ModerationRuntimeGlobalStateRequest,
+            JsonSerializer.SerializeToUtf8Bytes(request, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        IModerationDictionaryService dictionaries = Substitute.For<IModerationDictionaryService>();
+        IAdminPrincipalService adminPrincipals = Substitute.For<IAdminPrincipalService>();
+        adminPrincipals.ValidateAndConsumeAdminStepUpProofTokenAsync(
+                Arg.Any<long>(),
+                Arg.Any<string>(),
+                "admin-sensitive",
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>())
+            .Returns(true);
+        IAuditEventService auditEvents = Substitute.For<IAuditEventService>();
+        ICacheInvalidationDispatcher invalidation = Substitute.For<ICacheInvalidationDispatcher>();
+        IModerationRuntimeStateService runtimeState = Substitute.For<IModerationRuntimeStateService>();
+        runtimeState.SetGlobalState(
+                ModerationGlobalStates.DisabledToPending,
+                "provider incident",
+                null,
+                Arg.Any<string>())
+            .Returns(Result<ModerationRuntimeSnapshot>.Success(RuntimeStateSnapshot()));
+        using TestServer server = CreateServer(
+            dictionaries,
+            adminPrincipals,
+            auditEvents,
+            invalidation,
+            runtimeState,
+            requestContext);
+        using HttpClient client = server.CreateClient();
+        using var mutation = CreateAdminRequest(
+            "/api/binary/author/moderation/runtime/global-state",
+            "proof-global");
 
-        Assert.Contains("cn-mainland.political-sensitive", endpoints, StringComparison.Ordinal);
-        Assert.Contains("cn-mainland.porn-strict", endpoints, StringComparison.Ordinal);
-        Assert.Contains("cn-mainland.public-order", endpoints, StringComparison.Ordinal);
-        Assert.Contains("cn-mainland.national-security", endpoints, StringComparison.Ordinal);
-        Assert.Contains("ModerationRiskCategories.PoliticalSensitive", endpoints, StringComparison.Ordinal);
-        Assert.Contains("ModerationRiskCategories.Pornographic", endpoints, StringComparison.Ordinal);
-        Assert.Contains("ModerationDictionaryActions.RejectSubmit", endpoints, StringComparison.Ordinal);
-        Assert.Contains("ModerationDictionaryActions.GeoBlock", endpoints, StringComparison.Ordinal);
+        using HttpResponseMessage response = await client.SendAsync(mutation);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        _ = runtimeState.Received(1).SetGlobalState(
+            ModerationGlobalStates.DisabledToPending,
+            "provider incident",
+            null,
+            Arg.Any<string>());
+        await auditEvents.Received(1).RecordHighValueAsync(
+            Arg.Is<AuditEvent>(item => item.Action == "admin.moderation.runtime_global_state_changed"
+                && item.Outcome == AuditOutcomeCatalog.Success),
+            Arg.Any<CancellationToken>());
+        await invalidation.Received(1).InvalidateCommentMutationAsync(null, Arg.Any<CancellationToken>());
     }
 
-    private static string ExtractRuntimeItem(string source)
+    [Fact]
+    public void RuntimeDictionarySerialization_ExposesCountsAndEvidencePolicyWithoutRawTerms()
     {
-        int start = source.IndexOf("public sealed record ModerationDictionaryRuntimeItem", StringComparison.Ordinal);
-        int end = source.IndexOf("public sealed record ModerationRegionPolicyRuntimeItem", StringComparison.Ordinal);
-        Assert.True(start >= 0 && end > start);
-        return source[start..end];
+        string json = JsonSerializer.Serialize(
+            RuntimeSnapshot(),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.Contains("\"termCount\":3", json, StringComparison.Ordinal);
+        Assert.Contains("\"evidencePolicy\":\"show_category_only\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("raw-secret-term", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"terms\"", json, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
+    private static TestServer CreateServer(
+        IModerationDictionaryService dictionaries,
+        IAdminPrincipalService adminPrincipals,
+        IAuditEventService auditEvents,
+        ICacheInvalidationDispatcher invalidation,
+        IModerationRuntimeStateService? runtimeState = null,
+        IBinaryEndpointRequestContext? requestContext = null)
+    {
+        var builder = new WebHostBuilder()
+            .ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["CORS_ALLOWED_HOSTS"] = "https://console.example.test"
+                }))
+            .ConfigureServices(services =>
+            {
+                services.AddRouting();
+                services.AddAuthorization();
+                services.AddRateLimiter(options => options.AddFixedWindowLimiter("fixed_ip", limiter =>
+                {
+                    limiter.PermitLimit = 100;
+                    limiter.QueueLimit = 0;
+                    limiter.Window = TimeSpan.FromMinutes(1);
+                    limiter.AutoReplenishment = true;
+                }));
+                services.AddSingleton<IAedsEncoder>(new AedsEncoder());
+                services.AddSingleton(dictionaries);
+                services.AddSingleton(adminPrincipals);
+                services.AddSingleton(auditEvents);
+                services.AddSingleton(invalidation);
+                services.AddSingleton(runtimeState ?? Substitute.For<IModerationRuntimeStateService>());
+                if (requestContext is not null)
+                {
+                    services.AddSingleton(requestContext);
+                }
+            })
+            .Configure(app =>
+            {
+                app.UseRouting();
+                app.Use(async (context, next) =>
+                {
+                    var claims = new List<Claim>
+                    {
+                        new("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+                        new("admin_id", "39"),
+                        new("admin_sid", "admin-session-39")
+                    };
+                    if (context.Request.Headers["X-Test-Permission"] == AdminPermissions.SystemConfig)
+                    {
+                        claims.Add(new Claim(AdminPermissions.PermissionClaimType, AdminPermissions.SystemConfig));
+                    }
+
+                    context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
+                    await next();
+                });
+                app.UseAuthorization();
+                app.UseRateLimiter();
+                app.UseEndpoints(endpoints => endpoints.MapAuthoringEndpoints());
+            });
+        return new TestServer(builder);
+    }
+
+    private static HttpRequestMessage CreateAdminRequest(string path, string? proof)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, path);
+        request.Headers.Add("Origin", "https://console.example.test");
+        request.Headers.Add("X-Test-Permission", AdminPermissions.SystemConfig);
+        if (proof is not null)
+        {
+            request.Headers.Add("X-Fsus-Mfa-Proof", proof);
+        }
+
+        return request;
+    }
+
+    private static ModerationDictionaryRuntimeSnapshot RuntimeSnapshot()
+        => new(
+            SnapshotId: "snapshot-1039",
+            Version: "2026-07",
+            Checksum: "checksum-1039",
+            CreatedAtUtc: DateTime.UtcNow,
+            Dictionaries:
+            [
+                new ModerationDictionaryRuntimeItem(
+                    DictionaryId: "global.example",
+                    Version: "1",
+                    Scope: "global",
+                    Region: null,
+                    Category: "example",
+                    Source: "reviewed-config",
+                    ReviewedBy: "reviewer",
+                    UpdatedAtUtc: DateTime.UtcNow,
+                    Checksum: "dictionary-checksum",
+                    EvidencePolicy: ModerationEvidencePolicies.ShowCategoryOnly,
+                    TermCount: 3)
+            ],
+            RegionPolicies: [],
+            LastError: null);
+
+    private static ModerationRuntimeSnapshot RuntimeStateSnapshot()
+    {
+        DateTime now = DateTime.UtcNow;
+        var model = new ModerationModelRuntimeSnapshot(
+            SnapshotId: "model-1039",
+            Enabled: false,
+            Provider: "none",
+            ModelProfile: "disabled",
+            ThresholdProfile: "default",
+            ContractVersion: "1",
+            ConfigChecksum: "model-checksum",
+            LoadedAtUtc: now,
+            LoadedBy: "admin",
+            Status: "ready",
+            TimeoutMs: 800,
+            FailOpen: false,
+            LastError: null,
+            RuntimePath: null,
+            RuntimeChannel: "stable",
+            BuiltInRuntime: null);
+        return new ModerationRuntimeSnapshot(
+            SnapshotId: "runtime-1039",
+            GlobalState: ModerationGlobalStates.DisabledToPending,
+            RegionStates: new Dictionary<string, string>(StringComparer.Ordinal),
+            DisabledDictionaryIds: new HashSet<string>(StringComparer.Ordinal),
+            Model: model,
+            ChangedAtUtc: now,
+            ChangedBy: "39",
+            Reason: "provider incident",
+            ExpiresAtUtc: null,
+            LastError: null);
+    }
+
+    private static void AssertEndpoint(EndpointDataSource source, string path, string method, bool rateLimited)
+    {
+        RouteEndpoint endpoint = Assert.Single(source.Endpoints
+            .OfType<RouteEndpoint>()
+            .Where(item => string.Equals(
+                item.RoutePattern.RawText?.TrimStart('/'),
+                path.TrimStart('/'),
+                StringComparison.Ordinal)));
+        Assert.Contains(method, Assert.IsAssignableFrom<IHttpMethodMetadata>(
+            endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()).HttpMethods);
+        AuthorizationPolicy policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
+        ClaimsAuthorizationRequirement permission = Assert.Single(policy.Requirements
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(item => item.ClaimType == AdminPermissions.PermissionClaimType));
+        Assert.Contains(AdminPermissions.SystemConfig, permission.AllowedValues ?? []);
+        EnableRateLimitingAttribute? rateLimit = endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>();
+        if (rateLimited)
+        {
+            Assert.Equal("fixed_ip", Assert.IsType<EnableRateLimitingAttribute>(rateLimit).PolicyName);
+        }
+        else
+        {
+            Assert.Null(rateLimit);
+        }
+    }
+
+    private sealed class FixedJsonRequestContext(
+        AedsFrameType expectedFrameType,
+        byte[] payload) : IBinaryEndpointRequestContext
+    {
+        public Task<BinaryRequestPayload> ReadFrameAsync(
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            AedsFrameType expected,
+            CancellationToken cancellationToken,
+            int? maxFrameBytes = null)
+        {
+            Assert.Equal(expectedFrameType, expected);
+            return Task.FromResult(BinaryRequestPayload.Success(payload));
+        }
+
+        public Task<BinaryRequestPayload> ReadFrameAsync(
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            IReadOnlyCollection<AedsFrameType> expected,
+            CancellationToken cancellationToken,
+            int? maxFrameBytes = null)
+        {
+            Assert.Contains(expectedFrameType, expected);
+            return Task.FromResult(BinaryRequestPayload.Success(payload));
+        }
+
+        public Task<NameMutationPayload> ReadNameMutationAsync(
+            HttpContext httpContext,
+            IAedsEncoder aeds,
+            AedsFrameType expected,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public string BuildArticleViewerIdentity(HttpContext context, int articleId)
+            => throw new NotSupportedException();
+
+        public ValueTask<long> GetArticleListCacheVersionAsync(IUnifiedCache cache)
+            => throw new NotSupportedException();
+
+        public string BuildArticleListCacheIdentity(
+            long version,
+            int page,
+            int size,
+            int? categoryId,
+            int? tagId,
+            bool isDeleted,
+            int? status = null,
+            bool includePrivate = false,
+            string keyword = "")
+            => throw new NotSupportedException();
+
+        public string BuildArticleHotCacheIdentity(int count)
+            => throw new NotSupportedException();
+
+        public string? GetDeviceFingerprint(HttpContext context) => null;
+
+        public bool TryReadMfaProof(HttpContext context, out string proofToken)
+        {
+            proofToken = string.Empty;
+            return false;
+        }
+    }
 }

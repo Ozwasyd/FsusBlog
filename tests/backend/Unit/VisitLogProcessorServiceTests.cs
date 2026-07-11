@@ -12,7 +12,6 @@ using Microsoft.Extensions.ObjectPool;
 using NSubstitute;
 using SqlSugar;
 using VisitLogEntity = FsusBlog.Server.Entities.VisitLog;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -103,35 +102,86 @@ public sealed class VisitLogProcessorServiceTests
     }
 
     [Fact]
-    public void Source_DrainBatchUsesDeadlineWaitWithoutLinkedCancellationTokenSource()
+    public async Task Source_DrainBatchUsesDeadlineWaitWithoutLinkedCancellationTokenSource()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
+        await using ServiceProvider provider = CreateServiceProvider();
+        var channel = new VisitLogChannel();
+        var worker = new VisitLogProcessorService(
+            channel,
+            provider,
+            NullLogger<VisitLogProcessorService>.Instance);
+        var batch = new List<VisitLogEntity>();
+        Assert.True(channel.TryWrite(CreateMessage("127.0.0.1")));
 
-        Assert.Contains("ResolveFlushWindowRemaining", source, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAny(readTask, delayTask)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("CancellationTokenSource.CreateLinkedTokenSource", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("CancelAfter(FlushWindow)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("catch (OperationCanceledException) when (!token.IsCancellationRequested)", source, StringComparison.Ordinal);
+        var elapsed = Stopwatch.StartNew();
+        Task drain = DrainBatchAsync(worker, batch, CancellationToken.None);
+        await Task.Delay(VisitLogProcessorService.FlushWindow / 2);
+        Assert.True(channel.TryWrite(CreateMessage("127.0.0.2")));
+        await drain.WaitAsync(TimeSpan.FromSeconds(10));
+        elapsed.Stop();
+
+        Assert.Equal(2, batch.Count);
+        Assert.InRange(
+            elapsed.Elapsed,
+            VisitLogProcessorService.FlushWindow * 0.75,
+            VisitLogProcessorService.FlushWindow * 1.75);
     }
 
     [Fact]
-    public void Source_FlushPathCachesScopedServicesAndUsesAccumulatedStats()
+    public async Task Source_FlushPathCachesScopedServicesAndUsesAccumulatedStats()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
-        string flush = ExtractBetween(source, "private async Task FlushBatchAsync", "    private async Task ApplyArticleViewProjectionAsync");
-        string markStats = ExtractBetween(source, "private async Task MarkStatsAfterFlushAsync", "    private static string NormalizeEventType");
-        string process = ExtractBetween(source, "private void ProcessSingleMessageCore", "    private async Task FlushBatchAsync");
+        await using ServiceProvider provider = CreateServiceProvider();
+        using IServiceScope scope = provider.CreateScope();
+        var channel = new VisitLogChannel();
+        var worker = new VisitLogProcessorService(
+            channel,
+            provider,
+            NullLogger<VisitLogProcessorService>.Instance);
+        MethodInfo resolve = typeof(VisitLogProcessorService).GetMethod(
+            "ResolveFlushServices",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
 
-        Assert.Contains("private IArticleViewProjectionService? _articleViewProjectionService", source, StringComparison.Ordinal);
-        Assert.Contains("private IHotStatsInvalidationCoalescer? _hotStatsInvalidationCoalescer", source, StringComparison.Ordinal);
-        Assert.Contains("private VisitLogFlushStats _flushStats", source, StringComparison.Ordinal);
-        Assert.Contains("_articleViewProjectionService ??=", source, StringComparison.Ordinal);
-        Assert.Contains("_hotStatsInvalidationCoalescer ??=", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("CreateAsyncScope", flush, StringComparison.Ordinal);
-        Assert.Contains("VisitLogFlushStats stats", markStats, StringComparison.Ordinal);
-        Assert.Contains("stats.HasArticleRead", markStats, StringComparison.Ordinal);
-        Assert.DoesNotContain("batch.Any", markStats, StringComparison.Ordinal);
-        Assert.Contains("RecordFlushStats(eventType)", process, StringComparison.Ordinal);
+        _ = resolve.Invoke(worker, [scope.ServiceProvider]);
+        object? firstProjection = typeof(VisitLogProcessorService)
+            .GetField("_articleViewProjectionService", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(worker);
+        object? firstCoalescer = typeof(VisitLogProcessorService)
+            .GetField("_hotStatsInvalidationCoalescer", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(worker);
+        _ = resolve.Invoke(worker, [scope.ServiceProvider]);
+
+        Assert.Same(firstProjection, typeof(VisitLogProcessorService)
+            .GetField("_articleViewProjectionService", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(worker));
+        Assert.Same(firstCoalescer, typeof(VisitLogProcessorService)
+            .GetField("_hotStatsInvalidationCoalescer", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(worker));
+
+        var batch = new List<VisitLogEntity>();
+        var articleRead = new VisitLogMessage(
+            "127.0.0.1",
+            DateTime.UtcNow,
+            HumanReadEventTypes.ArticleRead,
+            "article:42",
+            42,
+            "viewer",
+            "proof",
+            8000);
+        typeof(VisitLogProcessorService).GetMethod(
+            "ProcessSingleMessageCore",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(worker, [articleRead, batch]);
+        object stats = typeof(VisitLogProcessorService)
+            .GetField("_flushStats", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(worker)!;
+        var coalescer = Assert.IsAssignableFrom<IHotStatsInvalidationCoalescer>(firstCoalescer);
+        MethodInfo markStats = typeof(VisitLogProcessorService).GetMethod(
+            "MarkStatsAfterFlushAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        await ((Task)markStats.Invoke(worker, [coalescer, stats, CancellationToken.None])!).ConfigureAwait(false);
+
+        Assert.Single(batch);
+        await coalescer.Received(1).MarkStatsDirtyAsync("visit-log-flush", Arg.Any<CancellationToken>());
+        await coalescer.Received(1).MarkHotArticlesDirtyAsync("article-read-projection", Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -204,15 +254,6 @@ public sealed class VisitLogProcessorServiceTests
             .GetMethod("DrainBatchWithFlushWindowAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var task = (Task)method.Invoke(worker, [batch, token])!;
         await task.ConfigureAwait(false);
-    }
-
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
     }
 
     [Theory]

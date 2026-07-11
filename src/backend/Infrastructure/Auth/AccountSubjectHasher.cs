@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Server.Entities;
@@ -29,20 +28,6 @@ public static class AccountSubjectHasher
         byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(
             string.Concat(HashPrefix, ':', normalizedKind, ':', normalizedSubject)));
         return Convert.ToHexString(bytes).ToLowerInvariant();
-    }
-
-    public static string FromPrincipalOrFallback(ClaimsPrincipal principal, int accountId)
-    {
-        string? claim = TextHelpers.LowerTrimmed(principal.FindFirst(ClaimType)?.Value);
-        if (claim is { Length: > 0 })
-        {
-            return claim;
-        }
-
-        string? identityKind = TextHelpers.LowerTrimmed(principal.FindFirst("identity_kind")?.Value);
-        return Create(
-            identityKind ?? AnonymousIdentityRuntime.AnonymousAccountKind,
-            string.Concat("anonymous-account:", accountId.ToString(CultureInfo.InvariantCulture)));
     }
 
     public static string BuildCacheKey(string accountSubjectHash)

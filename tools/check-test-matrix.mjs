@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseMatrix } from './test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixSourceText = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
@@ -26,6 +27,44 @@ function requireCondition(condition, message) {
 function readJsonFile(file) {
   return JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'))
 }
+
+function validateStructuredToolWiring() {
+  const matrix = parseMatrix(matrixSourceText)
+  const tiers = new Map(matrix.tiers.map((tier) => [tier.id, tier]))
+  const requireTierDependencies = (tierId, expected) => {
+    const tier = tiers.get(tierId)
+    requireCondition(Boolean(tier), `structured matrix is missing tier ${tierId}`)
+    requireCondition(
+      JSON.stringify(tier.dependsOn ?? []) === JSON.stringify(expected),
+      `${tierId}.dependsOn must equal ${expected.join(', ')}`
+    )
+  }
+  requireTierDependencies('data-scale-evidence-summary', ['data-scale-xs', 'data-scale-s'])
+  requireTierDependencies('performance-evidence-summary', [
+    'load-baseline',
+    'load-peak',
+    'backend-benchmark-regression',
+    'browser-performance-regression'
+  ])
+  const releaseDependencies = new Set(tiers.get('release-evidence')?.dependsOn ?? [])
+  for (const aggregate of ['data-scale-evidence-summary', 'performance-evidence-summary']) {
+    requireCondition(releaseDependencies.has(aggregate), `release-evidence must depend on ${aggregate}`)
+  }
+
+  const scripts = readJsonFile('src/frontend/package.json').scripts ?? {}
+  for (const mode of ['smoke', 'visual', 'boundaries']) {
+    const name = `check:ux:viewport-${mode}`
+    const command = scripts[name]
+    requireCondition(typeof command === 'string', `frontend package is missing ${name}`)
+    const tokens = command.trim().split(/\s+/u)
+    const runnerIndex = tokens.findIndex((token) => token.endsWith('run-ux-viewport-playwright.mjs'))
+    requireCondition(runnerIndex >= 0, `${name} must invoke the summary-preserving viewport runner`)
+    requireCondition(tokens[runnerIndex + 1] === mode, `${name} must pass mode ${mode} to the viewport runner`)
+    requireCondition(!tokens.includes('write-ux-viewport-summary.mjs'), `${name} must not chain a second summary writer`)
+  }
+}
+
+validateStructuredToolWiring()
 
 function run(args) {
   const result = spawnSync('node', ['tools/run-test-matrix.mjs', ...args], {

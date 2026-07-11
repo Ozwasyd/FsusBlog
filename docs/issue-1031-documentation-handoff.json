@@ -1,0 +1,83 @@
+{
+  "schema": "fsusblog.issue-1031.documentation-handoff.v1",
+  "issue": 1031,
+  "status": "documentation-aligned-validation-pending",
+  "scope": "release, zero-downtime rehearsal, migration qualification, strong traffic and retained-asset evidence",
+  "staticReadback": {
+    "trafficBindingArgument": "--traffic-binding-key-file",
+    "assetBindingArgument": "--asset-browser-binding-key-file",
+    "planFields": [
+      "evidenceInputs.trafficBindingKey",
+      "evidenceInputs.assetBrowserBindingKey",
+      "workers.observerEnvFile",
+      "workers.deploy.observerServicePlan",
+      "workers.rollback.observerServicePlan",
+      "workers.resume.observerServicePlan",
+      "target.migrationServerDll",
+      "migrationQualification.scenarioTemplate",
+      "migrationQualification.timeoutSeconds",
+      "migrationQualification.expandMigrationId",
+      "migrationQualification.backfillMigrationId",
+      "migrationQualification.contractMigrationId"
+    ],
+    "workerObserverService": "tools/deployment/release-worker-observer-service.mjs",
+    "workerObserverGuard": "ASPNETCORE_ENVIRONMENT == Test && FSUSBLOG_ROLLOUT_REHEARSAL == 1 && FSUSBLOG_WORKER_OBSERVER_ENABLED == 1",
+    "migrationQualificationCases": 10,
+    "qualificationAdapter": "tools/deployment/rehearsal-schema-qualification-probe.mjs",
+    "qualificationRoutes": [
+      "POST /api/release-evidence/schema-bridge/write",
+      "GET /api/release-evidence/schema-qualification/readiness"
+    ],
+    "qualificationRouteGuard": "environment == Test && SchemaMigration:QualificationEnabled == true && admin system.config && fixed_ip",
+    "productionRoutesMapped": false
+  },
+  "coverageDeclaration": {
+    "anonymous": ["home", "archive", "article", "search", "static", "AEDS binary"],
+    "authenticated": ["login", "refresh", "protected read", "representative write", "upload"],
+    "admin": ["health", "deployment control", "Test-only schema bridge/readiness"],
+    "notificationStream": ["guest/auth 1012", "cursor replay", "replay miss full resync", "event dedupe", "slow-client drain"],
+    "binary": ["AEDS magic", "v2 header", "flags", "frame type", "payload length", "CRC16", "byte budget", "payload SHA-256"]
+  },
+  "riskAndNoRestartFallback": {
+    "preSwitch": "Preserve the source Active slot and tear down the candidate.",
+    "postSwitch": "Use durable rollout recovery to restore source gateway/fence with a new monotonic generation.",
+    "expandBackfill": "Keep the N/N-1 bridge and pause or resume the durable checkpoint without restarting the active application.",
+    "contract": "When rollbackCompatible is false, block old-image rollback and use write isolation plus verified backup or forward repair.",
+    "asset": "Keep N-1 protected, stop GC closeout and rebuild evidence; never delete active or previous release assets.",
+    "evidenceKey": "Supply a fresh per-run key and rerun the verifier; key mismatch never authorizes an evidence rewrite."
+  },
+  "updatedDocumentation": [
+    "docs/production.md",
+    "docs/operations.md",
+    "docs/architecture.md",
+    "docs/testing.md",
+    "docs/database-migration.md",
+    "docs/api/design.md",
+    "docs/api/contracts.md",
+    "docs/api/quick-reference.md",
+    "docs/api/schemas-and-errors.md",
+    "docs/issue-1031-zero-downtime-rehearsal-handoff.md",
+    "docs/issue-1031-migration-qualification-handoff.md",
+    "docs/issue-1031-traffic-probe-handoff.md",
+    "docs/issue-1031-asset-compatibility-handoff.md",
+    "docs/issue-1031-release-evidence-handoff.md",
+    "docs/issue-1031-worker-normal-observer-handoff.md",
+    "docs/issue-1031-worker-reconciliation-handoff.md",
+    "docs/issue-1031-notification-evidence-handoff.md",
+    "docs/issue-1029-1031-service-worker-browser-handoff.md"
+  ],
+  "verification": {
+    "commandsExecuted": [],
+    "result": "not-run-by-instruction",
+    "pending": [
+      "documentation drift and API contract checks",
+      "focused Node and backend behavior suites",
+      "real normal, rollback, fault and SIGKILL/resume rehearsals",
+      "real migration ten-case qualification in both directions",
+      "traffic and controlled-browser HMAC readback",
+      "controlled browser ready checkpoint must precede the real gateway switch",
+      "repository worker observer service must run from the real phase-specific Test topology plan and private env; fixture-only responses remain invalid",
+      "anonymous, authenticated, admin, notification stream and binary end-to-end acceptance"
+    ]
+  }
+}

@@ -36,7 +36,7 @@ HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。�
 
 公开 binary 读模型使用预编码 artifact：匿名 `GET /api/binary/article/{id}.aeds`、`GET /api/binary/article/list/home/{page}/{size}.aeds`、`GET /api/binary/article/list/category/{categoryId}/{page}/{size}.aeds`、`GET /api/binary/article/list/tag/{tagId}/{page}/{size}.aeds`、`GET /api/binary/article/hot/{size}.aeds`、`GET /api/binary/category.aeds`、`GET /api/binary/tag.aeds` 只读取进程内 `PublicHotReadSnapshot` 的完整 AEDS v2 frame。artifact build 阶段同时生成 raw/br/gzip variant；命中时服务端按 `Accept-Encoding` 选择最优 variant，写出 variant-aware `ETag`、`Vary: Accept-Encoding`、可选 `Content-Encoding` 和 `X-Fsus-Frame-Encoding`。`If-None-Match` 匹配当前 variant 时返回 `304 Not Modified`，不发送 frame body。miss/not-ready 返回状态码，不会在请求线程同步查询 PostgreSQL、Redis、IMemoryCache、OutputCache 或文件系统。`GET /api/binary/article/{articleId}/related.aeds` 是动态 AEDS public-read endpoint，沿 `RelatedReadingService` 与 output cache 构建 ArticleRelatedReading frame，不属于 PublicHotRead L0 artifact。admin/private 读取走 `/api/binary/admin/article/**` 和非 `.aeds` taxonomy mutation path，以便草稿、定时、归档、删除状态和分类标签管理。
 
-L0 `Accept` 语义固定为：空值、`*/*`、`application/octet-stream` 可读取 binary artifact；HTML artifact 只接受空值、`*/*`、`text/html`；其他类型返回 `406`。L0 不承担跨域公开接口，`OPTIONS` 返回 `405`，CORS 仍由常规管线治理。快照状态通过 `/api/ops/health/ready-detail` 的 `runtime.publicHotRead` 暴露 `NotStarted` / `Building` / `Ready` / `Failed`、版本、artifact 计数、最后构建原因和错误；未 Ready 时 fast path 返回 `503` + `Retry-After: 1`。L0 负响应固定 `Cache-Control: no-store`，并带与公开 HTML artifact 相同的静态浏览器安全头：`Content-Security-Policy`、`X-Frame-Options`、`X-Content-Type-Options`、`Referrer-Policy`、`Permissions-Policy`、`Cross-Origin-Embedder-Policy`、`Cross-Origin-Opener-Policy` 与 `Cross-Origin-Resource-Policy`；`Range` 不支持并返回 `416` + `Accept-Ranges: none`；命中的 `.aeds` artifact 只使用 artifact-level HTTP 预压缩，浏览器 fetch 解压后仍得到原始 AEDS frame，payload 语义与 CRC 不变。
+L0 `Accept` 语义固定为：空值、`*/*`、`application/octet-stream` 可读取 binary artifact；HTML artifact 只接受空值、`*/*`、`text/html`；其他类型返回 `406`。L0 不承担跨域公开接口，`OPTIONS` 返回 `405`，CORS 仍由常规管线治理。快照状态通过 `/api/ops/health/ready-detail` 的 `runtime.publicHotRead` 暴露 `NotStarted` / `Building` / `Ready` / `Failed`、版本、artifact 计数、最后构建原因和错误；同一受保护详情的 `release` check 暴露非敏感 `releaseId`、`releaseSlot`、完整 commit SHA、不可变 image ref/digest，且生产环境缺失或不一致时整体 readiness fail closed。所有应用响应统一带非敏感 `X-Fsus-Release-Id` 与 `X-Fsus-Release-Slot`，供 Blue/Green 网关在 loopback 和公网路径核对实际命中的 release；不得在这些 header 中加入 token、密钥、完整配置或用户身份。公开 `/health/ready` body 仍只返回 `status` 与 `checkedAt`。未 Ready 时 fast path 返回 `503` + `Retry-After: 1`。L0 负响应固定 `Cache-Control: no-store`，并带与公开 HTML artifact 相同的静态浏览器安全头：`Content-Security-Policy`、`X-Frame-Options`、`X-Content-Type-Options`、`Referrer-Policy`、`Permissions-Policy`、`Cross-Origin-Embedder-Policy`、`Cross-Origin-Opener-Policy` 与 `Cross-Origin-Resource-Policy`；`Range` 不支持并返回 `416` + `Accept-Ranges: none`；命中的 `.aeds` artifact 只使用 artifact-level HTTP 预压缩，浏览器 fetch 解压后仍得到原始 AEDS frame，payload 语义与 CRC 不变。
 
 HTML L0 只暴露 `/api/binary/article/html/{pathKey}.html` 诊断/预览路径，真实公开 URL 仍是 `/`、`/article/{id}`、`/category/{id}`、`/tag/{id}` 等 public route。`pathKey` 必须 URL-safe：`article:42` -> `article-42`，`category:7` -> `category-7`，`tag:9` -> `tag-9`；`tag-name:*` 与包含空白、斜杠、非 ASCII 的 routeKey 使用稳定 hash。`PublicHotRead:EnableDiagnosticHeaders` 默认关闭；打开后成功响应才带 `X-Fsus-HotRead-Version`、`X-Fsus-HotRead-Artifact`、`X-Fsus-HotRead-Key`。
 
@@ -422,12 +422,14 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 ```json
 {
   "accessToken": "eyJhbG...",
+  "accessTokenExpiresAtUtc": "2026-06-29T12:49:56Z",
   "refreshToken": "随机刷新令牌",
   "refreshTokenExpiresAt": "2026-06-29T12:34:56Z"
 }
 ```
 
 - 该结构主要用于服务端内部登录/续签流程，不直接作为公开认证 API 的最终响应体
+- `accessTokenExpiresAtUtc` 由 JWT 签发结果直接给出并与 JWT `exp` 对齐；普通/MFA/Passkey 登录、refresh rotation 和 admin session 签发必须把该值原样传给 AccessToken Cookie，Cookie 层不得重新读取配置或解析 token
 - `refreshTokenExpiresAt` 对齐 `sys_user_session.IdleExpiresAt`，用于 refresh-token 成功路径直接写 Cookie expiry，避免按新 refresh token 回查 session
 - 对外认证接口成功后统一返回 `AuthLoginFlowDto`，认证 Cookie 通过 `Set-Cookie` 下发
 
@@ -473,7 +475,7 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 - `POST /api/binary/auth/anonymous/bootstrap` 与 `POST /api/binary/auth/passkey/login/complete` 成功时返回该结构，并在同一响应内写入登录 Cookie。
 - 该结构以及 `MfaChallengeResult.user` 不再输出 legacy `username`、`role` 或 `userId` 字段；MFA 登录完成时的 `user` 只包含 `accountId` 与 `identityKind`。
 - 密码、MFA challenge 或 Passkey 断言完成后仍必须经过服务端最终会话签发校验；封禁账号在认证通过后返回 `AuthLoginFlowDto` 并写入受限会话 Cookie，用于读取账号状态、登出、撤销会话、删除本人账号等安全收尾操作。注销账号（`Deleted` / `DeletedAt`）仍不得返回该结构，也不得写入 access / refresh / session Cookie。
-- 普通账号 access token 不携带 legacy username 或 role claim；在存在稳定账号 handle 时会携带 `account_subject_hash`，该 claim 由稳定 handle 派生，供 RiskControl subject hash 与 challenge proof binding 使用。`ClaimTypes.NameIdentifier` / `nameid` 仅作为账号容器 id 兼容字段，不能作为 RiskControl subject hash 材料。`sys_user.role=admin` 不能作为后台权限、notification admin group、rate-limit admin partition、评论管理员删除、普通账号状态治理保护条件或审计 admin actor 的来源。后台权限只能来自 independent admin principal token 的 `identity_kind=admin_principal`、`admin_id/admin_sid` 与多值 `admin_permission` claim。普通账号状态治理接口只治理 `identity_kind=anonymous_account` / legacy user 容器；若旧数据出现 `identity_kind=admin_principal` 的 `sys_user` 影子行，接口必须拒绝并交由 independent admin principal plane 处理。
+- 普通账号 access token 不携带 legacy username 或 role claim；必须携带与 `sys_user.account_subject_hash` 完全一致的 `account_subject_hash`，供 RiskControl subject hash、challenge proof、blacklist 和 notification admission 使用。该字段由迁移或账号创建写入并保持稳定，签发/读取路径不得从账号 id、public handle 或 Passkey handle 动态重建。缺失或格式错误时 token 签发与相关安全边界 fail closed。`ClaimTypes.NameIdentifier` / `nameid` 仅作为账号容器 id 兼容字段，不能作为 RiskControl subject hash 材料。`sys_user.role=admin` 不能作为后台权限、notification admin group、rate-limit admin partition、评论管理员删除、普通账号状态治理保护条件或审计 admin actor 的来源。后台权限只能来自 independent admin principal token 的 `identity_kind=admin_principal`、`admin_id/admin_sid` 与多值 `admin_permission` claim。普通账号状态治理接口只治理 `identity_kind=anonymous_account` 容器；若旧数据出现 `identity_kind=admin_principal` 的 `sys_user` 影子行，接口必须拒绝并交由 independent admin principal plane 处理。
 - `POST /api/binary/auth/delete-account` 在匿名身份模式下只接受 `AuthDeleteAccountRequest` 的确认文本，不包含旧 password、TOTP code 或 recovery-code 字段；敏感操作 proof 必须通过一次性 `X-Fsus-Mfa-Proof` 提交，action 固定为 `account.delete`。注销成功后服务端撤销当前账号 session、Passkey、Recovery Key 与匿名凭据状态，并把 `sys_user` 保留为 anonymous account tombstone，不再改写旧 username。
 - 封禁状态以 `sys_user.Status/BanReason` 为权威来源；`SecurityBlacklistUser` Redis 缓存只做加速且不设置 L2 过期。缓存值必须是 `v1|rowVersion|status|reason` 版本化状态快照，`rowVersion` 来自 `sys_user.xmin::text`；ban/unban 后发布当前 DB 版本，cache-miss 回填只能通过 Redis Lua 在 key 缺失或版本相同时写入，版本不匹配必须拒绝旧快照。登录、写入过滤器和 notification stream 遇到缓存 miss 时必须回查数据库，不能因 Redis 丢失而恢复封禁用户权限，也不得接受旧 reason-only 缓存值。受限会话的普通业务写入由服务端返回 `423 Locked`，Binary `ApiError.Details = "ACCOUNT_BANNED_WRITE_LOCKED"`；客户端不得只靠前端状态拦截来实现安全边界。
 
@@ -962,11 +964,56 @@ int64 timestampUnixMs
 
 服务端通过真实 `INotificationStreamPublisher` 写入 backlog 并触发本机 fanout，响应包含 `status`、`drillId`、`routeKey`、`eventType`、`count` 与 `eventIds`。该入口只供 resilience evidence 使用，生产环境不映射，未配置 secret 时返回 `404`。
 
+### Test-only schema migration qualification
+
+以下两个 JSON tooling routes 仅在 environment 精确为 `Test` 且
+`SchemaMigration:QualificationEnabled=true` 时映射；两者均要求 admin
+`system.config` 并应用 `fixed_ip` rate limit。Production/Development 中配置为 true
+也不会注册。
+
+`POST /api/release-evidence/schema-bridge/write`
+
+请求：
+
+```json
+{
+  "operationId": "source-migration-run-001",
+  "sequence": 1
+}
+```
+
+`operationId` trim 后必须为 3..96 个 ASCII letters/digits/`-_.`；`sequence` 必须为
+1..1,000,000。无效输入返回 `400 {"code":"schema_qualification_write_invalid"}`。
+成功执行 qualification control table 的 idempotent upsert，并返回：
+
+```json
+{
+  "bridgeWrite": true,
+  "operationId": "source-migration-run-001",
+  "sequence": 1,
+  "releaseId": "release-blue-...",
+  "slot": "blue"
+}
+```
+
+`GET /api/release-evidence/schema-qualification/readiness`
+
+- ready：HTTP 200，`{"status":"ready","code":"ok"}`；
+- isolated missing Expand：HTTP 503，
+  `{"status":"not_ready","code":"schema_incompatible"}`。
+
+两条响应都携带 `X-Fsus-Release-Id`、`X-Fsus-Release-Slot` 与
+`Cache-Control: no-store`。这些 header 用于 source/target identity 对账，不是认证
+凭据。route 只供 #1031 隔离 migration qualification；真实生产 migration 仍只能由
+`tools/deployment/release-rollout.sh` 串联正式 migration runner。
+
 ### Development local auth fixture
 
 `GET /__local/auth-fixture/admin` 与 `GET /api/local/auth-fixture/admin` 只在 `Development` 且 `fsus:allowLocalAuthFixture=true` 时映射；调用方还必须来自 loopback 地址，并提供 `X-Fsus-Local-Auth-Fixture-Secret`，其值用固定时间比较匹配 `fsus:localAuthFixtureSecret`。配套的 `/status` 端点使用相同的 loopback + shared-secret 门控。生产启动校验会拒绝 `fsus:allowLocalAuthFixture=true`。该入口只用于本地 Playwright fixture 刷新和 cookie 注入，不能在测试、预发布或生产环境作为匿名 admin 登录 fallback；刷新失败只返回固定失败文案，不回显脚本 stderr/stdout、异常消息或本地 storage-state 绝对路径。
 
-fixture 刷新进程只能通过 `UseShellExecute=false` + `ArgumentList` 调用仓库内固定脚本 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`。服务端在启动子进程前必须对 repo root、fixtures 目录和脚本路径执行 canonical path 校验，确认目标仍位于预期 fixtures 目录内；脚本路径不接受请求参数、环境派生的相对逃逸或替换文件名。
+fixture 刷新进程只能通过 `UseShellExecute=false` + `ArgumentList` 调用仓库内固定脚本 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`。服务端在启动子进程前必须对 repo root、fixtures 目录和脚本路径执行 canonical path 校验，确认目标仍位于预期 fixtures 目录内；executable 与脚本路径都不接受请求参数、配置值、环境派生的相对逃逸或替换文件名。默认 runner 设有 60 秒上限，传播请求取消，非零退出、启动失败和超时均在写 Cookie 前返回固定失败，不向响应或日志转发 stdout/stderr。Production 不映射 fixture endpoint，因而不会从请求链解析或调用 runner；行为测试可通过 DI 注入 fake runner，以真实端点和 storage-state 文件验证成功/失败边界而不启动子进程。
+
+fixture 成功读取 `user.storage-state.json` 的 `AccessToken.expires` 与 `admin.storage-state.json` 的 `AdminAccessToken.expires`，按 Unix 秒转换为绝对 UTC 后原样写入对应 `Set-Cookie Expires`。该路径不得把 access expiry 替换为 fixture 请求时间、refresh/admin idle expiry 或 `Jwt:AccessTokenExpiresMinutes`；runner 失败、storage-state 缺失或 access expiry 非法时不得发出任何新认证 Cookie。
 
 fixture redirect query 最大 2048 字符；`user.storage-state.json` / `admin.storage-state.json` 单文件最大 256 KiB，超过上限视为 fixture 不可用，不解析 JSON。
 
@@ -1607,8 +1654,18 @@ Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，�
 | GET | `/api/binary/author/audit/{id}/verify` | 单条审计 `record_hash` / `record_mac` 与同链 `prev_hash` 前驱校验 |
 | GET | `/api/binary/author/ops/health` | 运维健康面板数据：PostgreSQL、Redis、audit、Crawler CIDR、备份、PublicHotRead、search、worker、队列和结构化最近错误 |
 | GET | `/api/ops/health/ready-detail` | 受保护详细 readiness JSON：配置、PostgreSQL、Redis、资源、runtime、observability、RiskControl/perception-sealed@v2 gate；要求 admin principal `audit.read` |
+| GET | `/api/ops/deployment/status` | 受保护发布状态 JSON；要求 admin principal `system.config`、fixed-IP limit 与 loopback source |
+| POST | `/api/ops/deployment/activate` | 受保护激活 CAS；body 为 `releaseId/slot/generation`，仅 Ready Candidate 接受；正确重复请求幂等 |
+| POST | `/api/ops/deployment/drain` | 受保护排空 CAS；body 为 `releaseId/slot/generation/timeoutSeconds?`，超时仅限 5..300 秒；正确重复请求幂等 |
+| GET/POST | `/api/ops/deployment/fence/status|acquire|revoke` | 受保护 active-release fence 查询/CAS/撤销；要求 admin principal `system.config`、fixed-IP limit 与 loopback source |
+| GET/POST | `/api/ops/deployment/notification-stream/restart/status|restart` | 受保护 notification stream 1012 restart 协议；请求必须绑定精确 release/slot/generation |
+| POST | `/api/ops/deployment/notification-stream/drill/publish` | 零停机演练专用事件发布；`Deployment:NotificationStreamDrillEnabled=false` 时固定 404，启用后仍要求 admin `system.config`、loopback、active runtime 与 active fence |
 
 匿名 `/health/ready` 只返回最小 readiness 结果，配置错误和依赖异常必须被归一为 `configuration_invalid`、`dependency_unavailable` 等固定类别，不暴露配置键、validation error 列表、连接串、URL、CIDR、exception type 或 provider/backend 细节。完整失败明细只允许在受保护的 `/api/ops/health/ready-detail` 和后台运维视图中按权限查看。
+
+`DeploymentRuntimeSnapshot` 字段为 `releaseId`、`slot`、`mode`、`state`、`generation`、`startedAtUtc`、`activatedAtUtc?`、`drainStartedAtUtc?`、`inFlightHttpRequests`、`notificationStreamConnections`、`activeBackgroundClaims`、`drain`、`canReceiveTraffic`、`canClaimBackgroundWork`、`canAcceptNotificationStream`、`lastFailureStage?`、`lastErrorCode?`。`drain` 固定包含 `requested/drained/timedOut/deadlineUtc?/blockers/components`；每个 component 只有 bounded `name/pendingCount/blocking/status/error?`，不得包含 URL、用户、token 或队列 payload。activate/drain 返回 `accepted/idempotent/status/errorCode?/snapshot`；identity 或状态冲突为 409，非 loopback 为 403，认证/权限仍走现有 401/403。错误码固定为 `trusted_host_required`、`deployment_release_mismatch`、`deployment_slot_mismatch`、`deployment_generation_mismatch`、`candidate_not_ready`、`deployment_is_draining`、`deployment_still_starting`。Draining 时普通新请求返回 JSON `503`、`Retry-After: 5`、`Cache-Control: no-store`；notification preflight/握手返回既有 AEDS/notification 错误通道中的 `deployment_draining`（Candidate 为 `deployment_not_active`）和 `Retry-After: 5`，不新增旧文本业务 fallback。
+
+Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillId,count,dryRun}`；`drillId` 只允许 8..96 个 ASCII 字母数字、`.`、`_`、`-`，`count` 为 1..32。成功响应包含精确 release/slot/generation、drillId 与单调 event ID 数组；dry-run 不发布事件。错误固定为 `notification_drill_release_mismatch`、`notification_drill_slot_mismatch`、`notification_drill_generation_mismatch`、`notification_drill_release_not_active`、`notification_drill_active_fence_not_owned`、`notification_drill_id_invalid`、`notification_drill_count_invalid`、`notification_drill_publish_failed`。该 JSON ops 协议不是公开业务 API、AEDS fallback 或测试密钥旁路。
 
 | GET | `/api/binary/author/ops/backup` | 最近站点备份状态，扫描 database/uploads/DataProtection keyring/config/site-package/restore-drill artifacts |
 | GET | `/api/binary/author/ops/dangerous-operations/policy` | 管理端危险操作等级、admin passkey step-up、强确认和 diff 策略 |

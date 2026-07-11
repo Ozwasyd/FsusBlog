@@ -1,8 +1,10 @@
 #!/usr/bin/env node
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
+import { validateReleaseManifest } from '../release/release-manifest.mjs'
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 const requiredRedisFaultCases = ['redis-restart', 'redis-reconnect', 'redis-latency']
@@ -10,9 +12,33 @@ const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 
 const requiredNotificationFaultCases = ['notification-stream-slow-consumer']
 const requiredGracefulShutdownFaultCases = ['graceful-shutdown']
 const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure']
+const requiredRolloutStages = [
+  'manifest-validate', 'capacity-preflight', 'backup-restore-gate', 'expand-migration',
+  'candidate-start', 'candidate-readiness', 'asset-materialize', 'candidate-smoke',
+  'compatibility-smoke', 'gateway-switch', 'active-fence', 'public-verify',
+  'source-drain', 'source-stop', 'release-evidence'
+]
+const requiredRolloutArtifacts = [
+  'publicTraffic', 'notificationStream', 'assetCompatibility',
+  'workerReconciliation', 'resourceBudget', 'faultInjection'
+]
+const requiredTrafficCategories = [
+  'home', 'archive', 'article', 'binary', 'search', 'static',
+  'login', 'refresh', 'protected-read', 'write', 'upload', 'admin-health'
+]
+const requiredTrafficPolicyStages = ['status:planned', ...requiredRolloutStages, 'status:completed']
+const requiredRolloutAuxiliary = [
+  'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
+  'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'candidateSmoke',
+  'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
+  'activeFenceSourceRevoke', 'activeFenceVerify', 'publicTrafficCheckpoint',
+  'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
+  'retentionDrainComplete', 'operatorNote'
+]
 
 const requiredStatusChecks = [
   ['image digest', (manifest) => manifest.evidenceSummary?.image?.status === 'present'],
+  ['release identity', (manifest) => releaseIdentityOk(manifest)],
   ['coverage', (manifest) => manifest.evidenceSummary?.coverage?.status === 'ok'],
   ['ZAP DAST', (manifest) => manifest.evidenceSummary?.security?.dastZap === 'ok'],
   ['authenticated DAST', (manifest, context) => manifest.evidenceSummary?.security?.authenticatedDast === 'ok' && authenticatedDastOk(manifest, context)],
@@ -22,6 +48,8 @@ const requiredStatusChecks = [
   ['supply chain', (manifest) => manifest.evidenceSummary?.security?.supplyChain === 'ok'],
   ['SBOM', (manifest) => manifest.evidenceSummary?.security?.sbom === 'ok'],
   ['post deploy smoke', (manifest, context) => manifest.evidenceSummary?.operations?.postDeploySmoke === 'ok' && postDeploySmokeOk(manifest, context)],
+  ['gateway transition', (manifest, context) => manifest.evidenceSummary?.operations?.gatewayTransition === 'ok' && gatewayTransitionOk(manifest, context)],
+  ['zero downtime release rollout', (manifest, context) => manifest.evidenceSummary?.operations?.releaseRollout === 'ok' && releaseRolloutOk(manifest, context)],
   ['backup restore drill', (manifest, context) => manifest.evidenceSummary?.operations?.backupRestoreDrill === 'ok' && backupRestoreDrillOk(manifest, context)],
   ['SLO alert replay', (manifest) => manifest.evidenceSummary?.operations?.sloAlerts === 'ok'],
   ['critical SLO alerts', (manifest) => Number(manifest.evidenceSummary?.operations?.sloCriticalFiring ?? 0) === 0],
@@ -50,6 +78,9 @@ const requiredArtifacts = [
   'supplyChain',
   'sbom',
   'postDeploySmoke',
+  'gatewayTransition',
+  'releaseRollout',
+  'releaseRolloutBundle',
   'backupRestoreDrill',
   'coverage',
   'jobSummaries',
@@ -104,6 +135,546 @@ function readArtifactJson(manifest, context, key, relative = null) {
 function includesAll(values, required) {
   const set = new Set(Array.isArray(values) ? values : [])
   return required.every((value) => set.has(value))
+}
+
+function releaseIdentityOk(manifest) {
+  const identity = manifest.releaseIdentity
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)) return false
+  const { releaseSlot, ...releaseManifest } = identity
+  if (!/^[a-z][a-z0-9-]{0,31}$/u.test(String(releaseSlot ?? ''))) return false
+  if (manifest.evidenceSummary?.image?.releaseIdentityStatus !== 'ok') return false
+  if (manifest.imageDigest !== releaseManifest.imageDigest) return false
+  if (manifest.commitSha !== releaseManifest.commitSha) return false
+  return validateReleaseManifest(releaseManifest, {
+    requireRegistryDigest: true,
+    expectedReleaseId: releaseManifest.releaseId,
+    expectedImageRef: releaseManifest.imageRef,
+    expectedImageDigest: manifest.imageDigest,
+    expectedCommitSha: manifest.commitSha
+  }).length === 0
+}
+
+function gatewayTransitionOk(manifest, context) {
+  const report = readArtifactJson(manifest, context, 'gatewayTransition')
+  if (!report || typeof report !== 'object' || Array.isArray(report) || report.status !== 'ok') return false
+  if (!Number.isSafeInteger(report.generation) || report.generation < 1) return false
+  if (!Number.isFinite(report.durationMs) || report.durationMs < 0) return false
+  if (!isIsoUtc(report.startedAtUtc) || !isIsoUtc(report.completedAtUtc)) return false
+  if (Date.parse(report.completedAtUtc) < Date.parse(report.startedAtUtc)) return false
+  if (containsSensitiveFieldName(report)) return false
+  if (!gatewayReleaseIdentityOk(report.source) || !gatewayReleaseIdentityOk(report.target)) return false
+  if (report.source.slot === report.target.slot) return false
+
+  let finalIdentity
+  if (report.schema === 'fsusblog.gateway-transition-evidence.v1') {
+    if (!['switch', 'rollback'].includes(report.kind)) return false
+    if (!/^https:\/\/[A-Za-z0-9.-]+(?::[0-9]{1,5})?\/health\/ready$/u.test(String(report.publicProbeUrl ?? ''))) return false
+    const expectedPostSwitchProbeUrl = report.checks?.sourceDrainDeferred === true
+      ? String(report.publicProbeUrl).replace(/\/health\/ready$/u, '/health/live')
+      : report.publicProbeUrl
+    if (report.postSwitchProbeUrl !== expectedPostSwitchProbeUrl) return false
+    if (!/^sha256:[0-9a-f]{64}$/u.test(String(report.upstreamBeforeSha256 ?? ''))) return false
+    if (!/^sha256:[0-9a-f]{64}$/u.test(String(report.upstreamAfterSha256 ?? ''))) return false
+    if (!allTrue(report.checks, [
+      'targetIdentity',
+      'targetReadiness',
+      'sourcePublicRelease',
+      'stagedConfigTest',
+      'stateBegin',
+      'upstreamInstall',
+      'activeConfigTest',
+      'reload',
+      'publicReleaseProbe',
+      'targetLoopbackAfterReload',
+      'stateCommit',
+      'sourceRuntimeStatus',
+      'targetRuntimeStatus',
+      'targetActivation'
+    ])) return false
+    if (!((report.checks.sourceDrain === true && report.checks.sourceDrainDeferred === false)
+      || (report.checks.sourceDrain === false && report.checks.sourceDrainDeferred === true))) return false
+    if (!deploymentLifecycleEvidenceOk(report)) return false
+    finalIdentity = report.target
+  } else if (report.schema === 'fsusblog.gateway-recovery-evidence.v1') {
+    if (report.kind !== 'recovery' || !['restore-source', 'commit-target'].includes(report.action)) return false
+    if (!allTrue(report.checks, ['activeConfigTest', 'reload', 'publicReleaseProbe', 'stateResolution'])) return false
+    if (report.action === 'restore-source' && !allTrue(report.checks, ['sourceRuntime', 'sourceRuntimeStatus', 'targetNeutralized'])) return false
+    if (report.action === 'commit-target' && !allTrue(report.checks, ['targetRuntime', 'targetRuntimeStatus', 'targetActivation', 'sourceRuntimeStatus', 'sourceDrain'])) return false
+    if (!gatewayRecoveryLifecycleOk(report)) return false
+    finalIdentity = report.action === 'restore-source' ? report.source : report.target
+    if (report.observedAfter?.publicReleaseId !== finalIdentity.releaseId || report.observedAfter?.publicSlot !== finalIdentity.slot) return false
+  } else {
+    return false
+  }
+
+  const releaseIdentity = manifest.releaseIdentity
+  return releaseIdentity?.releaseSlot === finalIdentity.slot
+    && releaseIdentity.releaseId === finalIdentity.releaseId
+    && releaseIdentity.imageDigest === finalIdentity.imageDigest
+}
+
+function gatewayReleaseIdentityOk(identity) {
+  return identity
+    && typeof identity === 'object'
+    && !Array.isArray(identity)
+    && ['blue', 'green'].includes(identity.slot)
+    && /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/u.test(String(identity.releaseId ?? ''))
+    && /^sha256:[0-9a-f]{64}$/u.test(String(identity.imageDigest ?? ''))
+}
+
+function deploymentLifecycleEvidenceOk(report) {
+  const lifecycle = report.lifecycle
+  if (!lifecycle || typeof lifecycle !== 'object' || Array.isArray(lifecycle)) return false
+  const sourceBefore = lifecycle.sourceBefore
+  const targetBefore = lifecycle.targetBefore
+  const targetAfter = lifecycle.targetAfterActivation
+  const sourceAfter = lifecycle.sourceAfterDrain
+  if (![sourceBefore, targetBefore, targetAfter, sourceAfter].every((snapshot) =>
+    snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot)
+      && Number.isSafeInteger(snapshot.generation) && snapshot.generation > 0)) return false
+  if (sourceBefore.releaseId !== report.source.releaseId || sourceBefore.slot !== report.source.slot) return false
+  if (targetBefore.releaseId !== report.target.releaseId || targetBefore.slot !== report.target.slot) return false
+  if (targetAfter.releaseId !== report.target.releaseId || targetAfter.slot !== report.target.slot) return false
+  if (sourceAfter.releaseId !== report.source.releaseId || sourceAfter.slot !== report.source.slot) return false
+  if (sourceBefore.mode !== 'active' || sourceBefore.state !== 'active' || sourceBefore.canReceiveTraffic !== true) return false
+  if (targetBefore.mode !== 'candidate' || targetBefore.state !== 'ready' || targetBefore.canReceiveTraffic !== false || targetBefore.canClaimBackgroundWork !== false) return false
+  if (targetAfter.mode !== 'active' || targetAfter.state !== 'active' || targetAfter.canReceiveTraffic !== true || targetAfter.canClaimBackgroundWork !== true) return false
+  if (report.checks.sourceDrainDeferred === true) {
+    return sourceAfter.mode === 'active'
+      && sourceAfter.state === 'active'
+      && sourceAfter.drain?.requested === false
+  }
+  return sourceAfter.mode === 'draining'
+    && sourceAfter.state === 'draining'
+    && sourceAfter.canReceiveTraffic === false
+    && sourceAfter.canClaimBackgroundWork === false
+    && sourceAfter.drain?.requested === true
+    && sourceAfter.drain?.drained === true
+    && sourceAfter.drain?.timedOut === false
+    && Array.isArray(sourceAfter.drain?.blockers)
+    && sourceAfter.drain.blockers.length === 0
+}
+
+function gatewayRecoveryLifecycleOk(report) {
+  const lifecycle = report.lifecycle
+  if (!lifecycle || typeof lifecycle !== 'object' || Array.isArray(lifecycle)) return false
+  const sourceBefore = lifecycle.sourceBefore
+  if (!sourceBefore || sourceBefore.releaseId !== report.source.releaseId || sourceBefore.slot !== report.source.slot) return false
+  if (!Number.isSafeInteger(sourceBefore.generation) || sourceBefore.generation < 1) return false
+  if (sourceBefore.mode !== 'active' || sourceBefore.state !== 'active' || sourceBefore.canReceiveTraffic !== true) return false
+  if (report.action === 'restore-source') {
+    const targetAfter = lifecycle.targetAfterActivation
+    return targetAfter === null
+      || (targetAfter.releaseId === report.target.releaseId
+        && targetAfter.slot === report.target.slot
+        && Number.isSafeInteger(targetAfter.generation)
+        && targetAfter.generation > 0
+        && targetAfter.canReceiveTraffic === false
+        && targetAfter.canClaimBackgroundWork === false)
+  }
+  const targetBefore = lifecycle.targetBefore
+  const targetAfter = lifecycle.targetAfterActivation
+  const sourceAfter = lifecycle.sourceAfterDrain
+  if (![targetBefore, targetAfter, sourceAfter].every((snapshot) =>
+    snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot)
+      && Number.isSafeInteger(snapshot.generation) && snapshot.generation > 0)) return false
+  return targetBefore.releaseId === report.target.releaseId
+    && targetBefore.slot === report.target.slot
+    && ((targetBefore.mode === 'candidate' && targetBefore.state === 'ready' && targetBefore.canReceiveTraffic === false)
+      || (targetBefore.mode === 'active' && targetBefore.state === 'active' && targetBefore.canReceiveTraffic === true))
+    && targetAfter.releaseId === report.target.releaseId
+    && targetAfter.slot === report.target.slot
+    && targetAfter.mode === 'active'
+    && targetAfter.state === 'active'
+    && targetAfter.canReceiveTraffic === true
+    && sourceAfter.releaseId === report.source.releaseId
+    && sourceAfter.slot === report.source.slot
+    && sourceAfter.mode === 'draining'
+    && sourceAfter.state === 'draining'
+    && sourceAfter.canReceiveTraffic === false
+    && sourceAfter.drain?.requested === true
+    && sourceAfter.drain?.drained === true
+    && sourceAfter.drain?.timedOut === false
+    && Array.isArray(sourceAfter.drain?.blockers)
+    && sourceAfter.drain.blockers.length === 0
+}
+
+function releaseRolloutOk(manifest, context) {
+  try {
+    return releaseRolloutOkUnsafe(manifest, context)
+  } catch {
+    return false
+  }
+}
+
+function releaseRolloutOkUnsafe(manifest, context) {
+  const report = readArtifactJson(manifest, context, 'releaseRollout')
+  const finalFile = artifactPath(manifest, context.manifestPath, 'releaseRollout')
+  const bundle = artifactPath(manifest, context.manifestPath, 'releaseRolloutBundle')
+  if (!report || report.schema !== 'fsusblog.release-rollout-evidence.v1' || report.status !== 'pass') return false
+  if (!finalFile || !bundle || !fs.statSync(bundle, { throwIfNoEntry: false })?.isDirectory()) return false
+  if (!Array.isArray(report.errors) || report.errors.length !== 0) return false
+  if (!/^[0-9A-Za-z][0-9A-Za-z._-]{7,127}$/u.test(String(report.rolloutId ?? ''))) return false
+  if (!['deploy', 'rollback'].includes(report.kind)) return false
+  if (!gatewayReleaseIdentityOk(report.source) || !gatewayReleaseIdentityOk(report.target)) return false
+  if (!Number.isSafeInteger(report.source.runtimeGeneration) || report.source.runtimeGeneration < 1) return false
+  if (!Number.isSafeInteger(report.target.runtimeGeneration) || report.target.runtimeGeneration < 1) return false
+  if (!Number.isSafeInteger(report.gatewayGeneration) || report.gatewayGeneration < 1) return false
+  if (report.source.slot === report.target.slot || report.source.releaseId === report.target.releaseId) return false
+  if (report.target.releaseId !== manifest.releaseIdentity?.releaseId
+    || report.target.slot !== manifest.releaseIdentity?.releaseSlot
+    || report.target.imageDigest !== manifest.releaseIdentity?.imageDigest) return false
+  if (report.rollback?.target?.releaseId !== report.source.releaseId
+    || report.rollback?.target?.slot !== report.source.slot
+    || typeof report.rollback?.allowed !== 'boolean'
+    || typeof report.rollback?.contractMigrationApplied !== 'boolean') return false
+  if (report.rollback.contractMigrationApplied === report.rollback.allowed) return false
+  if (!Array.isArray(report.recoveries)) return false
+  for (let index = 0; index < report.recoveries.length; index += 1) {
+    const recovery = report.recoveries[index]
+    if (!['ok', 'failed'].includes(recovery?.status) || !recovery?.evidence) return false
+    if (recovery.status === 'failed' && !report.recoveries.slice(index + 1).some(candidate => candidate?.status === 'ok'
+      && candidate.action === recovery.action && candidate.failedStage === recovery.failedStage)) return false
+    const localFile = path.join(bundle, 'recoveries', path.basename(String(recovery.evidence.path ?? '')))
+    if (!metadataMatchesFile(recovery.evidence, localFile)) return false
+  }
+  if (!Array.isArray(report.stages) || report.stages.map(item => item?.stage).join('\n') !== requiredRolloutStages.join('\n')) return false
+
+  for (const stage of report.stages) {
+    if (!Number.isSafeInteger(stage.attempts) || stage.attempts < 1) return false
+    const localFile = path.join(bundle, 'commands', path.basename(String(stage.evidence?.path ?? '')))
+    if (!metadataMatchesFile(stage.evidence, localFile)) return false
+    const stageReport = readJson(localFile)
+    if (stageReport.schema !== 'fsusblog.release-rollout-stage-evidence.v1'
+      || stageReport.rolloutId !== report.rolloutId
+      || stageReport.stage !== stage.stage
+      || stageReport.status !== 'ok'
+      || stageReport.exitCode !== 0) return false
+    for (const stream of ['stdout', 'stderr']) {
+      const output = stageReport.output?.[stream]
+      if (output && !metadataMatchesFile(output, path.join(bundle, 'commands', path.basename(String(output.path ?? ''))))) return false
+    }
+    if (Array.isArray(stage.attemptEvidence)) {
+      if (stage.attemptEvidence.length !== stage.attempts) return false
+      for (const attempt of stage.attemptEvidence) {
+        const attemptFile = path.join(bundle, 'commands', path.basename(String(attempt?.evidence?.path ?? '')))
+        if (!metadataMatchesFile(attempt?.evidence, attemptFile)) return false
+        const attemptReport = readJson(attemptFile)
+        if (attemptReport.schema !== 'fsusblog.release-rollout-stage-evidence.v1'
+          || attemptReport.rolloutId !== report.rolloutId
+          || attemptReport.stage !== stage.stage
+          || attemptReport.status !== attempt.status) return false
+        for (const stream of ['stdout', 'stderr']) {
+          const output = attemptReport.output?.[stream]
+          if (output && !metadataMatchesFile(output, path.join(bundle, 'commands', path.basename(String(output.path ?? ''))))) return false
+        }
+      }
+    }
+  }
+
+  for (const name of requiredRolloutArtifacts) {
+    const metadata = report.artifacts?.[name]
+    const localFile = path.join(bundle, 'artifacts', name, path.basename(String(metadata?.path ?? '')))
+    if (!metadataMatchesFile(metadata, localFile)) return false
+    const artifact = readJson(localFile)
+    if (artifact.rolloutId !== report.rolloutId || !rolloutArtifactSemanticsOk(name, artifact)) return false
+  }
+  if (Object.keys(report.auxiliary ?? {}).join('\n') !== requiredRolloutAuxiliary.join('\n')) return false
+  for (const name of requiredRolloutAuxiliary) {
+    const metadata = report.auxiliary?.[name]
+    const localFile = path.join(bundle, 'auxiliary', name, path.basename(String(metadata?.path ?? '')))
+    if (!metadataMatchesFile(metadata, localFile)) return false
+    const auxiliary = readJson(localFile)
+    if (!rolloutAuxiliarySemanticsOk(name, auxiliary, report)) return false
+  }
+
+  const recordedDigest = manifest.artifactDigests?.releaseRollout
+  if (recordedDigest?.algorithm !== 'sha256' || recordedDigest.value !== sha256Hex(finalFile)) return false
+  const index = readJson(path.join(bundle, 'bundle-index.json'))
+  if (index.schema !== 'fsusblog.release-rollout-collected-bundle.v1'
+    || index.status !== 'ok'
+    || index.rolloutId !== report.rolloutId) return false
+  if (index.sourceEvidenceSha256 !== `sha256:${recordedDigest.value}`
+    || !Number.isSafeInteger(index.fileCount)
+    || !Array.isArray(index.files)
+    || index.files.length !== index.fileCount) return false
+  const indexedPaths = new Set()
+  for (const item of index.files) {
+    const relative = String(item?.path ?? '')
+    if (relative.length === 0 || path.isAbsolute(relative) || relative.split(/[\\/]/u).includes('..') || indexedPaths.has(relative)) return false
+    indexedPaths.add(relative)
+    if (!metadataMatchesFile(item, path.join(bundle, relative))) return false
+  }
+  return indexedPaths.has('release-rollout.json')
+    && `sha256:${sha256Hex(path.join(bundle, 'release-rollout.json'))}` === index.sourceEvidenceSha256
+}
+
+function rolloutAuxiliarySemanticsOk(name, value, rollout) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  if (value.rolloutId !== undefined && value.rolloutId !== rollout.rolloutId) return false
+  if (value.target?.releaseId !== undefined && value.target.releaseId !== rollout.target.releaseId) return false
+  if (value.source?.releaseId !== undefined && value.source.releaseId !== rollout.source.releaseId) return false
+  if (Array.isArray(value.errors) && value.errors.length !== 0) return false
+  if (name === 'releaseManifest') {
+    return value.schema === 'fsusblog.release-manifest.v1'
+      && value.releaseId === rollout.target.releaseId
+      && value.imageDigest === rollout.target.imageDigest
+  }
+  if (name === 'operatorNote') {
+    return value.schema === 'fsusblog.release-rollout-operator-note.v1'
+      && value.rolloutId === rollout.rolloutId
+      && typeof value.provided === 'boolean'
+      && typeof value.note === 'string'
+      && value.note.length <= 4000
+  }
+  return value.status === undefined || ['pass', 'ok', 'healthy', 'completed', 'dry-run'].includes(value.status)
+}
+
+function rolloutArtifactSemanticsOk(name, value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || !['pass', 'ok', 'completed'].includes(value.status)) return false
+  if (name === 'publicTraffic') {
+    return rolloutPublicTrafficSemanticsOk(value)
+  }
+  if (name === 'notificationStream') {
+    const resync = Object.values(value.resync ?? {}).flatMap(items => Array.isArray(items) ? items : [])
+    const resyncPhaseOk = (phase) => {
+      const observations = resync.filter(item => item?.phase === phase && item?.status === 'pass')
+      return observations.length >= 2 && observations.every(item => Number.isSafeInteger(item.watermark)
+        && /^sha256:[0-9a-f]{64}$/u.test(String(item.contentSha256 ?? '')))
+    }
+    return value.contractVersion === 2
+      && zeroFields(value, ['missingEventCount', 'duplicateAppliedEventCount', 'duplicateBusinessEventCount'])
+      && value.serviceRestartObserved === true
+      && value.cursorReplayVerified === true
+      && value.replayMissFullResyncVerified === true
+      && value.businessEventsExactlyOnce === true
+      && value.slowClientDidNotBlockDrain === true
+      && /^sha256:[0-9a-f]{64}$/u.test(String(value.inputBindings?.resyncScenario?.sha256 ?? ''))
+      && resyncPhaseOk('replay-miss')
+      && resyncPhaseOk('final')
+  }
+  if (name === 'assetCompatibility') {
+    return zeroFields(value, ['notFoundCount', 'hashMismatchCount', 'connectionErrorCount'])
+      && ['delayedOldAssets', 'oldFrontendToNewBackend', 'newFrontendToOldBackend', 'oldServiceWorkerCache', 'retentionWindowAfterGc']
+        .every(scenario => value.scenarios?.[scenario] === 'pass')
+      && rolloutAssetCompatibilitySemanticsOk(value)
+  }
+  if (name === 'workerReconciliation') {
+    return value.schema === 'fsusblog.release-worker-reconciliation-evidence.v2'
+      && value.mode === 'normal'
+      && zeroFields(value, ['duplicateEffectCount', 'staleGenerationCommitCount', 'lostAuditCount', 'lostVisitProjectionCount'])
+      && (value.buffersDrained === true || value.durableReplayVerified === true)
+      && value.gracefulDrainVerified === true
+      && value.forcedSourceRecoveryRequired === false
+      && value.forcedSourceRecoveryVerified === false
+      && Object.values(value.checks ?? {}).length > 0
+      && Object.values(value.checks).every(check => check === true)
+  }
+  if (name === 'resourceBudget') {
+    return value.withinBudget === true
+      && Number(value.minimumSupported?.cpuCores) > 0
+      && Number(value.minimumSupported?.memoryMiB) > 0
+      && Object.values(value.checks ?? {}).every(check => check === true)
+  }
+  if (name === 'faultInjection') {
+    const cases = Array.isArray(value.cases) ? value.cases : []
+    return [
+      'manifest-digest-mismatch', 'capacity-insufficient', 'expand-failure', 'candidate-readiness',
+      'asset-hash-mismatch', 'gateway-reload-failure', 'active-fence-failure', 'public-probe-failure',
+      'drain-timeout', 'source-stop-failure', 'host-interruption', 'redis-disconnect', 'postgres-disconnect'
+    ].every(caseName => cases.some(item => item?.case === caseName && item.status === 'pass' && item.automated === true))
+  }
+  return false
+}
+
+function rolloutAssetCompatibilitySemanticsOk(value) {
+  const browser = value.browser
+  if (browser?.schema !== 'fsusblog.release-asset-browser-evidence.v1'
+    || browser?.status !== 'pass'
+    || typeof browser.browser?.name !== 'string'
+    || browser.browser.name.length === 0
+    || typeof browser.browser?.version !== 'string'
+    || browser.browser.version.length === 0
+    || typeof browser.browser?.executablePath !== 'string'
+    || !path.isAbsolute(browser.browser.executablePath)
+    || !/^sha256:[0-9a-f]{64}$/u.test(String(browser.browser?.executableSha256 ?? ''))) return false
+  if (browser.bindings?.rolloutId !== value.rolloutId
+    || browser.bindings?.sourceReleaseId !== value.sourceReleaseId
+    || browser.bindings?.targetReleaseId !== value.targetReleaseId
+    || !/^sha256:[0-9a-f]{64}$/u.test(String(browser.bindings?.scenarioSha256 ?? ''))
+    || !/^sha256:[0-9a-f]{64}$/u.test(String(browser.bindings?.manifestSha256 ?? ''))
+    || !/^sha256:[0-9a-f]{64}$/u.test(String(browser.bindings?.gcEvidenceSha256 ?? ''))) return false
+  if (browser.beforeSwitch?.status !== 'pass'
+    || browser.beforeSwitch?.serviceWorker?.controller?.state !== 'activated') return false
+  const delayed = Array.isArray(browser.delayed?.resources) ? browser.delayed.resources : []
+  if (!['javascript', 'stylesheet', 'wasm', 'font']
+    .every(kind => delayed.some(resource => resource?.kind === kind && resource?.hashMatches === true))) return false
+  if (browser.afterSwitch?.status !== 'pass'
+    || browser.compatibility?.oldFrontendToNewBackend?.status !== 'pass'
+    || browser.compatibility?.newFrontendToOldBackend?.status !== 'pass') return false
+  const cacheReads = Array.isArray(browser.afterGc?.cacheReads) ? browser.afterGc.cacheReads : []
+  if (browser.afterGc?.status !== 'pass' || cacheReads.length === 0
+    || cacheReads.some(read => read?.cacheHit !== true || read?.hashMatches === false)) return false
+  if (!Array.isArray(browser.pageErrors) || browser.pageErrors.length !== 0
+    || !Array.isArray(browser.network?.failures)) return false
+  const binding = value.browserBinding
+  const { browserBinding: ignored, ...unsignedValue } = value
+  return binding?.schema === 'fsusblog.release-asset-browser-binding.v1'
+    && binding?.algorithm === 'hmac-sha256'
+    && /^hmac-sha256:[0-9a-f]{64}$/u.test(String(binding?.keyId ?? ''))
+    && /^hmac-sha256:[0-9a-f]{64}$/u.test(String(binding?.signature ?? ''))
+    && binding?.rolloutId === value.rolloutId
+    && binding?.sourceReleaseId === value.sourceReleaseId
+    && binding?.targetReleaseId === value.targetReleaseId
+    && binding?.browserName === browser.browser?.name
+    && binding?.browserVersion === browser.browser?.version
+    && binding?.browserExecutablePath === browser.browser?.executablePath
+    && binding?.browserExecutableSha256 === browser.browser?.executableSha256
+    && binding?.scenarioSha256 === browser.bindings?.scenarioSha256
+    && binding?.manifestSha256 === browser.bindings?.manifestSha256
+    && binding?.gcEvidenceSha256 === browser.bindings?.gcEvidenceSha256
+    && binding?.payloadSha256 === sha256Value(canonicalJson(unsignedValue))
+}
+
+function rolloutPublicTrafficSemanticsOk(value) {
+  if (!(Number(value.totalRequests) > 0)
+    || !(Number(value.releaseDistribution?.source) > 0)
+    || !(Number(value.releaseDistribution?.target) > 0)
+    || !zeroFields(value, [
+      'unexpectedResponseCount', 'deploymentFailureCount', 'connectionErrorCount',
+      'gatewayErrorCount', 'unhandled5xxCount', 'inFlightAbortedCount', 'inFlightRequestCount'
+    ])) return false
+  if (value.probeMode !== 'public-rollout'
+    || value.releaseIdentityPolicy?.required !== true
+    || value.releaseIdentityPolicy?.scenarioRequired !== true
+    || value.releaseIdentityPolicy?.mode !== 'public-rollout'
+    || Number(value.releaseIdentityPolicy?.violationCount) !== 0) return false
+  const expectedCoverage = requiredTrafficPolicyStages.flatMap(stage => requiredTrafficCategories.map(category => `${stage}/${category}`)).sort()
+  const coverage = value.releaseIdentityPolicy?.coverage
+  if (!coverage || typeof coverage !== 'object' || Array.isArray(coverage)) return false
+  const coverageKeys = Object.keys(coverage).sort()
+  if (coverageKeys.join('\n') !== expectedCoverage.join('\n')
+    || coverageKeys.some(key => !Number.isSafeInteger(coverage[key]) || coverage[key] < 0)) return false
+  if (!Array.isArray(value.requiredCategories)
+    || value.requiredCategories.join('\n') !== requiredTrafficCategories.join('\n')) return false
+  const sessions = value.sessionChains && typeof value.sessionChains === 'object' && !Array.isArray(value.sessionChains)
+    ? Object.values(value.sessionChains)
+    : []
+  if (sessions.length === 0 || sessions.some(session => !(Number(session.completedCycles) > 0) || Number(session.failedCycles) !== 0)) return false
+  const holds = value.gatewaySwitchHolds && typeof value.gatewaySwitchHolds === 'object' && !Array.isArray(value.gatewaySwitchHolds)
+    ? Object.values(value.gatewaySwitchHolds)
+    : []
+  if (holds.length === 0 || holds.some(hold => hold.required !== true
+    || !(Number(hold.attempts) > 0)
+    || !(Number(hold.passCount) > 0)
+    || Number(hold.failCount) !== 0
+    || !Array.isArray(hold.observations)
+    || !hold.observations.some(observation => observation?.pass === true
+      && observation?.startedAt?.switchCommitted === false
+      && observation?.completedAt?.switchCommitted === true
+      && observation?.releaseRole === 'target'
+      && /^sha256:[0-9a-f]{64}$/u.test(String(observation?.bindingSha256 ?? ''))))) return false
+  const observation = value.observationBinding
+  const digests = Array.isArray(observation?.observationSha256) ? observation.observationSha256 : []
+  if (observation?.schema !== 'fsusblog.release-traffic-observation-chain.v1'
+    || observation?.algorithm !== 'sha256-chain'
+    || !(Number(observation?.observationCount) > 0)
+    || observation.observationCount !== digests.length
+    || digests.some(digest => !/^sha256:[0-9a-f]{64}$/u.test(String(digest)))) return false
+  let chainHead = sha256Value('fsusblog.release-traffic-observation-chain.v1')
+  for (const digest of digests) chainHead = sha256Value(`${chainHead}\0${digest}`)
+  if (chainHead !== observation.chainHeadSha256) return false
+  const responses = Array.isArray(value.responseObservations) ? value.responseObservations : []
+  if (!responses.some(record => record?.category === 'binary'
+    && Array.isArray(record?.lastObservation?.aeds?.checks)
+    && record.lastObservation.aeds.checks.length >= 7
+    && record.lastObservation.aeds.checks.every(check => check?.pass === true))) return false
+  const binding = value.finalBinding
+  const { finalBinding: ignored, ...unsignedValue } = value
+  return binding?.schema === 'fsusblog.release-traffic-final-binding.v1'
+    && binding?.algorithm === 'hmac-sha256'
+    && /^hmac-sha256:[0-9a-f]{64}$/u.test(String(binding?.keyId ?? ''))
+    && /^hmac-sha256:[0-9a-f]{64}$/u.test(String(binding?.signature ?? ''))
+    && binding?.rolloutId === value.rolloutId
+    && binding?.scenarioSha256 === observation?.scenarioSha256
+    && binding?.initialRolloutStateSha256 === observation?.initialRolloutStateSha256
+    && /^sha256:[0-9a-f]{64}$/u.test(String(binding?.finalRolloutStateSha256 ?? ''))
+    && binding?.observationCount === observation?.observationCount
+    && binding?.observationHashChain === observation?.chainHeadSha256
+    && binding?.payloadSha256 === sha256Value(canonicalJson(unsignedValue))
+}
+
+function metadataMatchesFile(metadata, file) {
+  if (!metadata || !/^sha256:[0-9a-f]{64}$/u.test(String(metadata.sha256 ?? ''))) return false
+  const stat = fs.lstatSync(file, { throwIfNoEntry: false })
+  return stat?.isFile() === true
+    && !stat.isSymbolicLink()
+    && stat.size === metadata.bytes
+    && `sha256:${sha256Hex(file)}` === metadata.sha256
+}
+
+function sha256Hex(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
+}
+
+function sha256Value(value) {
+  return `sha256:${crypto.createHash('sha256').update(value).digest('hex')}`
+}
+
+function canonicalJson(value) {
+  if (value === undefined) return 'null'
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(item => canonicalJson(item)).join(',')}]`
+  return `{${Object.keys(value).filter(key => value[key] !== undefined).sort().map(key => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`
+}
+
+function zeroFields(value, fields) {
+  return fields.every(field => Number(value[field]) === 0)
+}
+
+function lifecycleFixture({ source, target }) {
+  const snapshot = (identity, mode, state, active, drain = {}) => ({
+    releaseId: identity.releaseId,
+    slot: identity.slot,
+    mode,
+    state,
+    generation: identity.generation,
+    canReceiveTraffic: active,
+    canClaimBackgroundWork: active,
+    canAcceptNotificationStream: active,
+    inFlightHttpRequests: 0,
+    notificationStreamConnections: 0,
+    activeBackgroundClaims: 0,
+    drain: {
+      requested: false,
+      drained: false,
+      timedOut: false,
+      blockers: [],
+      ...drain
+    }
+  })
+  return {
+    sourceBefore: snapshot(source, 'active', 'active', true),
+    targetBefore: snapshot(target, 'candidate', 'ready', false),
+    targetAfterActivation: snapshot(target, 'active', 'active', true),
+    sourceAfterDrain: snapshot(source, 'draining', 'draining', false, { requested: true, drained: true })
+  }
+}
+
+function allTrue(value, keys) {
+  return value && typeof value === 'object' && !Array.isArray(value) && keys.every((key) => value[key] === true)
+}
+
+function isIsoUtc(value) {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u.test(String(value ?? ''))
+    && Number.isFinite(Date.parse(value))
+}
+
+function containsSensitiveFieldName(value) {
+  if (Array.isArray(value)) return value.some(containsSensitiveFieldName)
+  if (!value || typeof value !== 'object') return false
+  return Object.entries(value).some(([key, nested]) =>
+    /(?:password|passwd|token|privatekey|secret|credential)$/iu.test(key) || containsSensitiveFieldName(nested))
 }
 
 function backupRestoreDrillOk(manifest, context) {
@@ -449,18 +1020,313 @@ function validateManifest(manifest, options = {}) {
   }
 }
 
+function releaseRolloutTrafficFixture(rolloutId) {
+  const observationDigest = `sha256:${'6'.repeat(64)}`
+  const initialHead = sha256Value('fsusblog.release-traffic-observation-chain.v1')
+  const chainHead = sha256Value(`${initialHead}\0${observationDigest}`)
+  const scenarioSha256 = `sha256:${'7'.repeat(64)}`
+  const initialStateSha256 = `sha256:${'8'.repeat(64)}`
+  const coverage = Object.fromEntries(requiredTrafficPolicyStages
+    .flatMap(stage => requiredTrafficCategories.map(category => [`${stage}/${category}`, 1])))
+  const unsigned = {
+    schema: 'fsusblog.release-traffic-evidence.v1',
+    status: 'pass',
+    probeMode: 'public-rollout',
+    rolloutId,
+    errors: [],
+    totalRequests: 100,
+    unexpectedResponseCount: 0,
+    deploymentFailureCount: 0,
+    connectionErrorCount: 0,
+    gatewayErrorCount: 0,
+    unhandled5xxCount: 0,
+    inFlightAbortedCount: 0,
+    inFlightRequestCount: 0,
+    releaseDistribution: { source: 50, target: 50 },
+    requiredCategories: [...requiredTrafficCategories],
+    releaseIdentityPolicy: {
+      required: true,
+      scenarioRequired: true,
+      mode: 'public-rollout',
+      violationCount: 0,
+      coverage
+    },
+    sessionChains: { authenticated: { completedCycles: 5, failedCycles: 0 } },
+    gatewaySwitchHolds: {
+      article: {
+        required: true,
+        attempts: 1,
+        passCount: 1,
+        failCount: 0,
+        observations: [{
+          pass: true,
+          startedAt: { switchCommitted: false },
+          completedAt: { switchCommitted: true },
+          releaseRole: 'target',
+          bindingSha256: `sha256:${'9'.repeat(64)}`
+        }]
+      }
+    },
+    responseObservations: [{
+      category: 'binary',
+      lastObservation: {
+        aeds: { checks: Array.from({ length: 7 }, (_, index) => ({ kind: `check-${index}`, pass: true })) }
+      }
+    }],
+    observationBinding: {
+      schema: 'fsusblog.release-traffic-observation-chain.v1',
+      algorithm: 'sha256-chain',
+      observationCount: 1,
+      observationSha256: [observationDigest],
+      chainHeadSha256: chainHead,
+      scenarioSha256,
+      initialRolloutStateSha256: initialStateSha256
+    }
+  }
+  return {
+    ...unsigned,
+    finalBinding: {
+      schema: 'fsusblog.release-traffic-final-binding.v1',
+      algorithm: 'hmac-sha256',
+      keyId: `hmac-sha256:${'a'.repeat(64)}`,
+      rolloutId,
+      scenarioSha256,
+      initialRolloutStateSha256: initialStateSha256,
+      finalRolloutStateSha256: `sha256:${'b'.repeat(64)}`,
+      observationCount: 1,
+      observationHashChain: chainHead,
+      payloadSha256: sha256Value(canonicalJson(unsigned)),
+      signature: `hmac-sha256:${'c'.repeat(64)}`
+    }
+  }
+}
+
+function releaseRolloutAssetFixture(rolloutId, sourceReleaseId, targetReleaseId) {
+  const scenarioSha256 = `sha256:${'d'.repeat(64)}`
+  const manifestSha256 = `sha256:${'e'.repeat(64)}`
+  const gcEvidenceSha256 = `sha256:${'f'.repeat(64)}`
+  const browser = {
+    schema: 'fsusblog.release-asset-browser-evidence.v1',
+    status: 'pass',
+    browser: {
+      name: 'chromium', version: 'fixture-1', executablePath: '/fixture/chromium',
+      executableSha256: `sha256:${'1'.repeat(64)}`
+    },
+    bindings: { rolloutId, sourceReleaseId, targetReleaseId, scenarioSha256, manifestSha256, gcEvidenceSha256 },
+    beforeSwitch: { status: 'pass', serviceWorker: { controller: { state: 'activated' } } },
+    delayed: { resources: ['javascript', 'stylesheet', 'wasm', 'font'].map(kind => ({ kind, hashMatches: true })) },
+    afterSwitch: { status: 'pass' },
+    compatibility: {
+      oldFrontendToNewBackend: { status: 'pass' },
+      newFrontendToOldBackend: { status: 'pass' }
+    },
+    afterGc: { status: 'pass', cacheReads: [{ cacheHit: true, hashMatches: true }] },
+    console: [], pageErrors: [],
+    network: { responses: [], failures: [], blockedOldAssetRequests: [] },
+    errors: []
+  }
+  const unsigned = {
+    schema: 'fsusblog.release-asset-compatibility-evidence.v1',
+    status: 'pass', rolloutId, sourceReleaseId, targetReleaseId, errors: [],
+    notFoundCount: 0, hashMismatchCount: 0, connectionErrorCount: 0,
+    checkpoint: { manifest: { sha256: manifestSha256 } },
+    scenarios: Object.fromEntries([
+      'delayedOldAssets', 'oldFrontendToNewBackend', 'newFrontendToOldBackend',
+      'oldServiceWorkerCache', 'retentionWindowAfterGc'
+    ].map(name => [name, 'pass'])),
+    browser
+  }
+  return {
+    ...unsigned,
+    browserBinding: {
+      schema: 'fsusblog.release-asset-browser-binding.v1', algorithm: 'hmac-sha256',
+      keyId: `hmac-sha256:${'2'.repeat(64)}`, rolloutId, sourceReleaseId, targetReleaseId,
+      browserName: browser.browser.name, browserVersion: browser.browser.version,
+      browserExecutablePath: browser.browser.executablePath,
+      browserExecutableSha256: browser.browser.executableSha256,
+      scenarioSha256, manifestSha256, gcEvidenceSha256,
+      payloadSha256: sha256Value(canonicalJson(unsigned)),
+      signature: `hmac-sha256:${'3'.repeat(64)}`
+    }
+  }
+}
+
+function writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest) {
+  const bundle = path.join(tmpDir, 'releaseRolloutBundle')
+  const commands = path.join(bundle, 'commands')
+  fs.mkdirSync(commands, { recursive: true })
+  const rolloutId = `deploy-${releaseId}`
+  const source = {
+    slot: 'blue',
+    releaseId: '20260711000000-aabbccddeeff',
+    imageDigest: `sha256:${'e'.repeat(64)}`,
+    runtimeGeneration: 1
+  }
+  const target = { slot: 'green', releaseId, imageDigest, runtimeGeneration: 2 }
+  const metadata = (file, original) => ({
+    path: original,
+    bytes: fs.statSync(file).size,
+    sha256: `sha256:${sha256Hex(file)}`
+  })
+  const writeArtifact = (name, value) => {
+    const file = path.join(bundle, 'artifacts', name, `${name}.json`)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, `${JSON.stringify({ rolloutId, ...value })}\n`)
+    return metadata(file, `/var/lib/fsusblog/deployment/rollouts/${rolloutId}/evidence/${name}.json`)
+  }
+  const artifacts = {
+    publicTraffic: writeArtifact('publicTraffic', releaseRolloutTrafficFixture(rolloutId)),
+    notificationStream: writeArtifact('notificationStream', {
+      schema: 'fsusblog.release-notification-stream-evidence.v1', contractVersion: 2,
+      status: 'pass', missingEventCount: 0, duplicateAppliedEventCount: 0,
+      duplicateBusinessEventCount: 0, serviceRestartObserved: true, cursorReplayVerified: true,
+      replayMissFullResyncVerified: true, businessEventsExactlyOnce: true,
+      slowClientDidNotBlockDrain: true,
+      inputBindings: { resyncScenario: { sha256: `sha256:${'1'.repeat(64)}` } },
+      resync: {
+        staleGuest: [
+          { phase: 'replay-miss', status: 'pass', watermark: 10, contentSha256: `sha256:${'2'.repeat(64)}` },
+          { phase: 'final', status: 'pass', watermark: 20, contentSha256: `sha256:${'3'.repeat(64)}` }
+        ],
+        staleAuth: [
+          { phase: 'replay-miss', status: 'pass', watermark: 10, contentSha256: `sha256:${'4'.repeat(64)}` },
+          { phase: 'final', status: 'pass', watermark: 20, contentSha256: `sha256:${'5'.repeat(64)}` }
+        ]
+      }
+    }),
+    assetCompatibility: writeArtifact(
+      'assetCompatibility',
+      releaseRolloutAssetFixture(rolloutId, source.releaseId, target.releaseId)),
+    workerReconciliation: writeArtifact('workerReconciliation', {
+      schema: 'fsusblog.release-worker-reconciliation-evidence.v2', mode: 'normal', status: 'pass',
+      duplicateEffectCount: 0, staleGenerationCommitCount: 0, lostAuditCount: 0,
+      lostVisitProjectionCount: 0, buffersDrained: true, durableReplayVerified: true,
+      gracefulDrainVerified: true, forcedSourceRecoveryRequired: false,
+      forcedSourceRecoveryVerified: false, checks: { gracefulDrainVerified: true, exactlyOnceVerified: true }
+    }),
+    resourceBudget: writeArtifact('resourceBudget', {
+      schema: 'fsusblog.release-resource-budget-evidence.v1', status: 'pass', withinBudget: true,
+      minimumSupported: { cpuCores: 4, memoryMiB: 6144, freeDiskMiB: 10240 },
+      checks: { overlapSamples: true, dualSlotCpu: true, dualSlotMemory: true, temporaryDisk: true,
+        openRestyReload: true, drain: true, notificationReconnect: true, trafficP95Impact: true, trafficP99Impact: true }
+    }),
+    faultInjection: writeArtifact('faultInjection', {
+      schema: 'fsusblog.zero-downtime-fault-matrix.v1', status: 'pass',
+      cases: [
+        'manifest-digest-mismatch', 'capacity-insufficient', 'expand-failure', 'candidate-readiness',
+        'asset-hash-mismatch', 'gateway-reload-failure', 'active-fence-failure', 'public-probe-failure',
+        'drain-timeout', 'source-stop-failure', 'host-interruption', 'redis-disconnect', 'postgres-disconnect'
+      ].map(caseName => ({ case: caseName, status: 'pass', automated: true }))
+    })
+  }
+  const writeAuxiliary = (name, value) => {
+    const file = path.join(bundle, 'auxiliary', name, `${name}.json`)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, `${JSON.stringify(value)}\n`)
+    return metadata(file, `/var/lib/fsusblog/deployment/rollouts/${rolloutId}/evidence/auxiliary/${name}.json`)
+  }
+  const auxiliary = Object.fromEntries(requiredRolloutAuxiliary.map(name => [name, writeAuxiliary(
+    name,
+    name === 'releaseManifest'
+      ? manifest.releaseIdentity
+      : name === 'operatorNote'
+        ? {
+            schema: 'fsusblog.release-rollout-operator-note.v1', rolloutId,
+            provided: false, author: null, note: '', errors: []
+          }
+        : { schema: `fsusblog.fixture.${name}.v1`, status: 'pass', rolloutId, source, target, errors: [] }
+  )]))
+  const stages = requiredRolloutStages.map(stage => {
+    const file = path.join(commands, `${stage}.attempt-1.json`)
+    fs.writeFileSync(file, `${JSON.stringify({
+      schema: 'fsusblog.release-rollout-stage-evidence.v1', rolloutId, stage,
+      status: 'ok', exitCode: 0
+    })}\n`)
+    return {
+      stage,
+      attempts: 1,
+      evidence: metadata(file, `/var/lib/fsusblog/deployment/rollouts/${rolloutId}/evidence/commands/${path.basename(file)}`)
+    }
+  })
+  const report = {
+    schema: 'fsusblog.release-rollout-evidence.v1',
+    status: 'pass',
+    rolloutId,
+    kind: 'deploy',
+    source,
+    target,
+    gatewayGeneration: 2,
+    rollback: { allowed: true, contractMigrationApplied: false, target: source },
+    stages,
+    recoveries: [],
+    artifacts,
+    auxiliary,
+    errors: [],
+    sealedAtUtc: '2026-07-11T01:03:00.000Z'
+  }
+  const finalFile = path.join(tmpDir, 'releaseRollout.json')
+  fs.writeFileSync(finalFile, `${JSON.stringify(report)}\n`)
+  const bundleFiles = [
+    path.join(bundle, 'release-rollout.json'),
+    ...requiredRolloutStages.map(stage => path.join(commands, `${stage}.attempt-1.json`)),
+    ...requiredRolloutArtifacts.map(name => path.join(bundle, 'artifacts', name, `${name}.json`)),
+    ...requiredRolloutAuxiliary.map(name => path.join(bundle, 'auxiliary', name, `${name}.json`))
+  ]
+  fs.copyFileSync(finalFile, bundleFiles[0])
+  fs.writeFileSync(path.join(bundle, 'bundle-index.json'), `${JSON.stringify({
+    schema: 'fsusblog.release-rollout-collected-bundle.v1',
+    status: 'ok',
+    rolloutId,
+    sourceEvidenceSha256: `sha256:${sha256Hex(finalFile)}`,
+    fileCount: bundleFiles.length,
+    files: bundleFiles.map(file => ({ path: path.relative(bundle, file), bytes: fs.statSync(file).size, sha256: `sha256:${sha256Hex(file)}` })),
+    collectedAtUtc: '2026-07-11T01:04:00.000Z'
+  })}\n`)
+  manifest.artifactDigests = {
+    ...(manifest.artifactDigests ?? {}),
+    releaseRollout: { algorithm: 'sha256', value: sha256Hex(finalFile) }
+  }
+}
+
 function runSelfTest() {
+  const releaseId = '20260711010101-0123456789ab'
+  const commitSha = '0123456789abcdef0123456789abcdef01234567'
+  const imageDigest = `sha256:${'a'.repeat(64)}`
   const base = {
     status: 'collected-ok',
-    commitSha: '0123456789abcdef0123456789abcdef01234567',
+    commitSha,
     workflowRun: { id: '123', attempt: '1', workflow: 'Quality Gate' },
-    imageDigest: 'sha256:abc',
+    imageDigest,
+    releaseIdentity: {
+      schema: 'fsusblog.release-manifest.v1',
+      releaseId,
+      commitSha,
+      imageRepository: 'ghcr.io/fsusblog/app',
+      imageTag: `ghcr.io/fsusblog/app:${releaseId}`,
+      imageDigest,
+      imageRef: `ghcr.io/fsusblog/app@${imageDigest}`,
+      registryDigestVerified: true,
+      createdAtUtc: '2026-07-11T01:01:01.000Z',
+      frontendManifestHash: `sha256:${'b'.repeat(64)}`,
+      wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
+      schemaCompatibility: { minRelease: releaseId, maxRelease: releaseId },
+      toolchain: {
+        dotnetVersion: '10.0.100',
+        nodeVersion: 'v20.19.0',
+        dockerVersion: '28.0.0',
+        dockerfileDigest: `sha256:${'d'.repeat(64)}`
+      },
+      build: { dockerfile: 'ops/docker/FsusBlog.Server.Dockerfile', target: 'final' },
+      releaseSlot: 'green'
+    },
     artifacts: Object.fromEntries(requiredArtifacts.map((key) => [key, `${key}.json`])),
     evidenceSummary: {
-      image: { status: 'present' },
+      image: { status: 'present', digest: imageDigest, releaseIdentityStatus: 'ok' },
       coverage: { status: 'ok' },
       operations: {
         postDeploySmoke: 'ok',
+        gatewayTransition: 'ok',
+        releaseRollout: 'ok',
         backupRestoreDrill: 'ok',
         sloAlerts: 'ok',
         sloCriticalFiring: 0
@@ -503,6 +1369,8 @@ function runSelfTest() {
   base.artifacts.memoryLeakSummary = 'memoryLeakSummary.json'
   base.artifacts.openHandleSummary = 'openHandleSummary.json'
   base.artifacts.uxViewportSummary = 'uxViewportSummary.json'
+  base.artifacts.releaseRollout = 'releaseRollout.json'
+  base.artifacts.releaseRolloutBundle = 'releaseRolloutBundle'
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-manifest-'))
   const manifestFile = path.join(tmpDir, 'manifest.json')
@@ -518,6 +1386,47 @@ function runSelfTest() {
     verifiedCoverage: ['anonymous-public', 'feed-rss', 'feed-atom', 'feed-json', 'sitemap', 'robots', 'health-live', 'health-ready'],
     blockers: []
   }))
+  fs.writeFileSync(path.join(tmpDir, 'gatewayTransition.json'), JSON.stringify({
+    schema: 'fsusblog.gateway-transition-evidence.v1',
+    kind: 'switch',
+    status: 'ok',
+    generation: 2,
+    startedAtUtc: '2026-07-11T01:02:00.000Z',
+    completedAtUtc: '2026-07-11T01:02:01.000Z',
+    durationMs: 1000,
+    source: { slot: 'blue', releaseId: '20260711000000-aabbccddeeff', imageDigest: `sha256:${'e'.repeat(64)}` },
+    target: { slot: 'green', releaseId, imageDigest },
+    checks: {
+      targetIdentity: true,
+      targetReadiness: true,
+      sourcePublicRelease: true,
+      stagedConfigTest: true,
+      stateBegin: true,
+      upstreamInstall: true,
+      activeConfigTest: true,
+      reload: true,
+      publicReleaseProbe: true,
+      targetLoopbackAfterReload: true,
+      stateCommit: true,
+      sourceRuntimeStatus: true,
+      targetRuntimeStatus: true,
+      targetActivation: true,
+      sourceDrain: true,
+      sourceDrainDeferred: false
+    },
+    lifecycle: lifecycleFixture({
+      source: { slot: 'blue', releaseId: '20260711000000-aabbccddeeff', generation: 1 },
+      target: { slot: 'green', releaseId, generation: 2 }
+    }),
+    publicProbeUrl: 'https://fsus.blog/health/ready',
+    postSwitchProbeUrl: 'https://fsus.blog/health/ready',
+    upstreamBeforeSha256: `sha256:${'1'.repeat(64)}`,
+    upstreamAfterSha256: `sha256:${'2'.repeat(64)}`,
+    failureStage: null,
+    error: null,
+    recoveryAction: 'none'
+  }))
+  writeReleaseRolloutFixture(tmpDir, base, releaseId, imageDigest)
   fs.writeFileSync(path.join(tmpDir, 'publicHydrationSidecarSummary.json'), JSON.stringify({
     schema: 'fsusblog.public-hydration-sidecar-smoke.v1',
     status: 'success',
@@ -757,6 +1666,19 @@ function runSelfTest() {
     fail(`self-test expected ok manifest to pass: ${ok.errors.join('; ')}`)
   }
 
+  const gatewayFixture = readJson(path.join(tmpDir, 'gatewayTransition.json'))
+  fs.writeFileSync(path.join(tmpDir, 'gatewayTransition.json'), JSON.stringify({
+    ...gatewayFixture,
+    target: { ...gatewayFixture.target, releaseId: '20260711999999-badbadbadbad' }
+  }))
+  const mismatchedGateway = structuredClone(base)
+  mismatchedGateway.status = 'collected-blocked'
+  const mismatchedGatewayResult = validateManifest(mismatchedGateway, { manifestPath: manifestFile })
+  if (!mismatchedGatewayResult.ok || !mismatchedGatewayResult.missingRequired.includes('gateway transition')) {
+    fail(`self-test expected mismatched gateway release identity to stay blocked: ${mismatchedGatewayResult.errors.join('; ')}`)
+  }
+  fs.writeFileSync(path.join(tmpDir, 'gatewayTransition.json'), JSON.stringify(gatewayFixture))
+
   fs.writeFileSync(path.join(tmpDir, 'soak', 'short', 'summary.json'), JSON.stringify({
     status: 'ok',
     mode: 'short',
@@ -837,6 +1759,14 @@ function runSelfTest() {
   const blockedResult = validateManifest(blocked, { manifestPath: manifestFile })
   if (!blockedResult.ok || !blockedResult.missingRequired.includes('image digest')) {
     fail(`self-test expected blocked missing-image manifest to pass schema: ${blockedResult.errors.join('; ')}`)
+  }
+
+  const mismatchedIdentity = structuredClone(base)
+  mismatchedIdentity.status = 'collected-blocked'
+  mismatchedIdentity.releaseIdentity.imageDigest = `sha256:${'e'.repeat(64)}`
+  const mismatchedIdentityResult = validateManifest(mismatchedIdentity, { manifestPath: manifestFile })
+  if (!mismatchedIdentityResult.ok || !mismatchedIdentityResult.missingRequired.includes('release identity')) {
+    fail(`self-test expected mismatched release identity to stay blocked: ${mismatchedIdentityResult.errors.join('; ')}`)
   }
 
   fs.rmSync(tmpDir, { recursive: true, force: true })

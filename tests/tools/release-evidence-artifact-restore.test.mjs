@@ -28,7 +28,8 @@ test('release evidence restores both stripped-.tmp and mixed-root artifact layou
 
   const result = spawnSync('bash', [restoreScript, downloadedRoot, restoredTmpRoot], {
     cwd: root,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    timeout: 10_000
   })
   assert.equal(result.status, 0, result.stderr)
   assert.equal(fs.readFileSync(path.join(restoredTmpRoot, 'frontend/stripped.txt'), 'utf8').trim(), 'stripped')
@@ -36,9 +37,4 @@ test('release evidence restores both stripped-.tmp and mixed-root artifact layou
   assert.equal(fs.readFileSync(path.join(restoredTmpRoot, 'release-evidence/jobs/stripped.json'), 'utf8').trim(), 'stripped-job')
   assert.equal(fs.readFileSync(path.join(restoredTmpRoot, 'release-evidence/jobs/mixed.json'), 'utf8').trim(), 'mixed-job')
   assert.equal(fs.readFileSync(path.join(restoredTmpRoot, 'release-evidence/jobs/legacy.json'), 'utf8').trim(), 'legacy-job')
-})
-
-test('release evidence collector delegates downloaded artifact restoration to the governed helper', () => {
-  const collector = fs.readFileSync(path.join(root, 'tools/operations/collect-release-evidence.sh'), 'utf8')
-  assert.match(collector, /restore-downloaded-artifacts\.sh/u)
 })

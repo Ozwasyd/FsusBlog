@@ -62,6 +62,79 @@ SOAK_DIR="$TMP_ROOT/soak"
 FUZZ_DIR="$TMP_ROOT/fuzz"
 mkdir -p "$SECURITY_DIR/zap/run-1" "$SECURITY_DIR/supply-chain" "$SECURITY_DIR/sbom" "$OPERATIONS_DIR" "$COVERAGE_DIR/merged" "$COVERAGE_DIR/backend-merged" "$COVERAGE_DIR/frontend" "$PERF_DIR" "$GATE_LOG_DIR"
 
+RELEASE_ID="20260711010101-$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
+COMMIT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+IMAGE_DIGEST="sha256:$(printf 'a%.0s' {1..64})"
+IMAGE_REPOSITORY="ghcr.io/fsusblog/app"
+IMAGE_REF="$IMAGE_REPOSITORY@$IMAGE_DIGEST"
+RELEASE_MANIFEST="$TMP_ROOT/release-manifest.json"
+GATEWAY_TRANSITION_EVIDENCE="$TMP_ROOT/gateway-transition.json"
+node "$ROOT_DIR/tools/release/create-release-manifest.mjs" \
+  --output "$RELEASE_MANIFEST" \
+  --release-id "$RELEASE_ID" \
+  --commit-sha "$COMMIT_SHA" \
+  --image-repository "$IMAGE_REPOSITORY" \
+  --image-tag "$IMAGE_REPOSITORY:$RELEASE_ID" \
+  --image-digest "$IMAGE_DIGEST" \
+  --frontend-manifest-hash "sha256:$(printf 'b%.0s' {1..64})" \
+  --wasm-artifact-hash "sha256:$(printf 'c%.0s' {1..64})" \
+  --schema-min-release "$RELEASE_ID" \
+  --schema-max-release "$RELEASE_ID" \
+  --dotnet-version "10.0.100-fixture" \
+  --node-version "v20.19.0-fixture" \
+  --docker-version "28.0.0-fixture" \
+  --dockerfile-digest "sha256:$(sha256sum "$ROOT_DIR/ops/docker/FsusBlog.Server.Dockerfile" | awk '{print $1}')" \
+  --created-at-utc "2026-07-11T01:01:01.000Z" >/dev/null
+
+jq -n \
+  --arg releaseId "$RELEASE_ID" \
+  --arg imageDigest "$IMAGE_DIGEST" \
+  --arg sourceDigest "sha256:$(printf 'f%.0s' {1..64})" \
+  --arg upstreamBefore "sha256:$(printf '1%.0s' {1..64})" \
+  --arg upstreamAfter "sha256:$(printf '2%.0s' {1..64})" '
+  {
+    schema: "fsusblog.gateway-transition-evidence.v1",
+    kind: "switch",
+    status: "ok",
+    generation: 2,
+    startedAtUtc: "2026-07-11T01:02:00.000Z",
+    completedAtUtc: "2026-07-11T01:02:01.000Z",
+    durationMs: 1000,
+    source: {slot: "blue", releaseId: "20260710010101-deadbeefcafe", imageDigest: $sourceDigest},
+    target: {slot: "green", releaseId: $releaseId, imageDigest: $imageDigest},
+    checks: {
+      targetIdentity: true,
+      targetReadiness: true,
+      sourcePublicRelease: true,
+      stagedConfigTest: true,
+      stateBegin: true,
+      upstreamInstall: true,
+      activeConfigTest: true,
+      reload: true,
+      publicReleaseProbe: true,
+      targetLoopbackAfterReload: true,
+      stateCommit: true,
+      sourceRuntimeStatus: true,
+      targetRuntimeStatus: true,
+      targetActivation: true,
+      sourceDrain: true
+    },
+    lifecycle: {
+      sourceBefore: {releaseId: "20260710010101-deadbeefcafe", slot: "blue", mode: "active", state: "active", generation: 1, canReceiveTraffic: true, canClaimBackgroundWork: true, canAcceptNotificationStream: true, inFlightHttpRequests: 0, notificationStreamConnections: 0, activeBackgroundClaims: 0, drain: {requested: false, drained: false, timedOut: false, blockers: []}},
+      targetBefore: {releaseId: $releaseId, slot: "green", mode: "candidate", state: "ready", generation: 2, canReceiveTraffic: false, canClaimBackgroundWork: false, canAcceptNotificationStream: false, inFlightHttpRequests: 0, notificationStreamConnections: 0, activeBackgroundClaims: 0, drain: {requested: false, drained: false, timedOut: false, blockers: []}},
+      targetAfterActivation: {releaseId: $releaseId, slot: "green", mode: "active", state: "active", generation: 2, canReceiveTraffic: true, canClaimBackgroundWork: true, canAcceptNotificationStream: true, inFlightHttpRequests: 0, notificationStreamConnections: 0, activeBackgroundClaims: 0, drain: {requested: false, drained: false, timedOut: false, blockers: []}},
+      sourceAfterDrain: {releaseId: "20260710010101-deadbeefcafe", slot: "blue", mode: "draining", state: "draining", generation: 1, canReceiveTraffic: false, canClaimBackgroundWork: false, canAcceptNotificationStream: false, inFlightHttpRequests: 0, notificationStreamConnections: 0, activeBackgroundClaims: 0, drain: {requested: true, drained: true, timedOut: false, blockers: []}}
+    },
+    publicProbeUrl: "https://fsus.blog/health/ready",
+    postSwitchProbeUrl: "https://fsus.blog/health/ready",
+    upstreamBeforeSha256: $upstreamBefore,
+    upstreamAfterSha256: $upstreamAfter,
+    failureStage: null,
+    error: null,
+    recoveryAction: "none"
+  }
+' > "$GATEWAY_TRANSITION_EVIDENCE"
+
 printf '{"status":"blocked","requiredHosts":["fsus.blog"],"delegationDomains":["fsus.blog"],"blockers":[{"source":"fixture","message":"synthetic"}]}\n' > "$SECURITY_DIR/production-exposure-status.json"
 jq -n \
   --arg firewallPolicy "$SECURITY_DIR/production-firewall-policy.json" \
@@ -519,11 +592,22 @@ FSUSBLOG_FAULT_EVIDENCE_DIR="$FAULT_DIR" \
 FSUSBLOG_SOAK_EVIDENCE_DIR="$SOAK_DIR" \
 FSUSBLOG_FUZZ_EVIDENCE_DIR="$FUZZ_DIR" \
 FSUSBLOG_GATE_LOG_SOURCE_DIR="$GATE_LOG_DIR" \
+FSUSBLOG_GATEWAY_TRANSITION_EVIDENCE="$GATEWAY_TRANSITION_EVIDENCE" \
+FSUSBLOG_RELEASE_MANIFEST="$RELEASE_MANIFEST" \
+FSUSBLOG_RELEASE_ID="$RELEASE_ID" \
+FSUSBLOG_RELEASE_SLOT="green" \
+FSUSBLOG_COMMIT_SHA="$COMMIT_SHA" \
+FSUSBLOG_IMAGE_REF="$IMAGE_REF" \
+FSUSBLOG_IMAGE_DIGEST="$IMAGE_DIGEST" \
   bash "$ROOT_DIR/tools/operations/collect-release-evidence.sh"
 
 node "$ROOT_DIR/tools/operations/check-release-evidence-manifest.mjs" "$OUT_DIR/manifest.json" >/dev/null
 
-jq -e '
+jq -e \
+  --arg releaseId "$RELEASE_ID" \
+  --arg commitSha "$COMMIT_SHA" \
+  --arg imageRef "$IMAGE_REF" \
+  --arg imageDigest "$IMAGE_DIGEST" '
   .releaseStamp == "fixture"
   and .status == "collected-blocked"
   and .artifacts.attackMatrix == "attack-matrix.json"
@@ -546,6 +630,7 @@ jq -e '
   and .artifacts.publicHydrationDomDiffSummary == "public-hydration-dom-diff-summary.json"
   and .artifacts.publicHydrationSidecarSummary == "public-hydration-sidecar-summary.json"
   and .artifacts.publicHydrationMatrixSummary == "public-hydration-matrix-summary.json"
+  and .artifacts.gatewayTransition == "gateway-transition.json"
   and .artifactDigests.productionExposureStatus.algorithm == "sha256"
   and (.artifactDigests.productionExposureStatus.value | test("^[0-9a-f]{64}$"))
   and .artifactDigests.productionExposureRequest.algorithm == "sha256"
@@ -554,7 +639,13 @@ jq -e '
   and .artifactDigests.firewallPolicy.algorithm == "sha256"
   and .artifactDigests.dnsReadiness.algorithm == "sha256"
   and .artifactDigests.dnsDelegation.algorithm == "sha256"
-  and .evidenceSummary.image.status == "missing"
+  and .evidenceSummary.image.status == "present"
+  and .evidenceSummary.image.releaseIdentityStatus == "ok"
+  and .releaseIdentity.releaseId == $releaseId
+  and .releaseIdentity.releaseSlot == "green"
+  and .releaseIdentity.commitSha == $commitSha
+  and .releaseIdentity.imageRef == $imageRef
+  and .releaseIdentity.imageDigest == $imageDigest
   and .evidenceSummary.coverage.status == "ok"
   and .evidenceSummary.coverage.frontend.linecoverage == 76
   and .evidenceSummary.coverage.frontend.functioncoverage == 86
@@ -584,8 +675,9 @@ jq -e '
 	  and .evidenceSummary.externalExposure.request.closeoutCommands.returnedEvidenceCloseout == "tools/security/complete-production-exposure-from-returned-evidence.sh <returned-evidence-dir>"
 	  and .evidenceSummary.externalExposure.request.closeoutCommands.returnedHandoffCloseout == "tools/security/complete-production-exposure-from-returned-handoff-bundle.sh <handoff-dir-or-tar.gz>"
 	  and .evidenceSummary.externalExposure.request.closeoutCommands.releaseEvidence == "tools/operations/collect-release-evidence.sh"
-	  and .evidenceSummary.operations.backupRestoreDrill == "ok"
+  and .evidenceSummary.operations.backupRestoreDrill == "ok"
   and .evidenceSummary.operations.postDeploySmoke == "ok"
+  and .evidenceSummary.operations.gatewayTransition == "ok"
   and .evidenceSummary.operations.sloAlerts == "ok"
   and .evidenceSummary.operations.sloCriticalFiring == 0
   and .evidenceSummary.operations.runtimeTuning.nonDefaultPresetsRequireBenchmarkEvidence == true

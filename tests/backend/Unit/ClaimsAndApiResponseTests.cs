@@ -1,5 +1,4 @@
 using FsusBlog.Server.Infrastructure.Helpers;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using System.Security.Claims;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -106,10 +105,14 @@ public class ClaimsPrincipalExtensionsTests
     [Fact]
     public void ClaimsPrincipalExtensions_DoesNotExposeMisleadingNameHelper()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Helpers/ClaimsPrincipalExtensions.cs");
+        string[] publicMethods = typeof(ClaimsPrincipalExtensions)
+            .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Select(static method => method.Name)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
 
-        Assert.Contains("GetInternalAccountId", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetUserName", source, StringComparison.Ordinal);
+        Assert.Contains(nameof(ClaimsPrincipalExtensions.GetInternalAccountId), publicMethods);
+        Assert.DoesNotContain("GetUserName", publicMethods);
     }
 
     [Fact]

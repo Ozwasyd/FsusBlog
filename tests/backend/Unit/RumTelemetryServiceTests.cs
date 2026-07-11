@@ -1,27 +1,51 @@
+using System.Reflection;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Tests;
 
 public sealed class RumTelemetryServiceTests
 {
     [Fact]
-    public void RumTelemetry_SourceUsesBoundedChannelAndMovesDbInsertToWorker()
+    public async Task RumTelemetry_IngestionUsesBoundedChannelAndPersistenceIsWorkerOwned()
     {
-        string source = ReadSource("src/backend/Services/Telemetry/RumTelemetryService.cs");
-        string service = Slice(source, "public sealed class RumTelemetryService", "public sealed class RumTelemetryFlushWorker");
-        string worker = Slice(source, "public sealed class RumTelemetryFlushWorker", "internal sealed record RumMetricAuditContext");
-        string registrations = ReadSource("src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs")
-            + ReadSource("src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs");
+        var channel = new RumTelemetryChannel(capacity: 2);
+        var service = new RumTelemetryService(channel);
 
-        Assert.Contains("public sealed class RumTelemetryChannel", source, StringComparison.Ordinal);
-        Assert.Contains("BoundedChannelFullMode.DropOldest", source, StringComparison.Ordinal);
-        Assert.Contains("TryEnqueue", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("Insertable", service, StringComparison.Ordinal);
-        Assert.Contains("Insertable", worker, StringComparison.Ordinal);
-        Assert.Contains("AddSingleton<RumTelemetryChannel>()", registrations, StringComparison.Ordinal);
-        Assert.Contains("AddHostedService<RumTelemetryFlushWorker>()", registrations, StringComparison.Ordinal);
+        RumMetricIngestResponse response = await service.IngestBatchAsync(CreateBatch("article"));
+
+        Assert.True(response.Accepted);
+        Assert.Equal(1, response.AcceptedCount);
+        Assert.True(channel.TryRead(out RumMetricBatchRequest? queued));
+        Assert.Equal("article", queued!.PageType);
+
+        ConstructorInfo serviceConstructor = Assert.Single(typeof(RumTelemetryService).GetConstructors());
+        Assert.Equal(
+            [typeof(RumTelemetryChannel)],
+            serviceConstructor.GetParameters().Select(static parameter => parameter.ParameterType).ToArray());
+        ConstructorInfo workerConstructor = Assert.Single(typeof(RumTelemetryFlushWorker).GetConstructors());
+        Assert.Contains(workerConstructor.GetParameters(), static parameter =>
+            parameter.ParameterType == typeof(IServiceScopeFactory));
+
+        var services = new ServiceCollection();
+        services.AddFsusRuntimeServices(new ConfigurationBuilder().AddInMemoryCollection().Build());
+        Assert.Contains(services, static descriptor =>
+            descriptor.ServiceType == typeof(RumTelemetryChannel)
+            && descriptor.Lifetime == ServiceLifetime.Singleton);
+        Assert.Contains(services, static descriptor =>
+            descriptor.ServiceType == typeof(RumTelemetryService)
+            && descriptor.Lifetime == ServiceLifetime.Scoped);
+        Assert.Contains(services, static descriptor =>
+            descriptor.ServiceType == typeof(IRumTelemetryService)
+            && descriptor.Lifetime == ServiceLifetime.Scoped);
+        Assert.Contains(services, static descriptor =>
+            descriptor.ServiceType == typeof(IHostedService)
+            && descriptor.ImplementationType == typeof(RumTelemetryFlushWorker));
     }
 
     [Fact]
@@ -150,15 +174,4 @@ public sealed class RumTelemetryServiceTests
                     null)
             ]);
 
-    private static string ReadSource(string relativePath)
-        => File.ReadAllText(Path.Combine(TestInfrastructure.BackendTestPaths.RepositoryRoot, relativePath));
-
-    private static string Slice(string source, string startMarker, string endMarker)
-    {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
-        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
-        Assert.True(end > start, $"Missing end marker: {endMarker}");
-        return source[start..end];
-    }
 }

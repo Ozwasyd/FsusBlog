@@ -63,6 +63,11 @@ for (const file of walk(resolve(root, 'src/frontend/src/api'), path => /\.(ts|js
   for (const match of source.matchAll(/['"`](\/api\/binary\/[^'"`?${}]*)/g)) {
     assert(matchesKnownPath(match[1]), `${file} contains stale manual binary path ${match[1]}`)
   }
+  if (relativePath === 'src/frontend/src/api/authoring.ts') {
+    for (const token of ['/api/author', 'JsonApiResponse', 'response.json', 'application/json', 'JSON.stringify']) {
+      assert(!source.includes(token), `${relativePath} contains retired JSON authoring compatibility: ${token}`)
+    }
+  }
 }
 
 console.log(`[frontend-backend-api-parity] ok openapiRoutes=${routes.length}`)

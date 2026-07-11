@@ -1,9 +1,19 @@
+using System.Reflection;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class StatsServiceRegionTests
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class StatsServiceRegionTests(PostgresSchemaMigrationFixture fixture)
 {
     [Theory]
     [InlineData(null)]
@@ -23,53 +33,152 @@ public sealed class StatsServiceRegionTests
     }
 
     [Fact]
-    public void LoadRegionStatsAsync_SourceReadsPreAggregatedRegionRollup()
+    public async Task LoadRegionStatsAsync_ReadsAggregatedTopTenFromRegionRollup()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/StatsService.cs"));
-        int methodStart = source.IndexOf("private async Task<List<RegionStatItemDto>> LoadRegionStatsAsync", StringComparison.Ordinal);
-        int nextMethod = source.IndexOf("internal static string NormalizeRegionForStats", StringComparison.Ordinal);
-        string method = source[methodStart..nextMethod];
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        CreateRegionRollupTable(db);
+        DateTime now = DateTime.UtcNow;
+        for (int index = 0; index < 12; index++)
+        {
+            db.Ado.ExecuteCommand(
+                "INSERT INTO region_read_stats(region, read_count, updated_at_utc) VALUES (@Region, @Count, @Now);",
+                new SugarParameter("@Region", $"region-{index:00}"),
+                new SugarParameter("@Count", (long)(20 - index)),
+                new SugarParameter("@Now", now));
+        }
+        db.Ado.ExecuteCommand(
+            "INSERT INTO region_read_stats(region, read_count, updated_at_utc) VALUES (NULL, 7, @Now), ('Unknown', 5, @Now), ('未知', 3, @Now);",
+            new SugarParameter("@Now", now));
+        var executedSql = new List<string>();
+        db.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
+        StatsService service = CreateService(db);
 
-        Assert.Contains("region_read_stats", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("FROM sys_visit_log", method, StringComparison.Ordinal);
-        Assert.Contains("ORDER BY \"Count\" DESC, \"Region\" ASC", method, StringComparison.Ordinal);
-        Assert.Contains("LIMIT 10", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("Dictionary<string, int>", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("OrderByDescending(item => item.Value)", method, StringComparison.Ordinal);
+        List<RegionStatItemDto> regions = await service.LoadRegionStatsAsync(CancellationToken.None);
+
+        string query = Assert.Single(executedSql);
+        Assert.Contains("region_read_stats", query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sys_visit_log", query, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(10, regions.Count);
+        Assert.Equal("region-00", regions[0].Region);
+        Assert.Equal(20, regions[0].Count);
+        Assert.Contains(regions, static item => item.Region == "未知地区" && item.Count == 15);
+        Assert.Equal(
+            regions.OrderByDescending(static item => item.Count).ThenBy(static item => item.Region, StringComparer.Ordinal).ToArray(),
+            regions.ToArray());
     }
 
     [Fact]
-    public void LoadAdminStatsOverviewFromDbAsync_UsesRollupTablesWithoutHeavySerializableTransaction()
+    public async Task LoadAdminStatsOverviewFromDbAsync_UsesRollupsWithoutSerializableTransaction()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/StatsService.cs"));
-        string method = Slice(source, "private async Task<AdminStatsOverviewDto> LoadAdminStatsOverviewFromDbAsync", "    private async Task<List<RecentCommentStatItemDto>> LoadRecentCommentsAsync");
+        using SqlSugarClient db = await CreateOverviewDatabaseAsync();
+        db.Ado.ExecuteCommand("INSERT INTO daily_read_stats VALUES ('2026-07-12', 30, 20, 10, NOW());");
+        db.Ado.ExecuteCommand("INSERT INTO event_type_read_stats VALUES ('article_read', 22, NOW()), ('site_read', 8, NOW());");
+        var executedSql = new List<string>();
+        db.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
+        StatsService service = CreateService(db);
 
-        Assert.Contains("daily_read_stats", method, StringComparison.Ordinal);
-        Assert.Contains("event_type_read_stats", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("FROM sys_visit_log", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("BeginTran(IsolationLevel.Serializable)", method, StringComparison.Ordinal);
+        AdminStatsOverviewDto overview = await InvokeOverviewLoaderAsync(service);
+
+        Assert.Equal(30, overview.Summary.TotalReads);
+        Assert.Equal(20, overview.Summary.HumanVerifiedReads);
+        Assert.Equal(10, overview.Summary.UniqueViewerKeyEstimate);
+        Assert.Equal(22, overview.Summary.ArticleReads);
+        Assert.Equal(8, overview.Summary.SiteReads);
+        Assert.Contains(executedSql, static sql => sql.Contains("daily_read_stats", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(executedSql, static sql => sql.Contains("event_type_read_stats", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(executedSql, static sql => sql.Contains("sys_visit_log", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(executedSql, static sql => sql.Contains("SERIALIZABLE", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void LoadAdminStatsOverviewFromDbAsync_UsesIndependentOverviewCachePolicy()
+    public async Task GetAdminStatsOverviewAsync_UsesIndependentOverviewCachePolicy()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Services/StatsService.cs"));
-        string method = Slice(source, "private async Task<AdminStatsOverviewDto> LoadAdminStatsOverviewFromDbAsync", "    private async Task<List<RecentCommentStatItemDto>> LoadRecentCommentsAsync");
-        string publicMethod = Slice(source, "public async Task<AdminStatsOverviewDto> GetAdminStatsOverviewAsync", "    public async Task<List<RecentCommentStatItemDto>> GetAdminRecentCommentsAsync");
+        var coordinator = new RecordingCacheMissCoordinator(new AdminStatsOverviewDto
+        {
+            Summary = new StatsSummaryDto { TotalArticles = 7 }
+        });
+        var service = new StatsService(
+            Substitute.For<ISqlSugarClient>(),
+            Substitute.For<IUnifiedCache>(),
+            coordinator,
+            Substitute.For<IDbConcurrencyGate>(),
+            NullLogger<StatsService>.Instance);
 
-        Assert.Contains("CachePolicyId.AdminStatsOverview", publicMethod, StringComparison.Ordinal);
-        Assert.Contains("articleCountQuery.ToSql()", method, StringComparison.Ordinal);
-        Assert.Contains("Queryable<Comment>().CountAsync()", method, StringComparison.Ordinal);
-        Assert.Contains("popularQuery.ToSql()", method, StringComparison.Ordinal);
-        Assert.Contains("readStatsSql", method, StringComparison.Ordinal);
+        AdminStatsOverviewDto overview = await service.GetAdminStatsOverviewAsync();
+
+        Assert.Equal(7, overview.Summary.TotalArticles);
+        Assert.Equal(CachePolicyId.AdminStatsOverview, coordinator.PolicyId);
+        Assert.Equal("main", coordinator.Identity);
+        Assert.Equal("admin-stats", coordinator.Operation);
     }
 
-    private static string Slice(string source, string startMarker, string endMarker)
+    private static StatsService CreateService(ISqlSugarClient db)
+        => new(
+            db,
+            Substitute.For<IUnifiedCache>(),
+            Substitute.For<ICacheMissCoordinator>(),
+            Substitute.For<IDbConcurrencyGate>(),
+            NullLogger<StatsService>.Instance);
+
+    private async Task<SqlSugarClient> CreateOverviewDatabaseAsync()
     {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
-        int end = source.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
-        Assert.True(end > start, $"Missing end marker: {endMarker}");
-        return source[start..end];
+        SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(db, typeof(Article), typeof(Comment));
+        db.Ado.ExecuteCommand("""
+            CREATE TABLE daily_read_stats (
+                stat_date date PRIMARY KEY,
+                total_reads bigint NOT NULL,
+                human_verified_reads bigint NOT NULL,
+                unique_viewer_estimate bigint NOT NULL,
+                updated_at_utc timestamp without time zone NOT NULL
+            );
+            CREATE TABLE event_type_read_stats (
+                event_type text PRIMARY KEY,
+                read_count bigint NOT NULL,
+                updated_at_utc timestamp without time zone NOT NULL
+            );
+            """);
+        return db;
+    }
+
+    private static void CreateRegionRollupTable(SqlSugarClient db)
+        => db.Ado.ExecuteCommand("""
+            CREATE TABLE region_read_stats (
+                region text NULL,
+                read_count bigint NOT NULL,
+                updated_at_utc timestamp without time zone NOT NULL
+            );
+            """);
+
+    private static async Task<AdminStatsOverviewDto> InvokeOverviewLoaderAsync(StatsService service)
+    {
+        MethodInfo method = typeof(StatsService).GetMethod(
+            "LoadAdminStatsOverviewFromDbAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("Stats overview loader was not found.");
+        var task = Assert.IsType<Task<AdminStatsOverviewDto>>(method.Invoke(service, [CancellationToken.None]));
+        return await task;
+    }
+
+    private sealed class RecordingCacheMissCoordinator(AdminStatsOverviewDto result) : ICacheMissCoordinator
+    {
+        public CachePolicyId? PolicyId { get; private set; }
+        public string? Identity { get; private set; }
+        public string? Operation { get; private set; }
+
+        public Task<T?> CoordinateAsync<T>(
+            CachePolicyId policyId,
+            string identity,
+            Func<CancellationToken, Task<CacheReadResult<T>>> tryReadAsync,
+            Func<CancellationToken, Task<T?>> rebuildAsync,
+            string operation,
+            CancellationToken cancellationToken = default,
+            CacheRebuildStrategy? strategy = null)
+        {
+            PolicyId = policyId;
+            Identity = identity;
+            Operation = operation;
+            return Task.FromResult((T?)(object)result);
+        }
     }
 }

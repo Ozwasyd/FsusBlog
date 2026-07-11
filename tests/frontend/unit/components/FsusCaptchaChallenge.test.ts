@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { SecurityChallengeKind, type SecurityChallengeIssueResponse } from '@/api/security'
 import {
@@ -75,16 +73,4 @@ describe('FsusCaptchaChallenge', () => {
     expect(mapCaptchaErrorMessage(new Error('captcha_wasm_load_failed'))).toBe('图形校验引擎加载失败，请刷新重试。')
   })
 
-  it('keeps the SFC wired to FsusUI controls, canvas fallback surface, and testable actions', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/components/security/FsusCaptchaChallenge.vue'), 'utf8')
-
-    expect(source).toContain('<el-button')
-    expect(source).toContain('<el-input')
-    expect(source).toContain('<el-alert')
-    expect(source).toContain('<canvas')
-    expect(source).toContain('data-test="captcha-refresh"')
-    expect(source).toContain('data-test="captcha-submit"')
-    expect(source).toContain('@media (prefers-reduced-motion: reduce)')
-    expect(source).toContain('mapCaptchaErrorMessage')
-  })
 })

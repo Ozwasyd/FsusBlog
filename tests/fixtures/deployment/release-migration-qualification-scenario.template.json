@@ -1,0 +1,71 @@
+{
+  "schema": "fsusblog.release-migration-qualification-scenario.v1",
+  "topology": {
+    "environment": "Test",
+    "destructiveFaultsAgainstProduction": false,
+    "databaseIsolationId": "REPLACE_DATABASE_ISOLATION_ID",
+    "origins": {
+      "source": "REPLACE_SOURCE_ORIGIN",
+      "target": "REPLACE_TARGET_ORIGIN"
+    }
+  },
+  "cases": [
+    {
+      "id": "expand-with-old-active",
+      "actions": [
+        {"id":"source-before-expand","role":"source-before-expand","type":"http","origin":"source","path":"/api/ops/health/ready-detail","method":"GET","headerFile":"REPLACE_ADMIN_HEADER_FILE","expect":{"statusCodes":[200],"release":"source","contentType":"application/json","minimumBytes":2,"assertions":[{"pointer":"/status","equals":"ready"}]}},
+        {"id":"expand","role":"expand","type":"command","argv":["bash","REPLACE_MIGRATION_RUNNER","--server-dll","REPLACE_SERVER_DLL","--release-manifest","{{releaseManifest}}","--env-file","REPLACE_ENV_FILE","--phase","expand"],"inputFiles":["REPLACE_MIGRATION_RUNNER","REPLACE_SERVER_DLL","{{releaseManifest}}","REPLACE_ENV_FILE"],"expect":{"exitCodes":[0],"status":"ok","phase":"expand","release":"target"}},
+        {"id":"source-after-expand-read","role":"source-after-expand-read","type":"http","origin":"source","path":"/api/binary/article/list/home/1/10.aeds","method":"GET","expect":{"statusCodes":[200],"release":"source","contentType":"application/octet-stream","minimumBytes":16}}
+      ]
+    },
+    {
+      "id": "blue-green-concurrent-read-write",
+      "actions": [
+        {"id":"source-read","role":"source-read","type":"http","parallelGroup":"dual-slot-rw","origin":"source","path":"/api/binary/article/list/home/1/10.aeds","method":"GET","expect":{"statusCodes":[200],"release":"source","minimumBytes":16}},
+        {"id":"source-write","role":"source-write","type":"http","parallelGroup":"dual-slot-rw","origin":"source","path":"/api/release-evidence/schema-bridge/write","method":"POST","headerFile":"REPLACE_ADMIN_HEADER_FILE","bodyFile":"REPLACE_SOURCE_WRITE_BODY","expect":{"statusCodes":[200],"release":"source","contentType":"application/json","minimumBytes":2,"assertions":[{"pointer":"/bridgeWrite","equals":true}]}},
+        {"id":"target-read","role":"target-read","type":"http","parallelGroup":"dual-slot-rw","origin":"target","path":"/api/binary/article/list/home/1/10.aeds","method":"GET","expect":{"statusCodes":[200],"release":"target","minimumBytes":16}},
+        {"id":"target-write","role":"target-write","type":"http","parallelGroup":"dual-slot-rw","origin":"target","path":"/api/release-evidence/schema-bridge/write","method":"POST","headerFile":"REPLACE_ADMIN_HEADER_FILE","bodyFile":"REPLACE_TARGET_WRITE_BODY","expect":{"statusCodes":[200],"release":"target","contentType":"application/json","minimumBytes":2,"assertions":[{"pointer":"/bridgeWrite","equals":true}]}}
+      ]
+    },
+    {
+      "id": "backfill-checkpoint-resume",
+      "actions": [
+        {"id":"backfill-start","role":"backfill-start","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","backfill-pause","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE","--migration-id","REPLACE_BACKFILL_MIGRATION_ID"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE","{{releaseManifest}}"],"expect":{"exitCodes":[0],"status":"paused","phase":"backfill","codesInclude":["schema_backfill_resume_required"]}},
+        {"id":"checkpoint-paused","role":"checkpoint-paused","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","checkpoint","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE","--migration-id","REPLACE_BACKFILL_MIGRATION_ID"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE"],"expect":{"exitCodes":[0],"status":"paused","checkpoint":{"status":"paused","migrationId":"REPLACE_BACKFILL_MIGRATION_ID","resumeTokenHashRequired":true,"minimumRowsProcessed":1}}},
+        {"id":"backfill-resume","role":"backfill-resume","type":"command","argv":["bash","REPLACE_MIGRATION_RUNNER","--server-dll","REPLACE_SERVER_DLL","--release-manifest","{{releaseManifest}}","--env-file","REPLACE_ENV_FILE","--phase","backfill-resume","--id","REPLACE_BACKFILL_MIGRATION_ID"],"inputFiles":["REPLACE_MIGRATION_RUNNER","REPLACE_SERVER_DLL","{{releaseManifest}}","REPLACE_ENV_FILE"],"expect":{"exitCodes":[0],"status":"ok","phase":"backfill","release":"target"}},
+        {"id":"checkpoint-completed","role":"checkpoint-completed","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","checkpoint","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE","--migration-id","REPLACE_BACKFILL_MIGRATION_ID"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE"],"expect":{"exitCodes":[0],"status":"completed","checkpoint":{"status":"completed","migrationId":"REPLACE_BACKFILL_MIGRATION_ID","resumeTokenHashRequired":true,"minimumRowsProcessed":1}}}
+      ]
+    },
+    {
+      "id":"missing-expand-candidate-not-ready",
+      "actions":[
+        {"id":"prepare-missing-expand","role":"prepare-missing-expand","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","prepare-missing-expand","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE","--migration-id","REPLACE_EXPAND_MIGRATION_ID","--contract-id","REPLACE_CONTRACT_MIGRATION_ID"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE","{{releaseManifest}}"],"expect":{"exitCodes":[0],"status":"prepared","phase":"qualification","codesInclude":["schema_expand_removed_for_qualification"]}},
+        {"id":"candidate-check","role":"candidate-check","type":"command","argv":["dotnet","REPLACE_SERVER_DLL","migrate","--check","--release-manifest","{{releaseManifest}}","--env-file","REPLACE_ENV_FILE"],"inputFiles":["REPLACE_SERVER_DLL","{{releaseManifest}}","REPLACE_ENV_FILE"],"expect":{"exitCodes":[1],"status":"not_ready","issueCodesInclude":["schema_expand_pending"]}},
+        {"id":"candidate-readiness","role":"candidate-readiness","type":"http","origin":"target","path":"/api/release-evidence/schema-qualification/readiness","method":"GET","headerFile":"REPLACE_ADMIN_HEADER_FILE","expect":{"statusCodes":[503],"release":"target","contentType":"application/json","minimumBytes":2,"assertions":[{"pointer":"/code","equals":"schema_incompatible"}]}},
+        {"id":"expand-recover","role":"expand-recover","type":"command","argv":["bash","REPLACE_MIGRATION_RUNNER","--server-dll","REPLACE_SERVER_DLL","--release-manifest","{{releaseManifest}}","--env-file","REPLACE_ENV_FILE","--phase","expand"],"inputFiles":["REPLACE_MIGRATION_RUNNER","REPLACE_SERVER_DLL","{{releaseManifest}}","REPLACE_ENV_FILE"],"expect":{"exitCodes":[0],"status":"ok","phase":"expand","release":"target"}}
+      ]
+    },
+    {"id":"contract-rollback-window-rejected","actions":[
+      {"id":"contract-rejected","role":"contract-rejected","type":"command","argv":["bash","REPLACE_MIGRATION_RUNNER","--server-dll","REPLACE_SERVER_DLL","--release-manifest","{{releaseManifest}}","--env-file","REPLACE_ENV_FILE","--phase","contract","--evidence","REPLACE_CONTRACT_WINDOW_EVIDENCE","--dry-run"],"inputFiles":["REPLACE_MIGRATION_RUNNER","REPLACE_SERVER_DLL","{{releaseManifest}}","REPLACE_ENV_FILE","REPLACE_CONTRACT_WINDOW_EVIDENCE"],"expect":{"exitCodes":[1],"status":"failed","phase":"contract","release":"target","codesInclude":["schema_contract_previous_release_dependency","schema_contract_rollback_manifest_open"]}}
+    ]},
+    {"id":"contract-applied-non-rollback-compatible","actions":[
+      {"id":"contract-apply","role":"contract-apply","type":"command","argv":["bash","REPLACE_MIGRATION_RUNNER","--server-dll","REPLACE_SERVER_DLL","--release-manifest","{{releaseManifest}}","--env-file","REPLACE_ENV_FILE","--phase","contract","--evidence","REPLACE_CONTRACT_QUALIFIED_EVIDENCE","--confirm-destructive"],"inputFiles":["REPLACE_MIGRATION_RUNNER","REPLACE_SERVER_DLL","{{releaseManifest}}","REPLACE_ENV_FILE","REPLACE_CONTRACT_QUALIFIED_EVIDENCE"],"expect":{"exitCodes":[0],"status":"ok","phase":"contract","release":"target"}},
+      {"id":"rollback-marker","role":"rollback-marker","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","rollback-marker","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE","--contract-id","REPLACE_CONTRACT_MIGRATION_ID","--rollout","{{rolloutId}}","--release","{{target.releaseId}}"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE","{{rolloutState}}","{{releaseManifest}}"],"expect":{"exitCodes":[0],"status":"ok","rollbackCompatible":false,"contractApplied":true,"assertions":[{"pointer":"/rolloutId","equalsVariable":"rolloutId"},{"pointer":"/releaseId","equalsVariable":"target.releaseId"}]}}
+    ]},
+    {"id":"advisory-lock-timeout","actions":[
+      {"id":"advisory-lock-timeout","role":"advisory-lock-timeout","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","advisory-lock-timeout","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE","{{releaseManifest}}"],"expect":{"exitCodes":[1],"status":"failed","codesInclude":["schema_advisory_lock_timeout"]}}
+    ]},
+    {"id":"database-disconnect","actions":[
+      {"id":"database-disconnect","role":"database-disconnect","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","database-disconnect","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE","{{releaseManifest}}"],"expect":{"exitCodes":[1],"status":"failed","codesInclude":["schema_database_unavailable"]}}
+    ]},
+    {"id":"partial-failure-recovery","actions":[
+      {"id":"partial-failure","role":"partial-failure","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","partial-failure","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE","--migration-id","REPLACE_BACKFILL_MIGRATION_ID"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE"],"expect":{"exitCodes":[1],"status":"failed","codesInclude":["schema_backfill_injected_partial_failure"]}},
+      {"id":"checkpoint-failed","role":"checkpoint-failed","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","checkpoint","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE","--migration-id","REPLACE_BACKFILL_MIGRATION_ID"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE"],"expect":{"exitCodes":[0],"status":"failed","checkpoint":{"status":"failed","migrationId":"REPLACE_BACKFILL_MIGRATION_ID","resumeTokenHashRequired":true,"minimumRowsProcessed":1,"minimumFailureCount":1}}},
+      {"id":"partial-recovery","role":"partial-recovery","type":"command","argv":["bash","REPLACE_MIGRATION_RUNNER","--server-dll","REPLACE_SERVER_DLL","--release-manifest","{{releaseManifest}}","--env-file","REPLACE_ENV_FILE","--phase","backfill-resume","--id","REPLACE_BACKFILL_MIGRATION_ID"],"inputFiles":["REPLACE_MIGRATION_RUNNER","REPLACE_SERVER_DLL","{{releaseManifest}}","REPLACE_ENV_FILE"],"expect":{"exitCodes":[0],"status":"ok","phase":"backfill","release":"target"}},
+      {"id":"checkpoint-recovered","role":"checkpoint-recovered","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","checkpoint","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE","--migration-id","REPLACE_BACKFILL_MIGRATION_ID"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE"],"expect":{"exitCodes":[0],"status":"completed","checkpoint":{"status":"completed","migrationId":"REPLACE_BACKFILL_MIGRATION_ID","resumeTokenHashRequired":true,"minimumRowsProcessed":1,"minimumFailureCount":1}}}
+    ]},
+    {"id":"history-integrity-rejected","actions":[
+      {"id":"history-check","role":"history-check","type":"command","argv":["node","REPLACE_QUALIFICATION_ADAPTER","history-mismatch-unknown","--database","{{topology.databaseIsolationId}}","--env-file","REPLACE_ENV_FILE","--migration-id","REPLACE_EXPAND_MIGRATION_ID"],"inputFiles":["REPLACE_QUALIFICATION_ADAPTER","REPLACE_ENV_FILE","{{releaseManifest}}"],"expect":{"exitCodes":[1],"status":"not_ready","historyHashRequired":true,"issueCodesInclude":["schema_history_checksum_mismatch","schema_history_unknown"]}}
+    ]}
+  ]
+}

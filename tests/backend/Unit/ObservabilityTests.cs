@@ -7,8 +7,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace FsusBlog.Server.Tests;
 
@@ -130,25 +134,40 @@ public sealed class ObservabilityTests
     [Fact]
     public void SecurityEventMetrics_UseHotTagCacheAndEnumOverload()
     {
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
-        string crawlerRisk = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Security/CrawlerRiskService.cs");
-        string recordSecurityEvent = ExtractMethodBlock(observability, "public static void RecordSecurityEvent(string operation, string reason, string result)");
+        Type observability = typeof(FsusObservability);
+        FieldInfo limit = observability.GetField("SecurityEventTagCacheLimit", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo cacheField = observability.GetField("SecurityEventTagCache", BindingFlags.NonPublic | BindingFlags.Static)!;
+        object cache = cacheField.GetValue(null)!;
+        PropertyInfo countProperty = cache.GetType().GetProperty(nameof(ICollection.Count))!;
+        int initialCount = (int)countProperty.GetValue(cache)!;
 
-        Assert.Contains("SecurityEventTagCacheKey", observability, StringComparison.Ordinal);
-        Assert.Contains("ConcurrentDictionary<SecurityEventTagCacheKey, TagList>", observability, StringComparison.Ordinal);
-        Assert.Contains("SecurityEventTagCacheLimit = 256", observability, StringComparison.Ordinal);
-        Assert.Contains("PrewarmSecurityEventTagCache()", observability, StringComparison.Ordinal);
-        Assert.Contains("string.Intern", observability, StringComparison.Ordinal);
-        Assert.Contains("RecordSecurityEvent(string operation, SecurityRiskReason reason, string result)", observability, StringComparison.Ordinal);
-        Assert.Contains("SecurityRiskReasonNames", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.observability.tag_cache.hit_ratio", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.observability.tag_cache.miss_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.observability.record_security_event.elapsed", observability, StringComparison.Ordinal);
+        Assert.Equal(256, limit.GetRawConstantValue());
+        Assert.True(initialCount > 0);
+        Assert.Equal(typeof(ConcurrentDictionary<,>), cache.GetType().GetGenericTypeDefinition());
+        Assert.NotNull(observability.GetField("SecurityRiskReasonNames", BindingFlags.NonPublic | BindingFlags.Static));
+        MethodInfo enumOverload = observability.GetMethod(
+            nameof(FsusObservability.RecordSecurityEvent),
+            [typeof(string), typeof(SecurityRiskReason), typeof(string)])!;
+        Assert.NotNull(enumOverload);
 
-        Assert.Contains("TryGetValue(cacheKey", recordSecurityEvent, StringComparison.Ordinal);
-        Assert.DoesNotContain("CreateBaseTags(\"security\", operation, result)", recordSecurityEvent, StringComparison.Ordinal);
-        Assert.Contains("RecordSecurityEvent(\"security_risk\", signal.Reason, signal.Action)", crawlerRisk, StringComparison.Ordinal);
-        Assert.DoesNotContain("RecordSecurityEvent(\"security_risk\", reasonName, signal.Action)", crawlerRisk, StringComparison.Ordinal);
+        FsusObservability.RecordSecurityEvent("security_risk", SecurityRiskReason.UnknownBot, "rejected");
+        int afterFirst = (int)countProperty.GetValue(cache)!;
+        FsusObservability.RecordSecurityEvent("security_risk", SecurityRiskReason.UnknownBot, "rejected");
+        int afterSecond = (int)countProperty.GetValue(cache)!;
+        Assert.Equal(afterFirst, afterSecond);
+        Assert.InRange(afterSecond, 1, 256);
+
+        MethodInfo keyFactory = observability.GetMethod("CreateSecurityEventTagCacheKey", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.Contains(ReadCalledMethods(keyFactory), static method =>
+            method.DeclaringType == typeof(string) && method.Name == nameof(string.Intern));
+        MethodInfo signalHandler = typeof(CrawlerRiskService).GetMethod(
+            nameof(CrawlerRiskService.AddRiskAsync),
+            [typeof(SecurityRiskSignal), typeof(CancellationToken)])!;
+        Assert.Contains(ReadCalledMethods(AsyncMoveNext(signalHandler)), static method =>
+            method.DeclaringType == typeof(FsusObservability)
+            && method.Name == nameof(FsusObservability.RecordSecurityEvent)
+            && method.GetParameters().Select(static parameter => parameter.ParameterType)
+                .SequenceEqual([typeof(string), typeof(SecurityRiskReason), typeof(string)]));
     }
 
     [Fact]
@@ -180,25 +199,42 @@ public sealed class ObservabilityTests
     [Fact]
     public void ObservabilityHotPaths_UseRouteCacheRingBuffersAndInlinedTryRecord()
     {
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
-        string classify = ExtractMethodBlock(observability, "public static string ClassifyRoute");
-        string classifyCore = ExtractMethodBlock(observability, "private static string ClassifyRouteCore");
-        string addDouble = ExtractMethodBlock(observability, "private static void AddBoundedSample(SlidingWindow<double>");
-        string tryRecord = ExtractMethodBlock(observability, "private static void TryRecord");
+        Type observability = typeof(FsusObservability);
+        FieldInfo routeCacheField = observability.GetField("RouteKindCache", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var routeCache = Assert.IsType<ConcurrentDictionary<string, string>>(routeCacheField.GetValue(null));
+        const string route = "/runtime-cache-probe/42";
+        routeCache.TryRemove(route, out _);
 
-        Assert.Contains("using System.Runtime.CompilerServices;", observability, StringComparison.Ordinal);
-        Assert.Contains("ConcurrentDictionary<string, string> RouteKindCache", observability, StringComparison.Ordinal);
-        Assert.Contains("RouteKindCache.GetOrAdd(value, ClassifyRouteCore)", classify, StringComparison.Ordinal);
-        Assert.DoesNotContain("StartsWith", classify, StringComparison.Ordinal);
-        Assert.Contains("StartsWith", classifyCore, StringComparison.Ordinal);
-        Assert.Contains("private sealed class SlidingWindow<T>", observability, StringComparison.Ordinal);
-        Assert.Contains("SlidingWindow<double> SecurityChallengeV2IssueSamples", observability, StringComparison.Ordinal);
-        Assert.Contains("SlidingWindow<int> SecurityChallengeV2PayloadSamples", observability, StringComparison.Ordinal);
-        Assert.Contains("Interlocked.Increment(ref _writeIndex)", observability, StringComparison.Ordinal);
-        Assert.DoesNotContain("ConcurrentQueue", observability, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryDequeue", observability, StringComparison.Ordinal);
-        Assert.Contains("window.Add(value)", addDouble, StringComparison.Ordinal);
-        Assert.Contains("[MethodImpl(MethodImplOptions.AggressiveInlining)]", observability, StringComparison.Ordinal);
+        string first = FsusObservability.ClassifyRoute(route);
+        int countAfterFirst = routeCache.Count;
+        string second = FsusObservability.ClassifyRoute(route);
+
+        Assert.Equal("public", first);
+        Assert.Same(first, second);
+        Assert.Equal(countAfterFirst, routeCache.Count);
+        Assert.Equal("public", routeCache[route]);
+        MethodInfo classify = observability.GetMethod(nameof(FsusObservability.ClassifyRoute), [typeof(PathString)])!;
+        Assert.Contains(ReadCalledMethods(classify), static method => method.Name == "GetOrAdd");
+        MethodInfo classifyCore = observability.GetMethod("ClassifyRouteCore", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.Contains(ReadCalledMethods(classifyCore), static method =>
+            method.DeclaringType == typeof(string) && method.Name == nameof(string.StartsWith));
+
+        FieldInfo issueSamples = observability.GetField("SecurityChallengeV2IssueSamples", BindingFlags.NonPublic | BindingFlags.Static)!;
+        FieldInfo payloadSamples = observability.GetField("SecurityChallengeV2PayloadSamples", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.Contains("SlidingWindow", issueSamples.FieldType.Name, StringComparison.Ordinal);
+        Assert.Contains("SlidingWindow", payloadSamples.FieldType.Name, StringComparison.Ordinal);
+        Type slidingWindow = issueSamples.FieldType.GetGenericTypeDefinition();
+        Assert.Equal(typeof(double[]), issueSamples.FieldType.GetField("_buffer", BindingFlags.NonPublic | BindingFlags.Instance)!.FieldType);
+        Assert.Equal(typeof(int), slidingWindow.GetField("_writeIndex", BindingFlags.NonPublic | BindingFlags.Instance)!.FieldType);
+        Assert.DoesNotContain(observability.GetFields(BindingFlags.NonPublic | BindingFlags.Static), static field =>
+            field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(ConcurrentQueue<>));
+
+        MethodInfo addSample = observability.GetMethods(BindingFlags.NonPublic | BindingFlags.Static)
+            .Single(static method => method.Name == "AddBoundedSample"
+                && method.GetParameters()[0].ParameterType.GenericTypeArguments[0] == typeof(double));
+        Assert.Contains(ReadCalledMethods(addSample), static method => method.Name == "Add");
+        MethodInfo tryRecord = observability.GetMethod("TryRecord", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.True(tryRecord.GetMethodImplementationFlags().HasFlag(MethodImplAttributes.AggressiveInlining));
     }
 
     [Fact]
@@ -366,30 +402,36 @@ public sealed class ObservabilityTests
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
-    private static string ExtractMethodBlock(string source, string signature)
+    private static MethodInfo AsyncMoveNext(MethodInfo method)
     {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
+        AsyncStateMachineAttribute stateMachine = method.GetCustomAttribute<AsyncStateMachineAttribute>()
+            ?? throw new InvalidOperationException($"Async state machine missing: {method.Name}");
+        return stateMachine.StateMachineType.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!;
+    }
 
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
+    private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
         {
-            if (source[i] == '{')
+            if (il[offset] is not (0x28 or 0x6F))
             {
-                depth++;
+                continue;
             }
-            else if (source[i] == '}')
+
+            MethodBase? called = null;
+            try
             {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(i + 1)];
-                }
+                called = method.Module.ResolveMethod(BitConverter.ToInt32(il, offset + 1));
+            }
+            catch (ArgumentException)
+            {
+            }
+
+            if (called is not null)
+            {
+                yield return called;
             }
         }
-
-        throw new InvalidOperationException($"Unable to extract method body: {signature}");
     }
 }

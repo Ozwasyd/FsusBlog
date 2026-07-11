@@ -12,6 +12,7 @@ const read = (file) => fs.readFileSync(file, 'utf8')
 const adminAccountRoots = [
   'src/frontend/src/views/admin',
   'src/frontend/src/views/user',
+  'src/frontend/src/components/account',
   'src/frontend/src/components/admin',
   'src/frontend/src/components/user'
 ].map((dir) => path.join(repoRoot, dir))
@@ -26,8 +27,11 @@ const publicEditorialRoots = [
 const packageJsonPath = path.join(repoRoot, 'src/frontend/package.json')
 const accountShellPath = path.join(repoRoot, 'src/frontend/src/assets/account-shell.css')
 const accountLayoutPath = path.join(repoRoot, 'src/frontend/src/layouts/AccountLayout.vue')
+const accountNavigationPanelPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountNavigationPanel.vue')
+const accountHeaderMenuPath = path.join(repoRoot, 'src/frontend/src/components/account/AccountHeaderMenu.vue')
 const registerPath = path.join(repoRoot, 'src/frontend/src/views/auth/Register.vue')
 const adminDashboardPath = path.join(repoRoot, 'src/frontend/src/views/admin/Dashboard.vue')
+const adminDashboardWorkbenchPath = path.join(repoRoot, 'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue')
 const adminAnalyticsPath = path.join(repoRoot, 'src/frontend/src/views/admin/Analytics.vue')
 const dashboardPopularArticlesPath = path.join(repoRoot, 'src/frontend/src/components/admin/DashboardPopularArticles.vue')
 const homeTextFirstRecommendationsPath = path.join(repoRoot, 'src/frontend/src/components/home/HomeTextFirstRecommendations.vue')
@@ -45,10 +49,12 @@ const commentDetailViewContractPath = path.join(repoRoot, 'src/frontend/src/view
 
 const dashboardPanelPattern = /src\/frontend\/src\/(?:views\/admin\/Dashboard|components\/admin\/Dashboard|views\/admin\/security\/Security|views\/admin\/moderation\/Moderation|components\/admin\/comment-moderation\/CommentModeration)/
 const nonActionHoverPrimaryFiles = new Set([
-  'src/frontend/src/views/admin/Dashboard.vue'
+  'src/frontend/src/views/admin/Dashboard.vue',
+  'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue'
 ])
 const governedMicroLabelFiles = new Set([
   'src/frontend/src/views/admin/Dashboard.vue',
+  'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue',
   'src/frontend/src/views/admin/security/SecurityDashboard.vue',
   'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue',
   'src/frontend/src/components/admin/DashboardCommentModerationPanel.vue',
@@ -66,6 +72,7 @@ const governedMicroLabelFiles = new Set([
 ])
 const dashboardDensityFiles = [
   'src/frontend/src/views/admin/Dashboard.vue',
+  'src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue',
   'src/frontend/src/views/admin/Analytics.vue',
   'src/frontend/src/components/admin/DashboardAuthorAnalyticsList.vue',
   'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue',
@@ -356,13 +363,16 @@ function checkIssueDensityContracts() {
   assertContains(accountLayoutPath, /disabled:opacity-60/, 'account header/meta links must keep disabled opacity at 60% or higher')
   assertContains(accountLayoutPath, /<el-drawer[\s\S]*?id="account-mobile-drawer"[\s\S]*?<\/el-drawer>/, 'AccountLayout mobile navigation must use a drawer that carries the account sidebar visual language')
   assertContains(accountLayoutPath, /account-mobile-drawer-trigger/, 'AccountLayout mobile navigation must expose a compact drawer trigger')
-  assertContains(accountLayoutPath, /class="account-nav-link account-mobile-drawer-nav__link group"/, 'AccountLayout mobile drawer links must reuse account nav link visual language')
+  assertContains(accountLayoutPath, /<AccountNavigationPanel[\s\S]*?variant="mobile"/, 'AccountLayout mobile drawer must reuse the module and local navigation panel')
   assertContains(accountLayoutPath, /:motion="fsusBlogMotionPresets\.mobileDrawer"/, 'AccountLayout mobile drawer must use the shared mobile drawer motion preset')
   assertNotContains(accountLayoutPath, /FsusUiSegmentedControl/, 'AccountLayout mobile group navigation must not use segmented-control as a separate visual language')
   assertNotContains(accountLayoutPath, /account-mobile-more-strip|mobileOverflowGroups|mobileMoreOpen/, 'AccountLayout mobile navigation must stay two-level and must not reintroduce an overflow group row')
   assertNotContains(accountLayoutPath, /account-mobile-link-strip/, 'AccountLayout mobile route navigation must not use a separate horizontal tab strip')
-  assertContains(accountLayoutPath, /\.account-mobile-drawer-nav__link\s*\{[\s\S]*?min-height:\s*2\.75rem;/, 'AccountLayout mobile drawer route links must provide 44px hit targets')
-  assertContains(path.join(repoRoot, 'docs/public-layout-rules.md'), /AccountLayout[\s\S]*drawer[\s\S]*统一视觉效果[\s\S]*44px/, 'public layout rules must document the AccountLayout mobile drawer navigation pattern')
+  assertContains(accountNavigationPanelPath, /\.account-module-link,[\s\S]*?\.account-local-navigation__link\s*\{[\s\S]*?min-height:\s*2\.75rem;/, 'AccountLayout mobile drawer module and local links must provide 44px hit targets')
+  assertContains(accountNavigationPanelPath, /account-global-module-nav[\s\S]*account-local-navigation/, 'Account navigation must separate first-level modules from current-module local links')
+  assertNotContains(accountLayoutPath, /account-sidebar-scroll|\.account-sidebar-frame\s*\{[^}]*overflow-y:\s*auto;/s, 'desktop account sidebar must not create an internal scrollbar from leaf navigation')
+  assertContains(accountHeaderMenuPath, /打开账号菜单[\s\S]*使用规范[\s\S]*隐私政策[\s\S]*command="logout"/, 'account menu must own policy and logout actions')
+  assertContains(path.join(repoRoot, 'docs/public-layout-rules.md'), /AccountLayout[\s\S]*Drawer[\s\S]*一级模块[\s\S]*局部导航[\s\S]*44px/, 'public layout rules must document the AccountLayout single-drawer module navigation pattern')
 
   assertNotContains(registerPath, /高级|极致|奢华|未来感|智能|大气|简约而不简单|沉浸式/, 'Register copy must avoid FsusUI marketing adjective blacklist')
   const registerCopyPath = path.join(repoRoot, 'src/frontend/src/copy/auth.ts')
@@ -385,6 +395,12 @@ function checkIssueDensityContracts() {
   assertContains(themeTokensPath, /articleList:\s*\{[\s\S]*?container:\s*'flex flex-col gap-8'/, 'Public article list feed spacing must stay at the 32px density limit')
 
   assertNotContains(adminDashboardPath, /DashboardAuthorAnalyticsPanel|DashboardCommentModerationPanel|DashboardQuickActionsPanel|DashboardPopularArticles|DashboardRecentComments|访客来源|地域访问/, 'ManageDashboard must stay a lightweight overview and link out to dedicated workspaces')
+  assertContains(adminDashboardPath, /AdminDashboardTaskWorkbench/, 'ManageDashboard must delegate rendering to the task-first workbench')
+  assertContains(adminDashboardWorkbenchPath, /今日待处理[\s\S]*dashboard-task-list[\s\S]*站点摘要[\s\S]*dashboard-stat-ledger/, 'ManageDashboard workbench must keep tasks before its compact summary ledger')
+  assertContains(adminDashboardWorkbenchPath, /<dl class="dashboard-stat-ledger" aria-label="站点统计摘要">/, 'ManageDashboard summary must use definition-list semantics')
+  assertContains(adminDashboardWorkbenchPath, /帮助与反馈[\s\S]*帮助与反馈入口/, 'ManageDashboard feedback must live behind a help disclosure')
+  assertNotContains(adminDashboardWorkbenchPath, /dashboard-stat-card|<el-icon|GitHub|Issue|仓库维护/, 'ManageDashboard must not restore icon KPI cards or repository maintenance copy')
+  assertNotContains(adminDashboardWorkbenchPath, /DashboardAuthorAnalyticsPanel|DashboardCommentModerationPanel|DashboardQuickActionsPanel|DashboardPopularArticles|DashboardRecentComments|累计阅读|totalReads|RUM|AOT|访客来源|地域访问/, 'ManageDashboard workbench must not absorb reading, runtime, traffic analytics, or legacy panels')
   assertContains(adminAnalyticsPath, /DashboardAuthorAnalyticsPanel/, 'ManageAnalytics must own the author analytics panel')
   assertContains(adminAnalyticsPath, /访客来源[\s\S]*地域访问/, 'ManageAnalytics must own traffic source and region panels')
   assertContains(path.join(repoRoot, 'src/frontend/src/components/admin/DashboardAuthorAnalyticsPanel.vue'), /AdminStatusMatrix/, 'ManageAnalytics content and technical metrics must use FsusBlog AdminStatusMatrix compact density')

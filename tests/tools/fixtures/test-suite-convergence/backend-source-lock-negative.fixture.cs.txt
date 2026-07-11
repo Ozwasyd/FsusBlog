@@ -1,0 +1,24 @@
+public sealed class SourceShapeEvidenceTests
+{
+    public void ReadsImplementationDocumentationAndAnotherTest()
+    {
+        string service = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/ExampleService.cs");
+        string docs = BackendTestPaths.ReadAllTextFromRoot("docs/testing.md");
+        string otherTest = BackendTestPaths.ReadAllTextFromRoot("tests/backend/Unit/OtherTests.cs");
+        string hidden = ReadSource("src/backend/Services/HiddenService.cs");
+    }
+
+    public void EnumeratesProductionFiles()
+    {
+        string[] files = Directory.EnumerateFiles(
+            BackendTestPaths.FromRoot("src", "backend", "Modules", "Endpoints"),
+            "*.cs").ToArray();
+        foreach (string file in files)
+        {
+            string source = File.ReadAllText(file);
+        }
+    }
+
+    private static string ReadSource(string path)
+        => BackendTestPaths.ReadAllTextFromRoot(path);
+}

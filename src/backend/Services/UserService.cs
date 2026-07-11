@@ -38,7 +38,8 @@ public partial class UserService(
     IMessageCommandService _messageCommandService,
     IMessageRealtimePublisher _messageRealtimePublisher,
     ITotpService _totpService,
-    IAuthRiskService _authRiskService) : IUserService, IUserAuthService
+    IAuthRiskService _authRiskService,
+    IUserSessionValidationCache _userSessionValidationCache) : IUserService, IUserAuthService
 {
     private const int UserStatusNormal = 0;
     private const int UserStatusBanned = 1;
@@ -183,7 +184,7 @@ public partial class UserService(
             };
 
             Result<int> insertResult = await BoundaryExecutor.ExecuteResultAsync(
-                () => _db.Insertable(newUser).ExecuteReturnIdentityAsync(),
+                () => InsertAnonymousAccountWithSubjectAsync(newUser),
                 ex => ex.Message.Contains("23505", StringComparison.OrdinalIgnoreCase)
                       || ex.Message.Contains("Unique", StringComparison.OrdinalIgnoreCase)
                     ? ErrorDetail.Create(ErrorCode.Conflict, "匿名账号初始化冲突，请重试")
@@ -206,6 +207,53 @@ public partial class UserService(
         return (false, "匿名账号初始化冲突，请重试", null);
     }
 
+    private async Task<int> InsertAnonymousAccountWithSubjectAsync(User user)
+    {
+        user.AccountSubjectHash = string.IsNullOrWhiteSpace(user.PublicHandle)
+            ? AccountSubjectHasher.Create(
+                user.IdentityKind,
+                string.Concat("bootstrap:", Convert.ToHexString(RandomNumberGenerator.GetBytes(32))))
+            : AccountSubjectHasher.Create(user);
+
+        int accountId = 0;
+        var transaction = await _db.Ado.UseTranAsync(async () =>
+        {
+            accountId = await _db.Insertable(user).ExecuteReturnIdentityAsync().ConfigureAwait(false);
+            if (accountId <= 0)
+            {
+                throw new InvalidOperationException("Anonymous account insert did not return an identity.");
+            }
+
+            user.Id = accountId;
+            string finalSubjectHash = AccountSubjectHasher.Create(user);
+            if (!string.Equals(user.AccountSubjectHash, finalSubjectHash, StringComparison.Ordinal))
+            {
+                int updated = await _db.Ado.ExecuteCommandAsync(
+                    """
+                    UPDATE sys_user
+                    SET account_subject_hash = @AccountSubjectHash
+                    WHERE id = @AccountId;
+                    """,
+                    new SugarParameter("@AccountSubjectHash", finalSubjectHash),
+                    new SugarParameter("@AccountId", accountId)).ConfigureAwait(false);
+                if (updated != 1)
+                {
+                    throw new InvalidOperationException("Anonymous account subject projection was not persisted.");
+                }
+
+                user.AccountSubjectHash = finalSubjectHash;
+            }
+        }).ConfigureAwait(false);
+
+        if (!transaction.IsSuccess)
+        {
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("Anonymous account creation transaction failed.");
+        }
+
+        return accountId;
+    }
+
     public async Task<User?> GetByIdAsync(int id) => await _db.Queryable<User>().InSingleAsync(id);
 
     private Task InvalidateAccountSnapshotAsync(int userId, CancellationToken cancellationToken = default)
@@ -225,7 +273,7 @@ public partial class UserService(
                    recovery_enabled AS "RecoveryEnabled",
                    anonymous_credential_status AS "AnonymousCredentialStatus",
                    anonymous_credential_level AS "AnonymousCredentialLevel",
-                   passkey_user_handle AS "PasskeyUserHandle"
+                   account_subject_hash AS "AccountSubjectHash"
             FROM sys_user
             WHERE id = @Id
             LIMIT 1;
@@ -250,16 +298,15 @@ public partial class UserService(
         int fRecoveryEnabled = reader.GetOrdinal("RecoveryEnabled");
         int fAnonymousCredentialStatus = reader.GetOrdinal("AnonymousCredentialStatus");
         int fAnonymousCredentialLevel = reader.GetOrdinal("AnonymousCredentialLevel");
-        int fPasskeyUserHandle = reader.GetOrdinal("PasskeyUserHandle");
+        int fAccountSubjectHash = reader.GetOrdinal("AccountSubjectHash");
         int accountId = reader.GetInt32(fId);
         string identityKind = reader.IsDBNull(fIdentityKind)
             ? AnonymousIdentityRuntime.AnonymousAccountKind
             : reader.GetString(fIdentityKind);
         string? publicHandle = reader.IsDBNull(fPublicHandle) ? null : reader.GetString(fPublicHandle);
-        string? passkeyUserHandle = reader.IsDBNull(fPasskeyUserHandle) ? null : reader.GetString(fPasskeyUserHandle);
-        string accountSubjectHash = AccountSubjectHasher.Create(
-            identityKind,
-            passkeyUserHandle ?? publicHandle ?? string.Concat("anonymous-account:", accountId.ToString(CultureInfo.InvariantCulture)));
+        string? accountSubjectHash = reader.IsDBNull(fAccountSubjectHash)
+            ? null
+            : reader.GetString(fAccountSubjectHash);
 
         return new UserAccountSnapshot(
             accountId,
@@ -363,14 +410,54 @@ public partial class UserService(
         if (string.IsNullOrWhiteSpace(refreshToken)) return false;
 
         string hash = HashToken(refreshToken);
-        int sessionUpdated = await _db.Updateable<UserSession>()
-            .SetColumns(s => s.RevokedAt == DateTime.UtcNow)
-            .SetColumns(s => s.RevokeReason == "logout")
-            .Where(s => s.RefreshTokenHash == hash && s.RevokedAt == null)
-            .ExecuteCommandAsync();
+        DateTime revokedAt = DateTime.UtcNow;
+        List<UserSessionValidationCacheState> revokedSessions = [];
+        bool publicationAttempted = false;
+        var transaction = await _db.Ado.UseTranAsync(async () =>
+        {
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user_session
+                SET revokedat = @RevokedAt,
+                    revokereason = 'logout'
+                WHERE refreshtokenhash = @RefreshTokenHash
+                  AND revokedat IS NULL
+                RETURNING sessionid,
+                          userid,
+                          revokedat,
+                          idleexpiresat,
+                          absoluteexpiresat,
+                          xmin::text AS row_version;
+                """,
+                new SugarParameter("@RevokedAt", revokedAt),
+                new SugarParameter("@RefreshTokenHash", hash)))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    revokedSessions.Add(ReadRevokedSessionValidationState(reader));
+                }
+            }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        return sessionUpdated > 0;
+            cancellationToken.ThrowIfCancellationRequested();
+            publicationAttempted = revokedSessions.Count > 0;
+            await _userSessionValidationCache.PublishManyAsync(
+                revokedSessions,
+                allowOverwrite: true,
+                cancellationToken: cancellationToken);
+        });
+
+        if (!transaction.IsSuccess)
+        {
+            if (publicationAttempted)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions);
+            }
+
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("refresh-token revocation transaction failed");
+        }
+
+        return revokedSessions.Count > 0;
     }
 
     public async Task<PageResult<AdminAccountListItemDto>> GetAdminUserListAsync(UserQueryDto dto)
@@ -687,7 +774,7 @@ public partial class UserService(
 
         if (user.Status == UserStatusBanned)
         {
-            string accountSubject = AccountSubjectHasher.Create(user);
+            string accountSubject = AccountSubjectHashRequirement.Require(user.AccountSubjectHash, "login-restriction-audit");
             using var _ = AuditLogScope.Push(
                 AuditSourceCatalog.Auth,
                 AuditTypeCatalog.Security,
@@ -699,7 +786,7 @@ public partial class UserService(
         string refreshToken = _jwtHelper.GenerateRefreshToken();
         string refreshTokenHash = HashToken(refreshToken);
         string sessionId = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-        string accessToken = _jwtHelper.GenerateAccessToken(user, sessionId, mfaVerified);
+        IssuedAccessToken accessToken = _jwtHelper.GenerateAccessToken(user, sessionId, mfaVerified);
         DateTime now = DateTime.UtcNow;
         DateTime idleExpiresAt = now.Add(ResolveIdleSessionTtl(rememberMe));
         DateTime absoluteExpiresAt = now.Add(ResolveAbsoluteSessionTtl(rememberMe));
@@ -722,13 +809,18 @@ public partial class UserService(
 
         long transactionStarted = Stopwatch.GetTimestamp();
         int replacedSessionCount = 0;
+        List<UserSessionValidationCacheState> replacedSessions = [];
+        bool publicationAttempted = false;
         var tran = await _db.Ado.UseTranAsync(async () =>
         {
             await AcquireUserSessionLoginLockAsync(user.Id);
 
-            replacedSessionCount = await RevokeActiveUserSessionsForLoginAsync(user.Id, now);
+            replacedSessionCount = await RevokeActiveUserSessionsForLoginAsync(user.Id, now, replacedSessions);
 
             await _db.Insertable(session).ExecuteCommandAsync();
+
+            publicationAttempted = replacedSessions.Count > 0;
+            await _userSessionValidationCache.PublishManyAsync(replacedSessions, allowOverwrite: true);
         });
         FsusObservability.RecordLoginSessionReplacement(
             replacedSessionCount,
@@ -736,14 +828,27 @@ public partial class UserService(
             Stopwatch.GetElapsedTime(transactionStarted));
         if (!tran.IsSuccess)
         {
+            if (publicationAttempted)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync(replacedSessions);
+            }
+
             _logger.LogError(tran.ErrorException, "User session login transaction failed for account {AccountId}", user.Id);
             return (false, "登录失败，请重试", null, null);
         }
 
-        return (true, "登录成功", new SessionTokenResponseDto(accessToken, refreshToken, session.SessionId, idleExpiresAt), user);
+        return (true, "登录成功", new SessionTokenResponseDto(
+            accessToken.Token,
+            accessToken.ExpiresAtUtc,
+            refreshToken,
+            session.SessionId,
+            idleExpiresAt), user);
     }
 
-    private async Task<int> RevokeActiveUserSessionsForLoginAsync(int userId, DateTime revokedAt)
+    private async Task<int> RevokeActiveUserSessionsForLoginAsync(
+        int userId,
+        DateTime revokedAt,
+        List<UserSessionValidationCacheState> revokedSessions)
     {
         int count = 0;
         using var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
@@ -753,13 +858,19 @@ public partial class UserService(
                 revokereason = 'login_replaced'
             WHERE userid = @UserId
               AND revokedat IS NULL
-            RETURNING sessionid;
+            RETURNING sessionid,
+                      userid,
+                      revokedat,
+                      idleexpiresat,
+                      absoluteexpiresat,
+                      xmin::text AS row_version;
             """,
             new SugarParameter("@UserId", userId),
             new SugarParameter("@RevokedAt", revokedAt));
 
         while (await reader.ReadAsync())
         {
+            revokedSessions.Add(ReadRevokedSessionValidationState(reader));
             count++;
         }
 
@@ -848,21 +959,127 @@ public partial class UserService(
             return false;
         }
 
-        return await _db.Updateable<UserSession>()
-            .SetColumns(s => s.RevokedAt == DateTime.UtcNow)
-            .SetColumns(s => s.RevokeReason == reason)
-            .Where(s => s.UserId == userId && s.SessionId == sessionId && s.RevokedAt == null)
-            .ExecuteCommandAsync() > 0;
+        DateTime revokedAt = DateTime.UtcNow;
+        UserSessionValidationCacheState? revokedSession = null;
+        bool publicationAttempted = false;
+        var transaction = await _db.Ado.UseTranAsync(async () =>
+        {
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user_session
+                SET revokedat = @RevokedAt,
+                    revokereason = @Reason
+                WHERE userid = @UserId
+                  AND sessionid = @SessionId
+                  AND revokedat IS NULL
+                RETURNING sessionid,
+                          userid,
+                          revokedat,
+                          idleexpiresat,
+                          absoluteexpiresat,
+                          xmin::text AS row_version;
+                """,
+                new SugarParameter("@RevokedAt", revokedAt),
+                new SugarParameter("@Reason", reason),
+                new SugarParameter("@UserId", userId),
+                new SugarParameter("@SessionId", sessionId)))
+            {
+                if (await reader.ReadAsync())
+                {
+                    revokedSession = ReadRevokedSessionValidationState(reader);
+                }
+            }
+
+            if (revokedSession is not null)
+            {
+                publicationAttempted = true;
+                await _userSessionValidationCache.PublishManyAsync([revokedSession], allowOverwrite: true);
+            }
+        });
+
+        if (!transaction.IsSuccess)
+        {
+            if (publicationAttempted && revokedSession is not null)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync([revokedSession]);
+            }
+
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("user session revocation transaction failed");
+        }
+
+        return revokedSession is not null;
     }
 
     public async Task<int> RevokeOtherSessionsAsync(int userId, string? currentSessionId)
     {
-        return await _db.Updateable<UserSession>()
-            .SetColumns(s => s.RevokedAt == DateTime.UtcNow)
-            .SetColumns(s => s.RevokeReason == "revoke_others")
-            .Where(s => s.UserId == userId && s.RevokedAt == null && (currentSessionId == null || s.SessionId != currentSessionId))
-            .ExecuteCommandAsync();
+        DateTime revokedAt = DateTime.UtcNow;
+        List<UserSessionValidationCacheState> revokedSessions = [];
+        bool publicationAttempted = false;
+        var transaction = await _db.Ado.UseTranAsync(async () =>
+        {
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user_session
+                SET revokedat = @RevokedAt,
+                    revokereason = 'revoke_others'
+                WHERE userid = @UserId
+                  AND revokedat IS NULL
+                  AND (@CurrentSessionId IS NULL OR sessionid <> @CurrentSessionId)
+                RETURNING sessionid,
+                          userid,
+                          revokedat,
+                          idleexpiresat,
+                          absoluteexpiresat,
+                          xmin::text AS row_version;
+                """,
+                new SugarParameter("@RevokedAt", revokedAt),
+                new SugarParameter("@UserId", userId),
+                new SugarParameter("@CurrentSessionId", currentSessionId)))
+            {
+                while (await reader.ReadAsync())
+                {
+                    revokedSessions.Add(ReadRevokedSessionValidationState(reader));
+                }
+            }
+
+            publicationAttempted = revokedSessions.Count > 0;
+            await _userSessionValidationCache.PublishManyAsync(revokedSessions, allowOverwrite: true);
+        });
+
+        if (!transaction.IsSuccess)
+        {
+            if (publicationAttempted)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions);
+            }
+
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("bulk user session revocation transaction failed");
+        }
+
+        return revokedSessions.Count;
     }
+
+    private static UserSessionValidationCacheState ReadRevokedSessionValidationState(DbDataReader reader)
+        => new(
+            reader.GetString(0),
+            reader.GetInt32(1),
+            AsUtc(reader.GetDateTime(2)),
+            AsUtc(reader.GetDateTime(3)),
+            AsUtc(reader.GetDateTime(4)),
+            reader.GetString(5),
+            UserStatusNormal,
+            null,
+            AnonymousIdentityRuntime.AnonymousAccountKind);
+
+    private static DateTime AsUtc(DateTime value)
+        => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
 
     public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId)
     {
@@ -912,7 +1129,7 @@ public partial class UserService(
 
         if (user.Status == UserStatusBanned)
         {
-            string accountSubject = AccountSubjectHasher.Create(user);
+            string accountSubject = AccountSubjectHashRequirement.Require(user.AccountSubjectHash, "token-refresh-restriction-audit");
             LogBannedAccountTokenRefresh(accountSubject);
         }
 
@@ -923,7 +1140,7 @@ public partial class UserService(
         {
             idleExpiresAt = session.AbsoluteExpiresAt;
         }
-        string accessToken = _jwtHelper.GenerateAccessToken(user, session.SessionId, session.MfaVerified);
+        IssuedAccessToken accessToken = _jwtHelper.GenerateAccessToken(user, session.SessionId, session.MfaVerified);
 
         int rotated = await _db.Updateable<UserSession>()
             .SetColumns(s => s.RefreshTokenHash == newRefreshHash)
@@ -951,7 +1168,12 @@ public partial class UserService(
         }
 
         FsusObservability.RecordAuthRefreshSuccess(3, FsusObservability.GetElapsed(startedAt));
-        return (true, new TokenResponseDto(accessToken, newRefreshToken, idleExpiresAt, session.SessionId));
+        return (true, new TokenResponseDto(
+            accessToken.Token,
+            newRefreshToken,
+            idleExpiresAt,
+            session.SessionId,
+            accessToken.ExpiresAtUtc));
     }
 
     public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync(
@@ -1025,14 +1247,33 @@ public partial class UserService(
         }
 
         DateTime deletedAt = DateTime.UtcNow;
+        List<UserSessionValidationCacheState> revokedSessions = [];
+        bool publicationAttempted = false;
 
         var tran = await _db.Ado.UseTranAsync(async () =>
         {
-            await _db.Updateable<UserSession>()
-                .SetColumns(s => s.RevokedAt == deletedAt)
-                .SetColumns(s => s.RevokeReason == "account_deleted")
-                .Where(s => s.UserId == userId && s.RevokedAt == null)
-                .ExecuteCommandAsync();
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+                """
+                UPDATE sys_user_session
+                SET revokedat = @RevokedAt,
+                    revokereason = 'account_deleted'
+                WHERE userid = @UserId
+                  AND revokedat IS NULL
+                RETURNING sessionid,
+                          userid,
+                          revokedat,
+                          idleexpiresat,
+                          absoluteexpiresat,
+                          xmin::text AS row_version;
+                """,
+                new SugarParameter("@RevokedAt", deletedAt),
+                new SugarParameter("@UserId", userId)))
+            {
+                while (await reader.ReadAsync())
+                {
+                    revokedSessions.Add(ReadRevokedSessionValidationState(reader));
+                }
+            }
 
             await _db.Deleteable<PasskeyCredential>()
                 .Where(p => p.AccountId == userId)
@@ -1073,10 +1314,18 @@ public partial class UserService(
                 .SetColumns(p => p.UpdatedAtUtc == deletedAt)
                 .Where(p => p.UserId == userId)
                 .ExecuteCommandAsync();
+
+            publicationAttempted = revokedSessions.Count > 0;
+            await _userSessionValidationCache.PublishManyAsync(revokedSessions, allowOverwrite: true);
         });
 
         if (!tran.IsSuccess)
         {
+            if (publicationAttempted)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions);
+            }
+
             _logger.LogError(tran.ErrorException, "Delete account transaction failed for user {UserId}", userId);
             return (false, "账户注销失败，请稍后重试");
         }
@@ -1085,6 +1334,26 @@ public partial class UserService(
         await _cache.RemoveAsync(CachePolicyId.SecurityBlockedUser, userId.ToString());
         await InvalidateAccountSnapshotAsync(userId).ConfigureAwait(false);
         return (true, "账户已注销");
+    }
+
+    private async Task BestEffortInvalidateRevocationSnapshotsAsync(
+        IReadOnlyList<UserSessionValidationCacheState> revokedSessions)
+    {
+        try
+        {
+            await _userSessionValidationCache.InvalidateManyAsync(
+                revokedSessions,
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // A failed cleanup leaves a revoked snapshot behind. That may deny a session
+            // whose database transaction rolled back, but it cannot authorize a revoked one.
+            _logger.LogWarning(
+                ex,
+                "Failed to clean up {SessionCount} pre-commit user-session revocation snapshots",
+                revokedSessions.Count);
+        }
     }
 
     public async Task<MfaProfileDto?> GetMfaProfileAsync(int userId)
@@ -1484,11 +1753,7 @@ public partial class UserService(
             return;
         }
 
-        await _db.Updateable<UserSession>()
-            .SetColumns(s => s.RevokedAt == DateTime.UtcNow)
-            .SetColumns(s => s.RevokeReason == "refresh_token_reuse")
-            .Where(s => s.SessionId == sessionId && s.RevokedAt == null)
-            .ExecuteCommandAsync();
+        _ = await RevokeSessionAsync(candidate.UserId, sessionId, "refresh_token_reuse");
     }
 
     public Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent)

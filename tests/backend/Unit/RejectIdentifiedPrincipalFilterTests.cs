@@ -1,12 +1,16 @@
+using System.Reflection;
 using System.Security.Claims;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Results;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Shared.Contracts.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -135,45 +139,46 @@ public sealed class RejectIdentifiedPrincipalFilterTests
     }
 
     [Fact]
-    public void FilterSource_UsesPresenceChecksOnlyAndHasReusableEndpointHelper()
+    public void RequireStrongAnonymousRequest_AddsReusableMetadataAndFilterHasInfrastructureFreeConstructor()
     {
-        string source = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "Filters",
-            "RejectIdentifiedPrincipalFilter.cs"));
+        WebApplication app = WebApplication.CreateBuilder().Build();
+        app.MapPost("/anonymous", static () => Results.Ok())
+            .RequireStrongAnonymousRequest();
 
-        Assert.Contains("RequireStrongAnonymousRequest", source, StringComparison.Ordinal);
-        Assert.Contains("StrongAnonymousRequestMetadata", source, StringComparison.Ordinal);
-        Assert.Contains("Headers.ContainsKey", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Request.Cookies", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetRequiredService", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IUnifiedCache", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("SqlSugar", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("StackExchange.Redis", source, StringComparison.Ordinal);
+        RouteEndpoint endpoint = Assert.IsType<RouteEndpoint>(Assert.Single(
+            app.DataSources.SelectMany(static source => source.Endpoints)));
+        Assert.Same(
+            StrongAnonymousRequestMetadata.Instance,
+            endpoint.Metadata.GetMetadata<StrongAnonymousRequestMetadata>());
+
+        ConstructorInfo constructor = Assert.Single(typeof(RejectIdentifiedPrincipalFilter).GetConstructors());
+        ParameterInfo parameter = Assert.Single(constructor.GetParameters());
+        Assert.Equal(typeof(ILogger<RejectIdentifiedPrincipalFilter>), parameter.ParameterType);
+        Assert.DoesNotContain(constructor.GetParameters(), static item =>
+            item.ParameterType.Namespace?.StartsWith("SqlSugar", StringComparison.Ordinal) == true
+            || item.ParameterType.Namespace?.StartsWith("StackExchange.Redis", StringComparison.Ordinal) == true);
     }
 
     [Fact]
-    public void ExistingLoginBackedCommentEndpoint_DoesNotMountStrongAnonymousGuard()
+    public void ExistingLoginBackedCommentEndpoint_RequiresAuthorizationWithoutStrongAnonymousMetadata()
     {
-        string source = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Modules",
-            "Endpoints",
-            "Binary",
-            "BinaryEndpoints.Comments.cs"));
-        string handler = ExtractBetween(
-            source,
-            "group.MapPost(\"/comment\"",
-            "group.MapGet(\"/comment/{articleId:int}\"");
+        WebApplication app = WebApplication.CreateBuilder().Build();
+        RouteGroupBuilder group = app.MapGroup("/api/binary");
+        MethodInfo mapComments = typeof(BinaryEndpoints).GetMethod(
+            "MapBinaryCommentEndpoints",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Binary comment endpoint mapper was not found.");
+        mapComments.Invoke(null, [group]);
 
-        Assert.Contains(".RequireAuthorization()", handler, StringComparison.Ordinal);
-        Assert.Contains("AccountPrincipalContext account", handler, StringComparison.Ordinal);
-        Assert.Contains("account.AccountId", handler, StringComparison.Ordinal);
-        Assert.DoesNotContain("RequireStrongAnonymousRequest", handler, StringComparison.Ordinal);
-        Assert.DoesNotContain("RejectIdentifiedPrincipalFilter", handler, StringComparison.Ordinal);
+        RouteEndpoint endpoint = Assert.Single(app.DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(static endpoint =>
+                string.Equals(endpoint.RoutePattern.RawText, "/api/binary/comment", StringComparison.Ordinal)
+                && endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods.Contains("POST") == true));
+
+        Assert.NotNull(endpoint.Metadata.GetMetadata<IAuthorizeData>());
+        Assert.Null(endpoint.Metadata.GetMetadata<StrongAnonymousRequestMetadata>());
     }
 
     private static DefaultHttpContext CreateContext()
@@ -241,12 +246,4 @@ public sealed class RejectIdentifiedPrincipalFilterTests
 
     private sealed record LogEntry(LogLevel Level, string RenderedMessage, string RenderedProperties);
 
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
-    }
 }

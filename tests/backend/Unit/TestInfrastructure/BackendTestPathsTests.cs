@@ -68,51 +68,6 @@ public sealed class BackendTestPathsTests
         Assert.Contains(invalidRoot, error.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void FixtureAndCatalogTests_UseSharedRepositoryRootHelper()
-    {
-        string[] sourcePaths =
-        [
-            "tests/backend/Unit/BackendTestGovernanceTests.cs",
-            "tests/backend/Unit/BackendGoldenCatalogTests.cs"
-        ];
-
-        foreach (string sourcePath in sourcePaths)
-        {
-            string source = BackendTestPaths.ReadAllTextFromRoot(sourcePath);
-
-            Assert.Contains("FsusBlog.Server.Tests.TestInfrastructure", source, StringComparison.Ordinal);
-            Assert.Contains("BackendTestPaths.", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("FindRepoRoot", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("Unable to locate repository root", source, StringComparison.Ordinal);
-        }
-    }
-
-    [Fact]
-    public void SourceReadingContractTests_UseSharedRepositoryRootHelper()
-    {
-        string[] sourcePaths =
-        [
-            "tests/backend/Unit/PublicAotRouteManifestTests.cs",
-            "tests/backend/Unit/PublicAotNodeWorkerScriptTests.cs",
-            "tests/backend/Unit/BackendApiIntegrationContractTests.cs",
-            "tests/backend/Unit/AedsProtocolCrossLanguageTests.cs",
-            "tests/backend/Unit/CoverageScriptContractTests.cs",
-            "tests/backend/Unit/HttpHotPathPerformanceContractTests.cs",
-            "tests/backend/Unit/EndpointPolicyContractTests.cs"
-        ];
-
-        foreach (string sourcePath in sourcePaths)
-        {
-            string source = BackendTestPaths.ReadAllTextFromRoot(sourcePath);
-
-            Assert.Contains("FsusBlog.Server.Tests.TestInfrastructure", source, StringComparison.Ordinal);
-            Assert.Contains("BackendTestPaths.", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("FindRepoRoot", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("Unable to locate repository root", source, StringComparison.Ordinal);
-        }
-    }
-
     private static string CreateRepositoryFixture()
     {
         string root = CreateTempDirectory();

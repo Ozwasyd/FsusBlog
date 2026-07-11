@@ -7,22 +7,37 @@ using System.Text;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Storage;
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
-public sealed class PublicAotFileShellCache(
-    IWebHostEnvironment env,
-    IConnectionMultiplexer redis,
-    ILogger<PublicAotFileShellCache> logger) : IPublicAotShellCache
+public sealed class PublicAotFileShellCache : IPublicAotShellCache
 {
     private const int InvalidationBatchSize = 256;
-    private readonly IDatabase _db = redis.GetDatabase();
-    private readonly string _cacheRoot = ResolveCacheRoot(env);
+    private readonly IDatabase _db;
+    private readonly string _webRoot;
+    private readonly string _cacheRoot;
+    private readonly ReleaseDerivedArtifactPublisher? _derivedPublisher;
+    private readonly ILogger<PublicAotFileShellCache> logger;
     private readonly ConcurrentDictionary<string, MemoryCacheEntry> _memoryCache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, FileMetadataCacheEntry> _fileMetadataCache = new(StringComparer.Ordinal);
     private long _memoryGeneration;
     private PublicAotRecordedInvalidation? _lastInvalidation;
+
+    public PublicAotFileShellCache(
+        IWebHostEnvironment env,
+        IConnectionMultiplexer redis,
+        ILogger<PublicAotFileShellCache> logger,
+        ReleaseDerivedArtifactPublisher? derivedPublisher = null)
+    {
+        _db = redis.GetDatabase();
+        _webRoot = ResolveWebRoot(env);
+        _derivedPublisher = derivedPublisher ?? ResolveReleaseDerivedPublisher();
+        _cacheRoot = _derivedPublisher?.GetKindRoot("public-aot") ?? ResolveCacheRoot(env);
+        this.logger = logger;
+    }
 
     internal PublicAotRecordedInvalidation? LastInvalidationForTests => _lastInvalidation;
 
@@ -47,10 +62,31 @@ public sealed class PublicAotFileShellCache(
         string directory = Path.GetDirectoryName(targetPath)!;
         Directory.CreateDirectory(directory);
 
-        string tempPath = Path.Combine(directory, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
         byte[] payload = SerializeEntryBytes(entry);
-        await File.WriteAllBytesAsync(tempPath, payload, cancellationToken);
-        File.Move(tempPath, targetPath, overwrite: true);
+        if (_derivedPublisher is not null)
+        {
+            string relativePath = Path.GetRelativePath(_cacheRoot, targetPath);
+            string generation = BuildPublicationGeneration(entry.CacheKey, payload);
+            await _derivedPublisher.PublishArtifactAndProjectAsync(
+                "public-aot",
+                relativePath,
+                generation,
+                payload,
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            string tempPath = Path.Combine(directory, $"{Path.GetFileName(targetPath)}.{Guid.NewGuid():N}.tmp");
+            try
+            {
+                await File.WriteAllBytesAsync(tempPath, payload, cancellationToken).ConfigureAwait(false);
+                File.Move(tempPath, targetPath, overwrite: true);
+            }
+            finally
+            {
+                File.Delete(tempPath);
+            }
+        }
         _memoryCache[entry.CacheKey] = CreateMemoryCacheEntry(entry);
         UpdateFileMetadataEntry(targetPath, entry);
 
@@ -139,8 +175,10 @@ public sealed class PublicAotFileShellCache(
             foreach (string file in EnumerateEntryFiles())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                File.Delete(file);
-                deletedFiles++;
+                if (DeleteCompatibilityEntryFile(file, cancellationToken))
+                {
+                    deletedFiles++;
+                }
             }
         }
 
@@ -405,19 +443,7 @@ public sealed class PublicAotFileShellCache(
 
     private bool TryResolveHydrationSidecarPath(PublicAotHydrationSidecarReference sidecar, out string path)
     {
-        string webRoot = Path.GetDirectoryName(_cacheRoot) ?? _cacheRoot;
-        path = Path.GetFullPath(Path.Combine(webRoot, sidecar.RelativePath.Replace('/', Path.DirectorySeparatorChar)));
-        return IsPathWithinDirectory(webRoot, path);
-    }
-
-    private static bool IsPathWithinDirectory(string directory, string candidatePath)
-    {
-        string root = Path.GetFullPath(directory);
-        string candidate = Path.GetFullPath(candidatePath);
-        string relative = Path.GetRelativePath(root, candidate);
-        return relative.Length == 0 ||
-            (!relative.StartsWith("..", StringComparison.Ordinal) &&
-             !Path.IsPathRooted(relative));
+        return CanonicalPathBoundary.TryResolveRelative(_webRoot, sidecar.RelativePath, out path);
     }
 
     private MemoryCacheEntry CreateMemoryCacheEntry(PublicAotCacheEntry entry)
@@ -502,9 +528,8 @@ public sealed class PublicAotFileShellCache(
     {
         try
         {
-            if (File.Exists(path))
+            if (DeleteCompatibilityEntryFile(path, CancellationToken.None))
             {
-                File.Delete(path);
                 _fileMetadataCache.TryRemove(path, out _);
             }
         }
@@ -512,6 +537,28 @@ public sealed class PublicAotFileShellCache(
         {
             logger.Log(failureLevel, ex, "{FailureToken} {Path}", failureToken, path);
         }
+    }
+
+    private bool DeleteCompatibilityEntryFile(string path, CancellationToken cancellationToken)
+    {
+        if (_derivedPublisher is not null)
+        {
+            string relativePath = Path.GetRelativePath(_cacheRoot, path);
+            return _derivedPublisher.RemoveArtifactProjectionAsync(
+                    "public-aot",
+                    relativePath,
+                    cancellationToken)
+                .GetAwaiter()
+                .GetResult();
+        }
+
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        File.Delete(path);
+        return true;
     }
 
     internal static byte[] SerializeEntryBytes(PublicAotCacheEntry entry)
@@ -526,13 +573,70 @@ public sealed class PublicAotFileShellCache(
     internal static PublicAotCacheEntry? DeserializeEntryBytes(ReadOnlyMemory<byte> payload)
         => PublicAotCacheEntryBinaryCodec.Decode(payload);
 
-    private static string ResolveCacheRoot(IWebHostEnvironment env)
+    private static string ResolveWebRoot(IWebHostEnvironment env)
     {
-        string webRoot = string.IsNullOrWhiteSpace(env.WebRootPath)
+        return string.IsNullOrWhiteSpace(env.WebRootPath)
             ? Path.Combine(env.ContentRootPath, "wwwroot")
             : env.WebRootPath;
-        return Path.Combine(webRoot, "aot-cache");
     }
+
+    private static string ResolveCacheRoot(IWebHostEnvironment env)
+        => ResolveCacheRoot(
+            env,
+            Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_DERIVED_ROOT"),
+            Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ID"));
+
+    private static string ResolveCacheRoot(
+        IWebHostEnvironment env,
+        string? releaseDerivedRoot,
+        string? releaseId)
+    {
+        if (!string.IsNullOrWhiteSpace(releaseDerivedRoot) || !string.IsNullOrWhiteSpace(releaseId))
+        {
+            if (string.IsNullOrWhiteSpace(releaseDerivedRoot) || string.IsNullOrWhiteSpace(releaseId))
+            {
+                throw new InvalidOperationException(
+                    "Release-scoped PublicAOT storage requires both FSUSBLOG_RELEASE_DERIVED_ROOT and FSUSBLOG_RELEASE_ID.");
+            }
+
+            return ReleaseStorageLayout.BuildReleaseDerivedPath(
+                releaseDerivedRoot,
+                releaseId,
+                "public-aot");
+        }
+
+        if (env.IsProduction())
+        {
+            throw new InvalidOperationException(
+                "Production PublicAOT storage requires FSUSBLOG_RELEASE_DERIVED_ROOT and FSUSBLOG_RELEASE_ID.");
+        }
+
+        return Path.Combine(ResolveWebRoot(env), "aot-cache");
+    }
+
+    private static ReleaseDerivedArtifactPublisher? ResolveReleaseDerivedPublisher()
+    {
+        string? releaseDerivedRoot = Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_DERIVED_ROOT");
+        string? releaseId = Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ID");
+        if (string.IsNullOrWhiteSpace(releaseDerivedRoot) && string.IsNullOrWhiteSpace(releaseId))
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(releaseDerivedRoot) || string.IsNullOrWhiteSpace(releaseId))
+        {
+            throw new InvalidOperationException(
+                "Release-scoped PublicAOT publication requires both FSUSBLOG_RELEASE_DERIVED_ROOT and FSUSBLOG_RELEASE_ID.");
+        }
+
+        return new ReleaseDerivedArtifactPublisher(releaseDerivedRoot, releaseId);
+    }
+
+    internal static string ResolveCacheRootForTests(
+        IWebHostEnvironment env,
+        string? releaseDerivedRoot,
+        string? releaseId)
+        => ResolveCacheRoot(env, releaseDerivedRoot, releaseId);
 
     private IEnumerable<string> EnumerateEntryFiles()
     {
@@ -541,7 +645,18 @@ public sealed class PublicAotFileShellCache(
             return [];
         }
 
-        return Directory.EnumerateFiles(_cacheRoot, "*.aeds", SearchOption.AllDirectories);
+        string[] retainedPublicationPrefixes =
+        [
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(_cacheRoot, "generations")))
+                + Path.DirectorySeparatorChar,
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(_cacheRoot, ".artifacts")))
+                + Path.DirectorySeparatorChar
+        ];
+        StringComparison comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        return Directory.EnumerateFiles(_cacheRoot, "*.aeds", SearchOption.AllDirectories)
+            .Where(path => retainedPublicationPrefixes.All(prefix => !Path.GetFullPath(path).StartsWith(prefix, comparison)));
     }
 
     private IEnumerable<string> ResolveCandidateEntryPaths(string cacheKey, string? frontendAssetVersion)
@@ -612,9 +727,8 @@ public sealed class PublicAotFileShellCache(
                     continue;
                 }
 
-                if (File.Exists(path))
+                if (DeleteCompatibilityEntryFile(path, CancellationToken.None))
                 {
-                    File.Delete(path);
                     _fileMetadataCache.TryRemove(path, out _);
                 }
             }
@@ -670,10 +784,31 @@ public sealed class PublicAotFileShellCache(
 
     internal static string ToHashForTests(string input) => ToHash(input);
 
+    internal static string BuildPublicationGenerationForTests(string cacheKey, ReadOnlySpan<byte> payload)
+        => BuildPublicationGeneration(cacheKey, payload);
+
+    private static string BuildPublicationGeneration(string cacheKey, ReadOnlySpan<byte> payload)
+    {
+        string keyHash = ToHash(cacheKey);
+        string payloadHash = Convert.ToHexStringLower(SHA256.HashData(payload));
+        return $"public-aot-{keyHash[..16]}-{payloadHash}";
+    }
+
     internal static string ResolveVersionedEntryPathForTests(string webRoot, string cacheKey, string frontendAssetVersion, PublicPageId pageId)
+        => ResolveVersionedEntryPathInCacheRootForTests(
+            Path.Combine(webRoot, "aot-cache"),
+            cacheKey,
+            frontendAssetVersion,
+            pageId);
+
+    internal static string ResolveVersionedEntryPathInCacheRootForTests(
+        string cacheRoot,
+        string cacheKey,
+        string frontendAssetVersion,
+        PublicPageId pageId)
     {
         string hash = ToHash(cacheKey);
-        return Path.Combine(webRoot, "aot-cache", "frontend", SanitizePathSegment(frontendAssetVersion), pageId.ToString(), hash[..2], $"{hash}.aeds");
+        return Path.Combine(cacheRoot, "frontend", SanitizePathSegment(frontendAssetVersion), pageId.ToString(), hash[..2], $"{hash}.aeds");
     }
 
     private async Task<PublicAotBatchInvalidationStats> RemoveRegisteredKeysBatchAsync(
@@ -756,9 +891,8 @@ public sealed class PublicAotFileShellCache(
         foreach (string path in EnumerateEntryPathsForKey(cacheKey))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (File.Exists(path))
+            if (DeleteCompatibilityEntryFile(path, cancellationToken))
             {
-                File.Delete(path);
                 _fileMetadataCache.TryRemove(path, out _);
                 deleted++;
             }
@@ -918,8 +1052,10 @@ public sealed class PublicAotFileShellCache(
         {
             foreach (string file in EnumerateEntryFiles())
             {
-                File.Delete(file);
-                deletedFiles++;
+                if (DeleteCompatibilityEntryFile(file, CancellationToken.None))
+                {
+                    deletedFiles++;
+                }
             }
         }
 

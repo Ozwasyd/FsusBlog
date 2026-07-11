@@ -1,0 +1,537 @@
+{
+  "schema": "fsusblog.issue-test-retention-replacements.v1",
+  "issue": 1043,
+  "baseline": "tests/test-retention-before.json",
+  "expectedDeletedTestIds": 55,
+  "deletedTests": [
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditEventService_SourceDoesNotSerializeContextJsonOnRequestPath",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_GeneratesContextJsonFromBinaryPayload",
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.ContextSerializer_DecodesBinaryContextToCanonicalJson"
+      ],
+      "reason": "Binary audit context is encoded, decoded, and observed at the store boundary instead of inspecting request-path source text."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditTamperEvidence_SourceWritesCanonicalJsonDirectlyToUtf8Buffer",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.Sign_MatchesCanonicalHashAndMacGolden"
+      ],
+      "reason": "The canonical byte sequence is pinned by its SHA-256 and HMAC golden outputs; buffer implementation details are not asserted."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditTamperEvidence_SourceComparesTamperHashesWithFixedTimeHex",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.Verify_AcceptsExactHashesAndRejectsTruncatedOrTamperedValues"
+      ],
+      "reason": "Exact, case-insensitive, truncated, and tampered hash/MAC inputs exercise the verification boundary directly."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditLogWriterWorker_SourceDoesNotCreateLinkedCtsPerFlushCycle",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditLogWriterWorkerTests.cs#AuditLogWriterWorkerTests.WriteBatchOnceAsync_UsesFreshScopedStorePerBatch",
+        "xunit:tests/backend/Unit/AuditLogWriterWorkerTests.cs#AuditLogWriterWorkerTests.PersistSafelyAsync_ContinuesProcessingAfterBatchWriteFailure",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Worker scope and recovery behavior remain executable; allocation and flush-loop performance belong to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditSerilogBridge_SourceReusesMappedRecordAndFastRejectsNonCandidates",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditLogEventMapperTests.cs#AuditLogEventMapperTests.Map_UsesExplicitAuditSourceAndType",
+        "xunit:tests/backend/Unit/AuditLogEventMapperTests.cs#AuditLogEventMapperTests.Map_SkipPersistencePropertySuppressesAuditRecord",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Candidate mapping and suppression are behavior-owned; mapper reuse is a benchmark concern."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.SerilogAuditSink_SourceIsIsolatedBehindAuditCandidateFilter",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditLogEventMapperTests.cs#AuditLogEventMapperTests.Map_SkipPersistencePropertySuppressesAuditRecord",
+        "node-script:tools/check-backend-test-governance.mjs"
+      ],
+      "reason": "Suppression behavior remains executable and application wiring is owned by centralized backend governance."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditLogStore_SourceCachesBatchSqlSkeletonAndFillsParameterArray",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_PersistsStructuredAuditFieldsAndTamperEvidence",
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_LinksRecordsWithinTheSameChain",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Captured database parameters prove batch persistence; SQL-shape allocation is measured only by #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditLogStore_SourceCachesChainTailAndIndexesColdMissQuery",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_LinksFirstRecordToExistingChainTail",
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_ReusesCachedChainTailAcrossBatches",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Existing and cached chain tails are observed through queries and written parameters; index cost belongs to benchmark/query-plan evidence."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditLogStore_SourceFormatsChainIdWithInvariantCulture",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_UsesInvariantChainIdAcrossCultures",
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_ChainTailQueryHitsInvariantChainAcrossCultures"
+      ],
+      "reason": "Written chain IDs and the cold-tail predicate are exercised under multiple cultures."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditTamperEvidence_SourceFormatsFallbackChainIdWithInvariantCulture",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.Sign_FallbackChainIdIsInvariantAcrossCultures"
+      ],
+      "reason": "The fallback chain ID is asserted under Gregorian and non-Gregorian current cultures."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditTamperEvidence_SignatureMatchesCanonicalGolden",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.Sign_MatchesCanonicalHashAndMacGolden"
+      ],
+      "reason": "The hash/MAC golden moved intact to the tamper-evidence behavior suite."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditTamperEvidence_VerifyUsesFixedLengthHexComparison",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.Verify_AcceptsExactHashesAndRejectsTruncatedOrTamperedValues"
+      ],
+      "reason": "Fixed-length hash and MAC acceptance/rejection behavior moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditTamperEvidence_VerifyFailsClosedWhenKeyOrRecordMacMissing",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.Verify_FailsClosedWhenKeyOrRecordMacIsMissing"
+      ],
+      "reason": "Missing key and MAC fail-closed behavior moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditTamperEvidence_ResolveKeyRejectsWeakOrLegacyConfiguration",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.ResolveKey_RejectsWeakKeyAndIgnoresLegacyConfigurationLocation"
+      ],
+      "reason": "Weak and legacy key configuration behavior moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditTamperEvidence_FallbackChainIdIsInvariantAcrossCultures",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.Sign_FallbackChainIdIsInvariantAcrossCultures"
+      ],
+      "reason": "Culture-invariant fallback chain behavior moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditTamperEvidence_CrossNodeFallbackChainHeadIsConsistent",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.Sign_CrossNodeFallbackChainHeadIsCultureInvariant"
+      ],
+      "reason": "Cross-culture chain ID, hash, and MAC consistency moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditPipelineHotPathContractTests.cs#AuditPipelineHotPathContractTests.AuditContextJsonSerializer_DecodesBinaryPayloadWithoutReflectionJson",
+      "path": "tests/backend/Unit/AuditPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.ContextSerializer_DecodesBinaryContextToCanonicalJson",
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_GeneratesContextJsonFromBinaryPayload"
+      ],
+      "reason": "Binary context canonicalization is verified both directly and at the persistence boundary."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditLogEntity_ExposesStructuredFieldsAndTamperEvidence",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.AuditLog_KeepsStructuredIdentityTargetAndTamperEvidenceFields",
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_PersistsStructuredAuditFieldsAndTamperEvidence"
+      ],
+      "reason": "Concrete field values survive the entity and captured persistence parameters; reflection-only property checks were removed."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.ExplicitAuditServiceAndFallbackWriter_ArePresent",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.AuditRecord_SecurityCriticalAndHighValueEventsRequireDurableWrite",
+        "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#AuditFallbackWriterBehaviorTests.WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState"
+      ],
+      "reason": "Durable classification and fallback output are executed instead of checking interface presence."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.SourceFiles_KeepRumSeparateAndExposeAuditConsole",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/RumTelemetryServiceTests.cs#RumTelemetryServiceTests.RumTelemetryChannel_WhenFull_DropsOldestAndKeepsNewest",
+        "xunit:tests/backend/Unit/AuthoringNativeAedsEndpointTests.cs#AuthoringNativeAedsEndpointTests.TryResolveRoute_KnowsModerationAndAuditAuthoringRoutes",
+        "node-script:tools/check-backend-test-governance.mjs"
+      ],
+      "reason": "RUM behavior, native audit route resolution, and centralized composition governance replace cross-file string searches."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditVerify_SourceChecksPreviousRecordHash",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditLogStoreTests.cs#AuditLogStoreTests.WriteBatchAsync_LinksFirstRecordToExistingChainTail",
+        "xunit:tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs#AuditTamperEvidenceBehaviorTests.Sign_ChangingPreviousHashChangesTheChainHead"
+      ],
+      "reason": "A persisted prior tail links the next record and changing PrevHash changes the signed chain head."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditQuery_SourceUsesCursorListAndSummaryCache",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.AuditCursor_RoundTripsTimestampAndStableTieBreakerId",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Cursor ordering identity is behavior-tested; query fanout and summary-cache cost are owned by #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditProjection_RedactedMode_DoesNotExposeSensitiveHashes",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.ToItemResponse_RedactedModeDoesNotDiscloseSensitiveHashes"
+      ],
+      "reason": "The redacted projection output moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditProjection_InvestigationMode_ExposesSensitiveHashes",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.ToItemResponse_InvestigationModeDisclosesSensitiveHashes"
+      ],
+      "reason": "The investigation projection output moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditEndpoint_SourceGatesInvestigationFieldsAndAuditsSensitiveReads",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.ResolveAuditDisclosureMode_OrdinaryAdminRequestFallsBackToRedacted",
+        "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.ResolveAuditDisclosureMode_InvestigationPermissionRevealsSensitiveHashes",
+        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole"
+      ],
+      "reason": "Permission-to-disclosure decisions are executed directly; endpoint authorization remains with #1038's owner."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditEndpoint_OrdinaryAdminInvestigationRequestFallsBackToRedacted",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.ResolveAuditDisclosureMode_OrdinaryAdminRequestFallsBackToRedacted"
+      ],
+      "reason": "The ordinary-admin disclosure decision moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditEndpoint_AuditInvestigationPermissionCanRequestSensitiveHashes",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.ResolveAuditDisclosureMode_InvestigationPermissionRevealsSensitiveHashes"
+      ],
+      "reason": "The investigation-permission disclosure decision moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditFallbackWriter_SourceBatchesFallbackWrites",
+      "path": "tests/backend/Unit/AuditSystemContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#AuditFallbackWriterBehaviorTests.WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState",
+        "xunit:tests/backend/Unit/AuditLogWriterWorkerTests.cs#AuditLogWriterWorkerTests.PersistSafelyAsync_WritesOnlyDurableRecordsToFallbackAfterStoreFailure"
+      ],
+      "reason": "A temp-file round trip and failed-store worker path prove batched fallback behavior."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.AuthoringEndpoints_ExposeOpsCacheAndIntegritySurfaces",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuthoringNativeAedsEndpointTests.cs#AuthoringNativeAedsEndpointTests.TryResolveRoute_KnowsAuthoringOperationsRoutes",
+        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole"
+      ],
+      "reason": "Native route resolution and centralized permission ownership replace backend/router/nav source reads."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.CacheDiagnostics_ExposesArticlePolicyOwnershipAndRuntimeCounters",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuthoringNativeAedsEndpointTests.cs#AuthoringNativeAedsEndpointTests.TryResolveRoute_KnowsAuthoringOperationsRoutes",
+        "xunit:tests/backend/Unit/CacheInvalidationDispatcherTests.cs#CacheInvalidationDispatcherTests.RuntimeState_RecordAsync_AggregatesCountsAcrossInstances",
+        "xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.CachePolicyRegistry_DisablesRegistryForExactAndVersionedHotPathCaches"
+      ],
+      "reason": "The route, runtime counters, and policy registry retain separate behavior owners."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.BackupRestoreAndSupplyChainScripts_AreDocumentedAndExecutable",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.BackupScript_ExecutesPgDumpWithEverySupportedConnectionStringStyle",
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.RestoreScript_ExecutesPgRestoreWithEverySupportedConnectionStringStyle",
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.BackupRestoreDrillFixture_ExercisesScheduledAndBlockedEvidencePaths",
+        "node-script:tools/check-backend-test-governance.mjs"
+      ],
+      "reason": "Executable harnesses replace existence/shebang checks; documentation completeness remains centralized."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.BackupScript_ParsesSupportedPostgresConnectionStringStyles",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.BackupScript_ExecutesPgDumpWithEverySupportedConnectionStringStyle",
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.BackupScript_InvalidConnectionBlocksWithoutInvokingPgDump"
+      ],
+      "reason": "All prior formats still invoke the captured pg_dump command, with missing and malformed errors added."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.RestoreScript_ParsesSupportedPostgresConnectionStringStyles",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.RestoreScript_ExecutesPgRestoreWithEverySupportedConnectionStringStyle",
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.RestoreScript_InvalidConnectionBlocksWithoutInvokingPgRestore",
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.RestoreScript_MissingDatabaseDumpBlocksBeforeInvokingPgRestore"
+      ],
+      "reason": "All prior formats still invoke the captured pg_restore command, with connection and dump errors added."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.HistoricalResidueCheck_CoversOperationsConnectionStringParsing",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/check-historical-residue.sh",
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.BackupScript_InvalidConnectionBlocksWithoutInvokingPgDump",
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.RestoreScript_InvalidConnectionBlocksWithoutInvokingPgRestore"
+      ],
+      "reason": "The residue checker remains its own shell test and parser error behavior is executable."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.BackupRestoreDrill_AlwaysPlansAnonymousResidueGateAndRestoreManifest",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs#BackupRestoreScriptBehaviorTests.BackupRestoreDrillFixture_ExercisesScheduledAndBlockedEvidencePaths"
+      ],
+      "reason": "The repository drill fixture executes dry-run scheduling and real-mode missing-input blockers."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.PublicDistributionAndSearch_KeepNonPublicContentOut",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/runtime-integration.sh",
+        "node-script:tools/check-backend-test-governance.mjs"
+      ],
+      "reason": "Cross-service public visibility is owned by runtime integration and centralized governance, not an operations source reader."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.OpsHealthDistributionDiagnostics_UseLightweightCountsInsteadOfXmlBuildAndParse",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs#ProductionReadinessCoordinatorBehaviorTests.RunAsync_ReturnsEveryFailedAndDegradedProbeResult",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Readiness retains all dependency results; diagnostics query cost belongs to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/OperationsReadinessContractTests.cs#OperationsReadinessContractTests.DangerousOperations_RequireDiffConfirmationAdminStepUpAndAudit",
+      "path": "tests/backend/Unit/OperationsReadinessContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AdminOperationsBehaviorTests.cs#AdminOperationsBehaviorTests.GetDangerousOperationPolicy_RequiresDiffAndStepUpForIntegrityFix",
+        "xunit:tests/backend/Unit/AdminOperationsBehaviorTests.cs#AdminOperationsBehaviorTests.ApplyIntegrityFixAsync_WrongConfirmationReturnsWithoutApplyingChanges",
+        "xunit:tests/backend/Unit/EndpointPolicyContractTests.cs#EndpointPolicyContractTests.AdminControlPlaneEndpoints_DoNotUseBareAdminRole"
+      ],
+      "reason": "The service exposes diff/MFA rules and rejects wrong typed confirmation; endpoint permission remains with #1038."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicHotArtifactProjector_UsesDeltaRebuildAndBulkArticleReads",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Delta/bulk query-count and throughput evidence belongs exclusively to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicHotArtifactProjector_ExposesArticleFrameLimitOverflowInsteadOfSilentTruncation",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicHotReadFastPathTests.cs#PublicHotReadFastPathTests.RuntimeSnapshot_ExposesArticleFrameLimitOverflow"
+      ],
+      "reason": "The observable runtime snapshot proves overflow is exposed instead of silently hidden."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicHotArtifactProjector_DeltaRebuildsOnlyAffectedListScopes",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Affected listing invalidation is behavior-owned while delta rebuild cost belongs to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotInvalidation_BatchesRouteRemovalsThroughCacheInterface",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning"
+      ],
+      "reason": "The recording cache observes exact removals, version bumps, and scheduled routes."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotFileShellCache_PrefixInvalidationDoesNotDecodeEveryDiskEntry",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#PublicAotFileShellCacheTests.RemoveByPrefixAsync_RemovesRegistryMatches_AndPublishesOneScopedMessage",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Registry-scoped removal and one invalidation message are observable; scan cost belongs to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotDocumentComposer_AvoidsRegexForLiteralHeadAndAttributeChecks",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ExtractAttributeValue_DoubleQuotes_ReturnsValue",
+        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ExtractAttributeValue_SingleQuotes_ReturnsValue",
+        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.ComposeDocument_WithTemplateVariants_InjectsBySentinel",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Literal attribute and sentinel behavior remain executable; parser implementation cost belongs to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotNodeSsrRenderer_BoundsWorkerOutputAndDocumentsSingleRequestGate",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicAotNodeWorkerScriptTests.cs#PublicAotNodeWorkerScriptTests.BoundedOutputReader_RejectsOversizedSsrResponse",
+        "xunit:tests/backend/Unit/PublicAotSsrRuntimeStateTests.cs#PublicAotSsrRuntimeStateTests.CircuitBreaker_OpensAfterWorkerFailures_AndClosesAfterHalfOpenSuccess"
+      ],
+      "reason": "Oversized output and the worker failure gate are covered by executable behavior."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicSpaTemplateLocator_LazilyDecodesTextAndCachesResolvedAssets",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicSpaTemplateLocatorTests.cs#PublicSpaTemplateLocatorTests.Production_CachesTemplateAfterFileChanges",
+        "xunit:tests/backend/Unit/PublicSpaTemplateLocatorTests.cs#PublicSpaTemplateLocatorTests.Development_ReloadsTemplateAfterFileChanges",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Production caching and development reload behavior remain executable; lazy allocation cost belongs to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_MemoryHitAvoidsSynchronousFileChecks",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.MemoryEntry_IsServedBeforeTtlAndExpiresAtTheTtlBoundary",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "A deleted disk file remains readable before TTL and misses at expiry; sync-file-call cost belongs to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_MemoryHitTrustsShortTtlWhenDiskFileIsMissing",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.MemoryEntry_IsServedBeforeTtlAndExpiresAtTheTtlBoundary"
+      ],
+      "reason": "The memory-hit behavior moved and now also proves the exact TTL boundary with a controlled clock."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_ReadsV3FrameAndRejectsLegacyArticleDetailFrame",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_AcceptsV3FrameAndRejectsLegacyArticleDetailFrame"
+      ],
+      "reason": "V3 acceptance and legacy write rejection moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_ReturnsMissForLegacyDiskFrame",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.TryReadAsync_ReturnsMissForLegacyDiskFrame"
+      ],
+      "reason": "Legacy disk-frame rejection moved intact."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_RejectsNonV3PayloadMagic",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_RejectsNonV3PayloadMagic"
+      ],
+      "reason": "Non-V3 payload magic rejection moved intact and now asserts no file is written."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactMaintenanceService_ClearLegacyPublicArtifactsRemovesOnlyNonV3Frames",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.ClearLegacyPublicArtifactsAsync_RemovesOnlyNonV3Frames"
+      ],
+      "reason": "Filesystem cleanup behavior moved intact with an explicit zero-failure assertion."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotHtmlArtifact_UsesBufferWriterCompressionOutput",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#PublicAotFileShellCacheTests.HtmlArtifactFactory_StoresCompressedVariantsOnlyWhenSmallerAndAboveThreshold",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Compression output and threshold behavior remain executable; buffer choice belongs to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotComposeNonTemplate_UsesSnapshotsAndMetricsForHotInputs",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicAotDocumentServiceTests.cs#PublicAotDocumentServiceTests.ComposeAsync_WritesHydrationPayloadSidecarAsRawAedsFrame",
+        "xunit:tests/backend/Unit/PublicAotSsrRuntimeStateTests.cs#PublicAotSsrRuntimeStateTests.Snapshot_ReportsSchedulingCountersAndQueueDepth",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "Composed sidecar and runtime snapshot outputs remain behavior-owned; hot-input timing belongs to #1042."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotComposeNonTemplate_AvoidsRepeatedCodecJsonLdAndFileIoWork",
+      "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/PublicAotDocumentComposerTests.cs#PublicAotDocumentComposerTests.BuildSeoHeadTags_ArticleDetail_EmitsCompleteBlogPostingMetadata",
+        "xunit:tests/backend/Unit/PublicAotFileShellCacheTests.cs#PublicAotFileShellCacheTests.TryGetEntryAsync_UsesMemoryHitWithoutDiskStat",
+        "shell:tools/test/lanes/backend-benchmark-regression.sh"
+      ],
+      "reason": "JSON-LD output and memory-cache behavior remain executable; repeated-work cost belongs to #1042."
+    }
+  ],
+  "centralRegistryReadback": [
+    {
+      "path": "tests/coverage-registry.json",
+      "status": "present-not-verified",
+      "requestedCoverageIds": [
+        "backend-audit-behavior",
+        "backend-operations-readiness-behavior",
+        "backend-public-aot-artifact-behavior"
+      ]
+    },
+    {
+      "path": "tests/matrix.yml",
+      "status": "present-not-verified",
+      "requestedTiers": [
+        "backend-unit",
+        "integration",
+        "backend-benchmark-regression",
+        "production-fresh"
+      ]
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "status": "present-not-verified",
+      "requestedOwners": [
+        "AuditProjectionBehaviorTests",
+        "AuditTamperEvidenceBehaviorTests",
+        "AuditFallbackWriterBehaviorTests",
+        "ProductionReadinessCoordinatorBehaviorTests",
+        "BackupRestoreScriptBehaviorTests",
+        "AdminOperationsBehaviorTests",
+        "ArticleDetailAedsArtifactStoreBehaviorTests"
+      ]
+    },
+    {
+      "path": "tools/test/lanes/static-governance.sh",
+      "status": "present-not-verified",
+      "requestedChange": "Replace references to the four deleted mixed ContractTests with the responsibility-specific behavior owners and issue-1043 retention handoff."
+    }
+  ]
+}

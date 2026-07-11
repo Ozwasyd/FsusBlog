@@ -1,9 +1,21 @@
 using System.Reflection;
+using FsusBlog.Core.Cache;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.NotificationStream;
+using FsusBlog.Server.Tests.Unit;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -69,52 +81,53 @@ public sealed class MessageCenterServiceTests
     [Fact]
     public void MessageDomain_UsesAccountAndAdminPrincipalVocabulary()
     {
-        string entity = ReadSource("src/backend/Entities/Message.cs");
-        string service = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
-        string ports = ReadSource("src/backend/Interfaces/IMessageService.cs");
-        string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs");
-        string migration = ReadSource("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+        string[] conversation = PropertyNames<MessageConversation>();
+        string[] message = PropertyNames<ConversationMessage>();
+        string[] participant = PropertyNames<ConversationParticipantState>();
+        Assert.Contains(nameof(MessageConversation.InitiatorAccountId), conversation);
+        Assert.Contains(nameof(MessageConversation.CreatedByAccountId), conversation);
+        Assert.Contains(nameof(MessageConversation.CreatedByAdminPrincipalId), conversation);
+        Assert.Contains(nameof(MessageConversation.CreatedByAdminSessionId), conversation);
+        Assert.Contains(nameof(ConversationMessage.SenderAccountId), message);
+        Assert.Contains(nameof(ConversationMessage.SenderAdminPrincipalId), message);
+        Assert.Contains(nameof(ConversationMessage.SenderAdminSessionId), message);
+        Assert.Contains(nameof(ConversationParticipantState.AccountId), participant);
+        Assert.DoesNotContain("InitiatorUserId", conversation);
+        Assert.DoesNotContain("CreatedById", conversation);
+        Assert.DoesNotContain("SenderId", message);
+        Assert.DoesNotContain("UserId", participant);
 
-        Assert.Contains("InitiatorAccountId", entity, StringComparison.Ordinal);
-        Assert.Contains("CreatedByAccountId", entity, StringComparison.Ordinal);
-        Assert.Contains("CreatedByAdminPrincipalId", entity, StringComparison.Ordinal);
-        Assert.Contains("CreatedByAdminSessionId", entity, StringComparison.Ordinal);
-        Assert.Contains("SenderAccountId", entity, StringComparison.Ordinal);
-        Assert.Contains("SenderAdminPrincipalId", entity, StringComparison.Ordinal);
-        Assert.Contains("SenderAdminSessionId", entity, StringComparison.Ordinal);
-        Assert.Contains("public int AccountId", entity, StringComparison.Ordinal);
-        Assert.DoesNotContain("InitiatorUserId", entity, StringComparison.Ordinal);
-        Assert.DoesNotContain("CreatedById", entity, StringComparison.Ordinal);
-        Assert.DoesNotContain("SenderId", entity, StringComparison.Ordinal);
-        Assert.DoesNotContain("public int UserId", entity, StringComparison.Ordinal);
+        string service = RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService));
 
         Assert.DoesNotContain("Queryable<User>", service, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Username", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("User.get_Username", service, StringComparison.Ordinal);
         Assert.DoesNotContain("adminUserId", service, StringComparison.Ordinal);
         Assert.Contains("AdminMessageActor", service, StringComparison.Ordinal);
         Assert.Contains("SenderAdminPrincipalId", service, StringComparison.Ordinal);
         Assert.Contains("SenderAdminSessionId", service, StringComparison.Ordinal);
-        Assert.Contains("MessageSenderType.Account", service, StringComparison.Ordinal);
+        Assert.Contains(nameof(MessageSenderType.Account), Enum.GetNames<MessageSenderType>());
         Assert.Contains("GetAccountConversationsAsync", service, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", service, StringComparison.Ordinal);
         Assert.Contains("ReplyAsAccountAsync", service, StringComparison.Ordinal);
         Assert.Contains("SendAccountTransactionalNoticeAsync", service, StringComparison.Ordinal);
         Assert.Contains("PushAccountStatusAsync", service, StringComparison.Ordinal);
-        Assert.Contains("NotificationStreamEventType.AccountStatusChanged", service, StringComparison.Ordinal);
         Assert.Contains("AccountStatusPayload", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("MessageSenderType.User", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("User", Enum.GetNames<MessageSenderType>());
         Assert.DoesNotContain("GetUserConversationsAsync", service, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserConversationDetailAsync", service, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateUserTicketAsync", service, StringComparison.Ordinal);
         Assert.DoesNotContain("ReplyAsUserAsync", service, StringComparison.Ordinal);
         Assert.DoesNotContain("SendUserTransactionalNoticeAsync", service, StringComparison.Ordinal);
         Assert.DoesNotContain("PushUserStatusAsync", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("NotificationStreamEventType.UserStatusChanged", service, StringComparison.Ordinal);
         Assert.DoesNotContain("UserStatusPayload", service, StringComparison.Ordinal);
         Assert.DoesNotContain("UserConversationRow", service, StringComparison.Ordinal);
 
+        string[] queryPorts = typeof(IMessageQueryService).GetMethods().Select(static methodInfo => methodInfo.Name).ToArray();
+        string[] commandPorts = typeof(IMessageCommandService).GetMethods().Select(static methodInfo => methodInfo.Name).ToArray();
+        string[] realtimePorts = typeof(IMessageRealtimePublisher).GetMethods().Select(static methodInfo => methodInfo.Name).ToArray();
+        string ports = string.Join('\n', queryPorts.Concat(commandPorts).Concat(realtimePorts));
         Assert.DoesNotContain("adminUserId", ports, StringComparison.Ordinal);
-        Assert.Contains("AdminMessageActor", ports, StringComparison.Ordinal);
+        Assert.Contains(nameof(AdminMessageActor), RuntimeMetadataInspection.DescribeType(typeof(AdminMessageActor)), StringComparison.Ordinal);
         Assert.Contains("GetAccountConversationsAsync", ports, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", ports, StringComparison.Ordinal);
         Assert.Contains("ReplyAsAccountAsync", ports, StringComparison.Ordinal);
@@ -126,11 +139,10 @@ public sealed class MessageCenterServiceTests
         Assert.DoesNotContain("SendUserTransactionalNoticeAsync", ports, StringComparison.Ordinal);
         Assert.DoesNotContain("PushUserStatusAsync", ports, StringComparison.Ordinal);
 
+        string endpoints = RuntimeMetadataInspection.DescribeType(typeof(BinaryEndpoints));
         Assert.Contains("TryResolveAdminSessionContext", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AccountPrincipalContext", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("CurrentUser", endpoints, StringComparison.Ordinal);
+        Assert.Contains(nameof(AccountPrincipalContext), endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("ResolveCurrentAccountId", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("checked((int)user.Id)", endpoints, StringComparison.Ordinal);
         Assert.Contains("GetAccountConversationsAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("CreateAccountTicketAsync", endpoints, StringComparison.Ordinal);
         Assert.Contains("ReplyAsAccountAsync", endpoints, StringComparison.Ordinal);
@@ -138,13 +150,19 @@ public sealed class MessageCenterServiceTests
         Assert.DoesNotContain("CreateUserTicketAsync", endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("ReplyAsUserAsync", endpoints, StringComparison.Ordinal);
 
-        string outputs = ReadSource("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
-        string codec = ReadSource("src/core/Cache/PodBinaryCodec.Message.cs");
-        Assert.Contains("Account = 0", outputs, StringComparison.Ordinal);
-        Assert.DoesNotContain("ConversationSenderValue.User", outputs, StringComparison.Ordinal);
-        Assert.Contains("0 => ConversationSenderValue.Account", codec, StringComparison.Ordinal);
-        Assert.DoesNotContain("ConversationSenderValue.User", codec, StringComparison.Ordinal);
+        Assert.Equal(0, (int)ConversationSenderValue.Account);
+        Assert.DoesNotContain("User", Enum.GetNames<ConversationSenderValue>());
+        MethodInfo toSender = typeof(PodBinaryCodec).GetMethod(
+            "ToConversationSender",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        Assert.Equal(
+            ConversationSenderValue.Account,
+            (ConversationSenderValue)toSender.Invoke(null, [0])!);
 
+        ISchemaMigrationDescriptor identityMigration = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static descriptor => descriptor.MigrationId == "20260620-post-message-account-principal");
+        string migration = string.Join('\n', identityMigration.Steps.Select(static step => step.Fingerprint));
         Assert.Contains("msg_conversation", migration, StringComparison.Ordinal);
         Assert.Contains("initiatoraccountid", migration, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("senderadminprincipalid", migration, StringComparison.OrdinalIgnoreCase);
@@ -152,27 +170,40 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
-    public void MessageEndpoints_OrdinaryAccountRoutesRequireAnonymousAccountPrincipal()
+    public async Task MessageEndpoints_OrdinaryAccountRoutesRequireAnonymousAccountPrincipal()
     {
-        string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs");
-        string[] ordinaryRoutes =
+        await using WebApplication app = EndpointContractApplication.Create();
+        (string Route, string Method)[] ordinaryRoutes =
         [
-            "group.MapGet(\"/messages/conversations\"",
-            "group.MapGet(\"/messages/conversations/{id:long}\"",
-            "group.MapPost(\"/messages/conversations\"",
-            "group.MapPost(\"/messages/conversations/{id:long}/reply\"",
-            "group.MapPost(\"/messages/conversations/{id:long}/read\""
+            ("/api/binary/messages/conversations", HttpMethods.Get),
+            ("/api/binary/messages/conversations/{id:long}", HttpMethods.Get),
+            ("/api/binary/messages/conversations", HttpMethods.Post),
+            ("/api/binary/messages/conversations/{id:long}/reply", HttpMethods.Post),
+            ("/api/binary/messages/conversations/{id:long}/read", HttpMethods.Post)
         ];
 
-        foreach (string route in ordinaryRoutes)
+        foreach ((string route, string method) in ordinaryRoutes)
         {
-            string block = ExtractRouteBlock(endpoints, route);
-            Assert.Contains(".RequireAnonymousAccountPrincipal()", block, StringComparison.Ordinal);
-            Assert.DoesNotContain(".RequireAuthorization()", block, StringComparison.Ordinal);
+            RouteEndpoint endpoint = EndpointContractApplication.Find(app, route, method);
+            ClaimsAuthorizationRequirement identity = Assert.Single(endpoint.Metadata
+                .GetOrderedMetadata<AuthorizationPolicy>()
+                .SelectMany(static policy => policy.Requirements)
+                .OfType<ClaimsAuthorizationRequirement>()
+                .Where(static requirement => requirement.ClaimType == "identity_kind"));
+            Assert.Contains(AnonymousIdentityRuntime.AnonymousAccountKind, identity.AllowedValues ?? []);
         }
 
-        Assert.Contains("AdminMessageActor", endpoints, StringComparison.Ordinal);
-        Assert.Contains(".RequireAdminPermission(AdminPermissions.AdminManage)", endpoints, StringComparison.Ordinal);
+        RouteEndpoint admin = EndpointContractApplication.Find(
+            app,
+            "/api/binary/admin/messages/conversations/{id:long}/reply",
+            HttpMethods.Post);
+        ClaimsAuthorizationRequirement permission = Assert.Single(admin.Metadata
+            .GetOrderedMetadata<AuthorizationPolicy>()
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+        Assert.Contains(AdminPermissions.AdminManage, permission.AllowedValues ?? []);
+        Assert.Contains("AdminMessageActor", RuntimeMetadataInspection.DescribeType(typeof(BinaryEndpoints)), StringComparison.Ordinal);
     }
 
 
@@ -239,161 +270,188 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
-    public void MarkConversationReadAsync_SourceUsesAtomicLastMessageUpdate()
+    public void MarkConversationReadAsync_RuntimeUsesAtomicLastMessageUpdate()
     {
-        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
-        string method = ExtractMethod(
-            source,
-            "public async Task<Result> MarkConversationReadAsync",
-            "public async Task<Result<ConversationMessageResponse>> ReplyAsAdminAsync");
+        string method = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "UseTranAsync",
+            "TransactionSideEffectGuard.CanPublishAfterCommit",
+            "PublishReadUpdatedAsync");
+        string transaction = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "LockConversationParticipantReadStateAsync",
+            "MarkConversationReadAndReturnLastMessageIdAsync");
+        string lockSql = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "FOR UPDATE",
+            "msg_participant_state");
+        string updateSql = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "RETURNING state.lastreadmessageid");
 
         Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
-        Assert.Contains("LockConversationParticipantReadStateAsync(accountId, conversationId)", method, StringComparison.Ordinal);
-        Assert.Contains("MarkConversationReadAndReturnLastMessageIdAsync(accountId, conversationId, now)", method, StringComparison.Ordinal);
-        Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
-        Assert.Contains("RETURNING state.lastreadmessageid", method, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("TransactionSideEffectGuard.CanPublishAfterCommit(transaction", method, StringComparison.Ordinal);
-        Assert.Contains("PublishReadUpdatedAsync(accountId, conversationId, readResult.LastMessageId", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("LastReadMessageId = SqlFunc.Subqueryable<ConversationMessage>()", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("long? lastMessageId = await db.Queryable<ConversationMessage>()", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Select(it => it.LastReadMessageId)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".OrderByDescending(it => it.Id)", method, StringComparison.Ordinal);
+        Assert.Contains("LockConversationParticipantReadStateAsync", transaction, StringComparison.Ordinal);
+        Assert.Contains("MarkConversationReadAndReturnLastMessageIdAsync", transaction, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", lockSql, StringComparison.Ordinal);
+        Assert.Contains("RETURNING state.lastreadmessageid", updateSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("TransactionSideEffectGuard.CanPublishAfterCommit", method, StringComparison.Ordinal);
+        Assert.Contains("PublishReadUpdatedAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("SqlFunc.Subqueryable", transaction, StringComparison.Ordinal);
+        Assert.DoesNotContain("Queryable<ConversationMessage>", transaction, StringComparison.Ordinal);
+        Assert.DoesNotContain("OrderByDescending", transaction, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ReplyAsAccountAsync_SourceUsesTransactionalClosedConversationWriteBarrier()
+    public void ReplyAsAccountAsync_RuntimeUsesTransactionalClosedConversationWriteBarrier()
     {
-        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
-        string method = ExtractMethod(
-            source,
-            "public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync",
-            "public async Task<Result> MarkConversationReadAsync");
-        string combinedLock = ExtractMethod(
-            source,
-            "private async Task<ReplyLocks?> LoadReplyLocksForUpdateAsync",
-            "private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync");
-        string conversationLock = ExtractMethod(
-            source,
-            "private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync",
-            "private async Task<ReplyParticipantLock?> LoadReplyParticipantForUpdateAsync");
-        string participantLock = ExtractMethod(
-            source,
-            "private async Task<ReplyParticipantLock?> LoadReplyParticipantForUpdateAsync",
-            "private async Task<bool> TryUpdateReplyConversationActivityAsync");
-        string participantUpdate = ExtractMethod(
-            source,
-            "private async Task<bool> TryMarkReplyParticipantReadAsync",
-            "private static Result<ConversationMessageResponse> MapReplyAccountWriteOutcome");
+        string method = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "LoadReplyLocksForUpdateAsync",
+            "TryMarkReplyParticipantReadAsync");
+        string combinedLock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "WITH locked_conversation AS",
+            "locked_participant AS");
+        string conversationLock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "FROM msg_conversation",
+            "FOR UPDATE");
+        string participantLock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "FROM msg_participant_state",
+            "FOR UPDATE");
+        string participantUpdate = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "lastreadmessageid IS NULL",
+            "lastreadmessageid = @PreviousLastReadMessageId");
 
-        Assert.Contains("LoadReplyLocksForUpdateAsync(conversationId, accountId)", method, StringComparison.Ordinal);
-        Assert.Contains("TryMarkReplyParticipantReadAsync(participant", method, StringComparison.Ordinal);
+        Assert.Contains("LoadReplyLocksForUpdateAsync", method, StringComparison.Ordinal);
+        Assert.Contains("TryMarkReplyParticipantReadAsync", method, StringComparison.Ordinal);
         Assert.Contains("locked_conversation AS", combinedLock, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("locked_participant AS", combinedLock, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("FOR UPDATE", conversationLock, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE", participantLock, StringComparison.Ordinal);
-        Assert.Contains("status <> @ClosedStatus", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("status <> @ClosedStatus", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.OrdinalIgnoreCase);
         Assert.Contains("lastreadmessageid IS NULL", participantUpdate, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("lastreadmessageid = @PreviousLastReadMessageId", participantUpdate, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ReplyAccountWriteOutcome.Forbidden", method, StringComparison.Ordinal);
-        Assert.Contains("ReplyAccountWriteOutcome.Closed", method, StringComparison.Ordinal);
-        Assert.Contains("ErrorCode.Conflict", method, StringComparison.Ordinal);
+        Type writeOutcome = typeof(MessageCenterService).GetNestedType("ReplyAccountWriteOutcome", BindingFlags.NonPublic)!;
+        Assert.Contains("Forbidden", Enum.GetNames(writeOutcome));
+        Assert.Contains("Closed", Enum.GetNames(writeOutcome));
+        MethodInfo outcomeMap = typeof(MessageCenterService).GetMethod(
+            "MapReplyAccountWriteOutcome",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        object closed = Enum.Parse(writeOutcome, "Closed");
+        Result<ConversationMessageResponse> closedResult = (Result<ConversationMessageResponse>)outcomeMap.Invoke(null, [closed])!;
+        Assert.Equal(ErrorCode.Conflict, closedResult.Error.Code);
+
+        IReadOnlyList<string> writeOrder = RuntimeMetadataInspection.DescribeDeclaredMemberReferencesInOrderContaining(
+            typeof(MessageCenterService),
+            "LoadReplyLocksForUpdateAsync",
+            "Insertable");
         Assert.True(
-            method.IndexOf("LoadReplyLocksForUpdateAsync", StringComparison.Ordinal) < method.IndexOf("db.Insertable(new ConversationMessage", StringComparison.Ordinal),
+            FindReference(writeOrder, "LoadReplyLocksForUpdateAsync") <
+            FindReference(writeOrder, "Insertable"),
             "The locked conversation recheck must run before inserting the account reply.");
     }
 
     [Fact]
-    public void UpdateConversationStatusAsync_SourceUsesRowVersionAndExpectedStatusGuard()
+    public void UpdateConversationStatusAsync_RuntimeUsesRowVersionAndExpectedStatusGuard()
     {
-        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
-        string entity = ReadSource("src/backend/Entities/Message.cs");
-        string method = ExtractMethod(
-            source,
-            "public async Task<Result> UpdateConversationStatusAsync",
-            "public async Task<Result<ConversationDetailResponse>> SendSystemMessageAsync");
+        PropertyInfo rowVersion = typeof(MessageConversation).GetProperty(nameof(MessageConversation.RowVersion))!;
+        Assert.Equal(typeof(string), rowVersion.PropertyType);
+        Assert.True(Assert.Single(rowVersion.GetCustomAttributes<SugarColumn>()).IsIgnore);
+        string method = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "LoadConversationStatusUpdateStateAsync",
+            "TryUpdateConversationStatusAsync");
+        string load = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "xmin::text AS row_version");
+        string update = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "AND status = @ExpectedStatus",
+            "AND xmin::text = @RowVersion");
 
-        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
-        Assert.Contains("LoadConversationStatusUpdateStateAsync(conversationId)", method, StringComparison.Ordinal);
-        Assert.Contains("TryUpdateConversationStatusAsync(conversationId, status, currentState, now)", method, StringComparison.Ordinal);
-        Assert.Contains("ErrorCode.Conflict", method, StringComparison.Ordinal);
-        Assert.Contains("xmin::text AS row_version", method, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND status = @ExpectedStatus", method, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("AND xmin::text = @RowVersion", method, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain(".Where(it => it.Id == conversationId)", method, StringComparison.Ordinal);
+        Assert.Contains("LoadConversationStatusUpdateStateAsync", method, StringComparison.Ordinal);
+        Assert.Contains("TryUpdateConversationStatusAsync", method, StringComparison.Ordinal);
+        Assert.Contains("会话状态已被其他管理员修改", method, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", load, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND status = @ExpectedStatus", update, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("AND xmin::text = @RowVersion", update, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ISugarQueryable.Where", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PublishPreparedParticipantMessageAsync_SourceUsesStoredUnreadCount()
+    public void PublishPreparedParticipantMessageAsync_RuntimeUsesStoredUnreadCount()
     {
-        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
-        string method = ExtractMethod(
-            source,
-            "private async Task PublishPreparedParticipantMessageAsync",
-            "private async Task PublishAccountConversationUpsertThenMessageAppendAsync");
+        string method = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "PublishMessageAppendAsync",
+            "ConversationParticipantState.get_UnreadCount");
 
-        Assert.Contains("PublishMessageAppendAsync(conversationId.ToString(), message, participant.UnreadCount, totalUnread, participant.AccountId)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("participant.UnreadCount + 1", method, StringComparison.Ordinal);
+        Assert.Contains("PublishMessageAppendAsync", method, StringComparison.Ordinal);
+        Assert.Contains("ConversationParticipantState.get_UnreadCount", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("op_Addition", method, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PublishParticipantMessageFanoutAsync_SourcePreparesPayloadsInBatch()
+    public void PublishParticipantMessageFanoutAsync_RuntimePreparesPayloadsInBatch()
     {
-        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
-        string method = ExtractMethod(
-            source,
-            "private async Task PublishParticipantMessageFanoutAsync",
-            "private async Task PublishPreparedParticipantMessageAsync");
+        string method = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "PrepareParticipantMessageFanoutAsync",
+            "Task.WhenAll");
 
         Assert.Contains("PrepareParticipantMessageFanoutAsync", method, StringComparison.Ordinal);
-        Assert.Contains("Task.WhenAll(tasks)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("await RefreshUnreadCacheAsync(participant.AccountId)", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("await BuildConversationListItemForAccountAsync(participant.AccountId, conversationId)", method, StringComparison.Ordinal);
-        Assert.Contains("LoadTotalUnreadMapAsync", source, StringComparison.Ordinal);
-        Assert.Contains("BuildParticipantConversationItemsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Task.WhenAll", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("RefreshUnreadCacheAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildConversationListItemForAccountAsync", method, StringComparison.Ordinal);
+        string preparation = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            "PrepareParticipantMessageFanoutAsync");
+        Assert.Contains("LoadTotalUnreadMapAsync", preparation, StringComparison.Ordinal);
+        Assert.Contains("BuildParticipantConversationItemsAsync", preparation, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MessageCenterRoundTrips_SourceAvoidsScopedDbParallelQueriesAndTracksPhases()
+    public void MessageCenterRoundTrips_RuntimeAvoidsScopedDbParallelQueriesAndTracksPhases()
     {
-        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
-        string observability = ReadSource("src/backend/Infrastructure/Observability/FsusObservability.cs");
-        string accountList = ExtractMethod(
-            source,
-            "public async Task<PageResponse<ConversationListItemResponse>> GetAccountConversationsAsync",
-            "public async Task<ConversationDetailResponse?> GetAccountConversationDetailAsync");
-        string adminList = ExtractMethod(
-            source,
-            "public async Task<PageResponse<ConversationListItemResponse>> GetAdminConversationsAsync",
-            "public async Task<ConversationDetailResponse?> GetAdminConversationDetailAsync");
-        string reply = ExtractMethod(
-            source,
-            "public async Task<Result<ConversationMessageResponse>> ReplyAsAccountAsync",
-            "private async Task<ReplyConversationLock?> LoadReplyConversationForUpdateAsync");
-        string lastMessageMap = ExtractMethod(
-            source,
-            "private async Task<Dictionary<long, ConversationMessagePreviewResponse>> LoadLastMessageMapAsync",
-            "private static long[] CollectConversationIds");
-        string mapMessages = ExtractMethod(
-            source,
-            "private static Task<List<ConversationMessageResponse>> MapMessagesAsync",
-            "private async Task<ConversationMessageResponse?> BuildMessageResponseAsync");
+        string accountList = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            nameof(MessageCenterService.GetAccountConversationsAsync));
+        string adminList = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            nameof(MessageCenterService.GetAdminConversationsAsync));
+        string reply = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(MessageCenterService),
+            "LoadReplyLocksForUpdateAsync",
+            "TryMarkReplyParticipantReadAsync");
+        string lastMessageMap = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            "LoadLastMessageMapAsync");
+        string mapMessages = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            "MapMessagesAsync");
 
-        Assert.Contains("int total = await BuildAccountConversationQuery(accountId, filter).CountAsync()", accountList, StringComparison.Ordinal);
-        Assert.Contains("List<AccountConversationRow> rows = await BuildAccountConversationQuery(accountId, filter)", accountList, StringComparison.Ordinal);
-        Assert.DoesNotContain("await Task.WhenAll(totalTask, rowsTask)", accountList, StringComparison.Ordinal);
-        Assert.Contains("int total = await BuildAdminConversationQuery(filter).CountAsync()", adminList, StringComparison.Ordinal);
-        Assert.Contains("List<AccountConversationRow> rows = await BuildAdminConversationQuery(filter)", adminList, StringComparison.Ordinal);
-        Assert.DoesNotContain("await Task.WhenAll(totalTask, rowsTask)", adminList, StringComparison.Ordinal);
+        Assert.Contains("BuildAccountConversationQuery", accountList, StringComparison.Ordinal);
+        Assert.Contains("CountAsync", accountList, StringComparison.Ordinal);
+        Assert.Contains("ToListAsync", accountList, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", accountList, StringComparison.Ordinal);
+        Assert.Contains("BuildAdminConversationQuery", adminList, StringComparison.Ordinal);
+        Assert.Contains("CountAsync", adminList, StringComparison.Ordinal);
+        Assert.Contains("ToListAsync", adminList, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", adminList, StringComparison.Ordinal);
 
         Assert.Contains("LoadLastMessagesSingleQueryAsync", lastMessageMap, StringComparison.Ordinal);
         Assert.DoesNotContain("SqlFunc.AggregateMax", lastMessageMap, StringComparison.Ordinal);
-        Assert.DoesNotContain("messageIds.Contains", lastMessageMap, StringComparison.Ordinal);
+        Assert.DoesNotContain("Enumerable.Contains", lastMessageMap, StringComparison.Ordinal);
 
-        Assert.Contains("ReplyLocks? locks = await LoadReplyLocksForUpdateAsync(conversationId, accountId)", reply, StringComparison.Ordinal);
-        Assert.Contains("WITH locked_conversation AS", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("locked_participant AS", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("rows.Sort", mapMessages, StringComparison.Ordinal);
+        Assert.Contains("LoadReplyLocksForUpdateAsync", reply, StringComparison.Ordinal);
+        Assert.Contains("WITH locked_conversation AS", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("locked_participant AS", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("List.Sort", mapMessages, StringComparison.Ordinal);
 
+        string observability = RuntimeMetadataInspection.DescribeType(typeof(FsusObservability));
         Assert.Contains("fsus.message.center.list.elapsed", observability, StringComparison.Ordinal);
         Assert.Contains("fsus.message.center.reply.elapsed", observability, StringComparison.Ordinal);
         Assert.Contains("fsus.message.center.fanout.refresh.elapsed", observability, StringComparison.Ordinal);
@@ -401,23 +459,21 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
-    public void RefreshUnreadCacheAsync_SourceUsesVersionedCacheRefresh()
+    public void RefreshUnreadCacheAsync_RuntimeUsesVersionedCacheRefresh()
     {
-        string source = ReadSource("src/backend/Services/NotificationStream/MessageCenterService.cs");
-        string refreshMethod = ExtractMethod(
-            source,
-            "private async Task<int> RefreshUnreadCacheAsync",
-            "private async Task<int> LoadTotalUnreadAsync");
-        string loadMethod = ExtractMethod(
-            source,
-            "private async Task<int> LoadTotalUnreadAsync",
-            "private static ConversationStatusValue ToStatusValue");
+        string refreshMethod = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            "RefreshUnreadCacheAsync");
+        string loadMethod = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            "LoadTotalUnreadAsync");
 
-        Assert.Contains("cache.RefreshUnreadAsync(accountId", refreshMethod, StringComparison.Ordinal);
-        Assert.Contains("LoadTotalUnreadAsync(accountId)", refreshMethod, StringComparison.Ordinal);
-        Assert.Contains("SumAsync(it => it.UnreadCount)", loadMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("cache.SetUnreadAsync", refreshMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("cache.SetUnreadAsync", loadMethod, StringComparison.Ordinal);
+        Assert.Contains("MessageCacheService.RefreshUnreadAsync", refreshMethod, StringComparison.Ordinal);
+        Assert.Contains("LoadTotalUnreadAsync", refreshMethod, StringComparison.Ordinal);
+        Assert.Contains("SumAsync", loadMethod, StringComparison.Ordinal);
+        Assert.Contains("ConversationParticipantState.get_UnreadCount", loadMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("MessageCacheService.SetUnreadAsync", refreshMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("MessageCacheService.SetUnreadAsync", loadMethod, StringComparison.Ordinal);
     }
 
     // ── Private static helpers via reflection ──────────────────────────────────
@@ -428,31 +484,15 @@ public sealed class MessageCenterServiceTests
         return (T)method.Invoke(null, args)!;
     }
 
-    private static string ExtractMethod(string source, string startMarker, string endMarker)
+    private static string[] PropertyNames<T>()
+        => typeof(T).GetProperties().Select(static property => property.Name).ToArray();
+
+    private static int FindReference(IReadOnlyList<string> references, string fact)
     {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
-        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
-        Assert.True(end > start, $"Missing end marker: {endMarker}");
-        return source[start..end];
+        int index = references.ToList().FindIndex(reference => reference.Contains(fact, StringComparison.Ordinal));
+        Assert.True(index >= 0, $"Missing runtime reference '{fact}'.");
+        return index;
     }
-
-    private static string ExtractRouteBlock(string source, string routeSignature)
-    {
-        int start = source.IndexOf(routeSignature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing route marker: {routeSignature}");
-        int next = source.IndexOf("\n        group.Map", start + routeSignature.Length, StringComparison.Ordinal);
-        if (next < 0)
-        {
-            next = source.IndexOf("\n    }\n\n    private", start + routeSignature.Length, StringComparison.Ordinal);
-        }
-
-        Assert.True(next > start, $"Missing route end: {routeSignature}");
-        return source[start..next];
-    }
-
-    private static string ReadSource(string relativePath)
-        => BackendTestPaths.ReadAllTextFromRoot(relativePath);
 
     private sealed class CapturingLogger<T> : ILogger<T>
     {

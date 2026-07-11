@@ -40,6 +40,7 @@ public readonly record struct AuthBinaryClientContext(
 
 public readonly record struct AuthBinarySessionTokens(
     string AccessToken,
+    DateTimeOffset AccessTokenExpiresAtUtc,
     string RefreshToken,
     string SessionId,
     DateTime RefreshTokenExpiresAt);
@@ -108,6 +109,7 @@ public sealed class AuthBinaryApplicationFacade(
             null);
         var tokens = new AuthBinarySessionTokens(
             login.Data.Value.AccessToken,
+            login.Data.Value.AccessTokenExpiresAtUtc,
             login.Data.Value.RefreshToken,
             login.Data.Value.SessionId,
             login.Data.Value.RefreshTokenExpiresAt);

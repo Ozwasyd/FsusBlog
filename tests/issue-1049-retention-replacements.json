@@ -1,0 +1,401 @@
+{
+  "schema": "fsusblog.issue-test-retention-replacements.v1",
+  "issue": 1049,
+  "baseline": "tests/test-retention-before.json",
+  "expectedDeletedTestIds": 41,
+  "deletedTests": [
+    {
+      "id": "vitest:tests/frontend/unit/session-fixtures-contract.test.ts#keeps-local-fixture-sessions-reusable-instead-of-passwor-4bcbada1d7",
+      "path": "tests/frontend/unit/session-fixtures-contract.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/playwright/acceptanceShared.test.ts#loads-shared-viewport-helpers-through-the-frontend-toolc-1738c0d314",
+        "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      ],
+      "reason": "Reusable fixture sessions are exercised through the imported acceptance helper and a real cross-browser auth entry."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/session-fixtures-contract.test.ts#keeps-account-fixture-sessions-separate-from-admin-fixtu-4c9d91f4b6",
+      "path": "tests/frontend/unit/session-fixtures-contract.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/router/index.test.ts#keeps-user-authenticated-without-legacy-role-meta-e42551a7d7",
+        "vitest:tests/frontend/unit/router/index.test.ts#manage-route-checks-required-permissions-after-admin-pro-4bb39b769e"
+      ],
+      "reason": "Router execution proves account and independently elevated admin identity planes."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/session-fixtures-contract.test.ts#rejects-the-entire-legacy-credential-fixture-directory-i-7b6cf9c5a8",
+      "path": "tests/frontend/unit/session-fixtures-contract.test.ts",
+      "replacementTestIds": [
+        "node-script:tests/frontend/checks/static/check-test-fixture-secret-governance.mjs",
+        "node-script:tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs"
+      ],
+      "reason": "The single fixture-secret checker owns legacy directory and symbolic-link rejection with positive and negative fixtures."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/session-fixtures-contract.test.ts#keeps-direct-public-fixture-seeding-compatible-with-righ-8472c1b41c",
+      "path": "tests/frontend/unit/session-fixtures-contract.test.ts",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/rights-v3-test-matrix.sh",
+        "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7"
+      ],
+      "reason": "Rights-v3 fixture seeding and public rendering are retained by the executable rights lane and browser behavior."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/AuthRecoverySplit.test.ts#routes-recovery-through-the-public-auth-layout-b2fa8dcc0b",
+      "path": "tests/frontend/unit/components/AuthRecoverySplit.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#register-entry-enables-only-after-agreement-and-keeps-st-85e29ffd90",
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693"
+      ],
+      "reason": "Auth entry and recovery navigation are observed in the rendered browser flow."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/AuthRecoverySplit.test.ts#keeps-recovery-key-verification-out-of-login-vue-66a5c4fdd4",
+      "path": "tests/frontend/unit/components/AuthRecoverySplit.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4",
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693"
+      ],
+      "reason": "Binary recovery transport and rendered login behavior replace source ownership assertions."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/AuthRecoverySplit.test.ts#keeps-the-recovery-page-responsible-for-verification-and-352f39d097",
+      "path": "tests/frontend/unit/components/AuthRecoverySplit.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4",
+        "vitest:tests/frontend/unit/api/auth.test.ts#passkey-methods-use-binary-frames-fc6ccb9ae0"
+      ],
+      "reason": "The real binary client executes recovery verification and Passkey registration boundaries."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/FsusSecurityChallenge.test.ts#dispatches-challenge-kinds-through-the-generic-host-with-d014c79cd7",
+      "path": "tests/frontend/unit/components/FsusSecurityChallenge.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#selects-the-captchav1-assignment-and-builds-the-provider-97629ab95d",
+        "vitest:tests/frontend/unit/security/challengeClient.test.ts#keeps-proof-tokens-in-memory-and-evicts-them-after-expir-db5c706a5a"
+      ],
+      "reason": "Mounted challenge behavior and in-memory proof lifecycle replace generic-host source fragments."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/FsusSecurityChallenge.test.ts#keeps-non-captcha-branches-in-child-challenge-components-eaa17c52f9",
+      "path": "tests/frontend/unit/components/FsusSecurityChallenge.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/security/captcha-challenge.spec.ts#renders-locally-accepts-mobile-safe-input-and-solves-pow-9f665456f5"
+      ],
+      "reason": "The browser security scenario executes challenge dispatch and completion without inspecting child component source."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/PublicAuthLayout.test.ts#routes-login-and-register-through-the-public-auth-layout-128f73ebbe",
+      "path": "tests/frontend/unit/components/PublicAuthLayout.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#register-entry-enables-only-after-agreement-and-keeps-st-85e29ffd90",
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693"
+      ],
+      "reason": "Login and registration routing is observed through rendered auth flows."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/PublicAuthLayout.test.ts#uses-the-site-chrome-adapter-without-search-in-auth-page-4cdd1b429b",
+      "path": "tests/frontend/unit/components/PublicAuthLayout.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      ],
+      "reason": "The cross-browser auth entry observes the actual public shell and auth chrome."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/PublicAuthLayout.test.ts#removes-duplicated-nav-chrome-from-login-and-register-vi-6a94870be3",
+      "path": "tests/frontend/unit/components/PublicAuthLayout.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693"
+      ],
+      "reason": "Rendered login and register pages expose duplicate navigation if it regresses."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/PublicAuthLayout.test.ts#keeps-auth-brand-image-selection-centralized-in-the-adap-0a3ac2e518",
+      "path": "tests/frontend/unit/components/PublicAuthLayout.test.ts",
+      "replacementTestIds": [
+        "node-script:tests/frontend/checks/static/check-shell-material-governance.mjs",
+        "vitest:tests/frontend/e2e/acceptance/cross-browser-smoke.spec.ts#public-shell-auth-entry-passkey-capability-pwa-cache-and-51fe04687b"
+      ],
+      "reason": "The unique shell-material owner and browser render cover brand selection without a source-lock unit."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#makes-passkey-login-primary-and-removes-the-legacy-passw-6d0c9ac014",
+      "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/api/auth.test.ts#passkey-methods-use-binary-frames-fc6ccb9ae0",
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693"
+      ],
+      "reason": "Passkey transport and rendered login behavior replace source token assertions."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#keeps-retired-username-password-identity-out-of-the-prod-d1e36771cf",
+      "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
+      "replacementTestIds": [
+        "shell:tools/check-historical-residue.sh",
+        "vitest:tests/frontend/unit/api/auth.test.ts#passkey-methods-use-binary-frames-fc6ccb9ae0"
+      ],
+      "reason": "Retired identifiers have one static owner while current binary auth behavior remains executable."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#replaces-password-registration-with-passkey-first-anonym-49444ac5f1",
+      "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#register-entry-enables-only-after-agreement-and-keeps-st-85e29ffd90",
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4"
+      ],
+      "reason": "The browser onboarding flow and binary Recovery Key transport execute the new registration path."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#keeps-public-handle-registration-decoupled-from-username-7152180014",
+      "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#register-entry-enables-only-after-agreement-and-keeps-st-85e29ffd90"
+      ],
+      "reason": "The mounted browser registration flow exercises the public-handle input contract."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#keeps-recovery-key-plaintext-in-memory-only-and-uses-exi-7e61b582e7",
+      "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-create-and-rotate-send-step-up-proof-header-4fbc548829",
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#register-entry-enables-only-after-agreement-and-keeps-st-85e29ffd90"
+      ],
+      "reason": "Recovery Key transport and rendered one-time onboarding behavior replace composable source checks."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts#wires-recovery-key-endpoints-through-aeds-frame-adapters-fa236654e3",
+      "path": "tests/frontend/unit/view-contracts/authAnonymousIdentityWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4",
+        "node-script:tests/frontend/checks/static/check-generated-frame-schema-sync.mjs"
+      ],
+      "reason": "Actual AEDS transport plus generated schema synchronization own the endpoint/frame contract."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#routes-identity-center-pages-through-the-existing-accoun-a60675a19c",
+      "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#visible-user-routes-load-without-runtime-noise-db512e9f8c"
+      ],
+      "reason": "The browser walks the real user routes and account shell."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#redirects-the-legacy-profile-route-to-the-anonymous-iden-32bc0e7a50",
+      "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#profile-session-actions-and-delete-guard-stay-aligned-9113d42b9d"
+      ],
+      "reason": "The rendered profile/session flow observes the active identity-center destination."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#renders-real-identity-pages-with-workspace-context-and-e-a0f0e16b05",
+      "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#visible-user-routes-load-without-runtime-noise-db512e9f8c",
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#passkey-section-is-accessible-and-opens-registration-mod-be56f40ffe"
+      ],
+      "reason": "Rendered identity routes and the Passkey modal execute the real workspace behavior."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#keeps-old-password-profile-fields-out-of-production-user-82564e7c5e",
+      "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
+      "replacementTestIds": ["shell:tools/check-historical-residue.sh"],
+      "reason": "Retired password-profile identifiers are owned by one fixture-backed static checker."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#routes-passkey-mutations-through-header-only-step-up-pro-0383e68e03",
+      "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-create-and-rotate-send-step-up-proof-header-4fbc548829",
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#passkey-section-is-accessible-and-opens-registration-mod-be56f40ffe"
+      ],
+      "reason": "Header proof transport and the rendered credential mutation entry are directly exercised."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#keeps-page-states-explicit-for-loading-empty-and-recover-6ad2a7662f",
+      "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#visible-user-routes-load-without-runtime-noise-db512e9f8c"
+      ],
+      "reason": "User-console browser scenarios observe the actual loading, empty and recoverable error surfaces."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#keeps-passkey-registration-modal-bounded-and-scrollable--a407042a58",
+      "path": "tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#passkey-section-is-accessible-and-opens-registration-mod-be56f40ffe",
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
+      ],
+      "reason": "The opened modal and console visual scenario replace CSS source fragments."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#protects-message-replies-with-per-conversation-drafts-an-f889de5bef",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/composables/frontendDerivedStateWatch.test.ts#keeps-inbox-split-pane-behavior-while-deriving-pane-stat-a030e338f0",
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#message-center-can-create-a-ticket-and-open-detail-clean-f844d0e424"
+      ],
+      "reason": "Imported inbox state and the real ticket/detail browser flow own message behavior."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-message-controls-usable-on-narrow-mobile-viewports-178dd339a7",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/composables/frontendDerivedStateWatch.test.ts#preserves-inbox-split-pane-timing-across-breakpoint-chan-bb588d5106",
+        "vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"
+      ],
+      "reason": "Breakpoint state execution and the inbox visual scenario replace a CSS source-string assertion."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#does-not-shrink-public-taxonomy-touch-targets-at-the-wid-9f3672172a",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "node-script:tests/frontend/checks/ux/check-ux-semantics.mjs",
+        "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      ],
+      "reason": "The UX checker owns minimum controls and the public browser flow observes the rendered taxonomy."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-auth-copy-and-mfa-modes-aligned-with-backend-expec-9b1d2b7dcb",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693",
+        "vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4"
+      ],
+      "reason": "Rendered auth copy/states and binary MFA/recovery transport replace source scanning."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#routes-guest-comment-replies-through-login-and-keeps-com-3ed2247905",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7",
+        "vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-anonymous-and-requires-a-user-toggle-before--f5e12431da"
+      ],
+      "reason": "Article/comment browser behavior and the mounted composer replace view source fragments."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-public-article-detail-constrained-to-a-readable-wi-e1524737f1",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/visual/public-visual.spec.ts#key-public-pages-keep-visual-contract-13c24e5998"
+      ],
+      "reason": "The public visual scenario observes actual readable width."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-article-reading-aids-progressive-and-hash-navigati-277d625d63",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7",
+        "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#article-detail-flow-renders-body-comments-and-reading-no-74c0374ffb"
+      ],
+      "reason": "Real article navigation and reading behavior replace composable and router source checks."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#syncs-public-list-filter-pagination-and-exposes-useful-e-3bd0df701d",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/components/HomeEditorialComposition.test.ts#uses-the-title-as-the-only-article-entry-on-the-home-fee-eff9b05da8",
+        "vitest:tests/frontend/e2e/acceptance/spa-routes.spec.ts#search-flow-renders-and-allows-sort-switching-without-ru-55d7144778"
+      ],
+      "reason": "Mounted home pagination and the browser search flow execute list/filter behavior."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#routes-profile-settings-to-the-anonymous-identity-center-e36b8456e4",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#profile-session-actions-and-delete-guard-stay-aligned-9113d42b9d"
+      ],
+      "reason": "The user-console profile scenario observes the identity-center transition."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-user-comments-and-error-recovery-paths-searchable--779506cb69",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#visible-user-routes-load-without-runtime-noise-db512e9f8c",
+        "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      ],
+      "reason": "Rendered user and public routes cover comments, empty states and error recovery."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-archive-and-static-public-pages-on-one-shared-read-18658573f6",
+      "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/view-contracts/archive.test.ts#groups-articles-by-year-and-month-62ef416fd1",
+        "vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"
+      ],
+      "reason": "Archive view behavior and public browser rendering replace reading-frame source strings."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#does-not-expose-the-retired-admin-password-reset-frame-5053a6b37b",
+      "path": "tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts",
+      "replacementTestIds": [
+        "node-script:tests/frontend/checks/static/check-generated-frame-schema-sync.mjs",
+        "vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#maps-register-begin-payload-into-webauthn-creation-optio-81f2fb2a80",
+        "vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#maps-login-begin-payload-into-webauthn-request-options-de650f89cc"
+      ],
+      "reason": "Schema synchronization owns retired frames while current register/login adapters execute the payload contract."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#keeps-register-begin-adapter-fields-named-as-account-han-2b9f16df4f",
+      "path": "tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts",
+      "replacementTestIds": [
+        "node-script:tests/frontend/checks/static/check-generated-frame-schema-sync.mjs",
+        "vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#maps-register-begin-payload-into-webauthn-creation-optio-81f2fb2a80"
+      ],
+      "reason": "The generated schema owner and actual register payload mapping replace source-name assertions."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/api/readProof.test.ts#does-not-retain-json-fetch-compatibility-in-the-api-modu-8e2ba09664",
+      "path": "tests/frontend/unit/api/readProof.test.ts",
+      "replacementTestIds": [
+        "node-script:tests/frontend/checks/static/check-frontend-backend-api-parity.mjs",
+        "vitest:tests/frontend/unit/api/readProof.test.ts#requests-challenge-with-an-aeds-request-frame-and-device-a7041a809b",
+        "vitest:tests/frontend/unit/api/readProof.test.ts#submits-proof-with-an-aeds-request-frame-and-device-fing-1bc46276e8"
+      ],
+      "reason": "API parity and actual AEDS challenge/submission transport replace a source search for JSON fallback."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/api/security.test.ts#does-not-retain-the-deprecated-security-json-client-in-p-7574156fe9",
+      "path": "tests/frontend/unit/api/security.test.ts",
+      "replacementTestIds": [
+        "node-script:tests/frontend/checks/static/check-frontend-backend-api-parity.mjs",
+        "vitest:tests/frontend/unit/api/security.test.ts#reads-security-overview-through-aeds-8c097c1d36",
+        "vitest:tests/frontend/unit/api/security.test.ts#uses-rule-and-pow-request-frames-for-security-mutations-2dd490ae6b"
+      ],
+      "reason": "API parity and real AEDS security reads/mutations replace private source tokens."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#keeps-the-sfc-wired-to-fsusui-controls-canvas-fallback-s-f540400312",
+      "path": "tests/frontend/unit/components/FsusCaptchaChallenge.test.ts",
+      "replacementTestIds": [
+        "vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#selects-the-captchav1-assignment-and-builds-the-provider-97629ab95d",
+        "vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#shows-a-recoverable-error-when-captcha-runtime-loading-f-205025a84d",
+        "vitest:tests/frontend/e2e/security/captcha-challenge.spec.ts#renders-locally-accepts-mobile-safe-input-and-solves-pow-9f665456f5"
+      ],
+      "reason": "Mounted assignment/error behavior and the browser challenge flow replace SFC source-shape assertions."
+    }
+  ],
+  "centralIntegration": [
+    {
+      "path": "tests/test-retention-replacements.json",
+      "status": "present-not-verified",
+      "operation": "merge-exact-deleted-tests-and-replace-the-stale-userFacing-self-reference"
+    },
+    {
+      "path": "tests/coverage-registry.json",
+      "status": "present-not-verified",
+      "requestedCoverageIds": ["frontend-source-locking-convergence"]
+    },
+    {
+      "path": "tests/matrix.yml",
+      "status": "present-not-verified",
+      "requestedTiers": [
+        "frontend-unit",
+        "static-governance",
+        "browser-performance-regression",
+        "acceptance",
+        "production"
+      ]
+    }
+  ]
+}

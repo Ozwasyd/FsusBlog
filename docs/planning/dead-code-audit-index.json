@@ -1,0 +1,522 @@
+{
+  "schemaVersion": "fsus.dead-code-audit-index.v1",
+  "parentIssue": {
+    "number": 1015,
+    "title": "[Audit] 死代码审计报告（85 条发现，2026-07-09）与跟踪索引",
+    "url": "https://github.com/Ozwasyd/FsusBlog/issues/1015",
+    "stateObserved": "open",
+    "observedAtUtc": "2026-07-11T12:27:53Z",
+    "commentsRead": true,
+    "commentCount": 0
+  },
+  "auditClaims": {
+    "findingCounts": {
+      "total": 85,
+      "confirmed": 44,
+      "plausible": 41,
+      "provenance": "github-issue-1015-body",
+      "currentRecountStatus": "not-run"
+    },
+    "sourceReport": {
+      "path": "artifacts/dead-code-audit-report.md",
+      "availability": "missing-ignored",
+      "ignoredBy": ".gitignore",
+      "contentSha256": null,
+      "githubCodeSearchCountObserved": 0,
+      "observedAtUtc": "2026-07-11T12:27:53Z",
+      "claimBoundary": "The per-finding report is unavailable. Counts and section labels below are transcribed from GitHub issue bodies only and are not a current repository recount."
+    },
+    "issueSplit": {
+      "declaredHeadingCounts": {
+        "sprint0": 9,
+        "sprint1": 5,
+        "sprint2Plus": 2
+      },
+      "actualIndexedCounts": {
+        "sprint0": 8,
+        "sprint1": 7,
+        "sprint2Plus": 2,
+        "total": 17
+      },
+      "discrepancy": "Issue #1015 headings say Sprint 0 has 9 issues and Sprint 1 has 5, while the indexed tables contain 8 and 7 respectively. The 17-child total is unchanged."
+    }
+  },
+  "currentWorktreeValidation": {
+    "status": "not-run",
+    "reason": "Implementation was requested without build, test, lint, syntax, profile, restore, or validation execution.",
+    "executedCommands": [],
+    "validatedAtUtc": null
+  },
+  "children": [
+    {
+      "order": 1,
+      "issue": 998,
+      "title": "[Dead Code] 移除整条 SignalR 管线（Initializer + PoWFilter + Redis 包）",
+      "sprint": "sprint0",
+      "classification": "immediate-delete",
+      "auditSections": ["A1"],
+      "scope": "Remove the unused SignalR initializer, Hub filter, backplane package, and stale test boundary.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/998#issuecomment-4923589936",
+        "reportedCommits": ["cc62d658"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/backend/Infrastructure/NotificationStream/NotificationStreamSessionService.cs",
+          "tests/backend/Unit/NotificationStreamBoundaryTests.cs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 2,
+      "issue": 999,
+      "title": "[Dead Code] 移除 MVC 风格 RequiresPowAttribute（MVC 过滤器在仓库内零消费）",
+      "sprint": "sprint0",
+      "classification": "immediate-delete",
+      "auditSections": ["A2-1"],
+      "scope": "Remove the unused MVC PoW attribute while retaining the Minimal API endpoint filter.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/999#issuecomment-4923651829",
+        "reportedCommits": ["f2a72787"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/backend/Infrastructure/Filters/RequiresPowFilter.cs",
+          "tests/backend/Unit/RequiresRiskControlFilterTests.cs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 3,
+      "issue": 1000,
+      "title": "[Dead Code] 移除 AEDS frame 42 (ArticleAotBundleRequest) 整条 codec 链",
+      "sprint": "sprint0",
+      "classification": "immediate-delete",
+      "auditSections": ["CORE-1"],
+      "scope": "Remove retired frame 42 codec, POD contracts, catalogs, generated mirrors, tests, and benchmarks without changing the protocol rejection list.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1000#issuecomment-4923790493",
+        "reportedCommits": ["762eec00"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/core/Algorithms/AedsFrameType.cs",
+          "src/core/Algorithms/AEDS_V2_PROTOCOL.md",
+          "tests/backend/Unit/AedsProtocolCrossLanguageTests.cs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 4,
+      "issue": 1001,
+      "title": "[Dead Code] 移除 PodProjector.ProjectCommentItem 4 参 Obsolete 重载",
+      "sprint": "sprint0",
+      "classification": "immediate-delete",
+      "auditSections": ["CORE-4"],
+      "scope": "Remove the obsolete four-parameter C# projector overload without changing wire format.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1001#issuecomment-4924254188",
+        "reportedCommits": ["36973cf7"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/core/Mapping/Projectors/PodProjector.cs",
+          "tests/backend/Unit/PodProjectorTests.cs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 5,
+      "issue": 1002,
+      "title": "[Dead Code] 精简 CacheKeyBuilder 仅保留 PublicAotDocument",
+      "sprint": "sprint0",
+      "classification": "immediate-delete",
+      "auditSections": ["CORE-5"],
+      "scope": "Keep only the production PublicAotDocument cache key and move test-only keys to tests.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1002#issuecomment-4924325150",
+        "reportedCommits": ["2195b326"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/core/Cache/CacheKeyBuilder.cs",
+          "tests/backend/Unit/Helpers/TestCacheKeyBuilder.cs",
+          "tests/backend/Unit/PodTimeCodecAndCacheKeyTests.cs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 6,
+      "issue": 1003,
+      "title": "[Dead Code] 前端：移除 5 项死 store action / API client",
+      "sprint": "sprint0",
+      "classification": "immediate-delete",
+      "auditSections": ["FE-3", "FE-4", "FE-5", "FE-6"],
+      "scope": "Remove unused user/site store exports and retired frontend risk-control update types and clients.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1003#issuecomment-4924409048",
+        "reportedCommits": ["6391423f"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/frontend/src/store/user.ts",
+          "src/frontend/src/store/site.ts",
+          "src/frontend/src/api/security.ts",
+          "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 7,
+      "issue": 1004,
+      "title": "[Dead Code] 前端：移除死评论 API（createComment + CommentDto + PowRequest）",
+      "sprint": "sprint0",
+      "classification": "immediate-delete",
+      "auditSections": ["FE-1", "FE-2"],
+      "scope": "Remove the unused legacy comment client and types while preserving v2 and public comment paths.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1004#issuecomment-4924436238",
+        "reportedCommits": ["f9e9d8d5"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/frontend/src/api/comment.ts",
+          "src/frontend/src/api/auth.ts",
+          "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 8,
+      "issue": 1005,
+      "title": "[Dead Code] 前端：删除孤儿 About.vue + useAboutPage",
+      "sprint": "sprint0",
+      "classification": "immediate-delete",
+      "auditSections": ["FE-7"],
+      "scope": "Remove the orphan About view and composable while retaining the public dynamic route.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1005#issuecomment-4924457445",
+        "reportedCommits": ["9cfb932f"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/frontend/src/public-renderers/publicRouteRegistry.ts",
+          "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 9,
+      "issue": 1006,
+      "title": "[Detour] 后端：抽 TextHelpers 收敛字符串归一化（NormalizeNullable / Trim 模式 80+ 处复制）",
+      "sprint": "sprint1",
+      "classification": "detour-convergence",
+      "auditSections": ["B1-3", "B1-4", "B1-5", "B1-8"],
+      "scope": "Centralize common backend text normalization while preserving AOT, Rights, and Integrity exclusions.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1006#issuecomment-4924663208",
+        "reportedCommits": ["0ea90a1f"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/backend/Infrastructure/Helpers/TextHelpers.cs",
+          "tests/backend/Unit/TextHelpersTests.cs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 10,
+      "issue": 1007,
+      "title": "[Detour] 后端：标准库替代手工 hex / ASCII 校验循环",
+      "sprint": "sprint1",
+      "classification": "detour-convergence",
+      "auditSections": ["B1-2", "B1-9", "B1-10", "B1-11", "B1-16", "B2-2"],
+      "scope": "Use standard-library hex validation and shared ASCII token helpers without changing protocol exclusions.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1007#issuecomment-4925108257",
+        "reportedCommits": ["d7350a50"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/core/Common/HexText.cs",
+          "src/backend/Infrastructure/Helpers/TextHelpers.cs",
+          "tests/backend/Unit/TextHelpersTests.cs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 11,
+      "issue": 1008,
+      "title": "[Detour] 后端：Result.Combine / Distinct / FindIndex 简化（移除多余分配与手工 foreach）",
+      "sprint": "sprint1",
+      "classification": "detour-convergence",
+      "auditSections": ["B1-1", "B1-14", "B1-17"],
+      "scope": "Remove small allocation detours in Result, Merkle checkpoint, and audit diversity paths.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1008#issuecomment-4925160840",
+        "reportedCommits": ["86d1c6df"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/core/Common/Result.cs",
+          "src/core/Integrity/MerkleCheckpoint.cs",
+          "src/backend/Infrastructure/Audit/AuditTamperEvidence.cs",
+          "tests/backend/Unit/MerkleCheckpointTests.cs",
+          "tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 12,
+      "issue": 1009,
+      "title": "[Detour] 前端：composable 单包装 / wrapper 收敛（5 处一层封装）",
+      "sprint": "sprint1",
+      "classification": "detour-convergence",
+      "auditSections": ["F1-1", "F1-2", "F1-3", "F1-4", "F1-5"],
+      "scope": "Inline or simplify five one-layer frontend wrappers without changing core flows.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1009#issuecomment-4925216659",
+        "reportedCommits": ["1fb69c0e"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "tests/frontend/checks/static/check-composable-wrapper-simplification.mjs",
+          "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 13,
+      "issue": 1010,
+      "title": "[Detour] 前端：手写 v-model / IIFE / dispatch table 收敛",
+      "sprint": "sprint1",
+      "classification": "detour-convergence",
+      "auditSections": ["F2-1", "F3-3", "F3-4", "F3-5"],
+      "scope": "Converge duplicated v-model, async-IIFE, toast, and command dispatch patterns.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1010#issuecomment-4925266515",
+        "reportedCommits": ["0aadb369"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/frontend/src/components/PolicyModal.vue",
+          "src/frontend/src/composables/useMutationFlow.ts",
+          "src/frontend/src/composables/useAdminArticleList.ts",
+          "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 14,
+      "issue": 1011,
+      "title": "[Detour] 前端：手写 Map/Set 重建与三元收敛",
+      "sprint": "sprint1",
+      "classification": "detour-convergence",
+      "auditSections": ["F3-1", "F3-2", "F3-6", "F3-7"],
+      "scope": "Use collection constructors and a first-array helper, and remove cursor deduplication dead code.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1011#issuecomment-4925301830",
+        "reportedCommits": ["73549f95"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/frontend/src/composables/useArticleCommentStream.ts",
+          "src/frontend/src/composables/useHomeView.ts",
+          "src/frontend/src/composables/useUserCommentsPage.ts",
+          "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 15,
+      "issue": 1012,
+      "title": "[Detour] 前端：派生状态 watch → computed 收敛",
+      "sprint": "sprint1",
+      "classification": "detour-convergence",
+      "auditSections": ["F4-6", "F4-7"],
+      "scope": "Replace derived-state watches with computed or upstream-source watches.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "closed",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": "https://github.com/Ozwasyd/FsusBlog/issues/1012#issuecomment-4925377490",
+        "reportedCommits": ["0b02c740", "0c78475e"],
+        "evidenceKind": "historical-author-comment-not-current-validation"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/frontend/src/composables/useInboxSplitView.ts",
+          "src/frontend/src/composables/useHomeView.ts",
+          "tests/frontend/unit/composables/frontendDerivedStateWatch.test.ts"
+        ]
+      },
+      "stageGate": null
+    },
+    {
+      "order": 16,
+      "issue": 1013,
+      "title": "[Stage] 后端：运行时回退收敛（上传/订阅/cookie/article.content 一次性迁移）",
+      "sprint": "sprint2Plus",
+      "classification": "milestone-gated-delete",
+      "auditSections": ["A3-1", "A3-2", "A3-3", "A3-4", "A3-7", "A3-8"],
+      "scope": "Retire six runtime fallback paths only after their independent migration and release milestones are proven.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "open",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": null,
+        "reportedCommits": [],
+        "evidenceKind": "live-state-snapshot-not-completion-evidence"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": []
+      },
+      "stageGate": {
+        "status": "blocked",
+        "failClosed": true,
+        "completionPolicy": "Every trigger must be satisfied by non-empty current evidence paths before the issue may be marked complete.",
+        "triggers": [
+          { "id": "upload-pipeline-one-release-cycle", "required": true, "satisfied": false, "evidencePaths": [] },
+          { "id": "subscription-sha256-legacy-count-zero", "required": true, "satisfied": false, "evidencePaths": [] },
+          { "id": "article-content-finalize-all-environments", "required": true, "satisfied": false, "evidencePaths": [] },
+          { "id": "legacy-plain-cookie-window-closed", "required": true, "satisfied": false, "evidencePaths": [] },
+          { "id": "full-aot-rebuild-no-legacy-sidecar-hash", "required": true, "satisfied": false, "evidencePaths": [] },
+          { "id": "legacy-public-artifact-schema-step-executed", "required": true, "satisfied": false, "evidencePaths": [] }
+        ]
+      }
+    },
+    {
+      "order": 17,
+      "issue": 1014,
+      "title": "[Stage] 后端：legacy-account 前缀 + LegacyIdentityColdStartResetOperation 一次性清理",
+      "sprint": "sprint2Plus",
+      "classification": "milestone-gated-delete",
+      "auditSections": ["A3-5", "A3-6", "A4-1", "A4-2"],
+      "scope": "Expand and backfill a physical account-subject projection, make new writes and reads authoritative on it, then remove account-id fallbacks and destructive one-shot maintenance infrastructure.",
+      "githubHistoricalEvidence": {
+        "stateObserved": "open",
+        "observedAtUtc": "2026-07-11T12:27:53Z",
+        "commentsRead": true,
+        "completionCommentUrl": null,
+        "reportedCommits": [],
+        "evidenceKind": "live-state-snapshot-not-completion-evidence"
+      },
+      "currentWorktreeEvidence": {
+        "verificationStatus": "not-run",
+        "paths": [
+          "src/backend/Entities/User.cs",
+          "src/backend/Services/UserService.cs",
+          "src/backend/Services/UserService.Ports.cs",
+          "src/backend/Infrastructure/SchemaMigration/AccountSubjectHashBackfillStep.cs",
+          "src/backend/Infrastructure/Auth/AccountSubjectHashInvariantGate.cs",
+          "src/backend/Infrastructure/NotificationStream/NotificationStreamAdmissionService.cs",
+          "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+          "src/backend/Services/Security/UserSecurityStepUpService.cs",
+          "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+          "tests/backend/Unit/UserSecurityStepUpServiceTests.cs",
+          "tests/backend/issue-1014-identity-retirement-evidence.json",
+          "docs/database-migration.md",
+          "docs/anonymous-identity-smoke-flow.md",
+          "docs/issue-1014-identity-retirement-handoff.md"
+        ]
+      },
+      "stageGate": {
+        "status": "blocked",
+        "failClosed": true,
+        "completionPolicy": "Every trigger must be satisfied by non-empty current evidence paths with executed or externally observed results before the issue may be marked complete; implementation paths alone are not completion evidence.",
+        "triggers": [
+          { "id": "physical-account-subject-expand-backfill-verified", "required": true, "satisfied": false, "evidencePaths": [] },
+          { "id": "production-account-subject-invalid-count-zero", "required": true, "satisfied": false, "evidencePaths": [] },
+          { "id": "retired-identity-reset-surface-and-control-absent", "required": true, "satisfied": false, "evidencePaths": [] },
+          { "id": "full-issue-verification-complete", "required": true, "satisfied": false, "evidencePaths": [] }
+        ]
+      }
+    }
+  ]
+}

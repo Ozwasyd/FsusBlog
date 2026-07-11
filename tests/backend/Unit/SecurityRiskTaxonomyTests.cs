@@ -3,7 +3,6 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -94,11 +93,15 @@ public sealed class SecurityRiskTaxonomyTests
             ["AdminStepUp"] = "admin-step-up"
         };
 
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Security/SecurityRiskAbstractions.cs");
-
         foreach ((string name, string wireValue) in expected)
         {
-            Assert.Contains($"public const string {name} = \"{wireValue}\";", source, StringComparison.Ordinal);
+            System.Reflection.FieldInfo field = typeof(SecurityRiskSources).GetField(name)
+                ?? throw new InvalidOperationException($"Missing security risk source: {name}");
+            Assert.True(field.IsPublic);
+            Assert.True(field.IsStatic);
+            Assert.True(field.IsLiteral);
+            Assert.Equal(typeof(string), field.FieldType);
+            Assert.Equal(wireValue, field.GetRawConstantValue());
         }
     }
 

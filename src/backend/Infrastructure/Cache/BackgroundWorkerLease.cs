@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Infrastructure.Cache;
 
@@ -19,7 +20,8 @@ public sealed class BackgroundWorkerLease(
     IUnifiedCache cache,
     ILogger<BackgroundWorkerLease> logger,
     BackgroundWorkerLeaseOptions options,
-    TimeProvider timeProvider) : IBackgroundWorkerLease
+    TimeProvider timeProvider,
+    DeploymentRuntimeState? deploymentRuntime = null) : IBackgroundWorkerLease
 {
     private readonly string _ownerValue = $"{NormalizeNodeId(options.NodeId)}:{Guid.NewGuid():N}";
 
@@ -31,6 +33,24 @@ public sealed class BackgroundWorkerLease(
         ArgumentException.ThrowIfNullOrWhiteSpace(workerName);
         ArgumentNullException.ThrowIfNull(action);
         ValidateOptions(options);
+
+        IDisposable? deploymentClaim = null;
+        if (deploymentRuntime is not null && !deploymentRuntime.TryBeginBackgroundClaim(out deploymentClaim))
+        {
+            return false;
+        }
+
+        using (deploymentClaim)
+        {
+            return await TryRunAsLeaderCoreAsync(workerName, action, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<bool> TryRunAsLeaderCoreAsync(
+        string workerName,
+        Func<CancellationToken, Task> action,
+        CancellationToken cancellationToken)
+    {
 
         string identity = NormalizeWorkerIdentity(workerName);
         bool hasLeadership;

@@ -1,0 +1,24 @@
+{
+  "schema": "fsusblog.issue-test-retention-replacements.v1",
+  "issue": 1051,
+  "baseline": "tests/test-retention-before.json",
+  "expectedDeletedTestIds": 0,
+  "deletedTests": [],
+  "aggregateReplacementSources": [
+    "tests/test-retention-replacements.json",
+    "tests/backend/issue-1050-retention-replacements.json",
+    "tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs",
+    "tests/**/issue-*-retention*.json"
+  ],
+  "reason": "Tracking issue #1051 owns convergence and undeclared-deletion auditing; it does not manufacture another deletion batch. Exact child-issue mappings are merged by tools/check-test-suite-convergence.mjs.",
+  "centralIntegration": [
+    {
+      "path": "tests/test-retention-replacements.json",
+      "status": "present-not-verified"
+    },
+    {
+      "path": "tests/backend/issue-1051-backend-source-lock-retention-replacements.json",
+      "status": "present-not-verified"
+    }
+  ]
+}

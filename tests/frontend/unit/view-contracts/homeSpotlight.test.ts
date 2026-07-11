@@ -1,21 +1,19 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
+import { createPublicHomePageAssembly } from '@/public-renderers/pageAssemblies'
+import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList'
 import {
-  resolveHomeSecondaryLayout,
-  selectHomeSpotlightCandidates
+  createHomeEditorialPageState,
+  selectHomeEditorialComposition,
+  withHomeEditorialFeed
 } from '@/view-contracts/homeSpotlight'
 
-const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
-const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
-
-const featured = (id: number, coverImageUrl: string, views = id): FeaturedArticleItem => ({
+const featured = (id: number, coverImageUrl = `/uploads/${id}.webp`): FeaturedArticleItem => ({
   id,
-  title: `Article ${id}`,
+  title: `Featured ${id}`,
   coverImageUrl,
-  views,
-  createTime: new Date(2026, 0, id).toISOString(),
+  views: id * 100,
+  createTime: `2026-01-${String(id).padStart(2, '0')}T00:00:00.000Z`,
   category: {
     id: 1,
     name: 'Demo'
@@ -28,76 +26,207 @@ const hot = (id: number): PopularArticleSummaryResponse => ({
   views: id * 10
 })
 
-describe('homeSpotlight view contract', () => {
-  it('filters out missing and whitespace covers while preserving backend candidate order', () => {
-    const candidates = selectHomeSpotlightCandidates([
-      featured(1, ''),
-      featured(2, '   '),
-      featured(3, '/uploads/three.webp', 1),
-      featured(4, '/uploads/four.webp', 999)
-    ])
+const feed = (id: number): ArticleListCardViewContract => ({
+  card: { kind: 'article-list-card', index: id },
+  id,
+  href: `/article/${id}`,
+  title: `Feed ${id}`,
+  summary: `Summary ${id}`,
+  meta: {
+    isoTime: '2026-01-01T00:00:00.000Z',
+    displayTime: '2026-01-01',
+    fullTime: '2026-01-01 00:00:00',
+    categoryName: 'Demo'
+  },
+  tags: []
+})
 
-    expect(candidates.map((article) => article.id)).toEqual([3, 4])
+const view = (items: readonly ArticleListCardViewContract[]): ArticleListViewContract => ({
+  items,
+  pagination: {
+    previous: { label: '上一页', disabled: true, action: { action: 'page-prev' } },
+    next: { label: '下一页', disabled: false, action: { action: 'page-next' } },
+    indicator: '1 / 2'
+  },
+  showPagination: true,
+  emptyState: { title: '这里还没有文章' },
+  searchKeyword: ''
+})
+
+describe('home editorial composition', () => {
+  it('makes lead, secondary recommendations, and the current feed mutually exclusive', () => {
+    const result = selectHomeEditorialComposition({
+      featuredArticles: [featured(1), featured(8)],
+      hotArticles: [hot(1), hot(2), hot(2), hot(3)],
+      feedItems: [feed(1), feed(2), feed(3), feed(4), feed(4)]
+    })
+
+    expect(result.leadArticle?.id).toBe(1)
+    expect(result.secondaryArticles.map((article) => article.id)).toEqual([2, 3])
+    expect(result.feedItems.map((article) => article.id)).toEqual([4])
+
+    const displayedIds = [
+      result.leadArticle?.id,
+      ...result.secondaryArticles.map((article) => article.id),
+      ...result.feedItems.map((article) => article.id)
+    ].filter((id): id is number => id !== undefined)
+    expect(new Set(displayedIds).size).toBe(displayedIds.length)
   })
 
-  it('limits spotlight candidates', () => {
-    const candidates = selectHomeSpotlightCandidates([
-      featured(1, '/a.webp'),
-      featured(2, '/b.webp'),
-      featured(3, '/c.webp')
-    ], 2)
+  it('keeps one coverless lead instead of replacing it with a visual placeholder', () => {
+    const result = selectHomeEditorialComposition({
+      featuredArticles: [featured(7, '   '), featured(8)],
+      hotArticles: [],
+      feedItems: []
+    })
 
-    expect(candidates.map((article) => article.id)).toEqual([1, 2])
+    expect(result.leadArticle).toEqual(featured(7, '   '))
+    expect(result.secondaryArticles).toEqual([])
+    expect(result.feedItems).toEqual([])
   })
 
-  it('selects text-first layout when hot articles exist but spotlight has no valid cover', () => {
-    expect(resolveHomeSecondaryLayout({
-      loading: false,
-      spotlightCandidates: [],
-      hotArticles: [hot(1)]
-    })).toBe('text-first')
+  it('preserves backend ordering, input arrays, and the configured text-list limit', () => {
+    const featuredArticles = Object.freeze([featured(9), featured(8)])
+    const hotArticles = Object.freeze([hot(7), hot(6), hot(5), hot(4)])
+    const feedItems = Object.freeze([feed(3), feed(2), feed(1)])
+
+    const result = selectHomeEditorialComposition({
+      featuredArticles,
+      hotArticles,
+      feedItems,
+      secondaryLimit: 2
+    })
+
+    expect(result.leadArticle?.id).toBe(9)
+    expect(result.secondaryArticles.map((article) => article.id)).toEqual([7, 6])
+    expect(result.feedItems.map((article) => article.id)).toEqual([3, 2, 1])
+    expect(featuredArticles.map((article) => article.id)).toEqual([9, 8])
+    expect(hotArticles.map((article) => article.id)).toEqual([7, 6, 5, 4])
+    expect(feedItems.map((article) => article.id)).toEqual([3, 2, 1])
   })
 
-  it('does not render a secondary home section without loading, spotlight, or recommendations', () => {
-    expect(resolveHomeSecondaryLayout({
-      loading: false,
-      spotlightCandidates: [],
-      hotArticles: []
-    })).toBe('none')
+  it('drops invalid identities instead of allowing an untrackable duplicate surface', () => {
+    const result = selectHomeEditorialComposition({
+      featuredArticles: [featured(0), featured(1)],
+      hotArticles: [hot(Number.NaN), hot(2)],
+      feedItems: [feed(-1), feed(2), feed(3)]
+    })
+
+    expect(result.leadArticle?.id).toBe(1)
+    expect(result.secondaryArticles.map((article) => article.id)).toEqual([2])
+    expect(result.feedItems.map((article) => article.id)).toEqual([3])
   })
 
-  it('keeps loading and spotlight layouts explicit', () => {
-    expect(resolveHomeSecondaryLayout({
-      loading: true,
-      spotlightCandidates: [],
-      hotArticles: []
-    })).toBe('loading')
-    expect(resolveHomeSecondaryLayout({
-      loading: false,
-      spotlightCandidates: [featured(1, '/cover.webp')],
-      hotArticles: []
-    })).toBe('spotlight')
+  it('starts directly from the feed when recommendations are empty', () => {
+    const result = selectHomeEditorialComposition({
+      featuredArticles: [],
+      hotArticles: [],
+      feedItems: [feed(11), feed(12)]
+    })
+
+    expect({
+      leadId: result.leadArticle?.id ?? null,
+      secondaryIds: result.secondaryArticles.map((article) => article.id),
+      feedIds: result.feedItems.map((article) => article.id)
+    }).toMatchInlineSnapshot(`
+      {
+        "feedIds": [
+          11,
+          12,
+        ],
+        "leadId": null,
+        "secondaryIds": [],
+      }
+    `)
   })
 
-  it('keeps the hot aside scoped to spotlight home shells', () => {
-    const homeFeedSurface = readRepoFile('src/frontend/src/components/public/HomeFeedSurface.vue')
-    const publicHomeContent = readRepoFile('src/frontend/src/components/public/pages/PublicHomePageContent.vue')
-    const pageAssemblies = readRepoFile('src/frontend/src/public-renderers/pageAssemblies.ts')
-    const homeView = readRepoFile('src/frontend/src/views/Home.vue')
-    const publicShell = readRepoFile('src/frontend/src/bootstrap/publicShell.ts')
+  it('reapplies the same recommendation exclusions after a page switch', () => {
+    const sources = {
+      featuredArticles: [featured(1)],
+      hotArticles: [hot(2), hot(3)]
+    }
+    const firstPage = selectHomeEditorialComposition({
+      ...sources,
+      feedItems: [feed(1), feed(4), feed(5)]
+    })
+    const secondPage = selectHomeEditorialComposition({
+      ...sources,
+      feedItems: [feed(2), feed(6), feed(7)]
+    })
 
-    expect(homeFeedSurface).toContain('v-if="showAside"')
-    expect(homeFeedSurface).toContain('data-readable-region')
-    expect(homeFeedSurface).toContain("showAside ? 'w-full max-w-[760px] grow lg:max-w-none lg:w-2/3' : 'mx-auto w-full max-w-[760px]'")
-    expect(publicHomeContent).toContain('<HomeFeedSurface :show-aside="showAside">')
-    expect(pageAssemblies).toContain('const showAside = false')
-    expect(pageAssemblies).toContain('h(FeaturedArticlesSection')
-    expect(pageAssemblies).toContain("aside: () => createCommentVNode('v-if', true)")
-    expect(pageAssemblies).toContain('h(HomeTextFirstRecommendations')
-    expect(homeView).toContain(':show-aside="showHomeAside"')
-    expect(homeView).toContain('const showHomeAside = false')
-    expect(homeView).toContain('<HomeTextFirstRecommendations')
-    expect(publicShell.indexOf("document.getElementById('fsus-home-hot-articles-slot-content')"))
-      .toBeLessThan(publicShell.indexOf('const sentinel = document.getElementById(HOME_HOT_ARTICLES_SENTINEL_ID)'))
+    expect(firstPage.leadArticle?.id).toBe(secondPage.leadArticle?.id)
+    expect(firstPage.secondaryArticles.map((article) => article.id)).toEqual([2, 3])
+    expect(secondPage.secondaryArticles.map((article) => article.id)).toEqual([2, 3])
+    expect(firstPage.feedItems.map((article) => article.id)).toEqual([4, 5])
+    expect(secondPage.feedItems.map((article) => article.id)).toEqual([6, 7])
+    expect({
+      firstPage: firstPage.feedItems.map((article) => article.id),
+      secondPage: secondPage.feedItems.map((article) => article.id),
+      recommendations: secondPage.secondaryArticles.map((article) => article.id)
+    }).toMatchInlineSnapshot(`
+      {
+        "firstPage": [
+          4,
+          5,
+        ],
+        "recommendations": [
+          2,
+          3,
+        ],
+        "secondPage": [
+          6,
+          7,
+        ],
+      }
+    `)
+  })
+
+  it('reuses the original view when no feed items were removed', () => {
+    const original = view([feed(1), feed(2)])
+
+    expect(withHomeEditorialFeed(original, original.items)).toBe(original)
+  })
+
+  it('changes only view items when editorial exclusions remove feed entries', () => {
+    const original = view([feed(1), feed(2), feed(3)])
+    const result = withHomeEditorialFeed(original, [original.items[2]!])
+
+    expect(result).not.toBe(original)
+    expect(result.items.map((article) => article.id)).toEqual([3])
+    expect(result.pagination).toBe(original.pagination)
+    expect(result.showPagination).toBe(true)
+  })
+
+  it('builds the full renderer state through the same pure assembly', () => {
+    const result = createHomeEditorialPageState({
+      view: view([feed(1), feed(2), feed(4)]),
+      featuredArticles: [featured(1)],
+      hotArticles: [hot(2), hot(3)]
+    })
+
+    expect(result.composition.leadArticle?.id).toBe(1)
+    expect(result.composition.secondaryArticles.map((article) => article.id)).toEqual([2, 3])
+    expect(result.view.items.map((article) => article.id)).toEqual([4])
+    expect(result.hasRecommendations).toBe(true)
+  })
+
+  it('gives public AOT the same editorial view and controls as the shared SPA state', () => {
+    const input = {
+      view: view([feed(1), feed(2), feed(4), feed(5)]),
+      featuredArticles: [featured(1)],
+      hotArticles: [hot(2), hot(3)]
+    }
+    const sharedState = createHomeEditorialPageState(input)
+    const aotAssembly = createPublicHomePageAssembly(input)
+    const aotView = aotAssembly.props.view as ArticleListViewContract
+
+    expect(aotView.items.map((article) => article.id)).toEqual(
+      sharedState.view.items.map((article) => article.id)
+    )
+    expect(aotAssembly.props.hasRecommendations).toBe(sharedState.hasRecommendations)
+    expect(aotAssembly.props.showArticleCta).toBe(false)
+    expect(aotAssembly.props.showAside).toBe(false)
+    expect(aotAssembly.slots?.featured).toBeTypeOf('function')
+    expect(aotAssembly.slots?.aside).toBeTypeOf('function')
   })
 })

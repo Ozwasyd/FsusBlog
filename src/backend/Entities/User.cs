@@ -19,6 +19,14 @@ public class User
     [SugarColumn(ColumnName = "identity_kind", Length = 32, DefaultValue = "'anonymous_account'")]
     public string IdentityKind { get; set; } = AnonymousIdentityRuntime.AnonymousAccountKind;
 
+    /// <summary>
+    /// Stable, opaque account subject used by tokens, caches, and security audit joins.
+    /// The nullable mapping is intentional during the rolling expand window; runtime
+    /// boundaries and the startup invariant gate reject accounts that were not backfilled.
+    /// </summary>
+    [SugarColumn(ColumnName = "account_subject_hash", Length = 64, IsNullable = true)]
+    public string? AccountSubjectHash { get; set; }
+
     [SugarColumn(ColumnName = "passkey_enabled", DefaultValue = "false")]
     public bool PasskeyEnabled { get; set; }
 

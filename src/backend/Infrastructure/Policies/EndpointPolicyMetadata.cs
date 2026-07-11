@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Infrastructure.Policies;
 
@@ -34,6 +35,27 @@ public sealed class ForceAccountStateRefreshMetadata
     }
 }
 
+public sealed record EndpointFilterBoundaryMetadata(Type FilterType);
+
+public sealed record AdminSensitiveStepUpMetadata(
+    string Action,
+    string ProofHeader,
+    bool AdminPrincipalBranchOnly)
+{
+    public const string DefaultAction = "admin-sensitive";
+    public const string DefaultProofHeader = "X-Fsus-Mfa-Proof";
+
+    public static readonly AdminSensitiveStepUpMetadata Instance = new(
+        DefaultAction,
+        DefaultProofHeader,
+        AdminPrincipalBranchOnly: false);
+
+    public static readonly AdminSensitiveStepUpMetadata AdminPrincipalBranchInstance = new(
+        DefaultAction,
+        DefaultProofHeader,
+        AdminPrincipalBranchOnly: true);
+}
+
 public static class EndpointPolicyMetadataExtensions
 {
     public static TBuilder AllowRestrictedAccountAction<TBuilder>(this TBuilder builder, RestrictedAccountAction action)
@@ -56,4 +78,19 @@ public static class EndpointPolicyMetadataExtensions
         builder.WithMetadata(ForceAccountStateRefreshMetadata.Instance);
         return builder;
     }
+
+    public static RouteHandlerBuilder AddEndpointFilterWithMetadata<TFilter>(this RouteHandlerBuilder builder)
+        where TFilter : class, IEndpointFilter
+    {
+        builder.WithMetadata(new EndpointFilterBoundaryMetadata(typeof(TFilter)));
+        return builder.AddEndpointFilter<TFilter>();
+    }
+
+    public static RouteHandlerBuilder WithAdminSensitiveStepUp(
+        this RouteHandlerBuilder builder,
+        bool adminPrincipalBranchOnly = false)
+        => builder.WithMetadata(
+            adminPrincipalBranchOnly
+                ? AdminSensitiveStepUpMetadata.AdminPrincipalBranchInstance
+                : AdminSensitiveStepUpMetadata.Instance);
 }

@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Services.Background;
 
@@ -81,23 +82,59 @@ public sealed class UploadSessionCleanupQueue
     internal bool ConsumeOverflowedSignal()
         => Interlocked.Exchange(ref _overflowedSignal, 0) == 1;
 
+    internal bool HasPendingSignals => _requests.Reader.TryPeek(out _);
+
+    public int PendingSignalCount
+        => (_requests.Reader.CanCount ? _requests.Reader.Count : (HasPendingSignals ? 1 : 0))
+            + (Volatile.Read(ref _overflowedSignal) == 1 ? 1 : 0);
+
     internal ChannelReader<byte> Reader => _requests.Reader;
 }
 
-public sealed class UploadSessionCleanupWorker(
-    UploadSessionCleanupQueue queue,
-    IServiceScopeFactory scopeFactory,
-    ILogger<UploadSessionCleanupWorker> logger,
-    TimeProvider timeProvider,
-    IBackgroundWorkerLease workerLease) : BackgroundService
+public sealed class UploadSessionCleanupWorker : BackgroundService
 {
     private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(5);
+    private readonly UploadSessionCleanupQueue _queue;
+    private readonly ILogger<UploadSessionCleanupWorker> _logger;
+    private readonly TimeProvider _timeProvider;
+    private readonly IBackgroundWorkerLease _workerLease;
+    private readonly Func<CancellationToken, Task> _cleanupAction;
+
+    public UploadSessionCleanupWorker(
+        UploadSessionCleanupQueue queue,
+        IServiceScopeFactory scopeFactory,
+        ILogger<UploadSessionCleanupWorker> logger,
+        TimeProvider timeProvider,
+        IBackgroundWorkerLease workerLease,
+        IActiveReleaseCommitGuard activeReleaseCommitGuard)
+        : this(
+            queue,
+            logger,
+            timeProvider,
+            workerLease,
+            token => RunScopedCleanupAsync(scopeFactory, activeReleaseCommitGuard, token))
+    {
+    }
+
+    internal UploadSessionCleanupWorker(
+        UploadSessionCleanupQueue queue,
+        ILogger<UploadSessionCleanupWorker> logger,
+        TimeProvider timeProvider,
+        IBackgroundWorkerLease workerLease,
+        Func<CancellationToken, Task> cleanupAction)
+    {
+        _queue = queue ?? throw new ArgumentNullException(nameof(queue));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        _workerLease = workerLease ?? throw new ArgumentNullException(nameof(workerLease));
+        _cleanupAction = cleanupAction ?? throw new ArgumentNullException(nameof(cleanupAction));
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using PeriodicTimer timer = new(ScanInterval, timeProvider);
+        using PeriodicTimer timer = new(ScanInterval, _timeProvider);
         Task<bool> timerTask = timer.WaitForNextTickAsync(stoppingToken).AsTask();
-        Task<bool> signalTask = queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
+        Task<bool> signalTask = _queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
 
         try
         {
@@ -126,7 +163,7 @@ public sealed class UploadSessionCleanupWorker(
                 await RunCleanupUntilSignalsFlushedAsync(stoppingToken).ConfigureAwait(false);
                 if (refreshSignalTask)
                 {
-                    signalTask = queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
+                    signalTask = _queue.Reader.WaitToReadAsync(stoppingToken).AsTask();
                 }
             }
         }
@@ -135,15 +172,16 @@ public sealed class UploadSessionCleanupWorker(
         }
     }
 
-    private async Task RunCleanupUntilSignalsFlushedAsync(CancellationToken stoppingToken)
+    internal async Task RunCleanupUntilSignalsFlushedAsync(CancellationToken stoppingToken)
     {
+        stoppingToken.ThrowIfCancellationRequested();
         bool runAgain;
         do
         {
-            queue.DrainPendingSignals();
-            bool ran = await workerLease.TryRunAsLeaderAsync("upload-session-cleanup-worker", RunCleanupOnceAsync, stoppingToken)
+            _queue.DrainPendingSignals();
+            bool ran = await _workerLease.TryRunAsLeaderAsync("upload-session-cleanup-worker", RunCleanupOnceAsync, stoppingToken)
                 .ConfigureAwait(false);
-            runAgain = ran && queue.ConsumeOverflowedSignal();
+            runAgain = ran && (_queue.ConsumeOverflowedSignal() || _queue.HasPendingSignals);
         }
         while (runAgain && !stoppingToken.IsCancellationRequested);
     }
@@ -152,16 +190,26 @@ public sealed class UploadSessionCleanupWorker(
     {
         try
         {
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-            var fileService = scope.ServiceProvider.GetRequiredService<FileService>();
-            await fileService.CleanupExpiredSessionsAsync(cancellationToken).ConfigureAwait(false);
+            await _cleanupAction(cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "upload-session-cleanup-failed");
+            _logger.LogWarning(ex, "upload-session-cleanup-failed");
         }
+    }
+
+    private static async Task RunScopedCleanupAsync(
+        IServiceScopeFactory scopeFactory,
+        IActiveReleaseCommitGuard activeReleaseCommitGuard,
+        CancellationToken cancellationToken)
+    {
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        var fileService = scope.ServiceProvider.GetRequiredService<FileService>();
+        await fileService.CleanupExpiredSessionsAsync(
+            cancellationToken,
+            beforeCommit: commitToken => activeReleaseCommitGuard.EnsureCurrentAsync(commitToken)).ConfigureAwait(false);
     }
 }

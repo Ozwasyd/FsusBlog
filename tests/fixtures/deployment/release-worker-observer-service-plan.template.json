@@ -1,0 +1,285 @@
+{
+  "schema": "fsusblog.release-worker-observer-service-plan.v1",
+  "nonProductionOnly": true,
+  "acknowledgement": "OBSERVE_ISOLATED_TEST_WORKERS_ONLY",
+  "listen": {
+    "host": "127.0.0.1",
+    "port": 19031
+  },
+  "topology": {
+    "source": {
+      "origin": "http://127.0.0.1:18081",
+      "container": {
+        "name": "REPLACE_SOURCE_CONTAINER",
+        "identityLabels": {
+          "releaseId": "com.fsusblog.release-id",
+          "slot": "com.fsusblog.release-slot",
+          "generation": "com.fsusblog.runtime-generation"
+        }
+      }
+    },
+    "target": {
+      "origin": "http://127.0.0.1:18082",
+      "container": {
+        "name": "REPLACE_TARGET_CONTAINER",
+        "identityLabels": {
+          "releaseId": "com.fsusblog.release-id",
+          "slot": "com.fsusblog.release-slot",
+          "generation": "com.fsusblog.runtime-generation"
+        }
+      }
+    },
+    "adminStatusPath": "/api/ops/deployment/status",
+    "redisFenceKeyTemplate": "fsusblog:test:release:{rolloutId}:slot:{slot}:fence"
+  },
+  "observation": {
+    "schemaName": "public",
+    "table": "REPLACE_REAL_WORKER_ATTEMPT_VIEW",
+    "maxRecords": 256,
+    "columns": {
+      "logicalEventId": "logical_event_id",
+      "rolloutId": "rollout_id",
+      "kind": "worker_kind",
+      "attemptKey": "attempt_key",
+      "status": "attempt_status",
+      "releaseId": "release_id",
+      "generation": "runtime_generation",
+      "effectKey": "effect_key",
+      "workerIdentity": "worker_identity",
+      "durableReplaySource": "durable_replay_source",
+      "articleId": "article_id",
+      "observedAtUtc": "observed_at_utc",
+      "expectedEffectCount": "expected_effect_count",
+      "auditCount": "audit_count",
+      "projectionCount": "projection_count",
+      "ownerCount": "owner_count",
+      "consumerCount": "consumer_count",
+      "sourceClaimObserved": "source_claim_observed",
+      "sourceFinalCommitObserved": "source_final_commit_observed",
+      "recoveredByTarget": "recovered_by_target"
+    }
+  },
+  "workers": [
+    {
+      "kind": "scheduled-publish",
+      "pendingStatuses": ["pending", "claimed"],
+      "committedStatuses": ["completed", "committed"],
+      "failedStatuses": ["failed", "dead-letter"],
+      "normalStart": {
+        "type": "admin-http",
+        "slot": "source",
+        "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/scheduled-publish",
+        "method": "POST",
+        "expectedStatuses": [202],
+        "staticBody": {"rehearsalOnly": true}
+      },
+      "actions": []
+    },
+    {
+      "kind": "article-mutation-outbox",
+      "pendingStatuses": ["pending", "claimed"],
+      "committedStatuses": ["completed", "committed"],
+      "failedStatuses": ["failed", "dead-letter"],
+      "normalStart": {
+        "type": "admin-http",
+        "slot": "source",
+        "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/article-mutation-outbox",
+        "method": "POST",
+        "expectedStatuses": [202],
+        "staticBody": {"rehearsalOnly": true}
+      },
+      "actions": []
+    },
+    {
+      "kind": "audit-writer",
+      "pendingStatuses": ["pending", "claimed"],
+      "committedStatuses": ["completed", "committed"],
+      "failedStatuses": ["failed", "dead-letter"],
+      "normalStart": {
+        "type": "admin-http",
+        "slot": "source",
+        "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/audit-writer",
+        "method": "POST",
+        "expectedStatuses": [202],
+        "staticBody": {"rehearsalOnly": true}
+      },
+      "actions": [
+        {
+          "path": "/actions/audit-writer",
+          "executor": {
+            "type": "admin-http",
+            "slot": "source",
+            "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/audit-writer",
+            "method": "POST",
+            "expectedStatuses": [202],
+            "staticBody": {"rehearsalOnly": true}
+          }
+        }
+      ]
+    },
+    {
+      "kind": "visit-view-projection",
+      "pendingStatuses": ["pending", "claimed"],
+      "committedStatuses": ["completed", "committed"],
+      "failedStatuses": ["failed", "dead-letter"],
+      "normalStart": {
+        "type": "admin-http",
+        "slot": "source",
+        "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/visit-view-projection",
+        "method": "POST",
+        "expectedStatuses": [202],
+        "staticBody": {"rehearsalOnly": true}
+      },
+      "actions": []
+    },
+    {
+      "kind": "public-hot-aot",
+      "pendingStatuses": ["pending", "claimed"],
+      "committedStatuses": ["completed", "committed"],
+      "failedStatuses": ["failed", "dead-letter"],
+      "normalStart": {
+        "type": "admin-http",
+        "slot": "source",
+        "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/public-hot-aot",
+        "method": "POST",
+        "expectedStatuses": [202],
+        "staticBody": {"rehearsalOnly": true}
+      },
+      "actions": [
+        {
+          "path": "/actions/public-hot-aot",
+          "executor": {
+            "type": "admin-http",
+            "slot": "source",
+            "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/public-hot-aot",
+            "method": "POST",
+            "expectedStatuses": [202],
+            "staticBody": {"rehearsalOnly": true}
+          }
+        }
+      ]
+    },
+    {
+      "kind": "upload-cleanup",
+      "pendingStatuses": ["pending", "claimed"],
+      "committedStatuses": ["completed", "committed"],
+      "failedStatuses": ["failed", "dead-letter"],
+      "normalStart": {
+        "type": "admin-http",
+        "slot": "source",
+        "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/upload-cleanup",
+        "method": "POST",
+        "expectedStatuses": [202],
+        "staticBody": {"rehearsalOnly": true}
+      },
+      "actions": [
+        {
+          "path": "/actions/upload-cleanup",
+          "executor": {
+            "type": "admin-http",
+            "slot": "source",
+            "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/upload-cleanup",
+            "method": "POST",
+            "expectedStatuses": [202],
+            "staticBody": {"rehearsalOnly": true}
+          }
+        },
+        {
+          "path": "/actions/upload-cleanup/wake-target",
+          "executor": {
+            "type": "admin-http",
+            "slot": "target",
+            "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/upload-cleanup/wake-target",
+            "method": "POST",
+            "expectedStatuses": [202],
+            "staticBody": {"rehearsalOnly": true}
+          }
+        }
+      ]
+    },
+    {
+      "kind": "active-singleton-control",
+      "pendingStatuses": ["pending", "claimed"],
+      "committedStatuses": ["completed", "committed"],
+      "failedStatuses": ["failed", "dead-letter"],
+      "normalStart": {
+        "type": "admin-http",
+        "slot": "source",
+        "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/active-singleton-control",
+        "method": "POST",
+        "expectedStatuses": [202],
+        "staticBody": {"rehearsalOnly": true}
+      },
+      "actions": [
+        {
+          "path": "/actions/active-singleton-control",
+          "executor": {
+            "type": "admin-http",
+            "slot": "source",
+            "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/active-singleton-control",
+            "method": "POST",
+            "expectedStatuses": [202],
+            "staticBody": {"rehearsalOnly": true}
+          }
+        }
+      ]
+    },
+    {
+      "kind": "multi-consumer-safe-control",
+      "pendingStatuses": ["pending", "claimed"],
+      "committedStatuses": ["completed", "committed"],
+      "failedStatuses": ["failed", "dead-letter"],
+      "normalStart": {
+        "type": "admin-http",
+        "slot": "source",
+        "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/multi-consumer-safe-control",
+        "method": "POST",
+        "expectedStatuses": [202],
+        "staticBody": {"rehearsalOnly": true}
+      },
+      "actions": [
+        {
+          "path": "/actions/multi-consumer-safe-control",
+          "executor": {
+            "type": "admin-http",
+            "slot": "source",
+            "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/multi-consumer-safe-control",
+            "method": "POST",
+            "expectedStatuses": [202],
+            "staticBody": {"rehearsalOnly": true}
+          }
+        }
+      ]
+    },
+    {
+      "kind": "forced-source-recovery",
+      "pendingStatuses": ["pending", "claimed"],
+      "committedStatuses": ["completed", "committed"],
+      "failedStatuses": ["failed", "dead-letter"],
+      "actions": [
+        {
+          "path": "/actions/forced-source-recovery/hold-after-claim",
+          "executor": {
+            "type": "admin-http",
+            "slot": "source",
+            "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/forced-source-recovery/hold-after-claim",
+            "method": "POST",
+            "expectedStatuses": [202],
+            "staticBody": {"rehearsalOnly": true}
+          }
+        },
+        {
+          "path": "/actions/forced-source-recovery/release-target",
+          "executor": {
+            "type": "admin-http",
+            "slot": "target",
+            "path": "/REPLACE_REAL_TEST_ACTION_PREFIX/forced-source-recovery/release-target",
+            "method": "POST",
+            "expectedStatuses": [202],
+            "staticBody": {"rehearsalOnly": true}
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { NotificationStreamEventType, NotificationStreamFailureCodes } from '@/s
 import { decodeNotificationApiErrorFrame, decodeNotificationFrame } from '@/adapters/binary/notificationAdapter'
 import { encodeNotificationStreamPowProof } from '@/services/powProofCodec'
 import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
+import { resolveNotificationStreamCloseRecovery } from '@/services/notificationStreamRestartPolicy'
 
 const RECENT_EVENT_WINDOW = 512
 const RETRY_BASE_DELAY_MS = 1000
@@ -85,6 +86,7 @@ export class NotificationStreamRuntime {
   private isConnectedFlag = false
   private hasSuccessfulConnection = false
   private requirePreflightOnNextConnect = false
+  private replayMissedOnReconnect = false
   private connectGeneration = 0
   private telemetry = {
     preflightCount: 0,
@@ -113,6 +115,7 @@ export class NotificationStreamRuntime {
     this.connectGeneration += 1
     this.retryCount = 0
     this.isReconnecting = false
+    this.replayMissedOnReconnect = false
     this.clearReconnectTimer()
 
     if (cursor) {
@@ -126,6 +129,7 @@ export class NotificationStreamRuntime {
     this.clearReconnectTimer()
     this.isReconnecting = false
     this.isConnectedFlag = false
+    this.replayMissedOnReconnect = false
 
     if (this.socket) {
       this.socket.close(1000, 'stopped')
@@ -272,7 +276,9 @@ export class NotificationStreamRuntime {
           this.telemetry.wsReconnectCount += 1
           this.retryCount = 0
           this.isReconnecting = false
-          this.onReconnectSuccess?.(false)
+          const replayMissed = this.replayMissedOnReconnect
+          this.replayMissedOnReconnect = false
+          this.onReconnectSuccess?.(replayMissed)
         }
 
         resolve()
@@ -317,6 +323,16 @@ export class NotificationStreamRuntime {
         }
 
         if (event.code !== 1000) {
+          const recovery = resolveNotificationStreamCloseRecovery(event.code, event.reason)
+          if (recovery) {
+            if (!recovery.preserveCursor) {
+              this.resetCursor()
+            }
+            this.replayMissedOnReconnect ||= recovery.requireFullResync
+            this.scheduleReconnect(NotificationStreamFailureCodes.NetworkError, recovery.reconnectDelayMs)
+            return
+          }
+
           this.scheduleReconnect(NotificationStreamFailureCodes.NetworkError)
         }
       }
@@ -424,7 +440,7 @@ export class NotificationStreamRuntime {
     this.scheduleReconnect(NotificationStreamFailureCodes.ProtocolMismatch)
   }
 
-  private scheduleReconnect(reason: NotificationStreamFailureCode): void {
+  private scheduleReconnect(reason: NotificationStreamFailureCode, delayOverrideMs?: number): void {
     if (reason === NotificationStreamFailureCodes.AuthFailed || reason === NotificationStreamFailureCodes.PowFailed) {
       return
     }
@@ -435,8 +451,9 @@ export class NotificationStreamRuntime {
     this.retryCount += 1
     this.onStatusChange?.('reconnecting', this.retryCount)
 
-    const delay = Math.min(RETRY_BASE_DELAY_MS * 2 ** Math.max(0, this.retryCount - 1), RETRY_MAX_DELAY_MS)
-    const jitter = Math.floor(Math.random() * 250)
+    const delay = delayOverrideMs
+      ?? Math.min(RETRY_BASE_DELAY_MS * 2 ** Math.max(0, this.retryCount - 1), RETRY_MAX_DELAY_MS)
+    const jitter = delayOverrideMs === undefined ? Math.floor(Math.random() * 250) : 0
 
     this.reconnectTimer = setTimeout(() => {
       if (!this.isReconnecting) {

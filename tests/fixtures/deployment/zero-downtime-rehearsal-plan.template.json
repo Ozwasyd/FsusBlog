@@ -1,0 +1,85 @@
+{
+  "schema": "fsusblog.zero-downtime-rehearsal-plan.v1",
+  "_notice": "NON-PRODUCTION TEMPLATE ONLY. Replace every REPLACE_* value with local Test materials; never place secret values in this JSON.",
+  "rehearsalId": "issue-1031-local-zdt",
+  "nonProductionOnly": true,
+  "environment": "Test",
+  "acknowledgement": "DESTROY_ISOLATED_LOCAL_REHEARSAL_ONLY",
+  "workRoot": "../../../.tmp/issue-1031-zero-downtime-rehearsal",
+  "publicUrl": "http://127.0.0.1:18080/health/ready",
+  "controlOrigin": "http://127.0.0.1:18080",
+  "publicPort": 18080,
+  "envFile": "REPLACE_LOCAL_TEST_ENV_FILE",
+  "adminHeaderFile": "REPLACE_MODE_0600_ADMIN_HEADER_FILE",
+  "notificationAuthStorageState": "REPLACE_MODE_0600_PLAYWRIGHT_STORAGE_STATE",
+  "source": {
+    "slot": "blue",
+    "manifest": "REPLACE_BLUE_RELEASE_MANIFEST",
+    "previousRollbackRelease": "REPLACE_BLUE_PREVIOUS_ROLLBACK_RELEASE_ID"
+  },
+  "target": {
+    "slot": "green",
+    "manifest": "REPLACE_GREEN_RELEASE_MANIFEST",
+    "migrationServerDll": "REPLACE_GREEN_MIGRATION_SERVER_DLL"
+  },
+  "evidenceInputs": {
+    "backupRestore": "REPLACE_RECENT_REAL_BACKUP_RESTORE_EVIDENCE",
+    "trafficScenario": "REPLACE_FULL_HTTP_TRAFFIC_SCENARIO",
+    "trafficBindingKey": "REPLACE_MODE_0600_TRAFFIC_HMAC_KEY",
+    "assetBrowserBindingKey": "REPLACE_MODE_0600_ASSET_BROWSER_HMAC_KEY",
+    "notificationResyncScenario": "release-notification-resync-scenario.template.json"
+  },
+  "migrationQualification": {
+    "scenarioTemplate": "release-migration-qualification-scenario.template.json",
+    "timeoutSeconds": 900,
+    "expandMigrationId": "20260711-pre-account-subject-hash-expand",
+    "backfillMigrationId": "20260711-post-account-subject-hash-backfill",
+    "contractMigrationId": "20260629-post-audit-chain-tail-index"
+  },
+  "assets": {
+    "deployScenario": "REPLACE_BLUE_TO_GREEN_ASSET_SCENARIO",
+    "rollbackScenario": "REPLACE_GREEN_TO_BLUE_ASSET_SCENARIO",
+    "store": "../../../.tmp/issue-1031-zero-downtime-rehearsal/assets",
+    "retentionState": "../../../.tmp/issue-1031-zero-downtime-rehearsal/assets/retention-state.json"
+  },
+  "workers": {
+    "timeoutSeconds": 600,
+    "observerEnvFile": "REPLACE_REAL_WORKER_OBSERVER_PRIVATE_ENV_FILE",
+    "deploy": {
+      "scenario": "REPLACE_BLUE_TO_GREEN_REAL_WORKER_DRILL_PLAN",
+      "normalScenario": "REPLACE_BLUE_TO_GREEN_REAL_8_KIND_OBSERVER_PLAN",
+      "observerServicePlan": "REPLACE_BLUE_TO_GREEN_REAL_WORKER_OBSERVER_SERVICE_PLAN",
+      "startStage": "candidate-start"
+    },
+    "rollback": {
+      "scenario": "REPLACE_GREEN_TO_BLUE_REAL_WORKER_DRILL_PLAN",
+      "normalScenario": "REPLACE_GREEN_TO_BLUE_REAL_8_KIND_OBSERVER_PLAN",
+      "observerServicePlan": "REPLACE_GREEN_TO_BLUE_REAL_WORKER_OBSERVER_SERVICE_PLAN",
+      "startStage": "candidate-start"
+    },
+    "resume": {
+      "scenario": "REPLACE_SIGKILL_RESUME_REAL_WORKER_DRILL_PLAN",
+      "normalScenario": "REPLACE_SIGKILL_RESUME_REAL_8_KIND_OBSERVER_PLAN",
+      "observerServicePlan": "REPLACE_SIGKILL_RESUME_REAL_WORKER_OBSERVER_SERVICE_PLAN",
+      "startStage": "candidate-start"
+    }
+  },
+  "faults": {
+    "planTemplate": "zero-downtime-fault-plan.template.json",
+    "tokens": {
+      "failingOpenRestyWrapper": "REPLACE_LOCAL_FAILING_OPENRESTY_WRAPPER",
+      "dockerFailureBinPath": "REPLACE_LOCAL_DOCKER_FAILURE_BIN_DIRECTORY",
+      "retainedAsset": "REPLACE_LOCAL_RETAINED_HASHED_ASSET",
+      "corruptAsset": "REPLACE_LOCAL_CORRUPT_ASSET_FIXTURE",
+      "longRequestPath": "/api/operations/rehearsal/hold?seconds=90"
+    }
+  },
+  "hostInterruption": {
+    "stages": [
+      "source-drain",
+      "source-stop",
+      "release-evidence"
+    ],
+    "timeoutSeconds": 300
+  }
+}

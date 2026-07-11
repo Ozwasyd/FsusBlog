@@ -1,0 +1,289 @@
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
+using NSubstitute;
+using SqlSugar;
+using StackExchange.Redis;
+
+namespace FsusBlog.Server.Tests.Unit;
+
+[Trait("Category", "Concurrency")]
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class ArticleDestructiveMutationBehaviorTests(PostgresSchemaMigrationFixture fixture)
+{
+    [Fact]
+    public async Task DeleteAndRestore_EnforceStateMachineAndRestoreToDraft()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(db);
+        SeedTaxonomy(db);
+        int articleId = SeedArticle(db, isDeleted: false, status: ArticleStatus.Published);
+        ArticleService service = CreateService(db);
+
+        Assert.False(await service.RestoreAsync(articleId));
+        Assert.True(await service.DeleteAsync(articleId));
+        Assert.False(await service.DeleteAsync(articleId));
+
+        Article deleted = LoadArticle(db, articleId);
+        Assert.True(deleted.IsDeleted);
+        Assert.Equal(ArticleStatus.Deleted, deleted.Status);
+        Assert.NotNull(deleted.DeletedAt);
+
+        Assert.True(await service.RestoreAsync(articleId));
+        Assert.False(await service.RestoreAsync(articleId));
+
+        Article restored = LoadArticle(db, articleId);
+        Assert.False(restored.IsDeleted);
+        Assert.Equal(ArticleStatus.Draft, restored.Status);
+        Assert.Null(restored.DeletedAt);
+        Assert.Null(restored.PublishedAt);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_StaleRowVersionFailsWithoutChangingArticleState()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        SeedTaxonomy(setupDb);
+        int articleId = SeedArticle(setupDb, isDeleted: false, status: ArticleStatus.Published);
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb);
+
+        await using var holder = new NpgsqlConnection(connectionString);
+        await holder.OpenAsync();
+        await using NpgsqlTransaction concurrentUpdate = await holder.BeginTransactionAsync();
+        await using (var command = new NpgsqlCommand(
+            "UPDATE article SET views = views + 1 WHERE id = @ArticleId;",
+            holder,
+            concurrentUpdate))
+        {
+            command.Parameters.AddWithValue("@ArticleId", articleId);
+            Assert.Equal(1, await command.ExecuteNonQueryAsync());
+        }
+
+        Task<bool> deleteTask = service.DeleteAsync(articleId);
+        await Task.Delay(TimeSpan.FromMilliseconds(250));
+        Assert.False(deleteTask.IsCompleted);
+        await concurrentUpdate.CommitAsync();
+
+        bool deleted = await deleteTask.WaitAsync(TimeSpan.FromSeconds(10));
+        Article article = LoadArticle(setupDb, articleId);
+        Assert.False(deleted);
+        Assert.False(article.IsDeleted);
+        Assert.Equal(ArticleStatus.Published, article.Status);
+        Assert.Equal(1, article.Views);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ConcurrentWritersAllowExactlyOneStateTransition()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            CreateTables(setupDb);
+            SeedTaxonomy(setupDb);
+            SeedArticle(setupDb, isDeleted: false, status: ArticleStatus.Published, id: 42);
+        }
+        using var barrier = new Barrier(2);
+
+        bool[] results = await Task.WhenAll(
+            StartBarrierTaskAsync(barrier, async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+                return await CreateService(db).DeleteAsync(42);
+            }),
+            StartBarrierTaskAsync(barrier, async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+                return await CreateService(db).DeleteAsync(42);
+            })).WaitAsync(TimeSpan.FromSeconds(20));
+
+        using SqlSugarClient assertDb = PostgresSqlSugarTestClient.Create(connectionString);
+        Article article = LoadArticle(assertDb, 42);
+        Assert.Equal(1, results.Count(static result => result));
+        Assert.Equal(1, results.Count(static result => !result));
+        Assert.True(article.IsDeleted);
+        Assert.Equal(ArticleStatus.Deleted, article.Status);
+        Assert.Equal(1, assertDb.Queryable<ArticleMutationOutboxEvent>().Count());
+    }
+
+    [Fact]
+    public async Task PermanentDeleteAndClearTrash_NeverRemoveActiveArticles()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(db);
+        SeedTaxonomy(db);
+        int activeId = SeedArticle(db, isDeleted: false, status: ArticleStatus.Draft, id: 41);
+        int permanentId = SeedArticle(db, isDeleted: true, status: ArticleStatus.Deleted, id: 42);
+        int clearTrashId = SeedArticle(db, isDeleted: true, status: ArticleStatus.Deleted, id: 43);
+        ArticleService service = CreateService(db);
+
+        Assert.False(await service.PermanentlyDeleteArticleAsync(activeId));
+        Assert.True(await service.PermanentlyDeleteArticleAsync(permanentId));
+        int cleared = await service.ClearTrashAsync();
+
+        Assert.Equal(1, cleared);
+        Assert.NotNull(db.Queryable<Article>().ClearFilter().InSingle(activeId));
+        Assert.Null(db.Queryable<Article>().ClearFilter().InSingle(permanentId));
+        Assert.Null(db.Queryable<Article>().ClearFilter().InSingle(clearTrashId));
+        Assert.Equal(0, db.Queryable<ArticleBody>()
+            .Where(body => body.ArticleId == permanentId || body.ArticleId == clearTrashId)
+            .Count());
+    }
+
+    [Fact]
+    public async Task PermanentlyDeleteArticleAsync_ConcurrentWritersAllowExactlyOneRemoval()
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
+        {
+            CreateTables(setupDb);
+            SeedTaxonomy(setupDb);
+            SeedArticle(setupDb, isDeleted: true, status: ArticleStatus.Deleted, id: 42);
+        }
+        using var barrier = new Barrier(2);
+
+        bool[] results = await Task.WhenAll(
+            StartBarrierTaskAsync(barrier, async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+                return await CreateService(db).PermanentlyDeleteArticleAsync(42);
+            }),
+            StartBarrierTaskAsync(barrier, async () =>
+            {
+                using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+                return await CreateService(db).PermanentlyDeleteArticleAsync(42);
+            })).WaitAsync(TimeSpan.FromSeconds(20));
+
+        using SqlSugarClient assertDb = PostgresSqlSugarTestClient.Create(connectionString);
+        Assert.Single(results, static result => result);
+        Assert.Single(results, static result => !result);
+        Assert.Null(assertDb.Queryable<Article>().ClearFilter().InSingle(42));
+        Assert.Null(assertDb.Queryable<ArticleBody>().InSingle(42));
+        ArticleMutationOutboxEvent outbox = Assert.Single(assertDb.Queryable<ArticleMutationOutboxEvent>().ToList());
+        Assert.Equal("permanently-deleted", outbox.EventType);
+        Assert.Equal(42, outbox.AggregateId);
+    }
+
+    private static Article LoadArticle(SqlSugarClient db, int articleId)
+        => db.Queryable<Article>().ClearFilter().InSingle(articleId)
+            ?? throw new InvalidOperationException($"Article {articleId} was not found.");
+
+    private static void CreateTables(SqlSugarClient db)
+        => PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(Article),
+            typeof(ArticleBody),
+            typeof(ArticleTag),
+            typeof(Category),
+            typeof(Tag),
+            typeof(Comment),
+            typeof(ArticleMutationOutboxEvent));
+
+    private static void SeedTaxonomy(SqlSugarClient db)
+    {
+        db.Insertable(new Category { Id = 1, Name = "Category 1" }).ExecuteCommand();
+        db.Insertable(new Tag { Id = 1, Name = "Tag 1" }).ExecuteCommand();
+    }
+
+    private static int SeedArticle(
+        SqlSugarClient db,
+        bool isDeleted,
+        ArticleStatus status,
+        int? id = null)
+    {
+        var article = new Article
+        {
+            Id = id ?? 0,
+            Title = $"Article {id?.ToString() ?? "generated"}",
+            Summary = "summary",
+            CategoryId = 1,
+            Status = status,
+            IsDeleted = isDeleted,
+            DeletedAt = isDeleted ? DateTime.UtcNow : null,
+            CreateTime = DateTime.UtcNow.AddMinutes(-2),
+            PublishedAt = status == ArticleStatus.Published ? DateTime.UtcNow.AddMinutes(-1) : null
+        };
+        int articleId;
+        if (id.HasValue)
+        {
+            db.Ado.ExecuteCommand(
+                """
+                INSERT INTO article
+                    (id, title, summary, categoryid, views, createtime, status, published_at, deleted_at, isdeleted)
+                VALUES
+                    (@Id, @Title, @Summary, @CategoryId, 0, @CreateTime, @Status, @PublishedAt, @DeletedAt, @IsDeleted);
+                """,
+                new SugarParameter("@Id", id.Value),
+                new SugarParameter("@Title", article.Title),
+                new SugarParameter("@Summary", article.Summary),
+                new SugarParameter("@CategoryId", article.CategoryId),
+                new SugarParameter("@CreateTime", article.CreateTime),
+                new SugarParameter("@Status", (int)article.Status),
+                new SugarParameter("@PublishedAt", (object?)article.PublishedAt ?? DBNull.Value),
+                new SugarParameter("@DeletedAt", (object?)article.DeletedAt ?? DBNull.Value),
+                new SugarParameter("@IsDeleted", article.IsDeleted));
+            articleId = id.Value;
+        }
+        else
+        {
+            articleId = db.Insertable(article).ExecuteReturnIdentity();
+        }
+
+        db.Insertable(new ArticleBody
+        {
+            ArticleId = articleId,
+            MarkdownContent = "# body",
+            UpdatedAt = DateTime.UtcNow
+        }).ExecuteCommand();
+        db.Insertable(new ArticleTag { ArticleId = articleId, TagId = 1 }).ExecuteCommand();
+        return articleId;
+    }
+
+    private static ArticleService CreateService(SqlSugarClient db)
+    {
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
+        var runtimeKeyScope = Substitute.For<IRuntimeKeyScope>();
+        runtimeKeyScope.PrefixKey(Arg.Any<string>()).Returns(call => call.Arg<string>());
+
+        return new ArticleService(
+            _db: db,
+            _searchIndex: Substitute.For<ISearchIndexService>(),
+            _redisConnection: redis,
+            _cache: Substitute.For<IUnifiedCache>(),
+            _cacheMissCoordinator: Substitute.For<ICacheMissCoordinator>(),
+            _dbConcurrencyGate: Substitute.For<IDbConcurrencyGate>(),
+            _runtimeKeyScope: runtimeKeyScope,
+            _httpContextAccessor: Substitute.For<IHttpContextAccessor>(),
+            _logger: NullLogger<ArticleService>.Instance,
+            _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
+            _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
+            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
+    }
+
+    private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)
+        => Task.Factory.StartNew(
+            async () =>
+            {
+                Assert.True(
+                    barrier.SignalAndWait(TimeSpan.FromSeconds(20)),
+                    "Timed out waiting for concurrent article mutation writers.");
+                return await action();
+            },
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
+}

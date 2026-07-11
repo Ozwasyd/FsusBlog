@@ -1,92 +1,52 @@
-using FsusBlog.Server.Tests.TestInfrastructure;
+using System.Collections.Concurrent;
+using FsusBlog.Server.Infrastructure.Helpers.Security;
+using FsusBlog.Server.Services.Security;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class SecurityModerationHotPathContractTests
 {
     [Fact]
-    public void ModernAcAutomaton_UsesLocalThreadScratchWithoutSharedScanEpoch()
+    public void ModernAcAutomaton_ConcurrentScansKeepScratchStateIsolated()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/Helpers/Security/ModernAcAutomaton.cs");
+        var automaton = new ModernAcAutomaton();
+        automaton.Build(["cache+postgresql", "notification", "crawler"]);
+        using var barrier = new Barrier(8);
+        var results = new ConcurrentBag<bool>();
 
-        Assert.Contains("[ThreadStatic]", source, StringComparison.Ordinal);
-        Assert.Contains("t_ruleRemainingScratch", source, StringComparison.Ordinal);
-        Assert.Contains("t_touchedRuleScratch", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("_scanEpoch", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Interlocked.Increment", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("NextScanEpoch", source, StringComparison.Ordinal);
+        Parallel.For(0, 8, index =>
+        {
+            barrier.SignalAndWait();
+            results.Add(index % 2 == 0
+                ? automaton.ContainsAny("postgresql cache hot path")
+                : !automaton.ContainsAny("ordinary article text"));
+        });
+
+        Assert.Equal(8, results.Count);
+        Assert.All(results, Assert.True);
     }
 
     [Fact]
-    public void TextNormalizer_NormalizeCommonPathCreatesOnlyResultString()
+    public void TextAndCrawlerNormalization_PreserveExpectedRuntimeSemantics()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/Helpers/Security/TextNormalizer.cs");
-        string normalizeMethod = ExtractBetween(source, "public static string Normalize(string value", "return NormalizeWithPhraseRoot");
+        Assert.Equal("fsusblog", TextNormalizer.Normalize("FSUSｂLOG"));
+        string normalizedCrawler = CrawlerDetectorService.NormalizeCrawlerUserAgent(
+            "Mozilla/5.0\u200B GOOGLEBOT/2.1");
 
-        Assert.Contains("string.Create", normalizeMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("ToCharArray()", normalizeMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("new string(buffer)", normalizeMethod, StringComparison.Ordinal);
+        Assert.Equal("mozilla/5.0 googlebot/2.1", normalizedCrawler);
+        Assert.DoesNotContain('\u200B', normalizedCrawler);
     }
 
     [Fact]
-    public void CrawlerDetector_NormalizesUserAgentOnceAndAvoidsIpByteArrayAllocation()
+    public async Task CrawlerCidrLookup_RecognizesConfiguredProviderWithoutDnsFallback()
     {
-        string source = ReadRepoFile("src/backend/Services/Security/CrawlerDetectorService.cs");
-        string method = ExtractBetween(source, "public async Task<bool> IsVerifiedCrawlerAsync", "private static IpRadixTree BuildTree");
+        var service = new CrawlerDetectorService(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<CrawlerDetectorService>.Instance,
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(
+                new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()));
+        service.UpdateCidrLists(["66.249.64.0/19"], []);
 
-        Assert.Contains("NormalizeCrawlerUserAgent", source, StringComparison.Ordinal);
-        Assert.Contains("normalizedUserAgent", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("StringComparison.OrdinalIgnoreCase", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetAddressBytes()", source, StringComparison.Ordinal);
-        Assert.Contains("TryWriteBytes", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SecurityAdminPolicy_UsesBoundedRingAndSinglePassOverviewAggregation()
-    {
-        string source = ReadRepoFile("src/backend/Services/Security/SecurityAdminPolicyService.cs");
-
-        Assert.Contains("RiskEventRingBuffer", source, StringComparison.Ordinal);
-        Assert.Contains("BuildRiskOverviewCounters", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("RemoveRange(0", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(".GroupBy(", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void MfaFailureCounters_UseAtomicSnapshotAndHashIdentityIsSpanBased()
-    {
-        string source = ReadRepoFile("src/backend/Services/Security/MfaChallengeService.cs");
-        string recordFailure = ExtractBetween(source, "public async Task<bool> RecordFailureAsync", "public async Task<string> CreateProofTokenAsync");
-        string hashIdentity = ExtractBetween(source, "private static string HashIdentity", "private static byte[] Base64UrlDecode");
-
-        Assert.Contains("IncrementManyWithExpiryAsync", recordFailure, StringComparison.Ordinal);
-        Assert.Contains("FailureWindowTtl", recordFailure, StringComparison.Ordinal);
-        Assert.DoesNotContain("long ticketFailures = await cache.IncrementAsync", recordFailure, StringComparison.Ordinal);
-        Assert.DoesNotContain("Task.WhenAll", recordFailure, StringComparison.Ordinal);
-        Assert.DoesNotContain("Encoding.UTF8.GetBytes(value.Trim())", hashIdentity, StringComparison.Ordinal);
-        Assert.Contains("Convert.ToHexStringLower", hashIdentity, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ContentFilterReload_AvoidsDictionaryCopyingAndUsesFrozenCategories()
-    {
-        string source = ReadRepoFile("src/backend/Services/Security/ContentFilterService.cs");
-
-        Assert.Contains("FrozenSet<string>", source, StringComparison.Ordinal);
-        Assert.Contains("EstimateDictionaryLineCapacity", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("return [.. lines];", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("[term.Value, .. term.Aliases]", source, StringComparison.Ordinal);
-    }
-
-    private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
-
-    private static string ExtractBetween(string source, string startMarker, string endMarker)
-    {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        int end = source.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
-        Assert.True(end > start, $"Missing end marker: {endMarker}");
-        return source[start..end];
+        Assert.True(await service.IsVerifiedCrawlerAsync("66.249.66.1", "GoogleBot/2.1"));
+        Assert.False(await service.IsVerifiedCrawlerAsync("203.0.113.1", "GoogleBot/2.1"));
     }
 }

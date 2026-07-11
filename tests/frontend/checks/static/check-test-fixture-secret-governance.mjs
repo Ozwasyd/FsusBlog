@@ -77,11 +77,6 @@ const bannedPatterns = [
     ].join('|'), 'g')
   },
   {
-    label: 'deterministic legacy identity fixture',
-    regex: /legacy-(?:admin|credential|public-key|recovery-key-hash)/g,
-    files: new Set(['tests/backend/Integration/LegacyIdentityColdStartResetIntegrationTests.cs'])
-  },
-  {
     label: 'legacy SQL username sample',
     regex: /\blegacy-user\b/gi,
     files: new Set(['tests/backend/Fixtures/legacy-20260517-minimal.sql'])

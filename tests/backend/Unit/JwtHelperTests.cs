@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -18,6 +19,8 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(EnvironmentVariableCollection))]
 public sealed class JwtHelperTests
 {
+    private const string StableAccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
     private static JwtHelper CreateHelper(
         string secretKey = TestSecrets.JwtSigningKey,
         string issuer = "test-issuer",
@@ -35,7 +38,12 @@ public sealed class JwtHelperTests
     }
 
     private static User TestUser(int id = 1, string role = "admin")
-        => new() { Id = id, IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind };
+        => new()
+        {
+            Id = id,
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            AccountSubjectHash = StableAccountSubjectHash
+        };
 
     // ─── GenerateAccessToken ──────────────────────────────────────────────
 
@@ -97,15 +105,17 @@ public sealed class JwtHelperTests
     }
 
     [Fact]
-    public void GenerateAccessToken_WithStableAccountHandle_AddsAccountSubjectHashClaimWithoutHashingUserId()
+    public void GenerateAccessToken_UsesPersistedSubjectAcrossAccountIdsAndHandleChanges()
     {
         var helper = CreateHelper();
         var first = TestUser(id: 42);
         first.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
         first.PasskeyUserHandle = StablePasskeyUserHandle;
+        first.AccountSubjectHash = StableAccountSubjectHash;
         var second = TestUser(id: 314);
         second.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
         second.PasskeyUserHandle = StablePasskeyUserHandle;
+        second.AccountSubjectHash = StableAccountSubjectHash;
 
         string firstToken = helper.GenerateAccessToken(first);
         string secondToken = helper.GenerateAccessToken(second);
@@ -118,7 +128,7 @@ public sealed class JwtHelperTests
         Assert.Matches("^[0-9a-f]{64}$", firstSubject);
         Assert.NotEqual(HashIdentity("42"), firstSubject);
         Assert.NotEqual(HashIdentity("314"), secondSubject);
-        Assert.Equal(AccountSubjectHasher.Create(first), firstSubject);
+        Assert.Equal(StableAccountSubjectHash, firstSubject);
     }
 
     [Fact]
@@ -128,13 +138,27 @@ public sealed class JwtHelperTests
         var user = TestUser(id: 42);
         user.PasskeyUserHandle = "Anon_Subject";
         user.IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind;
+        user.AccountSubjectHash = new string('b', AccountSubjectHashRequirement.Sha256HexLength);
 
         string token = helper.GenerateAccessToken(user);
 
         var claims = ParseClaims(token);
         Assert.Contains(claims, claim =>
             claim.Type == AccountSubjectHasher.ClaimType &&
-            claim.Value == AccountSubjectHasher.Create(user));
+            claim.Value == user.AccountSubjectHash);
+    }
+
+    [Fact]
+    public void GenerateAccessToken_MissingPhysicalSubjectFailsClosed()
+    {
+        var helper = CreateHelper();
+        var user = TestUser(id: 42);
+        user.AccountSubjectHash = null;
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(
+            () => helper.GenerateAccessToken(user));
+
+        Assert.Contains("access-token-issuance", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -233,16 +257,42 @@ public sealed class JwtHelperTests
         Assert.Contains("my-audience", jwt.Audiences);
     }
 
-    [Fact]
-    public void GenerateAccessToken_RespectsExpiresMinutes()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(15)]
+    [InlineData(60)]
+    [Trait("Category", "SecurityStateMachine")]
+    public void GenerateAccessToken_ReturnedExpiryMatchesJwtAndConfiguredMinutes(int expiresMinutes)
     {
-        var helper = CreateHelper(expiresMinutes: 5);
-        string token = helper.GenerateAccessToken(TestUser());
+        var helper = CreateHelper(expiresMinutes: expiresMinutes);
+        IssuedAccessToken issuedToken = helper.GenerateAccessToken(TestUser());
 
-        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(issuedToken.Token);
         var diff = jwt.ValidTo - jwt.ValidFrom;
-        // Allow ±10 seconds tolerance for execution time
-        Assert.InRange(diff.TotalMinutes, 4.8, 5.2);
+        Assert.Equal(issuedToken.ExpiresAtUtc, new DateTimeOffset(DateTime.SpecifyKind(jwt.ValidTo, DateTimeKind.Utc)));
+        Assert.Equal((double)expiresMinutes, diff.TotalMinutes);
+    }
+
+    [Fact]
+    [Trait("Category", "SecurityStateMachine")]
+    public void GenerateAccessToken_ReloadableExpiryChangeAppliesToNextIssueWithoutRestart()
+    {
+        var configuration = new ConfigurationManager();
+        configuration["Jwt:AccessTokenExpiresMinutes"] = "60";
+        var helper = new JwtHelper(Options.Create(new JwtSettings
+        {
+            SecretKey = TestSecrets.JwtSigningKey,
+            Issuer = "reloadable-expiry-test",
+            Audience = "reloadable-expiry-test",
+            AccessTokenExpiresMinutes = 15
+        }), configuration);
+
+        IssuedAccessToken beforeRollback = helper.GenerateAccessToken(TestUser());
+        configuration["Jwt:AccessTokenExpiresMinutes"] = "15";
+        IssuedAccessToken afterRollback = helper.GenerateAccessToken(TestUser());
+
+        Assert.Equal(60d, ReadLifetimeMinutes(beforeRollback));
+        Assert.Equal(15d, ReadLifetimeMinutes(afterRollback));
     }
 
     [Fact]
@@ -322,6 +372,12 @@ public sealed class JwtHelperTests
     {
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         return jwt.Claims;
+    }
+
+    private static double ReadLifetimeMinutes(IssuedAccessToken issuedToken)
+    {
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(issuedToken.Token);
+        return (jwt.ValidTo - jwt.ValidFrom).TotalMinutes;
     }
 
     private static bool IsRoleClaim(Claim claim)

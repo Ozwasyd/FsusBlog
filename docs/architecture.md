@@ -72,9 +72,11 @@ Host runtime tuning、Serilog、OpenTelemetry、ForwardedHeaders、rate limiting
 
 `UseFsusEndpointPipeline` 的端点链路顺序必须保持 `UseResponseCompression()` -> `UseOutputCache()` -> `UseCors()` -> `UseAntiforgery()` -> `UseFsusCsrfOriginGuard()` -> `AnonymousGatewayHeaderGuardMiddleware` -> `UseAuthentication()` -> `UseRateLimiter()` -> `BannedUserMiddleware` -> `UseAuthorization()`。ResponseCompression 只覆盖常规端点管线中的动态 API/Binary 响应；PublicHotRead L0 和 Public AOT artifact 命中仍使用各自 artifact-level 预压缩变体，但必须先经过 endpoint metadata、`public_read` 限流、审计上下文和 `UseFsusPublicHotReadSecurityGate`。CSRF Origin guard 只在带 Cookie/Authorization 的状态变更请求上执行，要求 `Origin` 或 `Referer` 命中可信来源；匿名网关头守卫只允许显式匿名 profile / runtime `X-Fsus-*` 请求头，拒绝 username/email/role/userId/password/TOTP 等传统账号头和未知 `X-Fsus-*`，且必须在认证前执行，避免外部网关注入头生成业务 principal。`fixed_ip` 限流分区需要读取已认证的 admin principal 才能应用管理端绕过；封禁写入检查仍在限流之后、授权之前执行。
 
+上述应用级与端点级顺序由 `WebApplicationCompositionExtensions` 内的 `ApplicationPipelineStages` / `EndpointPipelineStages` 直接驱动运行时注册；测试只读取同一批 stage id 并检查最终 endpoint metadata，不再把生产 `.cs` 文本当作功能证据。增加、删除或重排 stage 时必须同步本节，并保持 `public-read-security-gate` 位于 `public-hot-read-fast-path` 之前、`public-hot-read-fast-path` 位于 `static-assets` 之前。
+
 JWT bearer cookie 入口在 `UseAuthentication()` 内完成。`OnMessageReceived` 对同一请求只解析一次 admin cookie preference，并通过 `HttpContext.Items` 复用 admin raw access token 给 `OnTokenValidated`；endpoint metadata/path 决策不得在同一请求内重复扫描，admin session 校验和 host-prefixed cookie 选择保持不变。legacy plain cookie fallback 已移除：生产只读取 `__Host-*` Cookie，开发环境只有显式启用 `AuthCookies:AllowInsecureTransportCookies` 时才读取当前非 host-prefixed cookie 名称。
 
-认证响应写 Cookie 时，普通账号 `SessionId` Cookie 由登录/刷新签发路径已知的 session id 显式传入 `AuthCookieService.SetTokenCookies`。Cookie 写入层不得反向解析 access token 获取 `sid` claim；缺少 session id 时只跳过 session cookie，不改变 access/refresh cookie 策略。
+认证响应写 Cookie 时，普通账号 `SessionId` Cookie 由登录/刷新签发路径已知的 session id 显式传入 `AuthCookieService.SetTokenCookies`。JWT helper 的签发结果同时携带 token 与绝对 `ExpiresAtUtc`，普通登录、MFA、Passkey、refresh rotation 和 admin session 路径都把该值原样传给 Cookie 写入层；Cookie 层不得重新读取 `Jwt:AccessTokenExpiresMinutes`、反向解析 access token，或维护独立期限。缺少 session id 时只跳过 session cookie，不改变 access/refresh cookie 策略。
 
 路由组装按 `MapFsusOperationalRoutes`、`MapFsusApiRoutes`、`MapFsusPublicRoutes` 分层，避免在新增 API 时同时触碰健康探针、notification stream、SPA fallback 和静态文件策略。
 
@@ -84,7 +86,7 @@ JWT bearer cookie 入口在 `UseAuthentication()` 内完成。`OnMessageReceived
 
 可选反垃圾模型由 `AntiSpamModerationService` 承载，默认 `Moderation:AntiSpamModel:Enabled=false` 且处置模式为 `score-only`。评论创建成功并写入地区合规后，服务调用内置 `FsusAntiSpamModel` portable runtime scorer；runtime reload 只加载模型数据包并校验 `manifest.json`、digest、signature、runtime format、threshold policy 和 `test_vectors.jsonl`，校验通过后以 immutable scorer snapshot 原子替换 active snapshot。模型先写 `comment_moderation_signal` 风险信号，再由 `CommentModerationDispositionPolicy` 在显式配置的 `auto-low-risk-approve` / `auto-hide-high-risk` 模式下决定是否自动通过或隐藏。地区策略优先级高于模型：`RegionCanPublish=false`、`RegionRequiresManualReview=true` 或 `RegionHideUntilReviewed=true` 时模型不得自动通过；runtime 加载或评分失败写 `unavailable/error/contract_invalid` signal 并 fail-open。
 
-`BannedUserMiddleware` 是运行时封禁检查的唯一实现，不再保留旧过滤器兼容别名；新增调用点必须使用 Middleware 命名。该中间件必须先按 `identity_kind` 分流：`admin_principal` 不读取普通 `sys_user` 状态或 blacklist，直接交给后续 admin authorization/session 语义；`anonymous_account` 与 legacy user 才进入普通用户删除/封禁写锁。普通账号 access token 携带 `account_subject_hash`，中间件的 L1 account-state key 固定为 `account:state:{accountSubjectHash}`；缺失 claim 的 legacy token 只能走 `AccountSubjectHasher` 的 legacy fallback，不能恢复 `user:account-state:{userId}`。admin access token 在 JWT 基础校验后必须由 `AdminSessionValidationService` 请求期回查 `admin_session` 和 `admin_principal`，撤销、禁用、idle/absolute 到期、token hash mismatch 或 session/principal 不一致都要 fail closed，并清理 admin cookies。root admin bootstrap 是 admin principal plane 的唯一初始化写入，complete 路径必须在同一 DB transaction 内拿 PostgreSQL xact advisory lock、重查 active root、写 principal/credential/session/audit，并由 active-root partial unique index 兜底并发。admin passkey login、step-up 和 session revoke 写入独立 `admin_audit_log`，请求路径只通过 `IAdminAuditLogChannel` 入有界队列；队列满或后台批量写失败时必须 fallback direct write，不改变现有 admin audit 查询输出。
+`BannedUserMiddleware` 是运行时封禁检查的唯一实现，不再保留旧过滤器兼容别名；新增调用点必须使用 Middleware 命名。该中间件必须先按 `identity_kind` 分流：`admin_principal` 不读取普通 `sys_user` 状态或 blacklist，直接交给后续 admin authorization/session 语义；普通账号才进入删除/封禁写锁。普通账号 access token 必须携带从 `sys_user.account_subject_hash` 读取的 `account_subject_hash`，中间件的 L1 account-state key 固定为 `account:state:{accountSubjectHash}`；缺失或格式错误的 claim 直接返回 401，不得使用 account id、handle 或旧缓存快照派生。账号快照 cache namespace 固定为 `account:subject-v1:{accountId}:v{version}`，旧 payload 缺失物理字段时必须 miss 并回查 PostgreSQL。admin access token 在 JWT 基础校验后必须由 `AdminSessionValidationService` 请求期回查 `admin_session` 和 `admin_principal`，撤销、禁用、idle/absolute 到期、token hash mismatch 或 session/principal 不一致都要 fail closed，并清理 admin cookies。root admin bootstrap 是 admin principal plane 的唯一初始化写入，complete 路径必须在同一 DB transaction 内拿 PostgreSQL xact advisory lock、重查 active root、写 principal/credential/session/audit，并由 active-root partial unique index 兜底并发。admin passkey login、step-up 和 session revoke 写入独立 `admin_audit_log`，请求路径只通过 `IAdminAuditLogChannel` 入有界队列；队列满或后台批量写失败时必须 fallback direct write，不改变现有 admin audit 查询输出。
 
 受限账号安全收尾、认证响应 `no-store` 等端点级策略只允许通过 endpoint metadata 声明。`Infrastructure/Policies/EndpointPolicyMetadata.cs` 提供 `AllowRestrictedAccountAction(RestrictedAccountAction.*)` 与 `RequireNoStoreResponse()`，运行时中间件读取路由元数据执行策略，避免 `/api/...` 字符串匹配在路由迁移时失效；普通消息、评论、内容等业务写入不得声明受限账号放行 metadata。
 
@@ -218,7 +220,7 @@ Article/comment binary endpoints 只面向应用 facade：文章端点通过 `IA
 Client
   → Rate Limiter (fixed_ip) → PoW 验证
   → 密码/Passkey 验证
-  → JWT Access Token（15 min） + HttpOnly Refresh Token Cookie
+  → JWT Access Token（`Jwt:AccessTokenExpiresMinutes`，签发 `exp` 与 Cookie `Expires` 同源） + HttpOnly Refresh Token Cookie
   → MFA 挑战（如已启用，Passkey 登录免 MFA）
 ```
 
@@ -233,6 +235,19 @@ TOTP recovery code 的持久化状态只在 `user_mfa_profile`：`mfa_recovery_c
 ## 发布构建边界
 
 `src/backend/FsusBlog.Server.csproj` 的 Release publish 默认会检查 `src/frontend/node_modules`、执行 `npm run build:release` 并复制 `src/frontend/dist` 与前端 runtime 文件，保证单体发布产物一致。需要后端-only 诊断或临时发布时，可显式传入 `/p:PublishClientAssets=false`，跳过前端依赖检查、前端构建和前端 artifact copy；该开关不改变生产默认行为。
+
+### Release-scoped storage boundary
+
+Blue/Green 存储按四类互不重叠的 root 分类：
+
+| class | identity / examples | mutation rule |
+| --- | --- | --- |
+| durable shared | uploads、DataProtection keyring | 两槽共享；业务真源，不随 candidate cleanup 删除 |
+| immutable asset | `<asset-root>/<releaseId>` frontend/Wasm/font/SW | append-only；同路径不同 SHA-256 fail closed；按 retention state 做 applied GC |
+| release derived | `<derived-root>/<releaseId>/{public-aot,public-hot,search,ssr,precompressed,generated-manifests}` | 只写本 release subtree；多文件通过 staging + generation manifest + atomic pointer 发布 |
+| instance scoped | `<instance-root>/<slot>/<releaseId>/<instanceId>/{logs,tmp,runtime-snapshots}` | 仅当前实例；不得成为 rollback 或跨槽真源 |
+
+Compose 把 `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` 只读挂载为 `/app/release-assets`，把共享 release-derived volume 挂载为 `/app/release-derived`。`UseReleaseScopedStaticAssets` 在 SPA fallback 前注册 `/release-assets/<releaseId>/...` 与 `/release-derived/<releaseId>/...`；Production 缺任一 root 配置会拒绝启动。服务可达不等于产物可发布：rollout 仍必须先 materialize exact manifest、验证 N/N-1、持久 retention state，执行 applied GC 后再复读旧 index/hash/SW/cache。无需重启的降级是停止 GC、保护 active/N-1、为当前 release 重新发布 generation；禁止 clear shared root、改写旧 release 或恢复 mutable `current/latest` 路径。
 
 ## 缓存分层
 
@@ -249,6 +264,8 @@ TOTP recovery code 的持久化状态只在 `user_mfa_profile`：`mfa_recovery_c
 运行时缓存只通过 `IUnifiedCache`、`CachePolicyRegistry`、`CachePolicyId` 与 `ICacheInvalidationDispatcher` 进入。`TryGetRawAsync` 保持 caller-owned 防御性复制语义；只读公开 payload 使用 `TryGetRawReadonlyAsync`，调用方只能把不可变 buffer 同步写出到 response，不能把 backing array 暴露为可写状态。旧的 `Core.Cache.CacheManager` / `ILevel1CacheStore` / `ILevel2CacheStore` 双层抽象已移除，core benchmark 覆盖 POD/AEDS codec、raw cache-hit decode/readonly cache hit、search rebuild/query 和 Public AOT bundle 编解码，不再模拟第二套 cache manager。
 
 `IUnifiedCache` 的写入/变更型操作必须先移除 L1，再提交 Redis L2 变更；`IncrementAsync`、`IncrementClampedWithExpiryAsync`、`ConsumeOnceAsync`、`ConsumeOnceAndGetAsync`、`RemoveAsync` 和批量失效都遵循 L1-first 顺序，避免并发读在 L2 已变更前后重新提升 stale L1 值。需要取回 payload 的一次性 challenge 使用 `ConsumeOnceAndGetAsync`，由 Redis GETDEL 语义在同一 L2 操作中取值并删除；调用方不得先 `GetStringAsync` 再 `RemoveAsync` 拼接一次性语义。L1-first 允许一次安全方向的 stale miss，但不得允许旧值在同进程内复活。
+
+普通账号会话校验是有意绕过 L1 的安全专用路径：`UserSessionValidationCache` 直接读 Redis L2 的 `SecurityUserSessionValidation` 版本快照，miss 时才按 `sessionid` 主键回源 PostgreSQL。所有会话撤销 producer 使用显式数据库事务，把带更新后 `xmin` 的 revoked snapshot 作为事务回调最后一步并行发布；Redis fence 对所有实例可见后才进入 commit。发布异常使数据库事务回滚；如果 fence 已发布但 commit 失败，则通过 `IUserSessionValidationCache.InvalidateManyAsync` / `IUnifiedCache.RemoveManyAsync` 清理可能发布的 key。补偿清理失败只会留下保守拒绝的 revoked snapshot，不允许恢复 active 值。`Security:UserSessionValidation:DistributedCacheEnabled=false` 由支持 reload 的配置源动态切换为 DB-only：跳过 Redis read/publish、以数据库 commit 为可见边界；恢复时按当前数据库状态回填，不需要增加第二套缓存或重启语义。该改动不改变 endpoint、AEDS frame、错误码或请求/响应字段，只收紧既有撤销操作的提交与失败语义。
 
 安全风险分数使用 `CachePolicyId.SecurityPowRisk` 存储在 Redis L2。正向风险累加必须通过 `IncrementClampedWithExpiryAsync` 的单次 Lua 脚本完成 `GET + delta + clamp + PEXPIRE`，不得在安全挑战、反爬或公开阅读路径里先 `GetStringAsync` 再 `SetStringAsync` 做读-改-写；`scoreDelta == 0` 只记录 risk event，不读写 Redis 分数。无风险读使用进程内 zero-risk cache 降低 miss RTT；写入正分必须删除该 zero-risk entry，风险重置仍走显式 `RemoveAsync`。运行时回退路径是删除对应 `SecurityPowRisk` key 或 zero-risk entry，让下一次请求按策略重新累加/读取，不需要重启进程。
 
@@ -433,14 +450,52 @@ circuit-native credential issuer 私钥是匿名凭证签发根密钥，不属�
 ## 生产编排
 
 ```text
-docker-compose.yml
-├── fsus-nginx          # 可选部署层：反向代理 + 静态文件 + SSL 终端；不计入项目内 QPS 基线
-├── fsus-server         # ASP.NET Core 10 API（Alpine）
-│   ├── 挂载: fsus-aot-cache（AOT HTML shell）
-│   └── 挂载: fsus-logs（Serilog 滚动日志）
-├── fsus-postgres       # PostgreSQL（持久化卷）
-└── fsus-redis          # Redis（持久化卷）
+Host OpenResty (唯一公网入口)
+├── active blue  -> 127.0.0.1:8081 -> fsus-app-blue / project fsusblog-blue
+└── active green -> 127.0.0.1:8082 -> fsus-app-green / project fsusblog-green
+
+两槽位受控共享: external PostgreSQL、external Redis、uploads、DataProtection、只读 ZK material、append-only release assets、按 releaseId 分区的 release-derived
+两槽位严格隔离: container/project/release identity、instance-scoped tmp/runtime snapshots、Serilog logs
 ```
+
+生产 Compose 只有一份参数化定义，槽位脚本固定解析 blue/green 的容器名、Compose project、回环端口与派生卷，不能通过复制两份 Compose 漂移。`slot-preflight.sh` 在任何 pull/up 前核对 Docker daemon、内存、Docker 磁盘与 image reserve、端口和持久 active state；`slot-start.sh` 只操作候选 project，直接探测该槽位的 live/ready 后再用 temp + file fsync + rename + directory fsync 更新 `/var/lib/fsusblog/deployment/slots.json`。候选失败只清理候选 project。`slot-stop.sh` 从持久状态拒绝停止 active slot；`slot-status.sh` 在主机重启后把 state 与容器 label/health/loopback binding 交叉核对，不做隐式 active 推断。零停机 overlap 的认证下限固定为 4 CPU / 6144 MiB memory / 10240 MiB free disk；2C/2G 只属于单槽 profile。较低的 slot preflight 阈值只是 pull/start guard，最终 dual-slot、reload、drain、notification 与 P95/P99 影响由持续 resource evidence 判定。
+
+生产操作者唯一入口是 `tools/deployment/release-rollout.sh`。`slot-start.sh`、`gateway-switch.sh`、`deploy-production.sh`、在线 migration、asset materialize/GC 和 fence/restart helper 都是其受锁内部步骤；`deploy-production.sh` 拒绝没有内部 slot 标记的直接调用，`slot-start.sh` 仅接受 rollout 继承标记或空 durable state 的显式一次性 bootstrap。rollout 以 mode-0600 durable state 固定 15 个阶段、每次 attempt 和 stage output hash；已失败阶段在补偿完成前不能重试，完成阶段在 `--resume` 时不重复执行，安全关键门禁没有 skip 参数。
+
+OpenResty 主配置只 include `/etc/openresty/fsusblog/active-upstream.conf`；`gateway-control.mjs` 只能为已配置 blue/green 端口生成一行 loopback server，拒绝 hostname、任意端口和多 upstream。`gateway-switch.sh` 与 slot start/stop 共用宿主机 `flock`，把 target identity/loopback readiness、source 公网 identity、staged full-config test、fsync + atomic rename、installed config test、graceful reload、target 公网/loopback identity 和 durable state commit 串成一次 `stable → switching → stable` 事务。reload 或后置探测失败时先恢复并 reload source，无法证明恢复则保留 `rollback_required`。`gateway-rollback.sh` 只消费 previous release/digest；`gateway-recover.sh` 在重启后对 pending state、受控 include、source/target runtime 与公网 headers 做确定性对账，不能从容器年龄或 mutable tag 猜测。
+
+应用发布状态由单例 `DeploymentRuntimeState` 管理，生产槽位固定从 `Starting → Candidate → Ready → Active → Draining → Stopped` 前进，启动或门禁错误进入 `Failed`；容器环境中的 immutable release ID、slot 和正整数 deployment generation 是激活/排空 CAS 的唯一身份。deployment generation 与 gateway `switchGeneration` 分离：宿主锁下先在 durable slot state 单调预留，每次真实容器启动都消耗新值，失败或中断不回退，避免旧控制请求命中新进程。Candidate 可以完成启动门禁、预热和 loopback smoke，但 `canReceiveTraffic=false`、不领取全局后台任务且不接受 notification stream；只有启动任务、PostgreSQL、Redis、资源、运行时和 release identity 全部健康才进入 Ready。rollout 调用 `gateway-switch.sh --defer-source-drain`，先证明 source 是唯一 Active、target 是精确 Ready Candidate，再在 OpenResty reload 前激活 target 并提交 durable traffic state；随后单独执行 active fence CAS、持续公网流量/旧资源/notification 对账，全部通过后才对 source 发送 1012 restart 和 drain。这样 active CAS 或 post-switch probe 失败时旧槽仍可由新单调 generation 重启并自动切回，而切流前已进入的请求不会被网关步骤主动终止。激活后的 reload/探测失败会恢复 source 流量并把 target 置为 Draining；若无法同时证明 source 恢复和 target 中和，持久状态保持 `rollback_required`，不能伪报 stable。
+
+Redis active-release fence 是 global singleton side effect 的第二身份边界。`ActiveReleaseFencedBackgroundWorkerLease` 只向当前 fence owner 发放带 release/slot/generation/digest 的 execution ticket；`IActiveReleaseCommitGuard` 在 scheduled transition、outbox claim/effect/state、crawler snapshot、每个 retention delete chunk、PoW reset、projection checkpoint、PublicAOT atomic publish 和 upload irreversible delete 前重新验证 ticket。Fence 丢失会在最后可取消点阻断旧 generation，不能靠长 lease 或“已开始执行”继续提交。该边界与业务 transaction/idempotency 同时成立，最终仍由 normal worker reconciliation 证明 exactly-once 与 stale-generation count=0。
+
+`DeploymentRequestTrackingMiddleware` 仅用进程内原子计数跟踪普通 HTTP，排除 health/ops 与 notification stream；异常、取消和正常完成均在 `finally` 语义下释放。notification stream 使用连接管理器独立计数。进入 Draining 后公共 readiness 立即为 503，新普通请求和新 notification handshake 返回可重试拒绝，已进入请求/连接继续计入 blockers，全局 background lease 不再发放。`DeploymentDrainCoordinator` 先以 `Task.WhenAll` 并行调用 `ReleaseDrainParticipantRegistry`，再汇总 HTTP、notification、background claim、article-view、hot-stats、audit/admin-audit、visit-log、RUM、security/challenge audit、public-hot、ArticleDetail AEDS、PublicAOT backfill 和 upload-cleanup；participant 的 pending、timeout 或 error 都映射为 blocker，不能被观察-only 快照吞掉。主动 drain、`ApplicationStopping` 和 `StopAsync` 共享同一状态机与 drain task，Docker grace period 必须大于应用 deadline，不另建冲突的停止路径。
+
+正常发布只消费 8-kind、`mode=normal` 的 graceful worker reconciliation。Forced-source/SIGKILL 资格演练属于隔离 Test topology：九类 ledger 完成并 teardown 后，再用相同 target release/digest、不同 rollout ID 创建 fresh normal control；qualification v2 hash-bind 两条独立 state。这样 destructive failure injection 不会破坏正常 source-drain 证据，也不能被拿来伪装正常 exactly-once 结果。最终 rollout evidence seal 15 stages、recoveries 与恰好六类 artifacts，并由 allowlisted bundle index 做 hash/readback。
+
+强流量与旧资产 evidence 各有独立 HMAC trust boundary。operator plan 只保存
+`evidenceInputs.trafficBindingKey` / `assetBrowserBindingKey` 的私有文件路径；resolver
+验证 regular non-symlink、0400/0600 和 32..4096-byte 边界，再把 key 复制到每个隔离
+runtime secrets 目录。traffic HMAC 绑定 session/AEDS/release-role/in-flight observation
+chain；asset HMAC 绑定真实 Chromium、N-1 manifest、Service Worker/CacheStorage、applied
+GC 与双向 backend compatibility。final evidence 只保存 keyId/signature，不保存 key。
+
+在线迁移资格是生产 rollout 之外的隔离 Test composition，而不是第二个生产入口：
+
+```text
+private rehearsal plan
+  -> materialize exact 10-case migration scenario
+  -> repository rehearsal-schema-qualification-probe (Test + rehearsal guard)
+  -> source/target loopback application bridge + readiness
+  -> immutable migration qualification evidence
+  -> teardown qualification topology
+  -> fresh normal rollout with distinct rollout identity
+```
+
+应用的 `schema-bridge/write` 与 `schema-qualification/readiness` 只在 environment 精确
+为 `Test` 且 `SchemaMigration:QualificationEnabled=true` 时注册；注册后仍经过 admin
+`system.config` 与 `fixed_ip`。因此生产 API surface 不包含这些 routes。Expand/
+Backfill 失败时保留 N/N-1 bridge 或暂停 durable checkpoint，无需重启 active source；
+Contract marker 一旦声明 `rollbackCompatible=false`，编排器必须阻断旧 release 回切。
 
 上述编排是生产部署参考，不改变性能证据口径。项目内部 benchmark、`backend-qps` 与 issue 验收默认使用 Kestrel-only single-process baseline；若单独评估 nginx/CDN/reverse proxy，应在证据中写入 `optional_deployment_layer`，并标记 `counted_as_project_baseline=false`。
 
@@ -449,12 +504,16 @@ docker-compose.yml
 - `GET /health/live`：存活探针（进程存活即返回 200，`application/json`）
 - `GET /health/ready`：公网最小就绪探针（只返回 `status` / `checkedAt`，HTTP 200/503 表示 ready/not ready）
 - `GET /api/ops/health/ready-detail`：受保护的详细就绪报告（admin principal + `audit.read`）
+- `GET /api/ops/deployment/status`：受保护且仅 loopback 可调用的发布状态/排空快照（admin principal + `system.config`）
+- `POST /api/ops/deployment/activate|drain`：带 release/slot/generation CAS 的可信宿主机控制面（admin principal + `system.config`）
+- `GET/POST /api/ops/deployment/fence/status|acquire|revoke`：Redis active-release fence 的查询与 CAS（admin principal + `system.config`）
+- `GET/POST /api/ops/deployment/notification-stream/restart/**`：有序 1012 restart、状态和显式启用的事件对账 drill（admin principal + `system.config`）
 
-Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoints` 的公网 readiness 只返回最小 JSON，并通过 `ProductionReadinessSnapshotCache` 使用 5 秒 TTL snapshot 与单飞刷新，避免编排器高频探测每次都新建 PostgreSQL 连接、Redis ping 或执行 RiskControl consume-once；详细运维快照只在受保护端点返回，`/api/ops/health/ready-detail?forceRefresh=true` 可触发深度刷新。readiness 的启动状态来自 `StartupRuntimeState.CreateSnapshot()`，定时发布后台状态来自 `ScheduledPublishRuntimeState.CreateSnapshot()`，RiskControl 状态来自 active/LKG policy、perception-sealed@v2 AEAD key、Redis consume-once、challenge provider registry 和 perception performance budget 检查。perception-sealed@v2 token 的 AEAD AAD 绑定 envelope context 与 ciphertext hash，密文 payload 另带 payload binding hash；action/route envelope swap、payload-only context drift 或旧 binding 缺失都必须 fail closed 为 tamper/context mismatch。因此生产启动校验、cache/bootstrap rollback、定时发布 backlog、RiskControl enforcement 与 PublicAOT 壳层协议可以分别演进。
+Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoints` 的公网 readiness 只返回最小 JSON，并通过 `ProductionReadinessSnapshotCache` 使用 5 秒 TTL snapshot 与单飞刷新，避免编排器高频探测每次都新建 PostgreSQL 连接、Redis ping 或执行 RiskControl consume-once；每次读取会再应用当前 deployment state，所以 Draining 不受旧 5 秒 ready snapshot 影响。详细运维快照只在受保护端点返回，`/api/ops/health/ready-detail?forceRefresh=true` 可触发深度刷新。`ReleaseIdentityProvider` 在启动时一次性读取部署入口注入的 release/slot/commit/image ref/digest，启动日志、所有响应的非敏感 `X-Fsus-Release-Id` / `X-Fsus-Release-Slot` headers 与受保护 readiness 使用同一快照；生产缺失或 digest/ref 不一致时启动和 readiness 均 fail closed，本地未配置时使用 `local-unversioned` 诊断值。网关只用这两个 header 对账实际 upstream，不把它们当认证信息。readiness 的启动状态来自 `StartupRuntimeState.CreateSnapshot()`，定时发布后台状态来自 `ScheduledPublishRuntimeState.CreateSnapshot()`，RiskControl 状态来自 active/LKG policy、perception-sealed@v2 AEAD key、Redis consume-once、challenge provider registry 和 perception performance budget 检查。perception-sealed@v2 token 的 AEAD AAD 绑定 envelope context 与 ciphertext hash，密文 payload 另带 payload binding hash；action/route envelope swap、payload-only context drift 或旧 binding 缺失都必须 fail closed 为 tamper/context mismatch。因此生产启动校验、cache/bootstrap rollback、定时发布 backlog、RiskControl enforcement 与 PublicAOT 壳层协议可以分别演进。
 
 单作者后台运维面板位于 `/user/manage/ops`、`/user/manage/cache`、`/user/manage/integrity`，后端统一由 `AdminOperationsService` 聚合。`/api/binary/author/ops/health` 合并 readiness、审计 runtime、Crawler CIDR、PublicHotRead、Search manifest、备份 artifact、结构化最近错误和 `article_mutation_outbox` backlog；最近错误只在查询物化后做摘要清理和分组，避免 ORM projection 把 SQL 表达式泄露到 UI。`/api/binary/author/cache/diagnostics` 从 `PublicHotReadStore`、`PublicAotInvalidationTracker`、`CacheInvalidationRuntimeState`、search manifest、distribution 轻量计数缓存、`ArticleCacheOwnershipCatalog`、UnifiedCache registry storage snapshot 和 `FsusObservability` cache hit/miss runtime counters 构建状态；distribution 诊断只按公开文章、公开分类、公开标签与 feed limit 计算 sitemap/feed 数量，使用 45 秒 TTL 与 `fsus.distribution.diagnostics.*` 指标，不生成或解析实际 XML/JSON feed 正文，公开 `/feed/*` 与 `/sitemap.xml` endpoint 构建路径保持不变。`/api/binary/author/integrity` 做只读巡检，safe fix 只处理无效 `article_tag` 和注销用户 session 撤销，必须通过 diff、确认短语、admin step-up proof 和审计事件闭环。
 
-备份/恢复闭环由 `tools/operations/backup-site.sh`、`tools/operations/restore-site.sh` 和 `tools/operations/backup-restore-drill.sh` 承载。站点包包含 PostgreSQL dump、uploads、DataProtection keyring、脱敏配置、AOT cache 和 search artifacts；Redis 仍视为缓存/控制面依赖，restore drill 使用空 Redis 数据目录即可验证恢复后的运行时。数据库迁移仍由启动 lifecycle 运行，失败后的回滚依赖迁移前站点包或数据库 dump，而不是自动 in-process down migration。
+备份/恢复闭环由 `tools/operations/backup-site.sh`、`tools/operations/restore-site.sh` 和 `tools/operations/backup-restore-drill.sh` 承载。站点包包含 PostgreSQL dump、uploads、DataProtection keyring、脱敏配置、AOT cache 和 search artifacts；Redis 仍视为缓存/控制面依赖，restore drill 使用空 Redis 数据目录即可验证恢复后的运行时。生产 `serve` 的启动 lifecycle 只运行只读 schema compatibility，不获取 migration advisory lock，也不执行 descriptor。`release-rollout.sh` 的第 4 阶段显式执行 online Expand；Backfill 从 durable token 独立恢复，Contract 在 15 阶段之外并要求单独 destructive evidence/confirmation。Expand/Backfill 失败时保留 N/N-1 bridge 或暂停 token 即可，无需重启；Contract 执行后不能靠 image rollback 重建被移除的数据，只能隔离写路径并恢复经验证的迁移前站点包或数据库 dump。
 
 ## 生产启动保护
 

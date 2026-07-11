@@ -2,6 +2,7 @@ using System.Data.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Interfaces;
 using SqlSugar;
@@ -12,7 +13,8 @@ public sealed class ArticleMutationOutboxDispatcher(
     IServiceScopeFactory scopeFactory,
     ILogger<ArticleMutationOutboxDispatcher> logger,
     TimeProvider timeProvider,
-    IBackgroundWorkerLease workerLease) : BackgroundService
+    IBackgroundWorkerLease workerLease,
+    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
     private const int BatchSize = 50;
     private const int PoisonRetryThreshold = 10;
@@ -50,6 +52,7 @@ public sealed class ArticleMutationOutboxDispatcher(
                 scope.ServiceProvider.GetRequiredService<IArticleMutationSideEffectCoordinator>();
 
             DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+            await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
             List<ArticleMutationOutboxEvent> pending = await dbGate.ExecuteAsync(
                 "article-outbox-batch-claim",
                 gateCt => ClaimPendingOutboxEventsAsync(db, now, now.AddMinutes(5), gateCt),
@@ -148,8 +151,10 @@ public sealed class ArticleMutationOutboxDispatcher(
                 return false;
             }
 
+            await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
             ArticleMutationReplayResult replay = await coordinator.ReplayOutboxAsync(item.AggregateId, item.EventType, completedAfterReplay, cancellationToken)
                 .ConfigureAwait(false);
+            await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
             await UpsertReplayEdgesAsync(db, dbGate, item.Id, replay, cancellationToken)
                 .ConfigureAwait(false);
             completedAfterReplay.UnionWith(replay.CompletedEdges);
@@ -173,6 +178,7 @@ public sealed class ArticleMutationOutboxDispatcher(
             }
 
             DateTime processedAt = timeProvider.GetUtcNow().UtcDateTime;
+            await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
             await dbGate.ExecuteAsync(
                 "article-outbox-complete",
                 gateCt => db.Updateable<ArticleMutationOutboxEvent>()
@@ -186,6 +192,10 @@ public sealed class ArticleMutationOutboxDispatcher(
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (ActiveReleaseFenceLostException)
         {
             throw;
         }
@@ -211,8 +221,10 @@ public sealed class ArticleMutationOutboxDispatcher(
 
         try
         {
+            await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
             await action(cancellationToken).ConfigureAwait(false);
             completedAfterReplay.Add(edgeName);
+            await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
             await UpsertReplayEdgesAsync(
                     db,
                     dbGate,
@@ -223,6 +235,10 @@ public sealed class ArticleMutationOutboxDispatcher(
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (ActiveReleaseFenceLostException)
         {
             throw;
         }
@@ -255,6 +271,7 @@ public sealed class ArticleMutationOutboxDispatcher(
         string status = nextRetryCount >= PoisonRetryThreshold ? "poison" : "pending";
         DateTime nextRetryAt = timeProvider.GetUtcNow().UtcDateTime.Add(ComputeBackoff(nextRetryCount));
         string lastError = NormalizeLastError(error);
+        await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
         int updatedRows = await dbGate.ExecuteAsync(
             "article-outbox-retry",
             gateCt => db.Ado.ExecuteCommandAsync(
@@ -301,6 +318,9 @@ public sealed class ArticleMutationOutboxDispatcher(
             lastError);
         return false;
     }
+
+    private Task EnsureCurrentGenerationAsync(CancellationToken cancellationToken)
+        => activeReleaseCommitGuard?.EnsureCurrentAsync(cancellationToken) ?? Task.CompletedTask;
 
     private static async Task<List<ArticleMutationOutboxEvent>> ClaimPendingOutboxEventsAsync(
         ISqlSugarClient db,

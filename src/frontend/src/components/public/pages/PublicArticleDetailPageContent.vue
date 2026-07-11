@@ -34,14 +34,17 @@
     />
 
     <div
-      v-if="detailView.header.coverImageUrl"
-      class="mb-12 sm:mb-16 blog-motion-state-change"
+      v-if="detailCover"
+      class="mb-12 overflow-hidden rounded-[var(--fsusblog-reading-radius-media)] border border-[var(--fsusblog-panel-border)] shadow-none sm:mb-16"
       data-fsus-motion-surface="article-cover"
+      data-content-cover="article-detail"
+      :data-cover-safe-area="detailCover.safeArea"
     >
       <img
-        :src="detailView.header.coverImageUrl"
+        :src="detailCover.url"
         :alt="`${detailView.header.title} — 题图`"
-        class="aspect-video w-full rounded-[var(--fsusblog-reading-radius-media)] object-cover shadow-none"
+        class="aspect-video w-full object-cover object-center shadow-none"
+        :style="{ objectPosition: detailCover.objectPosition }"
         width="1200"
         height="675"
         sizes="(min-width: 1024px) 56rem, calc(100vw - 3rem)"
@@ -255,6 +258,7 @@ import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailC
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
+import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt'
 
 const props = withDefaults(defineProps<{
   detailView: ArticleDetailPageViewContract
@@ -277,6 +281,8 @@ const safeArticleId = computed(() => {
   const normalized = Number(props.articleId)
   return Number.isFinite(normalized) && normalized > 0 ? Math.trunc(normalized) : 0
 })
+
+const detailCover = computed(() => resolvePublicCoverPresentation(props.detailView.header.coverImageUrl))
 
 const hasRelatedReading = computed(() => (
   props.detailView.relatedReading.previous !== null

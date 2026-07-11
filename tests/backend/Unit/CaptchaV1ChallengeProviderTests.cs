@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
@@ -41,19 +41,32 @@ public sealed class CaptchaV1ChallengeProviderTests
     [Fact]
     public void CreateSolution_ReusesMiningBufferAndCapsPowAttempts()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Services/Security/CaptchaV1ChallengeProvider.cs"));
-        string createSolution = ExtractMethodBlock(
-            source,
-            "public static CaptchaV1ChallengeSolution CreateSolution(CaptchaV1ChallengeVerifyPayload payload)");
+        Type codec = typeof(CaptchaV1ChallengeCodec);
+        int maxAttempts = (int)codec.GetField(
+            "MaxPowNonceAttempts",
+            BindingFlags.Static | BindingFlags.NonPublic)!.GetRawConstantValue()!;
+        Assert.Equal(4096, maxAttempts);
+        Assert.NotEqual(4_000_000, maxAttempts);
 
-        Assert.Contains("MaxPowNonceAttempts", source, StringComparison.Ordinal);
-        Assert.Contains("stackalloc byte[32]", createSolution, StringComparison.Ordinal);
-        Assert.Contains("SHA256.HashData(buffer, hash)", createSolution, StringComparison.Ordinal);
-        Assert.Contains("nonce < MaxPowNonceAttempts", createSolution, StringComparison.Ordinal);
-        Assert.DoesNotContain("byte[] digest = SHA256.HashData(buffer)", createSolution, StringComparison.Ordinal);
-        Assert.DoesNotContain("nonce < 4_000_000", createSolution, StringComparison.Ordinal);
+        MethodInfo createSolution = codec.GetMethod(
+            nameof(CaptchaV1ChallengeCodec.CreateSolution),
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: [typeof(CaptchaV1ChallengeVerifyPayload)],
+            modifiers: null)!;
+        IReadOnlyList<string> opCodes = RuntimeMetadataInspection.DescribeOpCodes(createSolution);
+        Assert.Contains("localloc", opCodes);
+        Assert.Equal(1, opCodes.Count(static opCode => opCode == "newarr"));
+        Assert.Contains(maxAttempts, RuntimeMetadataInspection.DescribeInt32Constants(createSolution));
+
+        IReadOnlyList<string> references = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferencesInOrderContaining(
+                codec,
+                "SHA256.HashData",
+                "LeadingZeroBits");
+        Assert.True(
+            references.Any(static reference => reference.Contains("SHA256.HashData", StringComparison.Ordinal) &&
+                                               reference.Contains("Span", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -311,33 +324,6 @@ public sealed class CaptchaV1ChallengeProviderTests
         payload["nonceHex"] = solution.NonceHex;
         payload["solveDurationMs"] = solveDurationMs.ToString(System.Globalization.CultureInfo.InvariantCulture);
         return payload;
-    }
-
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Could not find signature '{signature}'.");
-        int brace = source.IndexOf('{', start);
-        Assert.True(brace >= 0, $"Could not find method body for '{signature}'.");
-
-        int depth = 0;
-        for (int index = brace; index < source.Length; index++)
-        {
-            if (source[index] == '{')
-            {
-                depth++;
-            }
-            else if (source[index] == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    return source[start..(index + 1)];
-                }
-            }
-        }
-
-        throw new InvalidOperationException($"Could not extract method body for '{signature}'.");
     }
 
     private sealed record ProviderFixture(

@@ -186,9 +186,62 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [frontend-unit]
+    coverage:
+      - frontend-unit
+      - frontend-public-shell-sticky-geometry
+      - frontend-public-home-editorial
+      - frontend-public-content-driven-covers
+      - backend-anonymous-identity-behavior
+      - frontend-admin-task-first-dashboard
+      - frontend-admin-information-architecture
+      - blue-green-release-storage-lifecycle
+      - append-only-release-assets
+      - active-release-fence-drain-restart
+      - frontend-admin-console-behavior
+      - frontend-source-locking-convergence
     artifacts: [.tmp/frontend/frontend-unit-shard.json, .tmp/frontend/timings/frontend-unit-shard.json]
-    evidence: [.tmp/frontend/frontend-unit-shard.json, .tmp/frontend/timings/frontend-unit-shard.json]
+    evidence:
+      - .tmp/frontend/frontend-unit-shard.json
+      - .tmp/frontend/timings/frontend-unit-shard.json
+      - src/frontend/src/components/public/usePublicStickyGeometry.ts
+      - tests/frontend/unit/components/usePublicStickyGeometry.test.ts
+      - tests/issue-1016-sticky-geometry-evidence.json
+      - src/frontend/src/view-contracts/homeSpotlight.ts
+      - tests/frontend/unit/view-contracts/homeSpotlight.test.ts
+      - docs/issue-1019-public-home-editorial-handoff.md
+      - src/frontend/src/view-contracts/coverArt.ts
+      - src/frontend/public/fixtures/cover-art-manifest.json
+      - tests/frontend/unit/view-contracts/coverArt.test.ts
+      - docs/issue-1020-content-cover-handoff.md
+      - tests/frontend/unit/components/ArticleCommentComposer.test.ts
+      - tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts
+      - docs/testing/issue-1045-anonymous-identity-behavior-handoff.md
+      - src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue
+      - src/frontend/src/composables/useAdminDashboardWorkbench.ts
+      - src/frontend/src/view-contracts/adminDashboard.ts
+      - tests/frontend/unit/components/admin/AdminDashboardTaskWorkbench.test.ts
+      - tests/frontend/unit/composables/useAdminDashboardWorkbench.test.ts
+      - tests/frontend/unit/view-contracts/adminDashboardWorkbench.test.ts
+      - src/frontend/src/layouts/AccountLayout.vue
+      - src/frontend/src/layouts/accountNav.ts
+      - src/frontend/src/layouts/accountWorkspaceContext.ts
+      - src/frontend/src/components/account/AccountNavigationPanel.vue
+      - src/frontend/src/components/account/AccountHeaderMenu.vue
+      - tests/frontend/unit/layouts/accountNavModules.test.ts
+      - tests/frontend/unit/components/account/AccountNavigationPanel.test.ts
+      - docs/issue-1022-admin-dashboard-handoff.md
+      - docs/issue-1023-admin-ia-handoff.md
+      - tests/frontend/unit/wasmReleaseAssets.test.ts
+      - tests/frontend/unit/releaseStorage.test.ts
+      - tests/frontend/unit/services/notificationStreamRestartPolicy.test.ts
+      - tests/frontend/unit/api/admin.test.ts
+      - tests/frontend/unit/api/authoring.test.ts
+      - tests/frontend/unit/api/integrityConsole.test.ts
+      - tests/frontend/unit/views/IntegrityProofConsole.test.ts
+      - tests/frontend/unit/router/index.test.ts
+      - tests/frontend/unit/layouts/accountNavModules.test.ts
+      - tests/issue-1039-admin-console-evidence.json
+      - tests/backend/issue-1039-retention-replacements.json
     ciJob: fast-frontend-unit
     localOnly: false
     nightlyOnly: false
@@ -288,9 +341,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [frontend-static]
+    coverage: [frontend-static, frontend-public-archive-sticky-geometry, frontend-public-typography]
     artifacts: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json]
-    evidence: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json]
+    evidence: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json, src/frontend/src/components/public/pages/PublicArchivePageContent.vue, tests/frontend/checks/static/check-visual-density-governance.mjs, tests/frontend/issue-1017-archive-sticky-evidence.json, tests/issue-1018-public-typography-evidence.json, docs/issue-1018-public-typography-handoff.md]
     ciJob: frontend-static-governance
     localOnly: false
     nightlyOnly: false
@@ -345,6 +398,7 @@ tiers:
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/backend, tests/performance/backend-hotpath-budgets.json, tests/tools/backend-benchmark-regression.test.mjs, tools/perf/check-backend-benchmark-regression.mjs, tools/test/lanes/backend-benchmark-regression.sh]
     timeoutMinutes: 35
     shardable: false
     defaultShards: 1
@@ -385,9 +439,143 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [backend-unit]
+    coverage:
+      - backend-unit
+      - blue-green-slot-orchestration
+      - backend-runtime-fallback-retirement-a3
+      - backend-physical-account-subject-retirement
+      - deployment-runtime-lifecycle
+      - backend-online-schema-migration-protocol
+      - blue-green-release-storage-lifecycle
+      - atomic-idempotent-upload-commit
+      - active-release-fence-drain-restart
+      - backend-security-hardening-boundary-and-ast
+      - backend-endpoint-security-metadata-and-testserver
+      - backend-admin-console-endpoint-behavior
+      - backend-admin-console-persistence-behavior
+      - backend-auth-mfa-pow-session-state-machine
+      - backend-race-idempotency-model
+      - backend-fault-race-readiness
+      - backend-audit-behavior
+      - backend-operations-readiness-behavior
+      - backend-public-aot-artifact-behavior
+      - backend-log-cleanup-behavior
+      - backend-upload-cleanup-queue-behavior
+      - backend-human-read-proof-behavior
+      - backend-rate-limiter-rejection-sampler-bounded
+      - backend-hotpath-executable-measurement
+      - backend-user-session-revocation-enforcement
+      - backend-auth-cookie-jwt-expiry-alignment
+      - backend-recovery-passkey-idempotent-completion
+      - backend-executable-data-test-governance
+      - backend-passkey-behavior-governance
+      - backend-anonymous-identity-behavior
+      - backend-risk-control-behavior
+      - backend-projection-serialization-behavior
     artifacts: [.tmp/backend-unit]
-    evidence: [.tmp/backend-unit/summary.json, tests/backend/Fixtures/backend-test-requirements.json]
+    evidence:
+      - .tmp/backend-unit/summary.json
+      - tests/backend/Fixtures/backend-test-requirements.json
+      - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
+      - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
+      - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
+      - tests/backend/Unit/AccountSubjectHashProjectionTests.cs
+      - tests/backend/issue-1014-identity-retirement-evidence.json
+      - docs/issue-1014-identity-retirement-handoff.md
+      - tests/backend/Unit/DeploymentRuntimeStateTests.cs
+      - tests/backend/Unit/NotificationStreamBoundaryTests.cs
+      - tests/backend/Unit/OnlineSchemaMigrationPolicyTests.cs
+      - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
+      - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
+      - tests/backend/Unit/ProductionHealthTests.cs
+      - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
+      - tests/backend/Unit/PublicAotFileShellCacheTests.cs
+      - tests/backend/issue-1029-storage-lifecycle-evidence.json
+      - docs/issue-1029-storage-lifecycle-handoff.md
+      - tests/backend/Unit/ActiveReleaseFenceContractTests.cs
+      - tests/backend/Unit/SecurityHardening
+      - tests/backend/Unit/EndpointPolicyContractTests.cs
+      - tests/backend/Unit/AuthRiskControlEndpointContractTests.cs
+      - tests/backend/Unit/AdminPrincipalSecurityContractTests.cs
+      - tests/backend/Unit/BackendApiIntegrationContractTests.cs
+      - tests/backend/issue-1038-retention-replacements.json
+      - tests/backend/Unit/AdminConsistencyContractTests.cs
+      - tests/backend/Unit/AdminAnonymousAccountGovernanceContractTests.cs
+      - tests/backend/Unit/ModerationConsoleContractTests.cs
+      - tests/backend/Unit/IntegrityAdminConsoleContractTests.cs
+      - tests/issue-1039-admin-console-evidence.json
+      - tests/backend/issue-1039-retention-replacements.json
+      - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
+      - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
+      - tests/backend/Unit/DevSeedSqlContractTests.cs
+      - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
+      - tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs
+      - tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs
+      - tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs
+      - tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs
+      - tests/backend/Unit/SecurityChallengePersistenceTests.cs
+      - tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs
+      - tests/backend/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/ActorResolverBehaviorTests.cs
+      - tests/backend/Unit/AnonymousCommentPolicyTests.cs
+      - tests/backend/Unit/AnonymousIdentitySerializationTests.cs
+      - tests/backend/Unit/ZkProofVerifierTests.cs
+      - tests/backend/Unit/AntiCrawlerPolicyBehaviorTests.cs
+      - tests/backend/Unit/AntiCrawlerPipelineTests.cs
+      - tests/backend/Unit/CommentRiskActionFilterTests.cs
+      - tests/backend/Unit/SecurityRiskPolicySnapshotV2Tests.cs
+      - tests/backend/Unit/StatsRecentCommentPrivacyBehaviorTests.cs
+      - tests/backend/Unit/StatsPerformanceContractTests.cs
+      - tests/backend/Unit/TaxonomyProjectionTests.cs
+      - tests/backend/Unit/ArticleStatusProjectionTests.cs
+      - tests/backend/Unit/ArticleProjectionTests.cs
+      - tests/backend/Unit/ArticleCoreQueryCacheBehaviorTests.cs
+      - tests/backend/Unit/PublicAotBinaryPayloadTests.cs
+      - tests/backend/Unit/AedsFrameNamingTests.cs
+      - docs/issue-1041-executable-data-test-governance.md
+      - docs/passkey-test-governance.md
+      - docs/testing/issue-1045-anonymous-identity-behavior-handoff.md
+      - docs/testing/issue-1046-risk-control-behavior-handoff.md
+      - docs/testing/issue-1047-projection-serialization-handoff.md
+      - tests/backend/Unit/AuditProjectionBehaviorTests.cs
+      - tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs
+      - tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs
+      - tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs
+      - tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs
+      - tests/backend/Unit/AdminOperationsBehaviorTests.cs
+      - tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs
+      - tests/backend/Unit/LogCleanupDatabaseBehaviorTests.cs
+      - tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs
+      - tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs
+      - tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs
+      - tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs
+      - tests/backend/Unit/HumanReadProofRequestBindingTests.cs
+      - tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs
+      - tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs
+      - tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json
+      - tests/backend/issue-1055-retention-replacements.json
+      - tests/backend/Unit/StatsPerformanceContractTests.cs
+      - tests/backend/Unit/RelatedReadingServiceTests.cs
+      - tests/backend/Unit/ParallelOperationsHotPathContractTests.cs
+      - tests/backend/Unit/BinaryTransportHotPathContractTests.cs
+      - tests/backend/Unit/HttpHotPathPerformanceContractTests.cs
+      - tests/backend/Unit/SecurityModerationHotPathContractTests.cs
+      - tests/backend/Unit/ArticleStatusProjectionTests.cs
+      - tests/backend/Unit/UserSessionValidationServiceTests.cs
+      - tests/backend/Unit/UserSessionJwtAuthenticationTests.cs
+      - tests/backend/Unit/UserSessionMappedBoundaryTests.cs
+      - tests/backend/issue-1052-user-session-revocation-evidence.json
+      - tests/backend/Unit/RecoveryKeyServiceBehaviorTests.cs
+      - docs/user-session-revocation.md
+      - tests/backend/Unit/AuthCookieServiceSecurityTests.cs
+      - tests/backend/Unit/AuthCookieExpiryFlowTests.cs
+      - tests/backend/Unit/JwtHelperTests.cs
+      - tests/backend/Unit/UserServiceValidationTests.cs
+      - tests/backend/issue-1053-auth-cookie-expiry-evidence.json
+      - tests/backend/issue-1053-central-handoff.json
+      - tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs
+      - tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs
+      - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -512,9 +700,124 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: fast
-    coverage: [gate-integrity, matrix-integrity, evidence-schema, test-retention-classification, integrity-proof-docs-consistency]
+    coverage:
+      - gate-integrity
+      - matrix-integrity
+      - evidence-schema
+      - test-retention-classification
+      - integrity-proof-docs-consistency
+      - immutable-release-identity
+      - blue-green-slot-orchestration
+      - atomic-gateway-switch-rollback
+      - backend-runtime-fallback-retirement-a3
+      - backend-physical-account-subject-retirement
+      - dead-code-audit-governance
+      - deployment-runtime-lifecycle
+      - backend-online-schema-migration-protocol
+      - blue-green-release-storage-lifecycle
+      - append-only-release-assets
+      - active-release-fence-drain-restart
+      - zero-downtime-release-rehearsal
+      - backend-security-hardening-boundary-and-ast
+      - test-suite-convergence
+      - test-tool-artifact-behavior
+      - frontend-source-locking-convergence
     artifacts: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, .tmp/release-evidence/flaky/registry.json, .tmp/docs/integrity-proof-docs.json]
-    evidence: [.tmp/gate-logs, .tmp/docs, .tmp/release-evidence/test-plan.json, .tmp/release-evidence/doc-sync-summary.json, .tmp/release-evidence/test-retention-audit.json, tests/test-retention-before.json, .tmp/release-evidence/flaky/registry.json, .tmp/docs/integrity-proof-docs.json]
+    evidence:
+      - .tmp/gate-logs
+      - .tmp/docs
+      - .tmp/release-evidence/test-plan.json
+      - .tmp/release-evidence/doc-sync-summary.json
+      - .tmp/release-evidence/test-retention-audit.json
+      - tests/test-retention-before.json
+      - .tmp/release-evidence/flaky/registry.json
+      - .tmp/docs/integrity-proof-docs.json
+      - tests/backend/issue-1013-runtime-fallback-milestones.json
+      - tests/backend/issue-1014-identity-retirement-evidence.json
+      - docs/issue-1014-identity-retirement-handoff.md
+      - tests/tools/dead-code-audit-index.test.mjs
+      - tools/governance/check-dead-code-audit-index.mjs
+      - docs/planning/dead-code-audit-index.json
+      - tests/issue-1015-dead-code-audit-evidence.json
+      - tests/tools/gateway-switch.test.mjs
+      - tests/tools/deployment-slots.test.mjs
+      - tools/deployment/image-runtime-contract.sh
+      - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
+      - ops/docker/FsusBlog.Server.Dockerfile
+      - src/backend/FsusBlog.Server.csproj
+      - docs/issue-1024-release-identity-handoff.md
+      - docs/issue-1025-blue-green-slots-handoff.md
+      - docs/issue-1026-gateway-switch-handoff.md
+      - src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs
+      - src/backend/Services/SearchIndexService.cs
+      - src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs
+      - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
+      - tests/backend/Unit/PublicAotFileShellCacheTests.cs
+      - tests/backend/issue-1029-storage-lifecycle-evidence.json
+      - docs/issue-1029-storage-lifecycle-handoff.md
+      - tests/tools/online-schema-migration-wrapper.test.mjs
+      - tests/backend/issue-1028-online-migration-evidence.json
+      - tests/tools/release-storage-lifecycle.test.mjs
+      - tools/check-background-service-classification.mjs
+      - tests/backend/Fixtures/background-service-classification.json
+      - tests/tools/release-rollout-state.test.mjs
+      - tools/deployment/release-worker-drill.mjs
+      - tests/tools/release-worker-drill.test.mjs
+      - tools/deployment/release-worker-reconciliation.mjs
+      - tests/tools/release-worker-reconciliation.test.mjs
+      - tools/deployment/release-worker-observer-service.mjs
+      - tests/tools/release-worker-observer-service.test.mjs
+      - tests/fixtures/deployment/release-worker-observer-service-plan.template.json
+      - tools/deployment/release-worker-normal-observer.mjs
+      - tests/tools/release-worker-normal-observer.test.mjs
+      - tests/fixtures/deployment/release-worker-normal-observer-plan.template.json
+      - tests/tools/release-rollout-evidence.test.mjs
+      - tests/tools/release-rollout-bundle.test.mjs
+      - tools/deployment/release-resource-probe.mjs
+      - tests/tools/release-rollout-probes.test.mjs
+      - tools/deployment/release-traffic-probe.mjs
+      - tools/deployment/release-traffic-evidence-verify.mjs
+      - tests/tools/release-traffic-probe-session.test.mjs
+      - tests/fixtures/deployment/release-traffic-session-scenario.json
+      - tools/deployment/release-notification-probe.mjs
+      - tests/tools/release-notification-probe.test.mjs
+      - tests/fixtures/deployment/release-notification-resync-scenario.template.json
+      - tools/deployment/release-asset-compatibility-probe.mjs
+      - tests/tools/release-asset-compatibility-probe.test.mjs
+      - tools/deployment/release-asset-browser-session.mjs
+      - tools/deployment/release-asset-compatibility-evidence-verify.mjs
+      - tests/fixtures/deployment/release-asset-browser-scenario.template.json
+      - tools/deployment/release-migration-qualification.mjs
+      - tests/tools/release-migration-qualification.test.mjs
+      - tests/fixtures/deployment/release-migration-qualification-scenario.template.json
+      - tools/deployment/rehearsal-schema-qualification-probe.mjs
+      - tests/tools/rehearsal-schema-qualification-probe.test.mjs
+      - tools/deployment/zero-downtime-rehearsal.sh
+      - tools/deployment/zero-downtime-rehearsal-plan.mjs
+      - tests/tools/zero-downtime-rehearsal.test.mjs
+      - tests/fixtures/deployment/zero-downtime-rehearsal-plan.template.json
+      - security/backend-source-policy.json
+      - tests/tools/security-source-analyzer.test.mjs
+      - tests/backend/issue-1037-security-hardening-evidence.json
+      - tests/backend/issue-1037-retention-replacements.json
+      - tests/tools/test-suite-convergence.test.mjs
+      - tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt
+      - tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt
+      - tests/frontend/checks/static/frontend-source-locking-migration-plan.mjs
+      - tests/issue-1048-retention-replacements.json
+      - tests/issue-1049-retention-replacements.json
+      - tests/backend/issue-1050-retention-replacements.json
+      - tests/backend/issue-1050-cleanup-human-read.md
+      - tests/backend/issue-1051-backend-source-lock-retention-replacements.json
+      - tests/backend/issue-1052-retention-replacements.json
+      - tests/backend/issue-1053-retention-replacements.json
+      - tests/backend/issue-1054-retention-replacements.json
+      - tests/backend/issue-1055-retention-replacements.json
+      - tests/issue-1051-suite-convergence.json
+      - tests/tools/quality-gate-artifact-layout.test.mjs
+      - tests/tools/release-evidence-artifact-restore.test.mjs
+      - tests/issue-1048-retention-replacements.json
+      - tests/frontend/checks/static/check-frontend-test-governance.mjs
     ciJob: fast-static-governance
     localOnly: false
     nightlyOnly: false
@@ -789,9 +1092,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [runtime-bootstrap]
+    coverage: [runtime-bootstrap, deployment-runtime-lifecycle]
     artifacts: [.tmp/acceptance]
-    evidence: [.tmp/acceptance/*.log]
+    evidence: [.tmp/acceptance/*.log, tests/backend/Unit/DeploymentRuntimeStateTests.cs]
     ciJob: integration-runtime
     localOnly: false
     nightlyOnly: false
@@ -818,9 +1121,42 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [runtime-contract-smoke]
+    coverage:
+      - runtime-contract-smoke
+      - backend-runtime-fallback-retirement-a3
+      - backend-physical-account-subject-retirement
+      - backend-online-schema-migration-protocol
+      - backend-admin-console-persistence-behavior
+      - backend-audit-behavior
+      - backend-operations-readiness-behavior
+      - backend-log-cleanup-behavior
+      - backend-human-read-proof-behavior
+      - backend-user-session-revocation-enforcement
+      - backend-recovery-passkey-idempotent-completion
+      - backend-anonymous-identity-behavior
+      - backend-projection-serialization-behavior
     artifacts: [.tmp/acceptance/*.log, .tmp/runtime/integration.json]
-    evidence: [.tmp/acceptance/*.log, .tmp/runtime/integration.json]
+    evidence:
+      - .tmp/acceptance/*.log
+      - .tmp/runtime/integration.json
+      - tests/backend/issue-1013-runtime-fallback-evidence.json
+      - tests/backend/issue-1014-identity-retirement-evidence.json
+      - docs/issue-1014-identity-retirement-handoff.md
+      - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
+      - tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs
+      - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs
+      - tests/backend/issue-1052-user-session-revocation-evidence.json
+      - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
+      - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
+      - tests/backend/Unit/AdminConsistencyContractTests.cs
+      - tests/backend/Unit/AuditProjectionBehaviorTests.cs
+      - tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs
+      - tests/backend/Unit/LogCleanupDatabaseBehaviorTests.cs
+      - tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs
+      - tests/backend/Integration/AnonymousCommentPolicyPersistenceTests.cs
+      - tests/backend/Integration/TaxonomyProjectionPersistenceTests.cs
+      - docs/testing/issue-1045-anonymous-identity-behavior-handoff.md
+      - docs/testing/issue-1047-projection-serialization-handoff.md
     ciJob: integration-runtime
     localOnly: false
     nightlyOnly: false
@@ -882,9 +1218,35 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [release-preview-runtime, aot-hydration-pwa-seo, public-hydration-clock-matrix, public-hydration-browser-env-matrix, public-hydration-payload-fixture-matrix, public-hydration-dom-diff, public-hydration-sidecar, public-hydration-matrix]
+    coverage:
+      - release-preview-runtime
+      - aot-hydration-pwa-seo
+      - public-hydration-clock-matrix
+      - public-hydration-browser-env-matrix
+      - public-hydration-payload-fixture-matrix
+      - public-hydration-dom-diff
+      - public-hydration-sidecar
+      - public-hydration-matrix
+      - blue-green-release-storage-lifecycle
+      - append-only-release-assets
+      - atomic-idempotent-upload-commit
+      - zero-downtime-release-rehearsal
     artifacts: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json, .tmp/release-evidence/public-hydration-sidecar-summary.json, .tmp/release-evidence/public-hydration-matrix-summary.json]
-    evidence: [.tmp/acceptance/*.log, .tmp/release-evidence/public-hydration-detector-summary.json, .tmp/release-evidence/public-hydration-clock-matrix-summary.json, .tmp/release-evidence/public-hydration-browser-env-summary.json, .tmp/release-evidence/public-hydration-payload-fixture-summary.json, .tmp/release-evidence/public-hydration-dom-diff-summary.json, .tmp/release-evidence/public-hydration-sidecar-summary.json, .tmp/release-evidence/public-hydration-matrix-summary.json]
+    evidence:
+      - .tmp/acceptance/*.log
+      - .tmp/release-evidence/public-hydration-detector-summary.json
+      - .tmp/release-evidence/public-hydration-clock-matrix-summary.json
+      - .tmp/release-evidence/public-hydration-browser-env-summary.json
+      - .tmp/release-evidence/public-hydration-payload-fixture-summary.json
+      - .tmp/release-evidence/public-hydration-dom-diff-summary.json
+      - .tmp/release-evidence/public-hydration-sidecar-summary.json
+      - .tmp/release-evidence/public-hydration-matrix-summary.json
+      - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
+      - tests/backend/Unit/PublicAotFileShellCacheTests.cs
+      - tests/backend/issue-1029-storage-lifecycle-evidence.json
+      - docs/issue-1029-storage-lifecycle-handoff.md
+      - tests/tools/release-storage-lifecycle.test.mjs
+      - tests/tools/release-rollout-evidence.test.mjs
     ciJob: release-public
     localOnly: false
     nightlyOnly: false
@@ -946,9 +1308,18 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: production
-    coverage: [auth-mfa-passkey-pow-permission-dast]
+    coverage:
+      - auth-mfa-passkey-pow-permission-dast
+      - backend-endpoint-security-metadata-and-testserver
+      - backend-admin-console-endpoint-behavior
+      - backend-admin-console-persistence-behavior
+      - frontend-admin-console-behavior
     artifacts: [.tmp/security]
-    evidence: [.tmp/security]
+    evidence:
+      - .tmp/security
+      - tests/backend/issue-1038-endpoint-security-evidence.json
+      - tests/backend/Unit/AdminConsistencyContractTests.cs
+      - tests/frontend/unit/api/integrityConsole.test.ts
     ciJob: security-runtime
     localOnly: false
     nightlyOnly: false
@@ -983,9 +1354,25 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [playwright-acceptance]
+    coverage:
+      - playwright-acceptance
+      - frontend-public-archive-sticky-geometry
+      - zero-downtime-release-rehearsal
+      - frontend-admin-console-behavior
+      - frontend-source-locking-convergence
+      - frontend-admin-information-architecture
     artifacts: [src/frontend/test-results/playwright/acceptance]
-    evidence: [src/frontend/test-results/playwright/acceptance]
+    evidence:
+      - src/frontend/test-results/playwright/acceptance
+      - tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts
+      - tests/frontend/e2e/acceptance/release-asset-compatibility.spec.ts
+      - tests/frontend/e2e/acceptance/admin-console.spec.ts
+      - src/frontend/src/layouts/AccountLayout.vue
+      - src/frontend/src/layouts/accountNav.ts
+      - src/frontend/src/layouts/accountWorkspaceContext.ts
+      - src/frontend/src/components/account/AccountNavigationPanel.vue
+      - src/frontend/src/components/account/AccountHeaderMenu.vue
+      - docs/issue-1023-admin-ia-handoff.md
     ciJob: acceptance-playwright
     localOnly: false
     nightlyOnly: false
@@ -1020,16 +1407,31 @@ tiers:
     risk: medium
     cadence: pr
     requiredFor: production
-    coverage: [playwright-visual-public]
+    coverage: [playwright-visual-public, frontend-public-home-editorial, frontend-public-content-driven-covers, frontend-public-editorial-chrome]
     artifacts: [.tmp/visual/public, src/frontend/test-results/playwright/visual-public]
-    evidence: [.tmp/visual/public, src/frontend/test-results/playwright/visual-public]
+    evidence:
+      - .tmp/visual/public
+      - src/frontend/test-results/playwright/visual-public
+      - src/frontend/src/components/public/PublicBlogLayoutShell.vue
+      - src/frontend/src/components/public/PublicComplianceFooter.vue
+      - src/frontend/src/fsusui/publicShell.ts
+      - tests/frontend/checks/public/check-public-header-material.mjs
+      - tests/frontend/e2e/visual/public-visual.spec.ts
+      - src/frontend/src/view-contracts/homeSpotlight.ts
+      - tests/frontend/unit/view-contracts/homeSpotlight.test.ts
+      - docs/issue-1019-public-home-editorial-handoff.md
+      - src/frontend/src/view-contracts/coverArt.ts
+      - src/frontend/public/fixtures/cover-art-manifest.json
+      - tests/frontend/unit/view-contracts/coverArt.test.ts
+      - docs/issue-1020-content-cover-handoff.md
+      - docs/issue-1021-public-chrome-handoff.md
     ciJob: visual-public-playwright
     localOnly: false
     nightlyOnly: false
     smartGateMode: conditional
     retentionClass: conditional
-    triggerPaths: [src/frontend/src/assets, src/frontend/src/components/public, src/frontend/src/public-renderers, tests/frontend/e2e/visual]
-    triggerFiles: [tests/matrix.yml]
+    triggerPaths: [src/frontend/src/assets, src/frontend/src/components/public, src/frontend/src/fsusui, src/frontend/src/public-renderers, tests/frontend/checks/public, tests/frontend/e2e/visual]
+    triggerFiles: [src/frontend/package.json, tests/matrix.yml]
     triggerCoverage: [playwright-visual-public]
     triggerReason: public visual surface, CSS, or screenshot fixtures changed
 
@@ -1057,15 +1459,15 @@ tiers:
     risk: medium
     cadence: pr
     requiredFor: production
-    coverage: [playwright-visual-console]
+    coverage: [playwright-visual-console, frontend-admin-task-first-dashboard, frontend-admin-information-architecture]
     artifacts: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console]
-    evidence: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console]
+    evidence: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console, src/frontend/src/views/admin/Dashboard.vue, src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue, src/frontend/src/composables/useAdminDashboardWorkbench.ts, src/frontend/src/view-contracts/adminDashboard.ts, tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts, src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts, src/frontend/src/layouts/AccountLayout.vue, src/frontend/src/layouts/accountNav.ts, src/frontend/src/layouts/accountWorkspaceContext.ts, src/frontend/src/components/account/AccountNavigationPanel.vue, src/frontend/src/components/account/AccountHeaderMenu.vue, tests/frontend/e2e/visual/console-visual.spec.ts, docs/issue-1022-admin-dashboard-handoff.md, docs/issue-1023-admin-ia-handoff.md]
     ciJob: visual-console-playwright
     localOnly: false
     nightlyOnly: false
     smartGateMode: conditional
     retentionClass: conditional
-    triggerPaths: [src/frontend/src/assets, src/frontend/src/views/admin, src/frontend/src/components/admin, src/frontend/src/layouts, tests/frontend/e2e/visual]
+    triggerPaths: [src/frontend/src/assets, src/frontend/src/views/admin, src/frontend/src/components/admin, src/frontend/src/components/account, src/frontend/src/composables, src/frontend/src/layouts, src/frontend/tests/frontend/fixtures, tests/frontend/e2e/visual]
     triggerFiles: [tests/matrix.yml]
     triggerCoverage: [playwright-visual-console]
     triggerReason: console visual surface, CSS, or screenshot fixtures changed
@@ -1168,9 +1570,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [ux-viewport-plan-progress]
+    coverage: [ux-viewport-plan-progress, test-tool-artifact-behavior]
     artifacts: [.tmp/ux/viewport-plan-progress.json]
-    evidence: [tests/tools/ux-viewport-plan.test.mjs, tests/tools/ux-viewport-progress.test.mjs, tests/tools/ux-viewport-runtime-contract.test.mjs, .tmp/ux/viewport-plan-progress.json]
+    evidence: [tests/tools/ux-viewport-plan.test.mjs, tests/tools/ux-viewport-runner.test.mjs, tests/tools/ux-viewport-progress.test.mjs, tests/tools/ux-viewport-runtime-contract.test.mjs, .tmp/ux/viewport-plan-progress.json]
     ciJob: fast-frontend-unit
     localOnly: false
     nightlyOnly: false
@@ -1335,9 +1737,21 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [upload-search-notification-binary-resilience, public-aot-cache-resilience]
+    coverage:
+      - upload-search-notification-binary-resilience
+      - public-aot-cache-resilience
+      - deployment-runtime-lifecycle
+      - active-release-fence-drain-restart
+      - zero-downtime-release-rehearsal
+      - backend-upload-cleanup-queue-behavior
     artifacts: [.tmp/runtime/resilience.json, .tmp/release-evidence/aot-cache-resilience-summary.json]
-    evidence: [.tmp/runtime/resilience.json, .tmp/release-evidence/aot-cache-resilience-summary.json]
+    evidence:
+      - .tmp/runtime/resilience.json
+      - .tmp/release-evidence/aot-cache-resilience-summary.json
+      - tests/tools/gateway-switch.test.mjs
+      - tests/backend/issue-1030-implementation-evidence.json
+      - tests/tools/release-rollout-probes.test.mjs
+      - tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs
     ciJob: resilience-runtime
     localOnly: false
     nightlyOnly: false
@@ -2075,9 +2489,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: []
+    coverage: [test-tool-artifact-behavior]
     artifacts: [.tmp/release-evidence/data-scale-summary.json]
-    evidence: [.tmp/release-evidence/data-scale-summary.json]
+    evidence: [.tmp/release-evidence/data-scale-summary.json, tests/tools/data-scale-evidence-summary.test.mjs]
     ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
@@ -2312,9 +2726,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [benchmarkdotnet-regression]
+    coverage: [benchmarkdotnet-regression, backend-public-aot-artifact-behavior, backend-hotpath-executable-measurement]
     artifacts: [BenchmarkDotNet.Artifacts/results/fsusblog-benchmark-regression.json, .tmp/perf/release-summaries/backend-benchmark-regression.json]
-    evidence: [.tmp/perf/release-summaries/backend-benchmark-regression.json]
+    evidence: [.tmp/perf/release-summaries/backend-benchmark-regression.json, tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs, benchmarks/core/ServerHotPathBenchmarks.cs, benchmarks/core/ContentFilterBenchmarks.cs, tests/performance/backend-hotpath-budgets.json]
     ciJob: perf-regression
     localOnly: false
     nightlyOnly: false
@@ -2341,7 +2755,7 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [browser-performance-regression]
+    coverage: [browser-performance-regression, frontend-source-locking-convergence]
     artifacts: [.tmp/perf/browser-performance.json, .tmp/perf/release-summaries/browser-performance-regression.json]
     evidence: [.tmp/perf/release-summaries/browser-performance-regression.json]
     ciJob: perf-regression
@@ -2375,9 +2789,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: []
+    coverage: [test-tool-artifact-behavior]
     artifacts: [.tmp/release-evidence/perf-summary.json]
-    evidence: [.tmp/release-evidence/perf-summary.json]
+    evidence: [.tmp/release-evidence/perf-summary.json, tests/tools/performance-evidence-summary.test.mjs]
     ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
@@ -2581,9 +2995,9 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: production
-    coverage: [risk-control-test-matrix]
+    coverage: [risk-control-test-matrix, backend-risk-control-behavior]
     artifacts: [.tmp/security/risk-control-test-matrix.json]
-    evidence: [security/risk-control-test-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/risk-control-test-matrix.sh]
+    evidence: [security/risk-control-test-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/risk-control-test-matrix.sh, tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs, tests/backend/Unit/AntiCrawlerPolicyBehaviorTests.cs, tests/backend/Unit/AntiCrawlerPipelineTests.cs, tests/backend/Unit/CommentRiskActionFilterTests.cs, tests/backend/Unit/SecurityRiskPolicySnapshotV2Tests.cs, docs/testing/issue-1046-risk-control-behavior-handoff.md]
     ciJob: security-runtime
     localOnly: false
     nightlyOnly: false
@@ -2639,9 +3053,9 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: production
-    coverage: [privacy-zk-comment-matrix]
+    coverage: [privacy-zk-comment-matrix, backend-human-read-proof-behavior, backend-anonymous-identity-behavior]
     artifacts: [.tmp/security/privacy-zk-comment-matrix.json]
-    evidence: [security/privacy-zk-comment-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/privacy-zk-comment-matrix.sh, tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs, tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts]
+    evidence: [security/privacy-zk-comment-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/privacy-zk-comment-matrix.sh, tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs, tests/backend/Unit/ActorResolverBehaviorTests.cs, tests/backend/Unit/AnonymousCommentPolicyTests.cs, tests/backend/Unit/AnonymousIdentitySerializationTests.cs, tests/backend/Unit/ZkProofVerifierTests.cs, tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts, tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts, tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts, tests/frontend/unit/components/ArticleCommentComposer.test.ts, tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs, docs/testing/issue-1045-anonymous-identity-behavior-handoff.md]
     ciJob: security-runtime
     localOnly: false
     nightlyOnly: false
@@ -2755,9 +3169,9 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: production
-    coverage: [release-evidence-manifest]
+    coverage: [release-evidence-manifest, test-tool-artifact-behavior]
     artifacts: [.tmp/release-evidence/*/manifest.json, .tmp/release-evidence/test-plan.json]
-    evidence: [.tmp/release-evidence/*/manifest.json, .tmp/release-evidence/test-plan.json]
+    evidence: [.tmp/release-evidence/*/manifest.json, .tmp/release-evidence/test-plan.json, tests/tools/release-evidence-artifact-restore.test.mjs]
     ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
@@ -3452,9 +3866,9 @@ tiers:
     risk: critical
     cadence: release-manual
     requiredFor: release-final
-    coverage: [release-final-publish-credential]
+    coverage: [release-final-publish-credential, test-suite-convergence]
     artifacts: [.tmp/release-evidence]
-    evidence: [.tmp/release-evidence]
+    evidence: [.tmp/release-evidence, .tmp/release-evidence/test-suite-convergence.json]
     ciJob: release-final
     localOnly: false
     nightlyOnly: false
@@ -3482,9 +3896,61 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: production
-    coverage: [full-release-evidence]
+    coverage:
+      - full-release-evidence
+      - deployment-runtime-lifecycle
+      - blue-green-release-storage-lifecycle
+      - append-only-release-assets
+      - atomic-idempotent-upload-commit
+      - active-release-fence-drain-restart
+      - zero-downtime-release-rehearsal
+      - backend-security-hardening-boundary-and-ast
+      - backend-endpoint-security-metadata-and-testserver
+      - backend-admin-console-endpoint-behavior
+      - backend-executable-data-test-governance
+      - backend-admin-console-persistence-behavior
+      - frontend-admin-console-behavior
+      - backend-auth-mfa-pow-session-state-machine
+      - backend-race-idempotency-model
+      - backend-fault-race-readiness
+      - backend-audit-behavior
+      - backend-operations-readiness-behavior
+      - backend-public-aot-artifact-behavior
+      - backend-log-cleanup-behavior
+      - backend-upload-cleanup-queue-behavior
+      - backend-human-read-proof-behavior
+      - test-suite-convergence
+      - backend-hotpath-executable-measurement
+      - test-tool-artifact-behavior
+      - frontend-source-locking-convergence
     artifacts: [.tmp/release-evidence/*/manifest.json, .tmp/security, .tmp/perf, src/frontend/test-results]
-    evidence: [.tmp/release-evidence/*/manifest.json]
+    evidence:
+      - .tmp/release-evidence/*/manifest.json
+      - tests/backend/Unit/DeploymentRuntimeStateTests.cs
+      - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
+      - tests/backend/Unit/PublicAotFileShellCacheTests.cs
+      - tests/backend/issue-1029-storage-lifecycle-evidence.json
+      - docs/issue-1029-storage-lifecycle-handoff.md
+      - tests/tools/release-storage-lifecycle.test.mjs
+      - tests/backend/issue-1030-implementation-evidence.json
+      - tests/tools/release-rollout-probes.test.mjs
+      - tests/backend/issue-1037-security-hardening-evidence.json
+      - tests/backend/issue-1038-endpoint-security-evidence.json
+      - tests/backend/Unit/AdminConsistencyContractTests.cs
+      - docs/issue-1041-executable-data-test-governance.md
+      - tests/frontend/unit/api/admin.test.ts
+      - tests/backend/Unit/BackendAuthStateMachineTests.cs
+      - tests/backend/Unit/BackendConcurrencyModelTests.cs
+      - .tmp/backend-concurrency/summary.json
+      - tests/backend/Unit/AuditProjectionBehaviorTests.cs
+      - tests/backend/Unit/ProductionReadinessCoordinatorBehaviorTests.cs
+      - tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs
+      - tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs
+      - tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs
+      - tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs
+      - .tmp/perf/release-summaries/backend-benchmark-regression.json
+      - tests/issue-1048-retention-replacements.json
+      - .tmp/release-evidence/test-suite-convergence.json
     ciJob: production-summary
     localOnly: false
     nightlyOnly: false
@@ -3519,9 +3985,23 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: fast
-    coverage: [backend-endpoint-api-contract]
+    coverage:
+      - backend-endpoint-api-contract
+      - deployment-runtime-lifecycle
+      - backend-endpoint-security-metadata-and-testserver
+      - backend-admin-console-endpoint-behavior
     artifacts: [.tmp/backend-api-integration, .tmp/coverage/backend/special-api-integration/**/coverage.cobertura.xml, .tmp/coverage/backend/special-api-integration/**/coverage.json]
-    evidence: [.tmp/backend-api-integration/summary.json, tests/backend/Fixtures/backend-test-requirements.json]
+    evidence:
+      - .tmp/backend-api-integration/summary.json
+      - tests/backend/Fixtures/backend-test-requirements.json
+      - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
+      - tests/backend/Unit/DevSeedSqlContractTests.cs
+      - tests/backend/Unit/DeploymentRuntimeStateTests.cs
+      - tests/backend/Unit/EndpointPolicyContractTests.cs
+      - tests/backend/Unit/AuthRiskControlEndpointContractTests.cs
+      - tests/backend/Unit/AdminPrincipalSecurityContractTests.cs
+      - tests/backend/Unit/BackendApiIntegrationContractTests.cs
+      - tests/backend/Unit/AdminConsistencyContractTests.cs
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -3557,9 +4037,42 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: fast
-    coverage: [backend-auth-mfa-pow-session-state-machine]
+    coverage:
+      - backend-auth-mfa-pow-session-state-machine
+      - backend-endpoint-security-metadata-and-testserver
+      - backend-user-session-revocation-enforcement
+      - backend-auth-cookie-jwt-expiry-alignment
+      - backend-recovery-passkey-idempotent-completion
+      - backend-concurrency-state-machine-behavior
+      - backend-executable-data-test-governance
+      - backend-passkey-behavior-governance
     artifacts: [.tmp/backend-auth-state-machine, .tmp/coverage/backend/special-auth-state-machine/**/coverage.cobertura.xml, .tmp/coverage/backend/special-auth-state-machine/**/coverage.json]
-    evidence: [.tmp/backend-auth-state-machine/summary.json, tests/backend/Unit/BackendAuthStateMachineTests.cs]
+    evidence:
+      - .tmp/backend-auth-state-machine/summary.json
+      - tests/backend/Unit/BackendAuthStateMachineTests.cs
+      - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
+      - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
+      - tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs
+      - tests/backend/Unit/SecurityChallengePersistenceTests.cs
+      - tests/backend/issue-1038-endpoint-security-evidence.json
+      - tests/backend/Unit/UserSessionValidationServiceTests.cs
+      - tests/backend/Unit/UserSessionJwtAuthenticationTests.cs
+      - tests/backend/Unit/UserSessionMappedBoundaryTests.cs
+      - tests/backend/issue-1052-user-session-revocation-evidence.json
+      - tests/backend/Unit/AuthCookieServiceSecurityTests.cs
+      - tests/backend/Unit/AuthCookieExpiryFlowTests.cs
+      - tests/backend/Unit/JwtHelperTests.cs
+      - tests/backend/Unit/UserServiceValidationTests.cs
+      - tests/backend/issue-1053-auth-cookie-expiry-evidence.json
+      - tests/backend/issue-1053-central-handoff.json
+      - tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs
+      - tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs
+      - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
+      - tests/backend/Unit/PasskeySignCountConcurrencyTests.cs
+      - tests/backend/issue-1040-retention-replacements.json
+      - docs/testing/issue-1040-concurrency-state-machines.md
+      - docs/issue-1041-executable-data-test-governance.md
+      - docs/passkey-test-governance.md
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -3591,9 +4104,40 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [backend-race-idempotency-model, backend-fault-race-readiness]
+    coverage:
+      - backend-race-idempotency-model
+      - backend-fault-race-readiness
+      - backend-log-cleanup-behavior
+      - backend-upload-cleanup-queue-behavior
+      - backend-rate-limiter-rejection-sampler-bounded
+      - backend-user-session-revocation-enforcement
+      - backend-recovery-passkey-idempotent-completion
     artifacts: [.tmp/backend-concurrency, .tmp/coverage/backend/special-concurrency/**/coverage.cobertura.xml, .tmp/coverage/backend/special-concurrency/**/coverage.json]
-    evidence: [.tmp/backend-concurrency/summary.json, tests/backend/Unit/BackendConcurrencyModelTests.cs, tests/backend/Fixtures/backend-test-requirements.json]
+    evidence:
+      - .tmp/backend-concurrency/summary.json
+      - tests/backend/Unit/BackendConcurrencyModelTests.cs
+      - tests/backend/Fixtures/backend-test-requirements.json
+      - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
+      - tests/backend/Unit/SubscriptionEndpointsContractTests.cs
+      - tests/backend/Unit/DevSeedSqlContractTests.cs
+      - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
+      - tests/backend/Unit/ArticleDestructiveMutationBehaviorTests.cs
+      - tests/backend/Unit/CommentMutationPostgresConcurrencyTests.cs
+      - tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs
+      - tests/backend/Unit/AuthoringUserBanConcurrencyTests.cs
+      - tests/backend/Unit/SecurityChallengePersistenceTests.cs
+      - tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs
+      - tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs
+      - tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs
+      - tests/backend/Unit/RateLimiterRejectionRiskSamplerTests.cs
+      - tests/backend/issue-1055-rate-limiter-rejection-sampler-evidence.json
+      - benchmarks/core/RateLimiterRejectionSamplerBenchmarks.cs
+      - tests/backend/Unit/UserSessionValidationServiceTests.cs
+      - tests/backend/Integration/UserSessionRevocationIntegrationTests.cs
+      - tests/backend/issue-1052-user-session-revocation-evidence.json
+      - tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs
+      - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
+      - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -3659,9 +4203,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: fast
-    coverage: [backend-aeds-pod-golden]
+    coverage: [backend-aeds-pod-golden, backend-passkey-behavior-governance, backend-projection-serialization-behavior]
     artifacts: [.tmp/backend-golden, .tmp/coverage/backend/special-golden/**/coverage.cobertura.xml, .tmp/coverage/backend/special-golden/**/coverage.json]
-    evidence: [.tmp/backend-golden/summary.json, tests/backend/Fixtures/aeds-golden-catalog.json]
+    evidence: [.tmp/backend-golden/summary.json, tests/backend/Fixtures/aeds-golden-catalog.json, tests/backend/Unit/PodBinaryCodecTests.cs, tests/backend/Unit/AedsFrameNamingTests.cs, docs/passkey-test-governance.md, docs/testing/issue-1047-projection-serialization-handoff.md]
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -3688,9 +4232,9 @@ tiers:
     risk: critical
     cadence: pr
     requiredFor: fast
-    coverage: [backend-test-governance-static]
+    coverage: [backend-test-governance-static, test-tool-artifact-behavior]
     artifacts: [.tmp/backend-test-governance]
-    evidence: [tests/backend/Fixtures/backend-test-requirements.json]
+    evidence: [tests/backend/Fixtures/backend-test-requirements.json, tests/backend/Unit/CoverageScriptContractTests.cs, tests/backend/Unit/TestInfrastructure/BackendTestPathsTests.cs, tests/tools/backend-trx-contract.test.mjs, tests/issue-1048-retention-replacements.json]
     ciJob: fast-static-governance
     localOnly: false
     nightlyOnly: false
@@ -3717,9 +4261,19 @@ tiers:
     risk: high
     cadence: nightly
     requiredFor: none
-    coverage: [backend-stryker-core-security-binary-cache]
+    coverage:
+      - backend-stryker-core-security-binary-cache
+      - backend-security-hardening-boundary-and-ast
+      - backend-auth-mfa-pow-session-state-machine
+      - backend-race-idempotency-model
+      - backend-fault-race-readiness
     artifacts: [.tmp/mutation/backend]
-    evidence: [.tmp/mutation/backend]
+    evidence:
+      - .tmp/mutation/backend
+      - tests/backend/issue-1037-retention-replacements.json
+      - tests/backend/Unit/RecoveryKeyAttemptLimiterContractTests.cs
+      - tests/backend/Unit/AnonymousNullifierPostgresConcurrencyTests.cs
+      - tests/backend/Unit/SecurityChallengePersistenceTests.cs
     ciJob: backend-mutation
     localOnly: false
     nightlyOnly: true

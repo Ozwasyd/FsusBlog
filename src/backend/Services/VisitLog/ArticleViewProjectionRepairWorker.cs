@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Operations;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.VisitLog;
@@ -8,7 +9,8 @@ public sealed class ArticleViewProjectionRepairWorker(
     IServiceScopeFactory scopeFactory,
     ILogger<ArticleViewProjectionRepairWorker> logger,
     TimeProvider timeProvider,
-    IBackgroundWorkerLease workerLease) : BackgroundService
+    IBackgroundWorkerLease workerLease,
+    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
     private static readonly TimeSpan ReconcileInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan FullReconcileInterval = TimeSpan.FromDays(1);
@@ -42,8 +44,9 @@ public sealed class ArticleViewProjectionRepairWorker(
 
             int repaired = await dbGate.ExecuteAsync(
                 "article-view-projection-reconcile",
-                async _ =>
+                async gateToken =>
                 {
+                    await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
                     await EnsureWatermarkStoreAsync(db).ConfigureAwait(false);
 
                     SugarParameter[] keyParameters = [new("@ProjectionWatermarkKey", ProjectionWatermarkKey)];
@@ -71,6 +74,7 @@ public sealed class ArticleViewProjectionRepairWorker(
                         WHERE id > @LastVisitLogId;
                         """, deltaParameters).ConfigureAwait(false);
 
+                    await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
                     int incrementallyRepaired = await db.Ado.GetIntAsync("""
                         WITH changed_articles AS (
                             SELECT DISTINCT article_id
@@ -103,6 +107,7 @@ public sealed class ArticleViewProjectionRepairWorker(
                         FROM updated;
                         """, deltaParameters).ConfigureAwait(false);
 
+                    await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
                     await db.Ado.ExecuteCommandAsync("""
                         UPDATE article_view_projection_watermark
                         SET last_visit_log_id = @MaxVisitLogId,
@@ -118,7 +123,9 @@ public sealed class ArticleViewProjectionRepairWorker(
                     int fullRepaired = 0;
                     if (await ShouldRunFullReconcileAsync(db).ConfigureAwait(false))
                     {
+                        await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
                         fullRepaired = await RunFullReconcileAsync(db).ConfigureAwait(false);
+                        await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
                         await MarkFullReconcileAsync(db).ConfigureAwait(false);
                     }
 
@@ -151,6 +158,9 @@ public sealed class ArticleViewProjectionRepairWorker(
             return 0;
         }
     }
+
+    private Task EnsureCurrentGenerationAsync(CancellationToken cancellationToken)
+        => activeReleaseCommitGuard?.EnsureCurrentAsync(cancellationToken) ?? Task.CompletedTask;
 
     private async Task EnsureWatermarkStoreAsync(ISqlSugarClient db)
     {

@@ -3,7 +3,38 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TIER="${1:-scale-xs}"
-OUT_DIR="$ROOT_DIR/.tmp/scale/$TIER"
+if [[ "${FSUSBLOG_DATA_SCALE_OUT_DIR+x}" == "x" ]]; then
+  [[ -n "$FSUSBLOG_DATA_SCALE_OUT_DIR" ]] || {
+    printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must not be empty\n' >&2
+    exit 1
+  }
+  case "$FSUSBLOG_DATA_SCALE_OUT_DIR" in
+    /*) ;;
+    *) printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must be an absolute path\n' >&2; exit 1 ;;
+  esac
+  case "/$FSUSBLOG_DATA_SCALE_OUT_DIR/" in
+    */../*|*/./*) printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must not traverse directories\n' >&2; exit 1 ;;
+  esac
+  command -v readlink >/dev/null 2>&1 || {
+    printf '[data-scale:seed] readlink is required to validate FSUSBLOG_DATA_SCALE_OUT_DIR\n' >&2
+    exit 1
+  }
+  OUT_DIR="$(readlink -m -- "$FSUSBLOG_DATA_SCALE_OUT_DIR")"
+  repository_tmp="$(readlink -m -- "$ROOT_DIR/.tmp")"
+  system_tmp="$(readlink -m -- "${TMPDIR:-/tmp}")"
+  [[ "$system_tmp" != "/" ]] || {
+    printf '[data-scale:seed] TMPDIR must not resolve to the filesystem root\n' >&2
+    exit 1
+  }
+  if [[ "$OUT_DIR" != "$repository_tmp/"* && "$OUT_DIR" != "$system_tmp/"* ]]; then
+    printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_OUT_DIR must stay under %s or %s\n' "$repository_tmp" "$system_tmp" >&2
+    exit 1
+  fi
+  summary_reference="$OUT_DIR/summary.json"
+else
+  OUT_DIR="$ROOT_DIR/.tmp/scale/$TIER"
+  summary_reference=".tmp/scale/$TIER/summary.json"
+fi
 mkdir -p "$OUT_DIR"
 
 case "$TIER" in
@@ -458,7 +489,7 @@ jq -n \
   --arg tier "$TIER" \
   --arg namespace "$namespace" \
   --arg prefix "$fixture_prefix" \
-  --arg summary ".tmp/scale/$TIER/summary.json" \
+  --arg summary "$summary_reference" \
   '{
     status: "probe-required",
     tier: $tier,

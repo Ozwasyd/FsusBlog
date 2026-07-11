@@ -39,29 +39,190 @@ On failure, collect:
 - `src/frontend/test-results/playwright/`
 - GitHub Actions `quality-gate-artifacts`
 
-For Docker packaging:
+For Docker packaging and slot inspection:
 
 ```bash
 export GITHUB_PACKAGES_TOKEN=...
-./tools/deploy-production.sh --dry-run
+./tools/deployment/slot-status.sh
+./tools/deployment/slot-preflight.sh \
+  --slot green \
+  --release-manifest build/releases/<release-id>/release-manifest.json \
+  --env-file .env.production
 ```
+
+`slot-preflight.sh` 对 manifest 选中的精确 `repository@sha256:<64 lowercase hex>` 执行 fail-closed 镜像运行时契约。它先 pull 目标 digest，再 inspect OCI labels：`io.fsusblog.build.vcpkg-commit` 必须是完整 40 位小写 Git SHA，`io.fsusblog.runtime.node=required`、`io.fsusblog.runtime.npm=forbidden`、`io.fsusblog.runtime.publish-ready-to-run=false`。随后它以临时容器执行 `command -v node`，并证明 `npm` 不存在。可变 tag、无效 digest、pull/inspect 失败、label 不匹配、Node 缺失或 npm 存在都会在 Compose candidate 启动前终止；持久化 active slot 不变，也不会启动 candidate。
+
+单独诊断同一契约时使用 `bash tools/deployment/image-runtime-contract.sh '<repository>@sha256:<digest>'`。该命令会实际 pull/inspect/run 目标镜像，不是离线 Dockerfile 检查；失败后应重新构建并推送修正后的新 digest，再生成新 manifest，禁止用 tag 覆盖或跳过 preflight。
 
 ## Rollout
 
-1. Run `./tools/deploy-production.sh --dry-run` and resolve every reported `.env.production` or ZK material blocker.
-2. Run `./tools/deploy-production.sh`; it builds the image, runs the ZK-Prod release gate, verifies `docker compose --env-file .env.production config`, and starts the container.
-3. Wait for `/health/live` to pass.
-4. Check `/health/ready`.
-5. Switch or keep gateway traffic only after readiness is `ready`.
+### 唯一入口与资源前提
 
-Rollback is image based:
+生产发布、显式回滚和中断恢复都从 `tools/deployment/release-rollout.sh` 进入。除一次性空状态 bootstrap 与故障诊断外，不直接调用 `slot-start.sh`、`gateway-switch.sh` 或 `deploy-production.sh`。先运行 `slot-status.sh` 确认 durable state 为 `stable` 且 `activeStateConsistent=true`，再选择 CI 生成且 registry 仍保留的 immutable manifest。
+
+零停机资格下限来自 `deploy/zero-downtime-resource-policy.json`：4 CPU cores、6144 MiB total memory、10240 MiB free disk。双槽合计预算是 360% CPU / 4608 MiB memory，临时磁盘 8192 MiB，并至少采集 10 个 overlap samples。2C/2G 只允许单槽运行，不能执行 overlap 或宣称零停机；`slot-preflight.sh` 的较低 pull/start guard 也不能替代这一资格门禁。
+
+把 exactly one `Authorization: Bearer ...` 或 `Cookie: ...` header 保存到 root-readable mode-0400/0600 regular non-symlink file。认证 storage state 同样必须为 0400/0600；secret 不得进入命令行、证据、issue comment 或 shell trace。
 
 ```bash
-docker compose --env-file .env.production down
-FSUSBLOG_FINAL_IMAGE_TAG=previous-tag docker compose --env-file .env.production up -d
+export FSUSBLOG_DEPLOYMENT_ADMIN_HEADER_FILE=/run/fsus/deployment-admin-header
+export FSUSBLOG_DEPLOYMENT_CONTROL_ORIGIN=https://fsus.blog
+export FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL=https://fsus.blog/health/ready
+
+./tools/deployment/release-rollout.sh \
+  --rollout-id deploy-<release-id>-<unique-suffix> \
+  --release-manifest build/releases/<release-id>/release-manifest.json \
+  --env-file .env.production \
+  --slot-state-file /var/lib/fsusblog/deployment/slots.json \
+  --rollout-state-file /var/lib/fsusblog/deployment/rollouts/<rollout-id>/state.json \
+  --evidence-root /var/lib/fsusblog/deployment/rollouts \
+  --backup-restore-evidence .tmp/operations/backup-restore-drill.json \
+  --migration-server-dll /app/FsusBlog.Server.dll \
+  --traffic-scenario /run/fsus/release-traffic-scenario.json \
+  --notification-auth-storage-state /run/fsus/notification-auth-state.json \
+  --asset-compatibility-scenario /run/fsus/asset-compatibility-scenario.json \
+  --worker-ledger /run/fsus/worker-normal-ledger.json \
+  --fault-injection-evidence /run/fsus/fault-matrix.json \
+  --public-url "$FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL" \
+  --admin-header-file "$FSUSBLOG_DEPLOYMENT_ADMIN_HEADER_FILE" \
+  --control-origin "$FSUSBLOG_DEPLOYMENT_CONTROL_ORIGIN" \
+  --asset-store /var/lib/fsusblog/release-assets \
+  --dry-run
 ```
 
-If a release specifically needs public AOT disk cache invalidation, set `Lifecycle:ClearAotDiskCacheOnStartup=true` for that rollout only. The default is `false`; rollback is to remove the setting and restart on the previous or current image without the one-shot cleanup. If a later startup task fails after the clear, the host now performs a best-effort restore of the previous `wwwroot/aot-cache` contents before surfacing the bootstrap failure. The same startup rollback pipeline now also restores the previous `wwwroot/search` artifacts, or removes newly created search output, if a later task fails after a search index rebuild. Startup cache prewarm records the prior blacklist cache state for each touched user and restores that cache state if a later bootstrap task fails. Schema migrations are reported as `non_compensable`; database rollback remains an operator-owned backup/restore action instead of an automatic in-process rollback.
+Dry-run 必须显示 exact source/target release、digest、slot、generation、state path 和 ordered stages。确认后去掉 `--dry-run`，使用同一个全新 `rolloutId` 和相同输入运行；已存在 state 必须使用 `--resume`，不能覆盖。
+
+### 15 阶段与断点恢复
+
+完整顺序固定为：
+
+`manifest-validate -> capacity-preflight -> backup-restore-gate -> expand-migration -> candidate-start -> candidate-readiness -> asset-materialize -> candidate-smoke -> compatibility-smoke -> gateway-switch -> active-fence -> public-verify -> source-drain -> source-stop -> release-evidence`
+
+每次 attempt 的 command stdout/stderr、开始/结束时间、exit code、SHA-256 和 bytes 都写入 mode-0600 stage evidence。已成功阶段不可重复；失败阶段先进入 `recovery_required` 并执行 stage-specific compensation。安全关键 gate 没有 skip 参数。
+
+宿主进程被 SIGTERM/SIGKILL 或异常退出后，先读取 state，不从头跑：
+
+```bash
+node tools/deployment/rollout-state.mjs read \
+  --state /var/lib/fsusblog/deployment/rollouts/<rollout-id>/state.json
+
+./tools/deployment/release-rollout.sh \
+  --resume \
+  --rollout-id <same-rollout-id> \
+  --rollout-state-file /var/lib/fsusblog/deployment/rollouts/<rollout-id>/state.json \
+  --release-manifest build/releases/<release-id>/release-manifest.json \
+  <the-same-runtime-input-options>
+```
+
+Resume 会验证 manifest 与 durable target 一致，采用仍存活且 command line/path anchor 匹配的 probes，把没有终态 evidence 的 orphan running stage 封存为 interruption failure，再执行该阶段的明确 recovery。它只跳过有 sealed success evidence 的阶段。Terminal state、另一 rollout ID、另一 release/digest 或历史 pass artifact 均不能复用。
+
+### 切流、fence、排空与存储
+
+Gateway stage 使用 `--defer-source-drain`：先 CAS-activate target、atomic reload 并提交 traffic state，但保留 source 可恢复。随后 active-fence stage 用 release/slot/generation/digest 做 Redis CAS，revoke source，再 read-back target owner。所有 active-singleton worker 在领取 lease 后还必须在不可逆提交前执行 `IActiveReleaseCommitGuard.EnsureCurrentAsync`；旧 generation 即使仍在运行也不能提交 scheduled transition、outbox effect、crawler snapshot、cleanup delete、projection checkpoint、PublicAOT finalize 或 upload deletion。
+
+Public verification 同时运行持续 12-class traffic、notification reconnect/replay、N/N-1 asset/Service Worker、resource budget probes。Source drain 先发送 1012 restart，再并行排空 HTTP、notification、background claims、article-view、hot-stats、audit/admin-audit、visit、RUM、security/challenge audit、public-hot、ArticleDetail AEDS、PublicAOT backfill 与 upload cleanup。任一 pending、timeout 或 error 都保留在 blockers，不能手写 success。
+
+`asset-materialize` 把 manifest-selected frontend/Wasm/font 文件写入 append-only `<asset-store>/releases/<releaseId>`；同路径不同 hash fail closed。`UseReleaseScopedStaticAssets` 在 SPA fallback 前服务 `/release-assets/<releaseId>/...` 与 `/release-derived/<releaseId>/...`，Production 缺 root setting 会拒绝启动。Applied GC 必须先持久化 retention state，保护 N-1 `retention-window`，再由 old-asset probe 于 GC 后复读所有旧 URL。Release-derived writers 只写自己的 release subtree，并通过 generation publisher 原子更新 pointer；不得 clear shared root 或另一个 release。
+
+这里的运行时接线不能手工拆开：manifest 校验生成 `FSUSBLOG_RELEASE_ID`，主机侧 manifest 路径只暂存在 `FSUSBLOG_RELEASE_MANIFEST_HOST_PATH` 供 Compose 只读挂载；容器内固定读取 `FSUSBLOG_RELEASE_MANIFEST_PATH=/app/release-manifest.json`，并以 `FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived` 访问 shared derived volume。三者必须指向同一 release identity；不要把它们写死在 `.env.production`，也不要让容器读取另一个 manifest 或 derived root。
+
+### 强流量、资产 HMAC 与 migration qualification
+
+唯一 rollout 入口必须同时取得两个独立私钥文件：
+
+完整 `release-rollout.sh` invocation 除 manifest、migration、notification、worker、
+resource 与 fault 参数外，必须包含以下四项（这里只列参数片段，不是第二个可执行入口）：
+
+```text
+--traffic-scenario /run/fsus/release-traffic-scenario.json
+--traffic-binding-key-file /run/fsus/secrets/traffic-binding.key
+--asset-compatibility-scenario /run/fsus/release-asset-browser-scenario.json
+--asset-browser-binding-key-file /run/fsus/secrets/asset-browser-binding.key
+```
+
+两个 key 都必须是 0400/0600 regular non-symlink、32..4096 bytes，且不得与 admin
+header、Cookie/storage-state 或彼此复用。traffic artifact 与 asset/browser artifact
+分别由 dedicated verifier 进行 HMAC readback；`--resume` 不得因文件已存在就跳过验证。
+key 错误或 evidence 漂移会阻断 closeout，但不要求重启应用：切流前保持 source，切流后
+按 durable recovery 恢复 source gateway/fence，并使用新的单调 generation。
+
+私有 rehearsal plan 的强字段为：
+
+| 区域 | 字段 | 约束 |
+|---|---|---|
+| traffic | `evidenceInputs.trafficBindingKey` | private key file，32..4096 bytes |
+| asset | `evidenceInputs.assetBrowserBindingKey` | 独立 private key file，32..4096 bytes |
+| migration binary | `target.migrationServerDll` | target manifest 对应的精确 Server DLL |
+| migration scenario | `migrationQualification.scenarioTemplate` | 固定十场景模板 |
+| migration timeout | `migrationQualification.timeoutSeconds` | 60..1800 |
+| migration IDs | `expandMigrationId` / `backfillMigrationId` / `contractMigrationId` | safe immutable IDs |
+
+rehearsal 自动物化并执行十场景：旧 Active + Expand、双槽并发读写、Backfill
+pause/checkpoint/resume、missing Expand 503、回滚窗口拒绝 Contract、Contract 后不可回滚
+marker、advisory-lock timeout、数据库断连、partial failure/resume、history checksum +
+unknown record。repository adapter 只接受
+`ASPNETCORE_ENVIRONMENT=Test` + `FSUSBLOG_ROLLOUT_REHEARSAL=1`；应用 bridge/readiness
+route 还要求 `SchemaMigration:QualificationEnabled=true`、admin `system.config` 与
+`fixed_ip`。生产配置保持 false。
+
+### Normal 与 destructive qualification
+
+正常 production rollout 只接受 worker reconciliation v2 `mode=normal`：八类 durable work、graceful drain、target exactly-once、zero stale-generation commit。Forced-source/SIGKILL 是独立 Test topology qualification，不得嵌入 normal source drain：
+
+Dry-run 审核完成后，在真实 rollout 旁路启动 normal observer；它等待 durable state 到达 `candidate-start`，通过 loopback admin action 驱动/观察八类真实 pending，并在 `source-drain-gate.json` 通过后独占写出传给 rollout `--worker-ledger` 的账本。plan 的 `baseUrl` 必须是精确 loopback origin，admin header 仍只从 0400/0600 regular non-symlink file 读取：
+
+```bash
+node tools/deployment/release-worker-normal-observer.mjs \
+  --plan /run/fsus/release-worker-normal-observer-plan.json \
+  --rollout-state /var/lib/fsusblog/deployment/rollouts/<rollout-id>/state.json \
+  --source-drain /var/lib/fsusblog/deployment/rollouts/<rollout-id>/evidence/source-drain-gate.json \
+  --admin-header-file "$FSUSBLOG_DEPLOYMENT_ADMIN_HEADER_FILE" \
+  --out /run/fsus/worker-normal-ledger.json \
+  --run-id normal-<rollout-id> \
+  --start-stage candidate-start \
+  --timeout-ms 900000
+```
+
+Observer 的 start/status/finalize 响应必须绑定 rollout ID、source/target release/digest/slot/generation，显式 `destructive=false`，且保持精确有序八类事件；第九类 forced-source event、静态 pass JSON、qualification ledger、提前于 drain 的 final observation 和截断错误列表都会失败。
+
+不要把上述 `release-worker-normal-observer.mjs` 与 `release-worker-observer-service.mjs` 混为一体。前者是正常 rollout 旁路观察器；后者只由 `zero-downtime-rehearsal.sh` 在隔离 `Test` 拓扑中按 deploy/rollback/resume、qualification、fault 和 SIGKILL/resume 阶段临时启动。演练脚本复制私有 `workers.observerEnvFile` 到 mode-0600 service root，以独立 process group 监听 loopback，并在成功、失败、中断恢复和 teardown 时停止该服务；提前退出或无法停止都会使演练失败。生产不得设置 `ASPNETCORE_ENVIRONMENT=Test`、`FSUSBLOG_ROLLOUT_REHEARSAL=1`、`FSUSBLOG_WORKER_OBSERVER_ENABLED=1` 或任何 `FSUSBLOG_WORKER_OBSERVER_*`，也不得把该服务注册成常驻 daemon。
+
+```bash
+tools/deployment/zero-downtime-rehearsal.sh \
+  --plan /run/fsus/zero-downtime-rehearsal-plan.json \
+  --mode all
+```
+
+Qualification 使用九类 ledger 和 file handshake，完成后 teardown；随后必须创建 fresh normal rollout，使用不同 rollout ID、相同 target release/digest。Qualification v2 hash-binds qualification control、ledger、resource policy、reconciliation 与 distinct normal state。不得在 production source container 上强杀，不得把 qualification ledger 当 normal ledger，也不得复用历史 state/evidence。
+
+### Evidence bundle 与 closeout
+
+Final evidence 只允许六类 artifact：`publicTraffic`、`notificationStream`、`assetCompatibility`、`workerReconciliation`、`resourceBudget`、`faultInjection`。它必须 seal 15 stages、全部 attempts 与 recoveries，随后 read-back verify。收集时设置：
+
+```bash
+export FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE=/var/lib/fsusblog/deployment/rollouts/<rollout-id>/evidence/release-rollout.json
+tools/operations/collect-release-evidence.sh
+```
+
+Collector 通过 `collect-release-rollout-bundle.mjs` 只复制 final evidence、15-stage command evidence、sealed recoveries 和六类 hash-bound artifacts，生成 `release-rollout-bundle/bundle-index.json`。需要单独导出时可运行：
+
+```bash
+node tools/operations/collect-release-rollout-bundle.mjs \
+  --input "$FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE" \
+  --output /run/fsus/handoff/release-rollout-bundle
+```
+
+目标目录必须不存在；symlink、path escape、seal 后漂移、未引用文件或第七类 artifact 均失败。Release manifest 的 `evidenceSummary.operations.releaseRollout` 及 bundle semantic check 必须为 `ok`，但这仍不替代真实 DNS/firewall/live exposure 和 `--require-ok` closeout。
+
+### 风险、无需重启回退与场景覆盖
+
+- 切流前失败：source 保持 Active，停止 candidate；修复输入后以同 state resume，或在明确 terminal outcome 后使用新 rollout。
+- 切流已激活但未 commit/未过 post-switch gates：恢复 source include，以新的单调 generation 重启/激活 source，并 CAS-drain target；无法证明两者时保留 `rollback_required`。
+- Traffic 已 commit、source drain 失败：保持 target Active，阻断 closeout并处理旧 inactive source；不自动反向切流。
+- Expand/Backfill：保留 N/N-1 bridge；Backfill 只暂停 durable token，不需要重启。Contract 执行前可停止命令；Contract 执行后只能隔离写路径并恢复 verified backup，不能靠 image rollback 重建数据。
+- Asset/derived 异常：停止 applied GC、继续保护 N-1，重建当前 release generation；不得恢复 mutable `current` 路径或删除 active/previous release。
+
+Traffic scenario 和 release acceptance 必须覆盖：匿名主页/归档/文章/搜索/static/Binary；登录、refresh、protected read 与 write；admin health/control；notification stream 1012 reconnect、cursor replay、replay miss full resync、slow-client drain；上传以及 AEDS Binary frame。部署 502/503/504、未标记 5xx、连接失败、timeout 和 aborted in-flight 都是发布错误；只有明确 `X-Fsus-Error-Class: business` 且 error code 在 scenario allowlist 中的业务 5xx 可单独分类。
 
 ## Comment Length Policy
 
@@ -77,7 +238,7 @@ Use the full deployment runbook in [rights-v3-cutover-runbook.md](rights-v3-cuto
 
 Use the admin cache action endpoint for the remaining cutover sequence:
 
-1. Deploy the image and let database migrations complete. `SchemaMigrationRunner` clears legacy public artifacts that do not satisfy the V3 payload header.
+1. Before candidate start, require the rollout's read-only compatibility check to prove the Rights V3 schema and legacy-artifact cleanup descriptors are already present in migration history. The automatic `expand-migration` stage runs only currently classified online Expand work; it does not replay the legacy Rights V3/cleanup descriptors. A pre-protocol database missing them must first complete the isolated legacy bootstrap/restore runbook and then enter the online protocol.
 2. Run `recompute-article-rights` to replace migration sentinel hashes and create any missing latest-revision rights snapshot.
 3. Run `rebuild-article-detail-aeds-v3` with no `articleId` to rebuild all public ArticleDetail artifacts in batches with bounded parallelism. Supplying `articleId` rebuilds one article.
 4. Run the existing PublicAOT rebuild path after the ArticleDetail artifacts are V3-clean so HTML/hydration inputs converge on the same rights payload.
@@ -88,9 +249,11 @@ Rollback is image and database-backup based. Do not roll back by re-enabling old
 
 - `docker ps` health status is healthy.
 - `/health/ready` returns public minimal readiness JSON with `status=ready` and `checkedAt`. The public probe is served from a 5 second single-flight readiness snapshot so high-frequency orchestrator checks do not run PostgreSQL, Redis and RiskControl deep probes on every request; use `/api/ops/health/ready-detail?forceRefresh=true` when an operator needs an immediate deep refresh.
-- `/api/ops/health/ready-detail` runtime startup snapshot shows expected `schemaMigration` / `searchIndex` / `cacheInitializer` / `aotDiskCache` / `bootstrapRollback` task states for the current rollout. The snapshot is sourced from `StartupRuntimeState.CreateSnapshot()` and is independent from PublicAOT/AEDS payloads. `schemaMigration` should report `non_compensable`; `cacheInitializer` reports either `no_entries` or the number of rollback entries it can restore. The same runtime block exposes `scheduledPublish` with `lastPublishedCount`, `lastFailedCount`, `dueBacklog` and `lastError`; non-zero failures mean due scheduled articles remain queued for the next worker tick and should be investigated before release closeout.
+- `/api/ops/health/ready-detail` `checks.release` must equal the selected release manifest for `releaseId`, `releaseSlot`, full `commitSha`, `imageRef` and `imageDigest`. Any `release_identity_invalid` result blocks traffic; correct the manifest/environment binding or redeploy a retained digest, without changing a mutable tag in place.
+- `/api/ops/health/ready-detail` runtime startup snapshot shows expected `schemaMigration` / `accountSubjectHashInvariant` / `searchIndex` / `cacheInitializer` / `aotDiskCache` / `bootstrapRollback` task states for the current rollout. The snapshot is sourced from `StartupRuntimeState.CreateSnapshot()` and is independent from PublicAOT/AEDS payloads. In production the resolved migration runner is read-only compatibility; verify its runtime result together with `OnlineSchemaCompatibilityRuntimeState` rather than treating the historical `non_compensable` task label as proof that a mutation ran. `accountSubjectHashInvariant` must report `physical_projection_complete` before candidate traffic is enabled; `cacheInitializer` reports either `no_entries` or the number of rollback entries it can restore. The same runtime block exposes `scheduledPublish` with `lastPublishedCount`, `lastFailedCount`, `dueBacklog` and `lastError`; non-zero failures mean due scheduled articles remain queued for the next worker tick and should be investigated before release closeout.
 - `/api/ops/health/ready-detail` includes `observability` with service name/version, ActivitySource, Meter and whether OTLP export is enabled.
 - `/api/ops/health/ready-detail` includes `riskControl` with active policy, last-known-good policy, Redis consume-once and challenge provider registry state. If this check fails, keep the candidate out of traffic; write-class challenge paths fail closed, while public-read degradation must follow the active policy rather than bypassing RiskControl.
+- `/api/ops/health/ready-detail` includes `deployment` with release/slot/mode/state/generation, `canReceiveTraffic`, `canClaimBackgroundWork` and the drain snapshot. Any Candidate not exactly Ready, any Draining/Stopped/Failed state, or a generation mismatch blocks switch/closeout.
 - Disk usage for Docker volumes and container logs is below alert thresholds.
 - PostgreSQL connection usage leaves headroom for migrations and backups.
 - Redis memory and eviction policy are within expected bounds.
@@ -179,7 +342,7 @@ Authoring-level content export is a lighter recovery path for editorial mistakes
 
 ## Migration Recovery
 
-Before a production migration, create a site package and keep the package path with the deployment note. Startup migrations are reported in `StartupRuntimeState` as `schemaMigration`; rollback is either image rollback plus restoring the pre-migration database dump, or forward-fix migration after a failed dry run. Large table migrations must include a batch plan, post-migration data check, and restore command in the release note. The minimal local preflight for migration-sensitive work is:
+Before a production migration, create a site package and keep the package path with the deployment note. Production `serve` resolves `ServeSchemaCompatibilityRunner` and performs a read-only compatibility check; it must not acquire the migration advisory lock, create control tables or execute a descriptor. The rollout's `expand-migration` stage is the only automatic mutation and invokes `run-online-migrations.sh --phase expand` before candidate start. Backfill is an explicit resumable control-plane command. Contract is never selected by startup or candidate rollout and requires its own evidence plus separate `--confirm-destructive`. Large table migrations must include a batch plan, post-migration data check, and restore command in the release note. The minimal local preflight for migration-sensitive work is:
 
 ```bash
 dotnet build src/backend/FsusBlog.Server.csproj --no-restore
@@ -195,6 +358,21 @@ FSUS_LEGACY_20260517_DUMP_GZ=.tmp/db_blog_20260517000000fjyfe.sql.gz \
 ```
 
 The verifier restores the dump into the schema migration integration test container, runs `SchemaMigrationRunner.RunAsync()` twice, and checks content, messaging, visit-log, refresh-token cleanup, length alignment and migration-history idempotency.
+
+Online changes follow [Online Database Migration Protocol](online-database-migration.md) and [Online Migration Operations](online-database-migration-operations.md). Expand remains compatible with N/N-1 and rolls back by keeping the additive schema. Backfill pauses at its durable token without restarting the web process. Before Contract, stop the explicit command and keep the bridge; after destructive Contract, code rollback cannot recreate removed data, so isolate the affected write path and restore the verified backup into an isolated database before selecting a compatible release/database pair. Never edit migration history or progress rows to force readiness.
+
+### Retired runtime fallback milestones
+
+The six #1013 retirement notes are the operator evidence map for upload-session root sweep, subscription HMAC cutover, article-content finalize, plain-cookie read removal, AOT sidecar hash, and one-time artifact-clear migration:
+
+- `docs/releases/issue-1013-a3-1-upload-session-root-sweep.md`
+- `docs/releases/issue-1013-a3-2-subscription-hmac-cutover.md`
+- `docs/releases/issue-1013-a3-3-article-content-finalize.md`
+- `docs/releases/issue-1013-a3-4-plain-cookie-read.md`
+- `docs/releases/issue-1013-a3-7-aot-sidecar-hash.md`
+- `docs/releases/issue-1013-a3-8-artifact-clear-migration.md`
+
+Run the focused retirement owner during unified validation, but keep production observations separate in `tests/backend/issue-1013-runtime-fallback-milestones.json`. No local source scan or historical GitHub claim may stand in for current release IDs, migration-history rows, exact database counts, or deployed-control absence. Roll back by selecting the previous compatible image/database pair or pausing the affected external action; do not restore any retired request-time fallback.
 
 `/user/manage/integrity` is the post-migration drift check for article bodies/revisions, taxonomy references, comment chains, sessions and assets. Do not mark a migration complete while it reports unresolved error-severity checks unless the release note documents the accepted manual repair.
 
@@ -240,7 +418,7 @@ Collect machine-readable release evidence after gates and smoke:
 tools/operations/collect-release-evidence.sh
 ```
 
-The collector writes `.tmp/release-evidence/<timestamp>/manifest.json` and copies available security, operations, coverage, doc sync and gate-log evidence. The manifest status is `collected-ok` only when required evidence is valid; otherwise it is `collected-blocked` and `evidenceSummary` records which evidence is missing, scheduled or blocked. `collected-blocked` is schema-valid for production-ci-gate diagnostics, but it is not publishable. The collector and manifest checker semantically parse critical evidence instead of trusting file presence: backup restore must be a real drill, post-deploy smoke must not be dry-run, authenticated DAST must execute an active scan, Wasm fuzz must run at least one seed, fault injection cases must be injected, and short soak must report positive duration, sample count and p95. Production closeout remains fail-closed: DNS delegation/readiness, firewall policy and live exposure must come from the real production environment before production exposure closeout can close, and release-closeout-gate must run with `--require-ok`.
+The collector writes `.tmp/release-evidence/<timestamp>/manifest.json` and copies available security, operations, coverage, doc sync and gate-log evidence. Set `FSUSBLOG_RELEASE_MANIFEST`, `FSUSBLOG_RELEASE_ID`, `FSUSBLOG_RELEASE_SLOT`, `FSUSBLOG_COMMIT_SHA`, `FSUSBLOG_IMAGE_REF` and `FSUSBLOG_IMAGE_DIGEST` from the deployed manifest before collection. The collector embeds the validated manifest plus runtime slot as `releaseIdentity`; a missing field or release/commit/ref/digest mismatch keeps `evidenceSummary.image.releaseIdentityStatus` failed and the evidence `collected-blocked`. The manifest status is `collected-ok` only when required evidence is valid; otherwise it is `collected-blocked` and `evidenceSummary` records which evidence is missing, scheduled or blocked. `collected-blocked` is schema-valid for production-ci-gate diagnostics, but it is not publishable. The collector and manifest checker semantically parse critical evidence instead of trusting file presence: release identity must match the outer commit and image digest, backup restore must be a real drill, post-deploy smoke must not be dry-run, authenticated DAST must execute an active scan, Wasm fuzz must run at least one seed, fault injection cases must be injected, and short soak must report positive duration, sample count and p95. Production closeout remains fail-closed: DNS delegation/readiness, firewall policy and live exposure must come from the real production environment before production exposure closeout can close, and release-closeout-gate must run with `--require-ok`.
 
 The manifest is also the security evidence index for the release. It records DAST/ZAP output, `attack-matrix.json`, `permission-matrix.json`, production exposure status, production exposure request, firewall policy evidence, DNS readiness, DNS delegation and live exposure evidence. `evidenceSummary.externalExposure.valid=false` is a valid release-blocking artifact state, not a promotion signal. `evidenceSummary.externalExposure.request` summarizes the request package status, blocker count, current blocker sources, next action sources, unblock plan sources/count, required hosts, delegation domains, required evidence keys, firewall source sha256 requirements, handoff check count, verification command names/count, returned closeout command count and closeout command fields so operators can triage from the manifest before opening the full request JSON. `artifactDigests` records sha256 digests for copied production exposure artifacts so a handed-off bundle can be checked without trusting the current working tree; firewall policy evidence also carries `evidenceSource.sourceSha256` for the raw cloud or UFW export used to generate the normalized policy. If an artifact is absent, its digest must also be `null`. Missing external evidence is represented as `null` in `securityEvidenceIndex` while the blocker detail remains in `production-exposure-status.json`; do not replace that with synthetic passing firewall or DNS data.
 

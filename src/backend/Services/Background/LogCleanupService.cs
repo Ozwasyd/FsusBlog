@@ -2,6 +2,7 @@
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Operations;
 using SqlSugar;
 
 namespace FsusBlog.Server.Services.Background;
@@ -17,7 +18,9 @@ namespace FsusBlog.Server.Services.Background;
 public class LogCleanupService(
     IServiceProvider _serviceProvider,
     ILogger<LogCleanupService> _logger,
-    IBackgroundWorkerLease workerLease) : BackgroundService
+    IBackgroundWorkerLease workerLease,
+    TimeProvider timeProvider,
+    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
     private const int ChunkSize = 5000;
     private const int MaxChunksPerCycle = 200;
@@ -80,11 +83,11 @@ public class LogCleanupService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("【系统】日志清理任务初始化完成。策略：访问日志保留 {VisitDays} 天，RUM 保留 {RumDays} 天，普通审计保留 {AuditDays} 天。", VisitLogRetentionDays, RumRetentionDays, AuditLogRetentionDays);
-        using var timer = new PeriodicTimer(TimeSpan.FromDays(1));
+        using var timer = new PeriodicTimer(TimeSpan.FromDays(1), timeProvider);
         await BackgroundTaskExecutor.RunLoopAsync(
             async token =>
             {
-                await workerLease.TryRunAsLeaderAsync("log-cleanup-worker", CleanupOnceAsync, token);
+                await RunCleanupAsLeaderAsync(token);
                 return await timer.WaitForNextTickAsync(token);
             },
             _logger,
@@ -107,20 +110,39 @@ public class LogCleanupService(
             });
     }
 
+    internal Task<bool> RunCleanupAsLeaderAsync(CancellationToken token)
+        => workerLease.TryRunAsLeaderAsync("log-cleanup-worker", CleanupOnceAsync, token);
+
     internal async Task CleanupOnceAsync(CancellationToken token)
     {
-        DateTime visitExpireDate = DateTime.UtcNow.AddDays(-VisitLogRetentionDays);
-        DateTime rumExpireDate = DateTime.UtcNow.AddDays(-RumRetentionDays);
-        DateTime auditExpireDate = DateTime.UtcNow.AddDays(-AuditLogRetentionDays);
-        DateTime anonymousCredentialAuditExpireDate = DateTime.UtcNow.AddDays(-AnonymousCredentialIssuanceAuditRetentionDays);
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+        DateTime visitExpireDate = now.AddDays(-VisitLogRetentionDays);
+        DateTime rumExpireDate = now.AddDays(-RumRetentionDays);
+        DateTime auditExpireDate = now.AddDays(-AuditLogRetentionDays);
+        DateTime anonymousCredentialAuditExpireDate = now.AddDays(-AnonymousCredentialIssuanceAuditRetentionDays);
 
         _logger.LogDebug("执行计划启动：寻找过期访问/RUM/普通审计日志...");
 
-        Task<int> visitTask = CleanupWithScopedDbAsync((db, scopedToken) => CleanupVisitLogsAsync(db, visitExpireDate, scopedToken), token);
-        Task<int> rumTask = CleanupWithScopedDbAsync((db, scopedToken) => CleanupRumMetricsAsync(db, rumExpireDate, scopedToken), token);
-        Task<int> auditTask = CleanupWithScopedDbAsync((db, scopedToken) => CleanupAuditLogsAsync(db, auditExpireDate, scopedToken), token);
+        Task<int> visitTask = CleanupWithScopedDbAsync(
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(db, CleanupVisitLogsSql, visitExpireDate, scopedToken),
+            token);
+        Task<int> rumTask = CleanupWithScopedDbAsync(
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(db, CleanupRumMetricsSql, rumExpireDate, scopedToken),
+            token);
+        Task<int> auditTask = CleanupWithScopedDbAsync(
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
+                db,
+                CleanupAuditLogsSql,
+                auditExpireDate,
+                scopedToken,
+                new SugarParameter("@CriticalSeverity", AuditSeverityCatalog.Critical)),
+            token);
         Task<int> anonymousCredentialAuditTask = CleanupWithScopedDbAsync(
-            (db, scopedToken) => CleanupAnonymousCredentialIssuanceAuditAsync(db, anonymousCredentialAuditExpireDate, scopedToken),
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
+                db,
+                CleanupAnonymousCredentialIssuanceAuditSql,
+                anonymousCredentialAuditExpireDate,
+                scopedToken),
             token);
         await Task.WhenAll(visitTask, rumTask, auditTask, anonymousCredentialAuditTask);
 
@@ -149,6 +171,27 @@ public class LogCleanupService(
         return await cleanup(db, token);
     }
 
+    private Task<int> CleanupWithActiveReleaseGuardAsync(
+        ISqlSugarClient db,
+        string sql,
+        DateTime expireDate,
+        CancellationToken token,
+        params SugarParameter[] extraParameters)
+    {
+        IActiveReleaseCommitGuard commitGuard = activeReleaseCommitGuard
+            ?? throw new InvalidOperationException("Active release commit guard is required for the log cleanup worker commit boundary.");
+        return CleanupByServerSideLimitCoreAsync(
+            db,
+            sql,
+            expireDate,
+            ChunkSize,
+            MaxChunksPerCycle,
+            DelayBetweenChunks,
+            commitGuard,
+            token,
+            extraParameters);
+    }
+
     internal static Task<int> CleanupVisitLogsAsync(
         ISqlSugarClient db,
         DateTime expireDate,
@@ -171,7 +214,7 @@ public class LogCleanupService(
             delayBetweenChunks,
             token);
 
-    private static Task<int> CleanupRumMetricsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
+    internal static Task<int> CleanupRumMetricsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
         => CleanupByServerSideLimitAsync(
             db,
             CleanupRumMetricsSql,
@@ -181,7 +224,23 @@ public class LogCleanupService(
             DelayBetweenChunks,
             token);
 
-    private static Task<int> CleanupAuditLogsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
+    internal static Task<int> CleanupRumMetricsAsync(
+        ISqlSugarClient db,
+        DateTime expireDate,
+        int chunkSize,
+        int maxChunks,
+        TimeSpan delayBetweenChunks,
+        CancellationToken token)
+        => CleanupByServerSideLimitAsync(
+            db,
+            CleanupRumMetricsSql,
+            expireDate,
+            chunkSize,
+            maxChunks,
+            delayBetweenChunks,
+            token);
+
+    internal static Task<int> CleanupAuditLogsAsync(ISqlSugarClient db, DateTime expireDate, CancellationToken token)
         => CleanupByServerSideLimitAsync(
             db,
             CleanupAuditLogsSql,
@@ -189,6 +248,23 @@ public class LogCleanupService(
             ChunkSize,
             MaxChunksPerCycle,
             DelayBetweenChunks,
+            token,
+            new SugarParameter("@CriticalSeverity", AuditSeverityCatalog.Critical));
+
+    internal static Task<int> CleanupAuditLogsAsync(
+        ISqlSugarClient db,
+        DateTime expireDate,
+        int chunkSize,
+        int maxChunks,
+        TimeSpan delayBetweenChunks,
+        CancellationToken token)
+        => CleanupByServerSideLimitAsync(
+            db,
+            CleanupAuditLogsSql,
+            expireDate,
+            chunkSize,
+            maxChunks,
+            delayBetweenChunks,
             token,
             new SugarParameter("@CriticalSeverity", AuditSeverityCatalog.Critical));
 
@@ -207,6 +283,22 @@ public class LogCleanupService(
             token);
     }
 
+    internal static Task<int> CleanupAnonymousCredentialIssuanceAuditAsync(
+        ISqlSugarClient db,
+        DateTime expireDate,
+        int chunkSize,
+        int maxChunks,
+        TimeSpan delayBetweenChunks,
+        CancellationToken token)
+        => CleanupByServerSideLimitAsync(
+            db,
+            CleanupAnonymousCredentialIssuanceAuditSql,
+            expireDate,
+            chunkSize,
+            maxChunks,
+            delayBetweenChunks,
+            token);
+
     private static async Task<int> CleanupByServerSideLimitAsync(
         ISqlSugarClient db,
         string sql,
@@ -214,6 +306,27 @@ public class LogCleanupService(
         int chunkSize,
         int maxChunks,
         TimeSpan delayBetweenChunks,
+        CancellationToken token,
+        params SugarParameter[] extraParameters)
+        => await CleanupByServerSideLimitCoreAsync(
+            db,
+            sql,
+            expireDate,
+            chunkSize,
+            maxChunks,
+            delayBetweenChunks,
+            null,
+            token,
+            extraParameters).ConfigureAwait(false);
+
+    private static async Task<int> CleanupByServerSideLimitCoreAsync(
+        ISqlSugarClient db,
+        string sql,
+        DateTime expireDate,
+        int chunkSize,
+        int maxChunks,
+        TimeSpan delayBetweenChunks,
+        IActiveReleaseCommitGuard? commitGuard,
         CancellationToken token,
         params SugarParameter[] extraParameters)
     {
@@ -234,6 +347,11 @@ public class LogCleanupService(
         while (!token.IsCancellationRequested && processedChunks < maxChunks)
         {
             token.ThrowIfCancellationRequested();
+            if (commitGuard is not null)
+            {
+                await commitGuard.EnsureCurrentAsync(token).ConfigureAwait(false);
+            }
+
             int deletedCount = await db.Ado.ExecuteCommandAsync(sql, parameters)
                 .ConfigureAwait(false);
             token.ThrowIfCancellationRequested();

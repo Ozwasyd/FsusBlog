@@ -106,6 +106,8 @@ Matrix 也声明 setup/cache 元数据：`requiresNode`、`requiresDotnet`、`re
 
 xUnit 通过 `tests/backend/xunit.runner.json` 固定 `stopOnFail=false`，单次运行会收集全部测试失败；filtered tier 先复用一次 `backend-filtered-build`，随后统一 `dotnet test --no-build`。每个 ordinary/special/filtered lane 都写入 `.tmp/test-results/backend/<lane>.trx`，retention audit 以稳定 `Class.Method` identity 汇总真实 p50、p95 与失败历史。所有使用 `PostgresSchemaMigrationFixture` 的测试类必须进入 `SchemaMigrationPostgresCollectionA/B` 之一；两个 collection 各自持有隔离 Postgres container，每个测试仍创建唯一数据库。`postgres-test-collections.json` 当前登记 28 个 fixture-backed class、227 个估算 case，checker 从源码重新发现 class 与 `Fact`/`Theory` case，拒绝漏 annotation、重复/遗漏 manifest 或 `estimatedFacts` 漂移。低 CPU、低于约 6 GiB 可用内存或高 load 时，`DOTNET_PROCESSOR_COUNT` 自动降为 `1`；其余机器最多并行两个 collection。
 
+审计、运维 readiness 与 PublicAOT artifact 测试按可观察职责拆分，不再由混合 `*ContractTests` 读取实现源码。审计证据分别由 `AuditLogStoreTests`（结构化落库、批写与 chain tail）、`AuditLogWriterWorkerTests` / `AuditFallbackWriterBehaviorTests`（失败降级与 durable fallback）、`AuditTamperEvidenceBehaviorTests`（canonical hash/MAC、固定长度校验、跨 culture chain ID）和 `AuditProjectionBehaviorTests`（PII disclosure 决策）拥有。运维证据由 `ProductionReadinessCoordinatorBehaviorTests` 验证并行启动、取消与多结果保留，`BackupRestoreScriptBehaviorTests` 通过临时 shell harness 实际调用 `pg_dump` / `pg_restore` 替身并覆盖连接串及阻断路径，`AdminOperationsBehaviorTests` 验证危险操作的 diff/MFA 策略和 typed confirmation。PublicAOT 的 ArticleDetail V3 文件写读、30 秒内存 TTL、legacy 拒绝和磁盘清理由 `ArticleDetailAedsArtifactStoreBehaviorTests` 负责；sidecar 与 cache invalidation 的可观察效果继续由 `PublicAotFileShellCacheTests`、`PublicAotDocumentServiceTests` 和 `PublicAotInvalidationTrackerTests` 负责。实现选择、SQL 形状与吞吐预算只由静态治理或 #1042 benchmark lane 证明，不回流为 source-string 单元测试。
+
 ### Frontend fast split
 
 前端 fast gate 拆成独立 tier：`frontend-build`、`frontend-unit-shard`、`frontend-property-model-perf`、`frontend-runtime-contracts`、`frontend-static-governance`、`frontend-fast-summary`。`frontend-build` 只运行一次并上传 `src/frontend/dist/**` 与 `.tmp/frontend/frontend-build.json`；普通 Vitest unit 由 `coverage-frontend` 以同一 `executionKey` 覆盖执行一次，原 `frontend-unit-shard` 仅保留为无 coverage 的调试入口；property/model/perf 继续由独立 tier 执行，不会被 coverage 替代。`frontend-runtime-contracts` 单独覆盖 worker/a11y/binary/runtime/wasm checks；`frontend-static-governance` 单独覆盖前端静态治理，并把 `check-gate-integrity`、`check-test-matrix` 这类全局 static governance 留给 `static-governance` job，避免重复。
@@ -411,7 +413,11 @@ data-scale lanes 必须生成真实、可查询、可清理的 fixture。`tools/
 
 **backend-perf-readiness / 性能基准**：
 
-`backend-perf` 在矩阵中是 BenchmarkDotNet build/readiness tier，只构建并确认 benchmark 项目可用；真实回归运行由 `backend-benchmark-regression` 负责并输出 release evidence。
+`backend-perf` 在矩阵中是 BenchmarkDotNet build/readiness tier，只构建并确认 benchmark 项目可用；真实回归运行由 `backend-benchmark-regression` 负责并输出 release evidence。该 lane 默认运行 `*HotPath*`：request audit/context、binary frame encode/PipeReader binding、notification shared fanout/frame pump、read-model projection、content filter、related scoring、stats projection 与 crawler/UA normalization。`tests/performance/backend-hotpath-budgets.json` 为唯一预算源；有诚实旧实现的场景按相同参数比较 mean/allocation ratio，没有可比旧实现的 PipeReader binding 与 frame pump 使用绝对 mean/allocation budget。
+
+`tools/perf/check-backend-benchmark-regression.mjs` 必须读取 BenchmarkDotNet JSON 的实际 `Statistics.Mean` 与 `Memory.BytesAllocatedPerOperation`，逐预算生成 before/after measurement、失败原因和 release summary。缺基准、缺相同参数、缺 allocation 或超预算都必须使 lane 失败；禁止再用 report 数量或固定 `status=ok` 代替性能证据。数据库热路径另由 PostgreSQL AOP command counter 断言：stats 子端点各自只执行其窄查询，related-reading 冷 miss 有界且 memory hit 不访问数据库；并行路径使用真实 TCS/barrier 验证同时启动、失败、取消、超时和资源释放。
+
+测试工具契约必须验证可观察行为：coverage 脚本使用 `--dry-run` 输出 schema，coverage collector/summarizer 使用 fixture report；`backend-trx-contract-dry-run` 在临时目录写入稳定 lane 名称的真实 `.trx`；viewport runner 通过注入 Playwright/summary 结果验证退出码，progress/summary 使用临时文件系统验证 current-run pointer、resume、并发原子写与陈旧产物隔离；data-scale/performance aggregator 和 release artifact restore 均以 mixed/stripped 下载布局的实际产物为准。matrix、workflow 与 package 接线由 `tools/check-test-matrix.mjs`、`tools/check-workflow-matrix-sync.mjs` 和 backend governance checker 的结构化解析集中验证，行为测试不得再读取 shell/workflow/其他测试源码匹配实现字符串。
 
 `backend-qps` 是静态实现证据加小样本运行时探针，不是吞吐容量基准。collector 会先执行源码结构 guard，再对本仓库启动的 Kestrel 进程做少量 HTTP probe；证据中 `performance_baseline.mode=kestrel-only`，顶层 `capacityConclusion.countedAsCapacity=false`。如果要对 nginx/CDN/reverse proxy 做部署层对比，使用单独 artifact 名称（例如 `backend-qps-deployment-proxy-optional`），并保持 `optional_deployment_layer.counted_as_project_baseline=false`。
 
@@ -426,13 +432,54 @@ CI 的 file-only checks 与 app-stack checks 必须分阶段：`cross-stack-cont
 cd FsusBlog.Core.Benchmarks
 dotnet run -c Release
 ```
-结果保存在 `BenchmarkDotNet.Artifacts/results/`。当前套件覆盖 AEDS/POD encode/decode、raw cache-hit defensive copy 与 readonly fast path、合成 search rebuild/query BM25 路径，以及 Public AOT bundle encode/decode；生产调高 runtime tuning 前必须把对应基准结果随发布证据保存。
+结果保存在 `BenchmarkDotNet.Artifacts/results/`。当前套件覆盖 AEDS/POD encode/decode、raw cache-hit defensive copy 与 readonly fast path、合成 search rebuild/query BM25 路径、Public AOT bundle encode/decode，以及上述 server hot paths；生产调高 runtime tuning 前必须把对应实测基准和 budget comparison 随发布证据保存，不得写“更快”而没有 measurement。
 
 ---
 
 ### `production` — production-ci-gate
 
 `production` 是 PR/CI 的 production-ci-gate。它执行当前 production DAG 并校验 release evidence schema，但允许 manifest 为 schema-valid `collected-blocked`，用于表达外部生产证据尚未回传或占位证据仍是 `scheduled`；这不等于可以发布。
+
+`static-governance` 同时执行 `tests/tools/release-manifest.test.mjs`。该行为测试创建不可覆盖的 `fsusblog.release-manifest.v1`，覆盖 commit/image/frontend/Wasm/toolchain 绑定、可变 tag/损坏清单/参数与 digest 不一致拒绝、无现场 build 的 deploy dry-run、pull 后 RepoDigest 与 OCI release/commit 标签不一致阻断，以及 release evidence 中 runtime slot/commit/ref/digest 的一致性。生产启动与 readiness 的对应行为由 `ReleaseIdentityTests` 和 `ProductionStartupValidatorTests` 覆盖；缺少身份不能靠本地默认值进入 Production。
+
+同一 tier 的 `tests/tools/deployment-slots.test.mjs` 使用临时持久状态和受控 Docker/health/port doubles 执行 blue/green 编排：两个 release digest 可同时存在于独立 project/container/loopback port，重复 start/stop 保持幂等，active slot 无法被 stop/替换，候选 health 失败、端口占用、损坏 digest 与资源不足都在不改变 active runtime 的前提下失败。测试还从 fsync + rename 状态文件模拟主机重启后的 active 恢复，并检查 Compose 只共享 uploads/DataProtection、隔离 AOT/log/data 且不再出现固定 `127.0.0.1:8080` 或公网绑定。
+
+同一 tier 的 `tests/tools/gateway-switch.test.mjs` 覆盖受控 loopback upstream 生成器、临时文件中断不影响活动 include、Blue→Green→Blue 切换/回滚、持续公网请求零拒绝/零 5xx、dry-run 全配置预检、候选 readiness/identity 拒绝、staged config 拒绝、reload 失败自动恢复源槽、发布锁竞争、`switching` 重启后 source/target 确定性恢复，以及 previous release identity 漂移时拒绝回滚。切换测试还用独立 runtime state double 证明 source 精确 Active、target 精确 Ready Candidate、target CAS activation 在 reload 前发生、durable commit 后 source drain 完成；回滚前必须把已排空旧 release 作为新 Candidate 重启。成功证据必须与最终 manifest 的 slot/release/digest 一致，并含 target activation/source drain 的 sanitized lifecycle snapshot；失败证据保留真实失败阶段与恢复动作，不能把后续未执行的检查标成通过。
+
+`DeploymentRuntimeStateTests` 是发布生命周期行为 owner：覆盖 Candidate 全门禁、错误 mode/generation fail closed、activate/drain identity-generation CAS 与幂等、进入中的普通 HTTP 完成而新请求被拒绝、异常/取消后计数归零、notification 与 background 独立计数、准确 drain blockers/timeout、SIGTERM 与主动 drain 复用同一路径，以及公共 readiness 不泄漏 release 拓扑。涉及匿名/登录/admin/notification/binary 的既有行为套件继续运行；发布状态只包围 HTTP/notification/background admission，不改变匿名/登录/admin 授权或 AEDS frame 编解码。
+
+`ActiveReleaseFenceContractTests`、`notificationStreamRestartPolicy.test.ts` 与 `check-background-service-classification.mjs` 共同拥有 release fence：Redis CAS/read-back、active-singleton ticket、最后提交前 guard、1012 cursor/replay-miss 语义，以及全部 BackgroundService 的 singleton/idempotency/drain/replay 分类。分类器与 analyzer 一次输出全部错误，不设置最大错误数；xUnit 继续固定 `stopOnFail=false`。
+
+#1031 的工具测试按独立临时目录和 loopback ephemeral ports 并行运行：
+
+- `release-rollout-state.test.mjs`：15-stage 顺序、rollout identity、failed-stage recovery 与 resume。
+- `release-rollout-evidence.test.mjs` / `release-rollout-bundle.test.mjs`：attempt/stage/recovery seal、恰好六类 artifact、hash/size readback、symlink/path escape/第七 artifact 拒绝。
+- `release-rollout-probes.test.mjs`：12 类持续流量、业务 5xx 明确分类、完整未截断错误、host/dual-slot/resource/reload/drain/reconnect/P95/P99 budgets。
+- `release-traffic-probe-session.test.mjs`：真实 Cookie jar、login/refresh/protected chain、response/body/AEDS、跨 gateway in-flight hold 与 HMAC final binding。
+- `release-migration-qualification.test.mjs` / `rehearsal-schema-qualification-probe.test.mjs` / `ReleaseSchemaQualificationEndpointsTests`：固定十场景、仓库 Test adapter、bridge/readiness guard、admin/rate-limit route contract 与完整错误聚合。
+- `release-worker-normal-observer.test.mjs`：loopback start/status/finalize producer、rollout/drain/hash/identity 绑定、精确有序 normal 8-kind、拒绝 destructive 第九类事件与不截断错误。
+- `release-worker-drill.test.mjs` / `release-worker-reconciliation.test.mjs`：normal 8-kind 与 destructive qualification 9-kind 分离、exactly-once、stale-generation=0、distinct fresh state binding。
+- `release-asset-compatibility-probe.test.mjs` 与 Playwright `release-asset-compatibility.spec.ts`：N-1 index/hash/JS/CSS/Wasm/font/SW cache、双向 backend compatibility、applied GC 后零 404。
+- `zero-downtime-rehearsal.test.mjs`：normal、explicit rollback、13-case post-switch fault、真实 process-group SIGKILL/resume 和跨模式错误聚合；记录型 fixture 不调用真实 Docker/网络。
+
+真实零停机 rehearsal 的资源资格固定为 4 CPU、6144 MiB memory、10240 MiB free disk；2C/2G 只验证单槽兼容性，不运行 dual-slot overlap。Qualification 必须 teardown 后创建 distinct fresh normal rollout，目标 release/digest 相同而 rollout ID 不同；禁止历史 state、ledger、checkpoint 或 pass evidence 复用。
+
+rehearsal plan 必须提供两个互不复用的 mode-0400/0600、32..4096-byte key：
+`evidenceInputs.trafficBindingKey` 与
+`evidenceInputs.assetBrowserBindingKey`。它们分别验证 traffic final binding 和真实
+Chromium/SW/GC binding；验证只接受 key 路径，不把 secret 写入 artifact。迁移资格还
+必须提供 `target.migrationServerDll` 以及
+`migrationQualification.{scenarioTemplate,timeoutSeconds,expandMigrationId,backfillMigrationId,contractMigrationId}`。
+
+| #1031 场景面 | 必须有的真实覆盖 |
+|---|---|
+| 匿名 | 首页、归档、文章、搜索、static 与公开 AEDS binary；部署连接错误和未标记 5xx 为 0 |
+| 登录 | login、refresh、protected read、代表性 write 与 upload；Cookie jar 不把凭据写入 evidence |
+| admin | health/control；migration bridge/readiness 只在 Test + explicit enable 下使用 `system.config` |
+| notification stream | guest/auth 1012、cursor replay、replay miss full resync、业务 event ID 去重、slow-client drain |
+| binary | AEDS magic/v2/header/flags/frame type/payload length/CRC16/byte budget 与可选 payload SHA-256 |
+
+以上是待运行的 acceptance contract，不是当前通过声明。
 
 执行顺序请以机器输出为准：
 
@@ -446,6 +493,8 @@ dotnet run -c Release
 2. 强制 bootstrap：启动或重启 PostgreSQL、Redis、Debug 后端、Vite 前端、Release Preview。`fast` 会重新生成前端 release 资源并同步到后端 StaticWebAssets，production 门禁必须在这里重启运行时，避免旧进程继续服务上一代代码或静态资源。
 3. 复用同一套运行环境执行 `release`、`integration`、`security`、`acceptance`、`cross-browser-smoke`、`visual`、`ux-viewport-smoke`、`frontend-render-pressure`、`resilience`、`load`、`backend-qps`。
 4. 收集 release evidence 并运行 schema/semantic check；此处不使用 `--require-ok`。
+
+Release rollout closeout 另外要求 `release-rollout.json` seal 15 stages 与 exactly six artifacts（public traffic、notification、asset compatibility、normal worker reconciliation、resource budget、fault injection），并要求 allowlisted `release-rollout-bundle/bundle-index.json` read-back。缺失、scheduled、hash drift 或 qualification ledger 冒充 normal 均保持 blocked。
 
 ```bash
 ./tools/test.sh production
@@ -607,6 +656,7 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 | AEDS v1 拒绝 / v2 CRC16 / compact payload | fast, resilience |
 | PoW 前置验证 | security |
 | 会话并发吊销 | security |
+| 零停机 rollout：匿名主页/归档/文章/搜索/static/Binary，登录/refresh/protected write，admin health/control，notification 1012/replay/full-resync/slow drain，上传，N/N-1 asset/SW，normal worker exactly-once | static-governance, acceptance, resilience, production |
 
 ## 单作者博客新增门禁
 

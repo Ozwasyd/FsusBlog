@@ -1,5 +1,4 @@
 using FsusBlog.Server.Infrastructure.Integrity;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -156,23 +155,29 @@ public sealed class SiteIntegritySigningTests
     }
 
     [Fact]
-    public void Source_DoesNotUseExternalChainsWalletsOrUnsafeCrypto()
+    public void RuntimeSigningSurface_UsesEcdsaWithoutExternalChainOrWalletDependencies()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src",
-            "backend",
-            "Infrastructure",
-            "Integrity",
-            "SiteIntegritySigning.cs"));
+        DateTimeOffset issuedAt = new(2026, 7, 4, 8, 0, 0, TimeSpan.Zero);
+        SiteSigningKeyRecord key = SiteSigningKeyRecord.CreateEcdsaP256(
+            "site-runtime-contract",
+            version: 1,
+            notBeforeUtc: issuedAt.AddMinutes(-1));
+        var service = new SiteIntegritySigningService(
+            SiteSigningKeyRegistry.Create([key], currentKeyId: key.KeyId));
 
-        Assert.Contains("ECDsa", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Ed25519", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("IPFS", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Arweave", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Nethereum", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("SIWE", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("unsafe", source, StringComparison.Ordinal);
+        SiteIntegritySignature signature = service.Sign(Payload(issuedAt));
+
+        Assert.Equal("ECDSA_P256_SHA256", signature.Algorithm);
+        Assert.True(service.Verify(Payload(issuedAt), signature).Accepted);
+        Assert.NotNull(typeof(SiteSigningKeyRecord).GetMethod(nameof(SiteSigningKeyRecord.CreateEcdsaP256)));
+
+        string[] referencedAssemblies = typeof(SiteIntegritySigningService).Assembly
+            .GetReferencedAssemblies()
+            .Select(static assembly => assembly.Name ?? string.Empty)
+            .ToArray();
+        string[] forbiddenDependencies = ["Ed25519", "IPFS", "Arweave", "Nethereum", "SIWE"];
+        Assert.DoesNotContain(referencedAssemblies, assemblyName => forbiddenDependencies.Any(forbidden =>
+            assemblyName.Contains(forbidden, StringComparison.OrdinalIgnoreCase)));
     }
 
     private static SiteIntegritySigningPayload Payload(DateTimeOffset issuedAt)

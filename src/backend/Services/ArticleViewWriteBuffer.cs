@@ -7,6 +7,8 @@ namespace FsusBlog.Server.Services;
 
 public sealed record ArticleViewFlushResult(int AcceptedDelta, IReadOnlySet<int> UpdatedArticleIds);
 
+public sealed record ArticleViewBufferSnapshot(int PendingArticleCount, long PendingDelta);
+
 public interface IArticleViewFlushSink
 {
     ValueTask<IReadOnlySet<int>> FlushArticleViewsAsync(
@@ -26,6 +28,14 @@ public sealed class ArticleViewWriteBuffer(
     ILogger<ArticleViewWriteBuffer> logger) : IArticleViewWriteBuffer
 {
     private readonly ConcurrentDictionary<int, int> _pending = new();
+
+    public ArticleViewBufferSnapshot CreateSnapshot()
+    {
+        KeyValuePair<int, int>[] pending = _pending.ToArray();
+        return new ArticleViewBufferSnapshot(
+            pending.Length,
+            pending.Sum(static item => (long)Math.Max(0, item.Value)));
+    }
 
     public ValueTask EnqueueAsync(int articleId, int delta = 1, CancellationToken cancellationToken = default)
     {

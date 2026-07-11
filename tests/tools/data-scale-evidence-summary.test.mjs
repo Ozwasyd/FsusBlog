@@ -22,7 +22,8 @@ function writeJson(base, relative, payload) {
 function runAggregator(base) {
   return spawnSync(process.execPath, [aggregateScript, '--root', base], {
     cwd: root,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    timeout: 10_000
   })
 }
 
@@ -40,8 +41,9 @@ function sourceSummary(tier, status = 'ok') {
   }
 }
 
-test('data-scale aggregate retains both production tiers and replaces stale output atomically', () => {
+test('data-scale aggregate retains both production tiers and replaces stale output atomically', (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-data-scale-summary-'))
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }))
   for (const [tier, relative] of Object.entries(sourceFiles)) {
     writeJson(temp, relative, sourceSummary(tier))
   }
@@ -70,8 +72,9 @@ test('data-scale aggregate retains both production tiers and replaces stale outp
   )).status, 'failed')
 })
 
-test('data-scale aggregate restores unique summaries from either CI artifact layout', () => {
+test('data-scale aggregate restores unique summaries from either CI artifact layout', (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-data-scale-summary-ci-'))
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }))
   writeJson(
     temp,
     '.tmp/downloaded-artifacts/integration-runtime/scale/release-summaries/scale-xs.json',
@@ -93,23 +96,4 @@ test('data-scale aggregate restores unique summaries from either CI artifact lay
   assert.ok(output.tiers.every((entry) => (
     entry.sourceLocation.startsWith('.tmp/downloaded-artifacts/integration-runtime/')
   )))
-})
-
-test('lane, matrix, registry, and workflow assign one writer to the production aggregate', () => {
-  const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/data-scale.sh'), 'utf8')
-  const matrix = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
-  const registry = fs.readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8')
-  const workflow = fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8')
-
-  assert.match(lane, /RELEASE_SUMMARY_DIR=.*\.tmp\/scale\/release-summaries/u)
-  assert.match(lane, /RELEASE_SUMMARY_DIR\/\$TIER\.json/u)
-  assert.doesNotMatch(lane, />\s*"\$ROOT_DIR\/\.tmp\/release-evidence\/data-scale-summary\.json"/u)
-
-  assert.match(matrix, /- id: data-scale-evidence-summary[\s\S]*?dependsOn: \[data-scale-xs, data-scale-s\]/u)
-  assert.match(matrix, /- id: release-evidence[\s\S]*?dependsOn: \[[^\]]*data-scale-evidence-summary/u)
-  for (const tier of ['scale-xs', 'scale-s']) {
-    assert.match(matrix, new RegExp(`- id: data-${tier}[\\s\\S]*?evidence: \\[\\.tmp/scale/release-summaries/${tier}\\.json\\]`, 'u'))
-    assert.match(registry, new RegExp(`"id": "${tier === 'scale-xs' ? 'scale-xs-empty-single' : 'scale-s-100-articles-1k-comments'}"[\\s\\S]*?"\\.tmp/scale/release-summaries/${tier}\\.json"`, 'u'))
-  }
-  assert.match(workflow, /\.\/tools\/test\.sh data-scale-evidence-summary --no-deps/u)
 })

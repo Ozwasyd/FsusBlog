@@ -1,7 +1,12 @@
 using System.Text;
 using System.Buffers.Binary;
+using System.Diagnostics.Metrics;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Text.Json;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
@@ -211,6 +216,150 @@ public sealed class PublicAotFileShellCacheTests
         PublicAotCacheEntry? restored = await cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion);
         Assert.NotNull(restored);
         Assert.Equal(entry.Value, restored.Value);
+    }
+
+    [Fact]
+    public async Task SetAsync_ReleasePublisherKeepsPerArtifactPointersIndependentAndRetainsHotRollbackGeneration()
+    {
+        using var temp = new TempDirectory();
+        var database = Substitute.For<IDatabase>();
+        var subscriber = Substitute.For<ISubscriber>();
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
+        redis.GetSubscriber(Arg.Any<object?>()).Returns(subscriber);
+        database.SetAddAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(true));
+        database.SetRemoveAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue[]>(), Arg.Any<CommandFlags>())
+            .Returns(call => Task.FromResult((long)call.ArgAt<RedisValue[]>(1).Length));
+        subscriber.PublishAsync(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
+            .Returns(Task.FromResult(1L));
+        var publisher = new ReleaseDerivedArtifactPublisher(
+            Path.Combine(temp.Root, "derived"),
+            "release-20260712-public-aot");
+        var secondPublisher = new ReleaseDerivedArtifactPublisher(
+            Path.Combine(temp.Root, "derived"),
+            "release-20260712-public-aot");
+        var oldInstance = new PublicAotFileShellCache(
+            new TestWebHostEnvironment(temp.Root, Environments.Development),
+            redis,
+            NullLogger<PublicAotFileShellCache>.Instance,
+            publisher);
+        var newInstance = new PublicAotFileShellCache(
+            new TestWebHostEnvironment(temp.Root, Environments.Development),
+            redis,
+            NullLogger<PublicAotFileShellCache>.Instance,
+            secondPublisher);
+        PublicAotCacheEntry first = CreateEntry("public:aot:v2:doc:2:article:42");
+        PublicAotCacheEntry firstUpdated = first with
+        {
+            GeneratedAtUtc = first.GeneratedAtUtc.AddSeconds(1),
+            Value = "<article>new release-derived document</article>"
+        };
+        PublicAotCacheEntry second = CreateEntry(
+            "public:aot:v2:doc:2:article:43",
+            "article:43",
+            PublicPageId.ArticleDetail);
+        byte[] firstPayload = PublicAotFileShellCache.SerializeEntryBytes(first);
+        byte[] firstUpdatedPayload = PublicAotFileShellCache.SerializeEntryBytes(firstUpdated);
+        byte[] secondPayload = PublicAotFileShellCache.SerializeEntryBytes(second);
+
+        await Task.WhenAll(oldInstance.SetAsync(first), newInstance.SetAsync(second));
+        string cacheRoot = publisher.GetKindRoot("public-aot");
+        string firstTargetPath = PublicAotFileShellCache.ResolveVersionedEntryPathInCacheRootForTests(
+            cacheRoot,
+            first.CacheKey,
+            first.FrontendAssetVersion,
+            first.PageId);
+        string secondTargetPath = PublicAotFileShellCache.ResolveVersionedEntryPathInCacheRootForTests(
+            cacheRoot,
+            second.CacheKey,
+            second.FrontendAssetVersion,
+            second.PageId);
+        string firstRelativePath = Path.GetRelativePath(cacheRoot, firstTargetPath);
+        string secondRelativePath = Path.GetRelativePath(cacheRoot, secondTargetPath);
+        string firstGeneration = PublicAotFileShellCache.BuildPublicationGenerationForTests(first.CacheKey, firstPayload);
+        string secondGeneration = PublicAotFileShellCache.BuildPublicationGenerationForTests(second.CacheKey, secondPayload);
+        string firstPointerPath = publisher.GetArtifactPointerPath("public-aot", firstRelativePath);
+        string secondPointerPath = publisher.GetArtifactPointerPath("public-aot", secondRelativePath);
+        Assert.Equal(firstPayload, await File.ReadAllBytesAsync(firstTargetPath));
+        Assert.Equal(secondPayload, await File.ReadAllBytesAsync(secondTargetPath));
+        Assert.Equal(
+            firstPayload,
+            await File.ReadAllBytesAsync(Path.Combine(
+                publisher.GetArtifactGenerationRoot("public-aot", firstRelativePath, firstGeneration),
+                firstRelativePath)));
+        Assert.Contains(firstGeneration, await File.ReadAllTextAsync(firstPointerPath), StringComparison.Ordinal);
+        string secondPointer = await File.ReadAllTextAsync(secondPointerPath);
+        Assert.Contains(secondGeneration, secondPointer, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(cacheRoot, "current.json")));
+
+        await newInstance.SetAsync(firstUpdated);
+        string firstUpdatedGeneration = PublicAotFileShellCache.BuildPublicationGenerationForTests(
+            firstUpdated.CacheKey,
+            firstUpdatedPayload);
+        Assert.Equal(firstUpdatedPayload, await File.ReadAllBytesAsync(firstTargetPath));
+        Assert.Contains(
+            firstUpdatedGeneration,
+            await File.ReadAllTextAsync(firstPointerPath),
+            StringComparison.Ordinal);
+        Assert.Equal(secondPointer, await File.ReadAllTextAsync(secondPointerPath));
+        Assert.Equal(secondPayload, await File.ReadAllBytesAsync(secondTargetPath));
+
+        await publisher.ReactivateArtifactAsync(
+            "public-aot",
+            firstRelativePath,
+            firstGeneration,
+            CancellationToken.None);
+
+        string rollbackPointer = await File.ReadAllTextAsync(firstPointerPath);
+        Assert.Equal(firstPayload, await File.ReadAllBytesAsync(firstTargetPath));
+        Assert.Contains(firstGeneration, rollbackPointer, StringComparison.Ordinal);
+        Assert.DoesNotContain(firstUpdatedGeneration, rollbackPointer, StringComparison.Ordinal);
+        Assert.True(Directory.Exists(publisher.GetArtifactGenerationRoot(
+            "public-aot",
+            firstRelativePath,
+            firstUpdatedGeneration)));
+        Assert.Equal(secondPointer, await File.ReadAllTextAsync(secondPointerPath));
+        Assert.Equal(secondPayload, await File.ReadAllBytesAsync(secondTargetPath));
+        Assert.Equal(first.Value, (await oldInstance.TryGetEntryAsync(first.CacheKey, first.FrontendAssetVersion))?.Value);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => publisher.PublishArtifactAndProjectAsync(
+            "public-aot",
+            firstRelativePath,
+            firstGeneration,
+            new byte[] { 99 }));
+        Assert.Equal(firstPayload, await File.ReadAllBytesAsync(firstTargetPath));
+        Assert.Equal(rollbackPointer, await File.ReadAllTextAsync(firstPointerPath));
+        Assert.Equal(secondPointer, await File.ReadAllTextAsync(secondPointerPath));
+        Assert.Equal(secondPayload, await File.ReadAllBytesAsync(secondTargetPath));
+
+        string firstGenerationManifestPath = Path.Combine(
+            publisher.GetArtifactGenerationRoot("public-aot", firstRelativePath, firstGeneration),
+            "generation-manifest.json");
+        ReleaseDerivedArtifactGeneration stored = JsonSerializer.Deserialize<ReleaseDerivedArtifactGeneration>(
+            await File.ReadAllBytesAsync(firstGenerationManifestPath))!;
+        await File.WriteAllBytesAsync(
+            firstGenerationManifestPath,
+            JsonSerializer.SerializeToUtf8Bytes(stored with { ReleaseId = "other-release" }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => publisher.ReactivateArtifactAsync(
+            "public-aot",
+            firstRelativePath,
+            firstGeneration));
+        Assert.Equal(firstPayload, await File.ReadAllBytesAsync(firstTargetPath));
+        Assert.Equal(rollbackPointer, await File.ReadAllTextAsync(firstPointerPath));
+        Assert.Equal(secondPointer, await File.ReadAllTextAsync(secondPointerPath));
+        Assert.Equal(secondPayload, await File.ReadAllBytesAsync(secondTargetPath));
+
+        await newInstance.RemoveAsync(second.CacheKey);
+        Assert.False(File.Exists(secondTargetPath));
+        Assert.False(File.Exists(secondPointerPath));
+        Assert.True(Directory.Exists(publisher.GetArtifactGenerationRoot(
+            "public-aot",
+            secondRelativePath,
+            secondGeneration)));
+        Assert.Equal(firstPayload, await File.ReadAllBytesAsync(firstTargetPath));
+        Assert.Equal(rollbackPointer, await File.ReadAllTextAsync(firstPointerPath));
+        Assert.Empty(Directory.EnumerateFiles(cacheRoot, "*.tmp", SearchOption.AllDirectories));
     }
 
     [Fact]
@@ -510,46 +659,132 @@ public sealed class PublicAotFileShellCacheTests
     }
 
     [Fact]
-    public void Source_UsesTrueAsyncReadAndHotPathMetrics()
+    public async Task Runtime_UsesTrueAsyncReadHotPathDiagnosticsAndBatchedInvalidation()
     {
-        string source = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs"));
+        MethodInfo readEntry = typeof(PublicAotFileShellCache).GetMethod(
+            "TryReadEntryAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("Public AOT file reader was not found.");
+        MethodInfo readMoveNext = AsyncMoveNext(readEntry);
+        MethodBase[] readCalls = ReadCalledMethods(readMoveNext).ToArray();
+        Assert.Contains(readCalls, static method =>
+            method.Name == nameof(Stream.ReadAsync)
+            && method.DeclaringType is not null
+            && typeof(Stream).IsAssignableFrom(method.DeclaringType));
+        Assert.DoesNotContain(readCalls, static method =>
+            method.DeclaringType == typeof(Task) && method.Name == nameof(Task.Run));
 
-        Assert.Contains("FileOptions.Asynchronous", source);
-        Assert.Contains("ReadAsync", source);
-        Assert.DoesNotContain(".GetAwaiter().GetResult()", source);
-        Assert.DoesNotContain("stream.Read(", source);
-        Assert.Contains("public_aot_cache_memory_hit", source);
-        Assert.Contains("public_aot_cache_file_hit", source);
-        Assert.Contains("public_aot_cache_miss", source);
-        Assert.Contains("public_aot_cache_file_read_ms", source);
-        Assert.Contains("public_aot_cache_stale_removed", source);
-        Assert.DoesNotContain("public_aot_cache_stale_compatible", source);
-        Assert.DoesNotContain("Task.Run", source);
-        Assert.Contains("public_aot_cache_sidecar_missing", source);
-        Assert.Contains("public_aot_cache_sidecar_hash_mismatch", source);
-        Assert.Contains("public_aot_cache_read_error", source);
-        Assert.Contains("ResolveVersionedEntryPathForTests", source);
-        Assert.Contains("RemoveRegisteredKeysBatchAsync", source);
-        Assert.Contains("PublicAotInvalidationMessage.Prefix", source);
-        Assert.Contains("ApplyRemoteInvalidation", source);
-        Assert.DoesNotContain("await RemoveAsync(value", source);
+        string[] diagnostics = ReadStringLiterals(typeof(PublicAotFileShellCache)).ToArray();
+        foreach (string token in new[]
+        {
+            "public_aot_cache_memory_hit",
+            "public_aot_cache_file_hit",
+            "public_aot_cache_miss",
+            "public_aot_cache_file_read_ms {Path} {ElapsedMs}",
+            "public_aot_cache_stale_removed",
+            "public_aot_cache_sidecar_missing",
+            "public_aot_cache_sidecar_hash_mismatch {CacheKey} {RouteKey} {SidecarUrl}",
+            "public_aot_cache_read_error {Path}"
+        })
+        {
+            Assert.Contains(token, diagnostics);
+        }
+        Assert.DoesNotContain(diagnostics, static token => token.Contains("public_aot_cache_stale_compatible", StringComparison.Ordinal));
+        Assert.NotNull(typeof(PublicAotFileShellCache).GetMethod("ResolveVersionedEntryPathForTests", BindingFlags.NonPublic | BindingFlags.Static));
+        Assert.NotNull(typeof(PublicAotFileShellCache).GetMethod("RemoveRegisteredKeysBatchAsync", BindingFlags.NonPublic | BindingFlags.Instance));
+        Assert.NotNull(typeof(PublicAotFileShellCache).GetMethod("ApplyRemoteInvalidation", BindingFlags.NonPublic | BindingFlags.Instance));
+        Assert.NotNull(typeof(PublicAotBatchInvalidationStats).GetProperty(nameof(PublicAotBatchInvalidationStats.RegistryCleanupStatus)));
+        Assert.NotNull(typeof(PublicAotBatchInvalidationStats).GetProperty(nameof(PublicAotBatchInvalidationStats.RegistryDeletedKeys)));
 
-        string observability = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/Observability/FsusObservability.cs"));
-        Assert.Contains("public_aot_invalidation_scope", observability);
-        Assert.Contains("public_aot_invalidated_keys", observability);
-        Assert.Contains("public_aot_deleted_files", observability);
-        Assert.Contains("public_aot_registry_removed_members", observability);
-        Assert.Contains("public_aot_registry_cleanup_count", observability);
-        Assert.Contains("public_aot_registry_deleted_keys", observability);
-        Assert.Contains("public_aot_publish_count", observability);
-        Assert.Contains("public_aot_invalidation_duration_ms", observability);
-        Assert.Contains("RegistryCleanupStatus", source);
-        Assert.Contains("RegistryDeletedKeys", source);
-        Assert.Contains("PublicAotRegistryCleanupResult", source);
+        var measurements = new HashSet<string>(StringComparer.Ordinal);
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Name.StartsWith("public_aot_", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+        using CacheFixture fixture = BuildCacheFixture(Environments.Development);
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:runtime-metrics");
+        await fixture.Cache.SetAsync(entry);
+        await fixture.Cache.RemoveManyAsync([entry.CacheKey]);
+        await fixture.Cache.InvalidateAllAsync();
 
-        string redisBackedCache = File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicAot/PublicAotShellCache.cs"));
-        Assert.Contains("RemoveManyAsync", redisBackedCache);
-        Assert.DoesNotContain("await RemoveAsync(value", redisBackedCache);
+        foreach (string metric in new[]
+        {
+            "public_aot_invalidation_scope",
+            "public_aot_invalidated_keys",
+            "public_aot_deleted_files",
+            "public_aot_registry_removed_members",
+            "public_aot_registry_cleanup_count",
+            "public_aot_registry_deleted_keys",
+            "public_aot_publish_count",
+            "public_aot_invalidation_duration_ms"
+        })
+        {
+            Assert.Contains(metric, measurements);
+        }
+
+        MethodInfo redisRemoveMany = typeof(PublicAotShellCache).GetMethod(nameof(IPublicAotShellCache.RemoveManyAsync))!;
+        MethodBase[] redisCalls = ReadCalledMethods(AsyncMoveNext(redisRemoveMany)).ToArray();
+        Assert.DoesNotContain(redisCalls, static method =>
+            method.DeclaringType == typeof(PublicAotShellCache) && method.Name == nameof(IPublicAotShellCache.RemoveAsync));
+    }
+
+    private static MethodInfo AsyncMoveNext(MethodInfo method)
+    {
+        AsyncStateMachineAttribute stateMachine = method.GetCustomAttribute<AsyncStateMachineAttribute>()
+            ?? throw new InvalidOperationException($"Async state machine missing: {method.DeclaringType?.Name}.{method.Name}");
+        return stateMachine.StateMachineType.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!;
+    }
+
+    private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F)) continue;
+            MethodBase? called = null;
+            try
+            {
+                called = method.Module.ResolveMethod(
+                    BitConverter.ToInt32(il, offset + 1),
+                    method.DeclaringType?.GetGenericArguments(),
+                    method.GetGenericArguments());
+            }
+            catch (ArgumentException)
+            {
+            }
+            if (called is not null) yield return called;
+        }
+    }
+
+    private static IEnumerable<string> ReadStringLiterals(Type type)
+    {
+        foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance))
+        {
+            MethodInfo runtimeMethod = method.GetCustomAttribute<AsyncStateMachineAttribute>() is { } stateMachine
+                ? stateMachine.StateMachineType.GetMethod("MoveNext", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance)!
+                : method;
+            byte[] il = runtimeMethod.GetMethodBody()?.GetILAsByteArray() ?? [];
+            for (int offset = 0; offset <= il.Length - 5; offset++)
+            {
+                if (il[offset] != 0x72) continue;
+                string? literal = null;
+                try
+                {
+                    literal = runtimeMethod.Module.ResolveString(BitConverter.ToInt32(il, offset + 1));
+                }
+                catch (ArgumentException)
+                {
+                }
+                if (literal is not null) yield return literal;
+            }
+        }
     }
 
     private static PublicAotCacheEntry CreateEntry(string cacheKey)

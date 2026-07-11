@@ -8,9 +8,11 @@ FsusBlog consumer token 使用 `--fsusblog-*` 命名空间。公开布局不得�
 
 ## 2. Mobile navigation 模式
 
-PublicBlogLayoutShell 在移动端使用 bottom tab bar 作为主导航，固定 3 项：首页、归档、关于。高度保持在 56-64px 范围内，并包含 `safe-area-inset-bottom`。bottom tab bar 是 opt-in glass surface，必须携带 `data-fsus-material="glass"`，仅保留轻量 blur/saturate 与 1px 顶部分隔线。
+PublicBlogLayoutShell 显式选择 FsusUI `mobileNavMode="menu"` 语义。移动端主导航使用 header 内原生 `details/summary`：无 JavaScript 时仍可展开，当前页链接使用 `aria-current="page"`，Escape 关闭后把焦点交还给 summary。Blog consumer 不渲染全局 BottomTabBar，也不为不存在的 fixed dock 在根节点预留底部空间；窄屏 safe area 只由自然文档流末尾的 footer 吸收。
 
-桌面 header 采用 text-link 导航风格。搜索、主题切换和登录入口不得作为同一 primary nav 行里的 bordered action button 与 text-link 并排；登录入口使用 nav-link 视觉，当前页状态通过 `aria-current="page"` 表达。
+FsusUI 的 `inline | menu | bottom | none` 四种模式是组件库契约，`bottom` 仅供明确采用 app-like navigation 的 consumer opt-in。FsusBlog 若未来启用页面级 reading dock，装配层仍必须确保它与任何全局 bottom navigation 互斥。
+
+桌面 header 采用编辑出版式 text-link 导航。品牌和首页/归档/关于是唯一持续可见的识别与主导航；搜索是带 `/search` fallback 的低噪音 trigger，增强后才展开输入层，必须同步 `aria-expanded`，打开后聚焦输入，Escape 关闭并把焦点还给 trigger。主题入口固定使用 FsusUI `menu-button`，不得常驻展示浅色/深色/系统三段控件。登录入口保持低噪音 text action。
 
 ## 3. Reading surface 契约
 
@@ -44,7 +46,6 @@ Reading surface 禁用 glass、motion trail、glow 与 accent shimmer。公开�
 
 Glass material 只允许用于以下 surface：
 
-- mobile bottom tab bar
 - article image lightbox
 
 其他 public/read surface 默认使用 paper/document material。新增 glass surface 必须携带 `[data-fsus-material="glass"]` 并说明浮层语义。
@@ -82,11 +83,89 @@ Glass material 只允许用于以下 surface：
 - 新 glass surface 必须在本文档白名单中登记。
 - 新 public motion 必须说明状态语义，并通过 static governance 检查。
 
-## 11. Account shell mobile navigation
+### Header 与 sticky 几何契约
 
-AccountLayout 移动端使用 drawer 承载账号导航，抽屉内部与桌面侧栏保持统一视觉效果：同一套分组标题、route link 字重、active 主色标记、边界和动效。
+公开壳层以应用自有的 `[data-public-shell-header]` 为唯一测量锚点。`usePublicStickyGeometry` 将实际 header 高度发布为 `--fsusblog-public-header-height`，并由此派生 sticky top 与 anchor scroll margin；viewport resize 必须重新测量，组件卸载必须断开 observer 与 listener。Archive 年份标题和 hash target 只能消费这些 token，不得复制固定像素偏移，也不得依赖 FsusUI 内部 class selector。
 
-- 移动端首屏只保留一个账户导航入口，入口展示当前分组和当前页面，不堆叠两行导航。
-- Drawer 内 route link 保持 44px 最小点击目标，active 状态沿用桌面侧栏的主色左侧标记。
-- Drawer 使用站点 motion preset，不自造额外导航控件语言。
-- AccountLayout 移动端不得退回 segmented-control + horizontal tab strip 的双层顶部导航。
+SSR/AOT 无 JavaScript 首帧保留静态 token fallback，hydration 后再以实际测量值覆盖。排版调整不能改变这一所有权：标题、摘要和 metadata 可按公开排版角色变化，但 header selector、sticky token 和锚点间距仍由同一几何链路管理。实现与验收映射见 `docs/issue-1016-public-shell-sticky-geometry-handoff.md` 和 `docs/issue-1017-archive-sticky-offset-handoff.md`。
+
+## 11. 首页单一编辑主线 recipe
+
+首页把内容本身作为第一视觉锚点，按以下固定顺序构图：
+
+1. 顶栏独占品牌识别，首页正文不再重复站点名或站点 Hero。
+2. 主推荐最多一篇。存在有效封面时采用单个媒体入口；封面为空时保留同一标题、分类和日期层级并退化为纯文字，不补占位图。
+3. 主推荐之后最多展示五篇紧凑文本推荐，不复制第二个大卡片、右侧热门栏或独立 CTA。
+4. 当前页文章流承接剩余文章；普通文章项以标题链接作为唯一主入口，不再重复“阅读”链接。
+5. `selectHomeEditorialComposition` 是主推荐、文本推荐和当前页文章流的唯一选择入口。它保持各后端来源原始顺序，并按主推荐 → 文本推荐 → 当前页文章流建立 article ID 互斥集合。AOT/SSR、hydration 和 SPA takeover 必须调用同一函数，不得在组件或 island 内再次独立筛选。
+6. 分页只替换当前页文章流输入，推荐源保持原始顺序并重新参与同一选择过程；空推荐时直接从文章流开始，三类输入均为空时显示首页空态。
+7. Desktop/Mobile 与 Light/Dark 共用同一 DOM 层级。`prefers-reduced-motion: reduce` 只缩短非必要颜色过渡，不隐藏标题、metadata、封面或分页控件。
+
+首页评审必须同时核对：单主推荐数量、页面内 article ID 唯一性、无封面纯文字退化、空推荐、分页前后、四组 Desktop/Mobile × Light/Dark 截图以及 reduced-motion 层级完整性。
+
+## 12. 内容驱动的封面规范
+
+封面是文章内容证据，不是卡片背景。是否存在封面不得改变标题、分类、日期、摘要和正文入口的完整性。素材优先级固定为：
+
+1. 与正文直接相关的界面截图、图表、代码或命令输出、设备或现场摄影；
+2. 能说明文章中一个具体概念、且每篇构图不同的编辑插图；
+3. 没有合适素材时不显示封面，直接使用文本优先布局。
+
+### 内容与文字
+
+Do：
+
+- 截取正文实际讨论的界面状态，并清除真实账号、域名、IP、邮件、token 和日志内容。
+- 使用能被正文解释的测量图、调用路径、协议帧、焦点顺序或实物细节。
+- 让不同文章使用不同证据和构图；颜色不是区分文章的唯一变量。
+- 为图片提供描述其证据类型的 `alt`，文章标题仍由页面 H1 或标题链接承担。
+
+Don't：
+
+- 不在图片中写入文章标题、分类、站点名、“阅读全文”或其他页面 UI 文案。
+- 不把同一柔和彩色曲线、抽象波浪、圆球或几何模板换色复刻。
+- 不使用与正文无关的渐变、氛围光、glow、装饰阴影或统一滤镜制造“系列感”。
+- 不用空白、默认插画或破图占位卡暗示文章必须有封面。
+
+仓库正例由 `src/frontend/public/fixtures/cover-art-manifest.json` 登记：公开路由审计界面、键盘焦点路径、热读性能曲线、公开路由图和 AEDS 帧检查分别对应 interface evidence、interaction diagram、performance chart、architecture diagram 与 binary output。manifest 中的 negative examples 是审核反例，不应作为页面素材落地。
+
+### 构图、裁切与安全区
+
+- fixture 主画布使用 960×640（3:2）；真实摄影或截图可使用更高分辨率，但关键证据必须位于中心 80% 安全区：左/上 10% 到右/下 90%。
+- 首页主推荐按 4:3 `object-cover` 居中裁切，正文页按 16:9 `object-cover` 居中裁切。两处都使用 `object-position: 50% 50%` 和 `data-cover-safe-area="center-80"`。
+- 不把唯一关键标记、图例、代码行或人物主体放在画布最外侧 10%；不得依赖只在其中一个比例可见的角落文字。
+- 容器只允许 reading radius 与 1px `--fsusblog-panel-border` 中性边界；背景、渐变、滤镜、彩色衬底、氛围光和装饰阴影保持关闭。
+- 无可用 URL（`null`、空字符串或纯空白）时不输出 cover DOM。首页保留分类、日期和标题的纯文字主推荐，正文页直接从完整文章 header 开始。
+
+### Light/Dark 审核清单
+
+- 在 Light 与 Dark 下分别检查图片边界能否与页面分离，且容器没有额外彩色背景或 glow。
+- 检查大面积纯白、荧光色或高饱和色是否在 Dark 下形成亮度冲击；不得用运行时暗化滤镜掩盖素材问题，应回到源素材修正。
+- 同时查看首页 4:3、正文 desktop 16:9 与正文 mobile 16:9，确认中心 80% 的关键证据未被裁掉。
+- 确认相邻标题、分类、日期和正文在两种主题下可读，图片不承担这些文字的唯一表达。
+- 检查页面内没有重复文章标题、分类、CTA 或同一抽象构图换色；无封面路径没有空白 media box。
+- public-preview 截图必须通过 manual route capture 重新生成；Home desktop Light/Dark、ArticleDetail desktop Light 与 ArticleDetail mobile Light 是文档别名的最低覆盖面。
+
+## 13. 顶栏与页脚的编辑出版语法
+
+公开壳层在 AOT/SSR、hydration 和 SPA takeover 三种阶段保持同一信息层级：
+
+1. 顶栏第一层只包含品牌、核心导航与低噪音搜索/主题/账号动作；不常驻搜索输入，不并排堆叠带边框按钮。
+2. Desktop 搜索 trigger 保留 `/search` 原生链接作为无脚本回退。JavaScript 接管普通主键点击后在 trigger 邻近打开搜索层；修饰键、新窗口与复制链接行为仍由浏览器处理。
+3. Mobile 第一行只显示搜索和菜单 trigger。菜单内部依次放核心导航、主题与账号；使用原生 `details/summary` 保证 no-JS 与键盘路径。
+4. 页脚是紧凑 colophon。第一行只放品牌/版权摘要和 RSS；许可、政策、备案与回到顶部进入次级行，不能与品牌形成第二个站点 Hero。
+5. Light/Dark 共用同一 DOM，不以主题切换改变顺序；窄屏只允许换行和纵向排列。footer 保留 `safe-area-inset-bottom`，根 shell 不保留 BottomTabBar ghost padding。
+6. 页面不能同时出现全局 BottomTabBar 与 reading dock。Blog 默认 `menu` 模式，组件库默认也不得隐式输出 fixed bottom navigation。
+
+评审需覆盖：未增强 AOT 链接与原生菜单、hydration 前后 DOM 层级、Desktop/Mobile、Light/Dark、键盘 Tab/Enter/Escape、窄屏与横屏，以及搜索 trigger 的 accessible name、`aria-expanded` 和焦点归还。
+
+## 14. Account shell module navigation
+
+AccountLayout 将持久导航限制为一级模块，并只展开当前模块的局部导航。完整后台固定为工作台、内容、互动、安全、系统、运维六个模块；permission、feature 和 policy gate 在模块生成前过滤叶子，空模块不渲染。
+
+- 桌面侧栏不再因全部叶子页面产生内部滚动；一级模块与当前模块局部导航使用不同的 ARIA label 和 current 状态。
+- 移动端仍只使用一个 Drawer，同时承载一级模块和当前模块局部导航，不新增顶部 Tabs 或第二个抽屉。
+- Drawer 内一级模块和局部导航链接保持 44px 最小点击目标，active 状态沿用桌面侧栏的主色左侧标记。
+- Drawer 标题和触发器同时说明当前模块上下文，并使用站点 motion preset。
+- 顶栏只保留品牌、主站、主题与账号菜单；使用规范、隐私政策和登出统一进入账号菜单。
+- URL、刷新与深链接保持原路由；浏览器后退时根据恢复后的 path 重新计算模块和叶子 current 状态。

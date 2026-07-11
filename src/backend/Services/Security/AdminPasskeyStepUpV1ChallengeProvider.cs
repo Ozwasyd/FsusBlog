@@ -4,6 +4,7 @@ using System.Text.Json;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Shared.Contracts.Security;
 
 namespace FsusBlog.Server.Services.Security;
@@ -150,22 +151,14 @@ public sealed class AdminPasskeyStepUpV1ChallengeProvider(
             return false;
         }
 
-        try
+        if (SecurityAssertionPayloadParser.TryParse(raw, out PasskeyLoginCompleteCoreModel parsed))
         {
-            PasskeyLoginCompleteCoreModel? parsed = JsonSerializer.Deserialize<PasskeyLoginCompleteCoreModel>(raw, JsonOptions);
-            if (parsed is null || string.IsNullOrWhiteSpace(parsed.ChallengeToken) || string.IsNullOrWhiteSpace(parsed.Id))
-            {
-                return false;
-            }
-
             assertion = parsed;
             assertionJson = raw;
             return true;
         }
-        catch (JsonException)
-        {
-            return false;
-        }
+
+        return false;
     }
 
     private Task RecordAttemptAsync(

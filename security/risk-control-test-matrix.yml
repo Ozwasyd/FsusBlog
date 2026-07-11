@@ -11,7 +11,7 @@ scenarios:
     tests:
       - tests/backend/Unit/RiskDecisionServiceTests.cs
       - tests/backend/Unit/RequiresRiskControlFilterTests.cs
-      - tests/backend/Unit/CommentRiskControlContractTests.cs
+      - tests/backend/Unit/CommentRiskActionFilterTests.cs
     evidence:
       - .tmp/security/risk-control-test-matrix.json
 
@@ -69,7 +69,7 @@ scenarios:
       - src/backend/Modules/Endpoints/SecurityEndpoints.cs
     tests:
       - tests/backend/Unit/AuthRiskControlEndpointContractTests.cs
-      - tests/backend/Unit/CommentRiskControlContractTests.cs
+      - tests/backend/Unit/CommentRiskActionFilterTests.cs
       - tests/backend/Unit/NotificationStreamBoundaryTests.cs
       - tests/backend/Unit/RiskControlSimulatorContractTests.cs
       - tests/backend/Unit/SecurityChallengeBinaryEndpointTests.cs

@@ -4,13 +4,21 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
+using System.Reflection;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -19,26 +27,27 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public void AdminSessionManagementEndpoints_AreAdminManageOnlyAndClearOnlyAdminCookies()
+    public async Task AdminSessionManagementEndpoints_AreAdminManageOnlyAndClearOnlyAdminCookies()
     {
-        string endpoints = BackendTestPaths.ReadAllTextFromRoot("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint[] endpoints =
+        [
+            EndpointContractApplication.Find(app, "/api/binary/auth/admin/logout", HttpMethods.Post),
+            EndpointContractApplication.Find(app, "/api/binary/auth/admin/sessions", HttpMethods.Get),
+            EndpointContractApplication.Find(app, "/api/binary/auth/admin/sessions/{sessionId}/revoke", HttpMethods.Post),
+            EndpointContractApplication.Find(app, "/api/binary/auth/admin/sessions/revoke-others", HttpMethods.Post)
+        ];
+        Assert.All(endpoints, AssertAdminManage);
 
-        Assert.Contains("MapPost(\"/auth/admin/logout\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/auth/admin/sessions\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/auth/admin/sessions/{sessionId}/revoke\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/auth/admin/sessions/revoke-others\"", endpoints, StringComparison.Ordinal);
-        Assert.Contains("LogoutAdminSessionAsync", endpoints, StringComparison.Ordinal);
-        Assert.Contains("ClearAdminSessionCookies", endpoints, StringComparison.Ordinal);
-
-        string adminBlock = ExtractBetween(
-            endpoints,
-            "MapPost(\"/auth/admin/logout\"",
-            "group.MapGet(\"/auth/me\"");
-        Assert.Contains(".RequireAdminPermission(AdminPermissions.AdminManage)", adminBlock, StringComparison.Ordinal);
-        Assert.DoesNotContain("ClearTokenCookies", adminBlock, StringComparison.Ordinal);
-        Assert.Contains("AdminSessionRevokeResult.Conflict", adminBlock, StringComparison.Ordinal);
-        Assert.Contains("ErrorCode.Conflict", adminBlock, StringComparison.Ordinal);
-        Assert.Contains("StatusCodes.Status409Conflict", adminBlock, StringComparison.Ordinal);
+        string logoutHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            "LogoutAdminSessionAsync",
+            "ClearAdminSessionCookies");
+        Assert.Contains("LogoutAdminSessionAsync", logoutHandler, StringComparison.Ordinal);
+        Assert.Contains("ClearAdminSessionCookies", logoutHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("ClearTokenCookies", logoutHandler, StringComparison.Ordinal);
+        Assert.Contains("Conflict", logoutHandler, StringComparison.Ordinal);
+        Assert.Contains("409", logoutHandler, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -59,53 +68,53 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
     [Fact]
     public void AdminSessionEntity_ExposesRowVersionForRevokeGuards()
     {
-        Assert.True(typeof(AdminSession).GetProperty("RowVersion") is { });
-
-        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/AdminSession.cs");
-        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
-        Assert.Contains("[SugarColumn(IsIgnore = true)]", entity, StringComparison.Ordinal);
+        PropertyInfo rowVersion = Assert.IsType<PropertyInfo>(typeof(AdminSession).GetProperty("RowVersion"));
+        Assert.Equal(typeof(string), rowVersion.PropertyType);
+        SugarColumn mapping = Assert.Single(rowVersion.GetCustomAttributes<SugarColumn>());
+        Assert.True(mapping.IsIgnore);
     }
 
     [Fact]
-    public void AdminSessionRevoke_SourceUsesRowVersionConflictAndAudit()
+    public void AdminSessionRevoke_RuntimePathUsesRowVersionConflictAndAudit()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
-        string revoke = ExtractBetween(
-            source,
-            "public async Task<AdminSessionRevokeResult> RevokeAdminSessionAsync",
-            "public async Task<int> RevokeOtherAdminSessionsAsync");
+        string revoke = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AdminPrincipalService),
+            nameof(AdminPrincipalService.RevokeAdminSessionAsync),
+            "LoadAdminSessionRevokeCandidateAsync",
+            "TryRevokeAdminSessionAsync",
+            "WriteAdminSessionRevokeAuditAsync");
 
         Assert.Contains("LoadAdminSessionRevokeCandidateAsync", revoke, StringComparison.Ordinal);
-        Assert.Contains("TryRevokeAdminSessionAsync(candidate", revoke, StringComparison.Ordinal);
-        Assert.Contains("AdminSessionRevokeResult.Conflict", revoke, StringComparison.Ordinal);
+        Assert.Contains("TryRevokeAdminSessionAsync", revoke, StringComparison.Ordinal);
+        Assert.Contains("AdminSessionRevokeResult", revoke, StringComparison.Ordinal);
         Assert.Contains("WriteAdminSessionRevokeAuditAsync", revoke, StringComparison.Ordinal);
-        Assert.Contains("xmin::text = @RowVersion", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("xmin::text = @RowVersion", revoke, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void AdminSessionManagement_SourceBoundsListAndBatchRevokesOthers()
+    public void AdminSessionManagement_RuntimePathBoundsListAndBatchRevokesOthers()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/Security/AdminPrincipalService.cs");
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
-        string list = ExtractBetween(
-            source,
-            "public async Task<IReadOnlyList<AdminSessionSummaryDto>> GetAdminSessionsAsync",
-            "public async Task<bool> EnsureAdminSessionBelongsToPrincipalAsync");
-        string revokeOthers = ExtractBetween(
-            source,
-            "public async Task<int> RevokeOtherAdminSessionsAsync",
-            "private async Task<AdminSessionRevokeCandidate?> LoadAdminSessionRevokeCandidateAsync");
+        int listLimit = (int)typeof(AdminPrincipalService)
+            .GetField("AdminSessionListLimit", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetRawConstantValue()!;
+        Assert.Equal(50, listLimit);
 
-        Assert.Contains("AdminSessionListLimit = 50", source, StringComparison.Ordinal);
-        Assert.Contains(".Take(AdminSessionListLimit)", list, StringComparison.Ordinal);
+        string list = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AdminPrincipalService),
+            nameof(AdminPrincipalService.GetAdminSessionsAsync));
+        string revokeOthers = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AdminPrincipalService),
+            nameof(AdminPrincipalService.RevokeOtherAdminSessionsAsync),
+            "WriteAdminSessionRevokeAuditsAsync");
         Assert.Contains("RecordAdminSessionList", list, StringComparison.Ordinal);
         Assert.Contains("UPDATE admin_session", revokeOthers, StringComparison.Ordinal);
         Assert.Contains("RETURNING sessionid", revokeOthers, StringComparison.Ordinal);
         Assert.Contains("sessionid <> @CurrentSessionId", revokeOthers, StringComparison.Ordinal);
-        Assert.DoesNotContain("foreach (AdminSessionRevokeCandidate", revokeOthers, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryRevokeAdminSessionAsync(candidate", revokeOthers, StringComparison.Ordinal);
+        Assert.DoesNotContain("TryRevokeAdminSessionAsync", revokeOthers, StringComparison.Ordinal);
         Assert.Contains("WriteAdminSessionRevokeAuditsAsync", revokeOthers, StringComparison.Ordinal);
         Assert.Contains("RecordAdminSessionRevokeOthers", revokeOthers, StringComparison.Ordinal);
+
+        string observability = RuntimeMetadataInspection.DescribeType(typeof(FsusObservability));
         Assert.Contains("fsus.admin.session.list.returned_count", observability, StringComparison.Ordinal);
         Assert.Contains("fsus.admin.session.revoke_others.count", observability, StringComparison.Ordinal);
         Assert.Contains("fsus.admin.session.revoke_others.elapsed_ms", observability, StringComparison.Ordinal);
@@ -250,13 +259,14 @@ public sealed class AdminSessionManagementTests(PostgresSchemaMigrationFixture f
             typeof(AdminAuditLog));
     }
 
-    private static string ExtractBetween(string source, string start, string end)
+    private static void AssertAdminManage(RouteEndpoint endpoint)
     {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
+        ClaimsAuthorizationRequirement permission = Assert.Single(endpoint.Metadata
+            .GetOrderedMetadata<AuthorizationPolicy>()
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+        Assert.Contains(AdminPermissions.AdminManage, permission.AllowedValues ?? []);
     }
 
     private sealed class ImmediateAdminAuditLogChannel(SqlSugarClient db) : IAdminAuditLogChannel

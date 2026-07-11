@@ -347,6 +347,7 @@ WHERE user_id = ${userId};
     normalizedHandle,
     fixtureSessionScope({ rememberMe, deviceFingerprint }));
   const refreshToken = randomToken();
+  const accessTokenExpiresAtEpochSeconds = expiresAtEpochSeconds();
   const accessToken = signJwt({
     [CLAIM_NAME_IDENTIFIER]: String(userId),
     identity_kind: ANONYMOUS_ACCOUNT_KIND,
@@ -357,7 +358,7 @@ WHERE user_id = ${userId};
     aud: jwtAudience,
     iat: nowEpochSeconds(),
     nbf: nowEpochSeconds(),
-    exp: expiresAtEpochSeconds()
+    exp: accessTokenExpiresAtEpochSeconds
   });
 
   runPsql(`
@@ -422,6 +423,7 @@ ON CONFLICT (sessionid) DO UPDATE SET
     userId,
     sessionId,
     accessToken,
+    accessTokenExpiresAtEpochSeconds,
     refreshToken,
     cookieHeader: buildUserCookieHeader({ accessToken, refreshToken, sessionId })
   };
@@ -471,6 +473,7 @@ RETURNING id;
     ADMIN_PRINCIPAL_KIND,
     normalizedHandle,
     fixtureSessionScope({ rememberMe, deviceFingerprint }));
+  const accessTokenExpiresAtEpochSeconds = expiresAtEpochSeconds();
   const accessToken = signJwt({
     [CLAIM_NAME_IDENTIFIER]: String(adminId),
     [CLAIM_NAME]: normalizedHandle,
@@ -486,7 +489,7 @@ RETURNING id;
     aud: jwtAudience,
     iat: nowEpochSeconds(),
     nbf: nowEpochSeconds(),
-    exp: expiresAtEpochSeconds()
+    exp: accessTokenExpiresAtEpochSeconds
   });
 
   runPsql(`
@@ -539,6 +542,7 @@ ON CONFLICT (sessionid) DO UPDATE SET
     adminId,
     sessionId,
     accessToken,
+    accessTokenExpiresAtEpochSeconds,
     cookieHeader: buildAdminCookieHeader({ accessToken, sessionId })
   };
 }
@@ -604,7 +608,7 @@ export function createUserMfaProofToken({
   return token;
 }
 
-function cookieEntries(cookieHeader, url) {
+function cookieEntries(cookieHeader, url, accessTokenExpiresAtEpochSeconds) {
   return cookieHeader
     .split(';')
     .map((item) => item.trim())
@@ -613,6 +617,10 @@ function cookieEntries(cookieHeader, url) {
       const separator = item.indexOf('=');
       const name = item.slice(0, separator);
       const isHostPrefixed = name.startsWith('__Host-');
+      const isAccessToken = name === 'AccessToken'
+        || name === '__Host-AccessToken'
+        || name === 'AdminAccessToken'
+        || name === '__Host-AdminAccessToken';
       return {
         name,
         value: item.slice(separator + 1),
@@ -620,14 +628,15 @@ function cookieEntries(cookieHeader, url) {
         path: '/',
         httpOnly: true,
         secure: isHostPrefixed,
-        sameSite: isHostPrefixed ? 'Strict' : 'Lax'
+        sameSite: isHostPrefixed ? 'Strict' : 'Lax',
+        ...(isAccessToken ? { expires: accessTokenExpiresAtEpochSeconds } : {})
       };
     });
 }
 
 function fixtureStorageState(fixture, url) {
   return {
-    cookies: cookieEntries(fixture.cookieHeader, url),
+    cookies: cookieEntries(fixture.cookieHeader, url, fixture.accessTokenExpiresAtEpochSeconds),
     origins: []
   };
 }

@@ -25,5 +25,8 @@ groups=(
 
 for group in "${groups[@]}"; do
   echo "[console-visual] group=${group}"
-  env -u NO_COLOR NODE_PATH=./node_modules npx playwright test "${shard_args[@]}" visual/console-visual.spec.ts --grep "${group}" --workers="${workers}"
+    env -u NO_COLOR NODE_PATH=./node_modules npx playwright test "${shard_args[@]}" visual/console-visual.spec.ts --grep "${group}" --workers="${workers}"
 done
+
+echo "[console-visual] group=admin-dashboard-workload-matrix"
+env -u NO_COLOR NODE_PATH=./node_modules npx playwright test "${shard_args[@]}" visual/admin-dashboard-workbench.spec.ts --workers="${workers}"

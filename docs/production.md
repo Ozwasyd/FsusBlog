@@ -2,18 +2,31 @@
 
 ## Topology
 
-Production is a Docker VPS deployment:
+Production is a single-host Docker VPS deployment with two fixed application slots:
 
-- `fsus-app`: one ASP.NET Core container serving API, public HTML, static frontend assets, the AEDS WebSocket notification stream, and the Node SSR runtime.
+- `fsus-app-blue` / Compose project `fsusblog-blue`: complete ASP.NET Core + frontend + AEDS notification stream + Node SSR runtime on `127.0.0.1:8081`.
+- `fsus-app-green` / Compose project `fsusblog-green`: the same monolith on `127.0.0.1:8082` with an independent release identity.
 - PostgreSQL: external service reachable from the Docker network.
 - Redis: external service reachable from the Docker network.
-- Host Nginx/OpenResty: TLS, HTTP/2, request size policy, and reverse proxy to Kestrel `127.0.0.1:8080`.
+- Host Nginx/OpenResty: TLS, HTTP/2, request size policy, and reverse proxy to exactly one active loopback slot. Atomic gateway switching is handled separately from slot startup.
 
 The app container owns only application runtime state. Persistent state is kept in PostgreSQL, Redis, and Docker volumes:
 
-- `fsus-uploads`: uploaded files under `/app/wwwroot/uploads`
-- `fsus-aot-cache`: public AOT shell cache under `/app/wwwroot/aot-cache`
-- `fsus-logs`: rolling Serilog files under `/app/Logs`
+- shared `${FSUSBLOG_SHARED_UPLOADS_VOLUME}`: the explicitly selected existing uploads volume under `/app/wwwroot/uploads`
+- shared `${FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME}`: DataProtection keyring under `/app/data-protection/keyring`; both slots keep `ApplicationName=FsusBlog`
+- slot-local `fsusblog-aot-cache-{blue|green}`: public AOT shell cache under `/app/wwwroot/aot-cache`
+- slot-local `fsusblog-logs-{blue|green}`: rolling Serilog files under `/app/Logs`
+- slot-local `fsusblog-data-{blue|green}`: derived runtime data and fallback files under `/app/data`
+- shared `${FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME}` mounted at `/app/release-derived`: release-id-scoped `public-aot`、`public-hot`、`search`、`ssr`、`precompressed` 与 generated manifest generations
+- host append-only `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` mounted read-only at `/app/release-assets`: one immutable child per release for frontend、Wasm、font 与 Service Worker compatibility
+
+PostgreSQL, Redis, uploads, DataProtection and the read-only ZK host mounts are controlled shared inputs. Release-derived output may share one volume only because every writer is confined to its immutable `releaseId` subtree and publishes multi-file generations through staging + atomic pointer replacement; deleting the shared root or another release is forbidden. Instance temp/runtime/log state stays slot-local. Materialized assets are append-only and are served as `/release-assets/<releaseId>/...`; derived output is served as `/release-derived/<releaseId>/...`. `UseReleaseScopedStaticAssets` registers `UseFsusReleaseAssets` and `UseFsusReleaseDerivedArtifacts` before the generic SPA fallback, and Production startup fails when either root setting is missing. This serving boundary does not prove that a release was materialized or retained: rollout compatibility, applied GC and N/N-1 probes must still gate closeout independently. Neither slot publishes a wildcard/public host port.
+
+Before the first dual-slot start, inspect `docker volume ls` and set `FSUSBLOG_SHARED_UPLOADS_VOLUME` to the exact volume that already contains production uploads; the Compose file has no fallback name and fails closed rather than creating a silently empty uploads store. Create the DataProtection shared volume once, copy the current keyring into it while the old instance is quiescent, and set `FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME` to that exact name. Confirm the key files are present from a read-only temporary mount before starting either slot. Set `FSUSBLOG_RELEASE_ASSET_STORE` to the durable host append-only store and retain N-1 for the declared compatibility window; configure `FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME` without reusing a slot-local volume name. Never initialize an empty keyring or clear asset/derived roots during overlap, because existing sessions, old frontends and rollback releases must remain readable.
+
+Runtime fallback retirement is tracked as six independent, fail-closed milestones rather than inferred from source deletion. The executable owner and truthful external-evidence state are recorded in `tests/backend/issue-1013-runtime-fallback-evidence.json` and `tests/backend/issue-1013-runtime-fallback-milestones.json`; the operator contract is summarized in `docs/issue-1013-runtime-fallback-retirement-handoff.md`. Production closeout must attach the exact release/migration/count evidence required by each milestone. A missing observation remains `deferred-unverified` and must not be converted into a pass from an old issue comment, a local test, or the absence of a legacy symbol.
+
+Release identity and container storage paths are runtime wiring, not static values in `.env.production`. `slot-start.sh` passes the selected manifest to `deploy-production.sh`; validation derives `FSUSBLOG_RELEASE_ID` from that manifest and exposes its host path only through the transient `FSUSBLOG_RELEASE_MANIFEST_HOST_PATH`. Compose mounts that exact file read-only at `/app/release-manifest.json`, sets `FSUSBLOG_RELEASE_MANIFEST_PATH=/app/release-manifest.json`, and sets `FSUSBLOG_RELEASE_DERIVED_ROOT=/app/release-derived` over `${FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME}`. Do not override those three container values in the private env file: the release ID, mounted manifest and `<releaseId>` derived subtree must remain one identity.
 
 ## Required Configuration
 
@@ -46,6 +59,8 @@ Required variables:
 - `APP_ALLOWED_HOSTS`
 - `FIDO2_SERVER_DOMAIN`
 - `REVERSE_PROXY_KNOWN_PROXIES` or `REVERSE_PROXY_KNOWN_NETWORKS`
+- `FSUSBLOG_RELEASE_ASSET_STORE`
+- `FSUSBLOG_SHARED_RELEASE_DERIVED_VOLUME`
 
 Production validation rejects default JWT secrets, placeholder secrets, empty Redis passwords, missing or disabled `FSUSBLOG_ANONYMOUS_IDENTITY_MODE`, HTTP CORS origins, non-HTTPS `SITE_BASEURL`, wildcard `AllowedHosts`, and missing reverse-proxy trust configuration. The production compose file defaults `FSUSBLOG_ANONYMOUS_IDENTITY_MODE` to `1` and `FSUSBLOG_ZK_PROD_ENABLED` to `true`; keep both explicit in the private env file for auditability. ZK-Prod stays fail-closed until real trusted setup manifests, verifying key, issuer keys, root bootstrap evidence, and release smoke evidence are present. Invalid production validation marks `/health/ready` as `503`; operators can inspect the detailed degraded state through `/api/ops/health/ready-detail`.
 
@@ -59,21 +74,193 @@ Set `FSUSBLOG_BACKUP_ROOT` to a persistent backup volume. `tools/operations/back
 
 ```bash
 export GITHUB_PACKAGES_TOKEN=...
-./tools/deploy-production.sh --dry-run
-./tools/deploy-production.sh
+FSUSBLOG_FINAL_PUSH=1 \
+FSUSBLOG_FINAL_IMAGE_REPOSITORY=ghcr.io/example/fsusblogapp \
+  ./tools/build-final-image.sh
+
+export FSUSBLOG_DEPLOYMENT_ADMIN_HEADER_FILE=/run/fsus/deployment-admin-header
+export FSUSBLOG_DEPLOYMENT_CONTROL_ORIGIN=https://fsus.blog
+export FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL=https://fsus.blog/health/ready
+
+./tools/deployment/release-rollout.sh \
+  --rollout-id deploy-<release-id>-<unique-suffix> \
+  --release-manifest build/releases/<release-id>/release-manifest.json \
+  --env-file .env.production \
+  --slot-state-file /var/lib/fsusblog/deployment/slots.json \
+  --rollout-state-file /var/lib/fsusblog/deployment/rollouts/<rollout-id>/state.json \
+  --evidence-root /var/lib/fsusblog/deployment/rollouts \
+  --backup-restore-evidence .tmp/operations/backup-restore-drill.json \
+  --migration-server-dll /app/FsusBlog.Server.dll \
+  --traffic-scenario /run/fsus/release-traffic-scenario.json \
+  --notification-auth-storage-state /run/fsus/notification-auth-state.json \
+  --asset-compatibility-scenario /run/fsus/asset-compatibility-scenario.json \
+  --worker-ledger /run/fsus/worker-normal-ledger.json \
+  --fault-injection-evidence /run/fsus/fault-matrix.json \
+  --public-url "$FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL" \
+  --admin-header-file "$FSUSBLOG_DEPLOYMENT_ADMIN_HEADER_FILE" \
+  --control-origin "$FSUSBLOG_DEPLOYMENT_CONTROL_ORIGIN" \
+  --asset-store /var/lib/fsusblog/release-assets \
+  --dry-run
 ```
 
-`tools/deploy-production.sh` is the one-command deployment entrypoint. It loads `.env.production`, blocks placeholder values, verifies `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` and ZK-Prod default-on flags, checks that `FSUSBLOG_ZK_CONFIG_DIR` and `FSUSBLOG_ZK_SECRET_DIR` contain the real trusted setup manifest, verifying key manifest, Groth16 verifying key, issuer public key and issuer private key, runs `npm --prefix src/frontend run check:privacy-zk-prod-release`, then builds the image and runs `docker compose --env-file .env.production config` plus `up -d`. The compose file mounts those ZK material directories read-only at `/app/config/zk` and `/app/secrets/zk`.
+Build and production deploy are deliberately separate. `tools/build-final-image.sh` requires exactly one explicit mode: `FSUSBLOG_FINAL_PUSH=1` builds `imageRepository:<release-id>`, pushes it, resolves the registry digest and atomically creates `build/releases/<release-id>/release-manifest.json`; the same release path cannot be overwritten. `FSUSBLOG_FINAL_LOCAL_ONLY=1` builds a local diagnostic/performance image and never emits a deployable manifest. Production rejects `latest`, `final-current`, an untagged repository, a missing registry digest, or a tag that is not exactly `imageRepository:releaseId`.
+
+The release manifest schema is `fsusblog.release-manifest.v1`. It binds `releaseId`, full `commitSha`, `imageRepository`, immutable `imageTag`, `imageDigest`, `imageRef=repository@digest`, `createdAtUtc`, frontend Vite manifest hash, Wasm `SHA256SUMS` hash, schema compatibility min/max release, .NET/Node/Docker versions and Dockerfile digest. It contains no credentials. CI retains this file with the image; image retention must keep every manifest-selected rollback digest for the configured rollback window.
+
+`tools/deployment/release-rollout.sh` is the only supported production rollout entry. Run the exact command first with `--dry-run`, review its immutable source/target identity and ordered plan, then rerun without `--dry-run` using the same new `rolloutId` and paths. It owns the host lock and 15 durable stages: `manifest-validate`、`capacity-preflight`、`backup-restore-gate`、`expand-migration`、`candidate-start`、`candidate-readiness`、`asset-materialize`、`candidate-smoke`、`compatibility-smoke`、`gateway-switch`、`active-fence`、`public-verify`、`source-drain`、`source-stop`、`release-evidence`. Each attempt records mode-0600 stdout/stderr metadata and SHA-256-bound stage evidence. There is no safety-gate skip flag.
+
+`slot-start.sh`、`gateway-switch.sh`、`deploy-production.sh`、online Expand、asset materialize/GC and fence/restart helpers are rollout-owned internal operations. `deploy-production.sh` rejects calls without the internal slot marker; `slot-start.sh` accepts the rollout marker or the explicit one-time empty-state bootstrap only. Direct helper commands in later sections are diagnosis/bootstrap protocol references, not an alternative production release procedure. The lower-level deploy validates and starts only the manifest-selected `repository@sha256` image, checks RepoDigests and OCI revision/version labels, and uses Compose `--no-build --pull always`.
+
+Before any candidate Compose start, `slot-preflight.sh` calls `tools/deployment/image-runtime-contract.sh` with that exact immutable image reference. The helper rejects mutable tags and malformed or non-lowercase digests before invoking Docker, then pulls the selected digest, inspects its OCI labels and runs two container probes. A valid final image must publish a full 40-character lowercase `io.fsusblog.build.vcpkg-commit`, `io.fsusblog.runtime.node=required`, `io.fsusblog.runtime.npm=forbidden`, and `io.fsusblog.runtime.publish-ready-to-run=false`; `node` must resolve inside the final image and `npm` must not. Pull/inspect failure, any label mismatch, missing Node or present npm fails preflight before candidate start and leaves the persisted active slot untouched. Recovery is a newly built and pushed immutable digest plus a new manifest; there is no runtime override or skip flag.
+
+If the host or orchestrator dies, do not start a new rollout and do not rerun from stage one. Inspect the recorded state and resume the same identity:
+
+```bash
+./tools/deployment/release-rollout.sh \
+  --resume \
+  --rollout-id <same-rollout-id> \
+  --rollout-state-file /var/lib/fsusblog/deployment/rollouts/<rollout-id>/state.json \
+  --release-manifest build/releases/<release-id>/release-manifest.json \
+  <the-same-runtime-input-options>
+```
+
+`--resume` adopts matching live probes, turns an orphaned running stage into immutable interruption evidence, completes only a stage whose sealed evidence proves success, performs the stage-specific recovery, and skips already completed stages. A terminal or identity-mismatched state is never reusable; start a new rollout ID only after the previous state reaches an explicit terminal outcome.
+
+The slot entrypoint starts every production container with `FSUSBLOG_DEPLOYMENT_MODE=candidate` and a positive generation derived from durable slot state, then waits for that slot's direct `/health/live` and `/health/ready` probes before atomically recording success. A ready candidate is not active: it reports `canReceiveTraffic=false`, cannot claim global background work and rejects notification stream handshakes until the host performs an exact release/slot/generation activation. Candidate deploy, identity or probe failure removes only the candidate Compose project and never runs a command against the persisted active project. Repeating start with the same healthy manifest returns `already-running`; repeating stop for an absent inactive slot returns `already-stopped`. `slot-stop.sh` always rejects the persisted active slot.
+
+Slot state defaults to `/var/lib/fsusblog/deployment/slots.json` (override with `FSUSBLOG_SLOT_STATE_FILE`). It records `activeSlot`, each slot's release ID/digest/project/container/loopback endpoint/last successful start/deployment generation, a top-level monotonic `runtimeGeneration`, and the last start/stop/switch/rollback result. Runtime generation reservation is fsynced before Compose start and is never reused after a failed attempt; it is distinct from traffic `switchGeneration`. Writes use a mode-0600 temporary file, file `fsync`, atomic rename and directory `fsync`. After a host or Docker restart, run `slot-status.sh`; `activeStateConsistent=false` blocks further candidate work until the persisted active slot and actual container are reconciled. On first adoption only, after verifying the gateway's current upstream, initialize the state with:
+
+```bash
+node tools/deployment/slot-state.mjs set-active \
+  --state /var/lib/fsusblog/deployment/slots.json \
+  --slot blue \
+  --kind bootstrap
+```
+
+This records existing truth; it does not switch gateway traffic.
+
+## Atomic Gateway Switch And Rollback
+
+The normal release path reaches this protocol only through stage 10 of `release-rollout.sh`. The direct commands below document first adoption, diagnosis and the rollout-owned recovery primitive; do not use `gateway-switch.sh` as a second production rollout entry.
+
+Install `deploy/production-openresty.conf` as the complete host configuration and let it include `/etc/openresty/fsusblog/active-upstream.conf`. The include is not operator-authored text: initialize it exactly once from the already verified active slot, then validate the complete configuration before reload:
+
+```bash
+node tools/deployment/gateway-control.mjs initialize \
+  --slot blue \
+  --active /etc/openresty/fsusblog/active-upstream.conf
+openresty -t -c /etc/openresty/nginx.conf
+openresty -s reload -c /etc/openresty/nginx.conf
+```
+
+`initialize` is idempotent only for the same slot and refuses to overwrite a different active slot. Subsequent traffic changes must go through the locked switch command. Set `FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL` to the real HTTPS `/health/ready` URL; both the loopback response and the public response must expose the expected `X-Fsus-Release-Id` and `X-Fsus-Release-Slot` headers. Put exactly one admin `Authorization: Bearer ...` or `Cookie: ...` header in a mode-0400/0600 host file, export its path as `FSUSBLOG_DEPLOYMENT_ADMIN_HEADER_FILE`, and set `FSUSBLOG_DEPLOYMENT_CONTROL_ORIGIN=https://<production-host>`; the helper sends it only to `127.0.0.1:<slot-port>` and evidence never includes it.
+
+```bash
+tools/deployment/gateway-switch.sh \
+  --to green \
+  --release <release-id> \
+  --image-digest sha256:<64-hex> \
+  --dry-run
+
+tools/deployment/gateway-switch.sh \
+  --to green \
+  --release <release-id> \
+  --image-digest sha256:<64-hex>
+```
+
+The command holds the same host lock as slot start/stop, checks that the durable source runtime is exact `Active` and the immutable target runtime is exact `Ready` `Candidate`, probes target loopback readiness/release headers, verifies the public URL still serves the source, renders only the configured `127.0.0.1:8081` or `:8082` line, runs `openresty -t` against a staged full config, fsyncs the files and parent directories, atomically renames the include, validates the installed config, CAS-activates the target before reload, performs graceful reload, probes the target through public and loopback paths, and only then commits `activeSlot`, `previousSlot` and `switchGeneration`. It then CAS-drains the source and waits for `drained=true`; source drain failure leaves the already-committed target active and fails closeout rather than rolling public traffic back after commit. A failed config test changes nothing. A failure after target activation but before commit restores, validates and reloads the source include and drains the target before marking the transition failed; if either recovery cannot be proven, state remains `rollback_required`.
+
+Rollback never resolves a tag and never guesses a slot:
+
+```bash
+tools/deployment/gateway-rollback.sh --dry-run
+tools/deployment/gateway-rollback.sh
+```
+
+It uses the persisted previous slot/release/digest and the same target identity, readiness, activation, atomic install, reload and source-drain path. Because a successfully retired instance remains Draining, first restart the retained previous manifest in the inactive slot so it becomes a fresh Ready Candidate; rollback never reactivates a draining process. It does not downgrade the database. Keep both releases schema-compatible for the rollback window.
+
+After a host restart or interrupted shell, inspect without mutation first, then recover:
+
+```bash
+tools/deployment/gateway-recover.sh --action inspect
+tools/deployment/gateway-recover.sh --dry-run
+tools/deployment/gateway-recover.sh
+```
+
+For `switching` or `rollback_required`, recovery compares the durable pending source/target identities, current controlled include, both direct runtimes and public release headers. If the target is already public and healthy it commits the target; otherwise it prefers a healthy recorded source and aborts the pending transition after restoring source traffic. If neither immutable release is healthy, it reports `blocked` and leaves state untouched for manual runtime repair. Never delete `slots.json` or hand-edit the include to escape recovery.
+
+Every switch, rollback and recovery writes a mode-0600 JSON record plus `latest.json` under `FSUSBLOG_GATEWAY_EVIDENCE_DIR`. `tools/operations/collect-release-evidence.sh` requires that evidence to be semantically successful and to match the release manifest's final slot, release ID and image digest. A normal transition additionally records sanitized source-before, target-before, target-after-activation and source-after-drain snapshots; closeout requires target activation and a complete, non-timed-out source drain. Evidence contains identities, bounded counters, booleans, timing, failure stage and recovery action, not credentials, request data or the complete OpenResty configuration.
+
+The certified zero-downtime host floor is defined by `deploy/zero-downtime-resource-policy.json`: **4 CPU cores, 6144 MiB total memory and 10240 MiB free disk**. During overlap the two app slots together must stay within 360% CPU and 4608 MiB memory, temporary disk within 8192 MiB, and the probe must capture at least 10 dual-slot samples. The same evidence enforces OpenResty reload <= 2 seconds, drain <= 60 seconds, notification reconnect <= 5 seconds, and active-traffic P95/P99 impact <= 25%/35%. A 2C/2G host is supported only as a legacy single-slot profile; it is not certified to run overlapping Blue/Green instances or claim zero downtime.
+
+`slot-preflight.sh` retains lower configurable pull/start guards (`FSUSBLOG_SLOT_MIN_AVAILABLE_MEMORY_MB`、`FSUSBLOG_SLOT_MIN_FREE_DISK_MB`、`FSUSBLOG_SLOT_IMAGE_PULL_RESERVE_MB`) so diagnostics fail before touching the active slot, but those knobs do not lower the zero-downtime certification floor. `release-resource-probe.mjs` is the final authority for the rollout evidence. Per-slot Compose limits remain configurable through `FSUSBLOG_SLOT_MEMORY_LIMIT`、`FSUSBLOG_SLOT_MEMORY_RESERVATION`、`FSUSBLOG_SLOT_CPU_LIMIT` and `FSUSBLOG_SLOT_CPU_RESERVATION`; lowering them must not be used to turn a 2C/2G overlap into a passing release.
+
+### Strong evidence inputs and isolated qualification
+
+The production rollout requires two independent evidence-binding secrets in addition
+to the admin/session material:
+
+```text
+--traffic-binding-key-file <0400-or-0600 regular non-symlink file>
+--asset-browser-binding-key-file <0400-or-0600 regular non-symlink file>
+```
+
+Each key must contain 32..4096 bytes. The traffic key HMAC-binds the complete HTTP
+observation chain, session/AEDS assertions, gateway hold and rollout-state hashes.
+The asset-browser key HMAC-binds the controlled Chromium binary, N-1 manifest,
+Service Worker/cache observations, applied GC evidence and complete compatibility
+report. Keys are per-run private inputs; values never enter the plan, stdout or
+release artifact. A completed artifact is reusable on `--resume` only after its
+dedicated verifier recomputes the HMAC with the same rollout ID and scenario.
+
+`zero-downtime-rehearsal-plan.template.json` references these files as
+`evidenceInputs.trafficBindingKey` and
+`evidenceInputs.assetBrowserBindingKey`. It also requires
+`target.migrationServerDll` and
+`migrationQualification.{scenarioTemplate,timeoutSeconds,expandMigrationId,backfillMigrationId,contractMigrationId}`.
+Worker reconciliation additionally requires a private 0400/0600
+`workers.observerEnvFile` and one materialized
+`workers.<deploy|rollback|resume>.observerServicePlan`. The plan binds the
+repository-owned loopback observer service to the same origin used by the normal
+observer and explicitly allowed by the destructive drill; it supplies real isolated
+Test PostgreSQL, Redis, container identity and protected runtime-control inputs, not
+precomputed pass fields. The rehearsal owns the service process group and stops it
+on success, failure, qualification teardown, SIGKILL/resume and fault teardown.
+`release-worker-observer-service.mjs` is therefore a phase-scoped rehearsal helper,
+not the normal production observer or an always-on production daemon. It starts only
+with `ASPNETCORE_ENVIRONMENT=Test`, `FSUSBLOG_ROLLOUT_REHEARSAL=1` and
+`FSUSBLOG_WORKER_OBSERVER_ENABLED=1`; these fields and all `FSUSBLOG_WORKER_OBSERVER_*`
+values belong to the isolated Test rehearsal and must not be copied into a production
+env file.
+
+Migration qualification runs a distinct Test topology with the repository-owned
+`rehearsal-schema-qualification-probe.mjs`. Its application bridge endpoints are
+mapped only when the environment is exactly `Test` and
+`SchemaMigration:QualificationEnabled=true`; both still require admin
+`system.config` and `fixed_ip`. Production keeps the setting false, so the routes do
+not exist. Qualification failure leaves the source Active and tears down the
+candidate topology. Expand/Backfill can pause and resume without restarting the
+active application. A completed Contract writes `rollbackCompatible=false`; after
+that boundary an old-image gateway rollback is forbidden and recovery is
+backup/forward-fix based.
 
 Do not use `.env.production-template` to start production. It is only safe for `docker compose config` structure checks.
 
-The compose file binds Kestrel to `127.0.0.1:8080:8080`. Do not change it back to `8080:8080` unless another private gateway container owns the only public entrypoint and the replacement binding is covered by an equivalent security check.
+The compose file binds Kestrel to `127.0.0.1:${FSUSBLOG_SLOT_PORT}:8080`, resolved to blue `8081` or green `8082` by the slot scripts. Do not use `8081:8080`, `8082:8080` or any wildcard host binding; only the host gateway owns the public entrypoint.
 
 ## Health Checks
 
 - `GET /health/live`: process/Kestrel liveness only; safe for Docker healthcheck; returns `application/json`.
 - `GET /health/ready`: public readiness for rollout probes; returns only `status` and `checkedAt` with HTTP `200`/`503`.
-- `GET /api/ops/health/ready-detail`: protected readiness detail for operators; requires admin principal `audit.read` permission and includes configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, notification stream connection count, typed startup runtime snapshot, scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`), public hot-read snapshot state/version/error metadata, and RiskControl/perception-sealed@v2 gates for AEAD key rotation, active/LKG policy, provider registry, Redis consume-once, mode, and performance-budget warnings.
+- `GET /api/ops/health/ready-detail`: protected readiness detail for operators; requires admin principal `audit.read` permission and includes the non-sensitive release identity (`releaseId`, slot, commit, immutable image ref/digest), configuration, PostgreSQL, Redis, public webroot, IP2LOCATION data, DB gate snapshot, notification stream connection count, typed startup runtime snapshot, scheduled publish worker snapshot (`lastPublishedCount` / `lastFailedCount` / `dueBacklog`), public hot-read snapshot state/version/error metadata, and RiskControl/perception-sealed@v2 gates for AEAD key rotation, active/LKG policy, provider registry, Redis consume-once, mode, and performance-budget warnings. A missing or inconsistent production release identity makes readiness fail closed before traffic promotion.
+- `GET /api/ops/deployment/status`: admin `system.config` plus loopback-only lifecycle snapshot, including generation, in-flight HTTP, notification connections, background claims, queue blockers and last failure.
+- `POST /api/ops/deployment/activate|drain`: admin `system.config` plus loopback-only CAS operations; body must match the running release ID, slot and generation. Repeats are idempotent, mismatches return 409, and every attempt writes high-value audit.
+- `GET|POST /api/ops/deployment/fence/status|acquire|revoke`: the same loopback + `system.config` boundary; acquire binds release/slot/generation/image digest in one Redis CAS, and source revoke cannot revoke a newer owner.
+- `GET|POST /api/ops/deployment/notification-stream/restart/**`: the same trusted-host boundary; ordered restart closes source connections with 1012, preserves valid cursors, and records replay-miss full-resync evidence without exposing event bodies.
+
+`FSUSBLOG_DRAIN_TIMEOUT_SECONDS` defaults to 45 seconds. `FSUSBLOG_STOP_GRACE_PERIOD` defaults to 60 seconds and must remain greater than the application drain deadline. Active drain and SIGTERM share the same coordinator: readiness becomes 503 immediately, new ordinary/notification/background work stops, entered work and registered buffers finish, then the host may stop the inactive container. `ReleaseDrainParticipantRegistry` invokes article-view、hot-stats、notification、audit/admin-audit、visit、RUM、security/challenge audit、public-hot、ArticleDetail AEDS、PublicAOT backfill and upload cleanup participants in parallel with their bounded deadlines; any pending count, timeout or participant error remains a blocker. A timeout is not success; preserve evidence, keep the new target active, and repair or explicitly terminate the old inactive slot under the incident procedure.
+
+Active-singleton workers receive an active-release execution ticket through `IBackgroundWorkerLease`. `IActiveReleaseCommitGuard.EnsureCurrentAsync` rechecks that ticket immediately before irreversible transitions, outbox effects, crawler snapshot publication, each cleanup delete chunk, process-governor reset, projection checkpoint, PublicAOT atomic publication and upload deletion. Losing the Redis fence cancels the commit boundary instead of allowing an old source to finish a stale side effect. This is an application safety boundary, not a replacement for database idempotency or the final worker reconciliation evidence.
 
 Health checks are an ops JSON protocol. They do not emit PublicAOT bootstrap frames or AEDS binary payloads, so rollout probes can evolve independently from public-page payload changes.
 
@@ -81,10 +268,10 @@ Readiness refreshes are cached by the short TTL snapshot layer. A fresh readines
 
 perception-sealed@v2 startup validation and readiness fail closed when `Security:PerceptionSealedToken:CurrentKeyVersion` is missing, points at a missing key, or its `Security:PerceptionSealedToken:Keys:{version}` value is not a 32-byte hex/base64/base64url key. There is no `Security:PerceptionV2:SigningKey` compatibility fallback. Performance-budget warnings in ready-detail are advisory rollout signals; they do not mark public `/health/ready` down unless a hard dependency gate fails.
 
-Use readiness before switching traffic:
+Use the candidate slot's direct readiness plus release headers before switching traffic; never probe the retired single-slot `127.0.0.1:8080` endpoint:
 
 ```bash
-curl -fsS http://127.0.0.1:8080/health/ready
+curl -fsS -D - -o /dev/null http://127.0.0.1:8082/health/ready
 ```
 
 ## SLO Alert Closeout
@@ -101,7 +288,7 @@ Traffic promotion is blocked while any `critical` alert is firing. `warning` ale
 
 ## Capacity Baseline
 
-The default compose file is tuned for a practical 2C/2G VPS baseline:
+The default per-slot Compose limits retain a practical single-slot profile, but a certified overlapping Blue/Green rollout requires the host floor documented above: 4 CPU cores, 6144 MiB total memory and 10240 MiB free disk. A 2C/2G host may run one slot only and must not enter the zero-downtime overlap path. Within that boundary:
 
 - Kestrel serves static frontend assets directly.
 - L1 memory cache and Redis L2 absorb public hot reads.
@@ -145,6 +332,7 @@ Toolchain pins are part of the release input. The Docker wasm builder pins Emscr
 The host gateway must:
 
 - use `deploy/production-openresty.conf` as the production baseline,
+- load exactly one controlled `server 127.0.0.1:8081;` or `server 127.0.0.1:8082;` from `/etc/openresty/fsusblog/active-upstream.conf`; never place an arbitrary host/port or a fixed `127.0.0.1:8080` server in the main config,
 - reject unknown Host values with the default server,
 - terminate TLS and forward `X-Forwarded-*` headers only from the configured trusted proxy path,
 - expose only `80/tcp` and `443/tcp` publicly,
@@ -244,16 +432,21 @@ For the single-author blog release flow, keep these artifacts with the release:
 
 ```bash
 FSUSBLOG_SMOKE_BASE_URL=https://fsus.blog tools/operations/post-deploy-smoke.sh
-tools/operations/collect-release-evidence.sh
+FSUSBLOG_RELEASE_ROLLOUT_EVIDENCE=/var/lib/fsusblog/deployment/rollouts/<rollout-id>/evidence/release-rollout.json \
+  tools/operations/collect-release-evidence.sh
 ```
 
-The smoke output belongs in `.tmp/operations/post-deploy-smoke.json`; the evidence collector writes `.tmp/release-evidence/<timestamp>/manifest.json`. The manifest may be `collected-blocked`; in that case `evidenceSummary` is the release-blocking record and must show the missing image digest, firewall policy, DNS, live exposure or other invalid evidence directly. Placeholder outputs are explicit blockers: backup restore dry-runs write `status=scheduled`, smoke dry-runs write `status=scheduled` with a `dry-run` blocker, and manual smoke checklist items do not replace automated `verifiedCoverage`. The collector also copies `production-exposure-evidence-request.json` when present and summarizes its current status, blocker count, blocker sources, next action sources, unblock plan sources/count, required hosts, delegation domains, verification command names/count, returned closeout command count and closeout command fields under `evidenceSummary.externalExposure.request`, so the release artifact records exactly what external inputs and closeout paths were requested. These files complement, but do not replace, `tools/security/complete-production-exposure-closeout.sh`: external production exposure is complete only when real DNS delegation/readiness, firewall/security-group evidence, HTTPS/HSTS and live forbidden-port checks all pass for the production host set.
+The final rollout evidence must seal the exact 15 ordered stages plus exactly six named artifacts: `publicTraffic`、`notificationStream`、`assetCompatibility`、`workerReconciliation`、`resourceBudget` and `faultInjection`. Stage attempts, recoveries and all six artifacts are SHA-256/size bound. The collector invokes `collect-release-rollout-bundle.mjs` to copy only those allowlisted files into `release-rollout-bundle/` and writes `bundle-index.json`; unreferenced files, symlinks, path escapes, seal-time drift and a seventh artifact are rejected. For an isolated handoff, the same bundler can be invoked directly against the final `release-rollout.json`, but the output directory must not already exist.
+
+Normal production evidence accepts only `fsusblog.release-worker-reconciliation-evidence.v2` with `mode=normal`: eight durable worker kinds, graceful source drain, target ownership and zero stale-generation commits. A forced-source/SIGKILL worker drill is **not** a normal rollout stage. Run it only as an isolated Test-topology qualification through `tools/deployment/zero-downtime-rehearsal.sh --plan <private-plan> --mode normal|all`; teardown that topology, then run a fresh normal rollout with a distinct rollout ID but the same target release/digest. Qualification v2 must hash-bind its nine-kind ledger, resource policy and the distinct fresh normal state. Never kill the production source container to manufacture normal evidence, and never reuse a qualification ledger as the normal ledger.
+
+The smoke output belongs in `.tmp/operations/post-deploy-smoke.json`; the evidence collector writes `.tmp/release-evidence/<timestamp>/manifest.json`. The manifest may be `collected-blocked`; in that case `evidenceSummary` is the release-blocking record and must show the missing rollout bundle, image digest, firewall policy, DNS, live exposure or other invalid evidence directly. Placeholder outputs are explicit blockers: backup restore dry-runs write `status=scheduled`, smoke dry-runs write `status=scheduled` with a `dry-run` blocker, and manual smoke checklist items do not replace automated `verifiedCoverage`. The collector also copies `production-exposure-evidence-request.json` when present and summarizes its current status, blocker count, blocker sources, next action sources, unblock plan sources/count, required hosts, delegation domains, verification command names/count, returned closeout command count and closeout command fields under `evidenceSummary.externalExposure.request`, so the release artifact records exactly what external inputs and closeout paths were requested. These files complement, but do not replace, `tools/security/complete-production-exposure-closeout.sh`: external production exposure is complete only when real DNS delegation/readiness, firewall/security-group evidence, HTTPS/HSTS and live forbidden-port checks all pass for the production host set.
 
 Closeout levels:
 
 | Evidence | Responsibility |
 | --- | --- |
-| coverage, ZAP, authenticated DAST, Wasm fuzz, attack matrix, permission matrix, supply-chain audit, SBOM, load result, fault injection, short soak | CI/release-depth forced before release evidence collection |
+| coverage, ZAP, authenticated DAST, Wasm fuzz, attack matrix, permission matrix, supply-chain audit, SBOM, load result, final zero-downtime rollout/bundle, fault injection, short soak | CI/release-depth forced before release evidence collection |
 | image digest, DNS readiness/delegation, firewall policy, live HTTPS/HSTS/forbidden-port exposure, post-deploy smoke, real backup restore drill and SLO alert replay | release closeout required before promotion |
 | retention cleanup | scheduled operations drill, copied into release evidence when available |
 

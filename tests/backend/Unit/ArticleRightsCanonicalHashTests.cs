@@ -1,5 +1,4 @@
 using FsusBlog.Core.Integrity;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -129,23 +128,22 @@ public sealed class ArticleRightsCanonicalHashTests
     }
 
     [Fact]
-    public void Source_IsCoreOnlyAndUsesBufferWriterWithoutReflectionOrDynamic()
+    public void RuntimeType_IsCoreOnlyAndUsesBufferWriterWithoutReflectionOrDynamic()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src",
-            "core",
-            "Integrity",
-            "ArticleRightsCanonicalHashV1.cs"));
+        Assert.Equal("FsusBlog.Core", typeof(ArticleRightsCanonicalPayloadV1).Assembly.GetName().Name);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ArticleRightsCanonicalPayloadV1));
+        Assert.Contains("IBufferWriter", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ArrayBufferWriter", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("FsusBlog.Server", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("SqlSugar", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpContext", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Reflection", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Object Invoke", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("JsonSerializer", runtimeShape, StringComparison.Ordinal);
 
-        Assert.Contains("IBufferWriter<byte>", source, StringComparison.Ordinal);
-        Assert.Contains("ArrayBufferWriter<byte>", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("FsusBlog.Server", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("SqlSugar", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpContext", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.Reflection", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("dynamic", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("JsonSerializer", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            typeof(ArticleRightsCanonicalPayloadV1).GetMethods(),
+            static method => method.ReturnType.IsPointer || method.GetParameters().Any(parameter => parameter.ParameterType.IsPointer));
     }
 
     private static ArticleRightsCanonicalInput Baseline()

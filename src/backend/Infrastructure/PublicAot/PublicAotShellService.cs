@@ -169,7 +169,10 @@ public sealed class PublicAotShellService(
             TestSessionId = ResolveTestSessionId(context)
         });
 
-    public async Task GenerateAndStoreAsync(PublicAotBackfillRequest request, CancellationToken cancellationToken = default)
+    public async Task GenerateAndStoreAsync(
+        PublicAotBackfillRequest request,
+        CancellationToken cancellationToken = default,
+        Func<CancellationToken, Task>? beforeCommit = null)
     {
         Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)> document = await dbConcurrencyGate.ExecuteAsync(
             "public-aot-backfill",
@@ -206,6 +209,11 @@ public sealed class PublicAotShellService(
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion();
         try
         {
+            if (beforeCommit is not null)
+            {
+                await beforeCommit(cancellationToken).ConfigureAwait(false);
+            }
+
             await cacheWriter.WriteAsync(
                 request.CacheKey,
                 match.PageId,

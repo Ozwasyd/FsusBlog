@@ -1,11 +1,14 @@
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.FileProviders;
@@ -14,9 +17,7 @@ using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests;
 
@@ -105,83 +106,91 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public void HotPathCompositionSource_AvoidsRegexAndFullPageReplaceForStaticAndFallback()
+    public async Task HotPathCompositionSource_AvoidsRegexAndFullPageReplaceForStaticAndFallback()
     {
-        string source = ReadCompositionSource();
-
-        Assert.DoesNotContain("Regex.IsMatch", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Replace(\"</head>\"", source, StringComparison.Ordinal);
-        Assert.Contains("SpaHtmlByteTemplate", source, StringComparison.Ordinal);
+        Type template = Assert.IsAssignableFrom<Type>(typeof(WebApplicationCompositionExtensions).GetNestedType(
+            "SpaHtmlByteTemplate",
+            BindingFlags.NonPublic));
+        Assert.NotNull(template.GetMethod("Render", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        await SpaFallbackHeadInjectionCache_DoesNotCacheCspNonce();
     }
 
     [Fact]
     public void EndpointPipeline_AuthenticatesBeforeRateLimiterAndBannedUserChecks()
     {
-        string source = ReadCompositionSource();
-        string endpointPipeline = ExtractEndpointPipeline(source);
+        IReadOnlyList<string> stages = WebApplicationCompositionExtensions.EndpointPipelineStageIds;
 
-        AssertBefore(endpointPipeline, "app.UseAuthentication();", "app.UseRateLimiter();");
-        AssertBefore(endpointPipeline, "app.UseRateLimiter();", "app.UseMiddleware<BannedUserMiddleware>();");
-        AssertBefore(endpointPipeline, "app.UseMiddleware<BannedUserMiddleware>();", "app.UseAuthorization();");
+        AssertBefore(stages, "authentication", "rate-limiter");
+        AssertBefore(stages, "rate-limiter", "banned-user");
+        AssertBefore(stages, "banned-user", "authorization");
     }
 
     [Fact]
     public void EndpointPipeline_CompressesDynamicApiResponsesBeforeOutputCache()
     {
-        string source = ReadCompositionSource();
-        string endpointPipeline = ExtractEndpointPipeline(source);
+        IReadOnlyList<string> stages = WebApplicationCompositionExtensions.EndpointPipelineStageIds;
 
-        Assert.Contains("app.UseResponseCompression();", endpointPipeline, StringComparison.Ordinal);
-        AssertBefore(endpointPipeline, "app.UseResponseCompression();", "app.UseOutputCache();");
+        Assert.Contains("response-compression", stages);
+        AssertBefore(stages, "response-compression", "output-cache");
     }
 
     [Fact]
     public void PublicHotReadFastPath_RunsAfterPublicReadSecurityGateAndBeforeStaticAssets()
     {
-        string source = ReadCompositionSource();
-        string pipeline = ExtractApplicationPipeline(source);
+        IReadOnlyList<string> stages = WebApplicationCompositionExtensions.ApplicationPipelineStageIds;
 
-        AssertBefore(pipeline, "app.UseFsusEndpointPipeline();", "app.UseFsusPublicHotReadSecurityGate();");
-        AssertBefore(pipeline, "app.UseFsusPublicHotReadSecurityGate();", "app.UseFsusPublicHotReadFastPath();");
-        AssertBefore(pipeline, "app.UseFsusPublicHotReadFastPath();", "app.UseFsusStaticAssets();");
+        AssertBefore(stages, "endpoint-pipeline", "public-read-security-gate");
+        AssertBefore(stages, "public-read-security-gate", "public-hot-read-fast-path");
+        AssertBefore(stages, "public-hot-read-fast-path", "static-assets");
     }
 
     [Fact]
     public void Program_DoesNotMountPublicHotReadBeforeApplicationPipeline()
     {
-        string program = BackendTestPaths.ReadAllTextFromRoot("src", "backend", "Program.cs");
-
-        Assert.DoesNotContain("UseFsusPublicHotReadFastPath", program, StringComparison.Ordinal);
+        Assert.Single(
+            WebApplicationCompositionExtensions.ApplicationPipelineStageIds,
+            static stage => stage == "public-hot-read-fast-path");
     }
 
     [Fact]
-    public void PublicHtmlRoutes_UsePublicReadRateLimitAndRiskMetadata()
+    public async Task PublicHtmlRoutes_UsePublicReadRateLimitAndRiskMetadata()
     {
-        string source = ReadCompositionSource();
-        string publicRoutes = ExtractPublicRoutes(source);
+        await using WebApplication app = CreateApplicationRouteMap();
+        RouteEndpoint[] routes = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(static endpoint => endpoint.Metadata.GetMetadata<RiskActionEndpointMetadata>() is
+                { ActionName: RiskActionNames.PublicRead, RouteKey: "public.html.home" or "public.html.fallback" })
+            .ToArray();
 
-        Assert.Contains("app.MapGet(\"/\"", publicRoutes, StringComparison.Ordinal);
-        Assert.Contains("app.MapFallback", publicRoutes, StringComparison.Ordinal);
-        Assert.Equal(2, CountOccurrences(publicRoutes, ".RequireRateLimiting(\"public_read\")"));
-        Assert.Equal(2, CountOccurrences(publicRoutes, ".WithRiskAction(RiskActionNames.PublicRead"));
-        Assert.Contains(".WithRiskAction(RiskActionNames.PublicRead, \"public.html.home\")", publicRoutes, StringComparison.Ordinal);
-        Assert.Contains(".WithRiskAction(RiskActionNames.PublicRead, \"public.html.fallback\")", publicRoutes, StringComparison.Ordinal);
+        Assert.Equal(2, routes.Length);
+        Assert.Equal(
+            ["public.html.fallback", "public.html.home"],
+            routes.Select(static endpoint => endpoint.Metadata.GetMetadata<RiskActionEndpointMetadata>()!.RouteKey)
+                .OrderBy(static routeKey => routeKey, StringComparer.Ordinal)
+                .ToArray());
+        Assert.All(routes, static endpoint => Assert.Equal(
+            "public_read",
+            Assert.IsType<EnableRateLimitingAttribute>(
+                endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName));
     }
 
     [Fact]
-    public void NotificationStreamEndpoints_UseDedicatedRateLimiter()
+    public async Task NotificationStreamEndpoints_UseDedicatedRateLimiter()
     {
-        string source = ReadCompositionSource();
+        await using WebApplication app = CreateApplicationRouteMap();
+        RouteEndpoint[] routes = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(static endpoint => (endpoint.RoutePattern.RawText ?? string.Empty).TrimStart('/') is
+                "api/notifications/stream" or "api/notifications/stream/preflight")
+            .ToArray();
 
-        Assert.Contains(
-            "app.MapGet(\"/api/notifications/stream/preflight\"",
-            source,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "app.MapGet(\"/api/notifications/stream\"",
-            source,
-            StringComparison.Ordinal);
-        Assert.Equal(2, CountOccurrences(source, ".RequireRateLimiting(\"notification_stream\")"));
+        Assert.Equal(2, routes.Length);
+        Assert.All(routes, static endpoint => Assert.Equal(
+            "notification_stream",
+            Assert.IsType<EnableRateLimitingAttribute>(
+                endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName));
     }
 
     [Fact]
@@ -472,14 +481,10 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public void PublicAotHtmlFastPath_SourceAvoidsStringContentAndPerRequestUtf8Encode()
+    public async Task PublicAotHtmlFastPath_SourceAvoidsStringContentAndPerRequestUtf8Encode()
     {
-        string source = ReadCompositionSource();
-        string fastPath = ExtractPublicAotFastPath(source);
-
-        Assert.Contains("BodyWriter.WriteAsync(variant.Bytes", fastPath, StringComparison.Ordinal);
-        Assert.DoesNotContain("TypedResults.Content", fastPath, StringComparison.Ordinal);
-        Assert.DoesNotContain("Encoding.UTF8.GetBytes", fastPath, StringComparison.Ordinal);
+        await PublicAotHtmlFastPath_PrefersBrotliVariantAndWritesPreencodedBytes();
+        await PublicAotHtmlFastPath_ProbeCapturesBytesLatencyAndAllocationShape();
     }
 
     [Fact]
@@ -529,34 +534,18 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public void StaticNoCacheEntryAssets_PreserveValidatorsForConditionalRequests()
+    public async Task StaticNoCacheEntryAssets_PreserveValidatorsForConditionalRequests()
     {
-        string source = ReadCompositionSource();
-        string branch = ExtractStaticNoCacheEntryBranch(source);
-
-        Assert.Contains("headers[\"Cache-Control\"] = \"no-cache\";", branch, StringComparison.Ordinal);
-        Assert.Contains("/sw.js", branch, StringComparison.Ordinal);
-        Assert.Contains("/search/index.manifest.aeds", branch, StringComparison.Ordinal);
-        Assert.Contains("/search/index.bin", branch, StringComparison.Ordinal);
-        Assert.Contains("/manifest.webmanifest", branch, StringComparison.Ordinal);
-        Assert.DoesNotContain("headers.Remove(\"ETag\")", branch, StringComparison.Ordinal);
-        Assert.DoesNotContain("headers.Remove(\"Last-Modified\")", branch, StringComparison.Ordinal);
+        await StaticNoCacheEntryAssets_ReturnNotModifiedWhenEtagMatches("/sw.js", "self.__fsus_test = 1;");
+        await StaticNoCacheEntryAssets_ReturnNotModifiedWhenEtagMatches("/search/index.manifest.aeds", "manifest-v1");
+        await StaticNoCacheEntryAssets_ReturnNotModifiedWhenEtagMatches("/search/index.bin", "legacy-index-v1");
+        await StaticNoCacheEntryAssets_ReturnNotModifiedWhenEtagMatches("/manifest.webmanifest", "{\"name\":\"FsusBlog\"}");
     }
 
     [Fact]
-    public void DynamicManifest_SourceUsesDerivedBytesCacheAndConditionalEtag()
+    public async Task DynamicManifest_SourceUsesDerivedBytesCacheAndConditionalEtag()
     {
-        string source = ReadCompositionSource();
-        int methodStart = source.IndexOf("private static async Task WriteDynamicManifestAsync", StringComparison.Ordinal);
-        int methodEnd = source.IndexOf("private static void AddManifestIcon", methodStart, StringComparison.Ordinal);
-        string method = source[methodStart..methodEnd];
-
-        Assert.Contains("DynamicManifestCache", source, StringComparison.Ordinal);
-        Assert.Contains("BuildDynamicManifestCacheKey", method, StringComparison.Ordinal);
-        Assert.Contains("ComputeDynamicManifestEtag", method, StringComparison.Ordinal);
-        Assert.Contains("IfNoneMatch", method, StringComparison.Ordinal);
-        Assert.Contains("StatusCodes.Status304NotModified", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("Headers.Remove(\"ETag\")", method, StringComparison.Ordinal);
+        await DynamicManifest_ReturnsNotModifiedForMatchingEtagAndChangesEtagWhenSeoChanges();
     }
 
     [Fact]
@@ -626,17 +615,9 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public void ImmutableStaticAssets_KeepLongCacheWithoutValidators()
+    public async Task ImmutableStaticAssets_KeepLongCacheWithoutValidators()
     {
-        string source = ReadCompositionSource();
-        int immutableBranchStart = source.IndexOf("if (requestPath.StartsWith(\"/search/patches/\"", StringComparison.Ordinal);
-
-        Assert.True(immutableBranchStart >= 0, "Unable to locate immutable search asset branch.");
-
-        string immutableBranch = source[immutableBranchStart..];
-        Assert.Contains("headers[\"Cache-Control\"] = ImmutableStaticAssetCacheControl;", immutableBranch, StringComparison.Ordinal);
-        Assert.Contains("headers.Remove(\"ETag\")", immutableBranch, StringComparison.Ordinal);
-        Assert.Contains("headers.Remove(\"Last-Modified\")", immutableBranch, StringComparison.Ordinal);
+        await ImmutableSearchShardKeepsLongCacheAndRemovesValidators();
     }
 
     [Fact]
@@ -671,94 +652,21 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.True(string.IsNullOrEmpty(result.Response.Headers["ETag"].ToString()));
         Assert.True(string.IsNullOrEmpty(result.Response.Headers["Last-Modified"].ToString()));
     }
-    private static string ReadCompositionSource([CallerFilePath] string callerFilePath = "")
+    private static WebApplication CreateApplicationRouteMap()
     {
-        string repoRoot = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(callerFilePath)!, "..", "..", ".."));
-        return File.ReadAllText(Path.Combine(
-            repoRoot,
-            "src",
-            "backend",
-            "Infrastructure",
-            "Bootstrap",
-            "WebApplicationCompositionExtensions.cs"));
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Services.AddAuthorization();
+        builder.Services.AddOutputCache();
+        WebApplication app = builder.Build();
+        app.MapFsusApplicationRoutes();
+        return app;
     }
 
-    private static int CountOccurrences(string source, string value)
+    private static void AssertBefore(IReadOnlyList<string> stages, string first, string second)
     {
-        int count = 0;
-        int index = 0;
-        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
-        {
-            count++;
-            index += value.Length;
-        }
-
-        return count;
-    }
-
-    private static string ExtractStaticNoCacheEntryBranch(string source)
-    {
-        int branchStart = source.IndexOf("if (string.Equals(requestPath, \"/sw.js\"", StringComparison.Ordinal);
-        int branchEnd = source.IndexOf("if (IsPublicAotHydrationSidecarPath(requestPath))", branchStart, StringComparison.Ordinal);
-        if (branchEnd < 0)
-        {
-            branchEnd = source.IndexOf("if (requestPath.StartsWith(\"/search/patches/\"", branchStart, StringComparison.Ordinal);
-        }
-
-        Assert.True(branchStart >= 0, "Unable to locate no-cache static entry branch.");
-        Assert.True(branchEnd > branchStart, "Unable to locate end of no-cache static entry branch.");
-
-        return source[branchStart..branchEnd];
-    }
-
-    private static string ExtractPublicAotFastPath(string source)
-    {
-        int branchStart = source.IndexOf("private static async Task WritePublicAotHtmlEntryAsync", StringComparison.Ordinal);
-        int branchEnd = source.IndexOf("private static async Task WritePublicAotHtmlSlowPathAsync", branchStart, StringComparison.Ordinal);
-
-        Assert.True(branchStart >= 0, "Unable to locate Public AOT HTML write branch.");
-        Assert.True(branchEnd > branchStart, "Unable to locate Public AOT HTML slow-path branch.");
-
-        return source[branchStart..branchEnd];
-    }
-
-    private static string ExtractApplicationPipeline(string source)
-    {
-        int branchStart = source.IndexOf("public static void UseFsusApplicationPipeline", StringComparison.Ordinal);
-        int branchEnd = source.IndexOf("public static void MapFsusApplicationRoutes", branchStart, StringComparison.Ordinal);
-
-        Assert.True(branchStart >= 0, "Unable to locate application pipeline.");
-        Assert.True(branchEnd > branchStart, "Unable to locate end of application pipeline.");
-
-        return source[branchStart..branchEnd];
-    }
-
-    private static string ExtractPublicRoutes(string source)
-    {
-        int branchStart = source.IndexOf("private static void MapFsusPublicRoutes", StringComparison.Ordinal);
-        int branchEnd = source.IndexOf("private static async Task<IResult> ValidateNotificationStreamPreflightAsync", branchStart, StringComparison.Ordinal);
-
-        Assert.True(branchStart >= 0, "Unable to locate public route mapping.");
-        Assert.True(branchEnd > branchStart, "Unable to locate end of public route mapping.");
-
-        return source[branchStart..branchEnd];
-    }
-
-    private static string ExtractEndpointPipeline(string source)
-    {
-        int branchStart = source.IndexOf("private static void UseFsusEndpointPipeline", StringComparison.Ordinal);
-        int branchEnd = source.IndexOf("private static void UseFsusEndpointMetadataHeaders", branchStart, StringComparison.Ordinal);
-
-        Assert.True(branchStart >= 0, "Unable to locate endpoint pipeline.");
-        Assert.True(branchEnd > branchStart, "Unable to locate end of endpoint pipeline.");
-
-        return source[branchStart..branchEnd];
-    }
-
-    private static void AssertBefore(string source, string first, string second)
-    {
-        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
-        int secondIndex = source.IndexOf(second, StringComparison.Ordinal);
+        var ordered = stages.ToList();
+        int firstIndex = ordered.IndexOf(first);
+        int secondIndex = ordered.IndexOf(second);
 
         Assert.True(firstIndex >= 0, $"Unable to locate {first}.");
         Assert.True(secondIndex >= 0, $"Unable to locate {second}.");

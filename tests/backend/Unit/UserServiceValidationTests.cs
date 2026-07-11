@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Diagnostics.Metrics;
 using System.Reflection;
 using System.Linq.Expressions;
 using System.Data;
@@ -5,12 +7,14 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.Fixtures;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
@@ -37,7 +41,8 @@ public class UserServiceValidationTests
         ISqlSugarClient db,
         IJwtHelper jwtHelper,
         ITotpService totpService,
-        IBlacklistService? blacklistService = null)
+        IBlacklistService? blacklistService = null,
+        IUserSessionValidationCache? sessionValidationCache = null)
     {
         return new UserService(
             _db: db,
@@ -48,7 +53,8 @@ public class UserServiceValidationTests
             _messageCommandService: Substitute.For<IMessageCommandService>(),
             _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
             _totpService: totpService,
-            _authRiskService: Substitute.For<IAuthRiskService>());
+            _authRiskService: Substitute.For<IAuthRiskService>(),
+            _userSessionValidationCache: sessionValidationCache ?? Substitute.For<IUserSessionValidationCache>());
     }
 
     private static (IInsertable<UserSession> SessionInsert, IUpdateable<User> UserUpdate) ConfigureLoginPersistence(ISqlSugarClient db)
@@ -81,6 +87,13 @@ public class UserServiceValidationTests
     {
         using var _ = SetAnonymousIdentityMode("1");
         var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            await call.Arg<Func<Task>>()();
+            return new DbResult<bool> { IsSuccess = true };
+        });
         var queryable = Substitute.For<ISugarQueryable<User>>();
         db.Queryable<User>().Returns(queryable);
         queryable.AnyAsync(Arg.Any<Expression<Func<User, bool>>>()).Returns(Task.FromResult(false));
@@ -102,6 +115,38 @@ public class UserServiceValidationTests
         Assert.NotNull(inserted.PrivacyInitializedAt);
         Assert.False(inserted.PasskeyEnabled);
         Assert.False(inserted.RecoveryEnabled);
+        Assert.Equal(AccountSubjectHasher.Create(inserted), inserted.AccountSubjectHash);
+    }
+
+    [Fact]
+    public async Task BootstrapAnonymousAccountAsync_WithoutHandlePersistsIdBasedPhysicalSubjectInTransaction()
+    {
+        using var _ = SetAnonymousIdentityMode("1");
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            await call.Arg<Func<Task>>()();
+            return new DbResult<bool> { IsSuccess = true };
+        });
+        ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(Task.FromResult(1));
+
+        User? inserted = null;
+        var insertable = Substitute.For<IInsertable<User>>();
+        db.Insertable(Arg.Do<User>(user => inserted = user)).Returns(insertable);
+        insertable.ExecuteReturnIdentityAsync().Returns(Task.FromResult(42));
+        var svc = BuildService(db, Substitute.For<IJwtHelper>());
+
+        var (success, message, user) = await svc.BootstrapAnonymousAccountAsync(null);
+
+        Assert.True(success, message);
+        Assert.NotNull(inserted);
+        Assert.NotNull(user);
+        Assert.Equal(AccountSubjectHasher.Create(user!), user!.AccountSubjectHash);
+        await ado.Received(1).ExecuteCommandAsync(
+            Arg.Is<string>(sql => sql.Contains("account_subject_hash", StringComparison.Ordinal)),
+            Arg.Any<SugarParameter[]>());
     }
 
     [Fact]
@@ -177,42 +222,205 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public void UpdatePublicHandleAsync_SourceUsesAtomicUniqueUpdate()
+    public async Task UpdatePublicHandleAsync_SourceUsesAtomicUniqueUpdate()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string method = ExtractUserServiceMethod(
-            source,
-            "public async Task<(bool Success, string Message)> UpdatePublicHandleAsync",
-            "public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync");
+        var db = Substitute.For<ISqlSugarClient>();
+        string? executedSql = null;
+        SugarParameter[]? executedParameters = null;
+        db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(call =>
+            {
+                executedSql = call.ArgAt<string>(0);
+                executedParameters = call.ArgAt<SugarParameter[]>(1);
+                return Task.FromResult(1);
+            });
+        var service = BuildService(db, Substitute.For<IJwtHelper>());
 
-        Assert.Contains("NOT EXISTS", method, StringComparison.Ordinal);
-        Assert.Contains("public_handle = @publicHandle", method, StringComparison.Ordinal);
-        Assert.Contains("id <> @userId", method, StringComparison.Ordinal);
-        Assert.Contains("IsUniqueViolation", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("AnyAsync", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("Updateable<User>()", method, StringComparison.Ordinal);
+        var (success, message) = await service.UpdatePublicHandleAsync(7, " QuietReader#123 ");
+
+        Assert.True(success, message);
+        Assert.NotNull(executedSql);
+        Assert.Contains("NOT EXISTS", executedSql, StringComparison.Ordinal);
+        Assert.Contains("public_handle = @publicHandle", executedSql, StringComparison.Ordinal);
+        Assert.Contains("id <> @userId", executedSql, StringComparison.Ordinal);
+        Assert.Contains(executedParameters!, parameter =>
+            parameter.ParameterName == "@publicHandle" && Equals(parameter.Value, "quietreader#123"));
+        Assert.Contains(executedParameters!, parameter =>
+            parameter.ParameterName == "@userId" && Equals(parameter.Value, 7));
+        db.DidNotReceive().Updateable<User>();
     }
 
     [Fact]
-    public void DeleteAccountAsync_SourceUsesAnonymousTombstoneAndRevokesAccountAssets()
+    public async Task DeleteAccountAsync_ExecutesAnonymousTombstoneAndAssetRevocationInsideTransaction()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string method = ExtractUserServiceMethod(
-            source,
-            "public async Task<(bool Success, string Message)> DeleteAccountAsync",
-            "public async Task<MfaProfileDto?> GetMfaProfileAsync");
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        bool insideTransaction = false;
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            Assert.False(insideTransaction);
+            insideTransaction = true;
+            await call.Arg<Func<Task>>()();
+            insideTransaction = false;
+            return new DbResult<bool> { IsSuccess = true };
+        });
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
+        {
+            Assert.True(insideTransaction);
+            string sql = call.ArgAt<string>(0);
+            SugarParameter[] parameters = call.ArgAt<SugarParameter[]>(1);
+            Assert.Contains("UPDATE sys_user_session", sql, StringComparison.Ordinal);
+            Assert.Contains("revokereason = 'account_deleted'", sql, StringComparison.Ordinal);
+            Assert.Contains("RETURNING sessionid", sql, StringComparison.Ordinal);
+            Assert.Contains(parameters, parameter => parameter.ParameterName == "@UserId" && Equals(parameter.Value, 42));
+            return Task.FromResult((IDataReader)CreateRevokedSessionReader(
+                "account-delete-session",
+                42,
+                DateTime.UtcNow,
+                "account-delete-version"));
+        });
 
-        Assert.DoesNotContain("LegacyPasswordDisabledMessage", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("BCrypt.Net.BCrypt.Verify(dto.Password", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("BuildDeletedUsername", method, StringComparison.Ordinal);
-        Assert.Contains("IdentityKind == AnonymousIdentityRuntime.AnonymousAccountKind", method, StringComparison.Ordinal);
-        Assert.Contains("PublicHandle == null", method, StringComparison.Ordinal);
-        Assert.Contains("PasskeyEnabled == false", method, StringComparison.Ordinal);
-        Assert.Contains("RecoveryEnabled == false", method, StringComparison.Ordinal);
-        Assert.Contains("AnonymousCredentialStatus == AnonymousCredentialStatuses.Revoked", method, StringComparison.Ordinal);
-        Assert.Contains("Updateable<RecoveryKeyCredential>()", method, StringComparison.Ordinal);
-        Assert.Contains("Updateable<AnonymousCredential>()", method, StringComparison.Ordinal);
-        Assert.Contains("Deleteable<PasskeyCredential>()", method, StringComparison.Ordinal);
+        var users = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(users);
+        users.InSingleAsync(42).Returns(Task.FromResult(new User
+        {
+            Id = 42,
+            PublicHandle = "reader-before-delete",
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            Status = 0,
+            PasskeyEnabled = true,
+            RecoveryEnabled = true,
+            AnonymousCredentialStatus = AnonymousCredentialStatuses.Active,
+            MfaEnabled = true,
+            RiskFlags = 7,
+            BanReason = "old-ban"
+        }));
+
+        Expression<Func<PasskeyCredential, bool>>? passkeyPredicate = null;
+        var passkeyDelete = Substitute.For<IDeleteable<PasskeyCredential>>();
+        passkeyDelete.Where(Arg.Do<Expression<Func<PasskeyCredential, bool>>>(value => passkeyPredicate = value)).Returns(passkeyDelete);
+        passkeyDelete.ExecuteCommandAsync().Returns(_ =>
+        {
+            Assert.True(insideTransaction);
+            return Task.FromResult(1);
+        });
+        db.Deleteable<PasskeyCredential>().Returns(passkeyDelete);
+
+        var recoveryAssignments = new List<Expression<Func<RecoveryKeyCredential, bool>>>();
+        Expression<Func<RecoveryKeyCredential, bool>>? recoveryPredicate = null;
+        var recoveryUpdate = Substitute.For<IUpdateable<RecoveryKeyCredential>>();
+        recoveryUpdate.SetColumns(Arg.Do<Expression<Func<RecoveryKeyCredential, bool>>>(recoveryAssignments.Add)).Returns(recoveryUpdate);
+        recoveryUpdate.Where(Arg.Do<Expression<Func<RecoveryKeyCredential, bool>>>(value => recoveryPredicate = value)).Returns(recoveryUpdate);
+        recoveryUpdate.ExecuteCommandAsync().Returns(_ =>
+        {
+            Assert.True(insideTransaction);
+            return Task.FromResult(1);
+        });
+        db.Updateable<RecoveryKeyCredential>().Returns(recoveryUpdate);
+
+        var anonymousAssignments = new List<Expression<Func<AnonymousCredential, bool>>>();
+        Expression<Func<AnonymousCredential, bool>>? anonymousPredicate = null;
+        var anonymousUpdate = Substitute.For<IUpdateable<AnonymousCredential>>();
+        anonymousUpdate.SetColumns(Arg.Do<Expression<Func<AnonymousCredential, bool>>>(anonymousAssignments.Add)).Returns(anonymousUpdate);
+        anonymousUpdate.Where(Arg.Do<Expression<Func<AnonymousCredential, bool>>>(value => anonymousPredicate = value)).Returns(anonymousUpdate);
+        anonymousUpdate.ExecuteCommandAsync().Returns(_ =>
+        {
+            Assert.True(insideTransaction);
+            return Task.FromResult(1);
+        });
+        db.Updateable<AnonymousCredential>().Returns(anonymousUpdate);
+
+        var userAssignments = new List<Expression<Func<User, bool>>>();
+        Expression<Func<User, bool>>? userPredicate = null;
+        var userUpdate = Substitute.For<IUpdateable<User>>();
+        userUpdate.SetColumns(Arg.Do<Expression<Func<User, bool>>>(userAssignments.Add)).Returns(userUpdate);
+        userUpdate.Where(Arg.Do<Expression<Func<User, bool>>>(value => userPredicate = value)).Returns(userUpdate);
+        userUpdate.ExecuteCommandAsync().Returns(_ =>
+        {
+            Assert.True(insideTransaction);
+            return Task.FromResult(1);
+        });
+        db.Updateable<User>().Returns(userUpdate);
+
+        var mfaAssignments = new List<Expression<Func<UserMfaProfile, bool>>>();
+        Expression<Func<UserMfaProfile, bool>>? mfaPredicate = null;
+        var mfaUpdate = Substitute.For<IUpdateable<UserMfaProfile>>();
+        mfaUpdate.SetColumns(Arg.Do<Expression<Func<UserMfaProfile, bool>>>(mfaAssignments.Add)).Returns(mfaUpdate);
+        mfaUpdate.Where(Arg.Do<Expression<Func<UserMfaProfile, bool>>>(value => mfaPredicate = value)).Returns(mfaUpdate);
+        mfaUpdate.ExecuteCommandAsync().Returns(_ =>
+        {
+            Assert.True(insideTransaction);
+            return Task.FromResult(1);
+        });
+        db.Updateable<UserMfaProfile>().Returns(mfaUpdate);
+
+        var sessionCache = Substitute.For<IUserSessionValidationCache>();
+        IReadOnlyList<UserSessionValidationCacheState>? publishedSessions = null;
+        sessionCache.PublishManyAsync(
+                Arg.Do<IReadOnlyList<UserSessionValidationCacheState>>(states => publishedSessions = states),
+                true)
+            .Returns(_ =>
+            {
+                Assert.True(insideTransaction);
+                return Task.CompletedTask;
+            });
+        var blacklist = Substitute.For<IBlacklistService>();
+        var service = BuildService(
+            db,
+            Substitute.For<IJwtHelper>(),
+            Substitute.For<ITotpService>(),
+            blacklist,
+            sessionCache);
+
+        var (success, message) = await service.DeleteAccountAsync(42, new DeleteAccountRequestDto { ConfirmText = " DELETE " });
+
+        Assert.True(success, message);
+        Assert.Equal("账户已注销", message);
+        Assert.False(insideTransaction);
+        Assert.NotNull(passkeyPredicate);
+        Assert.True(passkeyPredicate!.Compile()(new PasskeyCredential { AccountId = 42 }));
+        Assert.False(passkeyPredicate.Compile()(new PasskeyCredential { AccountId = 43 }));
+        Assert.NotNull(recoveryPredicate);
+        Assert.True(recoveryPredicate!.Compile()(new RecoveryKeyCredential { AccountId = 42, RevokedAt = null }));
+        Assert.False(recoveryPredicate.Compile()(new RecoveryKeyCredential { AccountId = 42, RevokedAt = DateTime.UtcNow }));
+        DateTime recoveryRevokedAt = Assert.IsType<DateTime>(ReadAssignmentValue(recoveryAssignments, nameof(RecoveryKeyCredential.RevokedAt)));
+        Assert.Equal(AnonymousCredentialStatuses.Revoked, ReadAssignmentValue(anonymousAssignments, nameof(AnonymousCredential.Status)));
+        DateTime anonymousRevokedAt = Assert.IsType<DateTime>(ReadAssignmentValue(anonymousAssignments, nameof(AnonymousCredential.RevokedAtUtc)));
+        Assert.NotNull(anonymousPredicate);
+        Assert.True(anonymousPredicate!.Compile()(new AnonymousCredential { AccountId = 42, RevokedAtUtc = null }));
+        Assert.Equal(2, ReadAssignmentValue(userAssignments, nameof(User.Status)));
+        Assert.Null(ReadAssignmentValue(userAssignments, nameof(User.PublicHandle)));
+        Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, ReadAssignmentValue(userAssignments, nameof(User.IdentityKind)));
+        Assert.Equal(false, ReadAssignmentValue(userAssignments, nameof(User.PasskeyEnabled)));
+        Assert.Equal(false, ReadAssignmentValue(userAssignments, nameof(User.RecoveryEnabled)));
+        Assert.Equal(AnonymousCredentialStatuses.Revoked, ReadAssignmentValue(userAssignments, nameof(User.AnonymousCredentialStatus)));
+        Assert.Equal(false, ReadAssignmentValue(userAssignments, nameof(User.MfaEnabled)));
+        Assert.Equal(0, ReadAssignmentValue(userAssignments, nameof(User.RiskFlags)));
+        Assert.Null(ReadAssignmentValue(userAssignments, nameof(User.BanReason)));
+        DateTime accountDeletedAt = Assert.IsType<DateTime>(ReadAssignmentValue(userAssignments, nameof(User.DeletedAt)));
+        Assert.Equal("self-service", ReadAssignmentValue(userAssignments, nameof(User.DeletedReason)));
+        Assert.Equal(accountDeletedAt, recoveryRevokedAt);
+        Assert.Equal(accountDeletedAt, anonymousRevokedAt);
+        Assert.NotNull(userPredicate);
+        Assert.True(userPredicate!.Compile()(new User { Id = 42 }));
+        Assert.Null(ReadAssignmentValue(mfaAssignments, nameof(UserMfaProfile.MfaSecretEncrypted)));
+        Assert.Null(ReadAssignmentValue(mfaAssignments, nameof(UserMfaProfile.MfaPendingSecretEncrypted)));
+        Assert.Null(ReadAssignmentValue(mfaAssignments, nameof(UserMfaProfile.MfaPendingCreatedAt)));
+        Assert.Null(ReadAssignmentValue(mfaAssignments, nameof(UserMfaProfile.MfaRecoveryCodesHash)));
+        Assert.Null(ReadAssignmentValue(mfaAssignments, nameof(UserMfaProfile.MfaVerifiedAt)));
+        Assert.Equal(accountDeletedAt, Assert.IsType<DateTime>(ReadAssignmentValue(mfaAssignments, nameof(UserMfaProfile.UpdatedAtUtc))));
+        Assert.NotNull(mfaPredicate);
+        Assert.True(mfaPredicate!.Compile()(new UserMfaProfile { UserId = 42 }));
+        await passkeyDelete.Received(1).ExecuteCommandAsync();
+        await recoveryUpdate.Received(1).ExecuteCommandAsync();
+        await anonymousUpdate.Received(1).ExecuteCommandAsync();
+        await userUpdate.Received(1).ExecuteCommandAsync();
+        await mfaUpdate.Received(1).ExecuteCommandAsync();
+        UserSessionValidationCacheState publishedSession = Assert.Single(publishedSessions!);
+        Assert.Equal("account-delete-session", publishedSession.SessionId);
+        Assert.Equal("account-delete-version", publishedSession.RowVersion);
+        await blacklist.Received(1).UnbanUserAsync(42);
     }
 
     [Fact]
@@ -287,22 +495,9 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public void UserService_MfaProfileUpsertUsesSingleConflictSafeStatement()
+    public async Task UserService_MfaProfileUpsertUsesSingleConflictSafeStatement()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string method = ExtractUserServiceMethod(
-            source,
-            "private async Task UpsertUserMfaProfileAsync",
-            "private static (bool Success, string? PublicHandle, string Message) NormalizePublicHandle");
-
-        Assert.Contains("INSERT INTO user_mfa_profile", method, StringComparison.Ordinal);
-        Assert.Contains("ON CONFLICT (user_id) DO UPDATE SET", method, StringComparison.Ordinal);
-        Assert.Contains("CAST(@MfaPendingCreatedAt AS timestamp)", method, StringComparison.Ordinal);
-        Assert.Contains("CAST(@MfaVerifiedAt AS timestamp)", method, StringComparison.Ordinal);
-        Assert.Contains("CAST(@UpdatedAtUtc AS timestamp)", method, StringComparison.Ordinal);
-        Assert.Contains("ExecuteCommandAsync", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("Updateable<UserMfaProfile>()", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("Insertable(profile)", method, StringComparison.Ordinal);
+        await StartMfaSetupAsync_UsesAtomicMfaProfileUpsert();
     }
 
     [Fact]
@@ -347,68 +542,79 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public void UserService_RecoveryCodeConsumptionUsesHashCompareAndSwap()
+    public async Task UserService_RecoveryCodeConsumptionUsesHashCompareAndSwap()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string verifyMethod = ExtractUserServiceMethod(
-            source,
-            "public async Task<bool> VerifyMfaOrRecoveryCodeAsync",
-            "private async Task RevokeLikelyRefreshReplayAsync");
-        string casMethod = ExtractUserServiceMethod(
-            source,
-            "private async Task<bool> TryPersistRecoveryCodeConsumptionAsync",
-            "private async Task RevokeLikelyRefreshReplayAsync");
-
-        Assert.Contains("TryPersistRecoveryCodeConsumptionAsync", verifyMethod, StringComparison.Ordinal);
-        Assert.Contains("UPDATE user_mfa_profile", casMethod, StringComparison.Ordinal);
-        Assert.Contains("mfa_recovery_codes_hash = @UpdatedHashes", casMethod, StringComparison.Ordinal);
-        Assert.Contains("mfa_recovery_codes_hash = @OldHashes", casMethod, StringComparison.Ordinal);
-        AssertContainsAfter(verifyMethod, "RecoveryCodeConsumeResult consumeResult", "TryPersistRecoveryCodeConsumptionAsync");
+        await VerifyMfaOrRecoveryCodeAsync_RecoveryCodeCasConflictReturnsFalse();
     }
 
     [Fact]
-    public void UserService_TotpVerificationConsumesStepWithCompareAndSwap()
+    public async Task UserService_TotpVerificationConsumesStepWithCompareAndSwap()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string verifyMethod = ExtractUserServiceMethod(
-            source,
-            "public async Task<bool> VerifyMfaOrRecoveryCodeAsync",
-            "private async Task RevokeLikelyRefreshReplayAsync");
-        string consumeMethod = ExtractUserServiceMethod(
-            source,
-            "private async Task<bool> TryConsumeTotpStepAsync",
-            "private async Task<bool> TryPersistRecoveryCodeConsumptionAsync");
-        string profileEntity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/UserMfaProfile.cs");
+        var db = Substitute.For<ISqlSugarClient>();
+        var profileQueryable = Substitute.For<ISugarQueryable<UserMfaProfile>>();
+        db.Queryable<UserMfaProfile>().Returns(profileQueryable);
+        profileQueryable.Where(Arg.Any<Expression<Func<UserMfaProfile, bool>>>()).Returns(profileQueryable);
+        profileQueryable.FirstAsync().Returns(Task.FromResult(new UserMfaProfile
+        {
+            UserId = 42,
+            MfaSecretEncrypted = "protected-secret",
+            LastTotpStep = 986
+        }));
+        string? executedSql = null;
+        SugarParameter[]? executedParameters = null;
+        db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(call =>
+            {
+                executedSql = call.ArgAt<string>(0);
+                executedParameters = call.ArgAt<SugarParameter[]>(1);
+                return Task.FromResult(1);
+            });
+        var totp = Substitute.For<ITotpService>();
+        totp.UnprotectSecret("protected-secret").Returns("secret");
+        long matchedStep = 0;
+        totp.TryVerifyCode("secret", "123456", out matchedStep, 1)
+            .Returns(call =>
+            {
+                call[2] = 987L;
+                return true;
+            });
+        var service = BuildService(db, Substitute.For<IJwtHelper>(), totp);
 
-        Assert.Contains("TryVerifyCode(secret, code, out long matchedStep)", verifyMethod, StringComparison.Ordinal);
-        Assert.Contains("TryConsumeTotpStepAsync(user.Id, matchedStep)", verifyMethod, StringComparison.Ordinal);
-        Assert.Contains("last_totp_step", profileEntity, StringComparison.Ordinal);
-        Assert.Contains("UPDATE user_mfa_profile", consumeMethod, StringComparison.Ordinal);
-        Assert.Contains("last_totp_step = @MatchedStep", consumeMethod, StringComparison.Ordinal);
-        Assert.Contains("last_totp_step < @MatchedStep", consumeMethod, StringComparison.Ordinal);
+        bool verified = await service.VerifyMfaOrRecoveryCodeAsync(
+            new User { Id = 42, MfaEnabled = true },
+            code: "123456",
+            recoveryCode: null,
+            persistRecoveryConsumption: false);
+
+        Assert.True(verified);
+        Assert.NotNull(executedSql);
+        Assert.Contains("UPDATE user_mfa_profile", executedSql, StringComparison.Ordinal);
+        Assert.Contains("last_totp_step = @MatchedStep", executedSql, StringComparison.Ordinal);
+        Assert.Contains("last_totp_step < @MatchedStep", executedSql, StringComparison.Ordinal);
+        Assert.Contains(executedParameters!, parameter =>
+            parameter.ParameterName == "@MatchedStep" && Equals(parameter.Value, 987L));
+        PropertyInfo lastStep = Assert.IsAssignableFrom<PropertyInfo>(typeof(UserMfaProfile).GetProperty(nameof(UserMfaProfile.LastTotpStep)));
+        Assert.Equal(typeof(long?), lastStep.PropertyType);
     }
 
     [Fact]
-    public void UserService_SourceDoesNotWriteSysUserLegacySecurityColumns()
+    public void UserAndMfaProfile_MetadataKeepLegacySecurityStateOutOfSysUser()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
+        Assert.Null(typeof(User).GetProperty("LegacyPasswordHash", BindingFlags.Instance | BindingFlags.Public));
+        Assert.Null(typeof(User).GetProperty("LegacyProjectRole", BindingFlags.Instance | BindingFlags.Public));
+        Assert.Null(typeof(User).GetProperty("LastLoginTime", BindingFlags.Instance | BindingFlags.Public));
+        Assert.Null(typeof(User).GetProperty("LastLoginIp", BindingFlags.Instance | BindingFlags.Public));
+        Assert.Null(typeof(User).GetProperty("MfaSecretEncrypted", BindingFlags.Instance | BindingFlags.Public));
+        Assert.Null(typeof(User).GetProperty("MfaPendingSecretEncrypted", BindingFlags.Instance | BindingFlags.Public));
+        Assert.Null(typeof(User).GetProperty("MfaRecoveryCodesHash", BindingFlags.Instance | BindingFlags.Public));
+        Assert.Null(typeof(User).GetProperty("MfaVerifiedAt", BindingFlags.Instance | BindingFlags.Public));
 
-        foreach (string forbidden in new[]
-        {
-            "LegacyPasswordHash = string.Empty",
-            "LegacyProjectRole = \"guest\"",
-            "it.LastLoginTime == now",
-            "it.LastLoginIp == clientIp",
-            "u.MfaSecretEncrypted ==",
-            "u.MfaPendingSecretEncrypted ==",
-            "u.MfaRecoveryCodesHash ==",
-            "u.MfaVerifiedAt =="
-        })
-        {
-            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
-        }
-
-        Assert.Contains("INSERT INTO user_mfa_profile", source, StringComparison.Ordinal);
+        SugarTable mfaTable = Assert.IsType<SugarTable>(typeof(UserMfaProfile).GetCustomAttribute<SugarTable>());
+        Assert.Equal("user_mfa_profile", mfaTable.TableName);
+        Assert.Equal("mfa_secret_encrypted", SugarColumnName<UserMfaProfile>(nameof(UserMfaProfile.MfaSecretEncrypted)));
+        Assert.Equal("mfa_pending_secret_encrypted", SugarColumnName<UserMfaProfile>(nameof(UserMfaProfile.MfaPendingSecretEncrypted)));
+        Assert.Equal("mfa_recovery_codes_hash", SugarColumnName<UserMfaProfile>(nameof(UserMfaProfile.MfaRecoveryCodesHash)));
+        Assert.Equal("mfa_verified_at", SugarColumnName<UserMfaProfile>(nameof(UserMfaProfile.MfaVerifiedAt)));
     }
 
     [Fact]
@@ -433,6 +639,125 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    public async Task RevokeSessionAsync_PublicationFailureRollsBackAndInvalidatesPossiblePartialSnapshot()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        var sequence = new List<string>();
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            sequence.Add("transaction-begin");
+            try
+            {
+                await call.Arg<Func<Task>>()();
+                sequence.Add("transaction-commit");
+                return new DbResult<bool> { IsSuccess = true };
+            }
+            catch (Exception ex)
+            {
+                sequence.Add("transaction-rollback");
+                return new DbResult<bool> { IsSuccess = false, ErrorException = ex };
+            }
+        });
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(_ =>
+        {
+            sequence.Add("database-revoke");
+            return Task.FromResult((IDataReader)CreateRevokedSessionReader(
+                "session-rollback",
+                42,
+                DateTime.UtcNow,
+                "row-version-rollback"));
+        });
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        cache.PublishManyAsync(
+                Arg.Any<IReadOnlyList<UserSessionValidationCacheState>>(),
+                true)
+            .Returns(_ => Task.FromException(new InvalidOperationException("forced publication failure")));
+        IReadOnlyList<UserSessionValidationCacheState>? invalidated = null;
+        cache.InvalidateManyAsync(
+                Arg.Do<IReadOnlyList<UserSessionValidationCacheState>>(states => invalidated = states))
+            .Returns(_ =>
+            {
+                sequence.Add("invalidate-partial-snapshot");
+                return Task.CompletedTask;
+            });
+        var service = BuildService(
+            db,
+            Substitute.For<IJwtHelper>(),
+            Substitute.For<ITotpService>(),
+            sessionValidationCache: cache);
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.RevokeSessionAsync(42, "session-rollback"));
+
+        Assert.Equal("forced publication failure", error.Message);
+        Assert.Equal(
+            [
+                "transaction-begin",
+                "database-revoke",
+                "transaction-rollback",
+                "invalidate-partial-snapshot"
+            ],
+            sequence);
+        UserSessionValidationCacheState invalidatedState = Assert.Single(invalidated!);
+        Assert.Equal("session-rollback", invalidatedState.SessionId);
+    }
+
+    [Theory]
+    [InlineData("logout")]
+    [InlineData("revoke-others")]
+    public async Task RevocationProducers_PublishDistributedFenceBeforeTransactionCommit(string producer)
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        var sequence = new List<string>();
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            sequence.Add("transaction-begin");
+            await call.Arg<Func<Task>>()();
+            sequence.Add("transaction-commit");
+            return new DbResult<bool> { IsSuccess = true };
+        });
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(_ =>
+        {
+            sequence.Add("database-revoke");
+            return Task.FromResult((IDataReader)CreateRevokedSessionReader(
+                $"session-{producer}",
+                42,
+                DateTime.UtcNow,
+                $"row-version-{producer}"));
+        });
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        cache.PublishManyAsync(
+                Arg.Any<IReadOnlyList<UserSessionValidationCacheState>>(),
+                true)
+            .Returns(_ =>
+            {
+                sequence.Add("publish-revoked-fence");
+                return Task.CompletedTask;
+            });
+        var service = BuildService(
+            db,
+            Substitute.For<IJwtHelper>(),
+            Substitute.For<ITotpService>(),
+            sessionValidationCache: cache);
+
+        int revoked = producer switch
+        {
+            "logout" => await service.RevokeRefreshTokenAsync("refresh-token") ? 1 : 0,
+            "revoke-others" => await service.RevokeOtherSessionsAsync(42, "current-session"),
+            _ => throw new ArgumentOutOfRangeException(nameof(producer), producer, null)
+        };
+
+        Assert.Equal(1, revoked);
+        Assert.Equal(
+            ["transaction-begin", "database-revoke", "publish-revoked-fence", "transaction-commit"],
+            sequence);
+    }
+
+    [Fact]
     public async Task RefreshTokenAsync_WithSessionId_EmptyToken_ReturnsFalse()
     {
         var svc = BuildService();
@@ -448,6 +773,60 @@ public class UserServiceValidationTests
         var (success, data) = await svc.RefreshTokenAsync(null!, null);
         Assert.False(success);
         Assert.Null(data);
+    }
+
+    [Fact]
+    [Trait("Category", "SecurityStateMachine")]
+    public async Task RefreshTokenAsync_RotationCarriesIssuedAccessExpiryForCookieHandoff()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var sessionQuery = Substitute.For<ISugarQueryable<UserSession>>();
+        db.Queryable<UserSession>().Returns(sessionQuery);
+        sessionQuery.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionQuery);
+        sessionQuery.FirstAsync().Returns(Task.FromResult(new UserSession
+        {
+            SessionId = "session-rotation",
+            UserId = 42,
+            RefreshTokenHash = "old-hash",
+            IdleExpiresAt = DateTime.UtcNow.AddHours(1),
+            AbsoluteExpiresAt = DateTime.UtcNow.AddDays(1),
+            MfaVerified = true,
+            RememberMe = false
+        }));
+
+        var userQuery = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(userQuery);
+        userQuery.InSingleAsync(42).Returns(Task.FromResult(new User
+        {
+            Id = 42,
+            Status = 0,
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            PasskeyUserHandle = "refresh-expiry-account"
+        }));
+
+        var sessionUpdate = Substitute.For<IUpdateable<UserSession>>();
+        db.Updateable<UserSession>().Returns(sessionUpdate);
+        sessionUpdate.SetColumns(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionUpdate);
+        sessionUpdate.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionUpdate);
+        sessionUpdate.ExecuteCommandAsync().Returns(Task.FromResult(1));
+
+        DateTimeOffset accessTokenExpiresAtUtc = DateTimeOffset.FromUnixTimeSeconds(
+            DateTimeOffset.UtcNow.AddMinutes(60).ToUnixTimeSeconds());
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns("rotated-refresh-token");
+        jwt.GenerateAccessToken(Arg.Any<User>(), "session-rotation", true)
+            .Returns(new IssuedAccessToken("rotated-access-token", accessTokenExpiresAtUtc));
+        var service = BuildService(db, jwt);
+
+        var (success, data) = await service.RefreshTokenAsync("old-refresh-token", "session-rotation");
+
+        Assert.True(success);
+        Assert.NotNull(data);
+        Assert.Equal("rotated-access-token", data.Value.AccessToken);
+        Assert.Equal("rotated-refresh-token", data.Value.RefreshToken);
+        Assert.True(data.Value.AccessTokenExpiresAtUtc.HasValue);
+        Assert.Equal(accessTokenExpiresAtUtc, data.Value.AccessTokenExpiresAtUtc.Value);
+        jwt.Received(1).GenerateAccessToken(Arg.Any<User>(), "session-rotation", true);
     }
 
     [Fact]
@@ -474,42 +853,143 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public void RefreshTokenAsync_SourceReturnsIdleExpiryWithoutFacadeSessionLookup()
+    public async Task RefreshTokenWithExpiryAsync_ReturnsRotatedIdleExpiryWithoutSecondSessionLookup()
     {
-        string userService = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string refreshMethod = ExtractUserServiceMethod(
-            userService,
-            "public async Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync(string refreshToken, string? sessionId)",
-            "public async Task<(bool Success, MfaSetupStartDto? Data, string Message)> StartMfaSetupAsync");
-        string ports = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.Ports.cs");
-        string refreshFacade = ExtractUserServiceMethod(
-            ports,
-            "public async Task<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)> RefreshTokenWithExpiryAsync",
-            "public Task<(bool Success, TokenResponseDto? Data)> RefreshTokenAsync");
-        string contracts = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        var db = Substitute.For<ISqlSugarClient>();
+        var sessionQuery = Substitute.For<ISugarQueryable<UserSession>>();
+        db.Queryable<UserSession>().Returns(sessionQuery);
+        sessionQuery.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionQuery);
+        DateTime absoluteExpiry = DateTime.UtcNow.AddDays(30);
+        sessionQuery.FirstAsync().Returns(Task.FromResult(new UserSession
+        {
+            SessionId = "facade-refresh-session",
+            UserId = 42,
+            RefreshTokenHash = "old-hash",
+            IdleExpiresAt = DateTime.UtcNow.AddMinutes(5),
+            AbsoluteExpiresAt = absoluteExpiry,
+            MfaVerified = true,
+            RememberMe = false
+        }));
+        var userQuery = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(userQuery);
+        userQuery.InSingleAsync(42).Returns(Task.FromResult(new User
+        {
+            Id = 42,
+            Status = 0,
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind
+        }));
+        var sessionUpdate = Substitute.For<IUpdateable<UserSession>>();
+        db.Updateable<UserSession>().Returns(sessionUpdate);
+        sessionUpdate.SetColumns(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionUpdate);
+        sessionUpdate.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionUpdate);
+        sessionUpdate.ExecuteCommandAsync().Returns(Task.FromResult(1));
+        DateTimeOffset accessExpiry = DateTimeOffset.UtcNow.AddMinutes(15);
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns("rotated-refresh-token");
+        jwt.GenerateAccessToken(Arg.Any<User>(), "facade-refresh-session", true)
+            .Returns(new IssuedAccessToken("rotated-access-token", accessExpiry));
+        var measurements = new ConcurrentBag<(string Name, double Value)>();
+        using MeterListener listener = ListenToFsusMeasurements(measurements);
+        var facade = new UserSessionCommandService(BuildService(db, jwt));
 
-        Assert.Contains("RefreshTokenExpiresAt", contracts, StringComparison.Ordinal);
-        Assert.Contains("new TokenResponseDto(accessToken, newRefreshToken, idleExpiresAt, session.SessionId)", refreshMethod, StringComparison.Ordinal);
-        Assert.Contains("result.Data.Value.RefreshTokenExpiresAt", refreshFacade, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetSessionByRefreshTokenAsync(result.Data.Value.RefreshToken)", refreshFacade, StringComparison.Ordinal);
-        Assert.Contains("RecordAuthRefreshSuccess", refreshMethod, StringComparison.Ordinal);
-        Assert.Contains("RecordAuthRefreshReplayDetected", refreshMethod, StringComparison.Ordinal);
-        Assert.Contains("fsus.auth.refresh.success_db_command_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.auth.refresh.success_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.auth.refresh.replay_detected_count", observability, StringComparison.Ordinal);
+        var result = await facade.RefreshTokenWithExpiryAsync(
+            "old-refresh-token",
+            "facade-refresh-session",
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Data);
+        Assert.True(result.Data.Value.RefreshTokenExpiresAt.HasValue);
+        Assert.Equal(result.Data.Value.RefreshTokenExpiresAt.Value, result.ExpiresAt);
+        Assert.Equal(accessExpiry, result.Data.Value.AccessTokenExpiresAtUtc);
+        Assert.Equal("rotated-access-token", result.Data.Value.AccessToken);
+        Assert.Equal("rotated-refresh-token", result.Data.Value.RefreshToken);
+        Assert.InRange(result.ExpiresAt, DateTime.UtcNow.AddMinutes(55), DateTime.UtcNow.AddMinutes(61));
+        Assert.True(result.ExpiresAt < absoluteExpiry);
+        _ = db.Received(1).Queryable<UserSession>();
+        await sessionQuery.Received(1).FirstAsync();
+        await sessionUpdate.Received(1).ExecuteCommandAsync();
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.refresh.success_db_command_count" && measurement.Value == 3);
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.refresh.success_elapsed_ms" && measurement.Value >= 0);
+        PropertyInfo refreshExpiry = Assert.IsAssignableFrom<PropertyInfo>(typeof(TokenResponseDto).GetProperty(nameof(TokenResponseDto.RefreshTokenExpiresAt)));
+        Assert.Equal(typeof(DateTime?), refreshExpiry.PropertyType);
     }
 
     [Fact]
+    public async Task RefreshTokenAsync_RotationConflictEmitsReplayMetricAndReturnsFailure()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var sessionQuery = Substitute.For<ISugarQueryable<UserSession>>();
+        db.Queryable<UserSession>().Returns(sessionQuery);
+        sessionQuery.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(sessionQuery);
+        var activeSession = new UserSession
+        {
+            SessionId = "replay-session",
+            UserId = 42,
+            RefreshTokenHash = "old-stored-hash",
+            IdleExpiresAt = DateTime.UtcNow.AddHours(1),
+            AbsoluteExpiresAt = DateTime.UtcNow.AddDays(1),
+            MfaVerified = true
+        };
+        var newerSession = new UserSession
+        {
+            SessionId = activeSession.SessionId,
+            UserId = activeSession.UserId,
+            RefreshTokenHash = "newer-rotated-hash",
+            IdleExpiresAt = activeSession.IdleExpiresAt,
+            AbsoluteExpiresAt = activeSession.AbsoluteExpiresAt
+        };
+        sessionQuery.FirstAsync().Returns(Task.FromResult(activeSession));
+        sessionQuery.FirstAsync(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(Task.FromResult(newerSession));
+        var userQuery = Substitute.For<ISugarQueryable<User>>();
+        db.Queryable<User>().Returns(userQuery);
+        userQuery.InSingleAsync(42).Returns(Task.FromResult(new User { Id = 42, Status = 0 }));
+        var update = Substitute.For<IUpdateable<UserSession>>();
+        db.Updateable<UserSession>().Returns(update);
+        update.SetColumns(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(update);
+        update.Where(Arg.Any<Expression<Func<UserSession, bool>>>()).Returns(update);
+        update.ExecuteCommandAsync().Returns(Task.FromResult(0));
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(_ => Task.FromResult((IDataReader)new DataTable().CreateDataReader()));
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns("lost-race-refresh-token");
+        jwt.GenerateAccessToken(Arg.Any<User>(), activeSession.SessionId, false)
+            .Returns(new IssuedAccessToken("lost-race-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        var measurements = new ConcurrentBag<(string Name, double Value)>();
+        using MeterListener listener = ListenToFsusMeasurements(measurements);
+        var service = BuildService(db, jwt);
+
+        var result = await service.RefreshTokenAsync("old-refresh-token", activeSession.SessionId);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Data);
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.refresh.replay_detected_count" && measurement.Value == 1);
+        await update.Received(1).ExecuteCommandAsync();
+    }
+
+    [Fact]
+    [Trait("Category", "SecurityStateMachine")]
     public async Task CompleteLoginAsync_BannedUser_IssuesRestrictedSessionToken()
     {
         var db = Substitute.For<ISqlSugarClient>();
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("refresh-token");
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
+        DateTimeOffset accessTokenExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(15);
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new IssuedAccessToken("access-token", accessTokenExpiresAtUtc));
         var persistence = ConfigureLoginPersistence(db);
         var svc = BuildService(db, jwt);
-        var bannedUser = new User { Id = 42, Status = 1 };
+        var bannedUser = new User
+        {
+            Id = 42,
+            Status = 1,
+            AccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        };
 
         var (success, message, data, userEntity) = await svc.CompleteLoginAsync(
             bannedUser,
@@ -523,6 +1003,7 @@ public class UserServiceValidationTests
         Assert.Equal("登录成功", message);
         Assert.NotNull(data);
         Assert.Equal("access-token", data.Value.AccessToken);
+        Assert.Equal(accessTokenExpiresAtUtc, data.Value.AccessTokenExpiresAtUtc);
         Assert.Equal("refresh-token", data.Value.RefreshToken);
         Assert.Same(bannedUser, userEntity);
         jwt.Received(1).GenerateRefreshToken();
@@ -532,12 +1013,15 @@ public class UserServiceValidationTests
     }
 
     [Fact]
+    [Trait("Category", "SecurityStateMachine")]
     public async Task CompleteLoginAsync_NormalUser_IssuesSessionToken()
     {
         var db = Substitute.For<ISqlSugarClient>();
         var jwt = Substitute.For<IJwtHelper>();
         jwt.GenerateRefreshToken().Returns("refresh-token");
-        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>()).Returns("access-token");
+        DateTimeOffset accessTokenExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(60);
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new IssuedAccessToken("access-token", accessTokenExpiresAtUtc));
         var persistence = ConfigureLoginPersistence(db);
         var svc = BuildService(db, jwt);
         var user = new User { Id = 7, Status = 0 };
@@ -554,6 +1038,7 @@ public class UserServiceValidationTests
         Assert.Equal("登录成功", message);
         Assert.NotNull(data);
         Assert.Equal("access-token", data.Value.AccessToken);
+        Assert.Equal(accessTokenExpiresAtUtc, data.Value.AccessTokenExpiresAtUtc);
         Assert.Equal("refresh-token", data.Value.RefreshToken);
         Assert.Same(user, userEntity);
         jwt.Received(1).GenerateRefreshToken();
@@ -563,155 +1048,445 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public void CompleteLoginAsync_SourceRevokesPreviousSessionsAndInsertsNewSessionInTransaction()
+    public async Task CompleteLoginAsync_UsesPostgresLockBulkRevocationAndInsertInOneTransaction()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string method = ExtractUserServiceMethod(
-            source,
-            "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync",
-            "public async Task<UserSession?> GetSessionByRefreshTokenAsync");
-        string bulkRevoke = ExtractUserServiceMethod(
-            source,
-            "private async Task<int> RevokeActiveUserSessionsForLoginAsync",
-            "private async Task AcquireUserSessionLoginLockAsync");
-        string observability = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/Observability/FsusObservability.cs");
+        var db = Substitute.For<ISqlSugarClient>();
+        db.CurrentConnectionConfig.Returns(new ConnectionConfig { DbType = SqlSugar.DbType.PostgreSQL });
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        var sequence = new List<string>();
+        string? revokeSql = null;
+        SugarParameter[]? revokeParameters = null;
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            sequence.Add("transaction-begin");
+            await call.Arg<Func<Task>>()();
+            sequence.Add("transaction-commit");
+            return new DbResult<bool> { IsSuccess = true };
+        });
+        ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
+        {
+            sequence.Add("advisory-lock");
+            string sql = call.ArgAt<string>(0);
+            SugarParameter[] parameters = call.ArgAt<SugarParameter[]>(1);
+            Assert.Equal("SELECT pg_advisory_xact_lock(@LockNamespace, @UserId);", sql);
+            Assert.Contains(parameters, parameter => parameter.ParameterName == "@UserId" && Equals(parameter.Value, 42));
+            return Task.FromResult(1);
+        });
+        DateTime revokedAt = DateTime.UtcNow;
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
+        {
+            sequence.Add("bulk-revoke");
+            revokeSql = call.ArgAt<string>(0);
+            revokeParameters = call.ArgAt<SugarParameter[]>(1);
+            return Task.FromResult((IDataReader)CreateRevokedSessionReader(
+                "previous-session",
+                42,
+                revokedAt,
+                "row-version-17"));
+        });
+        UserSession? inserted = null;
+        var insert = Substitute.For<IInsertable<UserSession>>();
+        db.Insertable(Arg.Do<UserSession>(session => inserted = session)).Returns(insert);
+        insert.ExecuteCommandAsync().Returns(_ =>
+        {
+            sequence.Add("insert-new-session");
+            return Task.FromResult(1);
+        });
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        IReadOnlyList<UserSessionValidationCacheState>? published = null;
+        cache.PublishManyAsync(
+                Arg.Do<IReadOnlyList<UserSessionValidationCacheState>>(states => published = states),
+                true)
+            .Returns(_ =>
+            {
+                sequence.Add("publish-revoked-fence");
+                return Task.CompletedTask;
+            });
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns("new-refresh-token");
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), true)
+            .Returns(new IssuedAccessToken("new-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        var measurements = new ConcurrentBag<(string Name, double Value)>();
+        using MeterListener listener = ListenToFsusMeasurements(measurements);
+        var service = BuildService(
+            db,
+            jwt,
+            Substitute.For<ITotpService>(),
+            sessionValidationCache: cache);
 
-        Assert.Contains("_db.Ado.UseTranAsync(async () =>", method, StringComparison.Ordinal);
-        AssertContainsAfter(method, "_db.Ado.UseTranAsync(async () =>", "RevokeActiveUserSessionsForLoginAsync(user.Id, now)");
-        AssertContainsAfter(method, "RevokeActiveUserSessionsForLoginAsync(user.Id, now)", "_db.Insertable(session).ExecuteCommandAsync()");
-        Assert.DoesNotContain("LoadActiveUserSessionVersionsAsync", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("foreach (ActiveUserSessionVersion", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryRevokeSessionAsync(activeSession.SessionId", method, StringComparison.Ordinal);
-        Assert.Contains("UPDATE sys_user_session", bulkRevoke, StringComparison.Ordinal);
-        Assert.Contains("WHERE userid = @UserId", bulkRevoke, StringComparison.Ordinal);
-        Assert.Contains("AND revokedat IS NULL", bulkRevoke, StringComparison.Ordinal);
-        Assert.Contains("RETURNING sessionid", bulkRevoke, StringComparison.Ordinal);
-        Assert.Contains("RecordLoginSessionReplacement", source, StringComparison.Ordinal);
-        Assert.Contains("fsus.auth.login.replaced_session_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.auth.login.transaction_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.auth.login.session_revoke_command_count", observability, StringComparison.Ordinal);
-        Assert.Contains("if (!tran.IsSuccess)", method, StringComparison.Ordinal);
+        var result = await service.CompleteLoginAsync(
+            new User { Id = 42, Status = 0, IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind },
+            "127.0.0.1",
+            "device-42",
+            "agent-42",
+            mfaVerified: true,
+            rememberMe: false);
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(
+            new[]
+            {
+                "transaction-begin",
+                "advisory-lock",
+                "bulk-revoke",
+                "insert-new-session",
+                "publish-revoked-fence",
+                "transaction-commit"
+            },
+            sequence);
+        Assert.NotNull(revokeSql);
+        Assert.Contains("UPDATE sys_user_session", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("revokereason = 'login_replaced'", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("WHERE userid = @UserId", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("AND revokedat IS NULL", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("RETURNING sessionid", revokeSql, StringComparison.Ordinal);
+        Assert.Contains("xmin::text AS row_version", revokeSql, StringComparison.Ordinal);
+        Assert.Contains(revokeParameters!, parameter => parameter.ParameterName == "@UserId" && Equals(parameter.Value, 42));
+        Assert.NotNull(inserted);
+        Assert.Equal(42, inserted!.UserId);
+        Assert.NotEqual("previous-session", inserted.SessionId);
+        Assert.NotNull(published);
+        UserSessionValidationCacheState state = Assert.Single(published!);
+        Assert.Equal("previous-session", state.SessionId);
+        Assert.Equal("row-version-17", state.RowVersion);
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.login.replaced_session_count" && measurement.Value == 1);
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.login.session_revoke_command_count" && measurement.Value == 1);
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.login.transaction_elapsed_ms" && measurement.Value >= 0);
+    }
+
+    [Fact]
+    public async Task CompleteLoginAsync_TransactionFailureReturnsFailureWithoutPublishingSessionState()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(_ => Task.FromResult(new DbResult<bool>
+        {
+            IsSuccess = false,
+            ErrorException = new InvalidOperationException("forced transaction failure")
+        }));
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns("discarded-refresh-token");
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), false)
+            .Returns(new IssuedAccessToken("discarded-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        var service = BuildService(
+            db,
+            jwt,
+            Substitute.For<ITotpService>(),
+            sessionValidationCache: cache);
+
+        var result = await service.CompleteLoginAsync(
+            new User { Id = 42, Status = 0 },
+            "127.0.0.1",
+            deviceFingerprint: null,
+            userAgent: null,
+            mfaVerified: false,
+            rememberMe: false);
+
+        Assert.False(result.Success);
+        Assert.Equal("登录失败，请重试", result.Message);
+        Assert.Null(result.Data);
+        Assert.Null(result.UserEntity);
+        _ = db.DidNotReceive().Insertable(Arg.Any<UserSession>());
+        await cache.DidNotReceive().PublishManyAsync(
+            Arg.Any<IReadOnlyList<UserSessionValidationCacheState>>(),
+            Arg.Any<bool>());
+    }
+
+    [Fact]
+    public async Task CompleteLoginAsync_CommitFailureInvalidatesPreCommitRevocationFence()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        db.CurrentConnectionConfig.Returns(new ConnectionConfig { DbType = SqlSugar.DbType.PostgreSQL });
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        var sequence = new List<string>();
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            sequence.Add("transaction-begin");
+            await call.Arg<Func<Task>>()();
+            sequence.Add("transaction-commit-failed");
+            return new DbResult<bool>
+            {
+                IsSuccess = false,
+                ErrorException = new InvalidOperationException("forced commit failure")
+            };
+        });
+        ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(_ =>
+        {
+            sequence.Add("advisory-lock");
+            return Task.FromResult(1);
+        });
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(_ =>
+        {
+            sequence.Add("database-revoke");
+            return Task.FromResult((IDataReader)CreateRevokedSessionReader(
+                "precommit-session",
+                42,
+                DateTime.UtcNow,
+                "precommit-version"));
+        });
+        var insert = Substitute.For<IInsertable<UserSession>>();
+        insert.ExecuteCommandAsync().Returns(_ =>
+        {
+            sequence.Add("insert-new-session");
+            return Task.FromResult(1);
+        });
+        db.Insertable(Arg.Any<UserSession>()).Returns(insert);
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        cache.PublishManyAsync(
+                Arg.Any<IReadOnlyList<UserSessionValidationCacheState>>(),
+                true)
+            .Returns(_ =>
+            {
+                sequence.Add("publish-revoked-fence");
+                return Task.CompletedTask;
+            });
+        IReadOnlyList<UserSessionValidationCacheState>? invalidated = null;
+        cache.InvalidateManyAsync(
+                Arg.Do<IReadOnlyList<UserSessionValidationCacheState>>(states => invalidated = states))
+            .Returns(_ =>
+            {
+                sequence.Add("invalidate-precommit-fence");
+                return Task.CompletedTask;
+            });
+        var jwt = Substitute.For<IJwtHelper>();
+        jwt.GenerateRefreshToken().Returns("discarded-refresh-token");
+        jwt.GenerateAccessToken(Arg.Any<User>(), Arg.Any<string>(), false)
+            .Returns(new IssuedAccessToken("discarded-access-token", DateTimeOffset.UtcNow.AddMinutes(15)));
+        var service = BuildService(
+            db,
+            jwt,
+            Substitute.For<ITotpService>(),
+            sessionValidationCache: cache);
+
+        var result = await service.CompleteLoginAsync(
+            new User { Id = 42, Status = 0 },
+            "127.0.0.1",
+            deviceFingerprint: null,
+            userAgent: null,
+            mfaVerified: false,
+            rememberMe: false);
+
+        Assert.False(result.Success);
+        Assert.Equal(
+            [
+                "transaction-begin",
+                "advisory-lock",
+                "database-revoke",
+                "insert-new-session",
+                "publish-revoked-fence",
+                "transaction-commit-failed",
+                "invalidate-precommit-fence"
+            ],
+            sequence);
+        UserSessionValidationCacheState invalidatedState = Assert.Single(invalidated!);
+        Assert.Equal("precommit-session", invalidatedState.SessionId);
     }
 
     [Fact]
     public void UserSessionEntity_ExposesPostgresRowVersionForSessionRevocationGuards()
     {
-        Assert.True(typeof(UserSession).GetProperty("RowVersion") is { });
+        PropertyInfo rowVersion = Assert.IsAssignableFrom<PropertyInfo>(typeof(UserSession).GetProperty("RowVersion"));
+        SugarColumn? column = rowVersion.GetCustomAttribute<SugarColumn>();
 
-        string entity = BackendTestPaths.ReadAllTextFromRoot("src/backend/Entities/UserSession.cs");
-        Assert.Contains("public string? RowVersion", entity, StringComparison.Ordinal);
-        Assert.Contains("[SugarColumn(IsIgnore = true)]", entity, StringComparison.Ordinal);
+        Assert.Equal(typeof(string), rowVersion.PropertyType);
+        Assert.NotNull(column);
+        Assert.True(column!.IsIgnore);
     }
 
     [Fact]
     public void SchemaMigrationRegistry_UserSessionActiveUniqueIndex_BlocksTwoActiveSessions()
     {
-        string migrations = BackendTestPaths.ReadAllTextFromRoot("src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs");
+        ISchemaMigrationDescriptor migration = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static descriptor => descriptor.MigrationId == "20260625-post-user-session-active-unique");
+        string fingerprints = string.Join('\n', migration.Steps.Select(static step => step.Fingerprint));
 
-        Assert.Contains("20260625-post-user-session-active-unique", migrations, StringComparison.Ordinal);
-        Assert.Contains("ux_user_session_one_active_per_user", migrations, StringComparison.Ordinal);
-        Assert.Contains("CREATE UNIQUE INDEX IF NOT EXISTS ux_user_session_one_active_per_user", migrations, StringComparison.Ordinal);
-        Assert.Contains("ON sys_user_session(userid) WHERE revokedat IS NULL", migrations, StringComparison.Ordinal);
+        Assert.Contains("ux_user_session_one_active_per_user", fingerprints, StringComparison.Ordinal);
+        Assert.Contains("CREATE UNIQUE INDEX IF NOT EXISTS ux_user_session_one_active_per_user", fingerprints, StringComparison.Ordinal);
+        Assert.Contains("ON sys_user_session(userid) WHERE revokedat IS NULL", fingerprints, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AdminChangeStatusAsync_LegacyAdminRole_DoesNotGrantAccountGovernanceProtection()
+    public void AdminChangeStatusAsync_CompiledTargetMetadataHasIdentityKindAndNoLegacyRole()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string method = ExtractUserServiceMethod(
-            source,
-            "public async Task<(bool Success, string Message)> AdminChangeStatusAsync",
-            "private async Task<AdminStatusTarget?> LoadAdminStatusTargetAsync");
+        Assert.Null(typeof(User).GetProperty("LegacyProjectRole", BindingFlags.Instance | BindingFlags.Public));
+        Assert.Null(typeof(User).GetProperty("Role", BindingFlags.Instance | BindingFlags.Public));
+        PropertyInfo identityKind = Assert.IsAssignableFrom<PropertyInfo>(typeof(User).GetProperty(nameof(User.IdentityKind)));
+        Assert.Equal(typeof(string), identityKind.PropertyType);
 
-        Assert.Contains("user.IdentityKind", method, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentityRuntime.AdminPrincipalKind", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("LegacyProjectRole", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Role", method, StringComparison.Ordinal);
+        Type target = Assert.IsAssignableFrom<Type>(typeof(UserService).GetNestedType("AdminStatusTarget", BindingFlags.NonPublic));
+        PropertyInfo targetIdentityKind = Assert.IsAssignableFrom<PropertyInfo>(target.GetProperty("IdentityKind"));
+        Assert.Equal(typeof(string), targetIdentityKind.PropertyType);
+        Assert.Null(target.GetProperty("LegacyProjectRole"));
+        Assert.Null(target.GetProperty("Role"));
     }
 
     [Fact]
-    public void AdminChangeStatusAsync_AdminPrincipalIdentityKind_RejectsOrdinaryAccountGovernance()
+    public async Task AdminChangeStatusAsync_AdminPrincipalIdentityKind_RejectsWithoutMutation()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string method = ExtractUserServiceMethod(
-            source,
-            "public async Task<(bool Success, string Message)> AdminChangeStatusAsync",
-            "private async Task<AdminStatusTarget?> LoadAdminStatusTargetAsync");
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(_ => Task.FromResult((IDataReader)CreateAdminStatusReader(
+                42,
+                AnonymousIdentityRuntime.AdminPrincipalKind,
+                status: 0,
+                deletedAt: null,
+                rowVersion: "admin-row-version")));
+        var blacklist = Substitute.For<IBlacklistService>();
+        var service = BuildService(db, Substitute.For<IJwtHelper>(), blacklist);
 
-        Assert.Contains("string.Equals(user.IdentityKind, AnonymousIdentityRuntime.AdminPrincipalKind, StringComparison.Ordinal)", method, StringComparison.Ordinal);
-        Assert.Contains("管理员主体不通过普通账号状态接口治理", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("Updateable<User>()", method, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void AdminChangeStatusAsync_SourceDoesNotReadLegacyRoleForAdminProtection()
-    {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string method = ExtractUserServiceMethod(
-            source,
-            "public async Task<(bool Success, string Message)> AdminChangeStatusAsync",
-            "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync");
-
-        Assert.DoesNotContain("LegacyProjectRole", method, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Role", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("Role == \"admin\"", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("Role.Equals(\"admin\"", method, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void AdminChangeStatusAsync_SourceUsesRowVersionGuardForStatusMutation()
-    {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string method = ExtractUserServiceMethod(
-            source,
-            "public async Task<(bool Success, string Message)> AdminChangeStatusAsync",
-            "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync");
-        string loadMethod = ExtractUserServiceMethod(
-            source,
-            "private async Task<AdminStatusTarget?> LoadAdminStatusTargetAsync",
-            "private async Task<bool> TryUpdateAdminStatusAsync");
-        string updateMethod = ExtractUserServiceMethod(
-            source,
-            "private async Task<bool> TryUpdateAdminStatusAsync",
-            "public async Task<(bool Success, string Message, SessionTokenResponseDto? Data, User? UserEntity)> CompleteLoginAsync");
-
-        Assert.Contains("LoadAdminStatusTargetAsync(dto.AccountId)", method, StringComparison.Ordinal);
-        Assert.Contains("TryUpdateAdminStatusAsync(user, dto.Status, effectiveReason)", method, StringComparison.Ordinal);
-        Assert.Contains("LoadAdminStatusTargetAsync(dto.AccountId)", method, StringComparison.Ordinal);
-        Assert.Contains("xmin::text AS row_version", loadMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("identity_kind = @IdentityKind", updateMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("deleted_at IS NULL", updateMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("status <> 2", updateMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("xmin::text = @RowVersion", updateMethod, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Updateable<User>()", method, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LoggerMessages_UseAccountSubjectInsteadOfInternalSubjectOrAccountIdForAnonymousAccountEvents()
-    {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-
-        Assert.Contains("AccountSubjectHasher.Create(user)", source, StringComparison.Ordinal);
-        Assert.Contains("LogBannedAccountLogin(accountSubject)", source, StringComparison.Ordinal);
-        Assert.Contains("LogBannedAccountTokenRefresh(accountSubject)", source, StringComparison.Ordinal);
-
-        foreach (string loggerName in new[]
+        var result = await service.AdminChangeStatusAsync(new AdminChangeStatusDto
         {
+            AccountId = 42,
+            Status = 1,
+            Reason = "must-not-apply"
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("管理员主体不通过普通账号状态接口治理", result.Message);
+        await ado.DidNotReceive().ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>());
+        await blacklist.DidNotReceive().BanUserAsync(Arg.Any<int>(), Arg.Any<string>());
+        await blacklist.DidNotReceive().UnbanUserAsync(Arg.Any<int>());
+    }
+
+    [Fact]
+    public async Task AdminChangeStatusAsync_LoadCommandReadsIdentityKindAndPostgresRowVersionOnly()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        string? loadSql = null;
+        SugarParameter[]? loadParameters = null;
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
+        {
+            loadSql = call.ArgAt<string>(0);
+            loadParameters = call.ArgAt<SugarParameter[]>(1);
+            return Task.FromResult((IDataReader)CreateAdminStatusReader(
+                42,
+                AnonymousIdentityRuntime.AdminPrincipalKind,
+                status: 0,
+                deletedAt: null,
+                rowVersion: "admin-row-version"));
+        });
+        var service = BuildService(db, Substitute.For<IJwtHelper>());
+
+        var result = await service.AdminChangeStatusAsync(new AdminChangeStatusDto { AccountId = 42, Status = 1 });
+
+        Assert.False(result.Success);
+        Assert.NotNull(loadSql);
+        Assert.Contains("SELECT id", loadSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("identity_kind", loadSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("xmin::text AS row_version", loadSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("legacy", loadSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("role", loadSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(loadParameters!, parameter => parameter.ParameterName == "@AccountId" && Equals(parameter.Value, 42));
+    }
+
+    [Fact]
+    public async Task AdminChangeStatusAsync_UpdateCommandUsesIdentityDeletionAndRowVersionGuards()
+    {
+        var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+            .Returns(_ => Task.FromResult((IDataReader)CreateAdminStatusReader(
+                42,
+                AnonymousIdentityRuntime.AnonymousAccountKind,
+                status: 0,
+                deletedAt: null,
+                rowVersion: "row-version-42")));
+        string? updateSql = null;
+        SugarParameter[]? updateParameters = null;
+        ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>()).Returns(call =>
+        {
+            updateSql = call.ArgAt<string>(0);
+            updateParameters = call.ArgAt<SugarParameter[]>(1);
+            return Task.FromResult(1);
+        });
+        var blacklist = Substitute.For<IBlacklistService>();
+        var service = BuildService(db, Substitute.For<IJwtHelper>(), blacklist);
+
+        var result = await service.AdminChangeStatusAsync(new AdminChangeStatusDto
+        {
+            AccountId = 42,
+            Status = 1,
+            Reason = "policy"
+        });
+
+        Assert.True(result.Success, result.Message);
+        Assert.NotNull(updateSql);
+        Assert.Contains("UPDATE sys_user", updateSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("identity_kind = @IdentityKind", updateSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("deleted_at IS NULL", updateSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("status <> 2", updateSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("xmin::text = @RowVersion", updateSql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(updateParameters!, parameter => parameter.ParameterName == "@AccountId" && Equals(parameter.Value, 42));
+        Assert.Contains(updateParameters!, parameter => parameter.ParameterName == "@IdentityKind" && Equals(parameter.Value, AnonymousIdentityRuntime.AnonymousAccountKind));
+        Assert.Contains(updateParameters!, parameter => parameter.ParameterName == "@Status" && Equals(parameter.Value, 1));
+        Assert.Contains(updateParameters!, parameter => parameter.ParameterName == "@BanReason" && Equals(parameter.Value, "policy"));
+        Assert.Contains(updateParameters!, parameter => parameter.ParameterName == "@RowVersion" && Equals(parameter.Value, "row-version-42"));
+        _ = db.DidNotReceive().Updateable<User>();
+        await blacklist.Received(1).BanUserAsync(42, "policy");
+    }
+
+    [Fact]
+    public async Task LoggerMessages_CompiledMetadataAndRuntimeRequireStableAccountSubject()
+    {
+        AssertLoggerMessageMetadata(
             "LogRegistrationConflict",
+            1,
+            LogLevel.Warning,
+            "匿名账号初始化竞态冲突 | AccountSubject: {AccountSubject}",
+            ("accountSubject", typeof(string)));
+        AssertLoggerMessageMetadata(
             "LogLoginFailure",
+            2,
+            LogLevel.Information,
+            "登录验证未通过 | AccountSubject: {AccountSubject} | ClientIpHash: {ClientIpHash}",
+            ("accountSubject", typeof(string)),
+            ("clientIpHash", typeof(string)));
+        AssertLoggerMessageMetadata(
             "LogBannedAccountLogin",
-            "LogBannedAccountTokenRefresh"
-        })
-        {
-            string declaration = ExtractLoggerDeclaration(source, loggerName);
-            Assert.Contains("accountSubject", declaration, StringComparison.Ordinal);
-            Assert.Contains("AccountSubject", declaration, StringComparison.Ordinal);
-            Assert.DoesNotContain("InternalSubject", declaration, StringComparison.Ordinal);
-            Assert.DoesNotContain("int accountId", declaration, StringComparison.Ordinal);
-        }
+            3,
+            LogLevel.Information,
+            "封禁账号登录 | AccountSubject: {AccountSubject}",
+            ("accountSubject", typeof(string)));
+        AssertLoggerMessageMetadata(
+            "LogBannedAccountTokenRefresh",
+            5,
+            LogLevel.Information,
+            "受限账号执行令牌续期 | AccountSubject: {AccountSubject} | 状态: 只读模式",
+            ("accountSubject", typeof(string)));
 
-        Assert.DoesNotContain("LogBannedUserLogin", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("LogBannedUserTokenRefresh", source, StringComparison.Ordinal);
+        Assert.Null(typeof(UserService).GetMethod("LogBannedUserLogin", BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.Null(typeof(UserService).GetMethod("LogBannedUserTokenRefresh", BindingFlags.Instance | BindingFlags.NonPublic));
+
+        var jwt = Substitute.For<IJwtHelper>();
+        var service = BuildService(Substitute.For<ISqlSugarClient>(), jwt);
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CompleteLoginAsync(
+                new User
+                {
+                    Id = 42,
+                    Status = 1,
+                    AccountSubjectHash = null
+                },
+                "127.0.0.1",
+                deviceFingerprint: null,
+                userAgent: null,
+                mfaVerified: false,
+                rememberMe: false));
+        Assert.Contains("login-restriction-audit", error.Message, StringComparison.Ordinal);
+        jwt.DidNotReceive().GenerateRefreshToken();
     }
 
     // ── Private static helpers via reflection ─────────────────────────────────
@@ -724,26 +1499,6 @@ public class UserServiceValidationTests
 
     private static IDisposable SetAnonymousIdentityMode(string? value)
         => new EnvironmentVariableScope(AnonymousIdentityRuntime.ModeEnvironmentVariable, value);
-
-    private static string ExtractUserServiceMethod(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex > startIndex, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
-    }
-
-    private static string ExtractLoggerDeclaration(string source, string methodName)
-    {
-        int methodIndex = source.IndexOf($"partial void {methodName}", StringComparison.Ordinal);
-        Assert.True(methodIndex >= 0, $"Missing logger method: {methodName}");
-        int attributeStart = source.LastIndexOf("[LoggerMessage", methodIndex, StringComparison.Ordinal);
-        Assert.True(attributeStart >= 0, $"Missing LoggerMessage attribute: {methodName}");
-        int declarationEnd = source.IndexOf(';', methodIndex);
-        Assert.True(declarationEnd > methodIndex, $"Missing logger declaration terminator: {methodName}");
-        return source[attributeStart..(declarationEnd + 1)];
-    }
 
     private sealed class EnvironmentVariableScope : IDisposable
     {
@@ -803,16 +1558,18 @@ public class UserServiceValidationTests
     }
 
     [Fact]
-    public void DeleteAccountAsync_DoesNotUseLegacyDeletedUsernameRewrite()
+    public void DeleteAccountContract_HasExplicitConfirmationAndNoLegacyUsernameOrPasswordSurface()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot("src/backend/Services/UserService.cs");
-        string method = ExtractUserServiceMethod(
-            source,
-            "public async Task<(bool Success, string Message)> DeleteAccountAsync",
-            "public async Task<MfaProfileDto?> GetMfaProfileAsync");
-
-        Assert.DoesNotContain("BuildDeletedUsername", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("deleted_", method, StringComparison.Ordinal);
+        PropertyInfo confirmText = Assert.IsAssignableFrom<PropertyInfo>(
+            typeof(DeleteAccountRequestDto).GetProperty(nameof(DeleteAccountRequestDto.ConfirmText)));
+        Assert.Equal(typeof(string), confirmText.PropertyType);
+        Assert.NotNull(confirmText.GetCustomAttribute<System.ComponentModel.DataAnnotations.RequiredAttribute>());
+        Assert.Null(typeof(DeleteAccountRequestDto).GetProperty("Password"));
+        Assert.Null(typeof(DeleteAccountRequestDto).GetProperty("Username"));
+        Assert.Null(typeof(User).GetProperty("Username"));
+        Assert.Null(typeof(User).GetProperty("LegacyUsername"));
+        PropertyInfo publicHandle = Assert.IsAssignableFrom<PropertyInfo>(typeof(User).GetProperty(nameof(User.PublicHandle)));
+        Assert.Equal(typeof(string), Nullable.GetUnderlyingType(publicHandle.PropertyType) ?? publicHandle.PropertyType);
     }
 
     [Theory]
@@ -835,11 +1592,114 @@ public class UserServiceValidationTests
         Assert.Equal(99, result.Length); // 96 + "..."
     }
 
-    private static void AssertContainsAfter(string source, string first, string second)
+    private static object? ReadAssignmentValue<T>(
+        IReadOnlyList<Expression<Func<T, bool>>> assignments,
+        string propertyName)
     {
-        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
-        Assert.True(firstIndex >= 0, $"Missing '{first}'.");
-        int secondIndex = source.IndexOf(second, firstIndex + first.Length, StringComparison.Ordinal);
-        Assert.True(secondIndex >= 0, $"Missing '{second}' after '{first}'.");
+        Expression<Func<T, bool>> assignment = Assert.Single(
+            assignments,
+            expression => AssignmentPropertyName(expression) == propertyName);
+        BinaryExpression equality = Assert.IsAssignableFrom<BinaryExpression>(assignment.Body);
+        return Expression.Lambda<Func<object?>>(
+            Expression.Convert(equality.Right, typeof(object))).Compile()();
+    }
+
+    private static string AssignmentPropertyName<T>(Expression<Func<T, bool>> assignment)
+    {
+        BinaryExpression equality = Assert.IsAssignableFrom<BinaryExpression>(assignment.Body);
+        Expression left = equality.Left;
+        while (left is UnaryExpression unary && unary.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked)
+        {
+            left = unary.Operand;
+        }
+
+        return Assert.IsAssignableFrom<MemberExpression>(left).Member.Name;
+    }
+
+    private static string SugarColumnName<T>(string propertyName)
+    {
+        PropertyInfo property = Assert.IsAssignableFrom<PropertyInfo>(typeof(T).GetProperty(propertyName));
+        SugarColumn column = Assert.IsType<SugarColumn>(property.GetCustomAttribute<SugarColumn>());
+        return column.ColumnName;
+    }
+
+    private static IDataReader CreateRevokedSessionReader(
+        string sessionId,
+        int userId,
+        DateTime revokedAt,
+        string rowVersion)
+    {
+        var table = new DataTable();
+        table.Columns.Add("sessionid", typeof(string));
+        table.Columns.Add("userid", typeof(int));
+        table.Columns.Add("revokedat", typeof(DateTime));
+        table.Columns.Add("idleexpiresat", typeof(DateTime));
+        table.Columns.Add("absoluteexpiresat", typeof(DateTime));
+        table.Columns.Add("row_version", typeof(string));
+        table.Rows.Add(
+            sessionId,
+            userId,
+            revokedAt,
+            revokedAt.AddHours(1),
+            revokedAt.AddDays(1),
+            rowVersion);
+        return table.CreateDataReader();
+    }
+
+    private static IDataReader CreateAdminStatusReader(
+        int accountId,
+        string identityKind,
+        int status,
+        DateTime? deletedAt,
+        string rowVersion)
+    {
+        var table = new DataTable();
+        table.Columns.Add("id", typeof(int));
+        table.Columns.Add("identity_kind", typeof(string));
+        table.Columns.Add("status", typeof(int));
+        table.Columns.Add("deleted_at", typeof(DateTime));
+        table.Columns.Add("row_version", typeof(string));
+        table.Rows.Add(accountId, identityKind, status, (object?)deletedAt ?? DBNull.Value, rowVersion);
+        return table.CreateDataReader();
+    }
+
+    private static MeterListener ListenToFsusMeasurements(ConcurrentBag<(string Name, double Value)> measurements)
+    {
+        var listener = new MeterListener();
+        listener.InstrumentPublished = static (instrument, state) =>
+        {
+            if (instrument.Meter.Name == FsusObservability.MeterName)
+            {
+                state.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, _, _) =>
+            measurements.Add((instrument.Name, value)));
+        listener.SetMeasurementEventCallback<double>((instrument, value, _, _) =>
+            measurements.Add((instrument.Name, value)));
+        listener.Start();
+        return listener;
+    }
+
+    private static void AssertLoggerMessageMetadata(
+        string methodName,
+        int eventId,
+        LogLevel level,
+        string message,
+        params (string Name, Type Type)[] expectedParameters)
+    {
+        MethodInfo method = Assert.IsAssignableFrom<MethodInfo>(
+            typeof(UserService).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic));
+        LoggerMessageAttribute attribute = Assert.Single(method.GetCustomAttributes<LoggerMessageAttribute>());
+        Assert.Equal(eventId, attribute.EventId);
+        Assert.Equal(level, attribute.Level);
+        Assert.Equal(message, attribute.Message);
+        ParameterInfo[] parameters = method.GetParameters();
+        Assert.Equal(expectedParameters.Length, parameters.Length);
+        for (int index = 0; index < expectedParameters.Length; index++)
+        {
+            Assert.Equal(expectedParameters[index].Name, parameters[index].Name);
+            Assert.Equal(expectedParameters[index].Type, parameters[index].ParameterType);
+        }
     }
 }

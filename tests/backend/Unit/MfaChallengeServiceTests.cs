@@ -1,12 +1,18 @@
+using System.Reflection;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class MfaChallengeServiceTests
 {
+    private static readonly string UppercaseSubjectHash = new string('A', AccountSubjectHashRequirement.Sha256HexLength);
+    private static readonly string AtomicSubjectHash = new string('b', AccountSubjectHashRequirement.Sha256HexLength);
+    private static readonly string LockedSubjectHash = new string('c', AccountSubjectHashRequirement.Sha256HexLength);
+
     [Fact]
     public async Task RecordFailureAsync_SameAccountSubjectHashSharesCounterAcrossAccountIds()
     {
@@ -46,14 +52,14 @@ public sealed class MfaChallengeServiceTests
             {
                 TicketId = "ticket-normalized",
                 AccountId = 42,
-                AccountSubjectHash = " ABCDEF ",
+                AccountSubjectHash = $" {UppercaseSubjectHash} ",
                 Type = "action",
                 Action = "passkey.delete"
             },
             "203.0.113.10",
             "unit-test");
 
-        Assert.Contains("fail:subject:abcdef", cache.Counters.Keys);
+        Assert.Contains("fail:subject:" + UppercaseSubjectHash.ToLowerInvariant(), cache.Counters.Keys);
         Assert.DoesNotContain(cache.Counters.Keys, static key => key.StartsWith("fail:user:", StringComparison.Ordinal));
     }
 
@@ -68,7 +74,7 @@ public sealed class MfaChallengeServiceTests
             {
                 TicketId = "ticket-atomic",
                 AccountId = 42,
-                AccountSubjectHash = "subject-atomic",
+                AccountSubjectHash = AtomicSubjectHash,
                 Type = "action",
                 Action = "passkey.delete"
             },
@@ -78,7 +84,7 @@ public sealed class MfaChallengeServiceTests
         string[] batch = Assert.Single(cache.AtomicIncrementBatches);
         TimeSpan ttl = Assert.Single(cache.AtomicIncrementBatchTtls);
         Assert.Equal(
-            ["fail:ticket:ticket-atomic", "fail:subject:subject-atomic"],
+            ["fail:ticket:ticket-atomic", "fail:subject:" + AtomicSubjectHash],
             batch.Take(2).ToArray());
         Assert.StartsWith("fail:ip:", batch[2], StringComparison.Ordinal);
         Assert.Equal(TimeSpan.FromMinutes(10), ttl);
@@ -89,7 +95,7 @@ public sealed class MfaChallengeServiceTests
     public async Task RecordFailureAsync_LockDecisionUsesAtomicSubjectCount()
     {
         var cache = new RecordingCounterCache();
-        cache.Counters["fail:subject:subject-lock"] = 9;
+        cache.Counters["fail:subject:" + LockedSubjectHash] = 9;
         var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
 
         bool locked = await service.RecordFailureAsync(
@@ -97,7 +103,7 @@ public sealed class MfaChallengeServiceTests
             {
                 TicketId = "ticket-lock",
                 AccountId = 42,
-                AccountSubjectHash = "subject-lock",
+                AccountSubjectHash = LockedSubjectHash,
                 Type = "action",
                 Action = "passkey.delete"
             },
@@ -105,78 +111,105 @@ public sealed class MfaChallengeServiceTests
             "unit-test");
 
         Assert.True(locked);
-        Assert.Equal(10, cache.Counters["fail:subject:subject-lock"]);
+        Assert.Equal(10, cache.Counters["fail:subject:" + LockedSubjectHash]);
         Assert.Contains("ticket-lock", cache.Removed);
     }
 
     [Fact]
     public void MfaFailureLimiter_UsesStableAccountSubjectHashAndAccountAuditField()
     {
-        string source = ReadSource("src/backend/Services/Security/MfaChallengeService.cs");
-        string ticket = ExtractBetween(source, "public sealed record class MfaChallengeTicket", "public interface IMfaChallengeService");
-        string recordFailure = ExtractBetween(source, "public async Task<bool> RecordFailureAsync", "public async Task<string> CreateProofTokenAsync");
+        string[] ticket = typeof(MfaChallengeTicket).GetProperties().Select(static property => property.Name).ToArray();
+        string recordFailure = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MfaChallengeService),
+            nameof(MfaChallengeService.RecordFailureAsync));
 
-        Assert.Contains("AccountId", ticket, StringComparison.Ordinal);
-        Assert.Contains("AccountSubjectHash", ticket, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserId", ticket, StringComparison.Ordinal);
+        Assert.Contains(nameof(MfaChallengeTicket.AccountId), ticket);
+        Assert.Contains(nameof(MfaChallengeTicket.AccountSubjectHash), ticket);
+        Assert.DoesNotContain("UserId", ticket);
 
         Assert.Contains("fail:subject:", recordFailure, StringComparison.Ordinal);
         Assert.Contains("IncrementManyWithExpiryAsync", recordFailure, StringComparison.Ordinal);
-        Assert.Contains("FailureWindowTtl", recordFailure, StringComparison.Ordinal);
         Assert.DoesNotContain("IncrementManyAsync", recordFailure, StringComparison.Ordinal);
         Assert.DoesNotContain("fail:user:", recordFailure, StringComparison.Ordinal);
-        Assert.Contains("\"AccountId\"", recordFailure, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"UserId\"", recordFailure, StringComparison.Ordinal);
+        Assert.Contains("AccountId", recordFailure, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", recordFailure, StringComparison.Ordinal);
+        Assert.Equal(
+            TimeSpan.FromMinutes(10),
+            typeof(MfaChallengeService).GetField("FailureWindowTtl", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null));
     }
 
     [Fact]
     public void MfaFailureLimiter_StaticLegacyUserIdResidueDoesNotReturn()
     {
-        string source = ReadSource("src/backend/Services/Security/MfaChallengeService.cs");
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(MfaChallengeService));
 
-        Assert.DoesNotContain("fail:user:", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("required int UserId", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("fail:user:", runtimeShape, StringComparison.Ordinal);
+        Assert.Null(typeof(MfaChallengeTicket).GetProperty("UserId"));
     }
 
     [Fact]
     public void MfaTickets_AreSignedAndLegacyTicketsRejected()
     {
-        string source = ReadSource("src/backend/Services/Security/MfaChallengeService.cs");
-        string encodeTicket = ExtractBetween(source, "private string EncodeTicket", "private MfaChallengeTicket? DecodeTicket");
-        string decodeTicket = ExtractBetween(source, "private MfaChallengeTicket? DecodeTicket", "private static void WriteString");
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["MfaChallenge:TicketSigningKey"] = "unit-test-ticket-signing-key-with-at-least-32-characters"
+            })
+            .Build();
+        var service = new MfaChallengeService(
+            new RecordingCounterCache(),
+            NullLogger<MfaChallengeService>.Instance,
+            configuration);
+        var ticket = new MfaChallengeTicket
+        {
+            TicketId = "signed-ticket",
+            AccountId = 42,
+            AccountSubjectHash = AtomicSubjectHash,
+            Type = "action",
+            Action = "passkey.delete"
+        };
+        MethodInfo encode = typeof(MfaChallengeService).GetMethod("EncodeTicket", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        MethodInfo decode = typeof(MfaChallengeService).GetMethod("DecodeTicket", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        string encoded = (string)encode.Invoke(service, [ticket])!;
+        MfaChallengeTicket decoded = Assert.IsType<MfaChallengeTicket>(decode.Invoke(service, [encoded]));
+        int tamperIndex = encoded.Length / 2;
+        string tampered = encoded[..tamperIndex] + (encoded[tamperIndex] == 'A' ? 'B' : 'A') + encoded[(tamperIndex + 1)..];
 
+        Assert.Equal(ticket.TicketId, decoded.TicketId);
+        Assert.Null(decode.Invoke(service, [tampered]));
+        string encodeTicket = RuntimeMetadataInspection.DescribeMethods(typeof(MfaChallengeService), "EncodeTicket");
+        string decodeTicket = RuntimeMetadataInspection.DescribeMethods(typeof(MfaChallengeService), "DecodeTicket");
         Assert.Contains("HMACSHA256", encodeTicket, StringComparison.Ordinal);
-        Assert.Contains("MfaChallenge:TicketSigningKey", source, StringComparison.Ordinal);
+        Assert.Contains("MfaChallenge:TicketSigningKey", encodeTicket, StringComparison.Ordinal);
         Assert.Contains("CryptographicOperations.FixedTimeEquals", decodeTicket, StringComparison.Ordinal);
+        Assert.Contains("AccountSubjectHashRequirement.TryResolve", decodeTicket, StringComparison.Ordinal);
         Assert.DoesNotContain("LegacyTicketVersion", decodeTicket, StringComparison.Ordinal);
-        Assert.DoesNotContain("ResolveAccountSubjectHash(accountId, null)", decodeTicket, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MfaProofTokens_AreBoundToSubjectActionAndCryptographicRandomness()
+    public async Task MfaProofTokens_AreBoundToSubjectActionAndCryptographicRandomness()
     {
-        string source = ReadSource("src/backend/Services/Security/MfaChallengeService.cs");
-        string createProof = ExtractBetween(source, "public async Task<string> CreateProofTokenAsync", "public Task<bool> ValidateAndConsumeProofTokenAsync");
-        string validateProof = ExtractBetween(source, "public Task<bool> ValidateAndConsumeProofTokenAsync", "private async Task<MfaChallengeTicket> CreateAsync");
+        var cache = new RecordingCounterCache();
+        var service = new MfaChallengeService(cache, NullLogger<MfaChallengeService>.Instance);
+        string first = await service.CreateProofTokenAsync(42, AtomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
+        string second = await service.CreateProofTokenAsync(42, AtomicSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
+        string otherSubject = await service.CreateProofTokenAsync(42, LockedSubjectHash, "passkey.delete", TimeSpan.FromMinutes(1));
+        string otherAction = await service.CreateProofTokenAsync(42, AtomicSubjectHash, "profile.email", TimeSpan.FromMinutes(1));
 
-        Assert.Contains("RandomNumberGenerator.GetBytes(32)", createProof, StringComparison.Ordinal);
+        Assert.NotEqual(first, second);
+        Assert.Equal(4, cache.StringWriteIdentities.Distinct(StringComparer.Ordinal).Count());
+        string createProof = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MfaChallengeService),
+            nameof(MfaChallengeService.CreateProofTokenAsync));
+        string validateProof = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MfaChallengeService),
+            nameof(MfaChallengeService.ValidateAndConsumeProofTokenAsync));
+
+        Assert.Contains("RandomNumberGenerator.GetBytes", createProof, StringComparison.Ordinal);
         Assert.Contains("BuildProofIdentity", createProof, StringComparison.Ordinal);
         Assert.Contains("subject", createProof, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("BuildProofIdentity", validateProof, StringComparison.Ordinal);
-        Assert.DoesNotContain("$\"{accountId}:{action}:{token}\"", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Guid.NewGuid().ToByteArray()", createProof, StringComparison.Ordinal);
-    }
-
-    private static string ReadSource(string relativePath)
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
-
-    private static string ExtractBetween(string source, string startMarker, string endMarker)
-    {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        int end = source.IndexOf(endMarker, start + startMarker.Length, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
-        Assert.True(end > start, $"Missing end marker: {endMarker}");
-        return source[start..end];
+        Assert.DoesNotContain("Guid.NewGuid", createProof, StringComparison.Ordinal);
     }
 
     private sealed class RecordingCounterCache : IUnifiedCache
@@ -185,6 +218,7 @@ public sealed class MfaChallengeServiceTests
         public HashSet<string> Removed { get; } = new(StringComparer.Ordinal);
         public List<string[]> AtomicIncrementBatches { get; } = [];
         public List<TimeSpan> AtomicIncrementBatchTtls { get; } = [];
+        public List<string> StringWriteIdentities { get; } = [];
         public int SingleIncrementCalls { get; private set; }
 
         public Task<CacheReadResult<T>> TryGetAsync<T>(CachePolicyId policyId, string identity, Func<ReadOnlyMemory<byte>, (bool Success, T? Value)> decoder, CancellationToken cancellationToken = default)
@@ -206,7 +240,10 @@ public sealed class MfaChallengeServiceTests
             => Task.FromResult<string?>(null);
 
         public Task SetStringAsync(CachePolicyId policyId, string identity, string value, TimeSpan? l2TtlOverride = null, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            StringWriteIdentities.Add(identity);
+            return Task.CompletedTask;
+        }
 
         public Task<long> IncrementAsync(CachePolicyId policyId, string identity, long value = 1, CancellationToken cancellationToken = default)
         {

@@ -17,7 +17,8 @@ internal sealed class NotificationStreamSessionService(
     NotificationStreamBacklogStore backlogStore,
     INotificationFrameCodec frameCodec,
     IWebHostEnvironment environment,
-    ILogger<NotificationStreamSessionService> logger) : INotificationStreamSessionService
+    ILogger<NotificationStreamSessionService> logger,
+    NotificationStreamRestartCoordinator? restartCoordinator = null) : INotificationStreamSessionService
 {
     private static readonly TimeSpan HeartbeatWindow = TimeSpan.FromSeconds(25);
     private static readonly TimeSpan DefaultDrillSendDelay = TimeSpan.FromMilliseconds(250);
@@ -29,6 +30,10 @@ internal sealed class NotificationStreamSessionService(
 
     public async Task RunAsync(HttpContext context, NotificationStreamHandshake handshake, CancellationToken cancellationToken)
     {
+        using CancellationTokenSource sessionCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            restartCoordinator?.RestartToken ?? CancellationToken.None);
+        CancellationToken sessionToken = sessionCancellation.Token;
         string connectionId = Guid.NewGuid().ToString("N");
         NotificationStreamCursor cursor = ResolveCursor(context);
         TimeSpan? drillSendDelay = ResolveDrillSendDelay(context);
@@ -43,11 +48,52 @@ internal sealed class NotificationStreamSessionService(
         try
         {
             using WebSocket socket = await context.WebSockets.AcceptWebSocketAsync(handshake.Protocol);
-            var replay = await backlogStore.ReplayAsync(cursor, handshake.UserId, handshake.Groups, cancellationToken);
             using var sendGate = new SemaphoreSlim(1, 1);
-            await SendHeartbeatAsync(socket, sendGate, cancellationToken);
-            await SendReplayAsync(socket, replay.Frames, sendGate, cancellationToken);
-            await PumpConnectionAsync(socket, connection, sendGate, drillSendDelay, cancellationToken);
+            if (restartCoordinator?.IsRestartRequested == true)
+            {
+                await CloseSocketAsync(
+                    socket,
+                    sendGate,
+                    NotificationStreamRestartProtocol.Resolve(replayMissed: false, serviceRestartRequested: true));
+                return;
+            }
+
+            var replay = await backlogStore.ReplayAsync(cursor, handshake.UserId, handshake.Groups, cancellationToken);
+            if (replay.MissedGap)
+            {
+                ReleaseReplayFrames(replay.Frames);
+                await CloseSocketAsync(
+                    socket,
+                    sendGate,
+                    NotificationStreamRestartProtocol.Resolve(replayMissed: true, serviceRestartRequested: false));
+                return;
+            }
+
+            if (restartCoordinator?.IsRestartRequested == true)
+            {
+                ReleaseReplayFrames(replay.Frames);
+                await CloseSocketAsync(
+                    socket,
+                    sendGate,
+                    NotificationStreamRestartProtocol.Resolve(replayMissed: false, serviceRestartRequested: true));
+                return;
+            }
+
+            try
+            {
+                await SendHeartbeatAsync(socket, sendGate, sessionToken);
+                await SendReplayAsync(socket, replay.Frames, sendGate, sessionToken);
+                await PumpConnectionAsync(socket, connection, sendGate, drillSendDelay, sessionToken);
+            }
+            catch (OperationCanceledException) when (sessionToken.IsCancellationRequested)
+            {
+                await CloseSocketAsync(
+                    socket,
+                    sendGate,
+                    NotificationStreamRestartProtocol.Resolve(
+                        replayMissed: false,
+                        serviceRestartRequested: restartCoordinator?.IsRestartRequested == true));
+            }
         }
         catch (OperationCanceledException)
         {
@@ -87,6 +133,14 @@ internal sealed class NotificationStreamSessionService(
             {
                 frames[i].Release();
             }
+        }
+    }
+
+    private static void ReleaseReplayFrames(IReadOnlyList<SharedNotificationStreamFrame> frames)
+    {
+        for (int i = 0; i < frames.Count; i++)
+        {
+            frames[i].Release();
         }
     }
 
@@ -153,13 +207,21 @@ internal sealed class NotificationStreamSessionService(
                 }
             }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
         finally
         {
             await heartbeatCts.CancelAsync();
             await AwaitHeartbeatLoopShutdownAsync(heartbeatTask);
         }
 
-        await CloseSocketAsync(socket, sendGate);
+        await CloseSocketAsync(
+            socket,
+            sendGate,
+            NotificationStreamRestartProtocol.Resolve(
+                replayMissed: false,
+                serviceRestartRequested: restartCoordinator?.IsRestartRequested == true));
     }
 
     private static async Task SendQueuedFrameAsync(
@@ -213,14 +275,20 @@ internal sealed class NotificationStreamSessionService(
         }
     }
 
-    private static async Task CloseSocketAsync(WebSocket socket, SemaphoreSlim sendGate)
+    private static async Task CloseSocketAsync(
+        WebSocket socket,
+        SemaphoreSlim sendGate,
+        NotificationStreamCloseInstruction closeInstruction)
     {
         await sendGate.WaitAsync(CancellationToken.None);
         try
         {
             if (socket.State == WebSocketState.Open || socket.State == WebSocketState.CloseReceived)
             {
-                await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "closed", CancellationToken.None);
+                await socket.CloseAsync(
+                    NotificationStreamRestartProtocol.ToWebSocketCloseStatus(closeInstruction),
+                    closeInstruction.Reason,
+                    CancellationToken.None);
             }
         }
         finally

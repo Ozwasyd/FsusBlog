@@ -1,5 +1,6 @@
 ﻿using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
@@ -17,7 +18,9 @@ public class CrawlerUpdateWorker(
     IHttpClientFactory _httpClientFactory,
     IAntiCrawlerPolicyProvider _policyProvider,
     ILogger<CrawlerUpdateWorker> _logger,
-    IBackgroundWorkerLease workerLease) : BackgroundService, ICrawlerRangeSyncService
+    IBackgroundWorkerLease workerLease,
+    TimeProvider timeProvider,
+    IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService, ICrawlerRangeSyncService
 {
     private const int MaxCidrsPerProvider = 8192;
     private static readonly Uri DefaultGoogleRangeUrl = new("https://developers.google.com/static/search/apis/ipranges/googlebot.json");
@@ -39,14 +42,17 @@ public class CrawlerUpdateWorker(
             {
                 if (initialDelay > TimeSpan.Zero)
                 {
-                    await Task.Delay(initialDelay, token);
+                    await Task.Delay(initialDelay, timeProvider, token);
                     initialDelay = TimeSpan.Zero;
                 }
 
                 AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
                 if (options.CidrAutoUpdateEnabled)
                 {
-                    await workerLease.TryRunAsLeaderAsync("crawler-update-worker", syncToken => SynchronizeOnceAsync(syncToken), token);
+                    await workerLease.TryRunAsLeaderAsync(
+                        "crawler-update-worker",
+                        syncToken => SynchronizeOnceAsync(syncToken, enforceCommitGuard: true),
+                        token);
                 }
 
                 await WaitForNextPolicyTickAsync(token);
@@ -90,14 +96,19 @@ public class CrawlerUpdateWorker(
             options.SnapshotPath);
     }
 
-    public async Task<CrawlerRangeSyncResponse> SynchronizeOnceAsync(CancellationToken token = default)
+    public Task<CrawlerRangeSyncResponse> SynchronizeOnceAsync(CancellationToken token = default)
+        => SynchronizeOnceAsync(token, enforceCommitGuard: false);
+
+    private async Task<CrawlerRangeSyncResponse> SynchronizeOnceAsync(
+        CancellationToken token,
+        bool enforceCommitGuard)
     {
         if (Interlocked.Exchange(ref _running, 1) == 1)
         {
-            return new CrawlerRangeSyncResponse(GetStatus(), "already_running", DateTimeOffset.UtcNow);
+            return new CrawlerRangeSyncResponse(GetStatus(), "already_running", timeProvider.GetUtcNow());
         }
 
-        DateTimeOffset startedAt = DateTimeOffset.UtcNow;
+        DateTimeOffset startedAt = timeProvider.GetUtcNow();
         DateTimeOffset? finishedAt = null;
         string? finalOutcome = null;
         PublishRuntimeState(state => state with
@@ -108,13 +119,19 @@ public class CrawlerUpdateWorker(
         });
         try
         {
-            CrawlerRangeStatus status = await SynchronizeCoreAsync(token);
-            finishedAt = DateTimeOffset.UtcNow;
+            CrawlerRangeStatus status = await SynchronizeCoreAsync(token, enforceCommitGuard);
+            finishedAt = timeProvider.GetUtcNow();
             finalOutcome = string.IsNullOrWhiteSpace(status.LastError) ? "success" : "degraded";
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            finishedAt = timeProvider.GetUtcNow();
+            finalOutcome = "canceled";
+            throw;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !token.IsCancellationRequested)
         {
-            finishedAt = DateTimeOffset.UtcNow;
+            finishedAt = timeProvider.GetUtcNow();
             finalOutcome = ex.GetType().Name;
             throw;
         }
@@ -140,7 +157,9 @@ public class CrawlerUpdateWorker(
         return new CrawlerRangeSyncResponse(GetStatus(), finalOutcome!, finishedAt!.Value);
     }
 
-    private async Task<CrawlerRangeStatus> SynchronizeCoreAsync(CancellationToken token)
+    private async Task<CrawlerRangeStatus> SynchronizeCoreAsync(
+        CancellationToken token,
+        bool enforceCommitGuard)
     {
         _logger.LogInformation("开始同步搜索引擎 IP 白名单...");
 
@@ -148,7 +167,7 @@ public class CrawlerUpdateWorker(
         var detector = scope.ServiceProvider.GetRequiredService<CrawlerDetectorService>();
         token.ThrowIfCancellationRequested();
 
-        DateTimeOffset syncStartedAt = DateTimeOffset.UtcNow;
+        DateTimeOffset syncStartedAt = timeProvider.GetUtcNow();
         var errors = new List<string>(2);
         AntiCrawlerPolicyOptions options = _policyProvider.Current.Options;
         CrawlerRangeSnapshot? snapshot = LoadSnapshot(options);
@@ -172,6 +191,13 @@ public class CrawlerUpdateWorker(
         var bingCidrs = bingSelection.Ranges;
         bool hasRanges = googleCidrs.Count + bingCidrs.Count > 0;
         bool remoteSucceeded = googleSelection.Source == "remote" || bingSelection.Source == "remote";
+
+        if (enforceCommitGuard)
+        {
+            IActiveReleaseCommitGuard commitGuard = activeReleaseCommitGuard
+                ?? throw new InvalidOperationException("Active release commit guard is required for the crawler worker commit boundary.");
+            await commitGuard.EnsureCurrentAsync(token).ConfigureAwait(false);
+        }
 
         if (remoteSucceeded && hasRanges)
         {
@@ -208,21 +234,24 @@ public class CrawlerUpdateWorker(
             if (!options.CidrAutoUpdateEnabled)
             {
                 PublishRuntimeState(state => state with { NextSyncAt = null });
-                await Task.Delay(TimeSpan.FromSeconds(30), token);
+                await Task.Delay(TimeSpan.FromSeconds(30), timeProvider, token);
                 continue;
             }
 
             TimeSpan interval = TimeSpan.FromMinutes(Math.Max(options.CidrUpdateIntervalMinutes, options.CidrMinUpdateIntervalMinutes));
-            DateTimeOffset anchor = Volatile.Read(ref _runtimeState).LastFinishedAt ?? DateTimeOffset.UtcNow;
+            DateTimeOffset anchor = Volatile.Read(ref _runtimeState).LastFinishedAt ?? timeProvider.GetUtcNow();
             DateTimeOffset next = anchor.Add(interval);
             PublishRuntimeState(state => state with { NextSyncAt = next });
-            TimeSpan remaining = next - DateTimeOffset.UtcNow;
+            TimeSpan remaining = next - timeProvider.GetUtcNow();
             if (remaining <= TimeSpan.Zero)
             {
                 return;
             }
 
-            await Task.Delay(remaining < TimeSpan.FromSeconds(30) ? remaining : TimeSpan.FromSeconds(30), token);
+            await Task.Delay(
+                remaining < TimeSpan.FromSeconds(30) ? remaining : TimeSpan.FromSeconds(30),
+                timeProvider,
+                token);
         }
     }
 

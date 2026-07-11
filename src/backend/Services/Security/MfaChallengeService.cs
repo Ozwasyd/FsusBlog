@@ -30,9 +30,7 @@ public interface IMfaChallengeService
     Task<MfaChallengeTicket?> GetChallengeAsync(string ticketId);
     Task ConsumeChallengeAsync(string ticketId);
     Task<bool> RecordFailureAsync(MfaChallengeTicket ticket, string clientIp, string? userAgent);
-    Task<string> CreateProofTokenAsync(int accountId, string action, TimeSpan ttl);
     Task<string> CreateProofTokenAsync(int accountId, string accountSubjectHash, string action, TimeSpan ttl);
-    Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string action, string token);
     Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string action, string token);
 }
 
@@ -78,7 +76,7 @@ public sealed class MfaChallengeService(
         string ticketHash = HashIdentity(ticket.TicketId);
         string clientIpHash = HashIdentity(clientIp);
         string userAgentHash = HashIdentity(userAgent ?? string.Empty);
-        string accountSubjectHash = ResolveAccountSubjectHash(ticket.AccountId, ticket.AccountSubjectHash);
+        string accountSubjectHash = ResolveAccountSubjectHash(ticket.AccountSubjectHash);
         string ticketIdentity = string.Concat("fail:ticket:", ticket.TicketId);
         string subjectIdentity = string.Concat("fail:subject:", accountSubjectHash);
         string ipIdentity = string.Concat("fail:ip:", clientIpHash);
@@ -131,25 +129,13 @@ public sealed class MfaChallengeService(
         return locked;
     }
 
-    public async Task<string> CreateProofTokenAsync(int accountId, string action, TimeSpan ttl)
-    {
-        string subject = ResolveAccountSubjectHash(accountId, null);
-        return await CreateProofTokenAsync(accountId, subject, action, ttl).ConfigureAwait(false);
-    }
-
     public async Task<string> CreateProofTokenAsync(int accountId, string accountSubjectHash, string action, TimeSpan ttl)
     {
         string token = Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-        string subject = ResolveAccountSubjectHash(accountId, accountSubjectHash);
+        string subject = ResolveAccountSubjectHash(accountSubjectHash);
         string identity = BuildProofIdentity(accountId, subject, action, token);
         await cache.SetStringAsync(CachePolicyId.SecurityMfaProof, identity, "1", ttl);
         return token;
-    }
-
-    public Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string action, string token)
-    {
-        string subject = ResolveAccountSubjectHash(accountId, null);
-        return ValidateAndConsumeProofTokenAsync(accountId, subject, action, token);
     }
 
     public Task<bool> ValidateAndConsumeProofTokenAsync(int accountId, string accountSubjectHash, string action, string token)
@@ -159,7 +145,7 @@ public sealed class MfaChallengeService(
             return Task.FromResult(false);
         }
 
-        string subject = ResolveAccountSubjectHash(accountId, accountSubjectHash);
+        string subject = ResolveAccountSubjectHash(accountSubjectHash);
         string identity = BuildProofIdentity(accountId, subject, action, token);
         return cache.ConsumeOnceAsync(CachePolicyId.SecurityMfaProof, identity);
     }
@@ -178,7 +164,7 @@ public sealed class MfaChallengeService(
         {
             TicketId = ticketId,
             AccountId = accountId,
-            AccountSubjectHash = ResolveAccountSubjectHash(accountId, accountSubjectHash),
+            AccountSubjectHash = ResolveAccountSubjectHash(accountSubjectHash),
             Type = type,
             Action = action,
             RememberMe = rememberMe,
@@ -254,7 +240,12 @@ public sealed class MfaChallengeService(
             string type = ReadString(signed, ref offset, bytes.Length);
             string action = ReadString(signed, ref offset, bytes.Length);
             string accountSubjectHash = ReadString(signed, ref offset, bytes.Length);
-            if (offset != bytes.Length || string.IsNullOrWhiteSpace(ticketId) || string.IsNullOrWhiteSpace(type))
+            if (offset != bytes.Length
+                || string.IsNullOrWhiteSpace(ticketId)
+                || string.IsNullOrWhiteSpace(type)
+                || !AccountSubjectHashRequirement.TryResolve(
+                    accountSubjectHash,
+                    out string normalizedAccountSubjectHash))
             {
                 return null;
             }
@@ -263,7 +254,7 @@ public sealed class MfaChallengeService(
             {
                 TicketId = ticketId,
                 AccountId = accountId,
-                AccountSubjectHash = accountSubjectHash,
+                AccountSubjectHash = normalizedAccountSubjectHash,
                 Type = type,
                 Action = action,
                 RememberMe = bytes[9] == 1,
@@ -346,17 +337,8 @@ public sealed class MfaChallengeService(
             .Replace('+', '-')
             .Replace('/', '_');
 
-    private static string ResolveAccountSubjectHash(int accountId, string? accountSubjectHash)
-    {
-        if (!string.IsNullOrWhiteSpace(accountSubjectHash))
-        {
-            return TextHelpers.LowerTrimmed(accountSubjectHash) ?? string.Empty;
-        }
-
-        return AccountSubjectHasher.Create(
-            AnonymousIdentityRuntime.AnonymousAccountKind,
-            string.Concat("legacy-account:", accountId.ToString(CultureInfo.InvariantCulture)));
-    }
+    private static string ResolveAccountSubjectHash(string? accountSubjectHash)
+        => AccountSubjectHashRequirement.Require(accountSubjectHash, "mfa-challenge");
 
     private static string HashIdentity(string value)
     {

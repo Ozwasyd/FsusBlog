@@ -5,9 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${FSUSBLOG_PRODUCTION_ENV_FILE:-$ROOT_DIR/.env.production}"
 COMPOSE_FILE="${FSUSBLOG_PRODUCTION_COMPOSE_FILE:-$ROOT_DIR/ops/docker/docker-compose.yml}"
 DRY_RUN=0
-SKIP_BUILD=0
 SKIP_UP=0
 SKIP_ZK_RELEASE_CHECK="${FSUSBLOG_DEPLOY_SKIP_ZK_RELEASE_CHECK:-0}"
+RELEASE_MANIFEST="${FSUSBLOG_RELEASE_MANIFEST:-}"
+REQUESTED_RELEASE_ID="${FSUSBLOG_RELEASE_ID:-}"
+REQUESTED_IMAGE_REF="${FSUSBLOG_IMAGE_REF:-}"
+RELEASE_SLOT="${FSUSBLOG_RELEASE_SLOT:-}"
+PROJECT_NAME="${FSUSBLOG_COMPOSE_PROJECT_NAME:-}"
 
 HOST_TRUSTED_SETUP_MANIFEST=""
 HOST_VERIFYING_KEY_MANIFEST=""
@@ -30,18 +34,22 @@ Usage: tools/deploy-production.sh [options]
 
 Options:
   --env-file <path>              Production env file. Defaults to .env.production.
+  --release-manifest <path>      Required immutable release-manifest.json from CI.
+  --release-id <id>              Optional expected releaseId; mismatch fails closed.
+  --image-ref <repository@sha256> Optional expected immutable image ref.
+  --slot <blue|green>            Required fixed runtime release slot.
+  --project-name <name>          Optional expected Compose project; must be fsusblog-<slot>.
   --dry-run                      Validate inputs and print commands without executing them.
-  --skip-build                   Skip tools/build-final-image.sh.
   --skip-up                      Run checks and docker compose config, but do not start containers.
   --skip-zk-release-check        Skip the ZK-Prod release gate. Use only for a documented rollback.
   -h, --help                     Show this help.
 
-This is the one-command production deploy entrypoint:
+This is the lower-level immutable image deploy used by tools/deployment/slot-start.sh:
   1. Load .env.production without executing it as shell code.
   2. Guide and block on missing real anonymous/ZK production material.
   3. Run npm --prefix src/frontend run check:privacy-zk-prod-release.
-  4. Build the final image with tools/build-final-image.sh.
-  5. Run docker compose --env-file .env.production config and up -d.
+  4. Validate and pull the exact repository@sha256 image from the release manifest.
+  5. Run the exact fsusblog-blue/fsusblog-green Compose project config and up -d --no-build.
 USAGE
 }
 
@@ -52,12 +60,33 @@ while [[ $# -gt 0 ]]; do
       ENV_FILE="$2"
       shift 2
       ;;
+    --release-manifest)
+      [[ $# -ge 2 ]] || fail "--release-manifest requires a path"
+      RELEASE_MANIFEST="$2"
+      shift 2
+      ;;
+    --release-id)
+      [[ $# -ge 2 ]] || fail "--release-id requires a value"
+      REQUESTED_RELEASE_ID="$2"
+      shift 2
+      ;;
+    --image-ref)
+      [[ $# -ge 2 ]] || fail "--image-ref requires a value"
+      REQUESTED_IMAGE_REF="$2"
+      shift 2
+      ;;
+    --slot)
+      [[ $# -ge 2 ]] || fail "--slot requires a value"
+      RELEASE_SLOT="$2"
+      shift 2
+      ;;
+    --project-name)
+      [[ $# -ge 2 ]] || fail "--project-name requires a value"
+      PROJECT_NAME="$2"
+      shift 2
+      ;;
     --dry-run)
       DRY_RUN=1
-      shift
-      ;;
-    --skip-build)
-      SKIP_BUILD=1
       shift
       ;;
     --skip-up)
@@ -77,6 +106,9 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+[[ "${FSUSBLOG_INTERNAL_SLOT_OPERATION:-0}" == "1" ]] \
+  || fail "direct invocation is unsupported; use tools/deployment/release-rollout.sh"
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -130,6 +162,11 @@ load_env_file() {
     key="${key#"${key%%[![:space:]]*}"}"
     key="${key%"${key##*[![:space:]]}"}"
     [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || fail "invalid env key in $ENV_FILE: $key"
+    case "$key" in
+      FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE|FSUSBLOG_RELEASE_MANIFEST_HOST_PATH)
+        continue
+        ;;
+    esac
     if [[ "$value" == \"*\" && "$value" == *\" && ${#value} -ge 2 ]]; then
       value="${value:1:${#value}-2}"
     elif [[ "$value" == \'*\' && "$value" == *\' && ${#value} -ge 2 ]]; then
@@ -256,6 +293,8 @@ validate_env() {
     FIDO2_SERVER_DOMAIN
     FSUSBLOG_ZK_CONFIG_DIR
     FSUSBLOG_ZK_SECRET_DIR
+    FSUSBLOG_SHARED_UPLOADS_VOLUME
+    FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME
     FSUSBLOG_ZK_VERIFYING_KEY_HASH
     FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST
     FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST
@@ -367,9 +406,102 @@ run_zk_release_gate() {
       --root-bootstrap-evidence "$root_evidence"
 }
 
+load_release_manifest() {
+  [[ -n "$RELEASE_MANIFEST" ]] || fail "--release-manifest is required for production deploy"
+  [[ -f "$RELEASE_MANIFEST" ]] || fail "release manifest not found: $RELEASE_MANIFEST"
+  RELEASE_MANIFEST="$(cd "$(dirname "$RELEASE_MANIFEST")" && pwd)/$(basename "$RELEASE_MANIFEST")"
+  local -a command=(
+    node "$ROOT_DIR/tools/release/check-release-manifest.mjs"
+    --manifest "$RELEASE_MANIFEST"
+    --slot "$RELEASE_SLOT"
+    --format lines
+  )
+  if [[ -n "$REQUESTED_RELEASE_ID" ]]; then
+    command+=(--release-id "$REQUESTED_RELEASE_ID")
+  fi
+  if [[ -n "$REQUESTED_IMAGE_REF" ]]; then
+    command+=(--image-ref "$REQUESTED_IMAGE_REF")
+  fi
+
+  local output
+  if ! output="$("${command[@]}")"; then
+    fail "release manifest validation failed"
+  fi
+  local -a fields=()
+  mapfile -t fields <<< "$output"
+  [[ "${#fields[@]}" -eq 7 ]] || fail "release manifest validator returned incomplete deployment fields"
+  export FSUSBLOG_RELEASE_ID="${fields[0]}"
+  export FSUSBLOG_COMMIT_SHA="${fields[1]}"
+  export FSUSBLOG_RELEASE_SLOT="${fields[2]}"
+  export FSUSBLOG_IMAGE_REF="${fields[3]}"
+  export FSUSBLOG_IMAGE_TAG="${fields[4]}"
+  export FSUSBLOG_IMAGE_DIGEST="${fields[5]}"
+  export FSUSBLOG_ROLLBACK_TARGET="${fields[6]}"
+  export FSUSBLOG_RELEASE_MANIFEST_HOST_PATH="$RELEASE_MANIFEST"
+  [[ -n "${FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE:-}" ]] \
+    || fail "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE must be derived from the durable active slot before deploy"
+  [[ "$FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$ ]] \
+    || fail "FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE is invalid"
+  [[ "$FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE" != "$FSUSBLOG_RELEASE_ID" ]] \
+    || fail "previous rollback release must differ from the candidate release"
+  export FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE
+  log "release=$FSUSBLOG_RELEASE_ID slot=$FSUSBLOG_RELEASE_SLOT digest=$FSUSBLOG_IMAGE_DIGEST rollbackTarget=$FSUSBLOG_ROLLBACK_TARGET"
+}
+
+configure_slot_compose() {
+  local expected_project blue_port green_port
+  blue_port="${FSUSBLOG_BLUE_PORT:-8081}"
+  green_port="${FSUSBLOG_GREEN_PORT:-8082}"
+  [[ "$blue_port" =~ ^[0-9]+$ && "$blue_port" -ge 1 && "$blue_port" -le 65535 ]] || fail "FSUSBLOG_BLUE_PORT is invalid"
+  [[ "$green_port" =~ ^[0-9]+$ && "$green_port" -ge 1 && "$green_port" -le 65535 ]] || fail "FSUSBLOG_GREEN_PORT is invalid"
+  [[ "$blue_port" != "$green_port" ]] || fail "blue and green ports must be different"
+
+  case "$RELEASE_SLOT" in
+    blue)
+      export FSUSBLOG_SLOT_PORT="$blue_port"
+      ;;
+    green)
+      export FSUSBLOG_SLOT_PORT="$green_port"
+      ;;
+    *)
+      fail "--slot must be blue or green"
+      ;;
+  esac
+
+  expected_project="fsusblog-$RELEASE_SLOT"
+  if [[ -n "$PROJECT_NAME" && "$PROJECT_NAME" != "$expected_project" ]]; then
+    fail "Compose project must be $expected_project for slot $RELEASE_SLOT"
+  fi
+  PROJECT_NAME="$expected_project"
+  export FSUSBLOG_COMPOSE_PROJECT_NAME="$PROJECT_NAME"
+  export FSUSBLOG_CONTAINER_NAME="fsus-app-$RELEASE_SLOT"
+  export FSUSBLOG_SLOT_AOT_CACHE_VOLUME="fsusblog-aot-cache-$RELEASE_SLOT"
+  export FSUSBLOG_SLOT_LOGS_VOLUME="fsusblog-logs-$RELEASE_SLOT"
+  export FSUSBLOG_SLOT_DATA_VOLUME="fsusblog-data-$RELEASE_SLOT"
+}
+
+validate_pulled_image() {
+  if [[ "$DRY_RUN" == "1" ]]; then
+    log "dry-run verify pulled image digest and OCI release labels against release manifest"
+    return 0
+  fi
+
+  local repo_digests actual_release actual_commit
+  repo_digests="$(docker image inspect "$FSUSBLOG_IMAGE_REF" --format '{{range .RepoDigests}}{{println .}}{{end}}')"
+  if ! grep -Fxq "$FSUSBLOG_IMAGE_REF" <<< "$repo_digests"; then
+    fail "pulled image digest does not match release manifest: $FSUSBLOG_IMAGE_REF"
+  fi
+  actual_release="$(docker image inspect "$FSUSBLOG_IMAGE_REF" --format '{{index .Config.Labels "org.opencontainers.image.version"}}')"
+  actual_commit="$(docker image inspect "$FSUSBLOG_IMAGE_REF" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+  [[ "$actual_release" == "$FSUSBLOG_RELEASE_ID" ]] || fail "pulled image release label does not match manifest"
+  [[ "$actual_commit" == "$FSUSBLOG_COMMIT_SHA" ]] || fail "pulled image commit label does not match manifest"
+}
+
 main() {
+  require_command node
   if [[ "$DRY_RUN" != "1" ]]; then
     require_command docker
+    require_command grep
     require_command npm
   fi
 
@@ -378,24 +510,28 @@ main() {
   COMPOSE_FILE="$(cd "$(dirname "$COMPOSE_FILE")" && pwd)/$(basename "$COMPOSE_FILE")"
 
   load_env_file
+  configure_slot_compose
+  if [[ -z "$REQUESTED_RELEASE_ID" && -n "${FSUSBLOG_RELEASE_ID:-}" ]]; then
+    REQUESTED_RELEASE_ID="$FSUSBLOG_RELEASE_ID"
+  fi
+  if [[ -z "$REQUESTED_IMAGE_REF" && -n "${FSUSBLOG_IMAGE_REF:-}" ]]; then
+    REQUESTED_IMAGE_REF="$FSUSBLOG_IMAGE_REF"
+  fi
+  load_release_manifest
   validate_env
   validate_zk_files
   run_zk_release_gate
 
-  if [[ "$SKIP_BUILD" != "1" ]]; then
-    run_cmd "$ROOT_DIR/tools/build-final-image.sh"
-  else
-    log "skip image build"
-  fi
-
-  run_cmd docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" config
+  run_cmd docker pull "$FSUSBLOG_IMAGE_REF"
+  validate_pulled_image
+  run_cmd docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -p "$PROJECT_NAME" config
 
   if [[ "$SKIP_UP" == "1" ]]; then
     log "skip docker compose up"
     return 0
   fi
 
-  run_cmd docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d
+  run_cmd docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" -p "$PROJECT_NAME" up -d --no-build --pull always
   if [[ "$DRY_RUN" == "1" ]]; then
     log "dry-run complete"
   else

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Threading.Channels;
+using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -16,7 +17,16 @@ public sealed class NotificationStreamConnectionLimitExceededException(Notificat
     public NotificationStreamConnectionLimitScope Scope { get; } = scope;
 }
 
-public sealed class NotificationStreamConnectionManager(IConfiguration configuration, ILogger<NotificationStreamConnectionManager> logger)
+public sealed class NotificationStreamDeploymentUnavailableException(string errorCode)
+    : InvalidOperationException(errorCode)
+{
+    public string ErrorCode { get; } = errorCode;
+}
+
+public sealed class NotificationStreamConnectionManager(
+    IConfiguration configuration,
+    ILogger<NotificationStreamConnectionManager> logger,
+    DeploymentRuntimeState? deploymentRuntime = null)
 {
     private const int MinQueueCapacity = 32;
     private const int MaxQueueCapacity = 4096;
@@ -45,6 +55,11 @@ public sealed class NotificationStreamConnectionManager(IConfiguration configura
         int? queueCapacityOverride = null,
         string? clientIp = null)
     {
+        if (deploymentRuntime is not null && !deploymentRuntime.CanAcceptNotificationStream)
+        {
+            throw new NotificationStreamDeploymentUnavailableException(
+                deploymentRuntime.IsDraining ? "deployment_draining" : "deployment_not_active");
+        }
         if (_byConnectionId.ContainsKey(connectionId))
         {
             throw new InvalidOperationException($"Duplicate notification stream connection id: {connectionId}");

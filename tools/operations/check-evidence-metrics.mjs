@@ -816,6 +816,20 @@ function selfTestRuntimeProbe() {
 }
 
 function main() {
+  if (process.argv[2] === '--validate-runtime-probe') {
+    const input = process.argv[3]
+    assert(typeof input === 'string' && input.length > 0, '--validate-runtime-probe requires a JSON file')
+    const resolved = path.resolve(process.cwd(), input)
+    const probe = JSON.parse(fs.readFileSync(resolved, 'utf8'))
+    validateRuntimeProbe(probe, 'runtime-probe-contract')
+    console.log(JSON.stringify({
+      schema: 'fsusblog.runtime-probe-validation.v1',
+      status: 'ok',
+      observabilityLevel: probe.observabilityLevel,
+      requiredCategories: probe.extendedObservability.requiredCategories
+    }))
+    return
+  }
   if (process.argv.includes('--self-test')) {
     runSelfTest()
     return

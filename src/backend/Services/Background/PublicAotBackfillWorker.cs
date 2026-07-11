@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Testing;
 
@@ -9,7 +10,8 @@ public sealed class PublicAotBackfillWorker(
     IServiceScopeFactory scopeFactory,
     IConfiguration configuration,
     ILogger<PublicAotBackfillWorker> logger,
-    IBackgroundWorkerLease workerLease) : BackgroundService
+    IBackgroundWorkerLease workerLease,
+    IActiveReleaseCommitGuard activeReleaseCommitGuard) : BackgroundService
 {
     private static readonly TimeSpan StandbyDelay = TimeSpan.FromSeconds(5);
 
@@ -59,7 +61,10 @@ public sealed class PublicAotBackfillWorker(
         try
         {
             IPublicAotBackfillGenerator generator = scope.ServiceProvider.GetRequiredService<IPublicAotBackfillGenerator>();
-            await generator.GenerateAndStoreAsync(request, stoppingToken);
+            await generator.GenerateAndStoreAsync(
+                request,
+                stoppingToken,
+                beforeCommit: commitToken => activeReleaseCommitGuard.EnsureCurrentAsync(commitToken));
             logger.LogInformation("Public AOT backfill completed: {Kind} {RouteKey}", request.Kind, request.RouteKey);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

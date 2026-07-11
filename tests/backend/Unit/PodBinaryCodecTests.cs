@@ -13,7 +13,6 @@ using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Core.Services.Implementations;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Services.Security;
-using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.AuthSystem;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -344,13 +343,14 @@ public class PodBinaryCodecTests
     [Fact]
     public void AdminResetUserPasswordRequest_IsRetiredFromPodCodec()
     {
-        string userPods = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Models/UserPods.cs");
-        string readModels = BackendTestPaths.ReadAllTextFromRoot("src/core/Mapping/Models/ReadModels.cs");
-        string codec = BackendTestPaths.ReadAllTextFromRoot("src/core/Cache/PodBinaryCodec.User.cs");
-
-        Assert.DoesNotContain("AdminResetUserPasswordRequestPod", userPods, StringComparison.Ordinal);
-        Assert.DoesNotContain("AdminResetUserPasswordRequestCoreModel", readModels, StringComparison.Ordinal);
-        Assert.DoesNotContain("AdminResetUserPasswordRequest", codec, StringComparison.Ordinal);
+        Assert.Null(typeof(AdminChangeUserStatusRequestPod).Assembly.GetType(
+            "FsusBlog.Shared.Contracts.Models.AdminResetUserPasswordRequestPod",
+            throwOnError: false));
+        Assert.Null(typeof(AdminChangeUserStatusRequestCoreModel).Assembly.GetType(
+            "FsusBlog.Core.Mapping.Models.AdminResetUserPasswordRequestCoreModel",
+            throwOnError: false));
+        Assert.DoesNotContain(typeof(PodBinaryCodec).GetMethods(), static method =>
+            method.Name.Contains("AdminResetUserPasswordRequest", StringComparison.Ordinal));
         Assert.Null(typeof(PodBinaryCodec).GetMethod("EncodeAdminResetUserPasswordRequest"));
         Assert.Null(typeof(PodBinaryCodec).GetMethod("TryDecodeAdminResetUserPasswordRequest"));
     }
@@ -976,15 +976,20 @@ public class PodBinaryCodecTests
         Assert.Equal(256, AnonymousPrivacyContract.MaxCircuitNativeCredentialRequestBytes);
         Assert.Equal(4096, AnonymousPrivacyContract.MaxGroth16ProofBytes);
 
-        string outputSource = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
-        string podSource = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Models/CommentPods.cs");
-        string responsePod = ExtractStructSource(podSource, "AnonymousCredentialIssueResponsePod");
+        string[] outputProperties = typeof(AnonymousCredentialIssueResponse)
+            .GetProperties()
+            .Select(static property => property.Name)
+            .ToArray();
+        string[] podFields = typeof(AnonymousCredentialIssueResponsePod)
+            .GetFields()
+            .Select(static field => field.Name)
+            .ToArray();
 
-        Assert.Contains("IssuerSignature", outputSource, StringComparison.Ordinal);
-        Assert.Contains("IssuerSignature", responsePod, StringComparison.Ordinal);
-        Assert.Contains("IssuerPublicKeyId", responsePod, StringComparison.Ordinal);
-        Assert.DoesNotContain("CredentialCommitment", responsePod, StringComparison.Ordinal);
-        Assert.DoesNotContain("IssuerResponse", responsePod, StringComparison.Ordinal);
+        Assert.Contains("IssuerSignature", outputProperties);
+        Assert.Contains("IssuerSignature", podFields);
+        Assert.Contains("IssuerPublicKeyId", podFields);
+        Assert.DoesNotContain("CredentialCommitment", podFields);
+        Assert.DoesNotContain("IssuerResponse", podFields);
     }
 
     [Fact]
@@ -993,22 +998,14 @@ public class PodBinaryCodecTests
         Assert.DoesNotContain("ReplyToUserId", nameof(AnonymousCommentCreateRequestCoreModel), StringComparison.Ordinal);
         Assert.DoesNotContain("UserId", nameof(AnonymousCommentCreateRequestCoreModel), StringComparison.Ordinal);
 
-        string podSource = BackendTestPaths.ReadAllTextFromRoot("src/shared/Contracts/Models/CommentPods.cs");
-        string pod = ExtractStructSource(podSource, "AnonymousCommentCreateRequestPod");
-        Assert.DoesNotContain("UserId", pod, StringComparison.Ordinal);
-        Assert.DoesNotContain("Username", pod, StringComparison.Ordinal);
-        Assert.DoesNotContain("Authorization", pod, StringComparison.Ordinal);
-        Assert.DoesNotContain("PublicHandle", pod, StringComparison.Ordinal);
-    }
-
-    private static string ExtractStructSource(string source, string structName)
-    {
-        string marker = $"public readonly struct {structName}";
-        int start = source.IndexOf(marker, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing struct {structName}.");
-
-        int nextStruct = source.IndexOf("[StructLayout", start + marker.Length, StringComparison.Ordinal);
-        return nextStruct < 0 ? source[start..] : source[start..nextStruct];
+        string[] fields = typeof(AnonymousCommentCreateRequestPod)
+            .GetFields()
+            .Select(static field => field.Name)
+            .ToArray();
+        Assert.DoesNotContain("UserId", fields);
+        Assert.DoesNotContain("Username", fields);
+        Assert.DoesNotContain("Authorization", fields);
+        Assert.DoesNotContain("PublicHandle", fields);
     }
 
     [Fact]

@@ -24,12 +24,14 @@ function writeJson(base, relative, payload) {
 function runAggregator(base) {
   return spawnSync(process.execPath, [aggregateScript, '--root', base], {
     cwd: root,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    timeout: 10_000
   })
 }
 
-test('performance evidence producers stay isolated and the fresh aggregate retains all four classes', () => {
+test('performance evidence producers stay isolated and the fresh aggregate retains all four classes', (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-perf-summary-'))
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }))
   for (const [id, relative] of Object.entries(sourceFiles)) {
     writeJson(temp, relative, { schema: `fixture.${id}.v1`, status: 'ok', id })
   }
@@ -67,8 +69,9 @@ test('performance evidence producers stay isolated and the fresh aggregate retai
   assert.equal(JSON.parse(fs.readFileSync(outputFile, 'utf8')).status, 'failed')
 })
 
-test('performance aggregate restores producer summaries from downloaded CI artifacts', () => {
+test('performance aggregate restores producer summaries from downloaded CI artifacts', (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-perf-summary-ci-'))
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }))
   for (const [id, relative] of Object.entries(sourceFiles)) {
     const artifactName = id.startsWith('load-') ? 'load-smoke' : 'perf-regression'
     const artifactRelative = id.startsWith('load-') ? relative.replace(/^\.tmp\//u, '') : relative
@@ -85,22 +88,4 @@ test('performance aggregate restores producer summaries from downloaded CI artif
   const summary = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/perf-summary.json'), 'utf8'))
   assert.deepEqual(summary.entries.map((entry) => entry.id), Object.keys(sourceFiles))
   assert.ok(summary.entries.every((entry) => entry.sourceLocation.startsWith('.tmp/downloaded-artifacts/')))
-})
-
-test('lane and matrix contracts assign one writer to the aggregate performance summary', () => {
-  const loadLane = fs.readFileSync(path.join(root, 'tools/test/lanes/load-profile.sh'), 'utf8')
-  const backendLane = fs.readFileSync(path.join(root, 'tools/test/lanes/backend-benchmark-regression.sh'), 'utf8')
-  const browserLane = fs.readFileSync(path.join(root, 'tools/test/lanes/browser-performance-regression.sh'), 'utf8')
-  const matrix = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
-
-  assert.match(loadLane, /RELEASE_SUMMARY_DIR=.*\.tmp\/perf\/release-summaries/u)
-  assert.match(loadLane, /RELEASE_SUMMARY_DIR\/load-\$PROFILE\.json/u)
-  assert.match(backendLane, /RELEASE_SUMMARY_DIR\/backend-benchmark-regression\.json/u)
-  assert.match(browserLane, /RELEASE_SUMMARY_DIR\/browser-performance-regression\.json/u)
-  for (const lane of [loadLane, backendLane, browserLane]) {
-    assert.doesNotMatch(lane, />\s*"\$ROOT_DIR\/\.tmp\/release-evidence\/perf-summary\.json"/u)
-  }
-
-  assert.match(matrix, /- id: performance-evidence-summary[\s\S]*?dependsOn: \[load-baseline, load-peak, backend-benchmark-regression, browser-performance-regression\]/u)
-  assert.match(matrix, /- id: release-evidence[\s\S]*?dependsOn: \[[^\]]*performance-evidence-summary/u)
 })

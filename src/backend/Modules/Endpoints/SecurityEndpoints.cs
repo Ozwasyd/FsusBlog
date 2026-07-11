@@ -8,6 +8,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -180,7 +181,9 @@ public static class SecurityEndpoints
                 snapshot,
                 cancellationToken);
             return Ok(context, aeds, snapshot);
-        }).RequireRateLimiting("fixed_ip");
+        })
+        .WithAdminSensitiveStepUp()
+        .RequireRateLimiting("fixed_ip");
 
         group.MapPost("/risk-control/options/rollback", async (
             HttpContext context,

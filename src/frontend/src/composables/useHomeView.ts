@@ -14,12 +14,10 @@ import { isAbortError } from '@/utils/errors'
 import { AppErrorCode, createAppError, toAppError } from '@/utils/appError'
 import { createArticleListViewContract, type ArticleListCardViewContract } from '@/view-contracts/articleList'
 import { createStableArticleCardMapper } from '@/view-contracts/articleListStableCache'
-import { selectHomeSpotlightCandidates } from '@/view-contracts/homeSpotlight'
 import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock'
 
-const HOME_FEATURED_ARTICLE_COUNT = 3
+const HOME_FEATURED_ARTICLE_COUNT = 1
 const HOME_HOT_ARTICLE_PREFETCH_COUNT = 10
-const HOME_HOT_ARTICLE_DISPLAY_COUNT = 5
 const HOME_SECONDARY_CONTENT_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
 const HOME_SECONDARY_LIST_ROOT_MARGIN = '600px 0px 600px 0px'
 const HOME_SECONDARY_LIST_FALLBACK_DELAY_MS = 2500
@@ -269,13 +267,10 @@ export function useHomeView() {
       )
 
       if (lifecycle.isActive()) {
-        featuredArticles.value = selectHomeSpotlightCandidates(featured || [], HOME_FEATURED_ARTICLE_COUNT)
-
-        // 去重逻辑：如果文章已经出现在精选位，则不再出现在热门排行中
-        const featuredIds = new Set(featuredArticles.value.map(a => a.id))
-        hotArticles.value = (hot || [])
-          .filter(a => !featuredIds.has(a.id))
-          .slice(0, HOME_HOT_ARTICLE_DISPLAY_COUNT)
+        // Keep source order intact here. One shared editorial selector owns
+        // lead/secondary/feed deduplication for SSR, hydration, and SPA.
+        featuredArticles.value = (featured || []).slice(0, HOME_FEATURED_ARTICLE_COUNT)
+        hotArticles.value = (hot || []).slice(0, HOME_HOT_ARTICLE_PREFETCH_COUNT)
         secondaryListsLoaded = true
         homeRuntimeMetrics.secondaryRefresh++
       }

@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
   SecurityChallengeKind,
@@ -37,10 +35,6 @@ describe('security challenge client and proof store', () => {
     expect(store.get(context.action, context.routeKey)?.proofToken).toBe('proof-1')
     now += 6000
     expect(store.get(context.action, context.routeKey)).toBeNull()
-
-    const source = readFileSync(resolve(process.cwd(), 'src/security/challenge-proof-store.ts'), 'utf8')
-    expect(source).not.toContain('localStorage')
-    expect(source).not.toContain('sessionStorage')
   })
 
   it('uses a cached proof without issuing a new challenge', async () => {

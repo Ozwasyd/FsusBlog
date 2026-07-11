@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/ops/docker/docker-compose.yml"
 GATEWAY_FILE="$ROOT_DIR/deploy/production-openresty.conf"
+GATEWAY_UPSTREAM_EXAMPLE="$ROOT_DIR/deploy/active-upstream.conf.example"
 ENV_TEMPLATE="$ROOT_DIR/.env.production-template"
 
 failures=()
@@ -35,10 +36,15 @@ reject_pattern() {
 
 require_file "$COMPOSE_FILE"
 require_file "$GATEWAY_FILE"
+require_file "$GATEWAY_UPSTREAM_EXAMPLE"
 require_file "$ENV_TEMPLATE"
 
 if [[ -f "$COMPOSE_FILE" ]]; then
-  require_pattern "$COMPOSE_FILE" '127\.0\.0\.1:8080:8080' 'loopback-only Kestrel port binding'
+  require_pattern "$COMPOSE_FILE" '127\.0\.0\.1:\$\{FSUSBLOG_SLOT_PORT:\?[^}]+\}:8080' 'slot-parameterized loopback-only Kestrel port binding'
+  require_pattern "$COMPOSE_FILE" 'container_name:[[:space:]]+\$\{FSUSBLOG_CONTAINER_NAME:\?' 'slot-specific container identity'
+  require_pattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_UPLOADS_VOLUME:\?' 'explicit shared uploads volume'
+  require_pattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME:\?' 'explicit shared DataProtection volume'
+  reject_pattern "$COMPOSE_FILE" '127\.0\.0\.1:8080:8080' 'retired single-slot Kestrel binding'
   reject_pattern "$COMPOSE_FILE" '(^|["[:space:]])8080:8080(["[:space:]]|$)' 'public Kestrel 8080 binding'
   reject_pattern "$COMPOSE_FILE" '(^|["[:space:]])6379:6379(["[:space:]]|$)' 'public Redis port binding'
   reject_pattern "$COMPOSE_FILE" '(^|["[:space:]])5432:5432(["[:space:]]|$)' 'public PostgreSQL port binding'
@@ -47,6 +53,8 @@ if [[ -f "$COMPOSE_FILE" ]]; then
 fi
 
 if [[ -f "$GATEWAY_FILE" ]]; then
+  require_pattern "$GATEWAY_FILE" 'include[[:space:]]+/etc/openresty/fsusblog/active-upstream\.conf;' 'controlled dynamic active upstream include'
+  reject_pattern "$GATEWAY_FILE" 'server[[:space:]]+127\.0\.0\.1:8080;' 'retired fixed application upstream'
   require_pattern "$GATEWAY_FILE" 'server_name[[:space:]]+_;' 'default unknown Host server'
   require_pattern "$GATEWAY_FILE" 'return[[:space:]]+444;' 'unknown Host rejection'
   require_pattern "$GATEWAY_FILE" 'limit_req_zone' 'request rate limit zones'
@@ -59,10 +67,28 @@ if [[ -f "$GATEWAY_FILE" ]]; then
   require_pattern "$GATEWAY_FILE" 'Strict-Transport-Security' 'HSTS response header'
 fi
 
+if [[ -f "$GATEWAY_UPSTREAM_EXAMPLE" ]]; then
+  require_pattern "$GATEWAY_UPSTREAM_EXAMPLE" '^server[[:space:]]+127\.0\.0\.1:808[12];$' 'single controlled blue/green loopback server'
+  reject_pattern "$GATEWAY_UPSTREAM_EXAMPLE" 'server[[:space:]]+(0\.0\.0\.0|::|10\.|172\.|192\.168\.|[A-Za-z])' 'non-loopback or hostname upstream'
+  if [[ "$(wc -l < "$GATEWAY_UPSTREAM_EXAMPLE")" -ne 1 ]]; then
+    failures+=("deploy/active-upstream.conf.example: must contain exactly one generated server line")
+  fi
+fi
+
 if [[ -f "$ENV_TEMPLATE" ]]; then
   require_pattern "$ENV_TEMPLATE" '^APP_ALLOWED_HOSTS=' 'AllowedHosts template variable'
   require_pattern "$ENV_TEMPLATE" '^REVERSE_PROXY_KNOWN_PROXIES=' 'reverse proxy known proxies template variable'
   require_pattern "$ENV_TEMPLATE" '^REVERSE_PROXY_KNOWN_NETWORKS=' 'reverse proxy known networks template variable'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_BLUE_PORT=8081$' 'blue loopback port'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_GREEN_PORT=8082$' 'green loopback port'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_SLOT_STATE_FILE=/var/lib/fsusblog/deployment/slots\.json$' 'durable slot state path'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_DEPLOYMENT_LOCK_FILE=/var/lock/fsusblog-deployment\.lock$' 'shared deployment lock path'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_GATEWAY_ACTIVE_UPSTREAM=/etc/openresty/fsusblog/active-upstream\.conf$' 'controlled active upstream path'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_GATEWAY_CONFIG_FILE=/etc/openresty/nginx\.conf$' 'complete OpenResty config path'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL=https://' 'HTTPS public release probe URL'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_GATEWAY_EVIDENCE_DIR=/var/lib/fsusblog/deployment/evidence$' 'durable gateway evidence path'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_SHARED_UPLOADS_VOLUME=' 'explicit shared uploads volume variable'
+  require_pattern "$ENV_TEMPLATE" '^FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME=' 'explicit shared DataProtection volume variable'
 fi
 
 if [[ "${FSUSBLOG_SKIP_PRODUCTION_EXPOSURE_TOOL_TEST:-0}" != "1" ]]; then

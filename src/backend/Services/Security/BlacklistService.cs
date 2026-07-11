@@ -69,7 +69,10 @@ public class BlacklistService(
 
     public async Task<BanStateSnapshot> GetBanStateAsync(int accountId, string accountSubjectHash)
     {
-        string cacheKey = BuildAccountSubjectCacheKey(accountSubjectHash);
+        string requiredAccountSubjectHash = AccountSubjectHashRequirement.Require(
+            accountSubjectHash,
+            "blacklist-read");
+        string cacheKey = BuildAccountSubjectCacheKey(requiredAccountSubjectHash);
         string? cached = await cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey);
         if (TryDecodeCacheValue(cached, out BanStateSnapshot cachedSnapshot, out _))
         {
@@ -85,9 +88,13 @@ public class BlacklistService(
         {
             return new BanStateSnapshot(false, null, null);
         }
+        if (!string.Equals(row.CacheKey, cacheKey, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Blacklist account subject does not match the physical account projection.");
+        }
 
         var snapshot = ToSnapshot(row.Status, row.BanReason);
-        bool warmed = await PublishBanStateAsync(row with { CacheKey = cacheKey }, allowOverwrite: false).ConfigureAwait(false);
+        bool warmed = await PublishBanStateAsync(row, allowOverwrite: false).ConfigureAwait(false);
         if (!warmed)
         {
             string? current = await cache.GetStringAsync(CachePolicyId.SecurityBlacklistUser, cacheKey).ConfigureAwait(false);
@@ -142,9 +149,7 @@ public class BlacklistService(
         await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT id,
-                   identity_kind,
-                   passkey_user_handle,
-                   public_handle,
+                   account_subject_hash,
                    status,
                    banreason,
                    xmin::text AS row_version
@@ -160,12 +165,10 @@ public class BlacklistService(
         var user = new User
         {
             Id = reader.GetInt32(0),
-            IdentityKind = reader.IsDBNull(1) ? AnonymousIdentityRuntime.AnonymousAccountKind : reader.GetString(1),
-            PasskeyUserHandle = reader.IsDBNull(2) ? null : reader.GetString(2),
-            PublicHandle = reader.IsDBNull(3) ? null : reader.GetString(3),
-            Status = reader.GetInt32(4),
-            BanReason = reader.IsDBNull(5) ? null : reader.GetString(5),
-            RowVersion = reader.GetString(6)
+            AccountSubjectHash = reader.IsDBNull(1) ? null : reader.GetString(1),
+            Status = reader.GetInt32(2),
+            BanReason = reader.IsDBNull(3) ? null : reader.GetString(3),
+            RowVersion = reader.GetString(4)
         };
         return BlacklistCacheRow.FromUser(user, user.RowVersion);
     }
@@ -255,6 +258,7 @@ public class BlacklistService(
                 user.Status,
                 user.BanReason,
                 rowVersion,
-                BuildAccountSubjectCacheKey(AccountSubjectHasher.Create(user)));
+                BuildAccountSubjectCacheKey(
+                    AccountSubjectHashRequirement.Require(user.AccountSubjectHash, "blacklist-cache-row")));
     }
 }

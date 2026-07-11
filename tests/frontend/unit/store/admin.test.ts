@@ -78,7 +78,8 @@ describe('useAdminStore', () => {
     })
     const labels = groups.flatMap((group) => group.items.map((item) => item.label))
 
-    expect(labels).toContain('仪表盘')
+    expect(groups).toEqual([])
+    expect(labels).not.toContain('仪表盘')
     expect(labels).not.toContain('安全系统')
     expect(labels).not.toContain('用户')
   })

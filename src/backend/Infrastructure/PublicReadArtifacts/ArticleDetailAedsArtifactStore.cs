@@ -66,7 +66,8 @@ public interface IArticleDetailAedsArtifactMaintenanceService
 
 public sealed class ArticleDetailAedsFileArtifactStore(
     IWebHostEnvironment env,
-    ILogger<ArticleDetailAedsFileArtifactStore> logger) : IArticleDetailAedsArtifactStore
+    ILogger<ArticleDetailAedsFileArtifactStore> logger,
+    TimeProvider? timeProvider = null) : IArticleDetailAedsArtifactStore
 {
     private const uint ArticleDetailV3PayloadMagic = 0x41524433; // ARD3
     private const int ArticleDetailV3PayloadVersion = 3;
@@ -74,6 +75,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
     private static readonly TimeSpan MemoryTtl = TimeSpan.FromSeconds(30);
     private readonly string _root = Path.Combine(env.ContentRootPath, "runtime-cache", "public", "articles");
     private readonly ConcurrentDictionary<int, CachedFrame> _memory = new();
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
     public async Task<ArticleDetailAedsArtifact> TryReadAsync(int articleId, CancellationToken cancellationToken = default)
     {
@@ -105,7 +107,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
             return default;
         }
 
-        _memory[articleId] = new CachedFrame(bytes, DateTimeOffset.UtcNow.Add(MemoryTtl));
+        _memory[articleId] = new CachedFrame(bytes, _timeProvider.GetUtcNow().Add(MemoryTtl));
         FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "hit_file", FsusObservability.GetElapsed(startedAt));
         return new ArticleDetailAedsArtifact(bytes);
     }
@@ -128,7 +130,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
         string tempPath = string.Concat(path, ".", Guid.NewGuid().ToString("N"), ".tmp");
         await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken).ConfigureAwait(false);
         File.Move(tempPath, path, overwrite: true);
-        _memory[articleId] = new CachedFrame(bytes, DateTimeOffset.UtcNow.Add(MemoryTtl));
+        _memory[articleId] = new CachedFrame(bytes, _timeProvider.GetUtcNow().Add(MemoryTtl));
         FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "write", TimeSpan.Zero);
     }
 
@@ -154,7 +156,7 @@ public sealed class ArticleDetailAedsFileArtifactStore(
             return false;
         }
 
-        if (cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+        if (cached.ExpiresAtUtc <= _timeProvider.GetUtcNow())
         {
             _memory.TryRemove(articleId, out _);
             return false;
@@ -737,6 +739,8 @@ public sealed class ArticleDetailAedsArtifactBackfillScheduler(
     private readonly ConcurrentDictionary<int, byte> _scheduled = new();
 
     public ChannelReader<int> Reader => _channel.Reader;
+
+    internal int PendingCount => _scheduled.Count;
 
     public bool TrySchedule(int articleId)
     {

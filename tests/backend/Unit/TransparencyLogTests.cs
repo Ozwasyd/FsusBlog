@@ -1,7 +1,10 @@
+using System.Reflection;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -35,18 +38,19 @@ public sealed class TransparencyLogTests
     [Fact]
     public void EntityAndMigrationDefineAppendOnlyTransparencyLog()
     {
-        string entitySource = ReadRepoFile("src/backend/Entities/Article.cs");
         var registry = new SchemaMigrationRegistry();
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             registry.GetDescriptors(),
             static item => item.MigrationId == "20260704-post-integrity-transparency-log");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
-        Assert.Contains("[SugarTable(\"integrity_transparency_log\")]", entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(IntegrityTransparencyLogEntry.Seq), entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(IntegrityTransparencyLogEntry.EntryHash), entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(ArticlePublishProof.TransparencyLogEntryId), entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(ArticlePublishProof.TransparencyLogEntryHash), entitySource, StringComparison.Ordinal);
+        Assert.Equal(
+            "integrity_transparency_log",
+            typeof(IntegrityTransparencyLogEntry).GetCustomAttribute<SugarTable>()?.TableName);
+        Assert.NotNull(typeof(IntegrityTransparencyLogEntry).GetProperty(nameof(IntegrityTransparencyLogEntry.Seq)));
+        Assert.NotNull(typeof(IntegrityTransparencyLogEntry).GetProperty(nameof(IntegrityTransparencyLogEntry.EntryHash)));
+        Assert.NotNull(typeof(ArticlePublishProof).GetProperty(nameof(ArticlePublishProof.TransparencyLogEntryId)));
+        Assert.NotNull(typeof(ArticlePublishProof).GetProperty(nameof(ArticlePublishProof.TransparencyLogEntryHash)));
 
         Assert.Contains("CREATE TABLE IF NOT EXISTS integrity_transparency_log", fingerprint, StringComparison.Ordinal);
         Assert.Contains("seq bigint NOT NULL", fingerprint, StringComparison.Ordinal);
@@ -70,36 +74,60 @@ public sealed class TransparencyLogTests
     }
 
     [Fact]
-    public void AppendService_UsesTransactionLockIdempotencyAndProofBackReference()
+    public async Task AppendService_UsesTransactionLockIdempotencyAndProofBackReference()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/Integrity/TransparencyLog.cs");
+        ConstructorInfo constructor = Assert.Single(typeof(PublishProofTransparencyLog).GetConstructors());
+        Assert.Equal(
+            new[] { typeof(ISqlSugarClient) },
+            constructor.GetParameters().Select(static parameter => parameter.ParameterType).ToArray());
+        var service = new PublishProofTransparencyLog(Substitute.For<ISqlSugarClient>());
 
-        Assert.Contains("UseTranAsync", source, StringComparison.Ordinal);
-        Assert.Contains("pg_advisory_xact_lock(hashtext('integrity_transparency_log'))", source, StringComparison.Ordinal);
-        Assert.Contains("EntryType == TransparencyLogEntryTypes.PublishProof", source, StringComparison.Ordinal);
-        Assert.Contains("ProofId == proofId", source, StringComparison.Ordinal);
-        Assert.Contains("OrderByDescending(entry => entry.Seq)", source, StringComparison.Ordinal);
-        Assert.Contains("TransparencyLogEntryCanonicalizer.ComputeEntryHashHex", source, StringComparison.Ordinal);
-        Assert.Contains("TransparencyLogChainVerifier.Verify", source, StringComparison.Ordinal);
-        Assert.Contains("TransparencyLogEntryId", source, StringComparison.Ordinal);
-        Assert.Contains("TransparencyLogEntryHash", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IPFS", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Arweave", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Nethereum", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.AppendPublishProofAsync(0));
+        Assert.Equal(
+            typeof(Task<IntegrityTransparencyLogEntry>),
+            typeof(PublishProofTransparencyLog).GetMethod(nameof(PublishProofTransparencyLog.AppendPublishProofAsync))!.ReturnType);
+        Assert.Equal(
+            typeof(Task<TransparencyLogVerificationResult>),
+            typeof(PublishProofTransparencyLog).GetMethod(nameof(PublishProofTransparencyLog.VerifyAsync))!.ReturnType);
+        Assert.NotNull(typeof(ArticlePublishProof).GetProperty(nameof(ArticlePublishProof.TransparencyLogEntryId)));
+        Assert.NotNull(typeof(ArticlePublishProof).GetProperty(nameof(ArticlePublishProof.TransparencyLogEntryHash)));
     }
 
     [Fact]
-    public void AppendService_HandlesArticleRightsProofRowsAndBackReference()
+    public async Task AppendService_HandlesArticleRightsProofRowsAndBackReference()
     {
-        string source = ReadRepoFile("src/backend/Infrastructure/Integrity/TransparencyLog.cs");
+        var service = new PublishProofTransparencyLog(Substitute.For<ISqlSugarClient>());
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.AppendArticleRightsProofAsync(0));
 
-        Assert.Contains("AppendArticleRightsProofAsync", source, StringComparison.Ordinal);
-        Assert.Contains("EntryType == TransparencyLogEntryTypes.ArticleRightsProof", source, StringComparison.Ordinal);
-        Assert.Contains("ArticleRightsProof proof = await LoadRightsProofAsync", source, StringComparison.Ordinal);
-        Assert.Contains("ComputeArticleRightsProofPayloadHash", source, StringComparison.Ordinal);
-        Assert.Contains("Updateable<ArticleRightsProof>()", source, StringComparison.Ordinal);
-        Assert.Contains("article-rights-proof-log-payload.v1", source, StringComparison.Ordinal);
+        MethodInfo payloadHash = typeof(PublishProofTransparencyLog).GetMethod(
+            "ComputeArticleRightsProofPayloadHash",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var proof = new ArticleRightsProof
+        {
+            Id = 41,
+            ProofVersion = 1,
+            SignaturePayloadVersion = 1,
+            ArticleId = 42,
+            ArticleRevisionId = 43,
+            RevisionNo = 4,
+            ArticleRightsSnapshotId = 44,
+            PublishProofId = 45,
+            IdempotencyKey = "rights:42:43:1",
+            RightsPolicyHash = new string('a', 64),
+            ContentCanonicalHash = new string('b', 64),
+            ProofStatus = "ready",
+            SigningKeyId = "site-key-v1",
+            SigningAlgorithm = "ed25519",
+            SignatureBase64Url = "signature"
+        };
+        string first = Assert.IsType<string>(payloadHash.Invoke(null, [proof]));
+        proof.RevisionNo = 5;
+        string second = Assert.IsType<string>(payloadHash.Invoke(null, [proof]));
+
+        Assert.Matches("^[0-9a-f]{64}$", first);
+        Assert.NotEqual(first, second);
+        Assert.NotNull(typeof(ArticleRightsProof).GetProperty(nameof(ArticleRightsProof.TransparencyLogEntryId)));
+        Assert.NotNull(typeof(ArticleRightsProof).GetProperty(nameof(ArticleRightsProof.TransparencyLogEntryHash)));
     }
 
     private static TransparencyLogEntryRecord BuildEntry(long seq, long proofId, string? prevHash, string payload)
@@ -122,6 +150,4 @@ public sealed class TransparencyLogTests
     private static string HashPayload(string payload)
         => TransparencyLogPayloadHasher.ComputeUtf8HashHex(TransparencyLogEntryTypes.PublishProof, payload);
 
-    private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 }

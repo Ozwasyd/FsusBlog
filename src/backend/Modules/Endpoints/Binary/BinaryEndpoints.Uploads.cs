@@ -76,57 +76,13 @@ public static partial class BinaryEndpoints
             return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadPartMap, static (value, writer) => PodBinaryCodec.WriteUploadPartMap(value, writer));
         });
 
-        uploadGroup.MapPut("/{uploadId}/part", static async Task<BinaryFrameResult> (
+        uploadGroup.MapPut("/{uploadId}/part", static (
             string uploadId,
             HttpContext httpContext,
             IFileService fileService,
             IAedsEncoder aeds,
             CancellationToken cancellationToken) =>
-        {
-            if (!IsBinaryContentType(httpContext.Request.ContentType))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片必须使用 application/octet-stream"), aeds);
-            }
-
-            string uploadToken = ReadUploadToken(httpContext);
-            if (!await fileService.ValidateUploadSessionTokenAsync(uploadId, uploadToken, cancellationToken))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "UPLOAD_TOKEN_REQUIRED"), aeds, StatusCodes.Status403Forbidden);
-            }
-
-            if (!int.TryParse(httpContext.Request.Headers[UploadPartHeader], out int partNumber))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分片索引非法"), aeds);
-            }
-
-            if (!long.TryParse(httpContext.Request.Headers[UploadOffsetHeader], out long offset))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分片偏移非法"), aeds);
-            }
-
-            string transferEncoding = httpContext.Request.Headers["Transfer-Encoding"].ToString();
-            if (!httpContext.Request.ContentLength.HasValue ||
-                transferEncoding.Contains("chunked", StringComparison.OrdinalIgnoreCase))
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片必须携带 Content-Length"), aeds, StatusCodes.Status411LengthRequired);
-            }
-
-            long payloadLength = httpContext.Request.ContentLength.GetValueOrDefault();
-            if (payloadLength <= 0)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片为空"), aeds);
-            }
-
-            string? payloadHash = httpContext.Request.Headers[UploadPayloadHashHeader].FirstOrDefault();
-            var file = new RequestBodyFormFile(httpContext.Request.Body, payloadLength, "file", $"{uploadId}-{partNumber}.part")
-            {
-                Headers = new HeaderDictionary(),
-                ContentType = BinaryContentType
-            };
-
-            var result = await fileService.UploadPartAsync(uploadId, partNumber, offset, file, payloadHash, cancellationToken);
-            return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadPartAck, static (value, writer) => PodBinaryCodec.WriteUploadPartAck(value, writer));
-        });
+            HandleUploadPartAsync(uploadId, httpContext, fileService, aeds, cancellationToken));
 
         uploadGroup.MapPost("/{uploadId}/complete", static async Task<BinaryFrameResult> (
             string uploadId,
@@ -172,6 +128,63 @@ public static partial class BinaryEndpoints
                         writer))
                 : BinaryResults.FromError(result.Error, aeds);
         });
+    }
+
+    internal static async Task<BinaryFrameResult> HandleUploadPartAsync(
+        string uploadId,
+        HttpContext httpContext,
+        IFileService fileService,
+        IAedsEncoder aeds,
+        CancellationToken cancellationToken)
+    {
+        if (!IsBinaryContentType(httpContext.Request.ContentType))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片必须使用 application/octet-stream"), aeds);
+        }
+
+        string uploadToken = ReadUploadToken(httpContext);
+        if (!await fileService.ValidateUploadSessionTokenAsync(uploadId, uploadToken, cancellationToken))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, "UPLOAD_TOKEN_REQUIRED"), aeds, StatusCodes.Status403Forbidden);
+        }
+
+        if (!int.TryParse(httpContext.Request.Headers[UploadPartHeader], out int partNumber))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分片索引非法"), aeds);
+        }
+
+        if (!long.TryParse(httpContext.Request.Headers[UploadOffsetHeader], out long offset))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "分片偏移非法"), aeds);
+        }
+
+        string transferEncoding = httpContext.Request.Headers["Transfer-Encoding"].ToString();
+        if (!httpContext.Request.ContentLength.HasValue ||
+            transferEncoding.Contains("chunked", StringComparison.OrdinalIgnoreCase))
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片必须携带 Content-Length"), aeds, StatusCodes.Status411LengthRequired);
+        }
+
+        long payloadLength = httpContext.Request.ContentLength.GetValueOrDefault();
+        if (payloadLength <= 0)
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片为空"), aeds);
+        }
+
+        if (payloadLength > FileService.UploadRequestBodyLimitBytes)
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片超过请求体上限"), aeds, StatusCodes.Status413PayloadTooLarge);
+        }
+
+        string? payloadHash = httpContext.Request.Headers[UploadPayloadHashHeader].FirstOrDefault();
+        var file = new RequestBodyFormFile(httpContext.Request.Body, payloadLength, "file", $"{uploadId}-{partNumber}.part")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = BinaryContentType
+        };
+
+        var result = await fileService.UploadPartAsync(uploadId, partNumber, offset, file, payloadHash, cancellationToken);
+        return BinaryResults.FromResult(result, aeds, AedsFrameType.UploadPartAck, static (value, writer) => PodBinaryCodec.WriteUploadPartAck(value, writer));
     }
 
     private static string NormalizeUploadIdForResponse(string uploadId)

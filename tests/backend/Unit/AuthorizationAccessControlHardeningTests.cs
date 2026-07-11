@@ -1,7 +1,31 @@
-using System.Runtime.CompilerServices;
+using System.Reflection;
+using Fido2NetLib;
+using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -10,26 +34,40 @@ public sealed class AuthorizationAccessControlHardeningTests
     [Fact]
     public void ApplicationPipeline_RegistersAntiforgeryAndCsrfOriginGuard()
     {
-        string services = ReadSource("src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs");
-        string pipeline = ReadSource("src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs");
+        string dataRoot = Path.Combine(Path.GetTempPath(), $"fsus-foundation-{Guid.NewGuid():N}");
+        try
+        {
+            IConfiguration configuration = ValidFoundationConfiguration(dataRoot);
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddFsusApiFoundation(configuration);
+            using ServiceProvider provider = services.BuildServiceProvider();
+            AntiforgeryOptions antiforgery = provider.GetRequiredService<IOptions<AntiforgeryOptions>>().Value;
+            Assert.Equal("X-Fsus-Csrf-Token", antiforgery.HeaderName);
 
-        Assert.Contains("services.AddAntiforgery", services, StringComparison.Ordinal);
-        Assert.Contains("HeaderName = \"X-Fsus-Csrf-Token\"", services, StringComparison.Ordinal);
-        Assert.Contains("UseAntiforgery()", pipeline, StringComparison.Ordinal);
-        Assert.Contains("UseFsusCsrfOriginGuard", pipeline, StringComparison.Ordinal);
-        AssertOrder(pipeline, "UseCors()", "UseFsusCsrfOriginGuard");
-        AssertOrder(pipeline, "UseFsusCsrfOriginGuard", "UseAuthorization()");
+            string[] stages = [.. WebApplicationCompositionExtensions.EndpointPipelineStageIds];
+            Assert.Contains("antiforgery", stages);
+            Assert.Contains("csrf-origin-guard", stages);
+            Assert.True(Array.IndexOf(stages, "cors") < Array.IndexOf(stages, "csrf-origin-guard"));
+            Assert.True(Array.IndexOf(stages, "csrf-origin-guard") < Array.IndexOf(stages, "authorization"));
+        }
+        finally
+        {
+            if (Directory.Exists(dataRoot))
+            {
+                Directory.Delete(dataRoot, recursive: true);
+            }
+        }
     }
 
     [Fact]
-    public void LocalAuthFixture_RequiresDevelopmentSecretAndLoopbackAndFailsClosedInProduction()
+    public void LocalAuthFixture_RuntimeRequiresDevelopmentSecretAndLoopbackAndFailsClosedInProduction()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs");
-
-        Assert.Contains("app.Environment.IsDevelopment()", source, StringComparison.Ordinal);
-        Assert.Contains("RequireLocalFixtureSecret", source, StringComparison.Ordinal);
-        Assert.Contains("RequireLoopbackCaller", source, StringComparison.Ordinal);
-        Assert.Contains("IsLoopback", source, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(LocalAuthFixtureEndpoints));
+        Assert.Contains("IsDevelopment", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RequireLocalFixtureSecret", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("RequireLoopbackCaller", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IPAddress.IsLoopback", runtimeShape, StringComparison.Ordinal);
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -43,146 +81,318 @@ public sealed class AuthorizationAccessControlHardeningTests
     }
 
     [Fact]
-    public void UploadPartAndComplete_RequireUploadSessionToken()
+    public async Task UploadPartAndComplete_RequireUploadSessionToken()
     {
-        string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs");
-        string root = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs");
-        string dto = ReadSource("src/shared/Contracts/Outputs/ServerResponseContracts.cs");
-        string model = ReadSource("src/backend/Models/Dtos/UploadDtos.cs");
-        string fileService = ReadSource("src/backend/Services/FileService.cs");
+        FieldInfo uploadTokenHeader = typeof(BinaryEndpoints).GetField(
+            "UploadTokenHeader",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        Assert.Equal("X-Fsus-Upload-Token", uploadTokenHeader.GetRawConstantValue());
+        Assert.NotNull(typeof(UploadInitDto).GetProperty(nameof(UploadInitDto.UploadToken)));
+        Type uploadSessionRecord = typeof(UploadInitRequestDto).Assembly.GetType("FsusBlog.Server.Models.Dtos.UploadSessionRecord")!;
+        Assert.NotNull(uploadSessionRecord.GetProperty("UploadToken"));
 
-        Assert.Contains("UploadTokenHeader", root, StringComparison.Ordinal);
-        Assert.Contains("X-Fsus-Upload-Token", root, StringComparison.Ordinal);
-        Assert.Contains("UploadToken", dto, StringComparison.Ordinal);
-        Assert.Contains("UploadToken", model, StringComparison.Ordinal);
+        string fileService = RuntimeMetadataInspection.DescribeMethods(
+            typeof(FileService),
+            "CreateUploadSessionToken",
+            nameof(FileService.ValidateUploadSessionTokenAsync));
         Assert.Contains("CreateUploadSessionToken", fileService, StringComparison.Ordinal);
         Assert.Contains("ValidateUploadSessionTokenAsync", fileService, StringComparison.Ordinal);
-        Assert.Contains("uploadToken", fileService, StringComparison.Ordinal);
 
-        string part = ExtractBetween(endpoints, "uploadGroup.MapPut(\"/{uploadId}/part\"", "uploadGroup.MapPost(\"/{uploadId}/complete\"");
-        string complete = ExtractBetween(endpoints, "uploadGroup.MapPost(\"/{uploadId}/complete\"", "uploadGroup.MapDelete(\"/{uploadId}\"");
-        Assert.Contains("ReadUploadToken(httpContext)", part, StringComparison.Ordinal);
-        Assert.Contains("ValidateUploadSessionTokenAsync(uploadId, uploadToken", part, StringComparison.Ordinal);
-        Assert.Contains("ReadUploadToken(httpContext)", complete, StringComparison.Ordinal);
-        Assert.Contains("ValidateUploadSessionTokenAsync(uploadId, uploadToken", complete, StringComparison.Ordinal);
-        Assert.DoesNotContain(".DisableAntiforgery()", endpoints, StringComparison.Ordinal);
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint part = EndpointContractApplication.Find(app, "/api/binary/upload/{uploadId}/part", HttpMethods.Put);
+        RouteEndpoint complete = EndpointContractApplication.Find(app, "/api/binary/upload/{uploadId}/complete", HttpMethods.Post);
+        Assert.All(new[] { part, complete }, endpoint =>
+            Assert.DoesNotContain(endpoint.Metadata, static metadata =>
+                metadata is IAntiforgeryMetadata { RequiresValidation: false }));
+
+        string partHandler = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            nameof(BinaryEndpoints.HandleUploadPartAsync));
+        string completeHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            "ReadUploadToken",
+            "ValidateUploadSessionTokenAsync",
+            "CompleteUploadAsync");
+        Assert.Contains("ReadUploadToken", partHandler, StringComparison.Ordinal);
+        Assert.Contains("ValidateUploadSessionTokenAsync", partHandler, StringComparison.Ordinal);
+        Assert.Contains("ReadUploadToken", completeHandler, StringComparison.Ordinal);
+        Assert.Contains("ValidateUploadSessionTokenAsync", completeHandler, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PublicNavigationSnapshot_IsRateLimitedAndLengthBound()
+    public async Task PublicNavigationSnapshot_IsRateLimitedAndLengthBound()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/PublicAotEndpoints.cs");
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        await using WebApplication app = builder.Build();
+        app.MapPublicAotEndpoints();
+        RouteEndpoint endpoint = EndpointContractApplication.Find(
+            app,
+            "/api/public/navigation-snapshot.aeds",
+            HttpMethods.Get);
+        Assert.Equal(
+            "public_read",
+            Assert.IsType<EnableRateLimitingAttribute>(
+                endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
 
-        string endpoint = ExtractBetween(source, "publicGroup.MapGet(\"/navigation-snapshot.aeds\"", "var group = app.MapGroup(\"/internal/public-aot\")");
-        Assert.Contains(".RequireRateLimiting(\"public_read\")", endpoint, StringComparison.Ordinal);
-        Assert.Contains("MaxNavigationPathChars", source, StringComparison.Ordinal);
-        Assert.Contains("rawPath.Length > MaxNavigationPathChars", source, StringComparison.Ordinal);
-        Assert.Contains("normalized.Length > MaxNavigationPathChars", source, StringComparison.Ordinal);
+        var source = new DefaultHttpContext();
+        Assert.True(PublicAotEndpoints.TryCreateNavigationSnapshotTargetContext(
+            source,
+            "/",
+            out DefaultHttpContext validTarget,
+            out string validError));
+        Assert.Equal(PathString.FromUriComponent("/"), validTarget.Request.Path);
+        Assert.Empty(validError);
+
+        Assert.False(PublicAotEndpoints.TryCreateNavigationSnapshotTargetContext(
+            source,
+            new string('x', 513),
+            out _,
+            out string rawLengthError));
+        Assert.Equal("public_navigation_snapshot_path_invalid", rawLengthError);
+
+        string paddedOverLimit = string.Concat(' ', new string('/', 512), ' ');
+        Assert.False(PublicAotEndpoints.TryCreateNavigationSnapshotTargetContext(
+            source,
+            paddedOverLimit,
+            out _,
+            out string normalizedLengthError));
+        Assert.Equal("public_navigation_snapshot_path_invalid", normalizedLengthError);
     }
 
     [Fact]
-    public void NotificationStreamDrill_RequiresSignedTimestampedNonce()
+    public async Task NotificationStreamDrill_RequiresSignedTimestampedNonce()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/NotificationStreamDrillEndpoints.cs");
+        const string secret = "notification-drill-secret";
+        const string body = "{\"count\":1}";
+        string timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        const string nonce = "0123456789abcdef";
+        Type endpoints = typeof(NotificationStreamDrillEndpoints);
+        string timestampHeader = GetPrivateConstant<string>(endpoints, "DrillTimestampHeader");
+        string nonceHeader = GetPrivateConstant<string>(endpoints, "DrillNonceHeader");
+        string signatureHeader = GetPrivateConstant<string>(endpoints, "DrillSignatureHeader");
+        string secretHeader = GetPrivateConstant<string>(endpoints, "DrillSecretHeader");
+        MethodInfo computeSignature = endpoints.GetMethod(
+            "ComputeDrillSignature",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        string signature = (string)computeSignature.Invoke(null, [secret, timestamp, nonce, body])!;
+        var context = new DefaultHttpContext();
+        context.Request.Headers[secretHeader] = secret;
+        context.Request.Headers[timestampHeader] = timestamp;
+        context.Request.Headers[nonceHeader] = nonce;
+        context.Request.Headers[signatureHeader] = signature;
+        IUnifiedCache cache = Substitute.For<IUnifiedCache>();
+        cache.TryAcquireLeaseAsync(
+                CachePolicyId.NotificationStreamDrillNonce,
+                Arg.Any<string>(),
+                "1",
+                TimeSpan.FromSeconds(60),
+                Arg.Any<CancellationToken>())
+            .Returns(true);
 
-        Assert.Contains("DrillTimestampHeader", source, StringComparison.Ordinal);
-        Assert.Contains("DrillNonceHeader", source, StringComparison.Ordinal);
-        Assert.Contains("DrillSignatureHeader", source, StringComparison.Ordinal);
-        Assert.Contains("ValidateSignedDrillRequestAsync", source, StringComparison.Ordinal);
-        Assert.Contains("TryAcquireLeaseAsync(CachePolicyId.NotificationStreamDrillNonce", source, StringComparison.Ordinal);
-        Assert.Contains("TimeSpan.FromSeconds(60)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("context.Request.ReadFromJsonAsync<NotificationStreamDrillPublishRequest>", source, StringComparison.Ordinal);
+        MethodInfo validate = endpoints.GetMethod(
+            "ValidateSignedDrillRequestAsync",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        bool accepted = await (Task<bool>)validate.Invoke(
+            null,
+            [context, cache, secret, body, CancellationToken.None])!;
+
+        Assert.True(accepted);
+        await cache.Received(1).TryAcquireLeaseAsync(
+            CachePolicyId.NotificationStreamDrillNonce,
+            $"{timestamp}:{nonce}",
+            "1",
+            TimeSpan.FromSeconds(60),
+            CancellationToken.None);
+
+        context.Request.Headers[signatureHeader] = "invalid";
+        Assert.False(await (Task<bool>)validate.Invoke(
+            null,
+            [context, cache, secret, body, CancellationToken.None])!);
+
+        string publish = RuntimeMetadataInspection.DescribeMethods(endpoints, "PublishAsync");
+        Assert.Contains("ReadRequestBodyAsync", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadFromJsonAsync", publish, StringComparison.Ordinal);
     }
 
     [Fact]
     public void AdminSessionRevoke_VerifiesSessionOwnershipBeforeMutation()
     {
-        string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string service = ReadSource("src/backend/Services/Security/AdminPrincipalService.cs");
+        IReadOnlyList<string> references = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferencesInOrderContaining(
+                typeof(BinaryEndpoints),
+                nameof(IAdminPrincipalService.EnsureAdminSessionBelongsToPrincipalAsync),
+                nameof(IAdminPrincipalService.RevokeAdminSessionAsync));
+        int ownershipCheck = FindReference(references, nameof(IAdminPrincipalService.EnsureAdminSessionBelongsToPrincipalAsync));
+        int revokeMutation = FindReference(references, nameof(IAdminPrincipalService.RevokeAdminSessionAsync));
+        Assert.True(ownershipCheck < revokeMutation);
 
-        string revoke = ExtractBetween(endpoints, "group.MapPost(\"/auth/admin/sessions/{sessionId}/revoke\"", "group.MapPost(\"/auth/admin/sessions/revoke-others\"");
-        Assert.Contains("EnsureAdminSessionBelongsToPrincipalAsync", revoke, StringComparison.Ordinal);
-        Assert.Contains("RevokeAdminSessionAsync", revoke, StringComparison.Ordinal);
-        AssertOrder(revoke, "EnsureAdminSessionBelongsToPrincipalAsync", "RevokeAdminSessionAsync");
-        Assert.Contains("Task<bool> EnsureAdminSessionBelongsToPrincipalAsync", service, StringComparison.Ordinal);
+        MethodInfo ownershipContract = typeof(IAdminPrincipalService).GetMethod(
+            nameof(IAdminPrincipalService.EnsureAdminSessionBelongsToPrincipalAsync))!;
+        Assert.Equal(typeof(Task<bool>), ownershipContract.ReturnType);
     }
 
     [Fact]
     public void DistributionFeeds_VaryByEncodingCountryAndRegion()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/DistributionEndpoints.cs");
+        const string expected = "Accept-Encoding, CF-IPCountry, X-Fsus-Region";
+        Assert.Equal(expected, GetPrivateConstant<string>(typeof(DistributionEndpoints), "DistributionVaryHeader"));
+        var context = new DefaultHttpContext();
+        MethodInfo buildResult = typeof(DistributionEndpoints).GetMethod(
+            "BuildCachedTextResult",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
 
-        Assert.Contains("DistributionVaryHeader", source, StringComparison.Ordinal);
-        Assert.Contains("Accept-Encoding", source, StringComparison.Ordinal);
-        Assert.Contains("CF-IPCountry", source, StringComparison.Ordinal);
-        Assert.Contains("X-Fsus-Region", source, StringComparison.Ordinal);
-        Assert.Contains("ctx.Response.Headers.Vary = DistributionVaryHeader", source, StringComparison.Ordinal);
+        IResult result = (IResult)buildResult.Invoke(null, [context, "body", "text/plain"])!;
+
+        Assert.NotNull(result);
+        Assert.Equal(expected, context.Response.Headers.Vary.ToString());
+        Assert.Equal("public, max-age=60, stale-while-revalidate=300", context.Response.Headers.CacheControl.ToString());
     }
 
     [Fact]
-    public void AdminSensitiveStepUp_RequiresTrustedOriginAndShortSingleUseProof()
+    public async Task AdminSensitiveStepUp_RequiresTrustedOriginAndShortSingleUseProof()
     {
-        string binary = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs");
-        string authoring = ReadSource("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
-        string security = ReadSource("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
-        string service = ReadSource("src/backend/Services/Security/AdminPrincipalService.cs");
+        foreach (Type endpointType in new[] { typeof(BinaryEndpoints), typeof(AuthoringEndpoints), typeof(SecurityEndpoints) })
+        {
+            string stepUp = RuntimeMetadataInspection.DescribeMethods(
+                endpointType,
+                "RequireAdminSensitiveStepUpAsync");
+            Assert.Contains("TrustedRequestOrigin.RequireTrustedOriginOrReferer", stepUp, StringComparison.Ordinal);
+        }
 
-        Assert.Contains("RequireTrustedOriginOrReferer", binary, StringComparison.Ordinal);
-        Assert.Contains("RequireTrustedOriginOrReferer", authoring, StringComparison.Ordinal);
-        Assert.Contains("RequireTrustedOriginOrReferer", security, StringComparison.Ordinal);
-        Assert.Contains("TimeSpan.FromSeconds(45)", service, StringComparison.Ordinal);
-        Assert.Contains("ConsumeOnceAsync(CachePolicyId.SecurityMfaProof", service, StringComparison.Ordinal);
-        Assert.DoesNotContain("StepUpProofTtl = TimeSpan.FromMinutes(5)", service, StringComparison.Ordinal);
+        TimeSpan proofTtl = (TimeSpan)typeof(AdminPrincipalService)
+            .GetField("StepUpProofTtl", BindingFlags.Static | BindingFlags.NonPublic)!
+            .GetValue(null)!;
+        Assert.Equal(TimeSpan.FromSeconds(45), proofTtl);
+        Assert.NotEqual(TimeSpan.FromMinutes(5), proofTtl);
+
+        IReadOnlyList<string> completionReferences = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferencesInOrderContaining(
+                typeof(AdminPrincipalService),
+                "StepUpProofTtl",
+                nameof(AdminPrincipalService.CreateAdminStepUpProofTokenAsync));
+        Assert.True(
+            FindReference(completionReferences, "StepUpProofTtl") <
+            FindReference(completionReferences, nameof(AdminPrincipalService.CreateAdminStepUpProofTokenAsync)));
+
+        string consume = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AdminPrincipalService),
+            nameof(AdminPrincipalService.ValidateAndConsumeAdminStepUpProofTokenAsync));
+        Assert.Contains("IUnifiedCache.ConsumeOnceAsync", consume, StringComparison.Ordinal);
+        IUnifiedCache proofCache = Substitute.For<IUnifiedCache>();
+        proofCache.ConsumeOnceAsync(
+                CachePolicyId.SecurityMfaProof,
+                Arg.Any<string>(),
+                CancellationToken.None)
+            .Returns(true);
+        var principalService = new AdminPrincipalService(
+            Substitute.For<IFido2>(),
+            Substitute.For<ISqlSugarClient>(),
+            proofCache,
+            Substitute.For<IJwtHelper>(),
+            new ConfigurationBuilder().Build(),
+            NullLogger<AdminPrincipalService>.Instance,
+            Substitute.For<IAdminAuditLogChannel>());
+
+        Assert.True(await principalService.ValidateAndConsumeAdminStepUpProofTokenAsync(
+            42,
+            "admin-session",
+            AdminSensitiveStepUpMetadata.DefaultAction,
+            "single-use-proof",
+            CancellationToken.None));
+        await proofCache.Received(1).ConsumeOnceAsync(
+            CachePolicyId.SecurityMfaProof,
+            Arg.Any<string>(),
+            CancellationToken.None);
     }
 
     [Fact]
     public void FileDeletePath_UsesCanonicalPrefixAndRejectsWindowsSeparators()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs");
-        string helper = ExtractBetween(source, "private static bool TryNormalizeImageDeletePath", "private static UploadInitRequestDto ToServerDto");
+        Assert.Equal(
+            "/uploads/illustration/",
+            GetPrivateConstant<string>(typeof(BinaryEndpoints), "CanonicalIllustrationUploadPrefix"));
+        MethodInfo normalize = typeof(BinaryEndpoints).GetMethod(
+            "TryNormalizeImageDeletePath",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
 
-        Assert.Contains("CanonicalIllustrationUploadPrefix", helper, StringComparison.Ordinal);
-        Assert.Contains("StartsWith(CanonicalIllustrationUploadPrefix", helper, StringComparison.Ordinal);
-        Assert.Contains("Contains('\\\\'", helper, StringComparison.Ordinal);
-        Assert.Contains("Contains(':', StringComparison.Ordinal)", helper, StringComparison.Ordinal);
-        Assert.DoesNotContain("Contains(\"/uploads/illustration/\"", helper, StringComparison.Ordinal);
+        AssertNormalized(normalize, "/uploads/illustration/example.webp", "wwwroot/uploads/illustration/example.webp");
+        AssertNormalized(normalize, "https://example.test/uploads/illustration/example.webp", "wwwroot/uploads/illustration/example.webp");
+        AssertRejected(normalize, "/uploads/illustration\\example.webp");
+        AssertRejected(normalize, "/uploads/illustration/example:alternate.webp");
+        AssertRejected(normalize, "/uploads/avatar/example.webp");
+        AssertRejected(normalize, "/uploads/illustration/../secret.txt");
     }
 
     [Fact]
-    public void ArticleDeleteRestoreMutationEndpoints_AreRateLimitedAndStepUpProtected()
+    public async Task ArticleDeleteRestoreMutationEndpoints_AreRateLimitedAndStepUpProtected()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs");
-
-        AssertArticleMutationProtected(source, "group.MapDelete(\"/admin/article/{id:int}\"", "group.MapPut(\"/admin/article/restore/{id:int}\"");
-        AssertArticleMutationProtected(source, "group.MapPut(\"/admin/article/restore/{id:int}\"", "group.MapDelete(\"/admin/article/permanent/{id:int}\"");
-        AssertArticleMutationProtected(source, "group.MapDelete(\"/admin/article/permanent/{id:int}\"", "private static bool TryBindArticleListPagination");
+        await using WebApplication app = EndpointContractApplication.Create();
+        AssertArticleMutationProtected(
+            EndpointContractApplication.Find(app, "/api/binary/admin/article/{id:int}", HttpMethods.Delete),
+            nameof(IArticleEndpointService.DeleteAsync));
+        AssertArticleMutationProtected(
+            EndpointContractApplication.Find(app, "/api/binary/admin/article/restore/{id:int}", HttpMethods.Put),
+            nameof(IArticleEndpointService.RestoreAsync));
+        AssertArticleMutationProtected(
+            EndpointContractApplication.Find(app, "/api/binary/admin/article/permanent/{id:int}", HttpMethods.Delete),
+            nameof(IArticleEndpointService.PermanentlyDeleteArticleAsync));
     }
 
-    private static void AssertArticleMutationProtected(string source, string start, string end)
+    private static void AssertArticleMutationProtected(RouteEndpoint endpoint, string mutationMethod)
     {
-        string endpoint = ExtractBetween(source, start, end);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync", endpoint, StringComparison.Ordinal);
-        Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", endpoint, StringComparison.Ordinal);
+        Assert.Equal(
+            "fixed_ip",
+            Assert.IsType<EnableRateLimitingAttribute>(
+                endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
+        AdminSensitiveStepUpMetadata stepUp = Assert.IsType<AdminSensitiveStepUpMetadata>(
+            endpoint.Metadata.GetMetadata<AdminSensitiveStepUpMetadata>());
+        Assert.Equal(AdminSensitiveStepUpMetadata.DefaultAction, stepUp.Action);
+        Assert.Equal(AdminSensitiveStepUpMetadata.DefaultProofHeader, stepUp.ProofHeader);
+
+        string handler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            mutationMethod,
+            "RequireAdminSensitiveStepUpAsync");
+        Assert.Contains(mutationMethod, handler, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync", handler, StringComparison.Ordinal);
     }
 
-    private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
+    private static IConfiguration ValidFoundationConfiguration(string dataRoot)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ASPNETCORE_ENVIRONMENT"] = "Development",
+                ["CORS_ALLOWED_HOSTS"] = "https://example.test",
+                ["FSUSBLOG_DATA_ROOT"] = dataRoot,
+                ["Jwt:SecretKey"] = new string('s', 64),
+                ["Jwt:Issuer"] = "fsus-tests",
+                ["Jwt:Audience"] = "fsus-tests"
+            })
+            .Build();
 
-    private static string ExtractBetween(string source, string start, string end)
+    private static T GetPrivateConstant<T>(Type type, string fieldName)
+        => (T)type.GetField(fieldName, BindingFlags.Static | BindingFlags.NonPublic)!.GetRawConstantValue()!;
+
+    private static int FindReference(IReadOnlyList<string> references, string memberName)
     {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex >= 0, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
+        int index = references.ToList().FindIndex(reference => reference.Contains(memberName, StringComparison.Ordinal));
+        Assert.True(index >= 0, $"Missing runtime member reference '{memberName}'.");
+        return index;
     }
 
-    private static void AssertOrder(string source, string first, string second)
+    private static void AssertNormalized(MethodInfo normalize, string input, string expected)
     {
-        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
-        int secondIndex = source.IndexOf(second, StringComparison.Ordinal);
-        Assert.True(firstIndex >= 0, $"Missing '{first}'.");
-        Assert.True(secondIndex >= 0, $"Missing '{second}'.");
-        Assert.True(firstIndex < secondIndex, $"Expected '{first}' before '{second}'.");
+        object?[] arguments = [input, string.Empty, null];
+        Assert.True((bool)normalize.Invoke(null, arguments)!);
+        Assert.Equal(expected, arguments[1]);
+        Assert.Null(arguments[2]);
+    }
+
+    private static void AssertRejected(MethodInfo normalize, string input)
+    {
+        object?[] arguments = [input, string.Empty, null];
+        Assert.False((bool)normalize.Invoke(null, arguments)!);
+        Assert.Equal(string.Empty, arguments[1]);
+        Assert.False(string.IsNullOrWhiteSpace(Assert.IsType<string>(arguments[2])));
     }
 }

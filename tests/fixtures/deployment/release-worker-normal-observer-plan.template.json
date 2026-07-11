@@ -1,0 +1,19 @@
+{
+  "schema": "fsusblog.release-worker-normal-observer-plan.v1",
+  "baseUrl": "http://127.0.0.1:19031",
+  "startPath": "/api/ops/release/workers/normal/start",
+  "statusPath": "/api/ops/release/workers/normal/status",
+  "finalizePath": "/api/ops/release/workers/normal/finalize",
+  "requiredKinds": [
+    "scheduled-publish",
+    "article-mutation-outbox",
+    "audit-writer",
+    "visit-view-projection",
+    "public-hot-aot",
+    "upload-cleanup",
+    "active-singleton-control",
+    "multi-consumer-safe-control"
+  ],
+  "timeoutMs": 300000,
+  "pollMs": 250
+}

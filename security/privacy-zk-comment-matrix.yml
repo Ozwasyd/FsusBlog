@@ -127,9 +127,10 @@ scenarios:
     tests:
       - tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts
       - tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts
+      - tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts
       - tests/frontend/unit/api/comment.test.ts
+      - tests/frontend/unit/components/ArticleCommentComposer.test.ts
       - tests/frontend/unit/view-contracts/commentAnonymousAuthorWorkflow.test.ts
-      - tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 

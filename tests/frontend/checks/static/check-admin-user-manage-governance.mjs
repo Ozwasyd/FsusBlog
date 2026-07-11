@@ -185,6 +185,18 @@ for (const token of [
   }
 }
 
+if (!/export interface AdminChangeStatusDto extends PowBaseDto\s*\{\s*accountId: number/u.test(adminApi)) {
+  fail(adminApiPath, 1, 'AdminChangeStatusDto must expose accountId as its actor target')
+}
+if (!adminApi.includes('view.setInt32(0, data.accountId, true)')) {
+  fail(adminApiPath, 1, 'admin status encoding must write data.accountId')
+}
+for (const token of ['data.userId', 'userId: row.accountId', 'userId: targetUser.accountId']) {
+  if (adminApi.includes(token) || composable.includes(token)) {
+    fail(adminApi.includes(token) ? adminApiPath : composablePath, 1, `admin status flow must not use ${token}`)
+  }
+}
+
 const packageJson = JSON.parse(read(packageJsonPath))
 const scripts = packageJson.scripts ?? {}
 const checkScript = 'node ../../tests/frontend/checks/static/check-admin-user-manage-governance.mjs'

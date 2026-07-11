@@ -1,61 +1,89 @@
-using System.Runtime.CompilerServices;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using System.Reflection;
+using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Services;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicAotBootstrapProviderTests
 {
     [Fact]
-    public void ArticleDetailProvider_SourceUsesPublicOnlyProjection()
+    public void ArticleDetailProvider_RuntimeUsesPublicOnlyProjection()
     {
-        string source = ReadProviderSource();
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(PublicAotArticleDetailBootstrapProvider),
+            "LoadPublicArticleForAotAsync");
+        Type projection = typeof(PublicAotArticleDetailBootstrapProvider).GetNestedType(
+            "ArticleDetailAotProjection",
+            BindingFlags.NonPublic)!;
 
-        Assert.Contains("LoadPublicArticleForAotAsync", source);
-        Assert.Contains("ArticleBody", source);
-        Assert.Contains("ArticleStatus.Published", source);
-        Assert.Contains("ScheduledPublishAt", source);
-        Assert.DoesNotContain("includePrivate: true", source);
+        Assert.Contains("LoadPublicArticleForAotAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ArticleBody.get_MarkdownContent", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Article.get_Status", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Article.get_PublishedAt", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Article.get_ScheduledPublishAt", runtimeShape, StringComparison.Ordinal);
+        Assert.Equal(typeof(string), projection.GetProperty("Content")!.PropertyType);
+        Assert.DoesNotContain("includePrivate", runtimeShape, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void ArticleDetailProvider_SourceDoesNotProjectAdminRevisionActorAsPublicAuthor()
+    public void ArticleDetailProvider_RuntimeDoesNotProjectAdminRevisionActorAsPublicAuthor()
     {
-        string source = ReadProviderSource();
-        string articleProviderSource = source[source.IndexOf("public sealed class PublicAotArticleDetailBootstrapProvider", StringComparison.Ordinal)..];
+        Type provider = typeof(PublicAotArticleDetailBootstrapProvider);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(provider);
+        Type projectionType = provider.GetNestedType("ArticleDetailAotProjection", BindingFlags.NonPublic)!;
+        object projection = Activator.CreateInstance(projectionType, nonPublic: true)!;
+        MethodInfo resolveAuthor = provider.GetMethod("ResolveArticleAuthorName", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var seo = new PublicAotSeoSnapshot("Fsus Blog", "description", "https://example.test", SiteAuthor: "Public Author");
 
-        Assert.Contains("projection.AuthorName = string.Empty", articleProviderSource);
-        Assert.DoesNotContain("ArticleAuthorAotProjection", articleProviderSource);
-        Assert.DoesNotContain(".LeftJoin<User>", articleProviderSource);
-        Assert.DoesNotContain("user.PublicHandle", articleProviderSource);
-        Assert.DoesNotContain("user.InternalSubject", articleProviderSource);
-        Assert.Contains("ResolveArticleAuthorName(article.AuthorName, seo)", articleProviderSource);
+        Assert.Equal(string.Empty, projectionType.GetProperty("AuthorName")!.GetValue(projection));
+        Assert.Equal("Public Author", resolveAuthor.Invoke(null, [string.Empty, seo]));
+        Assert.Null(provider.GetNestedType("ArticleAuthorAotProjection", BindingFlags.NonPublic));
+        Assert.DoesNotContain("User.get_PublicHandle", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("User.get_InternalSubject", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ResolveArticleAuthorName", RuntimeMetadataInspection.DescribeMethods(provider, "BuildSnapshotAsync"), StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ArticleDetailProvider_SourceLoadsRightsSnapshotAndFailsClosedWhenMissing()
+    public void ArticleDetailProvider_RuntimeLoadsRightsSnapshotAndFailsClosedWhenMissing()
     {
-        string source = ReadProviderSource();
-        string articleProviderSource = source[source.IndexOf("public sealed class PublicAotArticleDetailBootstrapProvider", StringComparison.Ordinal)..];
+        Type provider = typeof(PublicAotArticleDetailBootstrapProvider);
+        string rightsLoad = RuntimeMetadataInspection.DescribeMethods(provider, "LoadArticleRightsForAotAsync");
+        string build = RuntimeMetadataInspection.DescribeMethods(provider, "BuildSnapshotAsync");
+        MethodInfo complete = provider.GetMethod("HasCompleteArticleRights", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var missing = new ArticleRightsReadModel();
+        var populated = new ArticleRightsReadModel
+        {
+            SnapshotId = 1,
+            ArticleRevisionId = 2,
+            RevisionNo = 3,
+            LicenseType = "all-rights-reserved",
+            CopyPolicy = "append-attribution",
+            PolicyHash = "policy-hash",
+            ContentCanonicalHash = "content-hash"
+        };
 
-        Assert.Contains("article_rights_snapshot", articleProviderSource);
-        Assert.Contains("article_rights_proof", articleProviderSource);
-        Assert.Contains("HasCompleteArticleRights(article.Rights)", articleProviderSource);
-        Assert.Contains("public_aot_article_rights_missing", articleProviderSource);
+        Assert.Contains("article_rights_snapshot", rightsLoad, StringComparison.Ordinal);
+        Assert.Contains("article_rights_proof", rightsLoad, StringComparison.Ordinal);
+        Assert.False((bool)complete.Invoke(null, [missing])!);
+        Assert.True((bool)complete.Invoke(null, [populated])!);
+        Assert.Contains("HasCompleteArticleRights", build, StringComparison.Ordinal);
+        Assert.Contains("public_aot_article_rights_missing", build, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ArchiveProvider_SourceUsesMinimalProjectionInsteadOfFullArticleDtoPaging()
+    public void ArchiveProvider_RuntimeUsesMinimalProjectionInsteadOfFullArticleDtoPaging()
     {
-        string source = ReadProviderSource();
-        string archiveProviderSource = source[source.IndexOf("public sealed class PublicAotArchiveBootstrapProvider", StringComparison.Ordinal)..];
+        Type provider = typeof(PublicAotArchiveBootstrapProvider);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(provider);
+        Type projection = provider.GetNestedType("ArchiveArticleAotProjection", BindingFlags.NonPublic)!;
+        ConstructorInfo constructor = Assert.Single(provider.GetConstructors());
 
-        Assert.Contains("ArchiveArticleAotProjection", archiveProviderSource);
-        Assert.Contains("ListPublicArchiveArticlesAsync", archiveProviderSource);
-        Assert.Contains("ArticleStatus.Published", archiveProviderSource);
-        Assert.DoesNotContain("IArticleService articleService", archiveProviderSource);
-        Assert.DoesNotContain("GetPageListAsync", archiveProviderSource);
+        Assert.NotNull(projection);
+        Assert.Contains("ListPublicArchiveArticlesAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Article.get_Status", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Article.get_PublishedAt", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain(constructor.GetParameters(), static parameter => parameter.ParameterType == typeof(IArticleService));
+        Assert.DoesNotContain("GetPageListAsync", runtimeShape, StringComparison.Ordinal);
     }
-
-    private static string ReadProviderSource([CallerFilePath] string sourceFile = "")
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, "src/backend/Infrastructure/PublicAot/PublicAotBootstrapProviders.cs"));
 }

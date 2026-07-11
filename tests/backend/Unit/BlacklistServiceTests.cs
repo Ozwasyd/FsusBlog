@@ -28,6 +28,7 @@ public class BlacklistServiceTests
         {
             Id = 42,
             PublicHandle = "SameSubject",
+            AccountSubjectHash = ExpectedAccountSubjectHash("SameSubject"),
             Status = 1,
             BanReason = "spam",
             RowVersion = "7"
@@ -69,6 +70,7 @@ public class BlacklistServiceTests
         {
             Id = 42,
             PublicHandle = "SameSubject",
+            AccountSubjectHash = accountSubjectHash,
             Status = 1,
             BanReason = "persisted spam",
             RowVersion = "8"
@@ -128,6 +130,7 @@ public class BlacklistServiceTests
         {
             Id = 42,
             PublicHandle = "SameSubject",
+            AccountSubjectHash = accountSubjectHash,
             Status = 0,
             BanReason = "stale reason",
             RowVersion = "10"
@@ -146,6 +149,42 @@ public class BlacklistServiceTests
             Arg.Is<string>(value => IsCacheSnapshot(value, false, null, null, "10")),
             "10",
             false,
+            Arg.Any<TimeSpan?>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetBanStateAsync_ClaimSubjectMismatchWithPhysicalProjectionFailsClosed()
+    {
+        const string physicalSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        const string claimSubjectHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.GetStringAsync(
+                CachePolicyId.SecurityBlacklistUser,
+                "account:" + claimSubjectHash,
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<string?>(null));
+        var db = Substitute.For<ISqlSugarClient>();
+        var queryable = Substitute.For<ISugarQueryable<User>>();
+        queryable.InSingleAsync(42).Returns(Task.FromResult(new User
+        {
+            Id = 42,
+            AccountSubjectHash = physicalSubjectHash,
+            Status = 0,
+            RowVersion = "10"
+        }));
+        db.Queryable<User>().Returns(queryable);
+        var service = new BlacklistService(cache, db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.GetBanStateAsync(42, claimSubjectHash));
+
+        await cache.DidNotReceive().TrySetVersionedStringAsync(
+            CachePolicyId.SecurityBlacklistUser,
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<bool>(),
             Arg.Any<TimeSpan?>(),
             Arg.Any<CancellationToken>());
     }
@@ -174,6 +213,7 @@ public class BlacklistServiceTests
         {
             Id = 42,
             PublicHandle = "SameSubject",
+            AccountSubjectHash = accountSubjectHash,
             Status = 1,
             BanReason = "old ban",
             RowVersion = "11"
@@ -211,6 +251,7 @@ public class BlacklistServiceTests
         {
             Id = 42,
             PublicHandle = "SameSubject",
+            AccountSubjectHash = ExpectedAccountSubjectHash("SameSubject"),
             Status = 0,
             BanReason = null,
             RowVersion = "13"
@@ -255,6 +296,7 @@ public class BlacklistServiceTests
         {
             Id = 42,
             PublicHandle = "SameSubject",
+            AccountSubjectHash = accountSubjectHash,
             Status = 1,
             BanReason = "current reason",
             RowVersion = "14"

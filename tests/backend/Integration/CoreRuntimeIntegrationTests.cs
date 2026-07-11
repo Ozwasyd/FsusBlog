@@ -28,7 +28,8 @@ public sealed class CoreRuntimeIntegrationTests
         var user = new User
         {
             Id = 42,
-            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            AccountSubjectHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         };
 
         string token = helper.GenerateAccessToken(user, "session-1", mfaVerified: true);
@@ -38,6 +39,9 @@ public sealed class CoreRuntimeIntegrationTests
         Assert.DoesNotContain(jwt.Claims, c => c.Type == ClaimTypes.Role || c.Type == "role");
         Assert.DoesNotContain(jwt.Claims, c => c.Type == ClaimTypes.Name || c.Type == "unique_name" || c.Type == "name");
         Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, jwt.Claims.First(c => c.Type == "identity_kind").Value);
+        Assert.Equal(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            jwt.Claims.First(c => c.Type == AccountSubjectHasher.ClaimType).Value);
         Assert.Equal("session-1", jwt.Claims.First(c => c.Type == "sid").Value);
         Assert.Equal("1", jwt.Claims.First(c => c.Type == "mfa").Value);
     }

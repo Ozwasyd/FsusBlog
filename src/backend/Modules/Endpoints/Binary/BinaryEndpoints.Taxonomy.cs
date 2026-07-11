@@ -385,14 +385,13 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken,
             IAedsEncoder aeds) =>
         {
-            bool hasArticleLinks = await db.Queryable<ArticleTag>().AnyAsync(at => at.TagId == id);
-            if (hasArticleLinks)
+            TagDeleteOutcome outcome = await DeleteTagIfUnlinkedAsync(db, id);
+            if (outcome == TagDeleteOutcome.HasArticleLinks)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "无法删除：该标签仍有关联文章，请先查看引用文章并移除标签"), aeds);
             }
 
-            int deleteCount = await db.Deleteable<Tag>().In(id).ExecuteCommandAsync();
-            if (deleteCount <= 0)
+            if (outcome == TagDeleteOutcome.NotFound)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：目标标签不存在或已被删除"), aeds);
             }
@@ -417,5 +416,23 @@ public static partial class BinaryEndpoints
         return long.TryParse(raw, out long version) && version > 0
             ? $"v:{version}:all"
             : "v:0:all";
+    }
+
+    internal static async Task<TagDeleteOutcome> DeleteTagIfUnlinkedAsync(ISqlSugarClient db, int id)
+    {
+        if (await db.Queryable<ArticleTag>().AnyAsync(at => at.TagId == id))
+        {
+            return TagDeleteOutcome.HasArticleLinks;
+        }
+
+        int deleted = await db.Deleteable<Tag>().In(id).ExecuteCommandAsync();
+        return deleted > 0 ? TagDeleteOutcome.Deleted : TagDeleteOutcome.NotFound;
+    }
+
+    internal enum TagDeleteOutcome
+    {
+        Deleted,
+        NotFound,
+        HasArticleLinks
     }
 }

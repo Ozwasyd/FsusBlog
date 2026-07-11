@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Models.Moderation;
@@ -43,6 +44,18 @@ public sealed class RegionLegalModerationServiceTests
     {
         var dictionary = new CountingModerationDictionaryService();
         var service = new RegionLegalModerationService(dictionary);
+        var measurements = new List<string>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Name.StartsWith("fsus.moderation.dictionary.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
 
         RegionModerationDecision decision = service.EvaluateOnSubmit(MakeRequest(
             "political_sensitive alias",
@@ -52,18 +65,10 @@ public sealed class RegionLegalModerationServiceTests
         Assert.Equal([RegionCodes.MainlandChina], decision.BlockedRegions);
         Assert.Equal(1, dictionary.MatchAllCallCount);
         Assert.Equal(0, dictionary.MatchCallCount);
-
-        string source = File.ReadAllText(Path.Combine(
-            FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.RepositoryRoot,
-            "src/backend/Services/Moderation/RegionLegalModerationService.cs"));
-        string observability = File.ReadAllText(Path.Combine(
-            FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/Observability/FsusObservability.cs"));
-        Assert.Contains("RecordRegionModerationDictionaryMatch", source, StringComparison.Ordinal);
-        Assert.Contains("fsus.moderation.dictionary.scanned_content_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.moderation.dictionary.matched_term_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.moderation.dictionary.match_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.moderation.dictionary.evaluated_region_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.moderation.dictionary.scanned_content_count", measurements);
+        Assert.Contains("fsus.moderation.dictionary.matched_term_count", measurements);
+        Assert.Contains("fsus.moderation.dictionary.match_elapsed_ms", measurements);
+        Assert.Contains("fsus.moderation.dictionary.evaluated_region_count", measurements);
     }
 
     [Fact]

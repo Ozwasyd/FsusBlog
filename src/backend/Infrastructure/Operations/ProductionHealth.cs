@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
@@ -11,6 +12,8 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
@@ -58,6 +61,168 @@ public sealed record ProductionObservabilityHealthCheck(
     int CustomAttributeCount,
     string? Error = null) : IProductionHealthCheck;
 
+public sealed record ProductionOnlineSchemaCompatibilityHealthCheck(
+    string Status,
+    string? PublicErrorCode,
+    string? ReleaseId,
+    string? SchemaRelease,
+    IReadOnlyList<OnlineSchemaCompatibilityIssue> Issues,
+    string? Error = null) : IProductionHealthCheck;
+
+public sealed record ProductionReleaseIdentityHealthCheck(
+    string Status,
+    string ReleaseId,
+    string ReleaseSlot,
+    string CommitSha,
+    string ImageRef,
+    string ImageDigest,
+    string? Error = null) : IProductionHealthCheck;
+
+public sealed record ProductionReleaseStorageHealthCheck(
+    string Status,
+    bool Required,
+    bool? DataProtectionReady,
+    bool? DataProtectionCanRead,
+    bool? DataProtectionCanWrite,
+    bool? AssetManifestExists,
+    bool? AssetIdentityMatches,
+    string ReleaseId,
+    string ReleaseSlot,
+    int? AssetCount,
+    IReadOnlyList<string> Errors) : IProductionHealthCheck;
+
+internal static class ProductionReleaseStorageReadiness
+{
+    private const string ReleaseAssetManifestSchema = "fsusblog.release-assets.v1";
+
+    public static ProductionReleaseStorageHealthCheck Evaluate(
+        IConfiguration configuration,
+        IWebHostEnvironment environment,
+        ReleaseIdentitySnapshot releaseIdentity)
+    {
+        if (!environment.IsProduction())
+        {
+            return new ProductionReleaseStorageHealthCheck(
+                "ok",
+                Required: false,
+                DataProtectionReady: null,
+                DataProtectionCanRead: null,
+                DataProtectionCanWrite: null,
+                AssetManifestExists: null,
+                AssetIdentityMatches: null,
+                releaseIdentity.ReleaseId,
+                releaseIdentity.ReleaseSlot,
+                AssetCount: null,
+                Errors: []);
+        }
+
+        var errors = new List<string>();
+        string dataRoot = configuration["FSUSBLOG_DATA_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_ROOT")
+            ?? Path.Combine(AppContext.BaseDirectory, "data");
+        string keyRingPath = configuration["DataProtection:KeyRingPath"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_PROTECTION_KEY_RING")
+            ?? Path.Combine(dataRoot, "data-protection-keys");
+        string applicationName = configuration["DataProtection:ApplicationName"] ?? "FsusBlog";
+        DataProtectionKeyRingProbeResult dataProtection = DataProtectionKeyRingProbe.Inspect(
+            keyRingPath,
+            applicationName);
+        if (!dataProtection.Ready)
+        {
+            errors.Add("data_protection_key_ring_unready");
+        }
+
+        string releaseAssetRoot = configuration["FSUSBLOG_RELEASE_ASSET_ROOT"]
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ASSET_ROOT")
+            ?? string.Empty;
+        bool manifestExists = false;
+        bool identityMatches = false;
+        int? assetCount = null;
+        if (string.IsNullOrWhiteSpace(releaseAssetRoot))
+        {
+            errors.Add("release_asset_root_missing");
+        }
+        else
+        {
+            try
+            {
+                string normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(releaseAssetRoot));
+                string manifestPath = Path.GetFullPath(Path.Combine(
+                    normalizedRoot,
+                    releaseIdentity.ReleaseId,
+                    "asset-manifest.json"));
+                string rootPrefix = normalizedRoot + Path.DirectorySeparatorChar;
+                if (!manifestPath.StartsWith(
+                        rootPrefix,
+                        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("release asset manifest escaped configured root");
+                }
+
+                manifestExists = File.Exists(manifestPath);
+                if (!manifestExists)
+                {
+                    errors.Add("release_asset_manifest_missing");
+                }
+                else
+                {
+                    using FileStream stream = File.OpenRead(manifestPath);
+                    using JsonDocument manifest = JsonDocument.Parse(stream);
+                    JsonElement root = manifest.RootElement;
+                    string schema = root.TryGetProperty("schema", out JsonElement schemaValue)
+                        ? schemaValue.GetString() ?? string.Empty
+                        : string.Empty;
+                    string materializedReleaseId = root.TryGetProperty("releaseId", out JsonElement releaseValue)
+                        ? releaseValue.GetString() ?? string.Empty
+                        : string.Empty;
+                    string materializedSlot = root.TryGetProperty("slot", out JsonElement slotValue)
+                        ? slotValue.GetString() ?? string.Empty
+                        : string.Empty;
+                    string frontendBuildId = root.TryGetProperty("frontendBuildId", out JsonElement buildValue)
+                        ? buildValue.GetString() ?? string.Empty
+                        : string.Empty;
+                    assetCount = root.TryGetProperty("files", out JsonElement filesValue)
+                        && filesValue.ValueKind == JsonValueKind.Array
+                        ? filesValue.GetArrayLength()
+                        : null;
+                    identityMatches = string.Equals(schema, ReleaseAssetManifestSchema, StringComparison.Ordinal)
+                        && string.Equals(materializedReleaseId, releaseIdentity.ReleaseId, StringComparison.Ordinal)
+                        && string.Equals(materializedSlot, releaseIdentity.ReleaseSlot, StringComparison.Ordinal)
+                        && string.Equals(frontendBuildId, releaseIdentity.ReleaseId, StringComparison.Ordinal)
+                        && assetCount > 0;
+                    if (!identityMatches)
+                    {
+                        errors.Add("release_asset_identity_mismatch");
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException
+                or JsonException
+                or InvalidOperationException
+                or ArgumentException
+                or NotSupportedException
+                or PathTooLongException)
+            {
+                errors.Add("release_asset_manifest_invalid");
+            }
+        }
+
+        return new ProductionReleaseStorageHealthCheck(
+            errors.Count == 0 ? "ok" : "failed",
+            Required: true,
+            dataProtection.Ready,
+            dataProtection.CanRead,
+            dataProtection.CanWrite,
+            manifestExists,
+            identityMatches,
+            releaseIdentity.ReleaseId,
+            releaseIdentity.ReleaseSlot,
+            assetCount,
+            errors);
+    }
+}
+
 public sealed record ProductionRiskControlHealthCheck(
     string Status,
     bool ActivePolicy,
@@ -76,6 +241,35 @@ internal sealed record RedisConsumeOnceReadiness(bool Ok);
 internal sealed record RedisReadiness(
     ProductionDependencyHealthCheck Dependency,
     RedisConsumeOnceReadiness ConsumeOnce);
+
+internal sealed record ProductionReadinessAsyncResults(
+    ProductionDependencyHealthCheck Postgres,
+    RedisReadiness Redis,
+    ProductionRiskControlHealthCheck RiskControl,
+    RuntimeHealthSnapshot Runtime);
+
+internal static class ProductionReadinessAsyncCoordinator
+{
+    public static async Task<ProductionReadinessAsyncResults> RunAsync(
+        Func<CancellationToken, Task<ProductionDependencyHealthCheck>> postgres,
+        Func<CancellationToken, Task<RedisReadiness>> redis,
+        Func<Task<RedisReadiness>, CancellationToken, Task<ProductionRiskControlHealthCheck>> riskControl,
+        Func<CancellationToken, Task<RuntimeHealthSnapshot>> runtime,
+        CancellationToken cancellationToken)
+    {
+        Task<ProductionDependencyHealthCheck> postgresTask = postgres(cancellationToken);
+        Task<RedisReadiness> redisTask = redis(cancellationToken);
+        Task<ProductionRiskControlHealthCheck> riskControlTask = riskControl(redisTask, cancellationToken);
+        Task<RuntimeHealthSnapshot> runtimeTask = runtime(cancellationToken);
+
+        await Task.WhenAll(postgresTask, redisTask, riskControlTask, runtimeTask).ConfigureAwait(false);
+        return new ProductionReadinessAsyncResults(
+            await postgresTask.ConfigureAwait(false),
+            await redisTask.ConfigureAwait(false),
+            await riskControlTask.ConfigureAwait(false),
+            await runtimeTask.ConfigureAwait(false));
+    }
+}
 
 public sealed record RuntimeHealthSnapshot(
     string Status,
@@ -100,11 +294,21 @@ public static class ProductionLivenessProbe
 public static class ProductionReadinessPublicReport
 {
     public static IReadOnlyDictionary<string, object?> Create(ProductionHealthReport report)
-        => new Dictionary<string, object?>(StringComparer.Ordinal)
+    {
+        var result = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["status"] = report.Status,
             ["checkedAt"] = report.CheckedAt
         };
+        if (!string.Equals(report.Status, "ready", StringComparison.Ordinal)
+            && report.Checks.TryGetValue("schemaCompatibility", out object? schemaValue)
+            && schemaValue is ProductionOnlineSchemaCompatibilityHealthCheck schema
+            && string.Equals(schema.PublicErrorCode, "schema_incompatible", StringComparison.Ordinal))
+        {
+            result["code"] = "schema_incompatible";
+        }
+        return result;
+    }
 }
 
 public sealed class ProductionReadinessProbe(
@@ -112,29 +316,73 @@ public sealed class ProductionReadinessProbe(
     IWebHostEnvironment environment,
     IServiceProvider serviceProvider,
     IConfigurationHealthSnapshot configurationSnapshot,
+    IReleaseIdentityProvider releaseIdentity,
     ILogger<ProductionReadinessProbe> logger)
 {
+    public ProductionReadinessProbe(
+        IConfiguration configuration,
+        IWebHostEnvironment environment,
+        IServiceProvider serviceProvider,
+        IConfigurationHealthSnapshot configurationSnapshot,
+        ILogger<ProductionReadinessProbe> logger)
+        : this(
+            configuration,
+            environment,
+            serviceProvider,
+            configurationSnapshot,
+            new ReleaseIdentityProvider(configuration),
+            logger)
+    {
+    }
+
     public async Task<ProductionHealthReport> CheckAsync(CancellationToken cancellationToken)
     {
         long checkStartedAt = Stopwatch.GetTimestamp();
-        Task<ProductionDependencyHealthCheck> postgresTask = RecordReadinessCheckElapsed("postgres", CheckPostgresAsync(cancellationToken));
-        Task<RedisReadiness> redisTask = RecordReadinessCheckElapsed("redis", CheckRedisReadinessAsync(cancellationToken));
-        Task<ProductionRiskControlHealthCheck> riskControlTask = RecordReadinessCheckElapsed("risk_control", CheckRiskControlAsync(redisTask, cancellationToken));
-        Task<RuntimeHealthSnapshot> runtimeTask = RecordReadinessCheckElapsed("runtime", CheckRuntimeAsync(cancellationToken));
+        Task<ProductionReadinessAsyncResults> asyncChecksTask = ProductionReadinessAsyncCoordinator.RunAsync(
+            ct => RecordReadinessCheckElapsed("postgres", CheckPostgresAsync(ct)),
+            ct => RecordReadinessCheckElapsed("redis", CheckRedisReadinessAsync(ct)),
+            (redisTask, ct) => RecordReadinessCheckElapsed("risk_control", CheckRiskControlAsync(redisTask, ct)),
+            ct => RecordReadinessCheckElapsed("runtime", CheckRuntimeAsync(ct)),
+            cancellationToken);
         Dictionary<string, object?> checks = new(StringComparer.Ordinal)
         {
             ["configuration"] = RedactConfigurationHealth(CheckConfiguration()),
+            ["release"] = releaseIdentity.CreateHealthCheck(environment.IsProduction()),
+            ["releaseStorage"] = ProductionReleaseStorageReadiness.Evaluate(
+                configuration,
+                environment,
+                releaseIdentity.Current),
             ["observability"] = CheckObservability(),
             ["resources"] = CheckResources()
         };
+        if (environment.IsProduction())
+        {
+            checks["schemaCompatibility"] = CheckOnlineSchemaCompatibility();
+        }
+        ProductionReadinessAsyncResults asyncChecks = await asyncChecksTask;
 
-        await Task.WhenAll(postgresTask, redisTask, riskControlTask, runtimeTask);
+        checks["postgres"] = asyncChecks.Postgres;
+        checks["redis"] = asyncChecks.Redis.Dependency;
+        checks["riskControl"] = asyncChecks.RiskControl;
+        checks["runtime"] = asyncChecks.Runtime;
 
-        checks["postgres"] = await postgresTask;
-        RedisReadiness redis = await redisTask;
-        checks["redis"] = redis.Dependency;
-        checks["riskControl"] = await riskControlTask;
-        checks["runtime"] = await runtimeTask;
+        bool dependencyGatesReady = checks.Values.All(IsHealthyCheck);
+        if (serviceProvider.GetService<DeploymentDrainCoordinator>() is { } deployment)
+        {
+            DeploymentRuntimeSnapshot deploymentSnapshot = deployment.CreateSnapshot();
+            checks["deployment"] = deployment.EvaluateReadiness(dependencyGatesReady);
+            if (environment.IsProduction()
+                && serviceProvider.GetService<ActiveReleaseFenceReadiness>() is { } activeReleaseFence)
+            {
+                bool requireLocalOwnership = string.Equals(
+                    deploymentSnapshot.Mode,
+                    DeploymentRuntimeModes.Active,
+                    StringComparison.Ordinal);
+                checks["activeReleaseFence"] = await activeReleaseFence
+                    .EvaluateAsync(requireLocalOwnership, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
 
         bool healthy = checks.Values.All(IsHealthyCheck);
         FsusObservability.RecordReadinessCheckElapsed("check", FsusObservability.GetElapsed(checkStartedAt));
@@ -147,6 +395,31 @@ public sealed class ProductionReadinessProbe(
     private ProductionConfigurationHealthCheck CheckConfiguration()
     {
         return configurationSnapshot.Current;
+    }
+
+    private ProductionOnlineSchemaCompatibilityHealthCheck CheckOnlineSchemaCompatibility()
+    {
+        OnlineSchemaCompatibilityReport? report = serviceProvider
+            .GetService<OnlineSchemaCompatibilityRuntimeState>()?
+            .Current;
+        if (report is null)
+        {
+            return new ProductionOnlineSchemaCompatibilityHealthCheck(
+                "failed",
+                "schema_incompatible",
+                releaseIdentity.Current.ReleaseId,
+                null,
+                [],
+                "schema_compatibility_unavailable");
+        }
+
+        return new ProductionOnlineSchemaCompatibilityHealthCheck(
+            report.Ready ? "ok" : "failed",
+            report.PublicErrorCode,
+            report.ReleaseId,
+            report.SchemaRelease,
+            report.Issues,
+            report.Ready ? null : "schema_incompatible");
     }
 
     private static ProductionConfigurationHealthCheck RedactConfigurationHealth(ProductionConfigurationHealthCheck check)
@@ -747,9 +1020,14 @@ public static class ProductionHealthEndpoints
 
         endpoints.MapGet("/health/ready", async Task<IResult> (
             ProductionReadinessSnapshotCache snapshotCache,
+            HttpContext context,
             CancellationToken cancellationToken) =>
         {
             ProductionHealthReport report = await snapshotCache.GetSnapshotAsync(forceRefresh: false, cancellationToken);
+            if (context.RequestServices.GetService<DeploymentDrainCoordinator>() is { } deployment)
+            {
+                report = deployment.ApplyCurrentState(report);
+            }
             int statusCode = report.Status == "ready"
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status503ServiceUnavailable;
@@ -758,10 +1036,15 @@ public static class ProductionHealthEndpoints
 
         endpoints.MapGet("/api/ops/health/ready-detail", async Task<IResult> (
             ProductionReadinessSnapshotCache snapshotCache,
+            HttpContext context,
             CancellationToken cancellationToken,
             bool forceRefresh = true) =>
         {
             ProductionHealthReport report = await snapshotCache.GetSnapshotAsync(forceRefresh, cancellationToken);
+            if (context.RequestServices.GetService<DeploymentDrainCoordinator>() is { } deployment)
+            {
+                report = deployment.ApplyCurrentState(report);
+            }
             int statusCode = report.Status == "ready"
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status503ServiceUnavailable;

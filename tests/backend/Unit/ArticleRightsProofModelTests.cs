@@ -1,8 +1,9 @@
+using System.Reflection;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -109,22 +110,25 @@ public sealed class ArticleRightsProofModelTests
     [Fact]
     public void EntityAndMigrationPersistRightsProofWithoutPrivateRequestContext()
     {
-        string entitySource = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src",
-            "backend",
-            "Entities",
-            "Article.cs"));
         var registry = new SchemaMigrationRegistry();
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             registry.GetDescriptors(),
             static item => item.MigrationId == "20260704-post-article-rights-v3-schema");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
-        Assert.Contains("[SugarTable(\"article_rights_proof\")]", entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(ArticleRightsProof.ArticleRightsSnapshotId), entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(ArticleRightsProof.PublishProofId), entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(ArticleRightsProof.TransparencyLogEntryId), entitySource, StringComparison.Ordinal);
+        Assert.Equal(
+            "article_rights_proof",
+            typeof(ArticleRightsProof).GetCustomAttribute<SugarTable>()?.TableName);
+        Assert.NotNull(typeof(ArticleRightsProof).GetProperty(nameof(ArticleRightsProof.ArticleRightsSnapshotId)));
+        Assert.NotNull(typeof(ArticleRightsProof).GetProperty(nameof(ArticleRightsProof.PublishProofId)));
+        Assert.NotNull(typeof(ArticleRightsProof).GetProperty(nameof(ArticleRightsProof.TransparencyLogEntryId)));
+        Assert.DoesNotContain(
+            typeof(ArticleRightsProof).GetProperties(),
+            static property => property.Name.Contains("AdminPrincipal", StringComparison.OrdinalIgnoreCase) ||
+                               property.Name.Contains("IpAddress", StringComparison.OrdinalIgnoreCase) ||
+                               property.Name.Contains("UserAgent", StringComparison.OrdinalIgnoreCase) ||
+                               property.Name.Contains("SessionId", StringComparison.OrdinalIgnoreCase) ||
+                               property.Name.Contains("DeviceId", StringComparison.OrdinalIgnoreCase));
 
         Assert.Contains("CREATE TABLE IF NOT EXISTS article_rights_proof", fingerprint, StringComparison.Ordinal);
         Assert.Contains("article_rights_snapshot_id bigint NOT NULL", fingerprint, StringComparison.Ordinal);
@@ -139,21 +143,16 @@ public sealed class ArticleRightsProofModelTests
     }
 
     [Fact]
-    public void Source_DoesNotUseExternalNetworkChainsOrUnsafe()
+    public void RuntimeProofCanonicalizer_DoesNotUseExternalNetworkChainsOrPointerContracts()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src",
-            "backend",
-            "Infrastructure",
-            "Integrity",
-            "ArticleRightsProof.cs"));
-
-        Assert.DoesNotContain("IPFS", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Arweave", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Nethereum", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("unsafe", source, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ArticleRightsProofCanonicalPayloadV1));
+        Assert.DoesNotContain("IPFS", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Arweave", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Nethereum", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("HttpClient", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            typeof(ArticleRightsProofCanonicalPayloadV1).GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static),
+            static method => method.ReturnType.IsPointer || method.GetParameters().Any(parameter => parameter.ParameterType.IsPointer));
     }
 
     private static ArticleRightsProofInput ReadyProof()

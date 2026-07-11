@@ -1,7 +1,22 @@
-using System.Runtime.CompilerServices;
+using System.Buffers;
 using System.Reflection;
+using System.Security.Cryptography;
+using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Cache;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Policies;
+using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Routing;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -9,178 +24,190 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class RecoveryKeyServiceTests
 {
     [Fact]
-    public void RecoveryKeyService_SourceUsesIndependentPepperedHashing()
+    public void RecoveryKeyService_UsesIndependentPepperedPbkdfHashing()
     {
-        string source = ReadSource("src/backend/Services/Security/RecoveryKeyService.cs");
+        MethodInfo hash = PrivateStaticMethod("HashRecoveryKey");
+        MethodInfo verify = PrivateStaticMethod("VerifyRecoveryKey");
+        byte[] pepper = SHA256.HashData("recovery-pepper-a"u8);
+        byte[] wrongPepper = SHA256.HashData("recovery-pepper-b"u8);
+        const string recoveryKey = "frk_0123456789abcdef0123456789abcdef_secret-value";
 
-        Assert.Contains("RecoveryKeyPepper", source, StringComparison.Ordinal);
-        Assert.Contains("Rfc2898DeriveBytes.Pbkdf2", source, StringComparison.Ordinal);
-        Assert.Contains("HMACSHA256", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("ITotpService", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("MfaRecoveryCodesHash", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HashRecoveryCodes", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("TryConsumeRecoveryCode", source, StringComparison.Ordinal);
+        string storedHash = Assert.IsType<string>(hash.Invoke(null, [recoveryKey, pepper]));
+
+        Assert.StartsWith("v1$pbkdf2-sha256$600000$", storedHash, StringComparison.Ordinal);
+        Assert.True(Assert.IsType<bool>(verify.Invoke(null, [recoveryKey, storedHash, pepper])));
+        Assert.False(Assert.IsType<bool>(verify.Invoke(null, [recoveryKey, storedHash, wrongPepper])));
+        Assert.DoesNotContain(recoveryKey, storedHash, StringComparison.Ordinal);
+        Assert.DoesNotContain(typeof(RecoveryKeyService).GetConstructors().SelectMany(static ctor => ctor.GetParameters()),
+            static parameter => parameter.ParameterType.Name.Contains("Totp", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void RecoveryKeyEndpoints_SourceExposeBinaryAedsRecoveryFlow()
+    public async Task RecoveryKeyEndpoints_ExposeBinaryRecoveryFlowAtRuntime()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        await using WebApplication app = EndpointContractApplication.Create();
+        string[] routes =
+        [
+            "/api/binary/auth/recovery-key/create",
+            "/api/binary/auth/recovery-key/rotate",
+            "/api/binary/auth/recovery-key/verify",
+            "/api/binary/auth/recovery-key/passkey/register/begin",
+            "/api/binary/auth/recovery-key/passkey/register/complete"
+        ];
 
-        Assert.Contains("\"/auth/recovery-key/create\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"/auth/recovery-key/rotate\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"/auth/recovery-key/verify\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"/auth/recovery-key/passkey/register/begin\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"/auth/recovery-key/passkey/register/complete\"", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.RecoveryKeyCreateResponse", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.RecoveryKeyVerifyRequest", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.RecoveryKeyVerifyResponse", source, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.RecoveryKeySessionRequest", source, StringComparison.Ordinal);
+        foreach (string route in routes)
+        {
+            RouteEndpoint endpoint = EndpointContractApplication.Find(app, route, HttpMethods.Post);
+            Assert.NotNull(endpoint.Metadata.GetMetadata<NoStoreResponseMetadata>());
+            Assert.Equal("fixed_ip", Assert.IsType<EnableRateLimitingAttribute>(
+                endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
+        }
+
+        Assert.True(Enum.IsDefined(AedsFrameType.RecoveryKeyCreateResponse));
+        Assert.True(Enum.IsDefined(AedsFrameType.RecoveryKeyVerifyRequest));
+        Assert.True(Enum.IsDefined(AedsFrameType.RecoveryKeyVerifyResponse));
+        Assert.True(Enum.IsDefined(AedsFrameType.RecoveryKeySessionRequest));
     }
 
     [Fact]
     public void CredentialMutationEndpoints_DelegateStepUpToUnifiedService()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        string[] actions =
+        [
+            UserSecurityStepUpActions.RecoveryKeyCreate,
+            UserSecurityStepUpActions.RecoveryKeyRotate,
+            UserSecurityStepUpActions.PasskeyDelete,
+            UserSecurityStepUpActions.PasskeyCredentialNameUpdate
+        ];
 
-        string recoveryCreate = ExtractBetween(
-            source,
-            "group.MapPost(\"/auth/recovery-key/create\"",
-            "group.MapPost(\"/auth/recovery-key/rotate\"");
-        string recoveryRotate = ExtractBetween(
-            source,
-            "group.MapPost(\"/auth/recovery-key/rotate\"",
-            "group.MapPost(\"/auth/recovery-key/verify\"");
-        string passkeyDelete = ExtractBetween(
-            source,
-            "group.MapDelete(\"/auth/passkey/credentials/{id:int}\"",
-            "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"");
-        string passkeyRename = ExtractBetween(
-            source,
-            "group.MapPut(\"/auth/passkey/credentials/{id:int}/name\"",
-            "private static BinaryFrameResult RecoveryKeyError");
+        foreach (string action in actions)
+        {
+            MethodInfo handler = FindBinaryAuthHandlerContaining(action);
+            Type[] inputTypes = RuntimeInputTypes(handler);
+            Assert.Contains(typeof(IUserSecurityStepUpService), inputTypes);
+            Assert.DoesNotContain(typeof(IMfaChallengeService), inputTypes);
+            Assert.True(UserSecurityStepUpActions.IsCredentialMutation(action));
+        }
 
-        Assert.Contains("IUserSecurityStepUpService stepUp", recoveryCreate, StringComparison.Ordinal);
-        Assert.Contains("RequireUserSecurityStepUpAsync(", recoveryCreate, StringComparison.Ordinal);
-        Assert.Contains("UserSecurityStepUpActions.RecoveryKeyCreate", recoveryCreate, StringComparison.Ordinal);
-        Assert.Contains("IUserSecurityStepUpService stepUp", recoveryRotate, StringComparison.Ordinal);
-        Assert.Contains("RequireUserSecurityStepUpAsync(", recoveryRotate, StringComparison.Ordinal);
-        Assert.Contains("UserSecurityStepUpActions.RecoveryKeyRotate", recoveryRotate, StringComparison.Ordinal);
-        Assert.Contains("IUserSecurityStepUpService stepUp", passkeyDelete, StringComparison.Ordinal);
-        Assert.Contains("RequireUserSecurityStepUpAsync(", passkeyDelete, StringComparison.Ordinal);
-        Assert.Contains("UserSecurityStepUpActions.PasskeyDelete", passkeyDelete, StringComparison.Ordinal);
-        Assert.Contains("IUserSecurityStepUpService stepUp", passkeyRename, StringComparison.Ordinal);
-        Assert.Contains("RequireUserSecurityStepUpAsync(", passkeyRename, StringComparison.Ordinal);
-        Assert.Contains("UserSecurityStepUpActions.PasskeyCredentialNameUpdate", passkeyRename, StringComparison.Ordinal);
-
-        string combinedHandlers = recoveryCreate + recoveryRotate + passkeyDelete + passkeyRename;
-        Assert.DoesNotContain("ValidateAndConsumeProofTokenAsync", combinedHandlers, StringComparison.Ordinal);
-        Assert.DoesNotContain("MfaEnabled", combinedHandlers, StringComparison.Ordinal);
+        MethodInfo unifiedStepUp = typeof(BinaryEndpoints).GetMethod(
+            "RequireUserSecurityStepUpAsync",
+            BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Unified user security step-up helper was not found.");
+        Assert.Contains(unifiedStepUp.GetParameters(), static parameter =>
+            parameter.ParameterType == typeof(IUserSecurityStepUpService));
     }
 
     [Fact]
-    public void MfaChallengeStart_DoesNotMintBareProofForCredentialMutations()
+    public void MfaChallengeStart_ChecksCredentialMutationBeforeProofMinting()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string mfaStart = ExtractBetween(
-            source,
-            "group.MapPost(\"/auth/mfa/challenge/start\"",
-            "group.MapPost(\"/auth/mfa/challenge\"");
+        MethodInfo handler = FindBinaryAuthHandlerContaining("PASSWORD_OR_STEP_UP_PROOF_REQUIRED");
+        IReadOnlyList<(int Offset, MethodBase Method)> calls = ReadCalledMethods(handler);
+        int credentialMutationCheck = calls
+            .Where(static call => call.Method.DeclaringType == typeof(UserSecurityStepUpActions)
+                && call.Method.Name == nameof(UserSecurityStepUpActions.IsCredentialMutation))
+            .Select(static call => call.Offset)
+            .DefaultIfEmpty(-1)
+            .First();
+        int proofMint = calls
+            .Where(static call => call.Method.DeclaringType == typeof(IMfaChallengeService)
+                && call.Method.Name == nameof(IMfaChallengeService.CreateProofTokenAsync))
+            .Select(static call => call.Offset)
+            .DefaultIfEmpty(-1)
+            .First();
 
-        Assert.Contains("UserSecurityStepUpActions.IsCredentialMutation(action)", mfaStart, StringComparison.Ordinal);
-        Assert.Contains("PASSWORD_OR_STEP_UP_PROOF_REQUIRED", mfaStart, StringComparison.Ordinal);
-        Assert.True(
-            mfaStart.IndexOf("UserSecurityStepUpActions.IsCredentialMutation(action)", StringComparison.Ordinal) <
-            mfaStart.IndexOf("CreateProofTokenAsync", StringComparison.Ordinal));
+        Assert.True(credentialMutationCheck >= 0);
+        Assert.True(proofMint > credentialMutationCheck);
+        Assert.True(UserSecurityStepUpActions.IsCredentialMutation(UserSecurityStepUpActions.RecoveryKeyCreate));
+        Assert.True(UserSecurityStepUpActions.IsCredentialMutation(UserSecurityStepUpActions.PasskeyDelete));
     }
 
     [Fact]
-    public void RecoveryKeyVerifyEndpoint_IsAnonymousPowAndRateLimited()
+    public async Task RecoveryKeyVerifyEndpoint_IsAnonymousPowRateLimitedAndNoStore()
     {
-        string source = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string handler = ExtractBetween(
-            source,
-            "group.MapPost(\"/auth/recovery-key/verify\"",
-            "group.MapPost(\"/auth/recovery-key/passkey/register/begin\"");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint endpoint = EndpointContractApplication.Find(
+            app,
+            "/api/binary/auth/recovery-key/verify",
+            HttpMethods.Post);
 
-        Assert.Contains(".AllowAnonymous()", handler, StringComparison.Ordinal);
-        Assert.Contains(".RequireRateLimiting(\"fixed_ip\")", handler, StringComparison.Ordinal);
-        Assert.Contains(".AddEndpointFilter<RequiresPowFilter>()", handler, StringComparison.Ordinal);
-        Assert.Contains(".RequireNoStoreResponse()", handler, StringComparison.Ordinal);
+        Assert.NotNull(endpoint.Metadata.GetMetadata<IAllowAnonymous>());
+        Assert.Equal("fixed_ip", Assert.IsType<EnableRateLimitingAttribute>(
+            endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
+        Assert.NotNull(endpoint.Metadata.GetMetadata<NoStoreResponseMetadata>());
+        Assert.Contains(endpoint.Metadata.GetOrderedMetadata<EndpointFilterBoundaryMetadata>(), static metadata =>
+            metadata.FilterType == typeof(RequiresPowFilter));
     }
 
     [Fact]
     public void RecoveryKeyVerifyRequest_DoesNotCarryCallerSuppliedUserId()
     {
-        string models = ReadSource("src/core/Mapping/Models/ReadModels.cs");
-        string userPods = ReadSource("src/shared/Contracts/Models/UserPods.cs");
-        string codec = ReadSource("src/core/Cache/PodBinaryCodec.User.cs");
-        string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
+        Assert.Equal(
+            ["RecoveryKey", "RevokeSessions", "RevokePasskeys"],
+            typeof(RecoveryKeyVerifyRequestCoreModel).GetProperties().Select(static property => property.Name).ToArray());
+        Assert.Equal(
+            ["RecoverySessionToken", "ExpiresAt"],
+            typeof(RecoveryKeyVerifyResponseCoreModel).GetProperties().Select(static property => property.Name).ToArray());
+        Assert.DoesNotContain(typeof(RecoveryKeyVerifyRequestPod).GetFields(), static field => field.Name.Contains("UserId", StringComparison.Ordinal));
+        Assert.DoesNotContain(typeof(RecoveryKeyVerifyResponsePod).GetFields(), static field => field.Name.Contains("UserId", StringComparison.Ordinal));
 
-        string requestPod = ExtractBetween(
-            userPods,
-            "public readonly struct RecoveryKeyVerifyRequestPod",
-            "[StructLayout(LayoutKind.Sequential, Pack = 1)]\npublic readonly struct RecoveryKeyVerifyResponsePod");
-        string mutableRequestPod = ExtractBetween(
-            codec,
-            "private struct MutableRecoveryKeyVerifyRequestPod",
-            "[StructLayout(LayoutKind.Sequential, Pack = 1)]\n    private struct MutableRecoveryKeyVerifyResponsePod");
-        string responsePod = ExtractBetween(
-            userPods,
-            "public readonly struct RecoveryKeyVerifyResponsePod",
-            "[StructLayout(LayoutKind.Sequential, Pack = 1)]\npublic readonly struct AuthAnonymousBootstrapRequestPod");
-        string mutableResponsePod = ExtractBetween(
-            codec,
-            "private struct MutableRecoveryKeyVerifyResponsePod",
-            "private struct MutableAuthAnonymousBootstrapRequestPod");
-        string responseWriter = ExtractMethodBlock(codec, "public static void WriteRecoveryKeyVerifyResponse");
-        string responseReader = ExtractMethodBlock(codec, "public static bool TryDecodeRecoveryKeyVerifyResponse");
-        string verifyHandler = ExtractBetween(
-            endpoints,
-            "group.MapPost(\"/auth/recovery-key/verify\"",
-            "group.MapPost(\"/auth/recovery-key/passkey/register/begin\"");
+        var request = new RecoveryKeyVerifyRequestCoreModel("frk_runtime", true, false);
+        var requestBuffer = new ArrayBufferWriter<byte>();
+        PodBinaryCodec.WriteRecoveryKeyVerifyRequest(request, requestBuffer);
+        Assert.True(PodBinaryCodec.TryDecodeRecoveryKeyVerifyRequest(requestBuffer.WrittenMemory, out var decodedRequest));
+        Assert.Equal(request, decodedRequest);
 
-        Assert.Contains("RecoveryKeyVerifyRequestCoreModel(string RecoveryKey, bool RevokeSessions, bool RevokePasskeys)", models, StringComparison.Ordinal);
-        Assert.Contains("RecoveryKeyVerifyResponseCoreModel(string RecoverySessionToken, DateTime ExpiresAt)", models, StringComparison.Ordinal);
-        Assert.DoesNotContain("RecoveryKeyVerifyRequestCoreModel(int UserId", models, StringComparison.Ordinal);
-        Assert.DoesNotContain("RecoveryKeyVerifyResponseCoreModel(int UserId", models, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserId", requestPod, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserId", mutableRequestPod, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserId", responsePod, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserId", mutableResponsePod, StringComparison.Ordinal);
-        Assert.DoesNotContain("response.UserId", responseWriter, StringComparison.Ordinal);
-        Assert.DoesNotContain("pod.UserId", responseReader, StringComparison.Ordinal);
-        Assert.DoesNotContain("request.UserId", verifyHandler, StringComparison.Ordinal);
+        DateTime expiresAt = new(2026, 7, 12, 12, 30, 0, DateTimeKind.Utc);
+        var response = new RecoveryKeyVerifyResponseCoreModel("session-token", expiresAt);
+        var responseBuffer = new ArrayBufferWriter<byte>();
+        PodBinaryCodec.WriteRecoveryKeyVerifyResponse(response, responseBuffer);
+        Assert.True(PodBinaryCodec.TryDecodeRecoveryKeyVerifyResponse(responseBuffer.WrittenMemory, out var decodedResponse));
+        Assert.Equal(response, decodedResponse);
     }
 
     [Fact]
     public void RecoveryKeyService_VerifyLocatesCredentialByPepperedLookupHashOnly()
     {
-        string source = ReadSource("src/backend/Services/Security/RecoveryKeyService.cs");
-        string verifyMethod = ExtractMethodBlock(source, "public async Task<Result<RecoveryKeyVerifyResponseCoreModel>> VerifyAsync");
-        string attemptHelper = ExtractMethodBlock(source, "private static string BuildAttemptIdentity");
+        MethodInfo parser = PrivateStaticMethod("TryParseRecoveryKeyLookup");
+        byte[] pepper = SHA256.HashData("lookup-pepper"u8);
+        const string lookupId = "0123456789abcdef0123456789abcdef";
+        object?[] arguments = [$"frk_{lookupId}_valid-secret", pepper, null];
 
-        Assert.Contains("LookupIdHash", source, StringComparison.Ordinal);
-        Assert.Contains("HashRecoveryKeyLookupId", source, StringComparison.Ordinal);
-        Assert.Contains("TryParseRecoveryKeyLookup", verifyMethod, StringComparison.Ordinal);
-        Assert.Contains("LoadRecoveryKeyCredentialForUpdateAsync(lookupIdHash", verifyMethod, StringComparison.Ordinal);
-        Assert.Contains("WHERE lookup_id_hash = @LookupIdHash", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("request.UserId", verifyMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserId", attemptHelper, StringComparison.Ordinal);
+        bool parsed = Assert.IsType<bool>(parser.Invoke(null, arguments));
+        string lookupHash = Assert.IsType<string>(arguments[2]);
+
+        Assert.True(parsed);
+        Assert.Matches("^[0-9A-F]{64}$", lookupHash);
+        Assert.DoesNotContain(lookupId, lookupHash, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(
+            [typeof(string), typeof(byte[]), typeof(string).MakeByRefType()],
+            parser.GetParameters().Select(static parameter => parameter.ParameterType).ToArray());
+
+        MethodInfo loader = typeof(RecoveryKeyService).GetMethod(
+            "LoadRecoveryKeyCredentialForUpdateAsync",
+            BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("Recovery credential lookup was not found.");
+        Assert.Equal(
+            [typeof(string), typeof(CancellationToken)],
+            loader.GetParameters().Select(static parameter => parameter.ParameterType).ToArray());
     }
 
     [Fact]
     public void RecoveryKeyEntity_DoesNotPersistPlaintextMaterial()
     {
-        string source = ReadSource("src/backend/Entities/RecoveryKeyCredential.cs");
+        string[] properties = typeof(RecoveryKeyCredential)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Select(static property => property.Name)
+            .ToArray();
 
-        Assert.Contains("KeyHash", source, StringComparison.Ordinal);
-        Assert.Contains("LookupIdHash", source, StringComparison.Ordinal);
-        Assert.Contains("KeyVersion", source, StringComparison.Ordinal);
-        Assert.Contains("UsedAt", source, StringComparison.Ordinal);
-        Assert.Contains("RevokedAt", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Plaintext", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("RecoveryKey { get; set; }", source, StringComparison.Ordinal);
+        Assert.Contains(nameof(RecoveryKeyCredential.KeyHash), properties);
+        Assert.Contains(nameof(RecoveryKeyCredential.LookupIdHash), properties);
+        Assert.Contains(nameof(RecoveryKeyCredential.KeyVersion), properties);
+        Assert.Contains(nameof(RecoveryKeyCredential.UsedAt), properties);
+        Assert.Contains(nameof(RecoveryKeyCredential.RevokedAt), properties);
+        Assert.DoesNotContain(properties, static name => name.Contains("Plaintext", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("RecoveryKey", properties);
+        Assert.Equal("key_hash", typeof(RecoveryKeyCredential).GetProperty(nameof(RecoveryKeyCredential.KeyHash))!
+            .GetCustomAttribute<SugarColumn>()?.ColumnName);
     }
 
     [Fact]
@@ -199,81 +226,175 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
-    public void RecoveryKeyService_SourceUsesAccountIdForCredentialOwnership()
+    public void RecoveryKeyService_UsesAccountIdForCredentialOwnership()
     {
-        string source = ReadSource("src/backend/Services/Security/RecoveryKeyService.cs");
+        PropertyInfo accountId = typeof(RecoveryKeyCredential).GetProperty(nameof(RecoveryKeyCredential.AccountId))!;
+        Assert.Equal(typeof(int), accountId.PropertyType);
+        Assert.Equal("account_id", accountId.GetCustomAttribute<SugarColumn>()?.ColumnName);
+        Assert.Null(typeof(RecoveryKeyCredential).GetProperty("UserId"));
 
-        Assert.Contains("int accountId", source, StringComparison.Ordinal);
-        Assert.Contains("k.AccountId", source, StringComparison.Ordinal);
-        Assert.Contains("credential.AccountId", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("RecoveryKeyCredential.UserId", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("k.UserId", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("credential.UserId", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("UserId = userId", source, StringComparison.Ordinal);
+        foreach (string methodName in new[] { nameof(IRecoveryKeyService.CreateAsync), nameof(IRecoveryKeyService.RotateAsync) })
+        {
+            MethodInfo method = typeof(IRecoveryKeyService).GetMethod(methodName)!;
+            ParameterInfo ownership = method.GetParameters()[0];
+            Assert.Equal("accountId", ownership.Name);
+            Assert.Equal(typeof(int), ownership.ParameterType);
+        }
+
+        Assert.Equal(
+            nameof(RecoveryKeySession.AccountId),
+            typeof(RecoveryKeySession).GetProperties()[0].Name);
+        Assert.Null(typeof(RecoveryKeySession).GetProperty("UserId"));
     }
 
     [Fact]
-    public void RecoveryKeyService_AuditMetadataUsesAccountIdentityFieldName()
+    public void RecoveryKeyService_SessionEnvelopeRoundTripUsesAccountIdentity()
     {
-        string source = ReadSource("src/backend/Services/Security/RecoveryKeyService.cs");
-        string encoder = ExtractMethodBlock(source, "private static string EncodeSession");
+        var session = new RecoveryKeySession(
+            AccountId: 42,
+            RevokePasskeys: true,
+            IssuedAtUtc: new DateTime(2026, 7, 12, 12, 0, 0, DateTimeKind.Utc),
+            ExpiresAtUtc: new DateTime(2026, 7, 12, 12, 10, 0, DateTimeKind.Utc));
+        RecoverySessionEnvelope envelope = RecoveryKeyService.ToPendingEnvelope(session);
 
-        Assert.Contains("session.AccountId.ToString", encoder, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"UserId\"", encoder, StringComparison.Ordinal);
-        Assert.DoesNotContain("session.UserId", source, StringComparison.Ordinal);
+        string encoded = RecoveryKeyService.EncodeSessionEnvelope(envelope);
+        bool decoded = RecoveryKeyService.TryDecodeSessionEnvelope(encoded, out RecoverySessionEnvelope? roundTrip);
+
+        Assert.True(decoded);
+        Assert.NotNull(roundTrip);
+        Assert.Equal(42, roundTrip!.Session.AccountId);
+        Assert.True(roundTrip.Session.RevokePasskeys);
+        Assert.Equal(session.IssuedAtUtc, roundTrip.Session.IssuedAtUtc);
+        Assert.Equal(session.ExpiresAtUtc, roundTrip.Session.ExpiresAtUtc);
+        Assert.StartsWith("v2|pending|42|1|", encoded, StringComparison.Ordinal);
+        Assert.DoesNotContain("UserId", encoded, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void AnonymousMfaManagement_RequiresSessionStepUpInsteadOfLegacyPasswordProof()
     {
-        string endpoints = ReadSource("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string userService = ReadSource("src/backend/Services/UserService.cs");
-
-        Assert.Contains("ANONYMOUS_MFA_STEP_UP_REQUIRED", endpoints, StringComparison.Ordinal);
-        Assert.Contains("TryReadMfaProof(httpContext, out string proofToken)", endpoints, StringComparison.Ordinal);
-        Assert.Contains("ValidateAndConsumeProofTokenAsync(", endpoints, StringComparison.Ordinal);
-        Assert.Contains("ResolveAccountSubjectHash", endpoints, StringComparison.Ordinal);
-        Assert.Contains("stepUpVerified", userService, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled()", userService, StringComparison.Ordinal);
-    }
-
-    private static string ReadSource(string relativePath, [CallerFilePath] string sourceFilePath = "")
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
-
-    private static string ExtractBetween(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0, $"Missing start marker: {start}");
-        int endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
-        Assert.True(endIndex >= 0, $"Missing end marker: {end}");
-        return source[startIndex..endIndex];
-    }
-
-    private static string ExtractMethodBlock(string source, string signature)
-    {
-        int start = source.IndexOf(signature, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Unable to locate method signature: {signature}");
-        int braceStart = source.IndexOf('{', start);
-        Assert.True(braceStart > start, $"Unable to locate method body: {signature}");
-
-        int depth = 0;
-        for (int i = braceStart; i < source.Length; i++)
+        MethodInfo[] anonymousMfaHandlers = FindBinaryAuthHandlersContaining("ANONYMOUS_MFA_STEP_UP_REQUIRED");
+        Assert.True(anonymousMfaHandlers.Length >= 3);
+        foreach (MethodInfo handler in anonymousMfaHandlers)
         {
-            if (source[i] == '{')
+            Type[] inputTypes = RuntimeInputTypes(handler);
+            Assert.Contains(typeof(IMfaChallengeService), inputTypes);
+            Assert.Contains(inputTypes, static type => type.Name == "IUserAccountReader");
+            Assert.Contains(ReadCalledMethods(handler), static call =>
+                call.Method.DeclaringType == typeof(IMfaChallengeService)
+                && call.Method.Name == nameof(IMfaChallengeService.ValidateAndConsumeProofTokenAsync));
+        }
+
+        foreach (string methodName in new[] { "StartMfaSetupAsync", "DisableMfaAsync", "RegenerateMfaRecoveryCodesAsync" })
+        {
+            MethodInfo command = typeof(FsusBlog.Server.Services.UserService).GetMethods()
+                .Single(method => method.Name == methodName && method.GetParameters().Last().ParameterType == typeof(bool));
+            ParameterInfo stepUpVerified = command.GetParameters().Last();
+            Assert.Equal("stepUpVerified", stepUpVerified.Name);
+            Assert.True(stepUpVerified.HasDefaultValue);
+            Assert.Equal(false, stepUpVerified.DefaultValue);
+        }
+    }
+
+    private static MethodInfo PrivateStaticMethod(string name)
+        => typeof(RecoveryKeyService).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException($"Recovery key runtime method was not found: {name}");
+
+    private static MethodInfo FindBinaryAuthHandlerContaining(string literal)
+        => Assert.Single(FindBinaryAuthHandlersContaining(literal));
+
+    private static MethodInfo[] FindBinaryAuthHandlersContaining(string literal)
+        => EnumerateRuntimeMethods(typeof(BinaryEndpoints))
+            .Where(method => ContainsStringLiteral(method, literal))
+            .ToArray();
+
+    private static IEnumerable<MethodInfo> EnumerateRuntimeMethods(Type root)
+    {
+        foreach (MethodInfo method in root.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance))
+        {
+            yield return method;
+        }
+
+        foreach (Type nested in root.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (MethodInfo method in EnumerateRuntimeMethods(nested))
             {
-                depth++;
+                yield return method;
             }
-            else if (source[i] == '}')
+        }
+    }
+
+    private static bool ContainsStringLiteral(MethodInfo method, string expected)
+    {
+        byte[]? il = method.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
+        {
+            return false;
+        }
+
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] != 0x72)
             {
-                depth--;
-                if (depth == 0)
+                continue;
+            }
+
+            try
+            {
+                string literal = method.Module.ResolveString(BitConverter.ToInt32(il, offset + 1));
+                if (string.Equals(literal, expected, StringComparison.Ordinal))
                 {
-                    return source[start..(i + 1)];
+                    return true;
                 }
+            }
+            catch (ArgumentException)
+            {
             }
         }
 
-        throw new InvalidOperationException($"Unable to extract method body: {signature}");
+        return false;
     }
+
+    private static IReadOnlyList<(int Offset, MethodBase Method)> ReadCalledMethods(MethodInfo method)
+    {
+        var calls = new List<(int Offset, MethodBase Method)>();
+        byte[]? il = method.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
+        {
+            return calls;
+        }
+
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F))
+            {
+                continue;
+            }
+
+            try
+            {
+                MethodBase? called = method.Module.ResolveMethod(
+                    BitConverter.ToInt32(il, offset + 1),
+                    method.DeclaringType?.GetGenericArguments(),
+                    method.GetGenericArguments());
+                if (called is not null)
+                {
+                    calls.Add((offset, called));
+                }
+            }
+            catch (ArgumentException)
+            {
+            }
+        }
+
+        return calls;
+    }
+
+    private static Type[] RuntimeInputTypes(MethodInfo method)
+        => method.GetParameters().Select(static parameter => parameter.ParameterType)
+            .Concat(method.DeclaringType?.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .Select(static field => field.FieldType) ?? [])
+            .Distinct()
+            .ToArray();
 
 }

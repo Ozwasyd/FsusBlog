@@ -25,6 +25,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildUserSessionActiveUniqueMigration(),
         BuildUserAuthSecurityHardeningMigration(),
         BuildAnonymousIdentityAccountSchemaMigration(),
+        BuildAccountSubjectHashExpandMigration(),
         BuildAdminAccountListKeysetIndexMigration(),
         BuildPasskeyRecoveryKeyAccountIdMigration(),
         BuildPasskeyUserHandleMigration(),
@@ -36,6 +37,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildPasskeyRecoveryKeyAccountIdPostCodeFirstCompatMigration(),
         BuildAccountRecoveryKeyMigration(),
         BuildPasskeyRecoveryKeyAccountIdFinalizerMigration(),
+        BuildRecoveryPasskeyCompletionIdempotencyMigration(),
         BuildAnonymousCredentialAccountBindingMigration(),
         BuildAnonymousCredentialAccountBindingLegacyCompatibilityMigration(),
         BuildAnonymousCommentGovernanceMigration(),
@@ -43,6 +45,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAnonymousCredentialIssuanceAuditMigration(),
         BuildAnonymousCredentialRootMetadataMigration(),
         BuildAnonymousCredentialRootLifecycleMigration(),
+        BuildAccountSubjectHashBackfillMigration(),
         BuildSecurityRiskEventPersistenceMigration(),
         BuildSecurityPolicySnapshotMigration(),
         BuildSecurityPolicyVersionCounterMigration(),
@@ -1215,7 +1218,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
     private static ISchemaMigrationDescriptor BuildAnonymousIdentityAccountSchemaMigration()
         => new SchemaMigrationDescriptor(
             "20260616-pre-anonymous-identity-account-schema",
-            "Reinterpret sys_user as an anonymous account container after destructive identity reset.",
+            "Reinterpret sys_user as an anonymous account container after password-era identity retirement.",
             SchemaMigrationPhase.PreCodeFirst,
             Transactional: true,
             Steps:
@@ -1246,6 +1249,69 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_user_public_handle_unique",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_public_handle_unique ON sys_user(public_handle) WHERE public_handle IS NOT NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAccountSubjectHashExpandMigration()
+        => new SchemaMigrationDescriptor(
+            "20260711-pre-account-subject-hash-expand",
+            "Add the nullable physical account-subject projection for rolling compatibility.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_user", "account_subject_hash", "varchar(64) NULL")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildAccountSubjectHashBackfillMigration()
+        => new SchemaMigrationDescriptor(
+            "20260711-post-account-subject-hash-backfill",
+            "Backfill the physical account-subject projection with the canonical C# hasher and enforce its format.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: false,
+            Steps:
+            [
+                new AccountSubjectHashBackfillStep(),
+                new AssertSqlStep(
+                    "Every account must have a canonical physical account-subject projection.",
+                    """
+                    DO $$
+                    DECLARE
+                        invalid_count integer;
+                    BEGIN
+                        SELECT COUNT(1)
+                        INTO invalid_count
+                        FROM sys_user
+                        WHERE account_subject_hash IS NULL
+                           OR btrim(account_subject_hash) = ''
+                           OR account_subject_hash !~ '^[0-9a-f]{64}$';
+
+                        IF invalid_count > 0 THEN
+                            RAISE EXCEPTION 'Account subject projection backfill incomplete: invalid_count=%', invalid_count;
+                        END IF;
+                    END $$;
+                    """),
+                new RawSqlStep(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1
+                            FROM pg_constraint
+                            WHERE conname = 'ck_sys_user_account_subject_hash_format'
+                              AND conrelid = 'sys_user'::regclass
+                        ) THEN
+                            ALTER TABLE sys_user
+                            ADD CONSTRAINT ck_sys_user_account_subject_hash_format
+                            CHECK (
+                                account_subject_hash IS NULL
+                                OR account_subject_hash ~ '^[0-9a-f]{64}$'
+                            ) NOT VALID;
+                        END IF;
+
+                        ALTER TABLE sys_user
+                        VALIDATE CONSTRAINT ck_sys_user_account_subject_hash_format;
+                    END $$;
+                    """)
             ]);
 
     private static ISchemaMigrationDescriptor BuildAdminAccountListKeysetIndexMigration()
@@ -1464,6 +1530,21 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_account_recovery_key_active_unique",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_account_recovery_key_active_unique ON account_recovery_key(account_id) WHERE used_at IS NULL AND revoked_at IS NULL;")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildRecoveryPasskeyCompletionIdempotencyMigration()
+        => new SchemaMigrationDescriptor(
+            "20260711-post-recovery-passkey-completion-idempotency",
+            "Persist recovery Passkey completion hashes for transactional and replay-safe account recovery.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("passkey_credential", "recovery_session_hash", "varchar(64) NULL"),
+                new EnsureColumnStep("passkey_credential", "recovery_request_hash", "varchar(64) NULL"),
+                new CreateIndexStep(
+                    "ux_passkey_recovery_session_hash",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_passkey_recovery_session_hash ON passkey_credential(recovery_session_hash) WHERE recovery_session_hash IS NOT NULL;")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAnonymousCredentialAccountBindingMigration()

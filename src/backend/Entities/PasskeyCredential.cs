@@ -5,6 +5,7 @@ namespace FsusBlog.Server.Entities;
 [SugarTable("passkey_credential")]
 [SugarIndex("unique_idx_passkey_cred_id", nameof(PasskeyCredential.CredentialId), OrderByType.Asc, true)]
 [SugarIndex("idx_passkey_account_id", nameof(PasskeyCredential.AccountId), OrderByType.Asc)]
+[SugarIndex("ux_passkey_recovery_session_hash", nameof(PasskeyCredential.RecoverySessionHash), OrderByType.Asc, true)]
 public class PasskeyCredential
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
@@ -48,6 +49,21 @@ public class PasskeyCredential
     /// <summary>当前凭证是否已备份（跨设备同步）</summary>
     [SugarColumn(DefaultValue = "false")]
     public bool BackupState { get; set; }
+
+    /// <summary>
+    /// SHA-256 of the recovery-session token that created this credential.
+    /// The raw recovery token is never persisted. A unique value is the durable
+    /// idempotency marker for response-loss and concurrent completion retries.
+    /// </summary>
+    [SugarColumn(ColumnName = "recovery_session_hash", Length = 64, IsNullable = true)]
+    public string? RecoverySessionHash { get; set; }
+
+    /// <summary>
+    /// SHA-256 of the canonical recovery Passkey completion request. It binds an
+    /// idempotent replay to the exact WebAuthn response that originally completed.
+    /// </summary>
+    [SugarColumn(ColumnName = "recovery_request_hash", Length = 64, IsNullable = true)]
+    public string? RecoveryRequestHash { get; set; }
 
     /// <summary>创建时间</summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

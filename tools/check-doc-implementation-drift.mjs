@@ -115,6 +115,34 @@ add('auth-docs', 'API auth legend uses HttpOnly Cookie session / AEDS auth frame
   return text.includes('HttpOnly Cookie session / AEDS auth frame') && !text.includes('Bearer JWT')
 })
 
+add('anonymous-identity', 'anonymous identity smoke runbook covers the physical projection operator flow', () => {
+  const smoke = read('docs/anonymous-identity-smoke-flow.md')
+  return [
+    'physical account-subject projection',
+    'bootstrap admin',
+    'Passkey registration/login',
+    'Recovery Key creation/recovery',
+    'anonymous default comment submission',
+    'public opt-in comment submission',
+    'moderation review',
+    "account_subject_hash IS NULL OR account_subject_hash = ''",
+    'accountSubjectHashInvariant=ok'
+  ].every((token) => smoke.includes(token))
+})
+
+add('anonymous-identity', 'migration and security docs pin account subject expand, backfill, and fail-closed reads', () => {
+  const migration = read('docs/database-migration.md')
+  const security = read('docs/security.md')
+
+  return migration.includes('20260711-pre-account-subject-hash-expand')
+    && migration.includes('20260711-post-account-subject-hash-backfill')
+    && migration.includes("account_subject_hash IS NULL OR account_subject_hash = ''")
+    && migration.includes('accountSubjectHashInvariant=ok')
+    && security.includes('sys_user.account_subject_hash')
+    && security.includes('不得按账号 id 重新派生')
+    && security.includes('永久启动门禁')
+})
+
 add('notification-transport', 'notification transport docs consistently name WebSocket binary stream', () => {
   const text = `${read('README.md')}\n${read('docs/api.md')}\n${read('docs/testing.md')}\n${read('docs/operations.md')}`
   return text.includes('WebSocket binary notification stream') && !text.includes('Server-Sent Events 增量事件流')

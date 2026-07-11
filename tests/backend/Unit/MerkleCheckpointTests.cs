@@ -1,8 +1,9 @@
+using System.Reflection;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -109,16 +110,17 @@ public sealed class MerkleCheckpointTests
     [Fact]
     public void EntityAndMigrationDefineMerkleCheckpointStorage()
     {
-        string entitySource = ReadRepoFile("src/backend/Entities/Article.cs");
         var registry = new SchemaMigrationRegistry();
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             registry.GetDescriptors(),
             static item => item.MigrationId == "20260704-post-integrity-merkle-checkpoint");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
-        Assert.Contains("[SugarTable(\"integrity_merkle_checkpoint\")]", entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(IntegrityMerkleCheckpoint.RootHash), entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(IntegrityMerkleCheckpoint.ManifestJson), entitySource, StringComparison.Ordinal);
+        Assert.Equal(
+            "integrity_merkle_checkpoint",
+            typeof(IntegrityMerkleCheckpoint).GetCustomAttribute<SugarTable>()?.TableName);
+        Assert.NotNull(typeof(IntegrityMerkleCheckpoint).GetProperty(nameof(IntegrityMerkleCheckpoint.RootHash)));
+        Assert.NotNull(typeof(IntegrityMerkleCheckpoint).GetProperty(nameof(IntegrityMerkleCheckpoint.ManifestJson)));
         Assert.Contains("CREATE TABLE IF NOT EXISTS integrity_merkle_checkpoint", fingerprint, StringComparison.Ordinal);
         Assert.Contains("checkpoint_kind varchar(24) NOT NULL", fingerprint, StringComparison.Ordinal);
         Assert.Contains("root_hash varchar(64) NOT NULL", fingerprint, StringComparison.Ordinal);
@@ -130,18 +132,18 @@ public sealed class MerkleCheckpointTests
     }
 
     [Fact]
-    public void Source_DoesNotUseExternalNetworkChainsOrUnsafe()
+    public void RuntimeTypes_DoNotUseExternalNetworkChainsOrPointerContracts()
     {
-        string core = ReadRepoFile("src/core/Integrity/MerkleCheckpoint.cs");
-        string server = ReadRepoFile("src/backend/Infrastructure/Integrity/MerkleCheckpoint.cs");
-
-        foreach (string source in new[] { core, server })
+        foreach (Type type in new[] { typeof(MerkleCheckpointBuilder), typeof(MerkleCheckpointManifest) })
         {
-            Assert.DoesNotContain("IPFS", source, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Arweave", source, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Nethereum", source, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("unsafe", source, StringComparison.Ordinal);
+            string runtimeShape = RuntimeMetadataInspection.DescribeType(type);
+            Assert.DoesNotContain("IPFS", runtimeShape, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Arweave", runtimeShape, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Nethereum", runtimeShape, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("HttpClient", runtimeShape, StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static),
+                static method => method.ReturnType.IsPointer || method.GetParameters().Any(parameter => parameter.ParameterType.IsPointer));
         }
     }
 
@@ -157,6 +159,4 @@ public sealed class MerkleCheckpointTests
     private static string Hash(string value)
         => TransparencyLogPayloadHasher.ComputeUtf8HashHex("test", value);
 
-    private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 }

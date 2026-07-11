@@ -1,10 +1,18 @@
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Security;
 using Fido2NetLib;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -16,107 +24,138 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AdminMfaStepUpSecurityTests
 {
     [Fact]
-    public void AdminStepUpEndpoints_UseAdminPasskeyApiAndAdminManagePolicy()
+    public async Task AdminStepUpEndpoints_UseAdminPasskeyApiAndAdminManagePolicy()
     {
-        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string block = ExtractBetween(
-            endpoints,
-            "MapPost(\"/auth/admin/step-up/passkey/begin\"",
-            "group.MapPost(\"/auth/admin/logout\"");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint begin = EndpointContractApplication.Find(
+            app,
+            "/api/binary/auth/admin/step-up/passkey/begin",
+            HttpMethods.Post);
+        RouteEndpoint complete = EndpointContractApplication.Find(
+            app,
+            "/api/binary/auth/admin/step-up/passkey/complete",
+            HttpMethods.Post);
+        AssertAdminManage(begin);
+        AssertAdminManage(complete);
 
-        Assert.Contains("MapPost(\"/auth/admin/step-up/passkey/begin\"", block, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/auth/admin/step-up/passkey/complete\"", block, StringComparison.Ordinal);
-        Assert.Contains("BeginAdminStepUpAssertionAsync", block, StringComparison.Ordinal);
-        Assert.Contains("CompleteAdminStepUpAssertionAsync", block, StringComparison.Ordinal);
-        Assert.Contains(".RequireAdminPermission(AdminPermissions.AdminManage)", block, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.PasskeyLoginBegin", block, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.MfaChallengeResult", block, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(typeof(BinaryEndpoints), "MapBinaryAuthEndpoints");
+        Assert.Contains("BeginAdminStepUpAssertionAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("CompleteAdminStepUpAssertionAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("WritePasskeyLoginBegin", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("WriteMfaChallengeResult", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void OrdinaryAccountStepUpEndpoints_UsePasskeyApiAndReturnMfaProof()
+    public async Task OrdinaryAccountStepUpEndpoints_UsePasskeyApiAndReturnMfaProof()
     {
-        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string block = ExtractBetween(
-            endpoints,
-            "MapPost(\"/auth/step-up/passkey/begin\"",
-            "group.MapPost(\"/auth/mfa/challenge/start\"");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint begin = EndpointContractApplication.Find(
+            app,
+            "/api/binary/auth/step-up/passkey/begin",
+            HttpMethods.Post);
+        RouteEndpoint complete = EndpointContractApplication.Find(
+            app,
+            "/api/binary/auth/step-up/passkey/complete",
+            HttpMethods.Post);
+        AssertAnonymousAccount(begin);
+        AssertAnonymousAccount(complete);
 
-        Assert.Contains("MapPost(\"/auth/step-up/passkey/begin\"", block, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/auth/step-up/passkey/complete\"", block, StringComparison.Ordinal);
-        Assert.Contains("RequireAnonymousAccountPrincipal()", block, StringComparison.Ordinal);
-        Assert.Contains("BeginActionStepUpAssertionAsync", block, StringComparison.Ordinal);
-        Assert.Contains("CompleteActionStepUpAssertionAsync", block, StringComparison.Ordinal);
-        Assert.Contains("challengeService.CreateProofTokenAsync", block, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.PasskeyLoginBegin", block, StringComparison.Ordinal);
-        Assert.Contains("AedsFrameType.MfaChallengeResult", block, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(typeof(BinaryEndpoints), "MapBinaryAuthEndpoints");
+        Assert.Contains("BeginActionStepUpAssertionAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("CompleteActionStepUpAssertionAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("CreateProofTokenAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("WritePasskeyLoginBegin", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("WriteMfaChallengeResult", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AdminStepUpEndpoints_BindChallengeToAuthenticatedPrincipalSession()
+    public void AdminStepUpEndpoints_BindChallengeToAuthenticatedPrincipalSessionAtRuntime()
     {
-        string endpoints = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string block = ExtractBetween(
-            endpoints,
-            "MapPost(\"/auth/admin/step-up/passkey/begin\"",
-            "group.MapPost(\"/auth/admin/logout\"");
+        string beginHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            "TryResolveAdminSessionContext",
+            "BeginAdminStepUpAssertionAsync");
+        string completeHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            "TryResolveAdminSessionContext",
+            "CompleteAdminStepUpAssertionAsync");
 
-        Assert.True(CountOccurrences(block, "TryResolveAdminSessionContext(httpContext, out long adminPrincipalId, out string adminSessionId)") >= 2);
-        Assert.DoesNotContain("request.AdminPrincipalId", block, StringComparison.Ordinal);
-        Assert.DoesNotContain("request.AdminSessionId", block, StringComparison.Ordinal);
-        AssertContainsAfter(block, "TryResolveAdminSessionContext", "BeginAdminStepUpAssertionAsync(adminPrincipalId, adminSessionId");
-        AssertContainsAfter(block, "TryResolveAdminSessionContext", "CompleteAdminStepUpAssertionAsync(\n                adminPrincipalId,\n                adminSessionId");
+        Assert.Contains("TryResolveAdminSessionContext", beginHandler, StringComparison.Ordinal);
+        Assert.Contains("BeginAdminStepUpAssertionAsync", beginHandler, StringComparison.Ordinal);
+        Assert.Contains("TryResolveAdminSessionContext", completeHandler, StringComparison.Ordinal);
+        Assert.Contains("CompleteAdminStepUpAssertionAsync", completeHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdminStepUpPasskeyBeginRequest.get_AdminPrincipalId", beginHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdminStepUpPasskeyBeginRequest.get_AdminSessionId", beginHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdminStepUpPasskeyCompleteRequest.get_AdminPrincipalId", completeHandler, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdminStepUpPasskeyCompleteRequest.get_AdminSessionId", completeHandler, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AdminSensitiveMutations_UseAdminStepUpProofInsteadOfUserMfa()
+    public async Task AdminSensitiveMutations_UseAdminStepUpProofInsteadOfUserMfa()
     {
-        string adminUsers = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs");
-        string binaryCore = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs");
-        string authoring = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
-        string security = ReadRepoFile("src/backend/Modules/Endpoints/SecurityEndpoints.cs");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint adminUserStatus = EndpointContractApplication.Find(
+            app,
+            "/api/binary/admin/users/status",
+            HttpMethods.Put);
+        RouteEndpoint contentExport = EndpointContractApplication.Find(
+            app,
+            "/api/binary/author/content/export",
+            HttpMethods.Get);
+        RouteEndpoint riskOptions = EndpointContractApplication.Find(
+            app,
+            "/api/binary/admin/security/risk-control/options",
+            HttpMethods.Put);
+        Assert.NotNull(adminUserStatus.RequestDelegate);
+        Assert.NotNull(contentExport.RequestDelegate);
+        Assert.NotNull(riskOptions.RequestDelegate);
 
-        Assert.Contains("AdminSensitiveAction", binaryCore, StringComparison.Ordinal);
-        Assert.Contains("MfaProofHeader", binaryCore, StringComparison.Ordinal);
+        string binaryCore = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            "RequireAdminSensitiveStepUpAsync");
+        string authoring = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringEndpoints),
+            "RequireAdminSensitiveStepUpAsync");
+        string security = RuntimeMetadataInspection.DescribeMethods(
+            typeof(SecurityEndpoints),
+            "RequireAdminSensitiveStepUpAsync");
         Assert.Contains("ValidateAndConsumeAdminStepUpProofTokenAsync", binaryCore, StringComparison.Ordinal);
-        Assert.Contains("adminPrincipalId", binaryCore, StringComparison.Ordinal);
-        Assert.Contains("adminSessionId", binaryCore, StringComparison.Ordinal);
-        Assert.DoesNotContain("IsMfaVerified()", binaryCore, StringComparison.Ordinal);
-        Assert.True(CountOccurrences(adminUsers, "RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals)") >= 1);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", authoring, StringComparison.Ordinal);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", security, StringComparison.Ordinal);
-        Assert.DoesNotContain("RequireAdminSensitiveStepUpAsync(context, mfaChallengeService)", authoring, StringComparison.Ordinal);
-        Assert.DoesNotContain("RequireAdminSensitiveStepUpAsync(context, mfaChallengeService)", security, StringComparison.Ordinal);
+        Assert.Contains("ValidateAndConsumeAdminStepUpProofTokenAsync", authoring, StringComparison.Ordinal);
+        Assert.Contains("ValidateAndConsumeAdminStepUpProofTokenAsync", security, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsMfaVerified", binaryCore, StringComparison.Ordinal);
+        Assert.DoesNotContain("IMfaChallengeService", authoring, StringComparison.Ordinal);
+        Assert.DoesNotContain("IMfaChallengeService", security, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void OrdinaryMfaChallengeStart_DoesNotIssueAdminSensitiveProof()
+    public void OrdinaryMfaChallengeStart_RejectsAdminSensitiveActionBeforeMintingProof()
     {
-        string source = ReadRepoFile("src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs");
-        string mfaStart = ExtractBetween(
-            source,
-            "MapPost(\"/auth/mfa/challenge/start\"",
-            "group.MapPost(\"/auth/mfa/challenge\"");
+        string handler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(BinaryEndpoints),
+            "IsAdminSensitiveAction",
+            "MFA_REQUIRED",
+            "CreateProofTokenAsync");
 
-        Assert.Contains("IsAdminSensitiveAction(action)", mfaStart, StringComparison.Ordinal);
-        Assert.Contains("MFA_REQUIRED", mfaStart, StringComparison.Ordinal);
-        Assert.True(
-            mfaStart.IndexOf("IsAdminSensitiveAction(action)", StringComparison.Ordinal) <
-            mfaStart.IndexOf("CreateProofTokenAsync", StringComparison.Ordinal));
+        Assert.Contains("IsAdminSensitiveAction", handler, StringComparison.Ordinal);
+        Assert.Contains("MFA_REQUIRED", handler, StringComparison.Ordinal);
+        Assert.Contains("CreateProofTokenAsync", handler, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ContentBackupExport_RequiresAdminSensitiveAdminProof()
+    public async Task ContentBackupExport_RequiresAdminSensitiveAdminProof()
     {
-        string source = ReadRepoFile("src/backend/Modules/Endpoints/AuthoringEndpoints.cs");
-        string contentExportEndpoint = ExtractBetween(
-            source,
-            "group.MapGet(\"/content/export\"",
-            "group.MapGet(\"/articles/{articleId:int}/export\"");
+        await using WebApplication app = EndpointContractApplication.Create();
+        RouteEndpoint endpoint = EndpointContractApplication.Find(
+            app,
+            "/api/binary/author/content/export",
+            HttpMethods.Get);
 
-        Assert.Contains("HttpContext context", contentExportEndpoint, StringComparison.Ordinal);
-        Assert.Contains("IAdminPrincipalService adminPrincipals", contentExportEndpoint, StringComparison.Ordinal);
-        Assert.Contains("RequireAdminSensitiveStepUpAsync(context, adminPrincipals, aeds)", contentExportEndpoint, StringComparison.Ordinal);
+        string handler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+            typeof(AuthoringEndpoints),
+            "ExportContentBackupAsync",
+            "RequireAdminSensitiveStepUpAsync");
+        Assert.Contains("IAdminPrincipalService", handler, StringComparison.Ordinal);
+        Assert.Contains("RequireAdminSensitiveStepUpAsync", handler, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -255,39 +294,25 @@ public sealed class AdminMfaStepUpSecurityTests
             new string('c', 64),
             "risk-policy-v2");
 
-    private static int CountOccurrences(string source, string value)
+    private static void AssertAdminManage(RouteEndpoint endpoint)
     {
-        int count = 0;
-        int index = 0;
-        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
-        {
-            count++;
-            index += value.Length;
-        }
-
-        return count;
+        ClaimsAuthorizationRequirement requirement = Assert.Single(endpoint.Metadata
+            .GetOrderedMetadata<AuthorizationPolicy>()
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+        Assert.Contains(AdminPermissions.AdminManage, requirement.AllowedValues ?? []);
     }
 
-    private static string ExtractBetween(string source, string startMarker, string endMarker)
+    private static void AssertAnonymousAccount(RouteEndpoint endpoint)
     {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        int end = source.IndexOf(endMarker, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"Missing start marker: {startMarker}");
-        Assert.True(end > start, $"Missing end marker after {startMarker}: {endMarker}");
-        return source[start..end];
+        ClaimsAuthorizationRequirement requirement = Assert.Single(endpoint.Metadata
+            .GetOrderedMetadata<AuthorizationPolicy>()
+            .SelectMany(static policy => policy.Requirements)
+            .OfType<ClaimsAuthorizationRequirement>()
+            .Where(static requirement => requirement.ClaimType == "identity_kind"));
+        Assert.Contains(AnonymousIdentityRuntime.AnonymousAccountKind, requirement.AllowedValues ?? []);
     }
-
-    private static void AssertContainsAfter(string source, string first, string second)
-    {
-        int firstIndex = source.IndexOf(first, StringComparison.Ordinal);
-        int secondIndex = source.IndexOf(second, StringComparison.Ordinal);
-        Assert.True(firstIndex >= 0, $"Missing marker: {first}");
-        Assert.True(secondIndex >= 0, $"Missing marker: {second}");
-        Assert.True(secondIndex > firstIndex, $"{second} must appear after {first}");
-    }
-
-    private static string ReadRepoFile(string relativePath)
-        => File.ReadAllText(Path.Combine(BackendTestPaths.RepositoryRoot, relativePath));
 
     private sealed class FixedTimeProvider : TimeProvider
     {

@@ -62,6 +62,9 @@ for (const token of [
   'no real production domains',
   'no real personal emails',
   'no real IP addresses',
+  'Cover Evidence Rules',
+  'cover-art-manifest.json',
+  'center-80',
   'Brand And Asset Rights',
   'live frontend route audit flow',
   'manual-layout-screenshots',
@@ -116,7 +119,10 @@ for (const token of [
   'docsScreenshotWriterAllowed',
   'waitForHomeSecondaryContent',
   'pruneStaleDocsScreenshotAssets',
-  'data-home-hot-articles-aside'
+  'assertContentDrivenCoverContract',
+  'data-content-cover',
+  'data-cover-concept=',
+  'cover should avoid a large bright block'
 ]) {
   includes('tests/frontend/e2e/manual/manual-layout-screenshots.spec.ts', manualCapture, token)
 }
@@ -144,11 +150,109 @@ for (const token of [
 const pageAssemblies = read('src/frontend/src/public-renderers/pageAssemblies.ts')
 for (const token of [
   'FeaturedArticlesSection',
-  'HomeHotArticlesAside',
   'HomeTextFirstRecommendations',
-  'spotlightArticles.length > 0 && hotArticles.length > 0'
+  'createHomeEditorialPageState',
+  'showArticleCta: false'
 ]) {
   includes('src/frontend/src/public-renderers/pageAssemblies.ts', pageAssemblies, token)
+}
+
+const coverManifestPath = 'src/frontend/public/fixtures/cover-art-manifest.json'
+const coverManifestSource = read(coverManifestPath)
+try {
+  const coverManifest = JSON.parse(coverManifestSource)
+  if (coverManifest?.cropSafeArea?.token !== 'center-80') {
+    errors.push(`${coverManifestPath} crop safe area must be center-80`)
+  }
+
+  const positiveExamples = Array.isArray(coverManifest?.positiveExamples)
+    ? coverManifest.positiveExamples
+    : []
+  if (positiveExamples.length < 5) {
+    errors.push(`${coverManifestPath} must register at least five semantic cover examples`)
+  }
+
+  const concepts = new Set()
+  for (const example of positiveExamples) {
+    if (!example?.concept || concepts.has(example.concept)) {
+      errors.push(`${coverManifestPath} cover concepts must be present and unique`)
+    }
+    concepts.add(example?.concept)
+    if (example?.embeddedArticleCopy !== false) {
+      errors.push(`${coverManifestPath} ${example?.id ?? 'unknown'} must disable embedded article copy`)
+    }
+    if (example?.darkSafe !== true) {
+      errors.push(`${coverManifestPath} ${example?.id ?? 'unknown'} must record dark review`)
+    }
+
+    const publicPath = String(example?.path ?? '')
+    const assetPath = publicPath.startsWith('/fixtures/')
+      ? `src/frontend/public${publicPath}`
+      : ''
+    if (!assetPath) {
+      errors.push(`${coverManifestPath} ${example?.id ?? 'unknown'} has an invalid fixture path`)
+      continue
+    }
+
+    const asset = read(assetPath)
+    includes(assetPath, asset, `data-cover-concept="${example.concept}"`)
+    for (const forbidden of ['<text', '<linearGradient', '<radialGradient', '<filter', '<feDropShadow']) {
+      if (asset.includes(forbidden)) {
+        errors.push(`${assetPath} contains forbidden cover token ${forbidden}`)
+      }
+    }
+  }
+
+  const negativeIds = new Set(
+    (Array.isArray(coverManifest?.negativeExamples) ? coverManifest.negativeExamples : [])
+      .map((example) => example?.id)
+  )
+  for (const id of ['article-title-card', 'recolored-abstract-curve', 'decorative-gradient-glow', 'empty-media-placeholder']) {
+    if (!negativeIds.has(id)) errors.push(`${coverManifestPath} missing negative example ${id}`)
+  }
+} catch (error) {
+  errors.push(`${coverManifestPath} is invalid JSON: ${error instanceof Error ? error.message : String(error)}`)
+}
+
+const fixtureDiscovery = read('tests/frontend/fixtures/discover-playwright-fixtures.mjs')
+for (const token of ['copyFile', 'checkedInCoverFixtureDir', 'managedCoverFiles']) {
+  includes('tests/frontend/fixtures/discover-playwright-fixtures.mjs', fixtureDiscovery, token)
+}
+for (const forbidden of ['function buildCoverSvg', '<linearGradient', 'FsusBlog public fixture</text>']) {
+  if (fixtureDiscovery.includes(forbidden)) {
+    errors.push(`tests/frontend/fixtures/discover-playwright-fixtures.mjs contains retired cover template ${forbidden}`)
+  }
+}
+
+const homeCover = read('src/frontend/src/components/home/FeaturedArticlesSection.vue')
+const detailCover = read('src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue')
+for (const [path, source] of [
+  ['src/frontend/src/components/home/FeaturedArticlesSection.vue', homeCover],
+  ['src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue', detailCover]
+]) {
+  for (const token of ['data-content-cover', 'data-cover-safe-area', 'object-cover', 'object-center', 'shadow-none']) {
+    includes(path, source, token)
+  }
+  for (const forbidden of ['bg-gradient-', 'drop-shadow', 'backdrop-filter']) {
+    if (source.includes(forbidden)) errors.push(`${path} contains forbidden cover decoration ${forbidden}`)
+  }
+}
+
+const coverContract = read('src/frontend/src/view-contracts/coverArt.ts')
+for (const token of ['PUBLIC_COVER_SAFE_AREA_TOKEN', "'center-80'", "'50% 50%'", 'return null']) {
+  includes('src/frontend/src/view-contracts/coverArt.ts', coverContract, token)
+}
+
+const publicLayoutRules = read('docs/public-layout-rules.md')
+for (const token of [
+  '内容驱动的封面规范',
+  '界面截图、图表、代码或命令输出',
+  '中心 80% 安全区',
+  'object-position: 50% 50%',
+  "Don't：",
+  'Light/Dark 审核清单'
+]) {
+  includes('docs/public-layout-rules.md', publicLayoutRules, token)
 }
 
 const publicEntryRegistry = read('src/frontend/src/public-renderers/publicEntryRegistry.ts')

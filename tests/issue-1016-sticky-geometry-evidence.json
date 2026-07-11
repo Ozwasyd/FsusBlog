@@ -1,0 +1,106 @@
+{
+  "schema": "fsusblog.issue-1016.public-shell-sticky-geometry-evidence.v1",
+  "issue": 1016,
+  "status": "implementation-and-central-wiring-complete-validation-pending",
+  "liveIssueSnapshot": {
+    "state": "closed",
+    "stateReason": "completed",
+    "originalImplementationCommit": "c5f98e10",
+    "commentId": 4929982964,
+    "historicalValidationClaimOnly": true
+  },
+  "implementation": {
+    "shell": "src/frontend/src/components/public/PublicBlogLayoutShell.vue",
+    "geometryComposable": "src/frontend/src/components/public/usePublicStickyGeometry.ts",
+    "shellModifiedByThisPass": false,
+    "composableModifiedByThisPass": true,
+    "headerSelector": ".fsusblog-public-shell-header",
+    "measuredElementClass": ".el-public-shell__header",
+    "fsusUiBoundary": "Runtime lookup uses only the FsusBlog-owned selector; the selected DOM element is also the actual FsusUI public header.",
+    "selectorTimeline": {
+      "issue1016HistoricalState": ".el-public-shell__header",
+      "issue1018SupersedingFinalState": ".fsusblog-public-shell-header",
+      "behaviorPreserved": "The same actual public header element carries both classes and remains the measurement target."
+    },
+    "tokens": {
+      "headerHeight": "--fsusblog-public-header-height-current",
+      "stickyTop": "--fsusblog-public-sticky-top",
+      "anchorOffset": "--fsusblog-public-anchor-offset"
+    },
+    "ssrFallback": {
+      "headerHeight": "var(--fsusblog-public-header-height, 4rem)",
+      "stickyTop": "var(--fsusblog-public-header-height-current)",
+      "anchorOffset": "calc(var(--fsusblog-public-sticky-top) + 0.75rem)"
+    },
+    "observers": [
+      "ResizeObserver on actual public header",
+      "window resize listener"
+    ],
+    "cleanup": [
+      "ResizeObserver.disconnect",
+      "window.removeEventListener resize with registered handler"
+    ]
+  },
+  "testFile": "tests/frontend/unit/components/usePublicStickyGeometry.test.ts",
+  "acceptanceMappings": [
+    {
+      "criterion": "token names exist and initial measured height is published",
+      "testId": "vitest:tests/frontend/unit/components/usePublicStickyGeometry.test.ts#publishes actual header geometry and keeps it current after resize"
+    },
+    {
+      "criterion": "header ResizeObserver changes update all tokens",
+      "testId": "vitest:tests/frontend/unit/components/usePublicStickyGeometry.test.ts#publishes actual header geometry and keeps it current after resize"
+    },
+    {
+      "criterion": "viewport resize republishes current height",
+      "testId": "vitest:tests/frontend/unit/components/usePublicStickyGeometry.test.ts#publishes actual header geometry and keeps it current after resize"
+    },
+    {
+      "criterion": "component unmount disconnects observer and removes listener",
+      "testId": "vitest:tests/frontend/unit/components/usePublicStickyGeometry.test.ts#publishes actual header geometry and keeps it current after resize"
+    },
+    {
+      "criterion": "SSR/AOT retains static fallback without JavaScript",
+      "evidencePath": "src/frontend/src/components/public/PublicBlogLayoutShell.vue#publicShellStyle"
+    },
+    {
+      "criterion": "no intentional header visual change",
+      "evidence": "This pass modifies no Vue template, scoped style, CSS, FsusUI, or archive consumer file."
+    }
+  ],
+  "centralGovernanceReadback": [
+    {
+      "path": "tests/coverage-registry.json",
+      "operation": "registered-present-not-verified",
+      "id": "frontend-public-shell-sticky-geometry",
+      "evidencePaths": [
+        "src/frontend/src/components/public/usePublicStickyGeometry.ts",
+        "tests/frontend/unit/components/usePublicStickyGeometry.test.ts",
+        "tests/issue-1016-sticky-geometry-evidence.json"
+      ]
+    },
+    {
+      "path": "tests/matrix.yml",
+      "operation": "registered-present-not-verified",
+      "tier": "frontend-unit-shard"
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "operation": "none",
+      "reason": "This is a frontend geometry contract, not a backend requirement."
+    },
+    {
+      "path": "tools/test/lanes/static-governance.sh",
+      "operation": "none",
+      "reason": "Executable Vitest behavior owns this contract; no new source-shape checker is added."
+    },
+    {
+      "path": "docs/public-layout-rules.md",
+      "operation": "documented-present-not-verified"
+    }
+  ],
+  "verification": {
+    "commandsExecuted": [],
+    "result": "not-run-by-instruction"
+  }
+}

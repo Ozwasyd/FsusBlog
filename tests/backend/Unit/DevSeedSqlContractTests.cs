@@ -1,78 +1,159 @@
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class DevSeedSqlContractTests
+[Trait("Category", "Integration")]
+[Trait("Category", "Security")]
+[Trait("Category", "Migration")]
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class DevSeedSqlContractTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public void DemoSeedSql_UsesAnonymousAccountsAndAdminPrincipalPlane()
+    public async Task DemoSeedSql_ExecutesTwiceAgainstEmptyProductionSchemaAndPreservesDataInvariants()
     {
-        string seedSql = BackendTestPaths.ReadAllTextFromRoot("tools/dev/demo-seed.sql");
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        PostgresSqlSugarTestClient.InitTables(
+            db,
+            typeof(User),
+            typeof(AdminPrincipal),
+            typeof(AdminPasskeyCredential),
+            typeof(Category),
+            typeof(Tag),
+            typeof(Article),
+            typeof(ArticleBody),
+            typeof(ArticleTag),
+            typeof(Comment),
+            typeof(AuditLog));
+        string seedPath = BackendTestPaths.FromRoot("tools", "dev", "demo-seed.sql");
 
-        Assert.Contains("insert into sys_user (public_handle, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at,", seedSql, StringComparison.Ordinal);
-        Assert.Contains("'anonymous_account'", seedSql, StringComparison.Ordinal);
-        Assert.Contains("insert into admin_principal (handle, displayname, status, isroot, permissions, createdatutc)", seedSql, StringComparison.Ordinal);
-        Assert.Contains("'disabled', false", seedSql, StringComparison.Ordinal);
-        Assert.Contains("on conflict (handle) do nothing", seedSql, StringComparison.Ordinal);
-        Assert.Contains("insert into category (name)", seedSql, StringComparison.Ordinal);
-        Assert.Contains("insert into tag (name)", seedSql, StringComparison.Ordinal);
-        Assert.Contains("insert into article_tag (articleid, tagid)", seedSql, StringComparison.Ordinal);
-        Assert.Contains("id, article_id, content, create_time, author_mode,", seedSql, StringComparison.Ordinal);
-        Assert.Contains("anonymous_display_name", seedSql, StringComparison.Ordinal);
-        Assert.Contains("anonymous_scope", seedSql, StringComparison.Ordinal);
-        Assert.Contains("moderation_subject_hash", seedSql, StringComparison.Ordinal);
-        Assert.Contains("credential_level", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("insert into sys_user (username, password, role", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("role = excluded.role", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("role = 'admin'", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("lastloginip", seedSql, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("lastlogintime", seedSql, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("create_time, user_id, author_mode", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("reply_to_user_id", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("moderated_by_user_id", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("from sys_user", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"Username\"", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"Category\"", seedSql, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"ArticleId\"", seedSql, StringComparison.Ordinal);
+        Assert.Equal(0, await db.Queryable<User>().CountAsync());
+        Assert.Equal(0, await db.Queryable<Article>().CountAsync());
+        Assert.Equal(0, await db.Queryable<Comment>().CountAsync());
+
+        await fixture.ExecuteSqlFileAsync(connectionString, seedPath);
+        SeedSnapshot first = await ReadSnapshotAsync(connectionString, db);
+        await AssertSeedSemanticsAsync(connectionString, db, first);
+
+        await fixture.ExecuteSqlFileAsync(connectionString, seedPath);
+        SeedSnapshot second = await ReadSnapshotAsync(connectionString, db);
+        await AssertSeedSemanticsAsync(connectionString, db, second);
+
+        Assert.Equal(first, second);
     }
 
-    [Fact]
-    public void DemoDataDocs_DescribeAnonymousSeedAndAdminBootstrapOnly()
+    private async Task AssertSeedSemanticsAsync(
+        string connectionString,
+        SqlSugarClient db,
+        SeedSnapshot snapshot)
     {
-        string docs = BackendTestPaths.ReadAllTextFromRoot("docs/development/demo-data.md");
-        string seedScript = BackendTestPaths.ReadAllTextFromRoot("tools/dev/seed-demo-data.sh");
+        Assert.Equal(new SeedSnapshot(
+            Users: 1,
+            AdminPrincipals: 1,
+            AdminPasskeys: 0,
+            Categories: 2,
+            Tags: 4,
+            Articles: 2,
+            ArticleBodies: 2,
+            ArticleTags: 4,
+            Comments: 2,
+            AuditEvents: 2), snapshot);
 
-        Assert.Contains("anonymous account container", docs, StringComparison.Ordinal);
-        Assert.Contains("admin principal", docs, StringComparison.Ordinal);
-        Assert.Contains("Passkey", docs, StringComparison.Ordinal);
-        Assert.DoesNotContain("ChangeMe123!", docs, StringComparison.Ordinal);
-        Assert.DoesNotContain("| Admin |", docs, StringComparison.Ordinal);
-        Assert.DoesNotContain("| User |", docs, StringComparison.Ordinal);
-        Assert.Contains("Admin principal handle: demo-admin", seedScript, StringComparison.Ordinal);
-        Assert.DoesNotContain("Admin password", seedScript, StringComparison.Ordinal);
+        User user = await db.Queryable<User>().SingleAsync(item => item.PublicHandle == "demo-reader");
+        Assert.Equal(AnonymousIdentityRuntime.AnonymousAccountKind, user.IdentityKind);
+        Assert.False(user.PasskeyEnabled);
+        Assert.False(user.RecoveryEnabled);
+        Assert.NotNull(user.PrivacyInitializedAt);
+        Assert.Equal("basic", user.AnonymousCredentialLevel);
+        Assert.Equal("active", user.AnonymousCredentialStatus);
+
+        AdminPrincipal admin = await db.Queryable<AdminPrincipal>().SingleAsync(item => item.Handle == "demo-admin");
+        Assert.Equal(AdminPrincipalStatus.Disabled, admin.Status);
+        Assert.False(admin.IsRoot);
+        Assert.Empty(admin.Permissions);
+        Assert.Equal(0, await db.Queryable<AdminPasskeyCredential>()
+            .Where(item => item.AdminPrincipalId == admin.Id)
+            .CountAsync());
+        Assert.Equal(0, await db.Queryable<User>()
+            .Where(item => item.PublicHandle == "demo-admin")
+            .CountAsync());
+
+        Assert.Equal(0, await fixture.QueryScalarAsync<long>(
+            connectionString,
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'sys_user'
+              AND lower(column_name) IN ('username', 'password', 'role', 'lastloginip', 'lastlogintime');
+            """));
+
+        Assert.Equal(2, await fixture.QueryScalarAsync<long>(
+            connectionString,
+            """
+            SELECT COUNT(*)
+            FROM article a
+            JOIN category c ON c.id = a.categoryid
+            WHERE a.id IN (910001, 910002)
+              AND c.name IN ('Public Preview', 'Operations Notes');
+            """));
+        Assert.Equal(4, await fixture.QueryScalarAsync<long>(
+            connectionString,
+            """
+            SELECT COUNT(*)
+            FROM article_tag at
+            JOIN article a ON a.id = at.articleid
+            JOIN tag t ON t.id = at.tagid
+            WHERE a.id IN (910001, 910002)
+              AND t.name IN ('demo', 'aeds', 'public-aot');
+            """));
+        Assert.Equal(2, await fixture.QueryScalarAsync<long>(
+            connectionString,
+            """
+            SELECT COUNT(*)
+            FROM comment c
+            JOIN article a ON a.id = c.article_id
+            WHERE c.id IN (9100001, 9100002)
+              AND c.author_mode = 'anonymous'
+              AND c.user_id IS NULL
+              AND c.public_handle IS NULL
+              AND nullif(c.anonymous_handle, '') IS NOT NULL
+              AND nullif(c.anonymous_display_name, '') IS NOT NULL
+              AND nullif(c.anonymous_nullifier_hash, '') IS NOT NULL
+              AND nullif(c.anonymous_scope, '') IS NOT NULL
+              AND nullif(c.moderation_subject_hash, '') IS NOT NULL
+              AND nullif(c.credential_level, '') IS NOT NULL;
+            """));
     }
 
-    [Fact]
-    public void DevStart_SeedsAnonymousCommentPrivacyFixtureForLocalDemo()
-    {
-        string startScript = BackendTestPaths.ReadAllTextFromRoot("tools/dev/start.sh");
+    private async Task<SeedSnapshot> ReadSnapshotAsync(string connectionString, SqlSugarClient db)
+        => new(
+            Users: await db.Queryable<User>().CountAsync(),
+            AdminPrincipals: await db.Queryable<AdminPrincipal>().CountAsync(),
+            AdminPasskeys: await db.Queryable<AdminPasskeyCredential>().CountAsync(),
+            Categories: await db.Queryable<Category>().CountAsync(),
+            Tags: await db.Queryable<Tag>().CountAsync(),
+            Articles: await db.Queryable<Article>().CountAsync(),
+            ArticleBodies: await db.Queryable<ArticleBody>().CountAsync(),
+            ArticleTags: await db.Queryable<ArticleTag>().CountAsync(),
+            Comments: await db.Queryable<Comment>().CountAsync(),
+            AuditEvents: await fixture.QueryScalarAsync<int>(
+                connectionString,
+                "SELECT COUNT(*) FROM sys_audit_log WHERE source = 'demo-seed';"));
 
-        Assert.Contains("AnonymousIdentity__ZkAnonymousCommentsEnabled", startScript, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentity__ZkVerifier__Enabled", startScript, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentity__ZkVerifier__LocalDevFixture__Enabled", startScript, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentity__ZkProd__Enabled", startScript, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentity__ZkVerifier__NativeGroth16__LibraryPath", startScript, StringComparison.Ordinal);
-        Assert.Contains("tests/fixtures/zk/comment-v2/mcl-pairing/comment_v2_mcl_pairing.vk", startScript, StringComparison.Ordinal);
-        Assert.Contains("tools/dev/bootstrap-anonymous-comment-fixture.sh", startScript, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void HistoricalResidueBlocksLegacyDemoPasswordSeed()
-    {
-        string residue = BackendTestPaths.ReadAllTextFromRoot("tools/check-historical-residue.sh");
-
-        Assert.Contains("legacy demo seed password user model", residue, StringComparison.Ordinal);
-        Assert.Contains("tools/dev/demo-seed.sql", residue, StringComparison.Ordinal);
-        Assert.Contains("docs/development/demo-data.md", residue, StringComparison.Ordinal);
-    }
+    private sealed record SeedSnapshot(
+        int Users,
+        int AdminPrincipals,
+        int AdminPasskeys,
+        int Categories,
+        int Tags,
+        int Articles,
+        int ArticleBodies,
+        int ArticleTags,
+        int Comments,
+        int AuditEvents);
 }

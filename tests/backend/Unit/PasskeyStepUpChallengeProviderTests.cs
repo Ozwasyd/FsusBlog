@@ -327,6 +327,8 @@ public sealed class PasskeyStepUpChallengeProviderTests
 
         public Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginRegistrationAsync(int accountId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(bool Success, string Message)> CompleteRegistrationAsync(int accountId, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<RecoveryPasskeyRegistrationResult> CompleteRecoveryRegistrationAsync(RecoveryKeySession session, string recoverySessionHash, string recoveryRequestHash, PasskeyRegisterCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<RecoveryPasskeyRegistrationResult?> TryResolveRecoveryRegistrationAsync(string recoverySessionHash, string recoveryRequestHash, string registrationSessionKey, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(bool Success, string Message, PasskeyAuthBeginData? Data)> BeginAssertionAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<(bool Success, string Message, User? User)> CompleteAssertionAsync(PasskeyLoginCompleteCoreModel request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IList<PasskeyCredentialSummaryDto>> GetCredentialsAsync(int accountId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

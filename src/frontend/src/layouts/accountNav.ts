@@ -1,8 +1,18 @@
 export type AccountArea = 'self' | 'manage'
 export type AccountContentMode = 'standard' | 'wide' | 'takeover'
-export type AccountNavGroupKey = 'self' | 'identity' | 'content' | 'interaction' | 'system' | 'ops'
+export type AccountNavGroupKey =
+  | 'self'
+  | 'identity'
+  | 'workbench'
+  | 'content'
+  | 'interaction'
+  | 'security'
+  | 'system'
+  | 'ops'
 export type AccountWorkspaceFeatureKey = 'anonymousCommentsEnabled' | 'zkAnonymousEnabled' | 'publicSendOptionEnabled'
 export type AccountWorkspacePolicyKey = 'anonymousCommentGovernanceAvailable' | 'zkAnonymousConfigurable'
+
+export const ACCOUNT_GLOBAL_MODULE_LIMIT = 7
 
 export interface AccountNavWorkspaceContext {
   surface: AccountArea
@@ -34,8 +44,17 @@ export interface AccountNavGroup {
   label: string
   helper?: string
   area: AccountArea
+  to: string
   items: AccountNavItem[]
 }
+
+type AccountNavGroupTemplate = Readonly<{
+  key: AccountNavGroupKey
+  label: string
+  helper?: string
+  area: AccountArea
+  landingTo: string
+}>
 
 export const accountAreaMeta: Record<AccountArea, AccountAreaMeta> = {
   self: {
@@ -46,6 +65,14 @@ export const accountAreaMeta: Record<AccountArea, AccountAreaMeta> = {
   }
 }
 
+const anonymousGovernancePaths = [
+  '/user/manage/moderation/anonymous-policy',
+  '/user/manage/moderation/anonymous-risk',
+  '/user/manage/moderation/anonymous-credentials',
+  '/user/manage/moderation/nullifiers',
+  '/user/manage/moderation/zk-anonymous'
+] as const
+
 const accountNavItems: readonly AccountNavItem[] = [
   { label: '身份中心', to: '/user/identity', area: 'self', groupKey: 'self', match: (path) => path === '/user/identity' },
   { label: '我的消息', to: '/user/messagebox', area: 'self', groupKey: 'self' },
@@ -55,7 +82,9 @@ const accountNavItems: readonly AccountNavItem[] = [
   { label: '公开评论', to: '/user/identity/comment-records', area: 'self', groupKey: 'identity' },
   { label: '设备会话', to: '/user/identity/sessions', area: 'self', groupKey: 'identity' },
   { label: '二次验证', to: '/user/identity/mfa', helper: 'TOTP', area: 'self', groupKey: 'identity' },
-  { label: '仪表盘', to: '/user/manage', area: 'manage', groupKey: 'content', adminOnly: true },
+
+  { label: '仪表盘', to: '/user/manage', area: 'manage', groupKey: 'workbench', adminOnly: true, requiredPermission: 'admin.manage', match: (path) => path === '/user/manage' },
+
   {
     label: '文章',
     to: '/user/manage/article/list',
@@ -68,7 +97,11 @@ const accountNavItems: readonly AccountNavItem[] = [
       || path.startsWith('/user/manage/article/write')
       || path.startsWith('/user/manage/article/edit/')
   },
-  { label: '回收站', to: '/user/manage/article/trash', area: 'manage', groupKey: 'content', adminOnly: true },
+  { label: '回收站', to: '/user/manage/article/trash', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
+  { label: '分类', to: '/user/manage/category', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
+  { label: '标签', to: '/user/manage/tag', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
+  { label: '资产库', to: '/user/manage/assets', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
+
   {
     label: '审核系统',
     to: '/user/manage/moderation',
@@ -77,67 +110,97 @@ const accountNavItems: readonly AccountNavItem[] = [
     groupKey: 'interaction',
     adminOnly: true,
     requiredPermission: 'comment.moderate',
-    match: (path) =>
-      path.startsWith('/user/manage/moderation')
-      || path.startsWith('/user/manage/comments')
+    match: (path) => (
+      path.startsWith('/user/manage/comments')
+      || (
+        path.startsWith('/user/manage/moderation')
+        && !anonymousGovernancePaths.some((governancePath) => (
+          path === governancePath || path.startsWith(`${governancePath}/`)
+        ))
+      )
+    )
   },
+  { label: '站内信', to: '/user/manage/messages', helper: '工单', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'admin.manage' },
+  { label: '用户', to: '/user/manage/users', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'admin.manage' },
   { label: '匿名评论策略', to: '/user/manage/moderation/anonymous-policy', helper: '开关', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'anonymous.comment.configure', requiredPolicy: 'anonymousCommentGovernanceAvailable' },
   { label: '匿名风险', to: '/user/manage/moderation/anonymous-risk', helper: '风险桶', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'comment.moderate', requiredFeature: 'anonymousCommentsEnabled', requiredPolicy: 'anonymousCommentGovernanceAvailable' },
   { label: '匿名资格', to: '/user/manage/moderation/anonymous-credentials', helper: '撤销', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'anonymous.credential.revoke', requiredFeature: 'anonymousCommentsEnabled', requiredPolicy: 'anonymousCommentGovernanceAvailable' },
   { label: '匿名标识', to: '/user/manage/moderation/nullifiers', helper: '封禁', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'anonymous.nullifier.block', requiredFeature: 'anonymousCommentsEnabled', requiredPolicy: 'anonymousCommentGovernanceAvailable' },
   { label: '隐私证明状态', to: '/user/manage/moderation/zk-anonymous', helper: '证明', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'anonymous.comment.configure', requiredPolicy: 'zkAnonymousConfigurable' },
-  {
-    label: '站内信',
-    to: '/user/manage/messages',
-    helper: '工单',
-    area: 'manage',
-    groupKey: 'interaction',
-    adminOnly: true,
-    match: (path) => path.startsWith('/user/manage/messages')
-  },
-  { label: '分类', to: '/user/manage/category', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
-  { label: '标签', to: '/user/manage/tag', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
-  { label: '资产库', to: '/user/manage/assets', area: 'manage', groupKey: 'content', adminOnly: true, requiredPermission: 'article.write' },
-  { label: '备份迁移', to: '/user/manage/content-tools', helper: '导入/导出', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'system.config' },
+
   {
     label: '安全系统',
     to: '/user/manage/security',
-    helper: 'PoW',
+    helper: '风险防护',
     area: 'manage',
-    groupKey: 'system',
+    groupKey: 'security',
     adminOnly: true,
     requiredPermission: 'system.config',
     match: (path) => path.startsWith('/user/manage/security')
   },
+
+  { label: '系统设置', to: '/user/manage/settings', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'system.config' },
+  { label: '备份迁移', to: '/user/manage/content-tools', helper: '导入/导出', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'system.config' },
   { label: '审计日志', to: '/user/manage/audit', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'audit.read' },
+
   { label: '数据概览', to: '/user/manage/analytics', helper: '统计', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'admin.manage' },
   { label: '服务与后台状态', to: '/user/manage/ops', helper: '后台', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
   { label: '缓存与索引', to: '/user/manage/cache', helper: '索引', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
   { label: '内容一致性', to: '/user/manage/integrity', helper: '一致性', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' },
-  { label: '用户', to: '/user/manage/users', area: 'manage', groupKey: 'interaction', adminOnly: true, requiredPermission: 'admin.manage' },
-  { label: '系统设置', to: '/user/manage/settings', area: 'manage', groupKey: 'system', adminOnly: true, requiredPermission: 'system.config' }
+  { label: 'Integrity Proof', to: '/user/manage/integrity-proof', helper: '证明', area: 'manage', groupKey: 'ops', adminOnly: true, requiredPermission: 'system.config' }
 ]
 
-const navGroupTemplates: readonly Omit<AccountNavGroup, 'items'>[] = [
-  { key: 'self', label: '账户', area: 'self' },
-  { key: 'identity', label: '身份', area: 'self' },
-  { key: 'content', label: '内容', area: 'manage' },
-  { key: 'interaction', label: '互动', area: 'manage' },
-  { key: 'system', label: '系统', area: 'manage' },
-  { key: 'ops', label: '运维', area: 'manage' }
+const navGroupTemplates: readonly AccountNavGroupTemplate[] = [
+  { key: 'self', label: '账户', helper: '身份与消息', area: 'self', landingTo: '/user/identity' },
+  { key: 'identity', label: '身份', helper: '凭证与会话', area: 'self', landingTo: '/user/identity/passkeys' },
+  { key: 'workbench', label: '工作台', helper: '今日待办', area: 'manage', landingTo: '/user/manage' },
+  { key: 'content', label: '内容', helper: '文章与素材', area: 'manage', landingTo: '/user/manage/article/list' },
+  { key: 'interaction', label: '互动', helper: '审核与用户', area: 'manage', landingTo: '/user/manage/moderation' },
+  { key: 'security', label: '安全', helper: '风险防护', area: 'manage', landingTo: '/user/manage/security' },
+  { key: 'system', label: '系统', helper: '配置与审计', area: 'manage', landingTo: '/user/manage/settings' },
+  { key: 'ops', label: '运维', helper: '指标与一致性', area: 'manage', landingTo: '/user/manage/analytics' }
 ]
 
 export function getAccountNavGroups(context: AccountNavWorkspaceContext): AccountNavGroup[] {
-  return navGroupTemplates
-    .filter((group) => group.area === 'self' || context.canManage)
-    .map((group) => ({
-      ...group,
-      items: accountNavItems.filter((item) => item.groupKey === group.key && isNavItemVisible(item, context))
-    }))
-    .filter((group) => group.items.length > 0)
+  const groups = navGroupTemplates
+    .filter((group) => group.area === context.surface)
+    .map((group): AccountNavGroup | null => {
+      const items = accountNavItems.filter((item) => (
+        item.groupKey === group.key && isNavItemVisible(item, context)
+      ))
+      const landingItem = items.find((item) => item.to === group.landingTo) ?? items[0]
+
+      return landingItem ? {
+        key: group.key,
+        label: group.label,
+        helper: group.helper,
+        area: group.area,
+        to: landingItem.to,
+        items
+      } : null
+    })
+    .filter((group): group is AccountNavGroup => group !== null)
+
+  return groups.slice(0, ACCOUNT_GLOBAL_MODULE_LIMIT)
+}
+
+export function isAccountNavItemActive(item: AccountNavItem, path: string): boolean {
+  if (item.match) {
+    return item.match(path)
+  }
+
+  return path === item.to || path.startsWith(`${item.to}/`)
+}
+
+export function isAccountNavGroupActive(group: AccountNavGroup, path: string): boolean {
+  return group.items.some((item) => isAccountNavItemActive(item, path))
 }
 
 function isNavItemVisible(item: AccountNavItem, context: AccountNavWorkspaceContext): boolean {
+  if (item.area !== context.surface) {
+    return false
+  }
+
   if (item.area === 'manage' && !context.canManage) {
     return false
   }

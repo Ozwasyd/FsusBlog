@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.Core.Integrity;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -156,13 +155,12 @@ public sealed class ArtifactDigestV1Tests
         Assert.Equal(Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant(), digest.Sha256Hex);
         Assert.Equal(payload.Length, digest.Length);
 
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src",
-            "core",
-            "Integrity",
-            "ArtifactDigestV1.cs"));
-        Assert.Contains("ArrayPool<byte>.Shared.Rent", source, StringComparison.Ordinal);
+        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArtifactDigestV1),
+            nameof(ArtifactDigestV1.TryComputeStreamAsync));
+        Assert.Contains("ArrayPool", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Rent", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Return", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -220,22 +218,17 @@ public sealed class ArtifactDigestV1Tests
     }
 
     [Fact]
-    public void Source_IsCoreOnlyAndDoesNotReferenceExternalStorageOrChainAnchors()
+    public void RuntimeType_IsCoreOnlyAndDoesNotReferenceExternalStorageOrChainAnchors()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src",
-            "core",
-            "Integrity",
-            "ArtifactDigestV1.cs"));
-
-        Assert.DoesNotContain("FsusBlog.Server", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("SqlSugar", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpContext", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IPFS", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Arweave", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Nethereum", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
+        Assert.Equal("FsusBlog.Core", typeof(ArtifactDigestV1).Assembly.GetName().Name);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ArtifactDigestV1));
+        Assert.DoesNotContain("FsusBlog.Server", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("SqlSugar", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpContext", runtimeShape, StringComparison.Ordinal);
+        Assert.DoesNotContain("IPFS", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Arweave", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Nethereum", runtimeShape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("HttpClient", runtimeShape, StringComparison.Ordinal);
     }
 
     private sealed class ThrowingReadStream : Stream

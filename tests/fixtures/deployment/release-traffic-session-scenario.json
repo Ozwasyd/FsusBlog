@@ -1,0 +1,193 @@
+{
+  "schema": "fsusblog.release-traffic-scenario.v1",
+  "requests": [
+    {
+      "id": "home-request",
+      "category": "home",
+      "path": "/home",
+      "expectedStatus": [200],
+      "responseAssertions": {
+        "headers": [
+          { "name": "content-type", "operator": "contains", "value": "text/plain" }
+        ],
+        "body": { "utf8Contains": ["home-ok"], "minBytes": 7, "maxBytes": 64 }
+      }
+    },
+    {
+      "id": "archive-request",
+      "category": "archive",
+      "path": "/archive",
+      "expectedStatus": [200]
+    },
+    {
+      "id": "gateway-hold-request",
+      "category": "article",
+      "path": "/hold",
+      "expectedStatus": [200],
+      "responseAssertions": {
+        "body": { "utf8Contains": ["held-through-switch"] }
+      },
+      "holdAcrossGatewaySwitch": {
+        "minimumDurationMs": 5,
+        "requireTargetResponse": true
+      }
+    },
+    {
+      "id": "binary-request",
+      "category": "binary",
+      "path": "/binary",
+      "expectedStatus": [200],
+      "responseAssertions": {
+        "headers": [
+          { "name": "content-type", "operator": "contains", "value": "application/octet-stream" },
+          { "name": "x-fsus-frame-encoding", "operator": "equals", "value": "aeds-v2" }
+        ],
+        "aeds": {
+          "frameTypes": [1],
+          "flags": 0,
+          "minPayloadBytes": 0,
+          "maxPayloadBytes": 0,
+          "payloadSha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "id": "search-request",
+      "category": "search",
+      "path": "/search",
+      "expectedStatus": [200]
+    },
+    {
+      "id": "static-request",
+      "category": "static",
+      "path": "/static",
+      "expectedStatus": [200],
+      "responseAssertions": {
+        "body": {
+          "sha256": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "maxBytes": 0
+        }
+      }
+    },
+    {
+      "id": "login-request",
+      "category": "login",
+      "path": "/session/login",
+      "method": "POST",
+      "expectedStatus": [200],
+      "cookieAssertions": {
+        "requestAbsent": ["fsus_session"],
+        "responseSet": ["fsus_session"]
+      },
+      "responseAssertions": {
+        "body": { "json": [{ "pointer": "/ok", "equals": true }] }
+      }
+    },
+    {
+      "id": "refresh-request",
+      "category": "refresh",
+      "path": "/session/refresh",
+      "method": "POST",
+      "expectedStatus": [200],
+      "cookieAssertions": {
+        "requestPresent": ["fsus_session"],
+        "responseSet": ["fsus_session"]
+      },
+      "responseAssertions": {
+        "body": { "json": [{ "pointer": "/refreshed", "equals": true }] }
+      }
+    },
+    {
+      "id": "protected-request",
+      "category": "protected-read",
+      "path": "/session/protected",
+      "expectedStatus": [200],
+      "cookieAssertions": {
+        "requestPresent": ["fsus_session"]
+      },
+      "responseAssertions": {
+        "body": { "json": [{ "pointer": "/authorized", "equals": true }] }
+      }
+    },
+    {
+      "id": "write-request",
+      "category": "write",
+      "path": "/write",
+      "method": "POST",
+      "expectedStatus": [200]
+    },
+    {
+      "id": "upload-request",
+      "category": "upload",
+      "path": "/upload",
+      "method": "POST",
+      "expectedStatus": [200]
+    },
+    {
+      "id": "admin-health-request",
+      "category": "admin-health",
+      "path": "/admin-health",
+      "expectedStatus": [200]
+    }
+  ],
+  "sessionChains": [
+    {
+      "id": "authenticated-session",
+      "requestIds": ["login-request", "refresh-request", "protected-request"],
+      "resetBeforeEachCycle": true
+    }
+  ],
+  "releaseIdentityPolicy": {
+    "schema": "fsusblog.release-traffic-release-policy.v1",
+    "required": true,
+    "rules": [
+      {
+        "stages": [
+          "status:planned",
+          "manifest-validate",
+          "capacity-preflight",
+          "backup-restore-gate",
+          "expand-migration",
+          "candidate-start",
+          "candidate-readiness",
+          "asset-materialize",
+          "candidate-smoke",
+          "compatibility-smoke"
+        ],
+        "categories": [
+          "home", "archive", "article", "binary", "search", "static",
+          "login", "refresh", "protected-read", "write", "upload", "admin-health"
+        ],
+        "allowed": ["source"]
+      },
+      {
+        "stages": ["gateway-switch"],
+        "categories": [
+          "home", "archive", "article", "binary", "search", "static",
+          "login", "refresh", "protected-read", "write", "upload", "admin-health"
+        ],
+        "allowed": ["source", "target"]
+      },
+      {
+        "stages": [
+          "active-fence",
+          "public-verify",
+          "source-drain",
+          "source-stop",
+          "release-evidence",
+          "status:completed"
+        ],
+        "categories": [
+          "home", "archive", "article", "binary", "search", "static",
+          "login", "refresh", "protected-read", "write", "upload", "admin-health"
+        ],
+        "allowed": ["target"]
+      }
+    ]
+  },
+  "finalBinding": {
+    "schema": "fsusblog.release-traffic-final-binding-plan.v1",
+    "required": true,
+    "algorithm": "hmac-sha256"
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "schema": "fsusblog.issue-1037.central-handoff.v1",
+  "issue": 1037,
+  "status": "central-wiring-complete-validation-pending",
+  "sharedFilesNotModifiedByOriginalIssuePass": [
+    "tests/coverage-registry.json",
+    "tests/matrix.yml",
+    "tests/backend/Fixtures/backend-test-requirements.json",
+    "tools/test/lanes/static-governance.sh"
+  ],
+  "requiredWiring": [
+    {
+      "path": "tools/test/lanes/static-governance.sh",
+      "operation": "append-once",
+      "command": "node --test tests/tools/security-source-analyzer.test.mjs",
+      "constraint": "Do not add a maximum error count; preserve every Roslyn diagnostic from one run."
+    },
+    {
+      "path": "tests/coverage-registry.json",
+      "operation": "add-entry",
+      "id": "backend-security-hardening-boundary-and-ast",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "assertionType": "behavior-and-static-analysis",
+      "tierIds": [
+        "backend-unit",
+        "static-governance",
+        "backend-mutation",
+        "production"
+      ],
+      "evidencePaths": [
+        "tests/backend/Unit/SecurityHardening",
+        "security/backend-source-policy.json",
+        "tests/tools/security-source-analyzer.test.mjs",
+        "tests/backend/issue-1037-security-hardening-evidence.json",
+        "tests/backend/issue-1037-retention-replacements.json"
+      ],
+      "failClosedRule": "Reject missing behavior suites, missing positive/negative Roslyn fixture coverage, incomplete 19-ID replacement mapping, or any repository analyzer diagnostic."
+    },
+    {
+      "path": "tests/matrix.yml",
+      "operation": "append-coverage-and-evidence",
+      "coverageId": "backend-security-hardening-boundary-and-ast",
+      "tierUpdates": [
+        {
+          "tierId": "backend-unit",
+          "appendCoverage": true,
+          "appendEvidencePath": "tests/backend/issue-1037-security-hardening-evidence.json"
+        },
+        {
+          "tierId": "static-governance",
+          "appendCoverage": true,
+          "appendEvidencePath": "tests/tools/security-source-analyzer.test.mjs"
+        },
+        {
+          "tierId": "backend-mutation",
+          "appendCoverage": true,
+          "appendEvidencePath": "tests/backend/issue-1037-retention-replacements.json"
+        },
+        {
+          "tierId": "production",
+          "appendCoverage": true,
+          "appendEvidencePath": "tests/backend/issue-1037-security-hardening-evidence.json"
+        }
+      ]
+    },
+    {
+      "path": "tests/backend/Fixtures/backend-test-requirements.json",
+      "operation": "append-evidence-paths",
+      "requestedOwners": [
+        "CanonicalPathBoundaryTests",
+        "InputLimitBoundaryTests",
+        "CryptographyBoundaryTests",
+        "DisclosureBoundaryTests",
+        "UploadBoundaryTests"
+      ],
+      "evidencePaths": [
+        "tests/backend/issue-1037-security-hardening-evidence.json",
+        "tests/backend/issue-1037-retention-replacements.json"
+      ]
+    },
+    {
+      "path": "tests/test-retention-replacements.json",
+      "operation": "merge-deleted-tests",
+      "source": "tests/backend/issue-1037-retention-replacements.json",
+      "expectedDeletedTestIds": 19
+    }
+  ],
+  "wiringReadback": {
+    "status": "present-not-verified",
+    "coverageId": "backend-security-hardening-boundary-and-ast",
+    "retentionDeletedTestIds": 19,
+    "staticGovernanceCommand": "node --test tests/tools/security-source-analyzer.test.mjs"
+  },
+  "verificationRequestedAfterWiring": [
+    "Run the focused five SecurityHardening xUnit suites.",
+    "Run node --test tests/tools/security-source-analyzer.test.mjs and retain all diagnostics.",
+    "Run the #1032 retention, coverage, matrix and backend requirement governance checks.",
+    "Run the mapped mutation/static-governance/production tiers selected by the central matrix."
+  ],
+  "verification": {
+    "commandsExecuted": [],
+    "result": "not-run-by-instruction"
+  }
+}

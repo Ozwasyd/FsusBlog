@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using FsusBlog.Server.Infrastructure;
 using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Services.Background;
+using FsusBlog.Server.Services.VisitLog;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -143,21 +145,27 @@ public sealed class BackgroundWorkerLeaseTests
     }
 
     [Theory]
-    [InlineData("src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs", "article-mutation-outbox-dispatcher")]
-    [InlineData("src/backend/Services/Background/LogCleanupService.cs", "log-cleanup-worker")]
-    [InlineData("src/backend/Services/Background/ScheduledPublishWorker.cs", "scheduled-publish-worker")]
-    [InlineData("src/backend/Services/Background/UploadSessionCleanupWorker.cs", "upload-session-cleanup-worker")]
-    [InlineData("src/backend/Services/Background/PublicAotBackfillWorker.cs", "public-aot-backfill-worker")]
-    [InlineData("src/backend/Services/Background/CrawlerUpdateWorker.cs", "crawler-update-worker")]
-    [InlineData("src/backend/Infrastructure/PowLoadResetWorker.cs", "pow-load-reset-worker")]
-    [InlineData("src/backend/Services/VisitLog/ArticleViewProjectionRepairWorker.cs", "article-view-projection-repair-worker")]
-    public void AffectedBackgroundWorkers_UseLeaderLease(string relativePath, string workerName)
+    [MemberData(nameof(LeasedWorkerTypes))]
+    public void AffectedBackgroundWorkers_UseLeaderLease(Type workerType, string workerName)
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot(relativePath);
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(workerType);
 
-        Assert.Contains("IBackgroundWorkerLease", source, StringComparison.Ordinal);
-        Assert.Contains($"TryRunAsLeaderAsync(\"{workerName}\"", source, StringComparison.Ordinal);
+        Assert.Contains("IBackgroundWorkerLease", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TryRunAsLeaderAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains(workerName, runtimeShape, StringComparison.Ordinal);
     }
+
+    public static TheoryData<Type, string> LeasedWorkerTypes => new()
+    {
+        { typeof(ArticleMutationOutboxDispatcher), "article-mutation-outbox-dispatcher" },
+        { typeof(LogCleanupService), "log-cleanup-worker" },
+        { typeof(ScheduledPublishWorker), "scheduled-publish-worker" },
+        { typeof(UploadSessionCleanupWorker), "upload-session-cleanup-worker" },
+        { typeof(PublicAotBackfillWorker), "public-aot-backfill-worker" },
+        { typeof(CrawlerUpdateWorker), "crawler-update-worker" },
+        { typeof(PowLoadResetWorker), "pow-load-reset-worker" },
+        { typeof(ArticleViewProjectionRepairWorker), "article-view-projection-repair-worker" }
+    };
 
     private static BackgroundWorkerLease CreateLease(
         IUnifiedCache cache,

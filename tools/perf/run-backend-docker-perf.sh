@@ -143,6 +143,7 @@ build_image() {
   read_secret_token
   log "building Docker final image through repo release path: $IMAGE_TAG"
   GITHUB_PACKAGES_TOKEN="$GH_TOKEN" \
+    FSUSBLOG_FINAL_LOCAL_ONLY=1 \
     FSUSBLOG_FINAL_IMAGE_TAG="$IMAGE_TAG" \
     FSUSBLOG_FINAL_IMAGE_TARGET=final \
     "$ROOT_DIR/tools/build-final-image.sh" \

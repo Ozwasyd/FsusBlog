@@ -789,6 +789,31 @@ backend_trx_file() {
   printf '%s/%s.trx' "$BACKEND_TRX_DIR" "$lane"
 }
 
+write_backend_trx_contract_dry_run() {
+  local lane trx_file
+  local -a lanes=("$@")
+  if [[ "${#lanes[@]}" -eq 0 ]]; then
+    lanes=(backend-unit backend-property coverage-backend)
+  fi
+  for lane in "${lanes[@]}"; do
+    trx_file="$(backend_trx_file "$lane")"
+    rm -f "$trx_file"
+    printf '%s\n' \
+      '<?xml version="1.0" encoding="utf-8"?>' \
+      '<TestRun id="00000000-0000-0000-0000-000000000001" name="backend-trx-contract-dry-run">' \
+      '  <Results><UnitTestResult testName="BackendTrxContractDryRun" outcome="Passed" /></Results>' \
+      '  <ResultSummary outcome="Passed"><Counters total="1" executed="1" passed="1" failed="0" /></ResultSummary>' \
+      '</TestRun>' > "$trx_file"
+  done
+  printf '{"schema":"fsusblog.backend-trx-dry-run.v1","status":"dry-run","directory":"%s","lanes":[' "$BACKEND_TRX_DIR"
+  local separator=''
+  for lane in "${lanes[@]}"; do
+    printf '%s"%s"' "$separator" "$(namespace_slug "$lane")"
+    separator=','
+  done
+  printf ']}\n'
+}
+
 run_backend_dotnet_filter_only() {
   local filter="$1"
   local lane="${2:-${CURRENT_TIER:-backend}}"
@@ -1546,7 +1571,7 @@ run_production() {
 
 usage() {
   cat <<'EOF'
-Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-mutation-critical|backend-nightly|cross-stack-contract>
+Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-mutation-critical|backend-nightly|cross-stack-contract|backend-trx-contract-dry-run>
 
 Tiers:
   fast         Static and local-only validation; no running services required.
@@ -1685,6 +1710,11 @@ main() {
     cross-stack-contract)
       CURRENT_TIER="cross-stack-contract"
       run_tier "cross-stack-contract" run_cross_stack_contract_only
+      ;;
+    backend-trx-contract-dry-run)
+      CURRENT_TIER="backend-trx-contract-dry-run"
+      shift
+      write_backend_trx_contract_dry_run "$@"
       ;;
     -h|--help|help|'')
       usage

@@ -10,6 +10,7 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services.Background;
@@ -1214,19 +1215,24 @@ public sealed class AdminOperationsService(
 
     private static bool TryResolveUploadPath(string webRoot, string url, out string path)
     {
-        path = Path.GetFullPath(Path.Combine(webRoot, url.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
-        string uploadRoot = Path.GetFullPath(Path.Combine(webRoot, "uploads"));
-        return IsPathWithinDirectory(uploadRoot, path);
-    }
+        path = string.Empty;
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return false;
+        }
 
-    private static bool IsPathWithinDirectory(string directory, string candidatePath)
-    {
-        string root = Path.GetFullPath(directory);
-        string candidate = Path.GetFullPath(candidatePath);
-        string relative = Path.GetRelativePath(root, candidate);
-        return relative.Length == 0 ||
-            (!relative.StartsWith("..", StringComparison.Ordinal) &&
-             !Path.IsPathRooted(relative));
+        string normalizedUrl = url.Trim().Replace('\\', '/');
+        const string uploadPrefix = "/uploads/";
+        if (!normalizedUrl.StartsWith(uploadPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string uploadRoot = Path.GetFullPath(Path.Combine(webRoot, "uploads"));
+        return CanonicalPathBoundary.TryResolveRelative(
+            uploadRoot,
+            normalizedUrl[uploadPrefix.Length..],
+            out path);
     }
 
     private BackupArtifactResponse FindLatestArtifact(string backupRoot, string kind, string[] nameHints, string[] patterns)

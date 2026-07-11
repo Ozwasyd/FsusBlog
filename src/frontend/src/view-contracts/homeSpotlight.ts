@@ -1,41 +1,137 @@
 import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/article'
+import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList'
 
-export type HomeSecondaryLayout = 'loading' | 'spotlight' | 'text-first' | 'none'
+const DEFAULT_SECONDARY_ARTICLE_LIMIT = 5
 
-export function hasUsableSpotlightCover(article: Pick<FeaturedArticleItem, 'coverImageUrl'>): boolean {
-  return article.coverImageUrl.trim().length > 0
+type HomeArticleIdentity = Readonly<{
+  id: number
+}>
+
+export type HomeEditorialComposition<TFeedItem extends HomeArticleIdentity = ArticleListCardViewContract> = Readonly<{
+  leadArticle: FeaturedArticleItem | null
+  secondaryArticles: readonly PopularArticleSummaryResponse[]
+  feedItems: readonly TFeedItem[]
+}>
+
+export type HomeEditorialPageState = Readonly<{
+  composition: HomeEditorialComposition<ArticleListCardViewContract>
+  view: ArticleListViewContract
+  hasRecommendations: boolean
+}>
+
+function normalizedArticleId(article: HomeArticleIdentity): number | null {
+  const id = Number(article.id)
+  return Number.isSafeInteger(id) && id > 0 ? id : null
 }
 
-export function selectHomeSpotlightCandidates(
-  articles: readonly FeaturedArticleItem[],
-  limit = 3
-): FeaturedArticleItem[] {
-  const normalizedLimit = Math.max(0, Math.trunc(limit))
-  if (normalizedLimit === 0) {
-    return []
+function normalizedSecondaryLimit(value: number | undefined): number {
+  if (value === undefined) {
+    return DEFAULT_SECONDARY_ARTICLE_LIMIT
   }
 
-  return articles
-    .filter(hasUsableSpotlightCover)
-    .slice(0, normalizedLimit)
+  return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : DEFAULT_SECONDARY_ARTICLE_LIMIT
 }
 
-export function resolveHomeSecondaryLayout(input: {
-  loading: boolean
-  spotlightCandidates: readonly FeaturedArticleItem[]
+/**
+ * Selects the complete public-home editorial surface without changing the
+ * ordering supplied by any backend source. The same selector is used by
+ * server rendering, hydration, and the SPA takeover path.
+ */
+export function selectHomeEditorialComposition<TFeedItem extends HomeArticleIdentity>(input: {
+  featuredArticles: readonly FeaturedArticleItem[]
   hotArticles: readonly PopularArticleSummaryResponse[]
-}): HomeSecondaryLayout {
-  if (input.loading) {
-    return 'loading'
+  feedItems: readonly TFeedItem[]
+  secondaryLimit?: number
+}): HomeEditorialComposition<TFeedItem> {
+  const displayedIds = new Set<number>()
+  let leadArticle: FeaturedArticleItem | null = null
+
+  for (const article of input.featuredArticles) {
+    const id = normalizedArticleId(article)
+    if (id === null || displayedIds.has(id)) {
+      continue
+    }
+
+    leadArticle = article
+    displayedIds.add(id)
+    break
   }
 
-  if (input.spotlightCandidates.length > 0) {
-    return 'spotlight'
+  const secondaryArticles: PopularArticleSummaryResponse[] = []
+  const secondaryLimit = normalizedSecondaryLimit(input.secondaryLimit)
+  for (const article of input.hotArticles) {
+    if (secondaryArticles.length >= secondaryLimit) {
+      break
+    }
+
+    const id = normalizedArticleId(article)
+    if (id === null || displayedIds.has(id)) {
+      continue
+    }
+
+    displayedIds.add(id)
+    secondaryArticles.push(article)
   }
 
-  if (input.hotArticles.length > 0) {
-    return 'text-first'
+  const feedItems: TFeedItem[] = []
+  for (const article of input.feedItems) {
+    const id = normalizedArticleId(article)
+    if (id === null || displayedIds.has(id)) {
+      continue
+    }
+
+    displayedIds.add(id)
+    feedItems.push(article)
   }
 
-  return 'none'
+  return {
+    leadArticle,
+    secondaryArticles,
+    feedItems
+  }
+}
+
+export function withHomeEditorialFeed(
+  view: ArticleListViewContract,
+  feedItems: readonly ArticleListCardViewContract[]
+): ArticleListViewContract {
+  if (
+    view.items.length === feedItems.length
+    && view.items.every((item, index) => item === feedItems[index])
+  ) {
+    return view
+  }
+
+  return {
+    ...view,
+    items: [...feedItems]
+  }
+}
+
+/**
+ * Builds the complete home render state shared by public AOT/SSR, hydration,
+ * and the SPA route. Keeping this assembly pure prevents either renderer from
+ * introducing a second recommendation order or a separate deduplication pass.
+ */
+export function createHomeEditorialPageState(input: {
+  view: ArticleListViewContract
+  featuredArticles: readonly FeaturedArticleItem[]
+  hotArticles: readonly PopularArticleSummaryResponse[]
+  secondaryLimit?: number
+}): HomeEditorialPageState {
+  const composition = selectHomeEditorialComposition({
+    featuredArticles: input.featuredArticles,
+    hotArticles: input.hotArticles,
+    feedItems: input.view.items,
+    ...(input.secondaryLimit === undefined ? {} : { secondaryLimit: input.secondaryLimit })
+  })
+
+  return {
+    composition,
+    view: withHomeEditorialFeed(input.view, composition.feedItems),
+    hasRecommendations: Boolean(
+      composition.leadArticle
+      || composition.secondaryArticles.length > 0
+    )
+  }
 }

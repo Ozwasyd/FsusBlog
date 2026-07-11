@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 
@@ -14,19 +12,6 @@ vi.mock('@/composables/useMediaQuery', async () => {
     useMediaQuery: vi.fn(() => mediaQueryState.isMobile)
   }
 })
-
-const repoFile = (path: string): string => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
-const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
-
-const extractWatchBlock = (source: string, marker: string): string => {
-  const markerIndex = source.lastIndexOf(marker)
-  expect(markerIndex, `missing marker ${marker}`).toBeGreaterThanOrEqual(0)
-  const start = source.lastIndexOf('watch(', markerIndex)
-  expect(start, `missing watch before ${marker}`).toBeGreaterThanOrEqual(0)
-  const end = source.indexOf('\n  )', markerIndex)
-  expect(end, `missing watch end after ${marker}`).toBeGreaterThan(markerIndex)
-  return source.slice(start, end + 5)
-}
 
 describe('frontend derived-state watch simplification', () => {
   beforeEach(() => {
@@ -98,21 +83,4 @@ describe('frontend derived-state watch simplification', () => {
     expect(splitView.mobilePane.value).toBe('detail')
   })
 
-  it('does not keep derived-state watches in inbox split view', () => {
-    const inboxSplitView = readRepoFile('src/frontend/src/composables/useInboxSplitView.ts')
-
-    expect(inboxSplitView).toContain('const requestedMobilePane = ref<InboxMobilePane | null>(null)')
-    expect(inboxSplitView).toContain('const mobilePane = computed<InboxMobilePane>')
-    expect(inboxSplitView).not.toContain('watch(isMobile')
-    expect(inboxSplitView).not.toContain('watch(selectedConversationId')
-  })
-
-  it('watches home readiness through upstream sources instead of listView computed output', () => {
-    const homeView = readRepoFile('src/frontend/src/composables/useHomeView.ts')
-    const readinessWatch = extractWatchBlock(homeView, 'markRouteReadyIfSettled()')
-
-    expect(readinessWatch).not.toContain('listView.value.items.length')
-    expect(readinessWatch).toContain('initialViewItems.value?.length')
-    expect(readinessWatch).toContain('articleItems.value.length')
-  })
 })

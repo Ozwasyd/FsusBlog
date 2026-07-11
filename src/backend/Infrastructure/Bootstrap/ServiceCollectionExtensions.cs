@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
@@ -10,7 +9,9 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Moderation;
@@ -128,6 +129,19 @@ public static class ServiceCollectionExtensions
             ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_PROTECTION_KEY_RING")
             ?? Path.Combine(dataRoot, "data-protection-keys");
         string applicationName = configuration["DataProtection:ApplicationName"] ?? "FsusBlog";
+        bool isProduction = string.Equals(
+            configuration["ASPNETCORE_ENVIRONMENT"],
+            Environments.Production,
+            StringComparison.OrdinalIgnoreCase);
+        if (isProduction
+            && !string.Equals(
+                applicationName,
+                ReleaseStorageLayout.RequiredDataProtectionApplicationName,
+                StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Production DataProtection application name must be '{ReleaseStorageLayout.RequiredDataProtectionApplicationName}'.");
+        }
 
         Directory.CreateDirectory(keyRingPath);
         services.AddDataProtection()
@@ -143,7 +157,8 @@ public static class ServiceCollectionExtensions
             .AddFsusRuntimeSecurityAndLifecycleServices(configuration)
             .AddFsusRuntimeInfrastructureServices(configuration)
             .AddFsusRuntimePublicAotServices()
-            .AddFsusRuntimeDomainServices();
+            .AddFsusRuntimeDomainServices()
+            .AddActiveReleaseFencing();
     }
 
     public static IServiceCollection AddFsusRateLimiting(this IServiceCollection services)
@@ -298,36 +313,10 @@ internal static class RateLimiterRejectionRiskSampler
 {
     private const int MaxRiskWritesPerBucket = 4;
     private const int MaxTrackedBuckets = 4096;
-    private static readonly ConcurrentDictionary<string, int> BucketCounts = new(StringComparer.Ordinal);
+    private static readonly BoundedRateLimiterRejectionRiskSampler Sampler = new(
+        MaxRiskWritesPerBucket,
+        MaxTrackedBuckets);
 
     public static bool ShouldWriteRiskSignal(HttpContext context)
-    {
-        long minute = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60;
-        string key = string.Concat(
-            minute.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            '|',
-            context.GetClientIp(),
-            '|',
-            context.Request.Path.Value ?? "/");
-
-        int count = BucketCounts.AddOrUpdate(key, 1, static (_, current) => current + 1);
-        if (BucketCounts.Count > MaxTrackedBuckets)
-        {
-            TrimOldBuckets(minute);
-        }
-
-        return count <= MaxRiskWritesPerBucket;
-    }
-
-    private static void TrimOldBuckets(long currentMinute)
-    {
-        string keepPrefix = string.Concat(currentMinute.ToString(System.Globalization.CultureInfo.InvariantCulture), "|");
-        foreach (string key in BucketCounts.Keys)
-        {
-            if (!key.StartsWith(keepPrefix, StringComparison.Ordinal))
-            {
-                BucketCounts.TryRemove(key, out _);
-            }
-        }
-    }
+        => Sampler.Sample(context) == RateLimiterRiskSampleDecision.WriteRiskSignal;
 }

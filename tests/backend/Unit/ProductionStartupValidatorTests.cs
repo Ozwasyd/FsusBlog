@@ -1,9 +1,13 @@
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.CommentIdentity;
+using FsusBlog.Server.Services.Moderation;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Server.Tests.Unit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -53,12 +57,36 @@ public sealed class ProductionStartupValidatorTests
             ["AnonymousIdentity:NullifierPepper"] = TestSecrets.AnonymousNullifierPepper,
             ["AnonymousCredentialRoot:AttestationKey"] = TestSecrets.AnonymousRootAttestationKey,
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
+            ["FSUSBLOG_RELEASE_ID"] = "20260711010101-0123456789ab",
+            ["FSUSBLOG_RELEASE_SLOT"] = "candidate",
+            ["FSUSBLOG_COMMIT_SHA"] = "0123456789abcdef0123456789abcdef01234567",
+            ["FSUSBLOG_IMAGE_DIGEST"] = $"sha256:{new string('a', 64)}",
+            ["FSUSBLOG_IMAGE_REF"] = $"ghcr.io/fsusblog/app@sha256:{new string('a', 64)}",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
 
         Assert.Empty(errors);
+    }
+
+    [Theory]
+    [InlineData("FSUSBLOG_RELEASE_ID", null)]
+    [InlineData("FSUSBLOG_RELEASE_ID", "latest")]
+    [InlineData("FSUSBLOG_RELEASE_SLOT", "Candidate Slot")]
+    [InlineData("FSUSBLOG_COMMIT_SHA", "0123456789ab")]
+    [InlineData("FSUSBLOG_IMAGE_DIGEST", "sha256:abc")]
+    [InlineData("FSUSBLOG_IMAGE_REF", "ghcr.io/fsusblog/app:final-current")]
+    public void ValidateCore_RejectsMissingMutableOrInconsistentProductionReleaseIdentity(string key, string? value)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [key] = value
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, static error => error.Contains("Release identity invalid", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -239,32 +267,38 @@ public sealed class ProductionStartupValidatorTests
     [Fact]
     public void SecurityDomainSecrets_DoNotFallBackToJwtSecretOrHardCodedMaterial()
     {
-        string[] sources =
+        (Type Type, string Setting)[] securityDomains =
         [
-            "src/backend/Infrastructure/Audit/AuditTamperEvidence.cs",
-            "src/backend/Services/Security/RedisPowService.cs",
-            "src/backend/Services/Security/CaptchaV1ChallengeProvider.cs",
-            "src/backend/Services/Security/RecoveryKeyService.cs",
-            "src/backend/Services/Security/AnonymousCredentialIssuerService.cs",
-            "src/backend/Services/VisitLog/VisitLogProcessorService.cs",
-            "src/backend/Services/Moderation/ClientRegionResolver.cs"
+            (typeof(AuditTamperEvidence), "Audit:TamperEvidenceKey"),
+            (typeof(RedisPowService), "Security:Pow:SigningKey"),
+            (typeof(CaptchaV1ChallengeProvider), "Security:CaptchaV1:SigningKey"),
+            (typeof(RecoveryKeyService), "Security:RecoveryKeyPepper"),
+            (typeof(AnonymousCredentialIssuerService), "AnonymousCredentialIssuer:SubjectHashPepper"),
+            (typeof(VisitLogIpHashing), "VisitLog:IpHashPepper"),
+            (typeof(ClientRegionResolver), "Moderation:RegionPolicy:IpHashKey")
         ];
-        string combined = string.Join('\n', sources.Select(static path => BackendTestPaths.ReadAllTextFromRoot(path)));
 
-        Assert.DoesNotContain("configuration[\"Jwt:SecretKey\"]", combined, StringComparison.Ordinal);
-        Assert.DoesNotContain("config[\"Jwt:SecretKey\"]", combined, StringComparison.Ordinal);
-        Assert.DoesNotContain("Fallback:", combined, StringComparison.Ordinal);
-        Assert.DoesNotContain("development-key", combined, StringComparison.Ordinal);
-        Assert.DoesNotContain("development-anonymous-credential-subject-hash-pepper", combined, StringComparison.Ordinal);
+        foreach ((Type type, string setting) in securityDomains)
+        {
+            string runtimeShape = RuntimeMetadataInspection.DescribeType(type);
+            Assert.Contains(setting, runtimeShape, StringComparison.Ordinal);
+            Assert.DoesNotContain("Jwt:SecretKey", runtimeShape, StringComparison.Ordinal);
+            Assert.DoesNotContain("Fallback:", runtimeShape, StringComparison.Ordinal);
+            Assert.DoesNotContain("development-key", runtimeShape, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("development-anonymous-credential-subject-hash-pepper", runtimeShape, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
     public void SharedAppsettings_DoesNotContainReusableJwtSecret()
     {
-        string appsettings = BackendTestPaths.ReadAllTextFromRoot("src/backend/appsettings.json");
+        IConfiguration appsettings = new ConfigurationBuilder()
+            .SetBasePath(BackendTestPaths.FromRoot("src", "backend"))
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+            .Build();
 
-        Assert.DoesNotContain(DefaultJwtSecretSample, appsettings, StringComparison.Ordinal);
-        Assert.DoesNotContain($"\"SecretKey\": \"{LocalReleaseJwtSecretSample}\"", appsettings, StringComparison.Ordinal);
+        Assert.NotEqual(DefaultJwtSecretSample, appsettings["Jwt:SecretKey"]);
+        Assert.NotEqual(LocalReleaseJwtSecretSample, appsettings["Jwt:SecretKey"]);
     }
 
     [Fact]

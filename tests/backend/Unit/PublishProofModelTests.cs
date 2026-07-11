@@ -1,9 +1,10 @@
+using System.Reflection;
 using System.Text;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -135,22 +136,19 @@ public sealed class PublishProofModelTests
     [Fact]
     public void EntityAndMigrationPersistPublishProofWithoutAdminPrincipalLeak()
     {
-        string entitySource = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src",
-            "backend",
-            "Entities",
-            "Article.cs"));
         var registry = new SchemaMigrationRegistry();
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             registry.GetDescriptors(),
             static item => item.MigrationId == "20260704-post-article-publish-proof");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
-        Assert.Contains("[SugarTable(\"article_publish_proof\")]", entitySource, StringComparison.Ordinal);
-        Assert.Contains(nameof(ArticlePublishProof.ArticleRevisionId), entitySource, StringComparison.Ordinal);
-        Assert.Contains("ux_article_publish_proof_idempotency", entitySource, StringComparison.Ordinal);
-        Assert.DoesNotContain("ArticlePublishProof.CreatedByAdminPrincipalId", entitySource, StringComparison.Ordinal);
+        Assert.Equal(
+            "article_publish_proof",
+            typeof(ArticlePublishProof).GetCustomAttribute<SugarTable>()?.TableName);
+        Assert.NotNull(typeof(ArticlePublishProof).GetProperty(nameof(ArticlePublishProof.ArticleRevisionId)));
+        Assert.Contains(typeof(ArticlePublishProof).GetCustomAttributes<SugarIndexAttribute>(), static index =>
+            index.IndexName == "ux_article_publish_proof_idempotency");
+        Assert.Null(typeof(ArticlePublishProof).GetProperty("CreatedByAdminPrincipalId"));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.Contains("CREATE TABLE IF NOT EXISTS article_publish_proof", fingerprint, StringComparison.Ordinal);
@@ -162,21 +160,28 @@ public sealed class PublishProofModelTests
     }
 
     [Fact]
-    public void Source_DoesNotUseExternalNetworkChainsOrUnsafe()
+    public void PublishProofRuntime_DoesNotCallExternalNetworkChainsOrUsePointerTypes()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src",
-            "backend",
-            "Infrastructure",
-            "Integrity",
-            "PublishProof.cs"));
+        Type[] runtimeTypes =
+        [
+            typeof(PublishProofReadiness),
+            typeof(PublishProofIdempotency),
+            typeof(PublishProofStateMachine),
+            typeof(PublishProofCanonicalPayloadV1)
+        ];
+        MethodInfo[] methods = runtimeTypes.SelectMany(static type => type.GetMethods(
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance | BindingFlags.DeclaredOnly)).ToArray();
+        MethodBase[] calls = methods.SelectMany(ReadCalledMethods).ToArray();
+        string[] literals = methods.SelectMany(ReadStringLiterals).ToArray();
 
-        Assert.DoesNotContain("IPFS", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Arweave", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Nethereum", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("unsafe", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(calls, static call =>
+            call.DeclaringType == typeof(HttpClient)
+            || ContainsForbiddenDependency(call.DeclaringType?.FullName));
+        Assert.DoesNotContain(literals, static literal => ContainsForbiddenDependency(literal));
+        Assert.DoesNotContain(methods, static method =>
+            method.ReturnType.IsPointer
+            || method.GetParameters().Any(static parameter => parameter.ParameterType.IsPointer)
+            || (method.GetMethodBody()?.LocalVariables.Any(static local => local.LocalType.IsPointer) ?? false));
     }
 
     private static PublishProofInput ReadyProof()
@@ -194,4 +199,59 @@ public sealed class PublishProofModelTests
             PublishedAtUtc: new DateTimeOffset(2026, 7, 4, 10, 11, 12, TimeSpan.Zero),
             ProofStatus: PublishProofStatus.Ready,
             PublicationState: PublishProofPublicationState.Public);
+
+    private static bool ContainsForbiddenDependency(string? value)
+        => value?.Contains("IPFS", StringComparison.OrdinalIgnoreCase) == true
+            || value?.Contains("Arweave", StringComparison.OrdinalIgnoreCase) == true
+            || value?.Contains("Nethereum", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static IEnumerable<MethodBase> ReadCalledMethods(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] is not (0x28 or 0x6F))
+            {
+                continue;
+            }
+
+            MethodBase? called = null;
+            try
+            {
+                called = method.Module.ResolveMethod(BitConverter.ToInt32(il, offset + 1));
+            }
+            catch (ArgumentException)
+            {
+            }
+            if (called is not null)
+            {
+                yield return called;
+            }
+        }
+    }
+
+    private static IEnumerable<string> ReadStringLiterals(MethodInfo method)
+    {
+        byte[] il = method.GetMethodBody()?.GetILAsByteArray() ?? [];
+        for (int offset = 0; offset <= il.Length - 5; offset++)
+        {
+            if (il[offset] != 0x72)
+            {
+                continue;
+            }
+
+            string? literal = null;
+            try
+            {
+                literal = method.Module.ResolveString(BitConverter.ToInt32(il, offset + 1));
+            }
+            catch (ArgumentException)
+            {
+            }
+            if (literal is not null)
+            {
+                yield return literal;
+            }
+        }
+    }
 }

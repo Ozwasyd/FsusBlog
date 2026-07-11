@@ -1,13 +1,15 @@
 <template>
   <section
-    v-if="loading || articles.length > 0"
-    class="featured-articles-section mb-20"
+    v-if="loading || article"
+    class="featured-articles-section mb-12 sm:mb-16"
     data-fsus-surface="reading"
-    data-fsus-motion-surface="home-featured-articles"
+    data-fsus-motion-surface="home-featured-article"
+    :aria-labelledby="article ? 'home-editorial-lead-title' : undefined"
+    :aria-label="!article && loading ? copy.leadLoadingLabel : undefined"
   >
-    <header class="mb-10">
+    <header class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3">
       <div class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-muted)]">
-        聚焦
+        {{ copy.leadEyebrow }}
       </div>
     </header>
 
@@ -16,153 +18,116 @@
       style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
     >
       <template #template>
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
-          <div class="lg:col-span-8 space-y-12">
-            <div class="flex flex-col md:flex-row gap-8 items-center">
-              <div class="w-full md:w-[50%] aspect-[4/3]">
-                <el-skeleton-item variant="image" />
-              </div>
-              <div class="flex-1 space-y-4">
-                <div class="h-4 w-24">
-                  <el-skeleton-item variant="text" />
-                </div>
-                <div class="h-10 w-full">
-                  <el-skeleton-item variant="h3" />
-                </div>
-                <div class="h-10 w-2/3">
-                  <el-skeleton-item variant="h3" />
-                </div>
-              </div>
-            </div>
+        <div class="grid gap-8 md:grid-cols-2 md:items-center">
+          <div class="aspect-[4/3] w-full overflow-hidden rounded-[var(--fsusblog-reading-radius-media)]">
+            <el-skeleton-item variant="image" />
           </div>
-
-          <div class="lg:col-span-4 space-y-8">
-            <div v-for="i in 5" :key="i" class="flex gap-4">
-              <div class="w-6 h-4">
-                <el-skeleton-item variant="text" />
-              </div>
-              <div class="flex-1 h-4">
-                <el-skeleton-item variant="text" />
-              </div>
-            </div>
+          <div class="space-y-4">
+            <div class="h-4 w-28"><el-skeleton-item variant="text" /></div>
+            <div class="h-10 w-full"><el-skeleton-item variant="h3" /></div>
+            <div class="h-10 w-2/3"><el-skeleton-item variant="h3" /></div>
           </div>
         </div>
       </template>
     </el-skeleton>
 
-    <div v-else class="space-y-16">
-      <div class="space-y-16">
-        <article v-if="articles[0]" class="relative">
-          <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(articles[0].id)">
-            <a
-              :href="href"
-              class="group flex flex-col gap-8 rounded-[var(--fsusblog-reading-radius-panel)] outline-none md:flex-row md:items-center"
-              :class="focusRingClass"
-              :aria-label="`阅读全文：${articles[0].title}`"
-              @click="navigate"
-              @keydown.space.prevent="navigate()"
-            >
-              <div class="w-full md:w-[50%] aspect-[4/3] overflow-hidden rounded-[var(--fsusblog-reading-radius-media)] border border-[var(--fsusblog-panel-border)] shadow-none transition-[background-color,border-color,color,opacity,transform] duration-[var(--fsus-motion-control-fast)] group-hover:border-[var(--fsusblog-color-primary)]/20">
-                <img
-                  :src="articles[0].coverImageUrl"
-                  :alt="articles[0].title"
-                  class="h-full w-full object-cover"
-                  width="960"
-                  height="720"
-                  sizes="(min-width: 768px) 32rem, calc(100vw - 3rem)"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-              <div class="flex-1">
-                <div class="mb-4 flex items-center gap-3">
-                  <span class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-primary)]">
-                    {{ articles[0].category.name }}
-                  </span>
-                  <span class="h-px w-8 bg-[var(--fsusblog-panel-bg-soft)]" aria-hidden="true"></span>
-                  <time :datetime="articles[0].createTime" class="text-xs tabular-nums text-[var(--fsusblog-text-muted)] normal-case">
-                    {{ formatTime(articles[0].createTime) }}
-                  </time>
-                </div>
-                <h2 class="text-2xl lg:text-3xl font-bold leading-tight text-[var(--fsusblog-text-primary)] transition-colors group-hover:text-[var(--fsusblog-color-primary)]">
-                  {{ articles[0].title }}
-                </h2>
-                <div class="mt-8 flex items-center gap-2 text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)] transition-[background-color,border-color,color,opacity,transform] group-hover:text-[var(--fsusblog-color-primary)]">
-                  阅读全文 <el-icon aria-hidden="true"><ArrowRight /></el-icon>
-                </div>
-              </div>
-            </a>
-          </RouterLink>
-        </article>
-
-        <div v-if="articles.length > 1" class="grid grid-cols-1 sm:grid-cols-2 gap-8">
-          <article
-            v-for="article in articles.slice(1, 3)"
-            :key="article.id"
+    <article
+      v-else-if="article"
+      class="home-editorial-lead"
+      data-home-editorial-lead
+      :data-article-id="article.id"
+      :data-home-lead-layout="hasCover ? 'media' : 'text'"
+    >
+      <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(article.id)">
+        <a
+          :href="href"
+          class="group grid rounded-[var(--fsusblog-reading-radius-panel)] outline-none"
+          :class="[
+            focusRingClass,
+            hasCover
+              ? 'gap-8 md:grid-cols-2 md:items-center'
+              : 'border-y border-[var(--fsusblog-panel-border)] py-8 sm:py-10'
+          ]"
+          :aria-label="readFullLabel(article.title)"
+          @click="navigate"
+          @keydown.space.prevent="navigate()"
+        >
+          <div
+            v-if="hasCover"
+            class="aspect-[4/3] w-full overflow-hidden rounded-[var(--fsusblog-reading-radius-media)] border border-[var(--fsusblog-panel-border)] shadow-none"
+            data-content-cover="editorial-lead"
+            :data-cover-safe-area="coverPresentation?.safeArea"
           >
-            <RouterLink v-slot="{ href, navigate }" custom :to="articleHref(article.id)">
-              <a
-                :href="href"
-                class="group block rounded-[var(--fsusblog-reading-radius-panel)] outline-none"
-                :class="focusRingClass"
-                :aria-label="`阅读全文：${article.title}`"
-                @click="navigate"
-                @keydown.space.prevent="navigate()"
-              >
-                <div class="aspect-video w-full overflow-hidden rounded-[var(--fsusblog-reading-radius-media)] border border-[var(--fsusblog-panel-border)] mb-5 shadow-none transition-[background-color,border-color,color,opacity,transform] duration-[var(--fsus-motion-control-fast)] group-hover:border-[var(--fsusblog-color-primary)]/20">
-                  <img
-                    :src="article.coverImageUrl"
-                    :alt="article.title"
-                    class="h-full w-full object-cover"
-                    width="960"
-                    height="540"
-                    sizes="(min-width: 640px) 20rem, calc(100vw - 3rem)"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-muted)]">
-                    {{ article.category.name }}
-                  </span>
-                </div>
-                <h3 class="text-base font-bold leading-snug text-[var(--fsusblog-text-primary)] transition-colors group-hover:text-[var(--fsusblog-color-primary)]">
-                  {{ article.title }}
-                </h3>
-              </a>
-            </RouterLink>
-          </article>
-        </div>
-      </div>
+            <img
+              :src="coverPresentation?.url"
+              :alt="article.title"
+              class="h-full w-full object-cover object-center shadow-none"
+              :style="{ objectPosition: coverPresentation?.objectPosition }"
+              width="960"
+              height="720"
+              sizes="(min-width: 768px) 23rem, calc(100vw - 3rem)"
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+            />
+          </div>
 
-    </div>
+          <div :class="hasCover ? '' : 'max-w-3xl'">
+            <div class="mb-4 flex flex-wrap items-center gap-3">
+              <span class="text-xs tabular-nums font-semibold normal-case text-[var(--fsusblog-text-primary)]">
+                {{ article.category.name }}
+              </span>
+              <span class="h-px w-8 bg-[var(--fsusblog-panel-border)]" aria-hidden="true" />
+              <time
+                :datetime="article.createTime"
+                class="text-xs tabular-nums normal-case text-[var(--fsusblog-text-muted)]"
+              >
+                {{ formatTime(article.createTime) }}
+              </time>
+            </div>
+            <h1
+              id="home-editorial-lead-title"
+              class="text-2xl font-bold leading-tight text-[var(--fsusblog-text-primary)] transition-colors duration-[var(--fsus-motion-control-fast)] group-hover:text-[var(--fsusblog-color-primary)] sm:text-3xl"
+            >
+              {{ article.title }}
+            </h1>
+          </div>
+        </a>
+      </RouterLink>
+    </article>
   </section>
 </template>
 
 <script setup lang="ts">
-import { ArrowRight } from '@/fsusui/icons'
+import { computed } from 'vue'
 import type { FeaturedArticleItem } from '@/api/article'
+import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 import { themeTokens } from '@/ui-tokens/themeTokens'
+import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt'
 
-defineProps<{
-  articles: FeaturedArticleItem[]
+const props = defineProps<{
+  article: FeaturedArticleItem | null
   loading?: boolean
 }>()
 
 const focusRingClass = themeTokens.focusRing
+const copy = FSUSBLOG_LAYOUT_COPY.recommendations
+const coverPresentation = computed(() => resolvePublicCoverPresentation(props.article?.coverImageUrl))
+const hasCover = computed(() => coverPresentation.value !== null)
 const articleHref = (id: number) => `/article/${id}`
+const readFullLabel = (title: string): string => copy.ariaReadFull.replace('{title}', title)
 
-const formatTime = (isoString: string) => {
+const formatTime = (isoString: string): string => {
   const normalized = String(isoString ?? '').trim()
   return normalized.length >= 10 ? normalized.slice(0, 10) : '-'
 }
 </script>
 
 <style scoped>
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+@media (prefers-reduced-motion: reduce) {
+  .home-editorial-lead a,
+  .home-editorial-lead h1 {
+    transition-duration: 1ms;
+  }
 }
 </style>
