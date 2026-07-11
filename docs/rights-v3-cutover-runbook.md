@@ -22,7 +22,6 @@ Run these steps in order. Do not switch public traffic to the candidate until th
 
 ```bash
 ./tools/test.sh ci-tier rights-v3-test-matrix --no-deps
-dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter FullyQualifiedName~RightsV3DocumentationContractTests -v minimal
 ```
 
 ## Operator Checks

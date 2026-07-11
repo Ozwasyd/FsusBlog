@@ -1209,7 +1209,6 @@
         "tools/security/check-security-matrices.mjs",
         "tools/security/check-perception-v2-e2e-evidence.mjs",
         "tools/test/lanes/perception-v2-test-matrix.sh",
-        "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
         "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
         "tests/security/perception-v2/perception-harness.test.mjs",
         "docs/release-evidence/perception-v2.md",
@@ -1310,7 +1309,6 @@
         "security/privacy-zk-comment-matrix.yml",
         "tools/security/check-security-matrices.mjs",
         "tools/test/lanes/privacy-zk-comment-matrix.sh",
-        "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
         "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
         "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts"
       ],

@@ -691,6 +691,44 @@ test('optimization report accepts an explicit deletion only with a live replacem
   assert.equal(report.deletionSafety.deletedTests[0].replacementTestIds[0], 'replacement')
 })
 
+test('optimization report binds removed assertions to an explicitly declared deleted test', () => {
+  const baseline = {
+    retainedEvidence: { coverageIds: ['A'], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
+    testRecords: [{ id: 'old-meta-test', assertionTargets: ['expect(sourceText).toContain(privateShape)'] }]
+  }
+  const after = {
+    retainedEvidence: { coverageIds: ['A'], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
+    testRecords: [{ id: 'behavior-owner', assertionTargets: ['expect(runtimeBehavior).toHold()'], timing: { samples: 0 } }],
+    deletedTests: [{
+      id: 'old-meta-test',
+      path: 'old-meta.test.ts',
+      replacementTestIds: ['behavior-owner'],
+      reason: 'the executable behavior owner replaces the private source-shape assertion'
+    }],
+    reviewCandidates: [],
+    candidateReviews: []
+  }
+
+  const report = buildOptimizationReport({ before: baseline, after, checkpoints: [], viewportSummaries: [] })
+
+  assert.equal(report.retainedCoverage.status, 'same')
+  assert.deepEqual(report.retainedCoverage.missingAssertionTargets, [])
+  assert.deepEqual(report.retainedCoverage.assertionsCoveredByDeletedTests, [
+    'expect(sourceText).toContain(privateShape)'
+  ])
+
+  const undeclared = buildOptimizationReport({
+    before: baseline,
+    after: { ...after, deletedTests: [] },
+    checkpoints: [],
+    viewportSummaries: []
+  })
+  assert.equal(undeclared.retainedCoverage.status, 'weaker')
+  assert.deepEqual(undeclared.retainedCoverage.missingAssertionTargets, [
+    'expect(sourceText).toContain(privateShape)'
+  ])
+})
+
 test('optimization report accepts a declared assertion strengthening backed by a live test', () => {
   const report = buildOptimizationReport({
     before: {

@@ -60,7 +60,6 @@ scenarios:
       - tests/frontend/unit/api/comment.test.ts
       - tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs
       - tests/backend/Unit/AnonymousCommentSubmitTests.cs
-      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 
@@ -77,7 +76,6 @@ scenarios:
       - tests/backend/Unit/ZkAnonymousProofVerifierContractTests.cs
       - tests/backend/Unit/AnonymousCommentTicketServiceTests.cs
       - tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs
-      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 
@@ -96,7 +94,6 @@ scenarios:
       - tests/backend/Unit/PodBinaryCodecTests.cs
       - tests/backend/Unit/BackendGoldenCatalogTests.cs
       - tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts
-      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 
@@ -114,7 +111,6 @@ scenarios:
       - tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs
       - tests/frontend/unit/view-contracts/anonymousModerationGovernanceWorkflow.test.ts
       - tests/frontend/unit/view-contracts/commentAnonymousAuthorWorkflow.test.ts
-      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 
@@ -149,7 +145,6 @@ scenarios:
       - src/backend/Infrastructure/Cache/ICacheInvalidationDispatcher.cs
     tests:
       - tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs
-      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 
@@ -170,6 +165,5 @@ scenarios:
       - tests/backend/Unit/RejectIdentifiedPrincipalFilterTests.cs
       - tests/security/privacy-zk-prod-smoke.test.mjs
       - tests/security/privacy-zk-prod-release.test.mjs
-      - tests/backend/Unit/AnonymousPrivacyMatrixTests.cs
     evidence:
       - .tmp/security/privacy-zk-prod-smoke.json

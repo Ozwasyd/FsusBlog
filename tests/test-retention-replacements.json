@@ -73,6 +73,249 @@
         "vitest:tests/frontend/unit/composables/useAdminArticleWrite.localDraft.test.ts#never-promotes-local-only-metadata-to-a-restorable-form--8f4eadd3f1"
       ],
       "reason": "The former browser-restorable full draft assertion was intentionally split into a server-authoritative draft workflow contract and executable codec tests proving that unpublished content is never persisted or promoted from local metadata."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ReleaseFinalStabilityContractTests.cs#ReleaseFinalStabilityContractTests.ArticleFrameCoalescingTest_UsesCoverageFriendlyCompletionBudget",
+      "path": "tests/backend/Unit/ReleaseFinalStabilityContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/ArticleEndpointServiceTests.cs#ArticleEndpointServiceTests.GetPageListAsync_ConcurrentColdFrameMiss_CoalescesCoreLoadAndCacheSet"
+      ],
+      "reason": "The source-shape timeout assertion is replaced by the executable concurrent cold-frame coalescing behavior test."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ReleaseFinalStabilityContractTests.cs#ReleaseFinalStabilityContractTests.PostgresSchemaMigrationFixture_UsesCoverageFriendlyConnectionBudgets",
+      "path": "tests/backend/Unit/ReleaseFinalStabilityContractTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.PostgresLockTimeoutSimulation_RollsBackAndAllowsFollowUpQuery"
+      ],
+      "reason": "The fixture string budget check is replaced by the PostgreSQL lock-timeout and recovery integration behavior."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RuntimeFallbackConvergenceDocumentationTests.cs#RuntimeFallbackConvergenceDocumentationTests.ArchitectureAndSecurityDocs_DoNotPreserveLegacyPlainCookieFallback",
+      "path": "tests/backend/Unit/RuntimeFallbackConvergenceDocumentationTests.cs",
+      "replacementTestIds": [
+        "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.ReadTokenCookies_ProductionRejectsLegacyPlainCookies",
+        "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.ReadTokenCookies_ProductionAcceptsHostPrefixedCookies",
+        "xunit:tests/backend/Unit/AuthCookieServiceSecurityTests.cs#AuthCookieServiceSecurityTests.ReadTokenCookies_DevelopmentAcceptsCurrentInsecureTransportCookiesWhenConfigured"
+      ],
+      "reason": "Cookie fallback documentation strings are replaced by executable production and configured-development cookie behavior."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RightsV3DocumentationContractTests.cs#RightsV3DocumentationContractTests.ArchitectureDocs_DescribeFinalRightsV3DataFlow",
+      "path": "tests/backend/Unit/RightsV3DocumentationContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/rights-v3-test-matrix.sh"
+      ],
+      "reason": "Rights V3 documentation text ownership is replaced by the executable Rights V3 lane and generated matrix evidence."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RightsV3DocumentationContractTests.cs#RightsV3DocumentationContractTests.ApiAndIntegrityDocs_DescribeFinalRightsV3Contracts",
+      "path": "tests/backend/Unit/RightsV3DocumentationContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/rights-v3-test-matrix.sh"
+      ],
+      "reason": "Rights V3 documentation text ownership is replaced by the executable Rights V3 lane and generated matrix evidence."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RightsV3DocumentationContractTests.cs#RightsV3DocumentationContractTests.CutoverRunbook_StatesExactNoCompatDeploymentOrderAndOperatorChecks",
+      "path": "tests/backend/Unit/RightsV3DocumentationContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/rights-v3-test-matrix.sh"
+      ],
+      "reason": "Rights V3 documentation text ownership is replaced by the executable Rights V3 lane and generated matrix evidence."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RightsV3DocumentationContractTests.cs#RightsV3DocumentationContractTests.DocumentationIndex_LinksRightsV3FinalDocs",
+      "path": "tests/backend/Unit/RightsV3DocumentationContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/rights-v3-test-matrix.sh"
+      ],
+      "reason": "Rights V3 documentation text ownership is replaced by the executable Rights V3 lane and generated matrix evidence."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/QualityGateSmartGateContractTests.cs#QualityGateSmartGateContractTests.MatrixSchema_AllowsSmartGateAndRetentionMetadata",
+      "path": "tests/backend/Unit/QualityGateSmartGateContractTests.cs",
+      "replacementTestIds": [
+        "node-script:tools/check-test-matrix.mjs"
+      ],
+      "reason": "Matrix schema and metadata are owned by the structured matrix checker."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/QualityGateSmartGateContractTests.cs#QualityGateSmartGateContractTests.MatrixTool_ExposesPrSmartGatePlanningAndSkipEvidence",
+      "path": "tests/backend/Unit/QualityGateSmartGateContractTests.cs",
+      "replacementTestIds": [
+        "node-script:tools/run-test-matrix.mjs"
+      ],
+      "reason": "PR smart-gate planning is exercised by the matrix runner rather than asserted from its source text."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/QualityGateSmartGateContractTests.cs#QualityGateSmartGateContractTests.Matrix_UsesConditionalSmartGateForProductionHeavyLanes",
+      "path": "tests/backend/Unit/QualityGateSmartGateContractTests.cs",
+      "replacementTestIds": [
+        "node-script:tools/check-test-matrix.mjs"
+      ],
+      "reason": "Smart-gate tier semantics are owned by structured matrix validation."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/QualityGateSmartGateContractTests.cs#QualityGateSmartGateContractTests.Workflow_HasPrRiskPlanJobAndConditionsHeavyJobs",
+      "path": "tests/backend/Unit/QualityGateSmartGateContractTests.cs",
+      "replacementTestIds": [
+        "node-script:tools/check-workflow-matrix-sync.mjs"
+      ],
+      "reason": "Workflow and matrix wiring is owned by the workflow-matrix synchronization checker."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/QualityGateSmartGateContractTests.cs#QualityGateSmartGateContractTests.StaticGovernance_RecordsTestRetentionAuditEvidence",
+      "path": "tests/backend/Unit/QualityGateSmartGateContractTests.cs",
+      "replacementTestIds": [
+        "node-script:tools/check-test-retention.mjs",
+        "node-script:tools/check-test-matrix.mjs"
+      ],
+      "reason": "Retention evidence is validated by the retention and structured matrix checkers."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RiskControlTestMatrixTests.cs#RiskControlTestMatrixTests.RiskControlTestMatrix_CoversIssue495AcceptanceSurface",
+      "path": "tests/backend/Unit/RiskControlTestMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/risk-control-test-matrix.sh"
+      ],
+      "reason": "Risk-control matrix schema, coverage and evidence are owned by the executable fail-closed lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RiskControlTestMatrixTests.cs#RiskControlTestMatrixTests.RiskControlTestMatrix_IsFailClosedInSecurityMatrixCheck",
+      "path": "tests/backend/Unit/RiskControlTestMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/risk-control-test-matrix.sh"
+      ],
+      "reason": "Risk-control matrix schema, coverage and evidence are owned by the executable fail-closed lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RiskControlTestMatrixTests.cs#RiskControlTestMatrixTests.RiskControlTestMatrix_HasDedicatedCiLaneAndBackendRequirement",
+      "path": "tests/backend/Unit/RiskControlTestMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/risk-control-test-matrix.sh"
+      ],
+      "reason": "Risk-control matrix schema, coverage and evidence are owned by the executable fail-closed lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs#PerceptionSealedV2TestMatrixTests.PerceptionSealedV2Matrix_CoversIssue523AcceptanceSurface",
+      "path": "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/perception-v2-test-matrix.sh"
+      ],
+      "reason": "Perception V2 matrix structure and runtime evidence are owned by the executable fail-closed lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs#PerceptionSealedV2TestMatrixTests.PerceptionSealedV2Matrix_IsFailClosedInSecurityMatrixCheck",
+      "path": "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/perception-v2-test-matrix.sh"
+      ],
+      "reason": "Perception V2 matrix structure and runtime evidence are owned by the executable fail-closed lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs#PerceptionSealedV2TestMatrixTests.PerceptionSealedV2Matrix_HasDedicatedCiLaneAndBackendRequirement",
+      "path": "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/perception-v2-test-matrix.sh"
+      ],
+      "reason": "Perception V2 matrix structure and runtime evidence are owned by the executable fail-closed lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkCommentMatrix_CoversRequiredPrivacyAndConcurrencyCases",
+      "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/privacy-zk-comment-matrix.sh"
+      ],
+      "reason": "Privacy/ZK matrix, dependency policy and executable backend/frontend evidence are owned by the consolidated privacy-ZK lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkBackendGate_CoversRevocationAccumulatorAndWitnessTests",
+      "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/privacy-zk-comment-matrix.sh"
+      ],
+      "reason": "Privacy/ZK matrix, dependency policy and executable backend/frontend evidence are owned by the consolidated privacy-ZK lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkCryptoDecisionDocs_StayAlignedWithMatrixAndContractConstants",
+      "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/privacy-zk-comment-matrix.sh"
+      ],
+      "reason": "Privacy/ZK matrix, dependency policy and executable backend/frontend evidence are owned by the consolidated privacy-ZK lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkCommentMatrix_IsFailClosedBySecurityMatrixChecker",
+      "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/privacy-zk-comment-matrix.sh"
+      ],
+      "reason": "Privacy/ZK matrix, dependency policy and executable backend/frontend evidence are owned by the consolidated privacy-ZK lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkCommentMatrix_HasLocalCommandsAndCiGate",
+      "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/privacy-zk-comment-matrix.sh"
+      ],
+      "reason": "Privacy/ZK matrix, dependency policy and executable backend/frontend evidence are owned by the consolidated privacy-ZK lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkCommentEvidence_PointsAtExecutableBackendAndFrontendTests",
+      "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/privacy-zk-comment-matrix.sh"
+      ],
+      "reason": "Privacy/ZK matrix, dependency policy and executable backend/frontend evidence are owned by the consolidated privacy-ZK lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkDependencyPolicy_BansNethereumAndThirdPartyJsonParser",
+      "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/privacy-zk-comment-matrix.sh"
+      ],
+      "reason": "Privacy/ZK matrix, dependency policy and executable backend/frontend evidence are owned by the consolidated privacy-ZK lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AnonymousPrivacyMatrixTests.cs#AnonymousPrivacyMatrixTests.PrivacyZkRevocationAccumulatorDocs_RecordCircuitOnlyVerifier",
+      "path": "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/privacy-zk-comment-matrix.sh"
+      ],
+      "reason": "Privacy/ZK matrix, dependency policy and executable backend/frontend evidence are owned by the consolidated privacy-ZK lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RightsV3TestMatrixContractTests.cs#RightsV3TestMatrixContractTests.Matrix_DeclaresDedicatedRightsV3LaneAndCoverageEvidence",
+      "path": "tests/backend/Unit/RightsV3TestMatrixContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/rights-v3-test-matrix.sh"
+      ],
+      "reason": "Rights V3 coverage, artifact evidence and behavior are owned by the executable Rights V3 lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RightsV3TestMatrixContractTests.cs#RightsV3TestMatrixContractTests.LaneScript_RunsEveryRightsV3AcceptanceSlice",
+      "path": "tests/backend/Unit/RightsV3TestMatrixContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/rights-v3-test-matrix.sh"
+      ],
+      "reason": "Rights V3 coverage, artifact evidence and behavior are owned by the executable Rights V3 lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RightsV3TestMatrixContractTests.cs#RightsV3TestMatrixContractTests.Contracts_PinArticleDetailArtifactHitAndLegacyRejection",
+      "path": "tests/backend/Unit/RightsV3TestMatrixContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/rights-v3-test-matrix.sh"
+      ],
+      "reason": "Rights V3 coverage, artifact evidence and behavior are owned by the executable Rights V3 lane."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RightsV3TestMatrixContractTests.cs#RightsV3TestMatrixContractTests.Documentation_ExplainsLocalRightsV3MatrixRun",
+      "path": "tests/backend/Unit/RightsV3TestMatrixContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/test/lanes/rights-v3-test-matrix.sh"
+      ],
+      "reason": "Rights V3 coverage, artifact evidence and behavior are owned by the executable Rights V3 lane."
     }
   ],
   "assertionReplacements": [
@@ -129,23 +372,22 @@
     {
       "before": "Assert.Contains(\"needs.plan-pr-risk.outputs.coverage_backend\", workflow, StringComparison.Ordinal)",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/QualityGateSmartGateContractTests.cs#QualityGateSmartGateContractTests.Workflow_HasPrRiskPlanJobAndConditionsHeavyJobs"
+        "node-script:tools/check-workflow-matrix-sync.mjs"
       ],
       "after": [
-        "Assert.Contains(\"./tools/test.sh ci-job fast-backend --fresh\", workflow, StringComparison.Ordinal)",
-        "Assert.Contains(\"./tools/test.sh ci-job fast-frontend-unit --fresh\", workflow, StringComparison.Ordinal)"
+        "behavior:check-workflow-matrix-sync.mjs"
       ],
-      "reason": "Coverage is now an explicit member of each resource-aware fast DAG rather than a conditional standalone workflow output; the contract requires both authoritative fresh job commands."
+      "reason": "Coverage is now an explicit member of each resource-aware fast DAG, and the structured workflow-matrix checker owns the current job wiring without source-text assertions."
     },
     {
       "before": "Assert.Contains(\"smartGateMode: conditional\", TierBlock(matrix, \"coverage-backend\"), StringComparison.Ordinal)",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/QualityGateSmartGateContractTests.cs#QualityGateSmartGateContractTests.Matrix_UsesConditionalSmartGateForProductionHeavyLanes"
+        "node-script:tools/check-test-matrix.mjs"
       ],
       "after": [
-        "Assert.Contains(\"smartGateMode: always\", TierBlock(matrix, \"coverage-backend\"), StringComparison.Ordinal)"
+        "behavior:check-test-matrix.mjs"
       ],
-      "reason": "Backend coverage moved into the always-on fast DAG and supersedes its ordinary unit execution, so the stronger contract rejects conditional omission."
+      "reason": "Backend coverage moved into the always-on fast DAG; structured matrix validation now owns that rule without a duplicate xUnit source-text contract."
     },
     {
       "before": "expect(lane).toContain('npm run prepare:playwright:sessions -- --workers \"$FSUSBLOG_UX_VIEWPORT_WORKERS\"')",

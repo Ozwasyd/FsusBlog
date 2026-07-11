@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/src/frontend"
 EVIDENCE_PATH="$ROOT_DIR/.tmp/release-evidence/rights-v3-test-matrix.json"
 
-BACKEND_FILTER="FullyQualifiedName~SchemaMigrationRegistryTests|FullyQualifiedName~SchemaMigrationIntegrationTests.RunAsync_CreatesArticleRightsV3SchemaAndBackfillsLegacyArticles|FullyQualifiedName~ArticleRightsCanonicalHashTests|FullyQualifiedName~ArticleRightsWritePathTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~ArticleServiceValidationTests|FullyQualifiedName~PublicContentInvalidationFlowTests|FullyQualifiedName~IntegrityProofPipelineTests|FullyQualifiedName~ArticleRightsProofModelTests|FullyQualifiedName~PublicHotReadFastPathTests.PreencodedArticleDetailHotPath|FullyQualifiedName~RightsV3TestMatrixContractTests"
+BACKEND_FILTER="FullyQualifiedName~SchemaMigrationRegistryTests|FullyQualifiedName~SchemaMigrationIntegrationTests.RunAsync_CreatesArticleRightsV3SchemaAndBackfillsLegacyArticles|FullyQualifiedName~ArticleRightsCanonicalHashTests|FullyQualifiedName~ArticleRightsWritePathTests|FullyQualifiedName~PodBinaryCodecTests|FullyQualifiedName~ArticleServiceValidationTests|FullyQualifiedName~PublicContentInvalidationFlowTests|FullyQualifiedName~IntegrityProofPipelineTests|FullyQualifiedName~ArticleRightsProofModelTests|FullyQualifiedName~PublicHotReadFastPathTests.PreencodedArticleDetailHotPath"
 
 FRONTEND_TESTS=(
   "../../tests/frontend/unit/protocol/aeds-contract.test.ts"
@@ -60,8 +60,7 @@ const evidence = {
       'PublicContentInvalidationFlowTests',
       'IntegrityProofPipelineTests',
       'ArticleRightsProofModelTests',
-      'PublicHotReadFastPathTests.PreencodedArticleDetailHotPath',
-      'RightsV3TestMatrixContractTests'
+      'PublicHotReadFastPathTests.PreencodedArticleDetailHotPath'
     ]
   },
   frontend: {

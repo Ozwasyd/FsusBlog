@@ -65,7 +65,6 @@ scenarios:
       - src/shared/Contracts/Security/RenderRecipeV2Contracts.cs
     tests:
       - tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs
-      - tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs
     evidence:
       - .tmp/security/perception-v2-test-matrix.json
 

@@ -112,7 +112,7 @@ const matrixSummary = {
   source: 'security/perception-v2-test-matrix.yml',
   validatedBy: [
     'tools/security/check-security-matrices.mjs',
-    'dotnet test PerceptionSealedV2TestMatrixTests + PerceptionChallengeV2E2eTests',
+    'dotnet test PerceptionChallengeV2E2eTests',
     'tools/security/check-perception-v2-e2e-evidence.mjs'
   ],
   validationClasses: ['contract-only', 'provider-only', 'e2e-runtime'],

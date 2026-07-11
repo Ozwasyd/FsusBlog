@@ -529,8 +529,15 @@ function coverageProof(before, after, deletionSafety, assertionReplacementSafety
   const beforeAssertionTargets = assertionTargetIds(before)
   const afterAssertionTargets = assertionTargetIds(after)
   const authorizedAssertionReplacements = new Set(assertionReplacementSafety.validBeforeTargets)
+  const beforeRecordsById = new Map((before?.testRecords ?? [])
+    .filter((record) => record?.id)
+    .map((record) => [record.id, record]))
+  const assertionsCoveredByDeletedTests = new Set([...authorizedDeletedIds]
+    .flatMap((id) => beforeRecordsById.get(id)?.assertionTargets ?? []))
   const missingAssertionTargets = [...beforeAssertionTargets]
-    .filter((target) => !afterAssertionTargets.has(target) && !authorizedAssertionReplacements.has(target))
+    .filter((target) => !afterAssertionTargets.has(target)
+      && !authorizedAssertionReplacements.has(target)
+      && !assertionsCoveredByDeletedTests.has(target))
     .sort()
   const addedAssertionTargets = [...afterAssertionTargets].filter((target) => !beforeAssertionTargets.has(target)).sort()
   const beforeTargets = Number(before?.retainedEvidence?.uniqueAssertionTargetCount ?? 0)
@@ -564,6 +571,7 @@ function coverageProof(before, after, deletionSafety, assertionReplacementSafety
     missingTestIds,
     addedTestIds,
     missingAssertionTargets,
+    assertionsCoveredByDeletedTests: [...assertionsCoveredByDeletedTests].sort(),
     addedAssertionTargets,
     dimensions,
     before: { coverageIdCount: beforeIds.size, uniqueAssertionTargetCount: beforeTargets, testRecordCount: beforeTests },

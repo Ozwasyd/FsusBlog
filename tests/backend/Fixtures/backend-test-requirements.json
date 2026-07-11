@@ -290,8 +290,7 @@
       "evidencePaths": [
         "security/risk-control-test-matrix.yml",
         "tools/security/check-security-matrices.mjs",
-        "tools/test/lanes/risk-control-test-matrix.sh",
-        "tests/backend/Unit/RiskControlTestMatrixTests.cs"
+        "tools/test/lanes/risk-control-test-matrix.sh"
       ]
     },
     {
@@ -303,7 +302,6 @@
         "tools/security/check-security-matrices.mjs",
         "tools/security/check-perception-v2-e2e-evidence.mjs",
         "tools/test/lanes/perception-v2-test-matrix.sh",
-        "tests/backend/Unit/PerceptionSealedV2TestMatrixTests.cs",
         "tests/backend/Unit/PerceptionChallengeV2E2eTests.cs",
         "tests/backend/Unit/PerceptionChallengeV2ServiceTests.cs",
         "tests/backend/Unit/PerceptionChallengeProviderTests.cs",
@@ -320,7 +318,6 @@
         "security/privacy-zk-comment-matrix.yml",
         "tools/security/check-security-matrices.mjs",
         "tools/test/lanes/privacy-zk-comment-matrix.sh",
-        "tests/backend/Unit/AnonymousPrivacyMatrixTests.cs",
         "tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs",
         "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts"
       ]

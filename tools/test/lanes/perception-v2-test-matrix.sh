@@ -12,5 +12,5 @@ FSUSBLOG_REPO_ROOT="$ROOT_DIR" "$ROOT_DIR/tools/build-with-data-env.sh" dotnet t
   -c Debug \
   -v minimal \
   "${dotnet_args[@]}" \
-  --filter "FullyQualifiedName~PerceptionSealedV2TestMatrixTests|FullyQualifiedName~PerceptionChallengeV2E2eTests"
+  --filter "FullyQualifiedName~PerceptionChallengeV2E2eTests"
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/security/check-perception-v2-e2e-evidence.mjs"
