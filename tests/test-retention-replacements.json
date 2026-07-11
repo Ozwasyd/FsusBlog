@@ -59,6 +59,75 @@
   ],
   "deletedTests": [
     {
+      "id": "xunit:tests/backend/Unit/LegacyFixturePrivacyContractTests.cs#LegacyFixturePrivacyContractTests.Legacy20260517MinimalFixture_UsesAnonymizedIdentitySamples",
+      "path": "tests/backend/Unit/LegacyFixturePrivacyContractTests.cs",
+      "replacementTestIds": [
+        "node-script:tests/frontend/checks/static/check-test-fixture-secret-governance.mjs",
+        "node-script:tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs"
+      ],
+      "reason": "The SQL-aware fixture secret checker now owns the exact legacy identity, token, role and loopback patterns with path-line-rule diagnostics plus unsafe and anonymized executable fixtures."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/NotificationStreamTargetCollectionContractTests.cs#NotificationStreamTargetCollectionContractTests.NotificationStreamTargets_DoNotExposeLegacyGroupConstants",
+      "path": "tests/backend/Unit/NotificationStreamTargetCollectionContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
+      ],
+      "reason": "The centralized historical residue checker and its positive-negative fixture own notification stream legacy group names without a duplicate xUnit source wrapper."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/NotificationStreamTargetCollectionContractTests.cs#NotificationStreamTargetCollectionContractTests.AudienceResolver_OnlyAssignsExplicitNotificationTargets",
+      "path": "tests/backend/Unit/NotificationStreamTargetCollectionContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs",
+        "xunit:tests/backend/Unit/NotificationStreamBoundaryTests.cs#NotificationStreamBoundaryTests.AudienceResolver_DoesNotMapRoleOnlyUserToAdminGroup",
+        "xunit:tests/backend/Unit/NotificationStreamBoundaryTests.cs#NotificationStreamBoundaryTests.AudienceResolver_MapsAdminPrincipalToNotificationStreamTargetCollections"
+      ],
+      "reason": "The checker owns retired names while direct audience resolver behavior proves the current content-feed and admin target collections."
+    },
+    {
+      "id": "xunit:tests/backend/Unit/NotificationStreamTargetCollectionContractTests.cs#NotificationStreamTargetCollectionContractTests.DrillEndpoint_DoesNotParseLegacyNotificationGroups",
+      "path": "tests/backend/Unit/NotificationStreamTargetCollectionContractTests.cs",
+      "replacementTestIds": [
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
+      ],
+      "reason": "The centralized scoped checker now rejects legacy notification group parsing in the drill endpoint and reports the exact source location."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/frontendDeadExports.test.ts#does-not-expose-retired-store-actions-or-risk-control-op-9450f0c13d",
+      "path": "tests/frontend/unit/view-contracts/frontendDeadExports.test.ts",
+      "replacementTestIds": [
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
+      ],
+      "reason": "One scoped historical residue rule and its executable fixtures now own the retired store and risk-control identifiers."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/frontendDeadExports.test.ts#does-not-expose-the-retired-legacy-comment-creation-api-5d9b82fb51",
+      "path": "tests/frontend/unit/view-contracts/frontendDeadExports.test.ts",
+      "replacementTestIds": [
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs",
+        "vitest:tests/frontend/unit/api/comment.test.ts#createcommentv2-sends-commentcreatev2-binary-mutation-fr-04f6e5f019",
+        "vitest:tests/frontend/unit/api/comment.test.ts#createpubliccomment-forces-public-author-mode-and-explic-d80d4ed935"
+      ],
+      "reason": "The checker uniquely rejects retired comment identifiers while direct transport tests retain CommentCreateV2 and explicit public-author behavior."
+    },
+    {
+      "id": "vitest:tests/frontend/unit/view-contracts/frontendDeadExports.test.ts#does-not-retain-the-orphan-standalone-about-page-entry-43df6a66e7",
+      "path": "tests/frontend/unit/view-contracts/frontendDeadExports.test.ts",
+      "replacementTestIds": [
+        "shell:tools/check-historical-residue.sh",
+        "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs",
+        "vitest:tests/frontend/unit/public-renderers/publicRouteRegistry.test.ts#groups-seo-route-names-by-page-kind-and-keeps-search-she-743573e87d",
+        "vitest:tests/frontend/unit/public-renderers/publicEntryRegistry.test.ts#emits-the-shared-staticpage-payload-for-about-when-optio-09a051a6a6"
+      ],
+      "reason": "The checker owns the retired About component identifiers while current registry behavior proves the shared About route and static-page payload."
+    },
+    {
       "id": "vitest:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/e2e/ux/viewport-boundaries.spec.ts#casegroup-id-keeps-viewport-boundaries-usable-1f4f602b2f",
       "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
       "replacementTestIds": [

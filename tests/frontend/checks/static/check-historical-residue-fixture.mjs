@@ -41,6 +41,32 @@ export function createCommentV1(dto: CommentCreateRequest) {
     }
   },
   {
+    name: 'notification stream legacy target names',
+    expected: 'notification stream legacy target residue detected',
+    files: {
+      'src/backend/Infrastructure/NotificationStream/NotificationStreamTargets.cs': `
+namespace FsusBlog.Server.Infrastructure.NotificationStream;
+internal static class NotificationStreamTargets
+{
+    public const string Legacy = "authenticated-users";
+    public const string Group = "NotificationStreamGroups";
+}
+`
+    }
+  },
+  {
+    name: 'frontend retired identifiers',
+    expected: 'frontend retired identifier residue detected',
+    files: {
+      'src/frontend/src/store/retiredExports.ts': `
+export const setUserInfo = () => undefined
+export interface RiskControlPolicyUpdateRequest { captchaV1Enabled: boolean }
+export const createComment = () => undefined
+export const retiredPage = 'About.vue'
+`
+    }
+  },
+  {
     name: 'old author-mode aliases',
     expected: 'old author-mode alias residue detected',
     files: {
@@ -686,6 +712,37 @@ set -euo pipefail
 `,
   'tests/backend/Fixtures/legacy-20260517-minimal.sql': `
 CREATE TABLE sys_user(id bigint primary key);
+`,
+  'src/backend/Infrastructure/NotificationStream/NotificationStreamTargets.cs': `
+namespace FsusBlog.Server.Infrastructure.NotificationStream;
+internal static class NotificationStreamTargetCollections
+{
+    public const string ContentFeed = "content-feed";
+    public const string AdminUsers = "admin-users";
+}
+`,
+  'src/backend/Infrastructure/NotificationStream/NotificationStreamAudienceResolver.cs': `
+namespace FsusBlog.Server.Infrastructure.NotificationStream;
+internal sealed class NotificationStreamAudienceResolver
+{
+    private static readonly string[] Targets = [NotificationStreamTargetCollections.ContentFeed];
+}
+`,
+  'src/backend/Modules/Endpoints/NotificationStreamDrillEndpoints.cs': `
+namespace FsusBlog.Server.Modules.Endpoints;
+internal static class NotificationStreamDrillEndpoints
+{
+    private const string Target = "content-feed";
+}
+`,
+  'src/frontend/src/api/comment.ts': `
+export const createCommentV2 = () => undefined
+export const createPublicComment = () => undefined
+`,
+  'src/frontend/src/public-renderers/publicRouteRegistry.ts': `
+export const publicAboutRoute = {
+  component: () => import('@/views/PublicDynamicPage.vue')
+}
 `
 }
 

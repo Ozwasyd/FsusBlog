@@ -2,7 +2,8 @@ import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
+const checkerRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
+const repoRoot = resolve(process.env.FSUSBLOG_TEST_FIXTURE_GOVERNANCE_ROOT || checkerRoot)
 const scanRoots = [
   'tests/frontend',
   'tests/backend',
@@ -13,74 +14,116 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function literalPattern(parts) {
-  return new RegExp(escapeRegExp(parts.join('')), 'g')
+function literalPattern(value) {
+  return new RegExp(escapeRegExp(value), 'g')
 }
 
 const bannedPatterns = [
   {
     label: 'hardcoded fixture admin password',
-    regex: literalPattern(['BinaryAdmin', 'Pass123!'])
+    regex: literalPattern('BinaryAdminPass123!')
   },
   {
     label: 'hardcoded fixture user password',
-    regex: literalPattern(['BinaryUser', 'Pass123!'])
+    regex: literalPattern('BinaryUserPass123!')
   },
   {
     label: 'fixture JWT secret fallback',
-    regex: literalPattern(['local-dev-secret-key', '-32-chars-min-aaaaaa'])
+    regex: literalPattern('local-dev-secret-key-32-chars-min-aaaaaa')
   },
   {
     label: 'plaintext default JWT denylist secret',
     regex: new RegExp([
-      literalPattern(['Were_I_you', '_I_would_get_high_like_some_airplanes']).source,
-      literalPattern(['Local_Release', '_Smoke_Key_For_FsusBlog_2026_Only']).source
+      literalPattern('Were_I_you_I_would_get_high_like_some_airplanes').source,
+      literalPattern('Local_Release_Smoke_Key_For_FsusBlog_2026_Only').source
     ].join('|'), 'g')
   },
   {
     label: 'production-like test JWT secret naming',
-    regex: literalPattern(['production-secret-key', '-with-at-least-thirty-two-chars'])
+    regex: literalPattern('production-secret-key-with-at-least-thirty-two-chars')
   },
   {
     label: 'generic unit test JWT secret literal',
     regex: new RegExp([
-      literalPattern(['unit-test-secret-key', '-with-at-least-32-chars']).source,
-      literalPattern(['unit-test-secret-key', '-with-enough-entropy']).source
+      literalPattern('unit-test-secret-key-with-at-least-32-chars').source,
+      literalPattern('unit-test-secret-key-with-enough-entropy').source
     ].join('|'), 'g')
   },
   {
     label: 'legacy JwtHelper test secret literal',
-    regex: literalPattern(['SuperSecretTestKey', 'ThatIs32Chars!!'])
+    regex: literalPattern('SuperSecretTestKeyThatIs32Chars!!')
   },
   {
     label: 'integration JWT secret literal',
-    regex: literalPattern(['integration-test-secret-key', '-with-at-least-thirty-two-chars'])
+    regex: literalPattern('integration-test-secret-key-with-at-least-thirty-two-chars')
   },
   {
     label: 'real production domain in test config',
     regex: new RegExp([
-      literalPattern(['https://', 'fsus', '.blog']).source,
-      literalPattern(['https://www.', 'fsus', '.blog']).source,
-      String.raw`["']${escapeRegExp(['fsus', '.blog'].join(''))}["']`
+      literalPattern('https://fsus.blog').source,
+      literalPattern('https://www.fsus.blog').source,
+      String.raw`["']${escapeRegExp('fsus.blog')}["']`
     ].join('|'), 'g')
   },
   {
     label: 'default postgres fixture container',
-    regex: literalPattern(['fsusblog', '-postgres'])
+    regex: literalPattern('fsusblog-postgres')
   },
   {
     label: 'static RFC TOTP seed',
     regex: new RegExp([
-      literalPattern(['JBSWY3D', 'PEHPK3PXP']).source,
-      literalPattern(['GEZDGNBVGY3TQOJQ', 'GEZDGNBVGY3TQOJQ']).source
+      literalPattern('JBSWY3DPEHPK3PXP').source,
+      literalPattern('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ').source
     ].join('|'), 'g')
   },
   {
     label: 'deterministic legacy identity fixture',
     regex: /legacy-(?:admin|credential|public-key|recovery-key-hash)/g,
     files: new Set(['tests/backend/Integration/LegacyIdentityColdStartResetIntegrationTests.cs'])
+  },
+  {
+    label: 'legacy SQL username sample',
+    regex: /\blegacy-user\b/gi,
+    files: new Set(['tests/backend/Fixtures/legacy-20260517-minimal.sql'])
+  },
+  {
+    label: 'legacy SQL plaintext refresh token',
+    regex: /\bplaintext-refresh-token\b/gi,
+    files: new Set(['tests/backend/Fixtures/legacy-20260517-minimal.sql'])
+  },
+  {
+    label: 'legacy SQL loopback IPv4 sample',
+    regex: /'127(?:[.]\d{1,3}){3}'/g,
+    files: new Set(['tests/backend/Fixtures/legacy-20260517-minimal.sql'])
+  },
+  {
+    label: 'legacy SQL placeholder hash',
+    regex: /'hash'/gi,
+    files: new Set(['tests/backend/Fixtures/legacy-20260517-minimal.sql'])
+  },
+  {
+    label: 'legacy SQL guest role',
+    regex: /'guest'/gi,
+    files: new Set(['tests/backend/Fixtures/legacy-20260517-minimal.sql'])
   }
 ]
+
+const allowlist = new Map([
+  [
+    'tests/frontend/checks/static/check-test-fixture-secret-governance.mjs',
+    new Set(bannedPatterns.map((pattern) => pattern.label))
+  ],
+  [
+    'tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs',
+    new Set([
+      'legacy SQL username sample',
+      'legacy SQL plaintext refresh token',
+      'legacy SQL loopback IPv4 sample',
+      'legacy SQL placeholder hash',
+      'legacy SQL guest role'
+    ])
+  ]
+])
 
 const requiredMarkers = [
   {
@@ -120,7 +163,7 @@ function walk(dir) {
       continue
     }
 
-    if (!/\.(?:cs|ts|mjs|json)$/.test(path)) {
+    if (!/\.(?:cs|ts|mjs|json|sql)$/.test(path)) {
       continue
     }
 
@@ -131,8 +174,13 @@ function walk(dir) {
         continue
       }
       pattern.regex.lastIndex = 0
-      if (pattern.regex.test(content)) {
-        violations.push(`${rel}: ${pattern.label}`)
+      let match
+      while ((match = pattern.regex.exec(content)) !== null) {
+        if (!allowlist.get(rel)?.has(pattern.label)) {
+          const line = content.slice(0, match.index).split('\n').length
+          violations.push(`${rel}:${line}:${pattern.label}`)
+        }
+        if (match[0].length === 0) pattern.regex.lastIndex += 1
       }
     }
   }
@@ -146,14 +194,14 @@ for (const rule of requiredMarkers) {
   const path = resolve(repoRoot, rule.file)
   const content = existsSync(path) ? readFileSync(path, 'utf8') : ''
   if (!content.includes(rule.marker)) {
-    violations.push(`${rule.file}: ${rule.message}`)
+    violations.push(`${rule.file}:1:${rule.message}`)
   }
 }
 
 const legacyFixtureRoot = resolve(repoRoot, 'src/frontend/.playwright-fixtures')
 try {
   lstatSync(legacyFixtureRoot)
-  violations.push('src/frontend/.playwright-fixtures: legacy fixture directory or symbolic link must not remain on disk')
+  violations.push('src/frontend/.playwright-fixtures:1:legacy fixture directory or symbolic link must not remain on disk')
 } catch (error) {
   if (error.code !== 'ENOENT') throw error
 }
@@ -162,12 +210,12 @@ function checkPrivateAuthFixturePath(path) {
   const rel = relative(repoRoot, path).replace(/\\/g, '/')
   const stats = lstatSync(path)
   if (stats.isSymbolicLink()) {
-    violations.push(`${rel}: auth fixture paths must not be symbolic links`)
+    violations.push(`${rel}:1:auth fixture paths must not be symbolic links`)
     return
   }
   if (stats.isDirectory()) {
     if ((stats.mode & 0o777) !== 0o700) {
-      violations.push(`${rel}: auth fixture directories must use mode 0700`)
+      violations.push(`${rel}:1:auth fixture directories must use mode 0700`)
     }
     for (const entry of readdirSync(path)) {
       checkPrivateAuthFixturePath(join(path, entry))
@@ -175,7 +223,7 @@ function checkPrivateAuthFixturePath(path) {
     return
   }
   if ((stats.mode & 0o777) !== 0o600) {
-    violations.push(`${rel}: auth fixture files must use mode 0600`)
+    violations.push(`${rel}:1:auth fixture files must use mode 0600`)
   }
 }
 

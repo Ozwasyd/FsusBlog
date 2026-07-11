@@ -158,6 +158,22 @@ run_residue_check \
   src/core src/backend src/frontend src/shared
 
 run_residue_check \
+  "notification stream legacy target names" \
+  "notification stream legacy target residue detected" \
+  '\b(?:NotificationStreamGroups|AuthenticatedUsers|AuthenticatedUsersGroup|ContentGovernanceGroup|AdminUsersGroup)\b|authenticated-users' \
+  "" \
+  src/backend/Infrastructure/NotificationStream/NotificationStreamTargets.cs \
+  src/backend/Infrastructure/NotificationStream/NotificationStreamAudienceResolver.cs \
+  src/backend/Modules/Endpoints/NotificationStreamDrillEndpoints.cs
+
+run_residue_check \
+  "frontend retired identifiers" \
+  "frontend retired identifier residue detected" \
+  '\b(?:setUserInfo|isMobileSearchOpen|setMobileSearchVisible|updateRiskControlOptions|rollbackRiskControlOptions|RiskControlPolicyUpdateRequest|captchaV1Enabled|poSpaceV1Enabled|createComment|CommentDto|PowRequest|useAboutPage)\b|About[.]vue' \
+  "" \
+  src/frontend/src
+
+run_residue_check \
   "obsolete AOT shell builder names" \
   "obsolete AOT shell builder names detected" \
   'BuildHomeShell|BuildArticleDetailShell|BuildFilterShell|BuildAboutShell|BuildArchiveShell' \

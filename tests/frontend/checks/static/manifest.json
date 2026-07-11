@@ -21,6 +21,8 @@
     { "id": "public-hot-read-fastpath", "command": ["bash", "../../tools/check-public-hot-read-fastpath.sh"], "access": "read" },
     { "id": "historical-residue", "command": ["bash", "../../tools/check-historical-residue.sh"], "access": "read" },
     { "id": "historical-residue-fixture", "command": ["node", "../../tests/frontend/checks/static/check-historical-residue-fixture.mjs"], "access": "read" },
+    { "id": "test-fixture-secret-governance", "script": "check:test-fixture-secret-governance", "access": "read" },
+    { "id": "test-fixture-secret-governance-fixture", "command": ["node", "../../tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs"], "access": "read" },
     { "id": "cache-governance", "command": ["bash", "../../tools/check-cache-governance.sh"], "access": "read" },
     { "id": "test-hygiene", "command": ["bash", "../../tools/check-test-hygiene.sh"], "access": "read" },
     { "id": "slo-definition", "command": ["node", "../../tools/operations/check-slo-definition.mjs"], "access": "read" },
