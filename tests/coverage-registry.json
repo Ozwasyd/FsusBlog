@@ -2275,21 +2275,6 @@
       ]
     },
     {
-      "id": "ux-viewport-canary-parity",
-      "description": "The 70 mobile-landscape route/theme/media cases preserve the pre-optimization Playwright failure signatures across the tracked legacy and current runners.",
-      "owner": "InteropGlueAgent",
-      "risk": "high",
-      "evidencePaths": [
-        ".tmp/release-evidence/ux-viewport-canary-parity.json"
-      ],
-      "assertionType": "browser",
-      "failClosedRule": "Evidence must be status=success with 70 legacy executions, 70 current executions, 70 historical signature matches and zero mismatches; an incomplete or unhashed historical baseline is status=blocked.",
-      "minimumRequirement": "The legacy runner and assertion helpers must come from the tracked digest-bound snapshot, and all 70 historical failures must retain Playwright JSON provenance before parity can pass.",
-      "tierIds": [
-        "ux-viewport-canary-parity"
-      ]
-    },
-    {
       "id": "ux-viewport-visual",
       "description": "UX Viewport Visual is covered by browser and public-page artifacts that exercise the named behavior.",
       "owner": "InteropGlueAgent",

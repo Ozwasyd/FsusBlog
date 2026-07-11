@@ -12,10 +12,11 @@
     },
     {
       "from": "ux-viewport-canary-parity",
-      "to": "ux-viewport-plan-progress",
-      "scope": "production-membership",
+      "to": "ux-viewport-boundaries",
       "coverageIds": [
-        "ux-viewport-plan-progress"
+        "ux-viewport-plan-progress",
+        "ux-viewport-boundary-full",
+        "ux-viewport-visual"
       ],
       "catalogReplacements": {
         "productionRequiredTierIds": [
@@ -23,12 +24,230 @@
             "from": "ux-viewport-canary-parity",
             "to": "ux-viewport-plan-progress"
           }
+        ],
+        "coverageIds": [
+          {
+            "from": "ux-viewport-canary-parity",
+            "to": "ux-viewport-boundary-full"
+          }
+        ],
+        "matrixArtifactPaths": [
+          {
+            "from": ".tmp/release-evidence/ux-viewport-canary-parity.json",
+            "to": ".tmp/release-evidence/ux-viewport-summary.json"
+          },
+          {
+            "from": ".tmp/ux/canary-parity",
+            "to": ".tmp/ux/viewport-boundaries.json"
+          }
+        ],
+        "matrixEvidencePaths": [
+          {
+            "from": ".tmp/release-evidence/ux-viewport-canary-parity.json",
+            "to": ".tmp/release-evidence/ux-viewport-summary.json"
+          }
+        ],
+        "releaseEvidencePaths": [
+          {
+            "from": ".tmp/release-evidence/ux-viewport-canary-parity.json",
+            "to": ".tmp/release-evidence/ux-viewport-summary.json"
+          }
         ]
       },
-      "reason": "The incomplete historical signatures cannot prove parity and remain fail-closed in their standalone tier; production now executes the exact planner, progress/resume, and runtime ownership contracts without claiming that unavailable historical parity was established."
+      "reason": "The incomplete historical signatures cannot prove parity, so the blocked tier and legacy fixture leave the active inventory. Exact plan/progress, current boundary execution, visual evidence and the semantic viewport summary replace it without claiming unavailable historical parity."
     }
   ],
   "deletedTests": [
+    {
+      "id": "vitest:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/e2e/ux/viewport-boundaries.spec.ts#casegroup-id-keeps-viewport-boundaries-usable-1f4f602b2f",
+      "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/e2e/ux/viewport-boundaries.spec.ts",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The incomplete legacy viewport snapshot is removed from executable inventory; current plan, runtime and boundary owners retain the observable viewport behavior."
+    },
+    {
+      "id": "node-script:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/fixture-paths.mjs",
+      "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/fixture-paths.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The incomplete legacy viewport snapshot is removed from executable inventory; current plan, runtime and boundary owners retain the observable viewport behavior."
+    },
+    {
+      "id": "support:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/playwright/acceptance-shared.ts",
+      "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/playwright/acceptance-shared.ts",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The incomplete legacy viewport snapshot is removed from executable inventory; current plan, runtime and boundary owners retain the observable viewport behavior."
+    },
+    {
+      "id": "support:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/playwright/routeAuditFixtures.ts",
+      "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/playwright/routeAuditFixtures.ts",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The incomplete legacy viewport snapshot is removed from executable inventory; current plan, runtime and boundary owners retain the observable viewport behavior."
+    },
+    {
+      "id": "support:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/playwright/routeAuditMatrix.ts",
+      "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/playwright/routeAuditMatrix.ts",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The incomplete legacy viewport snapshot is removed from executable inventory; current plan, runtime and boundary owners retain the observable viewport behavior."
+    },
+    {
+      "id": "support:tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/playwright/testSession.ts",
+      "path": "tests/frontend/fixtures/ux-viewport-legacy/runtime/tests/frontend/support/playwright/testSession.ts",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The incomplete legacy viewport snapshot is removed from executable inventory; current plan, runtime and boundary owners retain the observable viewport behavior."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#canary-plan-is-exactly-5-routes-by-2-themes-by-7-media-a-9ac7cb4ef4",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#legacy-and-current-failure-labels-normalize-to-the-same--833957b927",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#playwright-json-v2-failure-becomes-one-normalized-case-r-9021524dcf",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#parity-evidence-succeeds-only-after-all-70-case-outcomes-24b14d4be6",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#parity-evidence-fails-closed-for-a-mismatch-and-rejects--a0c6827839",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#historical-baseline-fails-closed-unless-all-70-cases-hav-3f5e6343fc",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#tracked-legacy-manifest-binds-every-snapshot-source-by-d-58595e73bd",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#repository-legacy-snapshot-is-tracked-digest-valid-and-h-1fb8f22da3",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#legacy-workspace-copies-only-the-tracked-helper-snapshot-c6535d1706",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#case-invocations-use-the-real-legacy-snapshot-and-curren-1522fc8aa8",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#batch-invocations-execute-70-isolated-cases-in-exactly-t-6c5564f093",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "node-test:tests/tools/ux-viewport-canary-parity.test.mjs#generated-legacy-config-uses-a-playwright-loadable-files-46c372a096",
+      "path": "tests/tools/ux-viewport-canary-parity.test.mjs",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
+    {
+      "id": "shell:tools/test/lanes/ux-viewport-canary-parity.sh",
+      "path": "tools/test/lanes/ux-viewport-canary-parity.sh",
+      "replacementTestIds": [
+        "node-test:tests/tools/ux-viewport-plan.test.mjs#shared-planner-preserves-the-exact-smoke-visual-and-boun-7d7d1654db",
+        "node-test:tests/tools/ux-viewport-runtime-contract.test.mjs#viewport-runner-owns-one-route-theme-context-and-one-col-70af08179a",
+        "shell:tools/test/lanes/ux-viewport-boundaries.sh"
+      ],
+      "reason": "The blocked historical parity implementation leaves the active inventory; exact current planning, runtime ownership and boundary execution replace it without asserting unavailable legacy equivalence."
+    },
     {
       "id": "vitest:tests/frontend/e2e/ux/viewport-boundaries.spec.ts#casegroup-id-keeps-viewport-boundaries-usable-1f4f602b2f",
       "path": "tests/frontend/e2e/ux/viewport-boundaries.spec.ts",

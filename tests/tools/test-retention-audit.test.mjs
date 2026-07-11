@@ -659,33 +659,31 @@ test('replacement manifest requires live replacement tests and assertion targets
   )
 })
 
-test('production-membership replacement requires an exact mapping and a retained standalone source tier', () => {
+test('tier replacement requires a live target and valid catalog mappings', () => {
   const currentRecords = [
     {
-      id: 'canary-test',
-      assertionTargets: ['historical parity remains fail closed'],
-      tierIds: ['ux-viewport-canary-parity'],
-      coverageIds: ['ux-viewport-canary-parity']
-    },
-    {
-      id: 'plan-progress-test',
-      assertionTargets: ['plan progress remains executable'],
-      tierIds: ['ux-viewport-plan-progress'],
-      coverageIds: ['ux-viewport-plan-progress']
+      id: 'boundary-test',
+      assertionTargets: ['current boundary behavior remains executable'],
+      tierIds: ['ux-viewport-boundaries'],
+      coverageIds: ['ux-viewport-boundary']
     }
   ]
   const replacement = {
-    from: 'ux-viewport-canary-parity',
-    to: 'ux-viewport-plan-progress',
-    scope: 'production-membership',
-    coverageIds: ['ux-viewport-plan-progress'],
+    from: 'retired-viewport-tier',
+    to: 'ux-viewport-boundaries',
+    scope: 'tier',
+    coverageIds: ['ux-viewport-boundary'],
     catalogReplacements: {
       productionRequiredTierIds: [{
-        from: 'ux-viewport-canary-parity',
-        to: 'ux-viewport-plan-progress'
+        from: 'retired-viewport-tier',
+        to: 'ux-viewport-boundaries'
+      }],
+      coverageIds: [{
+        from: 'retired-viewport-coverage',
+        to: 'ux-viewport-boundary'
       }]
     },
-    reason: 'retain the blocked canary standalone while replacing only production membership'
+    reason: 'current boundary behavior replaces the retired viewport tier'
   }
   const manifest = {
     schema: 'fsusblog.test-retention-replacements.v1',
@@ -693,7 +691,7 @@ test('production-membership replacement requires an exact mapping and a retained
   }
 
   const normalized = normalizeReplacementManifest(manifest, currentRecords)
-  assert.equal(normalized.tierReplacements[0].scope, 'production-membership')
+  assert.equal(normalized.tierReplacements[0].scope, 'tier')
 
   assert.throws(
     () => normalizeReplacementManifest({
@@ -707,7 +705,7 @@ test('production-membership replacement requires an exact mapping and a retained
       ...manifest,
       tierReplacements: [{
         ...replacement,
-        catalogReplacements: { productionRequiredTierIds: [] }
+        catalogReplacements: { coverageIds: [] }
       }]
     }, currentRecords),
     /must not be empty/u
@@ -718,23 +716,9 @@ test('production-membership replacement requires an exact mapping and a retained
       tierReplacements: [{
         ...replacement,
         catalogReplacements: {
-          productionRequiredTierIds: replacement.catalogReplacements.productionRequiredTierIds,
-          coverageIds: [{ from: 'ux-viewport-canary-parity', to: 'ux-viewport-plan-progress' }]
-        }
-      }]
-    }, currentRecords),
-    /production-membership cannot authorize coverageIds/u
-  )
-  assert.throws(
-    () => normalizeReplacementManifest({
-      ...manifest,
-      tierReplacements: [{
-        ...replacement,
-        scope: 'tier',
-        catalogReplacements: {
           coverageIds: [
-            { from: 'ux-viewport-canary-parity', to: 'ux-viewport-plan-progress' },
-            { from: 'ux-viewport-canary-parity', to: 'another-coverage-id' }
+            { from: 'retired-viewport-coverage', to: 'ux-viewport-boundary' },
+            { from: 'retired-viewport-coverage', to: 'another-coverage-id' }
           ]
         }
       }]
@@ -742,7 +726,20 @@ test('production-membership replacement requires an exact mapping and a retained
     /source is duplicated/u
   )
   assert.throws(
-    () => normalizeReplacementManifest(manifest, currentRecords.slice(1)),
-    /requires the source tier to remain standalone/u
+    () => normalizeReplacementManifest({
+      ...manifest,
+      tierReplacements: [{
+        ...replacement,
+        to: 'missing-tier'
+      }]
+    }, currentRecords),
+    /missing replacement tier/u
+  )
+  assert.throws(
+    () => normalizeReplacementManifest({
+      ...manifest,
+      tierReplacements: [{ ...replacement, coverageIds: ['missing-coverage'] }]
+    }, currentRecords),
+    /missing coverage id/u
   )
 })

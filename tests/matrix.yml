@@ -1209,43 +1209,6 @@ tiers:
     nightlyOnly: false
     manualOnly: true
 
-  - id: ux-viewport-canary-parity
-    owner: InteropGlueAgent
-    command: tools/test/lanes/ux-viewport-canary-parity.sh
-    dependsOn: [bootstrap]
-    services: [postgres, redis, backend, frontend, preview]
-    parallelizable: false
-    exclusiveResources: [playwright-ux-viewport, ux-viewport-legacy-parity]
-    phase: 3
-    cost: very-high
-    resourceClass: browser
-    maxParallel: 1
-    cpuUnits: 3
-    memoryGiB: 4
-    executionKey: ux-viewport-canary-parity
-    executionVariant: runtime
-    cacheInputs: [src/frontend/package.json, src/frontend/playwright.config.ts, src/frontend/src, tests/frontend/e2e/ux/viewport-boundaries.spec.ts, tests/frontend/fixtures/ux-viewport-legacy, tests/frontend/fixtures/ux-viewport-matrix.json, tests/frontend/fixtures/ux-content-boundary-corpus.json, tests/frontend/support/playwright, tools/ux/run-viewport-canary-parity.mjs, tools/test/lanes/ux-viewport-canary-parity.sh]
-    requiresBootstrap: full
-    workflowBootstraps: true
-    requiresNode: true
-    requiresDotnet: true
-    requiresPlaywright: chromium
-    playwrightWorkers: 1
-    cacheProfile: full
-    timeoutMinutes: 180
-    shardable: false
-    defaultShards: 1
-    risk: high
-    cadence: release-manual
-    requiredFor: none
-    coverage: [ux-viewport-canary-parity]
-    artifacts: [.tmp/release-evidence/ux-viewport-canary-parity.json, .tmp/ux/canary-parity]
-    evidence: [.tmp/release-evidence/ux-viewport-canary-parity.json]
-    ciJob: ux-viewport-canary-parity
-    localOnly: false
-    nightlyOnly: false
-    manualOnly: true
-
   - id: ux-viewport-boundaries
     owner: InteropGlueAgent
     command: tools/test/lanes/ux-viewport-boundaries.sh

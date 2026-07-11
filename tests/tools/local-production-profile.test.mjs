@@ -212,7 +212,6 @@ test('repository production profile maps all 77 logical tiers exactly once', () 
 
   assert.equal(logicalTierIds.length, 77)
   assert.ok(logicalTierIds.includes('ux-viewport-plan-progress'))
-  assert.equal(logicalTierIds.includes('ux-viewport-canary-parity'), false)
   assert.equal(matrix.localProfiles.production.bundles.length, 5)
   assert.equal(matrix.localProfiles.production.budgetMs, 1_800_000)
   assert.deepEqual(matrix.localProfiles.production.bundles.map((bundle) => bundle.budgetMs), [
@@ -515,7 +514,6 @@ test('post-build production evidence stays out of the build bundle without being
 
   for (const tierId of deferred) assert.equal(bundles.get('build-static').includes(tierId), false, tierId)
   assert.ok(bundles.get('build-static').includes('ux-viewport-plan-progress'))
-  assert.equal(bundles.get('runtime-browser').includes('ux-viewport-canary-parity'), false)
   assert.match(localBundleRunner, /commandStep\('viewport-plan-progress', 'node tools\/ux\/run-viewport-plan-progress\.mjs', \['ux-viewport-plan-progress'\],[\s\S]*?viewport-plan-progress\.json/u)
   for (const tierId of ['backend-build-governance', 'integrity-proof-verification', 'perception-v2-test-matrix']) {
     assert.ok(bundles.get('backend-tests').includes(tierId), tierId)

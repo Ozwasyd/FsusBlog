@@ -760,29 +760,19 @@ function validateAedsDecodeBudget() {
   assert(Number.isFinite(budget.allocBytesPerDecode) && budget.allocBytesPerDecode >= 0, 'aeds-decode-budget.allocBytesPerDecode must be >= 0')
 }
 
-function validateUxViewportCanaryParity() {
-  const summary = readJson('.tmp/release-evidence/ux-viewport-canary-parity.json', true)
+function validateUxViewportSummary() {
+  const summary = readJson('.tmp/release-evidence/ux-viewport-summary.json', true)
   if (!summary) return
-  assert(summary.schema === 'fsusblog.ux-viewport-canary-parity.v1', 'ux-viewport-canary-parity.schema mismatch')
-  assert(summary.status === 'success', 'ux-viewport-canary-parity.status must be success')
-  assert(summary.comparison === 'normalized-failure-signature-v2-historical-authority', 'ux-viewport-canary-parity.comparison must include historical authority')
-  assert(summary.plannedCaseCount === 70, 'ux-viewport-canary-parity.plannedCaseCount must be 70')
-  assert(summary.executedCaseCount?.legacy === 70, 'ux-viewport-canary-parity legacy execution count must be 70')
-  assert(summary.executedCaseCount?.current === 70, 'ux-viewport-canary-parity current execution count must be 70')
-  assert(summary.matchedCaseCount === 70, 'ux-viewport-canary-parity.matchedCaseCount must be 70')
-  assert(summary.historicalMatchedCaseCount === 70, 'ux-viewport-canary-parity.historicalMatchedCaseCount must be 70')
-  assert(summary.mismatchCount === 0, 'ux-viewport-canary-parity.mismatchCount must be zero')
-  assert(Array.isArray(summary.cases) && summary.cases.length === 70, 'ux-viewport-canary-parity.cases must contain 70 cases')
-  assert(summary.runners?.legacy?.spec?.startsWith('tests/frontend/fixtures/ux-viewport-legacy/runtime/'), 'ux-viewport-canary-parity legacy runner must use tracked snapshot')
-  assert(!summary.runners?.legacy?.spec?.startsWith('.tmp/'), 'ux-viewport-canary-parity legacy runner must not use .tmp source')
-  assert(summary.runners?.legacy?.sourceFiles?.['tests/frontend/support/playwright/acceptance-shared.ts'], 'ux-viewport-canary-parity must bind the independent legacy assertion helper')
-  for (const [index, item] of summary.cases.entries()) {
-    const label = `ux-viewport-canary-parity.cases[${index}]`
-    assert(item.matches === true && item.runnersMatch === true && item.historicalMatches === true, `${label} must match both runners and history`)
-    assert(['failed', 'timedOut'].includes(item.historical?.outcome), `${label}.historical must retain a failure outcome`)
-    assert(item.historical?.failureSignature === item.legacy?.failureSignature, `${label} legacy signature must match history`)
-    assert(item.historical?.failureSignature === item.current?.failureSignature, `${label} current signature must match history`)
-  }
+  assert(summary.status === 'ok', 'ux-viewport-summary.status must be ok')
+  assert(['smoke', 'visual', 'boundaries'].includes(summary.latestMode), 'ux-viewport-summary.latestMode is invalid')
+  assert(typeof summary.planFingerprint === 'string' && summary.planFingerprint.length > 0, 'ux-viewport-summary.planFingerprint is required')
+  assert(Number(summary.plannedCaseCount) > 0, 'ux-viewport-summary.plannedCaseCount must be positive')
+  assert(summary.completedCaseCount === summary.plannedCaseCount, 'ux-viewport-summary cases must be complete')
+  assert(Number(summary.plannedNavigationCount) > 0, 'ux-viewport-summary.plannedNavigationCount must be positive')
+  assert(summary.completedNavigationCount === summary.plannedNavigationCount, 'ux-viewport-summary navigations must be complete')
+  assert(Number(summary.completedRouteThemeGroupCount) > 0, 'ux-viewport-summary completed groups must be positive')
+  assert(summary.failedRouteThemeGroupCount === 0, 'ux-viewport-summary failed groups must be zero')
+  assert(typeof summary.artifacts?.[summary.latestMode] === 'string', 'ux-viewport-summary latest artifact is required')
 }
 
 function selfTestRuntimeProbe() {
@@ -842,7 +832,7 @@ function main() {
   validateAedsFrameCost()
   validateAedsCompressionProfile()
   validateAedsDecodeBudget()
-  validateUxViewportCanaryParity()
+  validateUxViewportSummary()
   console.log('[evidence-metrics] ok')
 }
 

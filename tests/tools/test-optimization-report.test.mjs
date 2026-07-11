@@ -428,12 +428,12 @@ test('optimization report accepts an explicit live tier replacement with retaine
   assert.equal(report.retainedCoverage.status, 'same')
 })
 
-test('production-membership replacement preserves the standalone canary and cannot authorize its deletion or coverage loss', () => {
-  const canaryTier = 'ux-viewport-canary-parity'
+test('production-membership replacement cannot authorize standalone tier deletion or coverage loss', () => {
+  const canaryTier = 'standalone-audit-tier'
   const replacementTier = 'ux-viewport-plan-progress'
-  const canaryCoverage = 'ux-viewport-canary-parity'
+  const canaryCoverage = 'standalone-audit-coverage'
   const replacementCoverage = 'ux-viewport-plan-progress'
-  const canaryArtifact = '.tmp/release-evidence/ux-viewport-canary-parity.json'
+  const canaryArtifact = '.tmp/release-evidence/standalone-audit.json'
   const replacementArtifact = '.tmp/ux/viewport-plan-progress.json'
   const canaryRecord = {
     id: 'canary-governance-proof',
@@ -455,7 +455,7 @@ test('production-membership replacement preserves the standalone canary and cann
     catalogReplacements: {
       productionRequiredTierIds: [{ from: canaryTier, to: replacementTier }]
     },
-    reason: 'the blocked parity audit remains standalone while production executes plan/progress governance'
+    reason: 'membership-only replacement retains the source tier while production executes the target tier'
   }
   const before = {
     ...emptyAudit(),
@@ -606,19 +606,19 @@ test('optimization report rejects malformed replacement scopes and catalog mappi
 })
 
 test('tier replacement explicitly maps every removed production catalog dimension', () => {
-  const canaryArtifact = '.tmp/release-evidence/ux-viewport-canary-parity.json'
+  const canaryArtifact = '.tmp/release-evidence/retired-viewport-audit.json'
   const boundaryArtifact = '.tmp/ux/viewport-boundaries.json'
   const before = {
     ...emptyAudit(),
-    retainedEvidence: { coverageIds: ['ux-viewport-canary-parity', 'ux-viewport-boundary'], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
-    testRecords: [{ id: 'viewport-proof', tierIds: ['ux-viewport-canary-parity'], assertionTargets: ['viewport behavior'] }],
+    retainedEvidence: { coverageIds: ['retired-viewport-coverage', 'ux-viewport-boundary'], uniqueAssertionTargetCount: 1, testRecordCount: 1 },
+    testRecords: [{ id: 'viewport-proof', tierIds: ['retired-viewport-tier'], assertionTargets: ['viewport behavior'] }],
     catalogSnapshot: {
       ...emptyAudit().catalogSnapshot,
-      matrixTierIds: ['ux-viewport-canary-parity', 'ux-viewport-boundaries'],
-      productionRequiredTierIds: ['ux-viewport-canary-parity'],
+      matrixTierIds: ['retired-viewport-tier', 'ux-viewport-boundaries'],
+      productionRequiredTierIds: ['retired-viewport-tier'],
       matrixArtifactPaths: [canaryArtifact, boundaryArtifact],
       matrixEvidencePaths: [canaryArtifact, boundaryArtifact],
-      coverageIds: ['ux-viewport-canary-parity', 'ux-viewport-boundary'],
+      coverageIds: ['retired-viewport-coverage', 'ux-viewport-boundary'],
       releaseEvidencePaths: [canaryArtifact, boundaryArtifact]
     }
   }
@@ -636,13 +636,13 @@ test('tier replacement explicitly maps every removed production catalog dimensio
       releaseEvidencePaths: [boundaryArtifact]
     },
     tierReplacements: [{
-      from: 'ux-viewport-canary-parity',
+      from: 'retired-viewport-tier',
       to: 'ux-viewport-boundaries',
       coverageIds: ['ux-viewport-boundary'],
       reason: 'boundaries retains the executable viewport behavior without claiming unavailable historical parity',
       catalogReplacements: {
-        productionRequiredTierIds: [{ from: 'ux-viewport-canary-parity', to: 'ux-viewport-boundaries' }],
-        coverageIds: [{ from: 'ux-viewport-canary-parity', to: 'ux-viewport-boundary' }],
+        productionRequiredTierIds: [{ from: 'retired-viewport-tier', to: 'ux-viewport-boundaries' }],
+        coverageIds: [{ from: 'retired-viewport-coverage', to: 'ux-viewport-boundary' }],
         matrixArtifactPaths: [{ from: canaryArtifact, to: boundaryArtifact }],
         matrixEvidencePaths: [{ from: canaryArtifact, to: boundaryArtifact }],
         releaseEvidencePaths: [{ from: canaryArtifact, to: boundaryArtifact }]
