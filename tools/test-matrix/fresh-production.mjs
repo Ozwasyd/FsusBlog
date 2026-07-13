@@ -63,7 +63,11 @@ export function assertLocalProductionCapacity({
 }) {
   const resolvedRoot = path.resolve(root)
   const resolvedDockerRoot = path.resolve(resolveDockerRootDirectory())
-  const targets = [...new Set([resolvedRoot, resolvedDockerRoot])]
+  const localTempRoot = path.join(resolvedRoot, '.tmp')
+  const resolvedLocalTempRoot = fs.existsSync(localTempRoot)
+    ? fs.realpathSync(localTempRoot)
+    : resolvedRoot
+  const targets = [...new Set([resolvedRoot, resolvedLocalTempRoot, resolvedDockerRoot])]
   const measurements = targets.map((directory) => ({
     directory,
     availableBytes: measureAvailableBytes(directory)
@@ -81,13 +85,22 @@ export function assertLocalProductionCapacity({
 
 export function cleanLocalProductionOutputs(root) {
   const resolvedRoot = path.resolve(root)
+  const localTempRoot = path.join(resolvedRoot, '.tmp')
+  const externalTempRoot = fs.existsSync(localTempRoot) && fs.lstatSync(localTempRoot).isSymbolicLink()
+    ? fs.realpathSync(localTempRoot)
+    : null
+  if (externalTempRoot === path.parse(externalTempRoot ?? resolvedRoot).root || externalTempRoot === resolvedRoot) {
+    throw new Error(`refusing to clean unsafe external .tmp target: ${externalTempRoot}`)
+  }
   const dependencyCaches = [
     ['emscripten', '.tmp/emscripten-cache'],
     ['dependencies', '.tmp/dependency-cache'],
     ['dotnet', '.tmp/data-root/cache']
   ].map(([id, relative]) => ({
     target: path.join(resolvedRoot, relative),
-    preserved: path.join(resolvedRoot, `.fsusblog-${id}-cache-${process.pid}`)
+    preserved: externalTempRoot
+      ? path.join(externalTempRoot, `.fsusblog-${id}-cache-${process.pid}`)
+      : path.join(resolvedRoot, `.fsusblog-${id}-cache-${process.pid}`)
   }))
   for (const cache of dependencyCaches) {
     fs.rmSync(cache.preserved, { recursive: true, force: true })
@@ -98,6 +111,14 @@ export function cleanLocalProductionOutputs(root) {
       const target = path.resolve(resolvedRoot, relativeDirectory)
       if (target === resolvedRoot || !target.startsWith(`${resolvedRoot}${path.sep}`)) {
         throw new Error(`refusing to clean path outside repository root: ${relativeDirectory}`)
+      }
+      if (relativeDirectory === '.tmp' && externalTempRoot) {
+        const preservedNames = new Set(dependencyCaches.map((cache) => path.basename(cache.preserved)))
+        for (const entry of fs.readdirSync(externalTempRoot)) {
+          if (preservedNames.has(entry)) continue
+          fs.rmSync(path.join(externalTempRoot, entry), { recursive: true, force: true })
+        }
+        continue
       }
       fs.rmSync(target, { recursive: true, force: true })
     }

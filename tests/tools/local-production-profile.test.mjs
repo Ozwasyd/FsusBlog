@@ -861,6 +861,28 @@ test('fresh production cleanup removes outputs and preserves dependency caches',
   for (const file of caches) assert.equal(fs.existsSync(path.join(temp, file)), true, file)
 })
 
+test('fresh production cleanup preserves an external temp root and its dependency caches', () => {
+  const temp = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'fsusblog-fresh-production-link-'))
+  const repositoryRoot = path.join(temp, 'repository')
+  const externalTempRoot = path.join(temp, 'external', '.tmp')
+  fs.mkdirSync(repositoryRoot, { recursive: true })
+  fs.mkdirSync(externalTempRoot, { recursive: true })
+  fs.symlinkSync(externalTempRoot, path.join(repositoryRoot, '.tmp'), 'dir')
+  fs.mkdirSync(path.join(externalTempRoot, 'dependency-cache/dotnet'), { recursive: true })
+  fs.mkdirSync(path.join(externalTempRoot, 'emscripten-cache/sysroot'), { recursive: true })
+  fs.mkdirSync(path.join(externalTempRoot, 'stale'), { recursive: true })
+  fs.writeFileSync(path.join(externalTempRoot, 'dependency-cache/dotnet/cache.txt'), 'cache')
+  fs.writeFileSync(path.join(externalTempRoot, 'emscripten-cache/sysroot/cache.txt'), 'cache')
+  fs.writeFileSync(path.join(externalTempRoot, 'stale/result.json'), '{}')
+
+  cleanLocalProductionOutputs(repositoryRoot)
+
+  assert.equal(fs.lstatSync(path.join(repositoryRoot, '.tmp')).isSymbolicLink(), true)
+  assert.equal(fs.existsSync(path.join(externalTempRoot, 'stale')), false)
+  assert.equal(fs.existsSync(path.join(externalTempRoot, 'dependency-cache/dotnet/cache.txt')), true)
+  assert.equal(fs.existsSync(path.join(externalTempRoot, 'emscripten-cache/sysroot/cache.txt')), true)
+})
+
 test('fresh production capacity preflight checks the real Docker data filesystem', () => {
   const measured = []
   const result = assertLocalProductionCapacity({
