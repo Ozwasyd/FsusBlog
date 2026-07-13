@@ -669,6 +669,7 @@ JOB_SUMMARIES="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/jobs" job-summ
 ENDPOINT_DEPTH_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/endpoint-depth-summary.json" endpoint-depth-summary.json)"
 DATA_SCALE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/data-scale-summary.json" data-scale-summary.json)"
 PERF_SUMMARY_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/perf-summary.json" perf-summary.json)"
+PERFORMANCE_SATURATION_V2="$(copy_if_present "$ROOT_DIR/.tmp/perf/release-summaries/performance-saturation-v2.json" performance-saturation-v2.json)"
 SECURITY_DEPTH_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/security-depth-summary.json" security-depth-summary.json)"
 FUZZ_SEEDS_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/fuzz-seeds.json" fuzz-seeds.json)"
 BUSINESS_STATE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/playwright-business-state-summary.json" playwright-business-state-summary.json)"
@@ -867,6 +868,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "endpointDepthSummary": $ENDPOINT_DEPTH_SUMMARY,
     "dataScaleSummary": $DATA_SCALE_SUMMARY,
     "perfSummary": $PERF_SUMMARY_ARTIFACT,
+    "performanceSaturationV2": $PERFORMANCE_SATURATION_V2,
     "securityDepthSummary": $SECURITY_DEPTH_SUMMARY,
     "fuzzSeeds": $FUZZ_SEEDS_SUMMARY,
     "playwrightBusinessStateSummary": $BUSINESS_STATE_SUMMARY,

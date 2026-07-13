@@ -185,6 +185,54 @@ Flaky 治理由 `tests/flaky.yml` 和 `tools/ci/check-flaky-registry.mjs` 控制
 
 `tests/perf/perf-policy.yml` 是 load profile 的唯一策略源。`tools/test/lanes/load-profile.sh <profile>` 与 `runtime-evidence-probe.mjs load-profile` 必须从该文件读取 baseline / expected-peak / 2x-peak / burst 的 `concurrency`、`rounds`、`durationMs` 与预算阈值；只有显式环境变量 `FSUSBLOG_LOAD_PROFILE_CONCURRENCY`、`FSUSBLOG_LOAD_PROFILE_ROUNDS`、`FSUSBLOG_LOAD_PROFILE_DURATION_MS` 可以覆盖执行参数。每个 load profile summary 必须同时写入 `policy.file`、`profileName`、`declared`、`effective`、`thresholds`、`thresholdEvaluation`、`overrideSource` 与 `overrideSources`，release evidence 校验会拒绝没有解释的 policy/effective 不一致或没有 threshold 对照的 performance profile。各 load profile、backend BenchmarkDotNet regression 与 browser performance regression 分别写入 `.tmp/perf/release-summaries/` 下的唯一 summary，禁止共享 writer；`performance-evidence-summary` 在 `release-evidence` 前要求 baseline、expected-peak、backend benchmark 与 browser 四类输入齐全，再原子生成 `.tmp/release-evidence/perf-summary.json`。聚合状态保留各 producer 的真实 status，任何 failed 优先于 blocked，不能无条件写 `status:"ok"`。
 
+### Performance saturation evidence v2
+
+普通 load profile 继续负责回归与可用性，但不再具有容量结论权威。容量认证使用
+`fsusblog.performance-saturation.v2`，其 route、topology 与阈值唯一来源仍是
+`tests/perf/perf-policy.yml#saturationEvidence`。矩阵必须分别覆盖 L0 binary 的
+identity/br/gzip/304/HEAD、静态与 nonce HTML、L1、L2、DB buffer cold/warm、
+notification 1/100/1000 connections，以及浏览器 AEDS decode、public takeover 和
+hydration long task；每条 route 都要分别产生 `kestrel-only` 与
+`production-topology` 结论，禁止混成平均值。
+
+`tools/perf/run-open-loop-load.mjs` 按固定到达时间表发请求，请求变慢不会降低 offered
+load。每个 offered-load step 至少重复三轮；压力机 CPU 达到策略上限、schedule lag p99
+超限或 dropped arrival 非零时，负载生成器自身被判为饱和，不能据此推断服务端拐点。
+HTTP 原始结果与同一时间窗口的硬件/runtime/storage/network 指标分别产生，再由
+`merge-saturation-measurement.mjs` 按 route、topology、offered RPS、repeat 和 source
+digest 精确合并。开放环原始样本和系统指标必须各自写入 `startedAt`/`endedAt`，两个边界
+相差超过 1 秒即拒绝合并，最终 sample 同时绑定两份输入的 SHA-256。DB/Redis 不适用的路径
+仍写数值 `0`，不得写 `null`。
+safe point 还必须同时通过全局 p99 250ms / p99.9 500ms 上限；具体 route 可以在后续
+策略版本中收紧，但不得在报告内自行放宽。拐点只允许一个 limiting resource 进入
+85%–95% 区间，其他资源必须仍低于 85%，否则结论因瓶颈不可解释而 blocked。
+
+每个 sample 必须包含 cycles/instructions/IPC、branch/LLC miss、context switch、CPU
+migration、syscall、allocation、response/wire bytes、process/container CPU、cgroup
+throttling、managed heap/LOH/Gen0-2/GC pause、ThreadPool/active request/socket/FD、
+Npgsql pool、Redis roundtrip、`pg_stat_statements`/blocks/WAL，以及压力机自身指标。
+缺失任何字段时，builder 只生成带明确 blocker 的场景，不生成 nullable capacity
+conclusion。
+
+完整报告通过以下命令组装；`--require-ok` 只适用于确实完成全矩阵的认证运行：
+
+```bash
+node tools/perf/build-performance-saturation-v2.mjs \
+  --identity /evidence/run-identity.json \
+  --measurement /evidence/measurements/l0-binary-identity-kestrel.json \
+  --measurement /evidence/measurements/l0-binary-identity-production.json \
+  --output .tmp/perf/release-summaries/performance-saturation-v2.json \
+  --expected-commit "$(git rev-parse HEAD)" \
+  --expected-image-digest "$FSUSBLOG_EXPECTED_IMAGE_DIGEST" \
+  --require-ok
+```
+
+`performance-evidence-summary` 会验证 full SHA、OCI digest、硬件/微码/内核/libc/cgroup、
+runtime、代理/TLS、PostgreSQL/Redis、fixture 规模、独立压力机和网络路径。缺少 v2 报告
+时聚合任务本身仍可完成，但 summary 必须是 `blocked`，明确表示没有容量结论；synthetic、
+过期、错误 SHA/image、单点 1 RPS、重复方差超限或缺指标报告会被拒绝，而不是降级为旧 v1
+结论。
+
 性能证据默认采用项目内基线：single process、Kestrel-only、无 nginx、无 CDN、无 reverse-proxy cache、无代理压缩层计入结果。nginx/Caddy/CDN 可以作为生产部署层存在，但相关数据必须写入独立的 `optional_deployment_layer`，并标记 `counted_as_project_baseline=false`。
 
 Backend QPS/perf artifact 必须包含以下 metadata。`backend-qps` collector 只产出静态实现证据和小样本 runtime probe，不得被解读为容量 benchmark；Docker/wrk 或 BenchmarkDotNet 性能脚本也必须保持同一 baseline 语义：

@@ -70,6 +70,48 @@ DataProtection keys are persisted by default under `FSUSBLOG_DATA_ROOT/data-prot
 
 Set `FSUSBLOG_BACKUP_ROOT` to a persistent backup volume. `tools/operations/backup-site.sh` writes complete site packages there, and `/user/manage/ops` reports the latest database/uploads/DataProtection/config/package/drill artifact status. Keep `FSUSBLOG_DATA_ROOT`, uploads, AOT cache and search artifact paths stable across image rollouts so restore packages can be replayed on a new host without path guessing.
 
+## Capacity Certification
+
+生产容量不能从 localhost smoke、BenchmarkDotNet mean、CDN 命中或代理缓存命中推导。
+发布物只有在 `.tmp/perf/release-summaries/performance-saturation-v2.json` 通过
+`fsusblog.performance-saturation.v2` 验证后，才能声明 route-specific safe operating RPS。
+缺少报告不是隐式通过；release evidence 将容量状态记录为 `blocked`。
+
+生产 topology 的负载必须从独立压力机发起，并为压力机与服务进程配置不重叠的 CPU
+affinity；校验器会展开 Linux cpuset ranges，`0-7` 与 `4-11` 也会因实际重叠而拒绝，而不只
+比较字符串是否相同。identity 文件必须绑定 full commit SHA、不可变 image digest、CPU/核心/SMT/微码、
+内核/libc/container runtime、cgroup quota/memory/cpuset、完整 `DOTNET_*` 环境摘要、
+OpenResty/TLS 配置摘要、PostgreSQL/Redis 版本与配置摘要、fixture 数据规模、压力机身份和
+网络路径。Kestrel-only 使用同一发布物与 fixture，但绕过代理/TLS 的机制基线必须写入独立
+topology，不能覆盖生产结论。
+
+示例开放环采样命令如下；真实 rates 必须逐级跨过拐点，不能把示例数字当作生产默认值：
+
+```bash
+node tools/perf/run-open-loop-load.mjs \
+  --url https://fsus.blog/api/binary/article/hot/5.aeds \
+  --route-id l0-binary-br \
+  --topology production-topology \
+  --header 'Accept: application/octet-stream' \
+  --header 'Accept-Encoding: br' \
+  --rates 500,1000,1500,2000 \
+  --duration-ms 60000 \
+  --repeats 3 \
+  --output /evidence/load/l0-binary-br-production.json
+```
+
+在完全相同的时间窗口采集 `perf stat`/eBPF、.NET runtime counters、cgroup、socket/FD、
+Npgsql pool、Redis command latency 与 `pg_stat_statements`，写成
+`fsusblog.saturation-system-metrics.v2` 后使用
+`tools/perf/merge-saturation-measurement.mjs` 合并。任一采集器不可用时保留原因并让对应
+scenario blocked；不得填零冒充采集成功。只有资源达到策略定义的饱和区间、队列在 safe
+point 不增长、p99/p99.9 与错误/超时率通过、压力机未饱和且多轮方差通过时，报告才输出
+`limitingResource`、`saturationPointRps` 与带余量的 `safeOperatingRps`。
+
+回退不需要重启应用：容量报告只控制发布证据和运营上限，不改变请求路径。报告异常、过期
+或与当前 image 不匹配时，删除/隔离该 evidence，并恢复到上一个已验证发布物的 route-specific
+限流值；在新报告通过前保持容量状态 `blocked`，不要从旧硬件结果外推。
+
 ## Build And Deploy
 
 ```bash

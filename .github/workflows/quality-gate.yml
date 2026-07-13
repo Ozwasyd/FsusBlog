@@ -1172,7 +1172,9 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
           include-hidden-files: true
-          path: .tmp/release-evidence/**
+          path: |
+            .tmp/release-evidence/**
+            .tmp/perf/release-summaries/performance-saturation-v2.json
 
   production-summary:
     name: Production Summary

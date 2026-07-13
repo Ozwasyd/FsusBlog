@@ -2,9 +2,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 import { resolveManifestWorkers } from './run-command-manifest.mjs'
+import {
+  assertValidSaturationReport,
+  readSaturationPolicy
+} from '../perf/performance-saturation-v2.mjs'
 
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 
@@ -12,7 +17,12 @@ export const performanceEvidenceSources = Object.freeze([
   { id: 'load-baseline', path: '.tmp/perf/release-summaries/load-baseline.json' },
   { id: 'load-peak', path: '.tmp/perf/release-summaries/load-expected-peak.json' },
   { id: 'backend-benchmark-regression', path: '.tmp/perf/release-summaries/backend-benchmark-regression.json' },
-  { id: 'browser-performance-regression', path: '.tmp/perf/release-summaries/browser-performance-regression.json' }
+  { id: 'browser-performance-regression', path: '.tmp/perf/release-summaries/browser-performance-regression.json' },
+  {
+    id: 'performance-saturation-v2',
+    path: '.tmp/perf/release-summaries/performance-saturation-v2.json',
+    missingAsBlocked: true
+  }
 ])
 
 function parseArgs(argv) {
@@ -50,6 +60,7 @@ function resolveSourceFile(root, source, artifactDirectories) {
     .flatMap((directory) => artifactRelativePaths.map((relativePath) => path.join(directory, relativePath)))
     .filter((candidate) => fs.existsSync(candidate))
     .sort()
+  if (matches.length === 0 && source.missingAsBlocked) return null
   if (matches.length === 0) throw new Error(`missing ${source.id} performance evidence: ${source.path}`)
   if (matches.length > 1) throw new Error(`ambiguous ${source.id} performance evidence in downloaded artifacts`)
   return matches[0]
@@ -57,6 +68,19 @@ function resolveSourceFile(root, source, artifactDirectories) {
 
 async function readSummary(root, source, artifactDirectories) {
   const absolute = resolveSourceFile(root, source, artifactDirectories)
+  if (absolute === null) {
+    return {
+      id: source.id,
+      path: source.path,
+      sourceLocation: null,
+      status: 'blocked',
+      summary: {
+        schema: 'fsusblog.performance-saturation-reference.v2',
+        status: 'blocked',
+        reason: 'capacity certification was not supplied; release capacity conclusions are unavailable'
+      }
+    }
+  }
   let summary
   try {
     summary = JSON.parse(await fs.promises.readFile(absolute, 'utf8'))
@@ -68,6 +92,13 @@ async function readSummary(root, source, artifactDirectories) {
   }
   if (typeof summary.status !== 'string' || summary.status.length === 0) {
     throw new Error(`${source.id} performance evidence status is missing`)
+  }
+  if (source.id === 'performance-saturation-v2') {
+    assertValidSaturationReport(summary, {
+      expectedCommit: expectedCommitForRoot(root),
+      expectedImageDigest: process.env.FSUSBLOG_EXPECTED_IMAGE_DIGEST || undefined,
+      expectedPolicy: readSaturationPolicy(path.join(root, 'tests/perf/perf-policy.yml')).policy
+    })
   }
   return {
     id: source.id,
@@ -118,6 +149,20 @@ function aggregateStatus(entries) {
   if (entries.some((entry) => !['ok', 'blocked', 'scheduled'].includes(entry.status))) return 'failed'
   if (entries.some((entry) => ['blocked', 'scheduled'].includes(entry.status))) return 'blocked'
   return 'ok'
+}
+
+function expectedCommitForRoot(root) {
+  const declared = process.env.FSUSBLOG_EXPECTED_COMMIT_SHA || process.env.GITHUB_SHA
+  if (declared) return declared
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+  } catch {
+    return undefined
+  }
 }
 
 export async function aggregatePerformanceEvidence(rootValue = repositoryRoot) {

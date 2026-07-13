@@ -45,3 +45,38 @@ regressionThresholds:
   nightlyPercent: 5
   releasePercent: 10
 temporaryExceptions: []
+saturationEvidence:
+  schema: fsusblog.performance-saturation.v2
+  evidenceKind: real
+  topologies: [kestrel-only, production-topology]
+  routes:
+    - l0-binary-identity
+    - l0-binary-br
+    - l0-binary-gzip
+    - l0-binary-304
+    - l0-binary-head
+    - l0-html-static
+    - l0-html-nonce
+    - l1-cache-hit
+    - l2-redis-hit
+    - db-miss-buffer-cold
+    - db-miss-buffer-warm
+    - notification-1
+    - notification-100
+    - notification-1000
+    - browser-aeds-decode
+    - browser-public-takeover
+    - browser-hydration-long-task
+  minimumRepeats: 3
+  minimumOfferedLoadSteps: 4
+  saturationFloorPercent: 85
+  saturationCeilingPercent: 95
+  safeHeadroomPercent: 15
+  maximumErrorRate: 0.005
+  maximumTimeoutRate: 0
+  maximumP99AtSafeMs: 250
+  maximumP999AtSafeMs: 500
+  maximumThroughputVariance: 0.1
+  maximumGeneratorCpuPercent: 85
+  maximumGeneratorScheduleLagP99Ms: 5
+  maximumEvidenceAgeHours: 24

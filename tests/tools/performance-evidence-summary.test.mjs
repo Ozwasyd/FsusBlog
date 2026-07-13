@@ -80,10 +80,15 @@ test('performance evidence producers stay isolated and the fresh aggregate retai
   const outputFile = path.join(temp, '.tmp/release-evidence/perf-summary.json')
   const firstSummary = JSON.parse(fs.readFileSync(outputFile, 'utf8'))
   assert.equal(firstSummary.schema, 'fsusblog.performance-evidence-summary.v1')
-  assert.equal(firstSummary.status, 'ok')
+  assert.equal(firstSummary.status, 'blocked')
   assert.equal(firstSummary.stale, undefined)
-  assert.deepEqual(firstSummary.entries.map((entry) => entry.id), Object.keys(sourceFiles))
-  assert.ok(firstSummary.entries.every((entry) => entry.status === 'ok' && entry.summary.id === entry.id))
+  assert.deepEqual(firstSummary.entries.map((entry) => entry.id), [
+    ...Object.keys(sourceFiles),
+    'performance-saturation-v2'
+  ])
+  assert.ok(firstSummary.entries.slice(0, 4).every((entry) => entry.status === 'ok' && entry.summary.id === entry.id))
+  assert.equal(firstSummary.entries.at(-1).status, 'blocked')
+  assert.match(firstSummary.entries.at(-1).summary.reason, /not supplied/u)
 
   writeJson(temp, sourceFiles['browser-performance-regression'], {
     schema: 'fixture.browser-performance-regression.v1',
@@ -94,7 +99,10 @@ test('performance evidence producers stay isolated and the fresh aggregate retai
   assert.equal(second.status, 0, second.stderr)
   const secondSummary = JSON.parse(fs.readFileSync(outputFile, 'utf8'))
   assert.equal(secondSummary.status, 'blocked')
-  assert.deepEqual(secondSummary.entries.map((entry) => entry.id), Object.keys(sourceFiles))
+  assert.deepEqual(secondSummary.entries.map((entry) => entry.id), [
+    ...Object.keys(sourceFiles),
+    'performance-saturation-v2'
+  ])
   assert.equal(secondSummary.entries.find((entry) => entry.id === 'browser-performance-regression').status, 'blocked')
   for (const relative of Object.values(sourceFiles)) assert.ok(fs.existsSync(path.join(temp, relative)))
 
@@ -124,6 +132,10 @@ test('performance aggregate restores producer summaries from downloaded CI artif
   const result = runAggregator(temp)
   assert.equal(result.status, 0, result.stderr)
   const summary = JSON.parse(fs.readFileSync(path.join(temp, '.tmp/release-evidence/perf-summary.json'), 'utf8'))
-  assert.deepEqual(summary.entries.map((entry) => entry.id), Object.keys(sourceFiles))
-  assert.ok(summary.entries.every((entry) => entry.sourceLocation.startsWith('.tmp/downloaded-artifacts/')))
+  assert.deepEqual(summary.entries.map((entry) => entry.id), [
+    ...Object.keys(sourceFiles),
+    'performance-saturation-v2'
+  ])
+  assert.ok(summary.entries.slice(0, 4).every((entry) => entry.sourceLocation.startsWith('.tmp/downloaded-artifacts/')))
+  assert.equal(summary.entries.at(-1).sourceLocation, null)
 })

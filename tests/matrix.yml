@@ -850,6 +850,14 @@ tiers:
       - tests/issue-1051-suite-convergence.json
       - tests/tools/quality-gate-artifact-layout.test.mjs
       - tests/tools/release-evidence-artifact-restore.test.mjs
+      - tests/tools/performance-evidence-summary.test.mjs
+      - tests/tools/performance-saturation-v2.test.mjs
+      - tests/perf/performance-saturation-v2.schema.json
+      - tests/perf/perf-policy.yml
+      - tools/perf/performance-saturation-v2.mjs
+      - tools/perf/run-open-loop-load.mjs
+      - tools/perf/merge-saturation-measurement.mjs
+      - tools/perf/build-performance-saturation-v2.mjs
       - tests/issue-1048-retention-replacements.json
       - tests/frontend/checks/static/check-frontend-test-governance.mjs
     ciJob: fast-static-governance
@@ -2925,7 +2933,7 @@ tiers:
     minCpuUnits: 1
     executionKey: performance-evidence-summary
     executionVariant: runtime
-    cacheInputs: [tools/test/aggregate-performance-evidence.mjs]
+    cacheInputs: [tools/test/aggregate-performance-evidence.mjs, tools/perf/performance-saturation-v2.mjs, tests/perf/performance-saturation-v2.schema.json, tests/perf/perf-policy.yml]
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -2939,7 +2947,7 @@ tiers:
     requiredFor: production
     coverage: [test-tool-artifact-behavior]
     artifacts: [.tmp/release-evidence/perf-summary.json]
-    evidence: [.tmp/release-evidence/perf-summary.json, tests/tools/performance-evidence-summary.test.mjs]
+    evidence: [.tmp/release-evidence/perf-summary.json, .tmp/perf/release-summaries/performance-saturation-v2.json, tests/tools/performance-evidence-summary.test.mjs, tests/tools/performance-saturation-v2.test.mjs, tests/perf/performance-saturation-v2.schema.json]
     ciJob: release-evidence
     localOnly: false
     nightlyOnly: false
