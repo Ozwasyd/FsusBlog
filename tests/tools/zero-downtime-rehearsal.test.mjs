@@ -67,7 +67,10 @@ function machineTiming() {
     stageDelayMs: semanticWait(80),
     activeFenceDelayMs: semanticWait(1_500),
     coordinationTimeoutMs: Math.min(900_000, wait(10_000)),
-    workerTimeoutSeconds: Math.min(1_800, seconds(10)),
+    // Worker qualification starts several process groups and a local observer
+    // service. Keep enough base headroom for load that rises after this single
+    // startup-time pressure sample; the machine grant still scales the value.
+    workerTimeoutSeconds: Math.min(1_800, seconds(30)),
     hostInterruptionTimeoutSeconds: Math.min(300, seconds(10)),
     migrationTimeoutSeconds: Math.min(1_800, seconds(60)),
     rehearsalTimeoutMs: wait(120_000)

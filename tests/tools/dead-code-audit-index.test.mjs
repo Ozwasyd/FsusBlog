@@ -27,9 +27,10 @@ test('canonical index is structurally valid while honestly remaining incomplete'
   assert.equal(report.stagesComplete, false)
   assert.equal(report.completionReady, false)
   assert.deepEqual(report.errors, [])
-  assert.ok(report.warnings.some((warning) => warning.includes('source report is unavailable')))
-  assert.ok(report.warnings.some((warning) => warning.includes('#1013')))
-  assert.ok(report.warnings.some((warning) => warning.includes('#1014')))
+  assert.deepEqual(report.warnings, [])
+  assert.ok(report.notices.some((notice) => notice.includes('source report is unavailable')))
+  assert.ok(report.notices.some((notice) => notice.includes('#1013')))
+  assert.ok(report.notices.some((notice) => notice.includes('#1014')))
 })
 
 test('require-complete fails closed for the missing report, unvalidated worktree, and staged issues', async () => {

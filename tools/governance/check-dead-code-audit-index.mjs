@@ -72,7 +72,7 @@ async function checkExistingPath(root, relativePath, errors, label) {
   }
 }
 
-async function validateSourceReport(index, root, errors, warnings, requireComplete) {
+async function validateSourceReport(index, root, errors, notices, requireComplete) {
   const report = index?.auditClaims?.sourceReport
   if (!isObject(report)) {
     errors.push('auditClaims.sourceReport must be an object')
@@ -103,7 +103,7 @@ async function validateSourceReport(index, root, errors, warnings, requireComple
       errors.push('missing source report snapshot must retain the observed GitHub code search count of zero')
     }
     pushRequiredString(errors, report.claimBoundary, 'auditClaims.sourceReport.claimBoundary')
-    warnings.push('The 85-row source report is unavailable and ignored; finding counts are issue-body claims only.')
+    notices.push('The 85-row source report is unavailable and ignored; finding counts are issue-body claims only.')
     if (requireComplete) {
       errors.push('completion requires a checked-in complete source report with a verified sha256')
     }
@@ -154,7 +154,7 @@ function validateFindingCounts(index, errors) {
   }
 }
 
-function validateIssueSplit(index, children, errors, warnings) {
+function validateIssueSplit(index, children, errors, notices) {
   const split = index?.auditClaims?.issueSplit
   if (!isObject(split)) {
     errors.push('auditClaims.issueSplit must be an object')
@@ -177,10 +177,10 @@ function validateIssueSplit(index, children, errors, warnings) {
     errors.push('declared heading counts must preserve the live #1015 body values 9/5/2')
   }
   pushRequiredString(errors, split.discrepancy, 'auditClaims.issueSplit.discrepancy')
-  warnings.push('Issue #1015 heading counts (9/5/2) differ from its actual table counts (8/7/2).')
+  notices.push('Issue #1015 heading counts (9/5/2) differ from its actual table counts (8/7/2).')
 }
 
-function validateCurrentValidation(index, errors, warnings, requireComplete) {
+function validateCurrentValidation(index, errors, notices, requireComplete) {
   const validation = index?.currentWorktreeValidation
   if (!isObject(validation)) {
     errors.push('currentWorktreeValidation must be an object')
@@ -204,7 +204,7 @@ function validateCurrentValidation(index, errors, warnings, requireComplete) {
       errors.push('non-passed current worktree validation must not claim validatedAtUtc')
     }
     if (validation.status === 'not-run') {
-      warnings.push('Current worktree validation is explicitly not-run; historical issue comments are not current proof.')
+      notices.push('Current worktree validation is explicitly not-run; historical issue comments are not current proof.')
     }
   }
   if (requireComplete && validation.status !== 'passed') {
@@ -213,7 +213,7 @@ function validateCurrentValidation(index, errors, warnings, requireComplete) {
   return validation.status === 'passed'
 }
 
-async function validateChild(child, index, root, errors, warnings) {
+async function validateChild(child, index, root, errors, notices) {
   const label = issueLabel(child)
   const issueNumber = child?.issue
   if (!Number.isInteger(issueNumber)) errors.push(`${label} issue must be an integer`)
@@ -348,7 +348,7 @@ async function validateChild(child, index, root, errors, warnings) {
   if (gate.status === 'complete' && github?.stateObserved !== 'closed') {
     errors.push(`${label} stage gate cannot be complete while GitHub state is observed open`)
   }
-  if (gate.status !== 'complete') warnings.push(`${label} stage gate is ${gate.status} and remains fail-closed.`)
+  if (gate.status !== 'complete') notices.push(`${label} stage gate is ${gate.status} and remains fail-closed.`)
   return { stageComplete: gate.status === 'complete' && allRequiredSatisfied }
 }
 
@@ -357,6 +357,7 @@ export async function validateDeadCodeAuditIndex(index, options = {}) {
   const requireComplete = options.requireComplete === true
   const errors = []
   const warnings = []
+  const notices = []
 
   if (!isObject(index)) {
     return {
@@ -364,7 +365,8 @@ export async function validateDeadCodeAuditIndex(index, options = {}) {
       passed: false,
       completionReady: false,
       errors: ['index must be a JSON object'],
-      warnings: []
+      warnings: [],
+      notices: []
     }
   }
   if (index.schemaVersion !== 'fsus.dead-code-audit-index.v1') {
@@ -377,11 +379,11 @@ export async function validateDeadCodeAuditIndex(index, options = {}) {
   }
 
   validateFindingCounts(index, errors)
-  const sourceReportComplete = await validateSourceReport(index, root, errors, warnings, requireComplete)
-  const currentValidationPassed = validateCurrentValidation(index, errors, warnings, requireComplete)
+  const sourceReportComplete = await validateSourceReport(index, root, errors, notices, requireComplete)
+  const currentValidationPassed = validateCurrentValidation(index, errors, notices, requireComplete)
   const children = Array.isArray(index.children) ? index.children : []
   if (!Array.isArray(index.children)) errors.push('children must be an array')
-  validateIssueSplit(index, children, errors, warnings)
+  validateIssueSplit(index, children, errors, notices)
 
   const numbers = children.map((entry) => entry?.issue)
   const duplicateNumbers = numbers.filter((value, position) => numbers.indexOf(value) !== position)
@@ -394,7 +396,7 @@ export async function validateDeadCodeAuditIndex(index, options = {}) {
   for (let indexPosition = 0; indexPosition < children.length; indexPosition += 1) {
     const child = children[indexPosition]
     if (child?.order !== indexPosition + 1) errors.push(`${issueLabel(child)}.order must be ${indexPosition + 1}`)
-    stageResults.push(await validateChild(child, index, root, errors, warnings))
+    stageResults.push(await validateChild(child, index, root, errors, notices))
   }
   const stagesComplete = stageResults.every((result) => result.stageComplete)
   const historicalChildrenClosed = children
@@ -417,7 +419,8 @@ export async function validateDeadCodeAuditIndex(index, options = {}) {
     requireComplete,
     passed: errors.length === 0,
     errors,
-    warnings: [...new Set(warnings)]
+    warnings,
+    notices: [...new Set(notices)]
   }
 }
 
@@ -461,7 +464,8 @@ if (entryPath === import.meta.url) {
       passed: false,
       completionReady: false,
       errors: [error instanceof Error ? error.message : String(error)],
-      warnings: []
+      warnings: [],
+      notices: []
     }, null, 2)}\n`)
     process.exitCode = 1
   })

@@ -69,7 +69,7 @@ The offline checker is:
 node tools/governance/check-dead-code-audit-index.mjs
 ```
 
-The default mode checks governance truthfulness: schema, 85/44/41 arithmetic, exact ordered issue range #998–#1014, actual 8/7/2 split, historical comment provenance, current path existence, source-report availability, and stage-gate consistency. A well-formed blocked tracker can pass this mode; the report still contains `completionReady=false` and warnings for every blocker.
+The default mode checks governance truthfulness: schema, 85/44/41 arithmetic, exact ordered issue range #998–#1014, actual 8/7/2 split, historical comment provenance, current path existence, source-report availability, and stage-gate consistency. A well-formed blocked tracker can pass this mode; the report still contains `completionReady=false` and neutral `notices` for every blocker while reserving `warnings` for actionable checker anomalies.
 
 Final closure must use:
 

@@ -160,11 +160,15 @@ function logicalTierSystemResources() {
 }
 
 function dynamicShardCount(resources) {
-  const memoryAvailability = Math.min(1, resources.availableMemoryGiB / resources.totalMemoryGiB)
-  const pressureAdjustedCpu = Math.max(1, resources.availableCpuUnits * memoryAvailability)
+  // A CI matrix and its later aggregate job run in different processes and at
+  // different load levels.  Derive topology from stable machine capacity, not
+  // momentary free memory, so both sides name the same shard artifacts while
+  // admission-time CPU/memory grants can still react to live pressure.
+  const memorySupportedCpu = Math.max(1, resources.totalMemoryGiB / 2)
+  const machineCapacity = Math.max(1, Math.min(resources.availableCpuUnits, memorySupportedCpu))
   return Math.max(1, Math.min(
     Math.floor(resources.availableCpuUnits),
-    Math.ceil(Math.sqrt(pressureAdjustedCpu))
+    Math.ceil(Math.sqrt(machineCapacity))
   ))
 }
 

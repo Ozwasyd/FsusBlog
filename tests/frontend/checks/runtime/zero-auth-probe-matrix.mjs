@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { encodeAdminPrincipalSnapshotFrame, encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
+import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs'
 import { resolveAdaptiveManifestWorkers } from '../../../../tools/test/run-command-manifest.mjs'
 
 const baseUrl = (
@@ -17,6 +18,7 @@ const baseUrl = (
   || 'http://127.0.0.1:3000'
 ).replace(/\/+$/u, '')
 const publicFixtureIds = readPublicFixtureIds()
+const timeoutPlan = resolveRuntimeBrowserTimeoutPlan()
 
 const AUTH_ME_PATTERN = /\/api\/binary\/auth\/me(?:[?#]|$)/u
 const ADMIN_ME_PATTERN = /\/api\/binary\/auth\/admin\/me(?:[?#]|$)/u
@@ -158,7 +160,7 @@ async function runScenario(browser, scenario) {
   try {
     await page.goto(`${baseUrl}${scenario.route}`, {
       waitUntil: 'domcontentloaded',
-      timeout: 20_000,
+      timeout: timeoutPlan.navigationTimeoutMs,
     })
     await page.waitForTimeout(1800)
   } finally {
@@ -204,12 +206,12 @@ async function runPublicNavigationScenario(browser) {
   try {
     await page.goto(`${baseUrl}/`, {
       waitUntil: 'domcontentloaded',
-      timeout: 20_000,
+      timeout: timeoutPlan.navigationTimeoutMs,
     })
     const aboutLink = page.locator('a[href="/about"]:visible').first()
     await aboutLink.waitFor({ state: 'visible', timeout: 0 })
     await aboutLink.click()
-    await page.waitForURL(/\/about(?:[?#].*)?$/u, { timeout: 15_000 })
+    await page.waitForURL(/\/about(?:[?#].*)?$/u, { timeout: timeoutPlan.navigationTimeoutMs })
     await page.waitForTimeout(1800)
   } finally {
     await context.close()
