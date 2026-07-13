@@ -324,7 +324,12 @@ public class BackgroundWorkflowSourceTests
         ProcessResult probe = await fixture.RunAsync("probe.sh", "scale-xs");
         Assert.Equal(0, probe.ExitCode);
         Assert.Contains("summary.json", probe.StandardOutput, StringComparison.Ordinal);
-        Assert.Equal(evidencePath, (await File.ReadAllTextAsync(fixture.ArtifactEnvironmentCapture)).Trim());
+        string capturedEvidencePath = (await File.ReadAllTextAsync(fixture.ArtifactEnvironmentCapture)).Trim();
+        Assert.Equal("artifact-rebuild.json", Path.GetFileName(capturedEvidencePath));
+        Assert.True(File.Exists(capturedEvidencePath));
+        Assert.Equal(
+            await File.ReadAllTextAsync(evidencePath),
+            await File.ReadAllTextAsync(capturedEvidencePath));
         Assert.Contains(
             "runtime-evidence-probe.mjs data-scale scale-xs",
             await File.ReadAllTextAsync(fixture.NodeInvocationCapture),

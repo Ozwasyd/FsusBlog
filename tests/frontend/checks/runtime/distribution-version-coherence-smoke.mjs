@@ -10,7 +10,7 @@ import {
   loginWithFixtureSessionBypass,
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
-import { readAedsResponse } from '../../support/aeds-envelope.mjs';
+import { decodePublicAotPayload, readAedsResponse } from '../../support/aeds-envelope.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
 import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs';
@@ -148,23 +148,34 @@ async function fetchNavigationSnapshotText(path) {
       text: ''
     };
   }
-  const payload = await readAedsResponse(response).catch((error) => {
-    throw new Error(`${path} navigation snapshot decode failed: ${error instanceof Error ? error.message : String(error)}`);
-  });
-  const text = Buffer.from(Object.values(payload?.payload ?? {})).toString('utf8');
-  const decodedBase64Text = [...text.matchAll(/[A-Za-z0-9+/=]{80,}/g)]
-    .map((match) => {
-      try {
-        return Buffer.from(match[0], 'base64').toString('utf8');
-      } catch {
-        return '';
-      }
-    })
-    .filter(Boolean)
-    .join('\n');
+  const frame = Buffer.from(await response.arrayBuffer());
+  const envelope = (() => {
+    try {
+      return decodePublicAotPayload(frame.toString('base64url'));
+    } catch (error) {
+      throw new Error(`${path} navigation snapshot decode failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  })();
+  const bootstrap = (() => {
+    try {
+      return decodePublicAotPayload(envelope.bootstrapPayload);
+    } catch (error) {
+      throw new Error(`${path} navigation bootstrap decode failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  })();
+  const hydration = (() => {
+    try {
+      return decodePublicAotPayload(envelope.hydrationPropsPayload);
+    } catch (error) {
+      throw new Error(`${path} navigation hydration decode failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  })();
+  if (!bootstrap || !hydration) {
+    throw new Error(`${path} navigation snapshot payload is empty`);
+  }
   return {
     status: response.status,
-    text: `${text}\n${decodedBase64Text}`
+    text: JSON.stringify({ envelope, bootstrap, hydration })
   };
 }
 
