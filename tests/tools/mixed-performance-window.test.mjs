@@ -79,7 +79,7 @@ test('mixed window transfers only completed cohort grants and never exceeds the 
   assert.deepEqual(documents.map((document) => document.generation), [0, 1, 2])
 })
 
-test('8 CPU mixed benchmark grant admits and actually runs three BenchmarkDotNet class workers', async () => {
+test('8 CPU mixed benchmark grant keeps one measurement worker on all admitted CPUs', async () => {
   const resources = resolveMixedWindowResources({
     env: {
       FSUSBLOG_STEP_CPU_BUDGET: '8',
@@ -102,7 +102,7 @@ test('8 CPU mixed benchmark grant admits and actually runs three BenchmarkDotNet
   })
   assert.equal(benchmark.cpuUnits, 3)
   assert.equal(capacity.schedulerManaged, true)
-  assert.equal(capacity.workerCount, 3)
+  assert.equal(capacity.workerCount, 1)
 
   let active = 0
   let peak = 0
@@ -116,7 +116,7 @@ test('8 CPU mixed benchmark grant admits and actually runs three BenchmarkDotNet
       active -= 1
     }
   )
-  assert.equal(peak, 3)
+  assert.equal(peak, 1)
   assert.ok(results.every((result) => result.status === 'success'))
 })
 

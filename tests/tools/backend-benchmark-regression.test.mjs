@@ -129,7 +129,7 @@ test('discovers every HotPath class and retains 22 ShortRun MemoryDiagnoser case
   })
 })
 
-test('complete STEP grants trust scheduler memory admission and retain every granted CPU worker', () => {
+test('complete STEP grants retain every granted CPU in one statistically isolated worker', () => {
   assert.deepEqual(parseCpuList('2-4,7,9-10'), [2, 3, 4, 7, 9, 10])
   const capacity = resolveBenchmarkParallelism({
     env: {
@@ -145,8 +145,8 @@ test('complete STEP grants trust scheduler memory admission and retain every gra
   assert.equal(capacity.schedulerManaged, true)
   assert.equal(capacity.cpuWorkerLimit, 6)
   assert.equal(capacity.memoryWorkerLimit, 6)
-  assert.equal(capacity.workerCount, 6)
-  assert.deepEqual(capacity.workerCpuSets, [[2], [3], [4], [5], [6], [7]])
+  assert.equal(capacity.workerCount, 1)
+  assert.deepEqual(capacity.workerCpuSets, [[2, 3, 4, 5, 6, 7]])
 })
 
 test('direct benchmark invocation still protects workers with current host memory', () => {
@@ -164,8 +164,8 @@ test('direct benchmark invocation still protects workers with current host memor
   assert.equal(capacity.schedulerManaged, false)
   assert.equal(capacity.cpuWorkerLimit, 6)
   assert.equal(capacity.memoryWorkerLimit, 2)
-  assert.equal(capacity.workerCount, 2)
-  assert.deepEqual(capacity.workerCpuSets, [[2, 4, 6], [3, 5, 7]])
+  assert.equal(capacity.workerCount, 1)
+  assert.deepEqual(capacity.workerCpuSets, [[2, 3, 4, 5, 6, 7]])
 })
 
 test('benchmark child environments split the admitted STEP grant without overselling it', () => {
@@ -182,8 +182,8 @@ test('benchmark child environments split the admitted STEP grant without oversel
   })
   const workers = capacity.workerCpuSets.map((_cpuSet, index) =>
     resolveBenchmarkWorkerEnvironment(capacity, index, {}))
-  assert.equal(workers.length, 3)
-  assert.ok(workers.every((env) => env.FSUSBLOG_STEP_CPU_BUDGET === '1'))
+  assert.equal(workers.length, 1)
+  assert.equal(workers[0].FSUSBLOG_STEP_CPU_BUDGET, '3')
   assert.equal(workers.reduce((total, env) => total + Number(env.FSUSBLOG_STEP_MEMORY_GIB), 0), 6)
 })
 

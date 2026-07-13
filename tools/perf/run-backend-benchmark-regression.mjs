@@ -138,10 +138,13 @@ export function resolveBenchmarkParallelism({
     ? cpuWorkerLimit
     : Math.max(1, Math.floor(memoryBudgetGiB / memoryGiBPerCpu))
   const benchmarkClassCount = Math.max(1, Math.floor(positiveNumber(classCount, 1, 'benchmark class count')))
-  const workerCount = Math.min(benchmarkClassCount, cpuWorkerLimit, memoryWorkerLimit)
+  // Relative before/after benchmarks must not compete with another benchmark
+  // process. Cross-process contention can affect the two methods differently and
+  // turn scheduler noise into a false regression. Keep one measurement worker,
+  // while granting that worker every CPU admitted by the live scheduler.
+  const workerCount = 1
   const grantedCpuIds = allowedCpuIds.slice(0, cpuWorkerLimit)
-  const workerCpuSets = Array.from({ length: workerCount }, () => [])
-  grantedCpuIds.forEach((cpu, index) => workerCpuSets[index % workerCount].push(cpu))
+  const workerCpuSets = [grantedCpuIds]
   return {
     hostCpu,
     detectedFreeMemoryGiB,
@@ -157,8 +160,8 @@ export function resolveBenchmarkParallelism({
     workerCpuSets,
     affinityMode: process.platform === 'linux' ? 'linux-taskset' : 'os-scheduler',
     derivation: schedulerManaged
-      ? 'min(classCount,floor(stepCpuGrant)); step memory trusted after scheduler admission'
-      : 'min(classCount,floor(cpuBudget),floor(liveMemoryBudget/(totalMemory/hostCpu)))'
+      ? 'one statistically isolated worker using every scheduler-admitted CPU; step memory trusted after admission'
+      : 'one statistically isolated worker using every CPU allowed by live CPU and memory budgets'
   }
 }
 
