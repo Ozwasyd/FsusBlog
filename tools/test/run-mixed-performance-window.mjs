@@ -156,7 +156,7 @@ export function createMixedWindowResourceCoordinator({
     return document
   }
   const activeTail = (source) => {
-    if (source !== 'benchmark' && !completed.has('benchmark')) return 'benchmark'
+    if ('benchmark' in allocations && source !== 'benchmark' && !completed.has('benchmark')) return 'benchmark'
     return null
   }
   const complete = (name) => {
@@ -616,30 +616,80 @@ async function main() {
   }
   const resourceFile = path.join(root, '.tmp/perf/mixed-window/resources.json')
   const resourceRunId = process.env.FSUSBLOG_TEST_RUN_ID || process.env.FSUSBLOG_TEST_NAMESPACE || `local-${startedAt}`
-  const coordinator = createMixedWindowResourceCoordinator({ resources, runId: resourceRunId, file: resourceFile })
+  const benchmarkResources = {
+    total: { ...resources.total },
+    cohorts: { benchmark: { ...resources.total } }
+  }
+  const benchmarkCoordinator = createMixedWindowResourceCoordinator({
+    resources: benchmarkResources,
+    runId: `${resourceRunId}-benchmark`,
+    file: resourceFile
+  })
   const cohorts = await settleCohortExecutions([
     {
       name: 'benchmark',
-      promise: coordinator.track('benchmark', runBenchmark(startedAt, plan.cohorts.benchmark, resources.cohorts.benchmark, {
+      promise: benchmarkCoordinator.track('benchmark', runBenchmark(startedAt, plan.cohorts.benchmark, resources.total, {
         FSUSBLOG_MIXED_WINDOW_RESOURCE_FILE: resourceFile,
-        FSUSBLOG_MIXED_WINDOW_RESOURCE_RUN_ID: resourceRunId
+        FSUSBLOG_MIXED_WINDOW_RESOURCE_RUN_ID: `${resourceRunId}-benchmark`
       }))
     }
   ])
-  cohorts.push(...await settleCohortExecutions([{
-    name: 'notification',
-    promise: coordinator.track('notification', runNotification(plan.cohorts.notification, resources.cohorts.notification))
-  }]))
-  for (const name of ['baseline', 'peak', 'burst']) {
-    cohorts.push(...await settleCohortExecutions([{
+  const loadTimeline = []
+  const runExclusiveLoad = async (name, resourceName, execute) => {
+    const allocation = resources.cohorts[resourceName]
+    const coordinator = createMixedWindowResourceCoordinator({
+      resources: { total: { ...resources.total }, cohorts: { [name]: { ...allocation } } },
+      runId: `${resourceRunId}-${name}`,
+      file: resourceFile
+    })
+    const result = await settleCohortExecutions([{
       name,
-      promise: coordinator.track(name, runRepeatedCohort(name, plan.cohorts[name], resources.cohorts[name]))
-    }]))
+      promise: coordinator.track(name, execute(allocation))
+    }])
+    loadTimeline.push(...coordinator.timeline().map((entry) => ({ ...entry, phase: name })))
+    return result
   }
-  cohorts.push(...await settleCohortExecutions([{
-    name: 'qps-shared',
-    promise: coordinator.track('qps', runQps(resources.cohorts.qps, plan.cohorts.qps))
-  }]))
+  const pairedResources = {
+    total: { ...resources.total },
+    cohorts: {
+      notification: { ...resources.cohorts.notification },
+      baseline: { ...resources.cohorts.baseline }
+    }
+  }
+  const pairedCoordinator = createMixedWindowResourceCoordinator({
+    resources: pairedResources,
+    runId: `${resourceRunId}-notification-baseline`,
+    file: resourceFile
+  })
+  cohorts.push(...await settleCohortExecutions([
+    {
+      name: 'notification',
+      promise: pairedCoordinator.track('notification', runNotification(
+        plan.cohorts.notification,
+        pairedResources.cohorts.notification
+      ))
+    },
+    {
+      name: 'baseline',
+      promise: pairedCoordinator.track('baseline', runRepeatedCohort(
+        'baseline',
+        plan.cohorts.baseline,
+        pairedResources.cohorts.baseline
+      ))
+    }
+  ]))
+  loadTimeline.push(...pairedCoordinator.timeline().map((entry) => ({
+    ...entry,
+    phase: 'notification-baseline'
+  })))
+  for (const name of ['burst', 'peak']) {
+    cohorts.push(...await runExclusiveLoad(name, name, (resource) => (
+      runRepeatedCohort(name, plan.cohorts[name], resource)
+    )))
+  }
+  cohorts.push(...await runExclusiveLoad('qps-shared', 'qps', (resource) => (
+    runQps(resource, plan.cohorts.qps)
+  )))
   const elapsedMs = Date.now() - startedAt
   for (const cohort of cohorts.filter((entry) => entry.status !== 'failed' && entry.minimumDurationMs)) {
     if (cohort.sampledDurationMs < cohort.minimumDurationMs) {
@@ -657,7 +707,10 @@ async function main() {
     minimumWindowMs: plan.durationMs,
     elapsedMs: Date.now() - startedAt,
     resources,
-    resourceTimeline: coordinator.timeline(),
+    resourceTimeline: [
+      ...benchmarkCoordinator.timeline().map((entry) => ({ ...entry, phase: 'benchmark' })),
+      ...loadTimeline
+    ],
     cohorts,
     generatedAt: new Date().toISOString()
   }
