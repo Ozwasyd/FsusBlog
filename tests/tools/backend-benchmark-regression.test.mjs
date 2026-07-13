@@ -20,6 +20,13 @@ import {
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const checker = path.join(root, 'tools/perf/check-backend-benchmark-regression.mjs')
+const benchmarkProgram = fs.readFileSync(path.join(root, 'benchmarks/core/Program.cs'), 'utf8')
+
+test('benchmark console reports unprivileged scheduling as one informational note', () => {
+  assert.match(benchmarkProgram, /Benchmark scheduler note: privileged priority elevation is unavailable/u)
+  assert.match(benchmarkProgram, /Interlocked\.Exchange\(ref _priorityNoteWritten, 1\) == 0/u)
+  assert.match(benchmarkProgram, /WithOptions\(ConfigOptions\.DisableLogFile\)/u)
+})
 
 function writeJson(file, payload) {
   fs.mkdirSync(path.dirname(file), { recursive: true })

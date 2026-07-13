@@ -28,6 +28,7 @@ test('managed backend readiness fails immediately when the no-build process exit
     'export FSUSBLOG_RUNTIME_CONFIGURATION=Debug',
     'export FSUSBLOG_STEP_DEADLINE_MS=10000',
     'source ./tools/bootstrap-acceptance-env.sh',
+    'ROOT_DIR=/tmp/fsusblog-intentionally-missing-runtime-root',
     'deadline=$(( $(date +%s%3N) + 15000 ))',
     'ensure_backend "$deadline"'
   ].join('; ')], {

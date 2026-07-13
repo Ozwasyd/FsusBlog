@@ -9,6 +9,7 @@ using System.Runtime.Intrinsics;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Loggers;
 using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.InProcess.NoEmit;
 using FsusBlog.Core.Algorithms;
@@ -45,6 +46,10 @@ var benchmarkJob = string.Equals(
     ? Job.ShortRun.WithToolchain(InProcessNoEmitToolchain.Instance)
     : Job.ShortRun;
 
+var benchmarkConfig = ManualConfig.Create(DefaultConfig.Instance)
+    .AddLogger(BenchmarkConsoleLogger.Instance)
+    .WithOptions(ConfigOptions.DisableLogFile);
+
 BenchmarkSwitcher
     .FromTypes([
         typeof(PodMappingBenchmarks),
@@ -60,8 +65,35 @@ BenchmarkSwitcher
         typeof(CompositeAcBenchmarks),
         typeof(DoubleArrayAcBenchmarks),
         typeof(SearchDictionaryLookupBenchmarks)])
-    .Run(args, ManualConfig.Create(DefaultConfig.Instance).AddJob(benchmarkJob));
+    .Run(args, benchmarkConfig.AddJob(benchmarkJob));
 return 0;
+
+internal sealed class BenchmarkConsoleLogger : ILogger
+{
+    private const string UnsupportedPriorityPrefix = "// ! Failed to set up priority High";
+    private int _priorityNoteWritten;
+    public static readonly ILogger Instance = new BenchmarkConsoleLogger();
+    public string Id => nameof(ConsoleLogger);
+    public int Priority => 2;
+    public void Write(LogKind logKind, string text) => ConsoleLogger.Default.Write(logKind, text);
+    public void WriteLine() => ConsoleLogger.Default.WriteLine();
+    public void WriteLine(LogKind logKind, string text)
+    {
+        if (text.StartsWith(UnsupportedPriorityPrefix, StringComparison.Ordinal))
+        {
+            if (Interlocked.Exchange(ref _priorityNoteWritten, 1) == 0)
+            {
+                ConsoleLogger.Default.WriteLine(
+                    LogKind.Info,
+                    "// Benchmark scheduler note: privileged priority elevation is unavailable; configured CPU affinity remains active.");
+            }
+            return;
+        }
+
+        ConsoleLogger.Default.WriteLine(logKind, text);
+    }
+    public void Flush() => ConsoleLogger.Default.Flush();
+}
 
 [MemoryDiagnoser]
 public class PodMappingBenchmarks

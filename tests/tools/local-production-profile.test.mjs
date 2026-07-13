@@ -913,6 +913,15 @@ test('acceptance services enforce a bounded log file size', () => {
   assert.match(source, /ulimit -f "\$ACCEPTANCE_LOG_MAX_KIB"/u)
 })
 
+test('acceptance backend derives thread-pool capacity from machine CPUs and burst policy', () => {
+  const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
+  assert.match(source, /os\.availableParallelism\?\.\(\) \?\? os\.cpus\(\)\.length/u)
+  assert.match(source, /Math\.ceil\(concurrency \/ cpu\)/u)
+  assert.match(source, /RuntimeTuning__ThreadPool__Enabled=true/u)
+  assert.match(source, /RuntimeTuning__ThreadPool__MinThreadsPerCpu=\$RUNTIME_THREADPOOL_MIN_THREADS_PER_CPU/u)
+  assert.doesNotMatch(source, /RuntimeTuning__ThreadPool__MinThreadsPerCpu=[0-9]/u)
+})
+
 test('acceptance bootstrap starts independent services within dynamic CPU and memory grants', () => {
   const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
   assert.match(source, /resolve_bootstrap_parallel_workers/u)
