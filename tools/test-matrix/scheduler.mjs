@@ -6,8 +6,7 @@ import process from 'node:process'
 import { spawn, spawnSync } from 'node:child_process'
 
 import {
-  artifactSubstitutionBindingDigest,
-  digestDeclaredOutputs
+  artifactSubstitutionBindingDigest
 } from './local-profile.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
@@ -882,7 +881,16 @@ function bundleSummaryOutput(checkpoint, root, bundleId) {
   if (recordedDigest !== currentDigest) {
     throw new Error(`checkpoint output digest does not match current bundle summary: ${summaryPath}`)
   }
-  return { physicalTierId, summaryPath }
+  let summary
+  try {
+    summary = JSON.parse(fs.readFileSync(absoluteSummary, 'utf8'))
+  } catch (error) {
+    throw new Error(`checkpoint bundle summary is invalid JSON: ${summaryPath} (${error.message})`)
+  }
+  if (!plainObject(summary) || !plainObject(summary.members)) {
+    throw new Error(`checkpoint bundle summary has no member evidence: ${summaryPath}`)
+  }
+  return { physicalTierId, summaryPath, summary }
 }
 
 function validateCheckpointBundleSummaries(checkpoint, root) {
@@ -1003,6 +1011,13 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
   if (!plainObject(entry.artifactDigests) || Object.keys(entry.artifactDigests).length === 0) {
     throw new Error(`logicalTierProjection entry ${tierId} artifactDigests must be a non-empty object`)
   }
+  const sealedBundle = summaryOnly
+    ? null
+    : bundleSummaryOutput(checkpoint, root, entry.physicalBundleId)
+  const sealedMember = sealedBundle?.summary?.members?.[tierId]
+  if (!summaryOnly && !plainObject(sealedMember)) {
+    throw new Error(`logicalTierProjection entry ${tierId} has no sealed member evidence in ${sealedBundle.summaryPath}`)
+  }
   const substitutionCanonicalPaths = summaryOnly
     ? new Set()
     : validateArtifactSubstitutionProofs(entry, tierId)
@@ -1028,13 +1043,7 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
       }
       currentDigest = `sha256:${sha256(fs.readFileSync(absoluteArtifact))}`
     } else {
-      let declaredDigests
-      try {
-        declaredDigests = digestDeclaredOutputs(root, [artifactPath])
-      } catch (error) {
-        throw new Error(`logicalTierProjection entry ${tierId} artifact is missing or invalid: ${artifactPath} (${error.message})`)
-      }
-      currentDigest = Object.values(declaredDigests)[0]
+      currentDigest = sealedMember.artifactDigests?.[artifactPath]
     }
     if (currentDigest !== digest) {
       throw new Error(`logicalTierProjection entry ${tierId} artifact digest does not match: ${artifactPath}`)
@@ -1051,7 +1060,27 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
     if (!Number.isFinite(entry.durationMs) || entry.durationMs < 0) {
       throw new Error(`logicalTierProjection entry ${tierId} durationMs must be non-negative`)
     }
-    bundleSummaryOutput(checkpoint, root, entry.physicalBundleId)
+    const sealedFields = {
+      status: sealedMember.status,
+      durationMs: Number(sealedMember.durationMs),
+      testIds: [...(sealedMember.testIds ?? [])].sort(),
+      artifactProofMode: sealedMember.artifactProofMode,
+      matrixRuntimePaths: [...(sealedMember.matrixRuntimePaths ?? [])],
+      artifactSubstitutionProofs: sealedMember.artifactSubstitutionProofs,
+      artifactDigests: sealedMember.artifactDigests
+    }
+    const projectedFields = {
+      status: entry.status,
+      durationMs: entry.durationMs,
+      testIds: entry.testIds,
+      artifactProofMode: entry.artifactProofMode,
+      matrixRuntimePaths: entry.matrixRuntimePaths,
+      artifactSubstitutionProofs: entry.artifactSubstitutionProofs,
+      artifactDigests: entry.artifactDigests
+    }
+    if (fingerprint(projectedFields) !== fingerprint(sealedFields)) {
+      throw new Error(`logicalTierProjection entry ${tierId} does not match sealed bundle member evidence`)
+    }
   }
   if (!projection.logicalTierIds.includes(tierId)) {
     throw new Error(`logicalTierProjection entry ${tierId} is not declared in logicalTierIds`)

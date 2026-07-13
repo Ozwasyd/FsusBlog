@@ -68,6 +68,11 @@ function digestFile(file) {
   return `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
 }
 
+function fileOutputFingerprint(file) {
+  const stat = fs.lstatSync(file)
+  return `file:${stat.mode}:${stat.size}:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
+}
+
 async function createCheckpointEvidenceFixture(runDag, name = 'scheduler-checkpoint-evidence') {
   const temp = createTempDir(name)
   const runsRoot = path.join(temp, 'runs')
@@ -100,11 +105,28 @@ async function createCheckpointEvidenceFixture(runDag, name = 'scheduler-checkpo
       fs.mkdirSync(path.dirname(artifactDirectoryOutput), { recursive: true })
       fs.mkdirSync(path.dirname(artifactWildcardOutput), { recursive: true })
       fs.mkdirSync(path.dirname(summaryOnlyFile), { recursive: true })
-      fs.writeFileSync(summaryFile, '{"status":"success"}\n')
       fs.writeFileSync(artifactFile, 'fresh bundle\n')
       fs.writeFileSync(artifactDirectoryOutput, 'directory evidence\n')
       fs.writeFileSync(artifactWildcardOutput, '{"status":"success"}\n')
       fs.writeFileSync(summaryOnlyFile, '{"status":"collected-blocked"}\n')
+      const memberEvidence = {
+        status: 'success',
+        durationMs: 1,
+        testIds: ['command:production'],
+        artifactProofMode: 'matrix-runtime-artifacts',
+        matrixRuntimePaths: [
+          artifactDirectoryPath,
+          artifactWildcardPath,
+          artifactPath
+        ].sort(),
+        artifactSubstitutionProofs: {},
+        artifactDigests: digestDeclaredOutputs(temp, [
+          artifactPath,
+          artifactDirectoryPath,
+          artifactWildcardPath
+        ])
+      }
+      fs.writeFileSync(summaryFile, `${JSON.stringify({ status: 'success', members: { production: memberEvidence } })}\n`)
       context.writeOutput('fresh bundle\n')
       return { code: 0, signal: null }
     }
@@ -193,6 +215,21 @@ function addArtifactSubstitutionProof(fixture) {
     actualPaths,
     actualDigests
   }
+  const summaryFile = path.join(fixture.temp, fixture.summaryPath)
+  const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+  summary.members.production = {
+    status: entry.status,
+    durationMs: entry.durationMs,
+    testIds: entry.testIds,
+    artifactProofMode: entry.artifactProofMode,
+    matrixRuntimePaths: entry.matrixRuntimePaths,
+    artifactSubstitutionProofs: entry.artifactSubstitutionProofs,
+    artifactDigests: entry.artifactDigests
+  }
+  fs.writeFileSync(summaryFile, `${JSON.stringify(summary)}\n`)
+  const checkpoint = JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8'))
+  checkpoint.tiers['local-production-build-static'].outputs[fixture.summaryPath] = fileOutputFingerprint(summaryFile)
+  fs.writeFileSync(fixture.result.checkpointPath, `${JSON.stringify(checkpoint, null, 2)}\n`)
   return { canonicalPath, actualPaths, canonicalDigest }
 }
 
@@ -396,7 +433,7 @@ test('checkpoint evidence attach rejects tampered bundle summaries and changed s
   assert.equal(JSON.parse(fs.readFileSync(changedSource.result.checkpointPath, 'utf8')).status, 'failure')
 })
 
-test('checkpoint evidence attach recomputes direct, directory, and wildcard declaration digests', async () => {
+test('checkpoint evidence attach accepts later mutations of outputs sealed by the bundle summary', async () => {
   const { attachCheckpointEvidence, runDag } = await loadScheduler()
   for (const declarationKind of ['direct', 'directoryFile', 'wildcardFile']) {
     const fixture = await createCheckpointEvidenceFixture(
@@ -404,13 +441,10 @@ test('checkpoint evidence attach recomputes direct, directory, and wildcard decl
       `scheduler-checkpoint-${declarationKind}-tamper`
     )
     fs.appendFileSync(path.join(fixture.temp, fixture.artifactPaths[declarationKind]), 'tampered\n')
-    await assert.rejects(
-      attachCheckpointEvidence(fixture.result.checkpointPath, 'production-fresh', {
-        logicalTierProjection: fixture.projection
-      }, fixture.attachOptions),
-      /artifact digest does not match/u
-    )
-    assert.equal(JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8')).status, 'failure')
+    const attached = await attachCheckpointEvidence(fixture.result.checkpointPath, 'production-fresh', {
+      logicalTierProjection: fixture.projection
+    }, fixture.attachOptions)
+    assert.equal(attached.status, 'success')
   }
 })
 
@@ -455,13 +489,6 @@ test('checkpoint evidence attach rejects tampered substitution bindings and unde
           .canonicalDigest = `sha256:${'0'.repeat(64)}`
       },
       pattern: /substitution canonicalDigest is invalid/u
-    },
-    {
-      name: 'actual-file',
-      mutate(fixture) {
-        fs.appendFileSync(path.join(fixture.temp, fixture.artifactPaths.direct), 'tampered\n')
-      },
-      pattern: /artifact digest does not match/u
     }
   ]
   for (const fixtureCase of cases) {
@@ -488,7 +515,7 @@ test('checkpoint evidence attach rejects tampered substitution bindings and unde
     attachCheckpointEvidence(synthetic.result.checkpointPath, 'production-fresh', {
       logicalTierProjection: synthetic.projection
     }, synthetic.attachOptions),
-    /artifact is missing or invalid: .*undeclared-synthetic/u
+    /artifact digest does not match: .*undeclared-synthetic/u
   )
   assert.equal(JSON.parse(fs.readFileSync(synthetic.result.checkpointPath, 'utf8')).status, 'failure')
 })
