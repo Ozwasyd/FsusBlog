@@ -20,9 +20,13 @@ test('a11y audit derives navigation and audit deadlines while retrying only tran
   assert.doesNotMatch(a11y, /retry|attempts?\s*=\s*\d+/iu)
 })
 
-test('a11y audit overlaps isolated identities while reusing one context and one navigation per route', () => {
+test('a11y audit derives identity fanout from live resources while reusing one context and one navigation per route', () => {
   assert.match(a11y, /const \[userSession, adminSession\] = await Promise\.all/u)
-  assert.match(a11y, /await Promise\.all\(\[[\s\S]*withAuditPage\(browser, null[\s\S]*withAuditPage\(browser, userSession[\s\S]*withAuditPage\(browser, adminSession/u)
+  assert.match(a11y, /resolveAuditWorkers\(auditTasks\.length\)/u)
+  assert.match(a11y, /timeoutPlan\.effectiveCpuGrant/u)
+  assert.match(a11y, /FSUSBLOG_STEP_MEMORY_GIB/u)
+  assert.match(a11y, /await Promise\.all\(Array\.from\(\{ length: workers \}, runWorker\)\)/u)
+  assert.match(a11y, /withAuditPage\(browser, null[\s\S]*withAuditPage\(browser, userSession[\s\S]*withAuditPage\(browser, adminSession/u)
   assert.match(a11y, /'\/user\/manage\/users',[\s\S]*'\/user\/manage\/category'[\s\S]*audit \/user\/manage\/category dialog/u)
   assert.doesNotMatch(a11y, /await gotoRuntime\(adminPage, '\/user\/manage\/category'\)/u)
   assert.match(a11y, /async function auditRoute\(page, path,[\s\S]*await gotoRuntime\(page, path\)/u)

@@ -19,6 +19,35 @@ const { chromium } = require(require.resolve('@playwright/test', { paths: [proce
 const timeoutPlan = resolveRuntimeBrowserTimeoutPlan();
 const runtimeDeadlineAtMs = Date.now() + timeoutPlan.stepDeadlineMs;
 
+function positiveNumber(value) {
+  if (value === undefined || String(value).trim() === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function resolveAuditWorkers(taskCount) {
+  const cpuWorkers = Math.max(1, Math.floor(timeoutPlan.effectiveCpuGrant));
+  const memoryGiB = positiveNumber(process.env.FSUSBLOG_STEP_MEMORY_GIB);
+  // A context shares the browser process, but renderer isolation still needs a
+  // meaningful slice of the live step grant under production-wide contention.
+  const memoryWorkers = memoryGiB === undefined
+    ? taskCount
+    : Math.max(1, Math.floor(memoryGiB / 0.75));
+  return Math.max(1, Math.min(taskCount, cpuWorkers, memoryWorkers));
+}
+
+async function runAuditTasks(tasks, workers) {
+  let cursor = 0;
+  async function runWorker() {
+    while (cursor < tasks.length) {
+      const task = tasks[cursor];
+      cursor += 1;
+      await task();
+    }
+  }
+  await Promise.all(Array.from({ length: workers }, runWorker));
+}
+
 function runtimeTimeout(preferredMs) {
   return remainingRuntimeTimeout(runtimeDeadlineAtMs, preferredMs);
 }
@@ -168,20 +197,21 @@ async function main() {
       loginWithFixtureSessionBypass(userName, userPassword, false, 'a11y-user'),
       loginWithFixtureSessionBypass(adminName, adminPassword, false, 'a11y-admin')
     ]);
-    // The three identities are isolated and every route is read-only. Keep one
-    // page/context per identity so route waits overlap without repeatedly
-    // launching contexts. Category remains last in the admin branch so its
-    // dialog audit reuses the already-audited page instead of navigating twice.
-    await Promise.all([
-      withAuditPage(browser, null, async (page) => {
+    // The three identities are isolated and every route is read-only. Reuse one
+    // page/context per identity, but derive identity fanout from the live step
+    // grant so a one-CPU production slot cannot launch three Chromium renderers.
+    // Category remains last in the admin branch so its dialog audit reuses the
+    // already-audited page instead of navigating twice.
+    const auditTasks = [
+      () => withAuditPage(browser, null, async (page) => {
         await auditRoute(page, '/login', 'login');
       }),
-      withAuditPage(browser, userSession, async (page) => {
+      () => withAuditPage(browser, userSession, async (page) => {
         for (const path of ['/user/profile', '/user/messagebox']) {
           await auditRoute(page, path);
         }
       }),
-      withAuditPage(browser, adminSession, async (adminPage) => {
+      () => withAuditPage(browser, adminSession, async (adminPage) => {
         for (const path of [
           '/user/manage/article/write',
           '/user/manage/settings',
@@ -203,7 +233,10 @@ async function main() {
         await assertPageA11y(adminPage, 'category-dialog');
       }
       })
-    ]);
+    ];
+    const auditWorkers = resolveAuditWorkers(auditTasks.length);
+    console.log(`[check-a11y-smoke] auditWorkers=${auditWorkers} tasks=${auditTasks.length}`);
+    await runAuditTasks(auditTasks, auditWorkers);
     console.log(`[check-a11y-smoke] ok | frontend=${frontendBaseUrl}`);
   } finally {
     await browser.close();
