@@ -52,6 +52,8 @@ const allowedRuntimeEnvironmentKeys = new Set([
   'PublicAot__BackfillConcurrency',
   'PublicAot__SsrWorkerCount',
   'PublicAot__SsrWorkerScript',
+  'RuntimeTuning__ThreadPool__Enabled',
+  'RuntimeTuning__ThreadPool__MinThreadsPerCpu',
   'ASPNETCORE_URLS',
   'ASPNETCORE_ENVIRONMENT',
   'CORS_ALLOWED_HOSTS',
