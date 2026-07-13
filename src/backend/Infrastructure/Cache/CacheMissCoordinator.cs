@@ -15,6 +15,51 @@ public interface ICacheMissCoordinator
         string operation,
         CancellationToken cancellationToken = default,
         CacheRebuildStrategy? strategy = null);
+
+    Task<T?> CoordinateAsync<T>(
+        CachePolicyId policyId,
+        int identity,
+        Func<CancellationToken, Task<CacheReadResult<T>>> tryReadAsync,
+        Func<CancellationToken, Task<T?>> rebuildAsync,
+        string operation,
+        CancellationToken cancellationToken = default,
+        CacheRebuildStrategy? strategy = null)
+        => CoordinateIntegerAsync(
+            this,
+            policyId,
+            identity,
+            tryReadAsync,
+            rebuildAsync,
+            operation,
+            cancellationToken,
+            strategy);
+
+    private static async Task<T?> CoordinateIntegerAsync<T>(
+        ICacheMissCoordinator coordinator,
+        CachePolicyId policyId,
+        int identity,
+        Func<CancellationToken, Task<CacheReadResult<T>>> tryReadAsync,
+        Func<CancellationToken, Task<T?>> rebuildAsync,
+        string operation,
+        CancellationToken cancellationToken,
+        CacheRebuildStrategy? strategy)
+    {
+        CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
+        if (hit.Hit)
+        {
+            return hit.Value;
+        }
+
+        return await coordinator.CoordinateAsync(
+                policyId,
+                identity.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                tryReadAsync,
+                rebuildAsync,
+                operation,
+                cancellationToken,
+                strategy)
+            .ConfigureAwait(false);
+    }
 }
 
 public sealed class CacheMissCoordinator(
@@ -45,9 +90,56 @@ public sealed class CacheMissCoordinator(
             return hit.Value;
         }
 
+        return await CoordinateAfterInitialMissAsync(
+                policyId,
+                identity,
+                tryReadAsync,
+                rebuildAsync,
+                operation,
+                cancellationToken,
+                strategy)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<T?> CoordinateAsync<T>(
+        CachePolicyId policyId,
+        int identity,
+        Func<CancellationToken, Task<CacheReadResult<T>>> tryReadAsync,
+        Func<CancellationToken, Task<T?>> rebuildAsync,
+        string operation,
+        CancellationToken cancellationToken = default,
+        CacheRebuildStrategy? strategy = null)
+    {
+        CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
+        if (hit.Hit)
+        {
+            return hit.Value;
+        }
+
+        return await CoordinateAfterInitialMissAsync(
+                policyId,
+                identity.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                tryReadAsync,
+                rebuildAsync,
+                operation,
+                cancellationToken,
+                strategy)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<T?> CoordinateAfterInitialMissAsync<T>(
+        CachePolicyId policyId,
+        string identity,
+        Func<CancellationToken, Task<CacheReadResult<T>>> tryReadAsync,
+        Func<CancellationToken, Task<T?>> rebuildAsync,
+        string operation,
+        CancellationToken cancellationToken,
+        CacheRebuildStrategy? strategy)
+    {
+
         await using IAsyncDisposable singleFlight = await cache.AcquireSingleFlightAsync(policyId, identity, cancellationToken).ConfigureAwait(false);
 
-        hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
+        CacheReadResult<T> hit = await tryReadAsync(cancellationToken).ConfigureAwait(false);
         if (hit.Hit)
         {
             return hit.Value;

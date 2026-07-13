@@ -215,7 +215,6 @@ public class ArticleService(
     {
         CancellationToken effectiveCt = ResolveCancellationToken(cancellationToken);
         effectiveCt.ThrowIfCancellationRequested();
-        string cacheIdentity = id.ToString();
         if (includePrivate)
         {
             return await LoadArticleDetailFromDbAsync(id, includePrivate: true, cacheIdentity: null, effectiveCt);
@@ -223,19 +222,18 @@ public class ArticleService(
 
         return await _cacheMissCoordinator.CoordinateAsync(
             CachePolicyId.ArticleDetail,
-            cacheIdentity,
-            gateCt => TryReadArticleDetailCacheAsync(id, cacheIdentity, gateCt),
-            gateCt => LoadArticleDetailFromDbAsync(id, includePrivate: false, cacheIdentity, gateCt),
+            id,
+            gateCt => TryReadArticleDetailCacheAsync(id, gateCt),
+            gateCt => LoadArticleDetailFromDbAsync(id, includePrivate: false, cacheIdentity: id, gateCt),
             "article-detail",
             effectiveCt);
     }
 
     private async Task<CacheReadResult<ArticleDetailReadModel>> TryReadArticleDetailCacheAsync(
         int id,
-        string cacheIdentity,
         CancellationToken cancellationToken)
     {
-        var detailCache = await _cache.TryGetAsync(CachePolicyId.ArticleDetail, cacheIdentity, ServerCacheBinaryCodec.DecodeArticleDetail, cancellationToken);
+        var detailCache = await _cache.TryGetAsync(CachePolicyId.ArticleDetail, id, ServerCacheBinaryCodec.DecodeArticleDetail, cancellationToken);
         if (!detailCache.Hit)
         {
             return new CacheReadResult<ArticleDetailReadModel>(false, default);
@@ -274,7 +272,7 @@ public class ArticleService(
         cancellationToken.ThrowIfCancellationRequested();
         byte[] encodedHealed = ServerCacheBinaryCodec.EncodeArticleDetail(healed);
         cancellationToken.ThrowIfCancellationRequested();
-        await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, encodedHealed, null, cancellationToken);
+        await _cache.SetRawAsync(CachePolicyId.ArticleDetail, id, encodedHealed, null, cancellationToken);
         return new CacheReadResult<ArticleDetailReadModel>(true, await OverlayProjectedViewsAsync(healed, cancellationToken));
     }
 
@@ -295,7 +293,7 @@ public class ArticleService(
     private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(
         int id,
         bool includePrivate,
-        string? cacheIdentity,
+        int? cacheIdentity,
         CancellationToken cancellationToken)
     {
         DateTime utcNow = DateTime.UtcNow;
@@ -470,13 +468,13 @@ public class ArticleService(
                 cancellationToken.ThrowIfCancellationRequested();
                 byte[] encoded = ServerCacheBinaryCodec.EncodeArticleDetail(article);
                 cancellationToken.ThrowIfCancellationRequested();
-                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, encoded, null, cancellationToken);
+                await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity.Value, encoded, null, cancellationToken);
             }
         }
         else if (!includePrivate && cacheIdentity is not null)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity, Array.Empty<byte>(), TimeSpan.FromMinutes(5), cancellationToken);
+            await _cache.SetRawAsync(CachePolicyId.ArticleDetail, cacheIdentity.Value, Array.Empty<byte>(), TimeSpan.FromMinutes(5), cancellationToken);
         }
 
         return article;

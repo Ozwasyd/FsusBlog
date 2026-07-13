@@ -149,7 +149,7 @@ public sealed class CacheInvalidationDispatcherTests
         await httpCacheInvalidator.DidNotReceive().InvalidateAsync(CacheTag.Comment);
         localInvalidator.Received(1).InvalidateLocalSnapshot();
         await cache.Received(1).IncrementAsync(CachePolicyId.AnonymousCommentPolicyVersion, "main", 1, Arg.Any<CancellationToken>());
-        await cache.DidNotReceiveWithAnyArgs().RemoveAsync(default!, default!, default);
+        await cache.DidNotReceiveWithAnyArgs().RemoveAsync(default, (string)null!, default);
         await cache.DidNotReceiveWithAnyArgs().RemoveManyAsync(default!, default);
         Assert.Equal("comment_policy", runtimeState.Snapshot().LastKind);
         Assert.Equal("anonymous-comment-policy:v12", runtimeState.Snapshot().LastDetail);

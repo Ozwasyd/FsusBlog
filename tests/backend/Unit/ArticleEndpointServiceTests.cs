@@ -57,7 +57,7 @@ public sealed class ArticleEndpointServiceTests
             cancellationToken: cts.Token));
 
         await cache.DidNotReceiveWithAnyArgs().GetStringAsync(default, default!, default);
-        await cache.DidNotReceiveWithAnyArgs().TryGetRawReadonlyAsync(default, default!, default);
+        await cache.DidNotReceiveWithAnyArgs().TryGetRawReadonlyAsync(default, (string)null!, default);
         await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default, default, default, default);
     }
 
@@ -83,7 +83,7 @@ public sealed class ArticleEndpointServiceTests
         Assert.False(result.Result.IsSuccess);
         Assert.Equal(ErrorCode.Validation, result.Result.Error.Code);
         await cache.DidNotReceiveWithAnyArgs().GetStringAsync(default, default!, default);
-        await cache.DidNotReceiveWithAnyArgs().TryGetRawReadonlyAsync(default, default!, default);
+        await cache.DidNotReceiveWithAnyArgs().TryGetRawReadonlyAsync(default, (string)null!, default);
         await core.DidNotReceiveWithAnyArgs().GetPageListAsync(default, default, default, default, default);
     }
 
@@ -128,7 +128,7 @@ public sealed class ArticleEndpointServiceTests
             canReadPrivate: true,
             cancellationToken: cts.Token));
 
-        await cache.DidNotReceiveWithAnyArgs().SetRawAsync(default, default!, default!, default, default);
+        await cache.DidNotReceiveWithAnyArgs().SetRawAsync(default, (string)null!, default!, default, default);
     }
 
     [Fact]

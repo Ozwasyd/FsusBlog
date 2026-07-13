@@ -19,6 +19,54 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class ObservabilityTests
 {
+    [Fact]
+    public void StartActivity_IsLazyAndHonorsListenerSampling()
+    {
+        MethodInfo start = typeof(FsusObservability).GetMethod(nameof(FsusObservability.StartActivity))!;
+        Assert.Contains(ReadCalledMethods(start), static method => method.Name == nameof(ActivitySource.HasListeners));
+
+        using (var dropListener = new ActivityListener
+        {
+            ShouldListenTo = static source => source.Name == FsusObservability.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.None
+        })
+        {
+            ActivitySource.AddActivityListener(dropListener);
+            Assert.Null(FsusObservability.StartActivity("cache.get", "cache", ActivityKind.Client));
+        }
+
+        using var sampledListener = new ActivityListener
+        {
+            ShouldListenTo = static source => source.Name == FsusObservability.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData
+        };
+        ActivitySource.AddActivityListener(sampledListener);
+        using Activity? activity = FsusObservability.StartActivity("cache.get", "cache", ActivityKind.Client);
+        Assert.NotNull(activity);
+        Assert.Equal("cache", activity.GetTagItem("fsus.component"));
+        Assert.Equal("cache.get", activity.GetTagItem("fsus.operation"));
+    }
+
+    [Fact]
+    public void CacheMetrics_PrecacheTagsAndStripeL1HitsWhileKeepingMissesExact()
+    {
+        const string policy = "ArticleHotFrame";
+        long hitBefore = FsusObservability.GetCacheOperationCounters()
+            .Where(counter => counter.Operation == "get_raw_readonly" && counter.Policy == policy && counter.Layer == "l1" && counter.Result == "hit")
+            .Sum(static counter => counter.Count);
+        long missBefore = FsusObservability.GetCacheOperationCounters()
+            .Where(counter => counter.Operation == "get_raw_readonly" && counter.Policy == policy && counter.Layer == "l2" && counter.Result == "miss")
+            .Sum(static counter => counter.Count);
+
+        Parallel.For(0, 1024, _ => FsusObservability.RecordCacheOperation("get_raw_readonly", policy, "l1", "hit", TimeSpan.Zero));
+        FsusObservability.RecordCacheOperation("get_raw_readonly", policy, "l2", "miss", TimeSpan.Zero);
+
+        IReadOnlyList<CacheOperationRuntimeCounter> counters = FsusObservability.GetCacheOperationCounters();
+        Assert.Equal(hitBefore + 1024, counters.Single(counter => counter.Operation == "get_raw_readonly" && counter.Policy == policy && counter.Layer == "l1" && counter.Result == "hit").Count);
+        Assert.Equal(missBefore + 1, counters.Single(counter => counter.Operation == "get_raw_readonly" && counter.Policy == policy && counter.Layer == "l2" && counter.Result == "miss").Count);
+        Assert.Equal("striped", FsusObservability.CacheL1CounterMode);
+    }
+
     [Theory]
     [InlineData("/api/binary/article/list/home/1/10.aeds", "binary")]
     [InlineData("/api/notifications/stream", "notification-stream")]

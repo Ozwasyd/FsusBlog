@@ -34,7 +34,6 @@ public sealed class BinaryFrameResult(
 
         envelopePolicy.ApplyFrameResponse(httpContext.Response, frameWriter.PayloadLength, _statusCode);
         await httpContext.Response.BodyWriter.WriteAsync(frameWriter.WrittenFrame, httpContext.RequestAborted);
-        await httpContext.Response.BodyWriter.FlushAsync(httpContext.RequestAborted);
     }
 
     private static IBinaryEnvelopePolicy ResolveEnvelopePolicy(HttpContext httpContext)

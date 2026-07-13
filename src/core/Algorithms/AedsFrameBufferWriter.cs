@@ -4,14 +4,17 @@ namespace FsusBlog.Core.Algorithms;
 
 public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
 {
+    private readonly ArrayPool<byte> _pool;
     private byte[] _buffer;
     private int _written;
     private bool _sealed;
     private bool _disposed;
+    private bool _clearOnReturn = true;
 
-    public AedsFrameBufferWriter(int initialCapacity = 1024)
+    public AedsFrameBufferWriter(int initialCapacity = 1024, ArrayPool<byte>? pool = null)
     {
-        _buffer = ArrayPool<byte>.Shared.Rent(Math.Max(AedsFrameHeader.Size + 1, initialCapacity));
+        _pool = pool ?? ArrayPool<byte>.Shared;
+        _buffer = _pool.Rent(Math.Max(AedsFrameHeader.Size + 1, initialCapacity));
         _written = AedsFrameHeader.Size;
     }
 
@@ -56,6 +59,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
 
         ReadOnlySpan<byte> payload = _buffer.AsSpan(AedsFrameHeader.Size, PayloadLength);
         AedsEncoder.WriteHeaderInto(frameType, payload, version, flags, _buffer.AsSpan(0, AedsFrameHeader.Size));
+        _clearOnReturn = AedsFrameSensitivity.RequiresClear(frameType);
         _sealed = true;
     }
 
@@ -103,7 +107,7 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
             return;
         }
 
-        ArrayPool<byte>.Shared.Return(_buffer, clearArray: true);
+        _pool.Return(_buffer, clearArray: _clearOnReturn);
         _buffer = [];
         _written = 0;
         _disposed = true;
@@ -123,9 +127,10 @@ public sealed class AedsFrameBufferWriter : IBufferWriter<byte>, IDisposable
         }
 
         int newSize = Math.Max(_buffer.Length * 2, _written + sizeHint);
-        byte[] next = ArrayPool<byte>.Shared.Rent(newSize);
+        byte[] next = _pool.Rent(newSize);
         _buffer.AsSpan(0, _written).CopyTo(next);
-        ArrayPool<byte>.Shared.Return(_buffer, clearArray: true);
+        // The frame type is not known until Seal, so intermediate buffers are sensitive.
+        _pool.Return(_buffer, clearArray: true);
         _buffer = next;
     }
 

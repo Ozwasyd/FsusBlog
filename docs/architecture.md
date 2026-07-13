@@ -266,6 +266,10 @@ Compose 把 `${FSUSBLOG_RELEASE_ASSET_STORE}/releases` 只读挂载为 `/app/rel
 
 运行时缓存只通过 `IUnifiedCache`、`CachePolicyRegistry`、`CachePolicyId` 与 `ICacheInvalidationDispatcher` 进入。`TryGetRawAsync` 保持 caller-owned 防御性复制语义；只读公开 payload 使用 `TryGetRawReadonlyAsync`，调用方只能把不可变 buffer 同步写出到 response，不能把 backing array 暴露为可写状态。旧的 `Core.Cache.CacheManager` / `ILevel1CacheStore` / `ILevel2CacheStore` 双层抽象已移除，core benchmark 覆盖 POD/AEDS codec、raw cache-hit decode/readonly cache hit、search rebuild/query 和 Public AOT bundle 编解码，不再模拟第二套 cache manager。
 
+L1 不再使用最终 Redis 字符串作为 `IMemoryCache` key，而是使用 `(runtime/test scope, CachePolicyId, identity kind, identity, version)` 结构键。字符串 identity 继续兼容并按 Redis key 的 `default/trim/version` 规则规范化；整数 identity 使用独立字段和重载，在 L1 hit 上不执行 `int -> string`。只有 L1 miss、损坏条目清理或 L2 变更时才构造带 scope 的 Redis key。Redis key 到结构化 L1 key 的进程内索引只服务 prefix/scan 失效和 rolling-upgrade legacy string-key 清理，eviction callback 会移除索引；精确失效、版本切换与 test-session scope 仍保持同一确定性映射。
+
+缓存 Activity 只有在 `ActivitySource.HasListeners()` 且 listener 实际采样时创建；policy 名称由冻结表复用，cache operation 的 tag set 按 operation/policy/layer/result 组合一次缓存。L1 `hit` / `hit_negative` 的运行时 shadow counter 使用 32 路 striped 累加，miss/reject/decode/Redis error 保持精确计数；release evidence 在 `operations.runtimeTuning.counterModes` 记录 L1 与 PublicHotRead counter mode。Redis 读取异常仍设置 sampled Activity error、写结构化 error log、记录 `redis_error` 指标并向调用方传播，不能用性能优化吞掉错误。
+
 `IUnifiedCache` 的写入/变更型操作必须先移除 L1，再提交 Redis L2 变更；`IncrementAsync`、`IncrementClampedWithExpiryAsync`、`ConsumeOnceAsync`、`ConsumeOnceAndGetAsync`、`RemoveAsync` 和批量失效都遵循 L1-first 顺序，避免并发读在 L2 已变更前后重新提升 stale L1 值。需要取回 payload 的一次性 challenge 使用 `ConsumeOnceAndGetAsync`，由 Redis GETDEL 语义在同一 L2 操作中取值并删除；调用方不得先 `GetStringAsync` 再 `RemoveAsync` 拼接一次性语义。L1-first 允许一次安全方向的 stale miss，但不得允许旧值在同进程内复活。
 
 普通账号会话校验是有意绕过 L1 的安全专用路径：`UserSessionValidationCache` 直接读 Redis L2 的 `SecurityUserSessionValidation` 版本快照，miss 时才按 `sessionid` 主键回源 PostgreSQL。所有会话撤销 producer 使用显式数据库事务，把带更新后 `xmin` 的 revoked snapshot 作为事务回调最后一步并行发布；Redis fence 对所有实例可见后才进入 commit。发布异常使数据库事务回滚；如果 fence 已发布但 commit 失败，则通过 `IUserSessionValidationCache.InvalidateManyAsync` / `IUnifiedCache.RemoveManyAsync` 清理可能发布的 key。补偿清理失败只会留下保守拒绝的 revoked snapshot，不允许恢复 active 值。`Security:UserSessionValidation:DistributedCacheEnabled=false` 由支持 reload 的配置源动态切换为 DB-only：跳过 Redis read/publish、以数据库 commit 为可见边界；恢复时按当前数据库状态回填，不需要增加第二套缓存或重启语义。该改动不改变 endpoint、AEDS frame、错误码或请求/响应字段，只收紧既有撤销操作的提交与失败语义。
@@ -298,6 +302,8 @@ FsusBlog 运行时 API 只维护 AEDS binary 链：
 
 **v2 写出与缓存路径**：
 - 帧头固定 16 字节，动态响应通过 `AedsFrameBufferWriter` 预留 header 并在同一 pooled buffer 中写 payload，`Seal()` 后回填 header/CRC，避免先构造 payload 再复制到完整 frame。
+- `BinaryFrameResult`、`BinaryFramePayloadResult` 与 `BinaryPreencodedFrameResult` 每个响应只提交一次 `PipeWriter`：`WriteAsync` 本身完成 flush 时不得再无条件 `FlushAsync`；直接 `GetSpan/Advance` 的 payload 路径只显式 flush 一次。request cancellation、aborted response 和 pipe backpressure 原样传播。
+- `AedsFrameBufferWriter` 对未知、auth/session/MFA/Passkey、匿名凭证、admin/private 和 `ApiError` frame 默认清零后归还 `ArrayPool`；只有 `AedsFrameSensitivity` 明确列出的公开 immutable response frame 可跳过最终 buffer clear。扩容发生在 `Seal` 前，旧 buffer 始终按敏感数据清零。
 - `/api/binary/**` 在完成 Accept 与 binary request content-type 校验后直接进入 endpoint 写出链路，不再被 API binary response middleware 捕获到临时缓冲。
 - 非 binary `/api/**` 请求只有在客户端显式接受 binary envelope 时才进入捕获/转换路径；普通 JSON 成功响应不再被无差别缓冲。真人阅读 proof 运行时路径已迁移到 `/api/binary/read-proof/*.aeds`。
 - 非上传 binary 请求使用 pooled frame buffer 读取，默认最大 frame 为 8 MiB；解码后的 payload 以 buffer slice 传递给端点，buffer 生命周期挂到 response completion，不再为 payload 额外 `ToArray()`。

@@ -16,6 +16,7 @@ TRACKED_TMP_FILES=(
   ".tmp/release-evidence/public-hydration-dom-diff-summary.json"
   ".tmp/release-evidence/public-hydration-sidecar-summary.json"
   ".tmp/release-evidence/public-hydration-matrix-summary.json"
+  ".tmp/release-evidence/ux-viewport-summary.json"
   ".tmp/frontend/dom-budget.json"
   ".tmp/frontend/route-render-pressure.json"
   ".tmp/frontend/markdown-render-budget.json"
@@ -117,7 +118,8 @@ jq -n \
       sourceRuntimeStatus: true,
       targetRuntimeStatus: true,
       targetActivation: true,
-      sourceDrain: true
+      sourceDrain: true,
+      sourceDrainDeferred: false
     },
     lifecycle: {
       sourceBefore: {releaseId: "20260710010101-deadbeefcafe", slot: "blue", mode: "active", state: "active", generation: 1, canReceiveTraffic: true, canClaimBackgroundWork: true, canAcceptNotificationStream: true, inFlightHttpRequests: 0, notificationStreamConnections: 0, activeBackgroundClaims: 0, drain: {requested: false, drained: false, timedOut: false, blockers: []}},
@@ -378,6 +380,7 @@ cat > "$ROOT_DIR/.tmp/release-evidence/public-hydration-sidecar-summary.json" <<
 }
 JSON
 printf '{"schema":"fsusblog.public-hydration-matrix-summary.v1","status":"success","lane":"release","gitSha":"fixture","rendererVersion":"fixture","coverage":{"routes":[{"kind":"Home","route":"/","routeKey":"home"}],"pageKinds":["Home","ArticleDetail","Archive","Filter","About","Privacy","Guidelines","Copyright"],"phases":["direct-first-load","reload"],"browsers":["chromium"],"states":["anonymous","user","admin"],"fixtures":["payload-fixture-matrix"]},"requiredArtifacts":{"detector":"public-hydration-detector-summary.json","clock":"public-hydration-clock-matrix-summary.json","browserEnv":"public-hydration-browser-env-summary.json","payloadFixture":"public-hydration-payload-fixture-summary.json","domDiff":"public-hydration-dom-diff-summary.json"},"artifactStatuses":{"detector":"success","clock":"success","browserEnv":"success","payloadFixture":"success","domDiff":"success"},"cells":[{"source":"detector","route":"/","pageKind":"Home","phase":"direct-first-load","browser":"chromium","viewport":{"name":"desktop","width":1440,"height":900},"state":{"session":"anonymous"},"clock":null,"fixtureId":null,"result":"success","fatalHydrationIssueCount":0,"warnings":[],"errors":[],"durationMs":1}],"fatalHydrationIssueCount":0,"warnings":[],"errors":[]}\n' > "$ROOT_DIR/.tmp/release-evidence/public-hydration-matrix-summary.json"
+printf '{"status":"ok","latestMode":"boundaries","planFingerprint":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","plannedCaseCount":1,"completedCaseCount":1,"plannedNavigationCount":1,"completedNavigationCount":1,"completedRouteThemeGroupCount":1,"failedRouteThemeGroupCount":0,"artifacts":{"smoke":null,"visual":null,"boundaries":".tmp/ux/viewport-boundaries.json"}}\n' > "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-budget.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/route-render-pressure.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json"
@@ -683,6 +686,8 @@ jq -e \
   and .evidenceSummary.operations.sloAlerts == "ok"
   and .evidenceSummary.operations.sloCriticalFiring == 0
   and .evidenceSummary.operations.runtimeTuning.nonDefaultPresetsRequireBenchmarkEvidence == true
+  and .evidenceSummary.operations.runtimeTuning.counterModes.cacheL1Hit == "striped"
+  and .evidenceSummary.operations.runtimeTuning.counterModes.publicHotRead == "Sampled"
   and .evidenceSummary.operations.runtimeTuning.rollback == "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
   and .evidenceSummary.gates.backendQps == "ok"
   and .evidenceSummary.gates.publicAotCacheResilience == "success"

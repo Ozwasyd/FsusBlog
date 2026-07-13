@@ -82,6 +82,38 @@
       "baselineMethod": "Legacy_ReplaceAndLowercase",
       "maxMeanRatio": 1.5,
       "maxAllocatedRatio": 1.5
+    },
+    {
+      "id": "cache-l1-structured-integer-key",
+      "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
+      "method": "Current_L1IntegerStructuredKey",
+      "baselineMethod": "Legacy_L1FinalRedisStringKey",
+      "maxMeanRatio": 1.0,
+      "maxAllocatedRatio": 0.1
+    },
+    {
+      "id": "cache-raw-readonly-borrow",
+      "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
+      "method": "Current_RawReadonlyBorrow",
+      "baselineMethod": "Legacy_RawCallerCopy",
+      "maxMeanRatio": 0.5,
+      "maxAllocatedRatio": 0.1
+    },
+    {
+      "id": "binary-preencoded-frame",
+      "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
+      "method": "Current_PreencodedFrame",
+      "baselineMethod": "Current_DynamicFrame",
+      "maxMeanRatio": 0.5,
+      "maxAllocatedRatio": 0.1
+    },
+    {
+      "id": "cache-striped-counter",
+      "benchmark": "CacheAndFrameFixedCostHotPathBenchmarks",
+      "method": "Current_StripedCachedTagCounter",
+      "baselineMethod": "Legacy_GlobalAtomicAndStringCounterKey",
+      "maxMeanRatio": 3.0,
+      "maxAllocatedRatio": 0.5
     }
   ]
 }

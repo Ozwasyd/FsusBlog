@@ -375,6 +375,50 @@ public sealed class AedsEncoderTests
         Assert.Throws<InvalidOperationException>(() => writer.Write([4]));
     }
 
+    [Theory]
+    [InlineData(AedsFrameType.Unknown)]
+    [InlineData(AedsFrameType.AdminStats)]
+    [InlineData(AedsFrameType.AuthLoginFlow)]
+    [InlineData(AedsFrameType.CurrentUserSnapshot)]
+    [InlineData(AedsFrameType.MfaChallengeResult)]
+    [InlineData(AedsFrameType.PasskeyLoginBegin)]
+    [InlineData(AedsFrameType.AnonymousCredentialIssueResponse)]
+    [InlineData(AedsFrameType.ApiError)]
+    public void FrameBufferWriter_SensitiveAndUnknownFramesAlwaysClearPoolBuffer(AedsFrameType frameType)
+    {
+        var pool = new TrackingArrayPool();
+        using (var writer = new AedsFrameBufferWriter(64, pool))
+        {
+            writer.Write([1, 2, 3]);
+            writer.Seal(frameType);
+        }
+
+        Assert.Single(pool.Returns);
+        Assert.True(pool.Returns[0].ClearArray);
+        Assert.True(AedsFrameSensitivity.RequiresClear(frameType));
+    }
+
+    [Theory]
+    [InlineData(AedsFrameType.ArticleList)]
+    [InlineData(AedsFrameType.ArticleDetail)]
+    [InlineData(AedsFrameType.ArticleHot)]
+    [InlineData(AedsFrameType.CategoryList)]
+    [InlineData(AedsFrameType.TagList)]
+    [InlineData(AedsFrameType.PublicAotBootstrap)]
+    public void FrameBufferWriter_PublicImmutableWhitelistMaySkipFinalPoolClear(AedsFrameType frameType)
+    {
+        var pool = new TrackingArrayPool();
+        using (var writer = new AedsFrameBufferWriter(64, pool))
+        {
+            writer.Write([1, 2, 3]);
+            writer.Seal(frameType);
+        }
+
+        Assert.Single(pool.Returns);
+        Assert.False(pool.Returns[0].ClearArray);
+        Assert.True(AedsFrameSensitivity.IsPublicImmutable(frameType));
+    }
+
     [Fact]
     public async Task PreencodedFrameResult_AppliesMetadataAndHonorsIfNoneMatch()
     {
@@ -461,5 +505,21 @@ public sealed class AedsEncoderTests
         Result result = validator.ValidateRoundTrip(AedsFrameType.ArticleList, [42], flags: 0xCAFE);
 
         Assert.True(result.IsSuccess);
+    }
+
+    private sealed class TrackingArrayPool : ArrayPool<byte>
+    {
+        public List<(byte[] Buffer, bool ClearArray)> Returns { get; } = [];
+
+        public override byte[] Rent(int minimumLength) => new byte[minimumLength];
+
+        public override void Return(byte[] array, bool clearArray = false)
+        {
+            Returns.Add((array, clearArray));
+            if (clearArray)
+            {
+                Array.Clear(array);
+            }
+        }
     }
 }

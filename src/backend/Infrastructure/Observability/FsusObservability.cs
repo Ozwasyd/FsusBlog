@@ -28,6 +28,12 @@ public sealed record CacheOperationRuntimeCounter(
     string Result,
     long Count);
 
+internal readonly record struct CacheOperationMetricKey(
+    string Operation,
+    string Policy,
+    string Layer,
+    string Result);
+
 internal readonly record struct SecurityEventTagCacheKey(string Operation, string Reason, string Result);
 
 public static class FsusObservability
@@ -80,7 +86,8 @@ public static class FsusObservability
 
     private static readonly Meter Meter = new(MeterName, ServiceVersion);
     private static readonly Counter<long> OperationCounter = Meter.CreateCounter<long>("fsus.operation.count");
-    private static readonly ConcurrentDictionary<string, long> CacheOperationRuntimeCounters = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<CacheOperationMetricKey, CacheOperationMetricState> CacheOperationRuntimeCounters = new();
+    public const string CacheL1CounterMode = "striped";
     private const int SecurityEventTagCacheLimit = 256;
     private static readonly ConcurrentDictionary<string, string> RouteKindCache = new(StringComparer.Ordinal);
     private static readonly Histogram<double> OperationDuration = Meter.CreateHistogram<double>("fsus.operation.duration", "ms");
@@ -314,6 +321,11 @@ public static class FsusObservability
 
     public static Activity? StartActivity(string name, string component, ActivityKind kind = ActivityKind.Internal)
     {
+        if (!ActivitySource.HasListeners())
+        {
+            return null;
+        }
+
         Activity? activity = ActivitySource.StartActivity(name, kind);
         SetTag(activity, "fsus.component", component);
         SetTag(activity, "fsus.operation", name);
@@ -397,33 +409,79 @@ public static class FsusObservability
 
     public static void RecordCacheOperation(string operation, string policyId, string layer, string result, TimeSpan duration)
     {
-        TagList tags = CreateBaseTags("cache", operation, result);
-        tags.Add("fsus.cache.operation", operation);
-        tags.Add("fsus.cache.policy", policyId);
-        tags.Add("fsus.cache.layer", layer);
-        CacheOperationCounter.Add(1, tags);
-        CacheOperationDuration.Record(duration.TotalMilliseconds, tags);
-        CacheOperationRuntimeCounters.AddOrUpdate(
-            string.Concat(operation, '|', policyId, '|', layer, '|', result),
-            1,
-            static (_, current) => current + 1);
+        var key = new CacheOperationMetricKey(operation, policyId, layer, result);
+        CacheOperationMetricState state = CacheOperationRuntimeCounters.GetOrAdd(
+            key,
+            static metricKey => new CacheOperationMetricState(metricKey));
+        state.Record();
+        CacheOperationCounter.Add(1, state.Tags);
+        CacheOperationDuration.Record(duration.TotalMilliseconds, state.Tags);
     }
 
     public static IReadOnlyList<CacheOperationRuntimeCounter> GetCacheOperationCounters()
     {
         var counters = new List<CacheOperationRuntimeCounter>(CacheOperationRuntimeCounters.Count);
-        foreach ((string key, long count) in CacheOperationRuntimeCounters)
+        foreach ((CacheOperationMetricKey key, CacheOperationMetricState state) in CacheOperationRuntimeCounters)
         {
-            string[] parts = key.Split('|');
-            if (parts.Length != 4)
-            {
-                continue;
-            }
-
-            counters.Add(new CacheOperationRuntimeCounter(parts[0], parts[1], parts[2], parts[3], count));
+            counters.Add(new CacheOperationRuntimeCounter(key.Operation, key.Policy, key.Layer, key.Result, state.Count));
         }
 
         return counters;
+    }
+
+    private sealed class CacheOperationMetricState
+    {
+        private const int StripeCount = 32;
+        private readonly long[]? _stripes;
+        private long _exactCount;
+
+        public CacheOperationMetricState(CacheOperationMetricKey key)
+        {
+            TagList tags = CreateBaseTags("cache", key.Operation, key.Result);
+            tags.Add("fsus.cache.operation", key.Operation);
+            tags.Add("fsus.cache.policy", key.Policy);
+            tags.Add("fsus.cache.layer", key.Layer);
+            Tags = tags;
+            if (string.Equals(key.Layer, "l1", StringComparison.Ordinal)
+                && (string.Equals(key.Result, "hit", StringComparison.Ordinal)
+                    || string.Equals(key.Result, "hit_negative", StringComparison.Ordinal)))
+            {
+                _stripes = new long[StripeCount];
+            }
+        }
+
+        public TagList Tags { get; }
+
+        public long Count
+        {
+            get
+            {
+                if (_stripes is null)
+                {
+                    return Volatile.Read(ref _exactCount);
+                }
+
+                long total = 0;
+                for (int i = 0; i < _stripes.Length; i++)
+                {
+                    total += Volatile.Read(ref _stripes[i]);
+                }
+
+                return total;
+            }
+        }
+
+        public void Record()
+        {
+            if (_stripes is null)
+            {
+                Interlocked.Increment(ref _exactCount);
+                return;
+            }
+
+            int stripe = Environment.CurrentManagedThreadId & (StripeCount - 1);
+            Interlocked.Increment(ref _stripes[stripe]);
+        }
     }
 
     public static void RecordSecurityEvent(string operation, string reason, string result)

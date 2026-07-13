@@ -29,6 +29,7 @@ public sealed class TestSessionContext(ITestSessionKeyScope keyScope) : ITestSes
 
 public sealed class TestAwareRuntimeKeyScope(ITestSessionKeyScope keyScope) : IRuntimeKeyScope
 {
+    public string ScopeToken => keyScope.SessionId ?? string.Empty;
     public string PrefixKey(string key) => keyScope.PrefixKey(key);
 }
 

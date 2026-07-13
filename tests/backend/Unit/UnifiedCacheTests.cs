@@ -12,6 +12,182 @@ namespace FsusBlog.Server.Tests;
 public sealed class UnifiedCacheTests
 {
     [Fact]
+    public async Task StringL1Hit_DoesNotConstructRedisKeyOrCallRedis()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.StringSetAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<When>(),
+                Arg.Any<CommandFlags>())
+            .Returns(true);
+        var scope = new CountingRuntimeKeyScope("e2e:alpha:", "alpha");
+        UnifiedCache cache = CreateCache(memory, db, scope);
+        await cache.SetRawAsync(CachePolicyId.ArticleHotFrame, "core:v2:10", [1, 2, 3]);
+        scope.Reset();
+        db.ClearReceivedCalls();
+
+        CacheReadResult<ReadOnlyMemory<byte>> read = await cache.TryGetRawReadonlyAsync(
+            CachePolicyId.ArticleHotFrame,
+            "core:v2:10");
+
+        Assert.True(read.Hit);
+        Assert.Equal(new byte[] { 1, 2, 3 }, read.Value.ToArray());
+        Assert.Equal(0, scope.PrefixKeyCalls);
+        await db.DidNotReceive().StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task IntegerL1Identity_PreservesNumericTypeAndAvoidsStringRedisKeyOnHit()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.StringSetAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<When>(),
+                Arg.Any<CommandFlags>())
+            .Returns(true);
+        var scope = new CountingRuntimeKeyScope("", "runtime");
+        UnifiedCache cache = CreateCache(memory, db, scope);
+        await cache.SetRawAsync(CachePolicyId.ArticleDetailFrame, 42, [4, 2]);
+        CacheL1Key created = CacheL1Key.ForInteger("runtime", CachePolicyId.ArticleDetailFrame, 42);
+        Assert.Equal(CacheIdentityKind.Integer, created.IdentityKind);
+        Assert.Equal(42, created.IntegerIdentity);
+        Assert.Null(created.StringIdentity);
+        scope.Reset();
+        db.ClearReceivedCalls();
+
+        CacheReadResult<ReadOnlyMemory<byte>> read = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleDetailFrame, 42);
+
+        Assert.True(read.Hit);
+        Assert.Equal(0, scope.PrefixKeyCalls);
+        await db.DidNotReceive().StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>());
+        Assert.Equal(
+            cache.BuildKey(CachePolicyId.ArticleDetailFrame, "42"),
+            cache.BuildKey(CachePolicyId.ArticleDetailFrame, 42));
+    }
+
+    [Fact]
+    public async Task StringCompatibilityInvalidation_RemovesIntegerStructuredL1Alias()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.StringSetAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<When>(),
+                Arg.Any<CommandFlags>())
+            .Returns(true);
+        db.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>()).Returns(RedisValue.Null);
+        UnifiedCache cache = CreateCache(memory, db);
+        await cache.SetRawAsync(CachePolicyId.ArticleDetail, 42, [4, 2]);
+
+        await cache.RemoveManyAsync([new CacheKeyIdentity(CachePolicyId.ArticleDetail, "42")]);
+        CacheReadResult<ReadOnlyMemory<byte>> read = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleDetail, 42);
+
+        Assert.False(read.Hit);
+        await db.Received().StringGetAsync(cache.BuildKey(CachePolicyId.ArticleDetail, 42), Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task StructuredL1Entry_ExpiresWithoutRequiringMemoryCacheLookup()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.StringSetAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<When>(),
+                Arg.Any<CommandFlags>())
+            .Returns(true);
+        db.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>()).Returns(RedisValue.Null);
+        var policy = new CachePolicy(
+            CachePolicyId.ArticleDetail,
+            "blog",
+            "article-detail",
+            TimeSpan.FromMilliseconds(1),
+            TimeSpan.FromMinutes(1));
+        UnifiedCache cache = CreateCache(memory, db, policyRegistry: new FixedPolicyRegistry(policy));
+        await cache.SetRawAsync(CachePolicyId.ArticleDetail, 42, [4, 2]);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(20));
+        CacheReadResult<ReadOnlyMemory<byte>> read = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleDetail, 42);
+
+        Assert.False(read.Hit);
+        await db.Received().StringGetAsync(cache.BuildKey(CachePolicyId.ArticleDetail, 42), Arg.Any<CommandFlags>());
+    }
+
+    [Fact]
+    public async Task StructuredL1Key_BindsRuntimeScopeAndRemoveInvalidatesIt()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.StringSetAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<When>(),
+                Arg.Any<CommandFlags>())
+            .Returns(true);
+        db.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>()).Returns(RedisValue.Null);
+        UnifiedCache alpha = CreateCache(memory, db, new CountingRuntimeKeyScope("e2e:alpha:", "alpha"));
+        UnifiedCache beta = CreateCache(memory, db, new CountingRuntimeKeyScope("e2e:beta:", "beta"));
+        await alpha.SetRawAsync(CachePolicyId.ArticleHotFrame, 8, [8]);
+
+        CacheReadResult<ReadOnlyMemory<byte>> isolated = await beta.TryGetRawReadonlyAsync(CachePolicyId.ArticleHotFrame, 8);
+        Assert.False(isolated.Hit);
+
+        await alpha.RemoveAsync(CachePolicyId.ArticleHotFrame, 8);
+        CacheReadResult<ReadOnlyMemory<byte>> removed = await alpha.TryGetRawReadonlyAsync(CachePolicyId.ArticleHotFrame, 8);
+        Assert.False(removed.Hit);
+    }
+
+    [Fact]
+    public async Task RawFrameOwnership_DefensiveSetAndCallerCopyCannotMutateReadonlyCacheValue()
+    {
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var db = Substitute.For<IDatabase>();
+        db.StringSetAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<TimeSpan?>(),
+                Arg.Any<When>(),
+                Arg.Any<CommandFlags>())
+            .Returns(true);
+        UnifiedCache cache = CreateCache(memory, db);
+        byte[] source = [1, 2, 3];
+        await cache.SetRawAsync(CachePolicyId.ArticleListFrame, "v:7:home", source);
+        source[0] = 9;
+
+        CacheReadResult<byte[]> callerOwned = await cache.TryGetRawAsync(CachePolicyId.ArticleListFrame, "v:7:home");
+        callerOwned.Value![1] = 8;
+        CacheReadResult<ReadOnlyMemory<byte>> readonlyFrame = await cache.TryGetRawReadonlyAsync(CachePolicyId.ArticleListFrame, "v:7:home");
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, readonlyFrame.Value.ToArray());
+        Assert.Equal(new byte[] { 1, 8, 3 }, callerOwned.Value);
+    }
+
+    [Fact]
+    public void StructuredL1Key_BindsVersionWithoutChangingRedisIntegerCompatibility()
+    {
+        CacheL1Key v1 = CacheL1Key.ForInteger("runtime", CachePolicyId.ArticleDetailFrame, 42, "v1");
+        CacheL1Key v2 = CacheL1Key.ForInteger("runtime", CachePolicyId.ArticleDetailFrame, 42, "v2");
+        Assert.NotEqual(v1, v2);
+
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        UnifiedCache cache = CreateCache(memory, Substitute.For<IDatabase>());
+        Assert.Equal(
+            cache.BuildKey(CachePolicyId.ArticleDetailFrame, "42", "v1"),
+            cache.BuildKey(CachePolicyId.ArticleDetailFrame, 42, "v1"));
+    }
+
+    [Fact]
     public void BuildRegistryKeyForTests_UsesPerPolicyKeySpace()
     {
         string registryKey = UnifiedCache.BuildRegistryKeyForTests(CachePolicyId.PublicAotDocument);
@@ -358,7 +534,9 @@ public sealed class UnifiedCacheTests
             When.Always,
             CommandFlags.None);
         await transaction.Received(1).ExecuteAsync(CommandFlags.None);
-        Assert.Contains(targetKey, memory.CreatedKeys);
+        db.ClearReceivedCalls();
+        Assert.Equal("8", await cache.GetStringAsync(CachePolicyId.CommentCursorVersion, "article:42"));
+        await db.DidNotReceive().StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>());
         await db.DidNotReceive().StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
@@ -954,16 +1132,43 @@ public sealed class UnifiedCacheTests
         return policy;
     }
 
-    private static UnifiedCache CreateCache(IMemoryCache memory, IDatabase db)
+    private static UnifiedCache CreateCache(
+        IMemoryCache memory,
+        IDatabase db,
+        IRuntimeKeyScope? keyScope = null,
+        ICachePolicyRegistry? policyRegistry = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(db);
         return new UnifiedCache(
             memory,
             redis,
-            new CachePolicyRegistry(),
-            new DefaultRuntimeKeyScope(),
+            policyRegistry ?? new CachePolicyRegistry(),
+            keyScope ?? new DefaultRuntimeKeyScope(),
             NullLogger<UnifiedCache>.Instance);
+    }
+
+    private sealed class FixedPolicyRegistry(CachePolicy policy) : ICachePolicyRegistry
+    {
+        public bool TryGet(CachePolicyId id, out CachePolicy resolved)
+        {
+            resolved = policy;
+            return id == policy.Id;
+        }
+    }
+
+    private sealed class CountingRuntimeKeyScope(string prefix, string scopeToken) : IRuntimeKeyScope
+    {
+        public int PrefixKeyCalls { get; private set; }
+        public string ScopeToken => scopeToken;
+
+        public string PrefixKey(string key)
+        {
+            PrefixKeyCalls++;
+            return string.Concat(prefix, key);
+        }
+
+        public void Reset() => PrefixKeyCalls = 0;
     }
 
     private static int GetSingleFlightEntryCount(UnifiedCache cache)

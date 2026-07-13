@@ -14,9 +14,18 @@ public sealed record CachePolicy(
 {
     public string BuildKey(string identity, string? version = null)
     {
-        string normalizedIdentity = string.IsNullOrWhiteSpace(identity) ? "default" : identity.Trim();
-        return string.IsNullOrWhiteSpace(version)
+        string normalizedIdentity = CacheIdentity.Normalize(identity);
+        string? normalizedVersion = CacheIdentity.NormalizeVersion(version);
+        return normalizedVersion is null
             ? $"fsus:{Domain}:{Resource}:{normalizedIdentity}"
-            : $"fsus:{Domain}:{Resource}:{normalizedIdentity}:{version}";
+            : $"fsus:{Domain}:{Resource}:{normalizedIdentity}:{normalizedVersion}";
+    }
+
+    public string BuildKey(int identity, string? version = null)
+    {
+        string? normalizedVersion = CacheIdentity.NormalizeVersion(version);
+        return normalizedVersion is null
+            ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"fsus:{Domain}:{Resource}:{identity}")
+            : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"fsus:{Domain}:{Resource}:{identity}:{normalizedVersion}");
     }
 }

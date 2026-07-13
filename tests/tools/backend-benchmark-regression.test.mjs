@@ -111,7 +111,7 @@ test('treats zero baseline and zero current allocation as a zero ratio', () => {
   assert.deepEqual(allocation, { metric: 'allocatedRatio', actual: 0, maximum: 0.5 })
 })
 
-test('discovers every HotPath class and retains 22 ShortRun MemoryDiagnoser cases', () => {
+test('discovers every HotPath class and retains 30 ShortRun MemoryDiagnoser cases', () => {
   const benchmarkRoot = path.join(root, 'benchmarks/core')
   const program = fs.readFileSync(path.join(benchmarkRoot, 'Program.cs'), 'utf8')
   const sources = fs.readdirSync(benchmarkRoot)
@@ -119,6 +119,7 @@ test('discovers every HotPath class and retains 22 ShortRun MemoryDiagnoser case
     .map((file) => fs.readFileSync(path.join(benchmarkRoot, file), 'utf8'))
   assert.deepEqual(discoverHotPathBenchmarkClasses(program), [
     'BinaryTransportHotPathBenchmarks',
+    'CacheAndFrameFixedCostHotPathBenchmarks',
     'ContentFilterHotPathBenchmarks',
     'CrawlerNormalizationHotPathBenchmarks',
     'NotificationStreamHotPathBenchmarks',
@@ -129,10 +130,10 @@ test('discovers every HotPath class and retains 22 ShortRun MemoryDiagnoser case
   ])
   assert.deepEqual(validateHotPathBenchmarkContract(program, sources), {
     classes: discoverHotPathBenchmarkClasses(program),
-    methodCount: 18,
-    caseCount: 22,
+    methodCount: 26,
+    caseCount: 30,
     job: 'ShortRun',
-    memoryDiagnoserClassCount: 8
+    memoryDiagnoserClassCount: 9
   })
 })
 

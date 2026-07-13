@@ -1,4 +1,7 @@
 using System.Buffers;
+using System.Buffers.Binary;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net;
 using System.Runtime.CompilerServices;
@@ -9,8 +12,10 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Models.ReadModels;
@@ -18,6 +23,7 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Distribution;
 using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -68,6 +74,96 @@ public class PublicHotReadEarlyDataPlaneBenchmarks
         context.Request.Path = "/api/binary/article/42.aeds";
         return context;
     }
+}
+
+[MemoryDiagnoser]
+public class CacheAndFrameFixedCostHotPathBenchmarks
+{
+    private const int Identity = 42;
+    private const string PolicyName = "ArticleDetailFrame";
+    private readonly CachePolicy _policy = new(
+        CachePolicyId.ArticleDetailFrame,
+        "blog",
+        "article-detail-frame",
+        TimeSpan.FromMinutes(5),
+        TimeSpan.FromHours(1));
+    private readonly byte[] _payload = Encoding.UTF8.GetBytes(new string('f', 512));
+    private readonly byte[] _preencodedFrame;
+    private readonly MemoryCache _legacyL1 = new(new MemoryCacheOptions());
+    private readonly ConcurrentDictionary<CacheL1Key, byte[]> _structuredL1 = new();
+    private readonly long _structuredL1ExpiresAt = Stopwatch.GetTimestamp() + (Stopwatch.Frequency * 300L);
+    private readonly ConcurrentDictionary<string, long> _legacyCounters = new(StringComparer.Ordinal);
+    private long _legacyAtomicCounter;
+
+    public CacheAndFrameFixedCostHotPathBenchmarks()
+    {
+        _preencodedFrame = new AedsEncoder().Encode(AedsFrameType.ArticleDetail, _payload);
+        _legacyL1.Set(_policy.BuildKey(Identity.ToString(System.Globalization.CultureInfo.InvariantCulture)), _preencodedFrame);
+        _structuredL1[CacheL1Key.ForInteger("runtime", CachePolicyId.ArticleDetailFrame, Identity)] = _preencodedFrame;
+        FsusObservability.RecordCacheOperation("get_raw_readonly", PolicyName, "l1", "hit", TimeSpan.Zero);
+    }
+
+    [Benchmark(Baseline = true)]
+    public int Legacy_L1FinalRedisStringKey()
+    {
+        string key = _policy.BuildKey(Identity.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return _legacyL1.TryGetValue(key, out byte[]? frame) ? frame?.Length ?? 0 : 0;
+    }
+
+    [Benchmark]
+    public int Current_L1IntegerStructuredKey()
+    {
+        CacheL1Key key = CacheL1Key.ForInteger("runtime", CachePolicyId.ArticleDetailFrame, Identity);
+        return Stopwatch.GetTimestamp() < _structuredL1ExpiresAt
+            && _structuredL1.TryGetValue(key, out byte[]? frame)
+                ? frame.Length
+                : 0;
+    }
+
+    [Benchmark]
+    public int Legacy_RawCallerCopy()
+        => _preencodedFrame.ToArray().Length;
+
+    [Benchmark]
+    public int Current_RawReadonlyBorrow()
+        => UnifiedCache.BorrowRawBytesReadonlyForTests(_preencodedFrame).Length;
+
+    [Benchmark]
+    public int Current_DynamicFrame()
+    {
+        using var writer = new AedsFrameBufferWriter(_payload.Length + AedsFrameHeader.Size);
+        writer.Write(_payload);
+        writer.Seal(AedsFrameType.ArticleDetail);
+        return writer.WrittenFrame.Length;
+    }
+
+    [Benchmark]
+    public int Current_PreencodedFrame()
+        => ReadPreencodedFrameMetadata(_preencodedFrame);
+
+    [Benchmark]
+    public long Legacy_GlobalAtomicAndStringCounterKey()
+    {
+        Interlocked.Increment(ref _legacyAtomicCounter);
+        return _legacyCounters.AddOrUpdate(
+            string.Concat("get_raw_readonly", '|', PolicyName, '|', "l1", '|', "hit"),
+            1,
+            static (_, current) => current + 1);
+    }
+
+    [Benchmark]
+    public int Current_StripedCachedTagCounter()
+    {
+        FsusObservability.RecordCacheOperation("get_raw_readonly", PolicyName, "l1", "hit", TimeSpan.Zero);
+        return 1;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static int ReadPreencodedFrameMetadata(ReadOnlySpan<byte> frame)
+        => frame.Length + BinaryPrimitives.ReadUInt16LittleEndian(frame[8..10]);
+
+    [GlobalCleanup]
+    public void Cleanup() => _legacyL1.Dispose();
 }
 
 [MemoryDiagnoser]

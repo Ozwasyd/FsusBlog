@@ -26,6 +26,8 @@ Integrity proof signing keys are separate from JWT, PoW, Captcha, audit, anonymo
 
 所有匿名或后台可触达的文本输入在进入昂贵 DB/regex/tokenizer/ArrayPool 路径前必须有显式长度上限。搜索 keyword 最大 128 字符，search index body tokenization 最大 256 KiB，CJK 连续 segment 最大 4096 rune；ContentFilter 在租用 `ArrayPool<char>` 前以 256 KiB fail closed；authoring binary body 最大 1 MiB，draft 字段保留独立 MaxLength；评论内容默认 `1000` 字符 / UTF-8 `4096` bytes，管理员只能通过匿名评论策略热更新到硬上限 `3000` 字符 / UTF-8 `12288` bytes，写入 frame 仍受 16 KiB payload 上限保护；subscription email 最大 254 字符；public navigation snapshot path 最大 512 字符；LocalAuth fixture redirect 最大 2048 字符且 storage-state JSON 最大 256 KiB；audit 列表页码最大 50000。超过上限的请求必须在业务昂贵路径前返回 validation/empty/fail-closed，不得只依赖 Kestrel 默认 body limit 或数据库 `Take`。
 
+AEDS pooled response buffer 采用敏感优先分类：未知 frame 以及 auth、session、MFA、Passkey、匿名凭证、admin/private、错误响应一律 `clearArray:true`；只有 `AedsFrameSensitivity` 中逐项登记的公开 immutable response frame 可以在 `Seal(frameType)` 后跳过最终清零。writer 扩容时尚未得知 frame type，因此被替换的中间 buffer 始终清零。新增 frame 若未同步进入公开白名单会保守清零，禁止全局 `clearArray:false`。若运行中怀疑公开 frame 分类或缓存所有权异常，通过现有 cache action/version invalidation 清除对应 raw frame 与 PublicHotRead snapshot，使请求回落到 L2/dynamic rebuild；敏感和未知 frame 不受该降级影响，不需要重启或放宽清零边界。
+
 ---
 
 ## Proof of Work (PoW)

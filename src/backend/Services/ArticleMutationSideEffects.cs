@@ -233,7 +233,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                     {
                         await RunSideEffectsSequentiallyAsync(
                             () => _redis.SortedSetRemoveAsync(RedisKey("blog:top_articles"), articleId),
-                            () => cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId.ToString(), cancellationToken),
+                            () => cache.RemoveAsync(CachePolicyId.ArticleDetail, articleId, cancellationToken),
                             () => taxonomyProjection.ReconcileArticleAsync(articleId, cancellationToken),
                             () => articleDetailArtifacts.RemoveAsync(articleId, cancellationToken),
                             () => searchProjector.DeleteAsync(articleId));

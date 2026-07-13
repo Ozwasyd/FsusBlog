@@ -612,12 +612,23 @@ coverage_summary_json() {
 }
 
 runtime_tuning_json() {
+  local cache_l1_counter_mode public_hot_read_counter_mode
+  cache_l1_counter_mode="$(awk -F'"' '/CacheL1CounterMode =/ { print $2; exit }' "$ROOT_DIR/src/backend/Infrastructure/Observability/FsusObservability.cs")"
+  public_hot_read_counter_mode="$(awk -F'"' '
+    /"PublicHotRead"[[:space:]]*:/ { in_public_hot_read = 1; next }
+    in_public_hot_read && /"CounterMode"[[:space:]]*:/ { print $4; exit }
+    in_public_hot_read && /^[[:space:]]*}/ { exit }
+  ' "$ROOT_DIR/src/backend/appsettings.Production.json")"
+  cache_l1_counter_mode="${cache_l1_counter_mode:-unknown}"
+  public_hot_read_counter_mode="${public_hot_read_counter_mode:-unknown}"
   jq -n \
     --arg readyToRun "${DOTNET_ReadyToRun:-}" \
     --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
     --arg tieredPgo "${DOTNET_TieredPGO:-}" \
     --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
     --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
+    --arg cacheL1CounterMode "$cache_l1_counter_mode" \
+    --arg publicHotReadCounterMode "$public_hot_read_counter_mode" \
     --arg benchmarkEvidence "$PERF_ARTIFACT" '
     {
       readyToRun: (if $readyToRun == "" then null else $readyToRun end),
@@ -626,6 +637,10 @@ runtime_tuning_json() {
       threadPool: {
         minWorkerThreads: (if $minWorkerThreads == "" then null else $minWorkerThreads end),
         minCompletionPortThreads: (if $minCompletionPortThreads == "" then null else $minCompletionPortThreads end)
+      },
+      counterModes: {
+        cacheL1Hit: $cacheL1CounterMode,
+        publicHotRead: $publicHotReadCounterMode
       },
       benchmarkEvidence: (if $benchmarkEvidence == "null" then null else $benchmarkEvidence end),
       nonDefaultPresetsRequireBenchmarkEvidence: true,

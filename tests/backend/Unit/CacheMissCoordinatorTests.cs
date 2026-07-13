@@ -7,6 +7,22 @@ namespace FsusBlog.Server.Tests;
 public sealed class CacheMissCoordinatorTests
 {
     [Fact]
+    public async Task CoordinateAsync_IntegerIdentityHit_ReturnsBeforeStringCoordination()
+    {
+        var cache = new CoordinatingCache();
+        var coordinator = new CacheMissCoordinator(cache, new CachePolicyRegistry(), NullLogger<CacheMissCoordinator>.Instance);
+
+        string? value = await coordinator.CoordinateAsync(
+            CachePolicyId.ArticleDetail,
+            42,
+            static _ => Task.FromResult(new CacheReadResult<string>(true, "cached")),
+            static _ => throw new InvalidOperationException("A cache hit must not rebuild."),
+            "article-detail");
+
+        Assert.Equal("cached", value);
+    }
+
+    [Fact]
     public async Task CoordinateAsync_LeaseAcquired_RebuildsOnce()
     {
         var cache = new CoordinatingCache

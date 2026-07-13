@@ -62,6 +62,7 @@ BenchmarkSwitcher
         typeof(StatsProjectionHotPathBenchmarks),
         typeof(CrawlerNormalizationHotPathBenchmarks),
         typeof(PublicHotReadEarlyDataPlaneBenchmarks),
+        typeof(CacheAndFrameFixedCostHotPathBenchmarks),
         typeof(RateLimiterRejectionSamplerBenchmarks),
         typeof(CompositeAcBenchmarks),
         typeof(DoubleArrayAcBenchmarks),
