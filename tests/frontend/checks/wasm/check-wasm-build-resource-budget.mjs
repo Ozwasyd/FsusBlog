@@ -137,7 +137,11 @@ for (const token of [
 assert.equal((buildSource.match(/^optimize_pow_wasm_parallel \\/gmu) ?? []).length, 1,
   'all four independent PoW artifacts must enter one dynamically bounded optimization pool');
 
-assert.match(bootstrapSource, /CMAKE_VERSION="4\.1\.2"/u);
+assert.match(bootstrapSource, /CMAKE_VERSION="4\.3\.3"/u);
+assert.match(buildSource, /version_less_than "\$\{version\}" "4\.3\.3"/u,
+  'CMake 4.3.3 must be accepted while known-incompatible earlier 4.2/4.3 releases remain blocked');
+assert.match(buildSource, /command -v cmake/u,
+  'the build must reuse a supported host CMake before bootstrapping the pinned fallback');
 assert.match(bootstrapSource, /\.tmp\/dependency-cache/u);
 assert.match(bootstrapSource, /flock 9/u);
 assert.match(bootstrapSource, /sha256sum -c -/u);

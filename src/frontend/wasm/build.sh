@@ -196,7 +196,7 @@ cmake_is_supported() {
   [[ -x "${candidate}" ]] || return 1
   version="$(${candidate} --version 2>/dev/null | head -n 1 | sed -E 's/.* ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
   [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
-  if ! version_less_than "${version}" "4.2.0" && version_less_than "${version}" "4.3.4"; then
+  if ! version_less_than "${version}" "4.2.0" && version_less_than "${version}" "4.3.3"; then
     return 1
   fi
   CMAKE_VERSION="${version}"
@@ -214,6 +214,15 @@ select_cmake() {
     fi
     echo "[build:wasm] FSUSBLOG_WASM_CMAKE is missing or unsupported: ${candidate}" >&2
     exit 1
+  fi
+
+  candidate="$(command -v cmake 2>/dev/null || true)"
+  if [[ -n "${candidate}" ]]; then
+    resolved="$(readlink -f "${candidate}" 2>/dev/null || printf '%s' "${candidate}")"
+    if cmake_is_supported "${resolved}"; then
+      CMAKE_BIN="${resolved}"
+      return
+    fi
   fi
 
   candidate="$("${ROOT_DIR}/../../tools/frontend/ensure-cmake.sh")"

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-CMAKE_VERSION="4.1.2"
+CMAKE_VERSION="4.3.3"
 CACHE_ROOT="${FSUSBLOG_DEPENDENCY_CACHE_ROOT:-${ROOT_DIR}/.tmp/dependency-cache}"
 CMAKE_ROOT="${CACHE_ROOT}/cmake/${CMAKE_VERSION}"
 CMAKE_BIN="${CMAKE_ROOT}/bin/cmake"
@@ -11,11 +11,11 @@ LOCK_FILE="${CACHE_ROOT}/cmake/${CMAKE_VERSION}.lock"
 case "$(uname -m)" in
   x86_64|amd64)
     ARCHIVE_ARCH="x86_64"
-    ARCHIVE_SHA256="773cc679c3a7395413bd096523f8e5d6c39f8718af4e12eb4e4195f72f35e4ab"
+    ARCHIVE_SHA256="927b2368a946c37269c3a66225ab00544e756459cdd0b5d0da438694fb9ff802"
     ;;
   aarch64|arm64)
     ARCHIVE_ARCH="aarch64"
-    ARCHIVE_SHA256="0634996f918b3bab11f45522899c81c987b09c9a64d15f6a0d2bb51c42099534"
+    ARCHIVE_SHA256="9ea38356dbd3e32e51029a3e09a0f2f8e117ef4fbcaad7a21ffb36409bbd5cb4"
     ;;
   *)
     echo "[ensure-cmake] unsupported architecture: $(uname -m)" >&2
@@ -45,7 +45,7 @@ if [[ -x "${CMAKE_BIN}" ]]; then
 fi
 
 ARCHIVE_NAME="cmake-${CMAKE_VERSION}-linux-${ARCHIVE_ARCH}.tar.gz"
-ARCHIVE_URL="https://cmake.org/files/v4.1/${ARCHIVE_NAME}"
+ARCHIVE_URL="https://cmake.org/files/v4.3/${ARCHIVE_NAME}"
 WORK_DIR="$(mktemp -d "${CACHE_ROOT}/cmake/.${CMAKE_VERSION}.install.XXXXXX")"
 cleanup() {
   rm -rf "${WORK_DIR}"
