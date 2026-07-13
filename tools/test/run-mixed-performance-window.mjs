@@ -351,6 +351,25 @@ async function runRepeatedCohort(name, declaration, resource) {
   }
 }
 
+async function runLoadWarmup(declaration, resource) {
+  const startedAt = Date.now()
+  await command(declaration.command, { env: cohortEnvironment(resource) })
+  const summaryFile = path.join(root, '.tmp/perf/load-baseline/summary.json')
+  if (!fs.existsSync(summaryFile)) throw new Error('baseline warmup did not produce load evidence')
+  const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+  if (summary.status !== 'ok') throw new Error(`baseline warmup status is ${String(summary.status)}`)
+  const evidenceFile = path.join(root, '.tmp/perf/mixed-window/baseline-warmup.json')
+  fs.mkdirSync(path.dirname(evidenceFile), { recursive: true })
+  fs.copyFileSync(summaryFile, evidenceFile)
+  return {
+    name: 'baseline-warmup',
+    status: 'ok',
+    elapsedMs: Date.now() - startedAt,
+    sampledDurationMs: measuredLoadDuration(summary, 'baseline-warmup'),
+    evidence: path.relative(root, evidenceFile).replaceAll(path.sep, '/')
+  }
+}
+
 async function runPublicApi(commandName, env) {
   const cohortStartedAt = Date.now()
   const evidenceFile = path.join(root, '.tmp/perf/load-public-api.json')
@@ -637,6 +656,7 @@ async function main() {
       }))
     }
   ])
+  const warmup = await runLoadWarmup(plan.cohorts.baseline, resources.cohorts.baseline)
   const loadTimeline = []
   const runExclusiveLoad = async (name, resourceName, execute) => {
     const allocation = resources.cohorts[resourceName]
@@ -711,6 +731,7 @@ async function main() {
     minimumWindowMs: plan.durationMs,
     elapsedMs: Date.now() - startedAt,
     resources,
+    warmup,
     resourceTimeline: [
       ...benchmarkCoordinator.timeline().map((entry) => ({ ...entry, phase: 'benchmark' })),
       ...loadTimeline
