@@ -86,7 +86,8 @@ function select(entries, budget, method) {
 }
 
 function ratio(numerator, denominator) {
-  return denominator === 0 ? Number.POSITIVE_INFINITY : numerator / denominator
+  if (denominator === 0) return numerator === 0 ? 0 : Number.POSITIVE_INFINITY
+  return numerator / denominator
 }
 
 function compareBudget(entries, budget, requireAllocationEvidence) {

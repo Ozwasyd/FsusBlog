@@ -82,7 +82,9 @@ public sealed class PublicHotReadSecurityGateTests
     {
         var context = new DefaultHttpContext
         {
-            RequestServices = new ServiceCollection().BuildServiceProvider()
+            RequestServices = new ServiceCollection()
+                .AddLogging()
+                .BuildServiceProvider()
         };
         context.Request.Path = "/article/42";
         context.Response.Body = new MemoryStream();

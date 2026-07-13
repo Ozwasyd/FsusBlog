@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -10,7 +12,8 @@ import type { ArticleListCardViewContract, ArticleListViewContract } from '@/vie
 const RouterLinkStub = defineComponent({
   name: 'RouterLink',
   props: {
-    to: { type: String, required: true }
+    to: { type: String, required: true },
+    custom: { type: Boolean, default: false }
   },
   setup(props, { slots }) {
     return () => slots.default?.({

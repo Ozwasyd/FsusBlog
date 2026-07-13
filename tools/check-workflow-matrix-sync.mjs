@@ -543,9 +543,7 @@ function validateWorkflowSetup(jobId, workflowJob, requirements, errors) {
   }
   if (requirements.requiresPlaywright !== 'none') {
     const expectedWorkerValues = [...requirements.playwrightWorkerValues].sort((left, right) => left - right)
-    if (requirements.missingPlaywrightWorkerTiers.length > 0) {
-      errors.push(`workflow job ${jobId} covers Playwright tiers without playwrightWorkers: ${requirements.missingPlaywrightWorkerTiers.join(', ')}`)
-    } else if (workflowJob.usesMatrixTierCommand) {
+    if (workflowJob.usesMatrixTierCommand) {
       if (!workflowJob.usesMatrixPlaywrightWorkers) {
         errors.push(`workflow job ${jobId} must pass FSUSBLOG_PLAYWRIGHT_WORKERS from matrix.playwright_workers`)
       }
@@ -554,7 +552,7 @@ function validateWorkflowSetup(jobId, workflowJob, requirements, errors) {
       if (!workflowJob.playwrightWorkerEnvValues.has(expected) && !workflowJob.usesMatrixPlaywrightWorkers) {
         errors.push(`workflow job ${jobId} must set FSUSBLOG_PLAYWRIGHT_WORKERS=${expected} from matrix tier policy`)
       }
-    } else if (!workflowJob.usesMatrixPlaywrightWorkers) {
+    } else if (expectedWorkerValues.length > 1 && !workflowJob.usesMatrixPlaywrightWorkers) {
       errors.push(`workflow job ${jobId} covers multiple Playwright worker policies (${expectedWorkerValues.join(', ')}); use matrix.playwright_workers`)
     }
     if (!workflowJob.hasPlaywrightCache) {

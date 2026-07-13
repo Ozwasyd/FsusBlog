@@ -11,16 +11,24 @@ import {
   requestTimeoutMs
 } from '../../support/auth-helpers.mjs';
 import { readAedsResponse } from '../../support/aeds-envelope.mjs';
-import { findEventuallyNamedTaxonomyId } from '../../support/eventual-taxonomy.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
+import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
+import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs';
 import { createAdminStepUpProofToken } from '../../support/session-fixtures.mjs';
 
 const adminUsername = process.env.FSUSBLOG_ADMIN_USERNAME || 'binaryadmin';
 const adminPassword = process.env.FSUSBLOG_ADMIN_PASSWORD ?? '';
 const publicBaseUrl = process.env.FSUSBLOG_PUBLIC_BASE_URL || baseUrl;
 const trustedOrigin = process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_DEBUG_FRONTEND_URL || publicBaseUrl || baseUrl;
-const timeoutMs = Math.max(requestTimeoutMs, 30_000);
-const coherenceTimeoutMs = Math.max(timeoutMs * 3, 90_000);
+const timeoutPlan = resolveRuntimeBrowserTimeoutPlan();
+const timeoutMs = Math.max(requestTimeoutMs, 30_000, timeoutPlan.requestTimeoutMs);
+// This test observes an asynchronous DB -> cache -> feed -> AOT convergence
+// boundary. Keep every surface assertion, but scale its polling horizon by the
+// scheduler's real CPU contention just as the other runtime browser checks do.
+const coherenceTimeoutMs = Math.max(
+  timeoutMs * 6,
+  Math.ceil(150_000 * timeoutPlan.contentionMultiplier)
+);
 const testSessionIsolation = process.env.FSUSBLOG_TEST_SESSION_ISOLATION === '1';
 const execFileAsync = promisify(execFile);
 const resetSecurityTestState = process.env.FSUSBLOG_RESET_SECURITY_TEST_STATE !== '0';
@@ -224,40 +232,6 @@ async function fetchArticleDetail(articleId, cookieHeader = null) {
   return await authBinary(`/api/Article/${articleId}`, { cookieHeader });
 }
 
-async function fetchTaxonomy(path, session, namePrefix) {
-  let { response, payload } = await authBinary(path, {
-    cookieHeader: session.cookieHeader
-  });
-  assert(response.ok, `${path} read failed: ${response.status}`);
-  if (Array.isArray(payload) && payload.length > 0) {
-    return Number(payload[0].id);
-  }
-
-  const name = `${namePrefix} ${Date.now()}`;
-  ({ response } = await authBinary(path, {
-    method: 'POST',
-    cookieHeader: session.cookieHeader,
-    requiresPow: true,
-    headers: { Origin: trustedOrigin },
-    deviceFingerprint: `${namePrefix.toLowerCase().replaceAll(' ', '-')}-create`,
-    body: { name }
-  }));
-  assert(response.ok, `${path} create failed: ${response.status}`);
-
-  return await findEventuallyNamedTaxonomyId({
-    label: `${path} taxonomy reread`,
-    name,
-    timeoutMs: coherenceTimeoutMs,
-    read: async () => {
-      ({ response, payload } = await authBinary(path, {
-        cookieHeader: session.cookieHeader
-      }));
-      assert(response.ok, `${path} reread failed: ${response.status}`);
-      return payload;
-    }
-  });
-}
-
 async function warmPublicSurfaces(articleId, categoryId, tagId) {
   await Promise.allSettled([
     fetchArticlePage(null),
@@ -453,8 +427,10 @@ async function mutateArticle(session, path, method, operation, marker) {
 async function main() {
   await resetAndWaitForMutationBudget('distribution coherence');
   const session = await loginWithFixtureSessionBypass(adminUsername, adminPassword, false, 'distribution-admin-login', timeoutMs);
-  const categoryId = await fetchTaxonomy('/api/Category', session, 'Distribution Category');
-  const tagId = await fetchTaxonomy('/api/Tag', session, 'Distribution Tag');
+  // The integration lane prepared this namespace immediately before runtime
+  // checks. Reuse only that current-run fixture contract; fail closed instead
+  // of querying/creating taxonomy again or accepting a stale historical file.
+  const { categoryId, tagId } = readPublicFixtureIds({}, { requireCurrent: true });
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const markerV1 = `dc${stamp}alpha`;
   const markerV2 = `dc${stamp}beta`;
@@ -469,12 +445,13 @@ async function main() {
     articleId = await createArticle(session, categoryId, tagId, titleV1, markerV1, {
       status: ArticleStatus.Draft
     });
-    await warmPublicSurfaces(articleId, categoryId, tagId);
 
     await eventually('draft publication boundary', async () => {
-      const snapshot = await readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader);
+      const [snapshot] = await Promise.all([
+        readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader),
+        assertAdminState(session, articleId, titleV1, ArticleStatus.Draft)
+      ]);
       assertPublicAbsent(snapshot, articleId, titleV1, markerV1);
-      await assertAdminState(session, articleId, titleV1, ArticleStatus.Draft);
     });
     console.log('[distribution-version-coherence] ok: draft-hidden');
 
@@ -483,9 +460,11 @@ async function main() {
       scheduledPublishAt: scheduledAt
     });
     await eventually('scheduled publication boundary', async () => {
-      const snapshot = await readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader);
+      const [snapshot] = await Promise.all([
+        readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader),
+        assertAdminState(session, articleId, titleV1, ArticleStatus.Scheduled)
+      ]);
       assertPublicAbsent(snapshot, articleId, titleV1, markerV1);
-      await assertAdminState(session, articleId, titleV1, ArticleStatus.Scheduled);
     });
     console.log('[distribution-version-coherence] ok: scheduled-hidden');
 
@@ -493,9 +472,11 @@ async function main() {
       status: ArticleStatus.Archived
     });
     await eventually('archived publication boundary', async () => {
-      const snapshot = await readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader);
+      const [snapshot] = await Promise.all([
+        readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader),
+        assertAdminState(session, articleId, titleV1, ArticleStatus.Archived)
+      ]);
       assertPublicAbsent(snapshot, articleId, titleV1, markerV1);
-      await assertAdminState(session, articleId, titleV1, ArticleStatus.Archived);
     });
     console.log('[distribution-version-coherence] ok: archived-hidden');
 
@@ -527,9 +508,11 @@ async function main() {
 
     await mutateArticle(session, `/api/Article/restore/${articleId}`, 'PUT', 'restore', markerV2);
     await eventually('restore draft boundary', async () => {
-      const snapshot = await readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader);
+      const [snapshot] = await Promise.all([
+        readPublicSurfaces(articleId, categoryId, tagId, session.cookieHeader),
+        assertAdminState(session, articleId, titleV2, ArticleStatus.Draft)
+      ]);
       assertPublicAbsent(snapshot, articleId, titleV2, markerV2);
-      await assertAdminState(session, articleId, titleV2, ArticleStatus.Draft);
     });
     console.log('[distribution-version-coherence] ok: restore-draft-hidden');
 

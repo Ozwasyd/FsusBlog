@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS="${FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS:-$(date +%s%3N)}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NODE_BIN="${FSUSBLOG_NODE:-node}"
 export FSUSBLOG_REPO_ROOT="${FSUSBLOG_REPO_ROOT:-$ROOT_DIR}"

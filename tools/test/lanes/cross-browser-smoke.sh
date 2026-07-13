@@ -17,7 +17,14 @@ previous_disable_notification_stream="${FSUSBLOG_DISABLE_NOTIFICATION_STREAM-}"
 
 export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/cross-browser'
 export FSUSBLOG_PLAYWRIGHT_BROWSERS="${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit}"
-export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$ROOT_DIR/.tmp/ms-playwright}"
+# Use Playwright's standard persistent cache unless the caller explicitly
+# selects another path. Fresh production cleanup owns repository .tmp output
+# and must never erase installed browser toolchain dependencies.
+if [[ -n "$previous_browsers_path" ]]; then
+  export PLAYWRIGHT_BROWSERS_PATH="$previous_browsers_path"
+else
+  unset PLAYWRIGHT_BROWSERS_PATH
+fi
 export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
 export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
 export FSUSBLOG_DISABLE_NOTIFICATION_STREAM=1

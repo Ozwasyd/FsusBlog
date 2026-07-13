@@ -38,7 +38,7 @@ public static class ReleaseSchemaQualificationEndpoints
     private static async Task<IResult> WriteBridgeAsync(
         HttpContext context,
         [FromBody] ReleaseSchemaBridgeWriteRequest request,
-        ISqlSugarClient db,
+        [FromServices] ISqlSugarClient db,
         CancellationToken cancellationToken)
     {
         if (!TryNormalizeWrite(request, out string operationId, out int sequence))
@@ -95,7 +95,7 @@ public static class ReleaseSchemaQualificationEndpoints
 
     private static async Task<IResult> ReadQualificationReadinessAsync(
         HttpContext context,
-        IOnlineSchemaMigrationCoordinator coordinator,
+        [FromServices] IOnlineSchemaMigrationCoordinator coordinator,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

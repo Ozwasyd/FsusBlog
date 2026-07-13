@@ -58,7 +58,7 @@ public sealed class SystemServiceTests(PostgresSchemaMigrationFixture fixture)
     {
         MethodInfo method = typeof(SystemService).GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException($"System config loader was not found: {methodName}");
-        var task = Assert.IsType<Task<T>>(method.Invoke(service, [CancellationToken.None]));
+        var task = Assert.IsAssignableFrom<Task<T>>(method.Invoke(service, [CancellationToken.None]));
         return await task;
     }
 }

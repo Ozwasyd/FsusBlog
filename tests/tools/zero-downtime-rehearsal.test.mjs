@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
@@ -20,8 +20,87 @@ const orchestratorSource = path.join(repositoryRoot, 'tools/deployment/zero-down
 const planToolSource = path.join(repositoryRoot, 'tools/deployment/zero-downtime-rehearsal-plan.mjs')
 const faultTemplateSource = path.join(repositoryRoot, 'tests/fixtures/deployment/zero-downtime-fault-plan.template.json')
 const migrationQualificationTemplateSource = path.join(repositoryRoot, 'tests/fixtures/deployment/release-migration-qualification-scenario.template.json')
+const activeRehearsalProcessGroups = new Set()
 
-test('plan resolution is local-only, private-file-only and materializes exact isolated fault cases', (t) => {
+function killActiveRehearsalProcessGroups() {
+  for (const pid of activeRehearsalProcessGroups) {
+    try {
+      if (process.platform === 'win32') process.kill(pid, 'SIGKILL')
+      else process.kill(-pid, 'SIGKILL')
+    } catch {}
+  }
+  activeRehearsalProcessGroups.clear()
+}
+
+process.once('exit', killActiveRehearsalProcessGroups)
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.once(signal, () => {
+    killActiveRehearsalProcessGroups()
+    process.exit(signal === 'SIGTERM' ? 143 : 130)
+  })
+}
+
+function positiveNumber(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function boundedSemanticScale(pressureScale) {
+  const pressure = Math.max(1, pressureScale)
+  return 1 + ((pressure - 1) / (2 * pressure))
+}
+
+function machineTiming() {
+  const hostCpu = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
+  const grantedCpu = Math.min(
+    hostCpu,
+    positiveNumber(process.env.FSUSBLOG_STEP_CPU_BUDGET)
+      ?? positiveNumber(process.env.FSUSBLOG_BUNDLE_CPU_BUDGET)
+      ?? hostCpu
+  )
+  const load1 = Math.max(0, os.loadavg()[0] ?? 0)
+  const pressureScale = Math.max(1, hostCpu / grantedCpu, (load1 + 1) / grantedCpu)
+  const wait = milliseconds => Math.ceil(milliseconds * pressureScale)
+  const semanticWait = milliseconds => Math.ceil(milliseconds * boundedSemanticScale(pressureScale))
+  const seconds = value => Math.max(1, Math.ceil(wait(value * 1_000) / 1_000))
+  return {
+    stageDelayMs: semanticWait(80),
+    activeFenceDelayMs: semanticWait(1_500),
+    coordinationTimeoutMs: Math.min(900_000, wait(10_000)),
+    workerTimeoutSeconds: Math.min(1_800, seconds(10)),
+    hostInterruptionTimeoutSeconds: Math.min(300, seconds(10)),
+    migrationTimeoutSeconds: Math.min(1_800, seconds(60)),
+    rehearsalTimeoutMs: wait(120_000)
+  }
+}
+
+const fixtureShard = String(process.env.FSUSBLOG_ZDT_FIXTURE_SHARD ?? '').trim()
+const fixtureShardIds = new Set([
+  '',
+  'base',
+  'normal',
+  'explicit-rollback',
+  'post-switch-rollback',
+  'sigkill-resume',
+  'all'
+])
+if (!fixtureShardIds.has(fixtureShard)) {
+  throw new Error(`unknown zero-downtime fixture shard: ${fixtureShard}`)
+}
+const runsFixtureShard = id => !fixtureShard || fixtureShard === id
+
+if (runsFixtureShard('base')) test('semantic rehearsal delays stay pressure-aware without consuming the full machine wait multiplier', () => {
+  const idleScale = boundedSemanticScale(1)
+  const constrainedScale = boundedSemanticScale(2)
+  const saturatedScale = boundedSemanticScale(Number.MAX_SAFE_INTEGER)
+
+  assert.equal(idleScale, 1)
+  assert.ok(constrainedScale > idleScale)
+  assert.ok(saturatedScale > constrainedScale)
+  assert.ok(saturatedScale <= 1.5)
+})
+
+if (runsFixtureShard('base')) test('plan resolution is local-only, private-file-only and materializes exact isolated fault cases', (t) => {
   const fixture = createFixture(t)
   const raw = JSON.parse(fs.readFileSync(fixture.plan, 'utf8'))
   const resolved = resolveRehearsalPlan(raw, { planFile: fixture.plan, repoRoot: fixture.root })
@@ -77,9 +156,9 @@ test('plan resolution is local-only, private-file-only and materializes exact is
     /normalScenario\.baseUrl must equal observer service listen origin/u)
 })
 
-test('recording subprocess fixture proves normal order, nested probes and qualification binding', (t) => {
+if (runsFixtureShard('normal')) test('recording subprocess fixture proves normal order, nested probes and qualification binding', async (t) => {
   const fixture = createFixture(t)
-  const result = runRehearsal(fixture, 'normal')
+  const result = await runRehearsal(fixture, 'normal')
   assert.equal(result.status, 0, result.stderr)
   const records = readRecords(fixture.log)
   assertOrdered(records, [
@@ -103,9 +182,9 @@ test('recording subprocess fixture proves normal order, nested probes and qualif
   assert.equal(summary.modes[0].checks.find(item => item.name === 'worker-qualification-deploy').status, 'pass')
 })
 
-test('explicit rollback is a second real rollout and ends Green to Blue', (t) => {
+if (runsFixtureShard('explicit-rollback')) test('explicit rollback is a second real rollout and ends Green to Blue', async (t) => {
   const fixture = createFixture(t)
-  const result = runRehearsal(fixture, 'explicit-rollback')
+  const result = await runRehearsal(fixture, 'explicit-rollback')
   assert.equal(result.status, 0, result.stderr)
   const records = readRecords(fixture.log)
   const rollback = records.find(item => item.kind === 'release:rollback')
@@ -120,9 +199,9 @@ test('explicit rollback is a second real rollout and ends Green to Blue', (t) =>
   assert.equal(evidence.checks.find(item => item.name === 'worker-qualification-rollback').status, 'pass')
 })
 
-test('post-switch mode requires real automatic rollback cases and a fresh success control', (t) => {
+if (runsFixtureShard('post-switch-rollback')) test('post-switch mode requires real automatic rollback cases and a fresh success control', async (t) => {
   const fixture = createFixture(t)
-  const result = runRehearsal(fixture, 'post-switch-rollback')
+  const result = await runRehearsal(fixture, 'post-switch-rollback')
   assert.equal(result.status, 0, result.stderr)
   const runRoot = onlyRunRoot(fixture)
   const fault = readJson(path.join(runRoot, 'modes/post-switch-rollback/evidence/fault-matrix.json'))
@@ -136,9 +215,9 @@ test('post-switch mode requires real automatic rollback cases and a fresh succes
   assert.equal(modeEvidence.checks.find(item => item.name === 'deploy-rollout').status, 'pass')
 })
 
-test('SIGKILL mode kills an isolated process group, adopts durable state and invokes --resume', (t) => {
+if (runsFixtureShard('sigkill-resume')) test('SIGKILL mode kills an isolated process group, adopts durable state and invokes --resume', async (t) => {
   const fixture = createFixture(t)
-  const result = runRehearsal(fixture, 'sigkill-resume')
+  const result = await runRehearsal(fixture, 'sigkill-resume')
   assert.equal(result.status, 0, result.stderr)
   const records = readRecords(fixture.log)
   const resumes = records.filter(item => item.kind === 'release:resume')
@@ -171,9 +250,12 @@ test('SIGKILL mode kills an isolated process group, adopts durable state and inv
   assert.equal(records.filter(item => item.kind === 'probe:resource').length, 4)
 })
 
-test('all mode aggregates a failure and continues into later isolated modes', (t) => {
-  const fixture = createFixture(t)
-  const result = runRehearsal(fixture, 'all', { FSUSBLOG_FIXTURE_FAIL_NORMAL: '1' })
+if (runsFixtureShard('all')) test('all mode aggregates a failure and continues into later isolated modes', async (t) => {
+  // The dedicated mode shards own the full timing/lifecycle fixtures. This
+  // fresh fixture replaces only their mode bodies while retaining the real
+  // all-mode selection, continuation loop and summary aggregation entry point.
+  const fixture = createFixture(t, { continuationOnly: true })
+  const result = await runRehearsal(fixture, 'all', { FSUSBLOG_FIXTURE_FAIL_NORMAL: '1' })
   assert.notEqual(result.status, 0)
   const records = readRecords(fixture.log)
   assert.ok(records.some(item => item.kind === 'release:rollback'), 'explicit rollback mode did not continue')
@@ -185,7 +267,8 @@ test('all mode aggregates a failure and continues into later isolated modes', (t
   assert.equal(new Set(summary.modes.map(item => item.mode)).size, 4)
 })
 
-function createFixture(t) {
+function createFixture(t, { continuationOnly = false } = {}) {
+  const timing = machineTiming()
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-zdt-rehearsal-'))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
   const deployment = path.join(root, 'tools/deployment')
@@ -201,6 +284,7 @@ function createFixture(t) {
   fs.mkdirSync(path.join(root, 'bin'), { recursive: true })
   fs.writeFileSync(path.join(root, 'bin/docker'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 })
   fs.copyFileSync(orchestratorSource, path.join(deployment, 'zero-downtime-rehearsal.sh'))
+  if (continuationOnly) installContinuationModeFixture(path.join(deployment, 'zero-downtime-rehearsal.sh'))
   fs.copyFileSync(planToolSource, path.join(deployment, 'zero-downtime-rehearsal-plan.mjs'))
   fs.copyFileSync(faultTemplateSource, path.join(fixtureDirectory, 'zero-downtime-fault-plan.template.json'))
   fs.copyFileSync(migrationQualificationTemplateSource, path.join(fixtureDirectory, 'release-migration-qualification-scenario.template.json'))
@@ -243,7 +327,7 @@ function createFixture(t) {
       armedFile: 'signals/armed.json',
       authorizeFile: 'signals/authorize.json',
       terminatedFile: 'signals/terminated.json',
-      timeoutMs: 10_000,
+      timeoutMs: timing.coordinationTimeoutMs,
       pollMs: 10
     },
     sourceTermination: { type: 'process-signal', signal: 'SIGKILL', pidFile: 'source.pid', commandContains: 'fixture-source-worker' }
@@ -256,7 +340,7 @@ function createFixture(t) {
     statusPath: '/fixture/normal/status',
     finalizePath: '/fixture/normal/finalize',
     requiredKinds: ['scheduled-publish','article-mutation-outbox','audit-writer','visit-view-projection','public-hot-aot','upload-cleanup','active-singleton-control','multi-consumer-safe-control'],
-    timeoutMs: 10_000,
+    timeoutMs: timing.coordinationTimeoutMs,
     pollMs: 50
   })
   const observerServicePlan = path.join(root, 'worker-observer-service-plan.json')
@@ -340,7 +424,7 @@ function createFixture(t) {
     },
     migrationQualification: {
       scenarioTemplate: path.join(fixtureDirectory, 'release-migration-qualification-scenario.template.json'),
-      timeoutSeconds: 60,
+      timeoutSeconds: timing.migrationTimeoutSeconds,
       expandMigrationId: '20260711-pre-account-subject-hash-expand',
       backfillMigrationId: '20260711-post-account-subject-hash-backfill',
       contractMigrationId: '20260629-post-audit-chain-tail-index'
@@ -352,7 +436,7 @@ function createFixture(t) {
       retentionState: '.tmp/rehearsal/assets/retention-state.json'
     },
     workers: {
-      timeoutSeconds: 10,
+      timeoutSeconds: timing.workerTimeoutSeconds,
       observerEnvFile,
       deploy: { scenario: workerPlan, normalScenario: normalWorkerPlan, observerServicePlan, startStage: 'candidate-start' },
       rollback: { scenario: workerPlan, normalScenario: normalWorkerPlan, observerServicePlan, startStage: 'candidate-start' },
@@ -370,28 +454,97 @@ function createFixture(t) {
     },
     hostInterruption: {
       stages: ['source-drain', 'source-stop', 'release-evidence'],
-      timeoutSeconds: 10
+      timeoutSeconds: timing.hostInterruptionTimeoutSeconds
     }
   })
   return { root, plan, log: path.join(root, 'records.jsonl'), bin: path.join(root, 'bin') }
 }
 
-function runRehearsal(fixture, mode, overrides = {}) {
-  return spawnSync('bash', [
+function installContinuationModeFixture(orchestrator) {
+  const marker = 'log "run=$RUN_ID modes=${REQUESTED_MODES[*]} root=$RUN_ROOT"'
+  const source = fs.readFileSync(orchestrator, 'utf8')
+  assert.ok(source.includes(marker), 'zero-downtime all-mode dispatch marker is missing')
+  const fixtureFunctions = [
+    'fixture_write_continuation_mode() {',
+    '  local mode="$1" status="$2" report="$RUN_ROOT/modes/$1/evidence/rehearsal-mode.json"',
+    '  mkdir -p "$(dirname "$report")"',
+    "  jq -n --arg mode \"$mode\" --arg status \"$status\" '{schema:\"fsusblog.zero-downtime-rehearsal-mode.v1\",mode:$mode,status:$status,checks:[],errors:(if $status == \"pass\" then [] else [\"fixture mode failure\"] end)}' >\"$report\"",
+    '}',
+    'fixture_record_continuation() {',
+    '  printf \'{"kind":"%s"}\\n\' "$1" >>"$FSUSBLOG_FIXTURE_LOG"',
+    '}',
+    'run_normal_like_mode() {',
+    '  if [[ "$1" == "normal" && "${FSUSBLOG_FIXTURE_FAIL_NORMAL:-}" == "1" ]]; then',
+    '    fixture_write_continuation_mode "$1" fail',
+    '    return 17',
+    '  fi',
+    '  fixture_write_continuation_mode "$1" pass',
+    '}',
+    'run_explicit_rollback_mode() {',
+    '  fixture_record_continuation release:rollback',
+    '  fixture_write_continuation_mode explicit-rollback pass',
+    '}',
+    'run_sigkill_resume_mode() {',
+    '  fixture_record_continuation release:resume',
+    '  fixture_write_continuation_mode sigkill-resume pass',
+    '}',
+    ''
+  ].join('\n')
+  fs.writeFileSync(orchestrator, source.replace(marker, `${fixtureFunctions}${marker}`), { mode: 0o755 })
+}
+
+async function runRehearsal(fixture, mode, overrides = {}) {
+  const timing = machineTiming()
+  const child = spawn('bash', [
     path.join(fixture.root, 'tools/deployment/zero-downtime-rehearsal.sh'),
     '--plan', fixture.plan,
     '--mode', mode,
     '--run-id', `fixture-${mode.replaceAll('-', '')}`
   ], {
     cwd: fixture.root,
-    encoding: 'utf8',
-    timeout: 120_000,
+    detached: process.platform !== 'win32',
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
       PATH: `${fixture.bin}${path.delimiter}${process.env.PATH}`,
       FSUSBLOG_FIXTURE_LOG: fixture.log,
+      FSUSBLOG_FIXTURE_STAGE_DELAY_MS: String(timing.stageDelayMs),
+      FSUSBLOG_FIXTURE_ACTIVE_FENCE_DELAY_MS: String(timing.activeFenceDelayMs),
+      FSUSBLOG_FIXTURE_POLL_TIMEOUT_MS: String(timing.coordinationTimeoutMs),
       ...overrides
     }
+  })
+  activeRehearsalProcessGroups.add(child.pid)
+  let stdout = ''
+  let stderr = ''
+  child.stdout.setEncoding('utf8')
+  child.stderr.setEncoding('utf8')
+  child.stdout.on('data', chunk => { stdout += chunk })
+  child.stderr.on('data', chunk => { stderr += chunk })
+  return await new Promise((resolve) => {
+    let timedOut = false
+    const deadline = setTimeout(() => {
+      timedOut = true
+      try {
+        if (process.platform === 'win32') child.kill('SIGKILL')
+        else process.kill(-child.pid, 'SIGKILL')
+      } catch {}
+    }, timing.rehearsalTimeoutMs)
+    child.once('error', error => {
+      clearTimeout(deadline)
+      activeRehearsalProcessGroups.delete(child.pid)
+      resolve({ status: 1, signal: null, stdout, stderr: `${stderr}${error.message}\n`, error })
+    })
+    child.once('close', (code, signal) => {
+      clearTimeout(deadline)
+      activeRehearsalProcessGroups.delete(child.pid)
+      resolve({
+        status: timedOut ? 124 : (code ?? 1),
+        signal,
+        stdout,
+        stderr: timedOut ? `${stderr}rehearsal fixture exceeded ${timing.rehearsalTimeoutMs}ms\n` : stderr
+      })
+    })
   })
 }
 
@@ -409,6 +562,9 @@ const root = path.dirname(new URL(import.meta.url).pathname)
 const log = process.env.FSUSBLOG_FIXTURE_LOG
 const stages = ${JSON.stringify(ROLLOUT_STAGES)}
 const faultCases = ${JSON.stringify(FAULT_CASES)}
+const fixtureStageDelayMs = Math.max(1, Number.parseInt(process.env.FSUSBLOG_FIXTURE_STAGE_DELAY_MS ?? '', 10) || 80)
+const fixtureActiveFenceDelayMs = Math.max(1, Number.parseInt(process.env.FSUSBLOG_FIXTURE_ACTIVE_FENCE_DELAY_MS ?? '', 10) || 1500)
+const fixturePollTimeoutMs = Math.max(1, Number.parseInt(process.env.FSUSBLOG_FIXTURE_POLL_TIMEOUT_MS ?? '', 10) || 10_000)
 
 record(action, argv)
 if (action === 'topology') await topology(argv)
@@ -475,8 +631,8 @@ async function release(args) {
   const rolloutId = value(args, '--rollout-id', false) ?? (kind + '-' + manifest.releaseId)
   const qualification = stateFile.includes('/qualification/')
   const migrationQualificationRun = stateFile.includes('/migration-qualification/')
-  const sigkill = stateFile.includes('/sigkill-resume/')
   const interruptStage = stateFile.match(/\/interruptions\/(source-drain|source-stop|release-evidence)\//)?.[1] ?? null
+  const sigkill = interruptStage !== null
   const resume = args.includes('--resume')
   let state = fs.existsSync(stateFile) ? read(stateFile) : rolloutStateValue({
     rolloutId, kind, manifest: value(args, '--release-manifest'), sourceSlot, sourceRecord,
@@ -502,7 +658,7 @@ async function release(args) {
       state.currentStage = stage
       state.status = 'running'
       write(stateFile, state)
-      await delay(stage === 'active-fence' ? 1500 : 80)
+      await delay(stage === 'active-fence' ? fixtureActiveFenceDelayMs : fixtureStageDelayMs)
     }
     await delay(60_000)
     return
@@ -599,7 +755,7 @@ async function finalizeSourceDrain(args, state, rolloutId, sourceRecord, manifes
     observations: { blockers: [] }, errors: [], observedAtUtc: new Date().toISOString()
   })
   const normalLedger = value(args, '--worker-ledger')
-  const ledgerDeadline = Date.now() + 10_000
+  const ledgerDeadline = Date.now() + fixturePollTimeoutMs
   while (!fs.existsSync(normalLedger) && Date.now() < ledgerDeadline) await delay(10)
   if (!fs.existsSync(normalLedger)) throw new Error('fixture normal worker ledger missing')
   write(process.env.FSUSBLOG_ROLLOUT_NORMAL_WORKER_TARGET_HEALTH, {
@@ -647,7 +803,7 @@ async function workerDrill(args) {
   const authorize = path.join(workDir, plan.coordination.authorizeFile)
   const terminated = path.join(workDir, plan.coordination.terminatedFile)
   write(armed, signal(state.rolloutId, runId, 'armed'))
-  const deadline = Date.now() + 10_000
+  const deadline = Date.now() + fixturePollTimeoutMs
   while (Date.now() < deadline) {
     if (fs.existsSync(authorize)) {
       const auth = read(authorize)
@@ -723,7 +879,7 @@ async function normalWorkerLedger(args) {
   const stateFile = value(args, '--rollout-state')
   const drainFile = value(args, '--source-drain')
   const out = value(args, '--out')
-  const deadline = Date.now() + 10_000
+  const deadline = Date.now() + fixturePollTimeoutMs
   while ((!fs.existsSync(stateFile) || !fs.existsSync(drainFile)) && Date.now() < deadline) await delay(10)
   if (!fs.existsSync(stateFile) || !fs.existsSync(drainFile)) throw new Error('fixture rollout/drain evidence missing')
   const state = read(stateFile)

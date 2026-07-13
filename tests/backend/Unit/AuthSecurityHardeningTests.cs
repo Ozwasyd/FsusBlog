@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -91,7 +90,8 @@ public sealed class AuthSecurityHardeningTests
             string runtimeShape = RuntimeMetadataInspection.DescribeMethods(typeof(UserService), methodName);
             Assert.Contains("UseTranAsync", runtimeShape, StringComparison.Ordinal);
             Assert.Contains("LockUserMfaStateForUpdateAsync", runtimeShape, StringComparison.Ordinal);
-            Assert.Contains("set_MfaEnabled", runtimeShape, StringComparison.Ordinal);
+            Assert.Contains("IUpdateable`1", runtimeShape, StringComparison.Ordinal);
+            Assert.Contains("ExecuteCommandAsync", runtimeShape, StringComparison.Ordinal);
         }
 
         string lockHelper = RuntimeMetadataInspection.DescribeMethods(
@@ -101,9 +101,10 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task MfaChallengeEndpoint_IsRateLimitedAndCountsFailures()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         foreach (string route in new[]
         {
             "/api/binary/auth/mfa/challenge/start",
@@ -111,10 +112,12 @@ public sealed class AuthSecurityHardeningTests
         })
         {
             RouteEndpoint endpoint = EndpointContractApplication.Find(app, route, HttpMethods.Post);
-            Assert.Equal(
-                "fixed_ip",
-                Assert.IsType<EnableRateLimitingAttribute>(
-                    endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
+            object? fixedIpMetadata = endpoint.Metadata.FirstOrDefault(static metadata =>
+                string.Equals(
+                    metadata.GetType().GetProperty("PolicyName", BindingFlags.Instance | BindingFlags.Public)?.GetValue(metadata) as string,
+                    "fixed_ip",
+                    StringComparison.Ordinal));
+            Assert.NotNull(fixedIpMetadata);
         }
 
         int maxFailures = (int)typeof(MfaChallengeService)
@@ -154,7 +157,8 @@ public sealed class AuthSecurityHardeningTests
         Assert.Contains("BuildAnonymousSafeMetadata", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("get_PublicHandle", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("get_RecoveryEnabled", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("fsus-anonymous-account", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Anonymous account", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("username", runtimeShape, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -166,8 +170,9 @@ public sealed class AuthSecurityHardeningTests
             nameof(PasskeyService.RemoveCredentialAsync));
 
         Assert.Contains("CannotRemoveLastCredentialWithoutRecovery", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("get_RecoveryEnabled", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("AnonymousIdentityRuntime.IsAnonymousIdentityModeEnabled", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("recovery_enabled", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("COUNT(*)", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -193,7 +198,7 @@ public sealed class AuthSecurityHardeningTests
             Assert.Contains(action, handler, StringComparison.Ordinal);
         }
 
-        string recoveryPasskeyBind = RuntimeMetadataInspection.DescribeMethodClosureContaining(
+        string recoveryPasskeyBind = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
             typeof(BinaryEndpoints),
             "CompletePasskeyBindAsync");
         Assert.Contains("CompletePasskeyBindAsync", recoveryPasskeyBind, StringComparison.Ordinal);
@@ -215,6 +220,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task OrdinaryAccountRuntimeContract_DoesNotPersistOrInferAdminAuthorityFields()
     {
         string[] ordinarySnapshotProperties = typeof(CurrentUserSnapshotDto)
@@ -225,19 +231,19 @@ public sealed class AuthSecurityHardeningTests
         Assert.DoesNotContain("AdminRoles", ordinarySnapshotProperties);
         Assert.DoesNotContain("Permissions", ordinarySnapshotProperties);
 
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint ordinary = EndpointContractApplication.Find(app, "/api/binary/auth/me", HttpMethods.Get);
         RouteEndpoint admin = EndpointContractApplication.Find(app, "/api/binary/admin/users", HttpMethods.Get);
         ClaimsAuthorizationRequirement ordinaryIdentity = Assert.Single(ordinary.Metadata
             .GetOrderedMetadata<AuthorizationPolicy>()
             .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(static requirement => requirement.ClaimType == "identity_kind"));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == "identity_kind");
         ClaimsAuthorizationRequirement adminPermission = Assert.Single(admin.Metadata
             .GetOrderedMetadata<AuthorizationPolicy>()
             .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(AnonymousIdentityRuntime.AnonymousAccountKind, ordinaryIdentity.AllowedValues ?? []);
         Assert.Contains(AdminPermissions.AdminManage, adminPermission.AllowedValues ?? []);
     }

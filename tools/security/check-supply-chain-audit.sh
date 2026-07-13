@@ -20,7 +20,6 @@ fail() {
   exit 1
 }
 
-log "run NuGet vulnerable package audit"
 NUGET_OUT_DIR="$OUT_DIR/nuget"
 rm -rf "$NUGET_OUT_DIR"
 mkdir -p "$NUGET_OUT_DIR"
@@ -38,20 +37,30 @@ if [[ "${#NUGET_PROJECTS[@]}" -eq 0 ]]; then
   fail "no PackageReference .csproj files found for NuGet audit"
 fi
 
-log "check dependency lock files"
-if [[ ! -f "$CLIENT_DIR/package-lock.json" ]]; then
-  fail "src/frontend/package-lock.json is required for npm dependency integrity"
-fi
-
-for project in "${NUGET_PROJECTS[@]}"; do
-  lock_file="$(dirname "$project")/packages.lock.json"
-  if [[ ! -f "$lock_file" ]]; then
-    fail "${lock_file#$ROOT_DIR/} is required for NuGet dependency integrity"
+check_dependency_locks() {
+  log "check dependency lock files"
+  local -a missing=()
+  if [[ ! -f "$CLIENT_DIR/package-lock.json" ]]; then
+    missing+=("src/frontend/package-lock.json is required for npm dependency integrity")
   fi
-done
 
-log "check documented security-sensitive backend dependencies"
-node - "$ROOT_DIR" <<'NODE'
+  local project lock_file
+  for project in "${NUGET_PROJECTS[@]}"; do
+    lock_file="$(dirname "$project")/packages.lock.json"
+    if [[ ! -f "$lock_file" ]]; then
+      missing+=("${lock_file#$ROOT_DIR/} is required for NuGet dependency integrity")
+    fi
+  done
+
+  if (( ${#missing[@]} > 0 )); then
+    printf '[supply-chain] lock-file violation: %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}
+
+check_dependency_docs() {
+  log "check documented security-sensitive backend dependencies"
+  node - "$ROOT_DIR" <<'NODE'
 const fs = require('node:fs');
 const path = require('node:path');
 const root = process.argv[2];
@@ -88,21 +97,57 @@ for (const name of ['Fido2']) {
   }
 }
 NODE
+}
 
-for project in "${NUGET_PROJECTS[@]}"; do
-  relative_project="${project#$ROOT_DIR/}"
-  safe_name="${relative_project//\//__}"
-  if ! dotnet list "$project" package --vulnerable --include-transitive --format json --output-version 1 > "$NUGET_OUT_DIR/$safe_name.json"; then
-    fail "dotnet vulnerable package audit failed for $relative_project"
-  fi
-done
+run_nuget_audit() {
+  log "run NuGet vulnerable package audit (${#NUGET_PROJECTS[@]} projects in one solution evaluation)"
+  local audit_solution="$OUT_DIR/.nuget-audit.slnx"
+  local audit_json="$OUT_DIR/.nuget-audit.json"
+  local audit_stderr="$OUT_DIR/.nuget-audit.stderr"
 
-node - "$NUGET_OUT_DIR" <<'NODE'
+  node - "$audit_solution" "${NUGET_PROJECTS[@]}" <<'NODE'
+const fs = require('node:fs');
+const solutionFile = process.argv[2];
+const projects = process.argv.slice(3);
+const escapeXml = value => value
+  .replaceAll('&', '&amp;')
+  .replaceAll('"', '&quot;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;');
+const body = projects.map(project => `  <Project Path="${escapeXml(project)}" />`).join('\n');
+fs.writeFileSync(solutionFile, `<Solution>\n${body}\n</Solution>\n`);
+NODE
+
+  local dotnet_status=0
+  dotnet list "$audit_solution" package --vulnerable --include-transitive --format json --output-version 1 \
+    > "$audit_json" 2> "$audit_stderr" || dotnet_status=$?
+
+  local validation_status=0
+  node - "$ROOT_DIR" "$NUGET_OUT_DIR" "$audit_json" "$audit_stderr" "$dotnet_status" "${NUGET_PROJECTS[@]}" <<'NODE'
 const fs = require('node:fs');
 const path = require('node:path');
-const dir = process.argv[2];
+const root = process.argv[2];
+const dir = process.argv[3];
+const auditFile = process.argv[4];
+const stderrFile = process.argv[5];
+const exitCode = Number(process.argv[6]);
+const expectedProjects = process.argv.slice(7).map(value => path.resolve(value));
 const blockers = [];
 const problems = [];
+
+let data;
+try {
+  data = JSON.parse(fs.readFileSync(auditFile, 'utf8'));
+} catch (error) {
+  const stderr = fs.existsSync(stderrFile) ? fs.readFileSync(stderrFile, 'utf8').trim() : '';
+  console.error(JSON.stringify({
+    status: 'invalid',
+    reason: 'dotnet audit did not produce valid JSON',
+    exitCode,
+    stderr
+  }, null, 2));
+  process.exit(1);
+}
 
 function collectPackages(packages, projectName, framework) {
   for (const item of packages ?? []) {
@@ -123,22 +168,47 @@ function collectPackages(packages, projectName, framework) {
   }
 }
 
-for (const entry of fs.readdirSync(dir).filter((value) => value.endsWith('.json'))) {
-  const file = path.join(dir, entry);
-  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-  for (const problem of data.problems ?? []) {
-    problems.push(problem);
-  }
-  for (const project of data.projects ?? []) {
-    for (const framework of project.frameworks ?? []) {
-      collectPackages(framework.topLevelPackages, project.name, framework.framework);
-      collectPackages(framework.transitivePackages, project.name, framework.framework);
-    }
+for (const problem of data.problems ?? []) problems.push(problem);
+
+const actualProjects = (data.projects ?? []).map(project => path.resolve(project.path));
+const actualSet = new Set(actualProjects);
+const expectedSet = new Set(expectedProjects);
+for (const project of expectedProjects) {
+  if (!actualSet.has(project)) problems.push({ project, text: 'project missing from batched NuGet audit output' });
+}
+for (const project of actualProjects) {
+  if (!expectedSet.has(project)) problems.push({ project, text: 'unexpected project in batched NuGet audit output' });
+}
+
+for (const project of data.projects ?? []) {
+  const absoluteProject = path.resolve(project.path);
+  const relativeProject = path.relative(root, absoluteProject).replaceAll(path.sep, '/');
+  const safeName = relativeProject.replaceAll('/', '__');
+  fs.writeFileSync(path.join(dir, `${safeName}.json`), `${JSON.stringify({
+    version: data.version,
+    parameters: data.parameters,
+    sources: data.sources,
+    projects: [project]
+  }, null, 2)}\n`);
+  for (const framework of project.frameworks ?? []) {
+    collectPackages(framework.topLevelPackages, project.name ?? relativeProject, framework.framework);
+    collectPackages(framework.transitivePackages, project.name ?? relativeProject, framework.framework);
   }
 }
 
 if (problems.length > 0) {
   console.error(JSON.stringify({ status: 'invalid', problems }, null, 2));
+  process.exit(1);
+}
+
+if (exitCode !== 0) {
+  const stderr = fs.existsSync(stderrFile) ? fs.readFileSync(stderrFile, 'utf8').trim() : '';
+  console.error(JSON.stringify({
+    status: 'invalid',
+    reason: 'dotnet audit exited non-zero without reported project problems',
+    exitCode,
+    stderr
+  }, null, 2));
   process.exit(1);
 }
 
@@ -149,17 +219,22 @@ if (blockers.length > 0) {
 
 console.log(JSON.stringify({ status: 'ok', blockers: [] }));
 NODE
+  validation_status=$?
+  rm -f "$audit_solution" "$audit_json"
+  if (( validation_status == 0 )); then rm -f "$audit_stderr"; fi
+  return "$validation_status"
+}
 
-log "run npm production dependency audit"
-set +e
-(
-  cd "$CLIENT_DIR"
-  npm audit --omit=dev --audit-level=high --json
-) > "$OUT_DIR/npm-audit.json" 2> "$OUT_DIR/npm-audit.stderr"
-npm_status=$?
-set -e
+run_npm_audit() {
+  log "run npm production dependency audit"
+  local npm_status=0
+  (
+    cd "$CLIENT_DIR"
+    npm audit --omit=dev --audit-level=high --json
+  ) > "$OUT_DIR/npm-audit.json" 2> "$OUT_DIR/npm-audit.stderr" || npm_status=$?
 
-node - "$OUT_DIR/npm-audit.json" "$OUT_DIR/npm-audit.stderr" "$npm_status" <<'NODE'
+  local validation_status=0
+  node - "$OUT_DIR/npm-audit.json" "$OUT_DIR/npm-audit.stderr" "$npm_status" <<'NODE'
 const fs = require('node:fs');
 const jsonFile = process.argv[2];
 const stderrFile = process.argv[3];
@@ -209,6 +284,109 @@ if (exitCode !== 0) {
 
 console.log(JSON.stringify({ status: 'ok', high, critical, blockers: [] }));
 NODE
+  validation_status=$?
+  return "$validation_status"
+}
+
+resolve_audit_workers() {
+  local job_count="$1"
+  FSUSBLOG_SUPPLY_CHAIN_JOB_COUNT="$job_count" node <<'NODE'
+const os = require('node:os');
+const positive = value => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+const firstPositive = values => values.find(value => value !== null) ?? 1;
+const jobs = Math.max(1, Math.floor(positive(process.env.FSUSBLOG_SUPPLY_CHAIN_JOB_COUNT) ?? 1));
+const cpu = firstPositive([
+  positive(process.env.FSUSBLOG_STEP_CPU_BUDGET),
+  positive(process.env.FSUSBLOG_BUNDLE_CPU_UNITS),
+  positive(process.env.FSUSBLOG_BUNDLE_CPU_BUDGET),
+  positive(os.availableParallelism?.()),
+  positive(os.cpus().length)
+]);
+const memoryGiB = firstPositive([
+  positive(process.env.FSUSBLOG_STEP_MEMORY_GIB),
+  positive(process.env.FSUSBLOG_BUNDLE_MEMORY_GIB),
+  positive(os.totalmem() / (1024 ** 3))
+]);
+// Vulnerability queries are network/IO heavy. Two jobs per granted CPU keeps
+// both ecosystems busy while the memory-derived bound prevents oversubscription.
+const cpuBound = Math.max(1, Math.floor(cpu * 2));
+const memoryBound = Math.max(1, Math.floor(memoryGiB / 0.4));
+process.stdout.write(String(Math.min(jobs, cpuBound, memoryBound)));
+NODE
+}
+
+SUPPLY_CHAIN_FAILURES=()
+run_check_group() {
+  local group="$1"
+  shift
+  local -a specs=("$@")
+  local total="${#specs[@]}"
+  local workers
+  workers="$(resolve_audit_workers "$total")"
+  local status_dir="$OUT_DIR/.parallel-$group-$$-$RANDOM"
+  mkdir -p "$status_dir"
+  log "parallel group start: $group ($total jobs, workers=$workers)"
+
+  local -a pids=()
+  local -a status_files=()
+  local -a log_files=()
+  local launched=0
+  local settled=0
+  local active=0
+  local spec label command status_file log_file
+  for spec in "${specs[@]}"; do
+    label="${spec%%::*}"
+    command="${spec#*::}"
+    status_file="$status_dir/$launched.status"
+    log_file="$status_dir/$launched.log"
+    status_files+=("$status_file")
+    log_files+=("$log_file")
+    (
+      set +e
+      "$command" > "$log_file" 2>&1
+      status=$?
+      printf '%s\t%s\n' "$status" "$label" > "$status_file"
+      exit "$status"
+    ) &
+    pids+=("$!")
+    launched=$((launched + 1))
+    active=$((active + 1))
+    if (( active >= workers )); then
+      wait "${pids[$settled]}" >/dev/null 2>&1 || true
+      settled=$((settled + 1))
+      active=$((active - 1))
+    fi
+  done
+  while (( settled < launched )); do
+    wait "${pids[$settled]}" >/dev/null 2>&1 || true
+    settled=$((settled + 1))
+  done
+
+  local index status
+  for ((index = 0; index < total; index += 1)); do
+    cat "${log_files[$index]}"
+    IFS=$'\t' read -r status label < "${status_files[$index]}"
+    if [[ "$status" != "0" ]]; then
+      SUPPLY_CHAIN_FAILURES+=("$label:$status")
+    fi
+  done
+  rm -rf "$status_dir"
+  log "parallel group done: $group"
+}
+
+run_check_group preflight \
+  "dependency-locks::check_dependency_locks" \
+  "dependency-docs::check_dependency_docs"
+run_check_group ecosystem-audits \
+  "nuget::run_nuget_audit" \
+  "npm::run_npm_audit"
+
+if (( ${#SUPPLY_CHAIN_FAILURES[@]} > 0 )); then
+  fail "supply-chain checks failed (${SUPPLY_CHAIN_FAILURES[*]})"
+fi
 
 cat > "$OUT_DIR/summary.json" <<JSON
 {

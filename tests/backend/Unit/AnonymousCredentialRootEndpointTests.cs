@@ -177,9 +177,10 @@ public sealed class AnonymousCredentialRootEndpointTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AnonymousCredentialRootEndpoints_AreAnonymousPublicReadAedsOnly()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         foreach (string route in new[]
         {
             "/api/binary/anonymous-credential/root",
@@ -194,9 +195,13 @@ public sealed class AnonymousCredentialRootEndpointTests
                     endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
         }
 
-        string handler = RuntimeMetadataInspection.DescribeMethods(
-            typeof(BinaryEndpoints),
-            nameof(BinaryEndpoints.HandleAnonymousCredentialRootAsync));
+        string handler = string.Join('\n',
+            RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+                typeof(BinaryEndpoints),
+                "anonymous_root_unavailable"),
+            RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+                typeof(BinaryEndpoints),
+                "WriteAnonymousCredentialRootSnapshot"));
         Assert.Contains("WriteAnonymousCredentialRootSnapshot", handler, StringComparison.Ordinal);
         Assert.Contains("anonymous_root_unavailable", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserId", handler, StringComparison.Ordinal);
@@ -260,9 +265,10 @@ public sealed class AnonymousCredentialRootEndpointTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AnonymousCredentialRevocationWitnessEndpoint_IsStrongAnonymousPublicReadAedsOnly()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint endpoint = EndpointContractApplication.Find(
             app,
             "/api/binary/anonymous-credential/revocation-witness",
@@ -275,9 +281,13 @@ public sealed class AnonymousCredentialRootEndpointTests
             Assert.IsType<EnableRateLimitingAttribute>(
                 endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
 
-        string handler = RuntimeMetadataInspection.DescribeMethods(
-            typeof(BinaryEndpoints),
-            nameof(BinaryEndpoints.HandleAnonymousCredentialRevocationWitnessAsync));
+        string handler = string.Join('\n',
+            RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+                typeof(BinaryEndpoints),
+                "TryDecodeAnonymousCredentialRevocationWitnessRequest"),
+            RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+                typeof(BinaryEndpoints),
+                "WriteAnonymousCredentialRevocationWitnessResponse"));
         Assert.Contains("TryDecodeAnonymousCredentialRevocationWitnessRequest", handler, StringComparison.Ordinal);
         Assert.Contains("WriteAnonymousCredentialRevocationWitnessResponse", handler, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserId", handler, StringComparison.Ordinal);

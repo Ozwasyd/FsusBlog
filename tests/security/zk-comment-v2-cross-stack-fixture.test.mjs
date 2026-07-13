@@ -11,6 +11,9 @@ const repoRoot = path.resolve(import.meta.dirname, '..', '..')
 const fixtureManifestPath = path.join(repoRoot, 'tests/fixtures/zk/comment-v2/mcl-pairing/fixture.manifest.json')
 const fixtureProject = path.join(repoRoot, 'tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj')
 const publicWasmRoot = path.join(repoRoot, 'src/frontend/public/wasm')
+const mclRunBuildArgs = process.env.FSUSBLOG_ZK_MCL_NO_BUILD === '1'
+  ? ['--no-build']
+  : []
 
 test('comment v2 MCL pairing fixture materializes verifier, proof, public inputs and tamper artifacts', () => {
   assert.ok(existsSync(fixtureManifestPath), 'comment.v2 MCL pairing fixture manifest must exist')
@@ -54,6 +57,7 @@ test('comment v2 MCL tool writes self-written trusted setup artifacts and manife
   try {
     const result = spawnSync('dotnet', [
       'run',
+      ...mclRunBuildArgs,
       '--project',
       fixtureProject,
       '--',
@@ -97,6 +101,7 @@ test('comment v2 MCL tool writes self-written trusted setup artifacts and manife
 
     const verify = spawnSync('dotnet', [
       'run',
+      '--no-build',
       '--project',
       fixtureProject,
       '--',
@@ -183,6 +188,7 @@ test('comment v2 browser wasm prover bundle emits proof accepted by the MCL back
 
     const verify = spawnSync('dotnet', [
       'run',
+      ...mclRunBuildArgs,
       '--project',
       fixtureProject,
       '--',

@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.CoreBridge.Adapters;
 using FsusBlog.Server.Infrastructure.CoreBridge.Caching;
 using FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;

@@ -37,7 +37,7 @@
       "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
       "replacementTestIds": [
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "The logger sink observes escaped control characters, while the Roslyn rule rejects raw sensitive structured placeholders."
     },
@@ -85,7 +85,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.FixedTimeHexComparison_FailsClosedAndAcceptsEquivalentHexCase",
         "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.FixedTimeUtf8Comparison_IsCaseSensitiveAndFailsClosed",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "Known equal, unequal, malformed and length-mismatch values execute the fixed-time helpers; FSUSBLOGSEC003 rejects ordinary sensitive comparisons."
     },
@@ -96,7 +96,7 @@
         "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.CryptographicRandomSource_ProducesRequestedLengthAndUniqueOutputs",
         "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.SecurityAdminPolicy_UsesInjectedSecurityRandomSourceForSnapshotIdentifiers",
         "xunit:tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs#CaptchaV1ChallengeProviderTests.VerifyAsync_RejectsTamperedSeedSignatureOrToken",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "CSPRNG output/injection and signed challenge behavior are observable; FSUSBLOGSEC001/002 forbid non-cryptographic random APIs in security scope."
     },
@@ -104,7 +104,7 @@
       "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.CryptoParameters_MeetCurrentMinimums",
       "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
       "replacementTestIds": [
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture",
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548",
         "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_RejectsOversizedHexPublicInputsBeforeBackendCall"
       ],
       "reason": "FSUSBLOGSEC006-008 enforce Argon2/PBKDF2 minima by Roslyn AST and the production verifier exercises bounded public-input shapes."
@@ -125,7 +125,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.ProductionExceptionResponse_DoesNotExposeMessageStackSqlPathOrType",
         "xunit:tests/backend/Unit/GlobalExceptionMiddlewareTests.cs#GlobalExceptionMiddlewareTests.InvokeAsync_Production500_DoesNotLeakExceptionMessage",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "The production AEDS response is decoded and inspected for raw details, while FSUSBLOGSEC005 blocks raw exception output paths."
     },
@@ -133,7 +133,7 @@
       "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.PowAndSecurityLogs_DoNotWriteRawTokensOrAccountIds",
       "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
       "replacementTestIds": [
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture",
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548",
         "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_DoesNotLogProofWitnessOrCredentialSecret",
         "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_DoesNotLogRawNullifierHash"
       ],
@@ -146,7 +146,7 @@
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.LocalFixtureStatus_ExposesOnlyBooleanStateAndFailsClosedForSecretOrNetworkMismatch",
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
         "xunit:tests/backend/Unit/ProductionHealthTests.cs#ProductionHealthTests.PublicReadinessReport_ContainsOnlyStatusAndCheckedAt",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "TestServer and report objects prove the exposed fields and redaction; health/startup/fixture raw exception outputs share FSUSBLOGSEC005."
     },
@@ -156,7 +156,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "Captured structured state and serialized startup evidence cover observable disclosure; the scoped analyzer owns sensitive template regressions."
     },

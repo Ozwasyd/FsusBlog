@@ -28,9 +28,10 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     return
   }
 
-  const workers = typeof config.workers === 'number' && config.workers > 0
-    ? config.workers
-    : Number(process.env.FSUSBLOG_PLAYWRIGHT_WORKERS || '4')
+  if (typeof config.workers !== 'number' || !Number.isInteger(config.workers) || config.workers < 1) {
+    throw new Error('Playwright global setup requires the dynamically resolved worker count')
+  }
+  const workers = config.workers
 
   const repoRoot = findRepoRoot(process.cwd())
   const script = path.join(repoRoot, 'tests', 'frontend', 'fixtures', 'prepare-playwright-sessions.mjs')

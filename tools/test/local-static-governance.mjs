@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
   executeManifestEntry,
+  resolveManifestChildEnvironment,
   resolveManifestWorkers,
   validateCommandManifest
 } from './run-command-manifest.mjs'
@@ -18,13 +19,16 @@ const orderedWriteScripts = new Set([
   'check:public-performance-batch'
 ])
 const finalCommandIds = new Set(['views-constraints:public-performance-batch'])
+const postbuildReadCommandIds = new Set(['public-aot-contracts'])
+const isolatedCommandIds = new Set([
+  'asset-size-budget',
+  'views-constraints:route-asset-budget'
+])
 const initialPriority = new Map([
-  ['asset-size-budget', 0],
-  ['views-constraints:dom-depth-static', 1],
-  ['views-constraints:route-asset-budget', 2],
-  ['historical-residue-fixture', 3],
-  ['views-constraints:fsusui-typecheck-modes', 4],
-  ['test-execution-optimization', 5]
+  ['views-constraints:dom-depth-static', 0],
+  ['historical-residue-fixture', 1],
+  ['views-constraints:fsusui-typecheck-modes', 2],
+  ['test-execution-optimization', 3]
 ])
 
 export function extractChainedNpmScripts(value) {
@@ -76,9 +80,13 @@ export function planLocalStaticCommands(manifest) {
   if (errors.length > 0) throw new Error(errors.join('; '))
 
   const initial = []
+  const postbuild = []
+  const isolated = []
   const final = []
   for (const entry of manifest.commands) {
     if (finalCommandIds.has(entry.id)) final.push(entry)
+    else if (postbuildReadCommandIds.has(entry.id)) postbuild.push(entry)
+    else if (isolatedCommandIds.has(entry.id)) isolated.push(entry)
     else initial.push(entry)
   }
   initial.sort((left, right) => {
@@ -87,8 +95,16 @@ export function planLocalStaticCommands(manifest) {
     return leftPriority - rightPriority
   })
   if (final.length !== finalCommandIds.size) throw new Error('local static manifest is missing its dependent performance check')
+  if (postbuild.length !== postbuildReadCommandIds.size) throw new Error('local static manifest is missing its build-output contract check')
+  if (isolated.length !== isolatedCommandIds.size) throw new Error('local static manifest is missing its isolated asset check')
 
-  return { initial, final }
+  return { initial, postbuild, isolated, final }
+}
+
+export function summarizeLocalStaticPlan(plan) {
+  const prebuild = plan.initial.length
+  const postbuild = plan.postbuild.length + plan.isolated.length + plan.final.length
+  return { prebuild, postbuild, total: prebuild + postbuild }
 }
 
 export async function runLocalStaticGovernance({ repoRoot = root, env = process.env } = {}) {
@@ -98,11 +114,52 @@ export async function runLocalStaticGovernance({ repoRoot = root, env = process.
   const manifest = buildLocalStaticManifest(staticManifest, packageJson.scripts)
   const plan = planLocalStaticCommands(manifest)
   const workers = resolveManifestWorkers({ env })
-  const execute = (entry) => executeManifestEntry(entry, { cwd: frontendRoot, env })
+  const concurrentEnv = resolveManifestChildEnvironment({ env, workers, concurrent: true })
+  const sequentialEnv = resolveManifestChildEnvironment({ env, workers, concurrent: false })
+  const phase = String(env.FSUSBLOG_LOCAL_STATIC_PHASE ?? 'all').trim()
+  if (!['all', 'prebuild', 'postbuild'].includes(phase)) {
+    throw new Error('FSUSBLOG_LOCAL_STATIC_PHASE must be all, prebuild, or postbuild')
+  }
 
-  await executeLimitedWave(plan.initial, workers, execute)
-  await executeLimitedWave(plan.final, workers, execute)
-  return manifest
+  if (phase !== 'postbuild') {
+    await executeLimitedWave(
+      plan.initial,
+      workers,
+      (entry) => executeManifestEntry(entry, { cwd: frontendRoot, env: concurrentEnv })
+    )
+  }
+  if (phase !== 'prebuild') {
+    await executeLimitedWave(
+      [...plan.postbuild, ...plan.isolated],
+      workers,
+      (entry) => executeManifestEntry(entry, { cwd: frontendRoot, env: concurrentEnv })
+    )
+    await executeLimitedWave(
+      plan.final,
+      workers,
+      (entry) => executeManifestEntry(entry, { cwd: frontendRoot, env: sequentialEnv })
+    )
+  }
+  const summary = summarizeLocalStaticPlan(plan)
+  const executedCommandCount = phase === 'prebuild'
+    ? summary.prebuild
+    : phase === 'postbuild'
+      ? summary.postbuild
+      : summary.total
+  const executedCommands = phase === 'prebuild'
+    ? plan.initial
+    : phase === 'postbuild'
+      ? [...plan.postbuild, ...plan.isolated, ...plan.final]
+      : [...plan.initial, ...plan.postbuild, ...plan.isolated, ...plan.final]
+  return {
+    ...manifest,
+    execution: {
+      phase,
+      commandCount: executedCommandCount,
+      commandIds: executedCommands.map((entry) => entry.id),
+      ...summary
+    }
+  }
 }
 
 const isMain = process.argv[1]
@@ -110,7 +167,26 @@ const isMain = process.argv[1]
 
 if (isMain) {
   runLocalStaticGovernance().then((manifest) => {
-    console.log(`[local-static-governance] ok commands=${manifest.commands.length}`)
+    const evidenceFile = String(process.env.FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE ?? '').trim()
+    if (evidenceFile) {
+      const absolute = path.resolve(root, evidenceFile)
+      fs.mkdirSync(path.dirname(absolute), { recursive: true })
+      const temporary = `${absolute}.next-${process.pid}`
+      fs.writeFileSync(temporary, `${JSON.stringify({
+        schema: 'fsusblog.local-production.frontend-static-governance-phase.v1',
+        status: 'success',
+        schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
+        execution: manifest.execution,
+        generatedAt: new Date().toISOString()
+      }, null, 2)}\n`)
+      fs.renameSync(temporary, absolute)
+    }
+    console.log(
+      `[local-static-governance] ok phase=${manifest.execution.phase}`
+      + ` commands=${manifest.execution.commandCount}`
+      + ` split=${manifest.execution.prebuild}+${manifest.execution.postbuild}`
+      + ` total=${manifest.execution.total}`
+    )
   }).catch((error) => {
     console.error(`[local-static-governance] ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)

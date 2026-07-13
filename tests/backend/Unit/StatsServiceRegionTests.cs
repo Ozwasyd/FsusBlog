@@ -156,7 +156,8 @@ public sealed class StatsServiceRegionTests(PostgresSchemaMigrationFixture fixtu
             "LoadAdminStatsOverviewFromDbAsync",
             BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException("Stats overview loader was not found.");
-        var task = Assert.IsType<Task<AdminStatsOverviewDto>>(method.Invoke(service, [CancellationToken.None]));
+        var task = Assert.IsAssignableFrom<Task<AdminStatsOverviewDto>>(
+            method.Invoke(service, [CancellationToken.None]));
         return await task;
     }
 

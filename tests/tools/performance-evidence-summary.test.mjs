@@ -6,6 +6,8 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
+import { resolvePerformanceEvidenceWorkers } from '../../tools/test/aggregate-performance-evidence.mjs'
+
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const aggregateScript = path.join(root, 'tools/test/aggregate-performance-evidence.mjs')
 const sourceFiles = {
@@ -28,6 +30,42 @@ function runAggregator(base) {
     timeout: 10_000
   })
 }
+
+test('performance evidence workers follow the complete scheduler grant and source count', () => {
+  assert.equal(resolvePerformanceEvidenceWorkers({
+    sourceCount: 4,
+    env: {
+      FSUSBLOG_STEP_CPU_BUDGET: '3',
+      FSUSBLOG_STEP_MEMORY_GIB: '2'
+    },
+    cpuCount: 8,
+    freeMemoryBytes: 512,
+    totalMemoryBytes: 8192,
+    load1: 8
+  }), 3)
+  assert.equal(resolvePerformanceEvidenceWorkers({
+    sourceCount: 2,
+    env: {
+      FSUSBLOG_STEP_CPU_BUDGET: '8',
+      FSUSBLOG_STEP_MEMORY_GIB: '8'
+    },
+    cpuCount: 16,
+    freeMemoryBytes: 16384,
+    totalMemoryBytes: 16384,
+    load1: 0
+  }), 2)
+})
+
+test('performance evidence aggregation reports every missing producer in one run', (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-perf-summary-missing-'))
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }))
+
+  const result = runAggregator(temp)
+  assert.notEqual(result.status, 0)
+  for (const id of Object.keys(sourceFiles)) {
+    assert.match(result.stderr, new RegExp(`missing ${id} performance evidence`, 'u'))
+  }
+})
 
 test('performance evidence producers stay isolated and the fresh aggregate retains all four classes', (t) => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-perf-summary-'))

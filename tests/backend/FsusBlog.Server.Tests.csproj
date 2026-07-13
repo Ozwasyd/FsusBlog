@@ -43,6 +43,8 @@
 
   <ItemGroup>
     <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="Fixtures\security-source-analysis\*.cs" />
+    <None Include="Fixtures\security-source-analysis\*.cs" />
   </ItemGroup>
 
 </Project>

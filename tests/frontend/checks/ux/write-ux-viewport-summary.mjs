@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const validModes = new Set(['smoke', 'visual', 'boundaries'])
 
-export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke' } = {}) {
+export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke', runId } = {}) {
   const resolvedRoot = path.resolve(root)
   if (!validModes.has(mode)) {
     throw new Error(`unknown UX viewport summary mode: ${mode}`)
@@ -22,15 +22,24 @@ export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke
     throw new Error(errors.join('\n'))
   }
 
+  const requestedRunId = runId ? requireSafeRunId(runId) : null
   const pointerFile = path.join(resolvedRoot, '.tmp/ux', `current-${mode}-run.json`)
-  const pointer = readJson(pointerFile)
-  if (pointer.mode !== mode || !pointer.progressFile || !pointer.planFingerprint) {
+  const pointer = requestedRunId
+    ? null
+    : readJson(pointerFile)
+  if (pointer && (pointer.mode !== mode || !pointer.progressFile || !pointer.planFingerprint)) {
     throw new Error(`invalid current UX viewport run pointer: ${relative(resolvedRoot, pointerFile)}`)
   }
 
-  const progressFile = resolveInsideRoot(resolvedRoot, pointer.progressFile)
+  const progressFile = requestedRunId
+    ? path.join(resolvedRoot, '.tmp/ux/runs', requestedRunId, mode, 'progress.json')
+    : resolveInsideRoot(resolvedRoot, pointer.progressFile)
   const progress = readJson(progressFile)
-  validateProgress(progress, pointer, matrix, mode)
+  validateProgress(progress, pointer ?? {
+    runId: requestedRunId,
+    mode,
+    planFingerprint: progress.planFingerprint
+  }, matrix, mode)
 
   const config = matrix.modes[mode]
   const artifactRoot = resolveInsideRoot(resolvedRoot, progress.artifacts?.root)
@@ -140,6 +149,14 @@ export async function writeUxViewportSummary({ root = defaultRoot, mode = 'smoke
     summary
   })
   return { artifact, releaseArtifact, summary }
+}
+
+function requireSafeRunId(runId) {
+  const value = String(runId ?? '')
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/u.test(value)) {
+    throw new Error(`invalid UX viewport run id: ${value}`)
+  }
+  return value
 }
 
 function validateMatrix(matrix, corpus) {

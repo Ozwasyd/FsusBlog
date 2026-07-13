@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -92,8 +93,7 @@ public sealed class BackendTestGovernanceTests
         {
             ["fsus:allowLocalAuthFixture"] = "true"
         });
-        mainBuilder.Services.AddAuthorization();
-        mainBuilder.Services.AddOutputCache();
+        EndpointContractApplication.AddContractServices(mainBuilder);
         await using WebApplication main = mainBuilder.Build();
         MapGovernedEndpoints(main);
 
@@ -105,12 +105,13 @@ public sealed class BackendTestGovernanceTests
         {
             ["SchemaMigration:QualificationEnabled"] = "true"
         });
-        qualificationBuilder.Services.AddAuthorization();
+        EndpointContractApplication.AddContractServices(qualificationBuilder);
+        qualificationBuilder.Services.AddScoped<IOnlineSchemaMigrationCoordinator, OnlineSchemaMigrationCoordinator>();
         await using WebApplication qualification = qualificationBuilder.Build();
         qualification.MapReleaseSchemaQualificationEndpoints();
 
-        RouteEndpoint[] runtimeEndpoints = main.DataSources
-            .Concat(qualification.DataSources)
+        RouteEndpoint[] runtimeEndpoints = ((IEndpointRouteBuilder)main).DataSources
+            .Concat(((IEndpointRouteBuilder)qualification).DataSources)
             .SelectMany(static source => source.Endpoints)
             .OfType<RouteEndpoint>()
             .ToArray();

@@ -1260,7 +1260,7 @@
       "routePrefixes": ["/api/release-evidence"],
       "requirements": [
         "BACKEND-ENDPOINT-AUTH-MATRIX",
-        "BACKEND-MIGRATION-SCHEMA"
+        "BACKEND-MIGRATION-FAILURE-DRILLS"
       ]
     }
   ],

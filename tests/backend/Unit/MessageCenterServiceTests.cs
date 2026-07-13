@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Diagnostics.Metrics;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
@@ -170,9 +171,10 @@ public sealed class MessageCenterServiceTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task MessageEndpoints_OrdinaryAccountRoutesRequireAnonymousAccountPrincipal()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         (string Route, string Method)[] ordinaryRoutes =
         [
             ("/api/binary/messages/conversations", HttpMethods.Get),
@@ -188,8 +190,8 @@ public sealed class MessageCenterServiceTests
             ClaimsAuthorizationRequirement identity = Assert.Single(endpoint.Metadata
                 .GetOrderedMetadata<AuthorizationPolicy>()
                 .SelectMany(static policy => policy.Requirements)
-                .OfType<ClaimsAuthorizationRequirement>()
-                .Where(static requirement => requirement.ClaimType == "identity_kind"));
+                .OfType<ClaimsAuthorizationRequirement>(),
+                static requirement => requirement.ClaimType == "identity_kind");
             Assert.Contains(AnonymousIdentityRuntime.AnonymousAccountKind, identity.AllowedValues ?? []);
         }
 
@@ -200,8 +202,8 @@ public sealed class MessageCenterServiceTests
         ClaimsAuthorizationRequirement permission = Assert.Single(admin.Metadata
             .GetOrderedMetadata<AuthorizationPolicy>()
             .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(AdminPermissions.AdminManage, permission.AllowedValues ?? []);
         Assert.Contains("AdminMessageActor", RuntimeMetadataInspection.DescribeType(typeof(BinaryEndpoints)), StringComparison.Ordinal);
     }
@@ -451,11 +453,38 @@ public sealed class MessageCenterServiceTests
         Assert.Contains("locked_participant AS", RuntimeMetadataInspection.DescribeType(typeof(MessageCenterService)), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("List.Sort", mapMessages, StringComparison.Ordinal);
 
-        string observability = RuntimeMetadataInspection.DescribeType(typeof(FsusObservability));
-        Assert.Contains("fsus.message.center.list.elapsed", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.message.center.reply.elapsed", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.message.center.fanout.refresh.elapsed", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.message.center.fanout.build_item.elapsed", observability, StringComparison.Ordinal);
+        Assert.Contains("RecordMessageCenterList", accountList, StringComparison.Ordinal);
+        Assert.Contains("RecordMessageCenterList", adminList, StringComparison.Ordinal);
+        string accountReply = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            nameof(MessageCenterService.ReplyAsAccountAsync));
+        Assert.Contains("RecordMessageCenterReply", accountReply, StringComparison.Ordinal);
+        string fanout = RuntimeMetadataInspection.DescribeMethods(
+            typeof(MessageCenterService),
+            "PrepareParticipantMessageFanoutAsync");
+        Assert.Contains("RecordMessageCenterFanoutRefresh", fanout, StringComparison.Ordinal);
+        Assert.Contains("RecordMessageCenterFanoutBuildItem", fanout, StringComparison.Ordinal);
+
+        var measurements = new HashSet<string>(StringComparer.Ordinal);
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Name.StartsWith("fsus.message.center.", StringComparison.Ordinal))
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<double>((instrument, _, _, _) => measurements.Add(instrument.Name));
+        listener.Start();
+        FsusObservability.RecordMessageCenterList("account", TimeSpan.FromMilliseconds(1));
+        FsusObservability.RecordMessageCenterReply("account", TimeSpan.FromMilliseconds(1));
+        FsusObservability.RecordMessageCenterFanoutRefresh(TimeSpan.FromMilliseconds(1));
+        FsusObservability.RecordMessageCenterFanoutBuildItem(TimeSpan.FromMilliseconds(1));
+
+        Assert.Contains("fsus.message.center.list.elapsed", measurements);
+        Assert.Contains("fsus.message.center.reply.elapsed", measurements);
+        Assert.Contains("fsus.message.center.fanout.refresh.elapsed", measurements);
+        Assert.Contains("fsus.message.center.fanout.build_item.elapsed", measurements);
     }
 
     [Fact]

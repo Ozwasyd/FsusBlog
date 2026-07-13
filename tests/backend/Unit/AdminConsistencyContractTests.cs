@@ -6,10 +6,8 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -19,11 +17,12 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AdminConsistencyContractTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
-    public async Task AdminTaxonomyRoutes_ExposeMethodsPermissionsAndSerializedBlockingCounts()
+    [Trait("ShardAffinity", "EndpointContractApplication")]
+    public void AdminTaxonomyRoutes_ExposeMethodsPermissionsAndSerializedBlockingCounts()
     {
-        await using WebApplication app = CreateBinaryEndpointApplication();
+        using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
-        RouteEndpoint deleteTag = FindRoute(app, "/api/binary/tag/{id:int}");
+        RouteEndpoint deleteTag = FindRoute(app, "/api/binary/tag/{id:int}", HttpMethods.Delete);
         AssertMethod(deleteTag, HttpMethods.Delete);
         AssertPermission(deleteTag, AdminPermissions.ArticleWrite);
 
@@ -78,17 +77,18 @@ public sealed class AdminConsistencyContractTests(PostgresSchemaMigrationFixture
 
     [Theory]
     [InlineData(null, false)]
-    [InlineData(0, false)]
-    [InlineData(-1, false)]
-    [InlineData(1, true)]
-    [InlineData(99, true)]
+    [InlineData(0L, false)]
+    [InlineData(-1L, false)]
+    [InlineData(1L, true)]
+    [InlineData(99L, true)]
     public void SystemMessageTargetValidation_RequiresPositiveAccountId(long? accountId, bool expected)
         => Assert.Equal(expected, BinaryEndpoints.IsValidSystemMessageTarget(accountId));
 
     [Fact]
-    public async Task StaticPageRoutes_ShareOneAllowlistAcrossPublicReadAdminReadUpdateAndRefresh()
+    [Trait("ShardAffinity", "EndpointContractApplication")]
+    public void StaticPageRoutes_ShareOneAllowlistAcrossPublicReadAdminReadUpdateAndRefresh()
     {
-        await using WebApplication app = CreateBinaryEndpointApplication();
+        using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint publicRead = FindRoute(app, "/api/binary/system/page/{slug}");
         RouteEndpoint adminRead = FindRoute(app, "/api/binary/system/admin/page/{slug}");
         RouteEndpoint update = FindRoute(app, "/api/binary/system/page", HttpMethods.Put);
@@ -107,17 +107,7 @@ public sealed class AdminConsistencyContractTests(PostgresSchemaMigrationFixture
             Assert.False(BinaryEndpoints.IsAllowedStaticPageSlug(slug)));
     }
 
-    private static WebApplication CreateBinaryEndpointApplication()
-    {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
-        builder.Services.AddAuthorization();
-        builder.Services.AddOutputCache();
-        WebApplication app = builder.Build();
-        app.MapBinaryEndpoints();
-        return app;
-    }
-
-    private static RouteEndpoint FindRoute(WebApplication app, string route, string? method = null)
+    private static RouteEndpoint FindRoute(IEndpointRouteBuilder app, string route, string? method = null)
     {
         IEnumerable<RouteEndpoint> matches = ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
@@ -143,8 +133,8 @@ public sealed class AdminConsistencyContractTests(PostgresSchemaMigrationFixture
     {
         AuthorizationPolicy policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
         ClaimsAuthorizationRequirement requirement = Assert.Single(policy.Requirements
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(item => item.ClaimType == AdminPermissions.PermissionClaimType));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            item => item.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(permission, requirement.AllowedValues ?? []);
     }
 }

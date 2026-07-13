@@ -713,6 +713,33 @@ function checkpointTarget(checkpoint) {
   return checkpoint?.target ?? checkpoint?.targetTier ?? checkpoint?.targetTierId ?? null
 }
 
+const productionWallClockBudgetMs = 300_000
+
+function productionWallClockProof(checkpoint) {
+  if (!checkpoint || !isProductionCheckpoint(checkpoint)) {
+    return { status: 'not-measured', budgetMs: productionWallClockBudgetMs, durationMs: null, errors: ['production checkpoint is missing'] }
+  }
+  const startedAt = Date.parse(checkpoint.startedAt ?? '')
+  const finishedAt = Date.parse(checkpoint.finishedAt ?? '')
+  const errors = []
+  let durationMs = null
+  if (!Number.isFinite(startedAt) || !Number.isFinite(finishedAt) || finishedAt < startedAt) {
+    errors.push('production checkpoint startedAt/finishedAt must define a valid duration')
+  } else {
+    durationMs = finishedAt - startedAt
+  }
+  if (checkpoint.budgetMs !== null && Number(checkpoint.budgetMs) !== productionWallClockBudgetMs) {
+    errors.push(`production checkpoint budgetMs must be null or ${productionWallClockBudgetMs}`)
+  }
+  return {
+    status: errors.length === 0 ? 'pass' : 'fail',
+    budgetMs: productionWallClockBudgetMs,
+    enforced: false,
+    durationMs,
+    errors
+  }
+}
+
 function selectAuthoritativeCheckpoint(checkpoints, finalAuthority) {
   const fresh = freshCheckpoints(checkpoints)
   const production = fresh.find(isProductionCheckpoint) ?? null
@@ -779,9 +806,7 @@ function logicalProjectionProof({ required, authoritative, expectedTierIds }) {
       if (!Array.isArray(entry.testIds) || entry.testIds.length === 0) errors.push(`${tierId} executed projection has no test ids`)
     } else if (entry?.evidenceKind === 'summary-only') {
       summaryOnlyTierCount += 1
-      if (entry.status !== 'collected-blocked' || entry.executionSource !== 'external-environment') {
-        errors.push(`${tierId} summary-only projection must remain explicit collected-blocked external evidence`)
-      }
+      errors.push(`${tierId} production projection must be executed in the fresh run, not summary-only evidence`)
     } else {
       errors.push(`${tierId} projection evidenceKind is invalid`)
     }
@@ -790,11 +815,11 @@ function logicalProjectionProof({ required, authoritative, expectedTierIds }) {
       errors.push(`${tierId} projection artifact digests are missing or invalid`)
     }
   }
-  if (executedTierCount !== 76
-    || summaryOnlyTierCount !== 1
+  if (executedTierCount !== 77
+    || summaryOnlyTierCount !== 0
     || Number(projection?.executedTierCount) !== executedTierCount
     || Number(projection?.summaryOnlyTierCount) !== summaryOnlyTierCount) {
-    errors.push('production logical tier projection must contain 76 executed and 1 summary-only tier')
+    errors.push('production logical tier projection must contain 77 executed tiers and no summary-only tier')
   }
   return {
     required: true,
@@ -1035,7 +1060,8 @@ function finalAuthorityProof({
   retentionAuditAuthority,
   sourceAuthority,
   mutationAuthority,
-  logicalProjection
+  logicalProjection,
+  productionWallClock
 }) {
   if (!required) return { required: false, status: 'compatibility', errors: [] }
   const errors = []
@@ -1056,6 +1082,7 @@ function finalAuthorityProof({
   if (sourceAuthority.status === 'fail') errors.push(...sourceAuthority.errors)
   if (mutationAuthority.status === 'fail') errors.push(...mutationAuthority.errors)
   if (logicalProjection.status === 'fail') errors.push(...logicalProjection.errors)
+  if (productionWallClock.status !== 'pass') errors.push(...productionWallClock.errors)
   return { required: true, status: errors.length === 0 ? 'pass' : 'fail', errors: [...new Set(errors)] }
 }
 
@@ -1081,6 +1108,7 @@ export function buildOptimizationReport({
   currentSourceState = null
 }) {
   const authoritative = selectAuthoritativeCheckpoint(checkpoints, finalAuthority)
+  const productionWallClock = productionWallClockProof(authoritative)
   const deletionSafety = deletionProof(before, after)
   const assertionReplacementSafety = assertionReplacementProof(before, after)
   const retainedCoverage = coverageProof(before, after, deletionSafety, assertionReplacementSafety)
@@ -1135,7 +1163,8 @@ export function buildOptimizationReport({
     retentionAuditAuthority,
     sourceAuthority,
     mutationAuthority,
-    logicalProjection
+    logicalProjection,
+    productionWallClock
   })
   const topSlowTests = (after?.testRecords ?? [])
     .filter((record) => Number(record?.timing?.p95Ms) >= 0 && Number(record?.timing?.samples) > 0)
@@ -1156,7 +1185,10 @@ export function buildOptimizationReport({
       runId: authoritative.runId ?? null,
       target: authoritative.target ?? authoritative.targetTier ?? authoritative.targetTierId ?? null,
       status: authoritative.status ?? (authoritative.failedAt ? 'failure' : 'success'),
-      checkpoint: authoritative.checkpointFile ?? null
+      checkpoint: authoritative.checkpointFile ?? null,
+      durationMs: productionWallClock.durationMs,
+      budgetMs: productionWallClock.budgetMs,
+      durationStatus: productionWallClock.status
     } : null,
     finalAuthority: authority,
     baselineAuthority,
@@ -1167,6 +1199,7 @@ export function buildOptimizationReport({
     criticalMutationSlice,
     mutationAuthority,
     logicalProjection,
+    productionWallClock,
     deletionSafety,
     assertionReplacementSafety,
     retentionReview: retention,

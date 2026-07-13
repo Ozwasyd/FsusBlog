@@ -25,6 +25,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -572,21 +573,74 @@ public class NotificationStreamBoundaryTests
     }
 
     [Fact]
-    public void BacklogReplay_MissedGapRequiresCursorFloorProbe()
+    public async Task BacklogReplay_MissedGapRequiresCursorFloorProbe()
     {
-        MethodInfo method = typeof(NotificationStreamBacklogStore).GetMethod(
-            "ReadRouteReplayAsync",
-            BindingFlags.NonPublic | BindingFlags.Instance)!;
-        string runtime = RuntimeMetadataInspection.DescribeMethods(
-            typeof(NotificationStreamBacklogStore),
-            "ReadRouteReplayAsync");
-        MethodBase[] calls = ReadCalledMethods(AsyncMoveNext(method)).Select(static call => call.Method).ToArray();
+        var redis = Substitute.For<IConnectionMultiplexer>();
+        var database = Substitute.For<IDatabase>();
+        var batch = Substitute.For<IBatch>();
+        var keyScope = Substitute.For<IRuntimeKeyScope>();
+        redis.GetDatabase().Returns(database);
+        database.CreateBatch(Arg.Any<object?>()).Returns(batch);
+        keyScope.PrefixKey(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        batch.StreamRangeAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<RedisValue>(),
+                Arg.Any<int?>(),
+                Arg.Any<Order>(),
+                Arg.Any<CommandFlags>())
+            .Returns(call =>
+            {
+                Order order = call.ArgAt<Order>(4);
+                StreamEntry[] result = order == Order.Descending
+                    ? []
+                    : [StreamEntry("100-0", [0x64])];
+                return Task.FromResult(result);
+            });
+        batch.StreamRangeAsync(
+                Arg.Any<RedisKey>(),
+                default,
+                default,
+                1,
+                Order.Ascending,
+                CommandFlags.None)
+            .Returns(Task.FromResult(new[] { StreamEntry("100-0", [0x64]) }));
+        var store = new NotificationStreamBacklogStore(redis, keyScope, NullLogger<NotificationStreamBacklogStore>.Instance);
 
-        Assert.Contains(calls, static call => call.Name == nameof(IDatabase.CreateBatch));
-        Assert.Contains(calls, static call => call.DeclaringType == typeof(IBatch) && call.Name == nameof(IBatch.Execute));
-        Assert.Equal(3, calls.Count(static call => call.DeclaringType == typeof(IBatch) && call.Name == nameof(IBatch.StreamRangeAsync)));
-        Assert.Contains("HasRetainedCursorFloor", runtime, StringComparison.Ordinal);
-        Assert.DoesNotContain(calls, static call => call.DeclaringType == typeof(IDatabase) && call.Name == nameof(IDatabase.StreamRangeAsync));
+        NotificationStreamReplayBatch replay = await store.ReplayAsync(
+            new NotificationStreamCursor(50),
+            "42",
+            new HashSet<string>(StringComparer.Ordinal));
+
+        try
+        {
+            Assert.True(replay.MissedGap);
+            Assert.Single(replay.Frames);
+        }
+        finally
+        {
+            foreach (SharedNotificationStreamFrame frame in replay.Frames)
+            {
+                frame.Release();
+            }
+        }
+
+        object?[][] ranges = batch.ReceivedCalls()
+            .Where(static call => call.GetMethodInfo().Name == nameof(IBatch.StreamRangeAsync))
+            .Select(static call => call.GetArguments())
+            .ToArray();
+        Assert.Equal(3, ranges.Length);
+        Assert.Contains(ranges, static arguments =>
+            arguments[1] is null && arguments[2] is null && Equals(arguments[3], 1) && Equals(arguments[4], Order.Ascending));
+        Assert.Contains(ranges, static arguments =>
+            string.Equals(arguments[1]?.ToString(), "-", StringComparison.Ordinal)
+            && string.Equals(arguments[2]?.ToString(), "50-0", StringComparison.Ordinal)
+            && Equals(arguments[3], 1)
+            && Equals(arguments[4], Order.Descending));
+        batch.Received(1).Execute();
+        Assert.DoesNotContain(
+            database.ReceivedCalls(),
+            static call => call.GetMethodInfo().Name == nameof(IDatabase.StreamRangeAsync));
     }
 
     [Fact]
@@ -698,6 +752,20 @@ public class NotificationStreamBoundaryTests
         Assert.Empty(FindRoutes(production, "/_fsus/testing/notification-stream/publish"));
 
         WebApplicationBuilder testBuilder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Test" });
+        testBuilder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
+            ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Database=fsusblog_notification_drill_contract;Username=test;Password=test",
+            ["Jwt:SecretKey"] = "notification-drill-contract-signing-key-at-least-32-bytes",
+            ["Jwt:Issuer"] = "NotificationDrillContractTests",
+            ["Jwt:Audience"] = "NotificationDrillContractTests",
+            ["CORS_ALLOWED_HOSTS"] = "https://console.example.test",
+            ["Security:IpHashKey"] = "notification-drill-contract-ip-hash-key"
+        });
+        testBuilder.Services
+            .AddFsusApiFoundation(testBuilder.Configuration)
+            .AddFsusRuntimeServices(testBuilder.Configuration);
+        testBuilder.Services.RemoveAll<IHostedService>();
         await using WebApplication test = testBuilder.Build();
         test.MapNotificationStreamDrillEndpoints();
         RouteEndpoint endpoint = Assert.Single(FindRoutes(test, "/_fsus/testing/notification-stream/publish"));

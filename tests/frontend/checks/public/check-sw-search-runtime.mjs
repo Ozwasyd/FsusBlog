@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { decodeSearchManifest } from '../../support/aeds-envelope.mjs'
 import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../../support/http.mjs'
 
@@ -39,21 +40,25 @@ async function fetchSearchManifest(path) {
   }
 }
 
-function validateDistArtifacts() {
+export function validateDistArtifacts(root = distRoot) {
   const required = [
-    resolve(distRoot, 'sw.js'),
-    resolve(distRoot, 'wasm/search_basic.js'),
-    resolve(distRoot, 'wasm/search_basic.wasm'),
-    resolve(distRoot, 'wasm/search_simd.js'),
-    resolve(distRoot, 'wasm/search_simd.wasm')
+    resolve(root, 'sw.js'),
+    resolve(root, 'wasm/search_basic.js'),
+    resolve(root, 'wasm/search_basic.wasm'),
+    resolve(root, 'wasm/search_simd.js'),
+    resolve(root, 'wasm/search_simd.wasm')
   ]
 
   for (const file of required) {
     assert(existsSync(file), `missing dist artifact: ${file}`)
   }
 
-  const swSource = readFileSync(resolve(distRoot, 'sw.js'), 'utf8')
-  assert(swSource.includes('/search/index.manifest.aeds'), 'sw.js missing search manifest path')
+  const swSource = readFileSync(resolve(root, 'sw.js'), 'utf8')
+  assert(
+    /const SEARCH_PUBLIC_BASE = [\s\S]*?: '\/search'/u.test(swSource)
+      && /const SEARCH_MANIFEST_PATH = `\$\{SEARCH_PUBLIC_BASE\}\/index\.manifest\.aeds`/u.test(swSource),
+    'sw.js missing build-aware search manifest path'
+  )
   assert(swSource.includes('search-index.updated'), 'sw.js missing search-index.updated control path')
   assert(swSource.includes('shell.invalidate'), 'sw.js missing shell.invalidate control path')
 }
@@ -105,7 +110,9 @@ async function main() {
   console.log('[check-sw-search-runtime] ok')
 }
 
-main().catch((error) => {
-  console.error('[check-sw-search-runtime] fatal:', error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+  main().catch((error) => {
+    console.error('[check-sw-search-runtime] fatal:', error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  })
+}

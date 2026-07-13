@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { spawn, spawnSync } from 'node:child_process'
-import { createHmac, randomBytes } from 'node:crypto'
+import { createHash, createHmac, randomBytes } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -69,6 +69,7 @@ const requiredBackendQpsCounterModes = new Set(['cache-hit', 'hotread', 'cache-m
 const requiredExtendedObservabilityCategories = ['managedRuntime', 'threadOrConnection', 'storageOrCacheLatency']
 
 let notificationSupportPromise = null
+let resolvedFaultRecoveryHealthMode = null
 
 function namespaceSlug(value) {
   return String(value || 'local').replace(/[^A-Za-z0-9_.-]/g, '-')
@@ -305,6 +306,9 @@ async function fetchSample(relativePath, options = {}) {
       ok: response.status >= 200 && response.status < 400,
       elapsedMs: Number(elapsedMs.toFixed(3)),
       bytes: body.byteLength,
+      errorBody: response.status >= 400 && body.byteLength <= 16384
+        ? new TextDecoder().decode(body)
+        : null,
       frameType,
       contentType: response.headers.get('content-type'),
       contentEncoding: response.headers.get('content-encoding'),
@@ -339,7 +343,8 @@ async function runHttpProbe(paths, options = {}) {
   const failures = samples.filter((sample) => !sample.ok)
   if (failures.length > 0) {
     const first = failures[0]
-    throw new Error(`runtime probe failed for ${first.path}: HTTP ${first.status}`)
+    const diagnostic = first.errorBody?.trim()
+    throw new Error(`runtime probe failed for ${first.path}: HTTP ${first.status}${diagnostic ? ` body=${diagnostic}` : ''}`)
   }
   const expectedByPath = options.expectedByPath ?? {}
   for (const sample of samples) {
@@ -1263,7 +1268,11 @@ async function openNotificationSocket(label, options = {}) {
   }
 
   const { buildPowHeaders, decodeAedsFrame } = await notificationSupport()
-  const fingerprint = `notification-drill-${namespace}-${label}-${process.pid}-${Date.now()}`
+  // The bounded Wasm solver's optimized two-block SHA-256 path requires the
+  // challenge salt and fingerprint to fit in 128 bytes. Keep uniqueness while
+  // avoiding a label-derived fingerprint that can exceed that native contract.
+  const fingerprintSeed = `${namespace}:${label}:${process.pid}:${Date.now()}`
+  const fingerprint = `nd-${createHash('sha256').update(fingerprintSeed).digest('hex').slice(0, 24)}`
   const powHeaders = await buildPowHeaders(fingerprint, timeoutMs)
   const url = notificationWebSocketUrl(powHeaders['X-Fsus-Pow-Proof'], {
     client: label,
@@ -1896,7 +1905,7 @@ async function waitForNotificationClose(stats) {
   }
 }
 
-function startManagedDebugBackend() {
+function startManagedBackend() {
   const port = baseUrlPort()
   if (!port) {
     throw new Error(`cannot resolve backend port from ${baseUrl}`)
@@ -1911,7 +1920,18 @@ function startManagedDebugBackend() {
     ASPNETCORE_URLS: process.env.ASPNETCORE_URLS || `http://127.0.0.1:${port}`,
     ASPNETCORE_ENVIRONMENT: process.env.ASPNETCORE_ENVIRONMENT || 'Development'
   }
-  const child = spawn('dotnet', ['run', '--project', 'src/backend/FsusBlog.Server.csproj', '--no-launch-profile', '--urls', `http://127.0.0.1:${port}`], {
+  const configuration = process.env.FSUSBLOG_RUNTIME_CONFIGURATION || 'Debug'
+  if (!['Debug', 'Release'].includes(configuration)) {
+    throw new Error(`unsupported FSUSBLOG_RUNTIME_CONFIGURATION: ${configuration}`)
+  }
+  const noBuild = process.env.FSUSBLOG_RUNTIME_NO_BUILD === '1'
+  const args = [
+    'run', '--project', 'src/backend/FsusBlog.Server.csproj', '--no-launch-profile',
+    '-c', configuration,
+    ...(noBuild ? ['--no-build', '--no-restore'] : []),
+    '--urls', `http://127.0.0.1:${port}`
+  ]
+  const child = spawn('dotnet', args, {
     cwd: root,
     detached: true,
     env,
@@ -1939,11 +1959,11 @@ function startBackendRuntime(target) {
     }
   }
 
-  const processInfo = startManagedDebugBackend()
+  const processInfo = startManagedBackend()
   return {
     status: 'started',
     target: String(processInfo.pid),
-    mode: 'managed-debug-process',
+    mode: `managed-${(process.env.FSUSBLOG_RUNTIME_CONFIGURATION || 'Debug').toLowerCase()}-process`,
     startedAt,
     completedAt: nowIso(),
     durationMs: elapsedMs(started),
@@ -2134,10 +2154,24 @@ async function optionalNotificationStreamImpact() {
 }
 
 function faultRecoveryHealthMode() {
-  const mode = (process.env.FSUSBLOG_FAULT_RECOVERY_HEALTH_MODE || 'strict-ready').trim().toLowerCase()
+  if (resolvedFaultRecoveryHealthMode) return resolvedFaultRecoveryHealthMode
+  const mode = (process.env.FSUSBLOG_FAULT_RECOVERY_HEALTH_MODE || 'auto').trim().toLowerCase()
+  if (mode === 'auto') return 'auto'
   if (['strict-ready', 'ready'].includes(mode)) return 'strict-ready'
   if (['live', 'runtime', 'live-runtime'].includes(mode)) return 'live'
   throw new Error(`unsupported FSUSBLOG_FAULT_RECOVERY_HEALTH_MODE: ${mode}`)
+}
+
+async function resolveFaultRecoveryHealthMode() {
+  const configuredMode = faultRecoveryHealthMode()
+  if (configuredMode !== 'auto') {
+    resolvedFaultRecoveryHealthMode = configuredMode
+    return configuredMode
+  }
+
+  const baseline = await fetchSample('/health/ready')
+  resolvedFaultRecoveryHealthMode = baseline.ok ? 'strict-ready' : 'live'
+  return resolvedFaultRecoveryHealthMode
 }
 
 async function probeFaultRecoveryHealth(label) {
@@ -4106,6 +4140,7 @@ async function faultInjection(outDir) {
     'disk-artifact-storage-write-failure'
   ]
   const cases = selectFaultCases(defaultCases)
+  await resolveFaultRecoveryHealthMode()
   fs.mkdirSync(outDir, { recursive: true })
   const results = []
   for (const caseName of cases) {

@@ -21,6 +21,12 @@ const sourceExtensions = new Set(['.css', '.js', '.mjs', '.scss', '.ts', '.tsx',
 const programmaticApis = new Set(['ElMessage', 'ElMessageBox', 'ElNotification', 'ElLoading'])
 const warnings = []
 const allowedInternalSelectors = new Map([
+  ['src/frontend/src/assets/public-page.css', new Set([
+    '.el-public-shell__mobile-search-trigger',
+    '.el-public-shell__search--desktop-trigger',
+    '.el-public-shell__search--trigger',
+    '.el-theme-mode-toggle__menu-button'
+  ])],
   ['src/frontend/src/assets/account-shell.css', new Set([
     '.el-date-editor',
     '.el-input',

@@ -1,5 +1,7 @@
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
+using Microsoft.AspNetCore.Mvc;
+using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -13,7 +15,7 @@ public static class NotificationStreamRestartEndpoints
         endpoints.MapPost(RestartPath, (
             HttpContext context,
             NotificationStreamRestartRequest request,
-            NotificationStreamRestartCoordinator coordinator) =>
+            [FromServices] NotificationStreamRestartCoordinator coordinator) =>
         {
             if (!DeploymentControlEndpoints.IsTrustedHostControl(context))
             {
@@ -21,7 +23,7 @@ public static class NotificationStreamRestartEndpoints
             }
 
             NotificationStreamRestartSnapshot result = coordinator.RequestRestart(request);
-            return Results.Json(result, statusCode: result.Accepted
+            return HttpResults.Json(result, statusCode: result.Accepted
                 ? StatusCodes.Status202Accepted
                 : StatusCodes.Status409Conflict);
         })
@@ -30,14 +32,14 @@ public static class NotificationStreamRestartEndpoints
 
         endpoints.MapGet(StatusPath, (
             HttpContext context,
-            NotificationStreamRestartCoordinator coordinator) =>
+            [FromServices] NotificationStreamRestartCoordinator coordinator) =>
         {
             if (!DeploymentControlEndpoints.IsTrustedHostControl(context))
             {
                 return TrustedHostRequired();
             }
 
-            return Results.Json(coordinator.Current);
+            return HttpResults.Json(coordinator.Current);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
@@ -46,7 +48,7 @@ public static class NotificationStreamRestartEndpoints
     }
 
     private static IResult TrustedHostRequired()
-        => Results.Json(
+        => HttpResults.Json(
             new { accepted = false, status = "rejected", errorCode = "trusted_host_required" },
             statusCode: StatusCodes.Status403Forbidden);
 }

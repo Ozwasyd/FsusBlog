@@ -12,6 +12,7 @@ import {
   attachCheckpointEvidence,
   createRunId,
   findLatestRunId,
+  markCheckpointWallClockTimeout,
   runDag,
   tierResourceUnits,
   validateSupersedesRules
@@ -21,12 +22,15 @@ import {
   createLocalBundleTiers,
   localBundleSummaryPath,
   localProfileSystemResources,
+  resolveLocalProfileResources,
   validateLocalBundleSummary,
+  validateLocalProfileRunSummary,
   validateLocalProfiles
 } from './test-matrix/local-profile.mjs'
 import { parseMatrix } from './test-matrix/parse-matrix.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
 import { cleanupLocalRuntime, cleanupStaleLocalRuntimes } from './test-matrix/local-runtime-cleanup.mjs'
+import { cleanupOrphanDotnetBuildServers } from './test-matrix/dotnet-build-server-cleanup.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -83,7 +87,9 @@ const requiredFields = [
   'phase',
   'cost',
   'resourceClass',
-  'maxParallel',
+  'cpuWeight',
+  'memoryWeight',
+  'minCpuUnits',
   'requiresBootstrap',
   'requiresNode',
   'requiresDotnet',
@@ -91,7 +97,6 @@ const requiredFields = [
   'cacheProfile',
   'timeoutMinutes',
   'shardable',
-  'defaultShards',
   'risk',
   'cadence',
   'requiredFor',
@@ -142,12 +147,56 @@ function tierMap(matrix) {
   return new Map(matrix.tiers.map((tier) => [tier.id, tier]))
 }
 
+function logicalTierSystemResources() {
+  const cpuCount = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
+  const load1 = process.platform === 'win32' ? 0 : Math.max(0, os.loadavg()[0])
+  return {
+    cpuCount,
+    availableCpuUnits: cpuCount,
+    availableMemoryGiB: Math.max(Number.EPSILON, os.freemem() / (1024 ** 3)),
+    totalMemoryGiB: Math.max(Number.EPSILON, os.totalmem() / (1024 ** 3)),
+    load1
+  }
+}
+
+function dynamicShardCount(resources) {
+  const memoryAvailability = Math.min(1, resources.availableMemoryGiB / resources.totalMemoryGiB)
+  const pressureAdjustedCpu = Math.max(1, resources.availableCpuUnits * memoryAvailability)
+  return Math.max(1, Math.min(
+    Math.floor(resources.availableCpuUnits),
+    Math.ceil(Math.sqrt(pressureAdjustedCpu))
+  ))
+}
+
+function resolveLogicalTierResources(tiers, resources = logicalTierSystemResources()) {
+  const cpuBudget = Math.max(1, Math.floor(resources.availableCpuUnits))
+  const memoryBudget = Math.max(Number.EPSILON, Number(resources.availableMemoryGiB))
+  return tiers.map((tier) => {
+    const hasExplicitFixtureGrant = Number.isFinite(Number(tier.cpuUnits)) && Number(tier.cpuUnits) > 0
+      && Number.isFinite(Number(tier.memoryGiB)) && Number(tier.memoryGiB) > 0
+    return {
+      ...tier,
+      // Explicit units are accepted only for isolated scheduler fixtures. The
+      // repository matrix validator forbids them, so real logical tiers always
+      // use admission-time dynamic grants.
+      cpuUnits: hasExplicitFixtureGrant ? Number(tier.cpuUnits) : cpuBudget,
+      memoryGiB: hasExplicitFixtureGrant ? Number(tier.memoryGiB) : memoryBudget,
+      resourceGrantMode: hasExplicitFixtureGrant ? 'fixed' : 'dynamic',
+      maxParallel: tier.parallelizable === true ? cpuBudget : 1,
+      defaultShards: tier.shardable === true ? dynamicShardCount(resources) : 1,
+      budgetMs: Number(tier.timeoutMinutes) * 60_000
+    }
+  })
+}
+
 function normalizeTierId(id) {
   return aliases.get(id) ?? id
 }
 
 function playwrightWorkersForTier(tier) {
-  return tier.requiresPlaywright === 'none' ? null : Number(tier.playwrightWorkers)
+  return tier.requiresPlaywright === 'none'
+    ? null
+    : Math.max(1, Math.floor(tierResourceUnits(tier).cpuUnits))
 }
 
 function pathExistsForCommand(command) {
@@ -320,7 +369,7 @@ function validateFrontendFastSplit(matrix, byId) {
   const unitShard = byId.get('frontend-unit-shard')
   if (unitShard) {
     if (unitShard.shardable !== true) errors.push('frontend-unit-shard must be shardable')
-    if (Number(unitShard.defaultShards) < 2) errors.push('frontend-unit-shard.defaultShards must be at least 2')
+    if ('defaultShards' in unitShard) errors.push('frontend-unit-shard.defaultShards must be machine-resolved')
   }
 
   for (const tierId of ['frontend-build', 'frontend-runtime-contracts', 'frontend-static-governance']) {
@@ -450,14 +499,17 @@ function validateMatrix(matrix) {
         errors.push(`${tier.id}.smartGateMode=conditional requires triggerPaths, triggerFiles, triggerCoverage, or prDefault=true`)
       }
     }
-    for (const field of ['timeoutMinutes', 'defaultShards', 'maxParallel']) {
-      if (typeof tier[field] !== 'number' || tier[field] < 1) errors.push(`${tier.id}.${field} must be a positive number`)
+    if (typeof tier.timeoutMinutes !== 'number' || tier.timeoutMinutes < 1) {
+      errors.push(`${tier.id}.timeoutMinutes must be a positive number`)
     }
-    if ('cpuUnits' in tier && (typeof tier.cpuUnits !== 'number' || tier.cpuUnits < 0.1)) {
-      errors.push(`${tier.id}.cpuUnits must be at least 0.1`)
+    for (const field of ['cpuWeight', 'memoryWeight']) {
+      if (typeof tier[field] !== 'number' || tier[field] <= 0) errors.push(`${tier.id}.${field} must be positive`)
     }
-    if ('memoryGiB' in tier && (typeof tier.memoryGiB !== 'number' || tier.memoryGiB < 0)) {
-      errors.push(`${tier.id}.memoryGiB must be zero or greater`)
+    if (!Number.isInteger(tier.minCpuUnits) || tier.minCpuUnits < 1) {
+      errors.push(`${tier.id}.minCpuUnits must be a positive integer`)
+    }
+    for (const field of ['cpuUnits', 'memoryGiB']) {
+      if (field in tier) errors.push(`${tier.id}.${field} is resolved at runtime and must not be declared`)
     }
     if ('executionKey' in tier && (typeof tier.executionKey !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(tier.executionKey))) {
       errors.push(`${tier.id}.executionKey is invalid: ${tier.executionKey}`)
@@ -530,17 +582,16 @@ function validateMatrix(matrix) {
     if (tier.requiresPlaywright !== 'none' && tier.requiresNode !== true) {
       errors.push(`${tier.id}.requiresPlaywright requires requiresNode=true`)
     }
-    if (tier.requiresPlaywright !== 'none') {
-      if (!('playwrightWorkers' in tier)) {
-        errors.push(`${tier.id}.playwrightWorkers is required when requiresPlaywright=${tier.requiresPlaywright}`)
-      } else if (!Number.isInteger(tier.playwrightWorkers) || tier.playwrightWorkers < 1) {
-        errors.push(`${tier.id}.playwrightWorkers must be a positive integer`)
-      }
-    } else if ('playwrightWorkers' in tier && (!Number.isInteger(tier.playwrightWorkers) || tier.playwrightWorkers < 1)) {
-      errors.push(`${tier.id}.playwrightWorkers must be a positive integer`)
+    if ('playwrightWorkers' in tier) errors.push(`${tier.id}.playwrightWorkers is machine-resolved and must not be declared`)
+    if (tier.parallelizable === false && tier.maxParallel !== 1) {
+      errors.push(`${tier.id} is not parallelizable and must declare maxParallel=1`)
     }
-    if (tier.parallelizable === false && Number(tier.maxParallel) !== 1) {
-      errors.push(`${tier.id} is not parallelizable but maxParallel is ${tier.maxParallel}`)
+    if (tier.parallelizable === false && tier.requiresPlaywright !== 'none'
+      && (typeof tier.serialReason !== 'string' || tier.serialReason.trim().length === 0)) {
+      errors.push(`${tier.id} serial Playwright execution requires serialReason`)
+    }
+    if (tier.parallelizable === true && 'maxParallel' in tier) {
+      errors.push(`${tier.id}.maxParallel is machine-resolved and must be omitted when parallelizable=true`)
     }
     for (const dep of tier.dependsOn ?? []) {
       const depTier = byId.get(dep)
@@ -566,8 +617,11 @@ function validateMatrix(matrix) {
     } else if (!isExecutableCommand(tier.command)) {
       errors.push(`${tier.id} command path is not executable: ${tier.command}`)
     }
-    if (tier.shardable === false && Number(tier.defaultShards) !== 1) {
-      errors.push(`${tier.id} is not shardable but defaultShards is ${tier.defaultShards}`)
+    if (tier.shardable === false && tier.defaultShards !== 1) {
+      errors.push(`${tier.id} is not shardable and must declare defaultShards=1`)
+    }
+    if (tier.shardable === true && 'defaultShards' in tier) {
+      errors.push(`${tier.id}.defaultShards is machine-resolved and must be omitted when shardable=true`)
     }
   }
 
@@ -680,18 +734,27 @@ function applyNamespaceBuildEnvironment(tier, env) {
 
 function resourceEnvironmentForTier(tier, baseEnv = {}) {
   const { cpuUnits, memoryGiB } = tierResourceUnits(tier)
-  const vitestWorkerBudget = Math.max(1, Math.floor(Math.min(cpuUnits, Math.max(1, memoryGiB / 1.5))))
-  const manifestWorkerBudget = Math.max(1, Math.floor(Math.min(cpuUnits, Math.max(1, memoryGiB / 0.75))))
-  const playwrightWorkerBudget = Math.max(1, Math.floor(Math.min(cpuUnits, Math.max(1, memoryGiB))))
-  const env = {}
-  if (!process.env.FSUSBLOG_VITEST_MAX_WORKERS && !baseEnv.FSUSBLOG_VITEST_MAX_WORKERS) {
-    env.FSUSBLOG_VITEST_MAX_WORKERS = String(vitestWorkerBudget)
+  const workerBudget = Math.max(1, Math.floor(cpuUnits))
+  const cappedWorkerBudget = (name) => {
+    const requested = Number.parseInt(String(baseEnv[name] ?? process.env[name] ?? ''), 10)
+    return Number.isFinite(requested) && requested > 0 ? Math.min(workerBudget, requested) : workerBudget
   }
-  if (!process.env.FSUSBLOG_COMMAND_MANIFEST_WORKERS && !baseEnv.FSUSBLOG_COMMAND_MANIFEST_WORKERS) {
-    env.FSUSBLOG_COMMAND_MANIFEST_WORKERS = String(manifestWorkerBudget)
+  const env = {
+    FSUSBLOG_TIER_CPU_UNITS: String(cpuUnits),
+    FSUSBLOG_TIER_MEMORY_GIB: String(memoryGiB),
+    FSUSBLOG_VITEST_MAX_WORKERS: String(cappedWorkerBudget('FSUSBLOG_VITEST_MAX_WORKERS')),
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS: String(cappedWorkerBudget('FSUSBLOG_COMMAND_MANIFEST_WORKERS')),
+    FSUSBLOG_PLAYWRIGHT_WORKERS: String(cappedWorkerBudget('FSUSBLOG_PLAYWRIGHT_WORKERS'))
   }
-  if (!process.env.FSUSBLOG_PLAYWRIGHT_WORKERS && !baseEnv.FSUSBLOG_PLAYWRIGHT_WORKERS) {
-    env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkerBudget)
+  if (tier.physicalBundleId) {
+    env.FSUSBLOG_BUNDLE_CPU_BUDGET = String(workerBudget)
+    env.FSUSBLOG_BUNDLE_MEMORY_GIB = String(memoryGiB)
+    if (Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0) {
+      env.FSUSBLOG_BUNDLE_DEADLINE_MS = String(tier.budgetMs)
+    }
+  }
+  if (Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0) {
+    env.FSUSBLOG_TIER_DEADLINE_MS = String(tier.budgetMs)
   }
   return env
 }
@@ -764,6 +827,29 @@ function schedulerRunIdentity(targetTierId, options) {
   return {
     runsRoot,
     runId: explicitRunId || resumedRunId || createRunId(targetTierId)
+  }
+}
+
+function schedulerRunIsActive(runId) {
+  const lockPath = path.join(root, '.tmp/test-runs/.locks', `${runId}.lock`)
+  const ownerFile = path.join(lockPath, 'owner.json')
+  if (!fs.existsSync(lockPath)) return false
+  try {
+    const owner = JSON.parse(fs.readFileSync(ownerFile, 'utf8'))
+    const pid = Number(owner.pid)
+    if (!Number.isInteger(pid) || pid <= 0) return true
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch (error) {
+      return error.code === 'EPERM'
+    }
+  } catch {
+    try {
+      return Date.now() - fs.statSync(lockPath).mtimeMs < 30_000
+    } catch {
+      return true
+    }
   }
 }
 
@@ -1017,13 +1103,42 @@ function projectLocalBundleSummaries(matrix, profileId, profile, runId, complete
 
 async function runLocalProfile(matrix, profileId, options) {
   if (options.resume) throw new Error(`local ${profileId} profile is fresh-only; use --logical-dag --resume for diagnostics`)
+  const wallClockStartedAtMs = Number(process.env.FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS ?? Date.now())
+  if (!Number.isFinite(wallClockStartedAtMs) || wallClockStartedAtMs <= 0 || wallClockStartedAtMs > Date.now()) {
+    throw new Error('FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS must be a valid epoch timestamp that is not in the future')
+  }
   const profile = matrix.localProfiles[profileId]
-  const physicalTiers = createLocalBundleTiers(profileId, profile)
+  const staleCleanup = options.planOnly ? null : cleanupStaleLocalRuntimes({
+    root,
+    discoverUntracked: true,
+    legacyContainerMinimumAgeMs: profile.budgetMs * 2,
+    orphanTerminationGraceMs: Math.ceil(profile.budgetMs / 100)
+  })
+  const dotnetBuildServerPreflightPids = options.planOnly ? [] : cleanupOrphanDotnetBuildServers({
+    root,
+    currentRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? '',
+    currentNamespace: process.env.FSUSBLOG_TEST_NAMESPACE ?? '',
+    includeCurrentBinding: false,
+    includeInactiveProductionRuns: true,
+    isRunActive: schedulerRunIsActive,
+    terminationGraceMs: Math.ceil(profile.budgetMs / 100)
+  })
+  const detectedResources = localProfileSystemResources(profile, {
+    cpuCount: os.availableParallelism?.() ?? os.cpus().length,
+    availableMemoryGiB: os.freemem() / (1024 ** 3),
+    load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
+  })
+  const resolvedProfile = resolveLocalProfileResources(profile, detectedResources)
+  const launchParallelism = Math.min(options.maxParallel ?? detectedResources.launchParallelism, detectedResources.launchParallelism)
+  const physicalTiers = createLocalBundleTiers(profileId, resolvedProfile, { maxParallel: launchParallelism })
+  for (const bundle of resolvedProfile.bundles) {
+    console.error(`[matrix:${profileId}] resolved bundle=${bundle.id} cpu=${bundle.cpuUnits} memory=${bundle.memoryGiB.toFixed(2)}GiB deadline=${bundle.budgetMs}ms stepMaxParallel=${bundle.stepMaxParallel}`)
+  }
   if (options.planOnly) {
     printPlan(physicalTiers.map((tier) => ({
       ...tier,
       ciJob: `local-${profileId}`,
-      timeoutMinutes: Math.ceil(tier.budgetMs / 60_000),
+      timeoutMinutes: Number.isFinite(Number(tier.budgetMs)) ? Math.ceil(tier.budgetMs / 60_000) : 'observe-only',
       risk: 'critical',
       shardable: false,
       defaultShards: 1
@@ -1031,11 +1146,11 @@ async function runLocalProfile(matrix, profileId, options) {
     return
   }
 
-  const staleCleanup = cleanupStaleLocalRuntimes({ root })
-  console.error(`[matrix:${profileId}] stale runtime cleanup namespaces=${staleCleanup.namespaces.length} processes=${staleCleanup.terminatedPids.length} containers=${staleCleanup.removedContainers.length}`)
+  console.error(`[matrix:${profileId}] stale runtime cleanup namespaces=${staleCleanup.namespaces.length} processes=${staleCleanup.terminatedPids.length} containers=${staleCleanup.removedContainers.length} dotnetBuildServers=${dotnetBuildServerPreflightPids.length}`)
   cleanLocalProductionOutputs(root)
   const capacity = assertLocalProductionCapacity({ root })
   console.error(`[matrix:${profileId}] capacity preflight=${capacity.measurements.map(({ directory, availableBytes }) => `${directory}:${(availableBytes / (1024 ** 3)).toFixed(1)}GiB`).join(',')}`)
+  console.error(`[matrix:${profileId}] dynamic resources cpu=${detectedResources.availableCpuUnits}/${detectedResources.cpuCount} memory=${detectedResources.availableMemoryGiB.toFixed(1)}GiB reserve=${detectedResources.memoryReserveGiB.toFixed(1)}GiB load1=${detectedResources.load1.toFixed(2)} launchParallelism=${launchParallelism}`)
   const target = physicalTiers.at(-1)
   target.selfBootstraps = true
   const { runsRoot, runId } = schedulerRunIdentity(profileId, { ...options, fresh: true, resume: false })
@@ -1052,13 +1167,11 @@ async function runLocalProfile(matrix, profileId, options) {
       targetTierId: profileId,
       mode: 'fresh',
       resume: false,
-      maxParallel: Math.min(options.maxParallel ?? profile.maxParallel, profile.maxParallel),
-      wallClockBudgetMs: profile.budgetMs,
-      systemResources: localProfileSystemResources(profile, {
-        cpuCount: os.availableParallelism?.() ?? os.cpus().length,
-        availableMemoryGiB: os.freemem() / (1024 ** 3),
-        load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
-      }),
+      maxParallel: launchParallelism,
+      wallClockBudgetMs: profile.enforceBudget === false ? null : profile.budgetMs,
+      wallClockStartedAtMs,
+      collectFailures: true,
+      systemResources: detectedResources,
       teeOutput: true,
       envForTier(tier) {
         const env = applyNamespaceBuildEnvironment(tier, {
@@ -1081,7 +1194,8 @@ async function runLocalProfile(matrix, profileId, options) {
         return env
       },
       onTierStart(tier) {
-        console.error(`[matrix:${profileId}] bundle=${tier.physicalBundleId} budgetMs=${tier.budgetMs} command=${tier.command}`)
+        const budgetLabel = Number.isFinite(Number(tier.budgetMs)) ? `${tier.budgetMs}ms` : 'observe-only'
+        console.error(`[matrix:${profileId}] bundle=${tier.physicalBundleId} budget=${budgetLabel} command=${tier.command}`)
       }
     })
 
@@ -1121,13 +1235,13 @@ async function runLocalProfile(matrix, profileId, options) {
       .flatMap((bundle) => bundle.members)
     const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
     fs.mkdirSync(path.dirname(summaryFile), { recursive: true })
-    fs.writeFileSync(summaryFile, `${JSON.stringify({
+    const summary = {
       schema: 'fsusblog.local-production.run.v1',
       status: result.status,
       executionSource: 'fresh',
       schedulerRunId: runId,
       budgetMs: profile.budgetMs,
-      durationMs: Math.max(0, Date.now() - Date.parse(result.checkpoint.startedAt)),
+      durationMs: Math.max(0, Date.now() - wallClockStartedAtMs),
       physicalBundles: physicalTiers.map((tier) => ({
         id: tier.physicalBundleId,
         status: result.checkpoint.tiers?.[tier.id]?.status ?? 'not-run',
@@ -1137,21 +1251,91 @@ async function runLocalProfile(matrix, profileId, options) {
       summaryOnlyTierIds: profile.summaryOnly ?? [],
       ungeneratedTierIds,
       failure: result.failure ?? null,
+      failures: result.checkpoint.failures ?? (result.failure ? [result.failure] : []),
       generatedAt: new Date().toISOString()
-    }, null, 2)}\n`)
+    }
+    const summaryDurationErrors = validateLocalProfileRunSummary(summary, profile)
+    if (summaryDurationErrors.length > 0 && summary.status === 'success') {
+      summary.status = 'failure'
+      summary.failure = { tierId: profileId, exitCode: 124, reason: summaryDurationErrors.join('; ') }
+      result.status = 'failure'
+      result.failure = summary.failure
+    }
+    fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
 
     console.error(`[matrix:${profileId}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)} summary=${relativeToRoot(summaryFile)}`)
   } finally {
     cleanupSensitiveFixtures(runNamespace, loadNamespaceEnv(runNamespace))
     const cleanup = cleanupLocalRuntime({ root, namespace: runNamespace })
+    // Every managed bundle has settled before this finally block. Reclaim build
+    // servers here so a cancelled compiler cannot steal CPU from the next fresh
+    // run; doing this inside a bundle would race sibling dotnet processes.
+    const buildServerShutdown = spawnSync('dotnet', ['build-server', 'shutdown'], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 5_000
+    })
+    const dotnetBuildServerPostflightPids = cleanupOrphanDotnetBuildServers({
+      root,
+      currentRunId: runId,
+      currentNamespace: runNamespace,
+      includeCurrentBinding: true,
+      includeInactiveProductionRuns: false,
+      isRunActive: schedulerRunIsActive,
+      terminationGraceMs: Math.ceil(profile.budgetMs / 100)
+    })
     const cleanupFile = path.join(root, `.tmp/local-${profileId}/runtime-cleanup.json`)
     fs.mkdirSync(path.dirname(cleanupFile), { recursive: true })
-    fs.writeFileSync(cleanupFile, `${JSON.stringify({ ...cleanup, generatedAt: new Date().toISOString() }, null, 2)}\n`)
+    fs.writeFileSync(cleanupFile, `${JSON.stringify({
+      ...cleanup,
+      dotnetBuildServer: {
+        status: buildServerShutdown.status,
+        signal: buildServerShutdown.signal,
+        error: buildServerShutdown.error?.message ?? null,
+        preflightOrphanPids: dotnetBuildServerPreflightPids,
+        postflightOrphanPids: dotnetBuildServerPostflightPids
+      },
+      generatedAt: new Date().toISOString()
+    }, null, 2)}\n`)
     console.error(`[matrix:${profileId}] runtime cleanup=${relativeToRoot(cleanupFile)} containers=${cleanup.removedContainers.length}`)
   }
 
+  const completedAtMs = Date.now()
+  const fullScriptDurationMs = Math.max(0, completedAtMs - wallClockStartedAtMs)
+  const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
+  if (profile.enforceBudget !== false && fullScriptDurationMs > profile.budgetMs) {
+    const wallClockFailure = {
+      tierId: profileId,
+      exitCode: 124,
+      signal: null,
+      reason: `full ./tools/test.sh ${profileId} wall-clock budget exceeded (${fullScriptDurationMs}/${profile.budgetMs}ms)`,
+      changedPaths: []
+    }
+    result.checkpoint = markCheckpointWallClockTimeout(
+      result.checkpointPath,
+      wallClockFailure,
+      new Date(completedAtMs).toISOString())
+    result.status = 'failure'
+    result.failure ??= wallClockFailure
+  }
+  if (fs.existsSync(summaryFile)) {
+    const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+    summary.durationMs = fullScriptDurationMs
+    summary.status = result.status
+    summary.failure = result.failure ?? null
+    summary.failures = result.checkpoint.failures ?? (result.failure ? [result.failure] : [])
+    summary.generatedAt = new Date(completedAtMs).toISOString()
+    fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+  }
+
   if (result.status !== 'success') {
-    console.error(`[matrix:${result.failure?.tierId ?? profileId}] ${result.failure?.reason ?? 'local profile failed'}`)
+    const failures = result.checkpoint.failures?.length > 0
+      ? result.checkpoint.failures
+      : [result.failure ?? { tierId: profileId, reason: 'local profile failed' }]
+    console.error(`[matrix:${profileId}] ${failures.length} independent failure(s) collected`)
+    for (const failure of failures) {
+      console.error(`[matrix:${failure.tierId ?? profileId}] ${failure.reason ?? 'local profile failed'}`)
+    }
     process.exit(Number(result.failure?.exitCode) || 1)
   }
 }
@@ -1176,8 +1360,10 @@ async function runTier(matrix, tierId, args) {
     await runLocalProfile(matrix, normalizeTierId(tierId), options)
     return
   }
-  const all = options.noDeps ? [tierMap(matrix).get(normalizeTierId(tierId))] : planTier(matrix, tierId)
-  if (all.some((tier) => !tier)) throw new Error(`unknown tier: ${tierId}`)
+  const declaredTiers = options.noDeps ? [tierMap(matrix).get(normalizeTierId(tierId))] : planTier(matrix, tierId)
+  if (declaredTiers.some((tier) => !tier)) throw new Error(`unknown tier: ${tierId}`)
+  const systemResources = logicalTierSystemResources()
+  const all = resolveLogicalTierResources(declaredTiers, systemResources)
 
   if (options.shard) {
     const target = all[all.length - 1]
@@ -1206,7 +1392,8 @@ async function runTier(matrix, tierId, args) {
     resume: options.resume,
     supersedesUniverse: matrix.tiers,
     coverageRegistry: loadCoverageRegistry().entries,
-    maxParallel: options.maxParallel ?? undefined,
+    maxParallel: Math.min(options.maxParallel ?? systemResources.availableCpuUnits, systemResources.availableCpuUnits),
+    systemResources,
     teeOutput: true,
     envForTier(tier) {
       const namespaceEnv = loadNamespaceEnv(runNamespace)
@@ -1218,8 +1405,6 @@ async function runTier(matrix, tierId, args) {
         FSUSBLOG_TEST_RUN_ID: runId
       })
       Object.assign(env, resourceEnvironmentForTier(tier, env))
-      const playwrightWorkers = playwrightWorkersForTier(tier)
-      if (playwrightWorkers !== null) env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkers)
       applyUxViewportResumeEnvironment(env, tier, options.resume)
       if (options.shard) {
         const [index, total] = options.shard.split('/')
@@ -1390,10 +1575,12 @@ function loadSelectedTierIds(prPlanFile) {
 }
 
 function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = false) {
-  const tiers = applySupersedes(ciJobTiers(matrix, jobId)
+  const declaredTiers = applySupersedes(ciJobTiers(matrix, jobId)
     .filter((tier) => selectedTierIds === null || selectedTierIds.has(tier.id)))
+  const systemResources = logicalTierSystemResources()
+  const tiers = resolveLogicalTierResources(declaredTiers, systemResources)
   if (tiers.length === 0) {
-    if (allowEmpty) return { include: [] }
+    if (allowEmpty) return { resource_resolution: systemResources, include: [] }
     throw new Error(`unknown CI job or no required tiers: ${jobId}`)
   }
 
@@ -1411,6 +1598,11 @@ function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = fa
           shard_id: shardLabel,
           resource_class: tier.resourceClass,
           max_parallel: tier.maxParallel,
+          cpu_units: tier.cpuUnits,
+          memory_gib: tier.memoryGiB,
+          cpu_weight: tier.cpuWeight,
+          memory_weight: tier.memoryWeight,
+          min_cpu_units: tier.minCpuUnits,
           playwright_workers: playwrightWorkersForTier(tier) ?? 1,
           timeout_minutes: tier.timeoutMinutes,
           artifact_name: `${jobId}-${shardLabel}`
@@ -1426,6 +1618,11 @@ function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = fa
       shard_id: tier.id,
       resource_class: tier.resourceClass,
       max_parallel: tier.maxParallel,
+      cpu_units: tier.cpuUnits,
+      memory_gib: tier.memoryGiB,
+      cpu_weight: tier.cpuWeight,
+      memory_weight: tier.memoryWeight,
+      min_cpu_units: tier.minCpuUnits,
       playwright_workers: playwrightWorkersForTier(tier) ?? 1,
       timeout_minutes: tier.timeoutMinutes,
       artifact_name: `${jobId}-${tier.id}`
@@ -1433,6 +1630,10 @@ function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = fa
   }
 
   return {
+    resource_resolution: {
+      ...systemResources,
+      defaultShards: dynamicShardCount(systemResources)
+    },
     include
   }
 }
@@ -1461,7 +1662,7 @@ function ciJobMatrix(matrix, jobId, args) {
 
 function printCiJobPlan(matrix, jobId) {
   const declaredTiers = ciJobTiers(matrix, jobId)
-  const tiers = applySupersedes(declaredTiers)
+  const tiers = resolveLogicalTierResources(applySupersedes(declaredTiers))
   if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
   console.log(`To reproduce GitHub Actions job "${jobId}" locally:`)
   console.log(`  ${ciJobReproductionCommand(jobId, matrix)}`)
@@ -1484,7 +1685,8 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
   const targetTierId = `ci-job/${jobId}`
   const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
   const schedulerMode = options.forceSerial ? 'serial' : 'parallel'
-  const maxParallel = options.forceSerial ? 1 : (options.maxParallel ?? ciJobMaxParallel(tiers))
+  const dynamicMaximum = Math.min(ciJobMaxParallel(tiers), options.systemResources.availableCpuUnits)
+  const maxParallel = options.forceSerial ? 1 : Math.min(options.maxParallel ?? dynamicMaximum, dynamicMaximum)
   console.error(`[matrix:ci-job:${jobId}] scheduler=${schedulerMode} max=${maxParallel}`)
   const bootstrapTier = tiers.find((tier) => tier.selfBootstraps === true)
   if (bootstrapTier) prepareNamespaceEnvironmentIfNeeded(tiers, namespaceFor(bootstrapTier, options.shard, runId))
@@ -1505,6 +1707,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
     supersedesUniverse: matrix.tiers,
     coverageRegistry: loadCoverageRegistry().entries,
     maxParallel,
+    systemResources: options.systemResources,
     teeOutput: true,
     envForTier(tier) {
       const runNamespace = namespaceFor(tier, options.shard, runId)
@@ -1518,8 +1721,6 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
         FSUSBLOG_CI_JOB_SCHEDULER: schedulerMode
       })
       Object.assign(env, resourceEnvironmentForTier(tier, env))
-      const playwrightWorkers = playwrightWorkersForTier(tier)
-      if (playwrightWorkers !== null) env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkers)
       applyUxViewportResumeEnvironment(env, tier, options.resume)
       if (options.shard && tier.shardable) {
         const [index, total] = options.shard.split('/')
@@ -1555,14 +1756,16 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
 
 async function runCiJob(matrix, jobId, args) {
   const options = parseCiJobOptions(args)
-  const tiers = effectiveCiJobTiers(matrix, jobId)
-  if (tiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
+  const declaredTiers = effectiveCiJobTiers(matrix, jobId)
+  if (declaredTiers.length === 0) throw new Error(`unknown CI job or no required tiers: ${jobId}`)
   if (options.shard && !/^\d+\/\d+$/.test(options.shard)) throw new Error('--shard must use i/n format')
   if (options.planOnly) {
     printCiJobPlan(matrix, jobId)
     return
   }
 
+  options.systemResources = logicalTierSystemResources()
+  const tiers = resolveLogicalTierResources(declaredTiers, options.systemResources)
   options.forceSerial = process.env.FSUSBLOG_CI_JOB_SERIAL === '1' || ciJobSchedulerMode(tiers) === 'serial'
   if (process.env.FSUSBLOG_CI_JOB_SERIAL === '1') console.error(`[matrix:ci-job:${jobId}] scheduler=serial forced by FSUSBLOG_CI_JOB_SERIAL=1`)
   const status = await runCiJobScheduled(matrix, jobId, tiers, options)
@@ -1584,21 +1787,25 @@ function parseAggregateOptions(args) {
 }
 
 function generatedMatrixSummaryIds(matrix, jobId) {
-  const tiers = effectiveCiJobTiers(matrix, jobId)
+  const tiers = resolveLogicalTierResources(effectiveCiJobTiers(matrix, jobId))
   const shardSummaryIds = []
+  const unshardedTierSummaryIds = []
   for (const tier of tiers) {
     const totalShards = tier.shardable ? Number(tier.defaultShards) || 1 : 1
-    if (totalShards <= 1) continue
+    if (totalShards <= 1) {
+      unshardedTierSummaryIds.push(`${jobId}-${tier.id}`)
+      continue
+    }
     for (let index = 1; index <= totalShards; index += 1) {
       shardSummaryIds.push(`${jobId}-${shardId(index, totalShards)}`)
     }
   }
-  if (shardSummaryIds.length > 0) return shardSummaryIds
   if (new Set(['fast-backend', 'fast-frontend-unit']).has(jobId)) {
     return ciJobSchedulerMode(tiers) === 'parallel'
-      ? tiers.map((tier) => `${jobId}-${tier.id}`)
+      ? [...shardSummaryIds, ...unshardedTierSummaryIds]
       : [jobId]
   }
+  if (shardSummaryIds.length > 0) return shardSummaryIds
   return [jobId]
 }
 
@@ -1768,8 +1975,8 @@ function listTiers(matrix) {
       `risk=${tier.risk}`,
       `cadence=${tier.cadence}`,
       `requiredFor=${tier.requiredFor}`,
-      tier.parallelizable ? 'parallel' : 'serial',
-      tier.shardable ? `shardable:${tier.defaultShards}` : 'single'
+      tier.parallelizable ? 'parallel:machine' : 'serial',
+      tier.shardable ? 'shardable:machine' : 'single'
     ]
     console.log(`${tier.id}\t${tags.join(' ')}`)
   }
@@ -1797,8 +2004,15 @@ function buildCiPlan(matrix, format) {
     const backend = left === 'backend' || left === 'full' || right === 'backend' || right === 'full'
     return frontend && backend ? 'full' : frontend ? 'frontend' : backend ? 'backend' : 'none'
   }
+  const resolvedById = new Map()
+  const declaredByJob = new Map()
+  for (const tier of matrix.tiers) declaredByJob.set(tier.ciJob, [...(declaredByJob.get(tier.ciJob) ?? []), tier])
+  for (const tiers of declaredByJob.values()) {
+    for (const tier of resolveLogicalTierResources(tiers)) resolvedById.set(tier.id, tier)
+  }
   const jobs = new Map()
-  for (const tier of matrix.tiers) {
+  for (const declaredTier of matrix.tiers) {
+    const tier = resolvedById.get(declaredTier.id)
     const job = jobs.get(tier.ciJob) ?? {
       id: tier.ciJob,
       tiers: [],
@@ -2080,8 +2294,10 @@ async function ciPrSmart(matrix, args) {
     return
   }
   const byId = tierMap(matrix)
-  const tiers = plan.selectedTierIds.map((tierId) => byId.get(tierId)).filter(Boolean)
-  if (tiers.length === 0) return
+  const declaredTiers = plan.selectedTierIds.map((tierId) => byId.get(tierId)).filter(Boolean)
+  if (declaredTiers.length === 0) return
+  const systemResources = logicalTierSystemResources()
+  const tiers = resolveLogicalTierResources(declaredTiers, systemResources)
   const targetTierId = 'ci-pr-smart'
   const schedulerOptions = { resume: false }
   const { runsRoot, runId } = schedulerRunIdentity(targetTierId, schedulerOptions)
@@ -2098,6 +2314,8 @@ async function ciPrSmart(matrix, args) {
     resume: false,
     supersedesUniverse: matrix.tiers,
     coverageRegistry: loadCoverageRegistry().entries,
+    maxParallel: systemResources.availableCpuUnits,
+    systemResources,
     teeOutput: true,
     envForTier(tier) {
       const env = applyNamespaceBuildEnvironment(tier, {
@@ -2110,8 +2328,6 @@ async function ciPrSmart(matrix, args) {
         FSUSBLOG_CI_JOB_SCHEDULER: 'dag'
       })
       Object.assign(env, resourceEnvironmentForTier(tier, env))
-      const playwrightWorkers = playwrightWorkersForTier(tier)
-      if (playwrightWorkers !== null) env.FSUSBLOG_PLAYWRIGHT_WORKERS = String(playwrightWorkers)
       applyUxViewportResumeEnvironment(env, tier, false)
       return env
     },
@@ -2148,10 +2364,10 @@ function docs(matrix, outFile) {
     '',
     `Version: \`${matrix.version}\``,
     '',
-    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Smart gate | PR default | Retention | Trigger reason | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Sharding | Timeout | Artifacts | Evidence |',
     '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
-  for (const tier of matrix.tiers) {
+  for (const tier of resolveLogicalTierResources(matrix.tiers)) {
     lines.push([
       `\`${tier.id}\``,
       `\`${tier.ciJob}\``,
@@ -2164,9 +2380,9 @@ function docs(matrix, outFile) {
       tier.prDefault === true ? 'yes' : 'no',
       tier.retentionClass ?? '-',
       tier.triggerReason ?? '-',
-      tier.resourceClass,
+      `${tier.resourceClass} cpu=${tier.cpuWeight} memory=${tier.memoryWeight} minCpu=${tier.minCpuUnits}`,
       tier.cost,
-      String(tier.maxParallel),
+      tier.parallelizable ? 'machine' : 'serial',
       playwrightWorkersForTier(tier) === null ? '-' : String(playwrightWorkersForTier(tier)),
       tier.requiresBootstrap,
       tier.requiresNode ? 'yes' : 'no',
@@ -2175,7 +2391,7 @@ function docs(matrix, outFile) {
       tier.cacheProfile,
       tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
       tier.services.length > 0 ? tier.services.join(', ') : '-',
-      tier.shardable ? String(tier.defaultShards) : '1',
+      tier.shardable ? 'machine' : 'single',
       `${tier.timeoutMinutes}m`,
       tier.artifacts.length > 0 ? tier.artifacts.map((item) => `\`${item}\``).join('<br>') : '-',
       tier.evidence.length > 0 ? tier.evidence.map((item) => `\`${item}\``).join('<br>') : '-'
@@ -2201,12 +2417,13 @@ function docs(matrix, outFile) {
 }
 
 function evidencePlan(matrix, outFile) {
+  const resolvedTiers = resolveLogicalTierResources(matrix.tiers)
   const plan = {
     schema: 'fsusblog.release-evidence.test-plan.v1',
     generatedAt: new Date().toISOString(),
     commit: git(['rev-parse', 'HEAD']),
     namespace: process.env.FSUSBLOG_TEST_NAMESPACE ?? null,
-    tiers: matrix.tiers.map((tier) => ({
+    tiers: resolvedTiers.map((tier) => ({
       id: tier.id,
       ciJob: tier.ciJob,
       command: tier.command,
@@ -2215,7 +2432,10 @@ function evidencePlan(matrix, outFile) {
       phase: tier.phase,
       cost: tier.cost,
       resourceClass: tier.resourceClass,
-      maxParallel: tier.maxParallel,
+      cpuWeight: tier.cpuWeight,
+      memoryWeight: tier.memoryWeight,
+      minCpuUnits: tier.minCpuUnits,
+      parallelism: tier.parallelizable ? 'machine' : 'serial',
       requiresBootstrap: tier.requiresBootstrap,
       requiresNode: tier.requiresNode,
       requiresDotnet: tier.requiresDotnet,
@@ -2223,7 +2443,7 @@ function evidencePlan(matrix, outFile) {
       playwrightWorkers: playwrightWorkersForTier(tier),
       cacheProfile: tier.cacheProfile,
       shardable: tier.shardable,
-      defaultShards: tier.defaultShards,
+      sharding: tier.shardable ? 'machine' : 'single',
       artifacts: tier.artifacts,
       evidence: tier.evidence,
       risk: tier.risk,
@@ -2427,7 +2647,7 @@ async function main() {
     return
   }
   if (command === 'plan') {
-    printPlan(planTier(matrix, args[0]))
+    printPlan(resolveLogicalTierResources(planTier(matrix, args[0])))
     return
   }
   if (command === 'run') {
@@ -2490,5 +2710,6 @@ try {
   await main()
 } catch (error) {
   console.error(`[matrix] ${error.message}`)
+  if (process.env.FSUSBLOG_MATRIX_DEBUG_STACK === '1' && error?.stack) console.error(error.stack)
   process.exit(1)
 }

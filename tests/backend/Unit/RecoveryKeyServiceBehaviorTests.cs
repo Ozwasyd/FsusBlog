@@ -18,11 +18,13 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixture fixture)
 {
+    private static readonly SemaphoreSlim DatabaseResetLock = new(1, 1);
+    private static string? sharedConnectionString;
+
     [Fact]
     public async Task VerifyAsync_WithOnlyRecoveryKey_CreatesPendingSessionWithoutPrematurePasskeyRevocation()
     {
         using SqlSugarClient db = await CreateDbAsync();
-        CreateTables(db);
         int userId = SeedUser(db);
         SeedSession(db, userId, "session-current");
         SeedPasskey(db, userId, "old-credential", DateTime.UtcNow.AddMinutes(-5));
@@ -90,7 +92,6 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     public async Task VerifyAsync_RevocationPublicationFailureRollsBackDatabaseAndCleansPossiblePartialFence()
     {
         using SqlSugarClient db = await CreateDbAsync();
-        CreateTables(db);
         int userId = SeedUser(db);
         SeedSession(db, userId, "session-publication-failure");
         var validationCache = Substitute.For<IUserSessionValidationCache>();
@@ -131,7 +132,6 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     public async Task VerifyAsync_InvalidOrLegacyKey_ReturnsGenericFailureAndRateLimits()
     {
         using SqlSugarClient db = await CreateDbAsync();
-        CreateTables(db);
         RecoveryKeyService service = CreateService(db);
         var legacyFormat = new RecoveryKeyVerifyRequestCoreModel(
             "frk_legacy_without_lookup",
@@ -180,7 +180,6 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     public async Task VerifyAsync_OverlongRecoveryKeyRejectsBeforeAttemptCounterOrCredentialLookup()
     {
         using SqlSugarClient db = await CreateDbAsync();
-        CreateTables(db);
         RecoveryKeyService service = CreateService(db);
         string overlong = "frk_" + new string('a', 4096);
 
@@ -235,7 +234,6 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     public async Task VerifyAsync_LocksCandidateRowBeforeConsumingValidSecret()
     {
         using SqlSugarClient db = await CreateDbAsync();
-        CreateTables(db);
         int accountId = SeedUser(db);
         RecoveryKeyService service = CreateService(db);
         Result<RecoveryKeyCreateResponseCoreModel> created = await service.CreateAsync(accountId, CancellationToken.None);
@@ -249,9 +247,9 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
             "unit-test",
             CancellationToken.None);
 
-        string lockedLookup = Assert.Single(executedSql.Where(static sql =>
+        string lockedLookup = Assert.Single(executedSql, static sql =>
             sql.Contains("account_recovery_key", StringComparison.OrdinalIgnoreCase)
-            && sql.Contains("FOR UPDATE", StringComparison.OrdinalIgnoreCase)));
+            && sql.Contains("FOR UPDATE", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("lookup_id_hash", lockedLookup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("key_hash =", lockedLookup, StringComparison.OrdinalIgnoreCase);
         Assert.True(verified.IsSuccess);
@@ -260,8 +258,34 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
         Assert.NotNull(consumed.UsedAt);
     }
 
-    private Task<SqlSugarClient> CreateDbAsync()
-        => PostgresSqlSugarTestClient.CreateAsync(fixture);
+    private async Task<SqlSugarClient> CreateDbAsync()
+    {
+        await DatabaseResetLock.WaitAsync();
+        try
+        {
+            string connectionString;
+            if (sharedConnectionString is null)
+            {
+                connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+                using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+                CreateTables(setupDb);
+                sharedConnectionString = connectionString;
+            }
+            else
+            {
+                connectionString = sharedConnectionString;
+            }
+
+            await fixture.ExecuteAsync(
+                connectionString,
+                "TRUNCATE TABLE account_recovery_key, passkey_credential, sys_user_session, sys_user RESTART IDENTITY CASCADE;");
+            return PostgresSqlSugarTestClient.Create(connectionString);
+        }
+        finally
+        {
+            DatabaseResetLock.Release();
+        }
+    }
 
     private static void CreateTables(SqlSugarClient db)
         => PostgresSqlSugarTestClient.InitTables(

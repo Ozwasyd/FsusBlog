@@ -17,6 +17,7 @@
  *   FSUSBLOG_BASE_URL=http://127.0.0.1:7568 node ../../tests/frontend/checks/public/check-public-refresh-hydration.mjs
  */
 import { createRequire } from 'node:module'
+import os from 'node:os'
 import { dirname } from 'node:path'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -29,7 +30,20 @@ const { chromium } = require(require.resolve('@playwright/test', { paths: [proce
 const publicFixtureIds = readPublicFixtureIds()
 const executablePath = resolveSystemChromiumExecutablePath()
 
-const PUBLIC_HYDRATION_TIMEOUT_MS = 12000
+function resolvePublicHydrationTimeoutMs() {
+  const explicit = Number(process.env.FSUSBLOG_PUBLIC_HYDRATION_TIMEOUT_MS)
+  if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit)
+  const hostCpus = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
+  const grantedCpus = Math.max(1, Number(process.env.FSUSBLOG_STEP_CPU_BUDGET) || hostCpus)
+  const pressureScale = Math.sqrt(hostCpus / Math.min(hostCpus, grantedCpus))
+  const stepDeadlineMs = Number(process.env.FSUSBLOG_STEP_DEADLINE_MS)
+  const deadlineShare = Number.isFinite(stepDeadlineMs) && stepDeadlineMs > 0
+    ? stepDeadlineMs / Math.max(1, 32 * pressureScale)
+    : Number.POSITIVE_INFINITY
+  return Math.max(12_000, Math.floor(Math.min(12_000 * pressureScale, deadlineShare)))
+}
+
+const PUBLIC_HYDRATION_TIMEOUT_MS = resolvePublicHydrationTimeoutMs()
 const PUBLIC_RUNTIME_TIMEOUT_MS = 10000
 const PUBLIC_INTERACTION_SETTLE_MS = 800
 const PUBLIC_RELOAD_SETTLE_TIMEOUT_MS = parsePositiveInt(
@@ -405,25 +419,30 @@ async function waitForVueMount(page, maxMs = 5000) {
 }
 
 async function waitForPublicHydration(page, expectedKind, maxMs = PUBLIC_HYDRATION_TIMEOUT_MS) {
-  await page.waitForFunction(
-    ({ kind }) => {
-      const app = document.getElementById('app')
-      const shell = app?.querySelector('#fsus-aot-shell')
-      const metrics = Array.isArray(window.__FSUS_PUBLIC_HYDRATION_METRICS__)
-        ? window.__FSUS_PUBLIC_HYDRATION_METRICS__
-        : []
+  try {
+    await page.waitForFunction(
+      ({ kind }) => {
+        const app = document.getElementById('app')
+        const shell = app?.querySelector('#fsus-aot-shell')
+        const metrics = Array.isArray(window.__FSUS_PUBLIC_HYDRATION_METRICS__)
+          ? window.__FSUS_PUBLIC_HYDRATION_METRICS__
+          : []
 
-      return Boolean(
-        app?.__vue_app__
-        && shell
-        && shell.parentElement === app
-        && shell.getAttribute('data-public-hydration-kind') === kind
-        && metrics.some((entry) => entry?.pageKind === kind)
-      )
-    },
-    { kind: expectedKind },
-    { timeout: maxMs }
-  )
+        return Boolean(
+          app?.__vue_app__
+          && shell
+          && shell.parentElement === app
+          && shell.getAttribute('data-public-hydration-kind') === kind
+          && metrics.some((entry) => entry?.pageKind === kind)
+        )
+      },
+      { kind: expectedKind },
+      { timeout: maxMs }
+    )
+  } catch (error) {
+    const state = await readHydrationState(page, expectedKind)
+    throw new Error(`${error instanceof Error ? error.message : String(error)}; state=${JSON.stringify(state)}`)
+  }
 }
 
 async function readHydrationState(page, expectedKind = null) {
@@ -1247,6 +1266,30 @@ async function assertTakeoverIgnoresMutatedSettingsScenario(page, helpers) {
   const mutatedRaw = await createMutatedPublicHydrationRaw(rawPayload)
   await replaceHydrationRawForTakeover(page, mutatedRaw)
   await helpers.triggerFullSpaTakeover('Home', '/')
+  try {
+    await page.waitForFunction(
+      ({ expected, mutatedTitle }) => {
+        const app = document.getElementById('app')
+        const shell = app?.querySelector('#fsus-aot-shell')
+        const brand = shell?.querySelector('.el-public-shell__brand')
+        const footer = shell?.querySelector('.el-public-shell__footer')
+        const firstArticleLink = shell?.querySelector('[data-public-link="article"]')
+        const footerText = footer?.textContent?.replace(/\s+/gu, ' ').trim() ?? ''
+        return shell?.getAttribute('data-public-hydration-kind') === expected.kind
+          && (brand?.textContent?.trim() ?? '') === expected.brandText
+          && (brand?.getAttribute('href') ?? '') === expected.brandHref
+          && (firstArticleLink?.tagName ?? '') === expected.firstArticleTag
+          && (firstArticleLink?.getAttribute('href') ?? '') === expected.firstArticleHref
+          && (!expected.brandText || footerText.includes(expected.brandText))
+          && !document.title.includes(mutatedTitle)
+          && !footerText.includes(mutatedTitle)
+      },
+      { expected: before, mutatedTitle: PUBLIC_MUTATED_SITE_TITLE },
+      { timeout: PUBLIC_RUNTIME_TIMEOUT_MS }
+    )
+  } catch {
+    // Preserve the field-level diagnostic below if the takeover never settles.
+  }
   const after = await readShellIdentitySignature(page)
   assertShellIdentityPreserved({ before, after })
   return {
@@ -1301,9 +1344,7 @@ async function runScenario(page, baseUrl, route) {
     },
     async reloadAndWaitForHydration(expectedKind, expectedPath = null, options = {}) {
       recorder.setStage(`${route.name}:interaction:reload`)
-      const deadline = Date.now() + (options.allowInitialSpaFallback
-        ? PUBLIC_RELOAD_SETTLE_TIMEOUT_MS
-        : PUBLIC_HYDRATION_TIMEOUT_MS)
+      const deadline = Date.now() + Math.max(PUBLIC_RELOAD_SETTLE_TIMEOUT_MS, PUBLIC_HYDRATION_TIMEOUT_MS)
       let lastError = null
       let attempts = 0
 
@@ -1315,7 +1356,9 @@ async function runScenario(page, baseUrl, route) {
         }
 
         try {
-          await waitForPublicHydration(page, expectedKind)
+          const remainingMs = Math.max(1, deadline - Date.now())
+          const attemptTimeoutMs = Math.max(1_000, Math.floor(remainingMs / 2))
+          await waitForPublicHydration(page, expectedKind, Math.min(PUBLIC_HYDRATION_TIMEOUT_MS, attemptTimeoutMs))
 
           const structure = await checkShellStructure(page, {
             expectedKind,
@@ -1334,7 +1377,12 @@ async function runScenario(page, baseUrl, route) {
           const isExpectedPath = expectedPath == null || state.path === expectedPath
           const isSpaFallback = isExpectedPath && state.hasVueApp && !state.hasShell
 
-          if (!options.allowInitialSpaFallback || !isExpectedPath) {
+          const isExpectedShellAwaitingMetrics = isExpectedPath
+            && state.hasVueApp
+            && state.hasShell
+            && state.shellKind === expectedKind
+            && !state.hasExpectedMetrics
+          if ((!options.allowInitialSpaFallback && !isExpectedShellAwaitingMetrics) || !isExpectedPath) {
             throw err
           }
 
@@ -1361,12 +1409,22 @@ async function runScenario(page, baseUrl, route) {
       return await assertFallbackRouteCell(page, route)
     }
 
-    const hydrationTimeout = route.allowUnhydratedAotFallback || route.allowSpaFallback
-      ? Math.min(PUBLIC_HYDRATION_TIMEOUT_MS, 3000)
-      : PUBLIC_HYDRATION_TIMEOUT_MS
+    const hydrationTimeout = PUBLIC_HYDRATION_TIMEOUT_MS
     try {
       await waitForPublicHydration(page, route.expectedKind, hydrationTimeout)
     } catch (err) {
+      const state = await readHydrationState(page, route.expectedKind)
+      const expectedShellAwaitingMetrics = state.path === routePathname
+        && state.hasVueApp
+        && state.hasShell
+        && state.shellKind === route.expectedKind
+        && !state.hasExpectedMetrics
+      if (expectedShellAwaitingMetrics && !route.allowUnhydratedAotFallback) {
+        await helpers.reloadAndWaitForHydration(route.expectedKind, routePathname, {
+          expectedRouteKey: route.expectedRouteKey ?? null,
+        })
+        return await assertHydratedRouteCell(page, route)
+      }
       if (route.allowUnhydratedAotFallback) {
         try {
           const fallback = await assertUnhydratedAotFallbackRouteCell(page, route)
@@ -1397,6 +1455,12 @@ async function runScenario(page, baseUrl, route) {
   }
 
   const reload = await runPhase('reload', async () => {
+    if (!route.expectSpaFallback && !route.allowUnhydratedAotFallback && !route.allowSpaFallback) {
+      await helpers.reloadAndWaitForHydration(route.expectedKind, routePathname, {
+        expectedRouteKey: route.expectedRouteKey ?? null,
+      })
+      return await assertHydratedRouteCell(page, route)
+    }
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
 
     if (route.expectSpaFallback) {
@@ -1407,9 +1471,7 @@ async function runScenario(page, baseUrl, route) {
       return await assertFallbackRouteCell(page, route)
     }
 
-    const hydrationTimeout = route.allowUnhydratedAotFallback || route.allowSpaFallback
-      ? Math.min(PUBLIC_HYDRATION_TIMEOUT_MS, 3000)
-      : PUBLIC_HYDRATION_TIMEOUT_MS
+    const hydrationTimeout = PUBLIC_HYDRATION_TIMEOUT_MS
     try {
       await waitForPublicHydration(page, route.expectedKind, hydrationTimeout)
     } catch (err) {
@@ -1458,12 +1520,7 @@ async function runScenario(page, baseUrl, route) {
   return { issues: recorder.issues, phaseResults }
 }
 
-async function runRoute(baseUrl, route, viewportSize) {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    ...(executablePath ? { executablePath } : {}),
-  })
+async function runRoute(browser, baseUrl, route, viewportSize) {
   const context = await browser.newContext({ viewport: viewportSize, javaScriptEnabled: true })
   const page = await context.newPage()
 
@@ -1475,7 +1532,6 @@ async function runRoute(baseUrl, route, viewportSize) {
     phaseResults = result.phaseResults
   } finally {
     await context.close()
-    await browser.close()
   }
   return { issues, phaseResults }
 }
@@ -1671,12 +1727,20 @@ async function main() {
   let failedCount = 0
   let passedCount = 0
   const allResults = []
+  // Contexts retain per-scenario storage and cache isolation. Reusing the
+  // browser process avoids 32 cold Chromium launches competing with the
+  // application under test and makes the detector measure hydration itself.
+  const routeBrowser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...(executablePath ? { executablePath } : {}),
+  })
 
   for (const vp of viewports) {
     for (const route of scenarios) {
       const label = `[${vp.name} ${route.name} ${route.route}]`
       process.stdout.write(`Testing ${label}... `)
-      const result = await runRoute(baseUrl, route, { width: vp.width, height: vp.height })
+      const result = await runRoute(routeBrowser, baseUrl, route, { width: vp.width, height: vp.height })
       const { issues, phaseResults } = result
 
       const fatalHydrationIssues = issues.filter((i) => i.isFatalHydrationIssue)
@@ -1716,6 +1780,7 @@ async function main() {
       allResults.push({ label, issues, fatalHydrationIssues })
     }
   }
+  await routeBrowser.close()
 
   const total = passedCount + failedCount
   summary.fatalHydrationIssueCount = summary.warnings.length + summary.errors.length

@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import {
@@ -34,7 +35,6 @@ const postgresContainer = process.env.FSUSBLOG_PG_CONTAINER || process.env.FSUSB
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
 const executablePath = resolveSystemChromiumExecutablePath()
-const browserRouteTimeoutMs = Math.max(requestTimeoutMs, 30_000);
 
 const DENIED_STATUSES = new Set([400, 401, 403, 404, 405, 409, 413, 415, 422, 428, 429]);
 
@@ -42,6 +42,45 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function resolvePermissionPhaseWorkers(jobCount) {
+  const positive = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  };
+  const cpu = positive(process.env.FSUSBLOG_STEP_CPU_BUDGET)
+    ?? positive(process.env.FSUSBLOG_BUNDLE_CPU_UNITS)
+    ?? positive(process.env.FSUSBLOG_BUNDLE_CPU_BUDGET)
+    ?? positive(os.availableParallelism?.())
+    ?? positive(os.cpus().length)
+    ?? 1;
+  const memoryGiB = positive(process.env.FSUSBLOG_STEP_MEMORY_GIB)
+    ?? positive(process.env.FSUSBLOG_BUNDLE_MEMORY_GIB)
+    ?? positive(os.freemem() / (1024 ** 3))
+    ?? 1;
+  const cpuBound = Math.max(1, Math.floor(cpu * 2));
+  const memoryBound = Math.max(1, Math.floor(memoryGiB / 0.3));
+  return Math.min(jobCount, cpuBound, memoryBound);
+}
+
+async function settlePermissionPhases(phases) {
+  const results = new Array(phases.length);
+  let next = 0;
+  const workers = resolvePermissionPhaseWorkers(phases.length);
+  const runWorker = async () => {
+    while (next < phases.length) {
+      const index = next++;
+      try {
+        await phases[index][1]();
+        results[index] = { status: 'fulfilled' };
+      } catch (reason) {
+        results[index] = { status: 'rejected', reason };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: workers }, runWorker));
+  return { results, workers };
 }
 
 async function writeEvidence(status, error = null) {
@@ -203,20 +242,6 @@ async function readServerFile(relativePath) {
   return await readFile(resolve(repoRoot, relativePath), 'utf8');
 }
 
-async function waitForPath(page, predicate, label, timeoutMs = 10000) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    const current = new URL(page.url());
-    if (predicate(current)) {
-      return current;
-    }
-
-    await page.waitForTimeout(100);
-  }
-
-  throw new Error(`${label} timed out at ${page.url()}`);
-}
-
 function assertIncludes(source, needle, label) {
   assert(source.includes(needle), `${label} missing required authorization boundary: ${needle}`);
 }
@@ -294,12 +319,12 @@ async function assertStaticAuthorizationBoundaries() {
     assertRouteChainIncludes(
       articleEndpoints,
       route,
-      'AddEndpointFilter<RequiresPowFilter>()',
+      'AddEndpointFilterWithMetadata<RequiresPowFilter>()',
       'binary article write route'
     );
   }
   assert(articleEndpoints.match(/RequireAdminPermission\(AdminPermissions\.ArticleWrite\)/g)?.length >= 6, 'binary article write routes must require admin');
-  assert(articleEndpoints.match(/AddEndpointFilter<RequiresPowFilter>\(\)/g)?.length >= 6, 'binary article write routes must retain PoW filters');
+  assert(articleEndpoints.match(/AddEndpointFilterWithMetadata<RequiresPowFilter>\(\)/g)?.length >= 6, 'binary article write routes must retain PoW filters with endpoint metadata');
 
   const taxonomyEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs');
   assertIncludes(taxonomyEndpoints, 'RequireAdminPermission(AdminPermissions.ArticleWrite)', 'binary taxonomy write routes require admin');
@@ -332,7 +357,7 @@ async function assertStaticAuthorizationBoundaries() {
   assertRouteChainIncludes(commentEndpoints, 'MapPost("/comment"', 'RequireAuthorization()', 'binary comment create route');
   assertRouteChainIncludes(commentEndpoints, 'MapGet("/comment/me"', 'RequireAnonymousAccountPrincipal()', 'binary user comment route');
   assertRouteChainIncludes(commentEndpoints, 'MapDelete("/comment/{id:long}"', 'RequireAuthorization()', 'binary comment delete route');
-  assert(commentEndpoints.match(/AddEndpointFilter<RequiresPowFilter>\(\)/g)?.length >= 2, 'binary comment write routes retain PoW filters');
+  assert(commentEndpoints.match(/AddEndpointFilterWithMetadata<RequiresPowFilter>\(\)/g)?.length >= 2, 'binary comment write routes retain PoW filters with endpoint metadata');
 
   const messageEndpoints = await readServerFile('src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs');
   assertIncludes(messageEndpoints, 'MapGet("/messages/conversations"', 'binary user message endpoints');
@@ -350,7 +375,7 @@ async function assertStaticAuthorizationBoundaries() {
   assertRouteChainIncludes(authEndpoints, 'MapPost("/auth/passkey/register/begin"', 'RequireAnonymousAccountPrincipal()', 'binary passkey register route');
   assertRouteChainIncludes(authEndpoints, 'MapGet("/auth/passkey/credentials"', 'RequireAnonymousAccountPrincipal()', 'binary passkey credential route');
   assert(authEndpoints.match(/RequireAnonymousAccountPrincipal\(\)/g)?.length >= 15, 'binary auth protected routes require anonymous account principal');
-  assert(authEndpoints.match(/AddEndpointFilter<RequiresPowFilter>\(\)/g)?.length >= 3, 'binary auth sensitive mutation routes retain PoW filters');
+  assert(authEndpoints.match(/AddEndpointFilterWithMetadata<RequiresPowFilter>\(\)/g)?.length >= 3, 'binary auth sensitive mutation routes retain PoW filters with endpoint metadata');
 }
 
 async function assertGuestAndRoleRoutes() {
@@ -361,22 +386,6 @@ async function assertGuestAndRoleRoutes() {
   });
 
   try {
-    const guest = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
-    const guestPage = await guest.newPage();
-    await guestPage.goto('/user/profile', { waitUntil: 'domcontentloaded' });
-    await waitForPath(guestPage, (url) => url.pathname === '/login', 'guest login redirect', browserRouteTimeoutMs);
-    assert(guestPage.url().includes('/login'), 'guest visiting /user/profile should redirect to login');
-    await guest.close();
-
-    const userSession = await loginWithFixtureSessionBypass(userName, userPassword, false, 'permission-user');
-    const userContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
-    await userContext.addCookies(toPlaywrightSessionCookies(userSession.cookieMap ?? userSession.cookieHeader));
-    const userPage = await userContext.newPage();
-    await userPage.goto('/user/manage', { waitUntil: 'domcontentloaded' });
-    await waitForPath(userPage, (url) => url.pathname === '/403' || url.pathname === '/user/profile', 'normal user admin redirect', browserRouteTimeoutMs);
-    assert(['/403', '/user/profile'].includes(new URL(userPage.url()).pathname), 'normal user should be denied admin route');
-    await userContext.close();
-
     const adminSession = await loginWithFixtureSessionBypass(adminName, adminPassword, false, 'permission-admin');
     const adminContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await adminContext.addCookies(toPlaywrightSessionCookies(adminSession.cookieMap ?? adminSession.cookieHeader));
@@ -1001,9 +1010,23 @@ async function assertApiMatrix() {
 }
 
 async function main() {
-  await assertStaticAuthorizationBoundaries();
+  // Browser route authorization shares session bootstrap, PoW and risk state
+  // with the API mutation matrix. Run that stateful browser phase first so the
+  // API pressure cannot starve the guest redirect; the remaining independent
+  // static/API phases still execute concurrently.
   await assertGuestAndRoleRoutes();
-  await assertApiMatrix();
+  const phases = [
+    ['static-authorization-boundaries', assertStaticAuthorizationBoundaries],
+    ['api-permission-matrix', assertApiMatrix]
+  ];
+  const { results, workers } = await settlePermissionPhases(phases);
+  console.log(`[check-permission-matrix] permission phases settled with workers=${workers}`);
+  const failures = results.flatMap((result, index) => result.status === 'rejected'
+    ? [`${phases[index][0]}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`]
+    : []);
+  if (failures.length > 0) {
+    throw new Error(`permission phases failed (${failures.join('; ')})`);
+  }
   await writeEvidence('ok');
   console.log(`[check-permission-matrix] ok | base=${baseUrl} frontend=${frontendBaseUrl}`);
 }

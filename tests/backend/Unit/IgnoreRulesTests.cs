@@ -17,6 +17,9 @@ public sealed class IgnoreRulesTests
     [InlineData("src/frontend/test-results/result.json")]
     [InlineData("src/frontend/tmp-admin-flow-probe.mjs")]
     [InlineData("src/frontend/coverage/lcov.info")]
+    [InlineData(".agent/session.json")]
+    [InlineData(".agents/session.json")]
+    [InlineData(".claude/session.json")]
     public async Task GitIgnore_CoversLocalRuntimeArtifacts(string path)
     {
         GitCheckIgnoreResult result = await GitCheckIgnoreAsync(path);

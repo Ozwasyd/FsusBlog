@@ -189,6 +189,31 @@ public sealed class ArticleProjectionTests
         Assert.True(result.HasMore);
         Assert.Equal([1, 2], result.Items[0].Tags.Select(static tag => tag.Id));
         Assert.Empty(result.Items[1].Tags);
+        Assert.Equal(2, result.Items[0].Status);
+        Assert.Equal(2, result.Items[1].Status);
+    }
+
+    [Fact]
+    public void ToResponsePage_PreservesTheSingleItemProjectionContract()
+    {
+        ArticleListItemReadModel source = BuildListItem("summary", "snippet") with
+        {
+            CoverImageUrl = "/cover.webp",
+            Status = ArticleStatus.Draft,
+            ScheduledPublishAt = DateTime.UnixEpoch.AddDays(1),
+            PublishedAt = DateTime.UnixEpoch.AddDays(2),
+            Tags = [new TagReadModel { Id = 7, Name = "seven" }]
+        };
+
+        ArticleListItemResponse expected = ArticleProjection.ToResponse(source);
+        ArticleListItemResponse actual = Assert.Single(ArticleProjection.ToResponsePage(new ArticleListPageReadModel
+        {
+            Items = [source],
+            Total = 1
+        }).Items);
+
+        Assert.Equal(expected with { Tags = actual.Tags }, actual);
+        Assert.Equal(expected.Tags, actual.Tags);
     }
 
     // ─── ToTagResponse ───────────────────────────────────────────────────────

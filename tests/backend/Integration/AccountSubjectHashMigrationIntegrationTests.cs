@@ -8,6 +8,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]
+[Trait("Category", "Integration")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class AccountSubjectHashMigrationIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {

@@ -17,7 +17,10 @@ public sealed class IntegrityProofVerificationMatrixTests
             string dotnet = Path.Combine(bin, "dotnet");
             string invocation = Path.Combine(tempRoot, "dotnet-invocation.txt");
             await File.WriteAllTextAsync(dotnet, FakeDotnet);
-            File.SetUnixFileMode(dotnet, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(dotnet, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
 
             string acceptedOutput = Path.Combine(tempRoot, "accepted.json");
             ProcessResult accepted = await RunToolAsync(bin, invocation, acceptedOutput, exitCode: 0);

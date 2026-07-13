@@ -900,9 +900,10 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AnonymousCredentialIssueEndpoint_RequiresAuthRateLimitAndNoStore()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint endpoint = EndpointContractApplication.Find(
             app,
             "/api/binary/anonymous-credential/issue",
@@ -911,8 +912,8 @@ public sealed class AnonymousCredentialIssuerTests(PostgresSchemaMigrationFixtur
         ClaimsAuthorizationRequirement identity = Assert.Single(endpoint.Metadata
             .GetOrderedMetadata<AuthorizationPolicy>()
             .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(static requirement => requirement.ClaimType == "identity_kind"));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == "identity_kind");
         Assert.Contains(AnonymousIdentityRuntime.AnonymousAccountKind, identity.AllowedValues ?? []);
         Assert.Equal(
             "fixed_ip",

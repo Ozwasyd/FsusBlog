@@ -103,20 +103,34 @@ public sealed class PublicAotNodeWorkerScriptTests
     public void PooledWorkerPipeLoops_StartDirectlyAndPropagateCancellation()
     {
         Type workerClient = typeof(PublicAotNodeSsrRenderer).GetNestedType("NodeWorkerClient", BindingFlags.NonPublic)!;
-        string restart = RuntimeMetadataInspection.DescribeMethods(workerClient, "RestartAsync");
-        string stdout = RuntimeMetadataInspection.DescribeMethods(workerClient, "ReadStdoutLoopAsync");
-        string stderr = RuntimeMetadataInspection.DescribeMethods(workerClient, "ReadStderrLoopAsync");
-        string stop = RuntimeMetadataInspection.DescribeMethods(workerClient, "StopCurrentWorkerAsync");
+        IReadOnlyList<string> readerCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            workerClient,
+            static member => member.DeclaringType?.IsAssignableFrom(typeof(StreamReader)) == true
+                && member.Name == nameof(StreamReader.ReadLineAsync));
+        Assert.Contains(readerCallers, static caller => caller.Contains("<ReadStdoutLoopAsync>", StringComparison.Ordinal));
+        Assert.Contains(readerCallers, static caller => caller.Contains("<ReadStderrLoopAsync>", StringComparison.Ordinal));
 
-        Assert.DoesNotContain("Task.Run", restart, StringComparison.Ordinal);
-        Assert.Contains("ReadStdoutLoopAsync", restart, StringComparison.Ordinal);
-        Assert.Contains("ReadStderrLoopAsync", restart, StringComparison.Ordinal);
-        Assert.Contains("CancellationTokenSource.get_Token", restart, StringComparison.Ordinal);
-        Assert.Contains("StreamReader.ReadLineAsync", stdout, StringComparison.Ordinal);
-        Assert.Contains("StreamReader.ReadLineAsync", stderr, StringComparison.Ordinal);
-        Assert.Contains("OperationCanceledException", stdout, StringComparison.Ordinal);
-        Assert.Contains("OperationCanceledException", stderr, StringComparison.Ordinal);
-        Assert.Contains("CancellationTokenSource.Cancel", stop, StringComparison.Ordinal);
+        IReadOnlyList<string> restartCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            workerClient,
+            static member => member.DeclaringType?.Name == "NodeWorkerClient"
+                && member.Name is "ReadStdoutLoopAsync" or "ReadStderrLoopAsync");
+        Assert.Contains(restartCallers, static caller => caller.Contains("<RestartAsync>", StringComparison.Ordinal));
+        Assert.DoesNotContain(RuntimeMetadataInspection.FindMethodsCallingMember(
+            workerClient,
+            static member => member.DeclaringType == typeof(Task) && member.Name == nameof(Task.Run)),
+            static caller => caller.Contains("<RestartAsync>", StringComparison.Ordinal));
+
+        IReadOnlyList<string> cancellationFilterCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            workerClient,
+            static member => member == typeof(OperationCanceledException));
+        Assert.Contains(cancellationFilterCallers,
+            static caller => caller.Contains("<ReadStdoutLoopAsync>", StringComparison.Ordinal));
+        Assert.Contains(cancellationFilterCallers,
+            static caller => caller.Contains("<ReadStderrLoopAsync>", StringComparison.Ordinal));
+        Assert.Contains(RuntimeMetadataInspection.FindMethodsCallingMember(
+            workerClient,
+            static member => member.DeclaringType == typeof(CancellationTokenSource) && member.Name == nameof(CancellationTokenSource.Cancel)),
+            static caller => caller.Contains("<StopCurrentWorkerAsync>", StringComparison.Ordinal));
     }
 
     [Fact]

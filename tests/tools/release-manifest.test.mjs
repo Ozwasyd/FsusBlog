@@ -373,7 +373,7 @@ exit 42
     path.join(root, 'tools/deploy-production.sh'),
     '--env-file', envFile,
     '--release-manifest', manifestFile,
-    '--slot', 'candidate',
+    '--slot', 'green',
     '--skip-zk-release-check',
     '--skip-up'
   ]

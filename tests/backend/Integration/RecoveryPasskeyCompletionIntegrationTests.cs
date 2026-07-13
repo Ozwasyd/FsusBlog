@@ -20,6 +20,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]
+[Trait("Category", "Integration")]
 [Trait("Category", "SecurityStateMachine")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigrationFixture fixture)
@@ -211,10 +212,11 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         SeedCredential(db, accountId, "old-must-survive", issuedAt.AddMinutes(-5));
         PasskeyService service = CreateService(db);
         var session = new RecoveryKeySession(accountId, true, issuedAt, issuedAt.AddMinutes(10));
+        string rollbackRecoverySessionHash = new('C', 64);
 
         RecoveryPasskeyRegistrationResult result = await service.PersistRecoveryRegistrationAsync(
             session,
-            new string('C', 64),
+            rollbackRecoverySessionHash,
             new string('D', 64),
             "challenge-rollback",
             Credential(accountId, "rolled-back-new", DateTime.UtcNow));
@@ -228,7 +230,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         User account = await db.Queryable<User>().SingleAsync(item => item.Id == accountId);
         Assert.False(account.PasskeyEnabled);
         Assert.Equal(0, await db.Queryable<PasskeyCredential>()
-            .CountAsync(item => item.RecoverySessionHash == new string('C', 64)));
+            .CountAsync(item => item.RecoverySessionHash == rollbackRecoverySessionHash));
     }
 
     [Fact]
@@ -285,17 +287,18 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         PasskeyService first = CreateService(firstDb);
         PasskeyService second = CreateService(secondDb);
         using var barrier = new Barrier(2);
+        string concurrentRecoverySessionHash = new('E', 64);
 
         RecoveryPasskeyRegistrationResult[] outcomes = await Task.WhenAll(
             StartTogetherAsync(barrier, () => first.PersistRecoveryRegistrationAsync(
                 session,
-                new string('E', 64),
+                concurrentRecoverySessionHash,
                 new string('F', 64),
                 "challenge-concurrent",
                 Credential(accountId, "concurrent-a", DateTime.UtcNow))),
             StartTogetherAsync(barrier, () => second.PersistRecoveryRegistrationAsync(
                 session,
-                new string('E', 64),
+                concurrentRecoverySessionHash,
                 new string('F', 64),
                 "challenge-concurrent",
                 Credential(accountId, "concurrent-b", DateTime.UtcNow))));
@@ -303,7 +306,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         Assert.Single(outcomes, item => item.Status == RecoveryPasskeyRegistrationStatus.Completed);
         Assert.Single(outcomes, item => item.Status == RecoveryPasskeyRegistrationStatus.AlreadyCompleted);
         Assert.Equal(1, await setup.Queryable<PasskeyCredential>()
-            .CountAsync(item => item.RecoverySessionHash == new string('E', 64)));
+            .CountAsync(item => item.RecoverySessionHash == concurrentRecoverySessionHash));
     }
 
     [Fact]

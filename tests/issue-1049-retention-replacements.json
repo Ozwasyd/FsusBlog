@@ -2,7 +2,7 @@
   "schema": "fsusblog.issue-test-retention-replacements.v1",
   "issue": 1049,
   "baseline": "tests/test-retention-before.json",
-  "expectedDeletedTestIds": 41,
+  "expectedDeletedTestIds": 42,
   "deletedTests": [
     {
       "id": "vitest:tests/frontend/unit/session-fixtures-contract.test.ts#keeps-local-fixture-sessions-reusable-instead-of-passwor-4bcbada1d7",
@@ -233,7 +233,7 @@
       "path": "tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/composables/frontendDerivedStateWatch.test.ts#keeps-inbox-split-pane-behavior-while-deriving-pane-stat-a030e338f0",
-        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#message-center-can-create-a-ticket-and-open-detail-clean-f844d0e424"
+        "vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#message-center-can-create-a-ticket-and-open-detail-clean-ffcadfa54d"
       ],
       "reason": "Imported inbox state and the real ticket/detail browser flow own message behavior."
     },

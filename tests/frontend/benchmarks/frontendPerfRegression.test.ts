@@ -7,6 +7,7 @@ import { scoreContentRisk } from '@/utils/contentFilter'
 import { rankSearchPage } from '@/services/searchRanking'
 import { mergeNotificationStreamRenderPatch } from '@/services/notificationStreamRenderScheduler'
 import { NotificationStreamEventType, type ArticleUpdatePayload, type NotificationStreamArticleRenderPatch, type NotificationStreamEventV2 } from '@/services/notificationStreamTypes'
+import { resolveRuntimeBrowserTimeoutPlan } from '../support/runtime-browser-timeout.mjs'
 
 type BenchmarkResult = {
   name: string
@@ -17,6 +18,8 @@ type BenchmarkResult = {
 
 const NOW_MS = Date.parse('2026-01-01T00:00:00Z')
 const results: BenchmarkResult[] = []
+const contentionMultiplier = Math.max(1, resolveRuntimeBrowserTimeoutPlan().contentionMultiplier)
+const contentionBudget = (baselineMs: number): number => Math.ceil(baselineMs * contentionMultiplier * 1.1)
 
 function benchmark(name: string, iterations: number, budgetMs: number, fn: () => void): void {
   const started = performance.now()
@@ -63,13 +66,13 @@ describe('frontend perf regression smoke', () => {
     const updated = articlePatch('Updated', 1)
     const deleted = articlePatch('Deleted', 1)
 
-    benchmark('content-risk-500x', 500, 60, () => {
+    benchmark('content-risk-500x', 500, contentionBudget(60), () => {
       scoreContentRisk('学习 AEDS protocol 加\u200B微\u200B信 测试')
     })
-    benchmark('search-rank-250-docs-80x', 80, 320, () => {
+    benchmark('search-rank-250-docs-80x', 80, contentionBudget(320), () => {
       rankSearchPage(page, 'aeds protocol vue', 'relevance', NOW_MS)
     })
-    benchmark('notification-stream-merge-5000x', 5000, 45, () => {
+    benchmark('notification-stream-merge-5000x', 5000, contentionBudget(45), () => {
       mergeNotificationStreamRenderPatch(updated, deleted)
     })
 

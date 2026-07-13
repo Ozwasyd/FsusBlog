@@ -184,8 +184,9 @@ for (const [source, label] of [
 expectIncludes(publicArticleDetail, 'id="fsus-comments-island"', 'PublicArticleDetailPageContent.vue comments island')
 expectIncludes(toc, '<el-drawer', 'ArticleTocPanel.vue drawer')
 
-expectIncludes(featuredArticles, '聚焦', 'FeaturedArticlesSection.vue')
 const homeRecommendationsCopy = read('src/frontend/src/copy/layout.ts')
+expectIncludes(featuredArticles, 'copy.leadEyebrow', 'FeaturedArticlesSection.vue lead eyebrow registry binding')
+expectIncludes(homeRecommendationsCopy, "leadEyebrow: '本期推荐'", 'FeaturedArticlesSection.vue lead eyebrow (via @/copy layout registry)')
 expectIncludes(homeRecommendationsCopy, '热门文章', 'HomeTextFirstRecommendations.vue eyebrow (via @/copy layout registry)')
 expectIncludes(hotArticlesIsland, '热门文章', 'homeHotArticlesIsland.ts')
 expectNotMatches(homeRecommendations, /顺着读/, 'HomeTextFirstRecommendations.vue hot fallback heading must not drift to 顺着读')
@@ -240,7 +241,8 @@ expectNotMatches(lightbox, /article-lightbox-fade/, 'ArticleImageLightbox.vue mu
 expectNotMatches(lightbox, /scale\(/, 'ArticleImageLightbox.vue must not use zoom/scale')
 expectNotMatches(lightbox, /rgb\(/, 'ArticleImageLightbox.vue must use overlay tokens instead of raw rgb()')
 
-expectIncludes(publicShell, ':aria-current="item.key === activeNav ? \'page\' : undefined"', 'PublicBlogLayoutShell.vue desktop nav aria-current')
+expectIncludes(publicShell, '<FsusUiPublicShell', 'PublicBlogLayoutShell.vue FsusUI public shell boundary')
+expectIncludes(publicShell, ':active-nav="activeNav"', 'PublicBlogLayoutShell.vue delegated desktop nav aria-current state')
 expectNotMatches(publicShell, /el-public-shell__header-action/, 'PublicBlogLayoutShell.vue desktop header must not use bordered header action affordance')
 
 expectNotMatches(publicArticleList, /\bv-motion\b/, 'PublicArticleList.vue reading surface must not use v-motion')

@@ -20,6 +20,8 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class PublicAotFileShellCacheTests
 {
+    private const string TestReleaseId = "public-aot-cache-tests";
+
     [Fact]
     public void SerializeEntryBytes_RoundTripsEntry()
     {
@@ -175,7 +177,9 @@ public sealed class PublicAotFileShellCacheTests
     {
         using var temp = new TempDirectory();
         var entry = CreateEntry("public:aot:v2:doc:2:article:42");
-        string path = ResolveEntryPath(temp.WebRoot, entry.CacheKey);
+        string path = ResolveEntryPath(
+            ResolveTestCacheRoot(temp.Root, Environments.Development),
+            entry.CacheKey);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
 
@@ -197,7 +201,9 @@ public sealed class PublicAotFileShellCacheTests
     {
         using var temp = new TempDirectory();
         var entry = CreateEntry("public:aot:v2:doc:2:article:42");
-        string legacyPath = ResolveEntryPath(temp.WebRoot, entry.CacheKey);
+        string legacyPath = ResolveEntryPath(
+            ResolveTestCacheRoot(temp.Root, Environments.Production),
+            entry.CacheKey);
         Directory.CreateDirectory(Path.GetDirectoryName(legacyPath)!);
         await File.WriteAllBytesAsync(legacyPath, PublicAotFileShellCache.SerializeEntryBytes(entry));
         var cache = BuildCache(temp.Root, Environments.Production);
@@ -205,11 +211,9 @@ public sealed class PublicAotFileShellCacheTests
         await cache.SetAsync(entry);
         await Task.Delay(100);
 
-        string versionedPath = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
-            temp.WebRoot,
-            entry.CacheKey,
-            entry.FrontendAssetVersion,
-            entry.PageId);
+        string versionedPath = ResolveVersionedEntryPath(
+            ResolveTestCacheRoot(temp.Root, Environments.Production),
+            entry);
         Assert.True(File.Exists(versionedPath));
         Assert.False(File.Exists(legacyPath));
 
@@ -370,11 +374,9 @@ public sealed class PublicAotFileShellCacheTests
         {
             ExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(-10)
         };
-        string path = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
-            temp.WebRoot,
-            entry.CacheKey,
-            entry.FrontendAssetVersion,
-            entry.PageId);
+        string path = ResolveVersionedEntryPath(
+            ResolveTestCacheRoot(temp.Root, Environments.Production),
+            entry);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
 
@@ -396,11 +398,9 @@ public sealed class PublicAotFileShellCacheTests
             Value = CreateHtmlWithSidecar(sidecar),
             HydrationSidecar = sidecar
         };
-        string path = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
-            temp.WebRoot,
-            entry.CacheKey,
-            entry.FrontendAssetVersion,
-            entry.PageId);
+        string path = ResolveVersionedEntryPath(
+            ResolveTestCacheRoot(temp.Root, Environments.Production),
+            entry);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
 
@@ -425,11 +425,9 @@ public sealed class PublicAotFileShellCacheTests
         string sidecarPath = Path.Combine(temp.WebRoot, sidecar.RelativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(sidecarPath)!);
         await File.WriteAllBytesAsync(sidecarPath, [9, 9, 9, 9]);
-        string path = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
-            temp.WebRoot,
-            entry.CacheKey,
-            entry.FrontendAssetVersion,
-            entry.PageId);
+        string path = ResolveVersionedEntryPath(
+            ResolveTestCacheRoot(temp.Root, Environments.Production),
+            entry);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
 
@@ -456,11 +454,9 @@ public sealed class PublicAotFileShellCacheTests
         string sidecarPath = Path.Combine(temp.WebRoot, sidecar.RelativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(sidecarPath)!);
         await File.WriteAllBytesAsync(sidecarPath, sidecarBytes);
-        string path = PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
-            temp.WebRoot,
-            entry.CacheKey,
-            entry.FrontendAssetVersion,
-            entry.PageId);
+        string path = ResolveVersionedEntryPath(
+            ResolveTestCacheRoot(temp.Root, Environments.Production),
+            entry);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await File.WriteAllBytesAsync(path, PublicAotFileShellCache.SerializeEntryBytes(entry));
 
@@ -494,8 +490,8 @@ public sealed class PublicAotFileShellCacheTests
 
         await fixture.Cache.RemoveAsync(first.CacheKey);
 
-        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, first)));
-        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, second)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, first)));
+        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, second)));
         Assert.Null(await fixture.Cache.TryGetEntryAsync(first.CacheKey, first.FrontendAssetVersion));
         Assert.NotNull(await fixture.Cache.TryGetEntryAsync(second.CacheKey, second.FrontendAssetVersion));
         await fixture.Subscriber.Received(1).PublishAsync(
@@ -522,7 +518,7 @@ public sealed class PublicAotFileShellCacheTests
 
         await fixture.Cache.RemoveAsync(entry.CacheKey);
 
-        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, entry)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, entry)));
         Assert.True(File.Exists(sidecarPath));
         Assert.Null(await fixture.Cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion));
     }
@@ -546,9 +542,9 @@ public sealed class PublicAotFileShellCacheTests
 
         await fixture.Cache.RemoveByPrefixAsync(prefix);
 
-        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, first)));
-        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, second)));
-        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, other)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, first)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, second)));
+        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, other)));
         await fixture.Subscriber.Received(1).PublishAsync(
             Arg.Any<RedisChannel>(),
             Arg.Is<RedisValue>(payload => PayloadContains(payload, "\"type\":\"prefix\"") && PayloadContains(payload, prefix)),
@@ -584,9 +580,9 @@ public sealed class PublicAotFileShellCacheTests
 
         Assert.Equal(2, stats.InvalidatedKeys);
         Assert.Equal(2, stats.DeletedFiles);
-        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, first)));
-        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, second)));
-        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, other)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, first)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, second)));
+        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, other)));
         await fixture.Subscriber.DidNotReceive().PublishAsync(
             Arg.Any<RedisChannel>(),
             Arg.Any<RedisValue>(),
@@ -609,7 +605,7 @@ public sealed class PublicAotFileShellCacheTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => fixture.Cache.RemoveByPrefixAsync(prefix, cts.Token));
 
-        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, entry)));
+        Assert.True(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, entry)));
         await fixture.Subscriber.DidNotReceive().PublishAsync(
             Arg.Any<RedisChannel>(),
             Arg.Any<RedisValue>(),
@@ -633,7 +629,7 @@ public sealed class PublicAotFileShellCacheTests
         Assert.Equal(PublicAotRegistryCleanupResult.FailedStatus, invalidation.Value.Stats.RegistryCleanupStatus);
         Assert.Equal(0, invalidation.Value.Stats.RegistryDeletedKeys);
         Assert.Contains("registry delete failed", invalidation.Value.Stats.RegistryCleanupError, StringComparison.Ordinal);
-        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.Temp.WebRoot, entry)));
+        Assert.False(File.Exists(ResolveVersionedEntryPath(fixture.CacheRoot, entry)));
         await fixture.Database.Received(1).KeyDeleteAsync(
             Arg.Is<RedisKey[]>(keys => keys.Length > 0 && keys.Contains((RedisKey)PublicAotCacheRegistry.GlobalRegistryKey)),
             Arg.Any<CommandFlags>());
@@ -841,7 +837,8 @@ public sealed class PublicAotFileShellCacheTests
         return new PublicAotFileShellCache(
             new TestWebHostEnvironment(root, environmentName),
             redis,
-            NullLogger<PublicAotFileShellCache>.Instance);
+            NullLogger<PublicAotFileShellCache>.Instance,
+            CreateDerivedPublisher(root, environmentName));
     }
 
     private static CacheFixture BuildCacheFixture(string environmentName)
@@ -859,18 +856,33 @@ public sealed class PublicAotFileShellCacheTests
             .Returns([.. cacheKeys.Select(static key => (RedisValue)key)]);
     }
 
-    private static string ResolveEntryPath(string webRoot, string cacheKey)
+    private static string ResolveEntryPath(string cacheRoot, string cacheKey)
     {
         string hash = PublicAotFileShellCache.ToHashForTests(cacheKey);
-        return Path.Combine(webRoot, "aot-cache", hash[..2], $"{hash}.aeds");
+        return Path.Combine(cacheRoot, hash[..2], $"{hash}.aeds");
     }
 
-    private static string ResolveVersionedEntryPath(string webRoot, PublicAotCacheEntry entry)
-        => PublicAotFileShellCache.ResolveVersionedEntryPathForTests(
-            webRoot,
+    private static string ResolveVersionedEntryPath(string cacheRoot, PublicAotCacheEntry entry)
+        => PublicAotFileShellCache.ResolveVersionedEntryPathInCacheRootForTests(
+            cacheRoot,
             entry.CacheKey,
             entry.FrontendAssetVersion,
             entry.PageId);
+
+    private static string ResolveTestCacheRoot(string root, string environmentName)
+        => string.Equals(environmentName, Environments.Production, StringComparison.Ordinal)
+            ? ReleaseStorageLayout.BuildReleaseDerivedPath(
+                Path.Combine(root, "release-derived"),
+                TestReleaseId,
+                "public-aot")
+            : Path.Combine(root, "wwwroot", "aot-cache");
+
+    private static ReleaseDerivedArtifactPublisher? CreateDerivedPublisher(
+        string root,
+        string environmentName)
+        => string.Equals(environmentName, Environments.Production, StringComparison.Ordinal)
+            ? new ReleaseDerivedArtifactPublisher(Path.Combine(root, "release-derived"), TestReleaseId)
+            : null;
 
     private static bool PayloadContains(RedisValue payload, string expected)
         => payload.ToString().Contains(expected, StringComparison.Ordinal);
@@ -908,6 +920,7 @@ public sealed class PublicAotFileShellCacheTests
         public IDatabase Database { get; } = Substitute.For<IDatabase>();
         public ISubscriber Subscriber { get; } = Substitute.For<ISubscriber>();
         public PublicAotFileShellCache Cache { get; }
+        public string CacheRoot { get; }
 
         public CacheFixture(string environmentName)
         {
@@ -920,10 +933,12 @@ public sealed class PublicAotFileShellCacheTests
                 .Returns(call => Task.FromResult((long)call.ArgAt<RedisValue[]>(1).Length));
             Subscriber.PublishAsync(Arg.Any<RedisChannel>(), Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
                 .Returns(Task.FromResult(1L));
+            CacheRoot = ResolveTestCacheRoot(Temp.Root, environmentName);
             Cache = new PublicAotFileShellCache(
                 new TestWebHostEnvironment(Temp.Root, environmentName),
                 redis,
-                NullLogger<PublicAotFileShellCache>.Instance);
+                NullLogger<PublicAotFileShellCache>.Instance,
+                CreateDerivedPublisher(Temp.Root, environmentName));
         }
 
         public void Dispose()

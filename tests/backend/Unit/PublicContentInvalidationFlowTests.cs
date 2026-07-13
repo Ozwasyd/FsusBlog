@@ -169,17 +169,16 @@ public sealed class PublicContentInvalidationFlowTests
     public void PublicHotViewProjection_RefreshesRankingWithoutFullSnapshotRebuild()
     {
         string worker = RuntimeMetadataInspection.DescribeMethods(typeof(PublicHotArtifactUpdateWorker), "ExecuteAsync");
-        string viewProjection = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewProjectionService));
-        string viewBuffer = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewWriteBuffer));
 
         Assert.Contains("IPublicHotArtifactProjector.RebuildAfterViewProjectionAsync", worker, StringComparison.Ordinal);
         var queue = new PublicHotArtifactUpdateQueue(Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 2 }));
         Assert.Equal(PublicHotArtifactDirtyReason.ViewProjection, queue.Enqueue(1, "article-view-projection-batch").DirtyReason);
-        Assert.Contains("PublicHotArtifactUpdateQueue.TryEnqueue", viewProjection, StringComparison.Ordinal);
-        Assert.Contains("article-view-projection-batch", viewProjection, StringComparison.Ordinal);
-        Assert.Contains("PublicHotArtifactUpdateQueue.TryEnqueue", viewBuffer, StringComparison.Ordinal);
-        Assert.Contains("GetEnumerator", viewProjection, StringComparison.Ordinal);
-        Assert.Contains("GetEnumerator", viewBuffer, StringComparison.Ordinal);
+        MethodInfo apply = AsyncMoveNext(typeof(ArticleViewProjectionService).GetMethod(nameof(ArticleViewProjectionService.ApplyAsync))!);
+        Assert.Contains(ReadCalledMethods(apply), static call => call.Method.DeclaringType == typeof(PublicHotArtifactUpdateQueue)
+            && call.Method.Name == nameof(PublicHotArtifactUpdateQueue.TryEnqueue));
+        MethodInfo flush = AsyncMoveNext(typeof(ArticleServiceViewFlushSink).GetMethod(nameof(ArticleServiceViewFlushSink.FlushArticleViewsAsync))!);
+        Assert.Contains(ReadCalledMethods(flush), static call => call.Method.DeclaringType == typeof(PublicHotArtifactUpdateQueue)
+            && call.Method.Name == nameof(PublicHotArtifactUpdateQueue.TryEnqueue));
     }
 
     [Fact]

@@ -75,6 +75,7 @@ function parseValue(raw) {
 function parseMatrix(text) {
   const matrix = { tiers: [] }
   let current = null
+  let currentListField = null
   let inTiers = false
 
   for (const rawLine of text.split(/\r?\n/)) {
@@ -86,6 +87,7 @@ function parseMatrix(text) {
       if (topMatch[1] === 'tiers') {
         inTiers = true
         current = null
+        currentListField = null
         continue
       }
       matrix[topMatch[1]] = parseValue(topMatch[2])
@@ -97,6 +99,7 @@ function parseMatrix(text) {
     const itemMatch = withoutComment.match(/^\s{2}-\s+([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
     if (itemMatch) {
       current = {}
+      currentListField = null
       matrix.tiers.push(current)
       current[itemMatch[1]] = parseValue(itemMatch[2])
       continue
@@ -104,7 +107,19 @@ function parseMatrix(text) {
 
     const fieldMatch = withoutComment.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
     if (fieldMatch && current) {
-      current[fieldMatch[1]] = parseValue(fieldMatch[2])
+      const [, key, value] = fieldMatch
+      if (value === '') {
+        current[key] = []
+        currentListField = key
+      } else {
+        current[key] = parseValue(value)
+        currentListField = null
+      }
+      continue
+    }
+    const listItemMatch = withoutComment.match(/^\s{6}-\s+(.*?)\s*$/)
+    if (listItemMatch && current && currentListField) {
+      current[currentListField].push(parseValue(listItemMatch[1]))
     }
   }
 
@@ -320,7 +335,11 @@ async function buildAudit({ runId = null } = {}) {
     fs.existsSync(replacementManifestPath)
       ? JSON.parse(fs.readFileSync(replacementManifestPath, 'utf8'))
       : {},
-    testRecords
+    testRecords,
+    {
+      tierIds: matrix.tiers.map((tier) => tier.id),
+      coverageIds: (coverageRegistry.entries ?? []).map((entry) => entry.id)
+    }
   )
   const retainedCoverageIds = [...new Set(testRecords.flatMap((record) => record.coverageIds))].sort()
   const uniqueAssertionTargets = new Set(testRecords.flatMap((record) => record.assertionTargets)).size

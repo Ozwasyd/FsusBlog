@@ -250,7 +250,7 @@ test('collector rejects recovery drift and unrecognized artifact names rather th
     persistFinal(data)
     const { result, output } = runCollector(data, 'extra')
     assert.notEqual(result.status, 0)
-    assert.match(result.stderr, /unrecognized|unexpected|exactly six|operatorNotes/u)
+    assert.match(result.stderr, /unrecognized|unexpected|exactly six|exact artifact set|operatorNotes/u)
     if (fs.existsSync(output)) {
       assert.equal(allFiles(output).some(file => file.includes('operatorNotes')), false)
     }

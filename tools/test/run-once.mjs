@@ -241,7 +241,7 @@ export async function runOnce({
   if (current?.status === 'success'
       && current.fingerprint === fingerprint
       && await outputsMatchState(normalizedOutputs, current.requiredOutputStates)) {
-    return { status: 'skipped', stateFile }
+    return { status: 'shared-current-run', stateFile }
   }
 
   const lock = await acquireLock(lockDirectory, lockTimeoutMs, {
@@ -253,7 +253,7 @@ export async function runOnce({
     if (lockedCurrent?.status === 'success'
         && lockedCurrent.fingerprint === fingerprint
         && await outputsMatchState(normalizedOutputs, lockedCurrent.requiredOutputStates)) {
-      return { status: 'skipped', stateFile }
+      return { status: 'shared-current-run', stateFile }
     }
 
     await operation()

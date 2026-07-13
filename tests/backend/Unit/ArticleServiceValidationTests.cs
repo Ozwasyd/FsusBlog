@@ -283,14 +283,17 @@ public class ArticleServiceValidationTests
     [Fact]
     public void PublicHotArtifactProjector_RuntimeLoadsRightsSnapshotForArticleDetailFrames()
     {
-        string method = RuntimeMetadataInspection.DescribeMethods(
+        IReadOnlyList<string> rightsLoaderCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
             typeof(PublicHotArtifactProjector),
-            "LoadArticleDetailsFromDbAsync",
-            "LoadArticleRightsMapAsync");
-
-        Assert.Contains("LoadArticleRightsMapAsync", method, StringComparison.Ordinal);
-        Assert.Contains("set_Rights", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("ArticleRightsReadModel..ctor", method, StringComparison.Ordinal);
+            static member => member.DeclaringType == typeof(PublicHotArtifactProjector)
+                && member.Name == "LoadArticleRightsMapAsync");
+        Assert.Contains(rightsLoaderCallers,
+            static caller => caller.Contains("<LoadArticleDetailsFromDbAsync>", StringComparison.Ordinal));
+        IReadOnlyList<string> rightsSetterCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            typeof(PublicHotArtifactProjector),
+            static member => member.Name == "set_Rights");
+        Assert.Contains(rightsSetterCallers,
+            static caller => caller.Contains("<LoadArticleDetailsFromDbAsync>", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -438,13 +441,13 @@ public class ArticleServiceValidationTests
     {
         var services = new ServiceCollection();
         services.AddFsusRuntimeDomainServices();
-        ServiceDescriptor buffer = Assert.Single(services.Where(static descriptor =>
-            descriptor.ServiceType == typeof(IArticleViewWriteBuffer)));
-        ServiceDescriptor sink = Assert.Single(services.Where(static descriptor =>
-            descriptor.ServiceType == typeof(IArticleViewFlushSink)));
-        ServiceDescriptor worker = Assert.Single(services.Where(static descriptor =>
+        ServiceDescriptor buffer = Assert.Single(services, static descriptor =>
+            descriptor.ServiceType == typeof(IArticleViewWriteBuffer));
+        ServiceDescriptor sink = Assert.Single(services, static descriptor =>
+            descriptor.ServiceType == typeof(IArticleViewFlushSink));
+        ServiceDescriptor worker = Assert.Single(services, static descriptor =>
             descriptor.ServiceType == typeof(IHostedService)
-                && descriptor.ImplementationType == typeof(ArticleViewFlushWorker)));
+                && descriptor.ImplementationType == typeof(ArticleViewFlushWorker));
         Assert.Equal(ServiceLifetime.Singleton, buffer.Lifetime);
         Assert.Equal(typeof(ArticleViewWriteBuffer), buffer.ImplementationType);
         Assert.Equal(ServiceLifetime.Scoped, sink.Lifetime);
@@ -521,9 +524,20 @@ public class ArticleServiceValidationTests
             "ArticleListCursorWhereClause",
             BindingFlags.Static | BindingFlags.NonPublic)!;
         Assert.True(cursorClause.IsLiteral);
-        string method = ArticleRuntime("LoadPublicArticleListPageByKeysetAsync");
-        Assert.DoesNotContain("CloneArticleListParameters", method, StringComparison.Ordinal);
-        Assert.DoesNotContain("BuildArticleListKeysetPageSql", method, StringComparison.Ordinal);
+        IReadOnlyList<string> offsetLoaderCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            typeof(ArticleService),
+            static member => member.DeclaringType == typeof(ArticleService)
+                && member.Name == "LoadPublicArticleListOffsetPageItemsAsync");
+        Assert.Contains(offsetLoaderCallers,
+            static caller => caller.Contains("<LoadPublicArticleListPageByKeysetAsync>", StringComparison.Ordinal));
+        foreach (string forbiddenMethod in new[] { "CloneArticleListParameters", "BuildArticleListKeysetPageSql" })
+        {
+            IReadOnlyList<string> callers = RuntimeMetadataInspection.FindMethodsCallingMember(
+                typeof(ArticleService),
+                member => member.DeclaringType == typeof(ArticleService) && member.Name == forbiddenMethod);
+            Assert.DoesNotContain(callers,
+                static caller => caller.Contains("<LoadPublicArticleListPageByKeysetAsync>", StringComparison.Ordinal));
+        }
     }
 
     [Fact]

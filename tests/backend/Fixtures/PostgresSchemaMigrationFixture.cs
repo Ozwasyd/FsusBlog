@@ -6,19 +6,28 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
 {
+    private readonly string _databaseNamespace = ResolveDatabaseNamespace();
     private string? _containerName;
     private string? _adminConnectionString;
 
     public async Task InitializeAsync()
     {
-        _containerName = $"fsus-schema-migration-{Guid.NewGuid():N}";
+        _containerName = $"fsus-pg-{_databaseNamespace}-{Guid.NewGuid():N}";
+        if (_containerName.Length > 63)
+        {
+            _containerName = _containerName[..63];
+        }
         string postgresImage = Environment.GetEnvironmentVariable("FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE") ?? "postgres:18-alpine";
+        string testRunId = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_RUN_ID") ?? "local";
 
         string containerId = await RunDockerAsync(
             "run",
             "--rm",
             "-d",
             "--name", _containerName,
+            "--label", "com.fsusblog.test.kind=schema-migration",
+            "--label", $"com.fsusblog.test.owner-pid={Environment.ProcessId}",
+            "--label", $"com.fsusblog.test.run-id={testRunId}",
             "-e", "POSTGRES_USER=postgres",
             "-e", "POSTGRES_PASSWORD=postgres",
             "-e", "POSTGRES_DB=postgres",
@@ -47,7 +56,11 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
 
     public async Task<string> CreateDatabaseAsync()
     {
-        string databaseName = $"fsus_migration_{Guid.NewGuid():N}";
+        string databaseName = $"fsus_{_databaseNamespace}_{Guid.NewGuid():N}";
+        if (databaseName.Length > 63)
+        {
+            databaseName = databaseName[..63];
+        }
         await using var connection = new NpgsqlConnection(_adminConnectionString);
         await connection.OpenAsync().ConfigureAwait(false);
         await using var command = connection.CreateCommand();
@@ -68,6 +81,24 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
             Database = databaseName
         };
         return SqlSugarInitializer.NormalizeConnectionString(builder.ConnectionString);
+    }
+
+    private static string ResolveDatabaseNamespace()
+    {
+        string configured = Environment.GetEnvironmentVariable("FSUSBLOG_BACKEND_DB_NAMESPACE")
+            ?? Environment.GetEnvironmentVariable("FSUSBLOG_TEST_NAMESPACE")
+            ?? "local";
+        string safe = new(configured
+            .ToLowerInvariant()
+            .Select(static character => char.IsAsciiLetterOrDigit(character) ? character : '-')
+            .ToArray());
+        safe = safe.Trim('-');
+        if (safe.Length > 18)
+        {
+            safe = safe[..18];
+        }
+
+        return $"{(safe.Length == 0 ? "local" : safe)}-{Environment.ProcessId}";
     }
 
     public async Task ExecuteAsync(string connectionString, string sql)

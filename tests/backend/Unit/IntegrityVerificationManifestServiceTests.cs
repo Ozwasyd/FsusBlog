@@ -12,11 +12,13 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigrationFixture fixture)
 {
+    private static readonly SemaphoreSlim DatabaseResetLock = new(1, 1);
+    private static string? sharedConnectionString;
+
     [Fact]
     public async Task GetCurrentArticleProofAsync_PublicReadyProofReturnsImmutableVerificationPayload()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        CreateTables(db);
         SeedArticle(db, articleId: 910002, ArticleStatus.Published);
         await SeedProofAsync(db, ReadyProof(articleId: 910002, revisionId: 810002, revisionNo: 3, status: "ready"));
         IIntegrityVerificationManifestService service = CreateService(db);
@@ -37,7 +39,6 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
     public async Task GetCurrentArticleRightsProofAsync_PublicReadyProofReturnsSafeRightsManifest()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        CreateTables(db);
         SeedArticle(db, articleId: 910012, ArticleStatus.Published);
         await SeedRightsSnapshotAsync(db, RightsSnapshot(articleId: 910012, revisionId: 810012, revisionNo: 2, snapshotId: 710012));
         await SeedRightsProofAsync(db, ReadyRightsProof(articleId: 910012, revisionId: 810012, revisionNo: 2, snapshotId: 710012, status: "ready"));
@@ -66,7 +67,6 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
     public async Task GetArticleRevisionRightsProofAsync_SupersededRevisionRemainsVerifiable()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        CreateTables(db);
         SeedArticle(db, articleId: 910013, ArticleStatus.Published);
         await SeedRightsSnapshotAsync(db, RightsSnapshot(articleId: 910013, revisionId: 810013, revisionNo: 1, snapshotId: 710013));
         await SeedRightsSnapshotAsync(db, RightsSnapshot(articleId: 910013, revisionId: 810014, revisionNo: 2, snapshotId: 710014));
@@ -87,7 +87,6 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
     public async Task GetCurrentArticleRightsProofAsync_DraftArticleReturnsStableNotPublicError()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        CreateTables(db);
         SeedArticle(db, articleId: 910014, ArticleStatus.Draft);
         await SeedRightsSnapshotAsync(db, RightsSnapshot(articleId: 910014, revisionId: 810015, revisionNo: 1, snapshotId: 710015));
         await SeedRightsProofAsync(db, ReadyRightsProof(articleId: 910014, revisionId: 810015, revisionNo: 1, snapshotId: 710015, status: "ready"));
@@ -108,7 +107,6 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
     public async Task GetCurrentArticleProofAsync_PublicFailedProofReturnsOnlyLowSensitivityStatus()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        CreateTables(db);
         SeedArticle(db, articleId: 910003, ArticleStatus.Published);
         ArticlePublishProof proof = ReadyProof(articleId: 910003, revisionId: 810003, revisionNo: 1, status: "failed");
         proof.FailureCode = "signer_private_key_error";
@@ -133,7 +131,6 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
     public async Task GetCurrentArticleProofAsync_DraftArticleReturnsStableNotPublicErrorWithoutProofPayload()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        CreateTables(db);
         SeedArticle(db, articleId: 910004, ArticleStatus.Draft);
         await SeedProofAsync(db, ReadyProof(articleId: 910004, revisionId: 810004, revisionNo: 1, status: "ready"));
         IIntegrityVerificationManifestService service = CreateService(db);
@@ -153,7 +150,6 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
     public async Task PublicManifestLookups_ReturnStableNoStoreMissingErrors()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
-        CreateTables(db);
         IIntegrityVerificationManifestService service = CreateService(db);
 
         IntegrityManifestResult revision = await service.GetRevisionProofAsync(404, CancellationToken.None);
@@ -169,8 +165,31 @@ public sealed class IntegrityVerificationManifestServiceTests(PostgresSchemaMigr
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
-        return PostgresSqlSugarTestClient.Create(connectionString);
+        await DatabaseResetLock.WaitAsync();
+        try
+        {
+            string connectionString;
+            if (sharedConnectionString is null)
+            {
+                connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+                using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+                CreateTables(setupDb);
+                sharedConnectionString = connectionString;
+            }
+            else
+            {
+                connectionString = sharedConnectionString;
+            }
+
+            await fixture.ExecuteAsync(
+                connectionString,
+                "TRUNCATE TABLE integrity_merkle_checkpoint, integrity_transparency_log, article_rights_proof, article_rights_snapshot, article_rights_policy, article_publish_proof, article RESTART IDENTITY CASCADE;");
+            return PostgresSqlSugarTestClient.Create(connectionString);
+        }
+        finally
+        {
+            DatabaseResetLock.Release();
+        }
     }
 
     private static void CreateTables(SqlSugarClient db)

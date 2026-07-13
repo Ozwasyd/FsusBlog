@@ -21,7 +21,8 @@ HANDOFF_BUNDLE_CHECK_SCRIPT="$ROOT_DIR/tools/security/check-production-exposure-
 RETURNED_EVIDENCE_SCRIPT="$ROOT_DIR/tools/security/verify-production-exposure-returned-evidence.sh"
 
 tmp_dir="$(mktemp -d)"
-trap 'rm -rf "$tmp_dir"' EXIT
+parallel_log_root="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir" "$parallel_log_root"' EXIT
 
 # Keep self-test artifacts isolated from release evidence files. Complete closeout
 # invokes the status reporter, so an inherited/default status path would otherwise
@@ -35,6 +36,178 @@ fail() {
   printf -- '- %s\n' "$1" >&2
   exit 1
 }
+
+resolve_parallel_capacity() {
+  local total="$1"
+  local host_cpus host_memory_gib granted_cpus granted_memory_gib
+  local cpu_workers memory_workers workers scheduler_controlled=0
+  local grant_file grant_tier expected_run grant_schema grant_run grant_cpus grant_memory budget_cpus budget_memory
+
+  host_cpus="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc)"
+  host_memory_gib="$(awk '/^MemTotal:/ { printf "%.6f", $2 / 1024 / 1024; exit }' /proc/meminfo)"
+  granted_cpus="${FSUSBLOG_STEP_CPU_BUDGET:-${FSUSBLOG_BUNDLE_CPU_UNITS:-${FSUSBLOG_BUNDLE_CPU_BUDGET:-$host_cpus}}}"
+  granted_memory_gib="${FSUSBLOG_STEP_MEMORY_GIB:-${FSUSBLOG_BUNDLE_MEMORY_GIB:-$host_memory_gib}}"
+  if [[ -n "${FSUSBLOG_STEP_CPU_BUDGET:-}${FSUSBLOG_BUNDLE_CPU_UNITS:-}${FSUSBLOG_BUNDLE_CPU_BUDGET:-}${FSUSBLOG_STEP_MEMORY_GIB:-}${FSUSBLOG_BUNDLE_MEMORY_GIB:-}" ]]; then
+    scheduler_controlled=1
+  fi
+
+  # A long-lived security lane can receive a larger atomic scheduler grant after
+  # sibling bundles finish. Resolve that current grant immediately before each
+  # independent validation wave instead of freezing the lane's initial budget.
+  grant_file="${FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE:-}"
+  grant_tier="${FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID:-}"
+  if [[ -n "$grant_file" || -n "$grant_tier" ]]; then
+    [[ -n "$grant_file" && -n "$grant_tier" ]] \
+      || fail 'scheduler resource grant requires both file and tier id'
+    expected_run="${FSUSBLOG_TEST_RUN_ID:-}"
+    [[ -n "$expected_run" ]] || fail 'scheduler resource grant requires FSUSBLOG_TEST_RUN_ID'
+    [[ -r "$grant_file" ]] || fail "scheduler resource grant is unreadable: $grant_file"
+    IFS=$'\t' read -r grant_schema grant_run grant_cpus grant_memory budget_cpus budget_memory < <(
+      jq -er --arg tier "$grant_tier" '
+        [
+          .schema,
+          (.runId // ""),
+          (.grants[$tier].cpuUnits // ""),
+          (.grants[$tier].memoryGiB // ""),
+          (.resourceBudget.cpuUnits // ""),
+          (.resourceBudget.memoryGiB // "")
+        ] | @tsv
+      ' "$grant_file"
+    ) || fail "scheduler resource grant is invalid: $grant_file"
+    [[ "$grant_schema" == 'fsusblog.test-matrix.resource-grants.v1' ]] \
+      || fail 'scheduler resource grant has an invalid schema'
+    [[ "$grant_run" == "$expected_run" ]] \
+      || fail "scheduler resource grant runId mismatch: expected $expected_run, got ${grant_run:-missing}"
+    [[ "$grant_cpus" =~ ^[1-9][0-9]*$ && "$budget_cpus" =~ ^[1-9][0-9]*$ ]] \
+      || fail "scheduler CPU grant is invalid for $grant_tier"
+    if ! awk -v cpu="$grant_cpus" -v memory="$grant_memory" -v budgetCpu="$budget_cpus" -v budgetMemory="$budget_memory" 'BEGIN {
+      exit !(memory + 0 > 0 && budgetMemory + 0 >= memory + 0 && budgetCpu + 0 >= cpu + 0)
+    }'; then
+      fail "scheduler resource grant is invalid for $grant_tier"
+    fi
+    granted_cpus="$grant_cpus"
+    granted_memory_gib="$grant_memory"
+    scheduler_controlled=1
+  fi
+
+  cpu_workers="$(awk -v value="$granted_cpus" 'BEGIN { value += 0; print (value > 1 ? int(value + 0.999999) : 1) }')"
+  if (( scheduler_controlled == 1 )); then
+    # The scheduler has already admitted this CPU/memory pair against current
+    # host capacity; applying host-average memory per CPU again double-counts it.
+    memory_workers="$cpu_workers"
+  else
+    memory_workers="$(awk -v granted="$granted_memory_gib" -v hostMemory="$host_memory_gib" -v hostCpus="$host_cpus" '
+      BEGIN {
+        granted += 0; hostMemory += 0; hostCpus += 0
+        if (granted <= 0 || hostMemory <= 0 || hostCpus <= 0) { print 1; exit }
+        equivalent = granted / (hostMemory / hostCpus)
+        print (equivalent > 1 ? int(equivalent + 0.999999) : 1)
+      }
+    ' )"
+  fi
+  workers="$cpu_workers"
+  (( memory_workers < workers )) && workers="$memory_workers"
+  (( total < workers )) && workers="$total"
+  (( workers < 1 )) && workers=1
+  printf '%s\t%s\t%s\n' "$workers" "$granted_cpus" "$granted_memory_gib"
+}
+
+resolve_parallel_workers() {
+  local workers _cpu _memory
+  IFS=$'\t' read -r workers _cpu _memory < <(resolve_parallel_capacity "$1")
+  printf '%s\n' "$workers"
+}
+
+run_parallel_functions() {
+  local phase="$1"
+  shift
+  local -a functions=("$@") active_pids=() failures=()
+  local worker_cap granted_cpu granted_memory child_cpu child_memory log_dir completion_fifo completion_fd function_name pid finished_pid rc
+  local wait_timeout_seconds phase_started_ms inherited_deadline_ms
+  local -A pid_names=() pid_logs=()
+
+  IFS=$'\t' read -r worker_cap granted_cpu granted_memory < <(resolve_parallel_capacity "${#functions[@]}")
+  phase_started_ms="$(date +%s%3N)"
+  inherited_deadline_ms="${FSUSBLOG_STEP_DEADLINE_MS:-${FSUSBLOG_BUNDLE_DEADLINE_MS:-}}"
+  child_cpu="$(awk -v value="$granted_cpu" -v workers="$worker_cap" 'BEGIN { printf "%.6f", (value + 0) / workers }')"
+  child_memory="$(awk -v value="$granted_memory" -v workers="$worker_cap" 'BEGIN { printf "%.6f", (value + 0) / workers }')"
+  log_dir="$parallel_log_root/$phase"
+  mkdir -p "$log_dir"
+  completion_fifo="$log_dir/completions.fifo"
+  mkfifo "$completion_fifo"
+  exec {completion_fd}<>"$completion_fifo"
+
+  resolve_wait_timeout_seconds() {
+    local configured="${FSUSBLOG_PRODUCTION_EXPOSURE_SELFTEST_WAIT_TIMEOUT_SECONDS:-120}"
+    if [[ "$inherited_deadline_ms" =~ ^[0-9]+$ ]]; then
+      awk -v started="$phase_started_ms" -v budget="$inherited_deadline_ms" -v now="$(date +%s%3N)" 'BEGIN {
+        remaining = (started + budget - now) / 1000
+        print (remaining > 1 ? int(remaining + 0.999999) : 1)
+      }'
+    else
+      awk -v configured="$configured" 'BEGIN { configured += 0; print (configured > 1 ? configured : 1) }'
+    fi
+  }
+
+  reap_one() {
+    wait_timeout_seconds="$(resolve_wait_timeout_seconds)"
+    if ! IFS=$'\t' read -r -t "$wait_timeout_seconds" -u "$completion_fd" finished_pid rc; then
+      for pid in "${active_pids[@]}"; do
+        printf '[production-exposure-tools-test] timed out waiting for %s\n' "${pid_names[$pid]}" >> "${pid_logs[$pid]}"
+        failures+=("${pid_names[$pid]}:${pid_logs[$pid]}")
+        pkill -TERM -P "$pid" 2>/dev/null || true
+        pkill -KILL -P "$pid" 2>/dev/null || true
+        kill "$pid" 2>/dev/null || true
+        kill -KILL "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+      done
+      active_pids=()
+      return
+    fi
+    wait "$finished_pid" 2>/dev/null || true
+    if (( rc != 0 )); then
+      failures+=("${pid_names[$finished_pid]}:${pid_logs[$finished_pid]}")
+    fi
+    local -a remaining=()
+    for pid in "${active_pids[@]}"; do
+      [[ "$pid" == "$finished_pid" ]] || remaining+=("$pid")
+    done
+    active_pids=("${remaining[@]}")
+  }
+
+  for function_name in "${functions[@]}"; do
+    while (( ${#active_pids[@]} >= worker_cap )); do
+      reap_one
+    done
+    (
+      trap 'rc=$?; printf '\''%s\t%s\n'\'' "$BASHPID" "$rc" > "$completion_fifo"' EXIT
+      export FSUSBLOG_STEP_CPU_BUDGET="$child_cpu"
+      export FSUSBLOG_STEP_MEMORY_GIB="$child_memory"
+      "$function_name"
+    ) >"$log_dir/$function_name.log" 2>&1 &
+    pid=$!
+    active_pids+=("$pid")
+    pid_names["$pid"]="$function_name"
+    pid_logs["$pid"]="$log_dir/$function_name.log"
+  done
+  while (( ${#active_pids[@]} > 0 )); do
+    reap_one
+  done
+  exec {completion_fd}>&-
+  rm -f "$completion_fifo"
+
+  if (( ${#failures[@]} > 0 )); then
+    for function_name in "${failures[@]}"; do
+      printf '[production-exposure-tools-test] parallel failure: %s\n' "${function_name%%:*}" >&2
+      sed 's/^/  /' "${function_name#*:}" >&2
+    done
+    fail "$phase completed with ${#failures[@]} failed validation group(s)"
+  fi
+}
+
+if [[ "${FSUSBLOG_PRODUCTION_EXPOSURE_SELFTEST_SOURCE_ONLY:-0}" == "1" ]]; then
+  return 0 2>/dev/null || exit 0
+fi
 
 "$PREREQ_SCRIPT" >/dev/null
 for prereq_token in \
@@ -661,6 +834,7 @@ cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-narrow-request.fix
 cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-narrow-manifest.fixture.md"
 cp "$tmp_dir/closeout.fixture.md" "$tmp_dir/closeout.returned-unblock-plan.fixture.md"
 
+test_status_and_live_evidence() {
 if "$VERIFY_SCRIPT" "$tmp_dir/failed-dns.json" >/dev/null 2>&1; then
   fail "failed DNS evidence unexpectedly passed verifier"
 fi
@@ -809,7 +983,9 @@ fi
 if "$VERIFY_SCRIPT" "$tmp_dir/missing-required-hosts-field.json" >/dev/null 2>&1; then
   fail "evidence without requiredHosts unexpectedly passed verifier"
 fi
+}
 
+test_firewall_evidence() {
 if "$FIREWALL_POLICY_SCRIPT" "$tmp_dir/firewall-public-ssh.json" >/dev/null 2>&1; then
   fail "public SSH firewall policy unexpectedly passed verifier"
 fi
@@ -964,7 +1140,9 @@ if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   "$CLOUD_FIREWALL_NORMALIZER_SCRIPT" "$tmp_dir/aws-security-groups-public-db.json" >/dev/null 2>&1; then
   fail "cloud firewall normalizer accepted public database/cache ingress"
 fi
+}
 
+test_direct_closeout() {
 if FSUSBLOG_FIREWALL_POLICY_EVIDENCE="$tmp_dir/firewall-other-host.json" \
   FSUSBLOG_DNS_READINESS_EVIDENCE="$tmp_dir/dns-readiness-ok.json" \
   FSUSBLOG_DNS_DELEGATION_EVIDENCE="$tmp_dir/dns-delegation-ok.json" \
@@ -1035,6 +1213,12 @@ direct_ok_after="$(sha256sum "$tmp_dir/closeout.fixture.md" | awk '{print $1}')"
 [[ "$direct_ok_before" == "$direct_ok_after" ]] || fail "direct closeout modified closeout fixture after valid evidence"
 jq -e '.status == "ok" and (.blockers | length) == 0' "$tmp_dir/direct-ok-status.json" >/dev/null \
   || fail "direct closeout did not write ok status after valid evidence"
+}
+
+run_parallel_functions evidence-verifiers \
+  test_status_and_live_evidence \
+  test_firewall_evidence \
+  test_direct_closeout
 
 complete_before="$(sha256sum "$tmp_dir/closeout.complete.fixture.md" | awk '{print $1}')"
 complete_failed_status="$tmp_dir/complete-failed-status.json"
@@ -1320,6 +1504,8 @@ FSUSBLOG_PRODUCTION_EXPOSURE_REQUEST="$complete_failed_request" \
 [[ -f "$complete_failed_handoff_bundle/SHA256SUMS" ]] || fail "handoff bundle did not write checksums"
 [[ -f "$complete_failed_handoff_bundle.tar.gz" ]] || fail "handoff bundle did not write archive"
 [[ -f "$complete_failed_handoff_bundle.tar.gz.sha256" ]] || fail "handoff bundle did not write archive checksum"
+
+test_handoff_bundle_security() {
 export_symlink_release_dir="$tmp_dir/export-symlink-release"
 mkdir -p "$export_symlink_release_dir"
 cp "$complete_failed_manifest" "$export_symlink_release_dir/manifest.json"
@@ -1539,6 +1725,8 @@ jq '.artifactDigests.productionExposureStatus.value = "0000000000000000000000000
 if FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 "$HANDOFF_BUNDLE_CHECK_SCRIPT" "$tampered_digest_handoff_bundle" >/dev/null 2>&1; then
   fail "handoff bundle checker accepted tampered manifest artifact digest"
 fi
+}
+
 returned_ok_dir="$tmp_dir/returned-ok"
 mkdir -p "$returned_ok_dir"
 cp "$tmp_dir/firewall-ok.json" "$returned_ok_dir/production-firewall-policy.json"
@@ -1638,6 +1826,11 @@ jq -e '.currentStatus.status == "ok" and .currentStatus.blockerCount == 0' "$ret
   || fail "returned evidence verifier did not refresh ok request"
 jq -e '.evidenceSummary.externalExposure.valid == true and .evidenceSummary.externalExposure.request.currentStatus == "ok" and .evidenceSummary.externalExposure.request.requiredEvidenceCount == 5' "$tmp_dir/returned-ok-release/manifest.json" >/dev/null \
   || fail "returned evidence verifier did not write ok release manifest"
+
+# The rolling groups below treat complete_failed_status, complete_failed_manifest,
+# complete_failed_handoff_bundle, and returned_ok_dir as immutable baselines. Every
+# negative mutation and every successful closeout writes to a group-owned copy.
+test_returned_evidence_rejections() {
 returned_symlink_dir="$tmp_dir/returned-symlink"
 cp -a "$returned_ok_dir" "$returned_symlink_dir"
 rm "$returned_symlink_dir/production-exposure-live.json"
@@ -1700,6 +1893,9 @@ fi
 returned_direct_parent_tampered_checklist_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-direct-parent-tampered-checklist.fixture.md" | awk '{print $1}')"
 [[ "$returned_direct_parent_tampered_checklist_closeout_before" == "$returned_direct_parent_tampered_checklist_closeout_after" ]] \
   || fail "returned evidence direct closeout modified closeout after tampered parent handoff bundle"
+}
+
+test_returned_handoff_success() {
 returned_handoff_dir="$tmp_dir/returned-handoff-dir"
 mkdir -p "$returned_handoff_dir/returned-evidence"
 cp "$returned_ok_dir/production-firewall-policy.json" "$returned_handoff_dir/returned-evidence/production-firewall-policy.json"
@@ -1732,6 +1928,9 @@ FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   "$RETURNED_HANDOFF_COMPLETE_SCRIPT" "$returned_handoff_tar" >/dev/null
 jq -e '.evidenceSummary.externalExposure.valid == true and .evidenceSummary.externalExposure.request.currentStatus == "ok"' "$tmp_dir/returned-handoff-tar-release/manifest.json" >/dev/null \
   || fail "returned handoff tarball closeout did not write ok release manifest"
+}
+
+test_returned_handoff_archive_safety() {
 returned_handoff_blocked_tar_source="$tmp_dir/returned-handoff-blocked-tar-source"
 mkdir -p "$returned_handoff_blocked_tar_source/returned-evidence"
 cp "$returned_ok_dir/production-firewall-policy.json" "$returned_handoff_blocked_tar_source/returned-evidence/production-firewall-policy.json"
@@ -1812,6 +2011,9 @@ fi
 returned_handoff_path_traversal_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-handoff-path-traversal-tar.fixture.md" | awk '{print $1}')"
 [[ "$returned_handoff_path_traversal_closeout_before" == "$returned_handoff_path_traversal_closeout_after" ]] \
   || fail "returned handoff tarball closeout modified closeout after archive path traversal member"
+}
+
+test_returned_contract_drift() {
 returned_narrow_request_dir="$tmp_dir/returned-narrow-request"
 mkdir -p "$returned_narrow_request_dir"
 cp "$tmp_dir/firewall-ok.json" "$returned_narrow_request_dir/production-firewall-policy.json"
@@ -1954,6 +2156,9 @@ fi
 	returned_manifest_source_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-unblock-plan.fixture.md" | awk '{print $1}')"
 	[[ "$returned_manifest_source_closeout_before" == "$returned_manifest_source_closeout_after" ]] \
 	  || fail "returned evidence complete closeout modified closeout after expected manifest source metadata drift"
+}
+
+test_returned_status_and_complete() {
 	returned_blocked_dir="$tmp_dir/returned-blocked"
 	mkdir -p "$returned_blocked_dir"
 cp "$tmp_dir/firewall-ok.json" "$returned_blocked_dir/production-firewall-policy.json"
@@ -1970,11 +2175,13 @@ jq -e '.status == "blocked" and any(.blockers[]?; .source == "live-evidence")' "
   || fail "returned evidence verifier did not preserve blocked status"
 jq -e '.evidenceSummary.externalExposure.valid == false and .evidenceSummary.externalExposure.request.currentStatus == "blocked" and any(.evidenceSummary.externalExposure.blockers[]?; .source == "live-evidence")' "$tmp_dir/returned-blocked-release/manifest.json" >/dev/null \
   || fail "returned evidence verifier did not preserve blocked manifest"
+returned_complete_ok_dir="$tmp_dir/returned-complete-ok"
+cp -a "$returned_ok_dir" "$returned_complete_ok_dir"
 FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
   FSUSBLOG_ALLOW_TEMP_EVIDENCE=1 \
   FSUSBLOG_PRODUCTION_EXPOSURE_RETURNED_OUT_DIR="$tmp_dir/returned-complete-release" \
-  "$RETURNED_COMPLETE_SCRIPT" "$returned_ok_dir" >/dev/null
-jq -e '.status == "ok" and (.blockers | length) == 0' "$returned_ok_dir/production-exposure-status.json" >/dev/null \
+  "$RETURNED_COMPLETE_SCRIPT" "$returned_complete_ok_dir" >/dev/null
+jq -e '.status == "ok" and (.blockers | length) == 0' "$returned_complete_ok_dir/production-exposure-status.json" >/dev/null \
   || fail "returned evidence complete closeout did not preserve ok status"
 returned_blocked_closeout_before="$(sha256sum "$tmp_dir/closeout.returned-blocked.fixture.md" | awk '{print $1}')"
 if FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog \
@@ -1987,6 +2194,9 @@ fi
 returned_blocked_closeout_after="$(sha256sum "$tmp_dir/closeout.returned-blocked.fixture.md" | awk '{print $1}')"
 [[ "$returned_blocked_closeout_before" == "$returned_blocked_closeout_after" ]] \
   || fail "returned evidence complete closeout modified closeout after blocked returned evidence"
+}
+
+test_handoff_manifest_drift() {
 complete_failed_request_digest_mismatch="$tmp_dir/complete-failed-request-digest-mismatch.json"
 jq '.artifactDigests.productionExposureRequest.value = "0000000000000000000000000000000000000000000000000000000000000000"' "$complete_failed_manifest" >"$complete_failed_request_digest_mismatch"
 	if FSUSBLOG_PRODUCTION_EXPOSURE_REQUEST="$complete_failed_request" \
@@ -2140,7 +2350,9 @@ if FSUSBLOG_PRODUCTION_EXPOSURE_REQUEST="$complete_failed_request" \
 fi
 jq -e '.status == "blocked" and any(.blockers[]?; .source == "live-evidence")' "$complete_failed_status" >/dev/null \
   || fail "complete closeout failure status did not record live-evidence blocker"
+}
 
+test_complete_closeout_flows() {
 complete_refresh_before="$(sha256sum "$tmp_dir/closeout.complete-refresh-after-delegation-failure.fixture.md" | awk '{print $1}')"
 complete_refresh_status="$tmp_dir/complete-refresh-after-delegation-failure-status.json"
 complete_refresh_readiness="$tmp_dir/complete-refresh-after-delegation-failure-readiness.json"
@@ -2244,5 +2456,16 @@ FSUSBLOG_SKIP_PRODUCTION_NETWORK_BASELINE=1 \
 
 jq -e '.status == "ok" and (.blockers | length) == 0' "$tmp_dir/complete-ufw-status.json" >/dev/null \
   || fail "complete closeout with host firewall collector did not write ok status"
+}
+
+run_parallel_functions closeout-and-handoff \
+  test_handoff_bundle_security \
+  test_returned_evidence_rejections \
+  test_returned_handoff_success \
+  test_returned_handoff_archive_safety \
+  test_returned_contract_drift \
+  test_returned_status_and_complete \
+  test_handoff_manifest_drift \
+  test_complete_closeout_flows
 
 printf '[production-exposure-tools-test] ok\n'

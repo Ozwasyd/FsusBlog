@@ -115,7 +115,12 @@ public sealed class VisitLogProcessorServiceTests
 
         var elapsed = Stopwatch.StartNew();
         Task drain = DrainBatchAsync(worker, batch, CancellationToken.None);
-        await Task.Delay(VisitLogProcessorService.FlushWindow / 2);
+
+        // DrainBatchWithFlushWindowAsync consumes the first item synchronously before it
+        // reaches WaitToReadAsync. Observe that state directly instead of racing two
+        // independent thread-pool timers on a saturated production test host.
+        Assert.Equal(0, channel.QueuedCount);
+        Assert.False(drain.IsCompleted);
         Assert.True(channel.TryWrite(CreateMessage("127.0.0.2")));
         await drain.WaitAsync(TimeSpan.FromSeconds(10));
         elapsed.Stop();
@@ -177,7 +182,7 @@ public sealed class VisitLogProcessorServiceTests
         MethodInfo markStats = typeof(VisitLogProcessorService).GetMethod(
             "MarkStatsAfterFlushAsync",
             BindingFlags.Instance | BindingFlags.NonPublic)!;
-        await ((Task)markStats.Invoke(worker, [coalescer, stats, CancellationToken.None])!).ConfigureAwait(false);
+        await (Task)markStats.Invoke(worker, [coalescer, stats, CancellationToken.None])!;
 
         Assert.Single(batch);
         await coalescer.Received(1).MarkStatsDirtyAsync("visit-log-flush", Arg.Any<CancellationToken>());

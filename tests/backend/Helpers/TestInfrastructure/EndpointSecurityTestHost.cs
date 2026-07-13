@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.ObjectModel;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
@@ -36,16 +37,75 @@ namespace FsusBlog.Server.Tests.TestInfrastructure;
 
 public static class EndpointContractApplication
 {
+    private static readonly Lazy<RouteEndpoint[]> SnapshotEndpoints = new(
+        BuildEndpointSnapshot,
+        LazyThreadSafetyMode.ExecutionAndPublication);
+
     public static WebApplication Create()
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
-        builder.Services.AddAuthorization();
-        builder.Services.AddOutputCache();
+        AddContractServices(builder);
         WebApplication app = builder.Build();
         app.MapBinaryEndpoints();
         app.MapAuthoringEndpoints();
         app.MapSecurityEndpoints();
         return app;
+    }
+
+    public static EndpointContractSnapshot CreateSnapshot()
+        => new(SnapshotEndpoints.Value);
+
+    private static RouteEndpoint[] BuildEndpointSnapshot()
+    {
+        WebApplication app = Create();
+        try
+        {
+            return ((IEndpointRouteBuilder)app).DataSources
+                .SelectMany(static source => source.Endpoints)
+                .OfType<RouteEndpoint>()
+                .Select(CloneEndpoint)
+                .ToArray();
+        }
+        finally
+        {
+            app.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    private static RouteEndpoint CloneEndpoint(RouteEndpoint endpoint)
+    {
+        var builder = new RouteEndpointBuilder(
+            endpoint.RequestDelegate ?? throw new InvalidOperationException($"Endpoint has no request delegate: {endpoint.DisplayName}"),
+            endpoint.RoutePattern,
+            endpoint.Order)
+        {
+            DisplayName = endpoint.DisplayName
+        };
+        foreach (object metadata in endpoint.Metadata)
+        {
+            builder.Metadata.Add(metadata);
+        }
+
+        return (RouteEndpoint)builder.Build();
+    }
+
+    public static void AddContractServices(WebApplicationBuilder builder)
+    {
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
+            ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Database=fsusblog_endpoint_contract;Username=test;Password=test",
+            ["Jwt:SecretKey"] = "endpoint-contract-test-secret-key-at-least-32-bytes",
+            ["Jwt:Issuer"] = "FsusBlogEndpointContractTests",
+            ["Jwt:Audience"] = "FsusBlogEndpointContractTests",
+            ["CORS_ALLOWED_HOSTS"] = "https://console.example.test",
+            ["Security:IpHashKey"] = "endpoint-contract-ip-hash-key"
+        });
+        builder.Services
+            .AddFsusApiFoundation(builder.Configuration)
+            .AddFsusRuntimeServices(builder.Configuration)
+            .AddFsusRateLimiting();
+        builder.Services.RemoveAll<IHostedService>();
     }
 
     public static RouteEndpoint Find(
@@ -69,6 +129,36 @@ public static class EndpointContractApplication
 
     private static string NormalizeRoute(string? route)
         => string.Concat('/', (route ?? string.Empty).Trim().TrimStart('/'));
+}
+
+public sealed class EndpointContractSnapshot : IEndpointRouteBuilder, IDisposable, IAsyncDisposable
+{
+    private static readonly IServiceProvider EmptyServices = new EmptyServiceProvider();
+    private readonly ReadOnlyCollection<EndpointDataSource> _dataSources;
+
+    internal EndpointContractSnapshot(RouteEndpoint[] endpoints)
+    {
+        var dataSource = new DefaultEndpointDataSource(endpoints.Cast<Endpoint>());
+        _dataSources = Array.AsReadOnly<EndpointDataSource>([dataSource]);
+    }
+
+    public ICollection<EndpointDataSource> DataSources => _dataSources;
+
+    public IServiceProvider ServiceProvider => EmptyServices;
+
+    public IApplicationBuilder CreateApplicationBuilder()
+        => throw new NotSupportedException("Endpoint contract snapshots are immutable.");
+
+    public void Dispose()
+    {
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    private sealed class EmptyServiceProvider : IServiceProvider
+    {
+        public object? GetService(Type serviceType) => null;
+    }
 }
 
 public sealed class EndpointSecurityTestServerOptions
@@ -112,10 +202,13 @@ public sealed class EndpointSecurityTestServer : IDisposable
     public const string ChallengeKind = "sha256PowV1";
     public const string AccountSubjectHash = "4f88d848f31c5b367d4b606d8f3e4dc0ab85636094b93bc8bb3f0d2a6b2c5514";
 
-    private readonly TestServer _server;
+    private readonly WebApplication _application;
+    private readonly object _issuedClientIpsGate = new();
+    private readonly List<string> _issuedClientIps = [];
+    private int _clientSequence;
 
     private EndpointSecurityTestServer(
-        TestServer server,
+        WebApplication application,
         IAdminPrincipalService adminPrincipals,
         IArticleEndpointService articles,
         IAuditEventService auditEvents,
@@ -124,9 +217,13 @@ public sealed class EndpointSecurityTestServer : IDisposable
         IPowService pow,
         ISecurityChallengeProofService riskProofs,
         ISecurityRiskScoreReader riskScores,
-        CapturingEndpointRiskSink riskSink)
+        CapturingEndpointRiskSink riskSink,
+        IBlacklistService blacklist,
+        IUserAccountReader users,
+        IUnifiedCache cache,
+        IRiskDecisionService riskDecision)
     {
-        _server = server;
+        _application = application;
         AdminPrincipals = adminPrincipals;
         Articles = articles;
         AuditEvents = auditEvents;
@@ -136,6 +233,10 @@ public sealed class EndpointSecurityTestServer : IDisposable
         RiskProofs = riskProofs;
         RiskScores = riskScores;
         RiskSink = riskSink;
+        Blacklist = blacklist;
+        Users = users;
+        Cache = cache;
+        RiskDecision = riskDecision;
     }
 
     public IAdminPrincipalService AdminPrincipals { get; }
@@ -156,7 +257,75 @@ public sealed class EndpointSecurityTestServer : IDisposable
 
     public CapturingEndpointRiskSink RiskSink { get; }
 
-    public HttpClient CreateClient() => _server.CreateClient();
+    public IBlacklistService Blacklist { get; }
+
+    public IUserAccountReader Users { get; }
+
+    public IUnifiedCache Cache { get; }
+
+    public IRiskDecisionService RiskDecision { get; }
+
+    public IReadOnlyList<string> IssuedClientIps
+    {
+        get
+        {
+            lock (_issuedClientIpsGate)
+            {
+                return _issuedClientIps.ToArray();
+            }
+        }
+    }
+
+    public int ObservationCount
+        => AdminPrincipals.ReceivedCalls().Count()
+           + Articles.ReceivedCalls().Count()
+           + AuditEvents.ReceivedCalls().Count()
+           + Sessions.ReceivedCalls().Count()
+           + Passkeys.ReceivedCalls().Count()
+           + Pow.ReceivedCalls().Count()
+           + RiskProofs.ReceivedCalls().Count()
+           + RiskScores.ReceivedCalls().Count()
+           + Blacklist.ReceivedCalls().Count()
+           + Users.ReceivedCalls().Count()
+           + Cache.ReceivedCalls().Count()
+           + RiskDecision.ReceivedCalls().Count()
+           + RiskSink.Signals.Count;
+
+    public HttpClient CreateClient()
+    {
+        int sequence = Interlocked.Increment(ref _clientSequence);
+        string remoteIp = $"198.18.{((sequence - 1) / 254) % 256}.{((sequence - 1) % 254) + 1}";
+        lock (_issuedClientIpsGate)
+        {
+            if (_issuedClientIps.Contains(remoteIp, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException($"Endpoint security test client IP was reused: {remoteIp}");
+            }
+
+            _issuedClientIps.Add(remoteIp);
+        }
+
+        HttpClient client = _application.GetTestClient();
+        client.DefaultRequestHeaders.Add("X-Test-Remote-Ip", remoteIp);
+        return client;
+    }
+
+    public void ResetObservations()
+    {
+        AdminPrincipals.ClearReceivedCalls();
+        Articles.ClearReceivedCalls();
+        AuditEvents.ClearReceivedCalls();
+        Sessions.ClearReceivedCalls();
+        Passkeys.ClearReceivedCalls();
+        Pow.ClearReceivedCalls();
+        RiskProofs.ClearReceivedCalls();
+        RiskScores.ClearReceivedCalls();
+        Blacklist.ClearReceivedCalls();
+        Users.ClearReceivedCalls();
+        Cache.ClearReceivedCalls();
+        RiskDecision.ClearReceivedCalls();
+        RiskSink.Clear();
+    }
 
     public static EndpointSecurityTestServer Create(EndpointSecurityTestServerOptions? options = null)
     {
@@ -246,11 +415,12 @@ public sealed class EndpointSecurityTestServer : IDisposable
         var riskPolicy = Substitute.For<ISecurityRiskPolicyProvider>();
         riskPolicy.CurrentRiskPolicyV2.Returns(SecurityRiskPolicySnapshotV2Adapter.FromLegacy(antiCrawler));
 
-        var builder = new WebHostBuilder()
-            .UseEnvironment("Production")
-            .ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?>
-                {
+        var webOptions = new WebApplicationOptions { EnvironmentName = Environments.Production };
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(webOptions);
+        builder.WebHost.UseTestServer();
+        builder.Configuration.Sources.Clear();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
                     ["CORS_ALLOWED_HOSTS"] = "https://console.example.test",
                     ["ASPNETCORE_ENVIRONMENT"] = "Production",
                     ["Jwt:SecretKey"] = "endpoint-security-test-secret-key-at-least-32-bytes",
@@ -267,54 +437,53 @@ public sealed class EndpointSecurityTestServer : IDisposable
                     ["RateLimiting:AdminQueueLimit"] = "0",
                     ["Security:Pow:BaseDifficulty"] = "1",
                     ["Security:Pow:MaxDifficulty"] = "1",
-                    ["Security:IpHashKey"] = "endpoint-security-test-key"
-                }))
-            .ConfigureServices((context, services) =>
-            {
-                services.AddLogging();
-                services
-                    .AddFsusApiFoundation(context.Configuration)
-                    .AddFsusRuntimeServices(context.Configuration)
-                    .AddFsusRateLimiting();
-                services.RemoveAll<IHostedService>();
-                services.AddSingleton<IAntiCrawlerPolicyProvider>(new FixedAntiCrawlerPolicyProvider(antiCrawler));
-                services.AddSingleton<IAedsEncoder, AedsEncoder>();
-                services.AddSingleton<IBinaryEnvelopePolicy, BinaryEnvelopePolicy>();
-                services.AddSingleton(blacklist);
-                services.AddSingleton(users);
-                services.AddSingleton<IUnifiedCache>(cache);
-                services.AddSingleton(pow);
-                services.AddSingleton(new AdaptivePowGovernor(cache, context.Configuration));
-                services.AddSingleton<ISecurityRiskSignalSink>(riskSink);
-                services.AddSingleton(riskScores);
-                services.AddSingleton(riskPolicy);
-                services.AddSingleton<IRiskControlContextFactory>(
-                    new RiskControlContextFactory(context.HostingEnvironment, context.Configuration));
-                services.AddSingleton(riskDecision);
-                services.AddSingleton(riskProofs);
-                services.AddSingleton(adminPrincipals);
-                services.AddSingleton(articles);
-                services.AddSingleton(auditEvents);
-                services.AddSingleton(sessions);
-                services.AddSingleton(passkeys);
-                services.AddTransient<CommentRiskActionFilter>();
-                services.AddTransient<RequiresRiskControlFilter>();
-                services.AddTransient<RequiresPowFilter>();
-                services.AddTransient<RiskAwarePublicReadFilter>();
-            })
-            .Configure(app =>
-            {
-                app.UseMiddleware<ApiBinaryResponseMiddleware>();
-                app.UseRouting();
-                app.Use(ApplyTestRequestContextAsync);
-                app.UseRateLimiter();
-                app.UseMiddleware<BannedUserMiddleware>();
-                app.UseAuthorization();
-                app.UseEndpoints(static endpoints => endpoints.MapBinaryEndpoints());
-            });
+                    ["Security:IpHashKey"] = "endpoint-security-test-key",
+                    ["Moderation:Pepper"] = "endpoint-security-moderation-pepper-at-least-32-bytes"
+        });
+        builder.Services.AddLogging();
+        builder.Services.AddRouting();
+        builder.Services
+            .AddFsusApiFoundation(builder.Configuration)
+            .AddFsusRuntimeServices(builder.Configuration)
+            .AddFsusRateLimiting();
+        builder.Services.RemoveAll<IHostedService>();
+        builder.Services.AddSingleton<IAntiCrawlerPolicyProvider>(new FixedAntiCrawlerPolicyProvider(antiCrawler));
+        builder.Services.AddSingleton<IAedsEncoder, AedsEncoder>();
+        builder.Services.AddSingleton<IBinaryEnvelopePolicy, BinaryEnvelopePolicy>();
+        builder.Services.AddSingleton(blacklist);
+        builder.Services.AddSingleton(users);
+        builder.Services.AddSingleton<IUnifiedCache>(cache);
+        builder.Services.AddSingleton(pow);
+        builder.Services.AddSingleton(new AdaptivePowGovernor(cache, builder.Configuration));
+        builder.Services.AddSingleton<ISecurityRiskSignalSink>(riskSink);
+        builder.Services.AddSingleton(riskScores);
+        builder.Services.AddSingleton(riskPolicy);
+        builder.Services.AddSingleton<IRiskControlContextFactory>(
+            new RiskControlContextFactory(builder.Environment, builder.Configuration));
+        builder.Services.AddSingleton(riskDecision);
+        builder.Services.AddSingleton(riskProofs);
+        builder.Services.AddSingleton(adminPrincipals);
+        builder.Services.AddSingleton(articles);
+        builder.Services.AddSingleton(auditEvents);
+        builder.Services.AddSingleton(sessions);
+        builder.Services.AddSingleton(passkeys);
+        builder.Services.AddTransient<CommentRiskActionFilter>();
+        builder.Services.AddTransient<RequiresRiskControlFilter>();
+        builder.Services.AddTransient<RequiresPowFilter>();
+        builder.Services.AddTransient<RiskAwarePublicReadFilter>();
+
+        WebApplication app = builder.Build();
+        app.UseMiddleware<ApiBinaryResponseMiddleware>();
+        app.UseRouting();
+        app.Use(ApplyTestRequestContextAsync);
+        app.UseRateLimiter();
+        app.UseMiddleware<BannedUserMiddleware>();
+        app.UseAuthorization();
+        app.MapBinaryEndpoints();
+        app.StartAsync().GetAwaiter().GetResult();
 
         return new EndpointSecurityTestServer(
-            new TestServer(builder),
+            app,
             adminPrincipals,
             articles,
             auditEvents,
@@ -323,7 +492,11 @@ public sealed class EndpointSecurityTestServer : IDisposable
             pow,
             riskProofs,
             riskScores,
-            riskSink);
+            riskSink,
+            blacklist,
+            users,
+            cache,
+            riskDecision);
     }
 
     public static void AddAdminPrincipal(
@@ -362,7 +535,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         return PodBinaryCodec.ToErrorDetail(error);
     }
 
-    public void Dispose() => _server.Dispose();
+    public void Dispose() => _application.DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     private static async Task ApplyTestRequestContextAsync(HttpContext context, Func<Task> next)
     {
@@ -500,4 +673,19 @@ public sealed class CapturingEndpointRiskSink : ISecurityRiskSignalSink
 
         return ValueTask.CompletedTask;
     }
+
+    public void Clear()
+    {
+        lock (_signals)
+        {
+            _signals.Clear();
+        }
+    }
+}
+
+public sealed class EndpointSecurityDefaultServerFixture : IDisposable
+{
+    public EndpointSecurityTestServer Server { get; } = EndpointSecurityTestServer.Create();
+
+    public void Dispose() => Server.Dispose();
 }

@@ -6,6 +6,16 @@ import test from 'node:test'
 
 const repoRoot = path.resolve(import.meta.dirname, '../..')
 
+test('broken-image viewport corpus stays network-free while preserving decode failure', async () => {
+  const corpus = JSON.parse(await readFile(
+    path.join(repoRoot, 'tests/frontend/fixtures/ux-content-boundary-corpus.json'),
+    'utf8'
+  ))
+  const brokenImage = corpus.cases.find((item) => item.id === 'broken-image')
+  assert.equal(brokenImage?.kind, 'image')
+  assert.match(brokenImage?.sample ?? '', /^data:image\/png;base64,/u)
+})
+
 test('summary follows the current-run pointer and ignores stale-run artifacts', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'fsusblog-ux-runtime-'))
   t.after(() => rm(root, { recursive: true, force: true }))
@@ -91,6 +101,30 @@ test('summary follows the current-run pointer and ignores stale-run artifacts', 
     `.tmp/ux/runs/${runId}/smoke/screenshots/mobile/light/current.png`
   ])
   assert.equal(JSON.stringify(summary).includes('stale.png'), false)
+
+  const staleRunId = 'stale-run'
+  const staleProgressFile = path.join(root, '.tmp/ux/runs', staleRunId, 'smoke/progress.json')
+  const currentProgress = JSON.parse(await readFile(progressFile, 'utf8'))
+  await writeFile(staleProgressFile, `${JSON.stringify({
+    ...currentProgress,
+    runId: staleRunId,
+    artifacts: {
+      ...currentProgress.artifacts,
+      root: `.tmp/ux/runs/${staleRunId}/smoke`
+    }
+  }, null, 2)}\n`)
+  await writeFile(path.join(root, '.tmp/ux/current-smoke-run.json'), `${JSON.stringify({
+    version: 'fsusblog-ux-viewport-run-pointer-v1',
+    runId: staleRunId,
+    runToken: 'stale-token',
+    mode: 'smoke',
+    planFingerprint: 'runtime-fingerprint',
+    progressFile: `.tmp/ux/runs/${staleRunId}/smoke/progress.json`
+  }, null, 2)}\n`)
+
+  const exact = await writeUxViewportSummary({ root, mode: 'smoke', runId })
+  assert.equal(exact.summary.runId, runId)
+  assert.equal(JSON.stringify(exact.summary).includes('stale.png'), false)
 })
 
 test('visual summary requires one current-run screenshot per planned cold navigation', async (t) => {

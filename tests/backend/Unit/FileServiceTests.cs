@@ -1168,36 +1168,44 @@ public sealed class FileServiceTests
     [Fact]
     public void UploadHotPathSource_DoesNotReopenWrittenFilesForHashOrSignature()
     {
-        string uploadPart = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+        IReadOnlyList<string> streamingWriteCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
             typeof(FileService),
-            "WritePartToWorkingFileAndComputeHashAsync");
-        string complete = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(FileService),
-            "AnalyzeWorkingUploadAsync",
-            "AssembleUploadAsync");
+            static member => member.DeclaringType == typeof(FileService)
+                && member.Name == "WritePartToWorkingFileAndComputeHashAsync");
+        Assert.Contains(streamingWriteCallers, static caller => caller.Contains("<UploadPartAsync>", StringComparison.Ordinal));
 
-        Assert.DoesNotContain("ComputeSha256Async", uploadPart, StringComparison.Ordinal);
-        Assert.DoesNotContain("ComputeSha256Async", complete, StringComparison.Ordinal);
-        Assert.DoesNotContain("ValidateImageSignatureAsync", complete, StringComparison.Ordinal);
-        Assert.Contains("WritePartToWorkingFileAndComputeHashAsync", uploadPart, StringComparison.Ordinal);
-        Assert.Contains("AnalyzeWorkingUploadAsync", complete, StringComparison.Ordinal);
-        Assert.Contains("AssembleUploadAsync", complete, StringComparison.Ordinal);
-        Assert.Contains("ValidateImageSignature", complete, StringComparison.Ordinal);
+        foreach (string requiredMethod in new[] { "AnalyzeWorkingUploadAsync", "AssembleUploadAsync", "ValidateImageSignature" })
+        {
+            IReadOnlyList<string> callers = RuntimeMetadataInspection.FindMethodsCallingMember(
+                typeof(FileService),
+                member => member.DeclaringType == typeof(FileService) && member.Name == requiredMethod);
+            Assert.Contains(callers, static caller => caller.Contains("<CompleteUploadAsync>", StringComparison.Ordinal));
+        }
+        foreach (string forbiddenMethod in new[] { "ComputeSha256Async", "ValidateImageSignatureAsync" })
+        {
+            IReadOnlyList<string> callers = RuntimeMetadataInspection.FindMethodsCallingMember(
+                typeof(FileService),
+                member => member.DeclaringType == typeof(FileService) && member.Name == forbiddenMethod);
+            Assert.DoesNotContain(callers, static caller => caller.Contains("<UploadPartAsync>", StringComparison.Ordinal)
+                || caller.Contains("<CompleteUploadAsync>", StringComparison.Ordinal));
+        }
     }
 
     [Fact]
     public void UploadSessionStorage_UsesRandomPrivateManifestTempFiles()
     {
-        string saveSession = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(FileService),
-            "Path.GetRandomFileName",
-            "File.Replace",
-            "CreatePrivateWriteOptions");
-
-        Assert.DoesNotContain(".tmp", saveSession, StringComparison.Ordinal);
-        Assert.Contains("Path.GetRandomFileName", saveSession, StringComparison.Ordinal);
-        Assert.Contains("File.Replace", saveSession, StringComparison.Ordinal);
-        Assert.Contains("CreatePrivateWriteOptions", saveSession, StringComparison.Ordinal);
+        foreach ((Type declaringType, string methodName) in new[]
+        {
+            (typeof(Path), nameof(Path.GetRandomFileName)),
+            (typeof(File), nameof(File.Replace)),
+            (typeof(FileService), "CreatePrivateWriteOptions")
+        })
+        {
+            IReadOnlyList<string> callers = RuntimeMetadataInspection.FindMethodsCallingMember(
+                typeof(FileService),
+                member => member.DeclaringType == declaringType && member.Name == methodName);
+            Assert.Contains(callers, static caller => caller.Contains("<SaveSessionAsync>", StringComparison.Ordinal));
+        }
     }
 
     [Fact]
@@ -1218,24 +1226,22 @@ public sealed class FileServiceTests
     [Fact]
     public void UploadSessionLockCleanup_RunsOutsideAcquireHotPath()
     {
-        string acquire = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+        IReadOnlyList<string> cleanupCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
             typeof(FileService),
-            "RecordUploadSessionLockAcquire");
-        string cleanup = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
-            typeof(FileService),
-            "CleanupStaleSessionLocks",
-            "RecordUploadSessionLockCleanup");
-        string observability = RuntimeMetadataInspection.DescribeType(typeof(FsusObservability));
+            static member => member.DeclaringType == typeof(FileService) && member.Name == "CleanupStaleSessionLocks");
+        Assert.Contains(cleanupCallers, static caller => caller.Contains("<CleanupExpiredSessionsAsync>", StringComparison.Ordinal));
+        Assert.DoesNotContain(cleanupCallers, static caller => caller.Contains("<AcquireSessionLockAsync>", StringComparison.Ordinal));
 
-        Assert.DoesNotContain("CleanupStaleSessionLocks", acquire, StringComparison.Ordinal);
-        Assert.Contains("RecordUploadSessionLockAcquire", acquire, StringComparison.Ordinal);
-        Assert.Contains("CleanupStaleSessionLocks", cleanup, StringComparison.Ordinal);
-        Assert.Contains("RecordUploadSessionLockCleanup", cleanup, StringComparison.Ordinal);
-        Assert.Contains("fsus.upload.session_lock.current_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.upload.session_lock.stale_scanned_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.upload.session_lock.stale_disposed_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.upload.session_lock.cleanup_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.upload.session_lock.acquire_elapsed_ms", observability, StringComparison.Ordinal);
+        IReadOnlyList<string> acquireTelemetryCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            typeof(FileService),
+            static member => member.DeclaringType == typeof(FsusObservability)
+                && member.Name == nameof(FsusObservability.RecordUploadSessionLockAcquire));
+        Assert.Contains(acquireTelemetryCallers, static caller => caller.Contains("<AcquireSessionLockAsync>", StringComparison.Ordinal));
+        IReadOnlyList<string> cleanupTelemetryCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            typeof(FileService),
+            static member => member.DeclaringType == typeof(FsusObservability)
+                && member.Name == nameof(FsusObservability.RecordUploadSessionLockCleanup));
+        Assert.Contains(cleanupTelemetryCallers, static caller => caller.Contains("<CleanupExpiredSessionsAsync>", StringComparison.Ordinal));
     }
 
     [Fact]

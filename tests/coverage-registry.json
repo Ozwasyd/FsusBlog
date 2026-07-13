@@ -3134,7 +3134,7 @@
         "tests/backend/Unit/AuditTamperEvidenceBehaviorTests.cs",
         "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs"
       ],
-      "assertionType": "integration",
+      "assertionType": "unit",
       "failClosedRule": "Reject missing durable security events, weak or truncated MACs, culture-dependent chain identities, unintended disclosure or fallback loss after a store failure.",
       "minimumRequirement": "Projection, tamper and fallback suites must execute canonical serialization, chain verification, disclosure and durable write behavior.",
       "tierIds": [
@@ -3153,7 +3153,7 @@
         "tests/backend/Unit/BackupRestoreScriptBehaviorTests.cs",
         "tests/backend/Unit/AdminOperationsBehaviorTests.cs"
       ],
-      "assertionType": "integration",
+      "assertionType": "unit",
       "failClosedRule": "Reject hidden readiness failures, backup or restore invocation after invalid input, dangerous operations without confirmation or evidence that drops a blocked path.",
       "minimumRequirement": "Executable owners must cover aggregated readiness, scheduled and blocked backup or restore paths, and guarded integrity operations.",
       "tierIds": [
@@ -3188,7 +3188,7 @@
         "tests/backend/Unit/LogCleanupDatabaseBehaviorTests.cs",
         "tests/backend/Unit/LogCleanupWorkerBehaviorTests.cs"
       ],
-      "assertionType": "integration",
+      "assertionType": "unit",
       "failClosedRule": "Reject deletion at the cutoff, unbounded chunk loops, continued work after failure or cancellation, cleanup without the lease, or loss of high-value audit rows.",
       "minimumRequirement": "Database and worker suites must cover exact retention rows, paging, max chunks, clock use, cancellation, failure and lease denial.",
       "tierIds": [
@@ -3207,7 +3207,7 @@
         "tests/backend/Unit/UploadSessionCleanupQueueBehaviorTests.cs",
         "tests/backend/Unit/UploadSessionCleanupWorkerBehaviorTests.cs"
       ],
-      "assertionType": "integration",
+      "assertionType": "unit",
       "failClosedRule": "Reject unbounded queue growth, lost overflow, repeated overflow consumption, cleanup after lease denial or a signal dropped during active cleanup.",
       "minimumRequirement": "Queue and worker behavior suites must cover capacity, coalescing, one-shot overflow, second scans, in-flight signals and lease preservation.",
       "tierIds": [
@@ -3227,7 +3227,7 @@
         "tests/backend/Unit/HumanReadProofRequestBindingTests.cs",
         "tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs"
       ],
-      "assertionType": "integration",
+      "assertionType": "unit",
       "failClosedRule": "Reject missing browser binding, short dwell acceptance, replayed or tampered writes, identity persistence or stats contracts that expose nonaggregate viewer data.",
       "minimumRequirement": "Submission, request-binding and persistence suites must cover valid and invalid proofs, one-shot recording, origin policy, privacy serialization and PostgreSQL rows.",
       "tierIds": [

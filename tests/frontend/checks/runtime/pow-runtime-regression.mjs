@@ -4,6 +4,10 @@ import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { encodeAedsFrame } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
+import {
+  remainingRuntimeTimeout,
+  resolveRuntimeBrowserTimeoutPlan
+} from '../../support/runtime-browser-timeout.mjs'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
 const require = createRequire(import.meta.url)
@@ -17,6 +21,28 @@ const baseUrl = (
 ).replace(/\/+$/u, '')
 const executablePath = resolveSystemChromiumExecutablePath()
 const publicFixtureIds = readPublicFixtureIds()
+const timeoutPlan = resolveRuntimeBrowserTimeoutPlan()
+const runtimeDeadlineAtMs = Date.now() + timeoutPlan.stepDeadlineMs
+
+function navigationTimeoutMs() {
+  return remainingRuntimeTimeout(runtimeDeadlineAtMs, timeoutPlan.navigationTimeoutMs)
+}
+
+function requestTimeoutMs() {
+  return remainingRuntimeTimeout(runtimeDeadlineAtMs, timeoutPlan.requestTimeoutMs)
+}
+
+async function gotoRuntime(page, url) {
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: navigationTimeoutMs() })
+  await page.waitForSelector('#app', { state: 'attached', timeout: navigationTimeoutMs() })
+  await page.waitForFunction(() => document.readyState === 'complete', undefined, {
+    timeout: navigationTimeoutMs()
+  })
+  // Vite can replace the initial execution context immediately after
+  // domcontentloaded while its client reconnects. Settle that bounded startup
+  // edge before importing modules whose PoW side effects are counted exactly.
+  await page.waitForTimeout(250)
+}
 
 const POW_CHALLENGE_PATTERN = /\/api\/binary\/auth\/pow-challenge(?:[?#]|$)/u
 const AUTH_ME_PATTERN = /\/api\/binary\/auth\/me(?:[?#]|$)/u
@@ -51,7 +77,7 @@ const scenarios = [
     id: 'public-home-first-paint',
     route: '/',
     action: async (page) => {
-      await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      await gotoRuntime(page, `${baseUrl}/`)
       await page.waitForTimeout(1200)
     },
     maxPowChallenges: 0,
@@ -62,7 +88,7 @@ const scenarios = [
     id: 'public-article-first-paint',
     route: `/article/${publicFixtureIds.articleId}`,
     action: async (page) => {
-      await page.goto(`${baseUrl}/article/${publicFixtureIds.articleId}`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      await gotoRuntime(page, `${baseUrl}/article/${publicFixtureIds.articleId}`)
       await page.waitForTimeout(1200)
     },
     maxPowChallenges: 0,
@@ -73,7 +99,7 @@ const scenarios = [
     id: 'public-read-wrappers',
     route: `/article/${publicFixtureIds.articleId}`,
     action: async (page) => {
-      await page.goto(`${baseUrl}/article/${publicFixtureIds.articleId}`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      await gotoRuntime(page, `${baseUrl}/article/${publicFixtureIds.articleId}`)
       await page.evaluate(async ({ articleId }) => {
         const [{ getComments, getThreadReplies }, { getRelatedReading }] = await Promise.all([
           import('/src/api/comment.ts'),
@@ -97,9 +123,9 @@ const scenarios = [
     action: async (page) => {
       const notificationStreamRequest = page.waitForRequest(
         (request) => NOTIFICATION_STREAM_PATTERN.test(request.url()),
-        { timeout: 25_000 }
+        { timeout: requestTimeoutMs() }
       )
-      await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      await gotoRuntime(page, `${baseUrl}/`)
       await notificationStreamRequest
     },
     minNotificationStreamRequests: 1,
@@ -112,7 +138,7 @@ const scenarios = [
     id: 'single-pow-header-build',
     route: '/',
     action: async (page) => {
-      await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      await gotoRuntime(page, `${baseUrl}/`)
       await page.evaluate(async () => {
         const { buildBinaryPowHeaders } = await import('/src/api/binaryApiClient.ts')
         await buildBinaryPowHeaders(undefined, `pow-runtime-single-${Date.now()}`)
@@ -126,7 +152,7 @@ const scenarios = [
     id: 'concurrent-fresh-pow-header-builds',
     route: '/',
     action: async (page) => {
-      await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      await gotoRuntime(page, `${baseUrl}/`)
       await page.evaluate(async () => {
         const { buildBinaryPowHeaders } = await import('/src/api/binaryApiClient.ts')
         const scope = `pow-runtime-concurrent-${Date.now()}`
@@ -145,7 +171,7 @@ const scenarios = [
     id: 'concurrent-worker-calculations',
     route: '/',
     action: async (page) => {
-      await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      await gotoRuntime(page, `${baseUrl}/`)
       await page.evaluate(async () => {
         const { usePow } = await import('/src/composables/usePow.ts')
         const pow = usePow()
@@ -162,7 +188,7 @@ const scenarios = [
     id: 'abort-pow-header-build',
     route: '/',
     action: async (page) => {
-      await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      await gotoRuntime(page, `${baseUrl}/`)
       await page.evaluate(async () => {
         const { buildBinaryPowHeaders } = await import('/src/api/binaryApiClient.ts')
         const controller = new AbortController()
@@ -322,6 +348,7 @@ async function runScenario(browser, scenario) {
 }
 
 async function main() {
+  console.log(`[pow-runtime] timeoutPlan=${JSON.stringify(timeoutPlan)}`)
   const browser = await chromium.launch({
     headless: true,
     executablePath,

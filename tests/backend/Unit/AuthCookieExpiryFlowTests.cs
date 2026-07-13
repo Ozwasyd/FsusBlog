@@ -13,6 +13,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Security;
@@ -31,12 +32,18 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AuthCookieExpiryFlowTests
+[CollectionDefinition(nameof(AuthCookieExpiryFlowCollection))]
+public sealed class AuthCookieExpiryFlowCollection
+    : ICollectionFixture<AuthCookieExpiryFlowTests.AuthCookieExpiryFixture>;
+
+[Collection(nameof(AuthCookieExpiryFlowCollection))]
+public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCookieExpiryFixture fixture)
 {
     private static readonly DateTimeOffset UserAccessTokenExpiresAtUtc =
         DateTimeOffset.FromUnixTimeSeconds(1_956_528_000);
@@ -54,10 +61,7 @@ public sealed class AuthCookieExpiryFlowTests
     [Trait("Category", "SecurityStateMachine")]
     public async Task MappedAuthFlows_EmitExactIssuedAccessTokenExpiry(AuthExpiryFlow flow)
     {
-        await using AuthCookieExpiryHarness harness = await AuthCookieExpiryHarness.CreateAsync(
-            LocalAuthFixtureRefreshResult.Ready(string.Empty, string.Empty));
-
-        using HttpResponseMessage response = await harness.SendAsync(flow);
+        using HttpResponseMessage response = await fixture.SendSuccessAsync(flow);
 
         Assert.Equal(
             flow == AuthExpiryFlow.LocalAuthFixture ? HttpStatusCode.Found : HttpStatusCode.OK,
@@ -82,14 +86,72 @@ public sealed class AuthCookieExpiryFlowTests
     [Trait("Category", "SecurityStateMachine")]
     public async Task LocalAuthFixtureRunnerFailure_EmitsNoCookies()
     {
-        await using AuthCookieExpiryHarness harness = await AuthCookieExpiryHarness.CreateAsync(
-            LocalAuthFixtureRefreshResult.Failed("local auth fixture refresh failed"));
+        (HttpResponseMessage response, int runnerCallCount) = await fixture.SendFailureAsync();
+        using (response)
+        {
+            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+            Assert.Equal(1, runnerCallCount);
+            Assert.False(response.Headers.TryGetValues("Set-Cookie", out _));
+        }
+    }
 
-        using HttpResponseMessage response = await harness.SendLocalFixtureAsync();
+    public sealed class AuthCookieExpiryFixture : IAsyncLifetime
+    {
+        private readonly SemaphoreSlim _requestGate = new(1, 1);
+        private AuthCookieExpiryHarness? _successHarness;
+        private AuthCookieExpiryHarness? _failureHarness;
 
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-        Assert.Equal(1, harness.LocalFixtureRunnerCallCount);
-        Assert.False(response.Headers.TryGetValues("Set-Cookie", out _));
+        public async Task InitializeAsync()
+        {
+            _successHarness = await AuthCookieExpiryHarness.CreateAsync(
+                LocalAuthFixtureRefreshResult.Ready(string.Empty, string.Empty));
+            _failureHarness = await AuthCookieExpiryHarness.CreateAsync(
+                LocalAuthFixtureRefreshResult.Failed("local auth fixture refresh failed"));
+        }
+
+        public async Task DisposeAsync()
+        {
+            if (_failureHarness is not null)
+            {
+                await _failureHarness.DisposeAsync();
+            }
+            if (_successHarness is not null)
+            {
+                await _successHarness.DisposeAsync();
+            }
+            _requestGate.Dispose();
+        }
+
+        internal async Task<HttpResponseMessage> SendSuccessAsync(AuthExpiryFlow flow)
+        {
+            await _requestGate.WaitAsync();
+            try
+            {
+                AuthCookieExpiryHarness harness = Assert.IsType<AuthCookieExpiryHarness>(_successHarness);
+                harness.PrepareForTest();
+                return await harness.SendAsync(flow);
+            }
+            finally
+            {
+                _requestGate.Release();
+            }
+        }
+
+        internal async Task<(HttpResponseMessage Response, int RunnerCallCount)> SendFailureAsync()
+        {
+            await _requestGate.WaitAsync();
+            try
+            {
+                AuthCookieExpiryHarness harness = Assert.IsType<AuthCookieExpiryHarness>(_failureHarness);
+                harness.PrepareForTest();
+                HttpResponseMessage response = await harness.SendLocalFixtureAsync();
+                return (response, harness.LocalFixtureRunnerCallCount);
+            }
+            finally
+            {
+                _requestGate.Release();
+            }
+        }
     }
 
     private static DateTimeOffset ReadCookieExpiry(HttpResponseMessage response, string cookieName)
@@ -128,20 +190,25 @@ public sealed class AuthCookieExpiryFlowTests
         private readonly HttpClient _client;
         private readonly string _fixtureDirectory;
         private readonly ConfigurableLocalAuthFixtureRefreshRunner _localFixtureRunner;
+        private readonly Action _prepareForTest;
 
         private AuthCookieExpiryHarness(
             WebApplication app,
             HttpClient client,
             string fixtureDirectory,
-            ConfigurableLocalAuthFixtureRefreshRunner localFixtureRunner)
+            ConfigurableLocalAuthFixtureRefreshRunner localFixtureRunner,
+            Action prepareForTest)
         {
             _app = app;
             _client = client;
             _fixtureDirectory = fixtureDirectory;
             _localFixtureRunner = localFixtureRunner;
+            _prepareForTest = prepareForTest;
         }
 
         public int LocalFixtureRunnerCallCount => _localFixtureRunner.CallCount;
+
+        public void PrepareForTest() => _prepareForTest();
 
         public static async Task<AuthCookieExpiryHarness> CreateAsync(
             LocalAuthFixtureRefreshResult configuredFixtureResult)
@@ -191,31 +258,11 @@ public sealed class AuthCookieExpiryFlowTests
                 IdentityKind: AnonymousIdentityRuntime.AnonymousAccountKind,
                 PasskeyEnabled: true,
                 AccountSubjectHash: AccountSubjectHash);
-            SessionTokenResponseDto sessionTokens = new(
-                "issued-user-access",
-                UserAccessTokenExpiresAtUtc,
-                "issued-user-refresh",
-                "issued-user-session",
-                DateTime.SpecifyKind(UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7), DateTimeKind.Utc));
-
             anonymousBootstrap.BootstrapAsync(
                     Arg.Any<string?>(),
                     Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<(bool Success, string Message, UserAccountSnapshot? User)>(
                     (true, "ok", account)));
-            loginWorkflow.CompleteLoginAsync(
-                    Arg.Any<int>(),
-                    Arg.Any<string>(),
-                    Arg.Any<string?>(),
-                    Arg.Any<string?>(),
-                    Arg.Any<bool>(),
-                    Arg.Any<bool>(),
-                    Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<(
-                    bool Success,
-                    string Message,
-                    SessionTokenResponseDto? Data,
-                    UserAccountSnapshot? User)>((true, "ok", sessionTokens, account)));
             loginWorkflow.VerifyMfaOrRecoveryCodeAsync(
                     Arg.Any<int>(),
                     Arg.Any<string?>(),
@@ -249,38 +296,6 @@ public sealed class AuthCookieExpiryFlowTests
                 .Returns(Task.FromResult<(bool Success, string Message, User? User)>(
                     (true, "ok", passkeyUser)));
 
-            var refreshTokens = new TokenResponseDto(
-                "rotated-user-access",
-                "rotated-user-refresh",
-                UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7),
-                "rotated-user-session",
-                UserAccessTokenExpiresAtUtc);
-            sessions.RefreshTokenWithExpiryAsync(
-                    "old-refresh",
-                    "old-session",
-                    Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)>(
-                    (true, refreshTokens, UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7))));
-
-            var adminTokens = new AdminSessionTokens(
-                "issued-admin-access",
-                AdminAccessTokenExpiresAtUtc,
-                "issued-admin-session",
-                AdminAccessTokenExpiresAtUtc.UtcDateTime.AddHours(8));
-            adminPrincipals.CompleteBootstrapPasskeyRegistrationAsync(
-                    Arg.Any<string?>(),
-                    Arg.Any<PasskeyRegisterCompleteCoreModel>(),
-                    Arg.Any<AdminAuthClientContext>(),
-                    Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<(bool Success, string Message, AdminSessionTokens? Tokens)>(
-                    (true, "ok", adminTokens)));
-            adminPrincipals.CompleteAdminAssertionAsync(
-                    Arg.Any<PasskeyLoginCompleteCoreModel>(),
-                    Arg.Any<AdminAuthClientContext>(),
-                    Arg.Any<CancellationToken>())
-                .Returns(Task.FromResult<(bool Success, string Message, AdminSessionTokens? Tokens)>(
-                    (true, "ok", adminTokens)));
-
             pow.VerifyAsync(Arg.Any<IPowRequest>(), Arg.Any<string>(), Arg.Any<string?>())
                 .Returns(Task.FromResult(true));
             cache.GetStringAsync(
@@ -288,6 +303,76 @@ public sealed class AuthCookieExpiryFlowTests
                     Arg.Any<string>(),
                     Arg.Any<CancellationToken>())
                 .Returns(Task.FromResult<string?>(null));
+
+            int testSequence = 0;
+            void PrepareForTest()
+            {
+                anonymousBootstrap.ClearReceivedCalls();
+                loginWorkflow.ClearReceivedCalls();
+                sessions.ClearReceivedCalls();
+                mfaChallenges.ClearReceivedCalls();
+                passkeys.ClearReceivedCalls();
+                adminPrincipals.ClearReceivedCalls();
+                pow.ClearReceivedCalls();
+                cache.ClearReceivedCalls();
+                hotArticlesVersion.ClearReceivedCalls();
+                challengeProofs.ClearReceivedCalls();
+                fixtureRunner.ResetCallCount();
+
+                string testId = Interlocked.Increment(ref testSequence)
+                    .ToString(CultureInfo.InvariantCulture);
+                var sessionTokens = new SessionTokenResponseDto(
+                    $"issued-user-access-{testId}",
+                    UserAccessTokenExpiresAtUtc,
+                    $"issued-user-refresh-{testId}",
+                    $"issued-user-session-{testId}",
+                    DateTime.SpecifyKind(UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7), DateTimeKind.Utc));
+                loginWorkflow.CompleteLoginAsync(
+                        Arg.Any<int>(),
+                        Arg.Any<string>(),
+                        Arg.Any<string?>(),
+                        Arg.Any<string?>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<bool>(),
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<(
+                        bool Success,
+                        string Message,
+                        SessionTokenResponseDto? Data,
+                        UserAccountSnapshot? User)>((true, "ok", sessionTokens, account)));
+
+                var refreshTokens = new TokenResponseDto(
+                    $"rotated-user-access-{testId}",
+                    $"rotated-user-refresh-{testId}",
+                    UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7),
+                    $"rotated-user-session-{testId}",
+                    UserAccessTokenExpiresAtUtc);
+                sessions.RefreshTokenWithExpiryAsync(
+                        "old-refresh",
+                        "old-session",
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<(bool Success, TokenResponseDto? Data, DateTime ExpiresAt)>(
+                        (true, refreshTokens, UserAccessTokenExpiresAtUtc.UtcDateTime.AddDays(7))));
+
+                var adminTokens = new AdminSessionTokens(
+                    $"issued-admin-access-{testId}",
+                    AdminAccessTokenExpiresAtUtc,
+                    $"issued-admin-session-{testId}",
+                    AdminAccessTokenExpiresAtUtc.UtcDateTime.AddHours(8));
+                adminPrincipals.CompleteBootstrapPasskeyRegistrationAsync(
+                        Arg.Any<string?>(),
+                        Arg.Any<PasskeyRegisterCompleteCoreModel>(),
+                        Arg.Any<AdminAuthClientContext>(),
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<(bool Success, string Message, AdminSessionTokens? Tokens)>(
+                        (true, "ok", adminTokens)));
+                adminPrincipals.CompleteAdminAssertionAsync(
+                        Arg.Any<PasskeyLoginCompleteCoreModel>(),
+                        Arg.Any<AdminAuthClientContext>(),
+                        Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<(bool Success, string Message, AdminSessionTokens? Tokens)>(
+                        (true, "ok", adminTokens)));
+            }
 
             var options = new WebApplicationOptions
             {
@@ -297,6 +382,12 @@ public sealed class AuthCookieExpiryFlowTests
             builder.WebHost.UseTestServer();
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
+                ["Jwt:SecretKey"] = "issue-1053-auth-cookie-expiry-signing-key-at-least-32-bytes",
+                ["Jwt:Issuer"] = "issue-1053-auth-cookie-expiry-tests",
+                ["Jwt:Audience"] = "issue-1053-auth-cookie-expiry-tests",
+                ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
+                ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Database=fsusblog_auth_cookie_expiry;Username=test;Password=test",
+                ["CORS_ALLOWED_HOSTS"] = "http://localhost",
                 ["AuthCookies:AllowInsecureTransportCookies"] = "true",
                 ["Security:Pow:BaseDifficulty"] = "1",
                 ["Security:Pow:MaxDifficulty"] = "1",
@@ -305,7 +396,10 @@ public sealed class AuthCookieExpiryFlowTests
                 [LocalAuthFixtureEndpoints.LocalAuthFixtureSecretConfigurationKey] = FixtureSecret
             });
 
-            builder.Services.AddLogging();
+            builder.Services
+                .AddFsusApiFoundation(builder.Configuration)
+                .AddFsusRuntimeServices(builder.Configuration);
+            builder.Services.RemoveAll<IHostedService>();
             builder.Services.AddAuthorization();
             builder.Services.AddRateLimiter(rateLimiting =>
                 rateLimiting.AddFixedWindowLimiter("fixed_ip", limiter =>
@@ -360,7 +454,8 @@ public sealed class AuthCookieExpiryFlowTests
                 app,
                 app.GetTestClient(),
                 fixtureDirectory,
-                fixtureRunner);
+                fixtureRunner,
+                PrepareForTest);
         }
 
         public Task<HttpResponseMessage> SendAsync(AuthExpiryFlow flow)
@@ -572,14 +667,18 @@ public sealed class AuthCookieExpiryFlowTests
     private sealed class ConfigurableLocalAuthFixtureRefreshRunner(
         LocalAuthFixtureRefreshResult result) : ILocalAuthFixtureRefreshRunner
     {
-        public int CallCount { get; private set; }
+        private int _callCount;
+
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        public void ResetCallCount() => Interlocked.Exchange(ref _callCount, 0);
 
         public Task<LocalAuthFixtureRefreshResult> RefreshAsync(
             HttpContext context,
             IWebHostEnvironment environment,
             CancellationToken cancellationToken)
         {
-            CallCount++;
+            Interlocked.Increment(ref _callCount);
             return Task.FromResult(result);
         }
     }

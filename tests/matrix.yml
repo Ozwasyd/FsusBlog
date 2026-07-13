@@ -2,65 +2,70 @@ version: fsusblog-test-matrix-v2
 namespaceTemplate: ${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${MATRIX_JOB:-local}-${MATRIX_SHARD:-0}
 localProfiles:
   production:
-    budgetMs: 1800000
-    maxParallel: 8
-    cpuUnits: 8
-    memoryGiB: 10
-    maxInitialLoad1: 4
-    summaryOnly: [security-authenticated-dast]
+    budgetMs: 300000
+    enforceBudget: false
+    memoryReserveShare: 0.05
+    summaryOnly: []
     bundles:
       - id: build-static
         command: tools/test/bundles/build-static.sh
-        budgetMs: 180000
+        deadlineWeight: 18
+        minimumDeadlineShare: 0.32
         dependsOn: []
-        members: [frontend-build, frontend-runtime-contracts, frontend-static-governance, validate-matrix, public-hydration-fast, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, risk-control-test-matrix, ux-viewport-plan-progress]
+        members: [frontend-build, frontend-runtime-contracts, validate-matrix, public-hydration-fast, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, risk-control-test-matrix, ux-viewport-plan-progress]
         resourceClass: cpu
-        cpuUnits: 2
-        memoryGiB: 3
-        stepMaxParallel: 2
-        artifactSubstitutions: [frontend-build::.tmp/frontend/timings/frontend-build.json=>.tmp/local-production/build-static/member-summaries/frontend-build/summary.json|.tmp/frontend/frontend-build.json, frontend-runtime-contracts::.tmp/frontend/frontend-runtime-contracts.json=>.tmp/local-production/build-static/member-summaries/frontend-runtime-contracts/summary.json, frontend-runtime-contracts::.tmp/frontend/timings/frontend-runtime-contracts.json=>.tmp/local-production/build-static/member-summaries/frontend-runtime-contracts/summary.json, frontend-static-governance::.tmp/frontend/frontend-static-governance.json=>.tmp/local-production/build-static/member-summaries/frontend-static-governance/summary.json, frontend-static-governance::.tmp/frontend/timings/frontend-static-governance.json=>.tmp/local-production/build-static/member-summaries/frontend-static-governance/summary.json]
+        cpuWeight: 8
+        memoryWeight: 3
+        minCpuUnits: 2
+        artifactSubstitutions: [frontend-build::.tmp/frontend/timings/frontend-build.json=>.tmp/local-production/build-static/member-summaries/frontend-build/summary.json|.tmp/frontend/frontend-build.json, frontend-runtime-contracts::.tmp/frontend/frontend-runtime-contracts.json=>.tmp/local-production/build-static/member-summaries/frontend-runtime-contracts/summary.json, frontend-runtime-contracts::.tmp/frontend/timings/frontend-runtime-contracts.json=>.tmp/local-production/build-static/member-summaries/frontend-runtime-contracts/summary.json]
         exclusiveResources: [build-output, static-web-assets]
       - id: backend-tests
         command: tools/test/bundles/backend-tests.sh
-        budgetMs: 240000
+        deadlineWeight: 48
+        minimumDeadlineShare: 0.7333333333
         dependsOn: []
         members: [backend-build-governance, integrity-proof-verification, perception-v2-test-matrix, backend-unit, backend-api-integration, backend-auth-state-machine, backend-concurrency, backend-property, backend-golden, backend-fast, coverage-backend]
         resourceClass: cpu
-        cpuUnits: 4
-        memoryGiB: 4
-        stepMaxParallel: 4
+        cpuWeight: 4
+        memoryWeight: 4
+        minCpuUnits: 2
         artifactSubstitutions: [backend-build-governance::.tmp/backend-build-governance=>.tmp/local-production/backend-tests/member-summaries/backend-build-governance/summary.json, backend-unit::.tmp/backend-unit=>.tmp/local-production/backend-tests/member-summaries/backend-unit/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-fast::.tmp/backend-fast=>.tmp/local-production/backend-tests/member-summaries/backend-fast/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-api-integration::.tmp/backend-api-integration=>.tmp/local-production/backend-tests/member-summaries/backend-api-integration/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-api-integration::.tmp/coverage/backend/special-api-integration/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-api-integration/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-api-integration::.tmp/coverage/backend/special-api-integration/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-api-integration/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-auth-state-machine::.tmp/backend-auth-state-machine=>.tmp/local-production/backend-tests/member-summaries/backend-auth-state-machine/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-auth-state-machine::.tmp/coverage/backend/special-auth-state-machine/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-auth-state-machine/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-auth-state-machine::.tmp/coverage/backend/special-auth-state-machine/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-auth-state-machine/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-concurrency::.tmp/backend-concurrency=>.tmp/local-production/backend-tests/member-summaries/backend-concurrency/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-concurrency::.tmp/coverage/backend/special-concurrency/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-concurrency/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-concurrency::.tmp/coverage/backend/special-concurrency/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-concurrency/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-property::.tmp/backend-property=>.tmp/local-production/backend-tests/member-summaries/backend-property/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-property::.tmp/coverage/backend/special-property/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-property/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-property::.tmp/coverage/backend/special-property/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-property/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-golden::.tmp/backend-golden=>.tmp/local-production/backend-tests/member-summaries/backend-golden/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-golden::.tmp/coverage/backend/special-golden/**/coverage.cobertura.xml=>.tmp/local-production/backend-tests/member-summaries/backend-golden/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json, backend-golden::.tmp/coverage/backend/special-golden/**/coverage.json=>.tmp/local-production/backend-tests/member-summaries/backend-golden/summary.json|.tmp/test-results/backend/production/summary.json|.tmp/coverage/backend-merged/Summary.json]
         exclusiveResources: [backend-test-results]
       - id: frontend-tests
         command: tools/test/bundles/frontend-tests.sh
-        budgetMs: 240000
+        deadlineWeight: 34
+        minimumDeadlineShare: 0.7333333333
         dependsOn: []
-        members: [frontend-unit-shard, frontend-property-model-perf, frontend-fast-summary, coverage-frontend]
+        members: [frontend-unit-shard, frontend-property-model-perf, frontend-fast-summary, coverage-frontend, static-governance, frontend-static-governance]
         resourceClass: cpu
-        cpuUnits: 2
-        memoryGiB: 3
-        stepMaxParallel: 2
-        artifactSubstitutions: [frontend-unit-shard::.tmp/frontend/frontend-unit-shard.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-unit-shard/summary.json|.tmp/coverage/frontend/Summary.json, frontend-unit-shard::.tmp/frontend/timings/frontend-unit-shard.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-unit-shard/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/frontend/frontend-property-model-perf.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/frontend/timings/frontend-property-model-perf.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/test-results/vitest/property=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production-coverage, frontend-property-model-perf::.tmp/test-results/vitest/model=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production-coverage, frontend-fast-summary::.tmp/frontend=>.tmp/local-production/frontend-tests/member-summaries/frontend-fast-summary/summary.json|.tmp/coverage/frontend/Summary.json, frontend-fast-summary::src/frontend/dist=>.tmp/local-production/build-static/member-summaries/frontend-build/summary.json|.tmp/frontend/frontend-build.json, frontend-property-model-perf::.tmp/test-results/vitest/perf=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production]
-        exclusiveResources: [frontend-test-results]
+        cpuWeight: 3
+        memoryWeight: 2
+        minCpuUnits: 1
+        artifactSubstitutions: [frontend-unit-shard::.tmp/frontend/frontend-unit-shard.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-unit-shard/summary.json|.tmp/coverage/frontend/Summary.json, frontend-unit-shard::.tmp/frontend/timings/frontend-unit-shard.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-unit-shard/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/frontend/frontend-property-model-perf.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/frontend/timings/frontend-property-model-perf.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/coverage/frontend/Summary.json, frontend-property-model-perf::.tmp/test-results/vitest/property=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production-rolling, frontend-property-model-perf::.tmp/test-results/vitest/model=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production-rolling, frontend-fast-summary::.tmp/frontend=>.tmp/local-production/frontend-tests/member-summaries/frontend-fast-summary/summary.json|.tmp/coverage/frontend/Summary.json, frontend-fast-summary::src/frontend/dist=>.tmp/local-production/build-static/member-summaries/frontend-build/summary.json|.tmp/frontend/frontend-build.json, frontend-property-model-perf::.tmp/test-results/vitest/perf=>.tmp/local-production/frontend-tests/member-summaries/frontend-property-model-perf/summary.json|.tmp/test-results/vitest/production, frontend-static-governance::.tmp/frontend/frontend-static-governance.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-static-governance/summary.json|.tmp/local-production/frontend-tests/frontend-static-prebuild.json|.tmp/local-production/frontend-tests/frontend-static-postbuild.json, frontend-static-governance::.tmp/frontend/timings/frontend-static-governance.json=>.tmp/local-production/frontend-tests/member-summaries/frontend-static-governance/summary.json|.tmp/local-production/frontend-tests/frontend-static-prebuild.json|.tmp/local-production/frontend-tests/frontend-static-postbuild.json]
+        exclusiveResources: [frontend-test-results, benchmark-window]
       - id: runtime-browser
         command: tools/test/bundles/runtime-browser.sh
-        budgetMs: 900000
-        dependsOn: [build-static, backend-tests, frontend-tests]
-        members: [bootstrap, release, integration, endpoint-depth, security, acceptance, cross-browser-smoke, visual-public, visual-console, visual, ux-viewport-smoke, frontend-render-pressure, resilience, rights-v3-test-matrix, data-scale-xs, data-scale-s, data-scale-evidence-summary, csrf-browser-matrix, fault-injection, cross-stack-contract, privacy-zk-comment-matrix, static-governance]
+        deadlineWeight: 70
+        minimumDeadlineShare: 0.7333333333
+        dependsOn: []
+        members: [bootstrap, release, integration, endpoint-depth, security, security-authenticated-dast, acceptance, cross-browser-smoke, visual-public, visual-console, visual, ux-viewport-smoke, frontend-render-pressure, resilience, rights-v3-test-matrix, data-scale-xs, data-scale-s, data-scale-evidence-summary, csrf-browser-matrix, fault-injection, cross-stack-contract]
         resourceClass: browser
-        cpuUnits: 8
-        memoryGiB: 10
-        stepMaxParallel: 8
-        exclusiveResources: [runtime-services, database-writes, benchmark-window]
+        cpuWeight: 2
+        memoryWeight: 5
+        minCpuUnits: 1
+        artifactSubstitutions: [bootstrap::.tmp/acceptance=>.tmp/local-production/runtime-browser/member-summaries/bootstrap/summary.json, bootstrap::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/bootstrap/summary.json, integration::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/integration/summary.json, release::.tmp/acceptance/*.log=>.tmp/local-production/runtime-browser/member-summaries/release/summary.json|.tmp/release-evidence/public-hydration-detector-summary.json, acceptance::src/frontend/test-results/playwright/acceptance=>.tmp/local-production/runtime-browser/member-summaries/acceptance/summary.json, visual-public::.tmp/visual/public=>.tmp/local-production/runtime-browser/member-summaries/visual-public/summary.json, visual-public::src/frontend/test-results/playwright/visual-public=>.tmp/local-production/runtime-browser/member-summaries/visual-public/summary.json, visual-console::.tmp/visual/console=>.tmp/local-production/runtime-browser/member-summaries/visual-console/summary.json, visual-console::src/frontend/test-results/playwright/visual-console=>.tmp/local-production/runtime-browser/member-summaries/visual-console/summary.json, visual::.tmp/release-evidence/visual-screenshot-summary.json=>.tmp/local-production/runtime-browser/member-summaries/visual/summary.json, visual::.tmp/visual/summary.json=>.tmp/local-production/runtime-browser/member-summaries/visual/summary.json, ux-viewport-smoke::.tmp/ux/viewport-smoke.json=>.tmp/local-production/runtime-browser/member-summaries/ux-viewport-smoke/summary.json, ux-viewport-smoke::src/frontend/test-results/playwright/ux-viewport-smoke=>.tmp/local-production/runtime-browser/member-summaries/ux-viewport-smoke/summary.json]
+        exclusiveResources: [runtime-services, database-writes]
       - id: performance-evidence
         command: tools/test/bundles/performance-evidence.sh
-        budgetMs: 480000
-        dependsOn: [runtime-browser]
-        members: [fast, coverage-merge, coverage-threshold, coverage-gate, load, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan, backend-qps, load-baseline, load-peak, backend-benchmark-regression, browser-performance-regression, performance-evidence-summary, backend-perf, release-evidence, production, aeds-frame-cost, aeds-compression-profile]
+        deadlineWeight: 44
+        minimumDeadlineShare: 0.2666666667
+        dependsOn: [backend-tests, runtime-browser, frontend-tests]
+        members: [fast, coverage-merge, coverage-threshold, coverage-gate, load, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan, backend-qps, load-baseline, load-peak, backend-benchmark-regression, browser-performance-regression, performance-evidence-summary, backend-perf, privacy-zk-comment-matrix, release-evidence, production, aeds-frame-cost, aeds-compression-profile]
         resourceClass: benchmark
-        cpuUnits: 8
-        memoryGiB: 10
-        stepMaxParallel: 8
+        cpuWeight: 8
+        memoryWeight: 10
+        minCpuUnits: 1
+        artifactSubstitutions: [fast::.tmp/backend-fast=>.tmp/local-production/performance-evidence/member-summaries/fast/summary.json, fast::.tmp/backend-fast/summary.json=>.tmp/local-production/performance-evidence/member-summaries/fast/summary.json, production::.tmp/backend-concurrency/summary.json=>.tmp/local-production/performance-evidence/member-summaries/production/summary.json, production::.tmp/release-evidence/test-suite-convergence.json=>.tmp/local-production/performance-evidence/member-summaries/production/summary.json]
         exclusiveResources: [load-window, database-writes, benchmark-window]
 tiers:
   - id: validate-matrix
@@ -73,7 +78,9 @@ tiers:
     phase: 0
     cost: high
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -102,7 +109,9 @@ tiers:
     phase: 0
     cost: low
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -135,9 +144,9 @@ tiers:
     phase: 1
     cost: medium
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 3
-    memoryGiB: 3
+    cpuWeight: 3
+    memoryWeight: 3
+    minCpuUnits: 1
     executionKey: frontend-release-build
     executionVariant: ordinary
     cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/tsconfig*.json, src/frontend/vite.config.ts, src/frontend/scripts, src/frontend/src, src/frontend/wasm, tools/frontend, tools/test/lanes/frontend-build.sh, tools/test/legacy-test.sh]
@@ -169,9 +178,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 3
-    memoryGiB: 3
+    cpuWeight: 3
+    memoryWeight: 3
+    minCpuUnits: 1
     executionKey: frontend-unit-tests
     executionVariant: ordinary
     cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/vitest.config.ts, src/frontend/vitest.shared.mjs, src/frontend/src, tests/frontend/unit, tools/test/lanes/frontend-unit-shard.sh, tools/test/legacy-test.sh]
@@ -182,7 +191,6 @@ tiers:
     cacheProfile: frontend
     timeoutMinutes: 25
     shardable: true
-    defaultShards: 2
     risk: high
     cadence: pr
     requiredFor: fast
@@ -207,9 +215,13 @@ tiers:
       - tests/frontend/unit/components/usePublicStickyGeometry.test.ts
       - tests/issue-1016-sticky-geometry-evidence.json
       - src/frontend/src/view-contracts/homeSpotlight.ts
+      - src/frontend/src/views/Home.vue
+      - src/frontend/src/public-renderers/pageAssemblies.ts
       - tests/frontend/unit/view-contracts/homeSpotlight.test.ts
       - docs/issue-1019-public-home-editorial-handoff.md
       - src/frontend/src/view-contracts/coverArt.ts
+      - src/frontend/src/components/home/FeaturedArticlesSection.vue
+      - src/frontend/src/components/public/pages/PublicArticleDetailPageContent.vue
       - src/frontend/public/fixtures/cover-art-manifest.json
       - tests/frontend/unit/view-contracts/coverArt.test.ts
       - docs/issue-1020-content-cover-handoff.md
@@ -256,9 +268,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 2
-    cpuUnits: 2
-    memoryGiB: 2
+    cpuWeight: 2
+    memoryWeight: 2
+    minCpuUnits: 1
     executionKey: frontend-property-model-perf
     executionVariant: property
     cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/vitest.shared.mjs, src/frontend/vitest.property.config.ts, src/frontend/vitest.model.config.ts, src/frontend/vitest.perf.config.ts, src/frontend/src, tests/frontend/property, tests/frontend/model, tests/frontend/benchmarks, tools/test/lanes/frontend-property-model-perf.sh, tools/test/legacy-test.sh]
@@ -290,9 +302,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 2
-    memoryGiB: 2
+    cpuWeight: 2
+    memoryWeight: 2
+    minCpuUnits: 1
     executionKey: frontend-runtime-contracts
     executionVariant: runtime
     cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/src, src/frontend/wasm, tests/frontend/checks/runtime, tests/frontend/checks/security, tests/frontend/checks/wasm, tests/frontend/support, tools/frontend/ensure-wasm.mjs, tools/frontend/install-wasm-codec-deps.sh, tools/test/lanes/frontend-runtime-contracts.sh, tools/test/legacy-test.sh, tools/test/run-command-manifest.mjs, tools/test/run-once.mjs]
@@ -324,9 +336,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 2
-    memoryGiB: 2
+    cpuWeight: 2
+    memoryWeight: 2
+    minCpuUnits: 1
     executionKey: frontend-static-governance
     executionVariant: ordinary
     cacheInputs: [src/frontend/package.json, src/frontend/src, tests/frontend/checks/static, tests/frontend/checks/ux, tests/frontend/support, tools/check-*.mjs, tools/test/lanes/frontend-static-governance.sh, tools/test/legacy-test.sh, tools/test/run-command-manifest.mjs]
@@ -343,7 +355,7 @@ tiers:
     requiredFor: fast
     coverage: [frontend-static, frontend-public-archive-sticky-geometry, frontend-public-typography]
     artifacts: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json]
-    evidence: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json, src/frontend/src/components/public/pages/PublicArchivePageContent.vue, tests/frontend/checks/static/check-visual-density-governance.mjs, tests/frontend/issue-1017-archive-sticky-evidence.json, tests/issue-1018-public-typography-evidence.json, docs/issue-1018-public-typography-handoff.md]
+    evidence: [.tmp/frontend/frontend-static-governance.json, .tmp/frontend/timings/frontend-static-governance.json, src/frontend/src/components/public/pages/PublicArchivePageContent.vue, src/frontend/src/ui-tokens/themeTokens.ts, src/frontend/src/assets/public-page.css, src/frontend/public/public-shell-emergency.css, src/frontend/src/assets/markdown.css, tests/frontend/checks/static/check-visual-density-governance.mjs, tests/frontend/issue-1017-archive-sticky-evidence.json, tests/issue-1018-public-typography-evidence.json, docs/issue-1018-public-typography-handoff.md]
     ciJob: frontend-static-governance
     localOnly: false
     nightlyOnly: false
@@ -358,7 +370,9 @@ tiers:
     phase: 1
     cost: low
     resourceClass: io
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: false
@@ -387,18 +401,17 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 3
-    memoryGiB: 3
+    cpuWeight: 3
+    memoryWeight: 3
+    minCpuUnits: 1
     executionKey: backend-debug-build-governance
     executionVariant: ordinary
-    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/check-backend-test-governance.mjs, tools/check-postgres-test-collections.mjs, tools/test/lanes/backend-build-governance.sh, tools/test/legacy-test.sh]
+    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/backend, tests/performance/backend-hotpath-budgets.json, tests/tools/backend-benchmark-regression.test.mjs, tools/check-backend-test-governance.mjs, tools/check-postgres-test-collections.mjs, tools/perf/check-backend-benchmark-regression.mjs, tools/test/lanes/backend-build-governance.sh, tools/test/lanes/backend-benchmark-regression.sh, tools/test/legacy-test.sh]
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: backend
-    cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/backend, tests/performance/backend-hotpath-budgets.json, tests/tools/backend-benchmark-regression.test.mjs, tools/perf/check-backend-benchmark-regression.mjs, tools/test/lanes/backend-benchmark-regression.sh]
     timeoutMinutes: 35
     shardable: false
     defaultShards: 1
@@ -422,9 +435,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 2
-    cpuUnits: 3
-    memoryGiB: 3
+    cpuWeight: 3
+    memoryWeight: 3
+    minCpuUnits: 1
     executionKey: backend-unit-tests
     executionVariant: ordinary
     cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/test/lanes/backend-unit.sh, tools/test/legacy-test.sh]
@@ -479,6 +492,8 @@ tiers:
       - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
       - tests/backend/Unit/RuntimeFallbackRetirementAcceptanceTests.cs
       - tests/backend/Unit/UserSecurityStepUpServiceTests.cs
+      - tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs
+      - tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs
       - tests/backend/Unit/AccountSubjectHashProjectionTests.cs
       - tests/backend/issue-1014-identity-retirement-evidence.json
       - docs/issue-1014-identity-retirement-handoff.md
@@ -516,6 +531,7 @@ tiers:
       - tests/backend/Unit/SecurityChallengePersistenceTests.cs
       - tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs
       - tests/backend/Unit/PasskeyServiceTests.cs
+      - tests/backend/Unit/PasskeySignCountConcurrencyTests.cs
       - tests/backend/Unit/ActorResolverBehaviorTests.cs
       - tests/backend/Unit/AnonymousCommentPolicyTests.cs
       - tests/backend/Unit/AnonymousIdentitySerializationTests.cs
@@ -569,6 +585,9 @@ tiers:
       - docs/user-session-revocation.md
       - tests/backend/Unit/AuthCookieServiceSecurityTests.cs
       - tests/backend/Unit/AuthCookieExpiryFlowTests.cs
+      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs
+      - src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs
+      - src/backend/Modules/Endpoints/LocalAuthFixtureRefreshRunner.cs
       - tests/backend/Unit/JwtHelperTests.cs
       - tests/backend/Unit/UserServiceValidationTests.cs
       - tests/backend/issue-1053-auth-cookie-expiry-evidence.json
@@ -590,9 +609,9 @@ tiers:
     phase: 1
     cost: low
     resourceClass: io
-    maxParallel: 4
-    cpuUnits: 0.25
-    memoryGiB: 0.25
+    cpuWeight: 0.25
+    memoryWeight: 0.25
+    minCpuUnits: 1
     executionKey: backend-fast-summary
     executionVariant: ordinary
     cacheInputs: [tests/matrix.yml, tools/test/lanes/backend-fast.sh]
@@ -624,7 +643,9 @@ tiers:
     phase: 1
     cost: medium
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: true
@@ -653,7 +674,9 @@ tiers:
     phase: 2
     cost: high
     resourceClass: database
-    maxParallel: 1
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: true
@@ -688,7 +711,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -741,13 +766,22 @@ tiers:
       - tests/issue-1015-dead-code-audit-evidence.json
       - tests/tools/gateway-switch.test.mjs
       - tests/tools/deployment-slots.test.mjs
+      - tools/deployment/slot-preflight.sh
+      - ops/docker/docker-compose.yml
       - tools/deployment/image-runtime-contract.sh
       - tests/backend/Unit/FsusHostRuntimeTuningTests.cs
       - ops/docker/FsusBlog.Server.Dockerfile
       - src/backend/FsusBlog.Server.csproj
       - docs/issue-1024-release-identity-handoff.md
+      - tests/tools/release-manifest.test.mjs
+      - tests/backend/Unit/ReleaseIdentityTests.cs
+      - tools/operations/test-release-evidence-fixture.sh
       - docs/issue-1025-blue-green-slots-handoff.md
       - docs/issue-1026-gateway-switch-handoff.md
+      - tools/deployment/gateway-switch.sh
+      - tools/deployment/gateway-rollback.sh
+      - tools/deployment/gateway-recover.sh
+      - deploy/production-openresty.conf
       - src/backend/Infrastructure/Storage/ReleaseDerivedArtifactPublisher.cs
       - src/backend/Services/SearchIndexService.cs
       - src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs
@@ -832,7 +866,9 @@ tiers:
     phase: 1
     cost: low
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -861,7 +897,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: false
@@ -890,12 +928,11 @@ tiers:
     phase: 1
     cost: high
     resourceClass: io
-    maxParallel: 4
-    cpuUnits: 4
-    memoryGiB: 4
+    cpuWeight: 4
+    memoryWeight: 4
+    minCpuUnits: 1
     executionKey: backend-unit-tests
     executionVariant: coverage
-    supersedes: [backend-unit]
     cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/coverage/collect-backend-coverage.sh, tools/coverage/summarize-cobertura.mjs, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
     requiresBootstrap: none
     requiresNode: false
@@ -932,12 +969,11 @@ tiers:
     phase: 1
     cost: high
     resourceClass: io
-    maxParallel: 4
-    cpuUnits: 4
-    memoryGiB: 4
+    cpuWeight: 4
+    memoryWeight: 4
+    minCpuUnits: 1
     executionKey: frontend-unit-tests
     executionVariant: coverage
-    supersedes: [frontend-unit-shard]
     cacheInputs: [src/frontend/package.json, src/frontend/package-lock.json, src/frontend/vitest.config.ts, src/frontend/vitest.shared.mjs, src/frontend/src, tests/frontend/unit, tools/coverage/collect-frontend-coverage.sh]
     requiresBootstrap: none
     requiresNode: true
@@ -974,6 +1010,9 @@ tiers:
     phase: 4
     cost: medium
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
@@ -1009,6 +1048,9 @@ tiers:
     phase: 4
     cost: high
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: false
@@ -1044,6 +1086,9 @@ tiers:
     phase: 4
     cost: very-high
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: false
@@ -1079,6 +1124,9 @@ tiers:
     phase: 2
     cost: high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     selfBootstraps: true
@@ -1109,6 +1157,9 @@ tiers:
     phase: 2
     cost: medium
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1177,6 +1228,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1206,6 +1260,9 @@ tiers:
     phase: 2
     cost: medium
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1267,7 +1324,9 @@ tiers:
     phase: 4
     cost: very-high
     resourceClass: browser
-    maxParallel: 1
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -1296,6 +1355,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1340,17 +1402,17 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
-    maxParallel: 4
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 45
     shardable: true
-    defaultShards: 4
     risk: high
     cadence: pr
     requiredFor: production
@@ -1367,6 +1429,7 @@ tiers:
       - tests/frontend/e2e/acceptance/archive-sticky-geometry.spec.ts
       - tests/frontend/e2e/acceptance/release-asset-compatibility.spec.ts
       - tests/frontend/e2e/acceptance/admin-console.spec.ts
+      - tests/frontend/checks/static/check-visual-density-governance.mjs
       - src/frontend/src/layouts/AccountLayout.vue
       - src/frontend/src/layouts/accountNav.ts
       - src/frontend/src/layouts/accountWorkspaceContext.ts
@@ -1393,17 +1456,17 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
-    maxParallel: 2
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 2
     cacheProfile: full
     timeoutMinutes: 35
     shardable: true
-    defaultShards: 2
     risk: medium
     cadence: pr
     requiredFor: production
@@ -1445,23 +1508,23 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
-    maxParallel: 2
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 2
     cacheProfile: full
     timeoutMinutes: 35
     shardable: true
-    defaultShards: 2
     risk: medium
     cadence: pr
     requiredFor: production
     coverage: [playwright-visual-console, frontend-admin-task-first-dashboard, frontend-admin-information-architecture]
     artifacts: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console]
-    evidence: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console, src/frontend/src/views/admin/Dashboard.vue, src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue, src/frontend/src/composables/useAdminDashboardWorkbench.ts, src/frontend/src/view-contracts/adminDashboard.ts, tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts, src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts, src/frontend/src/layouts/AccountLayout.vue, src/frontend/src/layouts/accountNav.ts, src/frontend/src/layouts/accountWorkspaceContext.ts, src/frontend/src/components/account/AccountNavigationPanel.vue, src/frontend/src/components/account/AccountHeaderMenu.vue, tests/frontend/e2e/visual/console-visual.spec.ts, docs/issue-1022-admin-dashboard-handoff.md, docs/issue-1023-admin-ia-handoff.md]
+    evidence: [.tmp/visual/console, src/frontend/test-results/playwright/visual-console, src/frontend/src/views/admin/Dashboard.vue, src/frontend/src/components/admin/AdminDashboardTaskWorkbench.vue, src/frontend/src/composables/useAdminDashboardWorkbench.ts, src/frontend/src/view-contracts/adminDashboard.ts, tests/frontend/e2e/visual/admin-dashboard-workbench.spec.ts, tests/frontend/e2e/acceptance/admin-console.spec.ts, tests/frontend/checks/static/check-visual-density-governance.mjs, src/frontend/tests/frontend/fixtures/adminDashboardWorkbenchVisual.ts, src/frontend/src/layouts/AccountLayout.vue, src/frontend/src/layouts/accountNav.ts, src/frontend/src/layouts/accountWorkspaceContext.ts, src/frontend/src/components/account/AccountNavigationPanel.vue, src/frontend/src/components/account/AccountHeaderMenu.vue, tests/frontend/e2e/visual/console-visual.spec.ts, docs/issue-1022-admin-dashboard-handoff.md, docs/issue-1023-admin-ia-handoff.md]
     ciJob: visual-console-playwright
     localOnly: false
     nightlyOnly: false
@@ -1482,6 +1545,9 @@ tiers:
     phase: 3
     cost: low
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
@@ -1517,9 +1583,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
-    maxParallel: 1
-    cpuUnits: 3
-    memoryGiB: 4
+    cpuWeight: 3
+    memoryWeight: 4
+    minCpuUnits: 1
     executionKey: ux-viewport-smoke
     executionVariant: runtime
     cacheInputs: [src/frontend/package.json, src/frontend/playwright.config.ts, src/frontend/src, tests/frontend/e2e/ux, tests/frontend/fixtures/ux-viewport-matrix.json, tests/frontend/fixtures/ux-content-boundary-corpus.json, tests/frontend/support/playwright, tools/test/lanes/ux-viewport-smoke.sh]
@@ -1528,7 +1594,6 @@ tiers:
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
     shardable: false
@@ -1553,9 +1618,9 @@ tiers:
     phase: 1
     cost: low
     resourceClass: cpu
-    maxParallel: 2
-    cpuUnits: 1
-    memoryGiB: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     executionKey: ux-viewport-plan-progress
     executionVariant: ordinary
     cacheInputs: [tests/frontend/fixtures/ux-viewport-matrix.json, tests/frontend/support/playwright/uxViewportPlan.mjs, tests/frontend/support/playwright/uxViewportProgress.mjs, tests/tools/ux-viewport-plan.test.mjs, tests/tools/ux-viewport-progress.test.mjs, tests/tools/ux-viewport-runtime-contract.test.mjs, tools/ux/run-viewport-plan-progress.mjs]
@@ -1590,6 +1655,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     workflowBootstraps: true
@@ -1617,16 +1685,19 @@ tiers:
     dependsOn: [bootstrap]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
+    serialReason: writes the shared viewport visual baseline set
     exclusiveResources: [playwright-ux-viewport, visual-baselines]
     phase: 3
     cost: very-high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 90
     shardable: false
@@ -1647,17 +1718,20 @@ tiers:
     dependsOn: [bootstrap]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
+    serialReason: measures one isolated browser pressure window
     exclusiveResources: [playwright-render-pressure]
     phase: 3
     cost: high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
     shardable: false
@@ -1688,13 +1762,14 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
-    maxParallel: 2
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     requiresBootstrap: frontend
     workflowBootstraps: true
     requiresNode: true
     requiresDotnet: false
     requiresPlaywright: all
-    playwrightWorkers: 1
     cacheProfile: frontend
     timeoutMinutes: 20
     shardable: false
@@ -1725,6 +1800,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1772,6 +1850,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: benchmark
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -1807,7 +1888,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -1842,7 +1925,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -1877,7 +1962,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -1913,7 +2000,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -1948,7 +2037,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -1984,7 +2075,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2020,7 +2113,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2055,7 +2150,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2090,7 +2187,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2125,7 +2224,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2160,7 +2261,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2195,7 +2298,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2230,7 +2335,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2265,6 +2372,9 @@ tiers:
     phase: 3
     cost: low
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
@@ -2297,6 +2407,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: network
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -2326,7 +2439,9 @@ tiers:
     phase: 1
     cost: medium
     resourceClass: benchmark
-    maxParallel: 1
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: false
@@ -2355,7 +2470,9 @@ tiers:
     phase: 1
     cost: medium
     resourceClass: benchmark
-    maxParallel: 1
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: false
@@ -2384,7 +2501,9 @@ tiers:
     phase: 2
     cost: high
     resourceClass: network
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2414,7 +2533,9 @@ tiers:
     phase: 2
     cost: medium
     resourceClass: database
-    maxParallel: 1
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     requiresBootstrap: full
     requiresNode: false
     requiresDotnet: true
@@ -2443,6 +2564,9 @@ tiers:
     phase: 2
     cost: medium
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -2473,8 +2597,9 @@ tiers:
     cost: low
     resourceClass: io
     maxParallel: 1
-    cpuUnits: 0.5
-    memoryGiB: 0.5
+    cpuWeight: 0.5
+    memoryWeight: 0.5
+    minCpuUnits: 1
     executionKey: data-scale-evidence-summary
     executionVariant: runtime
     cacheInputs: [tools/test/aggregate-data-scale-evidence.mjs]
@@ -2506,6 +2631,9 @@ tiers:
     phase: 5
     cost: high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -2535,6 +2663,9 @@ tiers:
     phase: 5
     cost: very-high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -2564,6 +2695,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: benchmark
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -2593,6 +2727,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: benchmark
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -2622,6 +2759,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: benchmark
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -2651,6 +2791,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: benchmark
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -2680,9 +2823,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: benchmark
-    maxParallel: 1
-    cpuUnits: 4
-    memoryGiB: 2
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     executionKey: backend-performance-tests
     executionVariant: performance
     cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, benchmarks/core, src/backend, src/core, src/shared, tests/backend, tools/test/lanes/perf-regression.sh, tools/test/legacy-test.sh]
@@ -2714,7 +2857,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: benchmark
-    maxParallel: 1
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: true
@@ -2728,7 +2873,7 @@ tiers:
     requiredFor: production
     coverage: [benchmarkdotnet-regression, backend-public-aot-artifact-behavior, backend-hotpath-executable-measurement]
     artifacts: [BenchmarkDotNet.Artifacts/results/fsusblog-benchmark-regression.json, .tmp/perf/release-summaries/backend-benchmark-regression.json]
-    evidence: [.tmp/perf/release-summaries/backend-benchmark-regression.json, tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs, benchmarks/core/ServerHotPathBenchmarks.cs, benchmarks/core/ContentFilterBenchmarks.cs, tests/performance/backend-hotpath-budgets.json]
+    evidence: [.tmp/perf/release-summaries/backend-benchmark-regression.json, tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs, benchmarks/core/ServerHotPathBenchmarks.cs, benchmarks/core/ContentFilterBenchmarks.cs, tests/performance/backend-hotpath-budgets.json, tools/perf/check-backend-benchmark-regression.mjs]
     ciJob: perf-regression
     localOnly: false
     nightlyOnly: false
@@ -2743,7 +2888,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: benchmark
-    maxParallel: 1
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: false
@@ -2773,8 +2920,9 @@ tiers:
     cost: low
     resourceClass: io
     maxParallel: 1
-    cpuUnits: 0.5
-    memoryGiB: 0.5
+    cpuWeight: 0.5
+    memoryWeight: 0.5
+    minCpuUnits: 1
     executionKey: performance-evidence-summary
     executionVariant: runtime
     cacheInputs: [tools/test/aggregate-performance-evidence.mjs]
@@ -2806,6 +2954,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -2835,6 +2986,9 @@ tiers:
     phase: 5
     cost: high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -2864,7 +3018,9 @@ tiers:
     phase: 5
     cost: low
     resourceClass: io
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -2893,7 +3049,9 @@ tiers:
     phase: 5
     cost: low
     resourceClass: io
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -2919,10 +3077,13 @@ tiers:
     dependsOn: []
     services: [backend, frontend]
     parallelizable: false
-    exclusiveResources: [dast-target]
+    exclusiveResources: [dast-target, database-writes]
     phase: 3
-    cost: high
+    cost: medium
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     workflowBootstraps: true
@@ -2930,7 +3091,7 @@ tiers:
     requiresDotnet: true
     requiresPlaywright: none
     cacheProfile: full
-    timeoutMinutes: 30
+    timeoutMinutes: 2
     shardable: false
     defaultShards: 1
     risk: critical
@@ -2953,7 +3114,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: browser
-    maxParallel: 1
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     requiresBootstrap: full
     workflowBootstraps: true
     requiresNode: true
@@ -2983,7 +3146,9 @@ tiers:
     phase: 3
     cost: low
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -2997,7 +3162,7 @@ tiers:
     requiredFor: production
     coverage: [risk-control-test-matrix, backend-risk-control-behavior]
     artifacts: [.tmp/security/risk-control-test-matrix.json]
-    evidence: [security/risk-control-test-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/risk-control-test-matrix.sh, tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs, tests/backend/Unit/AntiCrawlerPolicyBehaviorTests.cs, tests/backend/Unit/AntiCrawlerPipelineTests.cs, tests/backend/Unit/CommentRiskActionFilterTests.cs, tests/backend/Unit/SecurityRiskPolicySnapshotV2Tests.cs, docs/testing/issue-1046-risk-control-behavior-handoff.md]
+    evidence: [security/risk-control-test-matrix.yml, tools/security/check-security-matrices.mjs, tools/test/lanes/risk-control-test-matrix.sh, tests/backend/Unit/CrawlerRangeSyncBehaviorTests.cs, tests/backend/Unit/AntiCrawlerPolicyBehaviorTests.cs, tests/backend/Unit/AntiCrawlerPipelineTests.cs, tests/backend/Unit/CommentRiskActionFilterTests.cs, tests/backend/Unit/SecurityRiskPolicySnapshotV2Tests.cs, tests/frontend/checks/static/check-infra-security-governance.mjs, docs/testing/issue-1046-risk-control-behavior-handoff.md]
     ciJob: security-runtime
     localOnly: false
     nightlyOnly: false
@@ -3012,7 +3177,9 @@ tiers:
     phase: 3
     cost: low
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: true
@@ -3041,7 +3208,9 @@ tiers:
     phase: 3
     cost: medium
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: true
@@ -3070,7 +3239,9 @@ tiers:
     phase: 1
     cost: medium
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: false
@@ -3099,7 +3270,9 @@ tiers:
     phase: 1
     cost: medium
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: false
     requiresDotnet: false
@@ -3128,7 +3301,9 @@ tiers:
     phase: 1
     cost: low
     resourceClass: benchmark
-    maxParallel: 4
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -3157,6 +3332,9 @@ tiers:
     phase: 4
     cost: high
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
@@ -3186,6 +3364,9 @@ tiers:
     phase: 4
     cost: high
     resourceClass: cpu
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
@@ -3216,6 +3397,9 @@ tiers:
     phase: 4
     cost: medium
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
@@ -3246,6 +3430,9 @@ tiers:
     phase: 5
     cost: high
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
@@ -3272,16 +3459,19 @@ tiers:
     dependsOn: [bootstrap, release]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
+    serialReason: mutates the shared release runtime state
     exclusiveResources: [release-runtime]
     phase: 5
     cost: high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 45
     shardable: false
@@ -3303,16 +3493,19 @@ tiers:
     dependsOn: [bootstrap, release]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
+    serialReason: mutates the shared release runtime state
     exclusiveResources: [release-runtime]
     phase: 5
     cost: high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 45
     shardable: false
@@ -3334,16 +3527,19 @@ tiers:
     dependsOn: [bootstrap, release]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
+    serialReason: mutates the shared release runtime state
     exclusiveResources: [release-runtime]
     phase: 5
     cost: high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
     shardable: false
@@ -3365,16 +3561,19 @@ tiers:
     dependsOn: [bootstrap, release]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
+    serialReason: mutates the shared release runtime state
     exclusiveResources: [release-runtime]
     phase: 5
     cost: medium
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 25
     shardable: false
@@ -3396,16 +3595,19 @@ tiers:
     dependsOn: [release]
     services: [preview]
     parallelizable: false
+    serialReason: mutates the shared release runtime state
     exclusiveResources: [release-runtime]
     phase: 5
     cost: medium
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: frontend
     requiresNode: true
     requiresDotnet: false
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: frontend
     timeoutMinutes: 20
     shardable: false
@@ -3427,16 +3629,19 @@ tiers:
     dependsOn: [bootstrap, release, security]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
+    serialReason: mutates the shared release runtime state
     exclusiveResources: [release-runtime]
     phase: 5
     cost: high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 35
     shardable: false
@@ -3462,6 +3667,9 @@ tiers:
     phase: 5
     cost: medium
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: frontend
     requiresNode: true
@@ -3488,16 +3696,19 @@ tiers:
     dependsOn: [release]
     services: [preview]
     parallelizable: false
+    serialReason: consumes the shared release AOT artifact set
     exclusiveResources: [release-aot]
     phase: 5
     cost: medium
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: frontend
     requiresNode: true
     requiresDotnet: false
     requiresPlaywright: chromium
-    playwrightWorkers: 1
     cacheProfile: frontend
     timeoutMinutes: 25
     shardable: false
@@ -3523,6 +3734,9 @@ tiers:
     phase: 5
     cost: medium
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: frontend
     requiresNode: true
@@ -3553,6 +3767,9 @@ tiers:
     phase: 5
     cost: high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -3583,6 +3800,9 @@ tiers:
     phase: 5
     cost: high
     resourceClass: benchmark
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -3613,6 +3833,9 @@ tiers:
     phase: 5
     cost: high
     resourceClass: benchmark
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -3643,6 +3866,9 @@ tiers:
     phase: 5
     cost: high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: false
@@ -3673,6 +3899,9 @@ tiers:
     phase: 5
     cost: very-high
     resourceClass: cpu
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: false
@@ -3703,6 +3932,9 @@ tiers:
     phase: 5
     cost: high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -3733,6 +3965,9 @@ tiers:
     phase: 5
     cost: high
     resourceClass: database
+    cpuWeight: 2
+    memoryWeight: 3
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -3763,7 +3998,9 @@ tiers:
     phase: 5
     cost: low
     resourceClass: cpu
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -3793,6 +4030,9 @@ tiers:
     phase: 5
     cost: low
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: true
@@ -3823,7 +4063,9 @@ tiers:
     phase: 5
     cost: medium
     resourceClass: cpu
-    maxParallel: 1
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -3849,16 +4091,19 @@ tiers:
     dependsOn: [coverage-gate-strict, production, release-closeout, release-admin-console, release-auth-flow, release-authoring-flow, release-private-preview, release-error-boundary, release-rbac-negative, release-aot-generation, release-aot-consumption, release-static-asset-digest-coherence, release-soak-min, release-load-peak, release-load-burst, release-data-scale-m, release-mutation-critical-slice, release-memory-leak-budget, release-open-handle-budget, release-final-flaky-governance, release-final-shard-completeness, test-quality-lint]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
+    serialReason: aggregates and signs the final shared release evidence
     exclusiveResources: [release-final]
     phase: 6
     cost: very-high
     resourceClass: io
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
     requiresDotnet: true
     requiresPlaywright: all
-    playwrightWorkers: 1
     cacheProfile: full
     timeoutMinutes: 240
     shardable: false
@@ -3884,6 +4129,9 @@ tiers:
     phase: 4
     cost: very-high
     resourceClass: browser
+    cpuWeight: 2
+    memoryWeight: 4
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: full
     requiresNode: true
@@ -3907,7 +4155,6 @@ tiers:
       - backend-security-hardening-boundary-and-ast
       - backend-endpoint-security-metadata-and-testserver
       - backend-admin-console-endpoint-behavior
-      - backend-executable-data-test-governance
       - backend-admin-console-persistence-behavior
       - frontend-admin-console-behavior
       - backend-auth-mfa-pow-session-state-machine
@@ -3937,6 +4184,7 @@ tiers:
       - tests/backend/issue-1037-security-hardening-evidence.json
       - tests/backend/issue-1038-endpoint-security-evidence.json
       - tests/backend/Unit/AdminConsistencyContractTests.cs
+      - docs/issue-1041-executable-data-test-governance.md
       - docs/issue-1041-executable-data-test-governance.md
       - tests/frontend/unit/api/admin.test.ts
       - tests/backend/Unit/BackendAuthStateMachineTests.cs
@@ -3968,9 +4216,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 2
-    memoryGiB: 2
+    cpuWeight: 2
+    memoryWeight: 2
+    minCpuUnits: 1
     executionKey: backend-api-integration-tests
     executionVariant: runtime
     cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
@@ -3990,6 +4238,7 @@ tiers:
       - deployment-runtime-lifecycle
       - backend-endpoint-security-metadata-and-testserver
       - backend-admin-console-endpoint-behavior
+      - backend-executable-data-test-governance
     artifacts: [.tmp/backend-api-integration, .tmp/coverage/backend/special-api-integration/**/coverage.cobertura.xml, .tmp/coverage/backend/special-api-integration/**/coverage.json]
     evidence:
       - .tmp/backend-api-integration/summary.json
@@ -4002,6 +4251,7 @@ tiers:
       - tests/backend/Unit/AdminPrincipalSecurityContractTests.cs
       - tests/backend/Unit/BackendApiIntegrationContractTests.cs
       - tests/backend/Unit/AdminConsistencyContractTests.cs
+      - docs/issue-1041-executable-data-test-governance.md
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -4020,9 +4270,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 2
-    memoryGiB: 2
+    cpuWeight: 2
+    memoryWeight: 2
+    minCpuUnits: 1
     executionKey: backend-auth-state-machine-tests
     executionVariant: model
     cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
@@ -4043,9 +4293,6 @@ tiers:
       - backend-user-session-revocation-enforcement
       - backend-auth-cookie-jwt-expiry-alignment
       - backend-recovery-passkey-idempotent-completion
-      - backend-concurrency-state-machine-behavior
-      - backend-executable-data-test-governance
-      - backend-passkey-behavior-governance
     artifacts: [.tmp/backend-auth-state-machine, .tmp/coverage/backend/special-auth-state-machine/**/coverage.cobertura.xml, .tmp/coverage/backend/special-auth-state-machine/**/coverage.json]
     evidence:
       - .tmp/backend-auth-state-machine/summary.json
@@ -4068,11 +4315,6 @@ tiers:
       - tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs
       - tests/backend/Unit/RecoveryPasskeyCompletionEndpointTests.cs
       - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
-      - tests/backend/Unit/PasskeySignCountConcurrencyTests.cs
-      - tests/backend/issue-1040-retention-replacements.json
-      - docs/testing/issue-1040-concurrency-state-machines.md
-      - docs/issue-1041-executable-data-test-governance.md
-      - docs/passkey-test-governance.md
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -4087,9 +4329,9 @@ tiers:
     phase: 1
     cost: medium
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 2
-    memoryGiB: 2
+    cpuWeight: 2
+    memoryWeight: 2
+    minCpuUnits: 1
     executionKey: backend-concurrency-tests
     executionVariant: model
     cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
@@ -4112,6 +4354,9 @@ tiers:
       - backend-rate-limiter-rejection-sampler-bounded
       - backend-user-session-revocation-enforcement
       - backend-recovery-passkey-idempotent-completion
+      - backend-concurrency-state-machine-behavior
+      - backend-executable-data-test-governance
+      - backend-passkey-behavior-governance
     artifacts: [.tmp/backend-concurrency, .tmp/coverage/backend/special-concurrency/**/coverage.cobertura.xml, .tmp/coverage/backend/special-concurrency/**/coverage.json]
     evidence:
       - .tmp/backend-concurrency/summary.json
@@ -4138,6 +4383,10 @@ tiers:
       - tests/backend/Unit/RecoveryPasskeyCompletionStateTests.cs
       - tests/backend/Integration/RecoveryPasskeyCompletionIntegrationTests.cs
       - tests/backend/issue-1054-recovery-passkey-completion-evidence.json
+      - tests/backend/issue-1040-retention-replacements.json
+      - docs/testing/issue-1040-concurrency-state-machines.md
+      - docs/issue-1041-executable-data-test-governance.md
+      - docs/passkey-test-governance.md
     ciJob: fast-backend
     localOnly: false
     nightlyOnly: false
@@ -4152,9 +4401,9 @@ tiers:
     phase: 1
     cost: medium
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 2
-    memoryGiB: 2
+    cpuWeight: 2
+    memoryWeight: 2
+    minCpuUnits: 1
     executionKey: backend-property-tests
     executionVariant: property
     cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
@@ -4186,9 +4435,9 @@ tiers:
     phase: 1
     cost: medium
     resourceClass: cpu
-    maxParallel: 4
-    cpuUnits: 2
-    memoryGiB: 2
+    cpuWeight: 2
+    memoryWeight: 2
+    minCpuUnits: 1
     executionKey: backend-golden-tests
     executionVariant: model
     cacheInputs: [FsusBlog.slnx, Directory.Build.props, global.json, src/backend, src/core, src/shared, tests/backend, tools/build-with-data-env.sh, tools/test/legacy-test.sh, tools/test/run-once.mjs, tools/test/resolve-dotnet-test-processors.mjs]
@@ -4220,7 +4469,9 @@ tiers:
     phase: 1
     cost: high
     resourceClass: cpu
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -4249,6 +4500,9 @@ tiers:
     phase: 5
     cost: very-high
     resourceClass: cpu
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: false
@@ -4288,6 +4542,9 @@ tiers:
     phase: 5
     cost: very-high
     resourceClass: cpu
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     maxParallel: 1
     requiresBootstrap: none
     requiresNode: false
@@ -4317,7 +4574,9 @@ tiers:
     phase: 5
     cost: medium
     resourceClass: benchmark
-    maxParallel: 1
+    cpuWeight: 4
+    memoryWeight: 2
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false
@@ -4346,7 +4605,9 @@ tiers:
     phase: 3
     cost: high
     resourceClass: network
-    maxParallel: 4
+    cpuWeight: 1
+    memoryWeight: 1
+    minCpuUnits: 1
     requiresBootstrap: none
     requiresNode: true
     requiresDotnet: false

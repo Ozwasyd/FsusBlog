@@ -242,7 +242,7 @@ test('slot preflight blocks occupied ports, insufficient resources, invalid slot
     '--env-file', fixture.envFile, '--state-file', fixture.stateFile
   ], { FSUSBLOG_DRAIN_TIMEOUT_SECONDS: '60', FSUSBLOG_STOP_GRACE_PERIOD: '30s' })
   assert.notEqual(unsafeGracePeriod.status, 0)
-  assert.match(unsafeGracePeriod.stderr, /stop grace period must be greater/u)
+  assert.match(unsafeGracePeriod.stderr, /STOP_GRACE_PERIOD must be greater/u)
 
   const invalidSlot = runSlot(fixture, 'slot-start.sh', [
     '--slot', 'red', '--release-manifest', greenManifest,
@@ -526,6 +526,7 @@ if [[ "\${1:-}" == "compose" ]]; then
         --arg imageRef "\${FSUSBLOG_IMAGE_REF:?}" \
         --arg digest "\${FSUSBLOG_IMAGE_DIGEST:?}" \
         --arg port "\${FSUSBLOG_SLOT_PORT:?}" \
+        --arg generation "\${FSUSBLOG_DEPLOYMENT_GENERATION:?}" \
         '.[$name] = {
           Name: ("/" + $name),
           Config: {Labels: {
@@ -536,7 +537,7 @@ if [[ "\${1:-}" == "compose" ]]; then
             "io.fsusblog.release.image-digest": $digest,
             "io.fsusblog.deployment.project": $project,
             "io.fsusblog.deployment.mode": "candidate",
-            "io.fsusblog.deployment.generation": "${FSUSBLOG_DEPLOYMENT_GENERATION:?}"
+            "io.fsusblog.deployment.generation": $generation
           }},
           State: {Running: true, Health: {Status: "healthy"}, StartedAt: "2026-07-11T01:01:01.123456789Z"},
           NetworkSettings: {Ports: {"8080/tcp": [{HostIp: "127.0.0.1", HostPort: $port}]}}

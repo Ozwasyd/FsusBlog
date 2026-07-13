@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type BrowserName } from '@playwright/test'
@@ -47,9 +48,36 @@ if (uxViewportMode) {
   process.env.FSUSBLOG_UX_VIEWPORT_CURRENT_OUTPUT_DIR = outputDir
 }
 const configuredWorkers = Number(process.env.FSUSBLOG_PLAYWRIGHT_WORKERS || '')
+const hostCpus = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
+const schedulerCpuGrant = resolvePositiveGrant([
+  'FSUSBLOG_STEP_CPU_BUDGET',
+  'FSUSBLOG_BUNDLE_CPU_UNITS',
+  'FSUSBLOG_BUNDLE_CPU_BUDGET'
+])
+const schedulerMemoryGrantGiB = resolvePositiveGrant([
+  'FSUSBLOG_STEP_MEMORY_GIB',
+  'FSUSBLOG_BUNDLE_MEMORY_GIB'
+])
+const cpuCap = Math.max(1, Math.floor(Math.min(hostCpus, schedulerCpuGrant ?? hostCpus)))
+const availableMemoryBytes = Math.max(0, os.freemem())
+const grantedMemoryBytes = Math.min(
+  availableMemoryBytes,
+  schedulerMemoryGrantGiB === undefined
+    ? availableMemoryBytes
+    : schedulerMemoryGrantGiB * 1024 ** 3)
+const machineMemoryPerCpuBytes = Math.max(1, os.totalmem() / hostCpus)
+const schedulerManaged = schedulerCpuGrant !== undefined && schedulerMemoryGrantGiB !== undefined
+// Browser workers remain bounded by the live STEP memory grant and the host's
+// proportional memory density; a CPU admission alone does not make another
+// isolated browser context memory-safe.
+const memoryCap = Math.max(1, Math.ceil(grantedMemoryBytes / machineMemoryPerCpuBytes))
+const loadCap = !schedulerManaged
+  ? Math.max(1, Math.floor(hostCpus - Math.max(0, os.loadavg()[0] || 0)))
+  : cpuCap
+const dynamicWorkerCap = Math.max(1, Math.min(cpuCap, memoryCap, loadCap))
 const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0
-  ? Math.floor(configuredWorkers)
-  : (process.env.CI ? 4 : 4)
+  ? Math.max(1, Math.min(Math.floor(configuredWorkers), dynamicWorkerCap))
+  : dynamicWorkerCap
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH
   || [
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -93,13 +121,38 @@ const projects = uniqueBrowsers.map((browser) => {
   }
 })
 
+function resolveTestTimeoutMs(): number {
+  const explicit = Number(process.env.FSUSBLOG_PLAYWRIGHT_TEST_TIMEOUT_MS)
+  if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit)
+  const stepDeadlineMs = Number(process.env.FSUSBLOG_STEP_DEADLINE_MS)
+  if (Number.isFinite(stepDeadlineMs) && stepDeadlineMs > 0) {
+    // Reserve independent shares for launch, execution and cleanup per browser.
+    return Math.max(30_000, Math.floor(stepDeadlineMs / Math.max(1, projects.length * 3)))
+  }
+  const pressureScale = Math.sqrt(hostCpus / Math.max(1, cpuCap))
+  return Math.floor(60_000 * pressureScale)
+}
+
+function resolvePositiveGrant(names: string[]): number | undefined {
+  for (const name of names) {
+    const value = process.env[name]
+    if (value === undefined || value.trim() === '') continue
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new Error(`${name} must be a positive finite number, got ${value}`)
+    }
+    return parsed
+  }
+  return undefined
+}
+
 export default defineConfig({
   tsconfig: './tsconfig.playwright.json',
   testDir: '../../tests/frontend/e2e',
   fullyParallel: true,
   workers,
   globalSetup: '../../tests/frontend/support/playwright/global-setup.ts',
-  timeout: 0,
+  timeout: resolveTestTimeoutMs(),
   expect: {
     timeout: 15_000
   },

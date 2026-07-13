@@ -18,6 +18,17 @@ test.describe('cross-browser release smoke', () => {
       consoleMessages.push(`pageerror: ${error.message}`)
     })
 
+    // WebKit does not participate in the PWA-cache assertions below. Avoid
+    // starting its service worker in the local HTTP + COEP acceptance runtime,
+    // where WebKit rejects the otherwise same-origin worker before the test can
+    // exercise any supported behavior.
+    if (browserName === 'webkit') {
+      await page.addInitScript(() => {
+        (window as Window & { __FSUSBLOG_DISABLE_SERVICE_WORKER__?: boolean })
+          .__FSUSBLOG_DISABLE_SERVICE_WORKER__ = true
+      })
+    }
+
     if (process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1') {
       await page.addInitScript(() => {
         const runtimeWindow = window as typeof window & {

@@ -1,7 +1,7 @@
 <template>
   <HomeFeedSurface :show-aside="showAside">
     <template #main>
-      <div>
+      <div data-fsus-motion-surface="home-hero">
         <HomeArticleLoadingState v-if="loading" />
 
         <HomeArticleErrorState v-else-if="isError" @retry="emit('retry')" />

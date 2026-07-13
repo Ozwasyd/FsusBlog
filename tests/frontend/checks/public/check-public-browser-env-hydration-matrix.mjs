@@ -300,7 +300,14 @@ async function probeRoute(route) {
 async function resolveRoutes() {
   const routes = []
   for (const route of ROUTE_CANDIDATES) {
-    const probed = await probeRoute(route)
+    let probed = await probeRoute(route)
+    if (route.required) {
+      const deadline = Date.now() + exactRouteReadinessTimeoutMs
+      while (probed.skipReason && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        probed = await probeRoute(route)
+      }
+    }
     if (probed.skipReason && probed.required) {
       throw new Error(`${route.id} route is not public-AOT ready: ${probed.skipReason}`)
     }

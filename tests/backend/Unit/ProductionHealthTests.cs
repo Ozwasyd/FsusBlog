@@ -226,7 +226,9 @@ public sealed class ProductionHealthTests
         Assert.DoesNotContain(detailCalls, static method => method.DeclaringType == typeof(ProductionReadinessPublicReport));
         Assert.Contains(detailCalls, static method => method.Name == "Json");
         AuthorizationPolicy policy = Assert.Single(readyDetail.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
-        ClaimsAuthorizationRequirement permission = Assert.Single(policy.Requirements.OfType<ClaimsAuthorizationRequirement>());
+        ClaimsAuthorizationRequirement permission = Assert.Single(
+            policy.Requirements.OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(AdminPermissions.AuditRead, permission.AllowedValues ?? []);
     }
 
@@ -284,9 +286,15 @@ public sealed class ProductionHealthTests
         {
             RequestServices = new ServiceCollection().BuildServiceProvider()
         };
-        _ = await (Task<IResult>)publicHandler.Invoke(null, [cache, context, CancellationToken.None])!;
+        object? publicTarget = publicHandler.IsStatic
+            ? null
+            : Activator.CreateInstance(publicHandler.DeclaringType!, nonPublic: true);
+        object? detailTarget = detailHandler.IsStatic
+            ? null
+            : Activator.CreateInstance(detailHandler.DeclaringType!, nonPublic: true);
+        _ = await (Task<IResult>)publicHandler.Invoke(publicTarget, [cache, context, CancellationToken.None])!;
         Assert.Equal(1, refreshCount);
-        _ = await (Task<IResult>)detailHandler.Invoke(null, [cache, context, CancellationToken.None, true])!;
+        _ = await (Task<IResult>)detailHandler.Invoke(detailTarget, [cache, context, CancellationToken.None, true])!;
         Assert.Equal(2, refreshCount);
     }
 
@@ -859,11 +867,11 @@ public sealed class ProductionHealthTests
     private static RouteEndpoint FindRoute(WebApplication app, string route)
         => Assert.Single(((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
-            .OfType<RouteEndpoint>()
-            .Where(endpoint => string.Equals(
+            .OfType<RouteEndpoint>(),
+            endpoint => string.Equals(
                 endpoint.RoutePattern.RawText?.TrimStart('/'),
                 route.TrimStart('/'),
-                StringComparison.Ordinal)));
+                StringComparison.Ordinal));
 
     private static MethodInfo AsyncMoveNext(MethodInfo method)
     {

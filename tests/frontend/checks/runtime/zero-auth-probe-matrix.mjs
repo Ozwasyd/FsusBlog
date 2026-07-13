@@ -2,12 +2,12 @@
 
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { encodeAdminPrincipalSnapshotFrame, encodeIdentityAccountSnapshotFrame } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
-
-const require = createRequire(import.meta.url)
-const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
+import { resolveAdaptiveManifestWorkers } from '../../../../tools/test/run-command-manifest.mjs'
 
 const baseUrl = (
   process.env.PLAYWRIGHT_BASE_URL
@@ -16,7 +16,6 @@ const baseUrl = (
   || process.env.FSUSBLOG_BASE_URL
   || 'http://127.0.0.1:3000'
 ).replace(/\/+$/u, '')
-const executablePath = resolveSystemChromiumExecutablePath()
 const publicFixtureIds = readPublicFixtureIds()
 
 const AUTH_ME_PATTERN = /\/api\/binary\/auth\/me(?:[?#]|$)/u
@@ -32,6 +31,50 @@ const matrix = [
   { id: 'guest-manage', route: '/user/manage', auth: 'guest', expectedAuthMe: 1, expectedAdminMe: 1 },
   { id: 'admin-manage', route: '/user/manage', auth: 'admin', expectedAuthMe: 1, expectedAdminMe: 1 },
 ]
+
+export function resolveZeroAuthProbeWorkers({ env = process.env, taskCount = matrix.length + 1, ...runtime } = {}) {
+  if (!Number.isInteger(taskCount) || taskCount < 1) throw new Error('taskCount must be a positive integer')
+  return Math.min(taskCount, resolveAdaptiveManifestWorkers({
+    env: {
+      ...env,
+      FSUSBLOG_COMMAND_MANIFEST_WORKERS: String(taskCount),
+    },
+    workload: 'orchestration',
+    ...runtime,
+  }))
+}
+
+export async function runZeroAuthProbeQueue(tasks, workers, execute) {
+  if (!Array.isArray(tasks) || tasks.length === 0) throw new Error('tasks must be a non-empty array')
+  if (!Number.isInteger(workers) || workers < 1) throw new Error('workers must be a positive integer')
+  if (typeof execute !== 'function') throw new Error('execute must be a function')
+  const results = new Array(tasks.length)
+  const failures = []
+  let next = 0
+  const workerCount = Math.min(tasks.length, workers)
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    for (;;) {
+      const index = next
+      next += 1
+      if (index >= tasks.length) return
+      try {
+        results[index] = await execute(tasks[index], index)
+      } catch (error) {
+        failures.push({ index, id: tasks[index]?.id ?? String(index), error })
+      }
+    }
+  }))
+
+  failures.sort((left, right) => left.index - right.index)
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures.map((failure) => failure.error),
+      `zero-auth probe failed in ${failures.length} independent scenarios: ${failures.map((failure) => failure.id).join(', ')}`,
+    )
+  }
+  return results
+}
 
 function assert(condition, message) {
   if (!condition) {
@@ -195,17 +238,28 @@ async function runPublicNavigationScenario(browser) {
 }
 
 async function main() {
+  const require = createRequire(import.meta.url)
+  const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
+  const executablePath = resolveSystemChromiumExecutablePath()
   const browser = await chromium.launch({
     headless: true,
     executablePath,
   })
 
   try {
-    const results = []
-    for (const scenario of matrix) {
-      results.push(await runScenario(browser, scenario))
-    }
-    results.push(await runPublicNavigationScenario(browser))
+    const tasks = [
+      ...matrix.map((scenario) => ({
+        id: scenario.id,
+        run: () => runScenario(browser, scenario),
+      })),
+      {
+        id: 'public-spa-navigation',
+        run: () => runPublicNavigationScenario(browser),
+      },
+    ]
+    const workers = resolveZeroAuthProbeWorkers({ taskCount: tasks.length })
+    console.log(`[zero-auth-probe] scenarios=${tasks.length} workers=${workers}`)
+    const results = await runZeroAuthProbeQueue(tasks, workers, (task) => task.run())
 
     for (const result of results) {
       console.log(`[zero-auth-probe] ok ${result.id} route=${result.route} authMe=${result.authMe} adminMe=${result.adminMe}`)
@@ -215,7 +269,17 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error('[zero-auth-probe] fatal:', error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+const isMain = process.argv[1]
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+
+if (isMain) {
+  main().catch((error) => {
+    console.error('[zero-auth-probe] fatal:', error instanceof Error ? error.message : String(error))
+    if (error instanceof AggregateError) {
+      error.errors.forEach((cause, index) => {
+        console.error(`[zero-auth-probe] cause ${index + 1}:`, cause instanceof Error ? cause.stack ?? cause.message : String(cause))
+      })
+    }
+    process.exit(1)
+  })
+}

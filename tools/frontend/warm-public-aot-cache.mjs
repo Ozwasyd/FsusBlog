@@ -3,6 +3,7 @@
 import { cp, mkdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { resolvePublicAotConcurrency } from '../test/resolve-public-aot-concurrency.mjs'
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
@@ -19,10 +20,13 @@ const sidecarPreviewDistDir = process.env.FSUSBLOG_PUBLIC_AOT_SIDECAR_DIST_DIR
   || join(repoRoot, 'src', 'frontend', 'dist', 'aot-cache', 'payloads')
 
 function parseArgs(argv) {
+  const configuredConcurrency = process.env.FSUSBLOG_PUBLIC_AOT_CONCURRENCY
   const options = {
     scope: 'all',
     changedSince: '',
-    concurrency: Number(process.env.FSUSBLOG_PUBLIC_AOT_CONCURRENCY || 1),
+    concurrencyCap: configuredConcurrency === undefined || configuredConcurrency.trim() === ''
+      ? null
+      : parseConcurrency(configuredConcurrency, 'FSUSBLOG_PUBLIC_AOT_CONCURRENCY'),
     failFast: false,
     jsonReport: false
   }
@@ -41,10 +45,10 @@ function parseArgs(argv) {
     } else if (arg.startsWith('--changed-since=')) {
       options.changedSince = arg.slice('--changed-since='.length)
     } else if (arg === '--concurrency' && next) {
-      options.concurrency = Number(next)
+      options.concurrencyCap = parseConcurrency(next, '--concurrency')
       index += 1
     } else if (arg.startsWith('--concurrency=')) {
-      options.concurrency = Number(arg.slice('--concurrency='.length))
+      options.concurrencyCap = parseConcurrency(arg.slice('--concurrency='.length), '--concurrency')
     } else if (arg === '--fail-fast') {
       options.failFast = true
     } else if (arg === '--json-report') {
@@ -52,8 +56,21 @@ function parseArgs(argv) {
     }
   }
 
-  options.concurrency = Math.max(1, Math.min(32, Number.isFinite(options.concurrency) ? Math.trunc(options.concurrency) : 4))
+  const dynamicConcurrency = resolvePublicAotConcurrency({
+    env: process.env,
+    workersPerCpu: 2,
+    memoryPerWorkerGiB: 0.125
+  })
+  options.concurrency = Math.min(dynamicConcurrency, options.concurrencyCap ?? Number.POSITIVE_INFINITY)
   return options
+}
+
+function parseConcurrency(value, label) {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${label} must be a positive integer`)
+  }
+  return parsed
 }
 
 function withTimeout(promise, ms) {
@@ -216,13 +233,17 @@ async function waitForAotHit(path) {
 }
 
 async function warmRoute(route) {
+  const startedAt = Date.now()
   const first = await fetchHtmlUntil(route.path, Date.now() + waitMs)
+  const firstResponseMs = Date.now() - startedAt
   const settled = await waitForAotHit(route.path)
   return {
     ...route,
     first,
     settled,
-    ok: isAotHitSource(settled)
+    ok: isAotHitSource(settled),
+    firstResponseMs,
+    settledMs: Date.now() - startedAt
   }
 }
 
@@ -238,7 +259,7 @@ async function runPool(routes, concurrency, failFast) {
       try {
         const result = await warmRoute(route)
         results.push(result)
-        console.log(`[warm-public-aot] ${route.path} first=${result.first} settled=${result.settled}`)
+        console.log(`[warm-public-aot] ${route.path} first=${result.first} settled=${result.settled} firstMs=${result.firstResponseMs} settledMs=${result.settledMs}`)
         if (!result.ok) {
           failed = true
         }
@@ -287,18 +308,37 @@ async function syncHydrationSidecarsToPreviewDist() {
 }
 
 async function main() {
+  const startedAt = Date.now()
   const options = parseArgs(process.argv.slice(2))
+  const manifestStartedAt = Date.now()
   const routes = await fetchManifest(options)
+  const manifestMs = Date.now() - manifestStartedAt
   if (routes.length === 0) {
     throw new Error('manifest returned no routes')
   }
 
+  const healthStartedAt = Date.now()
   await waitForPublicAotHealth()
+  const healthMs = Date.now() - healthStartedAt
+  const warmStartedAt = Date.now()
   const results = await runPool(routes, options.concurrency, options.failFast)
+  const warmMs = Date.now() - warmStartedAt
   const failed = results.filter((result) => !result.ok)
+  const syncStartedAt = Date.now()
   if (failed.length === 0) {
     await syncHydrationSidecarsToPreviewDist()
   }
+  const syncMs = Date.now() - syncStartedAt
+  console.log(`[warm-public-aot-timing] ${JSON.stringify({
+    routes: routes.length,
+    concurrency: options.concurrency,
+    manifestMs,
+    healthMs,
+    warmMs,
+    syncMs,
+    totalMs: Date.now() - startedAt,
+    failed: failed.length
+  })}`)
   if (options.jsonReport) {
     console.log(JSON.stringify({
       baseUrl,

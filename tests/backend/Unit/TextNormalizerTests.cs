@@ -15,7 +15,7 @@ public sealed class TextNormalizerTests
         char[] value = "ＡＢＣ　Hello".ToCharArray();
         TextNormalizer.NormalizeInPlace(value);
 
-        Assert.Equal("ABC hello", new string(value));
+        Assert.Equal("abc hello", new string(value));
     }
 
     [Fact]

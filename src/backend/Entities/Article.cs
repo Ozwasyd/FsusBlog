@@ -68,7 +68,7 @@ public class Article
     public DateTime? ScheduledPublishAt { get; set; }
 
     [SugarColumn(ColumnName = "published_at", IsNullable = true)]
-    public DateTime? PublishedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? PublishedAt { get; set; }
 
     [SugarColumn(ColumnName = "archived_at", IsNullable = true)]
     public DateTime? ArchivedAt { get; set; }

@@ -475,9 +475,29 @@ async function main() {
     `home bootstrap pageSize mismatch: bootstrap=${String(homeBootstrap.pageSize)} payload=${String(homePayload.pageSize)}`
   );
   if (homeItems.length > 0) {
-    expectIncludes(home, 'ui-article-card', 'home ui article card class');
-    expectIncludes(home, 'ui-article-title', 'home ui article title class');
-    expectIncludes(home, 'ui-article-summary', 'home ui article summary class');
+    const homeArticleIds = [
+      ...homeItems,
+      ...(Array.isArray(homePayload.featuredArticles) ? homePayload.featuredArticles : []),
+      ...(Array.isArray(homePayload.hotArticles) ? homePayload.hotArticles : [])
+    ].map((item) => Number(item?.id)).filter((id) => Number.isSafeInteger(id) && id > 0);
+    expectIncludesAny(home, [
+      'ui-article-card',
+      'data-home-editorial-lead',
+      'data-home-editorial-secondary'
+    ], 'home editorial article surface');
+    assert(
+      homeArticleIds.some((id) => home.includes(`data-article-id="${id}"`)),
+      'home rendered editorial surface must bind an article from the hydration payload'
+    );
+    if (home.includes('ui-article-card')) {
+      expectIncludes(home, 'ui-article-title', 'home feed article title class');
+      expectIncludes(home, 'ui-article-summary', 'home feed article summary class');
+    } else {
+      expectIncludesAny(home, [
+        'data-home-editorial-lead',
+        'data-home-editorial-secondary'
+      ], 'home deduplicated editorial surface');
+    }
     assert(/^\/article\/\d+$/.test(String(homeItems[0]?.href ?? '')), 'home payload first article href mismatch');
     assert(homeBootstrap.articles?.[0]?.id === homeItems[0]?.id, 'home shared renderer article id mismatch');
     assert(homeBootstrap.articles?.[0]?.title === homeItems[0]?.title, 'home shared renderer article title mismatch');

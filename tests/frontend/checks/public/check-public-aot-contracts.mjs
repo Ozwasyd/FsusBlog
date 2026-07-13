@@ -105,6 +105,14 @@ function assertStaticContracts() {
       fail(`warm script must consume route manifest and expose bounded warm controls: ${token}`)
     }
   }
+  for (const token of ['resolvePublicAotConcurrency({', 'workersPerCpu: 2', 'memoryPerWorkerGiB: 0.125', 'options.concurrencyCap ?? Number.POSITIVE_INFINITY', 'must be a positive integer']) {
+    if (!warmScript.includes(token)) {
+      fail(`warm script must derive concurrency from the admitted CPU/memory grant: ${token}`)
+    }
+  }
+  if (/Math\.min\(32\b/.test(warmScript) || /PUBLIC_AOT_CONCURRENCY \|\| 1/.test(warmScript)) {
+    fail('warm script must not use a fixed machine concurrency default or cap')
+  }
   for (const token of ["function isAotHitSource(source)", "source === 'server-ssr'", "ok: isAotHitSource(settled)"]) {
     if (!warmScript.includes(token)) {
       fail(`warm script must require explicit public AOT source headers: ${token}`)

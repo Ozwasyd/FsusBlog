@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -440,8 +441,7 @@ public class SystemProjectionTests
     public async Task BinarySystemEndpoints_SeoRoutes_UseMatchingProjectionTypes()
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
-        builder.Services.AddAuthorization();
-        builder.Services.AddOutputCache();
+        EndpointContractApplication.AddContractServices(builder);
         await using WebApplication app = builder.Build();
         app.MapBinaryEndpoints();
 
@@ -501,11 +501,13 @@ public class SystemProjectionTests
     {
         RouteEndpoint endpoint = Assert.Single(((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
-            .OfType<RouteEndpoint>()
-            .Where(candidate => string.Equals(
+            .OfType<RouteEndpoint>(),
+            candidate => string.Equals(
                 candidate.RoutePattern.RawText?.TrimStart('/'),
                 route.TrimStart('/'),
-                StringComparison.Ordinal)));
+                StringComparison.Ordinal)
+                && candidate.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods
+                    .Contains(HttpMethods.Get, StringComparer.Ordinal) == true);
         return endpoint.Metadata.GetMetadata<MethodInfo>()
             ?? throw new InvalidOperationException($"Handler metadata missing for {route}.");
     }

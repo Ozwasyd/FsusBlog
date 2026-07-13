@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Models.ReadModels;
+using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -111,7 +112,8 @@ public sealed class WebApplicationCompositionExtensionsTests
         Type template = Assert.IsAssignableFrom<Type>(typeof(WebApplicationCompositionExtensions).GetNestedType(
             "SpaHtmlByteTemplate",
             BindingFlags.NonPublic));
-        Assert.NotNull(template.GetMethod("Render", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        Assert.NotNull(template.GetMethod("GetLength", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        Assert.NotNull(template.GetMethod("Write", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
         await SpaFallbackHeadInjectionCache_DoesNotCacheCspNonce();
     }
 
@@ -655,8 +657,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     private static WebApplication CreateApplicationRouteMap()
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder();
-        builder.Services.AddAuthorization();
-        builder.Services.AddOutputCache();
+        EndpointContractApplication.AddContractServices(builder);
         WebApplication app = builder.Build();
         app.MapFsusApplicationRoutes();
         return app;

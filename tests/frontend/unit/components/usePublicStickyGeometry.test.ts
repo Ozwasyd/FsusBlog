@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -32,7 +34,7 @@ const Probe = defineComponent({
   },
   template: `
     <div ref="root">
-      <header data-public-shell-header data-test-height="64"></header>
+      <header class="el-public-shell__header" data-public-shell-header data-test-height="64"></header>
     </div>
   `
 })

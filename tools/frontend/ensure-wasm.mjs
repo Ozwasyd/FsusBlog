@@ -4,7 +4,8 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
-import { join, relative } from 'node:path';
+import os from 'node:os';
+import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const clientRoot = process.cwd();
@@ -12,6 +13,7 @@ const wasmRoot = join(clientRoot, 'wasm');
 const publicWasmRoot = join(clientRoot, 'public', 'wasm');
 const manifestPath = join(publicWasmRoot, 'wasm-manifest.aeds');
 const dependencyInstallerPath = fileURLToPath(new URL('./install-wasm-codec-deps.sh', import.meta.url));
+const cmakeBootstrapPath = fileURLToPath(new URL('./ensure-cmake.sh', import.meta.url));
 const buildScriptPath = join(wasmRoot, 'build.sh');
 const schemaVersion = 2;
 const buildModes = ['basic', 'simd', 'relaxed', 'threads'];
@@ -94,19 +96,69 @@ async function sha256File(path) {
   return hash.digest('hex');
 }
 
+export function resolveEnsureWasmHashWorkers({
+  env = process.env,
+  itemCount = Number.POSITIVE_INFINITY,
+  availableCpu = os.availableParallelism?.() ?? os.cpus().length,
+  freeMemoryBytes = os.freemem(),
+  totalMemoryBytes = os.totalmem()
+} = {}) {
+  const hostCpu = Math.max(1, Math.floor(requiredPositiveNumber(availableCpu, 'available CPU')));
+  const cpuGrant = optionalPositiveNumber(env, [
+    'FSUSBLOG_STEP_CPU_BUDGET',
+    'FSUSBLOG_BUNDLE_CPU_UNITS',
+    'FSUSBLOG_BUNDLE_CPU_BUDGET'
+  ]);
+  const memoryGrantGiB = optionalPositiveNumber(env, [
+    'FSUSBLOG_STEP_MEMORY_GIB',
+    'FSUSBLOG_BUNDLE_MEMORY_GIB'
+  ]);
+  const schedulerManaged = cpuGrant !== null || memoryGrantGiB !== null;
+  const cpuCap = Math.max(1, Math.floor(Math.min(hostCpu, cpuGrant ?? hostCpu)));
+  const hostTotalMemoryBytes = requiredPositiveNumber(totalMemoryBytes, 'total memory');
+  const hostFreeMemoryBytes = requiredPositiveNumber(freeMemoryBytes, 'free memory');
+  const hostMemoryPerCpu = hostTotalMemoryBytes / hostCpu;
+  const memoryCap = schedulerManaged
+    ? cpuCap
+    : Math.max(1, Math.floor(hostFreeMemoryBytes / hostMemoryPerCpu));
+  const finiteItemCount = Number.isFinite(itemCount)
+    ? Math.max(1, Math.floor(requiredPositiveNumber(itemCount, 'hash item count')))
+    : Number.POSITIVE_INFINITY;
+  return Math.max(1, Math.min(cpuCap, memoryCap, finiteItemCount));
+}
+
+async function mapWithDynamicConcurrency(items, mapper) {
+  if (items.length === 0) return [];
+  const results = new Array(items.length);
+  const workerCount = resolveEnsureWasmHashWorkers({ itemCount: items.length });
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  }));
+  return results;
+}
+
 async function computeSourceDescriptor() {
   const wasmFiles = await walkFiles(wasmRoot);
   const sourceFiles = [
     ...wasmFiles,
-    dependencyInstallerPath
+    dependencyInstallerPath,
+    cmakeBootstrapPath
   ].sort((left, right) => left.localeCompare(right));
 
+  const descriptors = await mapWithDynamicConcurrency(sourceFiles, async (sourceFile) => {
+    const relativePath = relative(clientRoot, sourceFile).replaceAll('\\', '/');
+    const contentHash = await sha256File(sourceFile);
+    return { relativePath, contentHash };
+  });
   const hash = createHash('sha256');
   const manifestSourceFiles = [];
 
-  for (const sourceFile of sourceFiles) {
-    const relativePath = relative(clientRoot, sourceFile).replaceAll('\\', '/');
-    const contentHash = await sha256File(sourceFile);
+  for (const { relativePath, contentHash } of descriptors) {
     hash.update(relativePath);
     hash.update('\0');
     hash.update(contentHash);
@@ -131,11 +183,10 @@ async function readManifest() {
 
 async function createManifest({ builtAtUtc }) {
   const sourceDescriptor = await computeSourceDescriptor();
-  const outputFileHashes = {};
-
-  for (const outputFile of requiredOutputFiles) {
-    outputFileHashes[outputFile] = await sha256File(join(publicWasmRoot, outputFile));
-  }
+  const outputHashes = await mapWithDynamicConcurrency(requiredOutputFiles, (outputFile) =>
+    sha256File(join(publicWasmRoot, outputFile)));
+  const outputFileHashes = Object.fromEntries(requiredOutputFiles.map((outputFile, index) =>
+    [outputFile, outputHashes[index]]));
 
   return {
     schemaVersion,
@@ -288,12 +339,11 @@ async function isFresh() {
   }
 
   for (const outputFile of requiredOutputFiles) {
-    const outputPath = join(publicWasmRoot, outputFile);
     if (typeof outputFileHashes[outputFile] !== 'string' || outputFileHashes[outputFile].length === 0) {
       return { fresh: false, reason: `missing output hash ${outputFile}` };
     }
 
-    const actualHash = await sha256File(outputPath);
+    const actualHash = expected.outputFileHashes[outputFile];
     if (actualHash !== outputFileHashes[outputFile]) {
       return { fresh: false, reason: `output hash changed: ${outputFile}` };
     }
@@ -369,8 +419,26 @@ async function main() {
   throw new Error(`unknown command: ${command}`);
 }
 
-main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`[ensure-wasm] fatal: ${message}`);
-  process.exit(1);
-});
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[ensure-wasm] fatal: ${message}`);
+    process.exit(1);
+  });
+}
+
+function requiredPositiveNumber(value, name) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a finite positive number, got ${String(value)}`);
+  }
+  return parsed;
+}
+
+function optionalPositiveNumber(env, names) {
+  for (const name of names) {
+    if (env[name] === undefined || String(env[name]).trim() === '') continue;
+    return requiredPositiveNumber(env[name], name);
+  }
+  return null;
+}

@@ -79,6 +79,7 @@ test('plan/progress tier summary binds the exact executable governance suite to 
   assert.deepEqual(summary.testFiles, [
     'tests/tools/ux-viewport-plan.test.mjs',
     'tests/tools/ux-viewport-progress.test.mjs',
+    'tests/tools/ux-viewport-risk-settle.test.mjs',
     'tests/tools/ux-viewport-runtime-contract.test.mjs'
   ])
 

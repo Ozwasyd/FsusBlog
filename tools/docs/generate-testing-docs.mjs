@@ -114,9 +114,9 @@ function tierRow(tier) {
     tier.prDefault === true ? 'yes' : 'no',
     tier.retentionClass ?? '-',
     tier.triggerReason ?? '-',
-    tier.resourceClass,
+    `${tier.resourceClass} cpu=${tier.cpuWeight} memory=${tier.memoryWeight} minCpu=${tier.minCpuUnits}`,
     tier.cost,
-    String(tier.maxParallel),
+    tier.parallelizable ? 'machine' : 'serial',
     playwrightWorkersForTier(tier),
     tier.requiresBootstrap,
     tier.requiresNode ? 'yes' : 'no',
@@ -125,7 +125,7 @@ function tierRow(tier) {
     tier.cacheProfile,
     tier.dependsOn.length > 0 ? tier.dependsOn.map((id) => `\`${id}\``).join(', ') : '-',
     tier.services.length > 0 ? tier.services.join(', ') : '-',
-    tier.shardable ? String(tier.defaultShards) : '1',
+    tier.shardable ? 'machine' : 'single',
     `${tier.timeoutMinutes}m`,
     artifactsCell(tier),
     evidenceCell(tier)
@@ -134,7 +134,7 @@ function tierRow(tier) {
 
 function tableFor(tiers) {
   const lines = [
-    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Smart gate | PR default | Retention | Trigger reason | Resource | Cost | Max parallel | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Shards | Timeout | Artifacts | Evidence |',
+    '| Tier | CI job | Local command | Phase | Risk | Cadence | Required for | Smart gate | PR default | Retention | Trigger reason | Resource weights | Cost | Parallelism | PW workers | Bootstrap | Node | .NET | Playwright | Cache | Depends on | Services | Sharding | Timeout | Artifacts | Evidence |',
     '|---|---|---|---:|---|---|---|---|---|---|---|---|---|---:|---:|---|---|---|---|---|---|---|---:|---:|---|---|'
   ]
   for (const tier of tiers) {
@@ -176,9 +176,9 @@ function ciJobRows(matrix) {
     const job = jobs.get(tier.ciJob) ?? { id: tier.ciJob, tiers: [], timeoutMinutes: 0, shards: 1, requiresPlaywright: 'none', playwrightWorkerValues: new Set(), cacheProfile: 'none' }
     job.tiers.push(tier)
     job.timeoutMinutes = Math.max(job.timeoutMinutes, Number(tier.timeoutMinutes) || 0)
-    job.shards = Math.max(job.shards, tier.shardable ? Number(tier.defaultShards) || 1 : 1)
+    job.dynamicShards = job.dynamicShards || tier.shardable === true
     job.phase = Math.max(job.phase ?? 0, Number(tier.phase) || 0)
-    job.maxParallel = Math.max(job.maxParallel ?? 1, Number(tier.maxParallel) || 1)
+    job.dynamicParallel = job.dynamicParallel || tier.parallelizable === true
     job.requiresNode = job.requiresNode || tier.requiresNode === true
     job.requiresDotnet = job.requiresDotnet || tier.requiresDotnet === true
     if (tier.requiresPlaywright === 'all') job.requiresPlaywright = 'all'
@@ -189,7 +189,7 @@ function ciJobRows(matrix) {
   }
 
   const lines = [
-    '| CI job | Execution | Local reproduction command | Matrix tiers | Phase | Setup/cache | PW workers | Max timeout | Max shards | Max parallel |',
+    '| CI job | Execution | Local reproduction command | Matrix tiers | Phase | Setup/cache | PW workers | Max timeout | Sharding | Parallelism |',
     '|---|---|---|---|---:|---|---:|---:|---:|---:|'
   ]
   for (const job of [...jobs.values()].sort((left, right) => left.id.localeCompare(right.id))) {
@@ -207,8 +207,8 @@ function ciJobRows(matrix) {
       ].filter(Boolean).join(', ') || 'none',
       job.playwrightWorkerValues.size > 0 ? [...job.playwrightWorkerValues].sort((left, right) => left - right).join(', ') : '-',
       `${job.timeoutMinutes}m`,
-      String(job.shards),
-      String(job.maxParallel ?? 1)
+      job.dynamicShards ? 'machine' : 'single',
+      job.dynamicParallel ? 'machine' : 'serial'
     ].join(' | ').replace(/^/u, '| ').replace(/$/u, ' |'))
   }
   return lines

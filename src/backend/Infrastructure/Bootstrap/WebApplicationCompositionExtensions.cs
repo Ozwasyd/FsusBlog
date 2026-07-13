@@ -28,6 +28,7 @@ using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Testing;
+using Microsoft.AspNetCore.Mvc;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Modules.Endpoints;
@@ -323,20 +324,20 @@ public static class WebApplicationCompositionExtensions
 
         app.MapGet("/api/notifications/stream/preflight", (
             HttpContext ctx,
-            INotificationStreamHandshakeService handshakeService,
-            IAedsEncoder aeds,
+            [FromServices] INotificationStreamHandshakeService handshakeService,
+            [FromServices] IAedsEncoder aeds,
             CancellationToken ct) => ValidateNotificationStreamPreflightAsync(ctx, handshakeService, aeds, ct))
             .AllowAnonymous()
             .RequireRateLimiting("notification_stream")
             .WithMetadata(new FsusRouteKindMetadata("notification-stream"));
         app.MapGet("/api/notifications/stream", (
             HttpContext ctx,
-            INotificationStreamHandler handler,
+            [FromServices] INotificationStreamHandler handler,
             CancellationToken ct) => handler.HandleAsync(ctx, ct))
             .AllowAnonymous()
             .RequireRateLimiting("notification_stream")
             .WithMetadata(new FsusRouteKindMetadata("notification-stream"));
-        app.Map("/api/{**path}", (IAedsEncoder aeds) =>
+        app.Map("/api/{**path}", ([FromServices] IAedsEncoder aeds) =>
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.NotFound, "旧文本 API 已移除，请使用 /api/binary/** AEDS 二进制端点"),
@@ -352,11 +353,11 @@ public static class WebApplicationCompositionExtensions
 
         app.MapGet("/", (
             HttpContext ctx,
-            IPublicAotShellService shellService,
-            ISpaAssetManifestService assetService,
-            ISystemService systemService,
-            IWebHostEnvironment env,
-            StartupRuntimeState runtimeState,
+            [FromServices] IPublicAotShellService shellService,
+            [FromServices] ISpaAssetManifestService assetService,
+            [FromServices] ISystemService systemService,
+            [FromServices] IWebHostEnvironment env,
+            [FromServices] StartupRuntimeState runtimeState,
             CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, systemService, env, runtimeState, ct))
             .AllowAnonymous()
             .RequireRateLimiting("public_read")
@@ -365,11 +366,11 @@ public static class WebApplicationCompositionExtensions
             .WithMetadata(new FsusRouteKindMetadata("public"));
         app.MapFallback((
             HttpContext ctx,
-            IPublicAotShellService shellService,
-            ISpaAssetManifestService assetService,
-            ISystemService systemService,
-            IWebHostEnvironment env,
-            StartupRuntimeState runtimeState,
+            [FromServices] IPublicAotShellService shellService,
+            [FromServices] ISpaAssetManifestService assetService,
+            [FromServices] ISystemService systemService,
+            [FromServices] IWebHostEnvironment env,
+            [FromServices] StartupRuntimeState runtimeState,
             CancellationToken ct) => ServePublicShellOrIndexAsync(ctx, shellService, assetService, systemService, env, runtimeState, ct))
             .RequireRateLimiting("public_read")
             .WithRiskAction(RiskActionNames.PublicRead, "public.html.fallback")

@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { mount } from '@vue/test-utils'
 import { h, nextTick } from 'vue'
 import {

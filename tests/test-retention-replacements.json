@@ -330,7 +330,8 @@
       "id": "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-compact-audit-actions-reachable-on-mobile-touch-sc-479bf54d43",
       "path": "tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-compact-audit-actions-reachable-on-mobile-and-shor-c7e2d3c64f"
+        "node-script:tests/frontend/checks/static/check-article-editor-workspace-governance.mjs",
+        "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#dashboard-article-write-and-admin-workbench-actions-stay-b1a6a0529b"
       ],
       "reason": "The same audit action contract now also covers short landscape touch screens and rejects the former desktop-only size override."
     },
@@ -997,7 +998,7 @@
       "path": "tests/backend/Unit/InjectionHardeningContractTests.cs",
       "replacementTestIds": [
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "The logger sink observes escaped control characters, while the Roslyn rule rejects raw sensitive structured placeholders."
     },
@@ -1045,7 +1046,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.FixedTimeHexComparison_FailsClosedAndAcceptsEquivalentHexCase",
         "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.FixedTimeUtf8Comparison_IsCaseSensitiveAndFailsClosed",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "Known equal, unequal, malformed and length-mismatch values execute the fixed-time helpers; FSUSBLOGSEC003 rejects ordinary sensitive comparisons."
     },
@@ -1056,7 +1057,7 @@
         "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.CryptographicRandomSource_ProducesRequestedLengthAndUniqueOutputs",
         "xunit:tests/backend/Unit/SecurityHardening/CryptographyBoundaryTests.cs#CryptographyBoundaryTests.SecurityAdminPolicy_UsesInjectedSecurityRandomSourceForSnapshotIdentifiers",
         "xunit:tests/backend/Unit/CaptchaV1ChallengeProviderTests.cs#CaptchaV1ChallengeProviderTests.VerifyAsync_RejectsTamperedSeedSignatureOrToken",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "CSPRNG output/injection and signed challenge behavior are observable; FSUSBLOGSEC001/002 forbid non-cryptographic random APIs in security scope."
     },
@@ -1064,7 +1065,7 @@
       "id": "xunit:tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs#CryptoRandomnessHardeningContractTests.CryptoParameters_MeetCurrentMinimums",
       "path": "tests/backend/Unit/CryptoRandomnessHardeningContractTests.cs",
       "replacementTestIds": [
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture",
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548",
         "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_RejectsOversizedHexPublicInputsBeforeBackendCall"
       ],
       "reason": "FSUSBLOGSEC006-008 enforce Argon2/PBKDF2 minima by Roslyn AST and the production verifier exercises bounded public-input shapes."
@@ -1085,7 +1086,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.ProductionExceptionResponse_DoesNotExposeMessageStackSqlPathOrType",
         "xunit:tests/backend/Unit/GlobalExceptionMiddlewareTests.cs#GlobalExceptionMiddlewareTests.InvokeAsync_Production500_DoesNotLeakExceptionMessage",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "The production AEDS response is decoded and inspected for raw details, while FSUSBLOGSEC005 blocks raw exception output paths."
     },
@@ -1093,7 +1094,7 @@
       "id": "xunit:tests/backend/Unit/InformationDisclosureHardeningContractTests.cs#InformationDisclosureHardeningContractTests.PowAndSecurityLogs_DoNotWriteRawTokensOrAccountIds",
       "path": "tests/backend/Unit/InformationDisclosureHardeningContractTests.cs",
       "replacementTestIds": [
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture",
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548",
         "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_DoesNotLogProofWitnessOrCredentialSecret",
         "xunit:tests/backend/Unit/ZkProofVerifierTests.cs#ZkProofVerifierTests.ProductionZkProofVerifier_DoesNotLogRawNullifierHash"
       ],
@@ -1106,7 +1107,7 @@
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.LocalFixtureStatus_ExposesOnlyBooleanStateAndFailsClosedForSecretOrNetworkMismatch",
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
         "xunit:tests/backend/Unit/ProductionHealthTests.cs#ProductionHealthTests.PublicReadinessReport_ContainsOnlyStatusAndCheckedAt",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "TestServer and report objects prove the exposed fields and redaction; health/startup/fixture raw exception outputs share FSUSBLOGSEC005."
     },
@@ -1116,7 +1117,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StructuredSecurityLogField_IsSanitizedBeforeLoggerReceivesIt",
         "xunit:tests/backend/Unit/SecurityHardening/DisclosureBoundaryTests.cs#DisclosureBoundaryTests.StartupValidationReport_ContainsRequirementStateButNotConfiguredSecretValues",
-        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-rejects-negative-roslyn-fixture"
+        "node-test:tests/tools/security-source-analyzer.test.mjs#security-source-analyzer-accepts-repository-policy-and-r-144f38a548"
       ],
       "reason": "Captured structured state and serialized startup evidence cover observable disclosure; the scoped analyzer owns sensitive template regressions."
     },
@@ -1528,7 +1529,7 @@
       "replacementTestIds": [
         "xunit:tests/backend/Unit/AdminConsistencyContractTests.cs#AdminConsistencyContractTests.AdminUserStatusValidation_OnlyAcceptsSuspendAndRestore",
         "xunit:tests/backend/Unit/AdminConsistencyContractTests.cs#AdminConsistencyContractTests.SystemMessageTargetValidation_RequiresPositiveAccountId",
-        "vitest:tests/frontend/unit/api/admin.test.ts#adminChangeStatus sends binary status request for accountId with admin step-up proof"
+        "vitest:tests/frontend/unit/api/admin.test.ts#adminchangestatus-sends-binary-status-request-for-accoun-9392b98c6a"
       ],
       "reason": "The endpoint-owned validators and the real frontend AEDS mutation now execute supported and rejected values without reading endpoint source."
     },
@@ -1653,7 +1654,7 @@
         "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#consumes admin step-up proof before retry and refreshes the console",
         "vitest:tests/frontend/unit/router/index.test.ts#integrity proof console is denied unless the admin has system.config",
         "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#removes unauthorized modules and leaves instead of exposing disabled links",
-        "playwright:tests/frontend/e2e/acceptance/admin-console.spec.ts#visible admin routes render cleanly"
+        "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#visible-admin-routes-render-cleanly-c3e6ee4f99"
       ],
       "reason": "API mocks and a mounted Vue view execute filters, empty/error states, step-up retry and refresh; the router guard owns permission denial."
     },
@@ -1719,7 +1720,7 @@
       "id": "xunit:tests/backend/Unit/BusinessLogicHardeningContractTests.cs#BusinessLogicHardeningContractTests.CommentCursorPolicies_AreResolvedThroughConfigurableProvider",
       "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/PaginationAndProjectionTests.cs#PaginationAndProjectionTests.CommentCursorPolicyResolver_AppliesTenantOverrideAndClamps"
+        "xunit:tests/backend/Unit/PaginationAndProjectionTests.cs#CursorPolicyTests.CommentCursorPolicyResolver_AppliesTenantOverrideAndClamps"
       ],
       "reason": "The resolver output now proves tenant override selection and safety clamping directly."
     },
@@ -5175,7 +5176,7 @@
       "id": "xunit:tests/backend/Unit/BinaryTransportHotPathContractTests.cs#BinaryTransportHotPathContractTests.NotificationStream_SourceAvoidsGlobalConnectionGateAndSnapshotsFanout",
       "path": "tests/backend/Unit/BinaryTransportHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#NotificationStreamConnectionManagerTests.RegisterPublishRemove_AllowsConcurrentConnections"
+        "xunit:tests/backend/Unit/NotificationStreamConnectionManagerTests.cs#NotificationStreamConnectionManagerIntegrationTests.RegisterPublishRemove_AllowsConcurrentConnections"
       ],
       "reason": "Concurrent registration, fanout and removal now execute the production connection manager; allocation belongs to the measured benchmark lane."
     },
@@ -5210,8 +5211,8 @@
       "id": "xunit:tests/backend/Unit/BinaryTransportHotPathContractTests.cs#BinaryTransportHotPathContractTests.CommentBinaryHandlers_SourceUsesStaticHandlersAndDirectFrameEncodingOnCacheMiss",
       "path": "tests/backend/Unit/BinaryTransportHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentCursor_WithItems_RoundTrip",
-        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentReplyCursor_Empty_RoundTrip",
+        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecCommentTests.CommentCursor_WithItems_RoundTrip",
+        "xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecCommentTests.CommentReplyCursor_Empty_RoundTrip",
         "shell:tools/test/lanes/backend-benchmark-regression.sh"
       ],
       "reason": "Comment cursor payload semantics round-trip through production codecs; handler allocation is benchmark-owned."
@@ -5635,7 +5636,7 @@
     {"id":"xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetIntegrationTestsAndSmokeDocs_PinDestructiveCutoverEvidence","path":"tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs","replacementTestIds":["xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent","xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation","xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"],"reason":"The current cutover preserves accounts and comments. Executed PostgreSQL backfill, durable resume and startup validation replace source and runbook text assertions."},
     {"id":"xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.CrossStackAnonymousIdentityContracts_PinFramesRecoveryAdminAndCommentActors","path":"tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs","replacementTestIds":["xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.RecoveryKeyPods_RoundTrip_PreserveFields","xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.AnonymousPrivacyPods_RoundTrip_PreserveCredentialRootTicketAndComment","xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentCreateV2Request_RoundTrip_PreservesAnonymousFields","xunit:tests/backend/Unit/PodBinaryCodecTests.cs#PodBinaryCodecTests.CommentAuthorView_RoundTrip_PreservesLocalizedAnonymousProjection","xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AnonymousIdentityRuntime_DoesNotGrantAdminFromLegacyUserRole","xunit:tests/backend/Unit/ActorResolverBehaviorTests.cs#ActorResolverBehaviorTests.AnonymousDisplayNameGenerator_LocalizesStablyWithoutIdentityLeakage"],"reason":"Real POD round trips, principal behavior and actor projection replace regex searches over frame enums and other test method names."},
     {"id":"vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#keeps-the-privacy-matrix-complete-and-bound-to-local-com-07e5dd14f1","path":"tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts","replacementTestIds":["node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-accepts-the-repository-manife-9757d7db93","node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-fails-when-required-negative--09a4408f49","node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-fails-when-a-negative-invaria-1d6d4d27a5"],"reason":"The executable structured matrix verifier owns completeness and fail-closed negative invariants without a Vitest string wrapper."},
-    {"id":"vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#makes-ci-execute-the-privacy-lane-and-fail-closed-matrix-4d30c00322","path":"tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts","replacementTestIds":["node-script:tools/security/check-security-matrices.mjs","node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-accepts-the-repository-manife-9757d7db93"],"reason":"Workflow and matrix linkage belongs to the structured matrix/static-governance owner, while the verifier executes the repository manifest."},
+    {"id":"vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#makes-ci-execute-the-privacy-lane-and-fail-closed-matrix-4d30c00322","path":"tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts","replacementTestIds":["node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-accepts-the-repository-manife-9757d7db93"],"reason":"Workflow and matrix linkage belongs to the structured matrix/static-governance owner, while the verifier executes the repository manifest."},
     {"id":"vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#pins-the-zk-production-release-gate-to-fail-closed-check-5a86d42cac","path":"tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts","replacementTestIds":["node-test:tests/security/privacy-zk-prod-release.test.mjs#privacy-zk-production-release-gate-rejects-bypass-flags--be3d8b5aad","node-test:tests/security/privacy-zk-prod-release.test.mjs#privacy-zk-production-release-gate-fails-closed-when-ena-d714b912c6","node-test:tests/security/privacy-zk-prod-release.test.mjs#privacy-zk-production-release-gate-accepts-complete-enab-1cbe95801b"],"reason":"Production release policy is exercised directly for bypass, missing evidence and complete enabled configurations."},
     {"id":"vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#pins-frontend-privacy-test-evidence-to-transport-timers--6b34558bf8","path":"tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts","replacementTestIds":["vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#uses-fake-timers-to-expire-prepared-tickets-by-ttl-7d3c04df21","vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#preloads-article-metadata-prepares-a-short-lived-ticket--84bead9691","vitest:tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts#cancels-stale-article-metadata-preloads-when-articles-sw-af5076eabc","vitest:tests/frontend/unit/privacy/commentPrivacyWorkerClient.test.ts#uses-one-lazy-worker-instance-and-transfers-proof-input--d48ad91c8e","vitest:tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts#fails-closed-when-no-in-memory-credential-provider-is-av-fd6e9e8c4b","vitest:tests/frontend/unit/api/comment.test.ts#createanonymouscomment-posts-an-anonymouscommentcreatere-d93c70823f"],"reason":"Fake-time TTL, consume-once, Abort, transferable worker buffers, adapter fail-closed and credential-free transport are all executed directly."},
     {"id":"vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#removes-the-xor-placeholder-prover-and-keeps-wasm-prover-864a99ecaa","path":"tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts","replacementTestIds":["vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#fails-closed-when-the-browser-prover-artifact-manifest-i-19ef770c3f","vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#delegates-proof-generation-to-the-loaded-wasm-prover-art-dd80c27445","vitest:tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts#strips-witness-material-returned-by-the-delegate-from-th-d1ac321f65"],"reason":"The real Wasm loader and delegate behavior prove fail-closed loading, proof generation and witness stripping without searching implementation text."},
@@ -5737,7 +5738,7 @@
     {"id":"vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#routes-passkey-mutations-through-header-only-step-up-pro-0383e68e03","path":"tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts","replacementTestIds":["vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-create-and-rotate-send-step-up-proof-header-4fbc548829","vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#passkey-section-is-accessible-and-opens-registration-mod-be56f40ffe"],"reason":"Header proof transport and the rendered credential mutation entry are directly exercised."},
     {"id":"vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#keeps-page-states-explicit-for-loading-empty-and-recover-6ad2a7662f","path":"tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts","replacementTestIds":["vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#visible-user-routes-load-without-runtime-noise-db512e9f8c"],"reason":"User-console browser scenarios observe the actual loading, empty and recoverable error surfaces."},
     {"id":"vitest:tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts#keeps-passkey-registration-modal-bounded-and-scrollable--a407042a58","path":"tests/frontend/unit/view-contracts/identityCenterWorkflow.test.ts","replacementTestIds":["vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#passkey-section-is-accessible-and-opens-registration-mod-be56f40ffe","vitest:tests/frontend/e2e/visual/console-visual.spec.ts#user-profile-and-inbox-stay-aligned-3fffc3e4e0"],"reason":"The opened modal and console visual scenario replace CSS source fragments."},
-    {"id":"vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#protects-message-replies-with-per-conversation-drafts-an-f889de5bef","path":"tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts","replacementTestIds":["vitest:tests/frontend/unit/composables/frontendDerivedStateWatch.test.ts#keeps-inbox-split-pane-behavior-while-deriving-pane-stat-a030e338f0","vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#message-center-can-create-a-ticket-and-open-detail-clean-f844d0e424"],"reason":"Imported inbox state and the real ticket/detail browser flow own message behavior."},
+    {"id":"vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#protects-message-replies-with-per-conversation-drafts-an-f889de5bef","path":"tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts","replacementTestIds":["vitest:tests/frontend/unit/composables/frontendDerivedStateWatch.test.ts#keeps-inbox-split-pane-behavior-while-deriving-pane-stat-a030e338f0","vitest:tests/frontend/e2e/acceptance/user-console.spec.ts#message-center-can-create-a-ticket-and-open-detail-clean-ffcadfa54d"],"reason":"Imported inbox state and the real ticket/detail browser flow own message behavior."},
     {"id":"vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#does-not-shrink-public-taxonomy-touch-targets-at-the-wid-9f3672172a","path":"tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts","replacementTestIds":["node-script:tests/frontend/checks/ux/check-ux-semantics.mjs","vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"],"reason":"The UX checker owns minimum controls and the public browser flow observes the rendered taxonomy."},
     {"id":"vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-auth-copy-and-mfa-modes-aligned-with-backend-expec-9b1d2b7dcb","path":"tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts","replacementTestIds":["vitest:tests/frontend/e2e/acceptance/auth-flows.spec.ts#login-and-register-failures-stay-inline-and-explicit-7761569693","vitest:tests/frontend/unit/api/auth.test.ts#recovery-key-methods-use-binary-identity-frames-439ce4e2f4"],"reason":"Rendered auth copy/states and binary MFA/recovery transport replace source scanning."},
     {"id":"vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#routes-guest-comment-replies-through-login-and-keeps-com-3ed2247905","path":"tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts","replacementTestIds":["vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#article-detail-and-search-page-stay-clean-340f1f91c7","vitest:tests/frontend/unit/components/ArticleCommentComposer.test.ts#defaults-to-anonymous-and-requires-a-user-toggle-before--f5e12431da"],"reason":"Article/comment browser behavior and the mounted composer replace view source fragments."},
@@ -5781,16 +5782,6 @@
       "reason": "The dynamic group placeholder was replaced by an exact matrix-count assertion over the shared pure planner."
     },
     {
-      "before": "expect(auditLogPage).toMatch(/@media \\(min-width: 640px\\)",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/view-contracts/adminContentWorkflow.test.ts#keeps-compact-audit-actions-reachable-on-mobile-and-shor-c7e2d3c64f"
-      ],
-      "after": [
-        "expect(auditLogPage).not.toMatch(/@media \\(min-width: 640px\\) \\{[\\s\\S]*?\\.audit-compact-row__action \\{[\\s\\S]*?min-(?:width|height)"
-      ],
-      "reason": "The regression proof now forbids the desktop-only minimum touch-size override that caused short-landscape overflow."
-    },
-    {
       "before": "expect(file).toBe('/tmp/example/.playwright-fixtures/worker-9.aeds')",
       "replacementTestIds": [
         "vitest:tests/frontend/unit/test-session.test.ts#resolves-fixture-file-path-when-session-exists-8557a2c90f"
@@ -5799,26 +5790,6 @@
         "expect(file).toBe('/tmp/example/.tmp/fixtures/local/sessions/worker-9.aeds')"
       ],
       "reason": "Fixture-path governance intentionally moved generated sessions out of tracked paths into the namespaced .tmp fixture root."
-    },
-    {
-      "before": "expect(messagesConversationList).toContain('@media (max-width: 640px)')",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-message-controls-usable-on-narrow-mobile-and-short-8ba89e8128"
-      ],
-      "after": [
-        "expect(messagesConversationList).toContain('@media (max-width: 640px), (max-height: 520px) and (orientation: landscape)')"
-      ],
-      "reason": "The media-query assertion is a strict superset that retains mobile width and adds short landscape coverage."
-    },
-    {
-      "before": "expect(settingsPage).toMatch(/@media \\(min-width: 640px\\)",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/view-contracts/adminSettingsUserWorkflow.test.ts#keeps-destructive-social-preview-actions-reachable-on-mo-d234cbb786"
-      ],
-      "after": [
-        "expect(settingsPage).not.toMatch(/@media \\(min-width: 640px\\)"
-      ],
-      "reason": "The regression proof now forbids the desktop-only minimum touch-size override that caused short-landscape overflow."
     },
     {
       "before": "Assert.Contains(\"needs.plan-pr-risk.outputs.coverage_backend\", workflow, StringComparison.Ordinal)",
@@ -5839,37 +5810,6 @@
         "behavior:check-test-matrix.mjs"
       ],
       "reason": "Backend coverage moved into the always-on fast DAG; structured matrix validation now owns that rule without a duplicate xUnit source-text contract."
-    },
-    {
-      "before": "expect(lane).toContain('npm run prepare:playwright:sessions -- --workers \"$FSUSBLOG_UX_VIEWPORT_WORKERS\"')",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/runtime/eventualTaxonomy.test.ts#gives-the-exhaustive-ux-viewport-lanes-bounded-adaptive--09f8ef4233"
-      ],
-      "after": [
-        "expect(lane).toContain('FSUSBLOG_PLAYWRIGHT_WORKERS=\"$FSUSBLOG_UX_VIEWPORT_WORKERS\" prepare_session_fixtures_once')"
-      ],
-      "reason": "Session preparation is now fingerprinted and namespace-scoped through the shared run-once helper while preserving the resolved viewport worker count."
-    },
-    {
-      "before": "expect(writeComposable).toContain('encodePublicAotPayload(toLocalDraftSnapshot(snapshot))')",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts#wires-rights-through-defaults-edit-loading-server-drafts-0e4299f7a3"
-      ],
-      "after": [
-        "expect(writeComposable).toContain('encodeLocalDraftMetadata(snapshot)')",
-        "expect(writeComposable).not.toContain('toLocalDraftSnapshot')"
-      ],
-      "reason": "The replacement proves the browser payload uses the metadata-only codec and explicitly forbids reconstruction of a restorable unpublished snapshot."
-    },
-    {
-      "before": "expect(writeComposable).toContain('rights: normalizeArticleRightsForm(raw.rights)')",
-      "replacementTestIds": [
-        "vitest:tests/frontend/unit/view-contracts/articleRightsEditorWorkflow.test.ts#wires-rights-through-defaults-edit-loading-server-drafts-0e4299f7a3"
-      ],
-      "after": [
-        "expect(writeComposable).toContain('rights: normalizeArticleRightsForm(draft.rights)')"
-      ],
-      "reason": "Rights restoration now reads the typed server draft object, preserving the same normalization while eliminating the unsafe generic local payload."
     },
     {
       "before": "Assert.Contains(\"too short\", result.Error.Message, StringComparison.OrdinalIgnoreCase)",

@@ -376,7 +376,11 @@ public sealed class ZkProofVerifierTests
             backend: backend,
             overrides: new Dictionary<string, string?>
             {
-                ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "5"
+                // Leave enough scheduling headroom for the backend to start even
+                // while the production union is saturating the host. The assertion
+                // below verifies cancellation of an entered backend, not the
+                // separate concurrency-gate timeout path.
+                ["AnonymousIdentity:ZkVerifier:BackendTimeoutMs"] = "1000"
             });
 
         ZkProofVerificationResult result = await verifier.VerifyAsync(ValidRequest());

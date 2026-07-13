@@ -390,8 +390,8 @@ public sealed class SubscriptionEndpointTestServerTests
                 Arg.Any<SiteSubscriptionUnsubscribeProofConsumeRequest>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(SiteSubscriptionUnsubscribeProofConsumeResult.Rejected("proof_replayed_or_missing")));
-        using TestServer missingProofServer = CreateTestServer(request, missingProofService);
-        using HttpClient missingProofClient = missingProofServer.CreateClient();
+        await using WebApplication missingProofServer = await CreateTestServerAsync(request, missingProofService);
+        using HttpClient missingProofClient = missingProofServer.GetTestClient();
         using HttpResponseMessage missingProof = await missingProofClient.DeleteAsync("/api/binary/subscriptions");
 
         Assert.Equal(StatusCodes.Status428PreconditionRequired, (int)missingProof.StatusCode);
@@ -412,10 +412,10 @@ public sealed class SubscriptionEndpointTestServerTests
             Substitute.For<IUnifiedCache>(),
             TimeProvider.System,
             CreateConfiguration());
-        using TestServer invalidEmailServer = CreateTestServer(
+        await using WebApplication invalidEmailServer = await CreateTestServerAsync(
             new SiteSubscriptionBinaryRequest("bad", "email"),
             invalidEmailProof);
-        using HttpClient invalidEmailClient = invalidEmailServer.CreateClient();
+        using HttpClient invalidEmailClient = invalidEmailServer.GetTestClient();
         using var invalidEmailRequest = new HttpRequestMessage(HttpMethod.Delete, "/api/binary/subscriptions");
         invalidEmailRequest.Headers.TryAddWithoutValidation(SiteSubscriptionProofService.HeaderName, "fsu_unsub_invalid-email");
         using HttpResponseMessage invalidEmail = await invalidEmailClient.SendAsync(invalidEmailRequest);
@@ -429,25 +429,21 @@ public sealed class SubscriptionEndpointTestServerTests
         Assert.Equal("email_invalid", invalidEmailDetail.Message);
     }
 
-    private static TestServer CreateTestServer(
+    private static async Task<WebApplication> CreateTestServerAsync(
         SiteSubscriptionBinaryRequest request,
         ISiteSubscriptionProofService proofService)
     {
         IConfiguration configuration = CreateConfiguration();
         ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
         var aeds = new AedsEncoder();
-        var builder = new WebHostBuilder()
-            .ConfigureServices(services =>
-            {
-                services.AddRouting();
-                services.AddSingleton<IBinaryEndpointRequestContext>(new TestServerBinaryRequestContext(request));
-            })
-            .Configure(app =>
-            {
-                app.UseRouting();
-                app.UseEndpoints(endpoints =>
-                {
-                    endpoints.MapDelete("/api/binary/subscriptions", async context =>
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Configuration.Sources.Clear();
+        builder.Services.AddRouting();
+        builder.Services.AddSingleton<IBinaryEndpointRequestContext>(new TestServerBinaryRequestContext(request));
+        WebApplication app = builder.Build();
+        app.UseRouting();
+        app.MapDelete("/api/binary/subscriptions", async context =>
                     {
                         BinaryFrameResult result = await BinaryEndpoints.HandleSiteSubscriptionAsync(
                             context,
@@ -459,9 +455,8 @@ public sealed class SubscriptionEndpointTestServerTests
                             proofService);
                         await result.ExecuteAsync(context);
                     });
-                });
-            });
-        return new TestServer(builder);
+        await app.StartAsync();
+        return app;
     }
 
     private static IConfiguration CreateConfiguration()

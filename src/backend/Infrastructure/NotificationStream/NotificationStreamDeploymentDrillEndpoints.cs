@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Shared.Contracts.NotificationStream;
+using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
@@ -55,7 +56,7 @@ public static class NotificationStreamDeploymentDrillEndpoints
 
         if (!configuration.GetValue("Deployment:NotificationStreamDrillEnabled", false))
         {
-            return Results.NotFound();
+            return HttpResults.NotFound();
         }
 
         ReleaseIdentitySnapshot local = releaseIdentity.Current;
@@ -89,7 +90,7 @@ public static class NotificationStreamDeploymentDrillEndpoints
 
         if (request.DryRun)
         {
-            return Results.Ok(new NotificationStreamDeploymentDrillResponse(
+            return HttpResults.Ok(new NotificationStreamDeploymentDrillResponse(
                 true,
                 "would-publish",
                 null,
@@ -124,7 +125,7 @@ public static class NotificationStreamDeploymentDrillEndpoints
             eventIds[index] = published.Value.Value;
         }
 
-        return Results.Ok(new NotificationStreamDeploymentDrillResponse(
+        return HttpResults.Ok(new NotificationStreamDeploymentDrillResponse(
             true,
             "published",
             null,
@@ -137,7 +138,7 @@ public static class NotificationStreamDeploymentDrillEndpoints
     }
 
     private static IResult Reject(int statusCode, string errorCode, NotificationStreamDeploymentDrillRequest request)
-        => Results.Json(
+        => HttpResults.Json(
             new NotificationStreamDeploymentDrillResponse(
                 false,
                 "rejected",

@@ -280,8 +280,16 @@ public sealed class ProductionStartupValidatorTests
 
         foreach ((Type type, string setting) in securityDomains)
         {
+            IConfiguration reusedJwt = CreateValidProductionConfiguration(new Dictionary<string, string?>
+            {
+                [setting] = TestSecrets.JwtSigningKey
+            });
+            IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(reusedJwt, enforceProductionRules: true);
+            Assert.Contains(errors, error =>
+                error.Contains(setting, StringComparison.Ordinal) &&
+                error.Contains("Jwt:SecretKey", StringComparison.Ordinal));
+
             string runtimeShape = RuntimeMetadataInspection.DescribeType(type);
-            Assert.Contains(setting, runtimeShape, StringComparison.Ordinal);
             Assert.DoesNotContain("Jwt:SecretKey", runtimeShape, StringComparison.Ordinal);
             Assert.DoesNotContain("Fallback:", runtimeShape, StringComparison.Ordinal);
             Assert.DoesNotContain("development-key", runtimeShape, StringComparison.OrdinalIgnoreCase);

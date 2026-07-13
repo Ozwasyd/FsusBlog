@@ -21,6 +21,7 @@ public sealed class RelatedReadingService(
     private const int CandidateWindow = 120;
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly string[] ScoreReasons = CreateScoreReasons();
 
     private static readonly HashSet<string> StopWords = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -149,8 +150,8 @@ public sealed class RelatedReadingService(
             Id = reader.GetInt32(fId),
             Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
             Summary = reader.IsDBNull(fSummary) ? null : reader.GetString(fSummary),
-            CreateTime = reader.GetDateTime(fCreateTime),
-            PublishedAt = reader.IsDBNull(fPublishedAt) ? null : reader.GetDateTime(fPublishedAt),
+            CreateTime = AsUtc(reader.GetDateTime(fCreateTime)),
+            PublishedAt = reader.IsDBNull(fPublishedAt) ? null : AsUtc(reader.GetDateTime(fPublishedAt)),
             CategoryId = reader.GetInt32(fCategoryId)
         };
     }
@@ -237,8 +238,8 @@ public sealed class RelatedReadingService(
                     Id = id,
                     Title = reader.IsDBNull(fTitle) ? string.Empty : reader.GetString(fTitle),
                     Summary = reader.IsDBNull(fSummary) ? null : reader.GetString(fSummary),
-                    CreateTime = reader.GetDateTime(fCreateTime),
-                    PublishedAt = reader.IsDBNull(fPublishedAt) ? null : reader.GetDateTime(fPublishedAt),
+                    CreateTime = AsUtc(reader.GetDateTime(fCreateTime)),
+                    PublishedAt = reader.IsDBNull(fPublishedAt) ? null : AsUtc(reader.GetDateTime(fPublishedAt)),
                     CategoryId = reader.GetInt32(fCategoryId)
                 });
             }
@@ -302,62 +303,145 @@ public sealed class RelatedReadingService(
         HashSet<int>? candidateTags,
         string[] keywords)
     {
-        int score = 0;
-        var reasons = new List<string>(4);
+        RelatedReadingScore score = ScoreCandidateValues(
+            source.CategoryId,
+            source.SortTime,
+            sourceTags,
+            candidate.CategoryId,
+            candidate.SortTime,
+            candidateTags,
+            candidate.Title,
+            candidate.Summary,
+            keywords);
+        return new ScoredRelatedArticle(candidate, score.Score, score.PublishedDistance, score.Reason);
+    }
 
-        if (candidate.CategoryId == source.CategoryId)
+    private static RelatedReadingScore ScoreCandidateValues(
+        int sourceCategoryId,
+        DateTime sourcePublishedAt,
+        IReadOnlyCollection<int> sourceTagIds,
+        int candidateCategoryId,
+        DateTime candidatePublishedAt,
+        IReadOnlyCollection<int>? candidateTagIds,
+        string candidateTitle,
+        string? candidateSummary,
+        string[] keywords)
+    {
+        int score = 0;
+        int reasonMask = 0;
+        if (candidateCategoryId == sourceCategoryId)
         {
             score += 80;
-            reasons.Add("同分类");
+            reasonMask |= 1;
         }
 
-        int sharedTags = candidateTags is null ? 0 : sourceTags.Intersect(candidateTags).Count();
+        int sharedTags = CountSharedTags(sourceTagIds, candidateTagIds);
         if (sharedTags > 0)
         {
             score += Math.Min(60, sharedTags * 30);
-            reasons.Add("共同标签");
+            reasonMask |= 2;
         }
 
-        int keywordMatches = CountKeywordMatches(candidate, keywords);
+        int keywordMatches = CountKeywordMatches(candidateTitle, candidateSummary, keywords);
         if (keywordMatches > 0)
         {
             score += Math.Min(40, keywordMatches * 10);
-            reasons.Add("全文关键词");
+            reasonMask |= 4;
         }
 
-        int publishedDistance = Math.Abs(RoundingHelper.RoundToInt((candidate.SortTime - source.SortTime).TotalDays));
+        int publishedDistance = Math.Abs(RoundingHelper.RoundToInt((candidatePublishedAt - sourcePublishedAt).TotalDays));
         if (publishedDistance <= 14)
         {
             score += Math.Max(1, 20 - publishedDistance);
-            reasons.Add("发布时间接近");
+            reasonMask |= 8;
         }
 
-        if (reasons.Count == 0)
-        {
-            reasons.Add("近期发布");
-        }
-
-        return new ScoredRelatedArticle(candidate, score, publishedDistance, string.Join(" / ", reasons));
+        return new RelatedReadingScore(score, publishedDistance, ScoreReasons[reasonMask]);
     }
 
-    private static int CountKeywordMatches(RelatedArticleRow candidate, string[] keywords)
+    private static int CountSharedTags(
+        IReadOnlyCollection<int> sourceTagIds,
+        IReadOnlyCollection<int>? candidateTagIds)
     {
-        if (keywords.Length == 0)
+        if (sourceTagIds.Count == 0 || candidateTagIds is null || candidateTagIds.Count == 0)
         {
             return 0;
         }
 
-        string haystack = string.Join(' ', candidate.Title, candidate.Summary).ToLowerInvariant();
+        int count = 0;
+        int firstMatch = 0;
+        bool hasFirstMatch = false;
+        foreach (int candidateTagId in candidateTagIds)
+        {
+            if (hasFirstMatch && candidateTagId == firstMatch)
+            {
+                continue;
+            }
+
+            if (!ContainsTag(sourceTagIds, candidateTagId))
+            {
+                continue;
+            }
+
+            if (++count == 2)
+            {
+                return count;
+            }
+
+            firstMatch = candidateTagId;
+            hasFirstMatch = true;
+        }
+
+        return count;
+    }
+
+    private static bool ContainsTag(IReadOnlyCollection<int> tags, int candidate)
+    {
+        if (tags is HashSet<int> hashSet)
+        {
+            return hashSet.Contains(candidate);
+        }
+
+        foreach (int tag in tags)
+        {
+            if (tag == candidate)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static int CountKeywordMatches(string title, string? summary, string[] keywords)
+    {
         int count = 0;
         foreach (string keyword in keywords)
         {
-            if (haystack.Contains(keyword, StringComparison.Ordinal))
+            if (title.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                || (summary?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false))
             {
                 count++;
             }
         }
 
         return count;
+    }
+
+    private static string[] CreateScoreReasons()
+    {
+        var reasons = new string[16];
+        for (int mask = 0; mask < reasons.Length; mask++)
+        {
+            var values = new List<string>(4);
+            if ((mask & 1) != 0) values.Add("同分类");
+            if ((mask & 2) != 0) values.Add("共同标签");
+            if ((mask & 4) != 0) values.Add("全文关键词");
+            if ((mask & 8) != 0) values.Add("发布时间接近");
+            reasons[mask] = values.Count == 0 ? "近期发布" : string.Join(" / ", values);
+        }
+
+        return reasons;
     }
 
     internal static string[] ExtractKeywords(params string?[] values)
@@ -411,7 +495,15 @@ public sealed class RelatedReadingService(
         => value is >= '\u4e00' and <= '\u9fff';
 
     private static RelatedReadingItem ToItem(RelatedArticleRow row, string reason)
-        => new(row.Id, row.Title, row.Summary, row.CreateTime, reason);
+        => new(row.Id, row.Title, row.Summary, AsUtc(row.CreateTime), reason);
+
+    private static DateTime AsUtc(DateTime value)
+        => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
 
     internal static RelatedReadingBenchmarkResult ScoreCandidateForBenchmark(
         int sourceCategoryId,
@@ -424,27 +516,15 @@ public sealed class RelatedReadingService(
         string? candidateSummary,
         string[] keywords)
     {
-        var source = new RelatedArticleRow
-        {
-            Id = 1,
-            CategoryId = sourceCategoryId,
-            CreateTime = sourcePublishedAt,
-            PublishedAt = sourcePublishedAt
-        };
-        var candidate = new RelatedArticleRow
-        {
-            Id = 2,
-            CategoryId = candidateCategoryId,
-            CreateTime = candidatePublishedAt,
-            PublishedAt = candidatePublishedAt,
-            Title = candidateTitle,
-            Summary = candidateSummary
-        };
-        ScoredRelatedArticle scored = ScoreCandidate(
-            source,
-            candidate,
-            sourceTagIds.ToHashSet(),
-            candidateTagIds.ToHashSet(),
+        RelatedReadingScore scored = ScoreCandidateValues(
+            sourceCategoryId,
+            sourcePublishedAt,
+            sourceTagIds,
+            candidateCategoryId,
+            candidatePublishedAt,
+            candidateTagIds,
+            candidateTitle,
+            candidateSummary,
             keywords);
         return new RelatedReadingBenchmarkResult(scored.Score, scored.PublishedDistance, scored.Reason);
     }
@@ -464,7 +544,8 @@ public sealed class RelatedReadingService(
         List<RelatedArticleRow> Rows,
         Dictionary<int, HashSet<int>> Tags);
 
-    private sealed record ScoredRelatedArticle(RelatedArticleRow Row, int Score, int PublishedDistance, string Reason);
+    private readonly record struct ScoredRelatedArticle(RelatedArticleRow Row, int Score, int PublishedDistance, string Reason);
+    private readonly record struct RelatedReadingScore(int Score, int PublishedDistance, string Reason);
 }
 
 internal readonly record struct RelatedReadingBenchmarkResult(int Score, int PublishedDistance, string Reason);

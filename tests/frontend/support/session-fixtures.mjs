@@ -283,6 +283,7 @@ export async function ensureUserFixtureSession({
   deviceFingerprint = 'binary-smoke-node'
 }) {
   const normalizedHandle = String(handle || 'binaryuser').trim() || 'binaryuser';
+  const accountSubjectHashValue = accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, normalizedHandle);
   const userId = runPsqlNumber(`
 WITH existing AS (
   SELECT id
@@ -296,6 +297,7 @@ inserted AS (
   INSERT INTO sys_user (
     public_handle,
     identity_kind,
+    account_subject_hash,
     passkey_enabled,
     recovery_enabled,
     privacy_initialized_at,
@@ -309,6 +311,7 @@ inserted AS (
   SELECT
     ${sqlString(normalizedHandle)},
     ${sqlString(ANONYMOUS_ACCOUNT_KIND)},
+    ${sqlString(accountSubjectHashValue)},
     false,
     false,
     now(),
@@ -330,6 +333,7 @@ LIMIT 1;
   runPsql(`
 UPDATE sys_user
 SET status = 0,
+    account_subject_hash = ${sqlString(accountSubjectHashValue)},
     banreason = NULL,
     deleted_at = NULL,
     deleted_reason = NULL,
@@ -351,7 +355,7 @@ WHERE user_id = ${userId};
   const accessToken = signJwt({
     [CLAIM_NAME_IDENTIFIER]: String(userId),
     identity_kind: ANONYMOUS_ACCOUNT_KIND,
-    [ACCOUNT_SUBJECT_HASH_CLAIM]: accountSubjectHash(ANONYMOUS_ACCOUNT_KIND, normalizedHandle),
+    [ACCOUNT_SUBJECT_HASH_CLAIM]: accountSubjectHashValue,
     sid: sessionId,
     mfa: '0',
     iss: jwtIssuer,

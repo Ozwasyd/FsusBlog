@@ -17,7 +17,10 @@ namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
-public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixture fixture)
+public sealed class ArticleRevisionConcurrencyTests(
+    PostgresSchemaMigrationFixture fixture,
+    ArticleRevisionConcurrencyDatabaseFixture classDatabase)
+    : IClassFixture<ArticleRevisionConcurrencyDatabaseFixture>, IAsyncLifetime
 {
     private static readonly MethodInfo SaveRevisionMethod = typeof(ArticleService)
         .GetMethod("SaveArticleRevisionAsync", BindingFlags.Instance | BindingFlags.NonPublic)
@@ -26,7 +29,7 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
     [Fact]
     public async Task SaveArticleRevisionAsync_ConcurrentWritersProduceOnlyOneNextRevisionNumber()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
         int articleId = await SeedArticleAsync(setupDb);
@@ -56,7 +59,7 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
     [Fact]
     public async Task SaveArticleRevisionAsync_DeletedArticleDoesNotAllocateRevisionNumber()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(db);
         int articleId = await SeedArticleAsync(db, isDeleted: true);
@@ -72,7 +75,7 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
     [Fact]
     public async Task UpdateAsync_ConcurrentRowVersionMismatchDoesNotRewriteArticleOrTags()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
         await SeedTaxonomyAsync(setupDb);
@@ -127,7 +130,7 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
     [Fact]
     public async Task UpdateAsync_SuccessfulUpdateRewritesTagSetWithAtomicUpsert()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
         await SeedTaxonomyAsync(setupDb);
@@ -185,6 +188,11 @@ public sealed class ArticleRevisionConcurrencyTests(PostgresSchemaMigrationFixtu
             Assert.Contains("Article revision was not created", result.ErrorMessage, StringComparison.Ordinal);
         }
     }
+
+    public async Task InitializeAsync()
+        => _ = await classDatabase.ResetAsync(fixture);
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private static async Task InvokeSaveRevisionAsync(ArticleService service, int articleId, string diffSummary)
     {

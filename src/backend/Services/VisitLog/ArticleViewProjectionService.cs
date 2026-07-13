@@ -18,6 +18,8 @@ public sealed class ArticleViewProjectionService(
     PublicHotArtifactUpdateQueue publicHotUpdates,
     ILogger<ArticleViewProjectionService> logger) : IArticleViewProjectionService
 {
+    internal const int MaxPerBatchViewInvalidations = 128;
+
     public async Task ApplyAsync(IReadOnlyList<VisitLogEntity> batch, CancellationToken cancellationToken)
     {
         Dictionary<int, int> articleCounts = batch
@@ -37,7 +39,6 @@ public sealed class ArticleViewProjectionService(
             return;
         }
 
-        const int MaxPerBatchViewInvalidations = 128;
         int invalidated = await InvalidateArticleViewsAsync(
             updatedArticleIds,
             MaxPerBatchViewInvalidations,

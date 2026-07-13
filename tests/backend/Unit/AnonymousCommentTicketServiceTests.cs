@@ -113,7 +113,10 @@ public sealed class AnonymousCommentTicketServiceTests
         Assert.Equal(ExpectedModerationSubjectHash(), first);
         MethodInfo method = typeof(AnonymousCommentTicketService).GetMethod(
             nameof(AnonymousCommentTicketService.CreateModerationSubjectHash),
-            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)!;
+            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
+            binder: null,
+            types: [typeof(string), typeof(IConfiguration)],
+            modifiers: null)!;
         Assert.Equal(
             new string?[] { "nullifierHash", "configuration" },
             method.GetParameters().Select(static parameter => parameter.Name).ToArray());
@@ -307,9 +310,10 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task BinaryEndpoint_RequiresStrongAnonymousAndBinaryFrames()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint endpoint = EndpointContractApplication.Find(
             app,
             "/api/binary/comment/anonymous-ticket",

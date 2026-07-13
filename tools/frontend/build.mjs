@@ -2,8 +2,12 @@
 
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import os from 'node:os';
+import fs from 'node:fs';
 import { copyFile, cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
+
+import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
 
 const clientRoot = process.cwd();
 const ensureWasmScript = fileURLToPath(new URL('./ensure-wasm.mjs', import.meta.url));
@@ -25,22 +29,159 @@ const fsusUiMarkdownRuntimeAssets = [
   'markdown_basic.wasm'
 ];
 
-const stageTimeoutMs = Number(process.env.FSUSBLOG_BUILD_TIMEOUT_MS || String(20 * 60 * 1000));
+const inheritedDeadlineMs = positiveNumber(
+  process.env.FSUSBLOG_STEP_DEADLINE_MS
+    ?? process.env.FSUSBLOG_BUNDLE_DEADLINE_MS);
+const configuredTimeoutMs = positiveNumber(process.env.FSUSBLOG_BUILD_TIMEOUT_MS);
+const hostCpu = os.availableParallelism?.() ?? os.cpus().length;
+const hostFreeMemoryGiB = os.freemem() / (1024 ** 3);
+const repositoryRoot = join(fileURLToPath(new URL('.', import.meta.url)), '../..');
+const productionProfile = parseMatrix(fs.readFileSync(join(repositoryRoot, 'tests/matrix.yml'), 'utf8')).localProfiles?.production;
+const directBuildBundle = productionProfile?.bundles?.find((entry) => entry.id === 'build-static');
+if (!Number.isFinite(productionProfile?.budgetMs) || !directBuildBundle) {
+  throw new Error('production build-static machine budget is unavailable');
+}
+const directBuildDeadlineMs = Math.ceil(productionProfile.budgetMs * Math.max(
+  1,
+  directBuildBundle.cpuWeight / Math.max(1, hostCpu),
+  directBuildBundle.memoryWeight / Math.max(Number.EPSILON, hostFreeMemoryGiB),
+  directBuildBundle.minCpuUnits / Math.max(1, hostCpu)
+));
+const buildDeadlineMs = inheritedDeadlineMs ?? directBuildDeadlineMs;
+const buildStartedAt = Date.now();
+const frontendBuildCapacity = resolveFrontendBuildCapacity();
+
+export function resolveFrontendBuildCapacity({
+  env = process.env,
+  availableCpu = os.availableParallelism?.() ?? os.cpus().length,
+  freeMemoryGiB = os.freemem() / (1024 ** 3)
+} = {}) {
+  const detectedCpu = requiredPositiveNumber(availableCpu, 'available CPU');
+  const detectedMemoryGiB = requiredPositiveNumber(freeMemoryGiB, 'available memory');
+  const inheritedCpu = optionalPositiveNumber(env, [
+    'FSUSBLOG_STEP_CPU_BUDGET',
+    'FSUSBLOG_BUNDLE_CPU_UNITS',
+    'FSUSBLOG_BUNDLE_CPU_BUDGET'
+  ]);
+  const inheritedMemoryGiB = optionalPositiveNumber(env, [
+    'FSUSBLOG_STEP_MEMORY_GIB',
+    'FSUSBLOG_BUNDLE_MEMORY_GIB'
+  ]);
+  const cpuUnits = Math.min(detectedCpu, inheritedCpu ?? detectedCpu);
+  const memoryGiB = Math.min(detectedMemoryGiB, inheritedMemoryGiB ?? detectedMemoryGiB);
+  return {
+    cpuUnits,
+    memoryGiB,
+    maxParallel: Math.max(1, Math.floor(cpuUnits))
+  };
+}
+
+export function resolveConcurrentStageResources(stageCount, capacity) {
+  if (!Number.isInteger(stageCount) || stageCount <= 0) {
+    throw new Error('stage count must be a positive integer');
+  }
+  const cpuUnits = requiredPositiveNumber(capacity?.cpuUnits, 'frontend build CPU grant');
+  const memoryGiB = requiredPositiveNumber(capacity?.memoryGiB, 'frontend build memory grant');
+  const integralCpuUnits = Math.max(1, Math.floor(cpuUnits));
+  if (integralCpuUnits < stageCount) {
+    return {
+      concurrent: false,
+      stages: Array.from({ length: stageCount }, () => ({
+        cpuUnits,
+        memoryGiB,
+        maxParallel: integralCpuUnits
+      }))
+    };
+  }
+
+  const stageCpuUnits = cpuUnits / stageCount;
+  return {
+    concurrent: true,
+    stages: Array.from({ length: stageCount }, () => ({
+      cpuUnits: stageCpuUnits,
+      memoryGiB: memoryGiB / stageCount,
+      maxParallel: Math.max(1, Math.floor(stageCpuUnits))
+    }))
+  };
+}
+
+export function resolveStageEnvironment(resource, env = process.env) {
+  const cpuUnits = requiredPositiveNumber(resource?.cpuUnits, 'stage CPU grant');
+  const memoryGiB = requiredPositiveNumber(resource?.memoryGiB, 'stage memory grant');
+  const maxParallel = Math.max(1, Math.floor(cpuUnits));
+  return {
+    ...env,
+    FSUSBLOG_STEP_CPU_BUDGET: formatResourceNumber(cpuUnits),
+    FSUSBLOG_STEP_MEMORY_GIB: formatResourceNumber(memoryGiB),
+    FSUSBLOG_BUNDLE_CPU_UNITS: formatResourceNumber(cpuUnits),
+    FSUSBLOG_BUNDLE_CPU_BUDGET: String(maxParallel),
+    FSUSBLOG_BUNDLE_MEMORY_GIB: formatResourceNumber(memoryGiB),
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS: String(maxParallel),
+    FSUSBLOG_NODE_TEST_CONCURRENCY: String(maxParallel),
+    UV_THREADPOOL_SIZE: String(maxParallel)
+  };
+}
+
+function remainingBuildDeadlineMs() {
+  const remaining = buildDeadlineMs - (Date.now() - buildStartedAt);
+  if (remaining <= 0) {
+    const error = new Error(`frontend build exceeded execution deadline of ${buildDeadlineMs}ms`);
+    error.code = 'ETIMEDOUT';
+    throw error;
+  }
+  return Math.max(1, Math.floor(remaining));
+}
+
+function stageTimeoutMs() {
+  const remaining = remainingBuildDeadlineMs();
+  return configuredTimeoutMs === null ? remaining : Math.min(configuredTimeoutMs, remaining);
+}
 function log(message) {
   console.log(`[client-build] ${message}`);
 }
 
-function runStage(name, command, args) {
+function runStage(name, command, args, resource = frontendBuildCapacity) {
   return new Promise((resolve, reject) => {
+    const timeoutMs = stageTimeoutMs();
     log(`starting ${name}`);
     const useShell = process.platform === 'win32' && command.toLowerCase().endsWith('.cmd');
     const child = spawn(command, args, {
       stdio: ['inherit', 'pipe', 'pipe'],
-      env: process.env,
+      env: resolveStageEnvironment(resource),
       cwd: clientRoot,
+      detached: process.platform !== 'win32',
       shell: useShell,
       windowsHide: true
     });
+    let settled = false;
+    let timedOut = false;
+    let escalationTimer = null;
+    let forcedSettleTimer = null;
+
+    const signalProcessGroup = (signal) => {
+      if (process.platform === 'win32') {
+        if (child.exitCode === null && child.signalCode === null) child.kill(signal);
+        return;
+      }
+      try {
+        process.kill(-child.pid, signal);
+      } catch (error) {
+        if (error.code !== 'ESRCH' && child.exitCode === null && child.signalCode === null) child.kill(signal);
+      }
+    };
+    const closePipes = () => {
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+    };
+    const finish = (error = null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (escalationTimer !== null) clearTimeout(escalationTimer);
+      if (forcedSettleTimer !== null) clearTimeout(forcedSettleTimer);
+      if (error) reject(error);
+      else resolve();
+    };
 
     const forwardOutput = (stream, writer) => {
       let buffered = '';
@@ -73,29 +214,62 @@ function runStage(name, command, args) {
     }
 
     const timer = setTimeout(() => {
-      child.kill('SIGTERM');
-      const timeoutError = new Error(`${name} exceeded timeout of ${stageTimeoutMs}ms`);
-      timeoutError.code = 'ETIMEDOUT';
-      reject(timeoutError);
-    }, stageTimeoutMs);
+      if (settled) return;
+      timedOut = true;
+      signalProcessGroup('SIGTERM');
+      const terminationGraceMs = Math.max(100, Math.min(5_000, Math.ceil(timeoutMs * 0.02)));
+      escalationTimer = setTimeout(() => {
+        signalProcessGroup('SIGKILL');
+        closePipes();
+        forcedSettleTimer = setTimeout(() => {
+          const timeoutError = new Error(`${name} exceeded remaining execution deadline of ${timeoutMs}ms`);
+          timeoutError.code = 'ETIMEDOUT';
+          finish(timeoutError);
+        }, Math.max(25, Math.min(250, terminationGraceMs)));
+        forcedSettleTimer.unref?.();
+      }, terminationGraceMs);
+      escalationTimer.unref?.();
+    }, timeoutMs);
+    timer.unref?.();
 
-    child.on('error', (error) => {
-      clearTimeout(timer);
-      reject(error);
+    child.once('error', (error) => {
+      closePipes();
+      finish(error);
     });
 
-    child.on('exit', (code, signal) => {
-      clearTimeout(timer);
+    child.once('close', (code, signal) => {
+      if (timedOut) return;
       if (code === 0) {
         log(`finished ${name}`);
-        resolve();
+        finish();
         return;
       }
 
       const exitReason = signal ? `signal ${signal}` : `exit code ${code}`;
-      reject(new Error(`${name} failed with ${exitReason}`));
+      finish(new Error(`${name} failed with ${exitReason}`));
     });
   });
+}
+
+async function runStageGroup(stages) {
+  const plan = resolveConcurrentStageResources(stages.length, frontendBuildCapacity);
+  if (!plan.concurrent) {
+    for (let index = 0; index < stages.length; index += 1) {
+      const stage = stages[index];
+      await runStage(stage.name, stage.command, stage.args, plan.stages[index]);
+    }
+    return;
+  }
+
+  const results = await Promise.allSettled(stages.map((stage, index) =>
+    runStage(stage.name, stage.command, stage.args, plan.stages[index])));
+  const errors = results
+    .filter((result) => result.status === 'rejected')
+    .map((result) => result.reason);
+  if (errors.length > 0) {
+    const details = errors.map((error) => error instanceof Error ? error.message : String(error)).join('; ');
+    throw new AggregateError(errors, `${errors.length} frontend build stage(s) failed: ${details}`);
+  }
 }
 
 async function syncStableSpaEntryAlias() {
@@ -167,29 +341,74 @@ async function syncBackendWebRoot() {
 }
 
 async function main() {
-  log(`stage timeout=${stageTimeoutMs}ms`);
+  log(`execution deadline=${buildDeadlineMs}ms source=${inheritedDeadlineMs === null ? 'host-capacity' : 'step-grant'}`);
+  log(`resource grant cpu=${formatResourceNumber(frontendBuildCapacity.cpuUnits)} memoryGiB=${formatResourceNumber(frontendBuildCapacity.memoryGiB)}`);
   const generatedArgs = process.env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1' ? ['--check'] : [];
   const generatedAction = generatedArgs.length > 0 ? 'check' : 'generate';
-  await runStage(`${generatedAction}-public-page-manifest`, process.execPath, [generatePublicPageManifestScript, ...generatedArgs]);
-  await runStage(`${generatedAction}-public-shell-emergency`, process.execPath, [generatePublicShellEmergencyScript, ...generatedArgs]);
+  await runStageGroup([
+    {
+      name: `${generatedAction}-public-page-manifest`,
+      command: process.execPath,
+      args: [generatePublicPageManifestScript, ...generatedArgs]
+    },
+    {
+      name: `${generatedAction}-public-shell-emergency`,
+      command: process.execPath,
+      args: [generatePublicShellEmergencyScript, ...generatedArgs]
+    }
+  ]);
   if (process.env.FSUSBLOG_SKIP_ENSURE_WASM === '1') {
     log('skipping ensure-wasm because FSUSBLOG_SKIP_ENSURE_WASM=1');
   } else {
     await runStage('ensure-wasm', process.execPath, [ensureWasmScript, 'ensure']);
   }
 
-  await Promise.all([
-    runStage('vue-tsc', vueTscBin, []),
-    runStage('vite-build', viteBin, ['build', '--logLevel', 'warn'])
+  await runStageGroup([
+    { name: 'vue-tsc', command: vueTscBin, args: [] },
+    { name: 'vite-build', command: viteBin, args: ['build', '--logLevel', 'warn'] }
   ]);
   await runStage('vite-public-ssr-build', process.execPath, [buildPublicSsrBundleScript]);
-  await syncStableSpaEntryAlias();
-  await syncFsusUiMarkdownRuntimeAssets();
+  await Promise.all([
+    syncStableSpaEntryAlias(),
+    syncFsusUiMarkdownRuntimeAssets()
+  ]);
   await syncBackendWebRoot();
+  remainingBuildDeadlineMs();
   log('build completed');
 }
 
-main().catch((error) => {
-  console.error('[client-build] fatal:', error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error('[client-build] fatal:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}
+
+function positiveNumber(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`build timeout must be a finite positive number, got ${String(value)}`);
+  }
+  return parsed;
+}
+
+function requiredPositiveNumber(value, name) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a finite positive number, got ${String(value)}`);
+  }
+  return parsed;
+}
+
+function optionalPositiveNumber(env, names) {
+  for (const name of names) {
+    if (env[name] === undefined || String(env[name]).trim() === '') continue;
+    return requiredPositiveNumber(env[name], name);
+  }
+  return null;
+}
+
+function formatResourceNumber(value) {
+  return String(Number(requiredPositiveNumber(value, 'resource value').toFixed(6)));
+}

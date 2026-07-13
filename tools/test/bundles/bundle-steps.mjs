@@ -1,0 +1,635 @@
+function step(id, command, members, options = {}) {
+  return {
+    ...options,
+    id,
+    command,
+    members,
+    dependsOn: options.dependsOn ?? [],
+    resources: options.resources ?? { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+  }
+}
+
+function finitePositive(value, fallback, name) {
+  const parsed = Number(value)
+  if (Number.isFinite(parsed) && parsed > 0) return parsed
+  if (fallback !== undefined) return fallback
+  throw new Error(`${name} must be a finite positive number`)
+}
+
+/**
+ * Resolve the resources granted to this bundle invocation. Matrix weights are
+ * fallback shares for direct/local invocation; a scheduler grant is already an
+ * actual allocation and must not be capped by the reference weight.
+ */
+export function resolveBundleRuntimeCapacity(options) {
+  const availableCpu = finitePositive(options.availableCpu, undefined, 'availableCpu')
+  const availableMemoryGiB = finitePositive(options.availableMemoryGiB, undefined, 'availableMemoryGiB')
+  const inheritedCpu = Number(options.inheritedCpuBudget)
+  const inheritedMemory = Number(options.inheritedMemoryGiB)
+  const hasInheritedCpu = Number.isFinite(inheritedCpu) && inheritedCpu > 0
+  const hasInheritedMemory = Number.isFinite(inheritedMemory) && inheritedMemory > 0
+  const cpuUnits = Math.min(availableCpu, hasInheritedCpu ? inheritedCpu : availableCpu)
+  const memoryGiB = Math.min(
+    availableMemoryGiB,
+    hasInheritedMemory ? inheritedMemory : availableMemoryGiB
+  )
+
+  return {
+    maxParallel: Math.max(1, Math.floor(cpuUnits)),
+    cpuUnits,
+    memoryGiB
+  }
+}
+
+function normalizeStepResources(entry) {
+  const resources = entry?.resources ?? {}
+  for (const forbidden of ['cpuUnits', 'memoryGiB']) {
+    if (Object.hasOwn(resources, forbidden)) {
+      throw new Error(`${forbidden} for step "${entry?.id ?? 'unknown'}" is machine-specific; declare weights instead`)
+    }
+  }
+  if (resources.coordinationOnly === true) {
+    for (const [name, normalizedValue] of [['cpuWeight', 0], ['memoryWeight', 0], ['minCpuUnits', 0]]) {
+      if (Object.hasOwn(resources, name) && resources[name] !== normalizedValue) {
+        throw new Error(`${name} cannot reserve resources for coordination-only step "${entry?.id ?? 'unknown'}"`)
+      }
+    }
+    if (Object.hasOwn(resources, 'exclusiveResources')) {
+      throw new Error(`exclusiveResources cannot be declared for coordination-only step "${entry?.id ?? 'unknown'}"`)
+    }
+    return {
+      ...resources,
+      coordinationOnly: true,
+      cpuWeight: 0,
+      memoryWeight: 0,
+      minCpuUnits: 0
+    }
+  }
+  const cpuWeight = finitePositive(resources.cpuWeight, 1, `cpuWeight for step "${entry?.id ?? 'unknown'}"`)
+  const memoryWeight = finitePositive(resources.memoryWeight, 1, `memoryWeight for step "${entry?.id ?? 'unknown'}"`)
+  const minCpuUnits = finitePositive(resources.minCpuUnits, 1, `minCpuUnits for step "${entry?.id ?? 'unknown'}"`)
+  if (!Number.isInteger(minCpuUnits)) {
+    throw new Error(`minCpuUnits for step "${entry?.id ?? 'unknown'}" must be an integer`)
+  }
+  return { ...resources, cpuWeight, memoryWeight, minCpuUnits }
+}
+
+function weightedIntegerAllocation(entries, totalUnits) {
+  if (entries.length === 0) return []
+  const minima = entries.map((entry) => entry.resources.minCpuUnits)
+  const minimumTotal = minima.reduce((total, value) => total + value, 0)
+  if (minimumTotal > totalUnits) {
+    throw new Error(`step wave minimum CPU ${minimumTotal} exceeds bundle grant ${totalUnits}`)
+  }
+  const remaining = totalUnits - minimumTotal
+  const weightTotal = entries.reduce((total, entry) => total + entry.resources.cpuWeight, 0)
+  const exact = entries.map((entry) => remaining * entry.resources.cpuWeight / weightTotal)
+  const allocation = exact.map((value, index) => minima[index] + Math.floor(value))
+  let leftover = totalUnits - allocation.reduce((total, value) => total + value, 0)
+  const order = exact.map((value, index) => ({ index, remainder: value - Math.floor(value) }))
+    .sort((left, right) => right.remainder - left.remainder || left.index - right.index)
+  for (let index = 0; index < leftover; index += 1) allocation[order[index].index] += 1
+  return allocation
+}
+
+export function resolveConcurrentStepCapacities(steps, capacity) {
+  const normalized = steps.map((entry) => ({ ...entry, resources: normalizeStepResources(entry) }))
+  const executable = normalized
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => !entry.resources.coordinationOnly)
+  if (executable.length === 0) {
+    return normalized.map(() => ({ maxParallel: 0, cpuUnits: 0, memoryGiB: 0 }))
+  }
+  const cpuUnits = Math.max(1, Math.floor(finitePositive(capacity?.cpuUnits, undefined, 'capacity.cpuUnits')))
+  const memoryGiB = finitePositive(capacity?.memoryGiB, undefined, 'capacity.memoryGiB')
+  const cpuAllocations = weightedIntegerAllocation(executable.map(({ entry }) => entry), cpuUnits)
+  const memoryWeightTotal = executable.reduce((total, { entry }) => total + entry.resources.memoryWeight, 0)
+  const allocationByIndex = new Map(executable.map(({ entry, index }, allocationIndex) => {
+    const stepMemoryGiB = memoryGiB * entry.resources.memoryWeight / memoryWeightTotal
+    return [index, {
+      maxParallel: cpuAllocations[allocationIndex],
+      cpuUnits: cpuAllocations[allocationIndex],
+      memoryGiB: Number(stepMemoryGiB.toFixed(6))
+    }]
+  }))
+  return normalized.map((entry, index) => {
+    if (entry.resources.coordinationOnly) {
+      return { maxParallel: 0, cpuUnits: 0, memoryGiB: 0 }
+    }
+    return {
+      ...allocationByIndex.get(index)
+    }
+  })
+}
+
+export function resolveStepRuntimeCapacity(_bundleId, step, capacity) {
+  if (step?.runtimeCapacity) return step.runtimeCapacity
+  return resolveConcurrentStepCapacities([step], capacity)[0]
+}
+
+export function buildSettledPhaseJoinEvidence({
+  stepId,
+  dependencyIds,
+  dependencyOutcomes,
+  dependencyResults,
+  generatedAt = new Date().toISOString()
+}) {
+  if (typeof stepId !== 'string' || !stepId) throw new Error('phase join stepId must be non-empty')
+  if (!Array.isArray(dependencyIds) || dependencyIds.length === 0) {
+    throw new Error('phase join dependencies must be non-empty')
+  }
+  const results = dependencyResults instanceof Map
+    ? dependencyResults
+    : new Map(Object.entries(dependencyResults ?? {}))
+  const dependencies = dependencyIds.map((dependencyId) => {
+    const result = results.get(dependencyId) ?? null
+    return {
+      id: dependencyId,
+      outcome: dependencyOutcomes?.[dependencyId] ?? 'unknown',
+      durationMs: result?.durationMs ?? null,
+      logFile: result?.logFile ?? null
+    }
+  })
+  const completedResults = dependencyIds.map((dependencyId) => results.get(dependencyId)).filter(Boolean)
+  const startedAtMs = completedResults.length > 0
+    ? Math.min(...completedResults.map((result) => result.startedAtMs))
+    : 0
+  const finishedAtMs = completedResults.length > 0
+    ? Math.max(...completedResults.map((result) => result.finishedAtMs))
+    : startedAtMs
+  return {
+    evidence: {
+      schema: 'fsusblog.local-production.phase-join.v1',
+      status: dependencies.every((dependency) => dependency.outcome === 'success') ? 'success' : 'failed',
+      stepId,
+      dependencies,
+      generatedAt
+    },
+    startedAtMs,
+    finishedAtMs,
+    durationMs: Math.max(0, finishedAtMs - startedAtMs),
+    dependencyLogs: completedResults.map((result) => result.logFile).filter(Boolean)
+  }
+}
+
+/**
+ * Scale an execution-related reference deadline by the actual scheduler grant.
+ * This is intentionally not used for HTTP/protocol assertion timeouts, whose
+ * semantics must remain stable regardless of machine size.
+ */
+export function resolveMachineExecutionTimeoutMs({
+  baseTimeoutMs,
+  workload,
+  actualCapacity
+}) {
+  const timeoutMs = finitePositive(baseTimeoutMs, undefined, 'baseTimeoutMs')
+  const cpuWeight = finitePositive(workload?.cpuWeight, 1, 'workload.cpuWeight')
+  const memoryWeight = finitePositive(workload?.memoryWeight, 1, 'workload.memoryWeight')
+  const minCpuUnits = finitePositive(workload?.minCpuUnits, 1, 'workload.minCpuUnits')
+  const actualCpu = finitePositive(actualCapacity?.cpuUnits, undefined, 'actualCapacity.cpuUnits')
+  const actualMemory = finitePositive(actualCapacity?.memoryGiB, undefined, 'actualCapacity.memoryGiB')
+  const resourceScale = Math.max(1, cpuWeight / actualCpu, memoryWeight / actualMemory, minCpuUnits / actualCpu)
+  return Math.max(1, Math.ceil(timeoutMs * resourceScale))
+}
+
+export function resolveBundleSteps(_bundleId, steps, capacity) {
+  finitePositive(capacity?.cpuUnits, undefined, 'capacity.cpuUnits')
+  finitePositive(capacity?.memoryGiB, undefined, 'capacity.memoryGiB')
+  return steps.map((entry) => ({ ...entry, resources: normalizeStepResources(entry) }))
+}
+
+function validateWeightedSteps(steps, capacity, allowedExclusiveResources, { elastic = false } = {}) {
+  const normalized = resolveBundleSteps('dynamic', steps, capacity)
+  const ids = new Set()
+  const allowed = allowedExclusiveResources === undefined
+    ? null
+    : new Set(allowedExclusiveResources)
+  for (const entry of normalized) {
+    if (typeof entry.id !== 'string' || !entry.id) throw new Error('step id must be non-empty')
+    if (ids.has(entry.id)) throw new Error(`duplicate step id: ${entry.id}`)
+    ids.add(entry.id)
+    if (!elastic && entry.resources.minCpuUnits > Math.floor(capacity.cpuUnits)) {
+      throw new Error(`minCpuUnits for step "${entry.id}" exceeds bundle CPU grant`)
+    }
+    for (const resource of entry.resources.exclusiveResources ?? []) {
+      if (!resource || (allowed && !allowed.has(resource))) {
+        throw new Error(`step "${entry.id}" requests unknown exclusive resource "${resource}"`)
+      }
+    }
+  }
+  for (const entry of normalized) {
+    if (entry.runAfterSettled === true && entry.resources.coordinationOnly !== true) {
+      throw new Error(`runAfterSettled step "${entry.id}" must be coordination-only`)
+    }
+    for (const dependency of entry.dependsOn ?? []) {
+      if (!ids.has(dependency)) throw new Error(`${entry.id} depends on unknown dependency: ${dependency}`)
+    }
+  }
+  return normalized
+}
+
+function selectWeightedAdmission(ready, capacity, active, freeCpuUnits, freeMemoryGiB) {
+  const activeExecutableCount = [...active.values()]
+    .filter((record) => record.coordinationOnly !== true).length
+  if (activeExecutableCount >= capacity.maxParallel || freeMemoryGiB <= 0) {
+    return ready.filter((entry) => entry.resources.coordinationOnly === true)
+  }
+  if ([...active.values()].some((record) => record.exclusive)) return []
+  const exclusiveIndex = ready.findIndex((entry) => (entry.resources.exclusiveResources ?? []).length > 0)
+  const candidates = activeExecutableCount > 0
+    ? ready.filter((entry) => (entry.resources.exclusiveResources ?? []).length === 0)
+    : (exclusiveIndex === 0
+        ? ready.slice(0, 1)
+        : ready.slice(0, exclusiveIndex < 0 ? ready.length : exclusiveIndex))
+  const selected = []
+  let selectedExecutableCount = 0
+  let minimumCpu = 0
+  for (const entry of candidates) {
+    if (entry.resources.coordinationOnly === true) {
+      selected.push(entry)
+      continue
+    }
+    if (selectedExecutableCount >= capacity.maxParallel - activeExecutableCount) continue
+    if (minimumCpu + entry.resources.minCpuUnits > Math.floor(freeCpuUnits)) continue
+    selected.push(entry)
+    selectedExecutableCount += 1
+    minimumCpu += entry.resources.minCpuUnits
+  }
+  return selected
+}
+
+/**
+ * Execute dependency-ready steps with rolling resource admission. A completion
+ * immediately releases its exact grant and can admit newly-ready work without
+ * waiting for unrelated long-running siblings. Every admitted group divides
+ * only the currently-free CPU/memory grant, so nested work never exceeds the
+ * live bundle grant. No declaration encodes a reference machine.
+ */
+export async function executeWeightedStepDag(steps, capacity, execute) {
+  if (typeof execute !== 'function') throw new Error('execute must be a function')
+  const elastic = typeof capacity === 'function'
+  const capacityProvider = elastic ? capacity : () => capacity
+  const normalizeCapacity = () => {
+    const current = capacityProvider()
+    return {
+      maxParallel: Math.max(1, Math.min(
+        Math.floor(finitePositive(current?.maxParallel, undefined, 'capacity.maxParallel')),
+        Math.floor(finitePositive(current?.cpuUnits, undefined, 'capacity.cpuUnits'))
+      )),
+      cpuUnits: finitePositive(current?.cpuUnits, undefined, 'capacity.cpuUnits'),
+      memoryGiB: finitePositive(current?.memoryGiB, undefined, 'capacity.memoryGiB'),
+      exclusiveResources: current?.exclusiveResources
+    }
+  }
+  let normalizedCapacity = normalizeCapacity()
+  const normalized = validateWeightedSteps(
+    steps,
+    normalizedCapacity,
+    normalizedCapacity.exclusiveResources,
+    { elastic }
+  )
+  const states = new Map(normalized.map((entry) => [entry.id, 'pending']))
+  const failures = []
+  const active = new Map()
+  let usedCpuUnits = 0
+  let usedMemoryGiB = 0
+
+  const start = (entry, runtimeCapacity) => {
+    const index = normalized.findIndex((candidate) => candidate.id === entry.id)
+    const exclusive = (entry.resources.exclusiveResources ?? []).length > 0
+    usedCpuUnits += runtimeCapacity.cpuUnits
+    usedMemoryGiB += runtimeCapacity.memoryGiB
+    states.set(entry.id, 'running')
+
+    const promise = Promise.resolve()
+      .then(() => execute({ ...entry, runtimeCapacity }))
+      .then(
+        () => ({ status: 'success' }),
+        (reason) => ({ status: 'failure', reason })
+      )
+      .then((outcome) => {
+        usedCpuUnits = Math.max(0, usedCpuUnits - runtimeCapacity.cpuUnits)
+        usedMemoryGiB = Math.max(0, usedMemoryGiB - runtimeCapacity.memoryGiB)
+        active.delete(entry.id)
+        states.set(entry.id, outcome.status)
+        if (outcome.status === 'failure') failures.push({ index, entry, reason: outcome.reason })
+      })
+
+    active.set(entry.id, {
+      promise,
+      exclusive,
+      coordinationOnly: entry.resources.coordinationOnly === true,
+      runtimeCapacity
+    })
+  }
+
+  while ([...states.values()].some((state) => ['pending', 'running'].includes(state))) {
+    normalizedCapacity = normalizeCapacity()
+    let propagatedBlock
+    do {
+      propagatedBlock = false
+      for (const entry of normalized) {
+        if (states.get(entry.id) !== 'pending') continue
+        if (entry.runAfterSettled !== true
+          && (entry.dependsOn ?? []).some((dependency) => ['failure', 'blocked'].includes(states.get(dependency)))) {
+          states.set(entry.id, 'blocked')
+          propagatedBlock = true
+        }
+      }
+    } while (propagatedBlock)
+    const ready = normalized.filter((entry) => states.get(entry.id) === 'pending'
+      && (entry.dependsOn ?? []).every((dependency) => entry.runAfterSettled === true
+        ? ['success', 'failure', 'blocked'].includes(states.get(dependency))
+        : states.get(dependency) === 'success'))
+    const freeCpuUnits = Math.max(0, Math.floor(normalizedCapacity.cpuUnits) - usedCpuUnits)
+    const freeMemoryGiB = Math.max(0, normalizedCapacity.memoryGiB - usedMemoryGiB)
+    const admission = selectWeightedAdmission(
+      ready,
+      normalizedCapacity,
+      active,
+      freeCpuUnits,
+      freeMemoryGiB
+    )
+
+    if (admission.length > 0) {
+      const allocations = resolveConcurrentStepCapacities(admission, {
+        cpuUnits: freeCpuUnits,
+        memoryGiB: freeMemoryGiB
+      })
+      admission.forEach((entry, index) => start({
+        ...entry,
+        dependencyOutcomes: Object.fromEntries((entry.dependsOn ?? []).map((dependency) => [dependency, states.get(dependency)]))
+      }, allocations[index]))
+      continue
+    }
+
+    if (active.size > 0) {
+      const activeCompletion = Promise.race([...active.values()].map((record) => record.promise))
+      if (elastic) {
+        // A scheduler grant can grow while every admitted step is still
+        // running. Poll the live provider as well as completions so newly-free
+        // capacity immediately admits an independent ready branch instead of
+        // waiting for the longest browser lane to finish.
+        const pollMs = Math.max(10, Math.min(250, Math.ceil(1000 / normalizedCapacity.cpuUnits)))
+        await Promise.race([
+          activeCompletion,
+          new Promise((resolve) => setTimeout(resolve, pollMs))
+        ])
+      } else {
+        await activeCompletion
+      }
+      continue
+    }
+    if (ready.length > 0) {
+      if (!elastic) throw new Error('no dependency-ready step fits the bundle CPU grant')
+      const pollMs = Math.max(10, Math.min(250, Math.ceil(1000 / normalizedCapacity.cpuUnits)))
+      await new Promise((resolve) => setTimeout(resolve, pollMs))
+      continue
+    }
+    if ([...states.values()].some((state) => state === 'pending')) {
+      throw new Error('step DAG has unresolved dependencies or a cycle')
+    }
+  }
+
+  failures.sort((left, right) => left.index - right.index)
+  if (failures.length === 1) throw failures[0].reason
+  if (failures.length > 1) {
+    throw new AggregateError(
+      failures.map((failure) => failure.reason),
+      `step DAG failed in ${failures.length} independent branches: ${failures.map((failure) => failure.entry.id).join(', ')}`
+    )
+  }
+}
+
+export function runtimeSteps() {
+  const riskMembers = ['acceptance', 'visual-public', 'visual-console', 'visual', 'ux-viewport-smoke']
+  const runtimeStateConsumers = [
+    'runtime-integration',
+    'release-public',
+    'endpoint-depth',
+    'security-runtime-core',
+    'local-runtime-exposure',
+    'authenticated-dast',
+    'zap-baseline',
+    'ux-risk-matrix',
+    'cross-stack-join',
+    'cross-browser',
+    'render-pressure',
+    'rights-matrix',
+    'csrf-matrix',
+    'resilience'
+  ]
+  const needsRuntime = ['bootstrap']
+  const needsStableReleaseHydration = ['release-public-hydration']
+  const runtimeBuildReadiness = ['backend-build-ready', 'frontend-build-ready']
+
+  return [
+    step('backend-build-ready', null, [], {
+      resources: { coordinationOnly: true }
+    }),
+    step('frontend-build-ready', null, [], {
+      resources: { coordinationOnly: true }
+    }),
+    // The physical runtime bundle starts at t0 with one CPU. Static security is
+    // its only executable task until completion; source contracts then consume
+    // the backend/frontend marker gap without delaying bootstrap admission.
+    step('security-static', 'tools/test/legacy-test.sh security-static-phase', [], {
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+    }),
+    step('bootstrap', 'FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh', ['bootstrap'], {
+      dependsOn: [...runtimeBuildReadiness, 'security-static'],
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+    }),
+    // This is the sole production-runtime writer to frontend/dist after build
+    // readiness. Settle the AOT sidecar copy before release-preview UX and the
+    // integration checks begin reading that tree.
+    step('release-public-hydration', 'tools/test/lanes/release-public-hydration.sh', [], {
+      dependsOn: needsRuntime,
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+    }),
+    step('security-runtime-core', 'FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG=1 FSUSBLOG_SKIP_ZAP=1 tools/test/legacy-test.sh security-runtime-core', [], {
+      dependsOn: needsStableReleaseHydration,
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+    }),
+    // Browser-heavy lanes are deliberately chained. On the smallest supported
+    // production host, overlapping Chromium groups with the Vitest host caused
+    // ERR_INSUFFICIENT_RESOURCES and the kernel closed otherwise healthy pages.
+    // Non-browser readers remain independently admitted around this chain.
+    step('ux-risk-matrix', 'node tools/ux/run-local-production-risk.mjs', riskMembers, {
+      dependsOn: ['resilience'],
+      resources: { cpuWeight: 4, memoryWeight: 8, minCpuUnits: 1 }
+    }),
+    // This lane creates dedicated identities in a private fixture directory,
+    // so it can actively mutate the loopback runtime alongside shared security
+    // checks without revoking or overwriting any sibling fixture session.
+    step('authenticated-dast', 'tools/test/lanes/security-authenticated-dast.sh', ['security-authenticated-dast'], {
+      dependsOn: ['security-runtime-core'],
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    }),
+    step('runtime-integration', 'FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS=1 tools/test/lanes/runtime-integration.sh', ['integration'], {
+      dependsOn: ['security-runtime-core'],
+      resources: { cpuWeight: 1.5, memoryWeight: 1.5, minCpuUnits: 1 }
+    }),
+    step('release-public', 'FSUSBLOG_RELEASE_HYDRATION_PREPARED_BY_DAG=1 tools/test/lanes/release-public.sh', ['release'], {
+      // runtime-integration mutates article distribution state and waits for
+      // the corresponding AOT generation. Public hydration readers must not
+      // race that cache transition or validate the previous article version.
+      dependsOn: [...needsStableReleaseHydration, 'runtime-integration'],
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    }),
+    step('endpoint-depth', 'tools/test/lanes/endpoint-depth.sh', ['endpoint-depth'], {
+      dependsOn: needsStableReleaseHydration,
+      resources: { cpuWeight: 1.5, memoryWeight: 1.5, minCpuUnits: 1 }
+    }),
+    // Starting/stopping the ZAP container changes the host network topology.
+    // Chromium reports that transition as ERR_NETWORK_CHANGED and can leave
+    // the Vite shell mounted but hidden. Run the scanner only after every
+    // browser-heavy branch has released its contexts.
+    step('zap-baseline', 'tools/security/run-zap-baseline.sh', [], {
+      dependsOn: ['security-runtime-core', 'ux-risk-matrix', 'cross-browser', 'cross-stack-runtime']
+    }),
+    // Canonical OpenAPI generation and parity/coherence checks are source-based,
+    // but delaying their seven-second CPU window lets bootstrap claim the full
+    // refreshed grant as soon as both build markers land.
+    step('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/legacy-test.sh cross-stack-contract static', [], {
+      dependsOn: ['security-static', 'backend-build-ready']
+    }),
+    step('cross-stack-runtime', 'tools/test/legacy-test.sh cross-stack-contract runtime', [], {
+      dependsOn: ['runtime-integration']
+    }),
+    step('cross-browser', 'tools/test/lanes/cross-browser-smoke.sh', ['cross-browser-smoke'], {
+      dependsOn: ['ux-risk-matrix'],
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+    }),
+    step('render-pressure', 'tools/test/lanes/frontend-render-pressure.sh', ['frontend-render-pressure'], {
+      dependsOn: ['cross-stack-runtime'],
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+    }),
+    step('rights-matrix', 'tools/test/lanes/rights-v3-test-matrix.sh', ['rights-v3-test-matrix'], { dependsOn: ['runtime-integration'] }),
+    // This source-only matrix can use the backend/frontend marker gap without
+    // taking CPU from the backend compilation itself.
+    step('csrf-matrix', 'cd src/frontend && npm run check:security:csrf-browser-matrix', ['csrf-browser-matrix'], {
+      dependsOn: ['security-static', 'backend-build-ready']
+    }),
+    step('resilience', 'tools/test/lanes/resilience-runtime.sh', ['resilience'], { dependsOn: ['render-pressure'] }),
+    step('local-runtime-exposure', 'node tools/security/check-local-runtime-exposure.mjs', [], {
+      dependsOn: needsStableReleaseHydration
+    }),
+    step('security-join', null, ['security'], {
+      dependsOn: ['security-static', 'security-runtime-core', 'local-runtime-exposure', 'zap-baseline'],
+      runAfterSettled: true,
+      joinDependencies: true,
+      testIds: [
+        'command:security-static',
+        'command:security-runtime-core',
+        'command:local-runtime-exposure',
+        'command:zap-baseline',
+        'command:security-join'
+      ],
+      resources: { coordinationOnly: true }
+    }),
+    step('cross-stack-join', null, ['cross-stack-contract'], {
+      dependsOn: ['cross-stack', 'cross-stack-runtime'],
+      runAfterSettled: true,
+      joinDependencies: true,
+      testIds: [
+        'command:cross-stack',
+        'command:cross-stack-runtime',
+        'command:cross-stack-join'
+      ],
+      resources: { coordinationOnly: true }
+    }),
+    step('runtime-state-stable', null, [], {
+      dependsOn: runtimeStateConsumers,
+      resources: { coordinationOnly: true }
+    }),
+    step('data-scale-xs', 'tools/test/lanes/data-scale.sh scale-xs', ['data-scale-xs'], {
+      dependsOn: ['runtime-state-stable'],
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    }),
+    step('data-scale-s', 'tools/test/lanes/data-scale.sh scale-s', ['data-scale-s'], {
+      dependsOn: ['runtime-state-stable'],
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    }),
+    step('data-scale-summary', 'node tools/test/aggregate-data-scale-evidence.mjs', ['data-scale-evidence-summary'], {
+      dependsOn: ['data-scale-xs', 'data-scale-s']
+    }),
+    step('fault-injection', 'tools/test/lanes/fault-injection.sh', ['fault-injection'], {
+      dependsOn: ['runtime-state-stable', 'data-scale-xs', 'data-scale-s']
+    })
+  ]
+}
+
+export function performanceSteps() {
+  const windowMembers = [
+    'load', 'backend-qps-view-count-flush', 'backend-qps-visitlog-invalidation', 'backend-qps-cache-hit',
+    'backend-qps-comment-cursor', 'backend-qps-hotread', 'backend-qps-cache-miss-singleflight',
+    'backend-qps-risk-filter', 'backend-qps-related-reading', 'backend-qps-list-pagination',
+    'backend-qps-article-detail-miss', 'backend-qps-cache-registry', 'backend-cache-invalidation-batch',
+    'backend-qps-index-plan', 'backend-qps', 'load-baseline', 'load-peak'
+  ]
+  const measurementPreparation = ['coverage-threshold', 'browser-performance', 'aeds-compression']
+  const privacyBenchmarkPreparation = [...measurementPreparation, 'privacy-zk-performance-ready']
+  const benchmarkResources = { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['benchmark-window'] }
+  const measurements = [
+    'backend-perf',
+    'privacy-zk-benchmark',
+    'privacy-zk-finalize',
+    'mixed-performance-window',
+    'browser-performance',
+    'aeds-frame-cost',
+    'aeds-compression'
+  ]
+
+  return [
+    step('performance-runtime-bootstrap', 'FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh', [], {
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+    }),
+    step('privacy-zk-project-functional', 'tools/test/lanes/privacy-zk-comment-matrix.sh project-functional', [], {
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    }),
+    step('coverage-merge', 'tools/coverage/merge-coverage.sh', ['coverage-merge']),
+    step('browser-performance', 'tools/test/lanes/browser-performance-regression.sh', ['browser-performance-regression']),
+    step('coverage-threshold', 'tools/test/lanes/coverage-threshold.sh', ['coverage-threshold', 'coverage-gate', 'fast'], {
+      dependsOn: ['coverage-merge']
+    }),
+    step('privacy-zk-performance-ready', 'node tools/test/verify-privacy-zk-performance-inputs.mjs', [], {
+      dependsOn: ['privacy-zk-project-functional']
+    }),
+    step('backend-perf', 'FSUSBLOG_BACKEND_PERF_READINESS_MODE=verify-fresh tools/test/lanes/perf-regression.sh', ['backend-perf'], {
+      dependsOn: measurementPreparation,
+      resources: benchmarkResources
+    }),
+    step('privacy-zk-benchmark', 'tools/test/lanes/privacy-zk-comment-matrix.sh benchmark', ['privacy-zk-comment-matrix'], {
+      dependsOn: privacyBenchmarkPreparation,
+      resources: benchmarkResources
+    }),
+    step('privacy-zk-finalize', 'tools/test/lanes/privacy-zk-comment-matrix.sh finalize', ['privacy-zk-comment-matrix'], {
+      dependsOn: ['privacy-zk-benchmark']
+    }),
+    step('mixed-performance-window', 'node tools/test/run-mixed-performance-window.mjs --reuse-passed', [
+      ...windowMembers,
+      'backend-benchmark-regression'
+    ], {
+      dependsOn: [...measurementPreparation, 'performance-runtime-bootstrap'],
+      resources: benchmarkResources
+    }),
+    step('aeds-frame-cost', 'tools/test/lanes/aeds-frame-cost.sh', ['aeds-frame-cost'], {
+      dependsOn: measurementPreparation,
+      resources: benchmarkResources
+    }),
+    // Compression profiling records deterministic bytes, ratios, ETags, and
+    // status only. Run it with the other non-measurement preparation, then
+    // keep every timed profiler behind it so its CPU work cannot add noise.
+    step('aeds-compression', 'tools/test/lanes/aeds-compression-profile.sh', ['aeds-compression-profile']),
+    step('performance-summary', 'node tools/test/aggregate-performance-evidence.mjs', ['performance-evidence-summary'], {
+      dependsOn: ['coverage-threshold', ...measurements]
+    }),
+    step('release-evidence', 'tools/test/lanes/release-evidence.sh', ['release-evidence'], {
+      dependsOn: ['performance-summary']
+    }),
+    step('production-summary', 'tools/test/lanes/noop.sh production', ['production'], {
+      dependsOn: ['release-evidence']
+    })
+  ]
+}

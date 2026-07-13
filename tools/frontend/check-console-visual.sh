@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-workers="${FSUSBLOG_CONSOLE_VISUAL_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-2}}"
+workers="${FSUSBLOG_CONSOLE_VISUAL_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-$(node ../../tools/test/resolve-playwright-workers.mjs visual-console)}}"
 shard_args=()
 if [[ -n "${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-}" ]]; then
   shard_args+=("$FSUSBLOG_PLAYWRIGHT_SHARD_ARG")

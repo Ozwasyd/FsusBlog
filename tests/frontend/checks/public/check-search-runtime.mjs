@@ -7,6 +7,7 @@ import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../../support/
 import { readPublicFixtures } from '../../support/public-fixtures.mjs'
 import { testSessionHeaders } from '../../support/test-session.mjs'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
+import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs'
 
 const baseUrl =
   process.env.PLAYWRIGHT_BASE_URL
@@ -15,7 +16,10 @@ const baseUrl =
   || 'http://127.0.0.1:3000'
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
 const pageNavigationTimeoutMs = Math.max(requestTimeoutMs * 3, 45000)
-const shellReadyTimeoutMs = Math.max(requestTimeoutMs * 2, 30000)
+const shellReadyTimeoutMs = Math.max(
+  requestTimeoutMs * 2,
+  resolveRuntimeBrowserTimeoutPlan().requestTimeoutMs * 2
+)
 const executablePath = resolveSystemChromiumExecutablePath()
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
@@ -149,13 +153,21 @@ async function main() {
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await page.waitForTimeout(2000)
 
+    const [loadedCore, loadedRecent] = await Promise.all([
+      waitForRequestPath(requests, (path) => path.includes('/search/index.core.'), shellReadyTimeoutMs),
+      waitForRequestPath(requests, (path) => path.includes('/search/index.recent.'), shellReadyTimeoutMs)
+    ])
+    assert(loadedCore, 'search runtime did not load core shard')
+    assert(loadedRecent, 'search runtime did not load recent shard')
+    const expectedTitle = String(probeArticle.title).trim()
+    await page.waitForFunction(
+      ({ expectedQuery, title }) => document.body.innerText.includes(expectedQuery)
+        || document.body.innerText.includes(title),
+      { expectedQuery: query, title: expectedTitle },
+      { timeout: shellReadyTimeoutMs }
+    )
     const bodyText = await page.locator('body').innerText()
     assert(!/TypeError|ReferenceError|search_runtime_failed|search_index_not_loaded/i.test(bodyText), 'search page surfaced runtime failure')
-    assert(bodyText.includes(query) || bodyText.includes(String(probeArticle.title).trim()), 'search page did not render expected search context or results')
-
-    assert(requests.has('/search/index.manifest.aeds'), 'search runtime did not request manifest')
-    assert(Array.from(requests).some((path) => path.includes('/search/index.core.')), 'search runtime did not load core shard')
-    assert(Array.from(requests).some((path) => path.includes('/search/index.recent.')), 'search runtime did not load recent shard')
 
     assert(!Array.isArray(manifest.deepRoles) || !manifest.deepRoles.includes('body'), 'search runtime manifest must not advertise body deep shard')
     assert(!Array.from(requests).some((path) => path.includes('/search/index.body.')), 'search runtime should not load body shard in v3')

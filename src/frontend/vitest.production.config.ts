@@ -6,6 +6,17 @@ import property from './vitest.property.config'
 import unit from './vitest.config'
 import { createVitestRuntimeOptions } from './vitest.shared.mjs'
 
+const unitCoverage = (unit as Record<string, any>).test.coverage
+const rollingShardCoverage = process.env.FSUSBLOG_VITEST_SINGLE_HOST === '1'
+  ? {
+      ...unitCoverage,
+      // Each rolling process instruments only the files it actually executes.
+      // The dedicated full-universe seed and final blob merge retain the complete
+      // production coverage contract without repeating it in every shard.
+      include: undefined
+    }
+  : unitCoverage
+
 function project(name: string, config: Record<string, any>) {
   return {
     ...config,
@@ -19,12 +30,13 @@ function project(name: string, config: Record<string, any>) {
 export default defineConfig({
   test: {
     ...createVitestRuntimeOptions('production'),
+    deps: { optimizer: { ssr: { enabled: true } } },
     projects: [
       project('unit', unit as Record<string, any>),
       project('property', property as Record<string, any>),
       project('model', model as Record<string, any>),
       project('perf', perf as Record<string, any>)
     ],
-    coverage: (unit as Record<string, any>).test.coverage
+    coverage: rollingShardCoverage
   }
 })

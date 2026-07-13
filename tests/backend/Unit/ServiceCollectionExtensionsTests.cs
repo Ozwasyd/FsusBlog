@@ -46,8 +46,14 @@ public sealed class ServiceCollectionExtensionsTests
             .Value;
 
         Assert.True(responseOptions.EnableForHttps);
-        Assert.Contains(responseOptions.Providers, static providerType => providerType == typeof(BrotliCompressionProvider));
-        Assert.Contains(responseOptions.Providers, static providerType => providerType == typeof(GzipCompressionProvider));
+        Type[] compressionProviderTypes = responseOptions.Providers
+            .Select(static provider => provider.GetType()
+                .GetProperty("ProviderType", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!
+                .GetValue(provider) as Type
+                ?? throw new InvalidOperationException("Response compression provider type metadata was missing."))
+            .ToArray();
+        Assert.Contains(typeof(BrotliCompressionProvider), compressionProviderTypes);
+        Assert.Contains(typeof(GzipCompressionProvider), compressionProviderTypes);
         Assert.Equal(CompressionLevel.Fastest, brotliOptions.Level);
         Assert.Equal(CompressionLevel.Fastest, gzipOptions.Level);
         Assert.Contains("application/json", responseOptions.MimeTypes);
@@ -105,6 +111,11 @@ public sealed class ServiceCollectionExtensionsTests
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ASPNETCORE_ENVIRONMENT"] = Environments.Production,
+                    ["CORS_ALLOWED_HOSTS"] = "https://fsusblog.test",
+                    ["ConnectionStrings:Redis"] = "localhost:6379,connectTimeout=50",
+                    ["Jwt:SecretKey"] = TestSecrets.JwtSigningKey,
+                    ["Jwt:Issuer"] = "FsusBlog.Tests",
+                    ["Jwt:Audience"] = "FsusBlog.Tests",
                     ["DataProtection:KeyRingPath"] = keyRingPath,
                     ["DataProtection:ApplicationName"] = "FsusBlog.Candidate"
                 })

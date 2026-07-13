@@ -16,12 +16,15 @@ using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-public sealed class AuthRiskControlEndpointContractTests
+public sealed class AuthRiskControlEndpointContractTests(
+    EndpointSecurityDefaultServerFixture defaultServerFixture)
+    : IClassFixture<EndpointSecurityDefaultServerFixture>
 {
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AuthRiskEndpointMetadata_ComesFromFinalEndpointDataSource()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         var expected = new (string Route, string Action, string RouteKey, Type[] Filters)[]
         {
@@ -63,9 +66,10 @@ public sealed class AuthRiskControlEndpointContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task PasswordLoginEndpoint_IsNotAProductionRiskControlledCapability()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         RouteEndpoint[] legacyPasswordLogin = ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
@@ -85,8 +89,8 @@ public sealed class AuthRiskControlEndpointContractTests
         string route,
         bool requiresAccount)
     {
-        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
-        using HttpClient client = server.CreateClient();
+        EndpointSecurityTestServer server = DefaultServer();
+        using HttpClient client = CreateIsolatedClient(server);
 
         using var missingRiskProof = new HttpRequestMessage(HttpMethod.Post, route);
         if (requiresAccount)
@@ -131,8 +135,8 @@ public sealed class AuthRiskControlEndpointContractTests
     public async Task TestServer_PasskeyRiskControlShortCircuitsHandlersWithoutInventingPow(
         string route)
     {
-        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
-        using HttpClient client = server.CreateClient();
+        EndpointSecurityTestServer server = DefaultServer();
+        using HttpClient client = CreateIsolatedClient(server);
 
         using HttpResponseMessage response = await client.PostAsync(route, content: null);
 
@@ -153,8 +157,8 @@ public sealed class AuthRiskControlEndpointContractTests
     [Fact]
     public async Task TestServer_ValidPasskeyBeginRiskProofReachesHandlerWithoutPow()
     {
-        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
-        using HttpClient client = server.CreateClient();
+        EndpointSecurityTestServer server = DefaultServer();
+        using HttpClient client = CreateIsolatedClient(server);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
             "/api/binary/auth/passkey/login/begin");
@@ -181,8 +185,8 @@ public sealed class AuthRiskControlEndpointContractTests
         string proof,
         string expectedReason)
     {
-        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
-        using HttpClient client = server.CreateClient();
+        EndpointSecurityTestServer server = DefaultServer();
+        using HttpClient client = CreateIsolatedClient(server);
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
             "/api/binary/auth/recovery-key/verify");
@@ -209,8 +213,8 @@ public sealed class AuthRiskControlEndpointContractTests
     [Fact]
     public async Task TestServer_AdminMutationEnforcesIdentityPermissionPowAndStepUpBeforeMutation()
     {
-        using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
-        using HttpClient client = server.CreateClient();
+        EndpointSecurityTestServer server = DefaultServer();
+        using HttpClient client = CreateIsolatedClient(server);
 
         using HttpResponseMessage unauthenticated = await client.SendAsync(AdminTrashRequest());
         Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
@@ -285,7 +289,7 @@ public sealed class AuthRiskControlEndpointContractTests
     {
         using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create(
             new EndpointSecurityTestServerOptions { AccountBanned = true });
-        using HttpClient client = server.CreateClient();
+        using HttpClient client = CreateIsolatedClient(server);
 
         using var blockedWrite = new HttpRequestMessage(HttpMethod.Post, "/api/binary/comment");
         EndpointSecurityTestServer.AddAnonymousAccount(blockedWrite);
@@ -331,7 +335,7 @@ public sealed class AuthRiskControlEndpointContractTests
     {
         using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create(
             new EndpointSecurityTestServerOptions { FixedIpPermitLimit = 1 });
-        using HttpClient client = server.CreateClient();
+        using HttpClient client = CreateIsolatedClient(server);
 
         using HttpResponseMessage first = await client.PostAsync(
             "/api/binary/auth/recovery-key/verify",
@@ -369,5 +373,22 @@ public sealed class AuthRiskControlEndpointContractTests
         }
 
         return request;
+    }
+
+    private EndpointSecurityTestServer DefaultServer()
+    {
+        defaultServerFixture.Server.ResetObservations();
+        Assert.Equal(0, defaultServerFixture.Server.ObservationCount);
+        return defaultServerFixture.Server;
+    }
+
+    private static HttpClient CreateIsolatedClient(EndpointSecurityTestServer server)
+    {
+        HttpClient client = server.CreateClient();
+        string remoteIp = Assert.Single(client.DefaultRequestHeaders.GetValues("X-Test-Remote-Ip"));
+        IReadOnlyList<string> issuedIps = server.IssuedClientIps;
+        Assert.Equal(remoteIp, issuedIps[^1]);
+        Assert.Equal(issuedIps.Count, issuedIps.Distinct(StringComparer.Ordinal).Count());
+        return client;
     }
 }

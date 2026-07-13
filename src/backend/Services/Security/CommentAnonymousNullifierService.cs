@@ -195,6 +195,16 @@ public sealed class CommentAnonymousNullifierService(
         bool allowed = reader.GetBoolean(0);
         string status = reader.GetString(1);
         int useCount = reader.GetInt32(2);
+        if (!allowed && string.Equals(status, "scope_limit_exceeded", StringComparison.Ordinal))
+        {
+            // PostgreSQL keeps the statement snapshot taken before an ON CONFLICT
+            // waiter is released. A rejected concurrent writer can therefore see
+            // the pre-wait count even though the row has reached the policy limit.
+            // The rejection is only possible once the limit has been reached, so
+            // return a stable lower bound without hiding rows created under a
+            // previously higher limit.
+            useCount = Math.Max(useCount, maxUseCount);
+        }
         TimeSpan elapsed = FsusObservability.GetElapsed(startedAt);
         FsusObservability.RecordAnonymousNullifierAtomicIncrement(elapsed, status);
         if (!allowed)

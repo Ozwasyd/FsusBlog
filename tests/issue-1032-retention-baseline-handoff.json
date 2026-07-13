@@ -25,6 +25,7 @@
     "tests/tools/test-optimization-report.test.mjs",
     "tests/tools/test-suite-convergence.test.mjs"
   ],
+  "deletedTests": [],
   "documentation": [
     "docs/testing/issue-1032-compact-retention-baseline.md"
   ],

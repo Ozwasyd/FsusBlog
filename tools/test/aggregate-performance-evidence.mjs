@@ -4,6 +4,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { resolveManifestWorkers } from './run-command-manifest.mjs'
+
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 
 export const performanceEvidenceSources = Object.freeze([
@@ -28,28 +30,39 @@ function parseArgs(argv) {
   return options
 }
 
-function resolveSourceFile(root, source) {
+function downloadedArtifactDirectories(root) {
+  const downloadedRoot = path.join(root, '.tmp/downloaded-artifacts')
+  return fs.existsSync(downloadedRoot)
+    ? fs.readdirSync(downloadedRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(downloadedRoot, entry.name))
+      .sort()
+    : []
+}
+
+function resolveSourceFile(root, source, artifactDirectories) {
   const direct = path.resolve(root, source.path)
   if (!direct.startsWith(`${root}${path.sep}`)) throw new Error(`${source.id} source escapes root`)
   if (fs.existsSync(direct)) return direct
 
-  const downloadedRoot = path.join(root, '.tmp/downloaded-artifacts')
   const artifactRelativePaths = [...new Set([source.path, source.path.replace(/^\.tmp\//u, '')])]
-  const matches = fs.existsSync(downloadedRoot)
-    ? fs.readdirSync(downloadedRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .flatMap((entry) => artifactRelativePaths.map((relativePath) => path.join(downloadedRoot, entry.name, relativePath)))
-      .filter((candidate) => fs.existsSync(candidate))
-      .sort()
-    : []
+  const matches = artifactDirectories
+    .flatMap((directory) => artifactRelativePaths.map((relativePath) => path.join(directory, relativePath)))
+    .filter((candidate) => fs.existsSync(candidate))
+    .sort()
   if (matches.length === 0) throw new Error(`missing ${source.id} performance evidence: ${source.path}`)
   if (matches.length > 1) throw new Error(`ambiguous ${source.id} performance evidence in downloaded artifacts`)
   return matches[0]
 }
 
-function readSummary(root, source) {
-  const absolute = resolveSourceFile(root, source)
-  const summary = JSON.parse(fs.readFileSync(absolute, 'utf8'))
+async function readSummary(root, source, artifactDirectories) {
+  const absolute = resolveSourceFile(root, source, artifactDirectories)
+  let summary
+  try {
+    summary = JSON.parse(await fs.promises.readFile(absolute, 'utf8'))
+  } catch (error) {
+    throw new Error(`${source.id} performance evidence is invalid: ${error instanceof Error ? error.message : String(error)}`)
+  }
   if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
     throw new Error(`${source.id} performance evidence must be a JSON object`)
   }
@@ -65,6 +78,41 @@ function readSummary(root, source) {
   }
 }
 
+export function resolvePerformanceEvidenceWorkers({
+  sourceCount = performanceEvidenceSources.length,
+  ...runtime
+} = {}) {
+  if (!Number.isInteger(sourceCount) || sourceCount <= 0) {
+    throw new Error('performance evidence source count must be a positive integer')
+  }
+  return Math.min(sourceCount, resolveManifestWorkers(runtime))
+}
+
+async function readAllSummaries(root, sources, artifactDirectories) {
+  const entries = new Array(sources.length)
+  const failures = []
+  const workerCount = resolvePerformanceEvidenceWorkers({ sourceCount: sources.length })
+  let nextIndex = 0
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < sources.length) {
+      const index = nextIndex
+      nextIndex += 1
+      try {
+        entries[index] = await readSummary(root, sources[index], artifactDirectories)
+      } catch (error) {
+        failures.push({ index, error })
+      }
+    }
+  }))
+  if (failures.length > 0) {
+    failures.sort((left, right) => left.index - right.index)
+    const errors = failures.map(({ error }) => error instanceof Error ? error : new Error(String(error)))
+    const details = errors.map((error) => error.message).join('; ')
+    throw new AggregateError(errors, `${errors.length} performance evidence source(s) failed: ${details}`)
+  }
+  return entries
+}
+
 function aggregateStatus(entries) {
   if (entries.every((entry) => entry.status === 'ok')) return 'ok'
   if (entries.some((entry) => !['ok', 'blocked', 'scheduled'].includes(entry.status))) return 'failed'
@@ -72,9 +120,9 @@ function aggregateStatus(entries) {
   return 'ok'
 }
 
-export function aggregatePerformanceEvidence(rootValue = repositoryRoot) {
+export async function aggregatePerformanceEvidence(rootValue = repositoryRoot) {
   const root = path.resolve(rootValue)
-  const entries = performanceEvidenceSources.map((source) => readSummary(root, source))
+  const entries = await readAllSummaries(root, performanceEvidenceSources, downloadedArtifactDirectories(root))
   const summary = {
     schema: 'fsusblog.performance-evidence-summary.v1',
     status: aggregateStatus(entries),
@@ -83,17 +131,17 @@ export function aggregatePerformanceEvidence(rootValue = repositoryRoot) {
     generatedAt: new Date().toISOString()
   }
   const output = path.join(root, '.tmp/release-evidence/perf-summary.json')
-  fs.mkdirSync(path.dirname(output), { recursive: true })
+  await fs.promises.mkdir(path.dirname(output), { recursive: true })
   const temporary = `${output}.next-${process.pid}`
-  fs.writeFileSync(temporary, `${JSON.stringify(summary, null, 2)}\n`)
-  fs.renameSync(temporary, output)
+  await fs.promises.writeFile(temporary, `${JSON.stringify(summary, null, 2)}\n`)
+  await fs.promises.rename(temporary, output)
   return { output, summary }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const options = parseArgs(process.argv.slice(2))
-    const result = aggregatePerformanceEvidence(options.root)
+    const result = await aggregatePerformanceEvidence(options.root)
     console.log(`[performance-evidence] wrote ${path.relative(options.root, result.output)}`)
   } catch (error) {
     console.error(`[performance-evidence] ${error instanceof Error ? error.message : String(error)}`)

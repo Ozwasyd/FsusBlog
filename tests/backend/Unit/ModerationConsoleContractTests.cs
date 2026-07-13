@@ -7,13 +7,16 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Moderation;
 using FsusBlog.Server.Modules.Endpoints;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -23,6 +26,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using SqlSugar;
 using System.Threading.RateLimiting;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -30,23 +34,23 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ModerationConsoleContractTests
 {
     [Fact]
-    public void AuthoringEndpoints_ExposeModerationMethodsPermissionsAndRateLimitMetadata()
+    public async Task AuthoringEndpoints_ExposeModerationMethodsPermissionsAndRateLimitMetadata()
     {
         IModerationDictionaryService dictionaries = Substitute.For<IModerationDictionaryService>();
         IAdminPrincipalService adminPrincipals = Substitute.For<IAdminPrincipalService>();
         IAuditEventService auditEvents = Substitute.For<IAuditEventService>();
         ICacheInvalidationDispatcher invalidation = Substitute.For<ICacheInvalidationDispatcher>();
-        using TestServer server = CreateServer(dictionaries, adminPrincipals, auditEvents, invalidation);
-        EndpointDataSource source = server.Services.GetRequiredService<EndpointDataSource>();
+        await using WebApplication server = await CreateServerAsync(dictionaries, adminPrincipals, auditEvents, invalidation);
+        IEnumerable<EndpointDataSource> sources = ((IEndpointRouteBuilder)server).DataSources;
 
-        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries", HttpMethods.Get, rateLimited: false);
-        AssertEndpoint(source, "/api/binary/author/moderation/runtime/status", HttpMethods.Get, rateLimited: false);
-        AssertEndpoint(source, "/api/binary/author/moderation/runtime/global-state", HttpMethods.Post, rateLimited: true);
-        AssertEndpoint(source, "/api/binary/author/moderation/runtime/region-state", HttpMethods.Post, rateLimited: true);
-        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries/reload", HttpMethods.Post, rateLimited: true);
-        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries/rollback", HttpMethods.Post, rateLimited: true);
-        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries/{dictionaryId}/enable", HttpMethods.Post, rateLimited: true);
-        AssertEndpoint(source, "/api/binary/author/moderation/dictionaries/{dictionaryId}/disable", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(sources, "/api/binary/author/moderation/dictionaries", HttpMethods.Get, rateLimited: false);
+        AssertEndpoint(sources, "/api/binary/author/moderation/runtime/status", HttpMethods.Get, rateLimited: false);
+        AssertEndpoint(sources, "/api/binary/author/moderation/runtime/global-state", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(sources, "/api/binary/author/moderation/runtime/region-state", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(sources, "/api/binary/author/moderation/dictionaries/reload", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(sources, "/api/binary/author/moderation/dictionaries/rollback", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(sources, "/api/binary/author/moderation/dictionaries/{dictionaryId}/enable", HttpMethods.Post, rateLimited: true);
+        AssertEndpoint(sources, "/api/binary/author/moderation/dictionaries/{dictionaryId}/disable", HttpMethods.Post, rateLimited: true);
     }
 
     [Fact]
@@ -67,8 +71,8 @@ public sealed class ModerationConsoleContractTests
             .Returns(true);
         IAuditEventService auditEvents = Substitute.For<IAuditEventService>();
         ICacheInvalidationDispatcher invalidation = Substitute.For<ICacheInvalidationDispatcher>();
-        using TestServer server = CreateServer(dictionaries, adminPrincipals, auditEvents, invalidation);
-        using HttpClient client = server.CreateClient();
+        await using WebApplication server = await CreateServerAsync(dictionaries, adminPrincipals, auditEvents, invalidation);
+        using HttpClient client = server.GetTestClient();
 
         using var forbidden = new HttpRequestMessage(HttpMethod.Post, "/api/binary/author/moderation/dictionaries/reload");
         forbidden.Headers.Add("Origin", "https://console.example.test");
@@ -133,14 +137,14 @@ public sealed class ModerationConsoleContractTests
                 null,
                 Arg.Any<string>())
             .Returns(Result<ModerationRuntimeSnapshot>.Success(RuntimeStateSnapshot()));
-        using TestServer server = CreateServer(
+        await using WebApplication server = await CreateServerAsync(
             dictionaries,
             adminPrincipals,
             auditEvents,
             invalidation,
             runtimeState,
             requestContext);
-        using HttpClient client = server.CreateClient();
+        using HttpClient client = server.GetTestClient();
         using var mutation = CreateAdminRequest(
             "/api/binary/author/moderation/runtime/global-state",
             "proof-global");
@@ -173,7 +177,7 @@ public sealed class ModerationConsoleContractTests
         Assert.DoesNotContain("\"terms\"", json, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static TestServer CreateServer(
+    private static async Task<WebApplication> CreateServerAsync(
         IModerationDictionaryService dictionaries,
         IAdminPrincipalService adminPrincipals,
         IAuditEventService auditEvents,
@@ -181,38 +185,45 @@ public sealed class ModerationConsoleContractTests
         IModerationRuntimeStateService? runtimeState = null,
         IBinaryEndpointRequestContext? requestContext = null)
     {
-        var builder = new WebHostBuilder()
-            .ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?>
-                {
-                    ["CORS_ALLOWED_HOSTS"] = "https://console.example.test"
-                }))
-            .ConfigureServices(services =>
-            {
-                services.AddRouting();
-                services.AddAuthorization();
-                services.AddRateLimiter(options => options.AddFixedWindowLimiter("fixed_ip", limiter =>
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Configuration.Sources.Clear();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["CORS_ALLOWED_HOSTS"] = "https://console.example.test"
+        });
+        builder.Services.AddRouting();
+        builder.Services.AddAuthorization();
+        builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, TestAuthorizationResultHandler>();
+        builder.Services.AddRateLimiter(options => options.AddFixedWindowLimiter("fixed_ip", limiter =>
                 {
                     limiter.PermitLimit = 100;
                     limiter.QueueLimit = 0;
                     limiter.Window = TimeSpan.FromMinutes(1);
                     limiter.AutoReplenishment = true;
                 }));
-                services.AddSingleton<IAedsEncoder>(new AedsEncoder());
-                services.AddSingleton(dictionaries);
-                services.AddSingleton(adminPrincipals);
-                services.AddSingleton(auditEvents);
-                services.AddSingleton(invalidation);
-                services.AddSingleton(runtimeState ?? Substitute.For<IModerationRuntimeStateService>());
-                if (requestContext is not null)
-                {
-                    services.AddSingleton(requestContext);
-                }
-            })
-            .Configure(app =>
-            {
-                app.UseRouting();
-                app.Use(async (context, next) =>
+        builder.Services.AddSingleton<IAedsEncoder>(new AedsEncoder());
+        builder.Services.AddSingleton(dictionaries);
+        builder.Services.AddSingleton(adminPrincipals);
+        builder.Services.AddSingleton(auditEvents);
+        builder.Services.AddSingleton(invalidation);
+        builder.Services.AddSingleton(runtimeState ?? Substitute.For<IModerationRuntimeStateService>());
+        builder.Services.AddSingleton<AuthoringWorkflowService>(_ => null!);
+        builder.Services.AddSingleton<AdminOperationsService>(_ => null!);
+        builder.Services.AddSingleton<AuditQueryService>(_ => null!);
+        builder.Services.AddSingleton(Substitute.For<IAnonymousCommentPolicyService>());
+        builder.Services.AddSingleton(Substitute.For<IAnonymousCredentialService>());
+        builder.Services.AddSingleton(Substitute.For<ICommentAnonymousNullifierService>());
+        builder.Services.AddSingleton(Substitute.For<IModerationRegionCatalogService>());
+        builder.Services.AddSingleton(Substitute.For<IRegionLegalModerationService>());
+        builder.Services.AddSingleton(Substitute.For<ISqlSugarClient>());
+        if (requestContext is not null)
+        {
+            builder.Services.AddSingleton(requestContext);
+        }
+        WebApplication app = builder.Build();
+        app.UseRouting();
+        app.Use(async (context, next) =>
                 {
                     var claims = new List<Claim>
                     {
@@ -228,11 +239,11 @@ public sealed class ModerationConsoleContractTests
                     context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
                     await next();
                 });
-                app.UseAuthorization();
-                app.UseRateLimiter();
-                app.UseEndpoints(endpoints => endpoints.MapAuthoringEndpoints());
-            });
-        return new TestServer(builder);
+        app.UseAuthorization();
+        app.UseRateLimiter();
+        app.MapAuthoringEndpoints();
+        await app.StartAsync();
+        return app;
     }
 
     private static HttpRequestMessage CreateAdminRequest(string path, string? proof)
@@ -246,6 +257,26 @@ public sealed class ModerationConsoleContractTests
         }
 
         return request;
+    }
+
+    private sealed class TestAuthorizationResultHandler : IAuthorizationMiddlewareResultHandler
+    {
+        public Task HandleAsync(
+            RequestDelegate next,
+            HttpContext context,
+            AuthorizationPolicy policy,
+            PolicyAuthorizationResult authorizeResult)
+        {
+            if (authorizeResult.Succeeded)
+            {
+                return next(context);
+            }
+
+            context.Response.StatusCode = authorizeResult.Forbidden
+                ? StatusCodes.Status403Forbidden
+                : StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        }
     }
 
     private static ModerationDictionaryRuntimeSnapshot RuntimeSnapshot()
@@ -305,20 +336,20 @@ public sealed class ModerationConsoleContractTests
             LastError: null);
     }
 
-    private static void AssertEndpoint(EndpointDataSource source, string path, string method, bool rateLimited)
+    private static void AssertEndpoint(IEnumerable<EndpointDataSource> sources, string path, string method, bool rateLimited)
     {
-        RouteEndpoint endpoint = Assert.Single(source.Endpoints
-            .OfType<RouteEndpoint>()
-            .Where(item => string.Equals(
-                item.RoutePattern.RawText?.TrimStart('/'),
-                path.TrimStart('/'),
-                StringComparison.Ordinal)));
+        RouteEndpoint endpoint = Assert.Single(
+            sources.SelectMany(static source => source.Endpoints).OfType<RouteEndpoint>(),
+            item => string.Equals(
+                item.RoutePattern.RawText?.Trim('/'),
+                path.Trim('/'),
+                StringComparison.Ordinal));
         Assert.Contains(method, Assert.IsAssignableFrom<IHttpMethodMetadata>(
             endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()).HttpMethods);
         AuthorizationPolicy policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
-        ClaimsAuthorizationRequirement permission = Assert.Single(policy.Requirements
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(item => item.ClaimType == AdminPermissions.PermissionClaimType));
+        ClaimsAuthorizationRequirement permission = Assert.Single(
+            policy.Requirements.OfType<ClaimsAuthorizationRequirement>(),
+            item => item.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(AdminPermissions.SystemConfig, permission.AllowedValues ?? []);
         EnableRateLimitingAttribute? rateLimit = endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>();
         if (rateLimited)

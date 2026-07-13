@@ -29,9 +29,10 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AdminAnonymousAccountGovernanceContractTests
 {
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AdminUserEndpointSurface_ExposesListAndStatusWithoutLegacyCredentialMutation()
     {
-        await using WebApplication app = CreateBinaryEndpointApplication();
+        await using EndpointContractSnapshot app = CreateBinaryEndpointApplication();
         RouteEndpoint[] routes = ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
             .OfType<RouteEndpoint>()
@@ -182,9 +183,10 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AuthEndpointSurfaceAndApplicationPorts_DoNotExposeUsernameLookupOrPasswordReset()
     {
-        await using WebApplication app = CreateBinaryEndpointApplication();
+        await using EndpointContractSnapshot app = CreateBinaryEndpointApplication();
         string[] routes = ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
             .OfType<RouteEndpoint>()
@@ -250,15 +252,8 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
             _authRiskService: Substitute.For<IAuthRiskService>(),
             _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
 
-    private static WebApplication CreateBinaryEndpointApplication()
-    {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
-        builder.Services.AddAuthorization();
-        builder.Services.AddOutputCache();
-        WebApplication app = builder.Build();
-        app.MapBinaryEndpoints();
-        return app;
-    }
+    private static EndpointContractSnapshot CreateBinaryEndpointApplication()
+        => EndpointContractApplication.CreateSnapshot();
 
     private static void AssertRoute(RouteEndpoint endpoint, string route, string method)
     {
@@ -271,8 +266,8 @@ public sealed class AdminAnonymousAccountGovernanceContractTests
     {
         AuthorizationPolicy policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
         ClaimsAuthorizationRequirement requirement = Assert.Single(policy.Requirements
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(item => item.ClaimType == AdminPermissions.PermissionClaimType));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            item => item.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(permission, requirement.AllowedValues ?? []);
     }
 }

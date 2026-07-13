@@ -42,6 +42,7 @@ const requiredStatusChecks = [
   ['coverage', (manifest) => manifest.evidenceSummary?.coverage?.status === 'ok'],
   ['ZAP DAST', (manifest) => manifest.evidenceSummary?.security?.dastZap === 'ok'],
   ['authenticated DAST', (manifest, context) => manifest.evidenceSummary?.security?.authenticatedDast === 'ok' && authenticatedDastOk(manifest, context)],
+  ['local runtime exposure', (manifest, context) => manifest.evidenceSummary?.security?.localRuntimeExposure === 'ok' && localRuntimeExposureOk(manifest, context)],
   ['Wasm fuzz', (manifest, context) => manifest.evidenceSummary?.security?.wasmFuzz === 'ok' && wasmFuzzOk(manifest, context)],
   ['attack matrix', (manifest) => manifest.evidenceSummary?.security?.attackMatrix === 'ok'],
   ['permission matrix', (manifest) => manifest.evidenceSummary?.security?.permissionMatrix === 'ok'],
@@ -74,6 +75,7 @@ const requiredArtifacts = [
   'permissionMatrix',
   'dastZap',
   'authenticatedDast',
+  'localRuntimeExposure',
   'fuzz',
   'supplyChain',
   'sbom',
@@ -716,12 +718,69 @@ function postDeploySmokeOk(manifest, context) {
 
 function authenticatedDastOk(manifest, context) {
   const report = readArtifactJson(manifest, context, 'authenticatedDast', 'summary.json')
-  return report?.status === 'ok' && report.activeScan?.executed === true
+  const contexts = ['anonymous', 'user', 'admin', 'author-console']
+  return report?.schema === 'fsusblog.security.authenticated-dast.v1'
+    && report.status === 'ok'
+    && report.executionSource === 'fresh-current-lane'
+    && report.fixture?.executionSource === 'fresh-current-lane'
+    && report.fixture?.historicalStateAccepted === false
+    && report.fixture?.cleanup === 'success'
+    && report.targetPolicy?.loopbackOnly === true
+    && report.targetPolicy?.productionTargetAllowed === false
+    && report.activeScan?.executed === true
+    && Number.isInteger(report.activeScan?.requestCount)
+    && report.activeScan.requestCount > 0
+    && report.activeScan?.failedCount === 0
+    && report.activeScan?.passedCount === report.activeScan.requestCount
+    && contexts.every((name) => report.contexts?.[name]?.executed === true
+      && Number.isInteger(report.contexts[name].requestCount)
+      && report.contexts[name].requestCount > 0
+      && report.contexts[name].failedCount === 0)
+    && Array.isArray(report.checks)
+    && report.checks.length === report.activeScan.requestCount
+    && report.checks.every((check) => check?.passed === true)
+}
+
+function localRuntimeExposureOk(manifest, context) {
+  const report = readArtifactJson(manifest, context, 'localRuntimeExposure')
+  const targetIds = Array.isArray(report?.targets) ? report.targets.map((item) => item?.id).sort() : []
+  const serviceIds = Array.isArray(report?.restrictedServices) ? report.restrictedServices.map((item) => item?.id).sort() : []
+  return report?.schema === 'fsusblog.security.local-runtime-exposure.v1'
+    && report.status === 'ok'
+    && report.executionSource === 'fresh-loopback-runtime'
+    && report.scope?.loopbackRuntimeOnly === true
+    && report.scope?.externalProductionDnsChecked === false
+    && report.scope?.externalFirewallEvidenceChecked === false
+    && report.scope?.countsAsProductionCloseout === false
+    && Array.isArray(report.failures)
+    && report.failures.length === 0
+    && JSON.stringify(targetIds) === JSON.stringify(['backend', 'frontend', 'release-preview'])
+    && report.targets.every((item) => Number.isInteger(item?.status) && item.status < 500)
+    && Array.isArray(report.listeners)
+    && report.listeners.length === 3
+    && report.listeners.every((item) => Array.isArray(item?.addresses) && item.addresses.length > 0)
+    && JSON.stringify(serviceIds) === JSON.stringify(['postgres', 'redis'])
+    && report.restrictedServices.every((item) => item?.loopbackOnly === true)
 }
 
 function wasmFuzzOk(manifest, context) {
   const report = readArtifactJson(manifest, context, 'fuzz', 'wasm/summary.json')
-  return report?.status === 'ok' && Number(report.seedsRun ?? 0) > 0
+  const seedPlan = Array.isArray(report?.seedPlan) ? report.seedPlan : []
+  const seedsRun = Number(report?.seedsRun ?? 0)
+  return report?.status === 'ok'
+    && report.executionSource === 'fresh-wasm-runtime'
+    && Number.isInteger(seedsRun)
+    && seedsRun > 0
+    && seedPlan.length > 0
+    && seedPlan.every((item) => typeof item?.corpus === 'string'
+      && item.corpus.length > 0
+      && Number.isInteger(item.count)
+      && item.count > 0
+      && Number.isInteger(item.firstSeed))
+    && seedPlan.reduce((total, item) => total + item.count, 0) === seedsRun
+    && /^[a-f0-9]{64}$/u.test(report.decoder?.sha256 ?? '')
+    && Array.isArray(report.crashes)
+    && report.crashes.length === 0
 }
 
 function faultInjectionOk(manifest, context) {
@@ -1334,6 +1393,7 @@ function runSelfTest() {
       security: {
         dastZap: 'ok',
         authenticatedDast: 'ok',
+        localRuntimeExposure: 'ok',
         attackMatrix: 'ok',
         permissionMatrix: 'ok',
         supplyChain: 'ok',
@@ -1481,9 +1541,42 @@ function runSelfTest() {
     artifacts: { smoke: null, visual: null, boundaries: '.tmp/ux/viewport-boundaries.json' }
   }))
   fs.mkdirSync(path.join(tmpDir, 'authenticatedDast'))
-  fs.writeFileSync(path.join(tmpDir, 'authenticatedDast', 'summary.json'), JSON.stringify({ status: 'ok', activeScan: { executed: true } }))
+  fs.writeFileSync(path.join(tmpDir, 'authenticatedDast', 'summary.json'), JSON.stringify({
+    schema: 'fsusblog.security.authenticated-dast.v1',
+    status: 'ok',
+    executionSource: 'fresh-current-lane',
+    targetPolicy: { loopbackOnly: true, productionTargetAllowed: false },
+    fixture: { executionSource: 'fresh-current-lane', historicalStateAccepted: false, cleanup: 'success' },
+    activeScan: { executed: true, requestCount: 4, passedCount: 4, failedCount: 0 },
+    contexts: Object.fromEntries(['anonymous', 'user', 'admin', 'author-console'].map((name) => [name, {
+      executed: true, requestCount: 1, passedCount: 1, failedCount: 0
+    }])),
+    checks: ['anonymous', 'user', 'admin', 'author-console'].map((context) => ({ context, passed: true }))
+  }))
+  fs.writeFileSync(path.join(tmpDir, 'localRuntimeExposure.json'), JSON.stringify({
+    schema: 'fsusblog.security.local-runtime-exposure.v1',
+    status: 'ok',
+    executionSource: 'fresh-loopback-runtime',
+    scope: {
+      loopbackRuntimeOnly: true,
+      externalProductionDnsChecked: false,
+      externalFirewallEvidenceChecked: false,
+      countsAsProductionCloseout: false
+    },
+    targets: ['backend', 'frontend', 'release-preview'].map((id) => ({ id, status: 200 })),
+    listeners: ['backend', 'frontend', 'release-preview'].map((id, index) => ({ id, addresses: [`127.0.0.1:${25001 + index}`] })),
+    restrictedServices: ['postgres', 'redis'].map((id) => ({ id, loopbackOnly: true })),
+    failures: []
+  }))
   fs.mkdirSync(path.join(tmpDir, 'fuzz', 'wasm'), { recursive: true })
-  fs.writeFileSync(path.join(tmpDir, 'fuzz', 'wasm', 'summary.json'), JSON.stringify({ status: 'ok', seedsRun: 1 }))
+  fs.writeFileSync(path.join(tmpDir, 'fuzz', 'wasm', 'summary.json'), JSON.stringify({
+    status: 'ok',
+    executionSource: 'fresh-wasm-runtime',
+    seedsRun: 1,
+    seedPlan: [{ corpus: 'fixture', firstSeed: 1, count: 1 }],
+    decoder: { sha256: 'a'.repeat(64) },
+    crashes: []
+  }))
   fs.mkdirSync(path.join(tmpDir, 'faultInjection'))
   const redisFaultFixtureCases = requiredRedisFaultCases.map((caseName, index) => ({
     case: caseName,

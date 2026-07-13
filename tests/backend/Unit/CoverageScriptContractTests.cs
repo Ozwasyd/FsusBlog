@@ -25,7 +25,9 @@ public sealed class CoverageScriptContractTests
         if (!OperatingSystem.IsWindows())
         {
             UnixFileMode mode = File.GetUnixFileMode(script);
-            Assert.NotEqual(0, mode & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute));
+            Assert.NotEqual(
+                UnixFileMode.None,
+                mode & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute));
         }
     }
 

@@ -463,7 +463,8 @@ Secret 轮换、站点备份导出、数据巡检修复、批量封禁、匿名�
 - **Binary / Notification Stream**：AEDS v2、截断 frame、错误 frame type、错误版本、WebSocket 非升级、错误子协议、匿名缺 RiskControl / legacy PoW proof。
 - **真人计数**：无 proof 读取不增加浏览数，challenge 篡改、route/article 不匹配、停留不足、重放、直接 API、crawler/scanner 不写入计数事件。
 - **浏览器安全面**：CSP、X-Frame-Options、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、CORS allow/deny/preflight、auth/PoW no-store。
-- **DAST**：OWASP ZAP baseline 对本地运行目标执行 spider + passive scan；FAIL 级告警会阻断发布，报告保存在 `.tmp/security/zap/`。
+- **DAST**：OWASP ZAP baseline 对本地运行目标执行 spider + passive scan；FAIL 级告警会阻断发布，报告保存在 `.tmp/security/zap/`。独立的 authenticated DAST 在同一个 fresh production runtime 中重新创建 lane 专属 user/admin 会话，随后通过 Playwright API request context 对 anonymous、user、admin、author-console 执行真实主动变异请求，覆盖身份分离、越权、SQL-like、XSS-like、template-like、malformed binary 与 hostile Origin。执行器只接受 loopback origin，不允许扫描生产/预发布目标；它不读取历史通过状态，也不接受环境变量把未执行扫描标成成功。权威 summary 必须为 `status=ok`、`executionSource=fresh-current-lane`、`activeScan.executed=true`，且四类 context 都有实际请求、零失败。
+- **本机 fresh 暴露面**：production local profile 每次都运行 `tools/security/check-local-runtime-exposure.mjs`，对当前 namespace 的 backend/frontend/release-preview 做真实 HTTP 与安全头探针，读取主机 TCP listener，并用 Docker inspect 校验 PostgreSQL/Redis 只绑定动态 loopback host port。bootstrap 自身同样把 Vite、preview、PostgreSQL、Redis 绑定到 `127.0.0.1`。证据 `.tmp/security/local-runtime-exposure.json` 固定声明 `loopbackRuntimeOnly=true`、`externalProductionDnsChecked=false`、`externalFirewallEvidenceChecked=false`、`countsAsProductionCloseout=false`；它消除本地门禁内部 skip，但绝不冒充外部生产 DNS/firewall/HSTS closeout。
 - **ASVS / WSTG / WebAuthn 追踪**：`security/asvs-v5.0.0-matrix.yml`、`security/wstg-v4.2-matrix.yml` 与 `security/webauthn-matrix.yml` 将安全控制映射到代码、测试、证据与 owner；`tools/security/check-security-matrices.mjs` 会在 `security` / `production` 门禁中校验矩阵结构、版本化 ID 和本地路径。
 - **ZAP WARN 策略**：`security/zap-warn-policy.yml` 为每个 ZAP WARN 规则登记 owner、接受理由、修复期限、状态和升级为 FAIL 的条件；`tools/security/check-zap-warn-policy.mjs` 在 ZAP baseline 前校验清单，并保持关键规则为 FAIL。
 - **供应链审计**：`tools/security/check-supply-chain-audit.sh` 执行 `dotnet list package --vulnerable --include-transitive --format json` 与 `npm audit --omit=dev --audit-level=high --json`，并要求 `src/frontend/package-lock.json` 以及每个 audited `.csproj` 旁的 `packages.lock.json` 存在；高危或严重漏洞会阻断 `security` / `production` 门禁，结果保存在 `.tmp/security/supply-chain/`。
@@ -503,6 +504,7 @@ Destructive worker qualification 只能运行在隔离的 `ASPNETCORE_ENVIRONMEN
 - [ ] `status|activate|drain|fence|notification restart` 控制面仅由 loopback 宿主调用，admin header/storage-state 文件为 0400/0600 且 evidence 不含 secret
 - [ ] 零停机主机满足 4 CPU / 6144 MiB memory / 10240 MiB free disk；2C/2G 只运行单槽，不以资源不足为由关闭 fence、drain 或 security gates
 - [ ] 生产 OpenResty/Nginx 默认拒绝未知 Host，并为 `/login`、`/admin`、`/api/binary/auth/**`、`/api/binary/admin/**`、`/api/binary/author/**` 配置认证/后台限流
+- [ ] `.tmp/security/authenticated-dast/summary.json` 来自本次 fresh namespace，四类身份主动扫描均真实执行且零失败；不得用人工标记、旧 summary 或 `collected-blocked` 代替
 - [ ] 使用 `FSUSBLOG_LIVE_HOSTS=fsus.blog,www.fsus.blog FSUSBLOG_FIREWALL_POLICY_EVIDENCE=.tmp/security/production-firewall-policy.json FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE=.tmp/security/production-exposure-live.json tools/security/complete-production-exposure-closeout.sh`，确认生产 DNS 已解析、只有 `80/443` 对公网开放、SSH 仅允许固定管理 IP/VPN/私有管理网段、`6379/5432/8080` 不可公网访问，且所有生产域名 HTTPS + HSTS 正常；脚本验证通过后会写出 `status=ok`
 
 外部云安全组、防火墙和 Redis/PostgreSQL 私网访问控制仍需在基础设施层执行；仓库内检查只能防止应用配置和部署模板回退。

@@ -127,6 +127,46 @@ public sealed class PostgresCollection : ICollectionFixture<PostgresFixture>;
   assert.deepEqual(records[0].assertionTargets, ['behavior:PostgresCollection.cs'])
 })
 
+test('extractTestRecords ignores class-like words in comments before an xUnit method', () => {
+  const records = extractTestRecords('tests/backend/Unit/CommentedTests.cs', `
+public sealed class CommentedTests
+{
+    // Nested class may not be accessible.
+    [Fact]
+    public void KeepsTheDeclaringClass()
+    {
+        Assert.True(true);
+    }
+}
+  `)
+
+  assert.deepEqual(records.map((record) => record.id), [
+    'xunit:tests/backend/Unit/CommentedTests.cs#CommentedTests.KeepsTheDeclaringClass'
+  ])
+})
+
+test('extractTestRecords returns to the outer class after a nested helper closes', () => {
+  const records = extractTestRecords('tests/backend/Unit/NestedHelperTests.cs', `
+public sealed class NestedHelperTests
+{
+    private sealed class Helper
+    {
+        public bool Ready => true;
+    }
+
+    [Fact]
+    public void UsesTheOuterClassIdentity()
+    {
+        Assert.True(new Helper().Ready);
+    }
+}
+  `)
+
+  assert.deepEqual(records.map((record) => record.id), [
+    'xunit:tests/backend/Unit/NestedHelperTests.cs#NestedHelperTests.UsesTheOuterClassIdentity'
+  ])
+})
+
 test('risk classification scans the full test body before permitting replacement', () => {
   const records = extractTestRecords('tests/frontend/unit/example.test.ts', `
 test('neutral title', () => {
@@ -680,6 +720,68 @@ test('replacement manifest requires live replacement tests and assertion targets
     () => normalizeReplacementManifest({ schema: 'unknown', deletedTests: [] }, currentRecords),
     /replacement manifest schema/u
   )
+})
+
+test('replacement manifest resolves an acyclic retirement chain to live tests', () => {
+  const live = {
+    id: 'node-test:tests/tools/current.test.mjs#current',
+    assertionTargets: []
+  }
+  const normalized = normalizeReplacementManifest({
+    schema: 'fsusblog.test-retention-replacements.v1',
+    deletedTests: [
+      {
+        id: 'node-test:tests/tools/legacy.test.mjs#first',
+        path: 'tests/tools/legacy.test.mjs',
+        replacementTestIds: ['node-test:tests/tools/legacy.test.mjs#second'],
+        reason: 'The first contract moved to a stronger intermediate owner.'
+      },
+      {
+        id: 'node-test:tests/tools/legacy.test.mjs#second',
+        path: 'tests/tools/legacy.test.mjs',
+        replacementTestIds: [live.id],
+        reason: 'The intermediate owner moved to the executable current test.'
+      }
+    ]
+  }, [live])
+
+  assert.equal(normalized.deletedTests.length, 2)
+})
+
+test('replacement manifest resolves unique legacy JavaScript test titles to hashed live ids', () => {
+  const live = {
+    id: 'node-test:tests/tools/current.test.mjs#current-behavior-keeps-the-complete-contract-title-with--1234567890',
+    assertionTargets: []
+  }
+  const normalized = normalizeReplacementManifest({
+    schema: 'fsusblog.test-retention-replacements.v1',
+    deletedTests: [{
+      id: 'node-test:tests/tools/legacy.test.mjs#legacy',
+      path: 'tests/tools/legacy.test.mjs',
+      replacementTestIds: [
+        'node-test:tests/tools/current.test.mjs#current-behavior-keeps-the-complete-contract-title-with-legacy-detail'
+      ],
+      reason: 'The legacy unhashed title resolves to one current hashed test id.'
+    }]
+  }, [live])
+
+  assert.equal(normalized.deletedTests.length, 1)
+
+  const vitest = normalizeReplacementManifest({
+    schema: 'fsusblog.test-retention-replacements.v1',
+    deletedTests: [{
+      id: 'vitest:tests/frontend/unit/legacy.test.ts#legacy',
+      path: 'tests/frontend/unit/legacy.test.ts',
+      replacementTestIds: [
+        'vitest:tests/frontend/unit/current.test.ts#current behavior keeps the complete contract title with legacy detail'
+      ],
+      reason: 'The legacy Vitest title resolves to one current hashed test id.'
+    }]
+  }, [{
+    id: 'vitest:tests/frontend/unit/current.test.ts#current-behavior-keeps-the-complete-contract-title-with--1234567890',
+    assertionTargets: []
+  }])
+  assert.equal(vitest.deletedTests.length, 1)
 })
 
 test('tier replacement requires a live target and valid catalog mappings', () => {

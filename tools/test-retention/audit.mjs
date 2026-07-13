@@ -399,8 +399,12 @@ function namedJavascriptTestId(framework, file, name, ordinal = 1) {
 
 function classBefore(source, offset) {
   const prefix = source.slice(0, offset)
-  const matches = [...prefix.matchAll(/\bclass\s+([A-Za-z_][A-Za-z0-9_]*)/gu)]
-  return matches.at(-1)?.[1] ?? 'UnknownClass'
+  const matches = [...prefix.matchAll(/^\s*(?:(?:public|internal|private|protected|sealed|static|abstract|partial|new)\s+)*class\s+([A-Za-z_][A-Za-z0-9_]*)/gmu)]
+  const enclosing = matches.filter((match) => {
+    const block = balancedBlock(source, match.index, source.length - match.index)
+    return match.index + block.length > offset
+  })
+  return enclosing.at(-1)?.[1] ?? 'UnknownClass'
 }
 
 function balancedBlock(source, offset, limit = 12_000) {
@@ -482,7 +486,7 @@ function classTraitCategory(source, className, beforeIndex) {
 
 function extractXunit(file, source) {
   const records = []
-  const pattern = /\[(?:Fact|Theory)(?:\([^\]]*\))?\][\s\S]{0,800}?\b(?:public|internal)\s+(?:static\s+)?(?:async\s+)?(?:Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?|void|[A-Za-z_][A-Za-z0-9_<>,.?\[\]]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gu
+  const pattern = /\[(?:Fact|Theory)(?:\([^\]]*\))?\][\s\S]{0,4000}?\b(?:public|internal)\s+(?:static\s+)?(?:async\s+)?(?:Task(?:<[^>]+>)?|ValueTask(?:<[^>]+>)?|void|[A-Za-z_][A-Za-z0-9_<>,.?\[\]]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gu
   for (const match of source.matchAll(pattern)) {
     const method = match[1]
     const className = classBefore(source, match.index)
@@ -678,6 +682,7 @@ export function isTestInventoryPath(file) {
     return /\.(?:sh|mjs)$/u.test(file)
   }
   return /^tools\/check-.*\.(?:mjs|sh)$/u.test(file)
+    || /^tools\/security\/check-.*\.mjs$/u.test(file)
     || /^tools\/docs\/generate-testing-docs\.mjs$/u.test(file)
     || /^tools\/check-workflow-matrix-sync\.mjs$/u.test(file)
     || /^tools\/run-test-matrix\.mjs$/u.test(file)
@@ -810,7 +815,7 @@ export function tierReplacementStructureErrors(entry) {
   return errors
 }
 
-export function normalizeReplacementManifest(manifest, currentRecords) {
+export function normalizeReplacementManifest(manifest, currentRecords, catalog = {}) {
   if (Object.keys(manifest ?? {}).length > 0 && manifest?.schema !== 'fsusblog.test-retention-replacements.v1') {
     throw new Error(`replacement manifest schema must be fsusblog.test-retention-replacements.v1, got ${manifest?.schema ?? 'missing'}`)
   }
@@ -821,74 +826,113 @@ export function normalizeReplacementManifest(manifest, currentRecords) {
   const tierReplacements = manifest?.tierReplacements ?? []
   const seenDeletedIds = new Set()
   const seenAssertionTargets = new Set()
+  const deletedTestById = new Map(deletedTests.map((entry) => [entry?.id, entry]))
+  const errors = []
+  const fail = (message) => errors.push(message)
+
+  function resolvesLegacyJavascriptTestId(id) {
+    const value = String(id)
+    const match = value.match(/^(node-test|vitest|playwright):(.+)#(.+)$/u)
+    if (!match || /-[0-9a-f]{10}$/u.test(value)) return false
+    const canonicalPrefix = `${match[1]}:${match[2]}#${slug(match[3])}`
+    const compatiblePrefixes = new Set([canonicalPrefix])
+    if (match[1] === 'playwright') {
+      compatiblePrefixes.add(`vitest:${match[2]}#${slug(match[3])}`)
+    }
+    const matches = [...currentTestIds].filter((currentId) => {
+      const canonical = String(currentId).match(/^((?:node-test|vitest|playwright):.+#[a-z0-9-]+)-[0-9a-f]{10}$/u)
+      return canonical && compatiblePrefixes.has(canonical[1])
+    })
+    return matches.length === 1
+  }
+
+  function resolvesToCurrentTest(id, visiting = new Set()) {
+    if (currentTestIds.has(id)) return true
+    if (resolvesLegacyJavascriptTestId(id)) return true
+    if (visiting.has(id)) return false
+    const deleted = deletedTestById.get(id)
+    if (!deleted || !Array.isArray(deleted.replacementTestIds) || deleted.replacementTestIds.length === 0) {
+      return false
+    }
+    const nextVisiting = new Set(visiting).add(id)
+    return deleted.replacementTestIds.every((replacementId) => resolvesToCurrentTest(replacementId, nextVisiting))
+  }
 
   for (const entry of deletedTests) {
-    if (!String(entry?.id ?? '').trim()) throw new Error('deleted test entry lacks id')
-    if (seenDeletedIds.has(entry.id)) throw new Error(`duplicate deleted test id: ${entry.id}`)
+    if (!String(entry?.id ?? '').trim()) fail('deleted test entry lacks id')
+    if (seenDeletedIds.has(entry.id)) fail(`duplicate deleted test id: ${entry.id}`)
     seenDeletedIds.add(entry.id)
-    if (!String(entry?.path ?? '').trim()) throw new Error(`deleted test ${entry.id} lacks path`)
-    if (!String(entry?.reason ?? '').trim()) throw new Error(`deleted test ${entry.id} lacks reason`)
+    if (!String(entry?.path ?? '').trim()) fail(`deleted test ${entry.id} lacks path`)
+    if (!String(entry?.reason ?? '').trim()) fail(`deleted test ${entry.id} lacks reason`)
     if (!Array.isArray(entry?.replacementTestIds) || entry.replacementTestIds.length === 0) {
-      throw new Error(`deleted test ${entry.id} lacks replacementTestIds`)
+      fail(`deleted test ${entry.id} lacks replacementTestIds`)
+      continue
     }
     for (const replacementId of entry.replacementTestIds) {
-      if (!currentTestIds.has(replacementId)) {
-        throw new Error(`deleted test ${entry.id} references missing replacement test: ${replacementId}`)
+      if (!resolvesToCurrentTest(replacementId)) {
+        fail(`deleted test ${entry.id} references missing replacement test: ${replacementId}`)
       }
     }
   }
 
   for (const entry of assertionReplacements) {
-    if (!String(entry?.before ?? '').trim()) throw new Error('assertion replacement lacks before target')
-    if (seenAssertionTargets.has(entry.before)) throw new Error(`duplicate assertion replacement: ${entry.before}`)
+    if (!String(entry?.before ?? '').trim()) fail('assertion replacement lacks before target')
+    if (seenAssertionTargets.has(entry.before)) fail(`duplicate assertion replacement: ${entry.before}`)
     seenAssertionTargets.add(entry.before)
-    if (!String(entry?.reason ?? '').trim()) throw new Error(`assertion replacement ${entry.before} lacks reason`)
+    if (!String(entry?.reason ?? '').trim()) fail(`assertion replacement ${entry.before} lacks reason`)
     if (!Array.isArray(entry?.replacementTestIds) || entry.replacementTestIds.length === 0) {
-      throw new Error(`assertion replacement ${entry.before} lacks replacementTestIds`)
-    }
-    for (const replacementId of entry.replacementTestIds) {
-      if (!currentTestIds.has(replacementId)) {
-        throw new Error(`assertion replacement ${entry.before} references missing replacement test: ${replacementId}`)
+      fail(`assertion replacement ${entry.before} lacks replacementTestIds`)
+    } else for (const replacementId of entry.replacementTestIds) {
+      if (!resolvesToCurrentTest(replacementId)) {
+        fail(`assertion replacement ${entry.before} references missing replacement test: ${replacementId}`)
       }
     }
     if (!Array.isArray(entry?.after) || entry.after.length === 0) {
-      throw new Error(`assertion replacement ${entry.before} lacks after targets`)
-    }
-    for (const target of entry.after) {
+      fail(`assertion replacement ${entry.before} lacks after targets`)
+    } else for (const target of entry.after) {
       if (!currentAssertionTargets.has(target)) {
-        throw new Error(`assertion replacement ${entry.before} references missing replacement assertion target: ${target}`)
+        fail(`assertion replacement ${entry.before} references missing replacement assertion target: ${target}`)
       }
     }
   }
 
-  const currentTierIds = new Set((currentRecords ?? []).flatMap((record) => record.tierIds ?? []))
-  const currentCoverageIds = new Set((currentRecords ?? []).flatMap((record) => record.coverageIds ?? []))
+  const currentTierIds = new Set([
+    ...(currentRecords ?? []).flatMap((record) => record.tierIds ?? []),
+    ...(catalog.tierIds ?? [])
+  ])
+  const currentCoverageIds = new Set([
+    ...(currentRecords ?? []).flatMap((record) => record.coverageIds ?? []),
+    ...(catalog.coverageIds ?? [])
+  ])
   const seenTierReplacements = new Set()
   for (const entry of tierReplacements) {
     if (!String(entry?.from ?? '').trim() || !String(entry?.to ?? '').trim()) {
-      throw new Error('tier replacement requires from and to')
+      fail('tier replacement requires from and to')
     }
-    if (entry.from === entry.to) throw new Error(`tier replacement ${entry.from} must change tier id`)
-    if (seenTierReplacements.has(entry.from)) throw new Error(`duplicate tier replacement: ${entry.from}`)
+    if (entry.from === entry.to) fail(`tier replacement ${entry.from} must change tier id`)
+    if (seenTierReplacements.has(entry.from)) fail(`duplicate tier replacement: ${entry.from}`)
     seenTierReplacements.add(entry.from)
     const structureErrors = tierReplacementStructureErrors(entry)
     if (structureErrors.length > 0) {
-      throw new Error(`tier replacement ${entry.from} is invalid: ${structureErrors.join('; ')}`)
+      fail(`tier replacement ${entry.from} is invalid: ${structureErrors.join('; ')}`)
     }
     const replacementScope = entry.scope ?? 'tier'
     if (replacementScope === 'production-membership' && !currentTierIds.has(entry.from)) {
-      throw new Error(`production-membership replacement ${entry.from} requires the source tier to remain standalone`)
+      fail(`production-membership replacement ${entry.from} requires the source tier to remain standalone`)
     }
-    if (!currentTierIds.has(entry.to)) throw new Error(`tier replacement ${entry.from} references missing replacement tier: ${entry.to}`)
-    if (!String(entry?.reason ?? '').trim()) throw new Error(`tier replacement ${entry.from} lacks reason`)
+    if (!currentTierIds.has(entry.to)) fail(`tier replacement ${entry.from} references missing replacement tier: ${entry.to}`)
+    if (!String(entry?.reason ?? '').trim()) fail(`tier replacement ${entry.from} lacks reason`)
     if (!Array.isArray(entry?.coverageIds) || entry.coverageIds.length === 0) {
-      throw new Error(`tier replacement ${entry.from} lacks coverageIds`)
-    }
-    for (const coverageId of entry.coverageIds) {
+      fail(`tier replacement ${entry.from} lacks coverageIds`)
+    } else for (const coverageId of entry.coverageIds) {
       if (!currentCoverageIds.has(coverageId)) {
-        throw new Error(`tier replacement ${entry.from} references missing coverage id: ${coverageId}`)
+        fail(`tier replacement ${entry.from} references missing coverage id: ${coverageId}`)
       }
     }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`replacement manifest invalid (${errors.length} errors):\n${errors.map((error) => `- ${error}`).join('\n')}`)
   }
 
   return { deletedTests, assertionReplacements, tierReplacements }

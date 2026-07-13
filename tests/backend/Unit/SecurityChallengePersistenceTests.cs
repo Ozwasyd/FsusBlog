@@ -95,8 +95,8 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
             CreateAttemptRequest(issue.ChallengeId, SecurityChallengeAttemptOutcomes.Verified),
             CancellationToken.None);
 
-        string update = Assert.Single(executedSql.Where(static sql =>
-            sql.Contains("UPDATE security_challenge", StringComparison.OrdinalIgnoreCase)));
+        string update = Assert.Single(executedSql, static sql =>
+            sql.Contains("UPDATE security_challenge", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("RETURNING", update, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("kind", update, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("action", update, StringComparison.OrdinalIgnoreCase);

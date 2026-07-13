@@ -9,7 +9,7 @@ DIRECT_REDIS_MATCHES="$(
     "$ROOT_DIR/src/backend" \
     --glob '!**/bin/**' \
     --glob '!**/obj/**' | \
-    grep -vE "Infrastructure/Cache/|Infrastructure/PublicAot/|Infrastructure/NotificationStream/|Infrastructure/Operations/|Infrastructure/CoreBridge/Cache/|Services/ArticleService.cs|Services/ArticleMutationSideEffects.cs|Services/NotificationStream/RedisNotificationStreamPublisher.cs|Services/Security/RedisPowService.cs|Services/Security/MfaChallengeService.cs|Services/Security/PerceptionChallengeV2Service.cs|Infrastructure/Security/AdaptivePowGovernor.cs" || true
+    grep -vE "Infrastructure/Cache/|Infrastructure/PublicAot/|Infrastructure/NotificationStream/|Infrastructure/Operations/|Infrastructure/CoreBridge/Cache/|Services/ArticleService.cs|Services/ArticleMutationSideEffects.cs|Services/NotificationStream/RedisNotificationStreamPublisher.cs|Services/Security/UserSessionValidationService.cs|Services/Security/RedisPowService.cs|Services/Security/MfaChallengeService.cs|Services/Security/PerceptionChallengeV2Service.cs|Infrastructure/Security/AdaptivePowGovernor.cs" || true
 )"
 
 if [[ -n "$DIRECT_REDIS_MATCHES" ]]; then

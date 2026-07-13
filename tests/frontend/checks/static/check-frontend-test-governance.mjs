@@ -239,6 +239,12 @@ if (!manualScreenshotScript.includes('manual/manual-layout-screenshots.spec.ts')
 if (!manualScreenshotScript.includes('FSUSBLOG_DISABLE_HUMAN_READ_PROOF=1')) {
   fail('capture:manual-layout-screenshots must suppress human-read proof side effects during screenshot capture')
 }
+if (!manualScreenshotScript.includes('FSUSBLOG_PLAYWRIGHT_SERIAL_REASON=shared-screenshot-baseline-writer')) {
+  fail('the manual screenshot writer may use workers=1 only with its shared-baseline serial reason')
+}
+if (!manualScreenshotScript.includes('npx playwright test --workers=1 manual/manual-layout-screenshots.spec.ts')) {
+  fail('the shared manual screenshot baseline writer must remain deterministic and serial')
+}
 if (
   !viteConfig.includes('createServerFsAllow')
   || !viteConfig.includes('fs.realpathSync')

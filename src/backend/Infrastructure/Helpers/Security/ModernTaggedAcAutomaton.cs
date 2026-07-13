@@ -162,16 +162,6 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
         Span<int> ruleRemaining = Span<int>.Empty;
         Span<int> ruleEpochs = Span<int>.Empty;
         int scanEpoch = 0;
-        if (_multiWordRules.Length > 0)
-        {
-            rentedRuleRemaining = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
-            rentedRuleEpochs = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
-            ruleRemaining = rentedRuleRemaining.AsSpan(0, _multiWordRules.Length);
-            ruleEpochs = rentedRuleEpochs.AsSpan(0, _multiWordRules.Length);
-            ruleEpochs.Clear();
-            scanEpoch = NextScanEpoch();
-        }
-
         int bestPayloadIndex = -1;
         int bestPriority = int.MaxValue;
 
@@ -251,17 +241,30 @@ public sealed class ModernTaggedAcAutomaton<TPayload>
                     }
 
                     hitBucket |= hitMask;
-                    if (!ruleRemaining.IsEmpty &&
-                        TryApplyCompositeComponent(
+                    if (_multiWordRules.Length > 0
+                        && _componentRuleOffsets[wordId] < _componentRuleOffsets[wordId + 1])
+                    {
+                        if (ruleRemaining.IsEmpty)
+                        {
+                            rentedRuleRemaining = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
+                            rentedRuleEpochs = ArrayPool<int>.Shared.Rent(_multiWordRules.Length);
+                            ruleRemaining = rentedRuleRemaining.AsSpan(0, _multiWordRules.Length);
+                            ruleEpochs = rentedRuleEpochs.AsSpan(0, _multiWordRules.Length);
+                            ruleEpochs.Clear();
+                            scanEpoch = NextScanEpoch();
+                        }
+
+                        if (TryApplyCompositeComponent(
                             wordId,
                             scanEpoch,
                             ruleRemaining,
                             ruleEpochs,
                             ref bestPayloadIndex,
                             ref bestPriority))
-                    {
-                        payload = _payloads[bestPayloadIndex];
-                        return true;
+                        {
+                            payload = _payloads[bestPayloadIndex];
+                            return true;
+                        }
                     }
                 }
             }

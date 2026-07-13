@@ -126,7 +126,11 @@ for (const file of publicImageFiles) {
     }
 
     if (/\bfetchpriority="high"/.test(block)) {
-      assert(label.endsWith('PublicArticleDetailPageContent.vue'), `${label} high priority image is not an article LCP image`)
+      assert(
+        label.endsWith('PublicArticleDetailPageContent.vue')
+          || label.endsWith('FeaturedArticlesSection.vue'),
+        `${label} high priority image is not an article LCP image`
+      )
       assert(/\bloading="eager"/.test(block), `${label} high priority image must be eager`)
     }
   }

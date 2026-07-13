@@ -123,7 +123,7 @@ async function runShellInvalidationBehaviorCheck(scope, initialPaths) {
     Map,
     console,
     self: {
-      location: { origin: 'https://example.test' },
+      location: { origin: 'https://example.test', href: 'https://example.test/sw.js?build=test-build' },
       addEventListener() {},
       skipWaiting: async () => {},
       clients: { claim: async () => {}, matchAll: async () => [] },

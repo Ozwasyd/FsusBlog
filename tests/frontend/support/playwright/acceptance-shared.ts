@@ -308,7 +308,17 @@ export async function waitForAppReady(page: Page, timeout = APP_READY_TIMEOUT_MS
       )
 
       return document.readyState === 'complete'
-        && Boolean(document.querySelector('#app'))
+        && (() => {
+          const app = document.querySelector<HTMLElement>('#app')
+          if (!app) return false
+          const style = window.getComputedStyle(app)
+          const rect = app.getBoundingClientRect()
+          return style.display !== 'none'
+            && style.visibility !== 'hidden'
+            && Number(style.opacity || '1') > 0
+            && rect.width > 0
+            && rect.height > 0
+        })()
         && stylesReady
         && ((document.getElementById('global-loader') as HTMLElement | null)?.hidden ?? true)
     },
@@ -347,15 +357,24 @@ export async function openThemedAuditedPage(
 export async function openThemedAuditedContext(
   browser: Browser,
   themeMode: ThemeMode = 'light',
-  storageState?: StorageState
+  storageState?: StorageState,
+  disableServiceWorker = false
 ): Promise<ThemedAuditedContext> {
   const context = await browser.newContext(withAcceptanceContextOptions(storageState ? { storageState } : undefined))
   await context.addInitScript((options: {
     mode: ThemeMode
     disableHumanReadProof: boolean
     disableNotificationStream: boolean
+    disableServiceWorker: boolean
   }) => {
-    const { mode, disableHumanReadProof, disableNotificationStream } = options
+    const { mode, disableHumanReadProof, disableNotificationStream, disableServiceWorker } = options
+
+    if (disableServiceWorker) {
+      const runtimeWindow = window as typeof window & {
+        __FSUSBLOG_DISABLE_SERVICE_WORKER__?: boolean
+      }
+      runtimeWindow.__FSUSBLOG_DISABLE_SERVICE_WORKER__ = true
+    }
 
     if (disableHumanReadProof) {
       const runtimeWindow = window as typeof window & {
@@ -427,7 +446,8 @@ export async function openThemedAuditedContext(
   }, {
     mode: themeMode,
     disableHumanReadProof: process.env.FSUSBLOG_DISABLE_HUMAN_READ_PROOF === '1',
-    disableNotificationStream: process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1'
+    disableNotificationStream: process.env.FSUSBLOG_DISABLE_NOTIFICATION_STREAM === '1',
+    disableServiceWorker
   })
   return {
     context,
@@ -705,6 +725,9 @@ async function solvePowNonceOptimized(salt: string, browserFp: string, difficult
       const attempts = Math.min(acceptanceNodePowBatchSize, remainingNonceSpace)
       const resultLength = module._solve_pow_limited_c(saltPtr, fpPtr, difficulty, startNonce, attempts, outputPtr, 2048)
       if (resultLength < 0) {
+        if (difficulty < 25) {
+          return solvePowNonce(salt, browserFp, difficulty, deadlineMs)
+        }
         throw new Error(`acceptance node wasm pow solver failed: ${resultLength}`)
       }
 

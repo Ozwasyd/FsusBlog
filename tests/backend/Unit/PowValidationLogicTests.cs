@@ -155,7 +155,7 @@ public sealed class PowValidationLogicTests
             ?? throw new InvalidOperationException("PoW access-denied logger was not found.");
         Assert.Equal(
             ["logger", "clientIpHash", "traceId", "reason"],
-            accessDenied.GetParameters().Select(static parameter => parameter.Name).ToArray());
+            accessDenied.GetParameters().Select(static parameter => parameter.Name!).ToArray());
         Assert.DoesNotContain(accessDenied.GetParameters(), static parameter =>
             string.Equals(parameter.Name, "clientIp", StringComparison.OrdinalIgnoreCase)
             || string.Equals(parameter.Name, "ip", StringComparison.OrdinalIgnoreCase));

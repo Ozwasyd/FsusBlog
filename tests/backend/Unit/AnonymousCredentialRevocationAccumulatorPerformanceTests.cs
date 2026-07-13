@@ -23,18 +23,24 @@ public sealed class AnonymousCredentialRevocationAccumulatorPerformanceTests
             .GetRawConstantValue()!;
         Assert.InRange(maxEntries, 1, 4096);
 
-        string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
-            accumulator,
+        foreach (string methodName in new[]
+        {
             "GetOrBuildCircuitFriendlySparseTree",
             "TryEvictCircuitFriendlyTreeCacheEpoch",
             "ClearCircuitFriendlyRootCacheForTests",
-            "ResolveNeighbors");
-
-        Assert.Contains("GetOrBuildCircuitFriendlySparseTree", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("TryEvictCircuitFriendlyTreeCacheEpoch", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("ClearCircuitFriendlyRootCacheForTests", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("Array.BinarySearch", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetEnumerator", runtimeShape, StringComparison.Ordinal);
+            "ResolveNeighbors"
+        })
+        {
+            Assert.NotNull(accumulator.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public));
+        }
+        IReadOnlyList<string> binarySearchCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            accumulator,
+            static member => member.DeclaringType == typeof(Array) && member.Name == nameof(Array.BinarySearch));
+        Assert.Contains(binarySearchCallers, static caller => caller.EndsWith(".ResolveNeighbors", StringComparison.Ordinal));
+        IReadOnlyList<string> enumeratorCallers = RuntimeMetadataInspection.FindMethodsCallingMember(
+            accumulator,
+            static member => member.Name == "GetEnumerator");
+        Assert.DoesNotContain(enumeratorCallers, static caller => caller.EndsWith(".ResolveNeighbors", StringComparison.Ordinal));
     }
 
     [Fact]

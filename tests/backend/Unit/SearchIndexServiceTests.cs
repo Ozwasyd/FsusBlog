@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -598,18 +599,24 @@ public sealed class SearchIndexServiceTests
         Type service = typeof(SearchIndexService);
         Type runtimeSnapshot = service.GetNestedType("SearchRuntimeSnapshot", BindingFlags.NonPublic)!;
         Type shardData = service.GetNestedType("SearchShardData", BindingFlags.NonPublic)!;
-        string topK = RuntimeMetadataInspection.DescribeMethods(runtimeSnapshot, "SelectTopRuntimeCandidates");
-        string histogram = RuntimeMetadataInspection.DescribeMethods(service, "ResolveDocumentFrequencyCutoff");
+        MethodInfo topK = runtimeSnapshot.GetMethod("SelectTopRuntimeCandidates", BindingFlags.NonPublic | BindingFlags.Static)!;
+        MethodBase[] topKCalls = ReadCalledMethods(topK).Select(static call => call.Method).ToArray();
+        MethodInfo histogram = service.GetMethod("ResolveDocumentFrequencyCutoff", BindingFlags.NonPublic | BindingFlags.Static)!;
+        MethodBase[] histogramCalls = ReadCalledMethods(histogram).Select(static call => call.Method).ToArray();
 
-        Assert.Contains("PriorityQueue", topK, StringComparison.Ordinal);
-        Assert.Contains("PriorityQueue`2.Enqueue", topK, StringComparison.Ordinal);
-        Assert.Contains("Array.Sort", topK, StringComparison.Ordinal);
-        Assert.DoesNotContain("Enumerable.OrderByDescending", topK, StringComparison.Ordinal);
+        Assert.Contains(topKCalls, static method =>
+            method.DeclaringType?.IsGenericType == true
+            && method.DeclaringType.GetGenericTypeDefinition() == typeof(PriorityQueue<,>)
+            && method.Name == nameof(PriorityQueue<int, int>.Enqueue));
+        Assert.Contains(topKCalls, static method =>
+            method.DeclaringType == typeof(Array) && method.Name == nameof(Array.Sort));
+        Assert.DoesNotContain(topKCalls, static method =>
+            method.DeclaringType == typeof(Enumerable) && method.Name == nameof(Enumerable.OrderByDescending));
         Assert.NotNull(service.GetMethod("BuildForwardIndex", BindingFlags.NonPublic | BindingFlags.Static));
         Assert.NotNull(shardData.GetProperty("ForwardIndex"));
         Assert.NotNull(service.GetMethod("BuildRuntimePostingBlocks", BindingFlags.NonPublic | BindingFlags.Static));
-        Assert.Contains("ArrayPool`1.Rent", histogram, StringComparison.Ordinal);
-        Assert.Contains("ArrayPool`1.Return", histogram, StringComparison.Ordinal);
+        Assert.Contains(histogramCalls, static method => method.Name == nameof(ArrayPool<int>.Rent));
+        Assert.Contains(histogramCalls, static method => method.Name == nameof(ArrayPool<int>.Return));
     }
 
     [Fact]
@@ -633,17 +640,25 @@ public sealed class SearchIndexServiceTests
     public void SearchIndexService_RuntimeUsesIncrementalMutationPathAndSafeFallback()
     {
         Type service = typeof(SearchIndexService);
-        string addOrUpdate = RuntimeMetadataInspection.DescribeMethods(service, nameof(SearchIndexService.AddOrUpdateIndexAsync));
-        string delete = RuntimeMetadataInspection.DescribeMethods(service, nameof(SearchIndexService.DeleteIndexAsync));
-        string incremental = RuntimeMetadataInspection.DescribeMethods(service, "ApplyIncrementalSearchIndexAsync");
+        MethodInfo addOrUpdateMethod = service.GetMethod(nameof(SearchIndexService.AddOrUpdateIndexAsync))!;
+        MethodInfo deleteMethod = service.GetMethod(nameof(SearchIndexService.DeleteIndexAsync))!;
+        MethodBase[] addOrUpdateCalls = ReadCalledMethods(addOrUpdateMethod).Select(static call => call.Method).ToArray();
+        MethodBase[] deleteCalls = ReadCalledMethods(deleteMethod).Select(static call => call.Method).ToArray();
+        string incremental = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
+            service,
+            "LoadArticlesAsync",
+            "BuildArtifacts",
+            "PublishArtifactsAsync",
+            "RebuildSearchIndexAsync",
+            "RecordSearchRuntimeSnapshotMemory");
         string publish = RuntimeMetadataInspection.DescribeMethods(service, "PublishArtifactsAsync");
         string search = RuntimeMetadataInspection.DescribeMethods(service, nameof(SearchIndexService.SearchAsync));
         Type runtimeDocument = service.GetNestedType("SearchRuntimeDocument", BindingFlags.NonPublic)!;
 
-        Assert.Contains("ApplyIncrementalSearchIndexAsync", addOrUpdate, StringComparison.Ordinal);
-        Assert.Contains("ApplyIncrementalSearchIndexAsync", delete, StringComparison.Ordinal);
-        Assert.DoesNotContain("RebuildSearchIndexAsync", addOrUpdate, StringComparison.Ordinal);
-        Assert.DoesNotContain("RebuildSearchIndexAsync", delete, StringComparison.Ordinal);
+        Assert.Contains(addOrUpdateCalls, static method => method.Name == "ApplyIncrementalSearchIndexAsync");
+        Assert.Contains(deleteCalls, static method => method.Name == "ApplyIncrementalSearchIndexAsync");
+        Assert.DoesNotContain(addOrUpdateCalls, static method => method.Name == "RebuildSearchIndexAsync");
+        Assert.DoesNotContain(deleteCalls, static method => method.Name == "RebuildSearchIndexAsync");
         Assert.Contains("LoadArticlesAsync", incremental, StringComparison.Ordinal);
         Assert.Contains("BuildArtifacts", incremental, StringComparison.Ordinal);
         Assert.Contains("PublishArtifactsAsync", incremental, StringComparison.Ordinal);

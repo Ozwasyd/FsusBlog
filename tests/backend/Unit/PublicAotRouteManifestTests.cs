@@ -127,11 +127,11 @@ public sealed class PublicAotRouteManifestTests
     private static RouteEndpoint FindRoute(WebApplication app, string route)
         => Assert.Single(((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
-            .OfType<RouteEndpoint>()
-            .Where(endpoint => string.Equals(
+            .OfType<RouteEndpoint>(),
+            endpoint => string.Equals(
                 endpoint.RoutePattern.RawText?.TrimStart('/'),
                 route.TrimStart('/'),
-                StringComparison.Ordinal)));
+                StringComparison.Ordinal));
 
     private static async Task<string> RunHealthDiagnosticAsync(string token)
     {

@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, ref, type PropType, type VNode } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'

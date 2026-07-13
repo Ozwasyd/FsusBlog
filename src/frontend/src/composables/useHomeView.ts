@@ -17,6 +17,7 @@ import { createStableArticleCardMapper } from '@/view-contracts/articleListStabl
 import { createPublicSeedRenderTimeOptions } from '@/public-renderers/publicRenderClock'
 
 const HOME_FEATURED_ARTICLE_COUNT = 1
+const HOME_FEATURED_ARTICLE_PREFETCH_COUNT = 3
 const HOME_HOT_ARTICLE_PREFETCH_COUNT = 10
 const HOME_SECONDARY_CONTENT_SENTINEL_ID = 'fsus-home-secondary-content-sentinel'
 const HOME_SECONDARY_LIST_ROOT_MARGIN = '600px 0px 600px 0px'
@@ -259,12 +260,24 @@ export function useHomeView() {
     }
 
     try {
-      const [featured, hot] = await featuredTask.run(
-        async (signal) => await Promise.all([
-          getFeaturedArticles(HOME_FEATURED_ARTICLE_COUNT, { signal }),
+      const [featuredResult, hotResult] = await featuredTask.run(
+        async (signal) => await Promise.allSettled([
+          getFeaturedArticles(HOME_FEATURED_ARTICLE_PREFETCH_COUNT, { signal }),
           getHotArticles(HOME_HOT_ARTICLE_PREFETCH_COUNT, { signal })
         ])
       )
+
+      if (hotResult.status === 'rejected') throw hotResult.reason
+      let featured: FeaturedArticleItem[] = []
+      if (featuredResult.status === 'fulfilled') {
+        featured = featuredResult.value || []
+      } else {
+        const featuredError = toAppError(featuredResult.reason, 'home_featured_load_failed')
+        if (featuredError.code !== AppErrorCode.NotFound && featuredError.status !== 404) {
+          throw featuredResult.reason
+        }
+      }
+      const hot = hotResult.value
 
       if (lifecycle.isActive()) {
         // Keep source order intact here. One shared editorial selector owns

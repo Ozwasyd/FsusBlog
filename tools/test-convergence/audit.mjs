@@ -134,8 +134,8 @@ export function scanBackendSourceLocking(source, filePath = '<memory>') {
 
   const fileReader = /\bFile\.ReadAllText(?:Async)?\s*\(/gu
   while ((match = fileReader.exec(source)) !== null) {
-    const start = Math.max(0, match.index - 1200)
-    const forward = source.slice(match.index, Math.min(source.length, match.index + 800))
+    const start = Math.max(0, match.index - 320)
+    const forward = source.slice(match.index, Math.min(source.length, match.index + 320))
     const backward = source.slice(start, match.index)
     const window = `${backward}${forward}`
     const target = likelyRepoTarget(stringLiterals(forward))
@@ -144,6 +144,15 @@ export function scanBackendSourceLocking(source, filePath = '<memory>') {
       || window.includes('BackendTestPaths.PathFromRoot')
       || window.includes('BackendTestPaths.FromRoot')
     if (!repositoryRooted && !target) continue
+    if (repositoryRooted
+      && /BackendTestPaths\.FromRoot\s*\([^)]*"tests"[^)]*"(?:backend"[^)]*)?[Ff]ixtures"/su.test(backward)) {
+      continue
+    }
+    if (repositoryRooted
+      && /Path\.Combine\s*\(\s*"tests"\s*,\s*"fixtures"/su.test(backward)
+      && /BackendTestPaths\.FromRoot\s*\(\s*relativePath\s*\)/su.test(backward)) {
+      continue
+    }
     if (target && isFixtureTarget(target)) continue
     if (!repositoryRooted && target && !/^(?:src|docs|tests|tools|\.github|benchmarks|deploy|ops|security)\//u.test(normalizeRepoPath(target))) {
       continue

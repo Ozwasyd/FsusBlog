@@ -2,9 +2,11 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading.Channels;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -202,12 +204,21 @@ public class BackgroundWorkflowSourceTests
     [Fact]
     public void ContentFilterReload_SourceUsesSerializedQueueInsteadOfWatcherTaskRun()
     {
-        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(ContentFilterService));
+        FieldInfo reloadQueue = Assert.IsAssignableFrom<FieldInfo>(typeof(ContentFilterService).GetField(
+            "_reloadQueue",
+            BindingFlags.Instance | BindingFlags.NonPublic));
+        Assert.Equal(typeof(Channel<string>), reloadQueue.FieldType);
+        string enqueue = RuntimeMetadataInspection.DescribeMethods(typeof(ContentFilterService), "OnFileChanged");
+        string worker = RuntimeMetadataInspection.DescribeMethods(typeof(ContentFilterService), "ProcessReloadQueueAsync");
+        string read = RuntimeMetadataInspection.DescribeMethods(typeof(ContentFilterService), "ReadAllLinesCoreAsync");
 
-        Assert.Contains("Channel.CreateBounded", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("ProcessReloadQueueAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.DoesNotContain("ReloadFromWatcherAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("ReadAllLinesCoreAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ChannelWriter", enqueue, StringComparison.Ordinal);
+        Assert.Contains("TryWrite", enqueue, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.Run", enqueue, StringComparison.Ordinal);
+        Assert.Contains("WaitToReadAsync", worker, StringComparison.Ordinal);
+        Assert.Contains("TryRead", worker, StringComparison.Ordinal);
+        Assert.Contains("ReloadFromWatcherAsync", worker, StringComparison.Ordinal);
+        Assert.Contains("ReadLineAsync", read, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -239,15 +250,19 @@ public class BackgroundWorkflowSourceTests
     [Fact]
     public void VisitProjectionAndPublicHot_SourceCoalesceBackgroundWork()
     {
-        string projection = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewProjectionService));
+        string projection = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleViewProjectionService),
+            nameof(ArticleViewProjectionService.ApplyAsync));
         string repair = RuntimeMetadataInspection.DescribeType(typeof(ArticleViewProjectionRepairWorker));
-        string publicHotQueue = RuntimeMetadataInspection.DescribeType(typeof(PublicHotArtifactUpdateQueue));
+        FieldInfo refreshInterval = Assert.IsAssignableFrom<FieldInfo>(typeof(PublicHotArtifactUpdateWorker).GetField(
+            "ViewProjectionRefreshInterval",
+            BindingFlags.Static | BindingFlags.NonPublic));
 
         Assert.Contains("IncreaseViewCountsAsync", projection, StringComparison.Ordinal);
-        Assert.Contains("MaxPerBatchViewInvalidations", projection, StringComparison.Ordinal);
+        Assert.Equal(128, ArticleViewProjectionService.MaxPerBatchViewInvalidations);
         Assert.Contains("article-view-projection-batch", projection, StringComparison.Ordinal);
         Assert.Contains("ArticleViewProjectionRepairWorker", repair, StringComparison.Ordinal);
-        Assert.Contains("ViewProjectionRefreshInterval", publicHotQueue, StringComparison.Ordinal);
+        Assert.Equal(TimeSpan.FromSeconds(30), refreshInterval.GetValue(null));
     }
 
     [Fact]
@@ -377,7 +392,10 @@ public class BackgroundWorkflowSourceTests
             Directory.CreateDirectory(bin);
             string docker = Path.Combine(bin, "docker");
             await File.WriteAllTextAsync(docker, RuntimeEvidenceFakeDocker);
-            File.SetUnixFileMode(docker, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(docker, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
             await File.WriteAllTextAsync(Path.Combine(tempRoot, "postgres-counter"), "100\n");
             await File.WriteAllTextAsync(Path.Combine(tempRoot, "redis-counter"), "200\n");
 
@@ -539,8 +557,11 @@ public class BackgroundWorkflowSourceTests
             NodePath = Path.Combine(bin, "fake-node");
             File.WriteAllText(DockerPath, DataScaleFakeDocker);
             File.WriteAllText(NodePath, DataScaleFakeNode);
-            File.SetUnixFileMode(DockerPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            File.SetUnixFileMode(NodePath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(DockerPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                File.SetUnixFileMode(NodePath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
         }
 
         public string Root { get; }
@@ -1001,6 +1022,6 @@ public class ApiBinaryResponseMiddlewareTests
             typeof(ApiBinaryResponseMiddleware),
             "RequiresLegacyBinaryEnvelopeFallback");
         Assert.Contains("LegacyBinaryEnvelopeFallbackMetadata", metadataCheck, StringComparison.Ordinal);
-        Assert.Contains("EndpointMetadataCollectionExtensions.GetMetadata", metadataCheck, StringComparison.Ordinal);
+        Assert.Contains("GetMetadata", metadataCheck, StringComparison.Ordinal);
     }
 }

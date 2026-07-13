@@ -17,6 +17,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]
+[Trait("Category", "Integration")]
 [Trait("Category", "SecurityStateMachine")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigrationFixture fixture)

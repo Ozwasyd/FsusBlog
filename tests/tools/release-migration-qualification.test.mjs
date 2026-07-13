@@ -14,7 +14,14 @@ import {
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const template = path.join(root, 'tests/fixtures/deployment/release-migration-qualification-scenario.template.json')
 
-function scenario() { return JSON.parse(fs.readFileSync(template, 'utf8')) }
+function scenario() {
+  const value = JSON.parse(fs.readFileSync(template, 'utf8'))
+  value.topology.origins = {
+    source: 'http://127.0.0.1:5111',
+    target: 'http://127.0.0.1:5222'
+  }
+  return value
+}
 function command(role, parsed, start = 0, end = 100) {
   return { role, type: 'command', status: 'pass', parsed, startedAtUtc: new Date(start).toISOString(), completedAtUtc: new Date(end).toISOString(), errors: [] }
 }

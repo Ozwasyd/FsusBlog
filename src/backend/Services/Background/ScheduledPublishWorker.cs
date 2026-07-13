@@ -129,34 +129,36 @@ public sealed class ScheduledPublishWorker(
         int insertedOutboxEvents = 0;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
-            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-                """
-                UPDATE article
-                SET status = @PublishedStatus,
-                    published_at = @Now,
-                    scheduled_publish_at = NULL
-                WHERE id IN (
-                    SELECT id
-                    FROM article
-                    WHERE isdeleted = false
-                      AND status = @ScheduledStatus
-                      AND scheduled_publish_at <= @Now
-                    ORDER BY scheduled_publish_at, id
-                    LIMIT @BatchSize
-                    FOR UPDATE SKIP LOCKED
-                )
-                RETURNING id;
-                """,
-                new SugarParameter[]
-                {
-                    new("@PublishedStatus", (int)ArticleStatus.Published),
-                    new("@Now", now),
-                    new("@ScheduledStatus", (int)ArticleStatus.Scheduled),
-                    new("@BatchSize", 100)
-                });
-            while (await reader.ReadAsync(cancellationToken))
+            using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                       """
+                       UPDATE article
+                       SET status = @PublishedStatus,
+                           published_at = @Now,
+                           scheduled_publish_at = NULL
+                       WHERE id IN (
+                           SELECT id
+                           FROM article
+                           WHERE isdeleted = false
+                             AND status = @ScheduledStatus
+                             AND scheduled_publish_at <= @Now
+                           ORDER BY scheduled_publish_at, id
+                           LIMIT @BatchSize
+                           FOR UPDATE SKIP LOCKED
+                       )
+                       RETURNING id;
+                       """,
+                       new SugarParameter[]
+                       {
+                           new("@PublishedStatus", (int)ArticleStatus.Published),
+                           new("@Now", now),
+                           new("@ScheduledStatus", (int)ArticleStatus.Scheduled),
+                           new("@BatchSize", 100)
+                       }))
             {
-                claimedArticleIds.Add(reader.GetInt32(0));
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    claimedArticleIds.Add(reader.GetInt32(0));
+                }
             }
 
             if (claimedArticleIds.Count == 0)

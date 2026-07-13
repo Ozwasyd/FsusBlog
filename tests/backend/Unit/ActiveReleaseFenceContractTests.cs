@@ -197,8 +197,8 @@ public sealed class ActiveReleaseFenceContractTests
         ClaimsAuthorizationRequirement permission = Assert.Single(endpoint.Metadata
             .GetOrderedMetadata<AuthorizationPolicy>()
             .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(AdminPermissions.SystemConfig, permission.AllowedValues ?? []);
     }
 
@@ -213,7 +213,10 @@ public sealed class ActiveReleaseFenceContractTests
         {
             string adminHeader = Path.Combine(tempRoot, "admin.header");
             await File.WriteAllTextAsync(adminHeader, "Authorization: Bearer test-admin-token\n");
-            File.SetUnixFileMode(adminHeader, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(adminHeader, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
 
             using var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();

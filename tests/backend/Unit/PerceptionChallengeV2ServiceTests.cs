@@ -547,8 +547,8 @@ public sealed class PerceptionChallengeV2ServiceTests
             CancellationToken.None);
 
         Assert.True(result.Allowed, result.Reason);
-        var scriptCall = Assert.Single(database.ReceivedCalls().Where(static call =>
-            call.GetMethodInfo().Name == nameof(IDatabase.ScriptEvaluateAsync)));
+        var scriptCall = Assert.Single(database.ReceivedCalls(), static call =>
+            call.GetMethodInfo().Name == nameof(IDatabase.ScriptEvaluateAsync));
         string script = Assert.IsType<string>(scriptCall.GetArguments()[0]);
         Assert.Contains("redis.call('INCR'", script, StringComparison.Ordinal);
         Assert.Contains("redis.call('PEXPIRE'", script, StringComparison.Ordinal);

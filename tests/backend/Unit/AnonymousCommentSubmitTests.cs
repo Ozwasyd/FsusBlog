@@ -41,7 +41,10 @@ namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
-public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture fixture)
+public sealed class AnonymousCommentSubmitTests(
+    PostgresSchemaMigrationFixture fixture,
+    AnonymousCommentSubmitDatabaseFixture classDatabase)
+    : IClassFixture<AnonymousCommentSubmitDatabaseFixture>, IAsyncLifetime
 {
     private static readonly byte[] Ticket = Enumerable.Range(0, 32).Select(static value => (byte)(value + 1)).ToArray();
     private const string NullifierHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -106,7 +109,12 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         string nullifier = RuntimeMetadataInspection.DescribeMethods(
             typeof(CommentAnonymousNullifierService),
             nameof(CommentAnonymousNullifierService.TryConsumeAsync));
-        string observability = RuntimeMetadataInspection.DescribeType(typeof(FsusObservability));
+        HashSet<string> instruments = typeof(FsusObservability)
+            .GetFields(BindingFlags.Static | BindingFlags.NonPublic)
+            .Select(static field => field.GetValue(null))
+            .OfType<System.Diagnostics.Metrics.Instrument>()
+            .Select(static instrument => instrument.Name)
+            .ToHashSet(StringComparer.Ordinal);
 
         Assert.Contains("TryConsumeAsync", create, StringComparison.Ordinal);
         Assert.DoesNotContain("CheckAndReserveAsync", create, StringComparison.Ordinal);
@@ -116,10 +124,10 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
         Assert.Contains("use_count = comment_anonymous_nullifier.use_count + 1", nullifier, StringComparison.Ordinal);
         Assert.Contains("first_comment_id = COALESCE(comment_anonymous_nullifier.first_comment_id, @CommentId)", nullifier, StringComparison.Ordinal);
         Assert.Contains("RecordAnonymousNullifierAtomicIncrement", nullifier, StringComparison.Ordinal);
-        Assert.Contains("fsus.anonymous_nullifier.precheck_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.anonymous_nullifier.atomic_increment_elapsed_ms", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.anonymous_nullifier.scope_limit_rejected_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.anonymous_nullifier.blocked_rejected_count", observability, StringComparison.Ordinal);
+        Assert.Contains("fsus.anonymous_nullifier.precheck_count", instruments);
+        Assert.Contains("fsus.anonymous_nullifier.atomic_increment_elapsed_ms", instruments);
+        Assert.Contains("fsus.anonymous_nullifier.scope_limit_rejected_count", instruments);
+        Assert.Contains("fsus.anonymous_nullifier.blocked_rejected_count", instruments);
     }
 
     [Fact]
@@ -558,9 +566,10 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AnonymousCommentCreateEndpoint_IsStrongAnonymousAndDoesNotReplaceSignedEndpoint()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint anonymous = EndpointContractApplication.Find(
             app,
             "/api/binary/comment/anonymous",
@@ -603,22 +612,23 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task OrdinaryCommentEndpoints_UseAccountPrincipalContextInsteadOfLegacyUserId()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint create = EndpointContractApplication.Find(app, "/api/binary/comment", HttpMethods.Post);
         RouteEndpoint mine = EndpointContractApplication.Find(app, "/api/binary/comment/me", HttpMethods.Get);
         Assert.Null(create.Metadata.GetMetadata<IAllowAnonymous>());
         Assert.Null(mine.Metadata.GetMetadata<IAllowAnonymous>());
 
-        string createHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
-            typeof(BinaryEndpoints),
-            "CreateAttributablePublicCommentAsync",
-            "AccountPrincipalContext");
-        string myCommentsHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
-            typeof(BinaryEndpoints),
-            "GetAttributableCommentsAsync",
-            "AccountPrincipalContext");
+        MethodInfo createMethod = Assert.IsAssignableFrom<MethodInfo>(create.Metadata.GetMetadata<MethodInfo>());
+        MethodInfo mineMethod = Assert.IsAssignableFrom<MethodInfo>(mine.Metadata.GetMetadata<MethodInfo>());
+        string createHandler = RuntimeMetadataInspection.DescribeMethods(createMethod.DeclaringType!, createMethod.Name);
+        string myCommentsHandler = RuntimeMetadataInspection.DescribeMethods(mineMethod.DeclaringType!, mineMethod.Name);
+        Assert.Contains("CreateAttributablePublicCommentAsync", createHandler, StringComparison.Ordinal);
+        Assert.Contains("GetUserCommentsAsync", myCommentsHandler, StringComparison.Ordinal);
+        Assert.Contains("AccountPrincipalContext", createHandler, StringComparison.Ordinal);
+        Assert.Contains("AccountPrincipalContext", myCommentsHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserId", createHandler, StringComparison.Ordinal);
         Assert.DoesNotContain("GetUserId", myCommentsHandler, StringComparison.Ordinal);
         Assert.Contains("get_AccountId", createHandler, StringComparison.Ordinal);
@@ -718,7 +728,12 @@ public sealed class AnonymousCommentSubmitTests(PostgresSchemaMigrationFixture f
             HideUntilReviewed: true);
 
     private Task<SqlSugarClient> CreateDbAsync()
-        => PostgresSqlSugarTestClient.CreateAsync(fixture);
+        => Task.FromResult(classDatabase.CreateClient());
+
+    public async Task InitializeAsync()
+        => _ = await classDatabase.ResetAsync(fixture);
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private static void CreateTables(SqlSugarClient db)
     {

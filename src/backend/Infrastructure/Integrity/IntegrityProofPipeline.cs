@@ -444,7 +444,7 @@ public sealed class IntegrityProofScheduler(
                 @FailureDetail,
                 @CreatedAt,
                 @UpdatedAt,
-                @SupersededAt
+                CAST(@SupersededAt AS timestamp)
             )
             ON CONFLICT (idempotency_key) DO UPDATE
             SET canonical_hash = EXCLUDED.canonical_hash,
@@ -532,13 +532,13 @@ public sealed class IntegrityProofScheduler(
                 @ArticleRevisionId,
                 @RevisionNo,
                 @ArticleRightsSnapshotId,
-                @PublishProofId,
+                CAST(@PublishProofId AS bigint),
                 @IdempotencyKey,
                 @RightsPolicyHash,
                 @ContentCanonicalHash,
                 @ProofStatus,
                 @SigningKeyId,
-                @SigningKeyVersion,
+                CAST(@SigningKeyVersion AS integer),
                 @SigningAlgorithm,
                 @Signature,
                 @FailureCode,

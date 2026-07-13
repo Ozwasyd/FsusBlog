@@ -10,6 +10,8 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Telemetry;
 using FsusBlog.Server.Services.VisitLog;
+using Microsoft.AspNetCore.Mvc;
+using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
 
@@ -791,13 +793,13 @@ public static class DeploymentControlEndpoints
     {
         endpoints.MapGet("/api/ops/deployment/status", (
             HttpContext context,
-            DeploymentDrainCoordinator deployment) =>
+            [FromServices] DeploymentDrainCoordinator deployment) =>
         {
             if (!IsTrustedHostControl(context))
             {
-                return Results.Json(new { status = "rejected", errorCode = "trusted_host_required" }, statusCode: StatusCodes.Status403Forbidden);
+                return HttpResults.Json(new { status = "rejected", errorCode = "trusted_host_required" }, statusCode: StatusCodes.Status403Forbidden);
             }
-            return Results.Json(deployment.CreateSnapshot());
+            return HttpResults.Json(deployment.CreateSnapshot());
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
@@ -805,17 +807,17 @@ public static class DeploymentControlEndpoints
         endpoints.MapPost("/api/ops/deployment/activate", async Task<IResult> (
             HttpContext context,
             DeploymentControlRequest request,
-            DeploymentDrainCoordinator deployment,
-            IAuditEventService auditEvents,
+            [FromServices] DeploymentDrainCoordinator deployment,
+            [FromServices] IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
             if (!IsTrustedHostControl(context))
             {
-                return Results.Json(new { status = "rejected", errorCode = "trusted_host_required" }, statusCode: StatusCodes.Status403Forbidden);
+                return HttpResults.Json(new { status = "rejected", errorCode = "trusted_host_required" }, statusCode: StatusCodes.Status403Forbidden);
             }
             DeploymentTransitionResult result = deployment.Activate(request);
             await RecordTransitionAuditAsync(context, auditEvents, "activate", result, cancellationToken);
-            return Results.Json(result, statusCode: result.Accepted ? StatusCodes.Status200OK : StatusCodes.Status409Conflict);
+            return HttpResults.Json(result, statusCode: result.Accepted ? StatusCodes.Status200OK : StatusCodes.Status409Conflict);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");
@@ -823,17 +825,17 @@ public static class DeploymentControlEndpoints
         endpoints.MapPost("/api/ops/deployment/drain", async Task<IResult> (
             HttpContext context,
             DeploymentControlRequest request,
-            DeploymentDrainCoordinator deployment,
-            IAuditEventService auditEvents,
+            [FromServices] DeploymentDrainCoordinator deployment,
+            [FromServices] IAuditEventService auditEvents,
             CancellationToken cancellationToken) =>
         {
             if (!IsTrustedHostControl(context))
             {
-                return Results.Json(new { status = "rejected", errorCode = "trusted_host_required" }, statusCode: StatusCodes.Status403Forbidden);
+                return HttpResults.Json(new { status = "rejected", errorCode = "trusted_host_required" }, statusCode: StatusCodes.Status403Forbidden);
             }
             DeploymentTransitionResult result = deployment.BeginDrain(request);
             await RecordTransitionAuditAsync(context, auditEvents, "drain", result, cancellationToken);
-            return Results.Json(result, statusCode: result.Accepted ? StatusCodes.Status202Accepted : StatusCodes.Status409Conflict);
+            return HttpResults.Json(result, statusCode: result.Accepted ? StatusCodes.Status202Accepted : StatusCodes.Status409Conflict);
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
         .RequireRateLimiting("fixed_ip");

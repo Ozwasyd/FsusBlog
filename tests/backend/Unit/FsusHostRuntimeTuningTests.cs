@@ -70,7 +70,7 @@ public sealed class FsusHostRuntimeTuningTests
     [Fact]
     public void RuntimeTuningLog_RuntimeMetadataSeparatesObservedConfigFromInProcessApplied()
     {
-        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(WebApplicationBuilderCompositionExtensions));
+        string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(FsusHostRuntimeTuningLogService));
 
         Assert.Contains("ReadyToRunObserved={ReadyToRun}", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("ReadyToRunInProcessApplied={ReadyToRunApplied}", runtimeShape, StringComparison.Ordinal);
@@ -88,14 +88,8 @@ public sealed class FsusHostRuntimeTuningTests
             .GetCustomAttributes<AssemblyMetadataAttribute>()
             .ToDictionary(static attribute => attribute.Key, static attribute => attribute.Value, StringComparer.Ordinal);
 
-        Assert.True(string.Equals(
-            "false",
-            metadata["FsusBlog.PublishReadyToRun"],
-            StringComparison.OrdinalIgnoreCase));
-        Assert.True(string.Equals(
-            "false",
-            metadata["FsusBlog.ReadyToRunUseCrossgen2"],
-            StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("false", metadata["FsusBlog.PublishReadyToRun"], ignoreCase: true);
+        Assert.Equal("false", metadata["FsusBlog.ReadyToRunUseCrossgen2"], ignoreCase: true);
     }
 
     [Fact]
@@ -107,9 +101,12 @@ public sealed class FsusHostRuntimeTuningTests
             string dockerLog = Path.Combine(root, "docker.log");
             string docker = Path.Combine(root, "docker");
             await File.WriteAllTextAsync(docker, FakeDockerScript);
-            File.SetUnixFileMode(
-                docker,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(
+                    docker,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
 
             ProcessResult accepted = await RunImageContractAsync(root, dockerLog, mode: "valid");
             Assert.Equal(0, accepted.ExitCode);

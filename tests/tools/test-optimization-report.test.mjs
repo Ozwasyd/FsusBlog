@@ -160,6 +160,8 @@ function finalCheckpoints({ integrationMs = 200_000, staticMs = 15_000, boundari
       mode: 'fresh',
       status: 'success',
       sourceState,
+      budgetMs: 300_000,
+      startedAt: '2026-07-10T02:55:00Z',
       finishedAt: '2026-07-10T03:00:00Z',
       updatedAt: '2026-07-10T03:00:00Z',
       tiers: {
@@ -199,27 +201,18 @@ function projectedProductionCheckpoint() {
   const sourceState = { commit: 'c'.repeat(40), worktreeFingerprint: 'd'.repeat(64) }
   const executedTierIds = [
     'integration',
+    'security-authenticated-dast',
     'static-governance',
     ...Array.from({ length: 74 }, (_, index) => `logical-${String(index + 1).padStart(2, '0')}`)
   ]
-  const logicalTierIds = [...executedTierIds, 'security-authenticated-dast'].sort()
+  const logicalTierIds = [...executedTierIds].sort()
   const entries = Object.fromEntries(logicalTierIds.map((tierId) => {
-    if (tierId === 'security-authenticated-dast') {
-      return [tierId, {
-        tierId,
-        evidenceKind: 'summary-only',
-        physicalBundleId: null,
-        status: 'collected-blocked',
-        executionSource: 'external-environment',
-        durationMs: null,
-        testIds: ['summary-only:security-authenticated-dast'],
-        artifactDigests: { '.tmp/local-production/summary-only/security-authenticated-dast.json': `sha256:${'a'.repeat(64)}` }
-      }]
-    }
     return [tierId, {
       tierId,
       evidenceKind: 'executed',
-      physicalBundleId: tierId === 'integration' || tierId === 'static-governance' ? 'runtime-browser' : 'build-static',
+      physicalBundleId: ['integration', 'security-authenticated-dast'].includes(tierId)
+        ? 'runtime-browser'
+        : tierId === 'static-governance' ? 'frontend-tests' : 'build-static',
       status: 'success',
       executionSource: 'fresh',
       durationMs: tierId === 'integration' ? 200_000 : tierId === 'static-governance' ? 15_000 : 1,
@@ -233,6 +226,8 @@ function projectedProductionCheckpoint() {
     mode: 'fresh',
     status: 'success',
     sourceState,
+    budgetMs: 300_000,
+    startedAt: '2026-07-10T02:55:00Z',
     finishedAt: '2026-07-10T03:00:00Z',
     updatedAt: '2026-07-10T03:00:00Z',
     tiers: {
@@ -250,8 +245,8 @@ function projectedProductionCheckpoint() {
       executionSource: 'fresh',
       status: 'success',
       logicalTierCount: 77,
-      executedTierCount: 76,
-      summaryOnlyTierCount: 1,
+      executedTierCount: 77,
+      summaryOnlyTierCount: 0,
       logicalTierIds,
       entries
     }
@@ -931,6 +926,33 @@ test('optimization report prefers the latest fresh production checkpoint over fo
 
   assert.equal(report.authoritativeFreshRun.runId, 'production-proof')
   assert.deepEqual(report.tierDurations.map((entry) => entry.id), ['production'])
+})
+
+test('optimization report observes production duration without enforcing the former five-minute target', () => {
+  const base = {
+    retainedEvidence: { coverageIds: [], uniqueAssertionTargetCount: 0, testRecordCount: 0 },
+    testRecords: []
+  }
+  const report = buildOptimizationReport({
+    before: base,
+    after: base,
+    checkpoints: [{
+      runId: 'production-over-budget',
+      targetTierId: 'production',
+      mode: 'fresh',
+      status: 'success',
+      budgetMs: 300_000,
+      startedAt: '2026-07-12T00:00:00.000Z',
+      finishedAt: '2026-07-12T00:05:00.001Z',
+      tiers: {}
+    }]
+  })
+
+  assert.equal(report.productionWallClock.status, 'pass')
+  assert.equal(report.productionWallClock.durationMs, 300_001)
+  assert.equal(report.productionWallClock.enforced, false)
+  assert.equal(report.authoritativeFreshRun.durationStatus, 'pass')
+  assert.deepEqual(report.productionWallClock.errors, [])
 })
 
 test('optimization report CLI refuses to manufacture a proof without the baseline audit', () => {

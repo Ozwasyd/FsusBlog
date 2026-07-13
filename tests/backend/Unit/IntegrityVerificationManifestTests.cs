@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -99,7 +100,11 @@ public sealed class IntegrityVerificationManifestTests
     [Fact]
     public async Task PublicEndpointContract_IsAnonymousJsonSidecarOutsideAedsBinaryPath()
     {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Production
+        });
+        builder.Services.AddFsusRuntimeDomainServices();
         await using WebApplication app = builder.Build();
         app.MapIntegrityVerificationEndpoints();
 
@@ -150,10 +155,14 @@ public sealed class IntegrityVerificationManifestTests
     [Fact]
     public async Task PublicVerificationRuntime_RegistersRoutesAndVerifiesWithPublicKeyOnly()
     {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Production
+        });
+        builder.Services.AddFsusRuntimeDomainServices();
         await using WebApplication app = builder.Build();
         app.MapIntegrityVerificationEndpoints();
-        string[] routes = app.DataSources
+        string[] routes = ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
             .OfType<RouteEndpoint>()
             .Select(static endpoint => endpoint.RoutePattern.RawText ?? string.Empty)

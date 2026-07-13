@@ -21,6 +21,7 @@ export function parseMatrix(text) {
   let currentProfile = null
   let currentBundle = null
   let currentTier = null
+  let currentTierListField = null
 
   for (const rawLine of text.split(/\r?\n/)) {
     const withoutComment = rawLine.replace(/\s+#.*$/, '')
@@ -33,6 +34,7 @@ export function parseMatrix(text) {
       currentProfile = null
       currentBundle = null
       currentTier = null
+      currentTierListField = null
       if (key !== 'tiers' && key !== 'localProfiles') matrix[key] = parseMatrixValue(value)
       continue
     }
@@ -74,12 +76,27 @@ export function parseMatrix(text) {
     const itemMatch = withoutComment.match(/^\s{2}-\s+([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
     if (itemMatch) {
       currentTier = {}
+      currentTierListField = null
       matrix.tiers.push(currentTier)
       currentTier[itemMatch[1]] = parseMatrixValue(itemMatch[2])
       continue
     }
     const fieldMatch = withoutComment.match(/^\s{4}([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/)
-    if (fieldMatch && currentTier) currentTier[fieldMatch[1]] = parseMatrixValue(fieldMatch[2])
+    if (fieldMatch && currentTier) {
+      const [, key, value] = fieldMatch
+      if (value === '') {
+        currentTier[key] = []
+        currentTierListField = key
+      } else {
+        currentTier[key] = parseMatrixValue(value)
+        currentTierListField = null
+      }
+      continue
+    }
+    const listItemMatch = withoutComment.match(/^\s{6}-\s+(.*?)\s*$/)
+    if (listItemMatch && currentTier && currentTierListField) {
+      currentTier[currentTierListField].push(parseMatrixValue(listItemMatch[1]))
+    }
   }
 
   return matrix

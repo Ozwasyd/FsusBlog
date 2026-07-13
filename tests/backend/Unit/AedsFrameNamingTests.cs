@@ -17,10 +17,7 @@ public sealed class AedsFrameNamingTests
         Assert.Equal(68, (ushort)CoreFrameType.PasskeyCredentialFriendlyNameUpdateRequest);
         Assert.Equal(68, (ushort)SharedFrameType.PasskeyCredentialFriendlyNameUpdateRequest);
         Assert.Equal(68, AedsProtocolMetadata.FrameTypes[FriendlyNameFrame]);
-        Assert.Equal(68, ReadFrameValue(
-            "tests/backend/Fixtures/aeds-golden-catalog.json",
-            "frames",
-            FriendlyNameFrame));
+        Assert.Equal(68, ReadFrameValue("frames", FriendlyNameFrame));
     }
 
     [Fact]
@@ -32,9 +29,10 @@ public sealed class AedsFrameNamingTests
         Assert.False(AedsProtocolMetadata.FrameTypes.ContainsKey("PasskeyRenameRequest"));
     }
 
-    private static int ReadFrameValue(string relativePath, string collectionName, string frameName)
+    private static int ReadFrameValue(string collectionName, string frameName)
     {
-        string json = BackendTestPaths.ReadAllTextFromRoot(relativePath);
+        string json = BackendTestPaths.ReadAllTextFromRoot(
+            "tests", "backend", "Fixtures", "aeds-golden-catalog.json");
         using JsonDocument document = JsonDocument.Parse(json);
         foreach (JsonElement frame in document.RootElement.GetProperty(collectionName).EnumerateArray())
         {
@@ -44,6 +42,6 @@ public sealed class AedsFrameNamingTests
             }
         }
 
-        throw new InvalidOperationException($"Frame {frameName} is missing from {relativePath}.");
+        throw new InvalidOperationException($"Frame {frameName} is missing from the AEDS golden catalog.");
     }
 }

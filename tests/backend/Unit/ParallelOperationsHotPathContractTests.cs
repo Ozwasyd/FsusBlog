@@ -30,7 +30,8 @@ public sealed class ParallelOperationsHotPathContractTests
         await allStarted.Task;
         Assert.Equal(new DbConcurrencyGateSnapshot(4, 4, 0), gate.GetSnapshot());
         release.TrySetResult();
-        Assert.Equal([0, 1, 2, 3], await Task.WhenAll(operations));
+        int[] results = await Task.WhenAll(operations);
+        Assert.Equal([0, 1, 2, 3], results);
         Assert.Equal(new DbConcurrencyGateSnapshot(4, 0, 0), gate.GetSnapshot());
     }
 

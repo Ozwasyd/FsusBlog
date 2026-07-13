@@ -272,7 +272,8 @@ public sealed class UnifiedCacheTests
         await cache.Received(1).IncrementAsync(CachePolicyId.CommentCursorVersion, "article:42:root:7", 1, Arg.Any<CancellationToken>());
         await cache.Received(1).IncrementAsync(CachePolicyId.UserCommentCursorVersion, "account:9", 1, Arg.Any<CancellationToken>());
         await cache.DidNotReceive().RemoveByPrefixAsync(
-            Arg.Is<CachePolicyId>(policy => policy is CachePolicyId.CommentCursor or CachePolicyId.UserCommentCursor),
+            Arg.Is<CachePolicyId>(policy => policy == CachePolicyId.CommentCursor
+                || policy == CachePolicyId.UserCommentCursor),
             Arg.Any<string>(),
             Arg.Any<CancellationToken>());
         await cache.DidNotReceive().RemoveByPrefixManyAsync(Arg.Any<IReadOnlyList<CachePrefixIdentity>>(), Arg.Any<CancellationToken>());

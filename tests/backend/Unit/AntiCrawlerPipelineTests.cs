@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -27,8 +28,8 @@ public sealed class AntiCrawlerPipelineTests
     public async Task TestServer_PartitionsVerifiedCrawlerSocialPreviewAndOrdinaryReadsWhileRejectingFakeCrawler()
     {
         var sink = new CapturingRiskSink();
-        using TestServer server = CreateServer(SecuritySystemModes.Enforce, sink);
-        using HttpClient client = server.CreateClient();
+        await using WebApplication server = await CreateServerAsync(SecuritySystemModes.Enforce, sink);
+        using HttpClient client = server.GetTestClient();
 
         Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/article/42", "Googlebot/2.1", "66.249.64.1")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/article/42", "Googlebot/2.1", "66.249.64.1")).StatusCode);
@@ -57,8 +58,8 @@ public sealed class AntiCrawlerPipelineTests
         bool expectsSignal)
     {
         var sink = new CapturingRiskSink();
-        using TestServer server = CreateServer(mode, sink);
-        using HttpClient client = server.CreateClient();
+        await using WebApplication server = await CreateServerAsync(mode, sink);
+        using HttpClient client = server.GetTestClient();
 
         HttpResponseMessage response = await SendAsync(client, "/article/43", "Googlebot/2.1", "203.0.113.30");
 
@@ -72,8 +73,8 @@ public sealed class AntiCrawlerPipelineTests
     public async Task TestServer_RateLimiterRejectionRiskWritesAreBoundedPerClientAndPath()
     {
         var sink = new CapturingRiskSink();
-        using TestServer server = CreateServer(SecuritySystemModes.Disabled, sink);
-        using HttpClient client = server.CreateClient();
+        await using WebApplication server = await CreateServerAsync(SecuritySystemModes.Disabled, sink);
+        using HttpClient client = server.GetTestClient();
 
         Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/article/9091", "Mozilla/5.0", "203.0.113.240")).StatusCode);
         for (int i = 0; i < 8; i++)
@@ -94,15 +95,15 @@ public sealed class AntiCrawlerPipelineTests
     public async Task TestServer_FixedIpLimiterKeepsAuthenticatedAdminPrincipalBounded()
     {
         var sink = new CapturingRiskSink();
-        using TestServer server = CreateServer(SecuritySystemModes.Disabled, sink);
-        using HttpClient client = server.CreateClient();
+        await using WebApplication server = await CreateServerAsync(SecuritySystemModes.Disabled, sink);
+        using HttpClient client = server.GetTestClient();
 
         Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/admin/ping", "Mozilla/5.0", "203.0.113.250", admin: true)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/admin/ping", "Mozilla/5.0", "203.0.113.250", admin: true)).StatusCode);
         Assert.Equal(HttpStatusCode.TooManyRequests, (await SendAsync(client, "/admin/ping", "Mozilla/5.0", "203.0.113.250", admin: true)).StatusCode);
     }
 
-    private static TestServer CreateServer(string mode, CapturingRiskSink sink)
+    private static async Task<WebApplication> CreateServerAsync(string mode, CapturingRiskSink sink)
     {
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -119,21 +120,20 @@ public sealed class AntiCrawlerPipelineTests
         var policy = new FixedPolicyProvider(CreateOptions(mode));
         var governor = new AdaptivePowGovernor(Substitute.For<IUnifiedCache>(), configuration);
 
-        var builder = new WebHostBuilder()
-            .UseEnvironment("Production")
-            .ConfigureServices(services =>
-            {
-                services.AddSingleton(configuration);
-                services.AddSingleton<IAntiCrawlerPolicyProvider>(policy);
-                services.AddSingleton(detector);
-                services.AddSingleton<ISecurityRiskSignalSink>(sink);
-                services.AddSingleton(governor);
-                services.AddRouting();
-                services.AddFsusRateLimiting();
-            })
-            .Configure(app =>
-            {
-                app.Use(async (context, next) =>
+        var options = new WebApplicationOptions { EnvironmentName = Environments.Production };
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(options);
+        builder.WebHost.UseTestServer();
+        builder.Configuration.Sources.Clear();
+        builder.Services.AddSingleton(configuration);
+        builder.Services.AddSingleton<IAntiCrawlerPolicyProvider>(policy);
+        builder.Services.AddSingleton(detector);
+        builder.Services.AddSingleton<ISecurityRiskSignalSink>(sink);
+        builder.Services.AddSingleton(governor);
+        builder.Services.AddRouting();
+        builder.Services.AddFsusRateLimiting();
+
+        WebApplication app = builder.Build();
+        app.Use(async (context, next) =>
                 {
                     if (context.Request.Headers.TryGetValue("X-Test-Remote-Ip", out var value)
                         && IPAddress.TryParse(value.ToString(), out IPAddress? address))
@@ -153,25 +153,21 @@ public sealed class AntiCrawlerPipelineTests
 
                     await next(context);
                 });
-                app.UseMiddleware<ShieldMiddleware>();
-                app.UseRouting();
-                app.UseRateLimiter();
-                app.UseEndpoints(endpoints =>
-                {
-                    endpoints.MapGet("/article/{id:int}", static async context =>
+        app.UseMiddleware<ShieldMiddleware>();
+        app.UseRouting();
+        app.UseRateLimiter();
+        app.MapGet("/article/{id:int}", static async context =>
                     {
                         context.Response.StatusCode = StatusCodes.Status200OK;
                         await context.Response.WriteAsync("ok");
                     }).RequireRateLimiting("public_read");
-                    endpoints.MapGet("/admin/ping", static async context =>
+        app.MapGet("/admin/ping", static async context =>
                     {
                         context.Response.StatusCode = StatusCodes.Status200OK;
                         await context.Response.WriteAsync("ok");
                     }).RequireRateLimiting("fixed_ip");
-                });
-            });
-
-        return new TestServer(builder);
+        await app.StartAsync();
+        return app;
     }
 
     private static async Task<HttpResponseMessage> SendAsync(

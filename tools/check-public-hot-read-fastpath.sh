@@ -13,10 +13,10 @@ node - "$COMPOSITION_FILE" <<'NODE'
 const fs = require('node:fs');
 const file = process.argv[2];
 const source = fs.readFileSync(file, 'utf8');
-const methodStart = source.indexOf('public static void UseFsusApplicationPipeline');
-const methodEnd = source.indexOf('public static void MapFsusApplicationRoutes', methodStart);
+const methodStart = source.indexOf('private static readonly PipelineStage[] ApplicationPipelineStages');
+const methodEnd = source.indexOf('private static readonly PipelineStage[] EndpointPipelineStages', methodStart);
 if (methodStart < 0 || methodEnd < 0 || methodEnd <= methodStart) {
-  console.error('[public-hot-read] unable to isolate UseFsusApplicationPipeline');
+  console.error('[public-hot-read] unable to isolate ApplicationPipelineStages');
   process.exit(1);
 }
 const block = source.slice(methodStart, methodEnd);

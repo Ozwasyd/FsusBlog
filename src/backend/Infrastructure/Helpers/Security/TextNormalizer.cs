@@ -13,7 +13,7 @@ public static class TextNormalizer
 {
     // 终极优化：创建一个覆盖所有 char 范围的数组作为直接查找表 (Look-Up Table)。
     // 这将消耗 128KB 内存 (65536 * 2 bytes)，但会将繁简转换的性能提升到物理极限。
-    private static readonly char[] _charMap;
+    private static char[] _charMap;
     private static readonly Lock _initLock = new();
     private static PhraseNode _phraseRoot = new();
     private static int _openCcLoaded;
@@ -21,16 +21,17 @@ public static class TextNormalizer
     // 静态构造函数，在服务启动时只执行一次，负责构建这个巨大的查找表
     static TextNormalizer()
     {
-        _charMap = new char[char.MaxValue + 1];
+        var charMap = new char[char.MaxValue + 1];
 
         // 第一步：初始化映射表，让每个字符默认映射到自身
-        for (int i = 0; i < _charMap.Length; i++)
+        for (int i = 0; i < charMap.Length; i++)
         {
-            _charMap[i] = (char)i;
+            charMap[i] = (char)i;
         }
 
         // 仅保留基础 ASCII 归一化。OpenCC 词典在显式初始化阶段加载，避免静态构造吞异常。
-        ApplyAsciiNormalization();
+        ApplyAsciiNormalization(charMap);
+        _charMap = charMap;
     }
 
     public static Result Initialize(ILogger logger)
@@ -62,29 +63,32 @@ public static class TextNormalizer
         string baseDirectory = AppContext.BaseDirectory;
         string dictDirectory = Path.Combine(baseDirectory, "Dictionaries");
         var phraseRoot = new PhraseNode();
+        char[] charMap = (char[])Volatile.Read(ref _charMap).Clone();
 
-        var variantsResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWVariants.txt"), phraseRoot, logger);
+        var variantsResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWVariants.txt"), phraseRoot, charMap, logger);
         if (variantsResult.IsFailure)
         {
             return variantsResult;
         }
 
-        var phrasesResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWPhrases.txt"), phraseRoot, logger);
+        var phrasesResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TWPhrases.txt"), phraseRoot, charMap, logger);
         if (phrasesResult.IsFailure)
         {
             return phrasesResult;
         }
 
-        var charactersResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TSCharacters.txt"), phraseRoot, logger);
+        var charactersResult = LoadOpenCcFile(Path.Combine(dictDirectory, "TSCharacters.txt"), phraseRoot, charMap, logger);
         if (charactersResult.IsSuccess)
         {
+            ApplyAsciiNormalization(charMap);
+            Volatile.Write(ref _charMap, charMap);
             Volatile.Write(ref _phraseRoot, phraseRoot);
         }
 
         return charactersResult;
     }
 
-    private static Result LoadOpenCcFile(string path, PhraseNode phraseRoot, ILogger logger)
+    private static Result LoadOpenCcFile(string path, PhraseNode phraseRoot, char[] charMap, ILogger logger)
     {
         if (!File.Exists(path))
         {
@@ -117,7 +121,7 @@ public static class TextNormalizer
                         {
                             // 使用 char 值作为索引，直接覆盖
                             // TryAdd 的逻辑在这里通过加载顺序来保证
-                            _charMap[key[i]] = value[i];
+                            charMap[key[i]] = value[i];
                         }
                     }
                     else
@@ -136,20 +140,29 @@ public static class TextNormalizer
             LogLevel.Warning);
     }
 
-    private static void ApplyAsciiNormalization()
+    private static void ApplyAsciiNormalization(char[] charMap)
     {
-        // 全角转半角 (ASCII 区段)
-        for (char c = (char)0xFF01; c <= 0xFF5E; c++)
+        for (int i = 0; i < charMap.Length; i++)
         {
-            _charMap[c] = (char)(c - 0xFEE0);
+            charMap[i] = NormalizeAsciiRune(charMap[i]);
         }
-        _charMap[0x3000] = ' '; // 全角空格
+    }
 
-        // 大写转小写 (ASCII)
-        for (char c = 'A'; c <= 'Z'; c++)
+    private static char NormalizeAsciiRune(char value)
+    {
+        if (value == '\u3000')
         {
-            _charMap[c] = (char)(c + 32);
+            return ' ';
         }
+
+        if (value is >= '\uFF01' and <= '\uFF5E')
+        {
+            value = (char)(value - 0xFEE0);
+        }
+
+        return value is >= 'A' and <= 'Z'
+            ? (char)(value + ('a' - 'A'))
+            : value;
     }
 
     /// <summary>
@@ -158,12 +171,13 @@ public static class TextNormalizer
     /// </summary>
     public static void NormalizeInPlace(Span<char> buffer)
     {
+        char[] charMap = Volatile.Read(ref _charMap);
         // 由于所有转换逻辑已预烘焙到 _charMap 中，
         // 归一化过程简化为一次极致的、无分支的循环查表。
         for (int i = 0; i < buffer.Length; i++)
         {
             // 使用 ref 直接修改内存，并用 char 值作为索引进行 O(1) 物理寻址
-            buffer[i] = _charMap[buffer[i]];
+            buffer[i] = charMap[buffer[i]];
         }
     }
 
@@ -176,11 +190,12 @@ public static class TextNormalizer
 
         if (!usePhraseMappings)
         {
-            return string.Create(value.Length, value, static (buffer, source) =>
+            char[] charMap = Volatile.Read(ref _charMap);
+            return string.Create(value.Length, (Value: value, CharMap: charMap), static (buffer, state) =>
             {
-                for (int i = 0; i < source.Length; i++)
+                for (int i = 0; i < state.Value.Length; i++)
                 {
-                    buffer[i] = _charMap[source[i]];
+                    buffer[i] = state.CharMap[state.Value[i]];
                 }
             });
         }
@@ -202,6 +217,7 @@ public static class TextNormalizer
     private static string NormalizeWithPhraseRoot(string value, PhraseNode phraseRoot)
     {
         var builder = new StringBuilder(value.Length);
+        char[] charMap = Volatile.Read(ref _charMap);
         int index = 0;
         while (index < value.Length)
         {
@@ -231,7 +247,7 @@ public static class TextNormalizer
                 continue;
             }
 
-            builder.Append(_charMap[value[index]]);
+            builder.Append(charMap[value[index]]);
             index++;
         }
 

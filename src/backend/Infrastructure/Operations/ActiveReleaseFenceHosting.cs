@@ -2,7 +2,9 @@ using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using HttpResults = Microsoft.AspNetCore.Http.Results;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
 
@@ -89,7 +91,7 @@ public static class ActiveReleaseFenceEndpoints
         endpoints.MapPost(AcquirePath, async Task<IResult> (
             HttpContext context,
             ActiveReleaseFenceAcquireRequest request,
-            IActiveReleaseFence fence,
+            [FromServices] IActiveReleaseFence fence,
             CancellationToken cancellationToken) =>
         {
             if (!DeploymentControlEndpoints.IsTrustedHostControl(context))
@@ -100,7 +102,7 @@ public static class ActiveReleaseFenceEndpoints
             ActiveReleaseFenceOperationResult result = await fence
                 .AcquireAsync(request, cancellationToken)
                 .ConfigureAwait(false);
-            return Results.Json(result, statusCode: result.Accepted
+            return HttpResults.Json(result, statusCode: result.Accepted
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status409Conflict);
         })
@@ -110,7 +112,7 @@ public static class ActiveReleaseFenceEndpoints
         endpoints.MapPost(RevokePath, async Task<IResult> (
             HttpContext context,
             ActiveReleaseFenceRevokeRequest request,
-            IActiveReleaseFence fence,
+            [FromServices] IActiveReleaseFence fence,
             CancellationToken cancellationToken) =>
         {
             if (!DeploymentControlEndpoints.IsTrustedHostControl(context))
@@ -121,7 +123,7 @@ public static class ActiveReleaseFenceEndpoints
             ActiveReleaseFenceOperationResult result = await fence
                 .RevokeAsync(request, cancellationToken)
                 .ConfigureAwait(false);
-            return Results.Json(result, statusCode: result.Accepted
+            return HttpResults.Json(result, statusCode: result.Accepted
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status409Conflict);
         })
@@ -134,7 +136,7 @@ public static class ActiveReleaseFenceEndpoints
             string? slot,
             long? generation,
             bool? requireActive,
-            IActiveReleaseFence fence,
+            [FromServices] IActiveReleaseFence fence,
             CancellationToken cancellationToken) =>
         {
             if (!DeploymentControlEndpoints.IsTrustedHostControl(context))
@@ -149,7 +151,7 @@ public static class ActiveReleaseFenceEndpoints
                     generation,
                     requireActive ?? true),
                 cancellationToken).ConfigureAwait(false);
-            return Results.Json(result, statusCode: result.Accepted
+            return HttpResults.Json(result, statusCode: result.Accepted
                 ? StatusCodes.Status200OK
                 : StatusCodes.Status409Conflict);
         })
@@ -160,7 +162,7 @@ public static class ActiveReleaseFenceEndpoints
     }
 
     private static IResult TrustedHostRequired()
-        => Results.Json(
+        => HttpResults.Json(
             new { accepted = false, status = "rejected", errorCode = "trusted_host_required" },
             statusCode: StatusCodes.Status403Forbidden);
 }

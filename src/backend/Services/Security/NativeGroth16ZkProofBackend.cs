@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
@@ -626,52 +625,68 @@ internal static class NativeGroth16PublicInputCodec
 
     public static ReadOnlyMemory<byte> Encode(ProductionZkProofBackendRequest request)
     {
-        var writer = new ArrayBufferWriter<byte>(512);
-        WriteString(writer, TranscriptDomain);
-        WriteString(writer, request.ActionContext);
-        WriteString(writer, request.Scope);
-        WriteString(writer, request.CircuitId);
-        WriteString(writer, request.VerifyingKeyHash);
-        WriteUInt16(writer, request.PublicInputLayoutVersion);
-        WriteInt64(writer, request.CredentialEpoch);
-        WriteString(writer, request.NullifierHash);
-        WriteString(writer, request.CredentialCommitment);
-        WriteString(writer, request.CredentialRoot);
-        WriteString(writer, request.RevocationRoot);
-        WriteString(writer, request.IssuerPublicKeyHash);
-        WriteString(writer, request.PolicyHash);
-        WriteString(writer, request.CredentialLevel);
-        WriteString(writer, request.ReputationBucket);
-        return writer.WrittenMemory;
+        int length = checked(
+            EncodedStringSize(TranscriptDomain)
+            + EncodedStringSize(request.ActionContext)
+            + EncodedStringSize(request.Scope)
+            + EncodedStringSize(request.CircuitId)
+            + EncodedStringSize(request.VerifyingKeyHash)
+            + sizeof(ushort)
+            + sizeof(long)
+            + EncodedStringSize(request.NullifierHash)
+            + EncodedStringSize(request.CredentialCommitment)
+            + EncodedStringSize(request.CredentialRoot)
+            + EncodedStringSize(request.RevocationRoot)
+            + EncodedStringSize(request.IssuerPublicKeyHash)
+            + EncodedStringSize(request.PolicyHash)
+            + EncodedStringSize(request.CredentialLevel)
+            + EncodedStringSize(request.ReputationBucket));
+        byte[] encoded = GC.AllocateUninitializedArray<byte>(length);
+        Span<byte> destination = encoded;
+        int offset = 0;
+        WriteString(destination, ref offset, TranscriptDomain);
+        WriteString(destination, ref offset, request.ActionContext);
+        WriteString(destination, ref offset, request.Scope);
+        WriteString(destination, ref offset, request.CircuitId);
+        WriteString(destination, ref offset, request.VerifyingKeyHash);
+        WriteUInt16(destination, ref offset, request.PublicInputLayoutVersion);
+        WriteInt64(destination, ref offset, request.CredentialEpoch);
+        WriteString(destination, ref offset, request.NullifierHash);
+        WriteString(destination, ref offset, request.CredentialCommitment);
+        WriteString(destination, ref offset, request.CredentialRoot);
+        WriteString(destination, ref offset, request.RevocationRoot);
+        WriteString(destination, ref offset, request.IssuerPublicKeyHash);
+        WriteString(destination, ref offset, request.PolicyHash);
+        WriteString(destination, ref offset, request.CredentialLevel);
+        WriteString(destination, ref offset, request.ReputationBucket);
+        return encoded;
     }
 
-    private static void WriteString(IBufferWriter<byte> writer, string value)
+    private static int EncodedStringSize(string value)
+        => checked(sizeof(int) + Encoding.UTF8.GetByteCount(value));
+
+    private static void WriteString(Span<byte> destination, ref int offset, string value)
     {
         int byteCount = Encoding.UTF8.GetByteCount(value);
-        WriteInt32(writer, byteCount);
-        Span<byte> span = writer.GetSpan(byteCount);
-        int written = Encoding.UTF8.GetBytes(value, span);
-        writer.Advance(written);
+        WriteInt32(destination, ref offset, byteCount);
+        offset += Encoding.UTF8.GetBytes(value, destination[offset..(offset + byteCount)]);
     }
 
-    private static void WriteInt32(IBufferWriter<byte> writer, int value)
+    private static void WriteInt32(Span<byte> destination, ref int offset, int value)
     {
-        Span<byte> span = writer.GetSpan(sizeof(int));
-        BinaryPrimitives.WriteInt32LittleEndian(span, value);
-        writer.Advance(sizeof(int));
+        BinaryPrimitives.WriteInt32LittleEndian(destination[offset..], value);
+        offset += sizeof(int);
     }
 
-    private static void WriteUInt16(IBufferWriter<byte> writer, ushort value)
+    private static void WriteUInt16(Span<byte> destination, ref int offset, ushort value)
     {
-        Span<byte> span = writer.GetSpan(sizeof(ushort));
-        BinaryPrimitives.WriteUInt16LittleEndian(span, value);
-        writer.Advance(sizeof(ushort));
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[offset..], value);
+        offset += sizeof(ushort);
     }
 
-    private static void WriteInt64(IBufferWriter<byte> writer, long value)
+    private static void WriteInt64(Span<byte> destination, ref int offset, long value)
     {
-        Span<byte> span = writer.GetSpan(sizeof(long));
-        BinaryPrimitives.WriteInt64LittleEndian(span, value);
-        writer.Advance(sizeof(long));
+        BinaryPrimitives.WriteInt64LittleEndian(destination[offset..], value);
+        offset += sizeof(long);
     }
 }

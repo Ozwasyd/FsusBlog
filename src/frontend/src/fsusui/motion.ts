@@ -47,7 +47,10 @@ export const fsusBlogMotionPresets = {
   mediaOverlay: 'scale-fade',
   backToTop: 'scale-fade',
   tagChip: 'fade-in',
-  route: 'route-fade',
+  // FsusUI's route-settle preset currently emits empty `filter` keyframes,
+  // which Firefox rejects. The ownership-transfer preset is route-governed,
+  // opacity-only, and preserves the same short atomic handoff semantics.
+  route: 'ownership-transfer-snapshot',
   banner: 'fade-down'
 } as const satisfies Record<FsusBlogMotionSurface, MotionPresetName>
 

@@ -24,9 +24,10 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AdminMfaStepUpSecurityTests
 {
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AdminStepUpEndpoints_UseAdminPasskeyApiAndAdminManagePolicy()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint begin = EndpointContractApplication.Find(
             app,
             "/api/binary/auth/admin/step-up/passkey/begin",
@@ -46,9 +47,10 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task OrdinaryAccountStepUpEndpoints_UsePasskeyApiAndReturnMfaProof()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint begin = EndpointContractApplication.Find(
             app,
             "/api/binary/auth/step-up/passkey/begin",
@@ -91,9 +93,10 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AdminSensitiveMutations_UseAdminStepUpProofInsteadOfUserMfa()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint adminUserStatus = EndpointContractApplication.Find(
             app,
             "/api/binary/admin/users/status",
@@ -142,9 +145,10 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task ContentBackupExport_RequiresAdminSensitiveAdminProof()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint endpoint = EndpointContractApplication.Find(
             app,
             "/api/binary/author/content/export",
@@ -299,8 +303,8 @@ public sealed class AdminMfaStepUpSecurityTests
         ClaimsAuthorizationRequirement requirement = Assert.Single(endpoint.Metadata
             .GetOrderedMetadata<AuthorizationPolicy>()
             .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(AdminPermissions.AdminManage, requirement.AllowedValues ?? []);
     }
 
@@ -309,8 +313,8 @@ public sealed class AdminMfaStepUpSecurityTests
         ClaimsAuthorizationRequirement requirement = Assert.Single(endpoint.Metadata
             .GetOrderedMetadata<AuthorizationPolicy>()
             .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(static requirement => requirement.ClaimType == "identity_kind"));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == "identity_kind");
         Assert.Contains(AnonymousIdentityRuntime.AnonymousAccountKind, requirement.AllowedValues ?? []);
     }
 

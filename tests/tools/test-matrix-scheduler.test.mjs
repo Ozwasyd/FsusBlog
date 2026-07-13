@@ -13,6 +13,7 @@ import {
   artifactSubstitutionBindingDigest,
   digestDeclaredOutputs
 } from '../../tools/test-matrix/local-profile.mjs'
+import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs')
@@ -34,7 +35,7 @@ function createRunnerFixture(temp) {
   const schedulerDirectory = path.join(toolsDirectory, 'test-matrix')
   fs.mkdirSync(schedulerDirectory, { recursive: true })
   fs.copyFileSync(path.join(root, 'tools/run-test-matrix.mjs'), path.join(toolsDirectory, 'run-test-matrix.mjs'))
-  for (const file of ['scheduler.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs']) {
+  for (const file of ['scheduler.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs']) {
     fs.copyFileSync(path.join(root, 'tools/test-matrix', file), path.join(schedulerDirectory, file))
   }
   return path.join(toolsDirectory, 'run-test-matrix.mjs')
@@ -76,7 +77,7 @@ async function createCheckpointEvidenceFixture(runDag, name = 'scheduler-checkpo
   const artifactDirectoryFile = `${artifactDirectoryPath}/nested/result.txt`
   const artifactWildcardPath = '.tmp/local-production/build-static/evidence-wildcard/**/*.json'
   const artifactWildcardFile = '.tmp/local-production/build-static/evidence-wildcard/nested/result.json'
-  const summaryOnlyPath = '.tmp/local-production/summary-only/security-authenticated-dast.json'
+  const summaryOnlyPath = '.tmp/local-production/summary-only/external-operations-evidence.json'
   const result = await runDag({
     tiers: [tier('local-production-build-static', {
       artifacts: [summaryPath],
@@ -118,7 +119,7 @@ async function createCheckpointEvidenceFixture(runDag, name = 'scheduler-checkpo
     logicalTierCount: 2,
     executedTierCount: 1,
     summaryOnlyTierCount: 1,
-    logicalTierIds: ['production', 'security-authenticated-dast'],
+    logicalTierIds: ['external-operations-evidence', 'production'],
     entries: {
       production: {
         tierId: 'production',
@@ -141,8 +142,8 @@ async function createCheckpointEvidenceFixture(runDag, name = 'scheduler-checkpo
           artifactWildcardPath
         ])
       },
-      'security-authenticated-dast': {
-        tierId: 'security-authenticated-dast',
+      'external-operations-evidence': {
+        tierId: 'external-operations-evidence',
         evidenceKind: 'summary-only',
         physicalBundleId: null,
         status: 'collected-blocked',
@@ -239,6 +240,37 @@ test('runDag executes independent tiers concurrently before their dependent tier
   assert.equal(typeof checkpoint.tiers.join.durationMs, 'number')
   assert.equal(checkpoint.sourceState.worktreeFingerprint, 'stable')
   assert.ok(Object.hasOwn(checkpoint.sourceState, 'commit'))
+})
+
+test('runDag collectFailures executes independent tiers and blocks only failed dependency descendants', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-collect-failures')
+  const executed = []
+  const result = await runDag({
+    tiers: [
+      tier('fails'),
+      tier('independent'),
+      tier('blocked-child', { dependsOn: ['fails'] })
+    ],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'collect-failures',
+    maxParallel: 1,
+    collectFailures: true,
+    systemResources: { cpuCount: 2, availableMemoryGiB: 2, load1: 0 },
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (current) => {
+      executed.push(current.id)
+      return { code: current.id === 'fails' ? 7 : 0, signal: null }
+    }
+  })
+
+  assert.equal(result.status, 'failure')
+  assert.deepEqual(executed, ['fails', 'independent'])
+  assert.equal(result.checkpoint.tiers.independent.status, 'success')
+  assert.equal(result.checkpoint.tiers['blocked-child'].status, 'blocked')
+  assert.equal(result.checkpoint.failures.length, 1)
+  assert.equal(result.checkpoint.failures[0].tierId, 'fails')
 })
 
 test('checkpoint evidence attach is atomic, run-bound, and preserves physical scheduler tiers', async () => {
@@ -590,6 +622,129 @@ test('runDag accepts an explicit measured CPU envelope without discarding it for
   assert.equal(peak, 2)
 })
 
+test('dynamic admission grants fill the live envelope across only the currently ready tiers', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-dynamic-admission')
+  const grants = new Map()
+  const dynamicTier = (id, overrides = {}) => tier(id, {
+    resourceGrantMode: 'dynamic',
+    cpuWeight: 1,
+    memoryWeight: 1,
+    minCpuUnits: 1,
+    cpuUnits: 8,
+    memoryGiB: 12,
+    ...overrides
+  })
+  const result = await runDag({
+    tiers: [
+      dynamicTier('ready-heavy', { cpuWeight: 3, memoryWeight: 2, minCpuUnits: 2 }),
+      dynamicTier('ready-light'),
+      dynamicTier('later-only', { dependsOn: ['ready-heavy', 'ready-light'] })
+    ],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'dynamic-admission',
+    maxParallel: 8,
+    systemResources: { cpuCount: 8, availableCpuUnits: 8, availableMemoryGiB: 12, load1: 0 },
+    currentFreeMemoryGiB: () => 10,
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (current) => {
+      grants.set(current.id, { cpuUnits: current.cpuUnits, memoryGiB: current.memoryGiB })
+      await delay(20)
+      return { code: 0, signal: null }
+    }
+  })
+  assert.equal(result.status, 'success')
+  assert.equal(grants.get('ready-heavy').cpuUnits + grants.get('ready-light').cpuUnits, 8)
+  assert.equal(grants.get('ready-heavy').cpuUnits, 6)
+  assert.equal(grants.get('ready-light').cpuUnits, 2)
+  assert.equal(grants.get('ready-heavy').memoryGiB + grants.get('ready-light').memoryGiB, 10)
+  assert.equal(grants.get('later-only').cpuUnits, 8, 'a sole ready tier must receive the full CPU envelope')
+  assert.equal(grants.get('later-only').memoryGiB, 10, 'a sole ready tier must receive current free memory')
+})
+
+test('active dynamic bundles expand from the live scheduler grant after a sibling releases capacity', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-elastic-grants')
+  let expandedGrant = null
+  const dynamicTier = (id) => tier(id, {
+    resourceGrantMode: 'dynamic',
+    cpuWeight: 1,
+    memoryWeight: 1,
+    minCpuUnits: 1,
+    cpuUnits: 8,
+    memoryGiB: 8
+  })
+  const result = await runDag({
+    tiers: [dynamicTier('short'), dynamicTier('long')],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'elastic-grants',
+    maxParallel: 8,
+    systemResources: { cpuCount: 8, availableCpuUnits: 8, availableMemoryGiB: 8, load1: 0 },
+    currentFreeMemoryGiB: () => 8,
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (current, context) => {
+      if (current.id === 'short') {
+        await delay(20)
+        return { code: 0, signal: null }
+      }
+      await delay(50)
+      const grants = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE, 'utf8'))
+      expandedGrant = grants.grants.long
+      return { code: 0, signal: null }
+    }
+  })
+
+  assert.equal(result.status, 'success')
+  assert.equal(expandedGrant.cpuUnits, 8)
+  assert.equal(result.checkpoint.tiers.long.resourceGrantHistory[0].cpuUnits, 4)
+  assert.equal(result.checkpoint.tiers.long.resourceGrantHistory.at(-1).cpuUnits, 8)
+})
+
+test('released elastic capacity admits newly-ready work before expanding active bundles', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-elastic-admission-fairness')
+  const events = new Map()
+  const dynamicTier = (id, overrides = {}) => tier(id, {
+    resourceGrantMode: 'dynamic',
+    cpuWeight: 1,
+    memoryWeight: 1,
+    minCpuUnits: 1,
+    cpuUnits: 8,
+    memoryGiB: 8,
+    ...overrides
+  })
+  const result = await runDag({
+    tiers: [
+      dynamicTier('short'),
+      dynamicTier('long'),
+      dynamicTier('runtime', { dependsOn: ['short'] })
+    ],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'elastic-admission-fairness',
+    maxParallel: 8,
+    systemResources: { cpuCount: 8, availableCpuUnits: 8, availableMemoryGiB: 8, load1: 0 },
+    currentFreeMemoryGiB: () => 8,
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (current) => {
+      events.set(`${current.id}:start`, Date.now())
+      events.set(`${current.id}:cpu`, current.cpuUnits)
+      await delay(current.id === 'long' ? 100 : 20)
+      events.set(`${current.id}:finish`, Date.now())
+      return { code: 0, signal: null }
+    }
+  })
+
+  assert.equal(result.status, 'success')
+  assert.equal(events.get('runtime:cpu'), 4)
+  assert.ok(
+    events.get('runtime:start') < events.get('long:finish'),
+    'runtime must start from released capacity while the independent long bundle is still active'
+  )
+})
+
 test('runDag stops the whole POSIX process group on the first tier failure', { skip: process.platform === 'win32' }, async () => {
   const { runDag } = await loadScheduler()
   assert.equal(typeof runDag, 'function')
@@ -669,6 +824,92 @@ test('runDag enforces a wall-clock deadline and records the timed-out tier', { s
   assert.ok(Array.isArray(result.checkpoint.ungeneratedEvidence))
 })
 
+test('runDag charges pre-DAG elapsed time against the same wall-clock budget', { skip: process.platform === 'win32' }, async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-pre-dag-deadline')
+  const slowFile = path.join(temp, 'slow.mjs')
+  fs.writeFileSync(slowFile, 'setInterval(() => {}, 1000)\n')
+  const wallClockStartedAtMs = Date.now() - 200
+  const invokedAt = Date.now()
+
+  const result = await runDag({
+    tiers: [tier('slow', { command: `${JSON.stringify(process.execPath)} ${JSON.stringify(slowFile)}` })],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'pre-dag-deadline',
+    maxParallel: 1,
+    wallClockBudgetMs: 250,
+    wallClockStartedAtMs,
+    terminationGraceMs: 25,
+    systemResources: { cpuCount: 8, availableMemoryGiB: 8, load1: 0 },
+    snapshotWorktree: stableSnapshot
+  })
+
+  assert.equal(result.status, 'failure')
+  assert.equal(result.checkpoint.timedOut, true)
+  assert.equal(Date.parse(result.checkpoint.startedAt), wallClockStartedAtMs)
+  assert.ok(Date.now() - invokedAt < 180, 'scheduler must use the remaining budget instead of restarting a full 250ms timer')
+})
+
+test('collectFailures consumes active settlements once after the wall-clock deadline without busy looping', { skip: process.platform === 'win32' }, () => {
+  const temp = createTempDir('scheduler-deadline-collect-settle')
+  const probeFile = path.join(temp, 'probe.mjs')
+  fs.writeFileSync(probeFile, [
+    "import { setTimeout as delay } from 'node:timers/promises'",
+    `import { runDag } from ${JSON.stringify(pathToFileURL(schedulerFile).href)}`,
+    `const root = ${JSON.stringify(temp)}`,
+    "const makeTier = (id) => ({ id, command: 'custom', dependsOn: [], services: [], parallelizable: true, exclusiveResources: [], phase: 0, resourceClass: 'cpu', maxParallel: 2, cpuUnits: 1, memoryGiB: 0.1, cacheInputs: [], executionKey: `probe/${id}`, executionVariant: 'ordinary', coverage: ['ordinary-unit'] })",
+    'const executed = []',
+    'const aborted = []',
+    'const completed = []',
+    'const result = await runDag({',
+    "  tiers: [makeTier('active-a'), makeTier('active-b'), makeTier('pending-after-deadline')],",
+    '  root,',
+    "  runsRoot: `${root}/runs`,",
+    "  runId: 'deadline-collect-settle',",
+    '  maxParallel: 2,',
+    '  collectFailures: true,',
+    '  wallClockBudgetMs: 25,',
+    '  terminationGraceMs: 10,',
+    '  systemResources: { cpuCount: 2, availableMemoryGiB: 2, load1: 0 },',
+    "  snapshotWorktree: async () => ({ fingerprint: 'stable', entries: {} }),",
+    '  executeTier: async (current) => {',
+    '    executed.push(current.id)',
+    "    await delay(current.id === 'active-a' ? 80 : 110)",
+    '    return { code: 0, signal: null }',
+    '  },',
+    '  abortTier: (current) => { aborted.push(current.id) },',
+    '  onTierComplete: (current) => { completed.push(current.id) }',
+    '})',
+    'console.log(JSON.stringify({',
+    '  status: result.status,',
+    '  timedOut: result.checkpoint.timedOut,',
+    '  executed,',
+    '  aborted,',
+    '  completed,',
+    '  tierStatuses: Object.fromEntries(Object.entries(result.checkpoint.tiers).map(([id, value]) => [id, value.status]))',
+    '}))'
+  ].join('\n'))
+
+  const probe = spawnSync(process.execPath, [probeFile], {
+    cwd: temp,
+    encoding: 'utf8',
+    timeout: 2_000
+  })
+  assert.equal(probe.error, undefined, probe.error?.message)
+  assert.equal(probe.status, 0, probe.stderr)
+  const outcome = JSON.parse(probe.stdout.trim())
+  assert.equal(outcome.status, 'failure')
+  assert.equal(outcome.timedOut, true)
+  assert.deepEqual(outcome.executed.sort(), ['active-a', 'active-b'])
+  assert.deepEqual(outcome.aborted.sort(), ['active-a', 'active-b'])
+  assert.deepEqual(outcome.completed.sort(), ['active-a', 'active-b'])
+  assert.deepEqual(outcome.tierStatuses, {
+    'active-a': 'cancelled',
+    'active-b': 'cancelled'
+  })
+})
+
 test('runDag enforces an individual physical bundle budget', { skip: process.platform === 'win32' }, async () => {
   const { runDag } = await loadScheduler()
   const temp = createTempDir('scheduler-bundle-deadline')
@@ -692,6 +933,82 @@ test('runDag enforces an individual physical bundle budget', { skip: process.pla
   assert.equal(result.status, 'failure')
   assert.equal(result.failure.exitCode, 124)
   assert.equal(result.failure.reason, 'bundle budget exceeded (120ms)')
+})
+
+test('bundle timeout kills a pipe-holding grandchild and still collects independent failures', { skip: process.platform === 'win32' }, async (t) => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-bundle-timeout-tree')
+  const pidFile = path.join(temp, 'grandchild.pid')
+  const grandchildFile = path.join(temp, 'grandchild.mjs')
+  const parentFile = path.join(temp, 'parent.mjs')
+  const failFile = path.join(temp, 'fail.mjs')
+
+  fs.writeFileSync(grandchildFile, [
+    "process.on('SIGTERM', () => {})",
+    "setInterval(() => process.stdout.write('holding-pipe\\n'), 25)"
+  ].join('\n'))
+  fs.writeFileSync(parentFile, [
+    "import { spawn } from 'node:child_process'",
+    "import fs from 'node:fs'",
+    `const child = spawn(process.execPath, [${JSON.stringify(grandchildFile)}], { stdio: ['ignore', 'inherit', 'inherit'] })`,
+    `fs.writeFileSync(${JSON.stringify(pidFile)}, String(child.pid))`,
+    'setInterval(() => {}, 1000)'
+  ].join('\n'))
+  fs.writeFileSync(failFile, 'setTimeout(() => process.exit(7), 50)\n')
+
+  t.after(() => {
+    if (!fs.existsSync(pidFile)) return
+    try { process.kill(Number(fs.readFileSync(pidFile, 'utf8')), 'SIGKILL') } catch (error) {
+      if (error.code !== 'ESRCH') throw error
+    }
+  })
+
+  const startedAt = Date.now()
+  const result = await runDag({
+    tiers: [
+      tier('timeout-bundle', {
+        command: `${JSON.stringify(process.execPath)} ${JSON.stringify(parentFile)}`,
+        budgetMs: 150
+      }),
+      tier('independent-failure', {
+        command: `${JSON.stringify(process.execPath)} ${JSON.stringify(failFile)}`
+      })
+    ],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'bundle-timeout-tree',
+    maxParallel: 2,
+    collectFailures: true,
+    terminationGraceMs: 75,
+    systemResources: { cpuCount: 8, availableMemoryGiB: 8, load1: 0 },
+    snapshotWorktree: stableSnapshot
+  })
+  const elapsedMs = Date.now() - startedAt
+
+  assert.ok(elapsedMs < 2_000, `scheduler took ${elapsedMs}ms after the bundle deadline`)
+  assert.equal(result.status, 'failure')
+  assert.ok(fs.existsSync(pidFile), 'the timed-out shell did not start its grandchild')
+  assert.deepEqual(
+    result.checkpoint.failures.map((failure) => failure.tierId).sort(),
+    ['independent-failure', 'timeout-bundle']
+  )
+  assert.equal(result.checkpoint.tiers['timeout-bundle'].status, 'failure')
+  assert.equal(result.checkpoint.tiers['timeout-bundle'].exitCode, 124)
+  assert.equal(result.checkpoint.tiers['timeout-bundle'].reason, 'bundle budget exceeded (150ms)')
+  assert.equal(result.checkpoint.tiers['independent-failure'].exitCode, 7)
+
+  const grandchildPid = Number(fs.readFileSync(pidFile, 'utf8'))
+  let alive = true
+  for (let attempt = 0; attempt < 40 && alive; attempt += 1) {
+    try {
+      process.kill(grandchildPid, 0)
+      await delay(25)
+    } catch (error) {
+      if (error.code === 'ESRCH') alive = false
+      else throw error
+    }
+  }
+  assert.equal(alive, false, `pipe-holding grandchild ${grandchildPid} survived bundle timeout`)
 })
 
 test('resume reuses successful tiers only while input and dependency fingerprints match', async () => {
@@ -961,18 +1278,16 @@ test('stale running checkpoints are resumable when their lock owner is dead', as
   assert.equal(executions, 1)
 })
 
-test('resource-class defaults reserve meaningful CPU and memory when tiers omit explicit units', async () => {
+test('scheduler fails closed when a tier reaches admission without a resolved resource grant', async () => {
   const { runDag } = await loadScheduler()
   const temp = createTempDir('scheduler-resource-defaults')
-  let active = 0
-  let maxActive = 0
   const browserTier = (id) => {
     const current = tier(id, { resourceClass: 'browser' })
     delete current.cpuUnits
     delete current.memoryGiB
     return current
   }
-  const result = await runDag({
+  await assert.rejects(runDag({
     tiers: [browserTier('browser-a'), browserTier('browser-b')],
     root: temp,
     runsRoot: path.join(temp, 'runs'),
@@ -981,16 +1296,8 @@ test('resource-class defaults reserve meaningful CPU and memory when tiers omit 
     maxParallel: 2,
     systemResources: { cpuCount: 8, availableMemoryGiB: 6, load1: 0 },
     snapshotWorktree: stableSnapshot,
-    executeTier: async () => {
-      active += 1
-      maxActive = Math.max(maxActive, active)
-      await delay(20)
-      active -= 1
-      return { code: 0, signal: null }
-    }
-  })
-  assert.equal(result.status, 'success')
-  assert.equal(maxActive, 1, 'two default browser tiers must not both fit into a 6 GiB budget')
+    executeTier: async () => ({ code: 0, signal: null })
+  }), /has no resolved resource grant/u)
 })
 
 test('supersedes rewires ordinary unit coverage subsets and rejects protected test kinds', async () => {
@@ -1078,13 +1385,73 @@ test('worktree pollution fails a tier while an unchanged pre-existing dirty tree
 
 test('matrix schema exposes scheduler resource, fingerprint, and supersedes metadata', () => {
   const schema = JSON.parse(fs.readFileSync(path.join(root, 'tests/matrix.schema.json'), 'utf8'))
+  const localProfile = schema.properties.localProfiles.additionalProperties
+  const localBundle = localProfile.properties.bundles.items
   const properties = schema.properties.tiers.items.properties
-  assert.equal(properties.cpuUnits.minimum, 0.1)
-  assert.equal(properties.memoryGiB.minimum, 0)
+  assert.deepEqual(localProfile.required, ['budgetMs', 'memoryReserveShare', 'bundles', 'summaryOnly'])
+  assert.equal(localProfile.properties.memoryReserveShare.exclusiveMinimum, 0)
+  assert.equal(localProfile.properties.memoryReserveShare.exclusiveMaximum, 1)
+  assert.equal(localProfile.properties.enforceBudget.type, 'boolean')
+  assert.ok(localBundle.required.includes('cpuWeight'))
+  assert.ok(localBundle.required.includes('memoryWeight'))
+  assert.ok(localBundle.required.includes('minCpuUnits'))
+  assert.ok(localBundle.required.includes('deadlineWeight'))
+  assert.equal(localBundle.properties.cpuWeight.exclusiveMinimum, 0)
+  assert.equal(localBundle.properties.memoryWeight.exclusiveMinimum, 0)
+  assert.equal(localBundle.properties.deadlineWeight.exclusiveMinimum, 0)
+  assert.equal(localBundle.properties.minimumDeadlineShare.minimum, 0)
+  assert.equal(localBundle.properties.minimumDeadlineShare.exclusiveMaximum, 1)
+  assert.equal(localBundle.properties.minCpuUnits.minimum, 1)
+  assert.equal(Object.hasOwn(localBundle.properties, 'budgetMs'), false)
+  assert.equal(Object.hasOwn(localBundle.properties, 'cpuUnits'), false)
+  assert.equal(Object.hasOwn(localBundle.properties, 'memoryGiB'), false)
+  assert.equal(Object.hasOwn(localBundle.properties, 'stepMaxParallel'), false)
+  assert.equal(properties.cpuWeight.exclusiveMinimum, 0)
+  assert.equal(properties.memoryWeight.exclusiveMinimum, 0)
+  assert.equal(properties.minCpuUnits.minimum, 1)
+  assert.equal(properties.maxParallel.const, 1)
+  assert.equal(properties.defaultShards.const, 1)
+  assert.equal(Object.hasOwn(properties, 'cpuUnits'), false)
+  assert.equal(Object.hasOwn(properties, 'memoryGiB'), false)
   assert.equal(properties.executionKey.type, 'string')
   assert.deepEqual(properties.executionVariant.enum, ['ordinary', 'coverage', 'property', 'model', 'performance', 'runtime'])
   assert.equal(properties.supersedes.type, 'array')
   assert.equal(properties.cacheInputs.type, 'array')
+})
+
+test('logical tier matrix stores only weights and serial/single fixed-one semantics', () => {
+  const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
+  assert.ok(matrix.tiers.length > 0)
+  for (const current of matrix.tiers) {
+    assert.ok(current.cpuWeight > 0, current.id)
+    assert.ok(current.memoryWeight > 0, current.id)
+    assert.ok(Number.isInteger(current.minCpuUnits) && current.minCpuUnits > 0, current.id)
+    assert.equal(Object.hasOwn(current, 'cpuUnits'), false, current.id)
+    assert.equal(Object.hasOwn(current, 'memoryGiB'), false, current.id)
+    assert.equal(current.parallelizable ? !Object.hasOwn(current, 'maxParallel') : current.maxParallel === 1, true, current.id)
+    assert.equal(current.shardable ? !Object.hasOwn(current, 'defaultShards') : current.defaultShards === 1, true, current.id)
+    if (current.parallelizable) assert.equal(Object.hasOwn(current, 'maxParallel'), false, current.id)
+    if (current.shardable) assert.equal(Object.hasOwn(current, 'defaultShards'), false, current.id)
+  }
+})
+
+test('CI matrix exposes live machine resource resolution and derived shard concurrency', () => {
+  const result = spawnSync(process.execPath, [path.join(root, 'tools/run-test-matrix.mjs'), 'ci-job-matrix', 'acceptance-playwright'], {
+    cwd: root,
+    encoding: 'utf8'
+  })
+  assert.equal(result.status, 0, result.stderr)
+  const payload = JSON.parse(result.stdout)
+  const resolution = payload.matrix.resource_resolution
+  assert.equal(resolution.cpuCount, os.availableParallelism?.() ?? os.cpus().length)
+  assert.equal(resolution.availableCpuUnits, resolution.cpuCount)
+  assert.ok(resolution.availableMemoryGiB > 0)
+  assert.ok(resolution.totalMemoryGiB >= resolution.availableMemoryGiB)
+  assert.ok(Number.isInteger(resolution.defaultShards) && resolution.defaultShards >= 1)
+  const entries = payload.matrix.include
+  assert.equal(entries.length, resolution.defaultShards)
+  assert.ok(entries.every((entry) => entry.max_parallel === resolution.availableCpuUnits))
+  assert.ok(entries.every((entry) => entry.cpu_units <= resolution.availableCpuUnits && entry.memory_gib <= resolution.availableMemoryGiB))
 })
 
 test('effective cache inputs include shared lane, Vitest, and setup consumers', async () => {
@@ -1245,6 +1612,9 @@ test('local fresh runs isolate the default namespace by scheduler run id', () =>
     '    exclusiveResources: []',
     '    phase: 1',
     '    resourceClass: cpu',
+    '    cpuWeight: 1',
+    '    memoryWeight: 1',
+    '    minCpuUnits: 1',
     '    maxParallel: 1',
     '    cpuUnits: 1',
     '    memoryGiB: 0.1',
@@ -1284,11 +1654,12 @@ test('fresh summaries reset locally while tier resources cap nested worker pools
   const marker = path.join(temp, 'workers.json')
   const script = path.join(temp, 'workers.mjs')
   const matrix = path.join(temp, 'matrix.yml')
-  fs.writeFileSync(script, `import fs from 'node:fs'\nfs.writeFileSync(${JSON.stringify(marker)}, JSON.stringify({ vitest: process.env.FSUSBLOG_VITEST_MAX_WORKERS, manifest: process.env.FSUSBLOG_COMMAND_MANIFEST_WORKERS }))\n`)
+  fs.writeFileSync(script, `import fs from 'node:fs'\nfs.writeFileSync(${JSON.stringify(marker)}, JSON.stringify({ vitest: process.env.FSUSBLOG_VITEST_MAX_WORKERS, manifest: process.env.FSUSBLOG_COMMAND_MANIFEST_WORKERS, bundleBudget: process.env.FSUSBLOG_BUNDLE_CPU_BUDGET }))\n`)
   fs.writeFileSync(matrix, [
     'version: fsusblog-test-matrix-v2',
     'tiers:',
     '  - id: fixture',
+    '    physicalBundleId: fixture-bundle',
     `    command: ${JSON.stringify(`${process.execPath} ${script}`)}`,
     '    dependsOn: []',
     '    services: []',
@@ -1296,9 +1667,9 @@ test('fresh summaries reset locally while tier resources cap nested worker pools
     '    exclusiveResources: []',
     '    phase: 1',
     '    resourceClass: cpu',
-    '    maxParallel: 2',
-    '    cpuUnits: 2',
-    '    memoryGiB: 2',
+    '    cpuWeight: 2',
+    '    memoryWeight: 2',
+    '    minCpuUnits: 1',
     '    cacheInputs: []',
     '    executionKey: fixture',
     '    executionVariant: ordinary',
@@ -1311,10 +1682,15 @@ test('fresh summaries reset locally while tier resources cap nested worker pools
   const env = { ...process.env, FSUSBLOG_MATRIX_FILE: matrix, FSUSBLOG_TEST_RUN_ID: 'same-fresh-run' }
   delete env.FSUSBLOG_VITEST_MAX_WORKERS
   delete env.FSUSBLOG_COMMAND_MANIFEST_WORKERS
+  delete env.FSUSBLOG_BUNDLE_CPU_BUDGET
   const run = () => spawnSync(process.execPath, [runner, 'run', 'fixture', '--fresh'], { cwd: temp, env, encoding: 'utf8' })
   const first = run()
   assert.equal(first.status, 0, first.stderr)
-  assert.deepEqual(JSON.parse(fs.readFileSync(marker, 'utf8')), { vitest: '1', manifest: '2' })
+  const workers = JSON.parse(fs.readFileSync(marker, 'utf8'))
+  const machineCpu = os.availableParallelism?.() ?? os.cpus().length
+  assert.equal(Number(workers.bundleBudget), machineCpu)
+  assert.ok(Number(workers.vitest) >= 1 && Number(workers.vitest) <= machineCpu)
+  assert.ok(Number(workers.manifest) >= 1 && Number(workers.manifest) <= machineCpu)
   const summaryFile = path.join(temp, '.tmp/release-evidence/jobs/fixture.json')
   const poisoned = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
   poisoned.durationMs = 999_999
@@ -1394,6 +1770,9 @@ test('production cleanup uses the same safe namespace for dot segments as fixtur
     '    exclusiveResources: []',
     '    phase: 1',
     '    resourceClass: cpu',
+    '    cpuWeight: 1',
+    '    memoryWeight: 1',
+    '    minCpuUnits: 1',
     '    maxParallel: 1',
     '    cacheInputs: []',
     '    requiresPlaywright: none',

@@ -23,6 +23,48 @@ const categories = [
 const sourceRelease = '20260710010101-aaaaaaaaaaaa'
 const targetRelease = '20260711010101-bbbbbbbbbbbb'
 
+function positiveNumber(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function boundedSemanticScale(pressureScale) {
+  const pressure = Math.max(1, pressureScale)
+  return 1 + ((pressure - 1) / (2 * pressure))
+}
+
+function machineTiming() {
+  const hostCpu = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
+  const grantedCpu = Math.min(
+    hostCpu,
+    positiveNumber(process.env.FSUSBLOG_STEP_CPU_BUDGET)
+      ?? positiveNumber(process.env.FSUSBLOG_BUNDLE_CPU_BUDGET)
+      ?? hostCpu
+  )
+  const load1 = Math.max(0, os.loadavg()[0] ?? 0)
+  const pressureScale = Math.max(1, hostCpu / grantedCpu, (load1 + 1) / grantedCpu)
+  const wait = milliseconds => Math.ceil(milliseconds * pressureScale)
+  const semanticWait = milliseconds => Math.ceil(milliseconds * boundedSemanticScale(pressureScale))
+  return {
+    requestTimeoutMs: wait(1_000),
+    trafficChildTimeoutMs: wait(20_000),
+    resourceChildTimeoutMs: wait(10_000),
+    baselineLatencyMs: semanticWait(10),
+    overlapLatencyMs: semanticWait(250)
+  }
+}
+
+test('semantic probe latency adapts to pressure without growing linearly with machine wait budgets', () => {
+  const idleScale = boundedSemanticScale(1)
+  const constrainedScale = boundedSemanticScale(2)
+  const saturatedScale = boundedSemanticScale(Number.MAX_SAFE_INTEGER)
+
+  assert.equal(idleScale, 1)
+  assert.ok(constrainedScale > idleScale)
+  assert.ok(saturatedScale > constrainedScale)
+  assert.ok(saturatedScale <= 1.5)
+})
+
 function createFixture(t, name) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), `fsusblog-${name}-`))
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
@@ -92,7 +134,7 @@ async function loopbackServer(t, handler) {
   return { server, baseUrl: `http://127.0.0.1:${address.port}` }
 }
 
-function collectChild(child, timeoutMs = 15_000) {
+function collectChild(child, timeoutMs) {
   return new Promise(resolve => {
     let stdout = ''
     let stderr = ''
@@ -111,6 +153,7 @@ function collectChild(child, timeoutMs = 15_000) {
 }
 
 async function runTraffic(data, baseUrl, scenarioValue, options = {}) {
+  const timing = machineTiming()
   const scenarioFile = path.join(data.directory, `scenario-${options.name ?? 'default'}.json`)
   const snapshot = path.join(data.directory, `traffic-${options.name ?? 'default'}.snapshot.json`)
   const output = path.join(data.directory, `traffic-${options.name ?? 'default'}.json`)
@@ -127,7 +170,7 @@ async function runTraffic(data, baseUrl, scenarioValue, options = {}) {
     '--concurrency', String(options.concurrency ?? 1),
     '--rounds', String(options.rounds ?? 1),
     '--interval-ms', '0',
-    '--timeout-ms', String(options.timeoutMs ?? 1_000),
+    '--timeout-ms', String(options.timeoutMs ?? timing.requestTimeoutMs),
     '--snapshot-interval-ms', '100',
     '--expect-releases', options.expectReleases ?? 'both'
   ], {
@@ -135,7 +178,7 @@ async function runTraffic(data, baseUrl, scenarioValue, options = {}) {
     env: { ...process.env, FSUSBLOG_GATEWAY_ALLOW_HTTP_PROBE: '1' },
     stdio: ['ignore', 'pipe', 'pipe']
   })
-  const result = await collectChild(child, options.childTimeoutMs ?? 20_000)
+  const result = await collectChild(child, options.childTimeoutMs ?? timing.trafficChildTimeoutMs)
   assert.equal(result.timedOut, false, result.stderr)
   assert.equal(fs.existsSync(output), true, result.stderr)
   return { result, report: JSON.parse(fs.readFileSync(output, 'utf8')) }
@@ -151,13 +194,14 @@ function releaseHeaders(requestNumber) {
 
 test('traffic probe covers all 12 categories, explicitly classifies business 5xx, and measures source/target baseline-overlap impact', async (t) => {
   const data = createFixture(t, 'traffic-pass')
+  const timing = machineTiming()
   let requests = 0
   const { baseUrl } = await loopbackServer(t, (request, response) => {
     requests += 1
     const baseline = requests <= categories.length
     if (requests === categories.length) moveToOverlap(data)
     const headers = releaseHeaders(requests)
-    const delayMs = baseline ? 15 : 75
+    const delayMs = baseline ? timing.baselineLatencyMs : timing.overlapLatencyMs
     setTimeout(() => {
       if (request.url === '/write') {
         response.writeHead(500, {
@@ -219,8 +263,9 @@ test('traffic probe fail-closes gateway 5xx, unmarked 5xx, connection timeout an
       response.end('ok')
     }
   })
-  const { result, report } = await runTraffic(data, baseUrl, scenario(), {
-    name: 'failures', rounds: 1, timeoutMs: 100
+  const failureScenario = scenario({ article: { timeoutMs: 100 } })
+  const { result, report } = await runTraffic(data, baseUrl, failureScenario, {
+    name: 'failures', rounds: 1
   })
 
   assert.notEqual(result.status, 0)
@@ -305,6 +350,7 @@ function resourcePolicy(overrides = {}) {
 }
 
 async function runResource(data, policyValue, options = {}) {
+  const timing = machineTiming()
   const policyFile = path.join(data.directory, `resource-policy-${options.name ?? 'default'}.json`)
   const snapshot = path.join(data.directory, `resource-${options.name ?? 'default'}.snapshot.json`)
   const output = path.join(data.directory, `resource-${options.name ?? 'default'}.json`)
@@ -339,7 +385,7 @@ async function runResource(data, policyValue, options = {}) {
       clearInterval(stopTimer)
     }
   }, 25)
-  const result = await collectChild(child, 10_000)
+  const result = await collectChild(child, timing.resourceChildTimeoutMs)
   clearInterval(stopTimer)
   assert.equal(result.timedOut, false, result.stderr)
   assert.equal(fs.existsSync(output), true, result.stderr)

@@ -68,9 +68,10 @@ public sealed class BackendApiIntegrationContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task BinaryAdminMutationFiles_RetainAuthorizationAndPowBoundaries()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         RouteEndpoint adminCreate = EndpointContractApplication.Find(
             app,
@@ -86,9 +87,10 @@ public sealed class BackendApiIntegrationContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task PublicRelatedReadingBinaryEndpoint_RetainsPublicReadBoundariesAndApiError()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         RouteEndpoint related = EndpointContractApplication.Find(
             app,
@@ -110,9 +112,10 @@ public sealed class BackendApiIntegrationContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task PublicReadRiskAwareBinaryEndpoints_RetainRiskActionMetadata()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         RouteEndpoint[] publicReadEndpoints = ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
@@ -137,9 +140,10 @@ public sealed class BackendApiIntegrationContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task HumanReadProofBinaryEndpoints_RetainSecurityBoundariesAndApiError()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         using EndpointSecurityTestServer server = EndpointSecurityTestServer.Create();
         using HttpClient client = server.CreateClient();
 
@@ -192,9 +196,8 @@ public sealed class BackendApiIntegrationContractTests
             static requirement => requirement is DenyAnonymousAuthorizationRequirement);
         ClaimsAuthorizationRequirement claim = Assert.Single(policies
             .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(static requirement =>
-                requirement.ClaimType == AdminPermissions.PermissionClaimType));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(permission, claim.AllowedValues ?? []);
     }
 

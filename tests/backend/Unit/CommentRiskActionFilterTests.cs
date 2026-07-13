@@ -245,7 +245,7 @@ public sealed class CommentRiskActionFilterTests
                 AnonymousScope: null,
                 DisplayLanguage: null,
                 ProofToken: null,
-                ZkProof: []));
+                ZkProof: [])));
 
     private sealed class TestEndpointFilterInvocationContext(HttpContext httpContext) : EndpointFilterInvocationContext
     {

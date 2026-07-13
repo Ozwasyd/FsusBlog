@@ -26,11 +26,11 @@ public sealed class RedisInitializerTests
         services.AddRedis(configuration);
 
         ServiceDescriptor connectorDescriptor = Assert.Single(
-            services.Where(static descriptor => descriptor.ServiceType == typeof(IRedisConnectionMultiplexerConnector)));
+            services, static descriptor => descriptor.ServiceType == typeof(IRedisConnectionMultiplexerConnector));
         ServiceDescriptor holderDescriptor = Assert.Single(
-            services.Where(static descriptor => descriptor.ServiceType == typeof(RedisConnectionMultiplexerHolder)));
+            services, static descriptor => descriptor.ServiceType == typeof(RedisConnectionMultiplexerHolder));
         ServiceDescriptor multiplexerDescriptor = Assert.Single(
-            services.Where(static descriptor => descriptor.ServiceType == typeof(IConnectionMultiplexer)));
+            services, static descriptor => descriptor.ServiceType == typeof(IConnectionMultiplexer));
         Assert.Equal(ServiceLifetime.Singleton, connectorDescriptor.Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, holderDescriptor.Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, multiplexerDescriptor.Lifetime);

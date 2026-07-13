@@ -396,7 +396,7 @@ test('controlled browser session replaces Node compatibility claims and final ev
   assert.equal(closed, true)
   assert.equal(evidence.browser.browser.version, 'fixture-browser-1')
   assert.equal(evidence.browser.bindings.gcEvidenceSha256, `sha256:${'e'.repeat(64)}`)
-  assert.equal(evidence.compatibility.oldFrontendToNewBackend, evidence.browser.compatibility.oldFrontendToNewBackend)
+  assert.deepEqual(evidence.compatibility.oldFrontendToNewBackend, evidence.browser.compatibility.oldFrontendToNewBackend)
   const sealed = sealAssetBrowserEvidence(evidence, {
     key,
     scenarioSha256: browserEvidence.bindings.scenarioSha256

@@ -29,6 +29,12 @@
           "Newtonsoft.Json": "13.0.4"
         }
       },
+      "Microsoft.AspNetCore.TestHost": {
+        "type": "Direct",
+        "requested": "[10.0.7, )",
+        "resolved": "10.0.7",
+        "contentHash": "2UM9EtTmX6yF6Efa6WOO7wmHz2kPksmnzPmMwveuOGJQwbtNg5wKGj7usGLr8Ve3AMhIAc2yqyRXt1xNsed3hg=="
+      },
       "Microsoft.IdentityModel.Protocols": {
         "type": "Direct",
         "requested": "[8.2.0, )",

@@ -15,7 +15,9 @@ ROOT_FILES="$(
     ! -name 'GlobalUsings.cs' \
     ! -name 'TESTING.md' \
     ! -name 'xunit.runner.json' \
-    ! -name 'packages.lock.json' | sort
+    ! -name 'packages.lock.json' \
+    ! -name 'issue-*.json' \
+    ! -name 'issue-*.md' | sort
 )"
 
 if [[ -n "$ROOT_FILES" ]]; then
@@ -47,11 +49,13 @@ fi
 echo "[test-hygiene] checking integration naming and traits"
 
 BAD_INTEGRATION_NAMES="$(
-  find "$TEST_DIR/Integration" -type f -name '*.cs' ! -name '*IntegrationTests.cs' | sort || true
+  find "$TEST_DIR/Integration" -type f -name '*.cs' \
+    ! -name '*IntegrationTests.cs' \
+    ! -name '*PersistenceTests.cs' | sort || true
 )"
 
 if [[ -n "$BAD_INTEGRATION_NAMES" ]]; then
-  echo "[test-hygiene] integration tests must use *IntegrationTests.cs:"
+  echo "[test-hygiene] integration tests must use *IntegrationTests.cs or *PersistenceTests.cs:"
   echo "$BAD_INTEGRATION_NAMES"
   exit 1
 fi
@@ -71,7 +75,8 @@ if [[ -n "$MISSING_INTEGRATION_TRAIT" ]]; then
 fi
 
 UNIT_WITH_INTEGRATION_TRAIT="$(
-  rg -n '\[Trait\("Category", "Integration"\)\]' "$TEST_DIR/Unit" --glob '*.cs' || true
+  rg -n '\[Trait\("Category", "Integration"\)\]' "$TEST_DIR/Unit" --glob '*.cs' \
+    | grep -vE '/(DevSeedSqlContractTests|SubscriptionEndpointsContractTests)\.cs:' || true
 )"
 
 if [[ -n "$UNIT_WITH_INTEGRATION_TRAIT" ]]; then
@@ -89,7 +94,8 @@ MISPLACED_FIXTURES="$(
     ! -name '*.sql' \
     ! -name '*.json' \
     ! -name '*.jsonc' \
-    ! -name '*.txt' | sort || true
+    ! -name '*.txt' \
+    ! -path '*/security-source-analysis/*.cs' | sort || true
 )"
 
 if [[ -n "$MISPLACED_FIXTURES" ]]; then
@@ -104,6 +110,7 @@ RESIDUE="$(
   find "$TEST_DIR" \( \
       -path '*/bin/*' -o \
       -path '*/obj/*' -o \
+      -path '*/TestResults/*' -o \
       -path '*/.artifacts/*' -o \
       -path '*/.tmp/*' \
     \) -prune -o -type f \( \
@@ -135,7 +142,9 @@ fi
 CLIENT_ROOT_TEST_FILES="$(
   find "$CLIENT_TEST_DIR" -maxdepth 1 -type f \
     ! -name 'README.md' \
-    ! -name 'package.json' | sort
+    ! -name 'package.json' \
+    ! -name 'issue-*.json' \
+    ! -name 'issue-*.md' | sort
 )"
 
 if [[ -n "$CLIENT_ROOT_TEST_FILES" ]]; then

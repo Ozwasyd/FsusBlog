@@ -73,9 +73,9 @@ scenarios:
       - src/backend/Services/Security/AnonymousCommentTicketService.cs
       - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs
     tests:
-      - tests/backend/Unit/ZkAnonymousProofVerifierContractTests.cs
+      - tests/backend/Unit/ZkProofVerifierTests.cs
       - tests/backend/Unit/AnonymousCommentTicketServiceTests.cs
-      - tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs
+      - tests/backend/Unit/AnonymousCommentPolicyTests.cs
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 
@@ -109,8 +109,8 @@ scenarios:
       - src/frontend/src/components/admin/comment-moderation/CommentModerationDetailDrawer.vue
     tests:
       - tests/backend/Unit/AnonymousCommentModerationPipelineTests.cs
-      - tests/frontend/unit/view-contracts/anonymousModerationGovernanceWorkflow.test.ts
-      - tests/frontend/unit/view-contracts/commentAnonymousAuthorWorkflow.test.ts
+      - tests/frontend/unit/api/anonymousGovernance.test.ts
+      - tests/frontend/unit/adapters/binary/commentAdapter.test.ts
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 
@@ -130,7 +130,7 @@ scenarios:
       - tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts
       - tests/frontend/unit/api/comment.test.ts
       - tests/frontend/unit/components/ArticleCommentComposer.test.ts
-      - tests/frontend/unit/view-contracts/commentAnonymousAuthorWorkflow.test.ts
+      - tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 

@@ -50,7 +50,6 @@
       "id": "vitest:tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts#makes-ci-execute-the-privacy-lane-and-fail-closed-matrix-4d30c00322",
       "path": "tests/frontend/unit/privacy/commentPrivacyReleaseGate.test.ts",
       "replacementTestIds": [
-        "node-script:tools/security/check-security-matrices.mjs",
         "node-test:tests/security/verify-zk-privacy-matrix.test.mjs#zk-privacy-matrix-verifier-accepts-the-repository-manife-9757d7db93"
       ],
       "reason": "Workflow and matrix linkage belongs to the structured matrix/static-governance owner, while the verifier executes the repository manifest."

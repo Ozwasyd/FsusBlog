@@ -19,7 +19,9 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly DateTimeOffset BaselineNow = DateTimeOffset.Parse("2026-06-19T00:00:00Z");
+    private static readonly SemaphoreSlim DatabaseResetLock = new(1, 1);
     private static readonly string IssuerPublicKeyHash = new('f', 64);
+    private static string? sharedConnectionString;
 
     [Fact]
     public void Migration_CreatesRootLifecycleEpochRevocationTablesAndIndexes()
@@ -82,8 +84,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     public async Task RootLifecycle_RotatesActiveIntoGraceAndExcludesLegacyAccumulatorFromProductionSnapshot()
     {
         string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
 
             var clock = new MutableTimeProvider(BaselineNow);
             await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
@@ -124,7 +124,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
             SeedRoot(setup, epoch: 150, rootHash: "ee05", status: AnonymousCredentialRootStatuses.Active, graceMinutes: 120);
 
             await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
@@ -141,7 +140,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
             SeedRoot(
                 setup,
                 epoch: 160,
@@ -165,7 +163,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
             SeedRoot(
                 setup,
                 epoch: 162,
@@ -188,7 +185,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     {
         string connectionString = await CreateConnectionStringAsync();
         using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
             SeedRoot(
                 setup,
                 epoch: 166,
@@ -222,8 +218,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     public async Task RootLifecycle_GraceRootExpiresFromProductionSnapshotAfterFreshnessWindow()
     {
         string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
 
             var clock = new MutableTimeProvider(BaselineNow);
             await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
@@ -260,8 +254,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     public async Task RootLifecycle_RejectsRotationThatMarksLegacyAccumulatorProductionReady()
     {
         string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
 
             await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
             var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
@@ -347,8 +339,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     public async Task RootLifecycle_CircuitFriendlyAccumulatorEntersProductionSnapshotAndRevokesWithCircuitRoot()
     {
         string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
 
             var rootCache = Substitute.For<IAnonymousCredentialRootService>();
             await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), rootCache);
@@ -405,8 +395,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     public async Task Revocation_UpdatesAccumulatorAndInvalidatesRootSnapshotCache()
     {
         string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
 
             var rootCache = Substitute.For<IAnonymousCredentialRootService>();
             await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), rootCache);
@@ -450,8 +438,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     public async Task Revocation_MismatchedAccumulatorRootAndRawUserHandleFailClosed()
     {
         string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
 
             await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
             var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
@@ -482,8 +468,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     public async Task Revocation_GraceExpiredRootFailsClosed()
     {
         string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
             var clock = new MutableTimeProvider(BaselineNow);
 
             await using ServiceProvider provider = BuildProvider(connectionString, clock, Substitute.For<IAnonymousCredentialRootService>());
@@ -556,8 +540,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     public async Task RootLifecycle_RejectsProductionAccumulatorWithPathDepthMismatch()
     {
         string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
 
             await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
             var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
@@ -575,8 +557,6 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     public async Task RootLifecycle_ConcurrentDuplicateRotationKeepsSingleActiveRoot()
     {
         string connectionString = await CreateConnectionStringAsync();
-        using SqlSugarClient setup = CreateDb(connectionString);
-            CreateLifecycleTables(setup);
 
             await using ServiceProvider provider = BuildProvider(connectionString, new MutableTimeProvider(BaselineNow), Substitute.For<IAnonymousCredentialRootService>());
             var writer = provider.GetRequiredService<IAnonymousCredentialRootWriter>();
@@ -680,8 +660,34 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
             })
             .Build();
 
-    private Task<string> CreateConnectionStringAsync()
-        => PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+    private async Task<string> CreateConnectionStringAsync()
+    {
+        await DatabaseResetLock.WaitAsync();
+        try
+        {
+            string connectionString;
+            if (sharedConnectionString is null)
+            {
+                connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+                using SqlSugarClient db = CreateDb(connectionString);
+                CreateLifecycleTables(db);
+                sharedConnectionString = connectionString;
+            }
+            else
+            {
+                connectionString = sharedConnectionString;
+            }
+
+            await fixture.ExecuteAsync(
+                connectionString,
+                "TRUNCATE TABLE anonymous_credential_revocation, anonymous_credential_root, anonymous_credential_epoch RESTART IDENTITY CASCADE;");
+            return connectionString;
+        }
+        finally
+        {
+            DatabaseResetLock.Release();
+        }
+    }
 
     private static SqlSugarClient CreateDb(string connectionString)
         => PostgresSqlSugarTestClient.Create(connectionString);

@@ -283,9 +283,13 @@ public class ModernAcAutomatonTests
         MethodInfo containsAny = type.GetMethod(nameof(ModernAcAutomaton.ContainsAny))!;
         MethodInfo processMatches = type.GetMethod("ProcessMatches", BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException("Composite match processor was not found.");
+        MethodInfo markComponent = type.GetMethod("TryMarkCompositeComponent", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("Composite component marker was not found.");
         Assert.Contains(ReadCalledMethods(containsAny), method => method == processMatches);
-        Assert.Contains(ReadCalledMethods(processMatches), static method => method.Name == "TryMarkCompositeComponent");
-        Assert.DoesNotContain(ReadReferencedFields(containsAny), static field => field.Name == "_multiWordRules");
+        Assert.Contains(ReadCalledMethods(processMatches), method => method == markComponent);
+        FieldInfo[] invertedIndexFields = ReadReferencedFields(markComponent).ToArray();
+        Assert.Contains(invertedIndexFields, static field => field.Name == "_componentRuleOffsets");
+        Assert.Contains(invertedIndexFields, static field => field.Name == "_componentRuleIds");
     }
 
     private static bool NaiveContains(IEnumerable<string> rules, string text)

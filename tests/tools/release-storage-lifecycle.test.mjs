@@ -104,6 +104,7 @@ test('materialization is release-addressed append-only idempotent and keeps old 
     sha256File(path.join(store, 'releases', firstRelease, 'wasm', 'aeds_decoder.wasm')),
     sha256File(path.join(store, 'releases', secondRelease, 'wasm', 'aeds_decoder.wasm')))
 
+  fs.chmodSync(path.join(store, 'releases', secondRelease, 'wasm', 'aeds_decoder.wasm'), 0o600)
   fs.writeFileSync(path.join(store, 'releases', secondRelease, 'wasm', 'aeds_decoder.wasm'), 'tampered')
   assert.throws(() => materializeReleaseAssets({
     releaseId: secondRelease,
@@ -293,6 +294,7 @@ test('host CLIs emit stable machine JSON and retained asset gate fails closed', 
   assert.equal(compatibilityReport.schema, 'fsusblog.release-compatibility-matrix.v1')
   assert.equal(compatibilityReport.status, 'pass')
 
+  fs.chmodSync(path.join(store, 'releases', previousRelease, 'wasm', 'aeds_decoder.wasm'), 0o600)
   fs.writeFileSync(path.join(store, 'releases', previousRelease, 'wasm', 'aeds_decoder.wasm'), 'tampered')
   const rejected = spawnSync(process.execPath, [
     path.join(repositoryRoot, 'tools/storage/verify-retained-assets.mjs'),

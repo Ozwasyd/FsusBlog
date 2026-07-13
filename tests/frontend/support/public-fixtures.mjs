@@ -49,8 +49,15 @@ function positiveInt(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
-export function readPublicFixtureIds(defaults = {}) {
+export function readPublicFixtureIds(defaults = {}, { requireCurrent = false } = {}) {
   const fixtures = readFixtureFile()
+  if (requireCurrent) {
+    const required = ['articleId', 'categoryId', 'tagId']
+    const missing = required.filter((key) => positiveInt(fixtures[key], 0) === 0)
+    if (missing.length > 0) {
+      throw new Error(`current-run public fixtures are missing: ${missing.join(', ')}`)
+    }
+  }
   return {
     articleId: positiveInt(fixtures.articleId, positiveInt(defaults.articleId, 1)),
     categoryId: positiveInt(fixtures.categoryId, positiveInt(defaults.categoryId, 1)),

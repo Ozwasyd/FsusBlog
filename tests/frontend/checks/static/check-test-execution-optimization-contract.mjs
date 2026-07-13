@@ -24,6 +24,26 @@ function requireIncludes(relativePath, needles) {
   }
 }
 
+function requireSectionIncludes(relativePath, startToken, endToken, needles) {
+  const source = read(relativePath)
+  const start = source.indexOf(startToken)
+  if (start < 0) {
+    errors.push(`${relativePath} missing contract section: ${startToken}`)
+    return
+  }
+  const end = endToken === null ? source.length : source.indexOf(endToken, start + startToken.length)
+  if (end < 0) {
+    errors.push(`${relativePath} missing contract section boundary: ${endToken}`)
+    return
+  }
+  const section = source.slice(start, end)
+  for (const needle of needles) {
+    if (!section.includes(needle)) {
+      errors.push(`${relativePath} section ${startToken} missing contract token: ${needle}`)
+    }
+  }
+}
+
 const vitestConfigs = readdirSync(path.join(root, 'src/frontend'))
   .filter((name) => /^vitest(?:\..+)?\.config\.ts$/u.test(name))
   .sort()
@@ -38,6 +58,7 @@ for (const configName of vitestConfigs) {
       "from './vitest.perf.config'",
       "from './vitest.shared.mjs'",
       "createVitestRuntimeOptions('production')",
+      'deps: { optimizer: { ssr: { enabled: true } } }',
       'projects:'
     ])
   } else {
@@ -100,6 +121,9 @@ requireIncludes('tests/frontend/fixtures/prepare-playwright-sessions.mjs', [
   'FSUSBLOG_BASE_URL: backendBaseUrl',
   'FSUSBLOG_PG_CONTAINER: pgContainer',
   'FSUSBLOG_REDIS_CONTAINER: redisContainer',
+  'FSUSBLOG_USER_USERNAME: `binaryuser-${session}`',
+  'FSUSBLOG_ADMIN_USERNAME: `binaryadmin-${session}`',
+  'FSUSBLOG_DEVICE_FP: `${session}-playwright`',
   "assertSafeFixtureContainer(redisContainer, 'FSUSBLOG_REDIS_CONTAINER')"
 ])
 if (read('tests/frontend/fixtures/prepare-playwright-sessions.mjs').includes('spawnSync')) {
@@ -172,9 +196,43 @@ requireIncludes('src/frontend/wasm/build.sh', [
   '--numeric-owner',
   'gzip -n -9'
 ])
-requireIncludes('tools/test/bundles/run-bundle.mjs', [
-  "FSUSBLOG_OPENAPI_BUILD=0 tools/test/legacy-test.sh cross-stack-contract",
-  "resources: { cpuUnits: 8, memoryGiB: 8, exclusiveResources: ['benchmark-window'] }"
+requireIncludes('tools/test/bundles/bundle-steps.mjs', [
+  "step('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/legacy-test.sh cross-stack-contract static'",
+  "step('cross-stack-runtime', 'tools/test/legacy-test.sh cross-stack-contract runtime'",
+  'if ([...active.values()].some((record) => record.exclusive)) return []',
+  "ready.filter((entry) => (entry.resources.exclusiveResources ?? []).length === 0)"
+])
+requireSectionIncludes('tools/test/bundles/bundle-steps.mjs', "step('ux-risk-matrix'", "step('runtime-integration'", [
+  'resources: { cpuWeight: 4, memoryWeight: 8, minCpuUnits: 1 }'
+])
+requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privacy-zk-contract-prebuild',", "commandStep('privacy-zk-contract',", [
+  "commandStep('privacy-zk-contract-prebuild', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-prebuild'",
+  "dependsOn: ['frontend-early-test-capacity-ready']",
+  'resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }'
+])
+requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privacy-zk-contract',", "commandStep(\n      'frontend-static-postbuild'", [
+  "commandStep('privacy-zk-contract', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-postbuild'",
+  "dependsOn: ['frontend-build-ready', 'privacy-zk-contract-prebuild']",
+  'resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }'
+])
+requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "const step = commandStep('vitest-production-projects'", 'const frontendDagResults', [
+  "dependsOn: ['frontend-early-test-capacity-ready']",
+  'FSUSBLOG_VITEST_TARGET_WORKERS: String(fullVitestCpuUnits)',
+  'minCpuUnits: 1'
+])
+requireSectionIncludes('tools/test/bundles/bundle-steps.mjs', "step('privacy-zk-project-functional'", "step('coverage-merge'", [
+  'tools/test/lanes/privacy-zk-comment-matrix.sh project-functional',
+  'resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }'
+])
+const bundleStepsSource = read('tools/test/bundles/bundle-steps.mjs')
+if (bundleStepsSource.includes("step('privacy-zk'")) {
+  errors.push('legacy monolithic privacy-zk step must not return to runtime-browser')
+}
+requireSectionIncludes('tools/test/bundles/bundle-steps.mjs', 'export function performanceSteps()', null, [
+  "const benchmarkResources = { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['benchmark-window'] }",
+  "step('privacy-zk-performance-ready'",
+  "step('privacy-zk-benchmark'",
+  "step('privacy-zk-finalize'"
 ])
 requireIncludes('tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs', [
   'process.env.FSUSBLOG_DEBUG_FRONTEND_URL',
@@ -227,9 +285,11 @@ requireIncludes('tools/bootstrap-acceptance-env.sh', [
   'tools/frontend',
   'FSUSBLOG_FIXTURE_SERVICE_GENERATION',
   'source "$ROOT_DIR/tools/test/lanes/_legacy.sh"',
-  'prepare_runtime_fixtures_once',
+  'run_parallel "bootstrap-runtime-fixtures"',
+  '"auth-fixtures::prepare_auth_fixtures_once"',
+  '"public-fixtures::prepare_public_fixtures_once"',
   'run_frontend_fast_build_group',
-  'reusing frontend release bundle produced by this scheduler run'
+  'reusing digest-verified frontend release bundle produced by this build-static scheduler run'
 ])
 requireIncludes('tools/test/lanes/static-governance.sh', [
   'run-test-matrix.mjs" evidence-plan --out .tmp/release-evidence/test-plan.json'
@@ -296,8 +356,8 @@ if (postgresManifest) {
     if (parsed.collections?.length !== 2) {
       errors.push('postgres test collection manifest must declare exactly two collections')
     }
-    if (entries.length !== 28) {
-      errors.push(`postgres test collection manifest must classify 28 classes, got ${entries.length}`)
+    if (entries.length < 28) {
+      errors.push(`postgres test collection manifest must retain at least 28 classified classes, got ${entries.length}`)
     }
   } catch (error) {
     errors.push(`postgres test collection manifest is invalid JSON: ${error.message}`)

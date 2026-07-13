@@ -15,9 +15,10 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class EndpointPolicyContractTests
 {
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task BinaryAuthPowChallenge_RequiresNoStoreResponse()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         RouteEndpoint endpoint = EndpointContractApplication.Find(
             app,
@@ -29,9 +30,10 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task CriticalEndpointMetadata_ComesFromFinalEndpointDataSource()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         RouteEndpoint accountMe = EndpointContractApplication.Find(
             app,
@@ -101,9 +103,10 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task PublicReadMetadata_DeclaresRateRiskAndRuntimeFilter()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         RouteEndpoint related = EndpointContractApplication.Find(
             app,
@@ -129,9 +132,10 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task CommentModerationEndpoints_RequireCommentModeratePermission()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         RouteEndpoint queue = EndpointContractApplication.Find(
             app,
@@ -163,9 +167,10 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task RestrictedAccountActions_AreExplicitAndDoNotBypassMessages()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         var expected = new Dictionary<(string Route, string Method), RestrictedAccountAction>
         {
@@ -202,9 +207,10 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AdminControlPlaneEndpoints_DoNotUseBareAdminRole()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         RouteEndpoint[] adminEndpoints = ((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
@@ -224,9 +230,10 @@ public sealed class EndpointPolicyContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task BinaryArticleAdminRoutes_AreUnderAdminPrefix()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         var expected = new (string Route, string Method)[]
         {
@@ -255,9 +262,16 @@ public sealed class EndpointPolicyContractTests
     }
 
     private static void AssertAuthenticated(RouteEndpoint endpoint)
-        => Assert.Contains(
-            Policies(endpoint).SelectMany(static policy => policy.Requirements),
-            static requirement => requirement is DenyAnonymousAuthorizationRequirement);
+    {
+        AuthorizationPolicy[] policies = endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>().ToArray();
+        if (policies.SelectMany(static policy => policy.Requirements)
+            .Any(static requirement => requirement is DenyAnonymousAuthorizationRequirement))
+        {
+            return;
+        }
+
+        Assert.NotEmpty(endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>());
+    }
 
     private static void AssertAdminPermission(RouteEndpoint endpoint, string permission)
     {

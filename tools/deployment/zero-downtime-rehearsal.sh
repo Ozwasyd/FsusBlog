@@ -713,7 +713,8 @@ derive_rollout_id() {
 
 run_fault_matrix() {
   local mode_root="$1" phase="$2" kind="$3" output="$4" rollout_id="$5"
-  local fault_root="$mode_root/faults/$phase" plan="$fault_root/plan.json"
+  local fault_root="$mode_root/faults/$phase"
+  local plan="$fault_root/plan.json"
   mkdir -p "$fault_root" "$mode_root/evidence" "$mode_root/logs"
   if ! run_logged "$mode_root/logs" "fault-plan-$phase" node "$PLAN_TOOL" materialize-fault \
     --plan "$RESOLVED_PLAN" --run-root "$fault_root" --kind "$kind" --rollout-id "$rollout_id" --out "$plan"; then
@@ -1184,7 +1185,8 @@ verify_mode() {
 }
 
 run_normal_like_mode() {
-  local mode="$1" mode_root="$RUN_ROOT/modes/$mode"
+  local mode="$1"
+  local mode_root="$RUN_ROOT/modes/$mode"
   local failed=0 deploy_fault="$mode_root/evidence/fault-matrix.json"
   local deploy_asset deploy_rollout_id
   deploy_asset="$(jq -er '.assets.deployScenario' "$RESOLVED_PLAN")" || return 1
@@ -1230,7 +1232,8 @@ run_normal_like_mode() {
 }
 
 run_explicit_rollback_mode() {
-  local mode="explicit-rollback" mode_root="$RUN_ROOT/modes/explicit-rollback"
+  local mode="explicit-rollback"
+  local mode_root="$RUN_ROOT/modes/explicit-rollback"
   local failed=0 deploy_fault="$mode_root/evidence/fault-matrix.json" rollback_fault="$mode_root/evidence/fault-matrix-rollback.json"
   local deploy_asset rollback_asset deploy_rollout_id rollback_rollout_id
   deploy_asset="$(jq -er '.assets.deployScenario' "$RESOLVED_PLAN")" || return 1
@@ -1478,7 +1481,8 @@ run_sigkill_interruption() {
 }
 
 run_sigkill_resume_mode() {
-  local mode="sigkill-resume" mode_root="$RUN_ROOT/modes/sigkill-resume"
+  local mode="sigkill-resume"
+  local mode_root="$RUN_ROOT/modes/sigkill-resume"
   local failed=0 control_fault="$mode_root/evidence/fault-matrix.json" deploy_asset control_rollout_id
   local control_topology_started=0
   deploy_asset="$(jq -er '.assets.deployScenario' "$RESOLVED_PLAN")" || return 1

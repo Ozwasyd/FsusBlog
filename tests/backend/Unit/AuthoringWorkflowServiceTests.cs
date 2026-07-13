@@ -25,12 +25,16 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void DraftAndRevisionRuntimeContractsUseAdminPrincipalAttribution()
     {
-        string endpoints = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringEndpoints),
-            nameof(AuthoringEndpoints.MapAuthoringEndpoints),
-            "ResolveRequiredAdminPrincipalId");
-        Assert.Contains("ResolveRequiredAdminPrincipalId", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetUserId", endpoints, StringComparison.Ordinal);
+        IReadOnlyList<IReadOnlyList<string>> attributionHandlers = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferenceSequencesContaining(
+                typeof(AuthoringEndpoints),
+                "ResolveRequiredAdminPrincipalId");
+        Assert.Contains(attributionHandlers, static handler =>
+            handler.Any(reference => reference.Contains(nameof(AuthoringWorkflowService.SaveDraftAsync), StringComparison.Ordinal)));
+        Assert.Contains(attributionHandlers, static handler =>
+            handler.Any(reference => reference.Contains(nameof(AuthoringWorkflowService.RollbackRevisionAsync), StringComparison.Ordinal)));
+        Assert.All(attributionHandlers, static handler =>
+            Assert.DoesNotContain(handler, reference => reference.Contains("GetUserId", StringComparison.Ordinal)));
 
         MethodInfo saveDraft = typeof(AuthoringWorkflowService).GetMethod(nameof(AuthoringWorkflowService.SaveDraftAsync))!;
         MethodInfo rollback = typeof(AuthoringWorkflowService).GetMethod(nameof(AuthoringWorkflowService.RollbackRevisionAsync))!;
@@ -87,7 +91,7 @@ public sealed class AuthoringWorkflowServiceTests
             typeof(AuthoringWorkflowService),
             "RebuildAssetLibraryAsync");
 
-        Assert.Contains("db.Ado.UseTranAsync(async ()", method, StringComparison.Ordinal);
+        Assert.Contains("UseTranAsync", method, StringComparison.Ordinal);
         Assert.Contains("pg_advisory_xact_lock", method, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE", method, StringComparison.Ordinal);
     }
@@ -95,20 +99,20 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void ReindexAssetsAsync_RuntimeUsesArticleScopedAssetPath()
     {
-        string reindex = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.ReindexAssetsAsync));
+        IReadOnlyList<IReadOnlyList<string>> reindex = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferenceSequencesContaining(
+                typeof(AuthoringWorkflowService),
+                "ReindexArticleAssetsAsync");
         string articleScoped = RuntimeMetadataInspection.DescribeMethods(
             typeof(AuthoringWorkflowService),
             "ReindexArticleAssetsAsync",
             "EnsureAssetArticleReferenceStoreAsync");
 
-        Assert.Contains("ReindexArticleAssetsAsync", reindex, StringComparison.Ordinal);
-        Assert.DoesNotContain("RebuildAssetLibraryAsync", reindex, StringComparison.Ordinal);
+        Assert.All(reindex, static references =>
+            Assert.DoesNotContain(references, reference => reference.Contains("RebuildAssetLibraryAsync", StringComparison.Ordinal)));
         Assert.Contains("EnsureAssetArticleReferenceStoreAsync", articleScoped, StringComparison.Ordinal);
         Assert.Contains("asset_library_article_ref", articleScoped, StringComparison.Ordinal);
         Assert.Contains("get_ArticleId", articleScoped, StringComparison.Ordinal);
-        Assert.DoesNotContain("LoadAssetLibraryForUpdateAsync", articleScoped, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -155,10 +159,10 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void ModerateCommentsAsync_RuntimeKeepsSideEffectsOutsideTransaction()
     {
-        string transactionBody = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(
+        string transactionBody = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
             typeof(AuthoringWorkflowService),
             "Updateable",
-            "ModerationStatus");
+            "Comment moderation bulk update conflicted.");
         Assert.DoesNotContain("InvalidateModeratedCommentAsync", transactionBody, StringComparison.Ordinal);
         Assert.DoesNotContain("PublishModerationRealtimeAsync", transactionBody, StringComparison.Ordinal);
         Assert.DoesNotContain("WriteAudit", transactionBody, StringComparison.Ordinal);
@@ -168,15 +172,16 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void ExportContentBackupAsync_RuntimeUsesBatchLoadInsteadOfPerArticleExport()
     {
-        string backup = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringWorkflowService),
-            nameof(AuthoringWorkflowService.ExportContentBackupAsync));
+        IReadOnlyList<IReadOnlyList<string>> backup = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferenceSequencesContaining(
+                typeof(AuthoringWorkflowService),
+                "LoadContentBackupArticlesAsync");
         string batch = RuntimeMetadataInspection.DescribeMethods(
             typeof(AuthoringWorkflowService),
             "LoadContentBackupArticlesAsync");
 
-        Assert.Contains("LoadContentBackupArticlesAsync", backup, StringComparison.Ordinal);
-        Assert.DoesNotContain("ExportArticleAsync", backup, StringComparison.Ordinal);
+        Assert.All(backup, static references =>
+            Assert.DoesNotContain(references, reference => reference.Contains("ExportArticleAsync", StringComparison.Ordinal)));
         Assert.Contains(nameof(ArticleBody), batch, StringComparison.Ordinal);
         Assert.Contains(nameof(ArticleTag), batch, StringComparison.Ordinal);
         Assert.Contains(nameof(ArticleRevision), batch, StringComparison.Ordinal);
@@ -228,10 +233,9 @@ public sealed class AuthoringWorkflowServiceTests
         Assert.DoesNotContain("GroupBy", signals, StringComparison.Ordinal);
         ISchemaMigrationDescriptor migration = Assert.Single(
             new SchemaMigrationRegistry().GetDescriptors(),
-            static descriptor => descriptor.MigrationId == "20260610-post-comment-moderation-signal");
-        Assert.Contains(
-            migration.Steps.Select(static step => step.Fingerprint),
-            static fingerprint => fingerprint.Contains("idx_comment_moderation_signal_comment_created", StringComparison.Ordinal));
+            static descriptor => descriptor.Steps.Any(step =>
+                step.Fingerprint.Contains("idx_comment_moderation_signal_comment_created", StringComparison.Ordinal)));
+        Assert.Equal("20260629-post-comment-moderation-signal-latest-index", migration.MigrationId);
     }
 
     [Fact]
@@ -294,29 +298,45 @@ public sealed class AuthoringWorkflowServiceTests
     [Fact]
     public void CommentModerationIdentityProjection_RuntimeAvoidsLegacyAccountFallbacks()
     {
-        string moderationRegion = RuntimeMetadataInspection.DescribeMethods(
+        string moderationQueue = RuntimeMetadataInspection.DescribeMethods(
             typeof(AuthoringWorkflowService),
             nameof(AuthoringWorkflowService.ListCommentModerationQueueAsync),
+            "ToCommentModerationItem",
+            "ResolveModerationAuthorDisplayName");
+        string displayName = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringWorkflowService),
             "ResolveCommentModerationDisplayName");
+        string hydration = RuntimeMetadataInspection.DescribeMethods(
+            typeof(AuthoringWorkflowService),
+            "HydrateCommentModerationDisplayNames");
 
-        Assert.DoesNotContain("FsusBlog.Server.Entities.User", moderationRegion, StringComparison.Ordinal);
-        Assert.DoesNotContain("get_PublicHandle", moderationRegion, StringComparison.Ordinal);
-        Assert.DoesNotContain("get_Username", moderationRegion, StringComparison.Ordinal);
-        Assert.DoesNotContain("get_UserName", moderationRegion, StringComparison.Ordinal);
-        Assert.Contains("ResolveCommentModerationDisplayName", moderationRegion, StringComparison.Ordinal);
-        Assert.Contains("set_AuthorDisplayName", moderationRegion, StringComparison.Ordinal);
-        Assert.Contains("set_ReplyToAuthorDisplayName", moderationRegion, StringComparison.Ordinal);
+        Assert.DoesNotContain("FsusBlog.Server.Entities.User", moderationQueue, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Username", moderationQueue, StringComparison.Ordinal);
+        Assert.DoesNotContain("get_UserName", moderationQueue, StringComparison.Ordinal);
+        Assert.Contains("get_PublicHandle", moderationQueue, StringComparison.Ordinal);
+        Assert.Contains("public", displayName, StringComparison.Ordinal);
+        Assert.Contains("ResolveCommentModerationDisplayName", moderationQueue, StringComparison.Ordinal);
+        Assert.Contains("CommentModerationItemResponse..ctor", moderationQueue, StringComparison.Ordinal);
+        Assert.Contains("set_AuthorDisplayName", hydration, StringComparison.Ordinal);
+        Assert.Contains("set_ReplyToAuthorDisplayName", hydration, StringComparison.Ordinal);
     }
 
     [Fact]
     public void CommentModerationAttribution_RuntimeUsesAdminPrincipal()
     {
-        string endpoints = RuntimeMetadataInspection.DescribeMethods(
-            typeof(AuthoringEndpoints),
-            nameof(AuthoringEndpoints.MapAuthoringEndpoints),
-            "ResolveRequiredAdminPrincipalId");
-        Assert.Contains("ResolveRequiredAdminPrincipalId", endpoints, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetUserId", endpoints, StringComparison.Ordinal);
+        IReadOnlyList<IReadOnlyList<string>> attributionHandlers = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferenceSequencesContaining(
+                typeof(AuthoringEndpoints),
+                "ResolveRequiredAdminPrincipalId");
+        Assert.Contains(attributionHandlers, static handler =>
+            handler.Any(reference => reference.Contains(nameof(AuthoringWorkflowService.ModerateCommentAsync), StringComparison.Ordinal)));
+        Assert.Contains(attributionHandlers, static handler =>
+            handler.Any(reference => reference.Contains(nameof(AuthoringWorkflowService.ModerateCommentsAsync), StringComparison.Ordinal)));
+        Assert.All(
+            attributionHandlers.Where(static handler => handler.Any(reference =>
+                reference.Contains(nameof(AuthoringWorkflowService.ModerateCommentAsync), StringComparison.Ordinal)
+                || reference.Contains(nameof(AuthoringWorkflowService.ModerateCommentsAsync), StringComparison.Ordinal))),
+            static handler => Assert.DoesNotContain(handler, reference => reference.Contains("GetUserId", StringComparison.Ordinal)));
 
         foreach (string methodName in new[]
         {

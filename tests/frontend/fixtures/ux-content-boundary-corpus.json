@@ -80,7 +80,7 @@
     {
       "id": "broken-image",
       "kind": "image",
-      "sample": "/__fsus_missing_boundary_image__.png"
+      "sample": "data:image/png;base64,AAAA"
     },
     {
       "id": "empty-state",

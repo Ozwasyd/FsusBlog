@@ -89,9 +89,12 @@ public sealed class BackgroundWorkerLeaseTests
     [Trait("Category", "Concurrency")]
     public async Task TryRunAsLeaderAsync_RenewsLeaseDuringLongWork()
     {
-        var cache = new LeaseMemoryCache();
-        var leader = CreateLease(cache, leaseTtl: TimeSpan.FromSeconds(2), renewInterval: TimeSpan.FromMilliseconds(100));
-        var standby = CreateLease(cache, leaseTtl: TimeSpan.FromSeconds(2), renewInterval: TimeSpan.FromMilliseconds(100));
+        TimeSpan leaseTtl = TimeSpan.FromSeconds(2);
+        TimeSpan renewInterval = TimeSpan.FromMilliseconds(100);
+        var time = new MutableTimeProvider(DateTimeOffset.Parse("2026-06-25T00:00:00Z"));
+        var cache = new LeaseMemoryCache(time);
+        var leader = CreateLease(cache, time, leaseTtl, renewInterval);
+        var standby = CreateLease(cache, time, leaseTtl, renewInterval);
         var leaderStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseLeader = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         int leaderExecutions = 0;
@@ -107,7 +110,12 @@ public sealed class BackgroundWorkerLeaseTests
             });
 
         await leaderStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        await Task.Delay(2500);
+        time.Advance(renewInterval);
+        await cache.RenewalObserved.WaitAsync(TimeSpan.FromSeconds(10));
+
+        // Move beyond the original expiry while remaining inside the explicitly observed
+        // renewal. This proves renewal rather than relying on a wall-clock sleep.
+        time.Advance(leaseTtl - (renewInterval / 2));
         bool standbyRan = await standby.TryRunAsLeaderAsync(
             "pow-load-reset-worker",
             _ =>
@@ -123,6 +131,7 @@ public sealed class BackgroundWorkerLeaseTests
         Assert.False(standbyRan);
         Assert.Equal(1, leaderExecutions);
         Assert.Equal(0, standbyExecutions);
+        Assert.True(cache.RenewalCount >= 1);
     }
 
     [Fact]
@@ -185,8 +194,14 @@ public sealed class BackgroundWorkerLeaseTests
     {
         private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
         private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+        private readonly TaskCompletionSource<bool> _renewalObserved = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _renewalCount;
 
         public bool ThrowOnAcquire { get; init; }
+
+        public Task RenewalObserved => _renewalObserved.Task;
+
+        public int RenewalCount => Volatile.Read(ref _renewalCount);
 
         public Task<bool> TryAcquireLeaseAsync(CachePolicyId policyId, string identity, string value, TimeSpan ttl, CancellationToken cancellationToken = default)
         {
@@ -235,6 +250,8 @@ public sealed class BackgroundWorkerLeaseTests
 
             TimeSpan ttl = l2TtlOverride ?? TimeSpan.FromSeconds(5);
             _entries[key] = new Entry(value, now.Add(ttl));
+            Interlocked.Increment(ref _renewalCount);
+            _renewalObserved.TrySetResult(true);
             return Task.FromResult(true);
         }
 
@@ -291,10 +308,142 @@ public sealed class BackgroundWorkerLeaseTests
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {
+        private readonly object _gate = new();
+        private readonly List<ManualTimer> _timers = [];
         private DateTimeOffset _utcNow = utcNow;
 
-        public override DateTimeOffset GetUtcNow() => _utcNow;
+        public override DateTimeOffset GetUtcNow()
+        {
+            lock (_gate)
+            {
+                return _utcNow;
+            }
+        }
 
-        public void Advance(TimeSpan delta) => _utcNow = _utcNow.Add(delta);
+        public override ITimer CreateTimer(
+            TimerCallback callback,
+            object? state,
+            TimeSpan dueTime,
+            TimeSpan period)
+        {
+            ArgumentNullException.ThrowIfNull(callback);
+            var timer = new ManualTimer(this, callback, state, dueTime, period);
+            lock (_gate)
+            {
+                _timers.Add(timer);
+            }
+
+            return timer;
+        }
+
+        public void Advance(TimeSpan delta)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(delta, TimeSpan.Zero);
+            List<(TimerCallback Callback, object? State)> callbacks = [];
+            lock (_gate)
+            {
+                _utcNow = _utcNow.Add(delta);
+                foreach (ManualTimer timer in _timers)
+                {
+                    timer.CollectDueCallback(_utcNow, callbacks);
+                }
+            }
+
+            foreach ((TimerCallback callback, object? state) in callbacks)
+            {
+                callback(state);
+            }
+        }
+
+        private sealed class ManualTimer : ITimer
+        {
+            private readonly MutableTimeProvider _provider;
+            private readonly TimerCallback _callback;
+            private readonly object? _state;
+            private DateTimeOffset? _nextTick;
+            private TimeSpan _period;
+            private bool _disposed;
+
+            public ManualTimer(
+                MutableTimeProvider provider,
+                TimerCallback callback,
+                object? state,
+                TimeSpan dueTime,
+                TimeSpan period)
+            {
+                _provider = provider;
+                _callback = callback;
+                _state = state;
+                SetSchedule(dueTime, period);
+            }
+
+            public bool Change(TimeSpan dueTime, TimeSpan period)
+            {
+                lock (_provider._gate)
+                {
+                    if (_disposed)
+                    {
+                        return false;
+                    }
+
+                    SetSchedule(dueTime, period);
+                    return true;
+                }
+            }
+
+            public void Dispose()
+            {
+                lock (_provider._gate)
+                {
+                    _disposed = true;
+                    _nextTick = null;
+                }
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
+
+            public void CollectDueCallback(
+                DateTimeOffset now,
+                List<(TimerCallback Callback, object? State)> callbacks)
+            {
+                if (_disposed || _nextTick is not { } nextTick || nextTick > now)
+                {
+                    return;
+                }
+
+                callbacks.Add((_callback, _state));
+                if (_period == Timeout.InfiniteTimeSpan)
+                {
+                    _nextTick = null;
+                    return;
+                }
+
+                long elapsedTicks = (now - nextTick).Ticks;
+                long periodsElapsed = (elapsedTicks / _period.Ticks) + 1;
+                _nextTick = nextTick.AddTicks(periodsElapsed * _period.Ticks);
+            }
+
+            private void SetSchedule(TimeSpan dueTime, TimeSpan period)
+            {
+                ValidateTimerInterval(dueTime, nameof(dueTime));
+                ValidateTimerInterval(period, nameof(period));
+                _period = period;
+                _nextTick = dueTime == Timeout.InfiniteTimeSpan
+                    ? null
+                    : _provider._utcNow.Add(dueTime);
+            }
+
+            private static void ValidateTimerInterval(TimeSpan value, string parameterName)
+            {
+                if (value < TimeSpan.Zero && value != Timeout.InfiniteTimeSpan)
+                {
+                    throw new ArgumentOutOfRangeException(parameterName);
+                }
+            }
+        }
     }
 }

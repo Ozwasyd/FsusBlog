@@ -11,19 +11,28 @@ import {
   collectLogicalTierIds,
   digestDeclaredOutputs,
   localProfileSystemResources,
+  localProfileBudgetCriticalPath,
+  performanceMixedWindowFloorMs,
   matrixGeneratedRuntimePaths,
+  resolveLocalProfileResources,
   resolveArtifactSubstitutions,
   validateArtifactSubstitutions,
   validateLocalBundleSummary,
+  validatePerformanceDeadlineEvidence,
+  validateLocalProfileCheckpointDuration,
+  validateLocalProfileRunSummary,
   validateLocalProfiles
 } from '../../tools/test-matrix/local-profile.mjs'
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from '../../tools/test-matrix/fresh-production.mjs'
+import { buildMixedWindowPlan } from '../../tools/test/run-mixed-performance-window.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const localBundleRunner = fs.readFileSync(path.join(root, 'tools/test/bundles/run-bundle.mjs'), 'utf8')
+const localBundleSteps = fs.readFileSync(path.join(root, 'tools/test/bundles/bundle-steps.mjs'), 'utf8')
 const backendShardRunner = fs.readFileSync(path.join(root, 'tools/test/run-backend-production-shards.mjs'), 'utf8')
 const uxRiskRunner = fs.readFileSync(path.join(root, 'tools/ux/run-local-production-risk.mjs'), 'utf8')
+const releasePreviewReadiness = fs.readFileSync(path.join(root, 'tools/ux/release-preview-readiness.mjs'), 'utf8')
 const matrixRunner = fs.readFileSync(path.join(root, 'tools/run-test-matrix.mjs'), 'utf8')
 const backendBundleRunner = localBundleRunner.slice(
   localBundleRunner.indexOf('async function runBackendTests()'),
@@ -31,7 +40,7 @@ const backendBundleRunner = localBundleRunner.slice(
 )
 const frontendBundleRunner = localBundleRunner.slice(
   localBundleRunner.indexOf('async function runFrontendTests()'),
-  localBundleRunner.indexOf('\nfunction runtimeWaves(')
+  localBundleRunner.indexOf('\nasync function run()')
 )
 
 function tier(id, dependsOn = []) {
@@ -41,16 +50,13 @@ function tier(id, dependsOn = []) {
 function profile(overrides = {}) {
   return {
     budgetMs: 300_000,
-    maxParallel: 8,
-    cpuUnits: 8,
-    memoryGiB: 10,
-    maxInitialLoad1: 4,
+    memoryReserveShare: 0.05,
     bundles: [
-      { id: 'build-static', command: 'build', budgetMs: 70_000, dependsOn: [], members: ['a'], cpuUnits: 3, memoryGiB: 3, stepMaxParallel: 3 },
-      { id: 'backend', command: 'backend', budgetMs: 110_000, dependsOn: [], members: ['b'], cpuUnits: 3, memoryGiB: 4, stepMaxParallel: 3 },
-      { id: 'frontend', command: 'frontend', budgetMs: 110_000, dependsOn: [], members: ['c'], cpuUnits: 2, memoryGiB: 3, stepMaxParallel: 2 },
-      { id: 'runtime-browser', command: 'runtime', budgetMs: 90_000, dependsOn: ['build-static', 'backend', 'frontend'], members: ['d'], cpuUnits: 8, memoryGiB: 10, stepMaxParallel: 8 },
-      { id: 'performance-evidence', command: 'performance', budgetMs: 80_000, dependsOn: ['runtime-browser'], members: ['production'], cpuUnits: 8, memoryGiB: 10, stepMaxParallel: 8 }
+      { id: 'build-static', command: 'build', deadlineWeight: 18, dependsOn: [], members: ['a'], cpuWeight: 2, memoryWeight: 3, minCpuUnits: 1 },
+      { id: 'backend-tests', command: 'backend', deadlineWeight: 44, dependsOn: [], members: ['b'], cpuWeight: 3, memoryWeight: 4, minCpuUnits: 2 },
+      { id: 'frontend-tests', command: 'frontend', deadlineWeight: 27, dependsOn: [], members: ['c'], cpuWeight: 3, memoryWeight: 2, minCpuUnits: 1 },
+      { id: 'runtime-browser', command: 'runtime', deadlineWeight: 24, dependsOn: [], members: ['d'], cpuWeight: 5, memoryWeight: 5, minCpuUnits: 1 },
+      { id: 'performance-evidence', command: 'performance', deadlineWeight: 36, minimumDeadlineShare: 0.25, dependsOn: ['backend-tests', 'runtime-browser', 'frontend-tests'], members: ['production'], cpuWeight: 8, memoryWeight: 10, minCpuUnits: 1 }
     ],
     summaryOnly: [],
     ...overrides
@@ -78,7 +84,7 @@ test('production profile requires exact fresh logical-tier coverage', () => {
   assert.deepEqual(validateLocalProfiles({ production: profile() }, tiers), [])
 
   const duplicate = profile({
-    bundles: profile().bundles.map((bundle) => bundle.id === 'backend'
+    bundles: profile().bundles.map((bundle) => bundle.id === 'backend-tests'
       ? { ...bundle, members: ['a', 'b'] }
       : bundle)
   })
@@ -102,24 +108,150 @@ test('production profile fixes the approved local resource and bundle contract',
   assert.ok(validateLocalProfiles({ production: wrongCount }, [
     tier('production', ['a', 'b', 'c', 'd']), tier('a'), tier('b'), tier('c'), tier('d')
   ]).some((error) => error.includes('exactly 5 bundles')))
+
+  const invalidPacking = profile({
+    bundles: profile().bundles.map((bundle) => bundle.id === 'backend-tests'
+      ? { ...bundle, cpuWeight: 0, minCpuUnits: 0 }
+      : bundle)
+  })
+  const packingErrors = validateLocalProfiles({ production: invalidPacking }, [
+    tier('production', ['a', 'b', 'c', 'd']), tier('a'), tier('b'), tier('c'), tier('d')
+  ])
+  assert.ok(packingErrors.includes('localProfiles.production.backend-tests.cpuWeight must be positive'))
+  assert.ok(packingErrors.includes('localProfiles.production.backend-tests.minCpuUnits must be positive'))
+
+  const wrongDag = profile({
+    bundles: profile().bundles.map((bundle) => bundle.id === 'runtime-browser'
+      ? { ...bundle, dependsOn: ['build-static'] }
+      : bundle)
+  })
+  assert.ok(validateLocalProfiles({ production: wrongDag }, [
+    tier('production', ['a', 'b', 'c', 'd']), tier('a'), tier('b'), tier('c'), tier('d')
+  ]).includes('localProfiles.production.runtime-browser.dependsOn must be []'))
+
+  const wrongRuntimeResources = profile({
+    bundles: profile().bundles.map((bundle) => bundle.id === 'runtime-browser'
+      ? { ...bundle, deadlineWeight: 0, memoryWeight: 0 }
+      : bundle)
+  })
+  const runtimeResourceErrors = validateLocalProfiles({ production: wrongRuntimeResources }, [
+    tier('production', ['a', 'b', 'c', 'd']), tier('a'), tier('b'), tier('c'), tier('d')
+  ])
+  assert.ok(runtimeResourceErrors.includes('localProfiles.production.runtime-browser.deadlineWeight must be positive'))
+  assert.ok(runtimeResourceErrors.includes('localProfiles.production.runtime-browser.memoryWeight must be positive'))
 })
 
-test('local production reserves the declared profile memory budget for independent bundles', () => {
+test('local production derives full CPU, safe memory and launch parallelism from the machine', () => {
   assert.deepEqual(
     localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 11, load1: 3.5 }),
-    { cpuCount: 8, availableCpuUnits: 8, availableMemoryGiB: 10, load1: 3.5 }
+    {
+      cpuCount: 8,
+      availableCpuUnits: 8,
+      availableMemoryGiB: 10.45,
+      load1: 3.5,
+      launchParallelism: 8,
+      memoryReserveGiB: 0.55
+    }
   )
-  assert.throws(
-    () => localProfileSystemResources(profile(), { cpuCount: 7, availableMemoryGiB: 11, load1: 0 }),
-    /at least 8 available CPU/u
+  assert.deepEqual(
+    localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 16, load1: 0 }),
+    {
+      cpuCount: 8,
+      availableCpuUnits: 8,
+      availableMemoryGiB: 15.2,
+      load1: 0,
+      launchParallelism: 8,
+      memoryReserveGiB: 0.8
+    }
   )
-  assert.throws(
-    () => localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 9, load1: 0 }),
-    /at least 10 GiB available memory/u
+  const busy = localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 16, load1: 12 })
+  assert.equal(busy.availableCpuUnits, 8)
+  assert.equal(busy.load1, 12)
+  assert.equal(busy.launchParallelism, 8)
+  assert.equal(localProfileSystemResources(profile(), { cpuCount: 7, availableMemoryGiB: 9, load1: 0 }).availableCpuUnits, 7)
+  assert.throws(() => localProfileSystemResources(profile(), { cpuCount: 3, availableMemoryGiB: 9, load1: 0 }), /at least 4/u)
+  assert.throws(() => localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 0, load1: 0 }), /positive available memory/u)
+  assert.throws(() => localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 9, load1: -1 }), /non-negative/u)
+})
+
+test('local production cleans stale runtimes before measuring machine capacity', () => {
+  const runner = matrixRunner.slice(
+    matrixRunner.indexOf('async function runLocalProfile('),
+    matrixRunner.indexOf('\nfunction resetFreshJobSummaries(')
   )
+  const cleanup = runner.indexOf('cleanupStaleLocalRuntimes({')
+  const buildServerPreflight = runner.indexOf('const dotnetBuildServerPreflightPids =')
+  const measurement = runner.indexOf('localProfileSystemResources(profile, {')
+
+  assert.ok(cleanup >= 0)
+  assert.ok(buildServerPreflight > cleanup)
+  assert.ok(measurement > buildServerPreflight)
+  assert.ok(measurement > cleanup)
+  assert.match(runner, /options\.planOnly \? null : cleanupStaleLocalRuntimes/u)
+  assert.match(runner, /discoverUntracked: true/u)
+  assert.match(runner, /legacyContainerMinimumAgeMs: profile\.budgetMs \* 2/u)
+  assert.match(runner, /orphanTerminationGraceMs: Math\.ceil\(profile\.budgetMs \/ 100\)/u)
+  assert.match(runner, /includeInactiveProductionRuns: true/u)
+  assert.match(runner, /const dotnetBuildServerPostflightPids = cleanupOrphanDotnetBuildServers/u)
+  assert.match(runner, /includeCurrentBinding: true/u)
+  assert.match(runner, /preflightOrphanPids: dotnetBuildServerPreflightPids/u)
+  assert.match(runner, /postflightOrphanPids: dotnetBuildServerPostflightPids/u)
+})
+
+test('production bundle resources resolve from each machine and fill its usable capacity', () => {
+  const expectedCpu = new Map([
+    [4, [1, 2, 1, 2, 4]],
+    [8, [2, 3, 3, 5, 8]],
+    [16, [4, 6, 6, 10, 16]]
+  ])
+  for (const [availableCpuUnits, expected] of expectedCpu) {
+    const resolved = resolveLocalProfileResources(profile(), {
+      availableCpuUnits,
+      availableMemoryGiB: 18
+    })
+    assert.deepEqual(resolved.bundles.map((bundle) => bundle.cpuUnits), expected)
+    assert.deepEqual(resolved.bundles.map((bundle) => bundle.stepMaxParallel), expected)
+    assert.equal(resolved.bundles.slice(0, 3).reduce((total, bundle) => total + bundle.cpuUnits, 0), availableCpuUnits)
+    assert.equal(resolved.bundles[1].cpuUnits + resolved.bundles[3].cpuUnits, availableCpuUnits)
+    const criticalPathBudgetMs = localProfileBudgetCriticalPath(resolved)
+    assert.ok(criticalPathBudgetMs <= resolved.budgetMs)
+    assert.ok(criticalPathBudgetMs >= resolved.budgetMs - resolved.bundles.length)
+    const performance = resolved.bundles.find((bundle) => bundle.id === 'performance-evidence')
+    assert.ok(performance.budgetMs >= resolved.budgetMs * performance.minimumDeadlineShare)
+    assert.ok(performance.budgetMs >= buildMixedWindowPlan().durationMs)
+  }
+
+  const fourCoreDeadlines = resolveLocalProfileResources(profile(), { availableCpuUnits: 4, availableMemoryGiB: 18 })
+  const eightCoreDeadlines = resolveLocalProfileResources(profile(), { availableCpuUnits: 8, availableMemoryGiB: 18 })
+  assert.notDeepEqual(
+    fourCoreDeadlines.bundles.map((bundle) => bundle.budgetMs),
+    eightCoreDeadlines.bundles.map((bundle) => bundle.budgetMs)
+  )
+  assert.ok(eightCoreDeadlines.bundles[0].budgetMs > 120_000)
+
+  for (const usableMemoryGiB of [9, 18, 31.5]) {
+    const resolved = resolveLocalProfileResources(profile(), { availableCpuUnits: 8, availableMemoryGiB: usableMemoryGiB })
+    const memory = resolved.bundles.map((bundle) => bundle.memoryGiB)
+    assert.ok(Math.abs(memory.slice(0, 3).reduce((total, value) => total + value, 0) - usableMemoryGiB) < 1e-10)
+    assert.ok(Math.abs(memory[0] - usableMemoryGiB * 3 / 9) < 1e-10)
+    assert.ok(Math.abs(memory[1] - usableMemoryGiB * 4 / 9) < 1e-10)
+    assert.ok(Math.abs(memory[2] - usableMemoryGiB * 2 / 9) < 1e-10)
+    assert.ok(Math.abs(memory[1] + memory[3] - usableMemoryGiB) < 1e-10)
+    assert.equal(memory[4], usableMemoryGiB)
+  }
+
   assert.throws(
-    () => localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 11, load1: 4.1 }),
-    /load1 must be at most 4/u
+    () => resolveLocalProfileResources(profile(), { availableCpuUnits: 3, availableMemoryGiB: 9 }),
+    /at least 4/u
+  )
+  const impossibleMinimum = profile({
+    bundles: profile().bundles.map((bundle) => bundle.id === 'backend-tests'
+      ? { ...bundle, minCpuUnits: 3 }
+      : bundle)
+  })
+  assert.throws(
+    () => resolveLocalProfileResources(impossibleMinimum, { availableCpuUnits: 4, availableMemoryGiB: 9 }),
+    /requires at least 5 available CPU units from declared minima/u
   )
 })
 
@@ -213,22 +345,69 @@ test('repository production profile maps all 77 logical tiers exactly once', () 
   assert.equal(logicalTierIds.length, 77)
   assert.ok(logicalTierIds.includes('ux-viewport-plan-progress'))
   assert.equal(matrix.localProfiles.production.bundles.length, 5)
-  assert.equal(matrix.localProfiles.production.budgetMs, 1_800_000)
-  assert.deepEqual(matrix.localProfiles.production.bundles.map((bundle) => bundle.budgetMs), [
-    180_000, 240_000, 240_000, 900_000, 480_000
-  ])
-  assert.equal(matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'frontend-tests')?.budgetMs, 240_000)
+  assert.equal(Object.hasOwn(matrix.localProfiles.production, 'maxParallel'), false)
+  assert.equal(Object.hasOwn(matrix.localProfiles.production, 'cpuUnits'), false)
+  assert.equal(Object.hasOwn(matrix.localProfiles.production, 'memoryGiB'), false)
+  assert.equal(Object.hasOwn(matrix.localProfiles.production, 'maxInitialLoad1'), false)
+  assert.equal(matrix.localProfiles.production.budgetMs, 300_000)
+  assert.equal(matrix.localProfiles.production.enforceBudget, false)
+  assert.ok(matrix.localProfiles.production.bundles.every((bundle) => bundle.deadlineWeight > 0))
+  assert.ok(matrix.localProfiles.production.bundles.every((bundle) => bundle.cpuWeight > 0))
+  assert.ok(matrix.localProfiles.production.bundles.every((bundle) => bundle.memoryWeight > 0))
+  assert.ok(matrix.localProfiles.production.bundles.every((bundle) => bundle.minCpuUnits > 0))
+  assert.deepEqual(
+    matrix.localProfiles.production.bundles.slice(0, 3).map((bundle) => bundle.cpuWeight),
+    [8, 4, 3]
+  )
+  assert.equal(
+    matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'runtime-browser').cpuWeight,
+    2,
+    'runtime must receive two live CPU units after build-static releases capacity'
+  )
+  assert.equal(
+    matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'build-static').deadlineWeight,
+    18
+  )
+  assert.equal(
+    matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'performance-evidence').minimumDeadlineShare,
+    0.2666666667
+  )
+  assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'budgetMs')))
+  assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'cpuUnits')))
+  assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'memoryGiB')))
+  assert.ok(matrix.localProfiles.production.bundles.every((bundle) => !Object.hasOwn(bundle, 'stepMaxParallel')))
   const frontendBundle = matrix.localProfiles.production.bundles.find((bundle) => bundle.id === 'frontend-tests')
   const frontendSubstitutions = resolveArtifactSubstitutions(frontendBundle, matrix.tiers)['frontend-property-model-perf']
   for (const canonical of [
     '.tmp/test-results/vitest/property',
     '.tmp/test-results/vitest/model'
   ]) {
-    assert.ok(frontendSubstitutions[canonical].includes('.tmp/test-results/vitest/production-coverage'))
+    assert.ok(frontendSubstitutions[canonical].includes('.tmp/test-results/vitest/production-rolling'))
     assert.equal(frontendSubstitutions[canonical].some((entry) => /\/(?:property|model)-coverage$/u.test(entry)), false)
   }
   assert.ok(frontendSubstitutions['.tmp/test-results/vitest/perf'].includes('.tmp/test-results/vitest/production'))
   assert.deepEqual(validateLocalProfiles(matrix.localProfiles, matrix.tiers), [])
+})
+
+test('repository production t0 grants scale by weights without exceeding each machine', () => {
+  const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
+  const initialIds = ['build-static', 'backend-tests', 'frontend-tests']
+  const grantsByCpu = new Map()
+
+  for (const availableCpuUnits of [5, 8, 16]) {
+    const resolved = resolveLocalProfileResources(matrix.localProfiles.production, {
+      availableCpuUnits,
+      availableMemoryGiB: availableCpuUnits * 2
+    })
+    const grants = initialIds.map((id) => resolved.bundles.find((bundle) => bundle.id === id).cpuUnits)
+    grantsByCpu.set(availableCpuUnits, grants)
+    assert.equal(grants.reduce((total, value) => total + value, 0), availableCpuUnits)
+    assert.ok(grants.every((value) => Number.isInteger(value) && value > 0))
+    assert.ok(grants[0] >= 2, 'build-static must retain its declared two-CPU minimum')
+  }
+
+  assert.deepEqual(grantsByCpu.get(8), [4, 2, 2])
+  assert.ok(grantsByCpu.get(16)[0] > grantsByCpu.get(8)[0], 'build-static must scale above four CPUs on a larger machine')
 })
 
 test('production checkpoint projection binds all 77 logical tiers to one fresh run and source state', () => {
@@ -258,7 +437,7 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
         }
         const actualDigests = Object.fromEntries(actualPaths.map((actualPath) => [
           actualPath,
-          `sha256:${'f'.repeat(64)}`
+          `sha256:${'c'.repeat(64)}`
         ]))
         const canonicalDigest = artifactSubstitutionBindingDigest(runtimePath, actualDigests)
         artifactDigests[runtimePath] = canonicalDigest
@@ -285,12 +464,33 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
       }]
     }))
   }]))
+  bundleSummaries['performance-evidence'].deadlineEvidence = {
+    schema: 'fsusblog.performance-deadline-evidence.v1',
+    status: 'sufficient',
+    schedulerRunId: runId,
+    candidateBudgetMs: 90_000,
+    bundleDurationMs: 80_000,
+    mixedWindow: {
+      stepId: 'mixed-performance-window',
+      minimumDurationMs: performanceMixedWindowFloorMs,
+      measuredDurationMs: 60_000
+    },
+    measuredOtherSerialMs: 20_000,
+    requiredBudgetMs: 80_000,
+    steps: [
+      { id: 'coverage-merge', status: 'success', durationMs: 20_000, startedAtMs: 0, finishedAtMs: 20_000 },
+      { id: 'mixed-performance-window', status: 'success', durationMs: 60_000, startedAtMs: 20_000, finishedAtMs: 80_000 }
+    ]
+  }
   const checkpoint = {
     schema: 'fsusblog.test-matrix.checkpoint.v1',
     runId,
     targetTierId: 'production',
     mode: 'fresh',
     status: 'success',
+    budgetMs: null,
+    startedAt: '2026-07-12T00:00:00.000Z',
+    finishedAt: '2026-07-12T00:04:59.999Z',
     sourceState,
     tiers: Object.fromEntries(production.bundles.map((bundle) => [`local-production-${bundle.id}`, {
       status: 'success',
@@ -298,18 +498,7 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
       outputs: { [`.tmp/local-production/${bundle.id}/summary.json`]: `file:33188:1:${'d'.repeat(64)}` }
     }]))
   }
-  const summaryOnlyEvidence = {
-    'security-authenticated-dast': {
-      schema: 'fsusblog.local-production.summary-only.v1',
-      tierId: 'security-authenticated-dast',
-      status: 'collected-blocked',
-      executionSource: 'external-environment',
-      schedulerRunId: runId,
-      sourceState,
-      evidencePath: '.tmp/local-production/summary-only/security-authenticated-dast.json',
-      artifactDigest: `sha256:${'e'.repeat(64)}`
-    }
-  }
+  const summaryOnlyEvidence = {}
 
   const projection = buildLocalProfileProjection({
     profileId: 'production',
@@ -324,17 +513,28 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
   assert.equal(projection.runId, runId)
   assert.deepEqual(projection.sourceState, sourceState)
   assert.equal(projection.logicalTierCount, 77)
-  assert.equal(projection.executedTierCount, 76)
-  assert.equal(projection.summaryOnlyTierCount, 1)
+  assert.equal(projection.executedTierCount, 77)
+  assert.equal(projection.summaryOnlyTierCount, 0)
   assert.equal(Object.keys(projection.entries).length, 77)
   assert.equal(projection.entries.integration.physicalBundleId, 'runtime-browser')
   assert.equal(projection.entries.integration.executionSource, 'fresh')
-  assert.equal(projection.entries.integration.artifactProofMode, 'matrix-runtime-artifacts')
+  assert.equal(projection.entries.integration.artifactProofMode, 'matrix-runtime-artifacts-with-substitutions')
   assert.ok(projection.entries.integration.matrixRuntimePaths.includes('.tmp/runtime/integration.json'))
   assert.ok(projection.entries['release-evidence'].matrixRuntimePaths.includes('.tmp/release-evidence/*/manifest.json'))
   assert.ok(projection.entries.production.matrixRuntimePaths.includes('.tmp/perf'))
-  assert.equal(projection.entries['security-authenticated-dast'].evidenceKind, 'summary-only')
-  assert.equal(projection.entries['security-authenticated-dast'].status, 'collected-blocked')
+  assert.equal(projection.entries['security-authenticated-dast'].evidenceKind, 'executed')
+  assert.equal(projection.entries['security-authenticated-dast'].physicalBundleId, 'runtime-browser')
+  assert.equal(projection.entries['security-authenticated-dast'].executionSource, 'fresh')
+  assert.deepEqual(validateLocalProfileCheckpointDuration(checkpoint, production), [])
+  assert.doesNotThrow(() => buildLocalProfileProjection({
+    profileId: 'production',
+    profile: production,
+    tiers: matrix.tiers,
+    checkpoint: { ...checkpoint, finishedAt: '2026-07-12T00:05:00.001Z' },
+    bundleSummaries,
+    summaryOnlyEvidence
+  }))
+  assert.equal(projection.entries['security-authenticated-dast'].status, 'success')
 
   const substitutedProduction = structuredClone(production)
   const substitutedRuntimeBundle = substitutedProduction.bundles
@@ -345,6 +545,7 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
     '.tmp/test-results/backend/production/summary.json'
   ]
   substitutedRuntimeBundle.artifactSubstitutions = [
+    ...substitutedRuntimeBundle.artifactSubstitutions,
     `integration::${canonicalPath}=>${actualPaths.join('|')}`
   ]
   const substitutedBundleSummaries = structuredClone(bundleSummaries)
@@ -358,6 +559,7 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
   substitutedEvidence.artifactDigests[canonicalPath] = canonicalDigest
   Object.assign(substitutedEvidence.artifactDigests, actualDigests)
   substitutedEvidence.artifactSubstitutionProofs = {
+    ...substitutedEvidence.artifactSubstitutionProofs,
     [canonicalPath]: {
       canonicalPath,
       canonicalDigest,
@@ -409,15 +611,6 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
     summaryOnlyEvidence
   }), /runtime-browser bundle evidence invalid: schedulerRunId must be production-fresh-projection/u)
 
-  assert.throws(() => buildLocalProfileProjection({
-    profileId: 'production',
-    profile: production,
-    tiers: matrix.tiers,
-    checkpoint,
-    bundleSummaries,
-    summaryOnlyEvidence: {}
-  }), /missing summary-only evidence: security-authenticated-dast/u)
-
   const releaseBundle = production.bundles.find((bundle) => bundle.members.includes('release-evidence'))
   const missingRuntimeDigest = structuredClone(bundleSummaries)
   delete missingRuntimeDigest[releaseBundle.id].members['release-evidence']
@@ -458,47 +651,140 @@ test('local production runner attaches the logical projection only after fresh p
   assert.deepEqual(orderedMarkers, [...orderedMarkers].sort((left, right) => left - right))
   assert.match(localProfileRunner, /if \(result\.status === 'success'\)[\s\S]*?attachCheckpointEvidence/u)
   assert.match(localProfileRunner, /writeSummaryOnlyEvidence\(profileId, profile, runId, result\.checkpoint\.sourceState\)/u)
+  assert.match(localProfileRunner, /collectFailures: true/u)
+  assert.match(localProfileRunner, /failures: result\.checkpoint\.failures/u)
+  assert.match(localProfileRunner, /independent failure\(s\) collected/u)
 })
 
-test('backend bundle owns the single project restore before its no-restore build', () => {
-  assert.match(backendBundleRunner, /commandStep\('dotnet-restore',[\s\S]*?dotnet restore tests\/backend\/FsusBlog\.Server\.Tests\.csproj/u)
-  assert.doesNotMatch(backendBundleRunner, /FsusBlog\.ProductionBackend\.slnx|RestoreUseStaticGraphEvaluation/u)
+test('backend bundle publishes server readiness before independent tests and benchmark builds', () => {
+  assert.match(backendBundleRunner, /commandStep\('dotnet-restore',[\s\S]*?dotnet restore tests\/FsusBlog\.ProductionBackend\.slnx/u)
   assert.equal([...localBundleRunner.matchAll(/\bdotnet restore\b/gu)].length, 1)
-  assert.match(backendBundleRunner, /commandStep\('backend-build',[\s\S]*?dotnet build tests\/backend\/FsusBlog\.Server\.Tests\.csproj[^\n]*--no-restore/u)
-  assert.match(backendBundleRunner, /const dotnetBuildParallelism = `\/m:\$\{bundleParallelism\(\)\}`/u)
-  assert.match(backendBundleRunner, /dotnet build tests\/backend\/FsusBlog\.Server\.Tests\.csproj[^\n]*\$\{dotnetBuildParallelism\}/u)
-  assert.match(backendBundleRunner, /FSUSBLOG_BACKEND_PRODUCTION_SHARDS=2 FSUSBLOG_BACKEND_SHARD_PROCESSORS=2 node tools\/test\/run-backend-production-shards\.mjs/u)
+  assert.match(backendBundleRunner, /commandStep\('backend-server-build',[\s\S]*?dotnet build src\/backend\/FsusBlog\.Server\.csproj -c Release[^\n]*--no-restore/u)
+  assert.match(localBundleRunner, /const liveGrant = schedulerResourceGrant\(\)[\s\S]*?inheritedCpuBudget: liveGrant\?\.cpuUnits \?\? process\.env\.FSUSBLOG_BUNDLE_CPU_BUDGET,[\s\S]*?inheritedMemoryGiB: liveGrant\?\.memoryGiB \?\? process\.env\.FSUSBLOG_BUNDLE_MEMORY_GIB,[\s\S]*?cpuWeight: bundle\.cpuWeight/u)
+  assert.match(backendBundleRunner, /dotnet build src\/backend\/FsusBlog\.Server\.csproj[^\n]*\/m:"\$FSUSBLOG_STEP_CPU_BUDGET"/u)
+  assert.match(backendBundleRunner, /await executeStep\(backendBuildStep\)[\s\S]*?publishBackendBuildReady\(\)[\s\S]*?commandStep\('backend-tests-build'[\s\S]*?--no-restore[\s\S]*?commandStep\('backend-benchmark-build'[\s\S]*?--no-restore[\s\S]*?await executeWeightedStepDag/u)
+  assert.match(backendBundleRunner, /commandStep\('backend-tests-build',[\s\S]*?--no-restore --no-incremental/u)
+  assert.match(backendBundleRunner, /\{ \.\.\.testStep, dependsOn: \['backend-tests-build'\] \}[\s\S]*?\{ \.\.\.benchmarkBuildStep, dependsOn: \['backend-tests-build'\] \}/u)
+  assert.match(backendBundleRunner, /commandStep\('backend-tests-build',[\s\S]*?afterSuccess: publishBackendTestsReady/u)
+  assert.match(backendBundleRunner, /const testStep = commandStep\('dotnet-production-union',[\s\S]*?afterSuccess: publishBackendTestsReady/u)
+  assert.match(localBundleRunner, /if \(typeof step\.afterSuccess === 'function'\) await step\.afterSuccess\(result\)[\s\S]*?stepExecutionResults\.set\(step\.id/u)
+  assert.match(backendBundleRunner, /step\.id === 'backend-benchmark-build'\) publishBenchmarkBuildReady\(\)/u)
+  assert.match(backendBundleRunner, /FSUSBLOG_BACKEND_CPU_BUDGET="\$FSUSBLOG_STEP_CPU_BUDGET" node tools\/test\/run-backend-production-shards\.mjs/u)
+  assert.match(backendBundleRunner, /const testStep = commandStep\('dotnet-production-union',[\s\S]*?resources: \{ cpuWeight: 2, memoryWeight: 3, minCpuUnits: 2 \}/u)
+  assert.doesNotMatch(backendBundleRunner, /FSUSBLOG_BACKEND_PRODUCTION_SHARDS=\d|FSUSBLOG_BACKEND_SHARD_PROCESSORS=\d/u)
   assert.match(backendShardRunner, /Category!=Integration&Category!=Performance/u)
-  assert.match(backendShardRunner, /--list-tests/u)
-  assert.match(backendShardRunner, /-p:OutputPath=/u)
-  assert.match(backendShardRunner, /validateShardRecords\(plan, recordsByShard\)/u)
+  assert.match(backendShardRunner, /'--ListTests'/u)
+  assert.match(backendShardRunner, /validateExactProductionUnion\(testNames, \[mainRecords, postludeRecords\],[\s\S]*?authoritativeRecords/u)
+  assert.match(backendShardRunner, /executionMode: 'expandable-exact-partitions-with-governance-postlude'/u)
   const orderedSteps = [
     "commandStep('services'",
     "commandStep('dotnet-restore'",
-    "await executeStep(commandStep('backend-build'",
-    "await executeStep(commandStep('perception-matrix'",
-    'const [result] = await Promise.all([',
-    "executeStep(commandStep('perception-evidence-finalize'",
-    "executeStep(commandStep('integrity-proof'",
-    "await executeStep(commandStep('backend-coverage-summary'"
+    "const backendBuildStep = commandStep('backend-server-build'",
+    'await executeWeightedStepDag([',
+    "commandStep('perception-matrix'",
+    "commandStep('perception-evidence-finalize'",
+    "commandStep('integrity-proof'",
+    "commandStep('backend-coverage-summary'"
   ].map((marker) => backendBundleRunner.indexOf(marker))
   assert.ok(orderedSteps.every((index) => index >= 0))
   assert.deepEqual(orderedSteps, [...orderedSteps].sort((left, right) => left - right))
   assert.match(backendBundleRunner, /await executeWave\(\[[\s\S]*?commandStep\('services'[\s\S]*?commandStep\('dotnet-restore'/u)
+  assert.match(backendBundleRunner, /await executeWeightedStepDag\(\[[\s\S]*?testsBuildStep,[\s\S]*?testStep[\s\S]*?benchmarkBuildStep[\s\S]*?commandStep\('perception-matrix'[\s\S]*?commandStep\('integrity-proof'/u)
+  assert.match(backendBundleRunner, /commandStep\('perception-matrix',[\s\S]*?dependsOn: \['dotnet-production-union'\]/u)
+  assert.match(backendBundleRunner, /commandStep\('perception-evidence-finalize',[\s\S]*?dependsOn: \['perception-matrix'\]/u)
+  assert.match(backendBundleRunner, /commandStep\('integrity-proof',[\s\S]*?dependsOn: \['perception-matrix'\]/u)
+  assert.match(backendBundleRunner, /commandStep\('backend-coverage-summary',[\s\S]*?dependsOn: \['dotnet-production-union'\]/u)
+  assert.doesNotMatch(backendBundleRunner, /commandStep\('benchmark-readiness-build'/u)
+  assert.match(localBundleRunner, /benchmark-build-ready\.v1[\s\S]*?schedulerRunId: runId[\s\S]*?digestDeclaredOutputs/u)
+  const benchmarkReadyVerifier = fs.readFileSync(path.join(root, 'tools/test/verify-benchmark-build-ready.mjs'), 'utf8')
+  assert.match(benchmarkReadyVerifier, /FSUSBLOG_TEST_RUN_ID[\s\S]*?benchmark-build-ready\.json[\s\S]*?digestDeclaredOutputs/u)
+  assert.doesNotMatch(backendBundleRunner, /await executeStep\(commandStep\('perception-matrix'/u)
   assert.match(backendBundleRunner, /commandStep\('perception-evidence-finalize',[\s\S]*?perception-v2-e2e-runtime\.json[\s\S]*?perception-v2-release-evidence\.json[\s\S]*?perception-v2-test-matrix\.json/u)
+  assert.match(localBundleRunner, /readPerceptionUnionProjection[\s\S]*?schedulerRunId\(\)[\s\S]*?testDll[\s\S]*?unionSummary[\s\S]*?expectedTrxDigests[\s\S]*?outcome !== 'Passed'/u)
   assert.match(backendBundleRunner, /commandStep\('integrity-proof',[\s\S]*?integrity-proof-verification\.json/u)
-  assert.doesNotMatch(backendBundleRunner, /commandStep\('benchmark-build'/u)
-  assert.match(frontendBundleRunner, /FSUSBLOG_VITEST_MAX_WORKERS=\$\{bundleParallelism\(\)\}[\s\S]*?npx vitest run/u)
-  const backendPerf = localBundleRunner.indexOf("commandStep('backend-perf'")
-  const benchmarkRegression = localBundleRunner.indexOf("commandStep('backend-benchmark'")
-  assert.ok(backendPerf > 0 && backendPerf < benchmarkRegression)
-  const runtimeIntegration = localBundleRunner.indexOf("commandStep('runtime-integration'")
-  const releasePublic = localBundleRunner.indexOf("commandStep('release-public'")
+  assert.match(backendBundleRunner, /commandStep\('backend-benchmark-build'/u)
+  assert.match(frontendBundleRunner, /node tools\/test\/run-frontend-vitest-rolling-shards\.mjs/u)
+  assert.match(frontendBundleRunner, /vitest-production-projects'[\s\S]*?dependsOn: \['frontend-early-test-capacity-ready'\],[\s\S]*?FSUSBLOG_VITEST_TARGET_WORKERS: String\(fullVitestCpuUnits\)[\s\S]*?cpuWeight: 2,[\s\S]*?memoryWeight: 1\.5,[\s\S]*?minCpuUnits: 1/u)
+  assert.match(localBundleRunner, /function resolvedFrontendEarlyTestCpuTarget\(\) \{[\s\S]*?currentCpuUnits >= 3 \? currentCpuUnits - 1 : currentCpuUnits/u)
+  assert.match(frontendBundleRunner, /frontend-early-test-capacity-ready'[\s\S]*?coordinationOnly: true/u)
+  assert.match(frontendBundleRunner, /frontend-test-capacity-ready'[\s\S]*?coordinationOnly: true/u)
+  assert.match(frontendBundleRunner, /static-governance-concurrent'[\s\S]*?static-governance\.sh concurrent-prechecks'[\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 0\.5, minCpuUnits: 1 \}/u)
+  assert.match(frontendBundleRunner, /static-governance-node-contracts'[\s\S]*?static-governance\.sh node-contracts'[\s\S]*?dependsOn: \['vitest-settled'\]/u)
+  assert.match(frontendBundleRunner, /static-governance-post-vitest'[\s\S]*?static-governance\.sh post-vitest'[\s\S]*?dependsOn: \['vitest-settled'\]/u)
+  assert.match(frontendBundleRunner, /static-governance-concurrent'[\s\S]{0,240}?dependsOn: \['frontend-build-ready'\]/u)
+  assert.match(frontendBundleRunner, /commandStep\('frontend-build-ready',[\s\S]*?resources: \{ coordinationOnly: true \}/u)
+  assert.match(frontendBundleRunner, /\['static-governance', 'frontend-static-governance'\]\.includes\(tierId\)/u)
+  assert.match(frontendBundleRunner, /commandStep\('privacy-zk-contract-prebuild', 'tools\/test\/lanes\/privacy-zk-comment-matrix\.sh contract-prebuild', \[\],[\s\S]*?dependsOn: \['frontend-early-test-capacity-ready'\]/u)
+  assert.match(frontendBundleRunner, /commandStep\('privacy-zk-contract', 'tools\/test\/lanes\/privacy-zk-comment-matrix\.sh contract-postbuild', \[\],[\s\S]*?dependsOn: \['frontend-build-ready', 'privacy-zk-contract-prebuild'\]/u)
+  assert.match(localBundleRunner, /waitForBackendProductionSummaryReady[\s\S]*?backend-production-shards\.v2[\s\S]*?exactOnce[\s\S]*?allPassed[\s\S]*?validateShardSummaryArtifacts/u)
+  assert.doesNotMatch(frontendBundleRunner, /privacy-zk-comment-matrix\.sh project-functional/u)
+  assert.doesNotMatch(frontendBundleRunner, /privacy-zk-comment-matrix\.sh benchmark/u)
+  assert.match(frontendBundleRunner, /await waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?vitest-production-perf-isolated/u)
+  assert.doesNotMatch(frontendBundleRunner, /waitForSiblingBundleSummaries\(\[[^\]]*backend-tests/u)
+  assert.doesNotMatch(localBundleSteps, /resources:\s*\{[^\n}]*(?:cpuUnits|memoryGiB):/u)
+  assert.doesNotMatch(localBundleRunner, /resources:\s*\{[^\n}]*(?:cpuUnits|memoryGiB):/u)
+  assert.doesNotMatch(localBundleSteps, /referenceBundleResources|eight-core reference/u)
+  const backendPerf = localBundleSteps.indexOf("step('backend-perf'")
+  const mixedPerformance = localBundleSteps.indexOf("step('mixed-performance-window'")
+  assert.ok(backendPerf > 0 && backendPerf < mixedPerformance)
+  assert.match(localBundleSteps.slice(mixedPerformance), /backend-benchmark-regression/u)
+  assert.doesNotMatch(localBundleSteps, /step\('backend-benchmark'/u)
+  const runtimeIntegration = localBundleSteps.indexOf("step('runtime-integration'")
+  const releasePublic = localBundleSteps.indexOf("step('release-public'")
   assert.ok(runtimeIntegration > 0 && runtimeIntegration < releasePublic)
-  assert.match(localBundleRunner.slice(runtimeIntegration, releasePublic), /\]\s*,\s*\[/u)
+  assert.match(localBundleSteps.slice(runtimeIntegration, releasePublic), /dependsOn: \['security-runtime-core'\]/u)
 })
 
-test('post-build production evidence stays out of the build bundle without being omitted', () => {
+test('cold frontend static phases move to frontend-tests while build-static remains build focused', () => {
+  const buildSteps = localBundleRunner.slice(
+    localBundleRunner.indexOf('function buildStaticSteps()'),
+    localBundleRunner.indexOf('\nfunction trxAttribute')
+  )
+  assert.doesNotMatch(buildSteps, /frontend-static-(?:prebuild|governance|postbuild)/u)
+  assert.match(buildSteps, /frontend-build[\s\S]*?exclusiveResources: \['build-output'\]/u)
+  assert.match(frontendBundleRunner, /frontend-static-prebuild[\s\S]*?await executeStep\(prebuildStep\)[\s\S]*?executeWeightedStepDag/u)
+  assert.match(frontendBundleRunner, /frontend-static-postbuild[\s\S]*?dependsOn: \['frontend-build-ready'\]/u)
+  assert.match(localBundleRunner, /frontend-build-ready\.v1[\s\S]*?schedulerRunId: runId[\s\S]*?privacyWasmArtifacts[\s\S]*?digestDeclaredOutputs/u)
+  assert.match(localBundleRunner, /if \(step\.id === 'sync-static-assets'\) publishFrontendBuildReady\(\)/u)
+  assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestDeclaredOutputs/u)
+})
+
+test('runtime early start is guarded by run-bound atomic backend and frontend build markers', () => {
+  assert.match(localBundleRunner, /backendBuildReadyFile[\s\S]*?\.tmp\/test-runs[\s\S]*?backend-build-ready\.json/u)
+  assert.match(localBundleRunner, /publishBackendBuildReady[\s\S]*?schedulerRunId: runId[\s\S]*?serverDll:[\s\S]*?exists: true[\s\S]*?digest: artifactDigest/u)
+  assert.match(localBundleRunner, /publishBackendTestsReady[\s\S]*?backend-tests-ready\.v1[\s\S]*?testDll/u)
+  assert.match(localBundleRunner, /writeFileSync\(temporary[\s\S]*?renameSync\(temporary, markerFile\)/u)
+  assert.match(localBundleRunner, /async function waitForBackendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.backend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestDeclaredOutputs/u)
+  assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.frontend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestDeclaredOutputs/u)
+  assert.match(localBundleRunner, /checkpoint\.tiers\?\.\[`local-\$\{profileId\}-backend-tests`\]\?\.status[\s\S]*?failure[\s\S]*?blocked[\s\S]*?cancelled/u)
+  assert.match(localBundleRunner, /async function executeRuntimeStep[\s\S]*?backend-build-ready[\s\S]*?waitForBackendBuildReady[\s\S]*?frontend-build-ready[\s\S]*?waitForFrontendBuildReady/u)
+  assert.match(localBundleRunner, /bundleId === 'runtime-browser' \? executeRuntimeStep : executePerformanceStep/u)
+})
+
+test('bundle child processes inherit their admitted machine-resolved CPU and memory', () => {
+  assert.match(localBundleRunner, /for \(const stalePhysicalWorkerCap of \[[\s\S]*?'FSUSBLOG_COMMAND_MANIFEST_WORKERS'[\s\S]*?'FSUSBLOG_VITEST_MAX_WORKERS'[\s\S]*?'FSUSBLOG_PLAYWRIGHT_WORKERS'[\s\S]*?delete childBaseEnvironment\[stalePhysicalWorkerCap\]/u)
+  assert.match(localBundleRunner, /MSBUILDDISABLENODEREUSE: '1'/u)
+  assert.match(matrixRunner, /tier\.physicalBundleId[\s\S]*?FSUSBLOG_BUNDLE_CPU_BUDGET = String\(workerBudget\)/u)
+  assert.match(matrixRunner, /tier\.physicalBundleId[\s\S]*?FSUSBLOG_BUNDLE_MEMORY_GIB = String\(memoryGiB\)/u)
+  assert.match(localBundleRunner, /schedulerResourceGrant\(\)[\s\S]*?inheritedCpuBudget: liveGrant\?\.cpuUnits \?\? process\.env\.FSUSBLOG_BUNDLE_CPU_BUDGET,[\s\S]*?inheritedMemoryGiB: liveGrant\?\.memoryGiB \?\? process\.env\.FSUSBLOG_BUNDLE_MEMORY_GIB/u)
+  assert.match(localBundleRunner, /const stepCapacity = resolveStepRuntimeCapacity\(bundleId, step, bundleCapacity\(\)\)[\s\S]*?\.\.\.\(step\.env \?\? \{\}\),[\s\S]*?FSUSBLOG_STEP_CPU_BUDGET: String\(stepCapacity\.cpuUnits\),[\s\S]*?FSUSBLOG_STEP_MEMORY_GIB: String\(stepCapacity\.memoryGiB\),[\s\S]*?FSUSBLOG_BUNDLE_CPU_BUDGET: String\(stepCapacity\.maxParallel\),[\s\S]*?FSUSBLOG_BUNDLE_CPU_UNITS: String\(stepCapacity\.cpuUnits\),[\s\S]*?FSUSBLOG_BUNDLE_MEMORY_GIB: String\(stepCapacity\.memoryGiB\)/u)
+  assert.match(localBundleRunner, /remainingBundleDeadlineMs[\s\S]*?baseTimeoutMs: remainingBundleDeadlineMs[\s\S]*?workload: step\.resources[\s\S]*?actualCapacity: stepCapacity[\s\S]*?FSUSBLOG_STEP_DEADLINE_MS: String\(stepDeadlineMs\)/u)
+  assert.match(localBundleRunner, /frontend-runtime-contracts'[\s\S]*?FSUSBLOG_COMMAND_MANIFEST_WORKERS="\$FSUSBLOG_STEP_CPU_BUDGET"/u)
+  assert.match(frontendBundleRunner, /frontend-static-prebuild'[\s\S]*?FSUSBLOG_COMMAND_MANIFEST_WORKERS="\$FSUSBLOG_STEP_CPU_BUDGET"/u)
+  assert.match(frontendBundleRunner, /frontend-static-postbuild'[\s\S]*?FSUSBLOG_COMMAND_MANIFEST_WORKERS="\$FSUSBLOG_STEP_CPU_BUDGET"/u)
+  assert.doesNotMatch(localBundleRunner, /FSUSBLOG_COMMAND_MANIFEST_WORKERS=[34]\b/u)
+})
+
+test('bundle execution waits derive deadlines from matrix budgets and scheduler capacity', () => {
+  assert.match(localBundleRunner, /function bundleDeadlineMs\(\)[\s\S]*?FSUSBLOG_BUNDLE_DEADLINE_MS[\s\S]*?Number\.isFinite\(deadlineMs\) && deadlineMs > 0[\s\S]*?profile\.enforceBudget === false[\s\S]*?timeoutMinutes[\s\S]*?baseTimeoutMs: profile\.budgetMs[\s\S]*?actualCapacity: bundleCapacity\(\)/u)
+  assert.match(localBundleRunner, /function resolveExecutionWaitTimeoutMs\(dependencyBundleIds\)[\s\S]*?baseTimeoutMs: bundleDeadlineMs\(\)[\s\S]*?workload: bundle[\s\S]*?actualCapacity: bundleCapacity\(\)/u)
+  assert.doesNotMatch(localBundleRunner, /bundle\.budgetMs|dependency\.budgetMs/u)
+  assert.match(localBundleRunner, /waitForSiblingBundleSummaries\(bundleIds, timeoutMs = resolveExecutionWaitTimeoutMs\(bundleIds\)\)/u)
+  assert.match(localBundleRunner, /waitForBackendBuildReady\(timeoutMs = resolveExecutionWaitTimeoutMs\(\['backend-tests'\]\)\)/u)
+  assert.doesNotMatch(localBundleRunner, /timeoutMs = 120_000/u)
+})
+
+test('production evidence is assigned to the earliest safe physical bundle without being omitted', () => {
   const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
   const bundles = new Map(matrix.localProfiles.production.bundles.map((bundle) => [bundle.id, bundle.members]))
   const deferred = [
@@ -507,20 +793,27 @@ test('post-build production evidence stays out of the build bundle without being
     'perception-v2-test-matrix',
     'cross-stack-contract',
     'privacy-zk-comment-matrix',
-    'static-governance',
     'aeds-frame-cost',
     'aeds-compression-profile'
   ]
 
   for (const tierId of deferred) assert.equal(bundles.get('build-static').includes(tierId), false, tierId)
   assert.ok(bundles.get('build-static').includes('ux-viewport-plan-progress'))
+  assert.ok(bundles.get('frontend-tests').includes('static-governance'))
+  assert.equal(bundles.get('build-static').includes('frontend-static-governance'), false)
+  assert.ok(bundles.get('frontend-tests').includes('frontend-static-governance'))
   assert.match(localBundleRunner, /commandStep\('viewport-plan-progress', 'node tools\/ux\/run-viewport-plan-progress\.mjs', \['ux-viewport-plan-progress'\],[\s\S]*?viewport-plan-progress\.json/u)
+  assert.match(frontendBundleRunner, /commandStep\('static-governance-concurrent', 'tools\/test\/lanes\/static-governance\.sh concurrent-prechecks', \['static-governance'\],[\s\S]*?cpuWeight: 1,[\s\S]*?memoryWeight: 0\.5,[\s\S]*?minCpuUnits: 1/u)
+  assert.match(frontendBundleRunner, /commandStep\('static-governance-node-contracts', 'tools\/test\/lanes\/static-governance\.sh node-contracts', \['static-governance'\],[\s\S]*?dependsOn: \['vitest-settled'\]/u)
+  assert.match(frontendBundleRunner, /commandStep\('static-governance-post-vitest', 'tools\/test\/lanes\/static-governance\.sh post-vitest', \['static-governance'\],[\s\S]*?dependsOn: \['vitest-settled'\]/u)
   for (const tierId of ['backend-build-governance', 'integrity-proof-verification', 'perception-v2-test-matrix']) {
     assert.ok(bundles.get('backend-tests').includes(tierId), tierId)
   }
-  for (const tierId of ['cross-stack-contract', 'privacy-zk-comment-matrix', 'static-governance']) {
-    assert.ok(bundles.get('runtime-browser').includes(tierId), tierId)
-  }
+  assert.ok(bundles.get('runtime-browser').includes('cross-stack-contract'))
+  assert.equal(bundles.get('frontend-tests').includes('privacy-zk-comment-matrix'), false)
+  assert.ok(bundles.get('performance-evidence').includes('privacy-zk-comment-matrix'))
+  assert.match(frontendBundleRunner, /commandStep\('privacy-zk-contract'[\s\S]*?privacy-zk-comment-matrix\.sh contract/u)
+  assert.match(localBundleSteps, /step\('privacy-zk-project-functional'[\s\S]*?privacy-zk-comment-matrix\.sh project-functional/u)
   for (const tierId of ['aeds-frame-cost', 'aeds-compression-profile']) {
     assert.ok(bundles.get('performance-evidence').includes(tierId), tierId)
   }
@@ -541,6 +834,7 @@ test('fresh production cleanup removes outputs and preserves dependency caches',
     'src/frontend/public/wasm/aeds_decoder.wasm',
     'src/frontend/wasm/build-basic/aeds_decoder.wasm',
     'src/backend/wwwroot/index.html',
+    'src/backend/Logs/log-20260712.txt',
     'src/backend/bin/Debug/server.dll',
     'src/core/obj/project.assets.json',
     'tests/backend/bin/Debug/tests.dll'
@@ -594,60 +888,156 @@ test('acceptance services enforce a bounded log file size', () => {
   assert.match(source, /ulimit -f "\$ACCEPTANCE_LOG_MAX_KIB"/u)
 })
 
+test('acceptance bootstrap starts independent services within dynamic CPU and memory grants', () => {
+  const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
+  assert.match(source, /resolve_bootstrap_parallel_workers/u)
+  assert.match(source, /resolveManifestWorkers\(\{ env: process\.env \}\)/u)
+  assert.match(source, /readManifestSchedulerResourceGrant\(\{ env: process\.env \}\)/u)
+  assert.match(source, /resolveManifestChildEnvironment/u)
+  assert.match(source, /capacity update workers=\$worker_cap->\$next_worker_cap active=\$active/u)
+  assert.match(source, /run_bootstrap_parallel 'database services'[\s\S]*?postgres ensure_postgres[\s\S]*?redis ensure_redis/u)
+  assert.match(source, /run_bootstrap_parallel 'runtime applications'[\s\S]*?debug-backend ensure_backend[\s\S]*?release-preview ensure_release_preview[\s\S]*?debug-frontend ensure_debug_frontend/u)
+  assert.match(source, /run_parallel "bootstrap-runtime-fixtures"[\s\S]*?auth-fixtures::prepare_auth_fixtures_once[\s\S]*?public-fixtures::prepare_public_fixtures_once/u)
+  assert.match(source, /FSUSBLOG_PARALLEL_WORKLOAD=scheduler-admitted[\s\S]*run_parallel "bootstrap-runtime-fixtures"/u)
+  assert.match(source, /run_parallel "bootstrap-runtime-fixtures"[\s\S]*refresh_acceptance_cache_after_fixtures/u)
+  assert.match(source, /failures\+=\("\$\{labels\[\$index\]\} \(exit \$\{child_status\}\)"\)/u)
+  assert.doesNotMatch(source, /FSUSBLOG_BOOTSTRAP_(?:WORKERS|CPU|MEMORY)=[0-9]/u)
+})
+
 test('acceptance service ports stay below the kernel ephemeral range and Vite cannot drift', () => {
   const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
   for (const range of ['20000 21999', '22000 23999', '24000 25999', '26000 27999', '28000 29999']) {
     assert.match(source, new RegExp(`find_free_port ${range}`, 'u'))
   }
   assert.equal((source.match(/--strictPort/gu) ?? []).length, 2)
+  assert.equal((source.match(/--host 127\.0\.0\.1/gu) ?? []).length, 2)
+  assert.match(source, /-p "127\.0\.0\.1:\$\{POSTGRES_PORT\}:5432"/u)
+  assert.match(source, /-p "127\.0\.0\.1:\$\{REDIS_PORT\}:6379"/u)
   assert.match(source, /process exited before becoming ready at \$url/u)
 })
 
-test('local production UX risk binds Playwright to the active namespace frontend', () => {
-  assert.match(uxRiskRunner, /process\.env\.PLAYWRIGHT_BASE_URL \|\| process\.env\.FSUSBLOG_DEBUG_FRONTEND_URL/u)
+test('local production UX risk binds Playwright to the active namespace release build', () => {
+  assert.match(uxRiskRunner, /requireHttpUrl\('FSUSBLOG_RELEASE_PREVIEW_URL'\)/u)
+  assert.doesNotMatch(uxRiskRunner, /FSUSBLOG_DEBUG_FRONTEND_URL/u)
+  assert.match(uxRiskRunner, /import \{ validateReleasePreviewReady \} from '\.\/release-preview-readiness\.mjs'/u)
+  assert.match(uxRiskRunner, /const previewReady = validateReleasePreviewReady\(\{[\s\S]*?runId: schedulerRunId,[\s\S]*?previewUrl: playwrightBaseUrl/u)
+  assert.match(releasePreviewReadiness, /releasePreviewReadyFileName = 'release-preview-ready\.json'/u)
+  assert.match(releasePreviewReadiness, /export function validateReleasePreviewReady/u)
+  assert.match(releasePreviewReadiness, /marker\.schema !== releasePreviewReadySchema[\s\S]*?marker\.schedulerRunId !== schedulerRunId/u)
+  assert.match(releasePreviewReadiness, /marker\.servedIndex\?\.sourceDigestMatch !== true[\s\S]*?marker\.apiProbe\?\.namespaceBound !== true[\s\S]*?marker\.apiProbe\?\.status !== 200/u)
+  assert.match(releasePreviewReadiness, /actualContentDigest = sha256\(bytes\)[\s\S]*?actualDeclaredDigest = digestDeclaredOutputs/u)
+  assert.match(releasePreviewReadiness, /marker\.distEntry\?\.contentDigest !== actualContentDigest[\s\S]*?marker\.distEntry\?\.digest !== actualDeclaredDigest[\s\S]*?dist digest changed after readiness/u)
   assert.match(uxRiskRunner, /PLAYWRIGHT_BASE_URL: playwrightBaseUrl/u)
+  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_PUBLIC_BASE_URL: publicBaseUrl/u)
   assert.match(uxRiskRunner, /playwrightBaseUrl,/u)
+  assert.doesNotMatch(uxRiskRunner, /public-full-app-takeover|fsus:public-shell:takeover/u)
   assert.doesNotMatch(uxRiskRunner, /127\.0\.0\.1:3000/u)
 })
 
 test('local production UX risk can resume the current matching viewport run', () => {
   assert.match(uxRiskRunner, /process\.env\.FSUSBLOG_UX_VIEWPORT_RESUME === '1'/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_RESUME: resume \? '1' : '0'/u)
-  assert.match(uxRiskRunner, /resume \? \{\} : \{/u)
+  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_RESUME: initializesRun && !resume \? '0' : '1'/u)
+  assert.match(uxRiskRunner, /resumeRunId \?\? freshRunId/u)
+  assert.match(uxRiskRunner, /waitForRunPointer\(pointerFile, uxRunId, child\)/u)
+  assert.match(uxRiskRunner, /writeUxViewportSummary\(\{ root, mode: 'boundaries', runId: uxRunId \}\)/u)
+  assert.match(uxRiskRunner, /summary\.runId !== uxRunId/u)
   assert.match(uxRiskRunner, /executionSource: resume \? 'resume' : 'fresh'/u)
 })
 
 test('local production UX risk dynamically fills isolated Playwright workers', () => {
   assert.match(uxRiskRunner, /os\.availableParallelism/u)
   assert.match(uxRiskRunner, /Math\.min\(riskPlan\.counts\.routeThemeGroups, workerCapacity\)/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_PLAYWRIGHT_WORKERS: String\(riskWorkers\)/u)
+  assert.match(uxRiskRunner, /executeElasticUxGroupPool\(riskPlan\.groups/u)
+  assert.match(uxRiskRunner, /capacityProvider: \(\) => resolveLiveWorkerCapacity\(\)/u)
+  assert.match(uxRiskRunner, /readManifestSchedulerResourceGrant\(\)/u)
+  assert.match(uxRiskRunner, /FSUSBLOG_STEP_DEADLINE_AT_MS: String\(stepDeadlineAtMs\)/u)
+  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_EXECUTION_GROUP_IDS: group\.id/u)
+  assert.match(uxRiskRunner, /FSUSBLOG_PLAYWRIGHT_WORKERS: '1'/u)
   assert.match(uxRiskRunner, /FSUSBLOG_TEST_SESSION_ISOLATION: '1'/u)
-  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_WORKERS: String\(riskWorkers\)/u)
+  assert.match(uxRiskRunner, /FSUSBLOG_DISABLE_NOTIFICATION_STREAM: '1'/u)
+  assert.match(uxRiskRunner, /FSUSBLOG_UX_VIEWPORT_WORKERS: '1'/u)
   assert.match(uxRiskRunner, /FSUSBLOG_PLAYWRIGHT_TRACE: 'off'/u)
 })
 
-test('physical bundle DAG preserves dependencies, resources, and exact budgets', () => {
-  const bundles = createLocalBundleTiers('production', profile())
+test('physical bundle DAG preserves dependencies and derives deadlines from resolved machine resources', () => {
+  const resolved = resolveLocalProfileResources(profile(), { availableCpuUnits: 8, availableMemoryGiB: 18 })
+  const bundles = createLocalBundleTiers('production', resolved)
   assert.deepEqual(bundles.map((bundle) => bundle.id), [
     'local-production-build-static',
-    'local-production-backend',
-    'local-production-frontend',
+    'local-production-backend-tests',
+    'local-production-frontend-tests',
     'local-production-runtime-browser',
     'local-production-performance-evidence'
   ])
   assert.deepEqual(bundles[0].dependsOn, [])
   assert.deepEqual(bundles[1].dependsOn, [])
   assert.deepEqual(bundles[2].dependsOn, [])
-  assert.deepEqual(bundles[3].dependsOn, [
-    'local-production-build-static',
-    'local-production-backend',
-    'local-production-frontend'
+  assert.deepEqual(bundles[3].dependsOn, [])
+  assert.deepEqual(bundles[4].dependsOn, [
+    'local-production-backend-tests',
+    'local-production-runtime-browser',
+    'local-production-frontend-tests'
   ])
-  assert.deepEqual(bundles[4].dependsOn, ['local-production-runtime-browser'])
-  assert.equal(bundles[0].budgetMs, 70_000)
-  assert.equal(bundles[1].budgetMs, 110_000)
-  assert.equal(bundles[2].budgetMs, 110_000)
+  assert.deepEqual(bundles.map((bundle) => bundle.phase), [0, 0, 0, 0, 0])
+  assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.resourceGrantMode), ['dynamic', 'dynamic', 'dynamic'])
+  assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.cpuWeight), [2, 3, 3])
+  assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.minCpuUnits), [1, 2, 1])
+  assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.maxParallel), [8, 8, 8])
+  assert.ok(bundles.every((bundle) => Number.isInteger(bundle.budgetMs) && bundle.budgetMs > 0))
+  assert.ok(bundles[0].budgetMs > 120_000, `8-core build-static deadline was ${bundles[0].budgetMs}ms`)
+  assert.ok(localProfileBudgetCriticalPath({ budgetMs: 300_000, bundles }) <= 300_000)
   assert.equal(bundles[0].artifacts[0], '.tmp/local-production/build-static/summary.json')
+})
+
+test('production run summary fails closed beyond the five-minute wall budget', () => {
+  const production = profile()
+  assert.deepEqual(validateLocalProfileRunSummary({ budgetMs: 300_000, durationMs: 300_000 }, production), [])
+  assert.deepEqual(validateLocalProfileRunSummary({ budgetMs: 300_000, durationMs: 300_001 }, production), [
+    'summary duration 300001 exceeds 300000'
+  ])
+})
+
+test('observe-only production records its optimization target without failing or truncating a natural run', () => {
+  const production = profile({ enforceBudget: false })
+  const resolved = resolveLocalProfileResources(production, {
+    cpuCount: 8,
+    availableCpuUnits: 8,
+    availableMemoryGiB: 16,
+    memoryReserveGiB: 1,
+    load1: 0,
+    launchParallelism: 8
+  })
+  const bundles = createLocalBundleTiers('production', resolved, { maxParallel: 8 })
+
+  assert.ok(bundles.every((bundle) => !Object.hasOwn(bundle, 'budgetMs')))
+  assert.deepEqual(validateLocalProfileRunSummary({ budgetMs: 300_000, durationMs: 900_000 }, production), [])
+  assert.deepEqual(validateLocalProfileCheckpointDuration({
+    budgetMs: null,
+    startedAt: '2026-07-13T00:00:00.000Z',
+    finishedAt: '2026-07-13T00:15:00.000Z'
+  }, production), [])
+})
+
+test('repository physical DAG starts runtime immediately and gates bootstrap on validated build markers', () => {
+  const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
+  const profileBundles = new Map(matrix.localProfiles.production.bundles.map((bundle) => [bundle.id, bundle]))
+  assert.deepEqual(profileBundles.get('runtime-browser').dependsOn, [])
+  assert.deepEqual(profileBundles.get('performance-evidence').dependsOn, [
+    'backend-tests', 'runtime-browser', 'frontend-tests'
+  ])
+
+  const resolved = resolveLocalProfileResources(matrix.localProfiles.production, {
+    availableCpuUnits: 8,
+    availableMemoryGiB: 18
+  })
+  const physicalTiers = new Map(createLocalBundleTiers('production', resolved)
+    .map((bundle) => [bundle.physicalBundleId, bundle]))
+  assert.equal(physicalTiers.get('runtime-browser').phase, physicalTiers.get('frontend-tests').phase)
+  assert.equal(physicalTiers.get('runtime-browser').dependsOn.includes('local-production-backend-tests'), false)
+  assert.equal(physicalTiers.get('runtime-browser').dependsOn.includes('local-production-frontend-tests'), false)
+  assert.equal(physicalTiers.get('runtime-browser').dependsOn.includes('local-production-build-static'), false)
+  assert.ok(physicalTiers.get('performance-evidence').dependsOn.includes('local-production-backend-tests'))
+  assert.ok(physicalTiers.get('performance-evidence').dependsOn.includes('local-production-frontend-tests'))
 })
 
 test('bundle evidence must prove every member with executed IDs and digests', () => {
@@ -674,6 +1064,38 @@ test('bundle evidence must prove every member with executed IDs and digests', ()
     schedulerRunId: 'stale'
   }, { id: 'backend', members: ['a', 'b'] }, { expectedRunId: 'fresh' })
     .some((error) => error.includes('schedulerRunId must be fresh')))
+})
+
+test('performance deadline evidence binds the mixed floor to same-run measured serial time', () => {
+  const steps = [
+    { id: 'coverage-merge', status: 'success', durationMs: 4_000, startedAtMs: 1_000, finishedAtMs: 5_000 },
+    { id: 'mixed-performance-window', status: 'success', durationMs: 60_000, startedAtMs: 5_000, finishedAtMs: 65_000 }
+  ]
+  const valid = {
+    schema: 'fsusblog.performance-deadline-evidence.v1',
+    status: 'sufficient',
+    schedulerRunId: 'fresh-performance',
+    candidateBudgetMs: 81_000,
+    bundleDurationMs: 80_000,
+    mixedWindow: {
+      stepId: 'mixed-performance-window',
+      minimumDurationMs: performanceMixedWindowFloorMs,
+      measuredDurationMs: 60_000
+    },
+    measuredOtherSerialMs: 20_000,
+    requiredBudgetMs: 80_000,
+    steps
+  }
+  assert.deepEqual(validatePerformanceDeadlineEvidence(valid, { expectedRunId: 'fresh-performance' }), [])
+  assert.ok(validatePerformanceDeadlineEvidence({ ...valid, candidateBudgetMs: 79_999 }, {
+    expectedRunId: 'fresh-performance'
+  }).some((error) => error.includes('below required 80000')))
+  assert.ok(validatePerformanceDeadlineEvidence({
+    ...valid,
+    mixedWindow: { ...valid.mixedWindow, measuredDurationMs: 59_999 }
+  }).some((error) => error.includes('at least 60000')))
+  assert.ok(validatePerformanceDeadlineEvidence({ ...valid, measuredOtherSerialMs: 19_999 })
+    .some((error) => error.includes('minus mixed duration')))
 })
 
 test('bundle evidence is bound to matrix runtime declarations or an explicit command-log fallback', () => {

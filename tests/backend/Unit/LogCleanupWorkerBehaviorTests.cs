@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Services.Background;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -36,7 +37,8 @@ public sealed class LogCleanupWorkerBehaviorTests
             services,
             NullLogger<LogCleanupService>.Instance,
             lease,
-            new FixedTimeProvider(BaselineNow));
+            new FixedTimeProvider(BaselineNow),
+            new AllowCurrentReleaseCommitGuard());
 
         bool ran = await worker.RunCleanupAsLeaderAsync(CancellationToken.None);
 
@@ -154,6 +156,17 @@ public sealed class LogCleanupWorkerBehaviorTests
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    private sealed class AllowCurrentReleaseCommitGuard : IActiveReleaseCommitGuard
+    {
+        public Task EnsureCurrentAsync(CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task EnsureCurrentAsync(
+            ActiveReleaseExecutionTicket ticket,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 
     private sealed class RecordingLease(bool allowRun) : IBackgroundWorkerLease

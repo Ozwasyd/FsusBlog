@@ -5,6 +5,6 @@ export function integrityProofCommand(env = process.env) {
     '--filter',
     'FullyQualifiedName~IntegrityProofVerification'
   ]
-  if (env.FSUSBLOG_LOCAL_PROFILE) command.push('--no-build', '--no-restore')
+  if (env.FSUSBLOG_LOCAL_PROFILE) command.push('--configuration', 'Release', '--no-build', '--no-restore')
   return command
 }

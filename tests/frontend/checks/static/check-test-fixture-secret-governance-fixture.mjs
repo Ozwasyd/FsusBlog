@@ -31,6 +31,16 @@ INSERT INTO sys_user(username, password, role, refreshtoken, lastloginip)
 VALUES ('anon-fixture-user-0007', 'redacted-password-hash', 'fixture_role', NULL, 'anonymized-ip-v4-0007');
 `
 
+const unsafeTestHostFixture = `
+var config = new Dictionary<string, string?> { ["AllowedHosts"] = "fsus.blog" };
+request.Headers.Host = "fsus.blog";
+`
+
+const safeTestHostFixture = `
+var config = new Dictionary<string, string?> { ["AllowedHosts"] = "session-boundary.test" };
+request.Headers.Host = "session-boundary.test";
+`
+
 function writeFiles(root, files) {
   for (const [relativePath, content] of Object.entries(files)) {
     const absolutePath = path.join(root, relativePath)
@@ -65,7 +75,8 @@ function createFixtureRoot(name) {
 
 const unsafeRoot = createFixtureRoot('unsafe')
 writeFiles(unsafeRoot, {
-  'tests/backend/Fixtures/legacy-20260517-minimal.sql': unsafeSqlFixture
+  'tests/backend/Fixtures/legacy-20260517-minimal.sql': unsafeSqlFixture,
+  'tests/backend/Unit/UserSessionMappedBoundaryTests.cs': unsafeTestHostFixture
 })
 const unsafeResult = runChecker(unsafeRoot)
 const unsafeOutput = `${unsafeResult.stdout ?? ''}\n${unsafeResult.stderr ?? ''}`
@@ -81,12 +92,16 @@ for (const rule of [
     fail(`expected path, line and rule for ${rule}`, unsafeResult)
   }
 }
+if (!/tests\/backend\/Unit\/UserSessionMappedBoundaryTests[.]cs:[0-9]+:real production domain in test config/u.test(unsafeOutput)) {
+  fail('expected real production domain test config to fail with path, line and rule', unsafeResult)
+}
 
 const safeRoot = createFixtureRoot('safe')
 writeFiles(safeRoot, {
-  'tests/backend/Fixtures/legacy-20260517-minimal.sql': safeSqlFixture
+  'tests/backend/Fixtures/legacy-20260517-minimal.sql': safeSqlFixture,
+  'tests/backend/Unit/UserSessionMappedBoundaryTests.cs': safeTestHostFixture
 })
 const safeResult = runChecker(safeRoot)
 if (safeResult.status !== 0) fail('expected anonymized SQL fixture to pass', safeResult)
 
-console.log('[test-fixture-secret-governance-fixture] ok unsafe=5 safe=1')
+console.log('[test-fixture-secret-governance-fixture] ok unsafe=6 safe=2')

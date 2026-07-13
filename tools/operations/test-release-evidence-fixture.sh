@@ -384,8 +384,9 @@ printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/frontend/dom-depth-static.json"
 printf '{"status":"ok","results":[{"scenario":"fixture","status":"ok"}]}\n' > "$ROOT_DIR/.tmp/release-evidence/backend-qps-summary.json"
 mkdir -p "$SECURITY_DIR/authenticated-dast" "$FUZZ_DIR/wasm" "$FAULT_DIR" "$SOAK_DIR/short"
-printf '{"status":"ok","activeScan":{"executed":true}}\n' > "$SECURITY_DIR/authenticated-dast/summary.json"
-printf '{"status":"ok","seedsRun":1,"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.json"
+printf '%s\n' '{"schema":"fsusblog.security.authenticated-dast.v1","status":"ok","executionSource":"fresh-current-lane","targetPolicy":{"loopbackOnly":true,"productionTargetAllowed":false},"fixture":{"executionSource":"fresh-current-lane","historicalStateAccepted":false,"cleanup":"success"},"activeScan":{"executed":true,"requestCount":4,"passedCount":4,"failedCount":0},"contexts":{"anonymous":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"user":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"admin":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0},"author-console":{"executed":true,"requestCount":1,"passedCount":1,"failedCount":0}},"checks":[{"context":"anonymous","passed":true},{"context":"user","passed":true},{"context":"admin","passed":true},{"context":"author-console","passed":true}]}' > "$SECURITY_DIR/authenticated-dast/summary.json"
+printf '%s\n' '{"schema":"fsusblog.security.local-runtime-exposure.v1","status":"ok","executionSource":"fresh-loopback-runtime","scope":{"loopbackRuntimeOnly":true,"externalProductionDnsChecked":false,"externalFirewallEvidenceChecked":false,"countsAsProductionCloseout":false},"targets":[{"id":"backend","status":200},{"id":"frontend","status":200},{"id":"release-preview","status":200}],"listeners":[{"id":"backend","addresses":["127.0.0.1:25001"]},{"id":"frontend","addresses":["127.0.0.1:25002"]},{"id":"release-preview","addresses":["127.0.0.1:25003"]}],"restrictedServices":[{"id":"postgres","loopbackOnly":true},{"id":"redis","loopbackOnly":true}],"failures":[]}' > "$SECURITY_DIR/local-runtime-exposure.json"
+printf '{"status":"ok","executionSource":"fresh-wasm-runtime","seedsRun":1,"seedPlan":[{"corpus":"fixture","firstSeed":1,"count":1}],"decoder":{"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"crashes":[]}\n' > "$FUZZ_DIR/wasm/summary.json"
 cat > "$FAULT_DIR/summary.json" <<'JSON'
 {
   "status": "ok",
@@ -618,6 +619,7 @@ jq -e \
   and .artifacts.firewallPolicy == "production-firewall-policy.json"
   and .artifacts.coverage == "coverage"
   and .artifacts.authenticatedDast == "authenticated-dast"
+  and .artifacts.localRuntimeExposure == "local-runtime-exposure.json"
   and .artifacts.fuzz == "fuzz"
   and .artifacts.faultInjection == "fault-injection"
   and .artifacts.soak == "soak"
@@ -697,11 +699,13 @@ jq -e \
   and .evidenceSummary.security.sbom == "ok"
   and .evidenceSummary.security.dastZap == "ok"
   and .evidenceSummary.security.authenticatedDast == "ok"
+  and .evidenceSummary.security.localRuntimeExposure == "ok"
   and .evidenceSummary.security.wasmFuzz == "ok"
   and .evidenceSummary.resilienceDepth.faultInjection == "ok"
   and .evidenceSummary.resilienceDepth.soak == "ok"
   and (.securityEvidenceIndex | map(.kind) | index("dast") != null)
   and (.securityEvidenceIndex | map(.kind) | index("authenticated-dast") != null)
+  and (.securityEvidenceIndex | map(.kind) | index("local-runtime-exposure") != null)
   and (.securityEvidenceIndex | map(.kind) | index("wasm-fuzz") != null)
   and (.securityEvidenceIndex | map(.kind) | index("attack-matrix") != null)
   and (.securityEvidenceIndex | map(.kind) | index("permission-matrix") != null)

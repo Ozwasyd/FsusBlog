@@ -11,6 +11,7 @@ const outputFile = path.join(root, '.tmp/ux/viewport-plan-progress.json')
 export const viewportPlanProgressTestFiles = Object.freeze([
   'tests/tools/ux-viewport-plan.test.mjs',
   'tests/tools/ux-viewport-progress.test.mjs',
+  'tests/tools/ux-viewport-risk-settle.test.mjs',
   'tests/tools/ux-viewport-runtime-contract.test.mjs'
 ])
 

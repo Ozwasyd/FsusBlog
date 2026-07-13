@@ -20,9 +20,10 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousGovernanceAdminEndpointTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AdminAnonymousGovernanceEndpoints_AreBinaryAdminStepUpAndPermissionGated()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         var expected = new (string Route, string Method, string Permission)[]
         {
             ("/api/binary/admin/anonymous-governance/status", HttpMethods.Get, AdminPermissions.AnonymousCommentConfigure),
@@ -142,8 +143,8 @@ public sealed class AnonymousGovernanceAdminEndpointTests(PostgresSchemaMigratio
         ClaimsAuthorizationRequirement permission = Assert.Single(endpoint.Metadata
             .GetOrderedMetadata<AuthorizationPolicy>()
             .SelectMany(static policy => policy.Requirements)
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType));
+            .OfType<ClaimsAuthorizationRequirement>(),
+            static requirement => requirement.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(expectedPermission, permission.AllowedValues ?? []);
     }
 

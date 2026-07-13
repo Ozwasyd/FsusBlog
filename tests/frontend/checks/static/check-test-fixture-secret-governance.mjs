@@ -111,6 +111,7 @@ const allowlist = new Map([
   [
     'tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs',
     new Set([
+      'real production domain in test config',
       'legacy SQL username sample',
       'legacy SQL plaintext refresh token',
       'legacy SQL loopback IPv4 sample',

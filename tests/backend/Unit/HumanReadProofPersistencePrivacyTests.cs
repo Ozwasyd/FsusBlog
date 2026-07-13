@@ -48,7 +48,7 @@ public sealed class HumanReadProofPersistencePrivacyTests(PostgresSchemaMigratio
             processorServices,
             NullLogger<VisitLogProcessorService>.Instance);
         var projected = new List<VisitLogEntity>();
-        MethodInfo projectMessage = Assert.IsType<MethodInfo>(typeof(VisitLogProcessorService).GetMethod(
+        MethodInfo projectMessage = Assert.IsAssignableFrom<MethodInfo>(typeof(VisitLogProcessorService).GetMethod(
             "ProcessSingleMessageCore",
             BindingFlags.Instance | BindingFlags.NonPublic));
         projectMessage.Invoke(processor, [message, projected]);

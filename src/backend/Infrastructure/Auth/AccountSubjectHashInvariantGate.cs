@@ -23,7 +23,7 @@ public sealed class AccountSubjectHashInvariantGate(ISqlSugarClient db) : IAccou
             WHERE account_subject_hash IS NULL
                OR btrim(account_subject_hash) = ''
                OR account_subject_hash !~ '^[0-9a-f]{64}$';
-            "").ConfigureAwait(false);
+            """).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
         if (invalidAccounts > 0)

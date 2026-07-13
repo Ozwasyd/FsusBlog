@@ -17,6 +17,7 @@ const generatedDirectories = Object.freeze([
   'src/frontend/wasm/build-pow-relaxed',
   'src/frontend/wasm/build-pow-threads',
   'src/backend/wwwroot',
+  'src/backend/Logs',
   'src/backend/bin',
   'src/backend/obj',
   'src/core/bin',

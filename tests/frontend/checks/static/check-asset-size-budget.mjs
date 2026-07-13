@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 
 import { readdir, readFile, stat, mkdir, writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import { resolve, relative, extname } from 'node:path'
-import { brotliCompressSync, gzipSync } from 'node:zlib'
+import { promisify } from 'node:util'
+import { brotliCompress, gzip } from 'node:zlib'
+
+const gzipAsync = promisify(gzip)
+const brotliCompressAsync = promisify(brotliCompress)
 
 const repoRoot = resolve(process.cwd(), '../..')
 const distDir = resolve(repoRoot, 'src/frontend/dist')
@@ -26,6 +31,42 @@ const budgets = {
   elementPlusVendorBytes: Number(process.env.FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BUDGET_BYTES || 1220 * 1024),
   elementPlusVendorGzipBytes: Number(process.env.FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_GZIP_BUDGET_BYTES || 370 * 1024),
   elementPlusVendorBrotliBytes: Number(process.env.FSUSBLOG_ASSET_ELEMENT_PLUS_VENDOR_BROTLI_BUDGET_BYTES || 310 * 1024)
+}
+
+function positiveNumber(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function compressionConcurrency(env = process.env) {
+  const grantedCpu = positiveNumber(env.FSUSBLOG_STEP_CPU_BUDGET)
+    ?? positiveNumber(env.FSUSBLOG_BUNDLE_CPU_UNITS)
+    ?? positiveNumber(env.FSUSBLOG_BUNDLE_CPU_BUDGET)
+    ?? positiveNumber(env.FSUSBLOG_COMMAND_MANIFEST_WORKERS)
+  if (grantedCpu !== null) return Math.max(1, Math.floor(grantedCpu))
+
+  const cpus = Math.max(1, os.availableParallelism?.() ?? os.cpus().length)
+  const memoryPerCpu = Math.max(1, os.totalmem()) / cpus
+  const memoryCap = Math.max(1, Math.floor(os.freemem() / memoryPerCpu))
+  const loadCap = Math.max(1, Math.floor(cpus - Math.max(0, os.loadavg()[0] ?? 0)))
+  return Math.max(1, Math.min(cpus, memoryCap, loadCap))
+}
+
+async function mapConcurrent(items, concurrency, execute) {
+  const results = new Array(items.length)
+  let cursor = 0
+  const worker = async () => {
+    while (cursor < items.length) {
+      const index = cursor
+      cursor += 1
+      results[index] = await execute(items[index])
+    }
+  }
+  await Promise.all(Array.from(
+    { length: Math.min(items.length, Math.max(1, concurrency)) },
+    () => worker()
+  ))
+  return results
 }
 
 async function walk(dir, files = []) {
@@ -113,25 +154,31 @@ for (const file of files) {
     })
   }
 
-  if (['.js', '.wasm'].includes(file.ext)) {
-    const bytes = await readFile(resolve(repoRoot, file.path))
-    const gzipBytes = gzipSync(bytes).byteLength
-    const brotliBytes = brotliCompressSync(bytes).byteLength
-    compressed.push({
-      path: file.path,
-      gzipBytes,
-      brotliBytes
-    })
+}
 
-    for (const [kind, actualBytes] of [['gzip', gzipBytes], ['brotli', brotliBytes]]) {
-      const compressedBudget = compressedBudgetFor(file, kind)
-      if (compressedBudget !== null && actualBytes > compressedBudget) {
-        violations.push({
-          path: `${file.path}.${kind}`,
-          bytes: actualBytes,
-          budgetBytes: compressedBudget
-        })
-      }
+compressed.push(...await mapConcurrent(
+  files.filter((file) => ['.js', '.wasm'].includes(file.ext)),
+  compressionConcurrency(),
+  async (file) => {
+    const bytes = await readFile(resolve(repoRoot, file.path))
+    const [gzipBytes, brotliBytes] = await Promise.all([
+      gzipAsync(bytes).then((output) => output.byteLength),
+      brotliCompressAsync(bytes).then((output) => output.byteLength)
+    ])
+    return { path: file.path, gzipBytes, brotliBytes }
+  }
+))
+
+for (const file of compressed) {
+  const source = files.find((entry) => entry.path === file.path)
+  for (const [kind, actualBytes] of [['gzip', file.gzipBytes], ['brotli', file.brotliBytes]]) {
+    const compressedBudget = compressedBudgetFor(source, kind)
+    if (compressedBudget !== null && actualBytes > compressedBudget) {
+      violations.push({
+        path: `${file.path}.${kind}`,
+        bytes: actualBytes,
+        budgetBytes: compressedBudget
+      })
     }
   }
 }

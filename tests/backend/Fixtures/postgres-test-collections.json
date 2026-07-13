@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 119,
+      "estimatedFacts": 122,
       "tests": [
         { "path": "Integration/SchemaMigrationIntegrationTests.cs", "class": "SchemaMigrationIntegrationTests" },
         { "path": "Unit/AnonymousCommentSubmitTests.cs", "class": "AnonymousCommentSubmitTests" },
@@ -24,25 +24,38 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 127,
+      "estimatedFacts": 168,
       "tests": [
         { "path": "Unit/AnonymousCredentialIssuerTests.cs", "class": "AnonymousCredentialIssuerTests" },
         { "path": "Unit/AnonymousCredentialRootLifecycleTests.cs", "class": "AnonymousCredentialRootLifecycleTests" },
-        { "path": "Unit/AnonymousCommentGovernanceContractTests.cs", "class": "AnonymousCommentGovernanceContractTests" },
         { "path": "Unit/SecurityPolicySnapshotPersistenceTests.cs", "class": "SecurityPolicySnapshotPersistenceTests" },
         { "path": "Unit/AdminSessionManagementTests.cs", "class": "AdminSessionManagementTests" },
         { "path": "Unit/IntegrityVerificationManifestServiceTests.cs", "class": "IntegrityVerificationManifestServiceTests" },
         { "path": "Unit/RecoveryKeyServiceBehaviorTests.cs", "class": "RecoveryKeyServiceBehaviorTests" },
         { "path": "Unit/ArticleRightsWritePathTests.cs", "class": "ArticleRightsWritePathTests" },
         { "path": "Unit/AnonymousGovernanceAdminEndpointTests.cs", "class": "AnonymousGovernanceAdminEndpointTests" },
-        { "path": "Unit/LogCleanupServiceTests.cs", "class": "LogCleanupServiceTests" },
         { "path": "Unit/AuthoringAssetLibraryRebuildTests.cs", "class": "AuthoringAssetLibraryRebuildTests" },
         { "path": "Unit/AuthoringDraftConcurrencyTests.cs", "class": "AuthoringDraftConcurrencyTests" },
         { "path": "Unit/UserPublicHandleConcurrencyTests.cs", "class": "UserPublicHandleConcurrencyTests" },
         { "path": "Unit/AnonymousCredentialRevocationWitnessServiceTests.cs", "class": "AnonymousCredentialRevocationWitnessServiceTests" },
         { "path": "Unit/RecoveryKeyAttemptLimiterContractTests.cs", "class": "RecoveryKeyAttemptLimiterContractTests" },
         { "path": "Unit/DevSeedSqlContractTests.cs", "class": "DevSeedSqlContractTests" },
-        { "path": "Integration/RecoveryPasskeyCompletionIntegrationTests.cs", "class": "RecoveryPasskeyCompletionIntegrationTests" }
+        { "path": "Integration/RecoveryPasskeyCompletionIntegrationTests.cs", "class": "RecoveryPasskeyCompletionIntegrationTests" },
+        { "path": "Integration/AnonymousCommentPolicyPersistenceTests.cs", "class": "AnonymousCommentPolicyPersistenceTests" },
+        { "path": "Integration/TaxonomyProjectionPersistenceTests.cs", "class": "TaxonomyProjectionPersistenceTests" },
+        { "path": "Integration/UserSessionRevocationIntegrationTests.cs", "class": "UserSessionRevocationIntegrationTests" },
+        { "path": "Unit/AdminConsistencyContractTests.cs", "class": "AdminConsistencyContractTests" },
+        { "path": "Unit/AnonymousNullifierPostgresConcurrencyTests.cs", "class": "AnonymousNullifierPostgresConcurrencyTests" },
+        { "path": "Unit/ArticleDestructiveMutationBehaviorTests.cs", "class": "ArticleDestructiveMutationBehaviorTests" },
+        { "path": "Unit/CommentMutationPostgresConcurrencyTests.cs", "class": "CommentMutationPostgresConcurrencyTests" },
+        { "path": "Unit/HumanReadProofPersistencePrivacyTests.cs", "class": "HumanReadProofPersistencePrivacyTests" },
+        { "path": "Unit/LogCleanupDatabaseBehaviorTests.cs", "class": "LogCleanupDatabaseBehaviorTests" },
+        { "path": "Unit/RelatedReadingServiceTests.cs", "class": "RelatedReadingServiceTests" },
+        { "path": "Unit/ScheduledPublishWorkerTests.cs", "class": "ScheduledPublishWorkerTests" },
+        { "path": "Unit/StatsPerformanceContractTests.cs", "class": "StatsPerformanceContractTests" },
+        { "path": "Unit/StatsServiceRegionTests.cs", "class": "StatsServiceRegionTests" },
+        { "path": "Unit/SystemServiceTests.cs", "class": "SystemServiceTests" },
+        { "path": "Unit/UserAuthPostgresConcurrencyTests.cs", "class": "UserAuthPostgresConcurrencyTests" }
       ]
     }
   ]

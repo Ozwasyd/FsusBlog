@@ -44,6 +44,7 @@ const NORMAL_STATUS_PATH = '/api/ops/release/workers/normal/status'
 const NORMAL_FINALIZE_PATH = '/api/ops/release/workers/normal/finalize'
 const SAFE_ID = /^[0-9A-Za-z][0-9A-Za-z._:-]{7,127}$/u
 const SAFE_IDENTIFIER = /^[a-z_][a-z0-9_]{0,62}$/u
+const SAFE_RESULT_ALIAS = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/u
 const SAFE_CONTAINER = /^[0-9A-Za-z][0-9A-Za-z_.-]{1,127}$/u
 const SAFE_ENV_NAME = /^[A-Z][A-Z0-9_]{2,127}$/u
 const SAFE_HEADER_NAME = /^[A-Za-z][A-Za-z0-9-]{1,63}$/u
@@ -674,21 +675,21 @@ export function createWorkerObserverApplication(config, dependencies = {}) {
       }
 
       if (method === 'POST' && plan.routes.has(url.pathname)) {
-        return handleAction(url.pathname, body, rollout)
+        return await handleAction(url.pathname, body, rollout)
       }
       const observationMatch = /^\/observations\/([a-z0-9-]+)\/(pending|final)$/u.exec(url.pathname)
       if (method === 'GET' && observationMatch) {
-        return handleObservation(observationMatch[1], observationMatch[2], url, rollout)
+        return await handleObservation(observationMatch[1], observationMatch[2], url, rollout)
       }
       if (method === 'POST' && url.pathname === NORMAL_START_PATH) {
-        return withRunLock(String(body.runId ?? ''), () => handleNormalStart(body, rollout))
+        return await withRunLock(String(body.runId ?? ''), () => handleNormalStart(body, rollout))
       }
       if (method === 'GET' && url.pathname === NORMAL_STATUS_PATH) {
         const runId = String(url.searchParams.get('runId') ?? '')
-        return withRunLock(runId, () => handleNormalStatus(runId, rollout))
+        return await withRunLock(runId, () => handleNormalStatus(runId, rollout))
       }
       if (method === 'POST' && url.pathname === NORMAL_FINALIZE_PATH) {
-        return withRunLock(String(body.runId ?? ''), () => handleNormalFinalize(body, rollout))
+        return await withRunLock(String(body.runId ?? ''), () => handleNormalFinalize(body, rollout))
       }
       return response(404, serviceEnvelope(rollout, {
         status: 'fail',
@@ -1149,7 +1150,7 @@ export function createPostgresRecordProvider(plan, privateEnvironment, dependenc
 export function buildObservationQuery(observation, selector) {
   const columns = observation.columns
   const selections = Object.entries(columns).map(([canonical, column]) =>
-    `${quoteIdentifier(column)} AS ${quoteIdentifier(canonical)}`)
+    `${quoteIdentifier(column)} AS ${quoteResultAlias(canonical)}`)
   const predicates = [
     `${quoteIdentifier(columns.rolloutId)} = ${quoteSqlLiteral(selector.rolloutId)}`,
     `${quoteIdentifier(columns.kind)} = ${quoteSqlLiteral(selector.kind)}`
@@ -1851,6 +1852,11 @@ function boundedInteger(value, minimum, maximum, label) {
 
 function quoteIdentifier(value) {
   if (!SAFE_IDENTIFIER.test(String(value))) throw new WorkerObserverServiceError(['unsafe SQL identifier'], 500)
+  return `"${value}"`
+}
+
+function quoteResultAlias(value) {
+  if (!SAFE_RESULT_ALIAS.test(String(value))) throw new WorkerObserverServiceError(['unsafe SQL result alias'], 500)
   return `"${value}"`
 }
 

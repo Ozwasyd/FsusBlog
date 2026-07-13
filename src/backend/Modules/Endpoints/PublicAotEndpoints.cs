@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Models.Dtos;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Primitives;
 
@@ -22,7 +23,7 @@ public static class PublicAotEndpoints
         publicGroup.MapGet("/navigation-snapshot.aeds", async (
             HttpContext context,
             string? path,
-            IPublicAotShellService shellService,
+            [FromServices] IPublicAotShellService shellService,
             CancellationToken cancellationToken) =>
         {
             if (!RequestAcceptsNavigationSnapshot(context.Request.Headers.Accept))
@@ -77,7 +78,7 @@ public static class PublicAotEndpoints
             HttpContext context,
             string? scope,
             string? changedSince,
-            IPublicAotRouteManifestProvider manifestProvider,
+            [FromServices] IPublicAotRouteManifestProvider manifestProvider,
             IConfiguration configuration,
             IWebHostEnvironment environment,
             CancellationToken cancellationToken) =>
@@ -102,7 +103,7 @@ public static class PublicAotEndpoints
 
         group.MapGet("/health", async (
             HttpContext context,
-            PublicAotSsrHealthService healthService,
+            [FromServices] PublicAotSsrHealthService healthService,
             IConfiguration configuration,
             IWebHostEnvironment environment,
             CancellationToken cancellationToken) =>

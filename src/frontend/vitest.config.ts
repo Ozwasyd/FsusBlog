@@ -6,6 +6,8 @@ import { createFsusUiAliases, resolveLocalFsusUiRoot } from './scripts/fsusui-lo
 import { createVitestRuntimeOptions } from './vitest.shared.mjs'
 
 const unitSetupFile = fileURLToPath(new URL('./tests/frontend/unit/setup.ts', import.meta.url))
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
+const frontendNodeModules = fileURLToPath(new URL('./node_modules/', import.meta.url))
 const disableLocalFsusUi = process.env.FSUSBLOG_USE_LOCAL_FSUSUI === '0'
   || process.env.FSUSBLOG_USE_LOCAL_FSUSUI?.toLowerCase() === 'false'
 const localFsusUiRoot = disableLocalFsusUi
@@ -14,9 +16,17 @@ const localFsusUiRoot = disableLocalFsusUi
 
 export default defineConfig({
   plugins: [vue(), vueJsx()],
+  server: {
+    fs: {
+      allow: [repositoryRoot]
+    }
+  },
   resolve: {
     alias: [
       ...createFsusUiAliases(localFsusUiRoot),
+      { find: '@vue/test-utils', replacement: `${frontendNodeModules}/@vue/test-utils` },
+      { find: 'vue-router', replacement: `${frontendNodeModules}/vue-router` },
+      { find: 'vue', replacement: `${frontendNodeModules}/vue` },
       { find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url)) },
       { find: '@wasm', replacement: fileURLToPath(new URL('./wasm/web', import.meta.url)) }
     ]

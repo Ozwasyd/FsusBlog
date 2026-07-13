@@ -17,12 +17,15 @@ namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
-public sealed class ArticleRightsWritePathTests(PostgresSchemaMigrationFixture fixture)
+public sealed class ArticleRightsWritePathTests(
+    PostgresSchemaMigrationFixture fixture,
+    ArticleRightsWritePathDatabaseFixture classDatabase)
+    : IClassFixture<ArticleRightsWritePathDatabaseFixture>, IAsyncLifetime
 {
     [Fact]
     public async Task CreateAsync_WritesRightsPolicySnapshotAndOutboxInSameTransaction()
     {
-        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        using SqlSugarClient db = classDatabase.CreateClient();
         CreateTables(db);
         ArticleService service = CreateService(db);
 
@@ -66,7 +69,7 @@ public sealed class ArticleRightsWritePathTests(PostgresSchemaMigrationFixture f
     [Fact]
     public async Task CreateAsync_UsesDefaultRightsWhenRequestOmitsRights()
     {
-        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        using SqlSugarClient db = classDatabase.CreateClient();
         Exception? sqlError = null;
         db.Aop.OnError = exception => sqlError = exception;
         CreateTables(db);
@@ -116,7 +119,7 @@ public sealed class ArticleRightsWritePathTests(PostgresSchemaMigrationFixture f
     [Fact]
     public async Task UpdateAsync_RightsOnlyChangeCreatesNewRevisionSnapshotAndOutboxPointer()
     {
-        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        using SqlSugarClient db = classDatabase.CreateClient();
         CreateTables(db);
         ArticleService service = CreateService(db);
         int articleId = await service.CreateAsync(new CreateArticleRequest
@@ -166,7 +169,7 @@ public sealed class ArticleRightsWritePathTests(PostgresSchemaMigrationFixture f
     [Fact]
     public async Task CreateAsync_RollsBackArticlePolicyAndOutboxWhenSnapshotInsertFails()
     {
-        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        using SqlSugarClient db = classDatabase.CreateClient();
         CreateTables(db);
         InstallFailingRightsSnapshotTrigger(db);
         ArticleService service = CreateService(db);
@@ -204,6 +207,11 @@ public sealed class ArticleRightsWritePathTests(PostgresSchemaMigrationFixture f
             ShowPublicBadge = showBadge,
             ProofBindingEnabled = true
         };
+
+    public async Task InitializeAsync()
+        => _ = await classDatabase.ResetAsync(fixture);
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private static string BuildExpectedPolicyHash(int articleId, ArticleRevision revision, ArticleRightsSnapshot snapshot)
         => ArticleRightsCanonicalHashV1.ComputeHashHex(new ArticleRightsCanonicalInput(

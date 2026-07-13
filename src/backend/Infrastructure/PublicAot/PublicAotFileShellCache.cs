@@ -16,6 +16,7 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 public sealed class PublicAotFileShellCache : IPublicAotShellCache
 {
     private const int InvalidationBatchSize = 256;
+    private readonly IConnectionMultiplexer _redis;
     private readonly IDatabase _db;
     private readonly string _webRoot;
     private readonly string _cacheRoot;
@@ -32,6 +33,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         ILogger<PublicAotFileShellCache> logger,
         ReleaseDerivedArtifactPublisher? derivedPublisher = null)
     {
+        _redis = redis;
         _db = redis.GetDatabase();
         _webRoot = ResolveWebRoot(env);
         _derivedPublisher = derivedPublisher ?? ResolveReleaseDerivedPublisher();
@@ -1140,7 +1142,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         await BoundaryExecutor.ExecuteAsync(
             async () =>
             {
-                _ = await redis.GetSubscriber()
+                _ = await _redis.GetSubscriber()
                     .PublishAsync(RedisChannel.Literal(PublicAotInvalidationMessage.Channel), message.ToPayload())
                     .ConfigureAwait(false);
             },

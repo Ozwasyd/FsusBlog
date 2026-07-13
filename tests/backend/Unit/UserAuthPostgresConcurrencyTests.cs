@@ -76,9 +76,12 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
             .SingleAsync(item => item.SessionId == sessionId);
         Assert.NotNull(stored.RevokedAt);
         Assert.Equal("refresh_token_reuse", stored.RevokeReason);
-        await validationCache.Received(1).PublishAsync(
-            Arg.Is<UserSessionValidationCacheState>(state =>
-                state.SessionId == sessionId && state.AccountId == userId && state.RevokedAtUtc.HasValue),
+        await validationCache.Received(1).PublishManyAsync(
+            Arg.Is<IReadOnlyList<UserSessionValidationCacheState>>(states =>
+                states.Count == 1
+                && states[0].SessionId == sessionId
+                && states[0].AccountId == userId
+                && states[0].RevokedAtUtc.HasValue),
             true,
             Arg.Any<CancellationToken>());
     }

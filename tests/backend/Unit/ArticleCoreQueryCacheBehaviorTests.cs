@@ -25,12 +25,12 @@ public sealed class ArticleCoreQueryCacheBehaviorTests
         var cachedPage = new CorePageResult<ArticleListCoreModel>([], 7, "next", true);
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns("42");
-        cache.TryGetAsync<CorePageResult<ArticleListCoreModel>>(
+        cache.TryGetAsync<CorePageResult<ArticleListCoreModel>?>(
                 CachePolicyId.ArticleList,
                 Arg.Any<string>(),
                 Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, CorePageResult<ArticleListCoreModel>? Value)>>(),
                 Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(new CacheReadResult<CorePageResult<ArticleListCoreModel>>(true, cachedPage)));
+            .Returns(Task.FromResult(new CacheReadResult<CorePageResult<ArticleListCoreModel>?>(true, cachedPage)));
         var subject = Create(cache);
         bool loaderCalled = false;
 
@@ -52,7 +52,7 @@ public sealed class ArticleCoreQueryCacheBehaviorTests
 
         Assert.False(loaderCalled);
         Assert.Equal(cachedPage, result);
-        await cache.Received(1).TryGetAsync<CorePageResult<ArticleListCoreModel>>(
+        await cache.Received(1).TryGetAsync<CorePageResult<ArticleListCoreModel>?>(
             CachePolicyId.ArticleList,
             "core:v4:public:42:3:20:0:7:0:-1:fsus",
             Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, CorePageResult<ArticleListCoreModel>? Value)>>(),
@@ -69,15 +69,8 @@ public sealed class ArticleCoreQueryCacheBehaviorTests
     public async Task GetOrLoadPageListAsync_DoubleMissLoadsOnceAndCachesUnderTheSameVersionIdentity()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
-        var miss = new CacheReadResult<CorePageResult<ArticleListCoreModel>>(false, default);
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns("9");
-        cache.TryGetAsync<CorePageResult<ArticleListCoreModel>>(
-                CachePolicyId.ArticleList,
-                Arg.Any<string>(),
-                Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, CorePageResult<ArticleListCoreModel>? Value)>>(),
-                Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(miss), Task.FromResult(miss));
         cache.AcquireSingleFlightAsync(
                 CachePolicyId.ArticleList,
                 Arg.Any<string>(),
@@ -105,16 +98,27 @@ public sealed class ArticleCoreQueryCacheBehaviorTests
 
         Assert.Equal(loaded, result);
         Assert.Equal(1, loaderCalls);
-        await cache.Received(2).TryGetAsync<CorePageResult<ArticleListCoreModel>>(
-            CachePolicyId.ArticleList,
-            "core:v4:admin:9:1:10:4:0:0:2:",
-            Arg.Any<Func<ReadOnlyMemory<byte>, (bool Success, CorePageResult<ArticleListCoreModel>? Value)>>(),
-            Arg.Any<CancellationToken>());
-        await cache.Received(1).SetRawAsync(
-            CachePolicyId.ArticleList,
-            "core:v4:admin:9:1:10:4:0:0:2:",
-            Arg.Is<byte[]>(bytes => bytes.Length > 0),
-            TimeSpan.FromMinutes(10),
+        var calls = cache.ReceivedCalls().ToArray();
+        string[] readIdentities = calls
+            .Where(call => call.GetMethodInfo().Name == nameof(IUnifiedCache.TryGetAsync))
+            .Select(call => Assert.IsType<string>(call.GetArguments()[1]))
+            .ToArray();
+        Assert.Equal(2, readIdentities.Length);
+        string resolvedIdentity = Assert.Single(readIdentities.Distinct());
+        Assert.False(string.IsNullOrWhiteSpace(resolvedIdentity));
+        var singleFlightCall = Assert.Single(
+            calls,
+            call => call.GetMethodInfo().Name == nameof(IUnifiedCache.AcquireSingleFlightAsync));
+        Assert.Equal(resolvedIdentity, Assert.IsType<string>(singleFlightCall.GetArguments()[1]));
+        var writeCall = Assert.Single(
+            calls,
+            call => call.GetMethodInfo().Name == nameof(IUnifiedCache.SetRawAsync));
+        Assert.Equal(resolvedIdentity, Assert.IsType<string>(writeCall.GetArguments()[1]));
+        Assert.NotEmpty(Assert.IsType<byte[]>(writeCall.GetArguments()[2]));
+        Assert.Equal(TimeSpan.FromMinutes(10), Assert.IsType<TimeSpan>(writeCall.GetArguments()[3]));
+        await cache.Received(1).GetStringAsync(
+            CachePolicyId.ArticleListVersion,
+            "main",
             Arg.Any<CancellationToken>());
     }
 

@@ -1,8 +1,6 @@
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 
-const gibibyte = 1024 ** 3
-const defaultWorkerMemoryBytes = Math.floor(1.5 * gibibyte)
 const reportRoot = new URL('../../.tmp/test-results/vitest/', import.meta.url)
 
 function positiveInteger(value) {
@@ -23,20 +21,47 @@ export function resolveVitestWorkerCount({
   env = process.env,
   cpuCount = os.availableParallelism?.() ?? os.cpus().length,
   freeMemoryBytes = os.freemem(),
+  totalMemoryBytes = os.totalmem(),
   load1 = os.loadavg()[0] ?? 0
 } = {}) {
-  const override = positiveInteger(env.FSUSBLOG_VITEST_MAX_WORKERS ?? env.VITEST_MAX_WORKERS)
-  if (override) return override
-
   const cpus = Math.max(1, Math.floor(Number(cpuCount) || 1))
-  const memoryPerWorker = positiveInteger(env.FSUSBLOG_VITEST_MEMORY_PER_WORKER_BYTES)
-    ?? defaultWorkerMemoryBytes
-  const memoryCap = Math.max(1, Math.floor(Math.max(0, Number(freeMemoryBytes) || 0) / memoryPerWorker))
-  const loadCap = Math.max(1, Math.floor(cpus - Math.max(0, Number(load1) || 0)))
+  const grantedCpu = resolvePositiveGrant(env, [
+    'FSUSBLOG_STEP_CPU_BUDGET',
+    'FSUSBLOG_BUNDLE_CPU_UNITS',
+    'FSUSBLOG_BUNDLE_CPU_BUDGET'
+  ])
+  const grantedMemoryGiB = resolvePositiveGrant(env, [
+    'FSUSBLOG_STEP_MEMORY_GIB',
+    'FSUSBLOG_BUNDLE_MEMORY_GIB'
+  ])
+  const schedulerManaged = grantedCpu !== undefined
+  const cpuCap = Math.max(1, Math.floor(Math.min(cpus, grantedCpu ?? cpus)))
+  const usableMemoryBytes = Math.max(0, Math.min(
+    Number(freeMemoryBytes) || 0,
+    grantedMemoryGiB === undefined
+      ? Number(freeMemoryBytes) || 0
+      : grantedMemoryGiB * 1024 ** 3))
+  const normalizedTotalMemoryBytes = Math.max(0, Number(totalMemoryBytes) || 0)
+    || Math.max(0, Number(freeMemoryBytes) || 0)
+  const machineMemoryPerCpu = Math.max(1, normalizedTotalMemoryBytes / cpus)
+  // The scheduler has already admitted the step against both live CPU and memory.
+  // Applying the host-wide average again would double-count memory pressure and can
+  // collapse a multi-CPU step to one worker after sibling steps consume their grants.
+  const memoryCap = schedulerManaged
+    ? cpuCap
+    : Math.max(1, Math.floor(usableMemoryBytes / machineMemoryPerCpu))
+  const loadCap = schedulerManaged
+    ? cpuCap
+    : Math.max(1, Math.floor(cpus - Math.max(0, Number(load1) || 0)))
+  const override = positiveInteger(env.FSUSBLOG_VITEST_MAX_WORKERS ?? env.VITEST_MAX_WORKERS)
   const configuredCap = positiveInteger(env.FSUSBLOG_VITEST_WORKER_CAP)
-    ?? (String(env.CI ?? '').toLowerCase() === 'true' ? 4 : 8)
 
-  return Math.max(1, Math.min(cpus, memoryCap, loadCap, configuredCap))
+  return Math.max(1, Math.min(
+    cpuCap,
+    memoryCap,
+    loadCap,
+    override ?? cpuCap,
+    configuredCap ?? cpuCap))
 }
 
 export function createVitestRuntimeOptions(lane, {
@@ -44,6 +69,7 @@ export function createVitestRuntimeOptions(lane, {
   argv = process.argv,
   cpuCount,
   freeMemoryBytes,
+  totalMemoryBytes,
   load1
 } = {}) {
   const coverage = argv.includes('--coverage')
@@ -60,7 +86,7 @@ export function createVitestRuntimeOptions(lane, {
   const laneRoot = new URL(`${normalizedLane}/`, reportRoot)
 
   return {
-    maxWorkers: resolveVitestWorkerCount({ env, cpuCount, freeMemoryBytes, load1 }),
+    maxWorkers: resolveVitestWorkerCount({ env, cpuCount, freeMemoryBytes, totalMemoryBytes, load1 }),
     bail: 0,
     reporters: ['default', 'json', 'junit'],
     outputFile: {
@@ -68,4 +94,17 @@ export function createVitestRuntimeOptions(lane, {
       junit: fileURLToPath(new URL(`${shard}.xml`, laneRoot))
     }
   }
+}
+
+function resolvePositiveGrant(env, names) {
+  for (const name of names) {
+    const value = env[name]
+    if (value === undefined || value === null || String(value).trim() === '') continue
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new Error(`${name} must be a positive finite number, got ${value}`)
+    }
+    return parsed
+  }
+  return undefined
 }

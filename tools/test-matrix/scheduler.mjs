@@ -16,15 +16,6 @@ const protectedAssertionTypes = new Set(['runtime', 'browser', 'perf', 'fuzz', '
 const protectedExecutionVariants = new Set(['property', 'model', 'performance', 'runtime'])
 const fingerprintEnvironmentPrefixes = ['FSUSBLOG_', 'PLAYWRIGHT_', 'MATRIX_', 'VITE_']
 const fingerprintEnvironmentKeys = new Set(['CI', 'NODE_ENV', 'DOTNET_ROOT'])
-const resourceClassDefaults = Object.freeze({
-  cpu: { cpuUnits: 1, memoryGiB: 1 },
-  io: { cpuUnits: 0.5, memoryGiB: 0.5 },
-  browser: { cpuUnits: 2, memoryGiB: 4 },
-  network: { cpuUnits: 1, memoryGiB: 1 },
-  benchmark: { cpuUnits: 4, memoryGiB: 2 },
-  database: { cpuUnits: 2, memoryGiB: 3 }
-})
-
 function sha256(value) {
   return crypto.createHash('sha256').update(value).digest('hex')
 }
@@ -602,22 +593,26 @@ function normalizeExecutionResult(value) {
 }
 
 function signalProcessTree(child, signal) {
-  if (!child || child.exitCode !== null || child.signalCode !== null) return
+  if (!child) return
   if (process.platform === 'win32' && child.pid) {
     spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore', windowsHide: true })
     return
   }
   if (process.platform !== 'win32' && child.pid) {
     try {
+      // The process-group leader (the shell created by spawn(..., { shell: true }))
+      // can exit on SIGTERM while a descendant keeps the inherited output pipes
+      // open.  The group remains addressable after its leader exits, so always
+      // signal the saved pgid instead of treating the leader exit as tree exit.
       process.kill(-child.pid, signal)
       return
     } catch (error) {
-      if (error.code !== 'ESRCH') child.kill(signal)
+      if (error.code !== 'ESRCH' && child.exitCode === null && child.signalCode === null) child.kill(signal)
       return
     }
   }
 
-  child.kill(signal)
+  if (child.exitCode === null && child.signalCode === null) child.kill(signal)
 }
 
 function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs }) {
@@ -634,31 +629,62 @@ function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs }) {
 
   let settled = false
   let budgetExpired = false
+  let terminationStarted = false
   const tierBudgetMs = Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0
     ? Number(tier.budgetMs)
     : null
   let budgetTimer = null
+  let escalationTimer = null
+  let forcedSettleTimer = null
+  let resolvePromise = null
+
+  const closePipes = () => {
+    for (const stream of [child.stdin, child.stdout, child.stderr]) {
+      stream?.destroy()
+    }
+  }
+  const settle = (result) => {
+    if (settled) return
+    settled = true
+    if (budgetTimer) clearTimeout(budgetTimer)
+    if (escalationTimer) clearTimeout(escalationTimer)
+    if (forcedSettleTimer) clearTimeout(forcedSettleTimer)
+    resolvePromise(result)
+  }
+  const timeoutResult = () => ({
+    code: 124,
+    signal: null,
+    error: new Error(`bundle budget exceeded (${tierBudgetMs}ms)`)
+  })
+  const beginTermination = () => {
+    if (settled || terminationStarted) return
+    terminationStarted = true
+    signalProcessTree(child, 'SIGTERM')
+    escalationTimer = setTimeout(() => {
+      // Do not rely on ChildProcess.close here: a descendant may have survived
+      // the shell and still own its inherited stdout/stderr descriptors.
+      signalProcessTree(child, 'SIGKILL')
+      closePipes()
+      const pipeCloseGraceMs = Math.max(25, Math.min(250, terminationGraceMs || 25))
+      forcedSettleTimer = setTimeout(() => {
+        settle(budgetExpired ? timeoutResult() : { code: 1, signal: 'SIGKILL' })
+      }, pipeCloseGraceMs)
+    }, terminationGraceMs)
+  }
   const promise = new Promise((resolve) => {
+    resolvePromise = resolve
     child.once('error', (error) => {
-      if (settled) return
-      settled = true
-      resolve({ code: 1, signal: null, error })
+      closePipes()
+      settle({ code: 1, signal: null, error })
     })
     child.once('close', (code, signal) => {
-      if (settled) return
-      settled = true
-      if (budgetTimer) clearTimeout(budgetTimer)
-      resolve(budgetExpired
-        ? { code: 124, signal: null, error: new Error(`bundle budget exceeded (${tierBudgetMs}ms)`) }
-        : { code: code ?? 1, signal })
+      settle(budgetExpired ? timeoutResult() : { code: code ?? 1, signal })
     })
     if (tierBudgetMs !== null) {
       budgetTimer = setTimeout(() => {
         if (settled) return
         budgetExpired = true
-        signalProcessTree(child, 'SIGTERM')
-        const killTimer = setTimeout(() => signalProcessTree(child, 'SIGKILL'), terminationGraceMs)
-        killTimer.unref?.()
+        beginTermination()
       }, tierBudgetMs)
       budgetTimer.unref?.()
     }
@@ -667,9 +693,7 @@ function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs }) {
   return {
     promise,
     terminate() {
-      signalProcessTree(child, 'SIGTERM')
-      const timer = setTimeout(() => signalProcessTree(child, 'SIGKILL'), terminationGraceMs)
-      timer.unref?.()
+      beginTermination()
     }
   }
 }
@@ -695,10 +719,14 @@ function resourceBudget(resources) {
 }
 
 export function tierResourceUnits(tier) {
-  const defaults = resourceClassDefaults[tier.resourceClass] ?? resourceClassDefaults.cpu
+  const cpuUnits = Number(tier.cpuUnits)
+  const memoryGiB = Number(tier.memoryGiB)
+  if (!Number.isFinite(cpuUnits) || cpuUnits <= 0 || !Number.isFinite(memoryGiB) || memoryGiB <= 0) {
+    throw new Error(`tier ${tier.id ?? '<unknown>'} has no resolved resource grant`)
+  }
   return {
-    cpuUnits: Math.max(0.1, Number(tier.cpuUnits) || defaults.cpuUnits),
-    memoryGiB: Math.max(0, Number(tier.memoryGiB) || defaults.memoryGiB)
+    cpuUnits,
+    memoryGiB
   }
 }
 
@@ -733,24 +761,51 @@ function intersects(left, right) {
   return (left ?? []).some((item) => rightSet.has(item))
 }
 
-function canStartTier(tier, activeEntries, maxParallel, budget) {
-  if (activeEntries.length >= maxParallel) return false
-  if (activeEntries.length > 0 && tier.parallelizable !== true) return false
-  if (activeEntries.some((entry) => entry.tier.parallelizable !== true)) return false
-  if (activeEntries.some((entry) => intersects(tier.exclusiveResources, entry.tier.exclusiveResources))) return false
-  if (activeEntries.some((entry) => (
+function canShareAdmission(tier, admittedEntries, maxParallel) {
+  if (admittedEntries.length >= maxParallel) return false
+  if (admittedEntries.length > 0 && tier.parallelizable !== true) return false
+  if (admittedEntries.some((entry) => entry.tier.parallelizable !== true)) return false
+  if (admittedEntries.some((entry) => intersects(tier.exclusiveResources, entry.tier.exclusiveResources))) return false
+  if (admittedEntries.some((entry) => (
     (tier.services?.length ?? 0) > 0
     && (entry.tier.services?.length ?? 0) > 0
     && intersects(tier.services, entry.tier.services)
   ))) return false
 
-  const sameClass = activeEntries.filter((entry) => entry.tier.resourceClass === tier.resourceClass)
+  const sameClass = admittedEntries.filter((entry) => entry.tier.resourceClass === tier.resourceClass)
   if (sameClass.length >= Math.max(1, Number(tier.maxParallel) || 1)) return false
   if (sameClass.some((entry) => sameClass.length >= Math.max(1, Number(entry.tier.maxParallel) || 1))) return false
+  return true
+}
 
-  const usage = activeUsage(activeEntries)
-  const { cpuUnits, memoryGiB } = tierResourceUnits(tier)
-  return usage.cpuUnits + cpuUnits <= budget.cpuUnits && usage.memoryGiB + memoryGiB <= budget.memoryGiB
+function weightedIntegerAllocation(tiers, totalUnits) {
+  const minimums = tiers.map((tier) => Math.max(1, Math.floor(Number(tier.minCpuUnits) || 1)))
+  const minimumTotal = minimums.reduce((total, value) => total + value, 0)
+  if (minimumTotal > totalUnits) return null
+  const weights = tiers.map((tier) => Math.max(Number.EPSILON, Number(tier.cpuWeight) || 1))
+  const weightTotal = weights.reduce((total, value) => total + value, 0)
+  const quotas = weights.map((weight) => totalUnits * weight / weightTotal)
+  const values = quotas.map((quota, index) => Math.max(minimums[index], Math.floor(quota)))
+  let allocated = values.reduce((total, value) => total + value, 0)
+  while (allocated < totalUnits) {
+    let selected = 0
+    for (let index = 1; index < values.length; index += 1) {
+      if (quotas[index] - values[index] > quotas[selected] - values[selected]) selected = index
+    }
+    values[selected] += 1
+    allocated += 1
+  }
+  while (allocated > totalUnits) {
+    let selected = -1
+    for (let index = 0; index < values.length; index += 1) {
+      if (values[index] <= minimums[index]) continue
+      if (selected < 0 || values[index] - quotas[index] > values[selected] - quotas[selected]) selected = index
+    }
+    if (selected < 0) return null
+    values[selected] -= 1
+    allocated -= 1
+  }
+  return new Map(tiers.map((tier, index) => [tier.id, values[index]]))
 }
 
 function tierPhase(tier) {
@@ -777,6 +832,23 @@ function writeCheckpoint(checkpointFile, checkpoint) {
   const temporaryFile = `${checkpointFile}.next-${process.pid}`
   fs.writeFileSync(temporaryFile, `${JSON.stringify(checkpoint, null, 2)}\n`)
   fs.renameSync(temporaryFile, checkpointFile)
+}
+
+export function markCheckpointWallClockTimeout(checkpointFile, failure, finishedAt = new Date().toISOString()) {
+  const checkpoint = readCheckpoint(checkpointFile)
+  if (!checkpoint) throw new Error(`cannot mark missing scheduler checkpoint timed out: ${checkpointFile}`)
+  checkpoint.status = 'failure'
+  checkpoint.timedOut = true
+  checkpoint.failure ??= failure
+  checkpoint.failurePoint ??= failure.tierId ?? checkpoint.targetTierId
+  if (!(checkpoint.failures ?? []).some((entry) => (
+    entry?.tierId === failure.tierId && entry?.reason === failure.reason
+  ))) {
+    checkpoint.failures = [...(checkpoint.failures ?? []), failure]
+  }
+  checkpoint.finishedAt = finishedAt
+  writeCheckpoint(checkpointFile, checkpoint)
+  return checkpoint
 }
 
 function plainObject(value) {
@@ -1146,6 +1218,7 @@ async function runDagUnlocked(options) {
   const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'))
   const runDirectory = path.join(runsRoot, runId)
   const checkpointFile = path.join(runDirectory, 'checkpoint.json')
+  const resourceGrantFile = path.join(runDirectory, 'resource-grants.json')
   const tierLogDirectory = path.join(runDirectory, 'tiers')
   const snapshotWorktree = options.snapshotWorktree ?? (() => snapshotGitWorktree(root))
   const runSourceSnapshot = await snapshotWorktree()
@@ -1161,6 +1234,7 @@ async function runDagUnlocked(options) {
     ? Number(options.wallClockBudgetMs)
     : null
   const mode = options.mode ?? (options.resume === true ? 'resume' : 'fresh')
+  const collectFailures = options.collectFailures === true
   if (!['fresh', 'resume'].includes(mode)) throw new Error(`invalid scheduler mode: ${mode}`)
   if (options.resume === true && mode !== 'resume') throw new Error('resume=true requires mode=resume')
   const resume = mode === 'resume'
@@ -1168,6 +1242,17 @@ async function runDagUnlocked(options) {
   const supersedesErrors = validateSupersedesRules(supersedesUniverse, options.coverageRegistry)
   if (supersedesErrors.length > 0) throw new Error(`invalid supersedes metadata: ${supersedesErrors.join('; ')}`)
   const tiers = applySupersedes(options.tiers ?? [])
+  for (const tier of tiers) {
+    if (tier.resourceGrantMode === 'dynamic') {
+      if (!Number.isFinite(Number(tier.cpuWeight)) || Number(tier.cpuWeight) <= 0
+        || !Number.isFinite(Number(tier.memoryWeight)) || Number(tier.memoryWeight) <= 0
+        || !Number.isInteger(Number(tier.minCpuUnits)) || Number(tier.minCpuUnits) < 1) {
+        throw new Error(`tier ${tier.id} has unresolved dynamic resource policy`)
+      }
+      continue
+    }
+    tierResourceUnits(tier)
+  }
   const byId = new Map(tiers.map((tier) => [tier.id, tier]))
   const conservativeRepositoryFingerprint = tiers.some((tier) => effectiveCacheInputs(tier).length === 0)
     ? repositoryInputFingerprint(root)
@@ -1176,6 +1261,18 @@ async function runDagUnlocked(options) {
   if (!resume) fs.rmSync(runDirectory, { recursive: true, force: true })
   fs.mkdirSync(tierLogDirectory, { recursive: true })
   const previous = resume ? readCheckpoint(checkpointFile) : null
+  const requestedWallClockStartedAtMs = options.wallClockStartedAtMs === undefined
+    ? Date.now()
+    : Number(options.wallClockStartedAtMs)
+  if (!Number.isFinite(requestedWallClockStartedAtMs) || requestedWallClockStartedAtMs <= 0) {
+    throw new Error('wallClockStartedAtMs must be a positive finite epoch timestamp')
+  }
+  const effectiveWallClockStartedAtMs = previous?.startedAt
+    ? Date.parse(previous.startedAt)
+    : requestedWallClockStartedAtMs
+  if (!Number.isFinite(effectiveWallClockStartedAtMs) || effectiveWallClockStartedAtMs > Date.now()) {
+    throw new Error('wall clock start must be a valid timestamp that is not in the future')
+  }
   const checkpoint = {
     schema: checkpointSchema,
     runId,
@@ -1183,7 +1280,7 @@ async function runDagUnlocked(options) {
     mode,
     authoritative: mode === 'fresh',
     status: 'running',
-    startedAt: previous?.startedAt ?? new Date().toISOString(),
+    startedAt: new Date(effectiveWallClockStartedAtMs).toISOString(),
     updatedAt: new Date().toISOString(),
     resourceBudget: budget,
     budgetMs: wallClockBudgetMs,
@@ -1199,12 +1296,14 @@ async function runDagUnlocked(options) {
     completedTiers: [],
     tiers: {},
     failure: null,
-    failurePoint: null
+    failurePoint: null,
+    failures: []
   }
   writeCheckpoint(checkpointFile, checkpoint)
 
   const pending = [...tiers]
   const completed = new Set()
+  const failed = new Set()
   const resultFingerprints = new Map()
   const active = new Map()
   const reusedTiers = []
@@ -1222,18 +1321,152 @@ async function runDagUnlocked(options) {
   const resourceTimer = setInterval(sampleResourcePeaks, 500)
   resourceTimer.unref?.()
   let budgetTimer = null
-  const budgetPromise = wallClockBudgetMs === null
+  const remainingWallClockBudgetMs = wallClockBudgetMs === null
+    ? null
+    : Math.max(0, wallClockBudgetMs - (Date.now() - effectiveWallClockStartedAtMs))
+  let budgetPromise = wallClockBudgetMs === null
     ? null
     : new Promise((resolve) => {
-        budgetTimer = setTimeout(() => resolve({ budgetExpired: true }), wallClockBudgetMs)
+        budgetTimer = setTimeout(() => resolve({ budgetExpired: true }), remainingWallClockBudgetMs)
         budgetTimer.unref?.()
       })
+  let deadlineExpired = false
 
   const dependenciesReady = (tier) => (tier.dependsOn ?? []).every((dependencyId) => completed.has(dependencyId) || !byId.has(dependencyId))
+  const failedDependencies = (tier) => (tier.dependsOn ?? []).filter((dependencyId) => failed.has(dependencyId))
   const dependencyFingerprint = (tier) => fingerprint((tier.dependsOn ?? []).map((dependencyId) => ({
     id: dependencyId,
     fingerprint: resultFingerprints.get(dependencyId) ?? 'external'
   })))
+
+  const currentFreeMemoryGiB = () => {
+    const measured = Number(options.currentFreeMemoryGiB?.() ?? (os.freemem() / (1024 ** 3)))
+    return Number.isFinite(measured) && measured > 0 ? measured : budget.memoryGiB
+  }
+
+  const writeActiveResourceGrants = () => {
+    const grants = Object.fromEntries([...active.values()]
+      .map(({ tier }) => [tier.id, {
+        cpuUnits: tierResourceUnits(tier).cpuUnits,
+        memoryGiB: tierResourceUnits(tier).memoryGiB
+      }])
+      .sort(([left], [right]) => left.localeCompare(right)))
+    const document = {
+      schema: 'fsusblog.test-matrix.resource-grants.v1',
+      runId,
+      resourceBudget: budget,
+      grants,
+      generatedAt: new Date().toISOString()
+    }
+    const temporary = `${resourceGrantFile}.next-${process.pid}`
+    fs.writeFileSync(temporary, `${JSON.stringify(document, null, 2)}\n`)
+    fs.renameSync(temporary, resourceGrantFile)
+  }
+
+  const expandActiveDynamicGrants = () => {
+    const elastic = [...active.values()].filter((entry) => entry.tier.resourceGrantDynamic === true)
+    if (elastic.length === 0) {
+      writeActiveResourceGrants()
+      return
+    }
+    const usage = activeUsage([...active.values()])
+    let freeCpuUnits = Math.max(0, Math.floor(budget.cpuUnits - usage.cpuUnits))
+    while (freeCpuUnits > 0) {
+      const selected = [...elastic].sort((left, right) => {
+        const leftShare = Number(left.tier.cpuUnits) / Math.max(Number.EPSILON, Number(left.tier.cpuWeight))
+        const rightShare = Number(right.tier.cpuUnits) / Math.max(Number.EPSILON, Number(right.tier.cpuWeight))
+        return leftShare - rightShare || left.tier.id.localeCompare(right.tier.id)
+      })[0]
+      selected.tier.cpuUnits += 1
+      freeCpuUnits -= 1
+    }
+
+    const currentUsage = activeUsage([...active.values()])
+    const liveMemoryEnvelope = Math.min(
+      budget.memoryGiB,
+      currentUsage.memoryGiB + currentFreeMemoryGiB()
+    )
+    const freeMemoryGiB = Math.max(0, liveMemoryEnvelope - currentUsage.memoryGiB)
+    if (freeMemoryGiB > 0) {
+      const weightTotal = elastic.reduce(
+        (total, entry) => total + Math.max(Number.EPSILON, Number(entry.tier.memoryWeight)),
+        0
+      )
+      for (const entry of elastic) {
+        entry.tier.memoryGiB += freeMemoryGiB
+          * Math.max(Number.EPSILON, Number(entry.tier.memoryWeight))
+          / weightTotal
+      }
+    }
+    for (const entry of elastic) {
+      entry.resourceGrantHistory ??= []
+      const grant = tierResourceUnits(entry.tier)
+      const previous = entry.resourceGrantHistory.at(-1)
+      if (!previous || previous.cpuUnits !== grant.cpuUnits || previous.memoryGiB !== grant.memoryGiB) {
+        entry.resourceGrantHistory.push({
+          ...grant,
+          effectiveAt: new Date().toISOString()
+        })
+      }
+    }
+    writeActiveResourceGrants()
+  }
+
+  const admissionWave = () => {
+    if (pending.length === 0 || active.size >= maxParallel) return []
+    const activeEntries = [...active.values()]
+    const usage = activeUsage(activeEntries)
+    const barrierPhase = Math.min(
+      ...pending.map(tierPhase),
+      ...activeEntries.map((entry) => tierPhase(entry.tier))
+    )
+    const ready = pending.filter((tier) => tierPhase(tier) === barrierPhase && dependenciesReady(tier))
+    const selected = []
+    let fixedCpu = 0
+    let fixedMemory = 0
+    let dynamicMinimumCpu = 0
+    const availableCpu = Math.max(0, Math.floor(budget.cpuUnits - usage.cpuUnits))
+    const availableMemory = Math.max(0, Math.min(
+      budget.memoryGiB - usage.memoryGiB,
+      currentFreeMemoryGiB()
+    ))
+
+    for (const tier of ready) {
+      const admittedEntries = [...activeEntries, ...selected.map((item) => ({ tier: item }))]
+      if (!canShareAdmission(tier, admittedEntries, maxParallel)) continue
+      if (tier.resourceGrantMode === 'dynamic') {
+        const minimum = Math.max(1, Math.floor(Number(tier.minCpuUnits)))
+        if (fixedCpu + dynamicMinimumCpu + minimum > availableCpu || availableMemory - fixedMemory <= 0) continue
+        dynamicMinimumCpu += minimum
+      } else {
+        const request = tierResourceUnits(tier)
+        if (fixedCpu + dynamicMinimumCpu + request.cpuUnits > availableCpu
+          || fixedMemory + request.memoryGiB > availableMemory) continue
+        fixedCpu += request.cpuUnits
+        fixedMemory += request.memoryGiB
+      }
+      selected.push(tier)
+    }
+
+    const dynamic = selected.filter((tier) => tier.resourceGrantMode === 'dynamic')
+    const dynamicCpu = Math.max(0, Math.floor(availableCpu - fixedCpu))
+    const cpuAllocations = dynamic.length > 0 ? weightedIntegerAllocation(dynamic, dynamicCpu) : new Map()
+    if (dynamic.length > 0 && cpuAllocations === null) return []
+    const dynamicMemory = Math.max(0, availableMemory - fixedMemory)
+    const memoryWeightTotal = dynamic.reduce(
+      (total, tier) => total + Math.max(Number.EPSILON, Number(tier.memoryWeight)),
+      0
+    )
+    return selected.map((tier) => tier.resourceGrantMode === 'dynamic'
+      ? {
+          ...tier,
+          resourceGrantMode: 'granted',
+          resourceGrantDynamic: true,
+          cpuUnits: cpuAllocations.get(tier.id),
+          memoryGiB: dynamicMemory * Math.max(Number.EPSILON, Number(tier.memoryWeight)) / memoryWeightTotal
+        }
+      : tier)
+  }
 
   const completeReusedTier = (tier, inputFingerprint, dependencyFingerprintValue) => {
     const previousTier = previous?.tiers?.[tier.id]
@@ -1268,7 +1501,9 @@ async function runDagUnlocked(options) {
       ...(options.env ?? {}),
       ...(options.envForTier?.(tier) ?? {}),
       FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit ?? '',
-      FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint
+      FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
+      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
+      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: tier.id
     }
     const inputFingerprint = tierInputFingerprint(tier, root, {
       env: tierEnvironment,
@@ -1326,6 +1561,12 @@ async function runDagUnlocked(options) {
       })
     }
     active.set(tier.id, entry)
+    if (tier.resourceGrantDynamic === true) {
+      entry.resourceGrantHistory = [{
+        ...tierResourceUnits(tier),
+        effectiveAt: new Date(startedAt).toISOString()
+      }]
+    }
     sampleResourcePeaks()
     return true
   }
@@ -1365,6 +1606,8 @@ async function runDagUnlocked(options) {
 
     checkpoint.tiers[tier.id] = {
       status: success ? 'success' : (cancelled ? 'cancelled' : 'failure'),
+      resourceGrant: tierResourceUnits(tier),
+      resourceGrantHistory: entry.resourceGrantHistory ?? [tierResourceUnits(tier)],
       inputFingerprint,
       dependencyFingerprint: dependencyFingerprintValue,
       resultFingerprint,
@@ -1391,33 +1634,51 @@ async function runDagUnlocked(options) {
   }
 
   while (pending.length > 0 || active.size > 0) {
-    if (!firstFailure) {
-      let madeProgress = true
-      while (madeProgress && active.size < maxParallel) {
-        madeProgress = false
-        const activeEntries = [...active.values()]
-        const barrierPhase = Math.min(
-          ...pending.map(tierPhase),
-          ...activeEntries.map((entry) => tierPhase(entry.tier))
-        )
-        const nextIndex = pending.findIndex((tier) => (
-          tierPhase(tier) === barrierPhase
-          && dependenciesReady(tier)
-          && canStartTier(tier, activeEntries, maxParallel, budget)
-        ))
-        if (nextIndex >= 0) {
-          const [nextTier] = pending.splice(nextIndex, 1)
-          await startTier(nextTier)
-          madeProgress = true
+    if (collectFailures) {
+      let blockedAny = true
+      while (blockedAny) {
+        blockedAny = false
+        for (let index = pending.length - 1; index >= 0; index -= 1) {
+          const blockedBy = failedDependencies(pending[index])
+          if (blockedBy.length === 0) continue
+          const [blockedTier] = pending.splice(index, 1)
+          failed.add(blockedTier.id)
+          checkpoint.tiers[blockedTier.id] = {
+            status: 'blocked',
+            durationMs: 0,
+            reason: `blocked by failed dependencies: ${blockedBy.join(', ')}`,
+            reused: false
+          }
+          blockedAny = true
         }
       }
     }
+    if ((!firstFailure || collectFailures) && !deadlineExpired) {
+      const wave = admissionWave()
+      for (const grantedTier of wave) {
+        const nextIndex = pending.findIndex((tier) => tier.id === grantedTier.id)
+        if (nextIndex < 0) continue
+        pending.splice(nextIndex, 1)
+        await startTier(grantedTier)
+      }
+      // Admit newly-ready work before redistributing released capacity to
+      // already-running elastic tiers. Otherwise an active tier can consume
+      // every released CPU unit and indefinitely starve a downstream bundle
+      // whose minimum grant would fit in that same envelope.
+      expandActiveDynamicGrants()
+      if (wave.length > 0 && active.size === 0) continue
+    }
 
     if (active.size === 0) {
-      if (pending.length > 0 && !firstFailure) {
+      if (deadlineExpired) break
+      if (pending.length > 0 && (!firstFailure || collectFailures)) {
         const barrierPhase = Math.min(...pending.map(tierPhase))
         const readyTier = pending.find((tier) => tierPhase(tier) === barrierPhase && dependenciesReady(tier))
-        const request = readyTier ? tierResourceUnits(readyTier) : null
+        const request = readyTier
+          ? (readyTier.resourceGrantMode === 'dynamic'
+              ? { cpuUnits: Number(readyTier.minCpuUnits), memoryGiB: Number.EPSILON }
+              : tierResourceUnits(readyTier))
+          : null
         const unschedulable = request
           && (request.cpuUnits > budget.cpuUnits || request.memoryGiB > budget.memoryGiB)
         firstFailure = {
@@ -1436,10 +1697,12 @@ async function runDagUnlocked(options) {
     const activePromises = [...active.entries()].map(([tierId, entry]) => (
       entry.promise.then((settled) => ({ tierId, settled }))
     ))
-    const outcome = await Promise.race(budgetPromise && !firstFailure
+    const outcome = await Promise.race(budgetPromise && (!firstFailure || collectFailures)
       ? [...activePromises, budgetPromise]
       : activePromises)
     if (outcome.budgetExpired) {
+      deadlineExpired = true
+      budgetPromise = null
       const timedOutTierId = active.keys().next().value ?? pending[0]?.id ?? checkpoint.targetTierId
       firstFailure = {
         tierId: timedOutTierId,
@@ -1451,6 +1714,7 @@ async function runDagUnlocked(options) {
       checkpoint.timedOut = true
       checkpoint.failure = firstFailure
       checkpoint.failurePoint = timedOutTierId
+      checkpoint.failures.push(firstFailure)
       writeCheckpoint(checkpointFile, checkpoint)
       for (const entry of active.values()) {
         entry.cancelRequested = true
@@ -1463,17 +1727,32 @@ async function runDagUnlocked(options) {
     active.delete(tierId)
     const recorded = recordSettled(entry, settled)
     if (!recorded.success && !recorded.cancelled && !firstFailure) {
-      firstFailure = {
+      const failure = {
         tierId,
         exitCode: recorded.executionResult.code ?? 1,
         signal: recorded.executionResult.signal ?? null,
         reason: recorded.reason,
         changedPaths: recorded.changedPaths
       }
-      for (const sibling of active.values()) {
-        sibling.cancelRequested = true
-        sibling.terminate()
+      firstFailure = failure
+      failed.add(tierId)
+      checkpoint.failures.push(failure)
+      if (!collectFailures) {
+        for (const sibling of active.values()) {
+          sibling.cancelRequested = true
+          sibling.terminate()
+        }
       }
+    } else if (!recorded.success && !recorded.cancelled && collectFailures) {
+      const failure = {
+        tierId,
+        exitCode: recorded.executionResult.code ?? 1,
+        signal: recorded.executionResult.signal ?? null,
+        reason: recorded.reason,
+        changedPaths: recorded.changedPaths
+      }
+      failed.add(tierId)
+      checkpoint.failures.push(failure)
     }
   }
 

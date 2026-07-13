@@ -291,11 +291,62 @@ release_rollout_status_or_missing() {
 }
 
 authenticated_dast_status_or_missing() {
-  semantic_status_or_missing "$1" '(.status == "ok") and (.activeScan.executed == true)'
+  semantic_status_or_missing "$1" '
+    . as $root
+    | (.schema == "fsusblog.security.authenticated-dast.v1")
+    and (.status == "ok")
+    and (.executionSource == "fresh-current-lane")
+    and (.fixture.executionSource == "fresh-current-lane")
+    and (.fixture.historicalStateAccepted == false)
+    and (.fixture.cleanup == "success")
+    and (.targetPolicy.loopbackOnly == true)
+    and (.targetPolicy.productionTargetAllowed == false)
+    and (.activeScan.executed == true)
+    and ((.activeScan.requestCount // 0) | type == "number" and . > 0 and floor == .)
+    and (.activeScan.failedCount == 0)
+    and (.activeScan.passedCount == .activeScan.requestCount)
+    and (["anonymous", "user", "admin", "author-console"] | all(
+      . as $context
+      | ($root.contexts[$context].executed == true)
+      and (($root.contexts[$context].requestCount // 0) | type == "number" and . > 0 and floor == .)
+      and ($root.contexts[$context].failedCount == 0)
+    ))
+    and (($root.checks // []) | type == "array" and length == $root.activeScan.requestCount and all(.passed == true))
+  '
+}
+
+local_runtime_exposure_status_or_missing() {
+  semantic_status_or_missing "$1" '
+    (.schema == "fsusblog.security.local-runtime-exposure.v1")
+    and (.status == "ok")
+    and (.executionSource == "fresh-loopback-runtime")
+    and (.scope.loopbackRuntimeOnly == true)
+    and (.scope.externalProductionDnsChecked == false)
+    and (.scope.externalFirewallEvidenceChecked == false)
+    and (.scope.countsAsProductionCloseout == false)
+    and ((.failures // []) | type == "array" and length == 0)
+    and ((.targets // []) | type == "array" and ([.[].id] | sort) == ["backend", "frontend", "release-preview"])
+    and ((.targets // []) | all((.status // 500) < 500))
+    and ((.listeners // []) | type == "array" and length == 3 and all((.addresses // []) | length > 0))
+    and ((.restrictedServices // []) | type == "array" and ([.[].id] | sort) == ["postgres", "redis"] and all(.loopbackOnly == true))
+  '
 }
 
 wasm_fuzz_status_or_missing() {
-  semantic_status_or_missing "$1" '(.status == "ok") and ((.seedsRun // 0) > 0)'
+  semantic_status_or_missing "$1" '
+    (.status == "ok")
+    and (.executionSource == "fresh-wasm-runtime")
+    and ((.seedsRun // 0) | type == "number" and . > 0 and floor == .)
+    and ((.seedPlan // []) | type == "array" and length > 0)
+    and ((.seedPlan // []) | all(
+      (.corpus | type == "string" and length > 0)
+      and (.firstSeed | type == "number" and floor == .)
+      and (.count | type == "number" and . > 0 and floor == .)
+    ))
+    and (((.seedPlan // []) | map(.count) | add) == .seedsRun)
+    and ((.decoder.sha256 // "") | test("^[a-f0-9]{64}$"))
+    and ((.crashes // []) | type == "array" and length == 0)
+  '
 }
 
 fault_injection_status_or_missing() {
@@ -590,6 +641,7 @@ DNS_READY="$(copy_if_present "$SECURITY_DIR/production-dns-readiness.json" produ
 DNS_DELEGATION="$(copy_if_present "$SECURITY_DIR/production-dns-delegation.json" production-dns-delegation.json)"
 ATTACK_MATRIX="$(copy_if_present "$SECURITY_DIR/attack-matrix.json" attack-matrix.json)"
 PERMISSION_MATRIX="$(copy_if_present "$SECURITY_DIR/permission-matrix.json" permission-matrix.json)"
+LOCAL_RUNTIME_EXPOSURE="$(copy_if_present "$SECURITY_DIR/local-runtime-exposure.json" local-runtime-exposure.json)"
 ZAP="$(copy_if_present "$SECURITY_DIR/zap" zap)"
 SUPPLY_CHAIN="$(copy_if_present "$SECURITY_DIR/supply-chain" supply-chain)"
 SBOM="$(copy_if_present "$SECURITY_DIR/sbom" sbom)"
@@ -711,6 +763,7 @@ ZAP_STATUS_VALUE="$(zap_status_or_missing "$SECURITY_DIR/zap")"
 FAULT_STATUS_VALUE="$(fault_injection_status_or_missing "$FAULT_DIR/summary.json")"
 SOAK_STATUS_VALUE="$(short_soak_status_or_missing "$SOAK_DIR/short/summary.json")"
 AUTHENTICATED_DAST_STATUS_VALUE="$(authenticated_dast_status_or_missing "$SECURITY_DIR/authenticated-dast/summary.json")"
+LOCAL_RUNTIME_EXPOSURE_STATUS_VALUE="$(local_runtime_exposure_status_or_missing "$SECURITY_DIR/local-runtime-exposure.json")"
 WASM_FUZZ_STATUS_VALUE="$(wasm_fuzz_status_or_missing "$FUZZ_DIR/wasm/summary.json")"
 UX_VIEWPORT_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/ux-viewport-summary.json")"
 FRONTEND_RENDER_PRESSURE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/frontend-render-pressure-summary.json")"
@@ -846,6 +899,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "soak": $SOAK_ARTIFACT,
     "fuzz": $FUZZ_ARTIFACT,
     "authenticatedDast": $AUTHENTICATED_DAST,
+    "localRuntimeExposure": $LOCAL_RUNTIME_EXPOSURE,
     "visualGateSkip": $VISUAL_GATE_SKIP,
     "gateLogs": $GATE_LOGS,
     "securitySourceDir": "$(realpath --relative-to="$OUT_DIR" "$SECURITY_DIR" 2>/dev/null || true)"
@@ -902,6 +956,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "sbom": "$SBOM_STATUS_VALUE",
       "dastZap": "$ZAP_STATUS_VALUE",
       "authenticatedDast": "$AUTHENTICATED_DAST_STATUS_VALUE",
+      "localRuntimeExposure": "$LOCAL_RUNTIME_EXPOSURE_STATUS_VALUE",
       "wasmFuzz": "$WASM_FUZZ_STATUS_VALUE"
     },
     "resilienceDepth": {
@@ -924,6 +979,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
   "securityEvidenceIndex": [
     { "kind": "dast", "artifact": $ZAP },
     { "kind": "authenticated-dast", "artifact": $AUTHENTICATED_DAST },
+    { "kind": "local-runtime-exposure", "artifact": $LOCAL_RUNTIME_EXPOSURE },
     { "kind": "wasm-fuzz", "artifact": $FUZZ_ARTIFACT },
     { "kind": "supply-chain", "artifact": $SUPPLY_CHAIN },
     { "kind": "sbom", "artifact": $SBOM },

@@ -48,7 +48,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
         string identity = RateLimiterRejectionRouteIdentity.Resolve(context);
 
-        Assert.True(identity.StartsWith("OTHER|sha256:", StringComparison.Ordinal));
+        Assert.StartsWith("OTHER|sha256:", identity, StringComparison.Ordinal);
         Assert.InRange(identity.Length, 1, 80);
         Assert.DoesNotContain("attacker-controlled", identity, StringComparison.Ordinal);
     }

@@ -40,8 +40,8 @@ public sealed class UploadBoundaryTests
     public async Task UploadPartTestServer_RejectsWrongContentTypeBeforeTokenOrStorage()
     {
         IFileService files = Substitute.For<IFileService>();
-        using TestServer server = CreateServer(files);
-        using HttpClient client = server.CreateClient();
+        await using WebApplication server = await CreateServerAsync(files);
+        using HttpClient client = server.GetTestClient();
         using HttpRequestMessage request = CreateRequest(new StringContent("payload", Encoding.UTF8, "text/plain"));
 
         using HttpResponseMessage response = await client.SendAsync(request);
@@ -60,8 +60,8 @@ public sealed class UploadBoundaryTests
                 Arg.Any<string?>(),
                 Arg.Any<CancellationToken>())
             .Returns(true);
-        using TestServer server = CreateServer(files);
-        using HttpClient client = server.CreateClient();
+        await using WebApplication server = await CreateServerAsync(files);
+        using HttpClient client = server.GetTestClient();
         using var content = new StreamContent(new NonSeekableReadStream([1, 2, 3]));
         content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
         using HttpRequestMessage request = CreateRequest(content);
@@ -148,6 +148,7 @@ public sealed class UploadBoundaryTests
                 ChunkSize = 8
             });
             Assert.True(init.IsSuccess);
+            UploadInitDto initialized = Assert.IsType<UploadInitDto>(init.Value);
             using var cancellation = new CancellationTokenSource();
             cancellation.Cancel();
             var part = new FormFile(new MemoryStream([0x89, 0x50, 0x4E, 0x47, 1, 2, 3, 4]), 0, 8, "file", "part");
@@ -155,7 +156,7 @@ public sealed class UploadBoundaryTests
             try
             {
                 Result<UploadPartAckDto> canceled = await service.UploadPartAsync(
-                    init.Value!.UploadId,
+                    initialized.UploadId,
                     0,
                     0,
                     part,
@@ -168,7 +169,7 @@ public sealed class UploadBoundaryTests
                 // The service is also allowed to preserve the cancellation signal.
             }
 
-            Result<UploadStatusDto> status = await service.GetUploadStatusAsync(init.Value.UploadId);
+            Result<UploadStatusDto> status = await service.GetUploadStatusAsync(initialized.UploadId);
             Assert.True(status.IsSuccess);
             Assert.Equal(0, status.Value!.UploadedBytes);
             string incoming = Path.Combine(root, "wwwroot", "uploads", "illustration", ".incoming");
@@ -180,17 +181,18 @@ public sealed class UploadBoundaryTests
         }
     }
 
-    private static TestServer CreateServer(IFileService files)
+    private static async Task<WebApplication> CreateServerAsync(IFileService files)
     {
         var aeds = new AedsEncoder();
-        var builder = new WebHostBuilder()
-            .ConfigureServices(services => services.AddRouting())
-            .Configure(app =>
-            {
-                app.UseRouting();
-                app.UseEndpoints(endpoints => endpoints.MapPut(
-                    "/api/binary/upload/{uploadId}/part",
-                    async context =>
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Configuration.Sources.Clear();
+        builder.Services.AddRouting();
+        WebApplication app = builder.Build();
+        app.UseRouting();
+        app.MapPut(
+            "/api/binary/upload/{uploadId}/part",
+            async context =>
                     {
                         string uploadId = Assert.IsType<string>(context.Request.RouteValues["uploadId"]);
                         BinaryFrameResult result = await BinaryEndpoints.HandleUploadPartAsync(
@@ -200,9 +202,9 @@ public sealed class UploadBoundaryTests
                             aeds,
                             context.RequestAborted);
                         await result.ExecuteAsync(context);
-                    }));
-            });
-        return new TestServer(builder);
+                    });
+        await app.StartAsync();
+        return app;
     }
 
     private static HttpRequestMessage CreateRequest(HttpContent content)

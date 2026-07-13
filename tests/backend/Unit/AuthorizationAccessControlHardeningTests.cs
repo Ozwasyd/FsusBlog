@@ -81,6 +81,7 @@ public sealed class AuthorizationAccessControlHardeningTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task UploadPartAndComplete_RequireUploadSessionToken()
     {
         FieldInfo uploadTokenHeader = typeof(BinaryEndpoints).GetField(
@@ -98,7 +99,7 @@ public sealed class AuthorizationAccessControlHardeningTests
         Assert.Contains("CreateUploadSessionToken", fileService, StringComparison.Ordinal);
         Assert.Contains("ValidateUploadSessionTokenAsync", fileService, StringComparison.Ordinal);
 
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint part = EndpointContractApplication.Find(app, "/api/binary/upload/{uploadId}/part", HttpMethods.Put);
         RouteEndpoint complete = EndpointContractApplication.Find(app, "/api/binary/upload/{uploadId}/complete", HttpMethods.Post);
         Assert.All(new[] { part, complete }, endpoint =>
@@ -324,9 +325,10 @@ public sealed class AuthorizationAccessControlHardeningTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task ArticleDeleteRestoreMutationEndpoints_AreRateLimitedAndStepUpProtected()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         AssertArticleMutationProtected(
             EndpointContractApplication.Find(app, "/api/binary/admin/article/{id:int}", HttpMethods.Delete),
             nameof(IArticleEndpointService.DeleteAsync));
@@ -364,6 +366,8 @@ public sealed class AuthorizationAccessControlHardeningTests
                 ["ASPNETCORE_ENVIRONMENT"] = "Development",
                 ["CORS_ALLOWED_HOSTS"] = "https://example.test",
                 ["FSUSBLOG_DATA_ROOT"] = dataRoot,
+                ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
+                ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Database=fsusblog_foundation_test;Username=test;Password=test",
                 ["Jwt:SecretKey"] = new string('s', 64),
                 ["Jwt:Issuer"] = "fsus-tests",
                 ["Jwt:Audience"] = "fsus-tests"

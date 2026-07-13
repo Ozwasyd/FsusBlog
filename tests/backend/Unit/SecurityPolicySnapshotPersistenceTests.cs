@@ -266,12 +266,10 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task SecurityEndpoints_RequireAdminStepUpAndPersistPolicySnapshotsForWrites()
     {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
-        builder.Services.AddAuthorization();
-        await using WebApplication app = builder.Build();
-        app.MapSecurityEndpoints();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint riskUpdate = FindRoute(app, "/api/binary/admin/security/risk-control/options", HttpMethods.Put);
         RouteEndpoint riskRollback = FindRoute(app, "/api/binary/admin/security/risk-control/options/rollback", HttpMethods.Post);
         RouteEndpoint perceptionUpdate = FindRoute(app, "/api/binary/admin/security/perception-v2/options", HttpMethods.Put);
@@ -514,15 +512,15 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
 
-    private static RouteEndpoint FindRoute(WebApplication app, string route, string method)
+    private static RouteEndpoint FindRoute(IEndpointRouteBuilder app, string route, string method)
         => Assert.Single(((IEndpointRouteBuilder)app).DataSources
             .SelectMany(static source => source.Endpoints)
-            .OfType<RouteEndpoint>()
-            .Where(endpoint => string.Equals(
+            .OfType<RouteEndpoint>(),
+            endpoint => string.Equals(
                     endpoint.RoutePattern.RawText?.TrimStart('/'),
                     route.TrimStart('/'),
                     StringComparison.Ordinal)
-                && endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods.Contains(method, StringComparer.Ordinal) == true));
+                && endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods.Contains(method, StringComparer.Ordinal) == true);
 
     private sealed class ConcurrencyTrackingSnapshotService : ISecurityPolicySnapshotService
     {

@@ -173,6 +173,13 @@ async function main() {
       FSUSBLOG_REDIS_CONTAINER: redisContainer,
       FSUSBLOG_TEST_SESSION: session,
       FSUSBLOG_TEST_SESSION_ISOLATION: '1',
+      // A fixture login deliberately revokes every other active session for
+      // the same identity. Give each parallel worker its own identities as well
+      // as its own device key, otherwise later workers invalidate earlier
+      // storage states and user-profile routes emit real 401 warnings.
+      FSUSBLOG_USER_USERNAME: `binaryuser-${session}`,
+      FSUSBLOG_ADMIN_USERNAME: `binaryadmin-${session}`,
+      FSUSBLOG_DEVICE_FP: `${session}-playwright`,
       FSUSBLOG_PLAYWRIGHT_FIXTURES_FILE: fixtureFile
     };
 

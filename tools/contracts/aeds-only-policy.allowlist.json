@@ -81,6 +81,15 @@
       "patterns": ["Results.Json(new"],
       "routes": ["/__local/auth-fixture/status", "/api/local/auth-fixture/status"],
       "reason": "Development-only Playwright auth fixture status probe, gated by loopback caller and shared secret; production startup rejects enabling this fixture."
+    },
+    {
+      "id": "test-release-schema-qualification-json",
+      "classification": "allowed-exemption",
+      "scope": "backend",
+      "file": "src/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs",
+      "patterns": ["Results.Json(new", "Results.Json("],
+      "routes": ["/api/release-evidence/schema-bridge/write", "/api/release-evidence/schema-qualification/readiness"],
+      "reason": "Test-only release rehearsal probes, absent unless the Test environment and qualification switch are both enabled; production runtime application APIs remain AEDS/binary."
     }
   ]
 }

@@ -25,7 +25,7 @@ WHERE account_subject_hash IS NULL
    OR account_subject_hash !~ '^[0-9a-f]{64}$';
 ```
 
-The result must be `0`. Confirm the candidate reports `accountSubjectHashInvariant=ok` before it receives traffic. After migration history is already present, temporarily injecting a null into an isolated rehearsal database must make the candidate fail readiness/startup; restoring the projected digest must recover startup without deleting account data.
+The result must be `0`. The operator shorthand `account_subject_hash IS NULL OR account_subject_hash = ''` is covered by the stricter query above, which also rejects whitespace-only and malformed digests. Confirm the candidate reports `accountSubjectHashInvariant=ok` before it receives traffic. After migration history is already present, temporarily injecting a null into an isolated rehearsal database must make the candidate fail readiness/startup; restoring the projected digest must recover startup without deleting account data.
 
 Create one anonymous account with a public handle and one without. Confirm both inserts persist `account_subject_hash`, issued access tokens carry that exact value, and subsequent public-handle or Passkey-handle changes do not change it. Confirm an old account snapshot payload without the field misses the `account:subject-v1:*` cache namespace and is reread from PostgreSQL.
 

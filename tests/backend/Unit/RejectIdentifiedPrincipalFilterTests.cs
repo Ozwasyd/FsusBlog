@@ -146,7 +146,7 @@ public sealed class RejectIdentifiedPrincipalFilterTests
             .RequireStrongAnonymousRequest();
 
         RouteEndpoint endpoint = Assert.IsType<RouteEndpoint>(Assert.Single(
-            app.DataSources.SelectMany(static source => source.Endpoints)));
+            ((IEndpointRouteBuilder)app).DataSources.SelectMany(static source => source.Endpoints)));
         Assert.Same(
             StrongAnonymousRequestMetadata.Instance,
             endpoint.Metadata.GetMetadata<StrongAnonymousRequestMetadata>());
@@ -160,22 +160,14 @@ public sealed class RejectIdentifiedPrincipalFilterTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public void ExistingLoginBackedCommentEndpoint_RequiresAuthorizationWithoutStrongAnonymousMetadata()
     {
-        WebApplication app = WebApplication.CreateBuilder().Build();
-        RouteGroupBuilder group = app.MapGroup("/api/binary");
-        MethodInfo mapComments = typeof(BinaryEndpoints).GetMethod(
-            "MapBinaryCommentEndpoints",
-            BindingFlags.NonPublic | BindingFlags.Static)
-            ?? throw new InvalidOperationException("Binary comment endpoint mapper was not found.");
-        mapComments.Invoke(null, [group]);
-
-        RouteEndpoint endpoint = Assert.Single(app.DataSources
-            .SelectMany(static source => source.Endpoints)
-            .OfType<RouteEndpoint>()
-            .Where(static endpoint =>
-                string.Equals(endpoint.RoutePattern.RawText, "/api/binary/comment", StringComparison.Ordinal)
-                && endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods.Contains("POST") == true));
+        using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
+        RouteEndpoint endpoint = EndpointContractApplication.Find(
+            app,
+            "/api/binary/comment",
+            HttpMethods.Post);
 
         Assert.NotNull(endpoint.Metadata.GetMetadata<IAuthorizeData>());
         Assert.Null(endpoint.Metadata.GetMetadata<StrongAnonymousRequestMetadata>());

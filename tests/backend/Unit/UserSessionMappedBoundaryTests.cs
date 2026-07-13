@@ -11,6 +11,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
@@ -21,20 +22,28 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
+[CollectionDefinition(nameof(UserSessionMappedBoundaryCollection))]
+public sealed class UserSessionMappedBoundaryCollection
+    : ICollectionFixture<UserSessionMappedBoundaryTests.MappedBoundaryHostFixture>;
+
+[Collection(nameof(UserSessionMappedBoundaryCollection))]
 [Trait("Category", "SecurityStateMachine")]
-public sealed class UserSessionMappedBoundaryTests
+public sealed class UserSessionMappedBoundaryTests(
+    UserSessionMappedBoundaryTests.MappedBoundaryHostFixture fixture)
 {
     [Fact]
     public async Task MappedNotificationStreamPreflight_RevokedOrdinaryJwtRejectsBeforeAdmissionAndClearsUserCookies()
     {
-        MappedBoundaryHost host = await StartHostAsync();
-        await using WebApplication app = host.Application;
+        MappedBoundaryHost host = fixture.PrepareForTest();
+        WebApplication app = host.Application;
         IssuedAccessToken token = IssueRevokedToken(app, "revoked-notification-session");
         using HttpClient client = app.GetTestClient();
         using var request = CreateRevokedRequest(
@@ -56,7 +65,8 @@ public sealed class UserSessionMappedBoundaryTests
         Assert.Equal("auth_failed", error.Message);
         await host.UserValidator.Received(1).ValidateAsync(
             Arg.Is<System.Security.Claims.ClaimsPrincipal>(principal =>
-                principal.FindFirst("sid")?.Value == "revoked-notification-session"),
+                principal.FindFirst("sid") != null
+                && principal.FindFirst("sid")!.Value == "revoked-notification-session"),
             Arg.Any<CancellationToken>());
         await host.Admission.DidNotReceive().ValidateAsync(
             Arg.Any<string?>(),
@@ -69,8 +79,8 @@ public sealed class UserSessionMappedBoundaryTests
     [Fact]
     public async Task MappedProtectedBinarySessions_RevokedOrdinaryJwtRejectsBeforeHandlerAndClearsUserCookies()
     {
-        MappedBoundaryHost host = await StartHostAsync();
-        await using WebApplication app = host.Application;
+        MappedBoundaryHost host = fixture.PrepareForTest();
+        WebApplication app = host.Application;
         IssuedAccessToken token = IssueRevokedToken(app, "revoked-binary-session");
         using HttpClient client = app.GetTestClient();
         using var request = CreateRevokedRequest(
@@ -90,7 +100,8 @@ public sealed class UserSessionMappedBoundaryTests
         Assert.Equal(ErrorCode.Unauthorized, PodBinaryCodec.ToErrorDetail(errorPod).Code);
         await host.UserValidator.Received(1).ValidateAsync(
             Arg.Is<System.Security.Claims.ClaimsPrincipal>(principal =>
-                principal.FindFirst("sid")?.Value == "revoked-binary-session"),
+                principal.FindFirst("sid") != null
+                && principal.FindFirst("sid")!.Value == "revoked-binary-session"),
             Arg.Any<CancellationToken>());
         await host.Sessions.DidNotReceive().GetUserSessionsAsync(
             Arg.Any<int>(),
@@ -100,7 +111,7 @@ public sealed class UserSessionMappedBoundaryTests
 
     private static async Task<MappedBoundaryHost> StartHostAsync()
     {
-        var options = new WebApplicationOptions { EnvironmentName = Environments.Development };
+        var options = new WebApplicationOptions { EnvironmentName = Environments.Production };
         WebApplicationBuilder builder = WebApplication.CreateBuilder(options);
         builder.WebHost.UseTestServer();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
@@ -110,8 +121,16 @@ public sealed class UserSessionMappedBoundaryTests
             ["Jwt:Audience"] = "issue-1052-mapped-boundary-tests",
             ["Jwt:AccessTokenExpiresMinutes"] = "15",
             ["AuthCookies:AllowInsecureTransportCookies"] = "true",
-            ["CORS_ALLOWED_HOSTS"] = "http://localhost"
+            ["AllowedHosts"] = "session-boundary.test",
+            ["CORS_ALLOWED_HOSTS"] = "https://session-boundary.test",
+            ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
+            ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Database=fsusblog_session_boundary;Username=test;Password=test",
+            ["Security:IpHashKey"] = "session-boundary-ip-hash-key"
         });
+        builder.Services
+            .AddFsusApiFoundation(builder.Configuration)
+            .AddFsusRuntimeServices(builder.Configuration);
+        builder.Services.RemoveAll<IHostedService>();
         var userValidator = Substitute.For<IUserSessionValidationService>();
         userValidator.ValidateAsync(
                 Arg.Any<System.Security.Claims.ClaimsPrincipal>(),
@@ -143,10 +162,12 @@ public sealed class UserSessionMappedBoundaryTests
         builder.Services.AddSingleton<IUserSessionValidationService>(userValidator);
         builder.Services.AddSingleton<IAdminSessionValidationService>(adminValidator);
         builder.Services.AddSingleton<IUserSessionCommandService>(sessions);
+        builder.Services.AddSingleton(Substitute.For<ISqlSugarClient>());
+        builder.Services.AddSingleton(Substitute.For<IPowService>());
         builder.Services.AddSingleton<INotificationStreamHandshakeService>(handshake);
         builder.Services.AddSingleton<IAedsEncoder, AedsEncoder>();
         builder.Services.AddSingleton<IBinaryEnvelopePolicy, BinaryEnvelopePolicy>();
-        builder.Services.AddJwtAuthentication(builder.Configuration);
+        builder.Services.AddSingleton<ProductionReadinessSnapshotCache>();
         builder.Services.AddAuthorization();
         builder.Services.AddOutputCache();
 
@@ -157,6 +178,32 @@ public sealed class UserSessionMappedBoundaryTests
         app.MapFsusApplicationRoutes();
         await app.StartAsync();
         return new MappedBoundaryHost(app, userValidator, sessions, admission, riskScores);
+    }
+
+    public sealed class MappedBoundaryHostFixture : IAsyncLifetime
+    {
+        private MappedBoundaryHost? _host;
+
+        public async Task InitializeAsync()
+        {
+            _host = await StartHostAsync();
+        }
+
+        public async Task DisposeAsync()
+        {
+            if (_host is not null)
+            {
+                await _host.Application.DisposeAsync();
+                _host = null;
+            }
+        }
+
+        internal MappedBoundaryHost PrepareForTest()
+        {
+            MappedBoundaryHost host = Assert.IsType<MappedBoundaryHost>(_host);
+            host.Reset();
+            return host;
+        }
     }
 
     private static IssuedAccessToken IssueRevokedToken(WebApplication app, string sessionId)
@@ -177,6 +224,7 @@ public sealed class UserSessionMappedBoundaryTests
         string sessionId)
     {
         var request = new HttpRequestMessage(method, path);
+        request.Headers.Host = "session-boundary.test";
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Headers.Add(
             "Cookie",
@@ -207,10 +255,19 @@ public sealed class UserSessionMappedBoundaryTests
         return decoded.Value;
     }
 
-    private sealed record MappedBoundaryHost(
+    internal sealed record MappedBoundaryHost(
         WebApplication Application,
         IUserSessionValidationService UserValidator,
         IUserSessionCommandService Sessions,
         INotificationStreamAdmissionService Admission,
-        ISecurityRiskScoreReader RiskScores);
+        ISecurityRiskScoreReader RiskScores)
+    {
+        public void Reset()
+        {
+            UserValidator.ClearReceivedCalls();
+            Sessions.ClearReceivedCalls();
+            Admission.ClearReceivedCalls();
+            RiskScores.ClearReceivedCalls();
+        }
+    }
 }

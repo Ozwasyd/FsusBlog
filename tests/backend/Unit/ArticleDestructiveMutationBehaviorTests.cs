@@ -17,12 +17,15 @@ namespace FsusBlog.Server.Tests.Unit;
 [Trait("Category", "Concurrency")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
-public sealed class ArticleDestructiveMutationBehaviorTests(PostgresSchemaMigrationFixture fixture)
+public sealed class ArticleDestructiveMutationBehaviorTests(
+    PostgresSchemaMigrationFixture fixture,
+    ArticleDestructiveMutationDatabaseFixture classDatabase)
+    : IClassFixture<ArticleDestructiveMutationDatabaseFixture>, IAsyncLifetime
 {
     [Fact]
     public async Task DeleteAndRestore_EnforceStateMachineAndRestoreToDraft()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(db);
         SeedTaxonomy(db);
@@ -41,7 +44,11 @@ public sealed class ArticleDestructiveMutationBehaviorTests(PostgresSchemaMigrat
         Assert.True(await service.RestoreAsync(articleId));
         Assert.False(await service.RestoreAsync(articleId));
 
-        Article restored = LoadArticle(db, articleId);
+        // Restore uses a raw optimistic-concurrency UPDATE. Read through a fresh
+        // SqlSugar context so the assertion observes the committed row rather
+        // than the entity instance cached by the earlier deleted-state read.
+        using SqlSugarClient assertDb = PostgresSqlSugarTestClient.Create(connectionString);
+        Article restored = LoadArticle(assertDb, articleId);
         Assert.False(restored.IsDeleted);
         Assert.Equal(ArticleStatus.Draft, restored.Status);
         Assert.Null(restored.DeletedAt);
@@ -51,7 +58,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(PostgresSchemaMigrat
     [Fact]
     public async Task DeleteAsync_StaleRowVersionFailsWithoutChangingArticleState()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
         SeedTaxonomy(setupDb);
@@ -87,7 +94,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(PostgresSchemaMigrat
     [Fact]
     public async Task DeleteAsync_ConcurrentWritersAllowExactlyOneStateTransition()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        string connectionString = classDatabase.ConnectionString;
         using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
         {
             CreateTables(setupDb);
@@ -120,7 +127,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(PostgresSchemaMigrat
     [Fact]
     public async Task PermanentDeleteAndClearTrash_NeverRemoveActiveArticles()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(db);
         SeedTaxonomy(db);
@@ -145,7 +152,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(PostgresSchemaMigrat
     [Fact]
     public async Task PermanentlyDeleteArticleAsync_ConcurrentWritersAllowExactlyOneRemoval()
     {
-        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        string connectionString = classDatabase.ConnectionString;
         using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
         {
             CreateTables(setupDb);
@@ -179,6 +186,11 @@ public sealed class ArticleDestructiveMutationBehaviorTests(PostgresSchemaMigrat
     private static Article LoadArticle(SqlSugarClient db, int articleId)
         => db.Queryable<Article>().ClearFilter().InSingle(articleId)
             ?? throw new InvalidOperationException($"Article {articleId} was not found.");
+
+    public async Task InitializeAsync()
+        => _ = await classDatabase.ResetAsync(fixture);
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     private static void CreateTables(SqlSugarClient db)
         => PostgresSqlSugarTestClient.InitTables(
@@ -223,7 +235,8 @@ public sealed class ArticleDestructiveMutationBehaviorTests(PostgresSchemaMigrat
                 INSERT INTO article
                     (id, title, summary, categoryid, views, createtime, status, published_at, deleted_at, isdeleted)
                 VALUES
-                    (@Id, @Title, @Summary, @CategoryId, 0, @CreateTime, @Status, @PublishedAt, @DeletedAt, @IsDeleted);
+                    (@Id, @Title, @Summary, @CategoryId, 0, @CreateTime, @Status,
+                     CAST(@PublishedAt AS timestamp), CAST(@DeletedAt AS timestamp), @IsDeleted);
                 """,
                 new SugarParameter("@Id", id.Value),
                 new SugarParameter("@Title", article.Title),

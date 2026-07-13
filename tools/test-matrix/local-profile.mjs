@@ -9,6 +9,9 @@ function profileEntries(localProfiles) {
 const bundleSummarySchema = 'fsusblog.local-production.bundle.v1'
 const summaryOnlySchema = 'fsusblog.local-production.summary-only.v1'
 const logicalProjectionSchema = 'fsusblog.local-profile-projection.v1'
+export const productionWallClockBudgetMs = 300_000
+export const performanceMixedWindowFloorMs = 60_000
+const performanceDeadlineEvidenceSchema = 'fsusblog.performance-deadline-evidence.v1'
 const generatedRuntimeRoots = [
   '.tmp',
   'BenchmarkDotNet.Artifacts',
@@ -267,12 +270,185 @@ export function localBundleSummaryPath(profileId, bundleId) {
   return `.tmp/local-${profileId}/${bundleId}/summary.json`
 }
 
-export function createLocalBundleTiers(profileId, profile) {
-  const phaseById = new Map()
+function requirePositiveResourceDeclaration(bundle, field) {
+  const value = Number(bundle?.[field])
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`local profile bundle ${bundle?.id ?? '<unknown>'} requires positive ${field}`)
+  }
+  return value
+}
+
+function allocateIntegerCpuUnits(bundles, availableCpuUnits) {
+  const weights = bundles.map((bundle) => requirePositiveResourceDeclaration(bundle, 'cpuWeight'))
+  const minimums = bundles.map((bundle) => {
+    const value = Number(bundle?.minCpuUnits)
+    if (!Number.isInteger(value) || value < 1) {
+      throw new Error(`local profile bundle ${bundle?.id ?? '<unknown>'} requires positive integer minCpuUnits`)
+    }
+    return value
+  })
+  if (minimums.reduce((total, value) => total + value, 0) > availableCpuUnits) {
+    throw new Error(`local profile minimum CPU allocation exceeds ${availableCpuUnits} available units`)
+  }
+
+  const weightTotal = weights.reduce((total, value) => total + value, 0)
+  const quotas = weights.map((weight) => availableCpuUnits * weight / weightTotal)
+  const allocation = quotas.map((quota, index) => Math.max(minimums[index], Math.floor(quota)))
+  let allocated = allocation.reduce((total, value) => total + value, 0)
+
+  while (allocated < availableCpuUnits) {
+    let selected = 0
+    for (let index = 1; index < allocation.length; index += 1) {
+      if (quotas[index] - allocation[index] > quotas[selected] - allocation[selected]) selected = index
+    }
+    allocation[selected] += 1
+    allocated += 1
+  }
+  while (allocated > availableCpuUnits) {
+    let selected = -1
+    for (let index = 0; index < allocation.length; index += 1) {
+      if (allocation[index] <= minimums[index]) continue
+      if (selected < 0 || allocation[index] - quotas[index] > allocation[selected] - quotas[selected]) selected = index
+    }
+    if (selected < 0) throw new Error('local profile CPU allocation cannot satisfy declared minimums')
+    allocation[selected] -= 1
+    allocated -= 1
+  }
+  return allocation
+}
+
+export function resolveLocalProfileResources(profile, detectedResources) {
+  const availableCpuUnits = Number(detectedResources?.availableCpuUnits)
+  const usableMemoryGiB = Number(detectedResources?.availableMemoryGiB)
+  if (!Number.isInteger(availableCpuUnits) || availableCpuUnits < 1) {
+    throw new Error('local production profile requires positive integer available CPU units')
+  }
+  if (!Number.isFinite(usableMemoryGiB) || usableMemoryGiB <= 0) {
+    throw new Error('local production profile requires positive usable memory')
+  }
+
+  const bundles = profile?.bundles ?? []
+  const byId = new Map(bundles.map((bundle) => [bundle.id, bundle]))
+  const initialIds = ['build-static', 'backend-tests', 'frontend-tests']
+  const initialBundles = initialIds.map((id) => {
+    const bundle = byId.get(id)
+    if (!bundle) throw new Error(`local production profile is missing ${id}`)
+    return bundle
+  })
+  const minimumInitialCpuUnits = initialBundles.reduce((total, bundle) => {
+    const value = Number(bundle?.minCpuUnits)
+    if (!Number.isInteger(value) || value < 1) {
+      throw new Error(`local profile bundle ${bundle?.id ?? '<unknown>'} requires positive integer minCpuUnits`)
+    }
+    return total + value
+  }, 0)
+  if (availableCpuUnits < minimumInitialCpuUnits) {
+    throw new Error(`local production profile requires at least ${minimumInitialCpuUnits} available CPU units from declared minima`)
+  }
+  for (const id of ['runtime-browser', 'performance-evidence']) {
+    if (!byId.has(id)) throw new Error(`local production profile is missing ${id}`)
+  }
+
+  const initialCpuUnits = allocateIntegerCpuUnits(initialBundles, availableCpuUnits)
+  const memoryWeights = initialBundles.map((bundle) => requirePositiveResourceDeclaration(bundle, 'memoryWeight'))
+  const memoryWeightTotal = memoryWeights.reduce((total, value) => total + value, 0)
+  const resolvedById = new Map(initialBundles.map((bundle, index) => [bundle.id, {
+    cpuUnits: initialCpuUnits[index],
+    memoryGiB: usableMemoryGiB * memoryWeights[index] / memoryWeightTotal
+  }]))
+  const backendResources = resolvedById.get('backend-tests')
+  resolvedById.set('runtime-browser', {
+    cpuUnits: Math.max(1, availableCpuUnits - backendResources.cpuUnits),
+    memoryGiB: Math.max(Number.EPSILON, usableMemoryGiB - backendResources.memoryGiB)
+  })
+  resolvedById.set('performance-evidence', {
+    cpuUnits: availableCpuUnits,
+    memoryGiB: usableMemoryGiB
+  })
+
+  const resourceResolvedBundles = bundles.map((bundle) => {
+    const resources = resolvedById.get(bundle.id)
+    if (!resources) throw new Error(`local production profile has unsupported bundle ${bundle.id}`)
+    return { ...bundle, ...resources }
+  })
+  const deadlineDemandById = new Map(resourceResolvedBundles.map((bundle) => {
+    const deadlineWeight = requirePositiveResourceDeclaration(bundle, 'deadlineWeight')
+    const memoryEquivalentCpuUnits = bundle.memoryGiB * availableCpuUnits / usableMemoryGiB
+    const effectiveThroughput = Math.sqrt(bundle.cpuUnits * memoryEquivalentCpuUnits)
+    if (!Number.isFinite(effectiveThroughput) || effectiveThroughput <= 0) {
+      throw new Error(`local profile bundle ${bundle.id} has no effective deadline capacity`)
+    }
+    return [bundle.id, deadlineWeight / effectiveThroughput]
+  }))
+  const wallClockBudgetMs = Number(profile?.budgetMs)
+  if (!Number.isFinite(wallClockBudgetMs) || wallClockBudgetMs <= 0) {
+    throw new Error('local profile wall-clock budget must be positive before resolving deadlines')
+  }
+  const minimumBudgetById = new Map(resourceResolvedBundles.map((bundle) => {
+    const share = Number(bundle.minimumDeadlineShare ?? 0)
+    if (!Number.isFinite(share) || share < 0 || share >= 1) {
+      throw new Error(`local profile bundle ${bundle.id} minimumDeadlineShare must be between 0 and 1`)
+    }
+    return [bundle.id, wallClockBudgetMs * share]
+  }))
+  const criticalPathAtScale = (scale) => localProfileBudgetCriticalPath(
+    { ...profile, bundles: resourceResolvedBundles },
+    (bundle) => Math.max(
+      1,
+      minimumBudgetById.get(bundle.id),
+      deadlineDemandById.get(bundle.id) * scale)
+  )
+  const minimumCriticalPath = criticalPathAtScale(0)
+  if (!Number.isFinite(minimumCriticalPath) || minimumCriticalPath > wallClockBudgetMs) {
+    throw new Error(`local profile minimum deadline shares exceed wall-clock budget: ${minimumCriticalPath}/${wallClockBudgetMs}ms`)
+  }
+  let lowerScale = 0
+  let upperScale = 1
+  while (criticalPathAtScale(upperScale) <= wallClockBudgetMs) upperScale *= 2
+  for (let iteration = 0; iteration < 80; iteration += 1) {
+    const midpoint = (lowerScale + upperScale) / 2
+    if (criticalPathAtScale(midpoint) <= wallClockBudgetMs) lowerScale = midpoint
+    else upperScale = midpoint
+  }
+  const budgetById = new Map(resourceResolvedBundles.map((bundle) => {
+    const budgetMs = Math.floor(Math.max(
+      1,
+      minimumBudgetById.get(bundle.id),
+      deadlineDemandById.get(bundle.id) * lowerScale))
+    if (budgetMs < 1) throw new Error(`local profile bundle ${bundle.id} resolved deadline is below 1ms`)
+    return [bundle.id, budgetMs]
+  }))
+
+  return {
+    ...profile,
+    bundles: resourceResolvedBundles.map((bundle) => {
+      return {
+        ...bundle,
+        budgetMs: budgetById.get(bundle.id),
+        stepMaxParallel: Math.max(1, Math.floor(bundle.cpuUnits))
+      }
+    })
+  }
+}
+
+export function createLocalBundleTiers(profileId, profile, { maxParallel = null } = {}) {
   const prefix = `local-${profileId}-`
+  for (const bundle of profile?.bundles ?? []) {
+    if (!Number.isFinite(bundle.cpuUnits)
+      || !Number.isFinite(bundle.memoryGiB)
+      || !Number.isInteger(bundle.stepMaxParallel)
+      || !Number.isFinite(bundle.cpuWeight)
+      || !Number.isFinite(bundle.memoryWeight)
+      || !Number.isInteger(bundle.minCpuUnits)) {
+      throw new Error(`local bundle resource policy must be resolved before creating tier ${bundle.id}`)
+    }
+  }
+  const defaultMaxParallel = Math.max(
+    1,
+    Number(maxParallel) || Number(profile?.maxParallel) || 0,
+    ...(profile?.bundles ?? []).map((bundle) => Number(bundle.stepMaxParallel) || 1)
+  )
   return (profile?.bundles ?? []).map((bundle) => {
-    const phase = Math.max(0, ...(bundle.dependsOn ?? []).map((dependencyId) => (phaseById.get(dependencyId) ?? -1) + 1))
-    phaseById.set(bundle.id, phase)
     const summaryPath = localBundleSummaryPath(profileId, bundle.id)
     return {
       id: `${prefix}${bundle.id}`,
@@ -283,13 +459,22 @@ export function createLocalBundleTiers(profileId, profile) {
       services: [...(bundle.services ?? [])],
       parallelizable: true,
       exclusiveResources: [...(bundle.exclusiveResources ?? [])],
-      phase,
+      // Physical bundle ordering is fully expressed by dependsOn. Keeping every
+      // local bundle in one scheduler phase lets independent ready work overlap;
+      // resource and exclusive-resource gates still bound actual concurrency.
+      phase: 0,
       cost: 'very-high',
       resourceClass: bundle.resourceClass ?? 'cpu',
-      maxParallel: profile.maxParallel,
-      cpuUnits: bundle.cpuUnits,
-      memoryGiB: bundle.memoryGiB,
-      budgetMs: bundle.budgetMs,
+      maxParallel: defaultMaxParallel,
+      // The resolved units above are used only to derive a machine-specific
+      // deadline. Actual execution grants are assigned from the scheduler's
+      // live envelope when this bundle becomes runnable, so a downstream
+      // bundle is never held back by a stale reference allocation.
+      resourceGrantMode: 'dynamic',
+      cpuWeight: bundle.cpuWeight,
+      memoryWeight: bundle.memoryWeight,
+      minCpuUnits: bundle.minCpuUnits,
+      ...(profile.enforceBudget === false ? {} : { budgetMs: bundle.budgetMs }),
       cacheInputs: [
         'tests/matrix.yml',
         'tools/test/bundles',
@@ -304,35 +489,40 @@ export function createLocalBundleTiers(profileId, profile) {
 }
 
 export function localProfileSystemResources(profile, system = {}) {
-  const requiredCpuUnits = Number(profile?.cpuUnits)
-  const memoryGiB = Number(profile?.memoryGiB)
-  const maxInitialLoad1 = Number(profile?.maxInitialLoad1)
   const cpuCount = Number(system.cpuCount)
   const availableMemoryGiB = Number(system.availableMemoryGiB)
   const load1 = Number(system.load1)
-  if (!Number.isFinite(requiredCpuUnits) || requiredCpuUnits <= 0) {
-    throw new Error('local profile cpuUnits must be a positive number')
+  const initialBundleIds = new Set(['build-static', 'backend-tests', 'frontend-tests'])
+  const minimumCpuUnits = (profile?.bundles ?? [])
+    .filter((bundle) => initialBundleIds.has(bundle.id))
+    .reduce((total, bundle) => total + Number(bundle.minCpuUnits), 0)
+  if (!Number.isInteger(minimumCpuUnits) || minimumCpuUnits < 1) {
+    throw new Error('local production profile must declare positive initial CPU minima')
   }
-  if (!Number.isFinite(memoryGiB) || memoryGiB <= 0) {
-    throw new Error('local profile memoryGiB must be a positive number')
+  if (!Number.isInteger(cpuCount) || cpuCount < minimumCpuUnits) {
+    throw new Error(`local production profile requires at least ${minimumCpuUnits} available CPU units from declared minima`)
   }
-  if (!Number.isFinite(maxInitialLoad1) || maxInitialLoad1 < 0) {
-    throw new Error('local profile maxInitialLoad1 must be a non-negative number')
+  if (!Number.isFinite(availableMemoryGiB) || availableMemoryGiB <= 0) {
+    throw new Error('local profile requires positive available memory')
   }
-  if (!Number.isFinite(cpuCount) || cpuCount < requiredCpuUnits) {
-    throw new Error(`local profile requires at least ${requiredCpuUnits} available CPU units`)
+  if (!Number.isFinite(load1) || load1 < 0) {
+    throw new Error('local profile initial load1 must be a non-negative number')
   }
-  if (!Number.isFinite(availableMemoryGiB) || availableMemoryGiB < memoryGiB) {
-    throw new Error(`local profile requires at least ${memoryGiB} GiB available memory`)
+  const memoryReserveShare = Number(profile?.memoryReserveShare)
+  if (!Number.isFinite(memoryReserveShare) || memoryReserveShare <= 0 || memoryReserveShare >= 1) {
+    throw new Error('local production profile memoryReserveShare must be between 0 and 1')
   }
-  if (!Number.isFinite(load1) || load1 < 0 || load1 > maxInitialLoad1) {
-    throw new Error(`local profile initial load1 must be at most ${maxInitialLoad1}`)
-  }
+  const memoryReserveGiB = availableMemoryGiB * memoryReserveShare
+  const usableMemoryGiB = availableMemoryGiB - memoryReserveGiB
   return {
     cpuCount,
-    availableCpuUnits: requiredCpuUnits,
-    availableMemoryGiB: memoryGiB,
-    load1
+    availableCpuUnits: cpuCount,
+    availableMemoryGiB: usableMemoryGiB,
+    load1,
+    // Strict builds can leave load1 elevated after their processes have exited.
+    // Record it as telemetry, but let live resource admission fill every CPU.
+    launchParallelism: cpuCount,
+    memoryReserveGiB
   }
 }
 
@@ -473,6 +663,101 @@ export function validateLocalBundleSummary(summary, bundle, {
   for (const tierId of Object.keys(summary?.members ?? {})) {
     if (!(bundle.members ?? []).includes(tierId)) errors.push(`unexpected member evidence: ${tierId}`)
   }
+  if (bundle.id === 'performance-evidence') {
+    errors.push(...validatePerformanceDeadlineEvidence(summary?.deadlineEvidence, {
+      expectedRunId: expectedRunId ?? summary?.schedulerRunId
+    }))
+  }
+  return errors
+}
+
+export function validatePerformanceDeadlineEvidence(evidence, { expectedRunId = null } = {}) {
+  const errors = []
+  if (evidence?.schema !== performanceDeadlineEvidenceSchema) {
+    return [`deadlineEvidence.schema must be ${performanceDeadlineEvidenceSchema}`]
+  }
+  if (evidence.status !== 'sufficient') errors.push('deadlineEvidence.status must be sufficient')
+  if (expectedRunId !== null && evidence.schedulerRunId !== expectedRunId) {
+    errors.push(`deadlineEvidence.schedulerRunId must be ${expectedRunId}`)
+  }
+  const candidateBudgetMs = Number(evidence.candidateBudgetMs)
+  const bundleDurationMs = Number(evidence.bundleDurationMs)
+  const mixedDurationMs = Number(evidence.mixedWindow?.measuredDurationMs)
+  const measuredOtherSerialMs = Number(evidence.measuredOtherSerialMs)
+  const requiredBudgetMs = Number(evidence.requiredBudgetMs)
+  if (!Number.isFinite(candidateBudgetMs) || candidateBudgetMs <= 0) errors.push('deadlineEvidence.candidateBudgetMs must be positive')
+  if (!Number.isFinite(bundleDurationMs) || bundleDurationMs < 0) errors.push('deadlineEvidence.bundleDurationMs must be non-negative')
+  if (evidence.mixedWindow?.stepId !== 'mixed-performance-window') errors.push('deadlineEvidence.mixedWindow.stepId must be mixed-performance-window')
+  if (evidence.mixedWindow?.minimumDurationMs !== performanceMixedWindowFloorMs) {
+    errors.push(`deadlineEvidence.mixedWindow.minimumDurationMs must be ${performanceMixedWindowFloorMs}`)
+  }
+  if (!Number.isFinite(mixedDurationMs) || mixedDurationMs < performanceMixedWindowFloorMs) {
+    errors.push(`deadlineEvidence.mixedWindow.measuredDurationMs must be at least ${performanceMixedWindowFloorMs}`)
+  }
+  const expectedOtherSerialMs = Number.isFinite(bundleDurationMs) && Number.isFinite(mixedDurationMs)
+    ? Math.max(0, bundleDurationMs - mixedDurationMs)
+    : Number.NaN
+  if (!Number.isFinite(measuredOtherSerialMs) || measuredOtherSerialMs !== expectedOtherSerialMs) {
+    errors.push('deadlineEvidence.measuredOtherSerialMs must equal bundleDurationMs minus mixed duration')
+  }
+  const expectedRequiredBudgetMs = Number.isFinite(measuredOtherSerialMs)
+    ? performanceMixedWindowFloorMs + measuredOtherSerialMs
+    : Number.NaN
+  if (!Number.isFinite(requiredBudgetMs) || requiredBudgetMs !== expectedRequiredBudgetMs) {
+    errors.push('deadlineEvidence.requiredBudgetMs must equal mixed floor plus measured other serial time')
+  }
+  if (Number.isFinite(candidateBudgetMs) && Number.isFinite(requiredBudgetMs) && candidateBudgetMs < requiredBudgetMs) {
+    errors.push(`deadlineEvidence candidate budget ${candidateBudgetMs} is below required ${requiredBudgetMs}`)
+  }
+  if (!Array.isArray(evidence.steps) || evidence.steps.length === 0) {
+    errors.push('deadlineEvidence.steps must be non-empty')
+  } else {
+    const ids = new Set()
+    for (const step of evidence.steps) {
+      if (!String(step?.id ?? '') || ids.has(step.id)) errors.push('deadlineEvidence.steps must contain unique non-empty ids')
+      ids.add(step.id)
+      if (step.status !== 'success') errors.push(`deadlineEvidence step ${step.id} must be success`)
+      if (!Number.isFinite(step.durationMs) || step.durationMs < 0) errors.push(`deadlineEvidence step ${step.id} durationMs must be non-negative`)
+      if (!Number.isFinite(step.startedAtMs) || !Number.isFinite(step.finishedAtMs)
+        || step.finishedAtMs < step.startedAtMs || step.finishedAtMs - step.startedAtMs !== step.durationMs) {
+        errors.push(`deadlineEvidence step ${step.id} timing must match durationMs`)
+      }
+    }
+    if (!ids.has('mixed-performance-window')) errors.push('deadlineEvidence.steps must include mixed-performance-window')
+  }
+  return errors
+}
+
+export function validateLocalProfileCheckpointDuration(checkpoint, profile) {
+  const errors = []
+  const budgetMs = Number(profile?.budgetMs)
+  const enforceBudget = profile?.enforceBudget !== false
+  const checkpointBudgetMs = checkpoint?.budgetMs === null ? null : Number(checkpoint?.budgetMs)
+  const startedAt = Date.parse(checkpoint?.startedAt ?? '')
+  const finishedAt = Date.parse(checkpoint?.finishedAt ?? '')
+  if (!Number.isFinite(budgetMs) || budgetMs <= 0) errors.push('profile budgetMs must be positive')
+  const expectedCheckpointBudgetMs = enforceBudget ? budgetMs : null
+  if (checkpointBudgetMs !== expectedCheckpointBudgetMs) {
+    errors.push(`checkpoint budgetMs must be ${expectedCheckpointBudgetMs ?? 'null'}`)
+  }
+  if (!Number.isFinite(startedAt) || !Number.isFinite(finishedAt) || finishedAt < startedAt) {
+    errors.push('checkpoint startedAt/finishedAt must define a valid duration')
+  } else if (enforceBudget && finishedAt - startedAt > budgetMs) {
+    errors.push(`checkpoint duration ${finishedAt - startedAt} exceeds ${budgetMs}`)
+  }
+  return errors
+}
+
+export function validateLocalProfileRunSummary(summary, profile) {
+  const errors = []
+  const budgetMs = Number(profile?.budgetMs)
+  const durationMs = Number(summary?.durationMs)
+  if (summary?.budgetMs !== budgetMs) errors.push(`summary budgetMs must be ${budgetMs}`)
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    errors.push('summary durationMs must be a non-negative number')
+  } else if (profile?.enforceBudget !== false && durationMs > budgetMs) {
+    errors.push(`summary duration ${durationMs} exceeds ${budgetMs}`)
+  }
   return errors
 }
 
@@ -551,6 +836,7 @@ export function buildLocalProfileProjection({
   if (!checkpoint.sourceState || !String(checkpoint.sourceState.worktreeFingerprint ?? '').trim()) {
     errors.push('checkpoint sourceState must be present')
   }
+  errors.push(...validateLocalProfileCheckpointDuration(checkpoint, profile))
 
   for (const bundle of profile?.bundles ?? []) {
     const physicalTierId = `local-${profileId}-${bundle.id}`
@@ -666,7 +952,7 @@ export function collectLogicalTierIds(tiers, targetTierId) {
   return [...collected].sort()
 }
 
-function localProfileBudgetCriticalPath(profile) {
+export function localProfileBudgetCriticalPath(profile, costForBundle = (bundle) => Number(bundle.budgetMs)) {
   const bundles = new Map((profile?.bundles ?? []).map((bundle) => [bundle.id, bundle]))
   const memo = new Map()
   const visiting = new Set()
@@ -678,7 +964,9 @@ function localProfileBudgetCriticalPath(profile) {
     visiting.add(bundleId)
     const dependencyBudget = Math.max(0, ...(bundle.dependsOn ?? []).map(visit))
     visiting.delete(bundleId)
-    const total = Number(bundle.budgetMs) + dependencyBudget
+    const ownCost = Number(costForBundle(bundle))
+    if (!Number.isFinite(ownCost) || ownCost <= 0) return Number.POSITIVE_INFINITY
+    const total = ownCost + dependencyBudget
     memo.set(bundleId, total)
     return total
   }
@@ -691,21 +979,39 @@ export function validateLocalProfiles(localProfiles, tiers) {
     if (!Number.isFinite(profile?.budgetMs) || profile.budgetMs <= 0) {
       errors.push(`localProfiles.${profileId}.budgetMs must be positive`)
     }
-    if (profileId === 'production' && profile?.maxParallel !== 8) {
-      errors.push('localProfiles.production.maxParallel must be 8')
+    if (profileId === 'production' && profile?.budgetMs !== productionWallClockBudgetMs) {
+      errors.push(`localProfiles.production.budgetMs must be ${productionWallClockBudgetMs}`)
     }
-    if (profileId === 'production' && profile?.cpuUnits !== 8) {
-      errors.push('localProfiles.production.cpuUnits must be 8')
+    if (profile?.enforceBudget !== undefined && typeof profile.enforceBudget !== 'boolean') {
+      errors.push(`localProfiles.${profileId}.enforceBudget must be boolean`)
     }
-    if (profileId === 'production' && profile?.memoryGiB !== 10) {
-      errors.push('localProfiles.production.memoryGiB must be 10')
-    }
-    if (profileId === 'production' && profile?.maxInitialLoad1 !== 4) {
-      errors.push('localProfiles.production.maxInitialLoad1 must be 4')
+    if (!Number.isFinite(profile?.memoryReserveShare)
+      || profile.memoryReserveShare <= 0
+      || profile.memoryReserveShare >= 1) {
+      errors.push(`localProfiles.${profileId}.memoryReserveShare must be between 0 and 1`)
     }
     if (!Array.isArray(profile?.bundles) || profile.bundles.length !== 5) {
       errors.push(`localProfiles.${profileId} must declare exactly 5 bundles`)
       continue
+    }
+    if (profileId === 'production') {
+      const productionBundleContract = new Map([
+        ['build-static', []],
+        ['backend-tests', []],
+        ['frontend-tests', []],
+        ['runtime-browser', []],
+        ['performance-evidence', ['backend-tests', 'runtime-browser', 'frontend-tests']]
+      ])
+      for (const [bundleId, expected] of productionBundleContract) {
+        const productionBundle = profile.bundles.find((bundle) => bundle.id === bundleId)
+        if (!productionBundle) {
+          errors.push(`localProfiles.production must declare ${bundleId}`)
+          continue
+        }
+        if (JSON.stringify(productionBundle.dependsOn ?? []) !== JSON.stringify(expected)) {
+          errors.push(`localProfiles.production.${bundleId}.dependsOn must be [${expected.join(', ')}]`)
+        }
+      }
     }
 
     const bundleIds = new Set()
@@ -720,19 +1026,29 @@ export function validateLocalProfiles(localProfiles, tiers) {
       if (typeof bundle.command !== 'string' || bundle.command.length === 0) {
         errors.push(`localProfiles.${profileId}.${bundle.id}.command must be non-empty`)
       }
-      if (!Number.isFinite(bundle.budgetMs) || bundle.budgetMs <= 0) {
-        errors.push(`localProfiles.${profileId}.${bundle.id}.budgetMs must be positive`)
+      if (!Number.isFinite(bundle.deadlineWeight) || bundle.deadlineWeight <= 0) {
+        errors.push(`localProfiles.${profileId}.${bundle.id}.deadlineWeight must be positive`)
       }
-      if (!Number.isFinite(bundle.cpuUnits) || bundle.cpuUnits <= 0 || bundle.cpuUnits > profile.cpuUnits) {
-        errors.push(`localProfiles.${profileId}.${bundle.id}.cpuUnits must fit the profile capacity`)
+      if (bundle.minimumDeadlineShare !== undefined
+        && (!Number.isFinite(bundle.minimumDeadlineShare)
+          || bundle.minimumDeadlineShare < 0
+          || bundle.minimumDeadlineShare >= 1)) {
+        errors.push(`localProfiles.${profileId}.${bundle.id}.minimumDeadlineShare must be between 0 and 1`)
       }
-      if (!Number.isFinite(bundle.memoryGiB) || bundle.memoryGiB <= 0 || bundle.memoryGiB > profile.memoryGiB) {
-        errors.push(`localProfiles.${profileId}.${bundle.id}.memoryGiB must fit the profile capacity`)
+      if (!Number.isFinite(bundle.cpuWeight) || bundle.cpuWeight <= 0) {
+        errors.push(`localProfiles.${profileId}.${bundle.id}.cpuWeight must be positive`)
       }
-      if (!Number.isInteger(bundle.stepMaxParallel)
-        || bundle.stepMaxParallel <= 0
-        || bundle.stepMaxParallel > profile.maxParallel) {
-        errors.push(`localProfiles.${profileId}.${bundle.id}.stepMaxParallel must fit the profile process cap`)
+      if (!Number.isFinite(bundle.memoryWeight) || bundle.memoryWeight <= 0) {
+        errors.push(`localProfiles.${profileId}.${bundle.id}.memoryWeight must be positive`)
+      }
+      if (!Number.isInteger(bundle.minCpuUnits)
+        || bundle.minCpuUnits <= 0) {
+        errors.push(`localProfiles.${profileId}.${bundle.id}.minCpuUnits must be positive`)
+      }
+      for (const resolvedOnlyField of ['budgetMs', 'cpuUnits', 'memoryGiB', 'stepMaxParallel']) {
+        if (Object.hasOwn(bundle, resolvedOnlyField)) {
+          errors.push(`localProfiles.${profileId}.${bundle.id}.${resolvedOnlyField} must be machine-resolved, not declared`)
+        }
       }
       for (const substitutionError of validateArtifactSubstitutions(bundle, tiers)) {
         errors.push(`localProfiles.${profileId}.${bundle.id}.${substitutionError}`)
@@ -756,24 +1072,6 @@ export function validateLocalProfiles(localProfiles, tiers) {
           errors.push(`localProfiles.${profileId}.${bundle.id} depends on unknown bundle: ${dependencyId}`)
         }
       }
-    }
-
-    const physicalTiers = createLocalBundleTiers(profileId, profile)
-    const phaseReservations = new Map()
-    for (const tier of physicalTiers) {
-      const reservation = phaseReservations.get(tier.phase) ?? { cpuUnits: 0, memoryGiB: 0 }
-      reservation.cpuUnits += Number(tier.cpuUnits) || 0
-      reservation.memoryGiB += Number(tier.memoryGiB) || 0
-      phaseReservations.set(tier.phase, reservation)
-    }
-    for (const [phase, reservation] of phaseReservations) {
-      if (reservation.cpuUnits > profile.cpuUnits || reservation.memoryGiB > profile.memoryGiB) {
-        errors.push(`localProfiles.${profileId} phase ${phase} reservations exceed the profile capacity`)
-      }
-    }
-    const criticalPathBudgetMs = localProfileBudgetCriticalPath(profile)
-    if (!Number.isFinite(criticalPathBudgetMs) || criticalPathBudgetMs > profile.budgetMs) {
-      errors.push(`localProfiles.${profileId} critical-path budget ${criticalPathBudgetMs} exceeds ${profile.budgetMs}`)
     }
 
     const logicalTierIds = collectLogicalTierIds(tiers, profileId)

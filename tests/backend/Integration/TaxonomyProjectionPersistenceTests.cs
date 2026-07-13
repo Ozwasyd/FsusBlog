@@ -8,6 +8,7 @@ using SqlSugar;
 namespace FsusBlog.Server.Tests.Integration;
 
 [Trait("Dependency", "Docker")]
+[Trait("Category", "Integration")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class TaxonomyProjectionPersistenceTests(PostgresSchemaMigrationFixture fixture)
 {
@@ -78,7 +79,9 @@ public sealed class TaxonomyProjectionPersistenceTests(PostgresSchemaMigrationFi
                 && HasKey(keys, CachePolicyId.TagFrame, "v:1:all")),
             Arg.Any<CancellationToken>());
         await invalidator.Received(1).InvalidateAsync(
-            Arg.Is<CacheTag[]>(values => values.SequenceEqual([CacheTag.Category, CacheTag.Tag])));
+            Arg.Is<CacheTag[]>(values => values.Length == 2
+                && values[0] == CacheTag.Category
+                && values[1] == CacheTag.Tag));
     }
 
     private static bool HasKey(

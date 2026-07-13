@@ -60,9 +60,10 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AdminPrincipalCookie_IsOnlyPreferredForAdminAuthorizationMetadata()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
 
         var userContext = new DefaultHttpContext();
         userContext.Request.Path = "/api/binary/auth/me";
@@ -99,9 +100,10 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task AdminPrincipalCookiePreference_CachesDecisionInHttpContextItems()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         var context = new DefaultHttpContext();
         context.Request.Path = "/api/binary/auth/admin/me";
         context.SetEndpoint(EndpointContractApplication.Find(

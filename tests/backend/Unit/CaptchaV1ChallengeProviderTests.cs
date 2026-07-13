@@ -64,9 +64,10 @@ public sealed class CaptchaV1ChallengeProviderTests
                 codec,
                 "SHA256.HashData",
                 "LeadingZeroBits");
-        Assert.True(
-            references.Any(static reference => reference.Contains("SHA256.HashData", StringComparison.Ordinal) &&
-                                               reference.Contains("Span", StringComparison.Ordinal)));
+        Assert.Contains(
+            references,
+            static reference => reference.Contains("SHA256.HashData", StringComparison.Ordinal) &&
+                                reference.Contains("Span", StringComparison.Ordinal));
     }
 
     [Fact]

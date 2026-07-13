@@ -320,25 +320,45 @@ for (const tierId of [
 }
 {
   const matrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
+  const shardCount = matrix.resource_resolution.defaultShards
   const tierIds = matrix.include.map((entry) => entry.tier).sort()
+  const expectedTierIds = [
+    'coverage-frontend',
+    'frontend-property-model-perf',
+    ...Array.from({ length: shardCount }, () => 'frontend-unit-shard'),
+    'ux-viewport-plan-progress'
+  ].sort()
   requireCondition(
-    JSON.stringify(tierIds) === JSON.stringify(['coverage-frontend', 'frontend-property-model-perf', 'ux-viewport-plan-progress']),
-    'fast-frontend-unit effective plan must retain property/model/perf and viewport governance while replacing ordinary unit with coverage'
+    JSON.stringify(tierIds) === JSON.stringify(expectedTierIds),
+    'fast-frontend-unit effective plan must retain ordinary unit, coverage, property/model/perf and viewport governance when cross-tier coverage prevents safe superseding'
   )
   requireCondition(
-    matrix.include.every((entry) => entry.shard === '' && entry.artifact_name === `fast-frontend-unit-${entry.tier}`),
-    'fast-frontend-unit effective tiers must be unsharded and independently attributable'
+    matrix.include.every((entry) => entry.tier === 'frontend-unit-shard'
+      ? shardCount > 1
+        ? Array.from({ length: shardCount }, (_, index) => `${index + 1}/${shardCount}`).includes(entry.shard)
+          && new RegExp(`^fast-frontend-unit-\\d-of-${shardCount}$`).test(entry.artifact_name)
+        : entry.shard === '' && entry.artifact_name === 'fast-frontend-unit-frontend-unit-shard'
+      : entry.shard === '' && entry.artifact_name === `fast-frontend-unit-${entry.tier}`),
+    'fast-frontend-unit tiers must preserve machine-resolved unit shards and independently attributable non-unit artifacts'
   )
 }
 {
   const matrix = readJsonFile('.tmp/docs/acceptance-playwright-matrix.json').matrix
+  const shardCount = matrix.resource_resolution.defaultShards
   const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
   requireCondition(
-    shards.length === 4 && ['1/4', '2/4', '3/4', '4/4'].every((shard) => shards.includes(shard)),
-    'acceptance-playwright matrix must expand acceptance into 4 Playwright shards'
+    shardCount > 1
+      ? shards.length === shardCount && Array.from({ length: shardCount }, (_, index) => `${index + 1}/${shardCount}`).every((shard) => shards.includes(shard))
+      : shards.length === 0,
+    'acceptance-playwright matrix must expand acceptance using machine-resolved shards'
   )
   requireCondition(
-    matrix.include.every((entry) => entry.playwright_workers === 1 && /^acceptance-playwright-\d-of-4$/.test(entry.artifact_name)),
+    matrix.include.every((entry) => entry.playwright_workers >= 1
+      && entry.playwright_workers <= entry.cpu_units
+      && entry.playwright_workers === Math.floor(entry.cpu_units)
+      && (shardCount > 1
+      ? new RegExp(`^acceptance-playwright-\\d-of-${shardCount}$`).test(entry.artifact_name)
+      : entry.artifact_name === 'acceptance-playwright-acceptance')),
     'acceptance-playwright shard artifacts and worker policy must come from matrix metadata'
   )
 }
@@ -349,7 +369,9 @@ for (const tierId of [
     'ux-viewport-smoke must run as one non-sharded planner execution'
   )
   requireCondition(
-    matrix.include[0].playwright_workers === 1 && matrix.include[0].artifact_name === 'ux-viewport-smoke-ux-viewport-smoke',
+    matrix.include[0].playwright_workers >= 1
+      && matrix.include[0].playwright_workers === Math.floor(matrix.include[0].cpu_units)
+      && matrix.include[0].artifact_name === 'ux-viewport-smoke-ux-viewport-smoke',
     'ux-viewport-smoke worker policy must come from matrix metadata'
   )
 }
@@ -358,21 +380,33 @@ for (const [jobId, file] of [
   ['visual-console-playwright', '.tmp/docs/visual-console-playwright-matrix.json']
 ]) {
   const matrix = readJsonFile(file).matrix
+  const shardCount = matrix.resource_resolution.defaultShards
   const shards = matrix.include.map((entry) => entry.shard).filter(Boolean)
   requireCondition(
-    shards.length === 2 && shards.includes('1/2') && shards.includes('2/2'),
-    `${jobId} matrix must expand into 2 Playwright shards`
+    shardCount > 1
+      ? shards.length === shardCount && Array.from({ length: shardCount }, (_, index) => `${index + 1}/${shardCount}`).every((shard) => shards.includes(shard))
+      : shards.length === 0,
+    `${jobId} matrix must expand into machine-resolved Playwright shards`
   )
   requireCondition(
-    matrix.include.every((entry) => entry.playwright_workers === 2 && new RegExp(`^${jobId}-\\d-of-2$`).test(entry.artifact_name)),
+    matrix.include.every((entry) => entry.playwright_workers >= 1
+      && entry.playwright_workers === Math.floor(entry.cpu_units)
+      && (shardCount > 1
+      ? new RegExp(`^${jobId}-\\d-of-${shardCount}$`).test(entry.artifact_name)
+      : entry.artifact_name === `${jobId}-${entry.tier}`)),
     `${jobId} shard artifacts and worker policy must come from matrix metadata`
   )
 }
 run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-aggregate-plan.json'])
 {
   const aggregatePlan = readJsonFile('.tmp/docs/fast-summary-aggregate-plan.json')
+  const frontendMatrix = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix
+  const shardCount = frontendMatrix.resource_resolution.defaultShards
   for (const summaryId of [
     'frontend-build',
+    ...(shardCount > 1
+      ? Array.from({ length: shardCount }, (_, index) => `fast-frontend-unit-${index + 1}-of-${shardCount}`)
+      : ['fast-frontend-unit-frontend-unit-shard']),
     'fast-frontend-unit-coverage-frontend',
     'fast-frontend-unit-frontend-property-model-perf',
     'fast-backend-coverage-backend',
@@ -385,8 +419,8 @@ run(['aggregate', 'fast-summary', '--dry-run', '--out', '.tmp/docs/fast-summary-
     )
   }
   requireCondition(
-    !aggregatePlan.requiredArtifactPaths.some((artifact) => artifact.includes('frontend-unit-shard')),
-    'fast-summary aggregate must not require artifacts from a superseded ordinary unit tier'
+    aggregatePlan.requiredArtifactPaths.includes('.tmp/frontend/frontend-unit-shard.json'),
+    'fast-summary aggregate must require ordinary unit evidence when safe superseding is unavailable'
   )
   requireCondition(
     aggregatePlan.requiredArtifactPaths.includes('.tmp/coverage/frontend/Summary.json'),
@@ -397,9 +431,11 @@ run(['ci-tier', 'backend-fast', '--plan-only'])
 {
   const frontendPlan = output(['ci-job', 'fast-frontend-unit', '--plan-only'])
   process.stdout.write(frontendPlan)
-  if (!frontendPlan.includes('superseded: frontend-unit-shard -> coverage-frontend')
+  const shardCount = readJsonFile('.tmp/docs/fast-frontend-unit-matrix.json').matrix.resource_resolution.defaultShards
+  if (!frontendPlan.includes(`./tools/test.sh ci-tier frontend-unit-shard --no-deps --shard 1/${shardCount}`)
+      || !frontendPlan.includes('./tools/test.sh ci-tier coverage-frontend --no-deps')
       || !frontendPlan.includes('./tools/test.sh ci-tier frontend-property-model-perf --no-deps')) {
-    console.error('[test-matrix] fast-frontend-unit plan must prove coverage substitution while retaining special suites')
+    console.error('[test-matrix] fast-frontend-unit plan must retain ordinary unit, coverage and special suites')
     process.exit(1)
   }
 }
@@ -580,11 +616,15 @@ requireFileIncludes(
   '`fast-summary` 下载这些 artifacts',
   'docs/testing.md must document frontend-fast split aggregate evidence'
 )
-requireFileIncludes(
-  'tests/matrix.yml',
-  'coverage: [playwright-acceptance]\n    artifacts: [src/frontend/test-results/playwright/acceptance]\n    evidence: [src/frontend/test-results/playwright/acceptance]',
-  'acceptance matrix entry must expose the governed Playwright test-results artifact'
-)
+{
+  const acceptance = parseMatrix(matrixSourceText).tiers.find((tier) => tier.id === 'acceptance')
+  requireCondition(
+    acceptance?.coverage?.includes('playwright-acceptance')
+      && acceptance?.artifacts?.includes('src/frontend/test-results/playwright/acceptance')
+      && acceptance?.evidence?.includes('src/frontend/test-results/playwright/acceptance'),
+    'acceptance matrix entry must expose the governed Playwright test-results artifact'
+  )
+}
 requireFileIncludes(
   'tests/matrix.yml',
   'id: acceptance\n    owner: InteropGlueAgent\n    command: tools/test/lanes/acceptance-playwright.sh',
@@ -598,7 +638,7 @@ requireFileIncludes(
 requireFileIncludes(
   '.github/workflows/quality-gate.yml',
   'acceptance_playwright_max_parallel',
-  'acceptance-playwright workflow must run four generated shards concurrently before raising workers'
+  'acceptance-playwright workflow must consume machine-resolved shard concurrency'
 )
 requireFileIncludes(
   'tests/matrix.yml',
@@ -627,7 +667,7 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'FSUSBLOG_UX_VIEWPORT_WORKERS=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}} PLAYWRIGHT_OUTPUT_DIR=test-results/playwright/ux-viewport-smoke node ../../tests/frontend/checks/ux/run-ux-viewport-playwright.mjs smoke',
+  'FSUSBLOG_UX_VIEWPORT_WORKERS=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs ux-viewport-smoke`}} PLAYWRIGHT_OUTPUT_DIR=test-results/playwright/ux-viewport-smoke node ../../tests/frontend/checks/ux/run-ux-viewport-playwright.mjs smoke',
   'UX viewport smoke must honor lane-computed Playwright workers'
 )
 requireFileIncludes(
@@ -637,8 +677,8 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'tools/test/resolve-playwright-workers.mjs',
-  "name === 'ux-viewport-smoke'",
-  'Playwright browser lanes must resolve workers from the local machine profile'
+  'FSUSBLOG_BUNDLE_CPU_UNITS',
+  'Playwright browser lanes must prefer the scheduler CPU grant before host capacity'
 )
 requireFileIncludes(
   'tools/test/lanes/ux-viewport-smoke.sh',
@@ -652,22 +692,22 @@ requireFileIncludes(
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'check:visual:public": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_VISUAL_PUBLIC_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-2}}',
+  'check:visual:public:playwright": "env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_VISUAL_PUBLIC_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs visual-public`}}',
   'visual public Playwright script must honor matrix or lane-computed workers'
 )
 requireFileIncludes(
   'tools/frontend/check-console-visual.sh',
-  'workers="${FSUSBLOG_CONSOLE_VISUAL_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-2}}"',
+  'workers="${FSUSBLOG_CONSOLE_VISUAL_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-$(node ../../tools/test/resolve-playwright-workers.mjs visual-console)}}"',
   'visual console grouped screenshot runner must honor matrix or lane-computed workers'
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'check:spa:routes": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_SPA_ROUTES_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}}',
+  'check:spa:routes": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_SPA_ROUTES_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs acceptance-spa-routes`}}',
   'SPA route audit must honor the acceptance lane worker cap'
 )
 requireFileIncludes(
   'src/frontend/package.json',
-  'check:acceptance:public": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-1}}',
+  'check:acceptance:public": "npm run ensure:wasm && env -u NO_COLOR NODE_PATH=./node_modules npx playwright test ${FSUSBLOG_PLAYWRIGHT_SHARD_ARG:-} --workers=${FSUSBLOG_PUBLIC_ACCEPTANCE_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs acceptance-public-routes`}}',
   'public route audit must honor the isolated acceptance worker cap'
 )
 requireFileIncludes(

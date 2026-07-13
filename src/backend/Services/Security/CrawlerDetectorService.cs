@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -21,6 +20,7 @@ public class CrawlerDetectorService(
     private const int MaxCidrRangesPerProvider = 8192;
     private const int MaxUserAgentLength = 512;
     private const int MaxIpStringLength = 64;
+    private const string OtherIgnoredUserAgentCharacters = "\u200C\u200D\u200E\u200F\uFEFF";
     private readonly SemaphoreSlim _dnsSemaphore = new(50);
 
     // 核心性能优化：使用 volatile 保证后台更新时的原子性指针切换，查询侧达到绝对的“无锁零争用”
@@ -93,23 +93,25 @@ public class CrawlerDetectorService(
     internal static string NormalizeCrawlerUserAgent(string userAgent)
     {
         int length = Math.Min(userAgent.Length, MaxUserAgentLength);
-        var builder = new StringBuilder(length);
-        for (int i = 0; i < length; i++)
+        string boundedUserAgent = length == userAgent.Length
+            ? userAgent
+            : userAgent[..length];
+        string normalized = boundedUserAgent
+            .Replace("\u200B", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+
+        if (normalized.AsSpan().IndexOfAny(OtherIgnoredUserAgentCharacters) < 0)
         {
-            char normalized = NormalizeUserAgentRune(userAgent[i]);
-            if (normalized != '\0')
-            {
-                builder.Append(normalized);
-            }
+            return normalized;
         }
 
-        return builder.ToString();
+        return normalized
+            .Replace("\u200C", string.Empty, StringComparison.Ordinal)
+            .Replace("\u200D", string.Empty, StringComparison.Ordinal)
+            .Replace("\u200E", string.Empty, StringComparison.Ordinal)
+            .Replace("\u200F", string.Empty, StringComparison.Ordinal)
+            .Replace("\uFEFF", string.Empty, StringComparison.Ordinal);
     }
-
-    private static char NormalizeUserAgentRune(char value)
-        => value is '\u200B' or '\u200C' or '\u200D' or '\u200E' or '\u200F' or '\uFEFF'
-            ? '\0'
-            : char.ToLowerInvariant(value);
 
     private static IpRadixTree BuildTree(List<string> ranges, int maxCount)
     {

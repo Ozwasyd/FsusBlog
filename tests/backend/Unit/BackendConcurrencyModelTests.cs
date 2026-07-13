@@ -59,15 +59,24 @@ public sealed class BackendConcurrencyModelTests
 
     private static async Task<int> RaceAsync(int participants, Func<bool> action)
     {
-        using var start = new Barrier(participants);
+        int readyCount = 0;
+        var allReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var start = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<int>[] tasks = Enumerable.Range(0, participants)
-            .Select(_ => Task.Run(() =>
+            .Select(_ => Task.Run(async () =>
             {
-                start.SignalAndWait();
+                if (Interlocked.Increment(ref readyCount) == participants)
+                {
+                    allReady.TrySetResult(true);
+                }
+
+                await start.Task.ConfigureAwait(false);
                 return action() ? 1 : 0;
             }))
             .ToArray();
 
+        await allReady.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        start.TrySetResult(true);
         int[] results = await Task.WhenAll(tasks);
         return results.Sum();
     }

@@ -130,14 +130,18 @@ fail() {
 }
 
 configure_dotnet_build_parallelism() {
-  local raw="${FSUSBLOG_DOTNET_BUILD_PARALLELISM:-safe}"
+  local raw="${FSUSBLOG_DOTNET_BUILD_PARALLELISM:-dynamic}"
   raw="${raw//[[:space:]]/}"
   local normalized="${raw,,}"
   local mode
   local msbuild_arg
 
   case "$normalized" in
-    ""|safe|single|1)
+    ""|dynamic)
+      mode="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/resolve-dotnet-build-parallelism.mjs")"
+      msbuild_arg="/m:$mode"
+      ;;
+    safe|single|1)
       mode="safe"
       msbuild_arg="/m:1"
       ;;
@@ -150,7 +154,7 @@ configure_dotnet_build_parallelism() {
         mode="$((10#$normalized))"
         msbuild_arg="/m:$mode"
       else
-        fail "FSUSBLOG_DOTNET_BUILD_PARALLELISM must be safe, 1, auto, or an integer greater than 1 (got '$raw')"
+        fail "FSUSBLOG_DOTNET_BUILD_PARALLELISM must be dynamic, safe, 1, auto, or an integer greater than 1 (got '$raw')"
       fi
       ;;
   esac
@@ -376,7 +380,7 @@ prepare_public_fixtures_once() {
 prepare_session_fixtures_once() {
   local fingerprint fixture_root workers
   fixture_root="$(fixture_root_path)"
-  workers="${FSUSBLOG_PLAYWRIGHT_WORKERS:-4}"
+  workers="${FSUSBLOG_PLAYWRIGHT_WORKERS:-$(default_playwright_workers)}"
   fingerprint="$(test_input_fingerprint \
     --path tests/frontend/fixtures/prepare-playwright-sessions.mjs \
     --path tests/frontend/support/session-fixtures.mjs \
@@ -559,58 +563,183 @@ run_frontend_fast_group() {
   log "frontend-fast group done: $group (${duration_ms}ms)"
 }
 
+resolve_parallel_workers() {
+  local job_count="$1"
+  if [[ -z "${FSUSBLOG_STEP_CPU_BUDGET:-}" \
+    && -z "${FSUSBLOG_STEP_MEMORY_GIB:-}" \
+    && -z "${FSUSBLOG_BUNDLE_CPU_UNITS:-}" \
+    && -z "${FSUSBLOG_BUNDLE_CPU_BUDGET:-}" \
+    && -z "${FSUSBLOG_BUNDLE_MEMORY_GIB:-}" ]]; then
+    printf '%s' "$job_count"
+    return 0
+  fi
+
+  FSUSBLOG_COMMAND_MANIFEST_WORKERS="$job_count" \
+    "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" <<'NODE'
+import process from 'node:process'
+import { pathToFileURL } from 'node:url'
+const {
+  resolveAdaptiveManifestWorkers,
+  resolveManifestWorkers
+} = await import(pathToFileURL(process.argv[2]).href)
+const adaptive = process.env.FSUSBLOG_ADAPTIVE_PARALLEL === '1'
+const requestedWorkload = process.env.FSUSBLOG_PARALLEL_WORKLOAD
+const options = {
+  env: process.env,
+  workload: ['orchestration', 'scheduler-admitted'].includes(requestedWorkload)
+    ? requestedWorkload
+    : 'cpu'
+}
+process.stdout.write(String((adaptive ? resolveAdaptiveManifestWorkers : resolveManifestWorkers)(options)))
+NODE
+}
+
+resolve_parallel_child_environment() {
+  local active_workers="$1"
+  FSUSBLOG_PARALLEL_ACTIVE_WORKERS="$active_workers" \
+    "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" <<'NODE'
+import process from 'node:process'
+import { pathToFileURL } from 'node:url'
+const {
+  readManifestSchedulerResourceGrant,
+  resolveManifestChildEnvironment
+} = await import(pathToFileURL(process.argv[2]).href)
+const activeWorkers = Number.parseInt(process.env.FSUSBLOG_PARALLEL_ACTIVE_WORKERS ?? '', 10)
+const liveGrant = readManifestSchedulerResourceGrant({ env: process.env })
+const env = liveGrant
+  ? {
+      ...process.env,
+      FSUSBLOG_STEP_CPU_BUDGET: String(liveGrant.cpuUnits),
+      FSUSBLOG_STEP_MEMORY_GIB: String(liveGrant.memoryGiB)
+    }
+  : process.env
+const child = resolveManifestChildEnvironment({
+  env,
+  workers: activeWorkers,
+  concurrent: activeWorkers > 1
+})
+for (const key of [
+  'FSUSBLOG_STEP_CPU_BUDGET',
+  'FSUSBLOG_STEP_MEMORY_GIB',
+  'FSUSBLOG_COMMAND_MANIFEST_WORKERS',
+  'FSUSBLOG_NODE_TEST_CONCURRENCY'
+]) {
+  if (child[key] !== undefined) process.stdout.write(`${key}=${child[key]}\n`)
+}
+NODE
+}
+
 run_parallel() {
   local group="$1"
   shift
+  local -a specs=("$@")
   local -a pids=()
   local -a status_files=()
   local status_dir="$ROOT_DIR/.tmp/parallel-status/$(namespace_slug "$group")-$$-$RANDOM"
+  local total="${#specs[@]}"
+  local worker_cap
+  worker_cap="$(resolve_parallel_workers "$total")"
+  local adaptive_parallel="${FSUSBLOG_ADAPTIVE_PARALLEL:-0}"
+  local grant_file="${FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE:-}"
+  local grant_signature=""
+  if [[ "$adaptive_parallel" == "1" && -n "$grant_file" ]]; then
+    grant_signature="$(stat -c '%y:%s' "$grant_file" 2>/dev/null || printf 'missing')"
+  fi
   mkdir -p "$status_dir"
 
   CURRENT_STAGE="$group"
-  log "parallel group start: $group ($# jobs)"
+  log "parallel group start: $group ($total jobs, workers=$worker_cap)"
 
-  for spec in "$@"; do
+  local index
+  for ((index = 0; index < total; index += 1)); do
+    local spec="${specs[$index]}"
     local label="${spec%%::*}"
-    local command="${spec#*::}"
-    local status_file="$status_dir/$(namespace_slug "$label").status"
-    (
-      set +e
-      CURRENT_STAGE="$group/$label"
-      log "parallel start: $label"
-      eval "$command"
-      local child_status=$?
-      if (( child_status == 0 )); then
-        log "parallel done: $label"
-      else
-        log "parallel failed: $label (exit $child_status)"
-      fi
-      printf '%s\t%s\n' "$child_status" "$label" > "$status_file"
-      exit "$child_status"
-    ) &
-    local pid="$!"
-    pids+=("$pid")
+    local status_file="$status_dir/$index-$(namespace_slug "$label").status"
     status_files+=("$status_file")
   done
 
+  local next=0
   local completed=0
-  while (( completed < ${#status_files[@]} )); do
-    completed=0
-    for status_file in "${status_files[@]}"; do
-      if [[ ! -f "$status_file" ]]; then
+  local active=0
+  local -a observed=()
+  local refresh_capacity=0
+  while (( completed < total )); do
+    if [[ "$adaptive_parallel" == "1" ]]; then
+      local current_grant_signature="$grant_signature"
+      if [[ -n "$grant_file" ]]; then
+        current_grant_signature="$(stat -c '%y:%s' "$grant_file" 2>/dev/null || printf 'missing')"
+      fi
+      if (( refresh_capacity == 1 )) || [[ "$current_grant_signature" != "$grant_signature" ]]; then
+        local previous_worker_cap="$worker_cap"
+        worker_cap="$(resolve_parallel_workers "$total")"
+        grant_signature="$current_grant_signature"
+        refresh_capacity=0
+        if [[ "$worker_cap" != "$previous_worker_cap" ]]; then
+          log "parallel group capacity update: $group (workers=$previous_worker_cap->$worker_cap active=$active)"
+        fi
+      fi
+    fi
+    local child_environment=""
+    if (( next < total && active < worker_cap )); then
+      local planned_active=$((active + total - next))
+      if (( planned_active > worker_cap )); then planned_active="$worker_cap"; fi
+      child_environment="$(resolve_parallel_child_environment "$planned_active")"
+    fi
+    while (( next < total && active < worker_cap )); do
+      local spec="${specs[$next]}"
+      local label="${spec%%::*}"
+      local command="${spec#*::}"
+      local status_file="${status_files[$next]}"
+      (
+        set +e
+        while IFS='=' read -r key value; do
+          [[ -n "$key" ]] && export "$key=$value"
+        done <<< "$child_environment"
+        CURRENT_STAGE="$group/$label"
+        local child_started_ms
+        child_started_ms="$(date +%s%3N)"
+        log "parallel start: $label"
+        eval "$command"
+        local child_status=$?
+        local child_finished_ms child_duration_ms
+        child_finished_ms="$(date +%s%3N)"
+        child_duration_ms=$((child_finished_ms - child_started_ms))
+        if (( child_status == 0 )); then
+          log "parallel done: $label (${child_duration_ms}ms)"
+        else
+          log "parallel failed: $label (exit $child_status, ${child_duration_ms}ms)"
+        fi
+        local pending_status="${status_file}.pending-$BASHPID"
+        printf '%s\t%s\t%s\n' "$child_status" "$label" "$child_duration_ms" > "$pending_status"
+        mv "$pending_status" "$status_file"
+        exit "$child_status"
+      ) &
+      pids+=("$!")
+      observed+=(0)
+      next=$((next + 1))
+      active=$((active + 1))
+    done
+
+    local progressed=0
+    for ((index = 0; index < next; index += 1)); do
+      if [[ "${observed[$index]:-0}" == "1" || ! -f "${status_files[$index]}" ]]; then
         continue
       fi
-
+      wait "${pids[$index]}" >/dev/null 2>&1 || true
+      observed[$index]=1
       completed=$((completed + 1))
+      active=$((active - 1))
+      progressed=1
+      refresh_capacity=1
     done
-    sleep 0.1
+    if (( completed < total && progressed == 0 )); then sleep 0.1; fi
   done
-  wait >/dev/null 2>&1 || true
+  for index in "${!pids[@]}"; do wait "${pids[$index]}" >/dev/null 2>&1 || true; done
 
   local -a failures=()
   for status_file in "${status_files[@]}"; do
-    local child_status child_label
-    IFS=$'\t' read -r child_status child_label < "$status_file"
+    local child_status child_label child_duration_ms
+    IFS=$'\t' read -r child_status child_label child_duration_ms < "$status_file"
     if [[ "$child_status" != "0" ]]; then
       failures+=("${child_label:-unknown}:$child_status")
     fi
@@ -618,7 +747,10 @@ run_parallel() {
   rm -rf "$status_dir"
 
   if (( ${#failures[@]} > 0 )); then
-    fail "parallel group failed: $group (${failures[*]})"
+    local failure_message="parallel group failed: $group (${failures[*]})"
+    printf '[test:%s] error: %s\n' "${CURRENT_TIER:-unknown}" "$failure_message" >&2
+    print_artifact_hint
+    return 1
   fi
 
   log "parallel group done: $group"
@@ -756,11 +888,35 @@ configure_dotnet_test_processors() {
   log "dotnet test processor count=$DOTNET_PROCESSOR_COUNT"
 }
 
+backend_test_configuration() {
+  local configuration="${FSUSBLOG_BACKEND_TEST_CONFIGURATION:-Debug}"
+  case "$configuration" in
+    Debug|Release)
+      printf '%s\n' "$configuration"
+      ;;
+    *)
+      fail "FSUSBLOG_BACKEND_TEST_CONFIGURATION must be Debug or Release (got '$configuration')"
+      ;;
+  esac
+}
+
 ensure_backend_filtered_build() {
-  if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" \
-    && -f "$ROOT_DIR/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" ]]; then
-    log "reuse backend build from local physical build bundle"
+  local configuration configuration_slug test_dll output_contract fingerprint_variant
+  configuration="$(backend_test_configuration)"
+  configuration_slug="${configuration,,}"
+  test_dll="$ROOT_DIR/tests/backend/bin/$configuration/net10.0/FsusBlog.Server.Tests.dll"
+  if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" && -f "$test_dll" ]]; then
+    log "reuse backend $configuration build from local physical build bundle"
     return
+  fi
+  local debug_outputs='tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.deps.json|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.runtimeconfig.json'
+  local release_outputs='tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll|tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.deps.json|tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.runtimeconfig.json'
+  if [[ "$configuration" == "Release" ]]; then
+    output_contract="$release_outputs"
+    fingerprint_variant='backend-filtered-release-v1'
+  else
+    output_contract="$debug_outputs"
+    fingerprint_variant='backend-filtered-debug-v1'
   fi
   local fingerprint
   configure_dotnet_build_parallelism
@@ -773,13 +929,13 @@ ensure_backend_filtered_build() {
     --path tests/backend \
     --path tools/build-with-data-env.sh \
     --path tools/test/legacy-test.sh \
-    --value backend-filtered-debug-v1)"
+    --value "$fingerprint_variant")"
   run_once_command \
-    backend-filtered-build \
+    "backend-filtered-build-$configuration_slug" \
     "$fingerprint" \
     "$ROOT_DIR" \
-    'tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.deps.json|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.runtimeconfig.json' \
-    "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/FsusBlog.slnx" -c Debug -warnaserror -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
+    "$output_contract" \
+    "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/FsusBlog.slnx" -c "$configuration" -warnaserror -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
 }
 
 backend_trx_file() {
@@ -817,27 +973,31 @@ write_backend_trx_contract_dry_run() {
 run_backend_dotnet_filter_only() {
   local filter="$1"
   local lane="${2:-${CURRENT_TIER:-backend}}"
-  local trx_file
+  local trx_file configuration
   trx_file="$(backend_trx_file "$lane")"
+  configuration="$(backend_test_configuration)"
   configure_dotnet_test_processors
   ensure_backend_filtered_build
   rm -f "$trx_file"
-  run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build "${DOTNET_BUILD_SHARED_ARGS[@]}" --filter "$filter" --logger "trx;LogFileName=$trx_file"
+  FSUSBLOG_BACKEND_DB_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}-${lane}-${BASHPID}" \
+    run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c "$configuration" -v minimal --no-build "${DOTNET_BUILD_SHARED_ARGS[@]}" --filter "$filter" --logger "trx;LogFileName=$trx_file"
 }
 
 run_backend_dotnet_filter_with_coverage() {
   local lane="$1"
   local filter="$2"
   local results_dir="$COVERAGE_ROOT/backend/special-$lane"
-  local trx_file
+  local trx_file configuration
   trx_file="$(backend_trx_file "backend-$lane")"
+  configuration="$(backend_test_configuration)"
   configure_dotnet_test_processors
   ensure_backend_filtered_build
   rm -rf "$results_dir"
   rm -f "$trx_file"
   mkdir -p "$results_dir"
-  run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" \
-    -c Debug \
+  FSUSBLOG_BACKEND_DB_NAMESPACE="${FSUSBLOG_TEST_NAMESPACE:-local}-${lane}-${BASHPID}" \
+    run "$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" \
+    -c "$configuration" \
     -v minimal \
     --no-build \
     "${DOTNET_BUILD_SHARED_ARGS[@]}" \
@@ -905,13 +1065,37 @@ run_backend_test_governance_only() {
 
 run_backend_perf_only() {
   local trx_lane="${1:-backend-perf}"
-  run_backend_governance_checks
+  run_backend_perf_governance_only
+  run_backend_perf_native_p99_only "$trx_lane"
+  run_backend_perf_readiness_build_only
+  write_backend_split_summary backend-perf native-p99-and-benchmark-project-release-build
+}
+
+run_backend_perf_governance_only() {
+  local -a failures=()
+  run "$ROOT_DIR/tools/check-backend-test-governance.mjs" || failures+=(backend-test-governance)
+  run "$ROOT_DIR/tools/check-postgres-test-collections.mjs" || failures+=(postgres-test-collections)
+  if (( ${#failures[@]} > 0 )); then
+    printf '[test:%s] backend performance governance failures: %s\n' \
+      "${CURRENT_TIER:-backend-perf}" "${failures[*]}" >&2
+    return 1
+  fi
+}
+
+run_backend_perf_native_p99_only() {
+  local trx_lane="${1:-backend-perf}"
   FSUSBLOG_RUN_PERFORMANCE_TESTS=1 run_backend_dotnet_filter_only \
     "FullyQualifiedName=FsusBlog.Server.Tests.Unit.NativeGroth16ZkProofBackendTests.MclGroth16VerifierLibrary_VerifyP99StaysInsideNativeBudget" \
     "$trx_lane"
+}
+
+run_backend_perf_readiness_build_only() {
+  if [[ "${FSUSBLOG_BACKEND_PERF_READINESS_MODE:-build}" == "verify-fresh" ]]; then
+    run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/verify-benchmark-build-ready.mjs"
+    return 0
+  fi
   configure_dotnet_build_parallelism
   run "$BUILD_ENV_RUNNER" dotnet build "$ROOT_DIR/benchmarks/core/FsusBlog.Core.Benchmarks.csproj" -c Release -v minimal "${DOTNET_BUILD_PARALLEL_ARGS[@]}"
-  write_backend_split_summary backend-perf native-p99-and-benchmark-project-release-build
 }
 
 run_backend_mutation_with_config() {
@@ -974,9 +1158,52 @@ run_backend_nightly_only() {
   write_backend_split_summary backend-nightly exhaustive-readiness
 }
 
-run_cross_stack_contract_only() {
+run_cross_stack_static_contracts() {
   run "$ROOT_DIR/tools/contracts/export-openapi.sh"
-  run_in_client npm run check:cross-stack-contract
+  run_in_client npm run check:openapi-sync
+  run_in_client npm run check:contract:openapi
+  run_in_client npm run check:frontend-routes
+  run_in_client npm run check:consumer:openapi
+  run_in_client npm run check:contract:binary-matrix
+  run_in_client npm run check:contract:api-parity
+  run_in_client npm run check:contract:pow-parity
+  run_in_client npm run check:contract:frame-schema
+  run_in_client npm run check:contract:negative-matrix
+  run_in_client npm run check:coherence:runtime-matrix
+  run_in_client npm run check:coherence:distribution-full
+  run_in_client npm run check:coherence:notification-stream-events
+  run_in_client npm run check:coherence:upload-complete
+  run_in_client node ../../tests/frontend/checks/runtime/auth-state-coherence.mjs
+  run_in_client npm run check:coherence:sw-cache
+  run_in_client npm run check:coherence:perf
+  run_in_client npm run check:cross-stack-test-governance
+}
+
+run_cross_stack_runtime_contracts() {
+  require_debug_stack
+  export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
+  export FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL"
+  export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
+  run_in_client npm run check:auth-zero-probe
+}
+
+run_cross_stack_contract_only() {
+  local phase="${1:-all}"
+  case "$phase" in
+    static)
+      run_cross_stack_static_contracts
+      ;;
+    runtime)
+      run_cross_stack_runtime_contracts
+      ;;
+    all)
+      run_cross_stack_static_contracts
+      run_cross_stack_runtime_contracts
+      ;;
+    *)
+      fail "cross-stack-contract phase must be static, runtime, or all (got '$phase')"
+      ;;
+  esac
 }
 
 run_frontend_fast_build_group() {
@@ -1168,17 +1395,54 @@ run_integration_only() {
   export FSUSBLOG_HTTP_TIMEOUT_MS="$INTEGRATION_HTTP_TIMEOUT_MS"
 
   prepare_runtime_fixtures_once
-  run_in_client npm run check:auth-session-smoke
-  run_in_client npm run check:pow-runtime
-  run_in_client npm run check:binary-smoke
-  run_in_client npm run check:binary-smoke:auth
-  run_in_client npm run check:notification-stream-runtime
-  run_in_client npm run check:notification-stream-live
-  run_in_client npm run check:api-contracts
-  run_in_client npm run check:binary-contract-smoke
-  run_in_client npm run check:distribution-version-coherence
-  run_in_client npm run check:sw-search-runtime
-  run_in_client npm run check:search-runtime
+
+  local -a integration_failures=()
+  run_integration_stage() {
+    local label="$1"
+    shift
+    set +e
+    ( "$@" )
+    local status=$?
+    set -e
+    if (( status != 0 )); then
+      integration_failures+=("$label:$status")
+      log "integration stage failed, continuing: $label (exit $status)"
+    fi
+  }
+
+  run_integration_client_check() {
+    run_in_client npm run "$1"
+  }
+
+  # These checks only read the already-prepared runtime fixtures (the session
+  # smoke mutates only its own user sessions). They are subprocess/HTTP wait
+  # heavy, so two children can share one admitted CPU while the live scheduler
+  # grant remains the authoritative memory and CPU envelope.
+  run_integration_parallel_checks() {
+    local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
+    local -x FSUSBLOG_PARALLEL_WORKLOAD=orchestration
+    run_parallel "integration-runtime-checks" \
+      "pow-runtime::run_integration_client_check check:pow-runtime" \
+      "search-runtime::run_integration_client_check check:search-runtime" \
+      "auth-session::run_integration_client_check check:auth-session-smoke" \
+      "api-contracts::run_integration_client_check check:api-contracts" \
+      "binary-contract-smoke::run_integration_client_check check:binary-contract-smoke" \
+      "binary-smoke::run_integration_client_check check:binary-smoke" \
+      "notification-stream-runtime::run_integration_client_check check:notification-stream-runtime" \
+      "notification-stream-live::run_integration_client_check check:notification-stream-live" \
+      "sw-search-runtime::run_integration_client_check check:sw-search-runtime"
+  }
+
+  run_integration_stage "runtime-parallel" run_integration_parallel_checks
+  # Keep authenticated admin/session work and distribution mutation out of the
+  # shared read pool so parallel execution cannot change their observable state.
+  run_integration_stage "binary-smoke-auth" run_in_client npm run check:binary-smoke:auth
+  run_integration_stage "distribution-version-coherence" run_in_client npm run check:distribution-version-coherence
+
+  unset -f run_integration_stage run_integration_client_check run_integration_parallel_checks
+  if (( ${#integration_failures[@]} > 0 )); then
+    fail "integration runtime failures (${integration_failures[*]})"
+  fi
   write_runtime_lane_summary integration
 }
 
@@ -1263,8 +1527,8 @@ run_coverage_gate() {
   run_tier "coverage-gate" run_coverage_gate_only
 }
 
-run_release_only() {
-  log "tier=release | requires release preview=8080"
+run_release_public_hydration_prepare_only() {
+  log "tier=release-public-hydration | settle AOT hydration writes before release preview readers"
   require_release_preview
 
   export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
@@ -1278,8 +1542,21 @@ run_release_only() {
     FSUSBLOG_PUBLIC_BASE_URL="$DEBUG_BACKEND_URL" \
     FSUSBLOG_PUBLIC_AOT_WAIT_MS=120000 \
     npm run rebuild:public-hydration
+}
+
+run_release_only() {
+  log "tier=release | requires release preview=8080"
+  require_release_preview
+
+  if [[ "${FSUSBLOG_RELEASE_HYDRATION_PREPARED_BY_DAG:-0}" != "1" ]]; then
+    run_release_public_hydration_prepare_only
+  else
+    log "reuse same-run release hydration write barrier"
+  fi
+
   export FSUSBLOG_BASE_URL="$RELEASE_PREVIEW_URL"
   export FSUSBLOG_PUBLIC_BASE_URL="$RELEASE_PREVIEW_URL"
+  export FSUSBLOG_HTTP_TIMEOUT_MS="$RELEASE_HTTP_TIMEOUT_MS"
   run_in_client node ../../tests/frontend/checks/public/aot-regression.mjs
   export PLAYWRIGHT_BASE_URL="$RELEASE_PREVIEW_URL"
   run_in_client npm run check:search-runtime
@@ -1389,37 +1666,26 @@ run_visual() {
   run_tier "visual" run_visual_only
 }
 
-run_security_only() {
-  log "tier=security | auth/mfa/passkey/pow/permission/a11y gates"
+run_security_static_only() {
+  log "tier=security-static | matrices/supply-chain/network/SBOM policy gates"
+  local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
+  local -x FSUSBLOG_PARALLEL_WORKLOAD=scheduler-admitted
   run_parallel "security-static" \
+    "network-baseline::\"$ROOT_DIR/tools/security/check-production-network-baseline.sh\"" \
+    "supply-chain::\"$ROOT_DIR/tools/security/check-supply-chain-audit.sh\"" \
     "security-matrices::\"$ROOT_DIR/tools/security/check-security-matrices.mjs\"" \
     "zap-warn-policy::\"$ROOT_DIR/tools/security/check-zap-warn-policy.mjs\"" \
-    "sbom::\"$ROOT_DIR/tools/security/generate-sbom.sh\"" \
-    "supply-chain::\"$ROOT_DIR/tools/security/check-supply-chain-audit.sh\"" \
-    "network-baseline::\"$ROOT_DIR/tools/security/check-production-network-baseline.sh\""
-  if [[ -n "${FSUSBLOG_FIREWALL_POLICY_EVIDENCE:-}" ]]; then
-    run "$ROOT_DIR/tools/security/verify-production-firewall-policy-evidence.sh" "$FSUSBLOG_FIREWALL_POLICY_EVIDENCE"
-  fi
-  if [[ "${FSUSBLOG_RUN_PRODUCTION_EXPOSURE_LIVE:-0}" == "1" ]]; then
-    run "$ROOT_DIR/tools/security/check-production-exposure-live.sh"
-    if [[ -n "${FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE:-}" ]]; then
-      run "$ROOT_DIR/tools/security/verify-production-exposure-evidence.sh" "$FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE"
-    fi
-  else
-    log "skip production live exposure check (set FSUSBLOG_RUN_PRODUCTION_EXPOSURE_LIVE=1)"
-  fi
-  require_debug_stack
+    "sbom::\"$ROOT_DIR/tools/security/generate-sbom.sh\""
+}
 
-  export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
-  export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
-  export FSUSBLOG_HTTP_TIMEOUT_MS="$SECURITY_HTTP_TIMEOUT_MS"
-
+run_security_runtime_core_only() {
+  log "tier=security-runtime-core | auth/mfa/passkey/pow/permission/a11y gates"
   local -a security_failures=()
   run_security_stage() {
     local label="$1"
     shift
     set +e
-    "$@"
+    ( "$@" )
     local status=$?
     set -e
     if (( status != 0 )); then
@@ -1428,27 +1694,92 @@ run_security_only() {
     fi
   }
 
+  run_security_isolated_client_check() {
+    local suffix="security-$(namespace_slug "$1")"
+    shift
+    (
+      export FSUSBLOG_USER_USERNAME="${FSUSBLOG_USER_USERNAME:-binaryuser}-$suffix"
+      export FSUSBLOG_ADMIN_USERNAME="${FSUSBLOG_ADMIN_USERNAME:-binaryadmin}-$suffix"
+      export FSUSBLOG_DEVICE_FP="${FSUSBLOG_DEVICE_FP:-binary-smoke-node}-$suffix"
+      run_in_client "$@"
+    )
+  }
+
+  check_security_firewall_evidence() {
+    run "$ROOT_DIR/tools/security/verify-production-firewall-policy-evidence.sh" "$FSUSBLOG_FIREWALL_POLICY_EVIDENCE"
+  }
+
+  check_external_production_exposure() {
+    local -a failures=()
+    run "$ROOT_DIR/tools/security/check-production-exposure-live.sh" || failures+=(live-check)
+    if [[ -n "${FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE:-}" ]]; then
+      run "$ROOT_DIR/tools/security/verify-production-exposure-evidence.sh" "$FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE" \
+        || failures+=(evidence-verify)
+    fi
+    if (( ${#failures[@]} > 0 )); then
+      printf '[test:%s] production exposure failures: %s\n' \
+        "${CURRENT_TIER:-security}" "${failures[*]}" >&2
+      return 1
+    fi
+  }
+
+  # This prerequisite loads the namespaced bootstrap environment into the
+  # current shell; it cannot run inside run_security_stage's isolation subshell.
+  require_debug_stack
+  export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
+  export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
+  export FSUSBLOG_HTTP_TIMEOUT_MS="$SECURITY_HTTP_TIMEOUT_MS"
   run_security_stage "prepare-runtime-fixtures" prepare_runtime_fixtures_once
-  run_security_stage "api-contracts" run_in_client npm run check:api-contracts
-  run_security_stage "auth-session" run_in_client npm run check:auth-session-smoke
-  run_security_stage "auth-mfa" run_in_client npm run check:security:auth-mfa
-  run_security_stage "auth-passkey" run_in_client npm run check:security:auth-passkey
-  run_security_stage "reset-pre-permission" reset_security_runtime_state "pre permission matrix"
-  run_security_stage "permissions" run_in_client npm run check:security:permissions
-  run_security_stage "headers-cors" run_in_client npm run check:security:headers-cors
+  run_security_stage "reset-pre-parallel" reset_security_runtime_state "pre security parallel checks"
+
+  local -a security_runtime_jobs=(
+    "permissions::run_security_isolated_client_check permissions npm run check:security:permissions"
+    "a11y::run_security_isolated_client_check a11y npm run check:a11y:smoke"
+    "api-contracts::run_in_client npm run check:api-contracts"
+    "auth-session::run_security_isolated_client_check auth-session npm run check:auth-session-smoke"
+    "auth-mfa::run_security_isolated_client_check auth-mfa npm run check:security:auth-mfa"
+    "auth-passkey::run_security_isolated_client_check auth-passkey npm run check:security:auth-passkey"
+    "headers-cors::run_in_client npm run check:security:headers-cors"
+    "notification-stream-binary::run_in_client npm run check:security:notification-stream-binary"
+  )
+  if [[ "${FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG:-0}" != "1" ]]; then
+    security_runtime_jobs+=("local-runtime-exposure::run \"$ROOT_DIR/tools/security/check-local-runtime-exposure.mjs\"")
+  fi
+  if [[ -n "${FSUSBLOG_FIREWALL_POLICY_EVIDENCE:-}" ]]; then
+    security_runtime_jobs+=("firewall-evidence::check_security_firewall_evidence")
+  fi
+  if [[ "${FSUSBLOG_RUN_PRODUCTION_EXPOSURE_LIVE:-0}" == "1" ]]; then
+    security_runtime_jobs+=("external-production-exposure::check_external_production_exposure")
+  fi
+  run_security_runtime_pool() {
+    local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
+    # Permission and a11y jobs each drive a real browser. They are CPU work,
+    # not lightweight file-handshake orchestration, so one admitted CPU must
+    # not fan out into two competing browser processes.
+    local -x FSUSBLOG_PARALLEL_WORKLOAD=cpu
+    run_parallel "security-runtime-core" "${security_runtime_jobs[@]}"
+  }
+  run_security_stage "security-runtime-parallel" run_security_runtime_pool
+
+  run_security_stage "reset-pre-attack" reset_security_runtime_state "pre attack matrix"
   run_security_stage "attack-matrix" run_in_client npm run check:security:attack-matrix
   run_security_stage "reset-post-attack" reset_security_runtime_state "post attack matrix"
-  run_security_stage "notification-stream-binary" run_in_client npm run check:security:notification-stream-binary
-  run_security_stage "reset-pre-a11y" reset_security_runtime_state "pre a11y smoke"
-  run_security_stage "a11y" run_in_client npm run check:a11y:smoke
   if [[ "${FSUSBLOG_SKIP_ZAP:-0}" != "1" ]]; then
     run_security_stage "dast" run_in_client npm run check:security:dast
   fi
   run_security_stage "reset-post-gate" reset_security_runtime_state "post security gate"
-  unset -f run_security_stage
+  unset -f run_security_stage run_security_isolated_client_check run_security_runtime_pool \
+    check_security_firewall_evidence check_external_production_exposure
   if (( ${#security_failures[@]} > 0 )); then
     fail "security runtime failures (${security_failures[*]})"
   fi
+}
+
+run_security_only() {
+  log "tier=security | complete static + runtime security gate"
+  run_parallel "security-phases" \
+    "security-static::run_security_static_only" \
+    "security-runtime-core::run_security_runtime_core_only"
 }
 
 run_security() {
@@ -1571,7 +1902,7 @@ run_production() {
 
 usage() {
   cat <<'EOF'
-Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-mutation-critical|backend-nightly|cross-stack-contract|backend-trx-contract-dry-run>
+Usage: ./tools/test.sh <fast|integration|ci|coverage|coverage-backend|coverage-frontend|coverage-merge|coverage-threshold|coverage-gate|release|acceptance|visual|security|security-static-phase|security-runtime-core|resilience|load|production|backend-api-integration|backend-auth-state-machine|backend-concurrency|backend-property|backend-golden|backend-test-governance|backend-perf|backend-mutation|backend-mutation-critical|backend-nightly|cross-stack-contract|backend-trx-contract-dry-run>
 
 Tiers:
   fast         Static and local-only validation; no running services required.
@@ -1587,6 +1918,8 @@ Tiers:
   acceptance   Full acceptance gate; bootstraps env and runs fast + integration + release + full Playwright acceptance.
   visual       Visual gate; bootstraps env and runs dark/mobile layout + screenshot baselines on public + console routes.
   security     Auth/session/MFA/permission/a11y security gate.
+  security-static-phase  Bootstrap-free security matrices, supply-chain, network and SBOM phase.
+  security-runtime-core  Runtime-only auth/session/MFA/permission/a11y/attack phase; requires bootstrapped services.
   resilience   Runtime/upload/search resilience gate.
   load         Lightweight public/API concurrency gate.
   production   Industrial release gate; runs fast, bootstraps once, then runs integration + release + acceptance + visual + security + resilience + load. Set FSUSBLOG_SKIP_VISUAL_GATE=1 only with FSUSBLOG_VISUAL_SKIP_REASON, FSUSBLOG_VISUAL_SKIP_APPROVER, FSUSBLOG_VISUAL_SKIP_IMPACT and FSUSBLOG_VISUAL_SKIP_RERUN_URL.
@@ -1655,6 +1988,14 @@ main() {
       CURRENT_TIER="security"
       run_security
       ;;
+    security-static-phase)
+      CURRENT_TIER="security"
+      run_tier "security" run_security_static_only
+      ;;
+    security-runtime-core)
+      CURRENT_TIER="security"
+      run_tier "security" run_security_runtime_core_only
+      ;;
     resilience)
       CURRENT_TIER="resilience"
       run_resilience
@@ -1709,7 +2050,7 @@ main() {
       ;;
     cross-stack-contract)
       CURRENT_TIER="cross-stack-contract"
-      run_tier "cross-stack-contract" run_cross_stack_contract_only
+      run_tier "cross-stack-contract" run_cross_stack_contract_only "${2:-all}"
       ;;
     backend-trx-contract-dry-run)
       CURRENT_TIER="backend-trx-contract-dry-run"

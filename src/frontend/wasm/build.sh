@@ -14,6 +14,123 @@ STAGE_BASIC_DIR="${STAGE_DIR}/wasm-basic"
 STAGE_RELAXED_POW_DIR="${STAGE_DIR}/wasm-pow-relaxed"
 STAGE_THREADS_POW_DIR="${STAGE_DIR}/wasm-pow-threads"
 BUILD_IMAGE_CODEC="${FSUSBLOG_WASM_IMAGE_CODEC_ENABLE:-ON}"
+
+detect_cpu_count() {
+  local detected=""
+  if command -v nproc >/dev/null 2>&1; then
+    detected="$(nproc)"
+  elif command -v getconf >/dev/null 2>&1; then
+    detected="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+  fi
+  if [[ "${detected}" =~ ^[1-9][0-9]*$ ]]; then
+    printf '%s\n' "${detected}"
+  else
+    printf '1\n'
+  fi
+}
+
+resolve_cpu_budget() {
+  local detected_cpu
+  detected_cpu="$(detect_cpu_count)"
+  IFS=$'\t' read -r \
+    WASM_CPU_BUDGET \
+    WASM_CPU_BUDGET_SOURCE \
+    WASM_MEMORY_BUDGET_GIB \
+    WASM_MEMORY_BUDGET_SOURCE \
+    WASM_MEMORY_WORKER_LIMIT \
+    WASM_VARIANT_WORKERS \
+    < <(FSUSBLOG_WASM_DETECTED_CPU="${detected_cpu}" "${FSUSBLOG_NODE:-node}" --input-type=module <<'NODE'
+import os from 'node:os'
+
+const positive = (value) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+const hostCpu = Math.max(1, Math.floor(positive(process.env.FSUSBLOG_WASM_DETECTED_CPU)
+  ?? os.availableParallelism?.()
+  ?? os.cpus().length))
+const cpuVariables = [
+  'FSUSBLOG_STEP_CPU_BUDGET',
+  'FSUSBLOG_WASM_CPU_BUDGET',
+  'FSUSBLOG_BUILD_CPU_BUDGET',
+  'FSUSBLOG_BUILD_MAX_WORKERS',
+  'FSUSBLOG_BUNDLE_CPU_UNITS',
+  'FSUSBLOG_BUNDLE_CPU_BUDGET',
+  'FSUSBLOG_BUNDLE_MAX_WORKERS',
+  'FSUSBLOG_VITEST_MAX_WORKERS'
+]
+const selectedCpu = cpuVariables
+  .map((name) => ({ name, value: positive(process.env[name]) }))
+  .find((entry) => entry.value !== null)
+const cpuBudget = Math.max(1, Math.min(hostCpu, Math.floor(selectedCpu?.value ?? hostCpu)))
+const freeMemoryGiB = os.freemem() / (1024 ** 3)
+const totalMemoryGiB = os.totalmem() / (1024 ** 3)
+const memoryVariables = ['FSUSBLOG_STEP_MEMORY_GIB', 'FSUSBLOG_BUNDLE_MEMORY_GIB']
+const selectedMemory = memoryVariables
+  .map((name) => ({ name, value: positive(process.env[name]) }))
+  .find((entry) => entry.value !== null)
+const memoryBudgetGiB = Math.min(freeMemoryGiB, selectedMemory?.value ?? freeMemoryGiB)
+const memoryGiBPerCpu = totalMemoryGiB / hostCpu
+const schedulerManaged = selectedCpu !== undefined && selectedMemory !== undefined
+  && ['FSUSBLOG_STEP_CPU_BUDGET', 'FSUSBLOG_BUNDLE_CPU_UNITS', 'FSUSBLOG_BUNDLE_CPU_BUDGET'].includes(selectedCpu.name)
+  && ['FSUSBLOG_STEP_MEMORY_GIB', 'FSUSBLOG_BUNDLE_MEMORY_GIB'].includes(selectedMemory.name)
+// A complete scheduler grant has already been admitted against live CPU and
+// memory. Applying the host-average memory-per-CPU ratio again would reject
+// the scheduler's deliberately packed 2-CPU build grant and serialize all
+// variants. Direct invocation still needs the host-derived memory guard.
+const memoryWorkerLimit = schedulerManaged
+  ? cpuBudget
+  : Math.max(1, Math.floor(memoryBudgetGiB / memoryGiBPerCpu))
+const variantWorkers = Math.max(1, Math.min(4, cpuBudget, memoryWorkerLimit))
+process.stdout.write(`${[
+  cpuBudget,
+  selectedCpu?.name ?? 'detected-cpu',
+  memoryBudgetGiB.toFixed(6),
+  selectedMemory?.name ?? 'detected-free-memory',
+  memoryWorkerLimit,
+  variantWorkers
+].join('\t')}\n`)
+NODE
+  )
+}
+
+print_resource_plan() {
+  local remaining=4 wave=1 active base extra index jobs total child_memory
+  printf '[build:wasm] cpu_budget=%s source=%s memory_budget_gib=%s memory_source=%s memory_worker_limit=%s variant_workers=%s variants=4\n' \
+    "${WASM_CPU_BUDGET}" "${WASM_CPU_BUDGET_SOURCE}" \
+    "${WASM_MEMORY_BUDGET_GIB}" "${WASM_MEMORY_BUDGET_SOURCE}" \
+    "${WASM_MEMORY_WORKER_LIMIT}" "${WASM_VARIANT_WORKERS}"
+  while (( remaining > 0 )); do
+    active="${WASM_VARIANT_WORKERS}"
+    if (( active > remaining )); then
+      active="${remaining}"
+    fi
+    child_memory="$("${FSUSBLOG_NODE:-node}" -e 'process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(6))' "${WASM_MEMORY_BUDGET_GIB}" "${active}")"
+    base=$((WASM_CPU_BUDGET / active))
+    extra=$((WASM_CPU_BUDGET % active))
+    total=0
+    printf '[build:wasm] wave=%s jobs=' "${wave}"
+    for ((index = 0; index < active; index += 1)); do
+      jobs="${base}"
+      if (( index < extra )); then
+        jobs=$((jobs + 1))
+      fi
+      (( index > 0 )) && printf ','
+      printf '%s' "${jobs}"
+      total=$((total + jobs))
+    done
+    printf ' total=%s memory_gib_per_child=%s\n' "${total}" "${child_memory}"
+    remaining=$((remaining - active))
+    wave=$((wave + 1))
+  done
+}
+
+resolve_cpu_budget
+if [[ "${1:-}" == "--print-resource-plan" ]]; then
+  print_resource_plan
+  exit 0
+fi
+
 mkdir -p \
   "${OUT_DIR}" \
   "${BUILD_SIMD_DIR}" \
@@ -64,6 +181,50 @@ if [[ -n "${FSUSBLOG_WASM_CMAKE_ARGS:-}" ]]; then
   USER_CMAKE_ARGS=(${FSUSBLOG_WASM_CMAKE_ARGS})
 fi
 
+version_less_than() {
+  [[ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n 1)" == "$1" && "$1" != "$2" ]]
+}
+
+cmake_is_supported() {
+  local candidate="$1" version
+  [[ -x "${candidate}" ]] || return 1
+  version="$(${candidate} --version 2>/dev/null | head -n 1 | sed -E 's/.* ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
+  [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  if ! version_less_than "${version}" "4.2.0" && version_less_than "${version}" "4.3.4"; then
+    return 1
+  fi
+  CMAKE_VERSION="${version}"
+  return 0
+}
+
+select_cmake() {
+  local candidate resolved
+  if [[ -n "${FSUSBLOG_WASM_CMAKE:-}" ]]; then
+    candidate="${FSUSBLOG_WASM_CMAKE}"
+    resolved="$(readlink -f "${candidate}" 2>/dev/null || printf '%s' "${candidate}")"
+    if cmake_is_supported "${resolved}"; then
+      CMAKE_BIN="${resolved}"
+      return
+    fi
+    echo "[build:wasm] FSUSBLOG_WASM_CMAKE is missing or unsupported: ${candidate}" >&2
+    exit 1
+  fi
+
+  candidate="$("${ROOT_DIR}/../../tools/frontend/ensure-cmake.sh")"
+  resolved="$(readlink -f "${candidate}" 2>/dev/null || printf '%s' "${candidate}")"
+  if cmake_is_supported "${resolved}"; then
+    CMAKE_BIN="${resolved}"
+    return
+  fi
+
+  echo "[build:wasm] dependency bootstrap returned an unsupported CMake: ${resolved}" >&2
+  exit 1
+}
+
+select_cmake
+echo "[build:wasm] cmake=${CMAKE_BIN} version=${CMAKE_VERSION}"
+print_resource_plan
+
 if [[ "${FSUSBLOG_WASM_DISABLE_VCPKG_AUTODETECT:-0}" != "1" ]]; then
   VCPKG_ROOT_CANDIDATE="${VCPKG_ROOT:-/home/dev/vcpkg}"
   if [[ -d "${VCPKG_ROOT_CANDIDATE}/installed/wasm32-emscripten" ]]; then
@@ -86,64 +247,140 @@ optimize_pow_wasm() {
   fi
 }
 
-WASM_JOBS_PER_MODE="${FSUSBLOG_WASM_JOBS_PER_MODE:-2}"
+optimize_pow_wasm_parallel() {
+  local files=("$@")
+  local file_index=0 remaining active child_memory_gib slot
+  local optimize_pids=() optimize_files=() failed_optimizations=()
+  while (( file_index < ${#files[@]} )); do
+    remaining=$((${#files[@]} - file_index))
+    active="${WASM_VARIANT_WORKERS}"
+    (( active > remaining )) && active="${remaining}"
+    child_memory_gib="$("${FSUSBLOG_NODE:-node}" -e 'process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(6))' "${WASM_MEMORY_BUDGET_GIB}" "${active}")"
+    optimize_pids=()
+    optimize_files=()
+    for ((slot = 0; slot < active; slot += 1)); do
+      FSUSBLOG_STEP_CPU_BUDGET=1 \
+        FSUSBLOG_STEP_MEMORY_GIB="${child_memory_gib}" \
+        FSUSBLOG_COMMAND_MANIFEST_WORKERS=1 \
+        FSUSBLOG_NODE_TEST_CONCURRENCY=1 \
+        optimize_pow_wasm "${files[file_index]}" &
+      optimize_pids+=("$!")
+      optimize_files+=("${files[file_index]}")
+      file_index=$((file_index + 1))
+    done
+    for ((slot = 0; slot < ${#optimize_pids[@]}; slot += 1)); do
+      if ! wait "${optimize_pids[slot]}"; then
+        failed_optimizations+=("${optimize_files[slot]}")
+      fi
+    done
+  done
+  if (( ${#failed_optimizations[@]} > 0 )); then
+    printf '[build:wasm] %s wasm optimizations failed: %s\n' \
+      "${#failed_optimizations[@]}" "${failed_optimizations[*]}" >&2
+    return 1
+  fi
+}
 
 build_simd() {
+  local jobs="$1"
+  local targets=(
+    FsusPowEngine
+    aeds_decoder
+    FsusSearchRuntime
+    FsusCommentPrivacyRuntime
+  )
+  if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUILD_IMAGE_CODEC}" == "TRUE" ]]; then
+    targets+=(FsusImageCodec)
+  fi
   cd "${BUILD_SIMD_DIR}"
-  emcmake cmake --fresh .. \
+  emcmake "${CMAKE_BIN}" --fresh .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DWASM_SIMD=ON \
     -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
     -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_SIMD_DIR}" \
     "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
-  cmake --build . --parallel "${WASM_JOBS_PER_MODE}"
+  "${CMAKE_BIN}" --build . --target "${targets[@]}" --parallel "${jobs}"
 }
 
 build_basic() {
+  local jobs="$1"
+  # The scalar publication contract contains only PoW, search, and image-codec
+  # artifacts. aeds_decoder and comment privacy are mode-invariant and are
+  # published from the SIMD build, so rebuilding them here only duplicates
+  # cold compilation work without producing a consumed artifact.
+  local targets=(
+    FsusPowEngine
+    FsusSearchRuntime
+  )
+  if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUILD_IMAGE_CODEC}" == "TRUE" ]]; then
+    targets+=(FsusImageCodec)
+  fi
   cd "${BUILD_BASIC_DIR}"
-  emcmake cmake --fresh .. \
+  emcmake "${CMAKE_BIN}" --fresh .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DWASM_SIMD=OFF \
     -DFSUSBLOG_WASM_IMAGE_CODEC_ENABLE="${BUILD_IMAGE_CODEC}" \
     -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_BASIC_DIR}" \
     "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
-  cmake --build . --parallel "${WASM_JOBS_PER_MODE}"
+  "${CMAKE_BIN}" --build . --target "${targets[@]}" --parallel "${jobs}"
 }
 
 build_relaxed_pow() {
+  local jobs="$1"
   cd "${BUILD_RELAXED_POW_DIR}"
-  emcmake cmake --fresh ../pow \
+  emcmake "${CMAKE_BIN}" --fresh ../pow \
     -DCMAKE_BUILD_TYPE=Release \
     -DWASM_RELAXED_SIMD=ON \
     -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_RELAXED_POW_DIR}" \
     "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
-  cmake --build . --parallel "${WASM_JOBS_PER_MODE}"
+  "${CMAKE_BIN}" --build . --parallel "${jobs}"
 }
 
 build_threads_pow() {
+  local jobs="$1"
   cd "${BUILD_THREADS_POW_DIR}"
-  emcmake cmake --fresh ../pow \
+  emcmake "${CMAKE_BIN}" --fresh ../pow \
     -DCMAKE_BUILD_TYPE=Release \
     -DWASM_THREADS=ON \
     -DFSUSBLOG_WASM_OUTPUT_DIR="${STAGE_THREADS_POW_DIR}" \
     "${USER_CMAKE_ARGS[@]+"${USER_CMAKE_ARGS[@]}"}"
-  cmake --build . --parallel "${WASM_JOBS_PER_MODE}"
+  "${CMAKE_BIN}" --build . --parallel "${jobs}"
 }
 
-build_pids=()
-build_simd & build_pids+=("$!")
-build_basic & build_pids+=("$!")
-build_relaxed_pow & build_pids+=("$!")
-build_threads_pow & build_pids+=("$!")
+build_modes=(build_simd build_basic build_relaxed_pow build_threads_pow)
+mode_index=0
+failed_modes=()
+while (( mode_index < ${#build_modes[@]} )); do
+  remaining=$((${#build_modes[@]} - mode_index))
+  active="${WASM_VARIANT_WORKERS}"
+  (( active > remaining )) && active="${remaining}"
+  base_jobs=$((WASM_CPU_BUDGET / active))
+  extra_jobs=$((WASM_CPU_BUDGET % active))
+  build_pids=()
+  build_names=()
+  child_memory_gib="$("${FSUSBLOG_NODE:-node}" -e 'process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(6))' "${WASM_MEMORY_BUDGET_GIB}" "${active}")"
+  for ((slot = 0; slot < active; slot += 1)); do
+    jobs="${base_jobs}"
+    (( slot < extra_jobs )) && jobs=$((jobs + 1))
+    build_name="${build_modes[mode_index]}"
+    FSUSBLOG_STEP_CPU_BUDGET="${jobs}" \
+      FSUSBLOG_STEP_MEMORY_GIB="${child_memory_gib}" \
+      FSUSBLOG_COMMAND_MANIFEST_WORKERS="${jobs}" \
+      FSUSBLOG_NODE_TEST_CONCURRENCY="${jobs}" \
+      "${build_name}" "${jobs}" &
+    build_pids+=("$!")
+    build_names+=("${build_name}")
+    mode_index=$((mode_index + 1))
+  done
 
-build_failed=0
-for build_pid in "${build_pids[@]}"; do
-  if ! wait "$build_pid"; then
-    build_failed=1
-  fi
+  for ((slot = 0; slot < ${#build_pids[@]}; slot += 1)); do
+    if ! wait "${build_pids[slot]}"; then
+      failed_modes+=("${build_names[slot]}")
+    fi
+  done
 done
-if [[ "$build_failed" == "1" ]]; then
-  echo "[build:wasm] one or more parallel build modes failed" >&2
+if (( ${#failed_modes[@]} > 0 )); then
+  printf '[build:wasm] %s build variants failed: %s\n' "${#failed_modes[@]}" "${failed_modes[*]}" >&2
   exit 1
 fi
 
@@ -157,10 +394,11 @@ cp -f "${STAGE_RELAXED_POW_DIR}/fsus_pow_relaxed.js" "${OUT_DIR}/fsus_pow_relaxe
 cp -f "${STAGE_RELAXED_POW_DIR}/fsus_pow_relaxed.wasm" "${OUT_DIR}/fsus_pow_relaxed.wasm"
 cp -f "${STAGE_THREADS_POW_DIR}/fsus_pow_threads.js" "${OUT_DIR}/fsus_pow_threads.js"
 cp -f "${STAGE_THREADS_POW_DIR}/fsus_pow_threads.wasm" "${OUT_DIR}/fsus_pow_threads.wasm"
-optimize_pow_wasm "${OUT_DIR}/fsus_pow_basic.wasm"
-optimize_pow_wasm "${OUT_DIR}/fsus_pow_simd.wasm"
-optimize_pow_wasm "${OUT_DIR}/fsus_pow_relaxed.wasm"
-optimize_pow_wasm "${OUT_DIR}/fsus_pow_threads.wasm"
+optimize_pow_wasm_parallel \
+  "${OUT_DIR}/fsus_pow_basic.wasm" \
+  "${OUT_DIR}/fsus_pow_simd.wasm" \
+  "${OUT_DIR}/fsus_pow_relaxed.wasm" \
+  "${OUT_DIR}/fsus_pow_threads.wasm"
 cp -f "${STAGE_SIMD_DIR}/search_simd.js" "${OUT_DIR}/search_simd.js"
 cp -f "${STAGE_SIMD_DIR}/search_simd.wasm" "${OUT_DIR}/search_simd.wasm"
 cp -f "${STAGE_BASIC_DIR}/search_basic.js" "${OUT_DIR}/search_basic.js"

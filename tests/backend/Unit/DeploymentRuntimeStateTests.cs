@@ -269,17 +269,17 @@ public sealed class DeploymentRuntimeStateTests
         {
             RouteEndpoint endpoint = Assert.Single(((IEndpointRouteBuilder)app).DataSources
                 .SelectMany(static source => source.Endpoints)
-                .OfType<RouteEndpoint>()
-                .Where(item => string.Equals(
+                .OfType<RouteEndpoint>(),
+                item => string.Equals(
                     item.RoutePattern.RawText?.TrimStart('/'),
                     path.TrimStart('/'),
-                    StringComparison.Ordinal)));
+                    StringComparison.Ordinal));
             Assert.Contains(method, Assert.IsAssignableFrom<IHttpMethodMetadata>(
                 endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()).HttpMethods);
             AuthorizationPolicy policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
             ClaimsAuthorizationRequirement permission = Assert.Single(policy.Requirements
-                .OfType<ClaimsAuthorizationRequirement>()
-                .Where(item => item.ClaimType == AdminPermissions.PermissionClaimType));
+                .OfType<ClaimsAuthorizationRequirement>(),
+                item => item.ClaimType == AdminPermissions.PermissionClaimType);
             Assert.Contains(AdminPermissions.SystemConfig, permission.AllowedValues ?? []);
             Assert.Equal("fixed_ip", Assert.IsType<EnableRateLimitingAttribute>(
                 endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);

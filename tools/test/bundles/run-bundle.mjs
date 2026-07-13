@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 import { spawn } from 'node:child_process'
@@ -11,14 +12,27 @@ import {
   artifactSubstitutionBindingDigest,
   digestDeclaredOutputs,
   matrixGeneratedRuntimePaths,
+  resolveLocalProfileResources,
   resolveArtifactSubstitutions
 } from '../../test-matrix/local-profile.mjs'
-import { executeStepDag } from './step-dag.mjs'
-import { executeLimitedWave } from './wave-runner.mjs'
+import { performanceMixedWindowFloorMs, validatePerformanceDeadlineEvidence } from '../../test-matrix/local-profile.mjs'
+import {
+  buildSettledPhaseJoinEvidence,
+  executeWeightedStepDag,
+  performanceSteps,
+  resolveBundleRuntimeCapacity,
+  resolveMachineExecutionTimeoutMs,
+  resolveStepRuntimeCapacity,
+  runtimeSteps
+} from './bundle-steps.mjs'
+import { readRuntimeEnvironment } from './runtime-environment.mjs'
+import { validateShardSummaryArtifacts } from '../run-backend-production-shards.mjs'
+import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const profileId = process.env.FSUSBLOG_LOCAL_PROFILE || 'production'
 const bundleId = process.argv[2]
+const finalizeExisting = process.argv.includes('--finalize-existing')
 const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
 const profile = matrix.localProfiles?.[profileId]
 const bundle = profile?.bundles?.find((entry) => entry.id === bundleId)
@@ -27,9 +41,17 @@ const outDir = path.join(root, `.tmp/local-${profileId}`, bundleId || 'unknown')
 const summaryFile = path.join(outDir, 'summary.json')
 const logDir = path.join(outDir, 'steps')
 const startedAt = Date.now()
+const backendTestDll = path.join(root, 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll')
+const benchmarkDll = path.join(root, 'benchmarks/core/bin/Release/net10.0/FsusBlog.Core.Benchmarks.dll')
+const backendServerDll = path.join(root, 'src/backend/bin/Release/net10.0/FsusBlog.Server.dll')
+const activeStepChildren = new Map()
+const stepExecutionResults = new Map()
+let shutdownPromise = null
+let runtimeChildEnvironment = {}
+let performanceDeadlineEvidence = null
 
 if (!bundleId || !bundle) throw new Error(`unknown ${profileId} bundle: ${String(bundleId)}`)
-fs.rmSync(outDir, { recursive: true, force: true })
+if (!finalizeExisting) fs.rmSync(outDir, { recursive: true, force: true })
 fs.mkdirSync(logDir, { recursive: true })
 
 const memberEvidence = new Map(bundle.members.map((tierId) => [tierId, {
@@ -43,8 +65,212 @@ function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`
 }
 
+function signalProcessGroup(child, signal) {
+  if (process.platform === 'win32') {
+    if (child.exitCode === null && child.signalCode === null) child.kill(signal)
+    return
+  }
+  try {
+    process.kill(-child.pid, signal)
+  } catch (error) {
+    if (error.code !== 'ESRCH' && child.exitCode === null && child.signalCode === null) child.kill(signal)
+  }
+}
+
+function processGroupIsAlive(child) {
+  if (process.platform === 'win32') return child.exitCode === null && child.signalCode === null
+  try {
+    process.kill(-child.pid, 0)
+    return true
+  } catch (error) {
+    return error.code === 'EPERM'
+  }
+}
+
+async function waitForProcessGroupExit(child, waitMs) {
+  const deadline = Date.now() + waitMs
+  const pollMs = Math.max(10, Math.ceil(waitMs / 20))
+  while (processGroupIsAlive(child) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, deadline - Date.now())))
+  }
+  return !processGroupIsAlive(child)
+}
+
+async function terminateProcessGroup(child, graceMs) {
+  signalProcessGroup(child, 'SIGTERM')
+  if (await waitForProcessGroupExit(child, graceMs)) return
+  signalProcessGroup(child, 'SIGKILL')
+  await waitForProcessGroupExit(child, graceMs)
+}
+
+function closeChildPipes(child) {
+  for (const stream of [child.stdin, child.stdout, child.stderr]) stream?.destroy()
+}
+
+function installShutdownForwarding() {
+  for (const [signal, exitCode] of [['SIGTERM', 143], ['SIGINT', 130]]) {
+    process.once(signal, () => {
+      if (shutdownPromise) return
+      shutdownPromise = Promise.all([...activeStepChildren.entries()].map(async ([child, record]) => {
+        await terminateProcessGroup(child, record.terminationGraceMs)
+        closeChildPipes(child)
+      })).finally(() => process.exit(exitCode))
+    })
+  }
+}
+
+installShutdownForwarding()
+
 function relative(file) {
   return path.relative(root, file).replaceAll(path.sep, '/')
+}
+
+function fileContentDigest(file) {
+  return `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
+}
+
+function writeJsonAtomic(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const temporary = `${file}.next-${process.pid}-${randomUUID()}`
+  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`)
+  fs.renameSync(temporary, file)
+}
+
+function schedulerRunId() {
+  const runId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim()
+  if (!runId) throw new Error('FSUSBLOG_TEST_RUN_ID is required for run-bound bundle coordination')
+  return runId
+}
+
+function backendBuildReadyFile(runId = schedulerRunId()) {
+  return path.join(root, '.tmp/test-runs', runId, 'backend-build-ready.json')
+}
+
+function benchmarkBuildReadyFile(runId = schedulerRunId()) {
+  return path.join(root, '.tmp/test-runs', runId, 'benchmark-build-ready.json')
+}
+
+function backendTestsReadyFile(runId = schedulerRunId()) {
+  return path.join(root, '.tmp/test-runs', runId, 'backend-tests-ready.json')
+}
+
+function frontendBuildReadyFile(runId = schedulerRunId()) {
+  return path.join(root, '.tmp/test-runs', runId, 'frontend-build-ready.json')
+}
+
+function publishBackendBuildReady() {
+  const runId = schedulerRunId()
+  const artifactPath = relative(backendServerDll)
+  if (!fs.existsSync(backendServerDll)) {
+    throw new Error(`backend server build completed without server DLL: ${artifactPath}`)
+  }
+  const artifactDigest = digestDeclaredOutputs(root, [artifactPath])[artifactPath]
+  const marker = {
+    schema: 'fsusblog.local-production.backend-build-ready.v1',
+    status: 'success',
+    physicalBundleId: 'backend-tests',
+    schedulerRunId: runId,
+    serverDll: {
+      path: artifactPath,
+      exists: true,
+      digest: artifactDigest
+    },
+    generatedAt: new Date().toISOString()
+  }
+  const markerFile = backendBuildReadyFile(runId)
+  fs.mkdirSync(path.dirname(markerFile), { recursive: true })
+  const temporary = `${markerFile}.next-${process.pid}-${randomUUID()}`
+  fs.writeFileSync(temporary, `${JSON.stringify(marker, null, 2)}\n`)
+  fs.renameSync(temporary, markerFile)
+  console.log(`[local-production:${bundleId}] backend-build-ready=${relative(markerFile)}`)
+}
+
+function publishBackendTestsReady() {
+  const runId = schedulerRunId()
+  const artifactPath = relative(backendTestDll)
+  if (!fs.existsSync(backendTestDll)) throw new Error(`backend tests build completed without test DLL: ${artifactPath}`)
+  const marker = {
+    schema: 'fsusblog.local-production.backend-tests-ready.v1',
+    status: 'success',
+    physicalBundleId: 'backend-tests',
+    schedulerRunId: runId,
+    testDll: {
+      path: artifactPath,
+      exists: true,
+      digest: fileContentDigest(backendTestDll)
+    },
+    generatedAt: new Date().toISOString()
+  }
+  const markerFile = backendTestsReadyFile(runId)
+  fs.mkdirSync(path.dirname(markerFile), { recursive: true })
+  const temporary = `${markerFile}.next-${process.pid}-${randomUUID()}`
+  fs.writeFileSync(temporary, `${JSON.stringify(marker, null, 2)}\n`)
+  fs.renameSync(temporary, markerFile)
+  console.log(`[local-production:${bundleId}] backend-tests-ready=${relative(markerFile)}`)
+}
+
+function publishBenchmarkBuildReady() {
+  const runId = schedulerRunId()
+  const artifactPath = relative(benchmarkDll)
+  if (!fs.existsSync(benchmarkDll)) {
+    throw new Error(`benchmark readiness build completed without DLL: ${artifactPath}`)
+  }
+  const marker = {
+    schema: 'fsusblog.local-production.benchmark-build-ready.v1',
+    status: 'success',
+    physicalBundleId: 'backend-tests',
+    schedulerRunId: runId,
+    benchmarkDll: {
+      path: artifactPath,
+      digest: digestDeclaredOutputs(root, [artifactPath])[artifactPath]
+    },
+    generatedAt: new Date().toISOString()
+  }
+  const markerFile = benchmarkBuildReadyFile(runId)
+  fs.mkdirSync(path.dirname(markerFile), { recursive: true })
+  const temporary = `${markerFile}.next-${process.pid}-${randomUUID()}`
+  fs.writeFileSync(temporary, `${JSON.stringify(marker, null, 2)}\n`)
+  fs.renameSync(temporary, markerFile)
+  console.log(`[local-production:${bundleId}] benchmark-build-ready=${relative(markerFile)}`)
+}
+
+function publishFrontendBuildReady() {
+  const runId = schedulerRunId()
+  const artifactPath = 'src/frontend/dist/index.html'
+  const privacyWasmPaths = [
+    'src/frontend/public/wasm/comment-privacy-prover.js',
+    'src/frontend/public/wasm/comment-privacy-prover.zkey',
+    'src/frontend/public/wasm/comment-privacy-prover.manifest.json'
+  ]
+  const summaryPath = '.tmp/frontend/frontend-build.json'
+  const requiredArtifacts = [artifactPath, ...privacyWasmPaths]
+  const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
+  if (missingArtifacts.length > 0) {
+    throw new Error(`frontend build completed without required artifact(s): ${missingArtifacts.join(', ')}`)
+  }
+  const artifactDigests = digestDeclaredOutputs(root, requiredArtifacts)
+  const marker = {
+    schema: 'fsusblog.local-production.frontend-build-ready.v1',
+    status: 'success',
+    physicalBundleId: 'build-static',
+    schedulerRunId: runId,
+    distEntry: {
+      path: artifactPath,
+      digest: artifactDigests[artifactPath]
+    },
+    privacyWasmArtifacts: Object.fromEntries(privacyWasmPaths.map((requiredPath) => [requiredPath, {
+      path: requiredPath,
+      digest: artifactDigests[requiredPath]
+    }])),
+    generatedAt: new Date().toISOString()
+  }
+  for (const markerFile of [path.join(root, summaryPath), frontendBuildReadyFile(runId)]) {
+    fs.mkdirSync(path.dirname(markerFile), { recursive: true })
+    const temporary = `${markerFile}.next-${process.pid}-${randomUUID()}`
+    fs.writeFileSync(temporary, `${JSON.stringify(marker, null, 2)}\n`)
+    fs.renameSync(temporary, markerFile)
+  }
+  console.log(`[local-production:${bundleId}] frontend-build-ready=${relative(frontendBuildReadyFile(runId))}`)
 }
 
 function register(step, result, testIds = null, artifactFiles = []) {
@@ -146,49 +372,250 @@ function writeMemberExecutionReceipts() {
   }
 }
 
+function loadExistingMemberExecutionReceipts() {
+  for (const [tierId, evidence] of memberEvidence) {
+    const receiptFile = memberReceiptPath(tierId)
+    if (!fs.existsSync(receiptFile)) throw new Error(`existing member receipt is missing: ${relative(receiptFile)}`)
+    const receipt = JSON.parse(fs.readFileSync(receiptFile, 'utf8'))
+    if (receipt.schema !== 'fsusblog.local-production.member-execution.v1' || receipt.status !== 'success') {
+      throw new Error(`existing member receipt is invalid: ${relative(receiptFile)}`)
+    }
+    if (receipt.tierId !== tierId || receipt.physicalBundleId !== bundleId) {
+      throw new Error(`existing member receipt identity mismatch: ${relative(receiptFile)}`)
+    }
+    if (receipt.schedulerRunId !== (process.env.FSUSBLOG_TEST_RUN_ID ?? null)) {
+      throw new Error(`existing member receipt run mismatch: ${relative(receiptFile)}`)
+    }
+    evidence.durationMs = receipt.durationMs
+    evidence.testIds.push(...receipt.testIds)
+    Object.assign(evidence.artifactDigests, receipt.directArtifactDigests)
+    Object.assign(evidence.artifactDigests, digestDeclaredOutputs(root, [relative(receiptFile)]))
+  }
+}
+
 async function executeStep(step) {
+  if (shutdownPromise) throw new Error(`cannot start ${step.id} while bundle shutdown is in progress`)
   const logFile = path.join(logDir, `${step.id}.log`)
   fs.writeFileSync(logFile, '')
   const started = Date.now()
-  console.log(`[local-production:${bundleId}] start ${step.id}`)
+  if (step.resources?.coordinationOnly === true) {
+    const relativeDependencyResults = new Map((step.dependsOn ?? []).flatMap((dependencyId) => {
+      const result = stepExecutionResults.get(dependencyId)
+      return result
+        ? [[dependencyId, { ...result, logFile: relative(result.logFile) }]]
+        : []
+    }))
+    const joined = buildSettledPhaseJoinEvidence({
+      stepId: step.id,
+      dependencyIds: step.dependsOn ?? [],
+      dependencyOutcomes: step.dependencyOutcomes,
+      dependencyResults: relativeDependencyResults
+    })
+    const joinEvidence = joined.evidence
+    fs.writeFileSync(logFile, `${JSON.stringify(joinEvidence, null, 2)}\n`)
+    const result = {
+      code: 0,
+      signal: null,
+      durationMs: joined.durationMs,
+      startedAtMs: joined.startedAtMs,
+      finishedAtMs: joined.finishedAtMs,
+      logFile
+    }
+    stepExecutionResults.set(step.id, { ...result, status: joinEvidence.status })
+    console.log(`[local-production:${bundleId}] joined ${step.id} status=${joinEvidence.status} durationMs=${result.durationMs}`)
+    register(step, result, step.testIds, [...joined.dependencyLogs, ...(step.artifacts ?? [])])
+    return result
+  }
+  const stepCapacity = resolveStepRuntimeCapacity(bundleId, step, bundleCapacity())
+  const remainingBundleDeadlineMs = Math.max(1, bundleDeadlineMs() - (Date.now() - startedAt))
+  const stepDeadlineMs = Math.min(remainingBundleDeadlineMs, resolveMachineExecutionTimeoutMs({
+    baseTimeoutMs: remainingBundleDeadlineMs,
+    workload: step.resources,
+    actualCapacity: stepCapacity
+  }))
+  console.log(
+    `[local-production:${bundleId}] start ${step.id}`
+    + ` cpu=${stepCapacity.cpuUnits.toFixed(2)}`
+    + ` memoryGiB=${stepCapacity.memoryGiB.toFixed(2)}`
+    + ` parallel=${stepCapacity.maxParallel}`
+    + ` deadlineMs=${stepDeadlineMs}`
+  )
+  const childBaseEnvironment = { ...process.env }
+  // Playwright sets FORCE_COLOR for its workers. Inheriting an ambient
+  // NO_COLOR at the same time emits one warning per worker and violates the
+  // release zero-warning contract without changing test semantics.
+  delete childBaseEnvironment.NO_COLOR
+  for (const stalePhysicalWorkerCap of [
+    'FSUSBLOG_COMMAND_MANIFEST_WORKERS',
+    'FSUSBLOG_VITEST_MAX_WORKERS',
+    'FSUSBLOG_PLAYWRIGHT_WORKERS'
+  ]) delete childBaseEnvironment[stalePhysicalWorkerCap]
   const child = spawn('/bin/bash', ['-lc', step.command], {
     cwd: root,
-    env: { ...process.env, ...(step.env ?? {}) },
-    stdio: ['ignore', 'pipe', 'pipe']
+    detached: process.platform !== 'win32',
+    env: {
+      ...childBaseEnvironment,
+      ...runtimeChildEnvironment,
+      ...(step.env ?? {}),
+      // Production bundles are short-lived and can be cancelled at their
+      // deadline. Persistent MSBuild nodes otherwise detach with PPID 1 and
+      // continue consuming this run's CPU/memory after the bundle exits.
+      MSBUILDDISABLENODEREUSE: '1',
+      FSUSBLOG_STEP_CPU_BUDGET: String(stepCapacity.cpuUnits),
+      FSUSBLOG_STEP_MEMORY_GIB: String(stepCapacity.memoryGiB),
+      FSUSBLOG_BUNDLE_CPU_BUDGET: String(stepCapacity.maxParallel),
+      FSUSBLOG_BUNDLE_CPU_UNITS: String(stepCapacity.cpuUnits),
+      FSUSBLOG_BUNDLE_MEMORY_GIB: String(stepCapacity.memoryGiB),
+      FSUSBLOG_STEP_DEADLINE_MS: String(stepDeadlineMs)
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true
   })
+  const terminationGraceMs = Math.max(100, Math.min(5_000, Math.ceil(stepDeadlineMs * 0.02)))
+  activeStepChildren.set(child, { terminationGraceMs, stepId: step.id })
   for (const [stream, writer] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
     stream.on('data', (chunk) => {
       fs.appendFileSync(logFile, chunk)
       writer.write(chunk)
     })
   }
-  const exit = await new Promise((resolve, reject) => {
-    child.once('error', reject)
-    child.once('close', (code, signal) => resolve({ code: code ?? 1, signal }))
+  const exit = await new Promise((resolve) => {
+    let settled = false
+    let deadlineExpired = false
+    const settle = (result) => {
+      if (settled) return
+      settled = true
+      clearTimeout(deadlineTimer)
+      resolve(result)
+    }
+    const deadlineTimer = setTimeout(async () => {
+      if (settled) return
+      deadlineExpired = true
+      await terminateProcessGroup(child, terminationGraceMs)
+      closeChildPipes(child)
+      settle({ code: 124, signal: null, timedOut: true })
+    }, stepDeadlineMs)
+    deadlineTimer.unref?.()
+
+    child.once('error', (error) => {
+      activeStepChildren.delete(child)
+      closeChildPipes(child)
+      settle({ code: 1, signal: null, error })
+    })
+    child.once('close', (code, signal) => {
+      activeStepChildren.delete(child)
+      if (deadlineExpired) return
+      settle({ code: code ?? 1, signal })
+    })
   })
-  const result = { ...exit, durationMs: Date.now() - started, logFile }
+  const result = {
+    ...exit,
+    durationMs: Date.now() - started,
+    startedAtMs: started,
+    finishedAtMs: Date.now(),
+    logFile
+  }
+  if (result.timedOut) {
+    stepExecutionResults.set(step.id, { ...result, status: 'failure' })
+    throw new Error(`${step.id} exceeded machine-resolved deadline (${stepDeadlineMs}ms)`)
+  }
+  if (result.error) {
+    stepExecutionResults.set(step.id, { ...result, status: 'failure' })
+    throw result.error
+  }
   if (result.code !== 0 || result.signal) {
+    stepExecutionResults.set(step.id, { ...result, status: 'failure' })
     throw new Error(`${step.id} failed (${result.signal ? `signal ${result.signal}` : `exit ${result.code}`})`)
   }
+  // A dependent step must not become runnable until the producer's readiness
+  // marker is durably published. Keeping this hook inside executeStep closes
+  // the gap between child exit and the DAG completion notification.
+  if (typeof step.afterSuccess === 'function') await step.afterSuccess(result)
+  stepExecutionResults.set(step.id, { ...result, status: 'success' })
   console.log(`[local-production:${bundleId}] done ${step.id} durationMs=${result.durationMs}`)
   register(step, result, step.testIds, step.artifacts ?? [])
   return result
 }
 
 async function executeWave(steps) {
-  await executeLimitedWave(steps, {
-    maxParallel: bundleParallelism(),
-    cpuUnits: bundle.cpuUnits,
-    memoryGiB: bundle.memoryGiB,
-    exclusiveResources: bundle.exclusiveResources ?? []
-  }, executeStep)
+  await executeWeightedStepDag(steps, bundleDagCapacity, executeStep)
 }
 
-function bundleParallelism() {
-  return Math.min(
-    profile.maxParallel,
-    bundle.stepMaxParallel ?? bundle.cpuUnits ?? profile.maxParallel
-  )
+function schedulerResourceGrant() {
+  const grantFile = String(process.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE ?? '').trim()
+  const tierId = String(process.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID ?? '').trim()
+  if (!grantFile || !tierId || !fs.existsSync(grantFile)) return null
+  const document = JSON.parse(fs.readFileSync(grantFile, 'utf8'))
+  if (document?.schema !== 'fsusblog.test-matrix.resource-grants.v1') {
+    throw new Error(`invalid scheduler resource grant schema: ${relative(grantFile)}`)
+  }
+  if (document.runId !== schedulerRunId()) {
+    throw new Error(`scheduler resource grant belongs to another run: ${document.runId ?? '<missing>'}`)
+  }
+  const grant = document.grants?.[tierId]
+  if (!grant) return null
+  if (!Number.isFinite(Number(grant.cpuUnits)) || Number(grant.cpuUnits) <= 0
+    || !Number.isFinite(Number(grant.memoryGiB)) || Number(grant.memoryGiB) <= 0) {
+    throw new Error(`scheduler resource grant is invalid for ${tierId}`)
+  }
+  return {
+    cpuUnits: Number(grant.cpuUnits),
+    memoryGiB: Number(grant.memoryGiB)
+  }
+}
+
+function bundleCapacity() {
+  const liveGrant = schedulerResourceGrant()
+  return resolveBundleRuntimeCapacity({
+    availableCpu: os.availableParallelism?.() ?? os.cpus().length,
+    availableMemoryGiB: os.freemem() / (1024 ** 3),
+    inheritedCpuBudget: liveGrant?.cpuUnits ?? process.env.FSUSBLOG_BUNDLE_CPU_BUDGET,
+    inheritedMemoryGiB: liveGrant?.memoryGiB ?? process.env.FSUSBLOG_BUNDLE_MEMORY_GIB,
+    cpuWeight: bundle.cpuWeight,
+    memoryWeight: bundle.memoryWeight
+  })
+}
+
+function bundleDagCapacity() {
+  return {
+    ...bundleCapacity(),
+    exclusiveResources: bundle.exclusiveResources ?? []
+  }
+}
+
+function bundleDeadlineMs() {
+  const deadlineMs = Number(process.env.FSUSBLOG_BUNDLE_DEADLINE_MS)
+  if (Number.isFinite(deadlineMs) && deadlineMs > 0) return deadlineMs
+  if (profile.enforceBudget === false) {
+    // Observe-only production must not inherit the optimization target as a
+    // kill switch. Retain only the matrix's existing per-tier fault ceiling so
+    // a genuinely wedged child cannot keep the machine forever.
+    const declaredFaultCeilings = (bundle.members ?? [])
+      .map((tierId) => Number(matrixTiers.get(tierId)?.timeoutMinutes) * 60_000)
+      .filter((value) => Number.isFinite(value) && value > 0)
+    return Math.max(profile.budgetMs, ...declaredFaultCeilings)
+  }
+  return resolveMachineExecutionTimeoutMs({
+    baseTimeoutMs: profile.budgetMs,
+    workload: {
+      cpuWeight: bundle.cpuWeight,
+      memoryWeight: bundle.memoryWeight,
+      minCpuUnits: bundle.minCpuUnits
+    },
+    actualCapacity: bundleCapacity()
+  })
+}
+
+function resolveExecutionWaitTimeoutMs(dependencyBundleIds) {
+  dependencyBundleIds.forEach((dependencyBundleId) => {
+    const dependency = profile.bundles.find((entry) => entry.id === dependencyBundleId)
+    if (!dependency) throw new Error(`unknown dependency bundle: ${dependencyBundleId}`)
+  })
+  return resolveMachineExecutionTimeoutMs({
+    baseTimeoutMs: bundleDeadlineMs(),
+    workload: bundle,
+    actualCapacity: bundleCapacity()
+  })
 }
 
 function commandStep(id, command, members, options = {}) {
@@ -197,16 +624,20 @@ function commandStep(id, command, members, options = {}) {
     command,
     members,
     ...options,
-    resources: options.resources ?? { cpuUnits: 0.5, memoryGiB: 0.5 }
+    resources: options.resources ?? { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
   }
 }
 
 function buildStaticSteps() {
-  const frontendSummary = path.join(root, '.tmp/frontend/frontend-build.json')
   return [
     commandStep('frontend-build', 'cd src/frontend && FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1 npm run build:release', ['frontend-build'], {
       artifacts: [path.join(root, 'src/frontend/dist/index.html')],
-      resources: { cpuUnits: 2, memoryGiB: 2 }
+      resources: {
+        cpuWeight: 2,
+        memoryWeight: 2,
+        minCpuUnits: 1,
+        exclusiveResources: ['build-output']
+      }
     }),
     commandStep('validate-matrix', 'node tools/run-test-matrix.mjs preflight', ['validate-matrix']),
     commandStep('public-hydration-fast', 'tools/test/lanes/public-hydration-fast.sh', ['public-hydration-fast']),
@@ -219,12 +650,9 @@ function buildStaticSteps() {
     commandStep('sync-static-assets', [
       'rm -rf src/backend/wwwroot',
       'mkdir -p src/backend/wwwroot',
-      'cp -R src/frontend/dist/. src/backend/wwwroot/',
-      `mkdir -p ${shellQuote(path.dirname(frontendSummary))}`,
-      `node -e ${shellQuote("const fs=require('node:fs');const f=process.argv[1];fs.writeFileSync(f,JSON.stringify({status:'success',schedulerRunId:process.env.FSUSBLOG_TEST_RUN_ID,generatedAt:new Date().toISOString()},null,2)+'\\n')")} ${shellQuote(frontendSummary)}`
+      'cp -R src/frontend/dist/. src/backend/wwwroot/'
     ].join(' && '), ['frontend-build'], { dependsOn: ['frontend-build'] }),
-    commandStep('frontend-runtime-contracts', 'cd src/frontend && FSUSBLOG_COMMAND_MANIFEST_WORKERS=2 node ../../tools/test/run-command-manifest.mjs ../../tests/frontend/checks/runtime/manifest.json', ['frontend-runtime-contracts'], { dependsOn: ['sync-static-assets'] }),
-    commandStep('frontend-static-governance', 'FSUSBLOG_COMMAND_MANIFEST_WORKERS=4 node tools/test/local-static-governance.mjs', ['frontend-static-governance'], { dependsOn: ['sync-static-assets'] }),
+    commandStep('frontend-runtime-contracts', 'cd src/frontend && FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node ../../tools/test/run-command-manifest.mjs ../../tests/frontend/checks/runtime/manifest.json', ['frontend-runtime-contracts'], { dependsOn: ['sync-static-assets'] }),
     commandStep('wasm-fuzz', 'tools/test/lanes/wasm-fuzz-regression.sh', ['wasm-fuzz-regression'], { dependsOn: ['frontend-build'] })
   ]
 }
@@ -256,51 +684,148 @@ function parseTrx(file) {
   }).filter((entry) => entry.id)
 }
 
+function readPerceptionUnionProjection(trxFiles, shardSummary) {
+  const projectionFile = path.join(root, '.tmp/test-results/backend/production/perception-v2-union-projection.json')
+  if (!fs.existsSync(projectionFile)) throw new Error('perception-v2 union projection is missing')
+  const projection = JSON.parse(fs.readFileSync(projectionFile, 'utf8'))
+  if (projection.schema !== 'fsusblog.perception-v2.union-projection.v1' || projection.status !== 'success') {
+    throw new Error('perception-v2 union projection is not a successful v1 result')
+  }
+  const runId = schedulerRunId()
+  if (projection.producer?.runId !== runId) {
+    throw new Error(`perception-v2 union projection runId mismatch: expected ${runId}, received ${projection.producer?.runId ?? '<missing>'}`)
+  }
+  const dllPath = relative(backendTestDll)
+  const expectedDllDigest = fileContentDigest(path.resolve(root, dllPath))
+  if (projection.testDll?.path !== dllPath || projection.testDll?.digest !== expectedDllDigest) {
+    throw new Error('perception-v2 union projection is not bound to the current backend test DLL digest')
+  }
+  const summaryPath = relative(shardSummary)
+  const expectedSummaryDigest = fileContentDigest(path.resolve(root, summaryPath))
+  if (projection.unionSummary?.path !== summaryPath || projection.unionSummary?.digest !== expectedSummaryDigest) {
+    throw new Error('perception-v2 union projection is not bound to the current union summary digest')
+  }
+  const expectedTrxDigests = Object.fromEntries(
+    trxFiles.map((file) => [relative(file), fileContentDigest(file)])
+  )
+  const projectedTrx = Array.isArray(projection.trxFiles) ? projection.trxFiles : []
+  const projectedTrxDigests = Object.fromEntries(projectedTrx.map((entry) => [entry?.path, entry?.digest]))
+  if (projectedTrx.length !== trxFiles.length
+    || Object.keys(projectedTrxDigests).length !== trxFiles.length
+    || Object.entries(expectedTrxDigests).some(([file, digest]) => projectedTrxDigests[file] !== digest)) {
+    throw new Error('perception-v2 union projection is not bound to the exact current TRX digest set')
+  }
+  const expectedTests = [
+    'FsusBlog.Server.Tests.Unit.PerceptionChallengeV2E2eTests.CommentCreateFlow_FailsClosedForWrongAnswerExpiredReplayAndBindingMismatch',
+    'FsusBlog.Server.Tests.Unit.PerceptionChallengeV2E2eTests.CommentCreateFlow_IssueRenderVerifyProofResume_WritesReleaseEvidence'
+  ].sort()
+  const tests = Array.isArray(projection.tests) ? projection.tests : []
+  if (tests.length !== expectedTests.length
+    || tests.some((entry) => entry?.outcome !== 'Passed')
+    || JSON.stringify(tests.map((entry) => entry?.id).sort()) !== JSON.stringify(expectedTests)) {
+    throw new Error('perception-v2 union projection has missing, unexpected, duplicate, or non-passing canonical test results')
+  }
+  return { projectionFile, tests }
+}
+
 async function runBackendTests() {
   const trxRoot = path.join(root, '.tmp/test-results/backend/production')
   const shardSummary = path.join(trxRoot, 'summary.json')
   const coverageDir = path.join(root, '.tmp/coverage/backend/production')
-  const dotnetBuildParallelism = `/m:${bundleParallelism()}`
   fs.mkdirSync(trxRoot, { recursive: true })
   fs.mkdirSync(coverageDir, { recursive: true })
   await executeWave([
     commandStep('services', 'tools/bootstrap-acceptance-env.sh --services-only', [], {
-      resources: { cpuUnits: 0.5, memoryGiB: 0.5 }
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
     commandStep('dotnet-restore',
-      'FSUSBLOG_DOTNET_BUILD_PARALLELISM=auto tools/build-with-data-env.sh dotnet restore tests/backend/FsusBlog.Server.Tests.csproj -v minimal /p:NuGetAudit=false', [], {
-        resources: { cpuUnits: 2, memoryGiB: 1.5 }
+      'FSUSBLOG_DOTNET_BUILD_PARALLELISM=auto tools/build-with-data-env.sh dotnet restore tests/FsusBlog.ProductionBackend.slnx -v minimal /p:NuGetAudit=false', [], {
+        resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: 1 }
       })
   ])
-  await executeStep(commandStep('backend-build',
-    `tools/build-with-data-env.sh dotnet build tests/backend/FsusBlog.Server.Tests.csproj -c Debug --no-restore -warnaserror -v minimal ${dotnetBuildParallelism} /p:UseSharedCompilation=true /p:NuGetAudit=false`,
+  const backendBuildStep = commandStep('backend-server-build',
+    'tools/build-with-data-env.sh dotnet build src/backend/FsusBlog.Server.csproj -c Release --no-restore -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
     ['backend-build-governance'], {
-      artifacts: [path.join(root, 'tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll')]
-    }))
+      artifacts: [backendServerDll],
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    })
+  await executeStep(backendBuildStep)
+  publishBackendBuildReady()
+  const testsBuildStep = commandStep('backend-tests-build',
+    'tools/build-with-data-env.sh dotnet build tests/backend/FsusBlog.Server.Tests.csproj -c Release --no-restore --no-incremental -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
+    ['backend-build-governance'], {
+      artifacts: [backendTestDll],
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 },
+      afterSuccess: publishBackendTestsReady
+    })
+  const benchmarkBuildStep = commandStep('backend-benchmark-build',
+    'tools/build-with-data-env.sh dotnet build benchmarks/core/FsusBlog.Core.Benchmarks.csproj -c Release --no-restore -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
+    ['backend-build-governance'], {
+      artifacts: [benchmarkDll],
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    })
   const testStep = commandStep('dotnet-production-union',
-    'FSUSBLOG_BACKEND_PRODUCTION_SHARDS=2 FSUSBLOG_BACKEND_SHARD_PROCESSORS=2 node tools/test/run-backend-production-shards.mjs', [])
-  await executeStep(commandStep('perception-matrix', 'tools/test/lanes/perception-v2-test-matrix.sh', ['perception-v2-test-matrix']))
-  const [result] = await Promise.all([
-    executeStep(testStep),
-    executeStep(commandStep('perception-evidence-finalize',
-      'node tools/security/check-perception-v2-e2e-evidence.mjs', ['perception-v2-test-matrix'], {
+    'FSUSBLOG_BACKEND_CPU_BUDGET="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/run-backend-production-shards.mjs', [], {
+      resources: { cpuWeight: 2, memoryWeight: 3, minCpuUnits: 2 },
+      afterSuccess: publishBackendTestsReady
+    })
+  const backendDagResults = new Map()
+  await executeWeightedStepDag([
+    testsBuildStep,
+    { ...testStep, dependsOn: ['backend-tests-build'] },
+    // The production union is the backend critical path. Start it as soon as
+    // the test assembly is ready with the bundle's initial two CPUs; the short
+    // benchmark build consumes the elastic third CPU after build-static
+    // releases it, then publishes the marker that permits further testhosts.
+    { ...benchmarkBuildStep, dependsOn: ['backend-tests-build'] },
+    commandStep('perception-matrix',
+      'tools/test/lanes/perception-v2-test-matrix.sh', [], {
+        dependsOn: ['dotnet-production-union'],
+        artifacts: [path.join(root, '.tmp/test-results/backend/production/perception-v2-union-projection.json')]
+      }),
+    commandStep('perception-evidence-finalize',
+      'test -s .tmp/security/perception-v2-e2e-runtime.json -a -s .tmp/release-evidence/perception-v2-release-evidence.json -a -s .tmp/security/perception-v2-test-matrix.json', [], {
+        dependsOn: ['perception-matrix'],
         artifacts: [
           path.join(root, '.tmp/security/perception-v2-e2e-runtime.json'),
           path.join(root, '.tmp/release-evidence/perception-v2-release-evidence.json'),
           path.join(root, '.tmp/security/perception-v2-test-matrix.json')
         ]
-      })),
-    executeStep(commandStep('integrity-proof',
+      }),
+    commandStep('integrity-proof',
       'tools/test/lanes/integrity-proof-verification.sh', ['integrity-proof-verification'], {
+        // Both verification lanes invoke dotnet test in Debug and therefore
+        // share src/backend/obj/Debug. Keep their builds ordered so MSBuild's
+        // static-web-assets and package caches have one writer.
+        dependsOn: ['perception-matrix'],
         artifacts: [path.join(root, '.tmp/release-evidence/integrity-proof-verification.json')]
-      }))
-  ])
-  await executeStep(commandStep('backend-coverage-summary',
-    'node tools/coverage/summarize-cobertura.mjs .tmp/coverage/backend .tmp/coverage/backend-merged/Summary.json backend-cobertura', []))
-  const trxFiles = listFiles(trxRoot, (file) => file.endsWith('.trx')).sort()
-  if (trxFiles.length !== 2) throw new Error(`backend production expected 2 shard TRX files, received ${trxFiles.length}`)
-  const tests = trxFiles.flatMap(parseTrx)
+      }),
+    commandStep('backend-coverage-summary',
+      'node tools/coverage/summarize-cobertura.mjs .tmp/coverage/backend .tmp/coverage/backend-merged/Summary.json backend-cobertura', [], {
+        dependsOn: ['dotnet-production-union']
+      })
+  ], bundleDagCapacity, async (step) => {
+    const result = await executeStep(step)
+    if (step.id === 'backend-benchmark-build') publishBenchmarkBuildReady()
+    backendDagResults.set(step.id, result)
+  })
+  const result = backendDagResults.get('dotnet-production-union')
+  if (!result) throw new Error('dotnet-production-union completed without a result')
   const shardReport = JSON.parse(fs.readFileSync(shardSummary, 'utf8'))
+  const trxFiles = listFiles(trxRoot, (file) => file.endsWith('.trx')).sort()
+  validateShardSummaryArtifacts(shardReport, trxFiles, { repositoryRoot: root })
+  const tests = trxFiles.flatMap(parseTrx)
+  const perceptionProjection = readPerceptionUnionProjection(trxFiles, shardSummary)
+  register({ id: 'perception-union-projection', members: ['perception-v2-test-matrix'] }, result,
+    perceptionProjection.tests.map((entry) => `xunit:${entry.id}`), [
+      perceptionProjection.projectionFile,
+      shardSummary,
+      backendTestDll,
+      ...trxFiles,
+      path.join(root, '.tmp/security/perception-v2-e2e-runtime.json'),
+      path.join(root, '.tmp/release-evidence/perception-v2-release-evidence.json'),
+      path.join(root, '.tmp/security/perception-v2-test-matrix.json')
+    ])
   const categoryMembers = new Map([
     ['backend-api-integration', 'ApiIntegration'],
     ['backend-auth-state-machine', 'SecurityStateMachine'],
@@ -358,8 +883,9 @@ function parseVitestReports(files) {
   return records
 }
 
-async function waitForSiblingBundleSummaries(bundleIds, timeoutMs = 120_000) {
+async function waitForSiblingBundleSummaries(bundleIds, timeoutMs = resolveExecutionWaitTimeoutMs(bundleIds)) {
   const expectedRunId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '')
+  const checkpointFile = path.join(root, '.tmp/test-runs', expectedRunId, 'checkpoint.json')
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const ready = bundleIds.every((siblingBundleId) => {
@@ -373,29 +899,426 @@ async function waitForSiblingBundleSummaries(bundleIds, timeoutMs = 120_000) {
       }
     })
     if (ready) return
+    if (fs.existsSync(checkpointFile)) {
+      try {
+        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+        const failures = bundleIds.flatMap((siblingBundleId) => {
+          const tierId = `local-${profileId}-${siblingBundleId}`
+          const status = checkpoint.tiers?.[tierId]?.status
+          return ['failure', 'blocked', 'cancelled'].includes(status)
+            ? [`${siblingBundleId}:${status}`]
+            : []
+        })
+        if (failures.length > 0) {
+          throw new Error(`sibling bundle failed before summary publication: ${failures.join(', ')}`)
+        }
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          // The checkpoint is atomically replaced, but tolerate a transient read
+          // from unusual filesystems and retry instead of hiding sibling status.
+        } else {
+          throw error
+        }
+      }
+    }
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
   throw new Error(`timed out waiting for sibling bundle summaries: ${bundleIds.join(', ')}`)
 }
 
-async function runFrontendTests() {
-  const step = commandStep('vitest-production-projects', [
-    'cd src/frontend',
-    'export FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD=0',
-    'export FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD=0',
-    'export FSUSBLOG_FRONTEND_COVERAGE_FUNCTION_THRESHOLD=0',
-    'export FSUSBLOG_FRONTEND_COVERAGE_STATEMENT_THRESHOLD=0',
-    `FSUSBLOG_VITEST_MAX_WORKERS=${bundleParallelism()} npx vitest run --config vitest.production.config.ts --project=unit --project=property --project=model --coverage`
-  ].join(' && '), [])
+async function waitForBackendProductionSummaryReady(timeoutMs = resolveExecutionWaitTimeoutMs(['backend-tests'])) {
+  const expectedRunId = schedulerRunId()
+  const summaryFile = path.join(root, '.tmp/test-results/backend/production/summary.json')
+  const checkpointFile = path.join(root, '.tmp/test-runs', expectedRunId, 'checkpoint.json')
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (fs.existsSync(summaryFile)) {
+      try {
+        const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+        if (summary?.producer?.runId === expectedRunId) {
+          if (summary.schema !== 'fsusblog.backend-production-shards.v2'
+              || summary.status !== 'success'
+              || summary.execution?.exactOnce !== true
+              || summary.execution?.allPassed !== true
+              || !Array.isArray(summary.partitions)
+              || summary.partitions.length < 2) {
+            throw new Error('current-run backend production summary is not an exact-once all-passing partition union')
+          }
+          const trxFiles = summary.partitions.map((partition) => path.resolve(root, partition.trx ?? ''))
+          if (trxFiles.some((file) => !fs.existsSync(file))) {
+            throw new Error('current-run backend production summary references a missing TRX')
+          }
+          validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoot: root })
+          return
+        }
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) {
+          throw new Error(`invalid run-bound backend production summary: ${error.message}`, { cause: error })
+        }
+      }
+    }
+    if (fs.existsSync(checkpointFile)) {
+      try {
+        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+        const status = checkpoint.tiers?.[`local-${profileId}-backend-tests`]?.status
+        if (['failure', 'blocked', 'cancelled'].includes(status)) {
+          throw new Error(`backend-tests:${status} before production summary readiness`)
+        }
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  throw new Error(`timed out waiting for run-bound backend production summary: ${expectedRunId}`)
+}
+
+async function waitForBackendBuildReady(timeoutMs = resolveExecutionWaitTimeoutMs(['backend-tests'])) {
+  const expectedRunId = schedulerRunId()
+  const markerFile = backendBuildReadyFile(expectedRunId)
+  const checkpointFile = path.join(root, '.tmp/test-runs', expectedRunId, 'checkpoint.json')
+  const artifactPath = relative(backendServerDll)
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (fs.existsSync(checkpointFile)) {
+      try {
+        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+        const status = checkpoint.tiers?.[`local-${profileId}-backend-tests`]?.status
+        if (['failure', 'blocked', 'cancelled'].includes(status)) {
+          throw new Error(`backend-tests:${status} before backend build readiness`)
+        }
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error
+      }
+    }
+    if (fs.existsSync(markerFile)) {
+      try {
+        const marker = JSON.parse(fs.readFileSync(markerFile, 'utf8'))
+        if (marker.schema !== 'fsusblog.local-production.backend-build-ready.v1'
+            || marker.status !== 'success'
+            || marker.physicalBundleId !== 'backend-tests'
+            || marker.schedulerRunId !== expectedRunId
+            || marker.serverDll?.path !== artifactPath
+            || marker.serverDll?.exists !== true) {
+          throw new Error(`backend build readiness marker is not bound to scheduler run ${expectedRunId}`)
+        }
+        if (!fs.existsSync(backendServerDll)) throw new Error(`backend build readiness artifact is missing: ${artifactPath}`)
+        const expectedDigest = marker.serverDll.digest
+        const actualDigest = digestDeclaredOutputs(root, [artifactPath])[artifactPath]
+        if (!expectedDigest || actualDigest !== expectedDigest) {
+          throw new Error(`backend build readiness digest mismatch: ${artifactPath}`)
+        }
+        return
+      } catch (error) {
+        throw new Error(`invalid run-bound backend build readiness marker: ${error.message}`, { cause: error })
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  throw new Error(`timed out waiting for run-bound backend build readiness: ${expectedRunId}`)
+}
+
+async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeoutMs(['build-static'])) {
+  const expectedRunId = schedulerRunId()
+  const markerFile = frontendBuildReadyFile(expectedRunId)
+  const checkpointFile = path.join(root, '.tmp/test-runs', expectedRunId, 'checkpoint.json')
+  const artifactPath = 'src/frontend/dist/index.html'
+  const privacyWasmPaths = [
+    'src/frontend/public/wasm/comment-privacy-prover.js',
+    'src/frontend/public/wasm/comment-privacy-prover.zkey',
+    'src/frontend/public/wasm/comment-privacy-prover.manifest.json'
+  ]
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (fs.existsSync(checkpointFile)) {
+      try {
+        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+        const status = checkpoint.tiers?.[`local-${profileId}-build-static`]?.status
+        if (['failure', 'blocked', 'cancelled'].includes(status)) {
+          throw new Error(`build-static:${status} before frontend build readiness`)
+        }
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error
+      }
+    }
+    if (fs.existsSync(markerFile)) {
+      try {
+        const marker = JSON.parse(fs.readFileSync(markerFile, 'utf8'))
+        if (marker.schema !== 'fsusblog.local-production.frontend-build-ready.v1'
+            || marker.status !== 'success'
+            || marker.physicalBundleId !== 'build-static'
+            || marker.schedulerRunId !== expectedRunId
+            || marker.distEntry?.path !== artifactPath
+            || privacyWasmPaths.some((requiredPath) => marker.privacyWasmArtifacts?.[requiredPath]?.path !== requiredPath)) {
+          throw new Error(`frontend build readiness marker is not bound to scheduler run ${expectedRunId}`)
+        }
+        const requiredArtifacts = [artifactPath, ...privacyWasmPaths]
+        const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
+        if (missingArtifacts.length > 0) {
+          throw new Error(`frontend build readiness artifact(s) missing: ${missingArtifacts.join(', ')}`)
+        }
+        const actualDigests = digestDeclaredOutputs(root, requiredArtifacts)
+        const mismatches = requiredArtifacts.filter((requiredPath) => {
+          const expectedDigest = requiredPath === artifactPath
+            ? marker.distEntry.digest
+            : marker.privacyWasmArtifacts[requiredPath].digest
+          return !expectedDigest || actualDigests[requiredPath] !== expectedDigest
+        })
+        if (mismatches.length > 0) {
+          throw new Error(`frontend build readiness digest mismatch: ${mismatches.join(', ')}`)
+        }
+        return
+      } catch (error) {
+        throw new Error(`invalid run-bound frontend build readiness marker: ${error.message}`, { cause: error })
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  throw new Error(`timed out waiting for run-bound frontend build readiness: ${expectedRunId}`)
+}
+
+function resolvedFrontendTestCpuTarget() {
+  const cpuCount = os.availableParallelism?.() ?? os.cpus().length
+  const backendFloor = Math.max(1, Math.floor(
+    profile.bundles.find((entry) => entry.id === 'backend-tests')?.minCpuUnits ?? 1
+  ))
+  const runtimeFloor = Math.max(1, Math.floor(
+    profile.bundles.find((entry) => entry.id === 'runtime-browser')?.minCpuUnits ?? 1
+  ))
+  // Start the transform pool as soon as static prechecks settle. The frontend
+  // build releases its CPUs while this long-lived pool is still running, so a
+  // machine-derived tail target avoids idling those future slots.
+  return Math.max(1, cpuCount - backendFloor - runtimeFloor)
+}
+
+function resolvedFrontendEarlyTestCpuTarget() {
+  const currentCpuUnits = Math.max(1, Math.floor(bundleCapacity().cpuUnits))
+  return currentCpuUnits >= 3 ? currentCpuUnits - 1 : currentCpuUnits
+}
+
+async function waitForFrontendTestCapacity(targetCpuUnits, timeoutMs = bundleDeadlineMs()) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const currentCpuUnits = Math.floor(bundleCapacity().cpuUnits)
+    if (currentCpuUnits >= targetCpuUnits) return
+    await new Promise((resolve) => setTimeout(resolve, Math.max(10, Math.ceil(1000 / targetCpuUnits))))
+  }
+  throw new Error(`timed out waiting for frontend test CPU target: ${targetCpuUnits}`)
+}
+
+async function executeRuntimeStep(step) {
+  const readinessWait = step.id === 'backend-build-ready'
+    ? waitForBackendBuildReady
+    : step.id === 'frontend-build-ready'
+      ? waitForFrontendBuildReady
+      : null
+  if (!readinessWait) {
+    const result = await executeStep(step)
+    if (step.id === 'bootstrap') {
+      const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
+      runtimeChildEnvironment = readRuntimeEnvironment(root, namespace)
+      console.log(`[local-production:${bundleId}] loaded runtime environment namespace=${namespace}`)
+    }
+    return result
+  }
+
+  const logFile = path.join(logDir, `${step.id}.log`)
+  const startedAtMs = Date.now()
+  fs.writeFileSync(logFile, '')
+  console.log(`[local-production:${bundleId}] start ${step.id} coordination-only`)
+  await readinessWait()
+  const finishedAtMs = Date.now()
+  fs.writeFileSync(logFile, `${step.id} run=${schedulerRunId()} validated=true\n`)
+  const result = {
+    code: 0,
+    signal: null,
+    durationMs: finishedAtMs - startedAtMs,
+    startedAtMs,
+    finishedAtMs,
+    logFile
+  }
+  stepExecutionResults.set(step.id, { ...result, status: 'success' })
+  console.log(`[local-production:${bundleId}] done ${step.id} durationMs=${result.durationMs}`)
+  register(step, result)
+  return result
+}
+
+async function executePerformanceStep(step) {
   const result = await executeStep(step)
-  await executeStep(commandStep('frontend-coverage-summary',
-    'FSUSBLOG_COVERAGE_SKIP_TESTS=1 tools/coverage/collect-frontend-coverage.sh', []))
-  await waitForSiblingBundleSummaries(['build-static', 'backend-tests'])
-  const perfResult = await executeStep(commandStep('vitest-production-perf-isolated', [
+  if (step.id === 'performance-runtime-bootstrap') {
+    const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
+    runtimeChildEnvironment = readRuntimeEnvironment(root, namespace)
+    console.log(`[local-production:${bundleId}] loaded runtime environment namespace=${namespace}`)
+  }
+  return result
+}
+
+async function executeFrontendStep(step) {
+  if (['frontend-early-test-capacity-ready', 'frontend-test-capacity-ready'].includes(step.id)) {
+    const targetCpuUnits = step.id === 'frontend-early-test-capacity-ready'
+      ? resolvedFrontendEarlyTestCpuTarget()
+      : resolvedFrontendTestCpuTarget()
+    const logFile = path.join(logDir, `${step.id}.log`)
+    const startedAtMs = Date.now()
+    fs.writeFileSync(logFile, '')
+    console.log(`[local-production:${bundleId}] start ${step.id} coordination-only`)
+    await waitForFrontendTestCapacity(targetCpuUnits)
+    const finishedAtMs = Date.now()
+    fs.writeFileSync(logFile, `targetCpuUnits=${targetCpuUnits} validated=true\n`)
+    const result = { code: 0, signal: null, durationMs: finishedAtMs - startedAtMs, startedAtMs, finishedAtMs, logFile }
+    stepExecutionResults.set(step.id, { ...result, status: 'success' })
+    console.log(`[local-production:${bundleId}] done ${step.id} durationMs=${result.durationMs}`)
+    register(step, result)
+    return result
+  }
+  if (step.id === 'backend-production-summary-ready') {
+    const logFile = path.join(logDir, `${step.id}.log`)
+    const startedAtMs = Date.now()
+    fs.writeFileSync(logFile, '')
+    console.log(`[local-production:${bundleId}] start ${step.id} coordination-only`)
+    await waitForBackendProductionSummaryReady()
+    const finishedAtMs = Date.now()
+    fs.writeFileSync(logFile, `${step.id} run=${schedulerRunId()} validated=true\n`)
+    const result = {
+      code: 0,
+      signal: null,
+      durationMs: finishedAtMs - startedAtMs,
+      startedAtMs,
+      finishedAtMs,
+      logFile
+    }
+    stepExecutionResults.set(step.id, { ...result, status: 'success' })
+    console.log(`[local-production:${bundleId}] done ${step.id} durationMs=${result.durationMs}`)
+    register(step, result)
+    return result
+  }
+  return executeRuntimeStep(step)
+}
+
+async function runFrontendTests() {
+  const staticManifest = JSON.parse(fs.readFileSync(path.join(root, 'tests/frontend/checks/static/manifest.json'), 'utf8'))
+  const frontendPackage = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'))
+  const staticPlan = planLocalStaticCommands(buildLocalStaticManifest(staticManifest, frontendPackage.scripts))
+  const staticPrebuildEvidence = path.join(outDir, 'frontend-static-prebuild.json')
+  const staticPostbuildEvidence = path.join(outDir, 'frontend-static-postbuild.json')
+  const staticTestIds = (entries) => entries.map((entry) => `frontend-static:${entry.id}`)
+  const prebuildStep = commandStep(
+    'frontend-static-prebuild',
+    `FSUSBLOG_LOCAL_STATIC_PHASE=prebuild FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE=${shellQuote(relative(staticPrebuildEvidence))} FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/local-static-governance.mjs`,
+    ['frontend-static-governance'],
+    {
+      artifacts: [staticPrebuildEvidence],
+      testIds: staticTestIds(staticPlan.initial),
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    }
+  )
+  // The 62-command phase intentionally runs before any sibling in this bundle,
+  // so its manifest resolver receives the complete current scheduler grant.
+  await executeStep(prebuildStep)
+  const fullVitestCpuUnits = resolvedFrontendTestCpuTarget()
+  const step = commandStep('vitest-production-projects',
+    'node tools/test/run-frontend-vitest-rolling-shards.mjs', [], {
+    dependsOn: ['frontend-early-test-capacity-ready'],
+    env: { FSUSBLOG_VITEST_TARGET_WORKERS: String(fullVitestCpuUnits) },
+    resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: 1 }
+  })
+  const frontendDagResults = new Map()
+  await executeWeightedStepDag([
+    commandStep('frontend-build-ready', ':', [], {
+      resources: { coordinationOnly: true }
+    }),
+    commandStep('frontend-early-test-capacity-ready', ':', [], {
+      resources: { coordinationOnly: true }
+    }),
+    commandStep('frontend-test-capacity-ready', ':', [], {
+      resources: { coordinationOnly: true }
+    }),
+    // Static governance owns the first early CPU. Once build-static releases
+    // capacity, Vitest starts in the remaining slots; its run-bound barrier
+    // admits the final slot only after this static phase has settled.
+    commandStep('static-governance-concurrent', 'tools/test/lanes/static-governance.sh concurrent-prechecks', ['static-governance'], {
+      dependsOn: ['frontend-build-ready'],
+      resources: { cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1 }
+    }),
+    step,
+    commandStep('privacy-zk-contract-prebuild', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-prebuild', [], {
+      dependsOn: ['frontend-early-test-capacity-ready'],
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    }),
+    commandStep('privacy-zk-contract', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-postbuild', [], {
+      dependsOn: ['frontend-build-ready', 'privacy-zk-contract-prebuild'],
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+    }),
+    commandStep(
+      'frontend-static-postbuild',
+      `FSUSBLOG_LOCAL_STATIC_PHASE=postbuild FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE=${shellQuote(relative(staticPostbuildEvidence))} FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/local-static-governance.mjs`,
+      ['frontend-static-governance'],
+      {
+        dependsOn: ['frontend-build-ready'],
+        artifacts: [staticPostbuildEvidence],
+        testIds: staticTestIds([...staticPlan.postbuild, ...staticPlan.isolated, ...staticPlan.final]),
+        resources: {
+          cpuWeight: 0.5,
+          memoryWeight: 0.5,
+          minCpuUnits: 1,
+          exclusiveResources: ['frontend-test-results']
+        }
+      }
+    ),
+    commandStep('vitest-settled', null, [], {
+      dependsOn: ['vitest-production-projects'],
+      runAfterSettled: true,
+      resources: { coordinationOnly: true }
+    }),
+    // Preserve the complete release/rehearsal contract set, but start its long
+    // process-based fixtures only after Vitest releases the duplicated Vite
+    // transform hosts. The scheduler can then assign this step the live tail
+    // grant instead of leaving it on the initial one-CPU share.
+    commandStep('static-governance-node-contracts', 'tools/test/lanes/static-governance.sh node-contracts', ['static-governance'], {
+      dependsOn: ['vitest-settled'],
+      resources: { cpuWeight: 2, memoryWeight: 1, minCpuUnits: 1 }
+    }),
+    commandStep('static-governance-post-vitest', 'tools/test/lanes/static-governance.sh post-vitest', ['static-governance'], {
+      dependsOn: ['vitest-settled'],
+      resources: { cpuWeight: 0.5, memoryWeight: 0.5, minCpuUnits: 1 }
+    }),
+    commandStep('frontend-coverage-summary',
+      'FSUSBLOG_COVERAGE_SKIP_TESTS=1 tools/coverage/collect-frontend-coverage.sh', [], {
+        dependsOn: ['vitest-settled'],
+        resources: { cpuWeight: 0.5, memoryWeight: 0.5, minCpuUnits: 1 }
+      }),
+    commandStep('frontend-tests-join', null, [], {
+      dependsOn: [
+        'vitest-production-projects',
+        'static-governance-concurrent',
+        'static-governance-node-contracts',
+        'frontend-static-postbuild',
+        'static-governance-post-vitest',
+        'frontend-coverage-summary'
+      ],
+      runAfterSettled: true,
+      resources: { coordinationOnly: true }
+    })
+  ], bundleDagCapacity, async (frontendStep) => {
+    const result = await executeFrontendStep(frontendStep)
+    frontendDagResults.set(frontendStep.id, result)
+  })
+  const result = frontendDagResults.get('vitest-production-projects')
+  if (!result) throw new Error('vitest-production-projects completed without a result')
+  await waitForSiblingBundleSummaries(['build-static'])
+  const perfStep = commandStep('vitest-production-perf-isolated', [
     'cd src/frontend',
-    'FSUSBLOG_VITEST_MAX_WORKERS=1 npx vitest run --config vitest.production.config.ts --project=perf'
-  ].join(' && '), []))
-  const reports = listFiles(path.join(root, '.tmp/test-results/vitest'), (file) => file.endsWith('.json'))
+    'FSUSBLOG_VITEST_REPORT_ID=perf-isolated npx vitest run --config vitest.production.config.ts --project=perf'
+  ].join(' && '), [], {
+    resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+  })
+  const perfResult = await executeStep(perfStep)
+  const reports = [
+    path.join(root, '.tmp/test-results/vitest/production-rolling/merged.json'),
+    path.join(root, '.tmp/test-results/vitest/production-rolling/summary.json'),
+    path.join(root, '.tmp/test-results/vitest/production/perf-isolated.json')
+  ]
+  if (reports.some((file) => !fs.existsSync(file))) throw new Error('current-run Vitest report is missing')
   const tests = parseVitestReports(reports)
   if (tests.length === 0 || tests.some((entry) => entry.status !== 'passed')) throw new Error('Vitest report is empty or contains non-passing tests')
   const summary = path.join(root, '.tmp/coverage/frontend/Summary.json')
@@ -409,6 +1332,7 @@ async function runFrontendTests() {
     'coverage-frontend': nonPerfTests
   }
   for (const tierId of bundle.members) {
+    if (['static-governance', 'frontend-static-governance'].includes(tierId)) continue
     const selected = byMember[tierId] ?? []
     if (selected.length === 0) throw new Error(`${tierId} received no executed Vitest IDs`)
     register({ id: 'vitest-production-projects', members: [tierId] }, result, selected.map((entry) => entry.id), [summary, ...reports])
@@ -419,112 +1343,71 @@ async function runFrontendTests() {
   }
 }
 
-function runtimeWaves() {
-  const riskMembers = ['acceptance', 'visual-public', 'visual-console', 'visual', 'ux-viewport-smoke']
-  return [
-    [
-      commandStep('bootstrap', 'FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh', ['bootstrap'], {
-        resources: { cpuUnits: 2, memoryGiB: 2 }
-      }),
-      commandStep('static-governance', 'tools/test/lanes/static-governance.sh', ['static-governance'], {
-        resources: { cpuUnits: 1, memoryGiB: 1 }
-      })
-    ],
-    [
-      commandStep('runtime-integration', 'FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS=1 tools/test/lanes/runtime-integration.sh', ['integration'], {
-        resources: { cpuUnits: 1.5, memoryGiB: 1.5 }
-      })
-    ],
-    [
-      commandStep('release-public', 'tools/test/lanes/release-public.sh', ['release'], {
-        resources: { cpuUnits: 1, memoryGiB: 1 }
-      })
-    ],
-    [
-      commandStep('endpoint-depth', 'tools/test/lanes/endpoint-depth.sh', ['endpoint-depth'], {
-        resources: { cpuUnits: 1.5, memoryGiB: 1.5 }
-      }),
-      commandStep('security-runtime', 'FSUSBLOG_SKIP_ZAP=1 tools/test/lanes/security-runtime.sh', ['security'], {
-        resources: { cpuUnits: 2, memoryGiB: 2 }
-      }),
-      commandStep('zap-baseline', 'tools/security/run-zap-baseline.sh', ['security']),
-      commandStep('ux-risk-matrix', 'node tools/ux/run-local-production-risk.mjs', riskMembers, {
-        resources: { cpuUnits: 6, memoryGiB: 5 }
-      }),
-      commandStep('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/legacy-test.sh cross-stack-contract', ['cross-stack-contract']),
-      commandStep('privacy-zk', 'tools/test/lanes/privacy-zk-comment-matrix.sh', ['privacy-zk-comment-matrix'], {
-        resources: { cpuUnits: 8, memoryGiB: 8, exclusiveResources: ['benchmark-window'] }
-      })
-    ],
-    [
-      commandStep('cross-browser', 'tools/test/lanes/cross-browser-smoke.sh', ['cross-browser-smoke'], {
-        resources: { cpuUnits: 2, memoryGiB: 2 }
-      }),
-      commandStep('render-pressure', 'tools/test/lanes/frontend-render-pressure.sh', ['frontend-render-pressure'], {
-        resources: { cpuUnits: 2, memoryGiB: 2 }
-      }),
-      commandStep('rights-matrix', 'tools/test/lanes/rights-v3-test-matrix.sh', ['rights-v3-test-matrix']),
-      commandStep('csrf-matrix', 'cd src/frontend && npm run check:security:csrf-browser-matrix', ['csrf-browser-matrix']),
-      commandStep('resilience', 'tools/test/lanes/resilience-runtime.sh', ['resilience'])
-    ],
-    [commandStep('data-scale-xs', 'tools/test/lanes/data-scale.sh scale-xs', ['data-scale-xs'])],
-    [commandStep('data-scale-s', 'tools/test/lanes/data-scale.sh scale-s', ['data-scale-s'])],
-    [commandStep('data-scale-summary', 'node tools/test/aggregate-data-scale-evidence.mjs', ['data-scale-evidence-summary'])],
-    [commandStep('fault-injection', 'tools/test/lanes/fault-injection.sh', ['fault-injection'])]
-  ]
-}
-
-function performanceWaves() {
-  const windowMembers = [
-    'load', 'backend-qps-view-count-flush', 'backend-qps-visitlog-invalidation', 'backend-qps-cache-hit',
-    'backend-qps-comment-cursor', 'backend-qps-hotread', 'backend-qps-cache-miss-singleflight',
-    'backend-qps-risk-filter', 'backend-qps-related-reading', 'backend-qps-list-pagination',
-    'backend-qps-article-detail-miss', 'backend-qps-cache-registry', 'backend-cache-invalidation-batch',
-    'backend-qps-index-plan', 'backend-qps', 'load-baseline', 'load-peak'
-  ]
-  return [
-    [commandStep('coverage-merge', 'tools/coverage/merge-coverage.sh', ['coverage-merge'])],
-    [
-      commandStep('coverage-threshold', 'tools/test/lanes/coverage-threshold.sh', ['coverage-threshold', 'coverage-gate', 'fast']),
-      commandStep('backend-perf', 'tools/test/lanes/perf-regression.sh', ['backend-perf'], {
-        resources: { cpuUnits: 8, memoryGiB: 8, exclusiveResources: ['benchmark-window'] }
-      })
-    ],
-    [
-      commandStep('mixed-performance-window', 'node tools/test/run-mixed-performance-window.mjs', windowMembers, {
-        resources: { cpuUnits: 8, memoryGiB: 8, exclusiveResources: ['benchmark-window'] }
-      }),
-      commandStep('backend-benchmark', 'tools/test/lanes/backend-benchmark-regression.sh', ['backend-benchmark-regression'], {
-        resources: { cpuUnits: 8, memoryGiB: 8, exclusiveResources: ['benchmark-window'] }
-      }),
-      commandStep('browser-performance', 'tools/test/lanes/browser-performance-regression.sh', ['browser-performance-regression'], {
-        resources: { cpuUnits: 8, memoryGiB: 8, exclusiveResources: ['benchmark-window'] }
-      }),
-      commandStep('aeds-frame-cost', 'tools/test/lanes/aeds-frame-cost.sh', ['aeds-frame-cost'], {
-        resources: { cpuUnits: 8, memoryGiB: 8, exclusiveResources: ['benchmark-window'] }
-      }),
-      commandStep('aeds-compression', 'tools/test/lanes/aeds-compression-profile.sh', ['aeds-compression-profile'], {
-        resources: { cpuUnits: 8, memoryGiB: 8, exclusiveResources: ['benchmark-window'] }
-      })
-    ],
-    [commandStep('performance-summary', 'node tools/test/aggregate-performance-evidence.mjs', ['performance-evidence-summary'])],
-    [commandStep('release-evidence', 'tools/test/lanes/release-evidence.sh', ['release-evidence'])],
-    [commandStep('production-summary', 'tools/test/lanes/noop.sh production', ['production'])]
-  ]
-}
-
 async function run() {
-  if (bundleId === 'backend-tests') await runBackendTests()
+  if (finalizeExisting) loadExistingMemberExecutionReceipts()
+  else if (bundleId === 'backend-tests') await runBackendTests()
   else if (bundleId === 'frontend-tests') await runFrontendTests()
   else if (bundleId === 'build-static') {
-    await executeStepDag(buildStaticSteps(), bundleParallelism(), executeStep)
+    await executeWeightedStepDag(buildStaticSteps(), bundleDagCapacity, async (step) => {
+      const result = await executeStep(step)
+      if (step.id === 'sync-static-assets') publishFrontendBuildReady()
+      return result
+    })
   } else {
-    const waves = bundleId === 'runtime-browser' ? runtimeWaves() : performanceWaves()
-    for (const wave of waves) await executeWave(wave)
+    const steps = bundleId === 'runtime-browser' ? runtimeSteps() : performanceSteps()
+    await executeWeightedStepDag(
+      steps,
+      bundleDagCapacity,
+      bundleId === 'runtime-browser' ? executeRuntimeStep : executePerformanceStep
+    )
   }
 
-  writeMemberExecutionReceipts()
+  if (!finalizeExisting) writeMemberExecutionReceipts()
   bindMatrixRuntimeArtifacts()
+  if (bundleId === 'performance-evidence') {
+    const currentInvocationDurationMs = Date.now() - startedAt
+    const steps = performanceSteps().map(({ id }) => {
+      const result = stepExecutionResults.get(id)
+      if (!result) throw new Error(`performance deadline evidence is missing step result: ${id}`)
+      return {
+        id,
+        status: result.status,
+        durationMs: result.durationMs,
+        startedAtMs: result.startedAtMs,
+        finishedAtMs: result.finishedAtMs
+      }
+    })
+    const mixedStepDurationMs = steps.find((step) => step.id === 'mixed-performance-window')?.durationMs
+    const mixedSummaryFile = path.join(root, '.tmp/perf/mixed-window/summary.json')
+    const mixedSummaryDurationMs = fs.existsSync(mixedSummaryFile)
+      ? Number(JSON.parse(fs.readFileSync(mixedSummaryFile, 'utf8')).elapsedMs)
+      : 0
+    const mixedDurationMs = Math.max(mixedStepDurationMs, mixedSummaryDurationMs)
+    const measuredOtherSerialMs = Math.max(0, currentInvocationDurationMs - mixedStepDurationMs)
+    const bundleDurationMs = measuredOtherSerialMs + mixedDurationMs
+    performanceDeadlineEvidence = {
+      schema: 'fsusblog.performance-deadline-evidence.v1',
+      status: 'sufficient',
+      schedulerRunId: schedulerRunId(),
+      candidateBudgetMs: bundleDeadlineMs(),
+      bundleDurationMs,
+      mixedWindow: {
+        stepId: 'mixed-performance-window',
+        minimumDurationMs: performanceMixedWindowFloorMs,
+        measuredDurationMs: mixedDurationMs
+      },
+      measuredOtherSerialMs,
+      requiredBudgetMs: performanceMixedWindowFloorMs + measuredOtherSerialMs,
+      steps,
+      generatedAt: new Date().toISOString()
+    }
+    const deadlineErrors = validatePerformanceDeadlineEvidence(performanceDeadlineEvidence, {
+      expectedRunId: schedulerRunId()
+    })
+    if (deadlineErrors.length > 0) throw new Error(`performance deadline evidence invalid: ${deadlineErrors.join('; ')}`)
+    const deadlineFile = path.join(outDir, 'deadline-evidence.json')
+    fs.writeFileSync(deadlineFile, `${JSON.stringify(performanceDeadlineEvidence, null, 2)}\n`)
+  }
   const members = Object.fromEntries([...memberEvidence.entries()].map(([tierId, evidence]) => [tierId, {
     ...evidence,
     testIds: [...new Set(evidence.testIds)].sort(),
@@ -543,6 +1426,7 @@ async function run() {
     schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
     runToken: randomUUID(),
     durationMs: Date.now() - startedAt,
+    ...(performanceDeadlineEvidence ? { deadlineEvidence: performanceDeadlineEvidence } : {}),
     members,
     generatedAt: new Date().toISOString()
   }
@@ -554,6 +1438,7 @@ async function run() {
 }
 
 run().catch((error) => {
+  if (shutdownPromise) return
   console.error(`[local-production:${bundleId}] ${error instanceof Error ? error.message : String(error)}`)
   process.exit(1)
 })

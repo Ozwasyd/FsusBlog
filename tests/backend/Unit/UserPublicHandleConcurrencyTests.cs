@@ -77,7 +77,8 @@ public sealed class UserPublicHandleConcurrencyTests(PostgresSchemaMigrationFixt
             _messageCommandService: Substitute.For<IMessageCommandService>(),
             _messageRealtimePublisher: Substitute.For<IMessageRealtimePublisher>(),
             _totpService: Substitute.For<ITotpService>(),
-            _authRiskService: Substitute.For<IAuthRiskService>());
+            _authRiskService: Substitute.For<IAuthRiskService>(),
+            _userSessionValidationCache: Substitute.For<IUserSessionValidationCache>());
 
     private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)
         => Task.Factory.StartNew(

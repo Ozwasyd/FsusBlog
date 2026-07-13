@@ -73,7 +73,7 @@ public static class ArticleProjection
         var items = new List<ArticleListItemResponse>(page.Items.Count);
         for (int i = 0; i < page.Items.Count; i++)
         {
-            items.Add(ToResponse(page.Items[i]));
+            items.Add(ToPageResponse(page.Items[i]));
         }
 
         return new PageResponse<ArticleListItemResponse>
@@ -83,6 +83,28 @@ public static class ArticleProjection
             NextCursor = page.NextCursor,
             HasMore = page.HasMore
         };
+    }
+
+    private static ArticleListItemResponse ToPageResponse(ArticleListItemReadModel item)
+    {
+        // ArticleListItemResponse's public parameterless constructor creates an
+        // empty Tags list. The page projection always replaces that list, so
+        // assign every field on the value type directly and avoid one discarded
+        // allocation per article while preserving the exact response shape.
+        ArticleListItemResponse response = default;
+        response.Id = item.Id;
+        response.Title = item.Title;
+        response.Summary = string.IsNullOrWhiteSpace(item.Snippet) ? item.Summary : item.Snippet;
+        response.CoverImageUrl = item.CoverImageUrl;
+        response.Views = item.Views;
+        response.CreateTime = item.CreateTime;
+        response.Category = new ArticleCategoryView(item.CategoryId, item.CategoryName);
+        response.Tags = ToListTagResponses(item.Tags);
+        response.IsDeleted = item.IsDeleted;
+        response.Status = (int)item.Status;
+        response.ScheduledPublishAt = item.ScheduledPublishAt;
+        response.PublishedAt = item.PublishedAt;
+        return response;
     }
 
     public static ArticleListCoreModel ToCoreListModel(ArticleListItemReadModel item)

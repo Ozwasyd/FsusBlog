@@ -43,9 +43,10 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task RecoveryKeyEndpoints_ExposeBinaryRecoveryFlowAtRuntime()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         string[] routes =
         [
             "/api/binary/auth/recovery-key/create",
@@ -122,9 +123,10 @@ public sealed class RecoveryKeyServiceTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task RecoveryKeyVerifyEndpoint_IsAnonymousPowRateLimitedAndNoStore()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint endpoint = EndpointContractApplication.Find(
             app,
             "/api/binary/auth/recovery-key/verify",

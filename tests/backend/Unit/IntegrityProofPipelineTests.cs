@@ -27,20 +27,37 @@ public sealed class IntegrityProofPipelineTests
             .DescribeDeclaredMemberReferencesInOrderContaining(
                 typeof(ArticleMutationSideEffectCoordinator),
                 "ArticleMutationReplayEdges.Required",
-                "RunOptionalEdgeAsync",
-                "IIntegrityProofScheduler.ScheduleFromOutboxAsync");
+                "RunOptionalEdgeAsync");
         Assert.True(
             FindReference(requiredGuard, "ArticleMutationReplayEdges.Required") <
             FindReference(requiredGuard, "RunOptionalEdgeAsync"));
+        string integritySchedule = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleMutationSideEffectCoordinator),
+            nameof(ArticleMutationSideEffectCoordinator.ReplayOutboxAsync));
+        Assert.Contains("IIntegrityProofScheduler.ScheduleFromOutboxAsync", integritySchedule, StringComparison.Ordinal);
 
-        IReadOnlyList<IReadOnlyList<string>> replayBranches = RuntimeMetadataInspection
-            .DescribeDeclaredMemberReferenceSequencesContaining(
-                typeof(ArticleMutationSideEffectCoordinator),
-                "ArticleMutationReplayEdges.PublicHotRead",
-                "ScheduleIntegrityProofIfRequiredEdgesCompleteAsync");
-        Assert.All(replayBranches, branch => Assert.True(
-            FindReference(branch, "ArticleMutationReplayEdges.PublicHotRead") <
-            FindReference(branch, "ScheduleIntegrityProofIfRequiredEdgesCompleteAsync")));
+        Assert.Contains(ArticleMutationReplayEdges.PublicHotRead, ArticleMutationReplayEdges.Required);
+    }
+
+    [Fact]
+    public void PublishProofUpsert_TypesNullableSupersededTimestampExplicitly()
+    {
+        string upsert = RuntimeMetadataInspection.DescribeMethods(
+            typeof(IntegrityProofScheduler),
+            "UpsertProofAsync");
+
+        Assert.Contains("CAST(@SupersededAt AS timestamp)", upsert, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleRightsProofUpsert_TypesNullableNumericParametersExplicitly()
+    {
+        string upsert = RuntimeMetadataInspection.DescribeMethods(
+            typeof(IntegrityProofScheduler),
+            "UpsertArticleRightsProofAsync");
+
+        Assert.Contains("CAST(@PublishProofId AS bigint)", upsert, StringComparison.Ordinal);
+        Assert.Contains("CAST(@SigningKeyVersion AS integer)", upsert, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -78,10 +95,9 @@ public sealed class IntegrityProofPipelineTests
         Assert.Contains("ArticleMutationReplayResult.Success", replay, StringComparison.Ordinal);
         Assert.Contains("get_FailedEdges", RuntimeMetadataInspection.DescribeType(typeof(ArticleMutationOutboxDispatcher)), StringComparison.Ordinal);
 
-        string processOne = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+        string processOne = RuntimeMetadataInspection.DescribeMethods(
             typeof(ArticleMutationOutboxDispatcher),
-            "get_CompletedEdges",
-            "get_FailedEdges");
+            "ProcessOneAsync");
         Assert.Contains("ArticleMutationReplayEdges.Required", processOne, StringComparison.Ordinal);
         Assert.DoesNotContain("Enumerable.Any", processOne, StringComparison.Ordinal);
     }

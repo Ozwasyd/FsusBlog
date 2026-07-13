@@ -1128,7 +1128,7 @@ export function validateWriteSqlOrThrow(sql, allowedTables, label = 'SQL action'
   const statement = normalizeSql(sql)
   const target = /^(insert\s+into|update)\s+"?([a-z][a-z0-9_]*)"?\b/iu.exec(statement)
   if (!target) throw new Error(`${label} must be a single INSERT or UPDATE`)
-  if (/\b(delete|merge|copy|call|do|create|alter|drop|truncate|grant|revoke|refresh|vacuum|analyze|set|reset|listen|notify|lock)\b/iu.test(statement)) {
+  if (/\b(delete|merge|copy|call|do|create|alter|drop|truncate|grant|revoke|refresh|vacuum|analyze|reset|listen|notify|lock)\b/iu.test(statement)) {
     throw new Error(`${label} contains a forbidden mutating or administrative keyword`)
   }
   rejectPrivilegedSqlFunctions(statement, label)

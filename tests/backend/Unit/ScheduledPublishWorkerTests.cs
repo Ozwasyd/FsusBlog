@@ -4,6 +4,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using SqlSugar;
@@ -20,10 +21,12 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         using SqlSugarClient db = await CreateDatabaseAsync();
         int dueArticleId = InsertScheduledArticle(db, "due", DateTime.UtcNow.AddMinutes(-5));
         using ServiceProvider provider = CreateWorkerProvider(db);
-        var worker = CreateWorker(provider);
+        var logger = new CapturingLogger<ScheduledPublishWorker>();
+        var worker = CreateWorker(provider, logger);
 
         int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
 
+        Assert.True(published == 1, string.Join(Environment.NewLine, logger.Messages));
         Article article = await db.Queryable<Article>().InSingleAsync(dueArticleId);
         ArticleMutationOutboxEvent outbox = Assert.Single(
             await db.Queryable<ArticleMutationOutboxEvent>().ToListAsync());
@@ -49,16 +52,18 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
         var executedSql = new List<string>();
         db.Aop.OnLogExecuting = (sql, _) => executedSql.Add(sql);
         using ServiceProvider provider = CreateWorkerProvider(db);
-        var worker = CreateWorker(provider);
+        var logger = new CapturingLogger<ScheduledPublishWorker>();
+        var worker = CreateWorker(provider, logger);
 
         int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
 
+        Assert.True(published == 2, string.Join(Environment.NewLine, logger.Messages));
         List<Article> articles = await db.Queryable<Article>().OrderBy(static article => article.Id).ToListAsync();
         List<ArticleMutationOutboxEvent> outbox = await db.Queryable<ArticleMutationOutboxEvent>()
             .OrderBy(static item => item.AggregateId)
             .ToListAsync();
-        string claimSql = Assert.Single(executedSql.Where(static sql =>
-            sql.Contains("UPDATE article", StringComparison.OrdinalIgnoreCase)));
+        string claimSql = Assert.Single(executedSql, static sql =>
+            sql.Contains("UPDATE article", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("FOR UPDATE SKIP LOCKED", claimSql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("RETURNING id", claimSql, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(2, published);
@@ -118,13 +123,40 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
             .AddSingleton<IDbConcurrencyGate, ImmediateDbConcurrencyGate>()
             .BuildServiceProvider();
 
-    private static ScheduledPublishWorker CreateWorker(ServiceProvider provider)
+    private static ScheduledPublishWorker CreateWorker(
+        ServiceProvider provider,
+        ILogger<ScheduledPublishWorker>? logger = null)
         => new(
             provider.GetRequiredService<IServiceScopeFactory>(),
-            NullLogger<ScheduledPublishWorker>.Instance,
+            logger ?? NullLogger<ScheduledPublishWorker>.Instance,
             TimeProvider.System,
             new ScheduledPublishRuntimeState(),
             new TestBackgroundWorkerLease());
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+            => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Messages.Add(formatter(state, exception));
+            if (exception is not null)
+            {
+                Messages.Add(exception.ToString());
+            }
+        }
+    }
 
     private sealed class ImmediateDbConcurrencyGate : IDbConcurrencyGate
     {

@@ -18,6 +18,7 @@ using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
 using StackExchange.Redis;
@@ -1019,7 +1020,7 @@ public static class ProductionHealthEndpoints
         endpoints.MapGet("/health/live", () => TypedResults.Json(ProductionLivenessProbe.CreateReport())).AllowAnonymous();
 
         endpoints.MapGet("/health/ready", async Task<IResult> (
-            ProductionReadinessSnapshotCache snapshotCache,
+            [FromServices] ProductionReadinessSnapshotCache snapshotCache,
             HttpContext context,
             CancellationToken cancellationToken) =>
         {
@@ -1035,7 +1036,7 @@ public static class ProductionHealthEndpoints
         }).AllowAnonymous();
 
         endpoints.MapGet("/api/ops/health/ready-detail", async Task<IResult> (
-            ProductionReadinessSnapshotCache snapshotCache,
+            [FromServices] ProductionReadinessSnapshotCache snapshotCache,
             HttpContext context,
             CancellationToken cancellationToken,
             bool forceRefresh = true) =>
@@ -1051,7 +1052,7 @@ public static class ProductionHealthEndpoints
             return TypedResults.Json(report, statusCode: statusCode);
         }).RequireAdminPermission(AdminPermissions.AuditRead);
 
-        endpoints.MapGet("/api/ops/crawler-ranges/status", (CrawlerDetectorService detector) =>
+        endpoints.MapGet("/api/ops/crawler-ranges/status", ([FromServices] CrawlerDetectorService detector) =>
         {
             CrawlerRangeStatus status = detector.GetRangeStatus();
             return TypedResults.Json(new

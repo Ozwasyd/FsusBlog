@@ -71,14 +71,15 @@ public sealed class CommentSecurityHardeningTests
     [Fact]
     public void CommentCreateService_PublishesBeforeModelDispositionAndWarnsOnAutomaticHide()
     {
-        IReadOnlyList<string> creation = RuntimeMetadataInspection
-            .DescribeDeclaredMemberReferencesInOrderContaining(
+        IReadOnlyList<IReadOnlyList<string>> creationPaths = RuntimeMetadataInspection
+            .DescribeDeclaredMemberReferenceSequencesContaining(
                 typeof(CommentService),
+                "BuildInitialModerationReason",
                 "Comment.set_ModerationStatus",
                 "ApplyAutomaticModerationDispositionAsync");
-        Assert.True(
+        Assert.All(creationPaths, creation => Assert.True(
             FindReference(creation, "Comment.set_ModerationStatus") <
-            FindReference(creation, "ApplyAutomaticModerationDispositionAsync"));
+            FindReference(creation, "ApplyAutomaticModerationDispositionAsync")));
 
         string creationBody = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
             typeof(CommentService),
@@ -87,10 +88,11 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("BuildInitialModerationReason", creationBody, StringComparison.Ordinal);
         Assert.Contains("Comment.set_ModerationStatus", creationBody, StringComparison.Ordinal);
 
-        string notice = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+        string notice = RuntimeMetadataInspection.DescribeMethods(
             typeof(CommentService),
-            "评论审核提醒",
-            "本提醒不构成账号处罚");
+            "NotifyModelRiskHiddenAsync");
+        Assert.Contains("评论审核提醒", notice, StringComparison.Ordinal);
+        Assert.Contains("本提醒不构成账号处罚", notice, StringComparison.Ordinal);
         Assert.Contains("SendAccountTransactionalNoticeAsync", notice, StringComparison.Ordinal);
     }
 
@@ -161,13 +163,22 @@ public sealed class CommentSecurityHardeningTests
         Assert.Contains("CreateAttributablePublicCommentAsync", submitEndpoint, StringComparison.Ordinal);
         Assert.Contains("CreateStrongAnonymousCommentAsync", submitEndpoint, StringComparison.Ordinal);
 
-        string publicFrames = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+        string rootFrame = RuntimeMetadataInspection.DescribeMethods(
             typeof(BinaryEndpoints),
-            "RecordCommentFrameCacheResult",
-            ":region:");
-        Assert.Contains("roots", publicFrames, StringComparison.Ordinal);
-        Assert.Contains("replies", publicFrames, StringComparison.Ordinal);
-        Assert.Contains("NormalizeCommentFrameRegion", publicFrames, StringComparison.Ordinal);
+            "BuildCommentThreadFrameIdentity");
+        string replyFrame = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            "BuildCommentReplyFrameIdentity");
+        string cacheResult = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BinaryEndpoints),
+            "RecordCommentFrameCacheResult");
+        Assert.Contains("roots", rootFrame, StringComparison.Ordinal);
+        Assert.Contains(":region:", rootFrame, StringComparison.Ordinal);
+        Assert.Contains("NormalizeCommentFrameRegion", rootFrame, StringComparison.Ordinal);
+        Assert.Contains("replies", replyFrame, StringComparison.Ordinal);
+        Assert.Contains(":region:", replyFrame, StringComparison.Ordinal);
+        Assert.Contains("NormalizeCommentFrameRegion", replyFrame, StringComparison.Ordinal);
+        Assert.Contains("NormalizeCommentFrameRegion", cacheResult, StringComparison.Ordinal);
 
         string service = RuntimeMetadataInspection.DescribeType(typeof(CommentService));
         Assert.Contains(nameof(CommentRegionCompliance), service, StringComparison.Ordinal);
@@ -231,9 +242,12 @@ public sealed class CommentSecurityHardeningTests
             string capture = Path.Combine(root, "psql-input.sql");
             string psql = Path.Combine(root, "psql");
             await File.WriteAllTextAsync(psql, $"#!/usr/bin/env bash\ncat > '{capture}'\n");
-            File.SetUnixFileMode(
-                psql,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(
+                    psql,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
             string tool = BackendTestPaths.FromRoot("tools", "security", "rotate-region-ip-hash-pepper.sh");
 
             ProcessResult refused = await RunRotationToolAsync(tool, root, confirm: null);
@@ -276,10 +290,9 @@ public sealed class CommentSecurityHardeningTests
     [Fact]
     public void UserCommentHistory_ExposesModerationStatusWithoutInternalReasons()
     {
-        string userCommentsBlock = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+        string userCommentsBlock = RuntimeMetadataInspection.DescribeMethods(
             typeof(CommentService),
-            "set_ModerationStatus",
-            "set_HasBlockedRegions");
+            nameof(CommentService.GetAttributableCommentsAsync));
 
         Assert.Contains("set_ModerationStatus", userCommentsBlock, StringComparison.Ordinal);
         Assert.Contains("set_HasBlockedRegions", userCommentsBlock, StringComparison.Ordinal);
@@ -301,9 +314,10 @@ public sealed class CommentSecurityHardeningTests
     }
 
     [Fact]
+    [Trait("ShardAffinity", "EndpointContractApplication")]
     public async Task CommentModerationEndpoints_RequireRateLimitAndAdminSensitiveAdminStepUpProof()
     {
-        await using WebApplication app = EndpointContractApplication.Create();
+        await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
         RouteEndpoint queue = EndpointContractApplication.Find(
             app,
             "/api/binary/author/comments/moderation",

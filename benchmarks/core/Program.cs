@@ -10,6 +10,7 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Toolchains.InProcess.NoEmit;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -37,6 +38,13 @@ if (args.Contains("--aeds-compression-profile", StringComparer.Ordinal))
     return AedsCompressionProfiler.Run(args);
 }
 
+var benchmarkJob = string.Equals(
+    Environment.GetEnvironmentVariable("FSUSBLOG_BENCHMARK_IN_PROCESS_NO_EMIT"),
+    "1",
+    StringComparison.Ordinal)
+    ? Job.ShortRun.WithToolchain(InProcessNoEmitToolchain.Instance)
+    : Job.ShortRun;
+
 BenchmarkSwitcher
     .FromTypes([
         typeof(PodMappingBenchmarks),
@@ -52,7 +60,7 @@ BenchmarkSwitcher
         typeof(CompositeAcBenchmarks),
         typeof(DoubleArrayAcBenchmarks),
         typeof(SearchDictionaryLookupBenchmarks)])
-    .Run(args, ManualConfig.Create(DefaultConfig.Instance).AddJob(Job.ShortRun));
+    .Run(args, ManualConfig.Create(DefaultConfig.Instance).AddJob(benchmarkJob));
 return 0;
 
 [MemoryDiagnoser]

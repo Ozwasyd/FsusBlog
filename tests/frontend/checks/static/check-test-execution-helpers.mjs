@@ -17,13 +17,24 @@ const parallelHelper = legacyRunner.slice(
 assert.doesNotMatch(parallelHelper, /kill "\$pid"/, 'parallel groups must not kill peers after one failure')
 assert.match(parallelHelper, /local -a failures=\(\)/u)
 assert.match(parallelHelper, /parallel group failed: \$group \(\$\{failures\[\*\]\}\)/u)
+const securityStaticRunner = legacyRunner.slice(
+  legacyRunner.indexOf('run_security_static_only()'),
+  legacyRunner.indexOf('\nrun_security_runtime_core_only()')
+)
+const securityRuntimeRunner = legacyRunner.slice(
+  legacyRunner.indexOf('run_security_runtime_core_only()'),
+  legacyRunner.indexOf('\nrun_security_only()')
+)
 const securityRunner = legacyRunner.slice(
   legacyRunner.indexOf('run_security_only()'),
   legacyRunner.indexOf('\nrun_security()')
 )
-assert.match(securityRunner, /run_parallel "security-static"/u)
-assert.match(securityRunner, /local -a security_failures=\(\)/u)
-assert.match(securityRunner, /security stage failed, continuing/u)
+assert.match(securityStaticRunner, /run_parallel "security-static"/u)
+assert.doesNotMatch(securityStaticRunner, /require_debug_stack/u)
+assert.match(securityRuntimeRunner, /run_parallel "security-runtime-core"/u)
+assert.match(securityRuntimeRunner, /local -a security_failures=\(\)/u)
+assert.match(securityRuntimeRunner, /security stage failed, continuing/u)
+assert.match(securityRunner, /run_parallel "security-phases"/u)
 
 async function importRequired(relativePath) {
   const absolutePath = path.join(root, relativePath)
@@ -39,20 +50,123 @@ const overridden = vitest.resolveVitestWorkerCount({
   env: { FSUSBLOG_VITEST_MAX_WORKERS: '7' },
   cpuCount: 16,
   freeMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3,
   load1: 0
 })
-assert.equal(overridden, 7, 'explicit Vitest worker override must win')
+assert.equal(overridden, 7, 'explicit Vitest worker cap must be applied after host capacity')
 assert.equal(vitest.resolveVitestWorkerCount({
-  env: {}, cpuCount: 16, freeMemoryBytes: 512 * 1024 ** 2, load1: 0
+  env: {}, cpuCount: 16, freeMemoryBytes: 512 * 1024 ** 2, totalMemoryBytes: 32 * 1024 ** 3, load1: 0
 }), 1, 'low-memory hosts must fall back to one Vitest worker')
 assert.equal(vitest.resolveVitestWorkerCount({
-  env: {}, cpuCount: 8, freeMemoryBytes: 16 * 1024 ** 3, load1: 7.5
+  env: {}, cpuCount: 8, freeMemoryBytes: 16 * 1024 ** 3, totalMemoryBytes: 16 * 1024 ** 3, load1: 7.5
 }), 1, 'high-load hosts must fall back to one Vitest worker')
+assert.equal(vitest.resolveVitestWorkerCount({
+  env: {
+    FSUSBLOG_STEP_CPU_BUDGET: '3',
+    FSUSBLOG_BUNDLE_CPU_UNITS: '6',
+    FSUSBLOG_BUNDLE_CPU_BUDGET: '12',
+    FSUSBLOG_STEP_MEMORY_GIB: '6'
+  },
+  cpuCount: 16,
+  freeMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3,
+  load1: 15
+}), 3, 'Vitest must prefer the actual step grant and ignore unrelated host load under scheduler control')
+assert.equal(vitest.resolveVitestWorkerCount({
+  env: {
+    FSUSBLOG_BUNDLE_CPU_UNITS: '6',
+    FSUSBLOG_BUNDLE_CPU_BUDGET: '12',
+    FSUSBLOG_BUNDLE_MEMORY_GIB: '8'
+  },
+  cpuCount: 16,
+  freeMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3,
+  load1: 15
+}), 6, 'scheduler-managed Vitest must use the CPU grant already admitted against live memory')
+assert.equal(vitest.resolveVitestWorkerCount({
+  env: {
+    FSUSBLOG_STEP_CPU_BUDGET: '2',
+    FSUSBLOG_STEP_MEMORY_GIB: '1.03'
+  },
+  cpuCount: 8,
+  freeMemoryBytes: 2 * 1024 ** 3,
+  totalMemoryBytes: 16 * 1024 ** 3,
+  load1: 7
+}), 2, 'a two-CPU admitted step must not be collapsed by host-average memory accounting')
+assert.throws(() => vitest.resolveVitestWorkerCount({
+  env: { FSUSBLOG_STEP_CPU_BUDGET: '0', FSUSBLOG_BUNDLE_CPU_UNITS: '8' },
+  cpuCount: 16,
+  freeMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3
+}), /FSUSBLOG_STEP_CPU_BUDGET must be a positive finite number/u)
+assert.doesNotMatch(
+  await readFile(path.join(root, 'src/frontend/vitest.shared.mjs'), 'utf8'),
+  /FSUSBLOG_VITEST_MEMORY_PER_WORKER_BYTES/u,
+  'Vitest must derive per-worker memory from current host capacity instead of a fixed GiB value'
+)
+
+const playwrightWorkers = await importRequired('tools/test/resolve-playwright-workers.mjs')
+assert.equal(playwrightWorkers.resolvePlaywrightWorkerCount({
+  profile: 'visual-console',
+  env: {
+    FSUSBLOG_STEP_CPU_BUDGET: '3',
+    FSUSBLOG_BUNDLE_CPU_UNITS: '6',
+    FSUSBLOG_BUNDLE_CPU_BUDGET: '12',
+    FSUSBLOG_STEP_MEMORY_GIB: '6'
+  },
+  cpuCount: 16,
+  availableMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3,
+  load1: 15,
+  busyCpus: 15
+}).workers, 3, 'Playwright must prefer the actual step grant and use all granted CPU when memory allows')
+assert.equal(playwrightWorkers.resolvePlaywrightWorkerCount({
+  profile: 'acceptance-public-routes',
+  env: {
+    FSUSBLOG_BUNDLE_CPU_UNITS: '6',
+    FSUSBLOG_BUNDLE_CPU_BUDGET: '12',
+    FSUSBLOG_BUNDLE_MEMORY_GIB: '8'
+  },
+  cpuCount: 16,
+  availableMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3,
+  load1: 15,
+  busyCpus: 15
+}).workers, 4, 'Playwright must cap the CPU grant with its dynamic proportional-memory capacity')
+assert.equal(playwrightWorkers.resolvePlaywrightWorkerCount({
+  env: {},
+  cpuCount: 8,
+  availableMemoryBytes: 16 * 1024 ** 3,
+  totalMemoryBytes: 16 * 1024 ** 3,
+  load1: 7,
+  busyCpus: 7
+}).workers, 1, 'unmanaged Playwright must retain capacity for current host pressure')
+assert.throws(() => playwrightWorkers.resolvePlaywrightWorkerCount({
+  env: { FSUSBLOG_STEP_MEMORY_GIB: 'invalid', FSUSBLOG_BUNDLE_MEMORY_GIB: '32' },
+  cpuCount: 16,
+  availableMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3
+}), /FSUSBLOG_STEP_MEMORY_GIB must be a positive finite number/u)
+const playwrightConfigSource = await readFile(path.join(root, 'src/frontend/playwright.config.ts'), 'utf8')
+for (const token of [
+  'FSUSBLOG_STEP_CPU_BUDGET',
+  'FSUSBLOG_BUNDLE_CPU_UNITS',
+  'FSUSBLOG_STEP_MEMORY_GIB',
+  'os.freemem()',
+  'os.totalmem()',
+  'dynamicWorkerCap'
+]) {
+  assert.match(playwrightConfigSource, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'))
+}
+assert.doesNotMatch(playwrightConfigSource, /process\.env\.CI\s*\?\s*\d+/u)
+const consoleVisualSource = await readFile(path.join(root, 'tools/frontend/check-console-visual.sh'), 'utf8')
+assert.match(consoleVisualSource, /resolve-playwright-workers\.mjs visual-console/u)
 
 const fastOptions = vitest.createVitestRuntimeOptions('unit-core', {
   env: { FSUSBLOG_TEST_SHARD_INDEX: '2', FSUSBLOG_TEST_SHARD_TOTAL: '4' },
   cpuCount: 8,
   freeMemoryBytes: 16 * 1024 ** 3,
+  totalMemoryBytes: 16 * 1024 ** 3,
   load1: 0,
   argv: []
 })
@@ -107,6 +221,20 @@ const previousFixtureRoot = process.env.FSUSBLOG_FIXTURE_ROOT
 try {
   process.env.FSUSBLOG_FIXTURE_ROOT = authFixtureRoot
   const sessionFixtures = await importRequired('tests/frontend/support/session-fixtures.mjs')
+  const sessionFixtureSource = await readFile(
+    path.join(root, 'tests/frontend/support/session-fixtures.mjs'),
+    'utf8'
+  )
+  assert.match(
+    sessionFixtureSource,
+    /account_subject_hash\s*=\s*\$\{sqlString\(accountSubjectHashValue\)\}/u,
+    'fixture account reset must persist the same stable subject hash carried by its JWT'
+  )
+  assert.match(
+    sessionFixtureSource,
+    /\[ACCOUNT_SUBJECT_HASH_CLAIM\]:\s*accountSubjectHashValue/u,
+    'fixture JWT must carry the persisted stable account subject hash'
+  )
   await sessionFixtures.persistAuthFixtureManifest({
     user: { userId: 'user-1', sessionId: 'session-user', cookieHeader: 'fsus-user=value' },
     admin: { adminId: 'admin-1', sessionId: 'session-admin', cookieHeader: 'fsus-admin=value' },
@@ -353,45 +481,187 @@ assert.deepEqual(commandManifest.validateCommandManifest({
   ]
 }), [])
 assert.equal(commandManifest.resolveManifestWorkers({
-  env: {}, cpuCount: 8, freeMemoryBytes: 512 * 1024 ** 2, load1: 0
+  env: {}, cpuCount: 8, freeMemoryBytes: 512 * 1024 ** 2, totalMemoryBytes: 16 * 1024 ** 3, load1: 0
 }), 1, 'low-memory command manifests must run read checks serially')
+assert.equal(commandManifest.resolveManifestWorkers({
+  env: {
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS: '12',
+    FSUSBLOG_STEP_CPU_BUDGET: '6',
+    FSUSBLOG_STEP_MEMORY_GIB: '8'
+  },
+  cpuCount: 16,
+  freeMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3,
+  load1: 15
+}), 6, 'scheduler-managed manifests must use the CPU grant already admitted against live memory')
+assert.equal(commandManifest.resolveManifestWorkers({
+  env: {
+    FSUSBLOG_STEP_CPU_BUDGET: '2',
+    FSUSBLOG_STEP_MEMORY_GIB: '1.03'
+  },
+  cpuCount: 8,
+  freeMemoryBytes: 512 * 1024 ** 2,
+  totalMemoryBytes: 16 * 1024 ** 3,
+  load1: 7
+}), 2, 'scheduler admission must not be re-capped by host-average memory or host load')
+assert.equal(commandManifest.resolveManifestWorkers({
+  env: {}, cpuCount: 16, freeMemoryBytes: 32 * 1024 ** 3, totalMemoryBytes: 32 * 1024 ** 3, load1: 0
+}), 16, 'healthy unmanaged manifests must not retain a fixed four-worker cap')
+assert.throws(() => commandManifest.resolveManifestWorkers({
+  env: { FSUSBLOG_STEP_MEMORY_GIB: 'invalid' },
+  cpuCount: 16,
+  freeMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3
+}), /FSUSBLOG_STEP_MEMORY_GIB must be a positive finite number/u)
+assert.throws(() => commandManifest.resolveManifestWorkers({
+  env: { FSUSBLOG_COMMAND_MANIFEST_WORKERS: '8x' },
+  cpuCount: 16,
+  freeMemoryBytes: 32 * 1024 ** 3,
+  totalMemoryBytes: 32 * 1024 ** 3
+}), /FSUSBLOG_COMMAND_MANIFEST_WORKERS must be a positive integer/u)
+const manifestChildEnv = commandManifest.resolveManifestChildEnvironment({
+  env: {
+    FSUSBLOG_STEP_CPU_BUDGET: '6',
+    FSUSBLOG_STEP_MEMORY_GIB: '9',
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS: '12'
+  },
+  workers: 3,
+  concurrent: true
+})
+assert.equal(manifestChildEnv.FSUSBLOG_STEP_CPU_BUDGET, '2')
+assert.equal(manifestChildEnv.FSUSBLOG_STEP_MEMORY_GIB, '3')
+assert.equal(manifestChildEnv.FSUSBLOG_COMMAND_MANIFEST_WORKERS, '2')
+assert.equal(manifestChildEnv.FSUSBLOG_NODE_TEST_CONCURRENCY, '2')
 
 const commandTempRoot = await mkdtemp(path.join(os.tmpdir(), 'fsusblog-command-manifest-'))
 try {
   const markerFile = path.join(commandTempRoot, 'markers.txt')
+  const commandManifestEnv = {
+    ...process.env,
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS: '2'
+  }
+  const commandManifestWorkers = commandManifest.resolveManifestWorkers({ env: commandManifestEnv })
+  const overlapExpected = commandManifestWorkers > 1
   const markerScript = [
     "const fs = require('node:fs')",
-    'const [file, id, delay] = process.argv.slice(1)',
+    'const [file, id, overlap] = process.argv.slice(1)',
+    "const peer = id === 'read-a' ? 'read-b' : 'read-a'",
     "fs.appendFileSync(file, `${id}:start\\n`)",
-    "setTimeout(() => fs.appendFileSync(file, `${id}:end\\n`), Number(delay))"
+    "if (overlap !== 'true') { fs.appendFileSync(file, `${id}:end\\n`); process.exit(0) }",
+    "fs.writeFileSync(`${file}.${id}.ready`, '')",
+    'const finishAfterPeerStarts = () => {',
+    "  if (!fs.existsSync(`${file}.${peer}.ready`)) return setImmediate(finishAfterPeerStarts)",
+    "  fs.appendFileSync(file, `${id}:end\\n`)",
+    '}',
+    'setImmediate(finishAfterPeerStarts)'
   ].join(';')
   await commandManifest.runCommandManifest({
     schema: 'fsusblog.test-command-manifest.v1',
     lane: 'contract-ordering',
     commands: [
-      { id: 'read-a', command: [process.execPath, '-e', markerScript, markerFile, 'read-a', '100'], access: 'read' },
-      { id: 'read-b', command: [process.execPath, '-e', markerScript, markerFile, 'read-b', '100'], access: 'read' },
-      { id: 'write', command: [process.execPath, '-e', markerScript, markerFile, 'write', '0'], access: 'write' }
+      { id: 'read-a', command: [process.execPath, '-e', markerScript, markerFile, 'read-a', String(overlapExpected)], access: 'read' },
+      { id: 'read-b', command: [process.execPath, '-e', markerScript, markerFile, 'read-b', String(overlapExpected)], access: 'read' },
+      {
+        id: 'write',
+        command: [
+          process.execPath,
+          '-e',
+          "require('node:fs').appendFileSync(process.argv[1], 'write:start\\n')",
+          markerFile
+        ],
+        access: 'write'
+      }
     ]
   }, {
     cwd: commandTempRoot,
-    env: { ...process.env, FSUSBLOG_COMMAND_MANIFEST_WORKERS: '2' }
+    env: commandManifestEnv
   })
   const markers = (await readFile(markerFile, 'utf8')).trim().split('\n')
   const lastReadEnd = Math.max(markers.indexOf('read-a:end'), markers.indexOf('read-b:end'))
-  assert.ok(markers.indexOf('read-a:start') < markers.indexOf('read-b:end'))
-  assert.ok(markers.indexOf('read-b:start') < markers.indexOf('read-a:end'))
+  if (overlapExpected) {
+    assert.ok(markers.indexOf('read-a:start') < markers.indexOf('read-b:end'))
+    assert.ok(markers.indexOf('read-b:start') < markers.indexOf('read-a:end'))
+  } else {
+    assert.ok(markers.indexOf('read-a:end') < markers.indexOf('read-b:start'))
+  }
   assert.ok(markers.indexOf('write:start') > lastReadEnd, 'write checks must start after read checks finish')
 } finally {
   await rm(commandTempRoot, { recursive: true, force: true })
 }
 
+const commandFailureRoot = await mkdtemp(path.join(os.tmpdir(), 'fsusblog-command-manifest-failures-'))
+try {
+  const markerFile = path.join(commandFailureRoot, 'markers.txt')
+  const commandScript = [
+    "const fs = require('node:fs')",
+    'const [file, id, status] = process.argv.slice(1)',
+    "fs.appendFileSync(file, `${id}\n`)",
+    'process.exit(Number(status))'
+  ].join(';')
+  await assert.rejects(commandManifest.runCommandManifest({
+    schema: 'fsusblog.test-command-manifest.v1',
+    lane: 'contract-failure-collection',
+    commands: [
+      { id: 'read-fail-a', command: [process.execPath, '-e', commandScript, markerFile, 'read-fail-a', '2'], access: 'read' },
+      { id: 'read-fail-b', command: [process.execPath, '-e', commandScript, markerFile, 'read-fail-b', '3'], access: 'read' },
+      { id: 'write-after-failures', command: [process.execPath, '-e', commandScript, markerFile, 'write-after-failures', '0'], access: 'write' }
+    ]
+  }, {
+    cwd: commandFailureRoot,
+    env: { ...process.env, FSUSBLOG_COMMAND_MANIFEST_WORKERS: '1' }
+  }), (error) => error instanceof AggregateError && error.errors.length === 2)
+  assert.deepEqual((await readFile(markerFile, 'utf8')).trim().split('\n'), [
+    'read-fail-a',
+    'read-fail-b',
+    'write-after-failures'
+  ])
+} finally {
+  await rm(commandFailureRoot, { recursive: true, force: true })
+}
+
 const dotnetProcessors = await importRequired('tools/test/resolve-dotnet-test-processors.mjs')
 assert.equal(dotnetProcessors.resolveDotnetTestProcessorCount({
-  env: {}, cpuCount: 8, freeMemoryBytes: 2 * 1024 ** 3, load1: 0
+  env: {}, cpuCount: 8, freeMemoryBytes: 2 * 1024 ** 3, totalMemoryBytes: 16 * 1024 ** 3, load1: 0
 }), 1, 'low-resource .NET test hosts must run serially')
 assert.equal(dotnetProcessors.resolveDotnetTestProcessorCount({
-  env: {}, cpuCount: 8, freeMemoryBytes: 16 * 1024 ** 3, load1: 0
-}), 2, 'healthy .NET test hosts may run two isolated PostgreSQL collections')
+  env: {}, cpuCount: 8, freeMemoryBytes: 16 * 1024 ** 3, totalMemoryBytes: 16 * 1024 ** 3, load1: 0
+}), 8, 'healthy .NET test hosts must scale to the available CPU and memory envelope')
+assert.equal(dotnetProcessors.resolveDotnetTestProcessorCount({
+  env: {
+    FSUSBLOG_TIER_CPU_UNITS: '6',
+    FSUSBLOG_TIER_MEMORY_GIB: '8',
+    FSUSBLOG_DOTNET_TEST_PROCESSORS: '99'
+  },
+  cpuCount: 32,
+  freeMemoryBytes: 64 * 1024 ** 3,
+  totalMemoryBytes: 64 * 1024 ** 3,
+  load1: 0
+}), 6, 'explicit .NET processor overrides must be capped by the scheduler CPU grant after memory admission')
+assert.equal(dotnetProcessors.resolveDotnetTestProcessorCount({
+  env: {
+    FSUSBLOG_STEP_CPU_BUDGET: '3',
+    FSUSBLOG_STEP_MEMORY_GIB: '12',
+    FSUSBLOG_BUNDLE_CPU_BUDGET: '8',
+    FSUSBLOG_BUNDLE_MEMORY_GIB: '32',
+    FSUSBLOG_TIER_CPU_UNITS: '16',
+    FSUSBLOG_TIER_MEMORY_GIB: '64'
+  },
+  cpuCount: 16,
+  totalMemoryBytes: 64 * 1024 ** 3
+}), 3, 'the most specific step grant must win over bundle and tier grants')
+assert.throws(() => dotnetProcessors.resolveDotnetTestProcessorCount({
+  env: { FSUSBLOG_BUNDLE_CPU_BUDGET: 'invalid' },
+  cpuCount: 8,
+  totalMemoryBytes: 16 * 1024 ** 3
+}), /FSUSBLOG_BUNDLE_CPU_BUDGET must be a finite positive CPU grant/u)
+assert.throws(() => dotnetProcessors.resolveDotnetTestProcessorCount({
+  env: {
+    FSUSBLOG_TIER_CPU_UNITS: '8',
+    FSUSBLOG_TIER_MEMORY_GIB: '16',
+    FSUSBLOG_DOTNET_TEST_PROCESSORS: '8x'
+  },
+  cpuCount: 8,
+  totalMemoryBytes: 16 * 1024 ** 3
+}), /FSUSBLOG_DOTNET_TEST_PROCESSORS must be a positive integer processor override/u)
 
 console.log('[test-execution-helpers] ok')

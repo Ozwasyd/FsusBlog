@@ -66,7 +66,7 @@
       "id": "xunit:tests/backend/Unit/BusinessLogicHardeningContractTests.cs#BusinessLogicHardeningContractTests.CommentCursorPolicies_AreResolvedThroughConfigurableProvider",
       "path": "tests/backend/Unit/BusinessLogicHardeningContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/PaginationAndProjectionTests.cs#PaginationAndProjectionTests.CommentCursorPolicyResolver_AppliesTenantOverrideAndClamps"
+        "xunit:tests/backend/Unit/PaginationAndProjectionTests.cs#CursorPolicyTests.CommentCursorPolicyResolver_AppliesTenantOverrideAndClamps"
       ],
       "reason": "The resolver output now proves tenant override selection and safety clamping directly."
     },

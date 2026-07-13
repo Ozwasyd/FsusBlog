@@ -1,4 +1,6 @@
-import { mount } from '@vue/test-utils'
+// @vitest-environment happy-dom
+
+import { flushPromises, mount } from '@vue/test-utils'
 import {
   defineComponent,
   h,
@@ -98,6 +100,7 @@ describe('AccountHeaderMenu', () => {
     expect(wrapper.emitted('logout')).toHaveLength(1)
 
     await wrapper.get('[data-command="account"]').trigger('click')
+    await flushPromises()
     await nextTick()
     expect(router.currentRoute.value.path).toBe('/user/identity')
   })

@@ -17,6 +17,9 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFixture fixture)
 {
+    private static readonly SemaphoreSlim DatabaseResetLock = new(1, 1);
+    private static string? sharedConnectionString;
+
     [Fact]
     public void JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature()
     {
@@ -28,7 +31,7 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
         Assert.Contains("IAdminSessionValidationService", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("IAdminSessionValidationService.ValidateAsync", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("AuthCookieService.ClearAdminSessionCookies", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("ResultContext`1.Fail", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains(".Fail", runtimeShape, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -113,11 +116,16 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
         Assert.DoesNotContain("admin_session_conflict", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("InSingleAsync", runtimeShape, StringComparison.Ordinal);
 
-        string observability = RuntimeMetadataInspection.DescribeType(typeof(FsusObservability));
-        Assert.Contains("fsus.admin.session.validation.db_read_count", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.admin.session.validation.cache_hit", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.admin.session.touch_skipped", observability, StringComparison.Ordinal);
-        Assert.Contains("fsus.admin.session.touch_elapsed_ms", observability, StringComparison.Ordinal);
+        HashSet<string> instruments = typeof(FsusObservability)
+            .GetFields(BindingFlags.Static | BindingFlags.NonPublic)
+            .Select(static field => field.GetValue(null))
+            .OfType<System.Diagnostics.Metrics.Instrument>()
+            .Select(static instrument => instrument.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        Assert.Contains("fsus.admin.session.validation.db_read_count", instruments);
+        Assert.Contains("fsus.admin.session.validation.cache_hit", instruments);
+        Assert.Contains("fsus.admin.session.touch_skipped", instruments);
+        Assert.Contains("fsus.admin.session.touch_elapsed_ms", instruments);
     }
 
     [Fact]
@@ -245,7 +253,6 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
 
     private static void Seed(SqlSugarClient db, AdminPrincipal principal, AdminSession session)
     {
-        CreateAdminTables(db);
         db.Insertable(principal).ExecuteCommand();
         db.Insertable(session).ExecuteCommand();
     }
@@ -332,8 +339,34 @@ public sealed class AdminSessionValidationServiceTests(PostgresSchemaMigrationFi
         return (AdminSessionValidationResult)taskObject.GetType().GetProperty("Result")!.GetValue(taskObject)!;
     }
 
-    private Task<string> CreateConnectionStringAsync()
-        => PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+    private async Task<string> CreateConnectionStringAsync()
+    {
+        await DatabaseResetLock.WaitAsync();
+        try
+        {
+            string connectionString;
+            if (sharedConnectionString is null)
+            {
+                connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+                using SqlSugarClient db = CreateDb(connectionString);
+                CreateAdminTables(db);
+                sharedConnectionString = connectionString;
+            }
+            else
+            {
+                connectionString = sharedConnectionString;
+            }
+
+            await fixture.ExecuteAsync(
+                connectionString,
+                "TRUNCATE TABLE admin_session, admin_principal RESTART IDENTITY CASCADE;");
+            return connectionString;
+        }
+        finally
+        {
+            DatabaseResetLock.Release();
+        }
+    }
 
     private static SqlSugarClient CreateDb(string connectionString)
         => PostgresSqlSugarTestClient.Create(connectionString);

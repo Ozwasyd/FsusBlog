@@ -411,7 +411,7 @@ The normalizer currently supports the `describe-security-groups` JSON shape, aut
 }
 ```
 
-When `FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE` is set, `./tools/test.sh security` also runs `tools/security/verify-production-exposure-evidence.sh` after a successful live probe. That verifier rejects incomplete DNS evidence, reachable forbidden ports, missing HTTPS/HSTS, and `FSUSBLOG_LIVE_TARGETS` pre-cutover evidence for final closeout.
+Local production security always runs `tools/security/check-local-runtime-exposure.mjs` against the current fresh namespace. This verifies real loopback listeners, backend security headers, and loopback-only PostgreSQL/Redis Docker bindings, and writes `.tmp/security/local-runtime-exposure.json`; its schema explicitly says it does not count as production closeout. When `FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE` is set, `./tools/test.sh security` separately runs `tools/security/verify-production-exposure-evidence.sh` after a successful external live probe. That verifier rejects incomplete DNS evidence, reachable forbidden ports, missing HTTPS/HSTS, and `FSUSBLOG_LIVE_TARGETS` pre-cutover evidence for final closeout.
 
 After the firewall, DNS readiness/delegation, live evidence, and status report verifiers pass against the real production domains, verify closeout with:
 

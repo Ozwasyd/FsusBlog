@@ -118,7 +118,7 @@ expectIncludes(homePage, 'data-fsus-motion-surface="home-hero"', 'PublicHomePage
 expectNotIncludes(homePage, 'fsusBlogMotionPresets.homeHero', 'PublicHomePageContent.vue')
 expectNotMatches(homePage, /<header[\s\S]*?\bv-motion=/, 'PublicHomePageContent.vue home hero must not use v-motion by default')
 
-expectIncludes(featured, 'data-fsus-motion-surface="home-featured-articles"', 'FeaturedArticlesSection.vue')
+expectIncludes(featured, 'data-fsus-motion-surface="home-featured-article"', 'FeaturedArticlesSection.vue')
 expectIncludes(featured, 'rounded-[var(--fsusblog-reading-radius-media)]', 'FeaturedArticlesSection.vue')
 expectNotIncludes(featured, 'v-motion=', 'FeaturedArticlesSection.vue')
 expectNotIncludes(featured, 'fsusBlogMotionPresets.articleCards', 'FeaturedArticlesSection.vue')

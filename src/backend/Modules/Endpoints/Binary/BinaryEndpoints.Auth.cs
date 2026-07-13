@@ -969,6 +969,7 @@ public static partial class BinaryEndpoints
             var challenge = new MfaChallengeResultDto(false, action, ticket.TicketId, null);
             return BinaryResults.Frame(aeds, AedsFrameType.MfaChallengeResult, writer => PodBinaryCodec.WriteMfaChallengeResult(challenge, writer));
         })
+        .RequireRateLimiting("fixed_ip")
         .RequireAnonymousAccountPrincipal();
 
         group.MapPost("/auth/mfa/challenge", static async Task<BinaryFrameResult> (

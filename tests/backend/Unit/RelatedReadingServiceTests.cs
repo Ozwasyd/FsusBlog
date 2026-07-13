@@ -23,10 +23,11 @@ public sealed class RelatedReadingServiceTests(PostgresSchemaMigrationFixture fi
         int tagId = db.Insertable(new Tag { Name = "cache" }).ExecuteReturnIdentity();
         int sourceId = InsertArticle(db, categoryId, "Source cache article", publishedAt);
         int candidateId = InsertArticle(db, categoryId, "Candidate cache article", publishedAt.AddMinutes(-10));
-        db.Insertable([
+        db.Insertable(new[]
+        {
             new ArticleTag { ArticleId = sourceId, TagId = tagId },
             new ArticleTag { ArticleId = candidateId, TagId = tagId }
-        ]).ExecuteCommand();
+        }).ExecuteCommand();
 
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         cache.GetStringAsync(
@@ -56,6 +57,7 @@ public sealed class RelatedReadingServiceTests(PostgresSchemaMigrationFixture fi
         RelatedReadingResponse? cold = await service.BuildAsync(sourceId);
         Assert.NotNull(cold);
         Assert.Contains(cold.Related, item => item.Id == candidateId);
+        Assert.All(cold.Related, item => Assert.Equal(DateTimeKind.Utc, item.CreateTime.Kind));
         Assert.InRange(commands.Count, 4, 5);
         Assert.DoesNotContain(commands, sql => sql.Contains("article_body", StringComparison.OrdinalIgnoreCase));
 
@@ -88,6 +90,25 @@ public sealed class RelatedReadingServiceTests(PostgresSchemaMigrationFixture fi
         Assert.Contains("共同标签", result.Reason, StringComparison.Ordinal);
         Assert.Contains("全文关键词", result.Reason, StringComparison.Ordinal);
         Assert.Contains("发布时间接近", result.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ScoringPath_DeduplicatesTagsAndMatchesKeywordsWithoutCrossFieldConcatenation()
+    {
+        RelatedReadingBenchmarkResult result = RelatedReadingService.ScoreCandidateForBenchmark(
+            1,
+            DateTime.UnixEpoch.AddDays(10),
+            [7],
+            2,
+            DateTime.UnixEpoch.AddDays(30),
+            [7, 7],
+            "POSTGRESQL runtime",
+            "notification stream",
+            ["postgresql", "stream"]);
+
+        Assert.Equal(50, result.Score);
+        Assert.Equal(20, result.PublishedDistance);
+        Assert.Equal("共同标签 / 全文关键词", result.Reason);
     }
 
     private static int InsertArticle(SqlSugarClient db, int categoryId, string title, DateTime publishedAt)

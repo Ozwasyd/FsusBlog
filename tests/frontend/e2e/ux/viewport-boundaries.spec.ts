@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import type { Browser, Page, StorageState, TestInfo } from '@playwright/test'
@@ -36,6 +37,10 @@ import {
   UX_VIEWPORT_MODEL_ROUTE_IDS,
   buildUxViewportPlan
 } from '../../support/playwright/uxViewportPlan.mjs'
+// @ts-ignore The risk-only settle helper intentionally stays a pure module covered by node:test.
+import { settleUxViewportRiskPage } from '../../support/playwright/uxViewportRiskSettle.mjs'
+// @ts-ignore Shared runtime browser budgets are exercised by node:test.
+import { resolveRuntimeBrowserTimeoutPlan } from '../../support/runtime-browser-timeout.mjs'
 // @ts-ignore The progress store intentionally stays a pure Node module shared with node:test.
 import { openUxViewportProgress, recordUxViewportGroupResult } from '../../support/playwright/uxViewportProgress.mjs'
 
@@ -83,6 +88,8 @@ type UxPlan = Readonly<{
   }>
 }>
 
+type UxRiskTimingRecorder = ReturnType<typeof createUxRiskTimingRecorder>
+
 const repositoryRoot = fileURLToPath(new URL('../../../../', import.meta.url))
 const mode = parseMode(process.env.FSUSBLOG_UX_VIEWPORT_MODE)
 const modeConfig = UX_VIEWPORT_MATRIX.modes[mode]
@@ -94,6 +101,14 @@ const viewportExecutionMode = mode === 'smoke' || usesIsolatedSessions
   ? 'parallel'
   : 'default'
 const resume = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RESUME')
+const riskMatrix = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RISK_MATRIX')
+const riskAppReadyTimeoutMs = riskMatrix
+  ? resolveRuntimeBrowserTimeoutPlan().requestTimeoutMs * 2
+  : undefined
+const riskPublicBaseUrl = riskMatrix
+  ? readOptionalHttpUrl('FSUSBLOG_UX_VIEWPORT_PUBLIC_BASE_URL')
+  : undefined
+const executionGroupIds = new Set(readOptionalList('FSUSBLOG_UX_VIEWPORT_EXECUTION_GROUP_IDS') ?? [])
 const uxRoutes = buildUxRoutes()
 assertRuntimeRouteCatalog(uxRoutes)
 const plan = buildUxViewportPlan({
@@ -105,7 +120,7 @@ const plan = buildUxViewportPlan({
     themes: readOptionalList('FSUSBLOG_UX_VIEWPORT_THEMES'),
     viewportIds: readOptionalList('FSUSBLOG_UX_VIEWPORT_VIEWPORTS'),
     media: readOptionalList('FSUSBLOG_UX_VIEWPORT_MEDIA'),
-    riskMatrix: readBooleanFlag('FSUSBLOG_UX_VIEWPORT_RISK_MATRIX')
+    riskMatrix
   }
 }) as UxPlan
 const progressRun = await openUxViewportProgress({
@@ -130,7 +145,7 @@ test.describe(`UX viewport boundaries (${mode})`, () => {
     mode: viewportExecutionMode
   })
 
-  const testGroups = parityBatch
+  const plannedTestGroups = parityBatch
     ? plan.groups.flatMap((group) => group.viewports.flatMap((viewportPlan) => (
         viewportPlan.steps.map((step) => ({
           ...group,
@@ -139,6 +154,16 @@ test.describe(`UX viewport boundaries (${mode})`, () => {
         }))
       )))
     : plan.groups
+  const testGroups = executionGroupIds.size > 0
+    ? plannedTestGroups.filter((group) => executionGroupIds.has(group.id))
+    : plannedTestGroups
+  if (executionGroupIds.size > 0) {
+    const selectedIds = new Set(testGroups.map((group) => group.id))
+    const missing = [...executionGroupIds].filter((groupId) => !selectedIds.has(groupId))
+    if (missing.length > 0 || testGroups.length === 0) {
+      throw new Error(`unknown UX viewport execution groups: ${missing.join(', ')}`)
+    }
+  }
 
   for (const group of testGroups) {
     test(group.id, async ({ browser }, testInfo) => {
@@ -147,9 +172,12 @@ test.describe(`UX viewport boundaries (${mode})`, () => {
         `completed by UX viewport run ${progressRun.progress.runId}`
       )
 
+      const timing = createUxRiskTimingRecorder(group, riskMatrix)
+      let groupError: unknown = null
       try {
-        await runUxRouteThemeGroup(browser, group)
+        await runUxRouteThemeGroup(browser, group, timing)
       } catch (error) {
+        groupError = error
         if (!parityBatch) {
           await recordUxViewportGroupResult({
             run: progressRun,
@@ -161,6 +189,8 @@ test.describe(`UX viewport boundaries (${mode})`, () => {
           })
         }
         throw error
+      } finally {
+        await publishUxRiskTiming(timing, testInfo, groupError)
       }
 
       if (!parityBatch) {
@@ -205,6 +235,16 @@ function readOptionalList(name: string): string[] | undefined {
   return raw.split(',').map((value) => value.trim()).filter(Boolean)
 }
 
+function readOptionalHttpUrl(name: string): string | undefined {
+  const raw = process.env[name]?.trim()
+  if (!raw) return undefined
+  const url = new URL(raw)
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error(`${name} must use http or https`)
+  }
+  return url.href
+}
+
 function buildUxRoutes(): UxRoute[] {
   const publicRoutes = buildAnonymousRoutes(fixtures).map((route) => ({
     id: `public-${route.name}`,
@@ -247,14 +287,30 @@ function assertRuntimeRouteCatalog(routes: UxRoute[]): void {
   }
 }
 
-async function runUxRouteThemeGroup(browser: Browser, group: PlannedGroup): Promise<void> {
-  const storageState = await storageStateFor(browser, group.storage)
-  const auditedContext = await openThemedAuditedContext(browser, group.theme, storageState)
-
+async function runUxRouteThemeGroup(
+  browser: Browser,
+  group: PlannedGroup,
+  timing: UxRiskTimingRecorder
+): Promise<void> {
+  const storageState = await timing.measure(
+    'fixture.storage-state',
+    group.storage,
+    () => storageStateFor(browser, group.storage)
+  )
+  const auditedContext = await timing.measure(
+    'context.open',
+    group.id,
+    () => openThemedAuditedContext(browser, group.theme, storageState, riskMatrix)
+  )
   try {
-    for (const viewportPlan of group.viewports) {
-      const pageSession = await auditedContext.newPage()
-      try {
+    const pageSession = await timing.measure(
+      'page.open',
+      group.id,
+      () => auditedContext.newPage()
+    )
+    try {
+      for (const viewportPlan of group.viewports) {
+      await timing.measure('page.viewport-and-reset', viewportPlan.id, async () => {
         await pageSession.page.setViewportSize({
           width: viewportPlan.viewport.width,
           height: viewportPlan.viewport.height
@@ -265,62 +321,169 @@ async function runUxRouteThemeGroup(browser: Browser, group: PlannedGroup): Prom
           'default',
           `${viewportPlan.id} pre-navigation reset`
         )
+      })
 
-        const navigationAuditStart = pageSession.audit.checkpoint()
-        await pageSession.page.goto(group.route.path, { waitUntil: 'domcontentloaded' })
-        await waitForAppReady(pageSession.page)
-        await settlePage(pageSession.page)
-        if (group.route.injectCorpus) {
-          await injectContentBoundaryCorpus(pageSession.page)
-          await settlePage(pageSession.page)
-        }
+      const navigationAuditStart = timing.measureSync(
+        'audit.checkpoint',
+        `${viewportPlan.id}:navigation`,
+        () => pageSession.audit.checkpoint()
+      )
+      await timing.measure(
+        'navigation.goto',
+        viewportPlan.id,
+        () => pageSession.page.goto(
+          riskPublicBaseUrl && group.storage === 'anonymous'
+            ? new URL(group.route.path, riskPublicBaseUrl).href
+            : group.route.path,
+          { waitUntil: 'domcontentloaded' }
+        )
+      )
+      await timing.measure(
+        'navigation.app-ready',
+        viewportPlan.id,
+        () => waitForUxViewportAppReady(pageSession.page, timing, viewportPlan.id)
+      )
+      await settleUxViewportPage(pageSession.page, timing, 'navigation', viewportPlan.id)
+      if (group.route.injectCorpus) {
+        await timing.measure(
+          'corpus.inject',
+          viewportPlan.id,
+          () => injectContentBoundaryCorpus(pageSession.page)
+        )
+        await settleUxViewportPage(pageSession.page, timing, 'corpus', viewportPlan.id)
+      }
 
-        let includesNavigationAudit = true
-        for (const step of viewportPlan.steps) {
-          await test.step(step.id, async () => {
-            const auditStart = includesNavigationAudit
-              ? navigationAuditStart
-              : pageSession.audit.checkpoint()
+      let includesNavigationAudit = true
+      for (const step of viewportPlan.steps) {
+        await test.step(step.id, async () => {
+          const auditStart = includesNavigationAudit
+            ? navigationAuditStart
+            : timing.measureSync(
+                'audit.checkpoint',
+                step.id,
+                () => pageSession.audit.checkpoint()
+              )
+          await timing.measure('media.reset', step.id, async () => {
             await resetUxViewportMediaMode(pageSession.page)
             await assertUxViewportMediaMode(pageSession.page, 'default', `${step.id} reset`)
+          })
+          await timing.measure('media.apply-and-assert', step.id, async () => {
             await applyUxViewportMediaMode(pageSession.page, step.media)
             await assertUxViewportMediaMode(pageSession.page, step.media, step.id)
-            await settlePage(pageSession.page)
-            await assertUxCombination(pageSession, group, viewportPlan, step)
-            pageSession.audit.assertCleanSince(auditStart, step.id)
-            includesNavigationAudit = false
           })
-        }
+          await settleUxViewportPage(pageSession.page, timing, 'media', step.id)
+          await assertUxCombination(pageSession, group, viewportPlan, step, timing)
+          timing.measureSync(
+              'audit.assert-clean',
+              step.id,
+              () => pageSession.audit.assertCleanSince(auditStart, step.id)
+          )
+          includesNavigationAudit = false
+        })
+      }
 
+      await timing.measure('media.final-reset', viewportPlan.id, async () => {
         await resetUxViewportMediaMode(pageSession.page)
         await assertUxViewportMediaMode(
           pageSession.page,
           'default',
           `${viewportPlan.id} final reset`
         )
-        if (screenshotsEnabled) {
-          await captureUxScreenshot(
-            pageSession.page,
-            group.route,
-            viewportPlan.viewport,
-            group.theme
-          )
-        }
-      } finally {
-        try {
+      })
+      if (screenshotsEnabled) {
+        await captureUxScreenshot(
+          pageSession.page,
+          group.route,
+          viewportPlan.viewport,
+          group.theme,
+          timing
+        )
+      }
+      }
+    } finally {
+      try {
+        await timing.measure('media.close-reset', group.id, async () => {
           await resetUxViewportMediaMode(pageSession.page)
-          await assertUxViewportMediaMode(
-            pageSession.page,
-            'default',
-            `${viewportPlan.id} close reset`
-          )
-        } finally {
-          await pageSession.close()
-        }
+          await assertUxViewportMediaMode(pageSession.page, 'default', `${group.id} close reset`)
+        })
+      } finally {
+        await timing.measure('page.close', group.id, () => pageSession.close())
       }
     }
   } finally {
-    await auditedContext.close()
+    await timing.measure('context.close', group.id, () => auditedContext.close())
+  }
+}
+
+async function settleUxViewportPage(
+  page: Page,
+  timing: UxRiskTimingRecorder,
+  phase: 'navigation' | 'corpus' | 'media',
+  detail: string
+): Promise<void> {
+  if (riskMatrix) {
+    const startedAt = performance.now()
+    try {
+      const result = await settleUxViewportRiskPage(page)
+      timing.record(
+        'settle.font-ready',
+        `${detail}:${result.readiness.font.status}`,
+        result.readiness.font.elapsedMs
+      )
+      for (const image of result.readiness.images) {
+        timing.record(
+          'settle.image-decode',
+          [detail, image.status, image.completeBefore, image.naturalWidthBefore, image.url].join('|'),
+          image.elapsedMs
+        )
+      }
+    } finally {
+      const elapsedMs = performance.now() - startedAt
+      timing.record('settle.total', detail, elapsedMs)
+      timing.record(`settle.${phase}`, detail, elapsedMs)
+    }
+    return
+  }
+  await timing.measure('settle.shared', detail, () => settlePage(page))
+}
+
+async function waitForUxViewportAppReady(
+  page: Page,
+  timing: UxRiskTimingRecorder,
+  detail: string
+): Promise<void> {
+  if (!riskMatrix) {
+    await waitForAppReady(page)
+    return
+  }
+
+  const startedAt = performance.now()
+  // Never keep a page.evaluate call open while issuing another Playwright
+  // command for the same page. Chromium serializes those protocol operations;
+  // the previous infinite in-page milestone loop therefore prevented the
+  // bounded shared readiness waiter below from ever starting.
+  await waitForAppReady(page, riskAppReadyTimeoutMs)
+  const elapsedMs = performance.now() - startedAt
+  const conditions = await page.evaluate(() => {
+    const appRoot = document.querySelector('#app') as (Element & { __vue_app__?: unknown }) | null
+    const isPublicShell = Boolean(document.querySelector('#fsus-aot-shell'))
+    const renderableStylesheets = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'))
+      .filter((link) => {
+        const href = (link.getAttribute('href') ?? '').toLowerCase()
+        const marker = (link.dataset.fsusblogStyle ?? '').toLowerCase()
+        return !marker.includes('font') && !href.includes('font')
+      })
+    return {
+      documentComplete: document.readyState === 'complete',
+      appRoot: Boolean(appRoot),
+      vueMounted: isPublicShell || Boolean(appRoot?.__vue_app__),
+      stylesReady: !isPublicShell || renderableStylesheets.length === 0
+        || renderableStylesheets.some((link) => Boolean(link.sheet)),
+      loaderHidden: (document.getElementById('global-loader') as HTMLElement | null)?.hidden ?? true
+    }
+  })
+  for (const [condition, ready] of Object.entries(conditions)) {
+    if (ready) timing.record(`navigation.app-ready.${condition}`, detail, elapsedMs)
   }
 }
 
@@ -342,33 +505,54 @@ async function assertUxCombination(
   session: AuditedPageSession,
   testCase: PlannedGroup,
   viewportPlan: PlannedViewport,
-  step: PlannedStep
+  step: PlannedStep,
+  timing: UxRiskTimingRecorder
 ): Promise<void> {
   const label = `${testCase.route.id} ${viewportPlan.viewport.name} ${testCase.theme} ${step.media}`
   const expectedLocation = new URL(testCase.route.expectedUrl, session.page.url())
-  await expect
-    .poll(() => {
-      const current = new URL(session.page.url())
-      return testCase.route.allowQuery || testCase.route.expectedQuery
-        ? current.pathname
-        : `${current.pathname}${current.search}`
-    }, { message: `${label} should land on expected route` })
-    .toBe(testCase.route.allowQuery || testCase.route.expectedQuery
-      ? expectedLocation.pathname
-      : `${expectedLocation.pathname}${expectedLocation.search}`)
+  await timing.measure('assert.route', step.id, async () => {
+    await expect
+      .poll(() => {
+        const current = new URL(session.page.url())
+        return testCase.route.allowQuery || testCase.route.expectedQuery
+          ? current.pathname
+          : `${current.pathname}${current.search}`
+      }, { message: `${label} should land on expected route` })
+      .toBe(testCase.route.allowQuery || testCase.route.expectedQuery
+        ? expectedLocation.pathname
+        : `${expectedLocation.pathname}${expectedLocation.search}`)
+  })
 
   if (testCase.route.expectedQuery) {
-    await expect
-      .poll(() => Object.fromEntries(new URL(session.page.url()).searchParams.entries()), {
-        message: `${label} should keep its canonical query state`
-      })
-      .toEqual(testCase.route.expectedQuery)
+    await timing.measure('assert.query', step.id, async () => {
+      await expect
+        .poll(() => Object.fromEntries(new URL(session.page.url()).searchParams.entries()), {
+          message: `${label} should keep its canonical query state`
+        })
+        .toEqual(testCase.route.expectedQuery)
+    })
   }
 
-  await expect(session.page.locator('#app'), `${label} should render one app root`).toHaveCount(1)
-  await expect(session.page.locator('main, #app').first(), `${label} should show main shell`).toBeVisible()
-  await assertThemeReadable(session.page, testCase.theme, label)
-  await assertViewportBoundaryContract(session.page, label)
+  await timing.measure(
+    'assert.app-root',
+    step.id,
+    () => expect(session.page.locator('#app'), `${label} should render one app root`).toHaveCount(1)
+  )
+  await timing.measure(
+    'assert.main-visible',
+    step.id,
+    () => expect(session.page.locator('main:visible, #app:visible').first(), `${label} should show main shell`).toBeVisible()
+  )
+  await timing.measure(
+    'assert.theme-readable',
+    step.id,
+    () => assertThemeReadable(session.page, testCase.theme, label)
+  )
+  await timing.measure(
+    'assert.viewport-accessibility-audit',
+    step.id,
+    () => assertViewportBoundaryContract(session.page, label)
+  )
 }
 
 async function injectContentBoundaryCorpus(page: Page): Promise<void> {
@@ -432,22 +616,106 @@ async function captureUxScreenshot(
   page: Page,
   route: UxRoute,
   viewport: UxViewport,
-  theme: ThemeMode
+  theme: ThemeMode,
+  timing: UxRiskTimingRecorder
 ): Promise<void> {
-  await freezeUiForScreenshot(page)
+  const detail = `${route.id}:${theme}:${viewport.name}`
+  await timing.measure('screenshot.freeze', detail, () => freezeUiForScreenshot(page))
   const target = page.locator(route.screenshotSelector).first()
-  await expect(target, `${route.id} screenshot target`).toBeVisible()
+  await timing.measure(
+    'screenshot.target-visible',
+    detail,
+    () => expect(target, `${route.id} screenshot target`).toBeVisible()
+  )
   const file = path.join(
     screenshotRoot,
     viewport.name,
     theme,
     `${sanitizeFilename(route.id)}.png`
   )
-  await mkdir(path.dirname(file), { recursive: true })
-  await target.screenshot({
-    path: file,
-    animations: 'disabled',
-    caret: 'hide'
+  await timing.measure('screenshot.mkdir', detail, () => mkdir(path.dirname(file), { recursive: true }))
+  await timing.measure('screenshot.capture', detail, () => target.screenshot({
+      path: file,
+      animations: 'disabled',
+      caret: 'hide'
+    }))
+}
+
+function createUxRiskTimingRecorder(group: PlannedGroup, enabled: boolean) {
+  const startedAt = performance.now()
+  const buckets = new Map<string, {
+    calls: number
+    totalMs: number
+    maxMs: number
+    maxDetail: string
+  }>()
+  const record = (phase: string, detail: string, elapsedMs: number) => {
+    if (!enabled) return
+    const current = buckets.get(phase) ?? { calls: 0, totalMs: 0, maxMs: 0, maxDetail: '' }
+    current.calls += 1
+    current.totalMs += elapsedMs
+    if (elapsedMs > current.maxMs) {
+      current.maxMs = elapsedMs
+      current.maxDetail = detail
+    }
+    buckets.set(phase, current)
+  }
+  const measure = async <T>(phase: string, detail: string, action: () => Promise<T>): Promise<T> => {
+    if (!enabled) return await action()
+    const phaseStartedAt = performance.now()
+    try {
+      return await action()
+    } finally {
+      record(phase, detail, performance.now() - phaseStartedAt)
+    }
+  }
+  const measureSync = <T>(phase: string, detail: string, action: () => T): T => {
+    if (!enabled) return action()
+    const phaseStartedAt = performance.now()
+    try {
+      return action()
+    } finally {
+      record(phase, detail, performance.now() - phaseStartedAt)
+    }
+  }
+  const summary = (error: unknown) => ({
+    schema: 'fsusblog.ux-viewport-risk-timing.v1',
+    status: error === null ? 'passed' : 'failed',
+    groupId: group.id,
+    routeId: group.route.id,
+    theme: group.theme,
+    navigationCount: group.viewports.length,
+    caseCount: group.viewports.reduce((total, viewport) => total + viewport.steps.length, 0),
+    elapsedMs: Math.round((performance.now() - startedAt) * 100) / 100,
+    phases: Object.fromEntries([...buckets.entries()].map(([phase, bucket]) => [phase, {
+      calls: bucket.calls,
+      totalMs: Math.round(bucket.totalMs * 100) / 100,
+      averageMs: Math.round(bucket.totalMs / bucket.calls * 100) / 100,
+      maxMs: Math.round(bucket.maxMs * 100) / 100,
+      maxDetail: bucket.maxDetail
+    }])),
+    semantics: {
+      axeCalls: 0,
+      axeReason: 'viewport-boundaries.spec.ts has no axe invocation',
+      runtimeAudit: 'assertCleanSince executes once per case',
+      accessibilityAudit: 'theme readability, focus outline, sticky focus, and viewport boundary checks execute once per case'
+    },
+    error: error instanceof Error ? error.message : error === null ? null : String(error)
+  })
+  return { enabled, measure, measureSync, record, summary }
+}
+
+async function publishUxRiskTiming(
+  timing: UxRiskTimingRecorder,
+  testInfo: TestInfo,
+  error: unknown
+): Promise<void> {
+  if (!timing.enabled) return
+  const summary = timing.summary(error)
+  console.log(`[ux-risk-timing] ${JSON.stringify(summary)}`)
+  await testInfo.attach('ux-risk-timing', {
+    body: Buffer.from(`${JSON.stringify(summary, null, 2)}\n`),
+    contentType: 'application/json'
   })
 }
 

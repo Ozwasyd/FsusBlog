@@ -18,12 +18,43 @@ fi
 
 mkdir -p "$OUT_DIR"
 
-"${FSUSBLOG_NODE:-node}" - "$COVERAGE_ROOT/backend-merged/Summary.json" "$COVERAGE_ROOT/frontend/Summary.json" "$OUT_FILE" <<'NODE'
-const fs = require('node:fs');
-const [backendFile, frontendFile, outFile] = process.argv.slice(2);
-const read = (file) => fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
-const backendSummary = read(backendFile);
-const frontendSummary = read(frontendFile);
+"${FSUSBLOG_NODE:-node}" --input-type=module - \
+  "$ROOT_DIR/tools/test/run-command-manifest.mjs" \
+  "$COVERAGE_ROOT/backend-merged/Summary.json" \
+  "$COVERAGE_ROOT/frontend/Summary.json" \
+  "$OUT_FILE" <<'NODE'
+import fs from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
+
+const [resourceHelper, backendFile, frontendFile, outFile] = process.argv.slice(2);
+const { resolveManifestWorkers } = await import(pathToFileURL(resourceHelper).href);
+const files = [backendFile, frontendFile];
+const valuesByIndex = new Array(files.length);
+const failures = [];
+const workers = Math.min(files.length, resolveManifestWorkers({ env: process.env }));
+let nextIndex = 0;
+await Promise.all(Array.from({ length: workers }, async () => {
+  while (nextIndex < files.length) {
+    const index = nextIndex;
+    nextIndex += 1;
+    try {
+      valuesByIndex[index] = JSON.parse(await fs.readFile(files[index], 'utf8'));
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        valuesByIndex[index] = null;
+      } else {
+        failures.push({ index, error: new Error(`${files[index]}: ${error instanceof Error ? error.message : String(error)}`) });
+      }
+    }
+  }
+}));
+if (failures.length > 0) {
+  failures.sort((left, right) => left.index - right.index);
+  for (const { error } of failures) console.error(`[coverage:merge] ${error.message}`);
+  process.exit(1);
+}
+
+const [backendSummary, frontendSummary] = valuesByIndex;
 const backend = backendSummary?.summary ?? null;
 const frontend = frontendSummary?.summary ?? null;
 if (!backend && !frontend) {
@@ -63,7 +94,9 @@ const merged = {
   },
   generatedAt: new Date().toISOString()
 };
-fs.writeFileSync(outFile, `${JSON.stringify(merged, null, 2)}\n`);
+const temporary = `${outFile}.next-${process.pid}`;
+await fs.writeFile(temporary, `${JSON.stringify(merged, null, 2)}\n`);
+await fs.rename(temporary, outFile);
 NODE
 
 printf '[coverage:merge] wrote %s\n' "$OUT_FILE"

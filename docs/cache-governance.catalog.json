@@ -636,6 +636,17 @@
       "l2JitterRatio": 0
     },
     {
+      "id": "SecurityUserSessionValidation",
+      "domain": "sec",
+      "resource": "user-session-validation",
+      "l1Ttl": "TimeSpan.Zero",
+      "l2Ttl": "TimeSpan.FromMinutes(2)",
+      "negativeTtl": "null",
+      "invalidationTags": [],
+      "securityCritical": true,
+      "l2JitterRatio": 0
+    },
+    {
       "id": "SiteSubscriptionUnsubscribeProof",
       "domain": "sec",
       "resource": "site-subscription-unsubscribe-proof",

@@ -1,0 +1,203 @@
+#!/usr/bin/env node
+
+import { availableParallelism } from 'node:os'
+import { createHash } from 'node:crypto'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const decoderDirectory = resolve(root, 'src/frontend/dist/wasm')
+const decoderModulePath = join(decoderDirectory, 'aeds_decoder.js')
+const decoderWasmPath = join(decoderDirectory, 'aeds_decoder.wasm')
+const outputDirectory = resolve(root, '.tmp/fuzz/wasm')
+const crashDirectory = join(outputDirectory, 'crashes')
+const releaseEvidenceDirectory = resolve(root, '.tmp/release-evidence')
+const namespace = process.env.FSUSBLOG_TEST_NAMESPACE || 'local'
+
+function positiveInteger(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ''), 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+const grantedCpu = positiveInteger(
+  process.env.FSUSBLOG_STEP_CPU_UNITS,
+  Math.max(1, availableParallelism())
+)
+const seedsPerCorpus = positiveInteger(
+  process.env.FSUSBLOG_WASM_FUZZ_SEEDS_PER_CORPUS,
+  Math.max(64, grantedCpu * 64)
+)
+
+const corpus = [
+  { id: 'aeds-decoder', payload: new Uint8Array([0, 1, 2, 3, 4, 255]), frameType: 1 },
+  { id: 'markdown', payload: new TextEncoder().encode('# heading\n\n[link](https://example.invalid)'), frameType: 14 },
+  { id: 'latex', payload: new TextEncoder().encode('\\\\int_0^1 x^2 \\, dx'), frameType: 14 },
+  { id: 'mermaid', payload: new TextEncoder().encode('graph TD; A-->B; B-->A'), frameType: 14 },
+  { id: 'malformed-binary', payload: new Uint8Array([0xff, 0, 0x80, 0x7f, 0x13, 0x37]), frameType: 9 }
+]
+
+function crc16(bytes) {
+  let crc = 0xffff
+  for (const byte of bytes) {
+    crc ^= byte
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc & 1) !== 0 ? ((crc >>> 1) ^ 0xa001) : (crc >>> 1)
+    }
+  }
+  return crc & 0xffff
+}
+
+function validFrame(entry) {
+  const frame = new Uint8Array(16 + entry.payload.byteLength)
+  const view = new DataView(frame.buffer)
+  view.setUint32(0, 0x53444541, true)
+  view.setUint8(4, 2)
+  view.setUint8(5, 16)
+  view.setUint16(6, 0, true)
+  view.setUint16(8, entry.frameType, true)
+  view.setUint32(10, entry.payload.byteLength, true)
+  view.setUint16(14, crc16(entry.payload), true)
+  frame.set(entry.payload, 16)
+  return frame
+}
+
+function xorshift32(seed) {
+  let state = seed >>> 0
+  return () => {
+    state ^= state << 13
+    state ^= state >>> 17
+    state ^= state << 5
+    return state >>> 0
+  }
+}
+
+function mutate(base, seed, iteration) {
+  const random = xorshift32(seed)
+  const mutation = iteration % 6
+  if (mutation === 0) {
+    return Uint8Array.from({ length: random() % 96 + 1 }, () => random() & 0xff)
+  }
+
+  let output = new Uint8Array(base)
+  if (mutation === 1) {
+    output = output.subarray(0, random() % output.byteLength)
+  } else if (mutation === 2) {
+    const extended = new Uint8Array(output.byteLength + (random() % 128) + 1)
+    extended.set(output)
+    for (let index = output.byteLength; index < extended.byteLength; index += 1) extended[index] = random() & 0xff
+    output = extended
+  } else {
+    const changes = 1 + (random() % Math.min(16, output.byteLength))
+    for (let index = 0; index < changes; index += 1) {
+      const offset = random() % output.byteLength
+      output[offset] ^= 1 << (random() % 8)
+    }
+  }
+  return output
+}
+
+function seedFor(corpusIndex, iteration) {
+  return (0x9e3779b9 ^ Math.imul(corpusIndex + 1, 0x85ebca6b) ^ Math.imul(iteration + 1, 0xc2b2ae35)) >>> 0
+}
+
+async function writeEvidence(summary) {
+  await mkdir(crashDirectory, { recursive: true })
+  await mkdir(releaseEvidenceDirectory, { recursive: true })
+  await writeFile(join(outputDirectory, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`)
+  await writeFile(join(releaseEvidenceDirectory, 'fuzz-seeds.json'), `${JSON.stringify({
+    status: summary.status,
+    wasm: '.tmp/fuzz/wasm/summary.json',
+    seeds: summary.seedPlan,
+    seedsRun: summary.seedsRun,
+    replayCommand: './tools/test.sh wasm-fuzz-regression',
+    generatedAt: summary.generatedAt
+  }, null, 2)}\n`)
+}
+
+const startedAt = new Date().toISOString()
+let seedsRun = 0
+let decoderDigest = ''
+let activeSeed = null
+
+try {
+  const wasmBinary = await readFile(decoderWasmPath)
+  decoderDigest = createHash('sha256').update(wasmBinary).digest('hex')
+  const { default: createAedsModule } = await import(pathToFileURL(decoderModulePath).href)
+  const instance = await createAedsModule({ wasmBinary, print: () => {}, printErr: () => {} })
+
+  for (const [corpusIndex, entry] of corpus.entries()) {
+    const base = validFrame(entry)
+    for (let iteration = 0; iteration < seedsPerCorpus; iteration += 1) {
+      const seed = seedFor(corpusIndex, iteration)
+      activeSeed = { corpus: entry.id, iteration, seed }
+      const input = mutate(base, seed, iteration)
+      if (input.byteLength === 0) {
+        const result = instance._decode_aeds(0, 0)
+        if (result !== 0 && result !== 1) throw new Error(`wasm_fuzz_invalid_result:${result}`)
+        seedsRun += 1
+        continue
+      }
+      const pointer = instance._alloc_buffer(input.byteLength)
+      if (!Number.isInteger(pointer) || pointer <= 0) throw new Error('wasm_fuzz_alloc_failed')
+      try {
+        instance.HEAPU8.set(input, pointer)
+        const result = instance._decode_aeds(pointer, input.byteLength)
+        if (result !== 0 && result !== 1) throw new Error(`wasm_fuzz_invalid_result:${result}`)
+      } finally {
+        instance._free_buffer(pointer)
+      }
+      seedsRun += 1
+    }
+  }
+
+  const generatedAt = new Date().toISOString()
+  await writeEvidence({
+    status: 'ok',
+    executionSource: 'fresh-wasm-runtime',
+    namespace,
+    corpus: corpus.map((entry) => entry.id),
+    seedsRun,
+    seedsPerCorpus,
+    seedPlan: corpus.map((entry, corpusIndex) => ({
+      corpus: entry.id,
+      firstSeed: seedFor(corpusIndex, 0),
+      count: seedsPerCorpus
+    })),
+    crashes: [],
+    sanitizerOutput: null,
+    decoder: {
+      module: 'src/frontend/dist/wasm/aeds_decoder.js',
+      wasm: 'src/frontend/dist/wasm/aeds_decoder.wasm',
+      sha256: decoderDigest
+    },
+    blocker: null,
+    startedAt,
+    generatedAt
+  })
+  process.stdout.write(`[wasm-fuzz] executed ${seedsRun} seeds against ${decoderDigest}\n`)
+} catch (error) {
+  const generatedAt = new Date().toISOString()
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+  const crashName = `crash-${Date.now()}.json`
+  await mkdir(crashDirectory, { recursive: true })
+  await writeFile(join(crashDirectory, crashName), `${JSON.stringify({ activeSeed, error: message }, null, 2)}\n`)
+  await writeEvidence({
+    status: 'failure',
+    executionSource: 'fresh-wasm-runtime',
+    namespace,
+    corpus: corpus.map((entry) => entry.id),
+    seedsRun,
+    seedsPerCorpus,
+    seedPlan: corpus.map((entry, corpusIndex) => ({ corpus: entry.id, firstSeed: seedFor(corpusIndex, 0), count: seedsPerCorpus })),
+    crashes: [`.tmp/fuzz/wasm/crashes/${crashName}`],
+    sanitizerOutput: null,
+    decoder: { module: 'src/frontend/dist/wasm/aeds_decoder.js', wasm: 'src/frontend/dist/wasm/aeds_decoder.wasm', sha256: decoderDigest || null },
+    blocker: 'wasm-fuzz-execution-failed',
+    error: message,
+    startedAt,
+    generatedAt
+  })
+  process.stderr.write(`[wasm-fuzz] ${message}\n`)
+  process.exitCode = 1
+}

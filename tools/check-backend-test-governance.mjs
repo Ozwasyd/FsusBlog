@@ -39,6 +39,10 @@ function fail(message) {
 }
 
 function requireFile(path) {
+  if (typeof path !== 'string' || path.trim() === '') {
+    fail(`invalid file path ${JSON.stringify(path)}`)
+    return
+  }
   if (!existsSync(resolve(root, path))) {
     fail(`missing file ${path}`)
   }
@@ -286,23 +290,25 @@ for (const missing of requiredProfiles) {
   fail(`missing backend profile ${missing}`)
 }
 
-const endpointFiles = walk(
-  resolve(root, 'src/backend/Modules/Endpoints'),
-  path => path.endsWith('.cs') && !path.endsWith('Adapters.cs')
-)
-  .map(path => relative(root, path).replace(/\\/g, '/'))
-  .sort()
-
-const endpointCatalogPaths = (requirementCatalog.endpointFamilies || [])
-  .map(entry => entry.path)
-  .sort()
-
-if (JSON.stringify(endpointFiles) !== JSON.stringify(endpointCatalogPaths)) {
-  fail(`endpoint family catalog drifted: expected ${endpointFiles.join(', ')} got ${endpointCatalogPaths.join(', ')}`)
-}
-
+const endpointFamilyIds = new Set()
 for (const endpoint of requirementCatalog.endpointFamilies || []) {
-  requireFile(endpoint.path)
+  if (typeof endpoint.id !== 'string' || endpoint.id.trim() === '') {
+    fail(`endpoint family lacks a non-empty id: ${JSON.stringify(endpoint)}`)
+  } else if (endpointFamilyIds.has(endpoint.id)) {
+    fail(`duplicate endpoint family id ${endpoint.id}`)
+  } else {
+    endpointFamilyIds.add(endpoint.id)
+  }
+  const routePrefixes = Array.isArray(endpoint.routePrefixes) ? endpoint.routePrefixes : []
+  const routePatterns = Array.isArray(endpoint.routePatterns) ? endpoint.routePatterns : []
+  if (routePrefixes.length + routePatterns.length === 0) {
+    fail(`endpoint family ${endpoint.id ?? '<missing>'} must declare routePrefixes or routePatterns`)
+  }
+  for (const route of [...routePrefixes, ...routePatterns]) {
+    if (typeof route !== 'string' || !route.startsWith('/')) {
+      fail(`endpoint family ${endpoint.id ?? '<missing>'} has invalid route ${JSON.stringify(route)}`)
+    }
+  }
   for (const requirement of endpoint.requirements || []) {
     if (!requirementIds.has(requirement)) {
       fail(`endpoint ${endpoint.path} references unknown requirement ${requirement}`)

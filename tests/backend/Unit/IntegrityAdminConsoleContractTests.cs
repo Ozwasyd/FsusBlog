@@ -7,6 +7,7 @@ using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -23,15 +24,15 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class IntegrityAdminConsoleContractTests
 {
     [Fact]
-    public void AdminIntegrityConsoleEndpoints_ExposeMethodsPermissionAndFixedIpRateLimit()
+    public async Task AdminIntegrityConsoleEndpoints_ExposeMethodsPermissionAndFixedIpRateLimit()
     {
         IIntegrityAdminConsoleService service = Substitute.For<IIntegrityAdminConsoleService>();
         IAdminPrincipalService adminPrincipals = Substitute.For<IAdminPrincipalService>();
-        using TestServer server = CreateServer(service, adminPrincipals);
-        EndpointDataSource source = server.Services.GetRequiredService<EndpointDataSource>();
+        await using WebApplication server = await CreateServerAsync(service, adminPrincipals);
+        IEnumerable<EndpointDataSource> sources = ((IEndpointRouteBuilder)server).DataSources;
 
-        AssertEndpoint(source, "/api/admin/integrity/console", HttpMethods.Get);
-        AssertEndpoint(source, "/api/admin/integrity/console/proofs/{proofId:long}/retry", HttpMethods.Post);
+        AssertEndpoint(sources, "/api/admin/integrity/console", HttpMethods.Get);
+        AssertEndpoint(sources, "/api/admin/integrity/console/proofs/{proofId:long}/retry", HttpMethods.Post);
     }
 
     [Fact]
@@ -51,8 +52,8 @@ public sealed class IntegrityAdminConsoleContractTests
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>())
             .Returns(true);
-        using TestServer server = CreateServer(service, adminPrincipals);
-        using HttpClient client = server.CreateClient();
+        await using WebApplication server = await CreateServerAsync(service, adminPrincipals);
+        using HttpClient client = server.GetTestClient();
 
         using HttpResponseMessage forbidden = await client.GetAsync(
             "/api/admin/integrity/console?articleId=17&articleRevisionId=82&revisionNo=3");
@@ -114,34 +115,32 @@ public sealed class IntegrityAdminConsoleContractTests
         }
     }
 
-    private static TestServer CreateServer(
+    private static async Task<WebApplication> CreateServerAsync(
         IIntegrityAdminConsoleService service,
         IAdminPrincipalService adminPrincipals)
     {
-        var builder = new WebHostBuilder()
-            .ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?>
-                {
-                    ["CORS_ALLOWED_HOSTS"] = "https://console.example.test"
-                }))
-            .ConfigureServices(services =>
-            {
-                services.AddRouting();
-                services.AddAuthorization();
-                services.AddRateLimiter(options => options.AddFixedWindowLimiter("fixed_ip", limiter =>
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Configuration.Sources.Clear();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["CORS_ALLOWED_HOSTS"] = "https://console.example.test"
+        });
+        builder.Services.AddRouting();
+        builder.Services.AddAuthorization();
+        builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, TestAuthorizationResultHandler>();
+        builder.Services.AddRateLimiter(options => options.AddFixedWindowLimiter("fixed_ip", limiter =>
                 {
                     limiter.PermitLimit = 100;
                     limiter.QueueLimit = 0;
                     limiter.Window = TimeSpan.FromMinutes(1);
                     limiter.AutoReplenishment = true;
                 }));
-                services.AddSingleton(service);
-                services.AddSingleton(adminPrincipals);
-            })
-            .Configure(app =>
-            {
-                app.UseRouting();
-                app.Use(async (context, next) =>
+        builder.Services.AddSingleton(service);
+        builder.Services.AddSingleton(adminPrincipals);
+        WebApplication app = builder.Build();
+        app.UseRouting();
+        app.Use(async (context, next) =>
                 {
                     var claims = new List<Claim>
                     {
@@ -157,11 +156,11 @@ public sealed class IntegrityAdminConsoleContractTests
                     context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
                     await next();
                 });
-                app.UseAuthorization();
-                app.UseRateLimiter();
-                app.UseEndpoints(endpoints => endpoints.MapAdminIntegrityConsoleEndpoints());
-            });
-        return new TestServer(builder);
+        app.UseAuthorization();
+        app.UseRateLimiter();
+        app.MapAdminIntegrityConsoleEndpoints();
+        await app.StartAsync();
+        return app;
     }
 
     private static HttpRequestMessage CreateRetryRequest(string? proof)
@@ -177,6 +176,26 @@ public sealed class IntegrityAdminConsoleContractTests
         }
 
         return request;
+    }
+
+    private sealed class TestAuthorizationResultHandler : IAuthorizationMiddlewareResultHandler
+    {
+        public Task HandleAsync(
+            RequestDelegate next,
+            HttpContext context,
+            AuthorizationPolicy policy,
+            PolicyAuthorizationResult authorizeResult)
+        {
+            if (authorizeResult.Succeeded)
+            {
+                return next(context);
+            }
+
+            context.Response.StatusCode = authorizeResult.Forbidden
+                ? StatusCodes.Status403Forbidden
+                : StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        }
     }
 
     private static IntegrityAdminConsoleResponse ConsoleResponse()
@@ -217,20 +236,20 @@ public sealed class IntegrityAdminConsoleContractTests
             FailedOrRetryingProofs: [proof]);
     }
 
-    private static void AssertEndpoint(EndpointDataSource source, string path, string method)
+    private static void AssertEndpoint(IEnumerable<EndpointDataSource> sources, string path, string method)
     {
-        RouteEndpoint endpoint = Assert.Single(source.Endpoints
-            .OfType<RouteEndpoint>()
-            .Where(item => string.Equals(
-                item.RoutePattern.RawText?.TrimStart('/'),
-                path.TrimStart('/'),
-                StringComparison.Ordinal)));
+        RouteEndpoint endpoint = Assert.Single(
+            sources.SelectMany(static source => source.Endpoints).OfType<RouteEndpoint>(),
+            item => string.Equals(
+                item.RoutePattern.RawText?.Trim('/'),
+                path.Trim('/'),
+                StringComparison.Ordinal));
         Assert.Contains(method, Assert.IsAssignableFrom<IHttpMethodMetadata>(
             endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()).HttpMethods);
         AuthorizationPolicy policy = Assert.Single(endpoint.Metadata.GetOrderedMetadata<AuthorizationPolicy>());
-        ClaimsAuthorizationRequirement permission = Assert.Single(policy.Requirements
-            .OfType<ClaimsAuthorizationRequirement>()
-            .Where(item => item.ClaimType == AdminPermissions.PermissionClaimType));
+        ClaimsAuthorizationRequirement permission = Assert.Single(
+            policy.Requirements.OfType<ClaimsAuthorizationRequirement>(),
+            item => item.ClaimType == AdminPermissions.PermissionClaimType);
         Assert.Contains(AdminPermissions.SystemConfig, permission.AllowedValues ?? []);
         Assert.Equal(
             "fixed_ip",

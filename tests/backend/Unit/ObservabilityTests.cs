@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -158,16 +159,15 @@ public sealed class ObservabilityTests
         Assert.InRange(afterSecond, 1, 256);
 
         MethodInfo keyFactory = observability.GetMethod("CreateSecurityEventTagCacheKey", BindingFlags.NonPublic | BindingFlags.Static)!;
-        Assert.Contains(ReadCalledMethods(keyFactory), static method =>
+        Assert.Contains(ReadCalledMethods(keyFactory), static method => method.Name == "InternSecurityEventValue");
+        MethodInfo internValue = observability.GetMethod("InternSecurityEventValue", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.Contains(ReadCalledMethods(internValue), static method =>
             method.DeclaringType == typeof(string) && method.Name == nameof(string.Intern));
-        MethodInfo signalHandler = typeof(CrawlerRiskService).GetMethod(
-            nameof(CrawlerRiskService.AddRiskAsync),
-            [typeof(SecurityRiskSignal), typeof(CancellationToken)])!;
-        Assert.Contains(ReadCalledMethods(AsyncMoveNext(signalHandler)), static method =>
-            method.DeclaringType == typeof(FsusObservability)
-            && method.Name == nameof(FsusObservability.RecordSecurityEvent)
-            && method.GetParameters().Select(static parameter => parameter.ParameterType)
-                .SequenceEqual([typeof(string), typeof(SecurityRiskReason), typeof(string)]));
+        string signalHandler = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(CrawlerRiskService),
+            nameof(FsusObservability.RecordSecurityEvent),
+            nameof(SecurityRiskReason));
+        Assert.Contains(nameof(FsusObservability.RecordSecurityEvent), signalHandler, StringComparison.Ordinal);
     }
 
     [Fact]

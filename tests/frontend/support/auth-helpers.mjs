@@ -185,6 +185,9 @@ async function solvePowNonceOptimized(salt, browserFp, difficulty, timeoutMs = r
       const attempts = Math.min(nodePowBatchSize, remainingNonceSpace);
       const resultLength = module._solve_pow_limited_c(saltPtr, fpPtr, difficulty, startNonce, attempts, outputPtr, 2048);
       if (resultLength < 0) {
+        if (difficulty < 25) {
+          return solvePowNonce(salt, browserFp, difficulty, deadlineMs);
+        }
         throw new Error(`node wasm pow solver failed: ${resultLength}`);
       }
 

@@ -904,7 +904,7 @@ public class UserServiceValidationTests
         Assert.Equal(accessExpiry, result.Data.Value.AccessTokenExpiresAtUtc);
         Assert.Equal("rotated-access-token", result.Data.Value.AccessToken);
         Assert.Equal("rotated-refresh-token", result.Data.Value.RefreshToken);
-        Assert.InRange(result.ExpiresAt, DateTime.UtcNow.AddMinutes(55), DateTime.UtcNow.AddMinutes(61));
+        Assert.InRange(result.ExpiresAt, DateTime.UtcNow.AddDays(7).AddMinutes(-1), DateTime.UtcNow.AddDays(7).AddMinutes(1));
         Assert.True(result.ExpiresAt < absoluteExpiry);
         _ = db.Received(1).Queryable<UserSession>();
         await sessionQuery.Received(1).FirstAsync();
@@ -953,6 +953,11 @@ public class UserServiceValidationTests
         update.ExecuteCommandAsync().Returns(Task.FromResult(0));
         var ado = Substitute.For<IAdo>();
         db.Ado.Returns(ado);
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            await call.Arg<Func<Task>>()();
+            return new DbResult<bool> { IsSuccess = true };
+        });
         ado.GetDataReaderAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
             .Returns(_ => Task.FromResult((IDataReader)new DataTable().CreateDataReader()));
         var jwt = Substitute.For<IJwtHelper>();

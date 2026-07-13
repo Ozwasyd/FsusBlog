@@ -48,7 +48,9 @@ test('require-complete fails closed for the missing report, unvalidated worktree
 test('index must contain the exact ordered child range and the real 8/7/2 split', async () => {
   const index = clone(await canonicalIndex())
   index.children.splice(3, 1)
-  index.children.push(clone(index.children[0]))
+  const duplicate = clone(index.children[0])
+  duplicate.sprint = 'sprint1'
+  index.children.push(duplicate)
 
   const report = await validateDeadCodeAuditIndex(index, { root })
 

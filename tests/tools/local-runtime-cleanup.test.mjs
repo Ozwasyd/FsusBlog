@@ -3,12 +3,162 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
-import { cleanupLocalRuntime, cleanupStaleLocalRuntimes } from '../../tools/test-matrix/local-runtime-cleanup.mjs'
+import {
+  cleanupLocalRuntime,
+  cleanupStaleLocalRuntimes,
+  isOrphanProductionViteProcess,
+  isStaleSchemaContainer
+} from '../../tools/test-matrix/local-runtime-cleanup.mjs'
+
+function schemaContainer(name, {
+  created = '2026-07-12T00:00:00.000Z',
+  labels = {},
+  image = 'postgres:18-alpine',
+  hostIp = '127.0.0.1',
+  binds = null
+} = {}) {
+  return {
+    Name: `/${name}`,
+    Created: created,
+    Path: 'docker-entrypoint.sh',
+    Args: ['postgres'],
+    Config: {
+      Image: image,
+      Env: ['POSTGRES_USER=postgres', 'POSTGRES_PASSWORD=postgres', 'POSTGRES_DB=postgres'],
+      Labels: labels
+    },
+    HostConfig: {
+      AutoRemove: true,
+      PortBindings: { '5432/tcp': [{ HostIp: hostIp, HostPort: '' }] },
+      Binds: binds
+    },
+    State: { Running: true }
+  }
+}
 
 test('default container cleanup removes anonymous test volumes with the container', () => {
   const source = fs.readFileSync('tools/test-matrix/local-runtime-cleanup.mjs', 'utf8')
   assert.match(source, /spawnSync\('docker', \['rm', '--force', '--volumes', name\]/u)
   assert.match(source, /process\.kill\(-pid, 'SIGTERM'\)/u)
+  const fixture = fs.readFileSync('tests/backend/Fixtures/PostgresSchemaMigrationFixture.cs', 'utf8')
+  assert.match(fixture, /com\.fsusblog\.test\.kind=schema-migration/u)
+  assert.match(fixture, /com\.fsusblog\.test\.owner-pid=\{Environment\.ProcessId\}/u)
+  assert.match(fixture, /com\.fsusblog\.test\.run-id=\{testRunId\}/u)
+})
+
+test('orphan Vite discovery requires a dead canonical production owner and exact repo command binding', () => {
+  const root = '/repo'
+  const runId = 'production-2026-07-12_12-44-12-568-82962'
+  const record = {
+    pid: 900,
+    ppid: 1,
+    startTimeTicks: '1234',
+    cwd: '/repo/src/frontend',
+    args: ['/usr/bin/node', '/repo/src/frontend/node_modules/.bin/vite', 'preview', '--host', '0.0.0.0', '--port', '29560', '--strictPort'],
+    env: {
+      FSUSBLOG_TEST_RUN_ID: runId,
+      FSUSBLOG_TEST_NAMESPACE: `${runId}-fresh-local-production-0`,
+      FSUSBLOG_RELEASE_PREVIEW_PORT: '29560',
+      FSUSBLOG_DEBUG_FRONTEND_PORT: '26877'
+    }
+  }
+  assert.equal(isOrphanProductionViteProcess(record, { root, processExists: () => false }), true)
+  assert.equal(isOrphanProductionViteProcess({ ...record, ppid: 42 }, { root, processExists: () => false }), false)
+  assert.equal(isOrphanProductionViteProcess({ ...record, cwd: '/other/src/frontend' }, { root, processExists: () => false }), false)
+  assert.equal(isOrphanProductionViteProcess({
+    ...record,
+    env: { ...record.env, FSUSBLOG_TEST_RUN_ID: 'production-manual-82962' }
+  }, { root, processExists: () => false }), false)
+  assert.equal(isOrphanProductionViteProcess({
+    ...record,
+    env: { ...record.env, FSUSBLOG_RELEASE_PREVIEW_PORT: '29561' }
+  }, { root, processExists: () => false }), false)
+  assert.equal(isOrphanProductionViteProcess(record, { root, processExists: (pid) => pid === 82962 }), false)
+})
+
+test('schema cleanup accepts dead labeled owners and only the exact aged unlabeled legacy shape', () => {
+  const labeled = schemaContainer('fsus-pg-bp-0123456789-m-4321-deadbeef', {
+    labels: {
+      'com.fsusblog.test.kind': 'schema-migration',
+      'com.fsusblog.test.owner-pid': '4321',
+      'com.fsusblog.test.run-id': 'production-run'
+    }
+  })
+  assert.equal(isStaleSchemaContainer(labeled, {
+    nowMs: Date.parse('2026-07-12T01:00:00Z'),
+    legacyMinimumAgeMs: 600_000,
+    processExists: () => false
+  }), true)
+  assert.equal(isStaleSchemaContainer(labeled, {
+    nowMs: Date.parse('2026-07-12T01:00:00Z'),
+    legacyMinimumAgeMs: 600_000,
+    processExists: (pid) => pid === 4321
+  }), false)
+
+  const transitional = schemaContainer('fsus-pg-bp-0123456789-m-4321-deadbeef')
+  assert.equal(isStaleSchemaContainer(transitional, {
+    nowMs: Date.parse('2026-07-12T01:00:00Z'),
+    legacyMinimumAgeMs: 600_000,
+    processExists: () => false
+  }), true)
+  assert.equal(isStaleSchemaContainer(transitional, {
+    nowMs: Date.parse('2026-07-12T01:00:00Z'),
+    legacyMinimumAgeMs: 600_000,
+    processExists: (pid) => pid === 4321
+  }), false)
+
+  const legacy = schemaContainer('fsus-schema-migration-8ec9a51537824309ac57ffc72ef4b0f9')
+  assert.equal(isStaleSchemaContainer(legacy, {
+    nowMs: Date.parse('2026-07-12T01:00:00Z'),
+    legacyMinimumAgeMs: 600_000
+  }), true)
+  assert.equal(isStaleSchemaContainer(legacy, {
+    nowMs: Date.parse('2026-07-12T00:05:00Z'),
+    legacyMinimumAgeMs: 600_000
+  }), false)
+  assert.equal(isStaleSchemaContainer(legacy, {
+    nowMs: Date.parse('2026-07-12T01:00:00Z'),
+    legacyMinimumAgeMs: 600_000,
+    activeBackendTesthost: true
+  }), false)
+  assert.equal(isStaleSchemaContainer(schemaContainer('fsusblog-dev-postgres'), {
+    nowMs: Date.parse('2026-07-12T01:00:00Z'), legacyMinimumAgeMs: 600_000
+  }), false)
+  assert.equal(isStaleSchemaContainer(schemaContainer('fsus-schema-migration-8ec9a51537824309ac57ffc72ef4b0f9', {
+    hostIp: '0.0.0.0'
+  }), { nowMs: Date.parse('2026-07-12T01:00:00Z'), legacyMinimumAgeMs: 600_000 }), false)
+  assert.equal(isStaleSchemaContainer(schemaContainer('fsus-schema-migration-8ec9a51537824309ac57ffc72ef4b0f9', {
+    labels: { owner: 'unknown' }
+  }), { nowMs: Date.parse('2026-07-12T01:00:00Z'), legacyMinimumAgeMs: 600_000 }), false)
+})
+
+test('untracked cleanup removes only classified orphan processes and schema containers', () => {
+  const root = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'fsusblog-untracked-cleanup-'))
+  const orphan = { pid: 900, startTimeTicks: '1234', args: [], env: {} }
+  const staleName = 'fsus-schema-migration-8ec9a51537824309ac57ffc72ef4b0f9'
+  const retainedName = 'fsusblog-dev-postgres'
+  const killed = []
+  const removed = []
+  const result = cleanupStaleLocalRuntimes({
+    root,
+    discoverUntracked: true,
+    legacyContainerMinimumAgeMs: 600_000,
+    orphanTerminationGraceMs: 3_000,
+    nowMs: Date.parse('2026-07-12T01:00:00Z'),
+    discoverOrphanProcesses: () => [orphan],
+    killOrphanProcess: (record, graceMs) => { killed.push([record.pid, graceMs]); return true },
+    listSchemaContainers: () => [staleName, retainedName],
+    inspectContainer: (name) => name === staleName ? schemaContainer(staleName) : schemaContainer(retainedName),
+    detectActiveBackendTesthost: () => false,
+    removeContainer: (name) => removed.push(name)
+  })
+  assert.deepEqual(killed, [[900, 3_000]])
+  assert.deepEqual(removed, [staleName])
+  assert.deepEqual(result.orphanProcesses, [900])
+  assert.deepEqual(result.untrackedContainers, [staleName])
+  assert.deepEqual(result.terminatedPids, [900])
+  assert.deepEqual(result.removedContainers, [staleName])
+  fs.rmSync(root, { recursive: true, force: true })
 })
 
 test('cleanupStaleLocalRuntimes discovers tracked namespaces before fresh output deletion', () => {

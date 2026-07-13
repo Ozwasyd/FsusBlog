@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
 using FsusBlog.Server.Entities;
@@ -79,6 +81,139 @@ public sealed class AccountSubjectHashProjectionTests
         Assert.True(AccountSubjectHashRequirement.TryResolve(uppercase, out string normalized));
         Assert.Equal(new string('a', AccountSubjectHashRequirement.Sha256HexLength), normalized);
     }
+
+    [Fact]
+    public void RuntimeMetadataInspection_CacheIsConcurrentAndKeepsOrderedKeysIsolated()
+    {
+        Type type = typeof(RuntimeMetadataCacheFixture);
+        RuntimeMetadataInspection.ClearCacheEntriesForType(type);
+
+        string[] concurrent = new string[32];
+        Parallel.For(0, concurrent.Length, index =>
+        {
+            concurrent[index] = RuntimeMetadataInspection.DescribeMethods(
+                type,
+                nameof(RuntimeMetadataCacheFixture.First),
+                nameof(RuntimeMetadataCacheFixture.Second));
+        });
+
+        Assert.Single(concurrent.Distinct(StringComparer.Ordinal));
+        Assert.Equal(1, RuntimeMetadataInspection.CacheEntryCountForType(type));
+
+        string reversed = RuntimeMetadataInspection.DescribeMethods(
+            type,
+            nameof(RuntimeMetadataCacheFixture.Second),
+            nameof(RuntimeMetadataCacheFixture.First));
+        string firstOnly = RuntimeMetadataInspection.DescribeMethods(
+            type,
+            nameof(RuntimeMetadataCacheFixture.First));
+
+        Assert.Equal(concurrent[0], reversed);
+        Assert.Contains("cache-first", firstOnly, StringComparison.Ordinal);
+        Assert.DoesNotContain("cache-second", firstOnly, StringComparison.Ordinal);
+        Assert.Equal(3, RuntimeMetadataInspection.CacheEntryCountForType(type));
+    }
+
+    [Fact]
+    public void RuntimeMetadataInspection_RawCandidateCacheIsSharedAcrossRequiredFactsAndModes()
+    {
+        Type type = typeof(RuntimeMetadataCacheFixture);
+        RuntimeMetadataInspection.ClearCacheEntriesForType(type);
+
+        string closureFirst = RuntimeMetadataInspection.DescribeMethodClosureContaining(type, "cache-first");
+        string closureSecond = RuntimeMetadataInspection.DescribeMethodClosureContaining(type, "cache-second");
+        string declaredFirst = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(type, "cache-first");
+
+        Assert.Contains("cache-first", closureFirst, StringComparison.Ordinal);
+        Assert.Contains("cache-second", closureSecond, StringComparison.Ordinal);
+        Assert.Contains("cache-first", declaredFirst, StringComparison.Ordinal);
+        Assert.Equal(5, RuntimeMetadataInspection.CacheEntryCountForType(type));
+
+        RuntimeMetadataInspection.ClearCacheEntriesForType(type);
+        Assert.Equal(0, RuntimeMetadataInspection.CacheEntryCountForType(type));
+    }
+
+    [Fact]
+    public void RuntimeMetadataInspection_DoesNotCacheMutableStaticStringValues()
+    {
+        Type type = typeof(RuntimeMetadataMutableFixture);
+        RuntimeMetadataInspection.ClearCacheEntriesForType(type);
+        RuntimeMetadataMutableFixture.Marker = "metadata-before";
+        string before = RuntimeMetadataInspection.DescribeType(type);
+        string declaredBefore = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(type, "metadata-before");
+
+        RuntimeMetadataMutableFixture.Marker = "metadata-after";
+        string after = RuntimeMetadataInspection.DescribeType(type);
+        string declaredAfter = RuntimeMetadataInspection.DescribeDeclaredMethodContaining(type, "metadata-after");
+
+        Assert.Contains("metadata-before", before, StringComparison.Ordinal);
+        Assert.Contains("metadata-after", after, StringComparison.Ordinal);
+        Assert.DoesNotContain("metadata-before", after, StringComparison.Ordinal);
+        Assert.Contains("metadata-before", declaredBefore, StringComparison.Ordinal);
+        Assert.Contains("metadata-after", declaredAfter, StringComparison.Ordinal);
+        Assert.DoesNotContain("metadata-before", declaredAfter, StringComparison.Ordinal);
+        Assert.Equal(0, RuntimeMetadataInspection.CacheEntryCountForType(type));
+    }
+
+    [Fact]
+    public void RuntimeMetadataInspection_RepeatedDescribeMicrobenchmarkUsesTheCache()
+    {
+        Type type = typeof(RuntimeMetadataBenchmarkFixture);
+        RuntimeMetadataInspection.ClearCacheEntriesForType(type);
+        _ = RuntimeMetadataInspection.DescribeTypeUncachedForBenchmark(type);
+        _ = RuntimeMetadataInspection.DescribeType(type);
+
+        const int iterations = 256;
+        var uncached = Stopwatch.StartNew();
+        for (int index = 0; index < iterations; index++)
+        {
+            GC.KeepAlive(RuntimeMetadataInspection.DescribeTypeUncachedForBenchmark(type));
+        }
+        uncached.Stop();
+
+        var cached = Stopwatch.StartNew();
+        for (int index = 0; index < iterations; index++)
+        {
+            GC.KeepAlive(RuntimeMetadataInspection.DescribeType(type));
+        }
+        cached.Stop();
+
+        double speedup = (double)uncached.ElapsedTicks / Math.Max(1, cached.ElapsedTicks);
+        Console.WriteLine(
+            $"[runtime-metadata-cache-benchmark] iterations={iterations} uncachedMs={uncached.Elapsed.TotalMilliseconds:F3} cachedMs={cached.Elapsed.TotalMilliseconds:F3} speedup={speedup:F2}x");
+        Assert.True(
+            cached.ElapsedTicks * 2 < uncached.ElapsedTicks,
+            $"Expected cached metadata description to be at least 2x faster; uncached={uncached.Elapsed.TotalMilliseconds:F3}ms cached={cached.Elapsed.TotalMilliseconds:F3}ms.");
+    }
+
+    private static class RuntimeMetadataCacheFixture
+    {
+        public static string First() => "cache-first";
+
+        public static string Second() => "cache-second";
+    }
+
+    private static class RuntimeMetadataMutableFixture
+    {
+        public static string Marker = "metadata-initial";
+
+        public static string Read() => Marker;
+    }
+
+    private static class RuntimeMetadataBenchmarkFixture
+    {
+        public static string Root(string value) => First(value) + Second(value);
+
+        private static string First(string value) => Third(value) + "benchmark-first";
+
+        private static string Second(string value) => Fourth(value) + "benchmark-second";
+
+        private static string Third(string value) => Fifth(value) + value;
+
+        private static string Fourth(string value) => Fifth(value) + value;
+
+        private static string Fifth(string value) => value.Trim().ToUpperInvariant();
+    }
 }
 
 internal static class RuntimeMetadataInspection
@@ -90,10 +225,23 @@ internal static class RuntimeMetadataInspection
         .GroupBy(static opCode => unchecked((ushort)opCode.Value))
         .ToDictionary(static group => group.Key, static group => group.First());
 
+    private static readonly ConcurrentDictionary<DescriptionCacheKey, Lazy<string>> StringDescriptions = new();
+    private static readonly ConcurrentDictionary<DescriptionCacheKey, Lazy<string[]>> CandidateDescriptions = new();
+    private static readonly ConcurrentDictionary<DescriptionCacheKey, Lazy<string[][]>> SequenceDescriptions = new();
+    private static readonly ConcurrentDictionary<Type, bool> RuntimeDescriptionCacheability = new();
+
     public static string DescribeType(Type type)
-        => Describe(type, type
-            .GetMethods(AllDeclaredMembers)
-            .Cast<MethodBase>(), followCallsWithinType: true);
+    {
+        DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.Type, []);
+        return GetOrCreate(
+            StringDescriptions,
+            key,
+            () => DescribeTypeUncachedForBenchmark(type),
+            CanCacheRuntimeDescription(type));
+    }
+
+    internal static string DescribeTypeUncachedForBenchmark(Type type)
+        => Describe(type, type.GetMethods(AllDeclaredMembers).Cast<MethodBase>(), followCallsWithinType: true);
 
     public static string DescribeMethods(Type type, params string[] methodNames)
     {
@@ -104,29 +252,38 @@ internal static class RuntimeMetadataInspection
             .Cast<MethodBase>()
             .ToArray();
         Assert.Equal(requested.Count, roots.Select(static method => method.Name).Distinct(StringComparer.Ordinal).Count());
-        return Describe(type, roots, followCallsWithinType: true);
+        DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.Methods, methodNames);
+        return GetOrCreate(
+            StringDescriptions,
+            key,
+            () => Describe(type, roots, followCallsWithinType: true),
+            CanCacheRuntimeDescription(type));
     }
 
     public static string DescribeMethodClosureContaining(Type type, params string[] requiredFacts)
     {
-        string[] candidates = EnumerateTypeTree(type)
-            .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
-            .Select(method => Describe(type, [method], followCallsWithinType: true))
-            .Where(shape => requiredFacts.All(fact => shape.Contains(fact, StringComparison.Ordinal)))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+        DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.MethodClosureContaining, requiredFacts);
+        string[] candidates = GetOrCreate(
+            CandidateDescriptions,
+            key,
+            () => DescribeMethodCandidates(type, followCallsWithinType: true)
+                .Where(shape => requiredFacts.All(fact => shape.Contains(fact, StringComparison.Ordinal)))
+                .ToArray(),
+            CanCacheRuntimeDescription(type));
         Assert.NotEmpty(candidates);
         return string.Join('\n', candidates);
     }
 
     public static string DescribeDeclaredMethodContaining(Type type, params string[] requiredFacts)
     {
-        string[] candidates = EnumerateTypeTree(type)
-            .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
-            .Select(method => Describe(type, [method], followCallsWithinType: false))
-            .Where(shape => requiredFacts.All(fact => shape.Contains(fact, StringComparison.Ordinal)))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+        DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.DeclaredMethodContaining, requiredFacts);
+        string[] candidates = GetOrCreate(
+            CandidateDescriptions,
+            key,
+            () => DescribeMethodCandidates(type, followCallsWithinType: false)
+                .Where(shape => requiredFacts.All(fact => shape.Contains(fact, StringComparison.Ordinal)))
+                .ToArray(),
+            CanCacheRuntimeDescription(type));
         Assert.NotEmpty(candidates);
         return string.Join('\n', candidates);
     }
@@ -145,30 +302,66 @@ internal static class RuntimeMetadataInspection
         Type type,
         params string[] requiredFacts)
     {
-        string[][] candidates = EnumerateTypeTree(type)
-            .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
-            .Select(DescribeMemberReferencesInOrder)
-            .Where(references => requiredFacts.All(fact => references.Any(
-                reference => reference.Contains(fact, StringComparison.Ordinal))))
-            .ToArray();
+        DescriptionCacheKey key = CreateCacheKey(
+            type,
+            DescriptionOperation.DeclaredMemberReferenceSequencesContaining,
+            requiredFacts);
+        string[][] candidates = GetOrCreate(
+            SequenceDescriptions,
+            key,
+            () => EnumerateTypeTree(type)
+                .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
+                .Select(DescribeMemberReferencesInOrder)
+                .Where(references => requiredFacts.All(fact => references.Any(
+                    reference => reference.Contains(fact, StringComparison.Ordinal))))
+                .ToArray(),
+            cache: true);
         Assert.NotEmpty(candidates);
-        return candidates;
+        return candidates
+            .Select(static references => (IReadOnlyList<string>)Array.AsReadOnly((string[])references.Clone()))
+            .ToArray();
     }
 
     public static string DescribeDeclaredMethodBodiesContaining(Type type, params string[] requiredFacts)
     {
-        string[] candidates = EnumerateTypeTree(type)
-            .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
-            .Select(DescribeMethodBodyFacts)
-            .Where(facts => requiredFacts.All(fact => facts.Contains(fact, StringComparison.Ordinal)))
-            .ToArray();
+        DescriptionCacheKey key = CreateCacheKey(type, DescriptionOperation.DeclaredMethodBodiesContaining, requiredFacts);
+        string[] candidates = GetOrCreate(
+            CandidateDescriptions,
+            key,
+            () => EnumerateTypeTree(type)
+                .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
+                .Select(DescribeMethodBodyFacts)
+                .Where(facts => requiredFacts.All(fact => facts.Contains(fact, StringComparison.Ordinal)))
+                .ToArray(),
+            cache: true);
         Assert.NotEmpty(candidates);
         return string.Join('\n', candidates);
     }
 
+    internal static int CacheEntryCountForType(Type type)
+        => StringDescriptions.Keys.Count(key => key.Type == type)
+           + CandidateDescriptions.Keys.Count(key => key.Type == type)
+           + SequenceDescriptions.Keys.Count(key => key.Type == type);
+
+    internal static void ClearCacheEntriesForType(Type type)
+    {
+        foreach (DescriptionCacheKey key in StringDescriptions.Keys.Where(key => key.Type == type))
+        {
+            StringDescriptions.TryRemove(key, out _);
+        }
+        foreach (DescriptionCacheKey key in CandidateDescriptions.Keys.Where(key => key.Type == type))
+        {
+            CandidateDescriptions.TryRemove(key, out _);
+        }
+        foreach (DescriptionCacheKey key in SequenceDescriptions.Keys.Where(key => key.Type == type))
+        {
+            SequenceDescriptions.TryRemove(key, out _);
+        }
+    }
+
     public static IReadOnlyList<string> DescribeOpCodes(MethodBase method)
     {
-        MethodBody body = Assert.IsType<MethodBody>(method.GetMethodBody());
+        MethodBody body = Assert.IsAssignableFrom<MethodBody>(method.GetMethodBody());
         byte[] il = Assert.IsType<byte[]>(body.GetILAsByteArray());
         var opCodes = new List<string>();
         for (int offset = 0; offset < il.Length;)
@@ -185,7 +378,7 @@ internal static class RuntimeMetadataInspection
 
     public static IReadOnlyList<int> DescribeInt32Constants(MethodBase method)
     {
-        MethodBody body = Assert.IsType<MethodBody>(method.GetMethodBody());
+        MethodBody body = Assert.IsAssignableFrom<MethodBody>(method.GetMethodBody());
         byte[] il = Assert.IsType<byte[]>(body.GetILAsByteArray());
         var values = new List<int>();
         for (int offset = 0; offset < il.Length;)
@@ -614,6 +807,23 @@ internal static class RuntimeMetadataInspection
         return string.Join('\n', facts);
     }
 
+    private static string[] DescribeMethodCandidates(Type type, bool followCallsWithinType)
+    {
+        DescriptionOperation operation = followCallsWithinType
+            ? DescriptionOperation.MethodClosureCandidates
+            : DescriptionOperation.DeclaredMethodCandidates;
+        DescriptionCacheKey key = CreateCacheKey(type, operation, []);
+        return GetOrCreate(
+            CandidateDescriptions,
+            key,
+            () => EnumerateTypeTree(type)
+                .SelectMany(static candidate => candidate.GetMethods(AllDeclaredMembers))
+                .Select(method => Describe(type, [method], followCallsWithinType))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray(),
+            CanCacheRuntimeDescription(type));
+    }
+
     private static IEnumerable<Type> EnumerateTypeTree(Type type)
     {
         yield return type;
@@ -638,6 +848,65 @@ internal static class RuntimeMetadataInspection
 
     private static string DescribeMember(MemberInfo member)
         => $"{member.DeclaringType?.FullName}.{member.Name} {member}";
+
+    private static bool CanCacheRuntimeDescription(Type type)
+        => RuntimeDescriptionCacheability.GetOrAdd(type, static inspectedType => EnumerateTypeTree(inspectedType)
+            .SelectMany(static candidate => candidate.GetFields(AllDeclaredMembers))
+            .Where(static field => field.IsStatic && field.FieldType == typeof(string))
+            .All(static field => field.IsLiteral || field.IsInitOnly));
+
+    private static DescriptionCacheKey CreateCacheKey(
+        Type type,
+        DescriptionOperation operation,
+        IEnumerable<string?> orderedArguments)
+        => new(type, operation, string.Concat(orderedArguments.Select(static argument => argument is null
+            ? "-1:"
+            : $"{argument.Length}:{argument}")));
+
+    private static TValue GetOrCreate<TValue>(
+        ConcurrentDictionary<DescriptionCacheKey, Lazy<TValue>> descriptions,
+        DescriptionCacheKey key,
+        Func<TValue> factory,
+        bool cache)
+    {
+        if (!cache)
+        {
+            return factory();
+        }
+
+        Lazy<TValue> value = descriptions.GetOrAdd(
+            key,
+            _ => new Lazy<TValue>(factory, LazyThreadSafetyMode.ExecutionAndPublication));
+        try
+        {
+            return value.Value;
+        }
+        catch
+        {
+            if (descriptions.TryGetValue(key, out Lazy<TValue>? current) && ReferenceEquals(value, current))
+            {
+                descriptions.TryRemove(key, out _);
+            }
+            throw;
+        }
+    }
+
+    private enum DescriptionOperation
+    {
+        Type,
+        Methods,
+        MethodClosureCandidates,
+        DeclaredMethodCandidates,
+        MethodClosureContaining,
+        DeclaredMethodContaining,
+        DeclaredMemberReferenceSequencesContaining,
+        DeclaredMethodBodiesContaining
+    }
+
+    private readonly record struct DescriptionCacheKey(
+        Type Type,
+        DescriptionOperation Operation,
+        string OrderedArguments);
 
     private static OpCode ReadOpCode(byte[] il, ref int offset)
     {

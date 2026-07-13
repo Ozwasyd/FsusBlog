@@ -22,6 +22,7 @@ let updateScheduled = false
 
 type ServiceWorkerIdleWindow = Window & typeof globalThis & {
   requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+  __FSUSBLOG_DISABLE_SERVICE_WORKER__?: boolean
 }
 
 const SERVICE_WORKER_UPDATE_IDLE_TIMEOUT_MS = 30_000
@@ -46,7 +47,10 @@ function bindListener(): void {
 }
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (!import.meta.env.PROD || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+  if (!import.meta.env.PROD
+    || typeof window === 'undefined'
+    || (window as ServiceWorkerIdleWindow).__FSUSBLOG_DISABLE_SERVICE_WORKER__ === true
+    || !('serviceWorker' in navigator)) {
     await unregisterDevServiceWorkers()
     return null
   }
@@ -61,6 +65,9 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       type: 'module',
       updateViaCache: 'none'
     }).then((registration) => {
+      if (!registration) {
+        return null
+      }
       scheduleServiceWorkerUpdate(registration)
       return registration
     }).catch((error) => {
