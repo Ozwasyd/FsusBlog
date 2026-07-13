@@ -13,6 +13,7 @@ import {
   createRunId,
   findLatestRunId,
   markCheckpointWallClockTimeout,
+  resumeCheckpointEvidence,
   runDag,
   tierResourceUnits,
   validateSupersedesRules
@@ -1106,12 +1107,60 @@ function projectLocalBundleSummaries(matrix, profileId, profile, runId, complete
 }
 
 async function runLocalProfile(matrix, profileId, options) {
-  if (options.resume) throw new Error(`local ${profileId} profile is fresh-only; use --logical-dag --resume for diagnostics`)
+  const profile = matrix.localProfiles[profileId]
+  const detectResources = () => localProfileSystemResources(profile, {
+    cpuCount: os.availableParallelism?.() ?? os.cpus().length,
+    availableMemoryGiB: os.freemem() / (1024 ** 3),
+    load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
+  })
+  if (options.resume) {
+    const detectedResources = detectResources()
+    const resolvedLogicalMatrix = {
+      ...matrix,
+      tiers: resolveLogicalTierResources(matrix.tiers, detectedResources)
+    }
+    const { runsRoot, runId } = schedulerRunIdentity(profileId, options)
+    const checkpointPath = path.join(runsRoot, runId, 'checkpoint.json')
+    const checkpoint = await resumeCheckpointEvidence(checkpointPath, runId, (successfulCheckpoint) => {
+      const completedTierIds = new Set(successfulCheckpoint.completedTiers ?? [])
+      const projectionInput = projectLocalBundleSummaries(
+        resolvedLogicalMatrix,
+        profileId,
+        profile,
+        runId,
+        completedTierIds)
+      const summaryOnlyEvidence = writeSummaryOnlyEvidence(
+        profileId,
+        profile,
+        runId,
+        successfulCheckpoint.sourceState)
+      return {
+        logicalTierProjection: buildLocalProfileProjection({
+          profileId,
+          profile,
+          tiers: resolvedLogicalMatrix.tiers,
+          checkpoint: successfulCheckpoint,
+          bundleSummaries: projectionInput.bundleSummaries,
+          summaryOnlyEvidence
+        })
+      }
+    }, { root })
+    const summaryFile = path.join(root, `.tmp/local-${profileId}/summary.json`)
+    const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+    summary.status = 'success'
+    summary.executionSource = 'fresh-projection-resume'
+    summary.projectedTierIds = checkpoint.logicalTierProjection.logicalTierIds
+    summary.failure = null
+    summary.failures = []
+    summary.generatedAt = new Date().toISOString()
+    fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+    console.error(`[matrix:${profileId}] resumed projection run=${runId} tiers=${summary.projectedTierIds.length} checkpoint=${relativeToRoot(checkpointPath)}`)
+    return
+  }
   const wallClockStartedAtMs = Number(process.env.FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS ?? Date.now())
   if (!Number.isFinite(wallClockStartedAtMs) || wallClockStartedAtMs <= 0 || wallClockStartedAtMs > Date.now()) {
     throw new Error('FSUSBLOG_TEST_INVOCATION_STARTED_AT_MS must be a valid epoch timestamp that is not in the future')
   }
-  const profile = matrix.localProfiles[profileId]
   const staleCleanup = options.planOnly ? null : cleanupStaleLocalRuntimes({
     root,
     discoverUntracked: true,
@@ -1127,11 +1176,7 @@ async function runLocalProfile(matrix, profileId, options) {
     isRunActive: schedulerRunIsActive,
     terminationGraceMs: Math.ceil(profile.budgetMs / 100)
   })
-  const detectedResources = localProfileSystemResources(profile, {
-    cpuCount: os.availableParallelism?.() ?? os.cpus().length,
-    availableMemoryGiB: os.freemem() / (1024 ** 3),
-    load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
-  })
+  const detectedResources = detectResources()
   const resolvedLogicalMatrix = {
     ...matrix,
     tiers: resolveLogicalTierResources(matrix.tiers, detectedResources)

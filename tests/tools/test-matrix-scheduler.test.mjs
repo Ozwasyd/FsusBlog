@@ -507,6 +507,40 @@ test('checkpoint evidence builder failure is persisted instead of leaving a succ
   assert.match(persisted.failure.reason, /projection builder exploded/u)
 })
 
+test('projection-only resume reuses fresh successful physical evidence without rerunning tiers', async () => {
+  const { attachCheckpointEvidence, resumeCheckpointEvidence, runDag } = await loadScheduler()
+  const fixture = await createCheckpointEvidenceFixture(runDag, 'scheduler-projection-resume')
+  const invalidProjection = structuredClone(fixture.projection)
+  invalidProjection.logicalTierCount += 1
+  await assert.rejects(
+    attachCheckpointEvidence(fixture.result.checkpointPath, 'production-fresh', {
+      logicalTierProjection: invalidProjection
+    }, fixture.attachOptions),
+    /logicalTierCount must match its entries/u
+  )
+
+  const recovered = await resumeCheckpointEvidence(
+    fixture.result.checkpointPath,
+    'production-fresh',
+    (successfulCheckpoint) => {
+      assert.equal(successfulCheckpoint.status, 'success')
+      return { logicalTierProjection: fixture.projection }
+    },
+    {
+      root: fixture.temp,
+      snapshotWorktree: async () => ({ fingerprint: 'projection-fix', entries: {} })
+    }
+  )
+
+  assert.equal(recovered.status, 'success')
+  assert.equal(recovered.failure, null)
+  assert.equal(recovered.sourceState.worktreeFingerprint, 'stable')
+  assert.equal(recovered.logicalTierProjection.logicalTierCount, 2)
+  assert.equal(recovered.evidenceFinalization.mode, 'projection-resume')
+  assert.equal(recovered.evidenceFinalization.finalizerSource.worktreeFingerprint, 'projection-fix')
+  assert.equal(recovered.tiers['local-production-build-static'].reused, false)
+})
+
 test('checkpoint evidence generation and attach reject a concurrent writer for the same run', async () => {
   const { attachCheckpointEvidence, runDag } = await loadScheduler()
   const { result, projection, attachOptions } = await createCheckpointEvidenceFixture(runDag, 'scheduler-checkpoint-attach-lock')

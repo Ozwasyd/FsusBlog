@@ -1187,6 +1187,58 @@ export async function attachCheckpointEvidence(checkpointFileValue, expectedRunI
   }
 }
 
+export async function resumeCheckpointEvidence(checkpointFileValue, expectedRunId, evidenceBuilder, options = {}) {
+  const checkpointFile = path.resolve(checkpointFileValue)
+  const runsRoot = path.dirname(path.dirname(checkpointFile))
+  const root = path.resolve(options.root ?? '')
+  if (!options.root) throw new Error('checkpoint evidence resume requires options.root')
+  if (typeof evidenceBuilder !== 'function') throw new Error('checkpoint evidence resume requires an evidence builder')
+  const releaseLock = acquireRunLock(runsRoot, expectedRunId)
+  try {
+    const checkpoint = readCheckpoint(checkpointFile)
+    if (!checkpoint || checkpoint.runId !== expectedRunId) {
+      throw new Error(`missing or mismatched scheduler checkpoint: ${checkpointFileValue}`)
+    }
+    const projectionFailure = String(checkpoint.failure?.reason ?? '')
+      .startsWith('checkpoint evidence finalization failed:')
+    const onlyProjectionMissing = checkpoint.ungeneratedEvidence?.length === 1
+      && checkpoint.ungeneratedEvidence[0]?.tierId === checkpoint.targetTierId
+      && checkpoint.ungeneratedEvidence[0]?.declaration === 'logicalTierProjection'
+    const physicalTiersSucceeded = Object.values(checkpoint.tiers ?? {}).length > 0
+      && Object.values(checkpoint.tiers).every((tier) => tier?.status === 'success' && tier?.reused === false)
+    if (checkpoint.status !== 'failure' || !projectionFailure || !onlyProjectionMissing || !physicalTiersSucceeded) {
+      throw new Error('checkpoint is not a projection-only failure with fresh successful physical tiers')
+    }
+    validateCheckpointBundleSummaries(checkpoint, root)
+    const successfulCheckpoint = structuredClone(checkpoint)
+    successfulCheckpoint.status = 'success'
+    successfulCheckpoint.failure = null
+    delete successfulCheckpoint.failurePoint
+    delete successfulCheckpoint.ungeneratedEvidence
+    const evidence = await evidenceBuilder(successfulCheckpoint)
+    validateCheckpointBundleSummaries(checkpoint, root)
+    validateCheckpointEvidence(successfulCheckpoint, evidence, root)
+    const snapshot = await (options.snapshotWorktree ?? (() => snapshotGitWorktree(root)))()
+    checkpoint.status = 'success'
+    checkpoint.failure = null
+    delete checkpoint.failurePoint
+    delete checkpoint.ungeneratedEvidence
+    checkpoint.logicalTierProjection = evidence.logicalTierProjection
+    checkpoint.evidenceFinalization = {
+      mode: 'projection-resume',
+      finalizedAt: new Date().toISOString(),
+      finalizerSource: {
+        commit: gitHead(root),
+        worktreeFingerprint: snapshot?.fingerprint ?? null
+      }
+    }
+    writeCheckpoint(checkpointFile, checkpoint)
+    return checkpoint
+  } finally {
+    releaseLock()
+  }
+}
+
 function safeRunId(value) {
   return String(value).replace(/[^A-Za-z0-9_.-]/g, '-').replace(/^-+|-+$/g, '') || 'run'
 }

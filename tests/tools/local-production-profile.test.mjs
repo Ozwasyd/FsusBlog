@@ -181,7 +181,7 @@ test('local production cleans stale runtimes before measuring machine capacity',
   )
   const cleanup = runner.indexOf('cleanupStaleLocalRuntimes({')
   const buildServerPreflight = runner.indexOf('const dotnetBuildServerPreflightPids =')
-  const measurement = runner.indexOf('localProfileSystemResources(profile, {')
+  const measurement = runner.lastIndexOf('const detectedResources = detectResources()')
 
   assert.ok(cleanup >= 0)
   assert.ok(buildServerPreflight > cleanup)
@@ -639,17 +639,20 @@ test('local production runner attaches the logical projection only after fresh p
     matrixRunner.indexOf('function writeSummaryOnlyEvidence('),
     matrixRunner.indexOf('\nfunction resetFreshJobSummaries(')
   )
+  const freshProjectionRunner = localProfileRunner.slice(localProfileRunner.indexOf('result = await runDag({'))
   const orderedMarkers = [
     'result = await runDag({',
     'const projectionInput = projectLocalBundleSummaries(',
     'const summaryOnlyEvidence = writeSummaryOnlyEvidence(',
     'buildLocalProfileProjection({',
     'attachCheckpointEvidence('
-  ].map((marker) => localProfileRunner.indexOf(marker))
+  ].map((marker) => freshProjectionRunner.indexOf(marker))
 
   assert.ok(orderedMarkers.every((index) => index >= 0))
   assert.deepEqual(orderedMarkers, [...orderedMarkers].sort((left, right) => left - right))
   assert.match(localProfileRunner, /if \(result\.status === 'success'\)[\s\S]*?attachCheckpointEvidence/u)
+  assert.doesNotMatch(localProfileRunner, /fresh-only/u)
+  assert.match(localProfileRunner, /if \(options\.resume\) \{[\s\S]*?resumeCheckpointEvidence\([\s\S]*?fresh-projection-resume/u)
   assert.match(localProfileRunner, /const resolvedLogicalMatrix = \{[\s\S]*?tiers: resolveLogicalTierResources\(matrix\.tiers, detectedResources\)[\s\S]*?projectLocalBundleSummaries\([\s\S]*?resolvedLogicalMatrix,[\s\S]*?tiers: resolvedLogicalMatrix\.tiers/u)
   assert.match(localProfileRunner, /writeSummaryOnlyEvidence\(profileId, profile, runId, result\.checkpoint\.sourceState\)/u)
   assert.match(localProfileRunner, /collectFailures: true/u)
