@@ -9,6 +9,7 @@ import {
   resolveRuntimeBrowserTimeoutPlan
 } from '../../support/runtime-browser-timeout.mjs'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
+import { resolveAdaptiveManifestWorkers } from '../../../../tools/test/run-command-manifest.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }))
@@ -222,6 +223,11 @@ const scenarios = [
     maxPreemptLogs: 0,
   },
 ]
+const scenarioWorkers = Math.min(scenarios.length, resolveAdaptiveManifestWorkers({
+  workload: 'orchestration',
+  orchestrationWorkersPerCpu: 2,
+  orchestrationMemoryGiBPerWorker: 0.25
+}))
 
 function assert(condition, message) {
   if (!condition) {
@@ -364,17 +370,22 @@ async function runScenario(browser, scenario) {
 }
 
 async function main() {
-  console.log(`[pow-runtime] timeoutPlan=${JSON.stringify(timeoutPlan)}`)
+  console.log(`[pow-runtime] timeoutPlan=${JSON.stringify(timeoutPlan)} scenarioWorkers=${scenarioWorkers}`)
   const browser = await chromium.launch({
     headless: true,
     executablePath,
   })
 
   try {
-    const results = []
-    for (const scenario of scenarios) {
-      results.push(await runScenario(browser, scenario))
-    }
+    const results = new Array(scenarios.length)
+    let nextScenario = 0
+    await Promise.all(Array.from({ length: scenarioWorkers }, async () => {
+      while (nextScenario < scenarios.length) {
+        const index = nextScenario
+        nextScenario += 1
+        results[index] = await runScenario(browser, scenarios[index])
+      }
+    }))
     for (const result of results) {
       console.log(`[pow-runtime] ok ${result.id} route=${result.route} powChallenges=${result.powChallenges} notificationStreamRequests=${result.notificationStreamRequests} workerInits=${result.workerInits} preemptLogs=${result.preemptLogs}`)
     }

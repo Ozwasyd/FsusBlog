@@ -217,9 +217,11 @@ requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privac
 ])
 requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "const step = commandStep('vitest-production-projects'", 'const frontendDagResults', [
   "dependsOn: ['frontend-early-test-capacity-ready']",
-  'FSUSBLOG_VITEST_TARGET_WORKERS: String(fullVitestCpuUnits)',
-  'minCpuUnits: 1'
+  'minCpuUnits: resolvedFrontendVitestAdmissionFloor()'
 ])
+if (read('tools/test/bundles/run-bundle.mjs').includes('FSUSBLOG_VITEST_TARGET_WORKERS')) {
+  errors.push('production frontend bundle must derive Vitest workers from the live admitted step grant')
+}
 requireSectionIncludes('tools/test/bundles/bundle-steps.mjs', "step('privacy-zk-project-functional'", "step('coverage-merge'", [
   'tools/test/lanes/privacy-zk-comment-matrix.sh project-functional',
   'resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }'

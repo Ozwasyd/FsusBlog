@@ -50,6 +50,18 @@ test('runtime integration retains every check exactly once while parallelizing o
   assert.match(integration, /FSUSBLOG_PARALLEL_WORKLOAD=orchestration/u)
 })
 
+test('pow runtime parallelizes isolated browser contexts with a machine-derived bounded pool', () => {
+  const powRuntime = fs.readFileSync(
+    path.join(root, 'tests/frontend/checks/runtime/pow-runtime-regression.mjs'),
+    'utf8'
+  )
+  assert.match(powRuntime, /resolveAdaptiveManifestWorkers/u)
+  assert.match(powRuntime, /workload: 'orchestration'/u)
+  assert.match(powRuntime, /Math\.min\(scenarios\.length/u)
+  assert.match(powRuntime, /Promise\.all\(Array\.from\(\{ length: scenarioWorkers \}/u)
+  assert.match(powRuntime, /results\[index\] = await runScenario\(browser, scenarios\[index\]\)/u)
+})
+
 test('runtime integration collects independent pool and stateful failures before failing the lane', () => {
   assert.match(integration, /local -a integration_failures=\(\)/u)
   assert.match(integration, /integration_failures\+=\("\$label:\$status"\)/u)

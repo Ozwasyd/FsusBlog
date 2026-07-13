@@ -11,7 +11,7 @@ const frontendPackage = JSON.parse(fs.readFileSync(new URL('../../src/frontend/p
 const vitestSharedSource = fs.readFileSync(new URL('../../src/frontend/vitest.shared.mjs', import.meta.url), 'utf8')
 const vitestUnitSource = fs.readFileSync(new URL('../../src/frontend/vitest.config.ts', import.meta.url), 'utf8')
 
-test('frontend bundle starts one complete Vitest host before build while coordination waits consume no CPU', () => {
+test('frontend bundle waits for a useful dynamic grant before starting one complete Vitest host', () => {
   const vitestStart = runnerSource.indexOf("const step = commandStep('vitest-production-projects'")
   const dagStart = runnerSource.indexOf('await executeWeightedStepDag([', vitestStart)
   const dagEnd = runnerSource.indexOf('], bundleDagCapacity, async (frontendStep)', dagStart)
@@ -20,11 +20,11 @@ test('frontend bundle starts one complete Vitest host before build while coordin
   const vitestDeclaration = runnerSource.slice(vitestStart, dagStart)
   const dagDeclaration = runnerSource.slice(dagStart, dagEnd)
   assert.match(vitestDeclaration, /node tools\/test\/run-frontend-vitest-rolling-shards\.mjs/u)
-  assert.match(runnerSource, /const fullVitestCpuUnits = resolvedFrontendTestCpuTarget\(\)/u)
   assert.match(runnerSource, /cpuCount - backendFloor - runtimeFloor/u)
   assert.match(vitestDeclaration, /dependsOn: \['frontend-early-test-capacity-ready'\]/u)
-  assert.match(vitestDeclaration, /FSUSBLOG_VITEST_TARGET_WORKERS: String\(fullVitestCpuUnits\)/u)
-  assert.match(vitestDeclaration, /minCpuUnits: 1/u)
+  assert.doesNotMatch(vitestDeclaration, /FSUSBLOG_VITEST_TARGET_WORKERS/u)
+  assert.match(vitestDeclaration, /minCpuUnits: resolvedFrontendVitestAdmissionFloor\(\)/u)
+  assert.match(runnerSource, /Math\.ceil\(Math\.sqrt\(cpuCount\)\)/u)
   assert.doesNotMatch(vitestDeclaration, /dependsOn: \[[^\]]*frontend-build-ready/u)
   assert.doesNotMatch(vitestDeclaration, /\b(?:maxErrors|maxFailures|failFast|bail)\b/u)
 
@@ -135,7 +135,7 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
   })
 })
 
-test('frontend bundle admits one complete Vitest host at the early dynamic grant and fills later capacity', async () => {
+test('frontend bundle delays Vitest until the machine-derived floor and fills early capacity with other work', async () => {
   const fullCapacityReady = deferred()
   const vitestRelease = deferred()
   const staticRelease = deferred()
@@ -147,7 +147,7 @@ test('frontend bundle admits one complete Vitest host at the early dynamic grant
     coordinationStep('frontend-test-capacity-ready'),
     {
       ...ordinaryStep('vitest-production-projects', ['frontend-early-test-capacity-ready']),
-      resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: 2 }
+      resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: 3 }
     },
     ordinaryStep('static-governance-concurrent', ['frontend-early-test-capacity-ready'])
   ], () => ({ maxParallel: cpuUnits, cpuUnits, memoryGiB: cpuUnits }), async (step) => {
@@ -158,16 +158,16 @@ test('frontend bundle admits one complete Vitest host at the early dynamic grant
   })
 
   await nextTurn()
-  assert.ok(started.some((entry) => entry.id === 'vitest-production-projects' && entry.cpuUnits === 2))
-  assert.ok(!started.some((entry) => entry.id === 'static-governance-concurrent'))
+  assert.ok(!started.some((entry) => entry.id === 'vitest-production-projects'))
+  assert.ok(started.some((entry) => entry.id === 'static-governance-concurrent' && entry.cpuUnits === 2))
 
   cpuUnits = 3
+  staticRelease.resolve()
   fullCapacityReady.resolve()
-  await waitFor(() => started.some((entry) => entry.id === 'static-governance-concurrent'))
-  assert.ok(started.some((entry) => entry.id === 'static-governance-concurrent' && entry.cpuUnits === 1), JSON.stringify(started))
+  await waitFor(() => started.some((entry) => entry.id === 'vitest-production-projects'))
+  assert.ok(started.some((entry) => entry.id === 'vitest-production-projects' && entry.cpuUnits === 3), JSON.stringify(started))
 
   vitestRelease.resolve()
-  staticRelease.resolve()
   await execution
 })
 

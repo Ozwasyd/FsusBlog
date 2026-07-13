@@ -1096,6 +1096,19 @@ function resolvedFrontendEarlyTestCpuTarget() {
   return currentCpuUnits >= 3 ? currentCpuUnits - 1 : currentCpuUnits
 }
 
+function resolvedFrontendVitestAdmissionFloor() {
+  const cpuCount = os.availableParallelism?.() ?? os.cpus().length
+  const eventualFrontendCapacity = resolvedFrontendTestCpuTarget()
+  // A complete coverage host is expensive to resize after launch. Wait for a
+  // machine-derived useful floor instead of starting a future multi-worker
+  // host inside the bundle's one-CPU cold-start share. The square-root floor
+  // stays portable on small machines while avoiding transform oversubscription.
+  return Math.max(1, Math.min(
+    eventualFrontendCapacity,
+    Math.ceil(Math.sqrt(cpuCount))
+  ))
+}
+
 async function waitForFrontendTestCapacity(targetCpuUnits, timeoutMs = bundleDeadlineMs()) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -1215,12 +1228,16 @@ async function runFrontendTests() {
   // The 62-command phase intentionally runs before any sibling in this bundle,
   // so its manifest resolver receives the complete current scheduler grant.
   await executeStep(prebuildStep)
-  const fullVitestCpuUnits = resolvedFrontendTestCpuTarget()
   const step = commandStep('vitest-production-projects',
     'node tools/test/run-frontend-vitest-rolling-shards.mjs', [], {
     dependsOn: ['frontend-early-test-capacity-ready'],
-    env: { FSUSBLOG_VITEST_TARGET_WORKERS: String(fullVitestCpuUnits) },
-    resources: { cpuWeight: 2, memoryWeight: 1.5, minCpuUnits: 1 }
+    // run-frontend-vitest-rolling-shards reads the admitted step grant. Do not
+    // inject the larger eventual bundle target into a smaller live allocation.
+    resources: {
+      cpuWeight: 2,
+      memoryWeight: 1.5,
+      minCpuUnits: resolvedFrontendVitestAdmissionFloor()
+    }
   })
   const frontendDagResults = new Map()
   await executeWeightedStepDag([
