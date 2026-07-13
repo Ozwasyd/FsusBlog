@@ -44,6 +44,22 @@ async function gotoRuntime(page, url) {
   await page.waitForTimeout(250)
 }
 
+async function evaluateAcrossStartupNavigation(page, callback, argument) {
+  try {
+    return await page.evaluate(callback, argument)
+  } catch (error) {
+    if (!/Execution context was destroyed|Cannot find context with specified id/u.test(String(error?.message ?? error))) {
+      throw error
+    }
+    await page.waitForLoadState('domcontentloaded', { timeout: navigationTimeoutMs() })
+    await page.waitForSelector('#app', { state: 'attached', timeout: navigationTimeoutMs() })
+    await page.waitForFunction(() => document.readyState === 'complete', undefined, {
+      timeout: navigationTimeoutMs()
+    })
+    return page.evaluate(callback, argument)
+  }
+}
+
 const POW_CHALLENGE_PATTERN = /\/api\/binary\/auth\/pow-challenge(?:[?#]|$)/u
 const AUTH_ME_PATTERN = /\/api\/binary\/auth\/me(?:[?#]|$)/u
 const ADMIN_ME_PATTERN = /\/api\/binary\/auth\/admin\/me(?:[?#]|$)/u
@@ -100,7 +116,7 @@ const scenarios = [
     route: `/article/${publicFixtureIds.articleId}`,
     action: async (page) => {
       await gotoRuntime(page, `${baseUrl}/article/${publicFixtureIds.articleId}`)
-      await page.evaluate(async ({ articleId }) => {
+      await evaluateAcrossStartupNavigation(page, async ({ articleId }) => {
         const [{ getComments, getThreadReplies }, { getRelatedReading }] = await Promise.all([
           import('/src/api/comment.ts'),
           import('/src/api/article.ts'),
