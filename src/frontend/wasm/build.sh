@@ -159,7 +159,13 @@ rm -f \
 if [[ -n "${FSUSBLOG_EM_CACHE:-}" ]]; then
   export EM_CACHE="${FSUSBLOG_EM_CACHE}"
 else
-  export EM_CACHE="${ROOT_DIR}/../../.tmp/emscripten-cache"
+  # Keep Emscripten's compiler cache on a physical repository path. The test
+  # artifact root may be a tmpfs symlink on disk-constrained hosts; Emscripten
+  # otherwise emits SDK source paths relative to the symlink spelling and
+  # resolves them from the CMake build directory, breaking fresh system-library
+  # generation. This ignored dependency cache intentionally survives fresh
+  # output cleanup, matching the already-installed toolchain contract.
+  export EM_CACHE="${ROOT_DIR}/../../.cache/emscripten"
 fi
 mkdir -p "${EM_CACHE}"
 
