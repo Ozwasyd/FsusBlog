@@ -621,6 +621,7 @@ const child = resolveManifestChildEnvironment({
 for (const key of [
   'FSUSBLOG_STEP_CPU_BUDGET',
   'FSUSBLOG_STEP_MEMORY_GIB',
+  'FSUSBLOG_PARALLEL_ACTIVE_WORKERS',
   'FSUSBLOG_COMMAND_MANIFEST_WORKERS',
   'FSUSBLOG_NODE_TEST_CONCURRENCY'
 ]) {
@@ -1733,8 +1734,6 @@ run_security_runtime_core_only() {
   run_security_stage "reset-pre-parallel" reset_security_runtime_state "pre security parallel checks"
 
   local -a security_runtime_jobs=(
-    "permissions::run_security_isolated_client_check permissions npm run check:security:permissions"
-    "a11y::run_security_isolated_client_check a11y npm run check:a11y:smoke"
     "api-contracts::run_in_client npm run check:api-contracts"
     "auth-session::run_security_isolated_client_check auth-session npm run check:auth-session-smoke"
     "auth-mfa::run_security_isolated_client_check auth-mfa npm run check:security:auth-mfa"
@@ -1753,13 +1752,17 @@ run_security_runtime_core_only() {
   fi
   run_security_runtime_pool() {
     local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
-    # Permission and a11y jobs each drive a real browser. They are CPU work,
-    # not lightweight file-handshake orchestration, so one admitted CPU must
-    # not fan out into two competing browser processes.
     local -x FSUSBLOG_PARALLEL_WORKLOAD=cpu
     run_parallel "security-runtime-core" "${security_runtime_jobs[@]}"
   }
   run_security_stage "security-runtime-parallel" run_security_runtime_pool
+  # Permission and a11y each drive a real Chromium renderer. Sharing their
+  # parent grant made either page crash under full-machine load, so keep the
+  # non-browser checks parallel above and collect these two failures in order.
+  run_security_stage "security-runtime-permissions" \
+    run_security_isolated_client_check permissions npm run check:security:permissions
+  run_security_stage "security-runtime-a11y" \
+    run_security_isolated_client_check a11y npm run check:a11y:smoke
 
   run_security_stage "reset-pre-attack" reset_security_runtime_state "pre attack matrix"
   run_security_stage "attack-matrix" run_in_client npm run check:security:attack-matrix

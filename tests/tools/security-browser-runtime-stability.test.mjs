@@ -35,9 +35,9 @@ test('permission phases use a resource-derived pool and settle every independent
   assert.match(permission, /resolveRuntimeBrowserTimeoutPlan/u)
   assert.match(permission, /remainingRuntimeTimeout/u)
   assert.match(permission, /await Promise\.all\(Array\.from\(\{ length: workers \}, runWorker\)\)/u)
-  assert.match(permission, /static-authorization-boundaries[\s\S]*guest-and-role-routes[\s\S]*api-permission-matrix/u)
+  assert.match(permission, /static-authorization-boundaries[\s\S]*api-permission-matrix/u)
   assert.match(permission, /failures\.join\('; '\)/u)
-  assert.match(permission, /page\.waitForURL/u)
+  assert.match(permission, /adminPage\.waitForURL/u)
   assert.doesNotMatch(permission, /fail-fast|max[-_]?errors?/iu)
 })
 

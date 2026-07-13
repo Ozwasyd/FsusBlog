@@ -49,6 +49,7 @@ test('browser runtime timeouts scale from machine contention while remaining bou
   const unconstrained = resolveRuntimeBrowserTimeoutPlan({ env: {}, cpuCount: 8 })
   assert.equal(unconstrained.cpuGrant, 8)
   assert.equal(unconstrained.navigationTimeoutMs, 20_000)
+  assert.equal(unconstrained.activeParallelWorkers, 1)
   assert.equal(unconstrained.requestTimeoutMs, 25_000)
 
   const contended = resolveRuntimeBrowserTimeoutPlan({
@@ -64,6 +65,19 @@ test('browser runtime timeouts scale from machine contention while remaining bou
   assert.ok(contended.requestTimeoutMs > unconstrained.requestTimeoutMs)
   assert.ok(contended.requestTimeoutMs <= 102000 * 0.7)
   assert.ok(contended.pageAuditTimeoutMs <= 102000 * 0.5)
+
+  const pooled = resolveRuntimeBrowserTimeoutPlan({
+    env: {
+      FSUSBLOG_STEP_CPU_BUDGET: '8',
+      FSUSBLOG_PARALLEL_ACTIVE_WORKERS: '8',
+      FSUSBLOG_STEP_DEADLINE_MS: '120000'
+    },
+    cpuCount: 8
+  })
+  assert.equal(pooled.activeParallelWorkers, 8)
+  assert.equal(pooled.effectiveCpuGrant, 1)
+  assert.ok(pooled.navigationTimeoutMs > unconstrained.navigationTimeoutMs)
+  assert.ok(pooled.navigationTimeoutMs <= 120000 * 0.6)
 })
 
 test('public AOT warmup concurrency derives independently bounded backend and I/O fanout from live grants', () => {

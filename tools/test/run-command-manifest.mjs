@@ -250,6 +250,7 @@ export function resolveManifestChildEnvironment({
     ...env,
     ...(cpuGrant === null ? {} : { FSUSBLOG_STEP_CPU_BUDGET: String(cpuGrant / divisor) }),
     ...(memoryGrantGiB === null ? {} : { FSUSBLOG_STEP_MEMORY_GIB: String(memoryGrantGiB / divisor) }),
+    FSUSBLOG_PARALLEL_ACTIVE_WORKERS: String(concurrent ? workerCount : 1),
     FSUSBLOG_COMMAND_MANIFEST_WORKERS: String(nestedWorkers),
     FSUSBLOG_NODE_TEST_CONCURRENCY: String(nestedWorkers)
   }

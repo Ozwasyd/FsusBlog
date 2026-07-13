@@ -17,6 +17,10 @@ import { decodeAedsFrame } from '../../support/aeds-envelope.mjs';
 import { fetchWithTimeout } from '../../support/http.mjs';
 import { buildMarkdownExtremeCorpus } from '../../support/markdown-extreme-corpus.mjs';
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
+import {
+  remainingRuntimeTimeout,
+  resolveRuntimeBrowserTimeoutPlan
+} from '../../support/runtime-browser-timeout.mjs';
 import { testSessionHeaders } from '../../support/test-session.mjs';
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 
@@ -35,6 +39,12 @@ const postgresContainer = process.env.FSUSBLOG_PG_CONTAINER || process.env.FSUSB
 const require = createRequire(import.meta.url);
 const { chromium } = require(require.resolve('@playwright/test', { paths: [process.cwd()] }));
 const executablePath = resolveSystemChromiumExecutablePath()
+const timeoutPlan = resolveRuntimeBrowserTimeoutPlan();
+const runtimeDeadlineAtMs = Date.now() + timeoutPlan.stepDeadlineMs;
+
+function runtimeTimeout(preferredMs) {
+  return remainingRuntimeTimeout(runtimeDeadlineAtMs, preferredMs);
+}
 
 const DENIED_STATUSES = new Set([400, 401, 403, 404, 405, 409, 413, 415, 422, 428, 429]);
 
@@ -390,7 +400,13 @@ async function assertGuestAndRoleRoutes() {
     const adminContext = await browser.newContext({ baseURL: frontendBaseUrl, extraHTTPHeaders: testSessionHeaders() });
     await adminContext.addCookies(toPlaywrightSessionCookies(adminSession.cookieMap ?? adminSession.cookieHeader));
     const adminPage = await adminContext.newPage();
-    await adminPage.goto('/user/manage', { waitUntil: 'domcontentloaded' });
+    await adminPage.goto('/user/manage', {
+      waitUntil: 'domcontentloaded',
+      timeout: runtimeTimeout(timeoutPlan.navigationTimeoutMs)
+    });
+    await adminPage.waitForURL(/\/user\/manage(?:[/?#]|$)/u, {
+      timeout: runtimeTimeout(timeoutPlan.navigationTimeoutMs)
+    });
     await adminPage.waitForTimeout(2500);
     assert(new URL(adminPage.url()).pathname.startsWith('/user/manage'), 'admin should be able to stay on admin route');
     await adminContext.close();

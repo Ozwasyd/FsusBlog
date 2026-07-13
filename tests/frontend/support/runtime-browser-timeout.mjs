@@ -39,15 +39,26 @@ export function resolveRuntimeBrowserTimeoutPlan({
       ?? positiveNumber(env.FSUSBLOG_BUNDLE_DEADLINE_MS)
       ?? DEFAULT_STEP_DEADLINE_MS
   )
+  const activeParallelWorkers = Math.max(1, Math.floor(
+    positiveNumber(env.FSUSBLOG_PARALLEL_ACTIVE_WORKERS) ?? 1
+  ))
+  const effectiveCpuGrant = Math.max(
+    1 / activeParallelWorkers,
+    cpuGrant / activeParallelWorkers
+  )
   // A scheduler grant below the physical CPU count means browser startup,
-  // renderer work and the Vite transform pipeline are sharing the host. Scale
-  // sub-operation timeouts sub-linearly so contention tolerance grows without
-  // allowing one navigation to consume the complete step deadline.
-  const contentionMultiplier = Math.sqrt(machineCpuCount / cpuGrant)
+  // renderer work and the Vite transform pipeline are sharing the host. A
+  // run_parallel child must also account for its dynamically reported sibling
+  // count: the parent grant belongs to the whole pool, not to every child.
+  // Scale sub-operation timeouts sub-linearly so contention tolerance grows
+  // without allowing one navigation to consume the complete step deadline.
+  const contentionMultiplier = Math.sqrt(machineCpuCount / effectiveCpuGrant)
 
   return {
     machineCpuCount,
     cpuGrant,
+    activeParallelWorkers,
+    effectiveCpuGrant,
     stepDeadlineMs,
     contentionMultiplier,
     navigationTimeoutMs: boundedTimeout(

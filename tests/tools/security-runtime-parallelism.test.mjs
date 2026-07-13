@@ -122,21 +122,24 @@ test('security runtime core keeps isolated runtime checks after one preparation 
     'auth-session::',
     'auth-mfa::',
     'auth-passkey::',
-    'permissions::',
     'headers-cors::',
-    'notification-stream-binary::',
-    'a11y::'
+    'notification-stream-binary::'
   ]) assert.ok(securityCore.includes(token), `missing security job ${token}`)
 
   const jobsStart = securityCore.indexOf('local -a security_runtime_jobs=(')
   const jobs = securityCore.slice(jobsStart, securityCore.indexOf('\n  )', jobsStart))
-  assert.ok(jobs.indexOf('permissions::') < jobs.indexOf('a11y::'), 'permission browser coverage must enter the first worker wave')
-  assert.ok(jobs.indexOf('a11y::') < jobs.indexOf('api-contracts::'), 'a11y browser coverage must enter the first worker wave')
+  assert.doesNotMatch(jobs, /permissions::|a11y::/u)
   assert.doesNotMatch(jobs, /attack-matrix|check:security:dast/u)
   assert.doesNotMatch(jobs, /supply-chain|network-baseline|security-matrices|zap-warn-policy|generate-sbom/u)
   assert.match(securityCore, /local -x FSUSBLOG_ADAPTIVE_PARALLEL=1/u)
   assert.match(securityCore, /local -x FSUSBLOG_PARALLEL_WORKLOAD=cpu/u)
   assert.match(securityCore, /run_security_stage "security-runtime-parallel" run_security_runtime_pool/u)
+  assert.match(securityCore, /run_security_stage "security-runtime-permissions"[\s\S]*run_security_isolated_client_check permissions/u)
+  assert.match(securityCore, /run_security_stage "security-runtime-a11y"[\s\S]*run_security_isolated_client_check a11y/u)
+  assert.ok(
+    securityCore.indexOf('security-runtime-permissions') < securityCore.indexOf('security-runtime-a11y'),
+    'browser-heavy security checks must remain serialized'
+  )
 })
 
 test('session-mutating security checks receive stable unique user, admin and device suffixes', () => {

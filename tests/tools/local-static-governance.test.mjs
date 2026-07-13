@@ -148,6 +148,7 @@ test('weighted contract planner starts historical long tails first and aggregate
   assert.deepEqual(new Set(attempted), new Set(['long', 'middle', 'short']))
   assert.ok(childEnvironments.every((env) => env.FSUSBLOG_STEP_CPU_BUDGET === '1'))
   assert.ok(childEnvironments.every((env) => env.FSUSBLOG_STEP_MEMORY_GIB === '0.5'))
+  assert.ok(childEnvironments.every((env) => env.FSUSBLOG_PARALLEL_ACTIVE_WORKERS === '2'))
   assert.ok(childEnvironments.every((env) => env.FSUSBLOG_NODE_TEST_CONCURRENCY === '1'))
 })
 
