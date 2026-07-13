@@ -134,6 +134,7 @@ async function fetchNavigationSnapshotText(path) {
     response = await fetchWithTimeout(`${baseUrl}/api/public/navigation-snapshot.aeds?path=${encodeURIComponent(path)}`, {
       headers: {
         Accept: 'application/octet-stream',
+        'Cache-Control': 'no-cache',
         'User-Agent': 'FsusBlog distribution coherence smoke'
       }
     }, timeoutMs);

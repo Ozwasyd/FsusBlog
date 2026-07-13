@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Models.Dtos;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -54,8 +55,12 @@ public static class PublicAotEndpoints
             byte[] frame = snapshot.EncodeFrame();
             string entityTag = PublicAotNavigationSnapshot.CreateEntityTag(frame);
             context.Response.Headers.ETag = entityTag;
-            context.Response.Headers.CacheControl = "public, max-age=30, stale-while-revalidate=300";
-            context.Response.Headers.Vary = "Accept";
+            // Navigation snapshots are the atomic hand-off for a mutable public
+            // route. They may be stored with an ETag, but must be revalidated so
+            // an article mutation cannot leave the SPA on a stale payload for the
+            // previous max-age/stale-while-revalidate window.
+            context.Response.Headers.CacheControl = "no-cache";
+            context.Response.Headers.Vary = $"Accept, {HttpTestSessionKeyScope.HeaderName}";
             context.Response.Headers["X-Fsus-Public-Aot-Route-Key"] = snapshot.RouteKey;
             context.Response.Headers["X-Fsus-Public-Aot-Renderer-Version"] = snapshot.RendererVersion;
             context.Response.Headers["X-Fsus-Public-Aot-Frontend-Asset-Version"] = snapshot.FrontendAssetVersion;

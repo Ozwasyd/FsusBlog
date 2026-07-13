@@ -1312,7 +1312,7 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 
 ### Public Navigation Snapshot
 
-`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 返回公开路由的原子接管快照，供 SPA 在路由切换前预取并写入 `PublicRouteSeedStore`。该端点匿名可读，`Accept` 允许空值、`*/*`、`application/octet-stream` 或 `application/vnd.fsus.aeds`；成功响应固定为 `Content-Type: application/vnd.fsus.aeds`，AEDS frame type 复用 `PublicAotBootstrap`。
+`GET /api/public/navigation-snapshot.aeds?path={publicPath}` 返回公开路由的原子接管快照，供 SPA 在路由切换前预取并写入 `PublicRouteSeedStore`。该端点匿名可读，`Accept` 允许空值、`*/*`、`application/octet-stream` 或 `application/vnd.fsus.aeds`；成功响应固定为 `Content-Type: application/vnd.fsus.aeds`，AEDS frame type 复用 `PublicAotBootstrap`。成功帧使用内容 ETag 与 `Cache-Control: no-cache`，缓存可以保存响应但每次使用前必须向源站重验证；`Vary` 固定包含 `Accept, X-Fsus-Test-Session`。内容突变后的 micro-navigation 不允许命中旧 `max-age` / `stale-while-revalidate` 快照。
 
 `path` 必须是同站相对 URL、长度不超过 512 字符，可包含 query；服务端会丢弃 fragment，并通过 Public AOT route registry 校验目标。允许范围与 SEO/AOT 公开页一致：`/`、`/archive`、`/article/{id}`、`/category/{id}`、`/tag/{id|name}`、`/about`、`/privacy`、`/guidelines`、`/copyright`。`/account`、`/search`、`/admin`、空 path、协议相对 URL 和绝对外链必须 fail closed。端点受 `public_read` 限流。
 
