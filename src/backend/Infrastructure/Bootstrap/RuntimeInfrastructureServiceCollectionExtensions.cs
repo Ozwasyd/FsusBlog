@@ -181,8 +181,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     {
         services.Configure<PublicHotReadOptions>(configuration.GetSection("PublicHotRead"));
         services.Configure<PublicAotHtmlArtifactOptions>(configuration.GetSection("PublicAot"));
+        services.AddSingleton<PublicHotReadEarlyDataPlaneRuntimeState>();
         services.AddSingleton<PublicHotReadStore>();
         services.AddSingleton<PublicHotReadCounters>();
+        services.AddScoped<PublicReadSecurityGate>();
         services.AddSingleton<PublicHotArtifactUpdateQueue>();
         if (!OpenApiExportMode.IsEnabled(configuration))
         {

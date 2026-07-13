@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using BenchmarkDotNet.Attributes;
@@ -11,6 +12,7 @@ using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Distribution;
@@ -18,6 +20,55 @@ using FsusBlog.Server.Services.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+
+[MemoryDiagnoser]
+public class PublicHotReadEarlyDataPlaneBenchmarks
+{
+    private readonly DefaultHttpContext _context = CreateContext();
+    private readonly RequestDelegate _legacyPipeline;
+
+    public PublicHotReadEarlyDataPlaneBenchmarks()
+    {
+        RequestDelegate terminal = static context =>
+        {
+            string path = context.Request.Path.Value!;
+            _ = PublicHotReadFastPath.TryClassifyRouteForTests(path, out _);
+            _ = PublicHotReadFastPath.TryClassifyRouteForTests(path, out _);
+            return Task.CompletedTask;
+        };
+
+        for (int i = 0; i < 11; i++)
+        {
+            terminal = WrapGenericMiddleware(terminal);
+        }
+
+        _legacyPipeline = terminal;
+    }
+
+    [Benchmark(Baseline = true)]
+    public Task Legacy_GenericPipelineAndDoubleClassification()
+        => _legacyPipeline(_context);
+
+    [Benchmark]
+    public bool Current_EarlySingleClassificationFeature()
+        => PublicHotReadFastPath.TryCreateRequestFeatureForTests(_context, out PublicHotReadRequestFeature? feature)
+            && feature is { ClassificationCount: 1, RouteKind: PublicHotReadRouteKind.ArticleDetail };
+
+    private static RequestDelegate WrapGenericMiddleware(RequestDelegate next)
+        => context => InvokeGenericMiddlewareAsync(context, next);
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static async Task InvokeGenericMiddlewareAsync(HttpContext context, RequestDelegate next)
+        => await next(context).ConfigureAwait(false);
+
+    private static DefaultHttpContext CreateContext()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = HttpMethods.Get;
+        context.Request.Path = "/api/binary/article/42.aeds";
+        return context;
+    }
+}
 
 [MemoryDiagnoser]
 public class RequestAuditHotPathBenchmarks

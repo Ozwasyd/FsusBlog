@@ -134,7 +134,9 @@ public sealed record PublicHotReadRuntimeSnapshot(
     DateTimeOffset? LastBuildAt,
     string? LastBuildReason,
     string? LastBuildStatus,
-    string? LastError);
+    string? LastError,
+    bool EarlyDataPlaneEnabled,
+    string EarlyDataPlaneState);
 
 public sealed class PublicHotReadSnapshot
 {
@@ -366,21 +368,34 @@ public sealed class PublicHotReadStore
     private PublicHotReadSnapshot _current = PublicHotReadSnapshot.Empty;
     private int _ready;
     private readonly object _gate = new();
-    private PublicHotReadRuntimeSnapshot _runtime = new(
-        nameof(PublicHotReadState.NotStarted),
-        0,
-        0,
-        0,
-        0,
-        false,
-        0,
-        false,
-        false,
-        0,
-        null,
-        null,
-        "not_started",
-        null);
+    private readonly PublicHotReadEarlyDataPlaneRuntimeState? _earlyDataPlaneRuntimeState;
+    private readonly bool _initialEarlyDataPlaneEnabled;
+    private PublicHotReadRuntimeSnapshot _runtime;
+
+    public PublicHotReadStore(
+        PublicHotReadEarlyDataPlaneRuntimeState? earlyDataPlaneRuntimeState = null,
+        IOptions<PublicHotReadOptions>? options = null)
+    {
+        _earlyDataPlaneRuntimeState = earlyDataPlaneRuntimeState;
+        _initialEarlyDataPlaneEnabled = earlyDataPlaneRuntimeState?.Enabled ?? options?.Value.Enabled ?? true;
+        _runtime = new PublicHotReadRuntimeSnapshot(
+            nameof(PublicHotReadState.NotStarted),
+            0,
+            0,
+            0,
+            0,
+            false,
+            0,
+            false,
+            false,
+            0,
+            null,
+            null,
+            "not_started",
+            null,
+            _initialEarlyDataPlaneEnabled,
+            _initialEarlyDataPlaneEnabled ? "not-ready" : "disabled");
+    }
 
     public PublicHotReadSnapshot Current
     {
@@ -426,7 +441,16 @@ public sealed class PublicHotReadStore
     {
         lock (_gate)
         {
-            return _runtime;
+            bool enabled = _earlyDataPlaneRuntimeState?.Enabled ?? _initialEarlyDataPlaneEnabled;
+            return _runtime with
+            {
+                EarlyDataPlaneEnabled = enabled,
+                EarlyDataPlaneState = !enabled
+                    ? "disabled"
+                    : string.Equals(_runtime.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
+                        ? "ready"
+                        : "not-ready"
+            };
         }
     }
 
@@ -472,7 +496,7 @@ public sealed class PublicHotReadStore
     public void ClearHtml()
         => Publish(Current.WithoutAllHtml());
 
-    private static PublicHotReadRuntimeSnapshot CreateRuntimeSnapshotLocked(
+    private PublicHotReadRuntimeSnapshot CreateRuntimeSnapshotLocked(
         string state,
         PublicHotReadSnapshot snapshot,
         DateTimeOffset? lastBuildAt,
@@ -493,7 +517,13 @@ public sealed class PublicHotReadStore
             lastBuildAt,
             lastBuildReason,
             lastBuildStatus,
-            lastError);
+            lastError,
+            _earlyDataPlaneRuntimeState?.Enabled ?? _initialEarlyDataPlaneEnabled,
+            !(_earlyDataPlaneRuntimeState?.Enabled ?? _initialEarlyDataPlaneEnabled)
+                ? "disabled"
+                : string.Equals(state, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
+                    ? "ready"
+                    : "not-ready");
 }
 
 public static class PublicHotReadFastPathExtensions
@@ -506,7 +536,20 @@ public static class PublicHotReadFastPathExtensions
         var env = app.ApplicationServices.GetRequiredService<IWebHostEnvironment>();
         bool isDevelopment = env.IsDevelopment();
 
-        return app.Use((ctx, next) => PublicHotReadFastPath.TryServeAsync(ctx, next, store, options, counters, isDevelopment));
+        return app.Use((ctx, next) =>
+        {
+            PublicHotReadRequestFeature? feature = ctx.Features.Get<PublicHotReadRequestFeature>();
+            return feature is null
+                ? next(ctx)
+                : PublicHotReadFastPath.TryServeClassifiedAsync(
+                    ctx,
+                    next,
+                    store,
+                    options,
+                    counters,
+                    feature,
+                    isDevelopment);
+        });
     }
 }
 
@@ -537,33 +580,90 @@ public static class PublicHotReadFastPath
             return next(ctx);
         }
 
-        string? path = ctx.Request.Path.Value;
-        if (path is null || !IsPublicHotReadPath(path))
+        if (!TryCreateRequestFeature(ctx, out PublicHotReadRequestFeature? feature))
         {
             return next(ctx);
+        }
+
+        return TryServeClassifiedAsync(ctx, next, store, options, counters, feature!, isDevelopment);
+    }
+
+    internal static bool TryCreateRequestFeature(
+        HttpContext ctx,
+        out PublicHotReadRequestFeature? feature)
+    {
+        feature = null;
+        string? path = ctx.Request.Path.Value;
+        if (path is null)
+        {
+            return false;
         }
 
         ReadOnlySpan<char> span = path.AsSpan();
-        bool publicHtmlCandidate = IsPublicHtmlCandidatePath(span);
-        if (ContainsRejectedPathChar(span))
-        {
-            if (publicHtmlCandidate)
-            {
-                return next(ctx);
-            }
-
-            counters.Rejected();
-            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
-        }
-
+        bool binaryPrefixCandidate = IsCategoryPath(path)
+            || IsTagPath(path)
+            || string.Equals(path, ArticlePrefix, StringComparison.Ordinal)
+            || path.StartsWith(ArticlePrefix + "/", StringComparison.Ordinal);
+        bool rejectedPath = ContainsRejectedPathChar(span);
         bool classified = TryClassifyRoute(span, path, out PublicHotReadRoute route);
         bool isPublicHtmlRoute = route.Kind == PublicHotReadRouteKind.PublicHtml;
-        if (publicHtmlCandidate && !isPublicHtmlRoute)
+
+        if (IsDynamicRelatedReadingPath(span)
+            || (!classified && !binaryPrefixCandidate))
+        {
+            return false;
+        }
+
+        if (!HttpMethods.IsGet(ctx.Request.Method)
+            && !HttpMethods.IsHead(ctx.Request.Method)
+            && (isPublicHtmlRoute || IsTaxonomyCollectionPath(path)))
+        {
+            return false;
+        }
+
+        bool isHtmlPath = route.Kind == PublicHotReadRouteKind.ArticleHtml || isPublicHtmlRoute || IsArticleHtmlPath(span);
+        bool fallbackToEndpoint = isPublicHtmlRoute && rejectedPath;
+        feature = new PublicHotReadRequestFeature(
+            route,
+            classified,
+            rejectedPath,
+            isHtmlPath,
+            fallbackToEndpoint,
+            ResolveRiskRouteKey(route, path),
+            classified,
+            classificationCount: 1);
+        return true;
+    }
+
+    internal static bool TryCreateRequestFeatureForTests(
+        HttpContext ctx,
+        out PublicHotReadRequestFeature? feature)
+        => TryCreateRequestFeature(ctx, out feature);
+
+    internal static Task TryServeClassifiedAsync(
+        HttpContext ctx,
+        RequestDelegate next,
+        PublicHotReadStore store,
+        PublicHotReadOptions options,
+        PublicHotReadCounters counters,
+        PublicHotReadRequestFeature feature,
+        bool isDevelopment = false)
+    {
+        string path = ctx.Request.Path.Value!;
+        PublicHotReadRoute route = feature.Route;
+        bool classified = feature.Classified;
+        bool isPublicHtmlRoute = route.Kind == PublicHotReadRouteKind.PublicHtml;
+
+        if (feature.FallbackToEndpoint)
         {
             return next(ctx);
         }
 
-        bool isHtmlPath = route.Kind == PublicHotReadRouteKind.ArticleHtml || isPublicHtmlRoute || IsArticleHtmlPath(span);
+        if (feature.RejectedPath)
+        {
+            counters.Rejected();
+            return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
+        }
 
         if (!HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
         {
@@ -597,7 +697,7 @@ public static class PublicHotReadFastPath
             return WriteStatus(ctx, StatusCodes.Status400BadRequest, isDevelopment);
         }
 
-        if (!AcceptsArtifact(ctx, isHtmlPath))
+        if (!AcceptsArtifact(ctx, feature.IsHtml))
         {
             return WriteStatus(ctx, StatusCodes.Status406NotAcceptable, isDevelopment);
         }
@@ -630,35 +730,20 @@ public static class PublicHotReadFastPath
             };
         }
 
-        return IsDynamicRelatedReadingPath(span) ? next(ctx) : WriteRejected(ctx, counters, isDevelopment);
+        return WriteRejected(ctx, counters, isDevelopment);
     }
 
-    private static bool IsPublicHotReadPath(string path)
-        => IsCategoryPath(path)
-            || IsTagPath(path)
-            || string.Equals(path, ArticlePrefix, StringComparison.Ordinal)
-            || path.StartsWith(ArticlePrefix + "/", StringComparison.Ordinal)
-            || IsPublicHtmlCandidatePath(path.AsSpan());
-
-    internal static bool RequiresSecurityGateForRequest(string? path)
-    {
-        if (string.IsNullOrEmpty(path) || !IsPublicHotReadPath(path))
+    private static string ResolveRiskRouteKey(in PublicHotReadRoute route, string path)
+        => route.Kind switch
         {
-            return false;
-        }
-
-        ReadOnlySpan<char> span = path.AsSpan();
-        if (IsDynamicRelatedReadingPath(span))
-        {
-            return false;
-        }
-
-        return IsPublicHtmlCandidatePath(span)
-            || TryClassifyRoute(span, path, out _);
-    }
-
-    internal static bool RequiresSecurityGateForRequestForTests(string path)
-        => RequiresSecurityGateForRequest(path);
+            PublicHotReadRouteKind.Category => "taxonomy.category",
+            PublicHotReadRouteKind.Tag => "taxonomy.tag",
+            PublicHotReadRouteKind.ArticleDetail => "article.detail",
+            PublicHotReadRouteKind.PublicHtml when path.Length == 1 => "public.html.home",
+            PublicHotReadRouteKind.PublicHtml => "public.html.fallback",
+            PublicHotReadRouteKind.ArticleHtml => "public.hot-read.html",
+            _ => "public.hot-read.binary"
+        };
 
     private static bool IsCategoryPath(string path)
         => string.Equals(path, CategoryPath, StringComparison.Ordinal)

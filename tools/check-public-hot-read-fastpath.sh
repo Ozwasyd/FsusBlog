@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FASTPATH_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"
+EARLY_DATA_PLANE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs"
+SECURITY_GATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs"
 COMPOSITION_FILE="$ROOT_DIR/src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs"
 ARTICLE_ENDPOINTS_FILE="$ROOT_DIR/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs"
 ARTICLE_API_FILE="$ROOT_DIR/src/frontend/src/api/article.ts"
@@ -20,13 +22,67 @@ if (methodStart < 0 || methodEnd < 0 || methodEnd <= methodStart) {
   process.exit(1);
 }
 const block = source.slice(methodStart, methodEnd);
+const classifier = block.indexOf('UseFsusPublicHotReadClassifier');
+const limiter = block.indexOf('UseFsusPublicHotReadRateLimiter');
 const gate = block.indexOf('UseFsusPublicHotReadSecurityGate');
 const core = block.indexOf('UseFsusCoreMiddlewares');
 const fast = block.indexOf('UseFsusPublicHotReadFastPath');
+const restore = block.indexOf('UseFsusPublicHotReadFallbackRestore');
 const endpoint = block.indexOf('UseFsusEndpointPipeline');
-if (core < 0 || endpoint < 0 || gate < 0 || fast < 0 || !(core < endpoint && endpoint < gate && gate < fast)) {
-  console.error('[public-hot-read] UseFsusEndpointPipeline, UseFsusPublicHotReadSecurityGate, and UseFsusPublicHotReadFastPath must run in protected L0 order');
+if ([core, classifier, limiter, gate, fast, restore, endpoint].some(index => index < 0)
+    || !(core < classifier && classifier < limiter && limiter < gate && gate < fast && fast < restore && restore < endpoint)) {
+  console.error('[public-hot-read] classifier/rate/security/writer must run before the generic endpoint pipeline');
   process.exit(1);
+}
+
+const endpointBlock = source.slice(methodEnd, source.indexOf('internal static IReadOnlyList<string> ApplicationPipelineStageIds', methodEnd));
+for (const token of [
+  'UseResponseCompression',
+  'UseOutputCache',
+  'UseCors',
+  'UseAntiforgery',
+  'UseAuthentication',
+  'BannedUserMiddleware',
+  'RequestAuditContextMiddleware'
+]) {
+  if (!endpointBlock.includes(token)) {
+    console.error(`[public-hot-read] missing generic downstream sentinel: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking single-classification feature sharing"
+node - "$FASTPATH_FILE" "$EARLY_DATA_PLANE_FILE" "$SECURITY_GATE_FILE" <<'NODE'
+const fs = require('node:fs');
+const [fastPathFile, earlyDataPlaneFile, securityGateFile] = process.argv.slice(2);
+const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const earlyDataPlane = fs.readFileSync(earlyDataPlaneFile, 'utf8');
+const securityGate = fs.readFileSync(securityGateFile, 'utf8');
+for (const token of [
+  'PublicHotReadRequestFeature',
+  'ClassificationCount',
+  'RouteKind',
+  'ArticleId',
+  'ListKey',
+  'HtmlRouteKey',
+  'MediaKind',
+  'RequiresSecurityGate'
+]) {
+  if (!earlyDataPlane.includes(token)) {
+    console.error(`[public-hot-read] missing immutable request feature token: ${token}`);
+    process.exit(1);
+  }
+}
+if (!fastPath.includes('ctx.Features.Get<PublicHotReadRequestFeature>()')) {
+  console.error('[public-hot-read] writer does not consume the classified request feature');
+  process.exit(1);
+}
+for (const token of ['TryClassifyRoute', 'RequiresSecurityGateForRequest']) {
+  if (securityGate.includes(token)) {
+    console.error(`[public-hot-read] security gate reclassifies request path: ${token}`);
+    process.exit(1);
+  }
 }
 NODE
 

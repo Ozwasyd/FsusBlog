@@ -8,28 +8,20 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 
-public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
+public sealed class PublicReadSecurityGate(
+    ISecurityRiskScoreReader riskScoreReader,
+    ISecurityRiskSignalSink riskSignalSink,
+    ISecurityRiskPolicyProvider riskPolicyProvider,
+    IRiskControlContextFactory riskContextFactory,
+    IRiskDecisionService riskDecisionService,
+    ILogger<PublicReadSecurityGate> logger,
+    IPowService powService,
+    AdaptivePowGovernor governor)
 {
     private const string PowHeaderName = "X-Fsus-Pow-Proof";
-    private readonly RequestDelegate _next = next;
 
-    public async Task InvokeAsync(
-        HttpContext httpContext,
-        ISecurityRiskScoreReader riskScoreReader,
-        ISecurityRiskSignalSink riskSignalSink,
-        ISecurityRiskPolicyProvider riskPolicyProvider,
-        IRiskControlContextFactory riskContextFactory,
-        IRiskDecisionService riskDecisionService,
-        ILogger<PublicHotReadSecurityGateMiddleware> logger,
-        IPowService powService,
-        AdaptivePowGovernor governor)
+    public async ValueTask<IResult?> EvaluateAsync(HttpContext httpContext)
     {
-        if (!PublicHotReadFastPath.RequiresSecurityGateForRequest(httpContext.Request.Path.Value))
-        {
-            await _next(httpContext);
-            return;
-        }
-
         EnsurePublicReadRiskMetadata(httpContext);
 
         RiskControlContext riskContext = riskContextFactory.Create(httpContext);
@@ -39,8 +31,7 @@ public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
             RiskDecision crawlerDecision = riskDecisionService.Decide(riskContext, riskPolicy, 0);
             if (crawlerDecision.Kind == RiskDecisionKind.Allow)
             {
-                await _next(httpContext);
-                return;
+                return null;
             }
         }
 
@@ -48,8 +39,7 @@ public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
         RiskDecision decision = riskDecisionService.Decide(riskContext, riskPolicy, riskScore);
         if (decision.Kind == RiskDecisionKind.Allow)
         {
-            await _next(httpContext);
-            return;
+            return null;
         }
 
         if (decision.Kind == RiskDecisionKind.Block)
@@ -61,13 +51,14 @@ public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
                 TimeSpan.FromMinutes(10),
                 SecurityRiskSources.PublicRead,
                 "public_read_blocked",
-                "hot_read_risk_policy_block"), httpContext.RequestAborted);
-            await WriteErrorAsync(
+                httpContext.Features.Get<PublicHotReadRequestFeature>() is null
+                    ? "risk_policy_block"
+                    : "hot_read_risk_policy_block"), httpContext.RequestAborted);
+            return CreateError(
                 httpContext,
                 StatusCodes.Status429TooManyRequests,
                 ErrorCode.Forbidden,
                 "公开读取请求已被风险策略限速");
-            return;
         }
 
         if (decision.Kind is RiskDecisionKind.QueueForModeration or RiskDecisionKind.Throttle)
@@ -80,12 +71,11 @@ public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
                 SecurityRiskSources.PublicRead,
                 "public_read_throttled",
                 string.Join(',', decision.Reasons)), httpContext.RequestAborted);
-            await WriteErrorAsync(
+            return CreateError(
                 httpContext,
                 StatusCodes.Status429TooManyRequests,
                 ErrorCode.Forbidden,
                 "公开读取请求已被风险策略延迟");
-            return;
         }
 
         if (!httpContext.Request.Headers.TryGetValue(PowHeaderName, out var proof) || proof.Count != 1)
@@ -100,22 +90,17 @@ public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
                 SecurityRiskSources.PublicRead,
                 "public_read_challenge_required",
                 "security.pow"), httpContext.RequestAborted);
-            await WriteErrorAsync(
+            return CreateError(
                 httpContext,
                 StatusCodes.Status428PreconditionRequired,
                 ErrorCode.Forbidden,
                 "公开读取请求需要 PoW 凭证");
-            return;
         }
 
         IActionResult? validation = await PowValidationLogic.ValidateAsync(httpContext, logger, powService, governor);
-        if (validation is not null)
-        {
-            await EndpointFilterResults.FromActionResult(validation, httpContext).ExecuteAsync(httpContext);
-            return;
-        }
-
-        await _next(httpContext);
+        return validation is null
+            ? null
+            : EndpointFilterResults.FromActionResult(validation, httpContext);
     }
 
     private static void EnsurePublicReadRiskMetadata(HttpContext httpContext)
@@ -135,14 +120,38 @@ public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
             ? "public.hot-read.binary"
             : "public.hot-read.html";
 
-    private static Task WriteErrorAsync(HttpContext httpContext, int statusCode, ErrorCode code, string message)
+    private static IResult CreateError(HttpContext httpContext, int statusCode, ErrorCode code, string message)
         => EndpointFilterResults.FromActionResult(
                 new ObjectResult(ErrorDetail.Create(code, message, traceId: httpContext.TraceIdentifier))
                 {
                     StatusCode = statusCode
                 },
-                httpContext)
-            .ExecuteAsync(httpContext);
+                httpContext);
+}
+
+public sealed class PublicHotReadSecurityGateMiddleware(RequestDelegate next)
+{
+    private readonly RequestDelegate _next = next;
+
+    public async Task InvokeAsync(HttpContext httpContext, PublicReadSecurityGate gate)
+    {
+        PublicHotReadRequestFeature? feature = httpContext.Features.Get<PublicHotReadRequestFeature>();
+        if (feature?.RequiresSecurityGate != true)
+        {
+            await _next(httpContext);
+            return;
+        }
+
+        IResult? rejection = await gate.EvaluateAsync(httpContext);
+        if (rejection is not null)
+        {
+            await rejection.ExecuteAsync(httpContext);
+            return;
+        }
+
+        httpContext.Features.Set(PublicReadSecurityGateResultFeature.Allowed);
+        await _next(httpContext);
+    }
 }
 
 public static class PublicHotReadSecurityGateExtensions

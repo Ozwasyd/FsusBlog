@@ -171,8 +171,14 @@ case "$MODE" in
     ;;
   hotread)
     route="/api/binary/category"
-    traffic_mode="hot-read"
-    checks=(taxonomy-suffixless-fastpath preencoded-bodywriter)
+    traffic_mode="early-hot-read"
+    checks=(single-classification-feature dedicated-rate-risk-pow-gate generic-pipeline-bypass taxonomy-suffixless-fastpath preencoded-bodywriter)
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs" "PublicHotReadRequestFeature"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs" "UseFsusPublicHotReadRateLimiter"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs" "PublicReadSecurityGate"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs" "PublicReadSecurityGateResultFeature.Allowed"
+    require_token "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs" "public-hot-read-classifier"
+    require_token "src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs" "public-hot-read-fallback-restore"
     require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs" "CategoryPathWithoutSuffix"
     require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs" "TagPathWithoutSuffix"
     require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs" "BodyWriter.WriteAsync(frame"

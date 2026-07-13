@@ -4,9 +4,17 @@ using FsusBlog.Core.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using NSubstitute;
 using System.Reflection;
+using System.Threading.RateLimiting;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -37,6 +45,24 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(frame.Length, context.Response.ContentLength);
         Assert.Equal("2", context.Response.Headers["X-Fsus-Frame-Version"]);
         Assert.Equal(frame, ((MemoryStream)context.Response.Body).ToArray());
+    }
+
+    [Fact]
+    public async Task TryServeAsync_ResponseAbortCancellationPropagatesFromBodyWriter()
+    {
+        byte[] frame = CreateFrame(AedsFrameType.ArticleDetail, new byte[4096]);
+        var store = CreateReadyStoreWithArticle(42, frame);
+        var context = CreateContext("/api/binary/article/42.aeds");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        context.RequestAborted = cancellation.Token;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("aborted L0 hit must not enter fallback"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters()));
     }
 
     [Fact]
@@ -83,6 +109,24 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(2, runtime.PublicArticleCount);
         Assert.Equal(1, runtime.ArticleFrameLimit);
         Assert.True(runtime.ArticleFrameLimitExceeded);
+        Assert.True(runtime.EarlyDataPlaneEnabled);
+        Assert.Equal("ready", runtime.EarlyDataPlaneState);
+    }
+
+    [Fact]
+    public void EarlyDataPlaneRuntimeState_ReloadDisablesClassifierWithoutRestart()
+    {
+        var monitor = new ReloadablePublicHotReadOptionsMonitor(new PublicHotReadOptions { Enabled = true });
+        using var runtimeState = new PublicHotReadEarlyDataPlaneRuntimeState(monitor);
+        var store = new PublicHotReadStore(runtimeState);
+        store.Publish(PublicHotReadSnapshot.Empty);
+
+        monitor.Set(new PublicHotReadOptions { Enabled = false });
+
+        Assert.False(runtimeState.Enabled);
+        PublicHotReadRuntimeSnapshot snapshot = store.CreateRuntimeSnapshot();
+        Assert.False(snapshot.EarlyDataPlaneEnabled);
+        Assert.Equal("disabled", snapshot.EarlyDataPlaneState);
     }
 
     [Fact]
@@ -717,14 +761,14 @@ public sealed class PublicHotReadFastPathTests
     [InlineData("/tag/fsus", true)]
     [InlineData("/api/binary/article/42/related.aeds", false)]
     [InlineData("/assets/app.js", false)]
-    public void RequiresSecurityGateForRequest_CoversBinaryAndPublicHtmlArtifacts(string path, bool expected)
+    public void RequestFeatureSecurityGate_CoversBinaryAndPublicHtmlArtifacts(string path, bool expected)
     {
-        var method = typeof(PublicHotReadFastPath).GetMethod(
-            "RequiresSecurityGateForRequestForTests",
-            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        DefaultHttpContext context = CreateContext(path);
 
-        bool actual = Assert.IsType<bool>(method.Invoke(null, [path]));
+        bool actual = PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+            context,
+            out PublicHotReadRequestFeature? feature)
+            && feature?.RequiresSecurityGate == true;
         Assert.Equal(expected, actual);
     }
 
@@ -1142,8 +1186,10 @@ public sealed class PublicHotReadFastPathTests
     [Fact]
     public void FastPathRuntime_UsesRouteClassifierInsteadOfMatcherChain()
     {
-        MethodInfo tryServe = typeof(PublicHotReadFastPath).GetMethod(nameof(PublicHotReadFastPath.TryServeAsync))!;
-        MethodBase[] calls = ReadCalledMethods(tryServe).ToArray();
+        MethodInfo featureFactory = typeof(PublicHotReadFastPath).GetMethod(
+            "TryCreateRequestFeature",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        MethodBase[] calls = ReadCalledMethods(featureFactory).ToArray();
 
         Assert.Contains(calls, static method => method.Name == "TryClassifyRoute");
         Assert.DoesNotContain(calls, static method => method.Name is
@@ -1152,6 +1198,156 @@ public sealed class PublicHotReadFastPathTests
             "TryMatchArticleHot" or
             "TryMatchArticleFeatured" or
             "TryMatchArticleHtml");
+    }
+
+    [Theory]
+    [InlineData("/api/binary/article/42.aeds", "ArticleDetail", "Binary", "article.detail")]
+    [InlineData("/api/binary/article/list/home/1/10.aeds", "ArticleList", "Binary", "public.hot-read.binary")]
+    [InlineData("/", "PublicHtml", "Html", "public.html.home")]
+    public void RequestFeature_ClassifiesCandidateExactlyOnceAndCarriesImmutableRouteData(
+        string path,
+        string expectedKind,
+        string expectedMedia,
+        string expectedRiskRouteKey)
+    {
+        DefaultHttpContext context = CreateContext(path);
+
+        Assert.True(PublicHotReadFastPath.TryCreateRequestFeatureForTests(context, out PublicHotReadRequestFeature? candidate));
+        PublicHotReadRequestFeature feature = Assert.IsType<PublicHotReadRequestFeature>(candidate);
+
+        Assert.Equal(1, feature.ClassificationCount);
+        Assert.Equal(expectedKind, feature.RouteKind.ToString());
+        Assert.Equal(expectedMedia, feature.MediaKind.ToString());
+        Assert.Equal(expectedRiskRouteKey, feature.RiskRouteKey);
+        Assert.True(feature.RequiresSecurityGate);
+    }
+
+    [Theory]
+    [InlineData("/api/binary/system/info.aeds")]
+    [InlineData("/api/binary/article/42/related.aeds")]
+    [InlineData("/assets/app.js")]
+    public void RequestFeature_DoesNotAttachToNormalOrDynamicRelatedRequests(string path)
+    {
+        DefaultHttpContext context = CreateContext(path);
+
+        Assert.False(PublicHotReadFastPath.TryCreateRequestFeatureForTests(context, out PublicHotReadRequestFeature? feature));
+        Assert.Null(feature);
+    }
+
+    [Fact]
+    public void RequestFeature_NormalPathProbeDoesNotAllocateAfterWarmup()
+    {
+        DefaultHttpContext context = CreateContext("/assets/app.js");
+        for (int i = 0; i < 1000; i++)
+        {
+            _ = PublicHotReadFastPath.TryCreateRequestFeatureForTests(context, out _);
+        }
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        bool attached = false;
+        for (int i = 0; i < 1000; i++)
+        {
+            attached |= PublicHotReadFastPath.TryCreateRequestFeatureForTests(context, out _);
+        }
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.False(attached);
+        Assert.True(allocated <= 256, $"normal-path classifier probe allocated {allocated} bytes over 1000 requests");
+    }
+
+    [Fact]
+    public async Task EarlyWriter_L0HitBypassesAllGenericMiddlewareSentinels()
+    {
+        var visited = new List<string>();
+        RequestDelegate pipeline = BuildFastPathPipeline(
+            CreateReadyStoreWithArticle(42, CreateFrame(AedsFrameType.ArticleDetail)),
+            app =>
+            {
+                foreach (string stage in new[]
+                {
+                    "compression",
+                    "output-cache",
+                    "cors",
+                    "antiforgery",
+                    "authentication",
+                    "banned-user",
+                    "request-audit"
+                })
+                {
+                    app.Use(next => async context =>
+                    {
+                        visited.Add(stage);
+                        await next(context);
+                    });
+                }
+            });
+        DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds");
+
+        await pipeline(context);
+
+        Assert.Empty(visited);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        PublicHotReadRequestFeature feature = Assert.IsType<PublicHotReadRequestFeature>(
+            context.Features.Get<PublicHotReadRequestFeature>());
+        Assert.Equal(1, feature.ClassificationCount);
+    }
+
+    [Fact]
+    public async Task EarlyClassifier_AttachesStableRateAndRiskMetadataThenRestoresRoutingOnMiss()
+    {
+        Endpoint? observedEarlyEndpoint = null;
+        Endpoint? observedFallbackEndpoint = new(static _ => Task.CompletedTask, new EndpointMetadataCollection(), "unset");
+        var services = CreateFastPathServices(CreateReadyEmptyStore());
+        var app = new ApplicationBuilder(services);
+        app.UseFsusPublicHotReadClassifier();
+        app.Use(async (context, next) =>
+        {
+            observedEarlyEndpoint = context.GetEndpoint();
+            await next(context);
+        });
+        app.UseFsusPublicHotReadFastPath();
+        app.UseFsusPublicHotReadFallbackRestore();
+        app.Run(context =>
+        {
+            observedFallbackEndpoint = context.GetEndpoint();
+            return Task.CompletedTask;
+        });
+        DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds");
+        context.RequestServices = services;
+
+        await app.Build()(context);
+
+        Endpoint endpoint = Assert.IsType<Endpoint>(observedEarlyEndpoint);
+        Assert.Equal("public_read", Assert.IsType<EnableRateLimitingAttribute>(
+            endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>()).PolicyName);
+        Assert.Equal("article.detail", Assert.IsType<FsusBlog.Server.Infrastructure.Security.RiskActionEndpointMetadata>(
+            endpoint.Metadata.GetMetadata<FsusBlog.Server.Infrastructure.Security.RiskActionEndpointMetadata>()).RouteKey);
+        Assert.Null(observedFallbackEndpoint);
+    }
+
+    [Fact]
+    public async Task EarlyRateLimiter_ConsumesPublicReadPolicyBeforeWriter()
+    {
+        ServiceProvider services = CreateFastPathServices(CreateReadyEmptyStore(), includeRateLimiter: true);
+        var app = new ApplicationBuilder(services);
+        app.UseFsusPublicHotReadClassifier();
+        app.UseFsusPublicHotReadRateLimiter();
+        bool terminalCalled = false;
+        app.Run(context =>
+        {
+            terminalCalled = true;
+            PublicHotReadEarlyPipelineState state = Assert.IsType<PublicHotReadEarlyPipelineState>(
+                context.Features.Get<PublicHotReadEarlyPipelineState>());
+            Assert.True(state.RateLimitEvaluated);
+            return Task.CompletedTask;
+        });
+        DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds");
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("203.0.113.7");
+        context.RequestServices = services;
+
+        await app.Build()(context);
+
+        Assert.True(terminalCalled);
     }
 
     [Fact]
@@ -1268,6 +1464,45 @@ public sealed class PublicHotReadFastPathTests
         return context;
     }
 
+    private static RequestDelegate BuildFastPathPipeline(PublicHotReadStore store, Action<IApplicationBuilder> addDownstream)
+    {
+        ServiceProvider services = CreateFastPathServices(store);
+        var app = new ApplicationBuilder(services);
+        app.UseFsusPublicHotReadClassifier();
+        app.UseFsusPublicHotReadFastPath();
+        addDownstream(app);
+        app.Run(static _ => Task.CompletedTask);
+        return app.Build();
+    }
+
+    private static ServiceProvider CreateFastPathServices(PublicHotReadStore store, bool includeRateLimiter = false)
+    {
+        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
+        environment.EnvironmentName.Returns(Environments.Production);
+        var options = new PublicHotReadOptions();
+        IOptionsMonitor<PublicHotReadOptions> optionsMonitor = Substitute.For<IOptionsMonitor<PublicHotReadOptions>>();
+        optionsMonitor.CurrentValue.Returns(options);
+        optionsMonitor.OnChange(Arg.Any<Action<PublicHotReadOptions, string?>>())
+            .Returns(Substitute.For<IDisposable>());
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services
+            .AddSingleton(store)
+            .AddSingleton(new PublicHotReadCounters())
+            .AddSingleton<IOptions<PublicHotReadOptions>>(Options.Create(options))
+            .AddSingleton(optionsMonitor)
+            .AddSingleton<PublicHotReadEarlyDataPlaneRuntimeState>()
+            .AddSingleton(environment);
+        if (includeRateLimiter)
+        {
+            services.AddRateLimiter(options => options.AddPolicy(
+                "public_read",
+                _ => RateLimitPartition.GetNoLimiter("unit")));
+        }
+
+        return services.BuildServiceProvider();
+    }
+
     private static PublicHotReadStore CreateReadyEmptyStore()
     {
         var store = new PublicHotReadStore();
@@ -1334,5 +1569,31 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal("same-origin", context.Response.Headers["Cross-Origin-Opener-Policy"]);
         Assert.Equal("same-origin", context.Response.Headers["Cross-Origin-Resource-Policy"]);
         Assert.Contains("default-src 'self'", context.Response.Headers["Content-Security-Policy"].ToString(), StringComparison.Ordinal);
+    }
+
+    private sealed class ReloadablePublicHotReadOptionsMonitor(PublicHotReadOptions current) : IOptionsMonitor<PublicHotReadOptions>
+    {
+        private Action<PublicHotReadOptions, string?>? _listener;
+
+        public PublicHotReadOptions CurrentValue { get; private set; } = current;
+
+        public PublicHotReadOptions Get(string? name) => CurrentValue;
+
+        public IDisposable OnChange(Action<PublicHotReadOptions, string?> listener)
+        {
+            _listener = listener;
+            return new CallbackDisposable(() => _listener = null);
+        }
+
+        public void Set(PublicHotReadOptions next)
+        {
+            CurrentValue = next;
+            _listener?.Invoke(next, Options.DefaultName);
+        }
+    }
+
+    private sealed class CallbackDisposable(Action dispose) : IDisposable
+    {
+        public void Dispose() => dispose();
     }
 }

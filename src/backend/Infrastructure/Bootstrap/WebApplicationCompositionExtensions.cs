@@ -113,9 +113,13 @@ public static class WebApplicationCompositionExtensions
         new("security-headers", static app => app.UseFsusSecurityHeaders()),
         new("deployment-request-tracking", static app => app.UseMiddleware<DeploymentRequestTrackingMiddleware>()),
         new("core-middlewares", static app => app.UseFsusCoreMiddlewares()),
-        new("endpoint-pipeline", static app => app.UseFsusEndpointPipeline()),
+        new("test-session-validation", static app => app.UseFsusTestSessionValidation()),
+        new("public-hot-read-classifier", static app => app.UseFsusPublicHotReadClassifier()),
+        new("public-hot-read-rate-limiter", static app => app.UseFsusPublicHotReadRateLimiter()),
         new("public-read-security-gate", static app => app.UseFsusPublicHotReadSecurityGate()),
         new("public-hot-read-fast-path", static app => app.UseFsusPublicHotReadFastPath()),
+        new("public-hot-read-fallback-restore", static app => app.UseFsusPublicHotReadFallbackRestore()),
+        new("endpoint-pipeline", static app => app.UseFsusEndpointPipeline()),
         new("static-assets", static app => app.UseFsusStaticAssets())
     ];
 
@@ -125,13 +129,6 @@ public static class WebApplicationCompositionExtensions
         new("observability-correlation", static app => app.UseMiddleware<ObservabilityCorrelationMiddleware>()),
         new("endpoint-metadata-headers", static app => app.UseFsusEndpointMetadataHeaders()),
         new("websockets", static app => app.UseWebSockets()),
-        new("test-session-validation", static app =>
-        {
-            if (HttpTestSessionKeyScope.IsIsolationEnabled(app.Environment))
-            {
-                app.UseMiddleware<TestSessionValidationMiddleware>();
-            }
-        }),
         new("response-compression", static app => app.UseResponseCompression()),
         new("output-cache", static app => app.UseOutputCache()),
         new("cors", static app => app.UseCors()),
@@ -139,7 +136,7 @@ public static class WebApplicationCompositionExtensions
         new("csrf-origin-guard", static app => app.UseFsusCsrfOriginGuard()),
         new("anonymous-gateway-header-guard", static app => app.UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>()),
         new("authentication", static app => app.UseAuthentication()),
-        new("rate-limiter", static app => app.UseRateLimiter()),
+        new("rate-limiter", static app => app.UseFsusEndpointRateLimiter()),
         new("banned-user", static app => app.UseMiddleware<BannedUserMiddleware>()),
         new("authorization", static app => app.UseAuthorization()),
         new("request-audit-context", static app => app.UseMiddleware<RequestAuditContextMiddleware>())
@@ -220,6 +217,19 @@ public static class WebApplicationCompositionExtensions
         app.UseMiddleware<GlobalExceptionMiddleware>();
         app.UseMiddleware<ApiBinaryResponseMiddleware>();
     }
+
+    private static void UseFsusTestSessionValidation(this WebApplication app)
+    {
+        if (HttpTestSessionKeyScope.IsIsolationEnabled(app.Environment))
+        {
+            app.UseMiddleware<TestSessionValidationMiddleware>();
+        }
+    }
+
+    private static void UseFsusEndpointRateLimiter(this WebApplication app)
+        => app.UseWhen(
+            static context => context.Features.Get<PublicHotReadEarlyPipelineState>()?.RateLimitEvaluated != true,
+            static branch => branch.UseRateLimiter());
 
     private static void UseFsusStaticAssets(this WebApplication app)
     {

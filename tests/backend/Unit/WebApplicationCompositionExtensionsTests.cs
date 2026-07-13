@@ -137,13 +137,32 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public void PublicHotReadFastPath_RunsAfterPublicReadSecurityGateAndBeforeStaticAssets()
+    public void PublicHotReadFastPath_RunsAsEarlyDataPlaneBeforeGenericEndpointPipeline()
     {
         IReadOnlyList<string> stages = WebApplicationCompositionExtensions.ApplicationPipelineStageIds;
 
-        AssertBefore(stages, "endpoint-pipeline", "public-read-security-gate");
+        AssertBefore(stages, "core-middlewares", "public-hot-read-classifier");
+        AssertBefore(stages, "public-hot-read-classifier", "public-hot-read-rate-limiter");
+        AssertBefore(stages, "public-hot-read-rate-limiter", "public-read-security-gate");
         AssertBefore(stages, "public-read-security-gate", "public-hot-read-fast-path");
+        AssertBefore(stages, "public-hot-read-fast-path", "public-hot-read-fallback-restore");
+        AssertBefore(stages, "public-hot-read-fallback-restore", "endpoint-pipeline");
         AssertBefore(stages, "public-hot-read-fast-path", "static-assets");
+
+        IReadOnlyList<string> genericStages = WebApplicationCompositionExtensions.EndpointPipelineStageIds;
+        foreach (string bypassedStage in new[]
+        {
+            "response-compression",
+            "output-cache",
+            "cors",
+            "antiforgery",
+            "authentication",
+            "banned-user",
+            "request-audit-context"
+        })
+        {
+            Assert.Contains(bypassedStage, genericStages);
+        }
     }
 
     [Fact]
