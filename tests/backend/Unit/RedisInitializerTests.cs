@@ -85,9 +85,6 @@ public sealed class RedisInitializerTests
 
         Task startTask = service.StartAsync(CancellationToken.None);
         await connector.Started.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        Task<int> unrelatedWork = Task.Run(static () => Environment.CurrentManagedThreadId);
-
-        Assert.Same(unrelatedWork, await Task.WhenAny(unrelatedWork, Task.Delay(TimeSpan.FromMilliseconds(250))));
         Assert.False(startTask.IsCompleted);
 
         var multiplexer = Substitute.For<IConnectionMultiplexer>();

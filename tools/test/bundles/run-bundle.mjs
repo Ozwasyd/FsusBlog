@@ -752,14 +752,14 @@ async function runBackendTests() {
   await executeStep(backendBuildStep)
   publishBackendBuildReady()
   const testsBuildStep = commandStep('backend-tests-build',
-    'tools/build-with-data-env.sh dotnet build tests/backend/FsusBlog.Server.Tests.csproj -c Release --no-restore --no-incremental -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
+    'tools/build-with-data-env.sh dotnet build tests/backend/FsusBlog.Server.Tests.csproj -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
     ['backend-build-governance'], {
       artifacts: [backendTestDll],
       resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 },
       afterSuccess: publishBackendTestsReady
     })
   const benchmarkBuildStep = commandStep('backend-benchmark-build',
-    'tools/build-with-data-env.sh dotnet build benchmarks/core/FsusBlog.Core.Benchmarks.csproj -c Release --no-restore -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
+    'tools/build-with-data-env.sh dotnet build benchmarks/core/FsusBlog.Core.Benchmarks.csproj -c Release --no-restore --no-dependencies -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
     ['backend-build-governance'], {
       artifacts: [benchmarkDll],
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
