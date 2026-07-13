@@ -650,6 +650,7 @@ test('local production runner attaches the logical projection only after fresh p
   assert.ok(orderedMarkers.every((index) => index >= 0))
   assert.deepEqual(orderedMarkers, [...orderedMarkers].sort((left, right) => left - right))
   assert.match(localProfileRunner, /if \(result\.status === 'success'\)[\s\S]*?attachCheckpointEvidence/u)
+  assert.match(localProfileRunner, /const resolvedLogicalMatrix = \{[\s\S]*?tiers: resolveLogicalTierResources\(matrix\.tiers, detectedResources\)[\s\S]*?projectLocalBundleSummaries\([\s\S]*?resolvedLogicalMatrix,[\s\S]*?tiers: resolvedLogicalMatrix\.tiers/u)
   assert.match(localProfileRunner, /writeSummaryOnlyEvidence\(profileId, profile, runId, result\.checkpoint\.sourceState\)/u)
   assert.match(localProfileRunner, /collectFailures: true/u)
   assert.match(localProfileRunner, /failures: result\.checkpoint\.failures/u)

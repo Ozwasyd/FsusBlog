@@ -1132,6 +1132,10 @@ async function runLocalProfile(matrix, profileId, options) {
     availableMemoryGiB: os.freemem() / (1024 ** 3),
     load1: process.platform === 'win32' ? 0 : os.loadavg()[0]
   })
+  const resolvedLogicalMatrix = {
+    ...matrix,
+    tiers: resolveLogicalTierResources(matrix.tiers, detectedResources)
+  }
   const resolvedProfile = resolveLocalProfileResources(profile, detectedResources)
   const launchParallelism = Math.min(options.maxParallel ?? detectedResources.launchParallelism, detectedResources.launchParallelism)
   const physicalTiers = createLocalBundleTiers(profileId, resolvedProfile, { maxParallel: launchParallelism })
@@ -1210,12 +1214,17 @@ async function runLocalProfile(matrix, profileId, options) {
         const expectedRevision = result.checkpoint.revision
         const buildProjectionEvidence = (lockedCheckpoint) => {
           const lockedCompletedTierIds = new Set(lockedCheckpoint.completedTiers ?? [])
-          const projectionInput = projectLocalBundleSummaries(matrix, profileId, profile, runId, lockedCompletedTierIds)
+          const projectionInput = projectLocalBundleSummaries(
+            resolvedLogicalMatrix,
+            profileId,
+            profile,
+            runId,
+            lockedCompletedTierIds)
           const summaryOnlyEvidence = writeSummaryOnlyEvidence(profileId, profile, runId, result.checkpoint.sourceState)
           const logicalTierProjection = buildLocalProfileProjection({
             profileId,
             profile,
-            tiers: matrix.tiers,
+            tiers: resolvedLogicalMatrix.tiers,
             checkpoint: lockedCheckpoint,
             bundleSummaries: projectionInput.bundleSummaries,
             summaryOnlyEvidence
