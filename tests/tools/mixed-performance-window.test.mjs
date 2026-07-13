@@ -138,7 +138,7 @@ test('remaining load rounds scale from measured throughput without a fixed worke
     profileName: 'expected-peak',
     effective: { rounds: 12 },
     runtime: { durationMs: 2_000 }
-  }, 58_000), 348)
+  }, 58_000), 383)
   assert.equal(resolveAdaptiveLoadRounds({
     profileName: 'expected-peak',
     effective: { rounds: 12 },

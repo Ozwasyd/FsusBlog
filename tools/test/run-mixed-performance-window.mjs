@@ -310,7 +310,10 @@ export function resolveAdaptiveLoadRounds(summary, remainingDurationMs) {
   if (!Number.isInteger(measuredRounds) || measuredRounds <= 0) {
     throw new Error('load sample did not report positive effective.rounds')
   }
-  return Math.max(1, Math.ceil(measuredRounds * remainingDurationMs / sampleDurationMs))
+  // Adjacent samples do not have identical throughput. Positive headroom
+  // avoids an extra full-concurrency tail sample when the prior estimate
+  // undershoots the required window by only a few hundred milliseconds.
+  return Math.max(1, Math.ceil(measuredRounds * remainingDurationMs / sampleDurationMs * 1.1))
 }
 
 async function runRepeatedCohort(name, declaration, resource) {
@@ -649,6 +652,9 @@ async function main() {
     loadTimeline.push(...coordinator.timeline().map((entry) => ({ ...entry, phase: name })))
     return result
   }
+  cohorts.push(...await runExclusiveLoad('burst', 'burst', (resource) => (
+    runRepeatedCohort('burst', plan.cohorts.burst, resource)
+  )))
   const pairedResources = {
     total: { ...resources.total },
     cohorts: {
@@ -682,11 +688,9 @@ async function main() {
     ...entry,
     phase: 'notification-baseline'
   })))
-  for (const name of ['burst', 'peak']) {
-    cohorts.push(...await runExclusiveLoad(name, name, (resource) => (
-      runRepeatedCohort(name, plan.cohorts[name], resource)
-    )))
-  }
+  cohorts.push(...await runExclusiveLoad('peak', 'peak', (resource) => (
+    runRepeatedCohort('peak', plan.cohorts.peak, resource)
+  )))
   cohorts.push(...await runExclusiveLoad('qps-shared', 'qps', (resource) => (
     runQps(resource, plan.cohorts.qps)
   )))
