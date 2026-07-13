@@ -25,11 +25,39 @@ public sealed class SpaAssetManifestServiceTests
 
             Assert.True(assets.UsesSourceAssets);
             Assert.Equal("/src/bootstrap/entry.ts", assets.EntryScript);
-            Assert.Contains("/src/assets/public-shell-critical.css", assets.Stylesheets);
-            Assert.Contains("/src/assets/tailwind.css", assets.Stylesheets);
-            Assert.Contains("/src/assets/public-page.css?direct", assets.Stylesheets);
-            Assert.DoesNotContain("/src/assets/markdown.css", assets.Stylesheets);
+            Assert.Collection(
+                assets.Stylesheets,
+                href => Assert.Equal("/src/assets/public-shell-critical.css?direct", href),
+                href => Assert.Equal("/src/assets/tailwind.css?direct", href),
+                href => Assert.Equal("/src/assets/public-page.css?direct", href));
             Assert.Equal("dev-source-assets", assets.FrontendAssetVersion);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void GetPublicAssetSet_DevelopmentArticle_UsesDirectMarkdownCss()
+    {
+        string root = CreateTempDirectory();
+        try
+        {
+            var env = new TestWebHostEnvironment(root, Environments.Development);
+            var service = new SpaAssetManifestService(env, NullLogger<SpaAssetManifestService>.Instance);
+            var context = new DefaultHttpContext();
+            context.Request.Host = new HostString("localhost:3000");
+
+            SpaAssetSet assets = service.GetPublicAssetSet(context, PublicPageId.ArticleDetail);
+
+            Assert.Collection(
+                assets.Stylesheets,
+                href => Assert.Equal("/src/assets/public-shell-critical.css?direct", href),
+                href => Assert.Equal("/src/assets/tailwind.css?direct", href),
+                href => Assert.Equal("/src/assets/public-page.css?direct", href),
+                href => Assert.Equal("/src/assets/markdown.css?direct", href));
+            Assert.DoesNotContain("/src/assets/markdown.css", assets.Stylesheets);
         }
         finally
         {

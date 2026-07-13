@@ -22,6 +22,7 @@ function expectIncludes(relativePath, source, token, message) {
 }
 
 const viteConfigPath = 'src/frontend/vite.config.ts'
+const indexHtmlPath = 'src/frontend/index.html'
 const publicShellPath = 'src/frontend/src/bootstrap/publicShell.ts'
 const publicPageCssPath = 'src/frontend/src/assets/public-page.css'
 const packageJsonPath = 'src/frontend/package.json'
@@ -32,6 +33,7 @@ const frontendBuildPath = 'tools/frontend/build.mjs'
 const emergencyCssPath = 'src/frontend/public/public-shell-emergency.css'
 
 const viteConfig = read(viteConfigPath)
+const indexHtml = read(indexHtmlPath)
 const publicShell = read(publicShellPath)
 const publicPageCss = read(publicPageCssPath)
 const packageJson = JSON.parse(read(packageJsonPath))
@@ -61,9 +63,47 @@ for (const token of [
   "apply: 'serve' as const",
   'transformIndexHtml',
   '/src/assets/public-shell-critical.css?direct',
+  '/src/assets/tailwind.css?direct',
+  '/src/assets/markdown.css?direct',
   '/src/assets/public-page.css?direct',
 ]) {
   expectIncludes(viteConfigPath, viteConfig, token, `missing dev source CSS injection token: ${token}`)
+}
+
+const indexSourceStylesheets = Array.from(indexHtml.matchAll(
+  /<link\s+rel="stylesheet"\s+href="(\/src\/assets\/[^"?]+\.css)"\s+data-fsusblog-style="([^"]+)"\s*\/>/g,
+), (match) => ({ href: match[1], style: match[2] }))
+
+if (indexSourceStylesheets.length === 0) {
+  fail(indexHtmlPath, 'expected at least one source stylesheet contract')
+}
+
+for (const { href, style } of indexSourceStylesheets) {
+  expectIncludes(
+    viteConfigPath,
+    viteConfig,
+    `href: '${href}?direct'`,
+    `source stylesheet ${href} must have a Vite ?direct development link`,
+  )
+  expectIncludes(
+    viteConfigPath,
+    viteConfig,
+    `style: '${style}'`,
+    `source stylesheet ${href} must preserve data-fsusblog-style="${style}"`,
+  )
+}
+
+for (const token of [
+  "const sourceHref = link.href.replace(/\\?direct$/, '')",
+  'transformedHtml = transformedHtml.replaceAll(sourceLink, directLink)',
+  'if (!transformedHtml.includes(directLink))',
+]) {
+  expectIncludes(
+    viteConfigPath,
+    viteConfig,
+    token,
+    `development source CSS injection must replace module-style links instead of duplicating them: ${token}`,
+  )
 }
 
 if (!viteConfig.includes('injectPublicSourceCssInDev()')) {

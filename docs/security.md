@@ -50,6 +50,7 @@ Integrity proof signing keys are separate from JWT, PoW, Captcha, audit, anonymo
 - 基础策略：`fixed_ip`（固定窗口，按客户端 IP 计数），作为认证、PoW、写入和审核端点的 fallback。
 - 管理后台兜底策略：`fixed_ip` 只对独立 admin principal（`identity_kind=admin_principal` + `admin_id`）进入后台 fixed-window 分区；普通账号 token 的 `role=admin` 不会进入 admin 分区。后台写操作使用 `RateLimiting:AdminPermitLimit` / `RateLimiting:AdminQueueLimit`，边缘网关同时用 `fsus_admin_limit` 保护 `/api/binary/admin/**` 与 `/api/binary/author/**`。
 - 公开读策略：`public_read` 按 `IP + path` 分区；verified search crawler 使用独立高额度分区，social preview bot 使用低额度公开 HTML/静态资源分区，普通匿名公开 API、公开 HTML 和 hot-read binary artifact 候选使用中等配额。
+- 本地测试策略：`fixed_ip`、`public_read`、`read_proof`、`notification_stream` 对服务端解析出的 loopback 客户端（`127.0.0.1` / `::1`）统一使用 `NoLimiter`，因此本地预热、hydration、浏览器和接口回归可以保持真实并发而不会互相制造 `429`。专门验证限流行为的测试必须显式设置非 loopback 测试地址，或设置 `RateLimiting:LoopbackBypassEnabled=false`，再断言配额与拒绝语义；该配置按请求读取，接入可热重载配置源时可无需重启关闭豁免。生产外部流量不得通过自定义请求头声明 loopback 身份。
 - 强匿名评论 ticket 申请使用 `public_read` 分区，并额外要求强匿名请求不得携带 Cookie、session、Authorization 或其他登录态污染；污染失败返回 AEDS `ApiError`，业务 handler 不会执行。
 - 真人阅读策略：`read_proof` 专门保护 `/api/binary/read-proof/challenge.aeds` 与 `/api/binary/read-proof/submit.aeds`，按 `IP + route` 或 `IP + deviceFp + route` 分区，避免匿名 challenge/submit 被无限打。旧 `/api/read-proof/**` JSON 路径已移除。
 - 超限响应：`429 Too Many Requests`，响应头携带 `Retry-After`。RateLimiter 拒绝路径通过 `RateLimiterRejectionRiskSampler` 按 IP/route/minute 对 `ISecurityRiskSignalSink` 写入做上限采样；采样命中写入 `RateLimited` 风险事件，超出上限只记录 `rate_limiter_risk` drop 指标，避免攻击流量把拒绝路径反向放大成 DB/Redis/后台风险写入压力。

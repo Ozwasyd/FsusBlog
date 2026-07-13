@@ -103,13 +103,49 @@ public sealed class AntiCrawlerPipelineTests
         Assert.Equal(HttpStatusCode.TooManyRequests, (await SendAsync(client, "/admin/ping", "Mozilla/5.0", "203.0.113.250", admin: true)).StatusCode);
     }
 
-    private static async Task<WebApplication> CreateServerAsync(string mode, CapturingRiskSink sink)
+    [Fact]
+    public async Task TestServer_LoopbackRequestsBypassSharedRateLimitPolicies()
+    {
+        var sink = new CapturingRiskSink();
+        await using WebApplication server = await CreateServerAsync(SecuritySystemModes.Disabled, sink);
+        using HttpClient client = server.GetTestClient();
+
+        for (int i = 0; i < 8; i++)
+        {
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/article/42", "Mozilla/5.0", "127.0.0.1")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/admin/ping", "Mozilla/5.0", "127.0.0.1", admin: true)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/read-proof", "Mozilla/5.0", "127.0.0.1")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/notification-stream", "Mozilla/5.0", "::1")).StatusCode);
+        }
+
+        Assert.DoesNotContain(sink.Signals, static signal => signal.Reason == SecurityRiskReason.RateLimited);
+    }
+
+    [Fact]
+    public async Task TestServer_RateLimiterTestsCanDisableLoopbackBypass()
+    {
+        var sink = new CapturingRiskSink();
+        await using WebApplication server = await CreateServerAsync(
+            SecuritySystemModes.Disabled,
+            sink,
+            loopbackBypassEnabled: false);
+        using HttpClient client = server.GetTestClient();
+
+        Assert.Equal(HttpStatusCode.OK, (await SendAsync(client, "/article/42", "Mozilla/5.0", "127.0.0.1")).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await SendAsync(client, "/article/42", "Mozilla/5.0", "127.0.0.1")).StatusCode);
+    }
+
+    private static async Task<WebApplication> CreateServerAsync(
+        string mode,
+        CapturingRiskSink sink,
+        bool loopbackBypassEnabled = true)
     {
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["RateLimiting:AdminPermitLimit"] = "2",
-                ["RateLimiting:AdminQueueLimit"] = "0"
+                ["RateLimiting:AdminQueueLimit"] = "0",
+                ["RateLimiting:LoopbackBypassEnabled"] = loopbackBypassEnabled.ToString()
             })
             .Build();
         var detector = new CrawlerDetectorService(
@@ -166,6 +202,16 @@ public sealed class AntiCrawlerPipelineTests
                         context.Response.StatusCode = StatusCodes.Status200OK;
                         await context.Response.WriteAsync("ok");
                     }).RequireRateLimiting("fixed_ip");
+        app.MapGet("/read-proof", static async context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status200OK;
+                        await context.Response.WriteAsync("ok");
+                    }).RequireRateLimiting("read_proof");
+        app.MapGet("/notification-stream", static async context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status200OK;
+                        await context.Response.WriteAsync("ok");
+                    }).RequireRateLimiting("notification_stream");
         await app.StartAsync();
         return app;
     }

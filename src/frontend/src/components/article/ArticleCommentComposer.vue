@@ -213,15 +213,17 @@
     </FsusDialog>
   </div>
 
-  <div v-else :class="commentDetailTokens.composer.guestShell" data-fsus-surface="reading">
-    <p :class="commentDetailTokens.composer.guestText">
-      {{ composerUi.guestPromptPrefix }}
-      <router-link :to="composerUi.guestLoginRoute" :class="commentDetailTokens.composer.guestLink">
-        {{ composerUi.guestPromptLoginText }}
-      </router-link>
-      {{ composerUi.guestPromptSuffix }}
-    </p>
-  </div>
+  <section
+    v-else
+    :class="commentDetailTokens.composer.guestShell"
+    data-fsus-surface="reading"
+    aria-label="评论登录提示"
+  >
+    <span :class="commentDetailTokens.composer.guestText">{{ composerUi.guestText }}</span>
+    <router-link :to="composerUi.guestLoginRoute" :class="commentDetailTokens.composer.guestLink">
+      {{ composerUi.guestActionText }}
+    </router-link>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -621,6 +623,65 @@ watch(() => contentModel.value, (value) => {
 </script>
 
 <style scoped>
+.fsus-comment-login {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding-block: 16px;
+  border-top: 1px solid #E4E4E7;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+  font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
+}
+
+.fsus-comment-login__text {
+  color: #A1A1AA;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.fsus-comment-login__btn {
+  display: inline-flex;
+  height: 40px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 12px;
+  border: 1px solid #E4E4E7;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: #0F0F11;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 220ms cubic-bezier(0.4, 0, 0.2, 1), border-color 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fsus-comment-login__btn:visited {
+  color: #0F0F11;
+}
+
+.fsus-comment-login__btn:hover {
+  border-color: #2A599C;
+  background: transparent;
+  color: #2A599C;
+  transform: none;
+}
+
+.fsus-comment-login__btn:focus-visible {
+  outline: 2px solid #2A599C;
+  outline-offset: 2px;
+  background: transparent;
+  box-shadow: none;
+}
+
 .comment-identity-panel {
   margin-bottom: 0.75rem;
   border: 0;

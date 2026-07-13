@@ -403,6 +403,14 @@ const publicSourceCssDevLinks = [
         style: 'public-shell-critical'
     },
     {
+        href: '/src/assets/tailwind.css?direct',
+        style: 'tailwind'
+    },
+    {
+        href: '/src/assets/markdown.css?direct',
+        style: 'markdown'
+    },
+    {
         href: '/src/assets/public-page.css?direct',
         style: 'public-page'
     }
@@ -413,15 +421,31 @@ function injectPublicSourceCssInDev() {
         name: 'inject-public-source-css-in-dev',
         apply: 'serve' as const,
         transformIndexHtml(html: string) {
-            const tags = publicSourceCssDevLinks
-                .filter((link) => !html.includes(`href="${link.href}"`))
-                .map((link) => `    <link rel="stylesheet" href="${link.href}" data-fsusblog-style="${link.style}" />`)
+            let transformedHtml = html
+            const missingTags: string[] = []
 
-            if (tags.length === 0 || !html.includes('</head>')) {
-                return html
+            for (const link of publicSourceCssDevLinks) {
+                const sourceHref = link.href.replace(/\?direct$/, '')
+                const sourceLink = `href="${sourceHref}"`
+                const directLink = `href="${link.href}"`
+
+                if (transformedHtml.includes(sourceLink)) {
+                    transformedHtml = transformedHtml.replaceAll(sourceLink, directLink)
+                    continue
+                }
+
+                if (!transformedHtml.includes(directLink)) {
+                    missingTags.push(
+                        `    <link rel="stylesheet" href="${link.href}" data-fsusblog-style="${link.style}" />`
+                    )
+                }
             }
 
-            return html.replace('</head>', `${tags.join('\n')}\n  </head>`)
+            if (missingTags.length === 0 || !transformedHtml.includes('</head>')) {
+                return transformedHtml
+            }
+
+            return transformedHtml.replace('</head>', `${missingTags.join('\n')}\n  </head>`)
         }
     }
 }

@@ -83,6 +83,9 @@ describe('home editorial components', () => {
     expect(wrapper.findAll('[data-home-editorial-lead]')).toHaveLength(1)
     expect(wrapper.get('[data-home-editorial-lead]').attributes('data-home-lead-layout')).toBe('media')
     expect(wrapper.get('[data-content-cover="editorial-lead"]').attributes('data-cover-safe-area')).toBe('center-80')
+    expect(wrapper.get('[data-content-cover="editorial-lead"]').classes()).toEqual(
+      expect.arrayContaining(['aspect-video', 'md:aspect-[4/3]'])
+    )
     expect(wrapper.get('img').attributes('src')).toBe('/uploads/lead.webp')
     expect(wrapper.get('img').attributes('style')).toContain('object-position: 50% 50%')
     expect(wrapper.get('h1').text()).toBe('内容先于站点口号')
@@ -230,6 +233,13 @@ describe('home editorial components', () => {
     await wrapper.setProps({ hasRecommendations: true })
     await nextTick()
     expect(wrapper.find('[data-test="home-empty"]').exists()).toBe(false)
+    await wrapper.setProps({ view: listView([card(1)]) })
+    await nextTick()
+    expect(wrapper.get('[data-home-feed-heading]').text()).toBe('最新文章')
+    expect(wrapper.get('[data-home-feed-section]').attributes('aria-labelledby')).toBe('home-feed-heading')
+    expect(wrapper.get('[data-home-feed-section]').classes()).toEqual(
+      expect.arrayContaining(['border-t-2', 'pt-8'])
+    )
     wrapper.unmount()
   })
 })

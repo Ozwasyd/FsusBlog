@@ -89,142 +89,106 @@
 
     <div
       v-if="detailView.header.tags.length > 0 || rightsNoticeVisible || hasRelatedReading"
-      class="article-tail-group mt-8 sm:mt-10 divide-y divide-[var(--fsusblog-panel-border)] border-y border-[var(--fsusblog-panel-border)]"
+      class="fsus-appendix"
       data-article-tail-group
+      data-fsus-surface="reading"
     >
-      <footer
+      <div
         v-if="detailView.header.tags.length > 0"
-        class="py-2.5"
+        class="fsus-appendix__tags"
+        aria-label="文章标签"
       >
-        <ArticleDetailTagsFooter :view="detailView.header" :link-mode="linkMode" />
-      </footer>
+        <component
+          :is="appendixTagComponent"
+          v-for="tag in detailView.header.tags"
+          :key="tag.label"
+          v-bind="appendixTagLinkProps(tag)"
+          class="fsus-appendix__tag"
+          data-public-link="filter"
+        >
+          {{ appendixTagLabel(tag.label) }}
+        </component>
+      </div>
 
-      <section
+      <div
         v-if="rightsNoticeVisible"
-        class="article-rights-notice py-4 sm:py-4"
+        class="fsus-appendix__copyright article-rights-notice"
         data-article-rights-notice
         :data-rights-snapshot-id="detailView.rights.snapshotId"
         :data-rights-policy-hash="detailView.rights.policyHash"
         :data-rights-content-hash="detailView.rights.contentCanonicalHash"
-        aria-labelledby="article-rights-notice-title"
+        aria-label="版权与引用"
       >
-        <h2
-          id="article-rights-notice-title"
-          class="text-sm font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]"
-        >
-          版权与引用
-        </h2>
-        <p class="mt-1 text-xs leading-5 text-[var(--fsusblog-text-secondary)]">
-          {{ rightsStatementText }}
-        </p>
-        <dl class="mt-1.5 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs leading-5 text-[var(--fsusblog-text-secondary)]">
-          <dt class="font-semibold text-[var(--fsusblog-text-muted)]">许可</dt>
-          <dd>{{ rightsLicenseText }}</dd>
-          <template v-if="rightsHolderText">
-            <dt class="font-semibold text-[var(--fsusblog-text-muted)]">权利人</dt>
-            <dd>{{ rightsHolderText }}</dd>
-          </template>
-          <dt class="font-semibold text-[var(--fsusblog-text-muted)]">复制策略</dt>
-          <dd>{{ rightsCopyPolicyText }}</dd>
-          <dt class="font-semibold text-[var(--fsusblog-text-muted)]">摘录范围</dt>
-          <dd>最多 {{ detailView.rights.maxExcerptChars }} 字符</dd>
-        </dl>
-        <p
-          v-if="detailView.rights.attributionTemplate"
-          class="mt-1.5 text-xs leading-5 text-[var(--fsusblog-text-tertiary)]"
-        >
-          建议署名：{{ detailView.rights.attributionTemplate }}
-        </p>
-        <p
-          v-if="rightsProofText"
-          class="mt-1.5 text-xs leading-5 text-[var(--fsusblog-text-tertiary)]"
-        >
-          {{ rightsProofText }}
-        </p>
-      </section>
+        {{ appendixCopyrightText }}
+      </div>
 
-      <section
+      <div
         v-if="hasRelatedReading"
         id="fsus-related-reading"
         data-public-related-reading="true"
-        class="article-related-reading pt-5 pb-4 sm:pt-6 sm:pb-5"
+        class="fsus-appendix__nav"
         aria-labelledby="fsus-related-reading-heading"
       >
-        <h2
+        <div
           id="fsus-related-reading-heading"
-          class="text-sm font-semibold normal-case tracking-normal text-[var(--fsusblog-text-primary)]"
+          class="fsus-appendix__nav-label"
         >
           {{ detailView.relatedReading.title }}
-        </h2>
+        </div>
 
         <nav aria-label="延伸阅读文章">
-          <ul class="mt-3 divide-y divide-[var(--fsusblog-panel-border)]">
+          <ul class="fsus-appendix__nav-list">
             <li
               v-if="detailView.relatedReading.previous"
-              class="py-2.5 first:pt-0 last:pb-0"
+              class="fsus-appendix__nav-item"
             >
+              <span class="fsus-appendix__meta">
+                {{ detailView.relatedReading.previousLabel }} · {{ detailView.relatedReading.previous.displayTime }}
+              </span>
               <a
                 :href="detailView.relatedReading.previous.href"
-                class="group blog-motion-state-change block min-w-0"
+                class="fsus-appendix__link"
                 data-related-role="previous"
               >
-                <span class="mb-0.5 block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-                  {{ detailView.relatedReading.previousLabel }}
-                </span>
-                <span class="blog-link-underline text-sm font-bold leading-5 text-[var(--fsusblog-text-primary)]">
-                  {{ detailView.relatedReading.previous.title }}
-                </span>
-                <span class="ml-2 text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-                  {{ detailView.relatedReading.previous.displayTime }}
-                </span>
+                {{ detailView.relatedReading.previous.title }}
               </a>
             </li>
 
             <li
               v-if="detailView.relatedReading.next"
-              class="py-2.5 first:pt-0 last:pb-0"
+              class="fsus-appendix__nav-item"
             >
+              <span class="fsus-appendix__meta">
+                {{ detailView.relatedReading.nextLabel }} · {{ detailView.relatedReading.next.displayTime }}
+              </span>
               <a
                 :href="detailView.relatedReading.next.href"
-                class="group blog-motion-state-change block min-w-0"
+                class="fsus-appendix__link"
                 data-related-role="next"
               >
-                <span class="mb-0.5 block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-                  {{ detailView.relatedReading.nextLabel }}
-                </span>
-                <span class="blog-link-underline text-sm font-bold leading-5 text-[var(--fsusblog-text-primary)]">
-                  {{ detailView.relatedReading.next.title }}
-                </span>
-                <span class="ml-2 text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-                  {{ detailView.relatedReading.next.displayTime }}
-                </span>
+                {{ detailView.relatedReading.next.title }}
               </a>
             </li>
 
             <li
               v-for="item in detailView.relatedReading.items"
               :key="item.id"
-              class="py-2.5 first:pt-0 last:pb-0"
+              class="fsus-appendix__nav-item"
             >
+              <span class="fsus-appendix__meta">
+                {{ detailView.relatedReading.relatedLabel }} · {{ item.displayTime }}
+              </span>
               <a
                 :href="item.href"
-                class="group block min-w-0"
+                class="fsus-appendix__link"
                 data-related-role="related"
               >
-                <span class="mb-0.5 block text-xs font-semibold normal-case tracking-normal text-[var(--fsusblog-text-muted)]">
-                  {{ detailView.relatedReading.relatedLabel }}
-                </span>
-                <span class="blog-link-underline text-sm font-bold leading-5 text-[var(--fsusblog-text-primary)]">
-                  {{ item.title }}
-                </span>
-                <span class="ml-2 text-xs normal-case tracking-normal text-[var(--fsusblog-text-subtle)]">
-                  {{ item.displayTime }}
-                </span>
+                {{ item.title }}
               </a>
             </li>
           </ul>
         </nav>
-      </section>
+      </div>
     </div>
 
     <section
@@ -233,7 +197,12 @@
       data-fsus-surface="reading"
       :data-article-id="String(safeArticleId)"
     >
-      <span id="comments" class="sr-only">评论</span>
+      <h2
+        id="comments"
+        class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3 text-xs font-semibold leading-5 normal-case text-[var(--fsusblog-text-muted)]"
+      >
+        读者评论
+      </h2>
       <div
         id="fsus-comments-island-content"
         class="min-h-0"
@@ -252,7 +221,6 @@
 import { computed } from 'vue'
 import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue'
 import ArticleDetailHeader from '@/components/article/ArticleDetailHeader.vue'
-import ArticleDetailTagsFooter from '@/components/article/ArticleDetailTagsFooter.vue'
 import ArticleDetailBody from '@/components/public/ArticleDetailBody.vue'
 import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailCommentsPlaceholder.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
@@ -292,51 +260,159 @@ const hasRelatedReading = computed(() => (
 
 const rightsNoticeVisible = computed(() => props.detailView.rights.enabled && props.detailView.rights.showPublicBadge)
 
+type AppendixTag = ArticleDetailPageViewContract['header']['tags'][number]
+
+const appendixTagComponent = computed(() => (
+  props.linkMode === 'anchor'
+    ? 'a'
+    : 'RouterLink'
+))
+
+const appendixTagHref = (tag: AppendixTag): string => (
+  tag.href?.trim()
+  || `/tag/${encodeURIComponent(tag.label.replace(/^#/, ''))}`
+)
+
+const appendixTagLinkProps = (tag: AppendixTag): Record<string, string> => (
+  props.linkMode === 'anchor'
+    ? { href: appendixTagHref(tag) }
+    : { to: appendixTagHref(tag) }
+)
+
+const appendixTagLabel = (label: string): string => label.toLocaleLowerCase('en-US')
+
 const rightsLicenseText = computed(() => {
   const licenseType = props.detailView.rights.licenseType
   if (licenseType === 'all-rights-reserved') return '保留所有权利'
   return licenseType
 })
 
-const rightsHolderText = computed(() => {
-  const holder = props.detailView.rights.copyrightHolder?.trim()
-  const year = props.detailView.rights.copyrightYear
-  if (holder && year) return `${holder} (${year})`
-  return holder || (year ? String(year) : '')
-})
+const appendixCopyrightText = computed(() => {
+  const rights = props.detailView.rights
+  const holder = rights.copyrightHolder?.trim() || "Fsu's Blog"
+  const copyrightPrefix = rights.copyrightYear
+    ? `© ${rights.copyrightYear} ${holder}.`
+    : `© ${holder}.`
+  const allowedUses = [
+    rights.allowCodeCopy ? '代码块复制' : '',
+    rights.maxExcerptChars > 0 ? `最多 ${rights.maxExcerptChars} 字符摘录` : ''
+  ].filter(Boolean)
+  const permissionText = allowedUses.length > 0
+    ? `允许${allowedUses.join('及')}`
+    : '未开放复制'
+  const attributionText = rights.copyPolicy === 'append-attribution' ? '，需追加署名' : ''
+  const rightsVersion = rights.contentCanonicalHash.split(':')[0]?.trim()
+  const versionText = rightsVersion ? ` (${rightsVersion})` : ''
 
-const rightsStatementText = computed(() => {
-  const statement = props.detailView.rights.rightsStatement?.trim()
-  if (statement) return statement
-  return props.detailView.rights.licenseType === 'all-rights-reserved'
-    ? '本文保留所有权利，引用或转载请遵循页面标注的复制策略。'
-    : `本文按 ${props.detailView.rights.licenseType} 授权，引用时请保留来源和作者信息。`
-})
-
-const rightsCopyPolicyText = computed(() => {
-  const copyPolicy = props.detailView.rights.copyPolicy
-  if (copyPolicy === 'append-attribution') {
-    return props.detailView.rights.allowCodeCopy ? '复制时追加署名，代码块允许复制。' : '复制时追加署名，代码块复制已关闭。'
-  }
-  if (copyPolicy === 'excerpt-only') {
-    return `仅允许摘录复制，摘录上限 ${props.detailView.rights.maxExcerptChars} 字符。`
-  }
-  return '复制增强已关闭。'
-})
-
-const rightsProofText = computed(() => {
-  const proofUrl = props.detailView.rights.proofUrl
-  if (proofUrl) {
-    return `权利证明：${proofUrl}`
-  }
-  const contentHash = props.detailView.rights.contentCanonicalHash
-  return contentHash ? `内容哈希：${contentHash}` : ''
+  return `${copyrightPrefix} ${rightsLicenseText.value}。${permissionText}${attributionText}${versionText}。`
 })
 </script>
 
 <style scoped>
 .public-article-detail {
   overflow-anchor: none;
+}
+
+.fsus-appendix {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #E4E4E7;
+  text-align: left;
+  background: transparent;
+  box-shadow: none;
+  color: #A1A1AA;
+  font-size: 13px;
+  font-weight: 400;
+  font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
+}
+
+.fsus-appendix__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: #A1A1AA;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.fsus-appendix__tag {
+  color: #A1A1AA !important;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-decoration: none;
+  text-transform: none;
+}
+
+.fsus-appendix__copyright {
+  color: #A1A1AA;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.fsus-appendix__nav-label {
+  margin-bottom: 10px;
+  color: #A1A1AA;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+
+.fsus-appendix__nav-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fsus-appendix__nav-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.fsus-appendix__meta {
+  color: #A1A1AA;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.fsus-appendix__link {
+  color: #0F0F11;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-decoration: none;
+  transition: color 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fsus-appendix__tag:visited {
+  color: #A1A1AA !important;
+}
+
+.fsus-appendix__link:visited {
+  color: #0F0F11;
+}
+
+.fsus-appendix__link:hover {
+  background: transparent;
+  color: #2A599C;
+  text-decoration: none;
+  transform: none;
+}
+
+.fsus-appendix__link:focus-visible,
+.fsus-appendix__tag:focus-visible {
+  outline: 2px solid #2A599C;
+  outline-offset: 2px;
 }
 
 @media (max-width: 639px) {

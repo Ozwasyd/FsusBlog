@@ -195,6 +195,8 @@ const PUBLIC_ROUTE_CRITICAL_STYLE_HREFS = Object.freeze(
   import.meta.env.DEV
     ? [
         '/src/assets/public-shell-critical.css?direct',
+        '/src/assets/tailwind.css?direct',
+        '/src/assets/markdown.css?direct',
         '/src/assets/public-page.css?direct'
       ]
     : []

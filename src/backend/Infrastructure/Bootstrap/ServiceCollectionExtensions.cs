@@ -195,6 +195,11 @@ public static class ServiceCollectionExtensions
                 var policy = httpContext.RequestServices.GetRequiredService<IAntiCrawlerPolicyProvider>().Current.Options;
                 var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
 
+                if (ShouldBypassLoopbackRateLimits(httpContext, clientIp))
+                {
+                    return RateLimitPartition.GetNoLimiter("loopback");
+                }
+
                 if (httpContext.User.IsAdminPrincipal() && httpContext.User.TryGetAdminPrincipalId(out _))
                 {
                     int adminPermitLimit = Math.Clamp(
@@ -207,11 +212,6 @@ public static class ServiceCollectionExtensions
                         10_000);
 
                     return CreateFixedWindowPartition($"fixed-ip:admin:{clientIp}", adminPermitLimit, adminQueueLimit);
-                }
-
-                if (clientIp == "127.0.0.1" || clientIp == "::1")
-                {
-                    return RateLimitPartition.GetNoLimiter("loopback");
                 }
 
                 if (IsVerifiedCrawlerPublicRead(httpContext))
@@ -232,10 +232,16 @@ public static class ServiceCollectionExtensions
             options.AddPolicy("read_proof", httpContext =>
             {
                 var policy = httpContext.RequestServices.GetRequiredService<IAntiCrawlerPolicyProvider>().Current.Options;
+                string clientIp = httpContext.GetClientIp();
+                if (ShouldBypassLoopbackRateLimits(httpContext, clientIp))
+                {
+                    return RateLimitPartition.GetNoLimiter("loopback");
+                }
+
                 string deviceFp = httpContext.Request.Headers["X-Fsus-Device-Fp"].ToString();
                 string key = string.IsNullOrWhiteSpace(deviceFp)
-                    ? $"{httpContext.GetClientIp()}:{httpContext.Request.Path}"
-                    : $"{httpContext.GetClientIp()}:{deviceFp}:{httpContext.Request.Path}";
+                    ? $"{clientIp}:{httpContext.Request.Path}"
+                    : $"{clientIp}:{deviceFp}:{httpContext.Request.Path}";
                 return CreateFixedWindowPartition($"read-proof:{key}", policy.ReadProofPermitLimit, 0);
             });
 
@@ -243,6 +249,11 @@ public static class ServiceCollectionExtensions
             {
                 var configuration = httpContext.RequestServices.GetRequiredService<IConfiguration>();
                 string clientIp = httpContext.GetClientIp();
+                if (ShouldBypassLoopbackRateLimits(httpContext, clientIp))
+                {
+                    return RateLimitPartition.GetNoLimiter("loopback");
+                }
+
                 string account = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                     ?? httpContext.User.FindFirst("nameid")?.Value
                     ?? "anonymous";
@@ -265,6 +276,11 @@ public static class ServiceCollectionExtensions
                 string path = GetPublicReadPartitionPath(httpContext);
                 var policy = httpContext.RequestServices.GetRequiredService<IAntiCrawlerPolicyProvider>().Current.Options;
 
+                if (ShouldBypassLoopbackRateLimits(httpContext, clientIp))
+                {
+                    return RateLimitPartition.GetNoLimiter("loopback");
+                }
+
                 if (IsVerifiedCrawlerPublicRead(httpContext))
                 {
                     return CreateFixedWindowPartition($"public-read:verified-crawler:{clientIp}:{path}", policy.VerifiedCrawlerPublicReadPermitLimit, 0);
@@ -281,6 +297,15 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
+
+    private static bool IsLoopbackClient(string clientIp)
+        => clientIp == "127.0.0.1" || clientIp == "::1";
+
+    private static bool ShouldBypassLoopbackRateLimits(HttpContext httpContext, string clientIp)
+        => IsLoopbackClient(clientIp)
+            && httpContext.RequestServices
+                .GetRequiredService<IConfiguration>()
+                .GetValue("RateLimiting:LoopbackBypassEnabled", true);
 
     private static bool IsVerifiedCrawlerPublicRead(HttpContext httpContext)
         => httpContext.Items.TryGetValue("VerifiedCrawler", out object? value)

@@ -1,5 +1,5 @@
 <template>
-  <div class="blog-markdown-renderer markdown-body" data-fsus-surface="reading">
+  <div class="blog-markdown-renderer markdown-body safe-inline-wrap" data-fsus-surface="reading">
     <el-markdown-renderer
       ref="rendererRef"
       :content="props.content"
@@ -20,6 +20,7 @@
 import { computed, ref } from 'vue'
 import type { MarkdownFeatureActivationResult, MarkdownRenderResult } from '@/fsusui/markdown'
 import { sanitizeMarkdownRuntimeHtml } from '@/utils/safeHtml'
+import '@/assets/markdown.css'
 
 type MarkdownRenderMode = 'article' | 'about' | 'preview' | 'editor'
 type MarkdownRendererExpose = {

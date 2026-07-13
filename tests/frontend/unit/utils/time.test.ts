@@ -57,6 +57,7 @@ describe('TimeUtils.toRelative', () => {
   it('returns 时间未知 for invalid input', () => {
     expect(TimeUtils.toRelative('invalid-date')).toBe('时间未知')
   })
+
 })
 
 describe('TimeUtils.toFullLocalString', () => {

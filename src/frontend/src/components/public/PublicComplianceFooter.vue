@@ -3,8 +3,7 @@
     <div class="public-colophon__primary">
       <p class="public-colophon__identity">
         <strong class="public-colophon__brand">{{ siteTitleText }}</strong>
-        <span class="public-colophon__separator" aria-hidden="true">·</span>
-        <span>
+        <span class="public-colophon__copyright">
           ©<template v-if="copyrightYearText"> {{ copyrightYearText }}</template> {{ copyrightOwnerText }}。{{ copyrightNoticeText }}
         </span>
       </p>

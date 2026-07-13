@@ -62,6 +62,9 @@ for (const token of [
   'demo-reader',
   'anonymous_account',
   'admin_principal',
+  'article_revision',
+  'article_rights_policy',
+  'article_rights_snapshot',
   'Public Preview Walkthrough',
   'pending moderation',
   'demo-security-event'

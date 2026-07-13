@@ -38,6 +38,7 @@
 
       <template v-if="canRenderCommentsRuntime" #comments>
         <ArticleCommentComposer
+          v-if="!isGuestCommentEndState"
           v-model="commentContent"
           v-model:author-mode="commentAuthorMode"
           v-model:public-send-confirmed="publicSendConfirmed"
@@ -77,7 +78,8 @@
         />
 
         <ArticleCommentsVirtualList
-          class="space-y-8"
+          v-if="threads.length > 0"
+          class="fsus-comments-list"
           aria-live="polite"
           :threads="threads"
           :is-admin="userStore.isAdmin"
@@ -89,7 +91,15 @@
           @load-more-replies="loadMoreReplies"
         />
 
+        <ArticleCommentsEmptyState
+          v-if="isCommentsAtEnd"
+          :is-logged-in="userStore.isLoggedIn"
+          :message="isCommentsEmpty ? '暂无评论。' : pageDetailView.comments.endText"
+          :redirect-path="commentRedirectPath"
+        />
+
         <div
+          v-if="!isCommentsAtEnd"
           ref="loadMoreTrigger"
           class="flex flex-col items-center justify-center"
           :class="commentCursorShellClass"
@@ -155,6 +165,7 @@ import { runtimeReady } from '@/bootstrap/runtimeGate'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import ArticleCommentComposer from '@/components/article/ArticleCommentComposer.vue'
 import ArticleCommentsVirtualList from '@/components/article/ArticleCommentsVirtualList.vue'
+import ArticleCommentsEmptyState from '@/components/public/ArticleCommentsEmptyState.vue'
 import ArticleDetailLoadingState from '@/components/article/ArticleDetailLoadingState.vue'
 import ArticleDetailErrorState from '@/components/article/ArticleDetailErrorState.vue'
 import ArticleDetailNotFoundState from '@/components/article/ArticleDetailNotFoundState.vue'
@@ -295,8 +306,20 @@ const canRenderBodyRuntime = ref(false)
 const canRenderCommentsRuntime = computed(() => spaReady.value && runtimeReady.value)
 const tocMobileOpen = ref(false)
 
+const isCommentsAtEnd = computed(() => (
+  !loadingComments.value && !hasMore.value
+))
+
+const isCommentsEmpty = computed(() => (
+  isCommentsAtEnd.value && threads.value.length === 0
+))
+
+const isGuestCommentEndState = computed(() => (
+  isCommentsAtEnd.value && !userStore.isLoggedIn
+))
+
 const commentCursorShellClass = computed(() => (
-  !loadingComments.value && !hasMore.value && threads.value.length === 0
+  isCommentsAtEnd.value
     ? 'min-h-0 mt-2 py-2'
     : 'h-24 mt-6'
 ))

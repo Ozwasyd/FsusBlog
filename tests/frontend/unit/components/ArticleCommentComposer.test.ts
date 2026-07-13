@@ -20,6 +20,14 @@ const ElInputStub = defineComponent({
   template: '<textarea :value="modelValue" :disabled="disabled" />'
 })
 
+const RouterLinkStub = defineComponent({
+  inheritAttrs: false,
+  props: {
+    to: { type: [String, Object], required: true }
+  },
+  template: '<a v-bind="$attrs" :data-to="JSON.stringify(to)"><slot /></a>'
+})
+
 const baseProps = {
   modelValue: '',
   isLoggedIn: true,
@@ -43,15 +51,15 @@ const baseProps = {
   anonymousScope: 'article:42'
 }
 
-const mountComposer = () => mount(ArticleCommentComposer, {
-  props: baseProps,
+const mountComposer = (props: Partial<typeof baseProps> = {}) => mount(ArticleCommentComposer, {
+  props: { ...baseProps, ...props },
   global: {
     stubs: {
       ElButton: ElButtonStub,
       ElInput: ElInputStub,
       FsusDialog: true,
       CommentMarkdownRenderer: true,
-      RouterLink: true
+      RouterLink: RouterLinkStub
     }
   }
 })
@@ -91,6 +99,18 @@ afterEach(() => {
 })
 
 describe('ArticleCommentComposer mounted identity behavior', () => {
+  it('renders the guest auth gate with its semantic copy and login route', () => {
+    const wrapper = mountComposer({ isLoggedIn: false })
+    const authGate = wrapper.get('section.fsus-comment-login')
+
+    expect(authGate.attributes('aria-label')).toBe('评论登录提示')
+    expect(authGate.get('.fsus-comment-login__text').text()).toBe('登录后可发表评论与回复。')
+    expect(authGate.get('.fsus-comment-login__btn').text()).toBe('登录')
+    expect(authGate.get('.fsus-comment-login__btn').attributes('data-to')).toContain('/login')
+
+    wrapper.unmount()
+  })
+
   it('defaults to anonymous and requires a user toggle before public attribution', async () => {
     const wrapper = mountComposer()
     const identityToggle = wrapper.get<HTMLInputElement>('.comment-identity-toggle__input')

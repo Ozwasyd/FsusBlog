@@ -140,6 +140,18 @@ describe('home editorial composition', () => {
     `)
   })
 
+  it('keeps a real feed entry when a small data set is fully covered by recommendations', () => {
+    const result = selectHomeEditorialComposition({
+      featuredArticles: [featured(1)],
+      hotArticles: [hot(1), hot(2)],
+      feedItems: [feed(1), feed(2)]
+    })
+
+    expect(result.leadArticle?.id).toBe(1)
+    expect(result.secondaryArticles).toEqual([])
+    expect(result.feedItems.map((article) => article.id)).toEqual([2])
+  })
+
   it('reapplies the same recommendation exclusions after a page switch', () => {
     const sources = {
       featuredArticles: [featured(1)],

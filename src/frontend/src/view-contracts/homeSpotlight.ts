@@ -2,6 +2,7 @@ import type { FeaturedArticleItem, PopularArticleSummaryResponse } from '@/api/a
 import type { ArticleListCardViewContract, ArticleListViewContract } from '@/view-contracts/articleList'
 
 const DEFAULT_SECONDARY_ARTICLE_LIMIT = 5
+const MINIMUM_FEED_ITEM_COUNT = 1
 
 type HomeArticleIdentity = Readonly<{
   id: number
@@ -57,6 +58,15 @@ export function selectHomeEditorialComposition<TFeedItem extends HomeArticleIden
     break
   }
 
+  const remainingFeedIds = new Set<number>()
+  for (const article of input.feedItems) {
+    const id = normalizedArticleId(article)
+    if (id !== null && !displayedIds.has(id)) {
+      remainingFeedIds.add(id)
+    }
+  }
+  const minimumFeedItemCount = Math.min(MINIMUM_FEED_ITEM_COUNT, remainingFeedIds.size)
+
   const secondaryArticles: PopularArticleSummaryResponse[] = []
   const secondaryLimit = normalizedSecondaryLimit(input.secondaryLimit)
   for (const article of input.hotArticles) {
@@ -68,8 +78,12 @@ export function selectHomeEditorialComposition<TFeedItem extends HomeArticleIden
     if (id === null || displayedIds.has(id)) {
       continue
     }
+    if (remainingFeedIds.has(id) && remainingFeedIds.size <= minimumFeedItemCount) {
+      continue
+    }
 
     displayedIds.add(id)
+    remainingFeedIds.delete(id)
     secondaryArticles.push(article)
   }
 

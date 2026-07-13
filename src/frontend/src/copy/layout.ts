@@ -26,6 +26,7 @@ export const FSUSBLOG_LAYOUT_COPY = {
   recommendations: {
     eyebrow: '热门文章',
     leadEyebrow: '本期推荐',
+    feedEyebrow: '最新文章',
     leadLoadingLabel: '正在加载主推荐',
     ariaReadFull: '阅读全文：{title}',
     viewsUnit: '次打开'

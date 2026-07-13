@@ -43,9 +43,8 @@ export interface CommentComposerUiContract {
   readonly submitText: string
   readonly submitBusyText: string
   readonly disabled: boolean
-  readonly guestPromptPrefix: string
-  readonly guestPromptLoginText: string
-  readonly guestPromptSuffix: string
+  readonly guestText: string
+  readonly guestActionText: string
   readonly guestLoginRoute: {
     readonly path: string
     readonly query: {
@@ -56,19 +55,21 @@ export interface CommentComposerUiContract {
 
 export const commentDetailTokens = {
   articleList: {
-    itemRoot: 'group border-b border-[var(--fsusblog-panel-border)] pb-8 last:border-0',
-    headerRoot: 'flex items-center justify-between gap-3 mb-3',
-    headerMeta: 'flex items-center gap-3',
-    authorName: 'text-sm font-bold text-[var(--fsusblog-text-primary)] truncate',
-    timeText: 'text-xs leading-4 tabular-nums text-[var(--fsusblog-text-muted)] shrink-0',
-    content: 'text-sm text-[var(--fsusblog-text-tertiary)] leading-relaxed break-words',
+    itemRoot: 'fsus-comment',
+    headerRoot: 'fsus-comment__header',
+    headerMeta: 'fsus-comment__identity',
+    authorName: 'fsus-comment__author',
+    timeText: 'fsus-comment__time',
+    content: 'fsus-comment__content fsus-markdown-body',
+    footer: 'fsus-comment__footer',
+    action: 'fsus-comment__action',
   },
   composer: {
     loggedInShell: 'mb-6',
     submitWrap: 'mt-2 flex justify-end',
-    guestShell: 'mb-4 border-b border-[var(--fsusblog-panel-border)] py-3 flex items-center justify-center',
-    guestText: 'text-xs sm:text-sm font-medium tracking-normal normal-case text-[var(--fsusblog-text-muted)]',
-    guestLink: 'inline-flex min-h-9 items-center px-1 text-[var(--fsusblog-text-primary)] hover:text-[var(--fsusblog-color-primary)] underline underline-offset-4 font-bold',
+    guestShell: 'fsus-comment-login',
+    guestText: 'fsus-comment-login__text',
+    guestLink: 'fsus-comment-login__btn',
   }
 } as const
 
@@ -231,9 +232,8 @@ export function createCommentComposerUiContract(redirectPath: string, state: {
     submitText: '发送',
     submitBusyText: state.isBanned ? '账号已封禁' : state.isPowCalculating ? '安全校验...' : state.isSubmitting ? '发送中...' : '发送',
     disabled,
-    guestPromptPrefix: '请',
-    guestPromptLoginText: '登录',
-    guestPromptSuffix: '后发表评论',
+    guestText: '登录后可发表评论与回复。',
+    guestActionText: '登录',
     guestLoginRoute: {
       path: '/login',
       query: {

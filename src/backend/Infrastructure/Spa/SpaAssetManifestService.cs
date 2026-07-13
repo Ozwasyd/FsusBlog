@@ -130,14 +130,14 @@ public sealed class SpaAssetManifestService : ISpaAssetManifestService
         {
             string[] sourceStylesheets = ShouldIncludeMarkdownCss(pageId)
                 ? [
-                    "/src/assets/public-shell-critical.css",
-                    "/src/assets/tailwind.css",
+                    "/src/assets/public-shell-critical.css?direct",
+                    "/src/assets/tailwind.css?direct",
                     "/src/assets/public-page.css?direct",
-                    "/src/assets/markdown.css"
+                    "/src/assets/markdown.css?direct"
                 ]
                 : [
-                    "/src/assets/public-shell-critical.css",
-                    "/src/assets/tailwind.css",
+                    "/src/assets/public-shell-critical.css?direct",
+                    "/src/assets/tailwind.css?direct",
                     "/src/assets/public-page.css?direct"
                 ];
 

@@ -29,6 +29,10 @@ on conflict (name) do nothing;
 
 delete from comment where id in (9100001, 9100002, 9100003);
 delete from article_tag where articleid in (910001, 910002);
+delete from article_rights_proof where article_id in (910001, 910002);
+delete from article_rights_snapshot where article_id in (910001, 910002);
+delete from article_rights_policy where article_id in (910001, 910002);
+delete from article_revision where article_id in (910001, 910002);
 delete from article_body where article_id in (910001, 910002);
 delete from article where id in (910001, 910002);
 delete from sys_audit_log where source = 'demo-seed';
@@ -87,6 +91,86 @@ on conflict do nothing;
 insert into article_tag (articleid, tagid)
 select 910002, id from tag where name in ('demo', 'aeds')
 on conflict do nothing;
+
+insert into article_revision (
+  article_id, revision_no, title, summary, cover_image_url, categoryid,
+  tag_ids, markdown_content, diff_summary, created_by_admin_principal_id, created_at
+)
+select
+  article.id,
+  1,
+  article.title,
+  article.summary,
+  article.coverimageurl,
+  article.categoryid,
+  coalesce((
+    select string_agg(article_tag.tagid::text, ',' order by article_tag.tagid)
+    from article_tag
+    where article_tag.articleid = article.id
+  ), ''),
+  body.markdown_content,
+  'Deterministic local demo seed',
+  admin.id,
+  body.updated_at
+from article
+join article_body body on body.article_id = article.id
+join admin_principal admin on admin.handle = 'demo-admin'
+where article.id in (910001, 910002);
+
+insert into article_rights_policy (
+  article_id, enabled, license_type, copyright_holder, copyright_year,
+  rights_statement, attribution_template, copy_policy, max_excerpt_chars,
+  allow_code_copy, show_public_badge, proof_binding_enabled, created_at, updated_at
+)
+select
+  article.id,
+  true,
+  'all-rights-reserved',
+  'Fsu''s Blog',
+  2026,
+  '本文保留所有权利，引用或转载请遵循页面标注的复制策略。',
+  '{title} — {holder} {url}',
+  'append-attribution',
+  300,
+  true,
+  true,
+  true,
+  article.createtime,
+  article.createtime
+from article
+where article.id in (910001, 910002);
+
+insert into article_rights_snapshot (
+  article_id, article_revision_id, revision_no, article_rights_policy_id,
+  enabled, license_type, copyright_holder, copyright_year, rights_statement,
+  attribution_template, copy_policy, max_excerpt_chars, allow_code_copy,
+  show_public_badge, proof_binding_enabled, canonical_url, policy_hash,
+  content_canonical_hash, created_at
+)
+select
+  revision.article_id,
+  revision.id,
+  revision.revision_no,
+  policy.id,
+  policy.enabled,
+  policy.license_type,
+  policy.copyright_holder,
+  policy.copyright_year,
+  policy.rights_statement,
+  policy.attribution_template,
+  policy.copy_policy,
+  policy.max_excerpt_chars,
+  policy.allow_code_copy,
+  policy.show_public_badge,
+  policy.proof_binding_enabled,
+  '/article/' || revision.article_id::text,
+  'rights-v3:policy-hash:recompute',
+  'rights-v3:content-hash:recompute',
+  revision.created_at
+from article_revision revision
+join article_rights_policy policy on policy.article_id = revision.article_id
+where revision.article_id in (910001, 910002)
+  and revision.revision_no = 1;
 
 insert into comment (
   id, article_id, content, create_time, author_mode,

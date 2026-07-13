@@ -393,7 +393,9 @@ html[data-theme-resolved='dark'] body {
 }
 
 #fsus-aot-shell .public-colophon__identity {
-  gap: 6px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
   margin: 0;
 }
 
@@ -403,8 +405,9 @@ html[data-theme-resolved='dark'] body {
   font-weight: 700;
 }
 
-#fsus-aot-shell .public-colophon__separator {
-  color: var(--fsusblog-text-decorative);
+#fsus-aot-shell .public-colophon__copyright {
+  color: var(--fsusblog-text-tertiary);
+  font-weight: 500;
 }
 
 #fsus-aot-shell .public-colophon__secondary {

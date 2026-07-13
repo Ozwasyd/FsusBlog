@@ -284,9 +284,65 @@ public sealed class PublicAotDocumentServiceTests
             Assert.True(result.IsSuccess, logger.LastException?.ToString() ?? result.Error.Message);
             string html = result.Value!;
             Assert.Contains("/src/bootstrap/entry.ts", html, StringComparison.Ordinal);
+            Assert.Contains("href=\"/src/assets/public-shell-critical.css?direct\"", html, StringComparison.Ordinal);
+            Assert.Contains("href=\"/src/assets/tailwind.css?direct\"", html, StringComparison.Ordinal);
             Assert.Contains("/src/assets/public-page.css?direct", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("href=\"/src/assets/markdown.css?direct\"", html, StringComparison.Ordinal);
             Assert.DoesNotContain("full-app-core-prod", html, StringComparison.Ordinal);
             Assert.DoesNotContain("route-admin-moderation-prod", html, StringComparison.Ordinal);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ComposeAsync_DevelopmentViteProxy_ArticleUsesDirectMarkdownStylesheet()
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            var context = new DefaultHttpContext();
+            context.Request.Host = new HostString("127.0.0.1:7568");
+            context.Request.Headers["X-Forwarded-Host"] = "127.0.0.1:3000";
+            var logger = new RecordingLogger<PublicAotDocumentService>();
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Development),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(),
+                logger);
+
+            Result<string> result = await service.ComposeAsync(new PublicAotShellEntryContract
+            {
+                PageId = PublicPageId.ArticleDetail,
+                RouteKey = PublicRouteIdentity.BuildArticleRouteKey(42),
+                ArticleId = 42,
+                Html = "<article><p>Article body</p></article>",
+                Title = "Article",
+                BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["kind"] = "ArticleDetail"
+                }),
+                HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["pageKind"] = "ArticleDetail",
+                    ["routeKey"] = PublicRouteIdentity.BuildArticleRouteKey(42),
+                    ["title"] = "Article",
+                    ["siteTitle"] = "Fsus Blog"
+                })
+            }, context);
+
+            Assert.True(result.IsSuccess, logger.LastException?.ToString() ?? result.Error.Message);
+            string html = result.Value!;
+            Assert.Contains("href=\"/src/assets/public-shell-critical.css?direct\"", html, StringComparison.Ordinal);
+            Assert.Contains("href=\"/src/assets/tailwind.css?direct\"", html, StringComparison.Ordinal);
+            Assert.Contains("href=\"/src/assets/public-page.css?direct\"", html, StringComparison.Ordinal);
+            Assert.Contains("href=\"/src/assets/markdown.css?direct\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("href=\"/src/assets/markdown.css\"", html, StringComparison.Ordinal);
         }
         finally
         {
@@ -369,18 +425,31 @@ public sealed class PublicAotDocumentServiceTests
         public IReadOnlyList<string> GetPreloadsForPath(string path, HttpContext? context = null) => [];
 
         public SpaAssetSet GetPublicAssetSet(HttpContext? context = null, PublicPageId? pageId = null)
-            => IsViteProxy(context)
-                ? new SpaAssetSet(
-                    "/src/bootstrap/entry.ts",
-                    [
-                        "/src/assets/public-shell-critical.css",
-                        "/src/assets/tailwind.css",
+        {
+            if (IsViteProxy(context))
+            {
+                string[] stylesheets = pageId == PublicPageId.ArticleDetail
+                    ? [
+                        "/src/assets/public-shell-critical.css?direct",
+                        "/src/assets/tailwind.css?direct",
+                        "/src/assets/public-page.css?direct",
+                        "/src/assets/markdown.css?direct"
+                    ]
+                    : [
+                        "/src/assets/public-shell-critical.css?direct",
+                        "/src/assets/tailwind.css?direct",
                         "/src/assets/public-page.css?direct"
-                    ],
+                    ];
+
+                return new SpaAssetSet(
+                    "/src/bootstrap/entry.ts",
+                    stylesheets,
                     [],
                     "dev-source-assets",
-                    UsesSourceAssets: true)
-                : new SpaAssetSet(
+                    UsesSourceAssets: true);
+            }
+
+            return new SpaAssetSet(
                     "/assets/fsus-spa-entry.js",
                     ["/assets/public-page-prod.css"],
                     [],
@@ -391,6 +460,7 @@ public sealed class PublicAotDocumentServiceTests
                         ["/assets/full-app-core-prod.js"],
                         ["/assets/route-admin-moderation-prod.css"])
                 };
+        }
 
         public string GetFrontendAssetVersion(HttpContext? context = null)
             => IsViteProxy(context) ? "dev-source-assets" : "prod-manifest";

@@ -1,38 +1,31 @@
 <template>
-  <div class="space-y-8" data-fsus-surface="reading">
+  <div class="fsus-comments-list" data-fsus-surface="reading">
     <article
       v-for="thread in visibleThreadItems"
       :key="thread.id"
       :class="commentDetailTokens.articleList.itemRoot"
       v-memo="[thread.id, thread.content, thread.replies.length, thread.canDelete, isCommentExpanded(rootCommentKey(thread.id)), isCommentFoldable(rootCommentKey(thread.id), thread.content)]"
     >
-      <div :class="commentDetailTokens.articleList.headerRoot">
+      <header :class="commentDetailTokens.articleList.headerRoot">
         <div :class="commentDetailTokens.articleList.headerMeta">
-          <span :class="commentDetailTokens.articleList.authorName">{{ thread.author.displayName }}</span>
-          <el-button
-            link
-            @click="$emit('reply', { id: thread.id, rootId: thread.rootId, author: thread.author, depth: 0 })"
+          <span
+            :class="[
+              commentDetailTokens.articleList.authorName,
+              isAnonymousAuthor(thread.author) ? 'is-anonymous' : 'is-authenticated'
+            ]"
           >
-            {{ isLoggedIn ? '回复' : '登录后回复' }}
-          </el-button>
-          <el-button
-            v-if="thread.canDelete"
-            link
-            type="danger"
-            aria-label="删除评论"
-            @click="$emit('delete', { id: thread.id, rootId: thread.rootId, parentId: null, content: thread.content })"
-          >
-            删除
-          </el-button>
+            {{ thread.author.displayName }}
+          </span>
+          <span v-if="isAnonymousAuthor(thread.author)" class="fsus-comment__badge">匿名</span>
         </div>
-        <span
+        <time
           :class="commentDetailTokens.articleList.timeText"
           :title="thread.time.fullLocalTimeText"
           :datetime="thread.time.isoTime"
         >
           {{ thread.time.relativeTimeText }}
-        </span>
-      </div>
+        </time>
+      </header>
       <div :class="commentDetailTokens.articleList.content">
         <CommentMarkdownRenderer
           :content="thread.content"
@@ -41,44 +34,66 @@
           :collapsible="isCommentFoldable(rootCommentKey(thread.id), thread.content)"
           @overflow-change="updateCommentOverflow(rootCommentKey(thread.id), $event)"
         />
-        <el-button
+      </div>
+
+      <footer :class="commentDetailTokens.articleList.footer">
+        <button
+          type="button"
+          :class="commentDetailTokens.articleList.action"
+          @click="$emit('reply', { id: thread.id, rootId: thread.rootId, author: thread.author, depth: 0 })"
+        >
+          {{ isLoggedIn ? '回复' : '登录后回复' }}
+        </button>
+        <button
           v-if="isCommentFoldable(rootCommentKey(thread.id), thread.content)"
-          class="comment-markdown-toggle"
-          link
-          type="primary"
+          type="button"
+          :class="commentDetailTokens.articleList.action"
           @click="toggleCommentExpansion(rootCommentKey(thread.id))"
         >
           {{ isCommentExpanded(rootCommentKey(thread.id)) ? '收起' : '展开' }}
-        </el-button>
-      </div>
+        </button>
+        <button
+          v-if="thread.canDelete"
+          type="button"
+          :class="[commentDetailTokens.articleList.action, 'fsus-comment__action--danger']"
+          aria-label="删除评论"
+          @click="$emit('delete', { id: thread.id, rootId: thread.rootId, parentId: null, content: thread.content })"
+        >
+          删除
+        </button>
+      </footer>
 
-      <section v-if="thread.replies.length > 0 || thread.hasMoreReplies" class="mt-5 border-l border-[var(--fsusblog-panel-border)] pl-4 sm:pl-5 space-y-4">
+      <section v-if="thread.replies.length > 0 || thread.hasMoreReplies" class="fsus-comment__replies">
         <div
           v-for="reply in thread.replies"
           :key="reply.id"
-          class="space-y-1"
+          class="fsus-comment fsus-comment--reply"
           v-memo="[reply.id, reply.content, reply.canDelete, isCommentExpanded(replyCommentKey(reply.id)), isCommentFoldable(replyCommentKey(reply.id), reply.content)]"
         >
-          <div class="flex items-center gap-2 text-xs leading-4 text-[var(--fsusblog-text-muted)]">
-            <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.author.displayName }}</strong>
-            <span v-if="reply.replyToAuthor">回复 @{{ reply.replyToAuthor?.displayName }}</span>
-            <span>{{ reply.time.relativeTimeText }}</span>
-            <el-button
-              link
-              @click="$emit('reply', { id: reply.id, rootId: thread.rootId, author: reply.author, depth: 1 })"
+          <header class="fsus-comment__header">
+            <div class="fsus-comment__identity">
+              <span
+                :class="[
+                  commentDetailTokens.articleList.authorName,
+                  isAnonymousAuthor(reply.author) ? 'is-anonymous' : 'is-authenticated'
+                ]"
+              >
+                {{ reply.author.displayName }}
+              </span>
+              <span v-if="isAnonymousAuthor(reply.author)" class="fsus-comment__badge">匿名</span>
+              <span v-if="reply.replyToAuthor" class="fsus-comment__reply-target">
+                回复 @{{ reply.replyToAuthor.displayName }}
+              </span>
+            </div>
+            <time
+              class="fsus-comment__time"
+              :title="reply.time.fullLocalTimeText"
+              :datetime="reply.time.isoTime"
             >
-              {{ isLoggedIn ? '回复' : '登录后回复' }}
-            </el-button>
-            <el-button
-              v-if="reply.canDelete"
-              link
-              type="danger"
-              @click="$emit('delete', { id: reply.id, rootId: thread.rootId, parentId: thread.id, content: reply.content })"
-            >
-              删除
-            </el-button>
-          </div>
-          <div class="text-sm text-[var(--fsusblog-text-tertiary)] leading-relaxed break-words">
+              {{ reply.time.relativeTimeText }}
+            </time>
+          </header>
+          <div class="fsus-comment__content">
             <CommentMarkdownRenderer
               :content="reply.content"
               :collapsed-lines="COMMENT_CONTENT_CONSTRAINT.collapsedMarkdownMaxLines"
@@ -86,34 +101,52 @@
               :collapsible="isCommentFoldable(replyCommentKey(reply.id), reply.content)"
               @overflow-change="updateCommentOverflow(replyCommentKey(reply.id), $event)"
             />
-            <el-button
+          </div>
+
+          <footer class="fsus-comment__footer">
+            <button
+              type="button"
+              class="fsus-comment__action"
+              @click="$emit('reply', { id: reply.id, rootId: thread.rootId, author: reply.author, depth: 1 })"
+            >
+              {{ isLoggedIn ? '回复' : '登录后回复' }}
+            </button>
+            <button
               v-if="isCommentFoldable(replyCommentKey(reply.id), reply.content)"
-              class="comment-markdown-toggle"
-              link
-              type="primary"
+              type="button"
+              class="fsus-comment__action"
               @click="toggleCommentExpansion(replyCommentKey(reply.id))"
             >
               {{ isCommentExpanded(replyCommentKey(reply.id)) ? '收起' : '展开' }}
-            </el-button>
-          </div>
+            </button>
+            <button
+              v-if="reply.canDelete"
+              type="button"
+              class="fsus-comment__action fsus-comment__action--danger"
+              aria-label="删除回复"
+              @click="$emit('delete', { id: reply.id, rootId: thread.rootId, parentId: thread.id, content: reply.content })"
+            >
+              删除
+            </button>
+          </footer>
         </div>
 
-        <el-button
+        <button
           v-if="thread.hasMoreReplies"
-          link
+          type="button"
+          class="fsus-comment__action fsus-comment__load-more"
           :disabled="isThreadRepliesLoading(thread.rootId)"
-          :loading="isThreadRepliesLoading(thread.rootId)"
           @click="$emit('load-more-replies', thread.rootId)"
         >
           {{ isThreadRepliesLoading(thread.rootId) ? '加载中...' : '展开更多回复' }}
-        </el-button>
+        </button>
       </section>
     </article>
 
-    <div v-if="hasHiddenRootThreads" class="pt-2">
-      <el-button link type="primary" @click="showMoreRootThreads">
+    <div v-if="hasHiddenRootThreads" class="fsus-comments-list__more">
+      <button type="button" class="fsus-comment__action" @click="showMoreRootThreads">
         显示更多评论（{{ hiddenRootThreadCount }}）
-      </el-button>
+      </button>
     </div>
   </div>
 </template>
@@ -163,9 +196,34 @@ const canDeleteByOwnership = (authorAccountId?: number | null): boolean =>
     authorAccountId === props.currentAccountId
   )
 
+const isAnonymousAuthor = (author: CommentAuthorView): boolean => author.mode !== 'public'
+
+const formatCommentRelativeTime = (iso: string): string => {
+  const target = TimeUtils._parse(iso)
+  if (!target) return '时间未知'
+
+  const diffMinutes = Math.floor((Date.now() - target.valueOf()) / 60000)
+  if (diffMinutes < -1) {
+    return target.local().format('MM-DD HH:mm')
+  }
+  if (diffMinutes <= 0) return '刚刚'
+  if (diffMinutes < 60) return `${diffMinutes}分钟前`
+
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `${diffHours}小时前`
+
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays < 30) return `${diffDays}天前`
+
+  const diffMonths = Math.floor(diffDays / 30)
+  if (diffMonths < 12) return `${diffMonths}个月前`
+
+  return `${Math.floor(diffMonths / 12)}年前`
+}
+
 const buildTime = (iso: string): CommentTimeContract => ({
   isoTime: iso,
-  relativeTimeText: TimeUtils.toRelative(iso),
+  relativeTimeText: formatCommentRelativeTime(iso),
   fullLocalTimeText: TimeUtils.toFullLocalString(iso)
 })
 
@@ -221,11 +279,166 @@ const toggleCommentExpansion = (key: string): void => {
 </script>
 
 <style scoped>
-.comment-markdown-toggle {
-  margin-top: 0.25rem;
-  min-height: 1.75rem;
+.fsus-comments-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.fsus-comment {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-block: 20px;
+  border-bottom: 1px solid #E4E4E7;
+  color: #0F0F11;
+  font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
+  text-align: left;
+}
+
+.fsus-comment__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fsus-comment__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fsus-comment__author {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.fsus-comment__author.is-authenticated {
+  color: #0F0F11;
+  font-weight: 500;
+}
+
+.fsus-comment__author.is-anonymous {
+  color: #A1A1AA;
+  font-weight: 400;
+}
+
+.fsus-comment__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding-inline: 6px;
+  border: 1px solid #E4E4E7;
+  border-radius: 999px;
+  background: transparent;
+  color: #A1A1AA;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.fsus-comment__reply-target,
+.fsus-comment__time {
+  color: #A1A1AA;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.fsus-comment__time {
+  flex-shrink: 0;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fsus-comment__content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fsus-comment__content.fsus-markdown-body {
+  margin-bottom: 4px;
+  color: #0F0F11;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.fsus-comment__footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.fsus-comment__action {
   padding: 0;
-  font-size: 0.75rem;
-  font-weight: 650;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: #A1A1AA;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fsus-comment__action:hover {
+  color: #2A599C;
+}
+
+.fsus-comment__action:focus-visible {
+  outline: 2px solid #2A599C;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.fsus-comment__action:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.fsus-comment__replies {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 8px;
+  padding-left: 16px;
+  border-left: 1px solid #E4E4E7;
+}
+
+.fsus-comment--reply {
+  padding-block: 16px;
+}
+
+.fsus-comment__load-more,
+.fsus-comments-list__more {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.fsus-comments-list__more {
+  padding-block: 12px;
+}
+
+@media (max-width: 640px) {
+  .fsus-comment__header {
+    align-items: flex-start;
+  }
+
+  .fsus-comment__time {
+    margin-left: 0;
+  }
+}
+
+.fsus-comment__action--danger {
+  color: #A1A1AA;
+}
+
+.fsus-comment__action--danger:hover {
+  color: #2A599C;
 }
 </style>

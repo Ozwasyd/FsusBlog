@@ -15,17 +15,33 @@
 
           <slot name="featured" />
 
-          <PublicArticleList
+          <section
             v-if="view.items.length > 0"
-            :items="view.items"
-            :pagination="view.pagination"
-            :show-pagination="view.showPagination"
-            :show-read-cta="showArticleCta !== false"
-            :spa-navigation="spaNavigation"
-            @navigate="emit('navigate', $event)"
-            @page-prev="emit('page-prev')"
-            @page-next="emit('page-next')"
-          />
+            class="border-t-2 border-[var(--fsusblog-panel-border)] pt-8"
+            aria-labelledby="home-feed-heading"
+            data-home-feed-section
+          >
+            <header class="mb-5 border-b border-[var(--fsusblog-panel-border)] pb-3">
+              <h2
+                id="home-feed-heading"
+                class="text-xs font-semibold normal-case text-[var(--fsusblog-text-muted)]"
+                data-home-feed-heading
+              >
+                {{ copy.feedEyebrow }}
+              </h2>
+            </header>
+
+            <PublicArticleList
+              :items="view.items"
+              :pagination="view.pagination"
+              :show-pagination="view.showPagination"
+              :show-read-cta="showArticleCta !== false"
+              :spa-navigation="spaNavigation"
+              @navigate="emit('navigate', $event)"
+              @page-prev="emit('page-prev')"
+              @page-next="emit('page-next')"
+            />
+          </section>
 
           <HomeArticleEmptyState v-else-if="!hasRecommendations" />
         </template>
@@ -44,6 +60,7 @@ import HomeArticleErrorState from '@/components/home/HomeArticleErrorState.vue'
 import HomeArticleEmptyState from '@/components/home/HomeArticleEmptyState.vue'
 import HomeFeedSurface from '@/components/public/HomeFeedSurface.vue'
 import PublicArticleList from '@/components/public/PublicArticleList.vue'
+import { FSUSBLOG_LAYOUT_COPY } from '@/copy'
 import type { ArticleListViewContract } from '@/view-contracts/articleList'
 
 defineProps<{
@@ -62,5 +79,7 @@ const emit = defineEmits<{
   (event: 'page-prev'): void
   (event: 'page-next'): void
 }>()
+
+const copy = FSUSBLOG_LAYOUT_COPY.recommendations
 
 </script>
