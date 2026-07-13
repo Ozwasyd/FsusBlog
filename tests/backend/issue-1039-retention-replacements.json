@@ -90,8 +90,8 @@
         "xunit:tests/backend/Unit/ModerationConsoleContractTests.cs#ModerationConsoleContractTests.AuthoringEndpoints_ExposeModerationMethodsPermissionsAndRateLimitMetadata",
         "xunit:tests/backend/Unit/ModerationConsoleContractTests.cs#ModerationConsoleContractTests.ReloadAndRollbackEndpoints_EnforcePermissionAndStepUpThenAuditAndInvalidate",
         "xunit:tests/backend/Unit/ModerationConsoleContractTests.cs#ModerationConsoleContractTests.GlobalRuntimeEndpoint_DeserializesMutationThenAuditsAndInvalidatesChangedState",
-        "vitest:tests/frontend/unit/api/authoring.test.ts#reloads and rolls back moderation dictionaries with admin step-up proof",
-        "vitest:tests/frontend/unit/api/authoring.test.ts#encodes moderation global and region runtime mutations with their selected arguments"
+        "vitest:tests/frontend/unit/api/authoring.test.ts#reloads-and-rolls-back-moderation-dictionaries-with-admi-950cd0eaa6",
+        "vitest:tests/frontend/unit/api/authoring.test.ts#encodes-moderation-global-and-region-runtime-mutations-w-90aefb6a7a"
       ],
       "reason": "Endpoint metadata and TestServer requests now execute permission denial, step-up consumption, reload/rollback, durable audit and cache invalidation."
     },
@@ -137,14 +137,14 @@
       "id": "xunit:tests/backend/Unit/IntegrityAdminConsoleContractTests.cs#IntegrityAdminConsoleContractTests.AdminIntegrityConsoleFrontend_HasRouteApiViewAndGovernanceText",
       "path": "tests/backend/Unit/IntegrityAdminConsoleContractTests.cs",
       "replacementTestIds": [
-        "vitest:tests/frontend/unit/api/integrityConsole.test.ts#binds positive filters and preserves the empty console response",
-        "vitest:tests/frontend/unit/api/integrityConsole.test.ts#submits retry with the selected proof id and one-use admin step-up token",
-        "vitest:tests/frontend/unit/api/integrityConsole.test.ts#turns a missing or rejected step-up response into a recoverable precondition error",
-        "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#renders explicit empty states after a successful empty response",
-        "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#reports a load failure through the shared error presentation path",
-        "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#consumes admin step-up proof before retry and refreshes the console",
-        "vitest:tests/frontend/unit/router/index.test.ts#integrity proof console is denied unless the admin has system.config",
-        "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#removes unauthorized modules and leaves instead of exposing disabled links",
+        "vitest:tests/frontend/unit/api/integrityConsole.test.ts#binds-positive-filters-and-preserves-the-empty-console-r-e3e7c9b6e0",
+        "vitest:tests/frontend/unit/api/integrityConsole.test.ts#submits-retry-with-the-selected-proof-id-and-one-use-adm-be8d6c8294",
+        "vitest:tests/frontend/unit/api/integrityConsole.test.ts#turns-a-missing-or-rejected-step-up-response-into-a-reco-ba6e9b5557",
+        "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#renders-explicit-empty-states-after-a-successful-empty-r-98def6473b",
+        "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#reports-a-load-failure-through-the-shared-error-presenta-b8171649fa",
+        "vitest:tests/frontend/unit/views/IntegrityProofConsole.test.ts#consumes-admin-step-up-proof-before-retry-and-refreshes--1a20a21700",
+        "vitest:tests/frontend/unit/router/index.test.ts#integrity-proof-console-is-denied-unless-the-admin-has-s-d8705a8a61",
+        "vitest:tests/frontend/unit/layouts/accountNavModules.test.ts#removes-unauthorized-modules-and-leaves-instead-of-expos-b2e02ea410",
         "vitest:tests/frontend/e2e/acceptance/admin-console.spec.ts#visible-admin-routes-render-cleanly-c3e6ee4f99"
       ],
       "reason": "API mocks and a mounted Vue view execute filters, empty/error states, step-up retry and refresh; the router guard owns permission denial."
