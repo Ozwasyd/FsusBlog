@@ -607,11 +607,23 @@ public static class WebApplicationCompositionExtensions
             return TypedResults.NotFound();
         }
 
+        if (TryBuildTrailingSlashRedirect(ctx.Request, out string redirectLocation))
+        {
+            return TypedResults.Redirect(redirectLocation, permanent: true);
+        }
+
         bool isPublicAotRoute = shellService.TryResolve(ctx, out PublicAotRouteMatch aotMatch);
+        if (!isPublicAotRoute && !IsKnownSpaRoute(ctx.Request.Path))
+        {
+            await WritePublicStatusHtmlAsync(ctx, env, StatusCodes.Status404NotFound, ct);
+            return TypedResults.Empty;
+        }
+
         if (isPublicAotRoute)
         {
             long aotStartedAt = System.Diagnostics.Stopwatch.GetTimestamp();
-            PublicAotCacheEntry? aotEntry = await shellService.RenderAsync(ctx, aotMatch, ct);
+            PublicAotRenderOutcome outcome = await shellService.RenderClassifiedAsync(ctx, aotMatch, ct);
+            PublicAotCacheEntry? aotEntry = outcome.Entry;
             string source = ctx.Items.TryGetValue(PublicAotShellService.PublicAotSourceContextKey, out object? sourceObj)
                 ? sourceObj?.ToString() ?? "unknown"
                 : "unknown";
@@ -630,8 +642,22 @@ public static class WebApplicationCompositionExtensions
             FsusObservability.RecordAotRender(
                 source,
                 backfill,
-                aotEntry is null ? "fallback" : "hit",
+                outcome.Status == PublicAotRenderStatus.Success
+                    ? aotEntry is null ? "fallback" : "hit"
+                    : outcome.Status.ToString().ToLowerInvariant(),
                 FsusObservability.GetElapsed(aotStartedAt));
+            if (outcome.Status != PublicAotRenderStatus.Success)
+            {
+                int statusCode = outcome.Status switch
+                {
+                    PublicAotRenderStatus.Gone => StatusCodes.Status410Gone,
+                    PublicAotRenderStatus.TransientFailure => StatusCodes.Status503ServiceUnavailable,
+                    _ => StatusCodes.Status404NotFound
+                };
+                await WritePublicStatusHtmlAsync(ctx, env, statusCode, ct);
+                return TypedResults.Empty;
+            }
+
             if (aotEntry is not null)
             {
                 await WritePublicAotHtmlEntryAsync(ctx, env, aotEntry, source, version, backfill, state, assetMode, ct);
@@ -700,6 +726,104 @@ public static class WebApplicationCompositionExtensions
 
         return TypedResults.Empty;
     }
+
+    internal static bool TryBuildTrailingSlashRedirect(HttpRequest request, out string location)
+    {
+        location = string.Empty;
+        string path = request.Path.Value ?? string.Empty;
+        if (path.Length <= 1 || !path.EndsWith("/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        string canonicalPath = path.TrimEnd('/');
+        if (canonicalPath.Length == 0)
+        {
+            canonicalPath = "/";
+        }
+
+        location = string.Concat(request.PathBase.Value, canonicalPath, request.QueryString.Value);
+        return true;
+    }
+
+    internal static bool IsKnownSpaRoute(PathString path)
+    {
+        string value = path.Value ?? string.Empty;
+        if (string.Equals(value, PublicRouteIdentityRegistry.SearchPath, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/login", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/register", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/recover", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/403", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/404", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(value, "/user", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("/user/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static async Task WritePublicStatusHtmlAsync(
+        HttpContext context,
+        IWebHostEnvironment environment,
+        int statusCode,
+        CancellationToken cancellationToken = default)
+    {
+        (string title, string heading, string detail) = statusCode switch
+        {
+            StatusCodes.Status410Gone => ("内容已移除", "内容已永久移除", "该内容已不再提供。"),
+            StatusCodes.Status503ServiceUnavailable => ("暂时无法访问", "服务暂时不可用", "请稍后重试。"),
+            _ => ("页面不存在", "页面不存在", "请检查地址后重试。")
+        };
+        string html = BuildPublicStatusHtml(title, heading, detail);
+        byte[] body = Encoding.UTF8.GetBytes(html);
+
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = HtmlContentType;
+        context.Response.ContentLength = body.Length;
+        context.Response.Headers["Cache-Control"] = "no-store";
+        context.Response.Headers["Pragma"] = "no-cache";
+        context.Response.Headers["X-Robots-Tag"] = "noindex, follow";
+        context.Response.Headers["X-Fsus-Public-Aot-Source"] = "server-status";
+        context.Response.Headers["X-Fsus-Public-Aot-Version"] = PublicAotShellService.PublicRendererVersion;
+        context.Response.Headers["X-Fsus-Public-Aot-Backfill"] = "none";
+        context.Response.Headers["X-Fsus-Public-Aot-State"] = statusCode switch
+        {
+            StatusCodes.Status410Gone => "gone",
+            StatusCodes.Status503ServiceUnavailable => "transient-failure",
+            _ => "not-found"
+        };
+        context.Response.Headers.Remove("ETag");
+        context.Response.Headers.Remove("Last-Modified");
+        if (statusCode == StatusCodes.Status503ServiceUnavailable)
+        {
+            context.Response.Headers["Retry-After"] = "5";
+        }
+        else
+        {
+            context.Response.Headers.Remove("Retry-After");
+        }
+
+        EnsureHtmlCspHeader(context, environment);
+        if (HttpMethods.IsHead(context.Request.Method))
+        {
+            return;
+        }
+
+        await context.Response.BodyWriter.WriteAsync(body, cancellationToken);
+    }
+
+    internal static string BuildPublicStatusHtml(string title, string heading, string detail)
+        => string.Concat(
+            "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\">",
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
+            "<meta name=\"robots\" content=\"noindex,follow\"><title>",
+            WebUtility.HtmlEncode(title),
+            "</title></head><body><main><h1>",
+            WebUtility.HtmlEncode(heading),
+            "</h1><p>",
+            WebUtility.HtmlEncode(detail),
+            "</p></main></body></html>");
 
     private static bool IsDevelopmentViteProxyRequest(IWebHostEnvironment env, HttpContext ctx)
     {

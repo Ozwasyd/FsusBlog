@@ -144,6 +144,8 @@ Browser
 
 ```text
 IPublicAotRouteRegistry
+  → strict route identity（完整 path + 正整数/有效单段 slug）
+  → cold-miss status classification（Success / NotFound / Gone / TransientFailure）
   → IPublicAotBootstrapProvider（产出 typed PublicPageSnapshot）
   → PublicAotRenderRequest + PublicAotRendererPayloadMapper
   → IPublicAotEntryRenderer（Node/Vue SSR worker pool）
@@ -156,6 +158,8 @@ IPublicAotRouteRegistry
 
 - `src/frontend/scripts/server-public-ssr.mjs` 以 AEDS 行协议 worker 模式长驻，支持 `buildEntry` / `validateBundle` / `health` / `shutdown`；`PublicAot:SsrWorkerMode=PerRequest` 可作为紧急回退。
 - `PublicAotSsrRuntimeState` 聚合 backfill queue scheduled/dropped/completed/failed counters、worker restart/stderr warning、timeout/renderer/DB gate/document compose/cache write failure 分类、circuit breaker、route quarantine 与 SSR worker resource snapshot。`/internal/public-aot/health` 复用 `X-Fsus-Public-Aot-Token`，输出 resource check snapshot、Node probe、`validateBundle` sample probe 和 runtime snapshot；`tools/operations/public-aot-health.mjs` 是 release/ops 诊断入口。
+- `PublicRouteIdentity` 对 article/category/tag 动态路径执行完整匹配，不再从前缀截取第一段；unknown、零值、额外 segment 和不存在 taxonomy 在首个服务器响应返回 404。除 `/` 外的尾斜杠由 public route composition 单跳 301 到无尾斜杠 canonical。
+- `PublicAotShellService.RenderClassifiedAsync` 在 cold miss 排队 backfill 前调用对应 provider 建立真实状态；只有 `Success` 可排队。`NotFound`/`Gone`/`TransientFailure` 分别映射 404/410/503 独立 noindex HTML，负响应不进入 AOT cache、不带成功 SEO metadata，也不启动 SPA。该分类只发生在 AOT miss/dev-source bypass；fresh artifact 仍走原有热路径和 mutation invalidation，避免把每次命中退化为数据库读取。
 - `IAotSeoConfigSnapshot` 是 AOT bootstrap 的 SEO/compliance 读取入口，使用 30 秒 TTL 限制 `GetSeoConfigAsync` / `GetSiteComplianceConfigAsync` DB round trip；SEO 或合规配置保存时必须经 `ICacheInvalidationDispatcher` 同步失效该 snapshot，因此 admin 修改无需重启即可收敛。
 - SSR worker circuit breaker 只保护 backfill lane：连续 worker-level failure 打开后，新 backfill 被 short-circuit；cooldown 后只允许一个 half-open probe，成功才关闭。route-level renderer/document compose 重复失败会按 `PublicPageKind + routeKey` quarantine，并在 route/content/settings invalidation 或 TTL 到期后清除。公开读路径必须继续返回 fresh/stale AOT 或 SPA fallback，不得因 breaker/quarantine 阻断匿名阅读。
 - AOT document cache 只允许由服务端 `server-ssr` backfill 写入；客户端、管理端和脚本不得上传 AOT bundle。

@@ -187,7 +187,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         int articleId = PublicRouteIdentity.ParseArticleRouteKey(match.RouteKey);
         if (articleId <= 0)
         {
-            return Result<PublicPageSnapshot>.Failure(ErrorCode.Validation, "public_aot_article_id_invalid");
+            return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_article_not_found");
         }
 
         DateTime utcNow = DateTime.UtcNow;
@@ -467,12 +467,20 @@ public sealed class PublicAotFilterBootstrapProvider(
     {
         const int pageIndex = 1;
         const int pageSize = 10;
-        Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
         FilterIdentity identity = await ResolveFilterIdentityAsync(match.RouteKey, cancellationToken);
-        Task<ArticleListPageReadModel> pageTask = !identity.IsInvalidTarget
-            ? articleService.GetPageListAsync(pageIndex, pageSize, identity.CategoryId, identity.TagId, false, cancellationToken: cancellationToken)
-            : Task.FromResult(new ArticleListPageReadModel { Items = [], Total = 0 });
+        if (identity.IsInvalidTarget)
+        {
+            return Result<PublicPageSnapshot>.Failure(ErrorCode.NotFound, "public_aot_filter_not_found");
+        }
 
+        Task<PublicAotSeoSnapshot> seoTask = LoadSeoSnapshotAsync();
+        Task<ArticleListPageReadModel> pageTask = articleService.GetPageListAsync(
+            pageIndex,
+            pageSize,
+            identity.CategoryId,
+            identity.TagId,
+            false,
+            cancellationToken: cancellationToken);
         PublicAotSeoSnapshot seo = await seoTask;
         ArticleListPageReadModel page = await pageTask;
         string title = ResolveFilterTitle(identity);

@@ -280,3 +280,52 @@ test.describe('public CSP nonce enforcement', () => {
     expect(result.violations.some(directive => directive.startsWith('script-src'))).toBe(true)
   })
 })
+
+test.describe('public route real HTTP status', () => {
+  test.describe.configure({ timeout: 120_000 })
+
+  test('invalid public URLs stay 404 before hydration and GET matches HEAD', async ({ page, request }) => {
+    const paths = [
+      '/route-that-does-not-exist',
+      '/article/0',
+      '/article/2147483647',
+      `/article/${fixtures.articleId}/extra`,
+      '/category/0',
+      '/category/2147483647',
+      '/category/8/extra',
+      '/tag/0',
+      '/tag/__fsusblog_missing_tag_1085__',
+      '/tag/vue/extra'
+    ]
+
+    for (const path of paths) {
+      const [getResponse, headResponse] = await Promise.all([
+        request.get(path, { headers: { Accept: 'text/html' } }),
+        request.head(path, { headers: { Accept: 'text/html' } })
+      ])
+      const body = await getResponse.text()
+
+      expect(getResponse.status(), `${path} GET`).toBe(404)
+      expect(headResponse.status(), `${path} HEAD`).toBe(404)
+      expect(getResponse.headers()['x-robots-tag']).toBe('noindex, follow')
+      expect(headResponse.headers()['x-robots-tag']).toBe('noindex, follow')
+      expect(getResponse.headers()['x-fsus-public-aot-backfill']).toBe('none')
+      expect(body).toContain('<meta name="robots" content="noindex,follow">')
+      expect(body).not.toMatch(/rel="canonical"|property="og:url"|BlogPosting/i)
+      expect(body).not.toContain('<script')
+    }
+
+    const navigation = await page.goto('/route-that-does-not-exist', { waitUntil: 'domcontentloaded' })
+    expect(navigation?.status()).toBe(404)
+    await expect(page.locator('h1')).toHaveText('页面不存在')
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex,follow')
+    expect(await page.locator('script').count()).toBe(0)
+  })
+
+  test('trailing slash redirects once to the canonical path', async ({ request }) => {
+    const response = await request.get(`/article/${fixtures.articleId}/`, { maxRedirects: 0 })
+
+    expect(response.status()).toBe(301)
+    expect(response.headers().location).toBe(`/article/${fixtures.articleId}`)
+  })
+})

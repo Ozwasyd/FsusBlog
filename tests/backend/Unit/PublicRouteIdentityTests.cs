@@ -58,4 +58,35 @@ public sealed class PublicRouteIdentityTests
         Assert.True(resolved);
         Assert.Equal(expectedKind, kind);
     }
+
+    [Theory]
+    [InlineData("/route-that-does-not-exist")]
+    [InlineData("/article/0")]
+    [InlineData("/article/-1")]
+    [InlineData("/article/123/extra")]
+    [InlineData("/article/123/")]
+    [InlineData("/category/0")]
+    [InlineData("/category/8/extra")]
+    [InlineData("/tag/0")]
+    [InlineData("/tag/-1")]
+    [InlineData("/tag/vue/extra")]
+    [InlineData("/tag/%2F")]
+    [InlineData("/tag/%ZZ")]
+    public void TryResolveKind_RejectsInvalidOrPrefixOnlyDynamicPaths(string path)
+    {
+        bool resolved = PublicRouteIdentity.TryResolveKind(new PathString(path), out PublicPageKind kind);
+
+        Assert.False(resolved);
+        Assert.Equal(PublicPageKind.Unknown, kind);
+    }
+
+    [Theory]
+    [InlineData("/tag/C%23")]
+    [InlineData("/tag/vue-router")]
+    [InlineData("/tag/%E4%B8%AD%E6%96%87")]
+    public void TryResolveKind_AcceptsSingleValidTagSlug(string path)
+    {
+        Assert.True(PublicRouteIdentity.TryResolveKind(new PathString(path), out PublicPageKind kind));
+        Assert.Equal(PublicPageKind.Filter, kind);
+    }
 }

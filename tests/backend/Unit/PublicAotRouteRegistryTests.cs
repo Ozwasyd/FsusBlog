@@ -50,6 +50,22 @@ public sealed class PublicAotRouteRegistryTests
     }
 
     [Theory]
+    [InlineData("/article/0")]
+    [InlineData("/article/42/extra")]
+    [InlineData("/category/0")]
+    [InlineData("/category/7/extra")]
+    [InlineData("/tag/0")]
+    [InlineData("/tag/demo/extra")]
+    [InlineData("/archive/")]
+    public void TryResolve_InvalidPublicRouteShape_ReturnsFalse(string path)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Path = path;
+
+        Assert.False(_registry.TryResolve(context, out _));
+    }
+
+    [Theory]
     [InlineData("/search")]
     [InlineData("/search?q=test")]
     [InlineData("/user/profile")]

@@ -19,6 +19,7 @@ public sealed class PublicAotBootstrapProviderTests
 
         Assert.Contains("LoadPublicArticleForAotAsync", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("ArticleBody.get_MarkdownContent", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Article.get_IsDeleted", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("Article.get_Status", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("Article.get_PublishedAt", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("Article.get_ScheduledPublishAt", runtimeShape, StringComparison.Ordinal);
@@ -85,5 +86,15 @@ public sealed class PublicAotBootstrapProviderTests
         Assert.Contains("Article.get_PublishedAt", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain(constructor.GetParameters(), static parameter => parameter.ParameterType == typeof(IArticleService));
         Assert.DoesNotContain("GetPageListAsync", runtimeShape, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FilterProvider_InvalidTaxonomyFailsNotFoundInsteadOfBuildingEmptySuccessPage()
+    {
+        Type provider = typeof(PublicAotFilterBootstrapProvider);
+        string build = RuntimeMetadataInspection.DescribeMethods(provider, "BuildSnapshotAsync");
+
+        Assert.Contains("FilterIdentity.get_IsInvalidTarget", build, StringComparison.Ordinal);
+        Assert.Contains("public_aot_filter_not_found", build, StringComparison.Ordinal);
     }
 }

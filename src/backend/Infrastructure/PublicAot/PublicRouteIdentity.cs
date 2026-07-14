@@ -24,21 +24,21 @@ internal static class PublicRouteIdentity
             return true;
         }
 
-        ReadOnlySpan<char> normalizedPath = value.AsSpan().TrimEnd('/');
+        ReadOnlySpan<char> normalizedPath = value.AsSpan();
         if (normalizedPath.IsEmpty || normalizedPath.SequenceEqual("/"))
         {
             kind = PublicPageKind.Home;
             return true;
         }
 
-        if (normalizedPath.StartsWith(ArticlePathPrefix, StringComparison.OrdinalIgnoreCase))
+        if (TryMatchPositiveIdPath(normalizedPath, ArticlePathPrefix, out _))
         {
             kind = PublicPageKind.ArticleDetail;
             return true;
         }
 
-        if (normalizedPath.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase) ||
-            normalizedPath.StartsWith(TagPathPrefix, StringComparison.OrdinalIgnoreCase))
+        if (TryMatchPositiveIdPath(normalizedPath, CategoryPathPrefix, out _) ||
+            TryMatchTagPath(normalizedPath))
         {
             kind = PublicPageKind.Filter;
             return true;
@@ -55,7 +55,7 @@ internal static class PublicRouteIdentity
 
     internal static string BuildRouteKey(HttpContext context, PublicPageKind kind)
     {
-        string path = context.Request.Path.Value?.TrimEnd('/') ?? string.Empty;
+        string path = context.Request.Path.Value ?? string.Empty;
         PublicAotPageDescriptor descriptor = PublicAotPageCatalog.GetRequired(kind);
 
         if (!string.IsNullOrWhiteSpace(descriptor.FixedRouteKey))
@@ -272,25 +272,12 @@ internal static class PublicRouteIdentity
     private static bool TryResolvePathId(HttpContext context, string prefix, out int id)
     {
         id = 0;
-        if (int.TryParse(context.Request.RouteValues["id"]?.ToString(), out id))
+        if (int.TryParse(context.Request.RouteValues["id"]?.ToString(), out id) && id > 0)
         {
             return true;
         }
 
-        string path = context.Request.Path.Value ?? string.Empty;
-        if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        ReadOnlySpan<char> tail = path.AsSpan(prefix.Length);
-        int slashIndex = tail.IndexOf('/');
-        if (slashIndex >= 0)
-        {
-            tail = tail[..slashIndex];
-        }
-
-        return int.TryParse(tail, out id);
+        return TryMatchPositiveIdPath(context.Request.Path.Value.AsSpan(), prefix, out id);
     }
 
     private static string GetRouteSegment(HttpContext context, string prefix)
@@ -307,15 +294,88 @@ internal static class PublicRouteIdentity
             return string.Empty;
         }
 
-        ReadOnlySpan<char> tail = path.AsSpan(prefix.Length);
-        int slashIndex = tail.IndexOf('/');
-        if (slashIndex >= 0)
+        return path.AsSpan(prefix.Length).ToString();
+    }
+
+    private static bool TryMatchPositiveIdPath(ReadOnlySpan<char> path, string prefix, out int id)
+    {
+        id = 0;
+        if (!path.StartsWith(prefix.AsSpan(), StringComparison.OrdinalIgnoreCase))
         {
-            tail = tail[..slashIndex];
+            return false;
         }
 
-        return tail.ToString().Trim();
+        ReadOnlySpan<char> segment = path[prefix.Length..];
+        return !segment.IsEmpty
+            && segment.IndexOf('/') < 0
+            && int.TryParse(segment, out id)
+            && id > 0;
     }
+
+    private static bool TryMatchTagPath(ReadOnlySpan<char> path)
+    {
+        if (!path.StartsWith(TagPathPrefix.AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<char> rawSegment = path[TagPathPrefix.Length..];
+        if (rawSegment.IsEmpty || rawSegment.Length > 512 || rawSegment.IndexOf('/') >= 0 || !HasValidPercentEncoding(rawSegment))
+        {
+            return false;
+        }
+
+        string decoded;
+        try
+        {
+            decoded = Uri.UnescapeDataString(rawSegment.ToString());
+        }
+        catch (UriFormatException)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(decoded)
+            || decoded.Length > 128
+            || !string.Equals(decoded, decoded.Trim(), StringComparison.Ordinal)
+            || decoded.IndexOfAny(['/', '\\']) >= 0
+            || decoded.Any(static ch => char.IsControl(ch)))
+        {
+            return false;
+        }
+
+        if (int.TryParse(decoded, out int numericId))
+        {
+            return numericId > 0;
+        }
+
+        return decoded[0] is not '+' and not '-';
+    }
+
+    private static bool HasValidPercentEncoding(ReadOnlySpan<char> value)
+    {
+        for (int index = 0; index < value.Length; index++)
+        {
+            if (value[index] != '%')
+            {
+                continue;
+            }
+
+            if (index + 2 >= value.Length || !IsHex(value[index + 1]) || !IsHex(value[index + 2]))
+            {
+                return false;
+            }
+
+            index += 2;
+        }
+
+        return true;
+    }
+
+    private static bool IsHex(char value)
+        => value is >= '0' and <= '9'
+            or >= 'a' and <= 'f'
+            or >= 'A' and <= 'F';
 
     internal readonly record struct ParsedFilterRouteIdentity(
         string FilterType,

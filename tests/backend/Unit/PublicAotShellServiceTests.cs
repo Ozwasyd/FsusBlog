@@ -354,6 +354,73 @@ public sealed class PublicAotShellServiceTests
     }
 
     [Fact]
+    public async Task RenderClassifiedAsync_NotFound_DoesNotQueueBackfillOrWriteSuccessState()
+    {
+        var match = HomeMatch();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(
+            match,
+            new RecordingAotCache(),
+            scheduler,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
+            bootstrapProviders: CreateBootstrapProviders(new FailingBootstrapProvider(
+                PublicPageKind.Home,
+                ErrorCode.NotFound,
+                "public_aot_home_not_found")));
+        var context = new DefaultHttpContext();
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
+
+        Assert.Equal(PublicAotRenderStatus.NotFound, result.Status);
+        Assert.Null(result.Entry);
+        Assert.Empty(scheduler.Requests);
+        Assert.Equal("none", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("not-found", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+    }
+
+    [Fact]
+    public async Task RenderClassifiedAsync_TransientProviderFailure_DoesNotQueueBackfill()
+    {
+        var match = HomeMatch();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(
+            match,
+            new RecordingAotCache(),
+            scheduler,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
+            bootstrapProviders: CreateBootstrapProviders(new FailingBootstrapProvider(
+                PublicPageKind.Home,
+                ErrorCode.InfraFailure,
+                "db-unavailable")));
+        var context = new DefaultHttpContext();
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
+
+        Assert.Equal(PublicAotRenderStatus.TransientFailure, result.Status);
+        Assert.Empty(scheduler.Requests);
+        Assert.Equal("transient-failure", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+    }
+
+    [Fact]
+    public async Task RenderClassifiedAsync_ValidColdRoute_QueuesBackfillAfterClassification()
+    {
+        var match = HomeMatch();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(
+            match,
+            new RecordingAotCache(),
+            scheduler,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate());
+        var context = new DefaultHttpContext();
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
+
+        Assert.Equal(PublicAotRenderStatus.Success, result.Status);
+        Assert.Single(scheduler.Requests);
+        Assert.Equal("queued", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+    }
+
+    [Fact]
     public async Task BuildNavigationSnapshotAsync_UsesRendererEntryPayloads_AndAddsEnvelopeMetadata()
     {
         var match = new PublicAotRouteMatch(
@@ -415,11 +482,12 @@ public sealed class PublicAotShellServiceTests
         PublicAotSsrRuntimeState? runtimeState = null,
         IPublicAotEntryRenderer? entryRenderer = null,
         IDbConcurrencyGate? dbConcurrencyGate = null,
-        PublicAotInvalidationTracker? invalidationTracker = null)
+        PublicAotInvalidationTracker? invalidationTracker = null,
+        IEnumerable<IPublicAotBootstrapProvider>? bootstrapProviders = null)
         => new(
             dbConcurrencyGate ?? Substitute.For<IDbConcurrencyGate>(),
             new FixedRouteRegistry(match),
-            CreateBootstrapProviders(),
+            bootstrapProviders ?? CreateBootstrapProviders(),
             entryRenderer ?? Substitute.For<IPublicAotEntryRenderer>(),
             Substitute.For<IPublicAotDocumentService>(),
             cache,
@@ -445,6 +513,10 @@ public sealed class PublicAotShellServiceTests
         yield return new StubBootstrapProvider(PublicPageKind.Copyright);
         yield return new StubBootstrapProvider(PublicPageKind.Archive);
     }
+
+    private static IEnumerable<IPublicAotBootstrapProvider> CreateBootstrapProviders(
+        IPublicAotBootstrapProvider replacement)
+        => CreateBootstrapProviders().Select(provider => provider.Kind == replacement.Kind ? replacement : provider);
 
     private sealed class FixedRouteRegistry(PublicAotRouteMatch match) : IPublicAotRouteRegistry
     {
@@ -541,6 +613,19 @@ public sealed class PublicAotShellServiceTests
                 [],
                 [],
                 [])));
+    }
+
+    private sealed class FailingBootstrapProvider(
+        PublicPageKind kind,
+        ErrorCode code,
+        string message) : IPublicAotBootstrapProvider
+    {
+        public PublicPageKind Kind { get; } = kind;
+
+        public Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(
+            PublicAotRouteMatch match,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(Result<PublicPageSnapshot>.Failure(code, message));
     }
 
     private sealed class FailingRenderer(string message) : IPublicAotEntryRenderer

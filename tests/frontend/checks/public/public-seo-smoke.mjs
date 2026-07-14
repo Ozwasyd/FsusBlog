@@ -28,6 +28,19 @@ const negativeChecks = [
   { name: 'account_spa_only', path: '/user/profile' }
 ];
 
+const realStatusChecks = [
+  { name: 'unknown_route', path: '/route-that-does-not-exist' },
+  { name: 'article_zero', path: '/article/0' },
+  { name: 'article_missing', path: '/article/2147483647' },
+  { name: 'article_extra_segment', path: `/article/${publicFixtureIds.articleId}/extra` },
+  { name: 'category_zero', path: '/category/0' },
+  { name: 'category_missing', path: '/category/2147483647' },
+  { name: 'category_extra_segment', path: '/category/8/extra' },
+  { name: 'tag_zero', path: '/tag/0' },
+  { name: 'tag_missing', path: '/tag/__fsusblog_missing_tag_1085__' },
+  { name: 'tag_extra_segment', path: '/tag/vue/extra' }
+];
+
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -187,6 +200,38 @@ async function fetchPublicText(path, accept = 'text/plain') {
   const body = await response.text();
   assert(response.ok, `[distribution:${path}] expected 2xx, got ${response.status}`);
   return body;
+}
+
+async function assertRealNotFoundStatus(item) {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (FsusBlog Public SEO Status Smoke)',
+    Accept: 'text/html,application/xhtml+xml'
+  };
+  const [getResponse, headResponse] = await Promise.all([
+    fetchWithTimeout(`${baseUrl}${item.path}`, { headers }, requestTimeoutMs),
+    fetchWithTimeout(`${baseUrl}${item.path}`, { method: 'HEAD', headers }, requestTimeoutMs)
+  ]);
+  const body = await getResponse.text();
+  const headBody = await headResponse.text();
+
+  assert(getResponse.status === 404, `[${item.name}] GET expected 404, got ${getResponse.status}`);
+  assert(headResponse.status === 404, `[${item.name}] HEAD expected 404, got ${headResponse.status}`);
+  assert((getResponse.headers.get('content-type') || '').includes('text/html'), `[${item.name}] GET must return HTML`);
+  assert((headResponse.headers.get('content-type') || '').includes('text/html'), `[${item.name}] HEAD must return HTML metadata`);
+  assert(getResponse.headers.get('x-robots-tag') === 'noindex, follow', `[${item.name}] GET missing noindex`);
+  assert(headResponse.headers.get('x-robots-tag') === 'noindex, follow', `[${item.name}] HEAD missing noindex`);
+  assert(getResponse.headers.get('x-fsus-public-aot-backfill') === 'none', `[${item.name}] must not queue AOT backfill`);
+  assert(headResponse.headers.get('x-fsus-public-aot-backfill') === 'none', `[${item.name}] HEAD must not queue AOT backfill`);
+  assert(getResponse.headers.get('x-fsus-public-aot-state') === 'not-found', `[${item.name}] wrong AOT state`);
+  assert((getResponse.headers.get('cache-control') || '').includes('no-store'), `[${item.name}] 404 must be no-store`);
+  assert(body.includes('<meta name="robots" content="noindex,follow">'), `[${item.name}] HTML missing noindex`);
+  assert(!body.match(/rel="canonical"|property="og:url"|BlogPosting/i), `[${item.name}] 404 leaked success SEO metadata`);
+  assert(!body.includes('<script'), `[${item.name}] 404 must not boot or hydrate the SPA`);
+  assert(headBody === '', `[${item.name}] HEAD must not return a body`);
+  assert(
+    getResponse.headers.get('content-length') === headResponse.headers.get('content-length'),
+    `[${item.name}] GET/HEAD content-length mismatch`
+  );
 }
 
 async function assertDistributionCanonicalCoherence(canonical) {
@@ -396,6 +441,33 @@ async function main() {
     } catch (error) {
       failures.push(`[public-seo-smoke] fail: ${item.name}: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  for (const item of realStatusChecks) {
+    try {
+      await assertRealNotFoundStatus(item);
+      console.log(`[public-seo-smoke] ok: ${item.name}`);
+    } catch (error) {
+      failures.push(`[public-seo-smoke] fail: ${item.name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  try {
+    const trailingSlash = await fetchWithTimeout(`${baseUrl}/article/${publicFixtureIds.articleId}/`, {
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (FsusBlog Public SEO Status Smoke)',
+        Accept: 'text/html,application/xhtml+xml'
+      }
+    }, requestTimeoutMs);
+    assert(trailingSlash.status === 301, `[trailing_slash] expected 301, got ${trailingSlash.status}`);
+    assert(
+      trailingSlash.headers.get('location') === `/article/${publicFixtureIds.articleId}`,
+      `[trailing_slash] wrong canonical redirect: ${trailingSlash.headers.get('location') || 'missing'}`
+    );
+    console.log('[public-seo-smoke] ok: trailing_slash');
+  } catch (error) {
+    failures.push(`[public-seo-smoke] fail: trailing_slash: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   if (failures.length > 0) {

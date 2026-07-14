@@ -475,6 +475,21 @@ function assertStaticContracts() {
       fail(`Public AOT shell service missing fallback state token: ${token}`)
     }
   }
+  for (const token of ['RenderClassifiedAsync', 'ClassifyRouteAsync', 'PublicAotRenderOutcome.NotFound', 'PublicAotRenderOutcome.TransientFailure']) {
+    if (!shellService.includes(token)) {
+      fail(`Public AOT shell service missing real-status classification token: ${token}`)
+    }
+  }
+  for (const token of ['TryBuildTrailingSlashRedirect', 'WritePublicStatusHtmlAsync', 'noindex,follow', 'Retry-After', 'X-Fsus-Public-Aot-Backfill']) {
+    if (!webApplicationComposition.includes(token)) {
+      fail(`public HTML response composition missing real-status token: ${token}`)
+    }
+  }
+  for (const token of ['unknown_route', 'article_extra_segment', 'category_missing', 'tag_missing', "method: 'HEAD'", "redirect: 'manual'"]) {
+    if (!publicSeoSmoke.includes(token)) {
+      fail(`public SEO smoke missing real-status matrix token: ${token}`)
+    }
+  }
   for (const token of ['IsStaleCompatibleCacheEntry', 'stale-refresh-queued']) {
     if (shellService.includes(token)) {
       fail(`Public AOT shell service still contains stale compatibility token: ${token}`)

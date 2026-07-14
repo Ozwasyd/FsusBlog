@@ -194,6 +194,94 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
+    public void PublicHtmlRoutes_TrailingSlashRedirectPreservesQueryAndPathBase()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.PathBase = "/blog";
+        context.Request.Path = "/article/42/";
+        context.Request.QueryString = new QueryString("?ref=canonical");
+
+        Assert.True(WebApplicationCompositionExtensions.TryBuildTrailingSlashRedirect(
+            context.Request,
+            out string location));
+        Assert.Equal("/blog/article/42?ref=canonical", location);
+
+        context.Request.Path = "/";
+        Assert.False(WebApplicationCompositionExtensions.TryBuildTrailingSlashRedirect(
+            context.Request,
+            out _));
+    }
+
+    [Theory]
+    [InlineData("/search", true)]
+    [InlineData("/login", true)]
+    [InlineData("/recover", true)]
+    [InlineData("/user/profile", true)]
+    [InlineData("/route-that-does-not-exist", false)]
+    [InlineData("/article/42/extra", false)]
+    public void PublicHtmlRoutes_OnlyKnownSpaFallbacksRemainSuccessful(string path, bool expected)
+    {
+        Assert.Equal(expected, WebApplicationCompositionExtensions.IsKnownSpaRoute(new PathString(path)));
+    }
+
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("HEAD")]
+    public async Task PublicStatusHtml_NotFoundIsNoIndexAndNeverCarriesSuccessMetadata(string method)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = method;
+        context.Response.Body = new MemoryStream();
+
+        await WebApplicationCompositionExtensions.WritePublicStatusHtmlAsync(
+            context,
+            CreateTestEnv(),
+            StatusCodes.Status404NotFound);
+
+        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+        Assert.Equal("text/html; charset=utf-8", context.Response.ContentType);
+        Assert.Equal("no-store", context.Response.Headers.CacheControl);
+        Assert.Equal("noindex, follow", context.Response.Headers["X-Robots-Tag"]);
+        Assert.Equal("none", context.Response.Headers["X-Fsus-Public-Aot-Backfill"]);
+        Assert.Equal("not-found", context.Response.Headers["X-Fsus-Public-Aot-State"]);
+        Assert.False(context.Response.Headers.ContainsKey("ETag"));
+
+        context.Response.Body.Position = 0;
+        string body = await new StreamReader(context.Response.Body, Encoding.UTF8).ReadToEndAsync();
+        if (HttpMethods.IsHead(method))
+        {
+            Assert.Empty(body);
+            Assert.True(context.Response.ContentLength > 0);
+        }
+        else
+        {
+            Assert.Contains("<meta name=\"robots\" content=\"noindex,follow\">", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("rel=\"canonical\"", body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("og:url", body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("BlogPosting", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("<script", body, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task PublicStatusHtml_TransientFailureIsRetryableAndNoIndex()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = HttpMethods.Get;
+        context.Response.Body = new MemoryStream();
+
+        await WebApplicationCompositionExtensions.WritePublicStatusHtmlAsync(
+            context,
+            CreateTestEnv(),
+            StatusCodes.Status503ServiceUnavailable);
+
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.Equal("5", context.Response.Headers.RetryAfter);
+        Assert.Equal("noindex, follow", context.Response.Headers["X-Robots-Tag"]);
+        Assert.Equal("transient-failure", context.Response.Headers["X-Fsus-Public-Aot-State"]);
+    }
+
+    [Fact]
     public async Task NotificationStreamEndpoints_UseDedicatedRateLimiter()
     {
         await using WebApplication app = CreateApplicationRouteMap();

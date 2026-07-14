@@ -102,6 +102,18 @@
 
 ---
 
+## 公共 HTML 状态
+
+| 请求 | 首响应 | 说明 |
+|------|--------|------|
+| `GET/HEAD /article/{positive-int}` | 200 / 404 / 503 | 仅公开文章为 200；缺失、隐藏、未到发布时间为 404；临时依赖故障为 503 |
+| `GET/HEAD /category/{positive-int}` | 200 / 404 / 503 | 不存在分类不生成空 200 SEO 页 |
+| `GET/HEAD /tag/{positive-int\|valid-slug}` | 200 / 404 / 503 | 不存在标签不生成空 200 SEO 页 |
+| `GET/HEAD /unknown` 或额外 path segment | 404 | 服务器首响应 noindex，不交给 SPA catch-all 改写语义 |
+| 除 `/` 外的 `.../` | 301 | 单跳到无尾斜杠 canonical，并保留 query |
+
+404/410/503 HTML 固定 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`；503 额外带 `Retry-After: 5`。负响应不含成功页 canonical、Open Graph URL、`BlogPosting` 或 hydration script。SPA-only `/search`、认证入口与 `/user/**` 不属于此 SEO 成功页集合。
+
 ## 文章 — `/api/Article`
 
 | 方法 | 路径 | 权限 | 缓存 | 说明 |

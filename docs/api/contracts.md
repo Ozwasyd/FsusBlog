@@ -1261,11 +1261,10 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 - AOT 产物只允许由服务端 `server-ssr` backfill 写入；客户端、管理端和脚本不得上传 AOT bundle。
 - `Filter` / `ArticleDetail` 不允许持久化错误态壳层，例如 markdown fallback/error 文案。
 - 服务端 backfill 使用 `PublicAot:SsrWorkerMode=Pooled` 的 Node/Vue SSR worker 池生成条目；
-  如缓存未命中或 worker 不可用，公开页请求返回 SPA index fallback，并通过
-  `X-Fsus-Public-Aot-Backfill` 标记 `queued` 或 `dropped`。
+  如缓存未命中，shell service 必须先用 bootstrap provider 分类真实资源状态。只有 provider 成功的有效路由才可返回 SPA index fallback，并通过 `X-Fsus-Public-Aot-Backfill` 标记 `queued` 或 `dropped`；`NotFound`/invalid identity 返回 404，临时 provider/DB gate 故障返回 503，不得排队 backfill。
 - 过期或 renderer/frontend asset version 不匹配的条目不得作为 stale HTML 返回；运行时必须删除旧
   artifact，返回 SPA index fallback，并排队 backfill。响应头只用
-  `X-Fsus-Public-Aot-State: fresh|fallback` 区分 fresh 命中和 SPA fallback。
+  `X-Fsus-Public-Aot-State: fresh|fallback|not-found|gone|transient-failure` 区分 fresh 命中、有效路由 SPA fallback 与真实失败状态。
 - AOT HTML 缓存同时校验 `rendererVersion` 与 frontend asset version；前端 `index.html` 或
   `.vite/manifest.json` 变化会自动拒绝旧缓存，并按 frontend asset version 隔离文件 artifact。
 - AOT HTML 模板只接受以下 5 个具名 sentinel；sentinel 是字符串相等匹配，不接受通配式标记：
@@ -1278,6 +1277,20 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 - 含 `<head>`、inline `script` 或 inline `style` 的 document 在 publication/decode 阶段编译 CSP nonce UTF-8 segment template。模板绑定 renderer version、frontend asset version、artifact ETag/digest；请求只写预计算 segment/slot，不重新扫描或生成完整 rendered string/byte array。malformed/重复 nonce、预渲染 `csp-nonce` meta、原始 placeholder、重复 head、未闭合或自闭合 script/style 必须 fail closed。
 - nonce document 响应固定为 identity、`Cache-Control: private,no-store`、无 `Content-Encoding`、无 `ETag`/`304`；`Accept-Encoding` 明确 `identity;q=0` 时返回 406。无 nonce document 继续使用预生成 identity/br/gzip variant 与各自 strong ETag。HEAD 只返回按实际随机 nonce 长度计算的 Content-Length，不写 body。
 - PublicHotRead runtime snapshot 的 `residentBytes` 是 `independent-readonly-arrays-upper-bound-v1` 总上界，包含 binary variants、HTML bytes、nonce template UTF-8 bytes、slot table、构建生成的静态 inline SHA-256 feasibility list、metadata 与 key/index 估算；`htmlTemplateResidentBytes` 单独可观测。分项或 candidate/current overlap 超出动态/显式 budget 时新 snapshot 不得发布，旧 snapshot/version/ETag/invalidation 语义保持不变。
+
+### Public HTML real-status contract
+
+公共动态路径只接受 `/article/{positive-int}`、`/category/{positive-int}` 与 `/tag/{positive-int|valid-slug}` 的完整匹配。`/article/123/extra`、`/category/8/extra`、`/tag/vue/extra`、零值、空 segment、无效 percent encoding 和未知 path 都是 404。除根路径外，尾斜杠使用 301 单跳规范化到无尾斜杠 canonical。
+
+Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`TransientFailure`。`Success` 才允许读取/排队普通 AOT；`NotFound` 返回 404；仅在持久化模型明确表达永久删除时使用 410；provider、数据库 gate 或基础设施不可用返回 503 + `Retry-After: 5`。所有 404/410/503 页面均满足：
+
+- `Content-Type: text/html; charset=utf-8`、`Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`；
+- HTML 内含 `<meta name="robots" content="noindex,follow">`；
+- `X-Fsus-Public-Aot-Backfill: none`，且不写普通 AOT cache；
+- 不输出 canonical、`og:url`、`BlogPosting` 或任何 SPA/hydration script；
+- GET/HEAD 状态、content type、content length 与索引控制头一致，HEAD body 为空。
+
+当前删除模型不能区分“永久删除且绝不恢复”和普通隐藏/删除，因此文章缺失、未发布、定时未到、归档和删除统一保守返回 404；不得凭空推断 410。
 
 ### Public AOT Route Manifest
 

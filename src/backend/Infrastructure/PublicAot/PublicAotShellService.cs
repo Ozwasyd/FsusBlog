@@ -59,6 +59,19 @@ public sealed class PublicAotShellService(
     }
 
     public async Task<PublicAotCacheEntry?> RenderAsync(HttpContext context, PublicAotRouteMatch match, CancellationToken cancellationToken = default)
+        => (await RenderCoreAsync(context, match, classifyColdMiss: false, cancellationToken)).Entry;
+
+    public Task<PublicAotRenderOutcome> RenderClassifiedAsync(
+        HttpContext context,
+        PublicAotRouteMatch match,
+        CancellationToken cancellationToken = default)
+        => RenderCoreAsync(context, match, classifyColdMiss: true, cancellationToken);
+
+    private async Task<PublicAotRenderOutcome> RenderCoreAsync(
+        HttpContext context,
+        PublicAotRouteMatch match,
+        bool classifyColdMiss,
+        CancellationToken cancellationToken)
     {
         string baseDocumentCacheKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
         string pagePrefixKey = runtimeKeyScope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, string.Empty));
@@ -68,11 +81,21 @@ public sealed class PublicAotShellService(
         context.Items[PublicAotAssetModeContextKey] = assetMode;
         if (string.Equals(frontendAssetVersion, SpaAssetManifestService.DevSourceAssetVersion, StringComparison.Ordinal))
         {
+            if (classifyColdMiss)
+            {
+                PublicAotRenderOutcome routeOutcome = await ClassifyRouteAsync(match, cancellationToken);
+                if (routeOutcome.Status != PublicAotRenderStatus.Success)
+                {
+                    SetClassifiedFailureContext(context, routeOutcome.Status, "dev-source-bypass");
+                    return routeOutcome;
+                }
+            }
+
             context.Items[PublicAotSourceContextKey] = "spa-fallback";
             context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
             context.Items[PublicAotBackfillContextKey] = "dev-source-bypass";
             context.Items[PublicAotStateContextKey] = "fallback";
-            return null;
+            return PublicAotRenderOutcome.Success(null);
         }
 
         PublicAotCacheEntry? entry = await cache.TryGetEntryAsync(documentCacheKey, frontendAssetVersion, cancellationToken);
@@ -82,12 +105,22 @@ public sealed class PublicAotShellService(
             context.Items[PublicAotVersionContextKey] = entry.RendererVersion;
             context.Items[PublicAotBackfillContextKey] = "none";
             context.Items[PublicAotStateContextKey] = "fresh";
-            return entry;
+            return PublicAotRenderOutcome.Success(entry);
         }
 
         if (entry is not null)
         {
             await cache.RemoveAsync(documentCacheKey, cancellationToken);
+        }
+
+        if (classifyColdMiss)
+        {
+            PublicAotRenderOutcome routeOutcome = await ClassifyRouteAsync(match, cancellationToken);
+            if (routeOutcome.Status != PublicAotRenderStatus.Success)
+            {
+                SetClassifiedFailureContext(context, routeOutcome.Status, "none");
+                return routeOutcome;
+            }
         }
 
         bool queued = ScheduleBackfill(context, match, documentCacheKey, pagePrefixKey);
@@ -104,7 +137,64 @@ public sealed class PublicAotShellService(
             PublicAotBackfillDroppedLog(logger, match.Kind, match.RouteKey, null);
         }
 
-        return null;
+        return PublicAotRenderOutcome.Success(null);
+    }
+
+    private async Task<PublicAotRenderOutcome> ClassifyRouteAsync(
+        PublicAotRouteMatch match,
+        CancellationToken cancellationToken)
+    {
+        if (!_bootstrapProviders.TryGetValue(match.Kind, out IPublicAotBootstrapProvider? provider))
+        {
+            return PublicAotRenderOutcome.TransientFailure(
+                ErrorDetail.Create(ErrorCode.InfraFailure, $"public_aot_provider_missing:{match.Kind}"));
+        }
+
+        Result<PublicPageSnapshot> snapshot;
+        try
+        {
+            snapshot = await dbConcurrencyGate.ExecuteClassifiedAsync(
+                DbWorkloadClass.PublicShortRead,
+                "public-aot-route-status",
+                gateCt => provider.BuildSnapshotAsync(match, gateCt),
+                _ => Task.FromResult(Result<PublicPageSnapshot>.Failure(ErrorCode.InfraFailure, "db-gate-timeout")),
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return PublicAotRenderOutcome.TransientFailure(
+                ErrorDetail.Create(ErrorCode.InfraFailure, "public_aot_route_status_failed"));
+        }
+
+        if (snapshot.IsSuccess && snapshot.Value is not null)
+        {
+            return PublicAotRenderOutcome.Success(null);
+        }
+
+        return snapshot.Error.Code is ErrorCode.NotFound or ErrorCode.Validation
+            ? PublicAotRenderOutcome.NotFound(snapshot.Error)
+            : PublicAotRenderOutcome.TransientFailure(snapshot.Error);
+    }
+
+    private static void SetClassifiedFailureContext(
+        HttpContext context,
+        PublicAotRenderStatus status,
+        string assetMode)
+    {
+        context.Items[PublicAotSourceContextKey] = "server-status";
+        context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
+        context.Items[PublicAotBackfillContextKey] = "none";
+        context.Items[PublicAotStateContextKey] = status switch
+        {
+            PublicAotRenderStatus.NotFound => "not-found",
+            PublicAotRenderStatus.Gone => "gone",
+            _ => "transient-failure"
+        };
+        context.Items[PublicAotAssetModeContextKey] = assetMode;
     }
 
     private async Task<Result<PublicAotNavigationSnapshot>> BuildNavigationSnapshotCoreAsync(

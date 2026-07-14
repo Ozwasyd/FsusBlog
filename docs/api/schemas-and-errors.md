@@ -40,6 +40,18 @@ Schema migration qualification 使用窄 JSON 负响应，不进入 AEDS `ApiErr
 
 ## 错误码枚举
 
+### Public HTML 负响应
+
+公共 HTML 不使用 AEDS `ApiError` body。无效路径或不存在/不可公开实体返回 404；只有数据模型明确永久删除时才返回 410；provider、DB gate 或其它临时依赖故障返回 503 + `Retry-After: 5`。三类响应统一为独立 `noindex,follow` HTML，带 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`，不带 canonical、`og:url`、`BlogPosting`、SPA boot 或 hydration payload。
+
+| HTTP | `X-Fsus-Public-Aot-State` | 重试语义 |
+|------|---------------------------|----------|
+| 404 | `not-found` | 修改 URL 或等待内容真正公开；不得缓存为成功页 |
+| 410 | `gone` | 仅明确永久删除；当前文章删除模型未使用 |
+| 503 | `transient-failure` | 可重试，读取 `Retry-After` |
+
+GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Content-Length`，但 body 为空。除 `/` 外的尾斜杠不是负响应，而是 301 到无尾斜杠 canonical。
+
 错误码以固定宽度 UTF-8 字段写入 AEDS `ApiError` frame，按模块分组。
 
 ### 通用错误
