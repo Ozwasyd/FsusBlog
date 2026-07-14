@@ -1093,7 +1093,7 @@ function buildStaticSteps() {
         exclusiveResources: ['build-output']
       }
     }),
-    commandStep('validate-matrix', 'node tools/run-test-matrix.mjs preflight', ['validate-matrix']),
+    commandStep('validate-matrix', 'tools/test/run-matrix-governance-once.sh build-static-validate-matrix', ['validate-matrix']),
     commandStep('public-hydration-fast', 'tools/test/lanes/public-hydration-fast.sh', ['public-hydration-fast']),
     commandStep('contract-fuzz', 'tools/test/lanes/contract-fuzz.sh', ['contract-fuzz']),
     commandStep('perception-redteam', 'tools/test/lanes/perception-v2-redteam.sh pr', ['perception-v2-redteam-pr']),

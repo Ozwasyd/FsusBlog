@@ -307,7 +307,24 @@ for (const secretName of [
 }
 requireIncludes('tools/test/run-once.mjs', [
   "name === 'secret-env'",
-  "createHash('sha256').update(String(env[name] ?? '')).digest('hex')"
+  "createHash('sha256').update(String(env[name] ?? '')).digest('hex')",
+  "fsusblog.physical-execution-receipt.v3",
+  'runBoundExecution',
+  'physicalExecutionReceiptDigest',
+  'avoidedChildStartups'
+])
+requireIncludes('tools/test/run-deterministic-command.mjs', [
+  'FSUSBLOG_TEST_RUN_ID',
+  'inputDigest',
+  'environmentDigest',
+  'worktreeFingerprint',
+  'runBoundExecution'
+])
+requireIncludes('tools/test/run-matrix-governance-once.sh', [
+  '--key matrix-governance',
+  '--test-id matrix-validate',
+  '--test-id matrix-preflight',
+  '--test-id matrix-evidence-plan'
 ])
 requireIncludes('tools/bootstrap-acceptance-env.sh', [
   'tools/frontend',
@@ -320,7 +337,9 @@ requireIncludes('tools/bootstrap-acceptance-env.sh', [
   'reusing digest-verified frontend release bundle produced by this build-static scheduler run'
 ])
 requireIncludes('tools/test/lanes/static-governance.sh', [
-  'run-test-matrix.mjs" evidence-plan --out .tmp/release-evidence/test-plan.json'
+  'run-matrix-governance-once.sh" static-evidence-plan',
+  'run-matrix-governance-once.sh" static-matrix-contract',
+  'run-matrix-governance-once.sh" static-matrix-schema'
 ])
 requireIncludes('tools/run-test-matrix.mjs', [
   "evidencePlan(matrix, '.tmp/release-evidence/test-plan.json')"

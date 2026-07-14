@@ -470,6 +470,124 @@ try {
   await rm(tempRoot, { recursive: true, force: true })
 }
 
+const runBoundRoot = await mkdtemp(path.join(os.tmpdir(), 'fsusblog-run-bound-execution-'))
+try {
+  let executions = 0
+  const options = (overrides = {}) => ({
+    root: runBoundRoot,
+    runId: 'fresh-run-a',
+    key: 'governance-check',
+    command: ['node', 'governance-check.mjs'],
+    cwd: root,
+    inputDigest: 'input-a',
+    environmentDigest: 'environment-a',
+    outputContract: [],
+    requiredOutputs: [],
+    commit: 'commit-a',
+    worktreeFingerprint: 'worktree-a',
+    testIds: ['governance-check'],
+    consumerId: 'consumer-a',
+    ...overrides
+  })
+  const slowSuccess = async () => {
+    executions += 1
+    await new Promise((resolve) => setTimeout(resolve, 75))
+  }
+  const concurrent = await Promise.all([
+    runOnce.runBoundExecution(options({ consumerId: 'consumer-a' }), slowSuccess),
+    runOnce.runBoundExecution(options({ consumerId: 'consumer-b' }), slowSuccess)
+  ])
+  assert.equal(executions, 1, 'run-bound concurrent consumers must start one physical producer')
+  assert.deepEqual(concurrent.map((entry) => entry.status).sort(), ['executed', 'shared-current-run'])
+
+  await runOnce.runBoundExecution(options({
+    environmentDigest: 'environment-b',
+    consumerId: 'different-environment'
+  }), async () => { executions += 1 })
+  await runOnce.runBoundExecution(options({
+    inputDigest: 'input-b',
+    consumerId: 'different-input'
+  }), async () => { executions += 1 })
+  await runOnce.runBoundExecution(options({
+    outputContract: ['different-output'],
+    consumerId: 'different-output'
+  }), async () => { executions += 1 })
+  assert.equal(executions, 4, 'different environment/input/output contracts must not merge')
+
+  let failureExecutions = 0
+  const producerFailure = async () => {
+    failureExecutions += 1
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    throw Object.assign(new Error('producer failed exactly once'), { exitCode: 17 })
+  }
+  const failedConsumers = await Promise.allSettled([
+    runOnce.runBoundExecution(options({ key: 'failure', consumerId: 'failure-a' }), producerFailure),
+    runOnce.runBoundExecution(options({ key: 'failure', consumerId: 'failure-b' }), producerFailure)
+  ])
+  assert.equal(failureExecutions, 1, 'producer failure must not trigger a consumer fallback rerun')
+  assert.ok(failedConsumers.every((entry) => entry.status === 'rejected'))
+  assert.ok(failedConsumers.every((entry) => entry.reason.exitCode === 17), 'producer exit status must propagate to every consumer')
+
+  let cancellationExecutions = 0
+  const cancellation = Object.assign(new Error('cancelled producer'), { name: 'AbortError', signal: 'SIGTERM' })
+  await assert.rejects(
+    runOnce.runBoundExecution(options({ key: 'cancelled' }), async () => {
+      cancellationExecutions += 1
+      throw cancellation
+    }),
+    /cancelled producer/u
+  )
+  await assert.rejects(
+    runOnce.runBoundExecution(options({ key: 'cancelled', consumerId: 'cancelled-consumer' }), async () => {
+      cancellationExecutions += 1
+    }),
+    /cancelled producer/u
+  )
+  assert.equal(cancellationExecutions, 1, 'cancelled receipts must release waiters without rerun')
+
+  await runOnce.runBoundExecution(options({ runId: 'fresh-run-b', consumerId: 'fresh-run-b' }), async () => {
+    executions += 1
+  })
+  assert.equal(executions, 5, 'a new Fresh run must not read the previous run receipt')
+
+  const tamperResult = await runOnce.runBoundExecution(options({ key: 'tamper', consumerId: 'tamper-producer' }), async () => {})
+  const tamperedReceipt = JSON.parse(await readFile(tamperResult.receiptFile, 'utf8'))
+  tamperedReceipt.status = 'failure'
+  await writeFile(tamperResult.receiptFile, `${JSON.stringify(tamperedReceipt, null, 2)}\n`, 'utf8')
+  await assert.rejects(
+    runOnce.runBoundExecution(options({ key: 'tamper', consumerId: 'tamper-consumer' }), async () => {
+      assert.fail('tampered receipt must fail closed before operation starts')
+    }),
+    /receipt integrity validation failed/u
+  )
+
+  const artifact = path.join(runBoundRoot, 'artifact.json')
+  const artifactOptions = options({
+    key: 'artifact-projection',
+    outputContract: ['artifact.json'],
+    requiredOutputs: [artifact]
+  })
+  await runOnce.runBoundExecution(artifactOptions, async () => writeFile(artifact, '{"ok":true}\n', 'utf8'))
+  await writeFile(artifact, '{"ok":false}\n', 'utf8')
+  await assert.rejects(
+    runOnce.runBoundExecution({ ...artifactOptions, consumerId: 'artifact-consumer' }, async () => {
+      assert.fail('tampered artifact must fail closed before operation starts')
+    }),
+    /output projection failed closed/u
+  )
+
+  const summary = JSON.parse(await readFile(path.join(runBoundRoot, 'fresh-run-a', 'summary.json'), 'utf8'))
+  assert.ok(summary.dedupHits >= 2, 'run-bound summary must record dedup consumers')
+  assert.ok(summary.avoidedChildStartups >= 2, 'run-bound summary must record avoided child startups')
+  assert.ok(summary.receiptBytes > 0, 'run-bound summary must report receipt evidence bytes')
+  const projectionFiles = await readdir(path.join(runBoundRoot, 'fresh-run-a', 'projections'))
+  const projection = JSON.parse(await readFile(path.join(runBoundRoot, 'fresh-run-a', 'projections', projectionFiles[0]), 'utf8'))
+  assert.match(projection.physicalExecutionReceipt, /\/receipts\//u)
+  assert.ok(projection.physicalExecutionReceiptDigest, 'logical projection must bind the physical receipt digest')
+} finally {
+  await rm(runBoundRoot, { recursive: true, force: true })
+}
+
 const commandManifest = await importRequired('tools/test/run-command-manifest.mjs')
 assert.equal(typeof commandManifest.validateCommandManifest, 'function')
 assert.deepEqual(commandManifest.validateCommandManifest({

@@ -22,6 +22,26 @@ const defaultStateRoot = path.join(repoRoot, '.tmp', 'run-once')
 const defaultLockTimeoutMs = 5 * 60 * 1000
 const defaultStaleLockMs = 15 * 60 * 1000
 const defaultHeartbeatMs = 5 * 1000
+const runBoundSchema = 'fsusblog.physical-execution-receipt.v3'
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalize(value[key])]))
+  }
+  return value
+}
+
+function digestValue(value) {
+  return createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex')
+}
+
+async function writeJsonAtomic(file, document) {
+  await mkdir(path.dirname(file), { recursive: true })
+  const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`
+  await writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
+  await rename(temporary, file)
+}
 
 function sanitizeSegment(value, fallback) {
   const normalized = String(value ?? '')
@@ -276,6 +296,246 @@ export async function runOnce({
     await writeFile(temporaryState, `${JSON.stringify(nextState, null, 2)}\n`, 'utf8')
     await rename(temporaryState, stateFile)
     return { status: 'executed', stateFile }
+  } finally {
+    await lock.release()
+  }
+}
+
+function receiptPayload(receipt) {
+  const { receiptDigest: _receiptDigest, ...payload } = receipt
+  return payload
+}
+
+function validateReceiptIntegrity(receipt, { contractDigest, runId }) {
+  if (receipt?.schema !== runBoundSchema
+      || receipt.schedulerRunId !== runId
+      || receipt.contractDigest !== contractDigest
+      || receipt.receiptDigest !== digestValue(receiptPayload(receipt))) {
+    throw new Error('run-bound receipt integrity validation failed')
+  }
+}
+
+function receiptFailure(receipt) {
+  const error = new Error(receipt.failure?.message || `run-bound producer ${receipt.status}`)
+  error.name = receipt.failure?.name || 'RunBoundProducerError'
+  error.exitCode = receipt.failure?.exitCode ?? null
+  error.signal = receipt.failure?.signal ?? null
+  error.receiptStatus = receipt.status
+  return error
+}
+
+async function summarizeRunBoundExecutions(root, runId) {
+  const runDirectory = path.join(root, sanitizeSegment(runId, 'run'))
+  const receiptRoot = path.join(runDirectory, 'receipts')
+  const projectionRoot = path.join(runDirectory, 'projections')
+  const readJsonFiles = async (directory) => {
+    if (!await exists(directory)) return []
+    const files = []
+    const visit = async (current) => {
+      for (const entry of await readdir(current, { withFileTypes: true })) {
+        const child = path.join(current, entry.name)
+        if (entry.isDirectory() && !entry.name.endsWith('.lock')) await visit(child)
+        else if (entry.isFile() && entry.name.endsWith('.json')) files.push(child)
+      }
+    }
+    await visit(directory)
+    return await Promise.all(files.sort().map(async (file) => ({
+      file,
+      document: await readState(file),
+      bytes: (await stat(file)).size
+    })))
+  }
+  const [receipts, projections] = await Promise.all([
+    readJsonFiles(receiptRoot),
+    readJsonFiles(projectionRoot)
+  ])
+  const validProjections = projections.map((entry) => entry.document).filter(Boolean)
+  const summary = {
+    schema: 'fsusblog.physical-execution-summary.v1',
+    schedulerRunId: runId,
+    physicalExecutions: receipts.length,
+    logicalConsumers: validProjections.length,
+    dedupHits: validProjections.filter((entry) => entry.disposition === 'consumer').length,
+    avoidedChildStartups: validProjections.reduce((total, entry) => total + Number(entry.avoidedChildStartups ?? 0), 0),
+    totalConsumerWaitMs: validProjections.reduce((total, entry) => total + Number(entry.waitedMs ?? 0), 0),
+    receiptBytes: receipts.reduce((total, entry) => total + entry.bytes, 0),
+    producers: receipts.map((entry) => ({
+      key: entry.document?.executionKey,
+      status: entry.document?.status,
+      receipt: path.relative(repoRoot, entry.file).replaceAll(path.sep, '/')
+    })),
+    consumers: validProjections.map((entry) => ({
+      consumerId: entry.consumerId,
+      key: entry.executionKey,
+      disposition: entry.disposition,
+      waitedMs: entry.waitedMs,
+      physicalExecutionReceipt: entry.physicalExecutionReceipt
+    })),
+    generatedAt: new Date().toISOString()
+  }
+  await writeJsonAtomic(path.join(runDirectory, 'summary.json'), summary)
+  return summary
+}
+
+async function writeRunBoundProjection({
+  root,
+  runId,
+  receiptFile,
+  receipt,
+  consumerId,
+  testIds,
+  disposition,
+  waitedMs
+}) {
+  validateReceiptIntegrity(receipt, { contractDigest: receipt.contractDigest, runId })
+  if (receipt.status === 'success'
+      && !await outputsMatchState(receipt.requiredOutputs, receipt.requiredOutputStates)) {
+    throw new Error('run-bound receipt output projection failed closed')
+  }
+  const projection = {
+    schema: 'fsusblog.physical-execution-projection.v1',
+    schedulerRunId: runId,
+    executionKey: receipt.executionKey,
+    consumerId,
+    disposition,
+    avoidedChildStartups: disposition === 'consumer' ? 1 : 0,
+    waitedMs,
+    status: receipt.status,
+    testIds: [...new Set(testIds ?? [])].sort(),
+    artifactEvidence: receipt.requiredOutputStates,
+    physicalExecutionReceipt: path.relative(repoRoot, receiptFile).replaceAll(path.sep, '/'),
+    physicalExecutionReceiptDigest: receipt.receiptDigest,
+    projectedAt: new Date().toISOString()
+  }
+  const projectionDirectory = path.join(root, sanitizeSegment(runId, 'run'), 'projections')
+  const projectionFile = path.join(
+    projectionDirectory,
+    `${sanitizeSegment(consumerId, 'consumer')}-${sanitizeSegment(receipt.executionKey, 'execution')}-${randomUUID()}.json`
+  )
+  await writeJsonAtomic(projectionFile, projection)
+  await summarizeRunBoundExecutions(root, runId)
+  return projectionFile
+}
+
+export async function runBoundExecution({
+  root = path.join(repoRoot, '.tmp', 'physical-executions'),
+  runId,
+  key,
+  command,
+  cwd,
+  inputDigest,
+  environmentDigest,
+  outputContract = [],
+  requiredOutputs = [],
+  commit,
+  worktreeFingerprint,
+  testIds = [],
+  consumerId = 'consumer',
+  lockTimeoutMs = defaultLockTimeoutMs,
+  staleLockMs = defaultStaleLockMs,
+  heartbeatMs = defaultHeartbeatMs
+}, operation) {
+  for (const [name, value] of Object.entries({ runId, key, inputDigest, environmentDigest, commit, worktreeFingerprint })) {
+    if (!String(value ?? '').trim()) throw new Error(`run-bound ${name} is required`)
+  }
+  if (!Array.isArray(command) || command.length === 0) throw new Error('run-bound normalized command is required')
+  if (typeof operation !== 'function') throw new Error('run-bound operation must be a function')
+
+  const normalizedRunId = sanitizeSegment(runId, 'run')
+  const normalizedKey = sanitizeSegment(key, 'execution')
+  const normalizedCwd = path.resolve(cwd ?? repoRoot)
+  const normalizedOutputs = requiredOutputs.map((output) => path.resolve(normalizedCwd, output)).sort()
+  const contract = {
+    schedulerRunId: runId,
+    executionKey: normalizedKey,
+    command: command.map(String),
+    cwd: normalizedCwd,
+    inputDigest,
+    environmentDigest,
+    outputContract: [...outputContract].map(String).sort(),
+    requiredOutputs: normalizedOutputs,
+    commit,
+    worktreeFingerprint
+  }
+  const contractDigest = digestValue(contract)
+  const receiptDirectory = path.join(root, normalizedRunId, 'receipts', normalizedKey)
+  const receiptFile = path.join(receiptDirectory, `${contractDigest}.json`)
+  const lockDirectory = path.join(receiptDirectory, `${contractDigest}.lock`)
+  await mkdir(receiptDirectory, { recursive: true })
+  const requestedAt = Date.now()
+
+  const consume = async (receipt, disposition, waitedMs = Date.now() - requestedAt) => {
+    validateReceiptIntegrity(receipt, { contractDigest, runId })
+    const projectionFile = await writeRunBoundProjection({
+      root,
+      runId,
+      receiptFile,
+      receipt,
+      consumerId,
+      testIds,
+      disposition,
+      waitedMs
+    })
+    if (receipt.status !== 'success') throw receiptFailure(receipt)
+    return { status: disposition === 'consumer' ? 'shared-current-run' : 'executed', receiptFile, projectionFile }
+  }
+
+  const current = await readState(receiptFile)
+  if (current) return await consume(current, 'consumer')
+
+  const lock = await acquireLock(lockDirectory, lockTimeoutMs, {
+    staleAfterMs: Math.max(1, Number(staleLockMs) || defaultStaleLockMs),
+    heartbeatEveryMs: Math.max(1, Number(heartbeatMs) || defaultHeartbeatMs)
+  })
+  try {
+    const lockedCurrent = await readState(receiptFile)
+    if (lockedCurrent) return await consume(lockedCurrent, 'consumer')
+
+    const producerWaitMs = Date.now() - requestedAt
+    const startedAt = new Date().toISOString()
+    const startedAtMs = Date.now()
+    let status = 'success'
+    let failure = null
+    try {
+      await operation()
+    } catch (error) {
+      status = error?.name === 'AbortError' || error?.signal ? 'cancelled' : 'failure'
+      failure = {
+        name: error?.name ?? 'Error',
+        message: error instanceof Error ? error.message : String(error),
+        exitCode: error?.exitCode ?? null,
+        signal: error?.signal ?? null
+      }
+    }
+    const requiredOutputStates = await captureOutputStates(normalizedOutputs)
+    if (status === 'success' && requiredOutputStates == null) {
+      status = 'failure'
+      failure = {
+        name: 'MissingRequiredOutputError',
+        message: `run-bound command succeeded without required outputs: ${normalizedOutputs.join(', ')}`,
+        exitCode: null,
+        signal: null
+      }
+    }
+    const payload = {
+      schema: runBoundSchema,
+      ...contract,
+      contractDigest,
+      status,
+      producer: {
+        consumerId,
+        pid: process.pid
+      },
+      testIds: [...new Set(testIds)].sort(),
+      requiredOutputStates: requiredOutputStates ?? [],
+      startedAt,
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAtMs,
+      failure
+    }
+    const receipt = { ...payload, receiptDigest: digestValue(payload) }
+    await writeJsonAtomic(receiptFile, receipt)
+    return await consume(receipt, 'producer', producerWaitMs)
   } finally {
     await lock.release()
   }

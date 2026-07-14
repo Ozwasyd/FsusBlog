@@ -3,7 +3,7 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_legacy.sh"
 
-static_evidence_plan() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/run-test-matrix.mjs" evidence-plan --out .tmp/release-evidence/test-plan.json; }
+static_evidence_plan() { run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-evidence-plan; }
 static_aeds_policy() { run "$ROOT_DIR/tools/check-aeds-only-policy.sh"; }
 static_community_workflow() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-community-workflow.mjs"; }
 static_label_governance() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/docs/check-github-label-governance.mjs"; }
@@ -14,8 +14,8 @@ static_suite_convergence() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check
 static_backend_governance() { run_tier "static-governance" run_backend_test_governance_only; }
 static_gate_integrity() { run "$ROOT_DIR/tools/check-gate-integrity.sh" --self-test; }
 static_flaky_registry() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/check-flaky-registry.mjs"; }
-static_matrix_contract() { run "$ROOT_DIR/tools/check-test-matrix.mjs"; }
-static_matrix_schema() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/run-test-matrix.mjs" validate; }
+static_matrix_contract() { run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-matrix-contract; }
+static_matrix_schema() { run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" static-matrix-schema; }
 static_retention() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-retention.mjs"; }
 static_implementation_drift() { run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-doc-implementation-drift.mjs"; }
 STATIC_NODE_CONTRACT_FILES=(

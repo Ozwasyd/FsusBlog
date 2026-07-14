@@ -17,7 +17,7 @@ prepare_evidence_plan_and_check_jobs() {
   local -a failures=()
   local status
 
-  run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/run-test-matrix.mjs" evidence-plan --out "$ROOT_DIR/.tmp/release-evidence/test-plan.json"
+  run "$ROOT_DIR/tools/test/run-matrix-governance-once.sh" release-evidence-plan
   status=$?
   if (( status != 0 )); then
     failures+=("evidence-plan (exit $status)")

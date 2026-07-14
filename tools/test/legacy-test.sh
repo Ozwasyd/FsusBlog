@@ -1020,9 +1020,28 @@ run_backend_dotnet_filter_with_coverage() {
     -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=json,cobertura
 }
 
+run_backend_test_governance_check_once() {
+  run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
+    --key backend-test-governance \
+    --path tools/check-backend-test-governance.mjs \
+    --path tests/backend \
+    --path tests/matrix.yml \
+    --test-id backend-test-governance \
+    -- "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-backend-test-governance.mjs"
+}
+
+run_postgres_test_collections_check_once() {
+  run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
+    --key postgres-test-collections \
+    --path tools/check-postgres-test-collections.mjs \
+    --path tests/backend \
+    --test-id postgres-test-collections \
+    -- "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-postgres-test-collections.mjs"
+}
+
 run_backend_governance_checks() {
-  run "$ROOT_DIR/tools/check-backend-test-governance.mjs"
-  run "$ROOT_DIR/tools/check-postgres-test-collections.mjs"
+  run_backend_test_governance_check_once
+  run_postgres_test_collections_check_once
 }
 
 write_backend_split_summary() {
@@ -1085,8 +1104,8 @@ run_backend_perf_only() {
 
 run_backend_perf_governance_only() {
   local -a failures=()
-  run "$ROOT_DIR/tools/check-backend-test-governance.mjs" || failures+=(backend-test-governance)
-  run "$ROOT_DIR/tools/check-postgres-test-collections.mjs" || failures+=(postgres-test-collections)
+  run_backend_test_governance_check_once || failures+=(backend-test-governance)
+  run_postgres_test_collections_check_once || failures+=(postgres-test-collections)
   if (( ${#failures[@]} > 0 )); then
     printf '[test:%s] backend performance governance failures: %s\n' \
       "${CURRENT_TIER:-backend-perf}" "${failures[*]}" >&2
