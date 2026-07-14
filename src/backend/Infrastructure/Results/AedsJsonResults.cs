@@ -42,7 +42,7 @@ internal static class AedsJsonResults
         CancellationToken cancellationToken)
     {
         var requestContext = context.RequestServices.GetRequiredService<IBinaryEndpointRequestContext>();
-        BinaryRequestPayload payload = await requestContext.ReadFrameAsync(
+        using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(
             context,
             aeds,
             expectedFrameType,

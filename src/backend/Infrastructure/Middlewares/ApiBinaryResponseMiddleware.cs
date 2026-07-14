@@ -36,27 +36,34 @@ public sealed class ApiBinaryResponseMiddleware
         bool isBinaryEndpoint = context.Request.Path.StartsWithSegments("/api/binary", StringComparison.OrdinalIgnoreCase);
         if (isBinaryEndpoint)
         {
-            if (HasExplicitIncompatibleAccept(context.Request, envelopePolicy))
+            try
             {
-                await envelopePolicy.WriteApiErrorAsync(
-                    context,
-                    context.Response.Body,
-                    ErrorDetail.Create(envelopePolicy.MapErrorCode(StatusCodes.Status406NotAcceptable), "binary_accept_required", traceId: context.TraceIdentifier),
-                    StatusCodes.Status406NotAcceptable);
-                return;
-            }
+                if (HasExplicitIncompatibleAccept(context.Request, envelopePolicy))
+                {
+                    await envelopePolicy.WriteApiErrorAsync(
+                        context,
+                        context.Response.Body,
+                        ErrorDetail.Create(envelopePolicy.MapErrorCode(StatusCodes.Status406NotAcceptable), "binary_accept_required", traceId: context.TraceIdentifier),
+                        StatusCodes.Status406NotAcceptable);
+                    return;
+                }
 
-            if (HasIncompatibleBinaryRequestBody(context.Request, envelopePolicy))
+                if (HasIncompatibleBinaryRequestBody(context.Request, envelopePolicy))
+                {
+                    await envelopePolicy.WriteApiErrorAsync(
+                        context,
+                        context.Response.Body,
+                        ErrorDetail.Create(envelopePolicy.MapErrorCode(StatusCodes.Status415UnsupportedMediaType), "binary_content_type_required", traceId: context.TraceIdentifier),
+                        StatusCodes.Status415UnsupportedMediaType);
+                    return;
+                }
+
+                await InvokeBinaryEndpointDirectAsync(context, envelopePolicy);
+            }
+            finally
             {
-                await envelopePolicy.WriteApiErrorAsync(
-                    context,
-                    context.Response.Body,
-                    ErrorDetail.Create(envelopePolicy.MapErrorCode(StatusCodes.Status415UnsupportedMediaType), "binary_content_type_required", traceId: context.TraceIdentifier),
-                    StatusCodes.Status415UnsupportedMediaType);
-                return;
+                BinaryRequestBufferLeaseScope.Release(context, "pipeline-finally");
             }
-
-            await InvokeBinaryEndpointDirectAsync(context, envelopePolicy);
             return;
         }
         else if (!envelopePolicy.ExplicitlyAcceptsBinaryEnvelope(context.Request))

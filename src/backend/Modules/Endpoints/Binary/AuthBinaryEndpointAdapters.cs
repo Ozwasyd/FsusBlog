@@ -20,7 +20,7 @@ internal static class AuthBinaryRequestReader
         IAedsEncoder aeds,
         CancellationToken cancellationToken)
     {
-        BinaryRequestPayload payload = await ReadPayloadAsync(httpContext, aeds, AedsFrameType.AuthAnonymousBootstrapRequest, cancellationToken);
+        using BinaryRequestPayload payload = await ReadPayloadAsync(httpContext, aeds, AedsFrameType.AuthAnonymousBootstrapRequest, cancellationToken);
         if (!payload.IsSuccess)
         {
             return Fail<AuthAnonymousBootstrapRequestCoreModel>(payload.Error);

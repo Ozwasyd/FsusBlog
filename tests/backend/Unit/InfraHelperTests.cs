@@ -135,7 +135,7 @@ public class BinaryRequestBinderTests
         context.Response.Body = body;
 
         var binder = new BinaryRequestBinder();
-        BinaryRequestPayload result = await binder.ReadFrameAsync(
+        using BinaryRequestPayload result = await binder.ReadFrameAsync(
             context,
             encoder,
             AedsFrameType.MutationId,

@@ -1,9 +1,11 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Diagnostics.Metrics;
 using System.IO.Pipelines;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Infrastructure.Binary;
 
@@ -34,6 +36,17 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
 {
     private const string BinaryContentType = "application/octet-stream";
     private const int MaxBinaryRequestFrameBytes = 8 * 1024 * 1024;
+    private readonly ArrayPool<byte> _pool;
+
+    public BinaryRequestBinder()
+        : this(ArrayPool<byte>.Shared)
+    {
+    }
+
+    internal BinaryRequestBinder(ArrayPool<byte> pool)
+    {
+        _pool = pool;
+    }
 
     public Task<BinaryRequestPayload> ReadFrameAsync(
         HttpContext httpContext,
@@ -131,25 +144,32 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
                 : BinaryRequestPayload.Failure(ErrorDetail.Create(ErrorCode.Validation, "AEDS payload crc mismatch"));
         }
 
-        byte[] payloadBuffer = ArrayPool<byte>.Shared.Rent((int)payloadLength);
-        ErrorDetail payloadError = await ReadPayloadAndValidateAsync(
+        var lease = new BinaryRequestBufferLease(_pool, (int)payloadLength);
+        bool ownershipTransferred = false;
+        try
+        {
+            ErrorDetail payloadError = await ReadPayloadAndValidateAsync(
                 httpContext,
-                payloadBuffer,
+                lease.Buffer,
                 (int)payloadLength,
                 expectedPayloadCrc,
                 cancellationToken);
-        if (payloadError.Code != ErrorCode.None)
-        {
-            return BinaryRequestPayload.Failure(payloadError);
+            if (payloadError.Code != ErrorCode.None)
+            {
+                return BinaryRequestPayload.Failure(payloadError);
+            }
+
+            BinaryRequestBufferLeaseScope.Register(httpContext, lease);
+            ownershipTransferred = true;
+            return BinaryRequestPayload.Success(lease, actualFrameType);
         }
-
-        httpContext.Response.OnCompleted(static state =>
+        finally
         {
-            ArrayPool<byte>.Shared.Return((byte[])state, clearArray: true);
-            return Task.CompletedTask;
-        }, payloadBuffer);
-
-        return BinaryRequestPayload.Success(new ReadOnlyMemory<byte>(payloadBuffer, 0, (int)payloadLength), actualFrameType);
+            if (!ownershipTransferred)
+            {
+                lease.Dispose("binder");
+            }
+        }
     }
 
     private static async Task<ErrorDetail> ReadPayloadAndValidateAsync(
@@ -162,7 +182,6 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
         bool read = await ReadExactAsync(httpContext.Request.BodyReader, payloadBuffer.AsMemory(0, payloadLength), cancellationToken);
         if (!read)
         {
-            ArrayPool<byte>.Shared.Return(payloadBuffer, clearArray: true);
             return ErrorDetail.Create(ErrorCode.Validation, "AEDS payload length mismatch");
         }
 
@@ -172,7 +191,6 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
             return ErrorDetail.None;
         }
 
-        ArrayPool<byte>.Shared.Return(payloadBuffer, clearArray: true);
         return ErrorDetail.Create(ErrorCode.Validation, "AEDS payload crc mismatch");
     }
 
@@ -252,7 +270,7 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
         AedsFrameType expectedFrameType,
         CancellationToken cancellationToken)
     {
-        var payload = await ReadFrameAsync(httpContext, aeds, expectedFrameType, cancellationToken);
+        using BinaryRequestPayload payload = await ReadFrameAsync(httpContext, aeds, expectedFrameType, cancellationToken);
         if (!payload.IsSuccess)
         {
             return NameMutationPayload.Failure(payload.Error);
@@ -298,13 +316,182 @@ internal sealed class BinaryRequestBinder : IBinaryRequestBinder
             : $"{bytes} bytes";
 }
 
-internal readonly record struct BinaryRequestPayload(bool IsSuccess, ReadOnlyMemory<byte> Payload, ErrorDetail Error, AedsFrameType FrameType = AedsFrameType.Unknown)
+internal readonly record struct BinaryRequestPayload : IDisposable
 {
+    private readonly ReadOnlyMemory<byte> _payload;
+    private readonly BinaryRequestBufferLease? _lease;
+
+    private BinaryRequestPayload(
+        bool isSuccess,
+        ReadOnlyMemory<byte> payload,
+        ErrorDetail error,
+        AedsFrameType frameType,
+        BinaryRequestBufferLease? lease = null)
+    {
+        IsSuccess = isSuccess;
+        _payload = payload;
+        Error = error;
+        FrameType = frameType;
+        _lease = lease;
+    }
+
+    public bool IsSuccess { get; }
+    public ReadOnlyMemory<byte> Payload => _lease?.Memory ?? _payload;
+    public ErrorDetail Error { get; }
+    public AedsFrameType FrameType { get; }
+
     public static BinaryRequestPayload Success(ReadOnlyMemory<byte> payload, AedsFrameType frameType = AedsFrameType.Unknown)
         => new(true, payload, ErrorDetail.None, frameType);
 
+    internal static BinaryRequestPayload Success(BinaryRequestBufferLease lease, AedsFrameType frameType)
+        => new(true, ReadOnlyMemory<byte>.Empty, ErrorDetail.None, frameType, lease);
+
     public static BinaryRequestPayload Failure(ErrorDetail error)
-        => new(false, ReadOnlyMemory<byte>.Empty, error);
+        => new(false, ReadOnlyMemory<byte>.Empty, error, AedsFrameType.Unknown);
+
+    public void Dispose()
+        => _lease?.Dispose("consumer");
+}
+
+internal sealed class BinaryRequestBufferLease
+{
+    private readonly ArrayPool<byte> _pool;
+    private readonly int _length;
+    private byte[]? _buffer;
+
+    public BinaryRequestBufferLease(ArrayPool<byte> pool, int length)
+    {
+        _pool = pool;
+        _length = length;
+        _buffer = pool.Rent(length);
+        BinaryRequestBufferMetrics.Rented(_buffer.Length);
+    }
+
+    public byte[] Buffer
+        => Volatile.Read(ref _buffer)
+            ?? throw new ObjectDisposedException(nameof(BinaryRequestBufferLease));
+
+    public ReadOnlyMemory<byte> Memory
+        => Buffer.AsMemory(0, _length);
+
+    public void Dispose(string reason)
+    {
+        byte[]? buffer = Interlocked.Exchange(ref _buffer, null);
+        if (buffer is null)
+        {
+            return;
+        }
+
+        _pool.Return(buffer, clearArray: true);
+        BinaryRequestBufferMetrics.Returned(buffer.Length, reason);
+    }
+}
+
+internal sealed class BinaryRequestBufferLeaseScope : IDisposable
+{
+    private static readonly object ItemsKey = new();
+    private readonly object _sync = new();
+    private List<BinaryRequestBufferLease>? _leases = [];
+
+    public static void Register(HttpContext context, BinaryRequestBufferLease lease)
+    {
+        if (!context.Items.TryGetValue(ItemsKey, out object? value))
+        {
+            var scope = new BinaryRequestBufferLeaseScope();
+            context.Items[ItemsKey] = scope;
+            context.Response.OnCompleted(static state =>
+            {
+                Release((HttpContext)state, "response-completed");
+                return Task.CompletedTask;
+            }, context);
+            value = scope;
+        }
+
+        if (value is not BinaryRequestBufferLeaseScope registeredScope)
+        {
+            lease.Dispose("invalid-scope");
+            throw new InvalidOperationException("Binary request buffer scope registration is invalid.");
+        }
+
+        registeredScope.Add(lease);
+    }
+
+    public static void Release(HttpContext context, string reason)
+    {
+        if (context.Items.TryGetValue(ItemsKey, out object? value)
+            && value is BinaryRequestBufferLeaseScope scope)
+        {
+            scope.Dispose(reason);
+        }
+    }
+
+    private void Add(BinaryRequestBufferLease lease)
+    {
+        lock (_sync)
+        {
+            if (_leases is null)
+            {
+                lease.Dispose("late-register");
+                throw new ObjectDisposedException(nameof(BinaryRequestBufferLeaseScope));
+            }
+
+            _leases.Add(lease);
+        }
+    }
+
+    public void Dispose()
+        => Dispose("scope");
+
+    private void Dispose(string reason)
+    {
+        List<BinaryRequestBufferLease>? leases;
+        lock (_sync)
+        {
+            leases = _leases;
+            _leases = null;
+        }
+
+        if (leases is null)
+        {
+            return;
+        }
+
+        foreach (BinaryRequestBufferLease lease in leases)
+        {
+            lease.Dispose(reason);
+        }
+    }
+}
+
+internal static class BinaryRequestBufferMetrics
+{
+    private static readonly Meter Meter = new(FsusObservability.MeterName, FsusObservability.ServiceVersion);
+    private static readonly Counter<long> RentCounter = Meter.CreateCounter<long>("fsus.binary_request.pool.rent_count");
+    private static readonly Counter<long> ReturnCounter = Meter.CreateCounter<long>("fsus.binary_request.pool.return_count");
+    private static readonly Counter<long> RentedBytesCounter = Meter.CreateCounter<long>("fsus.binary_request.pool.rented_bytes", "By");
+    private static readonly Counter<long> ReturnedBytesCounter = Meter.CreateCounter<long>("fsus.binary_request.pool.returned_bytes", "By");
+    private static long _outstanding;
+
+    static BinaryRequestBufferMetrics()
+    {
+        Meter.CreateObservableGauge(
+            "fsus.binary_request.pool.outstanding",
+            static () => Volatile.Read(ref _outstanding));
+    }
+
+    public static void Rented(int bytes)
+    {
+        Interlocked.Increment(ref _outstanding);
+        RentCounter.Add(1);
+        RentedBytesCounter.Add(bytes);
+    }
+
+    public static void Returned(int bytes, string reason)
+    {
+        Interlocked.Decrement(ref _outstanding);
+        ReturnCounter.Add(1, new KeyValuePair<string, object?>("reason", reason));
+        ReturnedBytesCounter.Add(bytes);
+    }
 }
 
 internal readonly record struct NameMutationPayload(bool IsSuccess, string Name, ErrorDetail Error)
