@@ -53,13 +53,21 @@ function fixture() {
     ]
   })
   const vitestRoot = path.join(repositoryRoot, '.tmp/test-results/vitest')
-  writeJson(path.join(vitestRoot, 'unit/unsharded.json'), {
+  const rollingReport = path.join(vitestRoot, 'production-rolling/merged.json')
+  writeJson(rollingReport, {
     success: true,
     testResults: requiredFrontendFiles.map((file) => ({
       name: path.join(repositoryRoot, file),
       status: 'passed',
       assertionResults: [{ fullName: `${file} passes`, status: 'passed' }]
     }))
+  })
+  writeJson(path.join(vitestRoot, 'production-rolling/summary.json'), {
+    schema: 'fsusblog.frontend-vitest-rolling.v2',
+    status: 'success',
+    schedulerRunId: runId,
+    exactOnce: true,
+    artifacts: { mergedJson: path.relative(repositoryRoot, rollingReport) }
   })
   const smokeEvidence = path.join(repositoryRoot, '.tmp/security/privacy-zk-prod-smoke.json')
   writeJson(smokeEvidence, {
@@ -114,7 +122,7 @@ test('fails closed on stale or duplicate frontend evidence and run mismatch', ()
       () => projectPrivacyFunctionalEvidence({ ...files, expectedRunId: 'different-run' }),
       /run binding mismatch/u
     )
-    const report = path.join(files.vitestRoot, 'unit/unsharded.json')
+    const report = path.join(files.vitestRoot, 'production-rolling/merged.json')
     const document = JSON.parse(fs.readFileSync(report, 'utf8'))
     document.testResults.push(document.testResults[0])
     writeJson(report, document)

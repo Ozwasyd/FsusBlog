@@ -8,12 +8,14 @@ import unit from './vitest.config'
 import { createVitestRuntimeOptions } from './vitest.shared.mjs'
 
 const unitCoverage = (unit as Record<string, any>).test.coverage
-const rollingShardCoverage = process.env.FSUSBLOG_VITEST_SINGLE_HOST === '1'
+const rollingHost = process.env.FSUSBLOG_VITEST_ROLLING_HOST === '1'
+const coverageUniverseOwner = process.env.FSUSBLOG_VITEST_COVERAGE_UNIVERSE_OWNER === '1'
+const rollingShardCoverage = rollingHost && !coverageUniverseOwner
   ? {
       ...unitCoverage,
-      // Each rolling process instruments only the files it actually executes.
-      // The dedicated full-universe seed and final blob merge retain the complete
-      // production coverage contract without repeating it in every shard.
+      // Ordinary rolling hosts instrument only files reached by their immutable
+      // partition. One real test host owns the all-files universe, avoiding a
+      // second no-matching Vitest cold start without weakening final coverage.
       include: undefined
     }
   : unitCoverage

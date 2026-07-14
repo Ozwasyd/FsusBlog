@@ -145,7 +145,7 @@ export function projectPrivacyFunctionalEvidence({
   let reports
   if (fs.existsSync(productionSummaryFile)) {
     const productionSummary = readJson(productionSummaryFile, 'production Vitest summary')
-    if (productionSummary.schema !== 'fsusblog.frontend-vitest-single-host.v1'
+    if (productionSummary.schema !== 'fsusblog.frontend-vitest-rolling.v2'
         || productionSummary.status !== 'success'
         || productionSummary.exactOnce !== true) {
       throw new Error('production Vitest summary is not a successful exact-once result')
