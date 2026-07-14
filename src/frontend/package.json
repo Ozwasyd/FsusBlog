@@ -220,6 +220,7 @@
     "check:auth-zero-probe": "node ../../tests/frontend/checks/runtime/zero-auth-probe-matrix.mjs"
   },
   "dependencies": {
+    "@ctrl/tinycolor": "3.6.1",
     "@fingerprintjs/fingerprintjs": "^5.2.0",
     "@fontsource-variable/noto-sans-jp": "^5.2.10",
     "@fontsource/google-sans": "^5.2.1",
@@ -263,5 +264,10 @@
     "vite": "^8.0.10",
     "vitest": "^4.1.5",
     "vue-tsc": "^3.2.7"
+  },
+  "overrides": {
+    "js-beautify": {
+      "glob": "^13.0.6"
+    }
   }
 }

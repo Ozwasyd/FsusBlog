@@ -67,6 +67,26 @@ required_disk_mb=$((minimum_free_disk_mb + image_pull_reserve_mb))
 
 image_contract="$(bash "$ROOT_DIR/tools/deployment/image-runtime-contract.sh" "$FSUSBLOG_IMAGE_REF")" \
   || slot_fail "target image runtime contract validation failed"
+manifest_contract="$(node "$ROOT_DIR/tools/release/check-release-manifest.mjs" --manifest "$RELEASE_MANIFEST")" \
+  || slot_fail "release manifest runtime profile validation failed"
+if [[ "$(jq -r '.runtimeProfile != null' <<< "$manifest_contract")" == "true" ]]; then
+  jq -e --argjson image "$image_contract" '
+    .runtimeProfile.id == $image.runtime.profileId and
+    .runtimeProfile.manifestDigest == $image.runtime.profileManifestDigest and
+    .runtimeProfile.profileDigest == $image.runtime.profileDigest and
+    .runtimeProfile.baseImageFamily == $image.runtime.baseFamily and
+    .runtimeProfile.targetRuntime == $image.runtime.targetRuntime and
+    (.runtimeProfile.singleFile | tostring) == $image.runtime.publishSingleFile and
+    (.runtimeProfile.readyToRun | tostring) == $image.runtime.publishReadyToRun and
+    (.runtimeProfile.tieredPgo | tostring) == $image.runtime.tieredPgo and
+    (.runtimeProfile.quickJitForLoops | tostring) == $image.runtime.quickJitForLoops and
+    (.runtimeProfile.serverGc | tostring) == $image.runtime.serverGc and
+    (.runtimeProfile.nativeAot | tostring) == $image.runtime.nativeAot and
+    .runtimeProfile.threadPoolMode == $image.runtime.threadPoolMode and
+    .runtimeProfile.topologyMode == $image.runtime.topologyMode
+  ' <<< "$manifest_contract" >/dev/null \
+    || slot_fail "target image runtime profile labels do not match the release manifest"
+fi
 
 state="$(slot_state_read)"
 [[ "$(jq -r '.status' <<< "$state")" == "stable" ]] || slot_fail "gateway state is not stable; recovery is required before candidate start"

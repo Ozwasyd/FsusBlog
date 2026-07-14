@@ -576,6 +576,9 @@ coverage_summary_json() {
   [[ -f "$frontend_input" ]] || frontend_input="/dev/null"
 
   jq -n \
+    --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
+    --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
+    --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" \
     --slurpfile merged "$merged_input" \
     --slurpfile backend "$backend_input" \
     --slurpfile frontend "$frontend_input" '
@@ -629,8 +632,14 @@ runtime_tuning_json() {
     --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
     --arg cacheL1CounterMode "$cache_l1_counter_mode" \
     --arg publicHotReadCounterMode "$public_hot_read_counter_mode" \
-    --arg benchmarkEvidence "$PERF_ARTIFACT" '
+    --arg benchmarkEvidence "$PERF_ARTIFACT" \
+    --arg runtimeMatrixEvidence "${RUNTIME_MATRIX_ARTIFACT:-null}" '
     {
+      profile: {
+        id: (if $profileId == "" then null else $profileId end),
+        manifestDigest: (if $profileManifestDigest == "" then null else $profileManifestDigest end),
+        profileDigest: (if $profileDigest == "" then null else $profileDigest end)
+      },
       readyToRun: (if $readyToRun == "" then null else $readyToRun end),
       quickJitForLoops: (if $quickJitForLoops == "" then null else $quickJitForLoops end),
       tieredPgo: (if $tieredPgo == "" then null else $tieredPgo end),
@@ -643,6 +652,7 @@ runtime_tuning_json() {
         publicHotRead: $publicHotReadCounterMode
       },
       benchmarkEvidence: (if $benchmarkEvidence == "null" then null else $benchmarkEvidence end),
+      runtimeMatrixEvidence: (if $runtimeMatrixEvidence == "null" then null else $runtimeMatrixEvidence end),
       nonDefaultPresetsRequireBenchmarkEvidence: true,
       rollback: "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
     }'
@@ -679,6 +689,20 @@ SLO_ALERTS="$(copy_if_present "$OPERATIONS_DIR/slo-alert-fixture.json" slo-alert
 RETENTION_CLEANUP="$(copy_if_present "$OPERATIONS_DIR/retention-cleanup.json" retention-cleanup.json)"
 COVERAGE_ARTIFACT="$(copy_if_present "$COVERAGE_DIR" coverage)"
 PERF_ARTIFACT="$(copy_if_present "$PERF_DIR" perf)"
+RUNTIME_MATRIX_SOURCE="${FSUSBLOG_RUNTIME_MATRIX_EVIDENCE:-}"
+RUNTIME_MATRIX_ARTIFACT="null"
+if [[ -n "$RUNTIME_MATRIX_SOURCE" ]]; then
+  if [[ -z "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" || -z "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" || -z "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" ]]; then
+    echo "runtime matrix evidence requires FSUSBLOG_RUNTIME_PROFILE_ID and both profile digests" >&2
+    exit 1
+  fi
+  node "$ROOT_DIR/tools/runtime-profiles/check-runtime-publish-evidence.mjs" \
+    --evidence "$RUNTIME_MATRIX_SOURCE" \
+    --expected-profile-id "$FSUSBLOG_RUNTIME_PROFILE_ID" \
+    --expected-profile-manifest-digest "$FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST" \
+    --expected-profile-digest "$FSUSBLOG_RUNTIME_PROFILE_DIGEST" >/dev/null
+  RUNTIME_MATRIX_ARTIFACT="$(copy_if_present "$RUNTIME_MATRIX_SOURCE" runtime-publish-matrix.json)"
+fi
 TEST_PLAN_ARTIFACT="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/test-plan.json" test-plan.json)"
 JOB_SUMMARIES="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/jobs" job-summaries)"
 ENDPOINT_DEPTH_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/endpoint-depth-summary.json" endpoint-depth-summary.json)"

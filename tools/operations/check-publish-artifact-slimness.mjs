@@ -180,6 +180,7 @@ function validatePublishDir(publishDir, budgets = defaultBudgets, requirePublish
   }
 
   const requiredRuntimeFiles = [
+    'server/package.json',
     'server/public-ssr.mjs',
     'server/server-public-ssr.bundle.mjs',
     'server/server-public-ssr.worker-core.mjs',
@@ -249,6 +250,7 @@ function runSelfTest() {
     writeFixture(publishDir, {
       'wwwroot/index.html': '<!doctype html>',
       'wwwroot/assets/app.js': 'console.log(1)',
+      'FsusBlog.ClientRuntime/server/package.json': '{"private":true,"type":"module"}',
       'FsusBlog.ClientRuntime/server/public-ssr.mjs': 'export const PUBLIC_RENDERER_VERSION = "test"',
       'FsusBlog.ClientRuntime/server/server-public-ssr.bundle.mjs': 'import "./public-ssr.mjs"',
       'FsusBlog.ClientRuntime/server/server-public-ssr.worker-core.mjs': 'export {}',

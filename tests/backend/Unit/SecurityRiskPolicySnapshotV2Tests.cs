@@ -43,6 +43,23 @@ public sealed class SecurityRiskPolicySnapshotV2Tests
     }
 
     [Fact]
+    public void RequiresRiskScoreLookup_UsesResolvedActionMode()
+    {
+        SecurityRiskPolicySnapshotV2 snapshot = CreateSnapshot(SecuritySystemModes.Enforce);
+        SecurityRiskActionPolicy publicRead = snapshot.ResolveActionPolicy(RiskActionNames.PublicRead);
+        snapshot = snapshot with
+        {
+            ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(snapshot.ActionOverrides, StringComparer.Ordinal)
+            {
+                [RiskActionNames.PublicRead] = publicRead with { ModeOverride = SecuritySystemModes.Disabled }
+            }
+        };
+
+        Assert.False(snapshot.RequiresRiskScoreLookup(RiskActionNames.PublicRead));
+        Assert.True(snapshot.RequiresRiskScoreLookup(RiskActionNames.CommentCreate));
+    }
+
+    [Fact]
     public void ObserveMode_RecordsOnlyWithoutChallengeOrBlock()
     {
         SecurityRiskPolicySnapshotV2 snapshot = CreateSnapshot(SecuritySystemModes.Observe);

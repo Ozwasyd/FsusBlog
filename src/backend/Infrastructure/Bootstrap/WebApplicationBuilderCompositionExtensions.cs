@@ -4,6 +4,8 @@ using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
+using System.Runtime;
+using System.Runtime.InteropServices;
 
 namespace FsusBlog.Server.Infrastructure.Bootstrap;
 
@@ -70,9 +72,9 @@ internal static class FsusHostRuntimeTuning
     {
         IConfigurationSection section = configuration.GetSection("RuntimeTuning");
         bool enableEnvironmentDefaults = section.GetValue("EnableEnvironmentDefaults", false);
-        string? readyToRun = ResolveOptionalValue(section, "ReadyToRun", enableEnvironmentDefaults ? "1" : null);
-        string? quickJitForLoops = ResolveOptionalValue(section, "QuickJitForLoops", enableEnvironmentDefaults ? "1" : null);
-        string? tieredPgo = ResolveOptionalValue(section, "TieredPGO", enableEnvironmentDefaults ? "1" : null);
+        string? readyToRun = ResolveStartupValue(section, "ReadyToRun", "DOTNET_ReadyToRun", "COMPlus_ReadyToRun", enableEnvironmentDefaults ? "1" : null);
+        string? quickJitForLoops = ResolveStartupValue(section, "QuickJitForLoops", "DOTNET_TC_QuickJitForLoops", "COMPlus_TC_QuickJitForLoops", enableEnvironmentDefaults ? "1" : null);
+        string? tieredPgo = ResolveStartupValue(section, "TieredPGO", "DOTNET_TieredPGO", "COMPlus_TieredPGO", enableEnvironmentDefaults ? "1" : null);
 
         ThreadPool.GetMinThreads(out int beforeWorkerThreads, out int beforeCompletionPortThreads);
         int afterWorkerThreads = beforeWorkerThreads;
@@ -80,6 +82,14 @@ internal static class FsusHostRuntimeTuning
         bool threadPoolApplied = TryApplyThreadPoolTuning(section.GetSection("ThreadPool"), beforeWorkerThreads, beforeCompletionPortThreads, out afterWorkerThreads, out afterCompletionPortThreads);
 
         return new FsusHostRuntimeTuningReport(
+            Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_ID") ?? "unbound",
+            Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST") ?? "unbound",
+            Environment.GetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_DIGEST") ?? "unbound",
+            RuntimeInformation.RuntimeIdentifier,
+            RuntimeInformation.FrameworkDescription,
+            GCSettings.IsServerGC,
+            Environment.ProcessorCount,
+            GC.GetGCMemoryInfo().TotalAvailableMemoryBytes,
             readyToRun,
             quickJitForLoops,
             tieredPgo,
@@ -91,6 +101,20 @@ internal static class FsusHostRuntimeTuning
             beforeCompletionPortThreads,
             afterWorkerThreads,
             afterCompletionPortThreads);
+    }
+
+    private static string? ResolveStartupValue(
+        IConfiguration section,
+        string configurationKey,
+        string dotnetEnvironmentKey,
+        string compatibilityEnvironmentKey,
+        string? fallback)
+    {
+        string? observed = Environment.GetEnvironmentVariable(dotnetEnvironmentKey);
+        if (string.IsNullOrWhiteSpace(observed)) observed = Environment.GetEnvironmentVariable(compatibilityEnvironmentKey);
+        return string.IsNullOrWhiteSpace(observed)
+            ? ResolveOptionalValue(section, configurationKey, fallback)
+            : observed;
     }
 
     private static string? ResolveOptionalValue(IConfiguration section, string key, string? fallback)
@@ -128,6 +152,14 @@ internal static class FsusHostRuntimeTuning
 }
 
 internal sealed record FsusHostRuntimeTuningReport(
+    string RuntimeProfileId,
+    string RuntimeProfileManifestDigest,
+    string RuntimeProfileDigest,
+    string RuntimeIdentifier,
+    string FrameworkDescription,
+    bool ServerGc,
+    int ProcessorCount,
+    long TotalAvailableMemoryBytes,
     string? ReadyToRun,
     string? QuickJitForLoops,
     string? TieredPgo,
@@ -147,7 +179,15 @@ internal sealed class FsusHostRuntimeTuningLogService(
     public Task StartAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation(
-            "Runtime tuning effective values | ReadyToRunObserved={ReadyToRun} ReadyToRunInProcessApplied={ReadyToRunApplied} | QuickJitForLoopsObserved={QuickJitForLoops} QuickJitForLoopsInProcessApplied={QuickJitForLoopsApplied} | TieredPGOObserved={TieredPgo} TieredPGOInProcessApplied={TieredPgoApplied} | ThreadPoolApplied={ThreadPoolApplied} | WorkerThreads={BeforeWorkerThreads}->{AfterWorkerThreads} | CompletionPortThreads={BeforeCompletionPortThreads}->{AfterCompletionPortThreads}",
+            "Runtime tuning effective values | Profile={RuntimeProfileId} ProfileManifestDigest={RuntimeProfileManifestDigest} ProfileDigest={RuntimeProfileDigest} | Runtime={RuntimeIdentifier} Framework={FrameworkDescription} ServerGC={ServerGc} ProcessorCount={ProcessorCount} TotalAvailableMemoryBytes={TotalAvailableMemoryBytes} | ReadyToRunObserved={ReadyToRun} ReadyToRunInProcessApplied={ReadyToRunApplied} | QuickJitForLoopsObserved={QuickJitForLoops} QuickJitForLoopsInProcessApplied={QuickJitForLoopsApplied} | TieredPGOObserved={TieredPgo} TieredPGOInProcessApplied={TieredPgoApplied} | ThreadPoolApplied={ThreadPoolApplied} | WorkerThreads={BeforeWorkerThreads}->{AfterWorkerThreads} | CompletionPortThreads={BeforeCompletionPortThreads}->{AfterCompletionPortThreads}",
+            report.RuntimeProfileId,
+            report.RuntimeProfileManifestDigest,
+            report.RuntimeProfileDigest,
+            report.RuntimeIdentifier,
+            report.FrameworkDescription,
+            report.ServerGc,
+            report.ProcessorCount,
+            report.TotalAvailableMemoryBytes,
             report.ReadyToRun ?? "(unchanged)",
             report.ReadyToRunApplied,
             report.QuickJitForLoops ?? "(unchanged)",

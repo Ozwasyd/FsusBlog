@@ -37,6 +37,7 @@ try {
     imageRef: manifest.imageRef,
     imageTag: manifest.imageTag,
     imageDigest: manifest.imageDigest,
+    runtimeProfile: manifest.runtimeProfile ?? null,
     rollbackTarget: manifest.releaseId
   }
   if (options.format === 'lines') {

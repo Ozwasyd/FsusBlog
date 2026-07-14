@@ -1,21 +1,85 @@
 # syntax=docker/dockerfile:1.7
 ARG VCPKG_COMMIT=eae1680538b86f962455c27abca2aad0dc304a4d
+ARG RUNTIME_BASE_FLAVOR=musl
+ARG DOTNET_RUNTIME_VERSION=10.0.10
+ARG DOTNET_SDK_VERSION=10.0.302
+ARG DOTNET_ASPNET_MUSL_DIGEST=sha256:27b6b84beeede74fd16886177d360799c8e4299ceadfbd64eef57bafead7878a
+ARG DOTNET_ASPNET_GLIBC_DIGEST=sha256:1fa23fc4872d95fd71c2833ebe65d7e84a43b2d51a31d119516852f13d9505a7
+ARG DOTNET_SDK_MUSL_DIGEST=sha256:d8ee39817ca03a3757288e83c37ed73cc969a286c603b827c7cbe33add1c2d1c
+ARG DOTNET_SDK_GLIBC_DIGEST=sha256:ed034a8bf0b24ded0cbbac07e17825d8e9ebfe21e308191d0f7421eaf5ad4664
+ARG NODE_VERSION=24.17.0
+ARG NODE_MUSL_DIGEST=sha256:7c70d1235c0b4c2bc9eeed5393d19f1bbdde6885ba0d58ba62bb385d7b0f3ff1
+ARG NODE_GLIBC_DIGEST=sha256:862263c612aa437e3037674b85419622a9d93bff80aa1eee5398dfe686375532
+
+FROM node:${NODE_VERSION}-alpine3.23@${NODE_MUSL_DIGEST} AS node-runtime-musl
+FROM node:${NODE_VERSION}-bookworm-slim@${NODE_GLIBC_DIGEST} AS node-runtime-glibc
+
 ## =========================================================================
 # 阶段 1：.NET 基础运行环境 (Alpine)
 # 单容器承载 Kestrel + 静态资源 + Node SSR worker。
 ## =========================================================================
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_RUNTIME_VERSION}-alpine3.23@${DOTNET_ASPNET_MUSL_DIGEST} AS base-musl
+ARG DOTNET_RUNTIME_VERSION
+ARG DOTNET_SDK_VERSION
+ARG DOTNET_ASPNET_MUSL_DIGEST
+ARG DOTNET_SDK_MUSL_DIGEST
+ARG NODE_VERSION
+ARG NODE_MUSL_DIGEST
 WORKDIR /app
 EXPOSE 8080
 
 USER root
-RUN apk add --no-cache icu-data-full icu-libs krb5-libs nodejs
+RUN apk add --no-cache curl icu-data-full icu-libs krb5-libs libstdc++
+COPY --from=node-runtime-musl /usr/local/bin/node /usr/local/bin/node
+RUN test "$(node --version)" = "v${NODE_VERSION}" && ! command -v npm
 RUN mkdir -p /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived && \
     chown -R $APP_UID:$APP_UID /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived
 
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 ENV PATH="${PATH}:/usr/bin:/usr/share/dotnet"
+LABEL io.fsusblog.runtime.dotnet-version="${DOTNET_RUNTIME_VERSION}" \
+      io.fsusblog.runtime.base-image="mcr.microsoft.com/dotnet/aspnet:${DOTNET_RUNTIME_VERSION}-alpine3.23@${DOTNET_ASPNET_MUSL_DIGEST}" \
+      io.fsusblog.runtime.base-image-digest="${DOTNET_ASPNET_MUSL_DIGEST}" \
+      io.fsusblog.build.dotnet-sdk-version="${DOTNET_SDK_VERSION}" \
+      io.fsusblog.build.sdk-image="mcr.microsoft.com/dotnet/sdk:${DOTNET_SDK_VERSION}-alpine3.23@${DOTNET_SDK_MUSL_DIGEST}" \
+      io.fsusblog.build.sdk-image-digest="${DOTNET_SDK_MUSL_DIGEST}" \
+      io.fsusblog.runtime.node-version="${NODE_VERSION}" \
+      io.fsusblog.runtime.node-image="node:${NODE_VERSION}-alpine3.23@${NODE_MUSL_DIGEST}" \
+      io.fsusblog.runtime.node-image-digest="${NODE_MUSL_DIGEST}"
 USER $APP_UID
+
+FROM mcr.microsoft.com/dotnet/aspnet:${DOTNET_RUNTIME_VERSION}-noble@${DOTNET_ASPNET_GLIBC_DIGEST} AS base-glibc
+ARG DOTNET_RUNTIME_VERSION
+ARG DOTNET_SDK_VERSION
+ARG DOTNET_ASPNET_GLIBC_DIGEST
+ARG DOTNET_SDK_GLIBC_DIGEST
+ARG NODE_VERSION
+ARG NODE_GLIBC_DIGEST
+WORKDIR /app
+EXPOSE 8080
+USER root
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl libatomic1 libicu74 libkrb5-3 libstdc++6 && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived && \
+    chown -R $APP_UID:$APP_UID /app/wwwroot/uploads /app/Dictionaries /app/release-assets /app/release-derived
+COPY --from=node-runtime-glibc /usr/local/bin/node /usr/local/bin/node
+RUN test "$(node --version)" = "v${NODE_VERSION}" && ! command -v npm
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+ENV PATH="${PATH}:/usr/bin:/usr/share/dotnet"
+LABEL io.fsusblog.runtime.dotnet-version="${DOTNET_RUNTIME_VERSION}" \
+      io.fsusblog.runtime.base-image="mcr.microsoft.com/dotnet/aspnet:${DOTNET_RUNTIME_VERSION}-noble@${DOTNET_ASPNET_GLIBC_DIGEST}" \
+      io.fsusblog.runtime.base-image-digest="${DOTNET_ASPNET_GLIBC_DIGEST}" \
+      io.fsusblog.build.dotnet-sdk-version="${DOTNET_SDK_VERSION}" \
+      io.fsusblog.build.sdk-image="mcr.microsoft.com/dotnet/sdk:${DOTNET_SDK_VERSION}-noble@${DOTNET_SDK_GLIBC_DIGEST}" \
+      io.fsusblog.build.sdk-image-digest="${DOTNET_SDK_GLIBC_DIGEST}" \
+      io.fsusblog.runtime.node-version="${NODE_VERSION}" \
+      io.fsusblog.runtime.node-image="node:${NODE_VERSION}-bookworm-slim@${NODE_GLIBC_DIGEST}" \
+      io.fsusblog.runtime.node-image-digest="${NODE_GLIBC_DIGEST}"
+USER $APP_UID
+
+ARG RUNTIME_BASE_FLAVOR
+FROM base-${RUNTIME_BASE_FLAVOR} AS base
 
 ## =========================================================================
 # 阶段 1.5：受控 wasm 工件构建
@@ -23,6 +87,7 @@ USER $APP_UID
 ## =========================================================================
 FROM emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973 AS wasm-builder
 ARG VCPKG_COMMIT
+ARG NODE_VERSION
 WORKDIR /work
 
 RUN apt-get update && \
@@ -30,20 +95,17 @@ RUN apt-get update && \
       ca-certificates \
       cmake \
       git \
+      libatomic1 \
+      libstdc++6 \
       ninja-build \
-      nodejs \
-      npm \
       pkg-config \
       python3 \
       rsync \
       unzip \
       zip && \
     rm -rf /var/lib/apt/lists/*
-
-COPY tools/vcpkg-overlays/ /work/tools/vcpkg-overlays/
-COPY tools/frontend/ /work/tools/frontend/
-COPY tools/frontend/ /tools/frontend/
-COPY src/frontend/ /work/FsusBlog.Client/
+COPY --from=node-runtime-glibc /usr/local/bin/node /usr/local/bin/node
+RUN test "$(node --version)" = "v${NODE_VERSION}"
 
 RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
     cd /opt/vcpkg && \
@@ -51,11 +113,25 @@ RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
     test "$(git rev-parse HEAD)" = "${VCPKG_COMMIT}" && \
     /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
+COPY tools/vcpkg-overlays/ /work/tools/vcpkg-overlays/
+COPY tools/frontend/ /work/tools/frontend/
+COPY tools/frontend/ /tools/frontend/
+
 RUN bash -lc 'set -euo pipefail; \
   export PATH="/opt/vcpkg:${PATH}"; \
   export VCPKG_ROOT="/opt/vcpkg"; \
+  bash /work/tools/frontend/install-wasm-codec-deps.sh'
+
+COPY artifacts/zk/comment-v2/comment_v2_final.fsg16pk /artifacts/zk/comment-v2/comment_v2_final.fsg16pk
+COPY src/frontend/ /work/FsusBlog.Client/
+ENV FSUSBLOG_FRONTEND_WASM_ROOT=/work/FsusBlog.Client/public/wasm
+
+RUN --mount=type=cache,id=fsusblog-wasm-dependency,target=/.tmp/dependency-cache,sharing=locked \
+    --mount=type=cache,id=fsusblog-emscripten,target=/.cache/emscripten,sharing=locked \
+    bash -lc 'set -euo pipefail; \
+  export PATH="/opt/vcpkg:${PATH}"; \
+  export VCPKG_ROOT="/opt/vcpkg"; \
   cd /work/FsusBlog.Client; \
-  bash /work/tools/frontend/install-wasm-codec-deps.sh; \
   bash ./wasm/build.sh; \
   node /work/tools/frontend/ensure-wasm.mjs write-manifest; \
   node /work/tools/frontend/ensure-wasm.mjs status'
@@ -66,18 +142,36 @@ COPY --from=wasm-builder /work/FsusBlog.Client/public/wasm/ /
 ## =========================================================================
 # 阶段 2：.NET SDK 编译发布
 ## =========================================================================
-FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_SDK_VERSION}-alpine3.23@${DOTNET_SDK_MUSL_DIGEST} AS build-musl
+ARG NODE_VERSION
+RUN apk add --no-cache libstdc++
+COPY --from=node-runtime-musl /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime-musl /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+COPY --from=node-runtime-musl /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/
+RUN test "$(node --version)" = "v${NODE_VERSION}" && npm --version >/dev/null && npx --version >/dev/null
+
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_SDK_VERSION}-noble@${DOTNET_SDK_GLIBC_DIGEST} AS build-glibc
+ARG NODE_VERSION
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libatomic1 libstdc++6 && \
+    rm -rf /var/lib/apt/lists/*
+COPY --from=node-runtime-glibc /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime-glibc /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+COPY --from=node-runtime-glibc /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/
+RUN test "$(node --version)" = "v${NODE_VERSION}" && npm --version >/dev/null && npx --version >/dev/null
+
+ARG RUNTIME_BASE_FLAVOR
+FROM build-${RUNTIME_BASE_FLAVOR} AS build
 ARG BUILD_CONFIGURATION=Release
 ARG TARGET_RUNTIME=linux-musl-x64
+ARG PUBLISH_READY_TO_RUN=false
 WORKDIR /src
-
-RUN apk add --no-cache nodejs npm
 
 COPY ["src/backend/FsusBlog.Server.csproj", "src/backend/"]
 COPY ["src/core/FsusBlog.Core.csproj", "src/core/"]
 COPY ["src/shared/FsusBlog.Shared.csproj", "src/shared/"]
 
-RUN sh -lc 'for i in 1 2 3; do dotnet restore "./src/backend/FsusBlog.Server.csproj" --runtime "$TARGET_RUNTIME" && exit 0; echo "dotnet restore retry $i failed"; sleep 5; done; exit 1'
+RUN sh -lc 'for i in 1 2 3; do dotnet restore "./src/backend/FsusBlog.Server.csproj" --runtime "$TARGET_RUNTIME" /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN" && exit 0; echo "dotnet restore retry $i failed"; sleep 5; done; exit 1'
 
 COPY . .
 WORKDIR "/src/src/backend"
@@ -87,6 +181,12 @@ RUN sh -lc 'for i in 1 2 3; do dotnet build "./FsusBlog.Server.csproj" -c "$BUIL
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 ARG TARGET_RUNTIME=linux-musl-x64
+ARG PUBLISH_SINGLE_FILE=true
+ARG PUBLISH_READY_TO_RUN=false
+ARG TIERED_PGO=true
+ARG QUICK_JIT_FOR_LOOPS=true
+ARG SERVER_GC=true
+ARG NATIVE_AOT=false
 RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
     -c "$BUILD_CONFIGURATION" \
     -r "$TARGET_RUNTIME" \
@@ -96,12 +196,15 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
     /p:SkipClientDependenciesForPublish=true \
     /p:SkipClientReleaseBuild=true \
     /p:SkipClientReleaseArtifactCopy=true \
-    /p:PublishSingleFile=true \
+    /p:PublishSingleFile="$PUBLISH_SINGLE_FILE" \
     /p:UseAppHost=true \
     /p:PublishTrimmed=false \
-    /p:TieredPGO=true \
+    /p:TieredPGO="$TIERED_PGO" \
     /p:TieredCompilation=true \
-    /p:PublishReadyToRun=false && exit 0; echo "dotnet publish retry $i failed"; sleep 5; done; exit 1'
+    /p:TieredCompilationQuickJitForLoops="$QUICK_JIT_FOR_LOOPS" \
+    /p:ServerGarbageCollection="$SERVER_GC" \
+    /p:PublishReadyToRun="$PUBLISH_READY_TO_RUN" \
+    /p:ReadyToRunUseCrossgen2="$PUBLISH_READY_TO_RUN" && exit 0; echo "dotnet publish retry $i failed"; sleep 5; done; exit 1'
 
 ARG ZK_NATIVE_ARTIFACT_DIR=build/artifacts/native-zk
 RUN sh -lc 'set -eu; \
@@ -134,13 +237,18 @@ RUN sh -lc 'for i in 1 2 3; do dotnet publish "./FsusBlog.Server.csproj" \
 # 阶段 3：前端 Vue 构建
 # Release 镜像只消费外部准备好的 wasm 工件包。
 ## =========================================================================
-FROM node:20-alpine AS frontend-build
-ARG FSUSBLOG_RELEASE_ID=local-unversioned
-ENV VITE_FSUSBLOG_BUILD_ID=${FSUSBLOG_RELEASE_ID}
+FROM node-runtime-musl AS frontend-build
+ARG FSUSBLOG_USE_LOCAL_FSUSUI=0
+ENV FSUSBLOG_USE_LOCAL_FSUSUI=${FSUSBLOG_USE_LOCAL_FSUSUI} \
+    FSUSBLOG_LOCAL_FSUSUI_ROOT=/opt/fsusui \
+    NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_UPDATE_NOTIFIER=false
 WORKDIR /app
 
 COPY src/frontend/package*.json ./
 COPY tools/frontend/ /tools/frontend/
+COPY tools/test-matrix/ /tools/test-matrix/
 
 RUN --mount=type=secret,id=github_packages_token \
     /bin/sh -lc 'set -eu; \
@@ -155,17 +263,26 @@ RUN --mount=type=secret,id=github_packages_token \
       export NPM_CONFIG_USERCONFIG="${tmp_npmrc}"; \
       npm ci \
         --no-audit \
+        --no-fund \
+        --no-update-notifier \
         --progress=false \
         --fetch-retries=5 \
         --fetch-retry-mintimeout=2000 \
         --fetch-retry-maxtimeout=20000'
 
+ARG FSUSBLOG_RELEASE_ID=local-unversioned
+ENV VITE_FSUSBLOG_BUILD_ID=${FSUSBLOG_RELEASE_ID}
+COPY tools/test/run-command-manifest.mjs /tools/test/run-command-manifest.mjs
+COPY tools/test/bundles/bundle-steps.mjs /tools/test/bundles/bundle-steps.mjs
+COPY tests/matrix.yml /tests/matrix.yml
+COPY --from=fsusui /vue/packages /opt/fsusui/vue/packages
+RUN ln -s /app/node_modules /opt/fsusui/node_modules
 COPY src/frontend/ ./
 COPY src/shared/ /src/shared/
 RUN mkdir -p /src && ln -sfn /app /src/frontend
 COPY build/artifacts/wasm-release/ ./public/wasm/
 
-RUN test -f public/wasm/SHA256SUMS && sha256sum -c public/wasm/SHA256SUMS
+RUN test -f public/wasm/SHA256SUMS && (cd public/wasm && sha256sum -c SHA256SUMS)
 RUN node ../../tools/frontend/ensure-wasm.mjs status
 
 RUN npm run build:release
@@ -176,23 +293,61 @@ RUN npm run build:release
 FROM base AS final
 ARG FSUSBLOG_RELEASE_ID=local-unversioned
 ARG FSUSBLOG_COMMIT_SHA=0000000000000000000000000000000000000000
+ARG FSUSBLOG_FSUSUI_SOURCE=published-package
+ARG FSUSBLOG_FSUSUI_COMMIT_SHA=0000000000000000000000000000000000000000
 ARG VCPKG_COMMIT
+ARG RUNTIME_PROFILE_ID=throughput-musl
+ARG RUNTIME_PROFILE_MANIFEST_DIGEST=sha256:0000000000000000000000000000000000000000000000000000000000000000
+ARG RUNTIME_PROFILE_DIGEST=sha256:0000000000000000000000000000000000000000000000000000000000000000
+ARG RUNTIME_BASE_FLAVOR=musl
+ARG TARGET_RUNTIME=linux-musl-x64
+ARG PUBLISH_SINGLE_FILE=true
+ARG PUBLISH_READY_TO_RUN=false
+ARG TIERED_PGO=true
+ARG QUICK_JIT_FOR_LOOPS=true
+ARG SERVER_GC=true
+ARG NATIVE_AOT=false
+ARG THREAD_POOL_MODE=runtime-default
+ARG TOPOLOGY_MODE=smt-visible
 WORKDIR /app
 ENV FSUSBLOG_ZK_GROTH16_NATIVE_LIBRARY=/app/native/zk/libfsus_zk_groth16.so
+ENV FSUSBLOG_RUNTIME_PROFILE_ID=${RUNTIME_PROFILE_ID} \
+    FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST=${RUNTIME_PROFILE_MANIFEST_DIGEST} \
+    FSUSBLOG_RUNTIME_PROFILE_DIGEST=${RUNTIME_PROFILE_DIGEST} \
+    DOTNET_ReadyToRun=${PUBLISH_READY_TO_RUN} \
+    DOTNET_TieredPGO=${TIERED_PGO} \
+    DOTNET_TC_QuickJitForLoops=${QUICK_JIT_FOR_LOOPS} \
+    DOTNET_gcServer=${SERVER_GC}
 LABEL org.opencontainers.image.version="${FSUSBLOG_RELEASE_ID}" \
       org.opencontainers.image.revision="${FSUSBLOG_COMMIT_SHA}" \
       io.fsusblog.release.manifest-schema="fsusblog.release-manifest.v1" \
       io.fsusblog.build.vcpkg-commit="${VCPKG_COMMIT}" \
+      io.fsusblog.build.fsusui-source="${FSUSBLOG_FSUSUI_SOURCE}" \
+      io.fsusblog.build.fsusui-commit="${FSUSBLOG_FSUSUI_COMMIT_SHA}" \
       io.fsusblog.runtime.node="required" \
       io.fsusblog.runtime.npm="forbidden" \
-      io.fsusblog.runtime.publish-ready-to-run="false"
+      io.fsusblog.runtime.profile-id="${RUNTIME_PROFILE_ID}" \
+      io.fsusblog.runtime.profile-manifest-digest="${RUNTIME_PROFILE_MANIFEST_DIGEST}" \
+      io.fsusblog.runtime.profile-digest="${RUNTIME_PROFILE_DIGEST}" \
+      io.fsusblog.runtime.base-family="${RUNTIME_BASE_FLAVOR}" \
+      io.fsusblog.runtime.target-runtime="${TARGET_RUNTIME}" \
+      io.fsusblog.runtime.publish-single-file="${PUBLISH_SINGLE_FILE}" \
+      io.fsusblog.runtime.publish-ready-to-run="${PUBLISH_READY_TO_RUN}" \
+      io.fsusblog.runtime.tiered-pgo="${TIERED_PGO}" \
+      io.fsusblog.runtime.quick-jit-for-loops="${QUICK_JIT_FOR_LOOPS}" \
+      io.fsusblog.runtime.server-gc="${SERVER_GC}" \
+      io.fsusblog.runtime.native-aot="${NATIVE_AOT}" \
+      io.fsusblog.runtime.thread-pool-mode="${THREAD_POOL_MODE}" \
+      io.fsusblog.runtime.topology-mode="${TOPOLOGY_MODE}"
 
 COPY --from=publish --chown=$APP_UID:$APP_UID /app/publish .
 COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app/dist ./wwwroot
 COPY --from=frontend-build --chown=$APP_UID:$APP_UID /app ./FsusBlog.ClientRuntime
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:8080/health/live >/dev/null || exit 1
+  CMD host="${AllowedHosts%%;*}"; host="${host%%,*}"; \
+      test -n "$host" && test "$host" != "*" && \
+      curl -fsS -H "Host: $host" http://127.0.0.1:8080/health/live >/dev/null || exit 1
 
 ENTRYPOINT ["./FsusBlog.Server"]
 

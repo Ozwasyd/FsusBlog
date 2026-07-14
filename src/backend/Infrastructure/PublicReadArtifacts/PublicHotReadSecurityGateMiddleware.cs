@@ -35,7 +35,9 @@ public sealed class PublicReadSecurityGate(
             }
         }
 
-        int riskScore = await riskScoreReader.GetRiskScoreAsync(httpContext, httpContext.RequestAborted);
+        int riskScore = riskPolicy.RequiresRiskScoreLookup(riskContext.ActionName)
+            ? await riskScoreReader.GetRiskScoreAsync(httpContext, httpContext.RequestAborted)
+            : 0;
         RiskDecision decision = riskDecisionService.Decide(riskContext, riskPolicy, riskScore);
         if (decision.Kind == RiskDecisionKind.Allow)
         {

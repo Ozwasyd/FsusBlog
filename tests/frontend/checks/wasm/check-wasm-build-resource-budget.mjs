@@ -11,6 +11,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const buildScript = path.join(root, 'src/frontend/wasm/build.sh');
 const cmakeBootstrap = path.join(root, 'tools/frontend/ensure-cmake.sh');
 const binaryenBootstrap = path.join(root, 'tools/frontend/ensure-binaryen.sh');
+const buildWasmArtifact = path.join(root, 'tools/build-wasm-artifact.sh');
+const serverDockerfile = path.join(root, 'ops/docker/FsusBlog.Server.Dockerfile');
 const serviceWorker = path.join(root, 'src/frontend/public/sw.js');
 const budgetVariables = [
   'FSUSBLOG_STEP_CPU_BUDGET',
@@ -108,6 +110,8 @@ assertPlan({ FSUSBLOG_STEP_MEMORY_GIB: '0.000001' }, {
 
 const bootstrapSource = readFileSync(cmakeBootstrap, 'utf8');
 const binaryenBootstrapSource = readFileSync(binaryenBootstrap, 'utf8');
+const buildWasmArtifactSource = readFileSync(buildWasmArtifact, 'utf8');
+const serverDockerfileSource = readFileSync(serverDockerfile, 'utf8');
 const buildSource = readFileSync(buildScript, 'utf8');
 const serviceWorkerSource = readFileSync(serviceWorker, 'utf8');
 const simdBuild = buildSource.match(/build_simd\(\) \{(?<body>[\s\S]*?)\n\}/u)?.groups?.body ?? '';
@@ -146,10 +150,33 @@ assert.equal((buildSource.match(/^optimize_pow_wasm_parallel \\/gmu) ?? []).leng
   'all four independent PoW artifacts must enter one dynamically bounded optimization pool');
 
 assert.match(bootstrapSource, /CMAKE_VERSION="4\.3\.3"/u);
+assert.match(buildSource, /version_less_than "\$\{version\}" "3\.24\.0"/u,
+  'CMake versions without --fresh support must fall back before configuring a wasm variant');
 assert.match(buildSource, /version_less_than "\$\{version\}" "4\.3\.3"/u,
   'CMake 4.3.3 must be accepted while known-incompatible earlier 4.2/4.3 releases remain blocked');
 assert.match(buildSource, /command -v cmake/u,
   'the build must reuse a supported host CMake before bootstrapping the pinned fallback');
+assert.match(buildSource, /COMMENT_PRIVACY_PROVER_KEY/u,
+  'the wasm build must validate its proving-key input before starting expensive compilation');
+assert.match(serverDockerfileSource,
+  /COPY artifacts\/zk\/comment-v2\/comment_v2_final\.fsg16pk \/artifacts\/zk\/comment-v2\/comment_v2_final\.fsg16pk/u,
+  'the isolated wasm builder must receive the repository-level proving-key input at the path expected by build.sh');
+assert.match(serverDockerfileSource,
+  /ENV FSUSBLOG_FRONTEND_WASM_ROOT=\/work\/FsusBlog\.Client\/public\/wasm/u,
+  'manifest tools in the isolated wasm builder must receive the explicit frontend output root');
+for (const cacheTarget of ['/.tmp/dependency-cache', '/.cache/emscripten']) {
+  assert.match(serverDockerfileSource, new RegExp(`type=cache[^\\n]+target=${cacheTarget.replaceAll('/', '\\/')}`, 'u'),
+    `the isolated wasm builder must persist ${cacheTarget} across failed source rebuilds`);
+}
+for (const proverArtifact of ['comment-privacy-prover.manifest.json', 'comment-privacy-prover.zkey']) {
+  assert.match(buildWasmArtifactSource, new RegExp(proverArtifact.replaceAll('.', '\\.')),
+    `the wasm artifact boundary must admit the manifest-bound ${proverArtifact}`);
+}
+assert.ok(
+  serverDockerfileSource.indexOf('bash /work/tools/frontend/install-wasm-codec-deps.sh')
+    < serverDockerfileSource.indexOf('COPY src/frontend/ /work/FsusBlog.Client/'),
+  'codec dependency installation must stay cacheable independently of frontend source changes'
+);
 assert.match(bootstrapSource, /\.tmp\/dependency-cache/u);
 assert.match(bootstrapSource, /flock 9/u);
 assert.match(bootstrapSource, /sha256sum -c -/u);

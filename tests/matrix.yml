@@ -784,6 +784,7 @@ tiers:
       - test-retention-classification
       - integrity-proof-docs-consistency
       - immutable-release-identity
+      - runtime-publish-profile-matrix
       - blue-green-slot-orchestration
       - atomic-gateway-switch-rollback
       - backend-runtime-fallback-retirement-a3
@@ -826,6 +827,20 @@ tiers:
       - src/backend/FsusBlog.Server.csproj
       - docs/issue-1024-release-identity-handoff.md
       - tests/tools/release-manifest.test.mjs
+      - tests/tools/runtime-publish-profile.test.mjs
+      - tools/runtime-profiles/runtime-publish-profiles.json
+      - tools/runtime-profiles/runtime-publish-profile.mjs
+      - tools/runtime-profiles/runtime-publish-evidence.mjs
+      - tools/runtime-profiles/run-runtime-publish-matrix.mjs
+      - tools/runtime-profiles/execute-runtime-publish-profile.mjs
+      - tools/runtime-profiles/runtime-publish-executor-plan.example.json
+      - tools/runtime-profiles/check-runtime-publish-evidence.mjs
+      - tools/runtime-profiles/runtime-publish-selection-policy.example.json
+      - tools/operations/collect-release-evidence.sh
+      - tools/frontend/ensure-wasm.mjs
+      - tools/build-final-image.sh
+      - docs/production.md
+      - docs/operations.md
       - tests/backend/Unit/ReleaseIdentityTests.cs
       - tools/operations/test-release-evidence-fixture.sh
       - docs/issue-1025-blue-green-slots-handoff.md

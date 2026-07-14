@@ -22,11 +22,32 @@ const TOP_LEVEL_FIELDS = new Set([
   'wasmArtifactHash',
   'schemaCompatibility',
   'toolchain',
+  'runtimeProfile',
   'build'
 ])
 const SCHEMA_COMPATIBILITY_FIELDS = new Set(['minRelease', 'maxRelease'])
 const TOOLCHAIN_FIELDS = new Set(['dotnetVersion', 'nodeVersion', 'dockerVersion', 'dockerfileDigest'])
 const BUILD_FIELDS = new Set(['dockerfile', 'target'])
+const RUNTIME_PROFILE_FIELDS = new Set([
+  'id', 'manifestDigest', 'profileDigest', 'baseImageFamily', 'targetRuntime',
+  'singleFile', 'readyToRun', 'tieredPgo', 'quickJitForLoops', 'serverGc',
+  'nativeAot', 'threadPoolMode', 'topologyMode'
+])
+const DEFAULT_RUNTIME_PROFILE = Object.freeze({
+  id: 'throughput-musl',
+  manifestDigest: `sha256:${'0'.repeat(64)}`,
+  profileDigest: `sha256:${'0'.repeat(64)}`,
+  baseImageFamily: 'musl',
+  targetRuntime: 'linux-musl-x64',
+  singleFile: true,
+  readyToRun: false,
+  tieredPgo: true,
+  quickJitForLoops: true,
+  serverGc: true,
+  nativeAot: false,
+  threadPoolMode: 'runtime-default',
+  topologyMode: 'smt-visible'
+})
 
 export function sha256File(file) {
   return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
@@ -55,6 +76,7 @@ export function createReleaseManifest(input) {
       dockerVersion: input.dockerVersion,
       dockerfileDigest: input.dockerfileDigest
     },
+    runtimeProfile: { ...(input.runtimeProfile ?? DEFAULT_RUNTIME_PROFILE) },
     build: {
       dockerfile: 'ops/docker/FsusBlog.Server.Dockerfile',
       target: input.target ?? 'final'
@@ -108,12 +130,35 @@ export function validateReleaseManifest(manifest, options = {}) {
   }
   if (manifest.build?.dockerfile !== 'ops/docker/FsusBlog.Server.Dockerfile') errors.push('build.dockerfile is invalid')
   if (manifest.build?.target !== 'final') errors.push('build.target must be final')
+  if (manifest.runtimeProfile !== undefined) validateRuntimeProfile(manifest.runtimeProfile, errors)
   if (options.expectedReleaseId && manifest.releaseId !== options.expectedReleaseId) errors.push('releaseId does not match requested release')
   if (options.expectedImageRef && manifest.imageRef !== options.expectedImageRef) errors.push('imageRef does not match requested image')
   if (options.expectedImageDigest && manifest.imageDigest !== options.expectedImageDigest) errors.push('imageDigest does not match requested digest')
   if (options.expectedCommitSha && manifest.commitSha !== options.expectedCommitSha) errors.push('commitSha does not match requested commit')
   if (containsSensitiveField(manifest)) errors.push('release manifest contains a sensitive field name')
   return errors
+}
+
+function validateRuntimeProfile(value, errors) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    errors.push('runtimeProfile must be an object')
+    return
+  }
+  rejectUnknownFields(value, RUNTIME_PROFILE_FIELDS, 'runtimeProfile', errors)
+  if (!/^[a-z][a-z0-9-]{2,63}$/u.test(String(value.id ?? ''))) errors.push('runtimeProfile.id is invalid')
+  for (const field of ['manifestDigest', 'profileDigest']) {
+    if (!SHA256.test(String(value[field] ?? ''))) errors.push(`runtimeProfile.${field} must be sha256:<64 lowercase hex>`)
+  }
+  if (!['musl', 'glibc'].includes(value.baseImageFamily)) errors.push('runtimeProfile.baseImageFamily is invalid')
+  if (!['linux-musl-x64', 'linux-x64'].includes(value.targetRuntime)) errors.push('runtimeProfile.targetRuntime is invalid')
+  if (value.baseImageFamily === 'musl' && value.targetRuntime !== 'linux-musl-x64') errors.push('runtimeProfile musl targetRuntime mismatch')
+  if (value.baseImageFamily === 'glibc' && value.targetRuntime !== 'linux-x64') errors.push('runtimeProfile glibc targetRuntime mismatch')
+  for (const field of ['singleFile', 'readyToRun', 'tieredPgo', 'quickJitForLoops', 'serverGc', 'nativeAot']) {
+    if (typeof value[field] !== 'boolean') errors.push(`runtimeProfile.${field} must be boolean`)
+  }
+  if (value.nativeAot === true) errors.push('runtimeProfile.nativeAot cannot enter the full production release manifest without narrow prototype parity promotion')
+  if (!['runtime-default', 'evidence-derived', 'overprovisioned-negative-control'].includes(value.threadPoolMode)) errors.push('runtimeProfile.threadPoolMode is invalid')
+  if (!['smt-visible', 'physical-core-only', 'numa-local'].includes(value.topologyMode)) errors.push('runtimeProfile.topologyMode is invalid')
 }
 
 export function readReleaseManifest(file, options = {}) {

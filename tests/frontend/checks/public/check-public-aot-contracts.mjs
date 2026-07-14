@@ -46,6 +46,7 @@ function assertStaticContracts() {
   const renderer = read('src/backend/Infrastructure/PublicAot/PublicAotNodeSsrRenderer.cs')
   const renderPublicPage = read('src/frontend/src/public-renderers/renderPublicPage.ts')
   const buildScript = read('tools/frontend/build.mjs')
+  const publicSsrBuildScript = read('tools/frontend/build-public-ssr-bundle.mjs')
   const warmScript = read('tools/frontend/warm-public-aot-cache.mjs')
   const viteConfig = read('src/frontend/vite.config.ts')
   const indexHtml = read('src/frontend/index.html')
@@ -108,6 +109,11 @@ function assertStaticContracts() {
   }
   if (!buildScript.includes('vite-public-ssr-build') || !buildScript.includes("'server'")) {
     fail('frontend release build must build and sync dist/server')
+  }
+  for (const token of ['moduleBoundaryManifest', "type: 'module'", 'writeModuleBoundaryManifest']) {
+    if (!publicSsrBuildScript.includes(token)) {
+      fail(`production SSR build must emit a dist/server ESM boundary: ${token}`)
+    }
   }
   for (const token of ['/internal/public-aot/manifest', '/internal/public-aot/health', 'FSUSBLOG_PUBLIC_AOT_CONCURRENCY', '--concurrency', '--json-report', '--fail-fast']) {
     if (!warmScript.includes(token)) {

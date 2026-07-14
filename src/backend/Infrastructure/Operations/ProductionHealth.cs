@@ -559,7 +559,7 @@ public sealed class ProductionReadinessProbe(
             }
 
             IReadOnlyList<string> providers = ResolveChallengeProviders();
-            bool challengeProviderRegistry = ChallengeProviderRegistryReady(providers);
+            bool challengeProviderRegistry = ChallengeProviderRegistryReady(providers, policy);
             RedisReadiness redisReadiness = await redisTask;
             bool redisConsumeOnce = redisReadiness.ConsumeOnce.Ok;
             bool perceptionAeadKey = CheckPerceptionAeadKey();
@@ -705,7 +705,9 @@ public sealed class ProductionReadinessProbe(
             .OrderBy(static kind => kind, StringComparer.Ordinal)
             .ToArray();
 
-    private static bool ChallengeProviderRegistryReady(IReadOnlyList<string> providers)
+    private static bool ChallengeProviderRegistryReady(
+        IReadOnlyList<string> providers,
+        SecurityRiskPolicySnapshotV2? policy)
     {
         if (providers.Count == 0)
         {
@@ -713,11 +715,33 @@ public sealed class ProductionReadinessProbe(
         }
 
         HashSet<string> registered = providers.ToHashSet(StringComparer.Ordinal);
-        foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
+        if (policy is null)
         {
-            if (!registered.Contains(SecurityChallengeContracts.ToWireName(kind)))
+            return registered.All(static kind =>
+                SecurityChallengeContracts.TryParseKind(kind, out SecurityChallengeKind parsed)
+                && string.Equals(kind, SecurityChallengeContracts.ToWireName(parsed), StringComparison.Ordinal));
+        }
+
+        IEnumerable<SecurityRiskActionPolicy> actions = policy.ActionOverrides.Values.Prepend(policy.DefaultAction);
+        foreach (SecurityRiskActionPolicy action in actions)
+        {
+            IEnumerable<string> requiredKinds = action.HardChallengeKinds
+                .Append(action.ChallengeKind)
+                .Concat(action.DecisionBands
+                    .Where(static band => band.Outcome is SecurityRiskPolicyOutcomes.Challenge or SecurityRiskPolicyOutcomes.HardChallenge)
+                    .SelectMany(static band => band.ChallengeKinds));
+            foreach (string requiredKind in requiredKinds)
             {
-                return false;
+                string normalized = (requiredKind ?? string.Empty).Trim();
+                if (normalized.Length == 0)
+                {
+                    continue;
+                }
+                if (!SecurityChallengeContracts.TryParseKind(normalized, out SecurityChallengeKind parsed)
+                    || !registered.Contains(SecurityChallengeContracts.ToWireName(parsed)))
+                {
+                    return false;
+                }
             }
         }
 

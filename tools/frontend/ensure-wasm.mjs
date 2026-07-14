@@ -56,7 +56,8 @@ const ignoredWasmDirectories = new Set([
   'build-basic',
   'build-pow-relaxed',
   'build-pow-threads',
-  'build-simd'
+  'build-simd',
+  'stage'
 ]);
 
 function log(message) {

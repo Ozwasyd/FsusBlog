@@ -480,10 +480,8 @@ public sealed class ProductionHealthTests
             var services = new ServiceCollection()
                 .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
                 .AddSingleton<IUnifiedCache, ConsumeOnceHealthCache>();
-            foreach (SecurityChallengeKind kind in SecurityChallengeContracts.SupportedKinds)
-            {
-                services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(SecurityChallengeContracts.ToWireName(kind)));
-            }
+            services.AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(
+                SecurityChallengeContracts.ToWireName(SecurityChallengeKind.Sha256PowV1)));
 
             using ServiceProvider provider = services.BuildServiceProvider();
             IConfiguration configuration = CreatePerceptionReadyConfiguration();
@@ -506,7 +504,43 @@ public sealed class ProductionHealthTests
             Assert.True(riskControl.PerceptionAeadKey);
             Assert.Equal("enforce", riskControl.PerceptionMode);
             Assert.NotNull(riskControl.PerceptionPerformanceBudget.Warnings);
-            Assert.Equal(SecurityChallengeContracts.SupportedKinds.Count, riskControl.Providers.Count);
+            Assert.Single(riskControl.Providers);
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ReadinessProbe_RiskControlCheck_FailsWhenActivePolicyProviderIsMissing()
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), "fsusblog-health-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(tempRoot, "wwwroot"));
+        File.WriteAllText(Path.Combine(tempRoot, "wwwroot", "index.html"), "<html></html>");
+
+        try
+        {
+            var services = new ServiceCollection()
+                .AddSingleton<ISecurityRiskPolicyProvider>(new FixedRiskPolicyProvider(CreateRiskPolicy()))
+                .AddSingleton<IUnifiedCache, ConsumeOnceHealthCache>()
+                .AddSingleton<ISecurityChallengeProvider>(new HealthChallengeProvider(
+                    SecurityChallengeContracts.ToWireName(SecurityChallengeKind.CaptchaV1)));
+            using ServiceProvider provider = services.BuildServiceProvider();
+            IConfiguration configuration = CreatePerceptionReadyConfiguration();
+            var environment = new TestWebHostEnvironment(tempRoot, Environments.Development);
+            var probe = new ProductionReadinessProbe(
+                configuration,
+                environment,
+                provider,
+                CreateConfigurationSnapshot(configuration, environment, provider),
+                NullLogger<ProductionReadinessProbe>.Instance);
+
+            ProductionHealthReport report = await probe.CheckAsync(CancellationToken.None);
+
+            var riskControl = Assert.IsType<ProductionRiskControlHealthCheck>(report.Checks["riskControl"]);
+            Assert.Equal("failed", riskControl.Status);
+            Assert.False(riskControl.ChallengeProviderRegistry);
         }
         finally
         {

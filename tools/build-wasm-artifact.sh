@@ -51,7 +51,14 @@ const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.nam
 const manifestName = path.basename(manifestPath);
 const runtimeManifestName = 'aeds-runtime-manifest.json';
 const checksumName = 'SHA256SUMS';
-const invalidFiles = files.filter((name) => !name.endsWith('.js') && !name.endsWith('.wasm') && name !== runtimeManifestName && name !== manifestName && name !== checksumName);
+const structuredArtifactNames = new Set([
+  runtimeManifestName,
+  'comment-privacy-prover.manifest.json',
+  'comment-privacy-prover.zkey',
+  manifestName,
+  checksumName
+]);
+const invalidFiles = files.filter((name) => !name.endsWith('.js') && !name.endsWith('.wasm') && !structuredArtifactNames.has(name));
 if (invalidFiles.length > 0) {
   console.error(`[build-wasm-artifact] fatal: artifact directory contains unsupported files: ${invalidFiles.join(', ')}`);
   process.exit(1);

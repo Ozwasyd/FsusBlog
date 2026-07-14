@@ -155,7 +155,7 @@ The release manifest schema is `fsusblog.release-manifest.v1`. It binds `release
 
 `slot-start.sh`、`gateway-switch.sh`、`deploy-production.sh`、online Expand、asset materialize/GC and fence/restart helpers are rollout-owned internal operations. `deploy-production.sh` rejects calls without the internal slot marker; `slot-start.sh` accepts the rollout marker or the explicit one-time empty-state bootstrap only. Direct helper commands in later sections are diagnosis/bootstrap protocol references, not an alternative production release procedure. The lower-level deploy validates and starts only the manifest-selected `repository@sha256` image, checks RepoDigests and OCI revision/version labels, and uses Compose `--no-build --pull always`.
 
-Before any candidate Compose start, `slot-preflight.sh` calls `tools/deployment/image-runtime-contract.sh` with that exact immutable image reference. The helper rejects mutable tags and malformed or non-lowercase digests before invoking Docker, then pulls the selected digest, inspects its OCI labels and runs two container probes. A valid final image must publish a full 40-character lowercase `io.fsusblog.build.vcpkg-commit`, `io.fsusblog.runtime.node=required`, `io.fsusblog.runtime.npm=forbidden`, and `io.fsusblog.runtime.publish-ready-to-run=false`; `node` must resolve inside the final image and `npm` must not. Pull/inspect failure, any label mismatch, missing Node or present npm fails preflight before candidate start and leaves the persisted active slot untouched. Recovery is a newly built and pushed immutable digest plus a new manifest; there is no runtime override or skip flag.
+Before any candidate Compose start, `slot-preflight.sh` calls `tools/deployment/image-runtime-contract.sh` with that exact immutable image reference. The helper rejects mutable tags and malformed or non-lowercase digests before invoking Docker, then pulls the selected digest, inspects its OCI labels and runs two container probes. A valid final image must publish a full 40-character lowercase `io.fsusblog.build.vcpkg-commit`, `io.fsusblog.runtime.node=required`, `io.fsusblog.runtime.npm=forbidden`, and the complete named runtime-profile label set described below; profile values must match the immutable release manifest. `node` must resolve inside the final image and `npm` must not. Pull/inspect failure, any label/profile mismatch, missing Node or present npm fails preflight before candidate start and leaves the persisted active slot untouched. Recovery is a newly built and pushed immutable digest plus a new manifest; there is no runtime override or skip flag.
 
 If the host or orchestrator dies, do not start a new rollout and do not rerun from stage one. Inspect the recorded state and resume the same identity:
 
@@ -349,7 +349,64 @@ For larger machines, override compose resource limits and DB/Redis pool settings
 
 ## Runtime Tuning
 
-Host runtime tuning is deployment-driven. The application does not mutate startup-sensitive `DOTNET_ReadyToRun`, `DOTNET_TC_QuickJitForLoops`, or `DOTNET_TieredPGO` after `WebApplication.CreateBuilder(args)`, because the CLR can read those switches before app code runs. Set those values in Docker/systemd/Kubernetes/runtimeconfig before process start and keep the benchmark evidence with the release notes:
+Host runtime tuning is deployment-driven. The application does not mutate startup-sensitive `DOTNET_ReadyToRun`, `DOTNET_TC_QuickJitForLoops`, or `DOTNET_TieredPGO` after `WebApplication.CreateBuilder(args)`, because the CLR can read those switches before app code runs. The authoritative catalog is `tools/runtime-profiles/runtime-publish-profiles.json`; do not create an unnamed combination in a workflow, Compose override or shell session.
+
+The catalog deliberately includes musl/glibc, PGO on/off, R2R on/off, single/multi-file, container-default/cpuset GC, runtime-default/evidence-derived/overprovisioned-negative-control ThreadPool, and SMT/physical-core topology variants. Each named control is validated against `throughput-musl`: glibc may change only its coupled base-family/RID pair, while R2R, multifile, PGO, QuickJIT, GC, ThreadPool, and physical-core controls may change only their declared axis. `throughput-musl` remains the default until sealed same-SHA evidence selects another profile. `threadpool-evidence-derived` stores no guessed minimum: the executor must bind the selected value to starvation/queue evidence. The negative control is never a production candidate.
+
+The sealed hardware identity records visible physical-core count, threads per core, SMT sibling groups, and NUMA node CPU lists. Missing CPU or NUMA sysfs data is recorded as `unavailable` (or single-node `not-applicable`) with a reason, never as invented topology. Measurement receipts report the observed target cpuset. A `physical-core-only` result is rejected if that cpuset contains SMT siblings from one core; a `numa-local` result is rejected unless its cpuset fits one observed NUMA node.
+
+Validate and resolve a profile before building:
+
+```bash
+node tools/runtime-profiles/check-runtime-publish-profiles.mjs
+node tools/runtime-profiles/resolve-runtime-publish-profile.mjs \
+  --profile throughput-musl \
+  --format lines
+
+FSUSBLOG_RUNTIME_PROFILE_ID=throughput-musl \
+FSUSBLOG_FINAL_LOCAL_ONLY=1 FSUSBLOG_FINAL_PUSH=0 \
+./tools/build-final-image.sh
+```
+
+`build-final-image.sh`, `build-native.sh`, the Docker build, OCI labels and a newly created release manifest all consume the same catalog/profile digests. The toolchain is independently immutable: .NET runtime `10.0.10`, SDK `10.0.302` and Node `24.17.0` default to patch-specific Alpine 3.23/Noble or Bookworm references pinned by manifest digest. `FSUSBLOG_DOTNET_*` and `FSUSBLOG_NODE_*` overrides are reserved for intentional servicing updates; each family must replace its complete version/digest set together. Node comes from the pinned `node-runtime-musl` or `node-runtime-glibc` stage rather than the distribution package manager, so the SSR runtime cannot silently differ between libc variants. The build passes every pin into Docker, then inspects the completed image and rejects a missing or mismatched .NET runtime, SDK, Node version, base reference/digest, base family or RID before local handoff or push. It also executes the finished image to require the pinned `node --version` and absence of `npm`. Provenance is recorded in `io.fsusblog.runtime.dotnet-version`, `io.fsusblog.build.dotnet-sdk-version`, `io.fsusblog.runtime.base-image*`, `io.fsusblog.build.sdk-image*` and `io.fsusblog.runtime.node-*` labels. This prevents host cache state or a floating base tag from contaminating musl/glibc comparisons. The final image contract also rejects missing or malformed profile labels; deployment preflight additionally compares every profile label with the selected immutable release manifest. A mutable tag, a locally edited profile with a stale digest, or a musl/glibc RID mismatch fails before candidate start.
+
+The matrix runner uses a repository executor adapter so environment-specific credentials and load-generator placement never enter the catalog. The executor receives a mode-0600 request containing the exact profile, commit, fixture, hardware/cgroup digest, round and position, and must return all correctness/security/release gates plus L0, L1, L2, DB miss, notification and AOT/SSR measurements:
+
+```bash
+export FSUSBLOG_RUNTIME_MATRIX_PLAN=/run/fsus/runtime-publish-executor-plan.json
+node tools/runtime-profiles/run-runtime-publish-matrix.mjs \
+  --executor tools/runtime-profiles/execute-runtime-publish-profile.mjs \
+  --output /var/lib/fsusblog/runtime-matrix/evidence.json \
+  --commit-sha "$FSUSBLOG_COMMIT_SHA" \
+  --fixture-id production-data-v1 \
+  --rounds 3 \
+  --cooldown-ms 30000 \
+  --selection-policy /run/fsus/runtime-publish-selection-policy.json
+
+node tools/runtime-profiles/check-runtime-publish-evidence.mjs \
+  --evidence /var/lib/fsusblog/runtime-matrix/evidence.json \
+  --expected-profile-id throughput-musl \
+  --expected-profile-manifest-digest 'sha256:<catalog-digest>' \
+  --expected-profile-digest 'sha256:<profile-digest>'
+```
+
+The site plan follows `tools/runtime-profiles/runtime-publish-executor-plan.example.json`. Its `auto-balanced` isolation resolves the process-visible cpuset at execution time, keeps whole physical-core sibling groups together when topology is available, and divides them into disjoint target/load-generator sets; it fails closed when fewer than two CPUs are visible. Do not replace it with host-wide or hand-written CPU numbers. The plan names direct executables, never shell snippets, for cleanup-before, build, correctness, security, release, measurement and cleanup-after. The selection policy follows `tools/runtime-profiles/runtime-publish-selection-policy.example.json`; copy it outside the repository, set explicit absolute budgets, name the reviewed candidate and choose either `select-candidate` or `retain-baseline`. A full matrix without this policy is rejected instead of leaving an operator-only `unselected` placeholder. The default full matrix includes every required profile and deliberately excludes profiles with `conditionalAdmission`; NativeAOT is run as a separate partial experiment and can enter comparison only after its dedicated build, feature-parity and security-parity stages pass. A rejected NativeAOT prototype must remain rejected evidence, never a failed required-axis run or a feature-reduced success. The measurement adapter receives the resolved profile and isolation values in `FSUSBLOG_RUNTIME_*` environment variables and must write its payload to `FSUSBLOG_RUNTIME_MEASUREMENTS_OUTPUT`; the repository executor rejects a receipt whose observed target/loadgen cpusets or cgroups differ from those resolved values.
+
+The runner rotates order between rounds, measures cooldown itself, records failed profiles instead of dropping them, checkpoints partial evidence atomically and binds results to the same hardware/cgroup/cpuset identity. A complete artifact requires every catalog profile exactly once per round for at least three rounds, all three gates, all six route classes, blue/green overlap memory, startup/ready/warmup, failure/recovery, JIT time/code size/tier transitions, managed heap/LOH, GC pause/CPU, ThreadPool queue/starvation, context switches/CPU migrations/throttling, startup/steady CPU and per-route cycles/instructions/validated IPC. Every successful result also binds the final image digest, actual .NET runtime, builder SDK, runtime/SDK base-image digests, Node version and target memory limit. The measurement stage supplies only the built `imageRef`; the repository executor runs `docker image inspect` itself, checks the OCI labels and starts the inspected immutable image ID with the Node version probe. Target memory still comes from the observed isolation receipt. This prevents a measurement command from fabricating runtime identity fields. Complete evidence rejects runtime, SDK or memory drift across profiles, base-image or Node drift within one libc family, and image-digest drift across one profile's rounds; a musl/glibc comparison therefore cannot silently mix .NET patches. Power evidence must be either measured with source or explicitly `unavailable` with a reason and null numeric fields. Pairwise/Pareto output is descriptive only: the sealed selection separately rejects any route regression, excessive variance, missing absolute GC/ready/rollout/recovery/overlap budgets, unproven ThreadPool tuning and negative-control candidates. Baseline retention is an explicit evidence decision, not an absent decision. The selection binds the comparison, catalog digest and selected profile digest; results from different hardware identities cannot be merged into a source-code conclusion.
+
+To bind a completed matrix into release evidence:
+
+```bash
+export FSUSBLOG_RUNTIME_MATRIX_EVIDENCE=/var/lib/fsusblog/runtime-matrix/evidence.json
+export FSUSBLOG_RUNTIME_PROFILE_ID=throughput-musl
+export FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST=sha256:<catalog-digest>
+export FSUSBLOG_RUNTIME_PROFILE_DIGEST=sha256:<profile-digest>
+tools/operations/collect-release-evidence.sh
+```
+
+The collector validates complete matrix evidence before copying it and fails if its sealed selected profile/digests differ from the release environment; `partial` is diagnostic only.
+
+Deployment/runtime configuration remains useful for an executor-controlled run, but it is not an alternate profile definition:
 
 ```json
 {
@@ -365,9 +422,9 @@ Host runtime tuning is deployment-driven. The application does not mutate startu
 }
 ```
 
-The default Docker publish profile is throughput/TieredPGO-first and keeps `PublishReadyToRun=false` consistently in both `src/backend/FsusBlog.Server.csproj` and `ops/docker/FsusBlog.Server.Dockerfile`. Use `tools/build-native.sh` or a named publish profile when a startup/R2R benchmark explicitly chooses a different profile.
+The default project metadata remains throughput/TieredPGO-first with `PublishReadyToRun=false`; Docker and native builds override publish properties only from a validated named profile. A NativeAOT experiment is not silently enabled by adding a property to this catalog. It requires a separate minimal public-artifact prototype and must pass full security/feature-parity rejection gates; unsupported MVC, SPA, reflection, notification or administration features cannot be deleted to make it compile.
 
-The startup log line `Runtime tuning effective values` records startup-sensitive CLR knobs as `*Observed` values and separately reports whether they were `*InProcessApplied`; ReadyToRun, QuickJitForLoops, and TieredPGO must remain `false` for in-process applied because app code cannot reliably mutate them after process start. The same log records before/after ThreadPool minimums, which are the runtime tuning values the process can apply in-process. `tools/operations/collect-release-evidence.sh` also records the effective `DOTNET_*` runtime preset values, optional ThreadPool override evidence, the perf artifact pointer, and the rollback instruction in `evidenceSummary.operations.runtimeTuning`. Prefer measuring request path, search rebuild, and Public AOT backfill latency before raising these defaults in production; rollback is to unset deployment `DOTNET_*` overrides and restart on the same image.
+The startup log line `Runtime tuning effective values` records profile ID and both digests, runtime identifier/framework, observed Server GC, container-visible processor count and GC memory ceiling, startup-sensitive CLR knobs as `*Observed`, and before/after ThreadPool minimums. ReadyToRun, QuickJitForLoops and TieredPGO remain `false` for in-process applied because app code cannot reliably mutate them after process start. `tools/operations/collect-release-evidence.sh` also records the effective `DOTNET_*` values and rollback instruction. Promotion rollback is an immutable rebuild/redeploy of the previously selected named profile; a ThreadPool-only operational rollback may restore runtime-default and restart the same retained image, but must not rewrite the release manifest or OCI labels in place.
 
 Toolchain pins are part of the release input. The Docker wasm builder pins Emscripten by image digest and vcpkg by `VCPKG_COMMIT`; bump both in the Dockerfile in the same commit as the rebuild evidence.
 

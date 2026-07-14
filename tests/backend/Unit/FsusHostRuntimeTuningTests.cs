@@ -68,6 +68,61 @@ public sealed class FsusHostRuntimeTuningTests
     }
 
     [Fact]
+    public void Apply_ReportsActualStartupEnvironmentAndProfileIdentity()
+    {
+        string[] names =
+        [
+            "DOTNET_ReadyToRun",
+            "DOTNET_TC_QuickJitForLoops",
+            "DOTNET_TieredPGO",
+            "FSUSBLOG_RUNTIME_PROFILE_ID",
+            "FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST",
+            "FSUSBLOG_RUNTIME_PROFILE_DIGEST"
+        ];
+        Dictionary<string, string?> original = names.ToDictionary(
+            static name => name,
+            static name => Environment.GetEnvironmentVariable(name),
+            StringComparer.Ordinal);
+        try
+        {
+            Environment.SetEnvironmentVariable("DOTNET_ReadyToRun", "0");
+            Environment.SetEnvironmentVariable("DOTNET_TC_QuickJitForLoops", "0");
+            Environment.SetEnvironmentVariable("DOTNET_TieredPGO", "1");
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_ID", "throughput-musl");
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST", "sha256:" + new string('a', 64));
+            Environment.SetEnvironmentVariable("FSUSBLOG_RUNTIME_PROFILE_DIGEST", "sha256:" + new string('b', 64));
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["RuntimeTuning:ReadyToRun"] = "1",
+                    ["RuntimeTuning:QuickJitForLoops"] = "1",
+                    ["RuntimeTuning:TieredPGO"] = "0"
+                })
+                .Build();
+
+            FsusHostRuntimeTuningReport report = FsusHostRuntimeTuning.Apply(configuration);
+
+            Assert.Equal("0", report.ReadyToRun);
+            Assert.Equal("0", report.QuickJitForLoops);
+            Assert.Equal("1", report.TieredPgo);
+            Assert.Equal("throughput-musl", report.RuntimeProfileId);
+            Assert.Matches("^sha256:[0-9a-f]{64}$", report.RuntimeProfileManifestDigest);
+            Assert.Matches("^sha256:[0-9a-f]{64}$", report.RuntimeProfileDigest);
+            Assert.NotEmpty(report.RuntimeIdentifier);
+            Assert.NotEmpty(report.FrameworkDescription);
+            Assert.True(report.ProcessorCount > 0);
+            Assert.True(report.TotalAvailableMemoryBytes > 0);
+        }
+        finally
+        {
+            foreach ((string name, string? value) in original)
+            {
+                Environment.SetEnvironmentVariable(name, value);
+            }
+        }
+    }
+
+    [Fact]
     public void RuntimeTuningLog_RuntimeMetadataSeparatesObservedConfigFromInProcessApplied()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(FsusHostRuntimeTuningLogService));
@@ -78,6 +133,11 @@ public sealed class FsusHostRuntimeTuningTests
         Assert.Contains("QuickJitForLoopsInProcessApplied={QuickJitForLoopsApplied}", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("TieredPGOObserved={TieredPgo}", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("TieredPGOInProcessApplied={TieredPgoApplied}", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("Profile={RuntimeProfileId}", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ProfileManifestDigest={RuntimeProfileManifestDigest}", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ServerGC={ServerGc}", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("ProcessorCount={ProcessorCount}", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("TotalAvailableMemoryBytes={TotalAvailableMemoryBytes}", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("StartupEnvMutated", runtimeShape, StringComparison.Ordinal);
     }
 
@@ -116,6 +176,8 @@ public sealed class FsusHostRuntimeTuningTests
             Assert.Matches("^[0-9a-f]{40}$", contract.GetProperty("build").GetProperty("vcpkgCommit").GetString());
             Assert.Equal("required", contract.GetProperty("runtime").GetProperty("node").GetString());
             Assert.Equal("forbidden", contract.GetProperty("runtime").GetProperty("npm").GetString());
+            Assert.Equal("throughput-musl", contract.GetProperty("runtime").GetProperty("profileId").GetString());
+            Assert.Matches("^sha256:[0-9a-f]{64}$", contract.GetProperty("runtime").GetProperty("profileDigest").GetString());
             Assert.Equal("false", contract.GetProperty("runtime").GetProperty("publishReadyToRun").GetString());
             string calls = await File.ReadAllTextAsync(dockerLog);
             Assert.Contains("pull ghcr.io/fsusblog/app@sha256:", calls, StringComparison.Ordinal);
@@ -182,6 +244,18 @@ public sealed class FsusHostRuntimeTuningTests
             *io.fsusblog.runtime.node*) printf '%s\n' required ;;
             *io.fsusblog.runtime.npm*) printf '%s\n' forbidden ;;
             *io.fsusblog.runtime.publish-ready-to-run*) printf '%s\n' false ;;
+            *io.fsusblog.runtime.profile-id*) printf '%s\n' throughput-musl ;;
+            *io.fsusblog.runtime.profile-manifest-digest*) printf 'sha256:%064d\n' 0 ;;
+            *io.fsusblog.runtime.profile-digest*) printf 'sha256:%064d\n' 1 ;;
+            *io.fsusblog.runtime.base-family*) printf '%s\n' musl ;;
+            *io.fsusblog.runtime.target-runtime*) printf '%s\n' linux-musl-x64 ;;
+            *io.fsusblog.runtime.publish-single-file*) printf '%s\n' true ;;
+            *io.fsusblog.runtime.tiered-pgo*) printf '%s\n' true ;;
+            *io.fsusblog.runtime.quick-jit-for-loops*) printf '%s\n' true ;;
+            *io.fsusblog.runtime.server-gc*) printf '%s\n' true ;;
+            *io.fsusblog.runtime.native-aot*) printf '%s\n' false ;;
+            *io.fsusblog.runtime.thread-pool-mode*) printf '%s\n' runtime-default ;;
+            *io.fsusblog.runtime.topology-mode*) printf '%s\n' smt-visible ;;
             *) exit 2 ;;
           esac
           exit 0

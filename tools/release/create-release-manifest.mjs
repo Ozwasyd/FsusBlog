@@ -40,6 +40,21 @@ try {
     nodeVersion: options['node-version'],
     dockerVersion: options['docker-version'],
     dockerfileDigest: options['dockerfile-digest'],
+    runtimeProfile: options['runtime-profile-id'] ? {
+      id: options['runtime-profile-id'],
+      manifestDigest: options['runtime-profile-manifest-digest'],
+      profileDigest: options['runtime-profile-digest'],
+      baseImageFamily: options['runtime-base-family'],
+      targetRuntime: options['target-runtime'],
+      singleFile: parseBoolean(options['publish-single-file'], '--publish-single-file'),
+      readyToRun: parseBoolean(options['publish-ready-to-run'], '--publish-ready-to-run'),
+      tieredPgo: parseBoolean(options['tiered-pgo'], '--tiered-pgo'),
+      quickJitForLoops: parseBoolean(options['quick-jit-for-loops'], '--quick-jit-for-loops'),
+      serverGc: parseBoolean(options['server-gc'], '--server-gc'),
+      nativeAot: parseBoolean(options['native-aot'], '--native-aot'),
+      threadPoolMode: options['thread-pool-mode'],
+      topologyMode: options['topology-mode']
+    } : undefined,
     target: 'final'
   })
   const output = path.resolve(options.output)
@@ -48,4 +63,10 @@ try {
 } catch (error) {
   console.error(`[create-release-manifest] ${error instanceof Error ? error.message : String(error)}`)
   process.exitCode = 1
+}
+
+function parseBoolean(value, label) {
+  if (value === 'true') return true
+  if (value === 'false') return false
+  throw new Error(`${label} must be true or false`)
 }

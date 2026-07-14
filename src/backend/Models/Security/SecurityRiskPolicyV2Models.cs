@@ -177,6 +177,13 @@ public sealed record SecurityRiskPolicySnapshotV2(
         return DefaultAction with { ActionName = normalizedAction };
     }
 
+    public bool RequiresRiskScoreLookup(string? actionName)
+    {
+        SecurityRiskActionPolicy actionPolicy = ResolveActionPolicy(actionName);
+        string mode = SecuritySystemModes.Normalize(actionPolicy.ModeOverride ?? GlobalMode);
+        return mode != SecuritySystemModes.Disabled;
+    }
+
     public SecurityRiskPolicyDecision Evaluate(string? actionName, int riskScore, bool isAnonymousWrite = false)
     {
         SecurityRiskActionPolicy actionPolicy = ResolveActionPolicy(actionName);

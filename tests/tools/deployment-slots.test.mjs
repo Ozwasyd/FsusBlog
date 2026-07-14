@@ -42,6 +42,21 @@ function releaseInput(releaseId, imageDigest) {
     nodeVersion: 'v20.19.0',
     dockerVersion: '28.0.0',
     dockerfileDigest: `sha256:${'d'.repeat(64)}`,
+    runtimeProfile: {
+      id: 'throughput-musl',
+      manifestDigest: `sha256:${'0'.repeat(64)}`,
+      profileDigest: `sha256:${'1'.repeat(64)}`,
+      baseImageFamily: 'musl',
+      targetRuntime: 'linux-musl-x64',
+      singleFile: true,
+      readyToRun: false,
+      tieredPgo: true,
+      quickJitForLoops: true,
+      serverGc: true,
+      nativeAot: false,
+      threadPoolMode: 'runtime-default',
+      topologyMode: 'smt-visible'
+    },
     target: 'final'
   }
 }
@@ -283,6 +298,8 @@ test('slot preflight enforces target image runtime contract without touching act
   assert.match(blueResult.preflight.imageContract.build.vcpkgCommit, /^[0-9a-f]{40}$/u)
   assert.equal(blueResult.preflight.imageContract.runtime.node, 'required')
   assert.equal(blueResult.preflight.imageContract.runtime.npm, 'forbidden')
+  assert.equal(blueResult.preflight.imageContract.runtime.profileId, 'throughput-musl')
+  assert.match(blueResult.preflight.imageContract.runtime.profileManifestDigest, /^sha256:[0-9a-f]{64}$/u)
   assert.equal(blueResult.preflight.imageContract.runtime.publishReadyToRun, 'false')
 
   const activate = spawnSync(process.execPath, [
@@ -297,7 +314,9 @@ test('slot preflight enforces target image runtime contract without touching act
     ['vcpkg-unpinned', /vcpkg commit label/u],
     ['node-label-invalid', /node contract label/u],
     ['npm-label-invalid', /npm contract label/u],
-    ['ready-to-run-enabled', /publish-ready-to-run label/u],
+    ['runtime-boolean-invalid', /runtime boolean label/u],
+    ['profile-digest-invalid', /runtime profile digest label/u],
+    ['profile-digest-mismatch', /runtime profile labels do not match/u],
     ['node-missing', /must provide node/u],
     ['npm-present', /must not provide npm/u]
   ]) {
@@ -482,7 +501,22 @@ if [[ "\${1:-}" == "image" && "\${2:-}" == "inspect" ]]; then
       [[ "$contract_mode" == "npm-label-invalid" ]] && printf 'allowed\\n' || printf 'forbidden\\n' ;;
     *io.fsusblog.runtime.publish-ready-to-run*)
       printf 'contract:inspect:io.fsusblog.runtime.publish-ready-to-run\\n' >> "$log"
-      [[ "$contract_mode" == "ready-to-run-enabled" ]] && printf 'true\\n' || printf 'false\\n' ;;
+      [[ "$contract_mode" == "runtime-boolean-invalid" ]] && printf 'maybe\\n' || printf 'false\\n' ;;
+    *io.fsusblog.runtime.profile-id*) printf 'throughput-musl\\n' ;;
+    *io.fsusblog.runtime.profile-manifest-digest*) printf 'sha256:%064d\\n' 0 ;;
+    *io.fsusblog.runtime.profile-digest*)
+      if [[ "$contract_mode" == "profile-digest-invalid" ]]; then printf 'missing\\n'
+      elif [[ "$contract_mode" == "profile-digest-mismatch" ]]; then printf 'sha256:2222222222222222222222222222222222222222222222222222222222222222\\n'
+      else printf 'sha256:1111111111111111111111111111111111111111111111111111111111111111\\n'; fi ;;
+    *io.fsusblog.runtime.base-family*) printf 'musl\\n' ;;
+    *io.fsusblog.runtime.target-runtime*) printf 'linux-musl-x64\\n' ;;
+    *io.fsusblog.runtime.publish-single-file*) printf 'true\\n' ;;
+    *io.fsusblog.runtime.tiered-pgo*) printf 'true\\n' ;;
+    *io.fsusblog.runtime.quick-jit-for-loops*) printf 'true\\n' ;;
+    *io.fsusblog.runtime.server-gc*) printf 'true\\n' ;;
+    *io.fsusblog.runtime.native-aot*) printf 'false\\n' ;;
+    *io.fsusblog.runtime.thread-pool-mode*) printf 'runtime-default\\n' ;;
+    *io.fsusblog.runtime.topology-mode*) printf 'smt-visible\\n' ;;
     *RepoDigests*) printf '%s\\n' "\${FSUSBLOG_IMAGE_REF:-}" ;;
     *image.version*) printf '%s\\n' "\${FSUSBLOG_RELEASE_ID:-}" ;;
     *image.revision*) printf '%s\\n' "\${FSUSBLOG_COMMIT_SHA:-}" ;;

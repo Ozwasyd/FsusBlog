@@ -50,9 +50,19 @@ export GITHUB_PACKAGES_TOKEN=...
   --env-file .env.production
 ```
 
-`slot-preflight.sh` 对 manifest 选中的精确 `repository@sha256:<64 lowercase hex>` 执行 fail-closed 镜像运行时契约。它先 pull 目标 digest，再 inspect OCI labels：`io.fsusblog.build.vcpkg-commit` 必须是完整 40 位小写 Git SHA，`io.fsusblog.runtime.node=required`、`io.fsusblog.runtime.npm=forbidden`、`io.fsusblog.runtime.publish-ready-to-run=false`。随后它以临时容器执行 `command -v node`，并证明 `npm` 不存在。可变 tag、无效 digest、pull/inspect 失败、label 不匹配、Node 缺失或 npm 存在都会在 Compose candidate 启动前终止；持久化 active slot 不变，也不会启动 candidate。
+`slot-preflight.sh` 对 manifest 选中的精确 `repository@sha256:<64 lowercase hex>` 执行 fail-closed 镜像运行时契约。它先 pull 目标 digest，再 inspect OCI labels：`io.fsusblog.build.vcpkg-commit` 必须是完整 40 位小写 Git SHA，`io.fsusblog.runtime.node=required`、`io.fsusblog.runtime.npm=forbidden`；`profile-id`、catalog/profile digest、base family、RID、single-file、R2R、PGO、QuickJIT、Server GC、ThreadPool 与 topology labels 必须完整且与 release manifest 的 `runtimeProfile` 逐字段一致。R2R 可以由受控 startup profile 启用，不再被错误地全局固定为 false。随后 preflight 以临时容器执行 `command -v node`，并证明 `npm` 不存在。可变 tag、无效 digest、pull/inspect 失败、profile 漂移、musl/glibc 不匹配、Node 缺失或 npm 存在都会在 Compose candidate 启动前终止；持久化 active slot 不变，也不会启动 candidate。
+
+Runtime profile qualification additionally seals physical-core/SMT and NUMA topology identity. The executor must echo the observed target cpuset, not only the requested plan. Physical-core placement rejects sibling threads from one core; NUMA-local placement must fit one observed node. Hidden topology is explicitly `unavailable` with a reason, and a single visible NUMA node is `not-applicable`; neither state may be replaced with synthetic topology evidence.
 
 单独诊断同一契约时使用 `bash tools/deployment/image-runtime-contract.sh '<repository>@sha256:<digest>'`。该命令会实际 pull/inspect/run 目标镜像，不是离线 Dockerfile 检查；失败后应重新构建并推送修正后的新 digest，再生成新 manifest，禁止用 tag 覆盖或跳过 preflight。
+
+### Runtime/publish profile qualification
+
+运行前先用 `check-runtime-publish-profiles.mjs` 验证 catalog。资格测试必须使用同一 commit、数据 fixture、目标机、cgroup/cpuset、代理/TLS、PostgreSQL 和 Redis 配置；load generator 与 target CPU 必须隔离。不要把跨机器结果拼成三轮，也不要把 acceptance 环境的 burst-derived ThreadPool minimum 当生产默认值。
+
+矩阵 evidence 可以在中断后保留 `partial` checkpoint；继续时向同一参数集传 `--resume-from <evidence>`。resume 会核验 commit、fixture、hardware、profile manifest、profile 顺序、轮数、cooldown 与完整 schedule，只跳过已经成功的 schedule key，并对缺失或失败 key 追加新 attempt。`runs` 是不可删减的全量 attempt history：失败记录必须位于同 key 的最终成功之前；complete artifact 要求每个 schedule key 恰有一个最终成功，comparison 只汇总这些成功样本。只有 `check-runtime-publish-evidence.mjs` 在非 `--allow-partial` 模式通过的三轮 artifact 才能进入选型。完整运行必须传入基于 `runtime-publish-selection-policy.example.json` 的站点 policy：写明候选、绝对预算以及 `select-candidate` 或 `retain-baseline`，不得留下 `unselected` 人工占位。使用仓库 `execute-runtime-publish-profile.mjs` 和基于 example 的私有 site plan；保留 `auto-balanced` 隔离，让 executor 从当前进程可见 cpuset 和 physical-core sibling 拓扑动态分配 target/loadgen，不得写死宿主 CPU 编号或用宿主总核数越过 cgroup。plan 的 direct commands 必须在 measurement output 中回读 resolved target/loadgen cpuset、cgroup、quiet window 与隔离状态。默认完整矩阵覆盖所有无 `conditionalAdmission` 的必测 profile；NativeAOT 必须单独跑 partial experiment，只有 narrow prototype 的 build、feature parity、security parity 全通过后才允许进入比较，不能靠删功能凑成完整矩阵。失败 profile 必须保留错误；不得删除失败轮次、减少六类 route、关闭安全/release gate 或把 NativeAOT 缺失功能称为优化。选型记录必须同时引用逐 route median/CV、每轮 min safe-RPS/max p99.9、pairwise、Pareto、variance/materiality、JIT/GC/LOH/ThreadPool/migration/IPC、power availability、blue/green overlap、startup/steady-state/fault/recovery 证据，并绑定 catalog/profile digest。收集 release evidence 时，sealed selected profile 与环境中的 release profile/digests 不一致即 fail closed。
+
+回退始终选择 registry 中仍保留的旧 profile immutable digest，并按正常 rollout 生成新的单调 generation。不要修改现有 image labels、manifest 或 mutable tag。若只撤销 evidence-derived ThreadPool minimum，恢复 `runtime-default` 的部署设置并重启对应 retained image；确认 ThreadPool queue/starvation、context switches、RSS 与 p99.9 恢复后再继续 rollout。
 
 ## Rollout
 

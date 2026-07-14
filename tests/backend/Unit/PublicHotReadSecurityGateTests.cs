@@ -98,6 +98,45 @@ public sealed class PublicHotReadSecurityGateTests
         await reader.Received(1).GetRiskScoreAsync(context, context.RequestAborted);
     }
 
+    [Fact]
+    public async Task SecurityGate_DisabledPublicReadSkipsRiskScoreLookupAndStillUsesDecisionService()
+    {
+        var sink = new CapturingRiskSink();
+        ISecurityRiskScoreReader reader = Substitute.For<ISecurityRiskScoreReader>();
+        IRiskDecisionService decision = CreateDecisionService(RiskDecisionKind.Allow);
+        SecurityRiskPolicySnapshotV2 policy = CreatePolicy();
+        policy = policy with
+        {
+            ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
+            {
+                [RiskActionNames.PublicRead] = policy.DefaultAction with
+                {
+                    ActionName = RiskActionNames.PublicRead,
+                    ModeOverride = SecuritySystemModes.Disabled
+                }
+            }
+        };
+        PublicReadSecurityGate gate = CreateGate(reader, sink, decision, policy: policy);
+        DefaultHttpContext context = CreateContext();
+        AttachCandidateFeature(context);
+        bool nextCalled = false;
+        var middleware = new PublicHotReadSecurityGateMiddleware(_ =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+
+        await middleware.InvokeAsync(context, gate);
+
+        Assert.True(nextCalled);
+        Assert.Empty(sink.Signals);
+        await reader.DidNotReceiveWithAnyArgs().GetRiskScoreAsync((HttpContext)default!, default);
+        _ = decision.Received(1).Decide(
+            Arg.Any<RiskControlContext>(),
+            policy,
+            0);
+    }
+
     [Theory]
     [InlineData("VerifiedCrawler")]
     [InlineData("SocialPreviewBot")]
@@ -190,11 +229,12 @@ public sealed class PublicHotReadSecurityGateTests
         ISecurityRiskScoreReader riskScoreReader,
         ISecurityRiskSignalSink riskSignalSink,
         IRiskDecisionService riskDecisionService,
-        IPowService? powService = null)
+        IPowService? powService = null,
+        SecurityRiskPolicySnapshotV2? policy = null)
         => new(
             riskScoreReader,
             riskSignalSink,
-            CreatePolicyProvider(),
+            CreatePolicyProvider(policy),
             new RiskControlContextFactory(),
             riskDecisionService,
             NullLogger<PublicReadSecurityGate>.Instance,
@@ -248,10 +288,10 @@ public sealed class PublicHotReadSecurityGateTests
         return reader;
     }
 
-    private static ISecurityRiskPolicyProvider CreatePolicyProvider()
+    private static ISecurityRiskPolicyProvider CreatePolicyProvider(SecurityRiskPolicySnapshotV2? policy = null)
     {
         var provider = Substitute.For<ISecurityRiskPolicyProvider>();
-        provider.CurrentRiskPolicyV2.Returns(CreatePolicy());
+        provider.CurrentRiskPolicyV2.Returns(policy ?? CreatePolicy());
         return provider;
     }
 

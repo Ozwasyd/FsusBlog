@@ -63,6 +63,35 @@
       ]
     },
     {
+      "id": "runtime-publish-profile-matrix",
+      "description": "Named .NET/container publish profiles are one-factor comparable, digest-bound to release images and measured across all production route classes on isolated target/load-generator resources.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        "tests/tools/runtime-publish-profile.test.mjs",
+        "tools/runtime-profiles/runtime-publish-profiles.json",
+        "tools/runtime-profiles/runtime-publish-profile.mjs",
+        "tools/runtime-profiles/runtime-publish-evidence.mjs",
+        "tools/runtime-profiles/run-runtime-publish-matrix.mjs",
+        "tools/runtime-profiles/execute-runtime-publish-profile.mjs",
+        "tools/runtime-profiles/runtime-publish-executor-plan.example.json",
+        "tools/runtime-profiles/check-runtime-publish-evidence.mjs",
+        "tools/runtime-profiles/runtime-publish-selection-policy.example.json",
+        "tools/operations/collect-release-evidence.sh",
+        "tools/frontend/ensure-wasm.mjs",
+        "ops/docker/FsusBlog.Server.Dockerfile",
+        "tools/build-final-image.sh",
+        "docs/production.md",
+        "docs/operations.md"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "The static-governance lane must reject mixed-factor controls, missing profile/OCI identity, cross-SHA or cross-hardware evidence, incomplete routes or rounds, unisolated load generation, invented unavailable counters, unsealed or release-mismatched selection, per-route regressions, unproven ThreadPool tuning and NativeAOT without feature/security parity.",
+      "minimumRequirement": "Evidence must cover musl/glibc, PGO, QuickJIT, R2R, single-file, GC, ThreadPool and topology controls; three balanced same-SHA rounds; six route classes; startup, steady-state, failure, recovery, GC/JIT/LOH/IPC/resource metrics; absolute and relative selection guardrails; and immutable rollback instructions.",
+      "tierIds": [
+        "static-governance"
+      ]
+    },
+    {
       "id": "integrity-proof-verification",
       "description": "Integrity proof verifier accepts deterministic canonical hash, artifact digest, signature, transparency log, checkpoint, inclusion proof and public key registry fixtures.",
       "owner": "ServerContractAgent",

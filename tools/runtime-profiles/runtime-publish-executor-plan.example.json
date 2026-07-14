@@ -1,0 +1,18 @@
+{
+  "schema": "fsusblog.runtime-publish-executor-plan.v1",
+  "isolation": {
+    "strategy": "auto-balanced",
+    "cgroupPrefix": "/fsusblog/runtime-matrix"
+  },
+  "commands": {
+    "cleanupBefore": { "file": "/opt/fsus/bin/runtime-profile-stage", "args": [], "timeoutMs": 300000 },
+    "build": { "file": "/opt/fsus/bin/runtime-profile-stage", "args": [], "timeoutMs": 7200000 },
+    "correctness": { "file": "/opt/fsus/bin/runtime-profile-stage", "args": [], "timeoutMs": 1800000 },
+    "security": { "file": "/opt/fsus/bin/runtime-profile-stage", "args": [], "timeoutMs": 1800000 },
+    "release": { "file": "/opt/fsus/bin/runtime-profile-stage", "args": [], "timeoutMs": 1800000 },
+    "featureParity": { "file": "/opt/fsus/bin/runtime-profile-stage", "args": [], "timeoutMs": 1800000 },
+    "securityParity": { "file": "/opt/fsus/bin/runtime-profile-stage", "args": [], "timeoutMs": 1800000 },
+    "measure": { "file": "/opt/fsus/bin/runtime-profile-stage", "args": [], "timeoutMs": 7200000 },
+    "cleanupAfter": { "file": "/opt/fsus/bin/runtime-profile-stage", "args": [], "timeoutMs": 300000 }
+  }
+}

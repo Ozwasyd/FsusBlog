@@ -15,6 +15,7 @@ STAGE_BASIC_DIR="${STAGE_DIR}/wasm-basic"
 STAGE_RELAXED_POW_DIR="${STAGE_DIR}/wasm-pow-relaxed"
 STAGE_THREADS_POW_DIR="${STAGE_DIR}/wasm-pow-threads"
 BUILD_IMAGE_CODEC="${FSUSBLOG_WASM_IMAGE_CODEC_ENABLE:-ON}"
+COMMENT_PRIVACY_PROVER_KEY="${FSUSBLOG_COMMENT_PROVER_KEY:-${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_final.fsg16pk}"
 
 detect_cpu_count() {
   local detected=""
@@ -132,6 +133,11 @@ if [[ "${1:-}" == "--print-resource-plan" ]]; then
   exit 0
 fi
 
+if [[ ! -f "${COMMENT_PRIVACY_PROVER_KEY}" ]]; then
+  echo "[build:wasm] comment privacy proving key is missing: ${COMMENT_PRIVACY_PROVER_KEY}" >&2
+  exit 1
+fi
+
 mkdir -p \
   "${OUT_DIR}" \
   "${BUILD_SIMD_DIR}" \
@@ -200,6 +206,12 @@ cmake_is_supported() {
   [[ -x "${candidate}" ]] || return 1
   version="$(${candidate} --version 2>/dev/null | head -n 1 | sed -E 's/.* ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
   [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  # Every configure path below uses `cmake --fresh`, which was introduced in
+  # CMake 3.24. Reusing an older distro CMake makes the container build fail
+  # only after the expensive codec dependency bootstrap has completed.
+  if version_less_than "${version}" "3.24.0"; then
+    return 1
+  fi
   if ! version_less_than "${version}" "4.2.0" && version_less_than "${version}" "4.3.3"; then
     return 1
   fi
@@ -477,7 +489,7 @@ cp -f "${STAGE_BASIC_DIR}/search_basic.wasm" "${OUT_DIR}/search_basic.wasm"
 cp -f "${STAGE_SIMD_DIR}/comment_privacy_runtime.js" "${OUT_DIR}/comment_privacy_runtime.js"
 cp -f "${STAGE_SIMD_DIR}/comment_privacy_runtime.wasm" "${OUT_DIR}/comment_privacy_runtime.wasm"
 cp -f "${WASM_ROOT}/comment_privacy/comment-privacy-prover.js" "${OUT_DIR}/comment-privacy-prover.js"
-cp -f "${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_final.fsg16pk" "${OUT_DIR}/comment-privacy-prover.zkey"
+cp -f "${COMMENT_PRIVACY_PROVER_KEY}" "${OUT_DIR}/comment-privacy-prover.zkey"
 if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUILD_IMAGE_CODEC}" == "TRUE" ]]; then
   cp -f "${STAGE_SIMD_DIR}/image_codec_simd.js" "${OUT_DIR}/image_codec_simd.js"
   cp -f "${STAGE_SIMD_DIR}/image_codec_simd.wasm" "${OUT_DIR}/image_codec_simd.wasm"
