@@ -2,6 +2,8 @@
 
 import { createHash, createHmac } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   decodeAedsFrame,
   encodeAdminChangeStatusRequest,
@@ -50,7 +52,8 @@ const FRAME_CONVERSATION_CREATE_REQUEST = 59;
 const FRAME_CONVERSATION_REPLY_REQUEST = 60;
 const FRAME_CONVERSATION_STATUS_REQUEST = 61;
 const FRAME_SYSTEM_MESSAGE_REQUEST = 62;
-const powWasmRoot = new URL('../../../src/frontend/public/wasm/', import.meta.url);
+const powWasmRoot = pathToFileURL(`${resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT
+  || new URL('../../../src/frontend/public/wasm/', import.meta.url).pathname)}/`);
 const nodePowAssetKinds = ['relaxed', 'simd', 'basic'];
 const nodePowBatchSize = Math.max(
   1,

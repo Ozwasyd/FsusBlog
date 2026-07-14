@@ -18,7 +18,7 @@ const trxRoot = path.join(root, '.tmp/test-results/backend/production')
 const summaryFile = path.join(trxRoot, 'summary.json')
 const markerFile = path.join(root, '.tmp/test-runs', runId, 'backend-tests-ready.json')
 const projectionFile = path.join(trxRoot, 'perception-v2-union-projection.json')
-const testDll = path.join(root, 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll')
+const testDll = path.resolve(process.env.FSUSBLOG_BACKEND_TEST_DLL || path.join(root, 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll'))
 const expectedTests = [
   'FsusBlog.Server.Tests.Unit.PerceptionChallengeV2E2eTests.CommentCreateFlow_FailsClosedForWrongAnswerExpiredReplayAndBindingMismatch',
   'FsusBlog.Server.Tests.Unit.PerceptionChallengeV2E2eTests.CommentCreateFlow_IssueRenderVerifyProofResume_WritesReleaseEvidence'

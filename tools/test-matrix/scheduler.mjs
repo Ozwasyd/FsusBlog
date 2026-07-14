@@ -6,7 +6,8 @@ import process from 'node:process'
 import { spawn, spawnSync } from 'node:child_process'
 
 import {
-  artifactSubstitutionBindingDigest
+  artifactSubstitutionBindingDigest,
+  resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
@@ -356,21 +357,22 @@ export function aggregateArtifactPathExists({ root: rootValue, downloadedRoot: d
   return downloadedPaths.some((candidate) => candidate === normalized || candidate.endsWith(`/${normalized}`))
 }
 
-export function snapshotTierOutputs(rootValue, tier) {
+export function snapshotTierOutputs(rootValue, tier, env = process.env) {
   const root = path.resolve(rootValue)
   const declarations = [...new Set([...(tier.artifacts ?? []), ...(tier.evidence ?? [])].map(String))].sort()
   const entries = {}
   let reusable = true
   for (const declaration of declarations) {
     const normalized = declaration.replace(/^\.\//u, '').replaceAll('\\', '/')
-    const matcher = wildcardPattern(normalized)
-    const absoluteDeclaration = path.resolve(root, normalized)
+    const resolvedDeclaration = resolveRunBoundArtifactDeclaration(root, normalized, env)
+    const matcher = wildcardPattern(resolvedDeclaration)
+    const absoluteDeclaration = path.resolve(root, resolvedDeclaration)
     if (!absoluteDeclaration.startsWith(`${root}${path.sep}`) && absoluteDeclaration !== root) {
       entries[normalized] = 'outside-root'
       reusable = false
       continue
     }
-    if (!hasWildcard(normalized)) {
+    if (!hasWildcard(resolvedDeclaration)) {
       if (!fs.existsSync(absoluteDeclaration)) {
         entries[normalized] = 'missing'
         reusable = false
@@ -380,7 +382,7 @@ export function snapshotTierOutputs(rootValue, tier) {
       continue
     }
 
-    const searchRoot = wildcardSearchRoot(root, normalized)
+    const searchRoot = wildcardSearchRoot(root, resolvedDeclaration)
     const matches = fs.existsSync(searchRoot)
       ? walkOutputPaths(searchRoot)
         .map((absolutePath) => path.relative(root, absolutePath).replaceAll(path.sep, '/'))
@@ -435,15 +437,16 @@ function ownedGeneratedDeclarations(tier, byId) {
   })
 }
 
-function outputProvenance(root, declarations) {
+function outputProvenance(root, declarations, env = process.env) {
   const entries = {}
   for (const declaration of declarations) {
     const normalized = String(declaration).replace(/^\.\//u, '').replaceAll('\\', '/')
-    const matcher = wildcardPattern(normalized)
-    const absolute = path.resolve(root, normalized)
-    const matches = hasWildcard(normalized)
-      ? (fs.existsSync(wildcardSearchRoot(root, normalized))
-          ? walkOutputPaths(wildcardSearchRoot(root, normalized)).filter((candidate) => matcher.test(path.relative(root, candidate).replaceAll(path.sep, '/')))
+    const resolvedDeclaration = resolveRunBoundArtifactDeclaration(root, normalized, env)
+    const matcher = wildcardPattern(resolvedDeclaration)
+    const absolute = path.resolve(root, resolvedDeclaration)
+    const matches = hasWildcard(resolvedDeclaration)
+      ? (fs.existsSync(wildcardSearchRoot(root, resolvedDeclaration))
+          ? walkOutputPaths(wildcardSearchRoot(root, resolvedDeclaration)).filter((candidate) => matcher.test(path.relative(root, candidate).replaceAll(path.sep, '/')))
           : [])
       : (fs.existsSync(absolute) ? [absolute] : [])
     for (const candidate of matches.sort()) {
@@ -460,20 +463,21 @@ function outputProvenance(root, declarations) {
   return { entries, fingerprint: fingerprint(entries) }
 }
 
-function cleanFreshOwnedFiles(root, declarations) {
+function cleanFreshOwnedFiles(root, declarations, env = process.env) {
   for (const declaration of declarations) {
     const normalized = String(declaration).replace(/^\.\//u, '').replaceAll('\\', '/')
-    if (hasWildcard(normalized)) {
-      const searchRoot = wildcardSearchRoot(root, normalized)
+    const resolvedDeclaration = resolveRunBoundArtifactDeclaration(root, normalized, env)
+    if (hasWildcard(resolvedDeclaration)) {
+      const searchRoot = wildcardSearchRoot(root, resolvedDeclaration)
       if (!fs.existsSync(searchRoot)) continue
-      const matcher = wildcardPattern(normalized)
+      const matcher = wildcardPattern(resolvedDeclaration)
       const matches = walkOutputPaths(searchRoot)
         .filter((candidate) => matcher.test(path.relative(root, candidate).replaceAll(path.sep, '/')))
         .sort((left, right) => right.length - left.length)
       for (const candidate of matches) fs.rmSync(candidate, { recursive: true, force: true })
       continue
     }
-    const absolute = path.resolve(root, normalized)
+    const absolute = path.resolve(root, resolvedDeclaration)
     if (fs.existsSync(absolute)) fs.rmSync(absolute, { recursive: true, force: true })
   }
 }
@@ -1307,6 +1311,7 @@ async function runDagUnlocked(options) {
     commit: gitHead(root),
     worktreeFingerprint: runSourceSnapshot.fingerprint
   }
+  await options.onSourceState?.(sourceState)
   const resources = options.systemResources ?? defaultSystemResources()
   const budget = resourceBudget(resources)
   const maxParallel = Math.max(1, Math.floor(Number(options.maxParallel) || resources.cpuCount || 1))
@@ -1549,9 +1554,9 @@ async function runDagUnlocked(options) {
       : tier)
   }
 
-  const completeReusedTier = (tier, inputFingerprint, dependencyFingerprintValue) => {
+  const completeReusedTier = (tier, inputFingerprint, dependencyFingerprintValue, tierEnvironment) => {
     const previousTier = previous?.tiers?.[tier.id]
-    const currentOutputs = snapshotTierOutputs(root, tier)
+    const currentOutputs = snapshotTierOutputs(root, tier, tierEnvironment)
     if (
       previousTier?.status !== 'success'
       || previousTier.inputFingerprint !== inputFingerprint
@@ -1594,11 +1599,11 @@ async function runDagUnlocked(options) {
       repositoryFingerprint: conservativeRepositoryFingerprint
     })
     const dependencyFingerprintValue = dependencyFingerprint(tier)
-    if (resume && completeReusedTier(tier, inputFingerprint, dependencyFingerprintValue)) return false
+    if (resume && completeReusedTier(tier, inputFingerprint, dependencyFingerprintValue, tierEnvironment)) return false
 
     const ownedOutputs = ownedGeneratedDeclarations(tier, byId)
-    if (!resume) cleanFreshOwnedFiles(root, ownedOutputs)
-    const beforeOutputProvenance = outputProvenance(root, ownedOutputs)
+    if (!resume) cleanFreshOwnedFiles(root, ownedOutputs, tierEnvironment)
+    const beforeOutputProvenance = outputProvenance(root, ownedOutputs, tierEnvironment)
 
     const logFile = path.join(tierLogDirectory, `${tier.id}.log`)
     fs.writeFileSync(logFile, '')
@@ -1636,6 +1641,7 @@ async function runDagUnlocked(options) {
           inputFingerprint,
           dependencyFingerprint: dependencyFingerprintValue,
           ownedOutputs,
+          tierEnvironment,
           beforeOutputProvenance,
           logFile
         }
@@ -1654,13 +1660,13 @@ async function runDagUnlocked(options) {
 
   const recordSettled = (entry, settled) => {
     const { tier } = entry
-    const { executionResult, changedPaths, durationMs, inputFingerprint, dependencyFingerprint: dependencyFingerprintValue, ownedOutputs, beforeOutputProvenance, logFile } = settled
+    const { executionResult, changedPaths, durationMs, inputFingerprint, dependencyFingerprint: dependencyFingerprintValue, ownedOutputs, tierEnvironment, beforeOutputProvenance, logFile } = settled
     const commandFailed = executionResult.code !== 0 || executionResult.signal || executionResult.error
     const polluted = changedPaths.length > 0
     const cancelled = entry.cancelRequested && firstFailure !== null
-    const outputs = snapshotTierOutputs(root, tier)
+    const outputs = snapshotTierOutputs(root, tier, tierEnvironment)
     const outputInvalid = !commandFailed && outputs.reusable !== true
-    const afterOutputProvenance = outputProvenance(root, ownedOutputs)
+    const afterOutputProvenance = outputProvenance(root, ownedOutputs, tierEnvironment)
     const staleOutputs = !commandFailed
       && !outputInvalid
       && ownedOutputs.length > 0

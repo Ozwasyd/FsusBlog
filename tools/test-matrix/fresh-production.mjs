@@ -9,29 +9,7 @@ const generatedDirectories = Object.freeze([
   '.tmp',
   'src/frontend/coverage',
   'src/frontend/test-results',
-  'src/frontend/dist',
-  'src/frontend/public/wasm',
-  'src/frontend/wasm/.artifacts',
-  'src/frontend/wasm/build-basic',
-  'src/frontend/wasm/build-simd',
-  'src/frontend/wasm/build-pow-relaxed',
-  'src/frontend/wasm/build-pow-threads',
-  'src/backend/wwwroot',
-  'src/backend/Logs',
-  'src/backend/bin',
-  'src/backend/obj',
-  'src/core/bin',
-  'src/core/obj',
-  'src/shared/bin',
-  'src/shared/obj',
-  'src/frontend/bin',
-  'src/frontend/obj',
-  'tests/backend/bin',
-  'tests/backend/obj',
-  'benchmarks/core/bin',
-  'benchmarks/core/obj',
-  'ops/docker/bin',
-  'ops/docker/obj'
+  'src/backend/Logs'
 ])
 
 export function localProductionGeneratedDirectories() {
@@ -84,6 +62,8 @@ export function assertLocalProductionCapacity({
 }
 
 export function cleanLocalProductionOutputs(root) {
+  const startedAtMs = Date.now()
+  let traversedEntryCount = 0
   const resolvedRoot = path.resolve(root)
   const localTempRoot = path.join(resolvedRoot, '.tmp')
   const externalTempRoot = fs.existsSync(localTempRoot) && fs.lstatSync(localTempRoot).isSymbolicLink()
@@ -95,7 +75,10 @@ export function cleanLocalProductionOutputs(root) {
   const dependencyCaches = [
     ['emscripten', '.tmp/emscripten-cache'],
     ['dependencies', '.tmp/dependency-cache'],
-    ['dotnet', '.tmp/data-root/cache']
+    ['dotnet', '.tmp/data-root/cache'],
+    // Build roots are reclaimed by the run-lock-aware asynchronous GC. Fresh
+    // creates a new run id and never reads these preserved compilation outputs.
+    ['builds', '.tmp/build']
   ].map(([id, relative]) => ({
     target: path.join(resolvedRoot, relative),
     preserved: externalTempRoot
@@ -115,11 +98,13 @@ export function cleanLocalProductionOutputs(root) {
       if (relativeDirectory === '.tmp' && externalTempRoot) {
         const preservedNames = new Set(dependencyCaches.map((cache) => path.basename(cache.preserved)))
         for (const entry of fs.readdirSync(externalTempRoot)) {
+          traversedEntryCount += 1
           if (preservedNames.has(entry)) continue
           fs.rmSync(path.join(externalTempRoot, entry), { recursive: true, force: true })
         }
         continue
       }
+      if (fs.existsSync(target)) traversedEntryCount += 1
       fs.rmSync(target, { recursive: true, force: true })
     }
   } finally {
@@ -128,5 +113,12 @@ export function cleanLocalProductionOutputs(root) {
       fs.mkdirSync(path.dirname(cache.target), { recursive: true })
       fs.renameSync(cache.preserved, cache.target)
     }
+  }
+  return {
+    schema: 'fsusblog.fresh-production-cleanup.v1',
+    durationMs: Date.now() - startedAtMs,
+    traversedEntryCount,
+    removedRoots: generatedDirectories.length,
+    preservedRoots: dependencyCaches.map((entry) => path.relative(resolvedRoot, entry.target).replaceAll(path.sep, '/'))
   }
 }

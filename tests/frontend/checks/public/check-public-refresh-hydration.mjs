@@ -18,10 +18,10 @@
  */
 import { createRequire } from 'node:module'
 import os from 'node:os'
-import { dirname } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { readAedsResponse } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 
@@ -52,7 +52,11 @@ const PUBLIC_RELOAD_SETTLE_TIMEOUT_MS = parsePositiveInt(
 )
 const PUBLIC_MUTATED_SITE_TITLE = 'Changed Site Settings After SSR'
 const PUBLIC_MUTATED_SITE_DESCRIPTION = 'This title should not be used by the first SPA takeover render.'
-const PUBLIC_SSR_ENTRY_URL = new URL('../../../../src/frontend/dist/server/renderPublicPage.js', import.meta.url)
+const PUBLIC_SSR_ENTRY_URL = pathToFileURL(resolve(
+  process.env.FSUSBLOG_FRONTEND_DIST_ROOT
+    || fileURLToPath(new URL('../../../../src/frontend/dist', import.meta.url)),
+  'server/renderPublicPage.js'
+))
 const PUBLIC_HYDRATION_DETECTOR_SCHEMA = 'fsusblog.public-hydration-detector.v1'
 const PUBLIC_HYDRATION_DETECTOR_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_SUMMARY_FILE
   || fileURLToPath(new URL('../../../../.tmp/release-evidence/public-hydration-detector-summary.json', import.meta.url))

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 function assert(condition, message) {
@@ -22,10 +23,11 @@ function pickExport(raw, name) {
 
 function resolveCodecAsset(kind) {
   const fileBase = kind === 'simd' ? 'image_codec_simd' : 'image_codec_basic'
-  const cwd = process.cwd().replace(/\\/g, '/').replace(/\/+$/, '')
+  const wasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT
+    || `${process.cwd()}/public/wasm`)
   return {
-    moduleUrl: pathToFileURL(`${cwd}/public/wasm/${fileBase}.js`).href,
-    wasmUrl: pathToFileURL(`${cwd}/public/wasm/${fileBase}.wasm`).href
+    moduleUrl: pathToFileURL(resolve(wasmRoot, `${fileBase}.js`)).href,
+    wasmUrl: pathToFileURL(resolve(wasmRoot, `${fileBase}.wasm`)).href
   }
 }
 

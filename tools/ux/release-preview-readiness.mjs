@@ -7,6 +7,7 @@ import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { digestDeclaredOutputs } from '../test-matrix/local-profile.mjs'
+import { resolveProductionBuildLayout } from '../test-matrix/production-build-layout.mjs'
 
 export const frontendBuildReadySchema = 'fsusblog.local-production.frontend-build-ready.v1'
 export const releasePreviewReadySchema = 'fsusblog.release-preview-ready.v1'
@@ -14,7 +15,6 @@ export const releasePreviewReadyFileName = 'release-preview-ready.json'
 export const releasePreviewHtmlCanonicalization = 'utf8-bom-crlf-trailing-newline-v1'
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const distEntryPath = 'src/frontend/dist/index.html'
 
 function sha256(value) {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`
@@ -125,6 +125,8 @@ export function validateReleasePreviewReady({ root = defaultRoot, runId, preview
 export function validateFrontendBuildReady({ root = defaultRoot, runId } = {}) {
   const repositoryRoot = path.resolve(root)
   const schedulerRunId = requireSafeRunId(runId)
+  const layout = resolveProductionBuildLayout({ root: repositoryRoot, runId: schedulerRunId })
+  const distEntryPath = path.relative(repositoryRoot, path.join(layout.frontendDist, 'index.html')).replaceAll(path.sep, '/')
   const markerFile = path.join(repositoryRoot, '.tmp/test-runs', schedulerRunId, 'frontend-build-ready.json')
   if (!fs.existsSync(markerFile)) {
     throw new Error(`frontend build readiness marker is missing for scheduler run ${schedulerRunId}`)

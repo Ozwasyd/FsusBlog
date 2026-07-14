@@ -32,6 +32,13 @@ import { parseMatrix } from './test-matrix/parse-matrix.mjs'
 import { assertLocalProductionCapacity, cleanLocalProductionOutputs } from './test-matrix/fresh-production.mjs'
 import { cleanupLocalRuntime, cleanupStaleLocalRuntimes } from './test-matrix/local-runtime-cleanup.mjs'
 import { cleanupOrphanDotnetBuildServers } from './test-matrix/dotnet-build-server-cleanup.mjs'
+import {
+  bindProductionBuildLayoutSource,
+  finalizeProductionBuildLayout,
+  prepareProductionBuildLayout,
+  productionBuildEnvironment,
+  scheduleStaleProductionBuildGc
+} from './test-matrix/production-build-layout.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -835,6 +842,15 @@ function schedulerRunIdentity(targetTierId, options) {
   }
 }
 
+function bindScheduledBuildLayoutSource(layout, sourceState) {
+  return bindProductionBuildLayoutSource(layout, {
+    ...sourceState,
+    // Lightweight scheduler fixtures may intentionally run outside Git. The
+    // authoritative repository preflight rejects that mode before Production.
+    commit: sourceState?.commit ?? 'unversioned'
+  })
+}
+
 function schedulerRunIsActive(runId) {
   const lockPath = path.join(root, '.tmp/test-runs/.locks', `${runId}.lock`)
   const ownerFile = path.join(lockPath, 'owner.json')
@@ -1199,14 +1215,18 @@ async function runLocalProfile(matrix, profileId, options) {
     return
   }
 
+  const { runsRoot, runId } = schedulerRunIdentity(profileId, { ...options, fresh: true, resume: false })
   console.error(`[matrix:${profileId}] stale runtime cleanup namespaces=${staleCleanup.namespaces.length} processes=${staleCleanup.terminatedPids.length} containers=${staleCleanup.removedContainers.length} dotnetBuildServers=${dotnetBuildServerPreflightPids.length}`)
-  cleanLocalProductionOutputs(root)
+  const freshCleanup = cleanLocalProductionOutputs(root)
+  const buildLayout = prepareProductionBuildLayout({ root, runId })
+  const buildGc = scheduleStaleProductionBuildGc({ root, currentRunId: runId })
+  console.error(`[matrix:${profileId}] fresh cleanup duration=${freshCleanup.durationMs}ms traversed=${freshCleanup.traversedEntryCount} buildRoot=${path.relative(root, buildLayout.runRoot)}`)
+  console.error(`[matrix:${profileId}] stale build GC pid=${buildGc.pid ?? 'unavailable'} currentRun=${runId}`)
   const capacity = assertLocalProductionCapacity({ root })
   console.error(`[matrix:${profileId}] capacity preflight=${capacity.measurements.map(({ directory, availableBytes }) => `${directory}:${(availableBytes / (1024 ** 3)).toFixed(1)}GiB`).join(',')}`)
   console.error(`[matrix:${profileId}] dynamic resources cpu=${detectedResources.availableCpuUnits}/${detectedResources.cpuCount} memory=${detectedResources.availableMemoryGiB.toFixed(1)}GiB reserve=${detectedResources.memoryReserveGiB.toFixed(1)}GiB load1=${detectedResources.load1.toFixed(2)} launchParallelism=${launchParallelism}`)
   const target = physicalTiers.at(-1)
   target.selfBootstraps = true
-  const { runsRoot, runId } = schedulerRunIdentity(profileId, { ...options, fresh: true, resume: false })
   const runNamespace = namespaceFor({ id: profileId, ciJob: `local-${profileId}` }, null, runId)
   prepareNamespaceEnvironmentIfNeeded(physicalTiers, runNamespace)
 
@@ -1226,8 +1246,11 @@ async function runLocalProfile(matrix, profileId, options) {
       collectFailures: true,
       systemResources: detectedResources,
       teeOutput: true,
+      onSourceState(sourceState) {
+        bindScheduledBuildLayoutSource(buildLayout, sourceState)
+      },
       envForTier(tier) {
-        const env = applyNamespaceBuildEnvironment(tier, {
+        const env = applyNamespaceBuildEnvironment(tier, productionBuildEnvironment(buildLayout, {
           ...loadNamespaceEnv(runNamespace),
           CURRENT_TIER: tier.id,
           MATRIX_JOB: `local-${profileId}`,
@@ -1242,7 +1265,7 @@ async function runLocalProfile(matrix, profileId, options) {
           FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD: '23.48',
           FSUSBLOG_COVERAGE_LINE_THRESHOLD: '43.6405',
           FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: '31.7961'
-        })
+        }))
         Object.assign(env, resourceEnvironmentForTier(tier, env))
         return env
       },
@@ -1386,6 +1409,16 @@ async function runLocalProfile(matrix, profileId, options) {
     fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
   }
 
+  const buildManifest = finalizeProductionBuildLayout(buildLayout, {
+    status: result.status === 'success' ? 'success' : 'failure',
+    cleanup: freshCleanup,
+    wallClockMs: fullScriptDurationMs,
+    completedAt: new Date(completedAtMs).toISOString()
+  })
+  const buildEvidenceFile = path.join(root, '.tmp/release-evidence/production-build-layout.json')
+  fs.mkdirSync(path.dirname(buildEvidenceFile), { recursive: true })
+  fs.writeFileSync(buildEvidenceFile, `${JSON.stringify(buildManifest, null, 2)}\n`)
+
   if (result.status !== 'success') {
     const failures = result.checkpoint.failures?.length > 0
       ? result.checkpoint.failures
@@ -1437,6 +1470,8 @@ async function runTier(matrix, tierId, args) {
   const target = all[all.length - 1]
   const targetTierId = normalizeTierId(tierId)
   const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
+  const buildLayout = prepareProductionBuildLayout({ root, runId, fresh: !options.resume })
+  if (!options.resume) scheduleStaleProductionBuildGc({ root, currentRunId: runId })
   const runNamespace = namespaceFor(target, options.shard, runId)
   prepareNamespaceEnvironmentIfNeeded(all, runNamespace)
   if (options.fresh) resetFreshJobSummaries(all.map((tier) => [tier, {}]))
@@ -1453,15 +1488,18 @@ async function runTier(matrix, tierId, args) {
     maxParallel: Math.min(options.maxParallel ?? systemResources.availableCpuUnits, systemResources.availableCpuUnits),
     systemResources,
     teeOutput: true,
+    onSourceState(sourceState) {
+      bindScheduledBuildLayoutSource(buildLayout, sourceState)
+    },
     envForTier(tier) {
       const namespaceEnv = loadNamespaceEnv(runNamespace)
-      const env = applyNamespaceBuildEnvironment(tier, {
+      const env = applyNamespaceBuildEnvironment(tier, productionBuildEnvironment(buildLayout, {
         ...namespaceEnv,
         CURRENT_TIER: tier.id,
         MATRIX_JOB: tier.ciJob,
         FSUSBLOG_TEST_NAMESPACE: runNamespace,
         FSUSBLOG_TEST_RUN_ID: runId
-      })
+      }))
       Object.assign(env, resourceEnvironmentForTier(tier, env))
       applyUxViewportResumeEnvironment(env, tier, options.resume)
       if (options.shard) {
@@ -1495,6 +1533,9 @@ async function runTier(matrix, tierId, args) {
   })
 
   console.error(`[matrix:${target.id}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`)
+  finalizeProductionBuildLayout(buildLayout, {
+    status: result.status === 'success' ? 'success' : 'failure'
+  })
   if (options.fresh && new Set(['production', 'release-final']).has(targetTierId)) {
     cleanupSensitiveFixtures(runNamespace, loadNamespaceEnv(runNamespace))
     console.error(`[matrix:${target.id}] removed namespaced auth fixture cache`)
@@ -1742,6 +1783,8 @@ function printCiJobPlan(matrix, jobId) {
 async function runCiJobScheduled(matrix, jobId, tiers, options) {
   const targetTierId = `ci-job/${jobId}`
   const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options)
+  const buildLayout = prepareProductionBuildLayout({ root, runId, fresh: !options.resume })
+  if (!options.resume) scheduleStaleProductionBuildGc({ root, currentRunId: runId })
   const schedulerMode = options.forceSerial ? 'serial' : 'parallel'
   const dynamicMaximum = Math.min(ciJobMaxParallel(tiers), options.systemResources.availableCpuUnits)
   const maxParallel = options.forceSerial ? 1 : Math.min(options.maxParallel ?? dynamicMaximum, dynamicMaximum)
@@ -1767,9 +1810,12 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
     maxParallel,
     systemResources: options.systemResources,
     teeOutput: true,
+    onSourceState(sourceState) {
+      bindScheduledBuildLayoutSource(buildLayout, sourceState)
+    },
     envForTier(tier) {
       const runNamespace = namespaceFor(tier, options.shard, runId)
-      const env = applyNamespaceBuildEnvironment(tier, {
+      const env = applyNamespaceBuildEnvironment(tier, productionBuildEnvironment(buildLayout, {
         ...loadNamespaceEnv(runNamespace),
         CURRENT_TIER: tier.id,
         MATRIX_JOB: tier.ciJob,
@@ -1777,7 +1823,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
         FSUSBLOG_TEST_RUN_ID: runId,
         FSUSBLOG_CI_JOB_ID: options.forceSerial ? jobId : `${jobId}-${tier.id}`,
         FSUSBLOG_CI_JOB_SCHEDULER: schedulerMode
-      })
+      }))
       Object.assign(env, resourceEnvironmentForTier(tier, env))
       applyUxViewportResumeEnvironment(env, tier, options.resume)
       if (options.shard && tier.shardable) {
@@ -1809,6 +1855,9 @@ async function runCiJobScheduled(matrix, jobId, tiers, options) {
     }
   })
   console.error(`[matrix:ci-job:${jobId}] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`)
+  finalizeProductionBuildLayout(buildLayout, {
+    status: result.status === 'success' ? 'success' : 'failure'
+  })
   return result.status === 'success' ? 0 : (Number(result.failure?.exitCode) || 1)
 }
 
@@ -2359,6 +2408,8 @@ async function ciPrSmart(matrix, args) {
   const targetTierId = 'ci-pr-smart'
   const schedulerOptions = { resume: false }
   const { runsRoot, runId } = schedulerRunIdentity(targetTierId, schedulerOptions)
+  const buildLayout = prepareProductionBuildLayout({ root, runId })
+  scheduleStaleProductionBuildGc({ root, currentRunId: runId })
   const runNamespace = namespaceFor({ ciJob: targetTierId, id: targetTierId }, null, runId)
   prepareNamespaceEnvironmentIfNeeded(tiers, runNamespace)
   resetFreshJobSummaries(tiers.map((tier) => [tier, {}]))
@@ -2375,8 +2426,11 @@ async function ciPrSmart(matrix, args) {
     maxParallel: systemResources.availableCpuUnits,
     systemResources,
     teeOutput: true,
+    onSourceState(sourceState) {
+      bindScheduledBuildLayoutSource(buildLayout, sourceState)
+    },
     envForTier(tier) {
-      const env = applyNamespaceBuildEnvironment(tier, {
+      const env = applyNamespaceBuildEnvironment(tier, productionBuildEnvironment(buildLayout, {
         ...loadNamespaceEnv(runNamespace),
         CURRENT_TIER: tier.id,
         MATRIX_JOB: tier.ciJob,
@@ -2384,7 +2438,7 @@ async function ciPrSmart(matrix, args) {
         FSUSBLOG_TEST_RUN_ID: runId,
         FSUSBLOG_CI_JOB_ID: tier.ciJob,
         FSUSBLOG_CI_JOB_SCHEDULER: 'dag'
-      })
+      }))
       Object.assign(env, resourceEnvironmentForTier(tier, env))
       applyUxViewportResumeEnvironment(env, tier, false)
       return env
@@ -2405,6 +2459,9 @@ async function ciPrSmart(matrix, args) {
     }
   })
   console.error(`[matrix:ci-pr-smart] run=${result.runId} checkpoint=${relativeToRoot(result.checkpointPath)}`)
+  finalizeProductionBuildLayout(buildLayout, {
+    status: result.status === 'success' ? 'success' : 'failure'
+  })
   if (result.status !== 'success') {
     process.exit(Number(result.failure?.exitCode) || 1)
   }

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 const root = process.cwd();
 const repoRoot = join(root, '..', '..');
-const wasmDir = join(root, 'public', 'wasm');
+const wasmDir = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT || join(root, 'public', 'wasm'));
 const joinToken = (...parts) => parts.join('');
 
 const checks = [

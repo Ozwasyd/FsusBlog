@@ -28,6 +28,12 @@ import {
 import { readRuntimeEnvironment } from './runtime-environment.mjs'
 import { validateShardSummaryArtifacts } from '../run-backend-production-shards.mjs'
 import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs'
+import {
+  productionBuildEnvironment,
+  productionBuildLayoutDigest,
+  productionDotnetArtifacts,
+  resolveProductionBuildLayout
+} from '../../test-matrix/production-build-layout.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const profileId = process.env.FSUSBLOG_LOCAL_PROFILE || 'production'
@@ -41,9 +47,18 @@ const outDir = path.join(root, `.tmp/local-${profileId}`, bundleId || 'unknown')
 const summaryFile = path.join(outDir, 'summary.json')
 const logDir = path.join(outDir, 'steps')
 const startedAt = Date.now()
-const backendTestDll = path.join(root, 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll')
-const benchmarkDll = path.join(root, 'benchmarks/core/bin/Release/net10.0/FsusBlog.Core.Benchmarks.dll')
-const backendServerDll = path.join(root, 'src/backend/bin/Release/net10.0/FsusBlog.Server.dll')
+const productionBuildLayout = resolveProductionBuildLayout({ root })
+if (path.resolve(process.env.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '') !== productionBuildLayout.runRoot) {
+  throw new Error('physical bundle requires the current run-bound production build root')
+}
+Object.assign(process.env, productionBuildEnvironment(productionBuildLayout, process.env))
+const dotnetArtifacts = productionDotnetArtifacts(productionBuildLayout)
+const backendTestDll = dotnetArtifacts.testDll
+const benchmarkDll = dotnetArtifacts.benchmarkDll
+const backendServerDll = dotnetArtifacts.serverDll
+const frontendDistRoot = productionBuildLayout.frontendDist
+const frontendWasmRoot = productionBuildLayout.frontendWasm
+const backendWebRoot = productionBuildLayout.backendWebRoot
 const activeStepChildren = new Map()
 const stepExecutionResults = new Map()
 let shutdownPromise = null
@@ -142,6 +157,25 @@ function schedulerRunId() {
   return runId
 }
 
+function buildLayoutBinding() {
+  return {
+    runId: schedulerRunId(),
+    manifestPath: relative(productionBuildLayout.manifestFile),
+    manifestDigest: productionBuildLayoutDigest(productionBuildLayout),
+    sourceCommit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null,
+    sourceFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
+  }
+}
+
+function markerHasCurrentBuildLayout(marker) {
+  const expected = buildLayoutBinding()
+  return marker?.buildLayout?.runId === expected.runId
+    && marker?.buildLayout?.manifestPath === expected.manifestPath
+    && marker?.buildLayout?.manifestDigest === expected.manifestDigest
+    && marker?.buildLayout?.sourceCommit === expected.sourceCommit
+    && marker?.buildLayout?.sourceFingerprint === expected.sourceFingerprint
+}
+
 function backendBuildReadyFile(runId = schedulerRunId()) {
   return path.join(root, '.tmp/test-runs', runId, 'backend-build-ready.json')
 }
@@ -170,6 +204,7 @@ function publishBackendBuildReady() {
     status: 'success',
     physicalBundleId: 'backend-tests',
     schedulerRunId: runId,
+    buildLayout: buildLayoutBinding(),
     serverDll: {
       path: artifactPath,
       exists: true,
@@ -194,6 +229,7 @@ function publishBackendTestsReady() {
     status: 'success',
     physicalBundleId: 'backend-tests',
     schedulerRunId: runId,
+    buildLayout: buildLayoutBinding(),
     testDll: {
       path: artifactPath,
       exists: true,
@@ -220,6 +256,7 @@ function publishBenchmarkBuildReady() {
     status: 'success',
     physicalBundleId: 'backend-tests',
     schedulerRunId: runId,
+    buildLayout: buildLayoutBinding(),
     benchmarkDll: {
       path: artifactPath,
       digest: digestDeclaredOutputs(root, [artifactPath])[artifactPath]
@@ -236,24 +273,37 @@ function publishBenchmarkBuildReady() {
 
 function publishFrontendBuildReady() {
   const runId = schedulerRunId()
-  const artifactPath = 'src/frontend/dist/index.html'
+  const artifactPath = relative(path.join(frontendDistRoot, 'index.html'))
   const privacyWasmPaths = [
-    'src/frontend/public/wasm/comment-privacy-prover.js',
-    'src/frontend/public/wasm/comment-privacy-prover.zkey',
-    'src/frontend/public/wasm/comment-privacy-prover.manifest.json'
-  ]
+    'comment-privacy-prover.js',
+    'comment-privacy-prover.zkey',
+    'comment-privacy-prover.manifest.json'
+  ].map((file) => relative(path.join(frontendWasmRoot, file)))
   const summaryPath = '.tmp/frontend/frontend-build.json'
-  const requiredArtifacts = [artifactPath, ...privacyWasmPaths]
+  const generatedProverBundlePath = relative(process.env.FSUSBLOG_COMMENT_PROVER_BUNDLE)
+  const requiredArtifacts = [artifactPath, ...privacyWasmPaths, generatedProverBundlePath]
   const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
   if (missingArtifacts.length > 0) {
     throw new Error(`frontend build completed without required artifact(s): ${missingArtifacts.join(', ')}`)
   }
   const artifactDigests = digestDeclaredOutputs(root, requiredArtifacts)
+  const generatedContractFile = path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json')
+  writeJsonAtomic(generatedContractFile, {
+    schema: 'fsusblog.production-frontend-build-contract.v1',
+    status: 'success',
+    schedulerRunId: runId,
+    buildLayout: buildLayoutBinding(),
+    artifacts: Object.fromEntries(requiredArtifacts.map((requiredPath) => [requiredPath, artifactDigests[requiredPath]])),
+    generatedAt: new Date().toISOString()
+  })
+  const generatedContractPath = relative(generatedContractFile)
+  const generatedContractDigest = digestDeclaredOutputs(root, [generatedContractPath])[generatedContractPath]
   const marker = {
     schema: 'fsusblog.local-production.frontend-build-ready.v1',
     status: 'success',
     physicalBundleId: 'build-static',
     schedulerRunId: runId,
+    buildLayout: buildLayoutBinding(),
     distEntry: {
       path: artifactPath,
       digest: artifactDigests[artifactPath]
@@ -262,6 +312,14 @@ function publishFrontendBuildReady() {
       path: requiredPath,
       digest: artifactDigests[requiredPath]
     }])),
+    generatedProverBundle: {
+      path: generatedProverBundlePath,
+      digest: artifactDigests[generatedProverBundlePath]
+    },
+    generatedContract: {
+      path: generatedContractPath,
+      digest: generatedContractDigest
+    },
     generatedAt: new Date().toISOString()
   }
   for (const markerFile of [path.join(root, summaryPath), frontendBuildReadyFile(runId)]) {
@@ -631,7 +689,7 @@ function commandStep(id, command, members, options = {}) {
 function buildStaticSteps() {
   return [
     commandStep('frontend-build', 'cd src/frontend && FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1 npm run build:release', ['frontend-build'], {
-      artifacts: [path.join(root, 'src/frontend/dist/index.html')],
+      artifacts: [path.join(frontendDistRoot, 'index.html')],
       resources: {
         cpuWeight: 2,
         memoryWeight: 2,
@@ -648,9 +706,9 @@ function buildStaticSteps() {
       artifacts: [path.join(root, '.tmp/ux/viewport-plan-progress.json')]
     }),
     commandStep('sync-static-assets', [
-      'rm -rf src/backend/wwwroot',
-      'mkdir -p src/backend/wwwroot',
-      'cp -R src/frontend/dist/. src/backend/wwwroot/'
+      'rm -rf "$FSUSBLOG_BACKEND_WEBROOT"',
+      'mkdir -p "$FSUSBLOG_BACKEND_WEBROOT"',
+      'cp -R "$FSUSBLOG_FRONTEND_DIST_ROOT"/. "$FSUSBLOG_BACKEND_WEBROOT"/'
     ].join(' && '), ['frontend-build'], { dependsOn: ['frontend-build'] }),
     commandStep('frontend-runtime-contracts', 'cd src/frontend && FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node ../../tools/test/run-command-manifest.mjs ../../tests/frontend/checks/runtime/manifest.json', ['frontend-runtime-contracts'], { dependsOn: ['sync-static-assets'] }),
     commandStep('wasm-fuzz', 'tools/test/lanes/wasm-fuzz-regression.sh', ['wasm-fuzz-regression'], { dependsOn: ['frontend-build'] })
@@ -998,6 +1056,7 @@ async function waitForBackendBuildReady(timeoutMs = resolveExecutionWaitTimeoutM
             || marker.status !== 'success'
             || marker.physicalBundleId !== 'backend-tests'
             || marker.schedulerRunId !== expectedRunId
+            || !markerHasCurrentBuildLayout(marker)
             || marker.serverDll?.path !== artifactPath
             || marker.serverDll?.exists !== true) {
           throw new Error(`backend build readiness marker is not bound to scheduler run ${expectedRunId}`)
@@ -1022,12 +1081,14 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
   const expectedRunId = schedulerRunId()
   const markerFile = frontendBuildReadyFile(expectedRunId)
   const checkpointFile = path.join(root, '.tmp/test-runs', expectedRunId, 'checkpoint.json')
-  const artifactPath = 'src/frontend/dist/index.html'
+  const artifactPath = relative(path.join(frontendDistRoot, 'index.html'))
   const privacyWasmPaths = [
-    'src/frontend/public/wasm/comment-privacy-prover.js',
-    'src/frontend/public/wasm/comment-privacy-prover.zkey',
-    'src/frontend/public/wasm/comment-privacy-prover.manifest.json'
-  ]
+    'comment-privacy-prover.js',
+    'comment-privacy-prover.zkey',
+    'comment-privacy-prover.manifest.json'
+  ].map((file) => relative(path.join(frontendWasmRoot, file)))
+  const generatedContractPath = relative(path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json'))
+  const generatedProverBundlePath = relative(process.env.FSUSBLOG_COMMENT_PROVER_BUNDLE)
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (fs.existsSync(checkpointFile)) {
@@ -1048,11 +1109,14 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
             || marker.status !== 'success'
             || marker.physicalBundleId !== 'build-static'
             || marker.schedulerRunId !== expectedRunId
+            || !markerHasCurrentBuildLayout(marker)
             || marker.distEntry?.path !== artifactPath
+            || marker.generatedContract?.path !== generatedContractPath
+            || marker.generatedProverBundle?.path !== generatedProverBundlePath
             || privacyWasmPaths.some((requiredPath) => marker.privacyWasmArtifacts?.[requiredPath]?.path !== requiredPath)) {
           throw new Error(`frontend build readiness marker is not bound to scheduler run ${expectedRunId}`)
         }
-        const requiredArtifacts = [artifactPath, ...privacyWasmPaths]
+        const requiredArtifacts = [artifactPath, ...privacyWasmPaths, generatedProverBundlePath, generatedContractPath]
         const missingArtifacts = requiredArtifacts.filter((requiredPath) => !fs.existsSync(path.join(root, requiredPath)))
         if (missingArtifacts.length > 0) {
           throw new Error(`frontend build readiness artifact(s) missing: ${missingArtifacts.join(', ')}`)
@@ -1061,7 +1125,11 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
         const mismatches = requiredArtifacts.filter((requiredPath) => {
           const expectedDigest = requiredPath === artifactPath
             ? marker.distEntry.digest
-            : marker.privacyWasmArtifacts[requiredPath].digest
+            : requiredPath === generatedContractPath
+              ? marker.generatedContract.digest
+              : requiredPath === generatedProverBundlePath
+                ? marker.generatedProverBundle.digest
+              : marker.privacyWasmArtifacts[requiredPath].digest
           return !expectedDigest || actualDigests[requiredPath] !== expectedDigest
         })
         if (mismatches.length > 0) {

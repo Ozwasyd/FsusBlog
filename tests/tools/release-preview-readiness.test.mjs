@@ -22,7 +22,7 @@ const bootstrapSource = fs.readFileSync(path.join(repositoryRoot, 'tools/bootstr
 function createBuildFixture(t, runId = 'production-fresh-1') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-preview-'))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
-  const distEntryPath = 'src/frontend/dist/index.html'
+  const distEntryPath = `.tmp/build/${runId}/frontend/dist/index.html`
   const distEntry = path.join(root, distEntryPath)
   fs.mkdirSync(path.dirname(distEntry), { recursive: true })
   fs.writeFileSync(distEntry, '<!doctype html>\n<html><body><script src="/assets/app-current.js"></script></body></html>\n')

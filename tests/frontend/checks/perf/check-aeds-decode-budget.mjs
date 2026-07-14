@@ -8,7 +8,8 @@ import { brotliCompressSync, gzipSync } from 'node:zlib'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
-const wasmRoot = path.join(root, 'src/frontend/public/wasm')
+const wasmRoot = path.resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT
+  || path.join(root, 'src/frontend/public/wasm'))
 const manifestFile = path.join(wasmRoot, 'aeds-runtime-manifest.json')
 const outFile = path.join(root, '.tmp/frontend/aeds-decode-budget/summary.json')
 const releaseSummaryFile = path.join(root, '.tmp/release-evidence/aeds-decode-budget-summary.json')

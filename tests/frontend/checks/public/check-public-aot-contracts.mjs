@@ -3,11 +3,11 @@
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 const clientRoot = process.cwd()
 const repoRoot = join(clientRoot, '..', '..')
-const distServerRoot = join(clientRoot, 'dist', 'server')
+const distServerRoot = join(resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || join(clientRoot, 'dist')), 'server')
 const bundlePath = join(distServerRoot, 'public-ssr.mjs')
 const bundleWorkerPath = join(distServerRoot, 'server-public-ssr.bundle.mjs')
 const coreWorkerPath = join(distServerRoot, 'server-public-ssr.worker-core.mjs')

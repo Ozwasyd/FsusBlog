@@ -17,9 +17,11 @@ const buildPublicSsrBundleScript = fileURLToPath(new URL('./build-public-ssr-bun
 const binExtension = process.platform === 'win32' ? '.cmd' : '';
 const vueTscBin = join(clientRoot, 'node_modules', '.bin', `vue-tsc${binExtension}`);
 const viteBin = join(clientRoot, 'node_modules', '.bin', `vite${binExtension}`);
-const distAssetsDir = join(clientRoot, 'dist', 'assets');
-const distRoot = join(clientRoot, 'dist');
-const backendWebRoot = join(clientRoot, '..', 'backend', 'wwwroot');
+const distRoot = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || join(clientRoot, 'dist'));
+const distAssetsDir = join(distRoot, 'assets');
+const publicRoot = join(clientRoot, 'public');
+const frontendWasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT || join(publicRoot, 'wasm'));
+const backendWebRoot = resolve(process.env.FSUSBLOG_BACKEND_WEBROOT || join(clientRoot, '..', 'backend', 'wwwroot'));
 const stableSpaEntryName = 'fsus-spa-entry.js';
 const managedDistEntries = ['.vite', 'assets', 'dist', 'favicon.svg', 'index.html', 'server', 'sw.js', 'vite.svg', 'wasm'];
 const fsusUiMarkdownRuntimeAssets = [
@@ -309,6 +311,19 @@ async function syncFsusUiMarkdownRuntimeAssets() {
   log(`synced FsusUI markdown runtime assets into ${targetDir}`);
 }
 
+async function syncRunBoundPublicAssets() {
+  if (!process.env.FSUSBLOG_FRONTEND_DIST_ROOT) return;
+  const entries = await readdir(publicRoot, { withFileTypes: true });
+  await mkdir(distRoot, { recursive: true });
+  for (const entry of entries) {
+    if (entry.name === 'wasm') continue;
+    await cp(join(publicRoot, entry.name), join(distRoot, entry.name), { recursive: true, force: true });
+  }
+  await rm(join(distRoot, 'wasm'), { recursive: true, force: true });
+  await cp(frontendWasmRoot, join(distRoot, 'wasm'), { recursive: true, force: true });
+  log(`assembled run-bound public assets into ${distRoot}`);
+}
+
 async function pathExists(path) {
   try {
     await stat(path);
@@ -365,9 +380,15 @@ async function main() {
 
   await runStageGroup([
     { name: 'vue-tsc', command: vueTscBin, args: [] },
-    { name: 'vite-build', command: viteBin, args: ['build', '--logLevel', 'warn'] }
+    { name: 'vite-build', command: viteBin, args: ['build', '--outDir', distRoot, '--logLevel', 'warn'] }
   ]);
   await runStage('vite-public-ssr-build', process.execPath, [buildPublicSsrBundleScript]);
+  if (process.env.FSUSBLOG_FRONTEND_DIST_ROOT) {
+    await runStage('assemble-run-bound-public-shell-emergency', process.execPath, [
+      generatePublicShellEmergencyScript
+    ]);
+  }
+  await syncRunBoundPublicAssets();
   await Promise.all([
     syncStableSpaEntryAlias(),
     syncFsusUiMarkdownRuntimeAssets()

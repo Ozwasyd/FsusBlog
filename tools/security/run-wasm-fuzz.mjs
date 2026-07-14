@@ -7,7 +7,9 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const decoderDirectory = resolve(root, 'src/frontend/dist/wasm')
+const decoderDirectory = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT
+  ? join(process.env.FSUSBLOG_FRONTEND_DIST_ROOT, 'wasm')
+  : resolve(root, 'src/frontend/dist/wasm'))
 const decoderVariants = ['basic', 'speed'].map((tier) => ({
   tier,
   modulePath: join(decoderDirectory, `aeds_decoder_${tier}.js`),

@@ -293,7 +293,8 @@ fixture_root_path() {
 }
 
 ensure_wasm_once() {
-  local fingerprint
+  local fingerprint wasm_output
+  wasm_output="${FSUSBLOG_FRONTEND_WASM_ROOT:-public/wasm}"
   fingerprint="$(test_input_fingerprint \
     --path src/frontend/wasm \
     --path tools/frontend/ensure-wasm.mjs \
@@ -304,7 +305,7 @@ ensure_wasm_once() {
     ensure-wasm \
     "$fingerprint" \
     "$CLIENT_DIR" \
-    public/wasm \
+    "$wasm_output" \
     npm run ensure:wasm
 }
 
@@ -902,16 +903,25 @@ backend_test_configuration() {
 }
 
 ensure_backend_filtered_build() {
-  local configuration configuration_slug test_dll output_contract fingerprint_variant
+  local configuration configuration_slug test_bin_dir test_dll output_contract fingerprint_variant
   configuration="$(backend_test_configuration)"
   configuration_slug="${configuration,,}"
-  test_dll="$ROOT_DIR/tests/backend/bin/$configuration/net10.0/FsusBlog.Server.Tests.dll"
+  if [[ -n "${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}" ]]; then
+    test_bin_dir="$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/$configuration/net10.0"
+  else
+    test_bin_dir="$ROOT_DIR/tests/backend/bin/$configuration/net10.0"
+  fi
+  test_dll="$test_bin_dir/FsusBlog.Server.Tests.dll"
   if [[ -n "${FSUSBLOG_LOCAL_PROFILE:-}" && -f "$test_dll" ]]; then
     log "reuse backend $configuration build from local physical build bundle"
     return
   fi
-  local debug_outputs='tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.deps.json|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.runtimeconfig.json'
-  local release_outputs='tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll|tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.deps.json|tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.runtimeconfig.json'
+  local debug_output_dir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0}"
+  local release_output_dir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Release/net10.0}"
+  debug_output_dir="${debug_output_dir:-tests/backend/bin/Debug/net10.0}"
+  release_output_dir="${release_output_dir:-tests/backend/bin/Release/net10.0}"
+  local debug_outputs="$debug_output_dir/FsusBlog.Server.Tests.dll|$debug_output_dir/FsusBlog.Server.Tests.deps.json|$debug_output_dir/FsusBlog.Server.Tests.runtimeconfig.json"
+  local release_outputs="$release_output_dir/FsusBlog.Server.Tests.dll|$release_output_dir/FsusBlog.Server.Tests.deps.json|$release_output_dir/FsusBlog.Server.Tests.runtimeconfig.json"
   if [[ "$configuration" == "Release" ]]; then
     output_contract="$release_outputs"
     fingerprint_variant='backend-filtered-release-v1'
@@ -1237,11 +1247,14 @@ run_frontend_fast_build_group() {
     fingerprint_args+=(--value "$key=${!key:-}")
   done
   fingerprint="$(test_input_fingerprint "${fingerprint_args[@]}")"
+  local frontend_dist_output backend_webroot_output
+  frontend_dist_output="${FSUSBLOG_FRONTEND_DIST_ROOT:-dist}"
+  backend_webroot_output="${FSUSBLOG_BACKEND_WEBROOT:-../backend/wwwroot}"
   run_once_command \
     frontend-release-build \
     "$fingerprint" \
     "$CLIENT_DIR" \
-    'dist|../backend/wwwroot' \
+    "$frontend_dist_output|$backend_webroot_output" \
     env FSUSBLOG_SKIP_ENSURE_WASM=1 FSUSBLOG_VALIDATE_GENERATED_ONLY=1 FSUSBLOG_VITE_WARN_AS_ERROR=1 npm run build:release
 }
 
@@ -1373,7 +1386,7 @@ run_fast_frontend_lane() {
 run_fast_only() {
   log "tier=fast | no running services required"
   ensure_wasm_once
-  # The frontend release build syncs hashed assets into src/backend/wwwroot.
+  # The frontend release build syncs hashed assets into the selected backend webroot.
   # Keep it ahead of the .NET StaticWebAssets pass so the manifest and files
   # are read from one coherent generation instead of racing on deleted chunks.
   run_fast_frontend_lane

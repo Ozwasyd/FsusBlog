@@ -294,6 +294,10 @@ function serveFsusUiOptimizedWasmAssets(fsusUiWasmDist: string) {
 }
 
 function servePublicAotHydrationSidecars() {
+    const distRoot = path.resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT
+        || fileURLToPath(new URL('./dist/', import.meta.url)))
+    const backendWebRoot = path.resolve(process.env.FSUSBLOG_BACKEND_WEBROOT
+        || fileURLToPath(new URL('../backend/wwwroot/', import.meta.url)))
     const sidecarPathPattern = /^\/aot-cache\/payloads\/[0-9a-f]{2}\/[0-9a-f]{64}\.aeds$/i
     const handleSidecar = (request: any, response: any, next: () => void) => {
         const pathname = request.url?.split(/[?#]/)[0] ?? ''
@@ -304,8 +308,8 @@ function servePublicAotHydrationSidecars() {
 
         const relativeSidecarPath = pathname.slice(1)
         const filePath = [
-            path.join(fileURLToPath(new URL('./dist/', import.meta.url)), relativeSidecarPath),
-            path.join(fileURLToPath(new URL('../backend/wwwroot/', import.meta.url)), relativeSidecarPath)
+            path.join(distRoot, relativeSidecarPath),
+            path.join(backendWebRoot, relativeSidecarPath)
         ].find((candidatePath) => fs.existsSync(candidatePath))
         if (!filePath) {
             next()
@@ -547,6 +551,10 @@ export default defineConfig(({ mode }) => {
     }
 
     return {
+        publicDir: process.env.FSUSBLOG_FRONTEND_DIST_ROOT ? false : 'public',
+        cacheDir: process.env.FSUSBLOG_FRONTEND_CACHE_ROOT
+            ? path.resolve(process.env.FSUSBLOG_FRONTEND_CACHE_ROOT, 'vite')
+            : undefined,
         define: {
             __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(enableVueHydrationMismatchDetails)
         },
@@ -605,6 +613,10 @@ export default defineConfig(({ mode }) => {
             }
             : undefined,
         build: {
+            outDir: process.env.FSUSBLOG_FRONTEND_DIST_ROOT
+                ? path.resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT)
+                : 'dist',
+            emptyOutDir: process.env.FSUSBLOG_FRONTEND_DIST_ROOT ? true : undefined,
             // 核心修复(2026-02-21)：生产环境禁用 sourcemap
             // 逻辑自洽：消除 Wasm 胶水代码在 Worker 线程中引发的 URL 解析错误
             sourcemap: mode === 'development',

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const publicWasmRoot = join(repoRoot, 'src', 'frontend', 'public', 'wasm')
+const publicWasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT
+  || join(repoRoot, 'src', 'frontend', 'public', 'wasm'))
 const manifestPath = join(publicWasmRoot, 'comment-privacy-prover.manifest.json')
 
 const files = {
@@ -43,4 +44,4 @@ const manifest = {
 
 await mkdir(dirname(manifestPath), { recursive: true })
 await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
-console.log(`[comment-privacy-prover-manifest] wrote src/frontend/public/wasm/comment-privacy-prover.manifest.json`)
+console.log(`[comment-privacy-prover-manifest] wrote ${manifestPath}`)

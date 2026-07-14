@@ -343,7 +343,8 @@ if (!legacyTestSource.includes(`BACKEND_ORDINARY_TEST_FILTER="\${FSUSBLOG_BACKEN
 if (!legacyTestSource.includes('run_backend_dotnet_filter_only "$BACKEND_ORDINARY_TEST_FILTER"')) {
   errors.push('backend ordinary lane must consume BACKEND_ORDINARY_TEST_FILTER')
 }
-if (!legacyTestSource.includes("FsusBlog.Server.Tests.dll|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.deps.json|tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.runtimeconfig.json")) {
+if (!legacyTestSource.includes('FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0')
+  || !legacyTestSource.includes('$debug_output_dir/FsusBlog.Server.Tests.dll|$debug_output_dir/FsusBlog.Server.Tests.deps.json|$debug_output_dir/FsusBlog.Server.Tests.runtimeconfig.json')) {
   errors.push('backend shared build cache must require the test DLL and both testhost companion files')
 }
 for (const [lane, filter] of [

@@ -443,7 +443,7 @@ restore_redis() {
 }
 
 restore_webroot_artifacts() {
-  local source_webroot="$ROOT_DIR/src/backend/wwwroot"
+  local source_webroot="${FSUSBLOG_WEB_ROOT:-$ROOT_DIR/src/backend/wwwroot}"
   local restored_webroot="$WORK_DIR/webroot"
 
   if [[ ! -d "$source_webroot" ]]; then

@@ -6,7 +6,10 @@ import { resolve, dirname } from 'node:path'
 import { brotliCompressSync, gzipSync } from 'node:zlib'
 
 const repoRoot = resolve(process.cwd(), '../..')
-const manifestPath = resolve(repoRoot, process.env.FSUSBLOG_VITE_MANIFEST || 'src/frontend/dist/.vite/manifest.json')
+const distRoot = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || resolve(repoRoot, 'src/frontend/dist'))
+const manifestPath = process.env.FSUSBLOG_VITE_MANIFEST
+  ? resolve(repoRoot, process.env.FSUSBLOG_VITE_MANIFEST)
+  : resolve(distRoot, '.vite/manifest.json')
 const evidencePath = resolve(repoRoot, '.tmp/frontend/route-asset-budget.json')
 
 const routeBudgets = {
@@ -55,7 +58,7 @@ function normalizeManifestEntry(value) {
 }
 
 async function readAssetBytes(file) {
-  return await readFile(resolve(repoRoot, 'src/frontend/dist', file))
+  return await readFile(resolve(distRoot, file))
 }
 
 function collectEntryFiles(manifest, entryKey, options = {}) {

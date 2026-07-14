@@ -10,7 +10,7 @@ const gzipAsync = promisify(gzip)
 const brotliCompressAsync = promisify(brotliCompress)
 
 const repoRoot = resolve(process.cwd(), '../..')
-const distDir = resolve(repoRoot, 'src/frontend/dist')
+const distDir = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || resolve(repoRoot, 'src/frontend/dist'))
 const evidenceDir = resolve(repoRoot, '.tmp/frontend')
 const budgets = {
   totalBytes: Number(process.env.FSUSBLOG_ASSET_TOTAL_BUDGET_BYTES || 80 * 1024 * 1024),
@@ -73,8 +73,8 @@ async function walk(dir, files = []) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const fullPath = resolve(dir, entry.name)
     if (entry.isDirectory()) {
-      const relativeDir = relative(repoRoot, fullPath).replaceAll('\\', '/')
-      if (relativeDir === 'src/frontend/dist/server') {
+      const relativeDir = relative(distDir, fullPath).replaceAll('\\', '/')
+      if (relativeDir === 'server') {
         continue
       }
       await walk(fullPath, files)
@@ -138,7 +138,7 @@ const compressed = []
 
 if (totalBytes > budgets.totalBytes) {
   violations.push({
-    path: 'src/frontend/dist',
+    path: relative(repoRoot, distDir).replaceAll('\\', '/'),
     bytes: totalBytes,
     budgetBytes: budgets.totalBytes
   })

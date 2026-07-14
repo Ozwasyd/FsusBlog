@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 const root = process.cwd()
-const wasmDir = join(root, 'public', 'wasm')
+const wasmDir = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT || join(root, 'public', 'wasm'))
 
 const requiredFiles = [
   'image_codec_basic.js',

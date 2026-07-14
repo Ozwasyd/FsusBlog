@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const clientRoot = process.cwd();
 const wasmRoot = join(clientRoot, 'wasm');
-const publicWasmRoot = join(clientRoot, 'public', 'wasm');
+const publicWasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT || join(clientRoot, 'public', 'wasm'));
 const manifestPath = join(publicWasmRoot, 'wasm-manifest.aeds');
 const aedsRuntimeManifestPath = join(publicWasmRoot, 'aeds-runtime-manifest.json');
 const dependencyInstallerPath = fileURLToPath(new URL('./install-wasm-codec-deps.sh', import.meta.url));

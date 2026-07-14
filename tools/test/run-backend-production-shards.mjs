@@ -20,10 +20,22 @@ import {
   backendTopologyDefaults,
   planBackendProductionTopology
 } from './backend-production-topology.mjs'
+import {
+  productionDotnetArtifacts,
+  resolveProductionBuildLayout
+} from '../test-matrix/production-build-layout.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const project = 'tests/backend/FsusBlog.Server.Tests.csproj'
-const testAssembly = 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll'
+const productionBuildLayout = process.env.FSUSBLOG_TEST_RUN_ID
+  ? resolveProductionBuildLayout({ root })
+  : null
+const productionDotnet = productionBuildLayout
+  ? productionDotnetArtifacts(productionBuildLayout)
+  : null
+const testAssembly = productionDotnet
+  ? path.relative(root, productionDotnet.testDll).replaceAll(path.sep, '/')
+  : 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll'
 const productionFilter = 'Category!=Integration&Category!=Performance'
 const projectedCategories = [
   'ApiIntegration',
@@ -1821,9 +1833,11 @@ async function reclaimBackendTestResources() {
 }
 
 function prepareShardFiles(plan, outputRoot) {
-  const binSource = path.join(root, 'tests/backend/bin/Release/net10.0')
+  const binSource = productionDotnet?.tests.outputDirectory
+    ?? path.join(root, 'tests/backend/bin/Release/net10.0')
   const testAssembly = path.join(binSource, 'FsusBlog.Server.Tests.dll')
-  const assets = JSON.parse(fs.readFileSync(path.join(root, 'tests/backend/obj/project.assets.json'), 'utf8'))
+  const assets = JSON.parse(fs.readFileSync(productionDotnet?.tests.assetsFile
+    ?? path.join(root, 'tests/backend/obj/project.assets.json'), 'utf8'))
   const coverletLibrary = Object.values(assets.libraries ?? {}).find((entry) => (
     entry?.type === 'package' && /^coverlet\.collector\//u.test(String(entry.path ?? ''))
   ))

@@ -10,7 +10,9 @@ const DEFAULT_CONFIGS = [
   'src/backend/appsettings.Production.json'
 ]
 const DEFAULT_SUMMARY = '.tmp/security/privacy-zk-prod-smoke.json'
-const DEFAULT_PROVER_MANIFEST = 'src/frontend/public/wasm/comment-privacy-prover.manifest.json'
+const DEFAULT_PROVER_MANIFEST = process.env.FSUSBLOG_FRONTEND_WASM_ROOT
+  ? path.join(process.env.FSUSBLOG_FRONTEND_WASM_ROOT, 'comment-privacy-prover.manifest.json')
+  : 'src/frontend/public/wasm/comment-privacy-prover.manifest.json'
 const DEFAULT_TRUSTED_SETUP = 'security/zk/comment-v2-trusted-setup.manifest.json'
 const REAL_EVIDENCE_KIND = 'real-groth16-cross-stack'
 const REQUIRED_ARTIFACT_HASHES = [
@@ -490,6 +492,9 @@ function resolveRepoPath(rawPath) {
 function resolvePublicAssetUrl(rawUrl) {
   if (/^https?:\/\//i.test(rawUrl)) return path.join(ROOT, '__remote_url_not_local__')
   const urlPath = rawUrl.startsWith('/') ? rawUrl.slice(1) : rawUrl
+  if (process.env.FSUSBLOG_FRONTEND_WASM_ROOT && urlPath.startsWith('wasm/')) {
+    return path.join(process.env.FSUSBLOG_FRONTEND_WASM_ROOT, urlPath.slice('wasm/'.length))
+  }
   return path.join(ROOT, 'src/frontend/public', urlPath)
 }
 

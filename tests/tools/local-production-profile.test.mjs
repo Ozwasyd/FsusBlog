@@ -766,6 +766,8 @@ test('runtime early start is guarded by run-bound atomic backend and frontend bu
   assert.match(localBundleRunner, /writeFileSync\(temporary[\s\S]*?renameSync\(temporary, markerFile\)/u)
   assert.match(localBundleRunner, /async function waitForBackendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.backend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestDeclaredOutputs/u)
   assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schema !== 'fsusblog\.local-production\.frontend-build-ready\.v1'[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestDeclaredOutputs/u)
+  assert.match(localBundleRunner, /function buildLayoutBinding\(\)[\s\S]*?productionBuildLayoutDigest[\s\S]*?sourceFingerprint/u)
+  assert.match(localBundleRunner, /production-frontend-build-contract\.v1[\s\S]*?generatedProverBundle[\s\S]*?generatedContract/u)
   assert.match(localBundleRunner, /checkpoint\.tiers\?\.\[`local-\$\{profileId\}-backend-tests`\]\?\.status[\s\S]*?failure[\s\S]*?blocked[\s\S]*?cancelled/u)
   assert.match(localBundleRunner, /async function executeRuntimeStep[\s\S]*?backend-build-ready[\s\S]*?waitForBackendBuildReady[\s\S]*?frontend-build-ready[\s\S]*?waitForFrontendBuildReady/u)
   assert.match(localBundleRunner, /bundleId === 'runtime-browser' \? executeRuntimeStep : executePerformanceStep/u)
@@ -839,11 +841,13 @@ test('fresh production cleanup removes outputs and preserves dependency caches',
     '.tmp/stale/result.json',
     'src/frontend/coverage/unit/result.json',
     'src/frontend/test-results/result.json',
+    'src/backend/Logs/log-20260712.txt',
+  ]
+  const legacyBuildOutputs = [
     'src/frontend/dist/index.html',
     'src/frontend/public/wasm/aeds_decoder_speed.wasm',
     'src/frontend/wasm/build-basic/aeds_decoder_basic.wasm',
     'src/backend/wwwroot/index.html',
-    'src/backend/Logs/log-20260712.txt',
     'src/backend/bin/Debug/server.dll',
     'src/core/obj/project.assets.json',
     'tests/backend/bin/Debug/tests.dll'
@@ -856,17 +860,21 @@ test('fresh production cleanup removes outputs and preserves dependency caches',
     '.tmp/dependency-cache/dotnet/dotnet-cli/.dotnet/initialized',
     '.tmp/data-root/cache/dev/nuget/packages/example/package.nupkg',
     '.tmp/data-root/cache/dev/dotnet-cli/.dotnet/initialized',
+    '.tmp/build/previous-run/layout.json',
     '.nuget/packages/cache.txt'
   ]
-  for (const file of [...generated, ...caches]) {
+  for (const file of [...generated, ...legacyBuildOutputs, ...caches]) {
     fs.mkdirSync(path.dirname(path.join(temp, file)), { recursive: true })
     fs.writeFileSync(path.join(temp, file), 'fixture')
   }
 
-  cleanLocalProductionOutputs(temp)
+  const cleanup = cleanLocalProductionOutputs(temp)
 
   for (const file of generated) assert.equal(fs.existsSync(path.join(temp, file)), false, file)
+  for (const file of legacyBuildOutputs) assert.equal(fs.existsSync(path.join(temp, file)), true, file)
   for (const file of caches) assert.equal(fs.existsSync(path.join(temp, file)), true, file)
+  assert.equal(cleanup.schema, 'fsusblog.fresh-production-cleanup.v1')
+  assert.ok(cleanup.preservedRoots.includes('.tmp/build'))
 })
 
 test('fresh production cleanup preserves an external temp root and its dependency caches', () => {

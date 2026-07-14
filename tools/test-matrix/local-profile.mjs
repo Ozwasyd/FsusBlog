@@ -231,7 +231,26 @@ function wildcardSearchRoot(root, declaration) {
   return absolutePath
 }
 
-export function digestDeclaredOutputs(rootValue, declarations) {
+export function resolveRunBoundArtifactDeclaration(rootValue, declarationValue, env = process.env) {
+  const root = path.resolve(rootValue)
+  const declaration = normalizeDeclaration(declarationValue)
+  const mappings = [
+    ['src/frontend/dist', env.FSUSBLOG_FRONTEND_DIST_ROOT],
+    ['src/frontend/public/wasm', env.FSUSBLOG_FRONTEND_WASM_ROOT],
+    ['src/backend/wwwroot', env.FSUSBLOG_BACKEND_WEBROOT]
+  ]
+  for (const [canonicalRoot, targetValue] of mappings) {
+    if (declaration !== canonicalRoot && !declaration.startsWith(`${canonicalRoot}/`)) continue
+    if (!String(targetValue ?? '').trim()) break
+    const target = path.resolve(String(targetValue))
+    if (target === root || !target.startsWith(`${root}${path.sep}`)) break
+    const suffix = declaration.slice(canonicalRoot.length).replace(/^\//u, '')
+    return normalizeDeclaration(path.relative(root, suffix ? path.join(target, suffix) : target))
+  }
+  return declaration
+}
+
+export function digestDeclaredOutputs(rootValue, declarations, env = process.env) {
   const root = path.resolve(rootValue)
   const digests = {}
   for (const declarationValue of sortedUnique(declarations ?? [])) {
@@ -239,17 +258,18 @@ export function digestDeclaredOutputs(rootValue, declarations) {
     if (!declaration || path.isAbsolute(declaration) || declaration === '..' || declaration.startsWith('../')) {
       throw new Error(`declared artifact path is invalid: ${declaration || '<empty>'}`)
     }
-    const absoluteDeclaration = path.resolve(root, declaration)
+    const resolvedDeclaration = resolveRunBoundArtifactDeclaration(root, declaration, env)
+    const absoluteDeclaration = path.resolve(root, resolvedDeclaration)
     if (absoluteDeclaration !== root && !absoluteDeclaration.startsWith(`${root}${path.sep}`)) {
       throw new Error(`declared artifact is outside the repository: ${declaration}`)
     }
-    if (!hasWildcard(declaration)) {
+    if (!hasWildcard(resolvedDeclaration)) {
       if (!fs.existsSync(absoluteDeclaration)) throw new Error(`declared artifact is missing: ${declaration}`)
       digests[declaration] = `sha256:${sha256(outputPathFingerprint(absoluteDeclaration))}`
       continue
     }
-    const matcher = wildcardPattern(declaration)
-    const searchRoot = wildcardSearchRoot(root, declaration)
+    const matcher = wildcardPattern(resolvedDeclaration)
+    const searchRoot = wildcardSearchRoot(root, resolvedDeclaration)
     const matches = fs.existsSync(searchRoot)
       ? walkOutputPaths(searchRoot)
         .map((absolutePath) => path.relative(root, absolutePath).replaceAll(path.sep, '/'))

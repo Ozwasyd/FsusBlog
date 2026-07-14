@@ -2,12 +2,13 @@
 
 import { spawn } from 'node:child_process'
 import { copyFile, mkdir, stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 const clientRoot = process.cwd()
 const binExtension = process.platform === 'win32' ? '.cmd' : ''
 const viteBin = join(clientRoot, 'node_modules', '.bin', `vite${binExtension}`)
-const distServerDir = join(clientRoot, 'dist', 'server')
+const distRoot = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || join(clientRoot, 'dist'))
+const distServerDir = join(distRoot, 'server')
 const sourceEntry = join(distServerDir, 'renderPublicPage.js')
 const stableEntry = join(distServerDir, 'public-ssr.mjs')
 const scriptSourceDir = join(clientRoot, 'scripts')
@@ -80,7 +81,7 @@ async function main() {
     '--ssr',
     'src/public-renderers/renderPublicPage.ts',
     '--outDir',
-    'dist/server',
+    distServerDir,
     '--emptyOutDir',
     'true'
   ])

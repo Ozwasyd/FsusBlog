@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { expect } from '@playwright/test'
 import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page, ScreenshotOptions, StorageState } from '@playwright/test'
 import { AEDS_BINARY_MEDIA_TYPE, FSUS_HEADERS } from '../../../../src/frontend/src/api/contracts'
@@ -132,7 +133,8 @@ const acceptanceDefaultUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/
 const ACCEPTANCE_UTF8_DECODER = new TextDecoder()
 const ACCEPTANCE_UTF8_ENCODER = new TextEncoder()
 const ACCEPTANCE_API_ERROR_POD_SIZE = 584
-const acceptancePowWasmRoot = new URL('../../../../src/frontend/public/wasm/', import.meta.url)
+const acceptancePowWasmRoot = pathToFileURL(`${path.resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT
+  || fileURLToPath(new URL('../../../../src/frontend/public/wasm/', import.meta.url)))}/`)
 const acceptanceNodePowAssetKinds = ['relaxed', 'simd', 'basic'] as const
 const acceptanceNodePowBatchSize = Math.max(
   1,

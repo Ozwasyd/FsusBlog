@@ -10,7 +10,8 @@ import { pathToFileURL } from 'node:url'
 const repoRoot = path.resolve(import.meta.dirname, '..', '..')
 const fixtureManifestPath = path.join(repoRoot, 'tests/fixtures/zk/comment-v2/mcl-pairing/fixture.manifest.json')
 const fixtureProject = path.join(repoRoot, 'tools/security/ZkCommentV2MclFixture/FsusBlog.ZkCommentV2MclFixture.csproj')
-const publicWasmRoot = path.join(repoRoot, 'src/frontend/public/wasm')
+const publicWasmRoot = path.resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT
+  || path.join(repoRoot, 'src/frontend/public/wasm'))
 const mclRunBuildArgs = process.env.FSUSBLOG_ZK_MCL_NO_BUILD === '1'
   ? ['--no-build']
   : []

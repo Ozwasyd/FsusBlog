@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 const clientRoot = process.cwd();
 const repoRoot = resolve(clientRoot, '../..');
-const wasmRoot = resolve(clientRoot, 'public/wasm');
+const wasmRoot = resolve(process.env.FSUSBLOG_FRONTEND_WASM_ROOT || resolve(clientRoot, 'public/wasm'));
 const outputPath = resolve(repoRoot, '.tmp/perf/pow-wasm.json');
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

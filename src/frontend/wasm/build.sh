@@ -3,12 +3,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WASM_ROOT="${ROOT_DIR}/wasm"
-OUT_DIR="${ROOT_DIR}/public/wasm"
-BUILD_SIMD_DIR="${WASM_ROOT}/build-simd"
-BUILD_BASIC_DIR="${WASM_ROOT}/build-basic"
-BUILD_RELAXED_POW_DIR="${WASM_ROOT}/build-pow-relaxed"
-BUILD_THREADS_POW_DIR="${WASM_ROOT}/build-pow-threads"
-STAGE_DIR="${WASM_ROOT}/.artifacts"
+RUN_WASM_ROOT="${FSUSBLOG_WASM_ARTIFACT_ROOT:-${WASM_ROOT}}"
+OUT_DIR="${FSUSBLOG_FRONTEND_WASM_ROOT:-${ROOT_DIR}/public/wasm}"
+BUILD_SIMD_DIR="${RUN_WASM_ROOT}/build-simd"
+BUILD_BASIC_DIR="${RUN_WASM_ROOT}/build-basic"
+BUILD_RELAXED_POW_DIR="${RUN_WASM_ROOT}/build-pow-relaxed"
+BUILD_THREADS_POW_DIR="${RUN_WASM_ROOT}/build-pow-threads"
+STAGE_DIR="${RUN_WASM_ROOT}/stage"
 STAGE_SIMD_DIR="${STAGE_DIR}/wasm-simd"
 STAGE_BASIC_DIR="${STAGE_DIR}/wasm-basic"
 STAGE_RELAXED_POW_DIR="${STAGE_DIR}/wasm-pow-relaxed"
@@ -485,7 +486,8 @@ if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUIL
 fi
 
 node "${ROOT_DIR}/../../tools/frontend/write-comment-privacy-prover-manifest.mjs"
-PROVER_BUNDLE="${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz"
+PROVER_BUNDLE="${FSUSBLOG_COMMENT_PROVER_BUNDLE:-${ROOT_DIR}/../../artifacts/zk/comment-v2/comment_v2_prover_wasm.tar.gz}"
+mkdir -p "$(dirname "${PROVER_BUNDLE}")"
 PROVER_BUNDLE_TAR="${PROVER_BUNDLE}.tmp-$$.tar"
 tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner --mode=0644 \
   -C "${OUT_DIR}" -cf "${PROVER_BUNDLE_TAR}" \

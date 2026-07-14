@@ -2,7 +2,7 @@
 
 import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { decodePublicAotPayload } from '../../support/aeds-envelope.mjs'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
@@ -13,7 +13,11 @@ const { chromium } = require(require.resolve('@playwright/test', { paths: [proce
 const CLOCK_MATRIX_SCHEMA = 'fsusblog.public-hydration-clock-matrix.v1'
 const CLOCK_MATRIX_SUMMARY_FILE = process.env.FSUSBLOG_PUBLIC_HYDRATION_CLOCK_SUMMARY_FILE
   || fileURLToPath(new URL('../../../../.tmp/release-evidence/public-hydration-clock-matrix-summary.json', import.meta.url))
-const PUBLIC_SSR_BUNDLE_FILE = fileURLToPath(new URL('../../../../src/frontend/dist/server/public-ssr.mjs', import.meta.url))
+const PUBLIC_SSR_BUNDLE_FILE = resolve(
+  process.env.FSUSBLOG_FRONTEND_DIST_ROOT
+    || fileURLToPath(new URL('../../../../src/frontend/dist', import.meta.url)),
+  'server/public-ssr.mjs'
+)
 const executablePath = resolveSystemChromiumExecutablePath()
 
 const CLOCK_CASES = [

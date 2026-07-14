@@ -709,6 +709,7 @@ function measureDirectoryTree(candidates, label) {
 function backendWwwrootDir() {
   return process.env.FSUSBLOG_BACKEND_WWWROOT_DIR
     || process.env.FSUSBLOG_WEB_ROOT
+    || process.env.FSUSBLOG_BACKEND_WEBROOT
     || path.join(root, 'src/backend/wwwroot')
 }
 

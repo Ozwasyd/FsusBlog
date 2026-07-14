@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLIENT_DIR="${ROOT_DIR}/src/frontend"
 SERVER_PROJ="${ROOT_DIR}/src/backend/FsusBlog.Server.csproj"
+FRONTEND_DIST_DIR="${FSUSBLOG_FRONTEND_DIST_ROOT:-${CLIENT_DIR}/dist}"
 TARGET_RUNTIME="${FSUSBLOG_NATIVE_RUNTIME:-linux-musl-x64}"
 BUILD_CONFIGURATION="${FSUSBLOG_NATIVE_CONFIGURATION:-Release}"
 BUILD_CONFIGURATION_LOWER="$(printf '%s' "${BUILD_CONFIGURATION}" | tr '[:upper:]' '[:lower:]')"
@@ -64,7 +65,7 @@ dotnet publish "${SERVER_PROJ}" \
 log "syncing frontend dist into wwwroot"
 rm -rf "${OUTPUT_DIR}/wwwroot"
 mkdir -p "${OUTPUT_DIR}/wwwroot"
-cp -a "${CLIENT_DIR}/dist/." "${OUTPUT_DIR}/wwwroot/"
+cp -a "${FRONTEND_DIST_DIR}/." "${OUTPUT_DIR}/wwwroot/"
 
 if [[ -d "${ZK_NATIVE_ARTIFACT_DIR}" ]]; then
   log "syncing ZK native artifacts from ${ZK_NATIVE_ARTIFACT_DIR}"

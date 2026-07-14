@@ -10,7 +10,7 @@ import { fetchWithTimeout, parseTimeoutMs, probeReachable } from '../../support/
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000)
 const clientRoot = process.cwd()
-const distRoot = resolve(clientRoot, 'dist')
+const distRoot = resolve(process.env.FSUSBLOG_FRONTEND_DIST_ROOT || resolve(clientRoot, 'dist'))
 
 function assert(condition, message) {
   if (!condition) {
