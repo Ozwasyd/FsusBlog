@@ -1076,6 +1076,8 @@ test('repository physical DAG starts runtime immediately and gates bootstrap on 
   assert.equal(physicalTiers.get('runtime-browser').dependsOn.includes('local-production-build-static'), false)
   assert.ok(physicalTiers.get('performance-evidence').dependsOn.includes('local-production-backend-tests'))
   assert.ok(physicalTiers.get('performance-evidence').dependsOn.includes('local-production-frontend-tests'))
+  assert.ok(physicalTiers.get('backend-tests').cacheInputs.includes('tools/test/run-backend-production-shards.mjs'))
+  assert.ok(physicalTiers.get('backend-tests').cacheInputs.includes('tools/test/backend-production-topology.mjs'))
 })
 
 test('bundle evidence must prove every member with executed IDs and digests', () => {

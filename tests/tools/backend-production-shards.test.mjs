@@ -24,6 +24,7 @@ import {
   parseListedTests,
   parseTrxExecutionEvidence,
   parseTrxRecords,
+  parseTrxTimingEvidence,
   projectProductionUnionRecords,
   readManifestClassWideProductionExclusions,
   readBackendResourceGrantAfterBenchmark,
@@ -676,11 +677,14 @@ test('backend production parallelism derives rolling process capacity from live 
       totalMemoryGiB: 64
     })
   )
-  const expected = [2, 3, 4, 8, 12, 16].map((cpuBudget) => [
-    cpuBudget,
-    cpuBudget,
-    Array.from({ length: cpuBudget }, () => 1)
-  ])
+  const expected = [
+    [2, 2, [1, 1]],
+    [3, 2, [2, 1]],
+    [4, 2, [2, 2]],
+    [8, 2, [4, 4]],
+    [12, 3, [4, 4, 4]],
+    [16, 4, [4, 4, 4, 4]]
+  ]
   for (const [cpuBudget, processCount, processorsByProcess] of expected) {
     const parallelism = resolve(cpuBudget)
     assert.equal(parallelism.maxConcurrentProcesses, processCount)
@@ -691,13 +695,13 @@ test('backend production parallelism derives rolling process capacity from live 
     assert.equal(parallelism.derivation.source, 'machine-derived')
     assert.equal(
       parallelism.derivation.formula,
-      'min(cpuBudget,scheduler-admitted CPU capacity); explicit memory grant trusted'
+      'min(max(2,floor(sqrt(cpuBudget))),cpuBudget,floor(memoryGiB/1GiB),12)'
     )
   }
 
-  assert.equal(resolve(16, 3).maxConcurrentProcesses, 16)
-  assert.equal(resolve(16, 2.25).maxConcurrentProcesses, 16)
-  assert.equal(resolve(2, 1.99).maxConcurrentProcesses, 2)
+  assert.equal(resolve(16, 3).maxConcurrentProcesses, 3)
+  assert.equal(resolve(16, 2.25).maxConcurrentProcesses, 2)
+  assert.throws(() => resolve(2, 1.99), /at least two/u)
   assert.throws(() => resolve(1, 64), /at least two available CPU units/u)
 
   const diagnosticOverride = resolveBackendShardParallelism({
@@ -715,12 +719,12 @@ test('backend production parallelism derives rolling process capacity from live 
   assert.deepEqual(diagnosticOverride.memoryGiBByProcess, [16, 16, 16])
   assert.deepEqual(diagnosticOverride.derivation, {
     source: 'diagnostic-override',
-    formula: 'min(cpuBudget,scheduler-admitted CPU capacity); explicit memory grant trusted',
-    derivedProcessCount: 12,
+    formula: 'min(max(2,floor(sqrt(cpuBudget))),cpuBudget,floor(memoryGiB/1GiB),12)',
+    derivedProcessCount: 3,
     configuredProcessCount: 3,
     cpuAllocationFormula: 'floor(cpuBudget/processCount) plus one for the first cpuBudget%processCount processes',
     configuredProcessorsPerProcess: null,
-    memoryAllocationFormula: 'memoryGiB*(processCpuUnits/allocatedCpuUnits)'
+    memoryAllocationFormula: 'memoryGiB/processCount with a 1 GiB per-testhost floor'
   })
   assert.equal(resolveBackendShardParallelism({
     env: {
@@ -777,7 +781,7 @@ test('backend production derives more rolling partitions than processes from dis
     planningUnitCount: 10,
     testClassCount: 9,
     affinityUnitCount: 1,
-    formula: 'min(planningUnitCount,processCount+min(processCount,planningUnitCount-processCount))'
+    formula: 'min(planningUnitCount,max(processCount,ceil(processCount*partitionMultiplier)))'
   })
   assert.deepEqual(deriveBackendPartitionCount(names.slice(0, 5), {
     maxConcurrentProcesses: 3
@@ -837,6 +841,18 @@ test('backend production scheduler grant validation fails closed and derives hos
     availableCpu: 8,
     totalMemoryGiB: 16
   }), 8)
+  assert.equal(resolveBackendPotentialProcessCount({
+    resourceBudget: { cpuUnits: 32, memoryGiB: 64 }
+  }, {
+    availableCpu: 32,
+    totalMemoryGiB: 128
+  }), 12)
+  assert.equal(resolveBackendPotentialProcessCount({
+    resourceBudget: { cpuUnits: 16, memoryGiB: 4.5 }
+  }, {
+    availableCpu: 16,
+    totalMemoryGiB: 64
+  }), 4)
   assert.throws(() => readBackendSchedulerResourceGrant({
     env,
     readFile: () => JSON.stringify({ ...document, runId: 'run-two' })
@@ -967,6 +983,45 @@ test('backend production rolling partitions expand deterministically from a 3-un
     })),
     observedGrant: { cpuUnits: 8, memoryGiB: 8 }
   })
+})
+
+test('backend production expansion assigns all newly admitted CPUs across a bounded host topology', async () => {
+  const partitions = Array.from({ length: 4 }, (_, index) => ({ index }))
+  const gates = partitions.map(() => {
+    let resolve
+    const promise = new Promise((done) => { resolve = done })
+    return { promise, resolve }
+  })
+  let grant = { cpuUnits: 3, memoryGiB: 4 }
+  let publishGrant
+  const started = []
+  const rolling = runRollingPartitions(partitions, [2, 1], async (partition, slot) => {
+    started.push({ partition: partition.index, ...slot })
+    await gates[partition.index].promise
+    return { index: partition.index, code: 0, signal: null }
+  }, {
+    initialMemoryGiBByProcess: [2, 2],
+    readResourceGrant: () => grant,
+    potentialProcessCount: 4,
+    potentialCpuUnits: 16,
+    potentialMemoryGiB: 16,
+    waitForResourceChange: () => new Promise((resolve) => { publishGrant = resolve })
+  })
+
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(started.map(({ processors }) => processors), [2, 1])
+  grant = { cpuUnits: 16, memoryGiB: 16 }
+  publishGrant()
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(started.length, 4)
+  assert.deepEqual(started.map(({ processors }) => processors), [2, 1, 7, 6])
+  assert.equal(started.reduce((sum, { processors }) => sum + processors, 0), 16)
+  assert.equal(started.reduce((sum, { memoryGiB }) => sum + memoryGiB, 0), 16)
+
+  for (const gate of gates) gate.resolve()
+  const outcomes = await rolling
+  assert.equal(outcomes.rollingExecution.peakConcurrentProcesses, 4)
+  assert.equal(outcomes.rollingExecution.slots.reduce((sum, { processors }) => sum + processors, 0), 16)
 })
 
 test('backend production rolling partitions bind unstarted slots to a smaller live memory grant', async () => {
@@ -1114,7 +1169,7 @@ test('backend production waits for the run-bound benchmark marker before expandi
   const initialMemoryGiB = 3.17
   const outerGrant = {
     cpuUnits: 5,
-    memoryGiB: 4.75,
+    memoryGiB: 5.17,
     resourceBudget: { cpuUnits: 8, memoryGiB: 8 }
   }
   let markerExists = false
@@ -1204,6 +1259,26 @@ test('backend production TRX parser retains result names and outcomes', () => {
     { testId: 'fact-id', testName: 'Example.Tests.Fact', outcome: 'Passed' },
     { testId: 'rule-id', testName: 'Example.Tests.Rule(value: "a")', outcome: 'Passed' }
   ])
+})
+
+test('backend production TRX timing evidence records first-test startup boundaries', () => {
+  const timing = parseTrxTimingEvidence(`
+    <TestRun><Results>
+      <UnitTestResult testId="one" testName="Example.One" outcome="Passed" startTime="2026-07-14T01:00:01.000Z" endTime="2026-07-14T01:00:03.000Z" />
+      <UnitTestResult testId="two" testName="Example.Two" outcome="Passed" startTime="2026-07-14T01:00:00.500Z" endTime="2026-07-14T01:00:04.500Z" />
+    </Results></TestRun>`)
+  assert.deepEqual(timing, {
+    status: 'measured',
+    firstTestStartedAtUnixMs: Date.parse('2026-07-14T01:00:00.500Z'),
+    lastTestEndedAtUnixMs: Date.parse('2026-07-14T01:00:04.500Z'),
+    testExecutionSpanMs: 4000
+  })
+  assert.deepEqual(parseTrxTimingEvidence('<TestRun />'), {
+    status: 'unavailable',
+    firstTestStartedAtUnixMs: null,
+    lastTestEndedAtUnixMs: null,
+    testExecutionSpanMs: null
+  })
 })
 
 test('backend production TRX execution evidence rejects skips, omissions, and repeated IDs', () => {
@@ -1379,7 +1454,8 @@ test('backend production summary records global 8, planned 5, initial 3, and fiv
     `${repositoryRoot}/.tmp/test-results/backend/production/shard-${id}.trx`
   ))
   const initialMemoryGiB = 3.17
-  const addedMemoryGiB = (4.75 - initialMemoryGiB) / 2
+  const admittedMemoryGiB = 5.17
+  const addedMemoryGiB = (admittedMemoryGiB - initialMemoryGiB) / 2
   const memoryGiBByProcess = [
     ...Array.from({ length: 3 }, () => initialMemoryGiB / 3),
     addedMemoryGiB,
@@ -1397,19 +1473,39 @@ test('backend production summary records global 8, planned 5, initial 3, and fiv
     processorsByProcess: [1, 1, 1, 1, 1],
     memoryGiBByProcess,
     allocatedCpuUnits: 5,
-    allocatedMemoryGiB: 4.75,
+    allocatedMemoryGiB: admittedMemoryGiB,
     parallelism: { cpuBudget: 3, memoryGiB: initialMemoryGiB },
     resourceExpansion: {
       dynamic: true,
       initialGrant: { cpuUnits: 3, memoryGiB: initialMemoryGiB },
-      observedGrant: { cpuUnits: 5, memoryGiB: 4.75 },
+      observedGrant: { cpuUnits: 5, memoryGiB: admittedMemoryGiB },
       potentialBudget: { cpuUnits: 8, memoryGiB: 8 }
+    },
+    planningForecast: {
+      initialTopology: {
+        schema: 'fsusblog.backend-production-topology.v1',
+        testhostCount: 3,
+        rollingPartitionCount: 5,
+        allocatedCpuUnits: 3,
+        invariants: { exactCpuConservation: true, affinityUnitsRemainIndivisible: true }
+      },
+      potentialTopology: {
+        schema: 'fsusblog.backend-production-topology.v1',
+        testhostCount: 5,
+        rollingPartitionCount: 5,
+        allocatedCpuUnits: 8,
+        invariants: { exactCpuConservation: true, governancePostludeSeparated: true }
+      }
     },
     partitions: trxFiles.map((file, id) => ({
       id,
       processSlot: id,
       processors: 1,
       memoryGiB: memoryGiBByProcess[id],
+      timingStatus: 'unavailable',
+      firstTestStartedAtUnixMs: null,
+      testhostStartupMs: null,
+      testExecutionSpanMs: null,
       trx: path.relative(repositoryRoot, file).replaceAll(path.sep, '/'),
       coverageRoot: `.tmp/coverage/backend/production/shard-${id}`
     }))
@@ -1427,6 +1523,12 @@ test('backend production summary records global 8, planned 5, initial 3, and fiv
   })
   assert.equal(new Set(summary.partitions.map(({ trx }) => trx)).size, partitionCount)
   assert.equal(new Set(summary.partitions.map(({ coverageRoot }) => coverageRoot)).size, partitionCount)
+  const invalidTopology = structuredClone(summary)
+  invalidTopology.planningForecast.potentialTopology.rollingPartitionCount = 4
+  assert.throws(
+    () => validateShardSummaryArtifacts(invalidTopology, trxFiles, { repositoryRoot }),
+    /invalid topology planning evidence/u
+  )
 })
 
 test('backend production category discovery binds special tiers to methods inside the union', () => {

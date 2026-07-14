@@ -478,7 +478,13 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
       cacheInputs: [
         'tests/matrix.yml',
         'tools/test/bundles',
-        bundle.command
+        bundle.command,
+        ...(bundle.id === 'backend-tests'
+          ? [
+              'tools/test/run-backend-production-shards.mjs',
+              'tools/test/backend-production-topology.mjs'
+            ]
+          : [])
       ],
       executionKey: `${profileId}/${bundle.id}`,
       executionVariant: 'runtime',

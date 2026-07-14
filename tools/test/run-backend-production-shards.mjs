@@ -15,6 +15,11 @@ import {
   cleanupOrphanDotnetBuildServers,
   selectOrphanDotnetBuildServers
 } from '../test-matrix/dotnet-build-server-cleanup.mjs'
+import {
+  allocateBackendTopologyProcessors,
+  backendTopologyDefaults,
+  planBackendProductionTopology
+} from './backend-production-topology.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const project = 'tests/backend/FsusBlog.Server.Tests.csproj'
@@ -187,7 +192,16 @@ export function resolveBackendPotentialProcessCount(resourceGrant, {
   if (cpuUnits > hostCpu || memoryGiB > hostMemoryGiB) {
     throw new Error('backend production scheduler resource budget exceeds host CPU or memory capacity')
   }
-  return Math.min(hostCpu, cpuUnits)
+  const potentialProcessCount = Math.min(
+    hostCpu,
+    cpuUnits,
+    Math.floor(memoryGiB / backendTopologyDefaults.memoryGiBPerTesthost),
+    backendTopologyDefaults.maxTesthosts
+  )
+  if (potentialProcessCount < 2) {
+    throw new Error('backend production scheduler resource budget cannot support two testhosts')
+  }
+  return potentialProcessCount
 }
 
 export function readBackendResourceGrantAfterBenchmark({
@@ -254,7 +268,7 @@ export function resolveBackendShardParallelism({
   if (!memoryGiB) throw new Error('backend production requires a positive memory budget')
   const machineMemoryGiBPerCpu = detectedTotalMemoryGiB / detectedCpu
   const memoryShardLimit = schedulerManaged
-    ? cpuBudget
+    ? Math.floor(memoryGiB / backendTopologyDefaults.memoryGiBPerTesthost)
     : Math.max(1, Math.floor(memoryGiB / machineMemoryGiBPerCpu))
   if (memoryShardLimit < 2) {
     throw new Error(
@@ -263,7 +277,9 @@ export function resolveBackendShardParallelism({
   }
   const derivedProcessCount = Math.min(
     cpuBudget,
-    memoryShardLimit
+    memoryShardLimit,
+    backendTopologyDefaults.maxTesthosts,
+    Math.max(2, Math.floor(Math.sqrt(cpuBudget)))
   )
   const configuredProcessCount = configuredPositiveInteger(
     env.FSUSBLOG_BACKEND_PRODUCTION_SHARDS,
@@ -285,15 +301,22 @@ export function resolveBackendShardParallelism({
   )
   const processorsByProcess = configuredProcessors
     ? Array.from({ length: maxConcurrentProcesses }, () => configuredProcessors)
-    : Array.from({ length: maxConcurrentProcesses }, (_, index) =>
-        Math.floor(cpuBudget / maxConcurrentProcesses) + (index < cpuBudget % maxConcurrentProcesses ? 1 : 0))
+    : allocateBackendTopologyProcessors(cpuBudget, maxConcurrentProcesses)
   const allocatedCpuUnits = processorsByProcess.reduce((total, processors) => total + processors, 0)
   if (allocatedCpuUnits !== cpuBudget) {
     throw new Error(
       `backend production allocation [${processorsByProcess.join(',')}] must exactly consume CPU budget ${cpuBudget}`
     )
   }
-  const memoryGiBByProcess = processorsByProcess.map((processors) => memoryGiB * processors / allocatedCpuUnits)
+  const memoryGiBByProcess = Array.from(
+    { length: maxConcurrentProcesses },
+    () => memoryGiB / maxConcurrentProcesses
+  )
+  if (memoryGiBByProcess.some((value) => value + 1e-9 < backendTopologyDefaults.memoryGiBPerTesthost)) {
+    throw new Error(
+      `backend production process allocation requires at least ${backendTopologyDefaults.memoryGiBPerTesthost} GiB per testhost`
+    )
+  }
   return {
     availableCpu: detectedCpu,
     availableMemoryGiB: detectedMemoryGiB,
@@ -310,15 +333,15 @@ export function resolveBackendShardParallelism({
     derivation: {
       source: configuredProcessCount ? 'diagnostic-override' : 'machine-derived',
       formula: schedulerManaged
-        ? 'min(cpuBudget,scheduler-admitted CPU capacity); explicit memory grant trusted'
-        : 'min(cpuBudget,floor(liveMemoryGiB/(totalMemoryGiB/availableCpu)))',
+        ? 'min(max(2,floor(sqrt(cpuBudget))),cpuBudget,floor(memoryGiB/1GiB),12)'
+        : 'min(max(2,floor(sqrt(cpuBudget))),cpuBudget,floor(liveMemoryGiB/(totalMemoryGiB/availableCpu)),12)',
       derivedProcessCount,
       configuredProcessCount,
       cpuAllocationFormula: configuredProcessors
         ? 'diagnostic uniform processors per process; sum must equal cpuBudget'
         : 'floor(cpuBudget/processCount) plus one for the first cpuBudget%processCount processes',
       configuredProcessorsPerProcess: configuredProcessors,
-      memoryAllocationFormula: 'memoryGiB*(processCpuUnits/allocatedCpuUnits)'
+      memoryAllocationFormula: 'memoryGiB/processCount with a 1 GiB per-testhost floor'
     }
   }
 }
@@ -347,7 +370,12 @@ export function deriveColdApplicationStartupPenalty(productionTestCaseCount) {
 
 export function deriveBackendPartitionCount(
   testNames,
-  { maxConcurrentProcesses, potentialConcurrentProcesses = null, affinityGroups = [] } = {}
+  {
+    maxConcurrentProcesses,
+    potentialConcurrentProcesses = null,
+    affinityGroups = [],
+    partitionMultiplier = backendTopologyDefaults.partitionMultiplier
+  } = {}
 ) {
   if (!Number.isInteger(maxConcurrentProcesses) || maxConcurrentProcesses < 2) {
     throw new Error('backend production partitioning requires at least two concurrent processes')
@@ -386,10 +414,14 @@ export function deriveBackendPartitionCount(
     && (!Number.isInteger(potentialConcurrentProcesses) || potentialConcurrentProcesses < maxConcurrentProcesses)) {
     throw new Error('backend production potential concurrency must be an integer no smaller than initial concurrency')
   }
+  const normalizedPartitionMultiplier = positiveNumber(partitionMultiplier, null)
+  if (!normalizedPartitionMultiplier || normalizedPartitionMultiplier < 1) {
+    throw new Error('backend production partition multiplier must be a number of at least one')
+  }
   const partitionCount = Math.min(
     planningUnitCount,
     potentialConcurrentProcesses
-      ?? (maxConcurrentProcesses + Math.min(maxConcurrentProcesses, planningUnitCount - maxConcurrentProcesses))
+      ?? Math.max(maxConcurrentProcesses, Math.ceil(maxConcurrentProcesses * normalizedPartitionMultiplier))
   )
   return {
     partitionCount,
@@ -397,7 +429,7 @@ export function deriveBackendPartitionCount(
     testClassCount: regularClasses.size,
     affinityUnitCount,
     formula: potentialConcurrentProcesses === null
-      ? 'min(planningUnitCount,processCount+min(processCount,planningUnitCount-processCount))'
+      ? 'min(planningUnitCount,max(processCount,ceil(processCount*partitionMultiplier)))'
       : 'min(planningUnitCount,potentialConcurrentProcesses)'
   }
 }
@@ -1229,6 +1261,33 @@ export function parseTrxRecords(xml) {
   })).filter((record) => record.testName)
 }
 
+export function parseTrxTimingEvidence(xml) {
+  const timings = [...String(xml).matchAll(/<UnitTestResult\b([^>]*)>/gu)].map((match) => ({
+    startedAtUnixMs: Date.parse(trxAttribute(match[1], 'startTime')),
+    endedAtUnixMs: Date.parse(trxAttribute(match[1], 'endTime'))
+  })).filter(({ startedAtUnixMs, endedAtUnixMs }) => (
+    Number.isFinite(startedAtUnixMs)
+    && Number.isFinite(endedAtUnixMs)
+    && endedAtUnixMs >= startedAtUnixMs
+  ))
+  if (timings.length === 0) {
+    return {
+      status: 'unavailable',
+      firstTestStartedAtUnixMs: null,
+      lastTestEndedAtUnixMs: null,
+      testExecutionSpanMs: null
+    }
+  }
+  const firstTestStartedAtUnixMs = Math.min(...timings.map(({ startedAtUnixMs }) => startedAtUnixMs))
+  const lastTestEndedAtUnixMs = Math.max(...timings.map(({ endedAtUnixMs }) => endedAtUnixMs))
+  return {
+    status: 'measured',
+    firstTestStartedAtUnixMs,
+    lastTestEndedAtUnixMs,
+    testExecutionSpanMs: lastTestEndedAtUnixMs - firstTestStartedAtUnixMs
+  }
+}
+
 export function parseTrxExecutionEvidence(xml) {
   const text = String(xml)
   const summaries = [...text.matchAll(/<ResultSummary\b([^>]*)>/gu)]
@@ -1443,9 +1502,26 @@ export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoo
     && peakConcurrentProcesses <= initialConcurrentProcesses) {
     throw new Error('backend production shard summary did not expand toward its scheduler potential')
   }
-  if (dynamicExpansion
-    && partitionCount - preludePartitionCount - postludePartitionCount !== plannedConcurrentProcesses) {
-    throw new Error('backend production scheduler planning must bind one coverage partition to each planned process')
+  const rollingCoveragePartitionCount = partitionCount - preludePartitionCount - postludePartitionCount
+  if (dynamicExpansion && rollingCoveragePartitionCount < plannedConcurrentProcesses) {
+    throw new Error('backend production scheduler planning must provide at least one coverage partition per planned process')
+  }
+  const initialTopology = summary?.planningForecast?.initialTopology
+  const potentialTopology = summary?.planningForecast?.potentialTopology
+  if (initialTopology !== undefined || potentialTopology !== undefined) {
+    if (initialTopology?.schema !== 'fsusblog.backend-production-topology.v1'
+      || potentialTopology?.schema !== 'fsusblog.backend-production-topology.v1'
+      || initialTopology.testhostCount !== initialConcurrentProcesses
+      || potentialTopology.testhostCount !== plannedConcurrentProcesses
+      || potentialTopology.rollingPartitionCount !== rollingCoveragePartitionCount
+      || initialTopology.allocatedCpuUnits !== initialCpuGrant
+      || potentialTopology.allocatedCpuUnits !== potentialCpuBudget
+      || initialTopology.invariants?.exactCpuConservation !== true
+      || potentialTopology.invariants?.exactCpuConservation !== true
+      || initialTopology.invariants?.affinityUnitsRemainIndivisible !== true
+      || potentialTopology.invariants?.governancePostludeSeparated !== true) {
+      throw new Error('backend production shard summary has invalid topology planning evidence')
+    }
   }
   if (!Array.isArray(summary?.memoryGiBByProcess)
     || summary.memoryGiBByProcess.length !== maxConcurrentProcesses
@@ -1509,6 +1585,22 @@ export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoo
     }
     if (!isPrelude && !isPostlude && partition?.memoryGiB !== summary.memoryGiBByProcess[partition.processSlot]) {
       throw new Error(`backend production partition ${index} memory allocation is not bound to its process slot`)
+    }
+    if (initialTopology !== undefined && !isPrelude && !isPostlude) {
+      const validUnavailableTiming = partition?.timingStatus === 'unavailable'
+        && partition.firstTestStartedAtUnixMs === null
+        && partition.testhostStartupMs === null
+        && partition.testExecutionSpanMs === null
+      const validMeasuredTiming = partition?.timingStatus === 'measured'
+        && Number.isFinite(partition.processStartedAtUnixMs)
+        && Number.isFinite(partition.firstTestStartedAtUnixMs)
+        && Number.isFinite(partition.testhostStartupMs)
+        && partition.testhostStartupMs >= 0
+        && Number.isFinite(partition.testExecutionSpanMs)
+        && partition.testExecutionSpanMs >= 0
+      if (!validUnavailableTiming && !validMeasuredTiming) {
+        throw new Error(`backend production partition ${index} has invalid testhost timing evidence`)
+      }
     }
     if (isPostlude && (!positiveInteger(partition?.processors, null)
       || !positiveNumber(partition?.memoryGiB, null)
@@ -1578,6 +1670,7 @@ function runDotnet(args, { capture = false, env = process.env } = {}) {
       signal,
       stdout,
       stderr,
+      startedAtUnixMs: startedAt,
       durationMs: Date.now() - startedAt
     }))
   })
@@ -1786,6 +1879,7 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
   initialMemoryGiBByProcess = null,
   readResourceGrant = null,
   potentialProcessCount = processorsByProcess.length,
+  potentialCpuUnits = null,
   potentialMemoryGiB = null,
   ioOvercommit = null,
   waitForResourceChange = null,
@@ -1814,9 +1908,17 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
     || potentialProcessCount > partitions.length) {
     throw new Error('backend production rolling execution potential process count is invalid')
   }
+  const initialProcessorCount = processorsByProcess.reduce((sum, processors) => sum + processors, 0)
+  const resolvedPotentialCpuUnits = potentialCpuUnits ?? Math.max(initialProcessorCount, potentialProcessCount)
+  if (!Number.isInteger(resolvedPotentialCpuUnits) || resolvedPotentialCpuUnits < initialProcessorCount) {
+    throw new Error('backend production rolling execution potential CPU capacity is invalid')
+  }
   if (dynamic && (!Array.isArray(initialMemoryGiBByProcess)
     || initialMemoryGiBByProcess.length !== processorsByProcess.length
-    || initialMemoryGiBByProcess.some((memoryGiB) => !positiveNumber(memoryGiB, null)))) {
+    || initialMemoryGiBByProcess.some((memoryGiB) => (
+      !positiveNumber(memoryGiB, null)
+      || memoryGiB + 1e-9 < backendTopologyDefaults.memoryGiBPerTesthost
+    )))) {
     throw new Error('backend production rolling execution requires initial memory for every dynamic process slot')
   }
   if (dynamic && !positiveNumber(potentialMemoryGiB, null)) {
@@ -1882,7 +1984,7 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
     if (!Number.isInteger(cpuUnits) || cpuUnits < 1 || !positiveNumber(memoryGiB, null)) {
       throw new Error('backend production rolling execution received an invalid live resource grant')
     }
-    if (cpuUnits > potentialProcessCount || memoryGiB > potentialMemoryGiB + 1e-9) {
+    if (cpuUnits > resolvedPotentialCpuUnits || memoryGiB > potentialMemoryGiB + 1e-9) {
       throw new Error('backend production rolling execution live grant exceeds potential capacity')
     }
     return { cpuUnits, memoryGiB }
@@ -1898,6 +2000,9 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
     // live grant instead of rejecting a safe downward memory rebalance.
     if (observedGrant.memoryGiB + 1e-9 < initialAllocatedMemoryGiB) {
       const liveMemoryGiBPerSlot = observedGrant.memoryGiB / slots.length
+      if (liveMemoryGiBPerSlot + 1e-9 < backendTopologyDefaults.memoryGiBPerTesthost) {
+        throw new Error('backend production rolling execution live grant cannot retain the per-testhost memory floor')
+      }
       for (const slot of slots) slot.memoryGiB = liveMemoryGiBPerSlot
     }
   }
@@ -1959,8 +2064,12 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
         observedGrant = { cpuUnits, memoryGiB }
         const availableCpuSlots = Math.floor(cpuUnits - allocatedCpuUnits)
         const remainingMemoryGiB = memoryGiB - allocatedMemoryGiB
+        const memoryAvailableProcessCount = Math.floor(
+          (remainingMemoryGiB + 1e-9) / backendTopologyDefaults.memoryGiBPerTesthost
+        )
         const addCount = Math.min(
           availableCpuSlots,
+          memoryAvailableProcessCount,
           potentialProcessCount - slots.length,
           executionQueue.length - nextPartition
         )
@@ -1968,10 +2077,13 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
         const memoryGiBPerAddedProcess = admittedAddCount > 0
           ? remainingMemoryGiB / admittedAddCount
           : null
+        const processorsByAddedProcess = admittedAddCount > 0
+          ? allocateBackendTopologyProcessors(availableCpuSlots, admittedAddCount)
+          : []
         for (let offset = 0; offset < admittedAddCount; offset += 1) {
           const slot = {
             processSlot: slots.length,
-            processors: 1,
+            processors: processorsByAddedProcess[offset],
             memoryGiB: memoryGiBPerAddedProcess,
             partitionLimit: null
           }
@@ -2394,23 +2506,68 @@ async function runExpandableBackendProductionShards({
       classStartupPenalty: deriveClassStartupPenalty(names)
       }))
     ]
-    // Size the fixed coverage set for the near-term executable envelope. The
-    // three PostgreSQL affinity groups expose the post-benchmark process floor;
-    // the default rolling formula adds one refill wave without creating a
-    // collector per global CPU that will not be granted during this bundle.
-    const nearTermProcessCount = Math.min(
-      potentialProcessCount,
-      Math.max(initialProcessCount, affinityGroups.length)
+    const partitionMultiplier = positiveNumber(
+      process.env.FSUSBLOG_BACKEND_PARTITION_MULTIPLIER,
+      backendTopologyDefaults.partitionMultiplier
     )
-    const partitioning = deriveBackendPartitionCount(mainTestNames, {
-      maxConcurrentProcesses: nearTermProcessCount,
-      affinityGroups
+    if (partitionMultiplier < 1) {
+      throw new Error('backend production partition multiplier must be a number of at least one')
+    }
+    const planningUnitProbe = deriveBackendPartitionCount(mainTestNames, {
+      maxConcurrentProcesses: 2,
+      affinityGroups,
+      partitionMultiplier
     })
-    const plannedProcessCount = partitioning.partitionCount
+    const testhostOverride = configuredPositiveInteger(
+      process.env.FSUSBLOG_BACKEND_PRODUCTION_SHARDS,
+      'backend production diagnostic process override'
+    )
+    const processorAllocationMode = String(
+      process.env.FSUSBLOG_BACKEND_PROCESSOR_ALLOCATION_MODE ?? 'uniform'
+    ).trim()
+    const weightedDependencyCount = new Set(
+      Object.values(dependencyTests).flat().map(normalizeListedTestName)
+    ).size
+    const topologyInputs = {
+      planningUnitCount: planningUnitProbe.planningUnitCount,
+      productionTestCaseCount: mainTestNames.length,
+      coldApplicationStartupPenalty: deriveColdApplicationStartupPenalty(mainTestNames.length),
+      classStartupPenalty: deriveClassStartupPenalty(mainTestNames),
+      weightedDependencyCount,
+      affinityGroupCount: affinityGroups.length,
+      governancePostludeCount: 1,
+      testhostOverride,
+      partitionMultiplier,
+      processorAllocationMode
+    }
+    const initialTopology = planBackendProductionTopology({
+      ...topologyInputs,
+      testhostOverride: testhostOverride === null
+        ? null
+        : Math.min(
+            testhostOverride,
+            initialGrant.cpuUnits,
+            Math.floor(initialGrant.memoryGiB / backendTopologyDefaults.memoryGiBPerTesthost)
+          ),
+      cpuBudget: initialGrant.cpuUnits,
+      memoryGiB: initialGrant.memoryGiB
+    })
+    const potentialTopology = planBackendProductionTopology({
+      ...topologyInputs,
+      cpuBudget: outerSchedulerGrant.resourceBudget.cpuUnits,
+      memoryGiB: outerSchedulerGrant.resourceBudget.memoryGiB
+    })
+    const partitioning = {
+      ...planningUnitProbe,
+      partitionCount: potentialTopology.rollingPartitionCount,
+      formula: potentialTopology.formula,
+      partitionMultiplier
+    }
+    const plannedProcessCount = potentialTopology.testhostCount
     const plan = buildShardPlan(
       mainTestNames,
-      partitioning.partitionCount,
-      Array.from({ length: partitioning.partitionCount }, () => 1),
+      potentialTopology.rollingPartitionCount,
+      Array.from({ length: potentialTopology.rollingPartitionCount }, () => 1),
       {
         affinityGroups,
         dependencyWeights,
@@ -2421,13 +2578,11 @@ async function runExpandableBackendProductionShards({
     const backendTempRoot = path.join(resolveBackendTempRoot({
       repositoryTempRoot: path.join(testResultsRoot, 'tmp')
     }), `fsusblog-backend-${String(process.env.FSUSBLOG_TEST_RUN_ID ?? 'local').replace(/[^A-Za-z0-9_.-]/gu, '-')}`)
-    const initialMemoryGiBByProcess = Array.from(
-      { length: initialProcessCount },
-      () => initialGrant.memoryGiB / initialProcessCount
-    )
+    const initialProcessorsByProcess = initialTopology.processorsByTesthost
+    const initialMemoryGiBByProcess = initialTopology.memoryGiBByTesthost
     const outcomes = await runRollingPartitions(
       partitions,
-      Array.from({ length: initialProcessCount }, () => 1),
+      initialProcessorsByProcess,
       async (partition, slot) => {
         const resultRoot = path.join(coverageRoot, `shard-${partition.index}`)
         const trxFile = path.join(testResultsRoot, `shard-${partition.index}.trx`)
@@ -2469,6 +2624,7 @@ async function runExpandableBackendProductionShards({
           readSchedulerGrant: () => readBackendSchedulerResourceGrant()
         }),
         potentialProcessCount: plannedProcessCount,
+        potentialCpuUnits: outerSchedulerGrant.resourceBudget.cpuUnits,
         potentialMemoryGiB: outerSchedulerGrant.resourceBudget.memoryGiB
       }
     )
@@ -2476,6 +2632,9 @@ async function runExpandableBackendProductionShards({
     if (executionFailure) throw executionFailure
     const recordsByShard = outcomes.map((outcome) => (
       parseTrxExecutionEvidence(fs.readFileSync(outcome.value.trxFile, 'utf8')).records
+    ))
+    const timingsByShard = outcomes.map((outcome) => (
+      parseTrxTimingEvidence(fs.readFileSync(outcome.value.trxFile, 'utf8'))
     ))
     validateShardRecords(plan, recordsByShard)
     const evidenceResult = await runNode(['tools/security/check-perception-v2-e2e-evidence.mjs'], { capture: true })
@@ -2490,7 +2649,7 @@ async function runExpandableBackendProductionShards({
       `--ResultsDirectory:${testResultsRoot}`
     ], { env: backendPartitionEnvironment(process.env, {
       processors: 1,
-      memoryGiB: initialGrant.memoryGiB / initialProcessCount,
+      memoryGiB: initialTopology.memoryGiBByTesthost[0],
       namespace: `${databaseNamespace}-postlude`
     }) })
     if (discoveryResultFailed(postludeResult)) {
@@ -2538,6 +2697,8 @@ async function runExpandableBackendProductionShards({
         terminatedBuildServerPids: resourceHygiene.terminatedBuildServerPids
       },
       planningForecast: {
+        initialTopology,
+        potentialTopology,
         partitioning,
         partitionCount: outcomes.length,
         plannedTestCaseCountsByShard: plan.plannedTestCaseCountsByShard,
@@ -2595,6 +2756,13 @@ async function runExpandableBackendProductionShards({
           plannedTestCaseCount: plan.plannedTestCaseCountsByShard[id],
           startupWeight: plan.startupWeightsByShard[id],
           filterDigest: plan.partitionDigest,
+          processStartedAtUnixMs: outcome.value.startedAtUnixMs,
+          firstTestStartedAtUnixMs: timingsByShard[id].firstTestStartedAtUnixMs,
+          testhostStartupMs: timingsByShard[id].status === 'measured'
+            ? Math.max(0, timingsByShard[id].firstTestStartedAtUnixMs - outcome.value.startedAtUnixMs)
+            : null,
+          testExecutionSpanMs: timingsByShard[id].testExecutionSpanMs,
+          timingStatus: timingsByShard[id].status,
           durationMs: outcome.value.durationMs,
           trx: path.relative(root, outcome.value.trxFile).replaceAll(path.sep, '/'),
           coverageRoot: path.relative(root, outcome.value.coverageRoot).replaceAll(path.sep, '/')
@@ -2604,7 +2772,7 @@ async function runExpandableBackendProductionShards({
           kind: 'governance-postlude',
           processSlot: 0,
           processors: 1,
-          memoryGiB: initialGrant.memoryGiB / initialProcessCount,
+          memoryGiB: initialTopology.memoryGiBByTesthost[0],
           testCaseCount: postludeRecords.length,
           testMethodCount: 1,
           filterDigest: `sha256:${sha256(postludeTestNames.join('\n'))}`,
