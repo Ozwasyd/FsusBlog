@@ -210,7 +210,18 @@ if (bundleStepSource.includes('record.exclusive) return []')) {
   errors.push('bundle weighted DAG must not restore global serialization for unrelated exclusive resource names')
 }
 requireSectionIncludes('tools/test/bundles/bundle-steps.mjs', "step('ux-risk-matrix'", "step('runtime-integration'", [
-  'resources: { cpuWeight: 4, memoryWeight: 8, minCpuUnits: 1 }'
+  "dependsOn: ['release-public']",
+  'resources: { cpuWeight: 4, memoryWeight: 8, minCpuUnits: 1, countedResources: chromiumLane }'
+])
+requireIncludes('tools/test/bundles/bundle-steps.mjs', [
+  'resolveChromiumLaneCapacity',
+  'blockedByCountedResources',
+  'countedResource=${wait.resource}'
+])
+requireIncludes('tools/test/bundles/run-bundle.mjs', [
+  'createBrowserLaneProxySet',
+  "schema: 'fsusblog.runtime-browser-admission.v1'",
+  'blockedBySlotMs'
 ])
 requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privacy-zk-contract-prebuild',", "commandStep('privacy-zk-contract',", [
   "commandStep('privacy-zk-contract-prebuild', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-prebuild'",

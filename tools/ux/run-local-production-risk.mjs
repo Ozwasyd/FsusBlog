@@ -77,9 +77,9 @@ const playwrightBaseUrl = requireHttpUrl('FSUSBLOG_RELEASE_PREVIEW_URL')
 const previewReady = validateReleasePreviewReady({
   root,
   runId: schedulerRunId,
-  previewUrl: playwrightBaseUrl
+  previewUrl: process.env.FSUSBLOG_RELEASE_PREVIEW_MARKER_URL ?? playwrightBaseUrl
 })
-const publicBaseUrl = previewReady.backendUrl
+const publicBaseUrl = requireHttpUrl('FSUSBLOG_DEBUG_BACKEND_URL')
 const resumeRunId = resume ? requireSafeRunId('FSUSBLOG_UX_VIEWPORT_RUN_ID') : undefined
 
 if (fullPlan.counts.cases !== 6468) throw new Error(`full UX model must contain 6468 cases, got ${fullPlan.counts.cases}`)

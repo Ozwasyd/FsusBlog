@@ -59,6 +59,8 @@ test('wait categories are mutually exclusive and readiness has explicit preceden
   assert.equal(classifyResourceWait({ benchmarkIsolation: true, exclusiveResources: ['benchmark-window'] }).category,
     'benchmark-isolation-cooldown')
   assert.equal(classifyResourceWait({ exclusiveResources: ['browser'] }).category, 'exclusive-resource-blocked')
+  assert.equal(classifyResourceWait({ countedResources: { chromiumLane: { capacity: 1 } } }).category,
+    'counted-resource-blocked')
   assert.equal(classifyResourceWait({ capacity: { memory: true } }).category, 'capacity-blocked')
   assert.equal(classifyResourceWait({ externalService: 'postgres' }).category, 'external-service-io-blocked')
 })
@@ -116,6 +118,9 @@ test('Linux collector retains sampled process-tree identity after descendants ex
   assert.equal(result.status, 'measured')
   assert.ok(result.processSpawnCount >= 2)
   assert.equal(result.processSpawnCountStatus, 'sampled-lower-bound')
+  assert.ok(result.browserProcessCount >= 0)
+  assert.ok(result.peakBrowserProcessCount >= 0)
+  assert.equal(result.browserProcessCountStatus, 'sampled-lower-bound')
   assert.ok(result.grantedCpuSeconds > 0)
   assert.ok(result.samples.length >= 2)
 })

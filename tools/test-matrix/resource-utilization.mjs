@@ -7,6 +7,7 @@ export const resourceUtilizationSchema = 'fsusblog.production.resource-utilizati
 export const waitCategories = Object.freeze([
   'dependency-blocked',
   'capacity-blocked',
+  'counted-resource-blocked',
   'exclusive-resource-blocked',
   'readiness-marker-blocked',
   'external-service-io-blocked',
@@ -86,6 +87,9 @@ export function classifyResourceWait(state = {}) {
   if (state.dependencies?.length) return { category: 'dependency-blocked', detail: [...state.dependencies].sort() }
   if (state.benchmarkIsolation || state.cooldown) return { category: 'benchmark-isolation-cooldown', detail: state.cooldown ?? 'benchmark-window' }
   if (state.exclusiveResources?.length) return { category: 'exclusive-resource-blocked', detail: [...state.exclusiveResources].sort() }
+  if (state.countedResources && Object.keys(state.countedResources).length > 0) {
+    return { category: 'counted-resource-blocked', detail: state.countedResources }
+  }
   if (state.capacity?.cpu || state.capacity?.memory) return {
     category: 'capacity-blocked',
     detail: { cpu: Boolean(state.capacity.cpu), memory: Boolean(state.capacity.memory) }
@@ -136,6 +140,7 @@ function readProcRecord(pid) {
     const fields = stat.slice(end + 2).split(' ')
     const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8')
     const io = fs.readFileSync(`/proc/${pid}/io`, 'utf8')
+    const commandLine = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ')
     const statusValue = (name) => finite(status.match(new RegExp(`^${name}:\\s+(\\d+)`, 'mu'))?.[1])
     const ioValue = (name) => finite(io.match(new RegExp(`^${name}:\\s+(\\d+)`, 'mu'))?.[1])
     return {
@@ -146,7 +151,8 @@ function readProcRecord(pid) {
       readBytes: ioValue('read_bytes'),
       writeBytes: ioValue('write_bytes'),
       voluntaryContextSwitches: statusValue('voluntary_ctxt_switches'),
-      involuntaryContextSwitches: statusValue('nonvoluntary_ctxt_switches')
+      involuntaryContextSwitches: statusValue('nonvoluntary_ctxt_switches'),
+      browserProcess: /(?:^|[ /])(?:chromium|chrome|firefox|webkit)(?:[ /-]|$)/iu.test(commandLine)
     }
   } catch {
     return null
@@ -208,6 +214,7 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
   const firstByPid = new Map()
   const lastByPid = new Map()
   const observedPids = new Set()
+  const observedBrowserPids = new Set()
   const samples = []
   const maxCurveSamples = Math.max(256, Math.min(4096,
     Math.ceil((os.availableParallelism?.() ?? os.cpus().length) * 256)))
@@ -220,12 +227,14 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
   let previousSampleAtMs = null
   let peakRssBytes = null
   let compactionCount = 0
+  let peakBrowserProcessCount = 0
   const sample = () => {
     const sampleStarted = process.hrtime.bigint()
     const atMs = now()
     const records = supported ? processTree(rootPid).map(readProcRecord).filter(Boolean) : []
     for (const record of records) {
       observedPids.add(record.pid)
+      if (record.browserProcess) observedBrowserPids.add(record.pid)
       if (!firstByPid.has(record.pid)) firstByPid.set(record.pid, record)
       lastByPid.set(record.pid, record)
     }
@@ -239,6 +248,8 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
     }
     const aggregate = (key) => records.reduce((total, record) => total + (Number(record[key]) || 0), 0)
     const rssBytes = aggregate('rssBytes')
+    const browserProcessCount = records.filter((record) => record.browserProcess).length
+    peakBrowserProcessCount = Math.max(peakBrowserProcessCount, browserProcessCount)
     if (previousSampleAtMs !== null && previousRssBytes !== null) {
       rssAreaByteMs += previousRssBytes * Math.max(0, atMs - previousSampleAtMs)
     }
@@ -250,7 +261,7 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
       samples.splice(0, samples.length, ...compacted)
       compactionCount += 1
     }
-    samples.push({ atMs, processCount: records.length,
+    samples.push({ atMs, processCount: records.length, browserProcessCount,
       userSeconds: round(aggregate('userSeconds')), systemSeconds: round(aggregate('systemSeconds')),
       rssBytes, readBytes: aggregate('readBytes'), writeBytes: aggregate('writeBytes'),
       collectionNs: Number(process.hrtime.bigint() - sampleStarted) })
@@ -306,6 +317,9 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
         involuntaryContextSwitches: finite(gnuTime?.involuntaryContextSwitches),
         processSpawnCount: supported ? observedPids.size : null,
         processSpawnCountStatus: supported ? 'sampled-lower-bound' : 'unsupported',
+        browserProcessCount: supported ? observedBrowserPids.size : null,
+        peakBrowserProcessCount: supported ? peakBrowserProcessCount : null,
+        browserProcessCountStatus: supported ? 'sampled-lower-bound' : 'unsupported',
         exitedProcessAccounting: gnuTime ? 'kernel-rusage-including-descendants' : 'sampled',
         grantHistory,
         samples,

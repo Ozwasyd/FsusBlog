@@ -8,6 +8,7 @@ import {
   performanceSteps,
   resolveBundleRuntimeCapacity,
   resolveBundleSteps,
+  resolveChromiumLaneCapacity,
   resolveConcurrentStepCapacities,
   resolveMachineExecutionTimeoutMs,
   resolveStepRuntimeCapacity,
@@ -106,6 +107,15 @@ test('runtime bundle loads its generated environment only after bootstrap and be
   assert.doesNotMatch(source.slice(bootstrapExecution, environmentRead), /source\s+[^\n]*\.env/u)
 })
 
+test('runtime browser runner binds isolated lane ports, process-group cleanup and admission evidence', () => {
+  const source = readFileSync(new URL('../../tools/test/bundles/run-bundle.mjs', import.meta.url), 'utf8')
+  assert.match(source, /createBrowserLaneProxySet[\s\S]*?FSUSBLOG_BROWSER_LANE_NAMESPACE[\s\S]*?proxy\.ports/u)
+  assert.match(source, /finally \{[\s\S]*?await proxy\?\.close\(\)[\s\S]*?activeBrowserLanes\.delete/u)
+  assert.match(source, /terminateProcessGroup\(child, terminationGraceMs\)/u)
+  assert.match(source, /fsusblog\.runtime-browser-admission\.v1[\s\S]*?blockedBySlotMs[\s\S]*?resourceErrors/u)
+  assert.match(source, /peakRssBytes[\s\S]*?peakBrowserProcessCount/u)
+})
+
 function deferred() {
   let resolve
   const promise = new Promise((resolvePromise) => {
@@ -144,14 +154,15 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
   }
   assert.deepEqual(index.get('runtime-integration').dependsOn, ['security-runtime-core'])
   assert.deepEqual(index.get('zap-baseline').dependsOn, [
-    'security-runtime-core', 'ux-risk-matrix', 'cross-browser', 'cross-stack-runtime'
+    'security-runtime-core', 'authenticated-dast', 'release-public', 'ux-risk-matrix', 'cross-browser',
+    'render-pressure', 'resilience', 'cross-stack-runtime'
   ])
   assert.deepEqual(index.get('authenticated-dast').dependsOn, ['security-runtime-core'])
   assert.deepEqual(index.get('cross-stack-runtime').dependsOn, ['runtime-integration'])
   assert.deepEqual(index.get('render-pressure').dependsOn, ['cross-stack-runtime'])
-  assert.deepEqual(index.get('resilience').dependsOn, ['render-pressure'])
-  assert.deepEqual(index.get('ux-risk-matrix').dependsOn, ['resilience'])
-  assert.deepEqual(index.get('cross-browser').dependsOn, ['ux-risk-matrix'])
+  assert.deepEqual(index.get('resilience').dependsOn, ['release-public'])
+  assert.deepEqual(index.get('ux-risk-matrix').dependsOn, ['release-public'])
+  assert.deepEqual(index.get('cross-browser').dependsOn, ['release-public'])
   assert.deepEqual(index.get('rights-matrix').dependsOn, ['runtime-integration'])
   assert.deepEqual(index.get('release-public').dependsOn, [
     'release-public-hydration', 'runtime-integration'
@@ -171,7 +182,8 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
   assert.deepEqual(index.get('ux-risk-matrix').resources, {
     cpuWeight: 4,
     memoryWeight: 8,
-    minCpuUnits: 1
+    minCpuUnits: 1,
+    countedResources: { chromiumLane: 1 }
   })
   assert.deepEqual(index.get('security-static').dependsOn, [])
   assert.deepEqual(index.get('security-static').members, [])
@@ -183,7 +195,8 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
   assert.deepEqual(index.get('security-runtime-core').resources, {
     cpuWeight: 2,
     memoryWeight: 2,
-    minCpuUnits: 1
+    minCpuUnits: 1,
+    countedResources: { chromiumLane: 1 }
   })
   assert.deepEqual(index.get('local-runtime-exposure').dependsOn, ['release-public-hydration'])
   assert.deepEqual(index.get('local-runtime-exposure').members, [])
@@ -194,7 +207,8 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
   assert.deepEqual(index.get('authenticated-dast').resources, {
     cpuWeight: 1,
     memoryWeight: 1,
-    minCpuUnits: 1
+    minCpuUnits: 1,
+    countedResources: { chromiumLane: 1 }
   })
   assert.deepEqual(index.get('security-join').dependsOn, ['security-static', 'security-runtime-core', 'local-runtime-exposure', 'zap-baseline'])
   assert.deepEqual(index.get('security-join').members, ['security'])
@@ -434,7 +448,8 @@ test('weighted DAG fills each dependency-ready wave from actual grants across ma
       const executed = []
       await executeWeightedStepDag(steps, {
         ...capacity,
-        exclusiveResources: ['runtime-services', 'load-window', 'database-writes', 'benchmark-window']
+        exclusiveResources: ['runtime-services', 'load-window', 'database-writes', 'benchmark-window'],
+        countedResources: { chromiumLane: Math.max(1, Math.floor(cpuUnits / 2)) }
       }, async (step) => executed.push({ id: step.id, capacity: step.runtimeCapacity }))
       assert.equal(executed.length, steps.length)
       const coordinationIds = new Set(steps
@@ -446,41 +461,30 @@ test('weighted DAG fills each dependency-ready wave from actual grants across ma
   }
 })
 
-test('runtime browser-heavy phases preserve their admitted serial order', async () => {
-  const executed = []
+test('runtime browser-heavy phases retain real dependencies while counted slots replace the artificial serial chain', async () => {
+  const started = []
+  const gates = new Map(['ux-risk-matrix', 'cross-browser', 'render-pressure', 'resilience']
+    .map((id) => [id, deferred()]))
   const capacity = {
     maxParallel: 5,
     cpuUnits: 5,
     memoryGiB: 5,
-    exclusiveResources: ['runtime-services', 'load-window', 'database-writes', 'benchmark-window']
+    exclusiveResources: ['runtime-services', 'load-window', 'database-writes', 'benchmark-window'],
+    countedResources: { chromiumLane: 2 }
   }
-  await executeWeightedStepDag(runtimeSteps(), capacity,
-    async (entry) => executed.push({ id: entry.id, capacity: entry.runtimeCapacity }))
-
-  const bootstrapIndex = executed.findIndex((entry) => entry.id === 'bootstrap')
-  const staticIndex = executed.findIndex((entry) => entry.id === 'security-static')
-  const uxIndex = executed.findIndex((entry) => entry.id === 'ux-risk-matrix')
-  const securityIndex = executed.findIndex((entry) => entry.id === 'security-runtime-core')
-  const runtimeIndex = executed.findIndex((entry) => entry.id === 'runtime-integration')
-  assert.deepEqual(executed.slice(0, 3).map((entry) => entry.id), [
-    'backend-build-ready', 'frontend-build-ready', 'security-static'
-  ])
-  assert.ok(bootstrapIndex > staticIndex)
-  assert.ok(uxIndex > bootstrapIndex)
-  assert.ok(securityIndex > bootstrapIndex)
-  assert.ok(executed[uxIndex].capacity.cpuUnits >= 1)
-  assert.ok(executed[securityIndex].capacity.cpuUnits >= 1)
-  assert.ok(executed[runtimeIndex].capacity.cpuUnits >= 1)
-  const crossStackIndex = executed.findIndex((entry) => entry.id === 'cross-stack-runtime')
-  const renderIndex = executed.findIndex((entry) => entry.id === 'render-pressure')
-  const resilienceIndex = executed.findIndex((entry) => entry.id === 'resilience')
-  const crossBrowserIndex = executed.findIndex((entry) => entry.id === 'cross-browser')
-  assert.ok(securityIndex < runtimeIndex)
-  assert.ok(runtimeIndex < crossStackIndex)
-  assert.ok(crossStackIndex < renderIndex)
-  assert.ok(renderIndex < resilienceIndex)
-  assert.ok(resilienceIndex < uxIndex)
-  assert.ok(uxIndex < crossBrowserIndex)
+  const execution = executeWeightedStepDag(runtimeSteps(), capacity, async (entry) => {
+    started.push(entry.id)
+    await gates.get(entry.id)?.promise
+  })
+  await waitFor(() => started.includes('ux-risk-matrix') && started.includes('cross-browser'))
+  const simultaneouslyStarted = ['ux-risk-matrix', 'cross-browser', 'render-pressure', 'resilience']
+    .filter((id) => started.includes(id))
+  assert.equal(simultaneouslyStarted.length, 2)
+  assert.ok(started.indexOf('runtime-integration') < started.indexOf('release-public'))
+  assert.ok(started.indexOf('runtime-integration') < started.indexOf('cross-stack-runtime'))
+  for (const gate of gates.values()) gate.resolve()
+  await execution
+  assert.ok(started.indexOf('release-public') < started.indexOf('ux-risk-matrix'))
 })
 
 test('two-CPU runtime grant gives the complete browser grant to each serial phase', async () => {
@@ -499,7 +503,8 @@ test('two-CPU runtime grant gives the complete browser grant to each serial phas
   const execution = executeWeightedStepDag(selected, {
     maxParallel: 2,
     cpuUnits: 2,
-    memoryGiB: 5
+    memoryGiB: 5,
+    countedResources: { chromiumLane: 1 }
   }, async (entry) => {
     started.push({ id: entry.id, capacity: entry.runtimeCapacity })
     if (entry.id === 'bootstrap') await bootstrap.promise
@@ -534,7 +539,7 @@ test('elastic 3/4/6 CPU grants immediately widen the independent post-hydration 
   const release = deferred()
   const endpoint = deferred()
   const started = []
-  let capacity = { maxParallel: 2, cpuUnits: 2, memoryGiB: 4 }
+  let capacity = { maxParallel: 2, cpuUnits: 2, memoryGiB: 4, countedResources: { chromiumLane: 2 } }
   const index = byId(runtimeSteps())
   const selected = [
     { ...index.get('security-runtime-core'), dependsOn: [] },
@@ -558,19 +563,19 @@ test('elastic 3/4/6 CPU grants immediately widen the independent post-hydration 
   assert.deepEqual(started.map((entry) => entry.id), ['security-runtime-core', 'ux-risk-matrix'])
   assert.deepEqual(started.map((entry) => entry.capacity.cpuUnits), [1, 1])
 
-  capacity = { maxParallel: 3, cpuUnits: 3, memoryGiB: 6 }
+  capacity = { maxParallel: 3, cpuUnits: 3, memoryGiB: 6, countedResources: { chromiumLane: 3 } }
   await waitFor(() => started.some((entry) => entry.id === 'authenticated-dast'))
   assert.deepEqual(started.map((entry) => entry.id), [
     'security-runtime-core', 'ux-risk-matrix', 'authenticated-dast'
   ])
 
-  capacity = { maxParallel: 4, cpuUnits: 4, memoryGiB: 8 }
+  capacity = { maxParallel: 4, cpuUnits: 4, memoryGiB: 8, countedResources: { chromiumLane: 4 } }
   await waitFor(() => started.at(-1)?.id === 'runtime-integration')
   assert.equal(started.at(-1).id, 'runtime-integration')
   assert.equal(started.at(-1).capacity.cpuUnits, 1)
   assert.equal(started.some((entry) => entry.id === 'release-public'), false)
 
-  capacity = { maxParallel: 6, cpuUnits: 6, memoryGiB: 12 }
+  capacity = { maxParallel: 6, cpuUnits: 6, memoryGiB: 12, countedResources: { chromiumLane: 6 } }
   await waitFor(() => started.some((entry) => entry.id === 'endpoint-depth'))
   assert.deepEqual(started.map((entry) => entry.id), [
     'security-runtime-core',
@@ -654,7 +659,7 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
   const security = deferred()
   const integration = deferred()
   const started = []
-  let capacity = { maxParallel: 1, cpuUnits: 1, memoryGiB: 3 }
+  let capacity = { maxParallel: 1, cpuUnits: 1, memoryGiB: 3, countedResources: { chromiumLane: 1 } }
   const index = byId(runtimeSteps())
   const selected = [
     index.get('backend-build-ready'),
@@ -697,7 +702,7 @@ test('failed-run timing model gives bootstrap hydration and browser phases the c
   await new Promise((resolve) => setImmediate(resolve))
   assert.equal(started.some((entry) => entry.id === 'bootstrap'), false)
 
-  capacity = { maxParallel: 2, cpuUnits: 2, memoryGiB: 4 }
+  capacity = { maxParallel: 2, cpuUnits: 2, memoryGiB: 4, countedResources: { chromiumLane: 1 } }
   frontend.resolve()
   await new Promise((resolve) => setImmediate(resolve))
   const bootstrapStart = started.find((entry) => entry.id === 'bootstrap')
@@ -733,7 +738,8 @@ test('security join preserves the static preflight through the post-hydration co
   const execution = executeWeightedStepDag(selected, {
     maxParallel: 5,
     cpuUnits: 5,
-    memoryGiB: 5
+    memoryGiB: 5,
+    countedResources: { chromiumLane: 1 }
   }, async (entry) => {
     started.push({ id: entry.id, capacity: entry.runtimeCapacity })
     if (entry.id === 'bootstrap') await bootstrap.promise
@@ -940,6 +946,111 @@ test('different exclusive resources and ordinary work share the same admission w
   assert.deepEqual(events, ['build:start', 'benchmark:start', 'ordinary:start'])
   for (const gate of gates.values()) gate.resolve()
   await running
+})
+
+test('Chromium slot capacity combines live CPU, memory, P95 RSS, FD, process and explicit limits', () => {
+  const constrained = resolveChromiumLaneCapacity({
+    cpuUnits: 4,
+    memoryGiB: 2.5,
+    laneCpuUnits: 2,
+    laneP95RssGiB: 1.5,
+    memoryHeadroomGiB: 1,
+    fileDescriptorLimit: 1024,
+    fileDescriptorsPerLane: 256,
+    processLimit: 128,
+    processesPerLane: 32,
+    explicitMaxSlots: 3
+  })
+  assert.equal(constrained.slots, 1)
+  assert.equal(constrained.limits.memory, 1)
+
+  for (const [cpuUnits, expectedSlots] of [[8, 2], [16, 3]]) {
+    const large = resolveChromiumLaneCapacity({
+      cpuUnits,
+      memoryGiB: cpuUnits * 1.5,
+      laneCpuUnits: 2,
+      laneP95RssGiB: 2,
+      memoryHeadroomGiB: 2,
+      fileDescriptorLimit: 4096,
+      fileDescriptorsPerLane: 256,
+      processLimit: 512,
+      processesPerLane: 32,
+      explicitMaxSlots: expectedSlots
+    })
+    assert.equal(large.slots, expectedSlots)
+    assert.equal(large.limits.explicit, expectedSlots)
+  }
+
+  const fdConstrained = resolveChromiumLaneCapacity({
+    cpuUnits: 16,
+    memoryGiB: 24,
+    laneCpuUnits: 2,
+    laneP95RssGiB: 2,
+    memoryHeadroomGiB: 2,
+    fileDescriptorLimit: 200,
+    fileDescriptorsPerLane: 256,
+    processLimit: 16,
+    processesPerLane: 32,
+    explicitMaxSlots: 3
+  })
+  assert.equal(fdConstrained.slots, 1)
+  assert.equal(fdConstrained.limits.fileDescriptors, 0)
+  assert.equal(fdConstrained.limits.processes, 0)
+})
+
+test('counted slots overlap independent lanes, serialize at one, and block admission after grant contraction', async () => {
+  const first = deferred()
+  const second = deferred()
+  const third = deferred()
+  const started = []
+  const waits = []
+  let capacity = {
+    maxParallel: 3,
+    cpuUnits: 3,
+    memoryGiB: 6,
+    countedResources: { chromiumLane: 2 },
+    onWaitState: (stepId, state) => waits.push({ stepId, state })
+  }
+  const running = executeWeightedStepDag([
+    { id: 'first', resources: { countedResources: { chromiumLane: 1 } } },
+    { id: 'second', resources: { countedResources: { chromiumLane: 1 } } },
+    { id: 'third', resources: { countedResources: { chromiumLane: 1 } } }
+  ], () => capacity, async (entry) => {
+    started.push(entry.id)
+    if (entry.id === 'first') await first.promise
+    if (entry.id === 'second') await second.promise
+    if (entry.id === 'third') await third.promise
+  })
+  await waitFor(() => started.length === 2)
+  assert.deepEqual(started, ['first', 'second'])
+  assert.ok(waits.some((entry) => entry.stepId === 'third' && entry.state?.countedResources?.chromiumLane))
+  capacity = { ...capacity, countedResources: { chromiumLane: 1 } }
+  first.resolve()
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.equal(started.includes('third'), false)
+  second.resolve()
+  await waitFor(() => started.includes('third'))
+  third.resolve()
+  await running
+})
+
+test('failed counted-resource holder releases its slot and independent lanes still settle', async () => {
+  const events = []
+  const failure = new Error('browser lane failed')
+  await assert.rejects(executeWeightedStepDag([
+    { id: 'failed', resources: { countedResources: { chromiumLane: 1 } } },
+    { id: 'next', resources: { countedResources: { chromiumLane: 1 } } },
+    { id: 'coordination', resources: { coordinationOnly: true } }
+  ], {
+    maxParallel: 2,
+    cpuUnits: 2,
+    memoryGiB: 4,
+    countedResources: { chromiumLane: 1 }
+  }, async (entry) => {
+    events.push(entry.id)
+    if (entry.id === 'failed') throw failure
+  }), /browser lane failed/u)
+  assert.deepEqual(events, ['failed', 'coordination', 'next'])
 })
 
 test('same exclusive resource is serialized within a wave and reports its holder', async () => {

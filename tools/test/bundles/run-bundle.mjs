@@ -20,11 +20,13 @@ import {
   executeWeightedStepDag,
   performanceSteps,
   resolveBundleRuntimeCapacity,
+  resolveChromiumLaneCapacity,
   resolveMachineExecutionTimeoutMs,
   resolveStepRuntimeCapacity,
   runtimeSteps
 } from './bundle-steps.mjs'
 import { readRuntimeEnvironment } from './runtime-environment.mjs'
+import { createBrowserLaneProxySet } from './browser-lane-proxy.mjs'
 import { validateShardSummaryArtifacts } from '../run-backend-production-shards.mjs'
 import { buildLocalStaticManifest, planLocalStaticCommands } from '../local-static-governance.mjs'
 import {
@@ -54,6 +56,9 @@ const matrixTiers = new Map(matrix.tiers.map((tier) => [tier.id, tier]))
 const outDir = path.join(root, `.tmp/local-${profileId}`, bundleId || 'unknown')
 const summaryFile = path.join(outDir, 'summary.json')
 const logDir = path.join(outDir, 'steps')
+const previousBundleResourceUtilization = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(outDir, 'resource-utilization.json'), 'utf8')) } catch { return null }
+})()
 const startedAt = Date.now()
 const productionBuildLayout = resolveProductionBuildLayout({ root })
 if (path.resolve(process.env.FSUSBLOG_PRODUCTION_BUILD_ROOT ?? '') !== productionBuildLayout.runRoot) {
@@ -72,6 +77,10 @@ const stepExecutionResults = new Map()
 const stepResourceMetrics = new Map()
 const stepEffectiveLimits = new Map()
 const waitLedger = createWaitLedger()
+const browserLanePlanHistory = []
+const activeBrowserLanes = new Map()
+const browserLaneExecutions = []
+let peakActiveBrowserLanes = 0
 let shutdownPromise = null
 let runtimeChildEnvironment = {}
 let performanceDeadlineEvidence = null
@@ -109,6 +118,75 @@ async function observeWait(ownerId, state, operation) {
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`
+}
+
+function readLinuxSoftLimit(label) {
+  if (process.platform !== 'linux') return null
+  try {
+    const line = fs.readFileSync('/proc/self/limits', 'utf8')
+      .split('\n').find((entry) => entry.startsWith(label))
+    if (!line) return null
+    const value = line.slice(label.length).trim().split(/\s+/u)[0]
+    if (value === 'unlimited') return Number.MAX_SAFE_INTEGER
+    const parsed = Number(value)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function percentile95(values) {
+  const normalized = values.map(Number).filter((value) => Number.isFinite(value) && value > 0)
+    .sort((left, right) => left - right)
+  return normalized.length === 0
+    ? null
+    : normalized[Math.min(normalized.length - 1, Math.ceil(normalized.length * 0.95) - 1)]
+}
+
+function resolveRuntimeBrowserLanePlan(capacity) {
+  const machineCpu = os.availableParallelism?.() ?? os.cpus().length
+  const totalMemoryGiB = os.totalmem() / 1024 ** 3
+  const historicalSteps = (() => {
+    if (previousBundleResourceUtilization?.schema !== 'fsusblog.production.bundle-resource-utilization.v1'
+      || previousBundleResourceUtilization.status !== 'complete'
+      || previousBundleResourceUtilization.physicalBundleId !== 'runtime-browser') return []
+    return Object.values(previousBundleResourceUtilization?.steps ?? {})
+      .filter((entry) => Number(entry?.peakBrowserProcessCount) > 0)
+  })()
+  const historicalRssGiB = percentile95(historicalSteps
+    .map((entry) => Number(entry?.peakRssBytes) / 1024 ** 3))
+  const historicalProcesses = percentile95(historicalSteps.map((entry) => entry?.peakBrowserProcessCount))
+  const laneP95RssGiB = historicalRssGiB ?? Math.max(
+    Number.EPSILON,
+    totalMemoryGiB / Math.max(1, machineCpu)
+  )
+  const processesPerLane = historicalProcesses ?? Math.max(1, Math.ceil(Math.sqrt(machineCpu) * 4))
+  const fileDescriptorsPerLane = Math.max(1, Math.ceil(processesPerLane * Math.sqrt(machineCpu) * 2))
+  const explicitMaxValue = process.env.FSUSBLOG_CHROMIUM_LANE_MAX_SLOTS
+  const explicitMax = Number(explicitMaxValue)
+  if (explicitMaxValue !== undefined && (!Number.isInteger(explicitMax) || explicitMax <= 0)) {
+    throw new Error(`FSUSBLOG_CHROMIUM_LANE_MAX_SLOTS must be a positive integer, got ${explicitMaxValue}`)
+  }
+  const explicitMaxSlots = explicitMaxValue === undefined
+    ? Math.max(1, Math.ceil(Math.log2(Math.max(2, machineCpu)) / 2))
+    : explicitMax
+  const plan = resolveChromiumLaneCapacity({
+    cpuUnits: capacity.cpuUnits,
+    memoryGiB: capacity.memoryGiB,
+    laneCpuUnits: Math.max(1, Math.ceil(Math.sqrt(machineCpu) / 2)),
+    laneP95RssGiB,
+    memoryHeadroomGiB: Math.max(laneP95RssGiB, capacity.memoryGiB / Math.max(2, Math.sqrt(machineCpu))),
+    fileDescriptorLimit: readLinuxSoftLimit('Max open files') ?? fileDescriptorsPerLane,
+    fileDescriptorsPerLane,
+    processLimit: readLinuxSoftLimit('Max processes') ?? processesPerLane,
+    processesPerLane,
+    explicitMaxSlots
+  })
+  return {
+    ...plan,
+    p95Source: historicalRssGiB === null ? 'machine-derived-fallback' : 'previous-run-resource-evidence',
+    processSource: historicalProcesses === null ? 'machine-derived-fallback' : 'previous-run-resource-evidence'
+  }
 }
 
 function signalProcessGroup(child, signal) {
@@ -755,9 +833,31 @@ function bundleCapacity() {
 }
 
 function bundleDagCapacity() {
+  const capacity = bundleCapacity()
+  const chromiumPlan = bundleId === 'runtime-browser'
+    ? resolveRuntimeBrowserLanePlan(capacity)
+    : null
+  if (chromiumPlan) {
+    const previous = browserLanePlanHistory.at(-1)
+    const key = JSON.stringify({
+      cpuUnits: capacity.cpuUnits,
+      memoryGiB: capacity.memoryGiB,
+      slots: chromiumPlan.slots
+    })
+    if (previous?.key !== key) {
+      browserLanePlanHistory.push({
+        key,
+        observedAtMs: Date.now(),
+        cpuUnits: capacity.cpuUnits,
+        memoryGiB: capacity.memoryGiB,
+        ...chromiumPlan
+      })
+    }
+  }
   return {
-    ...bundleCapacity(),
+    ...capacity,
     exclusiveResources: bundle.exclusiveResources ?? [],
+    ...(chromiumPlan ? { countedResources: { chromiumLane: chromiumPlan.slots } } : {}),
     onWaitState: (stepId, state) => waitLedger.observe(stepId, state)
   }
 }
@@ -1319,7 +1419,7 @@ async function waitForFrontendTestCapacity(targetCpuUnits, timeoutMs = bundleDea
   throw new Error(`timed out waiting for frontend test CPU target: ${targetCpuUnits}`)
 }
 
-async function executeRuntimeStep(step) {
+async function executeRuntimeStepBody(step) {
   const readinessWait = step.id === 'backend-build-ready'
     ? waitForBackendBuildReady
     : step.id === 'frontend-build-ready'
@@ -1354,6 +1454,65 @@ async function executeRuntimeStep(step) {
   console.log(`[local-production:${bundleId}] done ${step.id} durationMs=${result.durationMs}`)
   register(step, result)
   return result
+}
+
+async function executeRuntimeStep(step) {
+  if (!Object.hasOwn(step.resources?.countedResources ?? {}, 'chromiumLane')) {
+    return executeRuntimeStepBody(step)
+  }
+  const laneNamespace = `${schedulerRunId()}-${step.id}`.replace(/[^a-zA-Z0-9._-]+/gu, '-')
+  const laneOutputRoot = path.join(outDir, 'browser-lanes', step.id)
+  fs.mkdirSync(laneOutputRoot, { recursive: true })
+  const proxy = step.id === 'release-public'
+    ? null
+    : await createBrowserLaneProxySet({
+        debugBackend: runtimeChildEnvironment.FSUSBLOG_DEBUG_BACKEND_URL,
+        debugFrontend: runtimeChildEnvironment.FSUSBLOG_DEBUG_FRONTEND_URL,
+        releasePreview: runtimeChildEnvironment.FSUSBLOG_RELEASE_PREVIEW_URL
+      })
+  const isolatedStep = {
+    ...step,
+    env: {
+      ...(step.env ?? {}),
+      FSUSBLOG_BROWSER_LANE_ID: step.id,
+      FSUSBLOG_BROWSER_LANE_NAMESPACE: laneNamespace,
+      FSUSBLOG_BROWSER_LANE_SESSION: `session-${laneNamespace}`,
+      FSUSBLOG_BROWSER_LANE_OUTPUT_ROOT: laneOutputRoot,
+      ...(proxy ? {
+        FSUSBLOG_RELEASE_PREVIEW_MARKER_URL: runtimeChildEnvironment.FSUSBLOG_RELEASE_PREVIEW_URL,
+        FSUSBLOG_DEBUG_BACKEND_URL: proxy.urls.debugBackend,
+        FSUSBLOG_DEBUG_BACKEND_PORT: String(proxy.ports.debugBackend),
+        FSUSBLOG_DEBUG_FRONTEND_URL: proxy.urls.debugFrontend,
+        FSUSBLOG_DEBUG_FRONTEND_PORT: String(proxy.ports.debugFrontend),
+        FSUSBLOG_RELEASE_PREVIEW_URL: proxy.urls.releasePreview,
+        FSUSBLOG_RELEASE_PREVIEW_PORT: String(proxy.ports.releasePreview)
+      } : {})
+    }
+  }
+  const lane = {
+    stepId: step.id,
+    namespace: laneNamespace,
+    outputRoot: relative(laneOutputRoot),
+    startedAtMs: Date.now(),
+    grant: step.runtimeCapacity ?? null,
+    proxyPorts: proxy?.ports ?? null
+  }
+  activeBrowserLanes.set(step.id, lane)
+  peakActiveBrowserLanes = Math.max(peakActiveBrowserLanes, activeBrowserLanes.size)
+  try {
+    return await executeRuntimeStepBody(isolatedStep)
+  } finally {
+    await proxy?.close()
+    activeBrowserLanes.delete(step.id)
+    const metrics = stepResourceMetrics.get(step.id) ?? null
+    browserLaneExecutions.push({
+      ...lane,
+      finishedAtMs: Date.now(),
+      peakRssBytes: metrics?.peakRssBytes ?? null,
+      browserProcessCount: metrics?.browserProcessCount ?? null,
+      peakBrowserProcessCount: metrics?.peakBrowserProcessCount ?? null
+    })
+  }
 }
 
 async function executePerformanceStep(step) {
@@ -1677,6 +1836,7 @@ async function run() {
     }
   }
   const resourceUtilization = finalizeBundleResourceUtilization('complete')
+  const browserAdmission = resourceUtilization.browserAdmission ?? null
   const summary = {
     schema: 'fsusblog.local-production.bundle.v1',
     physicalBundleId: bundleId,
@@ -1686,6 +1846,7 @@ async function run() {
     runToken: randomUUID(),
     durationMs: Date.now() - startedAt,
     resourceUtilization,
+    ...(browserAdmission ? { browserAdmission } : {}),
     ...(performanceDeadlineEvidence ? { deadlineEvidence: performanceDeadlineEvidence } : {}),
     members,
     generatedAt: new Date().toISOString()
@@ -1695,6 +1856,69 @@ async function run() {
   fs.writeFileSync(temporary, `${JSON.stringify(summary, null, 2)}\n`)
   fs.renameSync(temporary, summaryFile)
   console.log(`[local-production:${bundleId}] summary=${relative(summaryFile)} members=${Object.keys(members).length}`)
+}
+
+function buildRuntimeBrowserAdmissionEvidence(resourceUtilization, status) {
+  const lanes = [...browserLaneExecutions].sort((left, right) =>
+    left.startedAtMs - right.startedAtMs || left.stepId.localeCompare(right.stepId))
+  const overlaps = []
+  for (let leftIndex = 0; leftIndex < lanes.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < lanes.length; rightIndex += 1) {
+      const left = lanes[leftIndex]
+      const right = lanes[rightIndex]
+      const startedAtMs = Math.max(left.startedAtMs, right.startedAtMs)
+      const finishedAtMs = Math.min(left.finishedAtMs, right.finishedAtMs)
+      if (finishedAtMs > startedAtMs) {
+        overlaps.push({
+          laneIds: [left.stepId, right.stepId].sort(),
+          startedAtMs,
+          finishedAtMs,
+          durationMs: finishedAtMs - startedAtMs
+        })
+      }
+    }
+  }
+  const resourceErrors = {
+    errInsufficientResources: 0,
+    oom: 0,
+    browserCrash: 0,
+    fdPressure: 0
+  }
+  const patterns = {
+    errInsufficientResources: /ERR_INSUFFICIENT_RESOURCES/giu,
+    oom: /(?:out of memory|\boom\b)/giu,
+    browserCrash: /(?:browser (?:has )?crashed|browser closed unexpectedly|target page, context or browser has been closed)/giu,
+    fdPressure: /(?:EMFILE|ENFILE|too many open files)/giu
+  }
+  for (const lane of lanes) {
+    let contents = ''
+    try { contents = fs.readFileSync(path.join(logDir, `${lane.stepId}.log`), 'utf8') } catch {}
+    for (const [name, pattern] of Object.entries(patterns)) {
+      resourceErrors[name] += contents.match(pattern)?.length ?? 0
+    }
+  }
+  const slotWaits = resourceUtilization.waits.intervals
+    .filter((entry) => entry.category === 'counted-resource-blocked')
+  return {
+    schema: 'fsusblog.runtime-browser-admission.v1',
+    status: status === 'complete' ? 'success' : 'partial',
+    schedulerRunId: schedulerRunId(),
+    resolvedSlots: {
+      initial: browserLanePlanHistory[0]?.slots ?? null,
+      peak: browserLanePlanHistory.reduce((peak, entry) => Math.max(peak, entry.slots), 0),
+      final: browserLanePlanHistory.at(-1)?.slots ?? null
+    },
+    planHistory: browserLanePlanHistory.map(({ key: _key, ...entry }) => entry),
+    activeLaneCount: activeBrowserLanes.size,
+    peakActiveLaneCount: peakActiveBrowserLanes,
+    lanes,
+    overlaps,
+    blockedBySlotMs: slotWaits.reduce((total, entry) => total + entry.durationMs, 0),
+    slotWaits,
+    resourceErrors,
+    resourceEvidence: relative(path.join(outDir, 'resource-utilization.json')),
+    generatedAt: new Date().toISOString()
+  }
 }
 
 function finalizeBundleResourceUtilization(status, error = null) {
@@ -1748,6 +1972,12 @@ function finalizeBundleResourceUtilization(status, error = null) {
     docker: collectDockerResourceEvidence(),
     failure: error ? (error instanceof Error ? error.message : String(error)) : null,
     generatedAt: new Date().toISOString()
+  }
+  if (bundleId === 'runtime-browser') {
+    finalizedResourceUtilization.browserAdmission = buildRuntimeBrowserAdmissionEvidence(
+      finalizedResourceUtilization,
+      status
+    )
   }
   const file = path.join(outDir, 'resource-utilization.json')
   fs.mkdirSync(path.dirname(file), { recursive: true })

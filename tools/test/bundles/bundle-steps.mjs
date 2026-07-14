@@ -16,6 +16,68 @@ function finitePositive(value, fallback, name) {
   throw new Error(`${name} must be a finite positive number`)
 }
 
+function normalizeCountedResources(value, name) {
+  if (value === undefined) return {}
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${name} must be an object`)
+  }
+  return Object.fromEntries(Object.entries(value).map(([resource, amount]) => {
+    if (!resource || !Number.isInteger(Number(amount)) || Number(amount) <= 0) {
+      throw new Error(`${name}.${resource || '<empty>'} must be a positive integer`)
+    }
+    return [resource, Number(amount)]
+  }).sort(([left], [right]) => left.localeCompare(right)))
+}
+
+export function resolveChromiumLaneCapacity({
+  cpuUnits,
+  memoryGiB,
+  laneCpuUnits,
+  laneP95RssGiB,
+  memoryHeadroomGiB,
+  fileDescriptorLimit,
+  fileDescriptorsPerLane,
+  processLimit,
+  processesPerLane,
+  explicitMaxSlots
+}) {
+  const cpu = finitePositive(cpuUnits, undefined, 'cpuUnits')
+  const memory = finitePositive(memoryGiB, undefined, 'memoryGiB')
+  const laneCpu = finitePositive(laneCpuUnits, undefined, 'laneCpuUnits')
+  const laneMemory = finitePositive(laneP95RssGiB, undefined, 'laneP95RssGiB')
+  const headroom = Number(memoryHeadroomGiB)
+  if (!Number.isFinite(headroom) || headroom < 0) throw new Error('memoryHeadroomGiB must be finite and non-negative')
+  const fdLimit = finitePositive(fileDescriptorLimit, undefined, 'fileDescriptorLimit')
+  const laneFds = finitePositive(fileDescriptorsPerLane, undefined, 'fileDescriptorsPerLane')
+  const pids = finitePositive(processLimit, undefined, 'processLimit')
+  const lanePids = finitePositive(processesPerLane, undefined, 'processesPerLane')
+  const maximum = finitePositive(explicitMaxSlots, undefined, 'explicitMaxSlots')
+  if (!Number.isInteger(maximum)) throw new Error('explicitMaxSlots must be an integer')
+  const limits = {
+    cpu: Math.floor(cpu / laneCpu),
+    memory: Math.floor(Math.max(0, memory - headroom) / laneMemory),
+    fileDescriptors: Math.floor(fdLimit / laneFds),
+    processes: Math.floor(pids / lanePids),
+    explicit: maximum
+  }
+  return {
+    slots: Math.max(1, Math.min(...Object.values(limits))),
+    limits,
+    inputs: {
+      cpuUnits: cpu,
+      memoryGiB: memory,
+      laneCpuUnits: laneCpu,
+      laneP95RssGiB: laneMemory,
+      memoryHeadroomGiB: headroom,
+      fileDescriptorLimit: fdLimit,
+      fileDescriptorsPerLane: laneFds,
+      processLimit: pids,
+      processesPerLane: lanePids,
+      explicitMaxSlots: maximum
+    }
+  }
+}
+
 /**
  * Resolve the resources granted to this bundle invocation. Matrix weights are
  * fallback shares for direct/local invocation; a scheduler grant is already an
@@ -57,6 +119,9 @@ function normalizeStepResources(entry) {
     if (Object.hasOwn(resources, 'exclusiveResources')) {
       throw new Error(`exclusiveResources cannot be declared for coordination-only step "${entry?.id ?? 'unknown'}"`)
     }
+    if (Object.hasOwn(resources, 'countedResources')) {
+      throw new Error(`countedResources cannot be declared for coordination-only step "${entry?.id ?? 'unknown'}"`)
+    }
     return {
       ...resources,
       coordinationOnly: true,
@@ -71,7 +136,13 @@ function normalizeStepResources(entry) {
   if (!Number.isInteger(minCpuUnits)) {
     throw new Error(`minCpuUnits for step "${entry?.id ?? 'unknown'}" must be an integer`)
   }
-  return { ...resources, cpuWeight, memoryWeight, minCpuUnits }
+  return {
+    ...resources,
+    cpuWeight,
+    memoryWeight,
+    minCpuUnits,
+    countedResources: normalizeCountedResources(resources.countedResources, `countedResources for step "${entry?.id ?? 'unknown'}"`)
+  }
 }
 
 function weightedIntegerAllocation(entries, totalUnits) {
@@ -198,12 +269,13 @@ export function resolveBundleSteps(_bundleId, steps, capacity) {
   return steps.map((entry) => ({ ...entry, resources: normalizeStepResources(entry) }))
 }
 
-function validateWeightedSteps(steps, capacity, allowedExclusiveResources, { elastic = false } = {}) {
+function validateWeightedSteps(steps, capacity, allowedExclusiveResources, allowedCountedResources, { elastic = false } = {}) {
   const normalized = resolveBundleSteps('dynamic', steps, capacity)
   const ids = new Set()
   const allowed = allowedExclusiveResources === undefined
     ? null
     : new Set(allowedExclusiveResources)
+  const countedCapacity = normalizeCountedResources(allowedCountedResources, 'capacity.countedResources')
   for (const entry of normalized) {
     if (typeof entry.id !== 'string' || !entry.id) throw new Error('step id must be non-empty')
     if (ids.has(entry.id)) throw new Error(`duplicate step id: ${entry.id}`)
@@ -214,6 +286,14 @@ function validateWeightedSteps(steps, capacity, allowedExclusiveResources, { ela
     for (const resource of entry.resources.exclusiveResources ?? []) {
       if (!resource || (allowed && !allowed.has(resource))) {
         throw new Error(`step "${entry.id}" requests unknown exclusive resource "${resource}"`)
+      }
+    }
+    for (const [resource, amount] of Object.entries(entry.resources.countedResources ?? {})) {
+      if (!Object.hasOwn(countedCapacity, resource)) {
+        throw new Error(`step "${entry.id}" requests unknown counted resource "${resource}"`)
+      }
+      if (!elastic && amount > countedCapacity[resource]) {
+        throw new Error(`step "${entry.id}" requests ${amount} ${resource}, capacity is ${countedCapacity[resource]}`)
       }
     }
   }
@@ -232,13 +312,18 @@ function selectWeightedAdmission(ready, capacity, active, freeCpuUnits, freeMemo
   const activeExecutableCount = [...active.values()]
     .filter((record) => record.coordinationOnly !== true).length
   const resourceOwners = new Map()
+  const countedUsage = new Map()
   for (const [stepId, record] of active) {
     for (const resource of record.exclusiveResources ?? []) {
       if (!resourceOwners.has(resource)) resourceOwners.set(resource, { stepId, holderState: 'active' })
     }
+    for (const [resource, amount] of Object.entries(record.countedResources ?? {})) {
+      countedUsage.set(resource, (countedUsage.get(resource) ?? 0) + amount)
+    }
   }
   const selected = []
   const blockedByExclusiveResources = []
+  const blockedByCountedResources = []
   let selectedExecutableCount = 0
   let minimumCpu = 0
   for (const entry of ready) {
@@ -261,14 +346,31 @@ function selectWeightedAdmission(ready, capacity, active, freeCpuUnits, freeMemo
       })
       continue
     }
+    const countedResources = entry.resources.countedResources ?? {}
+    const countedConflict = Object.entries(countedResources).find(([resource, amount]) =>
+      (countedUsage.get(resource) ?? 0) + amount > Number(capacity.countedResources?.[resource] ?? 0))
+    if (countedConflict) {
+      const [resource, amount] = countedConflict
+      blockedByCountedResources.push({
+        stepId: entry.id,
+        resource,
+        requested: amount,
+        used: countedUsage.get(resource) ?? 0,
+        capacity: Number(capacity.countedResources?.[resource] ?? 0)
+      })
+      continue
+    }
     selected.push(entry)
     selectedExecutableCount += 1
     minimumCpu += entry.resources.minCpuUnits
     for (const resource of resources) {
       resourceOwners.set(resource, { stepId: entry.id, holderState: 'admission-wave' })
     }
+    for (const [resource, amount] of Object.entries(countedResources)) {
+      countedUsage.set(resource, (countedUsage.get(resource) ?? 0) + amount)
+    }
   }
-  return { selected, blockedByExclusiveResources }
+  return { selected, blockedByExclusiveResources, blockedByCountedResources }
 }
 
 /**
@@ -292,6 +394,7 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
       cpuUnits: finitePositive(current?.cpuUnits, undefined, 'capacity.cpuUnits'),
       memoryGiB: finitePositive(current?.memoryGiB, undefined, 'capacity.memoryGiB'),
       exclusiveResources: current?.exclusiveResources,
+      countedResources: normalizeCountedResources(current?.countedResources, 'capacity.countedResources'),
       onWaitState: current?.onWaitState
     }
   }
@@ -300,18 +403,21 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
     steps,
     normalizedCapacity,
     normalizedCapacity.exclusiveResources,
+    normalizedCapacity.countedResources,
     { elastic }
   )
   const states = new Map(normalized.map((entry) => [entry.id, 'pending']))
   const failures = []
   const active = new Map()
   const reportedExclusiveWaits = new Set()
+  const reportedCountedWaits = new Set()
   let usedCpuUnits = 0
   let usedMemoryGiB = 0
 
   const start = (entry, runtimeCapacity) => {
     const index = normalized.findIndex((candidate) => candidate.id === entry.id)
     const exclusiveResources = [...new Set(entry.resources.exclusiveResources ?? [])]
+    const countedResources = entry.resources.countedResources ?? {}
     usedCpuUnits += runtimeCapacity.cpuUnits
     usedMemoryGiB += runtimeCapacity.memoryGiB
     states.set(entry.id, 'running')
@@ -334,6 +440,7 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
     active.set(entry.id, {
       promise,
       exclusiveResources,
+      countedResources,
       coordinationOnly: entry.resources.coordinationOnly === true,
       runtimeCapacity
     })
@@ -372,6 +479,8 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
       .filter((record) => record.coordinationOnly !== true).length
     const exclusiveByStep = new Map(admissionResult.blockedByExclusiveResources
       .map((wait) => [wait.stepId, wait]))
+    const countedByStep = new Map(admissionResult.blockedByCountedResources
+      .map((wait) => [wait.stepId, wait]))
     for (const entry of normalized) {
       if (states.get(entry.id) !== 'pending') continue
       const dependencies = (entry.dependsOn ?? []).filter((dependency) => {
@@ -390,6 +499,13 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
           exclusive.resource === 'benchmark-window'
             ? { benchmarkIsolation: true }
             : { exclusiveResources: [exclusive.resource] })
+        continue
+      }
+      const counted = countedByStep.get(entry.id)
+      if (counted) {
+        normalizedCapacity.onWaitState?.(entry.id, {
+          countedResources: { [counted.resource]: counted }
+        })
         continue
       }
       if (!admittedIds.has(entry.id)) {
@@ -411,6 +527,18 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
         + ` exclusiveResource=${wait.resource}`
         + ` heldBy=${wait.heldBy}`
         + ` holderState=${wait.holderState}`
+      )
+    }
+    for (const wait of admissionResult.blockedByCountedResources) {
+      const key = `${wait.stepId}\0${wait.resource}\0${wait.requested}\0${wait.used}\0${wait.capacity}`
+      if (reportedCountedWaits.has(key)) continue
+      reportedCountedWaits.add(key)
+      console.log(
+        `[bundle-step-dag] wait ${wait.stepId}`
+        + ` countedResource=${wait.resource}`
+        + ` requested=${wait.requested}`
+        + ` used=${wait.used}`
+        + ` capacity=${wait.capacity}`
       )
     }
 
@@ -485,6 +613,7 @@ export function runtimeSteps() {
   const needsRuntime = ['bootstrap']
   const needsStableReleaseHydration = ['release-public-hydration']
   const runtimeBuildReadiness = ['backend-build-ready', 'frontend-build-ready']
+  const chromiumLane = { chromiumLane: 1 }
 
   return [
     step('backend-build-ready', null, [], {
@@ -512,22 +641,21 @@ export function runtimeSteps() {
     }),
     step('security-runtime-core', 'FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG=1 FSUSBLOG_SKIP_ZAP=1 tools/test/legacy-test.sh security-runtime-core', [], {
       dependsOn: needsStableReleaseHydration,
-      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, countedResources: chromiumLane }
     }),
-    // Browser-heavy lanes are deliberately chained. On the smallest supported
-    // production host, overlapping Chromium groups with the Vitest host caused
-    // ERR_INSUFFICIENT_RESOURCES and the kernel closed otherwise healthy pages.
-    // Non-browser readers remain independently admitted around this chain.
+    // Browser lanes share a machine-adaptive counted resource instead of a
+    // reference-machine serial chain. Their real runtime-state prerequisites
+    // remain explicit, while a one-slot host preserves the former safe order.
     step('ux-risk-matrix', 'node tools/ux/run-local-production-risk.mjs', riskMembers, {
-      dependsOn: ['resilience'],
-      resources: { cpuWeight: 4, memoryWeight: 8, minCpuUnits: 1 }
+      dependsOn: ['release-public'],
+      resources: { cpuWeight: 4, memoryWeight: 8, minCpuUnits: 1, countedResources: chromiumLane }
     }),
     // This lane creates dedicated identities in a private fixture directory,
     // so it can actively mutate the loopback runtime alongside shared security
     // checks without revoking or overwriting any sibling fixture session.
     step('authenticated-dast', 'tools/test/lanes/security-authenticated-dast.sh', ['security-authenticated-dast'], {
       dependsOn: ['security-runtime-core'],
-      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, countedResources: chromiumLane }
     }),
     step('runtime-integration', 'FSUSBLOG_SKIP_BACKEND_INTEGRATION_TESTS=1 tools/test/lanes/runtime-integration.sh', ['integration'], {
       dependsOn: ['security-runtime-core'],
@@ -538,7 +666,7 @@ export function runtimeSteps() {
       // the corresponding AOT generation. Public hydration readers must not
       // race that cache transition or validate the previous article version.
       dependsOn: [...needsStableReleaseHydration, 'runtime-integration'],
-      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, countedResources: chromiumLane }
     }),
     step('endpoint-depth', 'tools/test/lanes/endpoint-depth.sh', ['endpoint-depth'], {
       dependsOn: needsStableReleaseHydration,
@@ -549,7 +677,16 @@ export function runtimeSteps() {
     // the Vite shell mounted but hidden. Run the scanner only after every
     // browser-heavy branch has released its contexts.
     step('zap-baseline', 'tools/security/run-zap-baseline.sh', [], {
-      dependsOn: ['security-runtime-core', 'ux-risk-matrix', 'cross-browser', 'cross-stack-runtime']
+      dependsOn: [
+        'security-runtime-core',
+        'authenticated-dast',
+        'release-public',
+        'ux-risk-matrix',
+        'cross-browser',
+        'render-pressure',
+        'resilience',
+        'cross-stack-runtime'
+      ]
     }),
     // Canonical OpenAPI generation and parity/coherence checks are source-based,
     // but delaying their seven-second CPU window lets bootstrap claim the full
@@ -561,12 +698,12 @@ export function runtimeSteps() {
       dependsOn: ['runtime-integration']
     }),
     step('cross-browser', 'tools/test/lanes/cross-browser-smoke.sh', ['cross-browser-smoke'], {
-      dependsOn: ['ux-risk-matrix'],
-      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+      dependsOn: ['release-public'],
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, countedResources: chromiumLane }
     }),
     step('render-pressure', 'tools/test/lanes/frontend-render-pressure.sh', ['frontend-render-pressure'], {
       dependsOn: ['cross-stack-runtime'],
-      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, countedResources: chromiumLane }
     }),
     step('rights-matrix', 'tools/test/lanes/rights-v3-test-matrix.sh', ['rights-v3-test-matrix'], { dependsOn: ['runtime-integration'] }),
     // This source-only matrix can use the backend/frontend marker gap without
@@ -574,7 +711,10 @@ export function runtimeSteps() {
     step('csrf-matrix', 'cd src/frontend && npm run check:security:csrf-browser-matrix', ['csrf-browser-matrix'], {
       dependsOn: ['security-static', 'backend-build-ready']
     }),
-    step('resilience', 'tools/test/lanes/resilience-runtime.sh', ['resilience'], { dependsOn: ['render-pressure'] }),
+    step('resilience', 'tools/test/lanes/resilience-runtime.sh', ['resilience'], {
+      dependsOn: ['release-public'],
+      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, countedResources: chromiumLane }
+    }),
     step('local-runtime-exposure', 'node tools/security/check-local-runtime-exposure.mjs', [], {
       dependsOn: needsStableReleaseHydration
     }),
