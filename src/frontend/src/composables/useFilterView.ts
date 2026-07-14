@@ -25,7 +25,8 @@ import {
   PUBLIC_FILTER_TYPE,
   type PublicFilterType
 } from '@/public-renderers/publicFilterSemantics'
-import { resolvePublicFilterIdentity } from '@/public-renderers/publicRouteIdentity'
+import { buildPublicTagHref, resolvePublicFilterIdentity } from '@/public-renderers/publicRouteIdentity'
+import { PUBLIC_FILTER_ROUTE_NAMES } from '@/public-renderers/publicRouteRegistry'
 
 type NamedMeta = Pick<CategoryItem, 'id' | 'name'> | Pick<TagItem, 'id' | 'name'>
 type ResolvedFilterTarget = Readonly<{
@@ -266,6 +267,15 @@ export function useFilterView() {
         filterId.value = resolved.filterId
         currentName.value = resolved.currentName
         invalidTarget.value = resolved.isInvalidTarget
+        if (resolved.valid
+          && resolved.filterId > 0
+          && route.name === PUBLIC_FILTER_ROUTE_NAMES.tag) {
+          await router.replace({
+            path: buildPublicTagHref(resolved.filterId),
+            query: route.query,
+            hash: route.hash
+          })
+        }
       }
     } catch (error: unknown) {
       if (!isAbortError(error) && lifecycle.isActive() && !signal.aborted) {

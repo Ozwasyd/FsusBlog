@@ -522,13 +522,40 @@ public sealed class PublicAotFilterBootstrapProvider(
 
         if (string.Equals(parsed.FilterType, "tag", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(parsed.FilterName))
         {
-            int? tagId = string.IsNullOrWhiteSpace(parsed.FilterName)
-                ? null
-                : await db.Queryable<Tag>().Where(tag => tag.Name == parsed.FilterName).Select(tag => (int?)tag.Id).FirstAsync(cancellationToken);
+            int? tagId = await ResolveTagIdByNameAsync(parsed.FilterName, cancellationToken);
             return new FilterIdentity(parsed.FilterType, parsed.FilterKey, tagId ?? 0, parsed.FilterName, null, tagId, tagId is not > 0);
         }
 
         return new FilterIdentity(parsed.FilterType, parsed.FilterKey, parsed.FilterId, parsed.FilterName, parsed.CategoryId, parsed.TagId, true);
+    }
+
+    private async Task<int?> ResolveTagIdByNameAsync(string tagName, CancellationToken cancellationToken)
+    {
+        string normalizedName = PublicTagUrlIdentity.NormalizeDisplayName(tagName);
+        string lookupKey = PublicTagUrlIdentity.NormalizeLookupKey(normalizedName);
+        List<Tag> tags = await db.Queryable<Tag>().ToListAsync(cancellationToken);
+        int[] normalizedMatches = tags
+            .Where(tag => string.Equals(PublicTagUrlIdentity.NormalizeLookupKey(tag.Name), lookupKey, StringComparison.Ordinal))
+            .Select(tag => tag.Id)
+            .Where(static id => id > 0)
+            .Distinct()
+            .Take(2)
+            .ToArray();
+        if (normalizedMatches.Length == 1)
+        {
+            return normalizedMatches[0];
+        }
+
+        if (normalizedMatches.Length > 1)
+        {
+            return null;
+        }
+
+        return await db.Queryable<TagUrlAlias>()
+            .Where(alias => alias.NormalizedName == lookupKey)
+            .InnerJoin<Tag>((alias, tag) => alias.TagId == tag.Id)
+            .Select((alias, tag) => (int?)tag.Id)
+            .FirstAsync(cancellationToken);
     }
 
     private static string ResolveFilterTitle(FilterIdentity identity)

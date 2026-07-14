@@ -97,4 +97,16 @@ public sealed class PublicAotBootstrapProviderTests
         Assert.Contains("FilterIdentity.get_IsInvalidTarget", build, StringComparison.Ordinal);
         Assert.Contains("public_aot_filter_not_found", build, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void FilterProvider_TagNameCompatibilityResolvesCurrentAndPersistedAliasesToStableId()
+    {
+        Type provider = typeof(PublicAotFilterBootstrapProvider);
+        string resolver = RuntimeMetadataInspection.DescribeMethods(provider, "ResolveTagIdByNameAsync");
+
+        Assert.Contains("Tag.get_Name", resolver, StringComparison.Ordinal);
+        Assert.Contains("TagUrlAlias.get_NormalizedName", resolver, StringComparison.Ordinal);
+        Assert.Contains("TagUrlAlias.get_TagId", resolver, StringComparison.Ordinal);
+        Assert.Contains("NormalizeLookupKey", resolver, StringComparison.Ordinal);
+    }
 }

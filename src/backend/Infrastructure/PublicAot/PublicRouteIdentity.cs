@@ -137,14 +137,17 @@ internal static class PublicRouteIdentity
     internal static string BuildTagIdRouteKey(int tagId)
         => string.Concat(PublicRouteIdentityRegistry.TagBucket, ":", Math.Max(0, tagId));
 
+    internal static string BuildTagPath(int tagId)
+        => string.Concat(TagPathPrefix, Math.Max(0, tagId));
+
     internal static string BuildTagNameRouteKey(string tagName)
-        => string.Concat(PublicRouteIdentityRegistry.TagNameBucket, ":", Uri.UnescapeDataString(tagName).Trim());
+        => string.Concat(
+            PublicRouteIdentityRegistry.TagNameBucket,
+            ":",
+            PublicTagUrlIdentity.NormalizeDisplayName(Uri.UnescapeDataString(tagName)));
 
     internal static string BuildCategoryPath(int categoryId)
         => string.Concat(CategoryPathPrefix, Math.Max(0, categoryId));
-
-    internal static string BuildTagPathFromName(string tagName)
-        => string.Concat(TagPathPrefix, Uri.EscapeDataString(tagName.Trim()));
 
     internal static ParsedFilterRouteIdentity ParseFilterRouteKey(string routeKey)
     {
@@ -206,7 +209,8 @@ internal static class PublicRouteIdentity
         if (path.StartsWith(TagPathPrefix, StringComparison.OrdinalIgnoreCase))
         {
             string segment = GetRouteSegment(context, TagPathPrefix);
-            if (int.TryParse(segment, out int tagId) && tagId > 0)
+            string decodedSegment = Uri.UnescapeDataString(segment);
+            if (int.TryParse(decodedSegment, out int tagId) && tagId > 0)
             {
                 return BuildTagIdRouteKey(tagId);
             }
@@ -242,7 +246,7 @@ internal static class PublicRouteIdentity
 
         if (routeKey.StartsWith(TagNameRoutePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            return BuildTagPathFromName(routeKey[TagNameRoutePrefix.Length..]);
+            return string.Empty;
         }
 
         return "/";
@@ -294,7 +298,13 @@ internal static class PublicRouteIdentity
             return string.Empty;
         }
 
-        return path.AsSpan(prefix.Length).ToString();
+        ReadOnlySpan<char> segment = path.AsSpan(prefix.Length);
+        while (segment.Length > 1 && segment[^1] == '/')
+        {
+            segment = segment[..^1];
+        }
+
+        return segment.ToString();
     }
 
     private static bool TryMatchPositiveIdPath(ReadOnlySpan<char> path, string prefix, out int id)
@@ -320,6 +330,11 @@ internal static class PublicRouteIdentity
         }
 
         ReadOnlySpan<char> rawSegment = path[TagPathPrefix.Length..];
+        while (rawSegment.Length > 1 && rawSegment[^1] == '/')
+        {
+            rawSegment = rawSegment[..^1];
+        }
+
         if (rawSegment.IsEmpty || rawSegment.Length > 512 || rawSegment.IndexOf('/') >= 0 || !HasValidPercentEncoding(rawSegment))
         {
             return false;

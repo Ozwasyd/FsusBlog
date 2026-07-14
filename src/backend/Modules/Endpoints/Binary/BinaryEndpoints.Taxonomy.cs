@@ -15,6 +15,7 @@ using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Pagination;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
@@ -289,13 +290,14 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(nameResult.Error, aeds);
             }
 
-            string trimmedName = nameResult.Name.Trim();
+            string trimmedName = PublicTagUrlIdentity.NormalizeDisplayName(nameResult.Name);
             if (string.IsNullOrWhiteSpace(trimmedName))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "标签名称不能为空"), aeds);
             }
 
-            bool exists = await db.Queryable<Tag>().AnyAsync(t => t.Name == trimmedName);
+            bool exists = await db.Queryable<Tag>().AnyAsync(t => t.Name == trimmedName)
+                || await IsTagUrlNameReservedAsync(db, trimmedName, exceptTagId: null, cancellationToken);
             if (exists)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"标签 [{trimmedName}] 已存在"), aeds);
@@ -336,7 +338,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(nameResult.Error, aeds);
             }
 
-            string trimmedName = nameResult.Name.Trim();
+            string trimmedName = PublicTagUrlIdentity.NormalizeDisplayName(nameResult.Name);
             if (string.IsNullOrWhiteSpace(trimmedName))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "标签名称不能为空"), aeds);
@@ -344,7 +346,8 @@ public static partial class BinaryEndpoints
 
             bool exists = await db.Queryable<Tag>()
                 .Where(t => t.Name == trimmedName && t.Id != id)
-                .AnyAsync();
+                .AnyAsync()
+                || await IsTagUrlNameReservedAsync(db, trimmedName, id, cancellationToken);
             if (exists)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"标签名称 [{trimmedName}] 已被其他记录占用"), aeds);
@@ -467,12 +470,60 @@ public static partial class BinaryEndpoints
         int updated = 0;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            Tag? currentTag = await db.Queryable<Tag>()
+                .Where(tag => tag.Id == tagId)
+                .FirstAsync(cancellationToken);
+            if (currentTag is null)
+            {
+                return;
+            }
+
             List<int> affectedArticleIds = await db.Queryable<ArticleTag>()
                 .Where(link => link.TagId == tagId)
                 .Select(link => link.ArticleId)
                 .ToListAsync(cancellationToken);
+            string normalizedOldName = PublicTagUrlIdentity.NormalizeDisplayName(currentTag.Name);
+            string normalizedNewName = PublicTagUrlIdentity.NormalizeDisplayName(name);
+            string oldLookupKey = PublicTagUrlIdentity.NormalizeLookupKey(normalizedOldName);
+            string newLookupKey = PublicTagUrlIdentity.NormalizeLookupKey(normalizedNewName);
+            if (!string.Equals(oldLookupKey, newLookupKey, StringComparison.Ordinal))
+            {
+                TagUrlAlias? conflictingAlias = await db.Queryable<TagUrlAlias>()
+                    .Where(alias => alias.NormalizedName == newLookupKey)
+                    .FirstAsync(cancellationToken);
+                if (conflictingAlias is not null && conflictingAlias.TagId != tagId)
+                {
+                    throw new InvalidOperationException("tag_url_identity_reserved");
+                }
+
+                if (conflictingAlias is not null)
+                {
+                    await db.Deleteable<TagUrlAlias>()
+                        .Where(alias => alias.NormalizedName == newLookupKey && alias.TagId == tagId)
+                        .ExecuteCommandAsync(cancellationToken);
+                }
+
+                TagUrlAlias? oldAlias = await db.Queryable<TagUrlAlias>()
+                    .Where(alias => alias.NormalizedName == oldLookupKey)
+                    .FirstAsync(cancellationToken);
+                if (oldAlias is null)
+                {
+                    await db.Insertable(new TagUrlAlias
+                    {
+                        NormalizedName = oldLookupKey,
+                        TagId = tagId,
+                        OriginalName = normalizedOldName,
+                        CreatedAtUtc = DateTime.UtcNow
+                    }).ExecuteCommandAsync(cancellationToken);
+                }
+                else if (oldAlias.TagId != tagId)
+                {
+                    throw new InvalidOperationException("tag_url_identity_conflict");
+                }
+            }
+
             updated = await db.Updateable<Tag>()
-                .SetColumns(tag => tag.Name == name)
+                .SetColumns(tag => tag.Name == normalizedNewName)
                 .Where(tag => tag.Id == tagId)
                 .ExecuteCommandAsync(cancellationToken);
             if (updated > 0)
@@ -490,6 +541,30 @@ public static partial class BinaryEndpoints
         }
 
         return updated;
+    }
+
+    internal static async Task<bool> IsTagUrlNameReservedAsync(
+        ISqlSugarClient db,
+        string name,
+        int? exceptTagId,
+        CancellationToken cancellationToken)
+    {
+        string lookupKey = PublicTagUrlIdentity.NormalizeLookupKey(name);
+        List<Tag> tags = await db.Queryable<Tag>().ToListAsync(cancellationToken);
+        if (tags.Any(tag => tag.Id != exceptTagId
+            && string.Equals(PublicTagUrlIdentity.NormalizeLookupKey(tag.Name), lookupKey, StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        ISugarQueryable<TagUrlAlias> query = db.Queryable<TagUrlAlias>()
+            .Where(alias => alias.NormalizedName == lookupKey);
+        if (exceptTagId is int tagId)
+        {
+            query = query.Where(alias => alias.TagId != tagId);
+        }
+
+        return await query.AnyAsync(cancellationToken);
     }
 
     private static async Task<int> InsertTaxonomyProjectionOutboxAsync(

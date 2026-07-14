@@ -303,6 +303,11 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             tagId,
             "projection-tag-after",
             CancellationToken.None));
+        TagUrlAlias persistedTagAlias = await sqlSugar.Queryable<TagUrlAlias>()
+            .Where(alias => alias.TagId == tagId)
+            .SingleAsync();
+        Assert.Equal("PROJECTION-TAG-BEFORE", persistedTagAlias.NormalizedName);
+        Assert.Equal("projection-tag-before", persistedTagAlias.OriginalName);
         int taxonomyOutboxRows = await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
             .Where(item => item.AggregateId == articleId
                 && (item.EventType == "category-updated" || item.EventType == "tag-updated"))

@@ -147,9 +147,8 @@ export function buildPublicCategoryHref(categoryId: number | string): string {
   return `${CATEGORY_PATH_PREFIX}${Math.max(0, parsePositiveInt(categoryId))}`
 }
 
-export function buildPublicTagHref(tagName: string): string {
-  const normalizedName = normalizeText(tagName)
-  return normalizedName ? `${TAG_PATH_PREFIX}${encodeURIComponent(normalizedName)}` : TAG_PATH_PREFIX.slice(0, -1)
+export function buildPublicTagHref(tagId: number | string): string {
+  return `${TAG_PATH_PREFIX}${Math.max(0, parsePositiveInt(tagId))}`
 }
 
 function toCanonicalPublicPath(routeKey: string): string {
@@ -186,7 +185,7 @@ function toCanonicalPublicPath(routeKey: string): string {
     return `${TAG_PATH_PREFIX}${normalizedRouteKey.slice(TAG_ROUTE_PREFIX.length)}`
   }
   if (normalizedRouteKey.startsWith(TAG_NAME_ROUTE_PREFIX)) {
-    return `${TAG_PATH_PREFIX}${encodeURIComponent(normalizedRouteKey.slice(TAG_NAME_ROUTE_PREFIX.length))}`
+    return ''
   }
 
   return '/'

@@ -1229,7 +1229,7 @@ SiteStatsPod、共享 UTF-8 blob、popular article records、recent comment reco
 |----|------|-----------|
 | 1 | `Home` | `"home"` |
 | 2 | `ArticleDetail` | `"article:{id}"` |
-| 3 | `Filter` | `"category:{id}"`、`"tag:{id}"`、`"tag-name:{name}"` |
+| 3 | `Filter` | 成功页面：`"category:{id}"`、`"tag:{id}"`；兼容解析入口：`"tag-name:{name}"`（只返回 301/404，不得进入成功 payload） |
 | 4 | `Archive` | `"archive"` |
 | 5 | `About` | `"about"` |
 | 6 | `Account` | `"account"`，非 SEO |
@@ -1280,7 +1280,7 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 
 ### Public HTML real-status contract
 
-公共动态路径只接受 `/article/{positive-int}`、`/category/{positive-int}` 与 `/tag/{positive-int|valid-slug}` 的完整匹配。`/article/123/extra`、`/category/8/extra`、`/tag/vue/extra`、零值、空 segment、无效 percent encoding 和未知 path 都是 404。除根路径外，尾斜杠使用 301 单跳规范化到无尾斜杠 canonical。
+公共动态路径只接受 `/article/{positive-int}`、`/category/{positive-int}` 与 `/tag/{positive-int|valid-name}` 的完整匹配。`/tag/{positive-int}` 是唯一标签成功页；可解析的历史名称 URL 单跳 301 到 `/tag/{id}`，不生成成功 HTML。`/article/123/extra`、`/category/8/extra`、`/tag/vue/extra`、零值、空 segment、无效 percent encoding 和未知 path 都是 404。除根路径外，尾斜杠使用 301 单跳规范化到无尾斜杠 canonical。
 
 Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`TransientFailure`。`Success` 才允许读取/排队普通 AOT；`NotFound` 返回 404；仅在持久化模型明确表达永久删除时使用 410；provider、数据库 gate 或基础设施不可用返回 503 + `Retry-After: 5`。所有 404/410/503 页面均满足：
 
@@ -1330,13 +1330,13 @@ Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`
 }
 ```
 
-`dependencyKeys` 是预生成和失效收敛的稳定键：`article:{id}`、`category:{id}`、`tag:{id}`、`tag-name:{name}`、`article:list`、`seo`、`compliance`。内容变更后服务端会根据已知依赖主动调度 Home、Archive、ArticleDetail、Category/Tag Filter 与静态页的 AOT backfill；SEO 或 compliance 变更会按 manifest 调度所有 public routes。
+`dependencyKeys` 是预生成和失效收敛的稳定键：`article:{id}`、`category:{id}`、`tag:{id}`、兼容失效键 `tag-name:{name}`、`article:list`、`seo`、`compliance`。manifest 只生成 `tag:{id}` / `/tag/{id}` 成功 route；`tag-name:*` 只能作为旧名称失效与 301 解析依赖，不能成为第二条预热页面。内容变更后服务端会根据已知依赖主动调度 Home、Archive、ArticleDetail、Category/Tag Filter 与静态页的 AOT backfill；SEO 或 compliance 变更会按 manifest 调度所有 public routes。
 
 ### Public Navigation Snapshot
 
 `GET /api/public/navigation-snapshot.aeds?path={publicPath}` 返回公开路由的原子接管快照，供 SPA 在路由切换前预取并写入 `PublicRouteSeedStore`。该端点匿名可读，`Accept` 允许空值、`*/*`、`application/octet-stream` 或 `application/vnd.fsus.aeds`；成功响应固定为 `Content-Type: application/vnd.fsus.aeds`，AEDS frame type 复用 `PublicAotBootstrap`。成功帧使用内容 ETag 与 `Cache-Control: no-cache`，缓存可以保存响应但每次使用前必须向源站重验证；`Vary` 固定包含 `Accept, X-Fsus-Test-Session`。内容突变后的 micro-navigation 不允许命中旧 `max-age` / `stale-while-revalidate` 快照。
 
-`path` 必须是同站相对 URL、长度不超过 512 字符，可包含 query；服务端会丢弃 fragment，并通过 Public AOT route registry 校验目标。允许范围与 SEO/AOT 公开页一致：`/`、`/archive`、`/article/{id}`、`/category/{id}`、`/tag/{id|name}`、`/about`、`/privacy`、`/guidelines`、`/copyright`。`/account`、`/search`、`/admin`、空 path、协议相对 URL 和绝对外链必须 fail closed。端点受 `public_read` 限流。
+`path` 必须是同站相对 URL、长度不超过 512 字符，可包含 query；服务端会丢弃 fragment，并通过 Public AOT route registry 校验目标。允许范围与 SEO/AOT 公开页一致：`/`、`/archive`、`/article/{id}`、`/category/{id}`、`/tag/{id}`、`/about`、`/privacy`、`/guidelines`、`/copyright`。兼容名称 `/tag/{name}` 会先解析为稳定 ID，成功 snapshot 的 `path`、`canonicalPath`、`routeKey` 和内部 payload 均改写为 `/tag/{id}` / `tag:{id}`，不得发出 name self-canonical snapshot。`/account`、`/search`、`/admin`、空 path、协议相对 URL 和绝对外链必须 fail closed。端点受 `public_read` 限流。
 
 成功 body 是 `PublicAotBootstrap` frame 包裹的对象：
 
@@ -1411,11 +1411,11 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
 ```json
 {
   "pageKind": "Filter",
-  "routeKey": "tag-name:AcceptanceTag",
+  "routeKey": "tag:1",
   "title": "AcceptanceTag",
   "filter": {
     "filterType": "tag",
-    "filterKey": "tag-name:AcceptanceTag",
+    "filterKey": "tag:1",
     "filterId": 1,
     "filterName": "AcceptanceTag",
     "isInvalidTarget": false,
@@ -1429,7 +1429,7 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
 
 补充约束：
 
-- `filterKey` 是筛选页稳定身份，必须能区分 `category:1`、`tag:1`、`tag-name:AcceptanceTag`。
+- `filterKey` 是成功筛选页的稳定身份，只能是 `category:{id}` 或 `tag:{id}`。`tag-name:{name}` 仅供服务端解析历史 URL，解析成功后必须先 301，不能出现在 200 AOT payload。
 - 无效分类/标签目标必须设置 `isInvalidTarget=true`，且 `articles` 必须为空。
 - 客户端不得再从 path string 反推标题或筛选语义。
 
@@ -1486,7 +1486,7 @@ hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件
 ```json
 {
   "label": "#AcceptanceTag",
-  "href": "/tag/AcceptanceTag"
+  "href": "/tag/17"
 }
 ```
 

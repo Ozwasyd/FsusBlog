@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Http;
 
 namespace FsusBlog.Server.Tests;
@@ -88,5 +89,19 @@ public sealed class PublicRouteIdentityTests
     {
         Assert.True(PublicRouteIdentity.TryResolveKind(new PathString(path), out PublicPageKind kind));
         Assert.Equal(PublicPageKind.Filter, kind);
+    }
+
+    [Fact]
+    public void TagNameIdentity_NormalizesUnicodeAndNeverSelfCanonicalizes()
+    {
+        string composed = PublicTagUrlIdentity.NormalizeLookupKey(" Café ");
+        string decomposed = PublicTagUrlIdentity.NormalizeLookupKey("cafe\u0301");
+
+        Assert.Equal(composed, decomposed);
+        Assert.Equal("CAFÉ", composed);
+        Assert.Equal(
+            string.Empty,
+            PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, "tag-name:Café", null));
+        Assert.Equal("/tag/17", PublicRouteIdentity.BuildTagPath(17));
     }
 }

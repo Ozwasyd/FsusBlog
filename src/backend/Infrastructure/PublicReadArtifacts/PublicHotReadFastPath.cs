@@ -1847,6 +1847,9 @@ public static class PublicHotReadFastPath
     private static bool TryClassifyPublicHtmlRoute(ReadOnlySpan<char> path, out PublicHotReadRoute route)
     {
         route = default;
+        bool hasNonCanonicalTagTrailingSlash = path.Length > PublicRouteIdentityRegistry.TagPathPrefix.Length
+            && path.StartsWith(PublicRouteIdentityRegistry.TagPathPrefix.AsSpan(), StringComparison.OrdinalIgnoreCase)
+            && path[^1] == '/';
         path = TrimPublicHtmlPath(path);
 
         if (PublicAotPageCatalog.TryGetByStaticPath(path, out PublicAotPageDescriptor descriptor)
@@ -1882,6 +1885,11 @@ public static class PublicHotReadFastPath
             return false;
         }
 
+        if (hasNonCanonicalTagTrailingSlash)
+        {
+            return false;
+        }
+
         ReadOnlySpan<char> tagTail = path[PublicRouteIdentityRegistry.TagPathPrefix.Length..];
         if (TryParseSinglePositiveIntPathTail(tagTail, out int tagId))
         {
@@ -1891,14 +1899,10 @@ public static class PublicHotReadFastPath
             return true;
         }
 
-        if (IsSafePublicTagNameTail(tagTail))
-        {
-            route = new PublicHotReadRoute(
-                PublicHotReadRouteKind.PublicHtml,
-                HtmlRouteKey: PublicHotReadRouteKeys.HtmlPath(PublicRouteIdentity.BuildTagNameRouteKey(tagTail.ToString())));
-            return true;
-        }
-
+        // A non-numeric tag tail is a legacy name alias. It must reach the AOT
+        // shell resolver so the request receives the single-hop 301 to /tag/{id};
+        // serving a previously published name artifact here would incorrectly
+        // turn the alias back into a second canonical 200 URL.
         return false;
     }
 
@@ -1916,31 +1920,6 @@ public static class PublicHotReadFastPath
     {
         id = 0;
         return tail.IndexOf('/') < 0 && TryParsePositiveInt(tail, out id);
-    }
-
-    private static bool IsSafePublicTagNameTail(ReadOnlySpan<char> tail)
-    {
-        if (tail.IsEmpty || tail.IndexOf('/') >= 0)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < tail.Length; i++)
-        {
-            char c = tail[i];
-            if ((uint)(c - 'A') <= 25
-                || (uint)(c - 'a') <= 25
-                || (uint)(c - '0') <= 9
-                || c == '-'
-                || c == '_')
-            {
-                continue;
-            }
-
-            return false;
-        }
-
-        return true;
     }
 
     private static bool TryClassifyPagedListTail(

@@ -210,6 +210,11 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.False(WebApplicationCompositionExtensions.TryBuildTrailingSlashRedirect(
             context.Request,
             out _));
+
+        context.Request.Path = "/tag/Legacy//";
+        Assert.False(WebApplicationCompositionExtensions.TryBuildTrailingSlashRedirect(
+            context.Request,
+            out _));
     }
 
     [Theory]

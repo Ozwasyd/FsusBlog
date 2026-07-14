@@ -658,19 +658,12 @@ async function main() {
       assert(tagBootstrap.title === tagName, 'tag bootstrap title mismatch');
       expectIncludes(tag, tagName, 'tag page title text');
 
-      const namedTag = await fetchHtmlUntil(`/tag/${encodeURIComponent(tagName)}`, (html) => {
-        assertSharedHydrationMarkers(html, 'Filter');
-      }, 'named tag shell contract');
-      assertPublicChrome(namedTag, 'named tag');
-      const namedTagPayload = await readHydrationPayload(namedTag, `/tag/${encodeURIComponent(tagName)}`, 'Filter');
-      const namedTagBootstrap = readInlineBinaryPayload(namedTag, 'fsus-aot-bootstrap');
-      assert(namedTagPayload.routeKey === `tag-name:${tagName}`, 'named tag payload routeKey mismatch');
-      assert(namedTagBootstrap.routeKey === `tag-name:${tagName}`, 'named tag bootstrap routeKey mismatch');
-      assert(namedTagPayload.filter?.filterKey === `tag-name:${tagName}`, 'named tag payload filterKey mismatch');
-      assert(namedTagBootstrap.filter?.filterKey === `tag-name:${tagName}`, 'named tag bootstrap filterKey mismatch');
-      assert(namedTagPayload.filter?.filterName === tagName, 'named tag payload filterName mismatch');
-      assert(namedTagBootstrap.filter?.filterName === tagName, 'named tag bootstrap filterName mismatch');
-      expectIncludes(namedTag, tagName, 'named tag page title text');
+      const namedTag = await fetchWithTimeout(`${baseUrl}/tag/${encodeURIComponent(tagName)}`, {
+        redirect: 'manual',
+        headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'text/html' }
+      }, requestTimeoutMs);
+      assert(namedTag.status === 301, 'named tag must redirect to stable ID canonical');
+      assert(namedTag.headers.get('location') === `/tag/${tagId}`, 'named tag redirect target mismatch');
     }
   }
 

@@ -421,6 +421,95 @@ public sealed class PublicAotShellServiceTests
     }
 
     [Fact]
+    public async Task RenderClassifiedAsync_TagNameRoute_RedirectsToStableIdBeforeCacheOrBackfill()
+    {
+        var match = new PublicAotRouteMatch(
+            PublicPageKind.Filter,
+            PublicPageId.Filter,
+            "tag-name:Café",
+            string.Empty,
+            "/tag/Caf%C3%A9",
+            "?page=2");
+        var cache = new RecordingAotCache();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(
+            match,
+            cache,
+            scheduler,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
+            bootstrapProviders: CreateBootstrapProviders(new FixedSnapshotProvider(
+                PublicPageKind.Filter,
+                CreateTagFilterSnapshot(match.RouteKey, 17, "Café"))));
+        var context = new DefaultHttpContext();
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
+
+        Assert.Equal(PublicAotRenderStatus.PermanentRedirect, result.Status);
+        Assert.Equal("/tag/17", result.RedirectPath);
+        Assert.Empty(cache.RequestedKeys);
+        Assert.Empty(scheduler.Requests);
+        Assert.Equal("none", context.Items[PublicAotShellService.PublicAotBackfillContextKey]);
+        Assert.Equal("permanent-redirect", context.Items[PublicAotShellService.PublicAotStateContextKey]);
+    }
+
+    [Fact]
+    public async Task RenderClassifiedAsync_NonCanonicalTagIdPath_RedirectsWithoutCacheOrDatabaseLookup()
+    {
+        var match = new PublicAotRouteMatch(
+            PublicPageKind.Filter,
+            PublicPageId.Filter,
+            "tag:17",
+            "/tag/17",
+            "/TAG/017/",
+            "?page=2");
+        var cache = new RecordingAotCache();
+        var scheduler = new RecordingBackfillScheduler();
+        PublicAotShellService sut = CreateService(match, cache, scheduler);
+        var context = new DefaultHttpContext();
+
+        PublicAotRenderOutcome result = await sut.RenderClassifiedAsync(context, match);
+
+        Assert.Equal(PublicAotRenderStatus.PermanentRedirect, result.Status);
+        Assert.Equal("/tag/17", result.RedirectPath);
+        Assert.Empty(cache.RequestedKeys);
+        Assert.Empty(scheduler.Requests);
+    }
+
+    [Fact]
+    public async Task BuildNavigationSnapshotAsync_TagNameRoute_EmitsOnlyStableIdIdentity()
+    {
+        var match = new PublicAotRouteMatch(
+            PublicPageKind.Filter,
+            PublicPageId.Filter,
+            "tag-name:Legacy",
+            string.Empty,
+            "/tag/Legacy",
+            string.Empty);
+        var renderer = new NavigationSnapshotRenderer();
+        PublicAotShellService sut = CreateService(
+            match,
+            new RecordingAotCache(),
+            new RecordingBackfillScheduler(),
+            entryRenderer: renderer,
+            dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
+            bootstrapProviders: CreateBootstrapProviders(new FixedSnapshotProvider(
+                PublicPageKind.Filter,
+                CreateTagFilterSnapshot(match.RouteKey, 23, "Current"))));
+        var context = new DefaultHttpContext();
+
+        Result<PublicAotNavigationSnapshot> result = await sut.BuildNavigationSnapshotAsync(context, match);
+
+        Assert.True(result.IsSuccess, result.Error.Message);
+        Assert.Equal("tag:23", result.Value!.RouteKey);
+        Assert.Equal("/tag/23", result.Value.Path);
+        Assert.Equal("/tag/23", result.Value.CanonicalPath);
+        PublicAotRenderRequest renderRequest = Assert.Single(renderer.Requests);
+        Assert.Equal("tag:23", renderRequest.Match.RouteKey);
+        PublicFilterPageSnapshot filter = Assert.IsType<PublicFilterPageSnapshot>(renderRequest.Snapshot);
+        Assert.Equal("tag:23", filter.RouteKey);
+    }
+
+    [Fact]
     public async Task BuildNavigationSnapshotAsync_UsesRendererEntryPayloads_AndAddsEnvelopeMetadata()
     {
         var match = new PublicAotRouteMatch(
@@ -472,6 +561,21 @@ public sealed class PublicAotShellServiceTests
             "/",
             "/",
             string.Empty);
+
+    private static PublicFilterPageSnapshot CreateTagFilterSnapshot(string routeKey, int tagId, string tagName)
+        => new(
+            new PublicAotSeoSnapshot("Fsus", "Blog", "https://blog.fsus.blog"),
+            routeKey,
+            "tag",
+            routeKey,
+            tagId,
+            tagName,
+            false,
+            1,
+            10,
+            0,
+            [],
+            tagName);
 
     private static PublicAotShellService CreateService(
         PublicAotRouteMatch match,
@@ -626,6 +730,18 @@ public sealed class PublicAotShellServiceTests
             PublicAotRouteMatch match,
             CancellationToken cancellationToken = default)
             => Task.FromResult(Result<PublicPageSnapshot>.Failure(code, message));
+    }
+
+    private sealed class FixedSnapshotProvider(
+        PublicPageKind kind,
+        PublicPageSnapshot snapshot) : IPublicAotBootstrapProvider
+    {
+        public PublicPageKind Kind { get; } = kind;
+
+        public Task<Result<PublicPageSnapshot>> BuildSnapshotAsync(
+            PublicAotRouteMatch match,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(Result<PublicPageSnapshot>.Success(snapshot));
     }
 
     private sealed class FailingRenderer(string message) : IPublicAotEntryRenderer

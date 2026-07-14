@@ -6,6 +6,7 @@ import {
   buildPublicArticleRouteKey,
   buildPublicFilterRouteKey,
   buildPublicHomeRouteKey,
+  buildPublicTagHref,
   resolvePublicFilterIdentity
 } from '@/public-renderers/publicRouteIdentity'
 import { PUBLIC_FILTER_ROUTE_NAMES, PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry'
@@ -31,6 +32,8 @@ describe('public route identity builders', () => {
     expect(buildPublicFilterRouteKey({ filterType: 'tag', filterName: 'vue' })).toBe('tag-name:vue')
     expect(buildPublicFilterRouteKey({ searchKeyword: 'hydrate mismatch' })).toBe('search')
     expect(buildPublicFilterRouteKey({ routeKey: 'tag:99', filterType: 'tag', filterId: 10 })).toBe('tag:99')
+    expect(buildPublicTagHref(8)).toBe('/tag/8')
+    expect(buildPublicTagHref('vue')).toBe('/tag/0')
   })
 
   it('resolves filter identity from route registry semantics instead of local route-name literals', () => {
@@ -52,7 +55,8 @@ describe('public route identity builders', () => {
     expect(resolvePublicFilterIdentity({ routeName: PUBLIC_FILTER_ROUTE_NAMES.tag, routeParam: 'vue' })).toMatchObject({
       filterType: 'tag',
       routeKey: 'tag-name:vue',
-      filterName: 'vue'
+      filterName: 'vue',
+      canonicalPath: ''
     })
   })
 })

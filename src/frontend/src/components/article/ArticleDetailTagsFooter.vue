@@ -32,8 +32,7 @@ const tagComponent = computed(() => (
 ))
 
 const tagHref = (tag: ArticleDetailHeaderViewContract['tags'][number]): string => (
-  tag.href?.trim()
-  || `/tag/${encodeURIComponent(tag.label.replace(/^#/, ''))}`
+  tag.href.trim()
 )
 
 const tagLinkProps = (tag: ArticleDetailHeaderViewContract['tags'][number]): Record<string, string> => (

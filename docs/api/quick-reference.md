@@ -108,7 +108,8 @@
 |------|--------|------|
 | `GET/HEAD /article/{positive-int}` | 200 / 404 / 503 | 仅公开文章为 200；缺失、隐藏、未到发布时间为 404；临时依赖故障为 503 |
 | `GET/HEAD /category/{positive-int}` | 200 / 404 / 503 | 不存在分类不生成空 200 SEO 页 |
-| `GET/HEAD /tag/{positive-int\|valid-slug}` | 200 / 404 / 503 | 不存在标签不生成空 200 SEO 页 |
+| `GET/HEAD /tag/{positive-int}` | 200 / 404 / 503 | 唯一标签成功页与 self-canonical；不存在标签不生成空 200 SEO 页 |
+| `GET/HEAD /tag/{valid-name}` | 301 / 404 / 503 | 当前名称或持久旧 alias 单跳到 `/tag/{id}`；不产生第二个 200 canonical |
 | `GET/HEAD /unknown` 或额外 path segment | 404 | 服务器首响应 noindex，不交给 SPA catch-all 改写语义 |
 | 除 `/` 外的 `.../` | 301 | 单跳到无尾斜杠 canonical，并保留 query |
 

@@ -22,7 +22,6 @@ import { dirname, resolve } from 'node:path'
 import { resolveSystemChromiumExecutablePath } from '../../support/system-chromium.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { readAedsResponse } from '../../support/aeds-envelope.mjs'
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs'
 
 const require = createRequire(import.meta.url)
@@ -1591,52 +1590,9 @@ async function runDetectorCanary(viewport) {
   }
 }
 
-async function readBinaryEndpoint(baseUrl, path) {
-  try {
-    const response = await fetch(`${baseUrl}${path}`, {
-      headers: {
-        Accept: 'application/vnd.fsus.aeds,application/octet-stream',
-      },
-      signal: AbortSignal.timeout(5000),
-    })
-    if (!response.ok) {
-      return null
-    }
-
-    return await readAedsResponse(response)
-  } catch {
-    return null
-  }
-}
-
-async function resolvePublicTagName(baseUrl, tagId) {
-  const tagList = await readBinaryEndpoint(baseUrl, '/api/binary/tag.aeds')
-  if (!Array.isArray(tagList)) {
-    return ''
-  }
-
-  const tag = tagList.find((entry) => Number(entry?.id) === Number(tagId)) ?? tagList[0]
-  return String(tag?.name ?? '').trim()
-}
-
 async function buildPublicHydrationScenarios(baseUrl) {
-  const scenarios = [...PUBLIC_SEO_SCENARIOS, ...PUBLIC_INTERACTION_ONLY_SCENARIOS]
-  const tagName = await resolvePublicTagName(baseUrl, publicFixtureIds.tagId)
-  if (tagName) {
-    scenarios.splice(
-      scenarios.findIndex((scenario) => scenario.name === 'invalid-category-fallback'),
-      0,
-      {
-        name: 'tag-name',
-        route: `/tag/${encodeURIComponent(tagName)}`,
-        expectedKind: 'Filter',
-        expectedRouteKey: `tag-name:${tagName}`,
-        phases: createListToArticlePhases(),
-      }
-    )
-  }
-
-  return scenarios
+  void baseUrl
+  return [...PUBLIC_SEO_SCENARIOS, ...PUBLIC_INTERACTION_ONLY_SCENARIOS]
 }
 
 async function main() {

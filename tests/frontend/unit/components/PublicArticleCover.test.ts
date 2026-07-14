@@ -60,8 +60,8 @@ describe('public article cover', () => {
           header: {
             ...view.header,
             tags: [
-              { label: '#DEMO', href: '/tag/demo' },
-              { label: '#AEDS', href: '/tag/aeds' }
+              { label: '#DEMO', href: '/tag/1' },
+              { label: '#AEDS', href: '/tag/2' }
             ]
           },
           rights: {

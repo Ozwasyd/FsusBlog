@@ -740,9 +740,10 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(PublicHotReadRouteKind.PublicHtml, categoryHtml.Kind);
         Assert.Equal(PublicHotReadRouteKeys.HtmlPath("category:7"), categoryHtml.HtmlRouteKey);
 
-        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/tag/9/", out PublicHotReadRoute tagHtml));
+        Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests("/tag/9", out PublicHotReadRoute tagHtml));
         Assert.Equal(PublicHotReadRouteKind.PublicHtml, tagHtml.Kind);
         Assert.Equal(PublicHotReadRouteKeys.HtmlPath("tag:9"), tagHtml.HtmlRouteKey);
+        Assert.False(PublicHotReadFastPath.TryClassifyRouteForTests("/tag/9/", out _));
 
         string htmlPath = PublicHotReadRouteKeys.HtmlPath("home");
         Assert.True(PublicHotReadFastPath.TryClassifyRouteForTests(htmlPath, out PublicHotReadRoute html));
@@ -758,7 +759,8 @@ public sealed class PublicHotReadFastPathTests
     [InlineData("/api/binary/category.aeds", true)]
     [InlineData("/", true)]
     [InlineData("/category/7", true)]
-    [InlineData("/tag/fsus", true)]
+    [InlineData("/tag/9", true)]
+    [InlineData("/tag/fsus", false)]
     [InlineData("/api/binary/article/42/related.aeds", false)]
     [InlineData("/assets/app.js", false)]
     public void RequestFeatureSecurityGate_CoversBinaryAndPublicHtmlArtifacts(string path, bool expected)

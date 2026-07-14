@@ -78,6 +78,10 @@ function assertStaticContracts() {
   const aedsOnlyAllowlist = read('tools/contracts/aeds-only-policy.allowlist.json')
   const publicAotHealthCommand = read('tools/operations/public-aot-health.mjs')
   const publicSeoSmoke = read('tests/frontend/checks/public/public-seo-smoke.mjs')
+  const routeManifest = read('src/backend/Infrastructure/PublicAot/PublicAotRouteManifest.cs')
+  const publicRouteIdentity = read('src/frontend/src/public-renderers/publicRouteIdentity.ts')
+  const articleListViewContract = read('src/frontend/src/view-contracts/articleList.ts')
+  const articleDetailViewContract = read('src/frontend/src/view-contracts/articleDetail.ts')
 
   if (prodWorker.includes("from 'vite'") || prodWorker.includes('createServer') || prodWorker.includes('ssrLoadModule')) {
     fail('production bundle worker must not import or create Vite runtime')
@@ -488,6 +492,20 @@ function assertStaticContracts() {
   for (const token of ['unknown_route', 'article_extra_segment', 'category_missing', 'tag_missing', "method: 'HEAD'", "redirect: 'manual'"]) {
     if (!publicSeoSmoke.includes(token)) {
       fail(`public SEO smoke missing real-status matrix token: ${token}`)
+    }
+  }
+  if (routeManifest.includes('CreateTagNameRoute')) {
+    fail('Public AOT route manifest must not generate a second tag-name success route')
+  }
+  for (const token of ['buildPublicTagHref(tag.id)', 'buildPublicTagHref(id)']) {
+    const source = token.includes('tag.id') ? articleDetailViewContract : articleListViewContract
+    if (!source.includes(token)) {
+      fail(`public article internal tag link must use stable ID canonical: ${token}`)
+    }
+  }
+  for (const token of ['buildPublicTagHref(tagId: number | string)', 'parsePositiveInt(tagId)']) {
+    if (!publicRouteIdentity.includes(token)) {
+      fail(`frontend tag href builder missing stable ID identity token: ${token}`)
     }
   }
   for (const token of ['IsStaleCompatibleCacheEntry', 'stale-refresh-queued']) {

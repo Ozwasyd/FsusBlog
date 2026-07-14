@@ -34,8 +34,7 @@ public sealed class PublicAotRouteManifestTests
             PublicAotRouteManifestProvider.CreateStaticRoute(PublicPageKind.Archive, 20),
             PublicAotRouteManifestProvider.CreateArticleRoute(42, 7, [3, 9], 100),
             PublicAotRouteManifestProvider.CreateCategoryRoute(7, 200),
-            PublicAotRouteManifestProvider.CreateTagIdRoute(3, "CSharp", 210),
-            PublicAotRouteManifestProvider.CreateTagNameRoute(3, "CSharp", 220)
+            PublicAotRouteManifestProvider.CreateTagIdRoute(3, "CSharp", 210)
         ];
         var registry = new PublicAotRouteRegistry();
 

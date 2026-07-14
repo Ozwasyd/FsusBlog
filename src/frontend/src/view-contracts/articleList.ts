@@ -42,10 +42,10 @@ export type ArticleListViewContract = Readonly<{
   searchKeyword: string;
 }>;
 
-function toArticleTagView(name: string): ArticleTagViewContract {
+function toArticleTagView(id: number, name: string): ArticleTagViewContract {
   return {
     label: `#${name}`,
-    href: buildPublicTagHref(name),
+    href: buildPublicTagHref(id),
     hiddenOnMobile: true
   };
 }
@@ -72,7 +72,7 @@ export function createArticleListCardViewContract(
       categoryName: article.category?.name || DEFAULT_CATEGORY,
       categoryHref: article.category ? buildPublicCategoryHref(article.category.id) : undefined
     },
-    tags: (article.tags || []).slice(0, MAX_TAGS_DISPLAY).map((tag) => toArticleTagView(tag.name))
+    tags: (article.tags || []).slice(0, MAX_TAGS_DISPLAY).map((tag) => toArticleTagView(tag.id, tag.name))
   };
 }
 

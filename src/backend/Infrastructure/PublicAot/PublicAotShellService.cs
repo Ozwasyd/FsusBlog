@@ -79,6 +79,24 @@ public sealed class PublicAotShellService(
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
         string assetMode = ResolveAssetMode(frontendAssetVersion);
         context.Items[PublicAotAssetModeContextKey] = assetMode;
+        if (classifyColdMiss && PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey))
+        {
+            PublicAotRenderOutcome canonicalOutcome = await ClassifyRouteAsync(match, cancellationToken);
+            SetClassifiedFailureContext(context, canonicalOutcome.Status, assetMode);
+            return canonicalOutcome;
+        }
+
+        if (classifyColdMiss
+            && match.RouteKey.StartsWith(
+                string.Concat(PublicRouteIdentityRegistry.TagBucket, ":"),
+                StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(match.Path, match.CanonicalPath, StringComparison.Ordinal))
+        {
+            PublicAotRenderOutcome canonicalOutcome = PublicAotRenderOutcome.PermanentRedirect(match.CanonicalPath);
+            SetClassifiedFailureContext(context, canonicalOutcome.Status, assetMode);
+            return canonicalOutcome;
+        }
+
         if (string.Equals(frontendAssetVersion, SpaAssetManifestService.DevSourceAssetVersion, StringComparison.Ordinal))
         {
             if (classifyColdMiss)
@@ -172,6 +190,12 @@ public sealed class PublicAotShellService(
 
         if (snapshot.IsSuccess && snapshot.Value is not null)
         {
+            if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
+                && snapshot.Value is PublicFilterPageSnapshot { FilterId: > 0 } filter)
+            {
+                return PublicAotRenderOutcome.PermanentRedirect(PublicRouteIdentity.BuildTagPath(filter.FilterId));
+            }
+
             return PublicAotRenderOutcome.Success(null);
         }
 
@@ -185,11 +209,14 @@ public sealed class PublicAotShellService(
         PublicAotRenderStatus status,
         string assetMode)
     {
-        context.Items[PublicAotSourceContextKey] = "server-status";
+        context.Items[PublicAotSourceContextKey] = status == PublicAotRenderStatus.PermanentRedirect
+            ? "server-redirect"
+            : "server-status";
         context.Items[PublicAotVersionContextKey] = PublicRendererVersion;
         context.Items[PublicAotBackfillContextKey] = "none";
         context.Items[PublicAotStateContextKey] = status switch
         {
+            PublicAotRenderStatus.PermanentRedirect => "permanent-redirect",
             PublicAotRenderStatus.NotFound => "not-found",
             PublicAotRenderStatus.Gone => "gone",
             _ => "transient-failure"
@@ -214,8 +241,27 @@ public sealed class PublicAotShellService(
             return Result<PublicAotNavigationSnapshot>.Failure(snapshot.Error);
         }
 
+        PublicPageSnapshot snapshotValue = snapshot.Value;
+        if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey)
+            && snapshotValue is PublicFilterPageSnapshot { FilterId: > 0 } filter)
+        {
+            string canonicalRouteKey = PublicRouteIdentity.BuildTagIdRouteKey(filter.FilterId);
+            string canonicalPath = PublicRouteIdentity.BuildTagPath(filter.FilterId);
+            match = match with
+            {
+                RouteKey = canonicalRouteKey,
+                Path = canonicalPath,
+                CanonicalPath = canonicalPath
+            };
+            snapshotValue = filter with
+            {
+                RouteKey = canonicalRouteKey,
+                FilterKey = canonicalRouteKey
+            };
+        }
+
         Result<PublicAotShellEntryContract> entry = await entryRenderer.BuildEntryAsync(
-            new PublicAotRenderRequest(match, snapshot.Value),
+            new PublicAotRenderRequest(match, snapshotValue),
             cancellationToken);
         if (entry.IsFailure || entry.Value is null)
         {
@@ -234,8 +280,10 @@ public sealed class PublicAotShellService(
             Html = normalizedHtml
         };
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
+        PublicAotRouteMatch navigationMatch = match with { RouteKey = normalizedRouteKey };
+
         PublicAotNavigationSnapshot result = PublicAotNavigationSnapshot.Create(
-            match with { RouteKey = normalizedRouteKey },
+            navigationMatch,
             normalizedEntry,
             frontendAssetVersion,
             generatedAtUtc);
@@ -386,6 +434,13 @@ public sealed class PublicAotShellService(
         CancellationToken cancellationToken)
     {
         PublicAotRouteMatch match = ResolveBackfillMatch(request);
+        if (PublicTagUrlIdentity.IsNameRouteKey(match.RouteKey))
+        {
+            return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(
+                ErrorCode.Validation,
+                "public_aot_tag_name_route_noncanonical");
+        }
+
         if (!_bootstrapProviders.TryGetValue(match.Kind, out IPublicAotBootstrapProvider? provider))
         {
             return Result<(PublicAotRouteMatch Match, string Html, string RendererVersion)>.Failure(ErrorCode.Validation, $"public_aot_provider_missing:{match.Kind}");

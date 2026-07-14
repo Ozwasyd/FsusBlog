@@ -272,8 +272,7 @@ const appendixTagComponent = computed(() => (
 ))
 
 const appendixTagHref = (tag: AppendixTag): string => (
-  tag.href?.trim()
-  || `/tag/${encodeURIComponent(tag.label.replace(/^#/, ''))}`
+  tag.href.trim()
 )
 
 const appendixTagLinkProps = (tag: AppendixTag): Record<string, string> => (

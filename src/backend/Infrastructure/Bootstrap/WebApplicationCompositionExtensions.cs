@@ -646,6 +646,16 @@ public static class WebApplicationCompositionExtensions
                     ? aotEntry is null ? "fallback" : "hit"
                     : outcome.Status.ToString().ToLowerInvariant(),
                 FsusObservability.GetElapsed(aotStartedAt));
+            if (outcome.Status == PublicAotRenderStatus.PermanentRedirect
+                && !string.IsNullOrWhiteSpace(outcome.RedirectPath))
+            {
+                string redirectTarget = string.Concat(
+                    ctx.Request.PathBase.Value,
+                    outcome.RedirectPath,
+                    ctx.Request.QueryString.Value);
+                return TypedResults.Redirect(redirectTarget, permanent: true);
+            }
+
             if (outcome.Status != PublicAotRenderStatus.Success)
             {
                 int statusCode = outcome.Status switch
@@ -737,6 +747,15 @@ public static class WebApplicationCompositionExtensions
         }
 
         string canonicalPath = path.TrimEnd('/');
+        if (canonicalPath.StartsWith(PublicRouteIdentityRegistry.TagPathPrefix, StringComparison.OrdinalIgnoreCase)
+            && canonicalPath.AsSpan(PublicRouteIdentityRegistry.TagPathPrefix.Length).IndexOf('/') < 0)
+        {
+            // Tag aliases need the database-backed identity resolver. Let the
+            // AOT shell turn /tag/{name}/ directly into /tag/{id}, avoiding a
+            // name-without-slash intermediate redirect.
+            return false;
+        }
+
         if (canonicalPath.Length == 0)
         {
             canonicalPath = "/";

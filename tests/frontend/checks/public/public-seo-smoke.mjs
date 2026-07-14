@@ -399,8 +399,10 @@ async function fetchSettledPublicHtml(path) {
 async function main() {
   await probeReachable(`${baseUrl}/api/System/seo`, '[public-seo-smoke backend]', requestTimeoutMs);
 
-  const categoryId = await resolvePublicId('/api/binary/category.aeds');
-  const tagId = await resolvePublicId('/api/binary/tag.aeds');
+  const category = await resolvePublicTaxonomy('/api/binary/category.aeds');
+  const tag = await resolvePublicTaxonomy('/api/binary/tag.aeds');
+  const categoryId = category?.id ?? null;
+  const tagId = tag?.id ?? null;
 
   if (categoryId) {
     checks.push({ name: 'filter_category', path: `/category/${categoryId}`, expectedHydrationKind: 'Filter' });
@@ -470,6 +472,26 @@ async function main() {
     failures.push(`[public-seo-smoke] fail: trailing_slash: ${error instanceof Error ? error.message : String(error)}`);
   }
 
+  if (tagId && tag?.name) {
+    try {
+      const legacyName = await fetchWithTimeout(`${baseUrl}/tag/${encodeURIComponent(tag.name)}?from=legacy`, {
+        redirect: 'manual',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (FsusBlog Public SEO Canonical Smoke)',
+          Accept: 'text/html,application/xhtml+xml'
+        }
+      }, requestTimeoutMs);
+      assert(legacyName.status === 301, `[tag_name_redirect] expected 301, got ${legacyName.status}`);
+      assert(
+        legacyName.headers.get('location') === `/tag/${tagId}?from=legacy`,
+        `[tag_name_redirect] wrong target: ${legacyName.headers.get('location') || 'missing'}`
+      );
+      console.log('[public-seo-smoke] ok: tag_name_redirect');
+    } catch (error) {
+      failures.push(`[public-seo-smoke] fail: tag_name_redirect: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   if (failures.length > 0) {
     for (const line of failures) {
       console.error(line);
@@ -480,7 +502,7 @@ async function main() {
   console.log('[public-seo-smoke] all checks passed');
 }
 
-async function resolvePublicId(path) {
+async function resolvePublicTaxonomy(path) {
   try {
     const response = await fetchWithTimeout(`${baseUrl}${path}`, {
       headers: {
@@ -499,7 +521,11 @@ async function resolvePublicId(path) {
     }
     const first = data[0];
     const id = typeof first?.id === 'number' ? first.id : Number(first?.id);
-    return Number.isFinite(id) && id > 0 ? id : null;
+    if (!Number.isFinite(id) || id <= 0) {
+      return null;
+    }
+
+    return { id, name: String(first?.name ?? '').trim() };
   } catch {
     return null;
   }

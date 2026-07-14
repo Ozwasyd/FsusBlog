@@ -52,6 +52,8 @@ Schema migration qualification 使用窄 JSON 负响应，不进入 AEDS `ApiErr
 
 GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Content-Length`，但 body 为空。除 `/` 外的尾斜杠不是负响应，而是 301 到无尾斜杠 canonical。
 
+标签名称 URL 也不是成功响应：`/tag/{name}` 先按 Unicode NFC + invariant case lookup 解析当前名称或 `tag_url_alias`，成功时 301 到唯一 `/tag/{id}`；query 原样保留。无法解析或名称归一化后存在歧义时返回上述 404，不得返回首页、名称 self-canonical 或多跳 redirect。
+
 错误码以固定宽度 UTF-8 字段写入 AEDS `ApiError` frame，按模块分组。
 
 ### 通用错误

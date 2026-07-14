@@ -103,10 +103,6 @@ public sealed class PublicAotRouteManifestProvider(
         {
             string? tagName = tagNamesById.GetValueOrDefault(tagId);
             routes.Add(CreateTagIdRoute(tagId, tagName, 210));
-            if (!string.IsNullOrWhiteSpace(tagName))
-            {
-                routes.Add(CreateTagNameRoute(tagId, tagName, 220));
-            }
         }
 
         logger.LogDebug("public_aot_route_manifest_built {Scope} {Count}", scope.Scope, routes.Count);
@@ -185,20 +181,6 @@ public sealed class PublicAotRouteManifestProvider(
             path,
             path,
             dependencies,
-            priority);
-    }
-
-    internal static PublicAotRouteDescriptor CreateTagNameRoute(int tagId, string tagName, int priority)
-    {
-        string routeKey = PublicRouteIdentity.BuildTagNameRouteKey(tagName);
-        string path = PublicRouteIdentity.BuildCanonicalPath(PublicPageId.Filter, routeKey, null);
-        return new PublicAotRouteDescriptor(
-            PublicPageId.Filter,
-            PublicPageKind.Filter,
-            routeKey,
-            path,
-            path,
-            [SeoDependency, ArticleListDependency, $"tag:{tagId}", $"tag-name:{tagName.Trim()}"],
             priority);
     }
 

@@ -328,4 +328,19 @@ test.describe('public route real HTTP status', () => {
     expect(response.status()).toBe(301)
     expect(response.headers().location).toBe(`/article/${fixtures.articleId}`)
   })
+
+  test('legacy tag name redirects once to the stable ID canonical', async ({ page, request }) => {
+    await page.goto(articlePath, { waitUntil: 'domcontentloaded' })
+    const tagLink = page.locator('[data-public-link="filter"][href^="/tag/"]').first()
+    await expect(tagLink).toBeVisible()
+    const canonicalHref = await tagLink.getAttribute('href')
+    const label = (await tagLink.textContent())?.trim().replace(/^#/, '') ?? ''
+    expect(canonicalHref).toMatch(/^\/tag\/\d+$/)
+    expect(label.length).toBeGreaterThan(0)
+
+    const response = await request.get(`/tag/${encodeURIComponent(label)}`, { maxRedirects: 0 })
+
+    expect(response.status()).toBe(301)
+    expect(response.headers().location).toBe(canonicalHref)
+  })
 })

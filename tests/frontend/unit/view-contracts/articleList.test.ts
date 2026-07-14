@@ -8,7 +8,7 @@ const mockArticle = {
   summary: 'A short summary',
   createTime: '2025-01-15T10:00:00Z',
   category: { id: 1, name: 'Tech' },
-  tags: [{ name: 'vue' }, { name: 'typescript' }, { name: 'js' }],
+  tags: [{ id: 1, name: 'vue' }, { id: 2, name: 'typescript' }, { id: 3, name: 'js' }],
   views: 100
 }
 
@@ -40,12 +40,12 @@ describe('createArticleListCardViewContract', () => {
   it('maps tags to label with # prefix', () => {
     const vc = createArticleListCardViewContract(mockArticle as never)
     expect(vc.tags[0].label).toBe('#vue')
-    expect(vc.tags[0].href).toBe('/tag/vue')
+    expect(vc.tags[0].href).toBe('/tag/1')
     expect(vc.tags[0].hiddenOnMobile).toBe(true)
   })
 
   it('limits tags to 5', () => {
-    const manyTags = Array.from({ length: 8 }, (_, i) => ({ name: `tag${i}` }))
+    const manyTags = Array.from({ length: 8 }, (_, i) => ({ id: i + 1, name: `tag${i}` }))
     const article = { ...mockArticle, tags: manyTags }
     const vc = createArticleListCardViewContract(article as never)
     expect(vc.tags).toHaveLength(5)

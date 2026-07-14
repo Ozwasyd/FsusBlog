@@ -236,7 +236,7 @@ export function createArticleDetailHeaderViewContract(
     },
     tags: article.tags.map((tag) => ({
       label: `#${tag.name}`,
-      href: buildPublicTagHref(tag.name)
+      href: buildPublicTagHref(tag.id)
     }))
   };
 }
