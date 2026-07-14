@@ -81,7 +81,7 @@ function localTierCommand(tier) {
 }
 
 function playwrightWorkersForTier(tier) {
-  return tier.requiresPlaywright === 'none' ? '-' : String(tier.playwrightWorkers)
+  return tier.requiresPlaywright === 'none' ? '-' : 'machine'
 }
 
 function tierSmartGateMode(tier) {
@@ -173,7 +173,7 @@ function ciJobRows(matrix) {
   }
   const jobs = new Map()
   for (const tier of matrix.tiers.filter(isWorkflowTier)) {
-    const job = jobs.get(tier.ciJob) ?? { id: tier.ciJob, tiers: [], timeoutMinutes: 0, shards: 1, requiresPlaywright: 'none', playwrightWorkerValues: new Set(), cacheProfile: 'none' }
+    const job = jobs.get(tier.ciJob) ?? { id: tier.ciJob, tiers: [], timeoutMinutes: 0, shards: 1, requiresPlaywright: 'none', cacheProfile: 'none' }
     job.tiers.push(tier)
     job.timeoutMinutes = Math.max(job.timeoutMinutes, Number(tier.timeoutMinutes) || 0)
     job.dynamicShards = job.dynamicShards || tier.shardable === true
@@ -183,7 +183,6 @@ function ciJobRows(matrix) {
     job.requiresDotnet = job.requiresDotnet || tier.requiresDotnet === true
     if (tier.requiresPlaywright === 'all') job.requiresPlaywright = 'all'
     else if (tier.requiresPlaywright === 'chromium' && job.requiresPlaywright === 'none') job.requiresPlaywright = 'chromium'
-    if (tier.requiresPlaywright !== 'none') job.playwrightWorkerValues.add(Number(tier.playwrightWorkers))
     job.cacheProfile = combineCacheProfile(job.cacheProfile, tier.cacheProfile)
     jobs.set(job.id, job)
   }
@@ -205,7 +204,7 @@ function ciJobRows(matrix) {
         job.requiresPlaywright !== 'none' ? `playwright:${job.requiresPlaywright}` : null,
         job.cacheProfile !== 'none' ? `cache:${job.cacheProfile}` : null
       ].filter(Boolean).join(', ') || 'none',
-      job.playwrightWorkerValues.size > 0 ? [...job.playwrightWorkerValues].sort((left, right) => left - right).join(', ') : '-',
+      job.requiresPlaywright === 'none' ? '-' : 'machine',
       `${job.timeoutMinutes}m`,
       job.dynamicShards ? 'machine' : 'single',
       job.dynamicParallel ? 'machine' : 'serial'
@@ -278,6 +277,9 @@ function main() {
   const check = args.includes('--check')
   const outFile = path.resolve(root, optionValue(args, 'out', 'docs/testing.generated.md'))
   const rendered = renderTestingDocs(loadMatrix())
+  if (/\b(?:undefined|NaN)\b/u.test(rendered)) {
+    throw new Error('generated testing docs contain an unresolved dynamic value')
+  }
 
   if (check) {
     const current = fs.existsSync(outFile) ? fs.readFileSync(outFile, 'utf8') : ''
