@@ -871,6 +871,20 @@ public static class PublicHotReadFastPath
             return WriteStatus(ctx, StatusCodes.Status405MethodNotAllowed, isDevelopment);
         }
 
+        // Public HTML artifacts are indexed by canonical route key, so the
+        // classifier intentionally recognizes a trailing-slash request. Do
+        // not let that shortcut bypass the application-wide canonical 301.
+        if (isPublicHtmlRoute
+            && WebApplicationCompositionExtensions.TryBuildTrailingSlashRedirect(
+                ctx.Request,
+                out string redirectLocation))
+        {
+            ctx.Response.StatusCode = StatusCodes.Status301MovedPermanently;
+            ctx.Response.Headers.Location = redirectLocation;
+            ctx.Response.ContentLength = 0;
+            return Completed;
+        }
+
         if (ctx.Request.Headers.ContainsKey("Range"))
         {
             ctx.Response.Headers.ContentRange = "bytes */0";

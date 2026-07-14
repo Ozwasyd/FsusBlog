@@ -933,6 +933,35 @@ public sealed class PublicHotReadFastPathTests
         AssertHtmlSecurityHeaders(context);
     }
 
+    [Theory]
+    [InlineData("GET")]
+    [InlineData("HEAD")]
+    public async Task TryServeAsync_PublicHtmlTrailingSlashHit_RedirectsBeforeServingArtifact(string method)
+    {
+        var store = CreateReadyEmptyStore();
+        store.PublishHtml(
+            PublicRouteIdentity.BuildArticleRouteKey(42),
+            PublicPageId.ArticleDetail,
+            CreateHtmlArtifact("article"));
+        var context = CreateContext("/article/42/");
+        context.Request.Method = method;
+        context.Request.QueryString = new QueryString("?ref=canonical");
+        context.Request.Headers.Accept = "text/html";
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status301MovedPermanently, context.Response.StatusCode);
+        Assert.Equal("/article/42?ref=canonical", context.Response.Headers.Location.ToString());
+        Assert.Equal(0, context.Response.ContentLength);
+        Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
+        Assert.False(context.Response.Headers.ContainsKey("X-Fsus-Public-Aot-Source"));
+    }
+
     [Fact]
     public async Task TryServeAsync_PublicHtmlArchiveHeadHit_WritesHeadersWithoutBody()
     {
