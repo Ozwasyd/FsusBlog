@@ -71,15 +71,22 @@ async function motionCssState(page: Page, phase: 'enter' | 'leave') {
     const edge = selectedPhase === 'enter'
       ? 'el-public-shell-mobile-nav-menu-enter-from'
       : 'el-public-shell-mobile-nav-menu-leave-to'
-    panel.classList.add(active, edge)
-    const style = getComputedStyle(panel)
+    panel.classList.add(active)
+    const activeStyle = getComputedStyle(panel)
+    const transitionDuration = activeStyle.transitionDuration
+    const transitionTimingFunction = activeStyle.transitionTimingFunction
+    const previousInlineTransition = (panel as HTMLElement).style.transition
+    ;(panel as HTMLElement).style.transition = 'none'
+    panel.classList.add(edge)
+    const edgeStyle = getComputedStyle(panel)
     const state = {
-      opacity: style.opacity,
-      transform: style.transform,
-      transitionDuration: style.transitionDuration,
-      transitionTimingFunction: style.transitionTimingFunction,
+      opacity: edgeStyle.opacity,
+      transform: edgeStyle.transform,
+      transitionDuration,
+      transitionTimingFunction,
     }
     panel.classList.remove(active, edge)
+    ;(panel as HTMLElement).style.transition = previousInlineTransition
     return state
   }, phase)
 }
@@ -215,10 +222,9 @@ test('rapid reversal and every consumer close path converge on one accessible st
     await assertNoHorizontalOverflow(page, 'rapidly reversed mobile menu')
 
     const navigationLink = page.locator(`${panelSelector} .el-public-shell__mobile-nav-link`).nth(1)
-    await navigationLink.evaluate((link) => {
-      link.addEventListener('click', (event) => event.preventDefault(), { capture: true, once: true })
-    })
     await navigationLink.click()
+    await page.waitForURL((url) => url.pathname === '/archive')
+    await expect(page.locator(menuSelector)).toHaveCount(1)
     await expectMenuClosed(page)
 
     await page.locator(triggerSelector).click()
