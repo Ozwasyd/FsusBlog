@@ -1,32 +1,197 @@
 {
-  "schema": "fsusblog.test-command-manifest.v1",
+  "schema": "fsusblog.frontend-static-command-manifest.v2",
   "lane": "frontend-static-governance",
   "commands": [
-    { "id": "frontend-test-governance", "script": "check:frontend-test-governance", "access": "read" },
-    { "id": "test-execution-optimization", "script": "check:test-execution-optimization", "access": "read" },
-    { "id": "api-parity", "script": "check:contract:api-parity", "access": "read" },
-    { "id": "frame-schema", "script": "check:contract:frame-schema", "access": "read" },
-    { "id": "cross-stack-test-governance", "script": "check:cross-stack-test-governance", "access": "read" },
-    { "id": "modern-standards", "script": "check:modern-standards", "access": "read" },
-    { "id": "result-boundaries", "script": "check:result-boundaries", "access": "read" },
-    { "id": "error-code-alignment", "script": "check:error-code-alignment", "access": "read" },
-    { "id": "runtime-message-branching", "script": "check:no-runtime-message-branching", "access": "read" },
-    { "id": "security-consistency", "script": "check:security-consistency", "access": "read" },
-    { "id": "server-try-catch", "script": "check:server-try-catch", "access": "read" },
-    { "id": "asset-size-budget", "script": "check:asset-size-budget", "access": "write" },
-    { "id": "public-private-data-leakage", "script": "check:public-private-data-leakage", "access": "read" },
-    { "id": "public-aot-contracts", "script": "check:public-aot-contracts", "access": "read" },
-    { "id": "pwa-offline-policy", "script": "check:pwa-offline-policy", "access": "read" },
-    { "id": "views-constraints", "script": "check:views-constraints", "access": "write" },
-    { "id": "public-hot-read-fastpath", "command": ["bash", "../../tools/check-public-hot-read-fastpath.sh"], "access": "read" },
-    { "id": "historical-residue", "command": ["bash", "../../tools/check-historical-residue.sh"], "access": "read" },
-    { "id": "historical-residue-fixture", "command": ["node", "../../tests/frontend/checks/static/check-historical-residue-fixture.mjs"], "access": "read" },
-    { "id": "test-fixture-secret-governance", "script": "check:test-fixture-secret-governance", "access": "read" },
-    { "id": "test-fixture-secret-governance-fixture", "command": ["node", "../../tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs"], "access": "read" },
-    { "id": "cache-governance", "command": ["bash", "../../tools/check-cache-governance.sh"], "access": "read" },
-    { "id": "test-hygiene", "command": ["bash", "../../tools/check-test-hygiene.sh"], "access": "read" },
-    { "id": "slo-definition", "command": ["node", "../../tools/operations/check-slo-definition.mjs"], "access": "read" },
-    { "id": "release-evidence-self-test", "command": ["node", "../../tools/operations/check-release-evidence-manifest.mjs", "--self-test"], "access": "write" },
-    { "id": "release-slo-alerts-self-test", "command": ["node", "../../tools/operations/check-release-slo-alerts.mjs", "--self-test"], "access": "write" }
+    {
+      "id": "frontend-test-governance", "script": "check:frontend-test-governance", "access": "read",
+      "stage": "blocking-prebuild", "reason": "Validates the Vitest and test-lane admission contract before test execution starts.",
+      "consumedInputs": ["src/frontend/vitest*.{ts,mjs}", "tests/frontend", "tools/test"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "test-execution-optimization", "script": "check:test-execution-optimization", "access": "read",
+      "stage": "blocking-prebuild", "reason": "Fail-closes invalid production test topology before Vitest consumes that topology.",
+      "consumedInputs": ["tools/test", "tests/matrix.yml", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "api-parity", "script": "check:contract:api-parity", "access": "read", "stage": "concurrent",
+      "reason": "Reads API declarations only and does not mutate Vitest inputs or results.",
+      "consumedInputs": ["src/frontend/src/api", "src/shared/Contracts", "docs/api"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "frame-schema", "script": "check:contract:frame-schema", "access": "read", "stage": "concurrent",
+      "reason": "Reads generated frame contracts without writing generated contract files.",
+      "consumedInputs": ["src/core/Algorithms", "src/shared/Contracts", "src/frontend/src/generated"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "cross-stack-test-governance", "script": "check:cross-stack-test-governance", "access": "read", "stage": "concurrent",
+      "reason": "Audits cross-stack test declarations independently of Vitest outputs.",
+      "consumedInputs": ["tests/frontend", "tests/backend", "src/shared/Contracts"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "modern-standards", "script": "check:modern-standards", "access": "read", "stage": "concurrent",
+      "reason": "Scans source standards without touching build or test artifacts.",
+      "consumedInputs": ["src/frontend/src", "tests/frontend"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "result-boundaries", "script": "check:result-boundaries", "access": "read", "stage": "concurrent",
+      "reason": "Checks result boundaries from source only.",
+      "consumedInputs": ["src/frontend/src", "src/shared/Contracts"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "error-code-alignment", "script": "check:error-code-alignment", "access": "read", "stage": "concurrent",
+      "reason": "Compares error-code declarations without producing shared output.",
+      "consumedInputs": ["src/frontend/src", "src/shared/Contracts", "docs/api"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "runtime-message-branching", "script": "check:no-runtime-message-branching", "access": "read", "stage": "concurrent",
+      "reason": "Scans runtime message handling and does not share Vitest state.",
+      "consumedInputs": ["src/frontend/src"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "security-consistency", "script": "check:security-consistency", "access": "read", "stage": "concurrent",
+      "reason": "Reads security contracts without changing generated contracts or test results.",
+      "consumedInputs": ["src/frontend/src", "src/backend/Infrastructure", "docs/security.md"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "server-try-catch", "script": "check:server-try-catch", "access": "read", "stage": "concurrent",
+      "reason": "Performs a source-only server exception-pattern audit.",
+      "consumedInputs": ["src/backend"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "asset-size-budget", "script": "check:asset-size-budget", "access": "write", "stage": "postbuild",
+      "reason": "Consumes the completed frontend dist tree and owns its asset-budget evidence.",
+      "consumedInputs": ["src/frontend/dist"], "ownedOutputs": [".tmp/frontend/asset-size-budget.json"], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.75, "minCpuUnits": 1, "exclusiveResources": ["frontend-dist", "frontend-static-output"] }
+    },
+    {
+      "id": "public-private-data-leakage", "script": "check:public-private-data-leakage", "access": "read", "stage": "concurrent",
+      "reason": "Audits public/private source boundaries without writing shared artifacts.",
+      "consumedInputs": ["src/frontend/src", "src/backend", "src/shared/Contracts"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "public-aot-contracts", "script": "check:public-aot-contracts", "access": "read", "stage": "postbuild",
+      "reason": "Validates public AOT output only after the frontend build marker is available.",
+      "consumedInputs": ["src/frontend/dist", "src/frontend/src/public-renderers", "src/shared/Contracts"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": ["frontend-dist"] }
+    },
+    {
+      "id": "pwa-offline-policy", "script": "check:pwa-offline-policy", "access": "read", "stage": "concurrent",
+      "reason": "Reads PWA policy sources independently from build and Vitest outputs.",
+      "consumedInputs": ["src/frontend", "docs"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "views-constraints", "script": "check:views-constraints", "access": "write", "stage": "final",
+      "reason": "The standalone CI aggregate preserves package-script compatibility; local production expands the explicit commands below.",
+      "consumedInputs": ["src/frontend/src", "src/frontend/package.json", "src/frontend/dist", "tests/frontend/checks/static"],
+      "ownedOutputs": [".tmp/frontend/asset-size-budget.json", ".tmp/frontend/dom-depth-static.json", ".tmp/frontend/route-asset-budget.json", ".tmp/release-evidence/frontend-render-pressure-summary.json"],
+      "dependsOn": ["asset-size-budget", "public-aot-contracts"],
+      "resources": { "cpuWeight": 1, "memoryWeight": 1, "minCpuUnits": 1, "exclusiveResources": ["frontend-dist", "frontend-static-output", "frontend-render-pressure"] },
+      "localCommands": [
+        { "id": "views-constraints:core", "command": ["node", "../../tests/frontend/checks/static/check-views-constraints.mjs"], "access": "read", "stage": "concurrent", "reason": "Checks view structure from source without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:admin-tokens", "script": "check:admin-tokens", "access": "read", "stage": "concurrent", "reason": "Audits admin tokens from source only.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:foundation-token-governance", "script": "check:foundation-token-governance", "access": "read", "stage": "concurrent", "reason": "Audits foundation tokens from source only.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:motion-governance", "script": "check:motion-governance", "access": "read", "stage": "concurrent", "reason": "Audits motion contracts without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:admin-task-feedback", "script": "check:admin-task-feedback", "access": "read", "stage": "concurrent", "reason": "Audits admin task feedback without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:admin-eyebrow-governance", "script": "check:admin-eyebrow-governance", "access": "read", "stage": "concurrent", "reason": "Audits admin eyebrow copy without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:admin-empty-state-governance", "script": "check:admin-empty-state-governance", "access": "read", "stage": "concurrent", "reason": "Audits admin empty states without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:admin-dashboard-panel-identity", "script": "check:admin-dashboard-panel-identity", "access": "read", "stage": "concurrent", "reason": "Audits dashboard panel identity without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:admin-system-tabs-governance", "script": "check:admin-system-tabs-governance", "access": "read", "stage": "concurrent", "reason": "Audits system tabs without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:audit-facet-summary", "script": "check:audit-facet-summary", "access": "read", "stage": "concurrent", "reason": "Audits facet summaries without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:admin-a11y-governance", "script": "check:admin-a11y-governance", "access": "read", "stage": "concurrent", "reason": "Audits admin accessibility without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:integrity-page-governance", "script": "check:integrity-page-governance", "access": "read", "stage": "concurrent", "reason": "Audits integrity page source without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:profile-page-governance", "script": "check:profile-page-governance", "access": "read", "stage": "concurrent", "reason": "Audits profile page source without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:admin-user-manage-governance", "script": "check:admin-user-manage-governance", "access": "read", "stage": "concurrent", "reason": "Audits user management source without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:comment-thread-view-contract-identity", "script": "check:comment-thread-view-contract-identity", "access": "read", "stage": "concurrent", "reason": "Audits comment-thread contracts without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:user-comments-page-governance", "script": "check:user-comments-page-governance", "access": "read", "stage": "concurrent", "reason": "Audits user comments source without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:article-editor-workspace-governance", "script": "check:article-editor-workspace-governance", "access": "read", "stage": "concurrent", "reason": "Audits editor workspace source without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:public-empty-state-governance", "script": "check:public-empty-state-governance", "access": "read", "stage": "concurrent", "reason": "Audits public empty states without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:markdown-editor-state-governance", "script": "check:markdown-editor-state-governance", "access": "read", "stage": "concurrent", "reason": "Audits editor state without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:visual-density-governance", "script": "check:visual-density-governance", "access": "read", "stage": "concurrent", "reason": "Audits visual density without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:shell-material-governance", "script": "check:shell-material-governance", "access": "read", "stage": "concurrent", "reason": "Audits shell material without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:messages-inbox-governance", "script": "check:messages-inbox-governance", "access": "read", "stage": "concurrent", "reason": "Audits inbox source without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:public-reading-motion", "script": "check:public-reading-motion", "access": "read", "stage": "concurrent", "reason": "Audits public reading motion without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:public-anti-ai-visual", "script": "check:public-anti-ai-visual", "access": "read", "stage": "concurrent", "reason": "Audits public visual language without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:public-brand-hardcoding", "script": "check:public-brand-hardcoding", "access": "read", "stage": "concurrent", "reason": "Audits public brand constants without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:default-brand-assets", "script": "check:default-brand-assets", "access": "read", "stage": "concurrent", "reason": "Audits default brand assets without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/public", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:public-editorial-governance", "script": "check:public-editorial-governance", "access": "read", "stage": "concurrent", "reason": "Audits editorial layout without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:public-copy-governance", "script": "check:public-copy-governance", "access": "read", "stage": "concurrent", "reason": "Audits public copy without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:copy-centralization", "script": "check:copy-centralization", "access": "read", "stage": "concurrent", "reason": "Audits copy centralization without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:json-long-id-governance", "script": "check:json-long-id-governance", "access": "read", "stage": "concurrent", "reason": "Audits long identifier handling without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:row-state-motion", "script": "check:row-state-motion", "access": "read", "stage": "concurrent", "reason": "Audits row-state motion without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:console-welcome-callout", "script": "check:console-welcome-callout", "access": "read", "stage": "concurrent", "reason": "Audits console welcome content without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:dom-depth-static", "script": "check:dom-depth-static", "access": "write", "stage": "isolated", "reason": "Owns DOM-depth and render-pressure evidence and must not collide with other evidence writers.", "consumedInputs": ["src/frontend/src"], "ownedOutputs": [".tmp/frontend/dom-depth-static.json", ".tmp/release-evidence/frontend-render-pressure-summary.json"], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": ["frontend-static-output", "frontend-render-pressure"] } },
+        { "id": "views-constraints:performance-governance", "script": "check:performance-governance", "access": "read", "stage": "concurrent", "reason": "Audits performance policy without writing evidence.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json", "docs"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:route-asset-budget", "script": "check:route-asset-budget", "access": "write", "stage": "postbuild", "reason": "Consumes frontend dist and owns route asset-budget evidence.", "consumedInputs": ["src/frontend/dist"], "ownedOutputs": [".tmp/frontend/route-asset-budget.json"], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.75, "minCpuUnits": 1, "exclusiveResources": ["frontend-dist", "frontend-static-output"] } },
+        { "id": "views-constraints:public-performance-batch", "script": "check:public-performance-batch", "access": "read", "stage": "final", "reason": "Runs after all public performance inputs and evidence owners have settled.", "consumedInputs": [".tmp/frontend/asset-size-budget.json", ".tmp/frontend/route-asset-budget.json", ".tmp/release-evidence/frontend-render-pressure-summary.json", "docs/performance-public-batch.md"], "ownedOutputs": [], "dependsOn": ["asset-size-budget", "views-constraints:dom-depth-static", "views-constraints:route-asset-budget"], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": ["frontend-static-output", "frontend-render-pressure"] } },
+        { "id": "views-constraints:public-atomic-takeover-governance", "script": "check:public-atomic-takeover-governance", "access": "read", "stage": "concurrent", "reason": "Audits atomic takeover source without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:public-dev-mode-governance", "script": "check:public-dev-mode-governance", "access": "read", "stage": "concurrent", "reason": "Audits public development-mode behavior without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:fsusui-typecheck-modes", "script": "check:fsusui-typecheck-modes", "access": "read", "stage": "blocking-prebuild", "reason": "Validates FsusUI alias and typecheck modes used by Vitest before admission.", "consumedInputs": ["src/frontend/tsconfig*.json", "src/frontend/vite*.{ts,mjs}", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:fsusui-boundary", "script": "check:fsusui-boundary", "access": "read", "stage": "concurrent", "reason": "Audits the FsusUI source boundary without shared output.", "consumedInputs": ["src/frontend/src", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } },
+        { "id": "views-constraints:fsusui-boundary-fixture", "script": "check:fsusui-boundary-fixture", "access": "read", "stage": "concurrent", "reason": "Runs isolated boundary fixtures without repository output.", "consumedInputs": ["tests/frontend/fixtures", "src/frontend/package.json"], "ownedOutputs": [], "dependsOn": [], "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] } }
+      ]
+    },
+    {
+      "id": "public-hot-read-fastpath", "command": ["bash", "../../tools/check-public-hot-read-fastpath.sh"], "access": "read", "stage": "concurrent",
+      "reason": "Audits the public hot-read source path without shared output.", "consumedInputs": ["src/backend", "src/frontend/src", "tools"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "historical-residue", "command": ["bash", "../../tools/check-historical-residue.sh"], "access": "read", "stage": "concurrent",
+      "reason": "Scans repository residue without shared output.", "consumedInputs": ["src", "tests", "tools", "docs"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "historical-residue-fixture", "command": ["node", "../../tests/frontend/checks/static/check-historical-residue-fixture.mjs"], "access": "read", "stage": "concurrent",
+      "reason": "Runs unique temporary fixtures without repository output.", "consumedInputs": ["tests/frontend/checks/static", "tools/check-historical-residue.sh"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "test-fixture-secret-governance", "script": "check:test-fixture-secret-governance", "access": "read", "stage": "concurrent",
+      "reason": "Audits fixture secrets from source only.", "consumedInputs": ["tests", "src/frontend"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "test-fixture-secret-governance-fixture", "command": ["node", "../../tests/frontend/checks/static/check-test-fixture-secret-governance-fixture.mjs"], "access": "read", "stage": "concurrent",
+      "reason": "Runs unique secret-governance fixtures without repository output.", "consumedInputs": ["tests/frontend/checks/static", "tests/frontend/fixtures"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "cache-governance", "command": ["bash", "../../tools/check-cache-governance.sh"], "access": "read", "stage": "concurrent",
+      "reason": "Audits cache declarations without shared output.", "consumedInputs": ["src/backend/Infrastructure/Cache", "src/backend/Program.cs", "docs/architecture.md"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "test-hygiene", "command": ["bash", "../../tools/check-test-hygiene.sh"], "access": "read", "stage": "concurrent",
+      "reason": "Audits test source hygiene without shared output.", "consumedInputs": ["tests", "tools/test"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "slo-definition", "command": ["node", "../../tools/operations/check-slo-definition.mjs"], "access": "read", "stage": "concurrent",
+      "reason": "Reads SLO definitions without shared output.", "consumedInputs": ["operations", "docs", "tools/operations"], "ownedOutputs": [], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "release-evidence-self-test", "command": ["node", "../../tools/operations/check-release-evidence-manifest.mjs", "--self-test"], "access": "write", "stage": "concurrent",
+      "reason": "Writes only a process-unique OS temporary fixture tree and can overlap repository tests.", "consumedInputs": ["tools/operations/check-release-evidence-manifest.mjs"], "ownedOutputs": ["os-temp://fsus-release-manifest-unique"], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.5, "minCpuUnits": 1, "exclusiveResources": [] }
+    },
+    {
+      "id": "release-slo-alerts-self-test", "command": ["node", "../../tools/operations/check-release-slo-alerts.mjs", "--self-test"], "access": "write", "stage": "concurrent",
+      "reason": "Writes only a process-unique OS temporary fixture tree and can overlap repository tests.", "consumedInputs": ["tools/operations/check-release-slo-alerts.mjs"], "ownedOutputs": ["os-temp://fsus-slo-alerts-unique"], "dependsOn": [],
+      "resources": { "cpuWeight": 1, "memoryWeight": 0.25, "minCpuUnits": 1, "exclusiveResources": [] }
+    }
   ]
 }

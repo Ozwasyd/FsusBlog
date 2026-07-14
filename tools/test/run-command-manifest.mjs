@@ -68,10 +68,61 @@ export function readManifestSchedulerResourceGrant({
   return { cpuUnits, memoryGiB, budgetCpuUnits, budgetMemoryGiB }
 }
 
+const commandManifestSchemas = new Set([
+  'fsusblog.test-command-manifest.v1',
+  'fsusblog.frontend-static-command-manifest.v2'
+])
+const frontendStaticStages = new Set([
+  'blocking-prebuild',
+  'concurrent',
+  'postbuild',
+  'isolated',
+  'final'
+])
+
+function stringArrayErrors(value, name, { required = false } = {}) {
+  if (!Array.isArray(value)) return [`${name} must be an array`]
+  if (required && value.length === 0) return [`${name} must be a non-empty array`]
+  if (value.some((entry) => typeof entry !== 'string' || !entry.trim())) {
+    return [`${name} must contain only non-empty strings`]
+  }
+  if (new Set(value).size !== value.length) return [`${name} must not contain duplicates`]
+  return []
+}
+
+function validateFrontendStaticMetadata(command, label) {
+  const errors = []
+  if (!frontendStaticStages.has(command?.stage)) {
+    errors.push(`${label}.stage must be blocking-prebuild, concurrent, postbuild, isolated, or final`)
+  }
+  if (typeof command?.reason !== 'string' || !command.reason.trim()) {
+    errors.push(`${label}.reason must be a non-empty string`)
+  }
+  errors.push(...stringArrayErrors(command?.consumedInputs, `${label}.consumedInputs`, { required: true }))
+  errors.push(...stringArrayErrors(command?.ownedOutputs, `${label}.ownedOutputs`))
+  errors.push(...stringArrayErrors(command?.dependsOn, `${label}.dependsOn`))
+  if (!command?.resources || Array.isArray(command.resources) || typeof command.resources !== 'object') {
+    errors.push(`${label}.resources must be an object`)
+  } else {
+    for (const field of ['cpuWeight', 'memoryWeight', 'minCpuUnits']) {
+      const value = Number(command.resources[field])
+      if (!Number.isFinite(value) || value <= 0) errors.push(`${label}.resources.${field} must be positive`)
+    }
+    errors.push(...stringArrayErrors(
+      command.resources.exclusiveResources,
+      `${label}.resources.exclusiveResources`
+    ))
+  }
+  if (command?.access === 'write' && Array.isArray(command.ownedOutputs) && command.ownedOutputs.length === 0) {
+    errors.push(`${label}.ownedOutputs must identify every write target`)
+  }
+  return errors
+}
+
 export function validateCommandManifest(manifest) {
   const errors = []
-  if (manifest?.schema !== 'fsusblog.test-command-manifest.v1') {
-    errors.push('schema must be fsusblog.test-command-manifest.v1')
+  if (!commandManifestSchemas.has(manifest?.schema)) {
+    errors.push('schema must be fsusblog.test-command-manifest.v1 or fsusblog.frontend-static-command-manifest.v2')
   }
   if (typeof manifest?.lane !== 'string' || !manifest.lane.trim()) {
     errors.push('lane must be a non-empty string')
@@ -82,10 +133,12 @@ export function validateCommandManifest(manifest) {
   }
 
   const ids = new Set()
-  for (const command of manifest.commands) {
+  const allCommands = []
+  const visit = (command, label) => {
     if (typeof command?.id !== 'string' || !command.id.trim()) errors.push('command id must be non-empty')
     else if (ids.has(command.id)) errors.push(`duplicate command id: ${command.id}`)
     else ids.add(command.id)
+    allCommands.push(command)
     if (!['read', 'write'].includes(command?.access)) errors.push(`${command?.id ?? 'unknown'}.access must be read or write`)
     const hasScript = typeof command?.script === 'string' && command.script.trim().length > 0
     const hasCommand = Array.isArray(command?.command) && command.command.length > 0 && command.command.every((part) => typeof part === 'string')
@@ -101,6 +154,26 @@ export function validateCommandManifest(manifest) {
       && (!command.environment || Array.isArray(command.environment) || typeof command.environment !== 'object'
         || Object.values(command.environment).some((value) => typeof value !== 'string'))) {
       errors.push(`${command?.id ?? 'unknown'}.environment must contain only string values`)
+    }
+    if (manifest.schema === 'fsusblog.frontend-static-command-manifest.v2') {
+      errors.push(...validateFrontendStaticMetadata(command, label))
+      if (command.localCommands !== undefined) {
+        if (!Array.isArray(command.localCommands) || command.localCommands.length === 0) {
+          errors.push(`${label}.localCommands must be a non-empty array`)
+        } else {
+          command.localCommands.forEach((child, index) => visit(child, `${label}.localCommands[${index}]`))
+        }
+      }
+    }
+  }
+  manifest.commands.forEach((command, index) => visit(command, `commands[${index}]`))
+
+  if (manifest.schema === 'fsusblog.frontend-static-command-manifest.v2') {
+    for (const command of allCommands) {
+      for (const dependency of command.dependsOn ?? []) {
+        if (!ids.has(dependency)) errors.push(`${command.id}.dependsOn references unknown command: ${dependency}`)
+        if (dependency === command.id) errors.push(`${command.id}.dependsOn must not reference itself`)
+      }
     }
   }
   return errors

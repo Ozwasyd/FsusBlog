@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import {
   buildLocalStaticManifest,
+  executeStaticStage,
   extractChainedNpmScripts,
   planLocalStaticCommands,
   summarizeLocalStaticPlan
@@ -14,7 +15,8 @@ import {
   planWeightedManifestEntries,
   readManifestSchedulerResourceGrant,
   resolveAdaptiveManifestWorkers,
-  runWeightedCommandManifest
+  runWeightedCommandManifest,
+  validateCommandManifest
 } from '../../tools/test/run-command-manifest.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -24,13 +26,15 @@ const localStaticSource = fs.readFileSync(path.join(root, 'tools/test/local-stat
 const staticLaneSource = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8')
 const legacyLaneSource = fs.readFileSync(path.join(root, 'tools/test/lanes/_legacy.sh'), 'utf8')
 
-test('local static manifest expands the production views chain without omitting a check', () => {
+test('local static manifest expands only the explicit production views plan without omitting a check', () => {
   const chainedScripts = extractChainedNpmScripts(frontendPackage.scripts['check:views-constraints'])
   const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts)
   const expanded = manifest.commands.filter((entry) => entry.id.startsWith('views-constraints:'))
+  const declared = staticManifest.commands.find((entry) => entry.id === 'views-constraints').localCommands
 
   assert.deepEqual(expanded[0].command, ['node', '../../tests/frontend/checks/static/check-views-constraints.mjs'])
   assert.deepEqual(expanded.slice(1).map((entry) => entry.script), chainedScripts)
+  assert.deepEqual(expanded, declared)
   assert.deepEqual(
     manifest.commands.filter((entry) => !entry.id.startsWith('views-constraints:')).map((entry) => entry.id),
     staticManifest.commands.filter((entry) => entry.id !== 'views-constraints').map((entry) => entry.id)
@@ -38,62 +42,83 @@ test('local static manifest expands the production views chain without omitting 
   const writes = expanded.filter((entry) => entry.access === 'write').map((entry) => entry.script)
   assert.deepEqual(writes, [
     'check:dom-depth-static',
-    'check:route-asset-budget',
-    'check:public-performance-batch'
+    'check:route-asset-budget'
   ])
+  for (const entry of manifest.commands) {
+    assert.ok(entry.reason)
+    assert.ok(entry.stage)
+    assert.ok(entry.consumedInputs.length > 0)
+    assert.ok(Array.isArray(entry.ownedOutputs))
+    assert.ok(Array.isArray(entry.dependsOn))
+    assert.ok(Array.isArray(entry.resources.exclusiveResources))
+  }
 })
 
-test('local static plan saturates independent work before the dynamically parallel asset check', () => {
+test('frontend static v2 schema rejects missing stages, reasons, and write ownership', () => {
+  const missingStage = structuredClone(staticManifest)
+  delete missingStage.commands[0].stage
+  assert.ok(validateCommandManifest(missingStage).some((error) => error.includes('.stage must be')))
+
+  const missingReason = structuredClone(staticManifest)
+  delete missingReason.commands[0].reason
+  assert.ok(validateCommandManifest(missingReason).some((error) => error.includes('.reason must be')))
+
+  const missingOwnership = structuredClone(staticManifest)
+  missingOwnership.commands.find((entry) => entry.id === 'asset-size-budget').ownedOutputs = []
+  assert.ok(validateCommandManifest(missingOwnership).some((error) => error.includes('ownedOutputs must identify')))
+})
+
+test('local static plan derives every stage from manifest metadata', () => {
   const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts)
   const plan = planLocalStaticCommands(manifest)
 
-  assert.deepEqual(plan.initial.slice(0, 6).map((entry) => entry.id), [
-    'views-constraints:dom-depth-static',
-    'historical-residue-fixture',
-    'views-constraints:fsusui-typecheck-modes',
-    'test-execution-optimization',
+  assert.deepEqual(plan['blocking-prebuild'].map((entry) => entry.id), [
     'frontend-test-governance',
-    'api-parity'
+    'test-execution-optimization',
+    'views-constraints:fsusui-typecheck-modes'
   ])
-  assert.deepEqual(plan.isolated.map((entry) => entry.id), [
+  assert.deepEqual(plan.isolated.map((entry) => entry.id), ['views-constraints:dom-depth-static'])
+  assert.deepEqual(plan.postbuild.map((entry) => entry.id), [
     'asset-size-budget',
+    'public-aot-contracts',
     'views-constraints:route-asset-budget'
   ])
-  assert.deepEqual(plan.postbuild.map((entry) => entry.id), ['public-aot-contracts'])
   assert.deepEqual(plan.final.map((entry) => entry.id), ['views-constraints:public-performance-batch'])
 })
 
-test('prebuild and postbuild phases form an exact 66-command partition', () => {
+test('five explicit phases form an exact 66-command partition with timing evidence', () => {
   const manifest = buildLocalStaticManifest(staticManifest, frontendPackage.scripts)
   const plan = planLocalStaticCommands(manifest)
   const summary = summarizeLocalStaticPlan(plan)
-  const plannedIds = [
-    ...plan.initial,
-    ...plan.postbuild,
-    ...plan.isolated,
-    ...plan.final
-  ].map((entry) => entry.id)
+  const plannedIds = Object.values(plan).flat().map((entry) => entry.id)
 
   assert.equal(manifest.commands.length, 66)
-  assert.deepEqual(summary, { prebuild: 62, postbuild: 4, total: 66 })
+  assert.deepEqual(summary, {
+    'blocking-prebuild': 3,
+    concurrent: 58,
+    postbuild: 3,
+    isolated: 1,
+    final: 1,
+    total: 66
+  })
   assert.equal(new Set(plannedIds).size, 66)
   assert.deepEqual(new Set(plannedIds), new Set(manifest.commands.map((entry) => entry.id)))
-  assert.match(localStaticSource, /split=\$\{manifest\.execution\.prebuild\}\+\$\{manifest\.execution\.postbuild\}/u)
+  assert.match(localStaticSource, /staticStages\.map\(\(stage\) => manifest\.execution\[stage\]\)\.join\('\+'\)/u)
   assert.match(localStaticSource, /total=\$\{manifest\.execution\.total\}/u)
   assert.match(localStaticSource, /commandIds: executedCommands\.map\(\(entry\) => entry\.id\)/u)
-  assert.match(localStaticSource, /frontend-static-governance-phase\.v1/u)
+  assert.match(localStaticSource, /frontend-static-governance-phase\.v2/u)
   assert.match(localStaticSource, /FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE/u)
   assert.match(localStaticSource, /writeFileSync\(temporary[\s\S]*?renameSync\(temporary, absolute\)/u)
-  assert.match(
-    localStaticSource,
-    /executeLimitedWave\(\s*\[\.\.\.plan\.postbuild, \.\.\.plan\.isolated\],\s*workers,/u,
-    'independent postbuild readers and distinct evidence writers must share the dynamic worker pool'
-  )
+  assert.match(localStaticSource, /waitReason:[\s\S]*?waiting for dependencies/u)
+  assert.match(localStaticSource, /stagePlan:[\s\S]*?dependencies:[\s\S]*?exclusiveResources:/u)
+  assert.match(localStaticSource, /stageTimings[\s\S]*?commandCount:[\s\S]*?durationMs:[\s\S]*?waitReasons:/u)
+  assert.match(localStaticSource, /queuedAtMs[\s\S]*?waitDurationMs[\s\S]*?finishedAtMs[\s\S]*?durationMs/u)
+  assert.match(localStaticSource, /executeLimitedWave\(entries, phaseResourceOptions\(entries, workers\)/u)
 })
 
 test('static governance propagates bounded dynamic workers and explicit Node test concurrency', () => {
   assert.match(localStaticSource, /resolveManifestChildEnvironment\(\{ env, workers, concurrent: true \}\)/u)
-  assert.match(localStaticSource, /resolveManifestChildEnvironment\(\{ env, workers, concurrent: false \}\)/u)
+  assert.doesNotMatch(localStaticSource, /resolveManifestChildEnvironment\(\{ env, workers, concurrent: false \}\)/u)
   assert.match(legacyLaneSource, /worker_cap="\$\(resolve_collect_parallel_workers "\$total"\)"/u)
   assert.match(legacyLaneSource, /resolveManifestWorkers\(\{ env: process\.env \}\)/u)
   assert.match(legacyLaneSource, /resolveManifestChildEnvironment/u)
@@ -108,6 +133,40 @@ test('static governance propagates bounded dynamic workers and explicit Node tes
   assert.match(staticLaneSource, /\['explicit-rollback', 12_000\]/u)
   assert.match(staticLaneSource, /\['post-switch-rollback', 7_000\]/u)
   assert.match(staticLaneSource, /\['sigkill-resume', 16_000\]/u)
+})
+
+test('concurrent static failures aggregate after every independent command is attempted', async () => {
+  const entries = ['first', 'second', 'third'].map((id) => ({
+    id,
+    access: 'read',
+    command: [id],
+    stage: 'concurrent',
+    reason: `${id} fixture`,
+    consumedInputs: ['fixture'],
+    ownedOutputs: [],
+    dependsOn: [],
+    resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: [] }
+  }))
+  const attempted = []
+  const timings = []
+  await assert.rejects(executeStaticStage({
+    stage: 'concurrent',
+    entries,
+    workers: 3,
+    frontendRoot: root,
+    env: { FSUSBLOG_STEP_CPU_BUDGET: '3', FSUSBLOG_STEP_MEMORY_GIB: '3' },
+    timings,
+    execute: async (entry) => {
+      attempted.push(entry.id)
+      if (entry.id !== 'second') throw new Error(`failed-${entry.id}`)
+    }
+  }), (error) => {
+    assert.ok(error instanceof AggregateError)
+    assert.equal(error.errors.length, 2)
+    return true
+  })
+  assert.deepEqual(new Set(attempted), new Set(['first', 'second', 'third']))
+  assert.deepEqual(new Set(timings.map((entry) => entry.status)), new Set(['success', 'failure']))
 })
 
 test('weighted contract planner starts historical long tails first and aggregates every failure', async () => {

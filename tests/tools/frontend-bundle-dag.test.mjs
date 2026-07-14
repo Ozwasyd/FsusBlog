@@ -11,7 +11,7 @@ const frontendPackage = JSON.parse(fs.readFileSync(new URL('../../src/frontend/p
 const vitestSharedSource = fs.readFileSync(new URL('../../src/frontend/vitest.shared.mjs', import.meta.url), 'utf8')
 const vitestUnitSource = fs.readFileSync(new URL('../../src/frontend/vitest.config.ts', import.meta.url), 'utf8')
 
-test('frontend bundle waits for a useful dynamic grant before starting one complete Vitest host', () => {
+test('frontend bundle gates Vitest on only explicit blocking checks and schedules other static stages in the DAG', () => {
   const vitestStart = runnerSource.indexOf("const step = commandStep('vitest-production-projects'")
   const dagStart = runnerSource.indexOf('await executeWeightedStepDag([', vitestStart)
   const dagEnd = runnerSource.indexOf('], bundleDagCapacity, async (frontendStep)', dagStart)
@@ -28,12 +28,17 @@ test('frontend bundle waits for a useful dynamic grant before starting one compl
   assert.match(runnerSource, /Math\.ceil\(Math\.sqrt\(cpuCount\)\)/u)
   assert.doesNotMatch(vitestDeclaration, /dependsOn: \[[^\]]*frontend-build-ready/u)
   assert.doesNotMatch(vitestDeclaration, /\b(?:maxErrors|maxFailures|failFast|bail)\b/u)
+  assert.match(
+    runnerSource.slice(runnerSource.indexOf('async function runFrontendTests()'), vitestStart),
+    /await executeStep\(staticStageStep\('blocking-prebuild',[\s\S]*?\)\)/u
+  )
 
-  const staticStart = dagDeclaration.indexOf("commandStep('static-governance-concurrent'")
+  const staticStart = dagDeclaration.indexOf("staticStageStep('concurrent'")
   const postbuildStart = dagDeclaration.indexOf("'frontend-static-postbuild'")
   assert.ok(staticStart >= 0 && postbuildStart > staticStart,
     'ordinary Vitest/static work must be declared before the queued postbuild writer')
-  assert.match(dagDeclaration.slice(staticStart, postbuildStart), /dependsOn: \['frontend-build-ready'\]/u)
+  assert.doesNotMatch(dagDeclaration.slice(staticStart, postbuildStart), /staticStageStep\('concurrent',[\s\S]{0,200}?dependsOn/u)
+  assert.match(dagDeclaration, /staticStageStep\('concurrent',[\s\S]*?exclusiveResources: \['generated-contracts'\]/u)
   assert.match(dagDeclaration, /commandStep\('frontend-build-ready',[\s\S]*?coordinationOnly: true/u)
   assert.match(dagDeclaration, /commandStep\('frontend-early-test-capacity-ready',[\s\S]*?coordinationOnly: true/u)
   assert.match(dagDeclaration, /commandStep\('frontend-test-capacity-ready',[\s\S]*?coordinationOnly: true/u)
@@ -46,9 +51,11 @@ test('frontend bundle waits for a useful dynamic grant before starting one compl
   assert.match(dagDeclaration, /commandStep\('privacy-zk-contract-prebuild',[\s\S]*?privacy-zk-comment-matrix\.sh contract-prebuild[\s\S]*?dependsOn: \['frontend-early-test-capacity-ready'\][\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 \}/u)
   assert.match(dagDeclaration, /commandStep\('privacy-zk-contract',[\s\S]*?privacy-zk-comment-matrix\.sh contract-postbuild[\s\S]*?dependsOn: \['frontend-build-ready', 'privacy-zk-contract-prebuild'\][\s\S]*?resources: \{ cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 \}/u)
   assert.doesNotMatch(dagDeclaration, /privacy-zk-comment-matrix\.sh benchmark/u)
-  assert.match(dagDeclaration.slice(postbuildStart), /exclusiveResources: \['frontend-test-results'\]/u)
+  assert.match(dagDeclaration, /staticStageStep\('postbuild',[\s\S]*?dependsOn: \['frontend-build-ready'\][\s\S]*?exclusiveResources: \['frontend-dist', 'frontend-static-output'\]/u)
+  assert.match(dagDeclaration, /staticStageStep\('isolated',[\s\S]*?dependsOn: \['vitest-settled'\][\s\S]*?frontend-render-pressure/u)
+  assert.match(dagDeclaration, /staticStageStep\('final',[\s\S]*?frontend-static-concurrent[\s\S]*?frontend-static-postbuild[\s\S]*?frontend-static-isolated[\s\S]*?runAfterSettled: true/u)
   assert.match(dagDeclaration, /commandStep\('vitest-settled',[\s\S]*?runAfterSettled: true/u)
-  assert.match(dagDeclaration, /commandStep\('frontend-tests-join',[\s\S]*?'vitest-production-projects'[\s\S]*?'static-governance-concurrent'[\s\S]*?'static-governance-node-contracts'[\s\S]*?'frontend-static-postbuild'[\s\S]*?'static-governance-post-vitest'[\s\S]*?'frontend-coverage-summary'[\s\S]*?runAfterSettled: true/u)
+  assert.match(dagDeclaration, /commandStep\('frontend-tests-join',[\s\S]*?'vitest-production-projects'[\s\S]*?'frontend-static-concurrent'[\s\S]*?'frontend-static-postbuild'[\s\S]*?'frontend-static-isolated'[\s\S]*?'frontend-static-final'[\s\S]*?'frontend-coverage-summary'[\s\S]*?runAfterSettled: true/u)
 })
 
 test('frontend bundle model overlaps Vitest and static work then joins all settled failures', async () => {
@@ -71,14 +78,14 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
         exclusiveResources: ['frontend-test-results']
       }
     },
-    ordinaryStep('static-governance-concurrent'),
+    ordinaryStep('frontend-static-concurrent'),
     {
       ...ordinaryStep('frontend-static-postbuild', ['frontend-build-ready']),
       resources: {
         cpuWeight: 1,
         memoryWeight: 1,
         minCpuUnits: 1,
-        exclusiveResources: ['frontend-test-results']
+        exclusiveResources: ['frontend-static-output']
       }
     },
     coordinationStep('vitest-settled', ['vitest-production-projects'], true),
@@ -86,7 +93,7 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
     ordinaryStep('frontend-coverage-summary', ['vitest-settled']),
     coordinationStep('frontend-tests-join', [
       'vitest-production-projects',
-      'static-governance-concurrent',
+      'frontend-static-concurrent',
       'frontend-static-postbuild',
       'static-governance-post-vitest',
       'frontend-coverage-summary'
@@ -95,7 +102,7 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
     maxParallel: 4,
     cpuUnits: 4,
     memoryGiB: 4,
-    exclusiveResources: ['frontend-test-results']
+    exclusiveResources: ['frontend-test-results', 'frontend-static-output']
   }, async (step) => {
     started.push(step.id)
     if (step.id === 'frontend-build-ready') await buildReady.promise
@@ -103,7 +110,7 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
       await vitestRelease.promise
       throw first
     }
-    if (step.id === 'static-governance-concurrent') {
+    if (step.id === 'frontend-static-concurrent') {
       await staticRelease.promise
       throw second
     }
@@ -111,23 +118,22 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
   })
 
   await nextTurn()
-  assert.deepEqual(started, ['frontend-build-ready', 'static-governance-concurrent'])
+  assert.deepEqual(started, ['frontend-build-ready', 'frontend-static-concurrent'])
   buildReady.resolve()
   await nextTurn()
   assert.deepEqual(started.slice(0, 3), [
     'frontend-build-ready',
-    'static-governance-concurrent',
+    'frontend-static-concurrent',
     'vitest-production-projects'
   ])
-  assert.ok(!started.includes('frontend-static-postbuild'))
+  assert.ok(started.includes('frontend-static-postbuild'),
+    'postbuild work must overlap Vitest after the immutable build marker')
 
   vitestRelease.resolve()
   await nextTurn()
   assert.ok(started.includes('vitest-settled'))
   assert.ok(started.includes('static-governance-post-vitest'))
   assert.ok(started.includes('frontend-coverage-summary'))
-  assert.ok(started.includes('frontend-static-postbuild'),
-    'postbuild writer must start once the same-name Vitest resource is released, without waiting for unrelated static work')
 
   staticRelease.resolve()
   await assert.rejects(execution, (error) => {
@@ -138,11 +144,40 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
   assert.equal(started.at(-1), 'frontend-tests-join')
   assert.deepEqual(joinOutcomes, {
     'vitest-production-projects': 'failure',
-    'static-governance-concurrent': 'failure',
+    'frontend-static-concurrent': 'failure',
     'frontend-static-postbuild': 'success',
     'static-governance-post-vitest': 'success',
     'frontend-coverage-summary': 'success'
   })
+})
+
+test('blocking static admission must settle before Vitest or concurrent static work starts', async () => {
+  const blocking = deferred()
+  const release = deferred()
+  const started = []
+  const execution = (async () => {
+    await blocking.promise
+    await executeWeightedStepDag([
+      ordinaryStep('vitest-production-projects'),
+      ordinaryStep('frontend-static-concurrent')
+    ], {
+      maxParallel: 2,
+      cpuUnits: 2,
+      memoryGiB: 2,
+      exclusiveResources: []
+    }, async (step) => {
+      started.push(step.id)
+      await release.promise
+    })
+  })()
+
+  await nextTurn()
+  assert.deepEqual(started, [])
+  blocking.resolve()
+  await waitFor(() => started.length === 2)
+  assert.deepEqual(new Set(started), new Set(['vitest-production-projects', 'frontend-static-concurrent']))
+  release.resolve()
+  await execution
 })
 
 test('frontend bundle delays Vitest until the machine-derived floor and fills early capacity with other work', async () => {
@@ -311,7 +346,11 @@ test('concurrent privacy and static work cannot write Vitest reports, coverage, 
   )
   assert.match(
     runnerSource,
-    /frontend-static-postbuild[\s\S]*?exclusiveResources: \['frontend-test-results'\]/u
+    /staticStageStep\('postbuild',[\s\S]*?exclusiveResources: \['frontend-dist', 'frontend-static-output'\]/u
+  )
+  assert.match(
+    runnerSource,
+    /frontend-coverage-summary[\s\S]*?exclusiveResources: \['frontend-test-results', 'frontend-coverage'\]/u
   )
 })
 

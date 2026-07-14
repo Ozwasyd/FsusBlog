@@ -217,10 +217,18 @@ requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privac
   "dependsOn: ['frontend-early-test-capacity-ready']",
   'resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }'
 ])
-requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privacy-zk-contract',", "commandStep(\n      'frontend-static-postbuild'", [
+requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privacy-zk-contract',", "staticStageStep('postbuild',", [
   "commandStep('privacy-zk-contract', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-postbuild'",
   "dependsOn: ['frontend-build-ready', 'privacy-zk-contract-prebuild']",
   'resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }'
+])
+requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "await executeStep(staticStageStep('blocking-prebuild',", 'const step =', [
+  "await executeStep(staticStageStep('blocking-prebuild'",
+  'resources: { cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1 }'
+])
+requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "staticStageStep('concurrent',", "commandStep('static-governance-concurrent'", [
+  "staticStageStep('concurrent'",
+  "exclusiveResources: ['generated-contracts']"
 ])
 requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "const step = commandStep('vitest-production-projects'", 'const frontendDagResults', [
   "dependsOn: ['frontend-early-test-capacity-ready']",

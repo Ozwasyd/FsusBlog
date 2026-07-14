@@ -13,23 +13,7 @@ import {
 import { executeLimitedWave } from './bundles/wave-runner.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const orderedWriteScripts = new Set([
-  'check:dom-depth-static',
-  'check:route-asset-budget',
-  'check:public-performance-batch'
-])
-const finalCommandIds = new Set(['views-constraints:public-performance-batch'])
-const postbuildReadCommandIds = new Set(['public-aot-contracts'])
-const isolatedCommandIds = new Set([
-  'asset-size-budget',
-  'views-constraints:route-asset-budget'
-])
-const initialPriority = new Map([
-  ['views-constraints:dom-depth-static', 0],
-  ['historical-residue-fixture', 1],
-  ['views-constraints:fsusui-typecheck-modes', 2],
-  ['test-execution-optimization', 3]
-])
+const staticStages = ['blocking-prebuild', 'concurrent', 'postbuild', 'isolated', 'final']
 
 export function extractChainedNpmScripts(value) {
   if (typeof value !== 'string' || !value.trim()) throw new Error('views-constraints script is required')
@@ -48,30 +32,29 @@ function viewsCoreCommand(value) {
 
 export function buildLocalStaticManifest(staticManifest, scripts) {
   if (!Array.isArray(staticManifest?.commands)) throw new Error('static command manifest is required')
+  const sourceErrors = validateCommandManifest(staticManifest)
+  if (sourceErrors.length > 0) throw new Error(sourceErrors.join('; '))
   const viewsEntry = staticManifest.commands.find((entry) => entry.id === 'views-constraints')
   if (viewsEntry?.script !== 'check:views-constraints') throw new Error('static manifest must contain check:views-constraints')
+  if (!Array.isArray(viewsEntry.localCommands) || viewsEntry.localCommands.length === 0) {
+    throw new Error('views-constraints must declare explicit localCommands')
+  }
 
   const source = scripts?.['check:views-constraints']
   const chainedScripts = extractChainedNpmScripts(source)
   if (chainedScripts.length === 0) throw new Error('check:views-constraints must contain npm run checks')
-
-  const expanded = [
-    {
-      id: 'views-constraints:core',
-      command: viewsCoreCommand(source),
-      access: 'read'
-    },
-    ...chainedScripts.map((script) => ({
-      id: `views-constraints:${script.slice('check:'.length)}`,
-      script,
-      access: orderedWriteScripts.has(script) ? 'write' : 'read'
-    }))
-  ]
+  const [core, ...declaredScripts] = viewsEntry.localCommands
+  if (JSON.stringify(core.command) !== JSON.stringify(viewsCoreCommand(source))) {
+    throw new Error('views-constraints core command differs from the explicit local manifest')
+  }
+  if (JSON.stringify(declaredScripts.map((entry) => entry.script)) !== JSON.stringify(chainedScripts)) {
+    throw new Error('check:views-constraints chain differs from the explicit local manifest')
+  }
 
   return {
     ...staticManifest,
     lane: `${staticManifest.lane}:local-production`,
-    commands: staticManifest.commands.flatMap((entry) => entry.id === 'views-constraints' ? expanded : [entry])
+    commands: staticManifest.commands.flatMap((entry) => entry.id === 'views-constraints' ? entry.localCommands : [entry])
   }
 }
 
@@ -79,32 +62,81 @@ export function planLocalStaticCommands(manifest) {
   const errors = validateCommandManifest(manifest)
   if (errors.length > 0) throw new Error(errors.join('; '))
 
-  const initial = []
-  const postbuild = []
-  const isolated = []
-  const final = []
+  const plan = Object.fromEntries(staticStages.map((stage) => [stage, []]))
   for (const entry of manifest.commands) {
-    if (finalCommandIds.has(entry.id)) final.push(entry)
-    else if (postbuildReadCommandIds.has(entry.id)) postbuild.push(entry)
-    else if (isolatedCommandIds.has(entry.id)) isolated.push(entry)
-    else initial.push(entry)
+    plan[entry.stage].push(entry)
   }
-  initial.sort((left, right) => {
-    const leftPriority = initialPriority.get(left.id) ?? Number.MAX_SAFE_INTEGER
-    const rightPriority = initialPriority.get(right.id) ?? Number.MAX_SAFE_INTEGER
-    return leftPriority - rightPriority
-  })
-  if (final.length !== finalCommandIds.size) throw new Error('local static manifest is missing its dependent performance check')
-  if (postbuild.length !== postbuildReadCommandIds.size) throw new Error('local static manifest is missing its build-output contract check')
-  if (isolated.length !== isolatedCommandIds.size) throw new Error('local static manifest is missing its isolated asset check')
-
-  return { initial, postbuild, isolated, final }
+  if (plan['blocking-prebuild'].length === 0) throw new Error('local static manifest must declare blocking-prebuild checks')
+  if (plan.concurrent.length === 0) throw new Error('local static manifest must declare concurrent checks')
+  if (plan.postbuild.length === 0) throw new Error('local static manifest must declare postbuild checks')
+  if (plan.final.length === 0) throw new Error('local static manifest must declare final checks')
+  return plan
 }
 
 export function summarizeLocalStaticPlan(plan) {
-  const prebuild = plan.initial.length
-  const postbuild = plan.postbuild.length + plan.isolated.length + plan.final.length
-  return { prebuild, postbuild, total: prebuild + postbuild }
+  const counts = Object.fromEntries(staticStages.map((stage) => [stage, plan[stage].length]))
+  return {
+    ...counts,
+    total: Object.values(counts).reduce((sum, count) => sum + count, 0)
+  }
+}
+
+function phaseEntries(plan, phase) {
+  return phase === 'all'
+    ? staticStages.flatMap((stage) => plan[stage])
+    : plan[phase]
+}
+
+function phaseResourceOptions(entries, workers) {
+  const exclusiveResources = [...new Set(entries.flatMap((entry) => entry.resources.exclusiveResources))]
+  return {
+    maxParallel: workers,
+    exclusiveResources,
+    getStepResources: (entry) => ({ exclusiveResources: entry.resources.exclusiveResources })
+  }
+}
+
+export async function executeStaticStage({
+  stage,
+  entries,
+  workers,
+  frontendRoot,
+  env,
+  timings,
+  execute = executeManifestEntry
+}) {
+  const queuedAtMs = Date.now()
+  const concurrentEnv = resolveManifestChildEnvironment({ env, workers, concurrent: true })
+  await executeLimitedWave(entries, phaseResourceOptions(entries, workers), async (entry) => {
+    const startedAtMs = Date.now()
+    const timing = {
+      id: entry.id,
+      stage,
+      reason: entry.reason,
+      waitReason: entry.dependsOn.length > 0
+        ? `waiting for dependencies: ${entry.dependsOn.join(', ')}`
+        : `waiting for ${stage} resource admission`,
+      dependsOn: entry.dependsOn,
+      consumedInputs: entry.consumedInputs,
+      ownedOutputs: entry.ownedOutputs,
+      exclusiveResources: entry.resources.exclusiveResources,
+      queuedAtMs,
+      startedAtMs,
+      waitDurationMs: startedAtMs - queuedAtMs
+    }
+    timings.push(timing)
+    try {
+      await execute(entry, { cwd: frontendRoot, env: concurrentEnv })
+      timing.status = 'success'
+    } catch (error) {
+      timing.status = 'failure'
+      timing.error = error instanceof Error ? error.message : String(error)
+      throw error
+    } finally {
+      timing.finishedAtMs = Date.now()
+      timing.durationMs = timing.finishedAtMs - startedAtMs
+    }
+  })
 }
 
 export async function runLocalStaticGovernance({ repoRoot = root, env = process.env } = {}) {
@@ -114,52 +146,90 @@ export async function runLocalStaticGovernance({ repoRoot = root, env = process.
   const manifest = buildLocalStaticManifest(staticManifest, packageJson.scripts)
   const plan = planLocalStaticCommands(manifest)
   const workers = resolveManifestWorkers({ env })
-  const concurrentEnv = resolveManifestChildEnvironment({ env, workers, concurrent: true })
-  const sequentialEnv = resolveManifestChildEnvironment({ env, workers, concurrent: false })
   const phase = String(env.FSUSBLOG_LOCAL_STATIC_PHASE ?? 'all').trim()
-  if (!['all', 'prebuild', 'postbuild'].includes(phase)) {
-    throw new Error('FSUSBLOG_LOCAL_STATIC_PHASE must be all, prebuild, or postbuild')
-  }
-
-  if (phase !== 'postbuild') {
-    await executeLimitedWave(
-      plan.initial,
-      workers,
-      (entry) => executeManifestEntry(entry, { cwd: frontendRoot, env: concurrentEnv })
-    )
-  }
-  if (phase !== 'prebuild') {
-    await executeLimitedWave(
-      [...plan.postbuild, ...plan.isolated],
-      workers,
-      (entry) => executeManifestEntry(entry, { cwd: frontendRoot, env: concurrentEnv })
-    )
-    await executeLimitedWave(
-      plan.final,
-      workers,
-      (entry) => executeManifestEntry(entry, { cwd: frontendRoot, env: sequentialEnv })
-    )
+  if (!['all', ...staticStages].includes(phase)) {
+    throw new Error(`FSUSBLOG_LOCAL_STATIC_PHASE must be all or one of: ${staticStages.join(', ')}`)
   }
   const summary = summarizeLocalStaticPlan(plan)
-  const executedCommandCount = phase === 'prebuild'
-    ? summary.prebuild
-    : phase === 'postbuild'
-      ? summary.postbuild
-      : summary.total
-  const executedCommands = phase === 'prebuild'
-    ? plan.initial
-    : phase === 'postbuild'
-      ? [...plan.postbuild, ...plan.isolated, ...plan.final]
-      : [...plan.initial, ...plan.postbuild, ...plan.isolated, ...plan.final]
-  return {
-    ...manifest,
-    execution: {
-      phase,
-      commandCount: executedCommandCount,
-      commandIds: executedCommands.map((entry) => entry.id),
-      ...summary
+  const stages = phase === 'all' ? staticStages : [phase]
+  const timings = []
+  const stageTimings = []
+  const failures = []
+  for (const stage of stages) {
+    const stageStartedAtMs = Date.now()
+    let status = 'success'
+    try {
+      await executeStaticStage({
+        stage,
+        entries: plan[stage],
+        workers,
+        frontendRoot,
+        env,
+        timings
+      })
+    } catch (error) {
+      status = 'failure'
+      failures.push(error instanceof Error ? error : new Error(String(error)))
+    } finally {
+      const finishedAtMs = Date.now()
+      stageTimings.push({
+        stage,
+        status,
+        commandCount: plan[stage].length,
+        startedAtMs: stageStartedAtMs,
+        finishedAtMs,
+        durationMs: finishedAtMs - stageStartedAtMs,
+        waitReasons: [...new Set(timings
+          .filter((entry) => entry.stage === stage)
+          .map((entry) => entry.waitReason))]
+      })
     }
   }
+  const executedCommands = phaseEntries(plan, phase)
+  const execution = {
+    phase,
+    stages,
+    workers,
+    commandCount: executedCommands.length,
+    commandIds: executedCommands.map((entry) => entry.id),
+    stagePlan: staticStages.map((stage) => ({
+      stage,
+      commandIds: plan[stage].map((entry) => entry.id),
+      dependencies: Object.fromEntries(plan[stage].map((entry) => [entry.id, entry.dependsOn])),
+      exclusiveResources: [...new Set(plan[stage].flatMap((entry) => entry.resources.exclusiveResources))]
+    })),
+    stageTimings,
+    timings,
+    ...summary
+  }
+  if (failures.length > 0) {
+    const error = failures.length === 1
+      ? failures[0]
+      : new AggregateError(failures, `${failures.length} frontend static stages failed`)
+    error.staticExecution = execution
+    throw error
+  }
+  return {
+    ...manifest,
+    execution
+  }
+}
+
+function writePhaseEvidence(execution, status, error = null) {
+  const evidenceFile = String(process.env.FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE ?? '').trim()
+  if (!evidenceFile) return
+  const absolute = path.resolve(root, evidenceFile)
+  fs.mkdirSync(path.dirname(absolute), { recursive: true })
+  const temporary = `${absolute}.next-${process.pid}`
+  fs.writeFileSync(temporary, `${JSON.stringify({
+    schema: 'fsusblog.local-production.frontend-static-governance-phase.v2',
+    status,
+    schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
+    execution,
+    ...(error ? { error: error instanceof Error ? error.message : String(error) } : {}),
+    generatedAt: new Date().toISOString()
+  }, null, 2)}\n`)
+  fs.renameSync(temporary, absolute)
 }
 
 const isMain = process.argv[1]
@@ -167,27 +237,15 @@ const isMain = process.argv[1]
 
 if (isMain) {
   runLocalStaticGovernance().then((manifest) => {
-    const evidenceFile = String(process.env.FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE ?? '').trim()
-    if (evidenceFile) {
-      const absolute = path.resolve(root, evidenceFile)
-      fs.mkdirSync(path.dirname(absolute), { recursive: true })
-      const temporary = `${absolute}.next-${process.pid}`
-      fs.writeFileSync(temporary, `${JSON.stringify({
-        schema: 'fsusblog.local-production.frontend-static-governance-phase.v1',
-        status: 'success',
-        schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
-        execution: manifest.execution,
-        generatedAt: new Date().toISOString()
-      }, null, 2)}\n`)
-      fs.renameSync(temporary, absolute)
-    }
+    writePhaseEvidence(manifest.execution, 'success')
     console.log(
       `[local-static-governance] ok phase=${manifest.execution.phase}`
       + ` commands=${manifest.execution.commandCount}`
-      + ` split=${manifest.execution.prebuild}+${manifest.execution.postbuild}`
+      + ` split=${staticStages.map((stage) => manifest.execution[stage]).join('+')}`
       + ` total=${manifest.execution.total}`
     )
   }).catch((error) => {
+    writePhaseEvidence(error.staticExecution ?? null, 'failure', error)
     console.error(`[local-static-governance] ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   })

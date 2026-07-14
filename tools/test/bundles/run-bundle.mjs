@@ -1212,22 +1212,27 @@ async function runFrontendTests() {
   const staticManifest = JSON.parse(fs.readFileSync(path.join(root, 'tests/frontend/checks/static/manifest.json'), 'utf8'))
   const frontendPackage = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend/package.json'), 'utf8'))
   const staticPlan = planLocalStaticCommands(buildLocalStaticManifest(staticManifest, frontendPackage.scripts))
-  const staticPrebuildEvidence = path.join(outDir, 'frontend-static-prebuild.json')
-  const staticPostbuildEvidence = path.join(outDir, 'frontend-static-postbuild.json')
+  const staticEvidence = Object.fromEntries(
+    ['blocking-prebuild', 'concurrent', 'postbuild', 'isolated', 'final']
+      .map((stage) => [stage, path.join(outDir, `frontend-static-${stage}.json`)])
+  )
   const staticTestIds = (entries) => entries.map((entry) => `frontend-static:${entry.id}`)
-  const prebuildStep = commandStep(
-    'frontend-static-prebuild',
-    `FSUSBLOG_LOCAL_STATIC_PHASE=prebuild FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE=${shellQuote(relative(staticPrebuildEvidence))} FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/local-static-governance.mjs`,
+  const staticStageStep = (stage, options = {}) => commandStep(
+    `frontend-static-${stage}`,
+    `FSUSBLOG_LOCAL_STATIC_PHASE=${stage} FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE=${shellQuote(relative(staticEvidence[stage]))} FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/local-static-governance.mjs`,
     ['frontend-static-governance'],
     {
-      artifacts: [staticPrebuildEvidence],
-      testIds: staticTestIds(staticPlan.initial),
-      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+      ...options,
+      artifacts: [staticEvidence[stage]],
+      testIds: staticTestIds(staticPlan[stage])
     }
   )
-  // The 62-command phase intentionally runs before any sibling in this bundle,
-  // so its manifest resolver receives the complete current scheduler grant.
-  await executeStep(prebuildStep)
+  // Only checks that validate the actual Vitest admission/configuration inputs
+  // form the pre-test barrier. Every other static command enters the settled
+  // weighted DAG below with explicit resource ownership from the manifest.
+  await executeStep(staticStageStep('blocking-prebuild', {
+    resources: { cpuWeight: 1, memoryWeight: 0.5, minCpuUnits: 1 }
+  }))
   const step = commandStep('vitest-production-projects',
     'node tools/test/run-frontend-vitest-rolling-shards.mjs', [], {
     dependsOn: ['frontend-early-test-capacity-ready'],
@@ -1251,6 +1256,14 @@ async function runFrontendTests() {
     commandStep('frontend-test-capacity-ready', ':', [], {
       resources: { coordinationOnly: true }
     }),
+    staticStageStep('concurrent', {
+      resources: {
+        cpuWeight: 1,
+        memoryWeight: 0.5,
+        minCpuUnits: 1,
+        exclusiveResources: ['generated-contracts']
+      }
+    }),
     // Static governance owns the first early CPU. Once build-static releases
     // capacity, Vitest starts in the remaining slots; its run-bound barrier
     // admits the final slot only after this static phase has settled.
@@ -1267,22 +1280,15 @@ async function runFrontendTests() {
       dependsOn: ['frontend-build-ready', 'privacy-zk-contract-prebuild'],
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
-    commandStep(
-      'frontend-static-postbuild',
-      `FSUSBLOG_LOCAL_STATIC_PHASE=postbuild FSUSBLOG_LOCAL_STATIC_EVIDENCE_FILE=${shellQuote(relative(staticPostbuildEvidence))} FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/local-static-governance.mjs`,
-      ['frontend-static-governance'],
-      {
-        dependsOn: ['frontend-build-ready'],
-        artifacts: [staticPostbuildEvidence],
-        testIds: staticTestIds([...staticPlan.postbuild, ...staticPlan.isolated, ...staticPlan.final]),
-        resources: {
-          cpuWeight: 0.5,
-          memoryWeight: 0.5,
-          minCpuUnits: 1,
-          exclusiveResources: ['frontend-test-results']
-        }
+    staticStageStep('postbuild', {
+      dependsOn: ['frontend-build-ready'],
+      resources: {
+        cpuWeight: 0.5,
+        memoryWeight: 0.5,
+        minCpuUnits: 1,
+        exclusiveResources: ['frontend-dist', 'frontend-static-output']
       }
-    ),
+    }),
     commandStep('vitest-settled', null, [], {
       dependsOn: ['vitest-production-projects'],
       runAfterSettled: true,
@@ -1303,14 +1309,41 @@ async function runFrontendTests() {
     commandStep('frontend-coverage-summary',
       'FSUSBLOG_COVERAGE_SKIP_TESTS=1 tools/coverage/collect-frontend-coverage.sh', [], {
         dependsOn: ['vitest-settled'],
-        resources: { cpuWeight: 0.5, memoryWeight: 0.5, minCpuUnits: 1 }
+        resources: {
+          cpuWeight: 0.5,
+          memoryWeight: 0.5,
+          minCpuUnits: 1,
+          exclusiveResources: ['frontend-test-results', 'frontend-coverage']
+        }
       }),
+    staticStageStep('isolated', {
+      dependsOn: ['vitest-settled'],
+      resources: {
+        cpuWeight: 0.5,
+        memoryWeight: 0.5,
+        minCpuUnits: 1,
+        exclusiveResources: ['frontend-static-output', 'frontend-render-pressure']
+      }
+    }),
+    staticStageStep('final', {
+      dependsOn: ['frontend-static-concurrent', 'frontend-static-postbuild', 'frontend-static-isolated'],
+      runAfterSettled: true,
+      resources: {
+        cpuWeight: 0.5,
+        memoryWeight: 0.25,
+        minCpuUnits: 1,
+        exclusiveResources: ['frontend-static-output', 'frontend-render-pressure']
+      }
+    }),
     commandStep('frontend-tests-join', null, [], {
       dependsOn: [
         'vitest-production-projects',
+        'frontend-static-concurrent',
         'static-governance-concurrent',
         'static-governance-node-contracts',
         'frontend-static-postbuild',
+        'frontend-static-isolated',
+        'frontend-static-final',
         'static-governance-post-vitest',
         'frontend-coverage-summary'
       ],
