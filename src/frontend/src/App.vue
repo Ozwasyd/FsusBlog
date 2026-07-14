@@ -27,14 +27,16 @@ const { mode } = useThemeRuntime()
 const routeCleanup = useMotionRouteCleanup()
 const cleanupByElement = new WeakMap<HTMLElement, () => boolean>()
 const headConfig = computed(() => ({
-  titleTemplate: (titleChunk: string | undefined) => {
+  titleTemplate: isPublicShellRouteName(route.name) ? undefined : (titleChunk: string | undefined) => {
     const siteTitle = siteStore.siteInfo.title
     return titleChunk ? `${titleChunk} - ${siteTitle}` : siteTitle
   },
   meta: [
-    { name: 'description', content: siteStore.siteInfo.description },
-    { name: 'keywords', content: siteStore.siteInfo.keywords },
-    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' }
+    { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
+    ...(isPublicShellRouteName(route.name) ? [] : [
+      { name: 'description', content: siteStore.siteInfo.description },
+      { name: 'keywords', content: siteStore.siteInfo.keywords }
+    ])
   ]
 }))
 

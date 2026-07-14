@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import {
   DESKTOP_VIEWPORT,
   MOBILE_VIEWPORT,
@@ -142,6 +142,154 @@ function publicExpectations() {
     }
   ]
 }
+
+async function readAuthoritativePublicHead(page: Page) {
+  return await page.evaluate(() => {
+    const canonicalNodes = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="canonical"]'))
+    const jsonLdNodes = Array.from(document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]'))
+    const markerNodes = Array.from(document.querySelectorAll<HTMLScriptElement>('script[data-fsus-seo-head-model]'))
+    const marker = markerNodes[0]?.textContent ? JSON.parse(markerNodes[0].textContent) : null
+    const graph = jsonLdNodes[0]?.textContent ? JSON.parse(jsonLdNodes[0].textContent) : null
+    return {
+      title: document.title,
+      description: document.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? '',
+      canonicalCount: canonicalNodes.length,
+      canonical: canonicalNodes[0]?.href ?? '',
+      ogUrl: document.querySelector<HTMLMetaElement>('meta[property="og:url"]')?.content ?? '',
+      jsonLdCount: jsonLdNodes.length,
+      markerCount: markerNodes.length,
+      marker,
+      graph,
+      navigationCount: performance.getEntriesByType('navigation').length,
+      spaSession: (window as Window & { __FSUSBLOG_SEO_SPA_SESSION__?: string }).__FSUSBLOG_SEO_SPA_SESSION__ ?? null
+    }
+  })
+}
+
+async function expectAuthoritativePublicHead(page: Page, path: string, expectArticle: boolean) {
+  await expect.poll(async () => (await readAuthoritativePublicHead(page)).marker?.canonicalUrl).toContain(path)
+  const head = await readAuthoritativePublicHead(page)
+  expect(head.title).toBe(head.marker.documentTitle)
+  expect(head.description).toBe(head.marker.description)
+  expect(head.canonicalCount).toBe(1)
+  expect(head.jsonLdCount).toBe(1)
+  expect(head.markerCount).toBe(1)
+  expect(head.canonical).toBe(head.marker.canonicalUrl)
+  expect(head.ogUrl).toBe(head.marker.openGraph.url)
+  expect(head.marker.schema).toBe('fsusblog.public-seo-head')
+  expect(head.marker.version).toBe(1)
+  expect(head.marker.digest).toMatch(/^[a-f0-9]{64}$/u)
+  expect(head.marker.pageEntityId).toBe(head.canonical)
+  expect(new URL(head.canonical).origin).toBe(head.marker.publicOrigin)
+  const graph = Array.isArray(head.graph?.['@graph']) ? head.graph['@graph'] : []
+  expect(graph.some((node) => node?.['@type'] === 'BlogPosting')).toBe(expectArticle)
+  expect(head.navigationCount).toBe(1)
+}
+
+async function navigatePublicSpa(page: Page, path: string) {
+  await page.evaluate((target) => {
+    const anchor = document.createElement('a')
+    anchor.href = target
+    anchor.textContent = 'SEO navigation probe'
+    anchor.dataset.fsusSeoNavigationProbe = 'true'
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+  }, path)
+  await page.waitForURL((url) => `${url.pathname}${url.search}` === path, { timeout: WARMUP_TIMEOUT_MS })
+  await settlePage(page)
+  expect((await readAuthoritativePublicHead(page)).spaSession).toBe('issue-1091-spa-session')
+}
+
+test.describe('public SEO head SPA parity', () => {
+  test.describe.configure({ timeout: 180_000 })
+
+  test('no-JavaScript direct loads expose the same authoritative head contract', async ({ browser }) => {
+    const backendBaseUrl = process.env.FSUSBLOG_BASE_URL || process.env.FSUSBLOG_DEBUG_BACKEND_URL
+    expect(backendBaseUrl, 'backend URL is required for server-rendered no-JavaScript checks').toBeTruthy()
+    const context = await browser.newContext({ javaScriptEnabled: false })
+    const directPage = await context.newPage()
+
+    try {
+      for (const path of ['/', articlePath]) {
+        let source = ''
+        for (let attempt = 0; attempt < 8 && source !== 'server-ssr'; attempt += 1) {
+          const response = await directPage.goto(new URL(path, backendBaseUrl).toString(), {
+            waitUntil: 'domcontentloaded'
+          })
+          source = response?.headers()['x-fsus-public-aot-source'] ?? ''
+          if (source !== 'server-ssr') {
+            await directPage.waitForTimeout(500)
+          }
+        }
+
+        expect(source, `${path} should become a server-rendered AOT document`).toBe('server-ssr')
+        const head = await readAuthoritativePublicHead(directPage)
+        expect(head.marker.schema).toBe('fsusblog.public-seo-head')
+        expect(head.marker.version).toBe(1)
+        expect(head.marker.digest).toMatch(/^[a-f0-9]{64}$/u)
+        expect(head.marker.canonicalUrl).toBe(head.canonical)
+        expect(head.marker.pageEntityId).toBe(head.canonical)
+        expect(head.title).toBe(head.marker.documentTitle)
+        expect(head.description).toBe(head.marker.description)
+        expect(head.canonicalCount).toBe(1)
+        expect(head.jsonLdCount).toBe(1)
+      }
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('Home → article A → article B → archive → category → tag → Home and history keep one coherent head', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await waitForAppReady(page, WARMUP_TIMEOUT_MS)
+    await settlePage(page)
+    await expectAuthoritativePublicHead(page, '/', false)
+    await page.evaluate(() => {
+      ;(window as Window & { __FSUSBLOG_SEO_SPA_SESSION__?: string }).__FSUSBLOG_SEO_SPA_SESSION__ = 'issue-1091-spa-session'
+    })
+
+    const articleHrefs = await page.locator('a[href^="/article/"]').evaluateAll((anchors) =>
+      Array.from(new Set(anchors.map((anchor) => anchor.getAttribute('href')).filter((href): href is string => Boolean(href))))
+    )
+    expect(articleHrefs.length).toBeGreaterThanOrEqual(2)
+    const articleA = articleHrefs[0]
+    const articleB = articleHrefs[1]
+
+    const prewarmedArticleLink = page.locator(`a[href="${articleA}"]`).first()
+    await prewarmedArticleLink.hover()
+    await prewarmedArticleLink.click()
+    await page.waitForURL((url) => url.pathname === articleA, { timeout: WARMUP_TIMEOUT_MS })
+    await settlePage(page)
+    expect((await readAuthoritativePublicHead(page)).spaSession).toBe('issue-1091-spa-session')
+    await expectAuthoritativePublicHead(page, articleA, true)
+    const taxonomy = await page.locator('a[href^="/category/"], a[href^="/tag/"]').evaluateAll((anchors) =>
+      Array.from(new Set(anchors.map((anchor) => anchor.getAttribute('href')).filter((href): href is string => Boolean(href))))
+    )
+    const category = taxonomy.find((href) => href.startsWith('/category/'))
+    const tag = taxonomy.find((href) => href.startsWith('/tag/'))
+    expect(category).toBeTruthy()
+    expect(tag).toBeTruthy()
+
+    await navigatePublicSpa(page, articleB)
+    await expectAuthoritativePublicHead(page, articleB, true)
+    await navigatePublicSpa(page, '/archive')
+    await expectAuthoritativePublicHead(page, '/archive', false)
+    await navigatePublicSpa(page, category!)
+    await expectAuthoritativePublicHead(page, category!, false)
+    await navigatePublicSpa(page, tag!)
+    await expectAuthoritativePublicHead(page, tag!, false)
+    await navigatePublicSpa(page, '/')
+    await expectAuthoritativePublicHead(page, '/', false)
+
+    await page.goBack()
+    await expectAuthoritativePublicHead(page, tag!, false)
+    expect((await readAuthoritativePublicHead(page)).spaSession).toBe('issue-1091-spa-session')
+    await page.goForward()
+    await expectAuthoritativePublicHead(page, '/', false)
+    expect((await readAuthoritativePublicHead(page)).spaSession).toBe('issue-1091-spa-session')
+  })
+})
 
 for (const viewport of [
   { name: 'desktop', size: DESKTOP_VIEWPORT },

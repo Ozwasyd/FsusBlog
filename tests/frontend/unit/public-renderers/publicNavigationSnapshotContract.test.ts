@@ -31,6 +31,7 @@ type PublicNavigationSnapshotEnvelope = Readonly<{
   generatedAtUtc: string
   bootstrapPayload: string
   hydrationPropsPayload: string
+  seoHead: Readonly<Record<string, unknown>>
 }>
 
 function base64UrlToBytes(text: string): Uint8Array {
@@ -74,7 +75,12 @@ describe('public navigation snapshot contract', () => {
       payloadHash: 'sha256-test',
       generatedAtUtc: '2026-06-18T00:00:00.0000000Z',
       bootstrapPayload: encodePublicAotPayload(bootstrap),
-      hydrationPropsPayload: encodePublicAotPayload(hydration)
+      hydrationPropsPayload: encodePublicAotPayload(hydration),
+      seoHead: {
+        schema: 'fsusblog.public-seo-head',
+        version: 1,
+        digest: 'sha256-head'
+      }
     })
 
     const envelope = decodePublicAotPayloadBytes<PublicNavigationSnapshotEnvelope>(
@@ -86,6 +92,10 @@ describe('public navigation snapshot contract', () => {
       routeKey: 'archive',
       fullPath: '/archive',
       rendererVersion: PUBLIC_RENDERER_VERSION
+    })
+    expect(envelope?.seoHead).toMatchObject({
+      schema: 'fsusblog.public-seo-head',
+      version: 1
     })
 
     const seed: PublicPageSeed<'Archive'> = {

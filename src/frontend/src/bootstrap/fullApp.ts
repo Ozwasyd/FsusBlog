@@ -49,6 +49,7 @@ export type PreparedFullApp = Readonly<{
   router: typeof router
   options: BootstrapFullAppOptions
   isPublicShellTakeover: boolean
+  isDirectSpaBootstrap: boolean
 }>
 
 let bootstrapPromise: Promise<typeof router> | null = null
@@ -136,16 +137,31 @@ function installDeferredFsusMotion(prepared: PreparedFullApp): void {
 
 export function prepareFullApp(options: BootstrapFullAppOptions = {}): PreparedFullApp {
   markStartup('full-app-bootstrap:start')
+  const isPublicShellTakeover = options.takeover === 'public-shell'
+  const isDirectSpaBootstrap = !isPublicShellTakeover
+    && !document.getElementById('app')?.querySelector('#fsus-aot-shell')
   const prepared: PreparedFullApp = {
     app: createApp(App),
     pinia: createPinia(),
     head: createHead(),
     router,
     options,
-    isPublicShellTakeover: options.takeover === 'public-shell'
+    isPublicShellTakeover,
+    isDirectSpaBootstrap
   }
 
-  installFullAppPlugins(prepared)
+  if (isDirectSpaBootstrap) {
+    beginPublicTakeoverCommit({ reason: 'direct-spa-bootstrap' })
+  }
+
+  try {
+    installFullAppPlugins(prepared)
+  } catch (error) {
+    if (isDirectSpaBootstrap) {
+      resetPublicTakeover({ reason: 'direct-spa-prepare-failed' })
+    }
+    throw error
+  }
   return prepared
 }
 
@@ -204,6 +220,9 @@ export async function commitPreparedFullApp(
     markStartup('full-app-bootstrap:router-ready')
     if (prepared.isPublicShellTakeover) {
       completePublicTakeoverCommit({ reason: 'full-app-mounted' })
+    } else if (prepared.isDirectSpaBootstrap) {
+      completePublicTakeoverCommit({ reason: 'direct-spa-mounted' })
+      markDirectPublicShellReady()
     } else {
       markDirectPublicShellReady()
     }
@@ -212,7 +231,7 @@ export async function commitPreparedFullApp(
     removeGlobalLoader()
     return router
   } catch (error) {
-    if (prepared.isPublicShellTakeover) {
+    if (prepared.isPublicShellTakeover || prepared.isDirectSpaBootstrap) {
       resetPublicTakeover({ reason: 'full-app-bootstrap-failed' })
     }
 

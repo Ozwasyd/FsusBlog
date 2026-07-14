@@ -281,10 +281,18 @@ public sealed class PublicAotShellService(
         };
         string frontendAssetVersion = assetManifest.GetFrontendAssetVersion(context);
         PublicAotRouteMatch navigationMatch = match with { RouteKey = normalizedRouteKey };
+        Result<PublicSeoHeadModel> seoHead = await documentService.BuildSeoHeadModelAsync(
+            normalizedEntry,
+            cancellationToken);
+        if (seoHead.IsFailure || seoHead.Value is null)
+        {
+            return Result<PublicAotNavigationSnapshot>.Failure(seoHead.Error);
+        }
 
         PublicAotNavigationSnapshot result = PublicAotNavigationSnapshot.Create(
             navigationMatch,
             normalizedEntry,
+            seoHead.Value,
             frontendAssetVersion,
             generatedAtUtc);
         return Result<PublicAotNavigationSnapshot>.Success(result);

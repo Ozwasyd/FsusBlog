@@ -14,6 +14,10 @@ import {
   PUBLIC_ROUTE_PRELOAD_DEFINITIONS,
   type PublicRoutePreloadDefinition
 } from '@/public-renderers/publicRouteRegistry'
+import {
+  validateAndPreparePublicSeoHead,
+  type PublicSeoHeadModel
+} from '@/router/publicSeoHead'
 
 export type PublicRoutePrewarmReason = 'idle' | 'pointerenter' | 'focus' | 'search-focus' | 'atomic-navigation'
 export type PublicRoutePrewarmStatus = 'ready' | 'miss' | 'cancelled' | 'timeout' | 'failure'
@@ -33,6 +37,7 @@ export type PublicNavigationSnapshotEnvelope = Readonly<{
   generatedAtUtc: string
   bootstrapPayload: string
   hydrationPropsPayload: string
+  seoHead: PublicSeoHeadModel
 }>
 
 export type PublicRoutePrewarmResult = Readonly<{
@@ -383,9 +388,19 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
           throw new Error('invalid navigation snapshot')
         }
 
+        const envelopeFullPath = envelope.fullPath || `${envelope.path}${envelope.queryString}`
+        if (normalizeTarget(envelopeFullPath)?.key !== normalizeTarget(normalized.fullPath)?.key ||
+            !await validateAndPreparePublicSeoHead(
+              envelope.seoHead,
+              envelopeFullPath,
+              envelope.canonicalPath,
+              options.nowMs)) {
+          throw new Error('invalid navigation snapshot SEO head')
+        }
+
         putPublicRouteSeed({
           kind: envelope.pageKind,
-          fullPath: envelope.fullPath || `${envelope.path}${envelope.queryString}`,
+          fullPath: envelopeFullPath,
           routeKey: envelope.routeKey,
           rendererVersion: envelope.rendererVersion,
           seed,

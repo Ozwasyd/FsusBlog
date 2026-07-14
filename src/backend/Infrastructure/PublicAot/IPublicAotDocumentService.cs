@@ -6,6 +6,10 @@ namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public interface IPublicAotDocumentService
 {
+    Task<Result<PublicSeoHeadModel>> BuildSeoHeadModelAsync(
+        PublicAotShellEntryContract entry,
+        CancellationToken cancellationToken = default);
+
     Task<Result<string>> ComposeAsync(
         PublicAotShellEntryContract entry,
         CancellationToken cancellationToken = default);

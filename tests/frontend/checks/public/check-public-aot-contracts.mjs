@@ -51,6 +51,10 @@ function assertStaticContracts() {
   const indexHtml = read('src/frontend/index.html')
   const documentComposer = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs')
   const documentService = read('src/backend/Infrastructure/PublicAot/PublicAotDocumentService.cs')
+  const seoHeadContract = read('src/shared/Contracts/Outputs/PublicSeoHeadContracts.cs')
+  const navigationSnapshot = read('src/backend/Infrastructure/PublicAot/PublicAotNavigationSnapshot.cs')
+  const publicRoutePreload = read('src/frontend/src/router/publicRoutePreload.ts')
+  const publicSeoHead = read('src/frontend/src/router/publicSeoHead.ts')
   const webApplicationComposition = read('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
   const apiContracts = read('src/frontend/src/api/contracts.ts')
   const publicShell = read('src/frontend/src/bootstrap/publicShell.ts')
@@ -82,6 +86,7 @@ function assertStaticContracts() {
   const publicRouteIdentity = read('src/frontend/src/public-renderers/publicRouteIdentity.ts')
   const articleListViewContract = read('src/frontend/src/view-contracts/articleList.ts')
   const articleDetailViewContract = read('src/frontend/src/view-contracts/articleDetail.ts')
+  const publicRoutesAcceptance = read('tests/frontend/e2e/acceptance/public-routes.spec.ts')
 
   if (prodWorker.includes("from 'vite'") || prodWorker.includes('createServer') || prodWorker.includes('ssrLoadModule')) {
     fail('production bundle worker must not import or create Vite runtime')
@@ -140,6 +145,32 @@ function assertStaticContracts() {
   }
   if (!documentComposer.includes('data-fsus-aot-head')) {
     fail('document composer must mark all Public AOT-managed head nodes')
+  }
+  for (const token of ['fsusblog.public-seo-head', 'Version = 1', 'ComputeDigest', 'ToPayload']) {
+    if (!seoHeadContract.includes(token)) {
+      fail(`shared PublicSeoHeadModel contract missing token: ${token}`)
+    }
+  }
+  for (const token of ['SeoHead.ToPayload()', 'seoHead.Digest', 'public-navigation-snapshot']) {
+    if (!navigationSnapshot.includes(token)) {
+      fail(`navigation snapshot missing authoritative SEO head token: ${token}`)
+    }
+  }
+  for (const token of ['validateAndPreparePublicSeoHead', 'invalid navigation snapshot SEO head']) {
+    if (!publicRoutePreload.includes(token)) {
+      fail(`public route preload must fail closed on SEO head validation: ${token}`)
+    }
+  }
+  for (const token of ['crypto.subtle.digest', 'data-fsus-seo-head-model', "querySelectorAll('[data-fsus-aot-head]')", 'window.location.assign']) {
+    const sources = `${publicSeoHead}\n${read('src/frontend/src/router/index.ts')}`
+    if (!sources.includes(token)) {
+      fail(`SPA SEO head takeover missing token: ${token}`)
+    }
+  }
+  for (const token of ['public SEO head SPA parity', 'article A → article B', 'page.goBack()', 'page.goForward()', 'navigationCount', 'marker.digest']) {
+    if (!publicRoutesAcceptance.includes(token)) {
+      fail(`production public acceptance must gate SEO head route parity: ${token}`)
+    }
   }
   for (const token of ['BuildBinaryPayloadSidecarMarker', 'data-aeds-src', 'BuildPayloadSidecarUrl']) {
     if (!documentComposer.includes(token)) {

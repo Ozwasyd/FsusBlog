@@ -19,15 +19,22 @@ public sealed record PublicAotNavigationSnapshot
     public required string FrontendAssetVersion { get; init; }
     public required string BootstrapPayload { get; init; }
     public required string HydrationPropsPayload { get; init; }
+    public required PublicSeoHeadModel SeoHead { get; init; }
     public required string PayloadHash { get; init; }
     public required DateTimeOffset GeneratedAtUtc { get; init; }
 
     public static PublicAotNavigationSnapshot Create(
         PublicAotRouteMatch match,
         PublicAotShellEntryContract entry,
+        PublicSeoHeadModel seoHead,
         string frontendAssetVersion,
         DateTimeOffset generatedAtUtc)
     {
+        if (!seoHead.HasValidContractAndDigest())
+        {
+            throw new ArgumentException("public_seo_head_contract_invalid", nameof(seoHead));
+        }
+
         string rendererVersion = string.IsNullOrWhiteSpace(entry.RendererVersion)
             ? PublicAotShellService.PublicRendererVersion
             : entry.RendererVersion.Trim();
@@ -38,7 +45,8 @@ public sealed record PublicAotNavigationSnapshot
             rendererVersion,
             frontendAssetVersion,
             bootstrapPayload,
-            hydrationPropsPayload);
+            hydrationPropsPayload,
+            seoHead.Digest);
 
         return new PublicAotNavigationSnapshot
         {
@@ -52,6 +60,7 @@ public sealed record PublicAotNavigationSnapshot
             FrontendAssetVersion = frontendAssetVersion,
             BootstrapPayload = bootstrapPayload,
             HydrationPropsPayload = hydrationPropsPayload,
+            SeoHead = seoHead,
             PayloadHash = payloadHash,
             GeneratedAtUtc = generatedAtUtc
         };
@@ -76,7 +85,8 @@ public sealed record PublicAotNavigationSnapshot
             ["payloadHash"] = PayloadHash,
             ["generatedAtUtc"] = GeneratedAtUtc.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
             ["bootstrapPayload"] = BootstrapPayload,
-            ["hydrationPropsPayload"] = HydrationPropsPayload
+            ["hydrationPropsPayload"] = HydrationPropsPayload,
+            ["seoHead"] = SeoHead.ToPayload()
         };
 
     public static string CreateEntityTag(ReadOnlySpan<byte> frame)
@@ -87,7 +97,8 @@ public sealed record PublicAotNavigationSnapshot
         string rendererVersion,
         string frontendAssetVersion,
         string bootstrapPayload,
-        string hydrationPropsPayload)
+        string hydrationPropsPayload,
+        string seoHeadDigest)
     {
         using var incremental = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Append(incremental, match.Kind.ToString());
@@ -100,6 +111,7 @@ public sealed record PublicAotNavigationSnapshot
         Append(incremental, frontendAssetVersion);
         Append(incremental, bootstrapPayload);
         Append(incremental, hydrationPropsPayload);
+        Append(incremental, seoHeadDigest);
         return ToLowerHex(incremental.GetHashAndReset());
     }
 

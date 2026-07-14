@@ -15,6 +15,11 @@ import {
   resolvePublicRoutePrewarmTarget,
   type PublicNavigationSnapshotEnvelope
 } from '@/router/publicRoutePreload'
+import {
+  computePublicSeoHeadDigest,
+  resetPublicSeoHeadForTests,
+  type PublicSeoHeadModel
+} from '@/router/publicSeoHead'
 
 function snapshotBytes(envelope: PublicNavigationSnapshotEnvelope): Uint8Array {
   return base64UrlToBytes(encodePublicAotPayload(envelope))
@@ -27,7 +32,7 @@ function base64UrlToBytes(text: string): Uint8Array {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0))
 }
 
-function createArchiveEnvelope(): PublicNavigationSnapshotEnvelope {
+async function createArchiveEnvelope(): Promise<PublicNavigationSnapshotEnvelope> {
   const bootstrap = {
     kind: 'Archive',
     pageKind: 'Archive',
@@ -43,6 +48,43 @@ function createArchiveEnvelope(): PublicNavigationSnapshotEnvelope {
     title: 'Archive'
   } as PublicHydrationPayloadFor<'Archive'>
 
+  const unsignedHead = {
+    schema: 'fsusblog.public-seo-head',
+    version: 1,
+    digest: '',
+    documentTitle: 'Archive - FsusBlog',
+    description: 'Archive description',
+    canonicalUrl: 'http://127.0.0.1/archive',
+    publicOrigin: 'http://127.0.0.1',
+    robots: 'index,follow',
+    locale: 'zh-CN',
+    pageType: 'Archive',
+    pageEntityId: 'http://127.0.0.1/archive',
+    openGraph: {
+      title: 'Archive - FsusBlog',
+      description: 'Archive description',
+      type: 'website',
+      url: 'http://127.0.0.1/archive',
+      locale: 'zh_CN',
+      imageUrl: null
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Archive - FsusBlog',
+      description: 'Archive description',
+      imageUrl: null
+    },
+    jsonLdGraph: '{"@context":"https://schema.org","@graph":[{"@type":"WebPage","url":"http://127.0.0.1/archive"}]}',
+    articlePublishedAtUtc: null,
+    articleModifiedAtUtc: null,
+    articleAuthor: null,
+    articleImageUrl: null
+  } satisfies PublicSeoHeadModel
+  const seoHead = {
+    ...unsignedHead,
+    digest: await computePublicSeoHeadDigest(unsignedHead)
+  }
+
   return {
     kind: 'public-navigation-snapshot',
     pageKind: 'Archive',
@@ -57,20 +99,23 @@ function createArchiveEnvelope(): PublicNavigationSnapshotEnvelope {
     payloadHash: 'sha256-test',
     generatedAtUtc: '2026-06-18T00:00:00.0000000Z',
     bootstrapPayload: encodePublicAotPayload(bootstrap),
-    hydrationPropsPayload: encodePublicAotPayload(hydration)
+    hydrationPropsPayload: encodePublicAotPayload(hydration),
+    seoHead
   }
 }
 
 describe('public route prewarm', () => {
   beforeEach(() => {
     resetPublicRouteSeedStoreForTests()
+    resetPublicSeoHeadForTests()
   })
 
   it('deduplicates full-app, route component and snapshot seed work for the same target', async () => {
     const events: string[] = []
     const loadFullApp = vi.fn(async () => ({ bootstrapFullApp: vi.fn() }))
     const loadArchiveComponent = vi.fn(async () => ({ default: {} }))
-    const fetchSnapshot = vi.fn(async () => snapshotBytes(createArchiveEnvelope()))
+    const envelope = await createArchiveEnvelope()
+    const fetchSnapshot = vi.fn(async () => snapshotBytes(envelope))
     const prewarm = createPublicRoutePrewarmer({
       loadFullApp,
       routePreloads: [{
@@ -109,8 +154,8 @@ describe('public route prewarm', () => {
 
     const seed = consumePublicRouteSeed('Archive', { fullPath: '/archive' }, { nowMs: 1_002 })
     expect(seed).toEqual({
-      bootstrap: decodePublicAotPayload(createArchiveEnvelope().bootstrapPayload),
-      hydration: decodePublicAotPayload(createArchiveEnvelope().hydrationPropsPayload)
+      bootstrap: decodePublicAotPayload(envelope.bootstrapPayload),
+      hydration: decodePublicAotPayload(envelope.hydrationPropsPayload)
     } satisfies PublicPageSeed<'Archive'>)
   })
 

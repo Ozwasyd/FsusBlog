@@ -1019,7 +1019,7 @@ export function bindPreBootstrapNavigation(): void {
 
     event.preventDefault()
     void navigateWithAtomicPublicTakeover(intent)
-  }, { passive: false })
+  }, { capture: true, passive: false })
   addPublicShellEventListener(document, 'pointerenter', (event) => {
     requestPublicAnchorPrewarm(event, 'pointerenter')
   }, { capture: true, passive: true })

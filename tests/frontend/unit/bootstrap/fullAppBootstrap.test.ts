@@ -176,10 +176,13 @@ describe('full app bootstrap prepare/commit', () => {
 
   it('keeps the single-call direct SPA bootstrap API', async () => {
     const { bootstrapFullApp } = await import('@/bootstrap/fullApp')
+    document.getElementById('app')?.replaceChildren()
 
     await expect(bootstrapFullApp()).resolves.toBe(fakeRouter)
 
     expect(createApp).toHaveBeenCalledTimes(1)
+    expect(beginPublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'direct-spa-bootstrap' })
+    expect(completePublicTakeoverCommit).toHaveBeenCalledWith({ reason: 'direct-spa-mounted' })
     expect(appMount).toHaveBeenCalledWith('#app')
     expect(removeGlobalLoader).toHaveBeenCalledTimes(1)
     expect(resetPublicTakeover).not.toHaveBeenCalled()

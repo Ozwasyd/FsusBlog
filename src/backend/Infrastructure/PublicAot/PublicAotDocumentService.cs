@@ -28,6 +28,22 @@ public sealed class PublicAotDocumentService(
         ?? configuration["Seo__BaseUrl"]
         ?? configuration["SITE_BASEURL"]);
 
+    public async Task<Result<PublicSeoHeadModel>> BuildSeoHeadModelAsync(
+        PublicAotShellEntryContract entry,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            SeoDocumentContext context = await ResolveSeoDocumentContextAsync(entry, cancellationToken).ConfigureAwait(false);
+            return Result<PublicSeoHeadModel>.Success(context.Head);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to build public SEO head model: {PageId} {RouteKey}", entry.PageId, entry.RouteKey);
+            return Result<PublicSeoHeadModel>.Failure(ErrorCode.InfraFailure, "public_seo_head_build_failed");
+        }
+    }
+
     public async Task<Result<string>> ComposeAsync(
         PublicAotShellEntryContract entry,
         CancellationToken cancellationToken = default)
@@ -51,32 +67,26 @@ public sealed class PublicAotDocumentService(
 
         try
         {
-            SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
+            SeoDocumentContext seoContext = await ResolveSeoDocumentContextAsync(entry, cancellationToken).ConfigureAwait(false);
+            SeoConfigReadModel seo = seoContext.Seo;
             SpaAssetSet assetSet = assetManifest.GetPublicAssetSet(context, entry.PageId);
             PreparedTemplateCacheEntry template = await GetPreparedTemplateAsync(assetSet, cancellationToken);
             string rawTemplate = template.RawTemplate;
             string preparedTemplate = template.PreparedTemplate;
-            DecodedEntryPayloads payloads = DecodeEntryPayloads(entry);
-            string title = ResolveTitle(entry, payloads, seo.Title);
-            string description = ResolveDescription(entry, payloads, seo.Description);
-            string siteTitle = ResolvePayloadString(payloads.Hydration, "siteTitle", seo.Title);
-            PublicPageKind kind = ResolvePageKind(entry.PageId);
-            string canonicalUrl = string.Concat(ResolveCanonicalBaseUrl(entry.BaseUrl, _configuredBaseUrl), ResolveCanonicalPath(entry));
-            PublicAotArticleSeoMetadata? articleSeo = BuildArticleSeoMetadata(kind, payloads, canonicalUrl, title, description, siteTitle, seo);
-            string shell = PublicAotDocumentComposer.EnsureShellRoot(NormalizeHtml(entry.Html, entry.ArticleId), kind);
+            string shell = PublicAotDocumentComposer.EnsureShellRoot(NormalizeHtml(entry.Html, entry.ArticleId), seoContext.Kind);
             string headLinks = GetHeadLinks(template, assetSet, seo);
             string bootstrapPayload = NormalizeOptionalText(entry.BootstrapPayload ?? EmptyPayload, entry.ArticleId);
             string hydrationPayload = NormalizeOptionalText(entry.HydrationPropsPayload ?? string.Empty, entry.ArticleId);
             await WriteHydrationPayloadSidecarAsync(hydrationPayload, cancellationToken).ConfigureAwait(false);
 
             return Result<string>.Success(PublicAotDocumentComposer.ComposeDocument(new PublicAotDocumentModel(
-                kind,
+                seoContext.Kind,
                 rawTemplate,
                 preparedTemplate,
-                title,
-                siteTitle,
-                description,
-                canonicalUrl,
+                seoContext.Title,
+                seoContext.SiteTitle,
+                seoContext.Description,
+                seoContext.CanonicalUrl,
                 shell,
                 bootstrapPayload,
                 hydrationPayload,
@@ -85,7 +95,8 @@ public sealed class PublicAotDocumentService(
                 headLinks)
             {
                 FullAppTakeover = assetSet.FullAppTakeover,
-                ArticleSeo = articleSeo
+                ArticleSeo = seoContext.ArticleSeo,
+                SeoHead = seoContext.Head
             }));
         }
         catch (Exception ex)
@@ -93,6 +104,38 @@ public sealed class PublicAotDocumentService(
             logger.LogError(ex, "Failed to compose public AOT document: {PageId} {RouteKey}", entry.PageId, entry.RouteKey);
             return Result<string>.Failure(ErrorCode.InfraFailure, "public_aot_document_compose_failed");
         }
+    }
+
+    private async Task<SeoDocumentContext> ResolveSeoDocumentContextAsync(
+        PublicAotShellEntryContract entry,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync().ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        DecodedEntryPayloads payloads = DecodeEntryPayloads(entry);
+        string title = ResolveTitle(entry, payloads, seo.Title);
+        string description = ResolveDescription(entry, payloads, seo.Description);
+        string siteTitle = ResolvePayloadString(payloads.Hydration, "siteTitle", seo.Title);
+        PublicPageKind kind = ResolvePageKind(entry.PageId);
+        string canonicalUrl = string.Concat(ResolveCanonicalBaseUrl(entry.BaseUrl, _configuredBaseUrl), ResolveCanonicalPath(entry));
+        PublicAotArticleSeoMetadata? articleSeo = BuildArticleSeoMetadata(
+            kind,
+            payloads,
+            canonicalUrl,
+            title,
+            description,
+            siteTitle,
+            seo);
+        PublicSeoHeadModel head = PublicAotDocumentComposer.BuildSeoHeadModel(
+            kind,
+            title,
+            siteTitle,
+            description,
+            canonicalUrl,
+            articleSeo,
+            seo.OgImage);
+        return new SeoDocumentContext(seo, kind, title, siteTitle, description, canonicalUrl, articleSeo, head);
     }
 
     private async Task<PreparedTemplateCacheEntry> GetPreparedTemplateAsync(SpaAssetSet assetSet, CancellationToken cancellationToken)
@@ -176,8 +219,6 @@ public sealed class PublicAotDocumentService(
         AppendRuntimeLink(builder, "icon", seo.FaviconIcoUrl, "image/x-icon");
         AppendRuntimeLink(builder, "icon", seo.FaviconPngUrl, "image/png");
         AppendRuntimeLink(builder, "apple-touch-icon", seo.AppleTouchIconUrl, null);
-        AppendRuntimeMetaProperty(builder, "og:image", seo.OgImage);
-        AppendRuntimeMeta(builder, "twitter:image", seo.OgImage);
 
         foreach (string preload in assetSet.ModulePreloads.Where(static href => !string.IsNullOrWhiteSpace(href)).Distinct(StringComparer.Ordinal))
         {
@@ -256,20 +297,6 @@ public sealed class PublicAotDocumentService(
             _ => PublicPageKind.Home
         };
 
-    private static void AppendRuntimeMetaProperty(StringBuilder builder, string property, string content)
-    {
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            return;
-        }
-
-        builder.Append("    <meta property=\"")
-            .Append(WebUtility.HtmlEncode(property))
-            .Append("\" content=\"")
-            .Append(WebUtility.HtmlEncode(content))
-            .AppendLine("\" data-fsusblog-seo=\"runtime\" />");
-    }
-
     private static void AppendRuntimeLink(StringBuilder builder, string rel, string href, string? type)
     {
         if (string.IsNullOrWhiteSpace(href))
@@ -314,6 +341,16 @@ public sealed class PublicAotDocumentService(
         string PreparedTemplate,
         string AssetVersion,
         string TemplateHash);
+
+    private sealed record SeoDocumentContext(
+        SeoConfigReadModel Seo,
+        PublicPageKind Kind,
+        string Title,
+        string SiteTitle,
+        string Description,
+        string CanonicalUrl,
+        PublicAotArticleSeoMetadata? ArticleSeo,
+        PublicSeoHeadModel Head);
 
     private static string ResolveDescription(PublicAotShellEntryContract entry, DecodedEntryPayloads payloads, string fallback)
     {

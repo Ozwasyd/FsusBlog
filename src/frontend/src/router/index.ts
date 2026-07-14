@@ -10,9 +10,16 @@ import {
 import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { hasServerAotShell } from '@/bootstrap/publicShellPrimitives'
+import { getPublicRuntimeOwner } from '@/bootstrap/publicTakeoverState'
 import { isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers/publicPageModel'
 import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
 import { PUBLIC_BLOG_CHILD_ROUTES } from '@/public-renderers/publicRouteRegistry'
+import { prewarmPublicRoute } from '@/router/publicRoutePreload'
+import {
+  clearPublicSeoHead,
+  commitPreparedPublicSeoHead,
+  hasPreparedPublicSeoHead
+} from '@/router/publicSeoHead'
 import { useAdminStore } from '@/store/admin'
 import {
   activateLocalFixtureSession,
@@ -287,11 +294,31 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     }
 
     const publicShellRoute = isPublicShellRouteName(to.name)
+    const publicSeoRoute = isPublicSeoRouteName(to.name)
     const appRoot = typeof document !== 'undefined' ? document.getElementById('app') : null
     const shouldDeferPublicBootstrap =
       !options.ssr
-      && isPublicSeoRouteName(to.name)
+      && publicSeoRoute
       && hasServerAotShell(appRoot)
+    const needsInitialSpaFallbackHead =
+      !options.ssr
+      && options.history === undefined
+      && publicSeoRoute
+      && !hasServerAotShell(appRoot)
+      && from.matched.length === 0
+    const fullAppOwnsPublicRoute =
+      getPublicRuntimeOwner() === 'spa'
+      || (appRoot !== null && !hasServerAotShell(appRoot) && from.matched.length > 0)
+
+    if (!options.ssr && publicSeoRoute &&
+        (needsInitialSpaFallbackHead || (fullAppOwnsPublicRoute && to.fullPath !== from.fullPath)) &&
+      !hasPreparedPublicSeoHead(to.fullPath)) {
+      const prewarm = await prewarmPublicRoute(to.fullPath, { reason: 'atomic-navigation' })
+      if (prewarm.status !== 'ready') {
+        window.location.assign(to.fullPath)
+        return false
+      }
+    }
 
     if (!options.ssr && !shouldDeferPublicBootstrap && !isSameAccountShellChildSwitch(to, from)) {
       scheduleProgressForSlowNavigation()
@@ -303,7 +330,7 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       await sessionBootstrap.ensureBootstrap()
     }
 
-    if (!shouldDeferPublicBootstrap || siteStore.isLoaded) {
+    if (!publicSeoRoute && (!shouldDeferPublicBootstrap || siteStore.isLoaded)) {
       sessionBootstrap.syncDocumentTitle(to)
     }
 
@@ -364,7 +391,15 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
     return
   }
 
-  router.afterEach(() => {
+  router.afterEach((to, from) => {
+    if (isPublicSeoRouteName(to.name)) {
+      if (hasPreparedPublicSeoHead(to.fullPath)) {
+        commitPreparedPublicSeoHead(to.fullPath, from.fullPath)
+      }
+    } else if (isPublicSeoRouteName(from.name)) {
+      clearPublicSeoHead(from.fullPath)
+      useSessionBootstrap().syncDocumentTitle(to)
+    }
     finishProgressNavigation()
   })
 

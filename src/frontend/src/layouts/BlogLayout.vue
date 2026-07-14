@@ -79,25 +79,10 @@ const shellState = computed(() => createPublicShellViewState({
   showRuntime: isMounted.value && runtimeReady.value,
 }))
 
-const publicDocumentTitle = computed(() => {
-  const pageTitle = typeof route.meta.title === 'string' ? route.meta.title.trim() : ''
-  return pageTitle ? `${pageTitle} - ${activeSiteIdentity.value.siteTitle}` : activeSiteIdentity.value.siteTitle
-})
-
 function syncPublicDocumentHead(): void {
   if (typeof document === 'undefined') {
     return
   }
-
-  document.title = publicDocumentTitle.value
-
-  let descriptionMeta = document.querySelector<HTMLMetaElement>('meta[name="description"]')
-  if (!descriptionMeta) {
-    descriptionMeta = document.createElement('meta')
-    descriptionMeta.setAttribute('name', 'description')
-    document.head.appendChild(descriptionMeta)
-  }
-  descriptionMeta.setAttribute('content', activeSiteIdentity.value.siteDescription)
   syncDefaultBrandHeadAssets()
 }
 
@@ -155,8 +140,6 @@ function syncDefaultBrandHeadAssets(): void {
 
 watch(
   () => [
-    publicDocumentTitle.value,
-    activeSiteIdentity.value.siteDescription,
     siteStore.siteInfo.faviconSvgUrl,
     siteStore.siteInfo.faviconIcoUrl,
     siteStore.siteInfo.faviconPngUrl,

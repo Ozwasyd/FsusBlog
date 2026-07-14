@@ -1,6 +1,7 @@
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Spa;
+using FsusBlog.Shared.Contracts.Outputs;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -28,6 +29,8 @@ internal sealed record class PublicAotDocumentModel(
     public FullAppTakeoverAssetSet FullAppTakeover { get; init; } = FullAppTakeoverAssetSet.Empty;
 
     public PublicAotArticleSeoMetadata? ArticleSeo { get; init; }
+
+    public PublicSeoHeadModel? SeoHead { get; init; }
 }
 
 internal sealed record class PublicAotArticleSeoMetadata(
@@ -61,27 +64,96 @@ internal static class PublicAotDocumentComposer
         string description,
         string canonicalUrl,
         PublicAotArticleSeoMetadata? articleSeo = null)
+        => BuildSeoHeadTags(BuildSeoHeadModel(kind, title, siteTitle, description, canonicalUrl, articleSeo));
+
+    internal static PublicSeoHeadModel BuildSeoHeadModel(
+        PublicPageKind kind,
+        string title,
+        string siteTitle,
+        string description,
+        string canonicalUrl,
+        PublicAotArticleSeoMetadata? articleSeo = null,
+        string? defaultImageUrl = null,
+        string robots = "index,follow")
     {
         string ogType = kind == PublicPageKind.ArticleDetail ? "article" : "website";
-        string fullTitle = string.IsNullOrWhiteSpace(siteTitle) ? title : $"{title} - {siteTitle}";
+        string fullTitle = string.IsNullOrWhiteSpace(siteTitle) || string.Equals(title, siteTitle, StringComparison.Ordinal)
+            ? title
+            : $"{title} - {siteTitle}";
         string siteRoot = ResolveSiteRoot(canonicalUrl);
         string jsonLd = BuildJsonLd(kind, title, fullTitle, siteTitle, description, canonicalUrl, siteRoot, articleSeo);
+        string? imageUrl = NullIfEmpty(articleSeo?.ImageUrl) ?? NullIfEmpty(defaultImageUrl);
+        var model = new PublicSeoHeadModel
+        {
+            DocumentTitle = fullTitle,
+            Description = description,
+            CanonicalUrl = canonicalUrl,
+            PublicOrigin = new Uri(canonicalUrl, UriKind.Absolute).GetLeftPart(UriPartial.Authority),
+            Robots = robots,
+            Locale = "zh-CN",
+            PageType = kind.ToString(),
+            PageEntityId = canonicalUrl,
+            OpenGraph = new PublicSeoOpenGraphModel
+            {
+                Title = fullTitle,
+                Description = description,
+                Type = ogType,
+                Url = canonicalUrl,
+                Locale = "zh_CN",
+                ImageUrl = imageUrl
+            },
+            Twitter = new PublicSeoTwitterCardModel
+            {
+                Title = fullTitle,
+                Description = description,
+                ImageUrl = imageUrl
+            },
+            JsonLdGraph = jsonLd,
+            ArticlePublishedAtUtc = articleSeo?.DatePublished is DateTime published
+                ? new DateTimeOffset(DateTime.SpecifyKind(published, DateTimeKind.Utc))
+                : null,
+            ArticleModifiedAtUtc = articleSeo?.DateModified is DateTime modified
+                ? new DateTimeOffset(DateTime.SpecifyKind(modified, DateTimeKind.Utc))
+                : null,
+            ArticleAuthor = NullIfEmpty(articleSeo?.AuthorName),
+            ArticleImageUrl = imageUrl
+        };
+        return model.WithComputedDigest();
+    }
+
+    internal static string BuildSeoHeadTags(PublicSeoHeadModel model)
+    {
+        string serializedModel = JsonSerializer.Serialize(model, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Encoder = JavaScriptEncoder.Default
+        });
+        string ogImage = BuildOptionalMeta("property", "og:image", model.OpenGraph.ImageUrl);
+        string twitterImage = BuildOptionalMeta("name", "twitter:image", model.Twitter.ImageUrl);
         return $"""
-<meta name="description" content="{Encode(description)}" data-fsus-aot-head />
-<meta property="og:title" content="{Encode(fullTitle)}" data-fsus-aot-head />
-<meta property="og:description" content="{Encode(description)}" data-fsus-aot-head />
-<meta property="og:type" content="{Encode(ogType)}" data-fsus-aot-head />
-<meta property="og:url" content="{Encode(canonicalUrl)}" data-fsus-aot-head />
-<meta name="twitter:card" content="summary_large_image" data-fsus-aot-head />
-<meta name="twitter:title" content="{Encode(fullTitle)}" data-fsus-aot-head />
-<meta name="twitter:description" content="{Encode(description)}" data-fsus-aot-head />
-<link rel="canonical" href="{Encode(canonicalUrl)}" data-fsus-aot-head />
-<link rel="alternate" type="application/rss+xml" title="{Encode(siteTitle)} RSS" href="/feed/rss.xml" data-fsus-aot-head />
-<link rel="alternate" type="application/atom+xml" title="{Encode(siteTitle)} Atom" href="/feed/atom.xml" data-fsus-aot-head />
-<link rel="alternate" type="application/feed+json" title="{Encode(siteTitle)} JSON Feed" href="/feed/feed.json" data-fsus-aot-head />
-<script type="application/ld+json" data-fsus-aot-head>{jsonLd}</script>
+<meta name="description" content="{Encode(model.Description)}" data-fsus-aot-head />
+<meta name="robots" content="{Encode(model.Robots)}" data-fsus-aot-head />
+<meta property="og:title" content="{Encode(model.OpenGraph.Title)}" data-fsus-aot-head />
+<meta property="og:description" content="{Encode(model.OpenGraph.Description)}" data-fsus-aot-head />
+<meta property="og:type" content="{Encode(model.OpenGraph.Type)}" data-fsus-aot-head />
+<meta property="og:url" content="{Encode(model.OpenGraph.Url)}" data-fsus-aot-head />
+<meta property="og:locale" content="{Encode(model.OpenGraph.Locale)}" data-fsus-aot-head />
+{ogImage}<meta name="twitter:card" content="{Encode(model.Twitter.Card)}" data-fsus-aot-head />
+<meta name="twitter:title" content="{Encode(model.Twitter.Title)}" data-fsus-aot-head />
+<meta name="twitter:description" content="{Encode(model.Twitter.Description)}" data-fsus-aot-head />
+{twitterImage}<link rel="canonical" href="{Encode(model.CanonicalUrl)}" data-fsus-aot-head />
+<link rel="alternate" type="application/rss+xml" title="RSS" href="/feed/rss.xml" data-fsus-aot-head />
+<link rel="alternate" type="application/atom+xml" title="Atom" href="/feed/atom.xml" data-fsus-aot-head />
+<link rel="alternate" type="application/feed+json" title="JSON Feed" href="/feed/feed.json" data-fsus-aot-head />
+<script type="application/ld+json" data-fsus-aot-head>{model.JsonLdGraph}</script>
+<script type="application/json" data-fsus-seo-head-model data-fsus-aot-head>{serializedModel}</script>
 """;
     }
+
+    private static string BuildOptionalMeta(string attribute, string name, string? content)
+        => string.IsNullOrWhiteSpace(content)
+            ? string.Empty
+            : $"<meta {attribute}=\"{Encode(name)}\" content=\"{Encode(content)}\" data-fsus-aot-head />\n";
 
     private static string BuildJsonLd(
         PublicPageKind kind,
@@ -443,11 +515,20 @@ internal static class PublicAotDocumentComposer
     }
 
     private static string BuildAotManagedHead(PublicAotDocumentModel model)
-        => $"""
+    {
+        PublicSeoHeadModel seoHead = model.SeoHead ?? BuildSeoHeadModel(
+            model.Kind,
+            model.Title,
+            model.SiteTitle,
+            model.Description,
+            model.CanonicalUrl,
+            model.ArticleSeo);
+        return $"""
 {BuildThemeBootstrapScript()}
-    <title>{Encode(model.Title)}{BuildTitleSuffix(model.Title, model.SiteTitle)}</title>
-    {BuildSeoHeadTags(model.Kind, model.Title, model.SiteTitle, model.Description, model.CanonicalUrl, model.ArticleSeo)}
+    <title data-fsus-aot-head>{Encode(seoHead.DocumentTitle)}</title>
+    {BuildSeoHeadTags(seoHead)}
 """;
+    }
 
     private static void ValidateSentinels(string template)
     {
@@ -956,16 +1037,6 @@ internal static class PublicAotDocumentComposer
     {
         string value = src.Trim().Replace('\\', '/');
         return value.StartsWith("/", StringComparison.Ordinal) ? value : "/" + value;
-    }
-
-    private static string BuildTitleSuffix(string title, string siteTitle)
-    {
-        if (string.IsNullOrWhiteSpace(siteTitle) || string.Equals(title, siteTitle, StringComparison.Ordinal))
-        {
-            return string.Empty;
-        }
-
-        return $" - {Encode(siteTitle)}";
     }
 
     private static string BuildBinaryPayloadScript(string id, string payload)

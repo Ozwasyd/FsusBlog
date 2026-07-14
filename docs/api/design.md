@@ -394,7 +394,11 @@ Public AOT document composer 只允许通过以下 5 个具名 sentinel 写入 A
 | `<!--fsus:aot:payloads-->` | bootstrap AEDS 注入点与 hydration `.aeds` sidecar marker 注入点 |
 | `<!--fsus:aot:spa-boot-->` | deferred SPA boot 注入点 |
 
-模板缺少任一 sentinel 必须失败而不是静默降级。AOT 负责维护的 description/canonical/Open Graph/Twitter/feed/JSON-LD head 节点必须统一带 `data-fsus-aot-head`，客户端 micro-navigation 只替换这些标记节点，不触碰 Vite runtime、CSP nonce 或其他非 AOT head。新增 sentinel 必须同步更新 [`PublicAotDocumentComposer.cs`](../../src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs)、本节列表、[`contracts.md#aot-公开页契约`](contracts.md#aot-公开页契约) 与 [`tests/frontend/checks/public/check-public-aot-contracts.mjs`](../../tests/frontend/checks/public/check-public-aot-contracts.mjs) 的完整性断言。
+模板缺少任一 sentinel 必须失败而不是静默降级。AOT 负责维护的 `<title>`、description、robots、canonical、Open Graph、Twitter、feed、JSON-LD 和 head-model marker 必须统一带 `data-fsus-aot-head`。服务端 document composer 与 navigation snapshot 都消费 `PublicSeoHeadModel`；客户端只能在 contract schema/version、SHA-256 digest、同源 canonical、canonical path 和 page entity 全部校验后，将整组节点一次性替换。旧节点必须先作为同一历史 route 的回退模型保留，再整体移除，不允许逐字段叠加或让文章 canonical/JSON-LD 泄漏到非公开应用路由。
+
+SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、digest 不符或 origin/path 不一致，当前路由不提交任何 seed/head，转为同 URL 整页导航；服务端 AOT 首屏仍可独立工作。运维可在不重启服务的情况下禁用公共 SPA 接管/让浏览器走整页导航，缓存中的旧 snapshot 因 `Cache-Control: no-cache` 必须重新验证，不能静默与新 contract 混用。CSP nonce、主题 bootstrap 和 Vite runtime 节点不属于 `data-fsus-aot-head` 替换集合。
+
+新增 sentinel 或 head 字段必须同步更新 [`PublicAotDocumentComposer.cs`](../../src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs)、本节列表、[`contracts.md#aot-公开页契约`](contracts.md#aot-公开页契约) 与 [`tests/frontend/checks/public/check-public-aot-contracts.mjs`](../../tests/frontend/checks/public/check-public-aot-contracts.mjs) 的完整性断言。
 
 ## 单作者内容生命周期约定
 

@@ -290,7 +290,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 68 | `PasskeyCredentialFriendlyNameUpdateRequest` | `PasskeyCredentialFriendlyNameUpdateRequestPod` | `PUT /api/binary/auth/passkey/credentials/{id}/name` 请求体 |
 | 69 | `NotificationEvent` | binary notification value | `/api/notifications/stream` WebSocket 事件；`CommentAdded` payload 的 `comment` 字段使用 `author` / `replyToAuthor` 作者快照，不允许恢复 legacy identity fields |
 | 70 | `NotificationHeartbeat` | `int64 timestampUnixMs` | `/api/notifications/stream` WebSocket 心跳 |
-| 71 | `PublicAotBootstrap` | binary tagged value | Public AOT HTML bootstrap / hydration；`GET /api/public/navigation-snapshot.aeds?path=...` 的 `public-navigation-snapshot` envelope |
+| 71 | `PublicAotBootstrap` | binary tagged value | Public AOT HTML bootstrap / hydration；`GET /api/public/navigation-snapshot.aeds?path=...` 的 `public-navigation-snapshot` envelope（含 schema/version/SHA-256 digest 的 `PublicSeoHeadModel`） |
 | 72 | `SiteComplianceConfigUpdateRequest` | `SiteComplianceConfigPod` | `PUT /api/binary/system/compliance` 请求体 |
 | 159 | `RecoveryKeyCreateResponse` | `RecoveryKeyCreateResponsePod` | `POST /api/binary/auth/recovery-key/create`、`/rotate` 响应 |
 | 160 | `RecoveryKeyVerifyRequest` | `RecoveryKeyVerifyRequestPod` | `POST /api/binary/auth/recovery-key/verify` 请求体；不携带 account id，服务端从 Recovery Key lookup id 定位 |

@@ -1273,7 +1273,7 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
   - `<!--fsus:aot:app-->`：SPA/AOT shell 挂载点。
   - `<!--fsus:aot:payloads-->`：bootstrap AEDS 注入点与 hydration `.aeds` sidecar marker 注入点。
   - `<!--fsus:aot:spa-boot-->`：deferred SPA boot 注入点。
-- 由 Public AOT 管理的 SEO head 节点必须带 `data-fsus-aot-head`。新增 sentinel 必须同步 `src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs`、`docs/api/design.md` 和 `tests/frontend/checks/public/check-public-aot-contracts.mjs`。
+- 由 Public AOT 管理的 SEO head 节点必须带 `data-fsus-aot-head`，包括 `<title>` 和 `script[data-fsus-seo-head-model]`。HTML、navigation snapshot 和 SPA takeover 必须使用 `PublicSeoHeadModel` 同一语义实例；不得由客户端从 route meta 另行拼接 canonical、OG、Twitter 或 JSON-LD。新增 sentinel/head 字段必须同步 `src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs`、`docs/api/design.md` 和 `tests/frontend/checks/public/check-public-aot-contracts.mjs`。
 - 含 `<head>`、inline `script` 或 inline `style` 的 document 在 publication/decode 阶段编译 CSP nonce UTF-8 segment template。模板绑定 renderer version、frontend asset version、artifact ETag/digest；请求只写预计算 segment/slot，不重新扫描或生成完整 rendered string/byte array。malformed/重复 nonce、预渲染 `csp-nonce` meta、原始 placeholder、重复 head、未闭合或自闭合 script/style 必须 fail closed。
 - nonce document 响应固定为 identity、`Cache-Control: private,no-store`、无 `Content-Encoding`、无 `ETag`/`304`；`Accept-Encoding` 明确 `identity;q=0` 时返回 406。无 nonce document 继续使用预生成 identity/br/gzip variant 与各自 strong ETag。HEAD 只返回按实际随机 nonce 长度计算的 Content-Length，不写 body。
 - PublicHotRead runtime snapshot 的 `residentBytes` 是 `independent-readonly-arrays-upper-bound-v1` 总上界，包含 binary variants、HTML bytes、nonce template UTF-8 bytes、slot table、构建生成的静态 inline SHA-256 feasibility list、metadata 与 key/index 估算；`htmlTemplateResidentBytes` 单独可观测。分项或 candidate/current overlap 超出动态/显式 budget 时新 snapshot 不得发布，旧 snapshot/version/ETag/invalidation 语义保持不变。
@@ -1355,11 +1355,33 @@ Public AOT 冷 miss 的分类结果固定为 `Success`、`NotFound`、`Gone`、`
   "payloadHash": "sha256-hex",
   "generatedAtUtc": "2026-06-18T00:00:00.0000000Z",
   "bootstrapPayload": "<base64url AEDS frame>",
-  "hydrationPropsPayload": "<base64url AEDS frame>"
+  "hydrationPropsPayload": "<base64url AEDS frame>",
+  "seoHead": {
+    "schema": "fsusblog.public-seo-head",
+    "version": 1,
+    "digest": "sha256-hex",
+    "documentTitle": "Archive - FsusBlog",
+    "description": "...",
+    "canonicalUrl": "https://fsus.blog/archive",
+    "publicOrigin": "https://fsus.blog",
+    "robots": "index,follow",
+    "locale": "zh-CN",
+    "pageType": "Archive",
+    "pageEntityId": "https://fsus.blog/archive",
+    "openGraph": { "title": "...", "description": "...", "type": "website", "url": "https://fsus.blog/archive", "locale": "zh_CN", "imageUrl": null },
+    "twitter": { "card": "summary_large_image", "title": "...", "description": "...", "imageUrl": null },
+    "jsonLdGraph": "{...}",
+    "articlePublishedAtUtc": null,
+    "articleModifiedAtUtc": null,
+    "articleAuthor": null,
+    "articleImageUrl": null
+  }
 }
 ```
 
-`bootstrapPayload` 与 `hydrationPropsPayload` 必须来自 `PublicAotRenderRequest` -> `PublicAotShellEntryContract` 的同一条 renderer 输出，不能由 endpoint 自行重建。成功响应写入 `ETag`、`Cache-Control: public, max-age=30, stale-while-revalidate=300`、`Vary: Accept`，并暴露 `X-Fsus-Public-Aot-Route-Key`、`X-Fsus-Public-Aot-Renderer-Version`、`X-Fsus-Public-Aot-Frontend-Asset-Version`。`If-None-Match` 命中返回 `304`。path 语法错误返回 `400`，不支持或不可公开的 route 返回 `404`，内容协商失败返回 `406`，renderer/provider/gate 失败返回 `503`；所有负响应固定 `Cache-Control: no-store`。
+`bootstrapPayload`、`hydrationPropsPayload` 与 `seoHead` 必须来自 `PublicAotRenderRequest` -> `PublicAotShellEntryContract` -> document service 的同一条输出，不能由 endpoint 或客户端自行重建。`PublicSeoHeadModel` 的 digest 对除 digest 本身以外的字段按固定顺序做 UTF-8 byte-length-prefix 编码后计算 SHA-256；snapshot 的 `payloadHash` 也覆盖该 digest。客户端只接受当前 schema/version，且必须验证 digest、public origin、canonical path、OG URL 与 page entity origin。任一检查失败不得写入 route seed 或局部改写 head，而是退回同 URL 整页导航。
+
+成功响应写入 `ETag`、`Cache-Control: no-cache`、`Vary: Accept, X-Fsus-Test-Session`，并暴露 `X-Fsus-Public-Aot-Route-Key`、`X-Fsus-Public-Aot-Renderer-Version`、`X-Fsus-Public-Aot-Frontend-Asset-Version`。`If-None-Match` 命中返回 `304`。path 语法错误返回 `400`，不支持或不可公开的 route 返回 `404`，内容协商失败返回 `406`，renderer/provider/gate 失败返回 `503`；所有负响应固定 `Cache-Control: no-store`。
 
 hydration payload sidecar 的 URL 只允许解析到 web root 内的静态文件路径。AOT cache 读取持久化 entry、document service 写入 sidecar、Node SSR worker script 启动前都必须使用 canonical full path + relative path 校验确认目标没有逃逸各自 root；越界 sidecar 视为 cache entry 无效或跳过写入，越界 worker script 直接 fail closed，不尝试执行。
 

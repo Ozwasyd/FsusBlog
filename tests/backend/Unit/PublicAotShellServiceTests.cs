@@ -543,6 +543,7 @@ public sealed class PublicAotShellServiceTests
         Assert.NotEmpty(snapshot.PayloadHash);
         Assert.NotEmpty(snapshot.BootstrapPayload);
         Assert.NotEmpty(snapshot.HydrationPropsPayload);
+        Assert.True(snapshot.SeoHead.HasValidContractAndDigest());
         Assert.Single(renderer.Requests);
 
         byte[] frame = snapshot.EncodeFrame();
@@ -551,6 +552,10 @@ public sealed class PublicAotShellServiceTests
         Assert.Equal("Archive", payload["pageKind"]);
         Assert.Equal("archive", payload["routeKey"]);
         Assert.Equal(snapshot.PayloadHash, payload["payloadHash"]);
+        IReadOnlyDictionary<string, object?> seoHead = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(payload["seoHead"]);
+        Assert.Equal(PublicSeoHeadContract.Schema, seoHead["schema"]);
+        Assert.Equal(PublicSeoHeadContract.Version, Convert.ToInt32(seoHead["version"]));
+        Assert.Equal(snapshot.SeoHead.Digest, seoHead["digest"]);
     }
 
     private static PublicAotRouteMatch HomeMatch()
@@ -593,7 +598,7 @@ public sealed class PublicAotShellServiceTests
             new FixedRouteRegistry(match),
             bootstrapProviders ?? CreateBootstrapProviders(),
             entryRenderer ?? Substitute.For<IPublicAotEntryRenderer>(),
-            Substitute.For<IPublicAotDocumentService>(),
+            CreateDocumentService(match),
             cache,
             Substitute.For<IPublicAotCacheWriter>(),
             scheduler,
@@ -602,6 +607,21 @@ public sealed class PublicAotShellServiceTests
             invalidationTracker ?? new PublicAotInvalidationTracker(),
             runtimeState ?? new PublicAotSsrRuntimeState(new ConfigurationBuilder().Build()),
             NullLogger<PublicAotShellService>.Instance);
+
+    private static IPublicAotDocumentService CreateDocumentService(PublicAotRouteMatch match)
+    {
+        IPublicAotDocumentService service = Substitute.For<IPublicAotDocumentService>();
+        string canonicalUrl = $"https://blog.fsus.blog{match.CanonicalPath}";
+        PublicSeoHeadModel head = PublicAotDocumentComposer.BuildSeoHeadModel(
+            match.Kind,
+            match.Kind.ToString(),
+            "FsusBlog",
+            "Description",
+            canonicalUrl);
+        service.BuildSeoHeadModelAsync(Arg.Any<PublicAotShellEntryContract>(), Arg.Any<CancellationToken>())
+            .Returns(Result<PublicSeoHeadModel>.Success(head));
+        return service;
+    }
 
     private static string VersionedListKey(string cacheKey, long version = 0)
         => string.Concat(cacheKey, ":lv:", version.ToString());

@@ -586,6 +586,8 @@ async function checkShellStructure(page, options = {}) {
       node.getAttribute('rel') ?? '',
       node.getAttribute('href') ?? '',
       node.getAttribute('content') ?? '',
+      node.getAttribute('type') ?? '',
+      node.hasAttribute('data-fsus-seo-head-model') ? 'seo-head-model' : '',
     ].join('|'))
     const duplicateHeadKey = headKeys.find((key, index) => headKeys.indexOf(key) !== index)
     if (duplicateHeadKey) {
@@ -678,6 +680,8 @@ async function checkUnhydratedAotFallbackStructure(page, route) {
       node.getAttribute('rel') ?? '',
       node.getAttribute('href') ?? '',
       node.getAttribute('content') ?? '',
+      node.getAttribute('type') ?? '',
+      node.hasAttribute('data-fsus-seo-head-model') ? 'seo-head-model' : '',
     ].join('|'))
     const duplicateHeadKey = headKeys.find((key, index) => headKeys.indexOf(key) !== index)
     if (duplicateHeadKey) {
