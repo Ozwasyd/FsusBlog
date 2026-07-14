@@ -37,7 +37,7 @@ jobs:
       backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
       backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -103,7 +103,7 @@ jobs:
       production_build_domains_json: ${{ steps.smart.outputs.production_build_domains_json }}
       production_summary: ${{ steps.smart.outputs.production_summary }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
@@ -147,7 +147,7 @@ jobs:
       source_fingerprint: ${{ steps.receipt.outputs.source_fingerprint }}
       receipt_digest: ${{ steps.receipt.outputs.receipt_digest }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -199,7 +199,7 @@ jobs:
       FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD: '20'
       FSUSBLOG_FRONTEND_COVERAGE_FUNCTION_THRESHOLD: '30'
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -231,7 +231,7 @@ jobs:
     needs: validate-matrix
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -274,7 +274,7 @@ jobs:
     needs: validate-matrix
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -301,7 +301,7 @@ jobs:
     needs: validate-matrix
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -331,7 +331,7 @@ jobs:
     needs: validate-matrix
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -356,7 +356,7 @@ jobs:
     needs: validate-matrix
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -381,7 +381,7 @@ jobs:
     needs: validate-matrix
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -413,7 +413,7 @@ jobs:
     needs: [fast-backend, frontend-build, fast-frontend-unit, frontend-runtime-contracts, frontend-static-governance, fast-static-governance]
     timeout-minutes: 50
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -466,7 +466,7 @@ jobs:
     needs: [fast-frontend-unit, fast-static-governance]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -495,7 +495,7 @@ jobs:
     if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.integration_runtime == 'true'
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -540,7 +540,7 @@ jobs:
     env:
       FSUSBLOG_TEST_NAMESPACE: ci-endpoint-depth-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -580,7 +580,7 @@ jobs:
     if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.release_public == 'true'
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -625,7 +625,7 @@ jobs:
     if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_runtime == 'true'
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -670,7 +670,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -704,7 +704,7 @@ jobs:
       FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
       FSUSBLOG_TEST_NAMESPACE: ci-acceptance-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -756,7 +756,7 @@ jobs:
       FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
       FSUSBLOG_TEST_NAMESPACE: ci-visual-public-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -810,7 +810,7 @@ jobs:
       FSUSBLOG_PLAYWRIGHT_WORKERS: ${{ matrix.playwright_workers }}
       FSUSBLOG_TEST_NAMESPACE: ci-visual-console-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -857,7 +857,7 @@ jobs:
     if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.visual_playwright == 'true')
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -891,7 +891,7 @@ jobs:
       FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
       FSUSBLOG_TEST_NAMESPACE: ci-ux-viewport-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -945,7 +945,7 @@ jobs:
       FSUSBLOG_ROUTE_RENDER_PRESSURE_STRICT: '1'
       FSUSBLOG_PLAYWRIGHT_WORKERS: '1'
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -1004,7 +1004,7 @@ jobs:
       FSUSBLOG_PLAYWRIGHT_BROWSERS: ${{ matrix.browser }}
       FSUSBLOG_TEST_NAMESPACE: ci-cross-browser-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.browser }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -1049,7 +1049,7 @@ jobs:
     if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.resilience_runtime == 'true'
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -1090,7 +1090,7 @@ jobs:
     if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.load_smoke == 'true'
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -1136,7 +1136,7 @@ jobs:
     env:
       FSUSBLOG_TEST_NAMESPACE: ci-backend-qps-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -1177,7 +1177,7 @@ jobs:
     if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true'
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -1210,7 +1210,7 @@ jobs:
       matrix:
         browser: [chromium, firefox, webkit]
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
@@ -1312,7 +1312,7 @@ jobs:
     if: always()
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
@@ -1366,7 +1366,7 @@ jobs:
     if: always() && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true')
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24.x
