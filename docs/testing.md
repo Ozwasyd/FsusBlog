@@ -796,6 +796,7 @@ tools/operations/cleanup-retention.sh
 - Binary frame 必须为 AEDS v2，header 长度 16 字节；v1 frame 不允许被服务端、Worker 或 Wasm 接受。
 - `/api/binary/**` 在公开读、匿名拒绝、admin 拒绝场景下状态与 AEDS error frame 一致。
 - `check:distribution-version-coherence` 覆盖文章生命周期状态：draft、scheduled、archived 必须只在 admin 状态列表和 admin detail 可见，published 才能进入 public list/detail、feed、sitemap、related-reading、PublicAOT 与 search index；delete/restore/permanent-delete 继续验证回收站语义。
+- `BlogDistributionArtifactTests` 使用真实 PostgreSQL 创建 55 篇公开文章和私有负例，解析最终 RSS/JSON Feed/sitemap XML，证明 Feed 保持 50、sitemap 全量、正文更新时间一致、空站不伪造当前时间、诊断计数来自产物，并用 45,001 URL fixture 验证 sitemap index/子文档容量边界。`PublicOriginPolicyTests` 与 lifecycle production case 覆盖配置、持久 SEO 和 artifact origin 冲突 fail-closed。
 - PoW、MFA、Passkey、session refresh/revoke/logout、RBAC 权限矩阵均无绕过。
 - 安全头、CORS、auth/PoW no-store、Cookie 安全属性、畸形 AEDS frame、notification stream 握手失败和攻击矩阵均无绕过。
 - OWASP ZAP baseline 不得产生 FAIL 级告警；报告必须保留为发布门控 artifact。

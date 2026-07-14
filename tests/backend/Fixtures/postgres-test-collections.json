@@ -24,7 +24,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 168,
+      "estimatedFacts": 171,
       "tests": [
         { "path": "Unit/AnonymousCredentialIssuerTests.cs", "class": "AnonymousCredentialIssuerTests" },
         { "path": "Unit/AnonymousCredentialRootLifecycleTests.cs", "class": "AnonymousCredentialRootLifecycleTests" },
@@ -51,6 +51,7 @@
         { "path": "Unit/HumanReadProofPersistencePrivacyTests.cs", "class": "HumanReadProofPersistencePrivacyTests" },
         { "path": "Unit/LogCleanupDatabaseBehaviorTests.cs", "class": "LogCleanupDatabaseBehaviorTests" },
         { "path": "Unit/RelatedReadingServiceTests.cs", "class": "RelatedReadingServiceTests" },
+        { "path": "Unit/BlogDistributionArtifactTests.cs", "class": "BlogDistributionArtifactTests" },
         { "path": "Unit/ScheduledPublishWorkerTests.cs", "class": "ScheduledPublishWorkerTests" },
         { "path": "Unit/StatsPerformanceContractTests.cs", "class": "StatsPerformanceContractTests" },
         { "path": "Unit/StatsServiceRegionTests.cs", "class": "StatsServiceRegionTests" },

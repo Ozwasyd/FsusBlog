@@ -38,6 +38,16 @@ public static class DistributionEndpoints
             .AllowAnonymous()
             .CacheOutput(static builder => ApplyDistributionCache(builder));
 
+        app.MapGet("/sitemap/{page:int}.xml", async (int page, HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
+        {
+            string? body = await service.BuildSitemapPageAsync(page, cancellationToken);
+            return body is null
+                ? Results.NotFound()
+                : BuildCachedTextResult(ctx, body, "application/xml; charset=utf-8");
+        })
+            .AllowAnonymous()
+            .CacheOutput(static builder => ApplyDistributionCache(builder));
+
         app.MapGet("/robots.txt", async (HttpContext ctx, BlogDistributionService service, CancellationToken cancellationToken) =>
             await BuildCachedTextResultAsync(ctx, () => service.BuildRobotsAsync(cancellationToken), "text/plain; charset=utf-8"))
             .AllowAnonymous()

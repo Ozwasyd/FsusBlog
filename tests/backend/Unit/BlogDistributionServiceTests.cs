@@ -26,27 +26,37 @@ public sealed class BlogDistributionServiceTests
     }
 
     [Fact]
-    public void BuildSitemapAsync_RuntimeCachesByArticleListVersionAndAvoidsConcurrentDbUse()
+    public void FeedAndSitemap_RuntimeUseIndependentBoundedAndCompleteProjections()
     {
-        string build = RuntimeMetadataInspection.DescribeMethods(
+        string sitemap = RuntimeMetadataInspection.DescribeMethods(
             typeof(BlogDistributionService),
-            nameof(BlogDistributionService.BuildSitemapAsync));
-        string snapshot = RuntimeMetadataInspection.DescribeMethods(
+            "LoadSitemapArtifactSetAsync",
+            "LoadSitemapCategoriesAsync",
+            "LoadSitemapTagsAsync");
+        string sitemapArticleQuery = RuntimeMetadataInspection.DescribeMethods(
             typeof(BlogDistributionService),
-            "LoadSnapshotAsync");
+            "LoadSitemapArticlesAsync");
+        string feed = RuntimeMetadataInspection.DescribeMethods(
+            typeof(BlogDistributionService),
+            "LoadFeedSnapshotAsync",
+            "LoadFeedArticlesAsync");
 
-        Assert.Contains("GetArticleListVersionAsync", build, StringComparison.Ordinal);
-        Assert.Contains("sitemap:v:", build, StringComparison.Ordinal);
-        Assert.Contains("TryGetValue", build, StringComparison.Ordinal);
-        Assert.Contains("LoadSnapshotAsync", build, StringComparison.Ordinal);
-        Assert.Contains("LoadCategoriesAsync", build, StringComparison.Ordinal);
-        Assert.Contains("LoadTagsAsync", build, StringComparison.Ordinal);
-        Assert.Contains("Set", build, StringComparison.Ordinal);
-        Assert.Contains("GetSeoConfigAsync", snapshot, StringComparison.Ordinal);
-        Assert.Contains("GetSiteComplianceConfigAsync", snapshot, StringComparison.Ordinal);
-        Assert.Contains("LoadDistributionArticlesAsync", snapshot, StringComparison.Ordinal);
-        Assert.DoesNotContain("Task.WhenAll", build, StringComparison.Ordinal);
-        Assert.DoesNotContain("Task.WhenAll", snapshot, StringComparison.Ordinal);
+        Assert.Contains("GetArticleListVersionAsync", sitemap, StringComparison.Ordinal);
+        Assert.Contains("sitemap:v:", sitemap, StringComparison.Ordinal);
+        Assert.Contains("LoadSitemapArticlesAsync", sitemap, StringComparison.Ordinal);
+        Assert.Contains("LoadSitemapCategoriesAsync", sitemap, StringComparison.Ordinal);
+        Assert.Contains("LoadSitemapTagsAsync", sitemap, StringComparison.Ordinal);
+        Assert.Contains("article_body", sitemapArticleQuery, StringComparison.Ordinal);
+        Assert.DoesNotContain("MarkdownContent", sitemapArticleQuery, StringComparison.Ordinal);
+        Assert.DoesNotContain("Take", sitemapArticleQuery, StringComparison.Ordinal);
+        Assert.DoesNotContain("LIMIT @Limit", sitemapArticleQuery, StringComparison.Ordinal);
+
+        Assert.Contains("GetSeoConfigAsync", feed, StringComparison.Ordinal);
+        Assert.Contains("GetSiteComplianceConfigAsync", feed, StringComparison.Ordinal);
+        Assert.Contains("LoadFeedArticlesAsync", feed, StringComparison.Ordinal);
+        Assert.Contains("LIMIT @Limit", feed, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", sitemap, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.WhenAll", feed, StringComparison.Ordinal);
     }
 
     private static T RunWithCulture<T>(string cultureName, Func<T> action)

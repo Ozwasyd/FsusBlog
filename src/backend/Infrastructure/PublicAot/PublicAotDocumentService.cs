@@ -23,10 +23,7 @@ public sealed class PublicAotDocumentService(
     private static readonly ConcurrentDictionary<string, PreparedTemplateCacheEntry> PreparedTemplateCache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, string> HeadLinksCache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, byte> HydrationSidecarExistsCache = new(StringComparer.Ordinal);
-    private readonly string? _configuredBaseUrl = NormalizeBaseUrlOrNull(
-        configuration["Seo:BaseUrl"]
-        ?? configuration["Seo__BaseUrl"]
-        ?? configuration["SITE_BASEURL"]);
+    private readonly string? _configuredBaseUrl = configuration["Seo:BaseUrl"];
 
     public async Task<Result<PublicSeoHeadModel>> BuildSeoHeadModelAsync(
         PublicAotShellEntryContract entry,
@@ -118,7 +115,9 @@ public sealed class PublicAotDocumentService(
         string description = ResolveDescription(entry, payloads, seo.Description);
         string siteTitle = ResolvePayloadString(payloads.Hydration, "siteTitle", seo.Title);
         PublicPageKind kind = ResolvePageKind(entry.PageId);
-        string canonicalUrl = string.Concat(ResolveCanonicalBaseUrl(entry.BaseUrl, _configuredBaseUrl), ResolveCanonicalPath(entry));
+        string canonicalUrl = string.Concat(
+            PublicOriginPolicy.Resolve(_configuredBaseUrl, seo.BaseUrl, entry.BaseUrl),
+            ResolveCanonicalPath(entry));
         PublicAotArticleSeoMetadata? articleSeo = BuildArticleSeoMetadata(
             kind,
             payloads,
@@ -398,23 +397,6 @@ public sealed class PublicAotDocumentService(
     private static string ResolveCanonicalPath(PublicAotShellEntryContract entry)
         => PublicRouteIdentity.BuildCanonicalPath(entry.PageId, entry.RouteKey, entry.ArticleId);
 
-    private static string ResolveCanonicalBaseUrl(string? entryBaseUrl, string? configuredBaseUrl)
-    {
-        string? configured = NormalizeBaseUrlOrNull(configuredBaseUrl);
-        string? entry = NormalizeBaseUrlOrNull(entryBaseUrl);
-        if (!string.IsNullOrWhiteSpace(configured) && (string.IsNullOrWhiteSpace(entry) || IsProjectDefaultBaseUrl(entry)))
-        {
-            return configured;
-        }
-
-        return entry ?? configured ?? "https://fsus.blog";
-    }
-
-    private static bool IsProjectDefaultBaseUrl(string value)
-        => string.Equals(value, "https://fsus.blog", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "https://blog.fsus.blog", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "https://example.com", StringComparison.OrdinalIgnoreCase);
-
     private static PublicAotArticleSeoMetadata? BuildArticleSeoMetadata(
         PublicPageKind kind,
         DecodedEntryPayloads payloads,
@@ -501,22 +483,6 @@ public sealed class PublicAotDocumentService(
         => articleId is > 0
             ? value.Replace("{{articleId}}", articleId.Value.ToString(), StringComparison.OrdinalIgnoreCase)
             : value;
-
-    private static string? NormalizeBaseUrlOrNull(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        string trimmed = value.Trim().TrimEnd('/');
-        return Uri.TryCreate(trimmed, UriKind.Absolute, out Uri? uri)
-            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
-            && string.IsNullOrEmpty(uri.Query)
-            && string.IsNullOrEmpty(uri.Fragment)
-                ? trimmed
-                : null;
-    }
 
     private sealed record DecodedEntryPayloads(
         IReadOnlyDictionary<string, object?>? Bootstrap,

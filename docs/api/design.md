@@ -342,6 +342,12 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 
 feed、sitemap 与 robots 等开放分发文本端点只负责生成标准格式正文、声明 `Cache-Control: public, max-age=60, stale-while-revalidate=300`、`Vary: Accept-Encoding, CF-IPCountry, X-Fsus-Region` 并挂载 OutputCache ArticleList/Seo tag；端点本身不得按响应正文手写 ETag、解析 `If-None-Match` 或绕过统一缓存失效链路。
 
+Feed 与 sitemap 是两条独立投影：Feed 只读取按实际发布时间排序的最新 50 篇，sitemap 不得复用该限制，必须读取全部公开 canonical article identity。两者只联接 `article_body.updated_at` 获取实质正文更新时间，不读取正文；Feed 的 `date_published` 使用首次公开时间，`date_modified`/Atom `updated` 与 sitemap article `lastmod` 都使用正文更新时间，缺失正文时间时才回退发布时间。首页/归档使用公开文章集合的最近实质变化，分类/标签使用各自公开集合的最近实质变化，about/privacy/guidelines/copyright 只使用自身 `page_content.updated_at`；没有可靠时间就省略 `lastmod`，禁止使用当前时间填充。
+
+单个 urlset 最多承载 45,000 条 URL；超过后 `/sitemap.xml` 输出 sitemap index，子文档由 `/sitemap/{page}.xml` 提供，给协议上限保留安全余量。诊断计数必须解析最终 RSS/sitemap XML（含 index 子文档），不能用独立数据库 COUNT 冒充产物覆盖。sitemap 不输出 `priority`，该字段不是排名信号。
+
+公开 URL 的唯一权威 origin 是运行时 `Seo:BaseUrl` 与持久 SEO 配置经 `PublicOriginPolicy` 校验后的同一 origin。AOT canonical、Open Graph/JSON-LD、Feed、sitemap 和 robots Sitemap 声明必须使用同一结果；非占位持久值或 artifact 值与配置冲突时，生产启动及产物生成 fail closed，不得静默输出多套域名。
+
 代码证据：[`DistributionEndpoints.cs`](../../src/backend/Modules/Endpoints/DistributionEndpoints.cs)、[`BlogDistributionService.cs`](../../src/backend/Services/Distribution/BlogDistributionService.cs)；JSON/feed 豁免见 [`aeds-only-policy.md#允许豁免`](aeds-only-policy.md#允许豁免)。
 
 ### 公开 AOT artifact 路径

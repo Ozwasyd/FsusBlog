@@ -1555,10 +1555,15 @@ X-Fsus-Pow-Answer: <nonce 值>
 | GET | `/feed/atom.xml` | `application/atom+xml` | Atom feed |
 | GET | `/feed/feed.json` | `application/feed+json` | JSON Feed 1.1 |
 | GET | `/sitemap.xml` | `application/xml` | 首页、文章、归档、关于、隐私政策、用户守则、版权声明、分类、标签；排除登录、用户、admin |
+| GET | `/sitemap/{page}.xml` | `application/xml` | 仅当根 sitemap 达到容量边界并输出 index 时提供对应子 urlset；无效页返回 404 |
 | GET | `/robots.txt` | `text/plain` | 声明 sitemap，并拒绝私有路由 |
 | GET | `/api/binary/article/{articleId}/related.aeds` | `AedsFrameType.ArticleRelatedReading` | 基于分类、标签、全文关键词和发布时间的公开延伸阅读 |
 
 feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 并挂载 OutputCache ArticleList/Seo tag；端点不按正文手写 ETag，也不在请求线程解析 `If-None-Match`。RSS channel 的 copyright 来源于合规配置；`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开路由可抓取。
+
+Feed article projection 固定最多 50 条；sitemap article projection 无 Feed 限制，且只选择 article identity、发布时间和 `article_body.updated_at`，不加载 Markdown。文章 `lastmod`、JSON Feed `date_modified`、Atom `updated` 和 AOT `dateModified` 使用同一实质正文更新时间；首次公开时间单独写入 `date_published`/Atom `published`/RSS `pubDate`。首页/归档、分类、标签分别使用其公开集合的最近实质变化；静态页只读取自身 `page_content.updated_at`；来源不存在时省略 `lastmod`。空站重复生成不得引入当前时间。sitemap 不输出 `priority`。
+
+urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index 并引用 `/sitemap/{page}.xml`。诊断的 URL/item 数直接解析最终 XML 产物；不能以另一条 COUNT 查询替代。`Seo:BaseUrl` 是配置侧权威 public origin，持久 SEO 值只允许相同 origin或项目占位值；AOT artifact、canonical、OG、JSON-LD、Feed、sitemap 与 robots 必须一致，生产启动检测到非占位冲突时以 `public_origin_conflict` fail closed。
 
 公开评论读取、公开 taxonomy 与 `related-reading` AEDS 端点受 `public_read` 限流和风险感知过滤保护。风险分达到 50 时动态 API 要求 `X-Fsus-Pow-Proof`，达到 100 时返回 429；verified crawler 走独立高额度，social preview bot 不允许访问 `/api/**`。
 

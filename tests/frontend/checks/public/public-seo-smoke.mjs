@@ -234,13 +234,27 @@ async function assertRealNotFoundStatus(item) {
   );
 }
 
-async function assertDistributionCanonicalCoherence(canonical) {
-  const [sitemap, rss, atom, jsonFeedText] = await Promise.all([
+function readXmlElementValues(xml, elementName) {
+  const pattern = new RegExp(`<${elementName}(?:\\s[^>]*)?>([^<]+)</${elementName}>`, 'giu');
+  return [...xml.matchAll(pattern)].map((match) => match[1]);
+}
+
+function assertUrlsUseOrigin(urls, origin, label) {
+  for (const value of urls) {
+    const parsed = new URL(value);
+    assert(parsed.origin === origin, `[distribution] ${label} origin drift: ${parsed.origin} != ${origin}`);
+  }
+}
+
+async function assertDistributionCanonicalCoherence(canonical, articleHtml) {
+  const [sitemap, rss, atom, jsonFeedText, robots] = await Promise.all([
     fetchPublicText('/sitemap.xml', 'application/xml,text/xml'),
     fetchPublicText('/feed/rss.xml', 'application/rss+xml,application/xml,text/xml'),
     fetchPublicText('/feed/atom.xml', 'application/atom+xml,application/xml,text/xml'),
-    fetchPublicText('/feed/feed.json', 'application/feed+json,application/json')
+    fetchPublicText('/feed/feed.json', 'application/feed+json,application/json'),
+    fetchPublicText('/robots.txt', 'text/plain')
   ]);
+  const origin = new URL(canonical).origin;
 
   assert(sitemap.includes(`<loc>${canonical}</loc>`), `[distribution] sitemap missing article canonical URL: ${canonical}`);
   assert(rss.includes(`<link>${canonical}</link>`) || rss.includes(`isPermaLink="true">${canonical}</guid>`), `[distribution] RSS missing article canonical URL: ${canonical}`);
@@ -257,6 +271,29 @@ async function assertDistributionCanonicalCoherence(canonical) {
     Array.isArray(jsonFeed.items) && jsonFeed.items.some((entry) => entry.url === canonical || entry.external_url === canonical),
     `[distribution] JSON Feed missing article canonical URL: ${canonical}`
   );
+  assertUrlsUseOrigin(readXmlElementValues(sitemap, 'loc'), origin, 'sitemap loc');
+  assertUrlsUseOrigin(readXmlElementValues(rss, 'link'), origin, 'RSS link');
+  assertUrlsUseOrigin(readXmlElementValues(atom, 'id'), origin, 'Atom id');
+  assertUrlsUseOrigin(
+    [...atom.matchAll(/<link\s[^>]*href="([^"]+)"/giu)].map((match) => match[1]),
+    origin,
+    'Atom link'
+  );
+  assert(new URL(jsonFeed.home_page_url).origin === origin, '[distribution] JSON Feed home origin drift');
+  assert(new URL(jsonFeed.feed_url).origin === origin, '[distribution] JSON Feed self origin drift');
+  assertUrlsUseOrigin(jsonFeed.items.map((entry) => entry.url), origin, 'JSON Feed item');
+  assert(robots.includes(`Sitemap: ${origin}/sitemap.xml`), '[distribution] robots sitemap origin drift');
+
+  const sitemapUrl = [...sitemap.matchAll(/<url>([\s\S]*?)<\/url>/giu)]
+    .map((match) => match[1])
+    .find((entry) => entry.includes(`<loc>${canonical}</loc>`));
+  const sitemapLastmod = sitemapUrl?.match(/<lastmod>([^<]+)<\/lastmod>/iu)?.[1];
+  const jsonItem = jsonFeed.items.find((entry) => entry.url === canonical);
+  const jsonModified = String(jsonItem?.date_modified || '').slice(0, 10);
+  const structuredModified = articleHtml.match(/"dateModified":"([^"]+)"/u)?.[1]?.slice(0, 10);
+  assert(sitemapLastmod, '[distribution] article sitemap lastmod missing');
+  assert(jsonModified === sitemapLastmod, `[distribution] JSON Feed date_modified drift: ${jsonModified} != ${sitemapLastmod}`);
+  assert(structuredModified === sitemapLastmod, `[distribution] JSON-LD dateModified drift: ${structuredModified} != ${sitemapLastmod}`);
 }
 
 function assertPublicHydrationContract(body, item) {
@@ -341,7 +378,7 @@ async function runCheck(item) {
   assertJsonLdCoherence(body, item, canonicalUrl, openGraphUrl);
 
   if (item.name === 'article_detail') {
-    await assertDistributionCanonicalCoherence(canonical);
+    await assertDistributionCanonicalCoherence(canonical, body);
     assert(body.includes('data-markdown-renderer="wasm"'), `[${item.name}] missing markdown wasm host marker`);
     assert(body.includes('markdown-renderer__body'), `[${item.name}] missing markdown renderer body class`);
     assertAotCodeBlocksAreShikiHighlighted(body, item.name);

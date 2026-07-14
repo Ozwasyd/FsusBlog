@@ -33,6 +33,8 @@ const searchRequestPolicy = read('src/backend/Infrastructure/Spa/PublicSearchReq
 const searchRoutePolicy = read('src/frontend/src/public-renderers/publicSearchRoutePolicy.ts')
 const generatedPageManifest = read('src/frontend/src/public-renderers/generated/publicPageManifest.ts')
 const applicationComposition = read('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
+const publicOriginPolicy = read('src/backend/Infrastructure/PublicAot/PublicOriginPolicy.cs')
+const lifecycleBootstrap = read('src/backend/Infrastructure/Bootstrap/LifecycleHostedBootstrapService.cs')
 const sqlSugarVisibilitySources = [
   'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs',
   'src/backend/Modules/Endpoints/DistributionEndpoints.cs',
@@ -64,9 +66,20 @@ for (const mediaType of [
 
 assert(endpoints.includes('CacheTag.ArticleList'), 'distribution cache must tag article list invalidation')
 assert(endpoints.includes('CacheTag.Seo'), 'distribution cache must tag SEO invalidation')
-assert(service.includes('article.Status == ArticleStatus.Published'), 'distribution snapshot must filter to published articles')
-assert(service.includes('article.PublishedAt <= now'), 'distribution snapshot must respect PublishedAt')
-assert(service.includes('article.ScheduledPublishAt <= now'), 'distribution snapshot must respect ScheduledPublishAt')
+assert(service.includes('a.status = @Status'), 'distribution projections must filter to published articles')
+assert(service.includes('a.published_at <= @Now'), 'distribution projections must respect PublishedAt')
+assert(service.includes('a.scheduled_publish_at <= @Now'), 'distribution projections must respect ScheduledPublishAt')
+assert(service.includes('LoadFeedArticlesAsync'), 'feed must use its own bounded article projection')
+assert(service.includes('LoadSitemapArticlesAsync'), 'sitemap must use its own complete article projection')
+assert(service.includes('LIMIT @Limit'), 'feed projection must retain the explicit item bound')
+assert(service.includes('COALESCE(body.updated_at, a.published_at, a.createtime)'), 'distribution modified time must prefer article body updates')
+assert(!service.includes('new XElement(ns + "priority"'), 'sitemap must not emit pseudo-ranking priority values')
+assert(service.includes('CountSitemapUrlsFromFinalArtifacts'), 'distribution diagnostics must parse final sitemap XML artifacts')
+assert(service.includes('XDocument.Parse(rss).Descendants("item").Count()'), 'distribution diagnostics must parse final feed XML')
+assert(service.includes('SitemapPageSize = 45_000'), 'sitemap must reserve bounded index/page capacity below the protocol limit')
+assert(endpoints.includes('/sitemap/{page:int}.xml'), 'sitemap index child documents must be routable')
+assert(publicOriginPolicy.includes('public_origin_conflict'), 'public origin policy must fail closed on origin drift')
+assert(lifecycleBootstrap.includes('PublicOriginTask'), 'startup lifecycle must validate the authoritative public origin')
 assert(!endpoints.includes('JsonApiResponse<RelatedReadingResponse>'), 'deprecated related-reading JSON endpoint must be removed after #105 cleanup')
 assert(binaryArticleEndpoints.includes('"/article/{articleId:int}/related.aeds"'), 'related-reading must expose an AEDS endpoint')
 assert(binaryArticleEndpoints.includes('AedsFrameType.ArticleRelatedReading'), 'related-reading AEDS endpoint must use ArticleRelatedReading frame')

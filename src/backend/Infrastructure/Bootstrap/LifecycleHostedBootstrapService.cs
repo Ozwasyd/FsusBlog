@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
@@ -20,6 +21,7 @@ public sealed class LifecycleHostedBootstrapService(
 {
     private const string SchemaMigrationTask = "schemaMigration";
     private const string AccountSubjectHashInvariantTask = "accountSubjectHashInvariant";
+    private const string PublicOriginTask = "publicOrigin";
     private const string SearchIndexTask = "searchIndex";
     private const string CacheInitializerTask = "cacheInitializer";
     private const string AotDiskCacheTask = "aotDiskCache";
@@ -87,6 +89,17 @@ public sealed class LifecycleHostedBootstrapService(
                 var gate = scopedServices.GetRequiredService<IAccountSubjectHashInvariantGate>();
                 await gate.EnsureAsync(cancellationToken);
                 return StartupTaskOutcome.Ok("physical_projection_complete");
+            });
+
+        yield return new StartupTaskStep(
+            PublicOriginTask,
+            async cancellationToken =>
+            {
+                var systemService = scopedServices.GetRequiredService<ISystemService>();
+                var seo = await systemService.GetSeoConfigAsync();
+                string origin = PublicOriginPolicy.Resolve(configuration?["Seo:BaseUrl"], seo.BaseUrl);
+                cancellationToken.ThrowIfCancellationRequested();
+                return StartupTaskOutcome.Ok(origin);
             });
 
         yield return new StartupTaskStep(

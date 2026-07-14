@@ -275,7 +275,8 @@
 | GET | `/api/Article/rss` | 🔓 | RSS 历史兼容路径 |
 | GET | `/feed/atom.xml` | 🔓 | Atom feed |
 | GET | `/feed/feed.json` | 🔓 | JSON Feed 1.1 |
-| GET | `/sitemap.xml` | 🔓 | 公开 sitemap，排除私有路由 |
+| GET | `/sitemap.xml` | 🔓 | 公开 sitemap；全量 canonical URL，超过 45,000 条时返回 sitemap index |
+| GET | `/sitemap/{page}.xml` | 🔓 | sitemap index 子 urlset；不存在的页返回 404 |
 | GET | `/robots.txt` | 🔓 | robots + sitemap 声明 |
 | GET | `/api/binary/article/{articleId}/related.aeds` | 🔓 🚦 | AEDS 延伸阅读：相关文章 / 上一篇 / 下一篇；受 `public_read` 风险感知限流 |
 | GET | `/api/ops/crawler-ranges/status` | 🔐 admin | Crawler CIDR 同步状态 |

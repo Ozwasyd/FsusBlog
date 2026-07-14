@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Diagnostics;
+using System.Data.Common;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using FsusBlog.Server.Entities;
@@ -18,18 +19,20 @@ public sealed class BlogDistributionService(
     ISqlSugarClient db,
     ISystemService systemService,
     IUnifiedCache cache,
-    IMemoryCache memoryCache)
+    IMemoryCache memoryCache,
+    IConfiguration configuration)
 {
     private const int FeedLimit = 50;
+    private const int SitemapPageSize = 45_000;
     private const int StaticSitemapPageCount = 6;
-    private const string DiagnosticsCacheKey = "distribution:diagnostics-counts:v1";
+    private const string DiagnosticsCacheKey = "distribution:diagnostics-counts:v2";
     private static readonly TimeSpan DiagnosticsCacheTtl = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan SitemapCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly XNamespace AtomNamespace = "http://www.w3.org/2005/Atom";
 
     public async Task<string> BuildRssAsync(CancellationToken cancellationToken = default)
     {
-        DistributionSnapshot snapshot = await LoadSnapshotAsync(cancellationToken);
+        DistributionFeedSnapshot snapshot = await LoadFeedSnapshotAsync(cancellationToken);
         var channel = new XElement(
             "channel",
             new XElement("title", snapshot.Seo.Title),
@@ -37,7 +40,9 @@ public sealed class BlogDistributionService(
             new XElement("description", snapshot.Seo.Description),
             new XElement("language", "zh-CN"),
             new XElement("copyright", ResolveCopyrightText(snapshot.Seo, snapshot.Compliance)),
-            new XElement("lastBuildDate", FormatRfc822(snapshot.UpdatedAt)),
+            snapshot.UpdatedAt is DateTimeOffset updatedAt
+                ? new XElement("lastBuildDate", FormatRfc822(updatedAt))
+                : null,
             snapshot.Articles.Select(article => new XElement(
                 "item",
                 new XElement("title", article.Title),
@@ -45,7 +50,7 @@ public sealed class BlogDistributionService(
                 new XElement("guid", new XAttribute("isPermaLink", "true"), article.CanonicalUrl),
                 new XElement("description", article.Summary),
                 new XElement("author", snapshot.Seo.Author),
-                new XElement("pubDate", FormatRfc822(article.UpdatedAt)),
+                new XElement("pubDate", FormatRfc822(article.PublishedAt)),
                 string.IsNullOrWhiteSpace(article.CoverImageUrl)
                     ? null
                     : new XElement("enclosure", new XAttribute("url", MakeAbsoluteUrl(snapshot.BaseUrl, article.CoverImageUrl)), new XAttribute("type", "image/*")))));
@@ -61,7 +66,7 @@ public sealed class BlogDistributionService(
 
     public async Task<string> BuildAtomAsync(CancellationToken cancellationToken = default)
     {
-        DistributionSnapshot snapshot = await LoadSnapshotAsync(cancellationToken);
+        DistributionFeedSnapshot snapshot = await LoadFeedSnapshotAsync(cancellationToken);
         var document = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
             new XElement(
@@ -69,7 +74,9 @@ public sealed class BlogDistributionService(
                 new XElement(AtomNamespace + "title", snapshot.Seo.Title),
                 new XElement(AtomNamespace + "subtitle", snapshot.Seo.Description),
                 new XElement(AtomNamespace + "id", snapshot.BaseUrl),
-                new XElement(AtomNamespace + "updated", ToWireIsoDate(snapshot.UpdatedAt)),
+                snapshot.UpdatedAt is DateTimeOffset updatedAt
+                    ? new XElement(AtomNamespace + "updated", ToWireIsoDate(updatedAt))
+                    : null,
                 new XElement(AtomNamespace + "link", new XAttribute("href", snapshot.BaseUrl), new XAttribute("rel", "alternate")),
                 new XElement(AtomNamespace + "link", new XAttribute("href", $"{snapshot.BaseUrl}/feed/atom.xml"), new XAttribute("rel", "self")),
                 new XElement(AtomNamespace + "author", new XElement(AtomNamespace + "name", snapshot.Seo.Author)),
@@ -78,14 +85,15 @@ public sealed class BlogDistributionService(
                     new XElement(AtomNamespace + "title", article.Title),
                     new XElement(AtomNamespace + "id", article.CanonicalUrl),
                     new XElement(AtomNamespace + "link", new XAttribute("href", article.CanonicalUrl), new XAttribute("rel", "alternate")),
-                    new XElement(AtomNamespace + "updated", ToWireIsoDate(article.UpdatedAt)),
+                    new XElement(AtomNamespace + "published", ToWireIsoDate(article.PublishedAt)),
+                    new XElement(AtomNamespace + "updated", ToWireIsoDate(article.ModifiedAt)),
                     new XElement(AtomNamespace + "summary", article.Summary)))));
         return document.ToString(SaveOptions.DisableFormatting);
     }
 
     public async Task<JsonFeedDocument> BuildJsonFeedAsync(CancellationToken cancellationToken = default)
     {
-        DistributionSnapshot snapshot = await LoadSnapshotAsync(cancellationToken);
+        DistributionFeedSnapshot snapshot = await LoadFeedSnapshotAsync(cancellationToken);
         return new JsonFeedDocument(
             "https://jsonfeed.org/version/1.1",
             snapshot.Seo.Title,
@@ -98,78 +106,46 @@ public sealed class BlogDistributionService(
                 article.CanonicalUrl,
                 article.Title,
                 article.Summary,
-                article.UpdatedAt.ToUniversalTime(),
+                article.PublishedAt.ToUniversalTime(),
+                article.ModifiedAt.ToUniversalTime(),
                 string.IsNullOrWhiteSpace(article.CoverImageUrl) ? null : MakeAbsoluteUrl(snapshot.BaseUrl, article.CoverImageUrl))).ToArray());
     }
 
     public async Task<string> BuildSitemapAsync(CancellationToken cancellationToken = default)
+        => (await LoadSitemapArtifactSetAsync(cancellationToken)).RootDocument;
+
+    public async Task<string?> BuildSitemapPageAsync(int page, CancellationToken cancellationToken = default)
     {
-        long startedAt = Stopwatch.GetTimestamp();
-        long version = await GetArticleListVersionAsync(cancellationToken);
-        string cacheKey = $"sitemap:v:{version}";
-        if (memoryCache.TryGetValue(cacheKey, out string? cached) && cached is not null)
-        {
-            FsusObservability.RecordSitemapBuild(cacheHit: true, FsusObservability.GetElapsed(startedAt));
-            return cached;
-        }
-
-        DistributionSnapshot snapshot = await LoadSnapshotAsync(cancellationToken);
-        IReadOnlyList<DistributionTaxonomyRow> categories = await LoadCategoriesAsync(cancellationToken);
-        IReadOnlyList<DistributionTaxonomyRow> tags = await LoadTagsAsync(cancellationToken);
-
-        var urls = new List<(string Location, DateTimeOffset UpdatedAt, string Priority)>
-        {
-            ($"{snapshot.BaseUrl}/", snapshot.UpdatedAt, "1.0"),
-            ($"{snapshot.BaseUrl}/archive", snapshot.UpdatedAt, "0.7"),
-            ($"{snapshot.BaseUrl}/about", snapshot.UpdatedAt, "0.6"),
-            ($"{snapshot.BaseUrl}/privacy", snapshot.UpdatedAt, "0.4"),
-            ($"{snapshot.BaseUrl}/guidelines", snapshot.UpdatedAt, "0.4"),
-            ($"{snapshot.BaseUrl}/copyright", snapshot.UpdatedAt, "0.4")
-        };
-        urls.AddRange(snapshot.Articles.Select(article => (article.CanonicalUrl, article.UpdatedAt, "0.9")));
-        urls.AddRange(categories.Select(category => ($"{snapshot.BaseUrl}/category/{category.Id}", snapshot.UpdatedAt, "0.5")));
-        urls.AddRange(tags.Select(tag => ($"{snapshot.BaseUrl}/tag/{tag.Id}", snapshot.UpdatedAt, "0.5")));
-
-        XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
-        var document = new XDocument(
-            new XDeclaration("1.0", "utf-8", null),
-            new XElement(
-                ns + "urlset",
-                urls.Select(url => new XElement(
-                    ns + "url",
-                    new XElement(ns + "loc", url.Location),
-                    new XElement(ns + "lastmod", ToWireSitemapDate(url.UpdatedAt)),
-                    new XElement(ns + "priority", url.Priority)))));
-        string sitemap = document.ToString(SaveOptions.DisableFormatting);
-        memoryCache.Set(cacheKey, sitemap, SitemapCacheTtl);
-        FsusObservability.RecordSitemapBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
-        return sitemap;
+        SitemapArtifactSet artifact = await LoadSitemapArtifactSetAsync(cancellationToken);
+        return page >= 1 && page <= artifact.PageDocuments.Count
+            ? artifact.PageDocuments[page - 1]
+            : null;
     }
 
     public async Task<DistributionDiagnosticsCounts> GetDiagnosticsCountsAsync(CancellationToken cancellationToken = default)
     {
         long startedAt = Stopwatch.GetTimestamp();
-        if (memoryCache.TryGetValue(DiagnosticsCacheKey, out DistributionDiagnosticsCounts? cached) && cached is not null)
+        long version = await GetArticleListVersionAsync(cancellationToken);
+        string baseUrl = await ResolvePublicOriginAsync(cancellationToken);
+        string cacheKey = $"{DiagnosticsCacheKey}:v:{version}:origin:{baseUrl}";
+        if (memoryCache.TryGetValue(cacheKey, out DistributionDiagnosticsCounts? cached) && cached is not null)
         {
             FsusObservability.RecordDistributionDiagnostics(cacheHit: true, dbCommandCount: 0, FsusObservability.GetElapsed(startedAt));
             return cached;
         }
 
-        int dbCommandCount = 0;
-        int publicArticleCount = await CountPublicArticlesAsync(cancellationToken);
-        dbCommandCount++;
-        int publicCategoryCount = await CountPublicCategoriesAsync(cancellationToken);
-        dbCommandCount++;
-        int publicTagCount = await CountPublicTagsAsync(cancellationToken);
-        dbCommandCount++;
+        SitemapArtifactSet sitemap = await LoadSitemapArtifactSetAsync(cancellationToken);
+        string rss = await BuildRssAsync(cancellationToken);
+        int sitemapUrlCount = CountSitemapUrlsFromFinalArtifacts(sitemap);
+        int feedItemCount = XDocument.Parse(rss).Descendants("item").Count();
 
         DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
         var counts = new DistributionDiagnosticsCounts(
-            StaticSitemapPageCount + publicArticleCount + publicCategoryCount + publicTagCount,
-            Math.Min(publicArticleCount, FeedLimit),
+            sitemapUrlCount,
+            feedItemCount,
             checkedAt);
-        memoryCache.Set(DiagnosticsCacheKey, counts, DiagnosticsCacheTtl);
-        FsusObservability.RecordDistributionDiagnostics(cacheHit: false, dbCommandCount, FsusObservability.GetElapsed(startedAt));
+        memoryCache.Set(cacheKey, counts, DiagnosticsCacheTtl);
+        FsusObservability.RecordDistributionDiagnostics(cacheHit: false, dbCommandCount: 0, FsusObservability.GetElapsed(startedAt));
         return counts;
     }
 
@@ -181,8 +157,7 @@ public sealed class BlogDistributionService(
 
     public async Task<string> BuildRobotsAsync(CancellationToken cancellationToken = default)
     {
-        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
-        string baseUrl = NormalizeBaseUrl(seo.BaseUrl);
+        string baseUrl = await ResolvePublicOriginAsync(cancellationToken);
         return string.Join('\n',
             "User-agent: *",
             "Allow: /",
@@ -201,17 +176,17 @@ public sealed class BlogDistributionService(
             string.Empty);
     }
 
-    private async Task<DistributionSnapshot> LoadSnapshotAsync(CancellationToken cancellationToken)
+    private async Task<DistributionFeedSnapshot> LoadFeedSnapshotAsync(CancellationToken cancellationToken)
     {
         SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
         SiteComplianceConfigReadModel compliance = await systemService.GetSiteComplianceConfigAsync();
-        List<DistributionArticleRow> rows = await LoadDistributionArticlesAsync(cancellationToken);
-        string baseUrl = NormalizeBaseUrl(seo.BaseUrl);
+        List<DistributionArticleRow> rows = await LoadFeedArticlesAsync(cancellationToken);
+        string baseUrl = PublicOriginPolicy.Resolve(configuration["Seo:BaseUrl"], seo.BaseUrl);
 
-        DateTimeOffset updatedAt = rows.Count == 0
-            ? DateTimeOffset.UtcNow
-            : rows.Max(static row => new DateTimeOffset(row.UpdatedAt, TimeSpan.Zero));
-        return new DistributionSnapshot(
+        DateTimeOffset? updatedAt = rows.Count == 0
+            ? null
+            : rows.Max(static row => ToUtcOffset(row.ModifiedAt));
+        return new DistributionFeedSnapshot(
             seo,
             compliance,
             baseUrl,
@@ -222,31 +197,46 @@ public sealed class BlogDistributionService(
                 string.IsNullOrWhiteSpace(row.Summary) ? row.Title : row.Summary!,
                 row.CoverImageUrl,
                 $"{baseUrl}{PublicRouteIdentity.BuildCanonicalPath(PublicPageId.ArticleDetail, PublicRouteIdentity.BuildArticleRouteKey(row.Id), row.Id)}",
-                new DateTimeOffset(row.UpdatedAt, TimeSpan.Zero))).ToArray());
+                ToUtcOffset(row.PublishedAt),
+                ToUtcOffset(row.ModifiedAt))).ToArray());
     }
 
-    private async Task<List<DistributionArticleRow>> LoadDistributionArticlesAsync(CancellationToken cancellationToken)
+    private async Task<List<DistributionArticleRow>> LoadFeedArticlesAsync(CancellationToken cancellationToken)
     {
-        DateTime now = DateTime.UtcNow;
-        return await db.Queryable<Article, Category>((article, category) => article.CategoryId == category.Id)
-            .Where((article, category) => article.IsDeleted == false
-                && article.Status == ArticleStatus.Published
-                && (article.PublishedAt == null || article.PublishedAt <= now)
-                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
-            .OrderByDescending((article, category) => article.PublishedAt ?? article.CreateTime)
-            .Take(FeedLimit)
-            .Select((article, category) => new DistributionArticleRow
+        const string sql = """
+            SELECT
+                a.id AS "Id",
+                a.title AS "Title",
+                a.summary AS "Summary",
+                a.coverimageurl AS "CoverImageUrl",
+                COALESCE(a.published_at, a.createtime) AS "PublishedAt",
+                COALESCE(body.updated_at, a.published_at, a.createtime) AS "ModifiedAt"
+            FROM article a
+            LEFT JOIN article_body body ON body.article_id = a.id
+            WHERE a.isdeleted = false
+              AND a.status = @Status
+              AND (a.published_at IS NULL OR a.published_at <= @Now)
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+            ORDER BY COALESCE(a.published_at, a.createtime) DESC, a.id DESC
+            LIMIT @Limit;
+            """;
+        var rows = new List<DistributionArticleRow>(FeedLimit);
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            sql,
+            CreatePublicVisibilityParameters(new SugarParameter("@Limit", FeedLimit)));
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(new DistributionArticleRow
             {
-                Id = article.Id,
-                Title = article.Title,
-                Summary = article.Summary,
-                CoverImageUrl = article.CoverImageUrl,
-                CreatedAt = article.CreateTime,
-                PublishedAt = article.PublishedAt,
-                CategoryId = article.CategoryId,
-                CategoryName = category.Name
-            })
-            .ToListAsync(cancellationToken);
+                Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                Title = reader.GetString(reader.GetOrdinal("Title")),
+                Summary = ReadNullableString(reader, "Summary"),
+                CoverImageUrl = ReadNullableString(reader, "CoverImageUrl"),
+                PublishedAt = reader.GetDateTime(reader.GetOrdinal("PublishedAt")),
+                ModifiedAt = reader.GetDateTime(reader.GetOrdinal("ModifiedAt"))
+            });
+        }
+        return rows;
     }
 
     private async ValueTask<long> GetArticleListVersionAsync(CancellationToken cancellationToken)
@@ -255,97 +245,244 @@ public sealed class BlogDistributionService(
         return long.TryParse(version, out long parsed) ? parsed : 0;
     }
 
-    private async Task<int> CountPublicArticlesAsync(CancellationToken cancellationToken)
+    private async Task<SitemapArtifactSet> LoadSitemapArtifactSetAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        int count = await db.Ado.GetIntAsync("""
-            SELECT COUNT(1)
+        long startedAt = Stopwatch.GetTimestamp();
+        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
+        string baseUrl = PublicOriginPolicy.Resolve(configuration["Seo:BaseUrl"], seo.BaseUrl);
+        long version = await GetArticleListVersionAsync(cancellationToken);
+        IReadOnlyDictionary<string, DateTimeOffset> staticPageUpdates = await LoadStaticPageUpdatesAsync(cancellationToken);
+        string staticVersion = string.Join(
+            ',',
+            staticPageUpdates.OrderBy(static pair => pair.Key, StringComparer.Ordinal)
+                .Select(static pair => $"{pair.Key}:{pair.Value.UtcTicks}"));
+        string cacheKey = $"sitemap:v:{version}:origin:{baseUrl}:static:{staticVersion}";
+        if (memoryCache.TryGetValue(cacheKey, out SitemapArtifactSet? cached) && cached is not null)
+        {
+            FsusObservability.RecordSitemapBuild(cacheHit: true, FsusObservability.GetElapsed(startedAt));
+            return cached;
+        }
+
+        IReadOnlyList<SitemapArticleRow> articles = await LoadSitemapArticlesAsync(cancellationToken);
+        IReadOnlyList<SitemapTaxonomyRow> categories = await LoadSitemapCategoriesAsync(cancellationToken);
+        IReadOnlyList<SitemapTaxonomyRow> tags = await LoadSitemapTagsAsync(cancellationToken);
+        DateTimeOffset? collectionUpdatedAt = articles.Count == 0
+            ? null
+            : articles.Max(static article => article.ModifiedAt);
+        var entries = new List<SitemapEntry>(StaticSitemapPageCount + articles.Count + categories.Count + tags.Count)
+        {
+            new($"{baseUrl}/", collectionUpdatedAt),
+            new($"{baseUrl}/archive", collectionUpdatedAt),
+            new($"{baseUrl}/about", GetOptionalUpdate(staticPageUpdates, "about")),
+            new($"{baseUrl}/privacy", GetOptionalUpdate(staticPageUpdates, "privacy")),
+            new($"{baseUrl}/guidelines", GetOptionalUpdate(staticPageUpdates, "guidelines")),
+            new($"{baseUrl}/copyright", GetOptionalUpdate(staticPageUpdates, "copyright"))
+        };
+        entries.AddRange(articles.Select(article => new SitemapEntry(
+            $"{baseUrl}{PublicRouteIdentity.BuildCanonicalPath(PublicPageId.ArticleDetail, PublicRouteIdentity.BuildArticleRouteKey(article.Id), article.Id)}",
+            article.ModifiedAt)));
+        entries.AddRange(categories.Select(category => new SitemapEntry($"{baseUrl}/category/{category.Id}", category.ModifiedAt)));
+        entries.AddRange(tags.Select(tag => new SitemapEntry($"{baseUrl}/tag/{tag.Id}", tag.ModifiedAt)));
+
+        SitemapArtifactSet artifact = BuildSitemapArtifactSet(baseUrl, entries);
+        memoryCache.Set(cacheKey, artifact, SitemapCacheTtl);
+        FsusObservability.RecordSitemapBuild(cacheHit: false, FsusObservability.GetElapsed(startedAt));
+        return artifact;
+    }
+
+    private async Task<IReadOnlyList<SitemapArticleRow>> LoadSitemapArticlesAsync(CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT
+                a.id AS "Id",
+                COALESCE(body.updated_at, a.published_at, a.createtime) AS "ModifiedAt"
             FROM article a
+            LEFT JOIN article_body body ON body.article_id = a.id
             WHERE a.isdeleted = false
               AND a.status = @Status
               AND (a.published_at IS NULL OR a.published_at <= @Now)
-              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now);
-            """, CreatePublicVisibilityParameters());
-        cancellationToken.ThrowIfCancellationRequested();
-        return count;
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+            ORDER BY a.id;
+            """;
+        var rows = new List<SitemapArticleRow>();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, CreatePublicVisibilityParameters());
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(new SitemapArticleRow(
+                reader.GetInt32(reader.GetOrdinal("Id")),
+                ToUtcOffset(reader.GetDateTime(reader.GetOrdinal("ModifiedAt")))));
+        }
+        return rows;
     }
 
-    private async Task<int> CountPublicCategoriesAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<SitemapTaxonomyRow>> LoadSitemapCategoriesAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        int count = await db.Ado.GetIntAsync("""
-            SELECT COUNT(DISTINCT a.categoryid)
-            FROM article a
+        const string sql = """
+            SELECT
+                category.id AS "Id",
+                MAX(COALESCE(body.updated_at, a.published_at, a.createtime)) AS "ModifiedAt"
+            FROM category
+            INNER JOIN article a ON a.categoryid = category.id
+            LEFT JOIN article_body body ON body.article_id = a.id
             WHERE a.isdeleted = false
               AND a.status = @Status
               AND (a.published_at IS NULL OR a.published_at <= @Now)
-              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now);
-            """, CreatePublicVisibilityParameters());
-        cancellationToken.ThrowIfCancellationRequested();
-        return count;
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+            GROUP BY category.id
+            ORDER BY category.id;
+            """;
+        return await ReadSitemapTaxonomyRowsAsync(sql, cancellationToken);
     }
 
-    private async Task<int> CountPublicTagsAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<SitemapTaxonomyRow>> LoadSitemapTagsAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        int count = await db.Ado.GetIntAsync("""
-            SELECT COUNT(DISTINCT at.tagid)
-            FROM article_tag at
-            INNER JOIN article a ON a.id = at.articleid
+        const string sql = """
+            SELECT
+                tag.id AS "Id",
+                MAX(COALESCE(body.updated_at, a.published_at, a.createtime)) AS "ModifiedAt"
+            FROM tag
+            INNER JOIN article_tag article_tag ON article_tag.tagid = tag.id
+            INNER JOIN article a ON a.id = article_tag.articleid
+            LEFT JOIN article_body body ON body.article_id = a.id
             WHERE a.isdeleted = false
               AND a.status = @Status
               AND (a.published_at IS NULL OR a.published_at <= @Now)
-              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now);
-            """, CreatePublicVisibilityParameters());
-        cancellationToken.ThrowIfCancellationRequested();
-        return count;
+              AND (a.scheduled_publish_at IS NULL OR a.scheduled_publish_at <= @Now)
+            GROUP BY tag.id
+            ORDER BY tag.id;
+            """;
+        return await ReadSitemapTaxonomyRowsAsync(sql, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<DistributionTaxonomyRow>> LoadCategoriesAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<SitemapTaxonomyRow>> ReadSitemapTaxonomyRowsAsync(
+        string sql,
+        CancellationToken cancellationToken)
     {
-        DateTime now = DateTime.UtcNow;
-        return await db.Queryable<Category, Article>((category, article) => category.Id == article.CategoryId)
-            .Where((category, article) => !article.IsDeleted
-                && article.Status == ArticleStatus.Published
-                && (article.PublishedAt == null || article.PublishedAt <= now)
-                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
-            .GroupBy((category, article) => new { category.Id, category.Name })
-            .OrderBy((category, article) => category.Id)
-            .Select((category, article) => new DistributionTaxonomyRow
+        var rows = new List<SitemapTaxonomyRow>();
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sql, CreatePublicVisibilityParameters());
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(new SitemapTaxonomyRow(
+                reader.GetInt32(reader.GetOrdinal("Id")),
+                ToUtcOffset(reader.GetDateTime(reader.GetOrdinal("ModifiedAt")))));
+        }
+        return rows;
+    }
+
+    private async Task<IReadOnlyDictionary<string, DateTimeOffset>> LoadStaticPageUpdatesAsync(CancellationToken cancellationToken)
+    {
+        string[] slugs = ["about", "privacy", "guidelines", "copyright"];
+        List<SitemapStaticPageRow> rows = await db.Queryable<PageContent>()
+            .In(page => page.Slug, slugs)
+            .Select(page => new SitemapStaticPageRow
             {
-                Id = category.Id,
-                Name = category.Name
+                Slug = page.Slug,
+                UpdatedAt = page.UpdatedAt
             })
             .ToListAsync(cancellationToken);
+        return rows.ToDictionary(
+            static row => row.Slug,
+            static row => ToUtcOffset(row.UpdatedAt),
+            StringComparer.Ordinal);
     }
 
-    private async Task<IReadOnlyList<DistributionTaxonomyRow>> LoadTagsAsync(CancellationToken cancellationToken)
+    private async Task<string> ResolvePublicOriginAsync(CancellationToken cancellationToken)
     {
-        DateTime now = DateTime.UtcNow;
-        return await db.Queryable<Tag, ArticleTag, Article>((tag, articleTag, article) => tag.Id == articleTag.TagId && articleTag.ArticleId == article.Id)
-            .Where((tag, articleTag, article) => !article.IsDeleted
-                && article.Status == ArticleStatus.Published
-                && (article.PublishedAt == null || article.PublishedAt <= now)
-                && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= now))
-            .GroupBy((tag, articleTag, article) => new { tag.Id, tag.Name })
-            .OrderBy((tag, articleTag, article) => tag.Id)
-            .Select((tag, articleTag, article) => new DistributionTaxonomyRow
-            {
-                Id = tag.Id,
-                Name = tag.Name
-            })
-            .ToListAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        return PublicOriginPolicy.Resolve(configuration["Seo:BaseUrl"], seo.BaseUrl);
     }
 
-    private static string NormalizeBaseUrl(string? raw)
-        => string.IsNullOrWhiteSpace(raw) ? "https://fsus.blog" : raw.Trim().TrimEnd('/');
+    private static DateTimeOffset? GetOptionalUpdate(
+        IReadOnlyDictionary<string, DateTimeOffset> updates,
+        string slug)
+        => updates.TryGetValue(slug, out DateTimeOffset value) ? value : null;
 
-    private static SugarParameter[] CreatePublicVisibilityParameters()
-        =>
-        [
+    private static SitemapArtifactSet BuildSitemapArtifactSet(string baseUrl, IReadOnlyList<SitemapEntry> entries)
+    {
+        if (entries.Count <= SitemapPageSize)
+        {
+            return new SitemapArtifactSet(BuildSitemapUrlSet(entries), []);
+        }
+
+        var pages = new List<string>((entries.Count + SitemapPageSize - 1) / SitemapPageSize);
+        var pageUpdatedAt = new List<DateTimeOffset?>(pages.Capacity);
+        for (int offset = 0; offset < entries.Count; offset += SitemapPageSize)
+        {
+            SitemapEntry[] page = entries.Skip(offset).Take(SitemapPageSize).ToArray();
+            pages.Add(BuildSitemapUrlSet(page));
+            DateTimeOffset?[] updated = page.Where(static entry => entry.LastModified.HasValue)
+                .Select(static entry => entry.LastModified)
+                .ToArray();
+            pageUpdatedAt.Add(updated.Length == 0 ? null : updated.Max());
+        }
+
+        XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+        var index = new XDocument(
+            new XDeclaration("1.0", "utf-8", null),
+            new XElement(
+                ns + "sitemapindex",
+                pages.Select((_, index) => new XElement(
+                    ns + "sitemap",
+                    new XElement(ns + "loc", $"{baseUrl}/sitemap/{index + 1}.xml"),
+                    pageUpdatedAt[index] is DateTimeOffset updatedAt
+                        ? new XElement(ns + "lastmod", ToWireSitemapDate(updatedAt))
+                        : null))));
+        return new SitemapArtifactSet(index.ToString(SaveOptions.DisableFormatting), pages);
+    }
+
+    internal static (string RootDocument, IReadOnlyList<string> PageDocuments) BuildSitemapArtifactSetForTests(
+        string baseUrl,
+        int urlCount)
+    {
+        SitemapEntry[] entries = Enumerable.Range(1, urlCount)
+            .Select(id => new SitemapEntry($"{baseUrl}/article/{id}", DateTimeOffset.UnixEpoch.AddDays(id % 365)))
+            .ToArray();
+        SitemapArtifactSet artifact = BuildSitemapArtifactSet(baseUrl, entries);
+        return (artifact.RootDocument, artifact.PageDocuments);
+    }
+
+    private static string BuildSitemapUrlSet(IReadOnlyList<SitemapEntry> entries)
+    {
+        XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+        var document = new XDocument(
+            new XDeclaration("1.0", "utf-8", null),
+            new XElement(
+                ns + "urlset",
+                entries.Select(entry => new XElement(
+                    ns + "url",
+                    new XElement(ns + "loc", entry.Location),
+                    entry.LastModified is DateTimeOffset updatedAt
+                        ? new XElement(ns + "lastmod", ToWireSitemapDate(updatedAt))
+                        : null))));
+        return document.ToString(SaveOptions.DisableFormatting);
+    }
+
+    private static int CountSitemapUrlsFromFinalArtifacts(SitemapArtifactSet artifact)
+    {
+        XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+        IEnumerable<string> documents = artifact.PageDocuments.Count == 0
+            ? [artifact.RootDocument]
+            : artifact.PageDocuments;
+        return documents.Sum(document => XDocument.Parse(document).Descendants(ns + "url").Count());
+    }
+
+    private static SugarParameter[] CreatePublicVisibilityParameters(params SugarParameter[] additional)
+        => [
             new("@Status", (int)ArticleStatus.Published),
-            new("@Now", DateTime.UtcNow)
+            new("@Now", DateTime.UtcNow),
+            .. additional
         ];
+
+    private static string? ReadNullableString(DbDataReader reader, string name)
+    {
+        int ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+    }
+
+    private static DateTimeOffset ToUtcOffset(DateTime value)
+        => new(value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
     private static string MakeAbsoluteUrl(string baseUrl, string url)
         => Uri.TryCreate(url, UriKind.Absolute, out _)
@@ -385,11 +522,11 @@ public sealed class BlogDistributionService(
     internal static string ToWireSitemapDateForTests(DateTimeOffset value)
         => ToWireSitemapDate(value);
 
-    private sealed record DistributionSnapshot(
+    private sealed record DistributionFeedSnapshot(
         SeoConfigReadModel Seo,
         SiteComplianceConfigReadModel Compliance,
         string BaseUrl,
-        DateTimeOffset UpdatedAt,
+        DateTimeOffset? UpdatedAt,
         IReadOnlyList<DistributionArticle> Articles);
 
     private sealed record DistributionArticle(
@@ -398,7 +535,8 @@ public sealed class BlogDistributionService(
         string Summary,
         string? CoverImageUrl,
         string CanonicalUrl,
-        DateTimeOffset UpdatedAt);
+        DateTimeOffset PublishedAt,
+        DateTimeOffset ModifiedAt);
 
     private sealed class DistributionArticleRow
     {
@@ -406,18 +544,25 @@ public sealed class BlogDistributionService(
         public string Title { get; init; } = string.Empty;
         public string? Summary { get; init; }
         public string? CoverImageUrl { get; init; }
-        public DateTime CreatedAt { get; init; }
-        public DateTime? PublishedAt { get; init; }
-        public int CategoryId { get; init; }
-        public string CategoryName { get; init; } = string.Empty;
-        public DateTime UpdatedAt => PublishedAt ?? CreatedAt;
+        public DateTime PublishedAt { get; init; }
+        public DateTime ModifiedAt { get; init; }
     }
 
-    private sealed class DistributionTaxonomyRow
+    private sealed class SitemapStaticPageRow
     {
-        public int Id { get; init; }
-        public string Name { get; init; } = string.Empty;
+        public string Slug { get; init; } = string.Empty;
+        public DateTime UpdatedAt { get; init; }
     }
+
+    private sealed record SitemapArtifactSet(
+        string RootDocument,
+        IReadOnlyList<string> PageDocuments);
+
+    private sealed record SitemapEntry(string Location, DateTimeOffset? LastModified);
+
+    private sealed record SitemapArticleRow(int Id, DateTimeOffset ModifiedAt);
+
+    private sealed record SitemapTaxonomyRow(int Id, DateTimeOffset ModifiedAt);
 }
 
 public sealed record JsonFeedDocument(
@@ -438,6 +583,7 @@ public sealed record JsonFeedItem(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("summary")] string Summary,
     [property: JsonPropertyName("date_published")] DateTimeOffset DatePublished,
+    [property: JsonPropertyName("date_modified")] DateTimeOffset DateModified,
     [property: JsonPropertyName("image")] string? Image);
 
 public sealed record DistributionDiagnosticsCounts(

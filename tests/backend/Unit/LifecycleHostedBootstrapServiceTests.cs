@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -367,12 +368,58 @@ public sealed class LifecycleHostedBootstrapServiceTests
         }
     }
 
+    [Fact]
+    public async Task StartAsync_ProductionRejectsConflictingConfiguredAndStoredPublicOrigins()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            var runtimeState = new StartupRuntimeState();
+            ServiceProvider services = CreateServices(
+                out _,
+                out ISearchIndexService searchIndexService,
+                out ICacheInitializer cacheInitializer,
+                storedBaseUrl: "https://stored.example");
+            var environment = new TestWebHostEnvironment(root)
+            {
+                EnvironmentName = Environments.Production
+            };
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Seo:BaseUrl"] = "https://public.example"
+                })
+                .Build();
+            var service = new LifecycleHostedBootstrapService(
+                services,
+                environment,
+                runtimeState,
+                Options.Create(new LifecycleBootstrapOptions()),
+                Substitute.For<ILogger<LifecycleHostedBootstrapService>>(),
+                configuration: configuration);
+
+            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.StartAsync(CancellationToken.None));
+
+            Assert.StartsWith("public_origin_conflict:", error.Message, StringComparison.Ordinal);
+            Assert.Equal("failed", runtimeState.GetStartupTasks()["publicOrigin"].Status);
+            Assert.False(runtimeState.GetStartupTasks().ContainsKey("searchIndex"));
+            await searchIndexService.DidNotReceive().BuildIndexAsync(Arg.Any<List<FsusBlog.Server.Entities.Article>>());
+            await cacheInitializer.DidNotReceive().InitializeAsync();
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static ServiceProvider CreateServices(
         out ISchemaMigrationRunner migrationRunner,
         out ISearchIndexService searchIndexService,
         out ICacheInitializer cacheInitializer,
         bool failCacheInitializer = false,
-        bool failMigrationRunner = false)
+        bool failMigrationRunner = false,
+        string storedBaseUrl = FsusBlog.Shared.Contracts.Outputs.PublicSiteIdentityDefaults.SiteBaseUrl)
     {
         migrationRunner = Substitute.For<ISchemaMigrationRunner>();
         migrationRunner.RunAsync(Arg.Any<CancellationToken>()).Returns(_ =>
@@ -403,12 +450,18 @@ public sealed class LifecycleHostedBootstrapServiceTests
 
         var invariantGate = Substitute.For<IAccountSubjectHashInvariantGate>();
         invariantGate.EnsureAsync(Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        var systemService = Substitute.For<ISystemService>();
+        systemService.GetSeoConfigAsync().Returns(Task.FromResult(new FsusBlog.Server.Models.ReadModels.SeoConfigReadModel
+        {
+            BaseUrl = storedBaseUrl
+        }));
 
         var services = new ServiceCollection();
         services.AddSingleton(migrationRunner);
         services.AddSingleton(invariantGate);
         services.AddSingleton(searchIndexService);
         services.AddSingleton(cacheInitializer);
+        services.AddSingleton(systemService);
         return services.BuildServiceProvider();
     }
 
