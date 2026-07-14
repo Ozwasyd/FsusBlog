@@ -911,46 +911,155 @@ test('weighted DAG rolls freed grants into newly-ready work without a whole-wave
   assert.ok(events.indexOf('after-short:start') < events.indexOf('long:end'))
 })
 
-test('a ready exclusive step does not hide later ordinary work while active work drains', async () => {
+test('different exclusive resources and ordinary work share the same admission wave', async () => {
   const events = []
-  let releaseLong
-  let releaseShort
-  let releaseTrailing
-  const long = new Promise((resolve) => { releaseLong = resolve })
-  const short = new Promise((resolve) => { releaseShort = resolve })
-  const trailing = new Promise((resolve) => { releaseTrailing = resolve })
+  const gates = new Map(['build', 'benchmark', 'ordinary'].map((id) => [id, deferred()]))
 
   const running = executeWeightedStepDag([
-    { id: 'long', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } },
-    { id: 'short', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } },
     {
-      id: 'exclusive',
-      dependsOn: ['short'],
-      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['window'] }
+      id: 'build',
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['build-output'] }
     },
-    { id: 'trailing', dependsOn: ['short'], resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } }
-  ], { maxParallel: 2, cpuUnits: 2, memoryGiB: 4, exclusiveResources: ['window'] }, async (entry) => {
+    {
+      id: 'benchmark',
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['benchmark-window'] }
+    },
+    { id: 'ordinary', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } }
+  ], {
+    maxParallel: 3,
+    cpuUnits: 3,
+    memoryGiB: 6,
+    exclusiveResources: ['build-output', 'benchmark-window']
+  }, async (entry) => {
     events.push(`${entry.id}:start`)
-    if (entry.id === 'long') await long
-    if (entry.id === 'short') await short
-    if (entry.id === 'trailing') await trailing
+    await gates.get(entry.id).promise
     events.push(`${entry.id}:end`)
   })
 
   await new Promise((resolve) => setImmediate(resolve))
-  releaseShort()
-  await new Promise((resolve) => setImmediate(resolve))
-  assert.ok(events.includes('trailing:start'), 'ordinary work after the exclusive declaration must fill the released CPU')
-  assert.equal(events.includes('exclusive:start'), false)
-  releaseTrailing()
-  await new Promise((resolve) => setImmediate(resolve))
-  assert.equal(events.includes('exclusive:start'), false, 'exclusive work must not overlap the active long step')
-  releaseLong()
+  assert.deepEqual(events, ['build:start', 'benchmark:start', 'ordinary:start'])
+  for (const gate of gates.values()) gate.resolve()
   await running
-  assert.ok(events.indexOf('trailing:start') < events.indexOf('long:end'))
-  assert.ok(events.indexOf('exclusive:start') > events.indexOf('long:end'))
-  assert.ok(events.indexOf('exclusive:start') > events.indexOf('trailing:end'))
-  assert.ok(events.includes('exclusive:end'), 'the exclusive step must not starve')
+})
+
+test('same exclusive resource is serialized within a wave and reports its holder', async () => {
+  const events = []
+  const first = deferred()
+  const second = deferred()
+  const other = deferred()
+  const logs = []
+  const originalLog = console.log
+  console.log = (...args) => logs.push(args.join(' '))
+  try {
+    const running = executeWeightedStepDag([
+      { id: 'first', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['window'] } },
+      { id: 'second', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['window'] } },
+      { id: 'other', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['other-window'] } }
+    ], {
+      maxParallel: 3,
+      cpuUnits: 3,
+      memoryGiB: 6,
+      exclusiveResources: ['window', 'other-window']
+    }, async (entry) => {
+      events.push(`${entry.id}:start`)
+      if (entry.id === 'first') await first.promise
+      if (entry.id === 'second') await second.promise
+      if (entry.id === 'other') await other.promise
+      events.push(`${entry.id}:end`)
+    })
+
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepEqual(events, ['first:start', 'other:start'])
+    assert.ok(logs.some((line) => line.includes('wait second exclusiveResource=window heldBy=first holderState=admission-wave')))
+    first.resolve()
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.ok(events.includes('second:start'))
+    second.resolve()
+    other.resolve()
+    await running
+  } finally {
+    console.log = originalLog
+  }
+})
+
+test('a newly ready step observes the resource set of an already active holder', async () => {
+  const holder = deferred()
+  const waiter = deferred()
+  const events = []
+  const logs = []
+  const originalLog = console.log
+  console.log = (...args) => logs.push(args.join(' '))
+  try {
+    const running = executeWeightedStepDag([
+      { id: 'holder', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['window'] } },
+      { id: 'ready', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } },
+      {
+        id: 'waiter',
+        dependsOn: ['ready'],
+        resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['window'] }
+      }
+    ], { maxParallel: 2, cpuUnits: 2, memoryGiB: 4, exclusiveResources: ['window'] }, async (entry) => {
+      events.push(`${entry.id}:start`)
+      if (entry.id === 'holder') await holder.promise
+      if (entry.id === 'waiter') await waiter.promise
+      events.push(`${entry.id}:end`)
+    })
+
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.ok(events.includes('ready:end'))
+    assert.equal(events.includes('waiter:start'), false)
+    assert.ok(logs.some((line) => line.includes('wait waiter exclusiveResource=window heldBy=holder holderState=active')))
+    holder.resolve()
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.ok(events.includes('waiter:start'))
+    waiter.resolve()
+    await running
+  } finally {
+    console.log = originalLog
+  }
+})
+
+test('failed exclusive holder releases only its named resource and failures still aggregate', async () => {
+  const events = []
+  const firstFailure = new Error('first failed')
+  const independentFailure = new Error('independent failed')
+  await assert.rejects(executeWeightedStepDag([
+    { id: 'first', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['window'] } },
+    { id: 'waiter', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['window'] } },
+    { id: 'independent', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } }
+  ], { maxParallel: 2, cpuUnits: 2, memoryGiB: 4, exclusiveResources: ['window'] }, async (entry) => {
+    events.push(entry.id)
+    if (entry.id === 'first') throw firstFailure
+    if (entry.id === 'independent') throw independentFailure
+  }), (error) => {
+    assert.ok(error instanceof AggregateError)
+    assert.deepEqual(error.errors, [firstFailure, independentFailure])
+    return true
+  })
+  assert.deepEqual(events, ['first', 'independent', 'waiter'])
+})
+
+test('CPU capacity still delays non-conflicting exclusive work', async () => {
+  const first = deferred()
+  const events = []
+  const running = executeWeightedStepDag([
+    { id: 'first', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['first-window'] } },
+    { id: 'second', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['second-window'] } }
+  ], {
+    maxParallel: 1,
+    cpuUnits: 1,
+    memoryGiB: 2,
+    exclusiveResources: ['first-window', 'second-window']
+  }, async (entry) => {
+    events.push(`${entry.id}:start`)
+    if (entry.id === 'first') await first.promise
+  })
+
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, ['first:start'])
+  first.resolve()
+  await running
+  assert.deepEqual(events, ['first:start', 'second:start'])
 })
 
 test('machine execution deadlines derive pressure from workload weights and actual grants', () => {

@@ -1236,7 +1236,8 @@ async function runFrontendTests() {
     resources: {
       cpuWeight: 2,
       memoryWeight: 1.5,
-      minCpuUnits: resolvedFrontendVitestAdmissionFloor()
+      minCpuUnits: resolvedFrontendVitestAdmissionFloor(),
+      exclusiveResources: ['frontend-test-results']
     }
   })
   const frontendDagResults = new Map()

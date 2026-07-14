@@ -231,31 +231,44 @@ function validateWeightedSteps(steps, capacity, allowedExclusiveResources, { ela
 function selectWeightedAdmission(ready, capacity, active, freeCpuUnits, freeMemoryGiB) {
   const activeExecutableCount = [...active.values()]
     .filter((record) => record.coordinationOnly !== true).length
-  if (activeExecutableCount >= capacity.maxParallel || freeMemoryGiB <= 0) {
-    return ready.filter((entry) => entry.resources.coordinationOnly === true)
+  const resourceOwners = new Map()
+  for (const [stepId, record] of active) {
+    for (const resource of record.exclusiveResources ?? []) {
+      if (!resourceOwners.has(resource)) resourceOwners.set(resource, { stepId, holderState: 'active' })
+    }
   }
-  if ([...active.values()].some((record) => record.exclusive)) return []
-  const exclusiveIndex = ready.findIndex((entry) => (entry.resources.exclusiveResources ?? []).length > 0)
-  const candidates = activeExecutableCount > 0
-    ? ready.filter((entry) => (entry.resources.exclusiveResources ?? []).length === 0)
-    : (exclusiveIndex === 0
-        ? ready.slice(0, 1)
-        : ready.slice(0, exclusiveIndex < 0 ? ready.length : exclusiveIndex))
   const selected = []
+  const blockedByExclusiveResources = []
   let selectedExecutableCount = 0
   let minimumCpu = 0
-  for (const entry of candidates) {
+  for (const entry of ready) {
     if (entry.resources.coordinationOnly === true) {
       selected.push(entry)
       continue
     }
+    if (freeMemoryGiB <= 0) continue
     if (selectedExecutableCount >= capacity.maxParallel - activeExecutableCount) continue
     if (minimumCpu + entry.resources.minCpuUnits > Math.floor(freeCpuUnits)) continue
+    const resources = [...new Set(entry.resources.exclusiveResources ?? [])]
+    const conflictingResource = resources.find((resource) => resourceOwners.has(resource))
+    if (conflictingResource) {
+      const owner = resourceOwners.get(conflictingResource)
+      blockedByExclusiveResources.push({
+        stepId: entry.id,
+        resource: conflictingResource,
+        heldBy: owner.stepId,
+        holderState: owner.holderState
+      })
+      continue
+    }
     selected.push(entry)
     selectedExecutableCount += 1
     minimumCpu += entry.resources.minCpuUnits
+    for (const resource of resources) {
+      resourceOwners.set(resource, { stepId: entry.id, holderState: 'admission-wave' })
+    }
   }
-  return selected
+  return { selected, blockedByExclusiveResources }
 }
 
 /**
@@ -291,12 +304,13 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
   const states = new Map(normalized.map((entry) => [entry.id, 'pending']))
   const failures = []
   const active = new Map()
+  const reportedExclusiveWaits = new Set()
   let usedCpuUnits = 0
   let usedMemoryGiB = 0
 
   const start = (entry, runtimeCapacity) => {
     const index = normalized.findIndex((candidate) => candidate.id === entry.id)
-    const exclusive = (entry.resources.exclusiveResources ?? []).length > 0
+    const exclusiveResources = [...new Set(entry.resources.exclusiveResources ?? [])]
     usedCpuUnits += runtimeCapacity.cpuUnits
     usedMemoryGiB += runtimeCapacity.memoryGiB
     states.set(entry.id, 'running')
@@ -317,7 +331,7 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
 
     active.set(entry.id, {
       promise,
-      exclusive,
+      exclusiveResources,
       coordinationOnly: entry.resources.coordinationOnly === true,
       runtimeCapacity
     })
@@ -343,13 +357,25 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
         : states.get(dependency) === 'success'))
     const freeCpuUnits = Math.max(0, Math.floor(normalizedCapacity.cpuUnits) - usedCpuUnits)
     const freeMemoryGiB = Math.max(0, normalizedCapacity.memoryGiB - usedMemoryGiB)
-    const admission = selectWeightedAdmission(
+    const admissionResult = selectWeightedAdmission(
       ready,
       normalizedCapacity,
       active,
       freeCpuUnits,
       freeMemoryGiB
     )
+    const admission = admissionResult.selected
+    for (const wait of admissionResult.blockedByExclusiveResources) {
+      const key = `${wait.stepId}\0${wait.resource}\0${wait.heldBy}\0${wait.holderState}`
+      if (reportedExclusiveWaits.has(key)) continue
+      reportedExclusiveWaits.add(key)
+      console.log(
+        `[bundle-step-dag] wait ${wait.stepId}`
+        + ` exclusiveResource=${wait.resource}`
+        + ` heldBy=${wait.heldBy}`
+        + ` holderState=${wait.holderState}`
+      )
+    }
 
     if (admission.length > 0) {
       const allocations = resolveConcurrentStepCapacities(admission, {

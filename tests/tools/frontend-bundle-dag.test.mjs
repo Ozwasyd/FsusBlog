@@ -24,6 +24,7 @@ test('frontend bundle waits for a useful dynamic grant before starting one compl
   assert.match(vitestDeclaration, /dependsOn: \['frontend-early-test-capacity-ready'\]/u)
   assert.doesNotMatch(vitestDeclaration, /FSUSBLOG_VITEST_TARGET_WORKERS/u)
   assert.match(vitestDeclaration, /minCpuUnits: resolvedFrontendVitestAdmissionFloor\(\)/u)
+  assert.match(vitestDeclaration, /exclusiveResources: \['frontend-test-results'\]/u)
   assert.match(runnerSource, /Math\.ceil\(Math\.sqrt\(cpuCount\)\)/u)
   assert.doesNotMatch(vitestDeclaration, /dependsOn: \[[^\]]*frontend-build-ready/u)
   assert.doesNotMatch(vitestDeclaration, /\b(?:maxErrors|maxFailures|failFast|bail)\b/u)
@@ -61,7 +62,15 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
 
   const execution = executeWeightedStepDag([
     ordinaryStep('frontend-build-ready'),
-    ordinaryStep('vitest-production-projects', ['frontend-build-ready']),
+    {
+      ...ordinaryStep('vitest-production-projects', ['frontend-build-ready']),
+      resources: {
+        cpuWeight: 1,
+        memoryWeight: 1,
+        minCpuUnits: 1,
+        exclusiveResources: ['frontend-test-results']
+      }
+    },
     ordinaryStep('static-governance-concurrent'),
     {
       ...ordinaryStep('frontend-static-postbuild', ['frontend-build-ready']),
@@ -117,7 +126,8 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
   assert.ok(started.includes('vitest-settled'))
   assert.ok(started.includes('static-governance-post-vitest'))
   assert.ok(started.includes('frontend-coverage-summary'))
-  assert.ok(!started.includes('frontend-static-postbuild'), 'postbuild writer must wait for active readers')
+  assert.ok(started.includes('frontend-static-postbuild'),
+    'postbuild writer must start once the same-name Vitest resource is released, without waiting for unrelated static work')
 
   staticRelease.resolve()
   await assert.rejects(execution, (error) => {
