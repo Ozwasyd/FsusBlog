@@ -521,6 +521,8 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
     return {
       id: `${prefix}${bundle.id}`,
       physicalBundleId: bundle.id,
+      residentLeaseProducer: bundle.id === 'runtime-browser',
+      residentLeaseConsumer: bundle.id === 'performance-evidence',
       logicalMembers: [...(bundle.members ?? [])],
       command: bundle.command,
       dependsOn: (bundle.dependsOn ?? []).map((dependencyId) => `${prefix}${dependencyId}`),

@@ -1109,6 +1109,14 @@ main() {
     > "$FIXTURE_DIR/manifest.json"
   wait_for_binary_url 'seo probe' "$DEBUG_BACKEND_URL/api/binary/system/seo" "$EXECUTION_DEADLINE_AT_MS"
   wait_for_binary_url 'pow challenge probe' "$DEBUG_BACKEND_URL/api/binary/auth/pow-challenge" "$EXECUTION_DEADLINE_AT_MS"
+  if [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" && -n "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" ]]; then
+    FSUSBLOG_RESIDENT_BACKEND_PID="$(find_port_pid "$DEBUG_BACKEND_PORT")" \
+      FSUSBLOG_RESIDENT_FRONTEND_PID="$(find_port_pid "$DEBUG_FRONTEND_PORT")" \
+      FSUSBLOG_RESIDENT_PREVIEW_PID="$(find_port_pid "$RELEASE_PREVIEW_PORT")" \
+      FSUSBLOG_POSTGRES_CONTAINER_NAME="$POSTGRES_CONTAINER" \
+      FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER" \
+      "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-matrix/resident-resource-leases-cli.mjs" publish
+  fi
   log 'acceptance environment ready'
 }
 

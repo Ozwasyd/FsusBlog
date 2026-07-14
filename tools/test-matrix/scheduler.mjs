@@ -20,6 +20,14 @@ import {
 } from './resource-utilization.mjs'
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs'
 import { createAsyncLogPipeline } from './async-log-pipeline.mjs'
+import {
+  consumeResidentLeaseHandoff,
+  createResidentLeaseHandoff,
+  readResidentLeaseDocument,
+  reconcileResidentLeaseInventory,
+  validateResidentLeaseInventory,
+  writeResidentLeaseDocument
+} from './resident-resource-leases.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
 const protectedSupersedesPattern = /(^|[^a-z])(property|model|perf|performance|benchmark|runtime)([^a-z]|$)/i
@@ -1420,6 +1428,8 @@ async function runDagUnlocked(options) {
   const runDirectory = path.join(runsRoot, runId)
   const checkpointFile = path.join(runDirectory, 'checkpoint.json')
   const resourceGrantFile = path.join(runDirectory, 'resource-grants.json')
+  const residentLeaseFile = path.join(runDirectory, 'resident-resource-leases.json')
+  const residentHandoffFile = path.join(runDirectory, 'resident-resource-handoff.json')
   const tierLogDirectory = path.join(runDirectory, 'tiers')
   const snapshotWorktree = options.snapshotWorktree ?? (() => snapshotGitWorktree(root))
   const runSourceSnapshot = await snapshotWorktree()
@@ -1462,6 +1472,19 @@ async function runDagUnlocked(options) {
     tierResourceUnits(tier)
   }
   const byId = new Map(tiers.map((tier) => [tier.id, tier]))
+  const residentLeaseProducers = tiers.filter((tier) => tier.residentLeaseProducer === true)
+  const residentLeaseConsumers = tiers.filter((tier) => tier.residentLeaseConsumer === true)
+  if (residentLeaseProducers.length !== residentLeaseConsumers.length
+    || residentLeaseProducers.length > 1) {
+    throw new Error('resident lease topology requires exactly one producer/consumer pair or neither')
+  }
+  if (residentLeaseConsumers.length === 1
+    && !(residentLeaseConsumers[0].dependsOn ?? []).includes(residentLeaseProducers[0].id)) {
+    throw new Error('resident lease consumer must depend directly on its producer')
+  }
+  const residentConsumerBundleId = residentLeaseConsumers.length === 1
+    ? (residentLeaseConsumers[0].physicalBundleId ?? residentLeaseConsumers[0].id)
+    : null
   const resourceEnforcer = createProductionResourceEnforcer({
     ...(options.resourceEnforcementOptions ?? {}),
     runId,
@@ -1521,6 +1544,19 @@ async function runDagUnlocked(options) {
       waits: null
     },
     resourceEnforcement: resourceEnforcer.evidence(),
+    residentResourceLeases: {
+      status: 'not-acquired',
+      inventoryFile: path.relative(root, residentLeaseFile).replaceAll(path.sep, '/'),
+      handoffFile: path.relative(root, residentHandoffFile).replaceAll(path.sep, '/'),
+      ownerBundleId: null,
+      generation: null,
+      digest: null,
+      reservation: { cpuUnits: 0, memoryGiB: 0 },
+      services: {},
+      events: [],
+      handoff: null,
+      releasedAt: null
+    },
     maxParallel,
     sourceState,
     completedTiers: [],
@@ -1564,8 +1600,191 @@ async function runDagUnlocked(options) {
   options.registerSchedulerFinalizer?.(removeInterruptHandlers)
   const reusedTiers = []
   let firstFailure = null
+  let residentState = null
+  let lastResidentSampleAtMs = 0
+  const residentSampleIntervalMs = Math.max(
+    500,
+    Math.round(5_000 / Math.sqrt(Math.max(1, budget.cpuUnits)))
+  )
+  const residentEvidence = checkpoint.residentResourceLeases
+  const recordResidentEvent = (type, details = {}) => {
+    residentEvidence.events.push({ type, at: new Date().toISOString(), ...details })
+    if (residentEvidence.events.length > 1024) {
+      residentEvidence.events = residentEvidence.events.filter((_, index) => index % 2 === 0)
+    }
+  }
+  const residentUsage = () => residentState?.reconciliation?.reservation ?? { cpuUnits: 0, memoryGiB: 0 }
+  const accountedUsage = (entries) => {
+    const active = activeUsage(entries)
+    const resident = residentUsage()
+    return {
+      cpuUnits: active.cpuUnits + resident.cpuUnits,
+      memoryGiB: active.memoryGiB + resident.memoryGiB
+    }
+  }
+  const appendResidentObservation = (reconciliation) => {
+    for (const service of reconciliation.services) {
+      const evidence = residentEvidence.services[service.id] ??= {
+        generation: service.generation,
+        reservation: residentState.inventory.services.find((item) => item.id === service.id)?.reservation ?? null,
+        history: [],
+        restartCount: 0,
+        releasedAt: null
+      }
+      if (evidence.generation !== service.generation) {
+        evidence.generation = service.generation
+        evidence.restartCount += 1
+      }
+      evidence.history.push(service)
+      if (evidence.history.length > 4096) evidence.history = evidence.history.filter((_, index) => index % 2 === 0)
+      if (service.status === 'exited' && evidence.releasedAt === null) evidence.releasedAt = service.observedAt
+    }
+  }
+  const reconcileResidentState = ({ force = false } = {}) => {
+    if (!residentState) return null
+    const now = Date.now()
+    if (!force && now - lastResidentSampleAtMs < residentSampleIntervalMs) return residentState.reconciliation
+    lastResidentSampleAtMs = now
+    if (fs.existsSync(residentLeaseFile)) {
+      const current = readResidentLeaseDocument(residentLeaseFile)
+      validateResidentLeaseInventory(current, {
+        runId,
+        namespace: residentState.inventory.namespace
+      })
+      if (current.digest !== residentState.inventory.digest) {
+        const previousGeneration = residentState.inventory.generation
+        residentState.inventory = current
+        recordResidentEvent('generation-replaced', {
+          previousGeneration,
+          generation: current.generation,
+          ownerBundleId: current.ownerBundleId
+        })
+      }
+    }
+    const reconciliation = reconcileResidentLeaseInventory(residentState.inventory, {
+      observeService: options.observeResidentService
+    })
+    residentState.reconciliation = reconciliation
+    residentEvidence.generation = residentState.inventory.generation
+    residentEvidence.digest = residentState.inventory.digest
+    residentEvidence.reservation = reconciliation.reservation
+    appendResidentObservation(reconciliation)
+    if (reconciliation.fullyReleased) {
+      residentEvidence.status = 'released'
+      residentEvidence.releasedAt ??= new Date().toISOString()
+      recordResidentEvent('released', { ownerBundleId: residentEvidence.ownerBundleId })
+    } else if (!reconciliation.healthy) {
+      residentEvidence.status = 'identity-review-required'
+    }
+    return reconciliation
+  }
+  const acquireResidentState = (tier, tierEnvironment, { publishHandoff = true } = {}) => {
+    if (!fs.existsSync(residentLeaseFile)) {
+      throw new Error(`resident lease producer did not publish ${path.relative(root, residentLeaseFile)}`)
+    }
+    const inventory = readResidentLeaseDocument(residentLeaseFile)
+    validateResidentLeaseInventory(inventory, {
+      runId,
+      namespace: tierEnvironment.FSUSBLOG_TEST_NAMESPACE,
+      ownerBundleId: tier.physicalBundleId ?? tier.id
+    })
+    residentState = {
+      inventory,
+      reconciliation: null,
+      enforcementBundleId: tier.physicalBundleId ?? tier.id
+    }
+    residentEvidence.status = 'acquired'
+    residentEvidence.ownerBundleId = inventory.ownerBundleId
+    residentEvidence.acquiredAt = new Date().toISOString()
+    residentEvidence.enforcement = inventory.enforcement ?? null
+    recordResidentEvent('acquired', {
+      ownerBundleId: inventory.ownerBundleId,
+      generation: inventory.generation,
+      digest: inventory.digest
+    })
+    const reconciliation = reconcileResidentState({ force: true })
+    if (!reconciliation.healthy && publishHandoff) {
+      throw new Error('resident lease producer published non-live or changed service identities')
+    }
+    if (!inventory.enforcement) throw new Error('resident lease inventory has no cgroup/OCI enforcement binding')
+    const expectedProcessScope = resourceEnforcer.environment(residentState.enforcementBundleId)
+    if (inventory.enforcement.mode !== resourceEnforcer.mode
+      || (resourceEnforcer.mode === 'enforced'
+        && inventory.enforcement.processScope?.path !== expectedProcessScope.FSUSBLOG_CGROUP_BUNDLE_PATH)) {
+      throw new Error('resident lease enforcement scope does not match scheduler cgroup evidence')
+    }
+    const processReservation = inventory.services
+      .filter((service) => service.kind === 'process')
+      .reduce((total, service) => ({
+        cpuUnits: total.cpuUnits + service.reservation.cpuUnits,
+        memoryGiB: total.memoryGiB + service.reservation.memoryGiB
+      }), { cpuUnits: 0, memoryGiB: 0 })
+    if (processReservation.cpuUnits > 0 && processReservation.memoryGiB > 0) {
+      resourceEnforcer.update(residentState.enforcementBundleId, processReservation)
+    }
+    if (!publishHandoff) {
+      residentEvidence.status = 'partial'
+      recordResidentEvent('partial-evidence-retained', {
+        reservation: reconciliation.reservation,
+        healthy: reconciliation.healthy
+      })
+      return
+    }
+    const receipt = createResidentLeaseHandoff({
+      inventory,
+      toOwnerBundleId: residentConsumerBundleId,
+      readiness: {
+        status: 'ready',
+        checkedAt: new Date().toISOString(),
+        services: reconciliation.services.map((service) => ({
+          id: service.id,
+          generation: service.generation,
+          status: service.status
+        }))
+      }
+    })
+    writeResidentLeaseDocument(residentHandoffFile, receipt)
+    residentEvidence.handoff = {
+      status: 'published',
+      digest: receipt.digest,
+      fromOwnerBundleId: receipt.fromOwnerBundleId,
+      toOwnerBundleId: receipt.toOwnerBundleId,
+      generatedAt: receipt.generatedAt,
+      consumedAt: null
+    }
+    recordResidentEvent('handoff-published', { digest: receipt.digest })
+  }
+  const prepareResidentConsumer = (tier, tierEnvironment) => {
+    if (!residentState) throw new Error('resident lease consumer has no producer inventory')
+    const reconciliation = reconcileResidentState({ force: true })
+    if (!reconciliation?.healthy) throw new Error('resident lease consumer rejected stale or unhealthy runtime')
+    const receipt = readResidentLeaseDocument(residentHandoffFile)
+    const consumerBundleId = tier.physicalBundleId ?? tier.id
+    const consumed = consumeResidentLeaseHandoff(receipt, {
+      inventory: residentState.inventory,
+      consumerBundleId
+    })
+    writeResidentLeaseDocument(residentHandoffFile, consumed)
+    residentEvidence.status = 'handed-off'
+    residentEvidence.ownerBundleId = consumerBundleId
+    residentEvidence.handoff = {
+      ...residentEvidence.handoff,
+      status: 'consumed',
+      consumedAt: consumed.consumedAt,
+      consumedBy: consumed.consumedBy,
+      digest: consumed.digest
+    }
+    recordResidentEvent('handoff-consumed', { digest: consumed.digest, consumerBundleId })
+    Object.assign(tierEnvironment, {
+      FSUSBLOG_RESIDENT_LEASE_INVENTORY: residentLeaseFile,
+      FSUSBLOG_RESIDENT_LEASE_HANDOFF: residentHandoffFile,
+      FSUSBLOG_RESIDENT_RESERVED_CPU_UNITS: String(reconciliation.reservation.cpuUnits),
+      FSUSBLOG_RESIDENT_RESERVED_MEMORY_GIB: String(reconciliation.reservation.memoryGiB)
+    })
+  }
   const sampleResourcePeaks = () => {
-    const usage = activeUsage([...active.values()])
+    reconcileResidentState()
+    const usage = accountedUsage([...active.values()])
     checkpoint.resourcePeaks.load1 = Math.max(checkpoint.resourcePeaks.load1, Math.max(0, Number(os.loadavg()[0]) || 0))
     checkpoint.resourcePeaks.usedMemoryGiB = Math.max(
       checkpoint.resourcePeaks.usedMemoryGiB,
@@ -1628,6 +1847,7 @@ async function runDagUnlocked(options) {
       schema: 'fsusblog.test-matrix.resource-grants.v1',
       runId,
       resourceBudget: budget,
+      residentReservation: residentUsage(),
       grants,
       generatedAt: new Date().toISOString()
     }
@@ -1645,7 +1865,7 @@ async function runDagUnlocked(options) {
       writeActiveResourceGrants()
       return
     }
-    const usage = activeUsage([...active.values()])
+    const usage = accountedUsage([...active.values()])
     let freeCpuUnits = Math.max(0, Math.floor(budget.cpuUnits - usage.cpuUnits))
     while (freeCpuUnits > 0) {
       const selected = [...elastic].sort((left, right) => {
@@ -1660,7 +1880,7 @@ async function runDagUnlocked(options) {
       freeCpuUnits -= 1
     }
 
-    const currentUsage = activeUsage([...active.values()])
+    const currentUsage = accountedUsage([...active.values()])
     const liveMemoryEnvelope = Math.min(
       budget.memoryGiB,
       currentUsage.memoryGiB + currentFreeMemoryGiB()
@@ -1694,7 +1914,7 @@ async function runDagUnlocked(options) {
   const admissionWave = () => {
     if (pending.length === 0 || active.size >= maxParallel) return []
     const activeEntries = [...active.values()]
-    const usage = activeUsage(activeEntries)
+    const usage = accountedUsage(activeEntries)
     const barrierPhase = Math.min(
       ...pending.map(tierPhase),
       ...activeEntries.map((entry) => tierPhase(entry.tier))
@@ -1801,6 +2021,14 @@ async function runDagUnlocked(options) {
       FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES: String(effectiveEnforcement.memoryMaxBytes),
       FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX: String(effectiveEnforcement.pidsMax)
     }
+    let residentPreparationError = null
+    if (tier.residentLeaseConsumer === true) {
+      try {
+        prepareResidentConsumer(tier, tierEnvironment)
+      } catch (error) {
+        residentPreparationError = error
+      }
+    }
     const inputFingerprint = tierInputFingerprint(tier, root, {
       env: tierEnvironment,
       platform: options.platform,
@@ -1838,7 +2066,12 @@ async function runDagUnlocked(options) {
       runId,
       runDirectory
     }
-    const execution = options.executeTier
+    const execution = residentPreparationError
+      ? {
+          promise: Promise.resolve({ code: 1, signal: null, error: residentPreparationError }),
+          terminate: () => {}
+        }
+      : options.executeTier
       ? {
           promise: Promise.resolve().then(() => options.executeTier(tier, context)).then(normalizeExecutionResult, (error) => ({ code: 1, signal: null, error })),
           terminate: () => options.abortTier?.(tier)
@@ -1938,6 +2171,10 @@ async function runDagUnlocked(options) {
       })
     }
     active.set(tier.id, entry)
+    // Publish the admitted grant before an in-process executor or a very fast
+    // child can read it. The later expansion pass may grow this grant, but the
+    // startup grant and current resident deduction must already be authoritative.
+    writeActiveResourceGrants()
     if (tier.resourceGrantDynamic === true) {
       entry.resourceGrantHistory = [{
         ...entry.startupGrant,
@@ -1975,7 +2212,7 @@ async function runDagUnlocked(options) {
       && !outputInvalid
       && ownedOutputs.length > 0
       && beforeOutputProvenance.fingerprint === afterOutputProvenance.fingerprint
-    const success = !cancelled && !commandFailed && !polluted && !outputInvalid && !staleOutputs
+    let success = !cancelled && !commandFailed && !polluted && !outputInvalid && !staleOutputs
     const resultFingerprint = fingerprint({
       inputFingerprint,
       dependencyFingerprint: dependencyFingerprintValue,
@@ -1994,6 +2231,26 @@ async function runDagUnlocked(options) {
       reason = `required artifact/evidence missing or invalid: ${invalidOutputs.join(', ')}`
     }
     else if (staleOutputs) reason = `fresh tier did not produce or update its owned generated evidence: ${ownedOutputs.join(', ')}`
+
+    if (tier.residentLeaseProducer === true) {
+      if (fs.existsSync(residentLeaseFile) || success) {
+        try {
+          acquireResidentState(tier, tierEnvironment, { publishHandoff: success })
+        } catch (error) {
+          recordResidentEvent('acquisition-failed', { reason: error.message })
+          if (success) {
+            success = false
+            reason = error.message
+            executionResult.code = 1
+            executionResult.error = error
+          }
+        }
+      } else {
+        recordResidentEvent('partial-inventory-missing', { ownerBundleId: tier.physicalBundleId ?? tier.id })
+      }
+    } else if (residentState) {
+      reconcileResidentState({ force: true })
+    }
 
     checkpoint.tiers[tier.id] = {
       status: success ? 'success' : (cancelled ? 'cancelled' : 'failure'),
@@ -2060,7 +2317,7 @@ async function runDagUnlocked(options) {
       const waveIds = new Set(wave.map((tier) => tier.id))
       const activeEntries = [...active.values()]
       const admissionEntries = [...activeEntries, ...wave.map((tier) => ({ tier }))]
-      const usage = activeUsage(admissionEntries)
+      const usage = accountedUsage(admissionEntries)
       const barrierPhase = Math.min(
         ...pending.map(tierPhase),
         ...activeEntries.map((entry) => tierPhase(entry.tier))
@@ -2126,14 +2383,19 @@ async function runDagUnlocked(options) {
               : tierResourceUnits(readyTier))
           : null
         const liveMemoryCapacityGiB = Math.min(budget.memoryGiB, currentFreeMemoryGiB())
+        const resident = residentUsage()
+        const executableBudget = {
+          cpuUnits: Math.max(0, budget.cpuUnits - resident.cpuUnits),
+          memoryGiB: Math.max(0, liveMemoryCapacityGiB - resident.memoryGiB)
+        }
         const unschedulable = request
-          && (request.cpuUnits > budget.cpuUnits || request.memoryGiB > liveMemoryCapacityGiB)
+          && (request.cpuUnits > executableBudget.cpuUnits || request.memoryGiB > executableBudget.memoryGiB)
         firstFailure = {
           tierId: readyTier?.id ?? pending[0].id,
           exitCode: 1,
           signal: null,
           reason: unschedulable
-            ? `unschedulable resource request for ${readyTier.id}: cpu=${request.cpuUnits}/${budget.cpuUnits}, memoryGiB=${request.memoryGiB}/${liveMemoryCapacityGiB}`
+            ? `unschedulable resource request for ${readyTier.id}: cpu=${request.cpuUnits}/${executableBudget.cpuUnits}, memoryGiB=${request.memoryGiB}/${executableBudget.memoryGiB} after resident reservation`
             : 'no runnable tiers remain; check DAG dependencies and resource metadata',
           changedPaths: []
         }

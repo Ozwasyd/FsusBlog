@@ -15,6 +15,11 @@ import {
 } from '../../tools/test-matrix/local-profile.mjs'
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
 import { createArtifactDigestTable } from '../../tools/test-matrix/artifact-digest-table.mjs'
+import {
+  bindResidentLeaseEnforcement,
+  createResidentLeaseInventory,
+  writeResidentLeaseDocument
+} from '../../tools/test-matrix/resident-resource-leases.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs')
@@ -36,7 +41,7 @@ function createRunnerFixture(temp) {
   const schedulerDirectory = path.join(toolsDirectory, 'test-matrix')
   fs.mkdirSync(schedulerDirectory, { recursive: true })
   fs.copyFileSync(path.join(root, 'tools/run-test-matrix.mjs'), path.join(toolsDirectory, 'run-test-matrix.mjs'))
-  for (const file of ['scheduler.mjs', 'async-log-pipeline.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs', 'artifact-digest-table.mjs', 'resource-utilization.mjs', 'production-resource-enforcement.mjs']) {
+  for (const file of ['scheduler.mjs', 'async-log-pipeline.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs', 'artifact-digest-table.mjs', 'resource-utilization.mjs', 'production-resource-enforcement.mjs', 'resident-resource-leases.mjs']) {
     fs.copyFileSync(path.join(root, 'tools/test-matrix', file), path.join(schedulerDirectory, file))
   }
   return path.join(toolsDirectory, 'run-test-matrix.mjs')
@@ -2522,4 +2527,161 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', () 
   const firstEnd = Math.min(events.indexOf('end:smart-a'), events.indexOf('end:smart-b'))
   assert.ok(events.indexOf('start:smart-a') < firstEnd)
   assert.ok(events.indexOf('start:smart-b') < firstEnd)
+})
+
+test('resident leases stay in admission accounting, hand off once, and release capacity only after exit', async () => {
+  const { runDag } = await loadScheduler()
+  assert.equal(typeof runDag, 'function')
+  const temp = createTempDir('scheduler-resident-leases')
+  const runId = 'resident-run'
+  const namespace = 'resident-namespace'
+  let residentLive = true
+  let consumerGrant = null
+  let consumerEnvironment = null
+  const runtime = tier('runtime', {
+    physicalBundleId: 'runtime-browser',
+    residentLeaseProducer: true,
+    cpuUnits: 2,
+    memoryGiB: 2
+  })
+  const performance = tier('performance', {
+    physicalBundleId: 'performance-evidence',
+    residentLeaseConsumer: true,
+    dependsOn: ['runtime'],
+    cpuUnits: 3,
+    memoryGiB: 3
+  })
+  const afterExit = tier('after-exit', {
+    dependsOn: ['performance'],
+    cpuUnits: 4,
+    memoryGiB: 4
+  })
+  const result = await runDag({
+    tiers: [runtime, performance, afterExit],
+    root: temp,
+    runsRoot: path.join(temp, '.tmp/test-runs'),
+    runId,
+    targetTierId: 'after-exit',
+    mode: 'fresh',
+    maxParallel: 2,
+    systemResources: { cpuCount: 4, availableCpuUnits: 4, availableMemoryGiB: 4, load1: 0 },
+    currentFreeMemoryGiB: () => 4,
+    resourceEnforcementMode: 'advisory',
+    snapshotWorktree: stableSnapshot,
+    observeResidentService: () => residentLive
+      ? { status: 'live', observedRssBytes: 128, observedCpuTicks: 10 }
+      : { status: 'exited', observedRssBytes: 0, observedCpuTicks: 20 },
+    executeTier: async (current, context) => {
+      if (current.id === 'runtime') {
+        const unboundInventory = createResidentLeaseInventory({
+          runId,
+          namespace,
+          ownerBundleId: 'runtime-browser',
+          resourceGrant: { cpuUnits: 2, memoryGiB: 2 },
+          services: [{
+            id: 'backend',
+            kind: 'process',
+            identity: { pid: 42, startTimeTicks: '100' },
+            port: 24001,
+            generation: 'backend-1',
+            health: { status: 'ready', checkedAt: '2026-07-14T00:00:00.000Z' },
+            observedRssBytes: 128
+          }]
+        })
+        const inventory = bindResidentLeaseEnforcement(unboundInventory, {
+          mode: 'advisory',
+          processScope: { status: 'advisory', path: null, reservation: unboundInventory.reservation },
+          containers: {},
+          boundAt: '2026-07-14T00:00:01.000Z'
+        })
+        writeResidentLeaseDocument(path.join(context.runDirectory, 'resident-resource-leases.json'), inventory)
+      } else if (current.id === 'performance') {
+        consumerEnvironment = context.env
+        consumerGrant = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE, 'utf8'))
+        const handoff = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_RESIDENT_LEASE_HANDOFF, 'utf8'))
+        assert.equal(handoff.consumedBy, 'performance-evidence')
+        residentLive = false
+      }
+      return { code: 0, signal: null }
+    },
+    envForTier: (current) => ({
+      FSUSBLOG_TEST_NAMESPACE: namespace,
+      FSUSBLOG_TEST_RUN_ID: runId,
+      FSUSBLOG_PHYSICAL_BUNDLE_ID: current.physicalBundleId ?? current.id
+    })
+  })
+  assert.equal(result.status, 'success', JSON.stringify(result.failure ?? result.checkpoint.failures))
+  assert.equal(result.checkpoint.tiers.performance.resourceGrant.cpuUnits, 3)
+  assert.equal(result.checkpoint.tiers['after-exit'].resourceGrant.cpuUnits, 4)
+  assert.equal(consumerGrant.residentReservation.cpuUnits, 1)
+  assert.equal(consumerGrant.grants.performance.cpuUnits, 3)
+  assert.equal(consumerEnvironment.FSUSBLOG_RESIDENT_RESERVED_CPU_UNITS, '1')
+  assert.equal(result.checkpoint.residentResourceLeases.handoff.status, 'consumed')
+  assert.equal(result.checkpoint.residentResourceLeases.status, 'released')
+  assert.ok(result.checkpoint.residentResourceLeases.services.backend.history.some((entry) => entry.status === 'live'))
+  assert.ok(result.checkpoint.residentResourceLeases.services.backend.history.some((entry) => entry.status === 'exited'))
+  const enforcement = result.checkpoint.resourceEnforcement.bundles['runtime-browser']
+  assert.equal(enforcement.grants.at(-1).cpuUnits, 1)
+})
+
+test('failed resident producer retains partial live-service evidence without publishing a handoff', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-resident-partial')
+  const runId = 'resident-partial'
+  const namespace = 'resident-partial-namespace'
+  const runtime = tier('runtime', {
+    physicalBundleId: 'runtime-browser', residentLeaseProducer: true, cpuUnits: 2, memoryGiB: 2
+  })
+  const performance = tier('performance', {
+    physicalBundleId: 'performance-evidence', residentLeaseConsumer: true,
+    dependsOn: ['runtime'], cpuUnits: 1, memoryGiB: 1
+  })
+  const result = await runDag({
+    tiers: [runtime, performance],
+    root: temp,
+    runsRoot: path.join(temp, '.tmp/test-runs'),
+    runId,
+    targetTierId: 'performance',
+    mode: 'fresh',
+    collectFailures: true,
+    maxParallel: 1,
+    systemResources: { cpuCount: 4, availableCpuUnits: 4, availableMemoryGiB: 4, load1: 0 },
+    currentFreeMemoryGiB: () => 4,
+    resourceEnforcementMode: 'advisory',
+    snapshotWorktree: stableSnapshot,
+    observeResidentService: () => ({ status: 'live', observedRssBytes: 128, observedCpuTicks: 10 }),
+    envForTier: (current) => ({
+      FSUSBLOG_TEST_NAMESPACE: namespace,
+      FSUSBLOG_TEST_RUN_ID: runId,
+      FSUSBLOG_PHYSICAL_BUNDLE_ID: current.physicalBundleId ?? current.id
+    }),
+    executeTier: async (current, context) => {
+      if (current.id === 'runtime') {
+        const unboundInventory = createResidentLeaseInventory({
+          runId,
+          namespace,
+          ownerBundleId: 'runtime-browser',
+          resourceGrant: { cpuUnits: 2, memoryGiB: 2 },
+          services: [{
+            id: 'backend', kind: 'process', identity: { pid: 42, startTimeTicks: '100' }, port: 24001,
+            generation: 'backend-1', health: { status: 'ready', checkedAt: '2026-07-14T00:00:00.000Z' },
+            observedRssBytes: 128
+          }]
+        })
+        writeResidentLeaseDocument(path.join(context.runDirectory, 'resident-resource-leases.json'), bindResidentLeaseEnforcement(unboundInventory, {
+          mode: 'advisory',
+          processScope: { status: 'advisory', path: null, reservation: unboundInventory.reservation },
+          containers: {},
+          boundAt: '2026-07-14T00:00:01.000Z'
+        }))
+        return { code: 7, signal: null }
+      }
+      throw new Error('blocked consumer must not execute')
+    }
+  })
+  assert.equal(result.status, 'failure')
+  assert.equal(result.checkpoint.residentResourceLeases.status, 'partial')
+  assert.equal(result.checkpoint.residentResourceLeases.handoff, null)
+  assert.ok(result.checkpoint.residentResourceLeases.reservation.cpuUnits > 0)
+  assert.equal(result.checkpoint.tiers.performance.status, 'blocked')
 })

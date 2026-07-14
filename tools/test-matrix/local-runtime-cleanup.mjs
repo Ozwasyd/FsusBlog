@@ -2,6 +2,8 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { finalizeResidentLeaseCleanup } from './resident-resource-leases.mjs'
+
 function namespaceSlug(value) {
   const normalized = String(value ?? '')
     .trim()
@@ -327,7 +329,24 @@ export function cleanupLocalRuntime({
     removeWithinRoot(resolvedRoot, relative)
   }
 
-  return { namespace: slug, removedContainers, skippedContainers, terminatedPids }
+  const result = { namespace: slug, removedContainers, skippedContainers, terminatedPids }
+  const schedulerRunId = String(environment.FSUSBLOG_TEST_RUN_ID ?? '').trim()
+  const checkpointFile = schedulerRunId
+    ? path.join(resolvedRoot, '.tmp', 'test-runs', schedulerRunId, 'checkpoint.json')
+    : null
+  if (checkpointFile && fs.existsSync(checkpointFile)) {
+    const checkpoint = finalizeResidentLeaseCleanup({
+      root: resolvedRoot,
+      checkpointFile,
+      cleanup: result
+    })
+    result.residentResourceLeases = {
+      status: checkpoint.residentResourceLeases?.status ?? 'not-acquired',
+      releasedAt: checkpoint.residentResourceLeases?.releasedAt ?? null,
+      reservation: checkpoint.residentResourceLeases?.reservation ?? { cpuUnits: 0, memoryGiB: 0 }
+    }
+  }
+  return result
 }
 
 export function cleanupStaleLocalRuntimes({
