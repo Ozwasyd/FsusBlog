@@ -242,7 +242,11 @@ async function loadRuntimeManifest(): Promise<AedsRuntimeManifest> {
   if (!manifestPromise) {
     manifestPromise = (async () => {
       const response = await fetch(AEDS_RUNTIME_MANIFEST_URL, { credentials: 'same-origin', cache: 'force-cache' });
-      if (!response.ok) throw new Error(`aeds_manifest_fetch_failed:${response.status}`);
+      if (!response.ok) {
+        throw createAppError(AppErrorCode.InfraFailure, `aeds_manifest_fetch_failed:${response.status}`, {
+          status: response.status
+        });
+      }
       const value = await response.json() as AedsRuntimeManifest;
       validateRuntimeManifest(value);
       return value;
@@ -254,19 +258,19 @@ async function loadRuntimeManifest(): Promise<AedsRuntimeManifest> {
 
 function validateRuntimeManifest(value: AedsRuntimeManifest): void {
   if (value?.schema !== 'fsusblog.aeds-runtime.v1' || value.abi !== AEDS_WASM_ABI || value.maxFrameBytes !== AEDS_MAX_FRAME_BYTES) {
-    throw new Error('aeds_manifest_contract_invalid');
+    throw createAppError(AppErrorCode.InvariantViolation, 'aeds_manifest_contract_invalid');
   }
   for (const tier of ['basic', 'speed'] as const) {
     const entry = value.tiers?.[tier];
     const expected = resolveAedsAsset(tier);
     if (!entry || !/^[0-9a-f]{64}$/u.test(entry.wasmSha256)
       || !expected.moduleUrl.endsWith(`/${entry.module}`) || !expected.wasmUrl.endsWith(`/${entry.wasm}`)) {
-      throw new Error(`aeds_manifest_tier_invalid:${tier}`);
+      throw createAppError(AppErrorCode.InvariantViolation, `aeds_manifest_tier_invalid:${tier}`);
     }
   }
   const speed = value.tiers.speed;
   if (!speed.simd || !speed.lto || !speed.wasmOptValidated || speed.memoryGrowth !== 'disabled') {
-    throw new Error('aeds_manifest_speed_identity_invalid');
+    throw createAppError(AppErrorCode.InvariantViolation, 'aeds_manifest_speed_identity_invalid');
   }
 }
 

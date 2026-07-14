@@ -19,6 +19,16 @@ export type EmscriptenLoadMetrics = {
 
 const compiledModuleCache = new Map<string, Promise<WebAssembly.Module>>();
 
+export class WasmRuntimeError extends Error {
+  readonly code: string;
+
+  constructor(code: string) {
+    super(code);
+    this.name = 'WasmRuntimeError';
+    this.code = code;
+  }
+}
+
 type ModuleNamespace<TModule> = {
   default?: EmscriptenModuleFactory<TModule>;
   [key: string]: unknown;
@@ -52,7 +62,7 @@ export async function loadEmscriptenModule<TModule>(
   if (wasmBinary && options?.expectedWasmSha256) {
     const actualHash = await sha256Hex(wasmBinary);
     if (actualHash !== options.expectedWasmSha256.replace(/^sha256:/u, '').toLowerCase()) {
-      throw new Error('wasm_hash_mismatch');
+      throw new WasmRuntimeError('wasm_hash_mismatch');
     }
   }
   const cacheKey = options?.compiledModuleCacheKey;
@@ -64,7 +74,7 @@ export async function loadEmscriptenModule<TModule>(
     compiledModule = await getCompiledModule(cacheKey, wasmBinary);
     compileMs = now() - compileStartedAt;
   } else if (options?.requireCompiledModule) {
-    throw new Error('wasm_binary_unavailable_for_compiled_cache');
+    throw new WasmRuntimeError('wasm_binary_unavailable_for_compiled_cache');
   }
   const globals = globalThis as { __dirname?: string };
   const savedDirname = globals.__dirname;
@@ -129,7 +139,7 @@ export function clearCompiledWasmModuleCacheForTests(): void {
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
   if (!subtle) {
-    throw new Error('wasm_hash_verifier_unavailable');
+    throw new WasmRuntimeError('wasm_hash_verifier_unavailable');
   }
   const digest = await subtle.digest('SHA-256', bytes as BufferSource);
   return Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');

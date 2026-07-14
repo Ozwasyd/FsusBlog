@@ -48,4 +48,16 @@ describe('AEDS Wasm tier selection', () => {
     expect(attempts).toEqual(['speed', 'basic'])
     expect(selected).toEqual({ tier: 'basic', fallbackReason: 'speed_compile_failed' })
   })
+
+  it('uses a typed runtime error for loader boundary failures', async () => {
+    const { WasmRuntimeError } = await vi.importActual<
+      typeof import('@wasm/runtime/emscripten')
+    >('@wasm/runtime/emscripten')
+    const error = new WasmRuntimeError('wasm_hash_mismatch')
+
+    expect(error).toBeInstanceOf(Error)
+    expect(error.name).toBe('WasmRuntimeError')
+    expect(error.code).toBe('wasm_hash_mismatch')
+    expect(error.message).toBe('wasm_hash_mismatch')
+  })
 })
