@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  clearPublicSearchNoIndexHead,
+  commitPublicSearchNoIndexHead,
   clearPublicSeoHead,
   commitPreparedPublicSeoHead,
   computePublicSeoHeadDigest,
@@ -51,7 +53,7 @@ async function head(path: string, title: string, type = 'website'): Promise<Publ
 describe('public SEO head takeover', () => {
   beforeEach(() => {
     resetPublicSeoHeadForTests()
-    document.head.querySelectorAll('[data-fsus-aot-head]').forEach((node) => node.remove())
+    document.head.querySelectorAll('[data-fsus-aot-head], [data-fsus-search-head]').forEach((node) => node.remove())
   })
 
   it('atomically replaces every page-level node and restores the retained model on back navigation', async () => {
@@ -94,6 +96,22 @@ describe('public SEO head takeover', () => {
     expect(document.querySelector('[data-fsus-aot-head]')).toBeNull()
     expect(document.querySelector('link[rel="canonical"]')).toBeNull()
     expect(document.querySelector('script[type="application/ld+json"]')).toBeNull()
+  })
+
+  it('atomically replaces a public page head with search noindex and clears it on exit', async () => {
+    const model = await head('/article/1', 'Article A', 'article')
+    await validateAndPreparePublicSeoHead(model, '/article/1', '/article/1')
+    commitPreparedPublicSeoHead('/article/1')
+
+    commitPublicSearchNoIndexHead('/article/1')
+
+    expect(document.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex,follow')
+    expect(document.querySelector('[data-fsus-search-head]')).not.toBeNull()
+    expect(document.querySelector('link[rel="canonical"]')).toBeNull()
+    expect(document.querySelector('script[type="application/ld+json"]')).toBeNull()
+
+    clearPublicSearchNoIndexHead()
+    expect(document.querySelector('meta[name="robots"]')).toBeNull()
   })
 
   it('does not rewrite canonical or structured data for notification-only state changes', async () => {

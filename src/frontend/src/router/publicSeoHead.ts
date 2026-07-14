@@ -350,6 +350,24 @@ export function clearPublicSeoHead(previousFullPath?: string): void {
   }
 }
 
+export function commitPublicSearchNoIndexHead(previousFullPath?: string): void {
+  if (typeof document === 'undefined') return
+  if (previousFullPath) captureCurrentHead(previousFullPath)
+  removeExistingPublicPageHead()
+  const robots = document.createElement('meta')
+  robots.name = 'robots'
+  robots.content = 'noindex,follow'
+  robots.dataset.fsusSearchHead = ''
+  document.head.appendChild(robots)
+}
+
+export function clearPublicSearchNoIndexHead(): void {
+  if (typeof document === 'undefined') return
+  for (const node of document.head.querySelectorAll('[data-fsus-search-head]')) {
+    node.remove()
+  }
+}
+
 export function resetPublicSeoHeadForTests(): void {
   preparedHeads.clear()
 }

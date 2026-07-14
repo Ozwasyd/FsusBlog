@@ -1597,7 +1597,9 @@ feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale
 
 ### SEO Discovery
 
-`PublicAotDocumentComposer` 为 AOT 公开页输出 canonical、description、OpenGraph、Twitter card 与 feed discovery。JSON-LD 使用单个 `@graph`，必须包含站点级 `WebSite` + `SearchAction`、页面路径 `BreadcrumbList`，文章详情页额外包含 `BlogPosting`。`check:public-seo-smoke` 会对 home、article detail、archive、about、privacy、guidelines、copyright、category、tag 的 AOT 命中和 shell-only SPA fallback 做一致性校验。
+`PublicAotDocumentComposer` 为 AOT 公开页输出 canonical、description、OpenGraph、Twitter card 与 feed discovery。JSON-LD 使用单个 `@graph`，包含站点级 `WebSite`、页面路径 `BreadcrumbList`，文章详情页额外包含 `BlogPosting`；不得输出指向 noindex `/search` 的 `SearchAction`。`check:public-seo-smoke` 会对 home、article detail、archive、about、privacy、guidelines、copyright、category、tag 的 AOT 命中和 shell-only SPA fallback 做一致性校验。
+
+`GET/HEAD /search` 是 shell-only 搜索文档契约，固定响应 `X-Robots-Tag: noindex, follow` 和等效 HTML meta，不生成 Public AOT、canonical 或页面 JSON-LD。query 的唯一顺序为 `q`、非默认 `sort`、非默认 `page`；共享 `PublicSearchRoutePolicy` 固定 `q <= 128`、`page <= 100`、raw query `<= 2048`，前端生成 manifest 消费同一组边界。可规范输入 301 到唯一 URL，危险超长/控制字符输入返回 400 noindex；HEAD 与 GET 的状态及索引控制头一致。
 
 ### 文章生命周期
 

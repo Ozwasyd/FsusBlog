@@ -432,6 +432,74 @@ test.describe('public CSP nonce enforcement', () => {
 test.describe('public route real HTTP status', () => {
   test.describe.configure({ timeout: 120_000 })
 
+  test('search is server-noindex, bounded to one URL, and stays noindex through SPA navigation', async ({ page, request }) => {
+    const keyword = fixtures.searchKeyword
+    const canonicalPath = `/search?q=${encodeURIComponent(keyword)}`
+    const [getResponse, headResponse] = await Promise.all([
+      request.get(canonicalPath, { headers: { Accept: 'text/html' } }),
+      request.head(canonicalPath, { headers: { Accept: 'text/html' } })
+    ])
+    const body = await getResponse.text()
+
+    expect(getResponse.status()).toBe(200)
+    expect(headResponse.status()).toBe(200)
+    expect(getResponse.headers()['x-robots-tag']).toBe('noindex, follow')
+    expect(headResponse.headers()['x-robots-tag']).toBe('noindex, follow')
+    expect(body).toContain('<meta name="robots" content="noindex,follow" data-fsus-search-head>')
+    expect(body).not.toMatch(/rel="canonical"|application\/ld\+json/i)
+
+    const homeResponse = await request.get('/', { headers: { Accept: 'text/html' } })
+    expect(homeResponse.headers()['x-robots-tag']).toBeUndefined()
+    expect(await homeResponse.text()).not.toContain('data-fsus-search-head')
+
+    const normalized = await request.get('/SEARCH/?page=01&q=%20Cafe%CC%81%20%20&sort=LATEST&q=ignored&junk=x', {
+      maxRedirects: 0
+    })
+    expect(normalized.status()).toBe(301)
+    expect(normalized.headers().location).toBe('/search?q=Caf%C3%A9&sort=latest')
+
+    const empty = await request.get('/search?q=&sort=hot&page=4', { maxRedirects: 0 })
+    expect(empty.status()).toBe(301)
+    expect(empty.headers().location).toBe('/search')
+
+    const invalid = await request.get('/search?q=test&sort=unknown&page=101', { maxRedirects: 0 })
+    expect(invalid.status()).toBe(301)
+    expect(invalid.headers().location).toBe('/search?q=test')
+
+    const oversized = await request.get(`/search?q=${'x'.repeat(129)}`, { maxRedirects: 0 })
+    expect(oversized.status()).toBe(400)
+    expect(oversized.headers()['x-robots-tag']).toBe('noindex, follow')
+    expect(await oversized.text()).toContain('<meta name="robots" content="noindex,follow">')
+
+    const [sitemap, robots] = await Promise.all([
+      request.get('/sitemap.xml').then((response) => response.text()),
+      request.get('/robots.txt').then((response) => response.text())
+    ])
+    expect(sitemap).not.toContain('/search')
+    expect(robots).not.toMatch(/^Disallow:\s*\/search\s*$/mu)
+
+    await page.goto(canonicalPath, { waitUntil: 'domcontentloaded' })
+    await waitForAppReady(page)
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex,follow')
+    await expect(page.locator('link[rel="canonical"]')).toHaveCount(0)
+    await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0)
+    await page.evaluate(() => {
+      ;(window as Window & { __FSUSBLOG_SEARCH_SPA_MARKER__?: string }).__FSUSBLOG_SEARCH_SPA_MARKER__ = 'preserved'
+    })
+    await settlePage(page)
+    await page.locator('.filter-stack .el-radio-button').filter({ hasText: '最新' }).first().click()
+    await page.waitForURL(`${canonicalPath}&sort=latest`)
+    expect(await page.evaluate(() =>
+      (window as Window & { __FSUSBLOG_SEARCH_SPA_MARKER__?: string }).__FSUSBLOG_SEARCH_SPA_MARKER__
+    )).toBe('preserved')
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex,follow')
+    await expect(page.locator('link[rel="canonical"]')).toHaveCount(0)
+    await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(0)
+    const articleLink = page.locator('main a[href^="/article/"]').first()
+    await expect(articleLink).toBeVisible()
+    expect(await articleLink.getAttribute('href')).toMatch(/^\/article\/\d+$/u)
+  })
+
   test('invalid public URLs stay 404 before hydration and GET matches HEAD', async ({ page, request }) => {
     const paths = [
       '/route-that-does-not-exist',

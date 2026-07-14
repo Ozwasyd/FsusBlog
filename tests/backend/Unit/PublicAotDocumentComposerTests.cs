@@ -142,7 +142,7 @@ public sealed class PublicAotDocumentComposerTests
     }
 
     [Fact]
-    public void BuildSeoHeadTags_IncludesFeedDiscoveryAndJsonLdSearchAction()
+    public void BuildSeoHeadTags_IncludesFeedDiscoveryWithoutIndexableSearchPageJsonLd()
     {
         string result = PublicAotDocumentComposer.BuildSeoHeadTags(
             PublicPageKind.ArticleDetail, "Article", "Blog", "Desc", "https://example.com/article/1");
@@ -157,8 +157,8 @@ public sealed class PublicAotDocumentComposerTests
         Assert.Contains("\"@type\":\"WebSite\"", result);
         Assert.Contains("\"@type\":\"BlogPosting\"", result);
         Assert.Contains("\"@type\":\"BreadcrumbList\"", result);
-        Assert.Contains("\"@type\":\"SearchAction\"", result);
-        Assert.Contains("https://example.com/search?q={search_term_string}", result);
+        Assert.DoesNotContain("\"@type\":\"SearchAction\"", result);
+        Assert.DoesNotContain("/search", result, StringComparison.Ordinal);
         Assert.Contains("\"position\":2", result);
     }
 

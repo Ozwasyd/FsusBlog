@@ -111,6 +111,15 @@ export const PUBLIC_ROUTE_IDENTITY_TOKENS = Object.freeze({
   tagNameBucket: 'tag-name'
 } as const)
 
+export const PUBLIC_SEARCH_ROUTE_POLICY = Object.freeze({
+  maxKeywordChars: 128,
+  maxPage: 100,
+  maxQueryStringChars: 2048,
+  defaultSort: 'relevance',
+  latestSort: 'latest',
+  hotSort: 'hot'
+} as const)
+
 
 export type SharedPublicPageKind = keyof typeof PUBLIC_PAGE_MANIFEST
 

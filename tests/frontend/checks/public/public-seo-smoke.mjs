@@ -313,7 +313,7 @@ async function runCheck(item) {
   assert(/<script\b[^>]*type="application\/ld\+json"[^>]*>/i.test(body), `[${item.name}] missing JSON-LD script`);
   assert(body.includes('"@graph"'), `[${item.name}] JSON-LD must use @graph`);
   assert(body.includes('"@type":"WebSite"'), `[${item.name}] JSON-LD missing WebSite`);
-  assert(body.includes('"@type":"SearchAction"'), `[${item.name}] JSON-LD missing SearchAction`);
+  assert(!body.includes('"@type":"SearchAction"'), `[${item.name}] JSON-LD must not advertise noindex search`);
   assert(body.includes('"@type":"BreadcrumbList"'), `[${item.name}] JSON-LD missing BreadcrumbList`);
   assert(
     body.includes(item.name === 'article_detail' ? '"@type":"BlogPosting"' : '"@type":"WebSite"'),
@@ -439,6 +439,22 @@ async function main() {
       assert(!body.includes('id="fsus-spa-boot"'), `[${item.name}] unexpected deferred public spa boot on non-public route`);
       assert(state !== 'fresh' && state !== 'stale', `[${item.name}] unexpected public AOT ${state} header`);
       assert(source !== 'server-ssr', `[${item.name}] unexpected public AOT source header`);
+      if (item.name === 'search_spa_only') {
+        assert(response.headers.get('X-Robots-Tag') === 'noindex, follow', `[${item.name}] missing server noindex header`);
+        assert(body.includes('<meta name="robots" content="noindex,follow" data-fsus-search-head>'), `[${item.name}] missing initial noindex meta`);
+        assert(!body.includes('rel="canonical"'), `[${item.name}] must not emit canonical`);
+        assert(!body.includes('application/ld+json'), `[${item.name}] must not emit JSON-LD`);
+
+        const head = await fetchWithTimeout(`${baseUrl}${item.path}`, {
+          method: 'HEAD',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (FsusBlog Public SEO Smoke)',
+            Accept: 'text/html,application/xhtml+xml'
+          }
+        }, requestTimeoutMs);
+        assert(head.status === response.status, `[${item.name}] HEAD status drift`);
+        assert(head.headers.get('X-Robots-Tag') === 'noindex, follow', `[${item.name}] HEAD missing noindex header`);
+      }
       console.log(`[public-seo-smoke] ok: ${item.name}`);
     } catch (error) {
       failures.push(`[public-seo-smoke] fail: ${item.name}: ${error instanceof Error ? error.message : String(error)}`);

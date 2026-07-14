@@ -11,12 +11,15 @@ import { resolveMotionScrollBehavior } from '@/composables/useMotionPreference'
 import { useSessionBootstrap } from '@/composables/useSessionBootstrap'
 import { hasServerAotShell } from '@/bootstrap/publicShellPrimitives'
 import { getPublicRuntimeOwner } from '@/bootstrap/publicTakeoverState'
-import { isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers/publicPageModel'
+import { isPublicSearchRouteName, isPublicSeoRouteName, isPublicShellRouteName } from '@/public-renderers/publicPageModel'
+import { PUBLIC_BLOG_CHILD_ROUTES, PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry'
+import { normalizePublicSearchQuery } from '@/public-renderers/publicSearchRoutePolicy'
 import { ACCOUNT_ROUTE_PATHS } from '@/public-renderers/publicRoutePaths'
-import { PUBLIC_BLOG_CHILD_ROUTES } from '@/public-renderers/publicRouteRegistry'
 import { prewarmPublicRoute } from '@/router/publicRoutePreload'
 import {
+  clearPublicSearchNoIndexHead,
   clearPublicSeoHead,
+  commitPublicSearchNoIndexHead,
   commitPreparedPublicSeoHead,
   hasPreparedPublicSeoHead
 } from '@/router/publicSeoHead'
@@ -263,6 +266,18 @@ function isSameAccountShellChildSwitch(to: RouteLocationNormalized, from: RouteL
 
 function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): void {
   router.beforeEach(async (to, from) => {
+    if (isPublicSearchRouteName(to.name)) {
+      const normalized = normalizePublicSearchQuery(to.query)
+      if (normalized.invalidKeyword || normalized.shouldRedirect) {
+        return {
+          name: PUBLIC_SEARCH_ROUTE_NAME,
+          query: normalized.query,
+          hash: to.hash,
+          replace: true
+        }
+      }
+    }
+
     const sessionBootstrap = useSessionBootstrap()
     const { userStore, siteStore } = sessionBootstrap
     const adminStore = useAdminStore()
@@ -396,9 +411,15 @@ function applyRouteGuards(router: Router, options: RouterFactoryOptions = {}): v
       if (hasPreparedPublicSeoHead(to.fullPath)) {
         commitPreparedPublicSeoHead(to.fullPath, from.fullPath)
       }
+    } else if (isPublicSearchRouteName(to.name)) {
+      commitPublicSearchNoIndexHead(isPublicSeoRouteName(from.name) ? from.fullPath : undefined)
+      useSessionBootstrap().syncDocumentTitle(to)
     } else if (isPublicSeoRouteName(from.name)) {
       clearPublicSeoHead(from.fullPath)
       useSessionBootstrap().syncDocumentTitle(to)
+    }
+    if (!isPublicSearchRouteName(to.name)) {
+      clearPublicSearchNoIndexHead()
     }
     finishProgressNavigation()
   })

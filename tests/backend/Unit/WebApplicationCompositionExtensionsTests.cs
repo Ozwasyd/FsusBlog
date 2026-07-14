@@ -229,6 +229,18 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Equal(expected, WebApplicationCompositionExtensions.IsKnownSpaRoute(new PathString(path)));
     }
 
+    [Fact]
+    public void SearchSpaHead_IsNoIndexWithoutCanonicalOrStructuredData()
+    {
+        string head = Encoding.UTF8.GetString(
+            WebApplicationCompositionExtensions.GetSearchNoIndexHeadInjectionForTests().Span);
+
+        Assert.Contains("<meta name=\"robots\" content=\"noindex,follow\"", head, StringComparison.Ordinal);
+        Assert.Contains("data-fsus-search-head", head, StringComparison.Ordinal);
+        Assert.DoesNotContain("canonical", head, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("application/ld+json", head, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("GET")]
     [InlineData("HEAD")]

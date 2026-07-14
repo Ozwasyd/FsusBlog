@@ -43,6 +43,16 @@ public static class PublicRouteIdentityRegistry
     public const string TagNameBucket = "tag-name";
 }
 
+public static class PublicSearchRoutePolicy
+{
+    public const int MaxKeywordChars = 128;
+    public const int MaxPage = 100;
+    public const int MaxQueryStringChars = 2048;
+    public const string DefaultSort = "relevance";
+    public const string LatestSort = "latest";
+    public const string HotSort = "hot";
+}
+
 public sealed record class PublicAotShellEntryContract
 {
     public PublicPageId PageId { get; init; }

@@ -42,10 +42,11 @@ Schema migration qualification 使用窄 JSON 负响应，不进入 AEDS `ApiErr
 
 ### Public HTML 负响应
 
-公共 HTML 不使用 AEDS `ApiError` body。无效路径或不存在/不可公开实体返回 404；只有数据模型明确永久删除时才返回 410；provider、DB gate 或其它临时依赖故障返回 503 + `Retry-After: 5`。三类响应统一为独立 `noindex,follow` HTML，带 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`，不带 canonical、`og:url`、`BlogPosting`、SPA boot 或 hydration payload。
+公共 HTML 不使用 AEDS `ApiError` body。搜索 query 超过 2048 字符、规范化后的 `q` 超过 128 字符或含非空白控制字符时返回 400；无效路径或不存在/不可公开实体返回 404；只有数据模型明确永久删除时才返回 410；provider、DB gate 或其它临时依赖故障返回 503 + `Retry-After: 5`。这些响应统一为独立 `noindex,follow` HTML，带 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`，不带 canonical、`og:url`、`BlogPosting`、SPA boot 或 hydration payload。
 
 | HTTP | `X-Fsus-Public-Aot-State` | 重试语义 |
 |------|---------------------------|----------|
+| 400 | `invalid-request` | 缩短/修正搜索 query；不得按成功搜索页缓存 |
 | 404 | `not-found` | 修改 URL 或等待内容真正公开；不得缓存为成功页 |
 | 410 | `gone` | 仅明确永久删除；当前文章删除模型未使用 |
 | 503 | `transient-failure` | 可重试，读取 `Retry-After` |
@@ -53,6 +54,8 @@ Schema migration qualification 使用窄 JSON 负响应，不进入 AEDS `ApiErr
 GET 与 HEAD 返回相同状态和关键头；HEAD 保留与 GET 相同的 `Content-Length`，但 body 为空。除 `/` 外的尾斜杠不是负响应，而是 301 到无尾斜杠 canonical。
 
 标签名称 URL 也不是成功响应：`/tag/{name}` 先按 Unicode NFC + invariant case lookup 解析当前名称或 `tag_url_alias`，成功时 301 到唯一 `/tag/{id}`；query 原样保留。无法解析或名称归一化后存在歧义时返回上述 404，不得返回首页、名称 self-canonical 或多跳 redirect。
+
+搜索 query 的 canonical order 为 `q`、`sort`、`page`。空值、重复项、未知项、默认 `sort=relevance`、默认 `page=1`、非法 sort/page 通过 301 删除或规范化；无查询词统一到 `/search`。成功搜索 HTML 与上述 400 均为 `noindex,follow`，但只有 400 使用 `no-store` 独立状态页。
 
 错误码以固定宽度 UTF-8 字段写入 AEDS `ApiError` frame，按模块分组。
 

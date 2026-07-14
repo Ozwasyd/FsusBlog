@@ -196,12 +196,6 @@ internal static class PublicAotDocumentComposer
         writer.WriteString("@type", "WebSite");
         writer.WriteString("name", siteTitle);
         writer.WriteString("url", siteRoot);
-        writer.WritePropertyName("potentialAction");
-        writer.WriteStartObject();
-        writer.WriteString("@type", "SearchAction");
-        writer.WriteString("target", $"{siteRoot.TrimEnd('/')}/search?q={{search_term_string}}");
-        writer.WriteString("query-input", "required name=search_term_string");
-        writer.WriteEndObject();
         writer.WriteEndObject();
     }
 

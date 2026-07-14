@@ -110,10 +110,11 @@
 | `GET/HEAD /category/{positive-int}` | 200 / 404 / 503 | 不存在分类不生成空 200 SEO 页 |
 | `GET/HEAD /tag/{positive-int}` | 200 / 404 / 503 | 唯一标签成功页与 self-canonical；不存在标签不生成空 200 SEO 页 |
 | `GET/HEAD /tag/{valid-name}` | 301 / 404 / 503 | 当前名称或持久旧 alias 单跳到 `/tag/{id}`；不产生第二个 200 canonical |
+| `GET/HEAD /search[?q&sort&page]` | 200 / 301 / 400 | 首响应始终 noindex；NFC/空白、`relevance|latest|hot`、`page=1..100` 规范化到唯一 URL，危险超限输入 400 |
 | `GET/HEAD /unknown` 或额外 path segment | 404 | 服务器首响应 noindex，不交给 SPA catch-all 改写语义 |
 | 除 `/` 外的 `.../` | 301 | 单跳到无尾斜杠 canonical，并保留 query |
 
-404/410/503 HTML 固定 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`；503 额外带 `Retry-After: 5`。负响应不含成功页 canonical、Open Graph URL、`BlogPosting` 或 hydration script。SPA-only `/search`、认证入口与 `/user/**` 不属于此 SEO 成功页集合。
+400/404/410/503 HTML 固定 `Cache-Control: no-store`、`X-Robots-Tag: noindex, follow`、`X-Fsus-Public-Aot-Backfill: none`；503 额外带 `Retry-After: 5`。负响应不含成功页 canonical、Open Graph URL、`BlogPosting` 或 hydration script。SPA-only `/search`、认证入口与 `/user/**` 不属于此 SEO 成功页集合；搜索成功壳层也不输出 canonical、JSON-LD 或 AOT entry。
 
 ## 文章 — `/api/Article`
 

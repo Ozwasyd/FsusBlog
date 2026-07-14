@@ -104,6 +104,10 @@ Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passke
 
 尾斜杠唯一策略是 canonical 无尾斜杠：除 `/` 外，任何以 `/` 结尾的 HTML path 先以单跳 301 跳转到去尾斜杠路径，并保留 query string。SPA-only 的 `/search`、认证入口和账户工作区继续返回应用壳层；其它未登记路径由服务器直接返回 404，不再依赖 Vue catch-all 才建立错误语义。
 
+`/search` 是可抓取但永不索引的 SPA-only HTML 路由。GET 与 HEAD 的首个服务器响应固定带 `X-Robots-Tag: noindex, follow`，HTML head 同时带 `noindex,follow`；Vue 导航只能接管并维持该状态，不能在 hydration 后才首次创建。搜索 URL 只接受按 `q`、`sort`、`page` 排序的 query：`q` 使用 Unicode NFC、首尾去空白并把连续 Unicode 空白折叠为一个空格，最多 128 个 UTF-16 code units；`sort` 仅接受 `relevance|latest|hot`，其中默认 `relevance` 省略；`page` 为 `1..100`，默认 `1` 省略。空值、重复项、未知项、非法 sort/page 和非规范编码单跳 301 到唯一 URL；超过 2048 字符的原始 query、超长或含非空白控制字符的 `q` 返回 400 noindex HTML。无 `q` 时唯一 URL 是 `/search`，sort/page 一并移除。
+
+搜索 HTML 不输出 canonical、JSON-LD 或 Public AOT entry，也不进入 sitemap；搜索结果只链接文章自身 `/article/{id}` canonical。`robots.txt` 允许抓取 `/search` 以读取 noindex，只阻止搜索索引二进制/patch 资产，不能用 `Disallow: /search` 隐藏索引指令。
+
 标签公开 URL 的长期身份固定为稳定数据库 ID：只有 `/tag/{positive-int}` 可以返回 200 并 self-canonical。历史 `/tag/{name}`（包括大小写或 Unicode NFC 等价形式）只作为迁移入口，经当前标签名或持久化 `tag_url_alias` 解析后单跳 301 到 `/tag/{id}`；标签重命名在同一事务保存旧名称 alias，因此不会改变 canonical，也不会把旧外链变成另一条 200。名称无法唯一解析时返回 404，不得跳首页。sitemap、内部链接、JSON-LD/Open Graph、navigation snapshot 与 AOT manifest 都只输出 ID URL。
 Binary 写入请求必须使用 `Content-Type: application/octet-stream` 和 AEDS v2 request frame；当前生产协议拒绝 request non-zero flags，`Flags = 64` 等 future flag 只能在 `aeds-protocol.json`、负向 contract matrix、TypeScript/Worker/Wasm decoder 与 [schemas-and-errors.md#flags-登记](schemas-and-errors.md#flags-登记) 同步登记后启用。
 匿名身份模式下，新账号 onboarding 必须走 `POST /api/binary/auth/anonymous/bootstrap`，请求 frame 为 `AuthAnonymousBootstrapRequest`；该路径只初始化匿名账号容器和当前 session，不接受用户提供的登录密码，也不得复用旧 username/password 契约。旧 `/api/binary/auth/register` 与 `/api/binary/auth/login` password endpoints 不再是生产 API；旧 password-auth request 编号已经从 AEDS frame catalog 下线，不能作为 legacy/test frame 继续消费。AEDS 数值 `40` 已作为 legacy admin password reset slot 退休，`43`/`44`/`45`/`46` 已作为 legacy username/password auth slots 退休；这些数值不再生成 frame 名、POD、codec 或 OpenAPI 契约。

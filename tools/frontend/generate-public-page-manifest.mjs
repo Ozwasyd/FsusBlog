@@ -89,6 +89,34 @@ function parseRouteIdentityTokens(source) {
   return tokens
 }
 
+function parseSearchRoutePolicy(source) {
+  const classMatch = source.match(/public static class PublicSearchRoutePolicy\s*\{([\s\S]*?)\}/u)
+  if (!classMatch) {
+    fail('cannot find PublicSearchRoutePolicy in PublicPageContracts.cs')
+  }
+
+  const values = {}
+  for (const match of classMatch[1].matchAll(/public const (int|string)\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*([^;]+);/gu)) {
+    const [, type, name, expression] = match
+    if (type === 'int') {
+      if (!/^\d+$/u.test(expression.trim())) {
+        fail(`unsupported PublicSearchRoutePolicy int expression: ${expression}`)
+      }
+      values[name] = Number(expression.trim())
+    } else {
+      values[name] = evaluateConstStringExpression(expression, values)
+    }
+  }
+
+  for (const name of ['MaxKeywordChars', 'MaxPage', 'MaxQueryStringChars', 'DefaultSort', 'LatestSort', 'HotSort']) {
+    if (!(name in values)) {
+      fail(`missing PublicSearchRoutePolicy token: ${name}`)
+    }
+  }
+
+  return values
+}
+
 function evaluateConstStringExpression(expression, knownTokens) {
   const parts = expression.split('+').map((part) => part.trim()).filter(Boolean)
   if (parts.length === 0) {
@@ -175,7 +203,7 @@ function resolveFallbackBehavior(expression, routeIdentityTokens) {
   fail(`unsupported fallback behavior expression: ${expression}`)
 }
 
-function renderManifest(entries, routeIdentityTokens) {
+function renderManifest(entries, routeIdentityTokens, searchRoutePolicy) {
   const renderedEntries = entries.map((entry) => `  ${entry.kind}: {
     kind: '${entry.kind}',
     pageId: ${entry.pageId},
@@ -205,6 +233,16 @@ function renderManifest(entries, routeIdentityTokens) {
 } as const)
 `
 
+  const renderedSearchRoutePolicy = `export const PUBLIC_SEARCH_ROUTE_POLICY = Object.freeze({
+  maxKeywordChars: ${searchRoutePolicy.MaxKeywordChars},
+  maxPage: ${searchRoutePolicy.MaxPage},
+  maxQueryStringChars: ${searchRoutePolicy.MaxQueryStringChars},
+  defaultSort: '${searchRoutePolicy.DefaultSort}',
+  latestSort: '${searchRoutePolicy.LatestSort}',
+  hotSort: '${searchRoutePolicy.HotSort}'
+} as const)
+`
+
   return `// Auto-generated from src/shared/Contracts/Outputs/PublicPageContracts.cs
 // Run: node ../../tools/frontend/generate-public-page-manifest.mjs
 
@@ -213,6 +251,7 @@ ${renderedEntries}
 } as const)
 
 ${renderedTokens}
+${renderedSearchRoutePolicy}
 
 export type SharedPublicPageKind = keyof typeof PUBLIC_PAGE_MANIFEST
 
@@ -235,7 +274,8 @@ async function main() {
   const source = await readFile(sourcePath, 'utf8')
   const entries = buildManifestEntries(source)
   const routeIdentityTokens = parseRouteIdentityTokens(source)
-  const output = renderManifest(entries, routeIdentityTokens)
+  const searchRoutePolicy = parseSearchRoutePolicy(source)
+  const output = renderManifest(entries, routeIdentityTokens, searchRoutePolicy)
 
   if (checkOnly) {
     const current = await readFile(targetPath, 'utf8').catch(() => null)

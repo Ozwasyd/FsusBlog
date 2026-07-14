@@ -97,6 +97,8 @@ public static class WebApplicationCompositionExtensions
     private const string HeadInjectionKindRoutePreload = "route-preload";
     private const string HeadInjectionKindPublicAssetSet = "public-asset-set";
     private static readonly byte[] EmptyBytes = [];
+    private static readonly byte[] SearchNoIndexHeadInjection = Encoding.UTF8.GetBytes(
+        "<meta name=\"robots\" content=\"noindex,follow\" data-fsus-search-head>\n");
     private static readonly ConcurrentDictionary<string, SpaHtmlByteTemplate> SpaHtmlByteTemplates = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<HeadInjectionCacheKey, CachedHeadInjection> SpaHeadInjectionCache = new();
     private static readonly ConcurrentDictionary<string, CachedDynamicManifest> DynamicManifestCache = new(StringComparer.Ordinal);
@@ -607,6 +609,23 @@ public static class WebApplicationCompositionExtensions
             return TypedResults.NotFound();
         }
 
+        bool isSearchRoute = PublicSearchRequestPolicy.IsSearchPath(ctx.Request.Path);
+        if (isSearchRoute)
+        {
+            ctx.Response.Headers["X-Robots-Tag"] = "noindex, follow";
+            PublicSearchRequestResolution resolution = PublicSearchRequestPolicy.Resolve(ctx.Request);
+            if (resolution.IsBadRequest)
+            {
+                await WritePublicStatusHtmlAsync(ctx, env, StatusCodes.Status400BadRequest, ct);
+                return TypedResults.Empty;
+            }
+
+            if (resolution.RequiresRedirect)
+            {
+                return TypedResults.Redirect(resolution.RedirectLocation!, permanent: true);
+            }
+        }
+
         if (TryBuildTrailingSlashRedirect(ctx.Request, out string redirectLocation))
         {
             return TypedResults.Redirect(redirectLocation, permanent: true);
@@ -709,6 +728,10 @@ public static class WebApplicationCompositionExtensions
         ReadOnlyMemory<byte> templateBytes = await PublicSpaTemplateLocator.ReadIndexTemplateBytesAsync(env, ct, preferSourceTemplate);
         SeoConfigReadModel seo = await systemService.GetSeoConfigAsync();
         ReadOnlyMemory<byte> seoHeadInjection = BuildSeoBrandHeadInjection(seo);
+        if (isSearchRoute)
+        {
+            seoHeadInjection = CombineHeadInjections(seoHeadInjection, SearchNoIndexHeadInjection);
+        }
 
         string path = ctx.Request.Path.Value ?? string.Empty;
         if (templateBytes.Length > 0)
@@ -790,6 +813,7 @@ public static class WebApplicationCompositionExtensions
     {
         (string title, string heading, string detail) = statusCode switch
         {
+            StatusCodes.Status400BadRequest => ("搜索参数无效", "搜索参数无效", "请检查搜索词、排序方式和页码。"),
             StatusCodes.Status410Gone => ("内容已移除", "内容已永久移除", "该内容已不再提供。"),
             StatusCodes.Status503ServiceUnavailable => ("暂时无法访问", "服务暂时不可用", "请稍后重试。"),
             _ => ("页面不存在", "页面不存在", "请检查地址后重试。")
@@ -808,6 +832,7 @@ public static class WebApplicationCompositionExtensions
         context.Response.Headers["X-Fsus-Public-Aot-Backfill"] = "none";
         context.Response.Headers["X-Fsus-Public-Aot-State"] = statusCode switch
         {
+            StatusCodes.Status400BadRequest => "invalid-request",
             StatusCodes.Status410Gone => "gone",
             StatusCodes.Status503ServiceUnavailable => "transient-failure",
             _ => "not-found"
@@ -1382,6 +1407,9 @@ public static class WebApplicationCompositionExtensions
 
     internal static ReadOnlyMemory<byte> GetSeoBrandHeadInjectionForTests(SeoConfigReadModel seo)
         => BuildSeoBrandHeadInjection(seo);
+
+    internal static ReadOnlyMemory<byte> GetSearchNoIndexHeadInjectionForTests()
+        => SearchNoIndexHeadInjection;
 
     internal static async Task<string> RenderSpaHtmlForTestsAsync(
         string templateHtml,

@@ -363,7 +363,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 **前置条件**：`http://127.0.0.1:8080` 可访问（Release 构建容器）
 
 **覆盖内容**（主要通过 `npm run check:*` 系列）：
-- `check:public-seo-smoke` — 公开页 SEO 标签（canonical、description、OpenGraph、Twitter card、feed discovery、JSON-LD `@graph`/`WebSite`/`SearchAction`/`BreadcrumbList`/`BlogPosting`）
+- `check:public-seo-smoke` — 公开页 SEO 标签（canonical、description、OpenGraph、Twitter card、feed discovery、JSON-LD `@graph`/`WebSite`/`BreadcrumbList`/`BlogPosting`），并断言 noindex `/search` 不生成 `SearchAction`
 - `check:public-hydration` — AOT 首屏到 SPA hydration 无闪白，并核验文章详情 hydration/bootstrap 均携带 `relatedReading`
 - `check:aot` — AOT 契约合规（`PublicAotShellEntryContract` 格式验证）
 - `check:error-code-alignment` — 前后端错误码枚举一致性

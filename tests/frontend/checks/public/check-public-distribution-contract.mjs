@@ -29,6 +29,10 @@ const articlePage = read('src/frontend/src/components/public/pages/PublicArticle
 const articleViewContract = read('src/frontend/src/view-contracts/articleDetail.ts')
 const publicEntryRegistry = read('src/frontend/src/public-renderers/publicEntryRegistry.ts')
 const index = read('src/frontend/index.html')
+const searchRequestPolicy = read('src/backend/Infrastructure/Spa/PublicSearchRequestPolicy.cs')
+const searchRoutePolicy = read('src/frontend/src/public-renderers/publicSearchRoutePolicy.ts')
+const generatedPageManifest = read('src/frontend/src/public-renderers/generated/publicPageManifest.ts')
+const applicationComposition = read('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
 const sqlSugarVisibilitySources = [
   'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs',
   'src/backend/Modules/Endpoints/DistributionEndpoints.cs',
@@ -69,11 +73,13 @@ assert(binaryArticleEndpoints.includes('AedsFrameType.ArticleRelatedReading'), '
 assert(binaryArticleEndpoints.includes('PodBinaryCodec.WriteRelatedReading'), 'related-reading AEDS endpoint must encode the related-reading POD payload')
 assert(binaryArticleEndpoints.includes('ErrorCode.NotFound, "article_not_found"'), 'related-reading AEDS endpoint must return ApiError for missing articles')
 assert(articleApi.includes('FrameType.ArticleRelatedReading'), 'frontend related-reading API must request the ArticleRelatedReading frame')
-assert(articleApi.includes('/api/binary/article/${normalizePositiveInt(id, 1)}/related.aeds'), 'frontend related-reading API must use the binary endpoint')
+assert(articleApi.includes("operationId: 'binary_get_article_articleId_int_related_aeds'"), 'frontend related-reading API must use the generated binary route descriptor')
+assert(articleApi.includes('params: { articleId: normalizePositiveInt(id, 1) }'), 'frontend related-reading API must bind the canonical articleId route parameter')
 assert(!articleApi.includes('/api/public/articles'), 'frontend related-reading API must not call the deprecated JSON endpoint')
 assert(!articleApi.includes('response.json'), 'frontend article API must not parse related-reading JSON envelopes')
 assert(!articleApi.includes('JsonApiResponse'), 'frontend article API must not keep a related-reading JSON envelope helper')
-assert(relatedService.includes('ArticleBody'), 'related-reading must use article body text for full-text keyword matching')
+assert(relatedService.includes('ExtractKeywords(article.Title, article.Summary)'), 'related-reading must derive keywords from the bounded public title/summary projection')
+assert(relatedService.includes('CountKeywordMatches(candidateTitle, candidateSummary, keywords)'), 'related-reading must score candidate title/summary keyword matches')
 assert(relatedService.includes('全文关键词'), 'related-reading must expose explainable keyword-match reasons')
 assert(relatedService.includes('上一篇'), 'related-reading must expose previous article navigation')
 assert(relatedService.includes('下一篇'), 'related-reading must expose next article navigation')
@@ -90,6 +96,7 @@ for (const forbidden of ['Like', 'Favorite', 'Follow', 'Profile']) {
 }
 assert(service.includes('Disallow: /user'), 'robots must disallow /user')
 assert(service.includes('Disallow: /admin'), 'robots must disallow /admin')
+assert(!service.includes('"Disallow: /search",'), 'robots must allow search HTML crawls so noindex remains visible')
 assert(shell.includes('PublicComplianceFooter'), 'public shell must render the compliance footer')
 assert(complianceFooter.includes('href="/feed/rss.xml"'), 'public footer must use canonical RSS feed path')
 assert(index.includes('href="/feed/rss.xml"'), 'index must discover canonical RSS feed')
@@ -101,7 +108,14 @@ assert(composer.includes('href="/feed/feed.json"'), 'AOT head must discover JSON
 assert(composer.includes('BreadcrumbList'), 'AOT head must include JSON-LD BreadcrumbList')
 assert(composer.includes('BlogPosting'), 'AOT head must include JSON-LD BlogPosting')
 assert(composer.includes('WebSite'), 'AOT head must include JSON-LD WebSite')
-assert(composer.includes('SearchAction'), 'AOT head must include JSON-LD SearchAction')
+assert(!composer.includes('SearchAction'), 'indexable JSON-LD must not advertise the noindex search route')
+assert(searchRequestPolicy.includes('PublicSearchRoutePolicy.MaxKeywordChars'), 'server search policy must consume the shared keyword bound')
+assert(searchRequestPolicy.includes('PublicSearchRoutePolicy.MaxPage'), 'server search policy must consume the shared page bound')
+assert(searchRequestPolicy.includes('PublicSearchRoutePolicy.MaxQueryStringChars'), 'server search policy must consume the shared raw query bound')
+assert(searchRoutePolicy.includes('PUBLIC_SEARCH_ROUTE_POLICY'), 'SPA search policy must consume the generated shared contract')
+assert(generatedPageManifest.includes('maxKeywordChars: 128'), 'generated search policy must expose the shared keyword bound')
+assert(applicationComposition.includes('X-Robots-Tag"] = "noindex, follow"'), 'server search HTML must emit noindex before SPA rendering')
+assert(applicationComposition.includes('SearchNoIndexHeadInjection'), 'server search HTML must inject noindex before hydration')
 
 for (const [path, source] of sqlSugarVisibilitySources) {
   assert(!source.includes('.PublishedAt.HasValue'), `${path}: SqlSugar visibility queries must not use nullable HasValue`)

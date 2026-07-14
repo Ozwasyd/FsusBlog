@@ -25,6 +25,7 @@ import {
   resolvePublicPageKind
 } from '@/public-renderers/publicPageModel'
 import { PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry'
+import { normalizePublicSearchKeyword } from '@/public-renderers/publicSearchRoutePolicy'
 import { createPublicShellViewState } from '@/public-renderers/publicShellViewState'
 import { createPublicTakeoverSeed } from '@/public-renderers/publicSiteIdentity'
 import { createPublicSiteIdentity } from '@/public-renderers/publicSiteIdentityContext'
@@ -152,15 +153,16 @@ watch(
 )
 
 const handleSearch = async (query: string): Promise<void> => {
-  if (!query) {
+  const canonicalQuery = normalizePublicSearchKeyword(query)
+  if (!canonicalQuery) {
     return
   }
 
-  if (isSearchRoute.value && route.query.q === query) {
+  if (isSearchRoute.value && route.query.q === canonicalQuery) {
     return
   }
 
-  await router.push({ name: PUBLIC_SEARCH_ROUTE_NAME, query: { q: query } })
+  await router.push({ name: PUBLIC_SEARCH_ROUTE_NAME, query: { q: canonicalQuery } })
 }
 
 const handleNavigate = async (href: string): Promise<void> => {
