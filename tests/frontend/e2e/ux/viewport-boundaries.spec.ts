@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises'
+import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
@@ -109,6 +109,7 @@ const riskPublicBaseUrl = riskMatrix
   ? readOptionalHttpUrl('FSUSBLOG_UX_VIEWPORT_PUBLIC_BASE_URL')
   : undefined
 const executionGroupIds = new Set(readOptionalList('FSUSBLOG_UX_VIEWPORT_EXECUTION_GROUP_IDS') ?? [])
+const persistentWorkerMode = readBooleanFlag('FSUSBLOG_UX_VIEWPORT_PERSISTENT_WORKER')
 const uxRoutes = buildUxRoutes()
 assertRuntimeRouteCatalog(uxRoutes)
 const plan = buildUxViewportPlan({
@@ -137,33 +138,33 @@ const screenshotRoot = path.join(
   'screenshots'
 )
 
-let userStorageStatePromise: Promise<StorageState> | null = null
-let adminStorageStatePromise: Promise<StorageState> | null = null
+const userStorageStates = new WeakMap<Browser, Promise<StorageState>>()
+const adminStorageStates = new WeakMap<Browser, Promise<StorageState>>()
 
-test.describe(`UX viewport boundaries (${mode})`, () => {
+const plannedTestGroups = parityBatch
+  ? plan.groups.flatMap((group) => group.viewports.flatMap((viewportPlan) => (
+      viewportPlan.steps.map((step) => ({
+        ...group,
+        id: step.id,
+        viewports: [{ ...viewportPlan, steps: [step] }]
+      }))
+    )))
+  : plan.groups
+const testGroups = executionGroupIds.size > 0
+  ? plannedTestGroups.filter((group) => executionGroupIds.has(group.id))
+  : plannedTestGroups
+if (executionGroupIds.size > 0) {
+  const selectedIds = new Set(testGroups.map((group) => group.id))
+  const missing = [...executionGroupIds].filter((groupId) => !selectedIds.has(groupId))
+  if (missing.length > 0 || testGroups.length === 0) {
+    throw new Error(`unknown UX viewport execution groups: ${missing.join(', ')}`)
+  }
+}
+
+if (!persistentWorkerMode) test.describe(`UX viewport boundaries (${mode})`, () => {
   test.describe.configure({
     mode: viewportExecutionMode
   })
-
-  const plannedTestGroups = parityBatch
-    ? plan.groups.flatMap((group) => group.viewports.flatMap((viewportPlan) => (
-        viewportPlan.steps.map((step) => ({
-          ...group,
-          id: step.id,
-          viewports: [{ ...viewportPlan, steps: [step] }]
-        }))
-      )))
-    : plan.groups
-  const testGroups = executionGroupIds.size > 0
-    ? plannedTestGroups.filter((group) => executionGroupIds.has(group.id))
-    : plannedTestGroups
-  if (executionGroupIds.size > 0) {
-    const selectedIds = new Set(testGroups.map((group) => group.id))
-    const missing = [...executionGroupIds].filter((groupId) => !selectedIds.has(groupId))
-    if (missing.length > 0 || testGroups.length === 0) {
-      throw new Error(`unknown UX viewport execution groups: ${missing.join(', ')}`)
-    }
-  }
 
   for (const group of testGroups) {
     test(group.id, async ({ browser }, testInfo) => {
@@ -205,6 +206,124 @@ test.describe(`UX viewport boundaries (${mode})`, () => {
     })
   }
 })
+
+export async function runPersistentUxViewportGroup(
+  browser: Browser,
+  groupId: string,
+  options: Readonly<{ outputDir: string, workerIndex: number, attempt: number, sessionId: string }>
+): Promise<Readonly<Record<string, unknown>>> {
+  if (!persistentWorkerMode) {
+    throw new Error('persistent UX group runner requires FSUSBLOG_UX_VIEWPORT_PERSISTENT_WORKER=1')
+  }
+  const group = plannedTestGroups.find((candidate) => candidate.id === groupId)
+  if (!group) throw new Error(`unknown persistent UX viewport group: ${groupId}`)
+  if (progressRun.completedGroupIds.has(group.id)) {
+    return {
+      status: 'already-passed',
+      groupId: group.id,
+      logicalTestId: logicalTestId(group),
+      workerIndex: options.workerIndex,
+      attempt: options.attempt,
+      sessionId: options.sessionId,
+      exactOnceReceipt: true
+    }
+  }
+
+  await mkdir(options.outputDir, { recursive: true })
+  const timing = createUxRiskTimingRecorder(group, riskMatrix)
+  try {
+    await runUxRouteThemeGroup(browser, group, timing, options.outputDir, options.sessionId)
+  } catch (error) {
+    const artifact = await writePersistentGroupArtifact(group, options, timing.summary(error))
+    const artifacts = [artifact, ...await presentPersistentFailureArtifacts(options.outputDir)]
+    await recordUxViewportGroupResult({
+      run: progressRun,
+      plan,
+      groupId: group.id,
+      status: 'failed',
+      error,
+      artifacts
+    })
+    throw error
+  }
+
+  const timingSummary = timing.summary(null)
+  const artifact = await writePersistentGroupArtifact(group, options, timingSummary)
+  const artifacts = [artifact, ...persistentScreenshotArtifacts(group)]
+  await recordUxViewportGroupResult({
+    run: progressRun,
+    plan,
+    groupId: group.id,
+    status: 'passed',
+    artifacts
+  })
+  return {
+    status: 'passed',
+    groupId: group.id,
+    logicalTestId: logicalTestId(group),
+    caseTestIds: group.viewports.flatMap((viewport) => viewport.steps.map((step) => step.id)),
+    workerIndex: options.workerIndex,
+    attempt: options.attempt,
+    sessionId: options.sessionId,
+    timing: timingSummary,
+    artifacts
+  }
+}
+
+async function presentPersistentFailureArtifacts(outputDir: string): Promise<string[]> {
+  const screenshot = path.join(outputDir, 'failure.png')
+  try {
+    await access(screenshot)
+    return [path.relative(repositoryRoot, screenshot).replaceAll(path.sep, '/')]
+  } catch {
+    return []
+  }
+}
+
+export function persistentUxViewportRuntimeMetadata(): Readonly<Record<string, unknown>> {
+  return {
+    mode,
+    planFingerprint: plan.fingerprint,
+    plannedGroupIds: plannedTestGroups.map((group) => group.id),
+    counts: plan.counts,
+    runId: progressRun.progress.runId,
+    completedGroupIds: [...progressRun.completedGroupIds]
+  }
+}
+
+async function writePersistentGroupArtifact(
+  group: PlannedGroup,
+  options: Readonly<{ outputDir: string, workerIndex: number, attempt: number, sessionId: string }>,
+  timing: Readonly<Record<string, unknown>>
+): Promise<string> {
+  const file = path.join(options.outputDir, 'group-result.json')
+  await writeFile(file, `${JSON.stringify({
+    schema: 'fsusblog.ux-risk.persistent-group.v1',
+    groupId: group.id,
+    logicalTestId: logicalTestId(group),
+    caseTestIds: group.viewports.flatMap((viewport) => viewport.steps.map((step) => step.id)),
+    workerIndex: options.workerIndex,
+    attempt: options.attempt,
+    sessionNamespace: `${options.sessionId}:context:${group.id}:attempt-${options.attempt}`,
+    timing,
+    generatedAt: new Date().toISOString()
+  }, null, 2)}\n`)
+  return path.relative(repositoryRoot, file).replaceAll(path.sep, '/')
+}
+
+function persistentScreenshotArtifacts(group: PlannedGroup): string[] {
+  if (!screenshotsEnabled) return []
+  return group.viewports.map((viewportPlan) => path.relative(repositoryRoot, path.join(
+    screenshotRoot,
+    viewportPlan.viewport.name,
+    group.theme,
+    `${sanitizeFilename(group.route.id)}.png`
+  )).replaceAll(path.sep, '/'))
+}
+
+function logicalTestId(group: PlannedGroup): string {
+  return `UX viewport boundaries (${mode}) › ${group.id}`
+}
 
 function parseMode(value: string | undefined): UxViewportMode {
   if (!value || value === 'smoke') {
@@ -290,17 +409,19 @@ function assertRuntimeRouteCatalog(routes: UxRoute[]): void {
 async function runUxRouteThemeGroup(
   browser: Browser,
   group: PlannedGroup,
-  timing: UxRiskTimingRecorder
+  timing: UxRiskTimingRecorder,
+  failureOutputDir?: string,
+  testSession?: string
 ): Promise<void> {
   const storageState = await timing.measure(
     'fixture.storage-state',
     group.storage,
-    () => storageStateFor(browser, group.storage)
+    () => storageStateFor(browser, group.storage, testSession)
   )
   const auditedContext = await timing.measure(
     'context.open',
     group.id,
-    () => openThemedAuditedContext(browser, group.theme, storageState, riskMatrix)
+    () => openThemedAuditedContext(browser, group.theme, storageState, riskMatrix, testSession)
   )
   try {
     const pageSession = await timing.measure(
@@ -309,6 +430,7 @@ async function runUxRouteThemeGroup(
       () => auditedContext.newPage()
     )
     try {
+      let isolationSeeded = false
       for (const viewportPlan of group.viewports) {
       await timing.measure('page.viewport-and-reset', viewportPlan.id, async () => {
         await pageSession.page.setViewportSize({
@@ -343,6 +465,14 @@ async function runUxRouteThemeGroup(
         viewportPlan.id,
         () => waitForUxViewportAppReady(pageSession.page, timing, viewportPlan.id)
       )
+      if (persistentWorkerMode && !isolationSeeded) {
+        await timing.measure(
+          'context.isolation-probe',
+          group.id,
+          () => assertAndSeedPersistentContextIsolation(pageSession.page, group.id)
+        )
+        isolationSeeded = true
+      }
       await settleUxViewportPage(pageSession.page, timing, 'navigation', viewportPlan.id)
       if (group.route.injectCorpus) {
         await timing.measure(
@@ -355,7 +485,7 @@ async function runUxRouteThemeGroup(
 
       let includesNavigationAudit = true
       for (const step of viewportPlan.steps) {
-        await test.step(step.id, async () => {
+        await runUxViewportStep(step.id, async () => {
           const auditStart = includesNavigationAudit
             ? navigationAuditStart
             : timing.measureSync(
@@ -400,6 +530,17 @@ async function runUxRouteThemeGroup(
         )
       }
       }
+    } catch (error) {
+      if (failureOutputDir && !pageSession.page.isClosed()) {
+        await mkdir(failureOutputDir, { recursive: true })
+        await pageSession.page.screenshot({
+          path: path.join(failureOutputDir, 'failure.png'),
+          animations: 'disabled',
+          caret: 'hide',
+          fullPage: true
+        }).catch(() => {})
+      }
+      throw error
     } finally {
       try {
         await timing.measure('media.close-reset', group.id, async () => {
@@ -412,6 +553,46 @@ async function runUxRouteThemeGroup(
     }
   } finally {
     await timing.measure('context.close', group.id, () => auditedContext.close())
+    timing.measureSync('context.cleanup', group.id, () => {
+      if (auditedContext.context.pages().length !== 0) {
+        throw new Error(`UX viewport context cleanup left pages behind for ${group.id}`)
+      }
+    })
+  }
+}
+
+async function assertAndSeedPersistentContextIsolation(page: Page, groupId: string): Promise<void> {
+  const state = await page.evaluate(async ({ marker, value }) => {
+    const cookiePresent = document.cookie.split(';').some((entry) => entry.trim().startsWith(`${marker}=`))
+    const cache = await caches.open(marker)
+    const cachePresent = Boolean(await cache.match(`/${marker}`))
+    const databases = typeof indexedDB.databases === 'function' ? await indexedDB.databases() : []
+    const databasePresent = databases.some((database) => database.name === marker)
+    const localPresent = localStorage.getItem(marker) !== null
+    const sessionPresent = sessionStorage.getItem(marker) !== null
+
+    localStorage.setItem(marker, value)
+    sessionStorage.setItem(marker, value)
+    document.cookie = `${marker}=${encodeURIComponent(value)}; Path=/; SameSite=Lax`
+    await cache.put(`/${marker}`, new Response(value))
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open(marker, 1)
+      request.onupgradeneeded = () => request.result.createObjectStore('probe')
+      request.onsuccess = () => {
+        request.result.close()
+        resolve()
+      }
+      request.onerror = () => reject(request.error)
+    })
+
+    return { cookiePresent, cachePresent, databasePresent, localPresent, sessionPresent }
+  }, {
+    marker: '__fsus_ux_context_isolation__',
+    value: groupId
+  })
+  const leaked = Object.entries(state).filter(([, present]) => present).map(([name]) => name)
+  if (leaked.length > 0) {
+    throw new Error(`persistent UX BrowserContext leaked ${leaked.join(', ')} into ${groupId}`)
   }
 }
 
@@ -445,6 +626,10 @@ async function settleUxViewportPage(
     return
   }
   await timing.measure('settle.shared', detail, () => settlePage(page))
+}
+
+async function runUxViewportStep<T>(title: string, action: () => Promise<T>): Promise<T> {
+  return persistentWorkerMode ? await action() : await test.step(title, action)
 }
 
 async function waitForUxViewportAppReady(
@@ -487,18 +672,26 @@ async function waitForUxViewportAppReady(
   }
 }
 
-async function storageStateFor(browser: Browser, storage: StorageKind): Promise<StorageState | undefined> {
+async function storageStateFor(
+  browser: Browser,
+  storage: StorageKind,
+  testSession?: string
+): Promise<StorageState | undefined> {
   if (storage === 'anonymous') {
     return undefined
   }
 
   if (storage === 'user') {
-    userStorageStatePromise ??= captureStorageState(browser, userName, userPassword, '/user/profile')
-    return await userStorageStatePromise
+    const current = userStorageStates.get(browser)
+      ?? captureStorageState(browser, userName, userPassword, '/user/profile', testSession)
+    userStorageStates.set(browser, current)
+    return await current
   }
 
-  adminStorageStatePromise ??= captureStorageState(browser, adminName, adminPassword, '/user/manage')
-  return await adminStorageStatePromise
+  const current = adminStorageStates.get(browser)
+    ?? captureStorageState(browser, adminName, adminPassword, '/user/manage', testSession)
+  adminStorageStates.set(browser, current)
+  return await current
 }
 
 async function assertUxCombination(

@@ -16,7 +16,10 @@ function sanitizeSession(raw: string): string {
   return safeSessionPattern.test(normalized) ? normalized : 'pw-0'
 }
 
-export function resolveTestSession(): string | undefined {
+export function resolveTestSession(explicitSession?: string): string | undefined {
+  if (explicitSession) {
+    return sanitizeSession(explicitSession)
+  }
   if (process.env.FSUSBLOG_TEST_SESSION_ISOLATION !== '1' && !process.env.FSUSBLOG_TEST_SESSION) {
     return undefined
   }
@@ -29,13 +32,16 @@ export function resolveTestSession(): string | undefined {
   return sanitizeSession(`pw-${workerIndex}`)
 }
 
-export function testSessionHeaders(): Record<string, string> {
-  const session = resolveTestSession()
+export function testSessionHeaders(explicitSession?: string): Record<string, string> {
+  const session = resolveTestSession(explicitSession)
   return session ? { [TEST_SESSION_HEADER]: session } : {}
 }
 
-export function withTestSessionContextOptions(options: BrowserContextOptions = {}): BrowserContextOptions {
-  const headers = testSessionHeaders()
+export function withTestSessionContextOptions(
+  options: BrowserContextOptions = {},
+  explicitSession?: string
+): BrowserContextOptions {
+  const headers = testSessionHeaders(explicitSession)
   if (Object.keys(headers).length === 0) {
     return options
   }

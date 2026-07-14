@@ -180,14 +180,17 @@ function nextAcceptanceId(scope: string): string {
     .slice(0, 96)
 }
 
-function withAcceptanceContextOptions(options: BrowserContextOptions = {}): BrowserContextOptions {
+function withAcceptanceContextOptions(
+  options: BrowserContextOptions = {},
+  testSession?: string
+): BrowserContextOptions {
   const contextId = `${process.env.TEST_PARALLEL_INDEX || process.env.TEST_WORKER_INDEX || '0'}-${++acceptanceContextCounter}`
   const userAgent = `${options.userAgent ?? acceptanceDefaultUserAgent} FsusAcceptance/${contextId}`
   return withTestSessionContextOptions({
     baseURL: process.env.PLAYWRIGHT_BASE_URL || process.env.FSUSBLOG_PUBLIC_BASE_URL || 'http://127.0.0.1:3000',
     ...options,
     userAgent
-  })
+  }, testSession)
 }
 
 export function attachRuntimeAudit(page: Page): RuntimeAudit {
@@ -360,9 +363,13 @@ export async function openThemedAuditedContext(
   browser: Browser,
   themeMode: ThemeMode = 'light',
   storageState?: StorageState,
-  disableServiceWorker = false
+  disableServiceWorker = false,
+  testSession?: string
 ): Promise<ThemedAuditedContext> {
-  const context = await browser.newContext(withAcceptanceContextOptions(storageState ? { storageState } : undefined))
+  const context = await browser.newContext(withAcceptanceContextOptions(
+    storageState ? { storageState } : undefined,
+    testSession
+  ))
   await context.addInitScript((options: {
     mode: ThemeMode
     disableHumanReadProof: boolean
@@ -516,13 +523,14 @@ export async function captureStorageState(
   browser: Browser,
   username: string,
   password: string,
-  redirectTo: string
+  redirectTo: string,
+  testSession?: string
 ): Promise<StorageState> {
   void browser
   void password
   void redirectTo
   const fixtureKind = username === adminName ? 'admin' : 'user'
-  const session = resolveTestSession()
+  const session = resolveTestSession(testSession)
   const sessionStorageStateFile = session ? `${session}.${fixtureKind}.storage-state.json` : ''
   const storageStateFile = sessionStorageStateFile
     && existsSync(path.join(resolveAuthFixtureDirectory(), sessionStorageStateFile))

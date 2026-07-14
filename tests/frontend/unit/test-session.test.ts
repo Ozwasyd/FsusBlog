@@ -76,6 +76,18 @@ describe('test session helpers', () => {
     })
   })
 
+  it('uses an explicit persistent-worker session without mutating process env', () => {
+    process.env.FSUSBLOG_TEST_SESSION = 'pw-0'
+    expect(resolveTestSession('PW 3')).toBe('pw-3')
+    expect(testSessionHeaders('PW 3')).toEqual({
+      [TEST_SESSION_HEADER]: 'pw-3'
+    })
+    expect(withTestSessionContextOptions({}, 'PW 3').extraHTTPHeaders).toEqual({
+      [TEST_SESSION_HEADER]: 'pw-3'
+    })
+    expect(process.env.FSUSBLOG_TEST_SESSION).toBe('pw-0')
+  })
+
   it('does not mutate options when no test session is active', () => {
     delete process.env.FSUSBLOG_TEST_SESSION
     delete process.env.FSUSBLOG_TEST_SESSION_ISOLATION
