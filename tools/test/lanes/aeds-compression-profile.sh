@@ -23,4 +23,5 @@ dotnet run \
   "$@"
 
 cp "$SUMMARY_FILE" "$RELEASE_SUMMARY"
+FSUSBLOG_LOCAL_PROFILE=1 "$ROOT_DIR/tools/test/lanes/public-hot-read-residency-profile.sh"
 echo "[aeds-compression-profile] wrote $SUMMARY_FILE and $RELEASE_SUMMARY"

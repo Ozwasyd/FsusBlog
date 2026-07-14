@@ -10,6 +10,7 @@ using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
@@ -123,8 +124,19 @@ public sealed class PublicHotReadOptions
     /// the runtime's current total available managed-memory limit.
     /// </summary>
     public long MaxResidentBytes { get; set; }
+    public long MaxRawBytes { get; set; }
+    public long MaxCompressedBytes { get; set; }
+    public long MaxHtmlBytes { get; set; }
+    public long MaxSnapshotOverlapBytes { get; set; }
+    public long MaxArticleResidentBytes { get; set; }
+    public int MaxArtifactObjects { get; set; }
+    public int ArticleAdmissionRecentPercent { get; set; } = 40;
     public bool EnablePrecompressedBinaryVariants { get; set; } = true;
     public int MinPrecompressedFrameBytes { get; set; } = 256;
+    public int MinCompressionSavingsPercent { get; set; } = 8;
+    public int ExpectedBrotliClientSharePercent { get; set; } = 80;
+    public int ExpectedGzipClientSharePercent { get; set; } = 15;
+    public int MinResidentVariantClientSharePercent { get; set; } = 5;
     public bool ValidateFramesOnPublish { get; set; } = true;
     public bool FailOpenWhenNotReady { get; set; }
     public bool EnableDiagnosticHeaders { get; set; }
@@ -145,6 +157,18 @@ public sealed record PublicHotReadRuntimeSnapshot(
     long HtmlTemplateResidentBytes,
     long ResidentByteBudget,
     bool ResidentByteBudgetExceeded,
+    PublicHotReadResidentBreakdown Residency,
+    PublicHotReadBudgetLimits Budgets,
+    long SnapshotOverlapBytes,
+    long RetiringSnapshotBytes,
+    int BudgetViolationCount,
+    IReadOnlyList<string> BudgetViolations,
+    string LifecycleStage,
+    IReadOnlyList<string> LifecycleHistory,
+    int HtmlOverlayEntryCount,
+    int HtmlRemovedEntryCount,
+    string StorageModel,
+    string CompressionPolicy,
     DateTimeOffset? LastBuildAt,
     string? LastBuildReason,
     string? LastBuildStatus,
@@ -154,6 +178,7 @@ public sealed record PublicHotReadRuntimeSnapshot(
 
 public sealed class PublicHotReadSnapshot
 {
+    private const int HtmlOverlayCompactionFloor = 32;
     public static readonly PublicHotReadSnapshot Empty = new(
         0,
         FrozenDictionary<int, PublicBinaryArtifact>.Empty,
@@ -170,8 +195,7 @@ public sealed class PublicHotReadSnapshot
     private readonly FrozenDictionary<string, PublicHtmlArtifact> _htmlOverlayByPath;
     private readonly FrozenSet<string> _htmlRemovedPaths;
     private readonly int _htmlFrameCount;
-    private readonly long _residentBytes;
-    private readonly long _htmlTemplateResidentBytes;
+    private readonly PublicHotReadResidentBreakdown _residency;
 
     public PublicHotReadSnapshot(
         long version,
@@ -221,7 +245,14 @@ public sealed class PublicHotReadSnapshot
         _htmlFrameCount = htmlFrameCount;
         PublicArticleCount = Math.Max(publicArticleCount, articleFramesById.Count);
         ArticleFrameLimit = Math.Max(articleFrameLimit, 0);
-        (_residentBytes, _htmlTemplateResidentBytes) = CalculateResidentBytes();
+        _residency = PublicHotReadResidentAccounting.Calculate(
+            _articleFramesById,
+            _listFrames,
+            _categoryFrame,
+            _tagFrame,
+            _htmlBaseByPath,
+            _htmlOverlayByPath,
+            _htmlRemovedPaths);
     }
 
     public long Version { get; }
@@ -236,8 +267,11 @@ public sealed class PublicHotReadSnapshot
     public PublicBinaryArtifact CategoryFrame => _categoryFrame;
     public PublicBinaryArtifact TagFrame => _tagFrame;
     public int HtmlFrameCount => _htmlFrameCount;
-    public long ResidentBytes => _residentBytes;
-    public long HtmlTemplateResidentBytes => _htmlTemplateResidentBytes;
+    public long ResidentBytes => _residency.TotalBytes;
+    public long HtmlTemplateResidentBytes => _residency.HtmlTemplateBytes;
+    public PublicHotReadResidentBreakdown Residency => _residency;
+    public int HtmlOverlayEntryCount => _htmlOverlayByPath.Count;
+    public int HtmlRemovedEntryCount => _htmlRemovedPaths.Count;
     public IEnumerable<KeyValuePair<int, PublicBinaryArtifact>> ArticleArtifacts => _articleFramesById;
     public IEnumerable<KeyValuePair<PublicListKey, PublicBinaryArtifact>> ListArtifacts => _listFrames;
 
@@ -301,43 +335,32 @@ public sealed class PublicHotReadSnapshot
 
     public PublicHotReadSnapshot WithHtml(string path, PublicHtmlArtifact html)
     {
-        var next = HtmlArtifacts.ToDictionary(StringComparer.Ordinal);
-        next[path] = html;
-
-        return new PublicHotReadSnapshot(
-            Version + 1,
-            _articleFramesById,
-            _listFrames,
-            _categoryFrame,
-            _tagFrame,
-            next.ToFrozenDictionary(StringComparer.Ordinal),
-            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
-            FrozenSet<string>.Empty,
-            next.Count,
-            PublicArticleCount,
-            ArticleFrameLimit);
+        bool existed = TryGetHtml(path, out _);
+        Dictionary<string, PublicHtmlArtifact> overlay = _htmlOverlayByPath.ToDictionary(StringComparer.Ordinal);
+        overlay[path] = html;
+        HashSet<string> removed = _htmlRemovedPaths.ToHashSet(StringComparer.Ordinal);
+        removed.Remove(path);
+        return CreateHtmlDeltaSnapshot(
+            overlay,
+            removed,
+            _htmlFrameCount + (existed ? 0 : 1));
     }
 
     public PublicHotReadSnapshot WithoutHtml(string path)
     {
-        var next = HtmlArtifacts.ToDictionary(StringComparer.Ordinal);
-        if (!next.Remove(path))
+        if (!TryGetHtml(path, out _))
         {
             return this;
         }
 
-        return new PublicHotReadSnapshot(
-            Version + 1,
-            _articleFramesById,
-            _listFrames,
-            _categoryFrame,
-            _tagFrame,
-            next.ToFrozenDictionary(StringComparer.Ordinal),
-            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
-            FrozenSet<string>.Empty,
-            next.Count,
-            PublicArticleCount,
-            ArticleFrameLimit);
+        Dictionary<string, PublicHtmlArtifact> overlay = _htmlOverlayByPath.ToDictionary(StringComparer.Ordinal);
+        overlay.Remove(path);
+        HashSet<string> removed = _htmlRemovedPaths.ToHashSet(StringComparer.Ordinal);
+        if (_htmlBaseByPath.ContainsKey(path))
+        {
+            removed.Add(path);
+        }
+        return CreateHtmlDeltaSnapshot(overlay, removed, _htmlFrameCount - 1);
     }
 
     public PublicHotReadSnapshot WithoutAllHtml()
@@ -356,37 +379,51 @@ public sealed class PublicHotReadSnapshot
                 PublicArticleCount,
                 ArticleFrameLimit);
 
-    private (long Total, long HtmlTemplates) CalculateResidentBytes()
+    private PublicHotReadSnapshot CreateHtmlDeltaSnapshot(
+        Dictionary<string, PublicHtmlArtifact> overlay,
+        HashSet<string> removed,
+        int htmlFrameCount)
     {
-        long total = ArtifactBytes(_categoryFrame) + ArtifactBytes(_tagFrame);
-        foreach (PublicBinaryArtifact artifact in _articleFramesById.Values)
+        int deltaEntries = overlay.Count + removed.Count;
+        int compactionThreshold = Math.Max(HtmlOverlayCompactionFloor, Math.Max(1, _htmlBaseByPath.Count / 4));
+        if (deltaEntries >= compactionThreshold)
         {
-            total += ArtifactBytes(artifact);
+            var compacted = new Dictionary<string, PublicHtmlArtifact>(_htmlBaseByPath, StringComparer.Ordinal);
+            foreach (string key in removed)
+            {
+                compacted.Remove(key);
+            }
+            foreach ((string key, PublicHtmlArtifact value) in overlay)
+            {
+                compacted[key] = value;
+            }
+            return new PublicHotReadSnapshot(
+                Version + 1,
+                _articleFramesById,
+                _listFrames,
+                _categoryFrame,
+                _tagFrame,
+                compacted.ToFrozenDictionary(StringComparer.Ordinal),
+                FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+                FrozenSet<string>.Empty,
+                htmlFrameCount,
+                PublicArticleCount,
+                ArticleFrameLimit);
         }
 
-        foreach (PublicBinaryArtifact artifact in _listFrames.Values)
-        {
-            total += ArtifactBytes(artifact);
-        }
-
-        long htmlTemplates = 0;
-        foreach (PublicHtmlArtifact artifact in _htmlBaseByPath.Values)
-        {
-            total += artifact.ResidentBytes;
-            htmlTemplates += artifact.CspNonceTemplate?.ResidentBytes ?? 0;
-        }
-
-        foreach (PublicHtmlArtifact artifact in _htmlOverlayByPath.Values)
-        {
-            total += artifact.ResidentBytes;
-            htmlTemplates += artifact.CspNonceTemplate?.ResidentBytes ?? 0;
-        }
-
-        return (total, htmlTemplates);
+        return new PublicHotReadSnapshot(
+            Version + 1,
+            _articleFramesById,
+            _listFrames,
+            _categoryFrame,
+            _tagFrame,
+            _htmlBaseByPath,
+            overlay.ToFrozenDictionary(StringComparer.Ordinal),
+            removed.ToFrozenSet(StringComparer.Ordinal),
+            htmlFrameCount,
+            PublicArticleCount,
+            ArticleFrameLimit);
     }
-
-    private static long ArtifactBytes(in PublicBinaryArtifact artifact)
-        => artifact.Frame.Length + artifact.BrotliFrame.Length + artifact.GzipFrame.Length;
 }
 
 public sealed class PublicHotReadStore
@@ -396,7 +433,13 @@ public sealed class PublicHotReadStore
     private readonly object _gate = new();
     private readonly PublicHotReadEarlyDataPlaneRuntimeState? _earlyDataPlaneRuntimeState;
     private readonly bool _initialEarlyDataPlaneEnabled;
-    private readonly long _residentByteBudget;
+    private readonly PublicHotReadBudgetLimits _budgetLimits;
+    private readonly string _compressionPolicy;
+    private readonly List<WeakReference<PublicHotReadSnapshot>> _retiringSnapshots = [];
+    private long _lastSnapshotOverlapBytes;
+    private IReadOnlyList<string> _lastBudgetViolations = Array.Empty<string>();
+    private string _lifecycleStage = "not-started";
+    private readonly Queue<string> _lifecycleHistory = new(["not-started"]);
     private PublicHotReadRuntimeSnapshot _runtime;
 
     public PublicHotReadStore(
@@ -405,7 +448,9 @@ public sealed class PublicHotReadStore
     {
         _earlyDataPlaneRuntimeState = earlyDataPlaneRuntimeState;
         _initialEarlyDataPlaneEnabled = earlyDataPlaneRuntimeState?.Enabled ?? options?.Value.Enabled ?? true;
-        _residentByteBudget = ResolveResidentByteBudget(options?.Value.MaxResidentBytes ?? 0);
+        PublicHotReadOptions value = options?.Value ?? new PublicHotReadOptions();
+        _budgetLimits = PublicHotReadBudgetLimits.Resolve(value);
+        _compressionPolicy = CompressionPolicy(value);
         _runtime = new PublicHotReadRuntimeSnapshot(
             nameof(PublicHotReadState.NotStarted),
             0,
@@ -419,8 +464,20 @@ public sealed class PublicHotReadStore
             0,
             0,
             0,
-            _residentByteBudget,
+            _budgetLimits.MaxResidentBytes,
             false,
+            PublicHotReadResidentBreakdown.Empty,
+            _budgetLimits,
+            0,
+            0,
+            0,
+            Array.Empty<string>(),
+            _lifecycleStage,
+            _lifecycleHistory.ToArray(),
+            0,
+            0,
+            "independent-readonly-arrays-upper-bound-v1",
+            _compressionPolicy,
             null,
             null,
             "not_started",
@@ -437,24 +494,57 @@ public sealed class PublicHotReadStore
 
     public void Publish(PublicHotReadSnapshot next)
     {
-        if (next.ResidentBytes > _residentByteBudget)
-        {
-            throw new InvalidOperationException(
-                $"public hot-read resident artifact budget exceeded: {next.ResidentBytes} > {_residentByteBudget} bytes");
-        }
-
-        Volatile.Write(ref _current, next);
-        Volatile.Write(ref _ready, 1);
+        ArgumentNullException.ThrowIfNull(next);
+        long overlapBytes;
         lock (_gate)
         {
+            PublicHotReadSnapshot current = Current;
+            long retiringBytes = RetiringSnapshotBytesLocked();
+            overlapBytes = checked(next.ResidentBytes
+                + (current.Version == 0 ? 0 : current.ResidentBytes)
+                + retiringBytes);
+            SetLifecycleStageLocked("validate");
+            IReadOnlyList<string> violations = PublicHotReadResidentAccounting.ValidateCandidate(
+                next.Residency,
+                overlapBytes,
+                _budgetLimits);
+            if (violations.Count > 0)
+            {
+                _lastSnapshotOverlapBytes = overlapBytes;
+                _lastBudgetViolations = violations;
+                SetLifecycleStageLocked("validate-rejected");
+                _runtime = CreateRuntimeSnapshotLocked(
+                    Current.Version == 0 ? nameof(PublicHotReadState.Failed) : nameof(PublicHotReadState.Ready),
+                    Current,
+                    DateTimeOffset.UtcNow,
+                    _runtime.LastBuildReason,
+                    "failed",
+                    "PublicHotReadBudgetViolation");
+                throw new InvalidOperationException(
+                    $"public hot-read candidate budget exceeded: {string.Join(", ", violations)}");
+            }
+
+            SetLifecycleStageLocked("admit");
+            SetLifecycleStageLocked("publish");
+            Volatile.Write(ref _current, next);
+            Volatile.Write(ref _ready, 1);
+            _lastSnapshotOverlapBytes = overlapBytes;
+            _lastBudgetViolations = Array.Empty<string>();
+            if (current.Version != 0)
+            {
+                _retiringSnapshots.Add(new WeakReference<PublicHotReadSnapshot>(current));
+            }
+            SetLifecycleStageLocked(_retiringSnapshots.Count == 0 ? "active" : "retire");
             _runtime = CreateRuntimeSnapshotLocked(nameof(PublicHotReadState.Ready), next, DateTimeOffset.UtcNow, _runtime.LastBuildReason, "ok", null);
         }
+        FsusObservability.RecordPublicHotResidency(next.Residency, overlapBytes);
     }
 
     public void BeginBuild(string reason)
     {
         lock (_gate)
         {
+            SetLifecycleStageLocked("build");
             PublicHotReadSnapshot current = Current;
             string state = string.Equals(_runtime.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
                 ? nameof(PublicHotReadState.Ready)
@@ -467,6 +557,7 @@ public sealed class PublicHotReadStore
     {
         lock (_gate)
         {
+            SetLifecycleStageLocked("failed");
             PublicHotReadSnapshot current = Current;
             string state = string.Equals(_runtime.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
                 ? nameof(PublicHotReadState.Ready)
@@ -480,8 +571,11 @@ public sealed class PublicHotReadStore
         lock (_gate)
         {
             bool enabled = _earlyDataPlaneRuntimeState?.Enabled ?? _initialEarlyDataPlaneEnabled;
+            long retiringBytes = RetiringSnapshotBytesLocked();
             return _runtime with
             {
+                RetiringSnapshotBytes = retiringBytes,
+                LifecycleStage = retiringBytes == 0 && _lifecycleStage == "retire" ? "active" : _lifecycleStage,
                 EarlyDataPlaneEnabled = enabled,
                 EarlyDataPlaneState = !enabled
                     ? "disabled"
@@ -554,8 +648,20 @@ public sealed class PublicHotReadStore
             snapshot.HtmlFrameCount,
             snapshot.ResidentBytes,
             snapshot.HtmlTemplateResidentBytes,
-            _residentByteBudget,
-            snapshot.ResidentBytes > _residentByteBudget,
+            _budgetLimits.MaxResidentBytes,
+            _lastBudgetViolations.Count > 0,
+            snapshot.Residency,
+            _budgetLimits,
+            _lastSnapshotOverlapBytes,
+            RetiringSnapshotBytesLocked(),
+            _lastBudgetViolations.Count,
+            _lastBudgetViolations,
+            _lifecycleStage,
+            _lifecycleHistory.ToArray(),
+            snapshot.HtmlOverlayEntryCount,
+            snapshot.HtmlRemovedEntryCount,
+            "independent-readonly-arrays-upper-bound-v1",
+            _compressionPolicy,
             lastBuildAt,
             lastBuildReason,
             lastBuildStatus,
@@ -569,19 +675,45 @@ public sealed class PublicHotReadStore
 
     internal static long ResolveResidentByteBudget(long configuredBytes)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(configuredBytes);
-        if (configuredBytes > 0)
+        return PublicHotReadBudgetLimits.Resolve(new PublicHotReadOptions
         {
-            return configuredBytes;
-        }
+            MaxResidentBytes = configuredBytes
+        }).MaxResidentBytes;
+    }
 
-        long available = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
-        if (available <= 0)
+    internal static PublicHotReadBudgetLimits ResolveBudgetLimitsForTests(
+        PublicHotReadOptions options,
+        long availableMemoryBytes)
+        => PublicHotReadBudgetLimits.Resolve(options, availableMemoryBytes);
+
+    private long RetiringSnapshotBytesLocked()
+    {
+        long total = 0;
+        PublicHotReadSnapshot current = Current;
+        for (int index = _retiringSnapshots.Count - 1; index >= 0; index--)
         {
-            available = Math.Min(Environment.WorkingSet, long.MaxValue / 4) * 4;
+            if (!_retiringSnapshots[index].TryGetTarget(out PublicHotReadSnapshot? retiring)
+                || ReferenceEquals(retiring, current))
+            {
+                _retiringSnapshots.RemoveAt(index);
+                continue;
+            }
+            total = checked(total + retiring.ResidentBytes);
         }
+        return total;
+    }
 
-        return Math.Clamp(available / 8, 64L * 1024 * 1024, 2L * 1024 * 1024 * 1024);
+    private static string CompressionPolicy(PublicHotReadOptions options)
+        => $"publish-time;minBytes={options.MinPrecompressedFrameBytes};minSavings={options.MinCompressionSavingsPercent};brShare={options.ExpectedBrotliClientSharePercent};gzipShare={options.ExpectedGzipClientSharePercent}";
+
+    private void SetLifecycleStageLocked(string stage)
+    {
+        _lifecycleStage = stage;
+        if (_lifecycleHistory.Count == 12)
+        {
+            _lifecycleHistory.Dequeue();
+        }
+        _lifecycleHistory.Enqueue(stage);
     }
 }
 
@@ -927,7 +1059,7 @@ public static class PublicHotReadFastPath
         string artifactKey = options.EnableDiagnosticHeaders
             ? articleId.ToString(System.Globalization.CultureInfo.InvariantCulture)
             : string.Empty;
-        return WriteBinaryFrame(ctx, artifact, options, "article", artifactKey, isDevelopment);
+        return WriteBinaryFrame(ctx, artifact, counters, options, "article", artifactKey, isDevelopment);
     }
 
     private static Task ServeList(
@@ -946,7 +1078,7 @@ public static class PublicHotReadFastPath
 
         counters.ListHit(artifact.Frame.Length);
         string artifactKey = options.EnableDiagnosticHeaders ? key.ToString() : string.Empty;
-        return WriteBinaryFrame(ctx, artifact, options, PublicListArtifactKind(key.Kind), artifactKey, isDevelopment);
+        return WriteBinaryFrame(ctx, artifact, counters, options, PublicListArtifactKind(key.Kind), artifactKey, isDevelopment);
     }
 
     private static Task ServeCategory(
@@ -963,7 +1095,7 @@ public static class PublicHotReadFastPath
         }
 
         counters.ListHit(artifact.Frame.Length);
-        return WriteBinaryFrame(ctx, artifact, options, "category", "all", isDevelopment);
+        return WriteBinaryFrame(ctx, artifact, counters, options, "category", "all", isDevelopment);
     }
 
     private static Task ServeTag(
@@ -980,7 +1112,7 @@ public static class PublicHotReadFastPath
         }
 
         counters.ListHit(artifact.Frame.Length);
-        return WriteBinaryFrame(ctx, artifact, options, "tag", "all", isDevelopment);
+        return WriteBinaryFrame(ctx, artifact, counters, options, "tag", "all", isDevelopment);
     }
 
     private static Task ServeHtml(
@@ -1105,6 +1237,7 @@ public static class PublicHotReadFastPath
     private static Task WriteBinaryFrame(
         HttpContext ctx,
         PublicBinaryArtifact artifact,
+        PublicHotReadCounters counters,
         PublicHotReadOptions options,
         string artifactKind,
         string artifactKey,
@@ -1114,6 +1247,7 @@ public static class PublicHotReadFastPath
         {
             return WriteStatus(ctx, StatusCodes.Status406NotAcceptable, isDevelopment);
         }
+        counters.VariantSelected(variant.ContentEncoding);
 
         ReadOnlyMemory<byte> frame = variant.Frame;
         HttpResponse response = ctx.Response;
@@ -1998,7 +2132,10 @@ public readonly record struct PublicHotReadCounterSnapshot(
     long HtmlHit,
     long HtmlMiss,
     long Rejected,
-    long Bytes);
+    long Bytes,
+    long IdentityVariant,
+    long BrotliVariant,
+    long GzipVariant);
 
 public sealed class PublicHotReadCounters
 {
@@ -2053,6 +2190,27 @@ public sealed class PublicHotReadCounters
 
     public void HtmlMiss() => Interlocked.Increment(ref PickStripe().HtmlMiss);
     public void Rejected() => Interlocked.Increment(ref PickStripe().Rejected);
+    public void VariantSelected(string contentEncoding)
+    {
+        if (!ShouldRecordHit())
+        {
+            return;
+        }
+
+        CounterStripe stripe = PickStripe();
+        if (string.Equals(contentEncoding, "br", StringComparison.Ordinal))
+        {
+            Interlocked.Increment(ref stripe.BrotliVariant);
+        }
+        else if (string.Equals(contentEncoding, "gzip", StringComparison.Ordinal))
+        {
+            Interlocked.Increment(ref stripe.GzipVariant);
+        }
+        else
+        {
+            Interlocked.Increment(ref stripe.IdentityVariant);
+        }
+    }
 
     public PublicHotReadCounterSnapshot Snapshot()
         => Collect(reset: false);
@@ -2070,6 +2228,9 @@ public sealed class PublicHotReadCounters
         long htmlMiss = 0;
         long rejected = 0;
         long bytes = 0;
+        long identityVariant = 0;
+        long brotliVariant = 0;
+        long gzipVariant = 0;
 
         foreach (CounterStripe stripe in _stripes)
         {
@@ -2081,9 +2242,23 @@ public sealed class PublicHotReadCounters
             htmlMiss += reset ? Interlocked.Exchange(ref stripe.HtmlMiss, 0) : Volatile.Read(ref stripe.HtmlMiss);
             rejected += reset ? Interlocked.Exchange(ref stripe.Rejected, 0) : Volatile.Read(ref stripe.Rejected);
             bytes += reset ? Interlocked.Exchange(ref stripe.Bytes, 0) : Volatile.Read(ref stripe.Bytes);
+            identityVariant += reset ? Interlocked.Exchange(ref stripe.IdentityVariant, 0) : Volatile.Read(ref stripe.IdentityVariant);
+            brotliVariant += reset ? Interlocked.Exchange(ref stripe.BrotliVariant, 0) : Volatile.Read(ref stripe.BrotliVariant);
+            gzipVariant += reset ? Interlocked.Exchange(ref stripe.GzipVariant, 0) : Volatile.Read(ref stripe.GzipVariant);
         }
 
-        return new PublicHotReadCounterSnapshot(articleHit, articleMiss, listHit, listMiss, htmlHit, htmlMiss, rejected, bytes);
+        return new PublicHotReadCounterSnapshot(
+            articleHit,
+            articleMiss,
+            listHit,
+            listMiss,
+            htmlHit,
+            htmlMiss,
+            rejected,
+            bytes,
+            identityVariant,
+            brotliVariant,
+            gzipVariant);
     }
 
     private CounterStripe PickStripe()
@@ -2123,6 +2298,9 @@ public sealed class PublicHotReadCounters
         [FieldOffset(40)] public long HtmlMiss;
         [FieldOffset(48)] public long Rejected;
         [FieldOffset(56)] public long Bytes;
+        [FieldOffset(64)] public long IdentityVariant;
+        [FieldOffset(72)] public long BrotliVariant;
+        [FieldOffset(80)] public long GzipVariant;
     }
 }
 
@@ -2138,6 +2316,9 @@ public sealed class PublicHotReadMetricFlushWorker(
     private static readonly Counter<long> HtmlHitCounter = Meter.CreateCounter<long>("fsus.hotread.html.hit");
     private static readonly Counter<long> HtmlMissCounter = Meter.CreateCounter<long>("fsus.hotread.html.miss");
     private static readonly Counter<long> BytesCounter = Meter.CreateCounter<long>("fsus.hotread.bytes");
+    private static readonly Counter<long> IdentityVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.identity");
+    private static readonly Counter<long> BrotliVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.br");
+    private static readonly Counter<long> GzipVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.gzip");
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -2165,6 +2346,9 @@ public sealed class PublicHotReadMetricFlushWorker(
         AddIfPositive(HtmlHitCounter, snapshot.HtmlHit);
         AddIfPositive(HtmlMissCounter, snapshot.HtmlMiss);
         AddIfPositive(BytesCounter, snapshot.Bytes);
+        AddIfPositive(IdentityVariantCounter, snapshot.IdentityVariant);
+        AddIfPositive(BrotliVariantCounter, snapshot.BrotliVariant);
+        AddIfPositive(GzipVariantCounter, snapshot.GzipVariant);
         if (snapshot.Rejected > 0)
         {
             logger.LogDebug("public-hot-read-rejected {Count}", snapshot.Rejected);
@@ -2344,14 +2528,20 @@ internal static class PublicHotReadBinaryArtifactFactory
         string gzipEtag = string.Empty;
         if (options.EnablePrecompressedBinaryVariants && frame.Length >= options.MinPrecompressedFrameBytes)
         {
-            byte[]? compressedBrotli = TryCompress(frame, "br");
+            int minimumShare = Math.Clamp(options.MinResidentVariantClientSharePercent, 0, 100);
+            int minimumSavings = Math.Clamp(options.MinCompressionSavingsPercent, 0, 99);
+            byte[]? compressedBrotli = options.ExpectedBrotliClientSharePercent >= minimumShare
+                ? TryCompress(frame, "br", minimumSavings)
+                : null;
             if (compressedBrotli is { Length: > 0 })
             {
                 brotliFrame = compressedBrotli;
                 brotliEtag = CreateEtag(compressedBrotli);
             }
 
-            byte[]? compressedGzip = TryCompress(frame, "gzip");
+            byte[]? compressedGzip = options.ExpectedGzipClientSharePercent >= minimumShare
+                ? TryCompress(frame, "gzip", minimumSavings)
+                : null;
             if (compressedGzip is { Length: > 0 })
             {
                 gzipFrame = compressedGzip;
@@ -2369,7 +2559,7 @@ internal static class PublicHotReadBinaryArtifactFactory
         return string.Concat("\"", Convert.ToHexStringLower(hash[..8]), "\"");
     }
 
-    private static byte[]? TryCompress(ReadOnlySpan<byte> frame, string encoding)
+    private static byte[]? TryCompress(ReadOnlySpan<byte> frame, string encoding, int minimumSavingsPercent)
     {
         using var output = new MemoryStream();
         if (encoding == "br")
@@ -2387,7 +2577,8 @@ internal static class PublicHotReadBinaryArtifactFactory
             }
         }
 
-        if (output.Length >= frame.Length)
+        long savedBytes = frame.Length - output.Length;
+        if (savedBytes <= 0 || (savedBytes * 100) < ((long)frame.Length * minimumSavingsPercent))
         {
             return null;
         }

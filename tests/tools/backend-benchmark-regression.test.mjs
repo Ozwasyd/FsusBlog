@@ -22,6 +22,29 @@ const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url))
 const checker = path.join(root, 'tools/perf/check-backend-benchmark-regression.mjs')
 const benchmarkProgram = fs.readFileSync(path.join(root, 'benchmarks/core/Program.cs'), 'utf8')
 
+test('public hot-read residency profiler emits physical-memory and hit-rate gates', () => {
+  const profiler = fs.readFileSync(path.join(root, 'benchmarks/core/PublicHotReadResidencyProfiler.cs'), 'utf8')
+  const lane = fs.readFileSync(path.join(root, 'tools/test/lanes/public-hot-read-residency-profile.sh'), 'utf8')
+  const releaseLane = fs.readFileSync(path.join(root, 'tools/test/lanes/aeds-compression-profile.sh'), 'utf8')
+  const matrix = fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')
+  assert.match(benchmarkProgram, /--public-hot-read-residency-profile/u)
+  for (const token of [
+    'workingSetDeltaBytes',
+    'fullGcPauseMilliseconds',
+    'LohEligibleArrayBytes',
+    'hitRate',
+    'SnapshotOverlapBytes',
+    'CompressionPolicy',
+    'requestBodyCopies = 0',
+    'fsusblog.public-hot-read-residency-profile.v1'
+  ]) {
+    assert.ok(profiler.includes(token), `missing residency profiler token: ${token}`)
+  }
+  assert.match(lane, /\.tmp\/release-evidence\/public-hot-read-residency-profile\.json/u)
+  assert.match(releaseLane, /public-hot-read-residency-profile\.sh/u)
+  assert.match(matrix, /coverage: \[aeds-hot-read-precompression, public-hot-read-residency-budget\]/u)
+})
+
 test('benchmark console reports unprivileged scheduling as one informational note', () => {
   assert.match(benchmarkProgram, /Benchmark scheduler note: privileged priority elevation is unavailable/u)
   assert.match(benchmarkProgram, /Interlocked\.Exchange\(ref _priorityNoteWritten, 1\) == 0/u)

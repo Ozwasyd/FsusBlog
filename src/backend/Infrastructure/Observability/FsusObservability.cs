@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.Security;
 
 namespace FsusBlog.Server.Infrastructure.Observability;
@@ -208,6 +209,10 @@ public static class FsusObservability
     private static readonly Counter<long> PublicHotDeltaRebuiltListCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_lists");
     private static readonly Counter<long> PublicHotDeltaRebuiltTaxonomyCounter = Meter.CreateCounter<long>("fsus.public_hot.delta.rebuilt_taxonomy");
     private static readonly Histogram<double> PublicHotDeltaElapsed = Meter.CreateHistogram<double>("fsus.public_hot.delta.elapsed_ms", "ms");
+    private static readonly Histogram<long> PublicHotResidentBytes = Meter.CreateHistogram<long>("fsus.public_hot.resident.bytes", "By");
+    private static readonly Histogram<long> PublicHotSnapshotOverlapBytes = Meter.CreateHistogram<long>("fsus.public_hot.snapshot_overlap.bytes", "By");
+    private static readonly Histogram<long> PublicHotLohEligibleBytes = Meter.CreateHistogram<long>("fsus.public_hot.loh_eligible.bytes", "By");
+    private static readonly Histogram<long> PublicHotArtifactObjects = Meter.CreateHistogram<long>("fsus.public_hot.artifact_objects", "{object}");
     private static readonly Histogram<double> AdminIntegrityCheckElapsed = Meter.CreateHistogram<double>("fsus.admin.integrity.check_elapsed_ms", "ms");
     private static readonly Counter<long> AdminIntegrityTotalCount = Meter.CreateCounter<long>("fsus.admin.integrity.total_count");
     private static readonly Counter<long> AdminIntegritySampleCount = Meter.CreateCounter<long>("fsus.admin.integrity.sample_count");
@@ -1085,6 +1090,20 @@ public static class FsusObservability
         PublicHotDeltaRebuiltListCounter.Add(Math.Max(0, rebuiltListFrames));
         PublicHotDeltaRebuiltTaxonomyCounter.Add(Math.Max(0, rebuiltTaxonomyFrames));
         PublicHotDeltaElapsed.Record(elapsed.TotalMilliseconds);
+    }
+
+    public static void RecordPublicHotResidency(
+        PublicHotReadResidentBreakdown residency,
+        long snapshotOverlapBytes)
+    {
+        TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("public-hot-read", "snapshot_publish", "ok");
+            PublicHotResidentBytes.Record(residency.TotalBytes, tags);
+            PublicHotSnapshotOverlapBytes.Record(Math.Max(0, snapshotOverlapBytes), tags);
+            PublicHotLohEligibleBytes.Record(residency.LohEligibleArrayBytes, tags);
+            PublicHotArtifactObjects.Record(residency.ObjectCount, tags);
+        });
     }
 
     public static void RecordAdminIntegrityCheck(

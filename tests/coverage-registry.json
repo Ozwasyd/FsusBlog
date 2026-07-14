@@ -1428,6 +1428,22 @@
       ]
     },
     {
+      "id": "public-hot-read-residency-budget",
+      "description": "PublicHotRead resident bytes, snapshot overlap, object/LOH/RSS/GC and hit-value admission are measured against fail-closed release gates.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        ".tmp/perf/public-hot-read-residency-profile/summary.json",
+        ".tmp/release-evidence/public-hot-read-residency-profile.json"
+      ],
+      "assertionType": "perf",
+      "failClosedRule": "The residency profile must fail when resident/overlap/object/LOH/RSS/GC gates exceed their limits, bounded admission is lost, or synthetic hot/recent hit rate falls below the declared threshold.",
+      "minimumRequirement": "Evidence must include container-visible budgets, classified resident bytes, artifact/object/array and LOH counts, process RSS delta, GC pause and collections, deterministic bounded admission, observed hit rate, lifecycle history and zero request-body copies.",
+      "tierIds": [
+        "aeds-compression-profile"
+      ]
+    },
+    {
       "id": "public-hot-read-taxonomy",
       "description": "Public Hot Read Taxonomy is covered by performance summaries that exercise the named behavior.",
       "owner": "ServerContractAgent",

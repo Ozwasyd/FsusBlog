@@ -2492,9 +2492,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [aeds-hot-read-precompression]
-    artifacts: [.tmp/perf/aeds-compression-profile/summary.json, .tmp/release-evidence/aeds-compression-profile-summary.json]
-    evidence: [.tmp/perf/aeds-compression-profile/summary.json, .tmp/release-evidence/aeds-compression-profile-summary.json]
+    coverage: [aeds-hot-read-precompression, public-hot-read-residency-budget]
+    artifacts: [.tmp/perf/aeds-compression-profile/summary.json, .tmp/release-evidence/aeds-compression-profile-summary.json, .tmp/perf/public-hot-read-residency-profile/summary.json, .tmp/release-evidence/public-hot-read-residency-profile.json]
+    evidence: [.tmp/perf/aeds-compression-profile/summary.json, .tmp/release-evidence/aeds-compression-profile-summary.json, .tmp/perf/public-hot-read-residency-profile/summary.json, .tmp/release-evidence/public-hot-read-residency-profile.json]
     ciJob: perf-regression
     localOnly: false
     nightlyOnly: false

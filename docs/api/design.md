@@ -352,7 +352,9 @@ feed、sitemap 与 robots 等开放分发文本端点只负责生成标准格式
 
 ### L0 artifact HTTP 语义
 
-L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，不在 fast path 上注入 CORS。Binary artifact 接受空 `Accept`、`*/*` 或 `application/octet-stream`；HTML artifact 只接受空 `Accept`、`*/*` 或 `text/html`；不匹配时返回 `406`。快照未进入 `Ready` 状态时返回 `503` + `Retry-After: 1`，除非显式启用 `PublicHotRead:FailOpenWhenNotReady` 降级到常规管线。`400`/`404`/`405`/`406`/`416`/`503` 等 L0 负响应固定 `Cache-Control: no-store`，`Range` 请求返回 `416`。`.aeds` 命中声明 `Accept-Ranges: none`，并可按 artifact 预生成 raw/br/gzip variant 返回 `Content-Encoding`、`Vary: Accept-Encoding` 和 variant-aware `ETag`；`If-None-Match` 命中当前 variant 时返回 `304`。HTML artifact 必须是静态 CSP 形态，不依赖 nonce placeholder 或 inline script。
+L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，不在 fast path 上注入 CORS。Binary artifact 接受空 `Accept`、`*/*` 或 `application/octet-stream`；HTML artifact 只接受空 `Accept`、`*/*` 或 `text/html`；不匹配时返回 `406`。快照未进入 `Ready` 状态时返回 `503` + `Retry-After: 1`，除非显式启用 `PublicHotRead:FailOpenWhenNotReady` 降级到常规管线。`400`/`404`/`405`/`406`/`416`/`503` 等 L0 负响应固定 `Cache-Control: no-store`，`Range` 请求返回 `416`。`.aeds` 命中声明 `Accept-Ranges: none`，并可按 artifact 预生成 raw/br/gzip variant 返回 `Content-Encoding`、`Vary: Accept-Encoding` 和 variant-aware `ETag`；`If-None-Match` 命中当前 variant 时返回 `304`。HTML artifact 在发布期编译 CSP nonce UTF-8 template；请求只写预计算 segment/slot，不保留原始 placeholder，也不重新扫描整页。
+
+L0 snapshot 发布是受预算保护的原子操作。候选在可见前核算 raw/br/gzip、HTML/template、key/index、对象/数组/LOH 与当前 snapshot overlap；任一分项超过配置时汇总全部原因并保留旧 snapshot。`runtime.publicHotRead` 是受保护的诊断契约，匿名 readiness 不公开容量细节。article detail admission 使用访问热度与最近发布的分段 Top-K 并受 resident bytes 二次约束；未 admission 或 eviction 的文章仍走原 binary endpoint/cache 回退，不能变成文本 API 或语义降级。请求从 snapshot 的 `ReadOnlyMemory<byte>` slice 直接写出，不因统计或 eviction 增加 body copy。
 
 状态码与 frame 目录见 [`schemas-and-errors.md#aedsframetype-枚举`](schemas-and-errors.md#aedsframetype-枚举)。
 

@@ -39,6 +39,16 @@ public sealed class CspNonceUtf8Template
             + ((long)artifactIdentity.Length * sizeof(char))
             + ((long)templateDigest.Length * sizeof(char))
             + 64;
+        ResidentArrayCount = 3;
+        ResidentObjectCount = 6 + staticInlineSha256Sources.Length;
+        long slotBytes = (long)slotOffsets.Length * sizeof(int);
+        long hashIndexBytes = (long)staticInlineSha256Sources.Length * IntPtr.Size;
+        LohEligibleArrayCount = (templateBytes.LongLength >= 85_000 ? 1 : 0)
+            + (slotBytes >= 85_000 ? 1 : 0)
+            + (hashIndexBytes >= 85_000 ? 1 : 0);
+        LohEligibleArrayBytes = (templateBytes.LongLength >= 85_000 ? templateBytes.LongLength : 0)
+            + (slotBytes >= 85_000 ? slotBytes : 0)
+            + (hashIndexBytes >= 85_000 ? hashIndexBytes : 0);
     }
 
     public string ArtifactIdentity { get; }
@@ -50,6 +60,14 @@ public sealed class CspNonceUtf8Template
     public int LengthWithoutNonce { get; }
 
     public long ResidentBytes { get; }
+
+    public int ResidentArrayCount { get; }
+
+    public int ResidentObjectCount { get; }
+
+    public int LohEligibleArrayCount { get; }
+
+    public long LohEligibleArrayBytes { get; }
 
     public IReadOnlyList<string> StaticInlineSha256Sources => _staticInlineSha256Sources;
 

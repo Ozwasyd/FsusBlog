@@ -145,6 +145,7 @@ public sealed class PublicHotArtifactProjector(
             articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, value);
             scope = BuildArticleDeltaScope(changed);
         }
+        articleFrames = ApplyArticleAdmission(articleFrames, [articleId], value);
 
         int rebuiltListFrames = await AddAffectedListFramesAsync(listFrames, scope, version, value, ct).ConfigureAwait(false);
         int rebuiltTaxonomyFrames = 0;
@@ -168,7 +169,9 @@ public sealed class PublicHotArtifactProjector(
             listFrames.ToFrozenDictionary(),
             current.CategoryFrame,
             current.TagFrame,
-            html);
+            html,
+            current.PublicArticleCount,
+            current.ArticleFrameLimit);
     }
 
     private async Task<PublicHotReadSnapshot> BuildViewProjectionSnapshotCoreAsync(
@@ -200,6 +203,7 @@ public sealed class PublicHotArtifactProjector(
                 }
             }
         }
+        articleFrames = ApplyArticleAdmission(articleFrames, normalizedArticleIds, value);
 
         var listFrames = current.ListArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
         int rebuiltListFrames = await AddHotRankingFramesAsync(listFrames, version, value, ct).ConfigureAwait(false);
@@ -221,7 +225,9 @@ public sealed class PublicHotArtifactProjector(
             listFrames.ToFrozenDictionary(),
             current.CategoryFrame,
             current.TagFrame,
-            html);
+            html,
+            current.PublicArticleCount,
+            current.ArticleFrameLimit);
     }
 
     private static PublicHotDeltaScope BuildArticleDeltaScope(ArticleDetailReadModel article)
@@ -340,13 +346,29 @@ public sealed class PublicHotArtifactProjector(
                 && (article.PublishedAt == null || article.PublishedAt <= utcNow)
                 && (article.ScheduledPublishAt == null || article.ScheduledPublishAt <= utcNow));
         int publicArticleCount = await publicArticles.CountAsync(ct).ConfigureAwait(false);
-        List<int> articleIds = await publicArticles
+        int recentPercent = Math.Clamp(options.ArticleAdmissionRecentPercent, 0, 100);
+        int recentLimit = Math.Clamp((int)Math.Ceiling(limit * (recentPercent / 100d)), 0, limit);
+        int popularLimit = limit - recentLimit;
+        List<int> recentIds = recentLimit == 0
+            ? []
+            : await publicArticles
             .OrderBy(article => article.PublishedAt, OrderByType.Desc)
             .OrderBy(article => article.Id, OrderByType.Desc)
-            .Take(limit)
+            .Take(recentLimit)
             .Select(article => article.Id)
             .ToListAsync(ct)
             .ConfigureAwait(false);
+        List<int> popularIds = popularLimit == 0
+            ? []
+            : await publicArticles
+                .OrderBy(article => article.Views, OrderByType.Desc)
+                .OrderBy(article => article.PublishedAt, OrderByType.Desc)
+                .OrderBy(article => article.Id, OrderByType.Desc)
+                .Take(popularLimit)
+                .Select(article => article.Id)
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+        int[] articleIds = MergeAdmissionSegments(popularIds, recentIds, limit);
 
         return new PublicArticleFrameSelection(articleIds, publicArticleCount, limit);
     }
@@ -371,7 +393,64 @@ public sealed class PublicHotArtifactProjector(
             frames[detail.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, options);
         }
 
-        return frames.ToFrozenDictionary();
+        return ApplyArticleAdmission(frames, articleIds, options).ToFrozenDictionary();
+    }
+
+    internal static int[] MergeAdmissionSegments(
+        IReadOnlyList<int> popularIds,
+        IReadOnlyList<int> recentIds,
+        int limit)
+    {
+        var result = new List<int>(Math.Max(0, limit));
+        var seen = new HashSet<int>();
+        int max = Math.Max(popularIds.Count, recentIds.Count);
+        for (int index = 0; index < max && result.Count < limit; index++)
+        {
+            Add(popularIds, index);
+            Add(recentIds, index);
+        }
+        return [.. result];
+
+        void Add(IReadOnlyList<int> source, int index)
+        {
+            if (result.Count < limit && index < source.Count && source[index] > 0 && seen.Add(source[index]))
+            {
+                result.Add(source[index]);
+            }
+        }
+    }
+
+    internal static Dictionary<int, PublicBinaryArtifact> ApplyArticleAdmission(
+        IReadOnlyDictionary<int, PublicBinaryArtifact> candidates,
+        IEnumerable<int> priorityIds,
+        PublicHotReadOptions options)
+    {
+        PublicHotReadBudgetLimits limits = PublicHotReadBudgetLimits.Resolve(options);
+        int countLimit = Math.Clamp(options.MaxArticleFrames, 1, 1_000_000);
+        long byteLimit = limits.MaxArticleResidentBytes;
+        IEnumerable<int> orderedIds = priorityIds
+            .Concat(candidates
+                .OrderByDescending(static pair => pair.Value.Version)
+                .ThenByDescending(static pair => pair.Key)
+                .Select(static pair => pair.Key))
+            .Distinct();
+        var admitted = new Dictionary<int, PublicBinaryArtifact>(Math.Min(candidates.Count, countLimit));
+        long residentBytes = 0;
+        foreach (int id in orderedIds)
+        {
+            if (admitted.Count >= countLimit || !candidates.TryGetValue(id, out PublicBinaryArtifact artifact))
+            {
+                continue;
+            }
+            long artifactBytes = PublicHotReadResidentAccounting.EstimateArticleArtifactBytes(artifact);
+            if (artifactBytes > byteLimit - residentBytes)
+            {
+                continue;
+            }
+            admitted[id] = artifact;
+            residentBytes += artifactBytes;
+        }
+        return admitted;
     }
 
     private async Task<FrozenDictionary<PublicListKey, PublicBinaryArtifact>> BuildListFramesAsync(

@@ -196,7 +196,7 @@ public sealed class CspNonceUtf8TemplateTests
         }));
 
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => store.Publish(snapshot));
-        Assert.Contains("resident artifact budget exceeded", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("candidate budget exceeded", exception.Message, StringComparison.Ordinal);
         Assert.False(store.IsReady);
     }
 
@@ -216,7 +216,7 @@ public sealed class CspNonceUtf8TemplateTests
             "public,max-age=60");
         PublicHotReadSnapshot initial = PublicHotReadSnapshot.Empty.WithHtml("html:home", first);
         Assert.True(initial.HtmlTemplateResidentBytes > 0);
-        Assert.Equal(first.ResidentBytes, initial.ResidentBytes);
+        Assert.True(initial.ResidentBytes >= first.ResidentBytes);
         CspNonceUtf8Template old = Assert.IsType<CspNonceUtf8Template>(
             initial.HtmlArtifacts.Single().Value.CspNonceTemplate);
         var weak = new WeakReference(old);

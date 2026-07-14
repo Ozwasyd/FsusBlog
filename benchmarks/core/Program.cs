@@ -44,6 +44,11 @@ if (args.Contains("--csp-nonce-profile", StringComparer.Ordinal))
     return CspNonceTemplateProfiler.Run(args);
 }
 
+if (args.Contains("--public-hot-read-residency-profile", StringComparer.Ordinal))
+{
+    return PublicHotReadResidencyProfiler.Run(args);
+}
+
 var benchmarkJob = string.Equals(
     Environment.GetEnvironmentVariable("FSUSBLOG_BENCHMARK_IN_PROCESS_NO_EMIT"),
     "1",

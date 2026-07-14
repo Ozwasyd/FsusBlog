@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FASTPATH_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"
+RESIDENCY_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadResidency.cs"
+PROJECTOR_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"
 EARLY_DATA_PLANE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs"
 SECURITY_GATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs"
 COMPOSITION_FILE="$ROOT_DIR/src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs"
@@ -83,6 +85,56 @@ for (const [label, source, token] of [
 ]) {
   if (source.includes(token)) {
     console.error(`[public-hot-read] ${label} retains forbidden nonce implementation: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking resident-byte admission and lifecycle contracts"
+node - "$FASTPATH_FILE" "$RESIDENCY_FILE" "$PROJECTOR_FILE" <<'NODE'
+const fs = require('node:fs');
+const [fastPathFile, residencyFile, projectorFile] = process.argv.slice(2);
+const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const residency = fs.readFileSync(residencyFile, 'utf8');
+const projector = fs.readFileSync(projectorFile, 'utf8');
+for (const token of [
+  'MaxResidentBytes',
+  'MaxRawBytes',
+  'MaxCompressedBytes',
+  'MaxHtmlBytes',
+  'MaxSnapshotOverlapBytes',
+  'MaxArtifactObjects',
+  'LifecycleHistory',
+  'PublicHotReadResidentBreakdown',
+  'ValidateCandidate',
+  'IdentityVariant',
+  'BrotliVariant',
+  'GzipVariant',
+  'fsus.hotread.encoding.br'
+]) {
+  if (!fastPath.includes(token)) {
+    console.error(`[public-hot-read] missing resident lifecycle token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'GC.GetGCMemoryInfo().TotalAvailableMemoryBytes',
+  'LohEligibleArrayBytes',
+  'SnapshotOverlapBytes',
+  'MaxArticleResidentBytes'
+]) {
+  if (!residency.includes(token)) {
+    console.error(`[public-hot-read] missing resident accounting token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'MergeAdmissionSegments',
+  'ApplyArticleAdmission',
+  'MaxArticleResidentBytes'
+]) {
+  if (!projector.includes(token)) {
+    console.error(`[public-hot-read] missing bounded admission token: ${token}`);
     process.exit(1);
   }
 }
