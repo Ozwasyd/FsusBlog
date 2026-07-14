@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url'
 import { parseMatrix } from '../../test-matrix/parse-matrix.mjs'
 import {
   artifactSubstitutionBindingDigest,
-  digestDeclaredOutputs,
   matrixGeneratedRuntimePaths,
   resolveLocalProfileResources,
   resolveArtifactSubstitutions
@@ -34,6 +33,7 @@ import {
   productionDotnetArtifacts,
   resolveProductionBuildLayout
 } from '../../test-matrix/production-build-layout.mjs'
+import { createArtifactDigestTable } from '../../test-matrix/artifact-digest-table.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const profileId = process.env.FSUSBLOG_LOCAL_PROFILE || 'production'
@@ -66,6 +66,15 @@ let runtimeChildEnvironment = {}
 let performanceDeadlineEvidence = null
 
 if (!bundleId || !bundle) throw new Error(`unknown ${profileId} bundle: ${String(bundleId)}`)
+const artifactDigestTable = createArtifactDigestTable({
+  root,
+  file: process.env.FSUSBLOG_ARTIFACT_DIGEST_TABLE,
+  runId: schedulerRunId(),
+  sourceState: {
+    commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+    worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+  }
+})
 if (!finalizeExisting) fs.rmSync(outDir, { recursive: true, force: true })
 fs.mkdirSync(logDir, { recursive: true })
 
@@ -73,7 +82,8 @@ const memberEvidence = new Map(bundle.members.map((tierId) => [tierId, {
   status: 'success',
   durationMs: 0,
   testIds: [],
-  artifactDigests: {}
+  artifactDigests: {},
+  artifactRefs: {}
 }]))
 
 function shellQuote(value) {
@@ -157,6 +167,13 @@ function schedulerRunId() {
   return runId
 }
 
+function digestArtifacts(declarations, step) {
+  return artifactDigestTable.digestDeclarations(declarations, {
+    env: process.env,
+    producer: { bundle: bundleId, step }
+  })
+}
+
 function buildLayoutBinding() {
   return {
     runId: schedulerRunId(),
@@ -198,7 +215,7 @@ function publishBackendBuildReady() {
   if (!fs.existsSync(backendServerDll)) {
     throw new Error(`backend server build completed without server DLL: ${artifactPath}`)
   }
-  const artifactDigest = digestDeclaredOutputs(root, [artifactPath])[artifactPath]
+  const artifact = digestArtifacts([artifactPath], 'backend-build-ready')
   const marker = {
     schema: 'fsusblog.local-production.backend-build-ready.v1',
     status: 'success',
@@ -208,7 +225,8 @@ function publishBackendBuildReady() {
     serverDll: {
       path: artifactPath,
       exists: true,
-      digest: artifactDigest
+      digest: artifact.digests[artifactPath],
+      artifactRef: artifact.refs[artifactPath]
     },
     generatedAt: new Date().toISOString()
   }
@@ -224,6 +242,7 @@ function publishBackendTestsReady() {
   const runId = schedulerRunId()
   const artifactPath = relative(backendTestDll)
   if (!fs.existsSync(backendTestDll)) throw new Error(`backend tests build completed without test DLL: ${artifactPath}`)
+  const artifact = digestArtifacts([artifactPath], 'backend-tests-ready')
   const marker = {
     schema: 'fsusblog.local-production.backend-tests-ready.v1',
     status: 'success',
@@ -233,7 +252,9 @@ function publishBackendTestsReady() {
     testDll: {
       path: artifactPath,
       exists: true,
-      digest: fileContentDigest(backendTestDll)
+      digest: fileContentDigest(backendTestDll),
+      declaredDigest: artifact.digests[artifactPath],
+      artifactRef: artifact.refs[artifactPath]
     },
     generatedAt: new Date().toISOString()
   }
@@ -251,6 +272,7 @@ function publishBenchmarkBuildReady() {
   if (!fs.existsSync(benchmarkDll)) {
     throw new Error(`benchmark readiness build completed without DLL: ${artifactPath}`)
   }
+  const artifact = digestArtifacts([artifactPath], 'benchmark-build-ready')
   const marker = {
     schema: 'fsusblog.local-production.benchmark-build-ready.v1',
     status: 'success',
@@ -259,7 +281,8 @@ function publishBenchmarkBuildReady() {
     buildLayout: buildLayoutBinding(),
     benchmarkDll: {
       path: artifactPath,
-      digest: digestDeclaredOutputs(root, [artifactPath])[artifactPath]
+      digest: artifact.digests[artifactPath],
+      artifactRef: artifact.refs[artifactPath]
     },
     generatedAt: new Date().toISOString()
   }
@@ -286,18 +309,23 @@ function publishFrontendBuildReady() {
   if (missingArtifacts.length > 0) {
     throw new Error(`frontend build completed without required artifact(s): ${missingArtifacts.join(', ')}`)
   }
-  const artifactDigests = digestDeclaredOutputs(root, requiredArtifacts)
+  const artifacts = digestArtifacts(requiredArtifacts, 'frontend-build-ready')
+  const artifactDigests = artifacts.digests
   const generatedContractFile = path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json')
   writeJsonAtomic(generatedContractFile, {
     schema: 'fsusblog.production-frontend-build-contract.v1',
     status: 'success',
     schedulerRunId: runId,
     buildLayout: buildLayoutBinding(),
-    artifacts: Object.fromEntries(requiredArtifacts.map((requiredPath) => [requiredPath, artifactDigests[requiredPath]])),
+    artifacts: Object.fromEntries(requiredArtifacts.map((requiredPath) => [requiredPath, {
+      digest: artifactDigests[requiredPath],
+      artifactRef: artifacts.refs[requiredPath]
+    }])),
     generatedAt: new Date().toISOString()
   })
   const generatedContractPath = relative(generatedContractFile)
-  const generatedContractDigest = digestDeclaredOutputs(root, [generatedContractPath])[generatedContractPath]
+  const generatedContract = digestArtifacts([generatedContractPath], 'frontend-generated-contract')
+  const generatedContractDigest = generatedContract.digests[generatedContractPath]
   const marker = {
     schema: 'fsusblog.local-production.frontend-build-ready.v1',
     status: 'success',
@@ -306,19 +334,23 @@ function publishFrontendBuildReady() {
     buildLayout: buildLayoutBinding(),
     distEntry: {
       path: artifactPath,
-      digest: artifactDigests[artifactPath]
+      digest: artifactDigests[artifactPath],
+      artifactRef: artifacts.refs[artifactPath]
     },
     privacyWasmArtifacts: Object.fromEntries(privacyWasmPaths.map((requiredPath) => [requiredPath, {
       path: requiredPath,
-      digest: artifactDigests[requiredPath]
+      digest: artifactDigests[requiredPath],
+      artifactRef: artifacts.refs[requiredPath]
     }])),
     generatedProverBundle: {
       path: generatedProverBundlePath,
-      digest: artifactDigests[generatedProverBundlePath]
+      digest: artifactDigests[generatedProverBundlePath],
+      artifactRef: artifacts.refs[generatedProverBundlePath]
     },
     generatedContract: {
       path: generatedContractPath,
-      digest: generatedContractDigest
+      digest: generatedContractDigest,
+      artifactRef: generatedContract.refs[generatedContractPath]
     },
     generatedAt: new Date().toISOString()
   }
@@ -337,13 +369,15 @@ function register(step, result, testIds = null, artifactFiles = []) {
     const absolute = path.isAbsolute(file) ? file : path.resolve(root, file)
     return relative(absolute)
   })
-  const artifactDigests = digestDeclaredOutputs(root, declaredArtifacts)
+  const artifacts = digestArtifacts(declaredArtifacts, step.id)
+  const artifactDigests = artifacts.digests
   for (const tierId of step.members ?? []) {
     const evidence = memberEvidence.get(tierId)
     if (!evidence) throw new Error(`${step.id} references undeclared member ${tierId}`)
     evidence.durationMs += result.durationMs
     evidence.testIds.push(...ids)
     Object.assign(evidence.artifactDigests, artifactDigests)
+    Object.assign(evidence.artifactRefs, artifacts.refs)
   }
 }
 
@@ -371,9 +405,10 @@ function bindMatrixRuntimeArtifacts() {
     evidence.matrixRuntimePaths = runtimePaths
     evidence.artifactSubstitutionProofs = {}
   }
-  const allRuntimeDigests = digestDeclaredOutputs(root, [
+  const allRuntimeArtifacts = digestArtifacts([
     ...new Set([...directRuntimePaths, ...actualProofPaths])
-  ])
+  ], 'matrix-runtime-artifacts')
+  const allRuntimeDigests = allRuntimeArtifacts.digests
   for (const [tierId, runtimePaths] of runtimePathsByTier) {
     const evidence = memberEvidence.get(tierId)
     const substitutions = substitutionsByTier[tierId] ?? {}
@@ -381,6 +416,7 @@ function bindMatrixRuntimeArtifacts() {
       const actualPaths = substitutions[canonicalPath]
       if (!actualPaths) {
         evidence.artifactDigests[canonicalPath] = allRuntimeDigests[canonicalPath]
+        evidence.artifactRefs[canonicalPath] = allRuntimeArtifacts.refs[canonicalPath]
         continue
       }
       const actualDigests = Object.fromEntries(actualPaths.map((actualPath) => [
@@ -388,13 +424,30 @@ function bindMatrixRuntimeArtifacts() {
         allRuntimeDigests[actualPath]
       ]))
       const canonicalDigest = artifactSubstitutionBindingDigest(canonicalPath, actualDigests)
+      const actualRefs = Object.fromEntries(actualPaths.map((actualPath) => [
+        actualPath,
+        allRuntimeArtifacts.refs[actualPath]
+      ]))
+      const substitution = artifactDigestTable.registerSubstitution(
+        canonicalPath,
+        actualDigests,
+        actualRefs,
+        { producer: { bundle: bundleId, step: 'artifact-substitution' } }
+      )
+      if (substitution.digest !== canonicalDigest) {
+        throw new Error(`artifact substitution table digest mismatch: ${canonicalPath}`)
+      }
       evidence.artifactDigests[canonicalPath] = canonicalDigest
       Object.assign(evidence.artifactDigests, actualDigests)
+      evidence.artifactRefs[canonicalPath] = substitution.artifactId
+      Object.assign(evidence.artifactRefs, actualRefs)
       evidence.artifactSubstitutionProofs[canonicalPath] = {
         canonicalPath,
         canonicalDigest,
         actualPaths,
-        actualDigests
+        actualDigests,
+        actualRefs,
+        canonicalArtifactRef: substitution.artifactId
       }
     }
   }
@@ -420,13 +473,16 @@ function writeMemberExecutionReceipts() {
       durationMs: evidence.durationMs,
       testIds: [...new Set(evidence.testIds)].sort(),
       directArtifactDigests: Object.fromEntries(Object.entries(evidence.artifactDigests).sort()),
+      directArtifactRefs: Object.fromEntries(Object.entries(evidence.artifactRefs).sort()),
       generatedAt: new Date().toISOString()
     }
     fs.mkdirSync(path.dirname(receiptFile), { recursive: true })
     const temporary = `${receiptFile}.next-${process.pid}`
     fs.writeFileSync(temporary, `${JSON.stringify(receipt, null, 2)}\n`)
     fs.renameSync(temporary, receiptFile)
-    Object.assign(evidence.artifactDigests, digestDeclaredOutputs(root, [relative(receiptFile)]))
+    const receiptArtifact = digestArtifacts([relative(receiptFile)], `member-receipt/${tierId}`)
+    Object.assign(evidence.artifactDigests, receiptArtifact.digests)
+    Object.assign(evidence.artifactRefs, receiptArtifact.refs)
   }
 }
 
@@ -447,7 +503,10 @@ function loadExistingMemberExecutionReceipts() {
     evidence.durationMs = receipt.durationMs
     evidence.testIds.push(...receipt.testIds)
     Object.assign(evidence.artifactDigests, receipt.directArtifactDigests)
-    Object.assign(evidence.artifactDigests, digestDeclaredOutputs(root, [relative(receiptFile)]))
+    Object.assign(evidence.artifactRefs, receipt.directArtifactRefs)
+    const receiptArtifact = digestArtifacts([relative(receiptFile)], `existing-member-receipt/${tierId}`)
+    Object.assign(evidence.artifactDigests, receiptArtifact.digests)
+    Object.assign(evidence.artifactRefs, receiptArtifact.refs)
   }
 }
 
@@ -1063,8 +1122,10 @@ async function waitForBackendBuildReady(timeoutMs = resolveExecutionWaitTimeoutM
         }
         if (!fs.existsSync(backendServerDll)) throw new Error(`backend build readiness artifact is missing: ${artifactPath}`)
         const expectedDigest = marker.serverDll.digest
-        const actualDigest = digestDeclaredOutputs(root, [artifactPath])[artifactPath]
-        if (!expectedDigest || actualDigest !== expectedDigest) {
+        const actual = digestArtifacts([artifactPath], 'consume-backend-build-ready')
+        const actualDigest = actual.digests[artifactPath]
+        if (!expectedDigest || actualDigest !== expectedDigest
+          || marker.serverDll.artifactRef !== actual.refs[artifactPath]) {
           throw new Error(`backend build readiness digest mismatch: ${artifactPath}`)
         }
         return
@@ -1121,7 +1182,8 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
         if (missingArtifacts.length > 0) {
           throw new Error(`frontend build readiness artifact(s) missing: ${missingArtifacts.join(', ')}`)
         }
-        const actualDigests = digestDeclaredOutputs(root, requiredArtifacts)
+        const actual = digestArtifacts(requiredArtifacts, 'consume-frontend-build-ready')
+        const actualDigests = actual.digests
         const mismatches = requiredArtifacts.filter((requiredPath) => {
           const expectedDigest = requiredPath === artifactPath
             ? marker.distEntry.digest
@@ -1130,7 +1192,15 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
               : requiredPath === generatedProverBundlePath
                 ? marker.generatedProverBundle.digest
               : marker.privacyWasmArtifacts[requiredPath].digest
+          const expectedRef = requiredPath === artifactPath
+            ? marker.distEntry.artifactRef
+            : requiredPath === generatedContractPath
+              ? marker.generatedContract.artifactRef
+              : requiredPath === generatedProverBundlePath
+                ? marker.generatedProverBundle.artifactRef
+                : marker.privacyWasmArtifacts[requiredPath].artifactRef
           return !expectedDigest || actualDigests[requiredPath] !== expectedDigest
+            || !expectedRef || actual.refs[requiredPath] !== expectedRef
         })
         if (mismatches.length > 0) {
           throw new Error(`frontend build readiness digest mismatch: ${mismatches.join(', ')}`)
@@ -1483,6 +1553,8 @@ async function run() {
 
   if (!finalizeExisting) writeMemberExecutionReceipts()
   bindMatrixRuntimeArtifacts()
+  artifactDigestTable.registerConsumers(Object.fromEntries(
+    [...memberEvidence.entries()].map(([tierId, evidence]) => [tierId, evidence.artifactRefs])))
   if (bundleId === 'performance-evidence') {
     const currentInvocationDurationMs = Date.now() - startedAt
     const steps = performanceSteps().map(({ id }) => {
@@ -1530,11 +1602,13 @@ async function run() {
   const members = Object.fromEntries([...memberEvidence.entries()].map(([tierId, evidence]) => [tierId, {
     ...evidence,
     testIds: [...new Set(evidence.testIds)].sort(),
-    artifactDigests: Object.fromEntries(Object.entries(evidence.artifactDigests).sort())
+    artifactDigests: Object.fromEntries(Object.entries(evidence.artifactDigests).sort()),
+    artifactRefs: Object.fromEntries(Object.entries(evidence.artifactRefs).sort())
   }]))
   for (const [tierId, evidence] of Object.entries(members)) {
-    if (evidence.testIds.length === 0 || Object.keys(evidence.artifactDigests).length === 0) {
-      throw new Error(`${tierId} has no executed test IDs or artifact digests`)
+    if (evidence.testIds.length === 0 || Object.keys(evidence.artifactDigests).length === 0
+      || Object.keys(evidence.artifactRefs).length !== Object.keys(evidence.artifactDigests).length) {
+      throw new Error(`${tierId} has no executed test IDs or complete artifact refs`)
     }
   }
   const summary = {

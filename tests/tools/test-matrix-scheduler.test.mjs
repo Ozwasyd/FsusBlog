@@ -14,6 +14,7 @@ import {
   digestDeclaredOutputs
 } from '../../tools/test-matrix/local-profile.mjs'
 import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
+import { createArtifactDigestTable } from '../../tools/test-matrix/artifact-digest-table.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs')
@@ -35,7 +36,7 @@ function createRunnerFixture(temp) {
   const schedulerDirectory = path.join(toolsDirectory, 'test-matrix')
   fs.mkdirSync(schedulerDirectory, { recursive: true })
   fs.copyFileSync(path.join(root, 'tools/run-test-matrix.mjs'), path.join(toolsDirectory, 'run-test-matrix.mjs'))
-  for (const file of ['scheduler.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs']) {
+  for (const file of ['scheduler.mjs', 'local-profile.mjs', 'parse-matrix.mjs', 'fresh-production.mjs', 'local-runtime-cleanup.mjs', 'dotnet-build-server-cleanup.mjs', 'production-build-layout.mjs', 'production-build-gc.mjs', 'artifact-digest-table.mjs']) {
     fs.copyFileSync(path.join(root, 'tools/test-matrix', file), path.join(schedulerDirectory, file))
   }
   return path.join(toolsDirectory, 'run-test-matrix.mjs')
@@ -233,6 +234,44 @@ function addArtifactSubstitutionProof(fixture) {
   return { canonicalPath, actualPaths, canonicalDigest }
 }
 
+function bindFixtureToArtifactDigestTable(fixture) {
+  const sourceState = fixture.result.checkpoint.sourceState
+  const tableFile = path.join(fixture.temp, '.tmp/build/production-fresh/generated/artifact-digest-table.json')
+  const table = createArtifactDigestTable({
+    root: fixture.temp,
+    file: tableFile,
+    runId: 'production-fresh',
+    sourceState
+  })
+  const productionEntry = fixture.projection.entries.production
+  const productionArtifacts = table.digestDeclarations(Object.keys(productionEntry.artifactDigests), {
+    producer: { bundle: 'build-static', step: 'projection' }
+  })
+  productionEntry.artifactDigests = productionArtifacts.digests
+  productionEntry.artifactRefs = productionArtifacts.refs
+
+  const summaryOnlyEntry = fixture.projection.entries['external-operations-evidence']
+  const summaryOnlyPath = Object.keys(summaryOnlyEntry.artifactDigests)[0]
+  const summaryOnlyArtifact = table.digestDeclarations([summaryOnlyPath], {
+    producer: { bundle: 'projection', step: 'summary-only' }
+  })
+  summaryOnlyEntry.artifactDigests = summaryOnlyArtifact.digests
+  summaryOnlyEntry.artifactRefs = summaryOnlyArtifact.refs
+
+  const summaryFile = path.join(fixture.temp, fixture.summaryPath)
+  const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+  summary.members.production.artifactDigests = productionArtifacts.digests
+  summary.members.production.artifactRefs = productionArtifacts.refs
+  fs.writeFileSync(summaryFile, `${JSON.stringify(summary)}\n`)
+  const checkpoint = JSON.parse(fs.readFileSync(fixture.result.checkpointPath, 'utf8'))
+  checkpoint.tiers['local-production-build-static'].outputs[fixture.summaryPath] = fileOutputFingerprint(summaryFile)
+  fs.writeFileSync(fixture.result.checkpointPath, `${JSON.stringify(checkpoint, null, 2)}\n`)
+
+  const snapshot = path.join(fixture.temp, '.tmp/release-evidence/production-artifact-digest-table.json')
+  fixture.projection.artifactDigestTable = table.finalize(snapshot)
+  return { tableFile: snapshot, descriptor: fixture.projection.artifactDigestTable }
+}
+
 test('runDag executes independent tiers concurrently before their dependent tier', async () => {
   const { runDag } = await loadScheduler()
   assert.equal(typeof runDag, 'function')
@@ -336,6 +375,42 @@ test('checkpoint evidence attach is atomic, run-bound, and preserves physical sc
     /checkpoint revision .* does not match expected revision/u
   )
   assert.equal(JSON.parse(fs.readFileSync(result.checkpointPath, 'utf8')).status, 'success')
+})
+
+test('checkpoint projection validates logical artifact refs through one final run-bound digest table', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+  const fixture = await createCheckpointEvidenceFixture(runDag, 'scheduler-artifact-table')
+  const { descriptor } = bindFixtureToArtifactDigestTable(fixture)
+  const attached = await attachCheckpointEvidence(fixture.result.checkpointPath, 'production-fresh', {
+    logicalTierProjection: fixture.projection
+  }, fixture.attachOptions)
+
+  assert.equal(attached.logicalTierProjection.artifactDigestTable.contentDigest, descriptor.contentDigest)
+  assert.deepEqual(
+    Object.keys(attached.logicalTierProjection.entries.production.artifactRefs).sort(),
+    Object.keys(attached.logicalTierProjection.entries.production.artifactDigests).sort()
+  )
+})
+
+test('checkpoint projection rejects a corrupted or source-mismatched digest table', async () => {
+  const { attachCheckpointEvidence, runDag } = await loadScheduler()
+  for (const mode of ['corrupt', 'source']) {
+    const fixture = await createCheckpointEvidenceFixture(runDag, `scheduler-artifact-table-${mode}`)
+    const { tableFile } = bindFixtureToArtifactDigestTable(fixture)
+    if (mode === 'corrupt') {
+      const table = JSON.parse(fs.readFileSync(tableFile, 'utf8'))
+      table.metrics.shaCalls += 1
+      fs.writeFileSync(tableFile, `${JSON.stringify(table, null, 2)}\n`)
+    } else {
+      fixture.projection.artifactDigestTable.sourceState.worktreeFingerprint = 'wrong-source'
+    }
+    await assert.rejects(
+      attachCheckpointEvidence(fixture.result.checkpointPath, 'production-fresh', {
+        logicalTierProjection: fixture.projection
+      }, fixture.attachOptions),
+      mode === 'corrupt' ? /content digest mismatch/u : /descriptor does not match its table|source fingerprint/u
+    )
+  }
 })
 
 test('checkpoint evidence attach rejects deep projection entry tampering and persists failure', async () => {

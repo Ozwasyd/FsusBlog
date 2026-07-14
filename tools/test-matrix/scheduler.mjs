@@ -9,6 +9,10 @@ import {
   artifactSubstitutionBindingDigest,
   resolveRunBoundArtifactDeclaration
 } from './local-profile.mjs'
+import {
+  readAndValidateArtifactDigestTable,
+  validateArtifactRefs
+} from './artifact-digest-table.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
 const protectedSupersedesPattern = /(^|[^a-z])(property|model|perf|performance|benchmark|runtime)([^a-z]|$)/i
@@ -917,7 +921,7 @@ function sameSortedStrings(left, right) {
     && left.every((value, index) => value === right[index])
 }
 
-function validateArtifactSubstitutionProofs(entry, tierId) {
+function validateArtifactSubstitutionProofs(entry, tierId, artifactTable = null) {
   if (!plainObject(entry.artifactSubstitutionProofs)) {
     throw new Error(`logicalTierProjection entry ${tierId} artifactSubstitutionProofs must be an object`)
   }
@@ -947,7 +951,9 @@ function validateArtifactSubstitutionProofs(entry, tierId) {
     if (!plainObject(proof)) {
       throw new Error(`logicalTierProjection entry ${tierId} substitution proof must be an object: ${canonicalPath}`)
     }
-    const expectedFields = ['actualDigests', 'actualPaths', 'canonicalDigest', 'canonicalPath']
+    const expectedFields = artifactTable
+      ? ['actualDigests', 'actualPaths', 'actualRefs', 'canonicalArtifactRef', 'canonicalDigest', 'canonicalPath']
+      : ['actualDigests', 'actualPaths', 'canonicalDigest', 'canonicalPath']
     if (!sameSortedStrings(Object.keys(proof).sort(), expectedFields)) {
       throw new Error(`logicalTierProjection entry ${tierId} substitution proof has unexpected fields: ${canonicalPath}`)
     }
@@ -974,6 +980,9 @@ function validateArtifactSubstitutionProofs(entry, tierId) {
       if (entry.artifactDigests[actualPath] !== actualDigest) {
         throw new Error(`logicalTierProjection entry ${tierId} substitution actual digest must match artifactDigests: ${actualPath}`)
       }
+      if (artifactTable && proof.actualRefs?.[actualPath] !== entry.artifactRefs?.[actualPath]) {
+        throw new Error(`logicalTierProjection entry ${tierId} substitution actual ref must match artifactRefs: ${actualPath}`)
+      }
     }
     const bindingDigest = artifactSubstitutionBindingDigest(canonicalPath, proof.actualDigests)
     if (proof.canonicalDigest !== bindingDigest) {
@@ -982,11 +991,26 @@ function validateArtifactSubstitutionProofs(entry, tierId) {
     if (entry.artifactDigests[canonicalPath] !== bindingDigest) {
       throw new Error(`logicalTierProjection entry ${tierId} substitution canonical digest must match artifactDigests: ${canonicalPath}`)
     }
+    if (artifactTable) {
+      if (!plainObject(proof.actualRefs)
+        || !sameSortedStrings(Object.keys(proof.actualRefs).sort(), proof.actualPaths)) {
+        throw new Error(`logicalTierProjection entry ${tierId} substitution actualRefs must exactly match actualPaths: ${canonicalPath}`)
+      }
+      if (proof.canonicalArtifactRef !== entry.artifactRefs?.[canonicalPath]) {
+        throw new Error(`logicalTierProjection entry ${tierId} substitution canonical ref must match artifactRefs: ${canonicalPath}`)
+      }
+      const substitutionRecord = artifactTable.artifacts?.[proof.canonicalArtifactRef]
+      if (!substitutionRecord || substitutionRecord.pathType !== 'substitution'
+        || substitutionRecord.digest !== bindingDigest
+        || fingerprint(substitutionRecord.actualArtifactRefs) !== fingerprint(proof.actualRefs)) {
+        throw new Error(`logicalTierProjection entry ${tierId} substitution artifact ref is invalid: ${canonicalPath}`)
+      }
+    }
   }
   return new Set(canonicalPaths)
 }
 
-function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
+function validateProjectionEntry(entry, tierId, projection, checkpoint, root, artifactTable = null) {
   if (!plainObject(entry)) throw new Error(`logicalTierProjection entry ${tierId} must be an object`)
   if (!tierId || entry.tierId !== tierId) {
     throw new Error(`logicalTierProjection entry ${tierId} tierId must match its key`)
@@ -1015,6 +1039,7 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
   if (!plainObject(entry.artifactDigests) || Object.keys(entry.artifactDigests).length === 0) {
     throw new Error(`logicalTierProjection entry ${tierId} artifactDigests must be a non-empty object`)
   }
+  if (artifactTable) validateArtifactRefs(entry.artifactDigests, entry.artifactRefs, artifactTable)
   const sealedBundle = summaryOnly
     ? null
     : bundleSummaryOutput(checkpoint, root, entry.physicalBundleId)
@@ -1024,7 +1049,7 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
   }
   const substitutionCanonicalPaths = summaryOnly
     ? new Set()
-    : validateArtifactSubstitutionProofs(entry, tierId)
+    : validateArtifactSubstitutionProofs(entry, tierId, artifactTable)
   for (const [artifactPath, digest] of Object.entries(entry.artifactDigests)) {
     if (!artifactPath.trim() || path.isAbsolute(artifactPath) || artifactPath === '..' || artifactPath.startsWith('../')) {
       throw new Error(`logicalTierProjection entry ${tierId} artifact digest path is invalid`)
@@ -1035,7 +1060,7 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
     let currentDigest
     if (substitutionCanonicalPaths.has(artifactPath)) {
       currentDigest = digest
-    } else if (summaryOnly) {
+    } else if (summaryOnly && !artifactTable) {
       const absoluteArtifact = path.resolve(root, artifactPath)
       if (artifactPath.includes('*')
         || artifactPath.includes('?')
@@ -1046,6 +1071,8 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
         throw new Error(`logicalTierProjection entry ${tierId} artifact is missing or invalid: ${artifactPath}`)
       }
       currentDigest = `sha256:${sha256(fs.readFileSync(absoluteArtifact))}`
+    } else if (summaryOnly) {
+      currentDigest = artifactTable.artifacts[entry.artifactRefs[artifactPath]].digest
     } else {
       currentDigest = sealedMember.artifactDigests?.[artifactPath]
     }
@@ -1071,7 +1098,8 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
       artifactProofMode: sealedMember.artifactProofMode,
       matrixRuntimePaths: [...(sealedMember.matrixRuntimePaths ?? [])],
       artifactSubstitutionProofs: sealedMember.artifactSubstitutionProofs,
-      artifactDigests: sealedMember.artifactDigests
+      artifactDigests: sealedMember.artifactDigests,
+      ...(artifactTable ? { artifactRefs: sealedMember.artifactRefs } : {})
     }
     const projectedFields = {
       status: entry.status,
@@ -1080,7 +1108,8 @@ function validateProjectionEntry(entry, tierId, projection, checkpoint, root) {
       artifactProofMode: entry.artifactProofMode,
       matrixRuntimePaths: entry.matrixRuntimePaths,
       artifactSubstitutionProofs: entry.artifactSubstitutionProofs,
-      artifactDigests: entry.artifactDigests
+      artifactDigests: entry.artifactDigests,
+      ...(artifactTable ? { artifactRefs: entry.artifactRefs } : {})
     }
     if (fingerprint(projectedFields) !== fingerprint(sealedFields)) {
       throw new Error(`logicalTierProjection entry ${tierId} does not match sealed bundle member evidence`)
@@ -1112,6 +1141,27 @@ function validateCheckpointEvidence(checkpoint, evidence, root) {
   if (projection.profileId !== checkpoint.targetTierId || projection.status !== 'success') {
     throw new Error('logicalTierProjection profileId/status must match a successful checkpoint target')
   }
+  let artifactTable = null
+  if (projection.artifactDigestTable !== undefined) {
+    const descriptor = projection.artifactDigestTable
+    if (!plainObject(descriptor) || typeof descriptor.path !== 'string'
+      || path.isAbsolute(descriptor.path) || descriptor.path === '..' || descriptor.path.startsWith('../')) {
+      throw new Error('logicalTierProjection artifactDigestTable descriptor is invalid')
+    }
+    artifactTable = readAndValidateArtifactDigestTable(path.resolve(root, descriptor.path), {
+      root,
+      runId: checkpoint.runId,
+      sourceState: checkpoint.sourceState,
+      expectedContentDigest: descriptor.contentDigest
+    })
+    if (descriptor.schema !== artifactTable.schema
+      || descriptor.runId !== artifactTable.runId
+      || descriptor.sourceState?.commit !== artifactTable.sourceState?.commit
+      || descriptor.sourceState?.worktreeFingerprint !== artifactTable.sourceState?.worktreeFingerprint
+      || descriptor.artifactCount !== Object.keys(artifactTable.artifacts ?? {}).length) {
+      throw new Error('logicalTierProjection artifactDigestTable descriptor does not match its table')
+    }
+  }
   if (!projection.entries || typeof projection.entries !== 'object' || Array.isArray(projection.entries)) {
     throw new Error('logicalTierProjection entries must be an object')
   }
@@ -1142,7 +1192,9 @@ function validateCheckpointEvidence(checkpoint, evidence, root) {
     || String(projection.sourceState?.worktreeFingerprint ?? '') !== String(checkpoint.sourceState?.worktreeFingerprint ?? '')) {
     throw new Error('logicalTierProjection sourceState must match the checkpoint')
   }
-  for (const tierId of entryIds) validateProjectionEntry(projection.entries[tierId], tierId, projection, checkpoint, root)
+  for (const tierId of entryIds) {
+    validateProjectionEntry(projection.entries[tierId], tierId, projection, checkpoint, root, artifactTable)
+  }
 }
 
 async function validateCurrentCheckpointSource(checkpoint, root, snapshotWorktree) {

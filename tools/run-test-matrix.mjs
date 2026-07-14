@@ -39,6 +39,7 @@ import {
   productionBuildEnvironment,
   scheduleStaleProductionBuildGc
 } from './test-matrix/production-build-layout.mjs'
+import { createArtifactDigestTable } from './test-matrix/artifact-digest-table.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -1069,7 +1070,7 @@ function fileDigest(file) {
   return `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`
 }
 
-function writeSummaryOnlyEvidence(profileId, profile, runId, sourceState) {
+function writeSummaryOnlyEvidence(profileId, profile, runId, sourceState, artifactTable = null) {
   const evidence = {}
   for (const tierId of profile.summaryOnly ?? []) {
     const outFile = path.join(root, `.tmp/local-${profileId}/summary-only/${tierId}.json`)
@@ -1084,10 +1085,15 @@ function writeSummaryOnlyEvidence(profileId, profile, runId, sourceState) {
     }
     fs.mkdirSync(path.dirname(outFile), { recursive: true })
     fs.writeFileSync(outFile, `${JSON.stringify(payload, null, 2)}\n`)
+    const evidencePath = relativeToRoot(outFile)
+    const artifact = artifactTable?.digestDeclarations([evidencePath], {
+      producer: { bundle: 'projection', step: `summary-only/${tierId}` }
+    })
     evidence[tierId] = {
       ...payload,
-      evidencePath: relativeToRoot(outFile),
-      artifactDigest: fileDigest(outFile)
+      evidencePath,
+      artifactDigest: artifact?.digests[evidencePath] ?? fileDigest(outFile),
+      ...(artifact ? { artifactRef: artifact.refs[evidencePath] } : {})
     }
   }
   return evidence
@@ -1138,6 +1144,9 @@ async function runLocalProfile(matrix, profileId, options) {
     const { runsRoot, runId } = schedulerRunIdentity(profileId, options)
     const checkpointPath = path.join(runsRoot, runId, 'checkpoint.json')
     const checkpoint = await resumeCheckpointEvidence(checkpointPath, runId, (successfulCheckpoint) => {
+      if (successfulCheckpoint.logicalTierProjection) {
+        return { logicalTierProjection: successfulCheckpoint.logicalTierProjection }
+      }
       const completedTierIds = new Set(successfulCheckpoint.completedTiers ?? [])
       const projectionInput = projectLocalBundleSummaries(
         resolvedLogicalMatrix,
@@ -1288,14 +1297,28 @@ async function runLocalProfile(matrix, profileId, options) {
             profile,
             runId,
             lockedCompletedTierIds)
-          const summaryOnlyEvidence = writeSummaryOnlyEvidence(profileId, profile, runId, result.checkpoint.sourceState)
+          const artifactTable = createArtifactDigestTable({
+            root,
+            file: path.join(buildLayout.generatedRoot, 'artifact-digest-table.json'),
+            runId,
+            sourceState: lockedCheckpoint.sourceState
+          })
+          const summaryOnlyEvidence = writeSummaryOnlyEvidence(
+            profileId,
+            profile,
+            runId,
+            lockedCheckpoint.sourceState,
+            artifactTable)
+          const artifactDigestTable = artifactTable.finalize(
+            path.join(root, '.tmp/release-evidence/production-artifact-digest-table.json'))
           const logicalTierProjection = buildLocalProfileProjection({
             profileId,
             profile,
             tiers: resolvedLogicalMatrix.tiers,
             checkpoint: lockedCheckpoint,
             bundleSummaries: projectionInput.bundleSummaries,
-            summaryOnlyEvidence
+            summaryOnlyEvidence,
+            artifactDigestTable
           })
           return { logicalTierProjection }
         }

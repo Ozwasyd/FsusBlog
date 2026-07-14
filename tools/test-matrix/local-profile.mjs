@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { createArtifactDigestTable } from './artifact-digest-table.mjs'
+
 function profileEntries(localProfiles) {
   return Object.entries(localProfiles ?? {})
 }
@@ -252,6 +254,25 @@ export function resolveRunBoundArtifactDeclaration(rootValue, declarationValue, 
 
 export function digestDeclaredOutputs(rootValue, declarations, env = process.env) {
   const root = path.resolve(rootValue)
+  if (String(env.FSUSBLOG_ARTIFACT_DIGEST_TABLE ?? '').trim()
+    && String(env.FSUSBLOG_TEST_RUN_ID ?? '').trim()
+    && String(env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim()) {
+    return createArtifactDigestTable({
+      root,
+      file: env.FSUSBLOG_ARTIFACT_DIGEST_TABLE,
+      runId: env.FSUSBLOG_TEST_RUN_ID,
+      sourceState: {
+        commit: env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null,
+        worktreeFingerprint: env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+      }
+    }).digestDeclarations(declarations, {
+      env,
+      producer: {
+        bundle: env.FSUSBLOG_PHYSICAL_BUNDLE_ID ?? env.CURRENT_TIER ?? 'production',
+        step: env.CURRENT_TIER ?? 'digest-consumer'
+      }
+    }).digests
+  }
   const digests = {}
   for (const declarationValue of sortedUnique(declarations ?? [])) {
     const declaration = normalizeDeclaration(declarationValue)
@@ -566,7 +587,8 @@ function sameStringArray(left, right) {
 export function validateLocalBundleSummary(summary, bundle, {
   expectedRunId = null,
   matrixTiers = null,
-  profileId = 'production'
+  profileId = 'production',
+  expectedArtifactRefs = false
 } = {}) {
   const errors = []
   const matrixById = matrixTiers === null
@@ -598,6 +620,14 @@ export function validateLocalBundleSummary(summary, bundle, {
       errors.push(`${tierId}.artifactDigests must be non-empty`)
     } else if (Object.values(evidence.artifactDigests).some((digest) => !/^sha256:[a-f0-9]{64}$/.test(digest))) {
       errors.push(`${tierId}.artifactDigests must contain sha256 digests`)
+    }
+    if (expectedArtifactRefs) {
+      if (!plainRecord(evidence.artifactRefs)
+        || !sameStringArray(Object.keys(evidence.artifactRefs).sort(), Object.keys(evidence.artifactDigests ?? {}).sort())) {
+        errors.push(`${tierId}.artifactRefs must exactly match artifactDigests`)
+      } else if (Object.values(evidence.artifactRefs).some((artifactId) => !/^artifact:[a-f0-9]{64}$/u.test(String(artifactId)))) {
+        errors.push(`${tierId}.artifactRefs must contain physical artifact IDs`)
+      }
     }
     if (matrixById !== null) {
       const matrixTier = matrixById.get(tierId)
@@ -636,7 +666,9 @@ export function validateLocalBundleSummary(summary, bundle, {
             errors.push(`${tierId} is missing the artifact substitution proof: ${declaration}`)
             continue
           }
-          const expectedProofFields = ['actualDigests', 'actualPaths', 'canonicalDigest', 'canonicalPath']
+          const expectedProofFields = expectedArtifactRefs
+            ? ['actualDigests', 'actualPaths', 'actualRefs', 'canonicalArtifactRef', 'canonicalDigest', 'canonicalPath']
+            : ['actualDigests', 'actualPaths', 'canonicalDigest', 'canonicalPath']
           if (!sameStringArray(Object.keys(proof).sort(), expectedProofFields)) {
             errors.push(`${tierId} artifact substitution proof has unexpected fields: ${declaration}`)
           }
@@ -652,6 +684,21 @@ export function validateLocalBundleSummary(summary, bundle, {
           if (!plainRecord(proof.actualDigests) || !sameStringArray(actualDigestKeys, actualPaths)) {
             errors.push(`${tierId} artifact substitution actualDigests must exactly match actualPaths: ${declaration}`)
             continue
+          }
+          if (expectedArtifactRefs) {
+            if (!plainRecord(proof.actualRefs)
+              || !sameStringArray(Object.keys(proof.actualRefs).sort(), actualPaths)) {
+              errors.push(`${tierId} artifact substitution actualRefs must exactly match actualPaths: ${declaration}`)
+            } else {
+              for (const actualPath of actualPaths) {
+                if (proof.actualRefs[actualPath] !== evidence.artifactRefs?.[actualPath]) {
+                  errors.push(`${tierId} artifact substitution actual ref must match artifactRefs: ${actualPath}`)
+                }
+              }
+            }
+            if (proof.canonicalArtifactRef !== evidence.artifactRefs?.[declaration]) {
+              errors.push(`${tierId} artifact substitution canonical ref must match artifactRefs: ${declaration}`)
+            }
           }
           for (const actualPath of actualPaths) {
             const actualDigest = proof.actualDigests[actualPath]
@@ -829,7 +876,8 @@ export function buildLocalProfileProjection({
   tiers,
   checkpoint,
   bundleSummaries,
-  summaryOnlyEvidence
+  summaryOnlyEvidence,
+  artifactDigestTable = null
 }) {
   const errors = []
   if (!Array.isArray(tiers) || tiers.length === 0) {
@@ -862,6 +910,16 @@ export function buildLocalProfileProjection({
   if (!checkpoint.sourceState || !String(checkpoint.sourceState.worktreeFingerprint ?? '').trim()) {
     errors.push('checkpoint sourceState must be present')
   }
+  if (artifactDigestTable !== null) {
+    if (artifactDigestTable.schema !== 'fsusblog.production-artifact-digest-table.v1'
+      || artifactDigestTable.runId !== checkpoint.runId
+      || artifactDigestTable.sourceState?.commit !== checkpoint.sourceState?.commit
+      || artifactDigestTable.sourceState?.worktreeFingerprint !== checkpoint.sourceState?.worktreeFingerprint
+      || !/^sha256:[a-f0-9]{64}$/u.test(String(artifactDigestTable.contentDigest ?? ''))
+      || !safeRepositoryDeclaration(artifactDigestTable.path)) {
+      errors.push('artifactDigestTable must be final, run-bound checkpoint evidence')
+    }
+  }
   errors.push(...validateLocalProfileCheckpointDuration(checkpoint, profile))
 
   for (const bundle of profile?.bundles ?? []) {
@@ -878,7 +936,8 @@ export function buildLocalProfileProjection({
     const summaryErrors = validateLocalBundleSummary(summary, bundle, {
       expectedRunId: checkpoint.runId,
       matrixTiers: tiers,
-      profileId
+      profileId,
+      expectedArtifactRefs: artifactDigestTable !== null
     })
     if (summaryErrors.length > 0) {
       errors.push(`${bundle.id} bundle evidence invalid: ${summaryErrors.join(', ')}`)
@@ -906,9 +965,16 @@ export function buildLocalProfileProjection({
             canonicalPath: proof.canonicalPath,
             canonicalDigest: proof.canonicalDigest,
             actualPaths: [...proof.actualPaths],
-            actualDigests: Object.fromEntries(Object.entries(proof.actualDigests).sort())
+            actualDigests: Object.fromEntries(Object.entries(proof.actualDigests).sort()),
+            ...(artifactDigestTable !== null ? {
+              actualRefs: Object.fromEntries(Object.entries(proof.actualRefs).sort()),
+              canonicalArtifactRef: proof.canonicalArtifactRef
+            } : {})
           }])),
-        artifactDigests: Object.fromEntries(Object.entries(evidence.artifactDigests).sort())
+        artifactDigests: Object.fromEntries(Object.entries(evidence.artifactDigests).sort()),
+        ...(artifactDigestTable !== null ? {
+          artifactRefs: Object.fromEntries(Object.entries(evidence.artifactRefs).sort())
+        } : {})
       }
     }
   }
@@ -932,7 +998,10 @@ export function buildLocalProfileProjection({
       executionSource: 'external-environment',
       durationMs: null,
       testIds: [],
-      artifactDigests: { [evidence.evidencePath]: evidence.artifactDigest }
+      artifactDigests: { [evidence.evidencePath]: evidence.artifactDigest },
+      ...(artifactDigestTable !== null ? {
+        artifactRefs: { [evidence.evidencePath]: evidence.artifactRef }
+      } : {})
     }
   }
 
@@ -960,6 +1029,7 @@ export function buildLocalProfileProjection({
     executedTierCount: logicalTierIds.length - summaryOnlyTierCount,
     summaryOnlyTierCount,
     logicalTierIds,
+    ...(artifactDigestTable !== null ? { artifactDigestTable } : {}),
     entries: orderedEntries
   }
 }

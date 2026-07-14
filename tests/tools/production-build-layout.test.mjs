@@ -58,6 +58,7 @@ test('run-bound layout isolates every MSBuild project and exposes canonical arti
   assert.equal(env.FSUSBLOG_BENCHMARK_DLL, artifacts.benchmarkDll)
   assert.equal(env.ASPNETCORE_WEBROOT, layout.backendWebRoot)
   assert.equal(env.FSUSBLOG_WASM_ARTIFACT_ROOT, layout.wasmArtifacts)
+  assert.equal(env.FSUSBLOG_ARTIFACT_DIGEST_TABLE, path.join(layout.generatedRoot, 'artifact-digest-table.json'))
 })
 
 test('layout identity binds run, source fingerprint and digest before readiness consumption', t => {
@@ -73,9 +74,14 @@ test('layout identity binds run, source fingerprint and digest before readiness 
   fs.writeFileSync(path.join(layout.frontendDist, 'index.html'), '<!doctype html>')
   const canonical = 'src/frontend/dist/index.html'
   const actual = path.relative(root, path.join(layout.frontendDist, 'index.html')).replaceAll(path.sep, '/')
-  const env = productionBuildEnvironment(layout, {})
+  const env = productionBuildEnvironment(layout, {
+    FSUSBLOG_TEST_RUN_ID: layout.runId,
+    FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
+    FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint
+  })
   assert.equal(resolveRunBoundArtifactDeclaration(root, canonical, env), actual)
   assert.match(digestDeclaredOutputs(root, [canonical], env)[canonical], /^sha256:/u)
+  assert.equal(fs.existsSync(env.FSUSBLOG_ARTIFACT_DIGEST_TABLE), true)
   finalizeProductionBuildLayout(layout, { status: 'success' })
   assert.equal(productionBuildLayoutDigest(layout), identityDigest)
 })
