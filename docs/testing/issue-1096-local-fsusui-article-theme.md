@@ -25,3 +25,13 @@ node ../../tests/frontend/checks/static/check-fsusui-boundary.mjs
 ```
 
 `public-visual.spec.ts` 同时冻结 light/dark 的正文、安静文本、边框、hover、focus 和行内代码表面 computed style。`html.dark` 与 `html[data-theme-resolved='dark']` 共用同一主题声明，因此显式 dark 与 system-resolved dark 不会形成两套组件覆盖。AOT emergency CSS 从 `public-page.css` 的 `emergency:keep` 区块生成，以确保 hydration 前后产品 alias 一致。
+
+Rendered 验收使用同一份 spec 中独立的 `article semantic theme tokens` 组，分别覆盖 light、显式 dark 和 system-resolved dark；该组不执行主页截图或移动菜单交互，避免无关视觉基线掩盖文章 token 回归。运行前必须由同一 commit 重新构建 frontend/AOT artifacts，禁止把 scope hash 不一致的旧 CSS 当作验收结果：
+
+```bash
+cd src/frontend
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:8080 \
+  node ./node_modules/@playwright/test/cli.js test \
+  visual/public-visual.spec.ts --workers=1 \
+  --grep "article semantic theme tokens"
+```

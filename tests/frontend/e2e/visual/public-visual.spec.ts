@@ -289,3 +289,41 @@ for (const viewport of viewports) {
     })
   }
 }
+
+test.describe('article semantic theme tokens', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  for (const scenario of [
+    { name: 'light', initial: 'light', expected: 'light', systemDark: false },
+    { name: 'explicit dark', initial: 'dark', expected: 'dark', systemDark: false },
+    { name: 'system-resolved dark', initial: 'light', expected: 'dark', systemDark: true }
+  ] as const) {
+    test(`${scenario.name} resolves article colors from the same semantic boundary`, async ({ browser }) => {
+      const session = await openThemedAuditedPage(browser, scenario.initial)
+
+      try {
+        await session.page.goto(articlePath, { waitUntil: 'domcontentloaded' })
+        await waitForAppReady(session.page, WARMUP_TIMEOUT_MS)
+
+        if (scenario.systemDark) {
+          await session.page.emulateMedia({ colorScheme: 'dark' })
+          await session.page.evaluate(() => {
+            const root = document.documentElement
+            localStorage.setItem('fsus:theme-mode', 'system')
+            root.classList.remove('light', 'dark')
+            root.dataset.themeMode = 'system'
+            root.dataset.themeResolved = 'dark'
+            root.style.colorScheme = 'dark'
+          })
+        }
+
+        await settlePage(session.page)
+        await expect(session.page.locator('#fsus-comments-island')).toBeVisible()
+        await expect(session.page.locator('.fsus-appendix__link').first()).toBeVisible()
+        await assertArticleSemanticColors(session.page, scenario.expected)
+      } finally {
+        await session.close()
+      }
+    })
+  }
+})
