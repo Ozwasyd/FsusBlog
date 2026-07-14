@@ -5,6 +5,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { readRunBoundMarker } from '../test-matrix/run-bound-marker.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 function readBoundJson(repositoryRoot, relativeFile, validate) {
@@ -26,6 +28,10 @@ function readBoundJson(repositoryRoot, relativeFile, validate) {
 
 export function verifyPrivacyZkPerformanceInputs({
   runId = process.env.FSUSBLOG_TEST_RUN_ID,
+  sourceState = {
+    commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+    worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+  },
   repositoryRoot = root
 } = {}) {
   const normalizedRunId = String(runId ?? '').trim()
@@ -41,18 +47,38 @@ export function verifyPrivacyZkPerformanceInputs({
     }
   }
 
-  const bundleIds = ['backend-tests', 'frontend-tests', 'runtime-browser']
-  const bundles = bundleIds.map((bundleId) => collect(
-    `.tmp/local-production/${bundleId}/summary.json`,
-    (summary, relativeFile) => {
-      if (summary?.schema !== 'fsusblog.local-production.bundle.v1'
-        || summary.status !== 'success'
-        || summary.physicalBundleId !== bundleId
-        || summary.schedulerRunId !== normalizedRunId) {
-        throw new Error(`privacy-ZK performance input is not a successful ${normalizedRunId} ${bundleId} summary: ${relativeFile}`)
+  const markers = [
+    ['backend-coverage-ready', 'backend-tests', 'backend-coverage-summary'],
+    ['frontend-coverage-ready', 'frontend-tests', 'frontend-coverage-summary']
+  ].map(([markerId, producerBundleId, producerStepId]) => {
+    const relativeFile = `.tmp/test-runs/${normalizedRunId}/${markerId}.json`
+    try {
+      readRunBoundMarker(path.join(resolvedRoot, relativeFile), {
+        root: resolvedRoot,
+        markerId,
+        runId: normalizedRunId,
+        sourceState,
+        producerBundleId,
+        producerStepId
+      })
+      return readBoundJson(resolvedRoot, relativeFile, () => {})
+    } catch (error) {
+      failures.push(error instanceof Error ? error : new Error(String(error)))
+      return null
+    }
+  })
+  const frontendBuild = collect(
+    `.tmp/test-runs/${normalizedRunId}/frontend-build-ready.json`,
+    (marker, relativeFile) => {
+      if (marker?.schema !== 'fsusblog.local-production.frontend-build-ready.v1'
+        || marker.status !== 'success'
+        || marker.schedulerRunId !== normalizedRunId
+        || marker.buildLayout?.sourceCommit !== sourceState.commit
+        || marker.buildLayout?.sourceFingerprint !== sourceState.worktreeFingerprint) {
+        throw new Error(`privacy-ZK performance input is not the current frontend build marker: ${relativeFile}`)
       }
     }
-  ))
+  )
   const stages = ['contract', 'functional'].map((stage) => collect(
     `.tmp/security/privacy-zk-comment-matrix-stages/${stage}.json`,
     (receipt, relativeFile) => {
@@ -70,7 +96,7 @@ export function verifyPrivacyZkPerformanceInputs({
       `privacy-ZK performance inputs failed in ${failures.length} independent files: ${failures.map((error) => error.message).join('; ')}`
     )
   }
-  return { runId: normalizedRunId, bundles, stages }
+  return { runId: normalizedRunId, markers, frontendBuild, stages }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

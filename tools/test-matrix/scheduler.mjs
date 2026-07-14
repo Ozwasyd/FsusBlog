@@ -21,10 +21,10 @@ import {
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs'
 import { createAsyncLogPipeline } from './async-log-pipeline.mjs'
 import {
-  consumeResidentLeaseHandoff,
   createResidentLeaseHandoff,
   readResidentLeaseDocument,
   reconcileResidentLeaseInventory,
+  validateResidentLeaseHandoff,
   validateResidentLeaseInventory,
   writeResidentLeaseDocument
 } from './resident-resource-leases.mjs'
@@ -1478,13 +1478,13 @@ async function runDagUnlocked(options) {
     || residentLeaseProducers.length > 1) {
     throw new Error('resident lease topology requires exactly one producer/consumer pair or neither')
   }
-  if (residentLeaseConsumers.length === 1
-    && !(residentLeaseConsumers[0].dependsOn ?? []).includes(residentLeaseProducers[0].id)) {
-    throw new Error('resident lease consumer must depend directly on its producer')
-  }
   const residentConsumerBundleId = residentLeaseConsumers.length === 1
     ? (residentLeaseConsumers[0].physicalBundleId ?? residentLeaseConsumers[0].id)
     : null
+  if (residentLeaseProducers.length === 1
+    && residentLeaseProducers[0].residentLeaseTarget !== residentConsumerBundleId) {
+    throw new Error('resident lease producer target must match its consumer')
+  }
   const resourceEnforcer = createProductionResourceEnforcer({
     ...(options.resourceEnforcementOptions ?? {}),
     runId,
@@ -1649,7 +1649,8 @@ async function runDagUnlocked(options) {
       const current = readResidentLeaseDocument(residentLeaseFile)
       validateResidentLeaseInventory(current, {
         runId,
-        namespace: residentState.inventory.namespace
+        namespace: residentState.inventory.namespace,
+        sourceState: sourceState.commit ? sourceState : undefined
       })
       if (current.digest !== residentState.inventory.digest) {
         const previousGeneration = residentState.inventory.generation
@@ -1669,6 +1670,30 @@ async function runDagUnlocked(options) {
     residentEvidence.digest = residentState.inventory.digest
     residentEvidence.reservation = reconciliation.reservation
     appendResidentObservation(reconciliation)
+    if (fs.existsSync(residentHandoffFile)) {
+      const handoff = readResidentLeaseDocument(residentHandoffFile)
+      if (handoff.consumedBy === residentConsumerBundleId && residentEvidence.handoff?.status !== 'consumed') {
+        validateResidentLeaseHandoff(handoff, {
+          inventory: residentState.inventory,
+          consumerBundleId: residentConsumerBundleId,
+          sourceState: sourceState.commit ? sourceState : undefined,
+          requireConsumed: true
+        })
+        residentEvidence.status = 'handed-off'
+        residentEvidence.ownerBundleId = handoff.consumedBy
+        residentEvidence.handoff = {
+          ...residentEvidence.handoff,
+          status: 'consumed',
+          consumedAt: handoff.consumedAt,
+          consumedBy: handoff.consumedBy,
+          digest: handoff.digest
+        }
+        recordResidentEvent('handoff-consumed', {
+          digest: handoff.digest,
+          consumerBundleId: handoff.consumedBy
+        })
+      }
+    }
     if (reconciliation.fullyReleased) {
       residentEvidence.status = 'released'
       residentEvidence.releasedAt ??= new Date().toISOString()
@@ -1686,7 +1711,8 @@ async function runDagUnlocked(options) {
     validateResidentLeaseInventory(inventory, {
       runId,
       namespace: tierEnvironment.FSUSBLOG_TEST_NAMESPACE,
-      ownerBundleId: tier.physicalBundleId ?? tier.id
+      ownerBundleId: tier.physicalBundleId ?? tier.id,
+      sourceState: sourceState.commit ? sourceState : undefined
     })
     residentState = {
       inventory,
@@ -1753,34 +1779,6 @@ async function runDagUnlocked(options) {
       consumedAt: null
     }
     recordResidentEvent('handoff-published', { digest: receipt.digest })
-  }
-  const prepareResidentConsumer = (tier, tierEnvironment) => {
-    if (!residentState) throw new Error('resident lease consumer has no producer inventory')
-    const reconciliation = reconcileResidentState({ force: true })
-    if (!reconciliation?.healthy) throw new Error('resident lease consumer rejected stale or unhealthy runtime')
-    const receipt = readResidentLeaseDocument(residentHandoffFile)
-    const consumerBundleId = tier.physicalBundleId ?? tier.id
-    const consumed = consumeResidentLeaseHandoff(receipt, {
-      inventory: residentState.inventory,
-      consumerBundleId
-    })
-    writeResidentLeaseDocument(residentHandoffFile, consumed)
-    residentEvidence.status = 'handed-off'
-    residentEvidence.ownerBundleId = consumerBundleId
-    residentEvidence.handoff = {
-      ...residentEvidence.handoff,
-      status: 'consumed',
-      consumedAt: consumed.consumedAt,
-      consumedBy: consumed.consumedBy,
-      digest: consumed.digest
-    }
-    recordResidentEvent('handoff-consumed', { digest: consumed.digest, consumerBundleId })
-    Object.assign(tierEnvironment, {
-      FSUSBLOG_RESIDENT_LEASE_INVENTORY: residentLeaseFile,
-      FSUSBLOG_RESIDENT_LEASE_HANDOFF: residentHandoffFile,
-      FSUSBLOG_RESIDENT_RESERVED_CPU_UNITS: String(reconciliation.reservation.cpuUnits),
-      FSUSBLOG_RESIDENT_RESERVED_MEMORY_GIB: String(reconciliation.reservation.memoryGiB)
-    })
   }
   const sampleResourcePeaks = () => {
     reconcileResidentState()
@@ -1859,15 +1857,41 @@ async function runDagUnlocked(options) {
     }
   }
 
-  const expandActiveDynamicGrants = () => {
+  const rebalanceActiveDynamicGrants = ({ expand = true } = {}) => {
     const elastic = [...active.values()].filter((entry) => entry.tier.resourceGrantDynamic === true)
     if (elastic.length === 0) {
       writeActiveResourceGrants()
       return
     }
-    const usage = accountedUsage([...active.values()])
+    let usage = accountedUsage([...active.values()])
+    let excessCpuUnits = Math.max(0, Math.ceil(usage.cpuUnits - budget.cpuUnits))
+    for (const entry of [...elastic].sort((left, right) => right.tier.cpuUnits - left.tier.cpuUnits
+      || left.tier.id.localeCompare(right.tier.id))) {
+      const floor = Math.max(1, startupMinCpuUnits(entry.tier))
+      const reduction = Math.min(excessCpuUnits, Math.max(0, Math.floor(entry.tier.cpuUnits - floor)))
+      entry.tier.cpuUnits -= reduction
+      excessCpuUnits -= reduction
+      if (excessCpuUnits <= 0) break
+    }
+    if (excessCpuUnits > 0) throw new Error('resident reservation exceeds elastic CPU reclaim capacity')
+
+    usage = accountedUsage([...active.values()])
+    let excessMemoryGiB = Math.max(0, usage.memoryGiB - budget.memoryGiB)
+    for (const entry of [...elastic].sort((left, right) => right.tier.memoryGiB - left.tier.memoryGiB
+      || left.tier.id.localeCompare(right.tier.id))) {
+      const floor = Number.EPSILON
+      const reduction = Math.min(excessMemoryGiB, Math.max(0, entry.tier.memoryGiB - floor))
+      entry.tier.memoryGiB -= reduction
+      excessMemoryGiB -= reduction
+      if (excessMemoryGiB <= Number.EPSILON) break
+    }
+    if (excessMemoryGiB > Number.EPSILON) {
+      throw new Error('resident reservation exceeds elastic memory reclaim capacity')
+    }
+
+    usage = accountedUsage([...active.values()])
     let freeCpuUnits = Math.max(0, Math.floor(budget.cpuUnits - usage.cpuUnits))
-    while (freeCpuUnits > 0) {
+    while (expand && freeCpuUnits > 0) {
       const selected = [...elastic].sort((left, right) => {
         const leftDeficit = Math.max(0, Number(left.tier.minCpuUnits) - Number(left.tier.cpuUnits))
         const rightDeficit = Math.max(0, Number(right.tier.minCpuUnits) - Number(right.tier.cpuUnits))
@@ -1886,7 +1910,7 @@ async function runDagUnlocked(options) {
       currentUsage.memoryGiB + currentFreeMemoryGiB()
     )
     const freeMemoryGiB = Math.max(0, liveMemoryEnvelope - currentUsage.memoryGiB)
-    if (freeMemoryGiB > 0) {
+    if (expand && freeMemoryGiB > 0) {
       const weightTotal = elastic.reduce(
         (total, entry) => total + Math.max(Number.EPSILON, Number(entry.tier.memoryWeight)),
         0
@@ -2015,19 +2039,15 @@ async function runDagUnlocked(options) {
       FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
       FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
       FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: tier.id,
+      ...(tier.residentLeaseConsumer === true ? {
+        FSUSBLOG_RESIDENT_LEASE_INVENTORY: residentLeaseFile,
+        FSUSBLOG_RESIDENT_LEASE_HANDOFF: residentHandoffFile
+      } : {}),
       ...resourceEnforcer.environment(enforcementBundleId),
       FSUSBLOG_CGROUP_EFFECTIVE_CPU_MAX: effectiveEnforcement.cpuMax,
       FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_HIGH_BYTES: String(effectiveEnforcement.memoryHighBytes),
       FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES: String(effectiveEnforcement.memoryMaxBytes),
       FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX: String(effectiveEnforcement.pidsMax)
-    }
-    let residentPreparationError = null
-    if (tier.residentLeaseConsumer === true) {
-      try {
-        prepareResidentConsumer(tier, tierEnvironment)
-      } catch (error) {
-        residentPreparationError = error
-      }
     }
     const inputFingerprint = tierInputFingerprint(tier, root, {
       env: tierEnvironment,
@@ -2066,12 +2086,7 @@ async function runDagUnlocked(options) {
       runId,
       runDirectory
     }
-    const execution = residentPreparationError
-      ? {
-          promise: Promise.resolve({ code: 1, signal: null, error: residentPreparationError }),
-          terminate: () => {}
-        }
-      : options.executeTier
+    const execution = options.executeTier
       ? {
           promise: Promise.resolve().then(() => options.executeTier(tier, context)).then(normalizeExecutionResult, (error) => ({ code: 1, signal: null, error })),
           terminate: () => options.abortTier?.(tier)
@@ -2368,7 +2383,7 @@ async function runDagUnlocked(options) {
       // already-running elastic tiers. Otherwise an active tier can consume
       // every released CPU unit and indefinitely starve a downstream bundle
       // whose minimum grant would fit in that same envelope.
-      expandActiveDynamicGrants()
+      rebalanceActiveDynamicGrants()
       if (wave.length > 0 && active.size === 0) continue
     }
 
@@ -2453,6 +2468,10 @@ async function runDagUnlocked(options) {
     const entry = active.get(tierId)
     active.delete(tierId)
     const recorded = recordSettled(entry, settled)
+    // A producer may have converted part of its released grant into resident
+    // leases. Contract active elastic grants immediately, before another
+    // admission/resource sample can observe an overcommitted envelope.
+    rebalanceActiveDynamicGrants({ expand: false })
     if (!recorded.success && !recorded.cancelled && !firstFailure) {
       const failure = {
         tierId,

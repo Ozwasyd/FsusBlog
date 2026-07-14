@@ -135,11 +135,10 @@ async function waitFor(predicate, timeoutMs = 2_000) {
 test('runtime bundle removes artificial serial dependencies while retaining every logical member', () => {
   const steps = runtimeSteps()
   const index = byId(steps)
-  assert.equal(steps.length, 27)
+  assert.equal(steps.length, 23)
   assert.deepEqual(steps.flatMap((step) => step.members).sort(), [
     'acceptance', 'bootstrap', 'cross-browser-smoke', 'cross-stack-contract', 'csrf-browser-matrix',
-    'data-scale-evidence-summary', 'data-scale-s', 'data-scale-xs', 'endpoint-depth', 'fault-injection',
-    'frontend-render-pressure', 'integration', 'release', 'resilience', 'security-authenticated-dast',
+    'endpoint-depth', 'frontend-render-pressure', 'integration', 'release', 'resilience', 'security-authenticated-dast',
     'rights-v3-test-matrix', 'security', 'ux-viewport-smoke',
     'visual', 'visual-console', 'visual-public'
   ].sort())
@@ -236,12 +235,8 @@ test('runtime bundle removes artificial serial dependencies while retaining ever
   assert.deepEqual(index.get('runtime-state-stable').resources, { coordinationOnly: true })
   assert.equal(index.get('runtime-state-stable').dependsOn.includes('security-static'), false)
   assert.equal(index.get('runtime-state-stable').dependsOn.includes('security-join'), false)
-  assert.deepEqual(index.get('data-scale-xs').dependsOn, ['runtime-state-stable'])
-  assert.deepEqual(index.get('data-scale-s').dependsOn, ['runtime-state-stable'])
-  assert.equal(index.get('data-scale-xs').resources.exclusiveResources, undefined)
-  assert.equal(index.get('data-scale-s').resources.exclusiveResources, undefined)
-  assert.deepEqual(index.get('data-scale-summary').dependsOn, ['data-scale-xs', 'data-scale-s'])
-  assert.deepEqual(index.get('fault-injection').dependsOn, ['runtime-state-stable', 'data-scale-xs', 'data-scale-s'])
+  assert.equal(index.has('data-scale-xs'), false)
+  assert.equal(index.has('fault-injection'), false)
   assert.equal(steps.some((step) => Object.hasOwn(step.resources, 'cpuUnits') || Object.hasOwn(step.resources, 'memoryGiB')), false)
 })
 
@@ -272,38 +267,27 @@ test('security phase join evidence binds every phase log and the complete concur
 test('performance bundle folds the complete backend benchmark into the mixed window and joins exact evidence', () => {
   const steps = performanceSteps()
   const index = byId(steps)
-  const measurements = ['backend-perf', 'mixed-performance-window', 'aeds-frame-cost']
-  const measurementPreparation = ['coverage-threshold', 'browser-performance', 'aeds-compression']
+  const measurements = ['browser-performance', 'backend-perf', 'mixed-performance-window', 'aeds-frame-cost']
   const evidenceInputs = [
     'backend-perf', 'privacy-zk-benchmark', 'privacy-zk-finalize', 'mixed-performance-window',
     'browser-performance', 'aeds-frame-cost', 'aeds-compression'
   ]
-  assert.equal(steps.length, 15)
-  for (const id of measurements.filter((id) => id !== 'mixed-performance-window')) {
-    assert.deepEqual(index.get(id).dependsOn, measurementPreparation)
+  assert.equal(steps.length, 28)
+  for (const id of measurements) {
+    assert.deepEqual(index.get(id).dependsOn, ['performance-measurement-ready'])
     assert.deepEqual(index.get(id).resources.exclusiveResources, ['benchmark-window'])
   }
-  assert.deepEqual(index.get('mixed-performance-window').dependsOn, [
-    ...measurementPreparation,
-    'performance-runtime-bootstrap'
-  ])
-  assert.deepEqual(index.get('mixed-performance-window').resources.exclusiveResources, ['benchmark-window'])
   assert.deepEqual(index.get('privacy-zk-performance-ready').dependsOn, ['privacy-zk-project-functional'])
   assert.equal(index.get('privacy-zk-performance-ready').resources.exclusiveResources, undefined)
-  assert.deepEqual(index.get('privacy-zk-benchmark').dependsOn, [
-    ...measurementPreparation,
-    'privacy-zk-performance-ready'
-  ])
+  assert.deepEqual(index.get('privacy-zk-benchmark').dependsOn, ['performance-measurement-ready'])
   assert.deepEqual(index.get('privacy-zk-benchmark').resources.exclusiveResources, ['benchmark-window'])
   assert.deepEqual(index.get('privacy-zk-benchmark').members, ['privacy-zk-comment-matrix'])
   assert.deepEqual(index.get('privacy-zk-finalize').dependsOn, ['privacy-zk-benchmark'])
   assert.deepEqual(index.get('privacy-zk-finalize').members, ['privacy-zk-comment-matrix'])
   assert.equal(index.get('privacy-zk-finalize').resources.exclusiveResources, undefined)
-  assert.deepEqual(index.get('browser-performance').dependsOn, [])
-  assert.equal(index.get('browser-performance').resources.exclusiveResources, undefined)
-  assert.equal(index.get('coverage-merge').resources.exclusiveResources, undefined)
+  assert.deepEqual(index.get('coverage-merge').dependsOn, ['backend-coverage-ready', 'frontend-coverage-ready'])
   assert.equal(index.get('coverage-threshold').resources.exclusiveResources, undefined)
-  assert.deepEqual(index.get('aeds-compression').dependsOn, [])
+  assert.deepEqual(index.get('aeds-compression').dependsOn, ['frontend-build-ready'])
   assert.equal(index.get('aeds-compression').resources.exclusiveResources, undefined)
   assert.deepEqual(index.get('performance-summary').dependsOn, ['coverage-threshold', ...evidenceInputs])
   assert.deepEqual(index.get('release-evidence').dependsOn, ['performance-summary'])
@@ -438,6 +422,35 @@ test('coordination-only marker waits do not consume a one-CPU admission slot', a
   backend.resolve()
   frontend.resolve()
   security.resolve()
+  await execution
+})
+
+test('exact performance markers release preparation while unrelated runtime tail remains active', async () => {
+  const backendCoverage = deferred()
+  const frontendCoverage = deferred()
+  const frontendBuild = deferred()
+  let runtimeTailActive = true
+  const started = []
+  const index = byId(performanceSteps())
+  const execution = executeWeightedStepDag([
+    index.get('backend-coverage-ready'),
+    index.get('frontend-coverage-ready'),
+    index.get('frontend-build-ready'),
+    index.get('coverage-merge'),
+    index.get('aeds-compression')
+  ], { maxParallel: 2, cpuUnits: 2, memoryGiB: 2 }, async (entry) => {
+    started.push(entry.id)
+    if (entry.id === 'backend-coverage-ready') await backendCoverage.promise
+    if (entry.id === 'frontend-coverage-ready') await frontendCoverage.promise
+    if (entry.id === 'frontend-build-ready') await frontendBuild.promise
+  })
+  await new Promise((resolve) => setImmediate(resolve))
+  backendCoverage.resolve()
+  frontendCoverage.resolve()
+  frontendBuild.resolve()
+  await waitFor(() => started.includes('coverage-merge') && started.includes('aeds-compression'))
+  assert.equal(runtimeTailActive, true)
+  runtimeTailActive = false
   await execution
 })
 
@@ -765,15 +778,16 @@ test('security join preserves the static preflight through the post-hydration co
   assert.equal(started.at(-1).id, 'security-join')
 })
 
-test('runtime tail runs isolated data scales together then overlaps summary with fault injection', async () => {
+test('performance tail runs isolated data scales together then overlaps summary with fault injection', async () => {
   const xs = deferred()
   const small = deferred()
   const summary = deferred()
   const fault = deferred()
   const started = []
-  const index = byId(runtimeSteps())
+  const index = byId(performanceSteps())
   const selected = [
-    { ...index.get('runtime-state-stable'), dependsOn: [] },
+    { id: 'runtime-state-ready', command: null, members: [], dependsOn: [], resources: { coordinationOnly: true } },
+    { id: 'resident-handoff-ready', command: null, members: [], dependsOn: [], resources: { coordinationOnly: true } },
     index.get('data-scale-xs'),
     index.get('data-scale-s'),
     index.get('data-scale-summary'),
@@ -792,7 +806,7 @@ test('runtime tail runs isolated data scales together then overlaps summary with
   })
 
   await new Promise((resolve) => setImmediate(resolve))
-  assert.deepEqual(started, ['runtime-state-stable', 'data-scale-xs', 'data-scale-s'])
+  assert.deepEqual(started, ['runtime-state-ready', 'resident-handoff-ready', 'data-scale-xs', 'data-scale-s'])
   xs.resolve()
   small.resolve()
   await new Promise((resolve) => setImmediate(resolve))

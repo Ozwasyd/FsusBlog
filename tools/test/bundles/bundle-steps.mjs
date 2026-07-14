@@ -803,20 +803,8 @@ export function runtimeSteps() {
       dependsOn: runtimeStateConsumers,
       resources: { coordinationOnly: true }
     }),
-    step('data-scale-xs', 'tools/test/lanes/data-scale.sh scale-xs', ['data-scale-xs'], {
-      dependsOn: ['runtime-state-stable'],
-      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
-    }),
-    step('data-scale-s', 'tools/test/lanes/data-scale.sh scale-s', ['data-scale-s'], {
-      dependsOn: ['runtime-state-stable'],
-      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
-    }),
-    step('data-scale-summary', 'node tools/test/aggregate-data-scale-evidence.mjs', ['data-scale-evidence-summary'], {
-      dependsOn: ['data-scale-xs', 'data-scale-s']
-    }),
-    step('fault-injection', 'tools/test/lanes/fault-injection.sh', ['fault-injection'], {
-      dependsOn: ['runtime-state-stable', 'data-scale-xs', 'data-scale-s']
-    })
+    // The physical runtime bundle settles at this marker. Runtime-preserving
+    // tail work is owned by performance-evidence after the explicit handoff.
   ]
 }
 
@@ -828,8 +816,7 @@ export function performanceSteps() {
     'backend-qps-article-detail-miss', 'backend-qps-cache-registry', 'backend-cache-invalidation-batch',
     'backend-qps-index-plan', 'backend-qps', 'load-baseline', 'load-peak'
   ]
-  const measurementPreparation = ['coverage-threshold', 'browser-performance', 'aeds-compression']
-  const privacyBenchmarkPreparation = [...measurementPreparation, 'privacy-zk-performance-ready']
+  const measurementBarrier = 'performance-measurement-ready'
   const benchmarkResources = { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: ['benchmark-window'] }
   const measurements = [
     'backend-perf',
@@ -842,26 +829,61 @@ export function performanceSteps() {
   ]
 
   return [
-    step('performance-runtime-bootstrap', 'FSUSBLOG_RUNTIME_NO_BUILD=1 tools/bootstrap-acceptance-env.sh', [], {
-      resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 }
-    }),
+    ...[
+      'backend-coverage-ready',
+      'frontend-coverage-ready',
+      'frontend-build-ready',
+      'benchmark-build-ready',
+      'runtime-state-ready',
+      'backend-quiet-ready',
+      'frontend-quiet-ready',
+      'build-static-quiet-ready',
+      'resident-handoff-ready'
+    ].map((id) => step(id, null, [], { resources: { coordinationOnly: true } })),
     step('privacy-zk-project-functional', 'tools/test/lanes/privacy-zk-comment-matrix.sh project-functional', [], {
+      dependsOn: ['backend-coverage-ready', 'frontend-coverage-ready', 'frontend-build-ready'],
       resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
     }),
-    step('coverage-merge', 'tools/coverage/merge-coverage.sh', ['coverage-merge']),
-    step('browser-performance', 'tools/test/lanes/browser-performance-regression.sh', ['browser-performance-regression']),
+    step('coverage-merge', 'tools/coverage/merge-coverage.sh', ['coverage-merge'], {
+      dependsOn: ['backend-coverage-ready', 'frontend-coverage-ready']
+    }),
     step('coverage-threshold', 'tools/test/lanes/coverage-threshold.sh', ['coverage-threshold', 'coverage-gate', 'fast'], {
       dependsOn: ['coverage-merge']
     }),
     step('privacy-zk-performance-ready', 'node tools/test/verify-privacy-zk-performance-inputs.mjs', [], {
       dependsOn: ['privacy-zk-project-functional']
     }),
+    step('data-scale-xs', 'tools/test/lanes/data-scale.sh scale-xs', ['data-scale-xs'], {
+      dependsOn: ['runtime-state-ready', 'resident-handoff-ready']
+    }),
+    step('data-scale-s', 'tools/test/lanes/data-scale.sh scale-s', ['data-scale-s'], {
+      dependsOn: ['runtime-state-ready', 'resident-handoff-ready']
+    }),
+    step('data-scale-summary', 'node tools/test/aggregate-data-scale-evidence.mjs', ['data-scale-evidence-summary'], {
+      dependsOn: ['data-scale-xs', 'data-scale-s']
+    }),
+    step('fault-injection', 'tools/test/lanes/fault-injection.sh', ['fault-injection'], {
+      dependsOn: ['runtime-state-ready', 'resident-handoff-ready', 'data-scale-xs', 'data-scale-s']
+    }),
+    step(measurementBarrier, null, [], {
+      dependsOn: [
+        'coverage-threshold', 'aeds-compression', 'privacy-zk-performance-ready',
+        'data-scale-summary', 'fault-injection', 'benchmark-build-ready',
+        'backend-quiet-ready', 'frontend-quiet-ready', 'build-static-quiet-ready',
+        'runtime-state-ready', 'resident-handoff-ready'
+      ],
+      resources: { coordinationOnly: true }
+    }),
+    step('browser-performance', 'tools/test/lanes/browser-performance-regression.sh', ['browser-performance-regression'], {
+      dependsOn: [measurementBarrier],
+      resources: benchmarkResources
+    }),
     step('backend-perf', 'FSUSBLOG_BACKEND_PERF_READINESS_MODE=verify-fresh tools/test/lanes/perf-regression.sh', ['backend-perf'], {
-      dependsOn: measurementPreparation,
+      dependsOn: [measurementBarrier],
       resources: benchmarkResources
     }),
     step('privacy-zk-benchmark', 'tools/test/lanes/privacy-zk-comment-matrix.sh benchmark', ['privacy-zk-comment-matrix'], {
-      dependsOn: privacyBenchmarkPreparation,
+      dependsOn: [measurementBarrier],
       resources: benchmarkResources
     }),
     step('privacy-zk-finalize', 'tools/test/lanes/privacy-zk-comment-matrix.sh finalize', ['privacy-zk-comment-matrix'], {
@@ -871,17 +893,19 @@ export function performanceSteps() {
       ...windowMembers,
       'backend-benchmark-regression'
     ], {
-      dependsOn: [...measurementPreparation, 'performance-runtime-bootstrap'],
+      dependsOn: [measurementBarrier],
       resources: benchmarkResources
     }),
     step('aeds-frame-cost', 'tools/test/lanes/aeds-frame-cost.sh', ['aeds-frame-cost'], {
-      dependsOn: measurementPreparation,
+      dependsOn: [measurementBarrier],
       resources: benchmarkResources
     }),
     // Compression profiling records deterministic bytes, ratios, ETags, and
     // status only. Run it with the other non-measurement preparation, then
     // keep every timed profiler behind it so its CPU work cannot add noise.
-    step('aeds-compression', 'tools/test/lanes/aeds-compression-profile.sh', ['aeds-compression-profile']),
+    step('aeds-compression', 'tools/test/lanes/aeds-compression-profile.sh', ['aeds-compression-profile'], {
+      dependsOn: ['frontend-build-ready']
+    }),
     step('performance-summary', 'node tools/test/aggregate-performance-evidence.mjs', ['performance-evidence-summary'], {
       dependsOn: ['coverage-threshold', ...measurements]
     }),

@@ -33,6 +33,7 @@ function services() {
 function inventory() {
   return createResidentLeaseInventory({
     runId: 'run-1', namespace: 'production-fresh', ownerBundleId: 'runtime-browser',
+    sourceState: { commit: 'abc123', worktreeFingerprint: 'tree-1' },
     resourceGrant: { cpuUnits: 2, memoryGiB: 4 }, services: services(), generatedAt: '2026-07-14T00:00:01.000Z'
   })
 }
@@ -73,6 +74,9 @@ test('reconciliation releases only confirmed exits and retains drift or unknown 
 test('resident inventory rejects foreign identity, digest drift, and zero reservations', () => {
   const value = inventory()
   assert.throws(() => validateResidentLeaseInventory(value, { runId: 'other' }), /another run/u)
+  assert.throws(() => validateResidentLeaseInventory(value, {
+    sourceState: { commit: 'abc123', worktreeFingerprint: 'tree-2' }
+  }), /another source state/u)
   assert.throws(() => validateResidentLeaseInventory(value, { verifyProcess: () => false }), /identity changed/u)
   const drifted = structuredClone(value)
   drifted.services[0].port += 1
@@ -128,6 +132,8 @@ test('bootstrap publisher inventories all five services without mutating process
     FSUSBLOG_TEST_RUN_ID: 'publisher-run',
     FSUSBLOG_TEST_NAMESPACE: 'publisher-namespace',
     FSUSBLOG_PHYSICAL_BUNDLE_ID: 'runtime-browser',
+    FSUSBLOG_TEST_SOURCE_COMMIT: 'abc123',
+    FSUSBLOG_TEST_SOURCE_FINGERPRINT: 'tree-publisher',
     FSUSBLOG_STEP_CPU_BUDGET: '4',
     FSUSBLOG_STEP_MEMORY_GIB: '8',
     FSUSBLOG_DEBUG_BACKEND_PORT: '24001',
@@ -172,6 +178,7 @@ test('bootstrap publisher inventories all five services without mutating process
     }
   })
   assert.equal(result.inventory.services.length, 5)
+  assert.deepEqual(result.inventory.sourceState, { commit: 'abc123', worktreeFingerprint: 'tree-publisher' })
   assert.deepEqual(result.inventory.services.map((service) => service.id), [
     'debug-backend', 'debug-frontend', 'release-preview', 'postgres', 'redis'
   ])
@@ -193,6 +200,7 @@ test('handoff binds run namespace generation readiness owners and rejects stale 
     inventory: value, consumerBundleId: 'performance-evidence', consumedAt: '2026-07-14T00:00:04.000Z'
   })
   assert.equal(consumed.consumedBy, 'performance-evidence')
+  assert.deepEqual(consumed.sourceState, value.sourceState)
   assert.throws(() => consumeResidentLeaseHandoff(consumed, {
     inventory: value, consumerBundleId: 'performance-evidence'
   }), /already consumed/u)
@@ -201,6 +209,7 @@ test('handoff binds run namespace generation readiness owners and rejects stale 
   }), /another consumer/u)
   const restarted = createResidentLeaseInventory({
     runId: 'run-1', namespace: 'production-fresh', ownerBundleId: 'runtime-browser',
+    sourceState: value.sourceState,
     resourceGrant: { cpuUnits: 2, memoryGiB: 4 },
     services: services().map((service) => service.id === 'backend'
       ? { ...service, identity: { pid: 43, startTimeTicks: '101' }, generation: 'backend-2' }

@@ -522,6 +522,7 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
       id: `${prefix}${bundle.id}`,
       physicalBundleId: bundle.id,
       residentLeaseProducer: bundle.id === 'runtime-browser',
+      residentLeaseTarget: bundle.id === 'runtime-browser' ? 'performance-evidence' : null,
       residentLeaseConsumer: bundle.id === 'performance-evidence',
       logicalMembers: [...(bundle.members ?? [])],
       command: bundle.command,
@@ -1135,7 +1136,7 @@ export function validateLocalProfiles(localProfiles, tiers) {
         ['backend-tests', []],
         ['frontend-tests', []],
         ['runtime-browser', []],
-        ['performance-evidence', ['backend-tests', 'runtime-browser', 'frontend-tests']]
+        ['performance-evidence', []]
       ])
       for (const [bundleId, expected] of productionBundleContract) {
         const productionBundle = profile.bundles.find((bundle) => bundle.id === bundleId)
@@ -1210,13 +1211,15 @@ export function validateLocalProfiles(localProfiles, tiers) {
     }
 
     const t0Bundles = profile.bundles.filter((bundle) => (bundle.dependsOn ?? []).length === 0)
-    const startupMinimumTotal = t0Bundles.reduce(
-      (total, bundle) => total + Number(bundle.startupMinCpuUnits ?? bundle.minCpuUnits),
-      0
-    )
+    // The scheduler admits a priority-ordered subset when more t0 bundles are
+    // ready than the machine can host. Requiring their aggregate minimum to
+    // fit would forbid useful early-start wait/coordination bundles.
+    const startupMinimumTotal = Math.min(...t0Bundles.map(
+      (bundle) => Number(bundle.startupMinCpuUnits ?? bundle.minCpuUnits)
+    ))
     if (Number.isInteger(profile.minimumSupportedCpuUnits)
       && startupMinimumTotal > profile.minimumSupportedCpuUnits) {
-      errors.push(`localProfiles.${profileId} startup CPU minimum ${startupMinimumTotal} exceeds supported machine floor ${profile.minimumSupportedCpuUnits}`)
+      errors.push(`localProfiles.${profileId} smallest startup CPU minimum ${startupMinimumTotal} exceeds supported machine floor ${profile.minimumSupportedCpuUnits}`)
     }
 
     for (const tierId of profile.summaryOnly ?? []) {

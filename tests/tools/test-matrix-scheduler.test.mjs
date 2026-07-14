@@ -17,7 +17,9 @@ import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
 import { createArtifactDigestTable } from '../../tools/test-matrix/artifact-digest-table.mjs'
 import {
   bindResidentLeaseEnforcement,
+  consumeResidentLeaseHandoff,
   createResidentLeaseInventory,
+  readResidentLeaseDocument,
   writeResidentLeaseDocument
 } from '../../tools/test-matrix/resident-resource-leases.mjs'
 
@@ -2538,18 +2540,24 @@ test('resident leases stay in admission accounting, hand off once, and release c
   let residentLive = true
   let consumerGrant = null
   let consumerEnvironment = null
+  let consumerStartedBeforeHandoff = false
   const runtime = tier('runtime', {
     physicalBundleId: 'runtime-browser',
     residentLeaseProducer: true,
+    residentLeaseTarget: 'performance-evidence',
     cpuUnits: 2,
     memoryGiB: 2
   })
   const performance = tier('performance', {
     physicalBundleId: 'performance-evidence',
     residentLeaseConsumer: true,
-    dependsOn: ['runtime'],
-    cpuUnits: 3,
-    memoryGiB: 3
+    resourceGrantMode: 'dynamic',
+    cpuWeight: 3,
+    memoryWeight: 3,
+    minCpuUnits: 3,
+    startupMinCpuUnits: 1,
+    startupMemoryWeight: 1,
+    startupPriority: 0
   })
   const afterExit = tier('after-exit', {
     dependsOn: ['performance'],
@@ -2597,9 +2605,16 @@ test('resident leases stay in admission accounting, hand off once, and release c
         writeResidentLeaseDocument(path.join(context.runDirectory, 'resident-resource-leases.json'), inventory)
       } else if (current.id === 'performance') {
         consumerEnvironment = context.env
+        consumerStartedBeforeHandoff = !fs.existsSync(context.env.FSUSBLOG_RESIDENT_LEASE_HANDOFF)
+        while (!fs.existsSync(context.env.FSUSBLOG_RESIDENT_LEASE_HANDOFF)) await delay(2)
+        const inventory = readResidentLeaseDocument(context.env.FSUSBLOG_RESIDENT_LEASE_INVENTORY)
+        const handoff = readResidentLeaseDocument(context.env.FSUSBLOG_RESIDENT_LEASE_HANDOFF)
+        const consumed = consumeResidentLeaseHandoff(handoff, {
+          inventory,
+          consumerBundleId: 'performance-evidence'
+        })
+        writeResidentLeaseDocument(context.env.FSUSBLOG_RESIDENT_LEASE_HANDOFF, consumed)
         consumerGrant = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE, 'utf8'))
-        const handoff = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_RESIDENT_LEASE_HANDOFF, 'utf8'))
-        assert.equal(handoff.consumedBy, 'performance-evidence')
         residentLive = false
       }
       return { code: 0, signal: null }
@@ -2612,10 +2627,12 @@ test('resident leases stay in admission accounting, hand off once, and release c
   })
   assert.equal(result.status, 'success', JSON.stringify(result.failure ?? result.checkpoint.failures))
   assert.equal(result.checkpoint.tiers.performance.resourceGrant.cpuUnits, 3)
+  assert.equal(consumerStartedBeforeHandoff, true)
+  assert.ok(result.checkpoint.tiers.performance.resourceGrantHistory.length >= 2)
   assert.equal(result.checkpoint.tiers['after-exit'].resourceGrant.cpuUnits, 4)
   assert.equal(consumerGrant.residentReservation.cpuUnits, 1)
   assert.equal(consumerGrant.grants.performance.cpuUnits, 3)
-  assert.equal(consumerEnvironment.FSUSBLOG_RESIDENT_RESERVED_CPU_UNITS, '1')
+  assert.ok(consumerEnvironment.FSUSBLOG_RESIDENT_LEASE_INVENTORY)
   assert.equal(result.checkpoint.residentResourceLeases.handoff.status, 'consumed')
   assert.equal(result.checkpoint.residentResourceLeases.status, 'released')
   assert.ok(result.checkpoint.residentResourceLeases.services.backend.history.some((entry) => entry.status === 'live'))
@@ -2630,7 +2647,8 @@ test('failed resident producer retains partial live-service evidence without pub
   const runId = 'resident-partial'
   const namespace = 'resident-partial-namespace'
   const runtime = tier('runtime', {
-    physicalBundleId: 'runtime-browser', residentLeaseProducer: true, cpuUnits: 2, memoryGiB: 2
+    physicalBundleId: 'runtime-browser', residentLeaseProducer: true,
+    residentLeaseTarget: 'performance-evidence', cpuUnits: 2, memoryGiB: 2
   })
   const performance = tier('performance', {
     physicalBundleId: 'performance-evidence', residentLeaseConsumer: true,

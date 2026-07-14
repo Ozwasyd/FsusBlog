@@ -57,7 +57,7 @@ function profile(overrides = {}) {
       { id: 'backend-tests', command: 'backend', deadlineWeight: 44, dependsOn: [], members: ['b'], cpuWeight: 3, memoryWeight: 4, minCpuUnits: 2, startupMinCpuUnits: 1, startupMemoryWeight: 4, startupPriority: 4 },
       { id: 'frontend-tests', command: 'frontend', deadlineWeight: 27, dependsOn: [], members: ['c'], cpuWeight: 3, memoryWeight: 2, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 2, startupPriority: 3 },
       { id: 'runtime-browser', command: 'runtime', deadlineWeight: 24, dependsOn: [], members: ['d'], cpuWeight: 5, memoryWeight: 5, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 5, startupPriority: 4 },
-      { id: 'performance-evidence', command: 'performance', deadlineWeight: 36, minimumDeadlineShare: 0.25, dependsOn: ['backend-tests', 'runtime-browser', 'frontend-tests'], members: ['production'], cpuWeight: 8, memoryWeight: 10, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 10, startupPriority: 1 }
+      { id: 'performance-evidence', command: 'performance', deadlineWeight: 36, minimumDeadlineShare: 0.25, dependsOn: [], members: ['production'], cpuWeight: 8, memoryWeight: 10, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 10, startupPriority: 1 }
     ],
     summaryOnly: [],
     ...overrides
@@ -141,10 +141,13 @@ test('production profile fixes the approved local resource and bundle contract',
   assert.ok(runtimeResourceErrors.includes('localProfiles.production.runtime-browser.deadlineWeight must be positive'))
   assert.ok(runtimeResourceErrors.includes('localProfiles.production.runtime-browser.memoryWeight must be positive'))
 
-  const undersizedFloor = profile({ minimumSupportedCpuUnits: 3 })
+  const undersizedFloor = profile({
+    minimumSupportedCpuUnits: 3,
+    bundles: profile().bundles.map((bundle) => ({ ...bundle, startupMinCpuUnits: 4, minCpuUnits: 4 }))
+  })
   assert.ok(validateLocalProfiles({ production: undersizedFloor }, [
     tier('production', ['a', 'b', 'c', 'd']), tier('a'), tier('b'), tier('c'), tier('d')
-  ]).includes('localProfiles.production startup CPU minimum 4 exceeds supported machine floor 3'))
+  ]).includes('localProfiles.production smallest startup CPU minimum 4 exceeds supported machine floor 3'))
 })
 
 test('legacy local bundles retain explicit startup compatibility fallbacks', () => {
@@ -975,7 +978,7 @@ test('acceptance bootstrap starts independent services within dynamic CPU and me
   assert.match(source, /resolveManifestChildEnvironment/u)
   assert.match(source, /capacity update workers=\$worker_cap->\$next_worker_cap active=\$active/u)
   assert.match(source, /run_bootstrap_parallel 'database services'[\s\S]*?postgres ensure_postgres[\s\S]*?redis ensure_redis/u)
-  assert.match(source, /run_bootstrap_parallel 'runtime applications'[\s\S]*?debug-backend ensure_backend[\s\S]*?release-preview ensure_release_preview[\s\S]*?debug-frontend ensure_debug_frontend/u)
+  assert.match(source, /local -a runtime_applications=\(debug-backend ensure_backend\)[\s\S]*?ci_production_has_domain frontend-dist[\s\S]*?runtime_applications\+=\(release-preview ensure_release_preview debug-frontend ensure_debug_frontend\)[\s\S]*?run_bootstrap_parallel 'runtime applications'/u)
   assert.match(source, /run_parallel "bootstrap-runtime-fixtures"[\s\S]*?auth-fixtures::prepare_auth_fixtures_once[\s\S]*?public-fixtures::prepare_public_fixtures_once/u)
   assert.match(source, /FSUSBLOG_PARALLEL_WORKLOAD=scheduler-admitted[\s\S]*run_parallel "bootstrap-runtime-fixtures"/u)
   assert.match(source, /run_parallel "bootstrap-runtime-fixtures"[\s\S]*refresh_acceptance_cache_after_fixtures/u)
@@ -988,8 +991,8 @@ test('acceptance service ports stay below the kernel ephemeral range and Vite ca
   for (const range of ['20000 21999', '22000 23999', '24000 25999', '26000 27999', '28000 29999']) {
     assert.match(source, new RegExp(`find_free_port ${range}`, 'u'))
   }
-  assert.equal((source.match(/--strictPort/gu) ?? []).length, 2)
-  assert.equal((source.match(/--host 127\.0\.0\.1/gu) ?? []).length, 2)
+  assert.equal((source.match(/--strictPort/gu) ?? []).length, 3)
+  assert.equal((source.match(/--host 127\.0\.0\.1/gu) ?? []).length, 3)
   assert.match(source, /-p "127\.0\.0\.1:\$\{POSTGRES_PORT\}:5432"/u)
   assert.match(source, /-p "127\.0\.0\.1:\$\{REDIS_PORT\}:6379"/u)
   assert.match(source, /process exited before becoming ready at \$url/u)
@@ -1053,11 +1056,7 @@ test('physical bundle DAG preserves dependencies and derives deadlines from reso
   assert.deepEqual(bundles[1].dependsOn, [])
   assert.deepEqual(bundles[2].dependsOn, [])
   assert.deepEqual(bundles[3].dependsOn, [])
-  assert.deepEqual(bundles[4].dependsOn, [
-    'local-production-backend-tests',
-    'local-production-runtime-browser',
-    'local-production-frontend-tests'
-  ])
+  assert.deepEqual(bundles[4].dependsOn, [])
   assert.deepEqual(bundles.map((bundle) => bundle.phase), [0, 0, 0, 0, 0])
   assert.deepEqual(bundles.slice(0, 4).map((bundle) => bundle.resourceGrantMode), ['dynamic', 'dynamic', 'dynamic', 'dynamic'])
   assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.cpuWeight), [2, 3, 3])
@@ -1098,13 +1097,11 @@ test('observe-only production records its optimization target without failing or
   }, production), [])
 })
 
-test('repository physical DAG starts runtime immediately and gates bootstrap on validated build markers', () => {
+test('repository physical DAG starts runtime and performance coordination immediately', () => {
   const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
   const profileBundles = new Map(matrix.localProfiles.production.bundles.map((bundle) => [bundle.id, bundle]))
   assert.deepEqual(profileBundles.get('runtime-browser').dependsOn, [])
-  assert.deepEqual(profileBundles.get('performance-evidence').dependsOn, [
-    'backend-tests', 'runtime-browser', 'frontend-tests'
-  ])
+  assert.deepEqual(profileBundles.get('performance-evidence').dependsOn, [])
 
   const resolved = resolveLocalProfileResources(matrix.localProfiles.production, {
     availableCpuUnits: 8,
@@ -1116,8 +1113,8 @@ test('repository physical DAG starts runtime immediately and gates bootstrap on 
   assert.equal(physicalTiers.get('runtime-browser').dependsOn.includes('local-production-backend-tests'), false)
   assert.equal(physicalTiers.get('runtime-browser').dependsOn.includes('local-production-frontend-tests'), false)
   assert.equal(physicalTiers.get('runtime-browser').dependsOn.includes('local-production-build-static'), false)
-  assert.ok(physicalTiers.get('performance-evidence').dependsOn.includes('local-production-backend-tests'))
-  assert.ok(physicalTiers.get('performance-evidence').dependsOn.includes('local-production-frontend-tests'))
+  assert.deepEqual(physicalTiers.get('performance-evidence').dependsOn, [])
+  assert.equal(physicalTiers.get('runtime-browser').residentLeaseTarget, 'performance-evidence')
   assert.ok(physicalTiers.get('backend-tests').cacheInputs.includes('tools/test/run-backend-production-shards.mjs'))
   assert.ok(physicalTiers.get('backend-tests').cacheInputs.includes('tools/test/backend-production-topology.mjs'))
 })

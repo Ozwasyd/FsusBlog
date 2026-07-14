@@ -210,6 +210,7 @@ export function createResidentLeaseInventory({
   runId,
   namespace,
   ownerBundleId,
+  sourceState = null,
   resourceGrant,
   services,
   generatedAt = new Date().toISOString()
@@ -222,6 +223,10 @@ export function createResidentLeaseInventory({
     runId: requiredText(runId, 'runId'),
     namespace: requiredText(namespace, 'namespace'),
     ownerBundleId: requiredText(ownerBundleId, 'ownerBundleId'),
+    sourceState: sourceState === null ? null : {
+      commit: requiredText(sourceState?.commit, 'sourceState.commit'),
+      worktreeFingerprint: requiredText(sourceState?.worktreeFingerprint, 'sourceState.worktreeFingerprint')
+    },
     generation: residentLeaseDigest(allocated.map((service) => ({
       id: service.id,
       kind: service.kind,
@@ -281,6 +286,7 @@ export function validateResidentLeaseInventory(inventory, {
   runId,
   namespace,
   ownerBundleId,
+  sourceState,
   verifyProcess,
   verifyContainer
 } = {}) {
@@ -288,12 +294,17 @@ export function validateResidentLeaseInventory(inventory, {
   if (runId !== undefined && inventory.runId !== runId) throw new Error('resident lease inventory belongs to another run')
   if (namespace !== undefined && inventory.namespace !== namespace) throw new Error('resident lease inventory belongs to another namespace')
   if (ownerBundleId !== undefined && inventory.ownerBundleId !== ownerBundleId) throw new Error('resident lease inventory belongs to another owner')
+  if (sourceState !== undefined && (inventory.sourceState?.commit !== sourceState?.commit
+    || inventory.sourceState?.worktreeFingerprint !== sourceState?.worktreeFingerprint)) {
+    throw new Error('resident lease inventory belongs to another source state')
+  }
   const { digest, ...unsigned } = inventory
   if (digest !== residentLeaseDigest(unsigned)) throw new Error('resident lease inventory digest mismatch')
   const rebuilt = createResidentLeaseInventory({
     runId: inventory.runId,
     namespace: inventory.namespace,
     ownerBundleId: inventory.ownerBundleId,
+    sourceState: inventory.sourceState,
     resourceGrant: inventory.reservation,
     services: inventory.services,
     generatedAt: inventory.generatedAt
@@ -335,6 +346,7 @@ export function createResidentLeaseHandoff({
     schema: residentResourceHandoffSchema,
     runId: inventory.runId,
     namespace: inventory.namespace,
+    sourceState: inventory.sourceState,
     generation: inventory.generation,
     leaseDigest: inventory.digest,
     fromOwnerBundleId: inventory.ownerBundleId,
@@ -352,25 +364,46 @@ export function consumeResidentLeaseHandoff(receipt, {
   consumerBundleId,
   consumedAt = new Date().toISOString()
 }) {
-  if (receipt?.schema !== residentResourceHandoffSchema) throw new Error('resident lease handoff schema mismatch')
+  validateResidentLeaseHandoff(receipt, { inventory, consumerBundleId, requireConsumed: false })
   const { digest, ...unsigned } = receipt
-  if (digest !== residentLeaseDigest(unsigned)) throw new Error('resident lease handoff digest mismatch')
-  validateResidentLeaseInventory(inventory, {
-    runId: receipt.runId,
-    namespace: receipt.namespace,
-    ownerBundleId: receipt.fromOwnerBundleId
-  })
-  if (receipt.generation !== inventory.generation || receipt.leaseDigest !== inventory.digest) {
-    throw new Error('resident lease handoff is stale')
-  }
-  if (receipt.toOwnerBundleId !== consumerBundleId) throw new Error('resident lease handoff belongs to another consumer')
-  if (receipt.consumedAt || receipt.consumedBy) throw new Error('resident lease handoff was already consumed')
   const consumed = {
     ...unsigned,
     consumedAt: requiredText(consumedAt, 'consumedAt'),
     consumedBy: consumerBundleId
   }
   return { ...consumed, digest: residentLeaseDigest(consumed) }
+}
+
+export function validateResidentLeaseHandoff(receipt, {
+  inventory,
+  consumerBundleId,
+  sourceState,
+  requireConsumed = null
+}) {
+  if (receipt?.schema !== residentResourceHandoffSchema) throw new Error('resident lease handoff schema mismatch')
+  const { digest, ...unsigned } = receipt
+  if (digest !== residentLeaseDigest(unsigned)) throw new Error('resident lease handoff digest mismatch')
+  validateResidentLeaseInventory(inventory, {
+    runId: receipt.runId,
+    namespace: receipt.namespace,
+    ownerBundleId: receipt.fromOwnerBundleId,
+    ...(sourceState === undefined ? {} : { sourceState })
+  })
+  if (receipt.sourceState?.commit !== inventory.sourceState?.commit
+    || receipt.sourceState?.worktreeFingerprint !== inventory.sourceState?.worktreeFingerprint) {
+    throw new Error('resident lease handoff belongs to another source state')
+  }
+  if (receipt.generation !== inventory.generation || receipt.leaseDigest !== inventory.digest) {
+    throw new Error('resident lease handoff is stale')
+  }
+  if (receipt.toOwnerBundleId !== consumerBundleId) throw new Error('resident lease handoff belongs to another consumer')
+  const consumed = Boolean(receipt.consumedAt || receipt.consumedBy)
+  if (consumed && (!receipt.consumedAt || receipt.consumedBy !== consumerBundleId)) {
+    throw new Error('resident lease handoff consumption evidence is incomplete')
+  }
+  if (requireConsumed === true && !consumed) throw new Error('resident lease handoff was not consumed')
+  if (requireConsumed === false && consumed) throw new Error('resident lease handoff was already consumed')
+  return receipt
 }
 
 export function writeResidentLeaseDocument(file, document) {

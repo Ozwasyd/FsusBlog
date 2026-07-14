@@ -58,7 +58,7 @@ localProfiles:
         deadlineWeight: 70
         minimumDeadlineShare: 0.7333333333
         dependsOn: []
-        members: [bootstrap, release, integration, endpoint-depth, security, security-authenticated-dast, acceptance, cross-browser-smoke, visual-public, visual-console, visual, ux-viewport-smoke, frontend-render-pressure, resilience, rights-v3-test-matrix, data-scale-xs, data-scale-s, data-scale-evidence-summary, csrf-browser-matrix, fault-injection, cross-stack-contract]
+        members: [bootstrap, release, integration, endpoint-depth, security, security-authenticated-dast, acceptance, cross-browser-smoke, visual-public, visual-console, visual, ux-viewport-smoke, frontend-render-pressure, resilience, rights-v3-test-matrix, csrf-browser-matrix, cross-stack-contract]
         resourceClass: browser
         cpuWeight: 2
         memoryWeight: 5
@@ -72,8 +72,8 @@ localProfiles:
         command: tools/test/bundles/performance-evidence.sh
         deadlineWeight: 44
         minimumDeadlineShare: 0.2666666667
-        dependsOn: [backend-tests, runtime-browser, frontend-tests]
-        members: [fast, coverage-merge, coverage-threshold, coverage-gate, load, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan, backend-qps, load-baseline, load-peak, backend-benchmark-regression, browser-performance-regression, performance-evidence-summary, backend-perf, privacy-zk-comment-matrix, release-evidence, production, aeds-frame-cost, aeds-compression-profile]
+        dependsOn: []
+        members: [fast, coverage-merge, coverage-threshold, coverage-gate, load, backend-qps-view-count-flush, backend-qps-visitlog-invalidation, backend-qps-cache-hit, backend-qps-comment-cursor, backend-qps-hotread, backend-qps-cache-miss-singleflight, backend-qps-risk-filter, backend-qps-related-reading, backend-qps-list-pagination, backend-qps-article-detail-miss, backend-qps-cache-registry, backend-cache-invalidation-batch, backend-qps-index-plan, backend-qps, load-baseline, load-peak, backend-benchmark-regression, browser-performance-regression, performance-evidence-summary, backend-perf, privacy-zk-comment-matrix, release-evidence, production, aeds-frame-cost, aeds-compression-profile, data-scale-xs, data-scale-s, data-scale-evidence-summary, fault-injection]
         resourceClass: benchmark
         cpuWeight: 8
         memoryWeight: 10
@@ -82,7 +82,7 @@ localProfiles:
         startupMemoryWeight: 10
         startupPriority: 1
         artifactSubstitutions: [fast::.tmp/backend-fast=>.tmp/local-production/performance-evidence/member-summaries/fast/summary.json, fast::.tmp/backend-fast/summary.json=>.tmp/local-production/performance-evidence/member-summaries/fast/summary.json, production::.tmp/backend-concurrency/summary.json=>.tmp/local-production/performance-evidence/member-summaries/production/summary.json, production::.tmp/release-evidence/test-suite-convergence.json=>.tmp/local-production/performance-evidence/member-summaries/production/summary.json]
-        exclusiveResources: [load-window, database-writes, benchmark-window]
+        exclusiveResources: []
 tiers:
   - id: validate-matrix
     owner: ServerContractAgent

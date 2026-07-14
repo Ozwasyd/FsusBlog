@@ -131,6 +131,10 @@ export function publishResidentInventoryFromEnvironment({
     runId,
     namespace,
     ownerBundleId,
+    sourceState: {
+      commit: requiredEnvironment(env, 'FSUSBLOG_TEST_SOURCE_COMMIT'),
+      worktreeFingerprint: requiredEnvironment(env, 'FSUSBLOG_TEST_SOURCE_FINGERPRINT')
+    },
     resourceGrant: {
       cpuUnits: positiveEnvironment(env, 'FSUSBLOG_STEP_CPU_BUDGET'),
       memoryGiB: positiveEnvironment(env, 'FSUSBLOG_STEP_MEMORY_GIB')
