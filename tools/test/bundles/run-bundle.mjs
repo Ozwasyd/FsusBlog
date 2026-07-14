@@ -44,6 +44,7 @@ import {
   resolveResourceSampleIntervalMs
 } from '../../test-matrix/resource-utilization.mjs'
 import { resolveCgroupLimits } from '../../test-matrix/production-resource-enforcement.mjs'
+import { createAsyncLogPipeline } from '../../test-matrix/async-log-pipeline.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const profileId = process.env.FSUSBLOG_LOCAL_PROFILE || 'production'
@@ -240,6 +241,10 @@ function installShutdownForwarding() {
       shutdownPromise = Promise.all([...activeStepChildren.entries()].map(async ([child, record]) => {
         await terminateProcessGroup(child, record.terminationGraceMs)
         closeChildPipes(child)
+        await record.logPipeline?.close({
+          complete: false,
+          truncationReason: `bundle-${signal.toLowerCase()}`
+        })
       })).finally(() => process.exit(exitCode))
     })
   }
@@ -493,7 +498,12 @@ function publishFrontendBuildTerminal(status, reason) {
 
 function register(step, result, testIds = null, artifactFiles = []) {
   const ids = testIds ?? [`command:${step.id}`]
-  const declaredArtifacts = [result.logFile, ...artifactFiles].map((file) => {
+  const declaredArtifacts = [...new Set([
+    result.logFile,
+    result.logIndexFile,
+    result.logEvidenceFile,
+    ...artifactFiles
+  ].filter(Boolean))].map((file) => {
     const absolute = path.isAbsolute(file) ? file : path.resolve(root, file)
     return relative(absolute)
   })
@@ -641,7 +651,6 @@ function loadExistingMemberExecutionReceipts() {
 async function executeStep(step) {
   if (shutdownPromise) throw new Error(`cannot start ${step.id} while bundle shutdown is in progress`)
   const logFile = path.join(logDir, `${step.id}.log`)
-  fs.writeFileSync(logFile, '')
   const started = Date.now()
   if (step.resources?.coordinationOnly === true) {
     const relativeDependencyResults = new Map((step.dependsOn ?? []).flatMap((dependencyId) => {
@@ -714,6 +723,15 @@ async function executeStep(step) {
   const args = useGnuTime
     ? ['-f', gnuTimeFormat, '-o', gnuTimeFile, '--', '/bin/bash', '-lc', step.command]
     : ['-lc', step.command]
+  const logPipeline = createAsyncLogPipeline({
+    root,
+    file: logFile,
+    // Production's parent scheduler owns a separate bundle-control log. Full
+    // child bytes stay in this step's authoritative stream so they are not
+    // copied into the parent tier log a second time. An explicit diagnostic
+    // session may opt into the bounded derived console sink.
+    teeOutput: process.env.FSUSBLOG_PRODUCTION_CHILD_CONSOLE_TEE === '1'
+  })
   const child = spawn(executable, args, {
     cwd: root,
     detached: process.platform !== 'win32',
@@ -752,20 +770,19 @@ async function executeStep(step) {
     })
   })
   const terminationGraceMs = Math.max(100, Math.min(5_000, Math.ceil(stepDeadlineMs * 0.02)))
-  activeStepChildren.set(child, { terminationGraceMs, stepId: step.id })
-  for (const [stream, writer] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
-    stream.on('data', (chunk) => {
-      fs.appendFileSync(logFile, chunk)
-      writer.write(chunk)
-    })
-  }
+  activeStepChildren.set(child, { terminationGraceMs, stepId: step.id, logPipeline })
+  logPipeline.attach(child.stdout, 'stdout')
+  logPipeline.attach(child.stderr, 'stderr')
   const exit = await new Promise((resolve) => {
     let settled = false
     let deadlineExpired = false
+    let removeLogFailure = () => {}
     const settle = (result) => {
       if (settled) return
       settled = true
       clearTimeout(deadlineTimer)
+      removeLogFailure()
+      activeStepChildren.delete(child)
       resolve(result)
     }
     const deadlineTimer = setTimeout(async () => {
@@ -773,33 +790,79 @@ async function executeStep(step) {
       deadlineExpired = true
       await terminateProcessGroup(child, terminationGraceMs)
       closeChildPipes(child)
-      settle({ code: 124, signal: null, timedOut: true })
+      settle({
+        code: 124,
+        signal: null,
+        timedOut: true,
+        logComplete: false,
+        logTruncationReason: 'step-deadline-forced-close'
+      })
     }, stepDeadlineMs)
     deadlineTimer.unref?.()
 
+    removeLogFailure = logPipeline.onFailure((error) => {
+      void (async () => {
+        if (settled) return
+        await terminateProcessGroup(child, terminationGraceMs)
+        closeChildPipes(child)
+        settle({
+          code: 1,
+          signal: null,
+          error: new Error(`authoritative log pipeline failed: ${error.message}`, { cause: error }),
+          logComplete: false,
+          logTruncationReason: 'writer-error'
+        })
+      })()
+    })
+
     child.once('error', (error) => {
-      activeStepChildren.delete(child)
       closeChildPipes(child)
-      settle({ code: 1, signal: null, error })
+      settle({
+        code: 1,
+        signal: null,
+        error,
+        logComplete: false,
+        logTruncationReason: 'child-spawn-error'
+      })
     })
     child.once('close', (code, signal) => {
-      activeStepChildren.delete(child)
       if (deadlineExpired) return
       settle({ code: code ?? 1, signal })
     })
   })
+  const logFinalization = await logPipeline.close({
+    complete: exit.logComplete !== false,
+    truncationReason: exit.logTruncationReason ?? null
+  })
+  const finalizedExit = logFinalization.error && !exit.error
+    ? {
+        ...exit,
+        code: 1,
+        error: new Error(
+          `authoritative log pipeline failed: ${logFinalization.error.message}`,
+          { cause: logFinalization.error }
+        )
+      }
+    : exit
   const result = {
-    ...exit,
+    ...finalizedExit,
     durationMs: Date.now() - started,
     startedAtMs: started,
     finishedAtMs: Date.now(),
-    logFile
+    logFile,
+    logIndexFile: logFinalization.indexFile,
+    logEvidenceFile: logFinalization.evidenceFile,
+    logEvidence: logFinalization.evidence
   }
   const resourceUtilization = resourceCollector.stop({
     gnuTime: useGnuTime ? parseGnuTimeReport(gnuTimeFile) : null
   })
-  stepResourceMetrics.set(step.id, resourceUtilization)
-  result.resourceUtilization = resourceUtilization
+  const resourceAndLogEvidence = {
+    ...resourceUtilization,
+    log: logFinalization.evidence
+  }
+  stepResourceMetrics.set(step.id, resourceAndLogEvidence)
+  result.resourceUtilization = resourceAndLogEvidence
   if (result.timedOut) {
     stepExecutionResults.set(step.id, { ...result, status: 'failure' })
     throw new Error(`${step.id} exceeded machine-resolved deadline (${stepDeadlineMs}ms)`)

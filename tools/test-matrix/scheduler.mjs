@@ -19,6 +19,7 @@ import {
   resolveResourceSampleIntervalMs
 } from './resource-utilization.mjs'
 import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs'
+import { createAsyncLogPipeline } from './async-log-pipeline.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
 const protectedSupersedesPattern = /(^|[^a-z])(property|model|perf|performance|benchmark|runtime)([^a-z]|$)/i
@@ -628,7 +629,7 @@ function signalProcessTree(child, signal) {
   if (child.exitCode === null && child.signalCode === null) child.kill(signal)
 }
 
-function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs, suspendForAttach = false }) {
+function beginSubprocess(tier, { root, env, outputPipeline, terminationGraceMs, suspendForAttach = false }) {
   const suspendedEntry = suspendForAttach && process.platform !== 'win32'
   const child = suspendedEntry
     ? spawn('/bin/bash', ['-c', 'kill -STOP $$; exec /bin/bash -lc "$1"', 'fsusblog-cgroup-entry', tier.command], {
@@ -647,8 +648,8 @@ function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs, sus
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
       })
-  child.stdout?.on('data', (chunk) => writeOutput(chunk, false))
-  child.stderr?.on('data', (chunk) => writeOutput(chunk, true))
+  outputPipeline.attach(child.stdout, 'stdout')
+  outputPipeline.attach(child.stderr, 'stderr')
 
   let settled = false
   let budgetExpired = false
@@ -690,7 +691,11 @@ function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs, sus
       closePipes()
       const pipeCloseGraceMs = Math.max(25, Math.min(250, terminationGraceMs || 25))
       forcedSettleTimer = setTimeout(() => {
-        settle(budgetExpired ? timeoutResult() : { code: 1, signal: 'SIGKILL' })
+        settle({
+          ...(budgetExpired ? timeoutResult() : { code: 1, signal: 'SIGKILL' }),
+          logComplete: false,
+          logTruncationReason: 'forced-pipe-close-after-sigkill'
+        })
       }, pipeCloseGraceMs)
     }, terminationGraceMs)
   }
@@ -1811,15 +1816,28 @@ async function runDagUnlocked(options) {
     const beforeOutputProvenance = outputProvenance(root, ownedOutputs, tierEnvironment)
 
     const logFile = path.join(tierLogDirectory, `${tier.id}.log`)
-    fs.writeFileSync(logFile, '')
+    const outputPipeline = createAsyncLogPipeline({
+      root,
+      file: logFile,
+      teeOutput: options.teeOutput === true,
+      highWaterMark: options.logHighWaterMark,
+      indexHighWaterMark: options.logIndexHighWaterMark,
+      consoleMaxBufferedBytes: options.consoleLogMaxBufferedBytes
+    })
     const writeOutput = (chunk, stderr = false) => {
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk))
-      fs.appendFileSync(logFile, buffer)
-      if (options.teeOutput === true) (stderr ? process.stderr : process.stdout).write(buffer)
+      return outputPipeline.write(chunk, stderr ? 'stderr' : 'stdout')
     }
     const beforeSnapshot = await snapshotWorktree()
     const startedAt = Date.now()
-    const context = { env: tierEnvironment, logFile, writeOutput, runId, runDirectory }
+    const context = {
+      env: tierEnvironment,
+      logFile,
+      logIndexFile: outputPipeline.indexFile,
+      logEvidenceFile: outputPipeline.evidenceFile,
+      writeOutput,
+      runId,
+      runDirectory
+    }
     const execution = options.executeTier
       ? {
           promise: Promise.resolve().then(() => options.executeTier(tier, context)).then(normalizeExecutionResult, (error) => ({ code: 1, signal: null, error })),
@@ -1828,7 +1846,7 @@ async function runDagUnlocked(options) {
       : beginSubprocess(tier, {
           root,
           env: tierEnvironment,
-          writeOutput,
+          outputPipeline,
           terminationGraceMs,
           suspendForAttach: resourceEnforcer.mode === 'enforced'
         })
@@ -1839,6 +1857,7 @@ async function runDagUnlocked(options) {
       } catch (error) {
         execution.terminate()
         execution.resume?.()
+        await outputPipeline.close({ complete: false, truncationReason: 'cgroup-attach-failed' })
         throw new Error(`cgroup attach failed for ${enforcementBundleId}: ${error.message}`, { cause: error })
       }
     }
@@ -1861,7 +1880,38 @@ async function runDagUnlocked(options) {
       firstExecutableStepAtMs: startedAt,
       cancelRequested: false,
       terminate: execution.terminate,
-      promise: execution.promise.then(async (executionResult) => {
+      promise: Promise.race([
+        execution.promise.then((result) => ({ kind: 'execution', result })),
+        outputPipeline.failure.then((error) => ({ kind: 'log-failure', error }))
+      ]).then(async (outcome) => {
+        let executionResult
+        if (outcome.kind === 'log-failure') {
+          execution.terminate()
+          if (execution.child) await execution.promise
+          executionResult = {
+            code: 1,
+            signal: null,
+            error: new Error(`authoritative log pipeline failed: ${outcome.error.message}`, { cause: outcome.error }),
+            logComplete: false,
+            logTruncationReason: 'writer-error'
+          }
+        } else {
+          executionResult = outcome.result
+        }
+        const logFinalization = await outputPipeline.close({
+          complete: executionResult.logComplete !== false,
+          truncationReason: executionResult.logTruncationReason ?? null
+        })
+        if (logFinalization.error && !executionResult.error) {
+          executionResult = {
+            ...executionResult,
+            code: 1,
+            error: new Error(
+              `authoritative log pipeline failed: ${logFinalization.error.message}`,
+              { cause: logFinalization.error }
+            )
+          }
+        }
         const resourceUtilization = resourceCollector?.stop() ?? {
           status: 'unavailable',
           platform: process.platform,
@@ -1880,7 +1930,10 @@ async function runDagUnlocked(options) {
           ownedOutputs,
           tierEnvironment,
           beforeOutputProvenance,
-          logFile
+          logFile,
+          logIndexFile: logFinalization.indexFile,
+          logEvidenceFile: logFinalization.evidenceFile,
+          logEvidence: logFinalization.evidence
         }
       })
     }
@@ -1897,7 +1950,21 @@ async function runDagUnlocked(options) {
 
   const recordSettled = (entry, settled) => {
     const { tier } = entry
-    const { executionResult, resourceUtilization, changedPaths, durationMs, inputFingerprint, dependencyFingerprint: dependencyFingerprintValue, ownedOutputs, tierEnvironment, beforeOutputProvenance, logFile } = settled
+    const {
+      executionResult,
+      resourceUtilization,
+      changedPaths,
+      durationMs,
+      inputFingerprint,
+      dependencyFingerprint: dependencyFingerprintValue,
+      ownedOutputs,
+      tierEnvironment,
+      beforeOutputProvenance,
+      logFile,
+      logIndexFile,
+      logEvidenceFile,
+      logEvidence
+    } = settled
     const commandFailed = executionResult.code !== 0 || executionResult.signal || executionResult.error
     const polluted = changedPaths.length > 0
     const cancelled = entry.cancelRequested && firstFailure !== null
@@ -1950,6 +2017,12 @@ async function runDagUnlocked(options) {
       ownedGeneratedOutputs: ownedOutputs,
       reason,
       logFile: relativeLogFile,
+      log: {
+        ...logEvidence,
+        rawLog: relativeLogFile,
+        index: path.relative(root, logIndexFile).replaceAll(path.sep, '/'),
+        evidence: path.relative(root, logEvidenceFile).replaceAll(path.sep, '/')
+      },
       reused: false
     }
     if (success) {
