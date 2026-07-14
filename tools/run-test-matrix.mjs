@@ -40,6 +40,10 @@ import {
   scheduleStaleProductionBuildGc
 } from './test-matrix/production-build-layout.mjs'
 import { createArtifactDigestTable } from './test-matrix/artifact-digest-table.mjs'
+import {
+  measureResourceCollectorOverhead,
+  writeResourceUtilizationEvidence
+} from './test-matrix/resource-utilization.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const matrixFile = process.env.FSUSBLOG_MATRIX_FILE
@@ -1128,6 +1132,150 @@ function projectLocalBundleSummaries(matrix, profileId, profile, runId, complete
   return { projectedTierIds: projected, bundleSummaries }
 }
 
+function emitProductionResourceUtilization({ profileId, profile, result, detectedResources, durationMs }) {
+  const checkpointFile = result.checkpointPath
+  const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+  result.checkpoint = checkpoint
+  const bundles = Object.fromEntries(profile.bundles.map((bundle) => {
+    const resourceFile = path.join(root, `.tmp/local-${profileId}`, bundle.id, 'resource-utilization.json')
+    const summaryFile = path.join(root, localBundleSummaryPath(profileId, bundle.id))
+    let resourceUtilization = null
+    try { resourceUtilization = JSON.parse(fs.readFileSync(resourceFile, 'utf8')) } catch {}
+    if (resourceUtilization && (resourceUtilization.schedulerRunId !== result.runId
+      || resourceUtilization.sourceState?.commit !== checkpoint.sourceState?.commit
+      || resourceUtilization.sourceState?.worktreeFingerprint !== checkpoint.sourceState?.worktreeFingerprint)) {
+      throw new Error(`resource utilization fragment binding mismatch: ${bundle.id}`)
+    }
+    const schedulerProcessTree = checkpoint.tiers?.[`local-${profileId}-${bundle.id}`]?.resourceUtilization ?? null
+    const bundleMetrics = resourceUtilization ? {
+      ...resourceUtilization,
+      peakRssBytes: schedulerProcessTree?.peakRssBytes ?? resourceUtilization.peakRssBytes,
+      averageRssBytes: schedulerProcessTree?.averageRssBytes ?? resourceUtilization.averageRssBytes,
+      processSpawnCount: schedulerProcessTree?.processSpawnCount ?? resourceUtilization.processSpawnCount,
+      actualCurve: schedulerProcessTree?.samples ?? []
+    } : null
+    return [bundle.id, {
+      status: resourceUtilization?.status ?? 'unavailable',
+      resourceUtilization,
+      bundleMetrics,
+      bindings: {
+        resourceFile: fs.existsSync(resourceFile) ? relativeToRoot(resourceFile) : null,
+        resourceDigest: fs.existsSync(resourceFile) ? fileDigest(resourceFile) : null,
+        summaryFile: fs.existsSync(summaryFile) ? relativeToRoot(summaryFile) : null,
+        summaryDigest: fs.existsSync(summaryFile) ? fileDigest(summaryFile) : null
+      }
+    }]
+  }))
+  const bundleValues = Object.values(bundles).map((entry) => entry.bundleMetrics).filter(Boolean)
+  const stepValues = bundleValues.flatMap((entry) => Object.entries(entry.steps ?? {})
+    .map(([stepId, value]) => ({ ...value, stepId, physicalBundleId: entry.physicalBundleId })))
+  const sumFinite = (values) => {
+    const selected = values.map(Number).filter(Number.isFinite)
+    return selected.length ? selected.reduce((total, value) => total + value, 0) : null
+  }
+  const actualCpuSeconds = sumFinite(stepValues.map((entry) => entry.actualCpuSeconds))
+  const grantedCpuSeconds = sumFinite(stepValues.map((entry) => entry.grantedCpuSeconds))
+  const waitTotalsMs = {}
+  for (const bundleValue of bundleValues) {
+    for (const [category, value] of Object.entries(bundleValue.waits?.totalsMs ?? {})) {
+      waitTotalsMs[category] = (waitTotalsMs[category] ?? 0) + Number(value || 0)
+    }
+  }
+  for (const [category, value] of Object.entries(checkpoint.resourceUtilization?.waits?.totalsMs ?? {})) {
+    waitTotalsMs[category] = (waitTotalsMs[category] ?? 0) + Number(value || 0)
+  }
+  const budgetCpu = Number(checkpoint.resourceBudget?.cpuUnits) || Number(detectedResources.availableCpuUnits) || 1
+  const capacityCpuSeconds = budgetCpu * durationMs / 1000
+  const idleCapacitySeconds = actualCpuSeconds === null ? null : Math.max(0, capacityCpuSeconds - actualCpuSeconds)
+  const schedulerSamples = checkpoint.resourceUtilization?.samples ?? []
+  let largestIdleInterval = null
+  for (let index = 1; index < schedulerSamples.length; index += 1) {
+    const previous = schedulerSamples[index - 1]
+    const current = schedulerSamples[index]
+    const durationSeconds = Math.max(0, Number(current.atMs - previous.atMs) / 1000)
+    const idleCpuSeconds = Math.max(0, budgetCpu - Number(previous.reservedCpuUnits || 0)) * durationSeconds
+    if (!largestIdleInterval || idleCpuSeconds > largestIdleInterval.idleCpuSeconds) {
+      largestIdleInterval = {
+        startedAtMs: previous.atMs,
+        finishedAtMs: current.atMs,
+        idleCpuSeconds,
+        reasonBasis: 'unreserved-scheduler-capacity'
+      }
+    }
+  }
+  const lowEfficiencySteps = stepValues.filter((entry) => Number.isFinite(entry.cpuGrantEfficiency))
+    .sort((left, right) => left.cpuGrantEfficiency - right.cpuGrantEfficiency)
+    .slice(0, 5)
+    .map(({ physicalBundleId, stepId, cpuGrantEfficiency, actualCpuSeconds: actual, grantedCpuSeconds: granted }) => ({
+      physicalBundleId, stepId, cpuGrantEfficiency, actualCpuSeconds: actual, grantedCpuSeconds: granted
+    }))
+  const warnings = []
+  if (schedulerSamples.some((sample) => Number(sample.reservedCpuUnits) > budgetCpu + 1e-6)) warnings.push('reserved CPU exceeded scheduler budget')
+  if (schedulerSamples.some((sample) => Number(sample.reservedMemoryGiB) > Number(checkpoint.resourceBudget?.memoryGiB) + 1e-6)) warnings.push('reserved memory exceeded scheduler budget')
+  const memoryPressureThreshold = Number(detectedResources.totalMemoryGiB) - Number(detectedResources.memoryReserveGiB || 0)
+  if (Number.isFinite(memoryPressureThreshold)
+    && schedulerSamples.some((sample) => Number(sample.hostUsedMemoryGiB) > memoryPressureThreshold)) {
+    warnings.push('host memory pressure crossed the machine-derived reserve threshold')
+  }
+  const complete = result.status === 'success'
+    && Object.values(bundles).every((entry) => entry.resourceUtilization?.status === 'complete')
+  const expected = { runId: result.runId, sourceState: checkpoint.sourceState, checkpoint: { revision: checkpoint.revision } }
+  const evidence = writeResourceUtilizationEvidence(
+    path.join(root, '.tmp/release-evidence/production-resource-utilization.json'),
+    {
+      status: complete ? 'complete' : 'partial',
+      incomplete: !complete,
+      runId: result.runId,
+      profileId,
+      sourceState: checkpoint.sourceState,
+      machine: {
+        platform: process.platform,
+        arch: process.arch,
+        cpuCount: detectedResources.cpuCount,
+        availableCpuUnits: detectedResources.availableCpuUnits,
+        availableMemoryGiB: detectedResources.availableMemoryGiB,
+        schedulerBudget: checkpoint.resourceBudget
+      },
+      checkpoint: {
+        path: relativeToRoot(checkpointFile),
+        digest: fileDigest(checkpointFile),
+        revision: checkpoint.revision,
+        status: checkpoint.status
+      },
+      wallSeconds: durationMs / 1000,
+      actualCpuSeconds,
+      grantedCpuSeconds,
+      cpuGrantEfficiency: actualCpuSeconds === null || grantedCpuSeconds === null || grantedCpuSeconds <= 0
+        ? null : actualCpuSeconds / grantedCpuSeconds,
+      idleCapacitySeconds,
+      scheduler: {
+        criticalPath: checkpoint.criticalPath,
+        curves: schedulerSamples,
+        actualProcessCurves: Object.fromEntries(Object.entries(checkpoint.tiers ?? {})
+          .map(([tierId, tier]) => [tierId, tier.resourceUtilization?.samples ?? []])),
+        resourceGrantHistory: checkpoint.resourceUtilization?.resourceGrantHistory ?? {},
+        waits: checkpoint.resourceUtilization?.waits ?? null,
+        largestIdleInterval
+      },
+      waits: { totalsMs: waitTotalsMs },
+      collectorCalibration: measureResourceCollectorOverhead(),
+      lowEfficiencySteps,
+      warnings,
+      bundles,
+      generatedAt: new Date().toISOString()
+    },
+    expected)
+  console.error(`[matrix:${profileId}] resource utilization wall=${evidence.wallSeconds.toFixed(2)}s criticalPath=${evidence.scheduler.criticalPath?.tierIds?.join('->') ?? 'unavailable'}`)
+  for (const [bundleId, entry] of Object.entries(bundles)) {
+    const efficiency = entry.bundleMetrics?.cpuGrantEfficiency
+    console.error(`[matrix:${profileId}] utilization bundle=${bundleId} efficiency=${Number.isFinite(efficiency) ? efficiency.toFixed(3) : 'unavailable'}`)
+  }
+  console.error(`[matrix:${profileId}] idleCapacitySeconds=${Number.isFinite(idleCapacitySeconds) ? idleCapacitySeconds.toFixed(2) : 'unavailable'} largestIdleInterval=${largestIdleInterval?.idleCpuSeconds?.toFixed(2) ?? 'unavailable'}`)
+  console.error(`[matrix:${profileId}] waits=${Object.entries(waitTotalsMs).map(([key, value]) => `${key}:${value}ms`).join(',') || 'none'}`)
+  console.error(`[matrix:${profileId}] low-efficiency=${lowEfficiencySteps.map((entry) => `${entry.physicalBundleId}/${entry.stepId}:${entry.cpuGrantEfficiency.toFixed(3)}`).join(',') || 'unavailable'} warnings=${warnings.join(';') || 'none'}`)
+  return evidence
+}
+
 async function runLocalProfile(matrix, profileId, options) {
   const profile = matrix.localProfiles[profileId]
   const detectResources = () => localProfileSystemResources(profile, {
@@ -1441,6 +1589,23 @@ async function runLocalProfile(matrix, profileId, options) {
   const buildEvidenceFile = path.join(root, '.tmp/release-evidence/production-build-layout.json')
   fs.mkdirSync(path.dirname(buildEvidenceFile), { recursive: true })
   fs.writeFileSync(buildEvidenceFile, `${JSON.stringify(buildManifest, null, 2)}\n`)
+
+  const resourceUtilizationEvidence = emitProductionResourceUtilization({
+    profileId,
+    profile: resolvedProfile,
+    result,
+    detectedResources,
+    durationMs: fullScriptDurationMs
+  })
+  if (fs.existsSync(summaryFile)) {
+    const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'))
+    summary.resourceUtilization = {
+      path: '.tmp/release-evidence/production-resource-utilization.json',
+      status: resourceUtilizationEvidence.status,
+      digest: fileDigest(path.join(root, '.tmp/release-evidence/production-resource-utilization.json'))
+    }
+    fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`)
+  }
 
   if (result.status !== 'success') {
     const failures = result.checkpoint.failures?.length > 0

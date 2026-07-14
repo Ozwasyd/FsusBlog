@@ -291,7 +291,8 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
       )),
       cpuUnits: finitePositive(current?.cpuUnits, undefined, 'capacity.cpuUnits'),
       memoryGiB: finitePositive(current?.memoryGiB, undefined, 'capacity.memoryGiB'),
-      exclusiveResources: current?.exclusiveResources
+      exclusiveResources: current?.exclusiveResources,
+      onWaitState: current?.onWaitState
     }
   }
   let normalizedCapacity = normalizeCapacity()
@@ -314,6 +315,7 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
     usedCpuUnits += runtimeCapacity.cpuUnits
     usedMemoryGiB += runtimeCapacity.memoryGiB
     states.set(entry.id, 'running')
+    normalizedCapacity.onWaitState?.(entry.id, null)
 
     const promise = Promise.resolve()
       .then(() => execute({ ...entry, runtimeCapacity }))
@@ -365,6 +367,41 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
       freeMemoryGiB
     )
     const admission = admissionResult.selected
+    const admittedIds = new Set(admission.map((entry) => entry.id))
+    const activeExecutableCount = [...active.values()]
+      .filter((record) => record.coordinationOnly !== true).length
+    const exclusiveByStep = new Map(admissionResult.blockedByExclusiveResources
+      .map((wait) => [wait.stepId, wait]))
+    for (const entry of normalized) {
+      if (states.get(entry.id) !== 'pending') continue
+      const dependencies = (entry.dependsOn ?? []).filter((dependency) => {
+        const dependencyState = states.get(dependency)
+        return entry.runAfterSettled === true
+          ? !['success', 'failure', 'blocked'].includes(dependencyState)
+          : dependencyState !== 'success'
+      })
+      if (dependencies.length > 0) {
+        normalizedCapacity.onWaitState?.(entry.id, { dependencies })
+        continue
+      }
+      const exclusive = exclusiveByStep.get(entry.id)
+      if (exclusive) {
+        normalizedCapacity.onWaitState?.(entry.id,
+          exclusive.resource === 'benchmark-window'
+            ? { benchmarkIsolation: true }
+            : { exclusiveResources: [exclusive.resource] })
+        continue
+      }
+      if (!admittedIds.has(entry.id)) {
+        normalizedCapacity.onWaitState?.(entry.id, {
+          capacity: {
+            cpu: freeCpuUnits < entry.resources.minCpuUnits
+              || activeExecutableCount + admission.length >= normalizedCapacity.maxParallel,
+            memory: freeMemoryGiB <= 0
+          }
+        })
+      }
+    }
     for (const wait of admissionResult.blockedByExclusiveResources) {
       const key = `${wait.stepId}\0${wait.resource}\0${wait.heldBy}\0${wait.holderState}`
       if (reportedExclusiveWaits.has(key)) continue

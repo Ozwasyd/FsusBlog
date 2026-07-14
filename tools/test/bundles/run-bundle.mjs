@@ -34,6 +34,13 @@ import {
   resolveProductionBuildLayout
 } from '../../test-matrix/production-build-layout.mjs'
 import { createArtifactDigestTable } from '../../test-matrix/artifact-digest-table.mjs'
+import {
+  createLinuxProcessTreeCollector,
+  createWaitLedger,
+  gnuTimeFormat,
+  parseGnuTimeReport,
+  resolveResourceSampleIntervalMs
+} from '../../test-matrix/resource-utilization.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const profileId = process.env.FSUSBLOG_LOCAL_PROFILE || 'production'
@@ -61,9 +68,12 @@ const frontendWasmRoot = productionBuildLayout.frontendWasm
 const backendWebRoot = productionBuildLayout.backendWebRoot
 const activeStepChildren = new Map()
 const stepExecutionResults = new Map()
+const stepResourceMetrics = new Map()
+const waitLedger = createWaitLedger()
 let shutdownPromise = null
 let runtimeChildEnvironment = {}
 let performanceDeadlineEvidence = null
+let finalizedResourceUtilization = null
 
 if (!bundleId || !bundle) throw new Error(`unknown ${profileId} bundle: ${String(bundleId)}`)
 const artifactDigestTable = createArtifactDigestTable({
@@ -85,6 +95,15 @@ const memberEvidence = new Map(bundle.members.map((tierId) => [tierId, {
   artifactDigests: {},
   artifactRefs: {}
 }]))
+
+async function observeWait(ownerId, state, operation) {
+  waitLedger.observe(ownerId, state)
+  try {
+    return await operation()
+  } finally {
+    waitLedger.observe(ownerId, null)
+  }
+}
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`
@@ -539,6 +558,13 @@ async function executeStep(step) {
       logFile
     }
     stepExecutionResults.set(step.id, { ...result, status: joinEvidence.status })
+    stepResourceMetrics.set(step.id, {
+      status: 'not-applicable',
+      wallSeconds: result.durationMs / 1000,
+      actualCpuSeconds: null,
+      grantedCpuSeconds: null,
+      cpuGrantEfficiency: null
+    })
     console.log(`[local-production:${bundleId}] joined ${step.id} status=${joinEvidence.status} durationMs=${result.durationMs}`)
     register(step, result, step.testIds, [...joined.dependencyLogs, ...(step.artifacts ?? [])])
     return result
@@ -567,7 +593,14 @@ async function executeStep(step) {
     'FSUSBLOG_VITEST_MAX_WORKERS',
     'FSUSBLOG_PLAYWRIGHT_WORKERS'
   ]) delete childBaseEnvironment[stalePhysicalWorkerCap]
-  const child = spawn('/bin/bash', ['-lc', step.command], {
+  const gnuTimeFile = path.join(logDir, `${step.id}.resource-time.txt`)
+  const useGnuTime = process.platform === 'linux' && fs.existsSync('/usr/bin/time')
+  fs.rmSync(gnuTimeFile, { force: true })
+  const executable = useGnuTime ? '/usr/bin/time' : '/bin/bash'
+  const args = useGnuTime
+    ? ['-f', gnuTimeFormat, '-o', gnuTimeFile, '--', '/bin/bash', '-lc', step.command]
+    : ['-lc', step.command]
+  const child = spawn(executable, args, {
     cwd: root,
     detached: process.platform !== 'win32',
     env: {
@@ -587,6 +620,17 @@ async function executeStep(step) {
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
+  })
+  const resourceCollector = createLinuxProcessTreeCollector({
+    rootPid: child.pid,
+    grantProvider: () => {
+      const capacity = resolveStepRuntimeCapacity(bundleId, step, bundleCapacity())
+      return { cpuUnits: capacity.cpuUnits, memoryGiB: capacity.memoryGiB }
+    },
+    sampleIntervalMs: resolveResourceSampleIntervalMs({
+      cpuUnits: stepCapacity.cpuUnits,
+      benchmark: (step.resources?.exclusiveResources ?? []).includes('benchmark-window')
+    })
   })
   const terminationGraceMs = Math.max(100, Math.min(5_000, Math.ceil(stepDeadlineMs * 0.02)))
   activeStepChildren.set(child, { terminationGraceMs, stepId: step.id })
@@ -632,6 +676,11 @@ async function executeStep(step) {
     finishedAtMs: Date.now(),
     logFile
   }
+  const resourceUtilization = resourceCollector.stop({
+    gnuTime: useGnuTime ? parseGnuTimeReport(gnuTimeFile) : null
+  })
+  stepResourceMetrics.set(step.id, resourceUtilization)
+  result.resourceUtilization = resourceUtilization
   if (result.timedOut) {
     stepExecutionResults.set(step.id, { ...result, status: 'failure' })
     throw new Error(`${step.id} exceeded machine-resolved deadline (${stepDeadlineMs}ms)`)
@@ -696,7 +745,8 @@ function bundleCapacity() {
 function bundleDagCapacity() {
   return {
     ...bundleCapacity(),
-    exclusiveResources: bundle.exclusiveResources ?? []
+    exclusiveResources: bundle.exclusiveResources ?? [],
+    onWaitState: (stepId, state) => waitLedger.observe(stepId, state)
   }
 }
 
@@ -1277,7 +1327,7 @@ async function executeRuntimeStep(step) {
   const startedAtMs = Date.now()
   fs.writeFileSync(logFile, '')
   console.log(`[local-production:${bundleId}] start ${step.id} coordination-only`)
-  await readinessWait()
+  await observeWait(step.id, { readinessMarker: step.id }, readinessWait)
   const finishedAtMs = Date.now()
   fs.writeFileSync(logFile, `${step.id} run=${schedulerRunId()} validated=true\n`)
   const result = {
@@ -1313,7 +1363,8 @@ async function executeFrontendStep(step) {
     const startedAtMs = Date.now()
     fs.writeFileSync(logFile, '')
     console.log(`[local-production:${bundleId}] start ${step.id} coordination-only`)
-    await waitForFrontendTestCapacity(targetCpuUnits)
+    await observeWait(step.id, { capacity: { cpu: true, memory: false } },
+      () => waitForFrontendTestCapacity(targetCpuUnits))
     const finishedAtMs = Date.now()
     fs.writeFileSync(logFile, `targetCpuUnits=${targetCpuUnits} validated=true\n`)
     const result = { code: 0, signal: null, durationMs: finishedAtMs - startedAtMs, startedAtMs, finishedAtMs, logFile }
@@ -1327,7 +1378,8 @@ async function executeFrontendStep(step) {
     const startedAtMs = Date.now()
     fs.writeFileSync(logFile, '')
     console.log(`[local-production:${bundleId}] start ${step.id} coordination-only`)
-    await waitForBackendProductionSummaryReady()
+    await observeWait(step.id, { readinessMarker: 'backend-production-summary' },
+      () => waitForBackendProductionSummaryReady())
     const finishedAtMs = Date.now()
     fs.writeFileSync(logFile, `${step.id} run=${schedulerRunId()} validated=true\n`)
     const result = {
@@ -1494,7 +1546,8 @@ async function runFrontendTests() {
   })
   const result = frontendDagResults.get('vitest-production-projects')
   if (!result) throw new Error('vitest-production-projects completed without a result')
-  await waitForSiblingBundleSummaries(['build-static'])
+  await observeWait('build-static-summary-ready', { readinessMarker: 'build-static-summary' },
+    () => waitForSiblingBundleSummaries(['build-static']))
   const perfStep = commandStep('vitest-production-perf-isolated', [
     'node tools/test/run-frontend-vitest-perf-isolated.mjs'
   ].join(' && '), [], {
@@ -1611,6 +1664,7 @@ async function run() {
       throw new Error(`${tierId} has no executed test IDs or complete artifact refs`)
     }
   }
+  const resourceUtilization = finalizeBundleResourceUtilization('complete')
   const summary = {
     schema: 'fsusblog.local-production.bundle.v1',
     physicalBundleId: bundleId,
@@ -1619,6 +1673,7 @@ async function run() {
     schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
     runToken: randomUUID(),
     durationMs: Date.now() - startedAt,
+    resourceUtilization,
     ...(performanceDeadlineEvidence ? { deadlineEvidence: performanceDeadlineEvidence } : {}),
     members,
     generatedAt: new Date().toISOString()
@@ -1630,7 +1685,67 @@ async function run() {
   console.log(`[local-production:${bundleId}] summary=${relative(summaryFile)} members=${Object.keys(members).length}`)
 }
 
+function finalizeBundleResourceUtilization(status, error = null) {
+  if (finalizedResourceUtilization) return finalizedResourceUtilization
+  const waits = waitLedger.finish()
+  const steps = Object.fromEntries([...stepResourceMetrics.entries()].sort(([left], [right]) => left.localeCompare(right)))
+  const values = Object.values(steps)
+  const sum = (key) => {
+    const measured = values.map((entry) => Number(entry?.[key])).filter(Number.isFinite)
+    return measured.length ? measured.reduce((total, value) => total + value, 0) : null
+  }
+  const actualCpuSeconds = sum('actualCpuSeconds')
+  const grantedCpuSeconds = sum('grantedCpuSeconds')
+  const cpuUserSeconds = sum('cpuUserSeconds')
+  const cpuSystemSeconds = sum('cpuSystemSeconds')
+  const wallSeconds = (Date.now() - startedAt) / 1000
+  const averageRssNumerator = values.reduce((total, entry) => {
+    const rss = Number(entry?.averageRssBytes)
+    const wall = Number(entry?.wallSeconds)
+    return Number.isFinite(rss) && Number.isFinite(wall) ? total + rss * wall : total
+  }, 0)
+  finalizedResourceUtilization = {
+    schema: 'fsusblog.production.bundle-resource-utilization.v1',
+    status,
+    incomplete: status !== 'complete',
+    schedulerRunId: schedulerRunId(),
+    sourceState: {
+      commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null,
+      worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
+    },
+    physicalBundleId: bundleId,
+    startedAtMs: startedAt,
+    finishedAtMs: Date.now(),
+    wallSeconds,
+    cpuUserSeconds,
+    cpuSystemSeconds,
+    actualCpuSeconds,
+    grantedCpuSeconds,
+    grantedMemoryGiBSeconds: sum('grantedMemoryGiBSeconds'),
+    cpuGrantEfficiency: actualCpuSeconds === null || grantedCpuSeconds === null || grantedCpuSeconds <= 0
+      ? null : actualCpuSeconds / grantedCpuSeconds,
+    peakRssBytes: values.map((entry) => Number(entry?.peakRssBytes)).filter(Number.isFinite).reduce((peak, value) => Math.max(peak, value), 0) || null,
+    averageRssBytes: averageRssNumerator > 0 && wallSeconds > 0 ? averageRssNumerator / wallSeconds : null,
+    readBytes: sum('readBytes'),
+    writeBytes: sum('writeBytes'),
+    voluntaryContextSwitches: sum('voluntaryContextSwitches'),
+    involuntaryContextSwitches: sum('involuntaryContextSwitches'),
+    processSpawnCount: sum('processSpawnCount'),
+    waits,
+    steps,
+    failure: error ? (error instanceof Error ? error.message : String(error)) : null,
+    generatedAt: new Date().toISOString()
+  }
+  const file = path.join(outDir, 'resource-utilization.json')
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  const temporary = `${file}.next-${process.pid}`
+  fs.writeFileSync(temporary, `${JSON.stringify(finalizedResourceUtilization, null, 2)}\n`)
+  fs.renameSync(temporary, file)
+  return finalizedResourceUtilization
+}
+
 run().catch((error) => {
+  finalizeBundleResourceUtilization('partial', error)
   if (shutdownPromise) return
   console.error(`[local-production:${bundleId}] ${error instanceof Error ? error.message : String(error)}`)
   process.exit(1)

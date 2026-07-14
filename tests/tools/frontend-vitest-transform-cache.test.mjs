@@ -208,7 +208,7 @@ test('production wiring keeps perf in an independent process after ordinary sett
   const bundle = fs.readFileSync('tools/test/bundles/run-bundle.mjs', 'utf8')
   const config = fs.readFileSync('src/frontend/vitest.production.config.ts', 'utf8')
   assert.match(ordinaryRunner, /sealTransformCache\(cache\)/u)
-  assert.match(bundle, /await waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?run-frontend-vitest-perf-isolated\.mjs/u)
+  assert.match(bundle, /waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?run-frontend-vitest-perf-isolated\.mjs/u)
   assert.match(perfRunner, /spawn\('npx',[\s\S]*?'--project=perf'/u)
   assert.match(perfRunner, /process\.kill\(process\.platform === 'win32' \? activeChild\.pid : -activeChild\.pid/u)
   assert.doesNotMatch(perfRunner, /--no-isolate/u)

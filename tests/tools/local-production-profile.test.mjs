@@ -727,7 +727,7 @@ test('backend bundle publishes server readiness before independent tests and ben
   assert.match(localBundleRunner, /waitForBackendProductionSummaryReady[\s\S]*?backend-production-shards\.v2[\s\S]*?exactOnce[\s\S]*?allPassed[\s\S]*?validateShardSummaryArtifacts/u)
   assert.doesNotMatch(frontendBundleRunner, /privacy-zk-comment-matrix\.sh project-functional/u)
   assert.doesNotMatch(frontendBundleRunner, /privacy-zk-comment-matrix\.sh benchmark/u)
-  assert.match(frontendBundleRunner, /await waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?vitest-production-perf-isolated/u)
+  assert.match(frontendBundleRunner, /waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?vitest-production-perf-isolated/u)
   assert.doesNotMatch(frontendBundleRunner, /waitForSiblingBundleSummaries\(\[[^\]]*backend-tests/u)
   assert.doesNotMatch(localBundleSteps, /resources:\s*\{[^\n}]*(?:cpuUnits|memoryGiB):/u)
   assert.doesNotMatch(localBundleRunner, /resources:\s*\{[^\n}]*(?:cpuUnits|memoryGiB):/u)

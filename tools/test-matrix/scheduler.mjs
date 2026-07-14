@@ -13,6 +13,11 @@ import {
   readAndValidateArtifactDigestTable,
   validateArtifactRefs
 } from './artifact-digest-table.mjs'
+import {
+  createLinuxProcessTreeCollector,
+  createWaitLedger,
+  resolveResourceSampleIntervalMs
+} from './resource-utilization.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
 const protectedSupersedesPattern = /(^|[^a-z])(property|model|perf|performance|benchmark|runtime)([^a-z]|$)/i
@@ -698,6 +703,7 @@ function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs }) {
   })
 
   return {
+    child,
     promise,
     terminate() {
       beginTermination()
@@ -1429,6 +1435,12 @@ async function runDagUnlocked(options) {
       reservedCpuUnits: 0,
       reservedMemoryGiB: 0
     },
+    resourceUtilization: {
+      status: 'collecting',
+      samples: [],
+      curveCompactions: 0,
+      waits: null
+    },
     maxParallel,
     sourceState,
     completedTiers: [],
@@ -1444,6 +1456,7 @@ async function runDagUnlocked(options) {
   const failed = new Set()
   const resultFingerprints = new Map()
   const active = new Map()
+  const schedulerWaitLedger = createWaitLedger()
   const reusedTiers = []
   let firstFailure = null
   const sampleResourcePeaks = () => {
@@ -1455,6 +1468,22 @@ async function runDagUnlocked(options) {
     )
     checkpoint.resourcePeaks.reservedCpuUnits = Math.max(checkpoint.resourcePeaks.reservedCpuUnits, usage.cpuUnits)
     checkpoint.resourcePeaks.reservedMemoryGiB = Math.max(checkpoint.resourcePeaks.reservedMemoryGiB, usage.memoryGiB)
+    checkpoint.resourceUtilization.samples.push({
+      atMs: Date.now(),
+      load1: Math.max(0, Number(os.loadavg()[0]) || 0),
+      runnableQueue: pending.filter((tier) => dependenciesReady(tier)).length,
+      pendingCount: pending.length,
+      activeCount: active.size,
+      reservedCpuUnits: usage.cpuUnits,
+      reservedMemoryGiB: usage.memoryGiB,
+      hostUsedMemoryGiB: Math.max(0, (os.totalmem() - os.freemem()) / (1024 ** 3))
+    })
+    const maximumCurveSamples = Math.max(1024, Math.min(16384, Math.ceil(budget.cpuUnits * 512)))
+    if (checkpoint.resourceUtilization.samples.length > maximumCurveSamples) {
+      checkpoint.resourceUtilization.samples = checkpoint.resourceUtilization.samples
+        .filter((_, index) => index % 2 === 0)
+      checkpoint.resourceUtilization.curveCompactions += 1
+    }
   }
   const resourceTimer = setInterval(sampleResourcePeaks, 500)
   resourceTimer.unref?.()
@@ -1634,6 +1663,7 @@ async function runDagUnlocked(options) {
   }
 
   const startTier = async (tier) => {
+    schedulerWaitLedger.observe(tier.id, null)
     const tierEnvironment = {
       ...process.env,
       ...(options.env ?? {}),
@@ -1678,6 +1708,16 @@ async function runDagUnlocked(options) {
           writeOutput,
           terminationGraceMs
         })
+    const resourceCollector = execution.child
+      ? createLinuxProcessTreeCollector({
+          rootPid: execution.child.pid,
+          grantProvider: () => tierResourceUnits(tier),
+          sampleIntervalMs: resolveResourceSampleIntervalMs({
+            cpuUnits: tierResourceUnits(tier).cpuUnits,
+            benchmark: tier.resourceClass === 'benchmark'
+          })
+        })
+      : null
 
     options.onTierStart?.(tier, { startedAt, logFile })
     const entry = {
@@ -1685,9 +1725,17 @@ async function runDagUnlocked(options) {
       cancelRequested: false,
       terminate: execution.terminate,
       promise: execution.promise.then(async (executionResult) => {
+        const resourceUtilization = resourceCollector?.stop() ?? {
+          status: 'unavailable',
+          platform: process.platform,
+          actualCpuSeconds: null,
+          grantedCpuSeconds: null,
+          cpuGrantEfficiency: null
+        }
         const afterSnapshot = await snapshotWorktree()
         return {
           executionResult,
+          resourceUtilization,
           changedPaths: changedSnapshotPaths(beforeSnapshot, afterSnapshot),
           durationMs: Math.max(0, Date.now() - startedAt),
           inputFingerprint,
@@ -1712,7 +1760,7 @@ async function runDagUnlocked(options) {
 
   const recordSettled = (entry, settled) => {
     const { tier } = entry
-    const { executionResult, changedPaths, durationMs, inputFingerprint, dependencyFingerprint: dependencyFingerprintValue, ownedOutputs, tierEnvironment, beforeOutputProvenance, logFile } = settled
+    const { executionResult, resourceUtilization, changedPaths, durationMs, inputFingerprint, dependencyFingerprint: dependencyFingerprintValue, ownedOutputs, tierEnvironment, beforeOutputProvenance, logFile } = settled
     const commandFailed = executionResult.code !== 0 || executionResult.signal || executionResult.error
     const polluted = changedPaths.length > 0
     const cancelled = entry.cancelRequested && firstFailure !== null
@@ -1747,6 +1795,7 @@ async function runDagUnlocked(options) {
       status: success ? 'success' : (cancelled ? 'cancelled' : 'failure'),
       resourceGrant: tierResourceUnits(tier),
       resourceGrantHistory: entry.resourceGrantHistory ?? [tierResourceUnits(tier)],
+      resourceUtilization,
       inputFingerprint,
       dependencyFingerprint: dependencyFingerprintValue,
       resultFingerprint,
@@ -1794,6 +1843,46 @@ async function runDagUnlocked(options) {
     }
     if ((!firstFailure || collectFailures) && !deadlineExpired) {
       const wave = admissionWave()
+      const waveIds = new Set(wave.map((tier) => tier.id))
+      const activeEntries = [...active.values()]
+      const usage = activeUsage(activeEntries)
+      const barrierPhase = Math.min(
+        ...pending.map(tierPhase),
+        ...activeEntries.map((entry) => tierPhase(entry.tier))
+      )
+      for (const tier of pending) {
+        if (waveIds.has(tier.id)) continue
+        if (tierPhase(tier) > barrierPhase) {
+          schedulerWaitLedger.observe(tier.id, { dependencies: [`phase:${barrierPhase}`] })
+          continue
+        }
+        const dependencies = (tier.dependsOn ?? []).filter((dependencyId) => byId.has(dependencyId) && !completed.has(dependencyId))
+        if (dependencies.length > 0) {
+          schedulerWaitLedger.observe(tier.id, { dependencies })
+          continue
+        }
+        const exclusiveResources = (tier.exclusiveResources ?? []).filter((resource) =>
+          activeEntries.some((entry) => (entry.tier.exclusiveResources ?? []).includes(resource)))
+        const serviceResources = (tier.services ?? []).filter((service) =>
+          activeEntries.some((entry) => (entry.tier.services ?? []).includes(service)))
+          .map((service) => `service:${service}`)
+        exclusiveResources.push(...serviceResources)
+        if (exclusiveResources.includes('benchmark-window')) {
+          schedulerWaitLedger.observe(tier.id, { benchmarkIsolation: true })
+        } else if (exclusiveResources.length > 0) {
+          schedulerWaitLedger.observe(tier.id, { exclusiveResources })
+        } else {
+          const request = tier.resourceGrantMode === 'dynamic'
+            ? { cpuUnits: Math.max(1, Number(tier.minCpuUnits)), memoryGiB: Number.EPSILON }
+            : tierResourceUnits(tier)
+          schedulerWaitLedger.observe(tier.id, { capacity: {
+            cpu: active.size >= maxParallel
+              || !canShareAdmission(tier, activeEntries, maxParallel)
+              || usage.cpuUnits + request.cpuUnits > budget.cpuUnits,
+            memory: usage.memoryGiB + request.memoryGiB > Math.min(budget.memoryGiB, usage.memoryGiB + currentFreeMemoryGiB())
+          } })
+        }
+      }
       for (const grantedTier of wave) {
         const nextIndex = pending.findIndex((tier) => tier.id === grantedTier.id)
         if (nextIndex < 0) continue
@@ -1903,6 +1992,10 @@ async function runDagUnlocked(options) {
   clearInterval(resourceTimer)
   sampleResourcePeaks()
   checkpoint.criticalPath = criticalPath(tiers, checkpoint.tiers)
+  checkpoint.resourceUtilization.status = firstFailure ? 'partial' : 'complete'
+  checkpoint.resourceUtilization.waits = schedulerWaitLedger.finish()
+  checkpoint.resourceUtilization.resourceGrantHistory = Object.fromEntries(Object.entries(checkpoint.tiers)
+    .map(([tierId, result]) => [tierId, result.resourceGrantHistory ?? []]))
   checkpoint.ungeneratedEvidence = firstFailure
     ? tiers.flatMap((tier) => {
         const result = checkpoint.tiers[tier.id]
