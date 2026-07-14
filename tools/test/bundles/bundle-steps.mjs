@@ -111,7 +111,12 @@ function normalizeStepResources(entry) {
     }
   }
   if (resources.coordinationOnly === true) {
-    for (const [name, normalizedValue] of [['cpuWeight', 0], ['memoryWeight', 0], ['minCpuUnits', 0]]) {
+    for (const [name, normalizedValue] of [
+      ['cpuWeight', 0],
+      ['memoryWeight', 0],
+      ['minCpuUnits', 0],
+      ['minMemoryGiB', 0]
+    ]) {
       if (Object.hasOwn(resources, name) && resources[name] !== normalizedValue) {
         throw new Error(`${name} cannot reserve resources for coordination-only step "${entry?.id ?? 'unknown'}"`)
       }
@@ -127,12 +132,16 @@ function normalizeStepResources(entry) {
       coordinationOnly: true,
       cpuWeight: 0,
       memoryWeight: 0,
-      minCpuUnits: 0
+      minCpuUnits: 0,
+      minMemoryGiB: 0
     }
   }
   const cpuWeight = finitePositive(resources.cpuWeight, 1, `cpuWeight for step "${entry?.id ?? 'unknown'}"`)
   const memoryWeight = finitePositive(resources.memoryWeight, 1, `memoryWeight for step "${entry?.id ?? 'unknown'}"`)
   const minCpuUnits = finitePositive(resources.minCpuUnits, 1, `minCpuUnits for step "${entry?.id ?? 'unknown'}"`)
+  const minMemoryGiB = resources.minMemoryGiB == null
+    ? null
+    : finitePositive(resources.minMemoryGiB, undefined, `minMemoryGiB for step "${entry?.id ?? 'unknown'}"`)
   if (!Number.isInteger(minCpuUnits)) {
     throw new Error(`minCpuUnits for step "${entry?.id ?? 'unknown'}" must be an integer`)
   }
@@ -141,6 +150,8 @@ function normalizeStepResources(entry) {
     cpuWeight,
     memoryWeight,
     minCpuUnits,
+    minMemoryGiB,
+    exclusiveCapacity: resources.exclusiveCapacity === true,
     countedResources: normalizeCountedResources(resources.countedResources, `countedResources for step "${entry?.id ?? 'unknown'}"`)
   }
 }
@@ -174,9 +185,19 @@ export function resolveConcurrentStepCapacities(steps, capacity) {
   const cpuUnits = Math.max(1, Math.floor(finitePositive(capacity?.cpuUnits, undefined, 'capacity.cpuUnits')))
   const memoryGiB = finitePositive(capacity?.memoryGiB, undefined, 'capacity.memoryGiB')
   const cpuAllocations = weightedIntegerAllocation(executable.map(({ entry }) => entry), cpuUnits)
-  const memoryWeightTotal = executable.reduce((total, { entry }) => total + entry.resources.memoryWeight, 0)
+  const fixedMemoryTotal = executable.reduce(
+    (total, { entry }) => total + (entry.resources.minMemoryGiB ?? 0),
+    0
+  )
+  if (fixedMemoryTotal > memoryGiB + Number.EPSILON) {
+    throw new Error(`step wave minimum memory ${fixedMemoryTotal} exceeds bundle grant ${memoryGiB}`)
+  }
+  const elasticMemoryEntries = executable.filter(({ entry }) => entry.resources.minMemoryGiB === null)
+  const memoryWeightTotal = elasticMemoryEntries.reduce((total, { entry }) => total + entry.resources.memoryWeight, 0)
+  const remainingMemoryGiB = Math.max(0, memoryGiB - fixedMemoryTotal)
   const allocationByIndex = new Map(executable.map(({ entry, index }, allocationIndex) => {
-    const stepMemoryGiB = memoryGiB * entry.resources.memoryWeight / memoryWeightTotal
+    const stepMemoryGiB = entry.resources.minMemoryGiB
+      ?? remainingMemoryGiB * entry.resources.memoryWeight / memoryWeightTotal
     return [index, {
       maxParallel: cpuAllocations[allocationIndex],
       cpuUnits: cpuAllocations[allocationIndex],
@@ -283,6 +304,10 @@ function validateWeightedSteps(steps, capacity, allowedExclusiveResources, allow
     if (!elastic && entry.resources.minCpuUnits > Math.floor(capacity.cpuUnits)) {
       throw new Error(`minCpuUnits for step "${entry.id}" exceeds bundle CPU grant`)
     }
+    if (!elastic && entry.resources.minMemoryGiB !== null
+      && entry.resources.minMemoryGiB > capacity.memoryGiB) {
+      throw new Error(`minMemoryGiB for step "${entry.id}" exceeds bundle memory grant`)
+    }
     for (const resource of entry.resources.exclusiveResources ?? []) {
       if (!resource || (allowed && !allowed.has(resource))) {
         throw new Error(`step "${entry.id}" requests unknown exclusive resource "${resource}"`)
@@ -301,7 +326,7 @@ function validateWeightedSteps(steps, capacity, allowedExclusiveResources, allow
     if (entry.runAfterSettled === true && entry.resources.coordinationOnly !== true) {
       throw new Error(`runAfterSettled step "${entry.id}" must be coordination-only`)
     }
-    for (const dependency of entry.dependsOn ?? []) {
+    for (const dependency of [...(entry.dependsOn ?? []), ...(entry.settledDependsOn ?? [])]) {
       if (!ids.has(dependency)) throw new Error(`${entry.id} depends on unknown dependency: ${dependency}`)
     }
   }
@@ -326,12 +351,19 @@ function selectWeightedAdmission(ready, capacity, active, freeCpuUnits, freeMemo
   const blockedByCountedResources = []
   let selectedExecutableCount = 0
   let minimumCpu = 0
+  let minimumMemoryGiB = 0
+  const activeExclusiveCapacity = [...active.values()].some((record) => record.exclusiveCapacity)
+  let selectedExclusiveCapacity = false
   for (const entry of ready) {
     if (entry.resources.coordinationOnly === true) {
       selected.push(entry)
       continue
     }
-    if (freeMemoryGiB <= 0) continue
+    if (activeExclusiveCapacity || selectedExclusiveCapacity) continue
+    if (entry.resources.exclusiveCapacity === true
+      && (activeExecutableCount > 0 || selectedExecutableCount > 0)) continue
+    const entryMinimumMemoryGiB = entry.resources.minMemoryGiB ?? 0
+    if (freeMemoryGiB <= 0 || minimumMemoryGiB + entryMinimumMemoryGiB > freeMemoryGiB) continue
     if (selectedExecutableCount >= capacity.maxParallel - activeExecutableCount) continue
     if (minimumCpu + entry.resources.minCpuUnits > Math.floor(freeCpuUnits)) continue
     const resources = [...new Set(entry.resources.exclusiveResources ?? [])]
@@ -363,6 +395,8 @@ function selectWeightedAdmission(ready, capacity, active, freeCpuUnits, freeMemo
     selected.push(entry)
     selectedExecutableCount += 1
     minimumCpu += entry.resources.minCpuUnits
+    minimumMemoryGiB += entryMinimumMemoryGiB
+    selectedExclusiveCapacity = entry.resources.exclusiveCapacity === true
     for (const resource of resources) {
       resourceOwners.set(resource, { stepId: entry.id, holderState: 'admission-wave' })
     }
@@ -395,7 +429,8 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
       memoryGiB: finitePositive(current?.memoryGiB, undefined, 'capacity.memoryGiB'),
       exclusiveResources: current?.exclusiveResources,
       countedResources: normalizeCountedResources(current?.countedResources, 'capacity.countedResources'),
-      onWaitState: current?.onWaitState
+      onWaitState: current?.onWaitState,
+      signal: current?.signal
     }
   }
   let normalizedCapacity = normalizeCapacity()
@@ -442,12 +477,17 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
       exclusiveResources,
       countedResources,
       coordinationOnly: entry.resources.coordinationOnly === true,
+      exclusiveCapacity: entry.resources.exclusiveCapacity === true,
       runtimeCapacity
     })
   }
 
   while ([...states.values()].some((state) => ['pending', 'running'].includes(state))) {
     normalizedCapacity = normalizeCapacity()
+    if (normalizedCapacity.signal?.aborted) {
+      await Promise.allSettled([...active.values()].map((record) => record.promise))
+      throw normalizedCapacity.signal.reason ?? new Error('step DAG cancelled')
+    }
     let propagatedBlock
     do {
       propagatedBlock = false
@@ -463,7 +503,9 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
     const ready = normalized.filter((entry) => states.get(entry.id) === 'pending'
       && (entry.dependsOn ?? []).every((dependency) => entry.runAfterSettled === true
         ? ['success', 'failure', 'blocked'].includes(states.get(dependency))
-        : states.get(dependency) === 'success'))
+        : states.get(dependency) === 'success')
+      && (entry.settledDependsOn ?? []).every((dependency) =>
+        ['success', 'failure', 'blocked'].includes(states.get(dependency))))
     const freeCpuUnits = Math.max(0, Math.floor(normalizedCapacity.cpuUnits) - usedCpuUnits)
     const freeMemoryGiB = Math.max(0, normalizedCapacity.memoryGiB - usedMemoryGiB)
     const admissionResult = selectWeightedAdmission(
@@ -489,6 +531,8 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
           ? !['success', 'failure', 'blocked'].includes(dependencyState)
           : dependencyState !== 'success'
       })
+      dependencies.push(...(entry.settledDependsOn ?? []).filter((dependency) =>
+        !['success', 'failure', 'blocked'].includes(states.get(dependency))))
       if (dependencies.length > 0) {
         normalizedCapacity.onWaitState?.(entry.id, { dependencies })
         continue
@@ -513,7 +557,7 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
           capacity: {
             cpu: freeCpuUnits < entry.resources.minCpuUnits
               || activeExecutableCount + admission.length >= normalizedCapacity.maxParallel,
-            memory: freeMemoryGiB <= 0
+            memory: freeMemoryGiB < (entry.resources.minMemoryGiB ?? Number.EPSILON)
           }
         })
       }
@@ -549,7 +593,10 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
       })
       admission.forEach((entry, index) => start({
         ...entry,
-        dependencyOutcomes: Object.fromEntries((entry.dependsOn ?? []).map((dependency) => [dependency, states.get(dependency)]))
+        dependencyOutcomes: Object.fromEntries([
+          ...(entry.dependsOn ?? []),
+          ...(entry.settledDependsOn ?? [])
+        ].map((dependency) => [dependency, states.get(dependency)]))
       }, allocations[index]))
       continue
     }
@@ -562,10 +609,14 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
         // capacity immediately admits an independent ready branch instead of
         // waiting for the longest browser lane to finish.
         const pollMs = Math.max(10, Math.min(250, Math.ceil(1000 / normalizedCapacity.cpuUnits)))
-        await Promise.race([
-          activeCompletion,
-          new Promise((resolve) => setTimeout(resolve, pollMs))
-        ])
+        const poll = new Promise((resolve) => {
+          const timer = setTimeout(resolve, pollMs)
+          normalizedCapacity.signal?.addEventListener('abort', () => {
+            clearTimeout(timer)
+            resolve()
+          }, { once: true })
+        })
+        await Promise.race([activeCompletion, poll])
       } else {
         await activeCompletion
       }
@@ -574,7 +625,13 @@ export async function executeWeightedStepDag(steps, capacity, execute) {
     if (ready.length > 0) {
       if (!elastic) throw new Error('no dependency-ready step fits the bundle CPU grant')
       const pollMs = Math.max(10, Math.min(250, Math.ceil(1000 / normalizedCapacity.cpuUnits)))
-      await new Promise((resolve) => setTimeout(resolve, pollMs))
+      await new Promise((resolve) => {
+        const timer = setTimeout(resolve, pollMs)
+        normalizedCapacity.signal?.addEventListener('abort', () => {
+          clearTimeout(timer)
+          resolve()
+        }, { once: true })
+      })
       continue
     }
     if ([...states.values()].some((state) => state === 'pending')) {

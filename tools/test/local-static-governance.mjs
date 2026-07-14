@@ -6,11 +6,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
   executeManifestEntry,
-  resolveManifestChildEnvironment,
-  resolveManifestWorkers,
+  runWeightedCommandManifest,
   validateCommandManifest
 } from './run-command-manifest.mjs'
-import { executeLimitedWave } from './bundles/wave-runner.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const staticStages = ['blocking-prebuild', 'concurrent', 'postbuild', 'isolated', 'final']
@@ -87,54 +85,58 @@ function phaseEntries(plan, phase) {
     : plan[phase]
 }
 
-function phaseResourceOptions(entries, workers) {
-  const exclusiveResources = [...new Set(entries.flatMap((entry) => entry.resources.exclusiveResources))]
-  return {
-    maxParallel: workers,
-    exclusiveResources,
-    getStepResources: (entry) => ({ exclusiveResources: entry.resources.exclusiveResources })
-  }
-}
-
 export async function executeStaticStage({
   stage,
   entries,
-  workers,
   frontendRoot,
   env,
   timings,
   execute = executeManifestEntry
 }) {
   const queuedAtMs = Date.now()
-  const concurrentEnv = resolveManifestChildEnvironment({ env, workers, concurrent: true })
-  await executeLimitedWave(entries, phaseResourceOptions(entries, workers), async (entry) => {
-    const startedAtMs = Date.now()
-    const timing = {
-      id: entry.id,
-      stage,
-      reason: entry.reason,
-      waitReason: entry.dependsOn.length > 0
-        ? `waiting for dependencies: ${entry.dependsOn.join(', ')}`
-        : `waiting for ${stage} resource admission`,
-      dependsOn: entry.dependsOn,
-      consumedInputs: entry.consumedInputs,
-      ownedOutputs: entry.ownedOutputs,
-      exclusiveResources: entry.resources.exclusiveResources,
-      queuedAtMs,
-      startedAtMs,
-      waitDurationMs: startedAtMs - queuedAtMs
-    }
-    timings.push(timing)
-    try {
-      await execute(entry, { cwd: frontendRoot, env: concurrentEnv })
-      timing.status = 'success'
-    } catch (error) {
-      timing.status = 'failure'
-      timing.error = error instanceof Error ? error.message : String(error)
-      throw error
-    } finally {
-      timing.finishedAtMs = Date.now()
-      timing.durationMs = timing.finishedAtMs - startedAtMs
+  const stageIds = new Set(entries.map((entry) => entry.id))
+  return runWeightedCommandManifest({
+    schema: 'fsusblog.frontend-static-command-manifest.v2',
+    lane: `frontend-static:${stage}`,
+    commands: entries.map((entry) => ({
+      ...entry,
+      dependsOn: entry.dependsOn.filter((dependency) => stageIds.has(dependency)),
+      memoryCostGiB: Number(entry.memoryCostGiB ?? 0.125 * entry.resources.memoryWeight)
+    }))
+  }, {
+    cwd: frontendRoot,
+    env,
+    workload: 'scheduler-admitted',
+    orchestrationMemoryGiBPerWorker: 0.125,
+    execute: async (entry, options) => {
+      const startedAtMs = Date.now()
+      const timing = {
+        id: entry.id,
+        stage,
+        reason: entry.reason,
+        waitReason: entry.dependsOn.length > 0
+          ? `waiting for dependencies: ${entry.dependsOn.join(', ')}`
+          : `waiting for ${stage} resource admission`,
+        dependsOn: entry.dependsOn,
+        consumedInputs: entry.consumedInputs,
+        ownedOutputs: entry.ownedOutputs,
+        exclusiveResources: entry.resources.exclusiveResources,
+        queuedAtMs,
+        startedAtMs,
+        waitDurationMs: startedAtMs - queuedAtMs
+      }
+      timings.push(timing)
+      try {
+        await execute(entry, options)
+        timing.status = 'success'
+      } catch (error) {
+        timing.status = 'failure'
+        timing.error = error instanceof Error ? error.message : String(error)
+        throw error
+      } finally {
+        timing.finishedAtMs = Date.now()
+        timing.durationMs = timing.finishedAtMs - startedAtMs
+      }
     }
   })
 }
@@ -145,7 +147,6 @@ export async function runLocalStaticGovernance({ repoRoot = root, env = process.
   const packageJson = JSON.parse(fs.readFileSync(path.join(frontendRoot, 'package.json'), 'utf8'))
   const manifest = buildLocalStaticManifest(staticManifest, packageJson.scripts)
   const plan = planLocalStaticCommands(manifest)
-  const workers = resolveManifestWorkers({ env })
   const phase = String(env.FSUSBLOG_LOCAL_STATIC_PHASE ?? 'all').trim()
   if (!['all', ...staticStages].includes(phase)) {
     throw new Error(`FSUSBLOG_LOCAL_STATIC_PHASE must be all or one of: ${staticStages.join(', ')}`)
@@ -155,21 +156,23 @@ export async function runLocalStaticGovernance({ repoRoot = root, env = process.
   const timings = []
   const stageTimings = []
   const failures = []
+  const liveGrantExecutions = []
   for (const stage of stages) {
     const stageStartedAtMs = Date.now()
     let status = 'success'
     try {
-      await executeStaticStage({
+      const liveGrantExecution = await executeStaticStage({
         stage,
         entries: plan[stage],
-        workers,
         frontendRoot,
         env,
         timings
       })
+      liveGrantExecutions.push(liveGrantExecution)
     } catch (error) {
       status = 'failure'
       failures.push(error instanceof Error ? error : new Error(String(error)))
+      if (error?.liveGrantEvidence) liveGrantExecutions.push(error.liveGrantEvidence)
     } finally {
       const finishedAtMs = Date.now()
       stageTimings.push({
@@ -189,7 +192,11 @@ export async function runLocalStaticGovernance({ repoRoot = root, env = process.
   const execution = {
     phase,
     stages,
-    workers,
+    workers: Math.max(1, ...liveGrantExecutions.flatMap((entry) =>
+      entry.grantHistory.map((grant) => grant.maxParallel))),
+    grantHistory: liveGrantExecutions.flatMap((entry) => entry.grantHistory),
+    admissions: liveGrantExecutions.flatMap((entry) => entry.children),
+    blockedReasons: liveGrantExecutions.flatMap((entry) => entry.blocked),
     commandCount: executedCommands.length,
     commandIds: executedCommands.map((entry) => entry.id),
     stagePlan: staticStages.map((stage) => ({

@@ -580,10 +580,8 @@ resolve_parallel_workers() {
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 const {
-  resolveAdaptiveManifestWorkers,
-  resolveManifestWorkers
+  resolveManifestLiveCapacity
 } = await import(pathToFileURL(process.argv[2]).href)
-const adaptive = process.env.FSUSBLOG_ADAPTIVE_PARALLEL === '1'
 const requestedWorkload = process.env.FSUSBLOG_PARALLEL_WORKLOAD
 const options = {
   env: process.env,
@@ -591,7 +589,7 @@ const options = {
     ? requestedWorkload
     : 'cpu'
 }
-process.stdout.write(String((adaptive ? resolveAdaptiveManifestWorkers : resolveManifestWorkers)(options)))
+process.stdout.write(String(resolveManifestLiveCapacity(options).maxParallel))
 NODE
 }
 
@@ -641,8 +639,11 @@ run_parallel() {
   local total="${#specs[@]}"
   local worker_cap
   worker_cap="$(resolve_parallel_workers "$total")"
-  local adaptive_parallel="${FSUSBLOG_ADAPTIVE_PARALLEL:-0}"
   local grant_file="${FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE:-}"
+  local adaptive_parallel="${FSUSBLOG_ADAPTIVE_PARALLEL:-0}"
+  if [[ -n "$grant_file" ]]; then adaptive_parallel=1; fi
+  local execution_mode='fixed'
+  if [[ "$adaptive_parallel" == "1" ]]; then execution_mode='live-grant'; fi
   local grant_signature=""
   if [[ "$adaptive_parallel" == "1" && -n "$grant_file" ]]; then
     grant_signature="$(stat -c '%y:%s' "$grant_file" 2>/dev/null || printf 'missing')"
@@ -650,7 +651,7 @@ run_parallel() {
   mkdir -p "$status_dir"
 
   CURRENT_STAGE="$group"
-  log "parallel group start: $group ($total jobs, workers=$worker_cap)"
+  log "parallel group start: $group ($total jobs, workers=$worker_cap, executionMode=$execution_mode)"
 
   local index
   for ((index = 0; index < total; index += 1)); do

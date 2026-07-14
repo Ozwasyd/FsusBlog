@@ -477,7 +477,7 @@ assert.deepEqual(commandManifest.validateCommandManifest({
   lane: 'contract',
   commands: [
     { id: 'read', script: 'check:read', access: 'read' },
-    { id: 'write', script: 'check:write', access: 'write' }
+    { id: 'write', script: 'check:write', access: 'write', ownedOutputs: ['fixture-output'] }
   ]
 }), [])
 assert.equal(commandManifest.resolveManifestWorkers({
@@ -559,8 +559,8 @@ try {
     schema: 'fsusblog.test-command-manifest.v1',
     lane: 'contract-ordering',
     commands: [
-      { id: 'read-a', command: [process.execPath, '-e', markerScript, markerFile, 'read-a', String(overlapExpected)], access: 'read' },
-      { id: 'read-b', command: [process.execPath, '-e', markerScript, markerFile, 'read-b', String(overlapExpected)], access: 'read' },
+      { id: 'read-a', command: [process.execPath, '-e', markerScript, markerFile, 'read-a', String(overlapExpected)], access: 'read', consumedInputs: ['marker-file'] },
+      { id: 'read-b', command: [process.execPath, '-e', markerScript, markerFile, 'read-b', String(overlapExpected)], access: 'read', consumedInputs: ['marker-file'] },
       {
         id: 'write',
         command: [
@@ -569,7 +569,8 @@ try {
           "require('node:fs').appendFileSync(process.argv[1], 'write:start\\n')",
           markerFile
         ],
-        access: 'write'
+        access: 'write',
+        ownedOutputs: ['marker-file']
       }
     ]
   }, {
@@ -602,9 +603,9 @@ try {
     schema: 'fsusblog.test-command-manifest.v1',
     lane: 'contract-failure-collection',
     commands: [
-      { id: 'read-fail-a', command: [process.execPath, '-e', commandScript, markerFile, 'read-fail-a', '2'], access: 'read' },
-      { id: 'read-fail-b', command: [process.execPath, '-e', commandScript, markerFile, 'read-fail-b', '3'], access: 'read' },
-      { id: 'write-after-failures', command: [process.execPath, '-e', commandScript, markerFile, 'write-after-failures', '0'], access: 'write' }
+      { id: 'read-fail-a', command: [process.execPath, '-e', commandScript, markerFile, 'read-fail-a', '2'], access: 'read', consumedInputs: ['marker-file'] },
+      { id: 'read-fail-b', command: [process.execPath, '-e', commandScript, markerFile, 'read-fail-b', '3'], access: 'read', consumedInputs: ['marker-file'] },
+      { id: 'write-after-failures', command: [process.execPath, '-e', commandScript, markerFile, 'write-after-failures', '0'], access: 'write', ownedOutputs: ['marker-file'] }
     ]
   }, {
     cwd: commandFailureRoot,

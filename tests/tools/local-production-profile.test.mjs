@@ -970,7 +970,7 @@ test('acceptance backend derives thread-pool capacity from machine CPUs and burs
 test('acceptance bootstrap starts independent services within dynamic CPU and memory grants', () => {
   const source = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
   assert.match(source, /resolve_bootstrap_parallel_workers/u)
-  assert.match(source, /resolveManifestWorkers\(\{ env: process\.env \}\)/u)
+  assert.match(source, /resolveManifestLiveCapacity\(\{ env: process\.env, workload: 'scheduler-admitted' \}\)/u)
   assert.match(source, /readManifestSchedulerResourceGrant\(\{ env: process\.env \}\)/u)
   assert.match(source, /resolveManifestChildEnvironment/u)
   assert.match(source, /capacity update workers=\$worker_cap->\$next_worker_cap active=\$active/u)

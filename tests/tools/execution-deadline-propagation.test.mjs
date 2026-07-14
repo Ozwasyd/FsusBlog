@@ -51,7 +51,7 @@ test('acceptance machine readiness divides the remaining execution deadline inst
     "allocate_readiness_deadline 'runtime applications'",
     "run_bootstrap_parallel 'database services'",
     "run_bootstrap_parallel 'runtime applications'",
-    'resolveManifestWorkers({ env: process.env })',
+    "resolveManifestLiveCapacity({ env: process.env, workload: 'scheduler-admitted' })",
     'resolveManifestChildEnvironment',
     'FSUSBLOG_STEP_CPU_BUDGET',
     'FSUSBLOG_STEP_MEMORY_GIB',

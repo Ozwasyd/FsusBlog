@@ -252,14 +252,11 @@ import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 
 const {
-  readManifestSchedulerResourceGrant,
-  resolveManifestWorkers
+  resolveManifestLiveCapacity
 } = await import(pathToFileURL(process.argv[2]).href)
-const baseWorkers = resolveManifestWorkers({ env: process.env })
-const liveGrant = readManifestSchedulerResourceGrant({ env: process.env })
 const jobCount = Number.parseInt(process.env.FSUSBLOG_COMMAND_MANIFEST_WORKERS ?? '', 10)
-const liveWorkers = liveGrant ? Math.floor(liveGrant.cpuUnits) : baseWorkers
-process.stdout.write(String(Math.max(1, Math.min(jobCount, Math.max(baseWorkers, liveWorkers)))))
+const capacity = resolveManifestLiveCapacity({ env: process.env, workload: 'scheduler-admitted' })
+process.stdout.write(String(Math.max(1, Math.min(jobCount, capacity.maxParallel))))
 NODE
 }
 

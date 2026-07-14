@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -15,6 +17,7 @@ import {
   planWeightedManifestEntries,
   readManifestSchedulerResourceGrant,
   resolveAdaptiveManifestWorkers,
+  resolveManifestLiveCapacity,
   runWeightedCommandManifest,
   validateCommandManifest
 } from '../../tools/test/run-command-manifest.mjs'
@@ -25,6 +28,24 @@ const frontendPackage = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend
 const localStaticSource = fs.readFileSync(path.join(root, 'tools/test/local-static-governance.mjs'), 'utf8')
 const staticLaneSource = fs.readFileSync(path.join(root, 'tools/test/lanes/static-governance.sh'), 'utf8')
 const legacyLaneSource = fs.readFileSync(path.join(root, 'tools/test/lanes/_legacy.sh'), 'utf8')
+
+function deferred() {
+  let resolve
+  let reject
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
+async function waitFor(predicate, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error('condition was not reached before timeout')
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
 
 test('local static manifest expands only the explicit production views plan without omitting a check', () => {
   const chainedScripts = extractChainedNpmScripts(frontendPackage.scripts['check:views-constraints'])
@@ -113,14 +134,15 @@ test('five explicit phases form an exact 66-command partition with timing eviden
   assert.match(localStaticSource, /stagePlan:[\s\S]*?dependencies:[\s\S]*?exclusiveResources:/u)
   assert.match(localStaticSource, /stageTimings[\s\S]*?commandCount:[\s\S]*?durationMs:[\s\S]*?waitReasons:/u)
   assert.match(localStaticSource, /queuedAtMs[\s\S]*?waitDurationMs[\s\S]*?finishedAtMs[\s\S]*?durationMs/u)
-  assert.match(localStaticSource, /executeLimitedWave\(entries, phaseResourceOptions\(entries, workers\)/u)
+  assert.match(localStaticSource, /runWeightedCommandManifest\([\s\S]*?frontend-static:\$\{stage\}/u)
+  assert.match(localStaticSource, /grantHistory:[\s\S]*?admissions:[\s\S]*?blockedReasons:/u)
 })
 
 test('static governance propagates bounded dynamic workers and explicit Node test concurrency', () => {
-  assert.match(localStaticSource, /resolveManifestChildEnvironment\(\{ env, workers, concurrent: true \}\)/u)
-  assert.doesNotMatch(localStaticSource, /resolveManifestChildEnvironment\(\{ env, workers, concurrent: false \}\)/u)
-  assert.match(legacyLaneSource, /worker_cap="\$\(resolve_collect_parallel_workers "\$total"\)"/u)
-  assert.match(legacyLaneSource, /resolveManifestWorkers\(\{ env: process\.env \}\)/u)
+  assert.match(localStaticSource, /workload: 'scheduler-admitted'/u)
+  assert.match(localStaticSource, /memoryCostGiB:[\s\S]*?0\.125 \* entry\.resources\.memoryWeight/u)
+  assert.match(legacyLaneSource, /next_worker_cap="\$\(resolve_collect_parallel_workers "\$total"\)"/u)
+  assert.match(legacyLaneSource, /resolveManifestLiveCapacity\(\{ env: process\.env, workload: 'scheduler-admitted' \}\)/u)
   assert.match(legacyLaneSource, /resolveManifestChildEnvironment/u)
   assert.match(legacyLaneSource, /FSUSBLOG_STEP_CPU_BUDGET/u)
   assert.match(legacyLaneSource, /FSUSBLOG_STEP_MEMORY_GIB/u)
@@ -205,10 +227,14 @@ test('weighted contract planner starts historical long tails first and aggregate
     }
   )
   assert.deepEqual(new Set(attempted), new Set(['long', 'middle', 'short']))
-  assert.ok(childEnvironments.every((env) => env.FSUSBLOG_STEP_CPU_BUDGET === '1'))
-  assert.ok(childEnvironments.every((env) => env.FSUSBLOG_STEP_MEMORY_GIB === '0.5'))
+  assert.ok(childEnvironments.every((env) => Number(env.FSUSBLOG_STEP_CPU_BUDGET) > 0))
+  assert.ok(childEnvironments.every((env) => Number(env.FSUSBLOG_STEP_MEMORY_GIB) === 0.125))
+  assert.ok(childEnvironments.every((env) => Number(env.FSUSBLOG_STEP_CPU_BUDGET) <= 2))
   assert.ok(childEnvironments.every((env) => env.FSUSBLOG_PARALLEL_ACTIVE_WORKERS === '2'))
-  assert.ok(childEnvironments.every((env) => env.FSUSBLOG_NODE_TEST_CONCURRENCY === '1'))
+  assert.ok(childEnvironments.every((env) => {
+    const concurrency = Number(env.FSUSBLOG_NODE_TEST_CONCURRENCY)
+    return Number.isInteger(concurrency) && concurrency >= 1 && concurrency <= 2
+  }))
 })
 
 test('weighted fixture admission keeps the exact CPU grant while using a third process slot', async () => {
@@ -243,8 +269,8 @@ test('weighted fixture admission keeps the exact CPU grant while using a third p
   await new Promise(resolve => setImmediate(resolve))
   assert.deepEqual(new Set(active), new Set(['fixture', 'contract-a']))
   assert.deepEqual(observations.map(entry => [entry.id, entry.cpu, entry.memory]), [
-    ['fixture', String(2 / 3), String(2 / 3)],
-    ['contract-a', String(1 / 3), String(1 / 3)]
+    ['fixture', String(2 / 3), '0.125'],
+    ['contract-a', String(1 / 3), '0.125']
   ])
   release()
   await run
@@ -307,6 +333,350 @@ test('late static contract wave consumes only a valid live scheduler grant and c
     }),
     /runId mismatch/u
   )
+  assert.throws(
+    () => readManifestSchedulerResourceGrant({ env, readFile: () => '{corrupt' }),
+    /unreadable/u
+  )
+  assert.deepEqual(
+    resolveManifestLiveCapacity({
+      env: {
+        FSUSBLOG_STEP_CPU_BUDGET: '2',
+        FSUSBLOG_STEP_MEMORY_GIB: '1',
+        FSUSBLOG_COMMAND_MANIFEST_WORKERS: '2'
+      },
+      cpuCount: 8,
+      freeMemoryBytes: 8 * 1024 ** 3,
+      totalMemoryBytes: 8 * 1024 ** 3,
+      load1: 0,
+      workload: 'scheduler-admitted'
+    }),
+    {
+      schema: 'fsusblog.live-grant-capacity.v1',
+      maxParallel: 2,
+      cpuUnits: 2,
+      memoryGiB: 1,
+      parentCpuUnits: 2,
+      parentMemoryGiB: 1,
+      source: 'direct-invocation-fallback'
+    }
+  )
+})
+
+test('live grant growth admits pending commands before the first child settles', async () => {
+  let grant = { cpuUnits: 1, memoryGiB: 1 }
+  const env = {
+    FSUSBLOG_TEST_RUN_ID: 'growth-run',
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: '/tmp/growth-grants.json',
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'static',
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS: '4'
+  }
+  const readGrantFile = () => JSON.stringify({
+    schema: 'fsusblog.test-matrix.resource-grants.v1',
+    runId: 'growth-run',
+    resourceBudget: { cpuUnits: 4, memoryGiB: 4 },
+    grants: { static: grant }
+  })
+  const release = deferred()
+  const active = new Set()
+  const started = []
+  const execution = runWeightedCommandManifest({
+    schema: 'fsusblog.test-command-manifest.v1',
+    lane: 'growth',
+    commands: ['one', 'two', 'three', 'four'].map((id) => ({
+      id,
+      access: 'read',
+      command: [id],
+      memoryCostGiB: 0.25
+    }))
+  }, {
+    env,
+    workload: 'scheduler-admitted',
+    readGrantFile,
+    execute: async (entry) => {
+      started.push(entry.id)
+      active.add(entry.id)
+      await release.promise
+      active.delete(entry.id)
+    }
+  })
+
+  await waitFor(() => active.size === 1)
+  grant = { cpuUnits: 4, memoryGiB: 4 }
+  await waitFor(() => active.size === 4)
+  assert.equal(started.length, 4)
+  release.resolve()
+  const evidence = await execution
+  assert.deepEqual(evidence.grantHistory.map((entry) => entry.maxParallel), [1, 4])
+})
+
+test('live grant shrink pauses new admission until active weight returns below the new cap', async () => {
+  let grant = { cpuUnits: 4, memoryGiB: 4 }
+  const env = {
+    FSUSBLOG_TEST_RUN_ID: 'shrink-run',
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: '/tmp/shrink-grants.json',
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'static',
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS: '4'
+  }
+  const readGrantFile = () => JSON.stringify({
+    schema: 'fsusblog.test-matrix.resource-grants.v1',
+    runId: 'shrink-run',
+    resourceBudget: { cpuUnits: 4, memoryGiB: 4 },
+    grants: { static: grant }
+  })
+  const releases = new Map()
+  const active = new Set()
+  const started = []
+  const execution = runWeightedCommandManifest({
+    schema: 'fsusblog.test-command-manifest.v1',
+    lane: 'shrink',
+    commands: ['one', 'two', 'three', 'four', 'five'].map((id) => ({
+      id,
+      access: 'read',
+      command: [id],
+      memoryCostGiB: 0.25
+    }))
+  }, {
+    env,
+    workload: 'scheduler-admitted',
+    readGrantFile,
+    execute: async (entry) => {
+      const release = deferred()
+      releases.set(entry.id, release)
+      active.add(entry.id)
+      started.push(entry.id)
+      await release.promise
+      active.delete(entry.id)
+    }
+  })
+
+  await waitFor(() => active.size === 4)
+  grant = { cpuUnits: 1, memoryGiB: 1 }
+  for (const id of started.slice(0, 3)) releases.get(id).resolve()
+  await waitFor(() => active.size === 1)
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  assert.equal(started.includes('five'), false)
+  releases.get(started[3]).resolve()
+  await waitFor(() => started.includes('five'))
+  releases.get('five').resolve()
+  await execution
+})
+
+test('manifest memory costs prevent CPU-only over-admission and child quotas stay within the parent grant', async () => {
+  const release = deferred()
+  const active = new Set()
+  const childEnvironments = []
+  const execution = runWeightedCommandManifest({
+    schema: 'fsusblog.test-command-manifest.v1',
+    lane: 'memory-bound',
+    commands: ['one', 'two', 'three'].map((id) => ({
+      id,
+      access: 'read',
+      command: [id],
+      memoryCostGiB: 0.5
+    }))
+  }, {
+    resolveWorkers: () => 4,
+    env: { FSUSBLOG_STEP_CPU_BUDGET: '4', FSUSBLOG_STEP_MEMORY_GIB: '0.5' },
+    execute: async (entry, options) => {
+      active.add(entry.id)
+      childEnvironments.push(options.env)
+      await release.promise
+      active.delete(entry.id)
+    }
+  })
+
+  await waitFor(() => active.size === 1)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  assert.equal(active.size, 1)
+  assert.equal(Number(childEnvironments[0].FSUSBLOG_STEP_MEMORY_GIB), 0.5)
+  release.resolve()
+  const evidence = await execution
+  assert.equal(evidence.children.length, 3)
+  assert.ok(evidence.blocked.some((entry) => entry.capacity?.memory === true))
+})
+
+test('manifest cancellation stops active work and persists partial evidence', async (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-manifest-cancel-'))
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }))
+  const evidenceFile = path.join(tempRoot, 'cancel.json')
+  const controller = new AbortController()
+  const started = []
+  const active = deferred()
+  const execution = runWeightedCommandManifest({
+    schema: 'fsusblog.test-command-manifest.v1',
+    lane: 'cancel',
+    commands: ['active', 'pending'].map((id) => ({ id, access: 'read', command: [id] }))
+  }, {
+    resolveWorkers: () => 1,
+    env: { FSUSBLOG_STEP_CPU_BUDGET: '1', FSUSBLOG_STEP_MEMORY_GIB: '1' },
+    signal: controller.signal,
+    evidenceFile,
+    execute: async (entry, options) => {
+      started.push(entry.id)
+      active.resolve()
+      await new Promise((resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+      })
+    }
+  })
+  await active.promise
+  controller.abort(new Error('cancel fixture'))
+  await assert.rejects(execution, (error) => {
+    assert.equal(error.liveGrantEvidence.status, 'cancelled')
+    return true
+  })
+  assert.deepEqual(started, ['active'])
+  const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'))
+  assert.equal(evidence.status, 'cancelled')
+  assert.deepEqual(evidence.children.map((entry) => entry.id), ['active'])
+  assert.ok(Number.isFinite(evidence.finishedAtMs))
+})
+
+test('manifest entry environment cannot override live resource safety boundaries', () => {
+  const errors = validateCommandManifest({
+    schema: 'fsusblog.test-command-manifest.v1',
+    lane: 'unsafe-env',
+    commands: [{
+      id: 'unsafe',
+      access: 'read',
+      command: ['unsafe'],
+      environment: { FSUSBLOG_STEP_CPU_BUDGET: '999' }
+    }]
+  })
+  assert.ok(errors.some((error) => error.includes('must not override resource safety boundaries')))
+})
+
+test('disjoint manifest writers run concurrently without a global write lock', async () => {
+  const release = deferred()
+  const active = new Set()
+  const execution = runWeightedCommandManifest({
+    schema: 'fsusblog.test-command-manifest.v1',
+    lane: 'disjoint-writes',
+    commands: [
+      { id: 'alpha', access: 'write', command: ['alpha'], ownedOutputs: ['alpha.json'] },
+      { id: 'beta', access: 'write', command: ['beta'], ownedOutputs: ['beta.json'] }
+    ]
+  }, {
+    resolveWorkers: () => 2,
+    env: { FSUSBLOG_STEP_CPU_BUDGET: '2', FSUSBLOG_STEP_MEMORY_GIB: '1' },
+    execute: async (entry) => {
+      active.add(entry.id)
+      await release.promise
+      active.delete(entry.id)
+    }
+  })
+
+  await waitFor(() => active.size === 2)
+  release.resolve()
+  const evidence = await execution
+  assert.deepEqual(evidence.children.map((entry) => entry.id).sort(), ['alpha', 'beta'])
+})
+
+test('manifest deadline cancels active work and retains partial timeout evidence', async () => {
+  const started = deferred()
+  const execution = runWeightedCommandManifest({
+    schema: 'fsusblog.test-command-manifest.v1',
+    lane: 'deadline',
+    commands: [{ id: 'slow', access: 'read', command: ['slow'] }]
+  }, {
+    resolveWorkers: () => 1,
+    env: {
+      FSUSBLOG_STEP_CPU_BUDGET: '1',
+      FSUSBLOG_STEP_MEMORY_GIB: '1',
+      FSUSBLOG_EXECUTION_DEADLINE_AT_MS: String(Date.now() + 100)
+    },
+    execute: async (_entry, options) => {
+      started.resolve()
+      await new Promise((resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true })
+      })
+    }
+  })
+
+  await started.promise
+  await assert.rejects(execution, (error) => {
+    assert.equal(error.liveGrantEvidence.status, 'timed-out')
+    assert.equal(error.liveGrantEvidence.children[0].status, 'timed-out')
+    assert.match(error.message, /deadline exceeded/u)
+    return true
+  })
+})
+
+test('_legacy collect pool expands and shrinks pending admission from the same live grant contract', async (t) => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-collect-live-grant-'))
+  t.after(() => fs.rmSync(tempRoot, { recursive: true, force: true }))
+  const grantFile = path.join(tempRoot, 'grant.json')
+  const markerFile = path.join(tempRoot, 'markers.txt')
+  const releasePrefix = path.join(tempRoot, 'release')
+  const evidenceFile = path.join(tempRoot, 'collect-evidence.json')
+  const writeGrant = (cpuUnits, memoryGiB) => {
+    const temporary = `${grantFile}.next`
+    fs.writeFileSync(temporary, `${JSON.stringify({
+      schema: 'fsusblog.test-matrix.resource-grants.v1',
+      runId: 'collect-live-run',
+      resourceBudget: { cpuUnits: 3, memoryGiB: 3 },
+      grants: { collect: { cpuUnits, memoryGiB } }
+    })}\n`)
+    fs.renameSync(temporary, grantFile)
+  }
+  writeGrant(3, 3)
+  const script = `
+    set -euo pipefail
+    source ${JSON.stringify(path.join(root, 'tools/test/lanes/_legacy.sh'))}
+    pool_job() {
+      local id="$1"
+      printf '%s:start\\n' "$id" >> "$MARKER_FILE"
+      while [[ ! -f "$RELEASE_PREFIX-$id" ]]; do sleep 0.02; done
+      printf '%s:end\\n' "$id" >> "$MARKER_FILE"
+    }
+    job_a() { pool_job a; }
+    job_b() { pool_job b; }
+    job_c() { pool_job c; }
+    job_d() { pool_job d; }
+    run_collect_parallel collect-live a job_a b job_b c job_c d job_d
+    finish_collect
+  `
+  const child = spawn('bash', ['-c', script], {
+    cwd: root,
+    env: {
+      ...process.env,
+      FSUSBLOG_TEST_RUN_ID: 'collect-live-run',
+      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: grantFile,
+      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'collect',
+      FSUSBLOG_COMMAND_MANIFEST_WORKERS: '3',
+      FSUSBLOG_STEP_CPU_BUDGET: '3',
+      FSUSBLOG_STEP_MEMORY_GIB: '3',
+      FSUSBLOG_COLLECT_LIVE_GRANT_EVIDENCE_FILE: evidenceFile,
+      MARKER_FILE: markerFile,
+      RELEASE_PREFIX: releasePrefix
+    },
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
+  let stderr = ''
+  child.stderr.setEncoding('utf8')
+  child.stderr.on('data', (chunk) => { stderr += chunk })
+  const exit = new Promise((resolve, reject) => {
+    child.once('error', reject)
+    child.once('exit', (code, signal) => resolve({ code, signal }))
+  })
+
+  await waitFor(() => fs.existsSync(markerFile)
+    && fs.readFileSync(markerFile, 'utf8').match(/:start/gu)?.length === 3)
+  writeGrant(1, 1)
+  for (const id of ['a', 'b']) fs.writeFileSync(`${releasePrefix}-${id}`, '')
+  await waitFor(() => fs.readFileSync(markerFile, 'utf8').includes('b:end'))
+  await new Promise((resolve) => setTimeout(resolve, 200))
+  assert.equal(fs.readFileSync(markerFile, 'utf8').includes('d:start'), false)
+  fs.writeFileSync(`${releasePrefix}-c`, '')
+  await waitFor(() => fs.readFileSync(markerFile, 'utf8').includes('d:start'))
+  fs.writeFileSync(`${releasePrefix}-d`, '')
+  const result = await exit
+  assert.deepEqual(result, { code: 0, signal: null }, stderr)
+  const evidence = JSON.parse(fs.readFileSync(evidenceFile, 'utf8'))
+  assert.equal(evidence.status, 'success')
+  assert.deepEqual(evidence.grantHistory.map((entry) => entry.workerCap), [3, 1])
+  assert.deepEqual(evidence.children.map((entry) => entry.status), ['success', 'success', 'success', 'success'])
+  assert.ok(evidence.blocked.some((entry) => entry.activeWeight > entry.workerCap))
 })
 
 test('static governance parallel group preserves every named check and the aggregate finish', () => {
