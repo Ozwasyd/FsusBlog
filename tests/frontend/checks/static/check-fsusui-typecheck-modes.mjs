@@ -131,6 +131,11 @@ if (failures.length === 0) {
   for (const token of [
     'resolveLocalFsusUiRoot',
     'createFsusUiAliases',
+    'assertLocalFsusUiPublicShellMotionAssets',
+    'el-public-shell-mobile-nav-menu-enter-active',
+    'el-public-shell-mobile-nav-menu-leave-active',
+    'prefers-reduced-motion:reduce',
+    'corepack pnpm run build:theme',
     '@ozwasyd\\/element-plus',
     '@ozwasyd\\/element-plus\\/motion',
     '@ozwasyd\\/element-plus\\/perception-challenge',

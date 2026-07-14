@@ -30,6 +30,18 @@ const requiredThemeCssAssets = [
   // to the npm dist path, which doesn't exist pre-publish and 404s in dev.
   'el-fsus-theme.css',
 ]
+const publicShellMotionCssAssets = [
+  'index.css',
+  'el-public-shell-critical.css',
+]
+const publicShellMotionContracts = [
+  'el-public-shell__mobile-nav-menu.is-closing',
+  'el-public-shell-mobile-nav-menu-enter-active',
+  'el-public-shell-mobile-nav-menu-leave-active',
+  'el-public-shell-mobile-nav-menu-enter-from',
+  'el-public-shell-mobile-nav-menu-leave-to',
+  'prefers-reduced-motion:reduce',
+]
 
 const toVitePath = (value: string) => value.replace(/\\/g, '/')
 
@@ -52,7 +64,22 @@ const hasLocalThemeCssAssets = (root: string | null) => {
   }
 
   const themeDist = path.join(root, 'vue', 'packages', 'theme-chalk', 'dist')
-  return requiredThemeCssAssets.every((fileName) => fs.existsSync(path.join(themeDist, fileName)))
+  if (!requiredThemeCssAssets.every((fileName) => fs.existsSync(path.join(themeDist, fileName)))) {
+    return false
+  }
+
+  return publicShellMotionCssAssets.every((fileName) => {
+    const css = fs.readFileSync(path.join(themeDist, fileName), 'utf8')
+    return publicShellMotionContracts.every((contract) => css.includes(contract))
+  })
+}
+
+export function assertLocalFsusUiPublicShellMotionAssets(localFsusUiRoot: string | null): void {
+  if (!localFsusUiRoot || hasLocalThemeCssAssets(localFsusUiRoot)) return
+  throw new Error(
+    'local FsusUI source requires rebuilt full and critical public-shell motion CSS; '
+      + 'run `corepack pnpm run build:theme` in the FsusUI repository',
+  )
 }
 
 export function resolveLocalFsusUiRoot(override?: string | null): string | null {
@@ -77,6 +104,8 @@ export function createFsusUiAliases(localFsusUiRoot: string | null): AliasEntry[
       { find: /^element-plus$/, replacement: FSUSUI_PACKAGE_ID },
     ]
   }
+
+  assertLocalFsusUiPublicShellMotionAssets(localFsusUiRoot)
 
   const root = toVitePath(localFsusUiRoot).replace(/\/+$/, '')
   const packageRoot = `${root}/vue/packages/element-plus`
