@@ -1408,6 +1408,22 @@
       ]
     },
     {
+      "id": "ci-production-build-artifact-receipt",
+      "description": "CI production build fan-out is guarded by a source, toolchain, producer and content-bound receipt that consumers verify before materializing isolated runtime copies.",
+      "owner": "ServerContractAgent",
+      "risk": "critical",
+      "evidencePaths": [
+        ".tmp/ci-production-build/receipt.json",
+        "tests/tools/production-build-artifacts.test.mjs"
+      ],
+      "assertionType": "integration",
+      "failClosedRule": "Reject wrong commit or workflow-run identity, toolchain drift, missing or damaged files, path escape, symlink payloads and unreceipted additions before any consumer starts.",
+      "minimumRequirement": "Executable temporary-filesystem tests must prove receipt creation, fail-closed verification and two isolated consumers while the producer uploads only declared backend, test, frontend, Wasm and generated-contract domains.",
+      "tierIds": [
+        "production-build-artifacts"
+      ]
+    },
+    {
       "id": "privacy-zk-comment-matrix",
       "description": "Privacy ZK Comment Matrix is covered by a fail-closed release gate that maps anonymous transport, proof failure, ticket/nullifier, moderation redaction, frontend runtime and concurrency coverage.",
       "owner": "ServerContractAgent",

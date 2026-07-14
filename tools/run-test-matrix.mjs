@@ -2529,6 +2529,33 @@ function buildPrSmartGatePlan(matrix, options) {
     else skippedTiers.push(entry)
   }
 
+  const immutableBuildConsumerJobs = new Set([
+    'integration-runtime',
+    'endpoint-depth-runtime',
+    'release-public',
+    'security-runtime',
+    'acceptance-playwright',
+    'visual-public-playwright',
+    'visual-console-playwright',
+    'ux-viewport-smoke',
+    'frontend-render-pressure',
+    'cross-browser-smoke',
+    'resilience-runtime',
+    'load-smoke',
+    'backend-qps-collectors',
+    'perf-regression'
+  ])
+  const requiresImmutableBuild = selectedTiers.some(tier => immutableBuildConsumerJobs.has(tier.ciJob))
+  if (requiresImmutableBuild && !selectedTiers.some(tier => tier.id === 'production-build-artifacts')) {
+    const skippedIndex = skippedTiers.findIndex(tier => tier.id === 'production-build-artifacts')
+    if (skippedIndex < 0) throw new Error('smart gate selected an immutable build consumer without production-build-artifacts tier')
+    const [producer] = skippedTiers.splice(skippedIndex, 1)
+    selectedTiers.push({
+      ...producer,
+      reason: 'selected runtime/browser job requires the immutable production build producer'
+    })
+  }
+
   const selectedTierIds = new Set(selectedTiers.map((tier) => tier.id))
   const selectedJobs = [...new Set(selectedTiers.map((tier) => tier.ciJob))].sort()
   const skippedJobs = [...new Set(skippedTiers.map((tier) => tier.ciJob).filter((job) => !selectedJobs.includes(job)))].sort()
@@ -2553,6 +2580,24 @@ function normalizedOutputName(value) {
   return String(value).replace(/[^A-Za-z0-9_]/g, '_')
 }
 
+function productionBuildDomainsForJobs(selectedJobs) {
+  const jobs = new Set(selectedJobs)
+  const domains = new Set()
+  const add = (...values) => values.forEach(value => domains.add(value))
+  if (jobs.has('backend-qps-collectors')) add('backend-runtime')
+  for (const job of ['integration-runtime', 'endpoint-depth-runtime', 'resilience-runtime', 'load-smoke']) {
+    if (jobs.has(job)) add('backend-runtime', 'test-runtime', 'generated-contracts')
+  }
+  for (const job of [
+    'release-public', 'security-runtime', 'acceptance-playwright', 'visual-public-playwright',
+    'visual-console-playwright', 'ux-viewport-smoke', 'frontend-render-pressure',
+    'cross-browser-smoke', 'perf-regression'
+  ]) {
+    if (jobs.has(job)) add('backend-runtime', 'test-runtime', 'frontend-dist', 'wasm', 'generated-contracts')
+  }
+  return [...domains].sort()
+}
+
 function writePrSmartGateOutputs(matrix, plan, githubOutputFile) {
   if (!githubOutputFile) return
   const abs = path.resolve(root, githubOutputFile)
@@ -2562,7 +2607,9 @@ function writePrSmartGateOutputs(matrix, plan, githubOutputFile) {
   const lines = [
     `pr_smart_gate_summary=${relativeToRoot(prSmartGateSummaryFile)}`,
     `selected_jobs_json=${JSON.stringify(plan.selectedJobs)}`,
-    `skipped_jobs_json=${JSON.stringify(plan.skippedJobs)}`
+    `skipped_jobs_json=${JSON.stringify(plan.skippedJobs)}`,
+    `production_build_domains=${productionBuildDomainsForJobs(plan.selectedJobs).join(',')}`,
+    `production_build_domains_json=${JSON.stringify(productionBuildDomainsForJobs(plan.selectedJobs))}`
   ]
   const allJobs = new Set([...plan.selectedJobs, ...plan.skippedJobs])
   for (const job of [...allJobs].sort()) {

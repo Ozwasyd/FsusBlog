@@ -1,0 +1,48 @@
+name: Verify immutable production build
+description: Download and fail-closed verify the current workflow run's production build receipt.
+inputs:
+  source-fingerprint:
+    description: Exact producer worktree fingerprint.
+    required: true
+  receipt-digest:
+    description: Exact receipt content digest exported by the producer job.
+    required: true
+  consumer-job:
+    description: Stable consumer job identity used for evidence isolation.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Start artifact transfer timing
+      shell: bash
+      run: |
+        node --input-type=module -e '
+          import { snapshotGitWorktree } from "./tools/test-matrix/scheduler.mjs";
+          const snapshot = await snapshotGitWorktree(process.cwd());
+          if (snapshot.fingerprint !== process.argv[1]) throw new Error(`consumer worktree fingerprint mismatch: ${snapshot.fingerprint}/${process.argv[1]}`);
+        ' "${{ inputs.source-fingerprint }}"
+        echo "FSUSBLOG_CI_ARTIFACT_TRANSFER_STARTED_AT_MS=$(node -e 'process.stdout.write(String(Date.now()))')" >> "$GITHUB_ENV"
+    - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+      with:
+        name: production-build-artifacts
+        path: .tmp/downloaded-production-build
+    - name: Verify production build receipt and payload
+      shell: bash
+      run: |
+        node tools/ci/production-build-artifacts-cli.mjs verify \
+          --artifact-root .tmp/downloaded-production-build \
+          --expected-commit "$GITHUB_SHA" \
+          --expected-fingerprint "${{ inputs.source-fingerprint }}" \
+          --expected-run-id "$GITHUB_RUN_ID" \
+          --expected-job production-build-artifacts \
+          --expected-receipt-digest "${{ inputs.receipt-digest }}" \
+          --transfer-started-at-ms "$FSUSBLOG_CI_ARTIFACT_TRANSFER_STARTED_AT_MS" \
+          --evidence ".tmp/release-evidence/jobs/ci-build-consumer-${{ inputs.consumer-job }}.json"
+        find .tmp/downloaded-production-build -type f -exec chmod a-w {} +
+        {
+          echo "FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT=$GITHUB_WORKSPACE/.tmp/downloaded-production-build"
+          echo "FSUSBLOG_CI_PRODUCTION_SOURCE_FINGERPRINT=${{ inputs.source-fingerprint }}"
+          echo "FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST=${{ inputs.receipt-digest }}"
+          echo "FSUSBLOG_RUNTIME_NO_BUILD=1"
+          echo "FSUSBLOG_RUNTIME_CONFIGURATION=Release"
+        } >> "$GITHUB_ENV"

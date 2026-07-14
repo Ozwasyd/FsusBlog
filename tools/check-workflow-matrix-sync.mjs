@@ -158,6 +158,11 @@ function annotateWorkflowJob(job) {
   job.downloadsFrontendRuntimeContractsArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*frontend-runtime-contracts/.test(text)
   job.downloadsFrontendStaticGovernanceArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*frontend-static-governance/.test(text)
   job.downloadsFastStaticArtifacts = /uses:\s*actions\/download-artifact@/.test(text) && /name:\s*fast-static-governance/.test(text)
+  job.usesProductionBuildConsumer = /uses:\s*\.\/\.github\/actions\/consume-production-build(?:\s|$)/.test(text)
+  job.runsProductionBuildProducer = /(?:^|\s)(?:\.\/)?tools\/test\.sh\s+ci-tier\s+production-build-artifacts\s+--no-deps(?:\s|$)/.test(text)
+  job.uploadsProductionBuildArtifacts = /name:\s*production-build-artifacts/.test(text)
+    && [...job.uploadPaths].some(value => normalizeArtifactPath(value).startsWith('.tmp/ci-production-build'))
+  job.exportsProductionReceiptIdentity = /source_fingerprint:[\s\S]*receipt_digest:/u.test(text)
   job.referencesValidateMatrixOutputs = /needs\.validate-matrix\.outputs\./.test(text)
   return job
 }
@@ -576,6 +581,99 @@ function validateWorkflowSetup(jobId, workflowJob, requirements, errors) {
   }
 }
 
+function validateProductionBuildFanout(workflowText, workflowJobs, errors) {
+  const producer = workflowJobs.get('production-build-artifacts')
+  if (!producer) {
+    errors.push('workflow is missing production-build-artifacts producer job')
+    return
+  }
+  if (!producer.runsProductionBuildProducer) {
+    errors.push('production-build-artifacts job must run the declared production-build-artifacts tier')
+  }
+  if (!producer.uploadsProductionBuildArtifacts) {
+    errors.push('production-build-artifacts job must upload the minimal receipted artifact root')
+  }
+  if (!producer.exportsProductionReceiptIdentity) {
+    errors.push('production-build-artifacts job must export source_fingerprint and receipt_digest outputs')
+  }
+  if (!/needs\.plan-pr-risk\.outputs\.production_build_artifacts\s*==\s*'true'/u.test(producer.lines.join('\n'))) {
+    errors.push('production-build-artifacts ordinary PR execution must be selected by the smart gate')
+  }
+  const producerUploadSource = producer.lines.join('\n').slice(producer.lines.join('\n').lastIndexOf('uses: actions/upload-artifact@'))
+  if (/node_modules|\.nuget\/packages/u.test(producerUploadSource)) {
+    errors.push('production-build-artifacts must not upload dependency caches or node_modules')
+  }
+
+  const consumerAction = fs.readFileSync(path.join(root, '.github/actions/consume-production-build/action.yml'), 'utf8')
+  for (const required of [
+    'actions/download-artifact@',
+    'production-build-artifacts',
+    'snapshotGitWorktree',
+    'production-build-artifacts-cli.mjs verify',
+    '--expected-commit',
+    '--expected-fingerprint',
+    '--expected-run-id',
+    '--expected-job production-build-artifacts',
+    '--expected-receipt-digest',
+    '--transfer-started-at-ms',
+    'FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT=',
+    'FSUSBLOG_RUNTIME_NO_BUILD=1'
+  ]) {
+    if (!consumerAction.includes(required)) errors.push(`production build consumer action is missing fail-closed contract: ${required}`)
+  }
+
+  const requiredConsumers = new Set([
+    'integration-runtime',
+    'endpoint-depth-runtime',
+    'release-public',
+    'security-runtime',
+    'acceptance-playwright',
+    'visual-public-playwright',
+    'visual-console-playwright',
+    'ux-viewport-smoke',
+    'frontend-render-pressure',
+    'cross-browser-smoke',
+    'resilience-runtime',
+    'load-smoke',
+    'backend-qps-collectors',
+    'perf-regression'
+  ])
+  for (const jobId of requiredConsumers) {
+    const job = workflowJobs.get(jobId)
+    if (!job) continue
+    if (!job.needs.has('production-build-artifacts')) {
+      errors.push(`workflow job ${jobId} must depend on production-build-artifacts`)
+    }
+    if (!job.usesProductionBuildConsumer) {
+      errors.push(`workflow job ${jobId} must verify the immutable production build before testing`)
+    }
+  }
+  for (const [jobId, job] of workflowJobs) {
+    if (job.usesProductionBuildConsumer && !job.needs.has('production-build-artifacts')) {
+      errors.push(`workflow job ${jobId} verifies production artifacts without declaring the producer need`)
+    }
+  }
+
+  if (!workflowText.includes('production_build_artifacts: ${{ steps.smart.outputs.production_build_artifacts }}')) {
+    errors.push('plan-pr-risk must export production_build_artifacts smart-gate selection')
+  }
+  if (!workflowText.includes('production_build_domains: ${{ steps.smart.outputs.production_build_domains }}')
+    || !producer.lines.join('\n').includes('FSUSBLOG_CI_PRODUCTION_BUILD_DOMAINS: ${{ needs.plan-pr-risk.outputs.production_build_domains }}')) {
+    errors.push('production-build-artifacts must receive the smart-gate domain union instead of always building every domain')
+  }
+  const bootstrapSource = fs.readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8')
+  for (const required of [
+    'materialize_ci_production_build',
+    'production-build-artifacts-cli.mjs',
+    'materialize_args',
+    'FSUSBLOG_RUNTIME_NO_BUILD=1',
+    'ci_production_has_domain frontend-dist',
+    'vite preview'
+  ]) {
+    if (!bootstrapSource.includes(required)) errors.push(`CI no-build bootstrap is missing immutable artifact contract: ${required}`)
+  }
+}
+
 function main() {
   const planPath = path.resolve(root, process.argv[2] ?? defaultPlanPath)
   const workflowPath = path.resolve(root, process.argv[3] ?? defaultWorkflowPath)
@@ -589,6 +687,7 @@ function main() {
   if (workflowHasGlobalPlaywrightWorkers(workflowText)) {
     errors.push('workflow must not set FSUSBLOG_PLAYWRIGHT_WORKERS globally; use matrix tier playwrightWorkers policy')
   }
+  validateProductionBuildFanout(workflowText, workflowJobs, errors)
   validateMatrixCoverageDimensions(matrix.tiers, errors)
 
   const isWorkflowRequiredTier = (tierId) => {

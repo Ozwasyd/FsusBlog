@@ -188,10 +188,98 @@ AuthCookies__AllowInsecureTransportCookies=true
 EOF
 }
 
-write_env_file
-
 log() {
   printf '[acceptance:bootstrap] %s\n' "$1"
+}
+
+repository_relative_path() {
+  "${FSUSBLOG_NODE:-node}" - "$ROOT_DIR" "$1" <<'NODE'
+const path = require('node:path')
+const root = path.resolve(process.argv[2])
+const target = path.resolve(process.argv[3])
+if (target === root || !target.startsWith(`${root}${path.sep}`)) {
+  throw new Error(`CI production build destination escapes repository: ${target}`)
+}
+process.stdout.write(path.relative(root, target).replaceAll(path.sep, '/'))
+NODE
+}
+
+materialize_ci_production_build() {
+  local artifact_root="${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}"
+  if [[ -z "$artifact_root" ]]; then
+    return
+  fi
+  local receipt_file="$artifact_root/receipt.json"
+  if [[ ! -f "$receipt_file" ]]; then
+    log "immutable CI production receipt is missing: $receipt_file"
+    return 1
+  fi
+  local -a domains=()
+  mapfile -t domains < <("${FSUSBLOG_NODE:-node}" - "$receipt_file" <<'NODE'
+const fs = require('node:fs')
+const receipt = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+if (!Array.isArray(receipt.domains) || receipt.domains.length === 0) throw new Error('CI production receipt has no domains')
+for (const domain of receipt.domains) process.stdout.write(`${domain.name}\n`)
+NODE
+  )
+  local -a materialize_args=(
+    materialize
+    --root "$ROOT_DIR"
+    --artifact-root "$artifact_root"
+    --destination-root "$ROOT_DIR"
+    --expected-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?FSUSBLOG_TEST_SOURCE_COMMIT is required for CI artifact materialization}"
+    --expected-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?FSUSBLOG_TEST_SOURCE_FINGERPRINT is required for CI artifact materialization}"
+    --expected-run-id "${GITHUB_RUN_ID:?GITHUB_RUN_ID is required for CI artifact materialization}"
+    --expected-job production-build-artifacts
+    --expected-receipt-digest "${FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST:?FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST is required}"
+    --evidence "$ROOT_DIR/.tmp/release-evidence/jobs/ci-build-materialization-${NS_SLUG}.json"
+  )
+  local domain
+  for domain in "${domains[@]}"; do
+    case "$domain" in
+      backend-runtime)
+        materialize_args+=(--map "backend-runtime=$(repository_relative_path "$(dirname "${FSUSBLOG_BACKEND_SERVER_DLL:?FSUSBLOG_BACKEND_SERVER_DLL is required}")")")
+        ;;
+      test-runtime)
+        materialize_args+=(--map "test-runtime=$(repository_relative_path "${FSUSBLOG_BACKEND_TEST_BIN_DIR:?FSUSBLOG_BACKEND_TEST_BIN_DIR is required}")")
+        ;;
+      frontend-dist)
+        materialize_args+=(--map "frontend-dist=$(repository_relative_path "${FSUSBLOG_FRONTEND_DIST_ROOT:?FSUSBLOG_FRONTEND_DIST_ROOT is required}")")
+        materialize_args+=(--map "frontend-dist=$(repository_relative_path "$SERVER_WWWROOT_DIR")")
+        ;;
+      wasm)
+        materialize_args+=(--map "wasm=$(repository_relative_path "${FSUSBLOG_FRONTEND_WASM_ROOT:?FSUSBLOG_FRONTEND_WASM_ROOT is required}")")
+        ;;
+      generated-contracts)
+        materialize_args+=(--map "generated-contracts=$(repository_relative_path "${FSUSBLOG_GENERATED_OUTPUT_ROOT:?FSUSBLOG_GENERATED_OUTPUT_ROOT is required}")/ci-contracts")
+        ;;
+      *)
+        log "immutable CI production receipt has unsupported domain: $domain"
+        return 1
+        ;;
+    esac
+  done
+  "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ci/production-build-artifacts-cli.mjs" "${materialize_args[@]}" >/dev/null
+  FSUSBLOG_RUNTIME_NO_BUILD=1
+  FSUSBLOG_RUNTIME_CONFIGURATION=Release
+  if [[ -z "$PUBLIC_AOT_SSR_WORKER_SCRIPT" ]]; then
+    PUBLIC_AOT_SSR_WORKER_SCRIPT='./dist/server/server-public-ssr.bundle.mjs'
+  fi
+  export FSUSBLOG_RUNTIME_NO_BUILD FSUSBLOG_RUNTIME_CONFIGURATION PUBLIC_AOT_SSR_WORKER_SCRIPT
+  FSUSBLOG_CI_PRODUCTION_DOMAINS="$(IFS=,; printf '%s' "${domains[*]}")"
+  export FSUSBLOG_CI_PRODUCTION_DOMAINS
+  log "materialized verified immutable CI production domains into run-bound build root: $FSUSBLOG_CI_PRODUCTION_DOMAINS"
+}
+
+materialize_ci_production_build
+write_env_file
+
+ci_production_has_domain() {
+  local expected="$1"
+  if [[ -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+    return 0
+  fi
+  [[ ",${FSUSBLOG_CI_PRODUCTION_DOMAINS:-}," == *",${expected},"* ]]
 }
 
 EXECUTION_STARTED_AT_MS="$(date +%s%3N)"
@@ -921,13 +1009,23 @@ ensure_debug_frontend() {
 
   kill_pid_if_running "$(read_pid_file "$TMP_DIR/dev-server.pid")" "$readiness_deadline"
   kill_pid_if_running "$(find_port_pid "$DEBUG_FRONTEND_PORT")" "$readiness_deadline"
-  start_background_if_needed \
-    'debug frontend' \
-    "$DEBUG_FRONTEND_URL/" \
-    "$TMP_DIR/dev-server.pid" \
-    "$TMP_DIR/dev-server.log" \
-    "$readiness_deadline" \
-    env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite --host 127.0.0.1 --port "$DEBUG_FRONTEND_PORT" --strictPort
+  if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+    start_background_if_needed \
+      'debug frontend from immutable production dist' \
+      "$DEBUG_FRONTEND_URL/" \
+      "$TMP_DIR/dev-server.pid" \
+      "$TMP_DIR/dev-server.log" \
+      "$readiness_deadline" \
+      env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite preview --host 127.0.0.1 --port "$DEBUG_FRONTEND_PORT" --strictPort
+  else
+    start_background_if_needed \
+      'debug frontend' \
+      "$DEBUG_FRONTEND_URL/" \
+      "$TMP_DIR/dev-server.pid" \
+      "$TMP_DIR/dev-server.log" \
+      "$readiness_deadline" \
+      env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite --host 127.0.0.1 --port "$DEBUG_FRONTEND_PORT" --strictPort
+  fi
 }
 
 ensure_release_preview() {
@@ -941,7 +1039,10 @@ ensure_release_preview() {
     readiness_deadline="$READINESS_DEADLINE_AT_MS"
   fi
 
-  if [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" ]]; then
+  if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+    run_bound_build="true"
+    log 'using receipt-verified CI frontend dist; local production readiness marker is not required'
+  elif [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" ]]; then
     FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
       FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
       "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/ux/release-preview-readiness.mjs" validate-build
@@ -960,7 +1061,7 @@ ensure_release_preview() {
     && [[ -f "$SERVER_WWWROOT_DIR/index.html" ]] \
     && probe_url "$RELEASE_PREVIEW_URL/"; then
     log 'release preview already healthy with matching fingerprint; reusing existing process'
-    if [[ "$run_bound_build" == "true" ]]; then
+    if [[ "$run_bound_build" == "true" && -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
       wait_for_binary_url 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readiness_deadline"
       FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
         FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
@@ -973,7 +1074,11 @@ ensure_release_preview() {
   fi
 
   if [[ "$run_bound_build" == "true" ]]; then
-    log 'reusing digest-verified frontend release bundle produced by this build-static scheduler run'
+    if [[ -n "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
+      log 'reusing receipt-verified immutable CI frontend release bundle'
+    else
+      log 'reusing digest-verified frontend release bundle produced by this build-static scheduler run'
+    fi
   else
     log 'building release preview bundle through the shared frontend run-once key'
     (
@@ -997,7 +1102,7 @@ ensure_release_preview() {
     "$readiness_deadline" \
     env VITE_API_BASE_URL="$DEBUG_BACKEND_URL" npm exec -- vite preview --host 127.0.0.1 --port "$RELEASE_PREVIEW_PORT" --strictPort
 
-  if [[ "$run_bound_build" == "true" ]]; then
+  if [[ "$run_bound_build" == "true" && -z "${FSUSBLOG_CI_PRODUCTION_ARTIFACT_ROOT:-}" ]]; then
     wait_for_binary_url 'release preview namespace API' "$RELEASE_PREVIEW_URL/api/binary/system/seo" "$readiness_deadline"
     FSUSBLOG_REPOSITORY_ROOT="$ROOT_DIR" \
       FSUSBLOG_TEST_RUN_ID="$FSUSBLOG_TEST_RUN_ID" \
@@ -1092,10 +1197,11 @@ main() {
   fi
   reset_security_test_state
   allocate_readiness_deadline 'runtime applications'
-  run_bootstrap_parallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" \
-    debug-backend ensure_backend \
-    release-preview ensure_release_preview \
-    debug-frontend ensure_debug_frontend
+  local -a runtime_applications=(debug-backend ensure_backend)
+  if ci_production_has_domain frontend-dist; then
+    runtime_applications+=(release-preview ensure_release_preview debug-frontend ensure_debug_frontend)
+  fi
+  run_bootstrap_parallel 'runtime applications' "$READINESS_DEADLINE_AT_MS" "${runtime_applications[@]}"
   wait_for_pow_ready
   prepare_fixtures
   jq -n \

@@ -150,6 +150,42 @@ tiers:
     retentionClass: must-keep
     triggerReason: PR smart gate plan and skip evidence must always be generated
 
+  - id: production-build-artifacts
+    owner: ServerContractAgent
+    command: bash tools/test/lanes/production-build-artifacts.sh
+    dependsOn: [validate-matrix]
+    services: []
+    parallelizable: false
+    exclusiveResources: [build-output, static-web-assets]
+    phase: 1
+    cost: high
+    resourceClass: cpu
+    cpuWeight: 4
+    memoryWeight: 4
+    minCpuUnits: 2
+    requiresBootstrap: none
+    requiresNode: true
+    requiresDotnet: true
+    requiresPlaywright: none
+    cacheProfile: full
+    timeoutMinutes: 35
+    shardable: false
+    defaultShards: 1
+    maxParallel: 1
+    risk: critical
+    cadence: pr
+    requiredFor: production
+    coverage: [ci-production-build-artifact-receipt]
+    artifacts: [.tmp/ci-production-build]
+    evidence: [.tmp/ci-production-build/receipt.json, tests/tools/production-build-artifacts.test.mjs]
+    ciJob: production-build-artifacts
+    localOnly: false
+    nightlyOnly: false
+    smartGateMode: conditional
+    retentionClass: must-keep
+    triggerPaths: [Directory.Build.props, FsusBlog.slnx, global.json, src/backend/**, src/core/**, src/shared/**, src/frontend/**, tests/backend/**, tests/frontend/**, tests/matrix.yml, tests/coverage-registry.json, tools/ci/**, tools/contracts/**, tools/frontend/**, tools/test/lanes/production-build-artifacts.sh]
+    triggerReason: selected runtime/browser domains require one immutable production build artifact set
+
   - id: frontend-build
     owner: InteropGlueAgent
     command: tools/test/lanes/frontend-build.sh
