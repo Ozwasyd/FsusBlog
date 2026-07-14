@@ -37,6 +37,7 @@ const markdownCss = read('src/frontend/src/assets/markdown.css')
 const indexHtml = read('src/frontend/index.html')
 const packageJson = JSON.parse(read('src/frontend/package.json'))
 const publicPageCss = read('src/frontend/src/assets/public-page.css')
+const publicShellFoundation = read('src/frontend/src/assets/public-shell-foundation.css')
 const themeTokens = read('src/frontend/src/ui-tokens/themeTokens.ts')
 const accountLayout = read('src/frontend/src/layouts/AccountLayout.vue')
 const progress = read('src/frontend/src/components/article/ArticleReadingProgress.vue')
@@ -264,12 +265,14 @@ expectIncludes(publicArticleDetail, 'class="fsus-appendix__nav-label"', 'PublicA
 expectIncludes(publicArticleDetail, 'class="fsus-appendix__nav-list"', 'PublicArticleDetailPageContent.vue clean navigation list')
 expectIncludes(publicArticleDetail, 'class="fsus-appendix__meta"', 'PublicArticleDetailPageContent.vue demoted related metadata')
 expectIncludes(publicArticleDetail, 'class="fsus-appendix__link"', 'PublicArticleDetailPageContent.vue restrained related links')
-expectIncludes(publicArticleDetail, 'border-top: 1px solid #E4E4E7;', 'PublicArticleDetailPageContent.vue appendix keeps only the article boundary')
+expectIncludes(publicArticleDetail, 'border-top: 1px solid var(--fsusblog-panel-border);', 'PublicArticleDetailPageContent.vue appendix keeps only the article boundary')
 expectMatches(publicArticleDetail, /\.fsus-appendix\s*\{[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s, 'PublicArticleDetailPageContent.vue appendix remains transparent and flat')
 expectIncludes(publicArticleDetail, 'letter-spacing: 1px;', 'PublicArticleDetailPageContent.vue appendix navigation label editorial tracking')
 expectIncludes(publicArticleDetail, 'min-height: 44px;', 'PublicArticleDetailPageContent.vue appendix links preserve mobile touch targets')
 expectIncludes(publicArticleDetail, 'transition: color var(--blog-motion-control) var(--blog-motion-ease);', 'PublicArticleDetailPageContent.vue related links use the reading motion token')
-expectIncludes(publicArticleDetail, 'color: #2A599C;', 'PublicArticleDetailPageContent.vue related link scholarly blue hover')
+expectIncludes(publicArticleDetail, 'color: var(--fsusblog-color-primary);', 'PublicArticleDetailPageContent.vue related link semantic hover')
+expectIncludes(publicArticleDetail, '.fsus-appendix__tag:visited {\n  color: var(--fsusblog-text-quiet) !important;', 'PublicArticleDetailPageContent.vue visited tags keep quiet semantics')
+expectIncludes(publicArticleDetail, '.fsus-appendix__link:visited {\n  color: var(--fsusblog-text-primary);', 'PublicArticleDetailPageContent.vue visited related links keep primary semantics')
 expectNotMatches(publicArticleDetail, /fsus-colophon/, 'PublicArticleDetailPageContent.vue must not restore the large colophon')
 expectNotMatches(publicArticleDetail, /article-tail-group mt-8 sm:mt-10 divide-y/, 'PublicArticleDetailPageContent.vue appendix must not restore internal row dividers')
 expectNotMatches(publicArticleDetail, /blog-link-underline/, 'PublicArticleDetailPageContent.vue appendix links must not use underline decoration')
@@ -290,7 +293,7 @@ expectIncludes(commentDetailContract, "guestShell: 'fsus-comment-login'", 'comme
 expectIncludes(commentComposer, 'flex-wrap: wrap;', 'ArticleCommentComposer.vue comment login row remains responsive without vertical stacking')
 expectIncludes(commentComposer, 'align-items: center;', 'ArticleCommentComposer.vue comment login row keeps a shared baseline')
 expectIncludes(commentComposer, 'padding-block: 16px;', 'ArticleCommentComposer.vue comment login row stays compact')
-expectIncludes(commentComposer, 'border-top: 1px solid #E4E4E7;', 'ArticleCommentComposer.vue comment login row uses the specified top divider')
+expectIncludes(commentComposer, 'border-top: 1px solid var(--fsusblog-panel-border);', 'ArticleCommentComposer.vue comment login row uses the semantic top divider')
 expectIncludes(commentComposer, 'font-size: 14px;', 'ArticleCommentComposer.vue comment login prompt uses the demoted text size')
 expectIncludes(commentComposer, 'height: 40px;', 'ArticleCommentComposer.vue comment login action keeps the compact height')
 expectIncludes(commentComposer, 'padding-inline: 12px;', 'ArticleCommentComposer.vue comment login action keeps the compact horizontal padding')
@@ -306,13 +309,13 @@ expectIncludes(commentsVirtualList, 'class="fsus-comment__badge">匿名', 'Artic
 expectIncludes(commentsVirtualList, 'class="fsus-comment__footer"', 'ArticleCommentsVirtualList.vue places actions in a quiet footer')
 expectIncludes(commentsVirtualList, 'formatCommentRelativeTime(iso)', 'ArticleCommentsVirtualList.vue renders comment times in Chinese')
 expectIncludes(commentsVirtualList, 'padding-block: 20px;', 'ArticleCommentsVirtualList.vue comment item uses the editorial vertical rhythm')
-expectIncludes(commentsVirtualList, 'border-bottom: 1px solid #E4E4E7;', 'ArticleCommentsVirtualList.vue comment item uses the restrained divider')
+expectIncludes(commentsVirtualList, 'border-bottom: 1px solid var(--fsusblog-panel-border);', 'ArticleCommentsVirtualList.vue comment item uses the restrained semantic divider')
 expectIncludes(commentsVirtualList, 'outline-offset: 4px;', 'ArticleCommentsVirtualList.vue actions keep the specified focus offset')
 expectNotMatches(commentsVirtualList, /comment-thread-action/, 'ArticleCommentsVirtualList.vue must not retain the old Element Plus action styling')
 expectIncludes(commentMarkdown, 'class="comment-markdown-renderer fsus-markdown-body"', 'CommentMarkdownRenderer.vue exposes the restrained markdown surface')
 expectIncludes(commentMarkdown, 'margin: 0 0 12px 0 !important;', 'CommentMarkdownRenderer.vue separates markdown paragraphs')
 expectIncludes(commentMarkdown, 'margin-bottom: 0 !important;', 'CommentMarkdownRenderer.vue removes the last paragraph margin')
-expectIncludes(commentMarkdown, 'background-color: #F7F7F8 !important;', 'CommentMarkdownRenderer.vue keeps inline code on the paper-gray surface')
+expectIncludes(commentMarkdown, 'background-color: var(--fsusblog-reading-inline-code-bg) !important;', 'CommentMarkdownRenderer.vue keeps inline code on the semantic raised surface')
 expectIncludes(commentMarkdown, 'font-size: 13px !important;', 'CommentMarkdownRenderer.vue demotes inline code sizing')
 expectNotMatches(commentMarkdown, /linear-gradient/, 'CommentMarkdownRenderer.vue markdown collapse must not use a gradient veil')
 expectIncludes(articleDetail, "import ArticleCommentsEmptyState from '@/components/public/ArticleCommentsEmptyState.vue'", 'ArticleDetail.vue unified comments empty state component')
@@ -333,10 +336,10 @@ expectIncludes(commentsEmpty, 'padding-block: 32px;', 'ArticleCommentsEmptyState
 expectIncludes(commentsEmpty, 'gap: 16px;', 'ArticleCommentsEmptyState.vue fixed vertical rhythm')
 expectIncludes(commentsEmpty, 'min-height: 44px;', 'ArticleCommentsEmptyState.vue mobile-safe secondary action')
 expectIncludes(commentsEmpty, 'padding-inline: 16px;', 'ArticleCommentsEmptyState.vue compact action padding')
-expectIncludes(commentsEmpty, 'border: 1px solid #E4E4E7;', 'ArticleCommentsEmptyState.vue ghost action border')
+expectIncludes(commentsEmpty, 'border: 1px solid var(--fsusblog-panel-border);', 'ArticleCommentsEmptyState.vue ghost action border')
 expectIncludes(commentsEmpty, 'color var(--blog-motion-control) var(--blog-motion-ease),\n    border-color var(--blog-motion-control) var(--blog-motion-ease);', 'ArticleCommentsEmptyState.vue restrained interaction timing')
 expectNotMatches(commentsEmpty, /\.fsus-comments-empty\s*\{[^}]*(?:border-top|border-bottom|border-radius):/s, 'ArticleCommentsEmptyState.vue root must remain open and unframed')
-expectIncludes(commentsEmpty, '.fsus-comments-empty__btn:hover {\n  border-color: #2A599C;\n  background-color: transparent;\n  color: #2A599C;', 'ArticleCommentsEmptyState.vue hover must stay transparent and static')
+expectIncludes(commentsEmpty, '.fsus-comments-empty__btn:hover {\n  border-color: var(--fsusblog-color-primary);\n  background-color: transparent;\n  color: var(--fsusblog-color-primary);', 'ArticleCommentsEmptyState.vue hover must stay transparent and static')
 expectNotMatches(commentsEmpty, /\.fsus-comments-empty__btn:hover\s*\{[^}]*transform:/s, 'ArticleCommentsEmptyState.vue hover must not add transform motion')
 expectIncludes(commentComposer, '.comment-identity-panel {\n  margin-bottom: 0.75rem;\n  border: 0;', 'ArticleCommentComposer.vue identity row must not render as a heavy card')
 expectIncludes(commentComposer, 'border-bottom: 1px solid var(--fsusblog-panel-border);', 'ArticleCommentComposer.vue identity row keeps only a light divider')
@@ -344,6 +347,26 @@ expectIncludes(commentComposer, 'background: transparent;', 'ArticleCommentCompo
 expectNotMatches(commentComposer, /\.comment-identity-panel\s*\{[^}]*linear-gradient/s, 'ArticleCommentComposer.vue identity row must not use card gradients')
 expectNotMatches(commentComposer, /\.comment-identity-panel\s*\{[^}]*border-radius:\s*0\.5rem/s, 'ArticleCommentComposer.vue identity row must not use card radius')
 expectIncludes(publicPageCss, '#fsus-aot-shell .blog-link-underline {\n  display: inline-block;', 'public-page.css editorial link underline must fit title text width')
+for (const [source, label] of [
+  [publicArticleDetail, 'PublicArticleDetailPageContent.vue'],
+  [commentsVirtualList, 'ArticleCommentsVirtualList.vue'],
+  [commentMarkdown, 'CommentMarkdownRenderer.vue'],
+  [commentComposer, 'ArticleCommentComposer.vue'],
+  [commentsEmpty, 'ArticleCommentsEmptyState.vue']
+]) {
+  expectNotMatches(source, /#(?:0F0F11|A1A1AA|E4E4E7|2A599C|F7F7F8)\b/i, `${label} must consume semantic theme tokens instead of frozen light colors`)
+  expectNotMatches(source, /html(?:\.dark|\[data-theme-resolved=['"]dark['"]\])/, `${label} must not add component-level dark selectors`)
+}
+for (const [source, label] of [
+  [publicPageCss, 'public-page.css'],
+  [publicShellFoundation, 'public-shell-foundation.css']
+]) {
+  expectIncludes(source, '--fsusblog-text-quiet: var(--fsus-color-text-quiet, #A1A1AA);', `${label} quiet text alias`)
+  expectIncludes(source, '--fsusblog-text-decorative: var(--fsus-color-text-decorative, var(--text-decorative));', `${label} decorative text alias`)
+  expectIncludes(source, '--fsusblog-reading-inline-code-bg: var(--fsus-color-surface-raised, var(--surface-subtle));', `${label} raised inline-code alias`)
+}
+expectIncludes(publicPageCss, "html.dark,\nhtml[data-theme-resolved='dark']", 'full public CSS shares explicit and system-resolved dark selectors')
+expectIncludes(publicShellFoundation, "html.dark,\nhtml[data-theme-resolved='dark']", 'critical/AOT foundation shares explicit and system-resolved dark selectors')
 expectNotMatches(publicFilter, /\bv-motion\b/, 'PublicFilterPageContent.vue search panel must render statically')
 expectNotMatches(publicFilter, /fsusBlogMotionPresets\.searchDialog/, 'PublicFilterPageContent.vue reading surface must not use searchDialog preset')
 expectNotMatches(publicFilter, /@ozwasyd\/element-plus\/motion/, 'PublicFilterPageContent.vue must not import motion directives')

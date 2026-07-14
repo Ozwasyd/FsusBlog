@@ -32,6 +32,61 @@ const routes = [
   { path: '/login', label: 'public-login', primary: 'main', screenshot: true }
 ] as const
 
+const semanticColors = {
+  light: {
+    primary: 'rgb(15, 15, 17)',
+    quiet: 'rgb(161, 161, 170)',
+    border: 'rgb(228, 228, 231)',
+    accent: 'rgb(42, 89, 156)',
+    raised: 'rgb(247, 247, 248)'
+  },
+  dark: {
+    primary: 'rgb(240, 240, 244)',
+    quiet: 'rgb(161, 161, 170)',
+    border: 'rgb(39, 39, 42)',
+    accent: 'rgb(75, 121, 204)',
+    raised: 'rgb(26, 26, 30)'
+  }
+} as const
+
+async function assertArticleSemanticColors(page: Page, theme: ThemeMode): Promise<void> {
+  const expected = semanticColors[theme]
+  const targets = [
+    ['[data-article-rights-notice]', expected.quiet],
+    ['.fsus-appendix__meta', expected.quiet],
+    ['.fsus-appendix__link', expected.primary],
+    ['.fsus-comment', expected.primary],
+    ['.fsus-comment__time', expected.quiet],
+    ['.comment-markdown-renderer', expected.primary],
+    ['.fsus-comments-empty__text', expected.quiet]
+  ] as const
+
+  for (const [selector, color] of targets) {
+    const target = page.locator(selector).first()
+    if (await target.count()) {
+      await expect(target).toHaveCSS('color', color)
+    }
+  }
+
+  const inlineCode = page.locator('.comment-markdown-renderer code:not(pre code)').first()
+  if (await inlineCode.count()) {
+    await expect(inlineCode).toHaveCSS('background-color', expected.raised)
+  }
+
+  const comment = page.locator('.fsus-comment').first()
+  if (await comment.count()) {
+    await expect(comment).toHaveCSS('border-bottom-color', expected.border)
+  }
+
+  const interactive = page.locator('.fsus-appendix__link, .fsus-comment__action, .fsus-comments-empty__btn').first()
+  if (await interactive.count()) {
+    await interactive.hover()
+    await expect(interactive).toHaveCSS('color', expected.accent)
+    await interactive.focus()
+    await expect(interactive).toHaveCSS('outline-color', expected.accent)
+  }
+}
+
 async function assertHomeEditorialContract(page: Page): Promise<void> {
   const lead = page.locator('[data-home-editorial-lead]')
   expect(await lead.count()).toBeLessThanOrEqual(1)
@@ -209,6 +264,7 @@ for (const viewport of viewports) {
             if (route.label === 'public-article') {
               await expect(session.page.locator('#fsus-comments-island')).toBeVisible()
               await assertPublicCoverRendering(session.page, `${route.label} ${viewport.name} ${theme}`)
+              await assertArticleSemanticColors(session.page, theme)
             }
 
             if (route.label === 'public-home') {

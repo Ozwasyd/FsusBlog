@@ -47,7 +47,7 @@ const loginRoute = computed(() => ({
 
 .fsus-comments-empty__text {
   margin: 0;
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
   font-size: 14px;
   font-weight: 400;
@@ -61,11 +61,11 @@ const loginRoute = computed(() => ({
   align-items: center;
   justify-content: center;
   padding-inline: 16px;
-  border: 1px solid #E4E4E7;
+  border: 1px solid var(--fsusblog-panel-border);
   border-radius: 6px;
   background-color: transparent;
   box-shadow: none;
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;
@@ -76,17 +76,17 @@ const loginRoute = computed(() => ({
 }
 
 .fsus-comments-empty__btn:visited {
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
 }
 
 .fsus-comments-empty__btn:hover {
-  border-color: #2A599C;
+  border-color: var(--fsusblog-color-primary);
   background-color: transparent;
-  color: #2A599C;
+  color: var(--fsusblog-color-primary);
 }
 
 .fsus-comments-empty__btn:focus-visible {
-  outline: 2px solid #2A599C !important;
+  outline: 2px solid var(--fsusblog-color-focus-ring) !important;
   outline-offset: 2px !important;
   background-color: transparent;
   box-shadow: none;

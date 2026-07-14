@@ -61,7 +61,7 @@ onMounted(() => {
 <style scoped>
 .comment-markdown-renderer {
   --comment-markdown-line-height: 1.65em;
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
   font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
   font-size: 14px;
   line-height: 1.65;
@@ -83,7 +83,7 @@ onMounted(() => {
 
 .fsus-markdown-body :deep(.blog-markdown-renderer),
 .fsus-markdown-body :deep(.markdown-body) {
-  color: #0F0F11 !important;
+  color: var(--fsusblog-text-primary) !important;
   font-family: inherit !important;
   font-size: 14px !important;
   line-height: 1.6 !important;
@@ -93,7 +93,7 @@ onMounted(() => {
 
 .fsus-markdown-body :deep(.markdown-body p) {
   margin: 0 0 12px 0 !important;
-  color: #0F0F11 !important;
+  color: var(--fsusblog-text-primary) !important;
   font-size: 14px !important;
   font-weight: 400 !important;
   line-height: 1.6 !important;
@@ -110,8 +110,8 @@ onMounted(() => {
   padding: 2px 4px !important;
   border: none !important;
   border-radius: 4px !important;
-  background-color: #F7F7F8 !important;
-  color: #0F0F11 !important;
+  background-color: var(--fsusblog-reading-inline-code-bg) !important;
+  color: var(--fsusblog-text-primary) !important;
   font-family: monospace !important;
   font-size: 13px !important;
   font-weight: 400 !important;
@@ -120,10 +120,10 @@ onMounted(() => {
 
 .fsus-markdown-body :deep(.markdown-body pre) {
   margin: 0 0 12px 0;
-  border: 1px solid #E4E4E7;
+  border: 1px solid var(--fsusblog-panel-border);
   border-radius: 4px;
   background: transparent;
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -143,7 +143,7 @@ onMounted(() => {
 .fsus-markdown-body :deep(.markdown-body h5),
 .fsus-markdown-body :deep(.markdown-body h6) {
   margin: 0 0 12px 0;
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
   font-size: 14px;
   font-weight: 500;
   line-height: 1.6;
@@ -154,13 +154,13 @@ onMounted(() => {
 .fsus-markdown-body :deep(.markdown-body ol),
 .fsus-markdown-body :deep(.markdown-body blockquote) {
   margin: 0 0 12px 0;
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
   font-size: 14px;
   line-height: 1.6;
 }
 
 .fsus-markdown-body :deep(.markdown-body blockquote) {
-  border-left: 1px solid #E4E4E7;
+  border-left: 1px solid var(--fsusblog-panel-border);
   padding-left: 12px;
 }
 

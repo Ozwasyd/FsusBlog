@@ -301,7 +301,7 @@ function checkPublicTypographyContract() {
     '--text-decorative: #A1A1AA;',
     '--text-tertiary: #A1A1AA;',
     '--text-muted: #B2B2BA;',
-    '--text-decorative: #52525B;',
+    '--text-decorative: #71717A;',
     '--fsus-dot-gray: var(--text-decorative);',
     '--fsusblog-reading-marker: var(--text-decorative);',
     '--fsusblog-text-subtle: var(--text-muted);'
@@ -315,7 +315,7 @@ function checkPublicTypographyContract() {
     '--text-decorative: #A1A1AA;',
     '--text-tertiary: #A1A1AA;',
     '--text-muted: #B2B2BA;',
-    '--text-decorative: #52525B;',
+    '--text-decorative: #71717A;',
     '--fsus-dot-gray: var(--text-decorative);',
     '--fsusblog-text-subtle: var(--text-muted);'
   ]) {

@@ -321,11 +321,11 @@ const appendixCopyrightText = computed(() => {
   gap: 16px;
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid #E4E4E7;
+  border-top: 1px solid var(--fsusblog-panel-border);
   text-align: left;
   background: transparent;
   box-shadow: none;
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-size: 13px;
   font-weight: 400;
   font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
@@ -335,7 +335,7 @@ const appendixCopyrightText = computed(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-size: 13px;
   font-weight: 400;
 }
@@ -345,7 +345,7 @@ const appendixCopyrightText = computed(() => {
   min-height: 44px;
   box-sizing: border-box;
   align-items: center;
-  color: #A1A1AA !important;
+  color: var(--fsusblog-text-quiet) !important;
   font-size: 13px;
   font-weight: 400;
   letter-spacing: normal;
@@ -354,7 +354,7 @@ const appendixCopyrightText = computed(() => {
 }
 
 .fsus-appendix__copyright {
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-size: 13px;
   font-weight: 400;
   line-height: 1.6;
@@ -362,7 +362,7 @@ const appendixCopyrightText = computed(() => {
 
 .fsus-appendix__nav-label {
   margin-bottom: 10px;
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-size: 12px;
   font-weight: 400;
   letter-spacing: 1px;
@@ -385,7 +385,7 @@ const appendixCopyrightText = computed(() => {
 }
 
 .fsus-appendix__meta {
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-size: 12px;
   font-weight: 400;
   line-height: 1.6;
@@ -396,7 +396,7 @@ const appendixCopyrightText = computed(() => {
   min-height: 44px;
   box-sizing: border-box;
   align-items: center;
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
@@ -405,22 +405,22 @@ const appendixCopyrightText = computed(() => {
 }
 
 .fsus-appendix__tag:visited {
-  color: #A1A1AA !important;
+  color: var(--fsusblog-text-quiet) !important;
 }
 
 .fsus-appendix__link:visited {
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
 }
 
 .fsus-appendix__link:hover {
   background: transparent;
-  color: #2A599C;
+  color: var(--fsusblog-color-primary);
   text-decoration: none;
 }
 
 .fsus-appendix__link:focus-visible,
 .fsus-appendix__tag:focus-visible {
-  outline: 2px solid #2A599C;
+  outline: 2px solid var(--fsusblog-color-focus-ring);
   outline-offset: 2px;
 }
 

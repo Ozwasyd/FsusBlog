@@ -289,8 +289,8 @@ const toggleCommentExpansion = (key: string): void => {
   flex-direction: column;
   gap: 8px;
   padding-block: 20px;
-  border-bottom: 1px solid #E4E4E7;
-  color: #0F0F11;
+  border-bottom: 1px solid var(--fsusblog-panel-border);
+  color: var(--fsusblog-text-primary);
   font-family: 'Google Sans', 'Noto Sans CJK', sans-serif;
   text-align: left;
 }
@@ -317,12 +317,12 @@ const toggleCommentExpansion = (key: string): void => {
 }
 
 .fsus-comment__author.is-authenticated {
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
   font-weight: 500;
 }
 
 .fsus-comment__author.is-anonymous {
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-weight: 400;
 }
 
@@ -331,17 +331,17 @@ const toggleCommentExpansion = (key: string): void => {
   align-items: center;
   height: 20px;
   padding-inline: 6px;
-  border: 1px solid #E4E4E7;
+  border: 1px solid var(--fsusblog-panel-border);
   border-radius: 999px;
   background: transparent;
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-size: 12px;
   line-height: 1;
 }
 
 .fsus-comment__reply-target,
 .fsus-comment__time {
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-size: 13px;
   line-height: 1.4;
 }
@@ -359,7 +359,7 @@ const toggleCommentExpansion = (key: string): void => {
 
 .fsus-comment__content.fsus-markdown-body {
   margin-bottom: 4px;
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
   font-size: 14px;
   line-height: 1.6;
   text-align: left;
@@ -377,7 +377,7 @@ const toggleCommentExpansion = (key: string): void => {
   border: none;
   border-radius: 2px;
   background: transparent;
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
@@ -387,11 +387,11 @@ const toggleCommentExpansion = (key: string): void => {
 }
 
 .fsus-comment__action:hover {
-  color: #2A599C;
+  color: var(--fsusblog-color-primary);
 }
 
 .fsus-comment__action:focus-visible {
-  outline: 2px solid #2A599C;
+  outline: 2px solid var(--fsusblog-color-focus-ring);
   outline-offset: 4px;
   border-radius: 2px;
 }
@@ -407,7 +407,7 @@ const toggleCommentExpansion = (key: string): void => {
   gap: 0;
   margin-top: 8px;
   padding-left: 16px;
-  border-left: 1px solid #E4E4E7;
+  border-left: 1px solid var(--fsusblog-panel-border);
 }
 
 .fsus-comment--reply {
@@ -435,10 +435,10 @@ const toggleCommentExpansion = (key: string): void => {
 }
 
 .fsus-comment__action--danger {
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
 }
 
 .fsus-comment__action--danger:hover {
-  color: #2A599C;
+  color: var(--fsusblog-color-primary);
 }
 </style>

@@ -631,7 +631,7 @@ watch(() => contentModel.value, (value) => {
   align-items: center;
   gap: 16px;
   padding-block: 16px;
-  border-top: 1px solid #E4E4E7;
+  border-top: 1px solid var(--fsusblog-panel-border);
   background: transparent;
   box-shadow: none;
   text-align: left;
@@ -639,7 +639,7 @@ watch(() => contentModel.value, (value) => {
 }
 
 .fsus-comment-login__text {
-  color: #A1A1AA;
+  color: var(--fsusblog-text-quiet);
   font-weight: 400;
   font-size: 14px;
   line-height: 1.6;
@@ -652,11 +652,11 @@ watch(() => contentModel.value, (value) => {
   align-items: center;
   justify-content: center;
   padding-inline: 12px;
-  border: 1px solid #E4E4E7;
+  border: 1px solid var(--fsusblog-panel-border);
   border-radius: 6px;
   background: transparent;
   box-shadow: none;
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
   font-size: 14px;
   font-weight: 500;
   text-decoration: none;
@@ -667,17 +667,17 @@ watch(() => contentModel.value, (value) => {
 }
 
 .fsus-comment-login__btn:visited {
-  color: #0F0F11;
+  color: var(--fsusblog-text-primary);
 }
 
 .fsus-comment-login__btn:hover {
-  border-color: #2A599C;
+  border-color: var(--fsusblog-color-primary);
   background: transparent;
-  color: #2A599C;
+  color: var(--fsusblog-color-primary);
 }
 
 .fsus-comment-login__btn:focus-visible {
-  outline: 2px solid #2A599C;
+  outline: 2px solid var(--fsusblog-color-focus-ring);
   outline-offset: 2px;
   background: transparent;
   box-shadow: none;
