@@ -1257,6 +1257,11 @@ function emitProductionResourceUtilization({ profileId, profile, result, detecte
         waits: checkpoint.resourceUtilization?.waits ?? null,
         largestIdleInterval
       },
+      enforcement: checkpoint.resourceEnforcement ?? {
+        mode: 'advisory',
+        status: 'unavailable',
+        reason: 'checkpoint-has-no-enforcement-evidence'
+      },
       waits: { totalsMs: waitTotalsMs },
       collectorCalibration: measureResourceCollectorOverhead(),
       lowEfficiencySteps,
@@ -1401,6 +1406,7 @@ async function runLocalProfile(matrix, profileId, options) {
       wallClockBudgetMs: profile.enforceBudget === false ? null : profile.budgetMs,
       wallClockStartedAtMs,
       collectFailures: true,
+      resourceEnforcementMode: process.env.FSUSBLOG_CGROUP_ENFORCEMENT ?? 'auto',
       systemResources: detectedResources,
       teeOutput: true,
       onSourceState(sourceState) {

@@ -19,11 +19,12 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
         }
         string postgresImage = Environment.GetEnvironmentVariable("FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE") ?? "postgres:18-alpine";
         string testRunId = Environment.GetEnvironmentVariable("FSUSBLOG_TEST_RUN_ID") ?? "local";
+        string[] dockerResourceArgs = BuildDockerResourceArguments(testRunId);
 
-        string containerId = await RunDockerAsync(
-            "run",
-            "--rm",
-            "-d",
+        string[] dockerArgs =
+        [
+            "run", "--rm", "-d",
+            .. dockerResourceArgs,
             "--name", _containerName,
             "--label", "com.fsusblog.test.kind=schema-migration",
             "--label", $"com.fsusblog.test.owner-pid={Environment.ProcessId}",
@@ -32,7 +33,9 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
             "-e", "POSTGRES_PASSWORD=postgres",
             "-e", "POSTGRES_DB=postgres",
             "-p", "127.0.0.1::5432",
-            postgresImage).ConfigureAwait(false);
+            postgresImage
+        ];
+        string containerId = await RunDockerAsync(dockerArgs).ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(containerId))
         {
@@ -311,6 +314,47 @@ public sealed class PostgresSchemaMigrationFixture : IAsyncLifetime
             .Last();
 
         return int.Parse(lastToken, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static string[] BuildDockerResourceArguments(string runId)
+    {
+        string? cpuRaw = Environment.GetEnvironmentVariable("FSUSBLOG_DOCKER_CPU_UNITS");
+        string? memoryHighRaw = Environment.GetEnvironmentVariable("FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES");
+        string? memoryMaxRaw = Environment.GetEnvironmentVariable("FSUSBLOG_DOCKER_MEMORY_MAX_BYTES");
+        string? pidsRaw = Environment.GetEnvironmentVariable("FSUSBLOG_DOCKER_PIDS_MAX");
+        if (string.IsNullOrWhiteSpace(cpuRaw)
+            && string.IsNullOrWhiteSpace(memoryHighRaw)
+            && string.IsNullOrWhiteSpace(memoryMaxRaw)
+            && string.IsNullOrWhiteSpace(pidsRaw))
+        {
+            return [];
+        }
+
+        if (!double.TryParse(cpuRaw, System.Globalization.NumberStyles.AllowDecimalPoint,
+                System.Globalization.CultureInfo.InvariantCulture, out double cpu) || cpu <= 0
+            || !long.TryParse(memoryHighRaw, System.Globalization.CultureInfo.InvariantCulture, out long memoryHigh) || memoryHigh <= 0
+            || !long.TryParse(memoryMaxRaw, System.Globalization.CultureInfo.InvariantCulture, out long memoryMax) || memoryMax < memoryHigh
+            || !long.TryParse(pidsRaw, System.Globalization.CultureInfo.InvariantCulture, out long pids) || pids <= 0)
+        {
+            throw new InvalidOperationException("Docker resource grant is incomplete or invalid.");
+        }
+
+        string bundleId = Environment.GetEnvironmentVariable("FSUSBLOG_PHYSICAL_BUNDLE_ID") ?? "backend-tests";
+        string stepId = Environment.GetEnvironmentVariable("FSUSBLOG_STEP_ID") ?? "dotnet-production-union";
+        return
+        [
+            "--cpus", cpu.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "--memory-reservation", memoryHigh.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "--memory", memoryMax.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "--pids-limit", pids.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "--label", $"io.fsusblog.test.run-id={runId}",
+            "--label", $"io.fsusblog.test.bundle-id={bundleId}",
+            "--label", $"io.fsusblog.test.step-id={stepId}",
+            "--label", $"io.fsusblog.test.cpu-units={cpu.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            "--label", $"io.fsusblog.test.memory-high-bytes={memoryHigh.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            "--label", $"io.fsusblog.test.memory-max-bytes={memoryMax.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+            "--label", $"io.fsusblog.test.pids-max={pids.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+        ];
     }
 
     private static Task<string> TryRunDockerAsync(params string[] args)

@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 import { parseMatrix } from '../../test-matrix/parse-matrix.mjs'
@@ -41,6 +41,7 @@ import {
   parseGnuTimeReport,
   resolveResourceSampleIntervalMs
 } from '../../test-matrix/resource-utilization.mjs'
+import { resolveCgroupLimits } from '../../test-matrix/production-resource-enforcement.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const profileId = process.env.FSUSBLOG_LOCAL_PROFILE || 'production'
@@ -69,6 +70,7 @@ const backendWebRoot = productionBuildLayout.backendWebRoot
 const activeStepChildren = new Map()
 const stepExecutionResults = new Map()
 const stepResourceMetrics = new Map()
+const stepEffectiveLimits = new Map()
 const waitLedger = createWaitLedger()
 let shutdownPromise = null
 let runtimeChildEnvironment = {}
@@ -570,6 +572,11 @@ async function executeStep(step) {
     return result
   }
   const stepCapacity = resolveStepRuntimeCapacity(bundleId, step, bundleCapacity())
+  const stepOsLimits = resolveCgroupLimits(stepCapacity, {
+    cpuUnits: os.availableParallelism?.() ?? os.cpus().length,
+    memoryGiB: os.totalmem() / (1024 ** 3)
+  })
+  stepEffectiveLimits.set(step.id, stepOsLimits)
   const remainingBundleDeadlineMs = Math.max(1, bundleDeadlineMs() - (Date.now() - startedAt))
   const stepDeadlineMs = Math.min(remainingBundleDeadlineMs, resolveMachineExecutionTimeoutMs({
     baseTimeoutMs: remainingBundleDeadlineMs,
@@ -616,7 +623,12 @@ async function executeStep(step) {
       FSUSBLOG_BUNDLE_CPU_BUDGET: String(stepCapacity.maxParallel),
       FSUSBLOG_BUNDLE_CPU_UNITS: String(stepCapacity.cpuUnits),
       FSUSBLOG_BUNDLE_MEMORY_GIB: String(stepCapacity.memoryGiB),
-      FSUSBLOG_STEP_DEADLINE_MS: String(stepDeadlineMs)
+      FSUSBLOG_STEP_DEADLINE_MS: String(stepDeadlineMs),
+      FSUSBLOG_STEP_ID: step.id,
+      FSUSBLOG_DOCKER_CPU_UNITS: String(stepCapacity.cpuUnits),
+      FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES: String(stepOsLimits.memoryHighBytes),
+      FSUSBLOG_DOCKER_MEMORY_MAX_BYTES: String(stepOsLimits.memoryMaxBytes),
+      FSUSBLOG_DOCKER_PIDS_MAX: String(stepOsLimits.pidsMax)
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
@@ -1733,6 +1745,7 @@ function finalizeBundleResourceUtilization(status, error = null) {
     processSpawnCount: sum('processSpawnCount'),
     waits,
     steps,
+    docker: collectDockerResourceEvidence(),
     failure: error ? (error instanceof Error ? error.message : String(error)) : null,
     generatedAt: new Date().toISOString()
   }
@@ -1742,6 +1755,73 @@ function finalizeBundleResourceUtilization(status, error = null) {
   fs.writeFileSync(temporary, `${JSON.stringify(finalizedResourceUtilization, null, 2)}\n`)
   fs.renameSync(temporary, file)
   return finalizedResourceUtilization
+}
+
+function collectDockerResourceEvidence() {
+  const runId = process.env.FSUSBLOG_TEST_RUN_ID ?? ''
+  const discovered = spawnSync('docker', [
+    'ps', '-aq',
+    '--filter', `label=io.fsusblog.test.run-id=${runId}`,
+    '--filter', `label=io.fsusblog.test.bundle-id=${bundleId}`
+  ], { cwd: root, encoding: 'utf8', timeout: 5000 })
+  if (discovered.error || discovered.status !== 0) {
+    return { status: 'unavailable', reason: discovered.error?.message ?? discovered.stderr?.trim() ?? `docker-exit-${discovered.status}`, containers: [] }
+  }
+  const identities = new Set(discovered.stdout.split(/\s+/u).filter(Boolean))
+  for (const name of [
+    runtimeChildEnvironment.FSUSBLOG_POSTGRES_CONTAINER_NAME,
+    runtimeChildEnvironment.FSUSBLOG_REDIS_CONTAINER_NAME
+  ]) if (name) identities.add(name)
+  const containers = []
+  for (const identity of identities) {
+    const inspected = spawnSync('docker', ['inspect', identity], { cwd: root, encoding: 'utf8', timeout: 5000 })
+    if (inspected.status !== 0) continue
+    const item = JSON.parse(inspected.stdout)?.[0]
+    const labels = item?.Config?.Labels ?? {}
+    const stepId = labels['io.fsusblog.test.step-id'] ?? null
+    const parentExpected = stepId ? stepEffectiveLimits.get(stepId) : null
+    const labeledCpuUnits = Number(labels['io.fsusblog.test.cpu-units'])
+    const labeledMemoryHigh = Number(labels['io.fsusblog.test.memory-high-bytes'])
+    const labeledMemoryMax = Number(labels['io.fsusblog.test.memory-max-bytes'])
+    const labeledPidsMax = Number(labels['io.fsusblog.test.pids-max'])
+    const expected = [labeledCpuUnits, labeledMemoryHigh, labeledMemoryMax, labeledPidsMax]
+      .every((value) => Number.isFinite(value) && value > 0)
+      ? {
+          cpuUnits: labeledCpuUnits,
+          memoryHighBytes: labeledMemoryHigh,
+          memoryMaxBytes: labeledMemoryMax,
+          pidsMax: labeledPidsMax
+        }
+      : parentExpected
+    const effective = {
+      nanoCpus: item?.HostConfig?.NanoCpus ?? null,
+      cpuQuota: item?.HostConfig?.CpuQuota ?? null,
+      cpuPeriod: item?.HostConfig?.CpuPeriod ?? null,
+      memoryBytes: item?.HostConfig?.Memory ?? null,
+      memoryReservationBytes: item?.HostConfig?.MemoryReservation ?? null,
+      pidsLimit: item?.HostConfig?.PidsLimit ?? null
+    }
+    containers.push({
+      id: item?.Id ?? identity,
+      name: String(item?.Name ?? '').replace(/^\//u, ''),
+      labels,
+      effectiveLimits: effective,
+      consistency: expected ? {
+        status: Number(effective.nanoCpus) === Math.round(expected.cpuUnits * 1e9)
+          && Number(effective.memoryBytes) === expected.memoryMaxBytes
+          && Number(effective.memoryReservationBytes) === expected.memoryHighBytes
+          && Number(effective.pidsLimit) === expected.pidsMax
+          ? 'consistent' : 'mismatch',
+        expected: {
+          nanoCpus: Math.round(expected.cpuUnits * 1e9),
+          memoryBytes: expected.memoryMaxBytes,
+          memoryReservationBytes: expected.memoryHighBytes,
+          pidsLimit: expected.pidsMax
+        }
+      } : { status: 'unavailable', reason: 'container-step-binding-missing' }
+    })
+  }
+  return { status: 'measured', containers }
 }
 
 run().catch((error) => {

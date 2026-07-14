@@ -268,6 +268,7 @@ resolve_bootstrap_child_environment() {
   FSUSBLOG_BOOTSTRAP_WORKERS="$workers" \
     "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" <<'NODE'
 import process from 'node:process'
+import os from 'node:os'
 import { pathToFileURL } from 'node:url'
 
 const {
@@ -288,11 +289,49 @@ const child = resolveManifestChildEnvironment({
   workers,
   concurrent: workers > 1
 })
+const bytesPerGiB = 1024 ** 3
+const positiveNumber = (value, fallback) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+const machineCpu = os.availableParallelism?.() ?? os.cpus().length
+const childCpu = positiveNumber(child.FSUSBLOG_STEP_CPU_BUDGET, 1)
+const childMemoryHigh = Math.max(1, Math.floor(
+  positiveNumber(child.FSUSBLOG_STEP_MEMORY_GIB, 1) * bytesPerGiB
+))
+const parentCpu = positiveNumber(env.FSUSBLOG_STEP_CPU_BUDGET, machineCpu)
+const parentMemoryHigh = Math.max(1, Math.floor(positiveNumber(
+  env.FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES,
+  positiveNumber(env.FSUSBLOG_STEP_MEMORY_GIB, os.freemem() / bytesPerGiB) * bytesPerGiB
+)))
+const defaultHeadroom = Math.max(
+  64 * 1024 ** 2,
+  Math.floor(parentMemoryHigh / Math.sqrt(Math.max(1, machineCpu * 16)))
+)
+const parentMemoryMax = Math.max(parentMemoryHigh, Math.floor(positiveNumber(
+  env.FSUSBLOG_DOCKER_MEMORY_MAX_BYTES,
+  parentMemoryHigh + defaultHeadroom
+)))
+const parentPids = Math.max(1, Math.floor(positiveNumber(
+  env.FSUSBLOG_DOCKER_PIDS_MAX,
+  Math.max(64, Math.ceil(parentCpu * 128))
+)))
+child.FSUSBLOG_DOCKER_CPU_UNITS = child.FSUSBLOG_STEP_CPU_BUDGET
+child.FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES = String(childMemoryHigh)
+child.FSUSBLOG_DOCKER_MEMORY_MAX_BYTES = String(Math.max(
+  childMemoryHigh,
+  childMemoryHigh + Math.floor((parentMemoryMax - parentMemoryHigh) / workers)
+))
+child.FSUSBLOG_DOCKER_PIDS_MAX = String(Math.max(1, Math.floor(parentPids / workers)))
 for (const key of [
   'FSUSBLOG_STEP_CPU_BUDGET',
   'FSUSBLOG_STEP_MEMORY_GIB',
   'FSUSBLOG_COMMAND_MANIFEST_WORKERS',
-  'FSUSBLOG_NODE_TEST_CONCURRENCY'
+  'FSUSBLOG_NODE_TEST_CONCURRENCY',
+  'FSUSBLOG_DOCKER_CPU_UNITS',
+  'FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES',
+  'FSUSBLOG_DOCKER_MEMORY_MAX_BYTES',
+  'FSUSBLOG_DOCKER_PIDS_MAX'
 ]) {
   if (child[key] !== undefined) process.stdout.write(`${key}=${child[key]}\n`)
 }
@@ -344,23 +383,37 @@ run_bootstrap_parallel() {
       log "$group capacity update workers=$worker_cap->$next_worker_cap active=$active"
       worker_cap="$next_worker_cap"
     fi
+    local wave_child_env_file=''
+    local wave_child_env_status=0
+    if (( next < total && active < worker_cap )); then
+      wave_child_env_file="$status_dir/wave-$next-$worker_cap.env"
+      if resolve_bootstrap_child_environment "$worker_cap" > "$wave_child_env_file"; then
+        :
+      else
+        wave_child_env_status=$?
+      fi
+    fi
     while (( next < total && active < worker_cap )); do
       local index="$next"
-      local child_env_file="$status_dir/$index.env"
-      resolve_bootstrap_child_environment "$worker_cap" > "$child_env_file"
-      (
-        set +e
-        while IFS='=' read -r key value; do
-          [[ -n "$key" ]] && export "$key=$value"
-        done < "$child_env_file"
-        ( "${commands[$index]}" "$readiness_deadline" )
-        local child_status=$?
-        local pending_status="${status_files[$index]}.pending-$BASHPID"
-        printf '%s\n' "$child_status" > "$pending_status"
-        mv "$pending_status" "${status_files[$index]}"
-        exit 0
-      ) &
-      child_pids[$index]="$!"
+      if (( wave_child_env_status == 0 )); then
+        (
+          set +e
+          while IFS='=' read -r key value; do
+            [[ -n "$key" ]] && export "$key=$value"
+          done < "$wave_child_env_file"
+          ( "${commands[$index]}" "$readiness_deadline" )
+          local child_status=$?
+          local pending_status="${status_files[$index]}.pending-$BASHPID"
+          printf '%s\n' "$child_status" > "$pending_status"
+          mv "$pending_status" "${status_files[$index]}"
+          exit 0
+        ) &
+        child_pids[$index]="$!"
+      else
+        log "$group job ${labels[$index]} could not resolve its child resource grant"
+        printf '%s\n' "$wave_child_env_status" > "${status_files[$index]}"
+        child_pids[$index]=''
+      fi
       observed[$index]=0
       next=$((next + 1))
       active=$((active + 1))
@@ -371,7 +424,9 @@ run_bootstrap_parallel() {
       if [[ "${observed[$index]:-0}" == "1" || ! -f "${status_files[$index]}" ]]; then
         continue
       fi
-      wait "${child_pids[$index]}" >/dev/null 2>&1 || true
+      if [[ -n "${child_pids[$index]:-}" ]]; then
+        wait "${child_pids[$index]}" >/dev/null 2>&1 || true
+      fi
       observed[$index]=1
       active=$((active - 1))
       completed=$((completed + 1))
@@ -573,6 +628,61 @@ wait_for_managed_binary_url() {
   return 1
 }
 
+DOCKER_RESOURCE_ARGS=()
+build_docker_resource_args() {
+  local cpu="${FSUSBLOG_DOCKER_CPU_UNITS:-}"
+  local memory_high="${FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES:-}"
+  local memory_max="${FSUSBLOG_DOCKER_MEMORY_MAX_BYTES:-}"
+  local pids_max="${FSUSBLOG_DOCKER_PIDS_MAX:-}"
+  DOCKER_RESOURCE_ARGS=()
+  if [[ -z "$cpu$memory_high$memory_max$pids_max" ]]; then
+    return
+  fi
+  if [[ ! "$cpu" =~ ^[0-9]+([.][0-9]+)?$ || ! "$memory_high" =~ ^[0-9]+$ \
+      || ! "$memory_max" =~ ^[0-9]+$ || ! "$pids_max" =~ ^[0-9]+$ ]]; then
+    fail 'Docker resource enforcement requires positive CPU, memory high/max, and pids values'
+  fi
+  DOCKER_RESOURCE_ARGS=(
+    --cpus "$cpu"
+    --memory-reservation "$memory_high"
+    --memory "$memory_max"
+    --pids-limit "$pids_max"
+  )
+  [[ -n "${FSUSBLOG_TEST_RUN_ID:-}" ]] && DOCKER_RESOURCE_ARGS+=(--label "io.fsusblog.test.run-id=$FSUSBLOG_TEST_RUN_ID")
+  [[ -n "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" ]] && DOCKER_RESOURCE_ARGS+=(--label "io.fsusblog.test.bundle-id=$FSUSBLOG_PHYSICAL_BUNDLE_ID")
+  [[ -n "${FSUSBLOG_STEP_ID:-}" ]] && DOCKER_RESOURCE_ARGS+=(--label "io.fsusblog.test.step-id=$FSUSBLOG_STEP_ID")
+  DOCKER_RESOURCE_ARGS+=(
+    --label "io.fsusblog.test.cpu-units=$cpu"
+    --label "io.fsusblog.test.memory-high-bytes=$memory_high"
+    --label "io.fsusblog.test.memory-max-bytes=$memory_max"
+    --label "io.fsusblog.test.pids-max=$pids_max"
+  )
+}
+
+update_existing_container_resources() {
+  local container="$1"
+  build_docker_resource_args
+  if (( ${#DOCKER_RESOURCE_ARGS[@]} == 0 )); then
+    return
+  fi
+  docker update \
+    --cpus "${FSUSBLOG_DOCKER_CPU_UNITS}" \
+    --memory-reservation "${FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES}" \
+    --memory "${FSUSBLOG_DOCKER_MEMORY_MAX_BYTES}" \
+    --pids-limit "${FSUSBLOG_DOCKER_PIDS_MAX}" \
+    "$container" >/dev/null
+}
+
+container_resource_binding_matches() {
+  local container="$1"
+  if [[ -z "${FSUSBLOG_TEST_RUN_ID:-}" ]]; then
+    return 0
+  fi
+  local binding
+  binding="$(docker inspect --format '{{index .Config.Labels "io.fsusblog.test.run-id"}}|{{index .Config.Labels "io.fsusblog.test.bundle-id"}}|{{index .Config.Labels "io.fsusblog.test.step-id"}}' "$container" 2>/dev/null || true)"
+  [[ "$binding" == "${FSUSBLOG_TEST_RUN_ID}|${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}|${FSUSBLOG_STEP_ID:-}" ]]
+}
+
 ensure_postgres() {
   local readiness_deadline="${1:-}"
   if [[ -z "$readiness_deadline" ]]; then
@@ -584,12 +694,20 @@ ensure_postgres() {
     return
   fi
 
-  if docker ps -a --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER"; then
+  if docker ps -a --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER" \
+      && container_resource_binding_matches "$POSTGRES_CONTAINER"; then
     log 'starting existing postgres container'
+    update_existing_container_resources "$POSTGRES_CONTAINER"
     docker start "$POSTGRES_CONTAINER" >/dev/null
   else
+    if docker ps -a --format '{{.Names}}' | grep -qx "$POSTGRES_CONTAINER"; then
+      log 'recreating postgres container with current run/bundle/step resource identity'
+      docker rm -f -v "$POSTGRES_CONTAINER" >/dev/null
+    fi
     log 'creating postgres container'
+    build_docker_resource_args
     docker run -d \
+      "${DOCKER_RESOURCE_ARGS[@]}" \
       --name "$POSTGRES_CONTAINER" \
       -e POSTGRES_USER=fsusblog \
       -e POSTGRES_PASSWORD=fsusblog_dev \
@@ -620,12 +738,19 @@ ensure_redis() {
     return
   fi
 
-  if docker ps -a --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER"; then
+  if docker ps -a --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER" \
+      && container_resource_binding_matches "$REDIS_CONTAINER"; then
     log 'starting existing redis container'
+    update_existing_container_resources "$REDIS_CONTAINER"
     docker start "$REDIS_CONTAINER" >/dev/null
   else
+    if docker ps -a --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER"; then
+      log 'recreating redis container with current run/bundle/step resource identity'
+      docker rm -f -v "$REDIS_CONTAINER" >/dev/null
+    fi
     log 'creating redis container'
-    docker run -d --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" redis:7-alpine >/dev/null
+    build_docker_resource_args
+    docker run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" redis:7-alpine >/dev/null
   fi
 
   while (( $(date +%s%3N) < readiness_deadline )); do

@@ -18,6 +18,7 @@ import {
   createWaitLedger,
   resolveResourceSampleIntervalMs
 } from './resource-utilization.mjs'
+import { createProductionResourceEnforcer } from './production-resource-enforcement.mjs'
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1'
 const protectedSupersedesPattern = /(^|[^a-z])(property|model|perf|performance|benchmark|runtime)([^a-z]|$)/i
@@ -627,15 +628,25 @@ function signalProcessTree(child, signal) {
   if (child.exitCode === null && child.signalCode === null) child.kill(signal)
 }
 
-function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs }) {
-  const child = spawn(tier.command, {
+function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs, suspendForAttach = false }) {
+  const suspendedEntry = suspendForAttach && process.platform !== 'win32'
+  const child = suspendedEntry
+    ? spawn('/bin/bash', ['-c', 'kill -STOP $$; exec /bin/bash -lc "$1"', 'fsusblog-cgroup-entry', tier.command], {
+        cwd: root,
+        env,
+        shell: false,
+        detached: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true
+      })
+    : spawn(tier.command, {
     cwd: root,
     env,
     shell: true,
     detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true
-  })
+      })
   child.stdout?.on('data', (chunk) => writeOutput(chunk, false))
   child.stderr?.on('data', (chunk) => writeOutput(chunk, true))
 
@@ -705,6 +716,9 @@ function beginSubprocess(tier, { root, env, writeOutput, terminationGraceMs }) {
   return {
     child,
     promise,
+    resume() {
+      if (suspendedEntry) child.kill('SIGCONT')
+    },
     terminate() {
       beginTermination()
     }
@@ -1398,6 +1412,21 @@ async function runDagUnlocked(options) {
     tierResourceUnits(tier)
   }
   const byId = new Map(tiers.map((tier) => [tier.id, tier]))
+  const resourceEnforcer = createProductionResourceEnforcer({
+    ...(options.resourceEnforcementOptions ?? {}),
+    runId,
+    bundleIds: tiers.map((tier) => tier.physicalBundleId ?? tier.id),
+    machine: { cpuUnits: budget.cpuUnits, memoryGiB: budget.memoryGiB },
+    mode: options.resourceEnforcementMode ?? 'advisory'
+  })
+  let resourceEnforcerFinalized = false
+  const finalizeResourceEnforcer = () => {
+    if (resourceEnforcerFinalized) return
+    resourceEnforcerFinalized = true
+    resourceEnforcer.sample()
+    resourceEnforcer.cleanup()
+  }
+  options.registerSchedulerFinalizer?.(finalizeResourceEnforcer)
   const conservativeRepositoryFingerprint = tiers.some((tier) => effectiveCacheInputs(tier).length === 0)
     ? repositoryInputFingerprint(root)
     : null
@@ -1441,6 +1470,7 @@ async function runDagUnlocked(options) {
       curveCompactions: 0,
       waits: null
     },
+    resourceEnforcement: resourceEnforcer.evidence(),
     maxParallel,
     sourceState,
     completedTiers: [],
@@ -1457,6 +1487,31 @@ async function runDagUnlocked(options) {
   const resultFingerprints = new Map()
   const active = new Map()
   const schedulerWaitLedger = createWaitLedger()
+  let interruptPromise = null
+  let resolveInterrupt = null
+  let interrupted = null
+  const interruptHandlers = new Map()
+  if (resourceEnforcer.mode === 'enforced') {
+    interruptPromise = new Promise((resolve) => { resolveInterrupt = resolve })
+    for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+      const handler = () => {
+        if (interrupted) return
+        interrupted = { signal, exitCode }
+        for (const entry of active.values()) {
+          entry.cancelRequested = true
+          entry.terminate()
+        }
+        resolveInterrupt({ interrupted: true, signal, exitCode })
+      }
+      interruptHandlers.set(signal, handler)
+      process.on(signal, handler)
+    }
+  }
+  const removeInterruptHandlers = () => {
+    for (const [signal, handler] of interruptHandlers) process.off(signal, handler)
+    interruptHandlers.clear()
+  }
+  options.registerSchedulerFinalizer?.(removeInterruptHandlers)
   const reusedTiers = []
   let firstFailure = null
   const sampleResourcePeaks = () => {
@@ -1478,6 +1533,7 @@ async function runDagUnlocked(options) {
       reservedMemoryGiB: usage.memoryGiB,
       hostUsedMemoryGiB: Math.max(0, (os.totalmem() - os.freemem()) / (1024 ** 3))
     })
+    resourceEnforcer.sample()
     const maximumCurveSamples = Math.max(1024, Math.min(16384, Math.ceil(budget.cpuUnits * 512)))
     if (checkpoint.resourceUtilization.samples.length > maximumCurveSamples) {
       checkpoint.resourceUtilization.samples = checkpoint.resourceUtilization.samples
@@ -1528,6 +1584,9 @@ async function runDagUnlocked(options) {
     const temporary = `${resourceGrantFile}.next-${process.pid}`
     fs.writeFileSync(temporary, `${JSON.stringify(document, null, 2)}\n`)
     fs.renameSync(temporary, resourceGrantFile)
+    for (const { tier } of active.values()) {
+      resourceEnforcer.update(tier.physicalBundleId ?? tier.id, tierResourceUnits(tier))
+    }
   }
 
   const expandActiveDynamicGrants = () => {
@@ -1664,6 +1723,8 @@ async function runDagUnlocked(options) {
 
   const startTier = async (tier) => {
     schedulerWaitLedger.observe(tier.id, null)
+    const enforcementBundleId = tier.physicalBundleId ?? tier.id
+    const effectiveEnforcement = resourceEnforcer.update(enforcementBundleId, tierResourceUnits(tier))
     const tierEnvironment = {
       ...process.env,
       ...(options.env ?? {}),
@@ -1671,7 +1732,12 @@ async function runDagUnlocked(options) {
       FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit ?? '',
       FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
       FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: resourceGrantFile,
-      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: tier.id
+      FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: tier.id,
+      ...resourceEnforcer.environment(enforcementBundleId),
+      FSUSBLOG_CGROUP_EFFECTIVE_CPU_MAX: effectiveEnforcement.cpuMax,
+      FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_HIGH_BYTES: String(effectiveEnforcement.memoryHighBytes),
+      FSUSBLOG_CGROUP_EFFECTIVE_MEMORY_MAX_BYTES: String(effectiveEnforcement.memoryMaxBytes),
+      FSUSBLOG_CGROUP_EFFECTIVE_PIDS_MAX: String(effectiveEnforcement.pidsMax)
     }
     const inputFingerprint = tierInputFingerprint(tier, root, {
       env: tierEnvironment,
@@ -1706,8 +1772,19 @@ async function runDagUnlocked(options) {
           root,
           env: tierEnvironment,
           writeOutput,
-          terminationGraceMs
+          terminationGraceMs,
+          suspendForAttach: resourceEnforcer.mode === 'enforced'
         })
+    if (execution.child) {
+      try {
+        resourceEnforcer.attach(enforcementBundleId, execution.child.pid)
+        execution.resume?.()
+      } catch (error) {
+        execution.terminate()
+        execution.resume?.()
+        throw new Error(`cgroup attach failed for ${enforcementBundleId}: ${error.message}`, { cause: error })
+      }
+    }
     const resourceCollector = execution.child
       ? createLinuxProcessTreeCollector({
           rootPid: execution.child.pid,
@@ -1822,6 +1899,7 @@ async function runDagUnlocked(options) {
   }
 
   while (pending.length > 0 || active.size > 0) {
+    if (interrupted && active.size === 0) break
     if (collectFailures) {
       let blockedAny = true
       while (blockedAny) {
@@ -1925,9 +2003,27 @@ async function runDagUnlocked(options) {
     const activePromises = [...active.entries()].map(([tierId, entry]) => (
       entry.promise.then((settled) => ({ tierId, settled }))
     ))
-    const outcome = await Promise.race(budgetPromise && (!firstFailure || collectFailures)
+    const raceEntries = budgetPromise && (!firstFailure || collectFailures)
       ? [...activePromises, budgetPromise]
-      : activePromises)
+      : activePromises
+    if (interruptPromise) raceEntries.push(interruptPromise)
+    const outcome = await Promise.race(raceEntries)
+    if (outcome.interrupted) {
+      interruptPromise = null
+      deadlineExpired = true
+      firstFailure ??= {
+        tierId: active.keys().next().value ?? pending[0]?.id ?? checkpoint.targetTierId,
+        exitCode: outcome.exitCode,
+        signal: outcome.signal,
+        reason: `scheduler interrupted by ${outcome.signal}`,
+        changedPaths: []
+      }
+      checkpoint.failure = firstFailure
+      checkpoint.failurePoint = firstFailure.tierId
+      checkpoint.failures.push(firstFailure)
+      writeCheckpoint(checkpointFile, checkpoint)
+      continue
+    }
     if (outcome.budgetExpired) {
       deadlineExpired = true
       budgetPromise = null
@@ -1996,6 +2092,9 @@ async function runDagUnlocked(options) {
   checkpoint.resourceUtilization.waits = schedulerWaitLedger.finish()
   checkpoint.resourceUtilization.resourceGrantHistory = Object.fromEntries(Object.entries(checkpoint.tiers)
     .map(([tierId, result]) => [tierId, result.resourceGrantHistory ?? []]))
+  finalizeResourceEnforcer()
+  checkpoint.resourceEnforcement = resourceEnforcer.evidence()
+  removeInterruptHandlers()
   checkpoint.ungeneratedEvidence = firstFailure
     ? tiers.flatMap((tier) => {
         const result = checkpoint.tiers[tier.id]
@@ -2087,9 +2186,21 @@ export async function runDag(options) {
   const runsRoot = path.resolve(options.runsRoot ?? path.join(root, '.tmp/test-runs'))
   const runId = safeRunId(options.runId ?? createRunId(options.targetTierId ?? 'matrix'))
   const releaseLock = acquireRunLock(runsRoot, runId)
+  const schedulerFinalizers = []
   try {
-    return await runDagUnlocked({ ...options, root, runsRoot, runId })
+    return await runDagUnlocked({
+      ...options,
+      root,
+      runsRoot,
+      runId,
+      registerSchedulerFinalizer(finalizer) {
+        schedulerFinalizers.push(finalizer)
+      }
+    })
   } finally {
+    for (const finalizer of schedulerFinalizers.reverse()) {
+      try { await finalizer() } catch {}
+    }
     releaseLock()
   }
 }

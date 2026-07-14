@@ -352,7 +352,7 @@ test('backend production discovery captures a rejected authoritative union', asy
 })
 
 test('backend production partition environment replaces every inherited STEP and bundle resource grant', () => {
-  assert.deepEqual(backendPartitionEnvironment({
+  const environment = backendPartitionEnvironment({
     KEEP: 'yes',
     DOTNET_PROCESSOR_COUNT: '8',
     FSUSBLOG_BACKEND_CPU_BUDGET: '8',
@@ -366,7 +366,9 @@ test('backend production partition environment replaces every inherited STEP and
     memoryGiB: 3.5,
     namespace: 'run-partition-0',
     tempDirectory: '/repo/.tmp/test-results/backend/production/tmp/shard-0'
-  }), {
+  })
+  assert.deepEqual(Object.fromEntries(Object.entries(environment)
+    .filter(([key]) => !key.startsWith('FSUSBLOG_DOCKER_'))), {
     KEEP: 'yes',
     DOTNET_PROCESSOR_COUNT: '2',
     FSUSBLOG_BACKEND_CPU_BUDGET: '2',
@@ -380,6 +382,10 @@ test('backend production partition environment replaces every inherited STEP and
     TMP: '/repo/.tmp/test-results/backend/production/tmp/shard-0',
     TEMP: '/repo/.tmp/test-results/backend/production/tmp/shard-0'
   })
+  assert.equal(environment.FSUSBLOG_DOCKER_CPU_UNITS, '2')
+  assert.equal(environment.FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES, String(Math.round(3.5 * 1024 ** 3)))
+  assert.ok(Number(environment.FSUSBLOG_DOCKER_MEMORY_MAX_BYTES) > Number(environment.FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES))
+  assert.ok(Number(environment.FSUSBLOG_DOCKER_PIDS_MAX) >= 64)
   assert.throws(() => backendPartitionEnvironment({}, {
     processors: 0,
     memoryGiB: 1,

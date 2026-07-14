@@ -24,6 +24,7 @@ import {
   productionDotnetArtifacts,
   resolveProductionBuildLayout
 } from '../test-matrix/production-build-layout.mjs'
+import { resolveCgroupLimits } from '../test-matrix/production-resource-enforcement.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const project = 'tests/backend/FsusBlog.Server.Tests.csproj'
@@ -1154,6 +1155,7 @@ export function backendDiscoveryEnvironment(env = process.env, {
   }
   const branchCpuUnits = Math.floor(cpuBudget / maxParallel) + (processSlot < cpuBudget % maxParallel ? 1 : 0)
   const branchMemoryGiB = memoryGiB / maxParallel
+  const dockerLimits = dockerLimitEnvironment(branchCpuUnits, branchMemoryGiB, env)
   return {
     ...env,
     DOTNET_PROCESSOR_COUNT: '1',
@@ -1162,7 +1164,8 @@ export function backendDiscoveryEnvironment(env = process.env, {
     FSUSBLOG_STEP_MEMORY_GIB: String(branchMemoryGiB),
     FSUSBLOG_BUNDLE_CPU_UNITS: String(branchCpuUnits),
     FSUSBLOG_BUNDLE_CPU_BUDGET: String(branchCpuUnits),
-    FSUSBLOG_BUNDLE_MEMORY_GIB: String(branchMemoryGiB)
+    FSUSBLOG_BUNDLE_MEMORY_GIB: String(branchMemoryGiB),
+    ...dockerLimits
   }
 }
 
@@ -1185,12 +1188,40 @@ export function backendPartitionEnvironment(env, { processors, memoryGiB, namesp
     FSUSBLOG_BUNDLE_CPU_UNITS: String(processors),
     FSUSBLOG_BUNDLE_CPU_BUDGET: String(processors),
     FSUSBLOG_BUNDLE_MEMORY_GIB: String(memoryGiB),
+    ...dockerLimitEnvironment(processors, memoryGiB, env),
     FSUSBLOG_BACKEND_DB_NAMESPACE: namespace,
     ...(tempDirectory === null ? {} : {
       TMPDIR: tempDirectory,
       TMP: tempDirectory,
       TEMP: tempDirectory
     })
+  }
+}
+
+function dockerLimitEnvironment(cpuUnits, memoryGiB, parentEnvironment = process.env) {
+  const limits = resolveCgroupLimits({ cpuUnits, memoryGiB }, {
+    cpuUnits: os.availableParallelism?.() ?? os.cpus().length,
+    memoryGiB: os.totalmem() / (1024 ** 3)
+  })
+  const parentCpu = Number(parentEnvironment.FSUSBLOG_STEP_CPU_BUDGET)
+  const parentMemoryGiB = Number(parentEnvironment.FSUSBLOG_STEP_MEMORY_GIB)
+  const parentMemoryHigh = Number(parentEnvironment.FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES)
+  const parentMemoryMax = Number(parentEnvironment.FSUSBLOG_DOCKER_MEMORY_MAX_BYTES)
+  const parentPidsMax = Number(parentEnvironment.FSUSBLOG_DOCKER_PIDS_MAX)
+  const inheritedEnvelope = [parentCpu, parentMemoryGiB, parentMemoryHigh, parentMemoryMax, parentPidsMax]
+    .every((value) => Number.isFinite(value) && value > 0)
+  const memoryMaxBytes = inheritedEnvelope
+    ? Math.max(limits.memoryHighBytes, Math.round(
+        limits.memoryHighBytes + Math.max(0, parentMemoryMax - parentMemoryHigh) * memoryGiB / parentMemoryGiB))
+    : limits.memoryMaxBytes
+  const pidsMax = inheritedEnvelope
+    ? Math.max(1, Math.round(parentPidsMax * cpuUnits / parentCpu))
+    : limits.pidsMax
+  return {
+    FSUSBLOG_DOCKER_CPU_UNITS: String(cpuUnits),
+    FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES: String(limits.memoryHighBytes),
+    FSUSBLOG_DOCKER_MEMORY_MAX_BYTES: String(memoryMaxBytes),
+    FSUSBLOG_DOCKER_PIDS_MAX: String(pidsMax)
   }
 }
 
