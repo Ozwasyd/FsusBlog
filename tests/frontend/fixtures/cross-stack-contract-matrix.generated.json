@@ -1502,6 +1502,13 @@
         },
         {
           "auth": "admin",
+          "method": "PUT",
+          "path": "/author/articles/{articleId:int}/revisions/{revisionId:long}/responsibility",
+          "requestFrame": "ArticleResponsibilityRequest",
+          "responseFrame": "ArticleResponsibilityResponse"
+        },
+        {
+          "auth": "admin",
           "method": "GET",
           "path": "/author/moderation/overview",
           "responseFrame": "ModerationOverview",
@@ -2158,5 +2165,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 208
+  "openapiOperationCount": 209
 }

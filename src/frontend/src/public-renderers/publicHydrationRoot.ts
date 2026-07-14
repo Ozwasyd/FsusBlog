@@ -45,6 +45,10 @@ function createHydrationPageAssembly(payload: PublicHydrationPayload): PublicAot
         detailView: payload.detailView,
         articleId,
         authorName: payload.authorName?.trim() || getSiteTitle(payload),
+        responsibilityAuthors: payload.responsibilityAuthors?.length
+          ? payload.responsibilityAuthors
+          : [{ name: payload.authorName?.trim() || getSiteTitle(payload), profileUrl: null }],
+        responsibilityManifest: payload.responsibilityManifest ?? null,
         articleSummary: payload.articleSummary?.trim() || payload.detailView.header.title,
         canonicalUrl: payload.baseUrl
           ? `${String(payload.baseUrl).replace(/\/+$/u, '')}/article/${articleId}`

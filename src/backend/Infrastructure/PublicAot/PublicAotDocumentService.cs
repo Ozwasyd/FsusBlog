@@ -451,6 +451,7 @@ public sealed class PublicAotDocumentService(
             ?? payloads.Bootstrap;
         string headline = ResolvePayloadString(payload, "title", title);
         string author = ResolvePayloadString(payload, "authorName", seo.Author);
+        IReadOnlyList<PublicAotArticleAuthorMetadata> authors = ResolvePayloadAuthors(payloads.Hydration ?? payload, author);
         string image = ResolvePayloadString(payload, "coverImageUrl", seo.OgImage);
         DateTime? publishedAt = ResolvePayloadDate(payload, "publishedAt") ?? ResolvePayloadDate(payload, "createTime");
         DateTime? modifiedAt = ResolvePayloadDate(payload, "updatedAt") ?? publishedAt;
@@ -465,8 +466,37 @@ public sealed class PublicAotDocumentService(
             author,
             image,
             siteTitle,
-            publisherLogo);
+            publisherLogo,
+            authors);
     }
+
+    private static IReadOnlyList<PublicAotArticleAuthorMetadata> ResolvePayloadAuthors(
+        IReadOnlyDictionary<string, object?>? payload,
+        string fallbackAuthor)
+    {
+        object? rawAuthors = null;
+        bool hasAuthors = payload?.TryGetValue("responsibilityAuthors", out rawAuthors) == true
+            || payload?.TryGetValue("authors", out rawAuthors) == true;
+        if (hasAuthors && rawAuthors is object?[] values)
+        {
+            PublicAotArticleAuthorMetadata[] authors = values
+                .OfType<IReadOnlyDictionary<string, object?>>()
+                .Select(static value => new PublicAotArticleAuthorMetadata(
+                    PublicAotBinaryPayload.TryGetString(value, "name").Trim(),
+                    NormalizeOptionalString(PublicAotBinaryPayload.TryGetString(value, "profileUrl"))))
+                .Where(static author => author.Name.Length > 0)
+                .Take(8)
+                .ToArray();
+            if (authors.Length > 0) return authors;
+        }
+
+        return string.IsNullOrWhiteSpace(fallbackAuthor)
+            ? []
+            : [new PublicAotArticleAuthorMetadata(fallbackAuthor.Trim(), null)];
+    }
+
+    private static string? NormalizeOptionalString(string value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static IReadOnlyDictionary<string, object?>? TryResolveArticlePayload(IReadOnlyDictionary<string, object?>? payload)
         => payload is null

@@ -11,7 +11,12 @@
     <meta v-if="detailView.header.meta.modified" itemprop="dateModified" :content="detailView.header.meta.modified.isoTime" />
     <meta itemprop="articleSection" :content="detailView.header.meta.categoryName" />
     <meta itemprop="description" :content="articleSummary || detailView.header.title" />
-    <meta itemprop="author" :content="authorName || 'Fsu'" />
+    <meta
+      v-for="author in effectiveResponsibilityAuthors"
+      :key="author.name"
+      itemprop="author"
+      :content="author.name"
+    />
     <meta itemprop="license" :content="detailView.rights.licenseType" />
     <meta name="fsus:rights-snapshot-id" :content="detailView.rights.snapshotId" />
     <meta name="fsus:rights-policy-hash" :content="detailView.rights.policyHash" />
@@ -59,6 +64,12 @@
       data-fsus-motion-surface="article-title"
     >
       <ArticleDetailHeader :view="detailView.header" :link-mode="linkMode" />
+      <ArticleResponsibilityDisclosure
+        :article-id="safeArticleId"
+        :fallback-author="authorName"
+        :initial-authors="responsibilityAuthors"
+        :initial-manifest="responsibilityManifest"
+      />
       <slot name="header-actions" />
     </header>
 
@@ -221,18 +232,22 @@
 import { computed } from 'vue'
 import ArticleReadingNotice from '@/components/article/ArticleReadingNotice.vue'
 import ArticleDetailHeader from '@/components/article/ArticleDetailHeader.vue'
+import ArticleResponsibilityDisclosure from '@/components/article/ArticleResponsibilityDisclosure.vue'
 import ArticleDetailBody from '@/components/public/ArticleDetailBody.vue'
 import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailCommentsPlaceholder.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
 import { usePublicSiteTitle } from '@/public-renderers/publicSiteIdentityContext'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
+import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility'
 import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt'
 
 const props = withDefaults(defineProps<{
   detailView: ArticleDetailPageViewContract
   articleId: number | string | null | undefined
   authorName: string
+  responsibilityAuthors?: readonly Readonly<{ name: string; profileUrl: string | null }>[]
+  responsibilityManifest?: ArticleResponsibilityPublicView | null
   articleSummary: string
   canonicalUrl?: string | null
   hasBodyContent: boolean
@@ -247,6 +262,11 @@ const props = withDefaults(defineProps<{
 })
 
 const siteTitle = usePublicSiteTitle()
+const effectiveResponsibilityAuthors = computed(() => (
+  props.responsibilityAuthors?.length
+    ? props.responsibilityAuthors
+    : [{ name: props.authorName.trim() || 'Fsu', profileUrl: null }]
+))
 
 const safeArticleId = computed(() => {
   const normalized = Number(props.articleId)
@@ -272,7 +292,7 @@ const appendixTagComponent = computed(() => (
 ))
 
 const appendixTagHref = (tag: AppendixTag): string => (
-  tag.href.trim()
+  tag.href?.trim() ?? ''
 )
 
 const appendixTagLinkProps = (tag: AppendixTag): Record<string, string> => (

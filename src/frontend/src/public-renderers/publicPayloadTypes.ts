@@ -6,6 +6,7 @@ import type { SiteComplianceConfigPublic } from '@/api/system'
 import type { AboutPageViewContract } from '@/view-contracts/aboutPage'
 import type { ArchivePageViewContract } from '@/view-contracts/archive'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
+import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility'
 import type { ArticleListViewContract } from '@/view-contracts/articleList'
 import type { FilterPageViewContract } from '@/view-contracts/filterView'
 
@@ -154,6 +155,8 @@ export type PublicHydrationPayloadByKind = {
   ArticleDetail: BaseHydrationPayload<'ArticleDetail'> & Readonly<{
     articleId: number | string
     authorName?: string | null
+    responsibilityAuthors?: readonly Readonly<{ name: string; profileUrl: string | null }>[]
+    responsibilityManifest?: ArticleResponsibilityPublicView | null
     articleSummary?: string | null
     bodyContent: string
     bodyHtml?: string | null

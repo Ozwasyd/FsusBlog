@@ -1,3 +1,5 @@
+using FsusBlog.Server.Infrastructure.Integrity;
+
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 public sealed record PublicAotSiteComplianceSnapshot(
@@ -35,6 +37,10 @@ public sealed record PublicAotArticleCategorySnapshot(
 public sealed record PublicAotArticleTagSnapshot(
     int Id,
     string Name);
+
+public sealed record PublicAotResponsiblePersonSnapshot(
+    string Name,
+    string? ProfileUrl);
 
 public sealed record PublicAotArticleRightsSnapshot(
     long SnapshotId,
@@ -125,6 +131,12 @@ public sealed record PublicArticlePageSnapshot(
     public DateTime? PublishedAt { get; init; }
 
     public DateTime? UpdatedAt { get; init; }
+
+    public IReadOnlyList<PublicAotResponsiblePersonSnapshot> Authors { get; init; } = [];
+
+    public PublicAotResponsiblePersonSnapshot? Reviewer { get; init; }
+
+    public ArticleResponsibilityManifestResponse? Responsibility { get; init; }
 }
 
 public sealed record PublicFilterPageSnapshot(

@@ -3,6 +3,7 @@ import {
   createArticleListViewContract
 } from '@/view-contracts/articleList'
 import { createArticleDetailPageViewContract, type ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
+import { normalizeArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility'
 import type { FeaturedArticleItem, PopularArticleSummaryResponse, RelatedReadingItemResponse, RelatedReadingResponse } from '@/api/article'
 import { createAboutPageViewContract } from '@/view-contracts/aboutPage'
 import { createArchivePageViewContract } from '@/view-contracts/archive'
@@ -324,6 +325,8 @@ const articleDetailEntryDefinition = definePublicEntry({
     const articleId = article.id
     const scope = createScope(buildPublicArticleRouteKey(articleId))
     const authorName = toText(options.authorName, scope.siteTitle)
+    const responsibilityAuthors = normalizeResponsibilityAuthors(options.authors, authorName)
+    const responsibilityManifest = normalizeArticleResponsibilityPublicView(options.responsibility)
     const relatedReading = normalizeRelatedReading(options.relatedReading)
     const detailView: ArticleDetailPageViewContract = createArticleDetailPageViewContract(
       article,
@@ -338,6 +341,8 @@ const articleDetailEntryDefinition = definePublicEntry({
       articleId,
       title: article.title,
       authorName,
+      responsibilityAuthors,
+      responsibilityManifest,
       articleSummary: article.summary,
       bodyContent: article.content,
       bodyHtml,
@@ -355,6 +360,8 @@ const articleDetailEntryDefinition = definePublicEntry({
       detailView,
       articleId,
       authorName,
+      responsibilityAuthors,
+      responsibilityManifest,
       articleSummary: article.summary,
       canonicalUrl: scope.baseUrlInput
         ? `${String(scope.baseUrlInput).replace(/\/+$/u, '')}${buildPublicArticleHref(articleId)}`
@@ -369,6 +376,21 @@ const articleDetailEntryDefinition = definePublicEntry({
     })
   }
 })
+
+function normalizeResponsibilityAuthors(value: unknown, fallbackAuthor: string): readonly Readonly<{ name: string; profileUrl: string | null }>[] {
+  if (!Array.isArray(value)) return [{ name: fallbackAuthor, profileUrl: null }]
+  const authors = value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const record = item as Record<string, unknown>
+    const name = typeof record.name === 'string' ? record.name.trim() : ''
+    if (!name) return []
+    const profileUrl = typeof record.profileUrl === 'string' && /^https?:\/\//iu.test(record.profileUrl)
+      ? record.profileUrl
+      : null
+    return [{ name, profileUrl }]
+  })
+  return authors.length > 0 ? authors.slice(0, 8) : [{ name: fallbackAuthor, profileUrl: null }]
+}
 
 function createStaticPageEntryDefinition<K extends Extract<PublicPageKind, 'About' | 'Privacy' | 'Guidelines' | 'Copyright'>>(
   kind: K,

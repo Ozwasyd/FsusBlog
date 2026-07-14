@@ -2,6 +2,7 @@ using System.Data.Common;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Distribution;
@@ -178,6 +179,7 @@ public sealed class PublicAotHomeBootstrapProvider(
 public sealed class PublicAotArticleDetailBootstrapProvider(
     RelatedReadingService relatedReadingService,
     IAotSeoConfigSnapshot seoConfigSnapshot,
+    IArticleResponsibilityManifestService responsibilityManifestService,
     ISqlSugarClient db) : PublicAotBootstrapProviderBase(seoConfigSnapshot)
 {
     public override PublicPageKind Kind => PublicPageKind.ArticleDetail;
@@ -206,6 +208,11 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         }
 
         PublicAotSeoSnapshot seo = await seoTask;
+        IntegrityManifestResult responsibilityResult = await responsibilityManifestService.GetCurrentAsync(articleId, cancellationToken);
+        ArticleResponsibilityManifestResponse? responsibility = responsibilityResult.Body as ArticleResponsibilityManifestResponse;
+        IReadOnlyList<PublicAotResponsiblePersonSnapshot> authors = responsibility?.Authors.Count > 0
+            ? responsibility.Authors.Select(static author => new PublicAotResponsiblePersonSnapshot(author.Name, author.ProfileUrl)).ToArray()
+            : [new PublicAotResponsiblePersonSnapshot(ResolveArticleAuthorName(article.AuthorName, seo), null)];
         RelatedReadingResponse? relatedReading = await relatedReadingService.BuildAsync(articleId, cancellationToken);
         return Result<PublicPageSnapshot>.Success(new PublicArticlePageSnapshot(
             seo,
@@ -214,7 +221,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
             article.Content,
             article.Summary ?? string.Empty,
             article.Views,
-            ResolveArticleAuthorName(article.AuthorName, seo),
+            authors[0].Name,
             article.CreateTime,
             new PublicAotArticleCategorySnapshot(article.CategoryId, article.CategoryName),
             article.Tags,
@@ -223,7 +230,12 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         {
             CoverImageUrl = article.CoverImageUrl ?? string.Empty,
             PublishedAt = article.PublishedAt,
-            UpdatedAt = article.UpdatedAt
+            UpdatedAt = article.UpdatedAt,
+            Authors = authors,
+            Reviewer = responsibility?.Reviewer is { } reviewer
+                ? new PublicAotResponsiblePersonSnapshot(reviewer.Name, reviewer.ProfileUrl)
+                : null,
+            Responsibility = responsibility
         });
     }
 
@@ -280,6 +292,7 @@ public sealed class PublicAotArticleDetailBootstrapProvider(
         projection.CategoryName = string.IsNullOrWhiteSpace(projection.CategoryName) ? "未分类" : projection.CategoryName;
         return projection;
     }
+
 
     private async Task<ArticleRightsReadModel> LoadArticleRightsForAotAsync(int articleId, CancellationToken cancellationToken)
     {

@@ -56,6 +56,25 @@ public static class IntegrityVerificationEndpoints
             .AllowAnonymous()
             .WithMetadata(new FsusRouteKindMetadata("public"));
 
+        app.MapGet("/integrity/article/{articleId:int}/responsibility", async (
+            HttpContext ctx,
+            int articleId,
+            IArticleResponsibilityManifestService service,
+            CancellationToken cancellationToken) =>
+            WriteManifest(ctx, await service.GetCurrentAsync(articleId, cancellationToken).ConfigureAwait(false)))
+            .AllowAnonymous()
+            .WithMetadata(new FsusRouteKindMetadata("public"));
+
+        app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/responsibility", async (
+            HttpContext ctx,
+            int articleId,
+            int revisionNo,
+            IArticleResponsibilityManifestService service,
+            CancellationToken cancellationToken) =>
+            WriteManifest(ctx, await service.GetRevisionAsync(articleId, revisionNo, cancellationToken).ConfigureAwait(false)))
+            .AllowAnonymous()
+            .WithMetadata(new FsusRouteKindMetadata("public"));
+
         app.MapGet("/integrity/revisions/{articleRevisionId:long}", async (
             HttpContext ctx,
             long articleRevisionId,

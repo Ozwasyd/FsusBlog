@@ -66,5 +66,12 @@ public sealed class AuthoringNativeAedsEndpointTests
         Assert.True(AuthoringEndpoints.TryResolveRoute(HttpMethods.Post, new PathString("/integrity/fix"), out var integrityRoute));
         Assert.Equal(AedsFrameType.IntegrityFixRequest, integrityRoute.RequestFrame);
         Assert.Equal(AedsFrameType.IntegrityFixResponse, integrityRoute.ResponseFrame);
+
+        Assert.True(AuthoringEndpoints.TryResolveRoute(
+            HttpMethods.Put,
+            new PathString("/articles/42/revisions/9001/responsibility"),
+            out var responsibilityRoute));
+        Assert.Equal(AedsFrameType.ArticleResponsibilityRequest, responsibilityRoute.RequestFrame);
+        Assert.Equal(AedsFrameType.ArticleResponsibilityResponse, responsibilityRoute.ResponseFrame);
     }
 }

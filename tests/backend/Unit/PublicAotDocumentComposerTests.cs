@@ -221,6 +221,43 @@ public sealed class PublicAotDocumentComposerTests
         Assert.DoesNotContain("\"mainEntityOfPage\"", result);
     }
 
+    [Fact]
+    public void BuildSeoHeadTags_ArticleDetail_EmitsMultiAuthorProfilesWithoutUnsafeUrls()
+    {
+        string result = PublicAotDocumentComposer.BuildSeoHeadTags(
+            PublicPageKind.ArticleDetail,
+            "Article",
+            "Blog",
+            "Description",
+            "https://example.com/article/42",
+            new PublicAotArticleSeoMetadata(
+                "Article",
+                "Description",
+                "https://example.com/article/42",
+                DateTime.UnixEpoch,
+                DateTime.UnixEpoch,
+                "Fallback",
+                string.Empty,
+                "Blog",
+                string.Empty,
+                [
+                    new PublicAotArticleAuthorMetadata("Alice", "https://example.com/authors/alice"),
+                    new PublicAotArticleAuthorMetadata("Bob", "javascript:alert(1)")
+                ]));
+
+        using JsonDocument document = JsonDocument.Parse(ExtractJsonLd(result));
+        JsonElement posting = document.RootElement.GetProperty("@graph").EnumerateArray()
+            .Single(static node => node.GetProperty("@type").GetString() == "BlogPosting");
+        JsonElement.ArrayEnumerator authors = posting.GetProperty("author").EnumerateArray();
+        JsonElement[] authorItems = authors.ToArray();
+
+        Assert.Equal(
+            new[] { "Alice", "Bob" },
+            authorItems.Select(static author => author.GetProperty("name").GetString() ?? string.Empty).ToArray());
+        Assert.Equal("https://example.com/authors/alice", authorItems[0].GetProperty("url").GetString());
+        Assert.False(authorItems[1].TryGetProperty("url", out _));
+    }
+
     [Theory]
     [InlineData(PublicPageKind.Home, "WebPage")]
     [InlineData(PublicPageKind.About, "WebPage")]

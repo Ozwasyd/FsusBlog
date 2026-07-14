@@ -6,6 +6,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
@@ -181,6 +182,35 @@ public static class AuthoringEndpoints
             return rolledBack
                 ? Ok(context, aeds, new { rolledBack })
                 : AedsJsonResults.NotFound(aeds, "revision_not_found");
+        })
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
+
+        group.MapPut("/articles/{articleId:int}/revisions/{revisionId:long}/responsibility", async (
+            int articleId,
+            long revisionId,
+            HttpContext context,
+            IAedsEncoder aeds,
+            IArticleResponsibilityAuthoringService service,
+            CancellationToken cancellationToken) =>
+        {
+            var parsed = await ReadRequestAsync<ArticleResponsibilityDraft>(
+                context,
+                aeds,
+                "article_responsibility_request_invalid",
+                cancellationToken);
+            if (!parsed.IsSuccess)
+            {
+                return parsed.ToErrorResult(aeds);
+            }
+
+            ArticleResponsibilitySaveResponse? response = await service.SaveAsync(
+                articleId,
+                revisionId,
+                parsed.Value!,
+                cancellationToken);
+            return response is null
+                ? AedsJsonResults.NotFound(aeds, "revision_not_found")
+                : Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
 
@@ -1691,6 +1721,8 @@ public static class AuthoringEndpoints
             return Found(null, AedsFrameType.ArticleRevisionDetail, out route);
         if (HttpMethods.IsPost(method) && segments is ["articles", _, "revisions", _, "rollback"])
             return Found(null, AedsFrameType.ArticleRevisionRollbackResponse, out route);
+        if (HttpMethods.IsPut(method) && segments is ["articles", _, "revisions", _, "responsibility"])
+            return Found(AedsFrameType.ArticleResponsibilityRequest, AedsFrameType.ArticleResponsibilityResponse, out route);
 
         if (HttpMethods.IsGet(method) && segments is ["moderation", "overview"])
             return Found(null, AedsFrameType.ModerationOverview, out route);

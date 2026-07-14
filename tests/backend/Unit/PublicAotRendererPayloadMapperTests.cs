@@ -67,12 +67,21 @@ public sealed class PublicAotRendererPayloadMapperTests
                 Category: new PublicAotArticleCategorySnapshot(2, "Category"),
                 Tags: [new PublicAotArticleTagSnapshot(3, "Tag")],
                 Rights: Rights(),
-                RelatedReading: null)));
+                RelatedReading: null)
+            {
+                Authors =
+                [
+                    new PublicAotResponsiblePersonSnapshot("Alice", "https://example.test/alice"),
+                    new PublicAotResponsiblePersonSnapshot("Bob", null)
+                ]
+            }));
 
         IReadOnlyDictionary<string, object?> options = GetOptions(payload);
 
         Assert.False(options.ContainsKey("content"));
         Assert.Equal("# Body", options["bodyContent"]);
+        Dictionary<string, object?>[] authors = Assert.IsType<Dictionary<string, object?>[]>(options["authors"]);
+        Assert.Equal(new[] { "Alice", "Bob" }, authors.Select(static author => author["name"] as string ?? string.Empty).ToArray());
     }
 
     [Fact]

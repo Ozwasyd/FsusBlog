@@ -464,6 +464,8 @@ SPA 接管失败时采用 fail-closed：snapshot head 缺失、旧版本、diges
 
 文章修订历史必须通过 admin-only API 读取摘要和单条正文详情：`GET /api/binary/author/articles/{articleId}/revisions` 与 `GET /api/binary/author/articles/{articleId}/revisions/{revisionId}`。响应只暴露 `createdByAdminPrincipalId`，不暴露旧 `createdByUserId`。回滚使用 `POST /api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback`，服务层复用正式文章更新/失效链路写入新修订、刷新 AOT/search/feed/binary cache 并写审计；仓内不存在 issue 中提到的单数 article update 猜测路径，文档不得引用该旧猜测路径。编辑器只在作者工作台内比较当前表单与历史版本，回滚不得直接写表。
 
+每个 revision 可绑定不可变的 `article_responsibility_snapshot`，保存文章责任作者（或显式站点作者继承）、可选 reviewer、结构化公开来源、实质更新说明及按内容类型启用的方法/适用范围/局限。公开页先同步渲染站点作者回退，再从 `/integrity/article/{id}/responsibility` 渐进增强多人作者、来源和核验信息；sidecar 不进入内部 AEDS runtime contract，也不泄漏后台 actor。预发布治理只对作者资料不匹配和责任人未确认执行阻断；强结论无来源、链接不可公开、实质修改无更新说明、研究内容缺方法/局限均为人工复核 warning，不得转化为关键词密度或 SEO/GEO/E-E-A-T 分数门禁。
+
 ### 运维与危险操作
 
 代码证据：[`AuthoringEndpoints.cs`](../../src/backend/Modules/Endpoints/AuthoringEndpoints.cs)、[`AdminOperationsService.cs`](../../src/backend/Infrastructure/Operations/AdminOperationsService.cs)、[`AuthoringWorkflowService.cs`](../../src/backend/Services/Authoring/AuthoringWorkflowService.cs)。

@@ -6318,6 +6318,54 @@
         "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
       }
     },
+    "/api/binary/author/articles/{articleId:int}/revisions/{revisionId:long}/responsibility": {
+      "put": {
+        "operationId": "binary_put_author_articles_articleId_int_revisions_revisionId_long_responsibility",
+        "tags": [
+          "Binary"
+        ],
+        "summary": "authoring-console",
+        "responses": {
+          "200": {
+            "description": "ArticleResponsibilityResponse AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "ApiError AEDS frame",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "x-fsus-protocol": "AEDS",
+        "x-fsus-aeds-version": 2,
+        "x-fsus-request-frame": "ArticleResponsibilityRequest",
+        "x-fsus-response-frame": "ArticleResponsibilityResponse",
+        "x-fsus-error-frame": "ApiError",
+        "x-fsus-auth": "admin",
+        "x-fsus-pow": false,
+        "x-fsus-content-type": "application/octet-stream",
+        "x-fsus-success-status": 200,
+        "x-fsus-cache": "no-store",
+        "x-fsus-rate-limit": "authenticated",
+        "x-fsus-test-surface": "authoring-console",
+        "x-fsus-source": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+        "x-fsus-frontend-wrapper": "src/frontend/src/api/authoring.ts",
+        "x-fsus-frontend-adapter": "src/frontend/src/adapters/binary/authoringAdapter.ts"
+      }
+    },
     "/api/binary/author/moderation/overview": {
       "get": {
         "operationId": "binary_get_author_moderation_overview",

@@ -185,6 +185,8 @@ export const FrameType = {
   AdminPrincipalSnapshot: 188,
   AuthAnonymousBootstrapRequest: 189,
   AuthUpdatePublicHandleRequest: 190,
+  ArticleResponsibilityRequest: 191,
+  ArticleResponsibilityResponse: 192,
   EmptySuccess: 240,
   MutationId: 241,
   ApiError: 251,

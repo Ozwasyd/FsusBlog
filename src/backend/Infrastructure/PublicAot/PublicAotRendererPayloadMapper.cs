@@ -42,6 +42,9 @@ internal static class PublicAotRendererPayloadMapper
                 common["coverImageUrl"] = article.CoverImageUrl;
                 common["views"] = article.Views;
                 common["authorName"] = article.AuthorName;
+                common["authors"] = article.Authors.Select(ToResponsiblePersonPayload).ToArray();
+                common["reviewer"] = article.Reviewer is null ? null : ToResponsiblePersonPayload(article.Reviewer);
+                common["responsibility"] = article.Responsibility is null ? null : ToResponsibilityPayload(article.Responsibility);
                 common["createTime"] = article.CreateTime.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
                 common["publishedAt"] = article.PublishedAt?.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
                 common["updatedAt"] = article.UpdatedAt?.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
@@ -187,6 +190,60 @@ internal static class PublicAotRendererPayloadMapper
         {
             ["id"] = tag.Id,
             ["name"] = tag.Name
+        };
+
+    private static Dictionary<string, object?> ToResponsiblePersonPayload(PublicAotResponsiblePersonSnapshot person)
+        => new(StringComparer.Ordinal)
+        {
+            ["name"] = person.Name,
+            ["profileUrl"] = person.ProfileUrl
+        };
+
+    private static Dictionary<string, object?> ToResponsibilityPayload(FsusBlog.Server.Infrastructure.Integrity.ArticleResponsibilityManifestResponse responsibility)
+        => new(StringComparer.Ordinal)
+        {
+            ["schemaVersion"] = responsibility.SchemaVersion,
+            ["articleId"] = responsibility.ArticleId,
+            ["revisionNo"] = responsibility.RevisionNo,
+            ["inheritsSiteAuthor"] = responsibility.InheritsSiteAuthor,
+            ["legacyFallback"] = responsibility.LegacyFallback,
+            ["authors"] = responsibility.Authors.Select(static person => new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["name"] = person.Name,
+                ["profileUrl"] = person.ProfileUrl
+            }).ToArray(),
+            ["reviewer"] = responsibility.Reviewer is null ? null : new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["name"] = responsibility.Reviewer.Name,
+                ["profileUrl"] = responsibility.Reviewer.ProfileUrl
+            },
+            ["sources"] = responsibility.Sources.Select(static source => new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["title"] = source.Title,
+                ["url"] = source.Url,
+                ["sourceType"] = source.SourceType,
+                ["accessedOn"] = source.AccessedOn?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                ["version"] = source.Version,
+                ["citationNote"] = source.CitationNote
+            }).ToArray(),
+            ["update"] = responsibility.Update is null ? null : new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["summary"] = responsibility.Update.Summary,
+                ["reason"] = responsibility.Update.Reason,
+                ["effectiveAt"] = responsibility.Update.EffectiveAt?.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                ["conclusionImpact"] = responsibility.Update.ConclusionImpact
+            },
+            ["methodology"] = responsibility.Methodology,
+            ["applicability"] = responsibility.Applicability,
+            ["limitations"] = responsibility.Limitations,
+            ["responsiblePersonConfirmed"] = responsibility.ResponsiblePersonConfirmed,
+            ["verification"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["url"] = responsibility.Verification.Url,
+                ["revisionNo"] = responsibility.Verification.RevisionNo,
+                ["contentHash"] = responsibility.Verification.ContentHash,
+                ["proofStatus"] = responsibility.Verification.ProofStatus
+            }
         };
 
     private static Dictionary<string, object?> ToRelatedReadingPayload(PublicAotRelatedReadingSnapshot reading)

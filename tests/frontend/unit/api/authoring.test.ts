@@ -10,6 +10,7 @@ import {
   reloadModerationDictionaries,
   revokeAnonymousCredential,
   rollbackModerationDictionaries,
+  saveArticleResponsibility,
   saveServerDraft,
   setModerationGlobalState,
   setModerationRegionState
@@ -97,6 +98,33 @@ describe('authoring API binary transport', () => {
         proofBindingEnabled: false
       }
     })
+  })
+
+  it('saves revision responsibility through its route-specific AEDS frames', async () => {
+    binaryMock.mockResolvedValue({ saved: true, articleId: 42, articleRevisionId: '9001', revisionNo: 3, issues: [] })
+
+    await saveArticleResponsibility(42, '9001', {
+      inheritSiteAuthor: false,
+      authors: [{ name: 'Alice', profileUrl: 'https://example.test/alice' }],
+      reviewer: null,
+      sources: [],
+      updateSummary: null,
+      updateReason: null,
+      effectiveAt: null,
+      conclusionImpact: null,
+      methodology: null,
+      applicability: null,
+      limitations: null,
+      responsiblePersonConfirmed: true,
+      containsStrongClaims: false,
+      isSubstantiveUpdate: false,
+      requiresMethodsDisclosure: false
+    })
+
+    const call = binaryMock.mock.calls.at(-1)?.[0]
+    expect(call?.binaryUrl).toBe('/api/binary/author/articles/42/revisions/9001/responsibility')
+    expect(call?.frameType).toBe(FrameType.ArticleResponsibilityResponse)
+    expect(call?.requestOptions?.method).toBe('PUT')
   })
 
   it('getServerDraft reads nullable draft responses through AEDS', async () => {

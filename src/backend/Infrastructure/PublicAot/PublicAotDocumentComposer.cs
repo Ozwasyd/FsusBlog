@@ -42,7 +42,10 @@ internal sealed record class PublicAotArticleSeoMetadata(
     string AuthorName,
     string ImageUrl,
     string PublisherName,
-    string PublisherLogoUrl);
+    string PublisherLogoUrl,
+    IReadOnlyList<PublicAotArticleAuthorMetadata>? Authors = null);
+
+internal sealed record class PublicAotArticleAuthorMetadata(string Name, string? ProfileUrl);
 
 // Design reference: docs/api/design.md "AOT sentinel 与 data-fsus-aot-head".
 internal static class PublicAotDocumentComposer
@@ -282,13 +285,21 @@ internal static class PublicAotDocumentComposer
             writer.WriteString("dateModified", modifiedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
         }
 
-        if (!string.IsNullOrWhiteSpace(articleSeo?.AuthorName))
+        IReadOnlyList<PublicAotArticleAuthorMetadata> authors = ResolveAuthors(articleSeo);
+        if (authors.Count > 0)
         {
             writer.WritePropertyName("author");
-            writer.WriteStartObject();
-            writer.WriteString("@type", "Person");
-            writer.WriteString("name", articleSeo.AuthorName.Trim());
-            writer.WriteEndObject();
+            if (authors.Count == 1)
+            {
+                WriteAuthorJsonLd(writer, authors[0]);
+            }
+            else
+            {
+                writer.WriteStartArray();
+                foreach (PublicAotArticleAuthorMetadata author in authors)
+                    WriteAuthorJsonLd(writer, author);
+                writer.WriteEndArray();
+            }
         }
 
         string imageUrl = MakeAbsoluteUrl(siteRoot, articleSeo?.ImageUrl ?? string.Empty);
@@ -316,6 +327,37 @@ internal static class PublicAotDocumentComposer
         }
 
         writer.WriteEndObject();
+    }
+
+    private static void WriteAuthorJsonLd(Utf8JsonWriter writer, PublicAotArticleAuthorMetadata author)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("@type", "Person");
+        writer.WriteString("name", author.Name);
+        string? profileUrl = NormalizePublicAuthorUrl(author.ProfileUrl);
+        if (profileUrl is not null) writer.WriteString("url", profileUrl);
+        writer.WriteEndObject();
+    }
+
+    private static string? NormalizePublicAuthorUrl(string? value)
+        => Uri.TryCreate(value?.Trim(), UriKind.Absolute, out Uri? uri)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
+            && string.IsNullOrEmpty(uri.UserInfo)
+                ? uri.AbsoluteUri
+                : null;
+
+    private static IReadOnlyList<PublicAotArticleAuthorMetadata> ResolveAuthors(PublicAotArticleSeoMetadata? articleSeo)
+    {
+        PublicAotArticleAuthorMetadata[] authors = articleSeo?.Authors?
+            .Where(static author => !string.IsNullOrWhiteSpace(author.Name))
+            .Select(static author => author with { Name = author.Name.Trim() })
+            .Take(8)
+            .ToArray() ?? [];
+        return authors.Length > 0
+            ? authors
+            : string.IsNullOrWhiteSpace(articleSeo?.AuthorName)
+                ? []
+                : [new PublicAotArticleAuthorMetadata(articleSeo.AuthorName.Trim(), null)];
     }
 
     private static Dictionary<string, object?> BuildBreadcrumbJsonLd(
@@ -391,13 +433,16 @@ internal static class PublicAotDocumentComposer
             node["dateModified"] = modifiedAt.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
         }
 
-        if (!string.IsNullOrWhiteSpace(articleSeo?.AuthorName))
+        IReadOnlyList<PublicAotArticleAuthorMetadata> authors = ResolveAuthors(articleSeo);
+        if (authors.Count > 0)
         {
-            node["author"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+            object[] authorNodes = authors.Select(static author => (object)new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["@type"] = "Person",
-                ["name"] = articleSeo.AuthorName.Trim()
-            };
+                ["name"] = author.Name,
+                ["url"] = NormalizePublicAuthorUrl(author.ProfileUrl)
+            }).ToArray();
+            node["author"] = authorNodes.Length == 1 ? authorNodes[0] : authorNodes;
         }
 
         string imageUrl = MakeAbsoluteUrl(siteRoot, articleSeo?.ImageUrl ?? string.Empty);

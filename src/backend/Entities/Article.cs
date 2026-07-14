@@ -210,6 +210,67 @@ public class ArticleRevision
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+/// <summary>
+/// 文章级责任、来源与修订说明的不可变快照。公开读取按 article revision 解析，
+/// 不携带后台 actor、草稿正文或审核内部字段。
+/// </summary>
+[SugarTable("article_responsibility_snapshot")]
+[SugarIndex("ux_article_responsibility_revision", nameof(ArticleRevisionId), OrderByType.Asc, true)]
+[SugarIndex("idx_article_responsibility_article_revision", nameof(ArticleId), OrderByType.Asc, nameof(RevisionNo), OrderByType.Desc)]
+public class ArticleResponsibilitySnapshot
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
+    public long Id { get; set; }
+
+    [SugarColumn(ColumnName = "article_id")]
+    public int ArticleId { get; set; }
+
+    [SugarColumn(ColumnName = "article_revision_id")]
+    public long ArticleRevisionId { get; set; }
+
+    [SugarColumn(ColumnName = "revision_no")]
+    public int RevisionNo { get; set; }
+
+    [SugarColumn(ColumnName = "inherit_site_author")]
+    public bool InheritSiteAuthor { get; set; } = true;
+
+    [SugarColumn(ColumnName = "authors_json", ColumnDataType = "text")]
+    public string AuthorsJson { get; set; } = "[]";
+
+    [SugarColumn(ColumnName = "reviewer_json", ColumnDataType = "text", IsNullable = true)]
+    public string? ReviewerJson { get; set; }
+
+    [SugarColumn(ColumnName = "sources_json", ColumnDataType = "text")]
+    public string SourcesJson { get; set; } = "[]";
+
+    [SugarColumn(ColumnName = "update_summary", Length = 512, IsNullable = true)]
+    public string? UpdateSummary { get; set; }
+
+    [SugarColumn(ColumnName = "update_reason", Length = 512, IsNullable = true)]
+    public string? UpdateReason { get; set; }
+
+    [SugarColumn(ColumnName = "effective_at", IsNullable = true)]
+    public DateTime? EffectiveAt { get; set; }
+
+    [SugarColumn(ColumnName = "conclusion_impact", Length = 32, IsNullable = true)]
+    public string? ConclusionImpact { get; set; }
+
+    [SugarColumn(ColumnName = "methodology", ColumnDataType = "text", IsNullable = true)]
+    public string? Methodology { get; set; }
+
+    [SugarColumn(ColumnName = "applicability", ColumnDataType = "text", IsNullable = true)]
+    public string? Applicability { get; set; }
+
+    [SugarColumn(ColumnName = "limitations", ColumnDataType = "text", IsNullable = true)]
+    public string? Limitations { get; set; }
+
+    [SugarColumn(ColumnName = "responsible_person_confirmed")]
+    public bool ResponsiblePersonConfirmed { get; set; }
+
+    [SugarColumn(ColumnName = "created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
 [SugarTable("article_rights_policy")]
 [SugarIndex("ux_article_rights_policy_article", nameof(ArticleId), OrderByType.Asc, true)]
 public class ArticleRightsPolicy

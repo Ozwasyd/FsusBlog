@@ -39,6 +39,7 @@ const ArticleDetailHeaderStub = defineComponent({
 const global = {
   stubs: {
     ArticleDetailHeader: ArticleDetailHeaderStub,
+    ArticleResponsibilityDisclosure: true,
     ArticleDetailBody: { template: '<div><slot /></div>' },
     ArticleDetailCommentsPlaceholder: true,
     ArticleReadingNotice: true,

@@ -177,6 +177,50 @@ describe('publicEntryRegistry shared coverage', () => {
     expect(bootstrap?.article?.rights).toEqual(articleRightsFixture)
   })
 
+  it('keeps multi-author visible SSR metadata aligned with hydration', async () => {
+    const result = await buildPublicEntry('ArticleDetail', {
+      id: 1,
+      title: 'Article',
+      bodyContent: 'Body',
+      summary: 'Summary',
+      rights: articleRightsFixture,
+      siteTitle: 'FsusBlog',
+      siteDescription: 'desc',
+      authors: [
+        { name: 'Alice', profileUrl: 'https://example.test/alice' },
+        { name: 'Bob', profileUrl: null }
+      ],
+      responsibility: {
+        articleId: 1,
+        revisionNo: 3,
+        authors: [
+          { name: 'Alice', profileUrl: 'https://example.test/alice' },
+          { name: 'Bob', profileUrl: null }
+        ],
+        reviewer: null,
+        sources: [{ title: 'Spec', url: 'https://example.test/spec', sourceType: 'primary', accessedOn: null, version: null, citationNote: null }],
+        update: { summary: 'Updated', reason: 'Evidence', conclusionImpact: 'clarified' },
+        verification: { url: '/integrity/article/1/revisions/3', proofStatus: 'ready' }
+      }
+    })
+
+    const hydration = decodePublicAotPayload<{
+      responsibilityAuthors?: readonly { name: string; profileUrl: string | null }[]
+      responsibilityManifest?: { sources: readonly { title: string }[] }
+    }>(result.entry.hydrationPropsPayload)
+    const assembly = vi.mocked(renderShell).mock.calls.at(-1)?.[2] as {
+      props?: {
+        responsibilityAuthors?: readonly { name: string }[]
+        responsibilityManifest?: { sources: readonly { title: string }[] }
+      }
+    }
+
+    expect(hydration?.responsibilityAuthors?.map(author => author.name)).toEqual(['Alice', 'Bob'])
+    expect(assembly.props?.responsibilityAuthors?.map(author => author.name)).toEqual(['Alice', 'Bob'])
+    expect(hydration?.responsibilityManifest?.sources[0]?.title).toBe('Spec')
+    expect(assembly.props?.responsibilityManifest?.sources[0]?.title).toBe('Spec')
+  })
+
   it('accepts the backend flat home payload shape without response nesting', async () => {
     const result = await buildPublicEntry('Home', {
       siteTitle: 'FsusBlog',

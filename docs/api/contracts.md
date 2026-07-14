@@ -50,6 +50,8 @@ HTML L0 只暴露 `/api/binary/article/html/{pathKey}.html` 诊断/预览路径�
 
 Integrity verification endpoints are public JSON sidecars, not `/api/binary/**` runtime endpoints. They exist so external verifiers can read public keys, publish proofs, local transparency log heads, and Merkle checkpoints without depending on internal AEDS frames.
 
+Article responsibility sidecars extend this public verification boundary with revision-scoped authors, optional reviewer, structured public sources, substantial-update disclosure and optional methodology/applicability/limitations. `GET /integrity/article/{articleId}/responsibility` resolves the current revision; `GET /integrity/article/{articleId}/revisions/{revisionNo}/responsibility` resolves an immutable historical revision. Missing historical snapshots use an explicit deterministic site-author inheritance fallback. Responses expose only safe public HTTP(S) links plus `ready|failed|unavailable` proof state; they never include admin actor ids, draft content, private sources, failure details or audit payloads. See [Article responsibility and sources](../integrity/article-responsibility.md).
+
 | Method | Path | Content-Type | Cache | 说明 |
 |--------|------|--------------|-------|------|
 | GET | `/integrity/keys.json` | `application/json; charset=utf-8` | short public manifest cache | Public signing key registry; never exposes private keys. |
@@ -1665,6 +1667,7 @@ Admin Rights V3 editor panel 是文章编辑器内的 `rights` 写入面板，�
 | GET | `/api/binary/author/articles/{articleId}/revisions` | 最近 50 条修订摘要；actor 字段为 `createdByAdminPrincipalId` |
 | GET | `/api/binary/author/articles/{articleId}/revisions/{revisionId}` | 单个修订详情，包含标题、摘要、正文、分类、标签、`createdByAdminPrincipalId` 和审计时间，用于编辑器内比较 |
 | POST | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/rollback` | 回滚到指定修订并触发文章更新链；必须携带 `X-Fsus-Mfa-Proof` |
+| PUT | `/api/binary/author/articles/{articleId}/revisions/{revisionId}/responsibility` | 写入该 revision 的作者/审阅者、结构化来源、更新说明和可选方法/适用范围/局限；返回全部 blocking/warning，不产生评分门禁 |
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
 | GET | `/api/binary/author/assets` | 资产库列表 |
 | DELETE | `/api/binary/author/assets/orphans` | 删除引用计数为 0 的孤儿资产库记录 |

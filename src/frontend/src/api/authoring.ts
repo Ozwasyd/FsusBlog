@@ -60,6 +60,47 @@ export interface ArticleRevisionDetailResponse extends ArticleRevisionSummaryRes
   tagIds: number[]
 }
 
+export interface ArticleResponsiblePerson {
+  name: string
+  profileUrl: string | null
+}
+
+export interface ArticleEvidenceSource {
+  title: string
+  url: string
+  sourceType: string
+  accessedOn: string | null
+  version: string | null
+  citationNote: string | null
+  isPublic?: boolean
+}
+
+export interface ArticleResponsibilityDraft {
+  inheritSiteAuthor: boolean
+  authors: ArticleResponsiblePerson[]
+  reviewer: ArticleResponsiblePerson | null
+  sources: ArticleEvidenceSource[]
+  updateSummary: string | null
+  updateReason: string | null
+  effectiveAt: string | null
+  conclusionImpact: 'none' | 'clarified' | 'changed' | 'unknown' | null
+  methodology: string | null
+  applicability: string | null
+  limitations: string | null
+  responsiblePersonConfirmed: boolean
+  containsStrongClaims: boolean
+  isSubstantiveUpdate: boolean
+  requiresMethodsDisclosure: boolean
+}
+
+export interface ArticleResponsibilitySaveResponse {
+  saved: boolean
+  articleId: number
+  articleRevisionId: string
+  revisionNo: number
+  issues: PrepublishIssue[]
+}
+
 export interface PrepublishIssue {
   severity: string
   code: string
@@ -1446,6 +1487,24 @@ export async function rollbackArticleRevision(
     method: 'POST'
   })
   return result.rolledBack === true
+}
+
+export async function saveArticleResponsibility(
+  articleId: number,
+  revisionId: string,
+  request: ArticleResponsibilityDraft,
+  config?: ApiRequestConfig
+): Promise<ArticleResponsibilitySaveResponse> {
+  return requestAuthoringBinary<ArticleResponsibilitySaveResponse>(
+    `/articles/${articleId}/revisions/${revisionId}/responsibility`,
+    FrameType.ArticleResponsibilityResponse,
+    config,
+    {
+      method: 'PUT',
+      requestFrame: FrameType.ArticleResponsibilityRequest,
+      request
+    }
+  )
 }
 
 function buildAuditSearch(params: AuditLogQueryParams): URLSearchParams {

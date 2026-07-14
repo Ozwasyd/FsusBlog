@@ -47,6 +47,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IPublishProofTransparencyLog, PublishProofTransparencyLog>();
         services.AddScoped<IIntegrityProofScheduler, IntegrityProofScheduler>();
         services.AddScoped<IIntegrityVerificationManifestService, IntegrityVerificationManifestService>();
+        services.AddScoped<IArticleResponsibilityManifestService, ArticleResponsibilityManifestService>();
+        services.AddScoped<IArticleResponsibilityAuthoringService, ArticleResponsibilityAuthoringService>();
         services.AddScoped<IIntegrityAdminConsoleService, IntegrityAdminConsoleService>();
         services.AddScoped<IArticleMutationSideEffectCoordinator, ArticleMutationSideEffectCoordinator>();
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();

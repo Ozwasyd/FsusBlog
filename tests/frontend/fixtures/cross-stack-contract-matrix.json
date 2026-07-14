@@ -1502,6 +1502,13 @@
         },
         {
           "auth": "admin",
+          "method": "PUT",
+          "path": "/author/articles/{articleId:int}/revisions/{revisionId:long}/responsibility",
+          "requestFrame": "ArticleResponsibilityRequest",
+          "responseFrame": "ArticleResponsibilityResponse"
+        },
+        {
+          "auth": "admin",
           "method": "GET",
           "path": "/author/moderation/overview",
           "responseFrame": "ModerationOverview",
