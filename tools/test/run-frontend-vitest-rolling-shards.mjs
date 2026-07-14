@@ -7,6 +7,13 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import {
+  invalidateTransformCache,
+  prepareTransformCache,
+  sealTransformCache,
+  transformCacheEnvironment
+} from './frontend-vitest-transform-cache.mjs'
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const frontendRoot = path.join(root, 'src/frontend')
 const outputRoot = path.join(root, '.tmp/test-results/vitest/production-rolling')
@@ -16,6 +23,7 @@ const catalogFile = path.join(outputRoot, 'catalog.json')
 const mergedJson = path.join(outputRoot, 'merged.json')
 const mergedJunit = path.join(outputRoot, 'merged.xml')
 const frontendRequire = createRequire(path.join(frontendRoot, 'package.json'))
+let activeChild = null
 
 export function canonicalVitestId(file, name) {
   const normalizedFile = path.relative(root, path.resolve(file)).replaceAll(path.sep, '/')
@@ -76,7 +84,13 @@ export function resolveSingleHostWorkers(env = process.env, hostCpu = os.availab
 
 function run(args, { env = process.env, logFile } = {}) {
   return new Promise((resolve) => {
-    const child = spawn('npx', args, { cwd: frontendRoot, env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn('npx', args, {
+      cwd: frontendRoot,
+      env,
+      detached: process.platform !== 'win32',
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+    activeChild = child
     const log = logFile ? fs.createWriteStream(logFile, { flags: 'w' }) : null
     for (const [stream, target] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
       stream.on('data', (chunk) => {
@@ -86,6 +100,7 @@ function run(args, { env = process.env, logFile } = {}) {
     }
     child.once('error', (error) => resolve({ code: 1, error }))
     child.once('close', (code, signal) => {
+      if (activeChild === child) activeChild = null
       log?.end()
       resolve({ code: code ?? 1, signal })
     })
@@ -106,19 +121,20 @@ function commonArguments() {
   ]
 }
 
-async function discoverCatalog() {
+async function discoverCatalog(cacheEnv) {
   await requireSuccess([
     'vitest', 'list', '--config', 'vitest.production.config.ts',
     '--project=unit', '--project=property', '--project=model', '--filesOnly', `--json=${catalogFile}`
-  ], { logFile: path.join(outputRoot, 'catalog.log') })
+  ], { env: { ...process.env, ...cacheEnv }, logFile: path.join(outputRoot, 'catalog.log') })
   const catalog = JSON.parse(fs.readFileSync(catalogFile, 'utf8'))
   if (!Array.isArray(catalog) || catalog.length === 0) throw new Error('Vitest test catalog is empty')
   return catalog
 }
 
-function singleHostEnvironment(workers) {
+function singleHostEnvironment(workers, cacheEnv) {
   return {
     ...process.env,
+    ...cacheEnv,
     FSUSBLOG_VITEST_LANE: 'production-single-host',
     FSUSBLOG_VITEST_SINGLE_HOST: '1',
     FSUSBLOG_VITEST_REPORT_ID: 'single-host',
@@ -130,7 +146,7 @@ function singleHostEnvironment(workers) {
   }
 }
 
-async function runSingleHost(catalog) {
+async function runSingleHost(catalog, cacheEnv) {
   const workers = resolveSingleHostWorkers()
   const json = path.join(outputRoot, 'single-host.json')
   const junit = path.join(outputRoot, 'single-host.xml')
@@ -142,11 +158,11 @@ async function runSingleHost(catalog) {
     '--reporter=default', '--reporter=json', '--reporter=junit', '--reporter=blob',
     `--outputFile.json=${json}`, `--outputFile.junit=${junit}`, `--outputFile.blob=${blob}`,
     `--coverage.reportsDirectory=${coverage}`
-  ], { env: singleHostEnvironment(workers), logFile: path.join(outputRoot, 'single-host.log') })
+  ], { env: singleHostEnvironment(workers, cacheEnv), logFile: path.join(outputRoot, 'single-host.log') })
   return { json, junit, blob, coverage, workers }
 }
 
-async function seedFullCoverageUniverse() {
+async function seedFullCoverageUniverse(cacheEnv) {
   const coverage = path.join(coverageShardRoot, 'full-universe')
   await requireSuccess([
     ...commonArguments(), '__fsusblog_no_matching_test_file__', '--coverage', '--coverage.all=true',
@@ -155,6 +171,7 @@ async function seedFullCoverageUniverse() {
   ], {
     env: {
       ...process.env,
+      ...cacheEnv,
       FSUSBLOG_VITEST_LANE: 'production-rolling-coverage-universe',
       FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD: '0',
       FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD: '0',
@@ -212,40 +229,68 @@ export function mergeAuthoritativeCoverageMaps(universeFile, shardFiles, {
 }
 
 async function main() {
-  fs.rmSync(outputRoot, { recursive: true, force: true })
-  fs.rmSync(coverageShardRoot, { recursive: true, force: true })
-  fs.rmSync(path.join(frontendRoot, 'coverage/unit'), { recursive: true, force: true })
-  fs.mkdirSync(blobRoot, { recursive: true })
-  fs.mkdirSync(coverageShardRoot, { recursive: true })
-  const catalog = await discoverCatalog()
-  const host = await runSingleHost(catalog)
-  const universe = await seedFullCoverageUniverse()
-  await requireSuccess([
-    ...commonArguments(), `--mergeReports=${blobRoot}`,
-    '--reporter=default', '--reporter=json', '--reporter=junit',
-    `--outputFile.json=${mergedJson}`, `--outputFile.junit=${mergedJunit}`
-  ], { logFile: path.join(outputRoot, 'merge.log') })
-  const coverageEvidence = mergeAuthoritativeCoverageMaps(
-    path.join(universe.coverage, 'coverage-final.json'),
-    [path.join(host.coverage, 'coverage-final.json')]
-  )
-  const exact = validateExactVitestExecution(catalog, [JSON.parse(fs.readFileSync(host.json, 'utf8'))])
-  const summary = {
-    schema: 'fsusblog.frontend-vitest-single-host.v1',
-    status: 'success',
-    schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
-    hostCount: 1,
-    maxWorkers: host.workers,
-    ...exact,
-    coverage: coverageEvidence,
-    artifacts: {
-      mergedJson: path.relative(root, mergedJson).replaceAll(path.sep, '/'),
-      mergedJunit: path.relative(root, mergedJunit).replaceAll(path.sep, '/'),
-      coverageSummary: 'src/frontend/coverage/unit/coverage-summary.json'
+  const cache = prepareTransformCache()
+  const cacheEnv = transformCacheEnvironment(cache)
+  let sealed = false
+  const interrupt = (signal) => {
+    if (activeChild?.pid) {
+      try {
+        process.kill(process.platform === 'win32' ? activeChild.pid : -activeChild.pid, 'SIGTERM')
+      } catch {}
     }
+    if (!sealed) invalidateTransformCache(cache, `ordinary-${signal.toLowerCase()}`)
+    process.exit(128 + (signal === 'SIGINT' ? 2 : 15))
   }
-  fs.writeFileSync(path.join(outputRoot, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`)
-  console.log(`[frontend-vitest-single-host] exactOnce=${exact.executedTestIdCount} files=${exact.executedFileCount} workers=${host.workers}`)
+  process.once('SIGINT', interrupt)
+  process.once('SIGTERM', interrupt)
+  try {
+    fs.rmSync(outputRoot, { recursive: true, force: true })
+    fs.rmSync(coverageShardRoot, { recursive: true, force: true })
+    fs.rmSync(path.join(frontendRoot, 'coverage/unit'), { recursive: true, force: true })
+    fs.mkdirSync(blobRoot, { recursive: true })
+    fs.mkdirSync(coverageShardRoot, { recursive: true })
+    const catalog = await discoverCatalog(cacheEnv)
+    const host = await runSingleHost(catalog, cacheEnv)
+    const universe = await seedFullCoverageUniverse(cacheEnv)
+    await requireSuccess([
+      ...commonArguments(), `--mergeReports=${blobRoot}`,
+      '--reporter=default', '--reporter=json', '--reporter=junit',
+      `--outputFile.json=${mergedJson}`, `--outputFile.junit=${mergedJunit}`
+    ], { env: { ...process.env, ...cacheEnv }, logFile: path.join(outputRoot, 'merge.log') })
+    const coverageEvidence = mergeAuthoritativeCoverageMaps(
+      path.join(universe.coverage, 'coverage-final.json'),
+      [path.join(host.coverage, 'coverage-final.json')]
+    )
+    const exact = validateExactVitestExecution(catalog, [JSON.parse(fs.readFileSync(host.json, 'utf8'))])
+    const summary = {
+      schema: 'fsusblog.frontend-vitest-single-host.v1',
+      status: 'success',
+      schedulerRunId: process.env.FSUSBLOG_TEST_RUN_ID ?? null,
+      hostCount: 1,
+      maxWorkers: host.workers,
+      ...exact,
+      coverage: coverageEvidence,
+      artifacts: {
+        mergedJson: path.relative(root, mergedJson).replaceAll(path.sep, '/'),
+        mergedJunit: path.relative(root, mergedJunit).replaceAll(path.sep, '/'),
+        coverageSummary: 'src/frontend/coverage/unit/coverage-summary.json'
+      }
+    }
+    summary.transformCache = {
+      identityDigest: cache.identity.identityDigest,
+      configDigest: cache.identity.configDigest,
+      inventory: sealTransformCache(cache)
+    }
+    fs.writeFileSync(path.join(outputRoot, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`)
+    sealed = true
+    console.log(`[frontend-vitest-single-host] exactOnce=${exact.executedTestIdCount} files=${exact.executedFileCount} workers=${host.workers}`)
+  } catch (error) {
+    invalidateTransformCache(cache, 'ordinary-failed')
+    throw error
+  } finally {
+    process.removeListener('SIGINT', interrupt)
+    process.removeListener('SIGTERM', interrupt)
+  }
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

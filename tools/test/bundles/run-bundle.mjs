@@ -1358,8 +1358,7 @@ async function runFrontendTests() {
   if (!result) throw new Error('vitest-production-projects completed without a result')
   await waitForSiblingBundleSummaries(['build-static'])
   const perfStep = commandStep('vitest-production-perf-isolated', [
-    'cd src/frontend',
-    'FSUSBLOG_VITEST_REPORT_ID=perf-isolated npx vitest run --config vitest.production.config.ts --project=perf'
+    'node tools/test/run-frontend-vitest-perf-isolated.mjs'
   ].join(' && '), [], {
     resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
   })
@@ -1367,7 +1366,8 @@ async function runFrontendTests() {
   const reports = [
     path.join(root, '.tmp/test-results/vitest/production-rolling/merged.json'),
     path.join(root, '.tmp/test-results/vitest/production-rolling/summary.json'),
-    path.join(root, '.tmp/test-results/vitest/production/perf-isolated.json')
+    path.join(root, '.tmp/test-results/vitest/production/perf-isolated.json'),
+    path.join(root, '.tmp/test-results/vitest/production/perf-isolated-timing.json')
   ]
   if (reports.some((file) => !fs.existsSync(file))) throw new Error('current-run Vitest report is missing')
   const tests = parseVitestReports(reports)

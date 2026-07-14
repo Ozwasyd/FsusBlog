@@ -50,6 +50,8 @@ test('runner executes one complete host with JSON, JUnit, blob and authoritative
   assert.match(source, /--reporter=json'[^\n]*--reporter=junit'[^\n]*--reporter=blob'/u)
   assert.match(source, /--mergeReports=\$\{blobRoot\}/u)
   assert.match(source, /validateExactVitestExecution\(catalog, \[JSON\.parse/u)
+  assert.match(source, /prepareTransformCache\(\)[\s\S]*?sealTransformCache\(cache\)/u)
+  assert.match(source, /invalidateTransformCache\(cache, 'ordinary-failed'\)/u)
   assert.doesNotMatch(source, /runRollingShards|runShard|shardTotal/u)
   assert.match(bundle, /production-rolling\/summary\.json/u)
   assert.doesNotMatch(source, /retry|reuse|history/u)

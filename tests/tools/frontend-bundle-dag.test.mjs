@@ -20,6 +20,7 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   const vitestDeclaration = runnerSource.slice(vitestStart, dagStart)
   const dagDeclaration = runnerSource.slice(dagStart, dagEnd)
   assert.match(vitestDeclaration, /node tools\/test\/run-frontend-vitest-rolling-shards\.mjs/u)
+  assert.match(runnerSource, /node tools\/test\/run-frontend-vitest-perf-isolated\.mjs/u)
   assert.match(runnerSource, /cpuCount - backendFloor - runtimeFloor/u)
   assert.match(vitestDeclaration, /dependsOn: \['frontend-early-test-capacity-ready'\]/u)
   assert.doesNotMatch(vitestDeclaration, /FSUSBLOG_VITEST_TARGET_WORKERS/u)
