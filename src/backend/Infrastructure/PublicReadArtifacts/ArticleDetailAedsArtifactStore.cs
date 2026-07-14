@@ -8,6 +8,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Infrastructure.Content;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Projections;
@@ -52,6 +53,14 @@ public sealed record ArticleDetailAedsArtifactMaintenanceResult(
             $"scanned={Scanned}, rebuilt={Rebuilt}, removed={Removed}, skipped={Skipped}, failed={Failed}");
 }
 
+public sealed record PublicArticleProjectionBackfillState(
+    string State,
+    int LastArticleId,
+    int RatePerSecond,
+    long RebuiltCount,
+    long FailedCount,
+    DateTimeOffset UpdatedAtUtc);
+
 public interface IArticleDetailAedsArtifactMaintenanceService
 {
     Task<ArticleDetailAedsArtifactMaintenanceResult> RecomputeArticleRightsAsync(CancellationToken cancellationToken = default);
@@ -62,6 +71,23 @@ public interface IArticleDetailAedsArtifactMaintenanceService
         bool all,
         int? articleId = null,
         CancellationToken cancellationToken = default);
+
+    Task<PublicArticleProjectionBackfillState> GetPublicProjectionBackfillStateAsync(
+        CancellationToken cancellationToken = default)
+        => Task.FromResult(new PublicArticleProjectionBackfillState(
+            "unsupported",
+            0,
+            1,
+            0,
+            0,
+            DateTimeOffset.MinValue));
+
+    Task PausePublicProjectionBackfillAsync(CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    Task<ArticleDetailAedsArtifactMaintenanceResult> ResumePublicProjectionBackfillAsync(
+        CancellationToken cancellationToken = default)
+        => RebuildArticleDetailAedsV3Async(all: true, articleId: null, cancellationToken);
 }
 
 public sealed class ArticleDetailAedsFileArtifactStore(
@@ -204,10 +230,10 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
     IWebHostEnvironment env,
     IServiceScopeFactory scopeFactory,
     IArticleDetailAedsArtifactProjector projector,
+    IDbConcurrencyGate dbGate,
     ILogger<ArticleDetailAedsArtifactMaintenanceService> logger) : IArticleDetailAedsArtifactMaintenanceService
 {
-    private const int BatchSize = 128;
-    private const int MaxRebuildConcurrency = 4;
+    private const int RightsRecomputeBatchSize = 128;
     private const string RecomputePolicyHashSentinel = "rights-v3:policy-hash:recompute";
     private const string RecomputeContentHashSentinel = "rights-v3:content-hash:recompute";
     private readonly string _artifactRoot = Path.Combine(env.ContentRootPath, "runtime-cache", "public", "articles");
@@ -222,7 +248,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
         while (true)
         {
             IReadOnlyList<RightsRecomputeCandidate> candidates =
-                await LoadRightsRecomputeCandidatesAsync(lastArticleId, BatchSize, cancellationToken).ConfigureAwait(false);
+                await LoadRightsRecomputeCandidatesAsync(lastArticleId, RightsRecomputeBatchSize, cancellationToken).ConfigureAwait(false);
             if (candidates.Count == 0)
             {
                 break;
@@ -313,22 +339,49 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
         int scanned = 0;
         int rebuilt = 0;
         int failed = 0;
-        int lastArticleId = 0;
+        PublicArticleProjectionBackfillState state = await GetPublicProjectionBackfillStateAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (!string.Equals(state.State, "running", StringComparison.Ordinal))
+        {
+            await SetPublicProjectionBackfillStateAsync("running", cancellationToken).ConfigureAwait(false);
+            state = state with { State = "running" };
+        }
+
+        int lastArticleId = state.LastArticleId;
         while (true)
         {
-            IReadOnlyList<int> articleIds = await LoadPublicArticleIdsPageAsync(lastArticleId, BatchSize, cancellationToken)
+            state = await GetPublicProjectionBackfillStateAsync(cancellationToken).ConfigureAwait(false);
+            if (string.Equals(state.State, "paused", StringComparison.Ordinal))
+            {
+                return new ArticleDetailAedsArtifactMaintenanceResult(scanned, rebuilt, Removed: 0, Skipped: 1, failed);
+            }
+
+            long batchStarted = Stopwatch.GetTimestamp();
+            int batchSize = ResolveProjectionBackfillBatchSize();
+            IReadOnlyList<int> articleIds = await LoadPublicArticleIdsPageAsync(lastArticleId, batchSize, cancellationToken)
                 .ConfigureAwait(false);
             if (articleIds.Count == 0)
             {
+                await CompletePublicProjectionBackfillAsync(cancellationToken).ConfigureAwait(false);
                 break;
             }
 
             scanned += articleIds.Count;
             lastArticleId = articleIds[^1];
-            (int batchRebuilt, int batchFailed) = await RebuildArticleBatchAsync(articleIds, cancellationToken)
+            int degreeOfParallelism = ResolveBackfillParallelism(articleIds.Count, state.RatePerSecond);
+            (int batchRebuilt, int batchFailed) = await RebuildArticleBatchAsync(articleIds, degreeOfParallelism, cancellationToken)
                 .ConfigureAwait(false);
             rebuilt += batchRebuilt;
             failed += batchFailed;
+            await RecordPublicProjectionBackfillProgressAsync(lastArticleId, batchRebuilt, batchFailed, cancellationToken)
+                .ConfigureAwait(false);
+
+            TimeSpan targetBatchDuration = TimeSpan.FromSeconds((double)articleIds.Count / Math.Max(1, state.RatePerSecond));
+            TimeSpan remaining = targetBatchDuration - Stopwatch.GetElapsedTime(batchStarted);
+            if (remaining > TimeSpan.Zero)
+            {
+                await Task.Delay(remaining, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         return new ArticleDetailAedsArtifactMaintenanceResult(scanned, rebuilt, Removed: 0, Skipped: 0, failed);
@@ -351,11 +404,62 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
         return rows;
     }
 
-    private async Task<(int Rebuilt, int Failed)> RebuildArticleBatchAsync(IReadOnlyList<int> articleIds, CancellationToken ct)
+    public async Task<PublicArticleProjectionBackfillState> GetPublicProjectionBackfillStateAsync(
+        CancellationToken cancellationToken = default)
+    {
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT state, last_article_id, rate_per_second, rebuilt_count, failed_count, updated_at_utc
+            FROM public_article_projection_backfill
+            WHERE scope = 'global';
+            """).ConfigureAwait(false);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("public_article_projection_backfill_state_missing");
+        }
+
+        DateTime updatedAt = reader.GetDateTime(5);
+        return new PublicArticleProjectionBackfillState(
+            reader.GetString(0),
+            reader.GetInt32(1),
+            reader.GetInt32(2),
+            reader.GetInt64(3),
+            reader.GetInt64(4),
+            new DateTimeOffset(DateTime.SpecifyKind(updatedAt, DateTimeKind.Utc)));
+    }
+
+    public Task PausePublicProjectionBackfillAsync(CancellationToken cancellationToken = default)
+        => SetPublicProjectionBackfillStateAsync("paused", cancellationToken);
+
+    public async Task<ArticleDetailAedsArtifactMaintenanceResult> ResumePublicProjectionBackfillAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await SetPublicProjectionBackfillStateAsync("running", cancellationToken).ConfigureAwait(false);
+        return await RebuildArticleDetailAedsV3Async(all: true, articleId: null, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private int ResolveBackfillParallelism(int itemCount, int ratePerSecond)
+    {
+        int gateLimit = ResolveBackgroundGateLimit();
+        return Math.Clamp(Math.Min(ratePerSecond, gateLimit), 1, Math.Max(1, itemCount));
+    }
+
+    private int ResolveProjectionBackfillBatchSize()
+        => Math.Clamp(ResolveBackgroundGateLimit() * 32, 32, 512);
+
+    private int ResolveBackgroundGateLimit()
+        => dbGate is IClassifiedDbConcurrencyGate classified
+            && classified.GetDiagnostics().Workloads.TryGetValue("background-projection-rebuild", out DbWorkloadGateSnapshot snapshot)
+                ? snapshot.Limit
+                : 1;
+
+    private async Task<(int Rebuilt, int Failed)> RebuildArticleBatchAsync(
+        IReadOnlyList<int> articleIds,
+        int degreeOfParallelism,
+        CancellationToken ct)
     {
         int rebuilt = 0;
         int failed = 0;
-        int degreeOfParallelism = Math.Clamp(Environment.ProcessorCount / 2, 1, MaxRebuildConcurrency);
         await Parallel.ForEachAsync(
                 articleIds,
                 new ParallelOptions { CancellationToken = ct, MaxDegreeOfParallelism = degreeOfParallelism },
@@ -376,6 +480,52 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
                 })
             .ConfigureAwait(false);
         return (rebuilt, failed);
+    }
+
+    private async Task SetPublicProjectionBackfillStateAsync(string state, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE public_article_projection_backfill
+            SET state = @State,
+                updated_at_utc = (now() AT TIME ZONE 'utc')
+            WHERE scope = 'global';
+            """,
+            new SugarParameter("@State", state)).ConfigureAwait(false);
+    }
+
+    private async Task RecordPublicProjectionBackfillProgressAsync(
+        int lastArticleId,
+        int rebuilt,
+        int failed,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE public_article_projection_backfill
+            SET last_article_id = GREATEST(last_article_id, @LastArticleId),
+                rebuilt_count = rebuilt_count + @Rebuilt,
+                failed_count = failed_count + @Failed,
+                updated_at_utc = (now() AT TIME ZONE 'utc')
+            WHERE scope = 'global';
+            """,
+            new SugarParameter("@LastArticleId", lastArticleId),
+            new SugarParameter("@Rebuilt", rebuilt),
+            new SugarParameter("@Failed", failed)).ConfigureAwait(false);
+    }
+
+    private async Task CompletePublicProjectionBackfillAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await db.Ado.ExecuteCommandAsync(
+            """
+            UPDATE public_article_projection_backfill
+            SET state = 'completed',
+                updated_at_utc = (now() AT TIME ZONE 'utc')
+            WHERE scope = 'global';
+            """).ConfigureAwait(false);
     }
 
     private async Task<IReadOnlyList<RightsRecomputeCandidate>> LoadRightsRecomputeCandidatesAsync(
@@ -801,32 +951,56 @@ public sealed class ArticleDetailAedsArtifactProjector(
     ISqlSugarClient db,
     IAedsEncoder aeds,
     IArticleDetailAedsArtifactStore store,
+    IPublicArticleProjectionStore publicProjection,
+    IDbConcurrencyGate dbGate,
     ILogger<ArticleDetailAedsArtifactProjector> logger) : IArticleDetailAedsArtifactProjector
 {
-    public async Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default)
+    public Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default)
+        => dbGate.ExecuteClassifiedAsync(
+            DbWorkloadClass.BackgroundProjection,
+            "public-article-projection-build",
+            async ct =>
+            {
+                ArticleDetailReadModel? article = await LoadArticleDetailFromDbAsync(articleId, ct).ConfigureAwait(false);
+                if (article is null)
+                {
+                    await publicProjection.MarkUnavailableAsync(articleId, "not-public", ct).ConfigureAwait(false);
+                    await store.RemoveAsync(articleId, ct).ConfigureAwait(false);
+                    return true;
+                }
+
+                if (!HasCompleteArticleRights(article.Rights))
+                {
+                    logger.LogWarning("article_detail_aeds_rights_missing {ArticleId}", articleId);
+                    FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "rights_missing", TimeSpan.Zero);
+                    await publicProjection.MarkUnavailableAsync(articleId, "rights-missing", ct).ConfigureAwait(false);
+                    await store.RemoveAsync(articleId, ct).ConfigureAwait(false);
+                    throw new InvalidOperationException($"article_detail_aeds_rights_missing:{articleId}");
+                }
+
+                byte[] payload = PodBinaryCodec.EncodeArticleDetail(ArticleProjection.ToCoreDetailModel(article));
+                byte[] frame = aeds.Encode(AedsFrameType.ArticleDetail, payload);
+                string contentHash = PublicArticleProjectionStore.CreateContentHash(frame);
+                string etag = PublicArticleProjectionStore.CreateETag(frame);
+                await publicProjection.UpsertAsync(
+                    new PublicArticleProjectionWrite(articleId, frame, etag, contentHash, DateTimeOffset.UtcNow),
+                    ct).ConfigureAwait(false);
+                bool shadowParity = await publicProjection.VerifyShadowParityAsync(articleId, frame, ct).ConfigureAwait(false);
+                if (!shadowParity)
+                {
+                    throw new InvalidOperationException($"public_article_projection_shadow_mismatch:{articleId}");
+                }
+                await store.WriteAsync(articleId, frame, ct).ConfigureAwait(false);
+                return true;
+            },
+            _ => Task.FromException<bool>(new TimeoutException($"db-gate-timeout:public-article-projection-build:{articleId}")),
+            cancellationToken);
+
+    public async Task RemoveAsync(int articleId, CancellationToken cancellationToken = default)
     {
-        ArticleDetailReadModel? article = await LoadArticleDetailFromDbAsync(articleId, cancellationToken).ConfigureAwait(false);
-        if (article is null)
-        {
-            await store.RemoveAsync(articleId, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        if (!HasCompleteArticleRights(article.Rights))
-        {
-            logger.LogWarning("article_detail_aeds_rights_missing {ArticleId}", articleId);
-            FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "rights_missing", TimeSpan.Zero);
-            await store.RemoveAsync(articleId, cancellationToken).ConfigureAwait(false);
-            throw new InvalidOperationException($"article_detail_aeds_rights_missing:{articleId}");
-        }
-
-        byte[] payload = PodBinaryCodec.EncodeArticleDetail(ArticleProjection.ToCoreDetailModel(article));
-        byte[] frame = aeds.Encode(AedsFrameType.ArticleDetail, payload);
-        await store.WriteAsync(articleId, frame, cancellationToken).ConfigureAwait(false);
+        await publicProjection.MarkUnavailableAsync(articleId, "removed", cancellationToken).ConfigureAwait(false);
+        await store.RemoveAsync(articleId, cancellationToken).ConfigureAwait(false);
     }
-
-    public Task RemoveAsync(int articleId, CancellationToken cancellationToken = default)
-        => store.RemoveAsync(articleId, cancellationToken);
 
     private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(int id, CancellationToken ct)
     {

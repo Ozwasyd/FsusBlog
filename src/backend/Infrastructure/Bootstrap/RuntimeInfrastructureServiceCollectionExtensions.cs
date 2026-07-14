@@ -194,6 +194,10 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         }
         services.AddScoped<IPublicHotArtifactProjector, PublicHotArtifactProjector>();
         services.AddSingleton<IArticleDetailAedsArtifactStore, ArticleDetailAedsFileArtifactStore>();
+        services.AddSingleton<PublicArticleProjectionRuntimeState>();
+        services.AddSingleton<PublicArticleProjectionNegativeCache>();
+        services.AddSingleton<PublicArticleProjectionDataSourceProvider>();
+        services.AddScoped<IPublicArticleProjectionStore, PublicArticleProjectionStore>();
         services.AddSingleton<ArticleDetailAedsArtifactBackfillScheduler>();
         services.AddSingleton<IArticleDetailAedsArtifactBackfillScheduler>(sp => sp.GetRequiredService<ArticleDetailAedsArtifactBackfillScheduler>());
         if (!OpenApiExportMode.IsEnabled(configuration))

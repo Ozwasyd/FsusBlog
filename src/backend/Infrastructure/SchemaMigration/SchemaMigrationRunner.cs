@@ -71,7 +71,10 @@ public sealed class SchemaMigrationRunner(
                 "author_rum_stats",
                 "author_rum_page_type_stats",
                 "author_rum_aot_source_stats",
-                "author_aot_stats"
+                "author_aot_stats",
+                "public_article_projection",
+                "public_article_projection_backfill",
+                "public_article_projection_shadow_mismatch"
             ],
             cancellationToken).ConfigureAwait(false);
 

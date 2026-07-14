@@ -275,8 +275,25 @@ public sealed class IntegrityProofScheduler(
             }
         }
 
-        long rightsProofId = await UpsertArticleRightsProofAsync(finalized, signature, failureCode, cancellationToken)
-            .ConfigureAwait(false);
+        long rightsProofId = 0;
+        var proofTransaction = await db.Ado.UseTranAsync(async () =>
+        {
+            rightsProofId = await UpsertArticleRightsProofAsync(finalized, signature, failureCode, cancellationToken)
+                .ConfigureAwait(false);
+            int outboxRows = await db.Insertable(BuildRightsProofProjectionOutboxEvent(articleId))
+                .ExecuteCommandAsync(cancellationToken)
+                .ConfigureAwait(false);
+            if (outboxRows != 1)
+            {
+                throw new InvalidOperationException("Article rights proof projection outbox insert did not persist exactly one row.");
+            }
+        }).ConfigureAwait(false);
+        if (!proofTransaction.IsSuccess)
+        {
+            throw new InvalidOperationException(
+                $"Article rights proof transaction failed: {proofTransaction.ErrorMessage}",
+                proofTransaction.ErrorException);
+        }
         if (status == PublishProofStatus.Ready)
         {
             await transparencyLog.AppendArticleRightsProofAsync(rightsProofId, cancellationToken).ConfigureAwait(false);
@@ -289,6 +306,22 @@ public sealed class IntegrityProofScheduler(
             status,
             failureCode);
         return new IntegrityProofScheduleResult(true, status, failureCode, status is PublishProofStatus.Pending or PublishProofStatus.Retrying);
+    }
+
+    private static ArticleMutationOutboxEvent BuildRightsProofProjectionOutboxEvent(int articleId)
+    {
+        DateTime now = DateTime.UtcNow;
+        return new ArticleMutationOutboxEvent
+        {
+            EventId = Guid.NewGuid().ToString("N"),
+            AggregateId = articleId,
+            EventType = "rights-proof-updated",
+            PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"rights-proof-updated\"}}",
+            Status = "pending",
+            RetryCount = 0,
+            NextRetryAt = now,
+            CreatedAt = now
+        };
     }
 
     private async Task<ArticleRevision?> LoadLatestRevisionAsync(int articleId, CancellationToken cancellationToken)

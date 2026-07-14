@@ -1,5 +1,4 @@
-﻿using System.Data.Common;
-using FsusBlog.Server.Infrastructure.Testing;
+﻿using FsusBlog.Server.Infrastructure.Testing;
 using Npgsql;
 using SqlSugar;
 using DbType = SqlSugar.DbType;
@@ -26,37 +25,9 @@ public static class SqlSugarInitializer
     }
 
     internal static string NormalizeConnectionString(string connectionString)
-    {
-        var rawBuilder = new DbConnectionStringBuilder
-        {
-            ConnectionString = connectionString
-        };
-        var builder = new NpgsqlConnectionStringBuilder(connectionString);
+        => new NpgsqlConnectionStringBuilder(connectionString).ConnectionString;
 
-        if (!ContainsAny(rawBuilder, "Maximum Pool Size", "MaxPoolSize"))
-        {
-            builder.MaxPoolSize = 60;
-        }
-
-        if (!ContainsAny(rawBuilder, "Minimum Pool Size", "MinPoolSize"))
-        {
-            builder.MinPoolSize = 5;
-        }
-
-        if (!ContainsAny(rawBuilder, "Timeout", "Connection Timeout"))
-        {
-            builder.Timeout = 15;
-        }
-
-        if (!ContainsAny(rawBuilder, "Command Timeout", "CommandTimeout"))
-        {
-            builder.CommandTimeout = 30;
-        }
-
-        return builder.ConnectionString;
-    }
-
-    private static string ApplySearchPath(string connectionString, string schemaName)
+    internal static string ApplySearchPath(string connectionString, string schemaName)
     {
         var builder = new NpgsqlConnectionStringBuilder(connectionString)
         {
@@ -64,19 +35,6 @@ public static class SqlSugarInitializer
         };
 
         return builder.ConnectionString;
-    }
-
-    private static bool ContainsAny(DbConnectionStringBuilder builder, params string[] keys)
-    {
-        for (int i = 0; i < keys.Length; i++)
-        {
-            if (builder.ContainsKey(keys[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static ConnectionConfig CreateConnectionConfig(string connectionString)

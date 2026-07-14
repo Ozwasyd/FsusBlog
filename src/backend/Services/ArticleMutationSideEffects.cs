@@ -330,6 +330,11 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
         async Task ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(string normalized)
         {
+            if (string.Equals(normalized, "rights-proof-updated", StringComparison.Ordinal))
+            {
+                return;
+            }
+
             if (!ArticleMutationReplayEdges.Required.All(completed.Contains))
             {
                 return;

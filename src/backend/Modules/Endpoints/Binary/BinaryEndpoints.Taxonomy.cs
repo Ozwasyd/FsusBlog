@@ -220,10 +220,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"该分类名称“{trimmedName}”已被其他分类占用"), aeds);
             }
 
-            int updateCount = await db.Updateable<Category>()
-                .SetColumns(c => c.Name == trimmedName)
-                .Where(c => c.Id == id)
-                .ExecuteCommandAsync();
+            int updateCount = await UpdateCategoryAndEnqueueProjectionAsync(db, id, trimmedName, cancellationToken);
             if (updateCount <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：未找到对应的分类记录"), aeds);
@@ -353,10 +350,7 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, $"标签名称 [{trimmedName}] 已被其他记录占用"), aeds);
             }
 
-            int updateCount = await db.Updateable<Tag>()
-                .SetColumns(t => t.Name == trimmedName)
-                .Where(t => t.Id == id)
-                .ExecuteCommandAsync();
+            int updateCount = await UpdateTagAndEnqueueProjectionAsync(db, id, trimmedName, cancellationToken);
             if (updateCount <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "目标标签不存在"), aeds);
@@ -427,6 +421,112 @@ public static partial class BinaryEndpoints
 
         int deleted = await db.Deleteable<Tag>().In(id).ExecuteCommandAsync();
         return deleted > 0 ? TagDeleteOutcome.Deleted : TagDeleteOutcome.NotFound;
+    }
+
+    internal static async Task<int> UpdateCategoryAndEnqueueProjectionAsync(
+        ISqlSugarClient db,
+        int categoryId,
+        string name,
+        CancellationToken cancellationToken)
+    {
+        int updated = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            List<int> affectedArticleIds = await db.Queryable<Article>()
+                .ClearFilter()
+                .Where(article => article.CategoryId == categoryId)
+                .Select(article => article.Id)
+                .ToListAsync(cancellationToken);
+            updated = await db.Updateable<Category>()
+                .SetColumns(category => category.Name == name)
+                .Where(category => category.Id == categoryId)
+                .ExecuteCommandAsync(cancellationToken);
+            if (updated > 0)
+            {
+                await InsertTaxonomyProjectionOutboxAsync(
+                    db,
+                    affectedArticleIds,
+                    "category-updated",
+                    cancellationToken);
+            }
+        });
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException($"category projection transaction failed: {transaction.ErrorMessage}");
+        }
+
+        return updated;
+    }
+
+    internal static async Task<int> UpdateTagAndEnqueueProjectionAsync(
+        ISqlSugarClient db,
+        int tagId,
+        string name,
+        CancellationToken cancellationToken)
+    {
+        int updated = 0;
+        var transaction = await db.Ado.UseTranAsync(async () =>
+        {
+            List<int> affectedArticleIds = await db.Queryable<ArticleTag>()
+                .Where(link => link.TagId == tagId)
+                .Select(link => link.ArticleId)
+                .ToListAsync(cancellationToken);
+            updated = await db.Updateable<Tag>()
+                .SetColumns(tag => tag.Name == name)
+                .Where(tag => tag.Id == tagId)
+                .ExecuteCommandAsync(cancellationToken);
+            if (updated > 0)
+            {
+                await InsertTaxonomyProjectionOutboxAsync(
+                    db,
+                    affectedArticleIds,
+                    "tag-updated",
+                    cancellationToken);
+            }
+        });
+        if (!transaction.IsSuccess)
+        {
+            throw new InvalidOperationException($"tag projection transaction failed: {transaction.ErrorMessage}");
+        }
+
+        return updated;
+    }
+
+    private static async Task<int> InsertTaxonomyProjectionOutboxAsync(
+        ISqlSugarClient db,
+        IReadOnlyCollection<int> articleIds,
+        string eventType,
+        CancellationToken cancellationToken)
+    {
+        DateTime now = DateTime.UtcNow;
+        List<ArticleMutationOutboxEvent> events = articleIds
+            .Where(static articleId => articleId > 0)
+            .Distinct()
+            .Select(articleId => new ArticleMutationOutboxEvent
+            {
+                EventId = Guid.NewGuid().ToString("N"),
+                AggregateId = articleId,
+                EventType = eventType,
+                PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"{eventType}\"}}",
+                Status = "pending",
+                RetryCount = 0,
+                NextRetryAt = now,
+                CreatedAt = now
+            })
+            .ToList();
+        if (events.Count == 0)
+        {
+            return 0;
+        }
+
+        int inserted = await db.Insertable(events).ExecuteCommandAsync(cancellationToken);
+        if (inserted != events.Count)
+        {
+            throw new InvalidOperationException(
+                $"taxonomy projection outbox insert persisted {inserted} of {events.Count} rows");
+        }
+
+        return inserted;
     }
 
     internal enum TagDeleteOutcome

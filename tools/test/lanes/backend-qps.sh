@@ -221,8 +221,12 @@ case "$MODE" in
   article-detail-miss)
     route="/api/binary/article/{id}.aeds"
     traffic_mode="db-miss"
-    checks=(public-detail-artifact async-backfill preencoded-frame)
+    checks=(public-detail-artifact prepared-primary-key-projection sequential-binary-read classified-db-gate async-backfill preencoded-frame)
     require_token "src/backend/Services/ArticleEndpointService.cs" "GetPublicArtifactBackedDetailAsync"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs" "WHERE article_id = \$1"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs" "PrepareAsync"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs" "CommandBehavior.SequentialAccess | CommandBehavior.SingleRow"
+    require_token "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs" "DbWorkloadClass.PublicShortRead"
     require_token "src/backend/Infrastructure/PublicReadArtifacts/ArticleDetailAedsArtifactStore.cs" "ArticleDetailAedsArtifactBackfillWorker"
     require_token "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs" "PreencodedFrame"
     ;;
@@ -253,12 +257,14 @@ case "$MODE" in
   index-plan)
     route="db:index-plan"
     traffic_mode="db-miss"
-    checks=(article-public-index comment-index tag-index)
+    checks=(article-public-index comment-index tag-index public-article-projection-plan)
     require_token "src/backend/Entities/Article.cs" "idx_article_public_status_time"
     require_token "src/backend/Entities/Article.cs" "idx_article_public_category_status_time"
     require_token "src/backend/Entities/Comment.cs" "article_id"
     require_token "src/backend/Entities/Article.cs" "idx_article_tag_article_tag"
     require_token "src/backend/Entities/Article.cs" "idx_article_tag_tag_article"
+    require_token "tools/perf/public-article-projection-plan.sql" "EXPLAIN (ANALYZE, BUFFERS, WAL, FORMAT JSON)"
+    require_token "tools/perf/public-article-projection-plan.sql" "FROM public_article_projection"
     ;;
   *)
     echo "[backend-qps] unknown mode: $MODE" >&2

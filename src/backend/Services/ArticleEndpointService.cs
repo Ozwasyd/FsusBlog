@@ -21,6 +21,7 @@ public sealed class ArticleEndpointService(
     ICacheMissCoordinator cacheMissCoordinator,
     IAedsEncoder aeds,
     IArticleDetailAedsArtifactStore detailArtifacts,
+    IPublicArticleProjectionStore publicArticleProjection,
     IArticleDetailAedsArtifactBackfillScheduler detailArtifactBackfill,
     IHotArticlesCacheVersionProvider hotArticlesVersionProvider) : IArticleEndpointService
 {
@@ -121,7 +122,15 @@ public sealed class ArticleEndpointService(
             return new ArticleDetailArtifactPayload(artifact.Frame, BackfillQueued: false);
         }
 
-        bool queued = detailArtifactBackfill.TrySchedule(id);
+        PublicArticleProjectionReadResult projection = await publicArticleProjection.TryReadAsync(id, cancellationToken);
+        if (projection.Found)
+        {
+            await detailArtifacts.WriteAsync(id, projection.Frame, cancellationToken);
+            return new ArticleDetailArtifactPayload(projection.Frame, BackfillQueued: false);
+        }
+
+        bool queued = projection.Status is PublicArticleProjectionReadStatus.NotFound or PublicArticleProjectionReadStatus.Invalid
+            && detailArtifactBackfill.TrySchedule(id);
         return new ArticleDetailArtifactPayload(default, queued);
     }
 

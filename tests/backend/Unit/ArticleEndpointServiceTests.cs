@@ -293,13 +293,66 @@ public sealed class ArticleEndpointServiceTests
         scheduler.Received(1).TrySchedule(42);
     }
 
+    [Fact]
+    public async Task GetPublicArtifactBackedDetailAsync_FileMiss_UsesBinaryProjectionAndWarmsArtifactOnce()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        var artifacts = Substitute.For<IArticleDetailAedsArtifactStore>();
+        var projection = Substitute.For<IPublicArticleProjectionStore>();
+        var scheduler = Substitute.For<IArticleDetailAedsArtifactBackfillScheduler>();
+        byte[] frame = [1, 2, 3, 4];
+        artifacts.TryReadAsync(42, Arg.Any<CancellationToken>()).Returns(default(ArticleDetailAedsArtifact));
+        projection.TryReadAsync(42, Arg.Any<CancellationToken>()).Returns(
+            new PublicArticleProjectionReadResult(
+                PublicArticleProjectionReadStatus.Found,
+                7,
+                frame,
+                "\"etag\"",
+                DateTimeOffset.UtcNow));
+        var service = Create(core, artifacts, scheduler, projection: projection);
+
+        ArticleDetailArtifactPayload result = await service.GetPublicArtifactBackedDetailAsync(42);
+
+        Assert.True(result.HasPreencodedFrame);
+        Assert.Equal(frame, result.PreencodedFrame.ToArray());
+        Assert.False(result.BackfillQueued);
+        await artifacts.Received(1).WriteAsync(42, Arg.Is<ReadOnlyMemory<byte>>(value => value.ToArray().SequenceEqual(frame)), Arg.Any<CancellationToken>());
+        scheduler.DidNotReceiveWithAnyArgs().TrySchedule(default);
+        await core.DidNotReceiveWithAnyArgs().GetByIdAsync(default);
+    }
+
+    [Fact]
+    public async Task GetPublicArtifactBackedDetailAsync_CutoverDisabled_FallsBackWithoutRepairStorm()
+    {
+        var core = Substitute.For<IArticleCoreService>();
+        var artifacts = Substitute.For<IArticleDetailAedsArtifactStore>();
+        var projection = Substitute.For<IPublicArticleProjectionStore>();
+        var scheduler = Substitute.For<IArticleDetailAedsArtifactBackfillScheduler>();
+        projection.TryReadAsync(42, Arg.Any<CancellationToken>()).Returns(
+            new PublicArticleProjectionReadResult(
+                PublicArticleProjectionReadStatus.Unavailable,
+                0,
+                default,
+                null,
+                null,
+                "cutover-disabled"));
+        var service = Create(core, artifacts, scheduler, projection: projection);
+
+        ArticleDetailArtifactPayload result = await service.GetPublicArtifactBackedDetailAsync(42);
+
+        Assert.False(result.HasPreencodedFrame);
+        Assert.False(result.BackfillQueued);
+        scheduler.DidNotReceiveWithAnyArgs().TrySchedule(default);
+    }
+
     private static ArticleEndpointService Create(
         IArticleCoreService core,
         IArticleDetailAedsArtifactStore? artifacts = null,
         IArticleDetailAedsArtifactBackfillScheduler? scheduler = null,
         IUnifiedCache? cache = null,
         IArticleService? articles = null,
-        ICacheMissCoordinator? cacheMissCoordinator = null)
+        ICacheMissCoordinator? cacheMissCoordinator = null,
+        IPublicArticleProjectionStore? projection = null)
     {
         cache ??= Substitute.For<IUnifiedCache>();
         var hotVersion = Substitute.For<IHotArticlesCacheVersionProvider>();
@@ -313,6 +366,7 @@ public sealed class ArticleEndpointServiceTests
             cacheMissCoordinator ?? new PassthroughCacheMissCoordinator(),
             new AedsEncoder(),
             artifacts ?? Substitute.For<IArticleDetailAedsArtifactStore>(),
+            projection ?? Substitute.For<IPublicArticleProjectionStore>(),
             scheduler ?? Substitute.For<IArticleDetailAedsArtifactBackfillScheduler>(),
             hotVersion);
     }

@@ -1771,6 +1771,14 @@ Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillI
 
 内容导出使用 `ContentExportResponse`：`fileName`、`markdownWithFrontmatter`、`metadata`。frontmatter 固定写入 `fsusFormat: content-export-v1`、`sourceArticleId`、`title`、`summary`、`cover`、`categoryId`、`status`、`scheduledPublishAt`、`tagIds`、`revisionCount` 与 `fsusMetadataJson`；`fsusMetadataJson` 是 base64url 编码的 `ContentExportMetadataResponse`，用于无损恢复分类、标签、封面、文章状态和修订元数据，但不得携带 `createdByUserId` 或 `createdByAdminPrincipalId` 这类可导入 numeric actor id。`GET /api/binary/author/content/export` 返回 `ContentBackupExportResponse`，以 JSON 包含所有文章的导出结果。导入时 `publish=true` 会强制导入为 `Published`，否则按 metadata 的 `status` 恢复；`preserveRevisions=true` 会用导出包中的 revisions 替换导入时生成的初始 revision，恢复出的修订不得把外部环境 actor id 写入本地账号或 admin principal 字段。
 
+### 公共 ArticleDetail DB projection
+
+公开 `GET /api/binary/article/{id}.aeds` 的 wire contract 仍是 `AedsFrameType.ArticleDetail` + `ARD3` V3 payload，没有新增 JSON/text fallback，也没有新增响应字段。文件 artifact miss 时，内部 `public_article_projection` 只返回 `version/aeds_payload/etag/updated_at_utc`；`aeds_payload` 是 projector 生成的完整 immutable AEDS v2 frame。直接 Npgsql reader 使用 `$1` positional parameter、prepared statement、固定 ordinal 和 `SequentialAccess | SingleRow`，每个请求至多执行一次 projection query。CRC、frame type、V3 payload 与 `SHA-256` ETag 任一不符均视为 corrupt，记录 repair evidence 后走既有动态兜底，不能把损坏 bytes 写入缓存或响应。
+
+投影 row 的 `visible=false` 表示 negative/不可公开状态，payload、etag、content hash 必须为空；publish/restore/update 会通过 outbox 重建为 visible row，archive/delete/permanent-delete 会写回不可用状态。backfill durable watermark 保存 `paused|running|completed`、last article id、rate 和成功/失败计数；author cache action 支持 `public-article-projection-backfill-status`、`public-article-projection-backfill-pause`、`public-article-projection-backfill-resume`。这些动作只控制内部 read model，不改变公开 endpoint、admin permission 或 notification stream 契约。
+
+受保护 readiness 的 `runtime.dbGateClasses` 暴露 public-short-read、admin-heavy-read、foreground-write、background-projection-rebuild 的 limit/queue/active/waiting/timeouts/p99；`runtime.publicArticleProjection` 暴露独立 pool capacity、active/waiting、hit/miss/invalid/timeout/broken connection、pool wait p99 与 query p99。公开 `/health/ready` 仍只返回 `status/checkedAt`。
+
 ### 订阅
 
 `POST /api/binary/subscriptions` 与 `DELETE /api/binary/subscriptions` 使用 `SiteSubscriptionRequest` / `SiteSubscriptionResponse` AEDS frame，只保存 `HMAC-SHA256(Subscription:EmailHashPepper, normalizedEmail)` keyed lookup identifier、`hash_version`、`channel`、启用状态和退订时间，不保存明文 email。`DELETE` 还必须携带 `X-Fsus-Subscription-Proof`；proof 与 keyed email hash/channel 绑定、TTL 生效，端点先非消费校验，DB 退订成功后再一次性消费，旧 email-only 退订返回 428 且不得更新 DB。旧裸 SHA-256 值仅用于迁移期双读匹配，订阅写入会升级为当前 HMAC，不得作为跨系统身份标识使用。订阅能力是 RSS/Atom 的增强，不构成关注、点赞、收藏或社交关系链。默认实现不发送邮件或 Web Push；`channel=email` 只记录读者显式偏好，外发增强必须以后续配置开关和退订 smoke 为准。

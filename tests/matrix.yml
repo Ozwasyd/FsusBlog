@@ -2366,9 +2366,9 @@ tiers:
     nightlyOnly: false
     smartGateMode: conditional
     retentionClass: conditional
-    triggerPaths: [src/backend/Entities, tools/test/lanes/backend-qps.sh]
+    triggerPaths: [src/backend/Entities, src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs, src/backend/Infrastructure/SchemaMigration, tools/perf/public-article-projection-plan.sql, tools/test/lanes/backend-qps.sh]
     triggerCoverage: [db-index-plan]
-    triggerReason: database index plan or backend-qps collector changed
+    triggerReason: database index or public article projection plan changed
 
   - id: backend-qps
     owner: ServerContractAgent

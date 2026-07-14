@@ -1,16 +1,30 @@
+using System.Buffers.Binary;
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Infrastructure.Audit;
+using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Entities;
+using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Npgsql;
 using System.Runtime.CompilerServices;
+using System.Data;
+using System.Text.Json;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests;
@@ -121,6 +135,300 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.False(await fixture.ColumnExistsAsync(connectionString, "security_challenge_attempt", "payload"));
         Assert.True(await fixture.IndexExistsAsync(connectionString, "unique_idx_security_challenge_id"));
         Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_security_challenge_attempt_challenge"));
+    }
+
+    [Fact]
+    public async Task RunAsync_PublicArticleProjection_HasPreparedSequentialPrimaryKeyPlanAndVisibilityBoundary()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await RunMigrationsAsync(connectionString);
+
+        Assert.True(await fixture.TableExistsAsync(connectionString, "public_article_projection"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "public_article_projection_backfill"));
+        Assert.True(await fixture.TableExistsAsync(connectionString, "public_article_projection_shadow_mismatch"));
+        Assert.True(await fixture.IndexExistsAsync(connectionString, "idx_public_article_projection_visible_id"));
+
+        byte[] largeFrame = new byte[1024 * 1024];
+        Random.Shared.NextBytes(largeFrame);
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using (var insert = new NpgsqlCommand(
+            """
+            INSERT INTO public_article_projection(
+                article_id, version, visible, aeds_payload, etag, content_hash, updated_at_utc, projection_schema_version)
+            VALUES
+                (41, 1, true, $1, '"etag"', repeat('a', 64), now() AT TIME ZONE 'utc', 1),
+                (42, 2, false, NULL, NULL, NULL, now() AT TIME ZONE 'utc', 1);
+            """,
+            connection))
+        {
+            insert.Parameters.AddWithValue(largeFrame);
+            Assert.Equal(2, await insert.ExecuteNonQueryAsync());
+        }
+
+        const string sql = """
+            SELECT version, aeds_payload, etag, updated_at_utc
+            FROM public_article_projection
+            WHERE article_id = $1
+              AND visible = true
+            LIMIT 1;
+            """;
+        await using (var command = new NpgsqlCommand(sql, connection))
+        {
+            command.Parameters.AddWithValue(41);
+            await command.PrepareAsync();
+            await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess | CommandBehavior.SingleRow);
+            Assert.True(await reader.ReadAsync());
+            Assert.Equal(1, reader.GetInt64(0));
+            await using Stream payload = reader.GetStream(1);
+            long bytesRead = 0;
+            byte[] buffer = new byte[16 * 1024];
+            int count;
+            while ((count = await payload.ReadAsync(buffer)) > 0)
+            {
+                bytesRead += count;
+            }
+
+            Assert.Equal(largeFrame.Length, bytesRead);
+            Assert.Equal("\"etag\"", reader.GetString(2));
+        }
+
+        await using (var negative = new NpgsqlCommand(sql, connection))
+        {
+            negative.Parameters.AddWithValue(42);
+            await negative.PrepareAsync();
+            await using NpgsqlDataReader reader = await negative.ExecuteReaderAsync(CommandBehavior.SequentialAccess | CommandBehavior.SingleRow);
+            Assert.False(await reader.ReadAsync());
+        }
+
+        await using (var planCommand = new NpgsqlCommand(
+            """
+            SET enable_seqscan = off;
+            EXPLAIN (ANALYZE, BUFFERS, WAL, FORMAT JSON)
+            SELECT version, aeds_payload, etag, updated_at_utc
+            FROM public_article_projection
+            WHERE article_id = 41
+              AND visible = true
+            LIMIT 1;
+            """,
+            connection))
+        {
+            object? raw = await planCommand.ExecuteScalarAsync();
+            string plan = Convert.ToString(raw, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+            using JsonDocument parsed = JsonDocument.Parse(plan);
+            Assert.Contains("Index Scan", plan, StringComparison.Ordinal);
+            Assert.Contains("public_article_projection", plan, StringComparison.Ordinal);
+            Assert.DoesNotContain("Join", plan, StringComparison.Ordinal);
+            Assert.DoesNotContain("Aggregate", plan, StringComparison.Ordinal);
+            Assert.Contains("Shared Hit Blocks", plan, StringComparison.Ordinal);
+            Assert.Contains("Execution Time", plan, StringComparison.Ordinal);
+            Assert.Equal(JsonValueKind.Array, parsed.RootElement.ValueKind);
+        }
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = connectionString,
+                ["Database:PublicArticleProjection:Enabled"] = "true",
+                ["Database:PublicArticleProjection:MaxPoolSize"] = "4"
+            })
+            .Build();
+        var runtime = new PublicArticleProjectionRuntimeState();
+        await using var dataSources = new PublicArticleProjectionDataSourceProvider(configuration, runtime);
+        var sqlSugar = new SqlSugarClient(new ConnectionConfig
+        {
+            ConnectionString = connectionString,
+            DbType = SqlSugar.DbType.PostgreSQL,
+            IsAutoCloseConnection = true,
+            InitKeyType = InitKeyType.Attribute
+        });
+        var gate = new DbConcurrencyGate(configuration, NullLogger<DbConcurrencyGate>.Instance);
+        byte[] validPayload = new byte[sizeof(uint) + sizeof(int)];
+        BinaryPrimitives.WriteUInt32LittleEndian(validPayload.AsSpan(0, sizeof(uint)), 0x41524433);
+        BinaryPrimitives.WriteInt32LittleEndian(validPayload.AsSpan(sizeof(uint), sizeof(int)), 3);
+        byte[] validFrame = new AedsEncoder().Encode(AedsFrameType.ArticleDetail, validPayload);
+        var store = new PublicArticleProjectionStore(
+            dataSources,
+            runtime,
+            new PublicArticleProjectionNegativeCache(TimeProvider.System),
+            sqlSugar,
+            Substitute.For<ITestSessionContext>(),
+            gate,
+            new AedsEncoder(),
+            configuration,
+            NullLogger<PublicArticleProjectionStore>.Instance);
+        string contentHash = PublicArticleProjectionStore.CreateContentHash(validFrame);
+        string etag = PublicArticleProjectionStore.CreateETag(validFrame);
+
+        await store.UpsertAsync(new PublicArticleProjectionWrite(43, validFrame, etag, contentHash, DateTimeOffset.UtcNow));
+        Assert.True(await store.VerifyShadowParityAsync(43, validFrame));
+        PublicArticleProjectionReadResult projected = await store.TryReadAsync(43);
+        Assert.True(projected.Found);
+        Assert.Equal(validFrame, projected.Frame.ToArray());
+        Assert.Equal(etag, projected.ETag);
+        long firstVersion = projected.Version;
+        await store.UpsertAsync(new PublicArticleProjectionWrite(43, validFrame, etag, contentHash, DateTimeOffset.UtcNow));
+        PublicArticleProjectionReadResult replayed = await store.TryReadAsync(43);
+        Assert.Equal(firstVersion, replayed.Version);
+        await store.MarkUnavailableAsync(43, "visibility-changed");
+        PublicArticleProjectionReadResult hidden = await store.TryReadAsync(43);
+        Assert.Equal(PublicArticleProjectionReadStatus.NotFound, hidden.Status);
+        Assert.Equal("negative-cache", hidden.Error);
+        await store.UpsertAsync(new PublicArticleProjectionWrite(43, validFrame, etag, contentHash, DateTimeOffset.UtcNow));
+        Assert.True((await store.TryReadAsync(43)).Found);
+        Assert.Equal(3, runtime.Snapshot().Reads);
+
+        int categoryId = await sqlSugar.Insertable(new Category { Name = "projection-category-before" }).ExecuteReturnIdentityAsync();
+        int tagId = await sqlSugar.Insertable(new Tag { Name = "projection-tag-before" }).ExecuteReturnIdentityAsync();
+        int articleId = await sqlSugar.Insertable(new Article
+        {
+            Title = "projection mutation article",
+            Summary = "projection mutation article",
+            CategoryId = categoryId,
+            CreateTime = DateTime.UtcNow,
+            Status = ArticleStatus.Published,
+            PublishedAt = DateTime.UtcNow,
+            IsDeleted = false
+        }).ExecuteReturnIdentityAsync();
+        await sqlSugar.Insertable(new ArticleTag { ArticleId = articleId, TagId = tagId }).ExecuteCommandAsync();
+
+        Assert.Equal(1, await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+            sqlSugar,
+            categoryId,
+            "projection-category-after",
+            CancellationToken.None));
+        Assert.Equal(1, await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+            sqlSugar,
+            tagId,
+            "projection-tag-after",
+            CancellationToken.None));
+        int taxonomyOutboxRows = await sqlSugar.Queryable<ArticleMutationOutboxEvent>()
+            .Where(item => item.AggregateId == articleId
+                && (item.EventType == "category-updated" || item.EventType == "tag-updated"))
+            .CountAsync();
+        Assert.Equal(2, taxonomyOutboxRows);
+
+        IWebHostEnvironment environment = Substitute.For<IWebHostEnvironment>();
+        environment.ContentRootPath.Returns(Path.GetTempPath());
+        var backfillProjector = new SuccessfulArticleDetailProjector();
+        await using ServiceProvider backfillServices = new ServiceCollection()
+            .AddSingleton<IArticleDetailAedsArtifactProjector>(backfillProjector)
+            .BuildServiceProvider();
+        var maintenance = new ArticleDetailAedsArtifactMaintenanceService(
+            sqlSugar,
+            environment,
+            backfillServices.GetRequiredService<IServiceScopeFactory>(),
+            backfillProjector,
+            gate,
+            NullLogger<ArticleDetailAedsArtifactMaintenanceService>.Instance);
+        await maintenance.PausePublicProjectionBackfillAsync();
+        Assert.Equal("paused", (await maintenance.GetPublicProjectionBackfillStateAsync()).State);
+        ArticleDetailAedsArtifactMaintenanceResult resumed = await maintenance.ResumePublicProjectionBackfillAsync();
+        Assert.True(resumed.Rebuilt == 1, resumed.ToDetail());
+        PublicArticleProjectionBackfillState completed = await maintenance.GetPublicProjectionBackfillStateAsync();
+        Assert.Equal("completed", completed.State);
+        Assert.Equal(articleId, completed.LastArticleId);
+        Assert.Equal([articleId], backfillProjector.ArticleIds);
+    }
+
+    [Fact]
+    public async Task PublicArticleProjectionOutbox_CriticalFailureRetriesWithoutRepeatingCompletedEdges()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        await RunMigrationsAsync(connectionString);
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = connectionString,
+                ["Database:PublicArticleProjection:MaxPoolSize"] = "2"
+            })
+            .Build();
+        var cacheInvalidation = Substitute.For<ICacheInvalidationDispatcher>();
+        var publicAotInvalidation = Substitute.For<IPublicAotInvalidationService>();
+        var coordinator = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        IReadOnlySet<string> projectionEdges = new HashSet<string>(StringComparer.Ordinal)
+        {
+            ArticleMutationReplayEdges.SearchProjection,
+            ArticleMutationReplayEdges.ArticleDetailAeds,
+            ArticleMutationReplayEdges.TaxonomyProjection,
+            ArticleMutationReplayEdges.PublicHotRead
+        };
+        coordinator.ReplayOutboxAsync(77, "updated", Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
+            .Returns(
+                ArticleMutationReplayResult.Failed(
+                    "projection-write-failed",
+                    new HashSet<string>(StringComparer.Ordinal),
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        [ArticleMutationReplayEdges.ArticleDetailAeds] = "projection-write-failed"
+                    }),
+                ArticleMutationReplayResult.Success(projectionEdges));
+
+        var services = new ServiceCollection();
+        services.AddScoped<ISqlSugarClient>(_ => new SqlSugarClient(new ConnectionConfig
+        {
+            ConnectionString = connectionString,
+            DbType = SqlSugar.DbType.PostgreSQL,
+            IsAutoCloseConnection = true,
+            InitKeyType = InitKeyType.Attribute
+        }));
+        services.AddScoped<IDbConcurrencyGate>(_ => new DbConcurrencyGate(configuration, NullLogger<DbConcurrencyGate>.Instance));
+        services.AddScoped(_ => cacheInvalidation);
+        services.AddScoped(_ => publicAotInvalidation);
+        services.AddScoped(_ => coordinator);
+        await using ServiceProvider provider = services.BuildServiceProvider();
+
+        var verificationDb = new SqlSugarClient(new ConnectionConfig
+        {
+            ConnectionString = connectionString,
+            DbType = SqlSugar.DbType.PostgreSQL,
+            IsAutoCloseConnection = true,
+            InitKeyType = InitKeyType.Attribute
+        });
+        long outboxId = await verificationDb.Insertable(new ArticleMutationOutboxEvent
+        {
+            AggregateId = 77,
+            EventType = "updated",
+            Status = "pending",
+            NextRetryAt = DateTime.UtcNow.AddSeconds(-1)
+        }).ExecuteReturnBigIdentityAsync();
+        var dispatcher = new ArticleMutationOutboxDispatcher(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<ArticleMutationOutboxDispatcher>.Instance,
+            TimeProvider.System,
+            Substitute.For<IBackgroundWorkerLease>());
+
+        Assert.Equal(0, await dispatcher.ProcessPendingAsync(CancellationToken.None));
+        ArticleMutationOutboxEvent failed = await verificationDb.Queryable<ArticleMutationOutboxEvent>()
+            .SingleAsync(item => item.Id == outboxId);
+        Assert.Equal("pending", failed.Status);
+        Assert.Equal(1, failed.RetryCount);
+        Assert.Null(failed.ProcessedAt);
+        Assert.Contains("projection-write-failed", failed.LastError, StringComparison.Ordinal);
+
+        await verificationDb.Updateable<ArticleMutationOutboxEvent>()
+            .SetColumns(item => item.NextRetryAt == DateTime.UtcNow.AddSeconds(-1))
+            .Where(item => item.Id == outboxId)
+            .ExecuteCommandAsync();
+        Assert.Equal(1, await dispatcher.ProcessPendingAsync(CancellationToken.None));
+        ArticleMutationOutboxEvent processed = await verificationDb.Queryable<ArticleMutationOutboxEvent>()
+            .SingleAsync(item => item.Id == outboxId);
+        Assert.Equal("processed", processed.Status);
+        Assert.Equal(1, processed.RetryCount);
+        Assert.NotNull(processed.ProcessedAt);
+        await cacheInvalidation.Received(1).InvalidateArticleMutationAsync(77, Arg.Any<CancellationToken>());
+        await publicAotInvalidation.Received(1).InvalidateArticleMutationAsync(
+            77,
+            Arg.Any<IEnumerable<int>>(),
+            Arg.Any<IEnumerable<int>>(),
+            Arg.Any<CancellationToken>());
+        ArticleMutationOutboxEdge projectionEdge = await verificationDb.Queryable<ArticleMutationOutboxEdge>()
+            .SingleAsync(edge => edge.OutboxEventId == outboxId && edge.EdgeName == ArticleMutationReplayEdges.ArticleDetailAeds);
+        Assert.Equal(ArticleMutationOutboxEdgeStatus.Completed, projectionEdge.Status);
+        Assert.Equal(2, projectionEdge.AttemptCount);
     }
 
     [Fact]
@@ -1808,5 +2116,20 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             int? articleId = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(Empty);
+    }
+
+    private sealed class SuccessfulArticleDetailProjector : IArticleDetailAedsArtifactProjector
+    {
+        public List<int> ArticleIds { get; } = [];
+
+        public Task GenerateAndStoreAsync(int articleId, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArticleIds.Add(articleId);
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveAsync(int articleId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }

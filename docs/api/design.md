@@ -513,6 +513,14 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 ---
 
+## 公共文章读取投影
+
+`GET /api/binary/article/{id}.aeds` 的公开契约和安全链不变：请求仍先经过 `public_read`、RiskControl/PoW 与现有 L0 artifact 规则。文件/L0 article detail artifact miss 后，应用只允许执行 `public_article_projection(article_id PK)` 的单条 prepared 查询并直接返回已编码 AEDS frame；该读取不得 join article/category/tag/rights/proof，不得在请求时重新估算阅读时长或编码完整投影。投影 frame 必须同时通过 AEDS v2 header、ArticleDetail V3 payload、CRC 与 strong ETag 校验，命中后只回填一次文件/L1 路径。
+
+投影缺失或损坏是可恢复一致性故障：请求可进入旧 source query 兜底，但必须排队 repair；30 秒进程内 negative cache 抑制重复 DB miss，create/publish/restore/update/outbox replay 会同步清除该负缓存。`Database:PublicArticleProjection:Enabled=false` 是 reload-capable 的无需重启回退开关，只停止直接投影读取，不停止 outbox projector、旧查询、鉴权、`X-Fsus-*` headers、PoW 或统一 AEDS 错误语义。
+
+category/tag 重命名、rights/proof、scheduled publish、revision/content 与文章全生命周期 mutation 必须在 primary write 的同一事务写入 `article_mutation_outbox`。`article-detail-aeds` 仍是 required replay edge：DB projection、shadow parity 和 file artifact 任一步失败时不得把 edge/outbox 标记为完成。完整迁移、回填、门禁与回退说明见 [公共文章读取投影](../performance-public-article-projection.md)。
+
 ## Out of Scope
 
 本文件只定义 API 设计哲学和跨模块约束，不重复维护以下真相源：

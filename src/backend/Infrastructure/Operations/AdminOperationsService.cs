@@ -298,11 +298,29 @@ public sealed class AdminOperationsService(
                     await articleDetailAedsMaintenance.RebuildArticleDetailAedsV3Async(all, request.ArticleId, cancellationToken);
                 return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
             }
+            case "public-article-projection-backfill-status":
+            {
+                PublicArticleProjectionBackfillState state =
+                    await articleDetailAedsMaintenance.GetPublicProjectionBackfillStateAsync(cancellationToken);
+                return ActionResult(
+                    action,
+                    state.State,
+                    $"lastArticleId={state.LastArticleId}, ratePerSecond={state.RatePerSecond}, rebuilt={state.RebuiltCount}, failed={state.FailedCount}, updatedAt={state.UpdatedAtUtc:O}");
+            }
+            case "public-article-projection-backfill-pause":
+                await articleDetailAedsMaintenance.PausePublicProjectionBackfillAsync(cancellationToken);
+                return ActionResult(action, "paused", "public article projection backfill paused at the durable watermark");
+            case "public-article-projection-backfill-resume":
+            {
+                ArticleDetailAedsArtifactMaintenanceResult result =
+                    await articleDetailAedsMaintenance.ResumePublicProjectionBackfillAsync(cancellationToken);
+                return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
+            }
             case "sitemap-feed-refresh":
                 await cacheInvalidationDispatcher.InvalidateSeoAsync(cancellationToken);
                 return ActionResult(action, "ok", "feed/sitemap cache invalidated");
             default:
-                return ActionResult(action, "unsupported", "supported actions: search-rebuild, aot-rebuild, public-hot-rebuild, output-cache-clear, recompute-article-rights, rebuild-article-detail-aeds-v3, sitemap-feed-refresh");
+                return ActionResult(action, "unsupported", "supported actions: search-rebuild, aot-rebuild, public-hot-rebuild, output-cache-clear, recompute-article-rights, rebuild-article-detail-aeds-v3, public-article-projection-backfill-status, public-article-projection-backfill-pause, public-article-projection-backfill-resume, sitemap-feed-refresh");
         }
     }
 

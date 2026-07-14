@@ -3,6 +3,7 @@ using FsusBlog.Server.Infrastructure.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests;
@@ -10,14 +11,16 @@ namespace FsusBlog.Server.Tests;
 public sealed class SqlSugarInitializerTests
 {
     [Fact]
-    public void NormalizeConnectionString_AddsSafePoolDefaultsWhenMissing()
+    public void NormalizeConnectionString_UsesNpgsqlProviderDefaultsWhenSettingsAreMissing()
     {
         string normalized = SqlSugarInitializer.NormalizeConnectionString("Host=localhost;Database=fsus;Username=dev;Password=pwd");
+        var actual = new NpgsqlConnectionStringBuilder(normalized);
+        var providerDefaults = new NpgsqlConnectionStringBuilder();
 
-        Assert.Contains("Maximum Pool Size=60", normalized, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Minimum Pool Size=5", normalized, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Timeout=15", normalized, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Command Timeout=30", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(providerDefaults.MaxPoolSize, actual.MaxPoolSize);
+        Assert.Equal(providerDefaults.MinPoolSize, actual.MinPoolSize);
+        Assert.Equal(providerDefaults.Timeout, actual.Timeout);
+        Assert.Equal(providerDefaults.CommandTimeout, actual.CommandTimeout);
     }
 
     [Fact]

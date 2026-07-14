@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -135,6 +136,7 @@ public sealed class ArticleDetailAedsArtifactStoreBehaviorTests
                 new ArtifactTestWebHostEnvironment(root),
                 Substitute.For<IServiceScopeFactory>(),
                 Substitute.For<IArticleDetailAedsArtifactProjector>(),
+                Substitute.For<IDbConcurrencyGate>(),
                 NullLogger<ArticleDetailAedsArtifactMaintenanceService>.Instance);
 
             ArticleDetailAedsArtifactMaintenanceResult result = await service.ClearLegacyPublicArtifactsAsync();

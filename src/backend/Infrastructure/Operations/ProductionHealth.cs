@@ -280,7 +280,11 @@ public sealed record RuntimeHealthSnapshot(
     StartupRuntimeSnapshot? Startup,
     ScheduledPublishRuntimeSnapshot? ScheduledPublish,
     PublicHotReadRuntimeSnapshot? PublicHotRead,
-    AuditLogRuntimeSnapshot? AuditLog) : IProductionHealthCheck;
+    AuditLogRuntimeSnapshot? AuditLog) : IProductionHealthCheck
+{
+    public DbConcurrencyGateDiagnostics? DbGateClasses { get; init; }
+    public PublicArticleProjectionRuntimeSnapshot? PublicArticleProjection { get; init; }
+}
 
 public static class ProductionLivenessProbe
 {
@@ -484,10 +488,16 @@ public sealed class ProductionReadinessProbe(
     private async Task<RuntimeHealthSnapshot> CheckRuntimeAsync(CancellationToken cancellationToken)
     {
         DbConcurrencyGateSnapshot? dbGate = null;
+        DbConcurrencyGateDiagnostics? dbGateClasses = null;
         if (serviceProvider.GetService<IDbConcurrencyGate>() is { } gate)
         {
             dbGate = gate.GetSnapshot();
+            dbGateClasses = (gate as IClassifiedDbConcurrencyGate)?.GetDiagnostics();
         }
+
+        PublicArticleProjectionRuntimeSnapshot? publicArticleProjection = serviceProvider
+            .GetService<PublicArticleProjectionRuntimeState>()
+            ?.Snapshot();
 
         int? notificationStreamConnections = serviceProvider.GetService<NotificationStreamConnectionManager>()?.ConnectionCount;
         StartupRuntimeState? startupRuntime = serviceProvider.GetService<StartupRuntimeState>();
@@ -522,7 +532,11 @@ public sealed class ProductionReadinessProbe(
             startupRuntime?.CreateSnapshot(),
             scheduledPublish?.CreateSnapshot(),
             publicHotRead,
-            auditLog);
+            auditLog)
+        {
+            DbGateClasses = dbGateClasses,
+            PublicArticleProjection = publicArticleProjection
+        };
     }
 
     private async Task<ProductionRiskControlHealthCheck> CheckRiskControlAsync(

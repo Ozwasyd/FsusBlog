@@ -1117,11 +1117,13 @@ jobs:
             .tmp/backend-perf/**
             .tmp/perf/aeds-frame-cost/**
             .tmp/perf/aeds-compression-profile/**
+            .tmp/perf/public-hot-read-residency-profile/summary.json
             .tmp/perf/browser-performance.json
             .tmp/perf/release-summaries/backend-benchmark-regression.json
             .tmp/perf/release-summaries/browser-performance-regression.json
             .tmp/release-evidence/aeds-frame-cost-summary.json
             .tmp/release-evidence/aeds-compression-profile-summary.json
+            .tmp/release-evidence/public-hot-read-residency-profile.json
             .tmp/release-evidence/jobs/**
             BenchmarkDotNet.Artifacts/results/**
 

@@ -266,7 +266,10 @@ public sealed class PublicContentInvalidationFlowTests
 
         Assert.Contains("LoadPublicArticleIdsPageAsync", rebuild, StringComparison.Ordinal);
         Assert.Contains("RebuildArticleBatchAsync", rebuild, StringComparison.Ordinal);
-        Assert.Contains("Environment.get_ProcessorCount", batch, StringComparison.Ordinal);
+        Assert.Contains("ResolveBackfillParallelism", rebuild, StringComparison.Ordinal);
+        Assert.Contains("GetPublicProjectionBackfillStateAsync", rebuild, StringComparison.Ordinal);
+        Assert.Contains("RecordPublicProjectionBackfillProgressAsync", rebuild, StringComparison.Ordinal);
+        Assert.DoesNotContain("Environment.get_ProcessorCount", batch, StringComparison.Ordinal);
         Assert.Contains("ParallelOptions.set_MaxDegreeOfParallelism", batch, StringComparison.Ordinal);
         Assert.Contains("CreateAsyncScope", batch, StringComparison.Ordinal);
         Assert.DoesNotContain("Task`1.get_Result", batch, StringComparison.Ordinal);
