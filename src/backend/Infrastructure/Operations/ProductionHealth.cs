@@ -509,7 +509,8 @@ public sealed class ProductionReadinessProbe(
         RuntimePressureSnapshot pressure = await pressureTask;
         string status = publicHotRead is null
             || (string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
-                && !publicHotRead.ArticleFrameLimitExceeded)
+                && !publicHotRead.ArticleFrameLimitExceeded
+                && !publicHotRead.ResidentByteBudgetExceeded)
             ? "ok"
             : "degraded";
 

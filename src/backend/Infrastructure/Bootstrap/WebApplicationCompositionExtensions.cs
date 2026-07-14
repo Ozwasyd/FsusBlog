@@ -5,8 +5,6 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Security.Cryptography;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.IO.Pipelines;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
@@ -94,12 +92,12 @@ public static class WebApplicationCompositionExtensions
     private const string CspNonceTemplatePlaceholder = "%%FSUSBLOG_CSP_NONCE%%";
     private const string HtmlContentType = "text/html; charset=utf-8";
     private const int DefaultSpaHeadInjectionCacheMaxEntries = 256;
+    private const int DefaultSpaTemplateCacheMaxEntries = 64;
     private const int SpaFallbackCompressionMinBytes = 1024;
     private const string HeadInjectionKindRoutePreload = "route-preload";
     private const string HeadInjectionKindPublicAssetSet = "public-asset-set";
     private static readonly byte[] EmptyBytes = [];
-    private static readonly ConditionalWeakTable<string, CspNonceHtmlTemplate> CspNonceHtmlTemplates = new();
-    private static readonly ConditionalWeakTable<byte[], SpaHtmlByteTemplate> SpaHtmlByteTemplates = new();
+    private static readonly ConcurrentDictionary<string, SpaHtmlByteTemplate> SpaHtmlByteTemplates = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<HeadInjectionCacheKey, CachedHeadInjection> SpaHeadInjectionCache = new();
     private static readonly ConcurrentDictionary<string, CachedDynamicManifest> DynamicManifestCache = new(StringComparer.Ordinal);
     private static long SpaHeadInjectionBuildCount;
@@ -735,7 +733,11 @@ public static class WebApplicationCompositionExtensions
 
         if (document.RequiresCspNonceMutation)
         {
-            await WritePublicAotHtmlSlowPathAsync(ctx, entry.GetHtml(), cancellationToken);
+            await WritePublicAotHtmlNonceTemplateAsync(
+                ctx,
+                document.CspNonceTemplate
+                    ?? throw new InvalidOperationException("nonce HTML artifact is missing its compiled template"),
+                cancellationToken);
             return;
         }
 
@@ -790,31 +792,36 @@ public static class WebApplicationCompositionExtensions
         }
     }
 
-    private static async Task WritePublicAotHtmlSlowPathAsync(
+    private static Task WritePublicAotHtmlNonceTemplateAsync(
         HttpContext ctx,
-        string html,
+        CspNonceUtf8Template template,
         CancellationToken cancellationToken)
     {
-        // CSP nonce mutation changes the document per request, so precomputed
-        // compressed variants and ETags are intentionally skipped on this path.
-        html = ApplyCspNonceToHtml(ctx, html);
-        byte[] bytes = Encoding.UTF8.GetBytes(html);
         HttpResponse response = ctx.Response;
-        response.StatusCode = StatusCodes.Status200OK;
-        response.ContentType = HtmlContentType;
-        response.ContentLength = bytes.Length;
+        response.Headers["Cache-Control"] = "private,no-store";
         response.Headers.Remove("Content-Encoding");
         response.Headers.Remove("ETag");
-        if (HttpMethods.IsHead(ctx.Request.Method) || bytes.Length == 0)
+        response.Headers.Remove("Vary");
+        if (!PublicAotHtmlResponseNegotiation.AcceptsIdentity(ctx.Request.Headers.AcceptEncoding))
         {
-            return;
+            response.StatusCode = StatusCodes.Status406NotAcceptable;
+            response.ContentLength = 0;
+            return Task.CompletedTask;
         }
 
-        ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(bytes, cancellationToken);
-        if (!write.IsCompletedSuccessfully)
+        // The per-request nonce changes the entity. Use identity streaming with
+        // private/no-store semantics; static compressed variants and validators
+        // are deliberately unavailable on this path.
+        string nonce = EnsureCspNonce(ctx);
+        response.StatusCode = StatusCodes.Status200OK;
+        response.ContentType = HtmlContentType;
+        response.ContentLength = template.GetRenderedLength(nonce.Length);
+        if (HttpMethods.IsHead(ctx.Request.Method) || response.ContentLength == 0)
         {
-            await write;
+            return Task.CompletedTask;
         }
+
+        return CspNonceHtmlResponseWriter.WriteBodyAsync(response, template, nonce, cancellationToken);
     }
 
     private static void SetPublicAotHtmlHeaders(
@@ -1058,7 +1065,7 @@ public static class WebApplicationCompositionExtensions
             PublicAotHtmlArtifactOptions.DefaultCacheControl,
             string.Empty,
             string.Empty,
-            RequiresCspNonceMutation: false);
+            CspNonceTemplate: null);
         return PublicAotHtmlResponseNegotiation.TrySelectVariant(acceptEncoding, document, out variant);
     }
 
@@ -1110,15 +1117,23 @@ public static class WebApplicationCompositionExtensions
             return SpaHtmlByteTemplate.Empty;
         }
 
-        if (MemoryMarshal.TryGetArray(templateBytes, out ArraySegment<byte> segment)
-            && segment.Array is not null
-            && segment.Offset == 0
-            && segment.Count == segment.Array.Length)
+        Span<byte> digest = stackalloc byte[32];
+        SHA256.HashData(templateBytes.Span, digest);
+        string key = Convert.ToHexStringLower(digest);
+        if (SpaHtmlByteTemplates.TryGetValue(key, out SpaHtmlByteTemplate? cached))
         {
-            return SpaHtmlByteTemplates.GetValue(segment.Array, static bytes => SpaHtmlByteTemplate.Create(bytes));
+            return cached;
         }
 
-        return SpaHtmlByteTemplate.Create(templateBytes.Span);
+        if (SpaHtmlByteTemplates.Count >= DefaultSpaTemplateCacheMaxEntries)
+        {
+            SpaHtmlByteTemplates.Clear();
+        }
+
+        return SpaHtmlByteTemplates.GetOrAdd(
+            key,
+            static (_, bytes) => SpaHtmlByteTemplate.Create(bytes.Span),
+            templateBytes);
     }
 
     private static ReadOnlyMemory<byte> GetEncodedNonceBytes(HttpContext ctx)
@@ -1403,25 +1418,6 @@ public static class WebApplicationCompositionExtensions
         }
 
         return Encoding.UTF8.GetBytes(sb.ToString());
-    }
-
-    internal static string ApplyCspNonceToHtml(HttpContext ctx, string html)
-    {
-        if (!ctx.Items.TryGetValue(CspNonceContextKey, out object? nonceObj)
-            || nonceObj is not string nonce
-            || string.IsNullOrWhiteSpace(nonce))
-        {
-            return html;
-        }
-
-        string encodedNonce = System.Net.WebUtility.HtmlEncode(nonce);
-        CspNonceHtmlTemplate template = CspNonceHtmlTemplates.GetValue(html, BuildCspNonceHtmlTemplate);
-        if (!template.HasPlaceholders)
-        {
-            return html;
-        }
-
-        return template.Html.Replace(CspNonceTemplatePlaceholder, encodedNonce, StringComparison.Ordinal);
     }
 
     private static CspNonceHtmlTemplate BuildCspNonceHtmlTemplate(string html)

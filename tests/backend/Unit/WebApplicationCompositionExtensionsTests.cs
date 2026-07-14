@@ -16,6 +16,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
+using System.Buffers;
 using System.IO.Compression;
 using System.Reflection;
 using System.Text;
@@ -25,33 +26,27 @@ namespace FsusBlog.Server.Tests;
 public sealed class WebApplicationCompositionExtensionsTests
 {
     [Fact]
-    public void ApplyCspNonceToHtml_AddsNonceToScriptStyleAndHeadMeta()
+    public void CspNonceUtf8Template_AddsNonceToScriptStyleAndHeadMeta()
     {
-        var context = new DefaultHttpContext();
-        context.Items["__fsusblog_csp_nonce"] = "abc123";
-
         string html = "<html><head></head><body><script type=\"module\"></script><style>.a{}</style></body></html>";
-
-        string rendered = WebApplicationCompositionExtensions.ApplyCspNonceToHtml(context, html);
+        CspNonceUtf8Template template = Assert.IsType<CspNonceUtf8Template>(
+            CspNonceUtf8Template.Compile(html, "artifact:test"));
+        string rendered = Encoding.UTF8.GetString(RenderTemplate(template, "abc123"u8));
 
         Assert.Contains("<head>\n    <meta property=\"csp-nonce\" nonce=\"abc123\" /></head>", rendered);
         Assert.Contains("<script nonce=\"abc123\" type=\"module\">", rendered);
         Assert.Contains("<style nonce=\"abc123\">", rendered);
+        Assert.Equal(3, template.SlotCount);
     }
 
     [Fact]
-    public void ApplyCspNonceToHtml_PreservesExistingNonceAndMeta()
+    public void CspNonceUtf8Template_RejectsPreRenderedNonceAndMeta()
     {
-        var context = new DefaultHttpContext();
-        context.Items["__fsusblog_csp_nonce"] = "new";
-
         string html = "<html><head><meta property=\"csp-nonce\" nonce=\"old\" /></head><body><script nonce=\"old\"></script></body></html>";
 
-        string rendered = WebApplicationCompositionExtensions.ApplyCspNonceToHtml(context, html);
-
-        Assert.Contains("<meta property=\"csp-nonce\" nonce=\"old\" />", rendered);
-        Assert.Contains("<script nonce=\"old\"></script>", rendered);
-        Assert.DoesNotContain("nonce=\"new\"", rendered);
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => CspNonceUtf8Template.Compile(html, "artifact:malicious"));
+        Assert.Contains("nonce", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -77,7 +72,9 @@ public sealed class WebApplicationCompositionExtensionsTests
         string csp = WebApplicationCompositionExtensions.BuildHtmlCsp(isDevelopment: false, nonce);
         string html = "<html><head></head><body><script type=\"module\"></script></body></html>";
 
-        string rendered = WebApplicationCompositionExtensions.ApplyCspNonceToHtml(context, html);
+        CspNonceUtf8Template template = Assert.IsType<CspNonceUtf8Template>(
+            CspNonceUtf8Template.Compile(html, "artifact:csp-match"));
+        string rendered = Encoding.UTF8.GetString(RenderTemplate(template, Encoding.UTF8.GetBytes(nonce)));
 
         Assert.Contains($"'nonce-{nonce}'", csp, StringComparison.Ordinal);
         Assert.Contains($"<script nonce=\"{nonce}\" type=\"module\">", rendered, StringComparison.Ordinal);
@@ -181,7 +178,7 @@ public sealed class WebApplicationCompositionExtensionsTests
             .SelectMany(static source => source.Endpoints)
             .OfType<RouteEndpoint>()
             .Where(static endpoint => endpoint.Metadata.GetMetadata<RiskActionEndpointMetadata>() is
-                { ActionName: RiskActionNames.PublicRead, RouteKey: "public.html.home" or "public.html.fallback" })
+            { ActionName: RiskActionNames.PublicRead, RouteKey: "public.html.home" or "public.html.fallback" })
             .ToArray();
 
         Assert.Equal(2, routes.Length);
@@ -479,7 +476,7 @@ public sealed class WebApplicationCompositionExtensionsTests
     }
 
     [Fact]
-    public async Task PublicAotHtmlSlowPath_PreservesCspNonceMutationAndSkipsVariantEtag()
+    public async Task PublicAotHtmlNonceTemplate_StreamsIdentityWithNoStoreAndNoEntityValidator()
     {
         const string html = "<html><head></head><body><script type=\"module\"></script></body></html>";
         PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(
@@ -489,16 +486,58 @@ public sealed class WebApplicationCompositionExtensionsTests
             minPrecompressedHtmlBytes: 1);
         var entry = CreateAotEntry(html, artifact);
         DefaultHttpContext context = CreateAotContext("br, gzip");
+        context.Request.Headers.IfNoneMatch = artifact.ETag;
 
         await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(context, CreateTestEnv(), entry);
 
         string rendered = Encoding.UTF8.GetString(((MemoryStream)context.Response.Body).ToArray());
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.True(artifact.RequiresCspNonceMutation);
+        Assert.True(artifact.BrotliBytes.IsEmpty);
+        Assert.True(artifact.GzipBytes.IsEmpty);
         Assert.Contains("<meta property=\"csp-nonce\" nonce=\"", rendered, StringComparison.Ordinal);
         Assert.Contains("<script nonce=\"", rendered, StringComparison.Ordinal);
+        Assert.Equal("private,no-store", context.Response.Headers.CacheControl.ToString());
         Assert.True(string.IsNullOrEmpty(context.Response.Headers["Content-Encoding"].ToString()));
         Assert.True(string.IsNullOrEmpty(context.Response.Headers["ETag"].ToString()));
+        Assert.Equal(context.Response.ContentLength, context.Response.Body.Length);
+    }
+
+    [Fact]
+    public async Task PublicAotHtmlNonceTemplate_HeadComputesHeadersWithoutWritingBody()
+    {
+        const string html = "<html><head></head><body><script>head()</script></body></html>";
+        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(html, "renderer-head", "frontend-head");
+        DefaultHttpContext context = CreateAotContext("br, gzip");
+        context.Request.Method = HttpMethods.Head;
+
+        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(
+            context,
+            CreateTestEnv(),
+            CreateAotEntry(html, artifact));
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.True(context.Response.ContentLength > artifact.Utf8Bytes.Length);
+        Assert.Equal("private,no-store", context.Response.Headers.CacheControl.ToString());
+        Assert.True(string.IsNullOrEmpty(context.Response.Headers.ETag.ToString()));
+        Assert.Equal(0, context.Response.Body.Length);
+    }
+
+    [Fact]
+    public async Task PublicAotHtmlNonceTemplate_RejectsWhenIdentityIsExplicitlyForbidden()
+    {
+        const string html = "<html><head></head><body><script>identity()</script></body></html>";
+        PublicAotHtmlArtifact artifact = PublicAotHtmlArtifactFactory.FromHtml(html, "renderer-identity", "frontend-identity");
+        DefaultHttpContext context = CreateAotContext("br;q=1, gzip;q=1, identity;q=0");
+
+        await WebApplicationCompositionExtensions.WritePublicAotHtmlEntryForTestsAsync(
+            context,
+            CreateTestEnv(),
+            CreateAotEntry(html, artifact));
+
+        Assert.Equal(StatusCodes.Status406NotAcceptable, context.Response.StatusCode);
+        Assert.Equal(0, context.Response.ContentLength);
+        Assert.Equal(0, context.Response.Body.Length);
     }
 
     [Fact]
@@ -765,6 +804,13 @@ public sealed class WebApplicationCompositionExtensionsTests
 
     private static IWebHostEnvironment CreateTestEnv()
         => new TestWebHostEnvironment(Path.GetTempPath(), new NullFileProvider());
+
+    private static byte[] RenderTemplate(CspNonceUtf8Template template, ReadOnlySpan<byte> nonce)
+    {
+        var writer = new ArrayBufferWriter<byte>(template.GetRenderedLength(nonce.Length));
+        template.Write(writer, nonce);
+        return writer.WrittenSpan.ToArray();
+    }
 
     private static long PercentileTicks(long[] values, int percentile)
     {

@@ -17,6 +17,7 @@ using FsusBlog.Server.Infrastructure.Helpers.Security;
 using FsusBlog.Server.Infrastructure.NotificationStream;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Projections;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services;
@@ -164,6 +165,101 @@ public class CacheAndFrameFixedCostHotPathBenchmarks
 
     [GlobalCleanup]
     public void Cleanup() => _legacyL1.Dispose();
+}
+
+[MemoryDiagnoser]
+public class CspNonceHtmlHotPathBenchmarks
+{
+    private const string LegacyPlaceholder = "%%FSUSBLOG_CSP_NONCE%%";
+    private const string Nonce = "benchmark_nonce_0123456789";
+    private readonly byte[] _legacyTemplateBytes;
+    private readonly byte[] _nonceBytes = Encoding.UTF8.GetBytes(Nonce);
+    private readonly CspNonceUtf8Template _template;
+    private readonly ReusableBufferWriter _writer;
+
+    public CspNonceHtmlHotPathBenchmarks()
+    {
+        string html = CreateRepresentativeHtml();
+        _template = CspNonceUtf8Template.Compile(html, "benchmark:renderer:frontend:digest")
+            ?? throw new InvalidOperationException("benchmark HTML did not produce a nonce template");
+        string legacyTemplate = html
+            .Replace("<head>", $"<head><meta property=\"csp-nonce\" nonce=\"{LegacyPlaceholder}\" />", StringComparison.Ordinal)
+            .Replace("<script", $"<script nonce=\"{LegacyPlaceholder}\"", StringComparison.Ordinal)
+            .Replace("<style", $"<style nonce=\"{LegacyPlaceholder}\"", StringComparison.Ordinal);
+        _legacyTemplateBytes = Encoding.UTF8.GetBytes(legacyTemplate);
+        _writer = new ReusableBufferWriter(_template.GetRenderedLength(_nonceBytes.Length));
+    }
+
+    [Benchmark(Baseline = true)]
+    public int Legacy_DecodeReplaceEncodeWholeDocument()
+    {
+        string decoded = Encoding.UTF8.GetString(_legacyTemplateBytes);
+        string rendered = decoded.Replace(LegacyPlaceholder, Nonce, StringComparison.Ordinal);
+        return Encoding.UTF8.GetBytes(rendered).Length;
+    }
+
+    [Benchmark]
+    public int Current_PrecompiledSegmentWriter()
+    {
+        _writer.Reset();
+        _template.Write(_writer, _nonceBytes);
+        return _writer.WrittenCount;
+    }
+
+    internal static string CreateRepresentativeHtml()
+    {
+        var builder = new StringBuilder(160 * 1024);
+        builder.Append("<!doctype html><html><head><title>FsusBlog 性能🙂</title><style>.article{line-height:1.7}</style></head><body>");
+        for (int index = 0; index < 1800; index++)
+        {
+            builder.Append("<p data-index=\"");
+            builder.Append(index);
+            builder.Append("\">public article content 中文🙂 cache hydration benchmark segment</p>");
+        }
+
+        builder.Append("<script>globalThis.__FSUSBLOG_BOOTSTRAP__={ready:true}</script></body></html>");
+        return builder.ToString();
+    }
+
+    private sealed class ReusableBufferWriter(int capacity) : IBufferWriter<byte>
+    {
+        private readonly byte[] _buffer = new byte[capacity];
+        private int _written;
+
+        public int WrittenCount => _written;
+
+        public void Reset() => _written = 0;
+
+        public void Advance(int count)
+        {
+            if (count < 0 || _written > _buffer.Length - count)
+            {
+                throw new InvalidOperationException("benchmark writer capacity exceeded");
+            }
+
+            _written += count;
+        }
+
+        public Memory<byte> GetMemory(int sizeHint = 0)
+        {
+            EnsureCapacity(sizeHint);
+            return _buffer.AsMemory(_written);
+        }
+
+        public Span<byte> GetSpan(int sizeHint = 0)
+        {
+            EnsureCapacity(sizeHint);
+            return _buffer.AsSpan(_written);
+        }
+
+        private void EnsureCapacity(int sizeHint)
+        {
+            if (sizeHint < 0 || _written > _buffer.Length - sizeHint)
+            {
+                throw new InvalidOperationException("benchmark writer capacity exceeded");
+            }
+        }
+    }
 }
 
 [MemoryDiagnoser]

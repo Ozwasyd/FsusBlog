@@ -114,6 +114,14 @@
       "baselineMethod": "Legacy_GlobalAtomicAndStringCounterKey",
       "maxMeanRatio": 3.0,
       "maxAllocatedRatio": 0.5
+    },
+    {
+      "id": "csp-nonce-precompiled-segments",
+      "benchmark": "CspNonceHtmlHotPathBenchmarks",
+      "method": "Current_PrecompiledSegmentWriter",
+      "baselineMethod": "Legacy_DecodeReplaceEncodeWholeDocument",
+      "maxMeanRatio": 0.5,
+      "maxAllocatedRatio": 0.02
     }
   ]
 }

@@ -6,6 +6,7 @@ FASTPATH_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHo
 EARLY_DATA_PLANE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs"
 SECURITY_GATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs"
 COMPOSITION_FILE="$ROOT_DIR/src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs"
+NONCE_TEMPLATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicAot/CspNonceUtf8Template.cs"
 ARTICLE_ENDPOINTS_FILE="$ROOT_DIR/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs"
 ARTICLE_API_FILE="$ROOT_DIR/src/frontend/src/api/article.ts"
 BINARY_TRANSPORT_FILE="$ROOT_DIR/src/frontend/src/services/binaryTransport.ts"
@@ -47,6 +48,41 @@ for (const token of [
 ]) {
   if (!endpointBlock.includes(token)) {
     console.error(`[public-hot-read] missing generic downstream sentinel: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking CSP nonce template publication boundary"
+node - "$FASTPATH_FILE" "$COMPOSITION_FILE" "$NONCE_TEMPLATE_FILE" <<'NODE'
+const fs = require('node:fs');
+const [fastPathFile, compositionFile, templateFile] = process.argv.slice(2);
+const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const composition = fs.readFileSync(compositionFile, 'utf8');
+const template = fs.readFileSync(templateFile, 'utf8');
+for (const [label, source, token] of [
+  ['template', template, 'FindSlotOffsets'],
+  ['template', template, 'StaticInlineSha256Sources'],
+  ['template', template, 'ArtifactIdentity'],
+  ['template', template, 'ResidentBytes'],
+  ['template', template, 'response.BodyWriter.FlushAsync(cancellationToken)'],
+  ['fast path', fastPath, 'Cache-Control"] = "private,no-store"'],
+  ['fast path', fastPath, 'AcceptsIdentity'],
+  ['fast path', fastPath, 'CspNonceTemplate'],
+  ['composition', composition, 'WritePublicAotHtmlNonceTemplateAsync']
+]) {
+  if (!source.includes(token)) {
+    console.error(`[public-hot-read] ${label} missing CSP nonce contract token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const [label, source, token] of [
+  ['composition', composition, 'ConditionalWeakTable'],
+  ['fast path', fastPath, 'ApplyCspNonceToHtml'],
+  ['fast path', fastPath, 'Encoding.UTF8.GetString(html.Bytes.Span)']
+]) {
+  if (source.includes(token)) {
+    console.error(`[public-hot-read] ${label} retains forbidden nonce implementation: ${token}`);
     process.exit(1);
   }
 }
@@ -141,16 +177,27 @@ const required = [
   'response.Headers["ETag"]',
   'PublicHotReadBinaryArtifactFactory',
   'LooksLikeExpectedAedsFrame',
-  'ValidateStaticHtml',
+  'CspNonceUtf8Template',
+  'CspNonceHtmlResponseWriter.WriteBodyAsync',
+  'response.Headers["Cache-Control"] = "private,no-store"',
   'HtmlPathKey',
   'X-Fsus-Required-Route',
   'EnableDiagnosticHeaders',
-  'must not depend on nonce',
-  'Executable inline script is audited'
+  'html.CspNonceTemplate'
 ];
 for (const token of required) {
   if (!source.includes(token)) {
     console.error(`[public-hot-read] missing protocol/readiness token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'Encoding.UTF8.GetString(html.Bytes.Span)',
+  'ApplyCspNonceToHtml(ctx',
+  'byte[] bytes = Encoding.UTF8.GetBytes(rendered)'
+]) {
+  if (source.includes(token)) {
+    console.error(`[public-hot-read] nonce path must not render a full document: ${token}`);
     process.exit(1);
   }
 }

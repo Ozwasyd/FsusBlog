@@ -853,6 +853,8 @@ public sealed class PublicHotReadFastPathTests
         store.PublishHtml("home", PublicPageId.Home, html);
         var context = CreateContext("/");
         context.Request.Headers.Accept = "text/html";
+        context.Request.Headers.AcceptEncoding = "br, gzip";
+        context.Request.Headers.IfNoneMatch = html.ETag;
 
         await PublicHotReadFastPath.TryServeAsync(
             context,
@@ -872,8 +874,36 @@ public sealed class PublicHotReadFastPathTests
         Assert.Contains("<meta property=\"csp-nonce\" nonce=\"", rendered, StringComparison.Ordinal);
         Assert.Contains("<script nonce=\"", rendered, StringComparison.Ordinal);
         Assert.Contains("<style nonce=\"", rendered, StringComparison.Ordinal);
+        Assert.Equal("private,no-store", context.Response.Headers.CacheControl.ToString());
+        Assert.True(string.IsNullOrEmpty(context.Response.Headers.ContentEncoding.ToString()));
         Assert.True(string.IsNullOrEmpty(context.Response.Headers.ETag.ToString()));
         Assert.Equal(System.Text.Encoding.UTF8.GetByteCount(rendered), context.Response.ContentLength);
+    }
+
+    [Fact]
+    public async Task TryServeAsync_PublicNonceHtmlHeadHit_WritesHeadersWithoutBody()
+    {
+        var store = CreateReadyEmptyStore();
+        PublicHtmlArtifact html = PublicHotReadHtmlArtifactFactory.FromHtml(
+            "<html><head></head><body><script>head()</script></body></html>",
+            "public,max-age=60");
+        store.PublishHtml("home", PublicPageId.Home, html);
+        var context = CreateContext("/");
+        context.Request.Method = HttpMethods.Head;
+        context.Request.Headers.Accept = "text/html";
+
+        await PublicHotReadFastPath.TryServeAsync(
+            context,
+            _ => throw new InvalidOperationException("next should not run"),
+            store,
+            new PublicHotReadOptions(),
+            new PublicHotReadCounters());
+
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Equal("private,no-store", context.Response.Headers.CacheControl.ToString());
+        Assert.True(context.Response.ContentLength > html.Bytes.Length);
+        Assert.True(string.IsNullOrEmpty(context.Response.Headers.ETag.ToString()));
+        Assert.Empty(((MemoryStream)context.Response.Body).ToArray());
     }
 
     [Fact]

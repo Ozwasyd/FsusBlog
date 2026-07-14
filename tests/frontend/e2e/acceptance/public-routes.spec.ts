@@ -216,3 +216,67 @@ for (const viewport of [
     })
   })
 }
+
+test.describe('public CSP nonce enforcement', () => {
+  test.describe.configure({ timeout: 120_000 })
+
+  test('nonce is unique per document and blocks an untrusted inline script', async ({ page, request }) => {
+    const first = await request.get('/')
+    const second = await request.get('/')
+    const firstHtml = await first.text()
+    const secondHtml = await second.text()
+    const firstNonce = firstHtml.match(/nonce="([A-Za-z0-9_-]+)"/u)?.[1] ?? ''
+    const secondNonce = secondHtml.match(/nonce="([A-Za-z0-9_-]+)"/u)?.[1] ?? ''
+
+    expect(first.status()).toBe(200)
+    expect(second.status()).toBe(200)
+    expect(firstNonce).not.toBe('')
+    expect(secondNonce).not.toBe('')
+    expect(firstNonce).not.toBe(secondNonce)
+    expect(first.headers()['cache-control']).toContain('no-store')
+    expect(first.headers().etag).toBeUndefined()
+
+    await page.addInitScript(() => {
+      const violations: string[] = []
+      window.addEventListener('securitypolicyviolation', (event) => {
+        violations.push(event.effectiveDirective)
+      })
+      ;(window as Window & { __FSUSBLOG_CSP_VIOLATIONS__?: string[] }).__FSUSBLOG_CSP_VIOLATIONS__ = violations
+    })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await waitForAppReady(page, WARMUP_TIMEOUT_MS)
+
+    const result = await page.evaluate(async () => {
+      // Browsers intentionally hide CSP nonce values from getAttribute(). The
+      // standard .nonce property remains available to trusted page code.
+      const nonceSource = document.querySelector('meta[property="csp-nonce"], script[nonce], style[nonce]') as HTMLElement | null
+      const nonce = nonceSource?.nonce || ''
+      const blocked = document.createElement('script')
+      blocked.textContent = 'window.__FSUSBLOG_UNTRUSTED_INLINE_EXECUTED__ = true'
+      document.head.appendChild(blocked)
+
+      const allowed = document.createElement('script')
+      allowed.nonce = nonce
+      allowed.textContent = 'window.__FSUSBLOG_TRUSTED_INLINE_EXECUTED__ = true'
+      document.head.appendChild(allowed)
+      await new Promise(resolve => setTimeout(resolve, 50))
+
+      const state = window as Window & {
+        __FSUSBLOG_UNTRUSTED_INLINE_EXECUTED__?: boolean
+        __FSUSBLOG_TRUSTED_INLINE_EXECUTED__?: boolean
+        __FSUSBLOG_CSP_VIOLATIONS__?: string[]
+      }
+      return {
+        nonce,
+        untrustedExecuted: state.__FSUSBLOG_UNTRUSTED_INLINE_EXECUTED__ === true,
+        trustedExecuted: state.__FSUSBLOG_TRUSTED_INLINE_EXECUTED__ === true,
+        violations: state.__FSUSBLOG_CSP_VIOLATIONS__ ?? []
+      }
+    })
+
+    expect(result.nonce).not.toBe('')
+    expect(result.untrustedExecuted).toBe(false)
+    expect(result.trustedExecuted).toBe(true)
+    expect(result.violations.some(directive => directive.startsWith('script-src'))).toBe(true)
+  })
+})

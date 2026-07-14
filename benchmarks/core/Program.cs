@@ -39,6 +39,11 @@ if (args.Contains("--aeds-compression-profile", StringComparer.Ordinal))
     return AedsCompressionProfiler.Run(args);
 }
 
+if (args.Contains("--csp-nonce-profile", StringComparer.Ordinal))
+{
+    return CspNonceTemplateProfiler.Run(args);
+}
+
 var benchmarkJob = string.Equals(
     Environment.GetEnvironmentVariable("FSUSBLOG_BENCHMARK_IN_PROCESS_NO_EMIT"),
     "1",
@@ -63,6 +68,7 @@ BenchmarkSwitcher
         typeof(CrawlerNormalizationHotPathBenchmarks),
         typeof(PublicHotReadEarlyDataPlaneBenchmarks),
         typeof(CacheAndFrameFixedCostHotPathBenchmarks),
+        typeof(CspNonceHtmlHotPathBenchmarks),
         typeof(RateLimiterRejectionSamplerBenchmarks),
         typeof(CompositeAcBenchmarks),
         typeof(DoubleArrayAcBenchmarks),

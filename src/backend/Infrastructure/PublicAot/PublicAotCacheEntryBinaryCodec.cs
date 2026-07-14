@@ -273,18 +273,32 @@ internal static class PublicAotCacheEntryBinaryCodec
 
         try
         {
+            string html = Encoding.UTF8.GetString(utf8Bytes.Span);
+            CspNonceUtf8Template? nonceTemplate = CspNonceUtf8Template.Compile(
+                html,
+                string.Concat(
+                    rendererVersion,
+                    ':',
+                    frontendAssetVersion,
+                    ":sha256:",
+                    PublicAotHtmlArtifactFactory.CreateDigest(utf8Bytes.Span)));
+            if ((nonceTemplate is not null) != requiresCspNonceMutation)
+            {
+                return false;
+            }
+
             var document = new PublicAotHtmlArtifact(
                 utf8Bytes,
                 etag,
-                brotliBytes,
-                brotliEtag,
-                gzipBytes,
-                gzipEtag,
+                nonceTemplate is null ? brotliBytes : ReadOnlyMemory<byte>.Empty,
+                nonceTemplate is null ? brotliEtag : string.Empty,
+                nonceTemplate is null ? gzipBytes : ReadOnlyMemory<byte>.Empty,
+                nonceTemplate is null ? gzipEtag : string.Empty,
                 string.IsNullOrWhiteSpace(contentType) ? "text/html; charset=utf-8" : contentType,
                 string.IsNullOrWhiteSpace(cacheControl) ? PublicAotHtmlArtifactOptions.DefaultCacheControl : cacheControl,
                 rendererVersion,
                 frontendAssetVersion,
-                requiresCspNonceMutation);
+                nonceTemplate);
             PublicAotHydrationSidecarReference sidecar = default;
             if (!string.IsNullOrWhiteSpace(sidecarUrl))
             {
@@ -306,7 +320,7 @@ internal static class PublicAotCacheEntryBinaryCodec
                 RouteKey = routeKey,
                 RendererVersion = rendererVersion,
                 FrontendAssetVersion = frontendAssetVersion,
-                Value = Encoding.UTF8.GetString(utf8Bytes.Span),
+                Value = html,
                 Document = document,
                 HydrationSidecar = sidecar
             };

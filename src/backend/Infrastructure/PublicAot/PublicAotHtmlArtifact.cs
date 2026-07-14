@@ -17,9 +17,16 @@ public readonly record struct PublicAotHtmlArtifact(
     string CacheControl,
     string RendererVersion,
     string FrontendAssetVersion,
-    bool RequiresCspNonceMutation)
+    CspNonceUtf8Template? CspNonceTemplate)
 {
     public bool IsEmpty => Utf8Bytes.IsEmpty;
+
+    public bool RequiresCspNonceMutation => CspNonceTemplate is not null;
+
+    public long ResidentBytes => Utf8Bytes.Length
+        + BrotliBytes.Length
+        + GzipBytes.Length
+        + (CspNonceTemplate?.ResidentBytes ?? 0);
 
     public static PublicAotHtmlArtifact Empty(string rendererVersion = "", string frontendAssetVersion = "")
         => new(
@@ -33,7 +40,7 @@ public readonly record struct PublicAotHtmlArtifact(
             PublicAotHtmlArtifactOptions.DefaultCacheControl,
             rendererVersion,
             frontendAssetVersion,
-            RequiresCspNonceMutation: false);
+            CspNonceTemplate: null);
 }
 
 public readonly record struct PublicAotHtmlArtifactVariant(
@@ -53,7 +60,6 @@ public sealed class PublicAotHtmlArtifactOptions
 
 internal static class PublicAotHtmlArtifactFactory
 {
-    private const string CspNonceTemplatePlaceholder = "%%FSUSBLOG_CSP_NONCE%%";
     private const string HtmlContentType = "text/html; charset=utf-8";
 
     internal static PublicAotHtmlArtifact FromHtml(
@@ -66,13 +72,18 @@ internal static class PublicAotHtmlArtifactFactory
     {
         byte[] utf8 = Encoding.UTF8.GetBytes(html);
         string etag = CreateEtag(utf8);
+        CspNonceUtf8Template? nonceTemplate = CspNonceUtf8Template.Compile(
+            html,
+            string.Concat(rendererVersion, ':', frontendAssetVersion, ":sha256:", CreateDigest(utf8)));
         ReadOnlyMemory<byte> brotliBytes = ReadOnlyMemory<byte>.Empty;
         string brotliEtag = string.Empty;
         ReadOnlyMemory<byte> gzipBytes = ReadOnlyMemory<byte>.Empty;
         string gzipEtag = string.Empty;
 
         int minBytes = Math.Max(0, minPrecompressedHtmlBytes);
-        if (enablePrecompressedVariants && utf8.Length >= minBytes)
+        // A nonce changes the entity for every request. Those documents use
+        // identity streaming and therefore never retain unusable static variants.
+        if (nonceTemplate is null && enablePrecompressedVariants && utf8.Length >= minBytes)
         {
             byte[]? compressedBrotli = TryCompress(utf8, "br");
             if (compressedBrotli is { Length: > 0 })
@@ -100,7 +111,7 @@ internal static class PublicAotHtmlArtifactFactory
             string.IsNullOrWhiteSpace(cacheControl) ? PublicAotHtmlArtifactOptions.DefaultCacheControl : cacheControl,
             rendererVersion,
             frontendAssetVersion,
-            RequiresCspNonceMutation(html));
+            nonceTemplate);
     }
 
     internal static string CreateEtag(ReadOnlySpan<byte> bytes)
@@ -110,65 +121,12 @@ internal static class PublicAotHtmlArtifactFactory
         return string.Concat("\"", Convert.ToHexStringLower(hash[..8]), "\"");
     }
 
-    internal static bool RequiresCspNonceMutation(string html)
+    internal static string CreateDigest(ReadOnlySpan<byte> bytes)
     {
-        if (string.IsNullOrEmpty(html))
-        {
-            return false;
-        }
-
-        if (html.Contains(CspNonceTemplatePlaceholder, StringComparison.Ordinal)
-            || ContainsTagWithoutNonce(html, "script")
-            || ContainsTagWithoutNonce(html, "style"))
-        {
-            return true;
-        }
-
-        bool needsCspMeta = !html.Contains("property=\"csp-nonce\"", StringComparison.OrdinalIgnoreCase)
-            && !html.Contains("property='csp-nonce'", StringComparison.OrdinalIgnoreCase);
-        return needsCspMeta && html.Contains("<head>", StringComparison.OrdinalIgnoreCase);
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(bytes, hash);
+        return Convert.ToHexStringLower(hash);
     }
-
-    private static bool ContainsTagWithoutNonce(string html, string tagName)
-    {
-        int position = 0;
-        while (position < html.Length)
-        {
-            int tagStart = html.IndexOf('<', position);
-            if (tagStart < 0)
-            {
-                return false;
-            }
-
-            int tagEnd = html.IndexOf('>', tagStart);
-            if (tagEnd < 0)
-            {
-                return false;
-            }
-
-            if (IsTagStart(html, tagStart, tagName) && !TagContainsNonce(html, tagStart, tagEnd))
-            {
-                return true;
-            }
-
-            position = tagEnd + 1;
-        }
-
-        return false;
-    }
-
-    private static bool IsTagStart(string html, int tagStart, string tagName)
-    {
-        int nameStart = tagStart + 1;
-        return html.Length >= nameStart + tagName.Length
-            && html.AsSpan(nameStart, tagName.Length).Equals(tagName, StringComparison.OrdinalIgnoreCase)
-            && (html.Length == nameStart + tagName.Length
-                || char.IsWhiteSpace(html[nameStart + tagName.Length])
-                || html[nameStart + tagName.Length] is '>' or '/');
-    }
-
-    private static bool TagContainsNonce(string html, int tagStart, int tagEnd)
-        => html.AsSpan(tagStart, tagEnd - tagStart + 1).IndexOf("nonce=".AsSpan(), StringComparison.OrdinalIgnoreCase) >= 0;
 
     private static byte[]? TryCompress(ReadOnlySpan<byte> bytes, string encoding)
     {
@@ -232,6 +190,9 @@ internal static class PublicAotHtmlArtifactFactory
 
 internal static class PublicAotHtmlResponseNegotiation
 {
+    internal static bool AcceptsIdentity(StringValues acceptEncoding)
+        => ParseAcceptEncoding(acceptEncoding).Identity > 0;
+
     internal static bool TrySelectVariant(
         StringValues acceptEncoding,
         PublicAotHtmlArtifact artifact,

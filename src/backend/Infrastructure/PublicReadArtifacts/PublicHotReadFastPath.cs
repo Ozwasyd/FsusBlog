@@ -90,7 +90,12 @@ public readonly record struct PublicHtmlArtifact(
     string ContentType,
     string ETag,
     string CacheControl,
-    bool RequiresCspNonceMutation = false);
+    CspNonceUtf8Template? CspNonceTemplate = null)
+{
+    public bool RequiresCspNonceMutation => CspNonceTemplate is not null;
+
+    public long ResidentBytes => Bytes.Length + (CspNonceTemplate?.ResidentBytes ?? 0);
+}
 
 public readonly record struct PublicHtmlRouteIndex(
     string RouteKey,
@@ -113,6 +118,11 @@ public sealed class PublicHotReadOptions
     public int MaxPreloadSize { get; set; } = 100;
     public int MaxArticleFrames { get; set; } = 100_000;
     public int MaxFrameBytes { get; set; } = 2 * 1024 * 1024;
+    /// <summary>
+    /// Maximum resident artifact bytes. Zero selects an automatic budget from
+    /// the runtime's current total available managed-memory limit.
+    /// </summary>
+    public long MaxResidentBytes { get; set; }
     public bool EnablePrecompressedBinaryVariants { get; set; } = true;
     public int MinPrecompressedFrameBytes { get; set; } = 256;
     public bool ValidateFramesOnPublish { get; set; } = true;
@@ -131,6 +141,10 @@ public sealed record PublicHotReadRuntimeSnapshot(
     bool CategoryFrameReady,
     bool TagFrameReady,
     int HtmlFrameCount,
+    long ResidentBytes,
+    long HtmlTemplateResidentBytes,
+    long ResidentByteBudget,
+    bool ResidentByteBudgetExceeded,
     DateTimeOffset? LastBuildAt,
     string? LastBuildReason,
     string? LastBuildStatus,
@@ -156,6 +170,8 @@ public sealed class PublicHotReadSnapshot
     private readonly FrozenDictionary<string, PublicHtmlArtifact> _htmlOverlayByPath;
     private readonly FrozenSet<string> _htmlRemovedPaths;
     private readonly int _htmlFrameCount;
+    private readonly long _residentBytes;
+    private readonly long _htmlTemplateResidentBytes;
 
     public PublicHotReadSnapshot(
         long version,
@@ -205,6 +221,7 @@ public sealed class PublicHotReadSnapshot
         _htmlFrameCount = htmlFrameCount;
         PublicArticleCount = Math.Max(publicArticleCount, articleFramesById.Count);
         ArticleFrameLimit = Math.Max(articleFrameLimit, 0);
+        (_residentBytes, _htmlTemplateResidentBytes) = CalculateResidentBytes();
     }
 
     public long Version { get; }
@@ -219,6 +236,8 @@ public sealed class PublicHotReadSnapshot
     public PublicBinaryArtifact CategoryFrame => _categoryFrame;
     public PublicBinaryArtifact TagFrame => _tagFrame;
     public int HtmlFrameCount => _htmlFrameCount;
+    public long ResidentBytes => _residentBytes;
+    public long HtmlTemplateResidentBytes => _htmlTemplateResidentBytes;
     public IEnumerable<KeyValuePair<int, PublicBinaryArtifact>> ArticleArtifacts => _articleFramesById;
     public IEnumerable<KeyValuePair<PublicListKey, PublicBinaryArtifact>> ListArtifacts => _listFrames;
 
@@ -282,16 +301,8 @@ public sealed class PublicHotReadSnapshot
 
     public PublicHotReadSnapshot WithHtml(string path, PublicHtmlArtifact html)
     {
-        bool hadVisible = TryGetHtml(path, out _);
-        var nextOverlay = _htmlOverlayByPath.ToDictionary(StringComparer.Ordinal);
-        nextOverlay[path] = html;
-        FrozenSet<string> nextRemoved = _htmlRemovedPaths;
-        if (_htmlRemovedPaths.Contains(path))
-        {
-            var removed = _htmlRemovedPaths.ToHashSet(StringComparer.Ordinal);
-            removed.Remove(path);
-            nextRemoved = removed.ToFrozenSet(StringComparer.Ordinal);
-        }
+        var next = HtmlArtifacts.ToDictionary(StringComparer.Ordinal);
+        next[path] = html;
 
         return new PublicHotReadSnapshot(
             Version + 1,
@@ -299,37 +310,20 @@ public sealed class PublicHotReadSnapshot
             _listFrames,
             _categoryFrame,
             _tagFrame,
-            _htmlBaseByPath,
-            nextOverlay.ToFrozenDictionary(StringComparer.Ordinal),
-            nextRemoved,
-            hadVisible ? _htmlFrameCount : _htmlFrameCount + 1,
+            next.ToFrozenDictionary(StringComparer.Ordinal),
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            FrozenSet<string>.Empty,
+            next.Count,
             PublicArticleCount,
             ArticleFrameLimit);
     }
 
     public PublicHotReadSnapshot WithoutHtml(string path)
     {
-        bool overlayHad = _htmlOverlayByPath.ContainsKey(path);
-        bool baseVisible = _htmlBaseByPath.ContainsKey(path) && !_htmlRemovedPaths.Contains(path);
-        if (!overlayHad && !baseVisible)
+        var next = HtmlArtifacts.ToDictionary(StringComparer.Ordinal);
+        if (!next.Remove(path))
         {
             return this;
-        }
-
-        FrozenDictionary<string, PublicHtmlArtifact> nextOverlay = _htmlOverlayByPath;
-        if (overlayHad)
-        {
-            var overlay = _htmlOverlayByPath.ToDictionary(StringComparer.Ordinal);
-            overlay.Remove(path);
-            nextOverlay = overlay.ToFrozenDictionary(StringComparer.Ordinal);
-        }
-
-        FrozenSet<string> nextRemoved = _htmlRemovedPaths;
-        if (baseVisible)
-        {
-            var removed = _htmlRemovedPaths.ToHashSet(StringComparer.Ordinal);
-            removed.Add(path);
-            nextRemoved = removed.ToFrozenSet(StringComparer.Ordinal);
         }
 
         return new PublicHotReadSnapshot(
@@ -338,10 +332,10 @@ public sealed class PublicHotReadSnapshot
             _listFrames,
             _categoryFrame,
             _tagFrame,
-            _htmlBaseByPath,
-            nextOverlay,
-            nextRemoved,
-            _htmlFrameCount - 1,
+            next.ToFrozenDictionary(StringComparer.Ordinal),
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            FrozenSet<string>.Empty,
+            next.Count,
             PublicArticleCount,
             ArticleFrameLimit);
     }
@@ -361,6 +355,38 @@ public sealed class PublicHotReadSnapshot
                 0,
                 PublicArticleCount,
                 ArticleFrameLimit);
+
+    private (long Total, long HtmlTemplates) CalculateResidentBytes()
+    {
+        long total = ArtifactBytes(_categoryFrame) + ArtifactBytes(_tagFrame);
+        foreach (PublicBinaryArtifact artifact in _articleFramesById.Values)
+        {
+            total += ArtifactBytes(artifact);
+        }
+
+        foreach (PublicBinaryArtifact artifact in _listFrames.Values)
+        {
+            total += ArtifactBytes(artifact);
+        }
+
+        long htmlTemplates = 0;
+        foreach (PublicHtmlArtifact artifact in _htmlBaseByPath.Values)
+        {
+            total += artifact.ResidentBytes;
+            htmlTemplates += artifact.CspNonceTemplate?.ResidentBytes ?? 0;
+        }
+
+        foreach (PublicHtmlArtifact artifact in _htmlOverlayByPath.Values)
+        {
+            total += artifact.ResidentBytes;
+            htmlTemplates += artifact.CspNonceTemplate?.ResidentBytes ?? 0;
+        }
+
+        return (total, htmlTemplates);
+    }
+
+    private static long ArtifactBytes(in PublicBinaryArtifact artifact)
+        => artifact.Frame.Length + artifact.BrotliFrame.Length + artifact.GzipFrame.Length;
 }
 
 public sealed class PublicHotReadStore
@@ -370,6 +396,7 @@ public sealed class PublicHotReadStore
     private readonly object _gate = new();
     private readonly PublicHotReadEarlyDataPlaneRuntimeState? _earlyDataPlaneRuntimeState;
     private readonly bool _initialEarlyDataPlaneEnabled;
+    private readonly long _residentByteBudget;
     private PublicHotReadRuntimeSnapshot _runtime;
 
     public PublicHotReadStore(
@@ -378,6 +405,7 @@ public sealed class PublicHotReadStore
     {
         _earlyDataPlaneRuntimeState = earlyDataPlaneRuntimeState;
         _initialEarlyDataPlaneEnabled = earlyDataPlaneRuntimeState?.Enabled ?? options?.Value.Enabled ?? true;
+        _residentByteBudget = ResolveResidentByteBudget(options?.Value.MaxResidentBytes ?? 0);
         _runtime = new PublicHotReadRuntimeSnapshot(
             nameof(PublicHotReadState.NotStarted),
             0,
@@ -389,6 +417,10 @@ public sealed class PublicHotReadStore
             false,
             false,
             0,
+            0,
+            0,
+            _residentByteBudget,
+            false,
             null,
             null,
             "not_started",
@@ -405,6 +437,12 @@ public sealed class PublicHotReadStore
 
     public void Publish(PublicHotReadSnapshot next)
     {
+        if (next.ResidentBytes > _residentByteBudget)
+        {
+            throw new InvalidOperationException(
+                $"public hot-read resident artifact budget exceeded: {next.ResidentBytes} > {_residentByteBudget} bytes");
+        }
+
         Volatile.Write(ref _current, next);
         Volatile.Write(ref _ready, 1);
         lock (_gate)
@@ -514,6 +552,10 @@ public sealed class PublicHotReadStore
             snapshot.CategoryFrameReady,
             snapshot.TagFrameReady,
             snapshot.HtmlFrameCount,
+            snapshot.ResidentBytes,
+            snapshot.HtmlTemplateResidentBytes,
+            _residentByteBudget,
+            snapshot.ResidentBytes > _residentByteBudget,
             lastBuildAt,
             lastBuildReason,
             lastBuildStatus,
@@ -524,6 +566,23 @@ public sealed class PublicHotReadStore
                 : string.Equals(state, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
                     ? "ready"
                     : "not-ready");
+
+    internal static long ResolveResidentByteBudget(long configuredBytes)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(configuredBytes);
+        if (configuredBytes > 0)
+        {
+            return configuredBytes;
+        }
+
+        long available = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+        if (available <= 0)
+        {
+            available = Math.Min(Environment.WorkingSet, long.MaxValue / 4) * 4;
+        }
+
+        return Math.Clamp(available / 8, 64L * 1024 * 1024, 2L * 1024 * 1024 * 1024);
+    }
 }
 
 public static class PublicHotReadFastPathExtensions
@@ -981,29 +1040,34 @@ public static class PublicHotReadFastPath
         string routeKey,
         bool isDevelopment)
     {
-        string nonce = WebApplicationCompositionExtensions.EnsureCspNonce(ctx);
-        string source = Encoding.UTF8.GetString(html.Bytes.Span);
-        string rendered = WebApplicationCompositionExtensions.ApplyCspNonceToHtml(ctx, source);
-        byte[] bytes = Encoding.UTF8.GetBytes(rendered);
+        CspNonceUtf8Template template = html.CspNonceTemplate
+            ?? throw new InvalidOperationException("nonce HTML artifact is missing its compiled template");
         HttpResponse response = ctx.Response;
-        response.StatusCode = StatusCodes.Status200OK;
+        string nonce = WebApplicationCompositionExtensions.EnsureCspNonce(ctx);
         response.ContentType = string.IsNullOrWhiteSpace(html.ContentType) ? HtmlContentType : html.ContentType;
-        response.ContentLength = bytes.Length;
         ApplyStaticPublicSecurityHeaders(response, isDevelopment, nonce);
-        response.Headers["Cache-Control"] = string.IsNullOrWhiteSpace(html.CacheControl) ? "public,max-age=60" : html.CacheControl;
+        response.Headers["Cache-Control"] = "private,no-store";
         response.Headers["Accept-Ranges"] = "none";
         response.Headers["X-Fsus-Public-Aot-Source"] = ServerSsrAotSource;
         response.Headers.Remove("Content-Encoding");
         response.Headers.Remove("ETag");
         WriteDiagnosticHeaders(response, options, snapshotVersion, "html", routeKey);
+        if (!PublicAotHtmlResponseNegotiation.AcceptsIdentity(ctx.Request.Headers.AcceptEncoding))
+        {
+            response.StatusCode = StatusCodes.Status406NotAcceptable;
+            response.ContentLength = 0;
+            return Completed;
+        }
 
-        if (HttpMethods.IsHead(ctx.Request.Method) || bytes.Length == 0)
+        response.StatusCode = StatusCodes.Status200OK;
+        response.ContentLength = template.GetRenderedLength(nonce.Length);
+
+        if (HttpMethods.IsHead(ctx.Request.Method) || response.ContentLength == 0)
         {
             return Completed;
         }
 
-        ValueTask<FlushResult> write = response.BodyWriter.WriteAsync(bytes, ctx.RequestAborted);
-        return write.IsCompletedSuccessfully ? Completed : AwaitWrite(write);
+        return CspNonceHtmlResponseWriter.WriteBodyAsync(response, template, nonce, ctx.RequestAborted);
     }
 
     private static void ApplyStaticPublicSecurityHeaders(HttpResponse response, bool isDevelopment, string? nonce = null)
@@ -2120,15 +2184,17 @@ internal static class PublicHotReadHtmlArtifactFactory
 {
     internal static PublicHtmlArtifact FromHtml(string html, string cacheControl)
     {
-        ValidateStaticHtml(html);
         byte[] bytes = Encoding.UTF8.GetBytes(html);
         string etag = CreateEtag(bytes);
+        CspNonceUtf8Template? nonceTemplate = CspNonceUtf8Template.Compile(
+            html,
+            string.Concat("hot:sha256:", CreateDigest(bytes)));
         return new PublicHtmlArtifact(
             bytes,
             "text/html; charset=utf-8",
             etag,
             cacheControl,
-            PublicAotHtmlArtifactFactory.RequiresCspNonceMutation(html));
+            nonceTemplate);
     }
 
     internal static PublicHtmlArtifact FromDocument(PublicAotHtmlArtifact document, string cacheControl)
@@ -2138,7 +2204,7 @@ internal static class PublicHotReadHtmlArtifactFactory
             string.IsNullOrWhiteSpace(document.ContentType) ? "text/html; charset=utf-8" : document.ContentType,
             document.ETag,
             string.IsNullOrWhiteSpace(cacheControl) ? document.CacheControl : cacheControl,
-            document.RequiresCspNonceMutation);
+            document.CspNonceTemplate);
     }
 
     private static string CreateEtag(ReadOnlySpan<byte> bytes)
@@ -2148,18 +2214,13 @@ internal static class PublicHotReadHtmlArtifactFactory
         return string.Concat("\"", Convert.ToHexStringLower(hash[..8]), "\"");
     }
 
-    private static void ValidateStaticHtml(string html)
+    private static string CreateDigest(ReadOnlySpan<byte> bytes)
     {
-        if (html.Contains("nonce=", StringComparison.OrdinalIgnoreCase)
-            || html.Contains("%%FSUSBLOG_CSP_NONCE%%", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException("public hot-read HTML artifacts must not depend on nonce placeholders.");
-        }
-
-        // Executable inline script is audited by the source-level fast-path check.
-        // Runtime validation stays limited to nonce placeholders so an existing
-        // static shell cannot fail publication after the renderer has accepted it.
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(bytes, hash);
+        return Convert.ToHexStringLower(hash);
     }
+
 }
 
 internal static class PublicHotReadRouteKeys
