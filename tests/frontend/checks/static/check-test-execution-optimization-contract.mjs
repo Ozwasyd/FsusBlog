@@ -199,9 +199,16 @@ requireIncludes('src/frontend/wasm/build.sh', [
 requireIncludes('tools/test/bundles/bundle-steps.mjs', [
   "step('cross-stack', 'FSUSBLOG_OPENAPI_BUILD=0 tools/test/legacy-test.sh cross-stack-contract static'",
   "step('cross-stack-runtime', 'tools/test/legacy-test.sh cross-stack-contract runtime'",
-  'if ([...active.values()].some((record) => record.exclusive)) return []',
-  "ready.filter((entry) => (entry.resources.exclusiveResources ?? []).length === 0)"
+  'for (const resource of record.exclusiveResources ?? [])',
+  'const conflictingResource = resources.find((resource) => resourceOwners.has(resource))',
+  "holderState: 'admission-wave'",
+  'exclusiveResource=${wait.resource}',
+  'heldBy=${wait.heldBy}'
 ])
+const bundleStepSource = read('tools/test/bundles/bundle-steps.mjs')
+if (bundleStepSource.includes('record.exclusive) return []')) {
+  errors.push('bundle weighted DAG must not restore global serialization for unrelated exclusive resource names')
+}
 requireSectionIncludes('tools/test/bundles/bundle-steps.mjs', "step('ux-risk-matrix'", "step('runtime-integration'", [
   'resources: { cpuWeight: 4, memoryWeight: 8, minCpuUnits: 1 }'
 ])
