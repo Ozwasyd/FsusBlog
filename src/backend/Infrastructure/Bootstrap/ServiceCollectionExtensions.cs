@@ -125,9 +125,14 @@ public static class ServiceCollectionExtensions
         string dataRoot = configuration["FSUSBLOG_DATA_ROOT"]
             ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_ROOT")
             ?? Path.Combine(AppContext.BaseDirectory, "data");
-        string keyRingPath = configuration["DataProtection:KeyRingPath"]
-            ?? Environment.GetEnvironmentVariable("FSUSBLOG_DATA_PROTECTION_KEY_RING")
-            ?? Path.Combine(dataRoot, "data-protection-keys");
+        string? configuredKeyRingPath = configuration["DataProtection:KeyRingPath"];
+        string? environmentKeyRingPath = Environment.GetEnvironmentVariable(
+            "FSUSBLOG_DATA_PROTECTION_KEY_RING");
+        string keyRingPath = !string.IsNullOrWhiteSpace(configuredKeyRingPath)
+            ? configuredKeyRingPath
+            : !string.IsNullOrWhiteSpace(environmentKeyRingPath)
+                ? environmentKeyRingPath
+                : Path.Combine(dataRoot, "data-protection-keys");
         string applicationName = configuration["DataProtection:ApplicationName"] ?? "FsusBlog";
         bool isProduction = string.Equals(
             configuration["ASPNETCORE_ENVIRONMENT"],
@@ -144,9 +149,20 @@ public static class ServiceCollectionExtensions
         }
 
         Directory.CreateDirectory(keyRingPath);
-        services.AddDataProtection()
+        IDataProtectionBuilder dataProtection = services.AddDataProtection()
             .SetApplicationName(applicationName)
             .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath));
+        DataProtectionKeyProtection.Apply(
+            dataProtection,
+            configuration,
+            keyRingPath,
+            enforceProductionRules: isProduction);
+        if (isProduction)
+        {
+            services.AddSingleton<DataProtectionKeyRingStartupValidator>();
+            services.AddSingleton<IHostedService>(static provider =>
+                provider.GetRequiredService<DataProtectionKeyRingStartupValidator>());
+        }
 
         return services;
     }

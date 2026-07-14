@@ -56,6 +56,10 @@ public sealed class ProductionStartupValidatorTests
             ["Subscription:EmailHashPepper"] = TestSecrets.SubscriptionEmailHashPepper,
             ["AnonymousIdentity:NullifierPepper"] = TestSecrets.AnonymousNullifierPepper,
             ["AnonymousCredentialRoot:AttestationKey"] = TestSecrets.AnonymousRootAttestationKey,
+            ["DataProtection:ApplicationName"] = "FsusBlog",
+            ["DataProtection:KeyRingPath"] = "/var/lib/fsusblog/shared/data-protection/keyring",
+            ["DataProtection:KeyProtection:Mode"] = "Certificate",
+            ["DataProtection:KeyProtection:CurrentCertificate:Path"] = "/run/secrets/fsusblog-data-protection-current.pfx",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             ["FSUSBLOG_RELEASE_ID"] = "20260711010101-0123456789ab",
             ["FSUSBLOG_RELEASE_SLOT"] = "candidate",
@@ -335,6 +339,36 @@ public sealed class ProductionStartupValidatorTests
         Assert.Equal("failed", task.Status);
     }
 
+    [Fact]
+    public async Task HostedService_DoesNotBypassMissingDataProtectionProtectorWhenInsecureStartupAllowed()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["DataProtection:KeyProtection:Mode"] = null,
+            ["DataProtection:KeyProtection:CurrentCertificate:Path"] = null,
+            ["FSUSBLOG_ALLOW_INSECURE_STARTUP"] = "true"
+        });
+        var runtimeState = new StartupRuntimeState();
+        var service = new ProductionStartupValidationHostedService(
+            configuration,
+            new TestWebHostEnvironment(Environments.Production),
+            new StaticZkProofVerifier(configured: false),
+            new StaticRootReader(rootReady: false),
+            new UnavailableCircuitNativeCredentialIssuer(configuration),
+            runtimeState,
+            NullLogger<ProductionStartupValidationHostedService>.Instance);
+
+        ProductionStartupValidationException exception =
+            await Assert.ThrowsAsync<ProductionStartupValidationException>(
+                () => service.StartAsync(CancellationToken.None));
+
+        Assert.Contains(exception.Errors, static error =>
+            error.Contains("DataProtection:", StringComparison.Ordinal));
+        Assert.Equal(
+            "failed",
+            runtimeState.CreateSnapshot().Tasks["productionStartupValidation"].Status);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -452,6 +486,42 @@ public sealed class ProductionStartupValidatorTests
     }
 
     [Fact]
+    public void ValidateCore_RejectsMissingProductionDataProtectionProtector()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["DataProtection:KeyProtection:Mode"] = null,
+            ["DataProtection:KeyProtection:CurrentCertificate:Path"] = null
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true);
+
+        Assert.Contains(errors, static error =>
+            error.Contains("DataProtection:KeyProtection:Mode", StringComparison.Ordinal));
+        Assert.Contains(errors, static error =>
+            error.Contains("CurrentCertificate:Path", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ValidateCore_RejectsProtectorCertificateStoredInsideSharedKeyRing()
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            ["DataProtection:KeyProtection:CurrentCertificate:Path"] =
+                "/var/lib/fsusblog/shared/data-protection/keyring/current.pfx"
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(
+            configuration,
+            enforceProductionRules: true);
+
+        Assert.Contains(errors, static error =>
+            error.Contains("must not be stored inside", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void CreateValidationReport_ExposesVersionedSchemaRequirements()
     {
         IConfiguration configuration = CreateConfiguration(new Dictionary<string, string?>());
@@ -460,7 +530,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(13, report.SchemaVersion);
+        Assert.Equal(14, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -484,6 +554,8 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Subscription:EmailHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousIdentity:NullifierPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialRoot:AttestationKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("DataProtection:KeyProtection:Mode", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("DataProtection:KeyProtection:CurrentCertificate:Path", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.All(
             ProductionStartupValidator.CurrentSchema.DefaultJwtSecrets,
             static secret => Assert.StartsWith("sha256:", secret, StringComparison.Ordinal));
@@ -757,6 +829,10 @@ public sealed class ProductionStartupValidatorTests
             ["Subscription:EmailHashPepper"] = TestSecrets.SubscriptionEmailHashPepper,
             ["AnonymousIdentity:NullifierPepper"] = TestSecrets.AnonymousNullifierPepper,
             ["AnonymousCredentialRoot:AttestationKey"] = TestSecrets.AnonymousRootAttestationKey,
+            ["DataProtection:ApplicationName"] = "FsusBlog",
+            ["DataProtection:KeyRingPath"] = "/var/lib/fsusblog/shared/data-protection/keyring",
+            ["DataProtection:KeyProtection:Mode"] = "Certificate",
+            ["DataProtection:KeyProtection:CurrentCertificate:Path"] = "/run/secrets/fsusblog-data-protection-current.pfx",
             ["ReverseProxy:KnownProxies"] = "127.0.0.1",
             [AnonymousIdentityRuntime.ModeEnvironmentVariable] = "1"
         };

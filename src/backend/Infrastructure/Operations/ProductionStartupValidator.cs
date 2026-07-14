@@ -56,7 +56,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 13;
+    private const int SchemaVersion = 14;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
@@ -157,6 +157,8 @@ public static class ProductionStartupValidator
         Value("Subscription:EmailHashPepper"),
         Value("AnonymousIdentity:NullifierPepper"),
         Value("AnonymousCredentialRoot:AttestationKey"),
+        Value(DataProtectionKeyProtection.ModeKey),
+        Value(DataProtectionKeyProtection.CurrentCertificatePathKey),
         Value(AnonymousIdentityRuntime.ModeEnvironmentVariable)
     ];
 
@@ -304,6 +306,7 @@ public static class ProductionStartupValidator
         ValidateSeoBaseUrl(seoBaseUrl, enforceProductionRules, errors);
         ValidateFido2Settings(fido2ServerDomain, fido2Origins, seoBaseUrl, corsOrigins, enforceProductionRules, errors);
         ValidateAuthCookieSettings(configuration, enforceProductionRules, errors);
+        errors.AddRange(DataProtectionKeyProtection.ValidateConfiguration(configuration, enforceProductionRules));
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
         ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
         ValidateBuiltInAntiSpamRuntime(configuration, enforceProductionRules, errors);
@@ -951,6 +954,7 @@ public static class ProductionStartupValidator
             || error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal)
             || error.Contains("Moderation:RegionPolicy:IpHashKey", StringComparison.Ordinal)
             || error.Contains("Moderation:Pepper", StringComparison.Ordinal)
+            || error.Contains("DataProtection:", StringComparison.Ordinal)
             || error.Contains("AllowedHosts must not use wildcard", StringComparison.Ordinal)
             || error.Contains("ReverseProxy:KnownProxies or ReverseProxy:KnownNetworks", StringComparison.Ordinal)
             || error.Contains("CORS_ALLOWED_HOSTS origin must use HTTPS", StringComparison.Ordinal)
