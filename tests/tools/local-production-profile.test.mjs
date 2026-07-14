@@ -749,7 +749,9 @@ test('backend bundle publishes server readiness before independent tests and ben
   assert.match(localBundleRunner, /waitForBackendProductionSummaryReady[\s\S]*?backend-production-shards\.v2[\s\S]*?exactOnce[\s\S]*?allPassed[\s\S]*?validateShardSummaryArtifacts/u)
   assert.doesNotMatch(frontendBundleRunner, /privacy-zk-comment-matrix\.sh project-functional/u)
   assert.doesNotMatch(frontendBundleRunner, /privacy-zk-comment-matrix\.sh benchmark/u)
-  assert.match(frontendBundleRunner, /waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?vitest-production-perf-isolated/u)
+  assert.match(frontendBundleRunner, /vitest-production-perf-isolated'[\s\S]*?dependsOn: \['frontend-build-ready', 'vitest-settled'\]/u)
+  assert.doesNotMatch(frontendBundleRunner, /waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?vitest-production-perf-isolated/u)
+  assert.match(frontendBundleRunner, /frontendPerfAdmissionEvidence = \{[\s\S]*?markerWaitDurationMs[\s\S]*?functional-budget-smoke-contention-aware[\s\S]*?waitsForBuildStaticSummary: false/u)
   assert.doesNotMatch(frontendBundleRunner, /waitForSiblingBundleSummaries\(\[[^\]]*backend-tests/u)
   assert.doesNotMatch(localBundleSteps, /resources:\s*\{[^\n}]*(?:cpuUnits|memoryGiB):/u)
   assert.doesNotMatch(localBundleRunner, /resources:\s*\{[^\n}]*(?:cpuUnits|memoryGiB):/u)
@@ -780,6 +782,11 @@ test('cold frontend static phases move to frontend-tests while build-static rema
   assert.match(localBundleRunner, /frontend-build-ready\.v1[\s\S]*?schedulerRunId: runId[\s\S]*?privacyWasmArtifacts[\s\S]*?artifactRef/u)
   assert.match(localBundleRunner, /if \(step\.id === 'sync-static-assets'\) publishFrontendBuildReady\(\)/u)
   assert.match(localBundleRunner, /async function waitForFrontendBuildReady[\s\S]*?marker\.schedulerRunId !== expectedRunId[\s\S]*?digestArtifacts/u)
+  assert.match(localBundleRunner, /producerStepId: 'sync-static-assets'[\s\S]*?publishedAt/u)
+  assert.match(localBundleRunner, /function publishFrontendBuildTerminal[\s\S]*?status[\s\S]*?writeJsonAtomic/u)
+  assert.match(localBundleRunner, /\['frontend-build', 'sync-static-assets'\]\.includes\(step\.id\)[\s\S]*?publishFrontendBuildTerminal\('failure'/u)
+  assert.match(localBundleRunner, /bundleId === 'build-static'\) publishFrontendBuildTerminal\('cancelled', signal\)/u)
+  assert.match(localBundleRunner, /function resolveMarkerPollIntervalMs\(\)[\s\S]*?bundleCapacity\(\)\.cpuUnits[\s\S]*?Math\.ceil\(1000 \/ cpuUnits\)/u)
 })
 
 test('runtime early start is guarded by run-bound atomic backend and frontend build markers', () => {
@@ -813,8 +820,9 @@ test('bundle execution waits derive deadlines from matrix budgets and scheduler 
   assert.match(localBundleRunner, /function bundleDeadlineMs\(\)[\s\S]*?FSUSBLOG_BUNDLE_DEADLINE_MS[\s\S]*?Number\.isFinite\(deadlineMs\) && deadlineMs > 0[\s\S]*?profile\.enforceBudget === false[\s\S]*?timeoutMinutes[\s\S]*?baseTimeoutMs: profile\.budgetMs[\s\S]*?actualCapacity: bundleCapacity\(\)/u)
   assert.match(localBundleRunner, /function resolveExecutionWaitTimeoutMs\(dependencyBundleIds\)[\s\S]*?baseTimeoutMs: bundleDeadlineMs\(\)[\s\S]*?workload: bundle[\s\S]*?actualCapacity: bundleCapacity\(\)/u)
   assert.doesNotMatch(localBundleRunner, /bundle\.budgetMs|dependency\.budgetMs/u)
-  assert.match(localBundleRunner, /waitForSiblingBundleSummaries\(bundleIds, timeoutMs = resolveExecutionWaitTimeoutMs\(bundleIds\)\)/u)
   assert.match(localBundleRunner, /waitForBackendBuildReady\(timeoutMs = resolveExecutionWaitTimeoutMs\(\['backend-tests'\]\)\)/u)
+  assert.match(localBundleRunner, /waitForFrontendBuildReady\(timeoutMs = resolveExecutionWaitTimeoutMs\(\['build-static'\]\)\)/u)
+  assert.match(localBundleRunner, /resolveMarkerPollIntervalMs\(\)/u)
   assert.doesNotMatch(localBundleRunner, /timeoutMs = 120_000/u)
 })
 

@@ -33,6 +33,7 @@ function createBuildFixture(t, runId = 'production-fresh-1') {
     schema: 'fsusblog.local-production.frontend-build-ready.v1',
     status: 'success',
     physicalBundleId: 'build-static',
+    producerStepId: 'sync-static-assets',
     schedulerRunId: runId,
     distEntry: { path: distEntryPath, digest }
   }, null, 2)}\n`)

@@ -141,6 +141,7 @@ export function validateFrontendBuildReady({ root = defaultRoot, runId } = {}) {
   if (marker?.schema !== frontendBuildReadySchema
     || marker.status !== 'success'
     || marker.physicalBundleId !== 'build-static'
+    || marker.producerStepId !== 'sync-static-assets'
     || marker.schedulerRunId !== schedulerRunId
     || marker.distEntry?.path !== distEntryPath) {
     throw new Error(`frontend build readiness marker is not bound to current build-static run: ${schedulerRunId}`)

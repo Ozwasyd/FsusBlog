@@ -17,7 +17,9 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   const dagEnd = runnerSource.indexOf('], bundleDagCapacity, async (frontendStep)', dagStart)
   assert.ok(vitestStart >= 0 && dagStart > vitestStart && dagEnd > dagStart)
 
-  const vitestDeclaration = runnerSource.slice(vitestStart, dagStart)
+  const perfStart = runnerSource.indexOf("const perfStep = commandStep('vitest-production-perf-isolated'", vitestStart)
+  const vitestDeclaration = runnerSource.slice(vitestStart, perfStart)
+  const perfDeclaration = runnerSource.slice(perfStart, dagStart)
   const dagDeclaration = runnerSource.slice(dagStart, dagEnd)
   assert.match(vitestDeclaration, /node tools\/test\/run-frontend-vitest-rolling-shards\.mjs/u)
   assert.match(runnerSource, /node tools\/test\/run-frontend-vitest-perf-isolated\.mjs/u)
@@ -28,6 +30,8 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   assert.match(vitestDeclaration, /exclusiveResources: \['frontend-test-results'\]/u)
   assert.match(runnerSource, /Math\.ceil\(Math\.sqrt\(cpuCount\)\)/u)
   assert.doesNotMatch(vitestDeclaration, /dependsOn: \[[^\]]*frontend-build-ready/u)
+  assert.match(perfDeclaration, /dependsOn: \['frontend-build-ready', 'vitest-settled'\]/u)
+  assert.doesNotMatch(runnerSource, /waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?run-frontend-vitest-perf-isolated/u)
   assert.doesNotMatch(vitestDeclaration, /\b(?:maxErrors|maxFailures|failFast|bail)\b/u)
   assert.match(
     runnerSource.slice(runnerSource.indexOf('async function runFrontendTests()'), vitestStart),
@@ -56,6 +60,7 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   assert.match(dagDeclaration, /staticStageStep\('isolated',[\s\S]*?dependsOn: \['vitest-settled'\][\s\S]*?frontend-render-pressure/u)
   assert.match(dagDeclaration, /staticStageStep\('final',[\s\S]*?frontend-static-concurrent[\s\S]*?frontend-static-postbuild[\s\S]*?frontend-static-isolated[\s\S]*?runAfterSettled: true/u)
   assert.match(dagDeclaration, /commandStep\('vitest-settled',[\s\S]*?runAfterSettled: true/u)
+  assert.match(dagDeclaration, /perfStep,[\s\S]*?commandStep\('static-governance-node-contracts'/u)
   assert.match(dagDeclaration, /commandStep\('frontend-tests-join',[\s\S]*?'vitest-production-projects'[\s\S]*?'frontend-static-concurrent'[\s\S]*?'frontend-static-postbuild'[\s\S]*?'frontend-static-isolated'[\s\S]*?'frontend-static-final'[\s\S]*?'frontend-coverage-summary'[\s\S]*?runAfterSettled: true/u)
 })
 
@@ -150,6 +155,39 @@ test('frontend bundle model overlaps Vitest and static work then joins all settl
     'static-governance-post-vitest': 'success',
     'frontend-coverage-summary': 'success'
   })
+})
+
+test('perf starts after every rolling host settles without waiting for unrelated build-static tail work', async () => {
+  const marker = deferred()
+  const hostOne = deferred()
+  const hostTwo = deferred()
+  const unrelatedFuzz = deferred()
+  const started = []
+  let unrelatedFuzzSettled = false
+  unrelatedFuzz.promise.then(() => { unrelatedFuzzSettled = true })
+
+  const execution = executeWeightedStepDag([
+    coordinationStep('frontend-build-ready'),
+    ordinaryStep('vitest-production-projects'),
+    coordinationStep('vitest-settled', ['vitest-production-projects'], true),
+    ordinaryStep('vitest-production-perf-isolated', ['frontend-build-ready', 'vitest-settled'])
+  ], { maxParallel: 3, cpuUnits: 3, memoryGiB: 3 }, async (step) => {
+    started.push(step.id)
+    if (step.id === 'frontend-build-ready') await marker.promise
+    if (step.id === 'vitest-production-projects') await Promise.all([hostOne.promise, hostTwo.promise])
+    if (step.id === 'vitest-production-perf-isolated') {
+      assert.equal(unrelatedFuzzSettled, false)
+    }
+  })
+
+  marker.resolve()
+  hostOne.resolve()
+  await nextTurn()
+  assert.equal(started.includes('vitest-production-perf-isolated'), false)
+  hostTwo.resolve()
+  await execution
+  assert.ok(started.includes('vitest-production-perf-isolated'))
+  unrelatedFuzz.resolve()
 })
 
 test('blocking static admission must settle before Vitest or concurrent static work starts', async () => {

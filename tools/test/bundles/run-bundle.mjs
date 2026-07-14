@@ -85,6 +85,7 @@ let shutdownPromise = null
 let runtimeChildEnvironment = {}
 let performanceDeadlineEvidence = null
 let finalizedResourceUtilization = null
+let frontendPerfAdmissionEvidence = null
 
 if (!bundleId || !bundle) throw new Error(`unknown ${profileId} bundle: ${String(bundleId)}`)
 const artifactDigestTable = createArtifactDigestTable({
@@ -235,6 +236,7 @@ function installShutdownForwarding() {
   for (const [signal, exitCode] of [['SIGTERM', 143], ['SIGINT', 130]]) {
     process.once(signal, () => {
       if (shutdownPromise) return
+      if (bundleId === 'build-static') publishFrontendBuildTerminal('cancelled', signal)
       shutdownPromise = Promise.all([...activeStepChildren.entries()].map(async ([child, record]) => {
         await terminateProcessGroup(child, record.terminationGraceMs)
         closeChildPipes(child)
@@ -425,10 +427,12 @@ function publishFrontendBuildReady() {
   const generatedContractPath = relative(generatedContractFile)
   const generatedContract = digestArtifacts([generatedContractPath], 'frontend-generated-contract')
   const generatedContractDigest = generatedContract.digests[generatedContractPath]
+  const publishedAt = new Date().toISOString()
   const marker = {
     schema: 'fsusblog.local-production.frontend-build-ready.v1',
     status: 'success',
     physicalBundleId: 'build-static',
+    producerStepId: 'sync-static-assets',
     schedulerRunId: runId,
     buildLayout: buildLayoutBinding(),
     distEntry: {
@@ -451,7 +455,8 @@ function publishFrontendBuildReady() {
       digest: generatedContractDigest,
       artifactRef: generatedContract.refs[generatedContractPath]
     },
-    generatedAt: new Date().toISOString()
+    publishedAt,
+    generatedAt: publishedAt
   }
   for (const markerFile of [path.join(root, summaryPath), frontendBuildReadyFile(runId)]) {
     fs.mkdirSync(path.dirname(markerFile), { recursive: true })
@@ -460,6 +465,30 @@ function publishFrontendBuildReady() {
     fs.renameSync(temporary, markerFile)
   }
   console.log(`[local-production:${bundleId}] frontend-build-ready=${relative(frontendBuildReadyFile(runId))}`)
+}
+
+function publishFrontendBuildTerminal(status, reason) {
+  if (!['failure', 'cancelled'].includes(status)) throw new Error(`invalid frontend build terminal status: ${status}`)
+  const runId = schedulerRunId()
+  const markerFile = frontendBuildReadyFile(runId)
+  try {
+    const existing = JSON.parse(fs.readFileSync(markerFile, 'utf8'))
+    if (existing.schema === 'fsusblog.local-production.frontend-build-ready.v1'
+      && existing.status === 'success'
+      && existing.schedulerRunId === runId) return
+  } catch {}
+  const publishedAt = new Date().toISOString()
+  writeJsonAtomic(markerFile, {
+    schema: 'fsusblog.local-production.frontend-build-ready.v1',
+    status,
+    physicalBundleId: 'build-static',
+    producerStepId: 'sync-static-assets',
+    schedulerRunId: runId,
+    buildLayout: buildLayoutBinding(),
+    reason: String(reason ?? status),
+    publishedAt,
+    generatedAt: publishedAt
+  })
 }
 
 function register(step, result, testIds = null, artifactFiles = []) {
@@ -897,6 +926,11 @@ function resolveExecutionWaitTimeoutMs(dependencyBundleIds) {
   })
 }
 
+function resolveMarkerPollIntervalMs() {
+  const cpuUnits = Math.max(1, Number(bundleCapacity().cpuUnits) || 1)
+  return Math.max(10, Math.min(250, Math.ceil(1000 / cpuUnits)))
+}
+
 function commandStep(id, command, members, options = {}) {
   return {
     id,
@@ -1162,49 +1196,6 @@ function parseVitestReports(files) {
   return records
 }
 
-async function waitForSiblingBundleSummaries(bundleIds, timeoutMs = resolveExecutionWaitTimeoutMs(bundleIds)) {
-  const expectedRunId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '')
-  const checkpointFile = path.join(root, '.tmp/test-runs', expectedRunId, 'checkpoint.json')
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    const ready = bundleIds.every((siblingBundleId) => {
-      const file = path.join(root, `.tmp/local-${profileId}`, siblingBundleId, 'summary.json')
-      if (!fs.existsSync(file)) return false
-      try {
-        const summary = JSON.parse(fs.readFileSync(file, 'utf8'))
-        return summary.status === 'success' && summary.schedulerRunId === expectedRunId
-      } catch {
-        return false
-      }
-    })
-    if (ready) return
-    if (fs.existsSync(checkpointFile)) {
-      try {
-        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
-        const failures = bundleIds.flatMap((siblingBundleId) => {
-          const tierId = `local-${profileId}-${siblingBundleId}`
-          const status = checkpoint.tiers?.[tierId]?.status
-          return ['failure', 'blocked', 'cancelled'].includes(status)
-            ? [`${siblingBundleId}:${status}`]
-            : []
-        })
-        if (failures.length > 0) {
-          throw new Error(`sibling bundle failed before summary publication: ${failures.join(', ')}`)
-        }
-      } catch (error) {
-        if (error instanceof SyntaxError) {
-          // The checkpoint is atomically replaced, but tolerate a transient read
-          // from unusual filesystems and retry instead of hiding sibling status.
-        } else {
-          throw error
-        }
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250))
-  }
-  throw new Error(`timed out waiting for sibling bundle summaries: ${bundleIds.join(', ')}`)
-}
-
 async function waitForBackendProductionSummaryReady(timeoutMs = resolveExecutionWaitTimeoutMs(['backend-tests'])) {
   const expectedRunId = schedulerRunId()
   const summaryFile = path.join(root, '.tmp/test-results/backend/production/summary.json')
@@ -1312,25 +1303,16 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
   ].map((file) => relative(path.join(frontendWasmRoot, file)))
   const generatedContractPath = relative(path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json'))
   const generatedProverBundlePath = relative(process.env.FSUSBLOG_COMMENT_PROVER_BUNDLE)
+  const startedAtMs = Date.now()
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    if (fs.existsSync(checkpointFile)) {
-      try {
-        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
-        const status = checkpoint.tiers?.[`local-${profileId}-build-static`]?.status
-        if (['failure', 'blocked', 'cancelled'].includes(status)) {
-          throw new Error(`build-static:${status} before frontend build readiness`)
-        }
-      } catch (error) {
-        if (!(error instanceof SyntaxError)) throw error
-      }
-    }
     if (fs.existsSync(markerFile)) {
       try {
         const marker = JSON.parse(fs.readFileSync(markerFile, 'utf8'))
         if (marker.schema !== 'fsusblog.local-production.frontend-build-ready.v1'
             || marker.status !== 'success'
             || marker.physicalBundleId !== 'build-static'
+            || marker.producerStepId !== 'sync-static-assets'
             || marker.schedulerRunId !== expectedRunId
             || !markerHasCurrentBuildLayout(marker)
             || marker.distEntry?.path !== artifactPath
@@ -1367,12 +1349,34 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
         if (mismatches.length > 0) {
           throw new Error(`frontend build readiness digest mismatch: ${mismatches.join(', ')}`)
         }
-        return
+        return {
+          markerFile: relative(markerFile),
+          markerPublishedAt: marker.publishedAt ?? marker.generatedAt,
+          markerWaitDurationMs: Date.now() - startedAtMs,
+          producerPhysicalBundleId: marker.physicalBundleId,
+          producerStepId: marker.producerStepId,
+          artifacts: requiredArtifacts.map((requiredPath) => ({
+            path: requiredPath,
+            digest: actualDigests[requiredPath],
+            artifactRef: actual.refs[requiredPath]
+          }))
+        }
       } catch (error) {
         throw new Error(`invalid run-bound frontend build readiness marker: ${error.message}`, { cause: error })
       }
     }
-    await new Promise((resolve) => setTimeout(resolve, 250))
+    if (fs.existsSync(checkpointFile)) {
+      try {
+        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+        const status = checkpoint.tiers?.[`local-${profileId}-build-static`]?.status
+        if (['failure', 'blocked', 'cancelled'].includes(status)) {
+          throw new Error(`build-static:${status} before frontend build readiness marker publication`)
+        }
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, resolveMarkerPollIntervalMs()))
   }
   throw new Error(`timed out waiting for run-bound frontend build readiness: ${expectedRunId}`)
 }
@@ -1526,6 +1530,28 @@ async function executePerformanceStep(step) {
 }
 
 async function executeFrontendStep(step) {
+  if (step.id === 'frontend-build-ready') {
+    const logFile = path.join(logDir, `${step.id}.log`)
+    const startedAtMs = Date.now()
+    fs.writeFileSync(logFile, '')
+    console.log(`[local-production:${bundleId}] start ${step.id} coordination-only`)
+    const readiness = await observeWait(step.id, { readinessMarker: step.id }, () => waitForFrontendBuildReady())
+    const finishedAtMs = Date.now()
+    fs.writeFileSync(logFile, `${JSON.stringify({ ...readiness, validated: true })}\n`)
+    const result = {
+      code: 0,
+      signal: null,
+      durationMs: finishedAtMs - startedAtMs,
+      startedAtMs,
+      finishedAtMs,
+      logFile,
+      readiness
+    }
+    stepExecutionResults.set(step.id, { ...result, status: 'success' })
+    console.log(`[local-production:${bundleId}] done ${step.id} durationMs=${result.durationMs}`)
+    register(step, result)
+    return result
+  }
   if (['frontend-early-test-capacity-ready', 'frontend-test-capacity-ready'].includes(step.id)) {
     const targetCpuUnits = step.id === 'frontend-early-test-capacity-ready'
       ? resolvedFrontendEarlyTestCpuTarget()
@@ -1606,6 +1632,16 @@ async function runFrontendTests() {
       exclusiveResources: ['frontend-test-results']
     }
   })
+  const perfStep = commandStep('vitest-production-perf-isolated',
+    'node tools/test/run-frontend-vitest-perf-isolated.mjs', [], {
+      dependsOn: ['frontend-build-ready', 'vitest-settled'],
+      resources: {
+        cpuWeight: 1,
+        memoryWeight: 1,
+        minCpuUnits: 1,
+        exclusiveResources: ['frontend-test-results']
+      }
+    })
   const frontendDagResults = new Map()
   await executeWeightedStepDag([
     commandStep('frontend-build-ready', ':', [], {
@@ -1655,6 +1691,7 @@ async function runFrontendTests() {
       runAfterSettled: true,
       resources: { coordinationOnly: true }
     }),
+    perfStep,
     // Preserve the complete release/rehearsal contract set, but start its long
     // process-based fixtures only after Vitest releases the duplicated Vite
     // transform hosts. The scheduler can then assign this step the live tail
@@ -1706,7 +1743,8 @@ async function runFrontendTests() {
         'frontend-static-isolated',
         'frontend-static-final',
         'static-governance-post-vitest',
-        'frontend-coverage-summary'
+        'frontend-coverage-summary',
+        'vitest-production-perf-isolated'
       ],
       runAfterSettled: true,
       resources: { coordinationOnly: true }
@@ -1717,14 +1755,28 @@ async function runFrontendTests() {
   })
   const result = frontendDagResults.get('vitest-production-projects')
   if (!result) throw new Error('vitest-production-projects completed without a result')
-  await observeWait('build-static-summary-ready', { readinessMarker: 'build-static-summary' },
-    () => waitForSiblingBundleSummaries(['build-static']))
-  const perfStep = commandStep('vitest-production-perf-isolated', [
-    'node tools/test/run-frontend-vitest-perf-isolated.mjs'
-  ].join(' && '), [], {
-    resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
-  })
-  const perfResult = await executeStep(perfStep)
+  const perfResult = frontendDagResults.get('vitest-production-perf-isolated')
+  const markerResult = frontendDagResults.get('frontend-build-ready')
+  const vitestSettledResult = frontendDagResults.get('vitest-settled')
+  if (!perfResult || !markerResult?.readiness || !vitestSettledResult) {
+    throw new Error('frontend perf admission evidence is incomplete')
+  }
+  frontendPerfAdmissionEvidence = {
+    schema: 'fsusblog.frontend-perf-admission.v1',
+    status: 'success',
+    schedulerRunId: schedulerRunId(),
+    sourceState: {
+      commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? null,
+      worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? null
+    },
+    marker: markerResult.readiness,
+    mainVitestSettledAtMs: vitestSettledResult.finishedAtMs,
+    perfAdmittedAtMs: perfResult.startedAtMs,
+    markerWaitDurationMs: markerResult.readiness.markerWaitDurationMs,
+    measurementIsolationMode: 'functional-budget-smoke-contention-aware',
+    ordinaryRollingHostsSettled: true,
+    waitsForBuildStaticSummary: false
+  }
   const reports = [
     path.join(root, '.tmp/test-results/vitest/production-rolling/merged.json'),
     path.join(root, '.tmp/test-results/vitest/production-rolling/summary.json'),
@@ -1762,9 +1814,16 @@ async function run() {
   else if (bundleId === 'frontend-tests') await runFrontendTests()
   else if (bundleId === 'build-static') {
     await executeWeightedStepDag(buildStaticSteps(), bundleDagCapacity, async (step) => {
-      const result = await executeStep(step)
-      if (step.id === 'sync-static-assets') publishFrontendBuildReady()
-      return result
+      try {
+        const result = await executeStep(step)
+        if (step.id === 'sync-static-assets') publishFrontendBuildReady()
+        return result
+      } catch (error) {
+        if (['frontend-build', 'sync-static-assets'].includes(step.id)) {
+          publishFrontendBuildTerminal('failure', `${step.id}: ${error instanceof Error ? error.message : String(error)}`)
+        }
+        throw error
+      }
     })
   } else {
     const steps = bundleId === 'runtime-browser' ? runtimeSteps() : performanceSteps()
@@ -1847,6 +1906,7 @@ async function run() {
     durationMs: Date.now() - startedAt,
     resourceUtilization,
     ...(browserAdmission ? { browserAdmission } : {}),
+    ...(frontendPerfAdmissionEvidence ? { frontendPerfAdmission: frontendPerfAdmissionEvidence } : {}),
     ...(performanceDeadlineEvidence ? { deadlineEvidence: performanceDeadlineEvidence } : {}),
     members,
     generatedAt: new Date().toISOString()
