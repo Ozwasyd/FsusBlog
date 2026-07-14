@@ -329,6 +329,7 @@ public class ArticleService(
                 a.status AS "Status",
                 a.scheduled_publish_at AS "ScheduledPublishAt",
                 a.published_at AS "PublishedAt",
+                ab.updated_at AS "UpdatedAt",
                 c.name AS "CategoryName",
                 COALESCE(ab.markdown_content, '') AS "Content",
                 rights.id AS "RightsSnapshotId",
@@ -396,6 +397,7 @@ public class ArticleService(
                 a.status,
                 a.scheduled_publish_at,
                 a.published_at,
+                ab.updated_at,
                 c.name,
                 rights.id,
                 rights.article_revision_id,
@@ -426,7 +428,7 @@ public class ArticleService(
                     fSum = reader.GetOrdinal("Summary"), fCover = reader.GetOrdinal("CoverImageUrl"),
                     fCatId = reader.GetOrdinal("CategoryId"), fViews = reader.GetOrdinal("Views"),
                     fTime = reader.GetOrdinal("CreateTime"), fIsDel = reader.GetOrdinal("IsDeleted"), fStatus = reader.GetOrdinal("Status"),
-                    fScheduled = reader.GetOrdinal("ScheduledPublishAt"), fPublished = reader.GetOrdinal("PublishedAt"), fCatName = reader.GetOrdinal("CategoryName"),
+                    fScheduled = reader.GetOrdinal("ScheduledPublishAt"), fPublished = reader.GetOrdinal("PublishedAt"), fUpdated = reader.GetOrdinal("UpdatedAt"), fCatName = reader.GetOrdinal("CategoryName"),
                     fContent = reader.GetOrdinal("Content"), fTagIds = reader.GetOrdinal("TagIds"), fTagNames = reader.GetOrdinal("TagNames");
                 string content = reader.IsDBNull(fContent) ? string.Empty : reader.GetString(fContent);
                 string? summary = reader.IsDBNull(fSum) ? string.Empty : reader.GetString(fSum);
@@ -450,6 +452,7 @@ public class ArticleService(
                     Status = (ArticleStatus)reader.GetInt32(fStatus),
                     ScheduledPublishAt = reader.IsDBNull(fScheduled) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fScheduled)),
                     PublishedAt = reader.IsDBNull(fPublished) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fPublished)),
+                    UpdatedAt = reader.IsDBNull(fUpdated) ? null : NormalizeArticleListTimestampUtc(reader.GetDateTime(fUpdated)),
                     CategoryName = reader.IsDBNull(fCatName) ? "默认分类" : reader.GetString(fCatName),
                     Content = content,
                     WordCount = reading.EffectiveChars,
@@ -1036,7 +1039,7 @@ public class ArticleService(
 
         ArticleStatus status = NormalizeWriteStatus(dto.Status, dto.ScheduledPublishAt, now);
         DateTime? scheduledPublishAt = status == ArticleStatus.Scheduled ? dto.ScheduledPublishAt : null;
-        DateTime? publishedAt = status == ArticleStatus.Published ? now : null;
+        DateTime? publishedAt = state.PublishedAt ?? (status == ArticleStatus.Published ? now : null);
         DateTime? archivedAt = status == ArticleStatus.Archived ? now : null;
 
         bool articleUpdated = false;
@@ -1061,7 +1064,7 @@ public class ArticleService(
             }
 
             articleUpdated = true;
-            await _db.Storageable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = DateTime.UtcNow }).ExecuteCommandAsync();
+            await UpsertArticleBodyAsync(id, content, now);
             await ApplyArticleTagsAsync(id, tagIds);
             ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "article updated");
             long rightsSnapshotId = await SaveArticleRightsAsync(
@@ -1105,6 +1108,8 @@ public class ArticleService(
             """
             SELECT a.categoryid,
                    a.xmin::text AS row_version,
+                   a.status,
+                   a.published_at,
                    COALESCE(
                        array_agg(at.tagid ORDER BY at.tagid)
                            FILTER (WHERE at.tagid IS NOT NULL),
@@ -1114,7 +1119,7 @@ public class ArticleService(
             LEFT JOIN article_tag at ON at.articleid = a.id
             WHERE a.id = @ArticleId
               AND a.isdeleted = false
-            GROUP BY a.id, a.categoryid, a.xmin;
+            GROUP BY a.id, a.categoryid, a.xmin, a.status, a.published_at;
             """,
             new SugarParameter("@ArticleId", articleId));
         if (!await reader.ReadAsync(Ct))
@@ -1124,9 +1129,28 @@ public class ArticleService(
 
         int categoryId = reader.GetInt32(0);
         string rowVersion = reader.GetString(1);
-        int[] tags = reader.GetFieldValue<int[]>(2);
-        return new ArticleUpdateState(categoryId, tags.ToList(), rowVersion);
+        var status = (ArticleStatus)reader.GetInt32(2);
+        DateTime? publishedAt = reader.IsDBNull(3)
+            ? null
+            : NormalizeArticleListTimestampUtc(reader.GetDateTime(3));
+        int[] tags = reader.GetFieldValue<int[]>(4);
+        return new ArticleUpdateState(categoryId, tags.ToList(), rowVersion, status, publishedAt);
     }
+
+    private Task UpsertArticleBodyAsync(int articleId, string markdownContent, DateTime updatedAt)
+        => _db.Ado.ExecuteCommandAsync(
+            """
+            INSERT INTO article_body (article_id, markdown_content, updated_at)
+            VALUES (@ArticleId, @MarkdownContent, @UpdatedAt)
+            ON CONFLICT (article_id)
+            DO UPDATE SET
+                markdown_content = EXCLUDED.markdown_content,
+                updated_at = EXCLUDED.updated_at
+            WHERE article_body.markdown_content IS DISTINCT FROM EXCLUDED.markdown_content;
+            """,
+            new SugarParameter("@ArticleId", articleId),
+            new SugarParameter("@MarkdownContent", markdownContent),
+            new SugarParameter("@UpdatedAt", updatedAt));
 
     private async Task<bool> TryUpdateArticleRowAsync(
         ArticleUpdateState state,
@@ -1222,7 +1246,12 @@ public class ArticleService(
             parameters);
     }
 
-    private sealed record ArticleUpdateState(int CategoryId, List<int> TagIds, string RowVersion);
+    private sealed record ArticleUpdateState(
+        int CategoryId,
+        List<int> TagIds,
+        string RowVersion,
+        ArticleStatus Status,
+        DateTime? PublishedAt);
 
     private sealed record ArticleMutationState(List<int> CategoryIds, List<int> TagIds, string RowVersion);
 

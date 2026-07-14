@@ -232,7 +232,7 @@ Traffic scenario 和 release acceptance 必须覆盖：匿名主页/归档/文�
 
 ## Rights V3 Public Artifact Cutover
 
-ArticleDetail AEDS V3 embeds the rights snapshot and proof summary in the detail payload. Old ArticleDetail `.aeds` files are not compatibility inputs: the file store rejects any ArticleDetail artifact whose inner payload does not start with the V3 `ARD3` magic and version `3`.
+ArticleDetail AEDS embeds the Rights V3 snapshot and proof summary in the detail payload. Current writers emit `ARD4`/version 4 and the file store accepts both current V4 and read-compatible `ARD3`/version 3 artifacts; retired pre-envelope ArticleDetail files remain invalid compatibility inputs.
 
 Use the full deployment runbook in [rights-v3-cutover-runbook.md](rights-v3-cutover-runbook.md) for backups, the exact no-compat order, verification, and operator checks. This section is only the short operational summary.
 
@@ -241,9 +241,9 @@ Use the admin cache action endpoint for the remaining cutover sequence:
 1. Before candidate start, require the rollout's read-only compatibility check to prove the Rights V3 schema and legacy-artifact cleanup descriptors are already present in migration history. The automatic `expand-migration` stage runs only currently classified online Expand work; it does not replay the legacy Rights V3/cleanup descriptors. A pre-protocol database missing them must first complete the isolated legacy bootstrap/restore runbook and then enter the online protocol.
 2. Run `recompute-article-rights` to replace migration sentinel hashes and create any missing latest-revision rights snapshot.
 3. Run `rebuild-article-detail-aeds-v3` with no `articleId` to rebuild all public ArticleDetail artifacts in batches with bounded parallelism. Supplying `articleId` rebuilds one article.
-4. Run the existing PublicAOT rebuild path after the ArticleDetail artifacts are V3-clean so HTML/hydration inputs converge on the same rights payload.
+4. Run the existing PublicAOT rebuild path after ArticleDetail artifacts have been rebuilt by the historically named action into current V4 output (with V3 read compatibility), so HTML/hydration inputs converge on the same rights payload.
 
-Rollback is image and database-backup based. Do not roll back by re-enabling old ArticleDetail artifact reads or by adding a separate `/article/{id}/rights.aeds` endpoint; a partial rollback would let anonymous reads serve a payload shape that the strict V3 frontend must reject.
+Rollback is image and database-backup based. Do not roll back by re-enabling retired pre-envelope ArticleDetail reads or by adding a separate `/article/{id}/rights.aeds` endpoint; a partial rollback would let anonymous reads serve a payload shape that current V4/V3 decoders must reject.
 
 ## Daily Checks
 

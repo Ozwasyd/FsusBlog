@@ -165,6 +165,96 @@ public sealed class ArticleRevisionConcurrencyTests(
         Assert.Equal([2, 3], tagIds);
     }
 
+    [Fact]
+    public async Task UpdateAsync_MetadataOnlyChangePreservesBodyUpdatedAtAndFirstPublishedAt()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        DateTime firstPublishedAt = new(2026, 6, 1, 8, 0, 0, DateTimeKind.Utc);
+        DateTime bodyUpdatedAt = new(2026, 6, 2, 9, 0, 0, DateTimeKind.Utc);
+        int articleId = await SeedArticleAsync(setupDb, publishedAt: firstPublishedAt);
+        await SeedBodyAsync(setupDb, articleId, "# unchanged", bodyUpdatedAt);
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb);
+
+        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "Metadata changed",
+            Summary = "new summary",
+            Content = "# unchanged",
+            CategoryId = 2,
+            TagIds = [3],
+            Status = ArticleStatus.Published
+        });
+
+        Article article = await setupDb.Queryable<Article>().InSingleAsync(articleId);
+        ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
+        Assert.True(updated);
+        Assert.Equal(bodyUpdatedAt, body.UpdatedAt);
+        Assert.Equal(firstPublishedAt, article.PublishedAt);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ContentChangeAdvancesBodyUpdatedAtButPreservesFirstPublishedAt()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        DateTime firstPublishedAt = new(2026, 6, 1, 8, 0, 0, DateTimeKind.Utc);
+        DateTime bodyUpdatedAt = new(2026, 6, 2, 9, 0, 0, DateTimeKind.Utc);
+        int articleId = await SeedArticleAsync(setupDb, publishedAt: firstPublishedAt);
+        await SeedBodyAsync(setupDb, articleId, "# original", bodyUpdatedAt);
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb);
+
+        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "Content changed",
+            Summary = "summary",
+            Content = "# changed",
+            CategoryId = 1,
+            TagIds = [],
+            Status = ArticleStatus.Published
+        });
+
+        Article article = await setupDb.Queryable<Article>().InSingleAsync(articleId);
+        ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
+        Assert.True(updated);
+        Assert.Equal("# changed", body.MarkdownContent);
+        Assert.True(body.UpdatedAt > bodyUpdatedAt);
+        Assert.Equal(firstPublishedAt, article.PublishedAt);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_MissingBodyCreatesBodyWithUpdatedAt()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        int articleId = await SeedArticleAsync(setupDb);
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb);
+
+        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "Body created",
+            Summary = "summary",
+            Content = "# created",
+            CategoryId = 1,
+            TagIds = [],
+            Status = ArticleStatus.Published
+        });
+
+        ArticleBody body = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
+        Assert.True(updated);
+        Assert.Equal("# created", body.MarkdownContent);
+        Assert.NotEqual(default, body.UpdatedAt);
+    }
+
     private static async Task SaveRevisionInTransactionAsync(
         SqlSugarClient db,
         ArticleService service,
@@ -226,7 +316,10 @@ public sealed class ArticleRevisionConcurrencyTests(
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
 
-    private static async Task<int> SeedArticleAsync(SqlSugarClient db, bool isDeleted = false)
+    private static async Task<int> SeedArticleAsync(
+        SqlSugarClient db,
+        bool isDeleted = false,
+        DateTime? publishedAt = null)
         => await db.Insertable(new Article
         {
             Title = "Title",
@@ -236,7 +329,7 @@ public sealed class ArticleRevisionConcurrencyTests(
             IsDeleted = isDeleted,
             DeletedAt = isDeleted ? DateTime.UtcNow : null,
             CreateTime = DateTime.UtcNow,
-            PublishedAt = isDeleted ? null : DateTime.UtcNow
+            PublishedAt = isDeleted ? null : publishedAt ?? DateTime.UtcNow
         }).ExecuteReturnIdentityAsync();
 
     private static async Task SeedRevisionAsync(SqlSugarClient db, int articleId, int revisionNo)
@@ -270,12 +363,16 @@ public sealed class ArticleRevisionConcurrencyTests(
         }).ExecuteCommandAsync();
     }
 
-    private static async Task SeedBodyAsync(SqlSugarClient db, int articleId, string content)
+    private static async Task SeedBodyAsync(
+        SqlSugarClient db,
+        int articleId,
+        string content,
+        DateTime? updatedAt = null)
         => await db.Insertable(new ArticleBody
         {
             ArticleId = articleId,
             MarkdownContent = content,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = updatedAt ?? DateTime.UtcNow
         }).ExecuteCommandAsync();
 
     private static async Task SeedTagsAsync(SqlSugarClient db, int articleId, int[] tagIds)

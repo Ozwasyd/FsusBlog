@@ -47,6 +47,7 @@ public static class ArticleProjection
             Status = (int)item.Status,
             ScheduledPublishAt = item.ScheduledPublishAt,
             PublishedAt = item.PublishedAt,
+            UpdatedAt = item.UpdatedAt,
             Rights = ToRightsResponse(item.Rights)
         };
     }
@@ -171,6 +172,7 @@ public static class ArticleProjection
             (int)item.Status,
             item.ScheduledPublishAt,
             item.PublishedAt,
+            item.UpdatedAt,
             ToRightsCoreModel(item.Rights));
     }
 

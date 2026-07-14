@@ -15,8 +15,10 @@ public static partial class PodBinaryCodec
 {
     private const int ArticlePageCursorEnvelopeMagic = 0x41535046; // FSPA
     private const int ArticlePageCursorEnvelopeVersion = 1;
-    private const uint ArticleDetailPayloadMagic = 0x41524433; // ARD3
-    private const int ArticleDetailPayloadVersion = 3;
+    private const uint ArticleDetailV3PayloadMagic = 0x41524433; // ARD3
+    private const int ArticleDetailV3PayloadVersion = 3;
+    private const uint ArticleDetailV4PayloadMagic = 0x41524434; // ARD4
+    private const int ArticleDetailV4PayloadVersion = 4;
     private const int ArticleWriteRequestVersion = 3;
     private const int RightsFlagEnabled = 1 << 0;
     private const int RightsFlagAllowCodeCopy = 1 << 1;
@@ -442,7 +444,7 @@ public static partial class PodBinaryCodec
     {
         var blob = new List<byte>(Math.Max(512, item.Content.Length + item.Title.Length + (item.Summary?.Length ?? 0) + (item.CoverImageUrl?.Length ?? 0)));
         ArticleRightsCoreModel rights = item.Rights;
-        var article = new MutableArticleDetailV3RecordPod
+        var article = new MutableArticleDetailV4RecordPod
         {
             Id = item.Id,
             Views = item.Views,
@@ -451,6 +453,7 @@ public static partial class PodBinaryCodec
             Status = item.Status,
             ScheduledPublishAtUnixMs = ToUnixMsOrZero(item.ScheduledPublishAt),
             PublishedAtUnixMs = ToUnixMsOrZero(item.PublishedAt),
+            UpdatedAtUnixMs = ToUnixMsOrZero(item.UpdatedAt),
             IsDeleted = item.IsDeleted ? (byte)1 : (byte)0,
             Title = PodUtf8Codec.AppendSlice(item.Title, blob),
             Content = PodUtf8Codec.AppendSlice(item.Content, blob),
@@ -490,18 +493,18 @@ public static partial class PodBinaryCodec
             ProofStatus = PodUtf8Codec.AppendSlice(rights.ProofStatus ?? string.Empty, blob)
         };
 
-        int headerSize = Unsafe.SizeOf<ArticleDetailV3HeaderPod>();
-        int articleRecordSize = Unsafe.SizeOf<ArticleDetailV3RecordPod>();
+        int headerSize = Unsafe.SizeOf<ArticleDetailV4HeaderPod>();
+        int articleRecordSize = Unsafe.SizeOf<ArticleDetailV4RecordPod>();
         int tagRecordSize = Unsafe.SizeOf<ArticleDetailTagV3RecordPod>();
         int rightsRecordSize = Unsafe.SizeOf<ArticleRightsV3RecordPod>();
         int articleOffset = headerSize;
         int tagOffset = articleOffset + articleRecordSize;
         int rightsOffset = tagOffset + tags.Count * tagRecordSize;
         int blobOffset = rightsOffset + rightsRecordSize;
-        var header = new MutableArticleDetailV3HeaderPod
+        var header = new MutableArticleDetailV4HeaderPod
         {
-            Magic = ArticleDetailPayloadMagic,
-            Version = ArticleDetailPayloadVersion,
+            Magic = ArticleDetailV4PayloadMagic,
+            Version = ArticleDetailV4PayloadVersion,
             Flags = 0,
             ArticleRecordOffset = articleOffset,
             ArticleRecordLength = articleRecordSize,
@@ -514,8 +517,8 @@ public static partial class PodBinaryCodec
         };
 
         var writer = new BinaryPodWriter(destination);
-        writer.WritePod(Cast<MutableArticleDetailV3HeaderPod, ArticleDetailV3HeaderPod>(header));
-        writer.WritePod(Cast<MutableArticleDetailV3RecordPod, ArticleDetailV3RecordPod>(article));
+        writer.WritePod(Cast<MutableArticleDetailV4HeaderPod, ArticleDetailV4HeaderPod>(header));
+        writer.WritePod(Cast<MutableArticleDetailV4RecordPod, ArticleDetailV4RecordPod>(article));
         foreach (ArticleDetailTagV3RecordPod tag in tags)
         {
             writer.WritePod(tag);
@@ -543,11 +546,10 @@ public static partial class PodBinaryCodec
 
         var reader = new BinaryPodReader(source);
         if (!reader.TryReadPod(out ArticleDetailV3HeaderPod header) ||
-            header.Magic != ArticleDetailPayloadMagic ||
-            header.Version != ArticleDetailPayloadVersion ||
+            !IsSupportedArticleDetailPayload(header.Magic, header.Version) ||
             header.Flags != 0 ||
             header.TagCount < 0 ||
-            header.ArticleRecordLength != Unsafe.SizeOf<ArticleDetailV3RecordPod>() ||
+            header.ArticleRecordLength != ResolveArticleDetailRecordSize(header.Version) ||
             header.RightsRecordLength != Unsafe.SizeOf<ArticleRightsV3RecordPod>() ||
             header.ArticleRecordOffset != Unsafe.SizeOf<ArticleDetailV3HeaderPod>())
         {
@@ -585,11 +587,11 @@ public static partial class PodBinaryCodec
         }
 
         ReadOnlySpan<byte> blob = source.Slice(blobOffset, blobLength);
-        var articleReader = new BinaryPodReader(source.Slice(articleOffset, articleLength));
-        if (!articleReader.TryReadPod(out ArticleDetailV3RecordPod article) ||
-            !articleReader.IsConsumed ||
-            article.IsDeleted > 1 ||
-            !ValidateArticleDetailRecordSlices(article, blob))
+        if (!TryReadArticleDetailRecord(
+                source.Slice(articleOffset, articleLength),
+                blob,
+                header.Version,
+                out DecodedArticleDetailRecord article))
         {
             item = default;
             return false;
@@ -653,6 +655,7 @@ public static partial class PodBinaryCodec
             article.Status,
             FromUnixMsOrNull(article.ScheduledPublishAtUnixMs),
             FromUnixMsOrNull(article.PublishedAtUnixMs),
+            FromUnixMsOrNull(article.UpdatedAtUnixMs),
             BuildArticleRightsCoreModel(rightsPod, blob));
         return true;
     }
@@ -840,7 +843,64 @@ public static partial class PodBinaryCodec
         return flags;
     }
 
+    private static bool IsSupportedArticleDetailPayload(uint magic, int version)
+        => (magic == ArticleDetailV3PayloadMagic && version == ArticleDetailV3PayloadVersion) ||
+           (magic == ArticleDetailV4PayloadMagic && version == ArticleDetailV4PayloadVersion);
+
+    private static int ResolveArticleDetailRecordSize(int version)
+        => version == ArticleDetailV4PayloadVersion
+            ? Unsafe.SizeOf<ArticleDetailV4RecordPod>()
+            : Unsafe.SizeOf<ArticleDetailV3RecordPod>();
+
+    private static bool TryReadArticleDetailRecord(
+        ReadOnlySpan<byte> source,
+        ReadOnlySpan<byte> blob,
+        int version,
+        out DecodedArticleDetailRecord decoded)
+    {
+        var reader = new BinaryPodReader(source);
+        if (version == ArticleDetailV4PayloadVersion)
+        {
+            if (!reader.TryReadPod(out ArticleDetailV4RecordPod record) ||
+                !reader.IsConsumed ||
+                record.IsDeleted > 1 ||
+                !ValidateArticleDetailRecordSlices(record, blob))
+            {
+                decoded = default;
+                return false;
+            }
+
+            decoded = new DecodedArticleDetailRecord(
+                record.Id, record.Views, record.CreateTimeUnixMs, record.CategoryId, record.Status,
+                record.ScheduledPublishAtUnixMs, record.PublishedAtUnixMs, record.UpdatedAtUnixMs,
+                record.IsDeleted, record.Title, record.Content, record.Summary, record.CoverImageUrl, record.CategoryName);
+            return true;
+        }
+
+        if (!reader.TryReadPod(out ArticleDetailV3RecordPod legacy) ||
+            !reader.IsConsumed ||
+            legacy.IsDeleted > 1 ||
+            !ValidateArticleDetailRecordSlices(legacy, blob))
+        {
+            decoded = default;
+            return false;
+        }
+
+        decoded = new DecodedArticleDetailRecord(
+            legacy.Id, legacy.Views, legacy.CreateTimeUnixMs, legacy.CategoryId, legacy.Status,
+            legacy.ScheduledPublishAtUnixMs, legacy.PublishedAtUnixMs, 0,
+            legacy.IsDeleted, legacy.Title, legacy.Content, legacy.Summary, legacy.CoverImageUrl, legacy.CategoryName);
+        return true;
+    }
+
     private static bool ValidateArticleDetailRecordSlices(ArticleDetailV3RecordPod record, ReadOnlySpan<byte> blob)
+        => IsSliceValid(record.Title, blob) &&
+           IsSliceValid(record.Content, blob) &&
+           IsSliceValid(record.Summary, blob) &&
+           IsSliceValid(record.CoverImageUrl, blob) &&
+           IsSliceValid(record.CategoryName, blob);
+
+    private static bool ValidateArticleDetailRecordSlices(ArticleDetailV4RecordPod record, ReadOnlySpan<byte> blob)
         => IsSliceValid(record.Title, blob) &&
            IsSliceValid(record.Content, blob) &&
            IsSliceValid(record.Summary, blob) &&
@@ -907,6 +967,22 @@ public static partial class PodBinaryCodec
     private static bool IsRangeWithin(int offset, int length, int total)
         => offset >= 0 && length >= 0 && offset <= total && length <= total - offset;
 
+    private readonly record struct DecodedArticleDetailRecord(
+        int Id,
+        int Views,
+        long CreateTimeUnixMs,
+        int CategoryId,
+        int Status,
+        long ScheduledPublishAtUnixMs,
+        long PublishedAtUnixMs,
+        long UpdatedAtUnixMs,
+        byte IsDeleted,
+        Utf8SliceRef Title,
+        Utf8SliceRef Content,
+        Utf8SliceRef Summary,
+        Utf8SliceRef CoverImageUrl,
+        Utf8SliceRef CategoryName);
+
     private static long ToUnixMsOrZero(DateTime? value)
         => value.HasValue ? PodTimeCodec.ToUnixMs(value.Value) : 0;
 
@@ -935,7 +1011,7 @@ public static partial class PodBinaryCodec
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableArticleDetailV3HeaderPod
+    private struct MutableArticleDetailV4HeaderPod
     {
         public uint Magic;
         public int Version;
@@ -951,7 +1027,7 @@ public static partial class PodBinaryCodec
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableArticleDetailV3RecordPod
+    private struct MutableArticleDetailV4RecordPod
     {
         public int Id;
         public int Views;
@@ -960,6 +1036,7 @@ public static partial class PodBinaryCodec
         public int Status;
         public long ScheduledPublishAtUnixMs;
         public long PublishedAtUnixMs;
+        public long UpdatedAtUnixMs;
         public byte IsDeleted;
         public byte Reserved0;
         public ushort Reserved1;

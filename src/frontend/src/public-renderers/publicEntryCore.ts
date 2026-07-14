@@ -164,6 +164,8 @@ export function normalizeArticleDetail(options: Record<string, unknown>): Articl
     id: toNumber(options.articleId ?? options.id),
     content: toText(options.bodyContent ?? options.content, ''),
     summary: toText(options.summary, ''),
+    publishedAt: toOptionalText(options.publishedAt ?? options.PublishedAt),
+    updatedAt: toOptionalText(options.updatedAt ?? options.UpdatedAt),
     rights: normalizeArticleRights(options.rights ?? options.Rights)
   }
 }

@@ -118,9 +118,20 @@ public class ArticleServiceValidationTests
             "TryUpdateArticleRowAsync",
             "SaveArticleRevisionAsync");
         Assert.Contains("TryUpdateArticleRowAsync", method, StringComparison.Ordinal);
-        Assert.Contains("Storageable", method, StringComparison.Ordinal);
+        Assert.Contains("UpsertArticleBodyAsync", method, StringComparison.Ordinal);
         Assert.Contains("SaveArticleRevisionAsync", method, StringComparison.Ordinal);
         Assert.Contains("get_IsSuccess", method, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UpdateAsync_BodyUpsertOnlyAdvancesTimestampForDistinctMarkdown()
+    {
+        string method = ArticleRuntime(
+            "UpsertArticleBodyAsync",
+            "TryUpdateArticleRowAsync");
+
+        Assert.Contains("IS DISTINCT FROM", method, StringComparison.Ordinal);
+        Assert.Contains("updated_at", method, StringComparison.Ordinal);
     }
 
     [Fact]

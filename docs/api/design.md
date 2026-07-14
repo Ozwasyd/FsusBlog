@@ -334,6 +334,12 @@ tooling contract，不进入 AEDS runtime API，也不能被公开客户端或�
 
 统一 SEO 与品牌资产来自同一个 `SeoConfig` AEDS frame，不新增 `/system/brand` 并行主端点。`/api/binary/system/seo` 同时承载基础 SEO、OpenGraph 预览图、favicon/browser icon、Apple Touch Icon、PWA manifest 名称/图标/theme/background、公开站点 logo/wordmark、后台 logo/折叠图标和登录 logo/icon。保存后必须通过 SEO 配置失效链路刷新 HTML head、动态 `manifest.webmanifest`、Public AOT shell、公开 shell hydration、后台与登录页品牌展示；旧配置缺失新增字段时按默认静态路径或空值补齐。资产 URL 只接受站内绝对路径或 `http/https` 绝对 URL，不接受 `javascript:`、`data:` 或协议相对 URL。设置页可以把上传结果按 `ogImage`、`brandLogo`、`faviconSet` 目标语义回填到字段；favicon/PWA 图标组从 PNG/JPG/WebP 源图生成 ICO 与多尺寸 PNG，不引入新的品牌配置端点，也不做栅格图到 SVG 的自动矢量化。
 
+公开 head 不输出 `meta keywords`；历史 `keywords` wire/storage 字段仅用于旧配置兼容，不能作为发布门禁或排名优化信号。description 必须来自当前页面真实内容：文章优先摘要，无摘要时先把 Markdown 转为纯文本再按 Unicode、entity 与句子边界收敛；归档、分类、标签和固定静态页使用各自稳定且可见语义，不回退成同一段站点描述。JSON-LD 的全局实体只有一个 `WebSite`，普通页使用 `WebPage`，归档/分类/标签使用 `CollectionPage`，文章使用 `BlogPosting`。结构化数据用于帮助机器理解页面并取得展示资格，不是排名分数，也不保证富结果。
+
+文章时间只使用内容投影：`datePublished` 是实际首次公开时间，`dateModified` 是 `article_body.updated_at` 的实质正文修改时间。可见文本、Microdata、JSON-LD、Feed 与 sitemap 必须共享这两个来源；正文时间不晚于发布时间时不重复展示“更新于”。评论、浏览量、模板和 footer 变化不得推进 `dateModified`。合法文章封面优先成为同一绝对 `og:image`、`twitter:image` 与 `BlogPosting.image`，缺失或协议/格式无效时回退站点社交图片。
+
+社交图片有效性在上传/配置写入和构建产物验证边界完成，不允许公开 AOT 热路径逐请求探测外部 URL。发布 smoke 负责真实 HTTP 状态、`image/*` Content-Type 和浏览器 natural dimensions；composer 只负责规范化、格式 allow-list、同 URL 投影与确定性回退。
+
 公开页结构的 SSR 入口是 [`src/frontend/src/public-renderers/renderPublicPage.ts`](../../src/frontend/src/public-renderers/renderPublicPage.ts)，该入口向 server SSR worker 暴露 `buildPublicEntry`、payload codec 与 renderer version；具体页面组合由 `publicEntryRegistry.ts`、`pageAssemblies.ts` 与 `scaffold.ts` 维护。文档和实现不得再引入额外 helper 作为公开页结构真相源。服务端 AOT provider 只提供数据型 options，不手写 hydration props、不渲染 Markdown、不拼页面内部 HTML；Node/Vue SSR worker 负责生成 `html / bootstrapPayload / hydrationPropsPayload`，服务端只做文档包装、hydration `.aeds` sidecar 写出、缓存与降级。hydration sidecar 是 content-hash URL，使用 `application/vnd.fsus.aeds` 与 immutable cache；运行时 `/api/binary/**` 仍使用 `application/octet-stream`。
 
 `GET /api/public/navigation-snapshot.aeds?path={publicPath}` 是公开 SPA micro-navigation 的原子接管快照端点。它只接受长度不超过 512 字符的同站相对路径，并通过 Public AOT route registry fail closed 校验首页、归档、文章详情、分类、标签和固定静态页；账号、搜索、admin、协议相对 URL 和绝对外链不进入快照链路。该端点挂 `public_read` 限流，响应使用 `application/vnd.fsus.aeds`，AEDS frame 复用 `PublicAotBootstrap`，外层 envelope 的 `kind` 固定为 `public-navigation-snapshot`，内层 `bootstrapPayload` / `hydrationPropsPayload` 仍由同一个 Node/Vue SSR worker `buildEntry` 生成，避免 HTML、bootstrap 与 hydration 分裂为三套真相源。快照携带内容相关 ETag，并使用 `Cache-Control: no-cache` 要求每次导航重验证；不得使用 `max-age` 或 `stale-while-revalidate` 让文章更新后的旧快照继续可用。响应 `Vary` 同时包含 `Accept` 与测试会话头，避免隔离运行时的不同 schema 共用代理缓存条目。
@@ -535,7 +541,7 @@ SEO 预览是作者工作台内的发布前质量门，不是新路由模型：�
 
 ## 公共文章读取投影
 
-`GET /api/binary/article/{id}.aeds` 的公开契约和安全链不变：请求仍先经过 `public_read`、RiskControl/PoW 与现有 L0 artifact 规则。文件/L0 article detail artifact miss 后，应用只允许执行 `public_article_projection(article_id PK)` 的单条 prepared 查询并直接返回已编码 AEDS frame；该读取不得 join article/category/tag/rights/proof，不得在请求时重新估算阅读时长或编码完整投影。投影 frame 必须同时通过 AEDS v2 header、ArticleDetail V3 payload、CRC 与 strong ETag 校验，命中后只回填一次文件/L1 路径。
+`GET /api/binary/article/{id}.aeds` 的公开契约和安全链不变：请求仍先经过 `public_read`、RiskControl/PoW 与现有 L0 artifact 规则。文件/L0 article detail artifact miss 后，应用只允许执行 `public_article_projection(article_id PK)` 的单条 prepared 查询并直接返回已编码 AEDS frame；该读取不得 join article/category/tag/rights/proof，不得在请求时重新估算阅读时长或编码完整投影。投影 frame 必须同时通过 AEDS v2 header、受支持的 ArticleDetail payload（当前新写 `ARD4` V4，只读兼容 `ARD3` V3）、CRC 与 strong ETag 校验，命中后只回填一次文件/L1 路径。
 
 投影缺失或损坏是可恢复一致性故障：请求可进入旧 source query 兜底，但必须排队 repair；30 秒进程内 negative cache 抑制重复 DB miss，create/publish/restore/update/outbox replay 会同步清除该负缓存。`Database:PublicArticleProjection:Enabled=false` 是 reload-capable 的无需重启回退开关，只停止直接投影读取，不停止 outbox projector、旧查询、鉴权、`X-Fsus-*` headers、PoW 或统一 AEDS 错误语义。
 

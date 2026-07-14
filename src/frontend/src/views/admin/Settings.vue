@@ -38,7 +38,7 @@
           <section class="profile-section">
             <header class="mb-8">
               <h3 class="section-title">基础信息</h3>
-              <p class="section-caption mt-2">维护基础 URL、公开描述、关键词和社交预览图。</p>
+              <p class="section-caption mt-2">维护基础 URL、公开描述和社交预览图。</p>
             </header>
 
             <div class="max-w-4xl">
@@ -131,15 +131,6 @@
 
               <el-form-item label="SEO 描述 (Description)">
                 <el-input v-model="siteForm.description" name="siteDescription" type="textarea" :rows="4" maxlength="200" show-word-limit :disabled="siteFormDisabled" />
-              </el-form-item>
-
-              <el-form-item label="关键词 (Keywords)">
-                <el-input v-model="siteForm.keywords" name="siteKeywords" placeholder="英文逗号分隔" :disabled="siteFormDisabled" @blur="sanitizeKeywords" />
-                <div class="flex gap-3 mt-6 flex-wrap">
-                  <el-tag v-for="tag in computedKeywords" :key="tag" size="small">
-                    #{{ tag }}
-                  </el-tag>
-                </div>
               </el-form-item>
 
               <section class="mt-12 border-t border-[var(--fsusblog-panel-border)] pt-10" aria-label="浏览器与 PWA 资产">
@@ -643,7 +634,6 @@ const {
   displayUrl,
   resolveBrandAssetPreviewUrl,
   hasOgImage,
-  computedKeywords,
   normalizedBaseUrl,
   isSiteDirty,
   isComplianceDirty,
@@ -664,7 +654,6 @@ const {
   setImageUploadOptions,
   imageUploadRuntime,
   resumeImageUpload,
-  sanitizeKeywords,
   handleImageAction,
   handleBrandAssetUpload,
   handleFaviconSetGeneration,

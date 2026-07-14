@@ -221,6 +221,70 @@ public sealed class PublicAotDocumentComposerTests
         Assert.DoesNotContain("\"mainEntityOfPage\"", result);
     }
 
+    [Theory]
+    [InlineData(PublicPageKind.Home, "WebPage")]
+    [InlineData(PublicPageKind.About, "WebPage")]
+    [InlineData(PublicPageKind.Archive, "CollectionPage")]
+    [InlineData(PublicPageKind.Filter, "CollectionPage")]
+    public void BuildSeoHeadModel_EmitsOneSiteNodeAndCorrectPageEntity(PublicPageKind kind, string expectedPageType)
+    {
+        PublicSeoHeadModel model = PublicAotDocumentComposer.BuildSeoHeadModel(
+            kind,
+            "Page",
+            "Blog",
+            "Page description",
+            "https://example.com/page");
+
+        using JsonDocument document = JsonDocument.Parse(model.JsonLdGraph);
+        JsonElement[] graph = document.RootElement.GetProperty("@graph").EnumerateArray().ToArray();
+
+        Assert.Single(graph, static node => node.GetProperty("@type").GetString() == "WebSite");
+        Assert.Single(graph, node => node.GetProperty("@type").GetString() == expectedPageType);
+    }
+
+    [Theory]
+    [InlineData("/uploads/article-cover.webp", "https://example.com/uploads/article-cover.webp")]
+    [InlineData("javascript:alert(1)", "https://example.com/social/site.png")]
+    [InlineData("", "https://example.com/social/site.png")]
+    public void BuildSeoHeadModel_UsesOneValidatedAbsoluteSocialImage(string cover, string expected)
+    {
+        PublicSeoHeadModel model = PublicAotDocumentComposer.BuildSeoHeadModel(
+            PublicPageKind.ArticleDetail,
+            "Article",
+            "Blog",
+            "Description",
+            "https://example.com/article/42",
+            new PublicAotArticleSeoMetadata(
+                "Article",
+                "Description",
+                "https://example.com/article/42",
+                DateTime.UnixEpoch,
+                DateTime.UnixEpoch.AddDays(1),
+                "Author",
+                cover,
+                "Blog",
+                "/logo.svg"),
+            "/social/site.png");
+
+        using JsonDocument document = JsonDocument.Parse(model.JsonLdGraph);
+        JsonElement posting = document.RootElement.GetProperty("@graph").EnumerateArray()
+            .Single(static node => node.GetProperty("@type").GetString() == "BlogPosting");
+
+        Assert.Equal(expected, model.OpenGraph.ImageUrl);
+        Assert.Equal(expected, model.Twitter.ImageUrl);
+        Assert.Equal(expected, model.ArticleImageUrl);
+        Assert.Equal(expected, posting.GetProperty("image").GetString());
+    }
+
+    [Fact]
+    public void BuildSeoHeadTags_DoesNotEmitMetaKeywords()
+    {
+        string result = PublicAotDocumentComposer.BuildSeoHeadTags(
+            PublicPageKind.Home, "Home", "Blog", "Description", "https://example.com/");
+
+        Assert.DoesNotContain("name=\"keywords\"", result, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void BuildDeferredSpaBootScript_WithExplicitOverride_ReturnsScriptTag()
     {

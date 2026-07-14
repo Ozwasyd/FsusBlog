@@ -92,6 +92,7 @@ export interface ArticleDetailResponse {
   status?: ArticlePublishStatus;
   scheduledPublishAt?: string | null;
   publishedAt?: string | null;
+  updatedAt?: string | null;
   rights: ArticleRightsResponse;
 }
 

@@ -42,6 +42,9 @@ public class PodSizeCatalogTests
         AssertPositiveSize(PodSizeCatalog.ArticleDetailPod, nameof(PodSizeCatalog.ArticleDetailPod));
         AssertPositiveSize(PodSizeCatalog.ArticleDetailV3HeaderPod, nameof(PodSizeCatalog.ArticleDetailV3HeaderPod));
         AssertPositiveSize(PodSizeCatalog.ArticleDetailV3RecordPod, nameof(PodSizeCatalog.ArticleDetailV3RecordPod));
+        Assert.Equal(84, PodSizeCatalog.ArticleDetailV3RecordPod);
+        Assert.Equal(44, PodSizeCatalog.ArticleDetailV4HeaderPod);
+        Assert.Equal(92, PodSizeCatalog.ArticleDetailV4RecordPod);
         AssertPositiveSize(PodSizeCatalog.ArticleDetailTagV3RecordPod, nameof(PodSizeCatalog.ArticleDetailTagV3RecordPod));
         AssertPositiveSize(PodSizeCatalog.ArticleRightsV3RecordPod, nameof(PodSizeCatalog.ArticleRightsV3RecordPod));
         AssertPositiveSize(PodSizeCatalog.TagPod, nameof(PodSizeCatalog.TagPod));

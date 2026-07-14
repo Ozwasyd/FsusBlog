@@ -99,6 +99,43 @@ public readonly struct ArticleDetailV3RecordPod
 }
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV4HeaderPod
+{
+    public readonly uint Magic;
+    public readonly int Version;
+    public readonly uint Flags;
+    public readonly int ArticleRecordOffset;
+    public readonly int ArticleRecordLength;
+    public readonly int TagOffset;
+    public readonly int TagCount;
+    public readonly int RightsRecordOffset;
+    public readonly int RightsRecordLength;
+    public readonly int BlobOffset;
+    public readonly int BlobLength;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public readonly struct ArticleDetailV4RecordPod
+{
+    public readonly int Id;
+    public readonly int Views;
+    public readonly long CreateTimeUnixMs;
+    public readonly int CategoryId;
+    public readonly int Status;
+    public readonly long ScheduledPublishAtUnixMs;
+    public readonly long PublishedAtUnixMs;
+    public readonly long UpdatedAtUnixMs;
+    public readonly byte IsDeleted;
+    public readonly byte Reserved0;
+    public readonly ushort Reserved1;
+    public readonly Utf8SliceRef Title;
+    public readonly Utf8SliceRef Content;
+    public readonly Utf8SliceRef Summary;
+    public readonly Utf8SliceRef CoverImageUrl;
+    public readonly Utf8SliceRef CategoryName;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public readonly struct ArticleDetailTagV3RecordPod
 {
     public readonly int Id;

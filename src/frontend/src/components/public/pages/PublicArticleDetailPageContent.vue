@@ -7,8 +7,8 @@
     itemtype="https://schema.org/BlogPosting"
   >
     <meta itemprop="headline" :content="detailView.header.title" />
-    <meta itemprop="datePublished" :content="detailView.header.meta.isoTime" />
-    <meta itemprop="dateModified" :content="detailView.header.meta.isoTime" />
+    <meta itemprop="datePublished" :content="detailView.header.meta.published.isoTime" />
+    <meta v-if="detailView.header.meta.modified" itemprop="dateModified" :content="detailView.header.meta.modified.isoTime" />
     <meta itemprop="articleSection" :content="detailView.header.meta.categoryName" />
     <meta itemprop="description" :content="articleSummary || detailView.header.title" />
     <meta itemprop="author" :content="authorName || 'Fsu'" />

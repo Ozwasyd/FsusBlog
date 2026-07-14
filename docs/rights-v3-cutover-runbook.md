@@ -1,5 +1,7 @@
 # Rights V3 Cutover Runbook
 
+> Current protocol note: this is a historical Rights V3 cutover runbook. Current ArticleDetail writers emit `ARD4`/version 4 with the same Rights V3 record, and readers retain `ARD3`/version 3 compatibility.
+
 This runbook is the production cutover order for the no-compat Rights V3 public artifact model. ArticleDetail AEDS V3 embeds the frozen rights snapshot and proof pointer, PublicAOT renders from the same payload, and there is no separate public rights endpoint. Legacy public article artifacts must be cleared and rebuilt before traffic is trusted on the new build.
 
 ## Preconditions
@@ -17,6 +19,8 @@ Run these steps in order. Do not switch public traffic to the candidate until th
 3. apply DB migration by deploying the candidate image and letting startup run the Rights V3 migration. SchemaMigrationRunner clears legacy public artifacts that do not contain the V3 `ARD3` payload header; legacy public article artifacts must be cleared by SchemaMigrationRunner before the rebuild step.
 4. Run `recompute-article-rights` through the admin cache action endpoint. This replaces migration sentinel hashes, recomputes latest-revision rights hashes, and fills any missing latest public rights snapshot.
 5. Run `rebuild-article-detail-aeds-v3` with no `articleId` to rebuild all public ArticleDetail AEDS V3 artifacts. Use the optional `articleId` only for a targeted repair after the global pass has already completed.
+
+> Historical note: the maintenance action name is retained for rollout compatibility. Current execution writes `ARD4`/version 4 ArticleDetail records while preserving the Rights V3 record; readers continue to accept the historical `ARD3` output.
 6. rebuild PublicAOT output after ArticleDetail AEDS V3 is clean. Use the existing `aot-rebuild` cache action or the current PublicAOT rebuild job so HTML, metadata, and hydration rights are generated from the rebuilt V3 detail payloads.
 7. run verification tests:
 

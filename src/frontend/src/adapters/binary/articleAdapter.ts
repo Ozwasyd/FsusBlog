@@ -10,8 +10,11 @@ const ARTICLE_PAGE_CURSOR_ENVELOPE_MAGIC = 0x41535046;
 const ARTICLE_PAGE_CURSOR_ENVELOPE_VERSION = 1;
 const ARTICLE_DETAIL_V3_MAGIC = 0x41524433;
 const ARTICLE_DETAIL_V3_VERSION = 3;
+const ARTICLE_DETAIL_V4_MAGIC = 0x41524434;
+const ARTICLE_DETAIL_V4_VERSION = 4;
 const ARTICLE_DETAIL_V3_HEADER_SIZE = 44;
 const ARTICLE_DETAIL_V3_RECORD_SIZE = 84;
+const ARTICLE_DETAIL_V4_RECORD_SIZE = 92;
 const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12;
 const ARTICLE_RIGHTS_V3_RECORD_SIZE = 112;
 const ARTICLE_DETAIL_RIGHTS_KNOWN_FLAGS = (1 << 11) - 1;
@@ -344,16 +347,17 @@ export function mapArticleDetailFromPodPayload(payload: Uint8Array): ArticleDeta
   const rightsRecordLength = readInt32(payload, 32);
   const blobOffset = readInt32(payload, 36);
   const blobLength = readInt32(payload, 40);
+  const isV4 = magic === ARTICLE_DETAIL_V4_MAGIC && version === ARTICLE_DETAIL_V4_VERSION;
+  const isV3 = magic === ARTICLE_DETAIL_V3_MAGIC && version === ARTICLE_DETAIL_V3_VERSION;
   if (
-    magic !== ARTICLE_DETAIL_V3_MAGIC ||
-    version !== ARTICLE_DETAIL_V3_VERSION ||
+    (!isV3 && !isV4) ||
     flags !== 0 ||
     tagCount < 0 ||
     articleRecordOffset !== ARTICLE_DETAIL_V3_HEADER_SIZE ||
-    articleRecordLength !== ARTICLE_DETAIL_V3_RECORD_SIZE ||
+    articleRecordLength !== (isV4 ? ARTICLE_DETAIL_V4_RECORD_SIZE : ARTICLE_DETAIL_V3_RECORD_SIZE) ||
     rightsRecordLength !== ARTICLE_RIGHTS_V3_RECORD_SIZE
   ) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_v3_header_invalid');
+    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_header_invalid');
   }
 
   const tagBytes = tagCount * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE;
@@ -368,22 +372,23 @@ export function mapArticleDetailFromPodPayload(payload: Uint8Array): ArticleDeta
     !isRangeWithin(rightsRecordOffset, rightsRecordLength, payload.byteLength) ||
     !isRangeWithin(blobOffset, blobLength, payload.byteLength)
   ) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_v3_layout_invalid');
+    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_layout_invalid');
   }
 
   const article = payload.subarray(articleRecordOffset, articleRecordOffset + articleRecordLength);
   const rightsRecord = payload.subarray(rightsRecordOffset, rightsRecordOffset + rightsRecordLength);
   const blob = payload.subarray(blobOffset, blobOffset + blobLength);
-  const isDeletedFlag = article[40] ?? 0;
-  if (isDeletedFlag > 1 || !validateArticleDetailV3RecordSlices(article, blob)) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_v3_record_invalid');
+  const sliceOffset = isV4 ? 52 : 44;
+  const isDeletedFlag = article[isV4 ? 48 : 40] ?? 0;
+  if (isDeletedFlag > 1 || !validateArticleDetailRecordSlices(article, blob, sliceOffset)) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'article_detail_record_invalid');
   }
 
   const tags: ArticleDetailResponse['tags'] = [];
   for (let i = 0; i < tagCount; i += 1) {
     const recordOffset = tagOffset + i * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE;
     const tag = payload.subarray(recordOffset, recordOffset + ARTICLE_DETAIL_TAG_V3_RECORD_SIZE);
-    const name = readStrictSliceText(blob, tag, 4, 'article_detail_v3_tag_slice_invalid');
+    const name = readStrictSliceText(blob, tag, 4, 'article_detail_tag_slice_invalid');
     tags.push({
       id: readInt32(tag, 0),
       name
@@ -394,21 +399,22 @@ export function mapArticleDetailFromPodPayload(payload: Uint8Array): ArticleDeta
 
   return {
     id: readInt32(article, 0),
-    title: readStrictSliceText(blob, article, 44, 'article_detail_v3_title_slice_invalid'),
-    content: readStrictSliceText(blob, article, 52, 'article_detail_v3_content_slice_invalid'),
-    summary: readStrictSliceText(blob, article, 60, 'article_detail_v3_summary_slice_invalid'),
-    coverImageUrl: readStrictSliceText(blob, article, 68, 'article_detail_v3_cover_slice_invalid'),
+    title: readStrictSliceText(blob, article, sliceOffset, 'article_detail_title_slice_invalid'),
+    content: readStrictSliceText(blob, article, sliceOffset + 8, 'article_detail_content_slice_invalid'),
+    summary: readStrictSliceText(blob, article, sliceOffset + 16, 'article_detail_summary_slice_invalid'),
+    coverImageUrl: readStrictSliceText(blob, article, sliceOffset + 24, 'article_detail_cover_slice_invalid'),
     views: readInt32(article, 4),
     createTime: new Date(readInt64Number(article, 8)).toISOString(),
     category: {
       id: readInt32(article, 16),
-      name: readStrictSliceText(blob, article, 76, 'article_detail_v3_category_slice_invalid')
+      name: readStrictSliceText(blob, article, sliceOffset + 32, 'article_detail_category_slice_invalid')
     },
     tags,
     isDeleted: isDeletedFlag === 1,
     status: readInt32(article, 20) as ArticleDetailResponse['status'],
     scheduledPublishAt: unixMsToIsoOrNull(readInt64Number(article, 24)),
     publishedAt: unixMsToIsoOrNull(readInt64Number(article, 32)),
+    updatedAt: isV4 ? unixMsToIsoOrNull(readInt64Number(article, 40)) : null,
     rights
   };
 }
@@ -451,12 +457,12 @@ function readArticleRightsV3(record: Uint8Array, blob: Uint8Array): ArticleRight
   };
 }
 
-function validateArticleDetailV3RecordSlices(record: Uint8Array, blob: Uint8Array): boolean {
-  return isSliceWithinBlob(blob, record, 44) &&
-    isSliceWithinBlob(blob, record, 52) &&
-    isSliceWithinBlob(blob, record, 60) &&
-    isSliceWithinBlob(blob, record, 68) &&
-    isSliceWithinBlob(blob, record, 76);
+function validateArticleDetailRecordSlices(record: Uint8Array, blob: Uint8Array, offset: number): boolean {
+  return isSliceWithinBlob(blob, record, offset) &&
+    isSliceWithinBlob(blob, record, offset + 8) &&
+    isSliceWithinBlob(blob, record, offset + 16) &&
+    isSliceWithinBlob(blob, record, offset + 24) &&
+    isSliceWithinBlob(blob, record, offset + 32);
 }
 
 function validateArticleRightsV3RecordSlices(record: Uint8Array, blob: Uint8Array): boolean {

@@ -1,4 +1,5 @@
 #include "aeds_decode.hpp"
+#include "pod_views.hpp"
 
 #include <algorithm>
 #include <array>
@@ -165,35 +166,25 @@ void append_blob_slice(std::string& out,
 }
 
 int render_article_detail_html(const std::uint8_t* payload, std::uint32_t payload_len) {
-  if (payload == nullptr || payload_len == 0) {
+  fsusblog::pod::ParsedArticleDetail parsed{};
+  if (payload == nullptr || payload_len == 0 ||
+      !fsusblog::pod::parse_article_detail_payload(payload, payload_len, &parsed)) {
     set_error("payload_invalid");
     return 0;
   }
-
-  if (payload_len < 420u) {
-    set_error("payload_too_short");
-    return 0;
-  }
-
-  std::int32_t id = 0;
-  std::int32_t views = 0;
-  std::memcpy(&id, payload + 0, sizeof(std::int32_t));
-  std::memcpy(&views, payload + 4, sizeof(std::int32_t));
-  const std::uint8_t* category_name = payload + 16;
-  const std::uint8_t* title = payload + 148;
 
   g_last_html.clear();
   g_last_html.reserve(512);
   append_literal(g_last_html, "<article class=\"aot-panel\" data-aot-view=\"article-detail\">");
   append_literal(g_last_html, "<header class=\"aot-panel__header\"><h2>");
-  append_escaped_ascii(g_last_html, title, 256);
+  append_blob_slice(g_last_html, parsed.payload_ptr, parsed.payload_len, parsed.title.offset, parsed.title.length);
   append_literal(g_last_html, "</h2></header><section class=\"aot-panel__body\">");
   append_literal(g_last_html, "<p class=\"meta\">#");
-  append_int(g_last_html, id);
+  append_int(g_last_html, parsed.article_id);
   append_literal(g_last_html, " · ");
-  append_escaped_ascii(g_last_html, category_name, 128);
+  append_blob_slice(g_last_html, parsed.payload_ptr, parsed.payload_len, parsed.category_name.offset, parsed.category_name.length);
   append_literal(g_last_html, " · views ");
-  append_int(g_last_html, views);
+  append_int(g_last_html, parsed.views);
   append_literal(g_last_html, "</p>");
   append_literal(g_last_html, "<button class=\"aot-action-button\" data-aot-action=\"force-binary\">binary</button>");
   append_literal(g_last_html, "</section></article>");

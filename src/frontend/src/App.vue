@@ -34,8 +34,7 @@ const headConfig = computed(() => ({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1.0' },
     ...(isPublicShellRouteName(route.name) ? [] : [
-      { name: 'description', content: siteStore.siteInfo.description },
-      { name: 'keywords', content: siteStore.siteInfo.keywords }
+      { name: 'description', content: siteStore.siteInfo.description }
     ])
   ]
 }))

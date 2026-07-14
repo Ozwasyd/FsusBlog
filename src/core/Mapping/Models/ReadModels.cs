@@ -66,6 +66,7 @@ public readonly record struct ArticleDetailCoreModel(
     int Status = 2,
     DateTime? ScheduledPublishAt = null,
     DateTime? PublishedAt = null,
+    DateTime? UpdatedAt = null,
     ArticleRightsCoreModel Rights = default);
 
 public readonly record struct PopularArticleCoreModel(PopularArticlePod Pod, int Id, string Title, int Views);

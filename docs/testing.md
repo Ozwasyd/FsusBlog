@@ -142,7 +142,7 @@ xUnit 通过 `tests/backend/xunit.runner.json` 固定 `stopOnFail=false`，单�
 
 拓扑校准使用 `node tools/test/calibrate-backend-production-topology.mjs --fresh`；默认比较经机器 CPU、内存与 planning unit 裁剪后的 `2/4/6/8/12` testhost、`1.5/2/3` partition multiplier 和 uniform/weighted processor allocation。每个 candidate 默认独立执行三次完整 `./tools/test.sh production --fresh`，不能复用上一轮 pass、TRX、coverage、checkpoint 或 release evidence；完成后输出 `.tmp/diagnostics/backend-topology-calibration.json`，只允许把中位数/方差用于选择后续 topology，选出的配置仍须重新跑 fresh release validation。完整命令、指标定义、平台降级与销毁规则见 [`testing/backend-production-topology-calibration.md`](testing/backend-production-topology-calibration.md)。
 
-审计、运维 readiness 与 PublicAOT artifact 测试按可观察职责拆分，不再由混合 `*ContractTests` 读取实现源码。审计证据分别由 `AuditLogStoreTests`（结构化落库、批写与 chain tail）、`AuditLogWriterWorkerTests` / `AuditFallbackWriterBehaviorTests`（失败降级与 durable fallback）、`AuditTamperEvidenceBehaviorTests`（canonical hash/MAC、固定长度校验、跨 culture chain ID）和 `AuditProjectionBehaviorTests`（PII disclosure 决策）拥有。运维证据由 `ProductionReadinessCoordinatorBehaviorTests` 验证并行启动、取消与多结果保留，`BackupRestoreScriptBehaviorTests` 通过临时 shell harness 实际调用 `pg_dump` / `pg_restore` 替身并覆盖连接串及阻断路径，`AdminOperationsBehaviorTests` 验证危险操作的 diff/MFA 策略和 typed confirmation。PublicAOT 的 ArticleDetail V3 文件写读、30 秒内存 TTL、legacy 拒绝和磁盘清理由 `ArticleDetailAedsArtifactStoreBehaviorTests` 负责；sidecar 与 cache invalidation 的可观察效果继续由 `PublicAotFileShellCacheTests`、`PublicAotDocumentServiceTests` 和 `PublicAotInvalidationTrackerTests` 负责。实现选择、SQL 形状与吞吐预算只由静态治理或 #1042 benchmark lane 证明，不回流为 source-string 单元测试。
+审计、运维 readiness 与 PublicAOT artifact 测试按可观察职责拆分，不再由混合 `*ContractTests` 读取实现源码。审计证据分别由 `AuditLogStoreTests`（结构化落库、批写与 chain tail）、`AuditLogWriterWorkerTests` / `AuditFallbackWriterBehaviorTests`（失败降级与 durable fallback）、`AuditTamperEvidenceBehaviorTests`（canonical hash/MAC、固定长度校验、跨 culture chain ID）和 `AuditProjectionBehaviorTests`（PII disclosure 决策）拥有。运维证据由 `ProductionReadinessCoordinatorBehaviorTests` 验证并行启动、取消与多结果保留，`BackupRestoreScriptBehaviorTests` 通过临时 shell harness 实际调用 `pg_dump` / `pg_restore` 替身并覆盖连接串及阻断路径，`AdminOperationsBehaviorTests` 验证危险操作的 diff/MFA 策略和 typed confirmation。PublicAOT 的当前 ArticleDetail V4 文件写读、V3 只读兼容、30 秒内存 TTL、retired payload 拒绝和磁盘清理由 `ArticleDetailAedsArtifactStoreBehaviorTests` 负责；sidecar 与 cache invalidation 的可观察效果继续由 `PublicAotFileShellCacheTests`、`PublicAotDocumentServiceTests` 和 `PublicAotInvalidationTrackerTests` 负责。实现选择、SQL 形状与吞吐预算只由静态治理或 #1042 benchmark lane 证明，不回流为 source-string 单元测试。
 
 ### Frontend fast split
 
@@ -167,7 +167,7 @@ node tools/run-test-matrix.mjs aggregate fast-summary --dry-run
 
 ### Rights V3 test matrix
 
-Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` 承载，属于 `integration-runtime` 证据，不并入 fast gate。它会运行后端 schema migration、canonical hash、write path、V3 codec、projector、proof pipeline、ArticleDetail artifact contract 和 preencoded ArticleDetail artifact hot path 测试，再运行前端 V3 decode、API/view contracts、admin editor flow、public article rendering、PublicAOT hydration 与 code-copy gating 的 Vitest 文件。
+Rights V3 的完整验收矩阵由 `tools/test/lanes/rights-v3-test-matrix.sh` 承载，属于 `integration-runtime` 证据，不并入 fast gate。它会运行后端 schema migration、canonical hash、write path、当前 ArticleDetail V4 codec 与 V3 只读兼容、projector、proof pipeline、ArticleDetail artifact contract 和 preencoded artifact hot path 测试，再运行前端 V4/V3 decode、API/view contracts、admin editor flow、public article rendering、PublicAOT hydration 与 code-copy gating 的 Vitest 文件。
 
 本地复现：
 
@@ -363,7 +363,7 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj \
 **前置条件**：`http://127.0.0.1:8080` 可访问（Release 构建容器）
 
 **覆盖内容**（主要通过 `npm run check:*` 系列）：
-- `check:public-seo-smoke` — 公开页 SEO 标签（canonical、description、OpenGraph、Twitter card、feed discovery、JSON-LD `@graph`/`WebSite`/`BreadcrumbList`/`BlogPosting`），并断言 noindex `/search` 不生成 `SearchAction`
+- `check:public-seo-smoke` — 公开页 SEO 标签（canonical、页面差异化纯文本 description、OpenGraph/Twitter/JSON-LD 图片一致性、feed discovery、JSON-LD `@graph` 中单一 `WebSite` 与正确 `WebPage`/`CollectionPage`/`BlogPosting`），并断言 noindex `/search` 不生成 `SearchAction`、任何 HTML 不生成 `meta keywords`
 - `check:public-hydration` — AOT 首屏到 SPA hydration 无闪白，并核验文章详情 hydration/bootstrap 均携带 `relatedReading`
 - `check:aot` — AOT 契约合规（`PublicAotShellEntryContract` 格式验证）
 - `check:error-code-alignment` — 前后端错误码枚举一致性
@@ -797,6 +797,7 @@ tools/operations/cleanup-retention.sh
 - `/api/binary/**` 在公开读、匿名拒绝、admin 拒绝场景下状态与 AEDS error frame 一致。
 - `check:distribution-version-coherence` 覆盖文章生命周期状态：draft、scheduled、archived 必须只在 admin 状态列表和 admin detail 可见，published 才能进入 public list/detail、feed、sitemap、related-reading、PublicAOT 与 search index；delete/restore/permanent-delete 继续验证回收站语义。
 - `BlogDistributionArtifactTests` 使用真实 PostgreSQL 创建 55 篇公开文章和私有负例，解析最终 RSS/JSON Feed/sitemap XML，证明 Feed 保持 50、sitemap 全量、正文更新时间一致、空站不伪造当前时间、诊断计数来自产物，并用 45,001 URL fixture 验证 sitemap index/子文档容量边界。`PublicOriginPolicyTests` 与 lifecycle production case 覆盖配置、持久 SEO 和 artifact origin 冲突 fail-closed。
+- `PublicAotDocumentServiceTests` 覆盖无摘要 Markdown 到纯文本、Unicode/entity/句子安全截断和不同页面 description；`PublicAotDocumentComposerTests` 覆盖页面 schema 类型、单一 `WebSite`、封面/回退图的 OG/Twitter/JSON-LD 一致与无 keywords；`articleDetailMetadata.test.ts` 覆盖可见发布时间、实质更新时间及无重复更新时间。分发测试继续证明 sitemap/Feed 使用相同的 `article_body.updated_at`，评论和浏览量变化不能改变它。
 - PoW、MFA、Passkey、session refresh/revoke/logout、RBAC 权限矩阵均无绕过。
 - 安全头、CORS、auth/PoW no-store、Cookie 安全属性、畸形 AEDS frame、notification stream 握手失败和攻击矩阵均无绕过。
 - OWASP ZAP baseline 不得产生 FAIL 级告警；报告必须保留为发布门控 artifact。

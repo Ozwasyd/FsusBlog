@@ -6,19 +6,20 @@ namespace fsusblog::pod {
 
 namespace {
 
-constexpr std::size_t kArticleLifecycleTailSize =
-    sizeof(std::int32_t) + sizeof(std::int64_t) + sizeof(std::int64_t);
+constexpr std::uint32_t kArticleDetailV3Magic = 0x41524433u;
+constexpr std::int32_t kArticleDetailV3Version = 3;
+constexpr std::uint32_t kArticleDetailV4Magic = 0x41524434u;
+constexpr std::int32_t kArticleDetailV4Version = 4;
+constexpr std::int32_t kArticleDetailTagRecordSize = 12;
+constexpr std::int32_t kArticleRightsV3RecordSize = 112;
 
-bool read_i32(const std::uint8_t* src, std::size_t len, std::size_t* offset, std::int32_t* out) {
-  if (*offset + sizeof(std::int32_t) > len) {
-    return false;
-  }
+bool valid_range(std::int32_t offset, std::int32_t length, std::size_t total) {
+  return offset >= 0 && length >= 0 && static_cast<std::size_t>(offset) <= total &&
+         static_cast<std::size_t>(length) <= total - static_cast<std::size_t>(offset);
+}
 
-  std::int32_t value = 0;
-  std::memcpy(&value, src + *offset, sizeof(std::int32_t));
-  *offset += sizeof(std::int32_t);
-  *out = value;
-  return true;
+bool valid_slice(const Utf8SliceRef& slice, std::int32_t blob_length) {
+  return valid_range(slice.offset, slice.length, static_cast<std::size_t>(blob_length));
 }
 
 } // namespace
@@ -28,70 +29,81 @@ bool parse_article_detail_payload(const std::uint8_t* payload, std::size_t paylo
     return false;
   }
 
-  if (payload_len < sizeof(ArticleDetailPod) + sizeof(std::int32_t) + sizeof(std::int32_t) + 1u) {
+  if (payload_len < sizeof(ArticleDetailV4HeaderPod) + sizeof(ArticleDetailV3RecordPod) +
+                        static_cast<std::size_t>(kArticleRightsV3RecordSize)) {
     return false;
   }
 
-  const auto* pod = reinterpret_cast<const ArticleDetailPod*>(payload);
-  std::size_t offset = sizeof(ArticleDetailPod);
-
-  std::int32_t tag_count = 0;
-  if (!read_i32(payload, payload_len, &offset, &tag_count) || tag_count < 0) {
+  ArticleDetailV4HeaderPod header{};
+  std::memcpy(&header, payload, sizeof(header));
+  const bool is_v4 = header.magic == kArticleDetailV4Magic && header.version == kArticleDetailV4Version;
+  const bool is_v3 = header.magic == kArticleDetailV3Magic && header.version == kArticleDetailV3Version;
+  const std::int32_t expected_record_size = is_v4
+      ? static_cast<std::int32_t>(sizeof(ArticleDetailV4RecordPod))
+      : static_cast<std::int32_t>(sizeof(ArticleDetailV3RecordPod));
+  if ((!is_v3 && !is_v4) ||
+      header.flags != 0u || header.tag_count < 0 ||
+      header.article_record_offset != static_cast<std::int32_t>(sizeof(ArticleDetailV4HeaderPod)) ||
+      header.article_record_length != expected_record_size ||
+      header.rights_record_length != kArticleRightsV3RecordSize) {
     return false;
   }
 
-  const std::size_t tags_bytes = static_cast<std::size_t>(tag_count) * sizeof(TagPod);
-  if (offset + tags_bytes + sizeof(std::int32_t) + 1u > payload_len) {
+  if (header.tag_count > static_cast<std::int32_t>(payload_len / static_cast<std::size_t>(kArticleDetailTagRecordSize))) {
     return false;
   }
 
-  offset += tags_bytes;
-
-  std::int32_t text_blob_len = 0;
-  if (!read_i32(payload, payload_len, &offset, &text_blob_len) || text_blob_len < 0) {
+  const std::int32_t tag_bytes = header.tag_count * kArticleDetailTagRecordSize;
+  if (header.tag_offset != header.article_record_offset + header.article_record_length ||
+      header.rights_record_offset != header.tag_offset + tag_bytes ||
+      header.blob_offset != header.rights_record_offset + header.rights_record_length ||
+      !valid_range(header.article_record_offset, header.article_record_length, payload_len) ||
+      !valid_range(header.tag_offset, tag_bytes, payload_len) ||
+      !valid_range(header.rights_record_offset, header.rights_record_length, payload_len) ||
+      !valid_range(header.blob_offset, header.blob_length, payload_len) ||
+      static_cast<std::size_t>(header.blob_offset) + static_cast<std::size_t>(header.blob_length) != payload_len) {
     return false;
   }
 
-  const std::size_t text_blob_offset = offset;
-  offset += static_cast<std::size_t>(text_blob_len);
-  if (offset > payload_len) {
+  ArticleDetailV4RecordPod article{};
+  if (is_v4) {
+    std::memcpy(&article, payload + header.article_record_offset, sizeof(article));
+  } else {
+    ArticleDetailV3RecordPod legacy{};
+    std::memcpy(&legacy, payload + header.article_record_offset, sizeof(legacy));
+    article.id = legacy.id;
+    article.views = legacy.views;
+    article.create_time_unix_ms = legacy.create_time_unix_ms;
+    article.category_id = legacy.category_id;
+    article.status = legacy.status;
+    article.scheduled_publish_at_unix_ms = legacy.scheduled_publish_at_unix_ms;
+    article.published_at_unix_ms = legacy.published_at_unix_ms;
+    article.updated_at_unix_ms = 0;
+    article.is_deleted = legacy.is_deleted;
+    article.title = legacy.title;
+    article.content = legacy.content;
+    article.summary = legacy.summary;
+    article.cover_image_url = legacy.cover_image_url;
+    article.category_name = legacy.category_name;
+  }
+
+  if (article.is_deleted > 1u || !valid_slice(article.title, header.blob_length) ||
+      !valid_slice(article.content, header.blob_length) || !valid_slice(article.summary, header.blob_length) ||
+      !valid_slice(article.cover_image_url, header.blob_length) || !valid_slice(article.category_name, header.blob_length)) {
     return false;
   }
 
-  const std::size_t remaining_after_text = payload_len - offset;
-  if (remaining_after_text == 1u || remaining_after_text == 1u + kArticleLifecycleTailSize) {
-    out_result->article_id = pod->id;
-    out_result->views = pod->views;
-    out_result->create_time_unix_ms = pod->create_time_unix_ms;
-    out_result->category_id = pod->category.id;
-    out_result->tag_count = tag_count;
-    out_result->payload_ptr = payload + text_blob_offset;
-    out_result->payload_len = text_blob_len;
-    return true;
-  }
-
-  std::int32_t cover_blob_len = 0;
-  if (!read_i32(payload, payload_len, &offset, &cover_blob_len) || cover_blob_len < 0) {
-    return false;
-  }
-
-  if (offset + static_cast<std::size_t>(cover_blob_len) + 1u > payload_len) {
-    return false;
-  }
-
-  offset += static_cast<std::size_t>(cover_blob_len);
-  const std::size_t remaining_after_cover = payload_len - offset;
-  if (remaining_after_cover != 1u && remaining_after_cover != 1u + kArticleLifecycleTailSize) {
-    return false;
-  }
-
-  out_result->article_id = pod->id;
-  out_result->views = pod->views;
-  out_result->create_time_unix_ms = pod->create_time_unix_ms;
-  out_result->category_id = pod->category.id;
-  out_result->tag_count = tag_count;
-  out_result->payload_ptr = payload + text_blob_offset;
-  out_result->payload_len = text_blob_len;
+  out_result->article_id = article.id;
+  out_result->views = article.views;
+  out_result->create_time_unix_ms = article.create_time_unix_ms;
+  out_result->category_id = article.category_id;
+  out_result->tag_count = header.tag_count;
+  out_result->published_at_unix_ms = article.published_at_unix_ms;
+  out_result->updated_at_unix_ms = article.updated_at_unix_ms;
+  out_result->title = article.title;
+  out_result->category_name = article.category_name;
+  out_result->payload_ptr = payload + header.blob_offset;
+  out_result->payload_len = header.blob_length;
   return true;
 }
 

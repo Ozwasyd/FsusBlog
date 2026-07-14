@@ -1,5 +1,5 @@
-﻿using System.Buffers;
-using System.Runtime.CompilerServices;
+﻿using System.Globalization;
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace FsusBlog.Server.Helpers;
@@ -22,105 +22,64 @@ public static partial class ImageHelper
     private static partial Regex MarkdownIllustrationRegex();
 
     /// <summary>
-    /// 匹配 Markdown 常用标记的正则 (源生成器预编译)
-    /// 用于将 Markdown 转换为纯文本摘要
-    /// 注：移除了无意义的 RegexOptions.Compiled，消除编译器警告
-    /// </summary>
-    [GeneratedRegex(@"!\[.*?\]\(.*?\)|\[.*?\]\(.*?\)|<.*?>|#+|\*|_|`|>|---|\n")]
-    private static partial Regex MarkdownStripRegex();
+    [GeneratedRegex(@"(?s)(?:```.*?```|~~~.*?~~~)")]
+    private static partial Regex MarkdownFenceRegex();
+
+    [GeneratedRegex(@"!\[[^\]]*\]\([^)]*\)")]
+    private static partial Regex MarkdownImageRegex();
+
+    [GeneratedRegex(@"\[([^\]]+)\]\([^)]*\)")]
+    private static partial Regex MarkdownLinkRegex();
+
+    [GeneratedRegex(@"<[^>]+>")]
+    private static partial Regex HtmlTagRegex();
+
+    [GeneratedRegex(@"(?m)^[\t ]{0,3}(?:#{1,6}|>|[-+*]|\d+[.)])[\t ]+|[*_~`]+")]
+    private static partial Regex MarkdownSyntaxRegex();
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRegex();
 
     /// <summary>
-    /// 高性能 Markdown 内容清除器 (物理级 O(maxLength) 优化)
+    /// 将 Markdown/HTML 转为摘要纯文本。保留链接文本，移除图片和 fenced code，
+    /// 解码 HTML entity，并在句子、单词和 Unicode grapheme 边界安全截断。
     /// </summary>
     public static string StripMarkdown(string content, int maxLength)
     {
-        if (string.IsNullOrWhiteSpace(content) || maxLength <= 0) return string.Empty;
-
-        var span = content.AsSpan();
-
-        // 缓冲区的最大长度不可能超过原文长度或需要的最大截断长度
-        int rentLength = Math.Min(maxLength, content.Length);
-        char[] buffer = ArrayPool<char>.Shared.Rent(rentLength);
-
-        try
+        if (string.IsNullOrWhiteSpace(content) || maxLength <= 0)
         {
-            int bufferIndex = 0;
-            int lastMatchEnd = 0;
-
-            // 核心优化 1：流式扫描。EnumerateMatches 是极其廉价的 ref struct
-            foreach (var match in MarkdownStripRegex().EnumerateMatches(span))
-            {
-                // 核心优化 2：短路求值。如果摘要已达到 maxLength，立即停止后续几十 KB 正文的正则扫描！
-                if (bufferIndex >= maxLength) break;
-
-                // 提取两个正则匹配项之间的正常文本
-                ReadOnlySpan<char> textBetween = span[lastMatchEnd..match.Index];
-                AppendAndCollapseSpaces(textBetween, buffer, ref bufferIndex, maxLength);
-
-                if (bufferIndex >= maxLength) break;
-
-                // 模拟原逻辑 `.Replace(content, " ")`，为被正则剔除的部分补上一个空格
-                // 同时模拟 `.Replace("  ", " ")` 确保它不会形成连续空格
-                if (bufferIndex > 0 && buffer[bufferIndex - 1] != ' ')
-                {
-                    buffer[bufferIndex++] = ' ';
-                }
-
-                lastMatchEnd = match.Index + match.Length;
-            }
-
-            // 追加最后一个匹配项之后的尾部文本（如果还没达到 maxLength）
-            if (bufferIndex < maxLength && lastMatchEnd < span.Length)
-            {
-                ReadOnlySpan<char> textAfter = span[lastMatchEnd..];
-                AppendAndCollapseSpaces(textAfter, buffer, ref bufferIndex, maxLength);
-            }
-
-            // 清理尾部多余的空格
-            while (bufferIndex > 0 && buffer[bufferIndex - 1] == ' ')
-            {
-                bufferIndex--;
-            }
-
-            // 清理头部多余的空格
-            int startIndex = 0;
-            while (startIndex < bufferIndex && buffer[startIndex] == ' ')
-            {
-                startIndex++;
-            }
-
-            return new string(buffer, startIndex, bufferIndex - startIndex);
+            return string.Empty;
         }
-        finally
+
+        string plain = MarkdownFenceRegex().Replace(content, " ");
+        plain = MarkdownImageRegex().Replace(plain, " ");
+        plain = MarkdownLinkRegex().Replace(plain, "$1");
+        plain = WebUtility.HtmlDecode(plain);
+        plain = HtmlTagRegex().Replace(plain, " ");
+        plain = MarkdownSyntaxRegex().Replace(plain, string.Empty);
+        plain = WhitespaceRegex().Replace(plain, " ").Trim();
+
+        int[] graphemes = StringInfo.ParseCombiningCharacters(plain);
+        if (graphemes.Length <= maxLength)
         {
-            ArrayPool<char>.Shared.Return(buffer);
+            return plain;
         }
-    }
 
-    /// <summary>
-    /// 内联辅助方法：将源文本追加到缓冲区，并实时将所有类型连续的空白字符折叠为单个标准空格
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void AppendAndCollapseSpaces(ReadOnlySpan<char> source, char[] buffer, ref int bufferIndex, int maxLength)
-    {
-        for (int i = 0; i < source.Length; i++)
+        int contentBudget = Math.Max(1, maxLength - 1);
+        int limit = graphemes[contentBudget];
+        int sentenceEnd = plain.LastIndexOfAny(['。', '！', '？', '.', '!', '?', '；', ';'], limit - 1, limit);
+        if (sentenceEnd >= limit / 2)
         {
-            if (bufferIndex >= maxLength) break;
-
-            char c = source[i];
-            if (char.IsWhiteSpace(c))
-            {
-                // 仅当上一个字符不是空格时，才写入空格，实现原地连续空格折叠
-                if (bufferIndex > 0 && buffer[bufferIndex - 1] != ' ')
-                {
-                    buffer[bufferIndex++] = ' ';
-                }
-            }
-            else
-            {
-                buffer[bufferIndex++] = c;
-            }
+            return plain[..(sentenceEnd + 1)].TrimEnd();
         }
+
+        int wordBoundary = plain.LastIndexOf(' ', limit - 1, limit);
+        if (wordBoundary >= limit / 2)
+        {
+            limit = wordBoundary;
+        }
+
+        return string.Concat(plain.AsSpan(0, limit).TrimEnd(), "…");
     }
 
     public static List<string> ExtractIllustrationUrls(string content)

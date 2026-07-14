@@ -30,6 +30,8 @@ public static class PodSizeCatalog
     public static readonly int ArticleDetailPod = PodContractValidation.SizeOf<ArticleDetailPod>();
     public static readonly int ArticleDetailV3HeaderPod = PodContractValidation.SizeOf<ArticleDetailV3HeaderPod>();
     public static readonly int ArticleDetailV3RecordPod = PodContractValidation.SizeOf<ArticleDetailV3RecordPod>();
+    public static readonly int ArticleDetailV4HeaderPod = PodContractValidation.SizeOf<ArticleDetailV4HeaderPod>();
+    public static readonly int ArticleDetailV4RecordPod = PodContractValidation.SizeOf<ArticleDetailV4RecordPod>();
     public static readonly int ArticleDetailTagV3RecordPod = PodContractValidation.SizeOf<ArticleDetailTagV3RecordPod>();
     public static readonly int ArticleRightsV3RecordPod = PodContractValidation.SizeOf<ArticleRightsV3RecordPod>();
     public static readonly int FeaturedArticlePod = PodContractValidation.SizeOf<FeaturedArticlePod>();

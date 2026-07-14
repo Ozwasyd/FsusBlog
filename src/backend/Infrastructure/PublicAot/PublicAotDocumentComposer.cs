@@ -81,8 +81,11 @@ internal static class PublicAotDocumentComposer
             ? title
             : $"{title} - {siteTitle}";
         string siteRoot = ResolveSiteRoot(canonicalUrl);
-        string jsonLd = BuildJsonLd(kind, title, fullTitle, siteTitle, description, canonicalUrl, siteRoot, articleSeo);
-        string? imageUrl = NullIfEmpty(articleSeo?.ImageUrl) ?? NullIfEmpty(defaultImageUrl);
+        string? imageUrl = NullIfEmpty(ResolveSocialImageUrl(siteRoot, articleSeo?.ImageUrl, defaultImageUrl));
+        PublicAotArticleSeoMetadata? normalizedArticleSeo = articleSeo is null
+            ? null
+            : articleSeo with { ImageUrl = imageUrl ?? string.Empty };
+        string jsonLd = BuildJsonLd(kind, title, fullTitle, siteTitle, description, canonicalUrl, siteRoot, normalizedArticleSeo);
         var model = new PublicSeoHeadModel
         {
             DocumentTitle = fullTitle,
@@ -180,7 +183,7 @@ internal static class PublicAotDocumentComposer
             }
             else
             {
-                WritePageJsonLd(writer, fullTitle, description, canonicalUrl);
+                WritePageJsonLd(writer, kind, fullTitle, description, canonicalUrl);
             }
 
             writer.WriteEndArray();
@@ -231,10 +234,10 @@ internal static class PublicAotDocumentComposer
         writer.WriteEndObject();
     }
 
-    private static void WritePageJsonLd(Utf8JsonWriter writer, string fullTitle, string description, string canonicalUrl)
+    private static void WritePageJsonLd(Utf8JsonWriter writer, PublicPageKind kind, string fullTitle, string description, string canonicalUrl)
     {
         writer.WriteStartObject();
-        writer.WriteString("@type", "WebSite");
+        writer.WriteString("@type", kind is PublicPageKind.Archive or PublicPageKind.Filter ? "CollectionPage" : "WebPage");
         writer.WriteString("name", fullTitle);
         writer.WriteString("url", canonicalUrl);
         writer.WriteString("description", description);
@@ -436,18 +439,56 @@ internal static class PublicAotDocumentComposer
         }
 
         string trimmed = value.Trim();
-        if (Uri.TryCreate(trimmed, UriKind.Absolute, out Uri? absolute) &&
-            (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps))
+        if (trimmed.StartsWith("/", StringComparison.Ordinal) &&
+            !trimmed.StartsWith("//", StringComparison.Ordinal) &&
+            Uri.TryCreate(siteRoot, UriKind.Absolute, out Uri? rootedSite))
         {
-            return absolute.ToString();
+            return new Uri(rootedSite, trimmed).ToString();
         }
 
-        if (!Uri.TryCreate(siteRoot, UriKind.Absolute, out Uri? root))
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out Uri? absolute))
         {
-            return trimmed;
+            return absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps
+                ? absolute.ToString()
+                : string.Empty;
         }
 
-        return new Uri(root, trimmed.StartsWith("/", StringComparison.Ordinal) ? trimmed : "/" + trimmed).ToString();
+        if (trimmed.Contains(':', StringComparison.Ordinal) ||
+            !Uri.TryCreate(siteRoot, UriKind.Absolute, out Uri? root))
+        {
+            return string.Empty;
+        }
+
+        return new Uri(root, "/" + trimmed).ToString();
+    }
+
+    private static string ResolveSocialImageUrl(string siteRoot, string? preferred, string? fallback)
+    {
+        string preferredUrl = MakeAbsoluteUrl(siteRoot, preferred ?? string.Empty);
+        if (IsSupportedSocialImageUrl(preferredUrl))
+        {
+            return preferredUrl;
+        }
+
+        string fallbackUrl = MakeAbsoluteUrl(siteRoot, fallback ?? string.Empty);
+        return IsSupportedSocialImageUrl(fallbackUrl) ? fallbackUrl : string.Empty;
+    }
+
+    private static bool IsSupportedSocialImageUrl(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            return false;
+        }
+
+        string extension = Path.GetExtension(uri.AbsolutePath);
+        return extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".webp", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".avif", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".gif", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ResolveSiteRoot(string canonicalUrl)

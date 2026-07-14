@@ -180,7 +180,7 @@ function assertJsonLdCoherence(body, item, canonicalUrl, ogUrl) {
     assert(blogPosting.dateModified, `[${item.name}] BlogPosting missing dateModified`);
     assert(blogPosting.author?.name, `[${item.name}] BlogPosting missing author.name`);
     assert(!JSON.stringify(blogPosting).match(/draft|moderation|admin/i), `[${item.name}] BlogPosting leaks private article state`);
-    return;
+    return blogPosting;
   }
 
   const jsonText = JSON.stringify(jsonLd);
@@ -188,6 +188,30 @@ function assertJsonLdCoherence(body, item, canonicalUrl, ogUrl) {
   assert(!jsonText.includes('"headline"'), `[${item.name}] static page must not emit article headline`);
   assert(!jsonText.includes('"datePublished"'), `[${item.name}] static page must not emit article dates`);
   assert(!jsonText.includes('"mainEntityOfPage"'), `[${item.name}] static page must not emit article mainEntityOfPage`);
+  assert(
+    findGraphNode(jsonLd, 'WebPage') || findGraphNode(jsonLd, 'CollectionPage'),
+    `[${item.name}] JSON-LD missing WebPage/CollectionPage node`
+  );
+  return null;
+}
+
+async function assertSocialImageRuntime(body, item, blogPosting) {
+  assert(!/<meta\s+name="keywords"/i.test(body), `[${item.name}] legacy meta keywords must not render`);
+  const ogImage = readMetaContent(body, /<meta property="og:image" content="([^"]+)"/, `${item.name} og:image`);
+  const twitterImage = readMetaContent(body, /<meta name="twitter:image" content="([^"]+)"/, `${item.name} twitter:image`);
+  assert(ogImage === twitterImage, `[${item.name}] OG/Twitter image URL mismatch`);
+  if (blogPosting) {
+    const jsonImage = typeof blogPosting.image === 'string' ? blogPosting.image : blogPosting.image?.url;
+    assert(jsonImage === ogImage, `[${item.name}] OG/Twitter/BlogPosting image URL mismatch`);
+  }
+
+  const response = await fetchWithTimeout(new URL(ogImage, baseUrl).toString(), {
+    headers: { 'User-Agent': 'Mozilla/5.0 (FsusBlog Social Image Smoke)', Accept: 'image/*' }
+  }, requestTimeoutMs);
+  assert(response.ok, `[${item.name}] social image expected 2xx, got ${response.status}`);
+  const contentType = response.headers.get('content-type') || '';
+  assert(contentType.toLowerCase().startsWith('image/'), `[${item.name}] social image expected image/*, got ${contentType || 'none'}`);
+  await response.arrayBuffer();
 }
 
 async function fetchPublicText(path, accept = 'text/plain') {
@@ -375,7 +399,8 @@ async function runCheck(item) {
   assertSameOrigin(canonicalUrl, openGraphUrl, `[${item.name}] OG URL`);
   assert(!canonicalUrl.search, `[${item.name}] canonical should not include query`);
   assert(!openGraphUrl.search, `[${item.name}] og:url should not include query`);
-  assertJsonLdCoherence(body, item, canonicalUrl, openGraphUrl);
+  const blogPosting = assertJsonLdCoherence(body, item, canonicalUrl, openGraphUrl);
+  await assertSocialImageRuntime(body, item, blogPosting);
 
   if (item.name === 'article_detail') {
     await assertDistributionCanonicalCoherence(canonical, body);

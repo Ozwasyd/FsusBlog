@@ -55,6 +55,7 @@ public sealed class ImageHelperTests
     {
         string result = ImageHelper.StripMarkdown("[click here](https://example.com)", 200);
         Assert.DoesNotContain("[click here]", result);
+        Assert.Equal("click here", result);
     }
 
     [Fact]
@@ -95,6 +96,33 @@ public sealed class ImageHelperTests
     {
         string result = ImageHelper.StripMarkdown("`code snippet`", 100);
         Assert.DoesNotContain("`", result);
+    }
+
+    [Fact]
+    public void StripMarkdown_RemovesFencedCodeAndDecodesHtmlEntities()
+    {
+        string result = ImageHelper.StripMarkdown("Intro &amp; note.\n```csharp\nthrow new Exception();\n```\nAfter", 200);
+
+        Assert.Equal("Intro & note. After", result);
+        Assert.DoesNotContain("Exception", result);
+    }
+
+    [Fact]
+    public void StripMarkdown_DecodesEncodedHtmlBeforeRemovingTags()
+    {
+        string result = ImageHelper.StripMarkdown("&lt;b&gt;text &amp; more&lt;/b&gt;", 200);
+
+        Assert.Equal("text & more", result);
+        Assert.DoesNotContain("<b>", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void StripMarkdown_TruncatesAtSentenceAndGraphemeBoundaries()
+    {
+        string result = ImageHelper.StripMarkdown("第一句完整。第二句包含家庭表情 👨‍👩‍👧‍👦 和更多文字用于截断。", 12);
+
+        Assert.Equal("第一句完整。", result);
+        Assert.False(result.EndsWith('\u200d'));
     }
 
     // ─── ExtractIllustrationUrls ──────────────────────────────────────────

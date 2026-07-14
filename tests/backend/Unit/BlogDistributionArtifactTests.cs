@@ -113,16 +113,31 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
         using var memory = new MemoryCache(new MemoryCacheOptions());
         BlogDistributionService service = CreateService(db, cache, memory);
         string first = await service.BuildSitemapAsync();
+        JsonFeedDocument firstFeed = await service.BuildJsonFeedAsync();
         Assert.Equal("2026-03-04", ReadLastmod(first, $"https://public.example/article/{articleId}"));
+        Assert.Equal("2026-03-04", ReadFeedModifiedDate(firstFeed, articleId));
 
         db.Updateable<Article>()
             .SetColumns(article => article.Summary == "Non-body metadata changed")
+            .SetColumns(article => article.Views == article.Views + 1)
             .Where(article => article.Id == articleId)
             .ExecuteCommand();
+        db.Insertable(new Comment
+        {
+            Id = 1,
+            ArticleId = articleId,
+            Content = "A new public comment must not change article lastmod.",
+            CreateTime = new DateTime(2026, 3, 7, 12, 0, 0, DateTimeKind.Utc),
+            AuthorMode = "anonymous",
+            IsDeleted = false,
+            ModerationStatus = CommentModerationStatus.Approved
+        }).ExecuteCommand();
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<string?>("2"));
         string metadataOnly = await service.BuildSitemapAsync();
+        JsonFeedDocument metadataOnlyFeed = await service.BuildJsonFeedAsync();
         Assert.Equal("2026-03-04", ReadLastmod(metadataOnly, $"https://public.example/article/{articleId}"));
+        Assert.Equal("2026-03-04", ReadFeedModifiedDate(metadataOnlyFeed, articleId));
 
         db.Updateable<ArticleBody>()
             .SetColumns(body => body.MarkdownContent == "v2")
@@ -132,7 +147,9 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
         cache.GetStringAsync(CachePolicyId.ArticleListVersion, "main", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<string?>("3"));
         string second = await service.BuildSitemapAsync();
+        JsonFeedDocument secondFeed = await service.BuildJsonFeedAsync();
         Assert.Equal("2026-03-08", ReadLastmod(second, $"https://public.example/article/{articleId}"));
+        Assert.Equal("2026-03-08", ReadFeedModifiedDate(secondFeed, articleId));
 
         using SqlSugarClient emptyDb = await CreateDatabaseAsync();
         using var emptyMemory = new MemoryCache(new MemoryCacheOptions());
@@ -172,6 +189,7 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
             typeof(Article),
             typeof(ArticleBody),
             typeof(ArticleTag),
+            typeof(Comment),
             typeof(PageContent));
         return db;
     }
@@ -228,4 +246,10 @@ public sealed class BlogDistributionArtifactTests(PostgresSchemaMigrationFixture
                 StringComparison.Ordinal));
         return url?.Element(SitemapNamespace + "lastmod")?.Value;
     }
+
+    private static string ReadFeedModifiedDate(JsonFeedDocument feed, int articleId)
+        => feed.Items
+            .Single(item => string.Equals(item.Id, articleId.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal))
+            .DateModified
+            .ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 }

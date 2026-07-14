@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Models.ReadModels;
@@ -55,15 +56,19 @@ public sealed class ServerCacheBinaryCodecTests
     }
 
     [Fact]
-    public void ArticleDetail_RoundTrip_PreservesRightsSnapshot()
+    public void ArticleDetail_V4RoundTrip_PreservesUpdatedAtAndRightsSnapshot()
     {
-        ArticleDetailReadModel detail = CreateDetail();
+        DateTime updatedAt = new(2026, 6, 27, 9, 30, 0, DateTimeKind.Utc);
+        ArticleDetailReadModel detail = CreateDetail() with { UpdatedAt = updatedAt };
 
         byte[] payload = ServerCacheBinaryCodec.EncodeArticleDetail(detail);
         (bool success, ArticleDetailReadModel? decoded) = ServerCacheBinaryCodec.DecodeArticleDetail(payload);
 
         Assert.True(success);
         Assert.NotNull(decoded);
+        Assert.Equal(0x34444146u, BinaryPrimitives.ReadUInt32LittleEndian(payload));
+        Assert.Equal(4u, BinaryPrimitives.ReadUInt32LittleEndian(payload.AsSpan(sizeof(uint))));
+        Assert.Equal(updatedAt, decoded.UpdatedAt);
         Assert.Equal(901, decoded.Rights.SnapshotId);
         Assert.Equal(801, decoded.Rights.ArticleRevisionId);
         Assert.Equal(7, decoded.Rights.RevisionNo);
@@ -83,6 +88,30 @@ public sealed class ServerCacheBinaryCodecTests
         Assert.Equal("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", decoded.Rights.ContentCanonicalHash);
         Assert.Equal("https://example.test/proofs/rights/901", decoded.Rights.ProofUrl);
         Assert.Equal("ready", decoded.Rights.ProofStatus);
+    }
+
+    [Fact]
+    public void ArticleDetail_V3CachePayload_RemainsReadableWithoutUpdatedAt()
+    {
+        byte[] v4 = ServerCacheBinaryCodec.EncodeArticleDetail(CreateDetail() with { UpdatedAt = null });
+        byte[] snapshotMarker = BitConverter.GetBytes(901L);
+        int rightsOffset = v4.AsSpan().IndexOf(snapshotMarker);
+        Assert.True(rightsOffset > 8);
+        Assert.Equal(0, v4[rightsOffset - 1]); // null UpdatedAt marker
+
+        byte[] v3 = new byte[v4.Length - 1];
+        v4.AsSpan(0, rightsOffset - 1).CopyTo(v3);
+        v4.AsSpan(rightsOffset).CopyTo(v3.AsSpan(rightsOffset - 1));
+        BinaryPrimitives.WriteUInt32LittleEndian(v3, 0x44434146u); // FACD
+        BinaryPrimitives.WriteUInt32LittleEndian(v3.AsSpan(sizeof(uint)), 3u);
+
+        (bool success, ArticleDetailReadModel? decoded) = ServerCacheBinaryCodec.DecodeArticleDetail(v3);
+
+        Assert.True(success);
+        Assert.NotNull(decoded);
+        Assert.Equal(10, decoded.Id);
+        Assert.Null(decoded.UpdatedAt);
+        Assert.Equal(901, decoded.Rights.SnapshotId);
     }
 
     private static ArticleListItemReadModel CreateItem(DateTime createTime)

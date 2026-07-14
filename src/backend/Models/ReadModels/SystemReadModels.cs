@@ -6,6 +6,7 @@ public sealed record class SeoConfigReadModel
 {
     public string Title { get; init; } = PublicSiteIdentityDefaults.SiteTitle;
     public string Description { get; init; } = PublicSiteIdentityDefaults.SiteDescription;
+    // Legacy storage compatibility only. Public documents must not emit meta keywords.
     public string Keywords { get; init; } = PublicSiteIdentityDefaults.SiteKeywords;
     public string Author { get; init; } = PublicSiteIdentityDefaults.SiteAuthor;
     public string OgImage { get; init; } = "/social/og-image.png";

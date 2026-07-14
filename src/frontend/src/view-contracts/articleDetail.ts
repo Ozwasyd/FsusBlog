@@ -33,6 +33,16 @@ export type ArticleDetailHeaderViewContract = Readonly<{
     isoTime: string;
     displayTime: string;
     fullTime: string;
+    published: Readonly<{
+      isoTime: string;
+      displayTime: string;
+      fullTime: string;
+    }>;
+    modified?: Readonly<{
+      isoTime: string;
+      displayTime: string;
+      fullTime: string;
+    }>;
     categoryName: string;
     categoryHref?: string;
   }>;
@@ -135,6 +145,11 @@ export const emptyArticleDetailHeaderView: ArticleDetailHeaderViewContract = {
     isoTime: '',
     displayTime: '',
     fullTime: '',
+    published: {
+      isoTime: '',
+      displayTime: '',
+      fullTime: ''
+    },
     categoryName: '未分类'
   },
   tags: []
@@ -222,15 +237,31 @@ export function createArticleDetailHeaderViewContract(
   article: ArticleDetailResponse,
   timeOptions?: TimeRenderOptions
 ): ArticleDetailHeaderViewContract {
+  const publishedAt = article.publishedAt || article.createTime;
+  const publishedMillis = Date.parse(publishedAt);
+  const modifiedMillis = article.updatedAt ? Date.parse(article.updatedAt) : Number.NaN;
+  const hasSubstantiveUpdate = Number.isFinite(modifiedMillis)
+    && Number.isFinite(publishedMillis)
+    && modifiedMillis > publishedMillis;
+  const published = {
+    isoTime: publishedAt,
+    displayTime: TimeUtils.toSmartTime(publishedAt, timeOptions),
+    fullTime: TimeUtils.toFullLocalString(publishedAt, timeOptions)
+  };
+
   return {
     id: article.id,
     title: article.title,
     coverImageUrl: article.coverImageUrl,
     viewsText: `${article.views} 浏览`,
     meta: {
-      isoTime: article.createTime,
-      displayTime: TimeUtils.toSmartTime(article.createTime, timeOptions),
-      fullTime: TimeUtils.toFullLocalString(article.createTime, timeOptions),
+      ...published,
+      published,
+      modified: hasSubstantiveUpdate && article.updatedAt ? {
+        isoTime: article.updatedAt,
+        displayTime: TimeUtils.toSmartTime(article.updatedAt, timeOptions),
+        fullTime: TimeUtils.toFullLocalString(article.updatedAt, timeOptions)
+      } : undefined,
       categoryName: article.category?.name || '未分类',
       categoryHref: article.category ? buildPublicCategoryHref(article.category.id) : undefined
     },

@@ -39,6 +39,7 @@ public sealed record class ArticleDetailReadModel
     public ArticleStatus Status { get; init; } = ArticleStatus.Published;
     public DateTime? ScheduledPublishAt { get; init; }
     public DateTime? PublishedAt { get; init; }
+    public DateTime? UpdatedAt { get; init; }
     public ArticleRightsReadModel Rights { get; init; } = new();
 }
 

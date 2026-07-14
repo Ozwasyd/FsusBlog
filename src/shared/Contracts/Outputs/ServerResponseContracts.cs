@@ -78,6 +78,7 @@ public record struct ArticleDetailResponse
     public int Status { get; set; }
     public DateTime? ScheduledPublishAt { get; set; }
     public DateTime? PublishedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
     public ArticleRightsResponse Rights { get; set; }
 
     public ArticleDetailResponse()

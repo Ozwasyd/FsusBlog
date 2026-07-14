@@ -97,6 +97,8 @@ public sealed class ArticleDetailAedsFileArtifactStore(
 {
     private const uint ArticleDetailV3PayloadMagic = 0x41524433; // ARD3
     private const int ArticleDetailV3PayloadVersion = 3;
+    private const uint ArticleDetailV4PayloadMagic = 0x41524434; // ARD4
+    private const int ArticleDetailV4PayloadVersion = 4;
     private const int ArticleDetailV3HeaderSize = sizeof(uint) + sizeof(int);
     private static readonly TimeSpan MemoryTtl = TimeSpan.FromSeconds(30);
     private readonly string _root = Path.Combine(env.ContentRootPath, "runtime-cache", "public", "articles");
@@ -218,8 +220,10 @@ public sealed class ArticleDetailAedsFileArtifactStore(
         }
 
         ReadOnlySpan<byte> payload = frame[AedsFrameHeader.Size..];
-        return BinaryPrimitives.ReadUInt32LittleEndian(payload[..sizeof(uint)]) == ArticleDetailV3PayloadMagic
-            && BinaryPrimitives.ReadInt32LittleEndian(payload[sizeof(uint)..ArticleDetailV3HeaderSize]) == ArticleDetailV3PayloadVersion;
+        uint payloadMagic = BinaryPrimitives.ReadUInt32LittleEndian(payload[..sizeof(uint)]);
+        int payloadVersion = BinaryPrimitives.ReadInt32LittleEndian(payload[sizeof(uint)..ArticleDetailV3HeaderSize]);
+        return (payloadMagic == ArticleDetailV3PayloadMagic && payloadVersion == ArticleDetailV3PayloadVersion)
+            || (payloadMagic == ArticleDetailV4PayloadMagic && payloadVersion == ArticleDetailV4PayloadVersion);
     }
 
     private sealed record CachedFrame(byte[] Frame, DateTimeOffset ExpiresAtUtc);
@@ -331,7 +335,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                logger.LogWarning(ex, "article-detail-aeds-v3-rebuild-failed {ArticleId}", articleId.Value);
+                logger.LogWarning(ex, "article-detail-aeds-rebuild-failed {ArticleId}", articleId.Value);
                 return new ArticleDetailAedsArtifactMaintenanceResult(Scanned: 1, Rebuilt: 0, Removed: 0, Skipped: 0, Failed: 1);
             }
         }
@@ -475,7 +479,7 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         Interlocked.Increment(ref failed);
-                        logger.LogWarning(ex, "article-detail-aeds-v3-rebuild-failed {ArticleId}", id);
+                        logger.LogWarning(ex, "article-detail-aeds-rebuild-failed {ArticleId}", id);
                     }
                 })
             .ConfigureAwait(false);

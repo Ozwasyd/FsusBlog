@@ -467,7 +467,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
-    public void BackendEncoder_MatchesSharedArticleDetailFixture()
+    public void BackendEncoder_MatchesSharedArticleDetailV4Fixture()
     {
         var createTime = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
         var detailPod = FsusBlog.Core.Mapping.Projectors.PodProjector.ProjectArticleDetail(42, 123, createTime, 7, "Life", "Article 42", "Content 42\nHello", "Summary 42", out _);
@@ -491,12 +491,25 @@ public sealed class AedsProtocolCrossLanguageTests
             ContentCanonicalHash: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             ProofUrl: "urn:fsus:rights-proof:901",
             ProofStatus: "ready");
-        var detail = new FsusBlog.Core.Mapping.Models.ArticleDetailCoreModel(detailPod, 42, "Article 42", "Content 42\nHello", "Summary 42", "/covers/42.png", 123, 0, 0, false, createTime, new FsusBlog.Core.Mapping.Models.ArticleCategoryCoreModel(7, "Life"), [new FsusBlog.Core.Mapping.Models.TagCoreModel(9, "aeds"), new FsusBlog.Core.Mapping.Models.TagCoreModel(10, "blog")], 7, false, 2, null, createTime, rights);
+        var detail = new FsusBlog.Core.Mapping.Models.ArticleDetailCoreModel(detailPod, 42, "Article 42", "Content 42\nHello", "Summary 42", "/covers/42.png", 123, 0, 0, false, createTime, new FsusBlog.Core.Mapping.Models.ArticleCategoryCoreModel(7, "Life"), [new FsusBlog.Core.Mapping.Models.TagCoreModel(9, "aeds"), new FsusBlog.Core.Mapping.Models.TagCoreModel(10, "blog")], 7, false, 2, null, createTime, createTime.AddHours(2), rights);
         var payload = new System.Buffers.ArrayBufferWriter<byte>();
         PodBinaryCodec.WriteArticleDetail(detail, payload);
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.ArticleDetail, payload.WrittenSpan.ToArray());
+        Assert.Equal(ReadProtocolFixtureBytes("article-detail-v4-frame.hex"), encoded);
+    }
 
-        Assert.Equal(ReadProtocolFixtureBytes("article-detail-frame.hex"), encoded);
+    [Fact]
+    public void BackendDecoder_ReadsCheckedInArticleDetailV3FixtureWithoutUpdatedAt()
+    {
+        byte[] frame = ReadProtocolFixtureBytes("article-detail-frame.hex");
+        Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decodedFrame = new CoreAedsEncoder().TryDecode(frame);
+
+        Assert.True(decodedFrame.IsSuccess);
+        Assert.Equal(CoreFrameType.ArticleDetail, decodedFrame.Value.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeArticleDetail(decodedFrame.Value.Payload, out var detail));
+        Assert.Equal(42, detail.Id);
+        Assert.Equal("Article 42", detail.Title);
+        Assert.Null(detail.UpdatedAt);
     }
 
     [Fact]

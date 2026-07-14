@@ -194,12 +194,15 @@ function buildLegacyArticleDetailPayload(opts: {
   return buf
 }
 
-const ARTICLE_DETAIL_V3_HEADER_SIZE = 44
+const ARTICLE_DETAIL_HEADER_SIZE = 44
 const ARTICLE_DETAIL_V3_RECORD_SIZE = 84
+const ARTICLE_DETAIL_V4_RECORD_SIZE = 92
 const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12
 const ARTICLE_RIGHTS_V3_RECORD_SIZE = 112
 const ARTICLE_DETAIL_V3_MAGIC = 0x41524433
 const ARTICLE_DETAIL_V3_VERSION = 3
+const ARTICLE_DETAIL_V4_MAGIC = 0x41524434
+const ARTICLE_DETAIL_V4_VERSION = 4
 
 const ArticleDetailRightsFlags = {
   Enabled: 1 << 0,
@@ -215,7 +218,7 @@ const ArticleDetailRightsFlags = {
   HasProofStatus: 1 << 10
 } as const
 
-function buildArticleDetailPayload(opts: {
+function buildArticleDetailV4Payload(opts: {
   id: number
   views: number
   createTimeMs?: bigint
@@ -229,6 +232,7 @@ function buildArticleDetailPayload(opts: {
   status?: number
   scheduledPublishAtMs?: bigint
   publishedAtMs?: bigint
+  updatedAtMs?: bigint
   isDeleted?: boolean
   rights?: Partial<{
     snapshotId: bigint
@@ -305,17 +309,17 @@ function buildArticleDetailPayload(opts: {
     proofStatus: appendText(rights.proofStatus)
   }
 
-  const articleOffset = ARTICLE_DETAIL_V3_HEADER_SIZE
-  const tagOffset = articleOffset + ARTICLE_DETAIL_V3_RECORD_SIZE
+  const articleOffset = ARTICLE_DETAIL_HEADER_SIZE
+  const tagOffset = articleOffset + ARTICLE_DETAIL_V4_RECORD_SIZE
   const rightsOffset = tagOffset + tags.length * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE
   const blobOffset = rightsOffset + ARTICLE_RIGHTS_V3_RECORD_SIZE
   const payload = new Uint8Array(blobOffset + blobLength)
   const view = new DataView(payload.buffer)
-  view.setUint32(0, ARTICLE_DETAIL_V3_MAGIC, true)
-  view.setInt32(4, ARTICLE_DETAIL_V3_VERSION, true)
+  view.setUint32(0, ARTICLE_DETAIL_V4_MAGIC, true)
+  view.setInt32(4, ARTICLE_DETAIL_V4_VERSION, true)
   view.setUint32(8, 0, true)
   view.setInt32(12, articleOffset, true)
-  view.setInt32(16, ARTICLE_DETAIL_V3_RECORD_SIZE, true)
+  view.setInt32(16, ARTICLE_DETAIL_V4_RECORD_SIZE, true)
   view.setInt32(20, tagOffset, true)
   view.setInt32(24, tags.length, true)
   view.setInt32(28, rightsOffset, true)
@@ -330,12 +334,13 @@ function buildArticleDetailPayload(opts: {
   view.setInt32(articleOffset + 20, opts.status ?? 2, true)
   view.setBigInt64(articleOffset + 24, opts.scheduledPublishAtMs ?? 0n, true)
   view.setBigInt64(articleOffset + 32, opts.publishedAtMs ?? 0n, true)
-  payload[articleOffset + 40] = opts.isDeleted ? 1 : 0
-  writeSlice(view, articleOffset + 44, articleSlices.title)
-  writeSlice(view, articleOffset + 52, articleSlices.content)
-  writeSlice(view, articleOffset + 60, articleSlices.summary)
-  writeSlice(view, articleOffset + 68, articleSlices.coverImageUrl)
-  writeSlice(view, articleOffset + 76, articleSlices.categoryName)
+  view.setBigInt64(articleOffset + 40, opts.updatedAtMs ?? 0n, true)
+  payload[articleOffset + 48] = opts.isDeleted ? 1 : 0
+  writeSlice(view, articleOffset + 52, articleSlices.title)
+  writeSlice(view, articleOffset + 60, articleSlices.content)
+  writeSlice(view, articleOffset + 68, articleSlices.summary)
+  writeSlice(view, articleOffset + 76, articleSlices.coverImageUrl)
+  writeSlice(view, articleOffset + 84, articleSlices.categoryName)
 
   tags.forEach((tag, index) => {
     const offset = tagOffset + index * ARTICLE_DETAIL_TAG_V3_RECORD_SIZE
@@ -380,6 +385,28 @@ function buildArticleDetailPayload(opts: {
   }
 
   return payload
+}
+
+type ArticleDetailV4FixtureOptions = Parameters<typeof buildArticleDetailV4Payload>[0]
+
+/** Builds the checked legacy ARD3 record by removing V4's UpdatedAt int64. */
+function buildArticleDetailV3Payload(opts: ArticleDetailV4FixtureOptions): Uint8Array {
+  const v4 = buildArticleDetailV4Payload(opts)
+  const articleOffset = ARTICLE_DETAIL_HEADER_SIZE
+  const updatedAtOffset = articleOffset + 40
+  const afterUpdatedAtOffset = updatedAtOffset + 8
+  const v3 = new Uint8Array(v4.byteLength - 8)
+  v3.set(v4.subarray(0, updatedAtOffset), 0)
+  v3.set(v4.subarray(afterUpdatedAtOffset), updatedAtOffset)
+
+  const view = new DataView(v3.buffer)
+  view.setUint32(0, ARTICLE_DETAIL_V3_MAGIC, true)
+  view.setInt32(4, ARTICLE_DETAIL_V3_VERSION, true)
+  view.setInt32(16, ARTICLE_DETAIL_V3_RECORD_SIZE, true)
+  view.setInt32(20, view.getInt32(20, true) - 8, true)
+  view.setInt32(28, view.getInt32(28, true) - 8, true)
+  view.setInt32(36, view.getInt32(36, true) - 8, true)
+  return v3
 }
 
 function writeSlice(view: DataView, offset: number, slice: { offset: number; length: number }): void {
@@ -476,15 +503,17 @@ describe('mapArticleDetailFromPodPayload', () => {
     expect(() => mapArticleDetailFromPodPayload(payload)).toThrow()
   })
 
-  it('reads V3 category fields and required rights from the V3 envelope', () => {
-    const payload = buildArticleDetailPayload({
+  it('reads V4 category fields, updatedAt, and required rights from the V4 envelope', () => {
+    const updatedAtMs = 1_715_385_600_000n
+    const payload = buildArticleDetailV4Payload({
       id: 1,
       views: 0,
       categoryId: 7,
       categoryName: 'Frontend',
       title: 'T',
       summary: '',
-      content: 'c'
+      content: 'c',
+      updatedAtMs
     })
 
     const result = mapArticleDetailFromPodPayload(payload)
@@ -494,11 +523,34 @@ describe('mapArticleDetailFromPodPayload', () => {
     expect(result.rights.snapshotId).toBe('901')
     expect(result.rights.articleRevisionId).toBe('801')
     expect(result.rights.revisionNo).toBe(7)
+    expect(result.updatedAt).toBe(new Date(Number(updatedAtMs)).toISOString())
+  })
+
+  it('keeps the 84-byte ARD3 fixture readable with updatedAt absent', () => {
+    const payload = buildArticleDetailV3Payload({
+      id: 3,
+      views: 12,
+      categoryId: 7,
+      categoryName: 'Legacy',
+      title: 'Legacy V3',
+      summary: 'v3',
+      content: 'compatible'
+    })
+
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    expect(view.getUint32(0, true)).toBe(ARTICLE_DETAIL_V3_MAGIC)
+    expect(view.getInt32(4, true)).toBe(ARTICLE_DETAIL_V3_VERSION)
+    expect(view.getInt32(16, true)).toBe(ARTICLE_DETAIL_V3_RECORD_SIZE)
+    expect(mapArticleDetailFromPodPayload(payload)).toMatchObject({
+      id: 3,
+      title: 'Legacy V3',
+      updatedAt: null
+    })
   })
 
   it('decodes all scalar fields correctly', () => {
     const createTimeMs = 1_715_299_200_000n // 2024-05-10T00:00:00.000Z
-    const payload = buildArticleDetailPayload({
+    const payload = buildArticleDetailV4Payload({
       id: 42,
       views: 100,
       createTimeMs,
@@ -526,8 +578,8 @@ describe('mapArticleDetailFromPodPayload', () => {
     expect(result.rights.contentCanonicalHash).toBe('sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
   })
 
-  it('maps ArticleDetail V3 rights fields completely', () => {
-    const payload = buildArticleDetailPayload({
+  it('maps ArticleDetail V4 rights fields completely', () => {
+    const payload = buildArticleDetailV4Payload({
       id: 10,
       views: 0,
       categoryId: 2,
@@ -576,7 +628,7 @@ describe('mapArticleDetailFromPodPayload', () => {
   })
 
   it('accepts structurally valid rights records before proof metadata is generated', () => {
-    const payload = buildArticleDetailPayload({
+    const payload = buildArticleDetailV4Payload({
       id: 910002,
       views: 18,
       categoryId: 1,
@@ -609,7 +661,7 @@ describe('mapArticleDetailFromPodPayload', () => {
   })
 
   it('decodes cover image url from the trailing cover blob', () => {
-    const payload = buildArticleDetailPayload({
+    const payload = buildArticleDetailV4Payload({
       id: 9,
       views: 0,
       categoryId: 2,
@@ -626,7 +678,7 @@ describe('mapArticleDetailFromPodPayload', () => {
   })
 
   it('decodes tags correctly', () => {
-    const payload = buildArticleDetailPayload({
+    const payload = buildArticleDetailV4Payload({
       id: 1,
       views: 0,
       categoryId: 1,
@@ -648,7 +700,7 @@ describe('mapArticleDetailFromPodPayload', () => {
   })
 
   it('handles zero-length summary and content without throwing', () => {
-    const payload = buildArticleDetailPayload({
+    const payload = buildArticleDetailV4Payload({
       id: 5,
       views: 0,
       categoryId: 2,
@@ -665,7 +717,7 @@ describe('mapArticleDetailFromPodPayload', () => {
   })
 
   it('handles multibyte UTF-8 category names', () => {
-    const payload = buildArticleDetailPayload({
+    const payload = buildArticleDetailV4Payload({
       id: 1,
       views: 0,
       categoryId: 5,
@@ -685,8 +737,28 @@ describe('mapArticleDetailFromPodPayload', () => {
     expect(() => mapArticleDetailFromPodPayload(new Uint8Array(4))).toThrow()
   })
 
-  it('throws when the V3 envelope is missing the rights record', () => {
-    const payload = buildArticleDetailPayload({
+  it('rejects mismatched version, truncation, and trailing bytes', () => {
+    const payload = buildArticleDetailV4Payload({
+      id: 1,
+      views: 0,
+      categoryId: 1,
+      categoryName: 'Dev',
+      title: 'T',
+      summary: '',
+      content: 'c'
+    })
+    const invalidVersion = payload.slice()
+    new DataView(invalidVersion.buffer).setInt32(4, ARTICLE_DETAIL_V3_VERSION, true)
+    const trailing = new Uint8Array(payload.byteLength + 1)
+    trailing.set(payload)
+
+    expect(() => mapArticleDetailFromPodPayload(invalidVersion)).toThrow()
+    expect(() => mapArticleDetailFromPodPayload(payload.subarray(0, payload.byteLength - 1))).toThrow()
+    expect(() => mapArticleDetailFromPodPayload(trailing)).toThrow()
+  })
+
+  it('throws when the V4 envelope is missing the rights record', () => {
+    const payload = buildArticleDetailV4Payload({
       id: 1,
       views: 0,
       categoryId: 1,
@@ -701,8 +773,8 @@ describe('mapArticleDetailFromPodPayload', () => {
     expect(() => mapArticleDetailFromPodPayload(payload)).toThrow()
   })
 
-  it('throws when a V3 slice points outside the shared blob', () => {
-    const payload = buildArticleDetailPayload({
+  it('throws when a V4 slice points outside the shared blob', () => {
+    const payload = buildArticleDetailV4Payload({
       id: 1,
       views: 0,
       categoryId: 1,
@@ -712,7 +784,7 @@ describe('mapArticleDetailFromPodPayload', () => {
       content: 'c'
     })
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
-    view.setInt32(ARTICLE_DETAIL_V3_HEADER_SIZE + 44, 999_999, true)
+    view.setInt32(ARTICLE_DETAIL_HEADER_SIZE + 52, 999_999, true)
 
     expect(() => mapArticleDetailFromPodPayload(payload)).toThrow()
   })

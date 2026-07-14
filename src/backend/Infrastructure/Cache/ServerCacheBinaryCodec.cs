@@ -9,6 +9,7 @@ internal static class ServerCacheBinaryCodec
 {
     private const uint ArticleListPageMagic = 0x4C434146; // FACL
     private const uint ArticleDetailMagic = 0x44434146; // FACD
+    private const uint ArticleDetailV4Magic = 0x34444146; // FAD4
     private const uint ArticleSearchMagic = 0x53434146; // FACS
     private const uint SeoMagic = 0x4F455346; // FSEO
     private const uint ComplianceMagic = 0x504D4F43; // COMP
@@ -16,6 +17,7 @@ internal static class ServerCacheBinaryCodec
     private const uint RecentCommentStatsMagic = 0x43545346; // FSTC
     private const uint RegionStatsMagic = 0x52545346; // FSTR
     private const uint Version = 3;
+    private const uint ArticleDetailV4Version = 4;
     private const int ArticleListPageMetadataMarker = -1;
     private const int MaxStringBytes = 2 * 1024 * 1024;
     private const int MaxCollectionCount = 10_000;
@@ -74,7 +76,7 @@ internal static class ServerCacheBinaryCodec
     {
         using var stream = new MemoryStream();
         using var writer = CreateWriter(stream);
-        WriteHeader(writer, ArticleDetailMagic);
+        WriteHeader(writer, ArticleDetailV4Magic, ArticleDetailV4Version);
         WriteArticleDetail(writer, value);
         return stream.ToArray();
     }
@@ -84,12 +86,16 @@ internal static class ServerCacheBinaryCodec
         try
         {
             using var reader = CreateReader(bytes);
-            if (!ReadHeader(reader, ArticleDetailMagic))
+            uint magic = reader.ReadUInt32();
+            uint version = reader.ReadUInt32();
+            bool isV4 = magic == ArticleDetailV4Magic && version == ArticleDetailV4Version;
+            bool isV3 = magic == ArticleDetailMagic && version == Version;
+            if (!isV3 && !isV4)
             {
                 return (false, null);
             }
 
-            ArticleDetailReadModel item = ReadArticleDetail(reader);
+            ArticleDetailReadModel item = ReadArticleDetail(reader, isV4);
             return EnsureFullyRead(reader) ? (true, item) : (false, null);
         }
         catch
@@ -420,9 +426,12 @@ internal static class ServerCacheBinaryCodec
         => new(new ReadOnlyMemoryStream(bytes), Encoding.UTF8, leaveOpen: false);
 
     private static void WriteHeader(BinaryWriter writer, uint magic)
+        => WriteHeader(writer, magic, Version);
+
+    private static void WriteHeader(BinaryWriter writer, uint magic, uint version)
     {
         writer.Write(magic);
-        writer.Write(Version);
+        writer.Write(version);
     }
 
     private static bool ReadHeader(BinaryReader reader, uint magic)
@@ -510,10 +519,11 @@ internal static class ServerCacheBinaryCodec
         writer.Write((int)item.Status);
         WriteNullableDateTime(writer, item.ScheduledPublishAt);
         WriteNullableDateTime(writer, item.PublishedAt);
+        WriteNullableDateTime(writer, item.UpdatedAt);
         WriteArticleRights(writer, item.Rights);
     }
 
-    private static ArticleDetailReadModel ReadArticleDetail(BinaryReader reader)
+    private static ArticleDetailReadModel ReadArticleDetail(BinaryReader reader, bool hasUpdatedAt)
         => new()
         {
             Id = reader.ReadInt32(),
@@ -533,6 +543,7 @@ internal static class ServerCacheBinaryCodec
             Status = (FsusBlog.Server.Entities.ArticleStatus)reader.ReadInt32(),
             ScheduledPublishAt = ReadNullableDateTime(reader),
             PublishedAt = ReadNullableDateTime(reader),
+            UpdatedAt = hasUpdatedAt ? ReadNullableDateTime(reader) : null,
             Rights = ReadArticleRights(reader)
         };
 

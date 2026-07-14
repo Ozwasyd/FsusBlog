@@ -1389,7 +1389,7 @@ public class PodBinaryCodecTests
             pod, id, title, content, null, "/uploads/illustration/test-cover.webp", 10, wordCount,
             Math.Max(1, (wordCount + 299) / 300), false, createTime,
             new ArticleCategoryCoreModel(2, "Dev"),
-            [new TagCoreModel(7, "rust")], 2, false, 3, null, createTime, Rights: MakeRights());
+            [new TagCoreModel(7, "rust")], 2, false, 3, null, createTime, createTime.AddHours(2), Rights: MakeRights());
     }
 
     private static ArticleRightsCoreModel MakeRights()
@@ -1828,8 +1828,8 @@ public class PodBinaryCodecTests
         bool ok = PodBinaryCodec.TryDecodeArticleDetail(encoded, out var decoded);
 
         Assert.True(ok);
-        Assert.Equal(0x41524433u, BinaryPrimitives.ReadUInt32LittleEndian(encoded.AsSpan(0, sizeof(uint))));
-        Assert.Equal(3, BinaryPrimitives.ReadInt32LittleEndian(encoded.AsSpan(sizeof(uint), sizeof(int))));
+        Assert.Equal(0x41524434u, BinaryPrimitives.ReadUInt32LittleEndian(encoded.AsSpan(0, sizeof(uint))));
+        Assert.Equal(4, BinaryPrimitives.ReadInt32LittleEndian(encoded.AsSpan(sizeof(uint), sizeof(int))));
         Assert.Equal(10, decoded.Id);
         Assert.Equal("My Post", decoded.Title);
         Assert.Equal("This is the full content of the article.", decoded.Content);
@@ -1838,6 +1838,7 @@ public class PodBinaryCodecTests
         Assert.Equal("Dev", decoded.Category.Name);
         Assert.Equal(3, decoded.Status);
         Assert.Equal(new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc), decoded.PublishedAt);
+        Assert.Equal(new DateTime(2024, 6, 1, 2, 0, 0, DateTimeKind.Utc), decoded.UpdatedAt);
         Assert.Equal(901L, decoded.Rights.SnapshotId);
         Assert.Equal(801L, decoded.Rights.ArticleRevisionId);
         Assert.Equal(7, decoded.Rights.RevisionNo);
@@ -1879,7 +1880,7 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void ArticleDetail_DecodeRejectsLegacyPayloadWithoutV3Envelope()
+    public void ArticleDetail_DecodeRejectsRetiredPayloadWithoutVersionedEnvelope()
     {
         byte[] legacy = EncodeLegacyArticleDetailPayloadWithoutV3Envelope();
 
@@ -1889,16 +1890,16 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void LegacyPublicArticleArtifact_IsNotAcceptedAsArticleDetailV3()
+    public void RetiredPublicArticleArtifact_IsNotAcceptedAsSupportedArticleDetail()
     {
         byte[] legacyPayload = EncodeLegacyArticleDetailPayloadWithoutV3Envelope();
         byte[] legacyFrame = new AedsEncoder().Encode(AedsFrameType.ArticleDetail, legacyPayload);
 
-        bool artifactLooksLikeV3 = ArticleDetailAedsFileArtifactStore.LooksLikeAedsArticleDetailFrame(legacyFrame);
-        bool payloadDecodesAsV3 = PodBinaryCodec.TryDecodeArticleDetail(legacyPayload, out _);
+        bool artifactLooksSupported = ArticleDetailAedsFileArtifactStore.LooksLikeAedsArticleDetailFrame(legacyFrame);
+        bool payloadDecodes = PodBinaryCodec.TryDecodeArticleDetail(legacyPayload, out _);
 
-        Assert.False(artifactLooksLikeV3);
-        Assert.False(payloadDecodesAsV3);
+        Assert.False(artifactLooksSupported);
+        Assert.False(payloadDecodes);
     }
 
     [Fact]
@@ -1921,7 +1922,7 @@ public class PodBinaryCodecTests
     }
 
     [Fact]
-    public void ArticleDetail_LargeContentRightsAndManyTags_RoundTripPreservesV3Payload()
+    public void ArticleDetail_LargeContentRightsAndManyTags_RoundTripPreservesV4Payload()
     {
         string content = new('字', 9_000);
         var item = MakeDetailItem(42, "Long rights article", content) with

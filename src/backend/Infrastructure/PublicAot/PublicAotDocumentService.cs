@@ -2,9 +2,11 @@ using System.Net;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -19,6 +21,7 @@ public sealed class PublicAotDocumentService(
     ISpaAssetManifestService assetManifest,
     ILogger<PublicAotDocumentService> logger) : IPublicAotDocumentService
 {
+    private const int MaxDescriptionLength = 160;
     private static readonly string EmptyPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>(StringComparer.Ordinal));
     private static readonly ConcurrentDictionary<string, PreparedTemplateCacheEntry> PreparedTemplateCache = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, string> HeadLinksCache = new(StringComparer.Ordinal);
@@ -112,9 +115,9 @@ public sealed class PublicAotDocumentService(
         cancellationToken.ThrowIfCancellationRequested();
         DecodedEntryPayloads payloads = DecodeEntryPayloads(entry);
         string title = ResolveTitle(entry, payloads, seo.Title);
-        string description = ResolveDescription(entry, payloads, seo.Description);
         string siteTitle = ResolvePayloadString(payloads.Hydration, "siteTitle", seo.Title);
         PublicPageKind kind = ResolvePageKind(entry.PageId);
+        string description = ResolveDescription(entry, payloads, seo.Description, siteTitle, title, kind);
         string canonicalUrl = string.Concat(
             PublicOriginPolicy.Resolve(_configuredBaseUrl, seo.BaseUrl, entry.BaseUrl),
             ResolveCanonicalPath(entry));
@@ -351,7 +354,13 @@ public sealed class PublicAotDocumentService(
         PublicAotArticleSeoMetadata? ArticleSeo,
         PublicSeoHeadModel Head);
 
-    private static string ResolveDescription(PublicAotShellEntryContract entry, DecodedEntryPayloads payloads, string fallback)
+    private static string ResolveDescription(
+        PublicAotShellEntryContract entry,
+        DecodedEntryPayloads payloads,
+        string fallback,
+        string siteTitle,
+        string title,
+        PublicPageKind kind)
     {
         string siteDescription = ResolvePayloadString(payloads.Hydration, "siteDescription", fallback);
         if (entry.PageId == PublicPageId.ArticleDetail &&
@@ -368,7 +377,31 @@ public sealed class PublicAotDocumentService(
             return Summarize(content, siteDescription);
         }
 
-        return siteDescription;
+        if (kind is PublicPageKind.About or PublicPageKind.Privacy or PublicPageKind.Guidelines or PublicPageKind.Copyright)
+        {
+            IReadOnlyDictionary<string, object?>? staticPage = payloads.Hydration is null
+                ? null
+                : PublicAotBinaryPayload.TryGetObject(payloads.Hydration, "staticPage");
+            string content = ResolvePayloadString(staticPage, "content", string.Empty);
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                return Summarize(content, siteDescription);
+            }
+        }
+
+        return kind switch
+        {
+            PublicPageKind.Home => Summarize(siteDescription, $"{siteTitle} 的最新文章与专题内容。"),
+            PublicPageKind.Archive => $"按发布时间浏览 {siteTitle} 的文章归档。",
+            PublicPageKind.Filter when PublicRouteIdentity.ResolveRouteBucket(entry.PageId, entry.RouteKey) == "category"
+                => $"浏览 {siteTitle} 中“{title}”分类下的文章。",
+            PublicPageKind.Filter => $"浏览 {siteTitle} 中“{title}”标签下的文章。",
+            PublicPageKind.About => $"了解 {siteTitle} 的内容方向、作者与本站信息。",
+            PublicPageKind.Privacy => $"查看 {siteTitle} 如何处理访问数据、Cookie 与隐私选择。",
+            PublicPageKind.Guidelines => $"查看 {siteTitle} 的社区参与、评论与内容发布守则。",
+            PublicPageKind.Copyright => $"查看 {siteTitle} 的版权归属、转载与引用规则。",
+            _ => Summarize(siteDescription, $"{siteTitle} 页面。")
+        };
     }
 
     private static DecodedEntryPayloads DecodeEntryPayloads(PublicAotShellEntryContract entry)
@@ -470,8 +503,13 @@ public sealed class PublicAotDocumentService(
             return fallback;
         }
 
-        string normalized = raw.Replace("\r\n", " ", StringComparison.Ordinal).Replace('\n', ' ').Trim();
-        return normalized.Length <= 160 ? normalized : string.Concat(normalized.AsSpan(0, 160), "...");
+        string plain = ImageHelper.StripMarkdown(raw, MaxDescriptionLength);
+        if (plain.Length == 0)
+        {
+            return fallback;
+        }
+
+        return plain;
     }
 
     private static string NormalizeHtml(string html, int? articleId)

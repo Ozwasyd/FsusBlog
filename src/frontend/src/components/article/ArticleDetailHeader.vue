@@ -5,9 +5,17 @@
     </h1>
 
     <div :class="themeTokens.articleDetail.metaRow">
-      <time :datetime="view.meta.isoTime" :title="view.meta.fullTime" itemprop="datePublished">
-        {{ view.meta.displayTime }}
+      <span>发布于</span>
+      <time :datetime="view.meta.published.isoTime" :title="view.meta.published.fullTime" itemprop="datePublished">
+        {{ view.meta.published.displayTime }}
       </time>
+      <template v-if="view.meta.modified">
+        <span :class="themeTokens.articleDetail.metaSeparator" aria-hidden="true">/</span>
+        <span>更新于</span>
+        <time :datetime="view.meta.modified.isoTime" :title="view.meta.modified.fullTime" itemprop="dateModified">
+          {{ view.meta.modified.displayTime }}
+        </time>
+      </template>
       <span :class="themeTokens.articleDetail.metaSeparator" aria-hidden="true">/</span>
 
       <component

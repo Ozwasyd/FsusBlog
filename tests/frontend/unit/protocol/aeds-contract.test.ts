@@ -410,6 +410,7 @@ describe('AEDS cross-stack contract fixture', () => {
       status: 2,
       scheduledPublishAt: null,
       publishedAt: '2026-01-02T03:04:05.000Z',
+      updatedAt: null,
       rights: {
         snapshotId: '901',
         articleRevisionId: '801',
@@ -431,6 +432,20 @@ describe('AEDS cross-stack contract fixture', () => {
         proofUrl: 'urn:fsus:rights-proof:901',
         proofStatus: 'ready'
       }
+    })
+  })
+
+  it('decodes the checked-in backend ArticleDetail V4 frame with updatedAt', async () => {
+    const { decode } = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const result = decode(readProtocolFixtureBuffer('article-detail-v4-frame.hex'))
+
+    expect(result.ok).toBe(true)
+    expect(result.frameType).toBe(FrameType.ArticleDetail)
+    expect(mapArticleDetailFromPodPayload(result.payloadView)).toMatchObject({
+      id: 42,
+      title: 'Article 42',
+      publishedAt: '2026-01-02T03:04:05.000Z',
+      updatedAt: '2026-01-02T05:04:05.000Z'
     })
   })
 

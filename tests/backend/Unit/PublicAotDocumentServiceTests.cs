@@ -245,6 +245,153 @@ public sealed class PublicAotDocumentServiceTests
     }
 
     [Fact]
+    public async Task ComposeAsync_ArticleWithoutSummary_ProducesPlainUnicodeSafeDescription()
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Production),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(),
+                NullLogger<PublicAotDocumentService>.Instance);
+            string markdown = "# 标题\n\n**加粗内容**与[链接文字](https://example.com)，包含 &amp; 实体。\n\n```cs\nConsole.WriteLine(\"hidden\");\n```\n";
+            markdown += string.Concat(Enumerable.Repeat("这是不会切断代理对的正文🚀。", 20));
+
+            Result<string> result = await service.ComposeAsync(new PublicAotShellEntryContract
+            {
+                PageId = PublicPageId.ArticleDetail,
+                RouteKey = PublicRouteIdentity.BuildArticleRouteKey(42),
+                ArticleId = 42,
+                Html = "<article>Article</article>",
+                Title = "Article",
+                BootstrapPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["article"] = new Dictionary<string, object?>
+                    {
+                        ["summary"] = string.Empty,
+                        ["content"] = markdown
+                    }
+                }),
+                HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["siteTitle"] = "Fsus Blog"
+                })
+            });
+
+            Assert.True(result.IsSuccess, result.Error.Message);
+            string html = result.Value!;
+            Assert.Contains("加粗内容与链接文字，包含 &amp; 实体。", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("**", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("[链接文字]", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("```", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("Console.WriteLine", html, StringComparison.Ordinal);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task BuildSeoHeadModelAsync_PageKindsUseDistinctRelevantDescriptions()
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Production),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(),
+                NullLogger<PublicAotDocumentService>.Instance);
+            (PublicPageId PageId, string RouteKey, string Title)[] pages =
+            [
+                (PublicPageId.Home, "home", "首页"),
+                (PublicPageId.Archive, "archive", "归档"),
+                (PublicPageId.Filter, PublicRouteIdentity.BuildCategoryRouteKey(7), "后端"),
+                (PublicPageId.Filter, PublicRouteIdentity.BuildTagIdRouteKey(9), "性能"),
+                (PublicPageId.About, "about", "关于"),
+                (PublicPageId.Privacy, "privacy", "隐私"),
+                (PublicPageId.Guidelines, "guidelines", "用户守则"),
+                (PublicPageId.Copyright, "copyright", "版权")
+            ];
+
+            var descriptions = new List<string>(pages.Length);
+            foreach ((PublicPageId pageId, string routeKey, string title) in pages)
+            {
+                Result<PublicSeoHeadModel> result = await service.BuildSeoHeadModelAsync(new PublicAotShellEntryContract
+                {
+                    PageId = pageId,
+                    RouteKey = routeKey,
+                    Title = title,
+                    Html = "<main />",
+                    HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                    {
+                        ["siteTitle"] = "Fsus Blog",
+                        ["siteDescription"] = "Public AOT test"
+                    })
+                });
+                Assert.True(result.IsSuccess, result.Error.Message);
+                descriptions.Add(result.Value!.Description);
+            }
+
+            Assert.Equal(pages.Length, descriptions.Distinct(StringComparer.Ordinal).Count());
+            Assert.Contains(descriptions, static value => value.Contains("分类", StringComparison.Ordinal));
+            Assert.Contains(descriptions, static value => value.Contains("标签", StringComparison.Ordinal));
+            Assert.Contains(descriptions, static value => value.Contains("隐私", StringComparison.Ordinal));
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task BuildSeoHeadModelAsync_StaticPageUsesActualHydratedContentBeforeGenericFallback()
+    {
+        string root = CreateTempDirectory();
+        PublicSpaTemplateLocator.ResetCacheForTests();
+        try
+        {
+            var service = new PublicAotDocumentService(
+                new TestWebHostEnvironment(root, Environments.Production),
+                new ConfigurationBuilder().Build(),
+                new FixedSystemService(),
+                new ContextAwareAssetManifest(),
+                NullLogger<PublicAotDocumentService>.Instance);
+            Result<PublicSeoHeadModel> result = await service.BuildSeoHeadModelAsync(new PublicAotShellEntryContract
+            {
+                PageId = PublicPageId.About,
+                RouteKey = "about",
+                Title = "关于",
+                Html = "<main />",
+                HydrationPropsPayload = PublicAotBinaryPayload.EncodeObject(new Dictionary<string, object?>
+                {
+                    ["siteTitle"] = "Fsus Blog",
+                    ["staticPage"] = new Dictionary<string, object?>
+                    {
+                        ["content"] = "# 我们是谁\n\n这里介绍[真实内容](https://example.com)，而不是通用回退。"
+                    }
+                })
+            });
+
+            Assert.True(result.IsSuccess, result.Error.Message);
+            Assert.Equal("我们是谁 这里介绍真实内容，而不是通用回退。", result.Value!.Description);
+        }
+        finally
+        {
+            PublicSpaTemplateLocator.ResetCacheForTests();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ComposeAsync_DevelopmentViteProxy_UsesSourceAssetsInsteadOfProductionManifestChunks()
     {
         string root = CreateTempDirectory();

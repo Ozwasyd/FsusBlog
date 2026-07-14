@@ -204,6 +204,50 @@ async function navigatePublicSpa(page: Page, path: string) {
 test.describe('public SEO head SPA parity', () => {
   test.describe.configure({ timeout: 180_000 })
 
+  test('home fallback and article social images load with coherent metadata and natural dimensions', async ({ page }) => {
+    for (const path of ['/', articlePath]) {
+      await page.goto(path, { waitUntil: 'domcontentloaded' })
+      await waitForAppReady(page, WARMUP_TIMEOUT_MS)
+      await settlePage(page)
+
+      const result = await page.evaluate(async () => {
+        const ogImage = document.querySelector<HTMLMetaElement>('meta[property="og:image"]')?.content ?? ''
+        const twitterImage = document.querySelector<HTMLMetaElement>('meta[name="twitter:image"]')?.content ?? ''
+        const jsonLd = document.querySelector<HTMLScriptElement>('script[type="application/ld+json"]')?.textContent
+        const graph = jsonLd ? JSON.parse(jsonLd)?.['@graph'] ?? [] : []
+        const posting = graph.find((node: { '@type'?: string }) => node?.['@type'] === 'BlogPosting')
+        const postingImage = typeof posting?.image === 'string' ? posting.image : posting?.image?.url ?? ''
+        const image = new Image()
+        image.src = ogImage
+        await new Promise<void>((resolve, reject) => {
+          if (image.complete) {
+            image.naturalWidth > 0 ? resolve() : reject(new Error('social image completed without dimensions'))
+            return
+          }
+          image.addEventListener('load', () => resolve(), { once: true })
+          image.addEventListener('error', () => reject(new Error('social image failed to load')), { once: true })
+        })
+        return {
+          ogImage,
+          twitterImage,
+          postingImage,
+          complete: image.complete,
+          naturalWidth: image.naturalWidth,
+          naturalHeight: image.naturalHeight
+        }
+      })
+
+      expect(result.ogImage).toBeTruthy()
+      expect(result.twitterImage).toBe(result.ogImage)
+      if (path === articlePath) {
+        expect(result.postingImage).toBe(result.ogImage)
+      }
+      expect(result.complete).toBe(true)
+      expect(result.naturalWidth).toBeGreaterThan(0)
+      expect(result.naturalHeight).toBeGreaterThan(0)
+    }
+  })
+
   test('no-JavaScript direct loads expose the same authoritative head contract', async ({ browser }) => {
     const backendBaseUrl = process.env.FSUSBLOG_BASE_URL || process.env.FSUSBLOG_DEBUG_BACKEND_URL
     expect(backendBaseUrl, 'backend URL is required for server-rendered no-JavaScript checks').toBeTruthy()
