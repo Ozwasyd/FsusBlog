@@ -8,6 +8,12 @@ import fs from 'node:fs';
 import { copyFile, cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
 
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+import {
+  resolveStageEnvironment,
+  runFrontendBuildStageDag
+} from './build-stage-dag.mjs';
+
+export { resolveStageEnvironment } from './build-stage-dag.mjs';
 
 const clientRoot = process.cwd();
 const ensureWasmScript = fileURLToPath(new URL('./ensure-wasm.mjs', import.meta.url));
@@ -51,7 +57,6 @@ const directBuildDeadlineMs = Math.ceil(productionProfile.budgetMs * Math.max(
 ));
 const buildDeadlineMs = inheritedDeadlineMs ?? directBuildDeadlineMs;
 const buildStartedAt = Date.now();
-const frontendBuildCapacity = resolveFrontendBuildCapacity();
 
 export function resolveFrontendBuildCapacity({
   env = process.env,
@@ -107,23 +112,6 @@ export function resolveConcurrentStageResources(stageCount, capacity) {
   };
 }
 
-export function resolveStageEnvironment(resource, env = process.env) {
-  const cpuUnits = requiredPositiveNumber(resource?.cpuUnits, 'stage CPU grant');
-  const memoryGiB = requiredPositiveNumber(resource?.memoryGiB, 'stage memory grant');
-  const maxParallel = Math.max(1, Math.floor(cpuUnits));
-  return {
-    ...env,
-    FSUSBLOG_STEP_CPU_BUDGET: formatResourceNumber(cpuUnits),
-    FSUSBLOG_STEP_MEMORY_GIB: formatResourceNumber(memoryGiB),
-    FSUSBLOG_BUNDLE_CPU_UNITS: formatResourceNumber(cpuUnits),
-    FSUSBLOG_BUNDLE_CPU_BUDGET: String(maxParallel),
-    FSUSBLOG_BUNDLE_MEMORY_GIB: formatResourceNumber(memoryGiB),
-    FSUSBLOG_COMMAND_MANIFEST_WORKERS: String(maxParallel),
-    FSUSBLOG_NODE_TEST_CONCURRENCY: String(maxParallel),
-    UV_THREADPOOL_SIZE: String(maxParallel)
-  };
-}
-
 function remainingBuildDeadlineMs() {
   const remaining = buildDeadlineMs - (Date.now() - buildStartedAt);
   if (remaining <= 0) {
@@ -142,21 +130,21 @@ function log(message) {
   console.log(`[client-build] ${message}`);
 }
 
-function runStage(name, command, args, resource = frontendBuildCapacity) {
+function runStage(name, command, args, { env = process.env, signal } = {}) {
   return new Promise((resolve, reject) => {
     const timeoutMs = stageTimeoutMs();
     log(`starting ${name}`);
     const useShell = process.platform === 'win32' && command.toLowerCase().endsWith('.cmd');
     const child = spawn(command, args, {
       stdio: ['inherit', 'pipe', 'pipe'],
-      env: resolveStageEnvironment(resource),
+      env,
       cwd: clientRoot,
       detached: process.platform !== 'win32',
       shell: useShell,
       windowsHide: true
     });
     let settled = false;
-    let timedOut = false;
+    let terminationError = null;
     let escalationTimer = null;
     let forcedSettleTimer = null;
 
@@ -181,8 +169,27 @@ function runStage(name, command, args, resource = frontendBuildCapacity) {
       clearTimeout(timer);
       if (escalationTimer !== null) clearTimeout(escalationTimer);
       if (forcedSettleTimer !== null) clearTimeout(forcedSettleTimer);
+      signal?.removeEventListener('abort', abortStage);
       if (error) reject(error);
       else resolve();
+    };
+
+    const terminate = (error) => {
+      if (settled || terminationError) return;
+      terminationError = error;
+      signalProcessGroup('SIGTERM');
+      const terminationGraceMs = Math.max(100, Math.min(5_000, Math.ceil(timeoutMs * 0.02)));
+      escalationTimer = setTimeout(() => {
+        signalProcessGroup('SIGKILL');
+        closePipes();
+        forcedSettleTimer = setTimeout(() => finish(terminationError), Math.max(25, Math.min(250, terminationGraceMs)));
+        forcedSettleTimer.unref?.();
+      }, terminationGraceMs);
+      escalationTimer.unref?.();
+    };
+    const abortStage = () => {
+      const error = signal?.reason instanceof Error ? signal.reason : new Error(`${name} cancelled`);
+      terminate(error);
     };
 
     const forwardOutput = (stream, writer) => {
@@ -216,62 +223,35 @@ function runStage(name, command, args, resource = frontendBuildCapacity) {
     }
 
     const timer = setTimeout(() => {
-      if (settled) return;
-      timedOut = true;
-      signalProcessGroup('SIGTERM');
-      const terminationGraceMs = Math.max(100, Math.min(5_000, Math.ceil(timeoutMs * 0.02)));
-      escalationTimer = setTimeout(() => {
-        signalProcessGroup('SIGKILL');
-        closePipes();
-        forcedSettleTimer = setTimeout(() => {
-          const timeoutError = new Error(`${name} exceeded remaining execution deadline of ${timeoutMs}ms`);
-          timeoutError.code = 'ETIMEDOUT';
-          finish(timeoutError);
-        }, Math.max(25, Math.min(250, terminationGraceMs)));
-        forcedSettleTimer.unref?.();
-      }, terminationGraceMs);
-      escalationTimer.unref?.();
+      const timeoutError = new Error(`${name} exceeded remaining execution deadline of ${timeoutMs}ms`);
+      timeoutError.code = 'ETIMEDOUT';
+      terminate(timeoutError);
     }, timeoutMs);
     timer.unref?.();
+
+    if (signal?.aborted) abortStage();
+    else signal?.addEventListener('abort', abortStage, { once: true });
 
     child.once('error', (error) => {
       closePipes();
       finish(error);
     });
 
-    child.once('close', (code, signal) => {
-      if (timedOut) return;
+    child.once('close', (code, childSignal) => {
+      if (terminationError) {
+        finish(terminationError);
+        return;
+      }
       if (code === 0) {
         log(`finished ${name}`);
         finish();
         return;
       }
 
-      const exitReason = signal ? `signal ${signal}` : `exit code ${code}`;
+      const exitReason = childSignal ? `signal ${childSignal}` : `exit code ${code}`;
       finish(new Error(`${name} failed with ${exitReason}`));
     });
   });
-}
-
-async function runStageGroup(stages) {
-  const plan = resolveConcurrentStageResources(stages.length, frontendBuildCapacity);
-  if (!plan.concurrent) {
-    for (let index = 0; index < stages.length; index += 1) {
-      const stage = stages[index];
-      await runStage(stage.name, stage.command, stage.args, plan.stages[index]);
-    }
-    return;
-  }
-
-  const results = await Promise.allSettled(stages.map((stage, index) =>
-    runStage(stage.name, stage.command, stage.args, plan.stages[index])));
-  const errors = results
-    .filter((result) => result.status === 'rejected')
-    .map((result) => result.reason);
-  if (errors.length > 0) {
-    const details = errors.map((error) => error instanceof Error ? error.message : String(error)).join('; ');
-    throw new AggregateError(errors, `${errors.length} frontend build stage(s) failed: ${details}`);
-  }
 }
 
 async function syncStableSpaEntryAlias() {
@@ -355,45 +335,220 @@ async function syncBackendWebRoot() {
   log(`synced dist output into backend wwwroot (${backendWebRoot})`);
 }
 
-async function main() {
-  log(`execution deadline=${buildDeadlineMs}ms source=${inheritedDeadlineMs === null ? 'host-capacity' : 'step-grant'}`);
-  log(`resource grant cpu=${formatResourceNumber(frontendBuildCapacity.cpuUnits)} memoryGiB=${formatResourceNumber(frontendBuildCapacity.memoryGiB)}`);
-  const generatedArgs = process.env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1' ? ['--check'] : [];
-  const generatedAction = generatedArgs.length > 0 ? 'check' : 'generate';
-  await runStageGroup([
+function buildStageResources(cpuWeight, memoryWeight, minMemoryGiB, exclusiveResources = []) {
+  return { cpuWeight, memoryWeight, minCpuUnits: 1, minMemoryGiB, exclusiveResources };
+}
+
+export function createFrontendBuildStages(generatedArgs, generatedAction) {
+  const runBound = Boolean(process.env.FSUSBLOG_FRONTEND_DIST_ROOT);
+  const syncBackend = process.env.FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC !== '1';
+  return [
     {
-      name: `${generatedAction}-public-page-manifest`,
-      command: process.execPath,
-      args: [generatePublicPageManifestScript, ...generatedArgs]
+      id: `${generatedAction}-public-page-manifest`,
+      command: [process.execPath, generatePublicPageManifestScript, ...generatedArgs],
+      dependsOn: [],
+      consumedInputs: ['src/shared/Contracts/Outputs/PublicPageContracts.cs'],
+      ownedOutputs: ['src/public-renderers/generated/publicPageManifest.ts'],
+      resources: buildStageResources(1, 1, 0.25, ['generated-public-page-manifest']),
+      estimatedDurationMs: 2_000,
+      toolchain: { executable: process.execPath }
     },
     {
-      name: `${generatedAction}-public-shell-emergency`,
-      command: process.execPath,
-      args: [generatePublicShellEmergencyScript, ...generatedArgs]
+      id: `${generatedAction}-public-shell-emergency`,
+      command: [process.execPath, generatePublicShellEmergencyScript, ...generatedArgs],
+      dependsOn: [],
+      consumedInputs: ['src/assets/public-page.css'],
+      ownedOutputs: ['public/public-shell-emergency.css'],
+      resources: buildStageResources(1, 1, 0.25, ['generated-public-shell-emergency']),
+      estimatedDurationMs: 2_000,
+      toolchain: { executable: process.execPath }
+    },
+    {
+      id: 'ensure-wasm',
+      command: [process.execPath, ensureWasmScript, 'ensure'],
+      dependsOn: [],
+      consumedInputs: ['wasm'],
+      ownedOutputs: process.env.FSUSBLOG_SKIP_ENSURE_WASM === '1'
+        ? []
+        : [join(frontendWasmRoot, 'wasm-manifest.aeds'), join(frontendWasmRoot, 'aeds-runtime-manifest.json')],
+      resources: buildStageResources(3, 2, 0.75, ['frontend-wasm-output']),
+      estimatedDurationMs: 45_000,
+      toolchain: { executable: process.execPath }
+    },
+    {
+      id: 'vue-tsc',
+      command: [vueTscBin],
+      dependsOn: [`${generatedAction}-public-page-manifest`, `${generatedAction}-public-shell-emergency`, 'ensure-wasm'],
+      consumedInputs: ['src', 'public/wasm'],
+      ownedOutputs: [],
+      resources: buildStageResources(2, 2, 0.75),
+      estimatedDurationMs: 35_000,
+      toolchain: { executable: vueTscBin }
+    },
+    {
+      id: 'vite-build',
+      command: [viteBin, 'build', '--outDir', distRoot, '--logLevel', 'warn'],
+      dependsOn: [`${generatedAction}-public-page-manifest`, `${generatedAction}-public-shell-emergency`, 'ensure-wasm'],
+      consumedInputs: ['src', 'public'],
+      ownedOutputs: [join(distRoot, 'index.html'), join(distRoot, 'assets')],
+      resources: buildStageResources(4, 4, 1.5, ['frontend-dist']),
+      estimatedDurationMs: 50_000,
+      toolchain: { executable: viteBin }
+    },
+    {
+      id: 'vite-public-ssr-build',
+      command: [process.execPath, buildPublicSsrBundleScript],
+      dependsOn: ['vue-tsc', 'vite-build'],
+      consumedInputs: ['src/public-renderers', join(distRoot, 'assets')],
+      ownedOutputs: [join(distRoot, 'server')],
+      resources: buildStageResources(3, 3, 1, ['frontend-dist']),
+      estimatedDurationMs: 25_000,
+      toolchain: { executable: process.execPath }
+    },
+    {
+      id: 'assemble-run-bound-public-shell-emergency',
+      command: [process.execPath, generatePublicShellEmergencyScript],
+      dependsOn: ['vite-public-ssr-build'],
+      consumedInputs: ['src/assets/public-page.css'],
+      ownedOutputs: runBound ? [join(distRoot, 'server', 'public-shell-emergency.css')] : [],
+      resources: buildStageResources(1, 1, 0.25, ['frontend-dist']),
+      estimatedDurationMs: 2_000,
+      toolchain: { executable: process.execPath }
+    },
+    {
+      id: 'sync-run-bound-public-assets',
+      command: ['internal', 'sync-run-bound-public-assets'],
+      dependsOn: ['assemble-run-bound-public-shell-emergency'],
+      consumedInputs: ['public'],
+      ownedOutputs: runBound ? [join(distRoot, 'wasm')] : [],
+      resources: buildStageResources(1, 1, 0.5, ['frontend-dist']),
+      estimatedDurationMs: 5_000,
+      toolchain: { executable: 'node:fs/promises' }
+    },
+    {
+      id: 'sync-stable-spa-entry',
+      command: ['internal', 'sync-stable-spa-entry'],
+      dependsOn: ['sync-run-bound-public-assets'],
+      consumedInputs: [join(distRoot, 'assets')],
+      ownedOutputs: [join(distAssetsDir, stableSpaEntryName)],
+      resources: buildStageResources(1, 1, 0.25, ['frontend-dist-assets']),
+      estimatedDurationMs: 2_000,
+      toolchain: { executable: 'node:fs/promises' }
+    },
+    {
+      id: 'sync-fsusui-markdown-runtime-assets',
+      command: ['internal', 'sync-fsusui-markdown-runtime-assets'],
+      dependsOn: ['sync-run-bound-public-assets'],
+      consumedInputs: ['node_modules/@ozwasyd/element-plus/es/wasm/dist'],
+      ownedOutputs: [join(distRoot, 'dist')],
+      resources: buildStageResources(1, 1, 0.25, ['frontend-dist-markdown']),
+      estimatedDurationMs: 2_000,
+      toolchain: { executable: 'node:fs/promises' }
+    },
+    {
+      id: 'sync-backend-wwwroot',
+      command: ['internal', 'sync-backend-wwwroot'],
+      dependsOn: ['sync-stable-spa-entry', 'sync-fsusui-markdown-runtime-assets'],
+      consumedInputs: [distRoot],
+      ownedOutputs: syncBackend ? [backendWebRoot] : [],
+      resources: buildStageResources(1, 1, 0.5, ['backend-wwwroot']),
+      estimatedDurationMs: 6_000,
+      toolchain: { executable: 'node:fs/promises' }
     }
-  ]);
-  if (process.env.FSUSBLOG_SKIP_ENSURE_WASM === '1') {
-    log('skipping ensure-wasm because FSUSBLOG_SKIP_ENSURE_WASM=1');
-  } else {
-    await runStage('ensure-wasm', process.execPath, [ensureWasmScript, 'ensure']);
-  }
+  ];
+}
 
-  await runStageGroup([
-    { name: 'vue-tsc', command: vueTscBin, args: [] },
-    { name: 'vite-build', command: viteBin, args: ['build', '--outDir', distRoot, '--logLevel', 'warn'] }
-  ]);
-  await runStage('vite-public-ssr-build', process.execPath, [buildPublicSsrBundleScript]);
-  if (process.env.FSUSBLOG_FRONTEND_DIST_ROOT) {
-    await runStage('assemble-run-bound-public-shell-emergency', process.execPath, [
-      generatePublicShellEmergencyScript
-    ]);
+async function executeFrontendBuildStage(stage, context) {
+  switch (stage.id) {
+    case 'ensure-wasm':
+      if (process.env.FSUSBLOG_SKIP_ENSURE_WASM === '1') {
+        log('skipping ensure-wasm because FSUSBLOG_SKIP_ENSURE_WASM=1');
+        return { skipped: true, detail: 'FSUSBLOG_SKIP_ENSURE_WASM=1' };
+      }
+      break;
+    case 'assemble-run-bound-public-shell-emergency':
+    case 'sync-run-bound-public-assets':
+      if (!process.env.FSUSBLOG_FRONTEND_DIST_ROOT) {
+        return { skipped: true, detail: 'not a run-bound frontend build' };
+      }
+      if (stage.id === 'sync-run-bound-public-assets') {
+        await syncRunBoundPublicAssets();
+        return;
+      }
+      break;
+    case 'sync-stable-spa-entry':
+      await syncStableSpaEntryAlias();
+      return;
+    case 'sync-fsusui-markdown-runtime-assets':
+      await syncFsusUiMarkdownRuntimeAssets();
+      return;
+    case 'sync-backend-wwwroot':
+      if (process.env.FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC === '1') {
+        await syncBackendWebRoot();
+        return { skipped: true, detail: 'FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1' };
+      }
+      await syncBackendWebRoot();
+      return;
+    default:
+      break;
   }
-  await syncRunBoundPublicAssets();
-  await Promise.all([
-    syncStableSpaEntryAlias(),
-    syncFsusUiMarkdownRuntimeAssets()
-  ]);
-  await syncBackendWebRoot();
+  await runStage(stage.id, stage.command[0], stage.command.slice(1), context);
+}
+
+async function cleanupPartialBuildOutputs() {
+  await rm(distRoot, { recursive: true, force: true });
+  return { status: 'success', removed: [distRoot] };
+}
+
+function packageVersion(packageName) {
+  try {
+    return JSON.parse(fs.readFileSync(join(clientRoot, 'node_modules', packageName, 'package.json'), 'utf8')).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function main() {
+  log(`execution deadline=${buildDeadlineMs}ms source=${inheritedDeadlineMs === null ? 'host-capacity' : 'step-grant'}`);
+  const generatedArgs = process.env.FSUSBLOG_VALIDATE_GENERATED_ONLY === '1' ? ['--check'] : [];
+  const generatedAction = generatedArgs.length > 0 ? 'check' : 'generate';
+  const controller = new AbortController();
+  const abortBuild = (signal) => controller.abort(new Error(`frontend build cancelled by ${signal}`));
+  const signalHandlers = new Map(['SIGINT', 'SIGTERM'].map((signal) => [signal, () => abortBuild(signal)]));
+  for (const [signal, handler] of signalHandlers) process.once(signal, handler);
+  const deadlineTimer = setTimeout(() => {
+    const error = new Error(`frontend build exceeded execution deadline of ${buildDeadlineMs}ms`);
+    error.code = 'ETIMEDOUT';
+    controller.abort(error);
+  }, remainingBuildDeadlineMs());
+  deadlineTimer.unref?.();
+  const receiptFile = resolve(process.env.FSUSBLOG_FRONTEND_BUILD_STAGE_RECEIPT || join(
+    process.env.FSUSBLOG_PRODUCTION_BUILD_ROOT || join(repositoryRoot, '.tmp', 'frontend'),
+    'generated',
+    'frontend-build-stages.json'
+  ));
+  try {
+    const receipt = await runFrontendBuildStageDag(createFrontendBuildStages(generatedArgs, generatedAction), {
+      cwd: clientRoot,
+      env: process.env,
+      receiptFile,
+      signal: controller.signal,
+      toolchain: {
+        node: process.version,
+        packageManager: process.env.npm_config_user_agent ?? null,
+        vite: packageVersion('vite'),
+        vueTsc: packageVersion('vue-tsc')
+      },
+      execute: executeFrontendBuildStage,
+      cleanupPartialOutputs: cleanupPartialBuildOutputs
+    });
+    const lastGrant = receipt.grantHistory.at(-1);
+    log(`resource grant source=${receipt.grantSource ?? 'unknown'} changes=${receipt.grantHistory.length} finalCpu=${lastGrant?.cpuUnits ?? 'unknown'} finalMemoryGiB=${lastGrant?.memoryGiB ?? 'unknown'}`);
+    log(`stage receipt=${receiptFile}`);
+  } finally {
+    clearTimeout(deadlineTimer);
+    for (const [signal, handler] of signalHandlers) process.removeListener(signal, handler);
+  }
   remainingBuildDeadlineMs();
   log('build completed');
 }
