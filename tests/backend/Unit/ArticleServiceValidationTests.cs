@@ -197,11 +197,9 @@ public class ArticleServiceValidationTests
         Assert.Contains("TryReadArticleDetailCacheAsync", method, StringComparison.Ordinal);
         Assert.Contains("LoadArticleDetailFromDbAsync", method, StringComparison.Ordinal);
         Assert.Contains("article-detail", method, StringComparison.Ordinal);
-
-        string source = BackendTestPaths.ReadAllTextFromRoot("src", "backend", "Services", "ArticleService.cs");
-        Assert.DoesNotContain("string cacheIdentity = id.ToString", source, StringComparison.Ordinal);
-        Assert.Contains("_cache.TryGetAsync(CachePolicyId.ArticleDetail, id", source, StringComparison.Ordinal);
-        Assert.Contains("_cache.SetRawAsync(CachePolicyId.ArticleDetail, id", source, StringComparison.Ordinal);
+        Assert.Contains("IUnifiedCache.TryGetAsync", method, StringComparison.Ordinal);
+        Assert.Contains("IUnifiedCache.SetRawAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Int32.ToString", method, StringComparison.Ordinal);
     }
 
     [Fact]

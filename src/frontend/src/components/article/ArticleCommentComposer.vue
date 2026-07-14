@@ -661,7 +661,9 @@ watch(() => contentModel.value, (value) => {
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
-  transition: color 220ms cubic-bezier(0.4, 0, 0.2, 1), border-color 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    color var(--blog-motion-control) var(--blog-motion-ease),
+    border-color var(--blog-motion-control) var(--blog-motion-ease);
 }
 
 .fsus-comment-login__btn:visited {
@@ -672,7 +674,6 @@ watch(() => contentModel.value, (value) => {
   border-color: #2A599C;
   background: transparent;
   color: #2A599C;
-  transform: none;
 }
 
 .fsus-comment-login__btn:focus-visible {

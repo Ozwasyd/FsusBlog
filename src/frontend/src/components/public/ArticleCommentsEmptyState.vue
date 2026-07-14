@@ -56,7 +56,8 @@ const loginRoute = computed(() => ({
 
 .fsus-comments-empty__btn {
   display: inline-flex;
-  height: 32px;
+  min-height: 44px;
+  box-sizing: border-box;
   align-items: center;
   justify-content: center;
   padding-inline: 16px;
@@ -69,7 +70,9 @@ const loginRoute = computed(() => ({
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
-  transition: all 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    color var(--blog-motion-control) var(--blog-motion-ease),
+    border-color var(--blog-motion-control) var(--blog-motion-ease);
 }
 
 .fsus-comments-empty__btn:visited {
@@ -80,7 +83,6 @@ const loginRoute = computed(() => ({
   border-color: #2A599C;
   background-color: transparent;
   color: #2A599C;
-  transform: none;
 }
 
 .fsus-comments-empty__btn:focus-visible {

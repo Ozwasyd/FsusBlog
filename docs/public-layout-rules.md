@@ -65,6 +65,7 @@ Glass material 只允许用于以下 surface：
 - `metadata`：日期、分类、状态、阅读量和操作文案使用 12px 或 14px 档位，不能以装饰性微缩文字承载信息。
 - `--text-decorative` 与 `--fsusblog-text-decorative` 只用于分隔点、列表 marker 等无语义装饰；日期、分类、状态和操作必须使用达到 AA 的 `muted` 或 `tertiary` token。
 - emergency AOT 与 hydration 后的文章标题、摘要、metadata 必须使用相同的响应式字号和行高契约。
+- Reading surface 的正文基线为 16px / 1.8 行高；附录链接、标签和空态操作在窄视口与 150% 缩放下仍保持至少 44px 点击高度。
 
 ## 8. 圆角标度规则
 
@@ -72,7 +73,7 @@ Glass material 只允许用于以下 surface：
 
 ## 9. 动效标度规则
 
-动效时长只使用 140/220/300/360ms 步进。Reading surface 不使用 translate、scale、stagger、scroll reveal 或 motion trail。`prefers-reduced-motion: reduce` 下非必要动画移除 transform，保留状态机所需过渡时使用 `1ms`，不使用 `0ms` 或 `transition: none` 破坏钩子。
+动效时长只使用 140/220/300/360ms 步进。Reading surface 的颜色与边框反馈消费 `--blog-motion-control` 和 `--blog-motion-ease`，不在组件内复制 easing；同时不使用 translate、scale、stagger、scroll reveal 或 motion trail。`prefers-reduced-motion: reduce` 下非必要动画移除 transform，保留状态机所需过渡时使用 `1ms`，不使用 `0ms` 或 `transition: none` 破坏钩子。
 
 ## 10. Commit 评审 checklist
 

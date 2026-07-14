@@ -224,6 +224,7 @@ import ArticleDetailHeader from '@/components/article/ArticleDetailHeader.vue'
 import ArticleDetailBody from '@/components/public/ArticleDetailBody.vue'
 import ArticleDetailCommentsPlaceholder from '@/components/public/ArticleDetailCommentsPlaceholder.vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
+import { usePublicSiteTitle } from '@/public-renderers/publicSiteIdentityContext'
 import { themeTokens } from '@/ui-tokens/themeTokens'
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail'
 import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt'
@@ -244,6 +245,8 @@ const props = withDefaults(defineProps<{
   bodyHtml: '',
   linkMode: 'anchor'
 })
+
+const siteTitle = usePublicSiteTitle()
 
 const safeArticleId = computed(() => {
   const normalized = Number(props.articleId)
@@ -289,7 +292,7 @@ const rightsLicenseText = computed(() => {
 
 const appendixCopyrightText = computed(() => {
   const rights = props.detailView.rights
-  const holder = rights.copyrightHolder?.trim() || "Fsu's Blog"
+  const holder = rights.copyrightHolder?.trim() || siteTitle.value
   const copyrightPrefix = rights.copyrightYear
     ? `© ${rights.copyrightYear} ${holder}.`
     : `© ${holder}.`
@@ -339,6 +342,10 @@ const appendixCopyrightText = computed(() => {
 }
 
 .fsus-appendix__tag {
+  display: inline-flex;
+  min-height: 44px;
+  box-sizing: border-box;
+  align-items: center;
   color: #A1A1AA !important;
   font-size: 13px;
   font-weight: 400;
@@ -386,12 +393,16 @@ const appendixCopyrightText = computed(() => {
 }
 
 .fsus-appendix__link {
+  display: inline-flex;
+  min-height: 44px;
+  box-sizing: border-box;
+  align-items: center;
   color: #0F0F11;
   font-size: 14px;
   font-weight: 400;
   line-height: 1.5;
   text-decoration: none;
-  transition: color 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color var(--blog-motion-control) var(--blog-motion-ease);
 }
 
 .fsus-appendix__tag:visited {
@@ -406,7 +417,6 @@ const appendixCopyrightText = computed(() => {
   background: transparent;
   color: #2A599C;
   text-decoration: none;
-  transform: none;
 }
 
 .fsus-appendix__link:focus-visible,

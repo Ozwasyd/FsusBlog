@@ -383,7 +383,7 @@ const toggleCommentExpansion = (key: string): void => {
   font-weight: 500;
   line-height: 1.4;
   cursor: pointer;
-  transition: color 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color var(--blog-motion-control) var(--blog-motion-ease);
 }
 
 .fsus-comment__action:hover {
