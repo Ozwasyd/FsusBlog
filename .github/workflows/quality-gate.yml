@@ -1088,10 +1088,14 @@ jobs:
             .tmp/release-evidence/jobs/**
 
   perf-regression:
-    name: Perf Regression
+    name: Perf Regression (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    needs: validate-matrix
+    needs: [validate-matrix, frontend-build]
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -1101,15 +1105,43 @@ jobs:
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-      - run: ./tools/test.sh aeds-frame-cost --no-deps
-      - run: ./tools/test.sh aeds-compression-profile --no-deps
-      - run: ./tools/test.sh backend-perf --no-deps
-      - run: ./tools/test.sh backend-benchmark-regression --no-deps
-      - run: ./tools/test.sh browser-performance-regression --no-deps
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend ci --no-audit --progress=false
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('src/frontend/package-lock.json') }}
+      - run: node tools/ci/run-stage.mjs --stage install -- npm --prefix src/frontend exec -- playwright install --with-deps ${{ matrix.browser }}
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: frontend-build
+          path: .
+      - name: AEDS frame and browser boundary
+        if: matrix.browser == 'chromium'
+        env:
+          FSUSBLOG_AEDS_BROWSERS: chromium
+        run: node tools/ci/run-flaky-governed.mjs --suite perf-regression --test aeds-frame-cost-${{ matrix.browser }} -- ./tools/test.sh aeds-frame-cost --no-deps
+      - name: AEDS browser boundary
+        if: matrix.browser != 'chromium'
+        env:
+          FSUSBLOG_AEDS_BROWSERS: ${{ matrix.browser }}
+        run: node tools/ci/run-flaky-governed.mjs --suite perf-regression --test aeds-frame-cost-${{ matrix.browser }} -- node tests/frontend/checks/wasm/check-aeds-tier-browser.mjs
+      - if: matrix.browser == 'chromium'
+        run: ./tools/test.sh aeds-compression-profile --no-deps
+      - if: matrix.browser == 'chromium'
+        run: ./tools/test.sh backend-perf --no-deps
+      - if: matrix.browser == 'chromium'
+        run: ./tools/test.sh backend-benchmark-regression --no-deps
+      - if: matrix.browser == 'chromium'
+        run: ./tools/test.sh browser-performance-regression --no-deps
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: perf-regression
+          name: perf-regression-${{ matrix.browser }}
           if-no-files-found: ignore
           retention-days: 14
           include-hidden-files: true
@@ -1121,10 +1153,15 @@ jobs:
             .tmp/perf/browser-performance.json
             .tmp/perf/release-summaries/backend-benchmark-regression.json
             .tmp/perf/release-summaries/browser-performance-regression.json
+            .tmp/frontend/aeds-decode-budget/summary.json
+            .tmp/frontend/aeds-wasm-browser/summary.json
             .tmp/release-evidence/aeds-frame-cost-summary.json
             .tmp/release-evidence/aeds-compression-profile-summary.json
+            .tmp/release-evidence/aeds-decode-budget-summary.json
+            .tmp/release-evidence/aeds-wasm-browser-summary.json
             .tmp/release-evidence/public-hot-read-residency-profile.json
             .tmp/release-evidence/jobs/**
+            .tmp/release-evidence/flaky/**
             BenchmarkDotNet.Artifacts/results/**
 
   release-evidence:
