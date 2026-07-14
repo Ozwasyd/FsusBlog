@@ -2438,9 +2438,9 @@ tiers:
     nightlyOnly: true
 
   - id: aeds-frame-cost
-    owner: ServerContractAgent
+    owner: InteropGlueAgent
     command: tools/test/lanes/aeds-frame-cost.sh
-    dependsOn: []
+    dependsOn: [frontend-build]
     services: []
     parallelizable: true
     exclusiveResources: []
@@ -2451,9 +2451,9 @@ tiers:
     memoryWeight: 2
     minCpuUnits: 1
     requiresBootstrap: none
-    requiresNode: false
+    requiresNode: true
     requiresDotnet: false
-    requiresPlaywright: none
+    requiresPlaywright: all
     cacheProfile: none
     timeoutMinutes: 10
     shardable: false
@@ -2461,9 +2461,9 @@ tiers:
     risk: high
     cadence: pr
     requiredFor: production
-    coverage: [aeds-single-buffer-copy-crc-cost]
-    artifacts: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/release-evidence/aeds-frame-cost-summary.json]
-    evidence: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/release-evidence/aeds-frame-cost-summary.json]
+    coverage: [aeds-single-buffer-copy-crc-cost, aeds-wasm-tier-cross-stack]
+    artifacts: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/release-evidence/aeds-frame-cost-summary.json, .tmp/frontend/aeds-decode-budget/summary.json, .tmp/release-evidence/aeds-decode-budget-summary.json, .tmp/frontend/aeds-wasm-browser/summary.json, .tmp/release-evidence/aeds-wasm-browser-summary.json]
+    evidence: [.tmp/perf/aeds-frame-cost/summary.json, .tmp/release-evidence/aeds-frame-cost-summary.json, .tmp/frontend/aeds-decode-budget/summary.json, .tmp/release-evidence/aeds-decode-budget-summary.json, .tmp/frontend/aeds-wasm-browser/summary.json, .tmp/release-evidence/aeds-wasm-browser-summary.json]
     ciJob: perf-regression
     localOnly: false
     nightlyOnly: false

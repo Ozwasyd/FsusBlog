@@ -707,11 +707,13 @@ OPEN_HANDLE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/open-han
 AEDS_FRAME_COST_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json" aeds-frame-cost-summary.json)"
 AEDS_COMPRESSION_PROFILE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json" aeds-compression-profile-summary.json)"
 AEDS_DECODE_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json" aeds-decode-budget-summary.json)"
+AEDS_WASM_BROWSER_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/aeds-wasm-browser-summary.json" aeds-wasm-browser-summary.json)"
 DOC_SYNC_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json" doc-sync-summary.json)"
 DOM_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-budget.json" dom-budget.json)"
 ROUTE_RENDER_PRESSURE_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/route-render-pressure.json" route-render-pressure.json)"
 MARKDOWN_RENDER_BUDGET_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/markdown-render-budget.json" markdown-render-budget.json)"
 AEDS_DECODE_BUDGET_FRONTEND_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/aeds-decode-budget/summary.json" aeds-decode-budget-frontend-summary.json)"
+AEDS_WASM_BROWSER_FRONTEND_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/aeds-wasm-browser/summary.json" aeds-wasm-browser-frontend-summary.json)"
 DOM_DEPTH_STATIC_SUMMARY="$(copy_if_present "$ROOT_DIR/.tmp/frontend/dom-depth-static.json" dom-depth-static.json)"
 FAULT_ARTIFACT="$(copy_if_present "$FAULT_DIR" fault-injection)"
 SOAK_ARTIFACT="$(copy_if_present "$SOAK_DIR" soak)"
@@ -791,6 +793,7 @@ AOT_CACHE_RESILIENCE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/rele
 AEDS_FRAME_COST_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-frame-cost-summary.json")"
 AEDS_COMPRESSION_PROFILE_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-compression-profile-summary.json")"
 AEDS_DECODE_BUDGET_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-decode-budget-summary.json")"
+AEDS_WASM_BROWSER_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/aeds-wasm-browser-summary.json")"
 DOC_SYNC_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/doc-sync-summary.json")"
 PUBLIC_HYDRATION_DETECTOR_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-detector-summary.json")"
 PUBLIC_HYDRATION_CLOCK_MATRIX_STATUS_VALUE="$(json_status_or_missing "$ROOT_DIR/.tmp/release-evidence/public-hydration-clock-matrix-summary.json")"
@@ -835,6 +838,8 @@ if [[ "$PRODUCTION_STATUS_VALUE" != "ok" \
   || "$BACKEND_QPS_STATUS_VALUE" != "ok" \
   || "$MEMORY_LEAK_STATUS_VALUE" != "ok" \
   || "$OPEN_HANDLE_STATUS_VALUE" != "ok" \
+  || "$AEDS_DECODE_BUDGET_STATUS_VALUE" != "ok" \
+  || "$AEDS_WASM_BROWSER_STATUS_VALUE" != "ok" \
   || "$DOC_SYNC_STATUS_VALUE" != "ok" \
   || "$RELEASE_IDENTITY_STATUS" != "ok" \
   || "$IMAGE_DIGEST_STATUS" != "present" ]]; then
@@ -906,11 +911,13 @@ cat > "$OUT_DIR/manifest.json" <<JSON
     "aedsFrameCostSummary": $AEDS_FRAME_COST_SUMMARY,
     "aedsCompressionProfileSummary": $AEDS_COMPRESSION_PROFILE_SUMMARY,
     "aedsDecodeBudgetSummary": $AEDS_DECODE_BUDGET_SUMMARY,
+    "aedsWasmBrowserSummary": $AEDS_WASM_BROWSER_SUMMARY,
     "docSyncSummary": $DOC_SYNC_SUMMARY,
     "domBudgetSummary": $DOM_BUDGET_SUMMARY,
     "routeRenderPressureSummary": $ROUTE_RENDER_PRESSURE_SUMMARY,
     "markdownRenderBudgetSummary": $MARKDOWN_RENDER_BUDGET_SUMMARY,
     "aedsDecodeBudgetFrontendSummary": $AEDS_DECODE_BUDGET_FRONTEND_SUMMARY,
+    "aedsWasmBrowserFrontendSummary": $AEDS_WASM_BROWSER_FRONTEND_SUMMARY,
     "domDepthStaticSummary": $DOM_DEPTH_STATIC_SUMMARY,
     "faultInjection": $FAULT_ARTIFACT,
     "soak": $SOAK_ARTIFACT,
@@ -964,6 +971,7 @@ cat > "$OUT_DIR/manifest.json" <<JSON
       "aedsFrameCost": "$AEDS_FRAME_COST_STATUS_VALUE",
       "aedsCompressionProfile": "$AEDS_COMPRESSION_PROFILE_STATUS_VALUE",
       "aedsDecodeBudget": "$AEDS_DECODE_BUDGET_STATUS_VALUE",
+      "aedsWasmBrowser": "$AEDS_WASM_BROWSER_STATUS_VALUE",
       "docSync": "$DOC_SYNC_STATUS_VALUE"
     },
     "security": {

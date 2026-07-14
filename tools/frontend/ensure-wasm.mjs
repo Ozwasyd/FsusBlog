@@ -12,14 +12,20 @@ const clientRoot = process.cwd();
 const wasmRoot = join(clientRoot, 'wasm');
 const publicWasmRoot = join(clientRoot, 'public', 'wasm');
 const manifestPath = join(publicWasmRoot, 'wasm-manifest.aeds');
+const aedsRuntimeManifestPath = join(publicWasmRoot, 'aeds-runtime-manifest.json');
 const dependencyInstallerPath = fileURLToPath(new URL('./install-wasm-codec-deps.sh', import.meta.url));
 const cmakeBootstrapPath = fileURLToPath(new URL('./ensure-cmake.sh', import.meta.url));
+const binaryenBootstrapPath = fileURLToPath(new URL('./ensure-binaryen.sh', import.meta.url));
 const buildScriptPath = join(wasmRoot, 'build.sh');
-const schemaVersion = 2;
+const schemaVersion = 3;
+const aedsAbi = 'fsusblog.aeds.v3';
 const buildModes = ['basic', 'simd', 'relaxed', 'threads'];
 const requiredOutputFiles = [
-  'aeds_decoder.js',
-  'aeds_decoder.wasm',
+  'aeds_decoder_basic.js',
+  'aeds_decoder_basic.wasm',
+  'aeds_decoder_speed.js',
+  'aeds_decoder_speed.wasm',
+  'aeds-runtime-manifest.json',
   'fsus_pow_basic.js',
   'fsus_pow_basic.wasm',
   'fsus_pow_simd.js',
@@ -147,7 +153,8 @@ async function computeSourceDescriptor() {
   const sourceFiles = [
     ...wasmFiles,
     dependencyInstallerPath,
-    cmakeBootstrapPath
+    cmakeBootstrapPath,
+    binaryenBootstrapPath
   ].sort((left, right) => left.localeCompare(right));
 
   const descriptors = await mapWithDynamicConcurrency(sourceFiles, async (sourceFile) => {
@@ -181,7 +188,7 @@ async function readManifest() {
   return parseManifest(raw);
 }
 
-async function createManifest({ builtAtUtc }) {
+async function createManifest({ builtAtUtc, toolchain }) {
   const sourceDescriptor = await computeSourceDescriptor();
   const outputHashes = await mapWithDynamicConcurrency(requiredOutputFiles, (outputFile) =>
     sha256File(join(publicWasmRoot, outputFile)));
@@ -194,6 +201,8 @@ async function createManifest({ builtAtUtc }) {
     buildModes,
     buildScript: relative(clientRoot, buildScriptPath).replaceAll('\\', '/'),
     dependencyInstaller: relative(clientRoot, dependencyInstallerPath).replaceAll('\\', '/'),
+    aedsAbi,
+    toolchain,
     sourceHash: sourceDescriptor.sourceHash,
     sourceFiles: sourceDescriptor.sourceFiles,
     outputFiles: requiredOutputFiles,
@@ -201,8 +210,90 @@ async function createManifest({ builtAtUtc }) {
   };
 }
 
+function resolveToolchain(recorded) {
+  const toolchain = {
+    emscriptenVersion: process.env.FSUSBLOG_WASM_TOOLCHAIN_EMSCRIPTEN || recorded?.emscriptenVersion || '',
+    binaryenVersion: process.env.FSUSBLOG_WASM_TOOLCHAIN_BINARYEN || recorded?.binaryenVersion || '',
+    cmakeVersion: process.env.FSUSBLOG_WASM_TOOLCHAIN_CMAKE || recorded?.cmakeVersion || '',
+    vcpkgCommit: process.env.FSUSBLOG_WASM_TOOLCHAIN_VCPKG || recorded?.vcpkgCommit || '',
+    emsdkImage: process.env.FSUSBLOG_WASM_TOOLCHAIN_EMSDK_IMAGE || recorded?.emsdkImage || ''
+  };
+  if (!isValidToolchain(toolchain)) {
+    throw new Error('Wasm toolchain identity is incomplete; build.sh must supply pinned Emscripten, Binaryen, CMake, vcpkg, and emsdk image identities');
+  }
+  return toolchain;
+}
+
+function isValidToolchain(value) {
+  return Boolean(
+    value && typeof value === 'object' && !Array.isArray(value)
+    && /^\d+\.\d+\.\d+$/u.test(String(value.emscriptenVersion ?? ''))
+    && /^\d+$/u.test(String(value.binaryenVersion ?? ''))
+    && /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/u.test(String(value.cmakeVersion ?? ''))
+    && /^[0-9a-f]{40}$/u.test(String(value.vcpkgCommit ?? ''))
+    && /^emscripten\/emsdk:\d+\.\d+\.\d+@sha256:[0-9a-f]{64}$/u.test(String(value.emsdkImage ?? ''))
+  );
+}
+
+async function writeAedsRuntimeManifest(toolchain) {
+  const tierFiles = {
+    basic: ['aeds_decoder_basic.js', 'aeds_decoder_basic.wasm'],
+    speed: ['aeds_decoder_speed.js', 'aeds_decoder_speed.wasm']
+  };
+  for (const files of Object.values(tierFiles)) {
+    for (const file of files) {
+      if (!await exists(join(publicWasmRoot, file))) {
+        throw new Error(`cannot write AEDS runtime manifest because ${file} is missing`);
+      }
+    }
+  }
+  const [basicModuleHash, basicWasmHash, speedModuleHash, speedWasmHash] = await Promise.all([
+    sha256File(join(publicWasmRoot, tierFiles.basic[0])),
+    sha256File(join(publicWasmRoot, tierFiles.basic[1])),
+    sha256File(join(publicWasmRoot, tierFiles.speed[0])),
+    sha256File(join(publicWasmRoot, tierFiles.speed[1]))
+  ]);
+  const runtimeManifest = {
+    schema: 'fsusblog.aeds-runtime.v1',
+    abi: aedsAbi,
+    maxFrameBytes: 8 * 1024 * 1024,
+    workerModel: { instancesPerPage: 1, activeRequests: 2 },
+    toolchain,
+    tiers: {
+      basic: {
+        module: tierFiles.basic[0],
+        wasm: tierFiles.basic[1],
+        moduleSha256: basicModuleHash,
+        wasmSha256: basicWasmHash,
+        simd: false,
+        lto: false,
+        wasmOptValidated: false,
+        initialMemoryBytes: 16 * 1024 * 1024,
+        maximumMemoryBytes: 256 * 1024 * 1024,
+        memoryGrowth: 'bounded'
+      },
+      speed: {
+        module: tierFiles.speed[0],
+        wasm: tierFiles.speed[1],
+        moduleSha256: speedModuleHash,
+        wasmSha256: speedWasmHash,
+        simd: true,
+        lto: true,
+        wasmOptValidated: true,
+        initialMemoryBytes: 64 * 1024 * 1024,
+        maximumMemoryBytes: 64 * 1024 * 1024,
+        memoryGrowth: 'disabled'
+      }
+    }
+  };
+  await writeFile(aedsRuntimeManifestPath, `${JSON.stringify(runtimeManifest, null, 2)}\n`, 'utf8');
+}
+
 async function writeManifest() {
   await mkdir(publicWasmRoot, { recursive: true });
+  const previousManifest = await readManifest();
+  const toolchain = resolveToolchain(previousManifest?.toolchain);
+  await writeAedsRuntimeManifest(toolchain);
   const missingOutputs = [];
 
   for (const outputFile of requiredOutputFiles) {
@@ -216,7 +307,7 @@ async function writeManifest() {
     throw new Error(`cannot write wasm manifest because outputs are missing: ${missingOutputs.join(', ')}`);
   }
 
-  const manifest = await createManifest({ builtAtUtc: new Date().toISOString() });
+  const manifest = await createManifest({ builtAtUtc: new Date().toISOString(), toolchain });
   await writeFile(manifestPath, formatManifest(manifest), 'utf8');
   log(`wrote ${relative(clientRoot, manifestPath).replaceAll('\\', '/')}`);
 }
@@ -236,6 +327,8 @@ function formatManifest(manifest) {
     `buildModes\t${manifest.buildModes.map(encodeManifestField).join(',')}`,
     `buildScript\t${encodeManifestField(manifest.buildScript)}`,
     `dependencyInstaller\t${encodeManifestField(manifest.dependencyInstaller)}`,
+    `aedsAbi\t${encodeManifestField(manifest.aedsAbi)}`,
+    `toolchain\t${encodeManifestField(JSON.stringify(manifest.toolchain))}`,
     `sourceHash\t${encodeManifestField(manifest.sourceHash)}`
   ];
 
@@ -255,6 +348,8 @@ function parseManifest(raw) {
     buildModes: [],
     buildScript: '',
     dependencyInstaller: '',
+    aedsAbi: '',
+    toolchain: null,
     sourceHash: '',
     sourceFiles: [],
     outputFiles: [],
@@ -283,6 +378,16 @@ function parseManifest(raw) {
         break;
       case 'dependencyInstaller':
         manifest.dependencyInstaller = decodeManifestField(value);
+        break;
+      case 'aedsAbi':
+        manifest.aedsAbi = decodeManifestField(value);
+        break;
+      case 'toolchain':
+        try {
+          manifest.toolchain = JSON.parse(decodeManifestField(value));
+        } catch {
+          manifest.toolchain = null;
+        }
         break;
       case 'sourceHash':
         manifest.sourceHash = decodeManifestField(value);
@@ -314,6 +419,13 @@ async function isFresh() {
     return { fresh: false, reason: `schema mismatch (${manifest.schemaVersion} != ${schemaVersion})` };
   }
 
+  if (manifest.aedsAbi !== aedsAbi) {
+    return { fresh: false, reason: `AEDS ABI mismatch (${manifest.aedsAbi || 'missing'} != ${aedsAbi})` };
+  }
+  if (!isValidToolchain(manifest.toolchain)) {
+    return { fresh: false, reason: 'toolchain identity missing or mutable' };
+  }
+
   for (const outputFile of requiredOutputFiles) {
     const outputPath = join(publicWasmRoot, outputFile);
     if (!await exists(outputPath)) {
@@ -321,7 +433,10 @@ async function isFresh() {
     }
   }
 
-  const expected = await createManifest({ builtAtUtc: manifest.builtAtUtc ?? new Date().toISOString() });
+  const expected = await createManifest({
+    builtAtUtc: manifest.builtAtUtc ?? new Date().toISOString(),
+    toolchain: manifest.toolchain
+  });
   if (manifest.sourceHash !== expected.sourceHash) {
     return { fresh: false, reason: 'source hash changed' };
   }

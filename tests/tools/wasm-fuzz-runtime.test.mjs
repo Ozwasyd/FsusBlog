@@ -10,9 +10,12 @@ const evidenceCollector = await readFile(new URL('../../tools/operations/collect
 test('wasm fuzz lane executes the real decoder instead of projecting an environment marker', () => {
   assert.match(lane, /exec node "\$ROOT_DIR\/tools\/security\/run-wasm-fuzz\.mjs"/u)
   assert.doesNotMatch(lane, /FSUSBLOG_WASM_FUZZ_SEEDS_RUN/u)
-  assert.match(runner, /readFile\(decoderWasmPath\)/u)
+  assert.match(runner, /decoderVariants = \['basic', 'speed'\]/u)
+  assert.match(runner, /readFile\(variant\.wasmPath\)/u)
   assert.match(runner, /createAedsModule\(\{ wasmBinary/u)
-  assert.match(runner, /instance\._decode_aeds\(pointer, input\.byteLength\)/u)
+  assert.match(runner, /instance\._decode_io_buffer\(input\.byteLength\)/u)
+  assert.match(runner, /wasm_fuzz_tier_differential/u)
+  assert.match(runner, /wasm_fuzz_arena_clear_failed/u)
   assert.match(runner, /input\.byteLength === 0[\s\S]*instance\._decode_aeds\(0, 0\)/u)
 })
 

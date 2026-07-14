@@ -144,6 +144,9 @@ mkdir -p \
 rm -f \
   "${OUT_DIR}/aeds_decoder.js" \
   "${OUT_DIR}/aeds_decoder.wasm" \
+  "${OUT_DIR}/aeds_decoder"_*.js \
+  "${OUT_DIR}/aeds_decoder"_*.wasm \
+  "${OUT_DIR}/aeds-runtime-manifest.json" \
   "${OUT_DIR}/fsus_pow_"*.js \
   "${OUT_DIR}/fsus_pow_"*.wasm \
   "${OUT_DIR}/search_"*.js \
@@ -240,6 +243,31 @@ select_cmake
 echo "[build:wasm] cmake=${CMAKE_BIN} version=${CMAKE_VERSION}"
 print_resource_plan
 
+WASM_OPT_BIN="${FSUSBLOG_WASM_OPT:-}"
+if [[ -z "${WASM_OPT_BIN}" ]]; then
+  WASM_OPT_BIN="$("${ROOT_DIR}/../../tools/frontend/ensure-binaryen.sh")"
+fi
+[[ -x "${WASM_OPT_BIN}" ]] || {
+  echo "[build:wasm] pinned wasm-opt is missing: ${WASM_OPT_BIN}" >&2
+  exit 1
+}
+WASM_OPT_VERSION="$(${WASM_OPT_BIN} --version)"
+[[ "${WASM_OPT_VERSION}" == *"123"* ]] || {
+  echo "[build:wasm] wasm-opt must be pinned to Binaryen version 123, got: ${WASM_OPT_VERSION}" >&2
+  exit 1
+}
+EMSCRIPTEN_VERSION="$(emcc --version | sed -nE '1s/.* ([0-9]+\.[0-9]+\.[0-9]+) .*/\1/p')"
+[[ -n "${EMSCRIPTEN_VERSION}" ]] || {
+  echo "[build:wasm] unable to resolve Emscripten version" >&2
+  exit 1
+}
+export FSUSBLOG_WASM_TOOLCHAIN_EMSCRIPTEN="${EMSCRIPTEN_VERSION}"
+export FSUSBLOG_WASM_TOOLCHAIN_BINARYEN="123"
+export FSUSBLOG_WASM_TOOLCHAIN_CMAKE="${CMAKE_VERSION}"
+export FSUSBLOG_WASM_TOOLCHAIN_VCPKG="${FSUSBLOG_VCPKG_COMMIT:-eae1680538b86f962455c27abca2aad0dc304a4d}"
+export FSUSBLOG_WASM_TOOLCHAIN_EMSDK_IMAGE="emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973"
+echo "[build:wasm] emscripten=${EMSCRIPTEN_VERSION} binaryen=${WASM_OPT_VERSION}"
+
 if [[ "${FSUSBLOG_WASM_DISABLE_VCPKG_AUTODETECT:-0}" != "1" ]]; then
   VCPKG_ROOT_CANDIDATE="${VCPKG_ROOT:-/home/dev/vcpkg}"
   if [[ -d "${VCPKG_ROOT_CANDIDATE}/installed/wasm32-emscripten" ]]; then
@@ -249,17 +277,43 @@ fi
 
 optimize_pow_wasm() {
   local file="$1"
-  if ! command -v wasm-opt >/dev/null 2>&1; then
-    return
-  fi
-
   local tmp="${file}.opt"
-  if wasm-opt -O4 --enable-simd --enable-relaxed-simd "${file}" -o "${tmp}" >/dev/null 2>&1; then
+  local name
+  name="$(basename "${file}")"
+  local feature_args=(--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext)
+  case "${name}" in
+    fsus_pow_simd.wasm)
+      feature_args+=(--enable-simd)
+      ;;
+    fsus_pow_relaxed.wasm)
+      feature_args+=(--enable-simd --enable-relaxed-simd)
+      ;;
+    fsus_pow_threads.wasm)
+      feature_args+=(--enable-simd --enable-threads)
+      ;;
+  esac
+  if "${WASM_OPT_BIN}" -O4 "${feature_args[@]}" "${file}" -o "${tmp}" >/dev/null 2>&1; then
     mv -f "${tmp}" "${file}"
   else
     rm -f "${tmp}"
     echo "[build:wasm] wasm-opt skipped for ${file}" >&2
   fi
+}
+
+optimize_aeds_speed_wasm() {
+  local file="$1"
+  local tmp="${file}.opt"
+  rm -f "${tmp}"
+  if ! "${WASM_OPT_BIN}" -O4 \
+    --enable-simd \
+    --enable-bulk-memory \
+    --enable-nontrapping-float-to-int \
+    "${file}" -o "${tmp}"; then
+    rm -f "${tmp}"
+    echo "[build:wasm] mandatory AEDS speed wasm-opt failed: ${file}" >&2
+    return 1
+  fi
+  mv -f "${tmp}" "${file}"
 }
 
 optimize_pow_wasm_parallel() {
@@ -300,7 +354,7 @@ build_simd() {
   local jobs="$1"
   local targets=(
     FsusPowEngine
-    aeds_decoder
+    aeds_decoder_speed
     FsusSearchRuntime
     FsusCommentPrivacyRuntime
   )
@@ -319,12 +373,10 @@ build_simd() {
 
 build_basic() {
   local jobs="$1"
-  # The scalar publication contract contains only PoW, search, and image-codec
-  # artifacts. aeds_decoder and comment privacy are mode-invariant and are
-  # published from the SIMD build, so rebuilding them here only duplicates
-  # cold compilation work without producing a consumed artifact.
+  # The scalar publication contract carries the compatibility-first AEDS tier.
   local targets=(
     FsusPowEngine
+    aeds_decoder_basic
     FsusSearchRuntime
   )
   if [[ "${BUILD_IMAGE_CODEC}" == "ON" || "${BUILD_IMAGE_CODEC}" == "1" || "${BUILD_IMAGE_CODEC}" == "TRUE" ]]; then
@@ -399,8 +451,11 @@ if (( ${#failed_modes[@]} > 0 )); then
   exit 1
 fi
 
-cp -f "${STAGE_SIMD_DIR}/aeds_decoder.js" "${OUT_DIR}/aeds_decoder.js"
-cp -f "${STAGE_SIMD_DIR}/aeds_decoder.wasm" "${OUT_DIR}/aeds_decoder.wasm"
+cp -f "${STAGE_SIMD_DIR}/aeds_decoder_speed.js" "${OUT_DIR}/aeds_decoder_speed.js"
+cp -f "${STAGE_SIMD_DIR}/aeds_decoder_speed.wasm" "${OUT_DIR}/aeds_decoder_speed.wasm"
+cp -f "${STAGE_BASIC_DIR}/aeds_decoder_basic.js" "${OUT_DIR}/aeds_decoder_basic.js"
+cp -f "${STAGE_BASIC_DIR}/aeds_decoder_basic.wasm" "${OUT_DIR}/aeds_decoder_basic.wasm"
+optimize_aeds_speed_wasm "${OUT_DIR}/aeds_decoder_speed.wasm"
 cp -f "${STAGE_SIMD_DIR}/fsus_pow_simd.js" "${OUT_DIR}/fsus_pow_simd.js"
 cp -f "${STAGE_SIMD_DIR}/fsus_pow_simd.wasm" "${OUT_DIR}/fsus_pow_simd.wasm"
 cp -f "${STAGE_BASIC_DIR}/fsus_pow_basic.js" "${OUT_DIR}/fsus_pow_basic.js"

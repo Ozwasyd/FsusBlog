@@ -215,6 +215,24 @@
       ]
     },
     {
+      "id": "aeds-wasm-tier-cross-stack",
+      "description": "AEDS basic/speed tier selection, fallback, transfer, decode budget, and browser behavior are covered by real artifact and browser evidence.",
+      "owner": "InteropGlueAgent",
+      "risk": "high",
+      "evidencePaths": [
+        ".tmp/frontend/aeds-decode-budget/summary.json",
+        ".tmp/release-evidence/aeds-decode-budget-summary.json",
+        ".tmp/frontend/aeds-wasm-browser/summary.json",
+        ".tmp/release-evidence/aeds-wasm-browser-summary.json"
+      ],
+      "assertionType": "perf",
+      "failClosedRule": "production matrix validation requires real basic/speed Wasm measurements and supported-browser selection/fallback evidence; source-only assertions are insufficient.",
+      "minimumRequirement": "Both real Wasm tiers must satisfy artifact, compile, decode, copy, memory, and throughput budgets, while every installed supported browser proves speed selection, basic fallback, transferable Worker decode, and no double download/decode.",
+      "tierIds": [
+        "aeds-frame-cost"
+      ]
+    },
+    {
       "id": "aeds-wasm-markdown-fuzz",
       "description": "AEDS Wasm Markdown Fuzz is covered by fuzz summaries that exercise the named behavior.",
       "owner": "WasmEngineAgent",

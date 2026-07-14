@@ -40,7 +40,6 @@ let notificationInitScheduled = false
 const GUEST_INTENT_FALLBACK_MS = 5000
 const GUEST_INTENT_PUBLIC_FALLBACK_MS = 12000
 const NOTIFICATION_PUBLIC_IDLE_TIMEOUT_MS = 5200
-const WASM_PREWARM_PUBLIC_IDLE_TIMEOUT_MS = 6500
 
 function isPublicRouteNow(): boolean {
   return isPublicSeoPath(window.location.pathname)
@@ -211,12 +210,6 @@ function bootstrapAuthAndSiteState(): Promise<void> {
 onMounted(() => {
   markStartup('runtime-mounted')
   measureStartup('entry-to-runtime-mounted', 'entry', 'runtime-mounted')
-
-  runOnIdle(() => {
-    void import('@wasm/aeds')
-      .then(({ initWasm }) => initWasm())
-      .catch(() => {})
-  }, isPublicRouteNow() ? WASM_PREWARM_PUBLIC_IDLE_TIMEOUT_MS : 3000)
 
   if (!isPublicRouteNow()) {
     runOnIdle(() => {

@@ -49,8 +49,9 @@ const clientDir = process.env.CLIENT_DIR;
 const entries = fs.readdirSync(artifactDir, { withFileTypes: true });
 const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name).sort();
 const manifestName = path.basename(manifestPath);
+const runtimeManifestName = 'aeds-runtime-manifest.json';
 const checksumName = 'SHA256SUMS';
-const invalidFiles = files.filter((name) => !name.endsWith('.js') && !name.endsWith('.wasm') && name !== manifestName && name !== checksumName);
+const invalidFiles = files.filter((name) => !name.endsWith('.js') && !name.endsWith('.wasm') && name !== runtimeManifestName && name !== manifestName && name !== checksumName);
 if (invalidFiles.length > 0) {
   console.error(`[build-wasm-artifact] fatal: artifact directory contains unsupported files: ${invalidFiles.join(', ')}`);
   process.exit(1);
@@ -62,6 +63,16 @@ if (!fs.existsSync(manifestPath)) {
 }
 
 const manifest = parseManifest(fs.readFileSync(manifestPath, 'utf8'));
+if (manifest.schemaVersion !== 3 || manifest.aedsAbi !== 'fsusblog.aeds.v3' || !manifest.toolchain) {
+  console.error('[build-wasm-artifact] fatal: manifest must bind schema v3, AEDS ABI v3, and immutable toolchain identity');
+  process.exit(1);
+}
+const runtimeManifest = JSON.parse(fs.readFileSync(path.join(artifactDir, runtimeManifestName), 'utf8'));
+if (runtimeManifest.schema !== 'fsusblog.aeds-runtime.v1' || runtimeManifest.abi !== manifest.aedsAbi ||
+    runtimeManifest.tiers?.speed?.wasmOptValidated !== true) {
+  console.error('[build-wasm-artifact] fatal: AEDS runtime manifest tier identity is invalid');
+  process.exit(1);
+}
 const requiredFiles = Array.isArray(manifest.outputFiles) ? [...manifest.outputFiles].sort() : [];
 const actualOutputFiles = files.filter((name) => name !== manifestName && name !== checksumName).sort();
 
@@ -92,6 +103,8 @@ function parseManifest(raw) {
     buildModes: [],
     buildScript: '',
     dependencyInstaller: '',
+    aedsAbi: '',
+    toolchain: null,
     sourceHash: '',
     sourceFiles: [],
     outputFiles: [],
@@ -120,6 +133,12 @@ function parseManifest(raw) {
         break;
       case 'dependencyInstaller':
         manifest.dependencyInstaller = decodeManifestField(value);
+        break;
+      case 'aedsAbi':
+        manifest.aedsAbi = decodeManifestField(value);
+        break;
+      case 'toolchain':
+        manifest.toolchain = JSON.parse(decodeManifestField(value));
         break;
       case 'sourceHash':
         manifest.sourceHash = decodeManifestField(value);

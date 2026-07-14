@@ -1,8 +1,8 @@
 #include "aeds_decode.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <cstdio>
@@ -12,11 +12,15 @@
 namespace {
 
 thread_local std::array<char, 128> g_error{};
-thread_local std::vector<std::uint8_t> g_payload_storage{};
+thread_local std::vector<std::uint8_t> g_io_arena{};
+thread_local const std::uint8_t* g_payload_ptr = nullptr;
 thread_local std::uint32_t g_payload_len = 0;
 thread_local std::uint16_t g_frame_type = 0;
 thread_local std::uint8_t g_error_code = 0;
 thread_local std::string g_last_html{};
+thread_local std::uint32_t g_io_size = 0;
+thread_local std::uint32_t g_arena_reallocation_count = 0;
+thread_local std::uint32_t g_arena_clear_count = 0;
 constexpr std::size_t kArticleListRecordSize = 56u;
 constexpr std::size_t kCompactTagRecordSize = 12u;
 constexpr std::size_t kTagPodSize = 132u;
@@ -572,7 +576,7 @@ extern "C" {
 int decode_aeds(const std::uint8_t* data, int len) {
   if (data == nullptr || len <= 0) {
     set_error("invalid_input");
-    g_payload_storage.clear();
+    g_payload_ptr = nullptr;
     g_payload_len = 0;
     g_frame_type = 0;
     g_error_code = static_cast<std::uint8_t>(fsusblog::aeds::ErrorCode::InvalidInput);
@@ -583,7 +587,7 @@ int decode_aeds(const std::uint8_t* data, int len) {
   if (!result.ok) {
     g_error_code = static_cast<std::uint8_t>(result.error_code);
     set_error(result.error);
-    g_payload_storage.clear();
+    g_payload_ptr = nullptr;
     g_payload_len = 0;
     g_frame_type = 0;
     return 0;
@@ -591,39 +595,81 @@ int decode_aeds(const std::uint8_t* data, int len) {
 
   g_error_code = static_cast<std::uint8_t>(fsusblog::aeds::ErrorCode::None);
   set_error(nullptr);
-  g_payload_storage.assign(result.payload_ptr, result.payload_ptr + result.payload_len);
+  g_payload_ptr = result.payload_ptr;
   g_payload_len = result.payload_len;
   g_frame_type = result.frame_type;
   return 1;
 }
 
 std::uint32_t get_last_payload_ptr() {
-  if (g_payload_storage.empty()) {
+  if (g_payload_ptr == nullptr || g_payload_len == 0) {
     return 0;
   }
 
-  return static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_payload_storage.data()));
+  return static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_payload_ptr));
 }
 std::uint32_t get_last_payload_len() { return g_payload_len; }
 std::uint16_t get_last_frame_type() { return g_frame_type; }
 const char* get_last_error_ptr() { return g_error.data(); }
 int get_last_error_len() { return static_cast<int>(std::strlen(g_error.data())); }
 std::uint8_t get_last_error_code() { return g_error_code; }
-std::uint32_t alloc_buffer(int size) {
+std::uint32_t reserve_io_buffer(int size) {
   if (size <= 0) {
     return 0;
   }
 
-  void* ptr = std::malloc(static_cast<std::size_t>(size));
-  return static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(ptr));
+  if (!g_io_arena.empty()) {
+    std::fill(g_io_arena.begin(), g_io_arena.end(), static_cast<std::uint8_t>(0));
+    ++g_arena_clear_count;
+  }
+  const auto requested = static_cast<std::size_t>(size);
+  const auto previous_capacity = g_io_arena.capacity();
+  if (requested > previous_capacity) {
+    g_io_arena.reserve(requested);
+    ++g_arena_reallocation_count;
+  }
+  g_io_arena.resize(requested);
+  g_io_size = static_cast<std::uint32_t>(requested);
+  g_payload_ptr = nullptr;
+  g_payload_len = 0;
+  g_frame_type = 0;
+  return static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_io_arena.data()));
 }
-void free_buffer(std::uint32_t ptr) {
-  if (ptr == 0) {
-    return;
+
+int decode_io_buffer(int len) {
+  if (len <= 0 || static_cast<std::uint32_t>(len) > g_io_size || g_io_arena.empty()) {
+    return decode_aeds(nullptr, 0);
   }
 
-  std::free(reinterpret_cast<void*>(static_cast<std::uintptr_t>(ptr)));
+  return decode_aeds(g_io_arena.data(), len);
 }
+
+void clear_io_buffer(int release_memory) {
+  if (!g_io_arena.empty()) {
+    std::fill(g_io_arena.begin(), g_io_arena.end(), static_cast<std::uint8_t>(0));
+    ++g_arena_clear_count;
+  }
+  g_io_size = 0;
+  g_payload_ptr = nullptr;
+  g_payload_len = 0;
+  g_frame_type = 0;
+
+  if (release_memory != 0) {
+    std::vector<std::uint8_t>().swap(g_io_arena);
+  } else {
+    g_io_arena.clear();
+  }
+}
+
+std::uint32_t get_io_buffer_ptr() {
+  return g_io_arena.empty()
+    ? 0
+    : static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_io_arena.data()));
+}
+std::uint32_t get_io_buffer_size() { return g_io_size; }
+std::uint32_t get_io_buffer_capacity() { return static_cast<std::uint32_t>(g_io_arena.capacity()); }
+std::uint32_t get_arena_reallocation_count() { return g_arena_reallocation_count; }
+std::uint32_t get_arena_clear_count() { return g_arena_clear_count; }
 
 int render_view(std::uint16_t frame_type, const std::uint8_t* payload, std::uint32_t payload_len) {
   switch (frame_type) {

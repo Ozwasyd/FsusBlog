@@ -78,6 +78,10 @@ Ready and superseded publish proof manifests contain `articleId`, `articleRevisi
 
 AEDS v2 frame header 固定 16 字节，字段顺序为 `Magic:uint32`、`Version:uint8`、`HeaderLength:uint8`、`Flags:uint16`、`FrameType:uint16`、`PayloadLength:uint32`、`PayloadCrc16:uint16`。服务端、TypeScript adapter、Worker 与 Wasm decoder 只接受 v2；v1 frame 不再兼容。当前运行时不采用 `NoPayloadCrc` 或协议内 `PayloadCompressed` flag；request frame 的非零 flags 会被拒绝，response 默认写 `0`，后续 flags 必须先进入 contract matrix negative/downgrade case。
 
+浏览器 AEDS decoder 发布为 ABI `fsusblog.aeds.v3` 的 `aeds_decoder_basic.*` 与 `aeds_decoder_speed.*` 两套 artifact。两者只改变执行实现，不改变本节 wire：basic 为 scalar `-Oz` fallback；speed 为 `-O3/-flto/-msimd128`、严格 Binaryen `wasm-opt` 校验和固定 64 MiB memory。`aeds-runtime-manifest.json` 必须绑定两套 JS/Wasm hash、ABI、memory profile 与 compiler/emsdk/Binaryen/CMake/vcpkg identity，release asset URL 按 immutable build id 隔离。客户端以 `WebAssembly.validate` 探测 SIMD，speed 初始化失败后才顺序加载 basic；同一 frame 不允许 basic/speed 双解码，也不允许回退旧文本协议。
+
+网络 frame 进入 `wasmDecode.worker.ts` 时必须 transfer `ArrayBuffer` ownership；Worker 到 Wasm 使用一个可复用 I/O arena，禁止逐 frame `malloc/free`。payload result 直接引用 arena 内原 frame slice，复制一次到 JS owned bytes 后再交给 adapter；非公开 auth/admin/private frame 必须立即清零 arena，其他不可信 frame 最迟在下一次 reserve 前清零旧 active bytes。最大浏览器 frame 与服务端 binary request cap 对齐为 8 MiB；speed decode 不允许 memory growth，basic growth 必须受 256 MiB 上限约束并记录 pages/grow。完整实现、诊断、性能预算与无需重启回退见 [../wasm.md](../wasm.md)。
+
 高频读取 frame 改为 compact POD：
 
 | FrameType | Payload layout |

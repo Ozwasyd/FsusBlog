@@ -10,6 +10,8 @@ import path from 'node:path';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const buildScript = path.join(root, 'src/frontend/wasm/build.sh');
 const cmakeBootstrap = path.join(root, 'tools/frontend/ensure-cmake.sh');
+const binaryenBootstrap = path.join(root, 'tools/frontend/ensure-binaryen.sh');
+const serviceWorker = path.join(root, 'src/frontend/public/sw.js');
 const budgetVariables = [
   'FSUSBLOG_STEP_CPU_BUDGET',
   'FSUSBLOG_STEP_MEMORY_GIB',
@@ -105,23 +107,26 @@ assertPlan({ FSUSBLOG_STEP_MEMORY_GIB: '0.000001' }, {
 });
 
 const bootstrapSource = readFileSync(cmakeBootstrap, 'utf8');
+const binaryenBootstrapSource = readFileSync(binaryenBootstrap, 'utf8');
 const buildSource = readFileSync(buildScript, 'utf8');
+const serviceWorkerSource = readFileSync(serviceWorker, 'utf8');
 const simdBuild = buildSource.match(/build_simd\(\) \{(?<body>[\s\S]*?)\n\}/u)?.groups?.body ?? '';
 const basicBuild = buildSource.match(/build_basic\(\) \{(?<body>[\s\S]*?)\n\}/u)?.groups?.body ?? '';
 const basicTargetList = basicBuild.match(/local targets=\((?<targets>[\s\S]*?)\n  \)/u)?.groups?.targets ?? '';
 
-for (const target of ['FsusPowEngine', 'aeds_decoder', 'FsusSearchRuntime', 'FsusCommentPrivacyRuntime']) {
+for (const target of ['FsusPowEngine', 'aeds_decoder_speed', 'FsusSearchRuntime', 'FsusCommentPrivacyRuntime']) {
   assert.match(simdBuild, new RegExp(`\\b${target}\\b`, 'u'), `SIMD build must retain ${target}`);
 }
 assert.match(simdBuild, /targets\+=\(FsusImageCodec\)/u, 'SIMD build must retain the optional image codec target');
-for (const target of ['FsusPowEngine', 'FsusSearchRuntime']) {
+for (const target of ['FsusPowEngine', 'aeds_decoder_basic', 'FsusSearchRuntime']) {
   assert.match(basicBuild, new RegExp(`\\b${target}\\b`, 'u'), `basic build must retain ${target}`);
 }
 assert.match(basicBuild, /targets\+=\(FsusImageCodec\)/u, 'basic build must retain the optional image codec target');
-assert.doesNotMatch(basicTargetList, /\baeds_decoder\b/u, 'basic build must not duplicate the mode-invariant AEDS decoder');
 assert.doesNotMatch(basicTargetList, /\bFsusCommentPrivacyRuntime\b/u, 'basic build must not duplicate the mode-invariant comment privacy runtime');
-assert.doesNotMatch(buildSource, /\$\{STAGE_BASIC_DIR\}\/(?:aeds_decoder|comment_privacy_runtime)/u,
-  'mode-invariant artifacts must never be published from the scalar stage');
+assert.match(buildSource, /\$\{STAGE_BASIC_DIR\}\/aeds_decoder_basic/u,
+  'the scalar AEDS artifact must be published from the basic stage');
+assert.doesNotMatch(buildSource, /\$\{STAGE_BASIC_DIR\}\/comment_privacy_runtime/u,
+  'the mode-invariant comment privacy runtime must never be published from the scalar stage');
 assert.match(buildSource, /--target "\$\{targets\[@\]\}" --parallel "\$\{jobs\}"/u,
   'variant builds must explicitly build only their publication targets under the granted parallelism');
 for (const token of [
@@ -134,6 +139,9 @@ for (const token of [
   'optimize_pow_wasm_parallel',
   'failed_optimizations'
 ]) assert.match(buildSource, new RegExp(token, 'u'));
+for (const token of ['ensure-binaryen.sh', 'optimize_aeds_speed_wasm', '--enable-simd', 'mandatory AEDS speed wasm-opt failed']) {
+  assert.match(buildSource, new RegExp(token, 'u'));
+}
 assert.equal((buildSource.match(/^optimize_pow_wasm_parallel \\/gmu) ?? []).length, 1,
   'all four independent PoW artifacts must enter one dynamically bounded optimization pool');
 
@@ -146,5 +154,11 @@ assert.match(bootstrapSource, /\.tmp\/dependency-cache/u);
 assert.match(bootstrapSource, /flock 9/u);
 assert.match(bootstrapSource, /sha256sum -c -/u);
 assert.match(bootstrapSource, /mv "\$\{WORK_DIR\}\/root" "\$\{CMAKE_ROOT\}"/u);
+for (const token of ['BINARYEN_VERSION="version_123"', 'ARCHIVE_SHA256', 'sha256sum -c -', 'flock 9']) {
+  assert.match(binaryenBootstrapSource, new RegExp(token, 'u'));
+}
+assert.match(serviceWorkerSource, /IMMUTABLE_RELEASE_WASM_ASSET_PATTERN/u);
+assert.match(serviceWorkerSource, /\(IMMUTABLE_RELEASE_WASM_ASSET_PATTERN\.test\(url\.pathname\)\)[\s\S]*cacheFirstStatic/u,
+  'immutable release-scoped AEDS JS/Wasm/manifest assets must remain cacheable for N/N-1');
 
 console.log('[check-wasm-build-resource-budget] ok');

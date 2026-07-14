@@ -7,8 +7,19 @@ const releaseAssetBase = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/.test(frontendBuild
 
 export const WASM_PUBLIC_BASE = `${releaseAssetBase}wasm`;
 
-export const AEDS_MODULE_URL = `${WASM_PUBLIC_BASE}/aeds_decoder.js`;
-export const AEDS_WASM_URL = `${WASM_PUBLIC_BASE}/aeds_decoder.wasm`;
+export const AEDS_RUNTIME_MANIFEST_URL = `${WASM_PUBLIC_BASE}/aeds-runtime-manifest.json`;
+export const AEDS_BASIC_MODULE_URL = `${WASM_PUBLIC_BASE}/aeds_decoder_basic.js`;
+export const AEDS_BASIC_WASM_URL = `${WASM_PUBLIC_BASE}/aeds_decoder_basic.wasm`;
+export const AEDS_SPEED_MODULE_URL = `${WASM_PUBLIC_BASE}/aeds_decoder_speed.js`;
+export const AEDS_SPEED_WASM_URL = `${WASM_PUBLIC_BASE}/aeds_decoder_speed.wasm`;
+
+export type AedsAssetKind = 'basic' | 'speed';
+
+export function resolveAedsAsset(kind: AedsAssetKind): { moduleUrl: string; wasmUrl: string } {
+  return kind === 'speed'
+    ? { moduleUrl: AEDS_SPEED_MODULE_URL, wasmUrl: AEDS_SPEED_WASM_URL }
+    : { moduleUrl: AEDS_BASIC_MODULE_URL, wasmUrl: AEDS_BASIC_WASM_URL };
+}
 
 export const POW_SIMD_MODULE_URL = `${WASM_PUBLIC_BASE}/fsus_pow_simd.js`;
 export const POW_SIMD_WASM_URL = `${WASM_PUBLIC_BASE}/fsus_pow_simd.wasm`;

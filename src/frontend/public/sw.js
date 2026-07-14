@@ -52,7 +52,8 @@ const PUBLIC_SHELL_PATHS = [
   /^\/tag\/\d+\/?$/
 ]
 const STATIC_ASSET_PATTERN = /\.(?:css|js|mjs|wasm|woff2?|ttf|otf|eot|ico|svg|png|jpe?g|webp|avif)$/i
-const WASM_RUNTIME_ASSET_PATTERN = /^\/wasm\/[^/]+\.(?:js|wasm)$/i
+const WASM_RUNTIME_ASSET_PATTERN = /^\/wasm\/[^/]+\.(?:js|wasm|json)$/i
+const IMMUTABLE_RELEASE_WASM_ASSET_PATTERN = /^\/release-assets\/[0-9A-Za-z][0-9A-Za-z._-]{5,127}\/wasm\/[^/]+\.(?:js|wasm|json)$/i
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting())
@@ -102,6 +103,11 @@ self.addEventListener('fetch', (event) => {
 
   if (isPublicShellRequest(request, url)) {
     event.respondWith(networkFirstShell(request))
+    return
+  }
+
+  if (IMMUTABLE_RELEASE_WASM_ASSET_PATTERN.test(url.pathname)) {
+    event.respondWith(cacheFirstStatic(request))
     return
   }
 

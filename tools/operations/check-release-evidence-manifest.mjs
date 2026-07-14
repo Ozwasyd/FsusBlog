@@ -65,6 +65,8 @@ const requiredStatusChecks = [
   ['live exposure', (manifest) => manifest.evidenceSummary?.externalExposure?.liveExposure === 'ok'],
   ['viewport behavior summary', (manifest, context) => manifest.evidenceSummary?.gates?.uxViewport === 'ok' && uxViewportSummaryOk(manifest, context)],
   ['frontend render pressure', (manifest) => manifest.evidenceSummary?.gates?.frontendRenderPressure === 'ok'],
+  ['AEDS Wasm decode budget', (manifest, context) => manifest.evidenceSummary?.gates?.aedsDecodeBudget === 'ok' && aedsDecodeBudgetOk(manifest, context)],
+  ['AEDS Wasm browser tiers', (manifest, context) => manifest.evidenceSummary?.gates?.aedsWasmBrowser === 'ok' && aedsWasmBrowserOk(manifest, context)],
   ['public AOT cache resilience', (manifest, context) => manifest.evidenceSummary?.gates?.publicAotCacheResilience === 'success' && publicAotCacheResilienceOk(manifest, context)],
   ['public hydration sidecar', (manifest, context) => manifest.evidenceSummary?.gates?.publicHydrationSidecar === 'success' && publicHydrationSidecarOk(manifest, context)],
   ['doc sync', (manifest) => manifest.evidenceSummary?.gates?.docSync === 'ok']
@@ -88,6 +90,8 @@ const requiredArtifacts = [
   'jobSummaries',
   'uxViewportSummary',
   'frontendRenderPressureSummary',
+  'aedsDecodeBudgetSummary',
+  'aedsWasmBrowserSummary',
   'aotCacheResilienceSummary',
   'publicHydrationSidecarSummary',
   'publishArtifactsSummary',
@@ -132,6 +136,49 @@ function readArtifactJson(manifest, context, key, relative = null) {
   } catch {
     return null
   }
+}
+
+function aedsDecodeBudgetOk(manifest, context) {
+  const report = readArtifactJson(manifest, context, 'aedsDecodeBudgetSummary')
+  if (!report || report.status !== 'ok' || report.measurementSource !== 'real-basic-speed-wasm-runtime') return false
+  const tiers = new Map((Array.isArray(report.tiers) ? report.tiers : []).map((tier) => [tier?.tier, tier]))
+  for (const tierName of ['basic', 'speed']) {
+    const tier = tiers.get(tierName)
+    if (!tier || !Number.isFinite(tier.compileP95Ms) || tier.compileP95Ms < 0) return false
+    if (!Number.isSafeInteger(tier.memoryPages) || tier.memoryPages < 1) return false
+    if (!Number.isSafeInteger(tier.artifact?.rawBytes) || tier.artifact.rawBytes < 1) return false
+    if (!Number.isSafeInteger(tier.artifact?.gzipBytes) || tier.artifact.gzipBytes < 1) return false
+    if (!Number.isSafeInteger(tier.artifact?.brotliBytes) || tier.artifact.brotliBytes < 1) return false
+  }
+  const throughput = Array.isArray(report.throughput) ? report.throughput : []
+  return throughput.length >= 3
+    && throughput.every((sample) => Number.isSafeInteger(sample?.frameBytes) && sample.frameBytes > 0
+      && Number.isFinite(sample?.basicMBps) && sample.basicMBps > 0
+      && Number.isFinite(sample?.speedMBps) && sample.speedMBps > 0
+      && Number.isFinite(sample?.speedup) && sample.speedup > 0)
+    && throughput.filter((sample) => sample.speedup > 1).length >= 2
+    && Number.isFinite(report.budgets?.measuredMedianSpeedup)
+    && report.budgets.measuredMedianSpeedup >= 1.05
+}
+
+function aedsWasmBrowserOk(manifest, context) {
+  const report = readArtifactJson(manifest, context, 'aedsWasmBrowserSummary')
+  if (!report || report.status !== 'ok' || !Array.isArray(report.browsers)) return false
+  if (report.hydrationTakeoverEvidence !== '.tmp/release-evidence/public-hydration-sidecar-summary.json') return false
+  if (report.selectionRate !== 1 || report.fallbackRate !== 1) return false
+  const supported = report.browsers.filter((browser) => browser?.supported === true)
+  return supported.length > 0 && supported.every((browser) => browser.status === 'ok'
+    && browser.selectedTier === 'speed'
+    && browser.fallbackTier === 'basic'
+    && browser.fallbackCount === 1
+    && Number.isFinite(browser.load?.downloadMs) && browser.load.downloadMs >= 0
+    && Number.isFinite(browser.load?.compileMs) && browser.load.compileMs >= 0
+    && Number.isFinite(browser.load?.instantiateMs) && browser.load.instantiateMs >= 0
+    && Number.isFinite(browser.decode?.megabytesPerSecond) && browser.decode.megabytesPerSecond > 0
+    && Number.isSafeInteger(browser.decode?.peakPages) && browser.decode.peakPages > 0
+    && browser.decode?.growCount === 0
+    && Number.isFinite(browser.decode?.longTaskDurationMs) && browser.decode.longTaskDurationMs >= 0
+    && Number.isFinite(browser.workerTransferMs) && browser.workerTransferMs >= 0)
 }
 
 function includesAll(values, required) {
@@ -1066,7 +1113,7 @@ function validateManifest(manifest, options = {}) {
     errors.push(`release closeout requires collected-ok, got ${manifest.status}`)
   }
 
-  for (const key of ['uxViewportSummary', 'frontendRenderPressureSummary', 'aotCacheResilienceSummary', 'publicHydrationSidecarSummary', 'docSyncSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
+  for (const key of ['uxViewportSummary', 'frontendRenderPressureSummary', 'aedsDecodeBudgetSummary', 'aedsWasmBrowserSummary', 'aotCacheResilienceSummary', 'publicHydrationSidecarSummary', 'docSyncSummary', 'domBudgetSummary', 'routeRenderPressureSummary', 'markdownRenderBudgetSummary', 'domDepthStaticSummary']) {
     if (manifest.artifacts?.[key] === null || manifest.artifacts?.[key] === undefined) {
       errors.push(`artifacts.${key} must point to a collected required summary`)
     }
@@ -1403,6 +1450,8 @@ function runSelfTest() {
       gates: {
         uxViewport: 'ok',
         frontendRenderPressure: 'ok',
+        aedsDecodeBudget: 'ok',
+        aedsWasmBrowser: 'ok',
         publicAotCacheResilience: 'success',
         publicHydrationSidecar: 'success',
         docSync: 'ok'
@@ -1429,6 +1478,8 @@ function runSelfTest() {
   base.artifacts.memoryLeakSummary = 'memoryLeakSummary.json'
   base.artifacts.openHandleSummary = 'openHandleSummary.json'
   base.artifacts.uxViewportSummary = 'uxViewportSummary.json'
+  base.artifacts.aedsDecodeBudgetSummary = 'aedsDecodeBudgetSummary.json'
+  base.artifacts.aedsWasmBrowserSummary = 'aedsWasmBrowserSummary.json'
   base.artifacts.releaseRollout = 'releaseRollout.json'
   base.artifacts.releaseRolloutBundle = 'releaseRolloutBundle'
 
@@ -1539,6 +1590,40 @@ function runSelfTest() {
     completedRouteThemeGroupCount: 10,
     failedRouteThemeGroupCount: 0,
     artifacts: { smoke: null, visual: null, boundaries: '.tmp/ux/viewport-boundaries.json' }
+  }))
+  fs.writeFileSync(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'), JSON.stringify({
+    status: 'ok',
+    measurementSource: 'real-basic-speed-wasm-runtime',
+    tiers: ['basic', 'speed'].map((tier) => ({
+      tier,
+      artifact: { rawBytes: 1024, gzipBytes: 512, brotliBytes: 480 },
+      compileP95Ms: 1,
+      memoryPages: tier === 'speed' ? 1024 : 256
+    })),
+    throughput: [4096, 65536, 1048576].map((frameBytes, index) => ({
+      frameBytes,
+      basicMBps: 200 + index,
+      speedMBps: 240 + index,
+      speedup: 1.2
+    })),
+    budgets: { measuredMedianSpeedup: 1.2 }
+  }))
+  fs.writeFileSync(path.join(tmpDir, 'aedsWasmBrowserSummary.json'), JSON.stringify({
+    status: 'ok',
+    hydrationTakeoverEvidence: '.tmp/release-evidence/public-hydration-sidecar-summary.json',
+    selectionRate: 1,
+    fallbackRate: 1,
+    browsers: ['chromium', 'firefox', 'webkit'].map((browser) => ({
+      browser,
+      supported: true,
+      status: 'ok',
+      selectedTier: 'speed',
+      fallbackTier: 'basic',
+      fallbackCount: 1,
+      load: { downloadMs: 1, compileMs: 1, instantiateMs: 1 },
+      decode: { megabytesPerSecond: 250, peakPages: 1024, growCount: 0, longTaskDurationMs: 0 },
+      workerTransferMs: 0
+    }))
   }))
   fs.mkdirSync(path.join(tmpDir, 'authenticatedDast'))
   fs.writeFileSync(path.join(tmpDir, 'authenticatedDast', 'summary.json'), JSON.stringify({
@@ -1758,6 +1843,32 @@ function runSelfTest() {
   if (!ok.ok) {
     fail(`self-test expected ok manifest to pass: ${ok.errors.join('; ')}`)
   }
+
+  const validAedsDecodeBudget = readJson(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'))
+  fs.writeFileSync(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'), JSON.stringify({
+    ...validAedsDecodeBudget,
+    budgets: { ...validAedsDecodeBudget.budgets, measuredMedianSpeedup: 1 }
+  }))
+  const regressedAedsBudget = structuredClone(base)
+  regressedAedsBudget.status = 'collected-blocked'
+  const regressedAedsBudgetResult = validateManifest(regressedAedsBudget, { manifestPath: manifestFile })
+  if (!regressedAedsBudgetResult.ok || !regressedAedsBudgetResult.missingRequired.includes('AEDS Wasm decode budget')) {
+    fail('self-test expected regressed AEDS speed budget to block release closeout')
+  }
+  fs.writeFileSync(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'), JSON.stringify(validAedsDecodeBudget))
+
+  const validAedsBrowser = readJson(path.join(tmpDir, 'aedsWasmBrowserSummary.json'))
+  fs.writeFileSync(path.join(tmpDir, 'aedsWasmBrowserSummary.json'), JSON.stringify({
+    ...validAedsBrowser,
+    selectionRate: 0.5
+  }))
+  const regressedAedsBrowser = structuredClone(base)
+  regressedAedsBrowser.status = 'collected-blocked'
+  const regressedAedsBrowserResult = validateManifest(regressedAedsBrowser, { manifestPath: manifestFile })
+  if (!regressedAedsBrowserResult.ok || !regressedAedsBrowserResult.missingRequired.includes('AEDS Wasm browser tiers')) {
+    fail('self-test expected regressed AEDS browser selection to block release closeout')
+  }
+  fs.writeFileSync(path.join(tmpDir, 'aedsWasmBrowserSummary.json'), JSON.stringify(validAedsBrowser))
 
   const gatewayFixture = readJson(path.join(tmpDir, 'gatewayTransition.json'))
   fs.writeFileSync(path.join(tmpDir, 'gatewayTransition.json'), JSON.stringify({

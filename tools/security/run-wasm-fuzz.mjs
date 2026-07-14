@@ -8,8 +8,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const decoderDirectory = resolve(root, 'src/frontend/dist/wasm')
-const decoderModulePath = join(decoderDirectory, 'aeds_decoder.js')
-const decoderWasmPath = join(decoderDirectory, 'aeds_decoder.wasm')
+const decoderVariants = ['basic', 'speed'].map((tier) => ({
+  tier,
+  modulePath: join(decoderDirectory, `aeds_decoder_${tier}.js`),
+  wasmPath: join(decoderDirectory, `aeds_decoder_${tier}.wasm`)
+}))
 const outputDirectory = resolve(root, '.tmp/fuzz/wasm')
 const crashDirectory = join(outputDirectory, 'crashes')
 const releaseEvidenceDirectory = resolve(root, '.tmp/release-evidence')
@@ -118,13 +121,52 @@ async function writeEvidence(summary) {
 const startedAt = new Date().toISOString()
 let seedsRun = 0
 let decoderDigest = ''
+let decoderEvidence = []
 let activeSeed = null
 
 try {
-  const wasmBinary = await readFile(decoderWasmPath)
-  decoderDigest = createHash('sha256').update(wasmBinary).digest('hex')
-  const { default: createAedsModule } = await import(pathToFileURL(decoderModulePath).href)
-  const instance = await createAedsModule({ wasmBinary, print: () => {}, printErr: () => {} })
+  const decoders = []
+  for (const variant of decoderVariants) {
+    const wasmBinary = await readFile(variant.wasmPath)
+    const sha256 = createHash('sha256').update(wasmBinary).digest('hex')
+    const { default: createAedsModule } = await import(pathToFileURL(variant.modulePath).href)
+    const instance = await createAedsModule({ wasmBinary, print: () => {}, printErr: () => {} })
+    decoders.push({ ...variant, sha256, instance })
+  }
+  decoderEvidence = decoders.map(({ tier, modulePath, wasmPath, sha256 }) => ({
+    tier,
+    module: modulePath.slice(root.length + 1).replaceAll('\\', '/'),
+    wasm: wasmPath.slice(root.length + 1).replaceAll('\\', '/'),
+    sha256
+  }))
+  decoderDigest = createHash('sha256').update(decoderEvidence.map(item => `${item.tier}:${item.sha256}`).join('\n')).digest('hex')
+
+  const decodeWithArena = (decoder, input) => {
+    const { instance } = decoder
+    if (input.byteLength === 0) {
+      return { ok: instance._decode_aeds(0, 0), frameType: 0, payloadLength: 0, payloadSha256: null, errorCode: instance._get_last_error_code() }
+    }
+    const pointer = instance._reserve_io_buffer(input.byteLength)
+    if (!Number.isInteger(pointer) || pointer <= 0) throw new Error(`wasm_fuzz_arena_reserve_failed:${decoder.tier}`)
+    instance.HEAPU8.set(input, pointer)
+    const ok = instance._decode_io_buffer(input.byteLength)
+    const payloadPointer = instance._get_last_payload_ptr()
+    const payloadLength = instance._get_last_payload_len()
+    const signature = {
+      ok,
+      frameType: instance._get_last_frame_type(),
+      payloadLength,
+      payloadSha256: ok === 1 && payloadLength > 0
+        ? createHash('sha256').update(instance.HEAPU8.subarray(payloadPointer, payloadPointer + payloadLength)).digest('hex')
+        : null,
+      errorCode: instance._get_last_error_code()
+    }
+    instance._clear_io_buffer(0)
+    for (let offset = 0; offset < input.byteLength; offset += Math.max(1, Math.floor(input.byteLength / 16))) {
+      if (instance.HEAPU8[pointer + offset] !== 0) throw new Error(`wasm_fuzz_arena_clear_failed:${decoder.tier}`)
+    }
+    return signature
+  }
 
   for (const [corpusIndex, entry] of corpus.entries()) {
     const base = validFrame(entry)
@@ -132,20 +174,12 @@ try {
       const seed = seedFor(corpusIndex, iteration)
       activeSeed = { corpus: entry.id, iteration, seed }
       const input = mutate(base, seed, iteration)
-      if (input.byteLength === 0) {
-        const result = instance._decode_aeds(0, 0)
-        if (result !== 0 && result !== 1) throw new Error(`wasm_fuzz_invalid_result:${result}`)
-        seedsRun += 1
-        continue
+      const results = decoders.map(decoder => decodeWithArena(decoder, input))
+      for (const result of results) {
+        if (result.ok !== 0 && result.ok !== 1) throw new Error(`wasm_fuzz_invalid_result:${result.ok}`)
       }
-      const pointer = instance._alloc_buffer(input.byteLength)
-      if (!Number.isInteger(pointer) || pointer <= 0) throw new Error('wasm_fuzz_alloc_failed')
-      try {
-        instance.HEAPU8.set(input, pointer)
-        const result = instance._decode_aeds(pointer, input.byteLength)
-        if (result !== 0 && result !== 1) throw new Error(`wasm_fuzz_invalid_result:${result}`)
-      } finally {
-        instance._free_buffer(pointer)
+      if (JSON.stringify(results[0]) !== JSON.stringify(results[1])) {
+        throw new Error(`wasm_fuzz_tier_differential:${JSON.stringify(results)}`)
       }
       seedsRun += 1
     }
@@ -166,11 +200,7 @@ try {
     })),
     crashes: [],
     sanitizerOutput: null,
-    decoder: {
-      module: 'src/frontend/dist/wasm/aeds_decoder.js',
-      wasm: 'src/frontend/dist/wasm/aeds_decoder.wasm',
-      sha256: decoderDigest
-    },
+    decoder: { sha256: decoderDigest, abi: 'fsusblog.aeds.v3', tiers: decoderEvidence },
     blocker: null,
     startedAt,
     generatedAt
@@ -192,7 +222,7 @@ try {
     seedPlan: corpus.map((entry, corpusIndex) => ({ corpus: entry.id, firstSeed: seedFor(corpusIndex, 0), count: seedsPerCorpus })),
     crashes: [`.tmp/fuzz/wasm/crashes/${crashName}`],
     sanitizerOutput: null,
-    decoder: { module: 'src/frontend/dist/wasm/aeds_decoder.js', wasm: 'src/frontend/dist/wasm/aeds_decoder.wasm', sha256: decoderDigest || null },
+    decoder: { sha256: decoderDigest || null, abi: 'fsusblog.aeds.v3', tiers: decoderEvidence },
     blocker: 'wasm-fuzz-execution-failed',
     error: message,
     startedAt,

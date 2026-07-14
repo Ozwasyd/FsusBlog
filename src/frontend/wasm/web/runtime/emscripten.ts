@@ -3,7 +3,21 @@ export type EmscriptenModuleFactory<TModule> = (options?: {
   print?: (message: string) => void;
   printErr?: (message: string) => void;
   wasmBinary?: Uint8Array;
+  instantiateWasm?: (
+    imports: WebAssembly.Imports,
+    receiveInstance: (instance: WebAssembly.Instance, module: WebAssembly.Module) => void
+  ) => WebAssembly.Exports;
 }) => Promise<TModule>;
+
+export type EmscriptenLoadMetrics = {
+  downloadMs: number;
+  compileMs: number;
+  instantiateMs: number;
+  wasmBytes: number;
+  compiledModuleCacheHit: boolean;
+};
+
+const compiledModuleCache = new Map<string, Promise<WebAssembly.Module>>();
 
 type ModuleNamespace<TModule> = {
   default?: EmscriptenModuleFactory<TModule>;
@@ -17,6 +31,10 @@ export async function loadEmscriptenModule<TModule>(
   options?: {
     print?: (message: string) => void;
     printErr?: (message: string) => void;
+    compiledModuleCacheKey?: string;
+    expectedWasmSha256?: string;
+    requireCompiledModule?: boolean;
+    onMetrics?: (metrics: EmscriptenLoadMetrics) => void;
   }
 ): Promise<TModule | null> {
   const resolvedModuleUrl = await resolveRuntimeUrl(moduleUrl);
@@ -28,7 +46,26 @@ export async function loadEmscriptenModule<TModule>(
   }
 
   const nodeDirname = resolveNodeDirname(resolvedModuleUrl);
+  const downloadStartedAt = now();
   const wasmBinary = readNodeWasmBinary(resolvedWasmUrl) ?? await readBrowserWasmBinary(resolvedWasmUrl);
+  const downloadMs = now() - downloadStartedAt;
+  if (wasmBinary && options?.expectedWasmSha256) {
+    const actualHash = await sha256Hex(wasmBinary);
+    if (actualHash !== options.expectedWasmSha256.replace(/^sha256:/u, '').toLowerCase()) {
+      throw new Error('wasm_hash_mismatch');
+    }
+  }
+  const cacheKey = options?.compiledModuleCacheKey;
+  const cacheHit = Boolean(cacheKey && compiledModuleCache.has(cacheKey));
+  let compiledModule: WebAssembly.Module | undefined;
+  let compileMs = 0;
+  if (cacheKey && wasmBinary) {
+    const compileStartedAt = now();
+    compiledModule = await getCompiledModule(cacheKey, wasmBinary);
+    compileMs = now() - compileStartedAt;
+  } else if (options?.requireCompiledModule) {
+    throw new Error('wasm_binary_unavailable_for_compiled_cache');
+  }
   const globals = globalThis as { __dirname?: string };
   const savedDirname = globals.__dirname;
   if (nodeDirname) {
@@ -36,12 +73,30 @@ export async function loadEmscriptenModule<TModule>(
   }
 
   try {
-    return await factory({
+    let instantiateMs = 0;
+    const instance = await factory({
       locateFile: (path) => path.endsWith('.wasm') ? resolvedWasmUrl : path,
       print: options?.print,
       printErr: options?.printErr,
-      wasmBinary
+      wasmBinary,
+      ...(compiledModule ? {
+        instantiateWasm: (imports, receiveInstance) => {
+          const instantiateStartedAt = now();
+          const wasmInstance = new WebAssembly.Instance(compiledModule, imports);
+          instantiateMs += now() - instantiateStartedAt;
+          receiveInstance(wasmInstance, compiledModule);
+          return wasmInstance.exports;
+        }
+      } : {})
     });
+    options?.onMetrics?.({
+      downloadMs,
+      compileMs,
+      instantiateMs,
+      wasmBytes: wasmBinary?.byteLength ?? 0,
+      compiledModuleCacheHit: cacheHit
+    });
+    return instance;
   } finally {
     if (nodeDirname) {
       if (savedDirname === undefined) {
@@ -51,6 +106,33 @@ export async function loadEmscriptenModule<TModule>(
       }
     }
   }
+}
+
+async function getCompiledModule(cacheKey: string, binary: Uint8Array): Promise<WebAssembly.Module> {
+  let pending = compiledModuleCache.get(cacheKey);
+  if (!pending) {
+    pending = WebAssembly.compile(binary as BufferSource);
+    compiledModuleCache.set(cacheKey, pending);
+    pending.catch(() => compiledModuleCache.delete(cacheKey));
+  }
+  return await pending;
+}
+
+function now(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+export function clearCompiledWasmModuleCacheForTests(): void {
+  compiledModuleCache.clear();
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) {
+    throw new Error('wasm_hash_verifier_unavailable');
+  }
+  const digest = await subtle.digest('SHA-256', bytes as BufferSource);
+  return Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
 }
 
 function resolveNodeDirname(moduleUrl: string): string | null {

@@ -21,7 +21,7 @@ USER $APP_UID
 # 阶段 1.5：受控 wasm 工件构建
 # 只用于导出受信 wasm artifact，不进入 final build 运行时链路。
 ## =========================================================================
-FROM emscripten/emsdk:latest@sha256:e1b3e665245524ac6b62b180f9ccf9bd22308e6bb034f5fd9090df54fdbdfba6 AS wasm-builder
+FROM emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973 AS wasm-builder
 ARG VCPKG_COMMIT
 WORKDIR /work
 

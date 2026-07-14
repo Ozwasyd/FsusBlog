@@ -8,8 +8,11 @@ const wasmDir = join(root, 'public', 'wasm');
 const joinToken = (...parts) => parts.join('');
 
 const checks = [
-  { file: join(wasmDir, 'aeds_decoder.js'), label: 'aeds_decoder.js' },
-  { file: join(wasmDir, 'aeds_decoder.wasm'), label: 'aeds_decoder.wasm' },
+  { file: join(wasmDir, 'aeds_decoder_basic.js'), label: 'aeds_decoder_basic.js' },
+  { file: join(wasmDir, 'aeds_decoder_basic.wasm'), label: 'aeds_decoder_basic.wasm' },
+  { file: join(wasmDir, 'aeds_decoder_speed.js'), label: 'aeds_decoder_speed.js' },
+  { file: join(wasmDir, 'aeds_decoder_speed.wasm'), label: 'aeds_decoder_speed.wasm' },
+  { file: join(wasmDir, 'aeds-runtime-manifest.json'), label: 'aeds-runtime-manifest.json' },
   { file: join(wasmDir, 'fsus_pow_simd.js'), label: 'fsus_pow_simd.js' },
   { file: join(wasmDir, 'fsus_pow_simd.wasm'), label: 'fsus_pow_simd.wasm' },
   { file: join(wasmDir, 'fsus_pow_basic.js'), label: 'fsus_pow_basic.js' },
@@ -32,19 +35,26 @@ if (failed) {
   process.exit(1);
 }
 
-const decoderJsPath = join(wasmDir, 'aeds_decoder.js');
-const decoderJs = readFileSync(decoderJsPath, 'utf8');
+const decoderJsPaths = [
+  join(wasmDir, 'aeds_decoder_basic.js'),
+  join(wasmDir, 'aeds_decoder_speed.js')
+];
 const requiredSymbols = [
-  'decode_aeds',
+  'decode_io_buffer',
+  'reserve_io_buffer',
+  'clear_io_buffer',
   'get_last_payload_ptr',
   'get_last_payload_len',
   'get_last_frame_type'
 ];
 
-for (const symbol of requiredSymbols) {
-  if (!decoderJs.includes(symbol)) {
-    console.error(`[aot-check] export symbol not found in decoder js: ${symbol}`);
-    failed = true;
+for (const decoderJsPath of decoderJsPaths) {
+  const decoderJs = readFileSync(decoderJsPath, 'utf8');
+  for (const symbol of requiredSymbols) {
+    if (!decoderJs.includes(symbol)) {
+      console.error(`[aot-check] export symbol not found in ${decoderJsPath}: ${symbol}`);
+      failed = true;
+    }
   }
 }
 

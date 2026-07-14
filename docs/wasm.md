@@ -1,150 +1,45 @@
-﻿# WebAssembly 开发指南
+# WebAssembly 开发与发布契约
 
-本文件说明 FsusBlog Wasm 模块的工具链配置、构建流程、C++/TypeScript 接口边界和调试策略。
+本文记录 FsusBlog 浏览器 Wasm 的构建身份、AEDS decoder tier、内存边界、运行时选择、诊断和验证方式。AEDS wire 契约仍以 `src/shared/Contracts/Validation/aeds-protocol.json` 与 `src/core/Algorithms/AEDS_V2_PROTOCOL.md` 为准；本页描述实现与发布，不新增协议版本。
 
----
+## 目录与职责
 
-## 总览
+| 路径 | 职责 |
+|---|---|
+| `src/frontend/wasm/aeds/` | AEDS v2 C++ decoder、CRC16、POD validation 与 Emscripten exports |
+| `src/frontend/wasm/aeds/CMakeLists.txt` | basic/speed 两套受控目标 |
+| `src/frontend/wasm/build.sh` | 多 variant 并行构建、严格 Binaryen 优化、artifact 汇总 |
+| `tools/frontend/ensure-wasm.mjs` | source/output hash、ABI、toolchain 与 runtime manifest |
+| `tools/frontend/ensure-binaryen.sh` | Binaryen 123 的架构选择、下载、SHA-256 校验与缓存 |
+| `src/frontend/wasm/web/aeds.ts` | SIMD 探测、tier 选择、arena bridge 与运行时诊断 |
+| `src/frontend/wasm/web/runtime/emscripten.ts` | Wasm hash 校验、compiled module 单飞缓存与 load timing |
+| `src/frontend/src/workers/wasmDecode.worker.ts` | Worker decode、transfer timing、错误分类 |
+| `src/frontend/src/services/binaryTransport.ts` | 网络 `ArrayBuffer` transferable 边界与 telemetry |
 
-FsusBlog 使用 C++23（Freestanding 模式）编写 Wasm 解码器，主要职责：
+## AEDS artifact 与固定 ABI
 
-1. **AEDS v2 解码**：读取 16 字节帧头，校验 Magic/Version/HeaderLength/CRC16，按 FrameType 解析 compact POD 载荷
-2. **CRC16 校验**：Modbus 多项式 `0xA001`，只校验 payload；header 不再带独立 CRC
-3. **POD → ViewModel 转换**：定长 POD 结构体 → TypeScript 可用的对象模型
-4. **内存安全**：Freestanding 模式禁止 STL 堆分配，全部使用栈内存或预分配缓冲区
+发布目录必须同时包含：
 
-解码器在 Web Worker 中运行，与主线程完全隔离，不阻塞 UI。
-
----
-
-## 代码组织
-
-```
-src/frontend/src/wasm/
-├── include/               # C++ 头文件
-│   ├── aeds_decoder.h     # 解码器主接口
-│   ├── aeds_frame.h       # 帧头结构体定义
-│   ├── pod_types.h        # 所有 POD 类型定义（与 C# Shared 对齐）
-│   ├── aeds_crc32.hpp     # CRC16 实现（文件名沿用历史路径）
-│   └── utf8_fixed.h       # Utf8Fixed32/64/128/256/512 工具
-├── src/                   # C++ 实现文件
-│   ├── aeds_decoder.cpp   # 解码主逻辑
-│   ├── aeds_crc32.cpp     # CRC16 计算
-│   └── utf8_fixed.cpp     # 固定宽度字符串工具
-├── aeds.ts                # C++/TS 胶水层（Emscripten 绑定）
-├── CMakeLists.txt         # CMake 构建配置
-└── build.sh               # 本地构建脚本（封装 emcmake + emmake）
-
-src/frontend/src/workers/
-├── wasmDecode.worker.ts   # Wasm 解码 Web Worker
-└── ...                    # 其他 Worker
-
-src/frontend/wasm/      # 编译产物（不入 git，通过 ensure:wasm 拉取）
-├── aeds_decoder.wasm      # Wasm 模块
-└── aeds_decoder.js        # Emscripten 胶水 JS
+```text
+wasm/aeds-runtime-manifest.json
+wasm/aeds_decoder_basic.js
+wasm/aeds_decoder_basic.wasm
+wasm/aeds_decoder_speed.js
+wasm/aeds_decoder_speed.wasm
 ```
 
----
+当前 ABI 为 `fsusblog.aeds.v3`。`aeds-runtime-manifest.json` 绑定 basic/speed 的 JS/Wasm SHA-256、内存模型、feature identity 和完整 Wasm toolchain。上层 `wasm-manifest.aeds` 再绑定 runtime manifest 与所有输出 hash，release manifest 的 `wasmArtifactHash` 最终绑定整包；任一层 hash 漂移都必须重建，不能把旧 artifact 重命名为新 tier。
 
-## 工具链要求
+| tier | 编译/优化 | 内存 | 用途 |
+|---|---|---|---|
+| `basic` | `-Oz`、scalar | 16 MiB initial，256 MiB bounded growth | 无 SIMD 浏览器兼容路径 |
+| `speed` | `-O3 -flto -msimd128`，Binaryen 123 `wasm-opt -O4 --enable-simd` 严格校验 | 64 MiB fixed，禁止 growth | 现代浏览器吞吐路径 |
 
-### Emscripten SDK
+speed 的 `wasm-opt` 还显式启用 Emscripten 产物已经使用的 bulk-memory 与 nontrapping-float-to-int validator feature。优化器缺失、版本不是 123、输入 validation 失败或输出失败都会终止构建；不得静默保留未优化文件并标记 `wasmOptValidated=true`。
 
-```bash
-# 安装 emsdk
-git clone https://github.com/emscripten-core/emsdk.git
-cd emsdk
-./emsdk install latest
-./emsdk activate latest
-source ./emsdk_env.sh      # 每个新终端需要 source
+## 其他 Wasm 模块
 
-# 验证
-emcc --version             # 应输出 3.x.x
-```
-
-### CMake + Ninja
-
-```bash
-# Linux / macOS
-sudo apt install cmake ninja-build   # Debian/Ubuntu
-brew install cmake ninja             # macOS
-
-# 验证
-cmake --version && ninja --version
-```
-
-### Emscripten ports cache
-
-`src/frontend/wasm/build.sh` 默认将 Emscripten cache 指向仓库内的 `.tmp/emscripten-cache`，并覆盖部分发行版 Emscripten 配置中的 `FROZEN_CACHE=True`。这是为了保持 Wasm image codec 的完整 JPEG 能力：当没有外部 `libjpeg`/vcpkg 依赖时，构建会通过 Emscripten `USE_LIBJPEG=1` 拉取并编译官方 `libjpeg` port。
-
-可用环境变量覆盖：
-
-```bash
-FSUSBLOG_EM_CACHE=/path/to/writable/emscripten-cache npm run ensure:wasm
-```
-
-不要通过关闭 `FSUSBLOG_IMAGE_CODEC_ENABLE_JPEG` 来绕过 cache 问题；这会让 Wasm image codec 缺失 JPEG 编码能力，只能退回浏览器 canvas fallback。
-
----
-
-## 构建流程
-
-### 快速构建（推荐）
-
-```bash
-cd src/frontend
-npm run build:wasm
-```
-
-内部执行 `wasm/build.sh`，步骤：
-1. `emcmake cmake` 配置 CMake（注入 Emscripten 工具链）
-2. `emmake ninja` 编译 C++ 源码
-3. 将产物复制到 `wasm/` 目录
-
-### 手动构建（调试用）
-
-```bash
-cd src/frontend/src/wasm
-source /path/to/emsdk/emsdk_env.sh
-
-# 配置（Release 模式）
-emcmake cmake -S . -B ../../../build/wasm-release \
-  -DCMAKE_BUILD_TYPE=Release \
-  -G Ninja
-
-# 编译
-cd ../../../build/wasm-release
-emmake ninja
-
-# 查看产物
-ls artifacts/wasm-release/
-```
-
-### 拉取预构建产物（无需 Emscripten）
-
-```bash
-cd src/frontend
-npm run ensure:wasm
-```
-
-从 CI 产物存储拉取对应版本的 `.wasm` 文件，开发时通常使用此方式。
-
-### PoW Wasm 分层与基准
-
-PoW 求解器位于 `src/frontend/wasm/pow`，仍然使用 `salt:nonce:browserFp` 的 SHA-256 工作量证明格式。`difficulty` 表示 bit 级前导零数量；优化只改变客户端搜索速度，不改变 `X-Fsus-Pow-Proof` 或 Redis/HMAC 验证语义。
-
-`npm run build:wasm` 会生成以下 PoW 资产：
-
-| 资产 | 编译选项 | 运行时用途 |
-|------|----------|------------|
-| `fsus_pow_basic.*` | scalar C++23 | 旧浏览器/无 SIMD fallback |
-| `fsus_pow_simd.*` | `-msimd128` | 默认现代单 worker 快路径 |
-| `fsus_pow_relaxed.*` | `-msimd128 -mrelaxed-simd` | 浏览器支持 relaxed SIMD 时的候选快路径 |
-| `fsus_pow_threads.*` | worker-sharded SIMD tier | `crossOriginIsolated + SharedArrayBuffer + atomics` 可用时由 `pow.worker.ts` 分片搜索 |
-
-运行时选择顺序为 `threads -> relaxed SIMD -> SIMD128 -> basic`。任一资产加载失败或求解失败会在同一次任务内降级，不需要服务端重启或 API 变更。
-
-PoW 性能基准：
+本次 AEDS tier 不改变 PoW、Search、Comment Privacy 或 Image Codec 的 ABI 和选择策略。PoW 仍生成 `fsus_pow_basic`、`fsus_pow_simd`、`fsus_pow_relaxed`、`fsus_pow_threads`，能力顺序为 threads → relaxed SIMD → SIMD128 → basic；任一候选失败时在同一任务内降级，不改变 `X-Fsus-Pow-Proof` 或服务端验证语义。PoW 基准继续使用：
 
 ```bash
 cd src/frontend
@@ -152,241 +47,128 @@ npm run build:wasm
 npm run bench:pow-wasm
 ```
 
-默认基准输出 `.tmp/perf/pow-wasm.json`，记录每个资产的 `p50Ms`、`p95Ms`、`hashesPerSecond` 和 range solver smoke。默认只跑 difficulty `16,20` 以避免本地开发被高难度样本拖住；需要完整压力样本时可显式指定：
+默认输出 `.tmp/perf/pow-wasm.json`。Search/Image/Privacy artifact 继续由同一个 `wasm/build.sh` 和 `wasm-manifest.*` 管理；AEDS 的 strict Binaryen failure 不能通过跳过或降级这些无关模块来掩盖，反之无关模块的可选性能优化失败也不能把未校验 AEDS speed 标成 optimized。
+
+生产 Docker builder 固定为：
+
+```text
+emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e222f57dafd930973
+```
+
+同时固定 CMake `4.3.3`、Binaryen `123` 与 vcpkg commit `eae1680538b86f962455c27abca2aad0dc304a4d`。禁止使用无 digest 的 `latest` 作为性能证据身份。本机构建可以使用另一受支持 compiler，但 manifest 必须记录实际 `emscriptenVersion`，不能冒充生产 builder。
+
+## 内存与并发模型
+
+服务端 binary request 的总上限是 8 MiB；公开 hot-read artifact 当前上限更低。前端 AEDS runtime 因此固定：
+
+- `AEDS_MAX_FRAME_BYTES = 8 MiB`；超限 frame 在复制进 Wasm 前拒绝。
+- 每个页面只保留一个 decode Worker；最多两个 active request，其余进入有界队列。
+- speed 预留 64 MiB，容纳 8 MiB frame、128 KiB CRC pair table、Emscripten heap/stack 和 decode/render 临时空间，不允许 decode 中途 grow。
+- basic 可以 bounded growth；运行时记录初始/峰值 pages 与 grow count。
+
+C++ 使用一个可复用 I/O arena：
+
+1. `_reserve_io_buffer(size)` 只在 high-water mark 提升时扩容；常规 frame 不执行 `malloc/free`。
+2. JS 将网络 frame 复制一次到 arena。
+3. `_decode_io_buffer(size)` 原地校验，payload pointer 直接指向同一 arena，不再复制到第二个 C++ vector。
+4. JS 只复制一次 payload 取得稳定所有权，随后 adapter 才解析 ViewModel。
+5. 下一帧 reserve 前清零上次 active bytes，避免不可信 frame 读取旧内容。
+6. auth/admin/private 等非公开 frame 返回 JS 副本后立即 `_clear_io_buffer(0)`；清零但保留 capacity。Worker 销毁时由 Wasm 实例整体释放。
+
+arena diagnostics 包含 capacity、reallocation count 和 clear count。speed 正常 decode 的 memory pages 必须保持不变；任何 grow 都是 release evidence failure 候选。
+
+## Tier 选择与回退
+
+运行时通过一个最小合法 SIMD Wasm module 调用 `WebAssembly.validate`，不读取 User-Agent。选择顺序固定：
+
+```text
+SIMD supported: speed -> basic
+SIMD unsupported: basic
+```
+
+候选按顺序加载，不并发预取 basic+speed。speed 的 JS import、manifest/hash、compile 或 instantiate 失败时才开始 basic；同一个 frame 只交给成功初始化的一个 tier 解码，不先 speed decode 再 basic decode。若 manifest/ABI/hash 无法验证，Worker fail closed，不请求旧文本 API。
+
+`loadEmscriptenModule` 在 fetch 后校验 manifest SHA-256，并按以下 key 缓存 `Promise<WebAssembly.Module>`：
+
+```text
+immutable wasm URL | ABI | wasm SHA-256
+```
+
+相同 Worker 生命周期内初始化、takeover 或并发 caller 复用同一 compile promise。页面 bootstrap 不在 main realm 预编译 AEDS；小 frame 使用 TypeScript no-copy validator，大 frame 首次进入 singleton Worker 时才加载选定 tier，避免 main page 与 Worker 对同一 module 重复 compile。失败 promise 会从 cache 删除，允许后续受控重试。release asset URL 使用 `/release-assets/{buildId}/wasm/**`，Service Worker/cache 与 release storage 保留 N/N-1；不同 release、ABI 或 hash 不共享 compiled module。
+
+## 跨栈 copy 与诊断
+
+`binaryRequest()` 返回的 `ArrayBuffer` 通过：
+
+```ts
+worker.postMessage(request, [request.buffer])
+```
+
+转移所有权，不 structured-clone 整个 frame。当前可解释 copy 模型是：
+
+- network/main → Worker：transferable，0 次完整 byte copy；
+- Worker JS → Wasm arena：1 次，记录 `jsToWasmCopiedBytes`；
+- Wasm arena payload → Worker JS owned payload：1 次，记录 `wasmToJsCopiedBytes`；
+- adapter → ViewModel：按 POD/slice 语义解析，不重新复制完整 frame。
+
+`getAedsRuntimeDiagnostics()` 暴露 selected tier、SIMD support、fallback reason/count、download/compile/instantiate timing、module-cache hit、decode count/bytes/time、frame bucket p50/p95/p99、copy bytes、memory pages/peak/grow、arena stats。Worker 额外记录 transferable 到达时间；`binaryTransport` 只在 tier/fallback signature 改变时发送一次 `aeds_wasm_tier` audit telemetry，避免失败风暴。持续 RUM 复用白名单 `wasm_decode_timing`。
+
+`aeds-frame-cost` lane 串行执行服务端 frame cost、真实 basic/speed Wasm 预算和浏览器 tier 测试，避免并发 benchmark 噪声。浏览器 evidence 在 Chromium/Firefox/WebKit 的本机受支持集合中记录 download/compile/instantiate、Worker transfer、decode bucket、copy bytes、peak/grow pages、long task、selection rate 与 fallback rate；正常路径必须只取 speed，故障注入后必须只回退 basic。hydration takeover 使用同一个 release manifest 中的 `publicHydrationSidecarSummary` 真实页面证据，不能用 Node microbenchmark 或合成 DOM 代替。
+
+release budget 固定为：basic raw/gzip/br 不超过 64/32/24 KiB、compile p95 不超过 50 ms、memory 不超过 4096 pages；speed raw/gzip/br 不超过 96/48/40 KiB、compile p95 不超过 75 ms、固定 1024 pages 且 grow=0。三个真实 frame bucket 至少两个 speed 更快，median speedup 不低于 1.05。budget 与浏览器 summary 都进入 release evidence semantic checker，缺失或不满足时 manifest 保持 `collected-blocked`。
+
+## CRC 与 correctness 边界
+
+wire CRC 仍是 payload 上的 CRC16/Modbus (`0xA001`)，没有改变 AEDS v2 header、flags、FrameType 或 payload。真实性能采样证明大 frame 的标量 CRC 是 dominant path 后，speed tier 使用运行时一次性生成的 65,536-entry pair table，每次处理 2 bytes；basic 保留逐 byte table。pair table 位于 BSS，不把 128 KiB 常量写入下载 artifact。
+
+任何 CRC/parser 优化都必须通过 basic/speed 同种子差分 fuzz，并覆盖：short/truncated、magic/version/header length、payload length、CRC、frame type、unaligned、large frame 和 malformed ArticleDetail。禁止重新引入 AEDS v1 或文本 fallback。
+
+## 构建与验证
 
 ```bash
-FSUSBLOG_POW_BENCH_DIFFICULTIES=16,20,24,28 FSUSBLOG_POW_BENCH_SAMPLES=1 npm run bench:pow-wasm
-```
-
-### CMake 关键配置
-
-```cmake
-# CMakeLists.txt 关键选项
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# Emscripten 优化选项
-set(EMSCRIPTEN_FLAGS
-  -O3                        # 发布模式优化
-  -s WASM=1
-  -s MODULARIZE=1
-  -s EXPORT_NAME='AedsDecoder'
-  -s NO_EXIT_RUNTIME=1
-  -s FILESYSTEM=0            # 禁用 FS（Freestanding）
-  -s ALLOW_MEMORY_GROWTH=0   # 固定内存大小
-  -s INITIAL_MEMORY=2097152  # 2MB
-  -s STACK_SIZE=65536        # 64KB 栈
-  --no-entry                 # 无 main 函数
-)
-```
-
----
-
-## C++ / TypeScript 接口边界
-
-### 从 C++ 导出给 JavaScript
-
-通过 Emscripten `EXPORTED_FUNCTIONS` 暴露的 C 风格接口：
-
-```cpp
-// include/aeds_decoder.h（对外接口）
-extern "C" {
-  // 解码 AEDS v2 帧，返回二进制 payload 视图指针（在 Wasm 内存中）
-  // buf：帧字节数据指针，len：字节数
-  // 返回：解码后的 POD payload，失败返回 nullptr
-  const char* aeds_decode(const uint8_t* buf, size_t len);
-
-  // 释放上次 decode 分配的缓冲区
-  void aeds_free();
-
-  // 返回解码器版本字符串
-  const char* aeds_version();
-}
-```
-
-### TypeScript 胶水层（`aeds.ts`）
-
-```typescript
-// src/frontend/src/wasm/aeds.ts（简化示意）
-
-import type { AedsDecoder } from './types';
-
-let wasmModule: AedsDecoder | null = null;
-
-export async function loadWasm(): Promise<void> {
-  const mod = await import('../../../wasm/aeds_decoder.js');
-  wasmModule = await mod.default();
-}
-
-export function decodeFrame(buffer: ArrayBuffer): unknown | null {
-  if (!wasmModule) throw new Error('Wasm not loaded');
-
-  const bytes = new Uint8Array(buffer);
-  const ptr = wasmModule._malloc(bytes.length);
-  wasmModule.HEAPU8.set(bytes, ptr);
-
-  const resultPtr = wasmModule._aeds_decode(ptr, bytes.length);
-  wasmModule._free(ptr);
-
-  if (!resultPtr) return null;
-
-  const payload = wasmModule.readPayload(resultPtr);
-  wasmModule._aeds_free();
-
-  return decodeKnownFramePayload(payload);
-}
-```
-
-### Worker 通信协议（`wasmDecode.worker.ts`）
-
-Worker 通过 `postMessage` 与主线程通信，使用以下消息格式：
-
-**请求（主线程 → Worker）**：
-
-```typescript
-interface DecodeReq {
-  id: string;           // 请求 ID（用于关联响应）
-  frameType: number;   // 期望的 AedsFrameType
-  buffer: ArrayBuffer; // AEDS 帧完整字节数据
-}
-```
-
-**响应（Worker → 主线程）**：
-
-```typescript
-interface DecodeResp {
-  id: string;          // 对应请求 ID
-  ok: boolean;         // 解码是否成功
-  data?: unknown;      // 解码结果（ok=true 时）
-  error?: string;      // 错误描述（ok=false 时）
-  fallback?: boolean;  // true 表示触发本地降级，不会重发文本 API
-}
-```
-
-`ArrayBuffer` 通过 `Transferable` 零拷贝传递。
-
----
-
-## 解码失败策略
-
-Wasm 解码失败时，客户端暴露协议错误并由上层决定是否展示重试或本地降级。运行时不得重发文本 API 请求。触发条件：
-
-| 条件 | 触发回退 |
-|------|---------|
-| Wasm 模块加载失败 | ✅ |
-| 帧头 Magic 不匹配 | ✅ |
-| CRC16 payload 校验失败 | ✅ |
-| FrameType 未知（值不在枚举表中） | ✅ |
-| PayloadLength 超出安全上限 | ✅ |
-| Worker 响应超时（默认 5000ms） | ✅ |
-| `DecodeResp.ok = false` | ✅ |
-
-失败后，相同请求仍只能走 AEDS Binary；错误响应也必须是 `ApiError` frame。
-
-### 回退阈值配置
-
-```typescript
-// src/frontend/src/workers/wasmDecode.worker.ts
-const DECODE_TIMEOUT_MS = 5000;   // Worker 响应超时
-const MAX_CONSECUTIVE_FAILURES = 3; // 连续失败 N 次后停止尝试 Binary 链
-```
-
-连续失败超过阈值后，该会话内后续请求可跳过 Wasm 加速路径，改用 TypeScript binary decoder；不得切到文本 API。
-
----
-
-## 调试 Wasm
-
-### 开发模式调试构建
-
-```bash
-cd src/frontend/src/wasm
-
-emcmake cmake -S . -B ../../../build/wasm-debug \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -G Ninja
-
-cd ../../../build/wasm-debug && emmake ninja
-```
-
-Debug 构建包含：
-- `-g`：调试信息（DWARF）
-- `-s ASSERTIONS=2`：运行时断言
-- `-s SAFE_HEAP=1`：堆访问越界检测
-- Source Map 支持（Chrome DevTools 可显示 C++ 源码）
-
-### Worker 调试模式
-
-在 `wasmDecode.worker.ts` 中启用调试日志：
-
-```typescript
-// 开发时设置为 true
-const DEBUG_MODE = import.meta.env.DEV;
-
-if (DEBUG_MODE) {
-  console.log('[WasmWorker] Decode request:', req.id, 'FrameType:', req.frameType);
-}
-```
-
-### 直接测试解码器
-
-```typescript
-// 在浏览器控制台或 Node.js 中
-import { loadWasm, decodeFrame } from './src/wasm/aeds';
-
-await loadWasm();
-const buffer = await fetch('/api/binary/article/list/home/1/10.aeds').then(r => r.arrayBuffer());
-const result = decodeFrame(buffer);
-console.log(result);
-```
-
-### C++ 单元测试（不通过 Wasm）
-
-C++ 解码器核心逻辑也在 C# 侧通过 `FsusBlog.Core` 有对等实现，可通过 C# 单元测试验证协议逻辑。
-
----
-
-## ABI 稳定性约束
-
-C++ POD 类型必须与 C# `src/shared/Contracts/Models/` 中的对应类型保持**字节级兼容**。
-
-修改任一 POD 类型时：
-1. 同时修改 C# 和 C++ 两侧
-2. 更新 `PodSizeCatalog.cs` 中对应的字节数常量
-3. C++ 侧新增 `static_assert(sizeof(T) == PodSizeCatalog::XxxPod)`
-4. 运行 `PodContractValidation.AreAllPodModelsReferenceFree()` 断言
-5. 重新构建 Wasm：`npm run build:wasm`
-6. 更新 `docs/api/schemas-and-errors.md` 中的 POD 大小目录
-
-详细类型映射规则见 [docs/api/schemas-and-errors.md](api/schemas-and-errors.md#c-pod-对齐规则)。
-
----
-
-## CI 产物管理
-
-Wasm 产物不入 git，通过 CI 构建并存储到产物仓库：
-
-```bash
-# 构建并上传（仅在 CI 中执行）
-./tools/build-wasm-artifact.sh
-
-# 本地拉取最新产物
 cd src/frontend
-npm run ensure:wasm
+npm run build:wasm
+node ../../tools/frontend/ensure-wasm.mjs status
 ```
 
-`build-wasm-artifact.sh` 流程：
-1. source emsdk 环境
-2. `cmake + ninja` Release 构建
-3. 压缩 `.wasm` + 胶水 JS 为 artifact 包
-4. 上传到 artifact 存储（GitHub Releases 或 S3）
+构建并发度由在线 CPU/可用内存和 scheduler grant 动态推导。Binaryen/CMake bootstrap 使用 `.tmp/dependency-cache`、文件锁和 SHA-256；fresh output cleanup 不删除受控 dependency cache。
 
----
+定向验证：
 
-## 参见
+```bash
+# ABI/hash/toolchain/runtime artifact
+cd src/frontend && node ../../tools/frontend/ensure-wasm.mjs status
 
-- [development.md](development.md) — 本地环境搭建（含 Wasm 依赖安装）
-- [docs/api/schemas-and-errors.md](api/schemas-and-errors.md) — POD 大小目录与 C++ 对齐规则
-- `src/core/Algorithms/AEDS_V2_PROTOCOL.md` — 完整帧协议规格
-- `src/shared/Contracts/CPP_ALIGNMENT_CHECKLIST.md` — C++/C# 类型对齐检查清单
-- `src/frontend/src/wasm/CMakeLists.txt` — CMake 构建配置
+# basic/speed 真实吞吐、artifact raw/gzip/br、compile、memory、copy/arena
+cd ../.. && node tests/frontend/checks/perf/check-aeds-decode-budget.mjs
+
+# 受支持真实浏览器的 tier/fallback/transfer/load/long-task evidence
+node tests/frontend/checks/wasm/check-aeds-tier-browser.mjs
+
+# basic/speed differential fuzz（release build 后）
+FSUSBLOG_WASM_FUZZ_SEEDS_PER_CORPUS=256 node tools/security/run-wasm-fuzz.mjs
+
+# runtime selection/协议负矩阵
+cd src/frontend
+pnpm vitest run --config vitest.config.ts \
+  ../../tests/frontend/unit/aedsWasmTier.test.ts \
+  ../../tests/frontend/unit/wasmReleaseAssets.test.ts \
+  ../../tests/frontend/unit/protocol/aeds-contract.test.ts
+```
+
+性能 summary 写入 `.tmp/frontend/aeds-decode-budget/summary.json`，release 投影写入 `.tmp/release-evidence/aeds-decode-budget-summary.json`；浏览器对应写入 `.tmp/frontend/aeds-wasm-browser/summary.json` 与 `.tmp/release-evidence/aeds-wasm-browser-summary.json`。fuzz summary 必须标记 `executionSource=fresh-wasm-runtime`，同时列出 basic/speed SHA-256、非零 seeds、replay plan 和空 crash 集合。
+
+## 风险与无需重启的回退
+
+- speed load/compile/instantiate/hash failure：当前 Worker 顺序切到 basic，记录原因；服务端无需重启。
+- speed runtime 指标回归：通过下一 frontend release 的 immutable manifest 将默认候选限制为 basic；N/N-1 asset 继续保留。
+- basic/speed 都不可用：Worker 返回 `wasm_init_failed`，上层显示 binary transport failure；不得改走 JSON/text API。
+- 敏感清理异常、ABI/hash 漂移或 differential fuzz mismatch：release gate fail closed，不能用 feature flag 忽略 correctness。
+
+## 相关契约
+
+- `docs/api/contracts.md`：AEDS HTTP/POD 与浏览器 decode 边界
+- `docs/api/schemas-and-errors.md`：POD size 与错误目录
+- `src/core/Algorithms/AEDS_V2_PROTOCOL.md`：AEDS v2 wire 规格
+- `src/shared/Contracts/CPP_ALIGNMENT_CHECKLIST.md`：C++/C# 对齐清单
+- `docs/testing.md`：fresh fuzz 与 release evidence 规则

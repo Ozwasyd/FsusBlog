@@ -1,4 +1,4 @@
-import { decode, initWasm } from '@wasm/aeds';
+import { decode, getAedsRuntimeDiagnostics, initWasm, type AedsRuntimeDiagnostics } from '@wasm/aeds';
 import { mapFramePayloadToViewModel } from '@/adapters/binary';
 import { AppErrorCode, isAppError } from '@/utils/appError';
 
@@ -20,6 +20,7 @@ type DecodeRequestV1 = {
   requestId: number;
   buffer: ArrayBuffer;
   expectedFrameType?: number;
+  sentAtUnixMs?: number;
 };
 
 type CancelRequestV1 = {
@@ -38,6 +39,8 @@ type DecodeResponseV1 = {
   data?: unknown;
   errorCode: DecodeErrorCode;
   error?: string;
+  workerTransferMs?: number;
+  diagnostics?: AedsRuntimeDiagnostics;
 };
 
 const canceledRequests = new Set<number>();
@@ -142,7 +145,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
       return;
     }
 
-    const { buffer, expectedFrameType } = event.data;
+    const { buffer, expectedFrameType, sentAtUnixMs } = event.data;
+    const workerTransferMs = typeof sentAtUnixMs === 'number' && Number.isFinite(sentAtUnixMs)
+      ? Math.max(0, Date.now() - sentAtUnixMs)
+      : undefined;
     if (isRequestCanceled(requestId)) {
       canceledRequests.delete(requestId);
       return;
@@ -160,7 +166,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
         requestId,
         ok: false,
         errorCode: 'wasm_init_failed',
-        error: 'wasm_init_failed'
+        error: 'wasm_init_failed',
+        workerTransferMs,
+        diagnostics: getAedsRuntimeDiagnostics()
       };
       postDecodeResponse(response);
       return;
@@ -179,7 +187,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
         ok: false,
         frameType: frame.frameType,
         errorCode: classifyError(frame.error ?? 'decode_failed'),
-        error: frame.error ?? 'decode_failed'
+        error: frame.error ?? 'decode_failed',
+        workerTransferMs,
+        diagnostics: getAedsRuntimeDiagnostics()
       };
       postDecodeResponse(response);
       return;
@@ -192,7 +202,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
         ok: false,
         frameType: frame.frameType,
         errorCode: 'frame_type_unexpected',
-        error: 'frame_type_unexpected'
+        error: 'frame_type_unexpected',
+        workerTransferMs,
+        diagnostics: getAedsRuntimeDiagnostics()
       };
       postDecodeResponse(response);
       return;
@@ -210,7 +222,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequestV1>) => {
       ok: true,
       frameType: frame.frameType,
       data,
-      errorCode: 'none'
+      errorCode: 'none',
+      workerTransferMs,
+      diagnostics: getAedsRuntimeDiagnostics()
     };
     postDecodeResponse(response);
   } catch (error) {

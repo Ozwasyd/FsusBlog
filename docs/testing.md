@@ -487,7 +487,9 @@ CI 将 `backend-qps` 拆为两个阶段：`backend-qps-collectors` 使用 matrix
 
 CI 的 file-only checks 与 app-stack checks 必须分阶段：`cross-stack-contract` 只运行 `backend-api-integration` 与 `cross-stack-contract` 这类仓库文件/生成契约检查；`security-static-fuzz` 只运行 `wasm-fuzz-regression` 与 `contract-fuzz`；需要本地 app stack 的 `endpoint-depth-runtime`、`integration-runtime`、`security-runtime` 保持独立 job。新增检查时若 `services: []` 且 `requiresBootstrap: none`，优先放入对应 file-only job，不能塞回 runtime job。
 
-`wasm-fuzz-regression` 必须在当前 fresh namespace 内加载本轮 `frontend-build` 生成的 `aeds_decoder.wasm`，按 scheduler 授予的 CPU 容量生成可复现种子并真实调用 Wasm 解码导出。仅写入计划、读取“已执行”环境标记或复用旧 run 的 fuzz summary 都不构成通过；权威证据必须包含 `executionSource=fresh-wasm-runtime`、非零 `seedsRun`、解码器 SHA-256 与可重放 seed plan。
+`wasm-fuzz-regression` 必须在当前 fresh namespace 内同时加载本轮 `frontend-build` 生成的 `aeds_decoder_basic.wasm` 与 `aeds_decoder_speed.wasm`，按 scheduler 授予的 CPU 容量生成可复现种子并真实调用两套 Wasm arena decode 导出。每个 seed 的 success/error code、frame type、payload length/hash 必须一致，并验证 sensitive arena 清零；仅写入计划、读取“已执行”环境标记或复用旧 run 的 fuzz summary 都不构成通过。权威证据必须包含 `executionSource=fresh-wasm-runtime`、非零 `seedsRun`、ABI、两套解码器 SHA-256、合并 identity digest 与可重放 seed plan。
+
+`aeds-decode-budget` 必须读取同次构建的 `aeds-runtime-manifest.json` 和真实 basic/speed Wasm，记录 raw/gzip/br、load/compile、frame-size p50/p95/p99、MB/s/ns-per-byte、arena/reallocation/clear、memory pages 与 copy model。Node evidence只证明 artifact 与 decoder hot path；release-final 仍需同一 release build 的 Chromium/Firefox/WebKit（支持处）download/compile/instantiate、Worker transfer、hydration takeover、long task、tier selection/fallback rate。不得用 TypeScript no-copy synthetic loop 代替 Wasm tier 性能证据。
 
 独立运行真实 BenchmarkDotNet：
 ```bash
@@ -677,6 +679,7 @@ tools/operations/check-release-evidence-manifest.mjs --require-ok
 - release load/scale/stability lanes：peak、burst、scale-m、soak-min、memory leak budget、open handle budget、critical mutation slice。
 - strict evidence：manifest 必须为 `collected-ok`，visual skip 不能产生 clean pass，live exposure/firewall/DNS evidence 必须存在，backup restore 必须是 real drill，post-deploy smoke 必须是 deployed endpoint 自动覆盖，authenticated DAST/Wasm fuzz/fault injection/short soak 必须真实执行，job summary 必须覆盖所有 acceptance/visual shard 与 cross-browser browser combination。
 - artifact binding：`tools/release/check-release-final.mjs` 要求 manifest commit、job summary commit 与 `sha256:` image digest 一致。
+- AEDS Wasm cross-stack：`aeds-frame-cost` 在 `frontend-build` 后串行绑定 server frame cost、basic/speed artifact/compile/decode/copy/memory budget 与受支持真实浏览器的 speed 选择、basic 故障回退、transferable Worker、load/long-task 指标；release manifest 同时绑定真实 public hydration sidecar evidence。两份 AEDS summary 缺失、speed median throughput 收益低于预算或浏览器发生双下载/双解码时保持 blocked。
 - test-quality lint：`tools/ci/check-test-quality.mjs` 阻断无断言测试、HTTP 200-only 弱断言和关键路径 snapshot-only 测试。
 
 `production` 可以证明 PR/CI 风险矩阵没有已知阻断；`release-closeout` 可以证明当前 manifest 已收口；只有 `release-final` 可以作为发布候选通过的最终凭据。

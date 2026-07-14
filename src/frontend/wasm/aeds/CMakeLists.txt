@@ -1,36 +1,68 @@
 cmake_minimum_required(VERSION 3.20)
 project(fsusblog_aeds_decoder LANGUAGES CXX)
 
-add_executable(aeds_decoder
+set(AEDS_DECODER_SOURCES
   src/aeds_crc32.cpp
   src/pod_parse_article.cpp
   src/aeds_decode.cpp
   src/exports.cpp
 )
 
-target_include_directories(aeds_decoder PRIVATE include)
-
-target_compile_options(aeds_decoder PRIVATE
-  -Oz
-  -fno-exceptions
-  -fno-rtti
-  -fvisibility=hidden
+set(AEDS_EXPORTED_FUNCTIONS
+  "['_decode_aeds','_reserve_io_buffer','_decode_io_buffer','_clear_io_buffer','_get_io_buffer_ptr','_get_io_buffer_size','_get_io_buffer_capacity','_get_arena_reallocation_count','_get_arena_clear_count','_get_last_payload_ptr','_get_last_payload_len','_get_last_frame_type','_get_last_error_ptr','_get_last_error_len','_get_last_error_code','_render_view','_get_last_html_ptr','_get_last_html_len','_handle_event']"
 )
 
-set_target_properties(aeds_decoder PROPERTIES
-  OUTPUT_NAME "aeds_decoder"
-  RUNTIME_OUTPUT_DIRECTORY "${FSUSBLOG_WASM_OUTPUT_DIR}"
-  SUFFIX ".js"
-)
+function(add_aeds_decoder target output_name tier)
+  add_executable(${target} ${AEDS_DECODER_SOURCES})
+  target_include_directories(${target} PRIVATE include)
+  target_compile_options(${target} PRIVATE
+    -fno-exceptions
+    -fno-rtti
+    -fvisibility=hidden
+  )
 
-target_link_options(aeds_decoder PRIVATE
-  --no-entry
-  -sWASM=1
-  -sALLOW_MEMORY_GROWTH=1
-  -sMODULARIZE=1
-  -sEXPORT_ES6=1
-  -sEXPORT_NAME=createAedsModule
-  -sENVIRONMENT=web,worker
-  -sEXPORTED_FUNCTIONS=["_decode_aeds","_get_last_payload_ptr","_get_last_payload_len","_get_last_frame_type","_get_last_error_ptr","_get_last_error_len","_alloc_buffer","_free_buffer","_render_view","_get_last_html_ptr","_get_last_html_len","_handle_event"]
-  -sEXPORTED_RUNTIME_METHODS=["UTF8ToString","HEAPU8"]
-)
+  set(memory_options
+    -sSTACK_SIZE=1048576
+    -sMALLOC=emmalloc
+  )
+  if(tier STREQUAL "speed")
+    target_compile_definitions(${target} PRIVATE FSUSBLOG_AEDS_SPEED_TIER=1)
+    target_compile_options(${target} PRIVATE -O3 -flto -msimd128)
+    target_link_options(${target} PRIVATE
+      -O3
+      -flto
+      -msimd128
+      -sALLOW_MEMORY_GROWTH=0
+      -sINITIAL_MEMORY=67108864
+    )
+  else()
+    target_compile_options(${target} PRIVATE -Oz)
+    target_link_options(${target} PRIVATE
+      -Oz
+      -sALLOW_MEMORY_GROWTH=1
+      -sINITIAL_MEMORY=16777216
+      -sMAXIMUM_MEMORY=268435456
+    )
+  endif()
+
+  set_target_properties(${target} PROPERTIES
+    OUTPUT_NAME "${output_name}"
+    RUNTIME_OUTPUT_DIRECTORY "${FSUSBLOG_WASM_OUTPUT_DIR}"
+    SUFFIX ".js"
+  )
+
+  target_link_options(${target} PRIVATE
+    --no-entry
+    -sWASM=1
+    -sMODULARIZE=1
+    -sEXPORT_ES6=1
+    -sEXPORT_NAME=createAedsModule
+    -sENVIRONMENT=web,worker
+    "-sEXPORTED_FUNCTIONS=${AEDS_EXPORTED_FUNCTIONS}"
+    "-sEXPORTED_RUNTIME_METHODS=['HEAPU8']"
+    ${memory_options}
+  )
+endfunction()
+
+add_aeds_decoder(aeds_decoder_basic aeds_decoder_basic basic)
+add_aeds_decoder(aeds_decoder_speed aeds_decoder_speed speed)

@@ -1,10 +1,10 @@
 import { BinaryRequestError, binaryRequest, type BinaryRequestOptions } from '@/api/binaryApiClient';
-import { decode } from '@wasm/aeds';
+import { decode, type AedsRuntimeDiagnostics } from '@wasm/aeds';
 import { mapFramePayloadToViewModel } from '@/adapters/binary';
 import { readFixedUtf8, readInt32 } from '@/adapters/binary/reader';
 import { AppError, AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 import { isAbortError } from '@/utils/errors';
-import { emitRumMetric } from '@/services/telemetryService';
+import { emitRumMetric, emitTelemetry } from '@/services/telemetryService';
 import { FrameType } from '@wasm/protocol/frame';
 import {
   buildFsusBinaryRoute,
@@ -21,6 +21,8 @@ type DecodeWorkerResponse = {
   data?: unknown;
   errorCode?: string;
   error?: string;
+  workerTransferMs?: number;
+  diagnostics?: AedsRuntimeDiagnostics;
 };
 
 type BinaryDecodeRequest = {
@@ -29,6 +31,7 @@ type BinaryDecodeRequest = {
   requestId: number;
   buffer: ArrayBuffer;
   expectedFrameType: FrameType;
+  sentAtUnixMs: number;
 };
 
 type BinaryCancelRequest = {
@@ -174,6 +177,7 @@ type QueuedDecodeRequest = {
 
 const queuedRequests: QueuedDecodeRequest[] = [];
 let workerIdleTimer: ReturnType<typeof setTimeout> | null = null;
+let lastAedsDiagnosticsSignature = '';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
@@ -269,6 +273,28 @@ function rejectQueuedRequest(requestId: number, reason: unknown): boolean {
 
 function handleWorkerMessage(event: MessageEvent<DecodeWorkerResponse>): void {
   const payload = event.data;
+  if (payload.diagnostics) {
+    const signature = `${payload.diagnostics.selectedTier}:${payload.diagnostics.fallbackCount}:${payload.diagnostics.fallbackReason ?? ''}`;
+    if (signature !== lastAedsDiagnosticsSignature) {
+      lastAedsDiagnosticsSignature = signature;
+      emitTelemetry('aeds_wasm_tier', {
+        tier: payload.diagnostics.selectedTier,
+        simdSupported: payload.diagnostics.simdSupported,
+        fallbackCount: payload.diagnostics.fallbackCount,
+        fallbackReason: payload.diagnostics.fallbackReason,
+        wasmBytes: payload.diagnostics.load?.wasmBytes ?? 0,
+        compileMs: payload.diagnostics.load?.compileMs ?? 0,
+        instantiateMs: payload.diagnostics.load?.instantiateMs ?? 0,
+        moduleCacheHit: payload.diagnostics.load?.compiledModuleCacheHit ?? false
+      }, payload.diagnostics.fallbackCount > 0 ? 'warn' : 'info');
+    }
+  }
+  if (typeof payload.workerTransferMs === 'number') {
+    emitRumMetric('wasm_decode_timing', {
+      value: payload.workerTransferMs,
+      durationMs: payload.workerTransferMs
+    });
+  }
   const pending = clearPendingRequest(payload.requestId);
   if (!pending) {
     return;
@@ -438,7 +464,8 @@ function startWorkerDecode<T>(queued: QueuedDecodeRequest): void {
       type: 'decode',
       requestId,
       buffer: queued.buffer,
-      expectedFrameType: queued.expectedFrameType
+      expectedFrameType: queued.expectedFrameType,
+      sentAtUnixMs: Date.now()
     };
     worker.postMessage(request, [queued.buffer]);
   } catch (error) {

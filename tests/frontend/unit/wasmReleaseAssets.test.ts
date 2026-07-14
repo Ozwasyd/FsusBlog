@@ -12,7 +12,15 @@ describe('release-scoped Wasm assets', () => {
     const assets = await import('../../../src/frontend/wasm/web/runtime/assets')
 
     expect(assets.WASM_PUBLIC_BASE).toBe('/release-assets/release-20260711-abcdef/wasm')
-    expect(assets.AEDS_WASM_URL).toBe('/release-assets/release-20260711-abcdef/wasm/aeds_decoder.wasm')
+    expect(assets.AEDS_RUNTIME_MANIFEST_URL).toBe('/release-assets/release-20260711-abcdef/wasm/aeds-runtime-manifest.json')
+    expect(assets.resolveAedsAsset('basic')).toEqual({
+      moduleUrl: '/release-assets/release-20260711-abcdef/wasm/aeds_decoder_basic.js',
+      wasmUrl: '/release-assets/release-20260711-abcdef/wasm/aeds_decoder_basic.wasm'
+    })
+    expect(assets.resolveAedsAsset('speed')).toEqual({
+      moduleUrl: '/release-assets/release-20260711-abcdef/wasm/aeds_decoder_speed.js',
+      wasmUrl: '/release-assets/release-20260711-abcdef/wasm/aeds_decoder_speed.wasm'
+    })
   })
 
   it('rejects unsafe build ids and keeps the local development path', async () => {

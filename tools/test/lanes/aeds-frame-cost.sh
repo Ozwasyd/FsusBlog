@@ -23,4 +23,11 @@ dotnet run \
   "$@"
 
 cp "$SUMMARY_FILE" "$RELEASE_SUMMARY"
+
+# Keep the server frame-cost, real Wasm tier budget, and browser boundary
+# evidence in one serialized benchmark lane so concurrent workloads cannot
+# distort the throughput comparison.
+node "$ROOT_DIR/tests/frontend/checks/perf/check-aeds-decode-budget.mjs"
+node "$ROOT_DIR/tests/frontend/checks/wasm/check-aeds-tier-browser.mjs"
+
 echo "[aeds-frame-cost] wrote $SUMMARY_FILE and $RELEASE_SUMMARY"
