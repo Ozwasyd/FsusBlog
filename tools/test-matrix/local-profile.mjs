@@ -319,12 +319,12 @@ function requirePositiveResourceDeclaration(bundle, field) {
   return value
 }
 
-function allocateIntegerCpuUnits(bundles, availableCpuUnits) {
-  const weights = bundles.map((bundle) => requirePositiveResourceDeclaration(bundle, 'cpuWeight'))
+function allocateIntegerCpuUnits(bundles, availableCpuUnits, minimumField = 'minCpuUnits', weightField = 'cpuWeight') {
+  const weights = bundles.map((bundle) => requirePositiveResourceDeclaration(bundle, weightField))
   const minimums = bundles.map((bundle) => {
-    const value = Number(bundle?.minCpuUnits)
+    const value = Number(bundle?.[minimumField])
     if (!Number.isInteger(value) || value < 1) {
-      throw new Error(`local profile bundle ${bundle?.id ?? '<unknown>'} requires positive integer minCpuUnits`)
+      throw new Error(`local profile bundle ${bundle?.id ?? '<unknown>'} requires positive integer ${minimumField}`)
     }
     return value
   })
@@ -358,6 +358,30 @@ function allocateIntegerCpuUnits(bundles, availableCpuUnits) {
   return allocation
 }
 
+function allocateStartupCpuUnits(bundles, availableCpuUnits) {
+  const minimumById = new Map(bundles.map((bundle) => [bundle.id, Number(bundle.startupMinCpuUnits)]))
+  let remaining = availableCpuUnits - [...minimumById.values()].reduce((total, value) => total + value, 0)
+  if (remaining < 0) throw new Error(`local profile minimum CPU allocation exceeds ${availableCpuUnits} available units`)
+  const ordered = [...bundles].sort((left, right) => (
+    Number(right.startupPriority ?? 0) - Number(left.startupPriority ?? 0)
+      || Number(right.deadlineWeight ?? 0) - Number(left.deadlineWeight ?? 0)
+      || left.id.localeCompare(right.id)
+  ))
+  for (const bundle of ordered) {
+    const deficit = Math.max(0, Number(bundle.minCpuUnits) - minimumById.get(bundle.id))
+    const addition = Math.min(remaining, deficit)
+    minimumById.set(bundle.id, minimumById.get(bundle.id) + addition)
+    remaining -= addition
+    if (remaining === 0) break
+  }
+  return allocateIntegerCpuUnits(
+    bundles.map((bundle) => ({ ...bundle, startupAllocationMinimum: minimumById.get(bundle.id) })),
+    availableCpuUnits,
+    'startupAllocationMinimum',
+    'cpuWeight'
+  )
+}
+
 export function resolveLocalProfileResources(profile, detectedResources) {
   const availableCpuUnits = Number(detectedResources?.availableCpuUnits)
   const usableMemoryGiB = Number(detectedResources?.availableMemoryGiB)
@@ -368,40 +392,40 @@ export function resolveLocalProfileResources(profile, detectedResources) {
     throw new Error('local production profile requires positive usable memory')
   }
 
-  const bundles = profile?.bundles ?? []
+  const bundles = (profile?.bundles ?? []).map((bundle) => ({
+    ...bundle,
+    startupMinCpuUnits: bundle.startupMinCpuUnits ?? bundle.minCpuUnits,
+    startupMemoryWeight: bundle.startupMemoryWeight ?? bundle.memoryWeight,
+    startupPriority: bundle.startupPriority ?? 0
+  }))
   const byId = new Map(bundles.map((bundle) => [bundle.id, bundle]))
-  const initialIds = ['build-static', 'backend-tests', 'frontend-tests']
+  const initialIds = ['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser']
   const initialBundles = initialIds.map((id) => {
     const bundle = byId.get(id)
     if (!bundle) throw new Error(`local production profile is missing ${id}`)
     return bundle
   })
   const minimumInitialCpuUnits = initialBundles.reduce((total, bundle) => {
-    const value = Number(bundle?.minCpuUnits)
+    const value = Number(bundle?.startupMinCpuUnits)
     if (!Number.isInteger(value) || value < 1) {
-      throw new Error(`local profile bundle ${bundle?.id ?? '<unknown>'} requires positive integer minCpuUnits`)
+      throw new Error(`local profile bundle ${bundle?.id ?? '<unknown>'} requires positive integer startupMinCpuUnits`)
     }
     return total + value
   }, 0)
   if (availableCpuUnits < minimumInitialCpuUnits) {
     throw new Error(`local production profile requires at least ${minimumInitialCpuUnits} available CPU units from declared minima`)
   }
-  for (const id of ['runtime-browser', 'performance-evidence']) {
+  for (const id of ['performance-evidence']) {
     if (!byId.has(id)) throw new Error(`local production profile is missing ${id}`)
   }
 
-  const initialCpuUnits = allocateIntegerCpuUnits(initialBundles, availableCpuUnits)
-  const memoryWeights = initialBundles.map((bundle) => requirePositiveResourceDeclaration(bundle, 'memoryWeight'))
+  const initialCpuUnits = allocateStartupCpuUnits(initialBundles, availableCpuUnits)
+  const memoryWeights = initialBundles.map((bundle) => requirePositiveResourceDeclaration(bundle, 'startupMemoryWeight'))
   const memoryWeightTotal = memoryWeights.reduce((total, value) => total + value, 0)
   const resolvedById = new Map(initialBundles.map((bundle, index) => [bundle.id, {
     cpuUnits: initialCpuUnits[index],
     memoryGiB: usableMemoryGiB * memoryWeights[index] / memoryWeightTotal
   }]))
-  const backendResources = resolvedById.get('backend-tests')
-  resolvedById.set('runtime-browser', {
-    cpuUnits: Math.max(1, availableCpuUnits - backendResources.cpuUnits),
-    memoryGiB: Math.max(Number.EPSILON, usableMemoryGiB - backendResources.memoryGiB)
-  })
   resolvedById.set('performance-evidence', {
     cpuUnits: availableCpuUnits,
     memoryGiB: usableMemoryGiB
@@ -480,7 +504,10 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
       || !Number.isInteger(bundle.stepMaxParallel)
       || !Number.isFinite(bundle.cpuWeight)
       || !Number.isFinite(bundle.memoryWeight)
-      || !Number.isInteger(bundle.minCpuUnits)) {
+      || !Number.isInteger(bundle.minCpuUnits)
+      || !Number.isInteger(bundle.startupMinCpuUnits)
+      || !Number.isFinite(bundle.startupMemoryWeight)
+      || !Number.isFinite(bundle.startupPriority)) {
       throw new Error(`local bundle resource policy must be resolved before creating tier ${bundle.id}`)
     }
   }
@@ -515,6 +542,9 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
       cpuWeight: bundle.cpuWeight,
       memoryWeight: bundle.memoryWeight,
       minCpuUnits: bundle.minCpuUnits,
+      startupMinCpuUnits: bundle.startupMinCpuUnits,
+      startupMemoryWeight: bundle.startupMemoryWeight,
+      startupPriority: bundle.startupPriority,
       ...(profile.enforceBudget === false ? {} : { budgetMs: bundle.budgetMs }),
       cacheInputs: [
         'tests/matrix.yml',
@@ -539,15 +569,19 @@ export function localProfileSystemResources(profile, system = {}) {
   const cpuCount = Number(system.cpuCount)
   const availableMemoryGiB = Number(system.availableMemoryGiB)
   const load1 = Number(system.load1)
-  const initialBundleIds = new Set(['build-static', 'backend-tests', 'frontend-tests'])
+  const initialBundleIds = new Set(['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser'])
   const minimumCpuUnits = (profile?.bundles ?? [])
     .filter((bundle) => initialBundleIds.has(bundle.id))
-    .reduce((total, bundle) => total + Number(bundle.minCpuUnits), 0)
+    .reduce((total, bundle) => total + Number(bundle.startupMinCpuUnits ?? bundle.minCpuUnits), 0)
   if (!Number.isInteger(minimumCpuUnits) || minimumCpuUnits < 1) {
     throw new Error('local production profile must declare positive initial CPU minima')
   }
-  if (!Number.isInteger(cpuCount) || cpuCount < minimumCpuUnits) {
-    throw new Error(`local production profile requires at least ${minimumCpuUnits} available CPU units from declared minima`)
+  const supportedCpuFloor = Number(profile?.minimumSupportedCpuUnits)
+  if (!Number.isInteger(supportedCpuFloor) || supportedCpuFloor < minimumCpuUnits) {
+    throw new Error(`local production profile supported CPU floor must cover ${minimumCpuUnits} startup units`)
+  }
+  if (!Number.isInteger(cpuCount) || cpuCount < supportedCpuFloor) {
+    throw new Error(`local production profile requires at least ${supportedCpuFloor} available CPU units`)
   }
   if (!Number.isFinite(availableMemoryGiB) || availableMemoryGiB <= 0) {
     throw new Error('local profile requires positive available memory')
@@ -1081,6 +1115,9 @@ export function validateLocalProfiles(localProfiles, tiers) {
     if (profile?.enforceBudget !== undefined && typeof profile.enforceBudget !== 'boolean') {
       errors.push(`localProfiles.${profileId}.enforceBudget must be boolean`)
     }
+    if (!Number.isInteger(profile?.minimumSupportedCpuUnits) || profile.minimumSupportedCpuUnits < 1) {
+      errors.push(`localProfiles.${profileId}.minimumSupportedCpuUnits must be a positive integer`)
+    }
     if (!Number.isFinite(profile?.memoryReserveShare)
       || profile.memoryReserveShare <= 0
       || profile.memoryReserveShare >= 1) {
@@ -1141,6 +1178,20 @@ export function validateLocalProfiles(localProfiles, tiers) {
         || bundle.minCpuUnits <= 0) {
         errors.push(`localProfiles.${profileId}.${bundle.id}.minCpuUnits must be positive`)
       }
+      const startupMinCpuUnits = bundle.startupMinCpuUnits ?? bundle.minCpuUnits
+      const startupMemoryWeight = bundle.startupMemoryWeight ?? bundle.memoryWeight
+      const startupPriority = bundle.startupPriority ?? 0
+      if (!Number.isInteger(startupMinCpuUnits) || startupMinCpuUnits <= 0) {
+        errors.push(`localProfiles.${profileId}.${bundle.id}.startupMinCpuUnits must be positive`)
+      } else if (Number.isInteger(bundle.minCpuUnits) && startupMinCpuUnits > bundle.minCpuUnits) {
+        errors.push(`localProfiles.${profileId}.${bundle.id}.startupMinCpuUnits must not exceed minCpuUnits`)
+      }
+      if (!Number.isFinite(startupMemoryWeight) || startupMemoryWeight <= 0) {
+        errors.push(`localProfiles.${profileId}.${bundle.id}.startupMemoryWeight must be positive`)
+      }
+      if (!Number.isFinite(startupPriority) || startupPriority < 0) {
+        errors.push(`localProfiles.${profileId}.${bundle.id}.startupPriority must be non-negative`)
+      }
       for (const resolvedOnlyField of ['budgetMs', 'cpuUnits', 'memoryGiB', 'stepMaxParallel']) {
         if (Object.hasOwn(bundle, resolvedOnlyField)) {
           errors.push(`localProfiles.${profileId}.${bundle.id}.${resolvedOnlyField} must be machine-resolved, not declared`)
@@ -1154,6 +1205,16 @@ export function validateLocalProfiles(localProfiles, tiers) {
         owners.push(bundle.id)
         mapped.set(tierId, owners)
       }
+    }
+
+    const t0Bundles = profile.bundles.filter((bundle) => (bundle.dependsOn ?? []).length === 0)
+    const startupMinimumTotal = t0Bundles.reduce(
+      (total, bundle) => total + Number(bundle.startupMinCpuUnits ?? bundle.minCpuUnits),
+      0
+    )
+    if (Number.isInteger(profile.minimumSupportedCpuUnits)
+      && startupMinimumTotal > profile.minimumSupportedCpuUnits) {
+      errors.push(`localProfiles.${profileId} startup CPU minimum ${startupMinimumTotal} exceeds supported machine floor ${profile.minimumSupportedCpuUnits}`)
     }
 
     for (const tierId of profile.summaryOnly ?? []) {

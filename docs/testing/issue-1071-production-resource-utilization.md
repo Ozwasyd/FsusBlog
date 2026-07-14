@@ -27,7 +27,7 @@ use actual CPU and wait evidence together, never `reservedCpuUnits` alone.
 
 Wait intervals have one category at a time: `readiness-marker-blocked`, `dependency-blocked`,
 `benchmark-isolation-cooldown`, `exclusive-resource-blocked`, `capacity-blocked`, or
-`counted-resource-blocked`, or `external-service-io-blocked`. Readiness and dependency state take precedence over resource admission so the same
+`waiting-for-startup-capacity`, `counted-resource-blocked`, or `external-service-io-blocked`. The startup category means a ready dynamic bundle cannot yet receive its declared startup CPU or a positive safe memory grant; ordinary `capacity-blocked` remains the fixed-grant category. Readiness and dependency state take precedence over resource admission so the same
 wall interval is not counted twice. Exclusive waits retain the resource name.
 
 Each normal step runs as its own detached process group. `/proc` walks that group tree at a machine-derived low rate;

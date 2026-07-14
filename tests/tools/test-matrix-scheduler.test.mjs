@@ -799,6 +799,176 @@ test('dynamic admission grants fill the live envelope across only the currently 
   assert.equal(grants.get('later-only').memoryGiB, 10, 'a sole ready tier must receive current free memory')
 })
 
+test('five-CPU startup admits all production t0 bundles deterministically with safe memory grants', async () => {
+  const { runDag } = await loadScheduler()
+  const runOrder = async (ids, runId) => {
+    const temp = createTempDir(`scheduler-startup-${runId}`)
+    const declarations = {
+      build: { startupMinCpuUnits: 1, minCpuUnits: 2, startupMemoryWeight: 3, startupPriority: 3, deadlineWeight: 18 },
+      backend: { startupMinCpuUnits: 1, minCpuUnits: 2, startupMemoryWeight: 4, startupPriority: 4, deadlineWeight: 44 },
+      frontend: { startupMinCpuUnits: 1, minCpuUnits: 1, startupMemoryWeight: 2, startupPriority: 3, deadlineWeight: 27 },
+      runtime: { startupMinCpuUnits: 1, minCpuUnits: 1, startupMemoryWeight: 5, startupPriority: 4, deadlineWeight: 24 }
+    }
+    const starts = []
+    let releaseWave
+    const waveReady = new Promise((resolve) => { releaseWave = resolve })
+    const result = await runDag({
+      tiers: ids.map((id) => tier(id, {
+        resourceGrantMode: 'dynamic',
+        cpuWeight: declarations[id].minCpuUnits,
+        memoryWeight: declarations[id].startupMemoryWeight,
+        cpuUnits: 5,
+        memoryGiB: 9,
+        ...declarations[id]
+      })),
+      root: temp,
+      runsRoot: path.join(temp, 'runs'),
+      runId,
+      maxParallel: 5,
+      systemResources: { cpuCount: 5, availableCpuUnits: 5, availableMemoryGiB: 9, load1: 0 },
+      currentFreeMemoryGiB: () => 7,
+      snapshotWorktree: stableSnapshot,
+      executeTier: async (current) => {
+        starts.push({ id: current.id, cpuUnits: current.cpuUnits, memoryGiB: current.memoryGiB })
+        if (starts.length === 4) releaseWave()
+        await waveReady
+        return { code: 0, signal: null }
+      }
+    })
+    assert.equal(result.status, 'success')
+    assert.equal(starts.length, 4)
+    assert.equal(starts.reduce((sum, entry) => sum + entry.cpuUnits, 0), 5)
+    assert.ok(Math.abs(starts.reduce((sum, entry) => sum + entry.memoryGiB, 0) - 7) < 1e-9)
+    assert.deepEqual(Object.fromEntries(starts.map((entry) => [entry.id, entry.cpuUnits])), {
+      backend: 2,
+      runtime: 1,
+      frontend: 1,
+      build: 1
+    })
+    for (const [id, evidence] of Object.entries(result.checkpoint.tiers)) {
+      assert.ok(evidence.startupGrant.cpuUnits >= declarations[id].startupMinCpuUnits)
+      assert.ok(evidence.startupGrant.memoryGiB > 0)
+      assert.ok(Number.isFinite(evidence.admittedAtMs))
+      assert.ok(Number.isFinite(evidence.firstExecutableStepAtMs))
+      assert.ok(evidence.firstExecutableStepAtMs >= evidence.admittedAtMs)
+      assert.deepEqual(evidence.resourceGrantHistory[0].cpuUnits, evidence.startupGrant.cpuUnits)
+    }
+    return starts.map((entry) => entry.id)
+  }
+
+  const declaredOrder = await runOrder(['build', 'backend', 'frontend', 'runtime'], 'declared')
+  const shuffledOrder = await runOrder(['runtime', 'frontend', 'backend', 'build'], 'shuffled')
+  assert.deepEqual(declaredOrder, ['backend', 'runtime', 'frontend', 'build'])
+  assert.deepEqual(shuffledOrder, declaredOrder)
+})
+
+test('dynamic startup capacity wait and later grant expansion remain auditable', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-startup-wait')
+  const dynamicTier = (id, overrides = {}) => tier(id, {
+    resourceGrantMode: 'dynamic',
+    cpuWeight: 1,
+    memoryWeight: 1,
+    startupMemoryWeight: 1,
+    minCpuUnits: 2,
+    startupMinCpuUnits: 1,
+    startupPriority: 1,
+    cpuUnits: 2,
+    memoryGiB: 2,
+    ...overrides
+  })
+  const result = await runDag({
+    tiers: [
+      dynamicTier('holder', { startupPriority: 2 }),
+      dynamicTier('waiting'),
+      dynamicTier('blocked', { startupPriority: 0 })
+    ],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'startup-wait',
+    maxParallel: 2,
+    systemResources: { cpuCount: 2, availableCpuUnits: 2, availableMemoryGiB: 2, load1: 0 },
+    currentFreeMemoryGiB: () => 2,
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (current) => {
+      await delay(current.id === 'holder' ? 100 : 150)
+      return { code: 0, signal: null }
+    }
+  })
+  assert.equal(result.status, 'success')
+  assert.equal(result.checkpoint.tiers.holder.startupGrant.cpuUnits, 1)
+  assert.ok(result.checkpoint.tiers.blocked.resourceGrantHistory.at(-1).cpuUnits >= 1)
+  assert.ok(result.checkpoint.resourceUtilization.waits.totalsMs['waiting-for-startup-capacity'] > 0)
+})
+
+test('dynamic startup refuses admission when live memory has no safe positive grant', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-startup-memory')
+  let executed = false
+  const result = await runDag({
+    tiers: [tier('memory-blocked', {
+      resourceGrantMode: 'dynamic',
+      cpuWeight: 1,
+      memoryWeight: 1,
+      startupMemoryWeight: 1,
+      minCpuUnits: 1,
+      startupMinCpuUnits: 1,
+      cpuUnits: 2,
+      memoryGiB: 2
+    })],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'startup-memory',
+    maxParallel: 2,
+    systemResources: { cpuCount: 2, availableCpuUnits: 2, availableMemoryGiB: 2, load1: 0 },
+    currentFreeMemoryGiB: () => 0,
+    snapshotWorktree: stableSnapshot,
+    executeTier: async () => {
+      executed = true
+      return { code: 0, signal: null }
+    }
+  })
+  assert.equal(executed, false)
+  assert.equal(result.status, 'failure')
+  assert.match(result.failure.reason, /unschedulable resource request.*memoryGiB=.*\/0/u)
+})
+
+test('a failed dynamic startup grant is released for independent collect-failures work', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-startup-release')
+  const executed = []
+  const dynamicTier = (id, startupPriority) => tier(id, {
+    resourceGrantMode: 'dynamic',
+    cpuWeight: 1,
+    memoryWeight: 1,
+    startupMemoryWeight: 1,
+    startupPriority,
+    minCpuUnits: 1,
+    startupMinCpuUnits: 1,
+    cpuUnits: 1,
+    memoryGiB: 1
+  })
+  const result = await runDag({
+    tiers: [dynamicTier('fails', 2), dynamicTier('after-failure', 1)],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'startup-release',
+    maxParallel: 1,
+    collectFailures: true,
+    systemResources: { cpuCount: 1, availableCpuUnits: 1, availableMemoryGiB: 1, load1: 0 },
+    currentFreeMemoryGiB: () => 1,
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (current) => {
+      executed.push(current.id)
+      return { code: current.id === 'fails' ? 1 : 0, signal: null }
+    }
+  })
+  assert.equal(result.status, 'failure')
+  assert.deepEqual(executed, ['fails', 'after-failure'])
+  assert.equal(result.checkpoint.tiers['after-failure'].status, 'success')
+  assert.equal(result.checkpoint.tiers['after-failure'].startupGrant.cpuUnits, 1)
+})
+
 test('active dynamic bundles expand from the live scheduler grant after a sibling releases capacity', async () => {
   const { runDag } = await loadScheduler()
   const temp = createTempDir('scheduler-elastic-grants')
@@ -834,6 +1004,9 @@ test('active dynamic bundles expand from the live scheduler grant after a siblin
 
   assert.equal(result.status, 'success')
   assert.equal(expandedGrant.cpuUnits, 8)
+  assert.equal(result.checkpoint.tiers.long.startupGrant.cpuUnits, 4)
+  assert.ok(Number.isFinite(result.checkpoint.tiers.long.admittedAtMs))
+  assert.ok(Number.isFinite(result.checkpoint.tiers.long.firstExecutableStepAtMs))
   assert.equal(result.checkpoint.tiers.long.resourceGrantHistory[0].cpuUnits, 4)
   assert.equal(result.checkpoint.tiers.long.resourceGrantHistory.at(-1).cpuUnits, 8)
 })
@@ -1524,13 +1697,17 @@ test('matrix schema exposes scheduler resource, fingerprint, and supersedes meta
   const localProfile = schema.properties.localProfiles.additionalProperties
   const localBundle = localProfile.properties.bundles.items
   const properties = schema.properties.tiers.items.properties
-  assert.deepEqual(localProfile.required, ['budgetMs', 'memoryReserveShare', 'bundles', 'summaryOnly'])
+  assert.deepEqual(localProfile.required, ['budgetMs', 'minimumSupportedCpuUnits', 'memoryReserveShare', 'bundles', 'summaryOnly'])
+  assert.equal(localProfile.properties.minimumSupportedCpuUnits.minimum, 1)
   assert.equal(localProfile.properties.memoryReserveShare.exclusiveMinimum, 0)
   assert.equal(localProfile.properties.memoryReserveShare.exclusiveMaximum, 1)
   assert.equal(localProfile.properties.enforceBudget.type, 'boolean')
   assert.ok(localBundle.required.includes('cpuWeight'))
   assert.ok(localBundle.required.includes('memoryWeight'))
   assert.ok(localBundle.required.includes('minCpuUnits'))
+  assert.equal(localBundle.required.includes('startupMinCpuUnits'), false)
+  assert.equal(localBundle.required.includes('startupMemoryWeight'), false)
+  assert.equal(localBundle.required.includes('startupPriority'), false)
   assert.ok(localBundle.required.includes('deadlineWeight'))
   assert.equal(localBundle.properties.cpuWeight.exclusiveMinimum, 0)
   assert.equal(localBundle.properties.memoryWeight.exclusiveMinimum, 0)
@@ -1538,6 +1715,9 @@ test('matrix schema exposes scheduler resource, fingerprint, and supersedes meta
   assert.equal(localBundle.properties.minimumDeadlineShare.minimum, 0)
   assert.equal(localBundle.properties.minimumDeadlineShare.exclusiveMaximum, 1)
   assert.equal(localBundle.properties.minCpuUnits.minimum, 1)
+  assert.equal(localBundle.properties.startupMinCpuUnits.minimum, 1)
+  assert.equal(localBundle.properties.startupMemoryWeight.exclusiveMinimum, 0)
+  assert.equal(localBundle.properties.startupPriority.minimum, 0)
   assert.equal(Object.hasOwn(localBundle.properties, 'budgetMs'), false)
   assert.equal(Object.hasOwn(localBundle.properties, 'cpuUnits'), false)
   assert.equal(Object.hasOwn(localBundle.properties, 'memoryGiB'), false)

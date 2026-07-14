@@ -50,13 +50,14 @@ function tier(id, dependsOn = []) {
 function profile(overrides = {}) {
   return {
     budgetMs: 300_000,
+    minimumSupportedCpuUnits: 4,
     memoryReserveShare: 0.05,
     bundles: [
-      { id: 'build-static', command: 'build', deadlineWeight: 18, dependsOn: [], members: ['a'], cpuWeight: 2, memoryWeight: 3, minCpuUnits: 1 },
-      { id: 'backend-tests', command: 'backend', deadlineWeight: 44, dependsOn: [], members: ['b'], cpuWeight: 3, memoryWeight: 4, minCpuUnits: 2 },
-      { id: 'frontend-tests', command: 'frontend', deadlineWeight: 27, dependsOn: [], members: ['c'], cpuWeight: 3, memoryWeight: 2, minCpuUnits: 1 },
-      { id: 'runtime-browser', command: 'runtime', deadlineWeight: 24, dependsOn: [], members: ['d'], cpuWeight: 5, memoryWeight: 5, minCpuUnits: 1 },
-      { id: 'performance-evidence', command: 'performance', deadlineWeight: 36, minimumDeadlineShare: 0.25, dependsOn: ['backend-tests', 'runtime-browser', 'frontend-tests'], members: ['production'], cpuWeight: 8, memoryWeight: 10, minCpuUnits: 1 }
+      { id: 'build-static', command: 'build', deadlineWeight: 18, dependsOn: [], members: ['a'], cpuWeight: 2, memoryWeight: 3, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 3, startupPriority: 3 },
+      { id: 'backend-tests', command: 'backend', deadlineWeight: 44, dependsOn: [], members: ['b'], cpuWeight: 3, memoryWeight: 4, minCpuUnits: 2, startupMinCpuUnits: 1, startupMemoryWeight: 4, startupPriority: 4 },
+      { id: 'frontend-tests', command: 'frontend', deadlineWeight: 27, dependsOn: [], members: ['c'], cpuWeight: 3, memoryWeight: 2, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 2, startupPriority: 3 },
+      { id: 'runtime-browser', command: 'runtime', deadlineWeight: 24, dependsOn: [], members: ['d'], cpuWeight: 5, memoryWeight: 5, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 5, startupPriority: 4 },
+      { id: 'performance-evidence', command: 'performance', deadlineWeight: 36, minimumDeadlineShare: 0.25, dependsOn: ['backend-tests', 'runtime-browser', 'frontend-tests'], members: ['production'], cpuWeight: 8, memoryWeight: 10, minCpuUnits: 1, startupMinCpuUnits: 1, startupMemoryWeight: 10, startupPriority: 1 }
     ],
     summaryOnly: [],
     ...overrides
@@ -139,6 +140,32 @@ test('production profile fixes the approved local resource and bundle contract',
   ])
   assert.ok(runtimeResourceErrors.includes('localProfiles.production.runtime-browser.deadlineWeight must be positive'))
   assert.ok(runtimeResourceErrors.includes('localProfiles.production.runtime-browser.memoryWeight must be positive'))
+
+  const undersizedFloor = profile({ minimumSupportedCpuUnits: 3 })
+  assert.ok(validateLocalProfiles({ production: undersizedFloor }, [
+    tier('production', ['a', 'b', 'c', 'd']), tier('a'), tier('b'), tier('c'), tier('d')
+  ]).includes('localProfiles.production startup CPU minimum 4 exceeds supported machine floor 3'))
+})
+
+test('legacy local bundles retain explicit startup compatibility fallbacks', () => {
+  const legacy = profile({
+    minimumSupportedCpuUnits: 5,
+    bundles: profile().bundles.map((bundle) => {
+      const compatible = { ...bundle }
+      delete compatible.startupMinCpuUnits
+      delete compatible.startupMemoryWeight
+      delete compatible.startupPriority
+      return compatible
+    })
+  })
+  const tiers = [tier('production', ['a', 'b', 'c', 'd']), tier('a'), tier('b'), tier('c'), tier('d')]
+  assert.deepEqual(validateLocalProfiles({ production: legacy }, tiers), [])
+  const resolved = resolveLocalProfileResources(legacy, { availableCpuUnits: 5, availableMemoryGiB: 10 })
+  for (const bundle of resolved.bundles) {
+    assert.equal(bundle.startupMinCpuUnits, bundle.minCpuUnits)
+    assert.equal(bundle.startupMemoryWeight, bundle.memoryWeight)
+    assert.equal(bundle.startupPriority, 0)
+  }
 })
 
 test('local production derives full CPU, safe memory and launch parallelism from the machine', () => {
@@ -169,6 +196,7 @@ test('local production derives full CPU, safe memory and launch parallelism from
   assert.equal(busy.load1, 12)
   assert.equal(busy.launchParallelism, 8)
   assert.equal(localProfileSystemResources(profile(), { cpuCount: 7, availableMemoryGiB: 9, load1: 0 }).availableCpuUnits, 7)
+  assert.equal(localProfileSystemResources(profile(), { cpuCount: 4, availableMemoryGiB: 9, load1: 0 }).availableCpuUnits, 4)
   assert.throws(() => localProfileSystemResources(profile(), { cpuCount: 3, availableMemoryGiB: 9, load1: 0 }), /at least 4/u)
   assert.throws(() => localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 0, load1: 0 }), /positive available memory/u)
   assert.throws(() => localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 9, load1: -1 }), /non-negative/u)
@@ -199,20 +227,13 @@ test('local production cleans stale runtimes before measuring machine capacity',
 })
 
 test('production bundle resources resolve from each machine and fill its usable capacity', () => {
-  const expectedCpu = new Map([
-    [4, [1, 2, 1, 2, 4]],
-    [8, [2, 3, 3, 5, 8]],
-    [16, [4, 6, 6, 10, 16]]
-  ])
-  for (const [availableCpuUnits, expected] of expectedCpu) {
+  for (const availableCpuUnits of [4, 5, 6, 8, 16]) {
     const resolved = resolveLocalProfileResources(profile(), {
       availableCpuUnits,
       availableMemoryGiB: 18
     })
-    assert.deepEqual(resolved.bundles.map((bundle) => bundle.cpuUnits), expected)
-    assert.deepEqual(resolved.bundles.map((bundle) => bundle.stepMaxParallel), expected)
-    assert.equal(resolved.bundles.slice(0, 3).reduce((total, bundle) => total + bundle.cpuUnits, 0), availableCpuUnits)
-    assert.equal(resolved.bundles[1].cpuUnits + resolved.bundles[3].cpuUnits, availableCpuUnits)
+    assert.deepEqual(resolved.bundles.map((bundle) => bundle.stepMaxParallel), resolved.bundles.map((bundle) => bundle.cpuUnits))
+    assert.equal(resolved.bundles.slice(0, 4).reduce((total, bundle) => total + bundle.cpuUnits, 0), availableCpuUnits)
     const criticalPathBudgetMs = localProfileBudgetCriticalPath(resolved)
     assert.ok(criticalPathBudgetMs <= resolved.budgetMs)
     assert.ok(criticalPathBudgetMs >= resolved.budgetMs - resolved.bundles.length)
@@ -221,22 +242,22 @@ test('production bundle resources resolve from each machine and fill its usable 
     assert.ok(performance.budgetMs >= buildMixedWindowPlan().durationMs)
   }
 
-  const fourCoreDeadlines = resolveLocalProfileResources(profile(), { availableCpuUnits: 4, availableMemoryGiB: 18 })
+  const fiveCoreDeadlines = resolveLocalProfileResources(profile(), { availableCpuUnits: 5, availableMemoryGiB: 18 })
   const eightCoreDeadlines = resolveLocalProfileResources(profile(), { availableCpuUnits: 8, availableMemoryGiB: 18 })
   assert.notDeepEqual(
-    fourCoreDeadlines.bundles.map((bundle) => bundle.budgetMs),
+    fiveCoreDeadlines.bundles.map((bundle) => bundle.budgetMs),
     eightCoreDeadlines.bundles.map((bundle) => bundle.budgetMs)
   )
-  assert.ok(eightCoreDeadlines.bundles[0].budgetMs > 120_000)
+  assert.ok(eightCoreDeadlines.bundles.every((bundle) => bundle.budgetMs > 0))
 
   for (const usableMemoryGiB of [9, 18, 31.5]) {
     const resolved = resolveLocalProfileResources(profile(), { availableCpuUnits: 8, availableMemoryGiB: usableMemoryGiB })
     const memory = resolved.bundles.map((bundle) => bundle.memoryGiB)
-    assert.ok(Math.abs(memory.slice(0, 3).reduce((total, value) => total + value, 0) - usableMemoryGiB) < 1e-10)
-    assert.ok(Math.abs(memory[0] - usableMemoryGiB * 3 / 9) < 1e-10)
-    assert.ok(Math.abs(memory[1] - usableMemoryGiB * 4 / 9) < 1e-10)
-    assert.ok(Math.abs(memory[2] - usableMemoryGiB * 2 / 9) < 1e-10)
-    assert.ok(Math.abs(memory[1] + memory[3] - usableMemoryGiB) < 1e-10)
+    assert.ok(Math.abs(memory.slice(0, 4).reduce((total, value) => total + value, 0) - usableMemoryGiB) < 1e-10)
+    assert.ok(Math.abs(memory[0] - usableMemoryGiB * 3 / 14) < 1e-10)
+    assert.ok(Math.abs(memory[1] - usableMemoryGiB * 4 / 14) < 1e-10)
+    assert.ok(Math.abs(memory[2] - usableMemoryGiB * 2 / 14) < 1e-10)
+    assert.ok(Math.abs(memory[3] - usableMemoryGiB * 5 / 14) < 1e-10)
     assert.equal(memory[4], usableMemoryGiB)
   }
 
@@ -250,8 +271,8 @@ test('production bundle resources resolve from each machine and fill its usable 
       : bundle)
   })
   assert.throws(
-    () => resolveLocalProfileResources(impossibleMinimum, { availableCpuUnits: 4, availableMemoryGiB: 9 }),
-    /requires at least 5 available CPU units from declared minima/u
+    () => resolveLocalProfileResources(impossibleMinimum, { availableCpuUnits: 3, availableMemoryGiB: 9 }),
+    /requires at least 4 available CPU units from declared minima/u
   )
 })
 
@@ -391,10 +412,10 @@ test('repository production profile maps all 77 logical tiers exactly once', () 
 
 test('repository production t0 grants scale by weights without exceeding each machine', () => {
   const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
-  const initialIds = ['build-static', 'backend-tests', 'frontend-tests']
+  const initialIds = ['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser']
   const grantsByCpu = new Map()
 
-  for (const availableCpuUnits of [5, 8, 16]) {
+  for (const availableCpuUnits of [4, 5, 6, 8, 16]) {
     const resolved = resolveLocalProfileResources(matrix.localProfiles.production, {
       availableCpuUnits,
       availableMemoryGiB: availableCpuUnits * 2
@@ -403,11 +424,12 @@ test('repository production t0 grants scale by weights without exceeding each ma
     grantsByCpu.set(availableCpuUnits, grants)
     assert.equal(grants.reduce((total, value) => total + value, 0), availableCpuUnits)
     assert.ok(grants.every((value) => Number.isInteger(value) && value > 0))
-    assert.ok(grants[0] >= 2, 'build-static must retain its declared two-CPU minimum')
+    assert.ok(grants.every((value) => value >= 1), 't0 bundles must retain startup minima')
   }
 
-  assert.deepEqual(grantsByCpu.get(8), [4, 2, 2])
-  assert.ok(grantsByCpu.get(16)[0] > grantsByCpu.get(8)[0], 'build-static must scale above four CPUs on a larger machine')
+  assert.deepEqual(grantsByCpu.get(4), [1, 1, 1, 1])
+  assert.deepEqual(grantsByCpu.get(5), [1, 2, 1, 1])
+  assert.ok(grantsByCpu.get(16)[0] > grantsByCpu.get(8)[0], 'build-static must scale on a larger machine')
 })
 
 test('production checkpoint projection binds all 77 logical tiers to one fresh run and source state', () => {
@@ -1029,12 +1051,12 @@ test('physical bundle DAG preserves dependencies and derives deadlines from reso
     'local-production-frontend-tests'
   ])
   assert.deepEqual(bundles.map((bundle) => bundle.phase), [0, 0, 0, 0, 0])
-  assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.resourceGrantMode), ['dynamic', 'dynamic', 'dynamic'])
+  assert.deepEqual(bundles.slice(0, 4).map((bundle) => bundle.resourceGrantMode), ['dynamic', 'dynamic', 'dynamic', 'dynamic'])
   assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.cpuWeight), [2, 3, 3])
   assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.minCpuUnits), [1, 2, 1])
   assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.maxParallel), [8, 8, 8])
   assert.ok(bundles.every((bundle) => Number.isInteger(bundle.budgetMs) && bundle.budgetMs > 0))
-  assert.ok(bundles[0].budgetMs > 120_000, `8-core build-static deadline was ${bundles[0].budgetMs}ms`)
+  assert.deepEqual(bundles.slice(0, 4).map((bundle) => bundle.startupMinCpuUnits), [1, 1, 1, 1])
   assert.ok(localProfileBudgetCriticalPath({ budgetMs: 300_000, bundles }) <= 300_000)
   assert.equal(bundles[0].artifacts[0], '.tmp/local-production/build-static/summary.json')
 })

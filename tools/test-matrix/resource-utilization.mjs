@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process'
 export const resourceUtilizationSchema = 'fsusblog.production.resource-utilization.v1'
 export const waitCategories = Object.freeze([
   'dependency-blocked',
+  'waiting-for-startup-capacity',
   'capacity-blocked',
   'counted-resource-blocked',
   'exclusive-resource-blocked',
@@ -85,6 +86,10 @@ export function classifyResourceWait(state = {}) {
   state ??= {}
   if (state.readinessMarker) return { category: 'readiness-marker-blocked', detail: state.readinessMarker }
   if (state.dependencies?.length) return { category: 'dependency-blocked', detail: [...state.dependencies].sort() }
+  if (state.startupCapacity?.cpu || state.startupCapacity?.memory) return {
+    category: 'waiting-for-startup-capacity',
+    detail: { cpu: Boolean(state.startupCapacity.cpu), memory: Boolean(state.startupCapacity.memory) }
+  }
   if (state.benchmarkIsolation || state.cooldown) return { category: 'benchmark-isolation-cooldown', detail: state.cooldown ?? 'benchmark-window' }
   if (state.exclusiveResources?.length) return { category: 'exclusive-resource-blocked', detail: [...state.exclusiveResources].sort() }
   if (state.countedResources && Object.keys(state.countedResources).length > 0) {

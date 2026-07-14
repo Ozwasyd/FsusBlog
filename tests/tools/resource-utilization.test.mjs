@@ -61,6 +61,8 @@ test('wait categories are mutually exclusive and readiness has explicit preceden
   assert.equal(classifyResourceWait({ exclusiveResources: ['browser'] }).category, 'exclusive-resource-blocked')
   assert.equal(classifyResourceWait({ countedResources: { chromiumLane: { capacity: 1 } } }).category,
     'counted-resource-blocked')
+  assert.equal(classifyResourceWait({ startupCapacity: { cpu: true } }).category,
+    'waiting-for-startup-capacity')
   assert.equal(classifyResourceWait({ capacity: { memory: true } }).category, 'capacity-blocked')
   assert.equal(classifyResourceWait({ externalService: 'postgres' }).category, 'external-service-io-blocked')
 })

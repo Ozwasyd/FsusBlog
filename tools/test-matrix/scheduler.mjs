@@ -805,11 +805,30 @@ function canShareAdmission(tier, admittedEntries, maxParallel) {
   return true
 }
 
-function weightedIntegerAllocation(tiers, totalUnits) {
-  const minimums = tiers.map((tier) => Math.max(1, Math.floor(Number(tier.minCpuUnits) || 1)))
+function startupMinCpuUnits(tier) {
+  return Math.max(1, Math.floor(Number(tier.startupMinCpuUnits ?? tier.minCpuUnits) || 1))
+}
+
+function startupMemoryWeight(tier) {
+  return Math.max(Number.EPSILON, Number(tier.startupMemoryWeight ?? tier.memoryWeight) || 1)
+}
+
+function startupAdmissionOrder(left, right) {
+  return Number(right.startupPriority ?? 0) - Number(left.startupPriority ?? 0)
+    || Number(right.deadlineWeight ?? 0) - Number(left.deadlineWeight ?? 0)
+    || left.id.localeCompare(right.id)
+}
+
+function weightedIntegerAllocation(
+  tiers,
+  totalUnits,
+  minimumForTier = (tier) => tier.minCpuUnits,
+  weightForTier = (tier) => tier.cpuWeight
+) {
+  const minimums = tiers.map((tier) => Math.max(1, Math.floor(Number(minimumForTier(tier)) || 1)))
   const minimumTotal = minimums.reduce((total, value) => total + value, 0)
   if (minimumTotal > totalUnits) return null
-  const weights = tiers.map((tier) => Math.max(Number.EPSILON, Number(tier.cpuWeight) || 1))
+  const weights = tiers.map((tier) => Math.max(Number.EPSILON, Number(weightForTier(tier)) || 1))
   const weightTotal = weights.reduce((total, value) => total + value, 0)
   const quotas = weights.map((weight) => totalUnits * weight / weightTotal)
   const values = quotas.map((quota, index) => Math.max(minimums[index], Math.floor(quota)))
@@ -833,6 +852,26 @@ function weightedIntegerAllocation(tiers, totalUnits) {
     allocated -= 1
   }
   return new Map(tiers.map((tier, index) => [tier.id, values[index]]))
+}
+
+function startupIntegerAllocation(tiers, totalUnits) {
+  const startupMinimums = new Map(tiers.map((tier) => [tier.id, startupMinCpuUnits(tier)]))
+  let remaining = totalUnits - [...startupMinimums.values()].reduce((total, value) => total + value, 0)
+  if (remaining < 0) return null
+  for (const tier of [...tiers].sort(startupAdmissionOrder)) {
+    const steadyMinimum = Math.max(1, Math.floor(Number(tier.minCpuUnits) || 1))
+    const deficit = Math.max(0, steadyMinimum - startupMinimums.get(tier.id))
+    const addition = Math.min(remaining, deficit)
+    startupMinimums.set(tier.id, startupMinimums.get(tier.id) + addition)
+    remaining -= addition
+    if (remaining === 0) break
+  }
+  return weightedIntegerAllocation(
+    tiers,
+    totalUnits,
+    (tier) => startupMinimums.get(tier.id),
+    (tier) => tier.cpuWeight
+  )
 }
 
 function tierPhase(tier) {
@@ -1404,7 +1443,13 @@ async function runDagUnlocked(options) {
     if (tier.resourceGrantMode === 'dynamic') {
       if (!Number.isFinite(Number(tier.cpuWeight)) || Number(tier.cpuWeight) <= 0
         || !Number.isFinite(Number(tier.memoryWeight)) || Number(tier.memoryWeight) <= 0
-        || !Number.isInteger(Number(tier.minCpuUnits)) || Number(tier.minCpuUnits) < 1) {
+        || !Number.isInteger(Number(tier.minCpuUnits)) || Number(tier.minCpuUnits) < 1
+        || !Number.isInteger(Number(tier.startupMinCpuUnits ?? tier.minCpuUnits))
+        || Number(tier.startupMinCpuUnits ?? tier.minCpuUnits) < 1
+        || startupMinCpuUnits(tier) > Number(tier.minCpuUnits)
+        || !Number.isFinite(startupMemoryWeight(tier))
+        || !Number.isFinite(Number(tier.startupPriority ?? 0))
+        || Number(tier.startupPriority ?? 0) < 0) {
         throw new Error(`tier ${tier.id} has unresolved dynamic resource policy`)
       }
       continue
@@ -1564,7 +1609,7 @@ async function runDagUnlocked(options) {
 
   const currentFreeMemoryGiB = () => {
     const measured = Number(options.currentFreeMemoryGiB?.() ?? (os.freemem() / (1024 ** 3)))
-    return Number.isFinite(measured) && measured > 0 ? measured : budget.memoryGiB
+    return Number.isFinite(measured) && measured >= 0 ? measured : budget.memoryGiB
   }
 
   const writeActiveResourceGrants = () => {
@@ -1599,6 +1644,9 @@ async function runDagUnlocked(options) {
     let freeCpuUnits = Math.max(0, Math.floor(budget.cpuUnits - usage.cpuUnits))
     while (freeCpuUnits > 0) {
       const selected = [...elastic].sort((left, right) => {
+        const leftDeficit = Math.max(0, Number(left.tier.minCpuUnits) - Number(left.tier.cpuUnits))
+        const rightDeficit = Math.max(0, Number(right.tier.minCpuUnits) - Number(right.tier.cpuUnits))
+        if (leftDeficit !== rightDeficit) return rightDeficit - leftDeficit
         const leftShare = Number(left.tier.cpuUnits) / Math.max(Number.EPSILON, Number(left.tier.cpuWeight))
         const rightShare = Number(right.tier.cpuUnits) / Math.max(Number.EPSILON, Number(right.tier.cpuWeight))
         return leftShare - rightShare || left.tier.id.localeCompare(right.tier.id)
@@ -1647,6 +1695,7 @@ async function runDagUnlocked(options) {
       ...activeEntries.map((entry) => tierPhase(entry.tier))
     )
     const ready = pending.filter((tier) => tierPhase(tier) === barrierPhase && dependenciesReady(tier))
+      .sort(startupAdmissionOrder)
     const selected = []
     let fixedCpu = 0
     let fixedMemory = 0
@@ -1661,7 +1710,7 @@ async function runDagUnlocked(options) {
       const admittedEntries = [...activeEntries, ...selected.map((item) => ({ tier: item }))]
       if (!canShareAdmission(tier, admittedEntries, maxParallel)) continue
       if (tier.resourceGrantMode === 'dynamic') {
-        const minimum = Math.max(1, Math.floor(Number(tier.minCpuUnits)))
+        const minimum = startupMinCpuUnits(tier)
         if (fixedCpu + dynamicMinimumCpu + minimum > availableCpu || availableMemory - fixedMemory <= 0) continue
         dynamicMinimumCpu += minimum
       } else {
@@ -1676,22 +1725,30 @@ async function runDagUnlocked(options) {
 
     const dynamic = selected.filter((tier) => tier.resourceGrantMode === 'dynamic')
     const dynamicCpu = Math.max(0, Math.floor(availableCpu - fixedCpu))
-    const cpuAllocations = dynamic.length > 0 ? weightedIntegerAllocation(dynamic, dynamicCpu) : new Map()
+    const cpuAllocations = dynamic.length > 0
+      ? startupIntegerAllocation(dynamic, dynamicCpu)
+      : new Map()
     if (dynamic.length > 0 && cpuAllocations === null) return []
     const dynamicMemory = Math.max(0, availableMemory - fixedMemory)
     const memoryWeightTotal = dynamic.reduce(
-      (total, tier) => total + Math.max(Number.EPSILON, Number(tier.memoryWeight)),
+      (total, tier) => total + startupMemoryWeight(tier),
       0
     )
+    const admittedAtMs = Date.now()
     return selected.map((tier) => tier.resourceGrantMode === 'dynamic'
       ? {
           ...tier,
           resourceGrantMode: 'granted',
           resourceGrantDynamic: true,
           cpuUnits: cpuAllocations.get(tier.id),
-          memoryGiB: dynamicMemory * Math.max(Number.EPSILON, Number(tier.memoryWeight)) / memoryWeightTotal
+          memoryGiB: dynamicMemory * startupMemoryWeight(tier) / memoryWeightTotal,
+          startupGrant: {
+            cpuUnits: cpuAllocations.get(tier.id),
+            memoryGiB: dynamicMemory * startupMemoryWeight(tier) / memoryWeightTotal
+          },
+          admittedAtMs
         }
-      : tier)
+      : { ...tier, admittedAtMs })
   }
 
   const completeReusedTier = (tier, inputFingerprint, dependencyFingerprintValue, tierEnvironment) => {
@@ -1799,6 +1856,9 @@ async function runDagUnlocked(options) {
     options.onTierStart?.(tier, { startedAt, logFile })
     const entry = {
       tier,
+      admittedAtMs: tier.admittedAtMs ?? startedAt,
+      startupGrant: tier.startupGrant ?? tierResourceUnits(tier),
+      firstExecutableStepAtMs: startedAt,
       cancelRequested: false,
       terminate: execution.terminate,
       promise: execution.promise.then(async (executionResult) => {
@@ -1827,7 +1887,7 @@ async function runDagUnlocked(options) {
     active.set(tier.id, entry)
     if (tier.resourceGrantDynamic === true) {
       entry.resourceGrantHistory = [{
-        ...tierResourceUnits(tier),
+        ...entry.startupGrant,
         effectiveAt: new Date(startedAt).toISOString()
       }]
     }
@@ -1871,6 +1931,9 @@ async function runDagUnlocked(options) {
     checkpoint.tiers[tier.id] = {
       status: success ? 'success' : (cancelled ? 'cancelled' : 'failure'),
       resourceGrant: tierResourceUnits(tier),
+      admittedAtMs: entry.admittedAtMs,
+      startupGrant: entry.startupGrant,
+      firstExecutableStepAtMs: entry.firstExecutableStepAtMs,
       resourceGrantHistory: entry.resourceGrantHistory ?? [tierResourceUnits(tier)],
       resourceUtilization,
       inputFingerprint,
@@ -1923,7 +1986,8 @@ async function runDagUnlocked(options) {
       const wave = admissionWave()
       const waveIds = new Set(wave.map((tier) => tier.id))
       const activeEntries = [...active.values()]
-      const usage = activeUsage(activeEntries)
+      const admissionEntries = [...activeEntries, ...wave.map((tier) => ({ tier }))]
+      const usage = activeUsage(admissionEntries)
       const barrierPhase = Math.min(
         ...pending.map(tierPhase),
         ...activeEntries.map((entry) => tierPhase(entry.tier))
@@ -1940,9 +2004,9 @@ async function runDagUnlocked(options) {
           continue
         }
         const exclusiveResources = (tier.exclusiveResources ?? []).filter((resource) =>
-          activeEntries.some((entry) => (entry.tier.exclusiveResources ?? []).includes(resource)))
+          admissionEntries.some((entry) => (entry.tier.exclusiveResources ?? []).includes(resource)))
         const serviceResources = (tier.services ?? []).filter((service) =>
-          activeEntries.some((entry) => (entry.tier.services ?? []).includes(service)))
+          admissionEntries.some((entry) => (entry.tier.services ?? []).includes(service)))
           .map((service) => `service:${service}`)
         exclusiveResources.push(...serviceResources)
         if (exclusiveResources.includes('benchmark-window')) {
@@ -1951,14 +2015,17 @@ async function runDagUnlocked(options) {
           schedulerWaitLedger.observe(tier.id, { exclusiveResources })
         } else {
           const request = tier.resourceGrantMode === 'dynamic'
-            ? { cpuUnits: Math.max(1, Number(tier.minCpuUnits)), memoryGiB: Number.EPSILON }
+            ? { cpuUnits: startupMinCpuUnits(tier), memoryGiB: Number.EPSILON }
             : tierResourceUnits(tier)
-          schedulerWaitLedger.observe(tier.id, { capacity: {
-            cpu: active.size >= maxParallel
-              || !canShareAdmission(tier, activeEntries, maxParallel)
+          const capacity = {
+            cpu: admissionEntries.length >= maxParallel
+              || !canShareAdmission(tier, admissionEntries, maxParallel)
               || usage.cpuUnits + request.cpuUnits > budget.cpuUnits,
             memory: usage.memoryGiB + request.memoryGiB > Math.min(budget.memoryGiB, usage.memoryGiB + currentFreeMemoryGiB())
-          } })
+          }
+          schedulerWaitLedger.observe(tier.id, tier.resourceGrantMode === 'dynamic'
+            ? { startupCapacity: capacity }
+            : { capacity })
         }
       }
       for (const grantedTier of wave) {
@@ -1982,17 +2049,18 @@ async function runDagUnlocked(options) {
         const readyTier = pending.find((tier) => tierPhase(tier) === barrierPhase && dependenciesReady(tier))
         const request = readyTier
           ? (readyTier.resourceGrantMode === 'dynamic'
-              ? { cpuUnits: Number(readyTier.minCpuUnits), memoryGiB: Number.EPSILON }
+              ? { cpuUnits: startupMinCpuUnits(readyTier), memoryGiB: Number.EPSILON }
               : tierResourceUnits(readyTier))
           : null
+        const liveMemoryCapacityGiB = Math.min(budget.memoryGiB, currentFreeMemoryGiB())
         const unschedulable = request
-          && (request.cpuUnits > budget.cpuUnits || request.memoryGiB > budget.memoryGiB)
+          && (request.cpuUnits > budget.cpuUnits || request.memoryGiB > liveMemoryCapacityGiB)
         firstFailure = {
           tierId: readyTier?.id ?? pending[0].id,
           exitCode: 1,
           signal: null,
           reason: unschedulable
-            ? `unschedulable resource request for ${readyTier.id}: cpu=${request.cpuUnits}/${budget.cpuUnits}, memoryGiB=${request.memoryGiB}/${budget.memoryGiB}`
+            ? `unschedulable resource request for ${readyTier.id}: cpu=${request.cpuUnits}/${budget.cpuUnits}, memoryGiB=${request.memoryGiB}/${liveMemoryCapacityGiB}`
             : 'no runnable tiers remain; check DAG dependencies and resource metadata',
           changedPaths: []
         }
