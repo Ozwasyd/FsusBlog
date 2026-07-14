@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '../..')
@@ -33,6 +33,7 @@ const required = [
   '.github/CODEOWNERS',
   '.github/PULL_REQUEST_TEMPLATE.md',
   '.github/workflows/codeql.yml',
+  '.github/workflows/dependency-review.yml',
   '.github/workflows/scorecard.yml',
   'CONTRIBUTING.md',
   'SUPPORT.md',
@@ -92,6 +93,12 @@ includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'src/frontend/**')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), 'src/shared/**')
 includes('.github/workflows/codeql.yml', contents.get('.github/workflows/codeql.yml'), '/p:PublishClientAssets=false')
+includes('.github/workflows/dependency-review.yml', contents.get('.github/workflows/dependency-review.yml'), 'src/frontend/package-lock.json')
+includes('.github/workflows/dependency-review.yml', contents.get('.github/workflows/dependency-review.yml'), "'**/*.csproj'")
+includes('.github/workflows/dependency-review.yml', contents.get('.github/workflows/dependency-review.yml'), '.github/workflows/**')
+includes('.github/workflows/dependency-review.yml', contents.get('.github/workflows/dependency-review.yml'), 'fail-on-severity: high')
+includes('.github/workflows/dependency-review.yml', contents.get('.github/workflows/dependency-review.yml'), 'license-check: true')
+includes('.github/workflows/dependency-review.yml', contents.get('.github/workflows/dependency-review.yml'), 'deny-licenses: AGPL-1.0, AGPL-3.0, GPL-1.0, GPL-2.0, GPL-3.0, LGPL-2.0, LGPL-2.1, LGPL-3.0')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'ossf/scorecard-action@')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), '# v2.4.3')
 includes('.github/workflows/scorecard.yml', contents.get('.github/workflows/scorecard.yml'), 'actions: read')
@@ -149,6 +156,9 @@ includes('docs/repository-governance.md', contents.get('docs/repository-governan
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'private repositories to evaluate review and branch-protection signals')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'does not upload to Code Scanning while this private repository has code scanning disabled')
 includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'checks: read')
+includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependabot version updates are intentionally not configured')
+includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependabot alerts')
+includes('docs/repository-governance.md', contents.get('docs/repository-governance.md'), 'Dependabot security')
 includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'CodeQL analysis')
 includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'OpenSSF Scorecard posture scan')
 includes('release-evidence/open-source-readiness/readiness-checklist.md', contents.get('release-evidence/open-source-readiness/readiness-checklist.md'), 'Branch protection expectations')
@@ -162,6 +172,10 @@ for (const [path, source] of contents) {
     includes(path, source, 'This is not a security vulnerability report')
     includes(path, source, 'I removed secrets')
   }
+}
+
+if (existsSync(resolve(root, '.github/dependabot.yml'))) {
+  errors.push('.github/dependabot.yml must remain absent so routine Dependabot version-update PRs stay disabled')
 }
 
 if (!/pull_request:\n/.test(contents.get('.github/workflows/codeql.yml'))) {

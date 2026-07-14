@@ -40,7 +40,18 @@ When GitHub branch protection cannot express the full `Quality Gate` dependency 
 
 ## Dependency And Supply-Chain Checks
 
-Dependabot remains configured for npm, NuGet, and GitHub Actions. Dependency Review remains required on pull requests that touch package locks, project files, workflow files, or Dependabot configuration.
+Dependabot version updates are intentionally not configured: the repository has no
+`.github/dependabot.yml`, so routine npm, NuGet, and GitHub Actions upgrades are
+batched by maintainers when needed instead of being opened as weekly bot pull
+requests. Repository settings must keep Dependabot alerts and Dependabot security
+updates enabled; security remediation pull requests are reviewed on their own risk
+and must not be treated as routine version-update noise.
+
+Every dependency change, whether submitted manually or by a security update, remains
+subject to Dependency Review, the denied-license policy, and the normal CI gates.
+Dependency Review runs when pull requests change package locks, project files, or
+workflow files, blocks high-severity dependency changes, and denies the configured
+AGPL/GPL/LGPL license families.
 
 CodeQL runs on pull requests and default-branch pushes that touch the monorepo source roots:
 
