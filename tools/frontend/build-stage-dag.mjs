@@ -302,7 +302,7 @@ export async function runFrontendBuildStageDag(stages, {
     liveGrantEvidence = error?.liveGrantEvidence ?? liveGrantEvidence
     if (typeof cleanupPartialOutputs === 'function') {
       try {
-        cleanup = await cleanupPartialOutputs(error)
+        cleanup = await cleanupPartialOutputs(error, { stages: [...stageRecords.values()] })
       } catch (cleanupError) {
         cleanup = {
           status: 'failure',

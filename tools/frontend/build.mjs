@@ -495,9 +495,19 @@ async function executeFrontendBuildStage(stage, context) {
   await runStage(stage.id, stage.command[0], stage.command.slice(1), context);
 }
 
-async function cleanupPartialBuildOutputs() {
+async function cleanupPartialBuildOutputs(_error, { stages } = { stages: [] }) {
+  const distPrefix = `${pathWithTrailingSeparator(distRoot)}`;
+  const touchedDist = stages.some((stage) => stage.ownedOutputs.some((output) => {
+    const absolute = resolve(clientRoot, output);
+    return absolute === distRoot || absolute.startsWith(distPrefix);
+  }));
+  if (!touchedDist) return { status: 'skipped', removed: [], reason: 'dist was not touched' };
   await rm(distRoot, { recursive: true, force: true });
   return { status: 'success', removed: [distRoot] };
+}
+
+function pathWithTrailingSeparator(value) {
+  return value.endsWith('/') || value.endsWith('\\') ? value : `${value}${process.platform === 'win32' ? '\\' : '/'}`;
 }
 
 function packageVersion(packageName) {
