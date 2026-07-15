@@ -96,12 +96,6 @@
           ]
         },
         {
-          "name": "article_reads",
-          "accessors": [
-            "ReadInt64"
-          ]
-        },
-        {
           "name": "average",
           "accessors": [
             "ReadDouble"
@@ -109,12 +103,6 @@
         },
         {
           "name": "comment_id",
-          "accessors": [
-            "ReadInt64"
-          ]
-        },
-        {
-          "name": "completed_article_reads",
           "accessors": [
             "ReadInt64"
           ]
@@ -148,12 +136,6 @@
           "accessors": [
             "IsNull",
             "ReadInt32"
-          ]
-        },
-        {
-          "name": "dwell_ms_total",
-          "accessors": [
-            "ReadInt64"
           ]
         },
         {
@@ -389,6 +371,30 @@
           ]
         },
         {
+          "name": "claim_expires_at",
+          "accessors": [
+            "ReadDateTime"
+          ]
+        },
+        {
+          "name": "claim_token",
+          "accessors": [
+            "ReadString"
+          ]
+        },
+        {
+          "name": "claimed_at",
+          "accessors": [
+            "ReadDateTime"
+          ]
+        },
+        {
+          "name": "claimed_by",
+          "accessors": [
+            "ReadString"
+          ]
+        },
+        {
           "name": "created_at",
           "accessors": [
             "ReadDateTime"
@@ -404,6 +410,12 @@
           "name": "event_type",
           "accessors": [
             "ReadString"
+          ]
+        },
+        {
+          "name": "heartbeat_at",
+          "accessors": [
+            "ReadDateTime"
           ]
         },
         {
@@ -427,6 +439,12 @@
         },
         {
           "name": "payload_json",
+          "accessors": [
+            "ReadString"
+          ]
+        },
+        {
+          "name": "previous_status",
           "accessors": [
             "ReadString"
           ]

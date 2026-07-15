@@ -2145,7 +2145,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicHotArtifactProjector_DeltaRebuildsOnlyAffectedListScopes",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning",
+        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_InvalidatesEveryPaginatedListingIdentity",
         "shell:tools/test/lanes/backend-benchmark-regression.sh"
       ],
       "reason": "Affected listing invalidation is behavior-owned while delta rebuild cost belongs to #1042."
@@ -2154,7 +2154,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotInvalidation_BatchesRouteRemovalsThroughCacheInterface",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning"
+        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_InvalidatesEveryPaginatedListingIdentity"
       ],
       "reason": "The recording cache observes exact removals, version bumps, and scheduled routes."
     },
@@ -2218,7 +2218,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_ReadsV3FrameAndRejectsLegacyArticleDetailFrame",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_AcceptsV3FrameAndRejectsLegacyArticleDetailFrame"
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_AcceptsCurrentV4AndReadCompatibleV3FramesAndRejectsRetiredPayload"
       ],
       "reason": "V3 acceptance and legacy write rejection moved intact."
     },
@@ -2234,7 +2234,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_RejectsNonV3PayloadMagic",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_RejectsNonV3PayloadMagic"
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_RejectsUnsupportedPayloadMagic"
       ],
       "reason": "Non-V3 payload magic rejection moved intact and now asserts no file is written."
     },
@@ -2242,7 +2242,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactMaintenanceService_ClearLegacyPublicArtifactsRemovesOnlyNonV3Frames",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.ClearLegacyPublicArtifactsAsync_RemovesOnlyNonV3Frames"
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.ClearLegacyPublicArtifactsAsync_PreservesSupportedV3AndV4Frames"
       ],
       "reason": "Filesystem cleanup behavior moved intact with an explicit zero-failure assertion."
     },
@@ -2348,7 +2348,7 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_ValidArticleProof_WritesSingleHumanReadEvent",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ValidArticleProofWritesExactlyOneEventAndUsesBoundedLeases"
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ValidArticleProofWritesOneAggregateContributionAndUsesBoundedLeases"
       ],
       "reason": "The moved behavior additionally proves one event only plus the replay and viewer lease TTLs observed through the cache contract."
     },
@@ -2356,7 +2356,7 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_AuthenticatedAccount_DoesNotWriteUserIdToVisitLog",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.AuthenticatedSubmission_PersistsOnlyAnonymousViewerAndProofDimensions"
+        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.TwentyArticleReads_PersistOnlyUnorderedHourlyAndDwellAggregates"
       ],
       "reason": "An authenticated submission is projected, inserted into PostgreSQL, queried, reflected, and serialized to prove no reversible account identifier is persisted."
     },
@@ -2364,8 +2364,8 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.HumanReadAndStats_SourceDoNotUseVisitLogUserIdAsIdentityDimension",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.AuthenticatedSubmission_PersistsOnlyAnonymousViewerAndProofDimensions",
-        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.StatsContracts_SerializeOnlyAggregateReadAndAnonymousViewerDimensions",
+        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.TwentyArticleReads_PersistOnlyUnorderedHourlyAndDwellAggregates",
+        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.StatsContracts_KeepCompatibilityFieldButCannotExposeViewerIdentity",
         "shell:tools/check-historical-residue.sh",
         "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
       ],
@@ -2387,7 +2387,7 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_ReplayedProof_DoesNotWriteSecondEvent",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ReplayedProofDoesNotWriteSecondEvent"
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ReplayedProofDoesNotWriteSecondAggregateContribution"
       ],
       "reason": "Replay rejection and single-write behavior moved to the submission behavior file."
     },
@@ -2395,7 +2395,7 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_TamperedRoute_DoesNotWriteEvent",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_TamperedRouteDoesNotWriteEvent",
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_TamperedRouteDoesNotWriteAggregateContribution",
         "xunit:tests/backend/Unit/HumanReadProofRequestBindingTests.cs#HumanReadProofRequestBindingTests.SubmitAsync_ChangedScopeAndArticleAreRejected"
       ],
       "reason": "Route, scope, and article binding are now direct token-submission behavior."
@@ -5750,7 +5750,7 @@
     {"id":"vitest:tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts#keeps-archive-and-static-public-pages-on-one-shared-read-18658573f6","path":"tests/frontend/unit/view-contracts/userFacingWorkflow.test.ts","replacementTestIds":["vitest:tests/frontend/unit/view-contracts/archive.test.ts#groups-articles-by-year-and-month-62ef416fd1","vitest:tests/frontend/e2e/acceptance/public-routes.spec.ts#visible-public-routes-stay-clean-and-aligned-c63684c410"],"reason":"Archive view behavior and public browser rendering replace reading-frame source strings."},
     {"id":"vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#does-not-expose-the-retired-admin-password-reset-frame-5053a6b37b","path":"tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts","replacementTestIds":["node-script:tests/frontend/checks/static/check-generated-frame-schema-sync.mjs","vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#maps-register-begin-payload-into-webauthn-creation-optio-81f2fb2a80","vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#maps-login-begin-payload-into-webauthn-request-options-de650f89cc"],"reason":"Schema synchronization owns retired frames while current register/login adapters execute the payload contract."},
     {"id":"vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#keeps-register-begin-adapter-fields-named-as-account-han-2b9f16df4f","path":"tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts","replacementTestIds":["node-script:tests/frontend/checks/static/check-generated-frame-schema-sync.mjs","vitest:tests/frontend/unit/adapters/binary/passkeyAdapter.test.ts#maps-register-begin-payload-into-webauthn-creation-optio-81f2fb2a80"],"reason":"The generated schema owner and actual register payload mapping replace source-name assertions."},
-    {"id":"vitest:tests/frontend/unit/api/readProof.test.ts#does-not-retain-json-fetch-compatibility-in-the-api-modu-8e2ba09664","path":"tests/frontend/unit/api/readProof.test.ts","replacementTestIds":["node-script:tests/frontend/checks/static/check-frontend-backend-api-parity.mjs","vitest:tests/frontend/unit/api/readProof.test.ts#requests-challenge-with-an-aeds-request-frame-and-device-a7041a809b","vitest:tests/frontend/unit/api/readProof.test.ts#submits-proof-with-an-aeds-request-frame-and-device-fing-1bc46276e8"],"reason":"API parity and actual AEDS challenge/submission transport replace a source search for JSON fallback."},
+    {"id":"vitest:tests/frontend/unit/api/readProof.test.ts#does-not-retain-json-fetch-compatibility-in-the-api-modu-8e2ba09664","path":"tests/frontend/unit/api/readProof.test.ts","replacementTestIds":["node-script:tests/frontend/checks/static/check-frontend-backend-api-parity.mjs","vitest:tests/frontend/unit/api/readProof.test.ts#requests-challenge-without-a-stable-cross-article-finger-f7240d45d1","vitest:tests/frontend/unit/api/readProof.test.ts#submits-proof-without-a-stable-cross-article-fingerprint-42f7945dba"],"reason":"API parity and the unlinkable AEDS challenge/submission transport replace a source search for JSON fallback."},
     {"id":"vitest:tests/frontend/unit/api/security.test.ts#does-not-retain-the-deprecated-security-json-client-in-p-7574156fe9","path":"tests/frontend/unit/api/security.test.ts","replacementTestIds":["node-script:tests/frontend/checks/static/check-frontend-backend-api-parity.mjs","vitest:tests/frontend/unit/api/security.test.ts#reads-security-overview-through-aeds-8c097c1d36","vitest:tests/frontend/unit/api/security.test.ts#uses-rule-and-pow-request-frames-for-security-mutations-2dd490ae6b"],"reason":"API parity and real AEDS security reads/mutations replace private source tokens."},
     {"id":"vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#keeps-the-sfc-wired-to-fsusui-controls-canvas-fallback-s-f540400312","path":"tests/frontend/unit/components/FsusCaptchaChallenge.test.ts","replacementTestIds":["vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#selects-the-captchav1-assignment-and-builds-the-provider-97629ab95d","vitest:tests/frontend/unit/components/FsusCaptchaChallenge.test.ts#shows-a-recoverable-error-when-captcha-runtime-loading-f-205025a84d","vitest:tests/frontend/e2e/security/captcha-challenge.spec.ts#renders-locally-accepts-mobile-safe-input-and-solves-pow-9f665456f5"],"reason":"Mounted assignment/error behavior and the browser challenge flow replace SFC source-shape assertions."},
     {"id":"xunit:tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs#UnifiedCacheAtomicCounterTests.IUnifiedCache_ExposesIncrementWithExpiryPrimitive","path":"tests/backend/Unit/UnifiedCacheAtomicCounterTests.cs","replacementTestIds":["xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementWithExpiryAsync_UsesAtomicRedisScriptWithExpiryAndBypassesL1","xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementManyWithExpiryAsync_UsesSingleRedisScriptWithExpiryForEveryKey","xunit:tests/backend/Unit/UnifiedCacheTests.cs#UnifiedCacheTests.IncrementClampedWithExpiryAsync_UsesAtomicRedisScriptWithClampExpiryAndBypassesL1"],"reason":"The public cache primitives are now invoked through the concrete interface implementation and their Redis command envelopes and results are asserted directly."},
@@ -5805,7 +5805,7 @@
       "id": "node-test:tests/tools/local-static-governance.test.mjs#local-static-plan-starts-independent-evidence-writers-wi-8604e7ee22",
       "path": "tests/tools/local-static-governance.test.mjs",
       "replacementTestIds": [
-        "node-test:tests/tools/local-static-governance.test.mjs#local-static-plan-saturates-independent-work-before-the--86a6ffc1a1"
+        "node-test:tests/tools/local-static-governance.test.mjs#disjoint-manifest-writers-run-concurrently-without-a-glo-9bf85a12d2"
       ],
       "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
     },
@@ -6890,7 +6890,7 @@
       "id": "xunit:tests/backend/Unit/BlogDistributionServiceTests.cs#BlogDistributionServiceTests.BuildSitemapAsync_SourceCachesByArticleListVersionAndAvoidsConcurrentDbUse",
       "path": "tests/backend/Unit/BlogDistributionServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/BlogDistributionServiceTests.cs#BlogDistributionServiceTests.BuildSitemapAsync_RuntimeCachesByArticleListVersionAndAvoidsConcurrentDbUse"
+        "xunit:tests/backend/Unit/BlogDistributionServiceTests.cs#BlogDistributionServiceTests.FeedAndSitemap_RuntimeUseIndependentBoundedAndCompleteProjections"
       ],
       "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
     },
@@ -8006,7 +8006,7 @@
       "id": "xunit:tests/backend/Unit/ServiceCollectionExtensionsTests.cs#ServiceCollectionExtensionsTests.AddFsusApiFoundation_RegistersFastestResponseCompressionForApiPayloads",
       "path": "tests/backend/Unit/ServiceCollectionExtensionsTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/ServiceCollectionExtensionsTests.cs#ServiceCollectionExtensionsTests.AddFsusApiFoundation_ConfiguresFastestResponseCompressionForApiPayloads"
+        "xunit:tests/backend/Unit/ServiceCollectionExtensionsTests.cs#ServiceCollectionExtensionsTests.AddFsusApiFoundation_ConfiguresEndpointAwarePublicResponseCompression"
       ],
       "reason": "The executable behavior owner replaces the retired or renamed baseline test while preserving its closest assertion and component boundary."
     },
