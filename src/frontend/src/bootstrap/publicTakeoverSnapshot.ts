@@ -38,26 +38,24 @@ export function createPublicTakeoverSnapshot(
   overlay.setAttribute('aria-hidden', 'true')
   overlay.setAttribute('inert', '')
   ;(overlay as HTMLElement & { inert?: boolean }).inert = true
-  overlay.style.position = 'fixed'
-  overlay.style.inset = '0px'
-  overlay.style.overflow = 'hidden'
-  overlay.style.pointerEvents = 'none'
-  overlay.style.zIndex = String(options.zIndex ?? 2147483000)
-  overlay.style.opacity = '1'
-  overlay.style.background = 'transparent'
-  overlay.style.contain = 'paint'
-  overlay.style.transition = reducedMotion ? 'none' : `opacity ${SNAPSHOT_FADE_MS}ms ease`
+  overlay.classList.add('fsus-public-takeover-snapshot')
+  const overlayStyle = createCspStyleBinding(overlay, {
+    zIndex: String(options.zIndex ?? 2147483000),
+    opacity: '1',
+    transition: reducedMotion ? 'none' : `opacity ${SNAPSHOT_FADE_MS}ms ease`
+  }, 'public-takeover-overlay')
 
   const clone = source.cloneNode(true) as HTMLElement
   clone.dataset.publicTakeoverSnapshotClone = 'true'
   clone.setAttribute('aria-hidden', 'true')
   clone.setAttribute('inert', '')
   ;(clone as HTMLElement & { inert?: boolean }).inert = true
-  clone.style.pointerEvents = 'none'
-  clone.style.width = `${window.innerWidth || document.documentElement.clientWidth}px`
-  clone.style.minHeight = `${window.innerHeight || document.documentElement.clientHeight}px`
-  clone.style.transform = `translate3d(0, -${Math.max(0, window.scrollY || window.pageYOffset || 0)}px, 0)`
-  clone.style.transformOrigin = 'top left'
+  clone.classList.add('fsus-public-takeover-snapshot__clone')
+  const cloneStyle = createCspStyleBinding(clone, {
+    width: `${window.innerWidth || document.documentElement.clientWidth}px`,
+    minHeight: `${window.innerHeight || document.documentElement.clientHeight}px`,
+    transform: `translate3d(0, -${Math.max(0, window.scrollY || window.pageYOffset || 0)}px, 0)`
+  }, 'public-takeover-clone')
 
   overlay.append(clone)
   document.body.append(overlay)
@@ -69,12 +67,18 @@ export function createPublicTakeoverSnapshot(
     }
 
     removed = true
+    overlayStyle.dispose()
+    cloneStyle.dispose()
     overlay.remove()
   }
 
   const reveal = async (): Promise<void> => {
     if (reducedMotion) {
-      overlay.style.transition = 'none'
+      overlayStyle.update({
+        zIndex: String(options.zIndex ?? 2147483000),
+        opacity: '1',
+        transition: 'none'
+      })
       remove()
       return
     }
@@ -94,7 +98,11 @@ export function createPublicTakeoverSnapshot(
       const fallback = window.setTimeout(finish, SNAPSHOT_FADE_MS + 80)
       overlay.addEventListener('transitionend', onTransitionEnd)
       window.requestAnimationFrame(() => {
-        overlay.style.opacity = '0'
+        overlayStyle.update({
+          zIndex: String(options.zIndex ?? 2147483000),
+          opacity: '0',
+          transition: `opacity ${SNAPSHOT_FADE_MS}ms ease`
+        })
       })
     })
   }
@@ -105,3 +113,4 @@ export function createPublicTakeoverSnapshot(
     remove
   }
 }
+import { createCspStyleBinding } from '@/services/cspStyleRuntime'

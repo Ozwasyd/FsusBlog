@@ -30,6 +30,8 @@ const trustedHtmlImportWhitelist = new Set([
 // before a path can be added here.
 const publicRendererInnerHtmlWhitelist = new Set()
 
+const cspRuntimeStyleBoundary = 'services/cspStyleRuntime.ts'
+
 const violations = []
 
 function walk(dir) {
@@ -74,6 +76,21 @@ function walk(dir) {
       && !publicRendererInnerHtmlWhitelist.has(relativePath)
     ) {
       violations.push(`${relativePath}: public renderer innerHTML sink is not in the audited whitelist`)
+    }
+
+    if (relativePath !== cspRuntimeStyleBoundary) {
+      if (/(?:^|\s)(?::|v-bind:)?style\s*=/.test(content)) {
+        violations.push(`${relativePath}: CSP forbids HTML style attributes and Vue style bindings`)
+      }
+      if (/\b[A-Za-z_$][\w$]*\.style(?:\.|\[)/.test(content)) {
+        violations.push(`${relativePath}: CSP forbids direct element.style mutation`)
+      }
+      if (/\.setAttribute\(\s*['"]style['"]/.test(content)) {
+        violations.push(`${relativePath}: CSP forbids setAttribute style mutation`)
+      }
+      if (/\bstyle\s*:\s*(?:\{|\[)/.test(content)) {
+        violations.push(`${relativePath}: CSP forbids render-function style props`)
+      }
     }
   }
 }
@@ -135,11 +152,34 @@ for (const header of ['Content-Security-Policy', 'Cross-Origin-Opener-Policy', '
 }
 
 const viteConfig = readRepoFile('src/frontend/vite.config.ts')
-for (const token of ['Content-Security-Policy', "default-src 'self'", "frame-ancestors 'none'", "object-src 'none'"]) {
+for (const token of ['Content-Security-Policy', "default-src 'self'", "frame-ancestors 'none'", "object-src 'none'", "style-src-attr 'none'", 'report-uri /api/security/csp-report']) {
   if (!viteConfig.includes(token)) {
     violations.push(`src/frontend/vite.config.ts: preview security headers must include ${token}`)
   }
 }
+if (viteConfig.includes("style-src-attr 'unsafe-inline'")) {
+  violations.push("src/frontend/vite.config.ts: preview CSP must not allow inline style attributes")
+}
+
+const composition = readRepoFile('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
+const staticCspSource = composition.slice(
+  composition.indexOf('internal static string BuildStaticCsp'),
+  composition.indexOf('private static string BuildHtmlCsp')
+)
+for (const token of ["style-src-attr 'none'", 'report-uri /api/security/csp-report']) {
+  if (!staticCspSource.includes(token)) {
+    violations.push(`src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: static CSP must include ${token}`)
+  }
+}
+if (staticCspSource.includes('wasm-unsafe-eval') || staticCspSource.includes("style-src-attr 'unsafe-inline'")) {
+  violations.push('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: non-HTML CSP must deny Wasm compilation and inline style attributes')
+}
+
+requireContains(
+  'src/backend/Modules/Endpoints/CspReportEndpoints.cs',
+  'internal const string ReportPath = "/api/security/csp-report"',
+  'CSP report collector route must remain available'
+)
 
 const routerSource = readRepoFile('src/frontend/src/router/index.ts')
 for (const pattern of [/\bmeta\b[^\n]*\broles\b/u, /to[.]meta[.]roles/u, /meta:\s*\{\s*roles:/u]) {

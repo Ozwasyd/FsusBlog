@@ -3,11 +3,9 @@
     ref="root"
     class="fsu-mobile-dock fsu-bottom-tab-bar"
     :class="{ 'fsu-mobile-dock--safe-area': safeArea }"
-    :style="dockStyle"
     :aria-label="label"
     data-fsus-mobile-dock="bottom"
     :data-fsus-motion-preset="motion"
-    style="position: fixed; inset-inline: 0; inset-block-end: 0; z-index: var(--fsus-z-mobile-dock, 30);"
     data-fsus-bottom-tab-bar
   >
     <a
@@ -27,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import type { MotionPresetName } from '@/fsusui/motion'
 
 type BottomTabItem = Readonly<{
@@ -61,15 +59,6 @@ const emit = defineEmits<{
 }>()
 
 const root = ref<HTMLElement>()
-const dockStyle = computed(() =>
-  props.safeArea
-    ? {
-        paddingBottom:
-          'max(var(--fsus-mobile-dock-padding-bottom, 0px), env(safe-area-inset-bottom))',
-      }
-    : undefined,
-)
-
 async function play(): Promise<void> {
   await nextTick()
   if (!root.value) return
@@ -94,3 +83,16 @@ function handleItemClick(item: BottomTabItem, event: MouseEvent): void {
 
 defineExpose({ play })
 </script>
+
+<style scoped>
+.fsu-bottom-tab-bar {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: var(--fsus-z-mobile-dock, 30);
+}
+
+.fsu-bottom-tab-bar.fsu-mobile-dock--safe-area {
+  padding-bottom: max(var(--fsus-mobile-dock-padding-bottom, 0px), env(safe-area-inset-bottom));
+}
+</style>

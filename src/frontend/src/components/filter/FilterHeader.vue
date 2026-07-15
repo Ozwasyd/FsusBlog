@@ -5,7 +5,7 @@
     </p>
     <el-skeleton
       v-if="view.loadingMeta"
-      style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
+      class="fsusblog-skeleton-surface"
     >
       <template #template>
         <div class="w-32 h-8">

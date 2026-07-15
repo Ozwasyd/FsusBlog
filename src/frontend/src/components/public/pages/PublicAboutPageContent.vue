@@ -2,7 +2,7 @@
   <PublicReadingPageFrame v-if="loading" as="section">
     <el-skeleton
       aria-hidden="true"
-      style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
+      class="fsusblog-skeleton-surface"
     >
       <template #template>
         <div class="space-y-8 py-8">

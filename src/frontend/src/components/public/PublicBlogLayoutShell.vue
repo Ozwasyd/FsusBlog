@@ -2,7 +2,7 @@
   <div
     id="fsus-aot-shell"
     ref="shellRootRef"
-    :style="publicShellStyle"
+    class="fsusblog-public-shell-runtime"
     :data-public-hydration-kind="hydrationKind || undefined"
   >
     <a
@@ -12,8 +12,7 @@
       跳到主要内容
     </a>
     <FsusUiPublicShell
-      class="is-sticky"
-      :style="publicShellStyle"
+      class="is-sticky fsusblog-public-shell-runtime"
       :hydration-kind="hydrationKind || undefined"
       :data-public-hydration-kind="hydrationKind || undefined"
       :data-public-mobile-nav-mode="PUBLIC_MOBILE_NAV_MODE"
@@ -104,7 +103,7 @@
                   :placeholder="searchPlaceholder"
                   :label="layoutCopy.searchAriaLabel"
                   size="small"
-                  style="--el-input-height: 40px"
+                  class="fsusblog-public-search-input"
                   clearable
                   @focus="emit('search-focus')"
                   @input="handleSearchInput"
@@ -302,15 +301,6 @@ const PUBLIC_NAV_ITEMS = [
   { key: 'archive', label: '归档', href: PUBLIC_FIXED_PATHS.archive },
   { key: 'about', label: '关于', href: PUBLIC_FIXED_PATHS.about },
 ]
-const publicShellStyle = {
-  '--fsusblog-public-header-height-current': 'var(--fsusblog-public-header-height, 4rem)',
-  '--fsusblog-public-sticky-top': 'var(--fsusblog-public-header-height-current)',
-  '--fsusblog-public-anchor-offset': 'calc(var(--fsusblog-public-sticky-top) + 0.75rem)',
-  '--el-public-shell-mobile-nav-gap': '1.5rem',
-  '--el-public-shell-mobile-search-width': '7rem',
-  '--el-public-shell-max-width': '64rem',
-  '--el-public-shell-nav-gap': '2rem',
-}
 const shellIdentity = computed(() =>
   createPublicSiteIdentity({
     siteTitle: siteTitleText.value,

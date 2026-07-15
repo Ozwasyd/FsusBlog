@@ -32,8 +32,8 @@
           {{ item.displayValue ?? item.value }}
           <span
             v-if="item.bar"
+            v-csp-style="{ width: `${Math.min(60, Math.max(0, item.bar.percent) * 0.6)}px` }"
             class="admin-status-matrix__bar"
-            :style="{ width: `${Math.min(60, Math.max(0, item.bar.percent) * 0.6)}px` }"
             :data-tone="item.tone ?? 'neutral'"
             :aria-label="`占比 ${item.bar.percent}%`"
           />
@@ -45,6 +45,10 @@
 </template>
 
 <script setup lang="ts">
+import { cspStyleDirective } from '@/services/cspStyleRuntime'
+
+const vCspStyle = cspStyleDirective
+
 export type AdminStatusMatrixTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
 export type AdminStatusMatrixDensity = 'default' | 'compact'
 

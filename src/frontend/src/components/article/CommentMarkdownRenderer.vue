@@ -3,7 +3,7 @@
     ref="rootEl"
     class="comment-markdown-renderer fsus-markdown-body"
     :class="{ 'comment-markdown-renderer--collapsed': isCollapsed }"
-    :style="{ '--comment-markdown-collapsed-lines': String(collapsedLines) }"
+    v-csp-style="{ '--comment-markdown-collapsed-lines': String(collapsedLines) }"
   >
     <MarkdownRenderer
       :content="content"
@@ -19,6 +19,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue'
+import { cspStyleDirective } from '@/services/cspStyleRuntime'
+
+const vCspStyle = cspStyleDirective
 
 const props = withDefaults(defineProps<{
   content: string

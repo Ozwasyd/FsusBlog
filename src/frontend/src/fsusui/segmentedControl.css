@@ -1,0 +1,33 @@
+.el-segmented-control {
+  position: relative;
+  isolation: isolate;
+}
+
+.el-segmented-control__indicator {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  z-index: 0;
+  width: 0;
+  border-radius: calc(var(--fsus-radius-control, var(--el-border-radius-base)) - 2px);
+  background: var(--fsusblog-page-bg, var(--el-fill-color-light));
+  box-shadow: inset 0 0 0 1px var(--fsusblog-panel-border, var(--el-border-color-light));
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  transition:
+    transform var(--fsus-motion-control, var(--el-transition-duration)) var(--fsus-motion-standard, var(--el-transition-function-standard)),
+    width var(--fsus-motion-control, var(--el-transition-duration)) var(--fsus-motion-standard, var(--el-transition-function-standard)),
+    opacity var(--fsus-motion-control-fast, var(--el-transition-duration-fast)) var(--fsus-motion-standard, var(--el-transition-function-standard));
+}
+
+.el-segmented-control__item {
+  position: relative;
+  z-index: 1;
+}
+
+.el-segmented-control__item.is-active {
+  background: transparent;
+  box-shadow: none;
+}

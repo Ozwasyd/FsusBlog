@@ -239,14 +239,20 @@
                     <el-form-item label="主题色">
                       <el-input v-model="siteForm.themeColor" maxlength="7" :disabled="siteFormDisabled" placeholder="#0B4F7A">
                         <template #prepend>
-                          <span class="inline-block h-4 w-4 border border-[var(--fsusblog-panel-border)]" :style="{ backgroundColor: siteForm.themeColor }" />
+                          <span
+                            v-csp-style="{ backgroundColor: siteForm.themeColor }"
+                            class="inline-block h-4 w-4 border border-[var(--fsusblog-panel-border)]"
+                          />
                         </template>
                       </el-input>
                     </el-form-item>
                     <el-form-item label="启动背景">
                       <el-input v-model="siteForm.backgroundColor" maxlength="7" :disabled="siteFormDisabled" placeholder="#FFFFFF">
                         <template #prepend>
-                          <span class="inline-block h-4 w-4 border border-[var(--fsusblog-panel-border)]" :style="{ backgroundColor: siteForm.backgroundColor }" />
+                          <span
+                            v-csp-style="{ backgroundColor: siteForm.backgroundColor }"
+                            class="inline-block h-4 w-4 border border-[var(--fsusblog-panel-border)]"
+                          />
                         </template>
                       </el-input>
                     </el-form-item>
@@ -608,6 +614,9 @@ import BrandAssetUploadField from '@/components/admin/settings/BrandAssetUploadF
 import FsusDialog from '@/components/ui/FsusDialog.vue'
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue'
 import { useAdminSettingsPage } from '@/composables/useAdminSettingsPage'
+import { cspStyleDirective } from '@/services/cspStyleRuntime'
+
+const vCspStyle = cspStyleDirective
 
 const {
   activeTab,

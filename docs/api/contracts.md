@@ -50,6 +50,8 @@ HTML L0 只暴露 `/api/binary/article/html/{pathKey}.html` 诊断/预览路径�
 
 所有 HTTP 响应都会带 `X-Fsus-Trace-Id`，值与当前 OpenTelemetry `Activity.TraceId`、`HttpContext.TraceIdentifier`、Serilog/audit `TraceId` 对齐。客户端可用该值报告问题；它不是认证凭据，也不得包含用户身份或请求正文。
 
+`POST /api/security/csp-report` 是浏览器标准 CSP 上报入口，不属于 `/api/binary/**`。请求 media type 允许 `application/csp-report`、`application/reports+json` 或 `application/json`，body 上限 16 KiB；合法 legacy `csp-report` object 或 Reporting API array 返回 `204` 空 body，media type 不支持返回 `415`，超限返回 `413`，格式错误返回 `400`，所有响应 `no-store`。collector 只把 effective/violated directive、disposition 和 blocked URI 类别写入结构化日志，不保留原始 payload 或完整 URL。
+
 未被业务显式捕获的异常只能返回固定、客户端安全的错误消息。`ArgumentException` / malformed request / auth / not-found 等 4xx 映射不得把 `exception.Message`、SQL、配置键、文件路径、后端类型名或 token 片段写入 `ApiError.Message` / `Details`；Development 500 诊断输出仅限本地开发，不构成运行时 API 契约。生产和共享环境的 binary/json 错误响应只暴露稳定错误码、HTTP 状态、固定文案和 trace id。
 
 ### Public integrity verification manifests

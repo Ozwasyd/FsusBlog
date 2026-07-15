@@ -222,6 +222,11 @@
   position: relative;
 }
 
+.fsus-clipboard-fallback {
+  position: fixed;
+  left: -9999px;
+}
+
 .markdown-body .fsus-code-copy-button {
   position: absolute;
   top: 0.5rem;

@@ -97,6 +97,8 @@ Recovery Key verify 的 AEDS request 只携带 Recovery Key 明文本体与撤�
 | `DELETE` | 删除资源 |
 | `OPTIONS` | 不作为业务 API；L0 artifact fast path 在同源场景返回 `405 Method Not Allowed`，CORS 不在 fast path 注入 |
 
+浏览器 CSP 违规上报是标准 HTTP 安全遥测边界，不是业务 JSON API，也不产生 AEDS frame。`POST /api/security/csp-report` 只接受 CSP/Reporting API JSON media type，固定 16 KiB 上限、匿名 fixed-IP 限流和 `no-store`；成功返回空 body `204`。服务端只提取 directive、disposition 与 blocked-resource 类别，不保存或回显完整 URL、query、DOM sample、source sample、Cookie、Authorization 或账号信息。
+
 Binary 端点按资源语义使用 `GET/POST/PUT/DELETE`；认证、MFA、Passkey、上传和管理端写入均不得退回旧文本路径。
 公开 HTML 的 HTTP validator 按实体是否稳定分流：静态无 nonce artifact 可使用 variant-aware strong ETag/304；每请求 nonce 会改变实体，必须返回 `private,no-store` 且不发 ETag，`If-None-Match` 不得把 nonce 页面变成 304。两类响应的 `HEAD` 都计算与 GET 一致的 headers/Content-Length，但不写 body。nonce HTML 只接受 identity streaming；若客户端显式拒绝 identity，返回 406，不能复用静态 br/gzip bytes。
 

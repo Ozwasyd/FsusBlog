@@ -88,9 +88,13 @@ describe('usePublicStickyGeometry', () => {
     expect(publicStickyHeaderSelector).toBe('[data-public-shell-header]')
     expect(publicStickyHeaderSelector).not.toContain('.el-')
     expect(header?.matches('.el-public-shell__header')).toBe(true)
-    expect(root.style.getPropertyValue(publicStickyGeometryTokens.headerHeight)).toBe('64px')
-    expect(root.style.getPropertyValue(publicStickyGeometryTokens.stickyTop)).toBe('64px')
-    expect(root.style.getPropertyValue(publicStickyGeometryTokens.anchorOffset)).toBe('calc(64px + 0.75rem)')
+    expect(root.hasAttribute('style')).toBe(false)
+    const geometryRule = document.head.querySelector<HTMLStyleElement>(
+      '[data-fsus-csp-runtime-style="public-sticky-geometry"]'
+    )?.sheet?.cssRules[0] as CSSStyleRule | undefined
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.headerHeight)).toBe('64px')
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.stickyTop)).toBe('64px')
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.anchorOffset)).toBe('calc(64px + 0.75rem)')
     expect(resizeObservers).toHaveLength(1)
     expect(resizeObservers[0]?.observe).toHaveBeenCalledWith(header)
     const resizeRegistration = addEventListener.mock.calls.find(([type]) => type === 'resize')
@@ -98,16 +102,17 @@ describe('usePublicStickyGeometry', () => {
 
     header?.setAttribute('data-test-height', '92')
     resizeObservers[0]?.callback([], {} as ResizeObserver)
-    expect(root.style.getPropertyValue(publicStickyGeometryTokens.headerHeight)).toBe('92px')
-    expect(root.style.getPropertyValue(publicStickyGeometryTokens.stickyTop)).toBe('92px')
-    expect(root.style.getPropertyValue(publicStickyGeometryTokens.anchorOffset)).toBe('calc(92px + 0.75rem)')
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.headerHeight)).toBe('92px')
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.stickyTop)).toBe('92px')
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.anchorOffset)).toBe('calc(92px + 0.75rem)')
 
     header?.setAttribute('data-test-height', '80')
     window.dispatchEvent(new window.Event('resize'))
-    expect(root.style.getPropertyValue(publicStickyGeometryTokens.headerHeight)).toBe('80px')
+    expect(geometryRule?.style.getPropertyValue(publicStickyGeometryTokens.headerHeight)).toBe('80px')
 
     wrapper.unmount()
     expect(resizeObservers[0]?.disconnect).toHaveBeenCalledTimes(1)
     expect(removeEventListener).toHaveBeenCalledWith('resize', resizeRegistration?.[1])
+    expect(document.head.querySelector('[data-fsus-csp-runtime-style="public-sticky-geometry"]')).toBeNull()
   })
 })

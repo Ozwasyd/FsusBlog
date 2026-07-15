@@ -1,4 +1,5 @@
 import { nextTick, onBeforeUnmount, onMounted, type Ref } from 'vue'
+import { createCspStyleBinding, type CspStyleBinding } from '@/services/cspStyleRuntime'
 
 export const publicStickyHeaderSelector = '[data-public-shell-header]'
 const anchorGap = '0.75rem'
@@ -13,6 +14,7 @@ export function usePublicStickyGeometry(rootRef: Ref<HTMLElement | undefined>): 
   let resizeObserver: ResizeObserver | null = null
   let observedHeader: HTMLElement | null = null
   let lastPublishedHeight = ''
+  let rootStyleBinding: CspStyleBinding | null = null
 
   const resolveHeader = (): HTMLElement | null =>
     rootRef.value?.querySelector<HTMLElement>(publicStickyHeaderSelector) ?? null
@@ -34,9 +36,12 @@ export function usePublicStickyGeometry(rootRef: Ref<HTMLElement | undefined>): 
       return
     }
 
-    root.style.setProperty(publicStickyGeometryTokens.headerHeight, headerHeight)
-    root.style.setProperty(publicStickyGeometryTokens.stickyTop, headerHeight)
-    root.style.setProperty(publicStickyGeometryTokens.anchorOffset, `calc(${headerHeight} + ${anchorGap})`)
+    rootStyleBinding ??= createCspStyleBinding(root, {}, 'public-sticky-geometry')
+    rootStyleBinding.update({
+      [publicStickyGeometryTokens.headerHeight]: headerHeight,
+      [publicStickyGeometryTokens.stickyTop]: headerHeight,
+      [publicStickyGeometryTokens.anchorOffset]: `calc(${headerHeight} + ${anchorGap})`
+    })
     lastPublishedHeight = headerHeight
   }
 
@@ -76,6 +81,8 @@ export function usePublicStickyGeometry(rootRef: Ref<HTMLElement | undefined>): 
     resizeObserver?.disconnect()
     resizeObserver = null
     observedHeader = null
+    rootStyleBinding?.dispose()
+    rootStyleBinding = null
     window.removeEventListener('resize', handleViewportResize)
   })
 }

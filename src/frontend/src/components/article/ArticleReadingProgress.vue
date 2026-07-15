@@ -2,7 +2,7 @@
   <div class="article-reading-progress" data-fsus-surface="reading" data-reading-progress="true" aria-hidden="true">
     <div
       class="article-reading-progress__bar"
-      :style="{ '--article-reading-progress': progress }"
+      v-csp-style="{ '--article-reading-progress': progress }"
     />
   </div>
 </template>
@@ -10,6 +10,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useArticleReadingProgress } from '@/composables/article/useArticleReadingProgress'
+import { cspStyleDirective } from '@/services/cspStyleRuntime'
+
+const vCspStyle = cspStyleDirective
 
 const props = defineProps<{
   contentRoot: HTMLElement | null

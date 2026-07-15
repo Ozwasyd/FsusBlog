@@ -807,3 +807,37 @@ body[data-fsusblog-public-first-paint="true"] #fsus-aot-shell .animate-fade-in {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+/* CSP-safe runtime classes: all varying values are applied through nonce-backed
+   stylesheet rules, never through element style attributes. */
+.fsus-public-takeover-snapshot {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: transparent;
+  contain: paint;
+  pointer-events: none;
+}
+
+.fsus-public-takeover-snapshot__clone {
+  pointer-events: none;
+  transform-origin: top left;
+}
+
+.fsusblog-skeleton-surface {
+  --el-skeleton-color: var(--fsusblog-skeleton-bg);
+  --el-skeleton-to-color: var(--fsusblog-skeleton-bg);
+}
+
+.fsusblog-public-shell-runtime {
+  --fsusblog-public-header-height-current: var(--fsusblog-public-header-height, 4rem);
+  --fsusblog-public-sticky-top: var(--fsusblog-public-header-height-current);
+  --fsusblog-public-anchor-offset: calc(var(--fsusblog-public-sticky-top) + 0.75rem);
+  --el-public-shell-mobile-nav-gap: 1.5rem;
+  --el-public-shell-mobile-search-width: 7rem;
+  --el-public-shell-max-width: 64rem;
+  --el-public-shell-nav-gap: 2rem;
+}
+
+.fsusblog-public-search-input {
+  --el-input-height: 40px;
+}

@@ -447,6 +447,10 @@ npx playwright test --update-snapshots
 | 通知鉴权 | WebSocket 私人事件仅已认证连接接收 |
 | CORS | 非白名单来源请求被拒绝 |
 | 安全头 / Cookie | CSP、XFO、XCTO、Referrer-Policy、Permissions-Policy、auth/PoW no-store、`__Host-*` Cookie 属性 |
+
+CSP style-attribute hardening 的 focused gate 包含 `check:security-consistency`、`cspStyleRuntime` unit、`WebApplicationCompositionExtensionsTests`、`PublicHotReadFastPathTests` 与 `CspReportEndpointsTests`。静态检查递归拒绝应用源码里的 HTML/Vue style attribute、render-function style prop 和直接 `element.style` mutation，只允许 `services/cspStyleRuntime.ts` 在 nonce stylesheet 的 `CSSStyleRule.style` 边界写声明。HTTP 检查必须证明 HTML policy 含 nonce、`'wasm-unsafe-eval'`、`style-src-attr 'none'` 与 report URI，而 binary/auth policy 不含 nonce 或 Wasm 编译权限。
+
+release browser acceptance 在 Chrome、Firefox、Safari、Edge 分别覆盖匿名公开页、登录/account、admin、notification stream 与 binary fetch；页面正常加载期间不得产生意外 CSP violation。测试随后主动插入无 nonce script 与 `style="display:none"`，两者必须被阻止并分别产生 `script-src*`、`style-src-attr` violation。collector smoke 以 CSP media type POST 合法的脱敏 fixture 并期待 `204/no-store`；原始 URL、query 和 source sample 不得进入日志证据。
 | 攻击矩阵 | CSRF 形态、伪造 Cookie/JWT、篡改 PoW、method override、路径穿越、超大 / 畸形 binary payload |
 | ASVS / WSTG 矩阵 | `tools/security/check-security-matrices.mjs` 校验 `security/asvs-v5.0.0-matrix.yml` 与 `security/wstg-v4.2-matrix.yml` 的版本化 ID、代码/测试/证据路径和 owner |
 | 供应链审计 | `tools/security/check-supply-chain-audit.sh` 对 NuGet 和 npm production dependencies 执行 high/critical vulnerability gate |

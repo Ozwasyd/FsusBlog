@@ -17,6 +17,7 @@ describe('public takeover snapshot overlay', () => {
 
   afterEach(() => {
     document.body.innerHTML = ''
+    document.head.querySelectorAll('[data-fsus-csp-runtime-style]').forEach((node) => node.remove())
   })
 
   it('clones the visible public shell into an inert fixed overlay aligned to scroll', async () => {
@@ -29,15 +30,24 @@ describe('public takeover snapshot overlay', () => {
     expect(snapshot?.element.parentElement).toBe(document.body)
     expect(snapshot?.element.getAttribute('aria-hidden')).toBe('true')
     expect(snapshot?.element.hasAttribute('inert')).toBe(true)
-    expect(snapshot?.element.style.pointerEvents).toBe('none')
-    expect(snapshot?.element.style.position).toBe('fixed')
-    expect(snapshot?.element.style.inset).toBe('0px')
+    expect(snapshot?.element.classList.contains('fsus-public-takeover-snapshot')).toBe(true)
+    expect(snapshot?.element.hasAttribute('style')).toBe(false)
+    const overlayRule = document.head.querySelector<HTMLStyleElement>(
+      '[data-fsus-csp-runtime-style="public-takeover-overlay"]'
+    )?.sheet?.cssRules[0] as CSSStyleRule | undefined
+    expect(overlayRule?.style.zIndex).toBe('2147483000')
 
     const clone = snapshot?.element.querySelector<HTMLElement>('[data-public-takeover-snapshot-clone="true"]')
     expect(clone).not.toBeNull()
     expect(clone).not.toBe(originalShell)
     expect(clone?.textContent).toContain('Visible public shell')
-    expect(clone?.style.transform).toBe('translate3d(0, -128px, 0)')
+    expect(clone?.classList.contains('fsus-public-takeover-snapshot__clone')).toBe(true)
+    expect(clone?.hasAttribute('style')).toBe(false)
+    const cloneRule = document.head.querySelector<HTMLStyleElement>(
+      '[data-fsus-csp-runtime-style="public-takeover-clone"]'
+    )?.sheet?.cssRules[0] as CSSStyleRule | undefined
+    expect(cloneRule?.style.transform).toBe('translate3d(0, -128px, 0)')
+    snapshot?.remove()
   })
 
   it('reveals immediately under reduced motion without requiring animation', async () => {
@@ -49,6 +59,7 @@ describe('public takeover snapshot overlay', () => {
     await snapshot?.reveal()
 
     expect(snapshot?.element.isConnected).toBe(false)
-    expect(snapshot?.element.style.transition).toBe('none')
+    expect(snapshot?.element.hasAttribute('style')).toBe(false)
+    expect(document.head.querySelector('[data-fsus-csp-runtime-style="public-takeover-overlay"]')).toBeNull()
   })
 })

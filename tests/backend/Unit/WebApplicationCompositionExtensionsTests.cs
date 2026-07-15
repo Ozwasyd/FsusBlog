@@ -76,7 +76,25 @@ public sealed class WebApplicationCompositionExtensionsTests
         string rendered = Encoding.UTF8.GetString(RenderTemplate(template, Encoding.UTF8.GetBytes(nonce)));
 
         Assert.Contains($"'nonce-{nonce}'", csp, StringComparison.Ordinal);
+        Assert.Contains("script-src 'self' 'wasm-unsafe-eval'", csp, StringComparison.Ordinal);
+        Assert.Contains("style-src-attr 'none'", csp, StringComparison.Ordinal);
+        Assert.DoesNotContain("style-src-attr 'unsafe-inline'", csp, StringComparison.Ordinal);
+        Assert.Contains("report-uri /api/security/csp-report", csp, StringComparison.Ordinal);
         Assert.Contains($"<script nonce=\"{nonce}\" type=\"module\">", rendered, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void StaticCsp_DeniesStyleAttributesAndWasmCompilation(bool isDevelopment)
+    {
+        string csp = WebApplicationCompositionExtensions.BuildStaticCsp(isDevelopment);
+
+        Assert.Contains("script-src 'self';", csp, StringComparison.Ordinal);
+        Assert.DoesNotContain("wasm-unsafe-eval", csp, StringComparison.Ordinal);
+        Assert.Contains("style-src-attr 'none'", csp, StringComparison.Ordinal);
+        Assert.DoesNotContain("style-src-attr 'unsafe-inline'", csp, StringComparison.Ordinal);
+        Assert.Contains("report-uri /api/security/csp-report", csp, StringComparison.Ordinal);
     }
 
     [Theory]

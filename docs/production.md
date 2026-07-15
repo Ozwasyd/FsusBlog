@@ -520,6 +520,8 @@ The normalizer currently supports the `describe-security-groups` JSON shape, aut
 
 Local production security always runs `tools/security/check-local-runtime-exposure.mjs` against the current fresh namespace. This verifies real loopback listeners, backend security headers, and loopback-only PostgreSQL/Redis Docker bindings, and writes `.tmp/security/local-runtime-exposure.json`; its schema explicitly says it does not count as production closeout. When `FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE` is set, `./tools/test.sh security` separately runs `tools/security/verify-production-exposure-evidence.sh` after a successful external live probe. That verifier rejects incomplete DNS evidence, reachable forbidden ports, missing HTTPS/HSTS, and `FSUSBLOG_LIVE_TARGETS` pre-cutover evidence for final closeout.
 
+CSP rollout monitors structured `FsusBlog.CspReport` counts by directive/disposition/blocked-resource category; alerts and dashboards must not ingest raw report bodies or URLs. A candidate is not promoted when normal public, auth/account, admin, notification-stream or binary browser flows produce `style-src-attr` violations. If only public L0 is affected, hot-set `PublicHotRead:Enabled=false` to fall back to the regular document path. Otherwise reactivate the preceding verified Blue/Green slot through deployment control. This is the no-restart rollback; never recover by restoring `style-src-attr 'unsafe-inline'`, adding general `'unsafe-eval'`, removing the report collector, or weakening PoW/risk/security headers.
+
 After the firewall, DNS readiness/delegation, live evidence, and status report verifiers pass against the real production domains, verify closeout with:
 
 ```bash

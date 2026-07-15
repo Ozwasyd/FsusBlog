@@ -14,8 +14,7 @@ async function writeClipboard(text: string): Promise<void> {
   const textarea = document.createElement('textarea')
   textarea.value = text
   textarea.setAttribute('readonly', 'true')
-  textarea.style.position = 'fixed'
-  textarea.style.left = '-9999px'
+  textarea.className = 'fsus-clipboard-fallback'
   document.body.appendChild(textarea)
   textarea.select()
   const copied = document.execCommand('copy')

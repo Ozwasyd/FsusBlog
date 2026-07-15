@@ -327,6 +327,7 @@ public static class WebApplicationCompositionExtensions
     {
         app.MapBinaryEndpoints();
         app.MapAuthoringEndpoints();
+        app.MapCspReportEndpoints();
         app.MapSecurityEndpoints();
         app.MapAdminIntegrityConsoleEndpoints();
         app.MapPublicAotEndpoints();
@@ -1124,16 +1125,16 @@ public static class WebApplicationCompositionExtensions
 
     internal static string BuildStaticCsp(bool isDevelopment)
         => isDevelopment
-            ? "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:7568 http://localhost:7568 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:7568 ws://localhost:7568; worker-src 'self' blob:;"
-            : "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
+            ? "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:7568 http://localhost:7568 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:7568 ws://localhost:7568; worker-src 'self' blob:; report-uri /api/security/csp-report;"
+            : "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; report-uri /api/security/csp-report;";
 
     private static string BuildHtmlCsp(IWebHostEnvironment env, string nonce)
         => BuildHtmlCsp(env.IsDevelopment(), nonce);
 
     internal static string BuildHtmlCsp(bool isDevelopment, string nonce)
         => isDevelopment
-            ? $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:7568 http://localhost:7568 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:7568 ws://localhost:7568; worker-src 'self' blob:;"
-            : $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:;";
+            ? $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:3000 http://localhost:3000 http://127.0.0.1:7568 http://localhost:7568 ws://127.0.0.1:3000 ws://localhost:3000 ws://127.0.0.1:7568 ws://localhost:7568; worker-src 'self' blob:; report-uri /api/security/csp-report;"
+            : $"default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'wasm-unsafe-eval' 'nonce-{nonce}'; style-src 'self' 'nonce-{nonce}'; style-src-attr 'none'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; report-uri /api/security/csp-report;";
 
     internal static string EnsureCspNonce(HttpContext ctx)
     {

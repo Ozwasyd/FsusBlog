@@ -15,7 +15,7 @@
 
     <el-skeleton
       v-if="loading"
-      style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
+      class="fsusblog-skeleton-surface"
     >
       <template #template>
         <div class="grid gap-8 md:grid-cols-2 md:items-center">
@@ -62,7 +62,6 @@
               :src="coverPresentation?.url"
               :alt="article.title"
               class="h-full w-full object-cover object-center shadow-none"
-              :style="{ objectPosition: coverPresentation?.objectPosition }"
               width="960"
               height="720"
               sizes="(min-width: 768px) 23rem, calc(100vw - 3rem)"

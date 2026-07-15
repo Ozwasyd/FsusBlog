@@ -42,9 +42,10 @@ function assertCommonSecurityHeaders(response, label) {
   assertHeaderContains(response, 'content-security-policy', "form-action 'self'", label);
   assertHeaderContains(response, 'content-security-policy', "frame-ancestors 'none'", label);
   assertHeaderContains(response, 'content-security-policy', "object-src 'none'", label);
-  assertHeaderContains(response, 'content-security-policy', "'wasm-unsafe-eval'", label);
   assertHeaderContains(response, 'content-security-policy', "style-src 'self'", label);
-  assertHeaderContains(response, 'content-security-policy', "style-src-attr 'unsafe-inline'", label);
+  assertHeaderContains(response, 'content-security-policy', "style-src-attr 'none'", label);
+  assertHeaderContains(response, 'content-security-policy', 'report-uri /api/security/csp-report', label);
+  assertHeaderNotContains(response, 'content-security-policy', "style-src-attr 'unsafe-inline'", label);
   assertHeaderContains(response, 'content-security-policy', "img-src 'self' data: blob:", label);
   assertHeaderNotContains(response, 'content-security-policy', "style-src 'self' 'unsafe-inline'", label);
   assertHeaderNotContains(response, 'content-security-policy', 'img-src http:', label);
@@ -53,12 +54,14 @@ function assertCommonSecurityHeaders(response, label) {
 
 function assertHtmlSecurityHeaders(response, label) {
   assertCommonSecurityHeaders(response, label);
+  assertHeaderContains(response, 'content-security-policy', "'wasm-unsafe-eval'", label);
   assertHeaderContains(response, 'content-security-policy', "style-src 'self' 'nonce-", label);
 }
 
 function assertNonHtmlSecurityHeaders(response, label) {
   assertCommonSecurityHeaders(response, label);
   assertHeaderNotContains(response, 'content-security-policy', "'nonce-", label);
+  assertHeaderNotContains(response, 'content-security-policy', "'wasm-unsafe-eval'", label);
 }
 
 async function main() {

@@ -3,7 +3,7 @@
     <el-skeleton
       v-if="loading"
       aria-hidden="true"
-      style="--el-skeleton-color: var(--fsusblog-skeleton-bg); --el-skeleton-to-color: var(--fsusblog-skeleton-bg)"
+      class="fsusblog-skeleton-surface"
     >
       <template #template>
         <div class="py-24 space-y-16 sm:space-y-20">

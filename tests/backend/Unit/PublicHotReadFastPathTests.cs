@@ -971,7 +971,7 @@ public sealed class PublicHotReadFastPathTests
     public async Task TryServeAsync_PublicHtmlHomeHit_WithInlineAotDocumentUsesNonceCsp()
     {
         var store = CreateReadyEmptyStore();
-        const string source = "<!doctype html><html><head><style>.ok{color:currentColor}</style></head><body><script id=\"fsus-theme-bootstrap\"></script><main style=\"display:block\">ok</main></body></html>";
+        const string source = "<!doctype html><html><head><style>.ok{color:currentColor}</style></head><body><script id=\"fsus-theme-bootstrap\"></script><main class=\"ok\">ok</main></body></html>";
         PublicHtmlArtifact html = PublicHotReadHtmlArtifactFactory.FromHtml(source, "public,max-age=60");
         Assert.True(html.RequiresCspNonceMutation);
         store.PublishHtml("home", PublicPageId.Home, html);
@@ -993,7 +993,9 @@ public sealed class PublicHotReadFastPathTests
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
         Assert.Contains("script-src 'self' 'wasm-unsafe-eval' 'nonce-", csp, StringComparison.Ordinal);
         Assert.Contains("style-src 'self' 'nonce-", csp, StringComparison.Ordinal);
-        Assert.Contains("style-src-attr 'unsafe-inline'", csp, StringComparison.Ordinal);
+        Assert.Contains("style-src-attr 'none'", csp, StringComparison.Ordinal);
+        Assert.DoesNotContain("style-src-attr 'unsafe-inline'", csp, StringComparison.Ordinal);
+        Assert.Contains("report-uri /api/security/csp-report", csp, StringComparison.Ordinal);
         Assert.Contains("http://127.0.0.1:3000", csp, StringComparison.Ordinal);
         Assert.Contains("<meta property=\"csp-nonce\" nonce=\"", rendered, StringComparison.Ordinal);
         Assert.Contains("<script nonce=\"", rendered, StringComparison.Ordinal);

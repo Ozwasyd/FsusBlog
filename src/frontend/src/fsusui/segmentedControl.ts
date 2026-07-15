@@ -1,6 +1,8 @@
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { CSSProperties, PropType } from 'vue'
+import type { PropType } from 'vue'
 import { RouterLink } from 'vue-router'
+import { createCspStyleBinding, type CspStyleBinding } from '@/services/cspStyleRuntime'
+import './segmentedControl.css'
 
 export type FsusUiSegmentedControlValue = string | number | boolean
 
@@ -48,16 +50,13 @@ export const FsusUiSegmentedControl = defineComponent({
   },
   setup(props, { attrs, slots, emit }) {
     const rootRef = ref<HTMLElement>()
+    const indicatorRef = ref<HTMLElement>()
     const buttonRefs = ref<HTMLElement[]>([])
-    const indicatorStyle = ref<CSSProperties>({
-      opacity: '0',
-      transform: 'translate3d(0, 0, 0)',
-      width: '0px'
-    })
     const activeIndex = computed(() =>
       props.items.findIndex((item) => item.value === props.modelValue)
     )
     let resizeObserver: ResizeObserver | undefined
+    let indicatorBinding: CspStyleBinding | undefined
 
     const setButtonRef = (element: Element | null, index: number): void => {
       if (element instanceof HTMLElement) {
@@ -70,19 +69,19 @@ export const FsusUiSegmentedControl = defineComponent({
       const index = activeIndex.value
       const button = index >= 0 ? buttonRefs.value[index] : undefined
       if (!button || !rootRef.value) {
-        indicatorStyle.value = {
+        indicatorBinding?.update({
           opacity: '0',
           transform: 'translate3d(0, 0, 0)',
           width: '0px'
-        }
+        })
         return
       }
 
-      indicatorStyle.value = {
+      indicatorBinding?.update({
         opacity: '1',
         transform: `translate3d(${button.offsetLeft}px, 0, 0)`,
         width: `${button.offsetWidth}px`
-      }
+      })
     }
 
     const selectItem = (item: FsusUiSegmentedControlItem): void => {
@@ -138,6 +137,9 @@ export const FsusUiSegmentedControl = defineComponent({
     )
 
     onMounted(() => {
+      if (indicatorRef.value) {
+        indicatorBinding = createCspStyleBinding(indicatorRef.value, {}, 'segmented-indicator')
+      }
       void updateIndicator()
       if (typeof ResizeObserver !== 'undefined' && rootRef.value) {
         resizeObserver = new ResizeObserver(() => {
@@ -149,49 +151,26 @@ export const FsusUiSegmentedControl = defineComponent({
 
     onBeforeUnmount(() => {
       resizeObserver?.disconnect()
+      indicatorBinding?.dispose()
+      indicatorBinding = undefined
     })
 
     return () => h('div', {
-      ...attrs,
+      ...Object.fromEntries(Object.entries(attrs).filter(([key]) => key !== 'style')),
       ref: rootRef,
       class: [
         'el-segmented-control',
         `el-segmented-control--${props.density}`,
         attrs.class
       ],
-      style: [
-        {
-          position: 'relative',
-          isolation: 'isolate'
-        },
-        attrs.style as CSSProperties | undefined
-      ],
       role: props.selectionMode === 'radio' ? 'radiogroup' : 'navigation',
       'aria-label': props.ariaLabel,
       'aria-labelledby': props.ariaLabelledby
     }, [
       h('span', {
+        ref: indicatorRef,
         class: 'el-segmented-control__indicator',
-        'aria-hidden': 'true',
-        style: [
-          {
-            position: 'absolute',
-            top: '2px',
-            bottom: '2px',
-            left: '0',
-            zIndex: '0',
-            borderRadius: 'calc(var(--fsus-radius-control, var(--el-border-radius-base)) - 2px)',
-            background: 'var(--fsusblog-page-bg, var(--el-fill-color-light))',
-            boxShadow: 'inset 0 0 0 1px var(--fsusblog-panel-border, var(--el-border-color-light))',
-            pointerEvents: 'none',
-            transition: [
-              'transform var(--fsus-motion-control, var(--el-transition-duration)) var(--fsus-motion-standard, var(--el-transition-function-standard))',
-              'width var(--fsus-motion-control, var(--el-transition-duration)) var(--fsus-motion-standard, var(--el-transition-function-standard))',
-              'opacity var(--fsus-motion-control-fast, var(--el-transition-duration-fast)) var(--fsus-motion-standard, var(--el-transition-function-standard))'
-            ].join(', ')
-          },
-          indicatorStyle.value
-        ]
+        'aria-hidden': 'true'
       }),
       ...props.items.map((item, index) => {
       const selected = item.value === props.modelValue
@@ -199,22 +178,12 @@ export const FsusUiSegmentedControl = defineComponent({
       const rendersLink = Boolean(item.to || item.href)
       const itemProps = {
         key: String(item.value),
-        ref: (element) => setButtonRef(element, index),
+        ref: (element: Element | null) => setButtonRef(element, index),
         href: item.disabled ? undefined : item.href,
         class: [
           'el-segmented-control__item',
           { 'is-active': selected }
         ],
-        style: {
-          position: 'relative',
-          zIndex: '1',
-          ...(selected
-            ? {
-                background: 'transparent',
-                boxShadow: 'none'
-              }
-            : undefined)
-        },
         disabled: rendersLink ? undefined : item.disabled,
         'aria-disabled': item.disabled ? 'true' : undefined,
         role: linkMode ? undefined : 'radio',

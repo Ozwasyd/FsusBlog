@@ -80,33 +80,9 @@ function emitThemeChange(mode: ThemeMode, resolvedTheme: ResolvedTheme): void {
   }))
 }
 
-function syncBodyThemeMaterial(): void {
-  if (typeof document === 'undefined' || typeof window === 'undefined') {
-    return
-  }
-
-  const root = document.documentElement
-  const body = document.body
-  if (!body) {
-    return
-  }
-
-  const rootStyle = window.getComputedStyle(root)
-  const resolvedTheme = root.dataset.themeResolved === 'dark' ? 'dark' : 'light'
-  const pageBackground = rootStyle.getPropertyValue('--fsusblog-page-bg').trim()
-    || (resolvedTheme === 'dark' ? '#09090B' : '#F7F7F8')
-  const textColor = rootStyle.getPropertyValue('--fsusblog-text-primary').trim()
-    || (resolvedTheme === 'dark' ? '#F0F0F4' : '#0F0F11')
-
-  body.style.colorScheme = resolvedTheme
-  body.style.backgroundColor = pageBackground
-  body.style.color = textColor
-}
-
 function refreshResolvedTheme(mode = themeModeState.value): void {
   themeModeState.value = normalizeThemeMode(mode, 'system')
   resolvedThemeState.value = readResolvedThemeFromDom()
-  syncBodyThemeMaterial()
   emitThemeChange(themeModeState.value, resolvedThemeState.value)
 }
 

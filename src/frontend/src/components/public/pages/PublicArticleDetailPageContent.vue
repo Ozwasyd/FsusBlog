@@ -49,7 +49,6 @@
         :src="detailCover.url"
         :alt="`${detailView.header.title} — 题图`"
         class="aspect-video w-full object-cover object-center shadow-none"
-        :style="{ objectPosition: detailCover.objectPosition }"
         width="1200"
         height="675"
         sizes="(min-width: 1024px) 56rem, calc(100vw - 3rem)"

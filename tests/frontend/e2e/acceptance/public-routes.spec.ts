@@ -427,6 +427,9 @@ test.describe('public CSP nonce enforcement', () => {
     expect(firstNonce).not.toBe(secondNonce)
     expect(first.headers()['cache-control']).toContain('no-store')
     expect(first.headers().etag).toBeUndefined()
+    expect(first.headers()['content-security-policy']).toContain("style-src-attr 'none'")
+    expect(first.headers()['content-security-policy']).not.toContain("style-src-attr 'unsafe-inline'")
+    expect(first.headers()['content-security-policy']).toContain('report-uri /api/security/csp-report')
 
     await page.addInitScript(() => {
       const violations: string[] = []
@@ -451,6 +454,9 @@ test.describe('public CSP nonce enforcement', () => {
       allowed.nonce = nonce
       allowed.textContent = 'window.__FSUSBLOG_TRUSTED_INLINE_EXECUTED__ = true'
       document.head.appendChild(allowed)
+      const blockedStyle = document.createElement('div')
+      blockedStyle.setAttribute('style', 'display:none')
+      document.body.appendChild(blockedStyle)
       await new Promise(resolve => setTimeout(resolve, 50))
 
       const state = window as Window & {
@@ -462,6 +468,7 @@ test.describe('public CSP nonce enforcement', () => {
         nonce,
         untrustedExecuted: state.__FSUSBLOG_UNTRUSTED_INLINE_EXECUTED__ === true,
         trustedExecuted: state.__FSUSBLOG_TRUSTED_INLINE_EXECUTED__ === true,
+        styleAttributeApplied: window.getComputedStyle(blockedStyle).display === 'none',
         violations: state.__FSUSBLOG_CSP_VIOLATIONS__ ?? []
       }
     })
@@ -469,7 +476,9 @@ test.describe('public CSP nonce enforcement', () => {
     expect(result.nonce).not.toBe('')
     expect(result.untrustedExecuted).toBe(false)
     expect(result.trustedExecuted).toBe(true)
+    expect(result.styleAttributeApplied).toBe(false)
     expect(result.violations.some(directive => directive.startsWith('script-src'))).toBe(true)
+    expect(result.violations).toContain('style-src-attr')
   })
 })
 
