@@ -14,7 +14,7 @@ Production 的内容证明由 `.tmp/build/<run-id>/generated/artifact-digest-tab
 
 ## Substitution、Projection 与最终证据
 
-Artifact substitution 在表内使用独立的 `substitution` 记录，绑定 canonical path、所有 actual proof path、各自的物理 artifact ID 与 digest。member receipt 与 bundle summary 保存完整 `artifactRefs`；logical projection 只复用这些引用，不重新读取内容。
+Artifact substitution 在表内使用独立的 `substitution` 记录，绑定 canonical path、所有 actual proof path、各自的物理 artifact ID 与 digest。`actualDigests` 与 `actualRefs` 必须拥有完全相同的安全相对路径集合，每个 actual path 必须与对应物理 record 的 canonical/run-bound path 匹配；projection 也必须同时携带 canonical ref 和全部 actual refs，不能只提交聚合后的 substitution digest。member receipt 与 bundle summary 保存完整 `artifactRefs`；logical projection 只复用这些引用，不重新读取内容。
 
 五个物理 bundle 全部 settle 后，runner 才允许将表标记为 `final`，并原子复制到 `.tmp/release-evidence/production-artifact-digest-table.json`。projection/checkpoint 同时保存表路径、run/source identity、artifact count 与表自身的 `contentDigest`；attach、resume 和 projection-only 均重新验证表以及每个 logical ref。表损坏、run/source 不匹配、缺失 record 或 digest/path 不一致都会拒绝 checkpoint。
 
