@@ -57,7 +57,11 @@ public sealed class AuthSecurityHardeningTests
         Assert.Contains("get_RevokedAt", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("get_IdleExpiresAt", runtimeShape, StringComparison.Ordinal);
         Assert.Contains("RevokeLikelyRefreshReplayAsync", runtimeShape, StringComparison.Ordinal);
-        Assert.Contains("refresh_token_reuse", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("refresh_token_reuse_family_revoke", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("UseTranAsync", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("FOR UPDATE", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("refreshtokenhash <> @StaleHash", runtimeShape, StringComparison.Ordinal);
+        Assert.Contains("IS NOT DISTINCT FROM", runtimeShape, StringComparison.Ordinal);
         Assert.DoesNotContain("User.set_RefreshToken", runtimeShape, StringComparison.Ordinal);
     }
 

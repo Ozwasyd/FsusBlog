@@ -47,6 +47,7 @@ const defaultFixture = {
   },
   security: {
     status: 'blocked',
+    authRefreshFamilyRevokeWindowsLast5m: 1,
     blockers: [
       {
         source: 'dast',
@@ -62,6 +63,7 @@ const defaultFixture = {
     'search_rebuild_failed',
     'notification_stream_disconnect_spike',
     'cache_registry_missing_scan',
+    'auth_refresh_family_revoke',
     'security_blocker'
   ]
 };
@@ -108,6 +110,12 @@ const alertCatalog = {
     impact: 'Redis prefix invalidation is recovering through keyspace scan because the cache registry is missing or stale.',
     investigate: 'fsus.cache.operation.count result=registry_missing_scan_*, Redis cache registry sets, recent RemoveByPrefixAsync warnings and cache governance catalog.',
     rollbackOrDegrade: 'Treat repeated fallback as degraded cache-control behavior; rebuild registry through normal writes or clear the affected cache family during low traffic.'
+  },
+  auth_refresh_family_revoke: {
+    severity: 'critical',
+    impact: 'A stale refresh token reached an active session family and forced atomic revocation, indicating replay or concurrent token theft.',
+    investigate: 'fsus.auth.refresh.family_revoke_window_count and family_revoke_count, auth security audit events, affected deployment window and client retry patterns; never export token, session or device identifiers.',
+    rollbackOrDegrade: 'Keep family revocation enabled, block release closeout, invalidate ordinary user sessions if the source is systemic, and retain admin/notification/public read availability while investigating.'
   },
   security_blocker: {
     severity: 'critical',
@@ -185,6 +193,10 @@ function evaluateAlerts(fixture) {
       ?? readinessChecks?.notificationStream?.slowDisconnectsLast5m,
     0);
   const security = fixture?.security ?? {};
+  const authRefreshFamilyRevokeWindows = numberAt(
+    security?.authRefreshFamilyRevokeWindowsLast5m
+      ?? fixture?.auth?.refreshFamilyRevokeWindowsLast5m,
+    0);
   const securityBlockerCount = Array.isArray(security.blockers) ? security.blockers.length : 0;
   const cacheFallbackRecovered = numberAt(fixture?.cache?.registryMissingScanRecoveredLast5m, 0);
   const cacheFallbackEmpty = numberAt(fixture?.cache?.registryMissingScanEmptyLast5m, 0);
@@ -245,6 +257,13 @@ function evaluateAlerts(fixture) {
       emptyLast5m: cacheFallbackEmpty,
       failedLast5m: cacheFallbackFailed
     }, ['fsus.cache.operation.count registry_missing_scan_*']);
+  }
+
+  if (authRefreshFamilyRevokeWindows > 0) {
+    addAlert(alerts, 'auth_refresh_family_revoke', {
+      windowsLast5m: authRefreshFamilyRevokeWindows,
+      threshold: 0
+    }, ['fsus.auth.refresh.family_revoke_window_count']);
   }
 
   if (isUnhealthy(security) || securityBlockerCount > 0) {

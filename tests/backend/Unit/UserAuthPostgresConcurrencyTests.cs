@@ -75,7 +75,27 @@ public sealed class UserAuthPostgresConcurrencyTests(PostgresSchemaMigrationFixt
         UserSession stored = await setupDb.Queryable<UserSession>()
             .SingleAsync(item => item.SessionId == sessionId);
         Assert.NotNull(stored.RevokedAt);
-        Assert.Equal("refresh_token_reuse", stored.RevokeReason);
+        Assert.Equal("refresh_token_reuse_family_revoke", stored.RevokeReason);
+        DateTime revokedAt = stored.RevokedAt.Value;
+
+        var replayResults = new List<(bool Success, TokenResponseDto? Data)>();
+        for (int round = 0; round < 4; round++)
+        {
+            (bool Success, TokenResponseDto? Data)[] roundResults = await Task.WhenAll(
+                firstService.RefreshTokenAsync(rawRefreshToken, sessionId),
+                secondService.RefreshTokenAsync(rawRefreshToken, sessionId)).WaitAsync(TimeSpan.FromSeconds(30));
+            replayResults.AddRange(roundResults);
+        }
+
+        Assert.All(replayResults, static result =>
+        {
+            Assert.False(result.Success);
+            Assert.Null(result.Data);
+        });
+        UserSession afterThrash = await setupDb.Queryable<UserSession>()
+            .SingleAsync(item => item.SessionId == sessionId);
+        Assert.Equal(revokedAt, afterThrash.RevokedAt);
+        Assert.Equal("refresh_token_reuse_family_revoke", afterThrash.RevokeReason);
         await validationCache.Received(1).PublishManyAsync(
             Arg.Is<IReadOnlyList<UserSessionValidationCacheState>>(states =>
                 states.Count == 1

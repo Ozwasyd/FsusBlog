@@ -974,7 +974,23 @@ public class UserServiceValidationTests
         Assert.Null(result.Data);
         Assert.Contains(measurements, measurement =>
             measurement.Name == "fsus.auth.refresh.replay_detected_count" && measurement.Value == 1);
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.refresh.family_revoke_count" && measurement.Value == 0);
         await update.Received(1).ExecuteCommandAsync();
+    }
+
+    [Fact]
+    public void RefreshFamilyRevokeMetrics_ExposeClosedReplayWindowAndRevokedSessionCount()
+    {
+        var measurements = new ConcurrentBag<(string Name, double Value)>();
+        using MeterListener listener = ListenToFsusMeasurements(measurements);
+
+        FsusObservability.RecordAuthRefreshFamilyRevoke(2);
+
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.refresh.family_revoke_count" && measurement.Value == 2);
+        Assert.Contains(measurements, measurement =>
+            measurement.Name == "fsus.auth.refresh.family_revoke_window_count" && measurement.Value == 1);
     }
 
     [Fact]

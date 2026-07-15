@@ -241,6 +241,8 @@ public static class FsusObservability
     private static readonly Counter<long> AuthRefreshSuccessDbCommandCount = Meter.CreateCounter<long>("fsus.auth.refresh.success_db_command_count");
     private static readonly Histogram<double> AuthRefreshSuccessElapsed = Meter.CreateHistogram<double>("fsus.auth.refresh.success_elapsed_ms", "ms");
     private static readonly Counter<long> AuthRefreshReplayDetectedCount = Meter.CreateCounter<long>("fsus.auth.refresh.replay_detected_count");
+    private static readonly Counter<long> AuthRefreshFamilyRevokeCount = Meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_count");
+    private static readonly Counter<long> AuthRefreshFamilyRevokeWindowCount = Meter.CreateCounter<long>("fsus.auth.refresh.family_revoke_window_count");
     private static readonly Counter<long> AccountSnapshotCacheHit = Meter.CreateCounter<long>("fsus.account_snapshot.cache_hit");
     private static readonly Counter<long> AccountSnapshotDbReadCount = Meter.CreateCounter<long>("fsus.account_snapshot.db_read_count");
     private static long CommentActorResolverPublicHandleHits;
@@ -1254,6 +1256,20 @@ public static class FsusObservability
         {
             TagList tags = CreateBaseTags("auth-refresh", "refresh", "replay_detected");
             AuthRefreshReplayDetectedCount.Add(1, tags);
+        });
+    }
+
+    public static void RecordAuthRefreshFamilyRevoke(int revokedSessionCount)
+    {
+        TryRecord(() =>
+        {
+            bool hit = revokedSessionCount > 0;
+            TagList tags = CreateBaseTags("auth-refresh", "family-revoke", hit ? "hit" : "miss");
+            AuthRefreshFamilyRevokeCount.Add(Math.Max(0, revokedSessionCount), tags);
+            if (hit)
+            {
+                AuthRefreshFamilyRevokeWindowCount.Add(1, tags);
+            }
         });
     }
 

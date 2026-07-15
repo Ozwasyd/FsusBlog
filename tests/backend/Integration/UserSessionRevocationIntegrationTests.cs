@@ -135,7 +135,57 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         Assert.False(rejected.IsValid);
         Assert.Equal("user_session_revoked", rejected.Reason);
         UserSession row = await db.Queryable<UserSession>().SingleAsync(item => item.SessionId == session.SessionId);
-        Assert.Equal("refresh_token_reuse", row.RevokeReason);
+        Assert.Equal("refresh_token_reuse_family_revoke", row.RevokeReason);
+    }
+
+    [Fact]
+    public async Task RefreshReplay_AtomicallyRevokesSameDeviceFamilyAndKeepsOtherDevice()
+    {
+        using SqlSugarClient db = await CreateDbAsync();
+        int accountId = await SeedAccountAsync(db);
+        UserSession replayTarget = await SeedSessionAsync(
+            db,
+            accountId,
+            "family-target",
+            refreshTokenHash: HashToken("current-family-token"),
+            deviceFingerprint: "device-family-a");
+        UserSession sameDevice = await SeedSessionAsync(
+            db,
+            accountId,
+            "family-sibling",
+            deviceFingerprint: "device-family-a");
+        UserSession otherDevice = await SeedSessionAsync(
+            db,
+            accountId,
+            "other-device",
+            deviceFingerprint: "device-family-b");
+        var cache = new VersionedSessionValidationCache();
+        var validator = new UserSessionValidationService(db, cache);
+        ClaimsPrincipal targetPrincipal = CreatePrincipal(accountId, replayTarget.SessionId);
+        ClaimsPrincipal siblingPrincipal = CreatePrincipal(accountId, sameDevice.SessionId);
+        ClaimsPrincipal otherPrincipal = CreatePrincipal(accountId, otherDevice.SessionId);
+        Assert.True((await validator.ValidateAsync(targetPrincipal, CancellationToken.None)).IsValid);
+        Assert.True((await validator.ValidateAsync(siblingPrincipal, CancellationToken.None)).IsValid);
+        Assert.True((await validator.ValidateAsync(otherPrincipal, CancellationToken.None)).IsValid);
+
+        UserService users = CreateUserService(db, cache);
+        var refresh = await users.RefreshTokenAsync("replayed-stale-family-token", replayTarget.SessionId);
+
+        Assert.False(refresh.Success);
+        Assert.Equal("user_session_revoked", (await validator.ValidateAsync(targetPrincipal, CancellationToken.None)).Reason);
+        Assert.Equal("user_session_revoked", (await validator.ValidateAsync(siblingPrincipal, CancellationToken.None)).Reason);
+        Assert.True((await validator.ValidateAsync(otherPrincipal, CancellationToken.None)).IsValid);
+        List<UserSession> rows = await db.Queryable<UserSession>()
+            .Where(row => row.UserId == accountId)
+            .ToListAsync();
+        Assert.All(
+            rows.Where(row => row.DeviceFingerprint == "device-family-a"),
+            row =>
+            {
+                Assert.NotNull(row.RevokedAt);
+                Assert.Equal("refresh_token_reuse_family_revoke", row.RevokeReason);
+            });
+        Assert.Null(Assert.Single(rows, row => row.SessionId == otherDevice.SessionId).RevokedAt);
     }
 
     [Fact]
@@ -200,7 +250,8 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
         SqlSugarClient db,
         int accountId,
         string suffix,
-        string? refreshTokenHash = null)
+        string? refreshTokenHash = null,
+        string? deviceFingerprint = null)
     {
         string sessionId = $"{suffix}-{Guid.NewGuid():N}";
         var session = new UserSession
@@ -208,6 +259,7 @@ public sealed class UserSessionRevocationIntegrationTests(PostgresSchemaMigratio
             SessionId = sessionId,
             UserId = accountId,
             RefreshTokenHash = refreshTokenHash ?? HashToken($"refresh-{sessionId}"),
+            DeviceFingerprint = deviceFingerprint,
             CreatedAt = DateTime.UtcNow.AddMinutes(-5),
             LastSeenAt = DateTime.UtcNow.AddMinutes(-1),
             IdleExpiresAt = DateTime.UtcNow.AddHours(1),

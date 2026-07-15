@@ -96,6 +96,7 @@ public static class EndpointContractApplication
             ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
             ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Database=fsusblog_endpoint_contract;Username=test;Password=test",
             ["Jwt:SecretKey"] = "endpoint-contract-test-secret-key-at-least-32-bytes",
+            ["Jwt:KeyVersion"] = "endpoint-contract-v1",
             ["Jwt:Issuer"] = "FsusBlogEndpointContractTests",
             ["Jwt:Audience"] = "FsusBlogEndpointContractTests",
             ["CORS_ALLOWED_HOSTS"] = "https://console.example.test",

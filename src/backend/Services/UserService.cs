@@ -1177,7 +1177,9 @@ public partial class UserService(
         {
             if (!string.IsNullOrWhiteSpace(sessionId))
             {
-                await RevokeLikelyRefreshReplayAsync(sessionId, hash);
+                int revokedSessions = await RevokeLikelyRefreshReplayAsync(sessionId, hash);
+                FsusObservability.RecordAuthRefreshReplayDetected();
+                FsusObservability.RecordAuthRefreshFamilyRevoke(revokedSessions);
             }
 
             using var _ = AuditLogScope.Push(
@@ -1223,8 +1225,9 @@ public partial class UserService(
 
         if (rotated != 1)
         {
-            await RevokeLikelyRefreshReplayAsync(session.SessionId, hash);
+            int revokedSessions = await RevokeLikelyRefreshReplayAsync(session.SessionId, hash);
             FsusObservability.RecordAuthRefreshReplayDetected();
+            FsusObservability.RecordAuthRefreshFamilyRevoke(revokedSessions);
             using var _ = AuditLogScope.Push(
                 AuditSourceCatalog.Auth,
                 AuditTypeCatalog.Security,
@@ -1807,21 +1810,82 @@ public partial class UserService(
         return updated > 0;
     }
 
-    private async Task RevokeLikelyRefreshReplayAsync(string sessionId, string staleHash)
+    private async Task<int> RevokeLikelyRefreshReplayAsync(string sessionId, string staleHash)
     {
-        if (string.IsNullOrWhiteSpace(sessionId))
+        if (string.IsNullOrWhiteSpace(sessionId) || string.IsNullOrWhiteSpace(staleHash))
         {
-            return;
+            return 0;
         }
 
-        UserSession? candidate = await _db.Queryable<UserSession>()
-            .FirstAsync(s => s.SessionId == sessionId && s.RevokedAt == null);
-        if (candidate == null || string.Equals(candidate.RefreshTokenHash, staleHash, StringComparison.Ordinal))
+        const string reason = "refresh_token_reuse_family_revoke";
+        DateTime revokedAt = DateTime.UtcNow;
+        List<UserSessionValidationCacheState> revokedSessions = [];
+        bool publicationAttempted = false;
+        var transaction = await _db.Ado.UseTranAsync(async () =>
         {
-            return;
+            using (var reader = (DbDataReader)await _db.Ado.GetDataReaderAsync(
+                """
+                WITH replay_target AS MATERIALIZED (
+                    SELECT userid,
+                           devicefingerprint
+                    FROM sys_user_session
+                    WHERE sessionid = @SessionId
+                      AND revokedat IS NULL
+                      AND refreshtokenhash <> @StaleHash
+                    FOR UPDATE
+                ),
+                revoked AS (
+                    UPDATE sys_user_session AS session
+                    SET revokedat = @RevokedAt,
+                        revokereason = @Reason
+                    FROM replay_target AS target
+                    WHERE session.userid = target.userid
+                      AND session.revokedat IS NULL
+                      AND session.devicefingerprint IS NOT DISTINCT FROM target.devicefingerprint
+                    RETURNING session.sessionid,
+                              session.userid,
+                              session.revokedat,
+                              session.idleexpiresat,
+                              session.absoluteexpiresat,
+                              session.xmin::text AS row_version
+                )
+                SELECT sessionid,
+                       userid,
+                       revokedat,
+                       idleexpiresat,
+                       absoluteexpiresat,
+                       row_version
+                FROM revoked;
+                """,
+                new SugarParameter("@SessionId", sessionId),
+                new SugarParameter("@StaleHash", staleHash),
+                new SugarParameter("@RevokedAt", revokedAt),
+                new SugarParameter("@Reason", reason)))
+            {
+                while (await reader.ReadAsync())
+                {
+                    revokedSessions.Add(ReadRevokedSessionValidationState(reader));
+                }
+            }
+
+            publicationAttempted = revokedSessions.Count > 0;
+            await _userSessionValidationCache.PublishManyAsync(
+                revokedSessions,
+                allowOverwrite: true);
+        });
+
+        if (!transaction.IsSuccess)
+        {
+            if (publicationAttempted)
+            {
+                await BestEffortInvalidateRevocationSnapshotsAsync(revokedSessions);
+            }
+
+            throw transaction.ErrorException
+                ?? new InvalidOperationException("refresh token replay family revocation transaction failed");
         }
 
-        _ = await RevokeSessionAsync(candidate.UserId, sessionId, "refresh_token_reuse");
+        return revokedSessions.Count;
     }
 
     public Task<RiskEvaluationResult> EvaluateLoginRiskAsync(int userId, string clientIp, string? deviceFingerprint, string? userAgent)
