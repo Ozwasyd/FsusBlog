@@ -11,7 +11,9 @@ and their resource fragments. A failed or cancelled run still writes available d
 - `actualCpuSeconds` is user plus system CPU time. On Linux, GNU `time` provides kernel rusage for a completed
   command and its waited descendants, while `/proc` samples provide the time curve and live process-tree details.
 - `grantedCpuSeconds` is the piecewise time integral of every live CPU grant. It is never calculated by multiplying
-  the final grant by total wall time. `cpuGrantEfficiency` is actual CPU seconds divided by that integral.
+  the final grant by total wall time. A first grant observed after step start is not backfilled into the unknown interval;
+  evidence records covered and unmeasured duration, and incomplete coverage leaves aggregate `cpuGrantEfficiency` null.
+  With complete coverage, `cpuGrantEfficiency` is actual CPU seconds divided by that integral.
 - `peakRssBytes` combines kernel exit rusage with live samples; `averageRssBytes` is the sampled time-series mean.
   `readBytes` and `writeBytes` use `/proc/<pid>/io`. GNU `time` filesystem block counts are not mislabeled as bytes.
 - Context switches come from kernel rusage. `processSpawnCount` is explicitly marked `sampled-lower-bound` until a

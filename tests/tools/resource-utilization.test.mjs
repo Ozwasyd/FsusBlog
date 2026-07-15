@@ -45,7 +45,28 @@ test('dynamic resource grants are integrated across expansion and contraction bo
   assert.equal(result.status, 'measured')
   assert.equal(result.cpuSeconds, 8.5)
   assert.equal(result.memoryGiBSeconds, 5.5)
+  assert.equal(result.coveredDurationMs, 3000)
+  assert.equal(result.unmeasuredDurationMs, 0)
   assert.deepEqual(result.segments.map((entry) => entry.durationMs), [1000, 1500, 500])
+})
+
+test('grant integration never backfills a future grant into an unobserved interval', () => {
+  const partial = integrateResourceGrantHistory([
+    { atMs: 1000, cpuUnits: 2, memoryGiB: 1 },
+    { atMs: 2000, cpuUnits: 4, memoryGiB: 2 }
+  ], 0, 3000)
+  assert.equal(partial.status, 'partial')
+  assert.equal(partial.cpuSeconds, 6)
+  assert.equal(partial.coveredDurationMs, 2000)
+  assert.equal(partial.unmeasuredDurationMs, 1000)
+  assert.deepEqual(partial.segments.map((entry) => entry.durationMs), [1000, 1000])
+
+  const futureOnly = integrateResourceGrantHistory([
+    { atMs: 4000, cpuUnits: 8, memoryGiB: 8 }
+  ], 0, 3000)
+  assert.equal(futureOnly.status, 'unavailable')
+  assert.equal(futureOnly.cpuSeconds, null)
+  assert.equal(futureOnly.unmeasuredDurationMs, 3000)
 })
 
 test('wait categories are mutually exclusive and readiness has explicit precedence', () => {

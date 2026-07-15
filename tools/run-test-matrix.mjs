@@ -1173,8 +1173,13 @@ function emitProductionResourceUtilization({ profileId, profile, result, detecte
     const selected = values.map(Number).filter(Number.isFinite)
     return selected.length ? selected.reduce((total, value) => total + value, 0) : null
   }
+  const sumComplete = (values) => values.length > 0 && values.every((value) => Number.isFinite(Number(value)))
+    ? values.reduce((total, value) => total + Number(value), 0)
+    : null
   const actualCpuSeconds = sumFinite(stepValues.map((entry) => entry.actualCpuSeconds))
-  const grantedCpuSeconds = sumFinite(stepValues.map((entry) => entry.grantedCpuSeconds))
+  const grantedCpuSeconds = sumComplete(stepValues
+    .filter((entry) => entry.status !== 'not-applicable')
+    .map((entry) => entry.grantedCpuSeconds))
   const waitTotalsMs = {}
   for (const bundleValue of bundleValues) {
     for (const [category, value] of Object.entries(bundleValue.waits?.totalsMs ?? {})) {

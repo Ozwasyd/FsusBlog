@@ -50,15 +50,23 @@ export function integrateResourceGrantHistory(history, startedAtMs, finishedAtMs
     && Number.isFinite(entry.memoryGiB) && entry.memoryGiB > 0)
     .sort((left, right) => left.atMs - right.atMs)
   if (points.length === 0) {
-    return { status: 'unavailable', cpuSeconds: null, memoryGiBSeconds: null, segments: [] }
+    return { status: 'unavailable', cpuSeconds: null, memoryGiBSeconds: null,
+      coveredDurationMs: 0, unmeasuredDurationMs: finishedAtMs - startedAtMs, segments: [] }
   }
-  let current = points[0]
-  for (const point of points) {
-    if (point.atMs <= startedAtMs) current = point
-    else break
-  }
-  const boundaries = points.filter((point) => point.atMs > startedAtMs && point.atMs < finishedAtMs)
+  const relevant = points.filter((point) => point.atMs <= finishedAtMs)
+  let current = relevant.findLast((point) => point.atMs <= startedAtMs) ?? null
+  const boundaries = relevant.filter((point) => point.atMs > startedAtMs && point.atMs < finishedAtMs)
   let cursor = startedAtMs
+  let unmeasuredDurationMs = 0
+  if (current === null) {
+    current = boundaries.shift() ?? null
+    if (current === null) {
+      return { status: 'unavailable', cpuSeconds: null, memoryGiBSeconds: null,
+        coveredDurationMs: 0, unmeasuredDurationMs: finishedAtMs - startedAtMs, segments: [] }
+    }
+    unmeasuredDurationMs = current.atMs - startedAtMs
+    cursor = current.atMs
+  }
   let cpuSeconds = 0
   let memoryGiBSeconds = 0
   const segments = []
@@ -70,14 +78,16 @@ export function integrateResourceGrantHistory(history, startedAtMs, finishedAtMs
       cpuSeconds += current.cpuUnits * durationMs / 1000
       memoryGiBSeconds += current.memoryGiB * durationMs / 1000
     }
-    const replacement = points.findLast((point) => point.atMs <= next.atMs)
-    if (replacement) current = replacement
+    if (next.cpuUnits !== undefined) current = next
     cursor = next.atMs
   }
+  const coveredDurationMs = finishedAtMs - startedAtMs - unmeasuredDurationMs
   return {
-    status: 'measured',
+    status: unmeasuredDurationMs === 0 ? 'measured' : 'partial',
     cpuSeconds: round(cpuSeconds),
     memoryGiBSeconds: round(memoryGiBSeconds),
+    coveredDurationMs,
+    unmeasuredDurationMs,
     segments
   }
 }
@@ -233,6 +243,15 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
   let peakRssBytes = null
   let compactionCount = 0
   let peakBrowserProcessCount = 0
+  const recordGrant = (atMs) => {
+    const grant = grantProvider?.()
+    if (!grant || !Number.isFinite(Number(grant.cpuUnits)) || Number(grant.cpuUnits) <= 0) return
+    const normalized = { atMs, effectiveAt: new Date(atMs).toISOString(),
+      cpuUnits: Number(grant.cpuUnits), memoryGiB: Number(grant.memoryGiB) }
+    const key = `${normalized.cpuUnits}/${normalized.memoryGiB}`
+    if (key !== previousGrantKey) grantHistory.push(normalized)
+    previousGrantKey = key
+  }
   const sample = () => {
     const sampleStarted = process.hrtime.bigint()
     const atMs = now()
@@ -243,14 +262,7 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
       if (!firstByPid.has(record.pid)) firstByPid.set(record.pid, record)
       lastByPid.set(record.pid, record)
     }
-    const grant = grantProvider?.()
-    if (grant && Number.isFinite(Number(grant.cpuUnits)) && Number(grant.cpuUnits) > 0) {
-      const normalized = { atMs, effectiveAt: new Date(atMs).toISOString(),
-        cpuUnits: Number(grant.cpuUnits), memoryGiB: Number(grant.memoryGiB) }
-      const key = `${normalized.cpuUnits}/${normalized.memoryGiB}`
-      if (key !== previousGrantKey) grantHistory.push(normalized)
-      previousGrantKey = key
-    }
+    recordGrant(atMs)
     const aggregate = (key) => records.reduce((total, record) => total + (Number(record[key]) || 0), 0)
     const rssBytes = aggregate('rssBytes')
     const browserProcessCount = records.filter((record) => record.browserProcess).length
@@ -271,6 +283,7 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
       rssBytes, readBytes: aggregate('readBytes'), writeBytes: aggregate('writeBytes'),
       collectionNs: Number(process.hrtime.bigint() - sampleStarted) })
   }
+  recordGrant(startedAtMs)
   sample()
   if (supported) {
     timer = setInterval(sample, Math.max(25, resolvedSampleIntervalMs))
@@ -282,6 +295,7 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
       sample()
       const finishedAtMs = now()
       const grant = integrateResourceGrantHistory(grantHistory, startedAtMs, finishedAtMs)
+      const completeGrantCoverage = grant.status === 'measured'
       const processDelta = (key) => {
         if (!supported) return null
         let total = 0
@@ -310,9 +324,11 @@ export function createLinuxProcessTreeCollector({ rootPid, grantProvider, sample
         cpuUserSeconds: round(cpuUserSeconds),
         cpuSystemSeconds: round(cpuSystemSeconds),
         actualCpuSeconds: round(actualCpuSeconds),
-        grantedCpuSeconds: grant.cpuSeconds,
-        grantedMemoryGiBSeconds: grant.memoryGiBSeconds,
-        cpuGrantEfficiency: actualCpuSeconds === null || !Number.isFinite(grant.cpuSeconds) || grant.cpuSeconds <= 0
+        grantIntegration: grant,
+        grantedCpuSeconds: completeGrantCoverage ? grant.cpuSeconds : null,
+        grantedMemoryGiBSeconds: completeGrantCoverage ? grant.memoryGiBSeconds : null,
+        cpuGrantEfficiency: actualCpuSeconds === null || !completeGrantCoverage
+          || !Number.isFinite(grant.cpuSeconds) || grant.cpuSeconds <= 0
           ? null : round(actualCpuSeconds / grant.cpuSeconds),
         peakRssBytes: peakRssBytes === null ? finite(gnuTime?.peakRssBytes) : Math.max(peakRssBytes, finite(gnuTime?.peakRssBytes) ?? 0),
         averageRssBytes: finishedAtMs > startedAtMs ? round(rssAreaByteMs / (finishedAtMs - startedAtMs)) : null,

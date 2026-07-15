@@ -2251,8 +2251,13 @@ function finalizeBundleResourceUtilization(status, error = null) {
     const measured = values.map((entry) => Number(entry?.[key])).filter(Number.isFinite)
     return measured.length ? measured.reduce((total, value) => total + value, 0) : null
   }
+  const executableValues = values.filter((entry) => entry?.status !== 'not-applicable')
+  const sumComplete = (key) => executableValues.length > 0
+    && executableValues.every((entry) => Number.isFinite(Number(entry?.[key])))
+    ? executableValues.reduce((total, entry) => total + Number(entry[key]), 0)
+    : null
   const actualCpuSeconds = sum('actualCpuSeconds')
-  const grantedCpuSeconds = sum('grantedCpuSeconds')
+  const grantedCpuSeconds = sumComplete('grantedCpuSeconds')
   const cpuUserSeconds = sum('cpuUserSeconds')
   const cpuSystemSeconds = sum('cpuSystemSeconds')
   const wallSeconds = (Date.now() - startedAt) / 1000
@@ -2278,7 +2283,7 @@ function finalizeBundleResourceUtilization(status, error = null) {
     cpuSystemSeconds,
     actualCpuSeconds,
     grantedCpuSeconds,
-    grantedMemoryGiBSeconds: sum('grantedMemoryGiBSeconds'),
+    grantedMemoryGiBSeconds: sumComplete('grantedMemoryGiBSeconds'),
     cpuGrantEfficiency: actualCpuSeconds === null || grantedCpuSeconds === null || grantedCpuSeconds <= 0
       ? null : actualCpuSeconds / grantedCpuSeconds,
     peakRssBytes: values.map((entry) => Number(entry?.peakRssBytes)).filter(Number.isFinite).reduce((peak, value) => Math.max(peak, value), 0) || null,
