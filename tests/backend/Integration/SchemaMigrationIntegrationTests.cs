@@ -972,6 +972,45 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    public async Task RunAsync_BlindCredentialPrivacyMigrationAcceptsCurrentSchemaWithoutTraceId()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+
+        await fixture.ExecuteAsync(connectionString, """
+            CREATE TABLE anonymous_credential_issuance_audit (
+                id bigserial PRIMARY KEY,
+                subject_hash varchar(64) NOT NULL,
+                epoch bigint NOT NULL,
+                status varchar(32) NOT NULL DEFAULT 'issued',
+                created_at_utc timestamp NOT NULL DEFAULT now()
+            );
+
+            INSERT INTO anonymous_credential_issuance_audit(subject_hash, epoch, created_at_utc)
+            VALUES (repeat('a', 64), 1, TIMESTAMP '2026-07-15 12:34:56');
+            """);
+
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260715-post-blind-credential-issuance-privacy");
+        ISchemaMigrationRegistry focusedRegistry = Substitute.For<ISchemaMigrationRegistry>();
+        focusedRegistry.GetDescriptors().Returns([descriptor]);
+
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+        await RunMigrationsAsync(connectionString, focusedRegistry);
+
+        Assert.False(await fixture.ColumnExistsAsync(
+            connectionString,
+            "anonymous_credential_issuance_audit",
+            "trace_id"));
+        Assert.Equal(
+            new DateTime(2026, 7, 15, 12, 0, 0, DateTimeKind.Unspecified),
+            await fixture.QueryScalarAsync<DateTime>(
+                connectionString,
+                "SELECT created_at_utc FROM anonymous_credential_issuance_audit WHERE epoch = 1;"));
+    }
+
+    [Fact]
     public async Task RunAsync_ExtendsExistingSecurityChallengePersistenceTables()
     {
         string databaseName = await fixture.CreateDatabaseAsync();
@@ -1889,9 +1928,11 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal(44, adminPrincipalId);
     }
 
-    private static async Task RunMigrationsAsync(string connectionString)
+    private static async Task RunMigrationsAsync(
+        string connectionString,
+        ISchemaMigrationRegistry? registry = null)
     {
-        await using ServiceProvider provider = BuildProvider(connectionString);
+        await using ServiceProvider provider = BuildProvider(connectionString, registry);
 
         await using AsyncServiceScope scope = provider.CreateAsyncScope();
         ISchemaMigrationRunner runner = scope.ServiceProvider.GetRequiredService<ISchemaMigrationRunner>();
@@ -2077,7 +2118,9 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             : throw new FileNotFoundException($"Fixture SQL file was not found: {fileName}", candidate);
     }
 
-    private static ServiceProvider BuildProvider(string connectionString)
+    private static ServiceProvider BuildProvider(
+        string connectionString,
+        ISchemaMigrationRegistry? registry = null)
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.ClearProviders());
@@ -2089,7 +2132,14 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             ])
             .Build());
         services.AddSqlSugar();
-        services.AddSingleton<ISchemaMigrationRegistry, SchemaMigrationRegistry>();
+        if (registry is null)
+        {
+            services.AddSingleton<ISchemaMigrationRegistry, SchemaMigrationRegistry>();
+        }
+        else
+        {
+            services.AddSingleton(registry);
+        }
         services.AddSingleton<ISchemaModelInspector, SchemaModelInspector>();
         services.AddSingleton<ISchemaMigrationLock, SchemaMigrationLock>();
         services.AddSingleton<IArticleDetailAedsArtifactMaintenanceService, NoopArticleDetailAedsArtifactMaintenanceService>();

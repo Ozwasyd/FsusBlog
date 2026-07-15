@@ -1291,8 +1291,14 @@ async function runBackendTests() {
     'tools/build-with-data-env.sh dotnet build benchmarks/core/FsusBlog.Core.Benchmarks.csproj -c Release --no-restore --no-dependencies -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
     ['backend-build-governance'], {
       artifacts: [benchmarkDll],
-      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+      resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 },
+      afterSuccess: publishBenchmarkBuildReady
     })
+  // With the startup grant fully occupied by the test union, an independent
+  // benchmark build cannot be admitted until the union finishes. Build this
+  // small prerequisite first so performance work can overlap the long union.
+  await executeStep(testsBuildStep)
+  await executeStep(benchmarkBuildStep)
   const testStep = commandStep('dotnet-production-union',
     'FSUSBLOG_BACKEND_CPU_BUDGET="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/run-backend-production-shards.mjs', [], {
       resources: {
@@ -1305,13 +1311,7 @@ async function runBackendTests() {
     })
   const backendDagResults = new Map()
   await executeWeightedStepDag([
-    testsBuildStep,
-    { ...testStep, dependsOn: ['backend-tests-build'] },
-    // The production union is the backend critical path. Start it as soon as
-    // the test assembly is ready with the bundle's initial two CPUs; the short
-    // benchmark build consumes the elastic third CPU after build-static
-    // releases it, then publishes the marker that permits further testhosts.
-    { ...benchmarkBuildStep, dependsOn: ['backend-tests-build'] },
+    testStep,
     commandStep('perception-matrix',
       'tools/test/lanes/perception-v2-test-matrix.sh', [], {
         dependsOn: ['dotnet-production-union'],
@@ -1340,7 +1340,6 @@ async function runBackendTests() {
       })
   ], bundleDagCapacity, async (step) => {
     const result = await executeStep(step)
-    if (step.id === 'backend-benchmark-build') publishBenchmarkBuildReady()
     if (step.id === 'backend-coverage-summary') {
       publishCurrentRunMarker('backend-coverage-ready', step.id)
     }

@@ -69,6 +69,10 @@ test('consumer action verifies same-run source and receipt identity before tests
 
 test('producer receipts existing lock, project and build configuration inputs', () => {
   const source = fs.readFileSync(producerLaneFile, 'utf8')
+  assert.match(source, /PRODUCER_RUN_ID="\$\{GITHUB_RUN_ID:-\$\{FSUSBLOG_TEST_RUN_ID:/u)
+  assert.match(source, /PRODUCER_RUN_ATTEMPT="\$\{GITHUB_RUN_ATTEMPT:-1\}"/u)
+  assert.match(source, /--run-id "\$PRODUCER_RUN_ID"/u)
+  assert.match(source, /--run-attempt "\$PRODUCER_RUN_ATTEMPT"/u)
   for (const input of [
     'Directory.Build.props',
     'FsusBlog.slnx',

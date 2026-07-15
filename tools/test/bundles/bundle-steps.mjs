@@ -913,7 +913,7 @@ export function performanceSteps() {
     // status only. Run it with the other non-measurement preparation, then
     // keep every timed profiler behind it so its CPU work cannot add noise.
     step('aeds-compression', 'tools/test/lanes/aeds-compression-profile.sh', ['aeds-compression-profile'], {
-      dependsOn: ['frontend-build-ready']
+      dependsOn: ['frontend-build-ready', 'benchmark-build-ready']
     }),
     step('performance-summary', 'node tools/test/aggregate-performance-evidence.mjs', ['performance-evidence-summary'], {
       dependsOn: ['coverage-threshold', ...measurements]

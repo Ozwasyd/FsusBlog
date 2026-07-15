@@ -1529,6 +1529,40 @@ test('backend production summary records global 8, planned 5, initial 3, and fiv
   })
   assert.equal(new Set(summary.partitions.map(({ trx }) => trx)).size, partitionCount)
   assert.equal(new Set(summary.partitions.map(({ coverageRoot }) => coverageRoot)).size, partitionCount)
+
+  const capacityConstrained = structuredClone(summary)
+  capacityConstrained.maxConcurrentProcesses = 3
+  capacityConstrained.peakConcurrentProcesses = 3
+  capacityConstrained.processorsByProcess = [1, 1, 1]
+  capacityConstrained.memoryGiBByProcess = Array.from({ length: 3 }, () => initialMemoryGiB / 3)
+  capacityConstrained.allocatedCpuUnits = 3
+  capacityConstrained.allocatedMemoryGiB = initialMemoryGiB
+  capacityConstrained.resourceExpansion.observedGrant = {
+    cpuUnits: 3,
+    memoryGiB: initialMemoryGiB
+  }
+  capacityConstrained.partitions = capacityConstrained.partitions.map((partition, index) => ({
+    ...partition,
+    processSlot: index % 3,
+    processors: 1,
+    memoryGiB: initialMemoryGiB / 3
+  }))
+  assert.doesNotThrow(() => validateShardSummaryArtifacts(
+    capacityConstrained,
+    trxFiles,
+    { repositoryRoot }
+  ))
+
+  const missedObservedExpansion = structuredClone(capacityConstrained)
+  missedObservedExpansion.resourceExpansion.observedGrant = {
+    cpuUnits: 5,
+    memoryGiB: admittedMemoryGiB
+  }
+  assert.throws(
+    () => validateShardSummaryArtifacts(missedObservedExpansion, trxFiles, { repositoryRoot }),
+    /did not expand toward its observed scheduler grant/u
+  )
+
   const invalidTopology = structuredClone(summary)
   invalidTopology.planningForecast.potentialTopology.rollingPartitionCount = 4
   assert.throws(

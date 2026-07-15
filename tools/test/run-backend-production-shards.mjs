@@ -1518,8 +1518,21 @@ export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoo
   const potentialMemoryBudget = positiveNumber(summary?.resourceExpansion?.potentialBudget?.memoryGiB, null)
   const initialCpuGrant = positiveInteger(summary?.resourceExpansion?.initialGrant?.cpuUnits, null)
   const initialMemoryGrant = positiveNumber(summary?.resourceExpansion?.initialGrant?.memoryGiB, null)
+  const observedCpuGrant = dynamicExpansion
+    ? positiveInteger(summary?.resourceExpansion?.observedGrant?.cpuUnits, null)
+    : initialCpuGrant
+  const observedMemoryGrant = dynamicExpansion
+    ? positiveNumber(summary?.resourceExpansion?.observedGrant?.memoryGiB, null)
+    : initialMemoryGrant
   if (!potentialCpuBudget || !potentialMemoryBudget || !initialCpuGrant || !initialMemoryGrant) {
     throw new Error('backend production shard summary has invalid resource expansion grants')
+  }
+  if (!observedCpuGrant || !observedMemoryGrant
+    || observedCpuGrant < initialCpuGrant
+    || observedMemoryGrant + 1e-9 < initialMemoryGrant
+    || observedCpuGrant > potentialCpuBudget
+    || observedMemoryGrant > potentialMemoryBudget + 1e-9) {
+    throw new Error('backend production shard summary has an invalid observed resource grant')
   }
   if (allocatedCpuUnits > potentialCpuBudget) {
     throw new Error('backend production shard summary CPU allocation exceeds its potential budget')
@@ -1541,9 +1554,13 @@ export function validateShardSummaryArtifacts(summary, trxFiles, { repositoryRoo
     if (allocatedCpuUnits !== declaredCpuBudget) {
       throw new Error('backend production shard summary processorsByProcess does not exactly consume its CPU budget')
     }
-  } else if (potentialConcurrentProcesses > initialConcurrentProcesses
+  } else if (Math.min(
+    plannedConcurrentProcesses,
+    observedCpuGrant,
+    Math.floor(observedMemoryGrant / backendTopologyDefaults.memoryGiBPerTesthost)
+  ) > initialConcurrentProcesses
     && peakConcurrentProcesses <= initialConcurrentProcesses) {
-    throw new Error('backend production shard summary did not expand toward its scheduler potential')
+    throw new Error('backend production shard summary did not expand toward its observed scheduler grant')
   }
   const rollingCoveragePartitionCount = partitionCount - preludePartitionCount - postludePartitionCount
   if (dynamicExpansion && rollingCoveragePartitionCount < plannedConcurrentProcesses) {

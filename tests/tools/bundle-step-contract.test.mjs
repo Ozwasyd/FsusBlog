@@ -311,7 +311,9 @@ test('performance bundle folds the complete backend benchmark into the mixed win
   assert.equal(index.get('privacy-zk-finalize').resources.exclusiveResources, undefined)
   assert.deepEqual(index.get('coverage-merge').dependsOn, ['backend-coverage-ready', 'frontend-coverage-ready'])
   assert.equal(index.get('coverage-threshold').resources.exclusiveResources, undefined)
-  assert.deepEqual(index.get('aeds-compression').dependsOn, ['frontend-build-ready'])
+  assert.deepEqual(index.get('aeds-compression').dependsOn, [
+    'frontend-build-ready', 'benchmark-build-ready'
+  ])
   assert.equal(index.get('aeds-compression').resources.exclusiveResources, undefined)
   assert.deepEqual(index.get('performance-summary').dependsOn, ['coverage-threshold', ...evidenceInputs])
   assert.deepEqual(index.get('release-evidence').dependsOn, ['performance-summary'])
@@ -484,6 +486,7 @@ test('exact performance markers release preparation while unrelated runtime tail
   const backendCoverage = deferred()
   const frontendCoverage = deferred()
   const frontendBuild = deferred()
+  const benchmarkBuild = deferred()
   let runtimeTailActive = true
   const started = []
   const index = byId(performanceSteps())
@@ -491,6 +494,7 @@ test('exact performance markers release preparation while unrelated runtime tail
     index.get('backend-coverage-ready'),
     index.get('frontend-coverage-ready'),
     index.get('frontend-build-ready'),
+    index.get('benchmark-build-ready'),
     index.get('coverage-merge'),
     index.get('aeds-compression')
   ], { maxParallel: 2, cpuUnits: 2, memoryGiB: 2 }, async (entry) => {
@@ -498,11 +502,13 @@ test('exact performance markers release preparation while unrelated runtime tail
     if (entry.id === 'backend-coverage-ready') await backendCoverage.promise
     if (entry.id === 'frontend-coverage-ready') await frontendCoverage.promise
     if (entry.id === 'frontend-build-ready') await frontendBuild.promise
+    if (entry.id === 'benchmark-build-ready') await benchmarkBuild.promise
   })
   await new Promise((resolve) => setImmediate(resolve))
   backendCoverage.resolve()
   frontendCoverage.resolve()
   frontendBuild.resolve()
+  benchmarkBuild.resolve()
   await waitFor(() => started.includes('coverage-merge') && started.includes('aeds-compression'))
   assert.equal(runtimeTailActive, true)
   runtimeTailActive = false
@@ -516,6 +522,7 @@ test('failed exact producer blocks only its marker descendants while independent
     index.get('backend-coverage-ready'),
     index.get('frontend-coverage-ready'),
     index.get('frontend-build-ready'),
+    index.get('benchmark-build-ready'),
     index.get('coverage-merge'),
     index.get('aeds-compression')
   ], { maxParallel: 3, cpuUnits: 3, memoryGiB: 3 }, async (entry) => {

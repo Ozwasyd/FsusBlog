@@ -231,6 +231,7 @@ public sealed class BlindCredentialIssuanceTests
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Contains("trace_id", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("information_schema.columns", fingerprint, StringComparison.Ordinal);
         Assert.Contains("date_trunc('hour'", fingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain(
             typeof(AnonymousCredentialIssuanceAudit).GetProperties(),
