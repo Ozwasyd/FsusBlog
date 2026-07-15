@@ -172,7 +172,9 @@ public sealed class IntegrityVerificationManifestTests
             new[]
             {
                 "/integrity/article/{articleId:int}",
+                "/integrity/article/{articleId:int}/responsibility",
                 "/integrity/article/{articleId:int}/revisions/{revisionNo:int}",
+                "/integrity/article/{articleId:int}/revisions/{revisionNo:int}/responsibility",
                 "/integrity/article/{articleId:int}/revisions/{revisionNo:int}/rights",
                 "/integrity/article/{articleId:int}/rights",
                 "/integrity/checkpoints/latest",

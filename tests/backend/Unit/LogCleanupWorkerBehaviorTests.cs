@@ -54,8 +54,8 @@ public sealed class LogCleanupWorkerBehaviorTests
         Assert.Equal("log-cleanup-worker", lease.WorkerName);
         Assert.Equal(1, lease.ActionExecutions);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-14), cutoffs["rum"]);
-        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-365), cutoffs["audit"]);
-        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-90), cutoffs["anonymous-credential-audit"]);
+        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-90), cutoffs["audit"]);
+        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-30), cutoffs["anonymous-credential-audit"]);
         Assert.Equal(BaselineNow.UtcDateTime, cutoffs["legacy-security-risk"]);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-30), cutoffs["fenced-commit"]);
         Assert.DoesNotContain("visit", cutoffs.Keys);

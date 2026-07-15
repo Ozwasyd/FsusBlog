@@ -2,6 +2,8 @@ using System.Buffers.Binary;
 using System.Collections.ObjectModel;
 using System.Net;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
@@ -15,6 +17,7 @@ using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Security;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Modules.Endpoints;
@@ -204,6 +207,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
     public const string AccountSubjectHash = "4f88d848f31c5b367d4b606d8f3e4dc0ab85636094b93bc8bb3f0d2a6b2c5514";
 
     private readonly WebApplication _application;
+    private readonly string _dataProtectionRoot;
     private readonly object _issuedClientIpsGate = new();
     private readonly List<string> _issuedClientIps = [];
     private int _clientSequence;
@@ -222,9 +226,11 @@ public sealed class EndpointSecurityTestServer : IDisposable
         IBlacklistService blacklist,
         IUserAccountReader users,
         IUnifiedCache cache,
-        IRiskDecisionService riskDecision)
+        IRiskDecisionService riskDecision,
+        string dataProtectionRoot)
     {
         _application = application;
+        _dataProtectionRoot = dataProtectionRoot;
         AdminPrincipals = adminPrincipals;
         Articles = articles;
         AuditEvents = auditEvents;
@@ -416,6 +422,11 @@ public sealed class EndpointSecurityTestServer : IDisposable
         var riskPolicy = Substitute.For<ISecurityRiskPolicyProvider>();
         riskPolicy.CurrentRiskPolicyV2.Returns(SecurityRiskPolicySnapshotV2Adapter.FromLegacy(antiCrawler));
 
+        string dataProtectionRoot = CreateDataProtectionRoot();
+        const string dataProtectionCertificatePassword = "endpoint-security-test-certificate-password";
+        string dataProtectionCertificatePath = CreateDataProtectionCertificate(
+            dataProtectionRoot,
+            dataProtectionCertificatePassword);
         var webOptions = new WebApplicationOptions { EnvironmentName = Environments.Production };
         WebApplicationBuilder builder = WebApplication.CreateBuilder(webOptions);
         builder.WebHost.UseTestServer();
@@ -429,11 +440,13 @@ public sealed class EndpointSecurityTestServer : IDisposable
                     ["Jwt:Audience"] = "FsusBlogEndpointSecurityTests",
                     ["ConnectionStrings:Redis"] = "127.0.0.1:6379,abortConnect=false",
                     ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Port=5432;Database=fsusblog_endpoint_security;Username=test;Password=test",
-                    ["DataProtection:ApplicationName"] = "FsusBlog",
+                    ["DataProtection:ApplicationName"] = ReleaseStorageLayout.RequiredDataProtectionApplicationName,
                     ["DataProtection:KeyRingPath"] = Path.Combine(
-                        Path.GetTempPath(),
-                        "fsusblog-endpoint-security-tests",
-                        "data-protection"),
+                        dataProtectionRoot,
+                        "key-ring"),
+                    [DataProtectionKeyProtection.ModeKey] = "Certificate",
+                    [DataProtectionKeyProtection.CurrentCertificatePathKey] = dataProtectionCertificatePath,
+                    [DataProtectionKeyProtection.CurrentCertificatePasswordKey] = dataProtectionCertificatePassword,
                     ["RateLimiting:AdminPermitLimit"] = options.FixedIpPermitLimit.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ["RateLimiting:AdminQueueLimit"] = "0",
                     ["Security:Pow:BaseDifficulty"] = "1",
@@ -497,7 +510,8 @@ public sealed class EndpointSecurityTestServer : IDisposable
             blacklist,
             users,
             cache,
-            riskDecision);
+            riskDecision,
+            dataProtectionRoot);
     }
 
     public static void AddAdminPrincipal(
@@ -536,7 +550,17 @@ public sealed class EndpointSecurityTestServer : IDisposable
         return PodBinaryCodec.ToErrorDetail(error);
     }
 
-    public void Dispose() => _application.DisposeAsync().AsTask().GetAwaiter().GetResult();
+    public void Dispose()
+    {
+        try
+        {
+            _application.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        finally
+        {
+            TryDeleteDirectory(_dataProtectionRoot);
+        }
+    }
 
     private static async Task ApplyTestRequestContextAsync(HttpContext context, Func<Task> next)
     {
@@ -600,6 +624,49 @@ public sealed class EndpointSecurityTestServer : IDisposable
         }
 
         return Convert.ToBase64String(bytes);
+    }
+
+    private static string CreateDataProtectionRoot()
+    {
+        string path = Path.Combine(
+            Path.GetTempPath(),
+            "fsusblog-endpoint-security-tests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static string CreateDataProtectionCertificate(string root, string password)
+    {
+        using RSA rsa = RSA.Create(2048);
+        var request = new CertificateRequest(
+            "CN=FsusBlog Endpoint Security Tests",
+            rsa,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(
+            X509KeyUsageFlags.KeyEncipherment,
+            critical: true));
+        using X509Certificate2 certificate = request.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            DateTimeOffset.UtcNow.AddDays(30));
+        string path = Path.Combine(root, "data-protection.pfx");
+        File.WriteAllBytes(path, certificate.Export(X509ContentType.Pkcs12, password));
+        return path;
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private static AntiCrawlerPolicySnapshot CreateAntiCrawlerPolicy(int permitLimit)

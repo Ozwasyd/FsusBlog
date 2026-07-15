@@ -182,8 +182,7 @@ public sealed class PublicAotBackfillSchedulerTests
         int atomicMove = FindCallOffset(calls, typeof(File), nameof(File.Move));
         int memoryPublish = calls
             .Where(static call => call.Method.Name == "set_Item"
-                && call.Method.DeclaringType?.IsGenericType == true
-                && call.Method.DeclaringType.GetGenericTypeDefinition() == typeof(System.Collections.Concurrent.ConcurrentDictionary<,>))
+                && call.Method.DeclaringType == typeof(PublicAotBoundedMemoryCache))
             .Select(static call => call.Offset)
             .DefaultIfEmpty(-1)
             .First();

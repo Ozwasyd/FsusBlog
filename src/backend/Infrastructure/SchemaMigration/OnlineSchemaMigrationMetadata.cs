@@ -113,6 +113,9 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             "20260618-post-anonymous-credential-issuance-audit",
             "20260618-post-security-risk-event-persistence",
             "20260715-post-security-risk-pseudonym-epoch",
+            "20260715-post-blind-credential-issuance-privacy",
+            "20260716-post-comment-author-mode-retirement",
+            "20260716-post-anonymous-eligibility-predicate",
             "20260619-post-security-policy-snapshot",
             "20260625-post-security-policy-version-counter",
             "20260618-post-anonymous-credential-root-metadata",
@@ -166,6 +169,28 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
         {
             result.Add(migrationId, CreateLegacyContract(migrationId));
         }
+
+        result.Add(
+            "20260716-pre-anonymous-eligibility-predicate",
+            new OnlineSchemaMigrationMetadata(
+                "20260716-pre-anonymous-eligibility-predicate",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260716-anonymous-eligibility-predicate",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "anonymous_predicate_shadow_read"
+                ]));
 
         result.Add(
             "20260714-post-public-article-projection",

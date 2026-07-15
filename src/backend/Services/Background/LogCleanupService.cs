@@ -31,7 +31,7 @@ public class LogCleanupService(
     private const int ChunkSize = 5000;
     private const int MaxChunksPerCycle = 200;
     private const int RumRetentionDays = 14;
-    private const int AnonymousCredentialIssuanceAuditRetentionDays = 90;
+    private const int AnonymousCredentialIssuanceAuditRetentionDays = 30;
     private const int FencedCommitRetentionDays = 30;
     private static readonly TimeSpan DelayBetweenChunks = TimeSpan.FromMilliseconds(50);
     private const string CleanupRumMetricsSql = """

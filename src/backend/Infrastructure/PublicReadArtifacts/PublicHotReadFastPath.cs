@@ -805,11 +805,25 @@ public sealed class PublicHotReadStore
             return;
         }
 
-        Publish(Current.WithoutHtml(PublicHotReadRouteKeys.HtmlPath(routeKey)));
+        PublicHotReadSnapshot current = Current;
+        if (current.Version == 0)
+        {
+            return;
+        }
+
+        Publish(current.WithoutHtml(PublicHotReadRouteKeys.HtmlPath(routeKey)));
     }
 
     public void ClearHtml()
-        => Publish(Current.WithoutAllHtml());
+    {
+        PublicHotReadSnapshot current = Current;
+        if (current.Version == 0)
+        {
+            return;
+        }
+
+        Publish(current.WithoutAllHtml());
+    }
 
     private PublicHotReadRuntimeSnapshot CreateRuntimeSnapshotLocked(
         string state,

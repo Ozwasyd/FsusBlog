@@ -28,6 +28,11 @@
         "resolved": "4.1.0",
         "contentHash": "5YT3DKllmtkyW68PjURu/V1TOe4MKiByKwsRNVcfYE1S5KuFTeozdmKzyNzolKiQF391OXCaQtINvYT3j1ERzQ=="
       },
+      "BouncyCastle.Cryptography": {
+        "type": "Transitive",
+        "resolved": "2.6.2",
+        "contentHash": "7oWOcvnntmMKNzDLsdxAYqApt+AjpRpP2CShjMfIa3umZ42UQMvH0tl1qAliYPNYO6vTdcGMqnRrCPmsfzTI1w=="
+      },
       "CsvHelper": {
         "type": "Transitive",
         "resolved": "33.1.0",
@@ -694,6 +699,7 @@
         "type": "Project",
         "dependencies": {
           "BCrypt.Net-Next": "[4.1.0, )",
+          "BouncyCastle.Cryptography": "[2.6.2, )",
           "Fido2": "[4.0.1, )",
           "FsusBlog.Core": "[1.0.0, )",
           "FsusBlog.Shared": "[1.0.0, )",

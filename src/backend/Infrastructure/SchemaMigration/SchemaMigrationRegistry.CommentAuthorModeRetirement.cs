@@ -11,6 +11,8 @@ public sealed partial class SchemaMigrationRegistry
             Steps:
             [
                 new RawSqlStep("""
+                    ALTER TABLE comment ALTER COLUMN author_mode TYPE varchar(48);
+
                     DELETE FROM comment_anonymous_nullifier n
                     WHERE EXISTS (
                         SELECT 1

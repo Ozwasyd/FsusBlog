@@ -23,7 +23,7 @@ public class Comment
     [SugarColumn(ColumnName = "user_id", IsNullable = true)] // 🌟 必须显式映射
     public int? UserId { get; set; }
 
-    [SugarColumn(ColumnName = "author_mode", Length = 32)]
+    [SugarColumn(ColumnName = "author_mode", Length = 48)]
     public string AuthorMode { get; set; } = string.Empty;
 
     [SugarColumn(ColumnName = "public_handle", Length = 64, IsNullable = true)]

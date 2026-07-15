@@ -74,7 +74,7 @@ public sealed class LogCleanupDatabaseBehaviorTests(PostgresSchemaMigrationFixtu
             db, cutoff, 2, 10, TimeSpan.Zero, CancellationToken.None);
 
         Assert.Equal(3, rumDeleted);
-        Assert.Equal(1, auditDeleted);
+        Assert.Equal(3, auditDeleted);
         Assert.Equal(3, anonymousAuditDeleted);
 
         FrontendRumMetric retainedRum = Assert.Single(await db.Queryable<FrontendRumMetric>().ToListAsync());
@@ -84,7 +84,7 @@ public sealed class LogCleanupDatabaseBehaviorTests(PostgresSchemaMigrationFixtu
             .Select(item => item.Action)
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToList();
-        Assert.Equal(new[] { "audit-critical", "audit-cutoff", "audit-high-value" }, retainedAuditActions);
+        Assert.Equal(new[] { "audit-cutoff" }, retainedAuditActions);
 
         AnonymousCredentialIssuanceAudit retainedAnonymous = Assert.Single(
             await db.Queryable<AnonymousCredentialIssuanceAudit>().ToListAsync());

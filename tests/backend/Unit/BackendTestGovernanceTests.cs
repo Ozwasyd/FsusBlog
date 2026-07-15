@@ -126,7 +126,9 @@ public sealed class BackendTestGovernanceTests
                 .ToArray() ?? [];
             Assert.NotEmpty(methods);
             EndpointFamilyContract[] matches = families.Where(family => family.Matches(route)).ToArray();
-            Assert.NotEmpty(matches);
+            Assert.True(
+                matches.Length > 0,
+                $"runtime endpoint {string.Join(',', methods)} {route} is not assigned to an endpoint family");
             string[] tags = endpoint.Metadata.GetMetadata<ITagsMetadata>()?.Tags.ToArray() ?? [];
             string? routeKind = endpoint.Metadata.GetMetadata<FsusRouteKindMetadata>()?.RouteKind;
             Assert.True(

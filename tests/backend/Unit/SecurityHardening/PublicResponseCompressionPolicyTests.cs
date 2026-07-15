@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Tests.SecurityHardening;
 
@@ -52,7 +53,10 @@ public sealed class PublicResponseCompressionPolicyTests
     [Fact]
     public async Task RegisteredWhitelist_IsLimitedToDistributionAndPublicIntegrityEndpoints()
     {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = Environments.Production
+        });
         builder.Services.AddFsusRuntimeDomainServices();
         builder.Services.AddScoped<BlogDistributionService>();
         await using WebApplication app = builder.Build();

@@ -23,8 +23,8 @@ public sealed class AuditFallbackWriterBehaviorTests
             var writer = new AuditFallbackWriter(configuration, runtimeState);
             AuditRecord[] records =
             [
-                BuildRecord("security.first", "first"),
-                BuildRecord("security.second", "second")
+                BuildRecord(AuditActionCatalog.SecurityPolicyActivated, "first"),
+                BuildRecord(AuditActionCatalog.SecurityPolicyRolledBack, "second")
             ];
 
             await writer.WriteBatchAsync(records, new InvalidOperationException("database unavailable"), CancellationToken.None);
@@ -34,10 +34,10 @@ public sealed class AuditFallbackWriterBehaviorTests
             Assert.Equal(2, lines.Length);
             using JsonDocument first = JsonDocument.Parse(lines[0]);
             using JsonDocument second = JsonDocument.Parse(lines[1]);
-            Assert.Equal("security.first", first.RootElement.GetProperty("Action").GetString());
+            Assert.Equal(AuditActionCatalog.SecurityPolicyActivated, first.RootElement.GetProperty("Action").GetString());
             Assert.Equal("first", first.RootElement.GetProperty("EventInfo").GetString());
             Assert.Equal("database unavailable", first.RootElement.GetProperty("Message").GetString());
-            Assert.Equal("security.second", second.RootElement.GetProperty("Action").GetString());
+            Assert.Equal(AuditActionCatalog.SecurityPolicyRolledBack, second.RootElement.GetProperty("Action").GetString());
             Assert.Equal("second", second.RootElement.GetProperty("EventInfo").GetString());
             Assert.Equal(2, runtimeState.Snapshot().FallbackWriteCount);
         }

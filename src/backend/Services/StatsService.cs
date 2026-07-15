@@ -250,9 +250,9 @@ public partial class StatsService(
             ResolveRecentCommentAuthorDisplayName(mode, publicHandle, anonymousDisplayName),
             mode,
             BuildRecentCommentAuthorBadge(mode),
-            string.Equals(mode, CommentAuthorModes.Public, StringComparison.Ordinal)
-                ? null
-                : TextHelpers.NormalizeNullable(anonymousScope, 128),
+            string.Equals(mode, CommentAuthorModes.ZkAnonymous, StringComparison.Ordinal)
+                ? TextHelpers.NormalizeNullable(anonymousScope, 128)
+                : null,
             content,
             createTime);
     }

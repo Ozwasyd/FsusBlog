@@ -220,7 +220,24 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
         IMessageRealtimePublisher? realtime = null,
         IAntiSpamModerationService? antiSpam = null,
         ICommentModerationDispositionPolicy? dispositionPolicy = null)
-        => new(
+    {
+        AnonymousCommentPolicySnapshot policy = AnonymousCommentPolicySnapshot.Default with
+        {
+            AnonymousCommentsEnabled = true,
+            ZkAnonymousEnabled = true
+        };
+        var policyService = Substitute.For<IAnonymousCommentPolicyService>();
+        policyService.GetCurrentAsync(Arg.Any<CancellationToken>()).Returns(policy);
+        var proofService = Substitute.For<IZkAnonymousProofService>();
+        proofService.CurrentZkProdPolicy.Returns(new ZkProdPolicySnapshot(
+            Enabled: true,
+            NativeVerifierConfigured: true,
+            TrustedSetupVerified: true,
+            CredentialRequired: true,
+            CredentialRootReady: true,
+            UnavailableReason: string.Empty));
+
+        return new CommentService(
             db,
             NullLogger<CommentService>.Instance,
             realtime ?? Substitute.For<IMessageRealtimePublisher>(),
@@ -228,11 +245,14 @@ public sealed class AnonymousNullifierPostgresConcurrencyTests(PostgresSchemaMig
             invalidations,
             new RegionLegalModerationService(),
             antiSpamModerationService: antiSpam,
+            anonymousCommentPolicyService: policyService,
             anonymousNullifierService: nullifierService,
             commentModerationDispositionPolicy: dispositionPolicy,
             anonymousCommentTicketService: ticketService,
             anonymousDisplayNameGenerator: new CommentAnonymousDisplayNameGenerator(),
-            configuration: BuildConfiguration(limit: 2));
+            configuration: BuildConfiguration(limit: 2),
+            zkAnonymousProofService: proofService);
+    }
 
     private static AntiSpamModerationResult CreateRiskModelResult()
         => new(

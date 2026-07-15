@@ -30,6 +30,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata["20260715-pre-read-event-retirement-compat"];
         OnlineSchemaMigrationMetadata readEventRetirementContract =
             metadata["20260715-post-read-event-retirement"];
+        OnlineSchemaMigrationMetadata anonymousEligibilityPredicateExpand =
+            metadata["20260716-pre-anonymous-eligibility-predicate"];
         OnlineSchemaMigrationMetadata subjectExpand =
             metadata[AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId];
         OnlineSchemaMigrationMetadata subjectBackfill =
@@ -44,12 +46,13 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.True(readEventRetirementContract.Destructive);
         Assert.False(readEventRetirementContract.LegacyBootstrapOnly);
         Assert.Equal(TimeSpan.FromDays(30), readEventRetirementContract.MinimumRetentionWindow);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, anonymousEligibilityPredicateExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, subjectExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Backfill, subjectBackfill.Phase);
         Assert.Equal(AccountSubjectHashBackfillStep.BatchSize, subjectBackfill.BatchSize);
         Assert.Equal("last_account_id", subjectBackfill.ResumeTokenName);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
-        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, subjectExpand, subjectBackfill }, classification =>
+        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, readEventRetirementCompat, anonymousEligibilityPredicateExpand, subjectExpand, subjectBackfill }, classification =>
         {
             Assert.False(classification.LegacyBootstrapOnly);
             Assert.False(classification.Destructive);
@@ -64,6 +67,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             activeReleaseFencedCommitExpand.MigrationId,
             readEventRetirementCompat.MigrationId,
             readEventRetirementContract.MigrationId,
+            anonymousEligibilityPredicateExpand.MigrationId,
             subjectExpand.MigrationId,
             subjectBackfill.MigrationId
         };

@@ -113,7 +113,7 @@ public sealed class StatsPerformanceContractTests(PostgresSchemaMigrationFixture
         FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto zkComment = comments[2];
         Assert.Equal("Verified Query", zkComment.AuthorDisplayName);
         Assert.Equal(CommentAuthorModes.ZkAnonymous, zkComment.AuthorMode);
-        Assert.Equal("已验证匿名凭证", zkComment.AuthorBadge);
+        Assert.Equal("已验证匿名资格", zkComment.AuthorBadge);
         Assert.Equal("article:10", zkComment.AuthorScopeLabel);
         Assert.DoesNotContain("CredentialLevel", typeof(FsusBlog.Shared.Contracts.Outputs.RecentCommentStatItemDto).GetProperties().Select(static property => property.Name));
         Assert.DoesNotContain(comments, static item =>
