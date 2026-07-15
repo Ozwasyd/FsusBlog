@@ -56,6 +56,7 @@ const allowedRuntimeEnvironmentKeys = new Set([
   'PublicAot__BackfillConcurrency',
   'PublicAot__SsrWorkerCount',
   'PublicAot__SsrWorkerScript',
+  'ActiveReleaseFence__AllowSyntheticLocalFence',
   'RuntimeTuning__ThreadPool__Enabled',
   'RuntimeTuning__ThreadPool__MinThreadsPerCpu',
   'ASPNETCORE_URLS',

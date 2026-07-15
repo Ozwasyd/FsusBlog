@@ -462,6 +462,7 @@ function publishBackendTestsReady() {
       path: artifactPath,
       exists: true,
       digest: artifact.digests[artifactPath],
+      contentDigest: fileContentDigest(backendTestDll),
       artifactRef: artifact.refs[artifactPath]
     },
     generatedAt: new Date().toISOString()
@@ -494,6 +495,7 @@ function publishBenchmarkBuildReady() {
     benchmarkDll: {
       path: artifactPath,
       digest: artifact.digests[artifactPath],
+      contentDigest: fileContentDigest(benchmarkDll),
       artifactRef: artifact.refs[artifactPath]
     },
     generatedAt: new Date().toISOString()
@@ -1817,14 +1819,18 @@ async function waitForBenchmarkBuildReady() {
     const markerFile = benchmarkBuildReadyFile()
     if (fs.existsSync(markerFile)) {
       const marker = JSON.parse(fs.readFileSync(markerFile, 'utf8'))
+      const artifactPath = relative(benchmarkDll)
+      const artifact = digestArtifacts([artifactPath], 'consume-benchmark-build-ready')
       if (marker?.schema !== 'fsusblog.local-production.benchmark-build-ready.v1'
         || marker.status !== 'success'
         || marker.schedulerRunId !== schedulerRunId()
         || marker.physicalBundleId !== 'backend-tests'
         || marker.producerStepId !== 'backend-benchmark-build'
         || !markerHasCurrentBuildLayout(marker)
-        || marker.benchmarkDll?.path !== relative(benchmarkDll)
-        || marker.benchmarkDll?.digest !== fileContentDigest(benchmarkDll)) {
+        || marker.benchmarkDll?.path !== artifactPath
+        || marker.benchmarkDll?.digest !== artifact.digests[artifactPath]
+        || marker.benchmarkDll?.contentDigest !== fileContentDigest(benchmarkDll)
+        || marker.benchmarkDll?.artifactRef !== artifact.refs[artifactPath]) {
         throw new Error('run-bound benchmark build readiness is stale or corrupt')
       }
       return marker

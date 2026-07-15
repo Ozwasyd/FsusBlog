@@ -40,13 +40,15 @@ const serializeRuntimeEnvironment = (environment) => Object.entries(environment)
 test('runtime environment parser preserves non-shell values and binds all URLs to the current namespace', () => {
   const environment = parseRuntimeEnvironment(
     serializeRuntimeEnvironment(runtimeEnvironmentFixture({
-      ConnectionStrings__DefaultConnection: 'Host=127.0.0.1;Port=24501;Password=value=with=equals'
+      ConnectionStrings__DefaultConnection: 'Host=127.0.0.1;Port=24501;Password=value=with=equals',
+      ActiveReleaseFence__AllowSyntheticLocalFence: 'true'
     })),
     'runtime-focused-1'
   )
   assert.equal(environment.Jwt__SecretKey, 'test-only-secret-that-is-long-enough')
   assert.equal(environment.RuntimeTuning__ThreadPool__Enabled, 'true')
   assert.equal(environment.RuntimeTuning__ThreadPool__MinThreadsPerCpu, '20')
+  assert.equal(environment.ActiveReleaseFence__AllowSyntheticLocalFence, 'true')
   assert.equal(
     environment.ConnectionStrings__DefaultConnection,
     'Host=127.0.0.1;Port=24501;Password=value=with=equals'

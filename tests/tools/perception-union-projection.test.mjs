@@ -58,7 +58,9 @@ function fixture() {
     schedulerRunId: runId,
     testDll: {
       path: 'tests/backend/bin/Release/net10.0/FsusBlog.Server.Tests.dll',
-      digest: sha256(dll)
+      digest: `sha256:${'a'.repeat(64)}`,
+      contentDigest: sha256(dll),
+      artifactRef: `artifact:${'b'.repeat(64)}`
     }
   })
   return { root, trxFile, summaryFile, dll }

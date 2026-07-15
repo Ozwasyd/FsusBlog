@@ -100,7 +100,7 @@ if (marker.schema !== 'fsusblog.local-production.backend-tests-ready.v1'
   || marker.status !== 'success'
   || marker.schedulerRunId !== runId
   || marker.testDll?.path !== dllPath
-  || marker.testDll?.digest !== dllDigest) {
+  || marker.testDll?.contentDigest !== dllDigest) {
   throw new Error('backend tests-ready marker is not bound to the current runId and test DLL digest')
 }
 
