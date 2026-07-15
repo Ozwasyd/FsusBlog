@@ -190,28 +190,34 @@ public sealed class AuthoringWorkflowServiceTests
     }
 
     [Fact]
-    public void GetAnalyticsAsync_RuntimeReadsRollupsInsteadOfRawLogWindows()
+    public void GetAnalyticsAsync_RuntimeReadsPrivacyPreservingRollupsInsteadOfRawWindows()
     {
         string method = RuntimeMetadataInspection.DescribeMethods(
             typeof(AuthoringWorkflowService),
             nameof(AuthoringWorkflowService.GetAnalyticsAsync),
             "LoadArticleStatusCountsAsync",
             "LoadAuthorReadRollupAsync",
-            "LoadAuthorRouteRollupsAsync",
-            "LoadAuthorRumRollupsAsync");
+            "LoadAuthorAotRollupAsync",
+            "LoadAuthorRumRollupsAsync",
+            "LoadAuthorMetricRollupsAsync");
 
         Assert.Contains("LoadArticleStatusCountsAsync", method, StringComparison.Ordinal);
         Assert.Contains("LoadAuthorReadRollupAsync", method, StringComparison.Ordinal);
-        Assert.Contains("LoadAuthorRouteRollupsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("LoadAuthorAotRollupAsync", method, StringComparison.Ordinal);
         Assert.Contains("LoadAuthorRumRollupsAsync", method, StringComparison.Ordinal);
+        Assert.Contains("LoadAuthorMetricRollupsAsync", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadAuthorRouteRollupsAsync", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Take(5_000)", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Take(2_000)", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Queryable<VisitLogEntity>()", method, StringComparison.Ordinal);
         Assert.DoesNotContain("Queryable<FrontendRumMetric>()", method, StringComparison.Ordinal);
         Assert.Contains("SUM(CASE WHEN", method, StringComparison.Ordinal);
-        Assert.Contains("author_route_stats", method, StringComparison.Ordinal);
+        Assert.Contains("daily_read_stats", method, StringComparison.Ordinal);
         Assert.Contains("author_rum_stats", method, StringComparison.Ordinal);
         Assert.Contains("author_aot_stats", method, StringComparison.Ordinal);
+        Assert.Contains("author_rum_page_type_stats", method, StringComparison.Ordinal);
+        Assert.Contains("author_rum_aot_source_stats", method, StringComparison.Ordinal);
+        Assert.DoesNotContain("author_route_stats", method, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -585,6 +585,10 @@ Admin security dry-run 端点只能复用生产决策服务，不得直接复制
 
 RiskControl 运行态写入只能使用 `/api/binary/admin/security/risk-control/options` 和 `/api/binary/admin/security/risk-control/options/rollback`。写入必须要求 admin principal、`system.config` 和一次性 `X-Fsus-Mfa-Proof`，并持久化 `security_policy_snapshot(policy_id=risk-control)`；active 损坏时启动加载只能回退 last-known-good，不得从请求路径临时拼装未审计策略。该写入只更新 RiskControl global mode、CaptchaV1 / PoSpaceV1 / PublicReadChallenge / CommentRiskControl / AuthRiskControl 开关和 strict multiplier，不改变 AntiCrawler mode 的语义。
 
+### Authoring route capability slices
+
+`AuthoringEndpoints.MapAuthoringEndpoints` 只创建一次 `/api/binary/author` group，再按 workflow、moderation、operations 三个 capability 注册 route。拆分不得在子方法内重新创建 group，也不得复制 prefix、tag、permission 或 rate-limit policy。最终 `EndpointDataSource` 的 58 条 method/path 必须全部能映射到同一 `TryResolveRoute` AEDS request/response frame；因此源码文件拆分不能成为新增 JSON fallback、重命名 route 或放宽 admin permission 的理由。行为 gate 见 [Runtime capability slices](../architecture/issue-1119-runtime-capability-slices.md)。
+
 ---
 
 ## 参见

@@ -562,6 +562,10 @@ Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoin
 
 `DropColumnStep` / `DropTableStep` 还必须携带 descriptor-matched rollback-window proof；冷启动 runner 与 online executor 都在事务前校验真实 source commit、引入时间、至少 30 天窗口和本地 proof anchor。issue #1127 报告的 44 个步骤在 read-event retirement 合入后已变为 46 个，动态库存与证明规则见 [destructive schema rollback-window proof](schema-migrations/destructive-rollback-window.md)。仅数据库完全无表时允许 fresh bootstrap；已有任意表时窗口未结束即 fail closed。
 
+## Runtime capability 文件边界
+
+Search index、schema migration registry、authoring workflow/API、article service、PublicHotRead 与 application composition 按 orchestration、policy/state、I/O/persistence、codec/routing 和 metrics 拆为同一 runtime type 的 capability files。primary constructor 和 DI 注册仍只属于稳定 root type；partial 只改变源码组织，不新增服务实例、路由、AEDS frame、数据库步骤或缓存 key。受治理 capability file 必须少于 1,500 行，`backend-build-governance` 会执行机器检查；最终 endpoint data source 和 DI descriptor 的行为测试负责证明 authoring 58 条 method/path、admin permission、frame lookup 与 singleton/scoped lifetime 未漂移。完整映射、验证和回退见 [Runtime capability slices and source-file budget](architecture/issue-1119-runtime-capability-slices.md)。
+
 ## 生产启动保护
 
 服务器通过 HostedService 在启动后执行以下生产校验，失败时进入可观测降级状态而不是直接终止进程：

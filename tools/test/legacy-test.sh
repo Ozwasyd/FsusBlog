@@ -1042,7 +1042,21 @@ run_postgres_test_collections_check_once() {
     -- "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-postgres-test-collections.mjs"
 }
 
+run_backend_source_file_size_check_once() {
+  run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
+    --key backend-source-file-size \
+    --path tools/architecture/check-backend-source-file-size.mjs \
+    --path src/backend/Infrastructure/Bootstrap \
+    --path src/backend/Infrastructure/PublicReadArtifacts \
+    --path src/backend/Infrastructure/SchemaMigration \
+    --path src/backend/Modules/Endpoints \
+    --path src/backend/Services \
+    --test-id backend-source-file-size \
+    -- "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/architecture/check-backend-source-file-size.mjs"
+}
+
 run_backend_governance_checks() {
+  run_backend_source_file_size_check_once
   run_backend_test_governance_check_once
   run_postgres_test_collections_check_once
 }

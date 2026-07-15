@@ -1873,6 +1873,10 @@ Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillI
 
 `POST /api/binary/subscriptions` 与 `DELETE /api/binary/subscriptions` 使用 `SiteSubscriptionRequest` / `SiteSubscriptionResponse` AEDS frame，只保存 `HMAC-SHA256(Subscription:EmailHashPepper, normalizedEmail)` keyed lookup identifier、`hash_version`、`channel`、启用状态和退订时间，不保存明文 email。`DELETE` 还必须携带 `X-Fsus-Subscription-Proof`；proof 与 keyed email hash/channel 绑定、TTL 生效，端点先非消费校验，DB 退订成功后再一次性消费，旧 email-only 退订返回 428 且不得更新 DB。旧裸 SHA-256 值仅用于迁移期双读匹配，订阅写入会升级为当前 HMAC，不得作为跨系统身份标识使用。订阅能力是 RSS/Atom 的增强，不构成关注、点赞、收藏或社交关系链。默认实现不发送邮件或 Web Push；`channel=email` 只记录读者显式偏好，外发增强必须以后续配置开关和退订 smoke 为准。
 
+### 源码 capability 拆分的契约约束
+
+后端 runtime type 可以用 partial capability files 分隔 orchestration、policy、persistence、codec 与 metrics，但这不是 wire-contract 版本。issue #1119 的拆分不改变公开 type/interface、`/api/binary/author` method/path、AEDS request/response frame、统一错误、admin permission、notification stream 或 schema migration descriptor 顺序。任何后续 capability 拆分若需要改变上述任一项，仍必须按正常 API/protocol 变更同步 frame catalog、quick reference、OpenAPI/route evidence 与跨端测试，不能把文件移动当作兼容性证明。
+
 ---
 
 ## 参见
