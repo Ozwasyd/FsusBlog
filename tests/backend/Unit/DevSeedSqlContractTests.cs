@@ -26,6 +26,10 @@ public sealed class DevSeedSqlContractTests(PostgresSchemaMigrationFixture fixtu
             typeof(Tag),
             typeof(Article),
             typeof(ArticleBody),
+            typeof(ArticleRevision),
+            typeof(ArticleRightsPolicy),
+            typeof(ArticleRightsSnapshot),
+            typeof(ArticleRightsProof),
             typeof(ArticleTag),
             typeof(Comment),
             typeof(AuditLog));

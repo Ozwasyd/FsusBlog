@@ -114,7 +114,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "anonymous_comment_policy", "snapshot_hash"));
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "anonymous_credential", "account_binding_hash"));
         Assert.True(await fixture.ColumnExistsAsync(connectionString, "comment_anonymous_nullifier", "nullifier_hash"));
-        Assert.Equal("anonymous", defaultAuthorMode);
+        Assert.Equal("zk_anonymous", defaultAuthorMode);
         Assert.Equal(1000, defaultCommentMaxChars);
         Assert.Equal(4096, defaultCommentMaxUtf8Bytes);
     }
@@ -2040,7 +2040,8 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal(legacyCounts.Messages, conversationRows);
         Assert.Equal(legacyCounts.Messages, messageRows);
         Assert.Equal(legacyCounts.UserMessages, participantRows);
-        Assert.Equal(legacyCounts.VisitLogs, siteReadRows);
+        Assert.True(legacyCounts.VisitLogs > 0);
+        Assert.Equal(0, siteReadRows);
         Assert.Equal(legacyCounts.Comments, defaultCommentRows);
         Assert.Equal(0, legacyPageRows);
         Assert.Equal(new SchemaMigrationRegistry().GetDescriptors().Count, historyCount);
@@ -2124,7 +2125,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.ClearProviders());
-        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<TimeProvider>(CreatePostRollbackWindowTimeProvider());
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
             .AddInMemoryCollection(
             [
@@ -2153,6 +2154,16 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         });
     }
 
+    private static TimeProvider CreatePostRollbackWindowTimeProvider()
+    {
+        DateTimeOffset latestRollbackWindowEnd = new SchemaMigrationRegistry()
+            .GetDescriptors()
+            .SelectMany(static descriptor => descriptor.Steps)
+            .OfType<IDestructiveSchemaMigrationStep>()
+            .Max(static step => step.Proof.RollbackWindowEndUtc);
+        return new FixedTimeProvider(latestRollbackWindowEnd);
+    }
+
     private sealed record Legacy20260517Counts(
         int Articles,
         int Comments,
@@ -2160,6 +2171,11 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         int UserMessages,
         int VisitLogs,
         int PageConfigEntries);
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
+    }
 
     private sealed class NoopArticleDetailAedsArtifactMaintenanceService : IArticleDetailAedsArtifactMaintenanceService
     {
