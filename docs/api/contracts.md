@@ -706,7 +706,7 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 | `articleId` | int? | 与 challenge 绑定的 article id |
 | `dwellMs` | int | 客户端累计可见停留毫秒数 |
 
-Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `ReadProofAccepted` 负分风险信号，仅用于降低后续 `public.read` 风险；`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid` 等拒绝状态会写入 crawler risk。`duplicate_viewer` 只表示同一 article/site + 15 分钟 epoch 内的短期去重，不计入风险；去重 lease 最长 20 分钟，并使用独立轮换 key。read-proof 请求不携带稳定设备指纹。
+Submit 同样受 `read_proof` 专用限流保护。限流 key 是 path + 一分钟 epoch 下的用途隔离 HMAC，不保存 raw IP 或 raw forwarded header。`counted=true` 会写入 `ReadProofAccepted` 负分风险信号，仅用于降低后续 `public.read` 风险；`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid` 等拒绝状态会写入 crawler risk。`duplicate_viewer` 只表示同一 article/site + 15 分钟 epoch 内的短期去重，不计入风险；去重 lease 最长 20 分钟，并使用独立轮换 key。Redis/cache lease 不可用时返回 `counted=false, status=dedup_unavailable` 并丢弃本次统计，不创建 risk event、retry/dead-letter 或 fallback。read-proof 请求不携带稳定设备指纹。
 
 被接受的阅读只记录 article/UTC hour 计数和 `<10s`、`10–30s`、`30–120s`、`>120s` dwell/day histogram。生产最终态没有 per-read row，也不保存 viewer/proof/device/IP/UA、route、精确时间或精确 dwell；`sys_visit_log` 整表删除。
 
@@ -715,7 +715,7 @@ Submit 同样受 `read_proof` 专用限流保护。`counted=true` 会写入 `Rea
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `counted` | bool | 是否写入真人阅读事件 |
-| `status` | string | `counted`、`paused`、`duplicate_viewer`、`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid` 等状态 |
+| `status` | string | `counted`、`paused`、`duplicate_viewer`、`dedup_unavailable`、`proof_replayed`、`proof_binding_mismatch`、`fetch_metadata_invalid`、`origin_invalid` 等状态 |
 
 旧 JSON 端点 `GET /api/read-proof/challenge` 与 `POST /api/read-proof/submit` 已移除；生产前端不得调用，也不得作为 AEDS 解码失败 fallback。
 
@@ -1837,7 +1837,7 @@ Notification deployment drill 请求固定为 `{releaseId,slot,generation,drillI
 
 `IntegrityReportResponse` 返回 `checks`，每项包含 `code/title/status/severity/count/autoFixAvailable/detail/sampleKeys/previewDiffs`。巡检覆盖 `article_missing_body`、`article_body_without_revision`、`article_missing_category`、`article_tag_missing_tag`、`article_tag_missing_article`、`comment_missing_article`、`comment_chain_invalid`、`session_deleted_user`、`upload_untracked`、`asset_missing_file`、`sitemap_visibility`、`search_visibility`、`taxonomy_count_runtime`。`IntegrityFixPreviewResponse` 和 `IntegrityFixResponse` 使用 `AdminDiffResponse(field,before,after)` 表示变更摘要；实际修复端点只应用 safe fixes，并写入 `admin.integrity.safe_fix_applied` 高价值审计。
 
-`AuthorAnalyticsResponse` 聚合单作者运营数据：文章状态计数、`totalHumanReadEvents`、`totalSearchableArticles`、`aotHitRate`、`averageDwellMs`、`readingCompletionRate`，以及 `topSearchKeywords`、`topSourceRoutes`、`notFoundHotspots`、`rumMetrics`、`rumPageTypes`、`rumAotSources`。阅读列表来自 `VisitLog.routeKey` 的匿名化公开路由读证明，不包含账号、email、token、cookie 或正文输入；AOT 命中率由真实阅读事件与 `Public AOT cache miss` 审计日志估算。RUM 列表来自匿名 `POST /api/binary/telemetry/rum` 写入的 `frontend_rum_metric`，只接受 `web_vital_lcp`、`web_vital_cls`、`navigation_timing`、`hydration_time`、`wasm_decode_timing`、`markdown_render_timing` 和低基数 `pageType/aotSource/value/duration` 字段。`accepted=false` 或 `rejectedCount>0` 表示部分/全部样本被丢弃但不向公开读链泄露校验细节；服务端只保存净化后的 `frontend_rum_metric` 行，不写入 `sys_audit_log`。
+`AuthorAnalyticsResponse` 聚合单作者运营数据：文章状态计数、`totalHumanReadEvents`、`totalSearchableArticles`、`aotHitRate`、`averageDwellMs`、`readingCompletionRate`，以及 `topSearchKeywords`、`topSourceRoutes`、`notFoundHotspots`、`rumMetrics`、`rumPageTypes`、`rumAotSources`。阅读总数只来自 `daily_read_stats` aggregate；event-level VisitLog/route sequence 已删除，因此三个 route/search/hotspot 列表为空，`averageDwellMs` 与 `readingCompletionRate` 保留兼容字段并固定为零。AOT 命中率由 aggregate 总数与 `Public AOT cache miss` 聚合估算。RUM 列表来自匿名 `POST /api/binary/telemetry/rum` 写入的 `frontend_rum_metric`，只接受 `web_vital_lcp`、`web_vital_cls`、`navigation_timing`、`hydration_time`、`wasm_decode_timing`、`markdown_render_timing` 和低基数 `pageType/aotSource/value/duration` 字段。`accepted=false` 或 `rejectedCount>0` 表示部分/全部样本被丢弃但不向公开读链泄露校验细节；服务端只保存净化后的 `frontend_rum_metric` 行，不写入 `sys_audit_log`。
 
 评论通过长度、受限 Markdown 和地区硬拒绝校验后默认写入 `CommentModerationStatus.Approved`；公开评论线程、回复预览和回复游标只返回 `Approved`。模型审核在写入后执行，模型风险命中会把评论自动改为 `Hidden` 并清理公开评论缓存；风险命中且低于边界置信阈值时进入人工审核队列。账号侧 `GET /api/binary/comment/me` 只返回当前账号显式 public/可归因发送的评论，强匿名评论不进入该记录，也不能通过账号 ID 找回。该路径允许使用 `comment.user_id` 的唯一条件是同时约束 `author_mode = public`，并由 `idx_comment_attributable_public_user_id_desc` 服务，不得恢复默认匿名 `user_id` 绑定。匿名评论通过 actor projection 展示而不是强制绑定 `user_id`。公开评论读取的展示名只能来自评论快照字段：匿名/强匿名按 `anonymous_display_name` 后接匿名兜底，public send 按 `public_handle` 后接未署名兜底，不得 join `sys_user` 或回退 `sys_user.username`。公开评论 composer 必须先读取 `GET /api/binary/comment/policy` 的 `CommentPolicySnapshot`，其中 `commentMaxChars` / `commentMaxUtf8Bytes` 表示当前评论内容上限；读取失败时前端回退默认 `1000` 字 / `4096` UTF-8 bytes，后端仍以 `IAnonymousCommentPolicyService` 为准。admin 关闭匿名评论时前端隐藏匿名/强匿名入口，后端仍 fail closed 拒绝匿名写入。
 

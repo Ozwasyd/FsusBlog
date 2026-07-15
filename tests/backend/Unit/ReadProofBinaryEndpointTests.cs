@@ -124,6 +124,34 @@ public sealed class ReadProofBinaryEndpointTests
     }
 
     [Fact]
+    public async Task SubmitAsync_DedupUnavailable_DoesNotCreateBackgroundRiskWork()
+    {
+        var aeds = new AedsEncoder();
+        var request = new HumanReadSubmitRequest("token-1", "site", "home", null, 9000);
+        var context = CreateContext(
+            AedsFrameType.HumanReadSubmitRequest,
+            BinaryRequestPayload.Success(PodBinaryCodec.EncodeHumanReadSubmitRequest(request)));
+        var proofAdapter = new FakeProofAdapter
+        {
+            SubmitResponse = new HumanReadSubmitResponse(false, "dedup_unavailable")
+        };
+        var riskSink = Substitute.For<ISecurityRiskSignalSink>();
+
+        BinaryFrameResult result = await BinaryEndpoints.HandleHumanReadSubmitAsync(
+            context,
+            proofAdapter,
+            riskSink,
+            aeds,
+            CancellationToken.None);
+
+        AedsDecodeResult decoded = await ExecuteAndDecodeAsync(result, context, aeds);
+        Assert.True(PodBinaryCodec.TryDecodeHumanReadSubmitResponse(decoded.Payload, out HumanReadSubmitResponse body));
+        Assert.False(body.Counted);
+        Assert.Equal("dedup_unavailable", body.Status);
+        await riskSink.DidNotReceiveWithAnyArgs().AddRiskAsync(default!, default);
+    }
+
+    [Fact]
     public async Task ChallengeAsync_MalformedPayload_ReturnsApiErrorFrame()
     {
         var aeds = new AedsEncoder();

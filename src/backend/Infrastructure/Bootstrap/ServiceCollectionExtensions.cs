@@ -234,17 +234,15 @@ public static class ServiceCollectionExtensions
             options.AddPolicy("read_proof", httpContext =>
             {
                 var policy = httpContext.RequestServices.GetRequiredService<IAntiCrawlerPolicyProvider>().Current.Options;
-                string clientIp = httpContext.GetClientIp();
-                if (ShouldBypassLoopbackRateLimits(httpContext, clientIp))
+                if (ShouldBypassLoopbackRateLimits(httpContext, httpContext.GetClientIp()))
                 {
                     return RateLimitPartition.GetNoLimiter("loopback");
                 }
 
-                string deviceFp = httpContext.Request.Headers["X-Fsus-Device-Fp"].ToString();
-                string key = string.IsNullOrWhiteSpace(deviceFp)
-                    ? $"{clientIp}:{httpContext.Request.Path}"
-                    : $"{clientIp}:{deviceFp}:{httpContext.Request.Path}";
-                return CreateFixedWindowPartition($"read-proof:{key}", policy.ReadProofPermitLimit, 0);
+                string partition = httpContext.RequestServices
+                    .GetRequiredService<IReadProofRateLimitPartitioner>()
+                    .CreatePartition(httpContext);
+                return CreateFixedWindowPartition($"read-proof:{partition}", policy.ReadProofPermitLimit, 0);
             });
 
             options.AddPolicy("notification_stream", httpContext =>

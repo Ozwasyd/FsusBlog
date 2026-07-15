@@ -1,6 +1,9 @@
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Outputs;
+using Microsoft.Extensions.Logging;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -178,6 +181,126 @@ public sealed class HumanReadProofSubmissionBehaviorTests
             static item => Assert.Equal(HumanReadProofService.DedupLeaseTtl, item.Ttl));
     }
 
+    [Fact]
+    public async Task SubmitAsync_DedupInfrastructureFailureDropsTheStatisticWithoutRawIpFallback()
+    {
+        const string rawIp = "203.0.113.177";
+        var logger = new CollectingLogger<HumanReadProofService>();
+        await using var harness = HumanReadProofTestHarness.Create(logger: logger);
+        HumanReadChallengeResponse challenge = Assert.IsType<HumanReadChallengeResponse>(
+            await harness.Service.CreateChallengeAsync(
+                harness.CreateBrowserContext(remoteIp: rawIp),
+                new HumanReadChallengeRequest("article", "article:42", 42)));
+        harness.Time.Advance(TimeSpan.FromSeconds(9));
+        harness.Cache.AcquireException = new InvalidOperationException($"cache endpoint unavailable for {rawIp}");
+
+        HumanReadSubmitResponse response = await harness.Service.SubmitAsync(
+            harness.CreateBrowserContext(remoteIp: rawIp),
+            new HumanReadSubmitRequest(challenge.Token, "article", "article:42", 42, 9_000));
+
+        Assert.False(response.Counted);
+        Assert.Equal("dedup_unavailable", response.Status);
+        Assert.False(harness.Channel.Reader.TryRead(out _));
+        Assert.NotEmpty(logger.Entries);
+        Assert.All(logger.Entries, entry => Assert.DoesNotContain(rawIp, entry, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SubmitAsync_SaturatedChannelAndTelemetryDoNotRetainRawNetworkStrings()
+    {
+        var logger = new CollectingLogger<HumanReadProofService>();
+        await using var harness = HumanReadProofTestHarness.Create(logger: logger);
+        for (int index = 0; index < VisitLogChannel.Capacity; index++)
+        {
+            Assert.True(harness.Channel.TryWrite(new VisitLogMessage(
+                new DateTime(2026, 5, 13, 0, 0, 0, DateTimeKind.Utc),
+                HumanReadEventTypes.SiteRead,
+                null,
+                ReadDwellBuckets.Under10Seconds)));
+        }
+
+        using Activity activity = new Activity("read-proof-privacy-fixture").Start();
+        (WeakReference<string> rawIp, WeakReference<string> forwardedFor) =
+            await SubmitWithEphemeralNetworkStringsAsync(harness);
+
+        Assert.Equal(VisitLogChannel.Capacity, harness.Channel.QueuedCount);
+        Assert.Equal(1, harness.Channel.SaturatedWriteCount);
+        Assert.Contains(logger.Entries, static entry => entry.Contains("Saturated: True", StringComparison.Ordinal));
+        Assert.DoesNotContain(activity.TagObjects, static tag => tag.Key.Contains("ip", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(activity.Baggage, static item => item.Key.Contains("ip", StringComparison.OrdinalIgnoreCase));
+
+        ForceFullCollection();
+        Assert.False(rawIp.TryGetTarget(out _));
+        Assert.False(forwardedFor.TryGetTarget(out _));
+    }
+
+    [Fact]
+    public async Task SubmitAsync_IgnoresUntrustedProxyHeadersAndNormalizesMappedIpv4()
+    {
+        await using var harness = HumanReadProofTestHarness.Create();
+        var challengeContext = harness.CreateBrowserContext(remoteIp: "::ffff:192.0.2.88");
+        challengeContext.Request.Headers["X-Forwarded-For"] = "203.0.113.90, 10.0.0.4";
+        challengeContext.Request.Headers["X-Real-IP"] = "malformed";
+        HumanReadChallengeResponse challenge = Assert.IsType<HumanReadChallengeResponse>(
+            await harness.Service.CreateChallengeAsync(
+                challengeContext,
+                new HumanReadChallengeRequest("article", "article:42", 42)));
+        harness.Time.Advance(TimeSpan.FromSeconds(9));
+        var submitContext = harness.CreateBrowserContext(remoteIp: "192.0.2.88");
+        submitContext.Request.Headers["X-Forwarded-For"] = "not-an-ip";
+        submitContext.Request.Headers["X-Real-IP"] = "198.51.100.250";
+
+        HumanReadSubmitResponse response = await harness.Service.SubmitAsync(
+            submitContext,
+            new HumanReadSubmitRequest(challenge.Token, "article", "article:42", 42, 9_000));
+
+        Assert.True(response.Counted);
+        Assert.True(harness.Channel.Reader.TryRead(out VisitLogMessage message));
+        string transport = message.ToString();
+        Assert.DoesNotContain("192.0.2.88", transport, StringComparison.Ordinal);
+        Assert.DoesNotContain("203.0.113.90", transport, StringComparison.Ordinal);
+        Assert.DoesNotContain("198.51.100.250", transport, StringComparison.Ordinal);
+        Assert.All(harness.Cache.Acquisitions, acquisition =>
+        {
+            Assert.DoesNotContain("192.0.2.88", acquisition.Identity, StringComparison.Ordinal);
+            Assert.DoesNotContain("203.0.113.90", acquisition.Identity, StringComparison.Ordinal);
+            Assert.DoesNotContain("198.51.100.250", acquisition.Identity, StringComparison.Ordinal);
+        });
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static async Task<(WeakReference<string> RawIp, WeakReference<string> ForwardedFor)>
+        SubmitWithEphemeralNetworkStringsAsync(HumanReadProofTestHarness harness)
+    {
+        string rawIp = new("203.0.113.241".ToCharArray());
+        string forwardedFor = new("198.51.100.90, 10.0.0.5".ToCharArray());
+        var rawIpReference = new WeakReference<string>(rawIp);
+        var forwardedReference = new WeakReference<string>(forwardedFor);
+        var challengeContext = harness.CreateBrowserContext(remoteIp: rawIp);
+        challengeContext.Request.Headers["X-Forwarded-For"] = forwardedFor;
+        HumanReadChallengeResponse challenge = Assert.IsType<HumanReadChallengeResponse>(
+            await harness.Service.CreateChallengeAsync(
+                challengeContext,
+                new HumanReadChallengeRequest("article", "article:42", 42)));
+        harness.Time.Advance(TimeSpan.FromSeconds(9));
+        var submitContext = harness.CreateBrowserContext(remoteIp: rawIp);
+        submitContext.Request.Headers["X-Forwarded-For"] = forwardedFor;
+        HumanReadSubmitResponse response = await harness.Service.SubmitAsync(
+            submitContext,
+            new HumanReadSubmitRequest(challenge.Token, "article", "article:42", 42, 9_000));
+        Assert.True(response.Counted);
+        return (rawIpReference, forwardedReference);
+    }
+
+    private static void ForceFullCollection()
+    {
+        for (int index = 0; index < 3; index++)
+        {
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
+            GC.WaitForPendingFinalizers();
+        }
+    }
+
     private static async Task SubmitArticleAsync(HumanReadProofTestHarness harness, int articleId)
     {
         string route = $"article:{articleId}";
@@ -191,5 +314,44 @@ public sealed class HumanReadProofSubmissionBehaviorTests
             new HumanReadSubmitRequest(challenge.Token, "article", route, articleId, 9000));
         Assert.True(response.Counted);
         Assert.True(harness.Channel.Reader.TryRead(out _));
+    }
+
+    private sealed class CollectingLogger<T> : ILogger<T>
+    {
+        private readonly List<string> _entries = [];
+
+        internal IReadOnlyList<string> Entries
+        {
+            get
+            {
+                lock (_entries)
+                {
+                    return [.. _entries];
+                }
+            }
+        }
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            string entry = formatter(state, exception);
+            if (exception is not null)
+            {
+                entry = $"{entry} | {exception}";
+            }
+
+            lock (_entries)
+            {
+                _entries.Add(entry);
+            }
+        }
     }
 }

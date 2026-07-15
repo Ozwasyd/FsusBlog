@@ -58,7 +58,7 @@
     "check:infra-security-governance": "node ../../tests/frontend/checks/static/check-infra-security-governance.mjs",
     "check:test-fixture-secret-governance": "node ../../tests/frontend/checks/static/check-test-fixture-secret-governance.mjs",
     "check:server-try-catch": "node ../../tests/frontend/checks/static/check-server-try-catch.mjs",
-    "check:telemetry-privacy": "node ../../tests/frontend/checks/static/check-telemetry-privacy.mjs",
+    "check:telemetry-privacy": "node ../../tests/frontend/checks/static/check-telemetry-privacy.mjs && node ../../tools/security/check-async-telemetry-privacy.mjs && node ../../tests/frontend/checks/static/check-async-telemetry-privacy-fixture.mjs",
     "check:performance-governance": "node ../../tests/frontend/checks/static/check-performance-governance.mjs",
     "check:route-asset-budget": "node ../../tools/frontend/check-route-asset-budget.mjs",
     "check:public-performance-batch": "node ../../tests/frontend/checks/static/check-public-performance-batch.mjs",

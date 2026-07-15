@@ -42,7 +42,7 @@ public static class ReadDwellBuckets
 
 public class VisitLogChannel
 {
-    private const int Capacity = 50000;
+    internal const int Capacity = 50_000;
 
     private readonly Channel<VisitLogMessage> _channel;
     private long _saturatedWriteCount;

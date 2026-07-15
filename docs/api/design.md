@@ -12,6 +12,7 @@
 
 - 一旦端点路径发布，非 breaking 语义变更在原路径叠加；breaking 变更须通过新 frame type、payload layout、显式 route segment 或新端点表达，不能随意复用旧路径语义。
 - 所有请求/响应字段用 `src/shared/Contracts/Outputs/ServerResponseContracts.cs` 作为唯一来源，任何业务逻辑层不得自行定义与之并行的 DTO。
+- 请求期网络身份只能在同步入口生成用途隔离、短 epoch 的限流/去重材料；任何 AEDS response、异步消息、retry/fallback、日志、trace 或 metric contract 都不得携带 raw IP。依赖不可用时允许返回现有响应 frame 的固定低基数状态并丢弃统计，不能把请求上下文转入后台补偿。
 
 ### 2. AEDS Binary-only 运行时协议
 

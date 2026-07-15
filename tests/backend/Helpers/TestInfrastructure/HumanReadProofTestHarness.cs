@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -41,7 +42,8 @@ internal sealed class HumanReadProofTestHarness : IAsyncDisposable
 
     internal static HumanReadProofTestHarness Create(
         IReadOnlyDictionary<string, string?>? overrides = null,
-        DateTimeOffset? now = null)
+        DateTimeOffset? now = null,
+        ILogger<HumanReadProofService>? logger = null)
     {
         var settings = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {
@@ -75,7 +77,7 @@ internal sealed class HumanReadProofTestHarness : IAsyncDisposable
             cache,
             channel,
             time,
-            NullLogger<HumanReadProofService>.Instance,
+            logger ?? NullLogger<HumanReadProofService>.Instance,
             environment);
         return new HumanReadProofTestHarness(service, services, channel, time, cache);
     }
@@ -138,6 +140,8 @@ internal sealed class HumanReadProofTestHarness : IAsyncDisposable
         private readonly HashSet<string> _leases = new(StringComparer.Ordinal);
         private readonly List<LeaseAcquisition> _acquisitions = [];
 
+        internal Exception? AcquireException { get; set; }
+
         internal IReadOnlyList<LeaseAcquisition> Acquisitions
         {
             get
@@ -156,6 +160,11 @@ internal sealed class HumanReadProofTestHarness : IAsyncDisposable
             TimeSpan ttl,
             CancellationToken cancellationToken = default)
         {
+            if (AcquireException is not null)
+            {
+                throw AcquireException;
+            }
+
             lock (_gate)
             {
                 bool acquired = _leases.Add($"{policyId}:{identity}");

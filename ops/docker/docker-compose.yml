@@ -19,8 +19,20 @@ services:
       io.fsusblog.deployment.generation: ${FSUSBLOG_DEPLOYMENT_GENERATION:?Set immutable candidate runtime generation}
     restart: always
     stop_grace_period: ${FSUSBLOG_STOP_GRACE_PERIOD:-60s}
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      core:
+        soft: 0
+        hard: 0
     environment:
       - ASPNETCORE_ENVIRONMENT=${FSUSBLOG_ASPNETCORE_ENVIRONMENT:-Production}
+      # Ordinary production slots must not emit managed dumps, diagnostic-port captures, or OS core files.
+      - DOTNET_DbgEnableMiniDump=0
+      - COMPlus_DbgEnableMiniDump=0
+      - DOTNET_EnableDiagnostics=0
       - FSUSBLOG_RELEASE_ID=${FSUSBLOG_RELEASE_ID:?Set releaseId from release-manifest.json}
       - FSUSBLOG_RELEASE_SLOT=${FSUSBLOG_RELEASE_SLOT:?Set the candidate or active release slot}
       - FSUSBLOG_IMAGE_REF=${FSUSBLOG_IMAGE_REF:?Set immutable repository@sha256 digest}

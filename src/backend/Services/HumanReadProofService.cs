@@ -116,7 +116,27 @@ public sealed class HumanReadProofService(
         }
 
         string proofId = HashValue(request.Token);
-        if (!await cache.TryAcquireLeaseAsync(CachePolicyId.HumanReadProof, $"proof:{proofId}", "1", ReplayTtl, cancellationToken))
+        bool proofLeaseAcquired;
+        try
+        {
+            proofLeaseAcquired = await cache.TryAcquireLeaseAsync(
+                CachePolicyId.HumanReadProof,
+                $"proof:{proofId}",
+                "1",
+                ReplayTtl,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            logger.LogWarning("真人阅读证明重放租约不可用，已丢弃本次统计。");
+            return new HumanReadSubmitResponse(false, "dedup_unavailable");
+        }
+
+        if (!proofLeaseAcquired)
         {
             return new HumanReadSubmitResponse(false, "proof_replayed");
         }
@@ -125,7 +145,27 @@ public sealed class HumanReadProofService(
             ? $"article:{scopedArticleId.ToString(CultureInfo.InvariantCulture)}"
             : "site";
         string lockIdentity = $"dedup:{aggregateScope}:epoch:{payload.DedupEpoch.ToString(CultureInfo.InvariantCulture)}:{payload.ScopedDedupToken}";
-        if (!await cache.TryAcquireLeaseAsync(CachePolicyId.HumanReadProof, lockIdentity, "1", DedupLeaseTtl, cancellationToken))
+        bool dedupLeaseAcquired;
+        try
+        {
+            dedupLeaseAcquired = await cache.TryAcquireLeaseAsync(
+                CachePolicyId.HumanReadProof,
+                lockIdentity,
+                "1",
+                DedupLeaseTtl,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            logger.LogWarning("真人阅读短周期去重租约不可用，已丢弃本次统计。");
+            return new HumanReadSubmitResponse(false, "dedup_unavailable");
+        }
+
+        if (!dedupLeaseAcquired)
         {
             return new HumanReadSubmitResponse(false, "duplicate_viewer");
         }

@@ -86,6 +86,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
         services.AddSingleton<CrawlerDetectorService>();
         services.AddSingleton<CrawlerRiskService>();
         services.AddSingleton<ICrawlerRiskService>(sp => sp.GetRequiredService<CrawlerRiskService>());
+        services.AddSingleton<IReadProofRateLimitPartitioner, ReadProofRateLimitPartitioner>();
         services.AddSingleton<ISecurityRiskPseudonymizer, SecurityRiskPseudonymizer>();
         services.AddSingleton<IVisitLogIpPseudonymizer, VisitLogIpPseudonymizer>();
         services.AddScoped<ISecurityRiskEventStore, SecurityRiskEventStore>();

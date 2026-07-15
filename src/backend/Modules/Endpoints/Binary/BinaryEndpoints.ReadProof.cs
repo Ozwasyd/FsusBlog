@@ -145,7 +145,8 @@ public static partial class BinaryEndpoints
 
     private static bool ShouldScoreRejectedSubmit(string status)
         => !string.Equals(status, "paused", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(status, "duplicate_viewer", StringComparison.OrdinalIgnoreCase);
+            && !string.Equals(status, "duplicate_viewer", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(status, "dedup_unavailable", StringComparison.OrdinalIgnoreCase);
 
     private static int ReadProofRiskScore(string status)
         => status switch

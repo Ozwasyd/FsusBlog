@@ -50,6 +50,18 @@ if [[ -f "$COMPOSE_FILE" ]]; then
   reject_pattern "$COMPOSE_FILE" '(^|["[:space:]])5432:5432(["[:space:]]|$)' 'public PostgreSQL port binding'
   require_pattern "$COMPOSE_FILE" 'AllowedHosts=\$\{APP_ALLOWED_HOSTS\}' 'AllowedHosts production environment binding'
   require_pattern "$COMPOSE_FILE" 'ReverseProxy__KnownProxies=' 'reverse proxy known proxies binding'
+  require_pattern "$COMPOSE_FILE" 'DOTNET_DbgEnableMiniDump=0' 'managed dump disablement'
+  require_pattern "$COMPOSE_FILE" 'COMPlus_DbgEnableMiniDump=0' 'legacy managed dump disablement'
+  require_pattern "$COMPOSE_FILE" 'DOTNET_EnableDiagnostics=0' 'production diagnostic port disablement'
+  require_pattern "$COMPOSE_FILE" 'cap_drop:' 'container capability drop policy'
+  require_pattern "$COMPOSE_FILE" '^[[:space:]]+-[[:space:]]+ALL[[:space:]]*$' 'all Linux capabilities dropped'
+  require_pattern "$COMPOSE_FILE" 'no-new-privileges:true' 'no-new-privileges policy'
+  require_pattern "$COMPOSE_FILE" 'ulimits:' 'container ulimit policy'
+  require_pattern "$COMPOSE_FILE" '^[[:space:]]+core:[[:space:]]*$' 'core dump ulimit'
+  require_pattern "$COMPOSE_FILE" '^[[:space:]]+soft:[[:space:]]+0[[:space:]]*$' 'core dump soft limit zero'
+  require_pattern "$COMPOSE_FILE" '^[[:space:]]+hard:[[:space:]]+0[[:space:]]*$' 'core dump hard limit zero'
+  reject_pattern "$COMPOSE_FILE" '(DOTNET_DbgEnableMiniDump|COMPlus_DbgEnableMiniDump|DOTNET_EnableDiagnostics)=[1-9]' 'enabled production dump or diagnostic switch'
+  reject_pattern "$COMPOSE_FILE" '^[[:space:]]+(soft|hard):[[:space:]]+(-1|unlimited)[[:space:]]*$' 'unlimited core dump policy'
 fi
 
 if [[ -f "$GATEWAY_FILE" ]]; then
