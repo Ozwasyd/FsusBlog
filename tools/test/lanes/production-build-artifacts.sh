@@ -7,7 +7,16 @@ PAYLOAD_ROOT="$ARTIFACT_ROOT/payload"
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 STARTED_AT_MS="$(node -e 'process.stdout.write(String(Date.now()))')"
 REQUESTED_DOMAINS="${FSUSBLOG_CI_PRODUCTION_BUILD_DOMAINS:-backend-runtime,test-runtime,frontend-dist,wasm,generated-contracts}"
+REUSE_BUILD_OUTPUTS="${FSUSBLOG_CI_PRODUCTION_REUSE_BUILD_OUTPUTS:-0}"
 IFS=',' read -r -a DOMAIN_LIST <<< "$REQUESTED_DOMAINS"
+
+case "$REUSE_BUILD_OUTPUTS" in
+  0|1) ;;
+  *)
+    printf '[production-build-artifacts] FSUSBLOG_CI_PRODUCTION_REUSE_BUILD_OUTPUTS must be 0 or 1\n' >&2
+    exit 1
+    ;;
+esac
 
 has_domain() {
   local expected="$1"
@@ -55,19 +64,19 @@ copy_directory() {
 rm -rf "$ARTIFACT_ROOT"
 mkdir -p "$PAYLOAD_ROOT"
 
-if has_domain backend-runtime || has_domain test-runtime; then
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { has_domain backend-runtime || has_domain test-runtime; }; then
   "$ROOT_DIR/tools/build-with-data-env.sh" dotnet restore "$ROOT_DIR/FsusBlog.slnx" -v minimal /p:NuGetAudit=false
   "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/src/backend/FsusBlog.Server.csproj" \
     -c Release --no-restore --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
 fi
-if has_domain test-runtime; then
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && has_domain test-runtime; then
   "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
     -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
 fi
-if has_domain frontend-dist || has_domain wasm; then
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && { has_domain frontend-dist || has_domain wasm; }; then
   npm --prefix "$ROOT_DIR/src/frontend" run ensure:wasm
 fi
-if has_domain frontend-dist; then
+if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && has_domain frontend-dist; then
   FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1 npm --prefix "$ROOT_DIR/src/frontend" run build:release
 fi
 

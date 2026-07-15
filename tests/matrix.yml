@@ -13,7 +13,7 @@ localProfiles:
         deadlineWeight: 18
         minimumDeadlineShare: 0.32
         dependsOn: []
-        members: [frontend-build, frontend-runtime-contracts, validate-matrix, public-hydration-fast, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, risk-control-test-matrix, ux-viewport-plan-progress]
+        members: [frontend-build, frontend-runtime-contracts, validate-matrix, production-build-artifacts, public-hydration-fast, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, risk-control-test-matrix, ux-viewport-plan-progress]
         resourceClass: cpu
         cpuWeight: 8
         memoryWeight: 3
@@ -4227,7 +4227,7 @@ tiers:
   - id: production
     owner: ServerContractAgent
     command: tools/test/lanes/noop.sh production
-    dependsOn: [fast, coverage-gate, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, ux-viewport-plan-progress, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
+    dependsOn: [fast, coverage-gate, production-build-artifacts, bootstrap, release, integration, endpoint-depth, security, wasm-fuzz-regression, contract-fuzz, perception-v2-redteam-pr, acceptance, cross-browser-smoke, visual, ux-viewport-smoke, ux-viewport-plan-progress, frontend-render-pressure, resilience, load, backend-qps, release-evidence]
     services: [postgres, redis, backend, frontend, preview]
     parallelizable: false
     exclusiveResources: [production-runtime]

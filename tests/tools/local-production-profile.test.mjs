@@ -387,11 +387,12 @@ test('artifact substitutions use a parser-compatible flat contract and reject am
   }
 })
 
-test('repository production profile maps all 77 logical tiers exactly once', () => {
+test('repository production profile maps every logical tier exactly once', () => {
   const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
   const logicalTierIds = collectLogicalTierIds(matrix.tiers, 'production')
+  const mappedTierIds = matrix.localProfiles.production.bundles.flatMap((bundle) => bundle.members)
 
-  assert.equal(logicalTierIds.length, 77)
+  assert.deepEqual(mappedTierIds.toSorted(), logicalTierIds.toSorted())
   assert.ok(logicalTierIds.includes('ux-viewport-plan-progress'))
   assert.equal(matrix.localProfiles.production.bundles.length, 5)
   assert.equal(Object.hasOwn(matrix.localProfiles.production, 'maxParallel'), false)
@@ -460,9 +461,10 @@ test('repository production t0 grants scale by weights without exceeding each ma
   assert.ok(grantsByCpu.get(16)[0] > grantsByCpu.get(8)[0], 'build-static must scale on a larger machine')
 })
 
-test('production checkpoint projection binds all 77 logical tiers to one fresh run and source state', () => {
+test('production checkpoint projection binds every logical tier to one fresh run and source state', () => {
   const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'))
   const production = matrix.localProfiles.production
+  const expectedLogicalTierCount = collectLogicalTierIds(matrix.tiers, 'production').length
   const matrixById = new Map(matrix.tiers.map((entry) => [entry.id, entry]))
   const runId = 'production-fresh-projection'
   const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
@@ -571,10 +573,11 @@ test('production checkpoint projection binds all 77 logical tiers to one fresh r
   assert.equal(projection.schema, 'fsusblog.local-profile-projection.v1')
   assert.equal(projection.runId, runId)
   assert.deepEqual(projection.sourceState, sourceState)
-  assert.equal(projection.logicalTierCount, 77)
-  assert.equal(projection.executedTierCount, 77)
+  assert.equal(projection.logicalTierCount, expectedLogicalTierCount)
+  assert.equal(projection.executedTierCount, expectedLogicalTierCount)
   assert.equal(projection.summaryOnlyTierCount, 0)
-  assert.equal(Object.keys(projection.entries).length, 77)
+  assert.equal(Object.keys(projection.entries).length, expectedLogicalTierCount)
+  assert.equal(projection.entries['production-build-artifacts'].physicalBundleId, 'build-static')
   assert.equal(projection.entries.integration.physicalBundleId, 'runtime-browser')
   assert.equal(projection.entries.integration.executionSource, 'fresh')
   assert.equal(projection.entries.integration.artifactProofMode, 'matrix-runtime-artifacts-with-substitutions')

@@ -1147,6 +1147,9 @@ function commandStep(id, command, members, options = {}) {
 
 function buildStaticSteps() {
   return [
+    commandStep('backend-tests-ready', null, [], {
+      resources: { coordinationOnly: true }
+    }),
     commandStep('frontend-build', 'cd src/frontend && FSUSBLOG_SKIP_BACKEND_WWWROOT_SYNC=1 npm run build:release', ['frontend-build'], {
       artifacts: [path.join(frontendDistRoot, 'index.html')],
       resources: {
@@ -1169,6 +1172,15 @@ function buildStaticSteps() {
       'mkdir -p "$FSUSBLOG_BACKEND_WEBROOT"',
       'cp -R "$FSUSBLOG_FRONTEND_DIST_ROOT"/. "$FSUSBLOG_BACKEND_WEBROOT"/'
     ].join(' && '), ['frontend-build'], { dependsOn: ['frontend-build'] }),
+    commandStep(
+      'production-build-artifacts',
+      'FSUSBLOG_CI_PRODUCTION_REUSE_BUILD_OUTPUTS=1 bash tools/test/lanes/production-build-artifacts.sh',
+      ['production-build-artifacts'],
+      {
+        dependsOn: ['frontend-build', 'backend-tests-ready'],
+        artifacts: [path.join(root, '.tmp/ci-production-build/receipt.json')]
+      }
+    ),
     commandStep('frontend-runtime-contracts', 'cd src/frontend && FSUSBLOG_COMMAND_MANIFEST_WORKERS="$FSUSBLOG_STEP_CPU_BUDGET" node ../../tools/test/run-command-manifest.mjs ../../tests/frontend/checks/runtime/manifest.json', ['frontend-runtime-contracts'], { dependsOn: ['sync-static-assets'] }),
     commandStep('wasm-fuzz', 'tools/test/lanes/wasm-fuzz-regression.sh', ['wasm-fuzz-regression'], { dependsOn: ['frontend-build'] })
   ]
@@ -1498,6 +1510,54 @@ async function waitForBackendBuildReady(timeoutMs = resolveExecutionWaitTimeoutM
   throw new Error(`timed out waiting for run-bound backend build readiness: ${expectedRunId}`)
 }
 
+async function waitForBackendTestsReady(timeoutMs = resolveExecutionWaitTimeoutMs(['backend-tests'])) {
+  const expectedRunId = schedulerRunId()
+  const markerFile = backendTestsReadyFile(expectedRunId)
+  const checkpointFile = path.join(root, '.tmp/test-runs', expectedRunId, 'checkpoint.json')
+  const artifactPath = relative(backendTestDll)
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (fs.existsSync(checkpointFile)) {
+      try {
+        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+        const status = checkpoint.tiers?.[`local-${profileId}-backend-tests`]?.status
+        if (['failure', 'blocked', 'cancelled'].includes(status)) {
+          throw new Error(`backend-tests:${status} before backend tests readiness`)
+        }
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error
+      }
+    }
+    if (fs.existsSync(markerFile)) {
+      try {
+        const marker = JSON.parse(fs.readFileSync(markerFile, 'utf8'))
+        if (marker.schema !== 'fsusblog.local-production.backend-tests-ready.v1'
+            || marker.status !== 'success'
+            || marker.physicalBundleId !== 'backend-tests'
+            || marker.schedulerRunId !== expectedRunId
+            || !markerHasCurrentBuildLayout(marker)
+            || marker.testDll?.path !== artifactPath
+            || marker.testDll?.exists !== true) {
+          throw new Error(`backend tests readiness marker is not bound to scheduler run ${expectedRunId}`)
+        }
+        if (!fs.existsSync(backendTestDll)) throw new Error(`backend tests readiness artifact is missing: ${artifactPath}`)
+        const expectedDigest = marker.testDll.digest
+        const actual = digestArtifacts([artifactPath], 'consume-backend-tests-ready')
+        const actualDigest = actual.digests[artifactPath]
+        if (!expectedDigest || actualDigest !== expectedDigest
+          || marker.testDll.artifactRef !== actual.refs[artifactPath]) {
+          throw new Error(`backend tests readiness digest mismatch: ${artifactPath}`)
+        }
+        return
+      } catch (error) {
+        throw new Error(`invalid run-bound backend tests readiness marker: ${error.message}`, { cause: error })
+      }
+    }
+    await waitForCoordinationPoll(250, 'backend tests readiness')
+  }
+  throw new Error(`timed out waiting for run-bound backend tests readiness: ${expectedRunId}`)
+}
+
 async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeoutMs(['build-static'])) {
   const expectedRunId = schedulerRunId()
   const markerFile = frontendBuildReadyFile(expectedRunId)
@@ -1637,9 +1697,11 @@ async function waitForFrontendTestCapacity(targetCpuUnits, timeoutMs = bundleDea
 async function executeRuntimeStepBody(step) {
   const readinessWait = step.id === 'backend-build-ready'
     ? waitForBackendBuildReady
-    : step.id === 'frontend-build-ready'
-      ? waitForFrontendBuildReady
-      : null
+    : step.id === 'backend-tests-ready'
+      ? waitForBackendTestsReady
+      : step.id === 'frontend-build-ready'
+        ? waitForFrontendBuildReady
+        : null
   if (!readinessWait) {
     const result = await executeStep(step)
     if (step.id === 'bootstrap') {
@@ -2169,7 +2231,7 @@ async function run() {
   else if (bundleId === 'build-static') {
     await executeWeightedStepDag(buildStaticSteps(), bundleDagCapacity, async (step) => {
       try {
-        const result = await executeStep(step)
+        const result = await executeRuntimeStepBody(step)
         if (step.id === 'sync-static-assets') publishFrontendBuildReady()
         return result
       } catch (error) {
