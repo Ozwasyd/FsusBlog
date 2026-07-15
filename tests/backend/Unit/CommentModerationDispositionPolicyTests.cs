@@ -7,6 +7,31 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CommentModerationDispositionPolicyTests
 {
+    [Theory]
+    [InlineData(CommentModerationStatus.Pending, CommentModerationStatus.Pending, false)]
+    [InlineData(CommentModerationStatus.Pending, CommentModerationStatus.Approved, true)]
+    [InlineData(CommentModerationStatus.Pending, CommentModerationStatus.Rejected, true)]
+    [InlineData(CommentModerationStatus.Pending, CommentModerationStatus.Hidden, true)]
+    [InlineData(CommentModerationStatus.Approved, CommentModerationStatus.Pending, false)]
+    [InlineData(CommentModerationStatus.Approved, CommentModerationStatus.Approved, false)]
+    [InlineData(CommentModerationStatus.Approved, CommentModerationStatus.Rejected, true)]
+    [InlineData(CommentModerationStatus.Approved, CommentModerationStatus.Hidden, true)]
+    [InlineData(CommentModerationStatus.Rejected, CommentModerationStatus.Pending, false)]
+    [InlineData(CommentModerationStatus.Rejected, CommentModerationStatus.Approved, true)]
+    [InlineData(CommentModerationStatus.Rejected, CommentModerationStatus.Rejected, false)]
+    [InlineData(CommentModerationStatus.Rejected, CommentModerationStatus.Hidden, true)]
+    [InlineData(CommentModerationStatus.Hidden, CommentModerationStatus.Pending, false)]
+    [InlineData(CommentModerationStatus.Hidden, CommentModerationStatus.Approved, true)]
+    [InlineData(CommentModerationStatus.Hidden, CommentModerationStatus.Rejected, true)]
+    [InlineData(CommentModerationStatus.Hidden, CommentModerationStatus.Hidden, false)]
+    public void TransitionMatrix_ExplicitlyCoversEveryKnownStatePair(
+        CommentModerationStatus from,
+        CommentModerationStatus to,
+        bool expected)
+    {
+        Assert.Equal(expected, CommentModerationTransitions.IsAllowed(from, to));
+    }
+
     [Fact]
     public void Decide_CleanModelResult_KeepsApprovedWithoutHumanReview()
     {
@@ -117,7 +142,26 @@ public sealed class CommentModerationDispositionPolicyTests
         Assert.Equal("0.95", disposition.AuditContext["confidence"]);
         Assert.Equal(CommentModerationDispositionModes.AutoHideHighRisk, disposition.AuditContext["mode"]);
         Assert.Equal("model_risk_auto_hidden", disposition.AuditContext["reason"]);
+        Assert.Equal(CommentModerationStatus.Approved.ToString(), disposition.AuditContext["previous_status"]);
+        Assert.Equal(CommentModerationStatus.Hidden.ToString(), disposition.AuditContext["next_status"]);
+        Assert.Equal("true", disposition.AuditContext["transition_allowed"]);
         Assert.Equal("false", disposition.AuditContext["requires_human_review"]);
+    }
+
+    [Fact]
+    public void Decide_RiskyAlreadyHidden_DoesNotRepeatTransitionOrAuditAction()
+    {
+        CommentModerationDispositionPolicy policy = BuildPolicy();
+
+        CommentModerationDisposition disposition = policy.Decide(
+            CreateComment(status: CommentModerationStatus.Hidden),
+            CreateRegionDecision(canPublish: true),
+            CreateModelResult(label: "risky", confidence: 0.95d, severity: "high"));
+
+        Assert.False(disposition.AutoApplied);
+        Assert.Equal(CommentModerationStatus.Hidden, disposition.NextStatus);
+        Assert.Equal("model_risk_noop_state", disposition.Reason);
+        Assert.Equal("false", disposition.AuditContext["transition_allowed"]);
     }
 
     private static CommentModerationDispositionPolicy BuildPolicy(params KeyValuePair<string, string?>[] settings)
@@ -131,14 +175,16 @@ public sealed class CommentModerationDispositionPolicyTests
     private static KeyValuePair<string, string?> Setting(string key, string value)
         => new(key, value);
 
-    private static Comment CreateComment(long id = 1)
+    private static Comment CreateComment(
+        long id = 1,
+        CommentModerationStatus status = CommentModerationStatus.Approved)
         => new()
         {
             Id = id,
             ArticleId = 10,
             Content = "hello",
             CreateTime = DateTime.UtcNow,
-            ModerationStatus = CommentModerationStatus.Approved,
+            ModerationStatus = status,
             ModerationReason = "published_pending_review"
         };
 

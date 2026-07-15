@@ -679,7 +679,8 @@ public partial class CommentService(
         CommentModerationDisposition disposition,
         CancellationToken cancellationToken)
     {
-        if (!disposition.AutoApplied || disposition.NextStatus == comment.ModerationStatus)
+        if (!disposition.AutoApplied ||
+            !CommentModerationTransitions.IsAllowed(comment.ModerationStatus, disposition.NextStatus))
         {
             return;
         }
@@ -688,7 +689,9 @@ public partial class CommentService(
         DateTime moderatedAt = DateTime.UtcNow;
         string reason = TextHelpers.NormalizeNullable($"model_policy:{disposition.Reason}", 256) ?? disposition.Reason;
         AutomaticModerationTarget? target = await LoadAutomaticModerationTargetAsync(comment.Id, cancellationToken);
-        if (target is null || target.ModerationStatus != previousStatus)
+        if (target is null ||
+            target.ModerationStatus != previousStatus ||
+            !CommentModerationTransitions.IsAllowed(target.ModerationStatus, disposition.NextStatus))
         {
             logger.LogInformation(
                 "模型审核自动处置未应用，评论状态已变化 | CommentId: {CommentId} | Previous: {PreviousStatus} | Current: {CurrentStatus} | Next: {NextStatus}",
@@ -784,9 +787,11 @@ public partial class CommentService(
                 moderated_at = CAST(@ModeratedAt AS timestamp)
             WHERE id = @CommentId
               AND is_deleted = false
+              AND moderation_status = @ExpectedStatus
               AND xmin::text = @RowVersion;
             """,
             new SugarParameter("@CommentId", target.Id),
+            new SugarParameter("@ExpectedStatus", (int)target.ModerationStatus),
             new SugarParameter("@NextStatus", (int)nextStatus),
             new SugarParameter("@Reason", reason),
             new SugarParameter("@ModeratedAt", moderatedAt),

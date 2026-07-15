@@ -27,6 +27,7 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
         string mode = NormalizeMode(configuration["Moderation:AntiSpamModel:Mode"]);
         CommentModerationStatus nextStatus = comment.ModerationStatus;
         bool autoApplied = false;
+        bool transitionAllowed = false;
         bool requiresHumanReview = false;
         string reason = "score_only";
 
@@ -36,11 +37,21 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
         }
         else if (IsModelRiskHit(modelResult))
         {
-            nextStatus = CommentModerationStatus.Hidden;
-            autoApplied = nextStatus != comment.ModerationStatus;
             double borderlineThreshold = ResolveThreshold("Moderation:AntiSpamModel:BorderlineRiskConfidenceThreshold", 0.90d);
             requiresHumanReview = modelResult.Confidence < borderlineThreshold;
-            reason = requiresHumanReview ? "model_risk_borderline_review" : "model_risk_auto_hidden";
+            transitionAllowed = CommentModerationTransitions.IsAllowed(
+                comment.ModerationStatus,
+                CommentModerationStatus.Hidden);
+            if (transitionAllowed)
+            {
+                nextStatus = CommentModerationStatus.Hidden;
+                autoApplied = true;
+                reason = requiresHumanReview ? "model_risk_borderline_review" : "model_risk_auto_hidden";
+            }
+            else
+            {
+                reason = "model_risk_noop_state";
+            }
         }
         else
         {
@@ -53,7 +64,15 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
             autoApplied,
             requiresHumanReview,
             mode,
-            BuildAuditContext(comment, modelResult, mode, reason, nextStatus, autoApplied, requiresHumanReview));
+            BuildAuditContext(
+                comment,
+                modelResult,
+                mode,
+                reason,
+                nextStatus,
+                autoApplied,
+                transitionAllowed,
+                requiresHumanReview));
     }
 
     private static bool IsModelRiskHit(AntiSpamModerationResult modelResult)
@@ -82,6 +101,7 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
         string reason,
         CommentModerationStatus nextStatus,
         bool autoApplied,
+        bool transitionAllowed,
         bool requiresHumanReview)
         => new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -95,7 +115,9 @@ public sealed class CommentModerationDispositionPolicy(IConfiguration configurat
             ["error_code"] = modelResult.ErrorCode ?? string.Empty,
             ["mode"] = mode,
             ["reason"] = reason,
+            ["previous_status"] = comment.ModerationStatus.ToString(),
             ["next_status"] = nextStatus.ToString(),
+            ["transition_allowed"] = transitionAllowed ? "true" : "false",
             ["auto_applied"] = autoApplied ? "true" : "false",
             ["requires_human_review"] = requiresHumanReview ? "true" : "false"
         };

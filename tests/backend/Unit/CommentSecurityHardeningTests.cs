@@ -112,6 +112,12 @@ public sealed class CommentSecurityHardeningTests
         Type stateMachine = apply.GetCustomAttribute<System.Runtime.CompilerServices.AsyncStateMachineAttribute>()!.StateMachineType;
         MethodInfo moveNext = stateMachine.GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.NonPublic)!;
         Assert.Contains((int)CommentModerationStatus.Hidden, RuntimeMetadataInspection.DescribeInt32Constants(moveNext));
+
+        string conditionalUpdate = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CommentService),
+            "TryApplyAutomaticModerationDispositionAsync");
+        Assert.Contains("@ExpectedStatus", conditionalUpdate, StringComparison.Ordinal);
+        Assert.Contains("moderation_status = @ExpectedStatus", conditionalUpdate, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -367,6 +373,9 @@ public sealed class CommentSecurityHardeningTests
         Assert.True((bool)transition.Invoke(null, [CommentModerationStatus.Pending, CommentModerationStatus.Approved])!);
         Assert.True((bool)transition.Invoke(null, [CommentModerationStatus.Approved, CommentModerationStatus.Hidden])!);
         Assert.True((bool)transition.Invoke(null, [CommentModerationStatus.Hidden, CommentModerationStatus.Approved])!);
+        Assert.False((bool)transition.Invoke(null, [CommentModerationStatus.Hidden, CommentModerationStatus.Hidden])!);
+        Assert.False((bool)transition.Invoke(null, [CommentModerationStatus.Hidden, CommentModerationStatus.Pending])!);
+        Assert.False((bool)transition.Invoke(null, [CommentModerationStatus.Rejected, CommentModerationStatus.Pending])!);
         Assert.False((bool)transition.Invoke(null, [(CommentModerationStatus)99, CommentModerationStatus.Approved])!);
     }
 

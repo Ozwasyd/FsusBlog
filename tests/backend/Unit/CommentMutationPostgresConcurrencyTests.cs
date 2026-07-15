@@ -182,6 +182,51 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
         Assert.True(scope.UserCommentsChanged);
     }
 
+    [Fact]
+    public async Task ModerateCommentAsync_TransitionMatrixPersistsOnlyAllowedPairs()
+    {
+        string connectionString = await CreateDatabaseAsync();
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        SeedUser(db, 7);
+        SeedArticle(db, 42);
+        var invalidations = new RecordingCacheInvalidationDispatcher();
+        IMessageRealtimePublisher realtime = Substitute.For<IMessageRealtimePublisher>();
+        AuthoringWorkflowService service = CreateAuthoringService(db, invalidations, realtime);
+        CommentModerationStatus[] states = Enum.GetValues<CommentModerationStatus>();
+        int index = 0;
+        int allowedCount = 0;
+
+        foreach (CommentModerationStatus from in states)
+        {
+            foreach (CommentModerationStatus to in states)
+            {
+                long commentId = 300 + index++;
+                SeedComment(db, commentId, articleId: 42, userId: 7, parentId: null, rootId: null, from);
+                bool expected = CommentModerationTransitions.IsAllowed(from, to);
+
+                bool updated = await service.ModerateCommentAsync(
+                    actorAdminPrincipalId: 99,
+                    commentId,
+                    new CommentModerationRequest(to, $"matrix:{from}->{to}"));
+
+                Comment persisted = db.Queryable<Comment>().InSingle(commentId);
+                Assert.Equal(expected, updated);
+                Assert.Equal(expected ? to : from, persisted.ModerationStatus);
+                if (expected)
+                {
+                    allowedCount++;
+                    Assert.Equal(99L, persisted.ModeratedByAdminPrincipalId);
+                }
+                else
+                {
+                    Assert.Null(persisted.ModeratedByAdminPrincipalId);
+                }
+            }
+        }
+
+        Assert.Equal(allowedCount, invalidations.Scopes.Count);
+    }
+
     private async Task<string> CreateDatabaseAsync()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);

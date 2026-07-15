@@ -1,0 +1,27 @@
+schema: fsusblog.comment-moderation-state-machine.v1
+name: comment_moderation
+states:
+  - Pending
+  - Approved
+  - Rejected
+  - Hidden
+transitions:
+  - from: Pending
+    to: [Approved, Rejected, Hidden]
+  - from: Approved
+    to: [Rejected, Hidden]
+  - from: Rejected
+    to: [Approved, Hidden]
+  - from: Hidden
+    to: [Approved, Rejected]
+denied:
+  self_transitions: true
+  to_pending_from: [Approved, Rejected, Hidden]
+guards:
+  manual_write: "WHERE moderation_status = expected_status"
+  automatic_write: "WHERE moderation_status = expected_status AND xmin = row_version"
+audit:
+  single: comment-moderation
+  bulk: comment-moderation-bulk
+  automatic: model_moderation_auto_disposition
+  required_dimensions: [comment_id, previous_status, next_status, actor, reason, outcome]

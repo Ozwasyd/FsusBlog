@@ -84,3 +84,18 @@ Audit context contains low-cardinality metadata such as comment id, built-in run
 ## Queue Usage
 
 The admin comment moderation workbench shows model label, confidence, runtime id, severity, primary reason, raw reason, and whether the comment was model-auto-disposed. Local filters can narrow the current queue by model label or runtime id. Bulk and single manual moderation still require the admin passkey step-up proof flow; model output is never an automatic final decision in the default `score-only` mode.
+
+## Comment Status Transition Matrix
+
+`CommentModerationTransitions` is the single runtime source for manual and model-driven status changes. A state cannot transition to itself, and no state can return to `Pending` after a moderation decision. The machine-readable dashboard source is [`comment-moderation-state-machine.yaml`](moderation/comment-moderation-state-machine.yaml).
+
+| From / To | Pending | Approved | Rejected | Hidden |
+|-----------|---------|----------|----------|--------|
+| Pending | denied | allowed | allowed | allowed |
+| Approved | denied | denied | allowed | allowed |
+| Rejected | denied | allowed | denied | allowed |
+| Hidden | denied | allowed | allowed | denied |
+
+Single and bulk admin writes compare the persisted `moderation_status` with the state that was read before the update. Automatic model writes compare both that expected status and PostgreSQL `xmin`; a concurrent winner therefore prevents the stale write and its audit/notification side effects. Successful single and automatic audits carry the previous and next state; bulk audit context records a deterministic `from->to:count` summary.
+
+Operational rollback does not require a process restart: disable the model runtime through the existing moderation runtime control to stop new automatic transitions while preserving hard dictionaries, region policy, and manual review. Re-enabling the model resumes from the current persisted state; the transition matrix still rejects stale, duplicate, and illegal moves.

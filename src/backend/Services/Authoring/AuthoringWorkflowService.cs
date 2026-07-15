@@ -1079,11 +1079,15 @@ public sealed class AuthoringWorkflowService(
 
         if (updated > 0)
         {
+            string transitions = string.Join(',', updatedRows
+                .GroupBy(static row => row.Status)
+                .OrderBy(static group => group.Key)
+                .Select(group => $"{(int)group.Key}->{(int)request.Status}:{group.Count()}"));
             WriteAudit(
                 AuditSourceCatalog.Comment,
                 "comment-moderation-bulk",
                 actorAdminPrincipalId,
-                $"comments:{ids.Length};updated={updated};status={(int)request.Status};ban={banned}");
+                $"comments:{ids.Length};updated={updated};transitions={transitions};ban={banned}");
         }
 
         return new CommentModerationBulkResponse(updated, banned);
@@ -1902,22 +1906,7 @@ public sealed class AuthoringWorkflowService(
             or CommentModerationStatus.Hidden;
 
     private static bool IsAllowedModerationTransition(CommentModerationStatus currentStatus, CommentModerationStatus nextStatus)
-        => currentStatus == nextStatus
-            || currentStatus switch
-            {
-                CommentModerationStatus.Pending => nextStatus is CommentModerationStatus.Approved
-                    or CommentModerationStatus.Rejected
-                    or CommentModerationStatus.Hidden,
-                CommentModerationStatus.Approved => nextStatus is CommentModerationStatus.Rejected
-                    or CommentModerationStatus.Hidden,
-                CommentModerationStatus.Rejected => nextStatus is CommentModerationStatus.Pending
-                    or CommentModerationStatus.Approved
-                    or CommentModerationStatus.Hidden,
-                CommentModerationStatus.Hidden => nextStatus is CommentModerationStatus.Pending
-                    or CommentModerationStatus.Approved
-                    or CommentModerationStatus.Rejected,
-                _ => false
-            };
+        => CommentModerationTransitions.IsAllowed(currentStatus, nextStatus);
 
     private static bool IsRegionApprovalAllowed(CommentModerationStateRow row)
         => row.RegionComplianceId <= 0 || row.RegionCanPublish;
