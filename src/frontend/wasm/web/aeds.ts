@@ -7,36 +7,43 @@ import {
 import { loadEmscriptenModule, type EmscriptenLoadMetrics } from './runtime/emscripten';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
-export const AEDS_WASM_ABI = 'fsusblog.aeds.v3';
+export const AEDS_WASM_ABI = 'fsusblog.aeds.v4';
 export const AEDS_MAX_FRAME_BYTES = 8 * 1024 * 1024;
+
+type WasmAddress = number | bigint;
+type WasmHandleToken = bigint;
 
 interface AedsWasmExports {
   memory: WebAssembly.Memory;
-  reserve_io_buffer(size: number): number;
-  decode_io_buffer(len: number): number;
+  reserve_io_buffer(size: number): WasmHandleToken;
+  get_io_buffer_ptr(token: WasmHandleToken): WasmAddress;
+  decode_io_buffer(token: WasmHandleToken, len: number): number;
   clear_io_buffer(releaseMemory: number): void;
   get_io_buffer_capacity(): number;
   get_arena_reallocation_count(): number;
   get_arena_clear_count(): number;
-  get_last_payload_ptr(): number;
-  get_last_payload_len(): number;
-  get_last_frame_type(): number;
-  get_last_error_ptr(): number;
+  get_last_payload_token(): WasmHandleToken;
+  get_last_payload_ptr(token: WasmHandleToken): WasmAddress;
+  get_last_payload_len(token: WasmHandleToken): number;
+  get_last_frame_type(token: WasmHandleToken): number;
+  get_last_error_ptr(): WasmAddress;
   get_last_error_len(): number;
 }
 
 type AedsModuleInstance = {
   HEAPU8: Uint8Array;
-  _reserve_io_buffer: (size: number) => number;
-  _decode_io_buffer: (len: number) => number;
+  _reserve_io_buffer: (size: number) => WasmHandleToken;
+  _get_io_buffer_ptr: (token: WasmHandleToken) => WasmAddress;
+  _decode_io_buffer: (token: WasmHandleToken, len: number) => number;
   _clear_io_buffer: (releaseMemory: number) => void;
   _get_io_buffer_capacity: () => number;
   _get_arena_reallocation_count: () => number;
   _get_arena_clear_count: () => number;
-  _get_last_payload_ptr: () => number;
-  _get_last_payload_len: () => number;
-  _get_last_frame_type: () => number;
-  _get_last_error_ptr: () => number;
+  _get_last_payload_token: () => WasmHandleToken;
+  _get_last_payload_ptr: (token: WasmHandleToken) => WasmAddress;
+  _get_last_payload_len: (token: WasmHandleToken) => number;
+  _get_last_frame_type: (token: WasmHandleToken) => number;
+  _get_last_error_ptr: () => WasmAddress;
   _get_last_error_len: () => number;
 };
 
@@ -155,8 +162,16 @@ function getModuleMemory(instance: AedsModuleInstance): WebAssembly.Memory {
   } as WebAssembly.Memory;
 }
 
-function readCString(memory: WebAssembly.Memory, ptr: number, len: number): string {
-  if (ptr <= 0 || len <= 0) return '';
+function toMemoryOffset(address: WasmAddress): number | null {
+  const value = typeof address === 'bigint'
+    ? address <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(address) : Number.NaN
+    : address;
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function readCString(memory: WebAssembly.Memory, address: WasmAddress, len: number): string {
+  const ptr = toMemoryOffset(address);
+  if (ptr === null || ptr <= 0 || len <= 0 || ptr + len > memory.buffer.byteLength) return '';
   return textDecoder.decode(new Uint8Array(memory.buffer, ptr, len));
 }
 
@@ -294,11 +309,13 @@ async function loadTier(manifest: AedsRuntimeManifest, tier: AedsAssetKind): Pro
   exportsRef = {
     memory: getModuleMemory(instance),
     reserve_io_buffer: pickExport(raw, 'reserve_io_buffer'),
+    get_io_buffer_ptr: pickExport(raw, 'get_io_buffer_ptr'),
     decode_io_buffer: pickExport(raw, 'decode_io_buffer'),
     clear_io_buffer: pickExport(raw, 'clear_io_buffer'),
     get_io_buffer_capacity: pickExport(raw, 'get_io_buffer_capacity'),
     get_arena_reallocation_count: pickExport(raw, 'get_arena_reallocation_count'),
     get_arena_clear_count: pickExport(raw, 'get_arena_clear_count'),
+    get_last_payload_token: pickExport(raw, 'get_last_payload_token'),
     get_last_payload_ptr: pickExport(raw, 'get_last_payload_ptr'),
     get_last_payload_len: pickExport(raw, 'get_last_payload_len'),
     get_last_frame_type: pickExport(raw, 'get_last_frame_type'),
@@ -354,22 +371,27 @@ export function decode(buffer: ArrayBuffer): DecodeResultView {
   const sensitive = !PUBLIC_FRAME_TYPES.has(headerFrameType);
   const pagesBefore = Math.ceil(exportsRef.memory.buffer.byteLength / 65536);
   const startedAt = now();
-  const ptr = exportsRef.reserve_io_buffer(input.byteLength);
-  if (ptr <= 0) {
+  const inputToken = exportsRef.reserve_io_buffer(input.byteLength);
+  if (inputToken === 0n) {
     return { ok: false, frameType: FrameType.Unknown, payloadView: new Uint8Array(0), error: 'oom' };
   }
   try {
+    const ptr = toMemoryOffset(exportsRef.get_io_buffer_ptr(inputToken));
+    if (ptr === null || ptr <= 0 || ptr + input.byteLength > exportsRef.memory.buffer.byteLength) {
+      return { ok: false, frameType: FrameType.Unknown, payloadView: new Uint8Array(0), error: 'io_handle_expired' };
+    }
     new Uint8Array(exportsRef.memory.buffer, ptr, input.byteLength).set(input);
     diagnostics.jsToWasmCopiedBytes += input.byteLength;
-    const ok = exportsRef.decode_io_buffer(input.byteLength) === 1;
+    const ok = exportsRef.decode_io_buffer(inputToken, input.byteLength) === 1;
     if (!ok) {
       const error = readCString(exportsRef.memory, exportsRef.get_last_error_ptr(), exportsRef.get_last_error_len()) || 'decode_failed';
       return { ok: false, frameType: headerFrameType, payloadView: new Uint8Array(0), error };
     }
-    const payloadPtr = exportsRef.get_last_payload_ptr();
-    const payloadLen = exportsRef.get_last_payload_len();
-    const frameType = exportsRef.get_last_frame_type() as FrameType;
-    if (payloadPtr <= 0 || payloadLen < 0 || payloadPtr + payloadLen > exportsRef.memory.buffer.byteLength) {
+    const payloadToken = exportsRef.get_last_payload_token();
+    const payloadPtr = toMemoryOffset(exportsRef.get_last_payload_ptr(payloadToken));
+    const payloadLen = exportsRef.get_last_payload_len(payloadToken);
+    const frameType = exportsRef.get_last_frame_type(payloadToken) as FrameType;
+    if (payloadToken === 0n || payloadPtr === null || payloadPtr <= 0 || payloadLen < 0 || payloadPtr + payloadLen > exportsRef.memory.buffer.byteLength) {
       return { ok: false, frameType, payloadView: new Uint8Array(0), error: 'payload_ptr_invalid' };
     }
     const payloadView = new Uint8Array(new Uint8Array(exportsRef.memory.buffer, payloadPtr, payloadLen));

@@ -70,8 +70,8 @@ if (!fs.existsSync(manifestPath)) {
 }
 
 const manifest = parseManifest(fs.readFileSync(manifestPath, 'utf8'));
-if (manifest.schemaVersion !== 3 || manifest.aedsAbi !== 'fsusblog.aeds.v3' || !manifest.toolchain) {
-  console.error('[build-wasm-artifact] fatal: manifest must bind schema v3, AEDS ABI v3, and immutable toolchain identity');
+if (manifest.schemaVersion !== 3 || manifest.aedsAbi !== 'fsusblog.aeds.v4' || !manifest.toolchain) {
+  console.error('[build-wasm-artifact] fatal: manifest must bind schema v3, AEDS ABI v4, and immutable toolchain identity');
   process.exit(1);
 }
 const runtimeManifest = JSON.parse(fs.readFileSync(path.join(artifactDir, runtimeManifestName), 'utf8'));

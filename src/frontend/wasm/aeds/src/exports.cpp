@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdio>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,9 @@ thread_local std::string g_last_html{};
 thread_local std::uint32_t g_io_size = 0;
 thread_local std::uint32_t g_arena_reallocation_count = 0;
 thread_local std::uint32_t g_arena_clear_count = 0;
+thread_local std::uint64_t g_handle_epoch = 0;
+thread_local std::uint64_t g_io_handle_token = 0;
+thread_local std::uint64_t g_payload_handle_token = 0;
 constexpr std::size_t kArticleListRecordSize = 56u;
 constexpr std::size_t kCompactTagRecordSize = 12u;
 constexpr std::size_t kTagPodSize = 132u;
@@ -33,6 +37,20 @@ constexpr std::size_t kRecentCommentRecordSize = 32u;
 constexpr std::size_t kRegionDistributionRecordSize = 12u;
 constexpr std::size_t kRecentCommentPodSize = 88u;
 constexpr std::size_t kRegionDistributionPodSize = 132u;
+
+void advance_handle_epoch() {
+  // Exported addresses are leases for exactly one epoch; every state-changing call revokes them first.
+  if (g_handle_epoch == std::numeric_limits<std::uint64_t>::max()) {
+    g_handle_epoch = 1U;
+  } else {
+    ++g_handle_epoch;
+  }
+  g_io_handle_token = 0;
+  g_payload_handle_token = 0;
+  g_payload_ptr = nullptr;
+  g_payload_len = 0;
+  g_frame_type = 0;
+}
 
 void set_error(const char* err) {
   g_error.fill('\0');
@@ -565,11 +583,9 @@ int render_generic_html(std::uint16_t frame_type, std::uint32_t payload_len) {
 extern "C" {
 
 int decode_aeds(const std::uint8_t* data, int len) {
+  advance_handle_epoch();
   if (data == nullptr || len <= 0) {
     set_error("invalid_input");
-    g_payload_ptr = nullptr;
-    g_payload_len = 0;
-    g_frame_type = 0;
     g_error_code = static_cast<std::uint8_t>(fsusblog::aeds::ErrorCode::InvalidInput);
     return 0;
   }
@@ -578,9 +594,6 @@ int decode_aeds(const std::uint8_t* data, int len) {
   if (!result.ok) {
     g_error_code = static_cast<std::uint8_t>(result.error_code);
     set_error(result.error);
-    g_payload_ptr = nullptr;
-    g_payload_len = 0;
-    g_frame_type = 0;
     return 0;
   }
 
@@ -589,22 +602,29 @@ int decode_aeds(const std::uint8_t* data, int len) {
   g_payload_ptr = result.payload_ptr;
   g_payload_len = result.payload_len;
   g_frame_type = result.frame_type;
+  g_payload_handle_token = g_handle_epoch;
   return 1;
 }
 
-std::uint32_t get_last_payload_ptr() {
-  if (g_payload_ptr == nullptr || g_payload_len == 0) {
+std::uint64_t get_last_payload_token() { return g_payload_handle_token; }
+std::uintptr_t get_last_payload_ptr(std::uint64_t token) {
+  if (token == 0U || token != g_payload_handle_token || g_payload_ptr == nullptr) {
     return 0;
   }
 
-  return static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_payload_ptr));
+  return reinterpret_cast<std::uintptr_t>(g_payload_ptr);
 }
-std::uint32_t get_last_payload_len() { return g_payload_len; }
-std::uint16_t get_last_frame_type() { return g_frame_type; }
+std::uint32_t get_last_payload_len(std::uint64_t token) {
+  return token != 0U && token == g_payload_handle_token ? g_payload_len : 0U;
+}
+std::uint16_t get_last_frame_type(std::uint64_t token) {
+  return token != 0U && token == g_payload_handle_token ? g_frame_type : 0U;
+}
 const char* get_last_error_ptr() { return g_error.data(); }
 int get_last_error_len() { return static_cast<int>(std::strlen(g_error.data())); }
 std::uint8_t get_last_error_code() { return g_error_code; }
-std::uint32_t reserve_io_buffer(int size) {
+std::uint64_t reserve_io_buffer(int size) {
+  advance_handle_epoch();
   if (size <= 0) {
     return 0;
   }
@@ -621,14 +641,12 @@ std::uint32_t reserve_io_buffer(int size) {
   }
   g_io_arena.resize(requested);
   g_io_size = static_cast<std::uint32_t>(requested);
-  g_payload_ptr = nullptr;
-  g_payload_len = 0;
-  g_frame_type = 0;
-  return static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_io_arena.data()));
+  g_io_handle_token = g_handle_epoch;
+  return g_io_handle_token;
 }
 
-int decode_io_buffer(int len) {
-  if (len <= 0 || static_cast<std::uint32_t>(len) > g_io_size || g_io_arena.empty()) {
+int decode_io_buffer(std::uint64_t token, int len) {
+  if (token == 0U || token != g_io_handle_token || len <= 0 || static_cast<std::uint32_t>(len) > g_io_size || g_io_arena.empty()) {
     return decode_aeds(nullptr, 0);
   }
 
@@ -636,14 +654,12 @@ int decode_io_buffer(int len) {
 }
 
 void clear_io_buffer(int release_memory) {
+  advance_handle_epoch();
   if (!g_io_arena.empty()) {
     std::fill(g_io_arena.begin(), g_io_arena.end(), static_cast<std::uint8_t>(0));
     ++g_arena_clear_count;
   }
   g_io_size = 0;
-  g_payload_ptr = nullptr;
-  g_payload_len = 0;
-  g_frame_type = 0;
 
   if (release_memory != 0) {
     std::vector<std::uint8_t>().swap(g_io_arena);
@@ -652,33 +668,39 @@ void clear_io_buffer(int release_memory) {
   }
 }
 
-std::uint32_t get_io_buffer_ptr() {
-  return g_io_arena.empty()
+std::uintptr_t get_io_buffer_ptr(std::uint64_t token) {
+  return token == 0U || token != g_io_handle_token || g_io_arena.empty()
     ? 0
-    : static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(g_io_arena.data()));
+    : reinterpret_cast<std::uintptr_t>(g_io_arena.data());
 }
-std::uint32_t get_io_buffer_size() { return g_io_size; }
+std::uint32_t get_io_buffer_size(std::uint64_t token) {
+  return token != 0U && token == g_io_handle_token ? g_io_size : 0U;
+}
 std::uint32_t get_io_buffer_capacity() { return static_cast<std::uint32_t>(g_io_arena.capacity()); }
 std::uint32_t get_arena_reallocation_count() { return g_arena_reallocation_count; }
 std::uint32_t get_arena_clear_count() { return g_arena_clear_count; }
 
-int render_view(std::uint16_t frame_type, const std::uint8_t* payload, std::uint32_t payload_len) {
-  switch (frame_type) {
+int render_view(std::uint64_t token) {
+  if (token == 0U || token != g_payload_handle_token || g_payload_ptr == nullptr) {
+    set_error("payload_handle_expired");
+    return 0;
+  }
+  switch (g_frame_type) {
     case 1u:
     case 4u:
-      return render_article_list_html(payload, payload_len);
+      return render_article_list_html(g_payload_ptr, g_payload_len);
     case 2u:
-      return render_article_detail_html(payload, payload_len);
+      return render_article_detail_html(g_payload_ptr, g_payload_len);
     case 3u:
-      return render_hot_articles_html(payload, payload_len);
+      return render_hot_articles_html(g_payload_ptr, g_payload_len);
     case 5u:
-      return render_comment_cursor_html(payload, payload_len, false);
+      return render_comment_cursor_html(g_payload_ptr, g_payload_len, false);
     case 6u:
-      return render_comment_cursor_html(payload, payload_len, true);
+      return render_comment_cursor_html(g_payload_ptr, g_payload_len, true);
     case 7u:
-      return render_admin_stats_html(payload, payload_len);
+      return render_admin_stats_html(g_payload_ptr, g_payload_len);
     default:
-      return render_generic_html(frame_type, payload_len);
+      return render_generic_html(g_frame_type, g_payload_len);
   }
 }
 

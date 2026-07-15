@@ -42,7 +42,9 @@ const decoderJsPaths = [
 const requiredSymbols = [
   'decode_io_buffer',
   'reserve_io_buffer',
+  'get_io_buffer_ptr',
   'clear_io_buffer',
+  'get_last_payload_token',
   'get_last_payload_ptr',
   'get_last_payload_len',
   'get_last_frame_type'

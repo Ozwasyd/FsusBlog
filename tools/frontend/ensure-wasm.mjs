@@ -18,7 +18,7 @@ const cmakeBootstrapPath = fileURLToPath(new URL('./ensure-cmake.sh', import.met
 const binaryenBootstrapPath = fileURLToPath(new URL('./ensure-binaryen.sh', import.meta.url));
 const buildScriptPath = join(wasmRoot, 'build.sh');
 const schemaVersion = 3;
-const aedsAbi = 'fsusblog.aeds.v3';
+const aedsAbi = 'fsusblog.aeds.v4';
 const buildModes = ['basic', 'simd', 'relaxed', 'threads'];
 const requiredOutputFiles = [
   'aeds_decoder_basic.js',

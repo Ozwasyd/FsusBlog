@@ -78,6 +78,17 @@ function percentile(values, ratio) {
   return sorted[Math.max(0, Math.min(sorted.length - 1, Math.ceil(sorted.length * ratio) - 1))] ?? 0
 }
 
+function handleToken(value, label) {
+  if (typeof value !== 'bigint' || value <= 0n) throw new Error(`${label}_invalid`)
+  return value
+}
+
+function memoryOffset(value, label) {
+  const offset = typeof value === 'bigint' && value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : value
+  if (!Number.isSafeInteger(offset) || offset <= 0) throw new Error(`${label}_invalid`)
+  return offset
+}
+
 async function loadTier(tier, entry) {
   const moduleFile = path.join(wasmRoot, entry.module)
   const wasmFile = path.join(wasmRoot, entry.wasm)
@@ -90,14 +101,15 @@ async function loadTier(tier, entry) {
 }
 
 function runDecode(instance, input) {
-  const pointer = instance._reserve_io_buffer(input.byteLength)
-  if (!Number.isInteger(pointer) || pointer <= 0) throw new Error('arena_reserve_failed')
+  const token = handleToken(instance._reserve_io_buffer(input.byteLength), 'arena_handle')
+  const pointer = memoryOffset(instance._get_io_buffer_ptr(token), 'arena_pointer')
   instance.HEAPU8.set(input, pointer)
   const started = performance.now()
-  const ok = instance._decode_io_buffer(input.byteLength)
+  const ok = instance._decode_io_buffer(token, input.byteLength)
   const elapsed = performance.now() - started
   if (ok !== 1) throw new Error(`decode_failed:${instance._get_last_error_code()}`)
-  const payloadLength = instance._get_last_payload_len()
+  const payloadToken = handleToken(instance._get_last_payload_token(), 'payload_handle')
+  const payloadLength = instance._get_last_payload_len(payloadToken)
   return { elapsed, payloadLength }
 }
 
@@ -128,9 +140,10 @@ async function benchmarkTier(tier, entry) {
     })
   }
   const sensitive = frame(65536, 18)
-  const sensitivePointer = loaded.instance._reserve_io_buffer(sensitive.byteLength)
+  const sensitiveToken = handleToken(loaded.instance._reserve_io_buffer(sensitive.byteLength), 'sensitive_handle')
+  const sensitivePointer = memoryOffset(loaded.instance._get_io_buffer_ptr(sensitiveToken), 'sensitive_pointer')
   loaded.instance.HEAPU8.set(sensitive, sensitivePointer)
-  loaded.instance._decode_io_buffer(sensitive.byteLength)
+  loaded.instance._decode_io_buffer(sensitiveToken, sensitive.byteLength)
   loaded.instance._clear_io_buffer(0)
   let sensitiveBytesCleared = true
   for (let offset = 0; offset < sensitive.byteLength; offset += 4096) {
@@ -164,7 +177,7 @@ async function main() {
   let tiers = []
   if (failures.length === 0) {
     manifest = JSON.parse(read(manifestFile))
-    if (manifest.schema !== 'fsusblog.aeds-runtime.v1' || manifest.abi !== 'fsusblog.aeds.v3') failures.push('runtimeManifestContract')
+    if (manifest.schema !== 'fsusblog.aeds-runtime.v1' || manifest.abi !== 'fsusblog.aeds.v4') failures.push('runtimeManifestContract')
     if (!manifest.tiers?.speed?.wasmOptValidated || !manifest.tiers?.speed?.simd || !manifest.tiers?.speed?.lto) failures.push('speedIdentity')
     if (failures.length === 0) {
       for (const tier of ['basic', 'speed']) tiers.push(await benchmarkTier(tier, manifest.tiers[tier]))

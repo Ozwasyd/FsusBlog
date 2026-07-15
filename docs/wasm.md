@@ -28,7 +28,7 @@ wasm/aeds_decoder_speed.js
 wasm/aeds_decoder_speed.wasm
 ```
 
-当前 ABI 为 `fsusblog.aeds.v3`。`aeds-runtime-manifest.json` 绑定 basic/speed 的 JS/Wasm SHA-256、内存模型、feature identity 和完整 Wasm toolchain。上层 `wasm-manifest.aeds` 再绑定 runtime manifest 与所有输出 hash，release manifest 的 `wasmArtifactHash` 最终绑定整包；任一层 hash 漂移都必须重建，不能把旧 artifact 重命名为新 tier。
+当前 ABI 为 `fsusblog.aeds.v4`。`aeds-runtime-manifest.json` 绑定 basic/speed 的 JS/Wasm SHA-256、内存模型、feature identity 和完整 Wasm toolchain。上层 `wasm-manifest.aeds` 再绑定 runtime manifest 与所有输出 hash，release manifest 的 `wasmArtifactHash` 最终绑定整包；任一层 hash 漂移都必须重建，不能把旧 artifact 重命名为新 tier。v4 把 arena/payload raw pointer export 收口为 `uint64` token + token-validated getter，旧 v3 module 因 ABI identity 不符不能被新 runtime 加载。
 
 | tier | 编译/优化 | 内存 | 用途 |
 |---|---|---|---|
@@ -68,14 +68,14 @@ emscripten/emsdk:4.0.13@sha256:520088b81877b610389dfd4cf7fb8c69f3ae41a611b0f80e2
 
 C++ 使用一个可复用 I/O arena：
 
-1. `_reserve_io_buffer(size)` 只在 high-water mark 提升时扩容；常规 frame 不执行 `malloc/free`。
-2. JS 将网络 frame 复制一次到 arena。
-3. `_decode_io_buffer(size)` 原地校验，payload pointer 直接指向同一 arena，不再复制到第二个 C++ vector。
+1. `_reserve_io_buffer(size)` 只在 high-water mark 提升时扩容并返回新的 `uint64` input token；常规 frame 不执行 `malloc/free`。
+2. JS 以该 token 调 `_get_io_buffer_ptr(token)`，将网络 frame 复制一次到 arena；stale token 只返回空地址。
+3. `_decode_io_buffer(token, size)` 原地校验并使 input token 失效；成功后通过新的 payload token 读取同一 arena slice，不再复制到第二个 C++ vector。
 4. JS 只复制一次 payload 取得稳定所有权，随后 adapter 才解析 ViewModel。
-5. 下一帧 reserve 前清零上次 active bytes，避免不可信 frame 读取旧内容。
+5. 下一帧 reserve 前清零上次 active bytes并推进 handle epoch；旧 payload token 的 ptr/len/type getter 全部返回零，避免跨调用读取漂移内容。
 6. auth/admin/private 等非公开 frame 返回 JS 副本后立即 `_clear_io_buffer(0)`；清零但保留 capacity。Worker 销毁时由 Wasm 实例整体释放。
 
-arena diagnostics 包含 capacity、reallocation count 和 clear count。speed 正常 decode 的 memory pages 必须保持不变；任何 grow 都是 release evidence failure 候选。
+arena diagnostics 包含 capacity、reallocation count 和 clear count。arena/payload 地址 export 使用 `uintptr_t`，`-sWASM_BIGINT=1` 保留 `uint64` token；`FSUSBLOG_AEDS_MEMORY64=ON` 可构建 memory64 验证产物，这两类地址不得经 `uint32` 截断。speed 正常 decode 的 memory pages 必须保持不变；任何 grow 都是 release evidence failure 候选。
 
 ## Tier 选择与回退
 
@@ -148,6 +148,9 @@ node tests/frontend/checks/wasm/check-aeds-tier-browser.mjs
 # basic/speed differential fuzz（release build 后）
 FSUSBLOG_WASM_FUZZ_SEEDS_PER_CORPUS=256 node tools/security/run-wasm-fuzz.mjs
 
+# exports handle epoch、native 64-bit pointer、ASAN/UBSAN 与 libFuzzer
+npm run check:aeds-export-handle
+
 # runtime selection/协议负矩阵
 cd src/frontend
 pnpm vitest run --config vitest.config.ts \
@@ -163,7 +166,8 @@ pnpm vitest run --config vitest.config.ts \
 - speed load/compile/instantiate/hash failure：当前 Worker 顺序切到 basic，记录原因；服务端无需重启。
 - speed runtime 指标回归：通过下一 frontend release 的 immutable manifest 将默认候选限制为 basic；N/N-1 asset 继续保留。
 - basic/speed 都不可用：Worker 返回 `wasm_init_failed`，上层显示 binary transport failure；不得改走 JSON/text API。
-- 敏感清理异常、ABI/hash 漂移或 differential fuzz mismatch：release gate fail closed，不能用 feature flag 忽略 correctness。
+- 敏感清理异常、stale handle、ABI/hash 漂移或 differential fuzz mismatch：release gate fail closed，不能用 feature flag 忽略 correctness。
+- v4 客户端需要回退时，通过下一份 immutable v4 release manifest 把候选限制为 basic 或切回已验证的 v4 N-1 资产；服务端无需重启。不得为了回退混载/恢复不带 handle 校验的 v3 module，也不得改走 JSON/text API；没有安全 v4 资产时保持 binary transport fail closed。
 
 ## 相关契约
 

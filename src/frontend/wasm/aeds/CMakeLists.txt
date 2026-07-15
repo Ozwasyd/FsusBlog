@@ -9,8 +9,10 @@ set(AEDS_DECODER_SOURCES
 )
 
 set(AEDS_EXPORTED_FUNCTIONS
-  "['_decode_aeds','_reserve_io_buffer','_decode_io_buffer','_clear_io_buffer','_get_io_buffer_ptr','_get_io_buffer_size','_get_io_buffer_capacity','_get_arena_reallocation_count','_get_arena_clear_count','_get_last_payload_ptr','_get_last_payload_len','_get_last_frame_type','_get_last_error_ptr','_get_last_error_len','_get_last_error_code','_render_view','_get_last_html_ptr','_get_last_html_len','_handle_event']"
+  "['_reserve_io_buffer','_decode_io_buffer','_clear_io_buffer','_get_io_buffer_ptr','_get_io_buffer_size','_get_io_buffer_capacity','_get_arena_reallocation_count','_get_arena_clear_count','_get_last_payload_token','_get_last_payload_ptr','_get_last_payload_len','_get_last_frame_type','_get_last_error_ptr','_get_last_error_len','_get_last_error_code','_render_view','_get_last_html_ptr','_get_last_html_len','_handle_event']"
 )
+
+option(FSUSBLOG_AEDS_MEMORY64 "Build AEDS decoder with Emscripten memory64" OFF)
 
 function(add_aeds_decoder target output_name tier)
   add_executable(${target} ${AEDS_DECODER_SOURCES})
@@ -58,10 +60,15 @@ function(add_aeds_decoder target output_name tier)
     -sEXPORT_ES6=1
     -sEXPORT_NAME=createAedsModule
     -sENVIRONMENT=web,worker
+    -sWASM_BIGINT=1
     "-sEXPORTED_FUNCTIONS=${AEDS_EXPORTED_FUNCTIONS}"
     "-sEXPORTED_RUNTIME_METHODS=['HEAPU8']"
     ${memory_options}
   )
+  if(FSUSBLOG_AEDS_MEMORY64)
+    target_compile_options(${target} PRIVATE -sMEMORY64=1)
+    target_link_options(${target} PRIVATE -sMEMORY64=1)
+  endif()
 endfunction()
 
 add_aeds_decoder(aeds_decoder_basic aeds_decoder_basic basic)

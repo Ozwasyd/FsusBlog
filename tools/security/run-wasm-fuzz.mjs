@@ -106,6 +106,21 @@ function seedFor(corpusIndex, iteration) {
   return (0x9e3779b9 ^ Math.imul(corpusIndex + 1, 0x85ebca6b) ^ Math.imul(iteration + 1, 0xc2b2ae35)) >>> 0
 }
 
+function handleToken(value, label) {
+  if (typeof value !== 'bigint' || value <= 0n) throw new Error(`${label}_invalid`)
+  return value
+}
+
+function memoryOffset(value, label) {
+  const offset = typeof value === 'bigint' && value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : value
+  if (!Number.isSafeInteger(offset) || offset <= 0) throw new Error(`${label}_invalid`)
+  return offset
+}
+
+function isNullAddress(value) {
+  return value === 0 || value === 0n
+}
+
 async function writeEvidence(summary) {
   await mkdir(crashDirectory, { recursive: true })
   await mkdir(releaseEvidenceDirectory, { recursive: true })
@@ -146,24 +161,43 @@ try {
   const decodeWithArena = (decoder, input) => {
     const { instance } = decoder
     if (input.byteLength === 0) {
-      return { ok: instance._decode_aeds(0, 0), frameType: 0, payloadLength: 0, payloadSha256: null, errorCode: instance._get_last_error_code() }
+      return { ok: instance._decode_io_buffer(0n, 0), frameType: 0, payloadLength: 0, payloadSha256: null, errorCode: instance._get_last_error_code() }
     }
-    const pointer = instance._reserve_io_buffer(input.byteLength)
-    if (!Number.isInteger(pointer) || pointer <= 0) throw new Error(`wasm_fuzz_arena_reserve_failed:${decoder.tier}`)
+    const inputToken = handleToken(instance._reserve_io_buffer(input.byteLength), `wasm_fuzz_arena_handle:${decoder.tier}`)
+    const pointer = memoryOffset(instance._get_io_buffer_ptr(inputToken), `wasm_fuzz_arena_pointer:${decoder.tier}`)
     instance.HEAPU8.set(input, pointer)
-    const ok = instance._decode_io_buffer(input.byteLength)
-    const payloadPointer = instance._get_last_payload_ptr()
-    const payloadLength = instance._get_last_payload_len()
+    const ok = instance._decode_io_buffer(inputToken, input.byteLength)
+    const payloadToken = ok === 1
+      ? handleToken(instance._get_last_payload_token(), `wasm_fuzz_payload_handle:${decoder.tier}`)
+      : 0n
+    const payloadAddress = ok === 1 ? instance._get_last_payload_ptr(payloadToken) : 0
+    const payloadPointer = ok === 1 && !isNullAddress(payloadAddress)
+      ? memoryOffset(payloadAddress, `wasm_fuzz_payload_pointer:${decoder.tier}`)
+      : 0
+    const payloadLength = ok === 1 ? instance._get_last_payload_len(payloadToken) : 0
     const signature = {
       ok,
-      frameType: instance._get_last_frame_type(),
+      frameType: ok === 1 ? instance._get_last_frame_type(payloadToken) : 0,
       payloadLength,
       payloadSha256: ok === 1 && payloadLength > 0
         ? createHash('sha256').update(instance.HEAPU8.subarray(payloadPointer, payloadPointer + payloadLength)).digest('hex')
         : null,
       errorCode: instance._get_last_error_code()
     }
+    const replacementToken = handleToken(instance._reserve_io_buffer(input.byteLength), `wasm_fuzz_replacement_handle:${decoder.tier}`)
+    if (!isNullAddress(instance._get_io_buffer_ptr(inputToken))) {
+      throw new Error(`wasm_fuzz_input_handle_not_expired:${decoder.tier}`)
+    }
+    if (payloadToken !== 0n && !isNullAddress(instance._get_last_payload_ptr(payloadToken))) {
+      throw new Error(`wasm_fuzz_payload_handle_survived_reserve:${decoder.tier}`)
+    }
+    if (isNullAddress(instance._get_io_buffer_ptr(replacementToken))) {
+      throw new Error(`wasm_fuzz_replacement_handle_expired:${decoder.tier}`)
+    }
     instance._clear_io_buffer(0)
+    if (payloadToken !== 0n && !isNullAddress(instance._get_last_payload_ptr(payloadToken))) {
+      throw new Error(`wasm_fuzz_payload_handle_not_expired:${decoder.tier}`)
+    }
     for (let offset = 0; offset < input.byteLength; offset += Math.max(1, Math.floor(input.byteLength / 16))) {
       if (instance.HEAPU8[pointer + offset] !== 0) throw new Error(`wasm_fuzz_arena_clear_failed:${decoder.tier}`)
     }
@@ -202,7 +236,7 @@ try {
     })),
     crashes: [],
     sanitizerOutput: null,
-    decoder: { sha256: decoderDigest, abi: 'fsusblog.aeds.v3', tiers: decoderEvidence },
+    decoder: { sha256: decoderDigest, abi: 'fsusblog.aeds.v4', tiers: decoderEvidence },
     blocker: null,
     startedAt,
     generatedAt
@@ -224,7 +258,7 @@ try {
     seedPlan: corpus.map((entry, corpusIndex) => ({ corpus: entry.id, firstSeed: seedFor(corpusIndex, 0), count: seedsPerCorpus })),
     crashes: [`.tmp/fuzz/wasm/crashes/${crashName}`],
     sanitizerOutput: null,
-    decoder: { sha256: decoderDigest || null, abi: 'fsusblog.aeds.v3', tiers: decoderEvidence },
+    decoder: { sha256: decoderDigest || null, abi: 'fsusblog.aeds.v4', tiers: decoderEvidence },
     blocker: 'wasm-fuzz-execution-failed',
     error: message,
     startedAt,
