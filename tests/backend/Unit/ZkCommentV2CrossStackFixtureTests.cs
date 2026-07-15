@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FsusBlog.Server.Tests.Unit;
 
+[Collection(MclGroth16TestCollection.Name)]
 public sealed class ZkCommentV2CrossStackFixtureTests
 {
     private const string CircuitId = "fsus.anonymous.comment.v2";

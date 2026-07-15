@@ -280,7 +280,8 @@ function verifyPrivacyZkCommentMatrix(text) {
     'PRIVACY-ZK-MODERATION-LOGGING',
     'PRIVACY-ZK-FRONTEND-RUNTIME',
     'PRIVACY-ZK-CONCURRENCY',
-    'PRIVACY-ZK-PROD-SMOKE'
+    'PRIVACY-ZK-PROD-SMOKE',
+    'PRIVACY-ZK-LOCAL-REVIEW'
   ]
   const requiredPrivacyCases = [
     'no-cookie',
@@ -323,7 +324,16 @@ function verifyPrivacyZkCommentMatrix(text) {
     'feature-flag-off-expected-unavailable',
     'cross-scope-nullifier-independence-smoke',
     'real-native-verifier-wasm-prover-evidence',
-    'proof-ticket-credential-redacted'
+    'proof-ticket-credential-redacted',
+    'constraint-completeness',
+    'trusted-setup-provenance',
+    'public-input-ordering',
+    'native-mcl-binding',
+    'subgroup-and-canonical-serialization',
+    'nullifier-domain-root-epoch-binding',
+    'malformed-noncanonical-proof-corpus',
+    'verifier-concurrency-timeout',
+    'no-independent-audit-claim'
   ]
   const requiredConcurrencyCases = [
     'concurrent-same-nullifier-scope-policy-limit',
@@ -338,7 +348,8 @@ function verifyPrivacyZkCommentMatrix(text) {
     'check:privacy-zk-frontend',
     'check:privacy-zk-backend',
     'check:privacy-zk-concurrency',
-    'check:privacy-zk-prod-smoke'
+    'check:privacy-zk-prod-smoke',
+    'check:privacy-zk-local-review'
   ]
 
   for (const id of requiredScenarioIds) {

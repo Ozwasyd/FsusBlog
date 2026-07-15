@@ -229,6 +229,23 @@ all tamper cases rejected, `hashingFixtureUsed=false`,
 `verifyingKeyHash` to production config, trusted setup manifest, and the
 verifying-key artifact hash before ZK-Prod can be enabled.
 
+## Repository-local cryptographic review
+
+`security/zk/comment-v2-local-review.manifest.json` and
+`docs/zk/comment-v2-local-cryptographic-review.md` provide the reproducible
+local review required by the release gate. The manifest binds the circuit
+source/manifest, both R1CS forms, setup manifest, proving/verifying keys, native verifier,
+Wasm prover and focused test sources. The immutable release also binds the complete
+local-review manifest hash. It requires positive/tamper fixtures,
+malformed and non-canonical proof rejection, subgroup checks, domain/root/epoch
+binding, bounded concurrency and timeout fail-closed evidence.
+
+This evidence deliberately sets `independent_audit_claimed=false`,
+`external_evidence_required=false` and `production_authorization=false`. It is
+not an external audit and cannot replace the trusted-setup, issuer, root or real
+cross-stack gates. Run `node tools/security/check-zk-local-review.mjs` after any
+bound file changes.
+
 ## Budgets
 
 The repository contract sets production targets:

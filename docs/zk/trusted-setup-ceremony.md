@@ -16,6 +16,7 @@ Verifier/prover work must read the same manifest paths:
 | Circuit constraints | `security/zk/comment-v2-circuit.manifest.json` |
 | Trusted setup | `security/zk/comment-v2-trusted-setup.manifest.json` |
 | Runtime verifying-key config | `config/zk/anonymous-comment-v2-verifying-key.manifest.json` |
+| Repository-local review | `security/zk/comment-v2-local-review.manifest.json` |
 | Checker | `tools/crypto/check-zk-comment-v2-manifests.mjs` |
 
 The manifest names are stable. Artifact paths inside the setup manifest are the
@@ -83,6 +84,7 @@ Current static verification:
 
 ```bash
 node tools/crypto/check-zk-comment-v2-manifests.mjs
+node tools/security/check-zk-local-review.mjs
 node tools/security/check-mcl-platform-assets.mjs
 npm --prefix src/frontend run build:wasm
 cd src/frontend && node ../../tools/frontend/ensure-wasm.mjs status
@@ -112,3 +114,9 @@ Production verification must run the commands recorded in
 `security/zk/comment-v2-trusted-setup.manifest.json`, including phase transcript
 verification, vk hash recomputation, and proof generation by the final proving
 key verified against the final verifying key.
+
+The local review is a separate repository-owned evidence layer. It validates
+artifact and test consistency without requiring an external service or auditor,
+and it never changes `ceremony_status` or `production_usable`. The complete
+boundary and limitations are recorded in
+`docs/zk/comment-v2-local-cryptographic-review.md`.

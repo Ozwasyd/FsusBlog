@@ -24,6 +24,7 @@ const blueRelease = '20260711010101-0123456789ab'
 const greenRelease = '20260711020202-fedcba987654'
 const blueDigest = `sha256:${'a'.repeat(64)}`
 const greenDigest = `sha256:${'e'.repeat(64)}`
+const localReviewHash = `sha256:${crypto.createHash('sha256').update('{}\n').digest('hex')}`
 
 function releaseInput(releaseId, imageDigest) {
   return {
@@ -36,6 +37,7 @@ function releaseInput(releaseId, imageDigest) {
     createdAtUtc: '2026-07-11T01:01:01.000Z',
     frontendManifestHash: `sha256:${'b'.repeat(64)}`,
     wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
+    zkLocalReviewHash: localReviewHash,
     schemaMinRelease: blueRelease,
     schemaMaxRelease: greenRelease,
     dotnetVersion: '10.0.100',
@@ -412,6 +414,7 @@ function createScriptFixture(t) {
   writeFakeDocker(path.join(binDir, 'docker'))
   writeFakeCurl(path.join(binDir, 'curl'))
   writeFakeSs(path.join(binDir, 'ss'))
+  fs.writeFileSync(path.join(binDir, 'npm'), '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 })
   const envFile = createProductionEnv(directory)
   const environment = { ...process.env }
   for (const key of ['FSUSBLOG_RELEASE_ID', 'FSUSBLOG_RELEASE_SLOT', 'FSUSBLOG_COMMIT_SHA', 'FSUSBLOG_IMAGE_REF', 'FSUSBLOG_IMAGE_DIGEST']) delete environment[key]
@@ -427,7 +430,6 @@ function createScriptFixture(t) {
     FSUSBLOG_SLOT_IMAGE_PULL_RESERVE_MB: '256',
     FSUSBLOG_SLOT_HEALTH_TIMEOUT_SECONDS: '2',
     FSUSBLOG_SLOT_HEALTH_INTERVAL_SECONDS: '1',
-    FSUSBLOG_DEPLOY_SKIP_ZK_RELEASE_CHECK: '1',
     FSUSBLOG_PREVIOUS_ROLLBACK_RELEASE: '20260710010101-previous0',
     FSUSBLOG_ROLLOUT_ENTRY: '1',
     FSUSBLOG_DEPLOYMENT_LOCK_FILE: path.join(directory, 'deployment.lock')
@@ -443,6 +445,7 @@ function createProductionEnv(directory) {
   for (const [name, value] of [
     ['trusted.json', '{}\n'],
     ['verifying.json', '{}\n'],
+    ['local-review.json', '{}\n'],
     ['comment.v2.vk', 'verifying key\n'],
     ['issuer-public.key', 'issuer public\n']
   ]) fs.writeFileSync(path.join(configDir, name), value)
@@ -464,6 +467,7 @@ function createProductionEnv(directory) {
     `FSUSBLOG_ZK_VERIFYING_KEY_HASH=${hash(path.join(configDir, 'comment.v2.vk'))}`,
     'FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST=/app/config/zk/trusted.json',
     'FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST=/app/config/zk/verifying.json',
+    'FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST=/app/config/zk/local-review.json',
     'FSUSBLOG_ZK_GROTH16_VERIFYING_KEY=/app/config/zk/comment.v2.vk',
     'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID=issuer-v1',
     'FSUSBLOG_ZK_ISSUER_PUBLIC_KEY=/app/config/zk/issuer-public.key',

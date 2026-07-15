@@ -18,7 +18,7 @@ try {
   const options = parseArgs(process.argv.slice(2))
   const required = [
     'output', 'release-id', 'commit-sha', 'image-repository', 'image-tag', 'image-digest',
-    'frontend-manifest-hash', 'wasm-artifact-hash', 'schema-min-release', 'schema-max-release',
+    'frontend-manifest-hash', 'wasm-artifact-hash', 'zk-local-review-hash', 'schema-min-release', 'schema-max-release',
     'dotnet-version', 'node-version', 'docker-version', 'dockerfile-digest'
   ]
   for (const field of required) {
@@ -34,6 +34,7 @@ try {
     createdAtUtc: options['created-at-utc'],
     frontendManifestHash: options['frontend-manifest-hash'],
     wasmArtifactHash: options['wasm-artifact-hash'],
+    zkLocalReviewHash: options['zk-local-review-hash'],
     schemaMinRelease: options['schema-min-release'],
     schemaMaxRelease: options['schema-max-release'],
     dotnetVersion: options['dotnet-version'],

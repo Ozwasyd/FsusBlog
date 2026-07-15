@@ -4,6 +4,7 @@
   "public_input_layout_version": 3,
   "trusted_setup_manifest": "security/zk/comment-v2-trusted-setup.manifest.json",
   "circuit_manifest": "security/zk/comment-v2-circuit.manifest.json",
+  "local_cryptographic_review_manifest": "security/zk/comment-v2-local-review.manifest.json",
   "artifact_status": "placeholder-non-production",
   "production_usable": false,
   "verifying_key_path": "artifacts/zk/comment-v2/comment_v2_verifying_key.bin",

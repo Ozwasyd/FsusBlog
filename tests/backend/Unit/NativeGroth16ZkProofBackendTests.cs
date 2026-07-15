@@ -14,6 +14,13 @@ using Nethermind.MclBindings;
 
 namespace FsusBlog.Server.Tests.Unit;
 
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class MclGroth16TestCollection
+{
+    public const string Name = "MCL Groth16";
+}
+
+[Collection(MclGroth16TestCollection.Name)]
 public sealed class NativeGroth16ZkProofBackendTests
 {
     private const string CircuitId = "fsus.anonymous.comment.v2";
@@ -105,6 +112,74 @@ public sealed class NativeGroth16ZkProofBackendTests
         Assert.True(accepted.Verified);
         Assert.False(rejectedProof.Verified);
         Assert.False(rejectedPublicInputs.Verified);
+    }
+
+    [Fact]
+    public void MclGroth16VerifierLibrary_RejectsMalformedAndNonCanonicalProofCorpus()
+    {
+        byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
+        using var temp = TempNativeZkFixture.Create(verifyingKey);
+        ProductionZkProofBackendRequest request = ValidBackendRequest([], temp.VerifyingKeySha256);
+        ReadOnlyMemory<byte> publicInputs = NativeGroth16PublicInputCodec.Encode(request);
+        byte[] validProof = MclGroth16PairingFixture.CreateProof(verifyingKey, publicInputs.Span);
+        using MclGroth16VerifierLibrary library = MclGroth16VerifierLibrary.Create();
+        Assert.True(library.IsLoaded);
+
+        const int proofHeaderBytes = 10;
+        byte[] nonCanonicalPoints = [.. validProof];
+        Array.Fill(nonCanonicalPoints, byte.MaxValue, proofHeaderBytes, nonCanonicalPoints.Length - proofHeaderBytes);
+        byte[] forbiddenZeroPoint = [.. validProof];
+        Array.Clear(forbiddenZeroPoint, proofHeaderBytes, forbiddenZeroPoint.Length - proofHeaderBytes);
+        List<byte[]> rejectedCorpus =
+        [
+            [],
+            [.. validProof.AsSpan(0, validProof.Length - 1)],
+            [.. validProof, 0x00],
+            [0x46, 0x53, 0x47, 0x31],
+            nonCanonicalPoints,
+            forbiddenZeroPoint
+        ];
+
+        var random = new Random(0x1107);
+        for (int index = 0; index < 64; index++)
+        {
+            int length = random.Next(1, validProof.Length + 16);
+            byte[] candidate = new byte[length];
+            random.NextBytes(candidate);
+            candidate[0] = 0; // Every generated case is deterministically outside the canonical proof framing.
+            rejectedCorpus.Add(candidate);
+        }
+
+        foreach (byte[] candidate in rejectedCorpus)
+        {
+            NativeGroth16VerifierCallResult result = library.Verify(verifyingKey, publicInputs.Span, candidate);
+            Assert.False(result.Verified);
+        }
+    }
+
+    [Fact]
+    public void MclGroth16VerifierLibrary_SerializesConcurrentPairingCallsAcrossInstances()
+    {
+        byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
+        using var temp = TempNativeZkFixture.Create(verifyingKey);
+        ProductionZkProofBackendRequest request = ValidBackendRequest([], temp.VerifyingKeySha256);
+        ReadOnlyMemory<byte> publicInputs = NativeGroth16PublicInputCodec.Encode(request);
+        byte[] proof = MclGroth16PairingFixture.CreateProof(verifyingKey, publicInputs.Span);
+        using MclGroth16VerifierLibrary first = MclGroth16VerifierLibrary.Create();
+        using MclGroth16VerifierLibrary second = MclGroth16VerifierLibrary.Create();
+        var verified = new bool[24];
+
+        Parallel.For(
+            0,
+            verified.Length,
+            new ParallelOptions { MaxDegreeOfParallelism = 4 },
+            index =>
+            {
+                MclGroth16VerifierLibrary library = index % 2 == 0 ? first : second;
+                verified[index] = library.Verify(verifyingKey, publicInputs.Span, proof).Verified;
+            });
+
+        Assert.All(verified, Assert.True);
     }
 
     [Fact]
@@ -694,9 +769,9 @@ public sealed class NativeGroth16ZkProofBackendTests
     private static unsafe class MclGroth16PairingFixture
     {
         private const int MclBnSnark1 = 4;
-        private const int MclCompiledTimeVar = 46;
         private static readonly byte[] VerifyingKeyMagic = "FSG16VK1"u8.ToArray();
         private static readonly byte[] ProofMagic = "FSG16PF1"u8.ToArray();
+        private static readonly object InitializationLock = new();
         private static bool _initialized;
 
         public static byte[] CreateVerifyingKey()
@@ -766,10 +841,17 @@ public sealed class NativeGroth16ZkProofBackendTests
                 return;
             }
 
-            Assert.Equal(0, Mcl.mclBn_init(MclBnSnark1, MclCompiledTimeVar));
-            Mcl.mclBn_verifyOrderG1(1);
-            Mcl.mclBn_verifyOrderG2(1);
-            _initialized = true;
+            lock (InitializationLock)
+            {
+                if (_initialized)
+                {
+                    return;
+                }
+
+                using MclGroth16VerifierLibrary library = MclGroth16VerifierLibrary.Create();
+                Assert.True(library.IsLoaded);
+                _initialized = true;
+            }
         }
 
         private static mclBnG1 HashToG1(string seed)

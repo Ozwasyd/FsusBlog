@@ -168,3 +168,24 @@ scenarios:
       - tests/security/privacy-zk-prod-release.test.mjs
     evidence:
       - .tmp/security/privacy-zk-prod-smoke.json
+
+  - id: PRIVACY-ZK-LOCAL-REVIEW
+    scenario: repository-local cryptographic review hash-binds circuit setup key prover verifier report and focused evidence without claiming external assurance
+    owner: ServerContractAgent
+    status: automated
+    requiredCases: [constraint-completeness, trusted-setup-provenance, public-input-ordering, native-mcl-binding, subgroup-and-canonical-serialization, nullifier-domain-root-epoch-binding, malformed-noncanonical-proof-corpus, verifier-concurrency-timeout, no-independent-audit-claim]
+    localCommands: [check:privacy-zk-local-review, check:privacy-zk-prod-release]
+    code:
+      - security/zk/comment-v2-local-review.manifest.json
+      - docs/zk/comment-v2-local-cryptographic-review.md
+      - tools/security/zk-local-review.mjs
+      - tools/security/check-zk-local-review.mjs
+      - tools/security/check-privacy-zk-prod-release.mjs
+    tests:
+      - tests/security/zk-local-review.test.mjs
+      - tests/security/privacy-zk-prod-release.test.mjs
+      - tests/backend/Unit/NativeGroth16ZkProofBackendTests.cs
+      - tests/backend/Unit/ZkProofVerifierTests.cs
+      - tests/backend/Unit/AnonymousPrivacyConcurrencyTests.cs
+    evidence:
+      - .tmp/security/zk-local-review-check.json

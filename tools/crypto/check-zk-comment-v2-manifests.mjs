@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { validateZkLocalReview } from '../security/zk-local-review.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..'))
 
@@ -27,6 +28,10 @@ const paths = {
   feasibility: resolveInputPath(
     process.env.FSUSBLOG_ZK_FEASIBILITY_MANIFEST,
     'security/zk/comment-v2-feasibility.manifest.json'
+  ),
+  localReview: resolveInputPath(
+    process.env.FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST,
+    'security/zk/comment-v2-local-review.manifest.json'
   )
 }
 
@@ -484,6 +489,10 @@ function checkSetup(setup, circuitHash) {
   equals('setup.public_input_layout_version', setup.public_input_layout_version, expected.layoutVersion)
   equals('setup.circuit_manifest_path', setup.circuit_manifest_path, 'security/zk/comment-v2-circuit.manifest.json')
   equals('setup.circuit_manifest_sha256', setup.circuit_manifest_sha256, circuitHash)
+  equals(
+    'setup.local_cryptographic_review_manifest',
+    setup.local_cryptographic_review_manifest,
+    'security/zk/comment-v2-local-review.manifest.json')
 
   const setupProductionUsable = setup.production_usable === true
   if (!setupProductionUsable && setup.production_usable !== false) {
@@ -628,6 +637,10 @@ function checkConfig(config, setup) {
   equals('config.public_input_layout_version', config.public_input_layout_version, expected.layoutVersion)
   equals('config.trusted_setup_manifest', config.trusted_setup_manifest, 'security/zk/comment-v2-trusted-setup.manifest.json')
   equals('config.circuit_manifest', config.circuit_manifest, 'security/zk/comment-v2-circuit.manifest.json')
+  equals(
+    'config.local_cryptographic_review_manifest',
+    config.local_cryptographic_review_manifest,
+    'security/zk/comment-v2-local-review.manifest.json')
   equals('config.verifying_key_path', config.verifying_key_path, setup.artifacts?.verifying_key?.path)
 
   const setupProductionUsable = setup.production_usable === true
@@ -786,7 +799,7 @@ function checkDependencyPolicy(policy) {
   }
 }
 
-function writeEvidence(status, feasibilityStatus, selectedCandidate) {
+function writeEvidence(status, feasibilityStatus, selectedCandidate, localReviewStatus) {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   fs.writeFileSync(
     outputPath,
@@ -802,10 +815,12 @@ function writeEvidence(status, feasibilityStatus, selectedCandidate) {
         tamper: relative(paths.tamper),
         trusted_setup: relative(paths.setup),
         verifying_key_config: relative(paths.config),
-        feasibility: relative(paths.feasibility)
+        feasibility: relative(paths.feasibility),
+        local_cryptographic_review: relative(paths.localReview)
       },
       feasibility_status: feasibilityStatus,
-      selected_candidate: selectedCandidate
+      selected_candidate: selectedCandidate,
+      local_cryptographic_review_status: localReviewStatus
     }, null, 2)}\n`
   )
 }
@@ -819,6 +834,11 @@ const setup = readJson(paths.setup)
 const config = readJson(paths.config)
 const feasibility = readJson(paths.feasibility)
 const circuitHash = fs.existsSync(paths.circuit) ? sha256File(paths.circuit) : ''
+const localReview = validateZkLocalReview({
+  root,
+  manifestPath: paths.localReview,
+  requireComplete: true
+})
 
 checkCircuit(circuit, setup)
 checkCircuitSource(circuitSource)
@@ -826,11 +846,18 @@ checkTamperManifest(tamper)
 checkSetup(setup, circuitHash)
 checkConfig(config, setup)
 checkFeasibility(feasibility, circuit)
+for (const error of localReview.errors) {
+  fail(`local cryptographic review: ${error}`)
+}
 
 if (failures.length > 0) {
   for (const failure of failures) console.error(failure)
   process.exit(1)
 }
 
-writeEvidence('ok', String(feasibility.status ?? '').trim(), String(feasibility.selected_candidate ?? '').trim())
+writeEvidence(
+  'ok',
+  String(feasibility.status ?? '').trim(),
+  String(feasibility.selected_candidate ?? '').trim(),
+  localReview.status)
 console.log(`[zk-comment-v2-manifest] ok evidence=${relative(outputPath)}`)

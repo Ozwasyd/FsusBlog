@@ -202,6 +202,7 @@
     "check:privacy-zk-concurrency": "dotnet test ../../tests/backend/FsusBlog.Server.Tests.csproj --filter FullyQualifiedName~AnonymousPrivacyConcurrencyTests",
     "check:privacy-zk-prod-smoke": "node ../../tools/security/run-privacy-zk-prod-smoke.mjs",
     "check:privacy-zk-prod-release": "node ../../tools/security/check-privacy-zk-prod-release.mjs",
+    "check:privacy-zk-local-review": "node ../../tools/security/check-zk-local-review.mjs",
     "check:privacy-zk": "npm run check:privacy-zk-contract && npm run check:privacy-zk-backend && npm run check:privacy-zk-frontend && npm run check:privacy-zk-concurrency",
     "generate:sbom": "bash ../../tools/security/generate-sbom.sh",
     "check:supply-chain": "bash ../../tools/security/check-supply-chain-audit.sh",

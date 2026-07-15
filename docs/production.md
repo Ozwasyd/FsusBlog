@@ -51,6 +51,7 @@ Required variables:
 - `FSUSBLOG_ZK_VERIFYING_KEY_HASH`
 - `FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST`
 - `FSUSBLOG_ZK_VERIFYING_KEY_MANIFEST`
+- `FSUSBLOG_ZK_LOCAL_REVIEW_MANIFEST`
 - `FSUSBLOG_ZK_GROTH16_VERIFYING_KEY`
 - `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_ID`
 - `FSUSBLOG_ZK_ISSUER_PUBLIC_KEY`
@@ -155,7 +156,7 @@ export FSUSBLOG_GATEWAY_PUBLIC_PROBE_URL=https://fsus.blog/health/ready
 
 Build and production deploy are deliberately separate. `tools/build-final-image.sh` requires exactly one explicit mode: `FSUSBLOG_FINAL_PUSH=1` builds `imageRepository:<release-id>`, pushes it, resolves the registry digest and atomically creates `build/releases/<release-id>/release-manifest.json`; the same release path cannot be overwritten. `FSUSBLOG_FINAL_LOCAL_ONLY=1` builds a local diagnostic/performance image and never emits a deployable manifest. Production rejects `latest`, `final-current`, an untagged repository, a missing registry digest, or a tag that is not exactly `imageRepository:releaseId`.
 
-The release manifest schema is `fsusblog.release-manifest.v1`. It binds `releaseId`, full `commitSha`, `imageRepository`, immutable `imageTag`, `imageDigest`, `imageRef=repository@digest`, `createdAtUtc`, frontend Vite manifest hash, Wasm `SHA256SUMS` hash, schema compatibility min/max release, .NET/Node/Docker versions and Dockerfile digest. It contains no credentials. CI retains this file with the image; image retention must keep every manifest-selected rollback digest for the configured rollback window.
+The release manifest schema is `fsusblog.release-manifest.v1`. It binds `releaseId`, full `commitSha`, `imageRepository`, immutable `imageTag`, `imageDigest`, `imageRef=repository@digest`, `createdAtUtc`, frontend Vite manifest hash, Wasm `SHA256SUMS` hash, repository-local ZK review manifest hash, schema compatibility min/max release, .NET/Node/Docker versions and Dockerfile digest. It contains no credentials. CI retains this file with the image; deployment rejects a host-side ZK review manifest whose hash differs from the immutable release, and image retention must keep every manifest-selected rollback digest for the configured rollback window.
 
 `tools/deployment/release-rollout.sh` is the only supported production rollout entry. Run the exact command first with `--dry-run`, review its immutable source/target identity and ordered plan, then rerun without `--dry-run` using the same new `rolloutId` and paths. It owns the host lock and 15 durable stages: `manifest-validate`、`capacity-preflight`、`backup-restore-gate`、`expand-migration`、`candidate-start`、`candidate-readiness`、`asset-materialize`、`candidate-smoke`、`compatibility-smoke`、`gateway-switch`、`active-fence`、`public-verify`、`source-drain`、`source-stop`、`release-evidence`. Each attempt records mode-0600 stdout/stderr metadata and SHA-256-bound stage evidence. There is no safety-gate skip flag.
 

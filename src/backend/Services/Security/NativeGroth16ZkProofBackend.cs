@@ -546,6 +546,19 @@ internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierL
             }
         }
 
+        Span<byte> canonical = stackalloc byte[length];
+        fixed (byte* ptr = canonical)
+        {
+            if (Mcl.mclBnG1_serialize((IntPtr)ptr, (UIntPtr)canonical.Length, in value) != (UIntPtr)canonical.Length)
+            {
+                return false;
+            }
+        }
+        if (!CryptographicOperations.FixedTimeEquals(encoded, canonical))
+        {
+            return false;
+        }
+
         return Mcl.mclBnG1_isValid(in value) == 1 &&
             Mcl.mclBnG1_isValidOrder(in value) == 1 &&
             (allowZero || Mcl.mclBnG1_isZero(in value) == 0);
@@ -574,6 +587,19 @@ internal sealed unsafe class MclGroth16VerifierLibrary : INativeGroth16VerifierL
             {
                 return false;
             }
+        }
+
+        Span<byte> canonical = stackalloc byte[length];
+        fixed (byte* ptr = canonical)
+        {
+            if (Mcl.mclBnG2_serialize((IntPtr)ptr, (UIntPtr)canonical.Length, in value) != (UIntPtr)canonical.Length)
+            {
+                return false;
+            }
+        }
+        if (!CryptographicOperations.FixedTimeEquals(encoded, canonical))
+        {
+            return false;
         }
 
         return Mcl.mclBnG2_isValid(in value) == 1 &&
