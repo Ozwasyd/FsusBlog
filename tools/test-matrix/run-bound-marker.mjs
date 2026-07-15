@@ -124,7 +124,8 @@ export async function waitForRunBoundMarker({
   timeoutMs,
   pollIntervalMs = 100,
   signal,
-  producerFailure
+  producerFailure,
+  readMarker = readRunBoundMarker
 }) {
   const normalizedTimeoutMs = Number(timeoutMs)
   if (!Number.isFinite(normalizedTimeoutMs) || normalizedTimeoutMs <= 0) {
@@ -133,15 +134,23 @@ export async function waitForRunBoundMarker({
   const deadline = Date.now() + normalizedTimeoutMs
   while (Date.now() < deadline) {
     if (signal?.aborted) throw new Error(`cancelled waiting for run-bound marker: ${expected.markerId}`)
+    // A successfully published exact marker is the producer step boundary.
+    // Do not let a later, unrelated physical-bundle tail failure shadow it.
+    if (fs.existsSync(path.resolve(file))) return readMarker(file, expected)
     const failure = await producerFailure?.()
     if (failure) throw new Error(`producer failed before run-bound marker ${expected.markerId}: ${failure}`)
-    if (fs.existsSync(path.resolve(file))) return readRunBoundMarker(file, expected)
     await new Promise((resolve, reject) => {
-      const timer = setTimeout(resolve, Math.min(pollIntervalMs, Math.max(1, deadline - Date.now())))
-      signal?.addEventListener('abort', () => {
+      const onAbort = () => {
         clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
         reject(new Error(`cancelled waiting for run-bound marker: ${expected.markerId}`))
-      }, { once: true })
+      }
+      const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort)
+        resolve()
+      }, Math.min(pollIntervalMs, Math.max(1, deadline - Date.now())))
+      signal?.addEventListener('abort', onAbort, { once: true })
+      if (signal?.aborted) onAbort()
     })
   }
   throw new Error(`timed out waiting for run-bound marker: ${expected.markerId}`)

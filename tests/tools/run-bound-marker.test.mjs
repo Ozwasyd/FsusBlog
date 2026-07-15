@@ -53,6 +53,34 @@ test('wait returns as soon as the exact marker is published', async () => {
   assert.equal((await waiting).status, 'success')
 })
 
+test('published exact marker wins over a later unrelated producer tail failure', async () => {
+  const value = fixture()
+  fs.mkdirSync(path.dirname(value.file), { recursive: true })
+  fs.writeFileSync(value.file, '{"status":"specialized-success"}\n')
+  let producerChecks = 0
+  let readerChecks = 0
+
+  const marker = await waitForRunBoundMarker({
+    file: value.file,
+    expected: { markerId: 'frontend-build-ready' },
+    timeoutMs: 1_000,
+    producerFailure: () => {
+      producerChecks += 1
+      return 'unrelated build-static tail failed'
+    },
+    readMarker: (file, expected) => {
+      readerChecks += 1
+      assert.equal(file, value.file)
+      assert.equal(expected.markerId, 'frontend-build-ready')
+      return JSON.parse(fs.readFileSync(file, 'utf8'))
+    }
+  })
+
+  assert.equal(marker.status, 'specialized-success')
+  assert.equal(readerChecks, 1)
+  assert.equal(producerChecks, 0)
+})
+
 test('wait fails immediately on producer failure and cancellation', async () => {
   const value = fixture()
   await assert.rejects(waitForRunBoundMarker({

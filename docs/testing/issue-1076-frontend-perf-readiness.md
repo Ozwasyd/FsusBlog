@@ -22,6 +22,9 @@ also binds scheduler run ID, source commit/worktree fingerprint through the prod
 `physicalBundleId: build-static`, and `producerStepId: sync-static-assets`. It is published by atomic rename only after
 the copy step succeeds. A build/copy failure or cancellation publishes a terminal marker immediately unless a valid
 success marker already exists; consumers fail closed rather than waiting for the whole bundle or a fixed timeout.
+The shared run-bound waiter validates an already-published exact marker before consulting the producer bundle's terminal
+status. Consequently, a later failure in unrelated fuzz/red-team tail work cannot shadow a successful
+`sync-static-assets` boundary, while producer failure before publication still rejects immediately.
 
 `vitest-settled` depends on the complete rolling runner, not an individual host file. The runner resolves only after all
 immutable partitions have exited, merges exact-once reports, and seals the transform-cache lifecycle as
@@ -35,7 +38,7 @@ singletons, coverage payload, and test results are not reused.
 colliding, while unrelated build-static fuzz, red-team, risk-control, viewport planning, and Wasm fuzz work do not enter
 its critical path. CPU and memory admission remain live-grant capacity decisions. Marker polling derives from the live
 bundle CPU grant and the timeout uses the machine-resolved dependency wait ceiling; SIGINT/SIGTERM terminates the
-bundle wait before a perf child is spawned.
+bundle wait through the shared abort signal before a perf child is spawned.
 
 The frontend bundle summary records `frontendPerfAdmission` with marker publication and artifact bindings, marker wait
 duration, all-host settlement time, perf admission time, source state, isolation classification, and an explicit

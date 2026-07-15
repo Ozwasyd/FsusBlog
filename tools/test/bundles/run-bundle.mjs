@@ -93,6 +93,7 @@ const activeBrowserLanes = new Map()
 const browserLaneExecutions = []
 let peakActiveBrowserLanes = 0
 let shutdownPromise = null
+const shutdownController = new AbortController()
 let runtimeChildEnvironment = {}
 let performanceDeadlineEvidence = null
 let finalizedResourceUtilization = null
@@ -247,6 +248,7 @@ function installShutdownForwarding() {
   for (const [signal, exitCode] of [['SIGTERM', 143], ['SIGINT', 130]]) {
     process.once(signal, () => {
       if (shutdownPromise) return
+      shutdownController.abort(new Error(`bundle cancelled by ${signal}`))
       if (bundleId === 'build-static') publishFrontendBuildTerminal('cancelled', signal)
       shutdownPromise = Promise.all([...activeStepChildren.entries()].map(async ([child, record]) => {
         await terminateProcessGroup(child, record.terminationGraceMs)
@@ -1448,9 +1450,26 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
   const generatedContractPath = relative(path.join(productionBuildLayout.generatedRoot, 'frontend-build-contract.json'))
   const generatedProverBundlePath = relative(process.env.FSUSBLOG_COMMENT_PROVER_BUNDLE)
   const startedAtMs = Date.now()
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (fs.existsSync(markerFile)) {
+  const readiness = await waitForRunBoundMarker({
+    file: markerFile,
+    expected: { markerId: 'frontend-build-ready' },
+    timeoutMs,
+    pollIntervalMs: resolveMarkerPollIntervalMs(),
+    signal: shutdownController.signal,
+    producerFailure: () => {
+      if (!fs.existsSync(checkpointFile)) return null
+      try {
+        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
+        const status = checkpoint.tiers?.[`local-${profileId}-build-static`]?.status
+        return ['failure', 'blocked', 'cancelled'].includes(status)
+          ? `build-static:${status} before frontend build readiness marker publication`
+          : null
+      } catch (error) {
+        if (error instanceof SyntaxError) return null
+        throw error
+      }
+    },
+    readMarker: () => {
       try {
         const marker = JSON.parse(fs.readFileSync(markerFile, 'utf8'))
         if (marker.schema !== 'fsusblog.local-production.frontend-build-ready.v1'
@@ -1496,7 +1515,6 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
         return {
           markerFile: relative(markerFile),
           markerPublishedAt: marker.publishedAt ?? marker.generatedAt,
-          markerWaitDurationMs: Date.now() - startedAtMs,
           producerPhysicalBundleId: marker.physicalBundleId,
           producerStepId: marker.producerStepId,
           artifacts: requiredArtifacts.map((requiredPath) => ({
@@ -1509,20 +1527,8 @@ async function waitForFrontendBuildReady(timeoutMs = resolveExecutionWaitTimeout
         throw new Error(`invalid run-bound frontend build readiness marker: ${error.message}`, { cause: error })
       }
     }
-    if (fs.existsSync(checkpointFile)) {
-      try {
-        const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'))
-        const status = checkpoint.tiers?.[`local-${profileId}-build-static`]?.status
-        if (['failure', 'blocked', 'cancelled'].includes(status)) {
-          throw new Error(`build-static:${status} before frontend build readiness marker publication`)
-        }
-      } catch (error) {
-        if (!(error instanceof SyntaxError)) throw error
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, resolveMarkerPollIntervalMs()))
-  }
-  throw new Error(`timed out waiting for run-bound frontend build readiness: ${expectedRunId}`)
+  })
+  return { ...readiness, markerWaitDurationMs: Date.now() - startedAtMs }
 }
 
 function resolvedFrontendTestCpuTarget() {

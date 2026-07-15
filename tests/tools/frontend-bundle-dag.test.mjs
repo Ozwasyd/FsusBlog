@@ -32,6 +32,8 @@ test('frontend bundle gates Vitest on only explicit blocking checks and schedule
   assert.doesNotMatch(vitestDeclaration, /dependsOn: \[[^\]]*frontend-build-ready/u)
   assert.match(perfDeclaration, /dependsOn: \['frontend-build-ready', 'vitest-settled'\]/u)
   assert.doesNotMatch(runnerSource, /waitForSiblingBundleSummaries\(\['build-static'\]\)[\s\S]*?run-frontend-vitest-perf-isolated/u)
+  assert.match(runnerSource, /waitForFrontendBuildReady[\s\S]*?waitForRunBoundMarker\([\s\S]*?markerId: 'frontend-build-ready'[\s\S]*?readMarker:/u)
+  assert.match(runnerSource, /waitForFrontendBuildReady[\s\S]*?signal: shutdownController\.signal/u)
   assert.doesNotMatch(vitestDeclaration, /\b(?:maxErrors|maxFailures|failFast|bail)\b/u)
   assert.match(
     runnerSource.slice(runnerSource.indexOf('async function runFrontendTests()'), vitestStart),
