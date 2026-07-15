@@ -2,7 +2,7 @@ import { Window } from 'happy-dom'
 import { vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
 
-const unitWindow = new Window()
+const unitWindow = new Window({ url: 'https://fsusblog.test/' })
 ;(globalThis as { window?: Window }).window = unitWindow
 ;(globalThis as { document?: Document }).document = unitWindow.document
 ;(globalThis as { Node?: typeof Node }).Node = unitWindow.Node
