@@ -511,6 +511,7 @@ tiers:
       - backend-physical-account-subject-retirement
       - deployment-runtime-lifecycle
       - backend-online-schema-migration-protocol
+      - backend-typed-schema-ddl-providers
       - blue-green-release-storage-lifecycle
       - atomic-idempotent-upload-commit
       - active-release-fence-drain-restart
@@ -555,6 +556,10 @@ tiers:
       - tests/backend/Unit/OnlineSchemaMigrationCompatibilityTests.cs
       - tests/backend/Unit/OnlineSchemaMigrationCoordinatorTests.cs
       - tests/backend/Unit/ProductionHealthTests.cs
+      - src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs
+      - src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs
+      - tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs
+      - tests/backend/Fixtures/schema-ddl-provider-snapshots.json
       - tests/backend/Unit/ReleaseStorageLifecycleTests.cs
       - tests/backend/Unit/PublicAotFileShellCacheTests.cs
       - tests/backend/issue-1029-storage-lifecycle-evidence.json
@@ -792,6 +797,7 @@ tiers:
       - dead-code-audit-governance
       - deployment-runtime-lifecycle
       - backend-online-schema-migration-protocol
+      - backend-typed-schema-ddl-providers
       - blue-green-release-storage-lifecycle
       - append-only-release-assets
       - active-release-fence-drain-restart
@@ -865,6 +871,7 @@ tiers:
       - docs/issue-1029-storage-lifecycle-handoff.md
       - tests/tools/online-schema-migration-wrapper.test.mjs
       - tests/backend/issue-1028-online-migration-evidence.json
+      - docs/schema-migrations/typed-ddl-primitives.json
       - tests/tools/release-storage-lifecycle.test.mjs
       - tools/check-background-service-classification.mjs
       - tests/backend/Fixtures/background-service-classification.json

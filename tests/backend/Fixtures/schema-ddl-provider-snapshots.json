@@ -1,0 +1,25 @@
+{
+  "schema": "fsusblog.schema-ddl-provider-snapshots.v1",
+  "dialects": {
+    "MySql": {
+      "EnsureTable": "CREATE TABLE IF NOT EXISTS article (id bigint);",
+      "EnsureColumn": "ALTER TABLE `article` ADD COLUMN IF NOT EXISTS `title` varchar(64) NULL;",
+      "RenameTable": "RENAME TABLE `article` TO `article_archive`;",
+      "RenameColumn": "ALTER TABLE `article` RENAME COLUMN `title` TO `headline`;",
+      "DropColumn": "ALTER TABLE `article` DROP COLUMN `legacy_title`;",
+      "DropTable": "DROP TABLE IF EXISTS `article_archive`;",
+      "DropIndex": "DROP INDEX `idx_article_title`;",
+      "CreateIndex": "CREATE INDEX IF NOT EXISTS idx_article_title ON article (title);"
+    },
+    "Sqlite": {
+      "EnsureTable": "CREATE TABLE IF NOT EXISTS article (id bigint);",
+      "EnsureColumn": "ALTER TABLE \"article\" ADD COLUMN \"title\" TEXT NULL;",
+      "RenameTable": "ALTER TABLE \"article\" RENAME TO \"article_archive\";",
+      "RenameColumn": "ALTER TABLE \"article\" RENAME COLUMN \"title\" TO \"headline\";",
+      "DropColumn": "ALTER TABLE \"article\" DROP COLUMN \"legacy_title\";",
+      "DropTable": "DROP TABLE IF EXISTS \"article_archive\";",
+      "DropIndex": "DROP INDEX IF EXISTS \"idx_article_title\";",
+      "CreateIndex": "CREATE INDEX IF NOT EXISTS idx_article_title ON article (title);"
+    }
+  }
+}

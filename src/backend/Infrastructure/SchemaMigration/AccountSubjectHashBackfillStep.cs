@@ -17,6 +17,7 @@ public sealed record AccountSubjectHashBackfillStep : SchemaMigrationStep
 
     internal override string Kind => "AccountSubjectHashBackfill";
     internal override string Fingerprint => "v1:csharp-canonical-hasher:keyset-batch-256";
+    internal override SchemaMigrationCommand? BuildCommand(ISchemaDdlProvider ddl) => null;
 
     internal override async Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
     {

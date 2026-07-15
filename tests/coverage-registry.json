@@ -2783,6 +2783,26 @@
       ]
     },
     {
+      "id": "backend-typed-schema-ddl-providers",
+      "description": "Schema migration DDL steps validate typed identifiers and column definitions, resolve provider-specific PostgreSQL, MySQL and SQLite builders, and support transaction-aware dry-run previews.",
+      "owner": "ServerContractAgent",
+      "risk": "high",
+      "evidencePaths": [
+        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs",
+        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationDdlPrimitives.cs",
+        "tests/backend/Unit/SchemaMigrationDdlPrimitivesTests.cs",
+        "tests/backend/Fixtures/schema-ddl-provider-snapshots.json",
+        "docs/schema-migrations/typed-ddl-primitives.json"
+      ],
+      "assertionType": "unit",
+      "failClosedRule": "Reject invalid identifiers, arbitrary column DDL, wrong-kind or injected templates, provider snapshot drift, dry-run mutation, or loss of descriptor transaction boundaries.",
+      "minimumRequirement": "Every DDL step kind must build through ISchemaDdlProvider for PostgreSQL, MySQL and SQLite; MySQL and SQLite output must match checked-in snapshots and transactional previews must expose BEGIN/COMMIT without executing a database command.",
+      "tierIds": [
+        "backend-unit",
+        "static-governance"
+      ]
+    },
+    {
       "id": "blue-green-release-storage-lifecycle",
       "description": "Release storage separates shared durable data from instance-local temporaries and release-addressed derived and immutable assets across blue and green generations.",
       "owner": "ServerContractAgent",

@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -92,15 +91,26 @@ public abstract record SchemaMigrationStep
 {
     internal abstract string Kind { get; }
     internal abstract string Fingerprint { get; }
-    internal abstract Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken);
+    internal abstract SchemaMigrationCommand? BuildCommand(ISchemaDdlProvider ddl);
+
+    internal virtual Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        SchemaMigrationCommand? command = BuildCommand(SchemaDdlProviders.For(db));
+        return command is null
+            ? Task.CompletedTask
+            : db.Ado.ExecuteCommandAsync(command.Sql);
+    }
 }
 
 public sealed record EnsureTableStep(string TableName, string CreateSql) : SchemaMigrationStep
 {
     internal override string Kind => "EnsureTable";
     internal override string Fingerprint => $"{TableName}\n{CreateSql}";
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync(CreateSql);
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(ddl.EnsureTable(
+            SchemaIdentifier.Parse(TableName, nameof(TableName)),
+            CreateSql), IsDdl: true);
 }
 
 public sealed record EnsureColumnStep(string TableName, string ColumnName, string ColumnDefinition) : SchemaMigrationStep
@@ -108,29 +118,11 @@ public sealed record EnsureColumnStep(string TableName, string ColumnName, strin
     internal override string Kind => "EnsureColumn";
     internal override string Fingerprint => $"{TableName}.{ColumnName}:{ColumnDefinition}";
 
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-    {
-        string normalizedColumnDefinition = NormalizeLegacyDynamicSqlLiteralEscapes(ColumnDefinition);
-        string alterColumnSql = SchemaMigrationSql.EscapeLiteral(
-            $"ALTER TABLE {SchemaMigrationSql.QuoteIdentifier(TableName)} ADD COLUMN IF NOT EXISTS {SchemaMigrationSql.QuoteIdentifier(ColumnName)} {normalizedColumnDefinition}");
-
-        return db.Ado.ExecuteCommandAsync($"""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.tables
-                    WHERE table_schema = 'public'
-                      AND table_name = '{SchemaMigrationSql.EscapeLiteral(TableName)}'
-                ) THEN
-                    EXECUTE '{alterColumnSql}';
-                END IF;
-            END $$;
-            """);
-    }
-
-    private static string NormalizeLegacyDynamicSqlLiteralEscapes(string columnDefinition)
-        // Older descriptors pre-escaped default string literals for the EXECUTE wrapper.
-        => Regex.Replace(columnDefinition, "''([^']+)''", "'$1'");
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(ddl.EnsureColumn(
+            SchemaIdentifier.Parse(TableName, nameof(TableName)),
+            SchemaIdentifier.Parse(ColumnName, nameof(ColumnName)),
+            SchemaColumnDefinition.Parse(ColumnDefinition, nameof(ColumnDefinition))), IsDdl: true);
 }
 
 public sealed record RenameTableStep(string OldTableName, string NewTableName) : SchemaMigrationStep
@@ -138,22 +130,10 @@ public sealed record RenameTableStep(string OldTableName, string NewTableName) :
     internal override string Kind => "RenameTable";
     internal override string Fingerprint => $"{OldTableName}->{NewTableName}";
 
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync($"""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.tables
-                    WHERE table_schema = 'public' AND table_name = '{SchemaMigrationSql.EscapeLiteral(OldTableName)}'
-                )
-                AND NOT EXISTS (
-                    SELECT 1 FROM information_schema.tables
-                    WHERE table_schema = 'public' AND table_name = '{SchemaMigrationSql.EscapeLiteral(NewTableName)}'
-                ) THEN
-                    EXECUTE 'ALTER TABLE {SchemaMigrationSql.QuoteIdentifier(OldTableName)} RENAME TO {SchemaMigrationSql.QuoteIdentifier(NewTableName)}';
-                END IF;
-            END $$;
-            """);
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(ddl.RenameTable(
+            SchemaIdentifier.Parse(OldTableName, nameof(OldTableName)),
+            SchemaIdentifier.Parse(NewTableName, nameof(NewTableName))), IsDdl: true);
 }
 
 public sealed record RenameColumnStep(string TableName, string OldColumnName, string NewColumnName) : SchemaMigrationStep
@@ -161,34 +141,19 @@ public sealed record RenameColumnStep(string TableName, string OldColumnName, st
     internal override string Kind => "RenameColumn";
     internal override string Fingerprint => $"{TableName}.{OldColumnName}->{NewColumnName}";
 
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync($"""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema = 'public'
-                      AND table_name = '{SchemaMigrationSql.EscapeLiteral(TableName)}'
-                      AND column_name = '{SchemaMigrationSql.EscapeLiteral(OldColumnName)}'
-                )
-                AND NOT EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema = 'public'
-                      AND table_name = '{SchemaMigrationSql.EscapeLiteral(TableName)}'
-                      AND column_name = '{SchemaMigrationSql.EscapeLiteral(NewColumnName)}'
-                ) THEN
-                    EXECUTE 'ALTER TABLE {SchemaMigrationSql.QuoteIdentifier(TableName)} RENAME COLUMN {SchemaMigrationSql.QuoteIdentifier(OldColumnName)} TO {SchemaMigrationSql.QuoteIdentifier(NewColumnName)}';
-                END IF;
-            END $$;
-            """);
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(ddl.RenameColumn(
+            SchemaIdentifier.Parse(TableName, nameof(TableName)),
+            SchemaIdentifier.Parse(OldColumnName, nameof(OldColumnName)),
+            SchemaIdentifier.Parse(NewColumnName, nameof(NewColumnName))), IsDdl: true);
 }
 
 public sealed record BackfillSqlStep(string Sql) : SchemaMigrationStep
 {
     internal override string Kind => "BackfillSql";
     internal override string Fingerprint => Sql;
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync(Sql);
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(Sql, IsDdl: false);
 }
 
 public sealed record CopyColumnToColumnStep(
@@ -201,13 +166,13 @@ public sealed record CopyColumnToColumnStep(
     internal override string Kind => "CopyColumnToColumn";
     internal override string Fingerprint => $"{TableName}:{SourceColumnName}->{TargetColumnName}|{TargetSqlExpression}|{PredicateSql}";
 
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
     {
         string targetExpression = TargetSqlExpression ?? SchemaMigrationSql.QuoteIdentifier(SourceColumnName);
         string predicate = string.IsNullOrWhiteSpace(PredicateSql)
             ? $"{SchemaMigrationSql.QuoteIdentifier(TargetColumnName)} IS NULL"
             : PredicateSql;
-        return db.Ado.ExecuteCommandAsync($"""
+        return new SchemaMigrationCommand($"""
             DO $$
             BEGIN
                 IF EXISTS (
@@ -225,7 +190,7 @@ public sealed record CopyColumnToColumnStep(
                     EXECUTE 'UPDATE {SchemaMigrationSql.QuoteIdentifier(TableName)} SET {SchemaMigrationSql.QuoteIdentifier(TargetColumnName)} = {targetExpression} WHERE {predicate}';
                 END IF;
             END $$;
-            """);
+            """, IsDdl: false);
     }
 }
 
@@ -236,8 +201,8 @@ public sealed record CopyColumnToTableStep(
 {
     internal override string Kind => "CopyColumnToTable";
     internal override string Fingerprint => $"{SourceTableName}->{TargetTableName}\n{Sql}";
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync(Sql);
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(Sql, IsDdl: false);
 }
 
 public sealed record DropColumnStep(string TableName, string ColumnName) : SchemaMigrationStep
@@ -245,65 +210,59 @@ public sealed record DropColumnStep(string TableName, string ColumnName) : Schem
     internal override string Kind => "DropColumn";
     internal override string Fingerprint => $"{TableName}.{ColumnName}";
 
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync(
-            $"ALTER TABLE IF EXISTS {SchemaMigrationSql.QuoteIdentifier(TableName)} DROP COLUMN IF EXISTS {SchemaMigrationSql.QuoteIdentifier(ColumnName)};");
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(ddl.DropColumn(
+            SchemaIdentifier.Parse(TableName, nameof(TableName)),
+            SchemaIdentifier.Parse(ColumnName, nameof(ColumnName))), IsDdl: true);
 }
 
 public sealed record DropTableStep(string TableName) : SchemaMigrationStep
 {
     internal override string Kind => "DropTable";
     internal override string Fingerprint => TableName;
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync($"DROP TABLE IF EXISTS {SchemaMigrationSql.QuoteIdentifier(TableName)};");
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(ddl.DropTable(SchemaIdentifier.Parse(TableName, nameof(TableName))), IsDdl: true);
 }
 
 public sealed record DropIndexStep(string IndexName) : SchemaMigrationStep
 {
     internal override string Kind => "DropIndex";
     internal override string Fingerprint => IndexName;
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync($"DROP INDEX IF EXISTS {SchemaMigrationSql.QuoteIdentifier(IndexName)};");
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(ddl.DropIndex(SchemaIdentifier.Parse(IndexName, nameof(IndexName))), IsDdl: true);
 }
 
 public sealed record CreateIndexStep(string IndexName, string CreateSql) : SchemaMigrationStep
 {
     internal override string Kind => "CreateIndex";
     internal override string Fingerprint => $"{IndexName}\n{CreateSql}";
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync($"""
-            DO $$
-            BEGIN
-                EXECUTE '{SchemaMigrationSql.EscapeLiteral(CreateSql)}';
-            EXCEPTION
-                WHEN undefined_table OR undefined_column THEN
-                    NULL;
-            END $$;
-            """);
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(ddl.CreateIndex(
+            SchemaIdentifier.Parse(IndexName, nameof(IndexName)),
+            CreateSql), IsDdl: true);
 }
 
 public sealed record RawSqlStep(string Sql) : SchemaMigrationStep
 {
     internal override string Kind => "RawSql";
     internal override string Fingerprint => Sql;
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync(Sql);
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(Sql, IsDdl: false);
 }
 
 public sealed record ClearLegacyPublicArtifactsStep : SchemaMigrationStep
 {
     internal override string Kind => "ClearLegacyPublicArtifacts";
     internal override string Fingerprint => "runtime-cache/public/articles/*.aeds:article-detail-aeds-v3";
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => Task.CompletedTask;
+    internal override SchemaMigrationCommand? BuildCommand(ISchemaDdlProvider ddl) => null;
 }
 
 public sealed record AssertSqlStep(string Description, string Sql) : SchemaMigrationStep
 {
     internal override string Kind => "AssertSql";
     internal override string Fingerprint => $"{Description}\n{Sql}";
-    internal override Task ExecuteAsync(ISqlSugarClient db, CancellationToken cancellationToken)
-        => db.Ado.ExecuteCommandAsync(Sql);
+    internal override SchemaMigrationCommand BuildCommand(ISchemaDdlProvider ddl)
+        => new(Sql, IsDdl: false);
 }
 
 internal static class SchemaMigrationSql
