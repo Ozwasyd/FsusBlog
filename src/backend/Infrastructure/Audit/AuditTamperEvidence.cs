@@ -70,6 +70,13 @@ internal static class AuditTamperEvidence
             && FixedTimeEqualsHexSha256(log.RecordMac, evidence.RecordMac);
     }
 
+    internal static string ComputeRecordHash(AuditLog log)
+    {
+        ArgumentNullException.ThrowIfNull(log);
+        AuditRecord record = FromLog(log) with { RecordHash = null, RecordMac = null };
+        return Sign(record, key: null).RecordHash;
+    }
+
     internal static bool TryValidateKeyMaterial(string? configured, out string error)
     {
         string value = configured?.Trim() ?? string.Empty;
@@ -199,7 +206,7 @@ internal static class AuditTamperEvidence
         writer.WriteString(propertyName, value);
     }
 
-    private static AuditRecord FromLog(AuditLog log)
+    internal static AuditRecord FromLog(AuditLog log)
         => new(
             log.Source,
             log.Type,

@@ -61,6 +61,16 @@ public sealed class ProductionStartupValidatorTests
             ["HumanReadProof:Dedup:CurrentKey"] = TestSecrets.HumanReadProofDedupKey,
             [ReadAnalyticsPrivacyPolicy.NoiseKeySetting] = TestSecrets.ReadAnalyticsNoiseKey,
             ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
+            ["Audit:DetachedCheckpoint:Enabled"] = "true",
+            ["Audit:DetachedCheckpoint:DirectoryName"] = "audit-checkpoints",
+            ["Audit:DetachedCheckpoint:IntervalSeconds"] = "300",
+            ["Audit:DetachedCheckpoint:MaxRecords"] = "1000",
+            ["Audit:DetachedCheckpoint:CurrentKeyId"] = "audit-checkpoint-2026-07",
+            ["Audit:DetachedCheckpoint:Keys:0:KeyId"] = "audit-checkpoint-2026-07",
+            ["Audit:DetachedCheckpoint:Keys:0:Version"] = "1",
+            ["Audit:DetachedCheckpoint:Keys:0:PublicKeyPath"] = "/run/secrets/fsusblog-audit-checkpoint-public.der",
+            ["Audit:DetachedCheckpoint:Keys:0:PrivateKeyPath"] = "/run/secrets/fsusblog-audit-checkpoint-private.der",
+            ["Audit:DetachedCheckpoint:Keys:0:NotBeforeUtc"] = "2026-07-01T00:00:00Z",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
             [VisitLogIpPseudonymizer.CurrentEpochKey] = "1",
             [VisitLogIpPseudonymizer.CurrentKeyKey] = TestSecrets.VisitLogIpPseudonymKey,
@@ -357,6 +367,24 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Audit:TamperEvidenceKey", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("Audit:DetachedCheckpoint:Enabled", "false")]
+    [InlineData("Audit:DetachedCheckpoint:IntervalSeconds", "1")]
+    [InlineData("Audit:DetachedCheckpoint:MaxRecords", "10001")]
+    [InlineData("Audit:DetachedCheckpoint:CurrentKeyId", "missing-key")]
+    [InlineData("Audit:DetachedCheckpoint:Keys:0:PrivateKeyPath", "relative-private.der")]
+    public void ValidateCore_RejectsUnsafeDetachedAuditCheckpointConfiguration(string key, string value)
+    {
+        IConfiguration configuration = CreateValidProductionConfiguration(new Dictionary<string, string?>
+        {
+            [key] = value
+        });
+
+        IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
+
+        Assert.Contains(errors, static error => error.Contains("Audit:DetachedCheckpoint", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void SecurityDomainSecrets_DoNotFallBackToJwtSecretOrHardCodedMaterial()
     {
@@ -623,7 +651,7 @@ public sealed class ProductionStartupValidatorTests
             configuration,
             enforceProductionRules: true);
 
-        Assert.Equal(18, report.SchemaVersion);
+        Assert.Equal(19, report.SchemaVersion);
         Assert.Equal(ProductionStartupValidator.CurrentSchema.Version, report.SchemaVersion);
         Assert.Equal(
             ProductionStartupValidator.CurrentSchema.RequiredSettings.Order(StringComparer.Ordinal),
@@ -632,6 +660,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("Jwt:SecretKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Jwt:KeyVersion", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Jwt:RotationWindowDays", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains("Audit:DetachedCheckpoint:Enabled", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AllowedHosts", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:ServerDomain", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Fido2:Origins", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -977,6 +1006,16 @@ public sealed class ProductionStartupValidatorTests
             ["HumanReadProof:Dedup:CurrentKey"] = TestSecrets.HumanReadProofDedupKey,
             [ReadAnalyticsPrivacyPolicy.NoiseKeySetting] = TestSecrets.ReadAnalyticsNoiseKey,
             ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
+            ["Audit:DetachedCheckpoint:Enabled"] = "true",
+            ["Audit:DetachedCheckpoint:DirectoryName"] = "audit-checkpoints",
+            ["Audit:DetachedCheckpoint:IntervalSeconds"] = "300",
+            ["Audit:DetachedCheckpoint:MaxRecords"] = "1000",
+            ["Audit:DetachedCheckpoint:CurrentKeyId"] = "audit-checkpoint-2026-07",
+            ["Audit:DetachedCheckpoint:Keys:0:KeyId"] = "audit-checkpoint-2026-07",
+            ["Audit:DetachedCheckpoint:Keys:0:Version"] = "1",
+            ["Audit:DetachedCheckpoint:Keys:0:PublicKeyPath"] = "/run/secrets/fsusblog-audit-checkpoint-public.der",
+            ["Audit:DetachedCheckpoint:Keys:0:PrivateKeyPath"] = "/run/secrets/fsusblog-audit-checkpoint-private.der",
+            ["Audit:DetachedCheckpoint:Keys:0:NotBeforeUtc"] = "2026-07-01T00:00:00Z",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
             [VisitLogIpPseudonymizer.CurrentEpochKey] = "1",
             [VisitLogIpPseudonymizer.CurrentKeyKey] = TestSecrets.VisitLogIpPseudonymKey,

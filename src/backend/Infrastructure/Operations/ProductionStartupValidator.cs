@@ -59,7 +59,7 @@ public sealed class ProductionStartupValidationReport(
 
 public static class ProductionStartupValidator
 {
-    private const int SchemaVersion = 18;
+    private const int SchemaVersion = 19;
     private const int PerceptionSealedTokenKeyByteCount = 32;
     private static readonly TimeSpan CoreValidationCacheTtl = TimeSpan.FromSeconds(15);
     private static readonly object CoreValidationCacheLock = new();
@@ -169,6 +169,11 @@ public static class ProductionStartupValidator
         Value("HumanReadProof:Dedup:CurrentKey"),
         Value(ReadAnalyticsPrivacyPolicy.NoiseKeySetting),
         Value("Audit:TamperEvidenceKey"),
+        Value("Audit:DetachedCheckpoint:Enabled"),
+        Value("Audit:DetachedCheckpoint:DirectoryName"),
+        Value("Audit:DetachedCheckpoint:IntervalSeconds"),
+        Value("Audit:DetachedCheckpoint:MaxRecords"),
+        Value("Audit:DetachedCheckpoint:CurrentKeyId"),
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
         Value(VisitLogIpPseudonymizer.CurrentEpochKey),
         Value(VisitLogIpPseudonymizer.CurrentKeyKey),
@@ -264,6 +269,7 @@ public static class ProductionStartupValidator
         }
 
         ValidateLocalAuthFixtureSettings(configuration, enforceProductionRules, errors);
+        AuditDetachedCheckpointRuntimeConfiguration.Validate(configuration, enforceProductionRules, errors);
 
         string? redisConnection = values["ConnectionStrings:Redis"];
         string? redisOptionsConnection = values["RedisOptions:Configuration"];

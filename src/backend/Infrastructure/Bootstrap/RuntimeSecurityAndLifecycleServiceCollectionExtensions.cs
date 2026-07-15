@@ -1,6 +1,7 @@
 using Fido2NetLib;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
@@ -122,6 +123,9 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ISecurityChallengeOrchestrator, SecurityChallengeOrchestrator>();
 
         services.Configure<LifecycleBootstrapOptions>(configuration.GetSection(LifecycleBootstrapOptions.SectionName));
+        services.Configure<AuditDetachedCheckpointRuntimeOptions>(
+            configuration.GetSection(AuditDetachedCheckpointRuntimeOptions.SectionName));
+        services.AddScoped<IAuditCheckpointRecordSource, SqlAuditCheckpointRecordSource>();
 
         services.AddScoped<ICacheInitializer, CacheInitializer>();
         services.AddSingleton<ISchemaMigrationRegistry, SchemaMigrationRegistry>();
@@ -136,6 +140,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
             services.AddHostedService<SecurityPolicySnapshotHostedService>();
             services.AddHostedService<AnonymousCredentialRootRefreshHostedService>();
             services.AddHostedService<ChallengeV2AuditEventWriterWorker>();
+            services.AddHostedService<AuditDetachedCheckpointHostedService>();
         }
 
         return services;

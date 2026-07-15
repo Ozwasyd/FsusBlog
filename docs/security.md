@@ -467,6 +467,8 @@ FsusBlog 采用三级角色体系：
 
 审计 context 不得包含 Authorization、Cookie、token、email、用户名、请求/响应正文、原始 IP、原始 User-Agent、裸 `UserId`、`InternalUserId`、`AccountId` 或 `AdminPrincipalId`。配置 `Audit:TamperEvidenceKey` 或 `Security:AuditTamperEvidenceKey` 后，高价值与普通结构化审计都必须维持 `record_hash` / `record_mac` / `prev_hash` 链式证据；`/user/manage/audit` 查询和 verify 端点只展示结构化摘要与防篡改校验结果。
 
+`Audit:DetachedCheckpoint` 是与 Audit HMAC/JWT/PoW/Data Protection/Site Integrity 分离的 ECDSA P-256 trust domain。生产启动只接受唯一 current key、绝对 `.der` SPKI/PKCS#8 路径、0600 私钥、相对 `FSUSBLOG_DATA_ROOT` 的输出目录，以及 30 秒到 24 小时的有界周期和 1..10000 的批量大小；current private key 与历史 public-only registry 必须分离。后台 worker 在追加前验证现有签名链和数据库 Merkle/range/head，追加后以新 expected head 再验证；失败不得覆盖旧 package、生成无签名 checkpoint 或报告成功。热更新 `Audit:DetachedCheckpoint:Enabled=false` 可在不重启的情况下停止新 checkpoint，现有审计写入与只读证据保持不变。该本地 transport 不是 WORM；同主机 root 仍可删除目录，真正的删除抵抗需要独立 custody，但本地-only 范围不调用 TSA、S3 Object Lock 或公共链。
+
 ## Secret Rotation And Recovery
 
 单作者生产环境的 secret 轮换必须先生成站点备份包：
