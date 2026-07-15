@@ -119,6 +119,23 @@ public sealed class ActiveReleaseFencedCommitIntegrationTests(PostgresSchemaMigr
             "SELECT generation FROM sys_deployment_fence WHERE id = 1;"));
     }
 
+    [Fact]
+    public async Task AuditQuery_ExecutesAgainstDeploymentAndCommitTablesWithoutAmbiguousColumns()
+    {
+        string connectionString = await CreateDatabaseAsync(Release41, "blue", 41, Digest41);
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(ActiveReleaseFencedCommitSql.Audit, connection);
+        command.Parameters.AddWithValue("CutoffUtc", Now.AddMinutes(-1).UtcDateTime);
+        command.Parameters.AddWithValue("BatchSize", 100);
+
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
+
+        Assert.False(await reader.ReadAsync());
+        Assert.Equal("commit_token", reader.GetName(0));
+        Assert.Equal("release_id", reader.GetName(3));
+    }
+
     private async Task<string> CreateDatabaseAsync(
         string releaseId,
         string slot,

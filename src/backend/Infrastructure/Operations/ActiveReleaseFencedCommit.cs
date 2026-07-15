@@ -76,13 +76,13 @@ internal static class ActiveReleaseFencedCommitSql
         """;
 
     internal const string Audit = """
-        SELECT commit_token,
-               operation_scope,
-               mutation_key,
-               release_id,
-               slot,
-               generation,
-               enlisted_at_utc
+        SELECT committed.commit_token,
+               committed.operation_scope,
+               committed.mutation_key,
+               committed.release_id,
+               committed.slot,
+               committed.generation,
+               committed.enlisted_at_utc
         FROM sys_fenced_commit AS committed
         CROSS JOIN sys_deployment_fence AS fence
         WHERE committed.enlisted_at_utc >= @CutoffUtc

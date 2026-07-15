@@ -822,6 +822,10 @@ function startupMinCpuUnits(tier) {
   return Math.max(1, Math.floor(Number(tier.startupMinCpuUnits ?? tier.minCpuUnits) || 1))
 }
 
+function steadyMinCpuUnits(tier) {
+  return Math.max(1, Math.floor(Number(tier.minCpuUnits) || 1))
+}
+
 function startupMemoryWeight(tier) {
   return Number(tier.startupMemoryWeight ?? tier.memoryWeight)
 }
@@ -1903,6 +1907,36 @@ async function runDagUnlocked(options) {
       if (excessCpuUnits <= 0) break
     }
     if (excessCpuUnits > 0) throw new Error('resident reservation exceeds elastic CPU reclaim capacity')
+
+    // Startup minima let coordination-heavy bundles enter the first wave, but
+    // a long-lived bundle may later need its steady floor before it can launch
+    // expensive worker hosts. Rebalance units held above a sibling's steady
+    // minimum even when the machine has no completely free CPU units.
+    let steadyDeficitCpuUnits = elastic.reduce(
+      (total, entry) => total + Math.max(0, steadyMinCpuUnits(entry.tier) - entry.tier.cpuUnits),
+      0
+    )
+    while (steadyDeficitCpuUnits > 0) {
+      const receiver = [...elastic]
+        .filter((entry) => entry.tier.cpuUnits < steadyMinCpuUnits(entry.tier))
+        .sort((left, right) => (
+          steadyMinCpuUnits(right.tier) - right.tier.cpuUnits
+            - (steadyMinCpuUnits(left.tier) - left.tier.cpuUnits)
+          || startupAdmissionOrder(left.tier, right.tier)
+        ))[0]
+      const donor = [...elastic]
+        .filter((entry) => entry.tier.cpuUnits > steadyMinCpuUnits(entry.tier))
+        .sort((left, right) => (
+          right.tier.cpuUnits - steadyMinCpuUnits(right.tier)
+            - (left.tier.cpuUnits - steadyMinCpuUnits(left.tier))
+          || right.tier.cpuWeight - left.tier.cpuWeight
+          || left.tier.id.localeCompare(right.tier.id)
+        ))[0]
+      if (!receiver || !donor) break
+      receiver.tier.cpuUnits += 1
+      donor.tier.cpuUnits -= 1
+      steadyDeficitCpuUnits -= 1
+    }
 
     usage = accountedUsage([...active.values()])
     let excessMemoryGiB = Math.max(0, usage.memoryGiB - budget.memoryGiB)

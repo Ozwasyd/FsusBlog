@@ -327,6 +327,15 @@ function requirePositiveResourceDeclaration(bundle, field) {
   return value
 }
 
+export function resolveFrontendVitestAdmissionFloor({ cpuCount, eventualFrontendCapacity }) {
+  const machineCpuUnits = Math.max(1, Math.floor(Number(cpuCount) || 1))
+  const eventualCapacity = Math.max(1, Math.floor(Number(eventualFrontendCapacity) || 1))
+  return Math.max(1, Math.min(
+    eventualCapacity,
+    Math.ceil(Math.sqrt(machineCpuUnits))
+  ))
+}
+
 function allocateIntegerCpuUnits(bundles, availableCpuUnits, minimumField = 'minCpuUnits', weightField = 'cpuWeight') {
   const weights = bundles.map((bundle) => requirePositiveResourceDeclaration(bundle, weightField))
   const minimums = bundles.map((bundle) => {
@@ -407,6 +416,24 @@ export function resolveLocalProfileResources(profile, detectedResources) {
     startupPriority: bundle.startupPriority ?? 0
   }))
   const byId = new Map(bundles.map((bundle) => [bundle.id, bundle]))
+  const frontendBundle = byId.get('frontend-tests')
+  const backendBundle = byId.get('backend-tests')
+  const runtimeBundle = byId.get('runtime-browser')
+  if (frontendBundle && backendBundle && runtimeBundle) {
+    const eventualFrontendCapacity = Math.max(
+      1,
+      availableCpuUnits
+        - requirePositiveResourceDeclaration(backendBundle, 'minCpuUnits')
+        - requirePositiveResourceDeclaration(runtimeBundle, 'minCpuUnits')
+    )
+    frontendBundle.minCpuUnits = Math.max(
+      Number(frontendBundle.minCpuUnits),
+      resolveFrontendVitestAdmissionFloor({
+        cpuCount: availableCpuUnits,
+        eventualFrontendCapacity
+      })
+    )
+  }
   const initialIds = ['build-static', 'backend-tests', 'frontend-tests', 'runtime-browser']
   const initialBundles = initialIds.map((id) => {
     const bundle = byId.get(id)

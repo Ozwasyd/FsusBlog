@@ -1054,6 +1054,50 @@ test('active dynamic bundles expand from the live scheduler grant after a siblin
   assert.equal(result.checkpoint.tiers.long.resourceGrantHistory.at(-1).cpuUnits, 8)
 })
 
+test('active dynamic bundles transfer weighted surplus to a sibling steady CPU floor', async () => {
+  const { runDag } = await loadScheduler()
+  const temp = createTempDir('scheduler-steady-floor-transfer')
+  const observed = new Map()
+  let arrived = 0
+  let releaseReaders
+  const bothReadersArrived = new Promise((resolve) => { releaseReaders = resolve })
+  const dynamicTier = (id, overrides) => tier(id, {
+    resourceGrantMode: 'dynamic',
+    memoryWeight: 1,
+    startupMinCpuUnits: 1,
+    startupMemoryWeight: 1,
+    cpuUnits: 8,
+    memoryGiB: 8,
+    ...overrides
+  })
+  const result = await runDag({
+    tiers: [
+      dynamicTier('frontend', { cpuWeight: 3, minCpuUnits: 3 }),
+      dynamicTier('performance', { cpuWeight: 8, minCpuUnits: 1 })
+    ],
+    root: temp,
+    runsRoot: path.join(temp, 'runs'),
+    runId: 'steady-floor-transfer',
+    maxParallel: 8,
+    systemResources: { cpuCount: 8, availableCpuUnits: 8, availableMemoryGiB: 8, load1: 0 },
+    currentFreeMemoryGiB: () => 8,
+    snapshotWorktree: stableSnapshot,
+    executeTier: async (current, context) => {
+      await delay(30)
+      arrived += 1
+      if (arrived === 2) releaseReaders()
+      await bothReadersArrived
+      const grants = JSON.parse(fs.readFileSync(context.env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE, 'utf8'))
+      observed.set(current.id, grants.grants[current.id].cpuUnits)
+      return { code: 0, signal: null }
+    }
+  })
+
+  assert.equal(result.status, 'success')
+  assert.equal(observed.get('frontend'), 3)
+  assert.equal(observed.get('performance'), 5)
+})
+
 test('released elastic capacity admits newly-ready work before expanding active bundles', async () => {
   const { runDag } = await loadScheduler()
   const temp = createTempDir('scheduler-elastic-admission-fairness')

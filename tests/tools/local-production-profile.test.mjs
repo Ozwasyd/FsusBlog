@@ -16,6 +16,7 @@ import {
   matrixGeneratedRuntimePaths,
   resolveLocalProfileResources,
   resolveArtifactSubstitutions,
+  resolveFrontendVitestAdmissionFloor,
   validateArtifactSubstitutions,
   validateLocalBundleSummary,
   validatePerformanceDeadlineEvidence,
@@ -165,7 +166,12 @@ test('legacy local bundles retain explicit startup compatibility fallbacks', () 
   assert.deepEqual(validateLocalProfiles({ production: legacy }, tiers), [])
   const resolved = resolveLocalProfileResources(legacy, { availableCpuUnits: 5, availableMemoryGiB: 10 })
   for (const bundle of resolved.bundles) {
-    assert.equal(bundle.startupMinCpuUnits, bundle.minCpuUnits)
+    if (bundle.id === 'frontend-tests') {
+      assert.equal(bundle.startupMinCpuUnits, 1)
+      assert.equal(bundle.minCpuUnits, 2)
+    } else {
+      assert.equal(bundle.startupMinCpuUnits, bundle.minCpuUnits)
+    }
     assert.equal(bundle.startupMemoryWeight, bundle.memoryWeight)
     assert.equal(bundle.startupPriority, 0)
   }
@@ -302,6 +308,18 @@ test('production bundle resources resolve from each machine and fill its usable 
     () => resolveLocalProfileResources(impossibleMinimum, { availableCpuUnits: 3, availableMemoryGiB: 9 }),
     /requires at least 4 available CPU units from declared minima/u
   )
+})
+
+test('frontend steady admission floor follows machine capacity and cannot deadlock its worker host', () => {
+  assert.equal(resolveFrontendVitestAdmissionFloor({ cpuCount: 4, eventualFrontendCapacity: 1 }), 1)
+  assert.equal(resolveFrontendVitestAdmissionFloor({ cpuCount: 8, eventualFrontendCapacity: 5 }), 3)
+  assert.equal(resolveFrontendVitestAdmissionFloor({ cpuCount: 16, eventualFrontendCapacity: 13 }), 4)
+
+  const resolved = resolveLocalProfileResources(profile(), {
+    availableCpuUnits: 8,
+    availableMemoryGiB: 18
+  })
+  assert.equal(resolved.bundles.find((bundle) => bundle.id === 'frontend-tests').minCpuUnits, 3)
 })
 
 test('declared output digests fail closed for missing direct and wildcard artifacts', () => {
@@ -779,7 +797,7 @@ test('backend bundle publishes server readiness before independent tests and ben
   assert.match(frontendBundleRunner, /node tools\/test\/run-frontend-vitest-rolling-shards\.mjs/u)
   assert.match(frontendBundleRunner, /vitest-production-projects'[\s\S]*?dependsOn: \['frontend-early-test-capacity-ready'\],[\s\S]*?cpuWeight: 2,[\s\S]*?memoryWeight: 1\.5,[\s\S]*?minCpuUnits: resolvedFrontendVitestAdmissionFloor\(\)/u)
   assert.doesNotMatch(frontendBundleRunner, /FSUSBLOG_VITEST_TARGET_WORKERS/u)
-  assert.match(localBundleRunner, /function resolvedFrontendVitestAdmissionFloor\(\) \{[\s\S]*?Math\.ceil\(Math\.sqrt\(cpuCount\)\)/u)
+  assert.match(localBundleRunner, /resolveFrontendVitestAdmissionFloor\(\{ cpuCount, eventualFrontendCapacity \}\)/u)
   assert.match(localBundleRunner, /function resolvedFrontendEarlyTestCpuTarget\(\) \{[\s\S]*?currentCpuUnits >= 3 \? currentCpuUnits - 1 : currentCpuUnits/u)
   assert.match(frontendBundleRunner, /frontend-early-test-capacity-ready'[\s\S]*?coordinationOnly: true/u)
   assert.match(frontendBundleRunner, /frontend-test-capacity-ready'[\s\S]*?coordinationOnly: true/u)
@@ -1124,7 +1142,7 @@ test('physical bundle DAG preserves dependencies and derives deadlines from reso
   assert.deepEqual(bundles.map((bundle) => bundle.phase), [0, 0, 0, 0, 0])
   assert.deepEqual(bundles.slice(0, 4).map((bundle) => bundle.resourceGrantMode), ['dynamic', 'dynamic', 'dynamic', 'dynamic'])
   assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.cpuWeight), [2, 3, 3])
-  assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.minCpuUnits), [1, 2, 1])
+  assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.minCpuUnits), [1, 2, 3])
   assert.deepEqual(bundles.slice(0, 3).map((bundle) => bundle.maxParallel), [8, 8, 8])
   assert.ok(bundles.every((bundle) => Number.isInteger(bundle.budgetMs) && bundle.budgetMs > 0))
   assert.deepEqual(bundles.slice(0, 4).map((bundle) => bundle.startupMinCpuUnits), [1, 1, 1, 1])

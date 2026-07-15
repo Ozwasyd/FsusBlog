@@ -34,23 +34,18 @@ internal static class PublicHotReadResidencyProfiler
         long managedBefore = GC.GetTotalMemory(forceFullCollection: false);
         int[] collectionsBefore = [GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2)];
         long buildStarted = Stopwatch.GetTimestamp();
+        var encoder = new AedsEncoder();
 
         var candidates = new Dictionary<int, PublicBinaryArtifact>(articleCount);
         for (int id = 1; id <= articleCount; id++)
         {
-            byte[] raw = CreatePayload(frameBytes, id);
-            byte[] brotli = id % 5 == 0 ? [] : CreatePayload(frameBytes / 4, id ^ 0x5a5a);
-            byte[] gzip = id % 20 < 3 ? CreatePayload(frameBytes / 3, id ^ 0x33cc) : [];
-            candidates[id] = new PublicBinaryArtifact(
-                raw,
-                $"\"raw-{id}\"",
-                "public,max-age=60",
-                id,
+            candidates[id] = PublicHotReadBinaryArtifactFactory.FromPayload(
+                encoder,
                 AedsFrameType.ArticleDetail,
-                brotli,
-                brotli.Length == 0 ? string.Empty : $"\"br-{id}\"",
-                gzip,
-                gzip.Length == 0 ? string.Empty : $"\"gzip-{id}\"");
+                CreatePayload(frameBytes, id),
+                options.CacheControl,
+                id,
+                options);
         }
 
         int popularCount = admissionLimit * (100 - options.ArticleAdmissionRecentPercent) / 100;
@@ -211,8 +206,10 @@ internal static class PublicHotReadResidencyProfiler
     private static byte[] CreatePayload(int length, int seed)
     {
         var bytes = new byte[length];
-        var random = new Random(seed);
-        random.NextBytes(bytes);
+        for (int index = 0; index < bytes.Length; index++)
+        {
+            bytes[index] = (byte)((seed + index) % 251);
+        }
         return bytes;
     }
 

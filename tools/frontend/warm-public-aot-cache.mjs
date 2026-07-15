@@ -11,6 +11,7 @@ import {
   validatePublicAotWarmEvidence
 } from './public-aot-warm-evidence.mjs'
 import { resolvePublicAotConcurrency } from '../test/resolve-public-aot-concurrency.mjs'
+import { resolvePublicAotSidecarDirectories } from './public-aot-sidecar-paths.mjs'
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:7568'
@@ -21,10 +22,10 @@ const timeoutMs = Number(
   || Math.min(Math.max(waitMs, 15000), 60000)
 )
 const manifestToken = process.env.FSUSBLOG_PUBLIC_AOT_MANIFEST_TOKEN || ''
-const sidecarSourceDir = process.env.FSUSBLOG_PUBLIC_AOT_SIDECAR_SOURCE_DIR
-  || join(repoRoot, 'src', 'backend', 'wwwroot', 'aot-cache', 'payloads')
-const sidecarPreviewDistDir = process.env.FSUSBLOG_PUBLIC_AOT_SIDECAR_DIST_DIR
-  || join(repoRoot, 'src', 'frontend', 'dist', 'aot-cache', 'payloads')
+const {
+  sourceDir: sidecarSourceDir,
+  previewDistDir: sidecarPreviewDistDir
+} = resolvePublicAotSidecarDirectories({ repoRoot })
 
 function parseArgs(argv) {
   const configuredConcurrency = process.env.FSUSBLOG_PUBLIC_AOT_CONCURRENCY

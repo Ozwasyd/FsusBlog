@@ -12,7 +12,8 @@ import {
   artifactSubstitutionBindingDigest,
   matrixGeneratedRuntimePaths,
   resolveLocalProfileResources,
-  resolveArtifactSubstitutions
+  resolveArtifactSubstitutions,
+  resolveFrontendVitestAdmissionFloor
 } from '../../test-matrix/local-profile.mjs'
 import { performanceMixedWindowFloorMs, validatePerformanceDeadlineEvidence } from '../../test-matrix/local-profile.mjs'
 import {
@@ -1684,10 +1685,7 @@ function resolvedFrontendVitestAdmissionFloor() {
   // machine-derived useful floor instead of starting a future multi-worker
   // host inside the bundle's one-CPU cold-start share. The square-root floor
   // stays portable on small machines while avoiding transform oversubscription.
-  return Math.max(1, Math.min(
-    eventualFrontendCapacity,
-    Math.ceil(Math.sqrt(cpuCount))
-  ))
+  return resolveFrontendVitestAdmissionFloor({ cpuCount, eventualFrontendCapacity })
 }
 
 async function waitForFrontendTestCapacity(targetCpuUnits, timeoutMs = bundleDeadlineMs()) {

@@ -12,6 +12,7 @@ import {
   isValidColdFirstResponse,
   validatePublicAotWarmEvidence
 } from '../../tools/frontend/public-aot-warm-evidence.mjs'
+import { resolvePublicAotSidecarDirectories } from '../../tools/frontend/public-aot-sidecar-paths.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const route = {
@@ -23,6 +24,32 @@ const route = {
   dependencyKeys: ['article:42', 'seo'],
   priority: 10
 }
+
+test('public AOT sidecars prefer explicit overrides then run-bound build roots', () => {
+  assert.deepEqual(resolvePublicAotSidecarDirectories({
+    repoRoot: '/repo',
+    env: {
+      FSUSBLOG_BACKEND_WEBROOT: '/run/backend-webroot',
+      FSUSBLOG_FRONTEND_DIST_ROOT: '/run/frontend-dist'
+    }
+  }), {
+    sourceDir: '/run/backend-webroot/aot-cache/payloads',
+    previewDistDir: '/run/frontend-dist/aot-cache/payloads'
+  })
+
+  assert.deepEqual(resolvePublicAotSidecarDirectories({
+    repoRoot: '/repo',
+    env: {
+      FSUSBLOG_BACKEND_WEBROOT: '/run/backend-webroot',
+      FSUSBLOG_FRONTEND_DIST_ROOT: '/run/frontend-dist',
+      FSUSBLOG_PUBLIC_AOT_SIDECAR_SOURCE_DIR: '/explicit/source',
+      FSUSBLOG_PUBLIC_AOT_SIDECAR_DIST_DIR: '/explicit/dist'
+    }
+  }), {
+    sourceDir: '/explicit/source',
+    previewDistDir: '/explicit/dist'
+  })
+})
 
 function completeHtml(canonical = 'https://blog.example.com/article/42') {
   return `<!doctype html><html><head>

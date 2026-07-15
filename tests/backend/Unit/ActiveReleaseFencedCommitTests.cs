@@ -71,6 +71,19 @@ public sealed class ActiveReleaseFencedCommitTests
     [Fact]
     public void AuditWorker_DetectsPostRevokePostSwitchAndImpossibleFutureGenerationCommits()
     {
+        foreach (string column in new[]
+                 {
+                     "commit_token",
+                     "operation_scope",
+                     "mutation_key",
+                     "release_id",
+                     "slot",
+                     "generation",
+                     "enlisted_at_utc"
+                 })
+        {
+            Assert.Contains($"committed.{column}", ActiveReleaseFencedCommitSql.Audit, StringComparison.Ordinal);
+        }
         Assert.Contains("committed.generation > fence.generation", ActiveReleaseFencedCommitSql.Audit, StringComparison.Ordinal);
         Assert.Contains("fence.status = 'revoked'", ActiveReleaseFencedCommitSql.Audit, StringComparison.Ordinal);
         Assert.Contains("committed.generation < fence.generation", ActiveReleaseFencedCommitSql.Audit, StringComparison.Ordinal);
