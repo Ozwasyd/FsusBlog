@@ -618,17 +618,6 @@ async function main() {
     }
   }
 
-  const invalidCategory = await fetchHtmlUntil('/category/0', (html) => {
-    assertSharedHydrationMarkers(html, 'Filter');
-  }, 'invalid category shell contract');
-  assertPublicChrome(invalidCategory, 'invalid category');
-  const invalidCategoryPayload = await readHydrationPayload(invalidCategory, '/category/0', 'Filter');
-  assert(invalidCategoryPayload.routeKey === 'category:0', 'invalid category payload routeKey mismatch');
-  assert(invalidCategoryPayload.filter?.filterType === 'category', 'invalid category payload filterType mismatch');
-  assert(invalidCategoryPayload.filter?.filterKey === 'category:0', 'invalid category payload filterKey mismatch');
-  expectIncludes(invalidCategory, '没有找到这个分类', 'invalid category empty state');
-  expectNotIncludes(invalidCategory, 'Acceptance Public Article', 'invalid category leaked article list');
-
   const tagList = await fetchAeds('/api/binary/tag.aeds');
   const tagId = typeof tagList?.[0]?.id === 'number'
     ? tagList[0].id

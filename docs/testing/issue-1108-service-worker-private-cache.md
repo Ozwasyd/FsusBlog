@@ -16,13 +16,13 @@ The policy check proves:
 - explicit public immutable assets remain cacheable;
 - public shell invalidation and search-index single-flight/version pruning remain intact.
 
-The runtime unit test proves that a shared-device cleanup reaches both active and waiting workers, removes all shell/search namespaces, purges sensitive entries from legacy static caches, and preserves explicit public immutable assets. Auth broadcast/store tests cover the caller wiring for local logout and another tab receiving logout or expiry.
+The runtime unit test proves that a shared-device cleanup reaches both active and waiting workers, removes all shell/search namespaces, purges sensitive entries from legacy static caches, and preserves explicit public immutable assets. Auth broadcast/store tests cover the caller wiring for local logout and another tab receiving logout or expiry. The production-preview PWA smoke also verifies that CSP-nonce HTML marked `private,no-store` remains online-only: two controlled online loads succeed, no shell cache entry is written, and offline public/private navigation returns an explicit 503 without a stale-hit marker.
 
 ## Identity and protocol scenarios
 
 | Scenario | Expected result |
 | --- | --- |
-| Anonymous public shell | May be retained only when the route is allowlisted and the response is explicitly public; offline response is marked stale/no-store. |
+| Anonymous public shell | May be retained only when the route is allowlisted and the response is explicitly public. Current CSP-nonce HTML is `private,no-store`, so it must remain uncached and return 503 offline rather than a false stale hit. |
 | Logged-in account request | `/api/**` and `/user/**` are network-only; logout removes offline shell/search history on every tab. |
 | Admin request | `/admin/**`, `/manage/**`, `/author/**`, and admin API traffic are network-only; admin logout uses the same cleanup. |
 | Notification stream/preflight | Notification API traffic is network-only and never enters shell/static/search caches. |

@@ -4,6 +4,9 @@ import { readAedsResponse } from '../../support/aeds-envelope.mjs';
 import { readPublicFixtureIds } from '../../support/public-fixtures.mjs';
 
 const baseUrl = process.env.FSUSBLOG_BASE_URL || 'http://127.0.0.1:8080';
+const assetBaseUrl = process.env.FSUSBLOG_RELEASE_PREVIEW_URL
+  || process.env.FSUSBLOG_DEBUG_FRONTEND_URL
+  || baseUrl;
 const requestTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_HTTP_TIMEOUT_MS, 15000);
 const aotSettleTimeoutMs = parseTimeoutMs(process.env.FSUSBLOG_PUBLIC_AOT_SETTLE_TIMEOUT_MS, 15000);
 const publicFixtureIds = readPublicFixtureIds();
@@ -206,7 +209,9 @@ async function assertSocialImageRuntime(body, item, blogPosting) {
     assert(jsonImage === ogImage, `[${item.name}] OG/Twitter/BlogPosting image URL mismatch`);
   }
 
-  const response = await fetchWithTimeout(new URL(ogImage, baseUrl).toString(), {
+  const declaredImageUrl = new URL(ogImage, baseUrl);
+  const localImageUrl = new URL(`${declaredImageUrl.pathname}${declaredImageUrl.search}`, assetBaseUrl);
+  const response = await fetchWithTimeout(localImageUrl.toString(), {
     headers: { 'User-Agent': 'Mozilla/5.0 (FsusBlog Social Image Smoke)', Accept: 'image/*' }
   }, requestTimeoutMs);
   assert(response.ok, `[${item.name}] social image expected 2xx, got ${response.status}`);

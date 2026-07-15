@@ -31,15 +31,16 @@ async function waitForController(page) {
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller), null, { timeout: 10_000 })
 }
 
-async function expectOfflineNavigationFailure(page, path) {
-  let failed = false
-  try {
-    await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 5_000 })
-  } catch {
-    failed = true
+async function expectOfflineNavigationRejected(page, path, expectedFallback = null) {
+  const response = await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 5_000 })
+  assert(response?.status() === 503, `${path} offline navigation expected 503, got ${response?.status()}`)
+  assert(!response.headers()['x-fsus-offline-stale'], `${path} must not be marked as an offline stale hit`)
+  if (expectedFallback) {
+    assert(
+      response.headers()['x-fsus-service-worker-fallback'] === expectedFallback,
+      `${path} offline fallback mismatch`
+    )
   }
-
-  assert(failed, `${path} must not be available from the offline public shell cache`)
 }
 
 async function main() {
@@ -66,18 +67,20 @@ async function main() {
 
     const cachedResponse = await page.goto(articlePath, { waitUntil: 'networkidle' })
     assert(cachedResponse?.ok(), `${articlePath} controlled load failed: ${cachedResponse?.status()}`)
+    const articleWasCached = await page.evaluate(async (path) => {
+      for (const cacheName of await caches.keys()) {
+        if (!cacheName.startsWith('fsus-shell-')) continue
+        const cache = await caches.open(cacheName)
+        if ((await cache.keys()).some((request) => new URL(request.url).pathname === path)) return true
+      }
+      return false
+    }, articlePath)
+    assert(!articleWasCached, `${articlePath} private/no-store nonce HTML entered shell Cache Storage`)
 
     await context.setOffline(true)
-    const offlineResponse = await page.goto(articlePath, { waitUntil: 'domcontentloaded' })
-    assert(offlineResponse?.ok(), `${articlePath} offline cached load failed: ${offlineResponse?.status()}`)
-    assert(offlineResponse.headers()['x-fsus-offline-stale'] === '1', 'offline public article must be marked stale')
-
-    const bodyText = (await page.locator('body').textContent()) || ''
-    assert(bodyText.length > 200, 'offline public article body must render cached content')
-    assert(!bodyText.includes('binary-network-unavailable'), 'offline shell must not be the binary API fallback')
-
-    await expectOfflineNavigationFailure(page, '/user/profile')
-    await expectOfflineNavigationFailure(page, '/admin')
+    await expectOfflineNavigationRejected(page, articlePath)
+    await expectOfflineNavigationRejected(page, '/user/profile', 'private-network-unavailable')
+    await expectOfflineNavigationRejected(page, '/admin', 'private-network-unavailable')
   } finally {
     await context.setOffline(false).catch(() => {})
     await browser.close()

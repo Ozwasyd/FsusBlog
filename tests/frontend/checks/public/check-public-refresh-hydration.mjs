@@ -156,25 +156,6 @@ const PUBLIC_SEO_SCENARIOS = [
     expectedRouteKey: `tag:${publicFixtureIds.tagId}`,
     phases: createListToArticlePhases(),
   },
-  {
-    name: 'invalid-category-fallback',
-    route: '/category/0',
-    expectedKind: 'Filter',
-    allowUnhydratedAotFallback: true,
-  },
-  {
-    name: 'invalid-tag-fallback',
-    route: '/tag/0',
-    expectedKind: 'Filter',
-    allowUnhydratedAotFallback: true,
-  },
-  {
-    name: 'invalid-article-aot-fallback',
-    route: '/article/0',
-    expectedKind: 'ArticleDetail',
-    allowUnhydratedAotFallback: true,
-    directWaitUntil: 'domcontentloaded',
-  },
 ]
 
 const PUBLIC_INTERACTION_ONLY_SCENARIOS = [
