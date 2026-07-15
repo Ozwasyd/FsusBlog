@@ -17,6 +17,7 @@ import {
 import {
   parseTransformCacheDebug,
   requireTransformCacheReuse,
+  validatePerfTiming,
   validateIsolatedPerfExecution
 } from '../../tools/test/run-frontend-vitest-perf-isolated.mjs'
 import transformCacheCoverageRuntime from '../../src/frontend/vitest.transform-cache-coverage.mjs'
@@ -207,12 +208,16 @@ test('perf execution is exact, disjoint from ordinary IDs, and cannot mutate cov
 })
 
 test('cache debug timing parser records hits, misses, and writes without depending on ANSI color', () => {
+  const cachePath = '/tmp/fsusblog-cache/modules-digest'
   const stats = parseTransformCacheDebug([
-    '\u001b[32m[read]\u001b[0m one',
-    '[read] two',
-    '\u001b[31m[empty]\u001b[0m three',
-    '\u001b[33m[write]\u001b[0m four'
-  ].join('\n'))
+    `2026-07-15T00:00:00.000Z vitest:cache:fs \u001b[32m[read]\u001b[0m one is cached in ${cachePath}/one`,
+    `2026-07-15T00:00:00.001Z vitest:cache:fs [read] two is cached in ${cachePath}/two`,
+    `2026-07-15T00:00:00.002Z vitest:cache:fs \u001b[31m[empty]\u001b[0m ${cachePath}/three does not exist`,
+    `2026-07-15T00:00:00.003Z vitest:cache:fs \u001b[33m[write]\u001b[0m four is cached in ${cachePath}/four`,
+    '[read] spoofed by test stdout',
+    '2026-07-15T00:00:00.004Z other:cache [read] spoofed namespace',
+    '2026-07-15T00:00:00.005Z vitest:cache:fs [read] /tmp/other-cache/entry'
+  ].join('\n'), { cachePath })
   assert.deepEqual(stats, { hits: 2, misses: 1, writes: 1 })
   assert.deepEqual(requireTransformCacheReuse(stats), {
     hits: 2, misses: 1, writes: 1, requests: 3, hitRate: 2 / 3, reused: true, safeRebuild: false
@@ -225,6 +230,41 @@ test('cache debug timing parser records hits, misses, and writes without dependi
     identitySchema: 'fsusblog.frontend-vitest-transform-cache-identity.v1',
     lifecycleSchema: 'fsusblog.frontend-vitest-transform-cache-lifecycle.v1'
   })
+})
+
+test('perf timing evidence rejects missing, non-finite, or non-monotonic clocks', () => {
+  assert.deepEqual(validatePerfTiming({
+    processStartedAtMs: 100,
+    vitestStartedAtMs: 125,
+    testStartedAtMs: [180, 150],
+    processFinishedAtMs: 220
+  }), {
+    processStartedAtMs: 100,
+    vitestStartedAtMs: 125,
+    firstPerfTestStartedAtMs: 150,
+    processFinishedAtMs: 220,
+    coldStartupMs: 25,
+    timeToFirstTestMs: 50,
+    wallClockMs: 120
+  })
+  assert.throws(() => validatePerfTiming({
+    processStartedAtMs: 100,
+    vitestStartedAtMs: undefined,
+    testStartedAtMs: [150],
+    processFinishedAtMs: 220
+  }), /missing or invalid: vitestStartedAtMs/u)
+  assert.throws(() => validatePerfTiming({
+    processStartedAtMs: 100,
+    vitestStartedAtMs: 125,
+    testStartedAtMs: [],
+    processFinishedAtMs: 220
+  }), /missing or invalid: firstPerfTestStartedAtMs/u)
+  assert.throws(() => validatePerfTiming({
+    processStartedAtMs: 100,
+    vitestStartedAtMs: 180,
+    testStartedAtMs: [150],
+    processFinishedAtMs: 220
+  }), /not monotonic/u)
 })
 
 test('perf cache-key compatibility provider never starts profiling or emits coverage', async () => {

@@ -71,12 +71,19 @@ export function validateIsolatedPerfExecution(perfReport, ordinaryReport, covera
   }
 }
 
-export function parseTransformCacheDebug(output) {
+export function parseTransformCacheDebug(output, { cachePath } = {}) {
+  const normalizedCachePath = cachePath
+    ? path.resolve(cachePath).replaceAll(path.sep, '/')
+    : null
   const plain = String(output).replaceAll(/\u001b\[[0-9;]*m/gu, '')
+  const cacheLines = plain.split(/\r?\n/gu)
+    .map((line) => line.replaceAll('\\', '/'))
+    .filter((line) => /(?:^|\s)vitest:cache:fs(?:\s|$)/u.test(line)
+      && (!normalizedCachePath || line.includes(normalizedCachePath)))
   return {
-    hits: (plain.match(/\[read\]/gu) ?? []).length,
-    misses: (plain.match(/\[empty\]/gu) ?? []).length,
-    writes: (plain.match(/\[write\]/gu) ?? []).length
+    hits: cacheLines.filter((line) => line.includes('[read]')).length,
+    misses: cacheLines.filter((line) => line.includes('[empty]')).length,
+    writes: cacheLines.filter((line) => line.includes('[write]')).length
   }
 }
 
@@ -90,6 +97,37 @@ export function requireTransformCacheReuse(stats, { allowSafeRebuild = false } =
   }
   const requests = stats.hits + stats.misses
   return { ...stats, requests, hitRate: requests > 0 ? stats.hits / requests : 0, reused: true, safeRebuild: false }
+}
+
+export function validatePerfTiming({
+  processStartedAtMs,
+  vitestStartedAtMs,
+  testStartedAtMs,
+  processFinishedAtMs
+}) {
+  const testStarts = Array.isArray(testStartedAtMs) ? testStartedAtMs.map(Number) : []
+  const firstPerfTestStartedAtMs = testStarts.length > 0 ? Math.min(...testStarts) : Number.NaN
+  const values = {
+    processStartedAtMs: Number(processStartedAtMs),
+    vitestStartedAtMs: Number(vitestStartedAtMs),
+    firstPerfTestStartedAtMs,
+    processFinishedAtMs: Number(processFinishedAtMs)
+  }
+  const invalid = Object.entries(values).filter(([, value]) => !Number.isFinite(value) || value < 0)
+  if (invalid.length > 0) {
+    throw new Error(`isolated perf timing is missing or invalid: ${invalid.map(([key]) => key).join(',')}`)
+  }
+  if (!(values.processStartedAtMs <= values.vitestStartedAtMs
+    && values.vitestStartedAtMs <= values.firstPerfTestStartedAtMs
+    && values.firstPerfTestStartedAtMs <= values.processFinishedAtMs)) {
+    throw new Error('isolated perf timing is not monotonic')
+  }
+  return {
+    ...values,
+    coldStartupMs: values.vitestStartedAtMs - values.processStartedAtMs,
+    timeToFirstTestMs: values.firstPerfTestStartedAtMs - values.processStartedAtMs,
+    wallClockMs: values.processFinishedAtMs - values.processStartedAtMs
+  }
 }
 
 function runPerf(env) {
@@ -167,8 +205,15 @@ async function main() {
     const ordinaryReport = JSON.parse(fs.readFileSync(ordinaryReportFile, 'utf8'))
     const coverageAfter = digestDirectory(coverageRoot)
     const exact = validateIsolatedPerfExecution(perfReport, ordinaryReport, coverageBefore, coverageAfter)
-    const firstTestStartedAtMs = Math.min(...perfReport.testResults.map((entry) => Number(entry.startTime)))
-    const cacheReuse = requireTransformCacheReuse(parseTransformCacheDebug(result.output), {
+    const timing = validatePerfTiming({
+      processStartedAtMs: result.startedAtMs,
+      vitestStartedAtMs: perfReport.startTime,
+      testStartedAtMs: perfReport.testResults.map((entry) => entry.startTime),
+      processFinishedAtMs: result.finishedAtMs
+    })
+    const cacheReuse = requireTransformCacheReuse(parseTransformCacheDebug(result.output, {
+      cachePath: cache.cachePath
+    }), {
       allowSafeRebuild: cache.repair.recreatedDirectory || cache.repair.rebuiltEntries > 0
     })
     const evidence = {
@@ -197,15 +242,7 @@ async function main() {
         before: inventoryBefore,
         after: inspectTransformCache(cache.cachePath)
       },
-      timing: {
-        processStartedAtMs: result.startedAtMs,
-        vitestStartedAtMs: Number(perfReport.startTime),
-        firstPerfTestStartedAtMs: firstTestStartedAtMs,
-        processFinishedAtMs: result.finishedAtMs,
-        coldStartupMs: Math.max(0, Number(perfReport.startTime) - result.startedAtMs),
-        timeToFirstTestMs: Math.max(0, firstTestStartedAtMs - result.startedAtMs),
-        wallClockMs: result.finishedAtMs - result.startedAtMs
-      },
+      timing,
       execution: exact,
       artifacts: {
         perfReport: path.relative(root, reportFile).replaceAll(path.sep, '/'),
