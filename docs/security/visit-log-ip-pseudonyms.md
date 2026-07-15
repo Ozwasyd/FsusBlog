@@ -48,6 +48,7 @@ Compromise response skips the overlap unless incident containment explicitly req
 - Pre-CodeFirst migration `20260715-pre-visit-log-ip-pseudonym-epoch` deletes legacy stable hashes because they cannot be safely transformed without raw IP and the old pepper.
 - The daily cleanup worker also removes any row with a missing epoch/window or a non-128-bit hash, preventing restored legacy rows from silently surviving.
 - A deletion/erasure request cannot reliably select one person's anonymous visit rows because no account link is retained. Do not create a linkage table to enable it; apply time/epoch/site-wide deletion according to the approved retention policy.
+- Database deletion must propagate to backup, WAL archive, logs, Redis legacy keys and ETL/object-store copies. The cross-media inventory, DSR interface, verification command and monthly drill are defined in [historical raw-IP lifecycle](ip-anonymization-lifecycle.md); backup encryption alone does not count as erasure.
 
 ## Failure and rollback
 

@@ -4,7 +4,7 @@
 
 Security-risk 持久化只使用独立、带 epoch 且按 IP/device/account 域隔离的 HMAC pseudonym，并停止保留请求 path 与 User-Agent。生产 key ring、轮换、遗留 unkeyed hash 删除迁移、retention 和流量回退要求见 [security-risk identity pseudonyms](security/security-risk-pseudonyms.md)。
 
-Visit-log IP 同样只是受限 pseudonym，不是绝对匿名数据。它按用途、UTC 日窗口和独立 KMS key epoch 派生并截断为 128 bit；访问、轮换、删除和流量回退规则见 [visit-log IP pseudonyms](security/visit-log-ip-pseudonyms.md)。
+Visit-log IP 同样只是受限 pseudonym，不是绝对匿名数据。它按用途、UTC 日窗口和独立 KMS key epoch 派生并截断为 128 bit；访问、轮换、删除和流量回退规则见 [visit-log IP pseudonyms](security/visit-log-ip-pseudonyms.md)。历史 raw IP 的删除必须同步覆盖 backup、WAL archive、日志、Redis legacy keys 与 ETL/S3，保留上限、DSR export/delete、脱敏审计和月度全链扫描见 [historical raw-IP lifecycle](security/ip-anonymization-lifecycle.md)。不得用备份加密代替删除，也不得为按用户查找访问记录重建账号关联。
 
 ## 纵深防御层次
 

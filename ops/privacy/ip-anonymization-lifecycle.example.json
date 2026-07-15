@@ -1,0 +1,32 @@
+{
+  "schema": "fsusblog.ip-anonymization-lifecycle.v1",
+  "inventory": "/var/lib/fsusblog/privacy/ip-anonymization-inventory.json",
+  "auditLog": "/var/lib/fsusblog/privacy/data-subject-right-audit.jsonl",
+  "inventoryMaxAgeHours": 24,
+  "retention": {
+    "backupDays": 90,
+    "walDays": 30,
+    "logDays": 30,
+    "etlDays": 7,
+    "redisGraceHours": 1
+  },
+  "roots": {
+    "backup": ["/var/backups/fsusblog"],
+    "wal": ["/var/lib/fsusblog/wal-archive"],
+    "log": ["/var/log/fsusblog"],
+    "etl": ["/var/lib/fsusblog/etl"]
+  },
+  "s3Prefixes": {
+    "backup": ["s3://fsusblog-backup/private"],
+    "etl": ["s3://fsusblog-warehouse/private"]
+  },
+  "redis": {
+    "required": true,
+    "urlEnv": "FSUSBLOG_REDIS_ADMIN_URL",
+    "legacyPrefixes": ["fsus:legacy:raw-ip:", "fsus:legacy:visit-ip:"]
+  },
+  "postgres": {
+    "required": true,
+    "connectionEnv": "FSUSBLOG_DATABASE_ADMIN_URL"
+  }
+}
