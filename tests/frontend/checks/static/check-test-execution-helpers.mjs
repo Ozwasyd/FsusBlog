@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -514,6 +514,30 @@ try {
   }), async () => { executions += 1 })
   assert.equal(executions, 4, 'different environment/input/output contracts must not merge')
 
+  let testIdExecutions = 0
+  const normalizedTestIdProducer = await runOnce.runBoundExecution(options({
+    key: 'test-id-contract',
+    testIds: ['governance-secondary', 'governance-check', 'governance-check'],
+    consumerId: 'test-id-producer'
+  }), async () => { testIdExecutions += 1 })
+  const normalizedTestIdConsumer = await runOnce.runBoundExecution(options({
+    key: 'test-id-contract',
+    testIds: ['governance-check', 'governance-secondary'],
+    consumerId: 'test-id-consumer'
+  }), async () => { testIdExecutions += 1 })
+  assert.equal(testIdExecutions, 1, 'normalized equivalent test ID contracts must share one receipt')
+  assert.equal(normalizedTestIdConsumer.receiptFile, normalizedTestIdProducer.receiptFile)
+  const normalizedTestIdReceipt = JSON.parse(await readFile(normalizedTestIdProducer.receiptFile, 'utf8'))
+  assert.deepEqual(normalizedTestIdReceipt.testIds, ['governance-check', 'governance-secondary'])
+
+  const injectedTestIdConsumer = await runOnce.runBoundExecution(options({
+    key: 'test-id-contract',
+    testIds: ['forged-test-id', 'governance-check', 'governance-secondary'],
+    consumerId: 'test-id-injection'
+  }), async () => { testIdExecutions += 1 })
+  assert.equal(testIdExecutions, 2, 'a new logical test ID must not be projected from an existing physical receipt')
+  assert.notEqual(injectedTestIdConsumer.receiptFile, normalizedTestIdProducer.receiptFile)
+
   let failureExecutions = 0
   const producerFailure = async () => {
     failureExecutions += 1
@@ -584,6 +608,137 @@ try {
   const projection = JSON.parse(await readFile(path.join(runBoundRoot, 'fresh-run-a', 'projections', projectionFiles[0]), 'utf8'))
   assert.match(projection.physicalExecutionReceipt, /\/receipts\//u)
   assert.ok(projection.physicalExecutionReceiptDigest, 'logical projection must bind the physical receipt digest')
+
+  const summaryRunId = 'summary-concurrency'
+  const summaryRunDirectory = path.join(runBoundRoot, summaryRunId)
+  const summaryLockDirectory = path.join(summaryRunDirectory, '.summary.lock')
+  await mkdir(summaryLockDirectory, { recursive: true })
+  await writeFile(path.join(summaryLockDirectory, 'owner.json'), `${JSON.stringify({
+    token: 'test-held-summary-lock',
+    pid: process.pid,
+    createdAt: new Date().toISOString(),
+    heartbeatAt: new Date().toISOString()
+  })}\n`, 'utf8')
+
+  let concurrentPhysicalExecutions = 0
+  let activePhysicalExecutions = 0
+  let peakPhysicalExecutions = 0
+  let releasePhysicalExecutions
+  let reportPhysicalOverlap
+  const physicalOverlap = new Promise((resolve) => { reportPhysicalOverlap = resolve })
+  const physicalRelease = new Promise((resolve) => { releasePhysicalExecutions = resolve })
+  const concurrentSummaryOptions = (key) => options({
+    runId: summaryRunId,
+    key,
+    command: ['node', `${key}.mjs`],
+    inputDigest: `${key}-input`,
+    testIds: [`${key}-test`],
+    consumerId: `${key}-consumer`,
+    lockTimeoutMs: 2_000,
+    staleLockMs: 1_000,
+    heartbeatMs: 10
+  })
+  const concurrentSummaryProducer = async () => {
+    concurrentPhysicalExecutions += 1
+    activePhysicalExecutions += 1
+    peakPhysicalExecutions = Math.max(peakPhysicalExecutions, activePhysicalExecutions)
+    if (activePhysicalExecutions === 2) reportPhysicalOverlap()
+    await physicalRelease
+    activePhysicalExecutions -= 1
+  }
+  const concurrentSummaryRuns = [
+    runOnce.runBoundExecution(concurrentSummaryOptions('summary-a'), concurrentSummaryProducer),
+    runOnce.runBoundExecution(concurrentSummaryOptions('summary-b'), concurrentSummaryProducer)
+  ]
+  await physicalOverlap
+  assert.equal(peakPhysicalExecutions, 2, 'the run-summary lock must not serialize different physical execution keys')
+  releasePhysicalExecutions()
+
+  let projectionCount = 0
+  for (let attempt = 0; attempt < 100 && projectionCount < 2; attempt += 1) {
+    try {
+      projectionCount = (await readdir(path.join(summaryRunDirectory, 'projections'))).length
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error
+    }
+    if (projectionCount < 2) await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  assert.equal(projectionCount, 2, 'both different-key projections must reach the summary critical section')
+  await rm(summaryLockDirectory, { recursive: true, force: true })
+  await Promise.all(concurrentSummaryRuns)
+  assert.equal(concurrentPhysicalExecutions, 2)
+  const concurrentSummary = JSON.parse(await readFile(path.join(summaryRunDirectory, 'summary.json'), 'utf8'))
+  assert.equal(concurrentSummary.physicalExecutions, 2, 'a late summary writer must retain every completed physical receipt')
+  assert.equal(concurrentSummary.logicalConsumers, 2, 'a late summary writer must retain every logical projection')
+
+  await mkdir(summaryLockDirectory, { recursive: true })
+  const staleSummaryOwnerFile = path.join(summaryLockDirectory, 'owner.json')
+  await writeFile(staleSummaryOwnerFile, `${JSON.stringify({
+    token: 'dead-summary-owner',
+    pid: 999_999_999,
+    createdAt: new Date(0).toISOString(),
+    heartbeatAt: new Date(0).toISOString()
+  })}\n`, 'utf8')
+  await utimes(staleSummaryOwnerFile, new Date(0), new Date(0))
+  await utimes(summaryLockDirectory, new Date(0), new Date(0))
+  await runOnce.runBoundExecution({
+    ...concurrentSummaryOptions('summary-after-stale-lock'),
+    staleLockMs: 1
+  }, async () => { concurrentPhysicalExecutions += 1 })
+  const recoveredSummary = JSON.parse(await readFile(path.join(summaryRunDirectory, 'summary.json'), 'utf8'))
+  assert.equal(recoveredSummary.physicalExecutions, 3, 'a dead stale summary owner must be recovered without losing receipts')
+  assert.equal(recoveredSummary.logicalConsumers, 3, 'stale summary-lock recovery must retain logical projections')
+
+  const cancelledSummaryRunId = 'summary-cancellation'
+  const cancelledSummaryRunDirectory = path.join(runBoundRoot, cancelledSummaryRunId)
+  const cancelledSummaryLockDirectory = path.join(cancelledSummaryRunDirectory, '.summary.lock')
+  await mkdir(cancelledSummaryLockDirectory, { recursive: true })
+  await writeFile(path.join(cancelledSummaryLockDirectory, 'owner.json'), `${JSON.stringify({
+    token: 'test-cancelled-summary-lock',
+    pid: process.pid,
+    createdAt: new Date().toISOString(),
+    heartbeatAt: new Date().toISOString()
+  })}\n`, 'utf8')
+  const summaryCancellationController = new AbortController()
+  let cancelledSummaryPhysicalExecutions = 0
+  const cancelledSummaryOptions = options({
+    runId: cancelledSummaryRunId,
+    key: 'summary-cancelled-waiter',
+    command: ['node', 'summary-cancelled-waiter.mjs'],
+    inputDigest: 'summary-cancelled-input',
+    testIds: ['summary-cancelled-test'],
+    consumerId: 'summary-cancelled-producer',
+    lockTimeoutMs: 2_000,
+    staleLockMs: 1_000,
+    heartbeatMs: 10,
+    signal: summaryCancellationController.signal
+  })
+  const cancelledSummaryRun = runOnce.runBoundExecution(cancelledSummaryOptions, async () => {
+    cancelledSummaryPhysicalExecutions += 1
+  })
+  let cancelledProjectionCount = 0
+  for (let attempt = 0; attempt < 100 && cancelledProjectionCount < 1; attempt += 1) {
+    try {
+      cancelledProjectionCount = (await readdir(path.join(cancelledSummaryRunDirectory, 'projections'))).length
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error
+    }
+    if (cancelledProjectionCount < 1) await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  assert.equal(cancelledProjectionCount, 1, 'the cancelled waiter must publish its projection before summary merge')
+  summaryCancellationController.abort(Object.assign(new Error('cancelled summary wait'), { name: 'AbortError' }))
+  await assert.rejects(cancelledSummaryRun, /cancelled summary wait/u)
+  await rm(cancelledSummaryLockDirectory, { recursive: true, force: true })
+  const resumedSummaryConsumer = await runOnce.runBoundExecution({
+    ...cancelledSummaryOptions,
+    consumerId: 'summary-cancelled-consumer',
+    signal: undefined
+  }, async () => { cancelledSummaryPhysicalExecutions += 1 })
+  assert.equal(resumedSummaryConsumer.status, 'shared-current-run')
+  assert.equal(cancelledSummaryPhysicalExecutions, 1, 'cancelling a summary waiter must not discard or rerun its successful receipt')
+  const resumedCancelledSummary = JSON.parse(await readFile(path.join(cancelledSummaryRunDirectory, 'summary.json'), 'utf8'))
+  assert.equal(resumedCancelledSummary.physicalExecutions, 1)
+  assert.equal(resumedCancelledSummary.logicalConsumers, 2)
 } finally {
   await rm(runBoundRoot, { recursive: true, force: true })
 }

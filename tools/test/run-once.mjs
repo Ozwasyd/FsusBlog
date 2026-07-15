@@ -36,6 +36,17 @@ function digestValue(value) {
   return createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex')
 }
 
+function normalizeTestIds(testIds) {
+  if (!Array.isArray(testIds)) throw new Error('run-bound testIds must be an array')
+  const normalized = testIds.map((testId) => {
+    if (typeof testId !== 'string' || !testId.trim()) {
+      throw new Error('run-bound testIds must contain non-empty strings')
+    }
+    return testId.trim()
+  })
+  return [...new Set(normalized)].sort()
+}
+
 async function writeJsonAtomic(file, document) {
   await mkdir(path.dirname(file), { recursive: true })
   const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`
@@ -123,8 +134,33 @@ async function readState(file) {
   }
 }
 
-async function sleep(milliseconds) {
-  await new Promise((resolve) => setTimeout(resolve, milliseconds))
+function throwIfAborted(signal) {
+  if (!signal?.aborted) return
+  if (signal.reason instanceof Error) throw signal.reason
+  throw Object.assign(new Error('operation aborted'), { name: 'AbortError' })
+}
+
+async function sleep(milliseconds, signal) {
+  throwIfAborted(signal)
+  if (!signal) {
+    await new Promise((resolve) => setTimeout(resolve, milliseconds))
+    return
+  }
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abort)
+      resolve()
+    }, milliseconds)
+    const abort = () => {
+      clearTimeout(timer)
+      try {
+        throwIfAborted(signal)
+      } catch (error) {
+        reject(error)
+      }
+    }
+    signal.addEventListener('abort', abort, { once: true })
+  })
 }
 
 function isProcessAlive(pid) {
@@ -183,10 +219,12 @@ async function clearDeadStaleLock(lockDirectory, staleAfterMs) {
 
 async function acquireLock(lockDirectory, timeoutMs, {
   staleAfterMs,
-  heartbeatEveryMs
+  heartbeatEveryMs,
+  signal
 }) {
   const startedAt = Date.now()
   for (;;) {
+    throwIfAborted(signal)
     const token = randomUUID()
     try {
       await mkdir(lockDirectory, { mode: 0o700 })
@@ -214,6 +252,14 @@ async function acquireLock(lockDirectory, timeoutMs, {
       }
       const heartbeatTimer = setInterval(heartbeat, Math.max(1, heartbeatEveryMs))
       heartbeatTimer.unref()
+      try {
+        throwIfAborted(signal)
+      } catch (error) {
+        stopped = true
+        clearInterval(heartbeatTimer)
+        await releaseOwnedLock(lockDirectory, token)
+        throw error
+      }
       return {
         token,
         async release() {
@@ -231,7 +277,7 @@ async function acquireLock(lockDirectory, timeoutMs, {
       if (Date.now() - startedAt >= timeoutMs) {
         throw new Error(`timed out waiting for run-once lock: ${lockDirectory}`)
       }
-      await sleep(100)
+      await sleep(100, signal)
     }
   }
 }
@@ -306,10 +352,27 @@ function receiptPayload(receipt) {
   return payload
 }
 
+function receiptContract(receipt) {
+  return {
+    schedulerRunId: receipt.schedulerRunId,
+    executionKey: receipt.executionKey,
+    command: receipt.command,
+    cwd: receipt.cwd,
+    inputDigest: receipt.inputDigest,
+    environmentDigest: receipt.environmentDigest,
+    outputContract: receipt.outputContract,
+    requiredOutputs: receipt.requiredOutputs,
+    testIds: normalizeTestIds(receipt.testIds),
+    commit: receipt.commit,
+    worktreeFingerprint: receipt.worktreeFingerprint
+  }
+}
+
 function validateReceiptIntegrity(receipt, { contractDigest, runId }) {
   if (receipt?.schema !== runBoundSchema
       || receipt.schedulerRunId !== runId
       || receipt.contractDigest !== contractDigest
+      || digestValue(receiptContract(receipt)) !== contractDigest
       || receipt.receiptDigest !== digestValue(receiptPayload(receipt))) {
     throw new Error('run-bound receipt integrity validation failed')
   }
@@ -324,57 +387,71 @@ function receiptFailure(receipt) {
   return error
 }
 
-async function summarizeRunBoundExecutions(root, runId) {
+async function summarizeRunBoundExecutions(root, runId, {
+  lockTimeoutMs = defaultLockTimeoutMs,
+  staleLockMs = defaultStaleLockMs,
+  heartbeatMs = defaultHeartbeatMs,
+  signal
+} = {}) {
   const runDirectory = path.join(root, sanitizeSegment(runId, 'run'))
-  const receiptRoot = path.join(runDirectory, 'receipts')
-  const projectionRoot = path.join(runDirectory, 'projections')
-  const readJsonFiles = async (directory) => {
-    if (!await exists(directory)) return []
-    const files = []
-    const visit = async (current) => {
-      for (const entry of await readdir(current, { withFileTypes: true })) {
-        const child = path.join(current, entry.name)
-        if (entry.isDirectory() && !entry.name.endsWith('.lock')) await visit(child)
-        else if (entry.isFile() && entry.name.endsWith('.json')) files.push(child)
+  const summaryLock = await acquireLock(path.join(runDirectory, '.summary.lock'), lockTimeoutMs, {
+    staleAfterMs: Math.max(1, Number(staleLockMs) || defaultStaleLockMs),
+    heartbeatEveryMs: Math.max(1, Number(heartbeatMs) || defaultHeartbeatMs),
+    signal
+  })
+  try {
+    const receiptRoot = path.join(runDirectory, 'receipts')
+    const projectionRoot = path.join(runDirectory, 'projections')
+    const readJsonFiles = async (directory) => {
+      if (!await exists(directory)) return []
+      const files = []
+      const visit = async (current) => {
+        for (const entry of await readdir(current, { withFileTypes: true })) {
+          const child = path.join(current, entry.name)
+          if (entry.isDirectory() && !entry.name.endsWith('.lock')) await visit(child)
+          else if (entry.isFile() && entry.name.endsWith('.json')) files.push(child)
+        }
       }
+      await visit(directory)
+      return await Promise.all(files.sort().map(async (file) => ({
+        file,
+        document: await readState(file),
+        bytes: (await stat(file)).size
+      })))
     }
-    await visit(directory)
-    return await Promise.all(files.sort().map(async (file) => ({
-      file,
-      document: await readState(file),
-      bytes: (await stat(file)).size
-    })))
+    const [receipts, projections] = await Promise.all([
+      readJsonFiles(receiptRoot),
+      readJsonFiles(projectionRoot)
+    ])
+    const validProjections = projections.map((entry) => entry.document).filter(Boolean)
+    const summary = {
+      schema: 'fsusblog.physical-execution-summary.v1',
+      schedulerRunId: runId,
+      physicalExecutions: receipts.length,
+      logicalConsumers: validProjections.length,
+      dedupHits: validProjections.filter((entry) => entry.disposition === 'consumer').length,
+      avoidedChildStartups: validProjections.reduce((total, entry) => total + Number(entry.avoidedChildStartups ?? 0), 0),
+      totalConsumerWaitMs: validProjections.reduce((total, entry) => total + Number(entry.waitedMs ?? 0), 0),
+      receiptBytes: receipts.reduce((total, entry) => total + entry.bytes, 0),
+      producers: receipts.map((entry) => ({
+        key: entry.document?.executionKey,
+        status: entry.document?.status,
+        receipt: path.relative(repoRoot, entry.file).replaceAll(path.sep, '/')
+      })),
+      consumers: validProjections.map((entry) => ({
+        consumerId: entry.consumerId,
+        key: entry.executionKey,
+        disposition: entry.disposition,
+        waitedMs: entry.waitedMs,
+        physicalExecutionReceipt: entry.physicalExecutionReceipt
+      })),
+      generatedAt: new Date().toISOString()
+    }
+    await writeJsonAtomic(path.join(runDirectory, 'summary.json'), summary)
+    return summary
+  } finally {
+    await summaryLock.release()
   }
-  const [receipts, projections] = await Promise.all([
-    readJsonFiles(receiptRoot),
-    readJsonFiles(projectionRoot)
-  ])
-  const validProjections = projections.map((entry) => entry.document).filter(Boolean)
-  const summary = {
-    schema: 'fsusblog.physical-execution-summary.v1',
-    schedulerRunId: runId,
-    physicalExecutions: receipts.length,
-    logicalConsumers: validProjections.length,
-    dedupHits: validProjections.filter((entry) => entry.disposition === 'consumer').length,
-    avoidedChildStartups: validProjections.reduce((total, entry) => total + Number(entry.avoidedChildStartups ?? 0), 0),
-    totalConsumerWaitMs: validProjections.reduce((total, entry) => total + Number(entry.waitedMs ?? 0), 0),
-    receiptBytes: receipts.reduce((total, entry) => total + entry.bytes, 0),
-    producers: receipts.map((entry) => ({
-      key: entry.document?.executionKey,
-      status: entry.document?.status,
-      receipt: path.relative(repoRoot, entry.file).replaceAll(path.sep, '/')
-    })),
-    consumers: validProjections.map((entry) => ({
-      consumerId: entry.consumerId,
-      key: entry.executionKey,
-      disposition: entry.disposition,
-      waitedMs: entry.waitedMs,
-      physicalExecutionReceipt: entry.physicalExecutionReceipt
-    })),
-    generatedAt: new Date().toISOString()
-  }
-  await writeJsonAtomic(path.join(runDirectory, 'summary.json'), summary)
-  return summary
 }
 
 async function writeRunBoundProjection({
@@ -385,12 +462,22 @@ async function writeRunBoundProjection({
   consumerId,
   testIds,
   disposition,
-  waitedMs
+  waitedMs,
+  lockTimeoutMs,
+  staleLockMs,
+  heartbeatMs,
+  signal
 }) {
   validateReceiptIntegrity(receipt, { contractDigest: receipt.contractDigest, runId })
   if (receipt.status === 'success'
       && !await outputsMatchState(receipt.requiredOutputs, receipt.requiredOutputStates)) {
     throw new Error('run-bound receipt output projection failed closed')
+  }
+  const normalizedTestIds = normalizeTestIds(testIds)
+  const receiptTestIds = normalizeTestIds(receipt.testIds)
+  if (normalizedTestIds.length !== receiptTestIds.length
+      || normalizedTestIds.some((testId, index) => testId !== receiptTestIds[index])) {
+    throw new Error('run-bound receipt test ID projection failed closed')
   }
   const projection = {
     schema: 'fsusblog.physical-execution-projection.v1',
@@ -401,7 +488,7 @@ async function writeRunBoundProjection({
     avoidedChildStartups: disposition === 'consumer' ? 1 : 0,
     waitedMs,
     status: receipt.status,
-    testIds: [...new Set(testIds ?? [])].sort(),
+    testIds: normalizedTestIds,
     artifactEvidence: receipt.requiredOutputStates,
     physicalExecutionReceipt: path.relative(repoRoot, receiptFile).replaceAll(path.sep, '/'),
     physicalExecutionReceiptDigest: receipt.receiptDigest,
@@ -413,7 +500,7 @@ async function writeRunBoundProjection({
     `${sanitizeSegment(consumerId, 'consumer')}-${sanitizeSegment(receipt.executionKey, 'execution')}-${randomUUID()}.json`
   )
   await writeJsonAtomic(projectionFile, projection)
-  await summarizeRunBoundExecutions(root, runId)
+  await summarizeRunBoundExecutions(root, runId, { lockTimeoutMs, staleLockMs, heartbeatMs, signal })
   return projectionFile
 }
 
@@ -433,7 +520,8 @@ export async function runBoundExecution({
   consumerId = 'consumer',
   lockTimeoutMs = defaultLockTimeoutMs,
   staleLockMs = defaultStaleLockMs,
-  heartbeatMs = defaultHeartbeatMs
+  heartbeatMs = defaultHeartbeatMs,
+  signal
 }, operation) {
   for (const [name, value] of Object.entries({ runId, key, inputDigest, environmentDigest, commit, worktreeFingerprint })) {
     if (!String(value ?? '').trim()) throw new Error(`run-bound ${name} is required`)
@@ -445,6 +533,7 @@ export async function runBoundExecution({
   const normalizedKey = sanitizeSegment(key, 'execution')
   const normalizedCwd = path.resolve(cwd ?? repoRoot)
   const normalizedOutputs = requiredOutputs.map((output) => path.resolve(normalizedCwd, output)).sort()
+  const normalizedTestIds = normalizeTestIds(testIds)
   const contract = {
     schedulerRunId: runId,
     executionKey: normalizedKey,
@@ -454,6 +543,7 @@ export async function runBoundExecution({
     environmentDigest,
     outputContract: [...outputContract].map(String).sort(),
     requiredOutputs: normalizedOutputs,
+    testIds: normalizedTestIds,
     commit,
     worktreeFingerprint
   }
@@ -474,7 +564,11 @@ export async function runBoundExecution({
       consumerId,
       testIds,
       disposition,
-      waitedMs
+      waitedMs,
+      lockTimeoutMs,
+      staleLockMs,
+      heartbeatMs,
+      signal
     })
     if (receipt.status !== 'success') throw receiptFailure(receipt)
     return { status: disposition === 'consumer' ? 'shared-current-run' : 'executed', receiptFile, projectionFile }
@@ -485,7 +579,8 @@ export async function runBoundExecution({
 
   const lock = await acquireLock(lockDirectory, lockTimeoutMs, {
     staleAfterMs: Math.max(1, Number(staleLockMs) || defaultStaleLockMs),
-    heartbeatEveryMs: Math.max(1, Number(heartbeatMs) || defaultHeartbeatMs)
+    heartbeatEveryMs: Math.max(1, Number(heartbeatMs) || defaultHeartbeatMs),
+    signal
   })
   try {
     const lockedCurrent = await readState(receiptFile)
@@ -526,7 +621,6 @@ export async function runBoundExecution({
         consumerId,
         pid: process.pid
       },
-      testIds: [...new Set(testIds)].sort(),
       requiredOutputStates: requiredOutputStates ?? [],
       startedAt,
       completedAt: new Date().toISOString(),

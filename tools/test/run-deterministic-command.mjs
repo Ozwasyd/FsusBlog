@@ -113,7 +113,8 @@ async function main(argv) {
       commit,
       worktreeFingerprint,
       testIds: options.testIds,
-      consumerId
+      consumerId,
+      signal: controller.signal
     }, async () => spawnCommand(command, cwd, controller.signal))
     console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}`)
   } finally {

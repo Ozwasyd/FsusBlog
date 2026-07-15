@@ -4,7 +4,7 @@ Local Production 对明确登记的确定性治理命令使用 `fsusblog.physica
 
 ## Single-flight 与失败语义
 
-同一 run、同一 execution key、同一完整合同只有一个 producer。并发 consumer 等待 producer 的不可变收据并写各自的 projection；不同 input、environment 或 output contract 会得到不同合同摘要，不会合并。
+同一 run、同一 execution key、同一完整合同只有一个 producer。并发 consumer 等待 producer 的不可变收据并写各自的 projection；不同 input、environment、output contract 或 test ID contract 会得到不同合同摘要，不会合并。test ID 在进入合同前必须去空白、排序和去重；projection 只能引用收据完整绑定的 test ID 集合，不能借现有收据追加新的逻辑通过结论。
 
 producer 的 success、failure 或 cancellation 都会写入收据并释放锁。failure 的 exit code/signal 原样传播给所有 consumer，不允许 consumer 静默重跑。收据自摘要或 required artifact digest 不匹配时 projection fail closed。
 
@@ -16,7 +16,7 @@ producer 的 success、failure 或 cancellation 都会写入收据并释放锁�
 - 等待时长与 avoided child startup；
 - artifact evidence。
 
-run summary 聚合 physical execution 数、logical consumer 数、dedup hit、避免的 child startup、等待时间和 receipt bytes。
+run summary 聚合 physical execution 数、logical consumer 数、dedup hit、避免的 child startup、等待时间和 receipt bytes。不同 execution key 的物理 producer 继续并行；只有 summary 的“读取当前 receipts/projections、合并、原子写入”使用 run 级短临界区，防止并发晚写者用旧快照覆盖新汇总。summary lock 使用与 execution lock 相同的 owner token、heartbeat 和 dead-stale-owner 回收语义，取消或进程崩溃后不会永久阻塞后续汇总。
 
 ## 首批迁移
 
