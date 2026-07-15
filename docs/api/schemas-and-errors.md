@@ -313,8 +313,10 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | 183 | `AnonymousPrivacyStateSnapshot` | `AnonymousPrivacyStateSnapshotPod` | 前端匿名隐私状态快照 |
 | 184 | `PerceptionSealedChallengeV2` | `PerceptionSealedChallengeV2Pod` | `fsu.challenge/perception-sealed@v2` issue payload；覆盖 Character、Localization、MicroInteraction 三类 perception task |
 | 185 | `PerceptionSealedResultV2` | `PerceptionSealedResultV2Pod` | `fsu.challenge/perception-sealed@v2` verify payload；支持 character、coordinates、steps response payload |
-| 186 | `AnonymousCredentialRevocationWitnessRequest` | `AnonymousCredentialRevocationWitnessRequestPod` | `POST /api/binary/anonymous-credential/revocation-witness` 请求体；公开 root/issuer/handle hash metadata |
-| 187 | `AnonymousCredentialRevocationWitnessResponse` | `AnonymousCredentialRevocationWitnessResponsePod` | circuit-friendly sparse Merkle non-membership witness；128 个 sibling hash |
+| 186 | `RetiredCredentialSpecificRevocationRequest` | 无 | 永久 retired；不得复用或解析 body |
+| 187 | `RetiredCredentialSpecificRevocationResponse` | 无 | 永久 retired；服务端不发送 |
+| 196 | `AnonymousCredentialRevocationSnapshot` | `AnonymousCredentialRevocationArtifactPod` | 公共 full revoked-set snapshot |
+| 197 | `AnonymousCredentialRevocationDelta` | `AnonymousCredentialRevocationArtifactPod` | 公共 append-only delta |
 | 193 | `BlindCredentialIssuerMetadata` | `BlindCredentialIssuerMetadataPod` | `GET /api/binary/anonymous-credential/blind-issuer`；RFC 9474 profile 与 3072-bit RSA DER SPKI |
 | 194 | `BlindCredentialIssueRequest` | `BlindCredentialIssueRequestPod` | `POST /api/binary/anonymous-credential/blind-issue`；384B blinded representative |
 | 195 | `BlindCredentialIssueResponse` | `BlindCredentialIssueResponsePod` | 384B blind signature；浏览器本地 unblind/verify |
@@ -392,8 +394,7 @@ AEDS v1 frame、未知版本、错误 header length 均直接拒绝；服务端�
 | `BlindCredentialIssueRequestPod` | 56 |
 | `BlindCredentialIssueResponsePod` | 64 |
 | `AnonymousCredentialRootSnapshotPod` | 80 |
-| `AnonymousCredentialRevocationWitnessRequestPod` | 48 |
-| `AnonymousCredentialRevocationWitnessResponsePod` | 72 |
+| `AnonymousCredentialRevocationArtifactPod` | 88 |
 | `AnonymousCommentTicketRequestPod` | 136 |
 | `AnonymousCommentTicketResponsePod` | 48 |
 | `AnonymousCommentCreateRequestPod` | 72 |

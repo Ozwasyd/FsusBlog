@@ -1,12 +1,40 @@
 import { createCommentPrivacyWasmProver } from '@/privacy/commentPrivacyWasmProver'
 import type { CommentPrivacyProofRequest } from '@/privacy/commentPrivacyTypes'
 import { zeroizeCommentPrivacyBytes } from '@/privacy/commentPrivacyCredentialLifecycle'
+import { buildCommentPrivacyRevocationWitnessLocally } from '@/privacy/commentPrivacyRevocationLocal'
 
 type CommentPrivacyWorkerRequest =
   | {
       v: 1
       type: 'prewarm'
       requestId: number
+    }
+  | {
+      v: 1
+      type: 'buildRevocationWitness'
+      requestId: number
+      artifact: {
+        credentialEpoch: number
+        version: number
+        baseVersion: number
+        expiresAtUnixMs: number
+        kind: 1 | 2
+        algorithmId: string
+        pathDepth: number
+        issuerPublicKeyHash: string
+        revocationRoot: ArrayBuffer
+        contentHash: ArrayBuffer
+        signature: ArrayBuffer
+        entryHashes: ArrayBuffer
+      }
+      baseEntryHashes?: ArrayBuffer
+      revocationHandleHash: ArrayBuffer
+      expectedEpoch: number
+      expectedVersion: number
+      expectedIssuerPublicKeyHash: string
+      expectedRevocationRoot: ArrayBuffer
+      nowUnixMs: number
+      maxCpuMs: number
     }
   | {
       v: 1
@@ -39,6 +67,14 @@ type CommentPrivacyWorkerResponse =
       type: 'prewarmed'
       requestId: number
       ok: true
+    }
+  | {
+      v: 1
+      type: 'revocationWitness'
+      requestId: number
+      ok: true
+      witness: Uint8Array
+      entryHashes: Uint8Array
     }
   | {
       v: 1
@@ -80,6 +116,50 @@ async function handleRequest(request: CommentPrivacyWorkerRequest): Promise<void
         ok: true
       }
       ctx.postMessage(response)
+      return
+    }
+
+    if (request.type === 'buildRevocationWitness') {
+      const revocationHandleHash = new Uint8Array(request.revocationHandleHash)
+      const expectedRevocationRoot = new Uint8Array(request.expectedRevocationRoot)
+      const baseEntryHashes = request.baseEntryHashes ? new Uint8Array(request.baseEntryHashes) : undefined
+      const artifact = {
+        ...request.artifact,
+        revocationRoot: new Uint8Array(request.artifact.revocationRoot),
+        contentHash: new Uint8Array(request.artifact.contentHash),
+        signature: new Uint8Array(request.artifact.signature),
+        entryHashes: new Uint8Array(request.artifact.entryHashes)
+      }
+      try {
+        const result = await buildCommentPrivacyRevocationWitnessLocally({
+          artifact,
+          baseEntryHashes,
+          revocationHandleHash,
+          expectedEpoch: request.expectedEpoch,
+          expectedVersion: request.expectedVersion,
+          expectedIssuerPublicKeyHash: request.expectedIssuerPublicKeyHash,
+          expectedRevocationRoot,
+          nowUnixMs: request.nowUnixMs,
+          maxCpuMs: request.maxCpuMs
+        })
+        const response: CommentPrivacyWorkerResponse = {
+          v: 1,
+          type: 'revocationWitness',
+          requestId: request.requestId,
+          ok: true,
+          witness: result.witness,
+          entryHashes: result.entryHashes
+        }
+        ctx.postMessage(response, [result.witness.buffer, result.entryHashes.buffer])
+      } finally {
+        zeroizeCommentPrivacyBytes(revocationHandleHash)
+        zeroizeCommentPrivacyBytes(expectedRevocationRoot)
+        zeroizeCommentPrivacyBytes(baseEntryHashes)
+        zeroizeCommentPrivacyBytes(artifact.revocationRoot)
+        zeroizeCommentPrivacyBytes(artifact.contentHash)
+        zeroizeCommentPrivacyBytes(artifact.signature)
+        zeroizeCommentPrivacyBytes(artifact.entryHashes)
+      }
       return
     }
 

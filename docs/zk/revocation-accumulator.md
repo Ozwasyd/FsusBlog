@@ -105,22 +105,23 @@ is not a circuit input or in-circuit constraint. The circuit source records this
 `witness_hash_role=fixture_integrity_only` and
 `witness_hash_circuit_input=false`.
 
-`POST /api/binary/anonymous-credential/revocation-witness` exposes this witness
-as AEDS frame `AnonymousCredentialRevocationWitnessResponse` for the browser
-prover. The request is strong-anonymous and public-read only: it carries the
-epoch, circuit id/numeric id/layout version, issuer public key hash, current
-revocation root, and irreversible revocation handle hash. The endpoint rebuilds
-the witness from the current root snapshot plus the epoch's revoked handle
-hashes; it does not read user/session state and does not create or verify a
-Groth16 proof.
+The server publishes a public full snapshot (`196`) and append-only delta (`197`)
+for each attested epoch/version/root. Artifact entries are fixed 32-byte revoked
+handle hashes shared by every client; no request contains a target handle. The
+canonical content hash and public hash-binding cover epoch, version, base,
+expiry, kind, algorithm, issuer, root and entries. Clients accept a delta only
+when their cached public set is exactly `baseVersion`; rollback, stale data,
+tamper or a recomputed sparse-Merkle root mismatch fail closed.
 
-The frontend stores the witness as the binary envelope produced by
-`encodeCommentPrivacyRevocationWitnessMaterial` and validated by
-`parseCommentPrivacyRevocationWitnessMaterial`. The envelope must contain
-`algorithmId=circuit-friendly-non-membership.v1`, `pathDepth=128`, a 16-byte
-`leafKey`, a 32-byte `witnessHash`, and 128 32-byte sibling hashes. The wasm
-prover adapter rejects malformed revocation witness material before calling the
-browser prover delegate.
+The frontend validates artifacts and constructs the witness inside
+`commentPrivacy.worker.ts`. Only the worker receives the local handle as a
+transferable; URLs, request bodies, headers, logs and telemetry remain
+credential-independent. The resulting local envelope retains the existing
+epoch/algorithm/depth/root/handle/leaf/witness/siblings prover ABI. Download
+limits scale from 1 MiB on low-memory browsers to 4 MiB on larger devices; CPU
+limits scale from 2 to 4 seconds and abort without network fallback. The old
+credential-specific endpoint is a permanent 410 tombstone and frames 186/187
+remain retired.
 
 ## Update Rules
 

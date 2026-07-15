@@ -37,7 +37,7 @@
         { "path": "Unit/AuthoringAssetLibraryRebuildTests.cs", "class": "AuthoringAssetLibraryRebuildTests" },
         { "path": "Unit/AuthoringDraftConcurrencyTests.cs", "class": "AuthoringDraftConcurrencyTests" },
         { "path": "Unit/UserPublicHandleConcurrencyTests.cs", "class": "UserPublicHandleConcurrencyTests" },
-        { "path": "Unit/AnonymousCredentialRevocationWitnessServiceTests.cs", "class": "AnonymousCredentialRevocationWitnessServiceTests" },
+        { "path": "Unit/AnonymousCredentialRevocationArtifactServiceTests.cs", "class": "AnonymousCredentialRevocationArtifactServiceTests" },
         { "path": "Unit/RecoveryKeyAttemptLimiterContractTests.cs", "class": "RecoveryKeyAttemptLimiterContractTests" },
         { "path": "Unit/DevSeedSqlContractTests.cs", "class": "DevSeedSqlContractTests" },
         { "path": "Integration/RecoveryPasskeyCompletionIntegrationTests.cs", "class": "RecoveryPasskeyCompletionIntegrationTests" },

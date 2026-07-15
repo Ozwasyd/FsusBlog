@@ -586,160 +586,96 @@ public static partial class PodBinaryCodec
         return reader.IsConsumed;
     }
 
-    public static void WriteAnonymousCredentialRevocationWitnessRequest(
-        AnonymousCredentialRevocationWitnessRequestCoreModel request,
+    public static void WriteAnonymousCredentialRevocationArtifact(
+        AnonymousCredentialRevocationArtifactCoreModel artifact,
         IBufferWriter<byte> destination)
     {
-        var payload = new ArrayBufferWriter<byte>(512 + (request.RevocationRoot?.Length ?? 0) + (request.RevocationHandleHash?.Length ?? 0));
-        var mutable = new MutableAnonymousCredentialRevocationWitnessRequestPod
+        var payload = new ArrayBufferWriter<byte>(512 + (artifact.EntryHashes?.Length ?? 0));
+        var mutable = new MutableAnonymousCredentialRevocationArtifactPod
         {
-            CredentialEpoch = request.CredentialEpoch,
-            CircuitNumericId = request.CircuitNumericId,
-            PublicInputLayoutVersion = request.PublicInputLayoutVersion,
-            Reserved0 = 0,
-            CircuitId = PodUtf8Codec.AppendSlice(request.CircuitId, payload),
-            IssuerPublicKeyHash = PodUtf8Codec.AppendSlice(request.IssuerPublicKeyHash, payload),
-            RevocationRoot = AppendBytes(request.RevocationRoot ?? [], payload),
-            RevocationHandleHash = AppendBytes(request.RevocationHandleHash ?? [], payload)
-        };
-
-        var writer = new BinaryPodWriter(destination);
-        writer.WritePod(CastUserPod<MutableAnonymousCredentialRevocationWitnessRequestPod, AnonymousCredentialRevocationWitnessRequestPod>(mutable));
-        writer.WriteBytes(payload.WrittenSpan);
-    }
-
-    public static byte[] EncodeAnonymousCredentialRevocationWitnessRequest(
-        AnonymousCredentialRevocationWitnessRequestCoreModel request)
-        => EncodeToArray(
-            Marshal.SizeOf<AnonymousCredentialRevocationWitnessRequestPod>() + 512 + (request.RevocationRoot?.Length ?? 0) + (request.RevocationHandleHash?.Length ?? 0),
-            writer => WriteAnonymousCredentialRevocationWitnessRequest(request, writer));
-
-    public static bool TryDecodeAnonymousCredentialRevocationWitnessRequest(
-        ReadOnlyMemory<byte> bytes,
-        out AnonymousCredentialRevocationWitnessRequestCoreModel request)
-    {
-        var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadPod(out AnonymousCredentialRevocationWitnessRequestPod pod) ||
-            !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
-        {
-            request = default;
-            return false;
-        }
-
-        ReadOnlySpan<FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef> slices = stackalloc[]
-        {
-            pod.CircuitId,
-            pod.IssuerPublicKeyHash,
-            pod.RevocationRoot,
-            pod.RevocationHandleHash
-        };
-        if (!ValidateAnonymousPayload(payload, slices) ||
-            !IsProductionAnonymousLayout(pod.CircuitId, pod.PublicInputLayoutVersion, payload) ||
-            !SliceLengthAtMost(pod.IssuerPublicKeyHash, AnonymousPrivacyContract.MaxIssuerPublicKeyHashBytes) ||
-            !SliceLengthAtMost(pod.RevocationRoot, AnonymousPrivacyContract.MaxRevocationRootBytes) ||
-            !SliceLengthAtMost(pod.RevocationHandleHash, AnonymousPrivacyContract.MaxRevocationHandleHashBytes))
-        {
-            request = default;
-            return false;
-        }
-
-        request = new AnonymousCredentialRevocationWitnessRequestCoreModel(
-            pod.CredentialEpoch,
-            pod.CircuitNumericId,
-            pod.PublicInputLayoutVersion,
-            PodProjector.ReadSlice(pod.CircuitId, payload),
-            PodProjector.ReadSlice(pod.IssuerPublicKeyHash, payload),
-            ReadBytes(pod.RevocationRoot, payload),
-            ReadBytes(pod.RevocationHandleHash, payload));
-        return reader.IsConsumed;
-    }
-
-    public static void WriteAnonymousCredentialRevocationWitnessResponse(
-        AnonymousCredentialRevocationWitnessResponseCoreModel response,
-        IBufferWriter<byte> destination)
-    {
-        var payload = new ArrayBufferWriter<byte>(
-            512 +
-            (response.RevocationRoot?.Length ?? 0) +
-            (response.RevocationHandleHash?.Length ?? 0) +
-            (response.LeafKey?.Length ?? 0) +
-            (response.WitnessHash?.Length ?? 0) +
-            (response.SiblingHashes?.Length ?? 0));
-        var mutable = new MutableAnonymousCredentialRevocationWitnessResponsePod
-        {
-            CredentialEpoch = response.CredentialEpoch,
-            PathDepth = response.PathDepth,
-            Reserved0 = 0,
-            SiblingHashCount = response.SiblingHashes is { Length: > 0 } && response.SiblingHashes.Length % 32 == 0
-                ? (uint)(response.SiblingHashes.Length / 32)
+            CredentialEpoch = artifact.CredentialEpoch,
+            Version = artifact.Version,
+            BaseVersion = artifact.BaseVersion,
+            ExpiresAtUnixMs = artifact.ExpiresAtUnixMs,
+            EntryCount = artifact.EntryHashes is { Length: > 0 } && artifact.EntryHashes.Length % 32 == 0
+                ? (uint)(artifact.EntryHashes.Length / 32)
                 : 0,
-            AlgorithmId = PodUtf8Codec.AppendSlice(response.AlgorithmId, payload),
-            RevocationRoot = AppendBytes(response.RevocationRoot ?? [], payload),
-            IssuerPublicKeyHash = PodUtf8Codec.AppendSlice(response.IssuerPublicKeyHash, payload),
-            RevocationHandleHash = AppendBytes(response.RevocationHandleHash ?? [], payload),
-            LeafKey = AppendBytes(response.LeafKey ?? [], payload),
-            WitnessHash = AppendBytes(response.WitnessHash ?? [], payload),
-            SiblingHashes = AppendBytes(response.SiblingHashes ?? [], payload)
+            PathDepth = artifact.PathDepth,
+            Kind = artifact.Kind,
+            Reserved0 = 0,
+            AlgorithmId = PodUtf8Codec.AppendSlice(artifact.AlgorithmId, payload),
+            IssuerPublicKeyHash = PodUtf8Codec.AppendSlice(artifact.IssuerPublicKeyHash, payload),
+            RevocationRoot = AppendBytes(artifact.RevocationRoot ?? [], payload),
+            ContentHash = AppendBytes(artifact.ContentHash ?? [], payload),
+            Signature = AppendBytes(artifact.Signature ?? [], payload),
+            EntryHashes = AppendBytes(artifact.EntryHashes ?? [], payload)
         };
 
         var writer = new BinaryPodWriter(destination);
-        writer.WritePod(CastUserPod<MutableAnonymousCredentialRevocationWitnessResponsePod, AnonymousCredentialRevocationWitnessResponsePod>(mutable));
+        writer.WritePod(CastUserPod<MutableAnonymousCredentialRevocationArtifactPod, AnonymousCredentialRevocationArtifactPod>(mutable));
         writer.WriteBytes(payload.WrittenSpan);
     }
 
-    public static byte[] EncodeAnonymousCredentialRevocationWitnessResponse(
-        AnonymousCredentialRevocationWitnessResponseCoreModel response)
+    public static byte[] EncodeAnonymousCredentialRevocationArtifact(
+        AnonymousCredentialRevocationArtifactCoreModel artifact)
         => EncodeToArray(
-            Marshal.SizeOf<AnonymousCredentialRevocationWitnessResponsePod>() + 512 + (response.SiblingHashes?.Length ?? 0),
-            writer => WriteAnonymousCredentialRevocationWitnessResponse(response, writer));
+            Marshal.SizeOf<AnonymousCredentialRevocationArtifactPod>() + 512 + (artifact.EntryHashes?.Length ?? 0),
+            writer => WriteAnonymousCredentialRevocationArtifact(artifact, writer));
 
-    public static bool TryDecodeAnonymousCredentialRevocationWitnessResponse(
+    public static bool TryDecodeAnonymousCredentialRevocationArtifact(
         ReadOnlyMemory<byte> bytes,
-        out AnonymousCredentialRevocationWitnessResponseCoreModel response)
+        out AnonymousCredentialRevocationArtifactCoreModel artifact)
     {
         var reader = new BinaryPodReader(bytes.Span);
-        if (!reader.TryReadPod(out AnonymousCredentialRevocationWitnessResponsePod pod) ||
+        if (!reader.TryReadPod(out AnonymousCredentialRevocationArtifactPod pod) ||
             !reader.TryReadBytes(out ReadOnlySpan<byte> payload))
         {
-            response = default;
+            artifact = default;
             return false;
         }
 
         ReadOnlySpan<FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef> slices = stackalloc[]
         {
             pod.AlgorithmId,
-            pod.RevocationRoot,
             pod.IssuerPublicKeyHash,
-            pod.RevocationHandleHash,
-            pod.LeafKey,
-            pod.WitnessHash,
-            pod.SiblingHashes
+            pod.RevocationRoot,
+            pod.ContentHash,
+            pod.Signature,
+            pod.EntryHashes
         };
         if (!ValidateAnonymousPayload(payload, slices) ||
+            pod.CredentialEpoch <= 0 ||
+            pod.Version < 0 ||
+            pod.BaseVersion < 0 ||
+            pod.BaseVersion > pod.Version ||
+            pod.Kind is not (1 or 2) ||
             pod.PathDepth != AnonymousPrivacyContract.MaxRevocationWitnessPathDepth ||
-            pod.SiblingHashCount != AnonymousPrivacyContract.MaxRevocationWitnessPathDepth ||
-            pod.SiblingHashes.Length != AnonymousPrivacyContract.MaxRevocationWitnessSiblingHashesBytes ||
+            pod.EntryCount > AnonymousPrivacyContract.MaxRevocationArtifactEntries ||
+            pod.EntryHashes.Length != checked((int)pod.EntryCount * 32) ||
+            pod.EntryHashes.Length > AnonymousPrivacyContract.MaxRevocationArtifactBytes ||
             !SliceLengthAtMost(pod.AlgorithmId, AnonymousPrivacyContract.MaxRevocationWitnessAlgorithmIdBytes) ||
-            !SliceLengthAtMost(pod.RevocationRoot, AnonymousPrivacyContract.MaxRevocationRootBytes) ||
             !SliceLengthAtMost(pod.IssuerPublicKeyHash, AnonymousPrivacyContract.MaxIssuerPublicKeyHashBytes) ||
-            !SliceLengthAtMost(pod.RevocationHandleHash, AnonymousPrivacyContract.MaxRevocationHandleHashBytes) ||
-            !SliceLengthAtMost(pod.LeafKey, AnonymousPrivacyContract.MaxRevocationWitnessLeafKeyBytes) ||
-            !SliceLengthAtMost(pod.WitnessHash, AnonymousPrivacyContract.MaxRevocationWitnessHashBytes))
+            pod.RevocationRoot.Length != 32 ||
+            pod.ContentHash.Length != 32 ||
+            pod.Signature.Length != 32)
         {
-            response = default;
+            artifact = default;
             return false;
         }
 
-        response = new AnonymousCredentialRevocationWitnessResponseCoreModel(
+        artifact = new AnonymousCredentialRevocationArtifactCoreModel(
             pod.CredentialEpoch,
-            PodProjector.ReadSlice(pod.AlgorithmId, payload),
+            pod.Version,
+            pod.BaseVersion,
+            pod.ExpiresAtUnixMs,
+            pod.Kind,
             pod.PathDepth,
-            ReadBytes(pod.RevocationRoot, payload),
+            PodProjector.ReadSlice(pod.AlgorithmId, payload),
             PodProjector.ReadSlice(pod.IssuerPublicKeyHash, payload),
-            ReadBytes(pod.RevocationHandleHash, payload),
-            ReadBytes(pod.LeafKey, payload),
-            ReadBytes(pod.WitnessHash, payload),
-            ReadBytes(pod.SiblingHashes, payload));
+            ReadBytes(pod.RevocationRoot, payload),
+            ReadBytes(pod.ContentHash, payload),
+            ReadBytes(pod.Signature, payload),
+            ReadBytes(pod.EntryHashes, payload));
         return reader.IsConsumed;
     }
 
@@ -1840,32 +1776,22 @@ public static partial class PodBinaryCodec
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableAnonymousCredentialRevocationWitnessRequestPod
+    private struct MutableAnonymousCredentialRevocationArtifactPod
     {
         public long CredentialEpoch;
-        public uint CircuitNumericId;
-        public ushort PublicInputLayoutVersion;
-        public ushort Reserved0;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef CircuitId;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerPublicKeyHash;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RevocationRoot;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RevocationHandleHash;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct MutableAnonymousCredentialRevocationWitnessResponsePod
-    {
-        public long CredentialEpoch;
+        public long Version;
+        public long BaseVersion;
+        public long ExpiresAtUnixMs;
+        public uint EntryCount;
         public ushort PathDepth;
-        public ushort Reserved0;
-        public uint SiblingHashCount;
+        public byte Kind;
+        public byte Reserved0;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef AlgorithmId;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RevocationRoot;
         public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef IssuerPublicKeyHash;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RevocationHandleHash;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef LeafKey;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef WitnessHash;
-        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef SiblingHashes;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef RevocationRoot;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef ContentHash;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef Signature;
+        public FsusBlog.Shared.Contracts.Primitives.Utf8SliceRef EntryHashes;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -222,25 +222,19 @@ public readonly record struct AnonymousCredentialRootSnapshotCoreModel(
     byte[] RevocationRoot,
     byte[] CircuitMetadata);
 
-public readonly record struct AnonymousCredentialRevocationWitnessRequestCoreModel(
+public readonly record struct AnonymousCredentialRevocationArtifactCoreModel(
     long CredentialEpoch,
-    uint CircuitNumericId,
-    ushort PublicInputLayoutVersion,
-    string CircuitId,
-    string IssuerPublicKeyHash,
-    byte[] RevocationRoot,
-    byte[] RevocationHandleHash);
-
-public readonly record struct AnonymousCredentialRevocationWitnessResponseCoreModel(
-    long CredentialEpoch,
-    string AlgorithmId,
+    long Version,
+    long BaseVersion,
+    long ExpiresAtUnixMs,
+    byte Kind,
     ushort PathDepth,
-    byte[] RevocationRoot,
+    string AlgorithmId,
     string IssuerPublicKeyHash,
-    byte[] RevocationHandleHash,
-    byte[] LeafKey,
-    byte[] WitnessHash,
-    byte[] SiblingHashes);
+    byte[] RevocationRoot,
+    byte[] ContentHash,
+    byte[] Signature,
+    byte[] EntryHashes);
 
 public readonly record struct AnonymousCommentTicketRequestCoreModel(
     int ArticleId,

@@ -2,7 +2,7 @@ import { FrameType } from '@wasm/protocol/frame';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from './commonAdapter';
 import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from './articleAdapter';
-import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialIssueResponseFromPayload, mapAnonymousCredentialRevocationWitnessResponseFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentCursorFromPodPayload, mapCommentPolicySnapshotFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
+import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialIssueResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentCursorFromPodPayload, mapCommentPolicySnapshotFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from './commentAdapter';
 import { mapRecentCommentsFromPodPayload, mapRegionsFromPodPayload, mapSiteStatsFromPodPayload } from './statsAdapter';
 import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceConfigFromPayload } from './systemAdapter';
 import { mapCategoryListFromPayload, mapTagListFromPayload } from './taxonomyAdapter';
@@ -50,7 +50,8 @@ const framePayloadMappers: Record<number, (payload: Uint8Array) => unknown> = {
   [FrameType.CommentThreadReplyCursor]: mapThreadReplyCursorFromPodPayload,
   [FrameType.AnonymousCredentialIssueResponse]: mapAnonymousCredentialIssueResponseFromPayload,
   [FrameType.AnonymousCredentialRootSnapshot]: mapAnonymousCredentialRootSnapshotFromPayload,
-  [FrameType.AnonymousCredentialRevocationWitnessResponse]: mapAnonymousCredentialRevocationWitnessResponseFromPayload,
+  [FrameType.AnonymousCredentialRevocationSnapshot]: mapAnonymousCredentialRevocationArtifactFromPayload,
+  [FrameType.AnonymousCredentialRevocationDelta]: mapAnonymousCredentialRevocationArtifactFromPayload,
   [FrameType.AnonymousCommentTicketResponse]: mapAnonymousCommentTicketResponseFromPayload,
   [FrameType.AnonymousPrivacyStateSnapshot]: mapAnonymousPrivacyStateSnapshotFromPayload,
   [FrameType.BlindCredentialIssuerMetadata]: mapBlindCredentialIssuerMetadataFromPayload,

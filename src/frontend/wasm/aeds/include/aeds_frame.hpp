@@ -214,8 +214,8 @@ enum class FrameType : std::uint16_t {
   AnonymousPrivacyStateSnapshot = 183,
   PerceptionSealedChallengeV2 = 184,
   PerceptionSealedResultV2 = 185,
-  AnonymousCredentialRevocationWitnessRequest = 186,
-  AnonymousCredentialRevocationWitnessResponse = 187,
+  RetiredCredentialSpecificRevocationRequest = 186,
+  RetiredCredentialSpecificRevocationResponse = 187,
   AdminPrincipalSnapshot = 188,
   AuthAnonymousBootstrapRequest = 189,
   AuthUpdatePublicHandleRequest = 190,
@@ -224,6 +224,8 @@ enum class FrameType : std::uint16_t {
   BlindCredentialIssuerMetadata = 193,
   BlindCredentialIssueRequest = 194,
   BlindCredentialIssueResponse = 195,
+  AnonymousCredentialRevocationSnapshot = 196,
+  AnonymousCredentialRevocationDelta = 197,
   EmptySuccess = 240,
   MutationId = 241,
   ApiError = 251,
@@ -410,8 +412,8 @@ enum class FrameType : std::uint16_t {
     case FrameType::AnonymousPrivacyStateSnapshot:
     case FrameType::PerceptionSealedChallengeV2:
     case FrameType::PerceptionSealedResultV2:
-    case FrameType::AnonymousCredentialRevocationWitnessRequest:
-    case FrameType::AnonymousCredentialRevocationWitnessResponse:
+    case FrameType::RetiredCredentialSpecificRevocationRequest:
+    case FrameType::RetiredCredentialSpecificRevocationResponse:
     case FrameType::AdminPrincipalSnapshot:
     case FrameType::AuthAnonymousBootstrapRequest:
     case FrameType::AuthUpdatePublicHandleRequest:
@@ -420,6 +422,8 @@ enum class FrameType : std::uint16_t {
     case FrameType::BlindCredentialIssuerMetadata:
     case FrameType::BlindCredentialIssueRequest:
     case FrameType::BlindCredentialIssueResponse:
+    case FrameType::AnonymousCredentialRevocationSnapshot:
+    case FrameType::AnonymousCredentialRevocationDelta:
     case FrameType::EmptySuccess:
     case FrameType::MutationId:
     case FrameType::ApiError:

@@ -125,8 +125,10 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `183`: AnonymousPrivacyStateSnapshot
 - `184`: PerceptionSealedChallengeV2
 - `185`: PerceptionSealedResultV2
-- `186`: AnonymousCredentialRevocationWitnessRequest
-- `187`: AnonymousCredentialRevocationWitnessResponse
+- `186`: RetiredCredentialSpecificRevocationRequest (永久拒绝，不得重新承载 handle/body)
+- `187`: RetiredCredentialSpecificRevocationResponse (永久保留编号，不再发送)
+- `196`: AnonymousCredentialRevocationSnapshot
+- `197`: AnonymousCredentialRevocationDelta
 - `240`: EmptySuccess
 - `241`: MutationId
 - `251`: ApiError

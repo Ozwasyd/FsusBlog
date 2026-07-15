@@ -222,7 +222,9 @@
 | POST `/api/binary/security/challenge/verify` | 🔓 🚦 📦 | `SecurityChallengeVerifyRequest`(174) → `SecurityChallengeVerifyResponse`(176) | Provider proof 验证，成功返回一次性 `proofToken`；perception-sealed@v2 metrics 失败不影响验证结果 |
 | GET `/api/binary/anonymous-credential/root` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 公开 credential root / epoch / expiry / circuit metadata；`public_read` 限流 |
 | GET `/api/binary/anonymous-credential/circuit` | 🔓 🚦 📦 | `AnonymousCredentialRootSnapshot`(179) | 同 root snapshot，用于 prover 预热读取 circuit/verifying key metadata |
-| POST `/api/binary/anonymous-credential/revocation-witness` | 🔓 🚦 📦 | `AnonymousCredentialRevocationWitnessRequest`(186) → `AnonymousCredentialRevocationWitnessResponse`(187) | 强匿名 revocation non-membership witness；`public_read` 限流、`no-store`、拒绝携带登录态 |
+| POST `/api/binary/anonymous-credential/revocation-witness` | 🔓 🚦 📦 | 固定 `ApiError` / 410 | credential-specific witness 永久 retired；body/参数均不读取 |
+| GET `/api/binary/anonymous-credential/revocation/{epoch}/{version}/{root}/full.aeds` | 🔓 🚦 📦 | `AnonymousCredentialRevocationSnapshot`(196) | 所有客户端相同、content-addressed、immutable 的公共 full snapshot |
+| GET `/api/binary/anonymous-credential/revocation/{epoch}/{version}/{root}/delta/{baseVersion}.aeds` | 🔓 🚦 📦 | `AnonymousCredentialRevocationDelta`(197) | 公共 append-only delta；客户端仅允许精确上一 version 更新 |
 | GET `/api/binary/anonymous-credential/blind-issuer` | 🔓 🚦 📦 | `BlindCredentialIssuerMetadata`(193) | RFC 9474 profile、root 绑定、issuer SPKI/hash；`public_read`、`no-store`，runtime disable 时 503 |
 | POST `/api/binary/anonymous-credential/blind-issue` | 🔑 🚦 📦 | `BlindCredentialIssueRequest`(194) → `BlindCredentialIssueResponse`(195) | RFC 9474 blind issuance；只接收 384B blinded representative，统一拒绝与延迟桶，`no-store` |
 | POST `/api/binary/anonymous-credential/issue` | 🔑 🚦 📦 | `ApiError`(251) | 已撤销的 circuit-native issuance；固定 `410 Gone`，不得重新挂载旧 handler |

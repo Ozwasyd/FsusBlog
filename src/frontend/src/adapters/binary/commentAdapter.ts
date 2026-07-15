@@ -1,7 +1,7 @@
 import type {
   AnonymousCommentTicketResponse,
   AnonymousCredentialIssueResponse,
-  AnonymousCredentialRevocationWitnessResponse,
+  AnonymousCredentialRevocationArtifact,
   AnonymousCredentialRootSnapshot,
   BlindCredentialIssuerMetadata,
   BlindCredentialIssueResponse,
@@ -19,7 +19,7 @@ import { readReplyItem, readThreadItemFromReader } from './podReaders';
 import {
   ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
-  ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_RESPONSE_POD_SIZE,
+  ANONYMOUS_CREDENTIAL_REVOCATION_ARTIFACT_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
   BLIND_CREDENTIAL_ISSUER_METADATA_POD_SIZE,
   BLIND_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
@@ -31,6 +31,7 @@ import {
 
 export type CommentAuthorMode = 'public' | 'zk_anonymous';
 const ANONYMOUS_PRIVACY_MAX_PAYLOAD_BYTES = 16 * 1024;
+const REVOCATION_ARTIFACT_MAX_PAYLOAD_BYTES = 4 * 1024 * 1024;
 const decoder = new TextDecoder();
 
 export type CommentPolicySnapshot = {
@@ -219,30 +220,38 @@ export function mapAnonymousCredentialRootSnapshotFromPayload(payload: Uint8Arra
   };
 }
 
-export function mapAnonymousCredentialRevocationWitnessResponseFromPayload(payload: Uint8Array): AnonymousCredentialRevocationWitnessResponse {
+export function mapAnonymousCredentialRevocationArtifactFromPayload(payload: Uint8Array): AnonymousCredentialRevocationArtifact {
   const { pod, blob } = readAnonymousPrivacyPayload(
     payload,
-    ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_RESPONSE_POD_SIZE,
-    'anonymous_credential_revocation_witness_response');
-  const pathDepth = readUint16(pod, 8);
-  const siblingHashCount = readUint32(pod, 12);
-  const siblingHashes = readAnonymousSliceBytes(blob, readSliceRef(pod, 64), 'anonymous_credential_revocation_witness_siblings_invalid');
-  if (pathDepth <= 0 ||
-    siblingHashCount <= 0 ||
-    siblingHashes.byteLength !== siblingHashCount * 32) {
-    throw createAppError(AppErrorCode.ProtocolFailure, 'anonymous_credential_revocation_witness_siblings_invalid');
+    ANONYMOUS_CREDENTIAL_REVOCATION_ARTIFACT_POD_SIZE,
+    'anonymous_credential_revocation_artifact',
+    REVOCATION_ARTIFACT_MAX_PAYLOAD_BYTES);
+  const entryCount = readUint32(pod, 32);
+  const pathDepth = readUint16(pod, 36);
+  const kind = readByte(pod, 38);
+  const revocationRoot = readAnonymousSliceBytes(blob, readSliceRef(pod, 56), 'anonymous_credential_revocation_artifact_root_invalid', REVOCATION_ARTIFACT_MAX_PAYLOAD_BYTES);
+  const contentHash = readAnonymousSliceBytes(blob, readSliceRef(pod, 64), 'anonymous_credential_revocation_artifact_hash_invalid', REVOCATION_ARTIFACT_MAX_PAYLOAD_BYTES);
+  const signature = readAnonymousSliceBytes(blob, readSliceRef(pod, 72), 'anonymous_credential_revocation_artifact_signature_invalid', REVOCATION_ARTIFACT_MAX_PAYLOAD_BYTES);
+  const entryHashes = readAnonymousSliceBytes(blob, readSliceRef(pod, 80), 'anonymous_credential_revocation_artifact_entries_invalid', REVOCATION_ARTIFACT_MAX_PAYLOAD_BYTES);
+  if ((kind !== 1 && kind !== 2) || pathDepth !== 128 ||
+    revocationRoot.byteLength !== 32 || contentHash.byteLength !== 32 || signature.byteLength !== 32 ||
+    entryHashes.byteLength !== entryCount * 32) {
+    throw createAppError(AppErrorCode.ProtocolFailure, 'anonymous_credential_revocation_artifact_shape_invalid');
   }
 
   return {
     credentialEpoch: readInt64Number(pod, 0),
-    algorithmId: readAnonymousSliceText(blob, readSliceRef(pod, 16), 'anonymous_credential_revocation_witness_algorithm_invalid'),
+    version: readInt64Number(pod, 8),
+    baseVersion: readInt64Number(pod, 16),
+    expiresAtUnixMs: readInt64Number(pod, 24),
+    kind,
+    algorithmId: readAnonymousSliceText(blob, readSliceRef(pod, 40), 'anonymous_credential_revocation_artifact_algorithm_invalid'),
     pathDepth,
-    revocationRoot: readAnonymousSliceBytes(blob, readSliceRef(pod, 24), 'anonymous_credential_revocation_witness_root_invalid'),
-    issuerPublicKeyHash: readAnonymousSliceText(blob, readSliceRef(pod, 32), 'anonymous_credential_revocation_witness_issuer_invalid'),
-    revocationHandleHash: readAnonymousSliceBytes(blob, readSliceRef(pod, 40), 'anonymous_credential_revocation_witness_handle_invalid'),
-    leafKey: readAnonymousSliceBytes(blob, readSliceRef(pod, 48), 'anonymous_credential_revocation_witness_leaf_invalid'),
-    witnessHash: readAnonymousSliceBytes(blob, readSliceRef(pod, 56), 'anonymous_credential_revocation_witness_hash_invalid'),
-    siblingHashes
+    issuerPublicKeyHash: readAnonymousSliceText(blob, readSliceRef(pod, 48), 'anonymous_credential_revocation_artifact_issuer_invalid'),
+    revocationRoot,
+    contentHash,
+    signature,
+    entryHashes
   };
 }
 
@@ -415,7 +424,7 @@ function readBooleanByte(pod: Uint8Array, offset: number, errorCode: string): bo
   return value === 1;
 }
 
-function readAnonymousPrivacyPayload(payload: Uint8Array, podSize: number, errorPrefix: string): { pod: Uint8Array; blob: Uint8Array } {
+function readAnonymousPrivacyPayload(payload: Uint8Array, podSize: number, errorPrefix: string, maxPayloadBytes = ANONYMOUS_PRIVACY_MAX_PAYLOAD_BYTES): { pod: Uint8Array; blob: Uint8Array } {
   const reader = new BinaryReader(payload);
   const pod = reader.readSpan(podSize);
   const blob = reader.readBlob();
@@ -423,15 +432,15 @@ function readAnonymousPrivacyPayload(payload: Uint8Array, podSize: number, error
     throw createAppError(AppErrorCode.ProtocolFailure, `${errorPrefix}_trailing_payload_invalid`);
   }
 
-  if (blob.byteLength > ANONYMOUS_PRIVACY_MAX_PAYLOAD_BYTES) {
+  if (blob.byteLength > maxPayloadBytes) {
     throw createAppError(AppErrorCode.ProtocolFailure, `${errorPrefix}_payload_oversized`);
   }
 
   return { pod, blob };
 }
 
-function readAnonymousSliceBytes(blob: Uint8Array, slice: { offset: number; length: number }, errorCode: string): Uint8Array {
-  if (slice.offset < 0 || slice.length < 0 || slice.length > ANONYMOUS_PRIVACY_MAX_PAYLOAD_BYTES || slice.offset + slice.length > blob.byteLength) {
+function readAnonymousSliceBytes(blob: Uint8Array, slice: { offset: number; length: number }, errorCode: string, maxPayloadBytes = ANONYMOUS_PRIVACY_MAX_PAYLOAD_BYTES): Uint8Array {
+  if (slice.offset < 0 || slice.length < 0 || slice.length > maxPayloadBytes || slice.offset + slice.length > blob.byteLength) {
     throw createAppError(AppErrorCode.ProtocolFailure, errorCode);
   }
 

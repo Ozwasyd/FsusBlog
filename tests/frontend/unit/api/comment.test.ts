@@ -20,8 +20,7 @@ import {
   encodeAnonymousCommentCreateRequest,
   encodeAnonymousCommentTicketRequest,
   encodeAnonymousCredentialIssueRequest,
-  encodeAnonymousCredentialRevocationWitnessRequest,
-  getAnonymousCredentialRevocationWitness,
+  getAnonymousCredentialRevocationArtifact,
   resolveCommentAuthorView
 } from '@/api/comment'
 import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
@@ -219,28 +218,6 @@ describe('comment API', () => {
     expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5])
   })
 
-  it('encodeAnonymousCredentialRevocationWitnessRequest writes public accumulator fields', () => {
-    const payload = encodeAnonymousCredentialRevocationWitnessRequest({
-      credentialEpoch: 20260618,
-      circuitNumericId: 7,
-      publicInputLayoutVersion: 4,
-      circuitId: 'fsus.anonymous.comment.v3',
-      issuerPublicKeyHash: 'issuer-hash',
-      revocationRoot: new Uint8Array([1, 2, 3]),
-      revocationHandleHash: new Uint8Array([4, 5, 6])
-    })
-
-    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
-    expect(view.getBigInt64(0, true)).toBe(20260618n)
-    expect(view.getUint32(8, true)).toBe(7)
-    expect(view.getUint16(12, true)).toBe(4)
-    const blob = payload.subarray(52)
-    expect(readSliceText(payload, blob, 16)).toBe('fsus.anonymous.comment.v3')
-    expect(readSliceText(payload, blob, 24)).toBe('issuer-hash')
-    expect([...readSliceBytes(payload, blob, 32)]).toEqual([1, 2, 3])
-    expect([...readSliceBytes(payload, blob, 40)]).toEqual([4, 5, 6])
-  })
-
   it('encodeAnonymousCommentTicketRequest writes the full comment.v2 ticket POD without public identity', () => {
     const payload = encodeAnonymousCommentTicketRequest({
       articleId: 42,
@@ -426,33 +403,24 @@ describe('comment API', () => {
     expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCommentTicketRequest)
   })
 
-  it('getAnonymousCredentialRevocationWitness posts witness request with omitted credentials', async () => {
+  it('uses the same bodyless public artifact transcript for every credential', async () => {
     const signal = new AbortController().signal
-    await getAnonymousCredentialRevocationWitness({
-      credentialEpoch: 20260618,
-      circuitNumericId: 7,
-      publicInputLayoutVersion: 4,
-      circuitId: 'fsus.anonymous.comment.v3',
-      issuerPublicKeyHash: 'issuer-hash',
-      revocationRoot: new Uint8Array([1, 2]),
-      revocationHandleHash: new Uint8Array([3, 4])
-    }, { signal })
+    const path = `/api/binary/anonymous-credential/revocation/20260618/4/${'ab'.repeat(32)}/full.aeds`
+    await getAnonymousCredentialRevocationArtifact(path, 1, { signal })
+    await getAnonymousCredentialRevocationArtifact(path, 1, { signal })
 
-    const call = mockBinary.mock.calls[0][0]
-    const body = call.requestOptions?.body as ArrayBuffer
-    expect(call).toEqual(expect.objectContaining({
-      binaryRoute: { operationId: 'binary_post_anonymous_credential_revocation_witness' },
-      frameType: FrameType.AnonymousCredentialRevocationWitnessResponse,
+    expect(mockBinary.mock.calls).toHaveLength(2)
+    for (const [call] of mockBinary.mock.calls) expect(call).toEqual(expect.objectContaining({
+      binaryUrl: path,
+      frameType: FrameType.AnonymousCredentialRevocationSnapshot,
       signal,
       requestOptions: expect.objectContaining({
-        method: 'POST',
-        credentials: 'omit',
-        body: expect.any(ArrayBuffer)
+        method: 'GET',
+        credentials: 'omit'
       })
     }))
-    expect(call.requestOptions?.requiresPow).toBeUndefined()
-    expect(call.requestOptions?.headers).toBeUndefined()
-    expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCredentialRevocationWitnessRequest)
+    expect(mockBinary.mock.calls[0][0].requestOptions?.body).toBeUndefined()
+    expect(mockBinary.mock.calls[0][0]).toEqual(mockBinary.mock.calls[1][0])
   })
 
   it('getComments does not request pow headers', async () => {

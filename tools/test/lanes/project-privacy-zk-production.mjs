@@ -38,7 +38,7 @@ export const requiredBackendClasses = [
   'PodBinaryCodecTests',
   'BackendGoldenCatalogTests',
   'AnonymousCredentialRootLifecycleTests',
-  'AnonymousCredentialRevocationWitnessServiceTests',
+  'AnonymousCredentialRevocationArtifactServiceTests',
   'AnonymousCredentialRootEndpointTests',
   'ZkCommentV2CrossStackFixtureTests',
   'AnonymousPrivacyConcurrencyTests'

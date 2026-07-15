@@ -1,5 +1,3 @@
-import type { AnonymousCredentialRevocationWitnessResponse } from '@/api/comment'
-
 const REVOCATION_WITNESS_MAGIC = new TextEncoder().encode('fsus-revocation-witness-v1')
 const REVOCATION_WITNESS_ALGORITHM = 'circuit-friendly-non-membership.v1'
 const REVOCATION_WITNESS_DEPTH = 128
@@ -19,7 +17,7 @@ export interface CommentPrivacyRevocationWitnessMaterial {
 }
 
 export function encodeCommentPrivacyRevocationWitnessMaterial(
-  response: AnonymousCredentialRevocationWitnessResponse
+  response: CommentPrivacyRevocationWitnessMaterial
 ): Uint8Array {
   const algorithm = new TextEncoder().encode(response.algorithmId)
   const issuer = new TextEncoder().encode(response.issuerPublicKeyHash)

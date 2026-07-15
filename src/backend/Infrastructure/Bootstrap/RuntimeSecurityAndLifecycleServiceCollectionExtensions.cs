@@ -82,7 +82,7 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IBlindCredentialIssuanceService, BlindCredentialIssuanceService>();
         services.AddScoped<IAnonymousCredentialRootStore, AnonymousCredentialRootStore>();
         services.AddSingleton<IAnonymousCredentialRootService, AnonymousCredentialRootService>();
-        services.AddScoped<IAnonymousCredentialRevocationWitnessService, AnonymousCredentialRevocationWitnessService>();
+        services.AddScoped<IAnonymousCredentialRevocationArtifactService, AnonymousCredentialRevocationArtifactService>();
         services.AddScoped<IAnonymousGovernanceService, AnonymousGovernanceService>();
         services.AddScoped<IAnonymousCommentTicketService, AnonymousCommentTicketService>();
         services.AddSingleton<AnonymousCredentialRootLifecycleService>();

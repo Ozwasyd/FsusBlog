@@ -243,8 +243,10 @@ perception-sealed@v2 的验证矩阵：
 | `SecurityChallengeVerifyResponse` | 176 | `SecurityChallengeVerifyResponsePod` + UTF-8 blob | 一次性 proof token 响应 |
 | `PerceptionSealedChallengeV2` | 184 | `PerceptionSealedChallengeV2Pod` + UTF-8 blob | perception-sealed@v2 issue payload；三类 task kind 共用 |
 | `PerceptionSealedResultV2` | 185 | `PerceptionSealedResultV2Pod` + UTF-8 blob | perception-sealed@v2 verify payload；三类 response payload 共用 |
-| `AnonymousCredentialRevocationWitnessRequest` | 186 | `AnonymousCredentialRevocationWitnessRequestPod` + shared blob | 强匿名凭证撤销 non-membership witness 请求；公开 root/issuer/handle metadata |
-| `AnonymousCredentialRevocationWitnessResponse` | 187 | `AnonymousCredentialRevocationWitnessResponsePod` + shared blob | circuit-friendly sparse Merkle non-membership witness 响应 |
+| `RetiredCredentialSpecificRevocationRequest` | 186 | 无有效 payload | 永久 retired；服务端不得读取或恢复 credential-specific handle body |
+| `RetiredCredentialSpecificRevocationResponse` | 187 | 不再发送 | 永久保留编号，禁止复用 |
+| `AnonymousCredentialRevocationSnapshot` | 196 | `AnonymousCredentialRevocationArtifactPod` + shared blob | epoch/version 的公共 full revoked-set snapshot |
+| `AnonymousCredentialRevocationDelta` | 197 | `AnonymousCredentialRevocationArtifactPod` + shared blob | 从 `baseVersion` 到 `version` 的公共 append-only delta |
 
 ### 匿名凭证签发契约
 
@@ -265,7 +267,7 @@ perception-sealed@v2 的验证矩阵：
 
 `AnonymousCredentialRootSnapshot` (`179`) 返回字段为 `credentialRoot`、`revocationRoot`、`issuerPublicKeyHash`、`credentialEpoch`、`rootExpiresAtUnixMs`、`rootGraceExpiresAtUnixMs`、`circuitNumericId`、`circuitId`、`verifyingKeyHash`、`publicInputLayoutVersion`、`zkAnonymousEnabled`、`verifierConfigured` 和 `circuitMetadata`。`anonymous_credential_root` 只保存公开 root/circuit 元数据：`epoch`、`root_hash`、`revocation_root_hash`、`issuer_public_key_hash`、`circuit_id`、`circuit_numeric_id`、`verifying_key_hash`、`public_input_layout_version`、`circuit_metadata`、`created_at_utc`、`expires_at_utc`、`root_grace_expires_at_utc`、`status`；不得包含 user/session/cookie/account 映射。
 
-`POST /api/binary/anonymous-credential/revocation-witness` 是公开强匿名撤销 non-membership witness 读取端点：匿名访问、`public_read` 限流、`RequireNoStoreResponse()`、`RequireStrongAnonymousRequest()`，要求 `Content-Type` 与 `Accept` 都为 `application/octet-stream`。请求 frame 为 `AnonymousCredentialRevocationWitnessRequest` (`186`)，包含 `credentialEpoch`、`circuitNumericId`、`publicInputLayoutVersion`、`circuitId`、`issuerPublicKeyHash`、`revocationRoot` 与不可逆 `revocationHandleHash`；响应 frame 为 `AnonymousCredentialRevocationWitnessResponse` (`187`)，包含 `algorithmId=circuit-friendly-non-membership.v1`、`pathDepth=128`、`leafKey`、`witnessHash` 与 128 个 32B sibling hashes。端点只读取公开 root snapshot 与当前 epoch 的 revoked handle hash 集合，不读取 Cookie/session/Authorization/current user；metadata 未标记 `productionZkReady=true` 或 root/request 不匹配时 fail closed，不伪造 Groth16 proof 或声明 circuit 已完成。
+`GET /api/binary/anonymous-credential/revocation/{epoch}/{version}/{revocationRoot}/full.aeds` 返回 frame `196`；`GET .../delta/{baseVersion}.aeds` 返回 frame `197`。两者不接收 credential 参数或 request body，只返回所有客户端相同的公共 artifact：`credentialEpoch/version/baseVersion/expiresAt/kind/pathDepth/algorithmId/issuerPublicKeyHash/revocationRoot/contentHash/signature/entryHashes`。`contentHash` 绑定 canonical header、root 与 entries，`signature` 字段当前是公共 hash-binding；客户端必须同时重算 content hash、binding 和 sparse-Merkle root。full 要求 `baseVersion=0`；delta 只允许从 metadata 声明的精确上一 version 更新，rollback、跳版本、过期、root/issuer/epoch 不匹配、tamper 全部 fail closed。旧 `POST /revocation-witness` 固定 `410` 且不读取 body，不能通过 query、header 或 retired frame 复活。
 
 ZK 评论 proof verifier 的运行时配置位于 `AnonymousIdentity:ZkVerifier:*`：`Enabled`、`CircuitId`、`VerifyingKeyHash`、`PublicInputLayoutVersion`、`MaxProofBytes`、`Backend`，可选 `BackendTimeoutMs` 与 `MaxConcurrentVerifications`。`verifierConfigured=true` 只表示上述配置完整且对应 backend adapter 可用；配置关闭、不完整或 backend 不可用时仍按 `DisabledZkProofVerifier`/`verifier_unavailable` fail closed。生产 verifier 在 backend 调用前校验 `comment.create` action、circuit id、verifying key hash、public input layout version、credential epoch、credential root + revocation root + issuer public key hash 的 active-or-grace snapshot 三元绑定、proof byte 上限以及 nullifier/issuer public key hash/credential root/revocation root 均为固定 64 字符 hex token；credential commitment 不属于 public verifier request。所有 reject、timeout、取消或异常对外统一为 AEDS `invalid_proof`，不得把 proof、witness、credential secret 或 backend 细节写入响应或日志。
 
@@ -357,8 +359,8 @@ Recovery Key 是匿名账号的账户恢复凭据，独立于 TOTP MFA recovery 
 | `AnonymousCredentialIssueRequest` (`177`) | `AnonymousCredentialIssueRequestPod` + shared blob | 已撤销的 circuit-native 签发请求，仅保留历史 frame 号；路由固定 410 |
 | `AnonymousCredentialIssueResponse` (`178`) | `AnonymousCredentialIssueResponsePod` + shared blob | 已撤销的 circuit-native 签发响应，不得由运行时返回 |
 | `AnonymousCredentialRootSnapshot` (`179`) | `AnonymousCredentialRootSnapshotPod` + shared blob | 匿名凭证 root/verifying-key snapshot：epoch、root expiry/grace expiry、ZK/verifier flags、circuit id、verifying key hash、issuer public key hash、credential/revocation root |
-| `AnonymousCredentialRevocationWitnessRequest` (`186`) | `AnonymousCredentialRevocationWitnessRequestPod` + shared blob | 匿名凭证撤销 non-membership witness 请求：epoch/circuit/layout/root/issuer/handle hash |
-| `AnonymousCredentialRevocationWitnessResponse` (`187`) | `AnonymousCredentialRevocationWitnessResponsePod` + shared blob | 128 层 circuit-friendly sparse Merkle non-membership witness；供浏览器 prover 输入，不代表 Groth16 proof 已生成 |
+| `RetiredCredentialSpecificRevocationRequest/Response` (`186`/`187`) | 无有效 payload | 永久拒绝 credential-specific witness 网络交换 |
+| `AnonymousCredentialRevocationSnapshot/Delta` (`196`/`197`) | `AnonymousCredentialRevocationArtifactPod` + shared blob | 公共 revoked-set full/delta；浏览器 privacy worker 本地派生 128 层 non-membership witness |
 | `BlindCredentialIssuerMetadata` (`193`) | `BlindCredentialIssuerMetadataPod` + shared blob | RFC 9474 profile、root/circuit metadata、issuer key id/hash、3072-bit RSA DER SPKI |
 | `BlindCredentialIssueRequest` (`194`) | `BlindCredentialIssueRequestPod` + shared blob | RFC 9474 384-byte blinded representative；不含 secret、opening、commitment 或 nullifier |
 | `BlindCredentialIssueResponse` (`195`) | `BlindCredentialIssueResponsePod` + shared blob | 384-byte blind signature 与匹配 metadata；浏览器本地 Finalize/verify |

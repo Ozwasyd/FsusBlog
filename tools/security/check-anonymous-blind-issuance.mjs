@@ -35,7 +35,7 @@ rejectText(
   'endpoint')
 
 const blindHandlerStart = endpoint.indexOf('internal static async Task<BinaryFrameResult> HandleBlindCredentialIssueAsync')
-const blindHandlerEnd = endpoint.indexOf('internal static async Task<BinaryFrameResult> HandleAnonymousCredentialRevocationWitnessAsync')
+const blindHandlerEnd = endpoint.indexOf('internal static async Task<BinaryFrameResult> HandleAnonymousCredentialRevocationArtifactAsync')
 const blindHandler = endpoint.slice(blindHandlerStart, blindHandlerEnd)
 rejectText(blindHandler, 'IAuditEventService', 'blind handler')
 rejectText(blindHandler, 'TraceIdentifier', 'blind handler')

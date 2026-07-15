@@ -146,26 +146,19 @@ export interface AnonymousCredentialRootSnapshot {
   circuitMetadata: Uint8Array
 }
 
-export interface AnonymousCredentialRevocationWitnessRequestDto {
+export interface AnonymousCredentialRevocationArtifact {
   credentialEpoch: number
-  circuitNumericId: number
-  publicInputLayoutVersion: number
-  circuitId: string
-  issuerPublicKeyHash: string
-  revocationRoot: Uint8Array | number[]
-  revocationHandleHash: Uint8Array | number[]
-}
-
-export interface AnonymousCredentialRevocationWitnessResponse {
-  credentialEpoch: number
+  version: number
+  baseVersion: number
+  expiresAtUnixMs: number
+  kind: 1 | 2
   algorithmId: string
   pathDepth: number
-  revocationRoot: Uint8Array
   issuerPublicKeyHash: string
-  revocationHandleHash: Uint8Array
-  leafKey: Uint8Array
-  witnessHash: Uint8Array
-  siblingHashes: Uint8Array
+  revocationRoot: Uint8Array
+  contentHash: Uint8Array
+  signature: Uint8Array
+  entryHashes: Uint8Array
 }
 
 export interface AnonymousCommentTicketRequestDto {
@@ -398,22 +391,22 @@ export const getBlindCredentialIssuerMetadata = (config?: ApiRequestConfig) =>
     }
   })
 
-export const getAnonymousCredentialRevocationWitness = (
-  data: AnonymousCredentialRevocationWitnessRequestDto,
+export const getAnonymousCredentialRevocationArtifact = (
+  path: string,
+  kind: 1 | 2,
   config?: ApiRequestConfig
-) => {
-  const payload = encodeAnonymousCredentialRevocationWitnessRequest(data)
-  return requestBinaryOnly<AnonymousCredentialRevocationWitnessResponse>({
-    binaryRoute: { operationId: 'binary_post_anonymous_credential_revocation_witness' },
-    frameType: FrameType.AnonymousCredentialRevocationWitnessResponse,
+) =>
+  requestBinaryOnly<AnonymousCredentialRevocationArtifact>({
+    binaryUrl: path,
+    frameType: kind === 1
+      ? FrameType.AnonymousCredentialRevocationSnapshot
+      : FrameType.AnonymousCredentialRevocationDelta,
     signal: config?.signal as AbortSignal | undefined,
     requestOptions: {
-      method: 'POST',
-      credentials: 'omit',
-      body: encodeAedsFrame(FrameType.AnonymousCredentialRevocationWitnessRequest, payload)
+      method: 'GET',
+      credentials: 'omit'
     }
   })
-}
 
 export const issueAnonymousCommentTicket = (
   data: AnonymousCommentTicketRequestDto,
@@ -629,29 +622,6 @@ export function encodeBlindCredentialIssueRequest(data: BlindCredentialIssueRequ
   return bytes
 }
 
-export function encodeAnonymousCredentialRevocationWitnessRequest(data: AnonymousCredentialRevocationWitnessRequestDto): Uint8Array {
-  const circuitId = encodeText(data.circuitId ?? '')
-  const issuerPublicKeyHash = encodeText(data.issuerPublicKeyHash ?? '')
-  const revocationRoot = bytesFrom(data.revocationRoot)
-  const revocationHandleHash = bytesFrom(data.revocationHandleHash)
-  const blobLength = circuitId.byteLength + issuerPublicKeyHash.byteLength + revocationRoot.byteLength + revocationHandleHash.byteLength
-  const bytes = new Uint8Array(ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_POD_SIZE + 4 + blobLength)
-  const view = new DataView(bytes.buffer)
-
-  view.setBigInt64(0, BigInt(data.credentialEpoch ?? 0), true)
-  view.setUint32(8, data.circuitNumericId ?? 0, true)
-  view.setUint16(12, data.publicInputLayoutVersion ?? 0, true)
-  view.setUint16(14, 0, true)
-
-  let offset = 0
-  offset = writeBlobPart(bytes, view, 16, ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_BLOB_START, offset, circuitId)
-  offset = writeBlobPart(bytes, view, 24, ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_BLOB_START, offset, issuerPublicKeyHash)
-  offset = writeBlobPart(bytes, view, 32, ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_BLOB_START, offset, revocationRoot)
-  writeBlobPart(bytes, view, 40, ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_BLOB_START, offset, revocationHandleHash)
-  view.setInt32(ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_POD_SIZE, blobLength, true)
-  return bytes
-}
-
 export function encodeAnonymousCommentTicketRequest(data: AnonymousCommentTicketRequestDto): Uint8Array {
   const actionContext = encodeText(data.actionContext ?? 'comment.create')
   const anonymousScope = encodeText(data.anonymousScope ?? '')
@@ -799,8 +769,6 @@ const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 48
 const ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_BLOB_START = ANONYMOUS_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
 const BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE = 56
 const BLIND_CREDENTIAL_ISSUE_REQUEST_BLOB_START = BLIND_CREDENTIAL_ISSUE_REQUEST_POD_SIZE + 4
-const ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_POD_SIZE = 48
-const ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_BLOB_START = ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_REQUEST_POD_SIZE + 4
 const ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE = 136
 const ANONYMOUS_COMMENT_TICKET_REQUEST_BLOB_START = ANONYMOUS_COMMENT_TICKET_REQUEST_POD_SIZE + 4
 const ANONYMOUS_COMMENT_CREATE_REQUEST_POD_SIZE = 72

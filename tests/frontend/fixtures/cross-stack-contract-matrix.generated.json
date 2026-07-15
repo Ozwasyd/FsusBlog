@@ -586,9 +586,27 @@
           "auth": "anonymous",
           "cache": "no-store",
           "rateLimit": "public_read",
-          "requestFrame": "AnonymousCredentialRevocationWitnessRequest",
-          "responseFrame": "AnonymousCredentialRevocationWitnessResponse",
-          "surface": "anonymous-credential-revocation-witness"
+          "responseFrame": "ApiError",
+          "successStatus": 410,
+          "surface": "anonymous-credential-revocation-retired"
+        },
+        {
+          "method": "GET",
+          "path": "/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/full.aeds",
+          "auth": "anonymous",
+          "cache": "public-read",
+          "rateLimit": "public_read",
+          "responseFrame": "AnonymousCredentialRevocationSnapshot",
+          "surface": "anonymous-credential-public-revocation"
+        },
+        {
+          "method": "GET",
+          "path": "/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/delta/{baseVersion:long}.aeds",
+          "auth": "anonymous",
+          "cache": "public-read",
+          "rateLimit": "public_read",
+          "responseFrame": "AnonymousCredentialRevocationDelta",
+          "surface": "anonymous-credential-public-revocation"
         },
         {
           "method": "POST",
@@ -2186,5 +2204,5 @@
     "openapi": "src/shared/Contracts/Validation/fsusblog.openapi.json",
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json"
   },
-  "openapiOperationCount": 211
+  "openapiOperationCount": 213
 }

@@ -187,6 +187,19 @@
     "complete_wire_transcript_checked": true,
     "credential_specific_stable_fields_allowed": []
   },
+  "revocation_distribution": {
+    "protocol": "public-snapshot-delta.v1",
+    "frames": { "snapshot": 196, "delta": 197, "retired": [186, 187] },
+    "content_addressed": true,
+    "immutable_cache": true,
+    "local_witness_boundary": "privacy-worker",
+    "credential_specific_network_fields": [],
+    "entry_bytes": 32,
+    "path_depth": 128,
+    "download_budget_bytes": { "low_memory": 1048576, "medium": 2097152, "maximum": 4194304 },
+    "cpu_budget_ms": { "normal": 2000, "low_resource": 4000 },
+    "fail_closed": ["epoch", "version", "baseVersion", "root", "contentHash", "hashBinding", "expiry", "rollback", "budget"]
+  },
   "forbidden_identity_fields": [
     "userId",
     "user_id",

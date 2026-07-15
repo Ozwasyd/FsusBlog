@@ -171,6 +171,26 @@ scenarios:
     evidence:
       - .tmp/security/privacy-zk-comment-matrix.json
 
+  - id: PRIVACY-ZK-PUBLIC-REVOCATION-DISTRIBUTION
+    scenario: all credentials fetch the same public immutable revocation snapshot or delta and construct non-membership witnesses locally
+    owner: InteropGlueAgent
+    status: automated
+    requiredCases: [same-url-size-response-shape-two-credentials, no-commitment-handle-leaf-stable-id, retired-endpoint-410-no-body-parse, full-snapshot-local-witness, exact-base-delta-update, tamper-content-hash-reject, tamper-binding-reject, root-mismatch-reject, epoch-version-rollback-reject, stale-reject, low-memory-download-budget, worker-cpu-budget, no-handle-log-telemetry]
+    localCommands: [check:public-revocation-distribution, check:privacy-zk-frontend, check:privacy-zk-backend]
+    code:
+      - src/backend/Services/Security/AnonymousCredentialRevocationArtifactService.cs
+      - src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs
+      - src/frontend/src/privacy/commentPrivacyRevocationLocal.ts
+      - src/frontend/src/workers/privacy/commentPrivacy.worker.ts
+      - src/frontend/src/api/comment.ts
+    tests:
+      - tests/backend/Unit/AnonymousCredentialRevocationArtifactServiceTests.cs
+      - tests/backend/Unit/AnonymousCredentialRootEndpointTests.cs
+      - tests/frontend/unit/api/comment.test.ts
+      - tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts
+    evidence:
+      - release-evidence/public-revocation-distribution.json
+
   - id: PRIVACY-ZK-PROD-SMOKE
     scenario: production ZK smoke validates native verifier, browser prover evidence, ticket issue, anonymous submit and pending DB state without identity headers or sensitive payload logs
     owner: ServerContractAgent

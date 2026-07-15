@@ -691,8 +691,10 @@ public class PodBinaryCodecTests
         Assert.Equal((ushort)181, (ushort)AedsFrameType.AnonymousCommentTicketResponse);
         Assert.Equal((ushort)182, (ushort)AedsFrameType.AnonymousCommentCreateRequest);
         Assert.Equal((ushort)183, (ushort)AedsFrameType.AnonymousPrivacyStateSnapshot);
-        Assert.Equal((ushort)186, (ushort)AedsFrameType.AnonymousCredentialRevocationWitnessRequest);
-        Assert.Equal((ushort)187, (ushort)AedsFrameType.AnonymousCredentialRevocationWitnessResponse);
+        Assert.Equal((ushort)186, (ushort)AedsFrameType.RetiredCredentialSpecificRevocationRequest);
+        Assert.Equal((ushort)187, (ushort)AedsFrameType.RetiredCredentialSpecificRevocationResponse);
+        Assert.Equal((ushort)196, (ushort)AedsFrameType.AnonymousCredentialRevocationSnapshot);
+        Assert.Equal((ushort)197, (ushort)AedsFrameType.AnonymousCredentialRevocationDelta);
     }
 
     [Fact]
@@ -808,45 +810,24 @@ public class PodBinaryCodecTests
         Assert.Equal(groth16Proof, ticketDecoded.Groth16Proof);
         Assert.Equal(publicInputs, ticketDecoded.PublicInputs);
 
-        byte[] witnessSiblings = Enumerable.Range(0, 128 * 32)
-            .Select(static value => (byte)((value + 19) % 251))
-            .ToArray();
-        var witnessRequest = new AnonymousCredentialRevocationWitnessRequestCoreModel(
+        var revocationArtifact = new AnonymousCredentialRevocationArtifactCoreModel(
             CredentialEpoch: 20260618,
-            CircuitNumericId: 7,
-            PublicInputLayoutVersion: AnonymousPrivacyContract.PublicInputLayoutVersion,
-            CircuitId: AnonymousPrivacyContract.CircuitId,
-            IssuerPublicKeyHash: new string('b', 64),
-            RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
-            RevocationHandleHash: Enumerable.Repeat((byte)0x44, 32).ToArray());
-        byte[] witnessRequestEncoded = PodBinaryCodec.EncodeAnonymousCredentialRevocationWitnessRequest(witnessRequest);
-        Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialRevocationWitnessRequest(
-            witnessRequestEncoded,
-            out AnonymousCredentialRevocationWitnessRequestCoreModel witnessRequestDecoded));
-        Assert.Equal(20260618, witnessRequestDecoded.CredentialEpoch);
-        Assert.Equal(AnonymousPrivacyContract.CircuitId, witnessRequestDecoded.CircuitId);
-        Assert.Equal(new string('b', 64), witnessRequestDecoded.IssuerPublicKeyHash);
-        Assert.Equal(Enumerable.Repeat((byte)0x22, 32), witnessRequestDecoded.RevocationRoot);
-        Assert.Equal(Enumerable.Repeat((byte)0x44, 32), witnessRequestDecoded.RevocationHandleHash);
-
-        var witnessResponse = new AnonymousCredentialRevocationWitnessResponseCoreModel(
-            CredentialEpoch: 20260618,
-            AlgorithmId: "circuit-friendly-non-membership.v1",
+            Version: 2,
+            BaseVersion: 0,
+            ExpiresAtUnixMs: 1780003600000,
+            Kind: AnonymousCredentialRevocationArtifactKinds.Full,
             PathDepth: 128,
+            AlgorithmId: "circuit-friendly-non-membership.v1",
+            IssuerPublicKeyHash: new('b', 64),
             RevocationRoot: Enumerable.Repeat((byte)0x22, 32).ToArray(),
-            IssuerPublicKeyHash: new string('b', 64),
-            RevocationHandleHash: Enumerable.Repeat((byte)0x44, 32).ToArray(),
-            LeafKey: Enumerable.Repeat((byte)0x55, 32).ToArray(),
-            WitnessHash: Enumerable.Repeat((byte)0x66, 32).ToArray(),
-            SiblingHashes: witnessSiblings);
-        byte[] witnessResponseEncoded = PodBinaryCodec.EncodeAnonymousCredentialRevocationWitnessResponse(witnessResponse);
-        Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialRevocationWitnessResponse(
-            witnessResponseEncoded,
-            out AnonymousCredentialRevocationWitnessResponseCoreModel witnessResponseDecoded));
-        Assert.Equal("circuit-friendly-non-membership.v1", witnessResponseDecoded.AlgorithmId);
-        Assert.Equal(128, witnessResponseDecoded.PathDepth);
-        Assert.Equal(128 * 32, witnessResponseDecoded.SiblingHashes.Length);
-        Assert.Equal(witnessSiblings, witnessResponseDecoded.SiblingHashes);
+            ContentHash: Enumerable.Repeat((byte)0x33, 32).ToArray(),
+            Signature: Enumerable.Repeat((byte)0x44, 32).ToArray(),
+            EntryHashes: Enumerable.Range(0, 64).Select(static value => (byte)value).ToArray());
+        byte[] artifactEncoded = PodBinaryCodec.EncodeAnonymousCredentialRevocationArtifact(revocationArtifact);
+        Assert.True(PodBinaryCodec.TryDecodeAnonymousCredentialRevocationArtifact(artifactEncoded, out var artifactDecoded));
+        Assert.Equal(2, artifactDecoded.Version);
+        Assert.Equal(128, artifactDecoded.PathDepth);
+        Assert.Equal(revocationArtifact.EntryHashes, artifactDecoded.EntryHashes);
 
         var ticketResponse = new AnonymousCommentTicketResponseCoreModel(
             CredentialEpoch: 20260618,

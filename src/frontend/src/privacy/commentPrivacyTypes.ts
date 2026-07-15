@@ -114,8 +114,27 @@ export interface CommentPrivacyProofBundle {
   nullifierHash: Uint8Array
 }
 
+export interface CommentPrivacyRevocationWorkerRequest {
+  artifact: import('@/api/comment').AnonymousCredentialRevocationArtifact
+  baseEntryHashes?: Uint8Array
+  revocationHandleHash: Uint8Array
+  expectedEpoch: number
+  expectedVersion: number
+  expectedIssuerPublicKeyHash: string
+  expectedRevocationRoot: Uint8Array
+  nowUnixMs: number
+  maxCpuMs: number
+  signal?: AbortSignal
+}
+
+export interface CommentPrivacyRevocationWorkerResult {
+  witness: Uint8Array
+  entryHashes: Uint8Array
+}
+
 export interface CommentPrivacyWorkerClient {
   prewarm(signal?: AbortSignal): Promise<void>
+  buildRevocationWitness(request: CommentPrivacyRevocationWorkerRequest): Promise<CommentPrivacyRevocationWorkerResult>
   prepareProof(request: CommentPrivacyProofRequest): Promise<CommentPrivacyProofBundle>
   dispose(): void
 }

@@ -1,4 +1,4 @@
-import type { CommentPrivacyProofBundle, CommentPrivacyProofRequest, CommentPrivacyWorkerClient } from './commentPrivacyTypes'
+import type { CommentPrivacyProofBundle, CommentPrivacyProofRequest, CommentPrivacyRevocationWorkerRequest, CommentPrivacyRevocationWorkerResult, CommentPrivacyWorkerClient } from './commentPrivacyTypes'
 import { registerCommentPrivacyCredentialPurgeHandler } from './commentPrivacyCredentialLifecycle'
 
 type CommentPrivacyWorkerRequest =
@@ -6,6 +6,25 @@ type CommentPrivacyWorkerRequest =
       v: 1
       type: 'prewarm'
       requestId: number
+    }
+  | {
+      v: 1
+      type: 'buildRevocationWitness'
+      requestId: number
+      artifact: Omit<CommentPrivacyRevocationWorkerRequest['artifact'], 'revocationRoot' | 'contentHash' | 'signature' | 'entryHashes'> & {
+        revocationRoot: ArrayBuffer
+        contentHash: ArrayBuffer
+        signature: ArrayBuffer
+        entryHashes: ArrayBuffer
+      }
+      baseEntryHashes?: ArrayBuffer
+      revocationHandleHash: ArrayBuffer
+      expectedEpoch: number
+      expectedVersion: number
+      expectedIssuerPublicKeyHash: string
+      expectedRevocationRoot: ArrayBuffer
+      nowUnixMs: number
+      maxCpuMs: number
     }
   | {
       v: 1
@@ -38,6 +57,14 @@ type CommentPrivacyWorkerResponse =
       type: 'prewarmed'
       requestId: number
       ok: true
+    }
+  | {
+      v: 1
+      type: 'revocationWitness'
+      requestId: number
+      ok: true
+      witness: Uint8Array
+      entryHashes: Uint8Array
     }
   | {
       v: 1
@@ -89,6 +116,7 @@ type CommentPrivacyWorkerPostPayload =
       issuerSignature?: ArrayBuffer
       revocationWitness?: ArrayBuffer
     }
+  | Omit<Extract<CommentPrivacyWorkerRequest, { type: 'buildRevocationWitness' }>, 'v' | 'requestId'>
 
 export interface CommentPrivacyWorkerClientOptions {
   timeoutMs?: number
@@ -157,6 +185,8 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
             publicInputs: response.publicInputs,
             nullifierHash: response.nullifierHash
           }
+        : response.type === 'revocationWitness'
+        ? { witness: response.witness, entryHashes: response.entryHashes }
         : undefined)
     }
     worker.onerror = (event) => {
@@ -223,6 +253,27 @@ export function createCommentPrivacyWorkerClient(options: CommentPrivacyWorkerCl
         return Promise.resolve()
       }
       return post<void>({ type: 'prewarm' }, [], signal)
+    },
+    buildRevocationWitness(request: CommentPrivacyRevocationWorkerRequest) {
+      const transfers: Transferable[] = []
+      return post<CommentPrivacyRevocationWorkerResult>({
+        type: 'buildRevocationWitness',
+        artifact: {
+          ...request.artifact,
+          revocationRoot: copyToTransferableBuffer(request.artifact.revocationRoot, transfers),
+          contentHash: copyToTransferableBuffer(request.artifact.contentHash, transfers),
+          signature: copyToTransferableBuffer(request.artifact.signature, transfers),
+          entryHashes: copyToTransferableBuffer(request.artifact.entryHashes, transfers)
+        },
+        baseEntryHashes: copyOptionalToTransferableBuffer(request.baseEntryHashes, transfers),
+        revocationHandleHash: copyToTransferableBuffer(request.revocationHandleHash, transfers),
+        expectedEpoch: request.expectedEpoch,
+        expectedVersion: request.expectedVersion,
+        expectedIssuerPublicKeyHash: request.expectedIssuerPublicKeyHash,
+        expectedRevocationRoot: copyToTransferableBuffer(request.expectedRevocationRoot, transfers),
+        nowUnixMs: request.nowUnixMs,
+        maxCpuMs: request.maxCpuMs
+      }, transfers, request.signal)
     },
     prepareProof(request: CommentPrivacyProofRequest) {
       if (request.signal?.aborted) {

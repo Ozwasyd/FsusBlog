@@ -41,16 +41,62 @@ public static partial class BinaryEndpoints
         .AllowAnonymous()
         .RequireRateLimiting("public_read");
 
-        group.MapPost("/anonymous-credential/revocation-witness", static async Task<BinaryFrameResult> (
-            HttpContext httpContext,
-            IAedsEncoder aeds,
-            IAnonymousCredentialRevocationWitnessService witnessService,
-            CancellationToken cancellationToken) =>
-            await HandleAnonymousCredentialRevocationWitnessAsync(httpContext, aeds, witnessService, cancellationToken))
+        group.MapPost("/anonymous-credential/revocation-witness", static (IAedsEncoder aeds) =>
+            BinaryResults.FromError(
+                ErrorDetail.Create(ErrorCode.Validation, "credential_specific_revocation_witness_retired"),
+                aeds,
+                StatusCodes.Status410Gone))
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .RequireNoStoreResponse()
         .RequireStrongAnonymousRequest();
+
+        group.MapGet(
+            "/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/full.aeds",
+            static async Task<BinaryFrameResult> (
+                long epoch,
+                long version,
+                string revocationRoot,
+                HttpContext httpContext,
+                IAedsEncoder aeds,
+                IAnonymousCredentialRevocationArtifactService artifacts,
+                CancellationToken cancellationToken) =>
+                await HandleAnonymousCredentialRevocationArtifactAsync(
+                    epoch,
+                    version,
+                    revocationRoot,
+                    AnonymousCredentialRevocationArtifactKinds.Full,
+                    baseVersion: 0,
+                    httpContext,
+                    aeds,
+                    artifacts,
+                    cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read");
+
+        group.MapGet(
+            "/anonymous-credential/revocation/{epoch:long}/{version:long}/{revocationRoot}/delta/{baseVersion:long}.aeds",
+            static async Task<BinaryFrameResult> (
+                long epoch,
+                long version,
+                string revocationRoot,
+                long baseVersion,
+                HttpContext httpContext,
+                IAedsEncoder aeds,
+                IAnonymousCredentialRevocationArtifactService artifacts,
+                CancellationToken cancellationToken) =>
+                await HandleAnonymousCredentialRevocationArtifactAsync(
+                    epoch,
+                    version,
+                    revocationRoot,
+                    AnonymousCredentialRevocationArtifactKinds.Delta,
+                    baseVersion,
+                    httpContext,
+                    aeds,
+                    artifacts,
+                    cancellationToken))
+        .AllowAnonymous()
+        .RequireRateLimiting("public_read");
 
         group.MapPost("/anonymous-credential/issue", static async Task<BinaryFrameResult> (
             HttpContext httpContext,
@@ -288,10 +334,15 @@ public static partial class BinaryEndpoints
         return Result<int>.Success(accountId);
     }
 
-    internal static async Task<BinaryFrameResult> HandleAnonymousCredentialRevocationWitnessAsync(
+    internal static async Task<BinaryFrameResult> HandleAnonymousCredentialRevocationArtifactAsync(
+        long epoch,
+        long version,
+        string revocationRoot,
+        byte kind,
+        long baseVersion,
         HttpContext httpContext,
         IAedsEncoder aeds,
-        IAnonymousCredentialRevocationWitnessService witnessService,
+        IAnonymousCredentialRevocationArtifactService artifacts,
         CancellationToken cancellationToken)
     {
         if (!AcceptsBinaryResponse(httpContext.Request))
@@ -299,32 +350,35 @@ public static partial class BinaryEndpoints
             return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
         }
 
-        BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
-            httpContext,
-            aeds,
-            AedsFrameType.AnonymousCredentialRevocationWitnessRequest,
-            cancellationToken,
-            AnonymousCredentialRevocationWitnessLimits.MaxRequestFrameBytes);
-        if (!payload.IsSuccess)
+        Result<AnonymousCredentialRevocationArtifactCoreModel> artifact = await artifacts.GetAsync(
+            epoch,
+            version,
+            revocationRoot,
+            kind,
+            baseVersion,
+            cancellationToken);
+        if (!artifact.IsSuccess)
         {
-            return BinaryResults.FromError(payload.Error, aeds);
-        }
-
-        if (!PodBinaryCodec.TryDecodeAnonymousCredentialRevocationWitnessRequest(
-                payload.Payload,
-                out AnonymousCredentialRevocationWitnessRequestCoreModel request))
-        {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "anonymous_credential_revocation_witness_request_invalid"), aeds);
-        }
-
-        Result<AnonymousCredentialRevocationWitnessResponseCoreModel> witness =
-            await witnessService.CreateWitnessAsync(request, cancellationToken);
-        return witness.IsSuccess && witness.Value is { } response
-            ? BinaryResults.Frame(
+            return BinaryResults.FromError(
+                artifact.Error,
                 aeds,
-                AedsFrameType.AnonymousCredentialRevocationWitnessResponse,
-                writer => PodBinaryCodec.WriteAnonymousCredentialRevocationWitnessResponse(response, writer))
-            : BinaryResults.FromError(witness.Error, aeds);
+                artifact.Error.Code == ErrorCode.NotFound
+                    ? StatusCodes.Status404NotFound
+                    : StatusCodes.Status409Conflict);
+        }
+
+        AnonymousCredentialRevocationArtifactCoreModel response = artifact.Value;
+        string digest = Convert.ToHexStringLower(response.ContentHash);
+        httpContext.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        httpContext.Response.Headers.ETag = $"\"{digest}\"";
+        httpContext.Response.Headers.Vary = "Accept-Encoding";
+        AedsFrameType frameType = kind == AnonymousCredentialRevocationArtifactKinds.Full
+            ? AedsFrameType.AnonymousCredentialRevocationSnapshot
+            : AedsFrameType.AnonymousCredentialRevocationDelta;
+        return BinaryResults.Frame(
+            aeds,
+            frameType,
+            writer => PodBinaryCodec.WriteAnonymousCredentialRevocationArtifact(response, writer));
     }
 
     internal static async Task<BinaryFrameResult> HandleAnonymousCredentialIssueAsync(

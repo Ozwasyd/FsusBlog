@@ -281,6 +281,7 @@ function verifyPrivacyZkCommentMatrix(text) {
     'PRIVACY-ZK-MODERATION-LOGGING',
     'PRIVACY-ZK-FRONTEND-RUNTIME',
     'PRIVACY-ZK-CONCURRENCY',
+    'PRIVACY-ZK-PUBLIC-REVOCATION-DISTRIBUTION',
     'PRIVACY-ZK-PROD-SMOKE',
     'PRIVACY-ZK-LOCAL-REVIEW'
   ]
@@ -332,6 +333,19 @@ function verifyPrivacyZkCommentMatrix(text) {
     'cross-scope-nullifier-independence-smoke',
     'real-native-verifier-wasm-prover-evidence',
     'proof-ticket-credential-redacted',
+    'same-url-size-response-shape-two-credentials',
+    'no-commitment-handle-leaf-stable-id',
+    'retired-endpoint-410-no-body-parse',
+    'full-snapshot-local-witness',
+    'exact-base-delta-update',
+    'tamper-content-hash-reject',
+    'tamper-binding-reject',
+    'root-mismatch-reject',
+    'epoch-version-rollback-reject',
+    'stale-reject',
+    'low-memory-download-budget',
+    'worker-cpu-budget',
+    'no-handle-log-telemetry',
     'constraint-completeness',
     'trusted-setup-provenance',
     'public-input-ordering',
@@ -356,7 +370,8 @@ function verifyPrivacyZkCommentMatrix(text) {
     'check:privacy-zk-backend',
     'check:privacy-zk-concurrency',
     'check:privacy-zk-prod-smoke',
-    'check:privacy-zk-local-review'
+    'check:privacy-zk-local-review',
+    'check:public-revocation-distribution'
   ]
 
   for (const id of requiredScenarioIds) {

@@ -248,6 +248,11 @@ public sealed class AnonymousCredentialRootLifecycleService(
         ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            string distributionMetadata = AnonymousCredentialRevocationArtifactService.WithDistributionMetadata(
+                rotation.CircuitMetadata,
+                rotation.Epoch,
+                version: 0,
+                rotation.RevocationRootHash);
             await db.Updateable<AnonymousCredentialRoot>()
                 .SetColumns(static item => item.Status == AnonymousCredentialRootStatuses.Expired)
                 .SetColumns(item => item.UpdatedAtUtc == utcNow)
@@ -284,7 +289,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
                 rotation.CircuitNumericId,
                 rotation.VerifyingKeyHash,
                 rotation.PublicInputLayoutVersion,
-                rotation.CircuitMetadata,
+                distributionMetadata,
                 configuration,
                 attestationKeyId);
 
@@ -298,7 +303,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
                 VerifyingKeyHash = rotation.VerifyingKeyHash,
                 IssuerPublicKeyHash = rotation.IssuerPublicKeyHash,
                 PublicInputLayoutVersion = rotation.PublicInputLayoutVersion,
-                CircuitMetadata = rotation.CircuitMetadata,
+                CircuitMetadata = distributionMetadata,
                 RootAttestation = rootAttestation,
                 RootAttestationKeyId = attestationKeyId,
                 CreatedAtUtc = utcNow,
@@ -377,6 +382,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
             .Select(static item => item.RevocationHandleHash)
             .ToListAsync(cancellationToken);
         revokedHandles.Add(revocation.RevocationHandleHash);
+        long distributionVersion = revokedHandles.Count;
         AnonymousCredentialRevocationAccumulatorProfile revocationAccumulatorProfile =
             AnonymousCredentialRevocationAccumulator.ResolveProfileFromCircuitMetadata(root.CircuitMetadata);
         Result<string> expectedRevocationRoot = AnonymousCredentialRevocationAccumulator.TryComputeRoot(
@@ -396,6 +402,11 @@ public sealed class AnonymousCredentialRootLifecycleService(
 
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            string distributionMetadata = AnonymousCredentialRevocationArtifactService.WithDistributionMetadata(
+                root.CircuitMetadata,
+                root.Epoch,
+                distributionVersion,
+                revocation.RevocationRootHash);
             string attestationKeyId = AnonymousCredentialRootAttestation.ResolveKeyId(configuration);
             string rootAttestation = AnonymousCredentialRootAttestation.Create(
                 root.Epoch,
@@ -406,7 +417,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
                 root.CircuitNumericId <= 0 ? 0U : (uint)root.CircuitNumericId,
                 root.VerifyingKeyHash,
                 root.PublicInputLayoutVersion <= 0 ? (ushort)0 : (ushort)Math.Min(root.PublicInputLayoutVersion, ushort.MaxValue),
-                root.CircuitMetadata,
+                distributionMetadata,
                 configuration,
                 attestationKeyId);
             var row = new AnonymousCredentialRevocation
@@ -425,6 +436,7 @@ public sealed class AnonymousCredentialRootLifecycleService(
                 .SetColumns(item => item.RevocationRootHash == revocation.RevocationRootHash)
                 .SetColumns(item => item.RootAttestation == rootAttestation)
                 .SetColumns(item => item.RootAttestationKeyId == attestationKeyId)
+                .SetColumns(item => item.CircuitMetadata == distributionMetadata)
                 .SetColumns(item => item.UpdatedAtUtc == utcNow)
                 .Where(item => item.Epoch == root.Epoch)
                 .ExecuteCommandAsync(cancellationToken);

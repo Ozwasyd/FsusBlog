@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   mapAnonymousCommentTicketResponseFromPayload,
   mapAnonymousCredentialIssueResponseFromPayload,
-  mapAnonymousCredentialRevocationWitnessResponseFromPayload,
+  mapAnonymousCredentialRevocationArtifactFromPayload,
   mapAnonymousCredentialRootSnapshotFromPayload,
   mapAnonymousPrivacyStateSnapshotFromPayload,
   mapCommentCursorFromPodPayload,
@@ -13,7 +13,7 @@ import {
 import {
   ANONYMOUS_COMMENT_TICKET_RESPONSE_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ISSUE_RESPONSE_POD_SIZE,
-  ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_RESPONSE_POD_SIZE,
+  ANONYMOUS_CREDENTIAL_REVOCATION_ARTIFACT_POD_SIZE,
   ANONYMOUS_CREDENTIAL_ROOT_SNAPSHOT_POD_SIZE,
   ANONYMOUS_PRIVACY_STATE_SNAPSHOT_POD_SIZE,
   COMMENT_AUTHOR_VIEW_POD_SIZE,
@@ -395,40 +395,39 @@ describe('anonymous privacy binary adapters', () => {
     expect(state.credentialStatus).toBe('active')
   })
 
-  it('decodes circuit-friendly revocation witness responses', () => {
-    const pod = new Uint8Array(ANONYMOUS_CREDENTIAL_REVOCATION_WITNESS_RESPONSE_POD_SIZE)
+  it('decodes common public revocation artifacts', () => {
+    const pod = new Uint8Array(ANONYMOUS_CREDENTIAL_REVOCATION_ARTIFACT_POD_SIZE)
     const algorithm = textBytes('circuit-friendly-non-membership.v1')
-    const revocationRoot = new Uint8Array([1, 2, 3])
+    const revocationRoot = new Uint8Array(32).fill(1)
     const issuerPublicKeyHash = textBytes('issuer-public-key-hash')
-    const handle = new Uint8Array([4, 5, 6])
-    const leafKey = new Uint8Array([7, 8])
-    const witnessHash = new Uint8Array([9, 10, 11])
-    const siblings = new Uint8Array(64).fill(12)
-    const blob = buildPayload(algorithm, revocationRoot, issuerPublicKeyHash, handle, leafKey, witnessHash, siblings)
+    const contentHash = new Uint8Array(32).fill(2)
+    const signature = new Uint8Array(32).fill(3)
+    const entries = new Uint8Array(64).fill(4)
+    const blob = buildPayload(algorithm, issuerPublicKeyHash, revocationRoot, contentHash, signature, entries)
 
     writeInt64(pod, 0, 20260618n)
-    writeUint16(pod, 8, 2)
-    writeUint16(pod, 10, 0)
-    writeInt32(pod, 12, 2)
-    writeSliceRef(pod, 16, 0, algorithm.length)
-    writeSliceRef(pod, 24, algorithm.length, revocationRoot.length)
-    writeSliceRef(pod, 32, algorithm.length + revocationRoot.length, issuerPublicKeyHash.length)
-    writeSliceRef(pod, 40, algorithm.length + revocationRoot.length + issuerPublicKeyHash.length, handle.length)
-    writeSliceRef(pod, 48, algorithm.length + revocationRoot.length + issuerPublicKeyHash.length + handle.length, leafKey.length)
-    writeSliceRef(pod, 56, algorithm.length + revocationRoot.length + issuerPublicKeyHash.length + handle.length + leafKey.length, witnessHash.length)
-    writeSliceRef(pod, 64, algorithm.length + revocationRoot.length + issuerPublicKeyHash.length + handle.length + leafKey.length + witnessHash.length, siblings.length)
+    writeInt64(pod, 8, 2n)
+    writeInt64(pod, 16, 0n)
+    writeInt64(pod, 24, 1780000000000n)
+    writeInt32(pod, 32, 2)
+    writeUint16(pod, 36, 128)
+    pod[38] = 1
+    let offset = 0
+    for (const [at, bytes] of [[40, algorithm], [48, issuerPublicKeyHash], [56, revocationRoot], [64, contentHash], [72, signature], [80, entries]] as const) {
+      writeSliceRef(pod, at, offset, bytes.length)
+      offset += bytes.length
+    }
 
-    const response = mapAnonymousCredentialRevocationWitnessResponseFromPayload(buildPayload(pod, blobParts(blob)))
+    const response = mapAnonymousCredentialRevocationArtifactFromPayload(buildPayload(pod, blobParts(blob)))
 
     expect(response.credentialEpoch).toBe(20260618)
     expect(response.algorithmId).toBe('circuit-friendly-non-membership.v1')
-    expect(response.pathDepth).toBe(2)
+    expect(response.pathDepth).toBe(128)
+    expect(response.version).toBe(2)
+    expect(response.kind).toBe(1)
     expect(response.issuerPublicKeyHash).toBe('issuer-public-key-hash')
-    expect([...response.revocationRoot]).toEqual([1, 2, 3])
-    expect([...response.revocationHandleHash]).toEqual([4, 5, 6])
-    expect([...response.leafKey]).toEqual([7, 8])
-    expect([...response.witnessHash]).toEqual([9, 10, 11])
-    expect(response.siblingHashes).toHaveLength(64)
+    expect(response.revocationRoot).toHaveLength(32)
+    expect(response.entryHashes).toHaveLength(64)
   })
 
   it('rejects malformed, trailing, and oversized anonymous privacy payloads', () => {

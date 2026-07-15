@@ -2,20 +2,19 @@ import { encodeAedsFrame } from '@/api/binaryFrame'
 import {
   encodeBlindCredentialIssueRequest,
   getBlindCredentialIssuerMetadata,
-  getAnonymousCredentialRevocationWitness,
+  getAnonymousCredentialRevocationArtifact,
   getAnonymousCredentialCircuitSnapshot,
   getAnonymousCredentialRootSnapshot,
   type BlindCredentialIssueRequestDto,
   type BlindCredentialIssueResponse,
-  type AnonymousCredentialRevocationWitnessRequestDto,
-  type AnonymousCredentialRevocationWitnessResponse,
+  type AnonymousCredentialRevocationArtifact,
   type AnonymousCredentialRootSnapshot
 } from '@/api/comment'
 import { requestBinaryOnly } from '@/services/binaryTransport'
 import { FrameType } from '@wasm/protocol/frame'
 import type { CommentPrivacyCredentialMaterial } from './commentPrivacyTypes'
 import { createBlindRsaCredentialSuite } from './commentPrivacyBlindRsaSuite'
-import { encodeCommentPrivacyRevocationWitnessMaterial } from './commentPrivacyRevocationWitness'
+import { getCommentPrivacyWorkerClient } from './commentPrivacyWorkerClient'
 import {
   createCommentPrivacyCredentialVault,
   currentCommentPrivacyVaultPartition,
@@ -35,6 +34,13 @@ const DEFAULT_CLIENT_NONCE_BYTES = 32
 const DEFAULT_FAILURE_CACHE_TTL_MS = 30_000
 const DEFAULT_CREDENTIAL_LEVEL = 'strong_anonymous'
 const DEFAULT_REPUTATION_BUCKET = 'unrated'
+const MAX_REVOCATION_ARTIFACT_BYTES = 4 * 1024 * 1024
+
+const revocationArtifactCache = new Map<number, {
+  version: number
+  revocationRoot: string
+  entryHashes: Uint8Array
+}>()
 
 export interface CommentPrivacyCredentialProvider {
   prepareCredential(request: { signal: AbortSignal }): Promise<CommentPrivacyCredentialMaterial | null>
@@ -55,6 +61,18 @@ export interface CommentPrivacyCredentialIssuerMetadata {
   subjectPublicKeyInfo: Uint8Array
   credentialRoot: Uint8Array
   revocationRoot: Uint8Array
+  revocationDistribution: CommentPrivacyRevocationDistribution
+}
+
+export interface CommentPrivacyRevocationDistribution {
+  protocol: 'public-snapshot-delta.v1'
+  epoch: number
+  version: number
+  contentAddress: string
+  snapshotPath: string
+  deltaPath: string | null
+  entryBytes: 32
+  maxArtifactBytes: number
 }
 
 export type CommentPrivacyCredentialMetadataLoader = (
@@ -66,10 +84,11 @@ export type CommentPrivacyCredentialIssuer = (
   config: { signal: AbortSignal }
 ) => Promise<BlindCredentialIssueResponse>
 
-export type CommentPrivacyRevocationWitnessLoader = (
-  request: AnonymousCredentialRevocationWitnessRequestDto,
+export type CommentPrivacyRevocationArtifactLoader = (
+  path: string,
+  kind: 1 | 2,
   config: { signal: AbortSignal }
-) => Promise<Uint8Array | null>
+) => Promise<AnonymousCredentialRevocationArtifact>
 
 export interface CommentPrivacyCredentialIssuePayload {
   credentialRequest: Uint8Array
@@ -99,7 +118,7 @@ export interface CommentPrivacyCredentialProviderOptions {
   vault?: CommentPrivacyCredentialVault | null
   loadMetadata?: CommentPrivacyCredentialMetadataLoader
   issueCredential?: CommentPrivacyCredentialIssuer
-  loadRevocationWitness?: CommentPrivacyRevocationWitnessLoader
+  loadRevocationArtifact?: CommentPrivacyRevocationArtifactLoader
   credentialSuite?: CommentPrivacyCredentialSuite | null
   crypto?: Pick<Crypto, 'getRandomValues' | 'subtle'> | null
   now?: () => number
@@ -119,7 +138,7 @@ export function createCommentPrivacyCredentialProvider(
     : options.crypto
   const loadMetadata = options.loadMetadata ?? loadDefaultCredentialMetadata
   const issueCredential = options.issueCredential ?? issueAnonymousCredential
-  const loadRevocationWitness = options.loadRevocationWitness ?? loadAnonymousCredentialRevocationWitness
+  const loadRevocationArtifact = options.loadRevocationArtifact ?? loadAnonymousCredentialRevocationArtifact
   const credentialSuite = options.credentialSuite === undefined && cryptoSource
     ? createBlindRsaCredentialSuite({ crypto: cryptoSource })
     : options.credentialSuite ?? null
@@ -250,22 +269,55 @@ export function createCommentPrivacyCredentialProvider(
           return failClosed(signal)
         }
 
-        const revocationWitness = await loadRevocationWitness({
-          credentialEpoch: metadata.credentialEpoch,
-          circuitNumericId: metadata.circuitNumericId,
-          publicInputLayoutVersion: metadata.publicInputLayoutVersion,
-          circuitId: metadata.circuitId,
-          issuerPublicKeyHash: metadata.issuerPublicKeyHash,
-          revocationRoot: track(cloneBytes(metadata.revocationRoot)),
-          revocationHandleHash: track(cloneBytes(material.revocationHandleHash))
-        }, { signal })
+        const cachedArtifact = revocationArtifactCache.get(metadata.credentialEpoch)
+        if (cachedArtifact && (cachedArtifact.version > metadata.revocationDistribution.version ||
+          (cachedArtifact.version === metadata.revocationDistribution.version &&
+            cachedArtifact.revocationRoot !== bytesToHex(metadata.revocationRoot)))) {
+          return failClosed(signal)
+        }
+        const canApplyDelta = Boolean(cachedArtifact &&
+          cachedArtifact.version === metadata.revocationDistribution.version - 1 &&
+          metadata.revocationDistribution.deltaPath)
+        const artifactKind: 1 | 2 = canApplyDelta ? 2 : 1
+        const artifactPath = canApplyDelta
+          ? metadata.revocationDistribution.deltaPath!
+          : metadata.revocationDistribution.snapshotPath
+        const artifact = await loadRevocationArtifact(artifactPath, artifactKind, { signal })
         if (signal.aborted) {
           return null
         }
-        if (!(revocationWitness instanceof Uint8Array) || revocationWitness.byteLength === 0) {
+        const artifactBytes = artifact.entryHashes.byteLength + 88
+        if (artifactBytes > resolveRevocationDownloadBudget(metadata.revocationDistribution.maxArtifactBytes)) {
           return failClosed(signal)
         }
+        track(artifact.revocationRoot)
+        track(artifact.contentHash)
+        track(artifact.signature)
+        track(artifact.entryHashes)
+        const workerResult = await getCommentPrivacyWorkerClient().buildRevocationWitness({
+          artifact,
+          baseEntryHashes: canApplyDelta ? cachedArtifact?.entryHashes : undefined,
+          revocationHandleHash: track(cloneBytes(material.revocationHandleHash)),
+          expectedEpoch: metadata.credentialEpoch,
+          expectedVersion: metadata.revocationDistribution.version,
+          expectedIssuerPublicKeyHash: metadata.issuerPublicKeyHash,
+          expectedRevocationRoot: track(cloneBytes(metadata.revocationRoot)),
+          nowUnixMs: now(),
+          maxCpuMs: resolveRevocationCpuBudget(),
+          signal
+        })
+        const revocationWitness = workerResult.witness
+        if (signal.aborted || revocationWitness.byteLength === 0 ||
+          workerResult.entryHashes.byteLength !== metadata.revocationDistribution.version * 32) {
+          return null
+        }
         track(revocationWitness)
+        track(workerResult.entryHashes)
+        revocationArtifactCache.set(metadata.credentialEpoch, {
+          version: metadata.revocationDistribution.version,
+          revocationRoot: bytesToHex(metadata.revocationRoot),
+          entryHashes: cloneBytes(workerResult.entryHashes)
+        })
 
         const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.rootExpiresAtUnixMs)
         if (expiresAtUnixMs <= now()) {
@@ -317,16 +369,12 @@ export async function issueAnonymousCredential(
   })
 }
 
-export async function loadAnonymousCredentialRevocationWitness(
-  request: AnonymousCredentialRevocationWitnessRequestDto,
+export async function loadAnonymousCredentialRevocationArtifact(
+  path: string,
+  kind: 1 | 2,
   config: { signal: AbortSignal }
-): Promise<Uint8Array | null> {
-  const response = await getAnonymousCredentialRevocationWitness(request, { signal: config.signal })
-  if (!matchesRevocationWitness(response, request)) {
-    return null
-  }
-
-  return encodeRevocationWitnessMaterial(response)
+): Promise<AnonymousCredentialRevocationArtifact> {
+  return getAnonymousCredentialRevocationArtifact(path, kind, { signal: config.signal })
 }
 
 async function loadDefaultCredentialMetadata(
@@ -339,6 +387,7 @@ async function loadDefaultCredentialMetadata(
   ])
   const issuerPublicKeyHash = readIssuerPublicKeyHash(root)
   const circuitId = root.circuitId || circuit.circuitId
+  const revocationDistribution = readRevocationDistribution(root)
   if (!root.zkAnonymousEnabled ||
     !root.verifierConfigured ||
     !issuerPublicKeyHash ||
@@ -346,7 +395,8 @@ async function loadDefaultCredentialMetadata(
     blindIssuer.issuerPublicKeyHash.trim().toLowerCase() !== issuerPublicKeyHash.trim().toLowerCase() ||
     blindIssuer.credentialEpoch !== root.credentialEpoch ||
     blindIssuer.circuitId !== circuitId ||
-    blindIssuer.publicInputLayoutVersion !== root.publicInputLayoutVersion) {
+    blindIssuer.publicInputLayoutVersion !== root.publicInputLayoutVersion ||
+    !revocationDistribution) {
     return null
   }
 
@@ -364,7 +414,8 @@ async function loadDefaultCredentialMetadata(
     modulusBytes: blindIssuer.modulusBytes,
     subjectPublicKeyInfo: cloneBytes(blindIssuer.subjectPublicKeyInfo),
     credentialRoot: cloneBytes(root.credentialRoot),
-    revocationRoot: cloneBytes(root.revocationRoot)
+    revocationRoot: cloneBytes(root.revocationRoot),
+    revocationDistribution
   }
 }
 
@@ -375,6 +426,69 @@ function readIssuerPublicKeyHash(root: AnonymousCredentialRootSnapshot): string 
   return typeof issuerPublicKeyHash === 'string' && issuerPublicKeyHash.trim()
     ? issuerPublicKeyHash.trim()
     : ''
+}
+
+function readRevocationDistribution(root: AnonymousCredentialRootSnapshot): CommentPrivacyRevocationDistribution | null {
+  try {
+    const metadata = JSON.parse(new TextDecoder().decode(root.circuitMetadata)) as {
+      revocationDistribution?: Record<string, unknown>
+    }
+    const value = metadata.revocationDistribution
+    if (!value) return null
+    const rootHex = bytesToHex(root.revocationRoot)
+    const epoch = Number(value.epoch)
+    const version = Number(value.version)
+    const expectedPrefix = `/api/binary/anonymous-credential/revocation/${epoch}/${version}/${rootHex}`
+    const distribution: CommentPrivacyRevocationDistribution = {
+      protocol: value.protocol as CommentPrivacyRevocationDistribution['protocol'],
+      epoch,
+      version,
+      contentAddress: String(value.contentAddress ?? '').toLowerCase(),
+      snapshotPath: String(value.snapshotPath ?? ''),
+      deltaPath: typeof value.deltaPath === 'string' ? value.deltaPath : null,
+      entryBytes: Number(value.entryBytes) as 32,
+      maxArtifactBytes: Number(value.maxArtifactBytes)
+    }
+    if (distribution.protocol !== 'public-snapshot-delta.v1' ||
+      distribution.epoch !== root.credentialEpoch ||
+      !Number.isSafeInteger(distribution.version) || distribution.version < 0 ||
+      distribution.contentAddress !== rootHex ||
+      distribution.snapshotPath !== `${expectedPrefix}/full.aeds` ||
+      distribution.deltaPath !== (version > 0 ? `${expectedPrefix}/delta/${version - 1}.aeds` : null) ||
+      distribution.entryBytes !== 32 ||
+      !Number.isSafeInteger(distribution.maxArtifactBytes) ||
+      distribution.maxArtifactBytes <= 0 || distribution.maxArtifactBytes > MAX_REVOCATION_ARTIFACT_BYTES) {
+      return null
+    }
+    return distribution
+  } catch {
+    return null
+  }
+}
+
+function isUsableRevocationDistribution(
+  distribution: CommentPrivacyRevocationDistribution,
+  metadata: CommentPrivacyCredentialIssuerMetadata
+): boolean {
+  return distribution.protocol === 'public-snapshot-delta.v1' &&
+    distribution.epoch === metadata.credentialEpoch &&
+    Number.isSafeInteger(distribution.version) && distribution.version >= 0 &&
+    distribution.contentAddress === bytesToHex(metadata.revocationRoot) &&
+    distribution.entryBytes === 32 &&
+    distribution.maxArtifactBytes > 0 &&
+    distribution.maxArtifactBytes <= MAX_REVOCATION_ARTIFACT_BYTES
+}
+
+function resolveRevocationDownloadBudget(serverMaximum: number): number {
+  const deviceMemory = Number((globalThis.navigator as Navigator & { deviceMemory?: number } | undefined)?.deviceMemory ?? 4)
+  const deviceBudget = deviceMemory <= 2 ? 1024 * 1024 : deviceMemory <= 4 ? 2 * 1024 * 1024 : MAX_REVOCATION_ARTIFACT_BYTES
+  return Math.min(serverMaximum, deviceBudget)
+}
+
+function resolveRevocationCpuBudget(): number {
+  const hardwareConcurrency = Number(globalThis.navigator?.hardwareConcurrency ?? 2)
+  const deviceMemory = Number((globalThis.navigator as Navigator & { deviceMemory?: number } | undefined)?.deviceMemory ?? 4)
+  return hardwareConcurrency <= 2 || deviceMemory <= 2 ? 4_000 : 2_000
 }
 
 function isUsableMetadata(
@@ -405,7 +519,8 @@ function isUsableMetadata(
     metadata.credentialRoot instanceof Uint8Array &&
     metadata.credentialRoot.byteLength > 0 &&
     metadata.revocationRoot instanceof Uint8Array &&
-    metadata.revocationRoot.byteLength > 0
+    metadata.revocationRoot.byteLength === 32 &&
+    isUsableRevocationDistribution(metadata.revocationDistribution, metadata)
 }
 
 function metadataPartition(
@@ -428,7 +543,9 @@ function metadataBinding(metadata: CommentPrivacyCredentialIssuerMetadata): stri
     metadata.schemeId,
     metadata.issuerPublicKeyId,
     bytesToHex(metadata.credentialRoot),
-    bytesToHex(metadata.revocationRoot)
+    bytesToHex(metadata.revocationRoot),
+    metadata.revocationDistribution.version,
+    metadata.revocationDistribution.contentAddress
   ].join(':')
 }
 
@@ -450,7 +567,8 @@ function cloneMetadata(metadata: CommentPrivacyCredentialIssuerMetadata): Commen
     ...metadata,
     subjectPublicKeyInfo: cloneBytes(metadata.subjectPublicKeyInfo),
     credentialRoot: cloneBytes(metadata.credentialRoot),
-    revocationRoot: cloneBytes(metadata.revocationRoot)
+    revocationRoot: cloneBytes(metadata.revocationRoot),
+    revocationDistribution: { ...metadata.revocationDistribution }
   }
 }
 
@@ -549,44 +667,6 @@ function cloneBytes(bytes: Uint8Array): Uint8Array {
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
-}
-
-function matchesRevocationWitness(
-  response: AnonymousCredentialRevocationWitnessResponse,
-  request: AnonymousCredentialRevocationWitnessRequestDto
-): boolean {
-  return response.credentialEpoch === request.credentialEpoch &&
-    response.algorithmId === 'circuit-friendly-non-membership.v1' &&
-    response.pathDepth > 0 &&
-    response.siblingHashes instanceof Uint8Array &&
-    response.siblingHashes.byteLength === response.pathDepth * 32 &&
-    response.issuerPublicKeyHash.trim().toLowerCase() === request.issuerPublicKeyHash.trim().toLowerCase() &&
-    bytesEqual(response.revocationRoot, bytesFrom(request.revocationRoot)) &&
-    bytesEqual(response.revocationHandleHash, bytesFrom(request.revocationHandleHash)) &&
-    response.leafKey instanceof Uint8Array &&
-    response.leafKey.byteLength > 0 &&
-    response.witnessHash instanceof Uint8Array &&
-    response.witnessHash.byteLength > 0
-}
-
-function encodeRevocationWitnessMaterial(response: AnonymousCredentialRevocationWitnessResponse): Uint8Array {
-  return encodeCommentPrivacyRevocationWitnessMaterial(response)
-}
-
-function bytesFrom(value: Uint8Array | number[] | null | undefined): Uint8Array {
-  return value instanceof Uint8Array ? value : new Uint8Array(value ?? [])
-}
-
-function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.byteLength !== right.byteLength) {
-    return false
-  }
-
-  let diff = 0
-  for (let index = 0; index < left.byteLength; index += 1) {
-    diff |= left[index] ^ right[index]
-  }
-  return diff === 0
 }
 
 function getGlobalCrypto(): Pick<Crypto, 'getRandomValues' | 'subtle'> | null {

@@ -188,7 +188,17 @@ function issuerMetadata(): CommentPrivacyCredentialIssuerMetadata {
     modulusBytes: MODULUS_BYTES,
     subjectPublicKeyInfo: publicSpki,
     credentialRoot: new Uint8Array(32).fill(1),
-    revocationRoot: new Uint8Array(32).fill(2)
+    revocationRoot: new Uint8Array(32).fill(2),
+    revocationDistribution: {
+      protocol: 'public-snapshot-delta.v1',
+      epoch: 42,
+      version: 0,
+      contentAddress: '02'.repeat(32),
+      snapshotPath: `/api/binary/anonymous-credential/revocation/42/0/${'02'.repeat(32)}/full.aeds`,
+      deltaPath: null,
+      entryBytes: 32,
+      maxArtifactBytes: 4 * 1024 * 1024
+    }
   }
 }
 
