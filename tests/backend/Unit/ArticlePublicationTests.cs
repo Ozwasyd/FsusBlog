@@ -1,4 +1,6 @@
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Models.ReadModels;
 
 namespace FsusBlog.Server.Tests;
 
@@ -71,5 +73,31 @@ public sealed class ArticlePublicationTests
         };
 
         Assert.False(ArticlePublication.IsPubliclyVisible(article, Now));
+    }
+
+    [Theory]
+    [InlineData(ArticleStatus.Draft, false, -1, -1)]
+    [InlineData(ArticleStatus.Scheduled, false, -1, -1)]
+    [InlineData(ArticleStatus.Archived, false, -1, -1)]
+    [InlineData(ArticleStatus.Deleted, false, -1, -1)]
+    [InlineData(ArticleStatus.Published, true, -1, -1)]
+    [InlineData(ArticleStatus.Published, false, 1, -1)]
+    [InlineData(ArticleStatus.Published, false, -1, 1)]
+    public void PublicHotArtifactProjector_FinalVisibilityGateRejectsNonPublicInputs(
+        ArticleStatus status,
+        bool isDeleted,
+        int publishedOffsetMinutes,
+        int scheduledOffsetMinutes)
+    {
+        var article = new ArticleDetailReadModel
+        {
+            Id = 42,
+            Status = status,
+            IsDeleted = isDeleted,
+            PublishedAt = Now.AddMinutes(publishedOffsetMinutes),
+            ScheduledPublishAt = Now.AddMinutes(scheduledOffsetMinutes)
+        };
+
+        Assert.False(PublicHotArtifactProjector.IsPubliclyVisible(article, Now));
     }
 }

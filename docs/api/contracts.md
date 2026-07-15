@@ -1307,6 +1307,8 @@ AOT document cache entry 必须记录 hydration sidecar 的 URL、SHA-256 和相
 - 由 Public AOT 管理的 SEO head 节点必须带 `data-fsus-aot-head`，包括 `<title>` 和 `script[data-fsus-seo-head-model]`。HTML、navigation snapshot 和 SPA takeover 必须使用 `PublicSeoHeadModel` 同一语义实例；不得由客户端从 route meta 另行拼接 canonical、OG、Twitter 或 JSON-LD。新增 sentinel/head 字段必须同步 `src/backend/Infrastructure/PublicAot/PublicAotDocumentComposer.cs`、`docs/api/design.md` 和 `tests/frontend/checks/public/check-public-aot-contracts.mjs`。
 - 含 `<head>`、inline `script` 或 inline `style` 的 document 在 publication/decode 阶段编译 CSP nonce UTF-8 segment template。模板绑定 renderer version、frontend asset version、artifact ETag/digest；请求只写预计算 segment/slot，不重新扫描或生成完整 rendered string/byte array。malformed/重复 nonce、预渲染 `csp-nonce` meta、原始 placeholder、重复 head、未闭合或自闭合 script/style 必须 fail closed。
 - nonce document 响应固定为 identity、`Cache-Control: private,no-store`、无 `Content-Encoding`、无 `ETag`/`304`；`Accept-Encoding` 明确 `identity;q=0` 时返回 406。无 nonce document 继续使用预生成 identity/br/gzip variant 与各自 strong ETag。HEAD 只返回按实际随机 nonce 长度计算的 Content-Length，不写 body。
+- PublicHotRead 只接受 `PublicHotReadRouteSecurityCatalog` 中逐项登记且带 `PublicFastPathRouteMetadata` 的精确公开 route；不得通过 `/api`、`/api/binary` 或其它 broad prefix 推导公开性。任何已认证 principal，或携带 Authorization、Cookie、`RequestVerificationToken`、`X-CSRF-TOKEN`、`X-XSRF-TOKEN` 的请求必须绕过 L0，进入常规认证、授权、antiforgery 与审计链。
+- PublicHotRead snapshot publication 必须携带 `visibilityPolicy=published-visible-at-cutoff-v1`、与 snapshot version 相同的 `visibilitySourceVersion` 以及 `visibilityCutoffUtc`。projector 在查询与最终 frame 物化两处都必须排除非 Published、删除、未来 `PublishedAt` 或未来 `ScheduledPublishAt` 内容；evidence 缺失、策略不匹配或 version 不一致时 publication fail closed 并保留旧 snapshot。
 - PublicHotRead runtime snapshot 的 `residentBytes` 是 `independent-readonly-arrays-upper-bound-v1` 总上界，包含 binary variants、HTML bytes、nonce template UTF-8 bytes、slot table、构建生成的静态 inline SHA-256 feasibility list、metadata 与 key/index 估算；`htmlTemplateResidentBytes` 单独可观测。分项或 candidate/current overlap 超出动态/显式 budget 时新 snapshot 不得发布，旧 snapshot/version/ETag/invalidation 语义保持不变。
 
 ### Public HTML real-status contract
@@ -1675,7 +1677,7 @@ delete、restore、permanent-delete 必须先读取 article `xmin`，写入时�
 
 | 路径族 | 身份 | 状态范围 | 失败语义 |
 |--------|------|----------|----------|
-| `/api/binary/article/**.aeds` | 匿名公开，客户端 `credentials: omit` | 仅 `Published` 且发布时间已到、`IsDeleted=false`；帧内管理尾字段只允许公开安全值 | L0 miss/not-ready/协议错误只返回 HTTP 状态；前端按 `404`/`503`/`400`/`406` 分别处理 |
+| `/api/binary/article/**.aeds` | 仅无身份匿名公开，客户端 `credentials: omit`；存在 principal/credential/CSRF header 时强制常规管线 | 仅 `Published` 且发布时间已到、`IsDeleted=false`；帧内管理尾字段只允许公开安全值；snapshot evidence 与 source version/cutoff 必须匹配 | L0 miss/not-ready/协议错误只返回 HTTP 状态；前端按 `404`/`503`/`400`/`406` 分别处理 |
 | `/api/binary/admin/article/**` | admin | draft/scheduled/published/archived/deleted 按 `status` 查询参数精确读取 | AEDS `ApiError` frame，错误码与 JSON 语义保持一致 |
 
 旧公开 query 路径（如 `/api/binary/article?page=1`、`/api/binary/article/hot?size=10`）不再 fallback；fast path 返回 `400 no-store`，并通过 `X-Fsus-Required-Route` 提示新的 segment artifact 路径。

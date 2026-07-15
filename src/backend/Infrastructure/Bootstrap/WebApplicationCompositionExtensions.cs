@@ -112,6 +112,7 @@ public static class WebApplicationCompositionExtensions
         new("deployment-request-tracking", static app => app.UseMiddleware<DeploymentRequestTrackingMiddleware>()),
         new("core-middlewares", static app => app.UseFsusCoreMiddlewares()),
         new("test-session-validation", static app => app.UseFsusTestSessionValidation()),
+        new("observability-correlation", static app => app.UseMiddleware<ObservabilityCorrelationMiddleware>()),
         new("public-hot-read-classifier", static app => app.UseFsusPublicHotReadClassifier()),
         new("public-hot-read-rate-limiter", static app => app.UseFsusPublicHotReadRateLimiter()),
         new("public-read-security-gate", static app => app.UseFsusPublicHotReadSecurityGate()),
@@ -125,7 +126,6 @@ public static class WebApplicationCompositionExtensions
     private static readonly PipelineStage[] EndpointPipelineStages =
     [
         new("routing", static app => app.UseRouting()),
-        new("observability-correlation", static app => app.UseMiddleware<ObservabilityCorrelationMiddleware>()),
         new("endpoint-metadata-headers", static app => app.UseFsusEndpointMetadataHeaders()),
         new("websockets", static app => app.UseWebSockets()),
         new("response-compression", static app => app.UseResponseCompression()),

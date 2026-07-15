@@ -176,7 +176,10 @@ public sealed record PublicHotReadRuntimeSnapshot(
     string? LastBuildStatus,
     string? LastError,
     bool EarlyDataPlaneEnabled,
-    string EarlyDataPlaneState);
+    string EarlyDataPlaneState,
+    string VisibilityPolicy,
+    long VisibilitySourceVersion,
+    DateTimeOffset? VisibilityCutoffUtc);
 
 public sealed class PublicHotReadSnapshot
 {
@@ -187,7 +190,8 @@ public sealed class PublicHotReadSnapshot
         FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
         default,
         default,
-        FrozenDictionary<string, PublicHtmlArtifact>.Empty);
+        FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+        PublicHotReadPublicationEvidence.Empty);
 
     private readonly FrozenDictionary<int, PublicBinaryArtifact> _articleFramesById;
     private readonly FrozenDictionary<PublicListKey, PublicBinaryArtifact> _listFrames;
@@ -206,6 +210,7 @@ public sealed class PublicHotReadSnapshot
         PublicBinaryArtifact categoryFrame,
         PublicBinaryArtifact tagFrame,
         FrozenDictionary<string, PublicHtmlArtifact> htmlByPath,
+        PublicHotReadPublicationEvidence publicationEvidence,
         int? publicArticleCount = null,
         int? articleFrameLimit = null)
         : this(
@@ -215,6 +220,7 @@ public sealed class PublicHotReadSnapshot
             categoryFrame,
             tagFrame,
             htmlByPath,
+            publicationEvidence,
             FrozenDictionary<string, PublicHtmlArtifact>.Empty,
             FrozenSet<string>.Empty,
             htmlByPath.Count,
@@ -230,6 +236,7 @@ public sealed class PublicHotReadSnapshot
         PublicBinaryArtifact categoryFrame,
         PublicBinaryArtifact tagFrame,
         FrozenDictionary<string, PublicHtmlArtifact> htmlBaseByPath,
+        PublicHotReadPublicationEvidence publicationEvidence,
         FrozenDictionary<string, PublicHtmlArtifact> htmlOverlayByPath,
         FrozenSet<string> htmlRemovedPaths,
         int htmlFrameCount,
@@ -237,6 +244,7 @@ public sealed class PublicHotReadSnapshot
         int articleFrameLimit)
     {
         Version = version;
+        PublicationEvidence = publicationEvidence;
         _articleFramesById = articleFramesById;
         _listFrames = listFrames;
         _categoryFrame = categoryFrame;
@@ -258,6 +266,7 @@ public sealed class PublicHotReadSnapshot
     }
 
     public long Version { get; }
+    public PublicHotReadPublicationEvidence PublicationEvidence { get; }
 
     public int ArticleFrameCount => _articleFramesById.Count;
     public int PublicArticleCount { get; }
@@ -375,6 +384,7 @@ public sealed class PublicHotReadSnapshot
                 _categoryFrame,
                 _tagFrame,
                 FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+                PublicationEvidence.WithSourceVersion(Version + 1),
                 FrozenDictionary<string, PublicHtmlArtifact>.Empty,
                 FrozenSet<string>.Empty,
                 0,
@@ -406,6 +416,7 @@ public sealed class PublicHotReadSnapshot
                 _categoryFrame,
                 _tagFrame,
                 compacted.ToFrozenDictionary(StringComparer.Ordinal),
+                PublicationEvidence.WithSourceVersion(Version + 1),
                 FrozenDictionary<string, PublicHtmlArtifact>.Empty,
                 FrozenSet<string>.Empty,
                 htmlFrameCount,
@@ -420,6 +431,7 @@ public sealed class PublicHotReadSnapshot
             _categoryFrame,
             _tagFrame,
             _htmlBaseByPath,
+            PublicationEvidence.WithSourceVersion(Version + 1),
             overlay.ToFrozenDictionary(StringComparer.Ordinal),
             removed.ToFrozenSet(StringComparer.Ordinal),
             htmlFrameCount,
@@ -485,7 +497,10 @@ public sealed class PublicHotReadStore
             "not_started",
             null,
             _initialEarlyDataPlaneEnabled,
-            _initialEarlyDataPlaneEnabled ? "not-ready" : "disabled");
+            _initialEarlyDataPlaneEnabled ? "not-ready" : "disabled",
+            string.Empty,
+            0,
+            null);
     }
 
     public PublicHotReadSnapshot Current
@@ -501,6 +516,20 @@ public sealed class PublicHotReadStore
         lock (_gate)
         {
             PublicHotReadSnapshot current = Current;
+            if (!next.PublicationEvidence.IsVerifiedFor(next.Version))
+            {
+                SetLifecycleStageLocked("visibility-evidence-rejected");
+                _runtime = CreateRuntimeSnapshotLocked(
+                    current.Version == 0 ? nameof(PublicHotReadState.Failed) : nameof(PublicHotReadState.Ready),
+                    current,
+                    DateTimeOffset.UtcNow,
+                    _runtime.LastBuildReason,
+                    "failed",
+                    "PublicHotReadPublicationEvidenceInvalid");
+                throw new InvalidOperationException(
+                    $"public hot-read publication evidence is invalid for snapshot {next.Version}");
+            }
+
             long retiringBytes = RetiringSnapshotBytesLocked();
             overlapBytes = checked(next.ResidentBytes
                 + (current.Version == 0 ? 0 : current.ResidentBytes)
@@ -673,7 +702,10 @@ public sealed class PublicHotReadStore
                 ? "disabled"
                 : string.Equals(state, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
                     ? "ready"
-                    : "not-ready");
+                    : "not-ready",
+            snapshot.PublicationEvidence.VisibilityPolicy,
+            snapshot.PublicationEvidence.SourceVersion,
+            snapshot.PublicationEvidence.VisibilityCutoffUtc);
 
     internal static long ResolveResidentByteBudget(long configuredBytes)
     {
@@ -801,15 +833,17 @@ public static class PublicHotReadFastPath
     internal static bool TryCreateRequestFeature(
         HttpContext ctx,
         out PublicHotReadRequestFeature? feature)
-        => TryCreateRequestFeatureWithBypass(ctx, out feature, out _);
+        => TryCreateRequestFeatureWithBypass(ctx, out feature, out _, out _);
 
     internal static bool TryCreateRequestFeatureWithBypass(
         HttpContext ctx,
         out PublicHotReadRequestFeature? feature,
-        out bool sensitivePrefixBypass)
+        out bool sensitivePrefixBypass,
+        out bool credentialBypass)
     {
         feature = null;
         sensitivePrefixBypass = false;
+        credentialBypass = false;
         string? path = ctx.Request.Path.Value;
         if (path is null)
         {
@@ -829,11 +863,21 @@ public static class PublicHotReadFastPath
             || path.StartsWith(ArticlePrefix + "/", StringComparison.Ordinal);
         bool rejectedPath = ContainsRejectedPathChar(span);
         bool classified = TryClassifyRoute(span, path, out PublicHotReadRoute route);
+        PublicHotReadRoutePolicy routePolicy = classified
+            && PublicHotReadRouteSecurityCatalog.TryGet(route.Kind, out PublicHotReadRoutePolicy matchedPolicy)
+                ? matchedPolicy
+                : PublicHotReadRouteSecurityCatalog.RejectedCandidate;
         bool isPublicHtmlRoute = route.Kind == PublicHotReadRouteKind.PublicHtml;
 
         if (IsDynamicRelatedReadingPath(span)
             || (!classified && !allowlistedBinaryCandidate))
         {
+            return false;
+        }
+
+        if (HasCredentialBearingInput(ctx))
+        {
+            credentialBypass = true;
             return false;
         }
 
@@ -844,16 +888,14 @@ public static class PublicHotReadFastPath
             return false;
         }
 
-        bool isHtmlPath = route.Kind == PublicHotReadRouteKind.ArticleHtml || isPublicHtmlRoute || IsArticleHtmlPath(span);
         bool fallbackToEndpoint = isPublicHtmlRoute && rejectedPath;
         feature = new PublicHotReadRequestFeature(
             route,
             classified,
             rejectedPath,
-            isHtmlPath,
             fallbackToEndpoint,
             ResolveRiskRouteKey(route, path),
-            classified,
+            routePolicy,
             classificationCount: 1);
         return true;
     }
@@ -867,7 +909,14 @@ public static class PublicHotReadFastPath
         HttpContext ctx,
         out PublicHotReadRequestFeature? feature,
         out bool sensitivePrefixBypass)
-        => TryCreateRequestFeatureWithBypass(ctx, out feature, out sensitivePrefixBypass);
+        => TryCreateRequestFeatureWithBypass(ctx, out feature, out sensitivePrefixBypass, out _);
+
+    internal static bool TryCreateRequestFeatureForTests(
+        HttpContext ctx,
+        out PublicHotReadRequestFeature? feature,
+        out bool sensitivePrefixBypass,
+        out bool credentialBypass)
+        => TryCreateRequestFeatureWithBypass(ctx, out feature, out sensitivePrefixBypass, out credentialBypass);
 
     internal static bool IsSensitiveApiPathForTests(string path)
         => IsSensitiveApiPath(path);
@@ -1758,6 +1807,17 @@ public static class PublicHotReadFastPath
         return false;
     }
 
+    private static bool HasCredentialBearingInput(HttpContext context)
+    {
+        IHeaderDictionary headers = context.Request.Headers;
+        return context.User.Identity?.IsAuthenticated == true
+            || headers.ContainsKey("Authorization")
+            || headers.ContainsKey("Cookie")
+            || headers.ContainsKey("RequestVerificationToken")
+            || headers.ContainsKey("X-CSRF-TOKEN")
+            || headers.ContainsKey("X-XSRF-TOKEN");
+    }
+
     private static void WriteLegacyRouteHint(HttpContext ctx, string path)
     {
         if (string.Equals(path, ArticlePrefix, StringComparison.Ordinal))
@@ -2381,6 +2441,8 @@ public sealed class PublicHotReadMetricFlushWorker(
     private static readonly Counter<long> GzipVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.gzip");
     private static readonly Counter<long> SensitivePrefixBypassCounter =
         Meter.CreateCounter<long>("fsus.hotread.classifier.sensitive_bypass");
+    private static readonly Counter<long> CredentialBypassCounter =
+        Meter.CreateCounter<long>("fsus.hotread.classifier.credential_bypass");
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -2402,6 +2464,7 @@ public sealed class PublicHotReadMetricFlushWorker(
     {
         PublicHotReadCounterSnapshot snapshot = counters.CollectAndReset();
         long sensitivePrefixBypass = classifierCounters.CollectSensitivePrefixBypassAndReset();
+        long credentialBypass = classifierCounters.CollectCredentialBypassAndReset();
         AddIfPositive(ArticleHitCounter, snapshot.ArticleHit);
         AddIfPositive(ArticleMissCounter, snapshot.ArticleMiss);
         AddIfPositive(ListHitCounter, snapshot.ListHit);
@@ -2413,6 +2476,7 @@ public sealed class PublicHotReadMetricFlushWorker(
         AddIfPositive(BrotliVariantCounter, snapshot.BrotliVariant);
         AddIfPositive(GzipVariantCounter, snapshot.GzipVariant);
         AddIfPositive(SensitivePrefixBypassCounter, sensitivePrefixBypass);
+        AddIfPositive(CredentialBypassCounter, credentialBypass);
         if (snapshot.Rejected > 0)
         {
             logger.LogDebug("public-hot-read-rejected {Count}", snapshot.Rejected);
@@ -2422,6 +2486,12 @@ public sealed class PublicHotReadMetricFlushWorker(
             logger.LogWarning(
                 "public-hot-read-sensitive-prefix-bypass {Count}",
                 sensitivePrefixBypass);
+        }
+        if (credentialBypass > 0)
+        {
+            logger.LogInformation(
+                "public-hot-read-credential-bypass {Count}",
+                credentialBypass);
         }
     }
 

@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using NSubstitute;
 using System.Reflection;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -119,6 +120,7 @@ public sealed class PublicHotReadFastPathTests
             default,
             default,
             FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(2, DateTimeOffset.UtcNow),
             publicArticleCount: 2,
             articleFrameLimit: 1);
 
@@ -139,7 +141,7 @@ public sealed class PublicHotReadFastPathTests
         var monitor = new ReloadablePublicHotReadOptionsMonitor(new PublicHotReadOptions { Enabled = true });
         using var runtimeState = new PublicHotReadEarlyDataPlaneRuntimeState(monitor);
         var store = new PublicHotReadStore(runtimeState);
-        store.Publish(PublicHotReadSnapshot.Empty);
+        store.Publish(CreateVerifiedEmptySnapshot());
 
         monitor.Set(new PublicHotReadOptions { Enabled = false });
 
@@ -585,7 +587,8 @@ public sealed class PublicHotReadFastPathTests
             FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
             new PublicBinaryArtifact(frame, "\"category\"", "public,max-age=60", 1, AedsFrameType.CategoryList),
             default,
-            FrozenDictionary<string, PublicHtmlArtifact>.Empty));
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow)));
         var context = CreateContext("/api/binary/category.aeds");
 
         await PublicHotReadFastPath.TryServeAsync(
@@ -616,7 +619,8 @@ public sealed class PublicHotReadFastPathTests
             FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
             isCategory ? new PublicBinaryArtifact(frame, "\"category\"", "public,max-age=60", 1, AedsFrameType.CategoryList) : default,
             isCategory ? default : new PublicBinaryArtifact(frame, "\"tag\"", "public,max-age=60", 1, AedsFrameType.TagList),
-            FrozenDictionary<string, PublicHtmlArtifact>.Empty));
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow)));
         var context = CreateContext(path);
 
         await PublicHotReadFastPath.TryServeAsync(
@@ -739,6 +743,112 @@ public sealed class PublicHotReadFastPathTests
         Assert.True(classified);
         Assert.NotNull(feature);
         Assert.False(sensitivePrefixBypass);
+    }
+
+    [Fact]
+    public void EarlyClassifier_CredentialBearingPublicReadsAlwaysUseTheNormalAuthorizationPipeline()
+    {
+        foreach (string header in new[]
+        {
+            "Authorization",
+            "Cookie",
+            "RequestVerificationToken",
+            "X-CSRF-TOKEN",
+            "X-XSRF-TOKEN"
+        })
+        {
+            DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds");
+            context.Request.Headers[header] = "credential-present";
+
+            bool classified = PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+                context,
+                out PublicHotReadRequestFeature? feature,
+                out bool sensitivePrefixBypass,
+                out bool credentialBypass);
+
+            Assert.False(classified);
+            Assert.Null(feature);
+            Assert.False(sensitivePrefixBypass);
+            Assert.True(credentialBypass);
+        }
+
+        DefaultHttpContext authenticated = CreateContext("/");
+        authenticated.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "42")], "unit"));
+        Assert.False(PublicHotReadFastPath.TryCreateRequestFeatureForTests(
+            authenticated,
+            out _,
+            out bool authenticatedSensitiveBypass,
+            out bool authenticatedCredentialBypass));
+        Assert.False(authenticatedSensitiveBypass);
+        Assert.True(authenticatedCredentialBypass);
+    }
+
+    [Fact]
+    public async Task EarlyClassifier_CredentialBypassHasADedicatedCounterAndNoFastPathCounters()
+    {
+        using ServiceProvider services = CreateFastPathServices(new PublicHotReadStore());
+        var app = new ApplicationBuilder(services);
+        app.UseFsusPublicHotReadClassifier();
+        app.Run(context =>
+        {
+            Assert.Null(context.Features.Get<PublicHotReadRequestFeature>());
+            return Task.CompletedTask;
+        });
+        DefaultHttpContext context = CreateContext("/api/binary/article/42.aeds");
+        context.Request.Headers.Authorization = "Bearer test";
+
+        await app.Build()(context);
+
+        PublicHotReadClassifierCounters classifier =
+            services.GetRequiredService<PublicHotReadClassifierCounters>();
+        Assert.Equal(1, classifier.CredentialBypassSnapshot());
+        Assert.Equal(0, classifier.SensitivePrefixBypassSnapshot());
+        Assert.Equal(new PublicHotReadCounterSnapshot(),
+            services.GetRequiredService<PublicHotReadCounters>().Snapshot());
+    }
+
+    [Fact]
+    public void RouteSecurityCatalog_CoversEveryServedKindAndGeneratesEndpointMetadata()
+    {
+        PublicHotReadRouteSecurityCatalog.ValidateOrThrow();
+        PublicHotReadEarlyEndpointCatalog.ValidateOrThrow();
+        PublicHotReadRouteKind[] expectedKinds = Enum.GetValues<PublicHotReadRouteKind>()
+            .Where(static kind => kind != PublicHotReadRouteKind.None)
+            .ToArray();
+
+        Assert.Equal(expectedKinds, PublicHotReadRouteSecurityCatalog.All.Select(static policy => policy.Kind));
+        foreach (PublicHotReadRoutePolicy policy in PublicHotReadRouteSecurityCatalog.All)
+        {
+            Assert.Contains(PublicHotReadEarlyEndpointCatalog.All, endpoint =>
+                endpoint.Metadata.GetMetadata<PublicFastPathRouteMetadata>() is { } metadata
+                && metadata.PolicyId == policy.PolicyId
+                && metadata.RequiresVisibilityEvidence
+                && metadata.RequiresSecurityGate
+                && metadata.RequiresRateLimit
+                && metadata.RequiresTraceCorrelation
+                && metadata.RequiresReleaseHeaders
+                && endpoint.Metadata.GetMetadata<EnableRateLimitingAttribute>() is not null);
+        }
+    }
+
+    [Fact]
+    public void Store_RejectsSnapshotWithoutVersionBoundVisibilityEvidence()
+    {
+        var store = new PublicHotReadStore();
+        var snapshot = new PublicHotReadSnapshot(
+            7,
+            FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            default,
+            default,
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            default);
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => store.Publish(snapshot));
+
+        Assert.Contains("publication evidence", error.Message, StringComparison.Ordinal);
+        Assert.False(store.IsReady);
+        Assert.Equal("PublicHotReadPublicationEvidenceInvalid", store.CreateRuntimeSnapshot().LastError);
     }
 
     [Theory]
@@ -1218,7 +1328,8 @@ public sealed class PublicHotReadFastPathTests
             new Dictionary<string, PublicHtmlArtifact>
             {
                 [PublicHotReadRouteKeys.HtmlPath("home")] = baseHtml
-            }.ToFrozenDictionary(StringComparer.Ordinal));
+            }.ToFrozenDictionary(StringComparer.Ordinal),
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow));
 
         PublicHotReadSnapshot updated = baseSnapshot.WithHtml(PublicHotReadRouteKeys.HtmlPath("home"), nextHtml);
         PublicHotReadSnapshot added = updated.WithHtml(PublicHotReadRouteKeys.HtmlPath("about"), nextHtml);
@@ -1695,9 +1806,19 @@ public sealed class PublicHotReadFastPathTests
     private static PublicHotReadStore CreateReadyEmptyStore()
     {
         var store = new PublicHotReadStore();
-        store.Publish(PublicHotReadSnapshot.Empty);
+        store.Publish(CreateVerifiedEmptySnapshot());
         return store;
     }
+
+    private static PublicHotReadSnapshot CreateVerifiedEmptySnapshot()
+        => new(
+            1,
+            FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            default,
+            default,
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow));
 
     private static PublicHotReadStore CreateReadyStoreWithArticle(int articleId, byte[] frame)
         => CreateReadyStoreWithArticle(articleId, new PublicBinaryArtifact(frame, "\"detail\"", "public,max-age=60", 1, AedsFrameType.ArticleDetail));
@@ -1715,7 +1836,8 @@ public sealed class PublicHotReadFastPathTests
             FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
             default,
             default,
-            FrozenDictionary<string, PublicHtmlArtifact>.Empty));
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow)));
         return store;
     }
 

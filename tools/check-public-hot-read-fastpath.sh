@@ -6,6 +6,7 @@ FASTPATH_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHo
 RESIDENCY_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadResidency.cs"
 PROJECTOR_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"
 EARLY_DATA_PLANE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs"
+ROUTE_SECURITY_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadRouteSecurityCatalog.cs"
 SECURITY_GATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs"
 COMPOSITION_FILE="$ROOT_DIR/src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs"
 GATEWAY_FILE="$ROOT_DIR/deploy/production-openresty.conf"
@@ -26,6 +27,7 @@ if (methodStart < 0 || methodEnd < 0 || methodEnd <= methodStart) {
   process.exit(1);
 }
 const block = source.slice(methodStart, methodEnd);
+const correlation = block.indexOf('ObservabilityCorrelationMiddleware');
 const classifier = block.indexOf('UseFsusPublicHotReadClassifier');
 const limiter = block.indexOf('UseFsusPublicHotReadRateLimiter');
 const gate = block.indexOf('UseFsusPublicHotReadSecurityGate');
@@ -33,9 +35,9 @@ const core = block.indexOf('UseFsusCoreMiddlewares');
 const fast = block.indexOf('UseFsusPublicHotReadFastPath');
 const restore = block.indexOf('UseFsusPublicHotReadFallbackRestore');
 const endpoint = block.indexOf('UseFsusEndpointPipeline');
-if ([core, classifier, limiter, gate, fast, restore, endpoint].some(index => index < 0)
-    || !(core < classifier && classifier < limiter && limiter < gate && gate < fast && fast < restore && restore < endpoint)) {
-  console.error('[public-hot-read] classifier/rate/security/writer must run before the generic endpoint pipeline');
+if ([core, correlation, classifier, limiter, gate, fast, restore, endpoint].some(index => index < 0)
+    || !(core < correlation && correlation < classifier && classifier < limiter && limiter < gate && gate < fast && fast < restore && restore < endpoint)) {
+  console.error('[public-hot-read] trace/classifier/rate/security/writer must run before the generic endpoint pipeline');
   process.exit(1);
 }
 
@@ -51,6 +53,61 @@ for (const token of [
 ]) {
   if (!endpointBlock.includes(token)) {
     console.error(`[public-hot-read] missing generic downstream sentinel: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking declarative route security and publication evidence"
+node - "$FASTPATH_FILE" "$EARLY_DATA_PLANE_FILE" "$ROUTE_SECURITY_FILE" "$PROJECTOR_FILE" <<'NODE'
+const fs = require('node:fs');
+const [fastPathFile, earlyDataPlaneFile, routeSecurityFile, projectorFile] = process.argv.slice(2);
+const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const earlyDataPlane = fs.readFileSync(earlyDataPlaneFile, 'utf8');
+const routeSecurity = fs.readFileSync(routeSecurityFile, 'utf8');
+const projector = fs.readFileSync(projectorFile, 'utf8');
+for (const token of [
+  'PublicFastPathRouteMetadata',
+  'PublicHotReadRouteSecurityCatalog',
+  'ValidateOrThrow',
+  'RequiresVisibilityEvidence',
+  'RequiresSecurityGate',
+  'RequiresRateLimit',
+  'RequiresTraceCorrelation',
+  'RequiresReleaseHeaders'
+]) {
+  if (!routeSecurity.includes(token)) {
+    console.error(`[public-hot-read] missing route security catalog token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'policy.ToEndpointMetadata()',
+  'PublicHotReadEarlyEndpointCatalog',
+  'PublicHotReadRouteSecurityCatalog.ValidateOrThrow()',
+  'PublicHotReadEarlyEndpointCatalog.ValidateOrThrow()'
+]) {
+  if (!earlyDataPlane.includes(token)) {
+    console.error(`[public-hot-read] route catalog is not bound to startup/endpoint metadata: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'PublicHotReadPublicationEvidence',
+  'PublicationEvidence.IsVerifiedFor(next.Version)',
+  'PublicHotReadPublicationEvidenceInvalid'
+]) {
+  if (!fastPath.includes(token)) {
+    console.error(`[public-hot-read] snapshot publication evidence is incomplete: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'CreateVerified',
+  'IsPubliclyVisible(detail, visibilityCutoff)'
+]) {
+  if (!projector.includes(token)) {
+    console.error(`[public-hot-read] projector visibility gate is incomplete: ${token}`);
     process.exit(1);
   }
 }
@@ -235,6 +292,35 @@ for (const token of [
 ]) {
   if (!gateway.includes(token)) {
     console.error(`[public-hot-read] gateway sensitive-prefix normal lane is incomplete: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking credential-bearing bypass observability"
+node - "$FASTPATH_FILE" "$EARLY_DATA_PLANE_FILE" <<'NODE'
+const fs = require('node:fs');
+const [fastPathFile, earlyDataPlaneFile] = process.argv.slice(2);
+const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const earlyDataPlane = fs.readFileSync(earlyDataPlaneFile, 'utf8');
+for (const token of [
+  'HasCredentialBearingInput',
+  'Authorization',
+  'Cookie',
+  'RequestVerificationToken',
+  'X-CSRF-TOKEN',
+  'X-XSRF-TOKEN',
+  'fsus.hotread.classifier.credential_bypass',
+  'CollectCredentialBypassAndReset'
+]) {
+  if (!fastPath.includes(token)) {
+    console.error(`[public-hot-read] missing credential bypass token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of ['CredentialBypass', 'credentialBypass']) {
+  if (!earlyDataPlane.includes(token)) {
+    console.error(`[public-hot-read] classifier does not record credential bypass: ${token}`);
     process.exit(1);
   }
 }

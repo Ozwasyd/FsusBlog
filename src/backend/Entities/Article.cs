@@ -96,12 +96,23 @@ public enum ArticleStatus
 public static class ArticlePublication
 {
     public static bool IsPubliclyVisible(Article article, DateTime utcNow)
-    {
-        return !article.IsDeleted
-            && article.Status == ArticleStatus.Published
-            && (!article.PublishedAt.HasValue || article.PublishedAt.Value <= utcNow)
-            && (!article.ScheduledPublishAt.HasValue || article.ScheduledPublishAt.Value <= utcNow);
-    }
+        => IsPubliclyVisible(
+            article.Status,
+            article.IsDeleted,
+            article.PublishedAt,
+            article.ScheduledPublishAt,
+            utcNow);
+
+    public static bool IsPubliclyVisible(
+        ArticleStatus status,
+        bool isDeleted,
+        DateTime? publishedAt,
+        DateTime? scheduledPublishAt,
+        DateTime utcNow)
+        => !isDeleted
+            && status == ArticleStatus.Published
+            && (!publishedAt.HasValue || publishedAt.Value <= utcNow)
+            && (!scheduledPublishAt.HasValue || scheduledPublishAt.Value <= utcNow);
 }
 
 [SugarTable("article_body")]

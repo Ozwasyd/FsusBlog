@@ -101,10 +101,11 @@ public sealed class PublicHotArtifactProjector(
         CancellationToken ct)
     {
         PublicHotReadOptions value = options.Value;
-        DateTime utcNow = DateTime.UtcNow;
-        long version = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        DateTimeOffset projectionCutoff = DateTimeOffset.UtcNow;
+        DateTime utcNow = projectionCutoff.UtcDateTime;
+        long version = projectionCutoff.ToUnixTimeMilliseconds();
         PublicArticleFrameSelection selection = await QueryPublicArticleIdsAsync(utcNow, value, ct).ConfigureAwait(false);
-        FrozenDictionary<int, PublicBinaryArtifact> articleFrames = await BuildArticleFramesAsync(selection.ArticleIds, version, value, ct).ConfigureAwait(false);
+        FrozenDictionary<int, PublicBinaryArtifact> articleFrames = await BuildArticleFramesAsync(selection.ArticleIds, utcNow, version, value, ct).ConfigureAwait(false);
         FrozenDictionary<PublicListKey, PublicBinaryArtifact> listFrames = await BuildListFramesAsync(utcNow, version, value, ct).ConfigureAwait(false);
         PublicBinaryArtifact categoryFrame = await BuildCategoryFrameAsync(version, value, ct).ConfigureAwait(false);
         PublicBinaryArtifact tagFrame = await BuildTagFrameAsync(version, value, ct).ConfigureAwait(false);
@@ -117,6 +118,7 @@ public sealed class PublicHotArtifactProjector(
             categoryFrame,
             tagFrame,
             html,
+            PublicHotReadPublicationEvidence.CreateVerified(version, projectionCutoff),
             selection.PublicArticleCount,
             selection.ArticleFrameLimit);
     }
@@ -128,11 +130,14 @@ public sealed class PublicHotArtifactProjector(
     {
         long started = Stopwatch.GetTimestamp();
         PublicHotReadOptions value = options.Value;
-        long version = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        DateTimeOffset projectionCutoff = DateTimeOffset.UtcNow;
+        DateTime visibilityCutoff = projectionCutoff.UtcDateTime;
+        long version = projectionCutoff.ToUnixTimeMilliseconds();
         var articleFrames = current.ArticleArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
         var listFrames = current.ListArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
         IReadOnlyList<ArticleDetailReadModel> changedArticles = await LoadArticleDetailsFromDbAsync([articleId], ct).ConfigureAwait(false);
-        ArticleDetailReadModel? changed = changedArticles.FirstOrDefault(static article => article.Id > 0);
+        ArticleDetailReadModel? changed = changedArticles.FirstOrDefault(article =>
+            article.Id > 0 && IsPubliclyVisible(article, visibilityCutoff));
         PublicHotDeltaScope scope;
         if (changed is null)
         {
@@ -170,6 +175,7 @@ public sealed class PublicHotArtifactProjector(
             current.CategoryFrame,
             current.TagFrame,
             html,
+            PublicHotReadPublicationEvidence.CreateVerified(version, projectionCutoff),
             current.PublicArticleCount,
             current.ArticleFrameLimit);
     }
@@ -181,7 +187,9 @@ public sealed class PublicHotArtifactProjector(
     {
         long started = Stopwatch.GetTimestamp();
         PublicHotReadOptions value = options.Value;
-        long version = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        DateTimeOffset projectionCutoff = DateTimeOffset.UtcNow;
+        DateTime visibilityCutoff = projectionCutoff.UtcDateTime;
+        long version = projectionCutoff.ToUnixTimeMilliseconds();
         int[] normalizedArticleIds = NormalizeIds(articleIds);
         var articleFrames = current.ArticleArtifacts.ToDictionary(static pair => pair.Key, static pair => pair.Value);
         if (normalizedArticleIds.Length > 0)
@@ -190,6 +198,11 @@ public sealed class PublicHotArtifactProjector(
             var changedArticleIds = new HashSet<int>();
             foreach (ArticleDetailReadModel changed in changedArticles)
             {
+                if (!IsPubliclyVisible(changed, visibilityCutoff))
+                {
+                    continue;
+                }
+
                 changedArticleIds.Add(changed.Id);
                 ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(changed);
                 articleFrames[changed.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, value);
@@ -226,6 +239,7 @@ public sealed class PublicHotArtifactProjector(
             current.CategoryFrame,
             current.TagFrame,
             html,
+            PublicHotReadPublicationEvidence.CreateVerified(version, projectionCutoff),
             current.PublicArticleCount,
             current.ArticleFrameLimit);
     }
@@ -375,6 +389,7 @@ public sealed class PublicHotArtifactProjector(
 
     private async Task<FrozenDictionary<int, PublicBinaryArtifact>> BuildArticleFramesAsync(
         IReadOnlyList<int> articleIds,
+        DateTime visibilityCutoff,
         long version,
         PublicHotReadOptions options,
         CancellationToken ct)
@@ -389,12 +404,25 @@ public sealed class PublicHotArtifactProjector(
         foreach (ArticleDetailReadModel detail in details)
         {
             ct.ThrowIfCancellationRequested();
+            if (!IsPubliclyVisible(detail, visibilityCutoff))
+            {
+                continue;
+            }
+
             ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(detail);
             frames[detail.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, options);
         }
 
         return ApplyArticleAdmission(frames, articleIds, options).ToFrozenDictionary();
     }
+
+    internal static bool IsPubliclyVisible(ArticleDetailReadModel article, DateTime utcNow)
+        => ArticlePublication.IsPubliclyVisible(
+            article.Status,
+            article.IsDeleted,
+            article.PublishedAt,
+            article.ScheduledPublishAt,
+            utcNow);
 
     internal static int[] MergeAdmissionSegments(
         IReadOnlyList<int> popularIds,

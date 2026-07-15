@@ -26,7 +26,8 @@ public sealed class PublicHotReadResidencyTests
             }.ToFrozenDictionary(),
             category,
             tag,
-            new Dictionary<string, PublicHtmlArtifact> { ["/"] = html }.ToFrozenDictionary(StringComparer.Ordinal));
+            new Dictionary<string, PublicHtmlArtifact> { ["/"] = html }.ToFrozenDictionary(StringComparer.Ordinal),
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow));
 
         PublicHotReadResidentBreakdown residency = snapshot.Residency;
         Assert.Equal(1_000, residency.RawAedsBytes);
@@ -154,7 +155,8 @@ public sealed class PublicHotReadResidencyTests
             FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
             default,
             default,
-            new Dictionary<string, PublicHtmlArtifact> { ["/"] = Html(new string('x', 100)) }.ToFrozenDictionary(StringComparer.Ordinal));
+            new Dictionary<string, PublicHtmlArtifact> { ["/"] = Html(new string('x', 100)) }.ToFrozenDictionary(StringComparer.Ordinal),
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => store.Publish(snapshot));
 
@@ -285,7 +287,8 @@ public sealed class PublicHotReadResidencyTests
             FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
             default,
             default,
-            html);
+            html,
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow));
         for (int index = 0; index < 31; index++)
         {
             snapshot = snapshot.WithHtml($"/{index}", Html($"overlay-{index}"));
@@ -346,7 +349,8 @@ public sealed class PublicHotReadResidencyTests
             FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
             default,
             default,
-            FrozenDictionary<string, PublicHtmlArtifact>.Empty);
+            FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+            PublicHotReadPublicationEvidence.CreateVerified(version, DateTimeOffset.UtcNow));
 
     private static PublicBinaryArtifact Artifact(int raw, int brotli, int gzip, long version)
         => new(

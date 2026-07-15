@@ -355,6 +355,7 @@ public sealed class ProductionHealthTests
                 default,
                 default,
                 FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+                PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow),
                 publicArticleCount: 2,
                 articleFrameLimit: 1));
             using ServiceProvider services = new ServiceCollection()
@@ -422,7 +423,14 @@ public sealed class ProductionHealthTests
             var scheduledPublishState = new ScheduledPublishRuntimeState();
             scheduledPublishState.ReportResult(2, 1, 1, "one_or_more_articles_failed");
             var publicHotStore = new PublicHotReadStore();
-            publicHotStore.Publish(PublicHotReadSnapshot.Empty);
+            publicHotStore.Publish(new PublicHotReadSnapshot(
+                1,
+                FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+                FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+                default,
+                default,
+                FrozenDictionary<string, PublicHtmlArtifact>.Empty,
+                PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow)));
 
             var services = new ServiceCollection()
                 .AddSingleton(runtimeState)
