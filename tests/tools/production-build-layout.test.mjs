@@ -121,6 +121,27 @@ test('scheduler output validation resolves logical declarations only to the curr
   assert.notEqual(snapshot.entries['src/frontend/dist/index.html'], 'missing')
 })
 
+test('scheduler output validation resolves acceptance evidence only to the active namespace', t => {
+  const root = repositoryFixture(t)
+  const currentLog = path.join(root, '.tmp/acceptance/endpoint-depth-42/backend.log')
+  const staleLog = path.join(root, '.tmp/acceptance/stale-run/backend.log')
+  fs.mkdirSync(path.dirname(currentLog), { recursive: true })
+  fs.mkdirSync(path.dirname(staleLog), { recursive: true })
+  fs.writeFileSync(currentLog, 'current')
+  fs.writeFileSync(staleLog, 'stale')
+  const tier = { artifacts: ['.tmp/acceptance'], evidence: ['.tmp/acceptance/*.log'] }
+  const env = { FSUSBLOG_TEST_NAMESPACE: 'Endpoint Depth/42' }
+
+  assert.equal(
+    resolveRunBoundArtifactDeclaration(root, '.tmp/acceptance/*.log', env),
+    '.tmp/acceptance/endpoint-depth-42/*.log'
+  )
+  assert.equal(snapshotTierOutputs(root, tier, env).reusable, true)
+
+  fs.rmSync(currentLog)
+  assert.equal(snapshotTierOutputs(root, tier, env).reusable, false)
+})
+
 test('stale GC retains current and live runs while reclaiming interrupted inactive runs', t => {
   const root = repositoryFixture(t)
   for (const runId of ['current', 'active', 'stale']) {

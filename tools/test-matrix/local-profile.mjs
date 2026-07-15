@@ -36,6 +36,15 @@ function normalizeDeclaration(value) {
   return String(value ?? '').trim().replace(/^\.\//u, '').replaceAll('\\', '/')
 }
 
+function acceptanceNamespace(value) {
+  const slug = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/gu, '-')
+    .replace(/^-+|-+$/gu, '')
+  return slug && slug !== '.' && slug !== '..' ? slug : 'local'
+}
+
 function generatedRuntimeDeclaration(value) {
   const normalized = normalizeDeclaration(value)
   return generatedRuntimeRoots.some((root) => normalized === root || normalized.startsWith(`${root}/`))
@@ -244,6 +253,13 @@ function wildcardSearchRoot(root, declaration) {
 export function resolveRunBoundArtifactDeclaration(rootValue, declarationValue, env = process.env) {
   const root = path.resolve(rootValue)
   const declaration = normalizeDeclaration(declarationValue)
+  if (String(env.FSUSBLOG_TEST_NAMESPACE ?? '').trim()
+    && (declaration === '.tmp/acceptance' || declaration.startsWith('.tmp/acceptance/'))) {
+    const canonicalRoot = '.tmp/acceptance'
+    const suffix = declaration.slice(canonicalRoot.length).replace(/^\//u, '')
+    const target = path.posix.join(canonicalRoot, acceptanceNamespace(env.FSUSBLOG_TEST_NAMESPACE))
+    return suffix ? path.posix.join(target, suffix) : target
+  }
   const mappings = [
     ['src/frontend/dist', env.FSUSBLOG_FRONTEND_DIST_ROOT],
     ['src/frontend/public/wasm', env.FSUSBLOG_FRONTEND_WASM_ROOT],
