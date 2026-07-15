@@ -362,6 +362,61 @@ test('late static contract wave consumes only a valid live scheduler grant and c
   )
 })
 
+test('live capacity resolves workers and parent limits from one atomic grant snapshot', () => {
+  let reads = 0
+  const env = {
+    FSUSBLOG_TEST_RUN_ID: 'atomic-run',
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: '/tmp/atomic-grants.json',
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID: 'frontend',
+    FSUSBLOG_COMMAND_MANIFEST_WORKERS: '4'
+  }
+  const readGrantFile = () => {
+    reads += 1
+    const cpuUnits = reads === 1 ? 4 : 1
+    return JSON.stringify({
+      schema: 'fsusblog.test-matrix.resource-grants.v1',
+      runId: 'atomic-run',
+      resourceBudget: { cpuUnits: 4, memoryGiB: 4 },
+      grants: { frontend: { cpuUnits, memoryGiB: cpuUnits } }
+    })
+  }
+
+  const capacity = resolveManifestLiveCapacity({
+    env,
+    cpuCount: 8,
+    freeMemoryBytes: 8 * 1024 ** 3,
+    totalMemoryBytes: 8 * 1024 ** 3,
+    load1: 0,
+    readGrantFile,
+    workload: 'scheduler-admitted'
+  })
+
+  assert.equal(reads, 1)
+  assert.equal(capacity.maxParallel, 4)
+  assert.equal(capacity.cpuUnits, 4)
+  assert.equal(capacity.memoryGiB, 4)
+  assert.equal(capacity.parentCpuUnits, 4)
+  assert.equal(capacity.parentMemoryGiB, 4)
+})
+
+test('direct manifest execution records its fixed fallback mode honestly', async () => {
+  const evidence = await runWeightedCommandManifest({
+    schema: 'fsusblog.test-command-manifest.v1',
+    lane: 'direct-fixed',
+    commands: [{ id: 'only', access: 'read', command: ['only'] }]
+  }, {
+    env: {
+      FSUSBLOG_STEP_CPU_BUDGET: '1',
+      FSUSBLOG_STEP_MEMORY_GIB: '1',
+      FSUSBLOG_COMMAND_MANIFEST_WORKERS: '1'
+    },
+    execute: async () => {}
+  })
+
+  assert.equal(evidence.executionMode, 'fixed')
+  assert.deepEqual(evidence.grantHistory.map((entry) => entry.source), ['direct-invocation-fallback'])
+})
+
 test('live grant growth admits pending commands before the first child settles', async () => {
   let grant = { cpuUnits: 1, memoryGiB: 1 }
   const env = {

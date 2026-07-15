@@ -282,20 +282,18 @@ export function resolveManifestWorkers({
 // before a new independent wave, but consume only currently idle host CPU and
 // memory. This keeps the ordinary resolver strict while allowing a late wave to
 // use capacity that the scheduler has explicitly released to this bundle.
-export function resolveAdaptiveManifestWorkers({
+function resolveAdaptiveManifestWorkersFromGrant({
   env = process.env,
   cpuCount = os.availableParallelism?.() ?? os.cpus().length,
   freeMemoryBytes = os.freemem(),
   totalMemoryBytes = os.totalmem(),
   load1 = os.loadavg()[0] ?? 0,
-  readGrantFile,
   workload = 'cpu',
   orchestrationWorkersPerCpu = 2,
   orchestrationMemoryGiBPerWorker = 0.125
-} = {}) {
+} = {}, grant) {
   const runtime = { env, cpuCount, freeMemoryBytes, totalMemoryBytes, load1 }
   const baseWorkers = resolveManifestWorkers(runtime)
-  const grant = readManifestSchedulerResourceGrant({ env, readFile: readGrantFile })
   const cpus = Math.max(1, Math.floor(Number(cpuCount) || 1))
   const override = positiveInteger(env.FSUSBLOG_COMMAND_MANIFEST_WORKERS)
   let liveWorkers = baseWorkers
@@ -351,6 +349,12 @@ export function resolveAdaptiveManifestWorkers({
   return grant ? Math.max(1, orchestrationWorkers) : Math.max(baseWorkers, orchestrationWorkers)
 }
 
+export function resolveAdaptiveManifestWorkers(options = {}) {
+  const env = options.env ?? process.env
+  const grant = readManifestSchedulerResourceGrant({ env, readFile: options.readGrantFile })
+  return resolveAdaptiveManifestWorkersFromGrant(options, grant)
+}
+
 export function resolveManifestLiveCapacity({
   env = process.env,
   cpuCount = os.availableParallelism?.() ?? os.cpus().length,
@@ -363,17 +367,16 @@ export function resolveManifestLiveCapacity({
   orchestrationMemoryGiBPerWorker = 0.125
 } = {}) {
   const grant = readManifestSchedulerResourceGrant({ env, readFile: readGrantFile })
-  const workers = resolveAdaptiveManifestWorkers({
+  const workers = resolveAdaptiveManifestWorkersFromGrant({
     env,
     cpuCount,
     freeMemoryBytes,
     totalMemoryBytes,
     load1,
-    readGrantFile,
     workload,
     orchestrationWorkersPerCpu,
     orchestrationMemoryGiBPerWorker
-  })
+  }, grant)
   const inheritedCpu = optionalPositiveNumber(env, [
     'FSUSBLOG_STEP_CPU_BUDGET',
     'FSUSBLOG_BUNDLE_CPU_UNITS',
@@ -583,10 +586,13 @@ export async function runWeightedCommandManifest(manifest, {
   const planned = planWeightedManifestEntries(executionManifest.commands)
   const steps = planned.map((entry) => manifestEntryStep(entry, orchestrationMemoryGiBPerWorker))
   const exclusiveResources = [...new Set(steps.flatMap((entry) => entry.resources.exclusiveResources))]
+  const grantFileConfigured = Boolean(String(env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE ?? '').trim())
+  const grantTierConfigured = Boolean(String(env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID ?? '').trim())
+  const hasLiveGrant = grantFileConfigured && grantTierConfigured
   const evidence = {
     schema: 'fsusblog.live-grant-execution.v1',
     lane: manifest.lane,
-    executionMode: 'live-grant',
+    executionMode: grantFileConfigured || grantTierConfigured ? 'live-grant' : 'fixed',
     schedulerRunId: env.FSUSBLOG_TEST_RUN_ID ?? null,
     grantHistory: [],
     children: [],
@@ -596,10 +602,6 @@ export async function runWeightedCommandManifest(manifest, {
   const lastWaitState = new Map()
   let currentCapacity
   let capacitySignature = ''
-  const hasLiveGrant = Boolean(
-    String(env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE ?? '').trim()
-      && String(env.FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID ?? '').trim()
-  )
   const capacityProvider = () => {
     if (resolveWorkers) {
       const workers = Number(resolveWorkers())

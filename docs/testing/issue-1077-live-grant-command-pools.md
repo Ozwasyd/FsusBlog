@@ -2,7 +2,7 @@
 
 ## Contract
 
-`tools/test/run-command-manifest.mjs` is the common resource contract for weighted manifests and the shell process adapters used by local static governance, legacy collect groups, and acceptance bootstrap. A scheduler invocation reads the atomic grant document before every admission and accepts it only when schema, run ID, tier ID, CPU, memory, and parent budget agree. A focused direct invocation has no grant document and records `source=direct-invocation-fallback`; a short legacy group without a live grant logs `executionMode=fixed` explicitly.
+`tools/test/run-command-manifest.mjs` is the common resource contract for weighted manifests and the shell process adapters used by local static governance, legacy collect groups, and acceptance bootstrap. A scheduler invocation reads exactly one atomic grant snapshot before every admission and derives both worker capacity and parent CPU/memory limits from that same snapshot; it accepts the document only when schema, run ID, tier ID, CPU, memory, and parent budget agree. A focused direct invocation has no grant document and records `executionMode=fixed` with `source=direct-invocation-fallback`; a short legacy group without a live grant uses the same explicit fixed semantics.
 
 Pending work is ordered by `estimatedDurationMs` using LPT. A grant expansion may admit another independent command before existing children finish. A contraction never kills an admitted child, but it admits nothing new while active weight exceeds the new cap. Cancellation and the inherited `FSUSBLOG_EXECUTION_DEADLINE_AT_MS` take priority over resource polling. An entry that still cannot fit records CPU, memory, dependency, counted-resource, or exclusive-resource wait state instead of silently hanging.
 
