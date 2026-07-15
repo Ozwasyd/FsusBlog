@@ -39,3 +39,8 @@ Failure, timeout, cancellation, and normal completion all release the active res
 Rollback requires only removing the production startup fields and minimum-supported floor. The scheduler then uses the
 explicit compatibility fallback (`startupMinCpuUnits = minCpuUnits`, `startupMemoryWeight = memoryWeight`) without an
 application restart, API change, test skip, or historical-result reuse.
+
+Both profile resolution and the scheduler validate the raw startup policy before creating or executing a physical
+bundle. In particular, zero, negative, or non-finite effective startup memory weights are rejected rather than
+coerced to a fallback share; `startupMinCpuUnits > minCpuUnits` and negative priorities also fail closed. This keeps
+memory admission evidence tied to the declared machine-relative weight instead of silently changing policy at runtime.

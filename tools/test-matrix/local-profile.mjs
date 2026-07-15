@@ -506,8 +506,12 @@ export function createLocalBundleTiers(profileId, profile, { maxParallel = null 
       || !Number.isFinite(bundle.memoryWeight)
       || !Number.isInteger(bundle.minCpuUnits)
       || !Number.isInteger(bundle.startupMinCpuUnits)
+      || bundle.startupMinCpuUnits < 1
+      || bundle.startupMinCpuUnits > bundle.minCpuUnits
       || !Number.isFinite(bundle.startupMemoryWeight)
-      || !Number.isFinite(bundle.startupPriority)) {
+      || bundle.startupMemoryWeight <= 0
+      || !Number.isFinite(bundle.startupPriority)
+      || bundle.startupPriority < 0) {
       throw new Error(`local bundle resource policy must be resolved before creating tier ${bundle.id}`)
     }
   }

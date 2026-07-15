@@ -823,7 +823,7 @@ function startupMinCpuUnits(tier) {
 }
 
 function startupMemoryWeight(tier) {
-  return Math.max(Number.EPSILON, Number(tier.startupMemoryWeight ?? tier.memoryWeight) || 1)
+  return Number(tier.startupMemoryWeight ?? tier.memoryWeight)
 }
 
 function startupAdmissionOrder(left, right) {
@@ -1456,13 +1456,15 @@ async function runDagUnlocked(options) {
   const tiers = applySupersedes(options.tiers ?? [])
   for (const tier of tiers) {
     if (tier.resourceGrantMode === 'dynamic') {
+      const declaredStartupMemoryWeight = startupMemoryWeight(tier)
       if (!Number.isFinite(Number(tier.cpuWeight)) || Number(tier.cpuWeight) <= 0
         || !Number.isFinite(Number(tier.memoryWeight)) || Number(tier.memoryWeight) <= 0
         || !Number.isInteger(Number(tier.minCpuUnits)) || Number(tier.minCpuUnits) < 1
         || !Number.isInteger(Number(tier.startupMinCpuUnits ?? tier.minCpuUnits))
         || Number(tier.startupMinCpuUnits ?? tier.minCpuUnits) < 1
         || startupMinCpuUnits(tier) > Number(tier.minCpuUnits)
-        || !Number.isFinite(startupMemoryWeight(tier))
+        || !Number.isFinite(declaredStartupMemoryWeight)
+        || declaredStartupMemoryWeight <= 0
         || !Number.isFinite(Number(tier.startupPriority ?? 0))
         || Number(tier.startupPriority ?? 0) < 0) {
         throw new Error(`tier ${tier.id} has unresolved dynamic resource policy`)

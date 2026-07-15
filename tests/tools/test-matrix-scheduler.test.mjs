@@ -940,6 +940,42 @@ test('dynamic startup refuses admission when live memory has no safe positive gr
   assert.match(result.failure.reason, /unschedulable resource request.*memoryGiB=.*\/0/u)
 })
 
+test('dynamic startup rejects malformed memory weights before executing a tier', async () => {
+  const { runDag } = await loadScheduler()
+  for (const [label, startupMemoryWeight] of [
+    ['zero', 0],
+    ['negative', -1],
+    ['not-a-number', Number.NaN]
+  ]) {
+    const temp = createTempDir(`scheduler-startup-memory-policy-${label}`)
+    let executed = false
+    await assert.rejects(runDag({
+      tiers: [tier('invalid-memory-policy', {
+        resourceGrantMode: 'dynamic',
+        cpuWeight: 1,
+        memoryWeight: 1,
+        startupMemoryWeight,
+        minCpuUnits: 1,
+        startupMinCpuUnits: 1,
+        cpuUnits: 2,
+        memoryGiB: 2
+      })],
+      root: temp,
+      runsRoot: path.join(temp, 'runs'),
+      runId: `startup-memory-policy-${label}`,
+      maxParallel: 2,
+      systemResources: { cpuCount: 2, availableCpuUnits: 2, availableMemoryGiB: 2, load1: 0 },
+      currentFreeMemoryGiB: () => 2,
+      snapshotWorktree: stableSnapshot,
+      executeTier: async () => {
+        executed = true
+        return { code: 0, signal: null }
+      }
+    }), /unresolved dynamic resource policy/u)
+    assert.equal(executed, false)
+  }
+})
+
 test('a failed dynamic startup grant is released for independent collect-failures work', async () => {
   const { runDag } = await loadScheduler()
   const temp = createTempDir('scheduler-startup-release')

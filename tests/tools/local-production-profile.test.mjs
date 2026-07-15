@@ -171,6 +171,31 @@ test('legacy local bundles retain explicit startup compatibility fallbacks', () 
   }
 })
 
+test('physical bundle creation rejects malformed resolved startup policy', () => {
+  const resolved = resolveLocalProfileResources(profile(), {
+    availableCpuUnits: 5,
+    availableMemoryGiB: 10
+  })
+  for (const [label, mutate] of [
+    ['zero startup memory weight', (bundle) => ({ ...bundle, startupMemoryWeight: 0 })],
+    ['startup CPU above steady minimum', (bundle) => ({
+      ...bundle,
+      startupMinCpuUnits: bundle.minCpuUnits + 1
+    })],
+    ['negative startup priority', (bundle) => ({ ...bundle, startupPriority: -1 })]
+  ]) {
+    const malformed = {
+      ...resolved,
+      bundles: resolved.bundles.map((bundle, index) => index === 0 ? mutate(bundle) : bundle)
+    }
+    assert.throws(
+      () => createLocalBundleTiers('production', malformed),
+      /local bundle resource policy must be resolved/u,
+      label
+    )
+  }
+})
+
 test('local production derives full CPU, safe memory and launch parallelism from the machine', () => {
   assert.deepEqual(
     localProfileSystemResources(profile(), { cpuCount: 8, availableMemoryGiB: 11, load1: 3.5 }),
