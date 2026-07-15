@@ -134,6 +134,7 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
             "20260629-post-author-analytics-rollups",
             "20260621-post-visit-log-anonymous-attribution-finalize",
             "20260621-post-visit-log-ip-anonymization",
+            "20260715-pre-visit-log-ip-pseudonym-epoch",
             "20260621-pre-authoring-admin-principal-attribution",
             "20260518-pre-single-author-article-lifecycle",
             "20260518-post-single-author-article-lifecycle-indexes",

@@ -3,7 +3,6 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FsusBlog.Server.Infrastructure.Filters;
@@ -109,15 +108,19 @@ internal static partial class PowValidationLogic
 
     private static string ResolveClientIpHashForLog(HttpContext httpContext, string clientIp)
     {
-        var configuration = httpContext.RequestServices.GetService<IConfiguration>();
-        if (configuration is null)
+        var pseudonymizer = httpContext.RequestServices.GetService<IVisitLogIpPseudonymizer>();
+        if (pseudonymizer is null)
         {
             return "ip_hash_unavailable";
         }
 
         try
         {
-            return VisitLogIpHashing.HashIp(clientIp, configuration);
+            TimeProvider timeProvider = httpContext.RequestServices.GetService<TimeProvider>() ?? TimeProvider.System;
+            return pseudonymizer.PseudonymizeCurrent(
+                VisitLogIpPseudonymScope.SecurityLog,
+                clientIp,
+                timeProvider.GetUtcNow()).Hash;
         }
         catch
         {

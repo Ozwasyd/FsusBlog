@@ -3,6 +3,7 @@ using System.Text.Json;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -59,7 +60,9 @@ public sealed class HumanReadProofPersistencePrivacyTests(PostgresSchemaMigratio
         await db.Insertable(entity).ExecuteCommandAsync();
         VisitLogEntity persisted = Assert.Single(await db.Queryable<VisitLogEntity>().ToListAsync());
 
-        Assert.Equal(64, persisted.IpHash.Length);
+        Assert.Equal(32, persisted.IpHash.Length);
+        Assert.Equal(5, persisted.IpHashKeyEpoch);
+        Assert.InRange(persisted.IpHashWindowUtc, 20200101, 20991231);
         Assert.NotEqual(message.IP, persisted.IpHash);
         Assert.Equal(message.ViewerKeyHash, persisted.ViewerKeyHash);
         Assert.Equal(message.ProofId, persisted.ProofId);
@@ -121,7 +124,8 @@ public sealed class HumanReadProofPersistencePrivacyTests(PostgresSchemaMigratio
             .AddSingleton<IConfiguration>(new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["VisitLog:IpHashPepper"] = "issue-1050-visit-log-ip-hash-pepper-with-enough-entropy"
+                    [VisitLogIpPseudonymizer.CurrentEpochKey] = "5",
+                    [VisitLogIpPseudonymizer.CurrentKeyKey] = "EBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8="
                 })
                 .Build())
             .AddScoped(_ => Substitute.For<ISqlSugarClient>())

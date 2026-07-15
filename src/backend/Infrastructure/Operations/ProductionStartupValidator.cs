@@ -92,13 +92,6 @@ public static class ProductionStartupValidator
         "development-subject-hash-pepper-change-before-shared-use"
     ];
 
-    private static readonly string[] DefaultVisitLogIpHashPeppers =
-    [
-        "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
-        "replace-with-stable-random-visit-log-ip-hash-pepper",
-        "development-visit-log-ip-hash-pepper-change-before-shared-use"
-    ];
-
     private static readonly string[] DefaultModerationPeppers =
     [
         "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
@@ -157,7 +150,8 @@ public static class ProductionStartupValidator
         Value("MfaChallenge:TicketSigningKey"),
         Value("Audit:TamperEvidenceKey"),
         Value("AnonymousCredentialIssuer:SubjectHashPepper"),
-        Value("VisitLog:IpHashPepper"),
+        Value(VisitLogIpPseudonymizer.CurrentEpochKey),
+        Value(VisitLogIpPseudonymizer.CurrentKeyKey),
         Value("Moderation:RegionPolicy:IpHashKey"),
         Value("Moderation:Pepper"),
         Value("Subscription:EmailHashPepper"),
@@ -266,7 +260,6 @@ public static class ProductionStartupValidator
         string? mfaChallengeTicketSigningKey = values["MfaChallenge:TicketSigningKey"];
         string? auditTamperEvidenceKey = values["Audit:TamperEvidenceKey"];
         string? subjectHashPepper = values["AnonymousCredentialIssuer:SubjectHashPepper"];
-        string? visitLogIpHashPepper = values["VisitLog:IpHashPepper"];
         string? regionIpHashKey = values["Moderation:RegionPolicy:IpHashKey"];
         string? moderationPepper = values["Moderation:Pepper"];
         string? subscriptionEmailHashPepper = values["Subscription:EmailHashPepper"];
@@ -308,7 +301,6 @@ public static class ProductionStartupValidator
         ValidateIndependentSecuritySecret("MfaChallenge:TicketSigningKey", mfaChallengeTicketSigningKey, jwtSecret, DefaultMfaChallengeTicketSigningKeys, errors);
         ValidateAuditTamperEvidenceKey(auditTamperEvidenceKey, jwtSecret, errors);
         ValidateIndependentSecuritySecret("AnonymousCredentialIssuer:SubjectHashPepper", subjectHashPepper, jwtSecret, DefaultSubjectHashPeppers, errors);
-        ValidateIndependentSecuritySecret("VisitLog:IpHashPepper", visitLogIpHashPepper, jwtSecret, DefaultVisitLogIpHashPeppers, errors);
         ValidateIndependentSecuritySecret("Moderation:RegionPolicy:IpHashKey", regionIpHashKey, jwtSecret, [], errors);
         ValidateIndependentSecuritySecret("Moderation:Pepper", moderationPepper, jwtSecret, DefaultModerationPeppers, errors);
         ValidateIndependentSecuritySecret("Subscription:EmailHashPepper", subscriptionEmailHashPepper, jwtSecret, DefaultSubscriptionEmailHashPeppers, errors);
@@ -327,6 +319,10 @@ public static class ProductionStartupValidator
         ValidateAnonymousIdentityMode(anonymousIdentityMode, enforceProductionRules, errors);
         ValidatePerceptionSealedTokenSettings(configuration, enforceProductionRules, errors);
         errors.AddRange(SecurityRiskPseudonymizer.ValidateConfiguration(
+            configuration,
+            enforceProductionRules,
+            DateTimeOffset.UtcNow));
+        errors.AddRange(VisitLogIpPseudonymizer.ValidateConfiguration(
             configuration,
             enforceProductionRules,
             DateTimeOffset.UtcNow));
@@ -1025,7 +1021,7 @@ public static class ProductionStartupValidator
             || error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal)
             || error.Contains("MfaChallenge:TicketSigningKey", StringComparison.Ordinal)
             || error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal)
-            || error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal)
+            || error.Contains(VisitLogIpPseudonymizer.SectionName, StringComparison.Ordinal)
             || error.Contains("Moderation:RegionPolicy:IpHashKey", StringComparison.Ordinal)
             || error.Contains("Moderation:Pepper", StringComparison.Ordinal)
             || error.Contains("DataProtection:", StringComparison.Ordinal)

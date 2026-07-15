@@ -64,6 +64,7 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("20260711-post-recovery-passkey-completion-idempotency", migrationIds);
         Assert.Contains("20260711-pre-account-subject-hash-expand", migrationIds);
         Assert.Contains("20260711-post-account-subject-hash-backfill", migrationIds);
+        Assert.Contains("20260715-pre-visit-log-ip-pseudonym-epoch", migrationIds);
     }
 
     [Fact]
@@ -341,6 +342,22 @@ public sealed class SchemaMigrationRegistryTests
         Assert.Contains("sys_visit_log.ip_hash", fingerprint, StringComparison.Ordinal);
         Assert.Contains("sys_visit_log.ip", fingerprint, StringComparison.Ordinal);
         Assert.DoesNotContain("userid", fingerprint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetDescriptors_VisitLogIpPseudonymEpoch_ErasesStableHashesAndAddsWindowMetadata()
+    {
+        ISchemaMigrationDescriptor descriptor = Assert.Single(
+            new SchemaMigrationRegistry().GetDescriptors(),
+            static item => item.MigrationId == "20260715-pre-visit-log-ip-pseudonym-epoch");
+        string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
+
+        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
+        Assert.Contains("sys_visit_log.ip_hash_key_epoch", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("sys_visit_log.ip_hash_window_utc", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("char_length(ip_hash) <> 32", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("ALTER COLUMN ip_hash TYPE varchar(32)", fingerprint, StringComparison.Ordinal);
+        Assert.Contains("idx_visit_ip_pseudonym", fingerprint, StringComparison.Ordinal);
     }
 
     [Fact]

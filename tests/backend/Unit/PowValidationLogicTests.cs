@@ -23,6 +23,8 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PowValidationLogicTests
 {
+    private const string VisitLogIpKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=";
+
     [Theory]
     [InlineData("127.0.0.1")]
     [InlineData("172.17.0.1")]
@@ -98,12 +100,12 @@ public sealed class PowValidationLogicTests
     public async Task ValidateAsync_InternalPowExceptionLog_UsesIpHashAndOmitsRawClientIp()
     {
         const string clientIp = "203.0.113.10";
-        const string pepper = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy";
         var fixture = CreateFixture();
         string proof = await CreateEncodedProofAsync(fixture.Service, clientIp);
         var context = CreatePowContext(clientIp, proof, new Dictionary<string, string?>
         {
-            ["VisitLog:IpHashPepper"] = pepper
+            [VisitLogIpPseudonymizer.CurrentEpochKey] = "4",
+            [VisitLogIpPseudonymizer.CurrentKeyKey] = VisitLogIpKey
         });
         var logger = new CapturingLogger();
 
@@ -116,7 +118,7 @@ public sealed class PowValidationLogicTests
         Assert.IsType<UnauthorizedObjectResult>(result);
         string rendered = Assert.Single(logger.Messages);
         Assert.DoesNotContain(clientIp, rendered, StringComparison.Ordinal);
-        Assert.Contains(ExpectedIpHash(clientIp, pepper), rendered, StringComparison.Ordinal);
+        Assert.Contains(ExpectedIpHash(clientIp), rendered, StringComparison.Ordinal);
         Assert.Contains("ClientIpHash", rendered, StringComparison.Ordinal);
     }
 
@@ -124,12 +126,12 @@ public sealed class PowValidationLogicTests
     public async Task ValidateAsync_AccessDeniedLog_UsesIpHashAndOmitsRawClientIp()
     {
         const string clientIp = "203.0.113.10";
-        const string pepper = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy";
         var fixture = CreateFixture();
         string proof = await CreateEncodedProofAsync(fixture.Service, clientIp);
         var context = CreatePowContext(clientIp, proof, new Dictionary<string, string?>
         {
-            ["VisitLog:IpHashPepper"] = pepper
+            [VisitLogIpPseudonymizer.CurrentEpochKey] = "4",
+            [VisitLogIpPseudonymizer.CurrentKeyKey] = VisitLogIpKey
         });
         var logger = new CapturingLogger();
 
@@ -142,7 +144,7 @@ public sealed class PowValidationLogicTests
         Assert.IsType<UnauthorizedObjectResult>(result);
         string rendered = Assert.Single(logger.Messages);
         Assert.DoesNotContain(clientIp, rendered, StringComparison.Ordinal);
-        Assert.Contains(ExpectedIpHash(clientIp, pepper), rendered, StringComparison.Ordinal);
+        Assert.Contains(ExpectedIpHash(clientIp), rendered, StringComparison.Ordinal);
         Assert.Contains("ClientIpHash", rendered, StringComparison.Ordinal);
     }
 
@@ -160,16 +162,18 @@ public sealed class PowValidationLogicTests
             string.Equals(parameter.Name, "clientIp", StringComparison.OrdinalIgnoreCase)
             || string.Equals(parameter.Name, "ip", StringComparison.OrdinalIgnoreCase));
 
-        Assert.Equal("VisitLog:IpHashPepper", VisitLogIpHashing.PepperKey);
+        Assert.Equal("VisitLog:IpPseudonymization", VisitLogIpPseudonymizer.SectionName);
         const string ip = "203.0.113.44";
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                [VisitLogIpHashing.PepperKey] = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy"
+                [VisitLogIpPseudonymizer.CurrentEpochKey] = "4",
+                [VisitLogIpPseudonymizer.CurrentKeyKey] = VisitLogIpKey
             })
             .Build();
-        string ipHash = VisitLogIpHashing.HashIp(ip, configuration);
-        Assert.Matches("^[0-9a-f]{64}$", ipHash);
+        string ipHash = new VisitLogIpPseudonymizer(configuration, false, TimeProvider.System)
+            .PseudonymizeCurrent(VisitLogIpPseudonymScope.SecurityLog, ip, DateTimeOffset.UtcNow).Hash;
+        Assert.Matches("^[0-9a-f]{32}$", ipHash);
         Assert.DoesNotContain(ip, ipHash, StringComparison.Ordinal);
 
         MethodInfo crawlerHasher = typeof(CrawlerDetectorService).GetMethod(
@@ -233,6 +237,9 @@ public sealed class PowValidationLogicTests
                 .AddInMemoryCollection(configurationValues)
                 .Build();
             services.AddSingleton(configuration);
+            services.AddSingleton<IVisitLogIpPseudonymizer>(
+                new VisitLogIpPseudonymizer(configuration, false, TimeProvider.System));
+            services.AddSingleton(TimeProvider.System);
         }
 
         var context = new DefaultHttpContext
@@ -244,11 +251,9 @@ public sealed class PowValidationLogicTests
         return context;
     }
 
-    private static string ExpectedIpHash(string ip, string pepper)
-    {
-        byte[] key = SHA256.HashData(Encoding.UTF8.GetBytes(pepper));
-        return Convert.ToHexStringLower(HMACSHA256.HashData(key, Encoding.UTF8.GetBytes(ip)));
-    }
+    private static string ExpectedIpHash(string ip)
+        => new VisitLogIpPseudonymizer(4, Convert.FromBase64String(VisitLogIpKey))
+            .PseudonymizeCurrent(VisitLogIpPseudonymScope.SecurityLog, ip, DateTimeOffset.UtcNow).Hash;
 
     private static string EncodeBinaryProof(VirtualPowRequest request)
     {

@@ -4,6 +4,8 @@
 
 Security-risk 持久化只使用独立、带 epoch 且按 IP/device/account 域隔离的 HMAC pseudonym，并停止保留请求 path 与 User-Agent。生产 key ring、轮换、遗留 unkeyed hash 删除迁移、retention 和流量回退要求见 [security-risk identity pseudonyms](security/security-risk-pseudonyms.md)。
 
+Visit-log IP 同样只是受限 pseudonym，不是绝对匿名数据。它按用途、UTC 日窗口和独立 KMS key epoch 派生并截断为 128 bit；访问、轮换、删除和流量回退规则见 [visit-log IP pseudonyms](security/visit-log-ip-pseudonyms.md)。
+
 ## 纵深防御层次
 
 ```text
@@ -16,7 +18,7 @@ Security-risk 持久化只使用独立、带 epoch 且按 IP/device/account 域�
 
 ## 安全密钥域隔离
 
-`Jwt:SecretKey` 只用于 JWT 签发和校验，不能作为其他安全子系统的派生材料。所有新 JWT 都把 `Jwt:KeyVersion` 写入 JOSE `kid`；验证只接受 current key 或仍处于 `AcceptUntilUtc` 窗口内、版本精确匹配的 `Jwt:PreviousKeys`，未知/过期版本 fail closed。旧版无 `kid` token 只允许在显式 `Jwt:LegacyNoKidAcceptUntilUtc` 一次性迁移窗口内验证，不能永久 try-all。生产启动校验要求 JWT key ring 的版本唯一、密钥至少 32 bytes、各密钥独立且窗口不超过 `Jwt:RotationWindowDays`。完整蓝绿轮换与无需重启的流量回退见 [JWT signing-key rotation](security/jwt-key-rotation.md)。生产启动还要求以下配置项全部存在、长度至少 32 字符，且不得与 `Jwt:SecretKey` 相同：`Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`PublicAot:ManifestToken`、`MfaChallenge:TicketSigningKey`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpHashPepper`、`Moderation:RegionPolicy:IpHashKey`、`Moderation:Pepper`。缺失、模板值或跨域复用会使生产启动失败；运行时服务本身也会 fail closed，不回退到 JWT、本机名、应用目录或硬编码开发字面量。提交到仓库的 `appsettings.json` 不保存 secret 占位字面量，secret-bearing 默认值保持为空；示例值只允许出现在 `appsettings.example.json` 或部署文档中。
+`Jwt:SecretKey` 只用于 JWT 签发和校验，不能作为其他安全子系统的派生材料。所有新 JWT 都把 `Jwt:KeyVersion` 写入 JOSE `kid`；验证只接受 current key 或仍处于 `AcceptUntilUtc` 窗口内、版本精确匹配的 `Jwt:PreviousKeys`，未知/过期版本 fail closed。旧版无 `kid` token 只允许在显式 `Jwt:LegacyNoKidAcceptUntilUtc` 一次性迁移窗口内验证，不能永久 try-all。生产启动校验要求 JWT key ring 的版本唯一、密钥至少 32 bytes、各密钥独立且窗口不超过 `Jwt:RotationWindowDays`。完整蓝绿轮换与无需重启的流量回退见 [JWT signing-key rotation](security/jwt-key-rotation.md)。生产启动还要求以下配置项全部存在且独立：`Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`PublicAot:ManifestToken`、`MfaChallenge:TicketSigningKey`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpPseudonymization:CurrentEpoch` / `CurrentKey`、`Moderation:RegionPolicy:IpHashKey`、`Moderation:Pepper`。VisitLog key 必须是 Base64 编码的至少 32-byte KMS/secret-manager root；缺失、模板值、旧 `VisitLog:IpHashPepper` 或跨域复用会使生产启动失败。运行时服务不回退到 JWT、本机名、应用目录或硬编码开发字面量。提交到仓库的 `appsettings.json` 不保存 secret 占位字面量，secret-bearing 默认值保持为空；示例值只允许出现在 `appsettings.example.json` 或部署文档中。
 
 Integrity proof signing keys are separate from JWT, PoW, Captcha, audit, anonymous identity, and moderation secrets. `SiteIntegritySigningService` uses .NET built-in `ECDSA_P256_SHA256` with payload domain separator `fsusblog.integrity.publish-proof.v1`; it does not use Ed25519 unless a future release adds an explicit reviewed dependency. Private keys must come only from server-side environment variables, secret volumes, or controlled configuration and must never be logged, sent to the browser, placed in public manifests, or managed by C++/Wasm. Missing production signing configuration degrades integrity proof signing to `Disabled`/`Pending` and must not mint fake signatures. Revoked keys may still verify historical signatures before `revokedAtUtc`; compromised keys reject all verification. Lifecycle details are documented in [Site Integrity Signing Keys](integrity/site-signing-keys.md).
 
@@ -24,7 +26,7 @@ Integrity proof signing keys are separate from JWT, PoW, Captcha, audit, anonymo
 
 ASP.NET Core Data Protection 使用独立 X.509 RSA 证书保护共享 key ring 的静态 XML。生产环境必须配置 `DataProtection:KeyProtection:Mode=Certificate`、当前 PKCS#12 证书路径，并保持 `ApplicationName=FsusBlog`；缺少 protector、证书不可加载、当前证书无 RSA 私钥/已过期，或共享 ring 中发现遗留明文 key 时启动 fail closed。证书私钥不能放进共享 key-ring 目录、镜像或备份包。蓝绿实例同时挂载同一 ring，并在证书轮换期间同时配置 current 与 previous certificates，公共 Cookie、antiforgery 和 Data Protection payload 的 wire 语义不变。部署、轮换、明文 ring 迁移和无需重启的流量回退步骤见 [Data Protection Key Ring At-Rest Protection](security/data-protection-key-ring.md)。
 
-日志、审计、指标和 structured fallback 不得打印原始客户端 IP。需要关联访问来源时，只能写入由所属安全域 pepper 派生的 HMAC-SHA256 hash；PoW 验证日志统一使用 `VisitLog:IpHashPepper` 生成 `ClientIpHash`，不得回退到 raw `GetClientIp()`、`RemoteIpAddress`、`X-Forwarded-For` 或 `X-Real-IP`。普通日志同样不得输出 raw PoW salt、MFA `AccountId`、audit `TargetId`、SQL 文本/参数、LocalAuth fixture stdout/stderr、本地绝对路径、moderation dictionary exception message、issuer private/public key readiness flag、raw User-Agent、raw request path 或可逆 token/proof/challenge material；需要排障时只记录短 hash、固定错误类别、数量或低基数状态。
+日志、审计、指标和 structured fallback 不得打印原始客户端 IP。PoW/crawler 日志只允许写 `VisitLogIpPseudonymizer` 的 `security-log` 域 128-bit UTC 日假名；VisitLog 落库使用不可与其联接的 `analytics` 域。两者不得回退到 raw `GetClientIp()`、`RemoteIpAddress`、`X-Forwarded-For`、`X-Real-IP` 或其他密钥。普通日志同样不得输出 raw PoW salt、MFA `AccountId`、audit `TargetId`、SQL 文本/参数、LocalAuth fixture stdout/stderr、本地绝对路径、moderation dictionary exception message、issuer private/public key readiness flag、raw User-Agent、raw request path 或可逆 token/proof/challenge material；需要排障时只记录短 hash、固定错误类别、数量或低基数状态。
 
 文件系统路径和本地脚本执行必须先转换为 `Path.GetFullPath` 后再用 `Path.GetRelativePath` 确认仍位于预期根目录内，不能只依赖字符串 `StartsWith`。LocalAuth fixture 只能执行仓库 `tests/frontend/fixtures/prepare-auth-smoke-users.mjs`；Public AOT hydration sidecar 读写必须留在 web root；SSR worker script 必须留在 frontend client root；upload/image 和 integrity asset file 检查必须留在 `wwwroot/uploads` 或对应 upload sandbox。任何越界、绝对路径覆盖、`..` segment 逃逸或控制字符日志输入都按固定类别拒绝或降级，不回显路径细节。
 
@@ -42,7 +44,7 @@ AEDS pooled response buffer 采用敏感优先分类：未知 frame 以及 auth�
 - 有效期：挑战存入 Redis，TTL 过期后自动失效
 - 服务端验证：注册 / 登录端点在执行业务逻辑前校验 PoW 解答，失败拒绝请求
 - IP / 上下文绑定：legacy PoW proof 的 HMAC 签名和一次性 replay identity 只绑定 `GetClientIp()` 返回的规范化客户端 IP；RiskControl `sha256PowV1` 额外把 challengeId、action、routeKey、subjectHash、clientIpHash、deviceFpHash 和 policyVersion 绑定进 HMAC 上下文。PoW 层不探测 raw remote IP、localhost 或 Docker bridge gateway。代理迁移必须通过 `ForwardedHeadersMiddleware` 的 `ReverseProxy:KnownProxies` / `ReverseProxy:KnownNetworks` 配置修正。
-- 日志隐私：PoW 内部异常和拒绝访问日志只能写 `ClientIpHash`，该值由 `VisitLog:IpHashPepper` 对规范化客户端 IP 做 HMAC-SHA256 生成；日志模板禁止出现 `{IP}` 或原始 IP 参数。
+- 日志隐私：PoW 内部异常和拒绝访问日志只能写 `ClientIpHash`，该值是 `security-log` 用途、当前 KMS epoch 和 UTC 日窗口派生的 128-bit 假名；日志模板禁止出现 `{IP}` 或原始 IP 参数。
 - 安全门控覆盖：缺失、篡改、重放形态的 PoW 请求不得产生 2xx，且不得写入业务状态。
 - 难度语义：`difficulty` 表示 SHA-256 摘要的 bit 级前导零数量，而不是半字节 / nibble 数；默认阶梯为 16/20/24/28 bits。
 - 客户端求解器：PoW 延迟优化只发生在 `src/frontend/wasm/pow` 的 C++23/Wasm 层，proof wire 格式与 Redis/HMAC 绑定语义不变。
@@ -177,7 +179,7 @@ AntiCrawler 支持 `disabled | observe | enforce | strict`。`disabled` 只关�
 - 服务端绑定：HMAC token 绑定 scope、routeKey、articleId、设备指纹哈希、IP 哈希、UA 哈希、签发时间、过期时间、最小停留时间和 nonce。
 - 拒绝条件：无 JS/AOT 未 hydration、直接 API 请求、缺失 Fetch Metadata、跨站 Origin/Referer、爬虫 UA、已验证 crawler、停留不足、过期 token、篡改 token、重放 proof。
 - 成功提交会以 `human-read-proof` 来源写入 `ReadProofAccepted` 负分风险信号，仅用于降低 `public.read` 风险；拒绝与超限继续写入 `ReadProofRejected` 正分风险，但不会阻断公开内容访问；HumanReadProof 只决定阅读事件是否计数，不能授权 comment/auth/admin 写操作。
-- 成功阅读事件写入 VisitLog 时只保存服务端 HMAC 匿名化的 `ip_hash`、viewer key hash、proof id、route/article、event type、region 与时间，不保存登录账号 ID 或原始 IP；数据库最终态删除 `sys_visit_log.userid` / `sys_visit_log.user_id` 历史账号绑定列，并移除 `sys_visit_log.ip`。`ip_hash` 使用 `VisitLog:IpHashPepper`，生产环境应配置为稳定高熵 pepper；后台统计只使用这些匿名化字段聚合 `totalReads`、`humanVerifiedReads`、`uniqueViewerKeyEstimate`、`articleReads` 与 `siteReads`。
+- 成功阅读事件写入 VisitLog 时只保存 `analytics` 用途的 128-bit `ip_hash`、`ip_hash_key_epoch`、`ip_hash_window_utc`、viewer key hash、proof id、route/article、event type、region 与时间，不保存登录账号 ID 或原始 IP；数据库最终态删除 `sys_visit_log.userid` / `sys_visit_log.user_id` 历史账号绑定列，并移除 `sys_visit_log.ip`。同一 IP 跨用途、UTC 日窗口或 KMS epoch 不可直接联接；后台统计只使用这些受限假名字段聚合，不得将假名暴露到 DTO/export。
 - 降级开关：`HumanReadProof:Mode=paused` 暂停计数写入，但不影响内容读取。
 
 该机制提高浏览计数的真人口径，不用于身份认证，也不承诺识别所有未知自动化行为。
@@ -452,7 +454,7 @@ tools/operations/backup-site.sh
 ```
 
 - JWT signing key：按 [JWT signing-key rotation](security/jwt-key-rotation.md) 的两阶段蓝绿流程更新 `Jwt__KeyVersion`、`Jwt__SecretKey` 与有截止时间的 `Jwt__PreviousKeys`。不得用立即替换单密钥的方式制造全量 `401`，也不得永久接受无 `kid` token。
-- 独立安全域密钥：`Security__Pow__SigningKey`、`Security__CaptchaV1__SigningKey`、`Security__RecoveryKeyPepper`、`PublicAot__ManifestToken`、`MfaChallenge__TicketSigningKey`、`AnonymousCredentialIssuer__SubjectHashPepper`、`VisitLog__IpHashPepper`、`Moderation__RegionPolicy__IpHashKey`、`Moderation__Pepper` 必须分别生成和轮换，不能复制 `Jwt__SecretKey`。PoW/Captcha/Recovery/PublicAOT tooling/MFA ticket/SubjectHash/VisitLog/Region/Moderation 任一路径缺少对应密钥都会 fail closed；回滚方式是恢复上一个同域密钥并滚动重启，而不是临时复用 JWT。轮换 `MfaChallenge__TicketSigningKey` 会使旧 MFA challenge ticket 失效，用户需重新发起短 TTL step-up；轮换 `Moderation__RegionPolicy__IpHashKey` 后，旧 `comment_region_compliance.submit_ip_hash` 无法重哈希，必须使用 `tools/security/rotate-region-ip-hash-pepper.sh` 显式清空旧 hash，使旧 pepper 下的关联值失效；轮换 `Moderation__Pepper` 会改变后续匿名评论 moderation subject hash，只能在接受跨轮换关联断开的维护窗口执行。
+- 独立安全域密钥：`Security__Pow__SigningKey`、`Security__CaptchaV1__SigningKey`、`Security__RecoveryKeyPepper`、`PublicAot__ManifestToken`、`MfaChallenge__TicketSigningKey`、`AnonymousCredentialIssuer__SubjectHashPepper`、`VisitLog__IpPseudonymization__CurrentKey`、`Moderation__RegionPolicy__IpHashKey`、`Moderation__Pepper` 必须分别生成和轮换，不能复制 `Jwt__SecretKey` 或 risk pseudonym key。VisitLog 按 [专用轮换流程](security/visit-log-ip-pseudonyms.md) 使用 KMS current/previous epoch，不恢复旧稳定 pepper。轮换 `MfaChallenge__TicketSigningKey` 会使旧 MFA challenge ticket 失效，用户需重新发起短 TTL step-up；轮换 `Moderation__RegionPolicy__IpHashKey` 后，旧 `comment_region_compliance.submit_ip_hash` 无法重哈希，必须使用 `tools/security/rotate-region-ip-hash-pepper.sh` 显式清空旧 hash，使旧 pepper 下的关联值失效；轮换 `Moderation__Pepper` 会改变后续匿名评论 moderation subject hash，只能在接受跨轮换关联断开的维护窗口执行。
 - DataProtection keyring：默认追加新 key，不删除旧 key；每个 key XML 必须由独立 X.509 protector 加密。只有确认旧 cookie、MFA pending payload、恢复窗口以及 previous certificate 解密窗口全部过期后，才在离线维护窗口清理旧 key 和旧证书。迁移服务器时必须分别恢复 keyring 与受控证书 secret，且不得把证书私钥打入 `data-protection-keyring.tar.gz`；缺少任一侧都会 fail closed。
 - Redis password：先更新 Redis ACL/密码，再更新 `ConnectionStrings__Redis` / `RedisOptions__Configuration`，重启后用 `/api/binary/author/ops/health` 验证 Redis 状态。Redis 数据不作为业务恢复来源。
 - PostgreSQL password：先创建或切换数据库凭据，再更新 `ConnectionStrings__DefaultConnection`，重启前保留旧凭据到 readiness 通过。失败时恢复旧连接串或用最近数据库 dump 恢复。

@@ -105,6 +105,20 @@ public class LogCleanupService(
         USING expired
         WHERE target.commit_token = expired.commit_token;
         """;
+    private const string CleanupLegacyVisitLogIpPseudonymsSql = """
+        WITH expired AS (
+            SELECT id
+            FROM sys_visit_log
+            WHERE ip_hash_key_epoch <= 0
+               OR ip_hash_window_utc <= 0
+               OR char_length(ip_hash) <> 32
+            ORDER BY id
+            LIMIT @ChunkSize
+        )
+        DELETE FROM sys_visit_log target
+        USING expired
+        WHERE target.id = expired.id;
+        """;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -191,13 +205,22 @@ public class LogCleanupService(
                 fencedCommitExpireDate,
                 scopedToken),
             token);
+        Task<int> legacyVisitLogIpTask = CleanupWithScopedDbAsync(
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
+                db,
+                "legacy-visit-log-ip-retention",
+                CleanupLegacyVisitLogIpPseudonymsSql,
+                now,
+                scopedToken),
+            token);
         await Task.WhenAll(
             visitTask,
             rumTask,
             auditTask,
             anonymousCredentialAuditTask,
             legacySecurityRiskTask,
-            fencedCommitTask);
+            fencedCommitTask,
+            legacyVisitLogIpTask);
 
         int visitDeleted = await visitTask;
         int rumDeleted = await rumTask;
@@ -205,22 +228,25 @@ public class LogCleanupService(
         int anonymousCredentialAuditDeleted = await anonymousCredentialAuditTask;
         int legacySecurityRiskDeleted = await legacySecurityRiskTask;
         int fencedCommitDeleted = await fencedCommitTask;
+        int legacyVisitLogIpDeleted = await legacyVisitLogIpTask;
 
         if (visitDeleted > 0
             || rumDeleted > 0
             || auditDeleted > 0
             || anonymousCredentialAuditDeleted > 0
             || legacySecurityRiskDeleted > 0
-            || fencedCommitDeleted > 0)
+            || fencedCommitDeleted > 0
+            || legacyVisitLogIpDeleted > 0)
         {
             _logger.LogInformation(
-                "日志自动清理成功 | visit={VisitCount} rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount} fencedCommit={FencedCommitCount}",
+                "日志自动清理成功 | visit={VisitCount} rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount} fencedCommit={FencedCommitCount} legacyVisitLogIp={LegacyVisitLogIpCount}",
                 visitDeleted,
                 rumDeleted,
                 auditDeleted,
                 anonymousCredentialAuditDeleted,
                 legacySecurityRiskDeleted,
-                fencedCommitDeleted);
+                fencedCommitDeleted,
+                legacyVisitLogIpDeleted);
         }
     }
 
@@ -371,6 +397,21 @@ public class LogCleanupService(
         => CleanupByServerSideLimitAsync(
             db,
             CleanupLegacySecurityRiskPseudonymsSql,
+            DateTime.UnixEpoch,
+            chunkSize,
+            maxChunks,
+            delayBetweenChunks,
+            token);
+
+    internal static Task<int> CleanupLegacyVisitLogIpPseudonymsAsync(
+        ISqlSugarClient db,
+        int chunkSize,
+        int maxChunks,
+        TimeSpan delayBetweenChunks,
+        CancellationToken token)
+        => CleanupByServerSideLimitAsync(
+            db,
+            CleanupLegacyVisitLogIpPseudonymsSql,
             DateTime.UnixEpoch,
             chunkSize,
             maxChunks,

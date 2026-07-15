@@ -15,7 +15,9 @@ namespace FsusBlog.Server.Services.Security;
 public class CrawlerDetectorService(
     ILogger<CrawlerDetectorService> logger,
     IMemoryCache cache,
-    IConfiguration? configuration = null)
+    IConfiguration? configuration = null,
+    IVisitLogIpPseudonymizer? ipPseudonymizer = null,
+    TimeProvider? timeProvider = null)
 {
     private const int MaxCidrRangesPerProvider = 8192;
     private const int MaxUserAgentLength = 512;
@@ -227,7 +229,14 @@ public class CrawlerDetectorService(
 
         try
         {
-            return VisitLogIpHashing.HashIp(ip, configuration);
+            var pseudonymizer = new VisitLogIpPseudonymizer(
+                configuration,
+                enforceProductionRules: true,
+                TimeProvider.System);
+            return pseudonymizer.PseudonymizeCurrent(
+                VisitLogIpPseudonymScope.SecurityLog,
+                ip,
+                DateTimeOffset.UtcNow).Hash;
         }
         catch
         {
@@ -236,7 +245,24 @@ public class CrawlerDetectorService(
     }
 
     private string ResolveClientIpHashForLog(string ip)
-        => ResolveClientIpHashForLog(ip, configuration);
+    {
+        if (ipPseudonymizer is null)
+        {
+            return ResolveClientIpHashForLog(ip, configuration);
+        }
+
+        try
+        {
+            return ipPseudonymizer.PseudonymizeCurrent(
+                VisitLogIpPseudonymScope.SecurityLog,
+                ip,
+                (timeProvider ?? TimeProvider.System).GetUtcNow()).Hash;
+        }
+        catch
+        {
+            return "ip_hash_unavailable";
+        }
+    }
 }
 
 public sealed record CrawlerRangeStatus(

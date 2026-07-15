@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.VisitLog;
 using FsusBlog.Server.Entities;
 using IP2Location;
@@ -97,8 +98,10 @@ public sealed class VisitLogProcessorServiceTests
         PropertyInfo? ipHashProperty = typeof(VisitLogEntity).GetProperty("IpHash");
         Assert.NotNull(ipHashProperty);
         string? ipHash = Assert.IsType<string>(ipHashProperty!.GetValue(item));
-        Assert.Equal(64, ipHash.Length);
+        Assert.Equal(32, ipHash.Length);
         Assert.NotEqual("127.0.0.1", ipHash);
+        Assert.Equal(3, item.IpHashKeyEpoch);
+        Assert.InRange(item.IpHashWindowUtc, 20200101, 20991231);
     }
 
     [Fact]
@@ -244,7 +247,8 @@ public sealed class VisitLogProcessorServiceTests
             .AddSingleton<IConfiguration>(new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["VisitLog:IpHashPepper"] = "unit-test-visit-log-ip-hash-pepper-with-enough-entropy"
+                    [VisitLogIpPseudonymizer.CurrentEpochKey] = "3",
+                    [VisitLogIpPseudonymizer.CurrentKeyKey] = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
                 })
                 .Build())
             .AddScoped(_ => Substitute.For<ISqlSugarClient>())

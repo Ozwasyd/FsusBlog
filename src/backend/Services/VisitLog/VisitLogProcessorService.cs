@@ -77,7 +77,7 @@ public class VisitLogProcessorService : BackgroundService
     private readonly VisitLogChannel _channel;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<VisitLogProcessorService> _logger;
-    private readonly byte[] _ipHashKey;
+    private readonly IVisitLogIpPseudonymizer _ipPseudonymizer;
     private ObjectPool<Component>? _ipPool;
     private IArticleViewProjectionService? _articleViewProjectionService;
     private IHotStatsInvalidationCoalescer? _hotStatsInvalidationCoalescer;
@@ -87,12 +87,18 @@ public class VisitLogProcessorService : BackgroundService
         VisitLogChannel channel,
         IServiceProvider serviceProvider,
         ILogger<VisitLogProcessorService> logger,
-        ObjectPool<Component>? ipPool = null)
+        ObjectPool<Component>? ipPool = null,
+        IVisitLogIpPseudonymizer? ipPseudonymizer = null)
     {
         _channel = channel;
         _serviceProvider = serviceProvider;
         _logger = logger;
-        _ipHashKey = VisitLogIpHashing.CreateKey(serviceProvider.GetService<IConfiguration>());
+        _ipPseudonymizer = ipPseudonymizer
+            ?? serviceProvider.GetService<IVisitLogIpPseudonymizer>()
+            ?? new VisitLogIpPseudonymizer(
+                serviceProvider.GetRequiredService<IConfiguration>(),
+                enforceProductionRules: true,
+                serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System);
         _ipPool = ipPool;
     }
 
@@ -260,13 +266,18 @@ public class VisitLogProcessorService : BackgroundService
 
         var ip = msg.IP.Trim();
         ip = ip.Length > MaxIpLength ? ip[..MaxIpLength] : ip;
-        string ipHash = HashIp(ip);
+        VisitLogIpPseudonym ipPseudonym = _ipPseudonymizer.PseudonymizeCurrent(
+            VisitLogIpPseudonymScope.Analytics,
+            ip,
+            new DateTimeOffset(DateTime.SpecifyKind(msg.CreateTime, DateTimeKind.Utc)));
         string eventType = NormalizeEventType(msg.EventType);
         if (TryClassifyLocalNetwork(ip, out var localRegion))
         {
             batch.Add(new VisitLogEntity
             {
-                IpHash = ipHash,
+                IpHash = ipPseudonym.Hash,
+                IpHashKeyEpoch = ipPseudonym.KeyEpoch,
+                IpHashWindowUtc = ipPseudonym.WindowUtc,
                 Region = localRegion,
                 CreateTime = msg.CreateTime,
                 EventType = eventType,
@@ -314,7 +325,9 @@ public class VisitLogProcessorService : BackgroundService
 
         batch.Add(new VisitLogEntity
         {
-            IpHash = ipHash,
+            IpHash = ipPseudonym.Hash,
+            IpHashKeyEpoch = ipPseudonym.KeyEpoch,
+            IpHashWindowUtc = ipPseudonym.WindowUtc,
             Region = region,
             CreateTime = msg.CreateTime,
             EventType = eventType,
@@ -432,9 +445,6 @@ public class VisitLogProcessorService : BackgroundService
         string trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
-
-    private string HashIp(string ip)
-        => VisitLogIpHashing.HashIp(ip, _ipHashKey);
 
     internal static bool TryClassifyLocalNetwork(string ip, out string region)
     {

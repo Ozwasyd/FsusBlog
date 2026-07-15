@@ -59,6 +59,7 @@ public sealed class LogCleanupWorkerBehaviorTests
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-90), cutoffs["anonymous-credential-audit"]);
         Assert.Equal(BaselineNow.UtcDateTime, cutoffs["legacy-security-risk"]);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-30), cutoffs["fenced-commit"]);
+        Assert.Equal(BaselineNow.UtcDateTime, cutoffs["legacy-visit-log-ip"]);
     }
 
     [Fact]
@@ -157,6 +158,7 @@ public sealed class LogCleanupWorkerBehaviorTests
 
     private static string ResolveTarget(string sql)
     {
+        if (sql.Contains("ip_hash_key_epoch", StringComparison.Ordinal)) return "legacy-visit-log-ip";
         if (sql.Contains("sys_visit_log", StringComparison.Ordinal)) return "visit";
         if (sql.Contains("frontend_rum_metric", StringComparison.Ordinal)) return "rum";
         if (sql.Contains("sys_audit_log", StringComparison.Ordinal)) return "audit";

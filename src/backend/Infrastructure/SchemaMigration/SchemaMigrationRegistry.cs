@@ -67,6 +67,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildAuthorAnalyticsRollupMigration(),
         BuildVisitLogAnonymousAttributionFinalizeMigration(),
         BuildVisitLogIpAnonymizationMigration(),
+        BuildVisitLogIpPseudonymEpochCompatMigration(),
         BuildAuthoringAdminPrincipalAttributionMigration(),
         BuildSingleAuthorArticleLifecycleMigration(),
         BuildSingleAuthorArticleLifecycleIndexMigration(),
@@ -2896,6 +2897,38 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
             [
                 new EnsureColumnStep("sys_visit_log", "ip_hash", "VARCHAR(64) NOT NULL DEFAULT ''"),
                 new DropColumnStep("sys_visit_log", "ip")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildVisitLogIpPseudonymEpochCompatMigration()
+        => new SchemaMigrationDescriptor(
+            "20260715-pre-visit-log-ip-pseudonym-epoch",
+            "Erase stable legacy visit-log hashes and add purpose-bound metadata before CodeFirst narrows the hash column.",
+            SchemaMigrationPhase.PreCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("sys_visit_log", "ip_hash_key_epoch", "integer NOT NULL DEFAULT 0"),
+                new EnsureColumnStep("sys_visit_log", "ip_hash_window_utc", "integer NOT NULL DEFAULT 0"),
+                new RawSqlStep("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (
+                            SELECT 1 FROM information_schema.tables
+                            WHERE table_schema = 'public' AND table_name = 'sys_visit_log'
+                        ) THEN
+                            DELETE FROM sys_visit_log
+                            WHERE ip_hash_key_epoch <= 0
+                               OR ip_hash_window_utc <= 0
+                               OR char_length(ip_hash) <> 32;
+
+                            ALTER TABLE sys_visit_log
+                            ALTER COLUMN ip_hash TYPE varchar(32);
+                        END IF;
+                    END $$;
+                    """),
+                new CreateIndexStep(
+                    "idx_visit_ip_pseudonym",
+                    "CREATE INDEX IF NOT EXISTS idx_visit_ip_pseudonym ON sys_visit_log(ip_hash_key_epoch, ip_hash_window_utc, ip_hash);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAuthoringAdminPrincipalAttributionMigration()

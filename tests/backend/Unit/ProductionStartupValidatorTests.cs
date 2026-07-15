@@ -57,7 +57,8 @@ public sealed class ProductionStartupValidatorTests
             ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
             ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
-            ["VisitLog:IpHashPepper"] = TestSecrets.VisitLogIpHashPepper,
+            [VisitLogIpPseudonymizer.CurrentEpochKey] = "1",
+            [VisitLogIpPseudonymizer.CurrentKeyKey] = TestSecrets.VisitLogIpPseudonymKey,
             ["Moderation:RegionPolicy:IpHashKey"] = TestSecrets.RegionIpHashKey,
             ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
             ["Subscription:EmailHashPepper"] = TestSecrets.SubscriptionEmailHashPepper,
@@ -266,7 +267,8 @@ public sealed class ProductionStartupValidatorTests
             ["Fido2:ServerDomain"] = "localhost",
             ["Fido2:Origins:0"] = "http://example.com",
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = "MUST_BE_OVERRIDDEN_BY_ENV_VARIABLES",
-            ["VisitLog:IpHashPepper"] = "replace-with-stable-random-visit-log-ip-hash-pepper"
+            [VisitLogIpPseudonymizer.CurrentEpochKey] = "1",
+            [VisitLogIpPseudonymizer.CurrentKeyKey] = "replace-with-base64-visit-log-key"
         });
 
         IReadOnlyList<string> errors = ProductionStartupValidator.ValidateCore(configuration, enforceProductionRules: true);
@@ -285,7 +287,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Security:RecoveryKeyPepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("PublicAot:ManifestToken", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
-        Assert.Contains(errors, static error => error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains(VisitLogIpPseudonymizer.CurrentKeyKey, StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Moderation:Pepper", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Moderation:RegionPolicy:IpHashKey", StringComparison.Ordinal));
     }
@@ -297,7 +299,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("PublicAot:ManifestToken")]
     [InlineData("Audit:TamperEvidenceKey")]
     [InlineData("AnonymousCredentialIssuer:SubjectHashPepper")]
-    [InlineData("VisitLog:IpHashPepper")]
+    [InlineData("VisitLog:IpPseudonymization:CurrentKey")]
     [InlineData("Moderation:RegionPolicy:IpHashKey")]
     public void ValidateCore_RejectsProductionWhenIndependentSecuritySecretIsMissing(string key)
     {
@@ -318,7 +320,7 @@ public sealed class ProductionStartupValidatorTests
     [InlineData("PublicAot:ManifestToken")]
     [InlineData("Audit:TamperEvidenceKey")]
     [InlineData("AnonymousCredentialIssuer:SubjectHashPepper")]
-    [InlineData("VisitLog:IpHashPepper")]
+    [InlineData("VisitLog:IpPseudonymization:CurrentKey")]
     [InlineData("Moderation:RegionPolicy:IpHashKey")]
     public void ValidateCore_RejectsProductionSecuritySecretSharedWithJwtSecret(string key)
     {
@@ -360,7 +362,7 @@ public sealed class ProductionStartupValidatorTests
             (typeof(CaptchaV1ChallengeProvider), "Security:CaptchaV1:SigningKey"),
             (typeof(RecoveryKeyService), "Security:RecoveryKeyPepper"),
             (typeof(AnonymousCredentialIssuerService), "AnonymousCredentialIssuer:SubjectHashPepper"),
-            (typeof(VisitLogIpHashing), "VisitLog:IpHashPepper"),
+            (typeof(VisitLogIpPseudonymizer), "VisitLog:IpPseudonymization:CurrentKey"),
             (typeof(ClientRegionResolver), "Moderation:RegionPolicy:IpHashKey")
         ];
 
@@ -556,7 +558,7 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains(errors, static error => error.Contains("Fido2:ServerDomain", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("Fido2:Origins", StringComparison.Ordinal));
         Assert.Contains(errors, static error => error.Contains("AnonymousCredentialIssuer:SubjectHashPepper", StringComparison.Ordinal));
-        Assert.Contains(errors, static error => error.Contains("VisitLog:IpHashPepper", StringComparison.Ordinal));
+        Assert.Contains(errors, static error => error.Contains(VisitLogIpPseudonymizer.CurrentKeyKey, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -634,7 +636,8 @@ public sealed class ProductionStartupValidatorTests
         Assert.Contains("MfaChallenge:TicketSigningKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Audit:TamperEvidenceKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("AnonymousCredentialIssuer:SubjectHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
-        Assert.Contains("VisitLog:IpHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains(VisitLogIpPseudonymizer.CurrentEpochKey, ProductionStartupValidator.CurrentSchema.RequiredSettings);
+        Assert.Contains(VisitLogIpPseudonymizer.CurrentKeyKey, ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Moderation:RegionPolicy:IpHashKey", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Moderation:Pepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
         Assert.Contains("Subscription:EmailHashPepper", ProductionStartupValidator.CurrentSchema.RequiredSettings);
@@ -917,7 +920,8 @@ public sealed class ProductionStartupValidatorTests
             ["MfaChallenge:TicketSigningKey"] = TestSecrets.MfaTicketSigningKey,
             ["Audit:TamperEvidenceKey"] = TestSecrets.AuditTamperEvidenceKey,
             ["AnonymousCredentialIssuer:SubjectHashPepper"] = TestSecrets.SubjectHashPepper,
-            ["VisitLog:IpHashPepper"] = TestSecrets.VisitLogIpHashPepper,
+            [VisitLogIpPseudonymizer.CurrentEpochKey] = "1",
+            [VisitLogIpPseudonymizer.CurrentKeyKey] = TestSecrets.VisitLogIpPseudonymKey,
             ["Moderation:RegionPolicy:IpHashKey"] = TestSecrets.RegionIpHashKey,
             ["Moderation:Pepper"] = TestSecrets.ModerationPepper,
             ["Subscription:EmailHashPepper"] = TestSecrets.SubscriptionEmailHashPepper,

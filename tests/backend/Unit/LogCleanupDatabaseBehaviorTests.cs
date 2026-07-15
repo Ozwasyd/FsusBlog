@@ -130,6 +130,45 @@ public sealed class LogCleanupDatabaseBehaviorTests(PostgresSchemaMigrationFixtu
         Assert.Equal(2, retained.PseudonymEpoch);
     }
 
+    [Fact]
+    public async Task CleanupLegacyVisitLogIpPseudonymsAsync_DeletesOnlyRowsWithoutKeyAndWindowMetadata()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        PostgresSqlSugarTestClient.InitTables(db, typeof(VisitLog));
+        DateTime now = new(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc);
+        await db.Insertable(new[]
+        {
+            new VisitLog
+            {
+                IpHash = new string('a', 32),
+                IpHashKeyEpoch = 0,
+                IpHashWindowUtc = 0,
+                Region = "test",
+                CreateTime = now
+            },
+            new VisitLog
+            {
+                IpHash = new string('b', 32),
+                IpHashKeyEpoch = 2,
+                IpHashWindowUtc = 20260715,
+                Region = "test",
+                CreateTime = now
+            }
+        }).ExecuteCommandAsync();
+
+        int deleted = await LogCleanupService.CleanupLegacyVisitLogIpPseudonymsAsync(
+            db,
+            chunkSize: 1,
+            maxChunks: 10,
+            delayBetweenChunks: TimeSpan.Zero,
+            CancellationToken.None);
+
+        Assert.Equal(1, deleted);
+        VisitLog retained = Assert.Single(await db.Queryable<VisitLog>().ToListAsync());
+        Assert.Equal(2, retained.IpHashKeyEpoch);
+        Assert.Equal(20260715, retained.IpHashWindowUtc);
+    }
+
     private static FrontendRumMetric CreateRum(string name, DateTime occurredAt)
         => new()
         {

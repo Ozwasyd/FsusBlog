@@ -548,12 +548,12 @@ Health/ops 协议独立于 PublicAOT 与 AEDS payload。`ProductionHealthEndpoin
 服务器通过 HostedService 在启动后执行以下生产校验，失败时进入可观测降级状态而不是直接终止进程：
 
 - JWT 密钥不得为默认占位值
-- `Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpHashPepper`、`Moderation:RegionPolicy:IpHashKey`、`Moderation:Pepper` 必须使用独立高熵值，且不得等于 `Jwt:SecretKey`
+- `Security:Pow:SigningKey`、`Security:CaptchaV1:SigningKey`、`Security:RecoveryKeyPepper`、`AnonymousCredentialIssuer:SubjectHashPepper`、`VisitLog:IpPseudonymization:CurrentKey`、`Moderation:RegionPolicy:IpHashKey`、`Moderation:Pepper` 必须使用独立高熵值，且不得等于 `Jwt:SecretKey`；VisitLog root 由 KMS/secret manager 注入并携带正整数 epoch
 - Redis 密码不得为空
 - `SITE_BASEURL` 必须为 HTTPS
 - CORS 配置的 Origins 不得包含 HTTP 来源
 
-运行期日志的隐私边界与生产启动密钥边界一致：原始客户端 IP 只能参与本地判定，不能进入日志、指标或 fallback structured event。PoW、RiskControl、visit log 和审计链路需要来源关联时必须写 HMAC 后的 `ClientIpHash` / `IpHash`；PoW 日志使用 `VisitLog:IpHashPepper`，缺失该配置时不得回退到 JWT、localhost、raw remote IP 或请求头。
+运行期日志的隐私边界与生产启动密钥边界一致：原始客户端 IP 只能参与本地判定，不能进入日志、指标或 fallback structured event。VisitLog analytics 与 PoW/crawler security-log 使用独立用途域、UTC 日窗口和 KMS epoch 派生的 128-bit 假名，互相不可直接联接；RiskControl 使用它自己的独立 pseudonym key。任一路径缺失配置时不得回退到 JWT、localhost、raw remote IP 或请求头。完整访问、retention、rotation 和 rollback 见 [visit-log IP pseudonyms](security/visit-log-ip-pseudonyms.md)。
 
 降级状态会写入运行时状态任务 `productionStartupValidation`。回退路径是修复环境变量或依赖服务后重启应用；密钥类错误只能恢复对应安全域的上一个密钥，不能临时复用 JWT 密钥，也无需修改路由、中间件或健康探针代码。
 

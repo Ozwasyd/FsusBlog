@@ -7,13 +7,20 @@ namespace FsusBlog.Server.Entities;
 [SugarIndex("idx_visit_region", nameof(Region), OrderByType.Asc, false)] // 为地区统计聚合加速
 [SugarIndex("idx_visit_event_time", nameof(EventType), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc)]
 [SugarIndex("idx_visit_article_time", nameof(ArticleId), OrderByType.Asc, nameof(CreateTime), OrderByType.Desc)]
+[SugarIndex("idx_visit_ip_pseudonym", nameof(IpHashKeyEpoch), OrderByType.Asc, nameof(IpHashWindowUtc), OrderByType.Asc, nameof(IpHash), OrderByType.Asc)]
 public class VisitLog
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
     public int Id { get; set; }
 
-    [SugarColumn(ColumnName = "ip_hash", Length = 64, IsNullable = false, DefaultValue = "''")]
+    [SugarColumn(ColumnName = "ip_hash", Length = 32, IsNullable = false, DefaultValue = "''")]
     public string IpHash { get; set; } = string.Empty;
+
+    [SugarColumn(ColumnName = "ip_hash_key_epoch", IsNullable = false, DefaultValue = "0")]
+    public int IpHashKeyEpoch { get; set; }
+
+    [SugarColumn(ColumnName = "ip_hash_window_utc", IsNullable = false, DefaultValue = "0")]
+    public int IpHashWindowUtc { get; set; }
 
     public string Region { get; set; } = string.Empty;
     public DateTime CreateTime { get; set; }
