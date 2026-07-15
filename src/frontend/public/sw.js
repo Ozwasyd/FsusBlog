@@ -172,7 +172,7 @@ async function handleControlMessage(message) {
       return { cleared: true }
     case 'privacy.clear':
       {
-        const result = await clearPrivateBrowserStateCaches()
+        const result = await clearPrivateBrowserStateCaches(message.reason)
         await broadcast({ type: 'private-state-cleared' })
         return result
       }
@@ -722,12 +722,18 @@ async function clearLegacyFsusCaches() {
   )
 }
 
-async function clearPrivateBrowserStateCaches() {
+async function clearPrivateBrowserStateCaches(reason) {
   const cacheNames = await caches.keys()
   let deletedCacheCount = 0
   let deletedEntryCount = 0
 
   await Promise.all(cacheNames.map(async (cacheName) => {
+    if (reason === 'panic' && cacheName.startsWith('fsus-')) {
+      if (await caches.delete(cacheName)) {
+        deletedCacheCount += 1
+      }
+      return
+    }
     if (PRIVATE_BROWSER_CACHE_NAME_PATTERN.test(cacheName)) {
       if (await caches.delete(cacheName)) {
         deletedCacheCount += 1

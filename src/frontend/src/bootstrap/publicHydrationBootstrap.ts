@@ -1,6 +1,7 @@
 import type { PublicHydrationPayload } from '@/public-renderers';
 import { AEDS_BINARY_MEDIA_TYPE, PUBLIC_AOT_HYDRATION_MEDIA_TYPE } from '@/api/contracts';
 import { decodePublicAotPayload, decodePublicAotPayloadBytes } from '@/bootstrap/publicAotBinaryPayload';
+import { setNonExecutableScriptText } from '@/security/trustedTypesRuntime';
 
 const HYDRATION_SCRIPT_ID = 'fsus-aot-hydration-props';
 let cachedPayload: PublicHydrationPayload | null | undefined;
@@ -152,7 +153,7 @@ export function replacePublicHydrationPayloadBinary(rawPayload: string | null): 
     return created;
   })();
 
-  target.textContent = rawPayload;
+  setNonExecutableScriptText(target, rawPayload);
   writeWindowHydrationRaw(rawPayload);
 
   try {

@@ -38,6 +38,7 @@ import {
 import type { SecurityChallengeProof } from '@/security/challenge-proof-store'
 import type { NotificationStreamArticleRenderPatch, NotificationStreamCommentRenderPatch } from '@/services/notificationStreamTypes'
 import { isPublicReadHydrationSuppressed } from '@/services/publicReadHydrationGuard'
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import {
   getCommentPrivacyRuntime,
@@ -353,7 +354,11 @@ export function useArticleDetailView() {
         zkPolicy.zkProdTrustedSetupVerified === true &&
         zkPolicy.zkProdCredentialRootReady === true &&
         (zkPolicy.zkProdUnavailableReason?.length ?? 0) === 0
+    const wasZkAnonymousEnabled = zkAnonymousEnabled.value
     zkAnonymousEnabled.value = policy.zkAnonymousEnabled && zkProdAvailable
+    if (wasZkAnonymousEnabled && !zkAnonymousEnabled.value) {
+      void clearPrivateBrowserState('feature-disabled')
+    }
     applySupportedCommentDisplayLanguage(policy.supportedDisplayLanguages)
 
     if (

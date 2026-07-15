@@ -125,6 +125,26 @@ describe('commentPrivacyWasmProver', () => {
     expect(loadModule).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ['external module', { moduleUrl: 'https://evil.example/comment-privacy-prover.js' }],
+    ['blob module', { moduleUrl: 'blob:https://fsus.blog/opaque' }],
+    ['query-swapped module', { moduleUrl: '/wasm/comment-privacy-prover.js?version=evil' }],
+    ['external wasm', { wasmUrl: 'https://evil.example/comment-privacy-prover.wasm' }],
+    ['wrong proving key path', { provingKeyUrl: '/wasm/replacement.zkey' }]
+  ])('fails closed before loading a %s URL outside the immutable same-origin manifest boundary', async (_label, override) => {
+    const loadArtifact = vi.fn()
+    const loadModule = vi.fn()
+    const prover = createCommentPrivacyWasmProver({
+      loadManifest: vi.fn().mockResolvedValue({ ...manifest, ...override }),
+      loadArtifact,
+      loadModule
+    })
+
+    await expect(prover.prewarm()).rejects.toThrow('comment_privacy_prover_artifact_invalid')
+    expect(loadArtifact).not.toHaveBeenCalled()
+    expect(loadModule).not.toHaveBeenCalled()
+  })
+
   it('loads the public browser prover artifact through a module script tag', async () => {
     const prewarm = vi.fn().mockResolvedValue(undefined)
     const prepareProof = vi.fn().mockResolvedValue({

@@ -7,6 +7,27 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+const credentialVaultReleasePlanPath = path.join(
+  root,
+  'security/privacy/comment-privacy-credential-vault.release-plan.json'
+)
+
+export const credentialVaultReleasePlan = JSON.parse(fs.readFileSync(credentialVaultReleasePlanPath, 'utf8'))
+if (credentialVaultReleasePlan.schema !== 'fsusblog.comment-privacy-credential-vault-release-plan.v1'
+    || credentialVaultReleasePlan.releaseTier !== 'privacy-zk-comment-matrix'
+    || credentialVaultReleasePlan.frontendLane !== 'check:privacy-zk-frontend'
+    || !Array.isArray(credentialVaultReleasePlan.requiredEvidence)
+    || credentialVaultReleasePlan.requiredEvidence.length === 0) {
+  throw new Error('comment privacy credential vault release plan is invalid or not production-bound')
+}
+const credentialVaultEvidenceKeys = new Set()
+for (const evidence of credentialVaultReleasePlan.requiredEvidence) {
+  if (typeof evidence?.id !== 'string' || typeof evidence?.file !== 'string'
+      || typeof evidence?.testName !== 'string' || credentialVaultEvidenceKeys.has(evidence.id)) {
+    throw new Error('comment privacy credential vault release plan contains invalid or duplicate evidence')
+  }
+  credentialVaultEvidenceKeys.add(evidence.id)
+}
 
 export const requiredBackendClasses = [
   'AnonymousCredentialIssuerTests',
@@ -23,7 +44,7 @@ export const requiredBackendClasses = [
   'AnonymousPrivacyConcurrencyTests'
 ]
 
-export const requiredFrontendFiles = [
+const baselineFrontendFiles = [
   'tests/frontend/unit/api/comment.test.ts',
   'tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts',
   'tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts',
@@ -32,6 +53,12 @@ export const requiredFrontendFiles = [
   'tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts',
   'tests/frontend/unit/components/ArticleCommentComposer.test.ts'
 ]
+
+export const requiredFrontendEvidence = credentialVaultReleasePlan.requiredEvidence
+export const requiredFrontendFiles = [...new Set([
+  ...baselineFrontendFiles,
+  ...requiredFrontendEvidence.map(evidence => evidence.file)
+])]
 
 function readJson(file, label) {
   if (!fs.existsSync(file)) throw new Error(`${label} is missing: ${path.relative(root, file)}`)
@@ -179,7 +206,23 @@ export function projectPrivacyFunctionalEvidence({
         || record.assertions.some((assertion) => assertion.status !== 'passed')) {
       throw new Error(`Vitest privacy file is empty or non-passing: ${requiredFile}`)
     }
-    return { file: requiredFile, passed: record.assertions.length }
+    const requiredEvidence = requiredFrontendEvidence.filter(evidence => evidence.file === requiredFile)
+    const evidence = requiredEvidence.map((requirement) => {
+      const selectedAssertions = record.assertions.filter(assertion => {
+        const fullName = String(assertion.fullName ?? [
+          ...(assertion.ancestorTitles ?? []),
+          assertion.title ?? ''
+        ].join(' '))
+        return fullName.endsWith(requirement.testName)
+      })
+      if (selectedAssertions.length !== 1 || selectedAssertions[0].status !== 'passed') {
+        throw new Error(
+          `Vitest privacy evidence ${requirement.id} requires exactly one passing assertion named ${requirement.testName}`
+        )
+      }
+      return { id: requirement.id, testName: requirement.testName }
+    })
+    return { file: requiredFile, passed: record.assertions.length, evidence }
   })
 
   const smoke = readJson(smokeEvidence, 'privacy production smoke evidence')
@@ -190,7 +233,7 @@ export function projectPrivacyFunctionalEvidence({
     throw new Error('privacy production smoke evidence is stale, invalid, or failed')
   }
 
-  const evidenceFiles = [backendSummary, ...trxFiles, ...new Set(frontendProjection.map((entry) => {
+  const evidenceFiles = [credentialVaultReleasePlanPath, backendSummary, ...trxFiles, ...new Set(frontendProjection.map((entry) => {
     return frontendRecords.find((record) => record.file === entry.file).report
   })), smokeEvidence]
   const receipt = {

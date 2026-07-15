@@ -1,6 +1,11 @@
 import { emitTelemetry } from '@/services/telemetryBus'
 import { resolveServiceWorkerScriptUrl } from '@/config/releaseStorage'
 import type { CacheControlPayload, SearchIndexUpdatePayload } from '@/services/notificationStreamTypes'
+import {
+  purgeCommentPrivacyCredentialState,
+  type CommentPrivacyCredentialPurgeReason
+} from '@/privacy/commentPrivacyCredentialLifecycle'
+import { deleteLegacyCommentPrivacyCredentialDatabases } from '@/privacy/commentPrivacyCredentialVault'
 
 export type SwControlMessage =
   | { type: 'shell.invalidate'; scope?: string | null }
@@ -8,7 +13,14 @@ export type SwControlMessage =
   | { type: 'asset.clear'; cache: string; keys?: string[] | null }
   | { type: 'privacy.clear'; reason: PrivateBrowserStateClearReason }
 
-export type PrivateBrowserStateClearReason = 'logout' | 'session-expired' | 'shared-device'
+export type PrivateBrowserStateClearReason = CommentPrivacyCredentialPurgeReason
+
+export interface PrivateBrowserStateClearResult {
+  credentialStateCleared: boolean
+  legacyCredentialDatabaseCleared: boolean
+  serviceWorkerAcknowledged: boolean
+  cacheStorageCleared: boolean
+}
 
 type SwRuntimeMessage =
   | { type: 'search-index-ready'; version: string }
@@ -31,6 +43,7 @@ type ServiceWorkerIdleWindow = Window & typeof globalThis & {
 
 const SERVICE_WORKER_UPDATE_IDLE_TIMEOUT_MS = 30_000
 const SERVICE_WORKER_UPDATE_FALLBACK_DELAY_MS = 1_500
+const SERVICE_WORKER_CONTROL_ACK_TIMEOUT_MS = 2_000
 const PRIVATE_BROWSER_CACHE_NAME_PATTERN = /^fsus-(?:shell|search|search-meta)-/i
 const PRIVATE_OR_SENSITIVE_PATH_PATTERN = /^\/(?:api(?:\/|$)|user(?:\/|$)|admin(?:\/|$)|login(?:\/|$)|account(?:\/|$)|manage(?:\/|$)|author(?:\/|$)|private(?:\/|$)|notifications?(?:\/|$))/i
 
@@ -166,7 +179,10 @@ export function postSwControlMessage(message: SwControlMessage): void {
   void postSwControlMessageToAllWorkers(message)
 }
 
-async function postSwControlMessageToAllWorkers(message: SwControlMessage): Promise<void> {
+async function postSwControlMessageToAllWorkers(message: SwControlMessage): Promise<{
+  targetCount: number
+  acknowledgedCount: number
+}> {
   const workers = new Set<ServiceWorker>()
   if (navigator.serviceWorker.controller) {
     workers.add(navigator.serviceWorker.controller)
@@ -185,34 +201,52 @@ async function postSwControlMessageToAllWorkers(message: SwControlMessage): Prom
     }, 'warn')
   }
 
-  for (const worker of workers) {
-    try {
-      worker.postMessage(message)
-    } catch (error) {
-      emitTelemetry('service_worker_control_message_failed', {
-        type: message.type,
-        error: error instanceof Error ? error.message : String(error)
-      }, 'warn')
-    }
+  const acknowledgements = await Promise.all([...workers].map(worker => postSwControlMessageWithAck(worker, message)))
+  return {
+    targetCount: workers.size,
+    acknowledgedCount: acknowledgements.filter(Boolean).length
   }
 }
 
-export async function clearPrivateBrowserState(reason: PrivateBrowserStateClearReason): Promise<void> {
+export async function clearPrivateBrowserState(
+  reason: PrivateBrowserStateClearReason,
+  options: { broadcastCredentialPurge?: boolean } = {}
+): Promise<PrivateBrowserStateClearResult> {
+  const credentialPurge = purgeCommentPrivacyCredentialState(reason, {
+    broadcast: options.broadcastCredentialPurge !== false
+  })
+  const legacyDatabasePurge = deleteLegacyCommentPrivacyCredentialDatabases()
+  const credentialPurgeStatus = cleanupStatus(credentialPurge)
+  const legacyDatabasePurgeStatus = cleanupStatus(legacyDatabasePurge)
+  const serviceWorkerPurge = typeof window !== 'undefined' && 'serviceWorker' in navigator
+    ? postSwControlMessageToAllWorkers({ type: 'privacy.clear', reason })
+    : Promise.resolve({ targetCount: 0, acknowledgedCount: 0 })
+  let cacheStorageCleared = true
   if (typeof window === 'undefined') {
-    return
-  }
-
-  if ('serviceWorker' in navigator) {
-    await postSwControlMessageToAllWorkers({ type: 'privacy.clear', reason })
+    return await buildPrivateBrowserStateClearResult(
+      credentialPurgeStatus,
+      legacyDatabasePurgeStatus,
+      serviceWorkerPurge,
+      cacheStorageCleared
+    )
   }
 
   if (typeof caches === 'undefined') {
-    return
+    return await buildPrivateBrowserStateClearResult(
+      credentialPurgeStatus,
+      legacyDatabasePurgeStatus,
+      serviceWorkerPurge,
+      cacheStorageCleared
+    )
   }
 
   try {
     const cacheNames = await caches.keys()
     await Promise.all(cacheNames.map(async (cacheName) => {
+      if (reason === 'panic' && cacheName.startsWith('fsus-')) {
+        await caches.delete(cacheName)
+        return
+      }
       if (PRIVATE_BROWSER_CACHE_NAME_PATTERN.test(cacheName)) {
         await caches.delete(cacheName)
         return
@@ -229,10 +263,89 @@ export async function clearPrivateBrowserState(reason: PrivateBrowserStateClearR
         .map((request) => cache.delete(request)))
     }))
   } catch (error) {
+    cacheStorageCleared = false
     emitTelemetry('service_worker_private_state_clear_failed', {
       reason,
       error: error instanceof Error ? error.message : String(error)
     }, 'warn')
+  }
+
+  return await buildPrivateBrowserStateClearResult(
+    credentialPurgeStatus,
+    legacyDatabasePurgeStatus,
+    serviceWorkerPurge,
+    cacheStorageCleared
+  )
+}
+
+export async function panicWipePrivateBrowserState(): Promise<PrivateBrowserStateClearResult> {
+  return await clearPrivateBrowserState('panic')
+}
+
+async function postSwControlMessageWithAck(worker: ServiceWorker, message: SwControlMessage): Promise<boolean> {
+  if (typeof MessageChannel === 'undefined') {
+    try {
+      worker.postMessage(message)
+    } catch {
+      return false
+    }
+    return false
+  }
+
+  return await new Promise<boolean>((resolve) => {
+    const channel = new MessageChannel()
+    let settled = false
+    const settle = (acknowledged: boolean): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      channel.port1.close()
+      channel.port2.close()
+      resolve(acknowledged)
+    }
+    const timeout = setTimeout(() => settle(false), SERVICE_WORKER_CONTROL_ACK_TIMEOUT_MS)
+    channel.port1.onmessage = (event: MessageEvent) => {
+      const payload = event.data as { type?: unknown; controlType?: unknown } | null
+      settle(payload?.type === 'control-complete' && payload.controlType === message.type)
+    }
+    channel.port1.start()
+    try {
+      worker.postMessage(message, [channel.port2])
+    } catch (error) {
+      emitTelemetry('service_worker_control_message_failed', {
+        type: message.type,
+        error: error instanceof Error ? error.message : String(error)
+      }, 'warn')
+      settle(false)
+    }
+  })
+}
+
+async function cleanupStatus(promise: Promise<unknown>): Promise<boolean> {
+  try {
+    await promise
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function buildPrivateBrowserStateClearResult(
+  credentialPurgeStatus: Promise<boolean>,
+  legacyDatabasePurgeStatus: Promise<boolean>,
+  serviceWorkerPurge: Promise<{ targetCount: number; acknowledgedCount: number }>,
+  cacheStorageCleared: boolean
+): Promise<PrivateBrowserStateClearResult> {
+  const [credentialStateCleared, legacyCredentialDatabaseCleared, workerResult] = await Promise.all([
+    credentialPurgeStatus,
+    legacyDatabasePurgeStatus,
+    serviceWorkerPurge
+  ])
+  return {
+    credentialStateCleared,
+    legacyCredentialDatabaseCleared,
+    serviceWorkerAcknowledged: workerResult.acknowledgedCount === workerResult.targetCount,
+    cacheStorageCleared
   }
 }
 

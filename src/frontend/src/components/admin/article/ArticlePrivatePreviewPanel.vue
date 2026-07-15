@@ -47,6 +47,7 @@
 import { computed } from 'vue'
 import { View } from '@/fsusui/icons'
 import { sanitizePreviewHtml } from '@/utils/safeHtml'
+import { toTrustedSanitizedHtml } from '@/security/trustedTypesRuntime'
 import type { PrepublishIssue } from '@/api/authoring'
 
 const props = defineProps<{
@@ -63,7 +64,7 @@ defineEmits<{
 
 const sanitizedHtml = computed(() => sanitizePreviewHtml(props.html))
 
-const previewDocument = computed(() => `<!doctype html>
+const previewDocument = computed(() => toTrustedSanitizedHtml(`<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -89,7 +90,7 @@ const previewDocument = computed(() => `<!doctype html>
   </style>
 </head>
 <body>${sanitizedHtml.value}</body>
-</html>`)
+</html>`))
 </script>
 
 <style scoped>

@@ -150,6 +150,14 @@ for (const header of ['Content-Security-Policy', 'Cross-Origin-Opener-Policy', '
     violations.push(`deploy/production-openresty.conf: missing ${header} response header`)
   }
 }
+for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog;']) {
+  if (!openResty.includes(token)) {
+    violations.push(`deploy/production-openresty.conf: production CSP must include ${token}`)
+  }
+}
+if (/trusted-types\s+(?:\*|default)|allow-duplicates/.test(openResty)) {
+  violations.push('deploy/production-openresty.conf: Trusted Types CSP must not allow wildcard, default, or duplicate policies')
+}
 
 const viteConfig = readRepoFile('src/frontend/vite.config.ts')
 for (const token of ['Content-Security-Policy', "default-src 'self'", "frame-ancestors 'none'", "object-src 'none'", "style-src-attr 'none'", 'report-uri /api/security/csp-report']) {
@@ -159,6 +167,9 @@ for (const token of ['Content-Security-Policy', "default-src 'self'", "frame-anc
 }
 if (viteConfig.includes("style-src-attr 'unsafe-inline'")) {
   violations.push("src/frontend/vite.config.ts: preview CSP must not allow inline style attributes")
+}
+if (viteConfig.includes("require-trusted-types-for 'script'") || viteConfig.includes('trusted-types vue fsusblog')) {
+  violations.push('src/frontend/vite.config.ts: development and preview CSP must preserve HMR by leaving Trusted Types enforcement disabled')
 }
 
 const composition = readRepoFile('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs')
@@ -174,6 +185,50 @@ for (const token of ["style-src-attr 'none'", 'report-uri /api/security/csp-repo
 if (staticCspSource.includes('wasm-unsafe-eval') || staticCspSource.includes("style-src-attr 'unsafe-inline'")) {
   violations.push('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: non-HTML CSP must deny Wasm compilation and inline style attributes')
 }
+for (const token of ["require-trusted-types-for 'script'", 'trusted-types vue fsusblog;']) {
+  if (!composition.includes(token)) {
+    violations.push(`src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: production CSP must include ${token}`)
+  }
+}
+if (/trusted-types\s+(?:\*|default)|allow-duplicates/.test(composition)) {
+  violations.push('src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs: Trusted Types CSP must not allow wildcard, default, or duplicate policies')
+}
+
+const trustedTypesRuntime = readRepoFile('src/frontend/src/security/trustedTypesRuntime.ts')
+for (const token of [
+  "const APP_POLICY_NAME = 'fsusblog'",
+  "const COMMENT_PRIVACY_PROVER_MODULE_PATH = '/wasm/comment-privacy-prover.js'",
+  'setSanitizedTemplateHtml',
+  'setNonExecutableScriptText',
+  'setCommentPrivacyProverScriptUrl'
+]) {
+  if (!trustedTypesRuntime.includes(token)) {
+    violations.push(`src/frontend/src/security/trustedTypesRuntime.ts: audited Trusted Types boundary must include ${token}`)
+  }
+}
+if (/createPolicy\(\s*['"](?:default|\*)['"]|allow-duplicates/.test(trustedTypesRuntime)) {
+  violations.push('src/frontend/src/security/trustedTypesRuntime.ts: policy must not use default, wildcard, or duplicate escape hatches')
+}
+requireContains(
+  'src/frontend/src/utils/safeHtml.ts',
+  'setSanitizedTemplateHtml(template, sanitizeHtmlFallback(html))',
+  'HTML parser must use the sanitized TrustedHTML wrapper'
+)
+requireNotContains(
+  'src/frontend/src/utils/safeHtml.ts',
+  'template.innerHTML =',
+  'HTML parser must not assign raw strings to innerHTML'
+)
+requireContains(
+  'src/frontend/src/privacy/commentPrivacyWasmProver.ts',
+  'setCommentPrivacyProverScriptUrl(script, moduleUrl)',
+  'privacy prover module must use the exact-path TrustedScriptURL wrapper'
+)
+requireNotContains(
+  'src/frontend/src/privacy/commentPrivacyWasmProver.ts',
+  'script.src =',
+  'privacy prover must not assign raw strings to script.src'
+)
 
 requireContains(
   'src/backend/Modules/Endpoints/CspReportEndpoints.cs',

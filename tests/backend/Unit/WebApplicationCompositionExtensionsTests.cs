@@ -79,14 +79,30 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("script-src 'self' 'wasm-unsafe-eval'", csp, StringComparison.Ordinal);
         Assert.Contains("style-src-attr 'none'", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("style-src-attr 'unsafe-inline'", csp, StringComparison.Ordinal);
+        Assert.Contains("require-trusted-types-for 'script'", csp, StringComparison.Ordinal);
+        Assert.Contains("trusted-types vue fsusblog;", csp, StringComparison.Ordinal);
+        Assert.DoesNotContain("trusted-types *", csp, StringComparison.Ordinal);
+        Assert.DoesNotContain("'allow-duplicates'", csp, StringComparison.Ordinal);
         Assert.Contains("report-uri /api/security/csp-report", csp, StringComparison.Ordinal);
         Assert.Contains($"<script nonce=\"{nonce}\" type=\"module\">", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DevelopmentHtmlCsp_PreservesNonceAndHmrWithoutTrustedTypesEnforcement()
+    {
+        const string nonce = "development-nonce";
+        string csp = WebApplicationCompositionExtensions.BuildHtmlCsp(isDevelopment: true, nonce);
+
+        Assert.Contains($"'nonce-{nonce}'", csp, StringComparison.Ordinal);
+        Assert.Contains("http://127.0.0.1:3000", csp, StringComparison.Ordinal);
+        Assert.DoesNotContain("require-trusted-types-for", csp, StringComparison.Ordinal);
+        Assert.DoesNotContain("trusted-types vue fsusblog", csp, StringComparison.Ordinal);
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void StaticCsp_DeniesStyleAttributesAndWasmCompilation(bool isDevelopment)
+    public void StaticCsp_DeniesStyleAttributesAndWasmCompilationAndEnforcesTrustedTypesOnlyInProduction(bool isDevelopment)
     {
         string csp = WebApplicationCompositionExtensions.BuildStaticCsp(isDevelopment);
 
@@ -95,6 +111,18 @@ public sealed class WebApplicationCompositionExtensionsTests
         Assert.Contains("style-src-attr 'none'", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("style-src-attr 'unsafe-inline'", csp, StringComparison.Ordinal);
         Assert.Contains("report-uri /api/security/csp-report", csp, StringComparison.Ordinal);
+        if (isDevelopment)
+        {
+            Assert.DoesNotContain("require-trusted-types-for", csp, StringComparison.Ordinal);
+            Assert.DoesNotContain("trusted-types vue fsusblog", csp, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains("require-trusted-types-for 'script'", csp, StringComparison.Ordinal);
+            Assert.Contains("trusted-types vue fsusblog;", csp, StringComparison.Ordinal);
+            Assert.DoesNotContain("trusted-types *", csp, StringComparison.Ordinal);
+            Assert.DoesNotContain("'allow-duplicates'", csp, StringComparison.Ordinal);
+        }
     }
 
     [Theory]

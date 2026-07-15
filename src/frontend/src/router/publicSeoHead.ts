@@ -1,3 +1,5 @@
+import { setNonExecutableScriptText } from '@/security/trustedTypesRuntime'
+
 export const PUBLIC_SEO_HEAD_SCHEMA = 'fsusblog.public-seo-head'
 export const PUBLIC_SEO_HEAD_VERSION = 1
 
@@ -287,14 +289,14 @@ function buildHeadFragment(model: PublicSeoHeadModel): DocumentFragment {
   const nonce = readCspNonce()
   if (nonce) jsonLd.nonce = nonce
   jsonLd.dataset.fsusAotHead = ''
-  jsonLd.textContent = model.jsonLdGraph
+  setNonExecutableScriptText(jsonLd, model.jsonLdGraph)
   fragment.appendChild(jsonLd)
   const marker = document.createElement('script')
   marker.type = 'application/json'
   if (nonce) marker.nonce = nonce
   marker.dataset.fsusSeoHeadModel = ''
   marker.dataset.fsusAotHead = ''
-  marker.textContent = JSON.stringify(model)
+  setNonExecutableScriptText(marker, JSON.stringify(model))
   fragment.appendChild(marker)
   return fragment
 }

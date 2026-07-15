@@ -120,6 +120,7 @@ describe('authBroadcastRuntime', () => {
     })
     const payloadText = JSON.stringify(message)
     expect(payloadText).not.toMatch(/accountId|permission|token|session/i)
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('account-switch')
   })
 
   it('login event invalidates guest cache', () => {
@@ -135,6 +136,9 @@ describe('authBroadcastRuntime', () => {
     expect(userStore.lastVerifiedAt).toBe(0)
     expect(adminStore.adminState).toBe('unknown')
     expect(adminStore.adminCheckedAt).toBe(0)
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('account-switch', {
+      broadcastCredentialPurge: false
+    })
   })
 
   it('logout event marks account guest and admin missing', () => {
@@ -156,7 +160,9 @@ describe('authBroadcastRuntime', () => {
     expect(userStore.userInfo).toBeNull()
     expect(adminStore.adminState).toBe('missing')
     expect(adminStore.adminPrincipal).toBeNull()
-    expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout')
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout', {
+      broadcastCredentialPurge: false
+    })
   })
 
   it('expired event stops authenticated runtime', () => {
@@ -168,7 +174,9 @@ describe('authBroadcastRuntime', () => {
 
     expect(userStore.accountState).toBe('guest')
     expect(notificationStreamRuntime.stop).toHaveBeenCalledWith(true)
-    expect(clearPrivateBrowserState).toHaveBeenCalledWith('session-expired')
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('session-expired', {
+      broadcastCredentialPurge: false
+    })
   })
 
   it('clears the sending tab before broadcasting session expiry', () => {

@@ -81,6 +81,7 @@ class AuthBroadcastRuntime {
   }
 
   broadcastLogin(): void {
+    void clearPrivateBrowserState('account-switch')
     this.broadcast(createEvent('login'))
   }
 
@@ -94,6 +95,7 @@ class AuthBroadcastRuntime {
   }
 
   expireUserSession(): void {
+    void clearPrivateBrowserState('session-expired')
     const event = createEvent('user-expired')
     this.handleAuthBroadcastEvent(event)
     this.broadcast(event)
@@ -112,6 +114,7 @@ class AuthBroadcastRuntime {
     const adminStore = useAdminStore(this.pinia)
 
     if (event.type === 'login') {
+      void clearPrivateBrowserState('account-switch', { broadcastCredentialPurge: false })
       userStore.invalidateGuestCache()
       adminStore.invalidateMissingCache()
       return
@@ -125,6 +128,7 @@ class AuthBroadcastRuntime {
     if (event.type === 'user-expired') {
       clearLocalFixtureSession()
       userStore.markGuest()
+      void clearPrivateBrowserState('session-expired', { broadcastCredentialPurge: false })
       useAppShellStore(this.pinia).markSessionExpired()
       this.stopAuthenticatedRuntime()
       return
@@ -132,7 +136,9 @@ class AuthBroadcastRuntime {
 
     userStore.markGuest()
     adminStore.markMissing()
-    void clearPrivateBrowserState(event.type === 'expired' ? 'session-expired' : 'logout')
+    void clearPrivateBrowserState(event.type === 'expired' ? 'session-expired' : 'logout', {
+      broadcastCredentialPurge: false
+    })
     this.stopAuthenticatedRuntime()
   }
 

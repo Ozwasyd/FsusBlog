@@ -17,7 +17,7 @@ describe('CommentPrivacyRuntime', () => {
           ticket: {
             scope,
             credentialEpoch: 20260618,
-            ticket: proofBytes,
+            ticket: new Uint8Array(proofBytes),
             expiresAtUnixMs: Date.now() + 1_000
           }
         })
@@ -60,7 +60,7 @@ describe('CommentPrivacyRuntime', () => {
         ticket: {
           scope,
           credentialEpoch: 20260618,
-          ticket: proofBytes,
+            ticket: new Uint8Array(proofBytes),
           expiresAtUnixMs: now + 30_000
         }
       })
@@ -81,7 +81,7 @@ describe('CommentPrivacyRuntime', () => {
     await runtime.preloadPrivacyMetadata(42)
     await runtime.prepareAnonymousTicket('article:42')
 
-    expect(adapter.ensureCredentialPrepared).toHaveBeenCalledTimes(1)
+    expect(adapter.ensureCredentialPrepared).toHaveBeenCalledTimes(2)
     expect(adapter.loadPrivacyMetadata).toHaveBeenCalledWith(expect.objectContaining({
       scope: 'article:42',
       articleId: 42,
@@ -156,7 +156,22 @@ describe('CommentPrivacyRuntime', () => {
 
   it('cancels stale article metadata preloads when articles switch quickly', async () => {
     const signals: AbortSignal[] = []
+    const credentialSignals: AbortSignal[] = []
     const adapter = createAdapter({
+      credential: async ({ signal }) => {
+        credentialSignals.push(signal)
+        return {
+          ok: true,
+          credential: {
+            credentialSecret: new Uint8Array([11, 12, 13]),
+            credentialCommitment: new Uint8Array([14, 15, 16]),
+            issuerSignature: new Uint8Array([21, 22, 23]),
+            revocationWitness: new Uint8Array([31, 32, 33]),
+            credentialLevel: 'strong_anonymous',
+            reputationBucket: 'rep:low'
+          }
+        }
+      },
       metadata: async ({ scope, signal }) => {
         signals.push(signal)
         if (scope === 'article:1') {
@@ -187,21 +202,72 @@ describe('CommentPrivacyRuntime', () => {
 
     await expect(first).resolves.toBe(false)
     await expect(second).resolves.toBe(true)
-    expect(signals[0].aborted).toBe(true)
+    expect(credentialSignals[0].aborted).toBe(true)
     expect(runtime.getUiState()).toBe('preparing')
     await runtime.prepareAnonymousTicket('article:2')
     expect(runtime.getUiState()).toBe('ready')
+  })
+
+  it('zeroizes credential copies, tickets, and terminates the privacy worker on panic', async () => {
+    const worker = createWorker()
+    const adapter = createAdapter()
+    const runtime = createCommentPrivacyRuntime({ adapter, workerClient: worker })
+
+    await expect(runtime.prepareAnonymousTicket('article:42')).resolves.toBe(true)
+    const proofRequest = vi.mocked(worker.prepareProof).mock.calls[0][0]
+
+    await runtime.purge('panic')
+
+    expect(proofRequest.credentialSecret?.every(byte => byte === 0)).toBe(true)
+    expect(proofRequest.issuerSignature?.every(byte => byte === 0)).toBe(true)
+    expect(proofRequest.revocationWitness?.every(byte => byte === 0)).toBe(true)
+    expect(runtime.consumePreparedTicket('article:42')).toBeNull()
+    expect(adapter.purgeCredential).toHaveBeenCalledTimes(1)
+    expect(worker.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('aborts in-flight preparation on rotation so stale work cannot refill the runtime', async () => {
+    let releaseCredential: (() => void) | null = null
+    const adapter = createAdapter({
+      credential: async ({ signal }) => {
+        await new Promise<void>(resolve => {
+          releaseCredential = resolve
+        })
+        return {
+          ok: true,
+          credential: {
+            credentialSecret: new Uint8Array([1, 2, 3]),
+            credentialCommitment: new Uint8Array([4, 5, 6]),
+            issuerSignature: new Uint8Array([7, 8, 9]),
+            revocationWitness: new Uint8Array([10, 11, 12]),
+            credentialLevel: 'strong_anonymous',
+            reputationBucket: 'rep:low'
+          }
+        }
+      }
+    })
+    const worker = createWorker()
+    const runtime = createCommentPrivacyRuntime({ adapter, workerClient: worker })
+    const preparing = runtime.prepareAnonymousTicket('article:42')
+
+    await vi.waitFor(() => expect(releaseCredential).not.toBeNull())
+    await runtime.purge('issuer-key-rotation')
+    releaseCredential?.()
+
+    await expect(preparing).resolves.toBe(false)
+    expect(adapter.issueAnonymousTicket).not.toHaveBeenCalled()
+    expect(runtime.consumePreparedTicket('article:42')).toBeNull()
   })
 })
 
 function createWorker(): CommentPrivacyWorkerClient {
   return {
     prewarm: vi.fn().mockResolvedValue(undefined),
-    prepareProof: vi.fn().mockResolvedValue({
+    prepareProof: vi.fn().mockImplementation(async () => ({
       proofBytes: new Uint8Array([9, 8, 7]),
       publicInputs: new Uint8Array([6, 5, 4]),
       nullifierHash: new Uint8Array([3, 2, 1])
-    }),
+    })),
     dispose: vi.fn()
   }
 }
@@ -212,7 +278,17 @@ function createAdapter(overrides: {
   ticket?: CommentPrivacyAdapter['issueAnonymousTicket']
 } = {}): CommentPrivacyAdapter {
   return {
-    ensureCredentialPrepared: vi.fn(overrides.credential ?? (async () => ({ ok: true }))),
+    ensureCredentialPrepared: vi.fn(overrides.credential ?? (async () => ({
+      ok: true,
+      credential: {
+        credentialSecret: new Uint8Array([11, 12, 13]),
+        credentialCommitment: new Uint8Array([14, 15, 16]),
+        issuerSignature: new Uint8Array([21, 22, 23]),
+        revocationWitness: new Uint8Array([31, 32, 33]),
+        credentialLevel: 'strong_anonymous',
+        reputationBucket: 'rep:low'
+      }
+    }))),
     loadPrivacyMetadata: vi.fn(overrides.metadata ?? (async ({ scope }) => ({
       ok: true,
       metadata: createMetadata(scope)
@@ -222,10 +298,11 @@ function createAdapter(overrides: {
       ticket: {
         scope,
         credentialEpoch: 20260618,
-        ticket: proofBytes,
+        ticket: new Uint8Array(proofBytes),
         expiresAtUnixMs: Date.now() + 30_000
       }
-    })))
+    }))),
+    purgeCredential: vi.fn().mockResolvedValue(undefined)
   }
 }
 

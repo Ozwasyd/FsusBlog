@@ -1,10 +1,18 @@
 import type { CommentPrivacyCredentialMaterial } from './commentPrivacyTypes'
+import {
+  getCommentPrivacyLocalVaultGeneration,
+  purgeCommentPrivacyCredentialState,
+  registerCommentPrivacyCredentialPurgeHandler,
+  zeroizeCommentPrivacyBytes
+} from './commentPrivacyCredentialLifecycle'
 
-const DEFAULT_DATABASE_NAME = 'fsusblog-comment-privacy-credentials'
-const CREDENTIAL_STORE_NAME = 'credentials'
-const DATABASE_VERSION = 1
+export const COMMENT_PRIVACY_CREDENTIAL_PERSISTENCE_MODE = 'disabled' as const
+export const COMMENT_PRIVACY_LEGACY_DATABASE_NAMES = Object.freeze([
+  'fsusblog-comment-privacy-credentials'
+])
 
 export interface CommentPrivacyCredentialVaultPartition {
+  localVaultGeneration: string
   credentialEpoch: number
   circuitId: string
   issuerPublicKeyHash: string
@@ -18,6 +26,7 @@ export interface CommentPrivacyStoredCredential
 }
 
 export interface CommentPrivacyCredentialVault {
+  initialize?(): Promise<boolean>
   get(partition: CommentPrivacyCredentialVaultPartition): Promise<CommentPrivacyStoredCredential | null>
   put(credential: CommentPrivacyStoredCredential): Promise<void>
   pruneExpired(nowUnixMs?: number): Promise<number>
@@ -26,147 +35,149 @@ export interface CommentPrivacyCredentialVault {
 
 export interface CommentPrivacyCredentialVaultOptions {
   indexedDB?: IDBFactory | null
-  databaseName?: string
   now?: () => number
 }
 
-type StoredCredentialRecord = CommentPrivacyStoredCredential & {
-  id: string
+let defaultMemoryVault: CommentPrivacyCredentialVault | null = null
+let unregisterDefaultPurgeHandler: (() => void) | null = null
+
+export function createCommentPrivacyCredentialVault(): CommentPrivacyCredentialVault {
+  if (!defaultMemoryVault) {
+    defaultMemoryVault = createMemoryOnlyCommentPrivacyCredentialVault()
+    unregisterDefaultPurgeHandler = registerCommentPrivacyCredentialPurgeHandler(() => defaultMemoryVault?.clear())
+  }
+  return defaultMemoryVault
 }
 
-export function createCommentPrivacyCredentialVault(
+export function createMemoryOnlyCommentPrivacyCredentialVault(
   options: CommentPrivacyCredentialVaultOptions = {}
-): CommentPrivacyCredentialVault | null {
-  const indexedDb = options.indexedDB ?? getGlobalIndexedDb()
-  if (!indexedDb) {
-    return null
-  }
-
-  return createIndexedDbCommentPrivacyCredentialVault({
-    ...options,
-    indexedDB: indexedDb
-  })
-}
-
-export function createIndexedDbCommentPrivacyCredentialVault(
-  options: CommentPrivacyCredentialVaultOptions & { indexedDB: IDBFactory }
 ): CommentPrivacyCredentialVault {
-  const indexedDb = options.indexedDB
-  const databaseName = options.databaseName ?? DEFAULT_DATABASE_NAME
   const now = options.now ?? (() => Date.now())
-  let databasePromise: Promise<IDBDatabase> | null = null
+  const indexedDb = options.indexedDB === undefined ? getGlobalIndexedDb() : options.indexedDB
+  const records = new Map<string, CommentPrivacyStoredCredential>()
+  let initializationPromise: Promise<boolean> | null = null
 
-  const openDatabase = (): Promise<IDBDatabase> => {
-    if (databasePromise) {
-      return databasePromise
-    }
-
-    databasePromise = new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDb.open(databaseName, DATABASE_VERSION)
-      request.onupgradeneeded = () => {
-        const database = request.result
-        if (!database.objectStoreNames.contains(CREDENTIAL_STORE_NAME)) {
-          database.createObjectStore(CREDENTIAL_STORE_NAME, { keyPath: 'id' })
-        }
+  const clearMatching = (partition?: Partial<CommentPrivacyCredentialVaultPartition>): number => {
+    let cleared = 0
+    for (const [key, record] of records) {
+      if (partition && !partitionMatches(record, partition)) {
+        continue
       }
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error ?? new Error('comment_privacy_vault_open_failed'))
-    })
-
-    return databasePromise
-  }
-
-  const objectStore = async (mode: IDBTransactionMode): Promise<IDBObjectStore> => {
-    const database = await openDatabase()
-    return database.transaction(CREDENTIAL_STORE_NAME, mode).objectStore(CREDENTIAL_STORE_NAME)
-  }
-
-  const getAllRecords = async (): Promise<StoredCredentialRecord[]> => {
-    const store = await objectStore('readonly')
-    const records = await idbRequestToPromise<unknown[]>(store.getAll())
-    return records.filter(isStoredCredentialRecord).map(cloneRecord)
-  }
-
-  const deleteRecords = async (ids: string[]): Promise<void> => {
-    if (ids.length === 0) {
-      return
+      zeroizeStoredCredential(record)
+      records.delete(key)
+      cleared += 1
     }
-
-    const store = await objectStore('readwrite')
-    await Promise.all(ids.map(id => idbRequestToPromise(store.delete(id))))
+    return cleared
   }
 
   return {
+    initialize() {
+      if (!initializationPromise) {
+        initializationPromise = deleteLegacyCredentialDatabases(indexedDb).then(
+          () => true,
+          async () => {
+            clearMatching()
+            await purgeCommentPrivacyCredentialState('migration-failure')
+            return false
+          }
+        )
+      }
+      return initializationPromise
+    },
     async get(partition) {
-      const store = await objectStore('readwrite')
-      const record = await idbRequestToPromise<unknown>(store.get(partitionKey(partition)))
-      if (!isStoredCredentialRecord(record)) {
+      const key = partitionKey(partition)
+      const record = records.get(key)
+      if (!record) {
         return null
       }
-
       if (record.expiresAtUnixMs <= now()) {
-        await idbRequestToPromise(store.delete(record.id))
+        zeroizeStoredCredential(record)
+        records.delete(key)
         return null
       }
-
       return cloneCredentialRecord(record)
     },
     async put(credential) {
-      const record = toStoredRecord(credential)
-      const store = await objectStore('readwrite')
-      await idbRequestToPromise(store.put(record))
+      const key = partitionKey(credential)
+      const previous = records.get(key)
+      if (previous) {
+        zeroizeStoredCredential(previous)
+      }
+      records.set(key, cloneCredentialRecord(credential))
     },
     async pruneExpired(nowUnixMs = now()) {
-      const records = await getAllRecords()
-      const expiredIds = records
-        .filter(record => record.expiresAtUnixMs <= nowUnixMs)
-        .map(record => record.id)
-      await deleteRecords(expiredIds)
-      return expiredIds.length
+      let pruned = 0
+      for (const [key, record] of records) {
+        if (record.expiresAtUnixMs > nowUnixMs) {
+          continue
+        }
+        zeroizeStoredCredential(record)
+        records.delete(key)
+        pruned += 1
+      }
+      return pruned
     },
     async clear(partition) {
-      if (!partition) {
-        const store = await objectStore('readwrite')
-        await idbRequestToPromise(store.clear())
-        return
-      }
-
-      const records = await getAllRecords()
-      const matchingIds = records
-        .filter(record => partitionMatches(record, partition))
-        .map(record => record.id)
-      await deleteRecords(matchingIds)
+      clearMatching(partition)
     }
   }
 }
 
-function idbRequestToPromise<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('comment_privacy_vault_request_failed'))
-  })
-}
-
-function toStoredRecord(credential: CommentPrivacyStoredCredential): StoredCredentialRecord {
+export function currentCommentPrivacyVaultPartition(input: {
+  credentialEpoch: number
+  circuitId: string
+  issuerPublicKeyHash: string
+}): CommentPrivacyCredentialVaultPartition {
   return {
-    id: partitionKey(credential),
-    credentialEpoch: credential.credentialEpoch,
-    circuitId: credential.circuitId,
-    issuerPublicKeyHash: credential.issuerPublicKeyHash,
-    credentialSecret: cloneBytes(credential.credentialSecret),
-    credentialCommitment: cloneBytes(credential.credentialCommitment),
-    issuerSignature: cloneBytes(credential.issuerSignature),
-    revocationWitness: cloneBytes(credential.revocationWitness),
-    revocationHandleHash: credential.revocationHandleHash ? cloneBytes(credential.revocationHandleHash) : undefined,
-    expiresAtUnixMs: credential.expiresAtUnixMs,
-    credentialLevel: credential.credentialLevel,
-    reputationBucket: credential.reputationBucket,
-    issuerPublicKeyId: credential.issuerPublicKeyId
+    localVaultGeneration: getCommentPrivacyLocalVaultGeneration(),
+    credentialEpoch: input.credentialEpoch,
+    circuitId: input.circuitId,
+    issuerPublicKeyHash: input.issuerPublicKeyHash
   }
 }
 
-function cloneCredentialRecord(record: StoredCredentialRecord): CommentPrivacyStoredCredential {
+export async function deleteLegacyCommentPrivacyCredentialDatabases(
+  indexedDb: IDBFactory | null = getGlobalIndexedDb()
+): Promise<void> {
+  try {
+    await deleteLegacyCredentialDatabases(indexedDb)
+  } catch (error) {
+    await purgeCommentPrivacyCredentialState('migration-failure')
+    throw error
+  }
+}
+
+export function resetCommentPrivacyCredentialVaultForTests(): void {
+  unregisterDefaultPurgeHandler?.()
+  unregisterDefaultPurgeHandler = null
+  defaultMemoryVault = null
+}
+
+function deleteLegacyCredentialDatabases(indexedDb: IDBFactory | null): Promise<void> {
+  if (!indexedDb) {
+    return Promise.resolve()
+  }
+  return Promise.all(COMMENT_PRIVACY_LEGACY_DATABASE_NAMES.map(name => deleteDatabase(indexedDb, name))).then(() => undefined)
+}
+
+function deleteDatabase(indexedDb: IDBFactory, name: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    let request: IDBOpenDBRequest
+    try {
+      request = indexedDb.deleteDatabase(name)
+    } catch (error) {
+      reject(error)
+      return
+    }
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error ?? new Error('comment_privacy_legacy_vault_delete_failed'))
+    request.onblocked = () => reject(new Error('comment_privacy_legacy_vault_delete_blocked'))
+  })
+}
+
+function cloneCredentialRecord(record: CommentPrivacyStoredCredential): CommentPrivacyStoredCredential {
   return {
+    localVaultGeneration: record.localVaultGeneration,
     credentialEpoch: record.credentialEpoch,
     circuitId: record.circuitId,
     issuerPublicKeyHash: record.issuerPublicKeyHash,
@@ -182,43 +193,27 @@ function cloneCredentialRecord(record: StoredCredentialRecord): CommentPrivacySt
   }
 }
 
-function cloneRecord(record: StoredCredentialRecord): StoredCredentialRecord {
-  return {
-    id: record.id,
-    ...cloneCredentialRecord(record)
-  }
-}
-
-function isStoredCredentialRecord(value: unknown): value is StoredCredentialRecord {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const record = value as Partial<StoredCredentialRecord>
-  return typeof record.id === 'string' &&
-    Number.isFinite(record.credentialEpoch) &&
-    typeof record.circuitId === 'string' &&
-    typeof record.issuerPublicKeyHash === 'string' &&
-    record.credentialSecret instanceof Uint8Array &&
-    record.credentialCommitment instanceof Uint8Array &&
-    record.issuerSignature instanceof Uint8Array &&
-    record.revocationWitness instanceof Uint8Array &&
-    typeof record.credentialLevel === 'string' &&
-    typeof record.reputationBucket === 'string' &&
-    Number.isFinite(record.expiresAtUnixMs)
+function zeroizeStoredCredential(record: CommentPrivacyStoredCredential): void {
+  zeroizeCommentPrivacyBytes(record.credentialSecret)
+  zeroizeCommentPrivacyBytes(record.credentialCommitment)
+  zeroizeCommentPrivacyBytes(record.issuerSignature)
+  zeroizeCommentPrivacyBytes(record.revocationWitness)
+  zeroizeCommentPrivacyBytes(record.revocationHandleHash)
 }
 
 function partitionMatches(
   record: CommentPrivacyCredentialVaultPartition,
   partition: Partial<CommentPrivacyCredentialVaultPartition>
 ): boolean {
-  return (partition.credentialEpoch === undefined || record.credentialEpoch === partition.credentialEpoch) &&
+  return (partition.localVaultGeneration === undefined || record.localVaultGeneration === partition.localVaultGeneration) &&
+    (partition.credentialEpoch === undefined || record.credentialEpoch === partition.credentialEpoch) &&
     (partition.circuitId === undefined || record.circuitId === partition.circuitId) &&
     (partition.issuerPublicKeyHash === undefined || record.issuerPublicKeyHash === partition.issuerPublicKeyHash)
 }
 
 function partitionKey(partition: CommentPrivacyCredentialVaultPartition): string {
   return [
+    encodeURIComponent(partition.localVaultGeneration),
     String(partition.credentialEpoch),
     encodeURIComponent(partition.circuitId),
     encodeURIComponent(partition.issuerPublicKeyHash)
@@ -230,7 +225,5 @@ function cloneBytes(bytes: Uint8Array): Uint8Array {
 }
 
 function getGlobalIndexedDb(): IDBFactory | null {
-  return typeof globalThis.indexedDB === 'undefined'
-    ? null
-    : globalThis.indexedDB
+  return typeof globalThis.indexedDB === 'undefined' ? null : globalThis.indexedDB
 }

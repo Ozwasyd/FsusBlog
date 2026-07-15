@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createCommentPrivacyCredentialProvider,
   type CommentPrivacyCredentialSuite,
@@ -15,28 +15,57 @@ import {
   encodeCommentPrivacyRevocationWitnessMaterial,
   parseCommentPrivacyRevocationWitnessMaterial
 } from '@/privacy/commentPrivacyRevocationWitness'
+import {
+  resetCommentPrivacyCredentialVaultForTests
+} from '@/privacy/commentPrivacyCredentialVault'
+import {
+  getCommentPrivacyLocalVaultGeneration,
+  purgeCommentPrivacyCredentialState,
+  resetCommentPrivacyCredentialLifecycleForTests
+} from '@/privacy/commentPrivacyCredentialLifecycle'
 
 describe('commentPrivacyCredentialProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetCommentPrivacyCredentialVaultForTests()
+    resetCommentPrivacyCredentialLifecycleForTests()
+  })
+
+  afterEach(() => {
+    resetCommentPrivacyCredentialVaultForTests()
+    resetCommentPrivacyCredentialLifecycleForTests()
   })
 
   it('runs the mocked issuer happy path, stores the unblinded credential, and returns prover material', async () => {
     const vault = createVault()
     const metadata = createMetadata()
     const loadMetadata: CommentPrivacyCredentialMetadataLoader = vi.fn().mockResolvedValue(metadata)
-    const issueCredential: CommentPrivacyCredentialIssuer = vi.fn().mockResolvedValue({
-      credentialEpoch: metadata.credentialEpoch,
-      rootExpiresAtUnixMs: 5_000,
-      circuitNumericId: metadata.circuitNumericId,
-      publicInputLayoutVersion: metadata.publicInputLayoutVersion,
-      circuitId: metadata.circuitId,
-      credentialLevel: 'strong_anonymous',
-      issuerPublicKeyId: 'issuer-key-test',
-      issuerSignature: new Uint8Array([41, 42])
+    let issuedRequestSnapshot: { credentialRequest: Uint8Array; clientNonce: Uint8Array } | null = null
+    const issueCredential: CommentPrivacyCredentialIssuer = vi.fn().mockImplementation(async request => {
+      issuedRequestSnapshot = {
+        credentialRequest: new Uint8Array(request.credentialRequest),
+        clientNonce: new Uint8Array(request.clientNonce)
+      }
+      return {
+        credentialEpoch: metadata.credentialEpoch,
+        rootExpiresAtUnixMs: 5_000,
+        circuitNumericId: metadata.circuitNumericId,
+        publicInputLayoutVersion: metadata.publicInputLayoutVersion,
+        circuitId: metadata.circuitId,
+        credentialLevel: 'strong_anonymous',
+        issuerPublicKeyId: 'issuer-key-test',
+        issuerSignature: new Uint8Array([41, 42])
+      }
     })
     const credentialSuite = createCredentialSuite()
-    const loadRevocationWitness: CommentPrivacyRevocationWitnessLoader = vi.fn().mockResolvedValue(new Uint8Array([71, 72, 73]))
+    let witnessRequestSnapshot: { revocationRoot: Uint8Array; revocationHandleHash: Uint8Array } | null = null
+    const loadRevocationWitness: CommentPrivacyRevocationWitnessLoader = vi.fn().mockImplementation(async request => {
+      witnessRequestSnapshot = {
+        revocationRoot: new Uint8Array(request.revocationRoot),
+        revocationHandleHash: new Uint8Array(request.revocationHandleHash)
+      }
+      return new Uint8Array([71, 72, 73])
+    })
     const provider = createCommentPrivacyCredentialProvider({
       vault,
       loadMetadata,
@@ -63,38 +92,46 @@ describe('commentPrivacyCredentialProvider', () => {
       publicInputLayoutVersion: metadata.publicInputLayoutVersion,
       circuitId: metadata.circuitId,
       credentialLevel: 'strong_anonymous',
-      credentialRequest: new Uint8Array([21, 22]),
       clientNonce: expect.any(Uint8Array)
     }), { signal })
+    expect(issuedRequestSnapshot).toEqual({
+      credentialRequest: new Uint8Array([21, 22]),
+      clientNonce: new Uint8Array(32).map((_, index) => (index % 251) + 1)
+    })
     expect(credentialSuite.acceptIssuerResponse).toHaveBeenCalledWith(expect.objectContaining({
       issuerPublicKeyId: 'issuer-key-test',
-      issuerSignature: new Uint8Array([41, 42]),
-      credentialOpening: new Uint8Array([31, 32]),
       metadata,
       signal
     }))
+    const acceptInput = vi.mocked(credentialSuite.acceptIssuerResponse).mock.calls[0][0]
+    expect(acceptInput.credentialSecret.every(byte => byte === 0)).toBe(true)
+    expect(acceptInput.clientNonce.every(byte => byte === 0)).toBe(true)
+    expect(acceptInput.credentialOpening.every(byte => byte === 0)).toBe(true)
+    expect(acceptInput.issuerSignature.every(byte => byte === 0)).toBe(true)
     expect(loadRevocationWitness).toHaveBeenCalledWith(expect.objectContaining({
       credentialEpoch: metadata.credentialEpoch,
       circuitNumericId: metadata.circuitNumericId,
       publicInputLayoutVersion: metadata.publicInputLayoutVersion,
       circuitId: metadata.circuitId,
       issuerPublicKeyHash: metadata.issuerPublicKeyHash,
+    }), { signal })
+    expect(witnessRequestSnapshot).toEqual({
       revocationRoot: metadata.revocationRoot,
       revocationHandleHash: new Uint8Array([91, 92])
-    }), { signal })
+    })
+    const clearedWitnessRequest = vi.mocked(loadRevocationWitness).mock.calls[0][0]
+    expect(bytesFromValue(clearedWitnessRequest.revocationRoot).every(byte => byte === 0)).toBe(true)
+    expect(bytesFromValue(clearedWitnessRequest.revocationHandleHash).every(byte => byte === 0)).toBe(true)
     expect(vault.put).toHaveBeenCalledWith(expect.objectContaining({
       credentialEpoch: metadata.credentialEpoch,
       circuitId: metadata.circuitId,
       issuerPublicKeyHash: metadata.issuerPublicKeyHash,
       issuerPublicKeyId: 'issuer-key-test',
       expiresAtUnixMs: 5_000,
-      credentialSecret: new Uint8Array([1, 2, 3]),
-      credentialCommitment: new Uint8Array([14, 15, 16]),
-      issuerSignature: new Uint8Array([4, 5, 6]),
-      revocationWitness: new Uint8Array([71, 72, 73]),
       credentialLevel: 'strong_anonymous',
       reputationBucket: 'rep:low'
     }))
+    expectSensitiveMaterialZeroized(vi.mocked(vault.put).mock.calls[0][0])
     expect([...(material?.credentialSecret ?? [])]).toEqual([1, 2, 3])
     expect([...(material?.credentialCommitment ?? [])]).toEqual([14, 15, 16])
     expect([...(material?.issuerSignature ?? [])]).toEqual([4, 5, 6])
@@ -103,7 +140,7 @@ describe('commentPrivacyCredentialProvider', () => {
     expect(globalThis.sessionStorage.length).toBe(0)
   })
 
-  it('returns unavailable without calling the issuer when IndexedDB or crypto support is missing', async () => {
+  it('returns unavailable without calling the issuer when memory vault or crypto support is missing', async () => {
     const issueCredential: CommentPrivacyCredentialIssuer = vi.fn()
     const provider = createCommentPrivacyCredentialProvider({
       vault: null,
@@ -120,6 +157,7 @@ describe('commentPrivacyCredentialProvider', () => {
   it('uses the default managed circuit-native suite to call the issuer and cache prover material', async () => {
     const vault = createVault()
     const metadata = createMetadata()
+    const expectedIssuerSignature = new Uint8Array(80).fill(17)
     const issued = {
       credentialEpoch: metadata.credentialEpoch,
       rootExpiresAtUnixMs: 5_000,
@@ -128,10 +166,17 @@ describe('commentPrivacyCredentialProvider', () => {
       circuitId: metadata.circuitId,
       credentialLevel: 'strong_anonymous',
       issuerPublicKeyId: 'issuer-key-test',
-      issuerSignature: new Uint8Array(80).fill(17)
+      issuerSignature: new Uint8Array(expectedIssuerSignature)
     }
     const issueCredential: CommentPrivacyCredentialIssuer = vi.fn().mockResolvedValue(issued)
-    const loadRevocationWitness: CommentPrivacyRevocationWitnessLoader = vi.fn().mockResolvedValue(new Uint8Array([61, 62, 63]))
+    let witnessRequestSnapshot: { revocationRoot: Uint8Array; revocationHandleHash: Uint8Array } | null = null
+    const loadRevocationWitness: CommentPrivacyRevocationWitnessLoader = vi.fn().mockImplementation(async request => {
+      witnessRequestSnapshot = {
+        revocationRoot: new Uint8Array(request.revocationRoot),
+        revocationHandleHash: new Uint8Array(request.revocationHandleHash)
+      }
+      return new Uint8Array([61, 62, 63])
+    })
     const provider = createCommentPrivacyCredentialProvider({
       vault,
       loadMetadata: vi.fn().mockResolvedValue(metadata),
@@ -152,7 +197,8 @@ describe('commentPrivacyCredentialProvider', () => {
     )
     expect(issueRequest.clientNonce).toBeInstanceOf(Uint8Array)
     expect(issueRequest.clientNonce).toHaveLength(32)
-    expect(material?.issuerSignature).toEqual(issued.issuerSignature)
+    expect(material?.issuerSignature).toEqual(expectedIssuerSignature)
+    expect(issued.issuerSignature).toEqual(new Uint8Array(80))
     expect(material?.credentialCommitment).toBeInstanceOf(Uint8Array)
     expect(material?.credentialCommitment).toHaveLength(32)
     expect(material?.credentialSecret).toBeInstanceOf(Uint8Array)
@@ -162,18 +208,15 @@ describe('commentPrivacyCredentialProvider', () => {
       credentialEpoch: metadata.credentialEpoch,
       circuitId: metadata.circuitId,
       issuerPublicKeyHash: metadata.issuerPublicKeyHash,
-      revocationRoot: metadata.revocationRoot,
-      revocationHandleHash: expect.any(Uint8Array)
     }), { signal })
-    expect(vi.mocked(loadRevocationWitness).mock.calls[0][0].revocationHandleHash).toHaveLength(32)
+    expect(witnessRequestSnapshot?.revocationRoot).toEqual(metadata.revocationRoot)
+    expect(witnessRequestSnapshot?.revocationHandleHash).toHaveLength(32)
     expect(vault.put).toHaveBeenCalledWith(expect.objectContaining({
       issuerPublicKeyId: 'issuer-key-test',
-      issuerSignature: issued.issuerSignature,
-      credentialCommitment: expect.any(Uint8Array),
-      revocationWitness: new Uint8Array([61, 62, 63]),
       credentialLevel: 'strong_anonymous',
       reputationBucket: 'rep:low'
     }))
+    expectSensitiveMaterialZeroized(vi.mocked(vault.put).mock.calls[0][0])
     expect(globalThis.localStorage.length).toBe(0)
     expect(globalThis.sessionStorage.length).toBe(0)
   })
@@ -279,6 +322,161 @@ describe('commentPrivacyCredentialProvider', () => {
       consoleError.mockRestore()
     }
   })
+
+  it('reissues after an account switch instead of reusing the previous tab credential', async () => {
+    const metadata = createMetadata()
+    const issueCredential: CommentPrivacyCredentialIssuer = vi.fn().mockImplementation(async () => ({
+      credentialEpoch: metadata.credentialEpoch,
+      rootExpiresAtUnixMs: 5_000,
+      circuitNumericId: metadata.circuitNumericId,
+      publicInputLayoutVersion: metadata.publicInputLayoutVersion,
+      circuitId: metadata.circuitId,
+      credentialLevel: 'strong_anonymous',
+      issuerPublicKeyId: 'issuer-key-test',
+      issuerSignature: new Uint8Array([41, 42])
+    }))
+    const provider = createCommentPrivacyCredentialProvider({
+      loadMetadata: vi.fn().mockResolvedValue(metadata),
+      issueCredential,
+      loadRevocationWitness: vi.fn().mockImplementation(async () => new Uint8Array([71, 72, 73])),
+      credentialSuite: createCredentialSuite(),
+      crypto: createDeterministicCrypto(),
+      now: () => 1_000
+    })
+    const signal = new AbortController().signal
+
+    await expect(provider.prepareCredential({ signal })).resolves.not.toBeNull()
+    const accountAGeneration = getCommentPrivacyLocalVaultGeneration()
+    await purgeCommentPrivacyCredentialState('account-switch', { broadcast: false })
+    await expect(provider.prepareCredential({ signal })).resolves.not.toBeNull()
+
+    expect(getCommentPrivacyLocalVaultGeneration()).not.toBe(accountAGeneration)
+    expect(issueCredential).toHaveBeenCalledTimes(2)
+  })
+
+  it('fails closed and reissues across epoch rotation before consulting the old cache', async () => {
+    const firstMetadata = createMetadata()
+    const secondMetadata = {
+      ...createMetadata(),
+      credentialEpoch: firstMetadata.credentialEpoch + 1,
+      credentialRoot: new Uint8Array([81, 82])
+    }
+    const loadMetadata = vi.fn()
+      .mockResolvedValueOnce(firstMetadata)
+      .mockResolvedValueOnce(secondMetadata)
+      .mockResolvedValue(secondMetadata)
+    const issueCredential: CommentPrivacyCredentialIssuer = vi.fn().mockImplementation(async request => ({
+      credentialEpoch: request.credentialEpoch,
+      rootExpiresAtUnixMs: 5_000,
+      circuitNumericId: request.circuitNumericId,
+      publicInputLayoutVersion: request.publicInputLayoutVersion,
+      circuitId: request.circuitId,
+      credentialLevel: request.credentialLevel,
+      issuerPublicKeyId: 'issuer-key-test',
+      issuerSignature: new Uint8Array([41, 42])
+    }))
+    const provider = createCommentPrivacyCredentialProvider({
+      loadMetadata,
+      issueCredential,
+      loadRevocationWitness: vi.fn().mockImplementation(async () => new Uint8Array([71, 72, 73])),
+      credentialSuite: createCredentialSuite(),
+      crypto: createDeterministicCrypto(),
+      now: () => 1_000
+    })
+    const signal = new AbortController().signal
+
+    await expect(provider.prepareCredential({ signal })).resolves.not.toBeNull()
+    const firstGeneration = getCommentPrivacyLocalVaultGeneration()
+    await expect(provider.prepareCredential({ signal })).resolves.toBeNull()
+    await expect(provider.prepareCredential({ signal })).resolves.not.toBeNull()
+
+    expect(getCommentPrivacyLocalVaultGeneration()).not.toBe(firstGeneration)
+    expect(issueCredential).toHaveBeenCalledTimes(2)
+    expect(issueCredential).toHaveBeenLastCalledWith(expect.objectContaining({
+      credentialEpoch: secondMetadata.credentialEpoch
+    }), { signal })
+  })
+
+  it.each([
+    ['issuer key', (metadata: ReturnType<typeof createMetadata>) => ({
+      ...metadata,
+      issuerPublicKeyHash: 'rotated-issuer-public-key-hash'
+    })],
+    ['credential root', (metadata: ReturnType<typeof createMetadata>) => ({
+      ...metadata,
+      credentialRoot: new Uint8Array([81, 82])
+    })],
+    ['revocation root', (metadata: ReturnType<typeof createMetadata>) => ({
+      ...metadata,
+      revocationRoot: new Uint8Array([91, 92])
+    })]
+  ])('fails closed once and reissues after %s rotation', async (_label, rotate) => {
+    const firstMetadata = createMetadata()
+    const rotatedMetadata = rotate(createMetadata())
+    const loadMetadata = vi.fn()
+      .mockResolvedValueOnce(firstMetadata)
+      .mockResolvedValue(rotatedMetadata)
+    const issueCredential: CommentPrivacyCredentialIssuer = vi.fn().mockImplementation(async request => ({
+      credentialEpoch: request.credentialEpoch,
+      rootExpiresAtUnixMs: 5_000,
+      circuitNumericId: request.circuitNumericId,
+      publicInputLayoutVersion: request.publicInputLayoutVersion,
+      circuitId: request.circuitId,
+      credentialLevel: request.credentialLevel,
+      issuerPublicKeyId: 'issuer-key-test',
+      issuerSignature: new Uint8Array([41, 42])
+    }))
+    const provider = createCommentPrivacyCredentialProvider({
+      loadMetadata,
+      issueCredential,
+      loadRevocationWitness: vi.fn().mockImplementation(async () => new Uint8Array([71, 72, 73])),
+      credentialSuite: createCredentialSuite(),
+      crypto: createDeterministicCrypto(),
+      now: () => 1_000
+    })
+    const signal = new AbortController().signal
+
+    await expect(provider.prepareCredential({ signal })).resolves.not.toBeNull()
+    const previousGeneration = getCommentPrivacyLocalVaultGeneration()
+    await expect(provider.prepareCredential({ signal })).resolves.toBeNull()
+    await expect(provider.prepareCredential({ signal })).resolves.not.toBeNull()
+
+    expect(getCommentPrivacyLocalVaultGeneration()).not.toBe(previousGeneration)
+    expect(issueCredential).toHaveBeenCalledTimes(2)
+  })
+
+  it('purges and fails closed when the privacy feature becomes unavailable', async () => {
+    const metadata = createMetadata()
+    const loadMetadata = vi.fn()
+      .mockResolvedValueOnce(metadata)
+      .mockResolvedValue(null)
+    const issueCredential: CommentPrivacyCredentialIssuer = vi.fn().mockImplementation(async () => ({
+      credentialEpoch: metadata.credentialEpoch,
+      rootExpiresAtUnixMs: 5_000,
+      circuitNumericId: metadata.circuitNumericId,
+      publicInputLayoutVersion: metadata.publicInputLayoutVersion,
+      circuitId: metadata.circuitId,
+      credentialLevel: metadata.credentialLevel,
+      issuerPublicKeyId: 'issuer-key-test',
+      issuerSignature: new Uint8Array([41, 42])
+    }))
+    const provider = createCommentPrivacyCredentialProvider({
+      loadMetadata,
+      issueCredential,
+      loadRevocationWitness: vi.fn().mockImplementation(async () => new Uint8Array([71, 72, 73])),
+      credentialSuite: createCredentialSuite(),
+      crypto: createDeterministicCrypto(),
+      now: () => 1_000
+    })
+    const signal = new AbortController().signal
+
+    await expect(provider.prepareCredential({ signal })).resolves.not.toBeNull()
+    const previousGeneration = getCommentPrivacyLocalVaultGeneration()
+    await expect(provider.prepareCredential({ signal })).resolves.toBeNull()
+
+    expect(getCommentPrivacyLocalVaultGeneration()).not.toBe(previousGeneration)
+    expect(issueCredential).toHaveBeenCalledTimes(1)
+  })
 })
 
 function createVault(): CommentPrivacyCredentialVault {
@@ -300,6 +498,7 @@ function createMetadata() {
     credentialLevel: 'strong_anonymous',
     reputationBucket: 'rep:low',
     issuerPublicKeyHash: 'issuer-public-key-hash',
+    credentialRoot: new Uint8Array([41, 42]),
     revocationRoot: new Uint8Array([51, 52])
   }
 }
@@ -320,11 +519,11 @@ function createRevocationWitnessResponse(metadata = createMetadata()) {
 
 function createCredentialSuite(): CommentPrivacyCredentialSuite {
   return {
-    createCredentialRequest: vi.fn().mockResolvedValue({
+    createCredentialRequest: vi.fn().mockImplementation(async () => ({
       credentialRequest: new Uint8Array([21, 22]),
       credentialOpening: new Uint8Array([31, 32])
-    }),
-    acceptIssuerResponse: vi.fn().mockResolvedValue({
+    })),
+    acceptIssuerResponse: vi.fn().mockImplementation(async () => ({
       credentialSecret: new Uint8Array([1, 2, 3]),
       credentialCommitment: new Uint8Array([14, 15, 16]),
       issuerSignature: new Uint8Array([4, 5, 6]),
@@ -332,7 +531,7 @@ function createCredentialSuite(): CommentPrivacyCredentialSuite {
       revocationHandleHash: new Uint8Array([91, 92]),
       credentialLevel: 'strong_anonymous',
       reputationBucket: 'rep:low'
-    })
+    }))
   }
 }
 
@@ -375,4 +574,28 @@ function hexToBytes(hex: string): Uint8Array {
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function expectSensitiveMaterialZeroized(material: {
+  credentialSecret: Uint8Array
+  credentialCommitment: Uint8Array
+  issuerSignature: Uint8Array
+  revocationWitness: Uint8Array
+  revocationHandleHash?: Uint8Array
+}): void {
+  for (const bytes of [
+    material.credentialSecret,
+    material.credentialCommitment,
+    material.issuerSignature,
+    material.revocationWitness,
+    material.revocationHandleHash
+  ]) {
+    if (bytes) {
+      expect(bytes.every(byte => byte === 0)).toBe(true)
+    }
+  }
+}
+
+function bytesFromValue(value: Uint8Array | number[]): Uint8Array {
+  return value instanceof Uint8Array ? value : new Uint8Array(value)
 }

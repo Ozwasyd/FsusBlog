@@ -16,6 +16,7 @@ import type {
   CommentPrivacyMetadataResult,
   CommentPrivacyTicketResult
 } from './commentPrivacyTypes'
+import { zeroizeCommentPrivacyBytes } from './commentPrivacyCredentialLifecycle'
 
 const DEFAULT_CREDENTIAL_LEVEL = 'strong_anonymous'
 const DEFAULT_REPUTATION_BUCKET = 'unrated'
@@ -30,16 +31,16 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
 
   return {
     async ensureCredentialPrepared({ signal }): Promise<CommentPrivacyCredentialResult> {
-      if (credentialMaterial) {
-        return { ok: true, credential: cloneCredentialMaterial(credentialMaterial) }
-      }
-
       const credential = await credentialProvider.prepareCredential({ signal })
       if (!credential || signal.aborted) {
+        zeroizeCredentialMaterial(credentialMaterial)
+        credentialMaterial = null
         return { ok: false, reason: 'comment_privacy_credential_unavailable' }
       }
 
+      zeroizeCredentialMaterial(credentialMaterial)
       credentialMaterial = cloneCredentialMaterial(credential)
+      zeroizeCredentialMaterial(credential)
       return { ok: true, credential: cloneCredentialMaterial(credentialMaterial) }
     },
     async loadPrivacyMetadata({ scope, signal }): Promise<CommentPrivacyMetadataResult> {
@@ -104,6 +105,10 @@ export function createCommentPrivacyAdapter(options: CommentPrivacyAdapterOption
       } catch {
         return { ok: false, reason: 'comment_privacy_ticket_unavailable' }
       }
+    },
+    async purgeCredential() {
+      zeroizeCredentialMaterial(credentialMaterial)
+      credentialMaterial = null
     }
   }
 }
@@ -199,4 +204,15 @@ function cloneCredentialMaterial(material: CommentPrivacyCredentialMaterial): Co
     credentialLevel: material.credentialLevel,
     reputationBucket: material.reputationBucket
   }
+}
+
+function zeroizeCredentialMaterial(material: CommentPrivacyCredentialMaterial | null): void {
+  if (!material) {
+    return
+  }
+  zeroizeCommentPrivacyBytes(material.credentialSecret)
+  zeroizeCommentPrivacyBytes(material.credentialCommitment)
+  zeroizeCommentPrivacyBytes(material.issuerSignature)
+  zeroizeCommentPrivacyBytes(material.revocationWitness)
+  zeroizeCommentPrivacyBytes(material.revocationHandleHash)
 }

@@ -1,3 +1,5 @@
+import { setSanitizedTemplateHtml } from '@/security/trustedTypesRuntime'
+
 const blockedElements = new Set([
   'script',
   'iframe',
@@ -125,7 +127,7 @@ export function sanitizeHtmlAllowlist(html: string): string {
   }
 
   const template = document.createElement('template')
-  template.innerHTML = html
+  setSanitizedTemplateHtml(template, sanitizeHtmlFallback(html))
   const showElement = document.defaultView?.NodeFilter.SHOW_ELEMENT ?? 1
   const walker = document.createTreeWalker(template.content, showElement)
   const elements: Element[] = []

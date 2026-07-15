@@ -17,9 +17,15 @@ import { createManagedCircuitNativeCredentialSuite } from './commentPrivacyCircu
 import { encodeCommentPrivacyRevocationWitnessMaterial } from './commentPrivacyRevocationWitness'
 import {
   createCommentPrivacyCredentialVault,
+  currentCommentPrivacyVaultPartition,
   type CommentPrivacyCredentialVault,
   type CommentPrivacyCredentialVaultPartition
 } from './commentPrivacyCredentialVault'
+import {
+  purgeCommentPrivacyCredentialState,
+  type CommentPrivacyCredentialPurgeReason,
+  zeroizeCommentPrivacyBytes
+} from './commentPrivacyCredentialLifecycle'
 
 export type { CommentPrivacyCredentialVault } from './commentPrivacyCredentialVault'
 
@@ -42,6 +48,7 @@ export interface CommentPrivacyCredentialIssuerMetadata {
   credentialLevel: string
   reputationBucket: string
   issuerPublicKeyHash: string
+  credentialRoot: Uint8Array
   revocationRoot: Uint8Array
 }
 
@@ -116,6 +123,7 @@ export function createCommentPrivacyCredentialProvider(
   const credentialSecretBytes = options.credentialSecretBytes ?? DEFAULT_CREDENTIAL_SECRET_BYTES
   const clientNonceBytes = options.clientNonceBytes ?? DEFAULT_CLIENT_NONCE_BYTES
   let unavailableUntilUnixMs = 0
+  let lastMetadata: CommentPrivacyCredentialIssuerMetadata | null = null
 
   const failClosed = (signal: AbortSignal): null => {
     if (!signal.aborted) {
@@ -133,31 +141,56 @@ export function createCommentPrivacyCredentialProvider(
         return failClosed(signal)
       }
 
+      const temporaryBytes: Uint8Array[] = []
+      const track = (bytes: Uint8Array): Uint8Array => {
+        temporaryBytes.push(bytes)
+        return bytes
+      }
       try {
+        if (vault.initialize && !await vault.initialize()) {
+          await vault.clear()
+          lastMetadata = null
+          return failClosed(signal)
+        }
         await vault.pruneExpired(now())
         const metadata = await loadMetadata({ signal })
         if (signal.aborted) {
           return null
         }
         if (!isUsableMetadata(metadata, now())) {
+          if (lastMetadata) {
+            await purgeCommentPrivacyCredentialState('feature-disabled')
+            await vault.clear()
+            lastMetadata = null
+          }
           return failClosed(signal)
         }
 
+        if (lastMetadata && metadataBinding(lastMetadata) !== metadataBinding(metadata)) {
+          const rotationReason = classifyMetadataRotation(lastMetadata, metadata)
+          lastMetadata = cloneMetadata(metadata)
+          await purgeCommentPrivacyCredentialState(rotationReason)
+          await vault.clear()
+          return null
+        }
+        lastMetadata = cloneMetadata(metadata)
         const partition = metadataPartition(metadata)
         const cached = await vault.get(partition)
         if (cached) {
-          return cloneCredentialMaterial(cached)
+          const result = cloneCredentialMaterial(cached)
+          zeroizeCredentialMaterial(cached)
+          return result
         }
 
         if (!credentialSuite) {
           return failClosed(signal)
         }
 
-        const credentialSecret = randomBytes(cryptoSource, credentialSecretBytes)
-        const clientNonce = randomBytes(cryptoSource, clientNonceBytes)
+        const credentialSecret = track(randomBytes(cryptoSource, credentialSecretBytes))
+        const clientNonce = track(randomBytes(cryptoSource, clientNonceBytes))
         const credentialIssuePayload = await credentialSuite.createCredentialRequest({
-          credentialSecret: cloneBytes(credentialSecret),
-          clientNonce: cloneBytes(clientNonce),
+          credentialSecret: track(cloneBytes(credentialSecret)),
+          clientNonce: track(cloneBytes(clientNonce)),
           metadata,
           signal
         })
@@ -167,6 +200,8 @@ export function createCommentPrivacyCredentialProvider(
         if (!isUsableCredentialIssuePayload(credentialIssuePayload)) {
           return failClosed(signal)
         }
+        track(credentialIssuePayload.credentialRequest)
+        track(credentialIssuePayload.credentialOpening)
 
         const issuerResponse = await issueCredential({
           credentialEpoch: metadata.credentialEpoch,
@@ -174,8 +209,8 @@ export function createCommentPrivacyCredentialProvider(
           publicInputLayoutVersion: metadata.publicInputLayoutVersion,
           circuitId: metadata.circuitId,
           credentialLevel: metadata.credentialLevel,
-          credentialRequest: cloneBytes(credentialIssuePayload.credentialRequest),
-          clientNonce: cloneBytes(clientNonce)
+          credentialRequest: track(cloneBytes(credentialIssuePayload.credentialRequest)),
+          clientNonce: track(cloneBytes(clientNonce))
         }, { signal })
         if (signal.aborted) {
           return null
@@ -183,13 +218,14 @@ export function createCommentPrivacyCredentialProvider(
         if (!matchesMetadata(issuerResponse, metadata) || issuerResponse.rootExpiresAtUnixMs <= now()) {
           return failClosed(signal)
         }
+        track(issuerResponse.issuerSignature)
 
         const material = await credentialSuite.acceptIssuerResponse({
-          credentialSecret: cloneBytes(credentialSecret),
-          clientNonce: cloneBytes(clientNonce),
-          credentialOpening: cloneBytes(credentialIssuePayload.credentialOpening),
+          credentialSecret: track(cloneBytes(credentialSecret)),
+          clientNonce: track(cloneBytes(clientNonce)),
+          credentialOpening: track(cloneBytes(credentialIssuePayload.credentialOpening)),
           issuerPublicKeyId: issuerResponse.issuerPublicKeyId,
-          issuerSignature: cloneBytes(issuerResponse.issuerSignature),
+          issuerSignature: track(cloneBytes(issuerResponse.issuerSignature)),
           metadata,
           response: issuerResponse,
           signal
@@ -200,6 +236,7 @@ export function createCommentPrivacyCredentialProvider(
         if (!isUsableCredentialMaterial(material)) {
           return failClosed(signal)
         }
+        trackCredentialMaterial(material, track)
 
         if (!(material.revocationHandleHash instanceof Uint8Array) ||
           material.revocationHandleHash.byteLength === 0 ||
@@ -213,8 +250,8 @@ export function createCommentPrivacyCredentialProvider(
           publicInputLayoutVersion: metadata.publicInputLayoutVersion,
           circuitId: metadata.circuitId,
           issuerPublicKeyHash: metadata.issuerPublicKeyHash,
-          revocationRoot: cloneBytes(metadata.revocationRoot),
-          revocationHandleHash: cloneBytes(material.revocationHandleHash)
+          revocationRoot: track(cloneBytes(metadata.revocationRoot)),
+          revocationHandleHash: track(cloneBytes(material.revocationHandleHash))
         }, { signal })
         if (signal.aborted) {
           return null
@@ -222,6 +259,7 @@ export function createCommentPrivacyCredentialProvider(
         if (!(revocationWitness instanceof Uint8Array) || revocationWitness.byteLength === 0) {
           return failClosed(signal)
         }
+        track(revocationWitness)
 
         const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.rootExpiresAtUnixMs)
         if (expiresAtUnixMs <= now()) {
@@ -234,16 +272,23 @@ export function createCommentPrivacyCredentialProvider(
           credentialLevel: issuerResponse.credentialLevel || material.credentialLevel || metadata.credentialLevel,
           reputationBucket: material.reputationBucket || metadata.reputationBucket || DEFAULT_REPUTATION_BUCKET
         })
-        await vault.put({
+        trackCredentialMaterial(credential, track)
+        const storedCredential = {
           ...partition,
-          ...credential,
+          ...cloneCredentialMaterial(credential),
           expiresAtUnixMs,
           issuerPublicKeyId: issuerResponse.issuerPublicKeyId
-        })
+        }
+        await vault.put(storedCredential)
+        zeroizeCredentialMaterial(storedCredential)
 
         return cloneCredentialMaterial(credential)
       } catch {
         return failClosed(signal)
+      } finally {
+        for (const bytes of temporaryBytes) {
+          zeroizeCommentPrivacyBytes(bytes)
+        }
       }
     }
   }
@@ -303,6 +348,7 @@ async function loadDefaultCredentialMetadata(
     credentialLevel: DEFAULT_CREDENTIAL_LEVEL,
     reputationBucket: DEFAULT_REPUTATION_BUCKET,
     issuerPublicKeyHash,
+    credentialRoot: cloneBytes(root.credentialRoot),
     revocationRoot: cloneBytes(root.revocationRoot)
   }
 }
@@ -334,6 +380,8 @@ function isUsableMetadata(
     Boolean(metadata.credentialLevel) &&
     Boolean(metadata.reputationBucket) &&
     Boolean(metadata.issuerPublicKeyHash) &&
+    metadata.credentialRoot instanceof Uint8Array &&
+    metadata.credentialRoot.byteLength > 0 &&
     metadata.revocationRoot instanceof Uint8Array &&
     metadata.revocationRoot.byteLength > 0
 }
@@ -341,10 +389,43 @@ function isUsableMetadata(
 function metadataPartition(
   metadata: CommentPrivacyCredentialIssuerMetadata
 ): CommentPrivacyCredentialVaultPartition {
-  return {
+  return currentCommentPrivacyVaultPartition({
     credentialEpoch: metadata.credentialEpoch,
     circuitId: metadata.circuitId,
     issuerPublicKeyHash: metadata.issuerPublicKeyHash
+  })
+}
+
+function metadataBinding(metadata: CommentPrivacyCredentialIssuerMetadata): string {
+  return [
+    metadata.credentialEpoch,
+    metadata.circuitNumericId,
+    metadata.publicInputLayoutVersion,
+    metadata.circuitId,
+    metadata.issuerPublicKeyHash.trim().toLowerCase(),
+    bytesToHex(metadata.credentialRoot),
+    bytesToHex(metadata.revocationRoot)
+  ].join(':')
+}
+
+function classifyMetadataRotation(
+  previous: CommentPrivacyCredentialIssuerMetadata,
+  current: CommentPrivacyCredentialIssuerMetadata
+): CommentPrivacyCredentialPurgeReason {
+  if (previous.credentialEpoch !== current.credentialEpoch) {
+    return 'epoch-changed'
+  }
+  if (previous.issuerPublicKeyHash.trim().toLowerCase() !== current.issuerPublicKeyHash.trim().toLowerCase()) {
+    return 'issuer-key-rotation'
+  }
+  return 'root-retired'
+}
+
+function cloneMetadata(metadata: CommentPrivacyCredentialIssuerMetadata): CommentPrivacyCredentialIssuerMetadata {
+  return {
+    ...metadata,
+    credentialRoot: cloneBytes(metadata.credentialRoot),
+    revocationRoot: cloneBytes(metadata.revocationRoot)
   }
 }
 
@@ -414,8 +495,33 @@ function cloneCredentialMaterial(material: CommentPrivacyCredentialMaterial): Co
   return cloned
 }
 
+function trackCredentialMaterial(
+  material: CommentPrivacyCredentialMaterial,
+  track: (bytes: Uint8Array) => Uint8Array
+): void {
+  track(material.credentialSecret)
+  track(material.credentialCommitment)
+  track(material.issuerSignature)
+  track(material.revocationWitness)
+  if (material.revocationHandleHash) {
+    track(material.revocationHandleHash)
+  }
+}
+
+function zeroizeCredentialMaterial(material: CommentPrivacyCredentialMaterial): void {
+  zeroizeCommentPrivacyBytes(material.credentialSecret)
+  zeroizeCommentPrivacyBytes(material.credentialCommitment)
+  zeroizeCommentPrivacyBytes(material.issuerSignature)
+  zeroizeCommentPrivacyBytes(material.revocationWitness)
+  zeroizeCommentPrivacyBytes(material.revocationHandleHash)
+}
+
 function cloneBytes(bytes: Uint8Array): Uint8Array {
   return new Uint8Array(bytes)
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
 function matchesRevocationWitness(

@@ -55,8 +55,14 @@ describe('commentPrivacyAdapter', () => {
     } as never)
   })
 
-  it('fails closed when no in-memory credential provider is available', async () => {
-    const adapter = createCommentPrivacyAdapter()
+  it('fails closed before metadata or ticket calls when the in-memory credential provider is unavailable', async () => {
+    const adapter = createCommentPrivacyAdapter({
+      credentialProvider: {
+        async prepareCredential() {
+          return null
+        }
+      }
+    })
     const signal = new AbortController().signal
 
     await expect(adapter.ensureCredentialPrepared({ signal })).resolves.toEqual({

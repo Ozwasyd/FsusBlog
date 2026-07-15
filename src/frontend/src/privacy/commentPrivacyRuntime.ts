@@ -8,9 +8,15 @@ import type {
   CommentPrivacyCredentialMaterial,
   CommentPrivacyMetadata,
   CommentPrivacyPreparedTicket,
+  CommentPrivacyTicketResult,
   CommentPrivacyUiState,
   CommentPrivacyWorkerClient
 } from './commentPrivacyTypes'
+import {
+  registerCommentPrivacyCredentialPurgeHandler,
+  type CommentPrivacyCredentialPurgeReason,
+  zeroizeCommentPrivacyBytes
+} from './commentPrivacyCredentialLifecycle'
 
 export type {
   CommentPrivacyAdapter,
@@ -31,6 +37,7 @@ export interface CommentPrivacyRuntime {
   consumePreparedTicket(scope: string): CommentPrivacyPreparedTicket | null
   getUiState(): CommentPrivacyUiState
   subscribe(listener: CommentPrivacyListener): () => void
+  purge(reason: CommentPrivacyCredentialPurgeReason): Promise<void>
 }
 
 export interface CommentPrivacyRuntimeOptions {
@@ -41,16 +48,21 @@ export interface CommentPrivacyRuntimeOptions {
 }
 
 let singleton: CommentPrivacyRuntime | null = null
+let unregisterSingletonPurgeHandler: (() => void) | null = null
 
 export function getCommentPrivacyRuntime(): CommentPrivacyRuntime {
   if (!singleton) {
     singleton = createCommentPrivacyRuntime()
+    unregisterSingletonPurgeHandler = registerCommentPrivacyCredentialPurgeHandler(reason => singleton?.purge(reason))
   }
 
   return singleton
 }
 
 export function resetCommentPrivacyRuntimeForTests(): void {
+  unregisterSingletonPurgeHandler?.()
+  unregisterSingletonPurgeHandler = null
+  void singleton?.purge('panic')
   singleton = null
 }
 
@@ -66,10 +78,25 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
   let uiState: CommentPrivacyUiState = 'publicOnly'
   let activeTasks = 0
   let unavailable = false
-  let credentialPrepared = false
   let credentialMaterial: CommentPrivacyCredentialMaterial | null = null
   let activePreloadController: AbortController | null = null
   let activePrepareController: AbortController | null = null
+
+  const replaceCredentialMaterial = (material: CommentPrivacyCredentialMaterial | null): void => {
+    zeroizeCredentialMaterial(credentialMaterial)
+    credentialMaterial = material ? cloneCredentialMaterial(material) : null
+  }
+
+  const refreshCredential = async (signal: AbortSignal): Promise<boolean> => {
+    const result = await adapter.ensureCredentialPrepared({ signal })
+    if (!result.ok || !result.credential || signal.aborted) {
+      replaceCredentialMaterial(null)
+      return false
+    }
+    replaceCredentialMaterial(result.credential)
+    zeroizeCredentialMaterial(result.credential)
+    return true
+  }
 
   const emitState = (): void => {
     const next = computeUiState()
@@ -138,21 +165,13 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
   }
 
   const ensureCredentialPrepared = async (): Promise<boolean> => {
-    if (credentialPrepared) {
-      return true
-    }
-
     const controller = new AbortController()
     return await runTask(async () => {
       try {
-        const result = await adapter.ensureCredentialPrepared({ signal: controller.signal })
-        if (!result.ok) {
+        if (!await refreshCredential(controller.signal)) {
           markUnavailable()
           return false
         }
-
-        credentialMaterial = result.credential ?? null
-        credentialPrepared = true
         return true
       } catch {
         markUnavailable()
@@ -201,16 +220,12 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
             return
           }
           try {
-            if (!credentialPrepared) {
-              const credential = await adapter.ensureCredentialPrepared({ signal: controller.signal })
-              if (!credential.ok) {
+            if (!await refreshCredential(controller.signal)) {
+              if (!controller.signal.aborted) {
                 markUnavailable()
-                settle(false)
-                return
               }
-
-              credentialMaterial = credential.credential ?? null
-              credentialPrepared = true
+              settle(false)
+              return
             }
 
             const metadata = await loadMetadata(scope, articleId, controller.signal)
@@ -242,15 +257,9 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
 
     return await runTask(async () => {
       try {
-        if (!credentialPrepared) {
-          const credential = await adapter.ensureCredentialPrepared({ signal: controller.signal })
-          if (!credential.ok) {
-            markUnavailable()
-            return false
-          }
-
-          credentialMaterial = credential.credential ?? null
-          credentialPrepared = true
+        if (!await refreshCredential(controller.signal)) {
+          markUnavailable()
+          return false
         }
 
         const metadata = await ensureMetadata(normalizedScope, controller.signal)
@@ -282,13 +291,20 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
           revocationWitness: credentialMaterial?.revocationWitness,
           signal: controller.signal
         })
-        const ticket = await adapter.issueAnonymousTicket({
-          scope: normalizedScope,
-          metadata: ticketMetadata,
-          proof,
-          proofBytes: proof.proofBytes,
-          signal: controller.signal
-        })
+        let ticket: CommentPrivacyTicketResult
+        try {
+          ticket = await adapter.issueAnonymousTicket({
+            scope: normalizedScope,
+            metadata: ticketMetadata,
+            proof,
+            proofBytes: proof.proofBytes,
+            signal: controller.signal
+          })
+        } finally {
+          zeroizeCommentPrivacyBytes(proof.proofBytes)
+          zeroizeCommentPrivacyBytes(proof.publicInputs)
+          zeroizeCommentPrivacyBytes(proof.nullifierHash)
+        }
         if (!ticket.ok || ticket.ticket.expiresAtUnixMs <= now()) {
           markUnavailable()
           return false
@@ -315,6 +331,7 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
     const normalizedScope = normalizeScope(scope)
     const ticket = ticketsByScope.get(normalizedScope)
     if (!ticket || ticket.expiresAtUnixMs <= now()) {
+      zeroizePreparedTicket(ticket)
       ticketsByScope.delete(normalizedScope)
       emitState()
       return null
@@ -328,9 +345,31 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
   const pruneExpiredTickets = (): void => {
     for (const [scope, ticket] of ticketsByScope) {
       if (ticket.expiresAtUnixMs <= now()) {
+        zeroizePreparedTicket(ticket)
         ticketsByScope.delete(scope)
       }
     }
+  }
+
+  const purge = async (reason: CommentPrivacyCredentialPurgeReason): Promise<void> => {
+    activePreloadController?.abort()
+    activePrepareController?.abort()
+    activePreloadController = null
+    activePrepareController = null
+    replaceCredentialMaterial(null)
+    for (const metadata of metadataByScope.values()) {
+      zeroizeMetadata(metadata)
+    }
+    metadataByScope.clear()
+    for (const ticket of ticketsByScope.values()) {
+      zeroizePreparedTicket(ticket)
+    }
+    ticketsByScope.clear()
+    await adapter.purgeCredential?.()
+    workerClient.dispose()
+    activeTasks = 0
+    unavailable = reason === 'feature-disabled' || reason === 'migration-failure'
+    emitState()
   }
 
   return {
@@ -339,6 +378,7 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
     prewarmProver,
     prepareAnonymousTicket,
     consumePreparedTicket,
+    purge,
     getUiState() {
       uiState = computeUiState()
       return uiState
@@ -349,6 +389,38 @@ export function createCommentPrivacyRuntime(options: CommentPrivacyRuntimeOption
       return () => listeners.delete(listener)
     }
   }
+}
+
+function cloneCredentialMaterial(material: CommentPrivacyCredentialMaterial): CommentPrivacyCredentialMaterial {
+  return {
+    credentialSecret: new Uint8Array(material.credentialSecret),
+    credentialCommitment: new Uint8Array(material.credentialCommitment),
+    issuerSignature: new Uint8Array(material.issuerSignature),
+    revocationWitness: new Uint8Array(material.revocationWitness),
+    revocationHandleHash: material.revocationHandleHash ? new Uint8Array(material.revocationHandleHash) : undefined,
+    credentialLevel: material.credentialLevel,
+    reputationBucket: material.reputationBucket
+  }
+}
+
+function zeroizeCredentialMaterial(material: CommentPrivacyCredentialMaterial | null): void {
+  if (!material) return
+  zeroizeCommentPrivacyBytes(material.credentialSecret)
+  zeroizeCommentPrivacyBytes(material.credentialCommitment)
+  zeroizeCommentPrivacyBytes(material.issuerSignature)
+  zeroizeCommentPrivacyBytes(material.revocationWitness)
+  zeroizeCommentPrivacyBytes(material.revocationHandleHash)
+}
+
+function zeroizeMetadata(metadata: CommentPrivacyMetadata): void {
+  zeroizeCommentPrivacyBytes(metadata.metadataBytes)
+  zeroizeCommentPrivacyBytes(metadata.credentialRoot)
+  zeroizeCommentPrivacyBytes(metadata.revocationRoot)
+  zeroizeCommentPrivacyBytes(metadata.circuitMetadata)
+}
+
+function zeroizePreparedTicket(ticket: CommentPrivacyPreparedTicket | null | undefined): void {
+  zeroizeCommentPrivacyBytes(ticket?.ticket)
 }
 
 function toArticleScope(articleId: number): string {

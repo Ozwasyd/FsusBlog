@@ -13,6 +13,7 @@ import { useAdminTaskFeedback } from '@/composables/useAdminTaskFeedback'
 import { AppErrorCode, isAppError } from '@/utils/appError'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { promptText, toast } from '@/fsusui/feedback'
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 
 
 function isBanEligibleStatus(status: CommentModerationStatus): boolean {
@@ -299,6 +300,7 @@ export function useCommentModerationActions() {
         throw new Error('ANONYMOUS_GOVERNANCE_NOT_APPLIED')
       }
 
+      await clearPrivateBrowserState('credential-revoked')
       taskFeedback.succeed('匿名凭证已撤销', `${item.actorDisplayName} / ${credentialId}`, item.id)
       toast.success('匿名凭证已撤销')
       await afterSuccess?.()

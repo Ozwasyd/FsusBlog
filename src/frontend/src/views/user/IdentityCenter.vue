@@ -421,6 +421,7 @@ import { useUserStore } from '@/store/user'
 import { confirmDanger, toast } from '@/fsusui/feedback'
 import { toAppError } from '@/utils/appError'
 import { FSUSBLOG_IDENTITY_COPY } from '@/copy'
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 
 const identityCopy = FSUSBLOG_IDENTITY_COPY
 const copy = identityCopy.overview
@@ -937,6 +938,7 @@ const deleteCurrentAccount = async (): Promise<void> => {
       confirmText: 'DELETE',
       mfaProofToken: proofToken
     })
+    await clearPrivateBrowserState('account-deletion')
     toast.success(errorCopy.accountDeletedSuccess)
     await userStore.logout()
   } catch (error) {

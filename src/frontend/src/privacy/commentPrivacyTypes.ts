@@ -82,6 +82,7 @@ export interface CommentPrivacyAdapter {
   ensureCredentialPrepared(request: { signal: AbortSignal }): Promise<CommentPrivacyCredentialResult>
   loadPrivacyMetadata(request: CommentPrivacyMetadataRequest): Promise<CommentPrivacyMetadataResult>
   issueAnonymousTicket(request: CommentPrivacyTicketRequest): Promise<CommentPrivacyTicketResult>
+  purgeCredential?(): void | Promise<void>
 }
 
 export interface CommentPrivacyProofRequest {

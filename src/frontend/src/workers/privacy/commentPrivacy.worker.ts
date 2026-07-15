@@ -1,5 +1,6 @@
 import { createCommentPrivacyWasmProver } from '@/privacy/commentPrivacyWasmProver'
 import type { CommentPrivacyProofRequest } from '@/privacy/commentPrivacyTypes'
+import { zeroizeCommentPrivacyBytes } from '@/privacy/commentPrivacyCredentialLifecycle'
 
 type CommentPrivacyWorkerRequest =
   | {
@@ -82,17 +83,22 @@ async function handleRequest(request: CommentPrivacyWorkerRequest): Promise<void
       return
     }
 
-    const proof = await prover.prepareProof(toProofRequest(request))
-    const response: CommentPrivacyWorkerResponse = {
-      v: 1,
-      type: 'proof',
-      requestId: request.requestId,
-      ok: true,
-      proofBytes: proof.proofBytes,
-      publicInputs: proof.publicInputs,
-      nullifierHash: proof.nullifierHash
+    const proofRequest = toProofRequest(request)
+    try {
+      const proof = await prover.prepareProof(proofRequest)
+      const response: CommentPrivacyWorkerResponse = {
+        v: 1,
+        type: 'proof',
+        requestId: request.requestId,
+        ok: true,
+        proofBytes: proof.proofBytes,
+        publicInputs: proof.publicInputs,
+        nullifierHash: proof.nullifierHash
+      }
+      ctx.postMessage(response, [proof.proofBytes.buffer, proof.publicInputs.buffer, proof.nullifierHash.buffer])
+    } finally {
+      zeroizeProofRequest(proofRequest)
     }
-    ctx.postMessage(response, [proof.proofBytes.buffer, proof.publicInputs.buffer, proof.nullifierHash.buffer])
   } catch (error) {
     const response: CommentPrivacyWorkerResponse = {
       v: 1,
@@ -131,6 +137,17 @@ function toProofRequest(request: Extract<CommentPrivacyWorkerRequest, { type: 'p
 
 function toBytes(buffer: ArrayBuffer | undefined): Uint8Array | undefined {
   return buffer ? new Uint8Array(buffer) : undefined
+}
+
+function zeroizeProofRequest(request: CommentPrivacyProofRequest): void {
+  zeroizeCommentPrivacyBytes(request.metadataBytes)
+  zeroizeCommentPrivacyBytes(request.credentialCommitment)
+  zeroizeCommentPrivacyBytes(request.credentialRoot)
+  zeroizeCommentPrivacyBytes(request.revocationRoot)
+  zeroizeCommentPrivacyBytes(request.circuitMetadata)
+  zeroizeCommentPrivacyBytes(request.credentialSecret)
+  zeroizeCommentPrivacyBytes(request.issuerSignature)
+  zeroizeCommentPrivacyBytes(request.revocationWitness)
 }
 
 function sanitizeWorkerError(error: unknown): string {

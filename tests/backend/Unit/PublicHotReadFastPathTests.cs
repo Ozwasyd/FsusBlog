@@ -1079,8 +1079,12 @@ public sealed class PublicHotReadFastPathTests
         AssertHtmlSecurityHeaders(context);
     }
 
-    [Fact]
-    public async Task TryServeAsync_PublicHtmlHomeHit_WithInlineAotDocumentUsesNonceCsp()
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task TryServeAsync_PublicHtmlHomeHit_WithInlineAotDocumentUsesEnvironmentCsp(
+        bool isDevelopment,
+        bool expectsTrustedTypes)
     {
         var store = CreateReadyEmptyStore();
         const string source = "<!doctype html><html><head><style>.ok{color:currentColor}</style></head><body><script id=\"fsus-theme-bootstrap\"></script><main class=\"ok\">ok</main></body></html>";
@@ -1098,7 +1102,7 @@ public sealed class PublicHotReadFastPathTests
             store,
             new PublicHotReadOptions(),
             new PublicHotReadCounters(),
-            isDevelopment: true);
+            isDevelopment);
 
         string rendered = System.Text.Encoding.UTF8.GetString(((MemoryStream)context.Response.Body).ToArray());
         string csp = context.Response.Headers["Content-Security-Policy"].ToString();
@@ -1108,7 +1112,17 @@ public sealed class PublicHotReadFastPathTests
         Assert.Contains("style-src-attr 'none'", csp, StringComparison.Ordinal);
         Assert.DoesNotContain("style-src-attr 'unsafe-inline'", csp, StringComparison.Ordinal);
         Assert.Contains("report-uri /api/security/csp-report", csp, StringComparison.Ordinal);
-        Assert.Contains("http://127.0.0.1:3000", csp, StringComparison.Ordinal);
+        if (expectsTrustedTypes)
+        {
+            Assert.Contains("require-trusted-types-for 'script'", csp, StringComparison.Ordinal);
+            Assert.Contains("trusted-types vue fsusblog;", csp, StringComparison.Ordinal);
+            Assert.DoesNotContain("http://127.0.0.1:3000", csp, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.DoesNotContain("require-trusted-types-for", csp, StringComparison.Ordinal);
+            Assert.Contains("http://127.0.0.1:3000", csp, StringComparison.Ordinal);
+        }
         Assert.Contains("<meta property=\"csp-nonce\" nonce=\"", rendered, StringComparison.Ordinal);
         Assert.Contains("<script nonce=\"", rendered, StringComparison.Ordinal);
         Assert.Contains("<style nonce=\"", rendered, StringComparison.Ordinal);

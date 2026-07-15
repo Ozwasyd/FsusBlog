@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateZkLocalReview } from './zk-local-review.mjs'
+import { validateCommentPrivacyCredentialVault } from './check-comment-privacy-credential-vault.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DEFAULT_CONFIGS = [
@@ -64,6 +65,7 @@ if (requireEnabled && !enabled) {
 checkFalse('AnonymousIdentity:ZkProd:AllowDevVerifier', zkProd.AllowDevVerifier)
 checkFalse('AnonymousIdentity:ZkProd:FallbackToLegacyAnonymous', zkProd.FallbackToLegacyAnonymous)
 checkRollbackDocument()
+checkCommentPrivacyCredentialVault()
 
 if (!enabled && !requireEnabled) {
   checks.push({
@@ -172,6 +174,14 @@ function checkEnabledProductionReadiness() {
     expectedVkHash,
     setup,
     smokeEvidence)
+}
+
+function checkCommentPrivacyCredentialVault() {
+  const validation = validateCommentPrivacyCredentialVault(ROOT)
+  for (const error of validation.errors) {
+    errors.push(`comment privacy credential vault: ${error}`)
+  }
+  checks.push(...validation.checks)
 }
 
 function checkNativeVerifierLibrary(rawPath) {

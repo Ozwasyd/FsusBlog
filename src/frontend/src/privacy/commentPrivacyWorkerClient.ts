@@ -1,4 +1,5 @@
 import type { CommentPrivacyProofBundle, CommentPrivacyProofRequest, CommentPrivacyWorkerClient } from './commentPrivacyTypes'
+import { registerCommentPrivacyCredentialPurgeHandler } from './commentPrivacyCredentialLifecycle'
 
 type CommentPrivacyWorkerRequest =
   | {
@@ -97,16 +98,20 @@ export interface CommentPrivacyWorkerClientOptions {
 const DEFAULT_TIMEOUT_MS = 30_000
 
 let singleton: CommentPrivacyWorkerClient | null = null
+let unregisterSingletonPurgeHandler: (() => void) | null = null
 
 export function getCommentPrivacyWorkerClient(): CommentPrivacyWorkerClient {
   if (!singleton) {
     singleton = createCommentPrivacyWorkerClient()
+    unregisterSingletonPurgeHandler = registerCommentPrivacyCredentialPurgeHandler(() => singleton?.dispose())
   }
 
   return singleton
 }
 
 export function resetCommentPrivacyWorkerClientForTests(): void {
+  unregisterSingletonPurgeHandler?.()
+  unregisterSingletonPurgeHandler = null
   singleton?.dispose()
   singleton = null
 }

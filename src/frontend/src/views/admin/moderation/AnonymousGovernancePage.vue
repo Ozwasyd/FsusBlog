@@ -285,6 +285,7 @@ import { ensureAdminSensitiveProof } from '@/composables/useAdminSensitiveProof'
 import { isAppError } from '@/utils/appError'
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation'
 import { promptText, toast } from '@/fsusui/feedback'
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 
 const route = useRoute()
 const adminStore = useAdminStore()
@@ -532,6 +533,9 @@ const updatePolicy = async (key: PolicyKey, value: string | number | boolean): P
     const mfaProofToken = await ensureAdminSensitiveProof()
     const snapshot = await updateAnonymousCommentPolicy(buildPolicyUpdateRequest(key, value), { mfaProofToken })
     adminStore.setAnonymousCommentPolicy(mapPolicySnapshotToStore(snapshot))
+    if (key === 'zkAnonymousEnabled' && !snapshot.zkAnonymousEnabled) {
+      await clearPrivateBrowserState('feature-disabled')
+    }
     toast.success('匿名评论策略已更新')
   } catch (error) {
     showErrorToast(governanceErrorMessage(error, '匿名评论策略更新失败'), '匿名评论策略')
@@ -653,6 +657,7 @@ const previewCredentialRevoke = async (row: AnonymousCredentialRow): Promise<voi
       throw new Error('ANONYMOUS_GOVERNANCE_NOT_APPLIED')
     }
 
+    await clearPrivateBrowserState('credential-revoked')
     toast.success('匿名资格已撤销')
     await loadGovernanceStatus()
   } catch (error) {

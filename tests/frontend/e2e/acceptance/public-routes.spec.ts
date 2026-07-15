@@ -412,7 +412,7 @@ for (const viewport of [
 test.describe('public CSP nonce enforcement', () => {
   test.describe.configure({ timeout: 120_000 })
 
-  test('nonce is unique per document and blocks an untrusted inline script', async ({ page, request }) => {
+  test('nonce is unique and production Trusted Types reject raw script sinks', async ({ page, request }) => {
     const first = await request.get('/')
     const second = await request.get('/')
     const firstHtml = await first.text()
@@ -427,9 +427,13 @@ test.describe('public CSP nonce enforcement', () => {
     expect(firstNonce).not.toBe(secondNonce)
     expect(first.headers()['cache-control']).toContain('no-store')
     expect(first.headers().etag).toBeUndefined()
-    expect(first.headers()['content-security-policy']).toContain("style-src-attr 'none'")
-    expect(first.headers()['content-security-policy']).not.toContain("style-src-attr 'unsafe-inline'")
-    expect(first.headers()['content-security-policy']).toContain('report-uri /api/security/csp-report')
+    const csp = first.headers()['content-security-policy']
+    expect(csp).toContain("style-src-attr 'none'")
+    expect(csp).not.toContain("style-src-attr 'unsafe-inline'")
+    expect(csp).toContain("require-trusted-types-for 'script'")
+    expect(csp).toContain('trusted-types vue fsusblog;')
+    expect(csp).not.toMatch(/trusted-types\s+(?:\*|default)|allow-duplicates/u)
+    expect(csp).toContain('report-uri /api/security/csp-report')
 
     await page.addInitScript(() => {
       const violations: string[] = []
@@ -446,38 +450,47 @@ test.describe('public CSP nonce enforcement', () => {
       // standard .nonce property remains available to trusted page code.
       const nonceSource = document.querySelector('meta[property="csp-nonce"], script[nonce], style[nonce]') as HTMLElement | null
       const nonce = nonceSource?.nonce || ''
-      const blocked = document.createElement('script')
-      blocked.textContent = 'window.__FSUSBLOG_UNTRUSTED_INLINE_EXECUTED__ = true'
-      document.head.appendChild(blocked)
-
-      const allowed = document.createElement('script')
-      allowed.nonce = nonce
-      allowed.textContent = 'window.__FSUSBLOG_TRUSTED_INLINE_EXECUTED__ = true'
-      document.head.appendChild(allowed)
+      let rawHtmlRejected = false
+      try {
+        document.createElement('template').innerHTML = '<img src=x onerror=alert(1)>'
+      } catch (error) {
+        rawHtmlRejected = error instanceof TypeError
+      }
+      let rawScriptUrlRejected = false
+      try {
+        document.createElement('script').src = '/wasm/comment-privacy-prover.js'
+      } catch (error) {
+        rawScriptUrlRejected = error instanceof TypeError
+      }
       const blockedStyle = document.createElement('div')
       blockedStyle.setAttribute('style', 'display:none')
       document.body.appendChild(blockedStyle)
       await new Promise(resolve => setTimeout(resolve, 50))
 
       const state = window as Window & {
-        __FSUSBLOG_UNTRUSTED_INLINE_EXECUTED__?: boolean
-        __FSUSBLOG_TRUSTED_INLINE_EXECUTED__?: boolean
         __FSUSBLOG_CSP_VIOLATIONS__?: string[]
       }
       return {
         nonce,
-        untrustedExecuted: state.__FSUSBLOG_UNTRUSTED_INLINE_EXECUTED__ === true,
-        trustedExecuted: state.__FSUSBLOG_TRUSTED_INLINE_EXECUTED__ === true,
+        rawHtmlRejected,
+        rawScriptUrlRejected,
+        appReady: Boolean(document.querySelector('#app')),
+        thirdPartyScripts: Array.from(document.scripts)
+          .map(script => script.src)
+          .filter(Boolean)
+          .filter(src => new URL(src, location.href).origin !== location.origin),
         styleAttributeApplied: window.getComputedStyle(blockedStyle).display === 'none',
         violations: state.__FSUSBLOG_CSP_VIOLATIONS__ ?? []
       }
     })
 
     expect(result.nonce).not.toBe('')
-    expect(result.untrustedExecuted).toBe(false)
-    expect(result.trustedExecuted).toBe(true)
+    expect(result.rawHtmlRejected).toBe(true)
+    expect(result.rawScriptUrlRejected).toBe(true)
+    expect(result.appReady).toBe(true)
+    expect(result.thirdPartyScripts).toEqual([])
     expect(result.styleAttributeApplied).toBe(false)
-    expect(result.violations.some(directive => directive.startsWith('script-src'))).toBe(true)
+    expect(result.violations).toContain('require-trusted-types-for')
     expect(result.violations).toContain('style-src-attr')
   })
 })

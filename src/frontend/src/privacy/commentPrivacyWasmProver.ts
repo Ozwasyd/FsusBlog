@@ -1,5 +1,9 @@
 import type { CommentPrivacyProofBundle, CommentPrivacyProofRequest } from './commentPrivacyTypes'
 import { parseCommentPrivacyRevocationWitnessMaterial } from './commentPrivacyRevocationWitness'
+import {
+  resolveCommentPrivacyProverModuleUrl,
+  setCommentPrivacyProverScriptUrl
+} from '@/security/trustedTypesRuntime'
 
 export interface CommentPrivacyProverManifest {
   moduleUrl: string
@@ -162,17 +166,9 @@ async function defaultLoadModule(
 
 async function defaultImportModule(moduleUrl: string, signal?: AbortSignal): Promise<unknown> {
   throwIfAborted(signal)
-  const loaded = await import(/* @vite-ignore */ resolveAbsoluteModuleUrl(moduleUrl))
+  const loaded = await import(/* @vite-ignore */ resolveCommentPrivacyProverModuleUrl(moduleUrl))
   throwIfAborted(signal)
   return loaded
-}
-
-function resolveAbsoluteModuleUrl(moduleUrl: string): string {
-  if (/^[a-z][a-z0-9+.-]*:/iu.test(moduleUrl)) {
-    return moduleUrl
-  }
-
-  return new URL(moduleUrl, globalThis.location?.href ?? 'http://localhost/').href
 }
 
 async function loadWorkerProverModule(
@@ -224,7 +220,7 @@ async function loadBrowserProverModuleScript(moduleUrl: string, signal?: AbortSi
 
     script.type = 'module'
     script.async = true
-    script.src = moduleUrl
+    setCommentPrivacyProverScriptUrl(script, moduleUrl)
     script.onload = (): void => {
       finish(() => {
         const browserModule = getBrowserProverModule()
@@ -266,15 +262,33 @@ function normalizeManifest(manifest: CommentPrivacyProverManifest | null): Comme
   }
 
   return {
-    moduleUrl: manifest.moduleUrl,
-    wasmUrl: manifest.wasmUrl,
-    provingKeyUrl: manifest.provingKeyUrl,
+    moduleUrl: normalizeSameOriginArtifactUrl(manifest.moduleUrl, '/wasm/comment-privacy-prover.js'),
+    wasmUrl: normalizeSameOriginArtifactUrl(manifest.wasmUrl, '/wasm/comment-privacy-prover.wasm'),
+    provingKeyUrl: normalizeSameOriginArtifactUrl(manifest.provingKeyUrl, '/wasm/comment-privacy-prover.zkey'),
     integrity: manifest.integrity.trim(),
     circuitId: manifest.circuitId.trim(),
     publicInputLayoutVersion: manifest.publicInputLayoutVersion,
     wasmSha256: manifest.wasmSha256.toLowerCase(),
     provingKeySha256: manifest.provingKeySha256.toLowerCase()
   }
+}
+
+function normalizeSameOriginArtifactUrl(value: string, expectedPath: string): string {
+  const raw = value.trim()
+  const runtimeLocation = typeof globalThis.location === 'undefined' ? null : globalThis.location
+  const baseHref = runtimeLocation?.href ?? 'http://localhost/'
+  let resolved: URL
+  try {
+    resolved = new URL(raw, baseHref)
+  } catch {
+    throw new Error(ARTIFACT_INVALID)
+  }
+  const expectedOrigin = runtimeLocation?.origin || new URL(baseHref).origin
+  if (!raw || resolved.origin !== expectedOrigin || resolved.pathname !== expectedPath
+    || resolved.search || resolved.hash || resolved.username || resolved.password) {
+    throw new Error(ARTIFACT_INVALID)
+  }
+  return raw
 }
 
 async function verifyManifestArtifacts(
