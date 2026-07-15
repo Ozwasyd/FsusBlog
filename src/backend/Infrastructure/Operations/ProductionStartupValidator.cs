@@ -356,9 +356,9 @@ public static class ProductionStartupValidator
             {
                 _ = new ReadAnalyticsPrivacyPolicy(configuration, TimeProvider.System);
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException)
             {
-                errors.Add(ex.Message);
+                errors.Add("ReadAnalytics privacy policy configuration is invalid.");
             }
         }
         ValidateAuditTamperEvidenceKey(auditTamperEvidenceKey, jwtSecret, errors);

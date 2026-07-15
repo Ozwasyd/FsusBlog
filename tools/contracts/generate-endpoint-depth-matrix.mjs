@@ -8,7 +8,10 @@ const check = process.argv.includes('--check')
 const operations = operationsFromOpenApi(loadOpenApi())
 const expectedUnavailablePublicChecks = new Set([
   'binary_get_anonymous_credential_root',
-  'binary_get_anonymous_credential_circuit'
+  'binary_get_anonymous_credential_circuit',
+  'binary_get_anonymous_credential_blind_issuer',
+  'binary_get_anonymous_credential_revocation_full',
+  'binary_get_anonymous_credential_revocation_delta'
 ])
 
 function expectedSuccessStatuses(op, role) {

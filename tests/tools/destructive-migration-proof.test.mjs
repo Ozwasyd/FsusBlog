@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import test from 'node:test'
 
 const paths = {
-  registry: new URL('../../src/backend/Infrastructure/SchemaMigration/SchemaMigrationRegistry.cs', import.meta.url),
   primitives: new URL('../../src/backend/Infrastructure/SchemaMigration/SchemaMigrationPrimitives.cs', import.meta.url),
   proofs: new URL('../../src/backend/Infrastructure/SchemaMigration/DestructiveMigrationProofs.cs', import.meta.url),
   runner: new URL('../../src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs', import.meta.url),
@@ -12,8 +11,15 @@ const paths = {
   manifest: new URL('../../docs/schema-migrations/destructive-rollback-window-proofs.json', import.meta.url),
 }
 
-const entries = await Promise.all(Object.entries(paths).map(async ([name, path]) => [name, await readFile(path, 'utf8')]))
-const source = Object.fromEntries(entries)
+const registryDirectory = new URL('../../src/backend/Infrastructure/SchemaMigration/', import.meta.url)
+const registryFiles = (await readdir(registryDirectory))
+  .filter(name => /^SchemaMigrationRegistry(?:\..+)?\.cs$/u.test(name))
+  .sort()
+const [entries, registrySources] = await Promise.all([
+  Promise.all(Object.entries(paths).map(async ([name, path]) => [name, await readFile(path, 'utf8')])),
+  Promise.all(registryFiles.map(name => readFile(new URL(name, registryDirectory), 'utf8')))
+])
+const source = { ...Object.fromEntries(entries), registry: registrySources.join('\n') }
 const manifest = JSON.parse(source.manifest)
 
 function destructiveInventory() {
@@ -82,8 +88,11 @@ test('drop primitives require typed proof and runtime gates precede transactions
   assert.match(source.primitives, /DropTableStep\([\s\S]*DestructiveMigrationProof Proof\)\s*:\s*SchemaMigrationStep, IDestructiveSchemaMigrationStep/u)
   assert.doesNotMatch(source.primitives, /DestructiveMigrationProof\? Proof/u)
 
-  const runnerGuard = source.runner.indexOf('DestructiveMigrationProofs.ValidateDescriptor')
-  const runnerTransaction = source.runner.indexOf('UseTranAsync')
+  const runnerPhaseStart = source.runner.indexOf('private async Task ExecutePhaseAsync')
+  const runnerPhaseEnd = source.runner.indexOf('private async Task ExecuteStepAsync', runnerPhaseStart)
+  const runnerPhase = source.runner.slice(runnerPhaseStart, runnerPhaseEnd)
+  const runnerGuard = runnerPhase.indexOf('DestructiveMigrationProofs.ValidateDescriptor')
+  const runnerTransaction = runnerPhase.indexOf('SchemaMigrationTransactionExecutor.ExecuteAsync')
   assert.ok(runnerGuard > 0 && runnerGuard < runnerTransaction)
   assert.match(source.runner, /GetTableInfoList\(false\)\.Count == 0/u)
 

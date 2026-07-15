@@ -661,6 +661,18 @@ async function release(args) {
       state.currentStage = stage
       state.status = 'running'
       write(stateFile, state)
+      if (stage === 'active-fence' && process.env.FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_STAGE === stage) {
+        const holdReady = process.env.FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_READY_FILE
+        if (!holdReady || !process.env.FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_RELEASE_FILE) {
+          throw new Error('fixture worker qualification stage hold is missing')
+        }
+        write(holdReady, {
+          schema: 'fsusblog.release-rollout-rehearsal-stage-hold.v1', status: 'ready',
+          rolloutId, stage, readyAtUtc: new Date().toISOString(), errors: []
+        })
+        await delay(60_000)
+        return
+      }
       await delay(stage === 'active-fence' ? fixtureActiveFenceDelayMs : fixtureStageDelayMs)
     }
     await delay(60_000)

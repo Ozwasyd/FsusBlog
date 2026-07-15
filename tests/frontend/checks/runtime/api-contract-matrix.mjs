@@ -34,7 +34,10 @@ const frameValues = new Map(loadProtocol().frameTypes.map(frame => [frame.name, 
 const openapiRoutes = extractBackendBinaryRoutes()
 const expectedUnavailablePublicChecks = new Set([
   'binary_get_anonymous_credential_root',
-  'binary_get_anonymous_credential_circuit'
+  'binary_get_anonymous_credential_circuit',
+  'binary_get_anonymous_credential_blind_issuer',
+  'binary_get_anonymous_credential_revocation_full',
+  'binary_get_anonymous_credential_revocation_delta'
 ])
 const optionalNotFoundPublicChecks = new Set([
   'binary_get_article_id_aeds',

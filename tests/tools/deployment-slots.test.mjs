@@ -46,7 +46,7 @@ function releaseInput(releaseId, imageDigest) {
     dockerfileDigest: `sha256:${'d'.repeat(64)}`,
     runtimeProfile: {
       id: 'throughput-musl',
-      manifestDigest: `sha256:${'0'.repeat(64)}`,
+      manifestDigest: `sha256:${'2'.repeat(64)}`,
       profileDigest: `sha256:${'1'.repeat(64)}`,
       baseImageFamily: 'musl',
       targetRuntime: 'linux-musl-x64',
@@ -508,7 +508,7 @@ if [[ "\${1:-}" == "image" && "\${2:-}" == "inspect" ]]; then
       printf 'contract:inspect:io.fsusblog.runtime.publish-ready-to-run\\n' >> "$log"
       [[ "$contract_mode" == "runtime-boolean-invalid" ]] && printf 'maybe\\n' || printf 'false\\n' ;;
     *io.fsusblog.runtime.profile-id*) printf 'throughput-musl\\n' ;;
-    *io.fsusblog.runtime.profile-manifest-digest*) printf 'sha256:%064d\\n' 0 ;;
+    *io.fsusblog.runtime.profile-manifest-digest*) printf 'sha256:2222222222222222222222222222222222222222222222222222222222222222\\n' ;;
     *io.fsusblog.runtime.profile-digest*)
       if [[ "$contract_mode" == "profile-digest-invalid" ]]; then printf 'missing\\n'
       elif [[ "$contract_mode" == "profile-digest-mismatch" ]]; then printf 'sha256:2222222222222222222222222222222222222222222222222222222222222222\\n'

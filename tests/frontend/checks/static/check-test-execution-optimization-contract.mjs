@@ -152,7 +152,8 @@ requireIncludes('tests/frontend/support/playwright/testSession.ts', [
   'resolveWorkerTestSession'
 ])
 requireIncludes('tests/frontend/support/session-fixtures.mjs', [
-  'resolveAuthFixtureDirectory'
+  'resolveAuthFixtureDirectory',
+  'kid: jwtKeyVersion'
 ])
 requireIncludes('tests/frontend/e2e/acceptance/admin-console.spec.ts', [
   'resolveAuthFixtureManifest'
@@ -320,6 +321,7 @@ for (const secretName of [
   'JWT_SECRET',
   'FSUSBLOG_JWT_SECRET',
   'FSUSBLOG_TEST_SESSION_SECRET',
+  'Jwt__KeyVersion',
   'AnonymousCredentialIssuer__SubjectHashPepper',
   'FSUSBLOG_DEV_ANONYMOUS_SUBJECT_HASH_PEPPER'
 ]) {

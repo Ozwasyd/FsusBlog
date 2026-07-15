@@ -582,6 +582,8 @@ Search index、schema migration registry、authoring workflow/API、article serv
 - `SITE_BASEURL` 必须为 HTTPS
 - CORS 配置的 Origins 不得包含 HTTP 来源
 
+`ProductionStartupValidator` 汇总配置缺陷时只产生稳定、低基数的错误类别；`StartupRuntimeState`、公开 readiness 与受保护 health 均不得转发底层 exception message 或运行时类型。回退不需要放宽健康探针或重新编译：恢复上一份有效配置或修正对应环境变量，再按现有编排滚动重启。
+
 运行期日志的隐私边界与生产启动密钥边界一致：原始客户端 IP 只能参与本地判定，不能进入日志、指标或 fallback structured event。read analytics 不创建 IP pseudonym；PoW/crawler security-log 仍只使用 UTC 日窗口、KMS epoch 的 128-bit 假名，RiskControl 使用它自己的独立 pseudonym key。任一路径缺失配置时不得回退到 JWT、localhost、raw remote IP 或请求头。完整访问、retention、rotation 和 rollback 见 [visit-log IP pseudonyms](security/visit-log-ip-pseudonyms.md)。
 
 降级状态会写入运行时状态任务 `productionStartupValidation`。回退路径是修复环境变量或依赖服务后重启应用；密钥类错误只能恢复对应安全域的上一个密钥，不能临时复用 JWT 密钥，也无需修改路由、中间件或健康探针代码。

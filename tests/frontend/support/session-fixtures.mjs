@@ -44,6 +44,7 @@ const jwtIssuer = process.env.Jwt__Issuer
 const jwtAudience = process.env.Jwt__Audience
   || process.env.FSUSBLOG_JWT_AUDIENCE
   || 'fsusblog-client';
+const jwtKeyVersion = process.env.Jwt__KeyVersion || '';
 const anonymousCredentialSubjectHashPepper = process.env.AnonymousCredentialIssuer__SubjectHashPepper
   || process.env.FSUSBLOG_DEV_ANONYMOUS_SUBJECT_HASH_PEPPER
   || '';
@@ -81,6 +82,9 @@ function assertSafeFixtureContainer() {
 function assertTestJwtSecretConfigured() {
   if (jwtSecret.length < 32) {
     throw new Error('FSUSBLOG_TEST_SESSION_SECRET or Jwt__SecretKey must be set to a test-only secret with at least 32 characters.');
+  }
+  if (!jwtKeyVersion) {
+    throw new Error('Jwt__KeyVersion must be set so fixture tokens carry the same signing key id as the test backend.');
   }
 }
 
@@ -166,6 +170,7 @@ function signJwt(payload) {
   assertTestJwtSecretConfigured();
   const header = {
     alg: 'HS256',
+    kid: jwtKeyVersion,
     typ: 'JWT'
   };
   const encodedHeader = base64Url(JSON.stringify(header));

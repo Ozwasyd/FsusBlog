@@ -150,7 +150,7 @@ test('service worker derives cache namespace and search URLs from immutable buil
   const serviceWorker = fs.readFileSync(path.join(repositoryRoot, 'src/frontend/public/sw.js'), 'utf8')
 
   assert.match(serviceWorker, /new URL\(self\.location\.href\)\.searchParams\.get\('build'\)/u)
-  assert.match(serviceWorker, /fsus-static-v4\$\{CACHE_NAMESPACE\}/u)
+  assert.match(serviceWorker, /fsus-static-v5\$\{CACHE_NAMESPACE\}/u)
   assert.match(serviceWorker, /\/release-derived\/\$\{FRONTEND_BUILD_ID\}\/search/u)
   assert.match(serviceWorker, /latest.*current.*final-current/u)
 })

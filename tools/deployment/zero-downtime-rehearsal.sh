@@ -840,11 +840,14 @@ run_worker_qualification_drill() {
   local topology_root="$qual_root/topology"
   local rollout_state="$qual_root/rollout-state.json"
   local rollout_id
-  local scenario start_stage timeout_seconds worker_root ledger health control run_id armed_rel authorize_rel terminated_rel
+  local scenario start_stage timeout_seconds hold_timeout_seconds worker_root ledger health control run_id armed_rel authorize_rel terminated_rel
+  local hold_ready hold_release
   local release_pid="" drill_pid="" release_status=0 drill_status=0 failed=0 observer_service_started=0
   scenario="$(jq -er ".workers.$worker_key.scenario" "$RESOLVED_PLAN")" || return 1
   start_stage="$(jq -er ".workers.$worker_key.startStage" "$RESOLVED_PLAN")" || return 1
   timeout_seconds="$(jq -er '.workers.timeoutSeconds' "$RESOLVED_PLAN")" || return 1
+  hold_timeout_seconds="$timeout_seconds"
+  (( hold_timeout_seconds > 300 )) && hold_timeout_seconds=300
   armed_rel="$(jq -er ".workers.$worker_key.coordination.armedFile" "$RESOLVED_PLAN")" || return 1
   authorize_rel="$(jq -er ".workers.$worker_key.coordination.authorizeFile" "$RESOLVED_PLAN")" || return 1
   terminated_rel="$(jq -er ".workers.$worker_key.coordination.terminatedFile" "$RESOLVED_PLAN")" || return 1
@@ -852,10 +855,12 @@ run_worker_qualification_drill() {
   ledger="$worker_root/ledger.json"
   health="$qual_root/target-health.json"
   control="$qual_root/worker-qualification-control.json"
+  hold_ready="$qual_root/handshake/active-fence.ready.json"
+  hold_release="$qual_root/handshake/active-fence.release.json"
   run_id="worker-$phase-$RUN_ID"
   run_id="${run_id:0:120}"
   rollout_id="$(derive_rollout_id qualification "$(basename "$mode_root")-$phase" "$target_release")" || return 1
-  mkdir -p "$qual_root/logs" "$worker_root"
+  mkdir -p "$qual_root/logs" "$worker_root" "$qual_root/handshake"
 
   if ! prepare_topology "$topology_root" "$source_slot" "$source_manifest"; then
     add_error "$phase qualification topology startup failed"
@@ -866,6 +871,12 @@ run_worker_qualification_drill() {
   build_rollout_args "$qual_root" "$rollout_state" "$TOPOLOGY_STATE" "$TOPOLOGY_RUNTIME" \
     "$target_manifest" "$asset_scenario" "$fault_evidence" "$qual_root/unused-normal-worker-evidence.json" "$rollout_id"
   ROLLOUT_ARGS+=(--rollout-id "$rollout_id")
+  ROLLOUT_ENV+=(
+    FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_STAGE=active-fence
+    FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_READY_FILE="$hold_ready"
+    FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_RELEASE_FILE="$hold_release"
+    FSUSBLOG_ROLLOUT_REHEARSAL_HOLD_TIMEOUT_SECONDS="$hold_timeout_seconds"
+  )
 
   if ! start_worker_observer_service "$qual_root" "qualification-$phase" "$rollout_state" "$worker_key" "$TOPOLOGY_RUNTIME"; then
     add_error "$phase qualification worker observer service failed to start"
@@ -907,9 +918,9 @@ run_worker_qualification_drill() {
     add_error "$phase worker qualification never produced a valid armed signal"
     failed=1
   fi
-  if (( failed == 0 )) && ! node "$PLAN_TOOL" wait-stage --state "$rollout_state" --stage active-fence \
-    --timeout-ms "$((timeout_seconds * 1000))" >"$qual_root/logs/wait-active-fence.stdout" \
-    2>"$qual_root/logs/wait-active-fence.stderr"; then
+  if (( failed == 0 )) && ! wait_for_json "$hold_ready" \
+    ".schema == \"fsusblog.release-rollout-rehearsal-stage-hold.v1\" and .stage == \"active-fence\" and .rolloutId == \"$rollout_id\"" \
+    "$timeout_seconds" "$release_pid"; then
     add_error "$phase qualification missed the controlled active-fence window"
     failed=1
   fi

@@ -336,6 +336,7 @@ prepare_auth_fixtures_once() {
     --secret-env JWT_SECRET \
     --secret-env FSUSBLOG_JWT_SECRET \
     --secret-env FSUSBLOG_TEST_SESSION_SECRET \
+    --secret-env Jwt__KeyVersion \
     --secret-env Jwt__Issuer \
     --secret-env FSUSBLOG_JWT_ISSUER \
     --secret-env Jwt__Audience \
