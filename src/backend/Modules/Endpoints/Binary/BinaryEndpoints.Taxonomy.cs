@@ -37,55 +37,7 @@ public static partial class BinaryEndpoints
 {
     private static void MapBinaryTaxonomyEndpoints(IEndpointRouteBuilder group)
     {
-        group.MapGet("/category", static async Task<IResult> (
-            ISqlSugarClient db,
-            IUnifiedCache cache,
-            IAedsEncoder aeds) =>
-        {
-            string identity = await ResolveTaxonomyFrameIdentityAsync(cache);
-            CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CategoryFrame, identity);
-            if (frame.Hit && frame.Value.Length > 0)
-            {
-                FsusObservability.RecordTaxonomyFrameCache("category", hit: true);
-                return BinaryResults.PreencodedFrame(frame.Value);
-            }
-
-            FsusObservability.RecordTaxonomyFrameCache("category", hit: false);
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            var query = db.Queryable<Category>()
-                .LeftJoin<CategoryPublicArticleCount>((c, count) => c.Id == count.CategoryId)
-                .OrderBy(c => c.Id)
-                .Select((c, count) => new
-                {
-                    c.Id,
-                    c.Name,
-                    ArticleCount = SqlFunc.MappingColumn<long>("COALESCE(count.article_count, 0)")
-                });
-
-            var sqlObj = query.ToSql();
-            var result = new List<CategoryListItemResponse>();
-
-            using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
-            {
-                int fId = reader.GetOrdinal("Id");
-                int fName = reader.GetOrdinal("Name");
-                int fCount = reader.GetOrdinal("ArticleCount");
-
-                while (await reader.ReadAsync())
-                {
-                    result.Add(ArticleProjection.ToCategoryResponse(
-                        reader.GetInt32(fId),
-                        reader.IsDBNull(fName) ? string.Empty : reader.GetString(fName),
-                        (int)reader.GetInt64(fCount)));
-                }
-            }
-
-            byte[] payload = PodBinaryCodec.EncodeCategoryList(result);
-            byte[] encodedFrame = aeds.Encode(AedsFrameType.CategoryList, payload);
-            await cache.SetRawAsync(CachePolicyId.CategoryFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
-            FsusObservability.RecordTaxonomyFrameColdMiss("category", stopwatch.Elapsed);
-            return BinaryResults.PreencodedFrame(encodedFrame);
-        })
+        group.MapGet("/category", ReadCategoryAsync)
         .AllowAnonymous()
         .RequireRateLimiting("public_read")
         .WithRiskAction(RiskActionNames.PublicRead, "taxonomy.category")
@@ -405,6 +357,56 @@ public static partial class BinaryEndpoints
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilter<RequiresPowFilter>();
+    }
+
+    internal static async Task<IResult> ReadCategoryAsync(
+        ISqlSugarClient db,
+        IUnifiedCache cache,
+        IAedsEncoder aeds)
+    {
+        string identity = await ResolveTaxonomyFrameIdentityAsync(cache);
+        CacheReadResult<ReadOnlyMemory<byte>> frame = await cache.TryGetRawReadonlyAsync(CachePolicyId.CategoryFrame, identity);
+        if (frame.Hit && frame.Value.Length > 0)
+        {
+            FsusObservability.RecordTaxonomyFrameCache("category", hit: true);
+            return BinaryResults.PreencodedFrame(frame.Value);
+        }
+
+        FsusObservability.RecordTaxonomyFrameCache("category", hit: false);
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        var query = db.Queryable<Category>()
+            .LeftJoin<CategoryPublicArticleCount>((c, count) => c.Id == count.CategoryId)
+            .OrderBy(c => c.Id)
+            .Select((c, count) => new
+            {
+                c.Id,
+                c.Name,
+                ArticleCount = SqlFunc.MappingColumn<long>("COALESCE(count.article_count, 0)")
+            });
+
+        var sqlObj = query.ToSql();
+        var result = new List<CategoryListItemResponse>();
+
+        using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(sqlObj.Key, sqlObj.Value))
+        {
+            int fId = reader.GetOrdinal("Id");
+            int fName = reader.GetOrdinal("Name");
+            int fCount = reader.GetOrdinal("ArticleCount");
+
+            while (await reader.ReadAsync())
+            {
+                result.Add(ArticleProjection.ToCategoryResponse(
+                    reader.GetInt32(fId),
+                    reader.IsDBNull(fName) ? string.Empty : reader.GetString(fName),
+                    (int)reader.GetInt64(fCount)));
+            }
+        }
+
+        byte[] payload = PodBinaryCodec.EncodeCategoryList(result);
+        byte[] encodedFrame = aeds.Encode(AedsFrameType.CategoryList, payload);
+        await cache.SetRawAsync(CachePolicyId.CategoryFrame, identity, encodedFrame, TimeSpan.FromMinutes(10));
+        FsusObservability.RecordTaxonomyFrameColdMiss("category", stopwatch.Elapsed);
+        return BinaryResults.PreencodedFrame(encodedFrame);
     }
 
     private static async Task<string> ResolveTaxonomyFrameIdentityAsync(IUnifiedCache cache)

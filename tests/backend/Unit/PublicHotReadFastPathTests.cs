@@ -361,7 +361,7 @@ public sealed class PublicHotReadFastPathTests
     }
 
     [Fact]
-    public async Task TryServeAsync_OptionsOnPublicPath_Returns405()
+    public async Task TryServeAsync_OptionsOnPublicPath_PassesThroughToCorsPipeline()
     {
         var context = CreateContext("/api/binary/category.aeds");
         context.Request.Method = HttpMethods.Options;
@@ -378,9 +378,8 @@ public sealed class PublicHotReadFastPathTests
             new PublicHotReadOptions(),
             new PublicHotReadCounters());
 
-        Assert.False(nextCalled);
-        Assert.Equal(StatusCodes.Status405MethodNotAllowed, context.Response.StatusCode);
-        AssertNoStore(context);
+        Assert.True(nextCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
     }
 
     [Theory]
@@ -1404,7 +1403,6 @@ public sealed class PublicHotReadFastPathTests
 
     [Theory]
     [InlineData(StatusCodes.Status404NotFound, "/api/binary/article/0.aeds", "GET", "", "", true)]
-    [InlineData(StatusCodes.Status405MethodNotAllowed, "/api/binary/category.aeds", "OPTIONS", "", "", true)]
     [InlineData(StatusCodes.Status406NotAcceptable, "/api/binary/article/42.aeds", "GET", "application/json", "", true)]
     [InlineData(StatusCodes.Status416RangeNotSatisfiable, "/api/binary/article/42.aeds", "GET", "", "bytes=0-1", true)]
     [InlineData(StatusCodes.Status503ServiceUnavailable, "/api/binary/article/42.aeds", "GET", "", "", false)]

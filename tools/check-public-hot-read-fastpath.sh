@@ -22,6 +22,9 @@ ARTICLE_ENDPOINTS_FILE="$ROOT_DIR/src/backend/Modules/Endpoints/Binary/BinaryEnd
 ARTICLE_API_FILE="$ROOT_DIR/src/frontend/src/api/article.ts"
 BINARY_TRANSPORT_FILE="$ROOT_DIR/src/frontend/src/services/binaryTransport.ts"
 
+echo "[public-hot-read] checking cross-cutting control catalog"
+node "$ROOT_DIR/tools/check-public-hot-read-cross-cutting-controls.mjs" --self-test
+
 echo "[public-hot-read] checking middleware order"
 node - "$COMPOSITION_FILE" <<'NODE'
 const fs = require('node:fs');
@@ -36,6 +39,7 @@ if (methodStart < 0 || methodEnd < 0 || methodEnd <= methodStart) {
 const block = source.slice(methodStart, methodEnd);
 const correlation = block.indexOf('ObservabilityCorrelationMiddleware');
 const classifier = block.indexOf('UseFsusPublicHotReadClassifier');
+const audit = block.indexOf('UseFsusPublicHotReadRequestAuditContext');
 const limiter = block.indexOf('UseFsusPublicHotReadRateLimiter');
 const gate = block.indexOf('UseFsusPublicHotReadSecurityGate');
 const revocation = block.indexOf('UseFsusPublicArtifactRevocation');
@@ -43,8 +47,8 @@ const core = block.indexOf('UseFsusCoreMiddlewares');
 const fast = block.indexOf('UseFsusPublicHotReadFastPath');
 const restore = block.indexOf('UseFsusPublicHotReadFallbackRestore');
 const endpoint = block.indexOf('UseFsusEndpointPipeline');
-if ([core, correlation, classifier, limiter, gate, revocation, fast, restore, endpoint].some(index => index < 0)
-    || !(core < correlation && correlation < classifier && classifier < limiter && limiter < gate && gate < revocation && revocation < fast && fast < restore && restore < endpoint)) {
+if ([core, correlation, classifier, audit, limiter, gate, revocation, fast, restore, endpoint].some(index => index < 0)
+    || !(core < correlation && correlation < classifier && classifier < audit && audit < limiter && limiter < gate && gate < revocation && revocation < fast && fast < restore && restore < endpoint)) {
   console.error('[public-hot-read] trace/classifier/rate/security/revocation/writer must run before the generic endpoint pipeline');
   process.exit(1);
 }
@@ -57,7 +61,7 @@ for (const token of [
   'UseAntiforgery',
   'UseAuthentication',
   'BannedUserMiddleware',
-  'RequestAuditContextMiddleware'
+  'UseFsusEndpointRequestAuditContext'
 ]) {
   if (!endpointBlock.includes(token)) {
     console.error(`[public-hot-read] missing generic downstream sentinel: ${token}`);

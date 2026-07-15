@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Observability;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Security;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -103,7 +104,51 @@ internal sealed class PublicHotReadEarlyPipelineState
     }
 
     internal Endpoint SyntheticEndpoint { get; }
-    internal bool RateLimitEvaluated { get; set; }
+    internal bool RateLimitEvaluated { get; private set; }
+    internal int RequestAuditContextExecutionCount { get; private set; }
+    internal int EndpointRequestAuditContextSkipCount { get; private set; }
+    internal int EndpointRateLimiterSkipCount { get; private set; }
+    internal bool RequestAuditContextEvaluated => RequestAuditContextExecutionCount == 1;
+
+    internal void MarkRateLimitEvaluated()
+    {
+        if (RateLimitEvaluated)
+        {
+            throw new InvalidOperationException("PublicHotRead rate limiter executed more than once.");
+        }
+
+        RateLimitEvaluated = true;
+    }
+
+    internal void MarkRequestAuditContextEvaluated()
+    {
+        if (RequestAuditContextExecutionCount != 0)
+        {
+            throw new InvalidOperationException("PublicHotRead request audit context executed more than once.");
+        }
+
+        RequestAuditContextExecutionCount = 1;
+    }
+
+    internal void MarkEndpointRequestAuditContextSkipped()
+    {
+        if (!RequestAuditContextEvaluated || EndpointRequestAuditContextSkipCount != 0)
+        {
+            throw new InvalidOperationException("PublicHotRead endpoint request audit skip guard is invalid.");
+        }
+
+        EndpointRequestAuditContextSkipCount = 1;
+    }
+
+    internal void MarkEndpointRateLimiterSkipped()
+    {
+        if (!RateLimitEvaluated || EndpointRateLimiterSkipCount != 0)
+        {
+            throw new InvalidOperationException("PublicHotRead endpoint rate limiter skip guard is invalid.");
+        }
+
+        EndpointRateLimiterSkipCount = 1;
+    }
 }
 
 internal sealed class PublicReadSecurityGateResultFeature
@@ -146,10 +191,15 @@ internal static class PublicHotReadEarlyEndpointCatalog
         };
 
     internal static void ValidateOrThrow()
+        => ValidateOrThrow(PublicHotReadRouteSecurityCatalog.All, All);
+
+    internal static void ValidateOrThrow(
+        IReadOnlyList<PublicHotReadRoutePolicy> policies,
+        IReadOnlyList<Endpoint> endpoints)
     {
-        foreach (PublicHotReadRoutePolicy policy in PublicHotReadRouteSecurityCatalog.All)
+        foreach (PublicHotReadRoutePolicy policy in policies)
         {
-            if (!All.Any(endpoint =>
+            if (!endpoints.Any(endpoint =>
                     endpoint.Metadata.GetMetadata<PublicFastPathRouteMetadata>()?.PolicyId == policy.PolicyId))
             {
                 throw new InvalidOperationException(
@@ -157,18 +207,21 @@ internal static class PublicHotReadEarlyEndpointCatalog
             }
         }
 
-        foreach (Endpoint endpoint in All)
+        foreach (Endpoint endpoint in endpoints)
         {
             PublicFastPathRouteMetadata metadata = endpoint.Metadata.GetMetadata<PublicFastPathRouteMetadata>()
                 ?? throw new InvalidOperationException(
                     $"public hot-read endpoint security metadata missing: {endpoint.DisplayName}");
-            if (!PublicHotReadRouteSecurityCatalog.All.Any(policy =>
+            if (!policies.Any(policy =>
                     policy.PolicyId == metadata.PolicyId
                     && metadata.RequiresVisibilityEvidence == policy.RequiresVisibilityEvidence
                     && metadata.RequiresSecurityGate == policy.RequiresSecurityGate
                     && metadata.RequiresRateLimit == policy.RequiresRateLimit
                     && metadata.RequiresTraceCorrelation == policy.RequiresTraceCorrelation
-                    && metadata.RequiresReleaseHeaders == policy.RequiresReleaseHeaders))
+                    && metadata.RequiresReleaseHeaders == policy.RequiresReleaseHeaders
+                    && metadata.RequiresAnonymousRequest == policy.RequiresAnonymousRequest
+                    && metadata.RequiresSafeMethod == policy.RequiresSafeMethod
+                    && metadata.DefersCorsRequestsToEndpointPipeline == policy.DefersCorsRequestsToEndpointPipeline))
             {
                 throw new InvalidOperationException(
                     $"public hot-read endpoint security metadata mismatch: {endpoint.DisplayName}");
@@ -245,6 +298,23 @@ public static class PublicHotReadEarlyDataPlaneExtensions
         });
     }
 
+    public static IApplicationBuilder UseFsusPublicHotReadRequestAuditContext(this IApplicationBuilder app)
+        => app.UseWhen(
+            static context => context.Features.Get<PublicHotReadEarlyPipelineState>() is not null,
+            static branch =>
+            {
+                branch.UseMiddleware<RequestAuditContextMiddleware>();
+                branch.Use((context, next) =>
+                {
+                    PublicHotReadEarlyPipelineState state =
+                        context.Features.Get<PublicHotReadEarlyPipelineState>()
+                        ?? throw new InvalidOperationException(
+                            "PublicHotRead early request audit requires classifier state.");
+                    state.MarkRequestAuditContextEvaluated();
+                    return next(context);
+                });
+            });
+
     public static IApplicationBuilder UseFsusPublicHotReadRateLimiter(this IApplicationBuilder app)
         => app.UseWhen(
             static context => context.Features.Get<PublicHotReadRequestFeature>()?.RequiresSecurityGate == true,
@@ -255,7 +325,7 @@ public static class PublicHotReadEarlyDataPlaneExtensions
                     PublicHotReadEarlyPipelineState state =
                         context.Features.Get<PublicHotReadEarlyPipelineState>()
                         ?? throw new InvalidOperationException("PublicHotRead early rate limiter requires classifier state.");
-                    state.RateLimitEvaluated = true;
+                    state.MarkRateLimitEvaluated();
                     return next(context);
                 });
                 branch.UseRateLimiter();

@@ -157,6 +157,8 @@ public sealed class WebApplicationCompositionExtensionsTests
 
         AssertBefore(stages, "core-middlewares", "public-hot-read-classifier");
         AssertBefore(stages, "observability-correlation", "public-hot-read-classifier");
+        AssertBefore(stages, "public-hot-read-classifier", "public-hot-read-request-audit-context");
+        AssertBefore(stages, "public-hot-read-request-audit-context", "public-hot-read-rate-limiter");
         AssertBefore(stages, "public-hot-read-classifier", "public-hot-read-rate-limiter");
         AssertBefore(stages, "public-hot-read-rate-limiter", "public-read-security-gate");
         AssertBefore(stages, "public-read-security-gate", "public-hot-read-fast-path");

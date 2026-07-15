@@ -6,7 +6,10 @@ public sealed record PublicFastPathRouteMetadata(
     bool RequiresSecurityGate,
     bool RequiresRateLimit,
     bool RequiresTraceCorrelation,
-    bool RequiresReleaseHeaders);
+    bool RequiresReleaseHeaders,
+    bool RequiresAnonymousRequest,
+    bool RequiresSafeMethod,
+    bool DefersCorsRequestsToEndpointPipeline);
 
 internal readonly record struct PublicHotReadRoutePolicy(
     PublicHotReadRouteKind Kind,
@@ -16,7 +19,11 @@ internal readonly record struct PublicHotReadRoutePolicy(
     bool RequiresSecurityGate,
     bool RequiresRateLimit,
     bool RequiresTraceCorrelation,
-    bool RequiresReleaseHeaders)
+    bool RequiresReleaseHeaders,
+    bool RequiresAnonymousRequest,
+    bool RequiresSafeMethod,
+    bool DefersCorsRequestsToEndpointPipeline,
+    string ProbePath)
 {
     internal PublicFastPathRouteMetadata ToEndpointMetadata()
         => new(
@@ -25,7 +32,10 @@ internal readonly record struct PublicHotReadRoutePolicy(
             RequiresSecurityGate,
             RequiresRateLimit,
             RequiresTraceCorrelation,
-            RequiresReleaseHeaders);
+            RequiresReleaseHeaders,
+            RequiresAnonymousRequest,
+            RequiresSafeMethod,
+            DefersCorsRequestsToEndpointPipeline);
 }
 
 internal static class PublicHotReadRouteSecurityCatalog
@@ -38,18 +48,22 @@ internal static class PublicHotReadRouteSecurityCatalog
         RequiresSecurityGate: false,
         RequiresRateLimit: false,
         RequiresTraceCorrelation: false,
-        RequiresReleaseHeaders: false);
+        RequiresReleaseHeaders: false,
+        RequiresAnonymousRequest: false,
+        RequiresSafeMethod: false,
+        DefersCorsRequestsToEndpointPipeline: false,
+        ProbePath: string.Empty);
 
     private static readonly PublicHotReadRoutePolicy[] Policies =
     [
-        Create(PublicHotReadRouteKind.Category, "taxonomy-category", PublicHotReadArtifactMediaKind.Binary),
-        Create(PublicHotReadRouteKind.Tag, "taxonomy-tag", PublicHotReadArtifactMediaKind.Binary),
-        Create(PublicHotReadRouteKind.ArticleDetail, "article-detail", PublicHotReadArtifactMediaKind.Binary),
-        Create(PublicHotReadRouteKind.ArticleList, "article-list", PublicHotReadArtifactMediaKind.Binary),
-        Create(PublicHotReadRouteKind.ArticleHot, "article-hot", PublicHotReadArtifactMediaKind.Binary),
-        Create(PublicHotReadRouteKind.ArticleFeatured, "article-featured", PublicHotReadArtifactMediaKind.Binary),
-        Create(PublicHotReadRouteKind.ArticleHtml, "article-html-diagnostic", PublicHotReadArtifactMediaKind.Html),
-        Create(PublicHotReadRouteKind.PublicHtml, "public-html", PublicHotReadArtifactMediaKind.Html)
+        Create(PublicHotReadRouteKind.Category, "taxonomy-category", PublicHotReadArtifactMediaKind.Binary, "/api/binary/category.aeds"),
+        Create(PublicHotReadRouteKind.Tag, "taxonomy-tag", PublicHotReadArtifactMediaKind.Binary, "/api/binary/tag.aeds"),
+        Create(PublicHotReadRouteKind.ArticleDetail, "article-detail", PublicHotReadArtifactMediaKind.Binary, "/api/binary/article/42.aeds"),
+        Create(PublicHotReadRouteKind.ArticleList, "article-list", PublicHotReadArtifactMediaKind.Binary, "/api/binary/article/list/home/1/10.aeds"),
+        Create(PublicHotReadRouteKind.ArticleHot, "article-hot", PublicHotReadArtifactMediaKind.Binary, "/api/binary/article/hot/10.aeds"),
+        Create(PublicHotReadRouteKind.ArticleFeatured, "article-featured", PublicHotReadArtifactMediaKind.Binary, "/api/binary/article/featured/4.aeds"),
+        Create(PublicHotReadRouteKind.ArticleHtml, "article-html-diagnostic", PublicHotReadArtifactMediaKind.Html, "/api/binary/article/html/home.html"),
+        Create(PublicHotReadRouteKind.PublicHtml, "public-html", PublicHotReadArtifactMediaKind.Html, "/")
     ];
 
     internal static IReadOnlyList<PublicHotReadRoutePolicy> All => Policies;
@@ -68,19 +82,26 @@ internal static class PublicHotReadRouteSecurityCatalog
     }
 
     internal static void ValidateOrThrow()
+        => ValidateOrThrow(Policies);
+
+    internal static void ValidateOrThrow(IReadOnlyList<PublicHotReadRoutePolicy> policies)
     {
         PublicHotReadRouteKind[] expected = Enum.GetValues<PublicHotReadRouteKind>()
             .Where(static kind => kind != PublicHotReadRouteKind.None)
             .ToArray();
-        if (Policies.Length != expected.Length
-            || Policies.Select(static policy => policy.Kind).Distinct().Count() != expected.Length
-            || expected.Any(static kind => !TryGet(kind, out _))
-            || Policies.Any(static policy => string.IsNullOrWhiteSpace(policy.PolicyId)
+        if (policies.Count != expected.Length
+            || policies.Select(static policy => policy.Kind).Distinct().Count() != expected.Length
+            || expected.Any(kind => !policies.Any(policy => policy.Kind == kind))
+            || policies.Any(static policy => string.IsNullOrWhiteSpace(policy.PolicyId)
+                || string.IsNullOrWhiteSpace(policy.ProbePath)
                 || !policy.RequiresVisibilityEvidence
                 || !policy.RequiresSecurityGate
                 || !policy.RequiresRateLimit
                 || !policy.RequiresTraceCorrelation
-                || !policy.RequiresReleaseHeaders))
+                || !policy.RequiresReleaseHeaders
+                || !policy.RequiresAnonymousRequest
+                || !policy.RequiresSafeMethod
+                || !policy.DefersCorsRequestsToEndpointPipeline))
         {
             throw new InvalidOperationException("public hot-read route security catalog is incomplete");
         }
@@ -89,7 +110,8 @@ internal static class PublicHotReadRouteSecurityCatalog
     private static PublicHotReadRoutePolicy Create(
         PublicHotReadRouteKind kind,
         string policyId,
-        PublicHotReadArtifactMediaKind mediaKind)
+        PublicHotReadArtifactMediaKind mediaKind,
+        string probePath)
         => new(
             kind,
             policyId,
@@ -98,11 +120,16 @@ internal static class PublicHotReadRouteSecurityCatalog
             RequiresSecurityGate: true,
             RequiresRateLimit: true,
             RequiresTraceCorrelation: true,
-            RequiresReleaseHeaders: true);
+            RequiresReleaseHeaders: true,
+            RequiresAnonymousRequest: true,
+            RequiresSafeMethod: true,
+            DefersCorsRequestsToEndpointPipeline: true,
+            ProbePath: probePath);
 }
 
 public readonly record struct PublicHotReadPublicationEvidence(
     string VisibilityPolicy,
+    string SourceVisibility,
     long SourceVersion,
     DateTimeOffset? VisibilityCutoffUtc,
     bool PublishedOnly,
@@ -110,6 +137,7 @@ public readonly record struct PublicHotReadPublicationEvidence(
     bool FuturePublicationExcluded)
 {
     public const string CurrentVisibilityPolicy = "published-visible-at-cutoff-v1";
+    public const string PublicSourceVisibility = "public";
 
     internal static PublicHotReadPublicationEvidence Empty => default;
 
@@ -118,6 +146,7 @@ public readonly record struct PublicHotReadPublicationEvidence(
         DateTimeOffset visibilityCutoffUtc)
         => new(
             CurrentVisibilityPolicy,
+            PublicSourceVisibility,
             sourceVersion,
             visibilityCutoffUtc,
             PublishedOnly: true,
@@ -132,6 +161,7 @@ public readonly record struct PublicHotReadPublicationEvidence(
             && SourceVersion == snapshotVersion
             && VisibilityCutoffUtc.HasValue
             && string.Equals(VisibilityPolicy, CurrentVisibilityPolicy, StringComparison.Ordinal)
+            && string.Equals(SourceVisibility, PublicSourceVisibility, StringComparison.Ordinal)
             && PublishedOnly
             && DeletedExcluded
             && FuturePublicationExcluded;

@@ -10,6 +10,7 @@ using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -187,6 +188,7 @@ public sealed record PublicHotReadRuntimeSnapshot(
     bool EarlyDataPlaneEnabled,
     string EarlyDataPlaneState,
     string VisibilityPolicy,
+    string SourceVisibility,
     long VisibilitySourceVersion,
     DateTimeOffset? VisibilityCutoffUtc);
 
@@ -559,6 +561,7 @@ public sealed class PublicHotReadStore
             _initialEarlyDataPlaneEnabled,
             _initialEarlyDataPlaneEnabled ? "not-ready" : "disabled",
             string.Empty,
+            string.Empty,
             0,
             null);
     }
@@ -854,6 +857,7 @@ public sealed class PublicHotReadStore
                     ? "ready"
                     : "not-ready",
             snapshot.PublicationEvidence.VisibilityPolicy,
+            snapshot.PublicationEvidence.SourceVisibility,
             snapshot.PublicationEvidence.SourceVersion,
             snapshot.PublicationEvidence.VisibilityCutoffUtc);
 
@@ -1061,8 +1065,12 @@ public static class PublicHotReadFastPath
         }
 
         if (!HttpMethods.IsGet(ctx.Request.Method)
-            && !HttpMethods.IsHead(ctx.Request.Method)
-            && (isPublicHtmlRoute || IsTaxonomyCollectionPath(path)))
+            && !HttpMethods.IsHead(ctx.Request.Method))
+        {
+            return false;
+        }
+
+        if (ctx.Request.Headers.ContainsKey("Origin"))
         {
             return false;
         }
@@ -2057,12 +2065,26 @@ public static class PublicHotReadFastPath
     private static bool HasCredentialBearingInput(HttpContext context)
     {
         IHeaderDictionary headers = context.Request.Headers;
-        return context.User.Identity?.IsAuthenticated == true
+        if (context.User.Identity?.IsAuthenticated == true
             || headers.ContainsKey("Authorization")
             || headers.ContainsKey("Cookie")
             || headers.ContainsKey("RequestVerificationToken")
             || headers.ContainsKey("X-CSRF-TOKEN")
-            || headers.ContainsKey("X-XSRF-TOKEN");
+            || headers.ContainsKey("X-XSRF-TOKEN"))
+        {
+            return true;
+        }
+
+        foreach (string headerName in headers.Keys)
+        {
+            if (headerName.StartsWith("X-Fsus-", StringComparison.OrdinalIgnoreCase)
+                && !AnonymousGatewayHeaderGuardMiddleware.IsAllowedHeader(headerName))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void WriteLegacyRouteHint(HttpContext ctx, string path)

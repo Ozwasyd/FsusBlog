@@ -103,43 +103,58 @@ public static class WebApplicationCompositionExtensions
     private static long SpaHeadInjectionBuildCount;
     private static long SpaHeadInjectionHitCount;
 
-    private sealed record PipelineStage(string Id, Action<WebApplication> Configure);
+    private sealed record PipelineStage(
+        string Id,
+        PublicHotReadPipelineStageClassification Classification,
+        string? ControlId,
+        Action<WebApplication> Configure)
+    {
+        internal PublicHotReadPipelineStageDescriptor Descriptor
+            => new(Id, Classification, ControlId);
+    }
 
     private static readonly PipelineStage[] ApplicationPipelineStages =
     [
-        new("forwarded-headers", static app => app.UseForwardedHeaders()),
-        new("security-headers", static app => app.UseFsusSecurityHeaders()),
-        new("deployment-request-tracking", static app => app.UseMiddleware<DeploymentRequestTrackingMiddleware>()),
-        new("core-middlewares", static app => app.UseFsusCoreMiddlewares()),
-        new("test-session-validation", static app => app.UseFsusTestSessionValidation()),
-        new("observability-correlation", static app => app.UseMiddleware<ObservabilityCorrelationMiddleware>()),
-        new("public-hot-read-classifier", static app => app.UseFsusPublicHotReadClassifier()),
-        new("public-hot-read-rate-limiter", static app => app.UseFsusPublicHotReadRateLimiter()),
-        new("public-read-security-gate", static app => app.UseFsusPublicHotReadSecurityGate()),
-        new("public-artifact-revocation", static app => app.UseFsusPublicArtifactRevocation()),
-        new("public-hot-read-fast-path", static app => app.UseFsusPublicHotReadFastPath()),
-        new("public-hot-read-fallback-restore", static app => app.UseFsusPublicHotReadFallbackRestore()),
-        new("endpoint-pipeline", static app => app.UseFsusEndpointPipeline()),
-        new("static-assets", static app => app.UseFsusStaticAssets())
+        new("forwarded-headers", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseForwardedHeaders()),
+        new("security-headers", PublicHotReadPipelineStageClassification.CrossCuttingControl, "release-and-security-headers", static app => app.UseFsusSecurityHeaders()),
+        new("deployment-request-tracking", PublicHotReadPipelineStageClassification.CrossCuttingControl, "deployment-request-tracking", static app => app.UseMiddleware<DeploymentRequestTrackingMiddleware>()),
+        new("core-middlewares", PublicHotReadPipelineStageClassification.CrossCuttingControl, "shield-exception-binary-boundary", static app => app.UseFsusCoreMiddlewares()),
+        new("test-session-validation", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseFsusTestSessionValidation()),
+        new("observability-correlation", PublicHotReadPipelineStageClassification.CrossCuttingControl, "observability-correlation", static app => app.UseMiddleware<ObservabilityCorrelationMiddleware>()),
+        new("public-hot-read-classifier", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicHotReadClassifier()),
+        new("public-hot-read-request-audit-context", PublicHotReadPipelineStageClassification.CrossCuttingControl, "request-audit-context", static app => app.UseFsusPublicHotReadRequestAuditContext()),
+        new("public-hot-read-rate-limiter", PublicHotReadPipelineStageClassification.CrossCuttingControl, "public-read-rate-limit", static app => app.UseFsusPublicHotReadRateLimiter()),
+        new("public-read-security-gate", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicHotReadSecurityGate()),
+        new("public-artifact-revocation", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicArtifactRevocation()),
+        new("public-hot-read-fast-path", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicHotReadFastPath()),
+        new("public-hot-read-fallback-restore", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusPublicHotReadFallbackRestore()),
+        new("endpoint-pipeline", PublicHotReadPipelineStageClassification.BranchMechanic, null, static app => app.UseFsusEndpointPipeline()),
+        new("static-assets", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseFsusStaticAssets())
     ];
 
     private static readonly PipelineStage[] EndpointPipelineStages =
     [
-        new("routing", static app => app.UseRouting()),
-        new("endpoint-metadata-headers", static app => app.UseFsusEndpointMetadataHeaders()),
-        new("websockets", static app => app.UseWebSockets()),
-        new("response-compression", static app => app.UseResponseCompression()),
-        new("output-cache", static app => app.UseOutputCache()),
-        new("cors", static app => app.UseCors()),
-        new("antiforgery", static app => app.UseAntiforgery()),
-        new("csrf-origin-guard", static app => app.UseFsusCsrfOriginGuard()),
-        new("anonymous-gateway-header-guard", static app => app.UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>()),
-        new("authentication", static app => app.UseAuthentication()),
-        new("rate-limiter", static app => app.UseFsusEndpointRateLimiter()),
-        new("banned-user", static app => app.UseMiddleware<BannedUserMiddleware>()),
-        new("authorization", static app => app.UseAuthorization()),
-        new("request-audit-context", static app => app.UseMiddleware<RequestAuditContextMiddleware>())
+        new("routing", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseRouting()),
+        new("endpoint-metadata-headers", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseFsusEndpointMetadataHeaders()),
+        new("websockets", PublicHotReadPipelineStageClassification.Infrastructure, null, static app => app.UseWebSockets()),
+        new("response-compression", PublicHotReadPipelineStageClassification.EndpointFunctional, null, static app => app.UseResponseCompression()),
+        new("output-cache", PublicHotReadPipelineStageClassification.EndpointFunctional, null, static app => app.UseOutputCache()),
+        new("cors", PublicHotReadPipelineStageClassification.CrossCuttingControl, "cors", static app => app.UseCors()),
+        new("antiforgery", PublicHotReadPipelineStageClassification.CrossCuttingControl, "antiforgery", static app => app.UseAntiforgery()),
+        new("csrf-origin-guard", PublicHotReadPipelineStageClassification.CrossCuttingControl, "csrf-origin-guard", static app => app.UseFsusCsrfOriginGuard()),
+        new("anonymous-gateway-header-guard", PublicHotReadPipelineStageClassification.CrossCuttingControl, "anonymous-gateway-header-guard", static app => app.UseMiddleware<AnonymousGatewayHeaderGuardMiddleware>()),
+        new("authentication", PublicHotReadPipelineStageClassification.CrossCuttingControl, "authentication", static app => app.UseAuthentication()),
+        new("rate-limiter", PublicHotReadPipelineStageClassification.CrossCuttingControl, "public-read-rate-limit", static app => app.UseFsusEndpointRateLimiter()),
+        new("banned-user", PublicHotReadPipelineStageClassification.CrossCuttingControl, "banned-user", static app => app.UseMiddleware<BannedUserMiddleware>()),
+        new("authorization", PublicHotReadPipelineStageClassification.CrossCuttingControl, "authorization", static app => app.UseAuthorization()),
+        new("request-audit-context", PublicHotReadPipelineStageClassification.CrossCuttingControl, "request-audit-context", static app => app.UseFsusEndpointRequestAuditContext())
     ];
+
+    internal static IReadOnlyList<PublicHotReadPipelineStageDescriptor> ApplicationPipelineStageDescriptors
+        => ApplicationPipelineStages.Select(static stage => stage.Descriptor).ToArray();
+
+    internal static IReadOnlyList<PublicHotReadPipelineStageDescriptor> EndpointPipelineStageDescriptors
+        => EndpointPipelineStages.Select(static stage => stage.Descriptor).ToArray();
 
     internal static IReadOnlyList<string> ApplicationPipelineStageIds
         => ApplicationPipelineStages.Select(static stage => stage.Id).ToArray();
@@ -151,6 +166,9 @@ public static class WebApplicationCompositionExtensions
 
     public static void UseFsusApplicationPipeline(this WebApplication app)
     {
+        PublicHotReadCrossCuttingControlCatalog.ValidateOrThrow(
+            ApplicationPipelineStageDescriptors,
+            EndpointPipelineStageDescriptors);
         foreach (PipelineStage stage in ApplicationPipelineStages)
         {
             stage.Configure(app);
@@ -225,10 +243,40 @@ public static class WebApplicationCompositionExtensions
         }
     }
 
-    private static void UseFsusEndpointRateLimiter(this WebApplication app)
+    internal static void UseFsusEndpointRateLimiter(this IApplicationBuilder app)
         => app.UseWhen(
-            static context => context.Features.Get<PublicHotReadEarlyPipelineState>()?.RateLimitEvaluated != true,
+            static context => ShouldRunEndpointRateLimiter(context),
             static branch => branch.UseRateLimiter());
+
+    internal static bool ShouldRunEndpointRateLimiter(HttpContext context)
+    {
+        PublicHotReadEarlyPipelineState? state = context.Features.Get<PublicHotReadEarlyPipelineState>();
+        if (state?.RateLimitEvaluated != true)
+        {
+            return true;
+        }
+
+        state.MarkEndpointRateLimiterSkipped();
+        return false;
+    }
+
+    internal static void UseFsusEndpointRequestAuditContext(this IApplicationBuilder app)
+        => app.Use(next =>
+        {
+            var middleware = new RequestAuditContextMiddleware(next);
+            return context =>
+            {
+                PublicHotReadEarlyPipelineState? state =
+                    context.Features.Get<PublicHotReadEarlyPipelineState>();
+                if (state?.RequestAuditContextEvaluated != true)
+                {
+                    return middleware.InvokeAsync(context);
+                }
+
+                state.MarkEndpointRequestAuditContextSkipped();
+                return next(context);
+            };
+        });
 
     private static void UseFsusStaticAssets(this WebApplication app)
     {

@@ -400,6 +400,24 @@ public sealed class PublicHotArtifactProjector(
         }
 
         IReadOnlyList<ArticleDetailReadModel> details = await LoadArticleDetailsFromDbAsync(articleIds, ct).ConfigureAwait(false);
+        Dictionary<int, PublicBinaryArtifact> frames = MaterializeVisibilityCheckedArticleFrames(
+            details,
+            visibilityCutoff,
+            version,
+            options,
+            aeds,
+            ct);
+        return ApplyArticleAdmission(frames, articleIds, options).ToFrozenDictionary();
+    }
+
+    internal static Dictionary<int, PublicBinaryArtifact> MaterializeVisibilityCheckedArticleFrames(
+        IReadOnlyList<ArticleDetailReadModel> details,
+        DateTime visibilityCutoff,
+        long version,
+        PublicHotReadOptions options,
+        IAedsEncoder encoder,
+        CancellationToken ct = default)
+    {
         var frames = new Dictionary<int, PublicBinaryArtifact>(details.Count);
         foreach (ArticleDetailReadModel detail in details)
         {
@@ -410,10 +428,16 @@ public sealed class PublicHotArtifactProjector(
             }
 
             ArticleDetailCoreModel core = ArticleProjection.ToCoreDetailModel(detail);
-            frames[detail.Id] = EncodeFrame(AedsFrameType.ArticleDetail, PodBinaryCodec.EncodeArticleDetail(core), version, options);
+            frames[detail.Id] = PublicHotReadBinaryArtifactFactory.FromPayload(
+                encoder,
+                AedsFrameType.ArticleDetail,
+                PodBinaryCodec.EncodeArticleDetail(core),
+                options.CacheControl,
+                version,
+                options);
         }
 
-        return ApplyArticleAdmission(frames, articleIds, options).ToFrozenDictionary();
+        return frames;
     }
 
     internal static bool IsPubliclyVisible(ArticleDetailReadModel article, DateTime utcNow)
