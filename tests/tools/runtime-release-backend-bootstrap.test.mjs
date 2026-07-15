@@ -14,6 +14,10 @@ test('fresh no-build runtime reuses the production Release backend instead of a 
   assert.doesNotMatch(bootstrap, /runtime_args="-c Debug --no-build --no-restore"/u)
 })
 
+test('managed backend uses the same JWT key version as acceptance fixture tokens', () => {
+  assert.match(bootstrap, /Jwt__KeyVersion=\$\(printf '%q' "\$JWT_KEY_VERSION"\).*Jwt__SecretKey=/u)
+})
+
 test('managed backend readiness fails immediately when the no-build process exits', t => {
   const namespace = `runtime-release-backend-fail-${process.pid}`
   t.after(() => {
