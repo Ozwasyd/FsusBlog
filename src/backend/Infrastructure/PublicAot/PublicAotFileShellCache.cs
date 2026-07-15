@@ -22,8 +22,9 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     private readonly string _cacheRoot;
     private readonly ReleaseDerivedArtifactPublisher? _derivedPublisher;
     private readonly ILogger<PublicAotFileShellCache> logger;
-    private readonly ConcurrentDictionary<string, MemoryCacheEntry> _memoryCache = new(StringComparer.Ordinal);
+    private readonly PublicAotBoundedMemoryCache _memoryCache;
     private readonly ConcurrentDictionary<string, FileMetadataCacheEntry> _fileMetadataCache = new(StringComparer.Ordinal);
+    private readonly TimeProvider _timeProvider;
     private long _memoryGeneration;
     private PublicAotRecordedInvalidation? _lastInvalidation;
 
@@ -31,17 +32,26 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         IWebHostEnvironment env,
         IConnectionMultiplexer redis,
         ILogger<PublicAotFileShellCache> logger,
-        ReleaseDerivedArtifactPublisher? derivedPublisher = null)
+        ReleaseDerivedArtifactPublisher? derivedPublisher = null,
+        IConfiguration? configuration = null,
+        TimeProvider? timeProvider = null)
     {
         _redis = redis;
         _db = redis.GetDatabase();
         _webRoot = ResolveWebRoot(env);
         _derivedPublisher = derivedPublisher ?? ResolveReleaseDerivedPublisher();
         _cacheRoot = _derivedPublisher?.GetKindRoot("public-aot") ?? ResolveCacheRoot(env);
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        var cacheOptions = new PublicAotFileShellCacheOptions();
+        configuration?.GetSection("PublicAot").Bind(cacheOptions);
+        _memoryCache = new PublicAotBoundedMemoryCache(
+            PublicAotMemoryCacheLimits.Resolve(cacheOptions),
+            _timeProvider);
         this.logger = logger;
     }
 
     internal PublicAotRecordedInvalidation? LastInvalidationForTests => _lastInvalidation;
+    internal PublicAotMemoryCacheSnapshot MemoryCacheSnapshotForTests => _memoryCache.Snapshot();
 
     public async Task<PublicAotCacheEntry?> TryGetEntryAsync(string cacheKey, CancellationToken cancellationToken = default)
         => await TryGetEntryAsync(cacheKey, frontendAssetVersion: null, cancellationToken).ConfigureAwait(false);
@@ -220,7 +230,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             }
 
             _memoryCache[cacheKey] = CreateMemoryCacheEntry(entry);
-            if (entry.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+            if (entry.ExpiresAtUtc <= _timeProvider.GetUtcNow())
             {
                 _memoryCache.TryRemove(cacheKey, out _);
                 DeleteExpiredEntryFile(path);
@@ -241,7 +251,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
     private bool TryGetMemoryEntry(string cacheKey, out PublicAotCacheEntry? value)
     {
         value = null;
-        if (!_memoryCache.TryGetValue(cacheKey, out MemoryCacheEntry? cached))
+        if (!_memoryCache.TryGetValue(cacheKey, out PublicAotMemoryCacheEntry? cached))
         {
             return false;
         }
@@ -262,7 +272,7 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             return false;
         }
 
-        if (cached.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+        if (cached.ExpiresAtUtc <= _timeProvider.GetUtcNow())
         {
             _memoryCache.TryRemove(cacheKey, out _);
             DeleteExpiredEntryFile(GetEntryPath(cacheKey, cached.FrontendAssetVersion, cached.Entry.PageId));
@@ -448,8 +458,39 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
         return CanonicalPathBoundary.TryResolveRelative(_webRoot, sidecar.RelativePath, out path);
     }
 
-    private MemoryCacheEntry CreateMemoryCacheEntry(PublicAotCacheEntry entry)
-        => new(entry, entry.ExpiresAtUtc, entry.RendererVersion, entry.FrontendAssetVersion, Volatile.Read(ref _memoryGeneration));
+    private PublicAotMemoryCacheEntry CreateMemoryCacheEntry(PublicAotCacheEntry entry)
+    {
+        DateTimeOffset now = _timeProvider.GetUtcNow();
+        DateTimeOffset cacheDeadline = now + _memoryCache.Limits.EntryDeadline;
+        if (entry.ExpiresAtUtc < cacheDeadline)
+        {
+            cacheDeadline = entry.ExpiresAtUtc;
+        }
+
+        return new PublicAotMemoryCacheEntry(
+            entry,
+            entry.ExpiresAtUtc,
+            entry.RendererVersion,
+            entry.FrontendAssetVersion,
+            Volatile.Read(ref _memoryGeneration),
+            EstimateMemoryEntryBytes(entry),
+            cacheDeadline);
+    }
+
+    private static long EstimateMemoryEntryBytes(PublicAotCacheEntry entry)
+    {
+        long strings = checked(
+            ((long)(entry.CacheKey?.Length ?? 0)
+             + (entry.RouteKey?.Length ?? 0)
+             + (entry.RendererVersion?.Length ?? 0)
+             + (entry.FrontendAssetVersion?.Length ?? 0)
+             + (entry.Value?.Length ?? 0)
+             + (entry.HydrationSidecar.Url?.Length ?? 0)
+             + (entry.HydrationSidecar.Sha256Hex?.Length ?? 0)
+             + (entry.HydrationSidecar.RelativePath?.Length ?? 0)) * sizeof(char));
+        long document = entry.Document?.ResidentBytes ?? 0;
+        return checked(512 + strings + document);
+    }
 
     private bool TryGetFileMetadataEntry(
         string path,
@@ -1164,13 +1205,6 @@ public sealed class PublicAotFileShellCache : IPublicAotShellCache
             stats.RegistryCleanupStatus,
             stats.RegistryDeletedKeys);
     }
-
-    private sealed record MemoryCacheEntry(
-        PublicAotCacheEntry Entry,
-        DateTimeOffset ExpiresAtUtc,
-        string RendererVersion,
-        string FrontendAssetVersion,
-        long GenerationToken);
 
     private sealed record FileMetadataCacheEntry(
         DateTime LastWriteTimeUtc,

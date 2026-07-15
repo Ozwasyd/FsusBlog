@@ -97,6 +97,40 @@ public sealed record PublicHotReadBudgetLimits(
     }
 }
 
+internal readonly record struct PublicHotReadRetiringLimits(
+    int MaxSnapshots,
+    long MaxBytes,
+    TimeSpan Deadline)
+{
+    internal static PublicHotReadRetiringLimits Resolve(
+        PublicHotReadOptions options,
+        PublicHotReadBudgetLimits budgets)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(budgets);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.MaxRetiringSnapshots);
+        ArgumentOutOfRangeException.ThrowIfNegative(options.MaxRetiringBytes);
+        if (options.RetiringSnapshotDeadline < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options.RetiringSnapshotDeadline),
+                options.RetiringSnapshotDeadline,
+                "Retiring snapshot deadline cannot be negative.");
+        }
+
+        int maxSnapshots = options.MaxRetiringSnapshots > 0
+            ? options.MaxRetiringSnapshots
+            : Math.Clamp(Environment.ProcessorCount * 2, 4, 64);
+        long maxBytes = options.MaxRetiringBytes > 0
+            ? options.MaxRetiringBytes
+            : Math.Min(budgets.MaxSnapshotOverlapBytes, budgets.MaxResidentBytes);
+        TimeSpan deadline = options.RetiringSnapshotDeadline > TimeSpan.Zero
+            ? options.RetiringSnapshotDeadline
+            : TimeSpan.FromSeconds(Math.Clamp(maxSnapshots * 30, 60, 1800));
+        return new(maxSnapshots, Math.Max(1, maxBytes), deadline);
+    }
+}
+
 internal static class PublicHotReadResidentAccounting
 {
     internal const int LohThresholdBytes = 85_000;

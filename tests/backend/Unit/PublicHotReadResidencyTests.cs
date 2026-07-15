@@ -137,6 +137,68 @@ public sealed class PublicHotReadResidencyTests
     }
 
     [Fact]
+    public void Publish_RejectsWhenLiveRetiringSnapshotCountWouldExceedHardLimit()
+    {
+        PublicHotReadSnapshot first = Snapshot(1, 1, Artifact(128, 0, 0, 1));
+        PublicHotReadSnapshot second = Snapshot(2, 2, Artifact(128, 0, 0, 2));
+        PublicHotReadSnapshot third = Snapshot(3, 3, Artifact(128, 0, 0, 3));
+        var store = new PublicHotReadStore(options: Options.Create(RetiringOptions(
+            maxSnapshots: 1,
+            maxBytes: 1_000_000,
+            deadline: TimeSpan.FromMinutes(10))));
+        store.Publish(first);
+        store.Publish(second);
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => store.Publish(third));
+
+        Assert.Contains("retiring-count:2>1", error.Message, StringComparison.Ordinal);
+        Assert.Same(second, store.Current);
+        Assert.Equal(1, store.RetiringSnapshotForTests().SnapshotCount);
+        GC.KeepAlive(first);
+    }
+
+    [Fact]
+    public void Publish_RejectsWhenCurrentSnapshotWouldExceedRetiringBytesLimit()
+    {
+        PublicHotReadSnapshot first = Snapshot(1, 1, Artifact(256, 0, 0, 1));
+        PublicHotReadSnapshot second = Snapshot(2, 2, Artifact(128, 0, 0, 2));
+        var store = new PublicHotReadStore(options: Options.Create(RetiringOptions(
+            maxSnapshots: 10,
+            maxBytes: first.ResidentBytes - 1,
+            deadline: TimeSpan.FromMinutes(10))));
+        store.Publish(first);
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => store.Publish(second));
+
+        Assert.Contains($"retiring-bytes:{first.ResidentBytes}", error.Message, StringComparison.Ordinal);
+        Assert.Same(first, store.Current);
+    }
+
+    [Fact]
+    public void Publish_RejectsWhenAReaderPinsRetiringSnapshotPastDeadline()
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.Parse("2026-07-15T12:00:00Z"));
+        PublicHotReadSnapshot first = Snapshot(1, 1, Artifact(128, 0, 0, 1));
+        PublicHotReadSnapshot second = Snapshot(2, 2, Artifact(128, 0, 0, 2));
+        PublicHotReadSnapshot third = Snapshot(3, 3, Artifact(128, 0, 0, 3));
+        var store = new PublicHotReadStore(
+            options: Options.Create(RetiringOptions(
+                maxSnapshots: 10,
+                maxBytes: 1_000_000,
+                deadline: TimeSpan.FromMinutes(1))),
+            timeProvider: clock);
+        store.Publish(first);
+        store.Publish(second);
+        clock.Advance(TimeSpan.FromMinutes(2));
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => store.Publish(third));
+
+        Assert.Contains("retiring-deadline:", error.Message, StringComparison.Ordinal);
+        Assert.Same(second, store.Current);
+        GC.KeepAlive(first);
+    }
+
+    [Fact]
     public void Publish_AggregatesEveryBudgetViolationBeforeFailClosed()
     {
         var store = new PublicHotReadStore(options: Options.Create(new PublicHotReadOptions
@@ -363,6 +425,32 @@ public sealed class PublicHotReadResidencyTests
             brotli > 0 ? $"\"br-{version}\"" : string.Empty,
             new byte[gzip],
             gzip > 0 ? $"\"gzip-{version}\"" : string.Empty);
+
+    private static PublicHotReadOptions RetiringOptions(
+        int maxSnapshots,
+        long maxBytes,
+        TimeSpan deadline)
+        => new()
+        {
+            MaxResidentBytes = 1_000_000,
+            MaxRawBytes = 1_000_000,
+            MaxCompressedBytes = 1_000_000,
+            MaxHtmlBytes = 1_000_000,
+            MaxSnapshotOverlapBytes = 3_000_000,
+            MaxArtifactObjects = 10_000,
+            MaxRetiringSnapshots = maxSnapshots,
+            MaxRetiringBytes = maxBytes,
+            RetiringSnapshotDeadline = deadline
+        };
+
+    private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset _utcNow = utcNow;
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        internal void Advance(TimeSpan delta) => _utcNow += delta;
+    }
 
     private static PublicHtmlArtifact Html(string value)
         => new(System.Text.Encoding.UTF8.GetBytes(value), "text/html", $"\"{value}\"", "public,max-age=60");

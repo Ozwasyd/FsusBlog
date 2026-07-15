@@ -11,6 +11,9 @@ SECURITY_GATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/Pub
 COMPOSITION_FILE="$ROOT_DIR/src/backend/Infrastructure/Bootstrap/WebApplicationCompositionExtensions.cs"
 GATEWAY_FILE="$ROOT_DIR/deploy/production-openresty.conf"
 NONCE_TEMPLATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicAot/CspNonceUtf8Template.cs"
+AOT_FILE_CACHE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicAot/PublicAotFileShellCache.cs"
+AOT_MEMORY_CACHE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicAot/PublicAotBoundedMemoryCache.cs"
+OBSERVABILITY_REGISTRATION_FILE="$ROOT_DIR/src/backend/Infrastructure/Observability/FsusObservabilityServiceCollectionExtensions.cs"
 ARTICLE_ENDPOINTS_FILE="$ROOT_DIR/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs"
 ARTICLE_API_FILE="$ROOT_DIR/src/frontend/src/api/article.ts"
 BINARY_TRANSPORT_FILE="$ROOT_DIR/src/frontend/src/services/binaryTransport.ts"
@@ -149,12 +152,15 @@ for (const [label, source, token] of [
 NODE
 
 echo "[public-hot-read] checking resident-byte admission and lifecycle contracts"
-node - "$FASTPATH_FILE" "$RESIDENCY_FILE" "$PROJECTOR_FILE" <<'NODE'
+node - "$FASTPATH_FILE" "$RESIDENCY_FILE" "$PROJECTOR_FILE" "$AOT_FILE_CACHE_FILE" "$AOT_MEMORY_CACHE_FILE" "$OBSERVABILITY_REGISTRATION_FILE" <<'NODE'
 const fs = require('node:fs');
-const [fastPathFile, residencyFile, projectorFile] = process.argv.slice(2);
+const [fastPathFile, residencyFile, projectorFile, aotFileCacheFile, aotMemoryCacheFile, observabilityRegistrationFile] = process.argv.slice(2);
 const fastPath = fs.readFileSync(fastPathFile, 'utf8');
 const residency = fs.readFileSync(residencyFile, 'utf8');
 const projector = fs.readFileSync(projectorFile, 'utf8');
+const aotFileCache = fs.readFileSync(aotFileCacheFile, 'utf8');
+const aotMemoryCache = fs.readFileSync(aotMemoryCacheFile, 'utf8');
+const observabilityRegistration = fs.readFileSync(observabilityRegistrationFile, 'utf8');
 for (const token of [
   'MaxResidentBytes',
   'MaxRawBytes',
@@ -162,6 +168,10 @@ for (const token of [
   'MaxHtmlBytes',
   'MaxSnapshotOverlapBytes',
   'MaxArtifactObjects',
+  'MaxRetiringSnapshots',
+  'MaxRetiringBytes',
+  'RetiringSnapshotDeadline',
+  'fsus.public_hot.retiring.evictions',
   'LifecycleHistory',
   'PublicHotReadResidentBreakdown',
   'ValidateCandidate',
@@ -193,6 +203,38 @@ for (const token of [
 ]) {
   if (!projector.includes(token)) {
     console.error(`[public-hot-read] missing bounded admission token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'PublicAotBoundedMemoryCache',
+  'PublicAotFileShellCacheOptions'
+]) {
+  if (!aotFileCache.includes(token)) {
+    console.error(`[public-hot-read] AOT file cache is not bound to bounded memory storage: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'MaxMemoryCacheBytes',
+  'MaxMemoryCacheEntries',
+  'MemoryCacheEntryDeadline',
+  'LinkedList<string>',
+  'fsus.public_aot.memory_cache.evictions',
+  'fsus.public_aot.memory_cache.resident_bytes'
+]) {
+  if (!aotMemoryCache.includes(token)) {
+    console.error(`[public-hot-read] missing bounded AOT memory cache token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const meterName of [
+  'FsusBlog.PublicHotRead',
+  'FsusBlog.PublicHotRead.Retiring',
+  'FsusBlog.PublicAot.MemoryCache'
+]) {
+  if (!observabilityRegistration.includes(meterName)) {
+    console.error(`[public-hot-read] OpenTelemetry collector does not subscribe to meter: ${meterName}`);
     process.exit(1);
   }
 }

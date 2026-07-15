@@ -130,6 +130,9 @@ public sealed class PublicHotReadOptions
     public long MaxCompressedBytes { get; set; }
     public long MaxHtmlBytes { get; set; }
     public long MaxSnapshotOverlapBytes { get; set; }
+    public int MaxRetiringSnapshots { get; set; }
+    public long MaxRetiringBytes { get; set; }
+    public TimeSpan RetiringSnapshotDeadline { get; set; }
     public long MaxArticleResidentBytes { get; set; }
     public int MaxArtifactObjects { get; set; }
     public int ArticleAdmissionRecentPercent { get; set; } = 40;
@@ -180,6 +183,13 @@ public sealed record PublicHotReadRuntimeSnapshot(
     string VisibilityPolicy,
     long VisibilitySourceVersion,
     DateTimeOffset? VisibilityCutoffUtc);
+
+internal readonly record struct PublicHotReadRetiringRuntimeSnapshot(
+    int SnapshotCount,
+    long ResidentBytes,
+    DateTimeOffset? OldestRetiredAtUtc,
+    long PrunedCount,
+    PublicHotReadRetiringLimits Limits);
 
 public sealed class PublicHotReadSnapshot
 {
@@ -442,6 +452,12 @@ public sealed class PublicHotReadSnapshot
 
 public sealed class PublicHotReadStore
 {
+    private static readonly Meter RetiringMeter = new("FsusBlog.PublicHotRead.Retiring", "1.0.0");
+    private static readonly Counter<long> RetiringPrunedCounter =
+        RetiringMeter.CreateCounter<long>("fsus.public_hot.retiring.evictions");
+    private static readonly Histogram<long> RetiringBytesHistogram =
+        RetiringMeter.CreateHistogram<long>("fsus.public_hot.retiring.bytes", "By");
+
     private PublicHotReadSnapshot _current = PublicHotReadSnapshot.Empty;
     private int _ready;
     private readonly object _gate = new();
@@ -449,7 +465,10 @@ public sealed class PublicHotReadStore
     private readonly bool _initialEarlyDataPlaneEnabled;
     private readonly PublicHotReadBudgetLimits _budgetLimits;
     private readonly string _compressionPolicy;
-    private readonly List<WeakReference<PublicHotReadSnapshot>> _retiringSnapshots = [];
+    private readonly List<RetiringSnapshotReference> _retiringSnapshots = [];
+    private readonly PublicHotReadRetiringLimits _retiringLimits;
+    private readonly TimeProvider _timeProvider;
+    private long _retiringPrunedCount;
     private long _lastSnapshotOverlapBytes;
     private IReadOnlyList<string> _lastBudgetViolations = Array.Empty<string>();
     private string _lifecycleStage = "not-started";
@@ -458,12 +477,15 @@ public sealed class PublicHotReadStore
 
     public PublicHotReadStore(
         PublicHotReadEarlyDataPlaneRuntimeState? earlyDataPlaneRuntimeState = null,
-        IOptions<PublicHotReadOptions>? options = null)
+        IOptions<PublicHotReadOptions>? options = null,
+        TimeProvider? timeProvider = null)
     {
         _earlyDataPlaneRuntimeState = earlyDataPlaneRuntimeState;
         _initialEarlyDataPlaneEnabled = earlyDataPlaneRuntimeState?.Enabled ?? options?.Value.Enabled ?? true;
         PublicHotReadOptions value = options?.Value ?? new PublicHotReadOptions();
         _budgetLimits = PublicHotReadBudgetLimits.Resolve(value);
+        _retiringLimits = PublicHotReadRetiringLimits.Resolve(value, _budgetLimits);
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _compressionPolicy = CompressionPolicy(value);
         _runtime = new PublicHotReadRuntimeSnapshot(
             nameof(PublicHotReadState.NotStarted),
@@ -516,13 +538,14 @@ public sealed class PublicHotReadStore
         lock (_gate)
         {
             PublicHotReadSnapshot current = Current;
+            DateTimeOffset now = _timeProvider.GetUtcNow();
             if (!next.PublicationEvidence.IsVerifiedFor(next.Version))
             {
                 SetLifecycleStageLocked("visibility-evidence-rejected");
                 _runtime = CreateRuntimeSnapshotLocked(
                     current.Version == 0 ? nameof(PublicHotReadState.Failed) : nameof(PublicHotReadState.Ready),
                     current,
-                    DateTimeOffset.UtcNow,
+                    now,
                     _runtime.LastBuildReason,
                     "failed",
                     "PublicHotReadPublicationEvidenceInvalid");
@@ -530,15 +553,34 @@ public sealed class PublicHotReadStore
                     $"public hot-read publication evidence is invalid for snapshot {next.Version}");
             }
 
-            long retiringBytes = RetiringSnapshotBytesLocked();
+            RetiringState retiringState = CollectRetiringStateLocked();
+            long retiringBytes = retiringState.ResidentBytes;
             overlapBytes = checked(next.ResidentBytes
                 + (current.Version == 0 ? 0 : current.ResidentBytes)
                 + retiringBytes);
             SetLifecycleStageLocked("validate");
-            IReadOnlyList<string> violations = PublicHotReadResidentAccounting.ValidateCandidate(
+            var violations = PublicHotReadResidentAccounting.ValidateCandidate(
                 next.Residency,
                 overlapBytes,
-                _budgetLimits);
+                _budgetLimits).ToList();
+            if (current.Version != 0)
+            {
+                int predictedRetiringCount = checked(retiringState.SnapshotCount + 1);
+                long predictedRetiringBytes = checked(retiringBytes + current.ResidentBytes);
+                if (predictedRetiringCount > _retiringLimits.MaxSnapshots)
+                {
+                    violations.Add($"retiring-count:{predictedRetiringCount}>{_retiringLimits.MaxSnapshots}");
+                }
+                if (predictedRetiringBytes > _retiringLimits.MaxBytes)
+                {
+                    violations.Add($"retiring-bytes:{predictedRetiringBytes}>{_retiringLimits.MaxBytes}");
+                }
+                if (retiringState.OldestRetiredAtUtc is { } oldest
+                    && now - oldest > _retiringLimits.Deadline)
+                {
+                    violations.Add($"retiring-deadline:{oldest:O}>{_retiringLimits.Deadline}");
+                }
+            }
             if (violations.Count > 0)
             {
                 _lastSnapshotOverlapBytes = overlapBytes;
@@ -547,7 +589,7 @@ public sealed class PublicHotReadStore
                 _runtime = CreateRuntimeSnapshotLocked(
                     Current.Version == 0 ? nameof(PublicHotReadState.Failed) : nameof(PublicHotReadState.Ready),
                     Current,
-                    DateTimeOffset.UtcNow,
+                    now,
                     _runtime.LastBuildReason,
                     "failed",
                     "PublicHotReadBudgetViolation");
@@ -563,10 +605,14 @@ public sealed class PublicHotReadStore
             _lastBudgetViolations = Array.Empty<string>();
             if (current.Version != 0)
             {
-                _retiringSnapshots.Add(new WeakReference<PublicHotReadSnapshot>(current));
+                _retiringSnapshots.Add(new RetiringSnapshotReference(
+                    new WeakReference<PublicHotReadSnapshot>(current),
+                    now,
+                    current.ResidentBytes,
+                    current.Version));
             }
             SetLifecycleStageLocked(_retiringSnapshots.Count == 0 ? "active" : "retire");
-            _runtime = CreateRuntimeSnapshotLocked(nameof(PublicHotReadState.Ready), next, DateTimeOffset.UtcNow, _runtime.LastBuildReason, "ok", null);
+            _runtime = CreateRuntimeSnapshotLocked(nameof(PublicHotReadState.Ready), next, now, _runtime.LastBuildReason, "ok", null);
         }
         FsusObservability.RecordPublicHotResidency(next.Residency, overlapBytes);
     }
@@ -618,6 +664,20 @@ public sealed class PublicHotReadStore
     }
 
     public bool IsReady => IsReadyFast;
+
+    internal PublicHotReadRetiringRuntimeSnapshot RetiringSnapshotForTests()
+    {
+        lock (_gate)
+        {
+            RetiringState state = CollectRetiringStateLocked();
+            return new(
+                state.SnapshotCount,
+                state.ResidentBytes,
+                state.OldestRetiredAtUtc,
+                _retiringPrunedCount,
+                _retiringLimits);
+        }
+    }
 
     public bool IsReadyFast
     {
@@ -721,21 +781,50 @@ public sealed class PublicHotReadStore
         => PublicHotReadBudgetLimits.Resolve(options, availableMemoryBytes);
 
     private long RetiringSnapshotBytesLocked()
+        => CollectRetiringStateLocked().ResidentBytes;
+
+    private RetiringState CollectRetiringStateLocked()
     {
         long total = 0;
+        int count = 0;
+        long pruned = 0;
+        DateTimeOffset? oldest = null;
         PublicHotReadSnapshot current = Current;
         for (int index = _retiringSnapshots.Count - 1; index >= 0; index--)
         {
-            if (!_retiringSnapshots[index].TryGetTarget(out PublicHotReadSnapshot? retiring)
+            RetiringSnapshotReference tracked = _retiringSnapshots[index];
+            if (!tracked.Reference.TryGetTarget(out PublicHotReadSnapshot? retiring)
                 || ReferenceEquals(retiring, current))
             {
                 _retiringSnapshots.RemoveAt(index);
+                pruned++;
                 continue;
             }
-            total = checked(total + retiring.ResidentBytes);
+            count++;
+            total = checked(total + tracked.ResidentBytes);
+            oldest = !oldest.HasValue || tracked.RetiredAtUtc < oldest.Value
+                ? tracked.RetiredAtUtc
+                : oldest;
         }
-        return total;
+        if (pruned > 0)
+        {
+            _retiringPrunedCount = checked(_retiringPrunedCount + pruned);
+            RetiringPrunedCounter.Add(pruned, new KeyValuePair<string, object?>("fsus.reason", "released"));
+        }
+        RetiringBytesHistogram.Record(total);
+        return new RetiringState(count, total, oldest);
     }
+
+    private sealed record RetiringSnapshotReference(
+        WeakReference<PublicHotReadSnapshot> Reference,
+        DateTimeOffset RetiredAtUtc,
+        long ResidentBytes,
+        long Version);
+
+    private readonly record struct RetiringState(
+        int SnapshotCount,
+        long ResidentBytes,
+        DateTimeOffset? OldestRetiredAtUtc);
 
     private static string CompressionPolicy(PublicHotReadOptions options)
         => $"publish-time;minBytes={options.MinPrecompressedFrameBytes};minSavings={options.MinCompressionSavingsPercent};brShare={options.ExpectedBrotliClientSharePercent};gzipShare={options.ExpectedGzipClientSharePercent}";

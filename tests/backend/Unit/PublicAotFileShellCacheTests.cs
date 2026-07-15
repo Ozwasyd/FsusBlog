@@ -9,6 +9,7 @@ using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Shared.Contracts.Outputs;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -220,6 +221,32 @@ public sealed class PublicAotFileShellCacheTests
         PublicAotCacheEntry? restored = await cache.TryGetEntryAsync(entry.CacheKey, entry.FrontendAssetVersion);
         Assert.NotNull(restored);
         Assert.Equal(entry.Value, restored.Value);
+    }
+
+    [Fact]
+    public async Task SetAsync_BindsConfiguredMemorySizeLimitAndEvictsWithoutDeletingFileArtifact()
+    {
+        using var temp = new TempDirectory();
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["PublicAot:MaxMemoryCacheBytes"] = "1",
+                ["PublicAot:MaxMemoryCacheEntries"] = "1",
+                ["PublicAot:MemoryCacheEntryDeadline"] = "00:01:00"
+            })
+            .Build();
+        PublicAotCacheEntry entry = CreateEntry("public:aot:v2:doc:2:article:bounded");
+        var cache = BuildCache(temp.Root, Environments.Development, configuration);
+
+        await cache.SetAsync(entry);
+
+        PublicAotMemoryCacheSnapshot snapshot = cache.MemoryCacheSnapshotForTests;
+        Assert.Equal(0, snapshot.EntryCount);
+        Assert.Equal(0, snapshot.ResidentBytes);
+        Assert.Equal(1, snapshot.CapacityEvictionCount);
+        Assert.True(File.Exists(ResolveVersionedEntryPath(
+            ResolveTestCacheRoot(temp.Root, Environments.Development),
+            entry)));
     }
 
     [Fact]
@@ -830,7 +857,10 @@ public sealed class PublicAotFileShellCacheTests
 </html>
 """;
 
-    private static PublicAotFileShellCache BuildCache(string root, string environmentName)
+    private static PublicAotFileShellCache BuildCache(
+        string root,
+        string environmentName,
+        IConfiguration? configuration = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
@@ -838,7 +868,8 @@ public sealed class PublicAotFileShellCacheTests
             new TestWebHostEnvironment(root, environmentName),
             redis,
             NullLogger<PublicAotFileShellCache>.Instance,
-            CreateDerivedPublisher(root, environmentName));
+            CreateDerivedPublisher(root, environmentName),
+            configuration);
     }
 
     private static CacheFixture BuildCacheFixture(string environmentName)

@@ -81,7 +81,12 @@ public static class FsusObservabilityServiceCollectionExtensions
             .WithMetrics(metrics =>
             {
                 metrics
-                    .AddMeter(FsusObservability.MeterName, "FsusBlog.NotificationStream")
+                    .AddMeter(
+                        FsusObservability.MeterName,
+                        "FsusBlog.NotificationStream",
+                        "FsusBlog.PublicHotRead",
+                        "FsusBlog.PublicHotRead.Retiring",
+                        "FsusBlog.PublicAot.MemoryCache")
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
