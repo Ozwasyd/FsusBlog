@@ -74,6 +74,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildArticleMutationOutboxEdgeMigration(),
         BuildArticleMutationOutboxClaimLeaseMigration(),
         BuildActiveReleaseFenceDurableWitnessMigration(),
+        BuildActiveReleaseFencedCommitLedgerMigration(),
         BuildPublicArticleProjectionMigration(),
         BuildAssetLibraryArticleRefMigration(),
         BuildAuthoringWorkspaceTablesMigration(),
@@ -3081,6 +3082,44 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                         CONSTRAINT ck_sys_deployment_fence_generation CHECK (generation > 0),
                         CONSTRAINT ck_sys_deployment_fence_status CHECK (status IN ('active', 'revoked'))
                     );
+                    """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildActiveReleaseFencedCommitLedgerMigration()
+        => new SchemaMigrationDescriptor(
+            "20260715-post-active-release-fenced-commit-ledger",
+            "Create the durable transaction-enlistment ledger for active release fenced commits.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "sys_fenced_commit",
+                    """
+                    CREATE TABLE IF NOT EXISTS sys_fenced_commit (
+                        commit_token varchar(32) PRIMARY KEY,
+                        operation_scope varchar(96) NOT NULL,
+                        mutation_key varchar(192) NOT NULL,
+                        release_id varchar(96) NOT NULL,
+                        slot varchar(24) NOT NULL,
+                        generation bigint NOT NULL,
+                        image_digest varchar(160) NOT NULL,
+                        process_instance_id varchar(192) NOT NULL,
+                        enlisted_at_utc timestamp NOT NULL DEFAULT (clock_timestamp() AT TIME ZONE 'utc'),
+                        CONSTRAINT ck_sys_fenced_commit_generation CHECK (generation > 0)
+                    );
+                    """),
+                new CreateIndexStep(
+                    "idx_sys_fenced_commit_enlisted",
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_sys_fenced_commit_enlisted
+                    ON sys_fenced_commit(enlisted_at_utc DESC, commit_token);
+                    """),
+                new CreateIndexStep(
+                    "idx_sys_fenced_commit_generation_time",
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_sys_fenced_commit_generation_time
+                    ON sys_fenced_commit(generation, enlisted_at_utc DESC);
                     """)
             ]);
 

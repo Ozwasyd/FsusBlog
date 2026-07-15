@@ -59,6 +59,7 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         services.TryAddSingleton<IActiveReleaseFence, ActiveReleaseFence>();
         services.TryAddSingleton<IActiveReleaseExecutionContextAccessor, ActiveReleaseExecutionContextAccessor>();
         services.TryAddSingleton<IActiveReleaseCommitGuard, ActiveReleaseCommitGuard>();
+        services.TryAddSingleton<IActiveReleaseTransactionalCommitGuard, ActiveReleaseTransactionalCommitGuard>();
         services.TryAddSingleton<ActiveReleaseFenceReadiness>();
         services.TryAddSingleton<NotificationStreamRestartCoordinator>();
         services.TryAddSingleton<ReleaseDrainParticipantRegistry>();
@@ -79,6 +80,7 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
         if (!OpenApiExportMode.IsEnabled())
         {
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, ActiveReleaseFenceRefreshWorker>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, ActiveReleaseFencedCommitAuditWorker>());
         }
         return services;
     }

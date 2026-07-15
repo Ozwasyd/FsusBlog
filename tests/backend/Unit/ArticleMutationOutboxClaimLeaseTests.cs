@@ -3,6 +3,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
@@ -94,7 +95,8 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<ArticleMutationOutboxDispatcher>.Instance,
             TimeProvider.System,
-            Substitute.For<IBackgroundWorkerLease>());
+            Substitute.For<IBackgroundWorkerLease>(),
+            Substitute.For<IActiveReleaseTransactionalCommitGuard>());
 
         Assert.Equal(0, await dispatcher.ProcessPendingAsync(CancellationToken.None));
         await coordinator.DidNotReceiveWithAnyArgs().ReplayOutboxAsync(

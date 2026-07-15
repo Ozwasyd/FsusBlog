@@ -20,6 +20,7 @@ public class LogCleanupService(
     ILogger<LogCleanupService> _logger,
     IBackgroundWorkerLease workerLease,
     TimeProvider timeProvider,
+    IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
     private const int ChunkSize = 5000;
@@ -28,6 +29,7 @@ public class LogCleanupService(
     private const int RumRetentionDays = 14;
     private const int AuditLogRetentionDays = 365;
     private const int AnonymousCredentialIssuanceAuditRetentionDays = 90;
+    private const int FencedCommitRetentionDays = 30;
     private static readonly TimeSpan DelayBetweenChunks = TimeSpan.FromMilliseconds(50);
     private const string CleanupVisitLogsSql = """
         WITH expired AS (
@@ -91,6 +93,18 @@ public class LogCleanupService(
         USING expired
         WHERE target.id = expired.id;
         """;
+    private const string CleanupFencedCommitTokensSql = """
+        WITH expired AS (
+            SELECT commit_token
+            FROM sys_fenced_commit
+            WHERE enlisted_at_utc < @ExpireDate
+            ORDER BY enlisted_at_utc, commit_token
+            LIMIT @ChunkSize
+        )
+        DELETE FROM sys_fenced_commit target
+        USING expired
+        WHERE target.commit_token = expired.commit_token;
+        """;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -132,18 +146,22 @@ public class LogCleanupService(
         DateTime rumExpireDate = now.AddDays(-RumRetentionDays);
         DateTime auditExpireDate = now.AddDays(-AuditLogRetentionDays);
         DateTime anonymousCredentialAuditExpireDate = now.AddDays(-AnonymousCredentialIssuanceAuditRetentionDays);
+        DateTime fencedCommitExpireDate = now.AddDays(-FencedCommitRetentionDays);
 
         _logger.LogDebug("执行计划启动：寻找过期访问/RUM/普通审计日志...");
 
         Task<int> visitTask = CleanupWithScopedDbAsync(
-            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(db, CleanupVisitLogsSql, visitExpireDate, scopedToken),
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
+                db, "visit-log-retention", CleanupVisitLogsSql, visitExpireDate, scopedToken),
             token);
         Task<int> rumTask = CleanupWithScopedDbAsync(
-            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(db, CleanupRumMetricsSql, rumExpireDate, scopedToken),
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
+                db, "rum-retention", CleanupRumMetricsSql, rumExpireDate, scopedToken),
             token);
         Task<int> auditTask = CleanupWithScopedDbAsync(
             (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
                 db,
+                "audit-log-retention",
                 CleanupAuditLogsSql,
                 auditExpireDate,
                 scopedToken,
@@ -152,6 +170,7 @@ public class LogCleanupService(
         Task<int> anonymousCredentialAuditTask = CleanupWithScopedDbAsync(
             (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
                 db,
+                "anonymous-credential-audit-retention",
                 CleanupAnonymousCredentialIssuanceAuditSql,
                 anonymousCredentialAuditExpireDate,
                 scopedToken),
@@ -159,31 +178,49 @@ public class LogCleanupService(
         Task<int> legacySecurityRiskTask = CleanupWithScopedDbAsync(
             (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
                 db,
+                "security-risk-pseudonym-retention",
                 CleanupLegacySecurityRiskPseudonymsSql,
                 now,
                 scopedToken),
             token);
-        await Task.WhenAll(visitTask, rumTask, auditTask, anonymousCredentialAuditTask, legacySecurityRiskTask);
+        Task<int> fencedCommitTask = CleanupWithScopedDbAsync(
+            (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
+                db,
+                "fenced-commit-retention",
+                CleanupFencedCommitTokensSql,
+                fencedCommitExpireDate,
+                scopedToken),
+            token);
+        await Task.WhenAll(
+            visitTask,
+            rumTask,
+            auditTask,
+            anonymousCredentialAuditTask,
+            legacySecurityRiskTask,
+            fencedCommitTask);
 
         int visitDeleted = await visitTask;
         int rumDeleted = await rumTask;
         int auditDeleted = await auditTask;
         int anonymousCredentialAuditDeleted = await anonymousCredentialAuditTask;
         int legacySecurityRiskDeleted = await legacySecurityRiskTask;
+        int fencedCommitDeleted = await fencedCommitTask;
 
         if (visitDeleted > 0
             || rumDeleted > 0
             || auditDeleted > 0
             || anonymousCredentialAuditDeleted > 0
-            || legacySecurityRiskDeleted > 0)
+            || legacySecurityRiskDeleted > 0
+            || fencedCommitDeleted > 0)
         {
             _logger.LogInformation(
-                "日志自动清理成功 | visit={VisitCount} rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount}",
+                "日志自动清理成功 | visit={VisitCount} rum={RumCount} audit={AuditCount} anonymousCredentialAudit={AnonymousCredentialAuditCount} legacySecurityRisk={LegacySecurityRiskCount} fencedCommit={FencedCommitCount}",
                 visitDeleted,
                 rumDeleted,
                 auditDeleted,
                 anonymousCredentialAuditDeleted,
-                legacySecurityRiskDeleted);
+                legacySecurityRiskDeleted,
+                fencedCommitDeleted);
         }
     }
 
@@ -198,13 +235,12 @@ public class LogCleanupService(
 
     private Task<int> CleanupWithActiveReleaseGuardAsync(
         ISqlSugarClient db,
+        string operationScope,
         string sql,
         DateTime expireDate,
         CancellationToken token,
         params SugarParameter[] extraParameters)
     {
-        IActiveReleaseCommitGuard commitGuard = activeReleaseCommitGuard
-            ?? throw new InvalidOperationException("Active release commit guard is required for the log cleanup worker commit boundary.");
         return CleanupByServerSideLimitCoreAsync(
             db,
             sql,
@@ -212,7 +248,9 @@ public class LogCleanupService(
             ChunkSize,
             MaxChunksPerCycle,
             DelayBetweenChunks,
-            commitGuard,
+            activeReleaseCommitGuard,
+            transactionalCommitGuard,
+            operationScope,
             token,
             extraParameters);
     }
@@ -356,6 +394,8 @@ public class LogCleanupService(
             maxChunks,
             delayBetweenChunks,
             null,
+            null,
+            "unfenced-test-cleanup",
             token,
             extraParameters).ConfigureAwait(false);
 
@@ -367,6 +407,8 @@ public class LogCleanupService(
         int maxChunks,
         TimeSpan delayBetweenChunks,
         IActiveReleaseCommitGuard? commitGuard,
+        IActiveReleaseTransactionalCommitGuard? transactionalGuard,
+        string operationScope,
         CancellationToken token,
         params SugarParameter[] extraParameters)
     {
@@ -387,13 +429,31 @@ public class LogCleanupService(
         while (!token.IsCancellationRequested && processedChunks < maxChunks)
         {
             token.ThrowIfCancellationRequested();
-            if (commitGuard is not null)
+            int deletedCount;
+            if (transactionalGuard is not null)
             {
-                await commitGuard.EnsureCurrentAsync(token).ConfigureAwait(false);
+                string mutationKey = string.Create(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    $"{operationScope}:{expireDate.Ticks}:{processedChunks}");
+                deletedCount = await ActiveReleaseFencedTransaction.ExecuteAsync(
+                    db,
+                    transactionalGuard,
+                    operationScope,
+                    mutationKey,
+                    _ => db.Ado.ExecuteCommandAsync(sql, parameters),
+                    token,
+                    static deletedRows => deletedRows > 0).ConfigureAwait(false);
             }
+            else
+            {
+                if (commitGuard is not null)
+                {
+                    await commitGuard.EnsureCurrentAsync(token).ConfigureAwait(false);
+                }
 
-            int deletedCount = await db.Ado.ExecuteCommandAsync(sql, parameters)
-                .ConfigureAwait(false);
+                deletedCount = await db.Ado.ExecuteCommandAsync(sql, parameters)
+                    .ConfigureAwait(false);
+            }
             token.ThrowIfCancellationRequested();
             if (deletedCount == 0)
             {

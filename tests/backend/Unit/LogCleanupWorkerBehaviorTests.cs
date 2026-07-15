@@ -17,8 +17,10 @@ public sealed class LogCleanupWorkerBehaviorTests
     public async Task RunCleanupAsLeaderAsync_GrantedLeaseUsesInjectedClockForEveryRetentionTarget()
     {
         var db = Substitute.For<ISqlSugarClient>();
+        var ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
         var cutoffs = new ConcurrentDictionary<string, DateTime>(StringComparer.Ordinal);
-        db.Ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
+        ado.ExecuteCommandAsync(Arg.Any<string>(), Arg.Any<SugarParameter[]>())
             .Returns(call =>
             {
                 string sql = call.ArgAt<string>(0);
@@ -28,6 +30,11 @@ public sealed class LogCleanupWorkerBehaviorTests
                 cutoffs[ResolveTarget(sql)] = cutoff;
                 return Task.FromResult(0);
             });
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            await call.Arg<Func<Task>>()();
+            return new DbResult<bool> { IsSuccess = true };
+        });
 
         await using ServiceProvider services = new ServiceCollection()
             .AddScoped(_ => db)
@@ -38,6 +45,7 @@ public sealed class LogCleanupWorkerBehaviorTests
             NullLogger<LogCleanupService>.Instance,
             lease,
             new FixedTimeProvider(BaselineNow),
+            Substitute.For<IActiveReleaseTransactionalCommitGuard>(),
             new AllowCurrentReleaseCommitGuard());
 
         bool ran = await worker.RunCleanupAsLeaderAsync(CancellationToken.None);
@@ -50,6 +58,7 @@ public sealed class LogCleanupWorkerBehaviorTests
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-365), cutoffs["audit"]);
         Assert.Equal(BaselineNow.UtcDateTime.AddDays(-90), cutoffs["anonymous-credential-audit"]);
         Assert.Equal(BaselineNow.UtcDateTime, cutoffs["legacy-security-risk"]);
+        Assert.Equal(BaselineNow.UtcDateTime.AddDays(-30), cutoffs["fenced-commit"]);
     }
 
     [Fact]
@@ -136,7 +145,8 @@ public sealed class LogCleanupWorkerBehaviorTests
             services,
             NullLogger<LogCleanupService>.Instance,
             lease,
-            new FixedTimeProvider(BaselineNow));
+            new FixedTimeProvider(BaselineNow),
+            Substitute.For<IActiveReleaseTransactionalCommitGuard>());
 
         bool ran = await worker.RunCleanupAsLeaderAsync(CancellationToken.None);
 
@@ -152,6 +162,7 @@ public sealed class LogCleanupWorkerBehaviorTests
         if (sql.Contains("sys_audit_log", StringComparison.Ordinal)) return "audit";
         if (sql.Contains("anonymous_credential_issuance_audit", StringComparison.Ordinal)) return "anonymous-credential-audit";
         if (sql.Contains("security_risk_event", StringComparison.Ordinal)) return "legacy-security-risk";
+        if (sql.Contains("sys_fenced_commit", StringComparison.Ordinal)) return "fenced-commit";
         throw new Xunit.Sdk.XunitException("Unknown cleanup target.");
     }
 

@@ -15,6 +15,7 @@ public sealed class ArticleMutationOutboxDispatcher(
     ILogger<ArticleMutationOutboxDispatcher> logger,
     TimeProvider timeProvider,
     IBackgroundWorkerLease workerLease,
+    IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null,
     IConfiguration? configuration = null) : BackgroundService
 {
@@ -65,7 +66,19 @@ public sealed class ArticleMutationOutboxDispatcher(
             TimeSpan claimLease = GetClaimLeaseDuration();
             List<ClaimedArticleMutationOutboxEvent> claimed = await dbGate.ExecuteAsync(
                 "article-outbox-batch-claim",
-                gateCt => ClaimPendingOutboxEventsAsync(db, now, now.Add(claimLease), claimToken, WorkerId, gateCt),
+                gateCt => ExecuteFencedMutationAsync(
+                    db,
+                    "article-outbox-claim",
+                    claimToken,
+                    transactionToken => ClaimPendingOutboxEventsAsync(
+                        db,
+                        now,
+                        now.Add(claimLease),
+                        claimToken,
+                        WorkerId,
+                        transactionToken),
+                    gateCt,
+                    static rows => rows.Count > 0),
                 _ => Task.FromResult(new List<ClaimedArticleMutationOutboxEvent>()),
                 cancellationToken).ConfigureAwait(false);
             if (claimed.Count == 0)
@@ -214,11 +227,17 @@ public sealed class ArticleMutationOutboxDispatcher(
             await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
             int completedRows = await dbGate.ExecuteAsync(
                 "article-outbox-complete",
-                gateCt => db.Ado.ExecuteCommandAsync(
-                    BuildCompleteSql(),
-                    new SugarParameter("@Id", item.Id),
-                    new SugarParameter("@ClaimToken", item.ClaimToken),
-                    new SugarParameter("@ProcessedAt", processedAt)),
+                gateCt => ExecuteFencedMutationAsync(
+                    db,
+                    "article-outbox-complete",
+                    $"{item.Id}:{item.ClaimToken}",
+                    _ => db.Ado.ExecuteCommandAsync(
+                        BuildCompleteSql(),
+                        new SugarParameter("@Id", item.Id),
+                        new SugarParameter("@ClaimToken", item.ClaimToken),
+                        new SugarParameter("@ProcessedAt", processedAt)),
+                    gateCt,
+                    static updatedRows => updatedRows > 0),
                 _ => Task.FromResult(0),
                 cancellationToken).ConfigureAwait(false);
             if (completedRows != 1)
@@ -319,34 +338,40 @@ public sealed class ArticleMutationOutboxDispatcher(
         await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
         int updatedRows = await dbGate.ExecuteAsync(
             "article-outbox-retry",
-            gateCt => db.Ado.ExecuteCommandAsync(
-                """
-                UPDATE article_mutation_outbox
-                SET retry_count = retry_count + 1,
-                    status = CASE
-                        WHEN retry_count + 1 >= @PoisonRetryThreshold THEN 'poison'
-                        ELSE 'pending'
-                    END,
-                    next_retry_at = @NextRetryAt,
-                    last_error = @LastError,
-                    claim_token = NULL,
-                    claimed_by = NULL,
-                    claimed_at = NULL,
-                    heartbeat_at = NULL,
-                    claim_expires_at = NULL
-                WHERE id = @Id
-                  AND retry_count = @ExpectedRetryCount
-                  AND status = 'processing'
-                  AND claim_token = @ClaimToken
-                  AND claim_expires_at > @TransitionAt;
-                """,
-                new SugarParameter("@Id", item.Id),
-                new SugarParameter("@ExpectedRetryCount", item.RetryCount),
-                new SugarParameter("@ClaimToken", item.ClaimToken),
-                new SugarParameter("@TransitionAt", transitionAt),
-                new SugarParameter("@PoisonRetryThreshold", PoisonRetryThreshold),
-                new SugarParameter("@NextRetryAt", nextRetryAt),
-                new SugarParameter("@LastError", lastError)),
+            gateCt => ExecuteFencedMutationAsync(
+                db,
+                "article-outbox-retry",
+                $"{item.Id}:{item.ClaimToken}:{item.RetryCount}",
+                _ => db.Ado.ExecuteCommandAsync(
+                    """
+                    UPDATE article_mutation_outbox
+                    SET retry_count = retry_count + 1,
+                        status = CASE
+                            WHEN retry_count + 1 >= @PoisonRetryThreshold THEN 'poison'
+                            ELSE 'pending'
+                        END,
+                        next_retry_at = @NextRetryAt,
+                        last_error = @LastError,
+                        claim_token = NULL,
+                        claimed_by = NULL,
+                        claimed_at = NULL,
+                        heartbeat_at = NULL,
+                        claim_expires_at = NULL
+                    WHERE id = @Id
+                      AND retry_count = @ExpectedRetryCount
+                      AND status = 'processing'
+                      AND claim_token = @ClaimToken
+                      AND claim_expires_at > @TransitionAt;
+                    """,
+                    new SugarParameter("@Id", item.Id),
+                    new SugarParameter("@ExpectedRetryCount", item.RetryCount),
+                    new SugarParameter("@ClaimToken", item.ClaimToken),
+                    new SugarParameter("@TransitionAt", transitionAt),
+                    new SugarParameter("@PoisonRetryThreshold", PoisonRetryThreshold),
+                    new SugarParameter("@NextRetryAt", nextRetryAt),
+                    new SugarParameter("@LastError", lastError)),
+                gateCt,
+                static updatedRows => updatedRows > 0),
             _ => Task.FromResult(0),
             cancellationToken).ConfigureAwait(false);
         if (updatedRows == 0)
@@ -376,6 +401,24 @@ public sealed class ArticleMutationOutboxDispatcher(
     private Task EnsureCurrentGenerationAsync(CancellationToken cancellationToken)
         => activeReleaseCommitGuard?.EnsureCurrentAsync(cancellationToken) ?? Task.CompletedTask;
 
+    private async Task<T> ExecuteFencedMutationAsync<T>(
+        ISqlSugarClient db,
+        string operationScope,
+        string mutationKey,
+        Func<CancellationToken, Task<T>> mutation,
+        CancellationToken cancellationToken,
+        Func<T, bool>? shouldEnlist = null)
+    {
+        return await ActiveReleaseFencedTransaction.ExecuteAsync(
+            db,
+            transactionalCommitGuard,
+            operationScope,
+            mutationKey,
+            mutation,
+            cancellationToken,
+            shouldEnlist).ConfigureAwait(false);
+    }
+
     private async Task EnsureClaimOwnedAsync(
         ISqlSugarClient db,
         IDbConcurrencyGate dbGate,
@@ -386,21 +429,27 @@ public sealed class ArticleMutationOutboxDispatcher(
         DateTime claimExpiresAt = heartbeatAt.Add(GetClaimLeaseDuration());
         int updatedRows = await dbGate.ExecuteAsync(
             "article-outbox-claim-heartbeat",
-            gateCt => db.Ado.ExecuteCommandAsync(
-                """
-                UPDATE article_mutation_outbox
-                SET heartbeat_at = @HeartbeatAt,
-                    claim_expires_at = @ClaimExpiresAt,
-                    next_retry_at = @ClaimExpiresAt
-                WHERE id = @Id
-                  AND status = 'processing'
-                  AND claim_token = @ClaimToken
-                  AND claim_expires_at > @HeartbeatAt;
-                """,
-                new SugarParameter("@Id", item.Id),
-                new SugarParameter("@ClaimToken", item.ClaimToken),
-                new SugarParameter("@HeartbeatAt", heartbeatAt),
-                new SugarParameter("@ClaimExpiresAt", claimExpiresAt)),
+            gateCt => ExecuteFencedMutationAsync(
+                db,
+                "article-outbox-heartbeat",
+                $"{item.Id}:{item.ClaimToken}:{heartbeatAt.Ticks}",
+                _ => db.Ado.ExecuteCommandAsync(
+                    """
+                    UPDATE article_mutation_outbox
+                    SET heartbeat_at = @HeartbeatAt,
+                        claim_expires_at = @ClaimExpiresAt,
+                        next_retry_at = @ClaimExpiresAt
+                    WHERE id = @Id
+                      AND status = 'processing'
+                      AND claim_token = @ClaimToken
+                      AND claim_expires_at > @HeartbeatAt;
+                    """,
+                    new SugarParameter("@Id", item.Id),
+                    new SugarParameter("@ClaimToken", item.ClaimToken),
+                    new SugarParameter("@HeartbeatAt", heartbeatAt),
+                    new SugarParameter("@ClaimExpiresAt", claimExpiresAt)),
+                gateCt,
+                static updatedRows => updatedRows > 0),
             _ => Task.FromResult(0),
             cancellationToken).ConfigureAwait(false);
         FsusObservability.RecordArticleOutboxHeartbeat(updatedRows == 1 ? "renewed" : "lost", updatedRows);
@@ -428,19 +477,25 @@ public sealed class ArticleMutationOutboxDispatcher(
                 IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
                 int updatedRows = await dbGate.ExecuteAsync(
                     "article-outbox-batch-heartbeat",
-                    gateCt => db.Ado.ExecuteCommandAsync(
-                        """
-                        UPDATE article_mutation_outbox
-                        SET heartbeat_at = @HeartbeatAt,
-                            claim_expires_at = @ClaimExpiresAt,
-                            next_retry_at = @ClaimExpiresAt
-                        WHERE status = 'processing'
-                          AND claim_token = @ClaimToken
-                          AND claim_expires_at > @HeartbeatAt;
-                        """,
-                        new SugarParameter("@ClaimToken", claimToken),
-                        new SugarParameter("@HeartbeatAt", heartbeatAt),
-                        new SugarParameter("@ClaimExpiresAt", claimExpiresAt)),
+                    gateCt => ExecuteFencedMutationAsync(
+                        db,
+                        "article-outbox-batch-heartbeat",
+                        $"{claimToken}:{heartbeatAt.Ticks}",
+                        _ => db.Ado.ExecuteCommandAsync(
+                            """
+                            UPDATE article_mutation_outbox
+                            SET heartbeat_at = @HeartbeatAt,
+                                claim_expires_at = @ClaimExpiresAt,
+                                next_retry_at = @ClaimExpiresAt
+                            WHERE status = 'processing'
+                              AND claim_token = @ClaimToken
+                              AND claim_expires_at > @HeartbeatAt;
+                            """,
+                            new SugarParameter("@ClaimToken", claimToken),
+                            new SugarParameter("@HeartbeatAt", heartbeatAt),
+                            new SugarParameter("@ClaimExpiresAt", claimExpiresAt)),
+                        gateCt,
+                        static updatedRows => updatedRows > 0),
                     _ => Task.FromResult(0),
                     cancellationToken).ConfigureAwait(false);
                 FsusObservability.RecordArticleOutboxHeartbeat(updatedRows > 0 ? "renewed" : "idle", updatedRows);
@@ -683,9 +738,15 @@ public sealed class ArticleMutationOutboxDispatcher(
         DateTime updatedAt = timeProvider.GetUtcNow().UtcDateTime;
         int updatedRows = await dbGate.ExecuteAsync(
             "article-outbox-edge-upsert",
-            gateCt => db.Ado.ExecuteCommandAsync(
-                BuildReplayEdgeUpsertSql(rows.Count),
-                BuildReplayEdgeUpsertParameters(rows, item.ClaimToken!, updatedAt)),
+            gateCt => ExecuteFencedMutationAsync(
+                db,
+                "article-outbox-edge-upsert",
+                $"{item.Id}:{item.ClaimToken}:{updatedAt.Ticks}",
+                _ => db.Ado.ExecuteCommandAsync(
+                    BuildReplayEdgeUpsertSql(rows.Count),
+                    BuildReplayEdgeUpsertParameters(rows, item.ClaimToken!, updatedAt)),
+                gateCt,
+                static updatedRows => updatedRows > 0),
             _ => Task.FromResult(0),
             cancellationToken).ConfigureAwait(false);
         if (updatedRows != rows.Count)

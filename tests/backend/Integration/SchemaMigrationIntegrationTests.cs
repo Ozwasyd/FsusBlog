@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers.Initializer;
 using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -404,7 +405,8 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<ArticleMutationOutboxDispatcher>.Instance,
             TimeProvider.System,
-            Substitute.For<IBackgroundWorkerLease>());
+            Substitute.For<IBackgroundWorkerLease>(),
+            Substitute.For<IActiveReleaseTransactionalCommitGuard>());
 
         Assert.Equal(0, await dispatcher.ProcessPendingAsync(CancellationToken.None));
         ArticleMutationOutboxEvent failed = await verificationDb.Queryable<ArticleMutationOutboxEvent>()

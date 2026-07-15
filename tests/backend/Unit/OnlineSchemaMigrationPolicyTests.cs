@@ -24,6 +24,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata["20260715-post-article-mutation-outbox-claim-lease"];
         OnlineSchemaMigrationMetadata activeReleaseFenceWitnessExpand =
             metadata["20260715-post-active-release-fence-durable-witness"];
+        OnlineSchemaMigrationMetadata activeReleaseFencedCommitExpand =
+            metadata["20260715-post-active-release-fenced-commit-ledger"];
         OnlineSchemaMigrationMetadata subjectExpand =
             metadata[AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId];
         OnlineSchemaMigrationMetadata subjectBackfill =
@@ -32,12 +34,13 @@ public sealed class OnlineSchemaMigrationPolicyTests
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, publicArticleProjectionExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleOutboxClaimLeaseExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, activeReleaseFenceWitnessExpand.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, activeReleaseFencedCommitExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, subjectExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Backfill, subjectBackfill.Phase);
         Assert.Equal(AccountSubjectHashBackfillStep.BatchSize, subjectBackfill.BatchSize);
         Assert.Equal("last_account_id", subjectBackfill.ResumeTokenName);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
-        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, subjectExpand, subjectBackfill }, classification =>
+        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, activeReleaseFenceWitnessExpand, activeReleaseFencedCommitExpand, subjectExpand, subjectBackfill }, classification =>
         {
             Assert.False(classification.LegacyBootstrapOnly);
             Assert.False(classification.Destructive);
@@ -49,6 +52,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
             publicArticleProjectionExpand.MigrationId,
             articleOutboxClaimLeaseExpand.MigrationId,
             activeReleaseFenceWitnessExpand.MigrationId,
+            activeReleaseFencedCommitExpand.MigrationId,
             subjectExpand.MigrationId,
             subjectBackfill.MigrationId
         };

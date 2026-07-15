@@ -58,6 +58,16 @@
       "replaySource": "Redis active release fence"
     },
     {
+      "type": "ActiveReleaseFencedCommitAuditWorker",
+      "source": "src/backend/Infrastructure/Operations/ActiveReleaseFencedCommit.cs",
+      "classification": "active-singleton",
+      "idempotency": "read-only audit is keyed by persisted commit token and repeated scans are safe",
+      "drain": "cancel",
+      "maxDrainSeconds": 5,
+      "fence": "active-release+worker-lease+pre-commit",
+      "replaySource": "sys_fenced_commit durable token ledger"
+    },
+    {
       "type": "ConfigurationHealthSnapshotRefreshWorker",
       "source": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
       "classification": "instance-local",

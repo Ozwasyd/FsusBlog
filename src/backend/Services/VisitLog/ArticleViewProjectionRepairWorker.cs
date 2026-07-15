@@ -10,6 +10,7 @@ public sealed class ArticleViewProjectionRepairWorker(
     ILogger<ArticleViewProjectionRepairWorker> logger,
     TimeProvider timeProvider,
     IBackgroundWorkerLease workerLease,
+    IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
     private static readonly TimeSpan ReconcileInterval = TimeSpan.FromMinutes(10);
@@ -46,97 +47,14 @@ public sealed class ArticleViewProjectionRepairWorker(
                 "article-view-projection-reconcile",
                 async gateToken =>
                 {
-                    await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
-                    await EnsureWatermarkStoreAsync(db).ConfigureAwait(false);
-
-                    SugarParameter[] keyParameters = [new("@ProjectionWatermarkKey", ProjectionWatermarkKey)];
-                    int lastVisitLogId = await db.Ado.GetIntAsync("""
-                        SELECT last_visit_log_id
-                        FROM article_view_projection_watermark
-                        WHERE id = @ProjectionWatermarkKey;
-                        """, keyParameters).ConfigureAwait(false);
-
-                    SugarParameter[] deltaParameters =
-                    [
-                        new("@LastVisitLogId", lastVisitLogId),
-                    ];
-                    int scannedRows = await db.Ado.GetIntAsync("""
-                        SELECT COUNT(1)
-                        FROM sys_visit_log
-                        WHERE id > @LastVisitLogId
-                          AND event_type = 'article_read'
-                          AND article_id IS NOT NULL;
-                        """, deltaParameters).ConfigureAwait(false);
-
-                    int maxVisitLogId = await db.Ado.GetIntAsync("""
-                        SELECT COALESCE(MAX(id), @LastVisitLogId)
-                        FROM sys_visit_log
-                        WHERE id > @LastVisitLogId;
-                        """, deltaParameters).ConfigureAwait(false);
-
-                    await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
-                    int incrementallyRepaired = await db.Ado.GetIntAsync("""
-                        WITH changed_articles AS (
-                            SELECT DISTINCT article_id
-                            FROM sys_visit_log
-                            WHERE id > @LastVisitLogId
-                              AND event_type = 'article_read'
-                              AND article_id IS NOT NULL
-                        ),
-                        projected AS (
-                            SELECT
-                                changed_articles.article_id,
-                                (
-                                    SELECT COUNT(*)::integer
-                                    FROM sys_visit_log AS all_logs
-                                    WHERE all_logs.event_type = 'article_read'
-                                      AND all_logs.article_id = changed_articles.article_id
-                                ) AS views
-                            FROM changed_articles
-                        ),
-                        updated AS (
-                            UPDATE article AS a
-                            SET views = projected.views
-                            FROM projected
-                            WHERE a.id = projected.article_id
-                              AND a.isdeleted = false
-                              AND a.views <> projected.views
-                            RETURNING a.id
-                        )
-                        SELECT COUNT(1)
-                        FROM updated;
-                        """, deltaParameters).ConfigureAwait(false);
-
-                    await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
-                    await db.Ado.ExecuteCommandAsync("""
-                        UPDATE article_view_projection_watermark
-                        SET last_visit_log_id = @MaxVisitLogId,
-                            updated_at_utc = @UpdatedAtUtc
-                        WHERE id = @ProjectionWatermarkKey;
-                        """, new SugarParameter[]
-                        {
-                            new("@ProjectionWatermarkKey", ProjectionWatermarkKey),
-                            new("@MaxVisitLogId", Math.Max(lastVisitLogId, maxVisitLogId)),
-                            new("@UpdatedAtUtc", timeProvider.GetUtcNow().UtcDateTime),
-                        }).ConfigureAwait(false);
-
-                    int fullRepaired = 0;
-                    if (await ShouldRunFullReconcileAsync(db).ConfigureAwait(false))
-                    {
-                        await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
-                        fullRepaired = await RunFullReconcileAsync(db).ConfigureAwait(false);
-                        await EnsureCurrentGenerationAsync(gateToken).ConfigureAwait(false);
-                        await MarkFullReconcileAsync(db).ConfigureAwait(false);
-                    }
-
-                    logger.LogInformation(
-                        "article-view-projection-reconcile scannedRows={ScannedRows} updatedArticles={UpdatedArticles} watermark={Watermark} fullUpdatedArticles={FullUpdatedArticles}",
-                        scannedRows,
-                        incrementallyRepaired,
-                        Math.Max(lastVisitLogId, maxVisitLogId),
-                        fullRepaired);
-
-                    return incrementallyRepaired + fullRepaired;
+                    string mutationKey = $"article-view-projection:{timeProvider.GetUtcNow().ToUnixTimeMilliseconds()}";
+                    return await ActiveReleaseFencedTransaction.ExecuteAsync(
+                        db,
+                        transactionalCommitGuard,
+                        "article-view-projection",
+                        mutationKey,
+                        transactionToken => ReconcileMutationAsync(db, transactionToken),
+                        gateToken).ConfigureAwait(false);
                 },
                 _ => Task.FromResult(0),
                 cancellationToken).ConfigureAwait(false);
@@ -161,6 +79,99 @@ public sealed class ArticleViewProjectionRepairWorker(
 
     private Task EnsureCurrentGenerationAsync(CancellationToken cancellationToken)
         => activeReleaseCommitGuard?.EnsureCurrentAsync(cancellationToken) ?? Task.CompletedTask;
+
+    private async Task<int> ReconcileMutationAsync(
+        ISqlSugarClient db,
+        CancellationToken cancellationToken)
+    {
+        await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
+        await EnsureWatermarkStoreAsync(db).ConfigureAwait(false);
+
+        SugarParameter[] keyParameters = [new("@ProjectionWatermarkKey", ProjectionWatermarkKey)];
+        int lastVisitLogId = await db.Ado.GetIntAsync("""
+            SELECT last_visit_log_id
+            FROM article_view_projection_watermark
+            WHERE id = @ProjectionWatermarkKey;
+            """, keyParameters).ConfigureAwait(false);
+
+        SugarParameter[] deltaParameters = [new("@LastVisitLogId", lastVisitLogId)];
+        int scannedRows = await db.Ado.GetIntAsync("""
+            SELECT COUNT(1)
+            FROM sys_visit_log
+            WHERE id > @LastVisitLogId
+              AND event_type = 'article_read'
+              AND article_id IS NOT NULL;
+            """, deltaParameters).ConfigureAwait(false);
+
+        int maxVisitLogId = await db.Ado.GetIntAsync("""
+            SELECT COALESCE(MAX(id), @LastVisitLogId)
+            FROM sys_visit_log
+            WHERE id > @LastVisitLogId;
+            """, deltaParameters).ConfigureAwait(false);
+
+        await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
+        int incrementallyRepaired = await db.Ado.GetIntAsync("""
+            WITH changed_articles AS (
+                SELECT DISTINCT article_id
+                FROM sys_visit_log
+                WHERE id > @LastVisitLogId
+                  AND event_type = 'article_read'
+                  AND article_id IS NOT NULL
+            ),
+            projected AS (
+                SELECT
+                    changed_articles.article_id,
+                    (
+                        SELECT COUNT(*)::integer
+                        FROM sys_visit_log AS all_logs
+                        WHERE all_logs.event_type = 'article_read'
+                          AND all_logs.article_id = changed_articles.article_id
+                    ) AS views
+                FROM changed_articles
+            ),
+            updated AS (
+                UPDATE article AS a
+                SET views = projected.views
+                FROM projected
+                WHERE a.id = projected.article_id
+                  AND a.isdeleted = false
+                  AND a.views <> projected.views
+                RETURNING a.id
+            )
+            SELECT COUNT(1)
+            FROM updated;
+            """, deltaParameters).ConfigureAwait(false);
+
+        await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
+        await db.Ado.ExecuteCommandAsync("""
+            UPDATE article_view_projection_watermark
+            SET last_visit_log_id = @MaxVisitLogId,
+                updated_at_utc = @UpdatedAtUtc
+            WHERE id = @ProjectionWatermarkKey;
+            """, new SugarParameter[]
+            {
+                new("@ProjectionWatermarkKey", ProjectionWatermarkKey),
+                new("@MaxVisitLogId", Math.Max(lastVisitLogId, maxVisitLogId)),
+                new("@UpdatedAtUtc", timeProvider.GetUtcNow().UtcDateTime),
+            }).ConfigureAwait(false);
+
+        int fullRepaired = 0;
+        if (await ShouldRunFullReconcileAsync(db).ConfigureAwait(false))
+        {
+            await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
+            fullRepaired = await RunFullReconcileAsync(db).ConfigureAwait(false);
+            await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
+            await MarkFullReconcileAsync(db).ConfigureAwait(false);
+        }
+
+        logger.LogInformation(
+            "article-view-projection-reconcile scannedRows={ScannedRows} updatedArticles={UpdatedArticles} watermark={Watermark} fullUpdatedArticles={FullUpdatedArticles}",
+            scannedRows,
+            incrementallyRepaired,
+            Math.Max(lastVisitLogId, maxVisitLogId),
+            fullRepaired);
+        return incrementallyRepaired + fullRepaired;
+    }
 
     private async Task EnsureWatermarkStoreAsync(ISqlSugarClient db)
     {

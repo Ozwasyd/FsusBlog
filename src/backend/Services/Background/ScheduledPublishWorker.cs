@@ -15,6 +15,7 @@ public sealed class ScheduledPublishWorker(
     TimeProvider timeProvider,
     ScheduledPublishRuntimeState runtimeState,
     IBackgroundWorkerLease workerLease,
+    IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
@@ -54,10 +55,19 @@ public sealed class ScheduledPublishWorker(
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
                     IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
                     DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+                    if (activeReleaseCommitGuard is not null)
+                    {
+                        await activeReleaseCommitGuard.EnsureCurrentAsync(cancellationToken).ConfigureAwait(false);
+                    }
 
                     ScheduledPublishBatchCommit commit = await dbGate.ExecuteAsync(
                         "scheduled-publish-batch-commit",
-                        gateCt => ClaimDueArticlesAsync(db, now, logger, activeReleaseCommitGuard, gateCt),
+                        gateCt => ClaimDueArticlesAsync(
+                            db,
+                            now,
+                            logger,
+                            transactionalCommitGuard,
+                            gateCt),
                         _ => Task.FromResult(ScheduledPublishBatchCommit.Timeout),
                         cancellationToken);
                     if (!commit.Committed)
@@ -122,7 +132,7 @@ public sealed class ScheduledPublishWorker(
         ISqlSugarClient db,
         DateTime now,
         ILogger<ScheduledPublishWorker> logger,
-        IActiveReleaseCommitGuard? commitGuard,
+        IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
         CancellationToken cancellationToken)
     {
         List<int> claimedArticleIds = [];
@@ -175,10 +185,14 @@ public sealed class ScheduledPublishWorker(
                 throw new InvalidOperationException("Scheduled publish outbox batch did not match claimed article count.");
             }
 
-            if (commitGuard is not null)
-            {
-                await commitGuard.EnsureCurrentAsync(cancellationToken).ConfigureAwait(false);
-            }
+            string mutationKey = string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"scheduled-publish:{now:O}:{claimedArticleIds.Count}:{claimedArticleIds[0]}:{claimedArticleIds[^1]}");
+            await transactionalCommitGuard.EnlistAsync(
+                db,
+                "scheduled-publish",
+                mutationKey,
+                cancellationToken).ConfigureAwait(false);
         });
 
         bool committed = TransactionSideEffectGuard.CanPublishAfterCommit(tran, logger, "scheduled-publish-batch-commit");

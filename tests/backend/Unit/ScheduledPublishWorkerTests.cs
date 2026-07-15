@@ -3,6 +3,7 @@ using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Operations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -86,7 +87,8 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
             NullLogger<ScheduledPublishWorker>.Instance,
             TimeProvider.System,
             runtimeState,
-            new TestBackgroundWorkerLease());
+            new TestBackgroundWorkerLease(),
+            Substitute.For<IActiveReleaseTransactionalCommitGuard>());
 
         int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
 
@@ -131,7 +133,8 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
             logger ?? NullLogger<ScheduledPublishWorker>.Instance,
             TimeProvider.System,
             new ScheduledPublishRuntimeState(),
-            new TestBackgroundWorkerLease());
+            new TestBackgroundWorkerLease(),
+            Substitute.For<IActiveReleaseTransactionalCommitGuard>());
 
     private sealed class CapturingLogger<T> : ILogger<T>
     {
