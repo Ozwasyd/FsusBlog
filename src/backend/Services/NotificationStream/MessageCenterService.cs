@@ -818,8 +818,12 @@ public sealed class MessageCenterService(
     public Task PushCacheControlAsync(CacheControlPayload payload)
         => notificationStreamPort.PublishToContentFeedAsync(NotificationStreamEventType.CacheControl, payload, "push-cache-control");
 
-    public Task PushArticleChangedAsync(ArticleNoticeDto payload)
-        => notificationStreamPort.PublishToContentFeedAsync(NotificationStreamEventType.ArticleChanged, payload, "push-article-changed");
+    public Task PushArticleChangedAsync(ArticleNoticeDto payload, string? idempotencyKey = null)
+        => notificationStreamPort.PublishToContentFeedAsync(
+            NotificationStreamEventType.ArticleChanged,
+            payload,
+            "push-article-changed",
+            idempotencyKey);
 
     private async Task<List<ConversationListItemResponse>> BuildConversationListAsync(List<AccountConversationRow> rows, bool includeUnread)
     {

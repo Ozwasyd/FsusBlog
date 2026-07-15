@@ -20,18 +20,21 @@ public sealed class OnlineSchemaMigrationPolicyTests
             metadata["20260711-post-recovery-passkey-completion-idempotency"];
         OnlineSchemaMigrationMetadata publicArticleProjectionExpand =
             metadata["20260714-post-public-article-projection"];
+        OnlineSchemaMigrationMetadata articleOutboxClaimLeaseExpand =
+            metadata["20260715-post-article-mutation-outbox-claim-lease"];
         OnlineSchemaMigrationMetadata subjectExpand =
             metadata[AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId];
         OnlineSchemaMigrationMetadata subjectBackfill =
             metadata[AccountSubjectHashOnlineBackfillHandler.BackfillMigrationId];
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, passkeyExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, publicArticleProjectionExpand.Phase);
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleOutboxClaimLeaseExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Expand, subjectExpand.Phase);
         Assert.Equal(OnlineSchemaMigrationPhase.Backfill, subjectBackfill.Phase);
         Assert.Equal(AccountSubjectHashBackfillStep.BatchSize, subjectBackfill.BatchSize);
         Assert.Equal("last_account_id", subjectBackfill.ResumeTokenName);
         Assert.Equal(OnlineSchemaMigrationRollbackMode.ResumeFromCheckpoint, subjectBackfill.RollbackMode);
-        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, subjectExpand, subjectBackfill }, classification =>
+        Assert.All(new[] { passkeyExpand, publicArticleProjectionExpand, articleOutboxClaimLeaseExpand, subjectExpand, subjectBackfill }, classification =>
         {
             Assert.False(classification.LegacyBootstrapOnly);
             Assert.False(classification.Destructive);
@@ -41,6 +44,7 @@ public sealed class OnlineSchemaMigrationPolicyTests
         {
             passkeyExpand.MigrationId,
             publicArticleProjectionExpand.MigrationId,
+            articleOutboxClaimLeaseExpand.MigrationId,
             subjectExpand.MigrationId,
             subjectBackfill.MigrationId
         };

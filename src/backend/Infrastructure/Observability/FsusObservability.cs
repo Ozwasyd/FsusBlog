@@ -147,6 +147,11 @@ public static class FsusObservability
     private static readonly Histogram<double> SearchOperationDuration = Meter.CreateHistogram<double>("fsus.search.operation.duration", "ms");
     private static readonly Histogram<double> SearchRuntimeSnapshotMemoryBytes = Meter.CreateHistogram<double>("fsus.search.runtime_snapshot.memory", "By");
     private static readonly Histogram<double> BackgroundJobDuration = Meter.CreateHistogram<double>("fsus.background.job.duration", "ms");
+    private static readonly Counter<long> ArticleOutboxClaimed = Meter.CreateCounter<long>("fsus.article_outbox.claimed.count");
+    private static readonly Counter<long> ArticleOutboxReclaimed = Meter.CreateCounter<long>("fsus.article_outbox.reclaimed.count");
+    private static readonly Counter<long> ArticleOutboxClaimLost = Meter.CreateCounter<long>("fsus.article_outbox.claim_lost.count");
+    private static readonly Counter<long> ArticleOutboxHeartbeat = Meter.CreateCounter<long>("fsus.article_outbox.heartbeat.count");
+    private static readonly Histogram<long> ArticleOutboxStuckClaims = Meter.CreateHistogram<long>("fsus.article_outbox.stuck_claims");
     private static readonly Counter<long> VisitLogFlushCounter = Meter.CreateCounter<long>("fsus.visitlog.flush.count");
     private static readonly Counter<long> HotArticlesDirtyCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.dirty.count");
     private static readonly Counter<long> HotArticlesFlushCounter = Meter.CreateCounter<long>("fsus.cache.hot_articles.flush.count");
@@ -948,6 +953,33 @@ public static class FsusObservability
 
         BackgroundJobDuration.Record(duration.TotalMilliseconds, tags);
     }
+
+    public static void RecordArticleOutboxClaim(long claimed, long reclaimed)
+        => TryRecord(() =>
+        {
+            if (claimed > 0)
+            {
+                ArticleOutboxClaimed.Add(claimed);
+            }
+
+            if (reclaimed > 0)
+            {
+                ArticleOutboxReclaimed.Add(reclaimed);
+            }
+        });
+
+    public static void RecordArticleOutboxClaimLost()
+        => TryRecord(() => ArticleOutboxClaimLost.Add(1));
+
+    public static void RecordArticleOutboxHeartbeat(string result, long renewed)
+        => TryRecord(() =>
+        {
+            TagList tags = CreateBaseTags("article_outbox", "heartbeat", result);
+            ArticleOutboxHeartbeat.Add(Math.Max(1, renewed), tags);
+        });
+
+    public static void RecordArticleOutboxStuckClaims(long count)
+        => TryRecord(() => ArticleOutboxStuckClaims.Record(Math.Max(0, count)));
 
     public static void RecordVisitLogFlush(long count)
     {

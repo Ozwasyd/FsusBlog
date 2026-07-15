@@ -71,6 +71,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildSingleAuthorArticleLifecycleIndexMigration(),
         BuildPublicArticleListKeysetIndexMigration(),
         BuildArticleMutationOutboxEdgeMigration(),
+        BuildArticleMutationOutboxClaimLeaseMigration(),
         BuildPublicArticleProjectionMigration(),
         BuildAssetLibraryArticleRefMigration(),
         BuildAuthoringWorkspaceTablesMigration(),
@@ -3006,6 +3007,25 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                     CREATE INDEX IF NOT EXISTS idx_article_mutation_outbox_edge_status
                     ON article_mutation_outbox_edge(status, updated_at DESC);
                     """)
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildArticleMutationOutboxClaimLeaseMigration()
+        => new SchemaMigrationDescriptor(
+            "20260715-post-article-mutation-outbox-claim-lease",
+            "Add tokenized claim leases and deterministic edge delivery keys to article mutation outbox replay.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureColumnStep("article_mutation_outbox", "claim_token", "varchar(64) NULL"),
+                new EnsureColumnStep("article_mutation_outbox", "claimed_by", "varchar(128) NULL"),
+                new EnsureColumnStep("article_mutation_outbox", "claimed_at", "timestamp NULL"),
+                new EnsureColumnStep("article_mutation_outbox", "heartbeat_at", "timestamp NULL"),
+                new EnsureColumnStep("article_mutation_outbox", "claim_expires_at", "timestamp NULL"),
+                new EnsureColumnStep("article_mutation_outbox_edge", "delivery_key", "varchar(64) NULL"),
+                new CreateIndexStep(
+                    "idx_article_mutation_outbox_claim",
+                    "CREATE INDEX IF NOT EXISTS idx_article_mutation_outbox_claim ON article_mutation_outbox(status, claim_expires_at, id);")
             ]);
 
     private static ISchemaMigrationDescriptor BuildAssetLibraryArticleRefMigration()

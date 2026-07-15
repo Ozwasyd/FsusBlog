@@ -651,6 +651,7 @@ public class IntegrityMerkleCheckpoint
 [SugarTable("article_mutation_outbox")]
 [SugarIndex("ux_article_mutation_outbox_event_id", nameof(EventId), OrderByType.Asc, true)]
 [SugarIndex("idx_article_mutation_outbox_pending", nameof(Status), OrderByType.Asc, nameof(NextRetryAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
+[SugarIndex("idx_article_mutation_outbox_claim", nameof(Status), OrderByType.Asc, nameof(ClaimExpiresAt), OrderByType.Asc, nameof(Id), OrderByType.Asc)]
 public class ArticleMutationOutboxEvent
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true, ColumnName = "id")]
@@ -688,6 +689,21 @@ public class ArticleMutationOutboxEvent
 
     [SugarColumn(ColumnName = "last_error", Length = 1024, IsNullable = true)]
     public string? LastError { get; set; }
+
+    [SugarColumn(ColumnName = "claim_token", Length = 64, IsNullable = true)]
+    public string? ClaimToken { get; set; }
+
+    [SugarColumn(ColumnName = "claimed_by", Length = 128, IsNullable = true)]
+    public string? ClaimedBy { get; set; }
+
+    [SugarColumn(ColumnName = "claimed_at", IsNullable = true)]
+    public DateTime? ClaimedAt { get; set; }
+
+    [SugarColumn(ColumnName = "heartbeat_at", IsNullable = true)]
+    public DateTime? HeartbeatAt { get; set; }
+
+    [SugarColumn(ColumnName = "claim_expires_at", IsNullable = true)]
+    public DateTime? ClaimExpiresAt { get; set; }
 }
 
 [SugarTable("article_mutation_outbox_edge")]
@@ -721,6 +737,9 @@ public class ArticleMutationOutboxEdge
 
     [SugarColumn(ColumnName = "updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [SugarColumn(ColumnName = "delivery_key", Length = 64, IsNullable = true)]
+    public string? DeliveryKey { get; set; }
 }
 
 public static class ArticleMutationOutboxEdgeStatus

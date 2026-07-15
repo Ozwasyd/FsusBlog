@@ -10,5 +10,6 @@ public interface INotificationStreamPublisher
         NotificationStreamEventType eventType,
         TPayload payload,
         NotificationStreamTarget target,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string? idempotencyKey = null);
 }

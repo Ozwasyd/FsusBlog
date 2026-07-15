@@ -188,6 +188,28 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            "20260715-post-article-mutation-outbox-claim-lease",
+            new OnlineSchemaMigrationMetadata(
+                "20260715-post-article-mutation-outbox-claim-lease",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260715-article-outbox-claim-lease",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "article_outbox_claim_cas"
+                ]));
+
+        result.Add(
             AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId,
             new OnlineSchemaMigrationMetadata(
                 AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId,

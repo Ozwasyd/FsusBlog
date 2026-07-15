@@ -41,5 +41,5 @@ public interface IMessageRealtimePublisher
     Task PushCommentRemoveAsync(int articleId, long commentId, long? rootId, long? parentId);
     Task PushCommentAddAsync(CommentAddedNotifyDto payload);
     Task PushCacheControlAsync(CacheControlPayload payload);
-    Task PushArticleChangedAsync(ArticleNoticeDto payload);
+    Task PushArticleChangedAsync(ArticleNoticeDto payload, string? idempotencyKey = null);
 }

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -35,6 +37,7 @@ public interface IArticleMutationSideEffectCoordinator
     Task<ArticleMutationReplayResult> ReplayOutboxAsync(
         int articleId,
         string eventType,
+        string outboxEventId,
         IReadOnlySet<string> completedEdges,
         CancellationToken cancellationToken);
 }
@@ -59,6 +62,17 @@ public static class ArticleMutationReplayEdges
         TaxonomyProjection,
         PublicHotRead
     };
+}
+
+public static class ArticleMutationDeliveryKey
+{
+    public static string Build(string outboxEventId, string edgeName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(outboxEventId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(edgeName);
+        byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(string.Concat(outboxEventId, ":", edgeName)));
+        return Convert.ToHexString(digest).ToLowerInvariant();
+    }
 }
 
 public sealed record ArticleMutationReplayResult(
@@ -95,8 +109,14 @@ public sealed class ArticleSearchProjector(ISearchIndexService searchIndex)
 
 public sealed class ArticleRealtimeNotifier(IMessageRealtimePublisher messagePublisher)
 {
-    public Task PushChangedAsync(int articleId, string action, ArticleListItemResponse? preview = null)
-        => messagePublisher.PushArticleChangedAsync(new ArticleNoticeDto(articleId, action, DateTime.UtcNow, preview));
+    public Task PushChangedAsync(
+        int articleId,
+        string action,
+        ArticleListItemResponse? preview = null,
+        string? idempotencyKey = null)
+        => messagePublisher.PushArticleChangedAsync(
+            new ArticleNoticeDto(articleId, action, DateTime.UtcNow, preview),
+            idempotencyKey);
 }
 
 public sealed class ArticleAssetCleanupPolicy(IFileService fileService)
@@ -258,6 +278,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
     public async Task<ArticleMutationReplayResult> ReplayOutboxAsync(
         int articleId,
         string eventType,
+        string outboxEventId,
         IReadOnlySet<string> completedEdges,
         CancellationToken cancellationToken)
     {
@@ -395,8 +416,13 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
             await ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(normalized).ConfigureAwait(false);
 
-            if (!await RunEdgeAsync(ArticleMutationReplayEdges.Notification, () => realtimeNotifier.PushChangedAsync(articleId, action))
-                    .ConfigureAwait(false))
+            if (!await RunEdgeAsync(
+                    ArticleMutationReplayEdges.Notification,
+                    () => realtimeNotifier.PushChangedAsync(
+                        articleId,
+                        action,
+                        idempotencyKey: ArticleMutationDeliveryKey.Build(outboxEventId, ArticleMutationReplayEdges.Notification)))
+                .ConfigureAwait(false))
             {
                 return FailedResult();
             }
@@ -442,8 +468,13 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
             await ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(normalized).ConfigureAwait(false);
 
-            if (!await RunEdgeAsync(ArticleMutationReplayEdges.Notification, () => realtimeNotifier.PushChangedAsync(articleId, "Deleted"))
-                    .ConfigureAwait(false))
+            if (!await RunEdgeAsync(
+                    ArticleMutationReplayEdges.Notification,
+                    () => realtimeNotifier.PushChangedAsync(
+                        articleId,
+                        "Deleted",
+                        idempotencyKey: ArticleMutationDeliveryKey.Build(outboxEventId, ArticleMutationReplayEdges.Notification)))
+                .ConfigureAwait(false))
             {
                 return FailedResult();
             }

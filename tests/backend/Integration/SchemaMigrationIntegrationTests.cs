@@ -361,7 +361,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             ArticleMutationReplayEdges.TaxonomyProjection,
             ArticleMutationReplayEdges.PublicHotRead
         };
-        coordinator.ReplayOutboxAsync(77, "updated", Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
+        coordinator.ReplayOutboxAsync(77, "updated", Arg.Any<string>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
             .Returns(
                 ArticleMutationReplayResult.Failed(
                     "projection-write-failed",
@@ -412,9 +412,17 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal("pending", failed.Status);
         Assert.Equal(1, failed.RetryCount);
         Assert.Null(failed.ProcessedAt);
+        Assert.Null(failed.ClaimToken);
+        Assert.Null(failed.ClaimExpiresAt);
         Assert.Contains("projection-write-failed", failed.LastError, StringComparison.Ordinal);
 
         await verificationDb.Updateable<ArticleMutationOutboxEvent>()
+            .SetColumns(item => item.Status == "processing")
+            .SetColumns(item => item.ClaimToken == "crashed-worker-token")
+            .SetColumns(item => item.ClaimedBy == "crashed-worker")
+            .SetColumns(item => item.ClaimedAt == DateTime.UtcNow.AddMinutes(-10))
+            .SetColumns(item => item.HeartbeatAt == DateTime.UtcNow.AddMinutes(-10))
+            .SetColumns(item => item.ClaimExpiresAt == DateTime.UtcNow.AddMinutes(-5))
             .SetColumns(item => item.NextRetryAt == DateTime.UtcNow.AddSeconds(-1))
             .Where(item => item.Id == outboxId)
             .ExecuteCommandAsync();
@@ -424,6 +432,8 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
         Assert.Equal("processed", processed.Status);
         Assert.Equal(1, processed.RetryCount);
         Assert.NotNull(processed.ProcessedAt);
+        Assert.Null(processed.ClaimToken);
+        Assert.Null(processed.ClaimExpiresAt);
         await cacheInvalidation.Received(1).InvalidateArticleMutationAsync(77, Arg.Any<CancellationToken>());
         await publicAotInvalidation.Received(1).InvalidateArticleMutationAsync(
             77,
@@ -434,6 +444,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             .SingleAsync(edge => edge.OutboxEventId == outboxId && edge.EdgeName == ArticleMutationReplayEdges.ArticleDetailAeds);
         Assert.Equal(ArticleMutationOutboxEdgeStatus.Completed, projectionEdge.Status);
         Assert.Equal(2, projectionEdge.AttemptCount);
+        Assert.Equal(64, projectionEdge.DeliveryKey?.Length);
     }
 
     [Fact]

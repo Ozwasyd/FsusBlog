@@ -16,14 +16,15 @@ internal sealed class RedisNotificationStreamPublisher(
         NotificationStreamEventType eventType,
         TPayload payload,
         NotificationStreamTarget target,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? idempotencyKey = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         long eventId;
         try
         {
-            eventId = await backlogStore.NextEventIdAsync(cancellationToken).ConfigureAwait(false);
+            eventId = await backlogStore.GetOrCreateEventIdAsync(idempotencyKey, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -41,13 +42,19 @@ internal sealed class RedisNotificationStreamPublisher(
             }
 
             string route = routeResult.Value;
-            Result appendResult = await backlogStore.AppendAsync(eventId, route, frame, cancellationToken).ConfigureAwait(false);
+            Result<NotificationStreamAppendResult> appendResult = await backlogStore.AppendAsync(
+                    eventId,
+                    route,
+                    frame,
+                    cancellationToken,
+                    idempotent: !string.IsNullOrWhiteSpace(idempotencyKey))
+                .ConfigureAwait(false);
             if (appendResult.IsFailure)
             {
                 return Result<NotificationStreamCursor>.Failure(appendResult.Error);
             }
 
-            if (!localFanoutQueue.TryEnqueue(frame, target))
+            if (appendResult.Value is { Appended: true } && !localFanoutQueue.TryEnqueue(frame, target))
             {
                 logger.LogWarning("notification-stream-local-fanout-enqueue-dropped {EventType} {EventId} {DroppedCount}",
                     eventType,

@@ -87,7 +87,7 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Equal("article-detail-aeds", ArticleMutationReplayEdges.ArticleDetailAeds);
         Assert.Equal("public-hot-read", ArticleMutationReplayEdges.PublicHotRead);
         Assert.Equal(typeof(IReadOnlySet<string>), typeof(IArticleMutationSideEffectCoordinator)
-            .GetMethod(nameof(IArticleMutationSideEffectCoordinator.ReplayOutboxAsync))!.GetParameters()[2].ParameterType);
+            .GetMethod(nameof(IArticleMutationSideEffectCoordinator.ReplayOutboxAsync))!.GetParameters()[3].ParameterType);
         Assert.NotNull(typeof(ArticleMutationReplayResult).GetProperty(nameof(ArticleMutationReplayResult.CompletedEdges)));
         Assert.NotNull(typeof(ArticleMutationReplayResult).GetProperty(nameof(ArticleMutationReplayResult.FailedEdges)));
         string pendingRuntime = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleMutationOutboxDispatcher), "ProcessPendingAsync");
@@ -113,7 +113,7 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Contains("LoadCompletedEdgesByOutboxIdAsync", processPending, StringComparison.Ordinal);
         Assert.Contains("LoadAotScopesByArticleIdAsync", processPending, StringComparison.Ordinal);
         Assert.DoesNotContain("article-outbox-read", processPending, StringComparison.Ordinal);
-        Assert.DoesNotContain("article-outbox-claim", processPending, StringComparison.Ordinal);
+        Assert.Contains("article-outbox-batch-claim", processPending, StringComparison.Ordinal);
 
         Assert.Contains("UPDATE article_mutation_outbox", claim, StringComparison.Ordinal);
         Assert.Contains("FOR UPDATE SKIP LOCKED", claim, StringComparison.Ordinal);

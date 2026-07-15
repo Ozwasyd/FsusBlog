@@ -6,12 +6,16 @@ using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.NotificationStream;
 
+public readonly record struct NotificationStreamAppendResult(bool Appended);
+
 public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis, IRuntimeKeyScope keyScope, ILogger<NotificationStreamBacklogStore> logger)
 {
     private const string SequenceKey = "fsus:notification-stream:v2:sequence";
+    private const string IdempotencyKeyPrefix = "fsus:notification-stream:v2:idempotency:";
     private const string RouteStreamPrefix = "fsus:notification-stream:v2:route:";
     private const int StreamMaxLength = 4096;
     private const int MaxReplayEntries = 512;
+    private static readonly TimeSpan IdempotencyRetention = TimeSpan.FromDays(7);
 
     private readonly IDatabase _database = redis.GetDatabase();
 
@@ -21,7 +25,39 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
         return await _database.StringIncrementAsync(keyScope.PrefixKey(SequenceKey)).ConfigureAwait(false);
     }
 
-    public async Task<Result> AppendAsync(long eventId, string route, SharedNotificationStreamFrame frame, CancellationToken cancellationToken = default)
+    public async Task<long> GetOrCreateEventIdAsync(
+        string? idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return await NextEventIdAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        RedisKey dedupeKey = keyScope.PrefixKey(string.Concat(IdempotencyKeyPrefix, idempotencyKey));
+        RedisKey sequenceKey = keyScope.PrefixKey(SequenceKey);
+        RedisResult result = await _database.ScriptEvaluateAsync(
+            """
+            local existing = redis.call('GET', KEYS[1])
+            if existing then
+                return existing
+            end
+            local event_id = redis.call('INCR', KEYS[2])
+            redis.call('SET', KEYS[1], event_id, 'PX', ARGV[1], 'NX')
+            return event_id
+            """,
+            [dedupeKey, sequenceKey],
+            [(RedisValue)(long)IdempotencyRetention.TotalMilliseconds]).ConfigureAwait(false);
+        return (long)result;
+    }
+
+    public async Task<Result<NotificationStreamAppendResult>> AppendAsync(
+        long eventId,
+        string route,
+        SharedNotificationStreamFrame frame,
+        CancellationToken cancellationToken = default,
+        bool idempotent = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -30,10 +66,23 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
             IReadOnlyList<string> storageRoutes = NotificationStreamTargetRouteCodec.GetStorageRoutes(route);
             if (storageRoutes.Count == 0)
             {
-                return Result.Failure(ErrorCode.Validation, "Notification stream backlog route invalid");
+                return Result<NotificationStreamAppendResult>.Failure(
+                    ErrorCode.Validation,
+                    "Notification stream backlog route invalid");
             }
 
             RedisValue streamId = string.Concat(eventId.ToString(CultureInfo.InvariantCulture), "-0");
+            if (idempotent)
+            {
+                bool appended = false;
+                foreach (string storageRoute in storageRoutes)
+                {
+                    appended |= await AppendToRouteIdempotentlyAsync(RouteStreamKey(storageRoute), streamId, frame)
+                        .ConfigureAwait(false);
+                }
+                return Result<NotificationStreamAppendResult>.Success(new NotificationStreamAppendResult(appended));
+            }
+
             if (storageRoutes.Count == 1)
             {
                 await _database.StreamAddAsync(
@@ -44,7 +93,7 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
                         StreamMaxLength,
                         useApproximateMaxLength: true)
                     .ConfigureAwait(false);
-                return Result.Success();
+                return Result<NotificationStreamAppendResult>.Success(new NotificationStreamAppendResult(true));
             }
 
             IBatch batch = _database.CreateBatch();
@@ -62,12 +111,50 @@ public sealed class NotificationStreamBacklogStore(IConnectionMultiplexer redis,
 
             batch.Execute();
             await Task.WhenAll(writes).ConfigureAwait(false);
-            return Result.Success();
+            return Result<NotificationStreamAppendResult>.Success(new NotificationStreamAppendResult(true));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to append notification stream backlog entry. EventId: {EventId}", eventId);
-            return Result.Failure(ErrorCode.InfraFailure, "Notification stream backlog append failed");
+            return Result<NotificationStreamAppendResult>.Failure(
+                ErrorCode.InfraFailure,
+                "Notification stream backlog append failed");
+        }
+    }
+
+    private async Task<bool> AppendToRouteIdempotentlyAsync(
+        RedisKey streamKey,
+        RedisValue streamId,
+        SharedNotificationStreamFrame frame)
+    {
+        StreamEntry[] existing = await _database.StreamRangeAsync(streamKey, streamId, streamId, 1)
+            .ConfigureAwait(false);
+        if (existing.Length > 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            await _database.StreamAddAsync(
+                    streamKey,
+                    "f",
+                    frame.BufferMemory,
+                    streamId,
+                    StreamMaxLength,
+                    useApproximateMaxLength: true)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch
+        {
+            existing = await _database.StreamRangeAsync(streamKey, streamId, streamId, 1).ConfigureAwait(false);
+            if (existing.Length == 0)
+            {
+                throw;
+            }
+
+            return false;
         }
     }
 
