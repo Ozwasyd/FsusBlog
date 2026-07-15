@@ -31,16 +31,19 @@ no counted slot.
 Every concurrent browser lane receives a run-and-step-bound namespace, session identity, output root, and three unique
 loopback proxy ports for the debug backend, debug frontend, and release preview. The proxy preserves the authoritative
 runtime and readiness marker while removing shared `PLAYWRIGHT_BASE_URL`/port identity between sibling lanes. Existing
-lane-specific Playwright output, screenshot, trace, and evidence paths remain disjoint. The bundle owns each proxy and
-the complete detached child process group, so failure, timeout, or cancellation closes lane ports and descendants
-without stopping siblings.
+lane-specific Playwright output, screenshot, trace, and evidence paths remain disjoint. The bundle injects a bounded
+run-and-step-derived `FSUSBLOG_TEST_SESSION_PREFIX`; fixture preparation and every Playwright/Node consumer append the
+worker index to that prefix, so sibling lanes cannot concurrently drop/recreate the same `pw-N` schema, Redis keys, or
+fixture files. `FSUSBLOG_FIXTURE_ROOT` and `PLAYWRIGHT_OUTPUT_DIR` are also rooted below the lane output directory, and
+lane scripts preserve those caller-owned paths. The bundle owns each proxy and the complete detached child process
+group, so failure, timeout, or cancellation closes lane ports and descendants without stopping siblings.
 
 ## Evidence and rollback
 
 The runtime bundle summary contains `browserAdmission` with initial/peak/final slots, plan and grant history,
-active/peak lanes, per-lane grants, ports, RSS and sampled browser-process counts, slot wait intervals, lane overlap,
-resource error counts, and the resource-utilization evidence path. `ERR_INSUFFICIENT_RESOURCES`, OOM, browser crash,
-and FD pressure are reported separately.
+active/peak lanes, per-lane grants, ports, session prefix, fixture/result roots, RSS and sampled browser-process counts,
+slot wait intervals, lane overlap, resource error counts, and the resource-utilization evidence path.
+`ERR_INSUFFICIENT_RESOURCES`, OOM, browser crash, and FD pressure are reported separately.
 
 Rollback is limited to the counted-resource declarations, resolver, and lane proxies. Restoring the former dependency
 chain preserves all test IDs and stable artifacts; no application API or runtime production behavior changes.

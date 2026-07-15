@@ -1616,6 +1616,10 @@ async function executeRuntimeStep(step) {
   }
   const laneNamespace = `${schedulerRunId()}-${step.id}`.replace(/[^a-zA-Z0-9._-]+/gu, '-')
   const laneOutputRoot = path.join(outDir, 'browser-lanes', step.id)
+  const laneFixtureRoot = path.join(laneOutputRoot, 'fixtures')
+  const lanePlaywrightOutputRoot = path.join(laneOutputRoot, 'playwright')
+  const laneSessionPrefix = `lane-${step.id}-${createHash('sha256')
+    .update(`${schedulerRunId()}\0${step.id}`, 'utf8').digest('hex').slice(0, 8)}`
   fs.mkdirSync(laneOutputRoot, { recursive: true })
   const proxy = step.id === 'release-public'
     ? null
@@ -1630,8 +1634,11 @@ async function executeRuntimeStep(step) {
       ...(step.env ?? {}),
       FSUSBLOG_BROWSER_LANE_ID: step.id,
       FSUSBLOG_BROWSER_LANE_NAMESPACE: laneNamespace,
-      FSUSBLOG_BROWSER_LANE_SESSION: `session-${laneNamespace}`,
+      FSUSBLOG_BROWSER_LANE_SESSION_PREFIX: laneSessionPrefix,
       FSUSBLOG_BROWSER_LANE_OUTPUT_ROOT: laneOutputRoot,
+      FSUSBLOG_TEST_SESSION_PREFIX: laneSessionPrefix,
+      FSUSBLOG_FIXTURE_ROOT: laneFixtureRoot,
+      PLAYWRIGHT_OUTPUT_DIR: lanePlaywrightOutputRoot,
       ...(proxy ? {
         FSUSBLOG_RELEASE_PREVIEW_MARKER_URL: runtimeChildEnvironment.FSUSBLOG_RELEASE_PREVIEW_URL,
         FSUSBLOG_DEBUG_BACKEND_URL: proxy.urls.debugBackend,
@@ -1646,7 +1653,10 @@ async function executeRuntimeStep(step) {
   const lane = {
     stepId: step.id,
     namespace: laneNamespace,
+    sessionPrefix: laneSessionPrefix,
     outputRoot: relative(laneOutputRoot),
+    fixtureRoot: relative(laneFixtureRoot),
+    playwrightOutputRoot: relative(lanePlaywrightOutputRoot),
     startedAtMs: Date.now(),
     grant: step.runtimeCapacity ?? null,
     proxyPorts: proxy?.ports ?? null

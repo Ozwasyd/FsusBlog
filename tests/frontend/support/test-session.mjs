@@ -2,6 +2,15 @@ export const TEST_SESSION_HEADER = 'X-Fsus-Test-Session';
 
 const safeSessionPattern = /^[a-z0-9][a-z0-9-]{0,40}$/;
 
+function sanitizeSessionPrefix(raw) {
+  const normalized = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized || 'pw';
+}
+
 export function sanitizeTestSession(raw) {
   const normalized = String(raw || '')
     .trim()
@@ -11,6 +20,19 @@ export function sanitizeTestSession(raw) {
     .slice(0, 41);
 
   return safeSessionPattern.test(normalized) ? normalized : 'pw-0';
+}
+
+export function resolveWorkerTestSession(workerIndex, env = process.env) {
+  const rawWorkerIndex = String(workerIndex ?? '0').trim();
+  const normalizedWorkerIndex = /^\d{1,8}$/.test(rawWorkerIndex)
+    ? rawWorkerIndex.replace(/^0+(?=\d)/, '')
+    : '0';
+  const suffix = `-${normalizedWorkerIndex}`;
+  const maxPrefixLength = 41 - suffix.length;
+  const prefix = sanitizeSessionPrefix(env.FSUSBLOG_TEST_SESSION_PREFIX)
+    .slice(0, maxPrefixLength)
+    .replace(/-+$/g, '') || 'pw';
+  return sanitizeTestSession(`${prefix}${suffix}`);
 }
 
 export function resolveTestSession() {
@@ -23,7 +45,7 @@ export function resolveTestSession() {
   }
 
   const workerIndex = process.env.TEST_PARALLEL_INDEX || process.env.TEST_WORKER_INDEX || '0';
-  return sanitizeTestSession(`pw-${workerIndex}`);
+  return resolveWorkerTestSession(workerIndex);
 }
 
 export function testSessionHeaders(session = resolveTestSession()) {

@@ -15,7 +15,7 @@ previous_browsers_path="${PLAYWRIGHT_BROWSERS_PATH-}"
 previous_ld_library_path="${LD_LIBRARY_PATH-}"
 previous_disable_notification_stream="${FSUSBLOG_DISABLE_NOTIFICATION_STREAM-}"
 
-export PLAYWRIGHT_OUTPUT_DIR='test-results/playwright/cross-browser'
+export PLAYWRIGHT_OUTPUT_DIR="${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/cross-browser}"
 export FSUSBLOG_PLAYWRIGHT_BROWSERS="${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,firefox,webkit}"
 # Use Playwright's standard persistent cache unless the caller explicitly
 # selects another path. Fresh production cleanup owns repository .tmp output

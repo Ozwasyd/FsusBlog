@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sanitizeTestSession } from '../support/test-session.mjs';
+import { resolveWorkerTestSession } from '../support/test-session.mjs';
 import { resolveSessionFixtureDirectory } from '../support/fixture-paths.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -155,7 +155,7 @@ function formatSessionManifest(sessions) {
 async function main() {
   assertActiveNamespaceUrl(backendBaseUrl, 'FSUSBLOG_BASE_URL or FSUSBLOG_DEBUG_BACKEND_URL');
   const workers = parseWorkers();
-  const sessions = Array.from({ length: workers }, (_, index) => sanitizeTestSession(`pw-${index}`));
+  const sessions = Array.from({ length: workers }, (_, index) => resolveWorkerTestSession(index));
   const fixturesDir = resolveSessionFixtureDirectory();
   await mkdir(fixturesDir, { recursive: true });
 

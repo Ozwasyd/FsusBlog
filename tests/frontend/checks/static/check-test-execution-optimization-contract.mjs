@@ -113,6 +113,7 @@ requireIncludes('tests/frontend/fixtures/discover-playwright-fixtures.mjs', [
 ])
 requireIncludes('tests/frontend/fixtures/prepare-playwright-sessions.mjs', [
   'resolveSessionFixtureDirectory',
+  'resolveWorkerTestSession',
   'Promise.all(sessions.map',
   "import { spawn } from 'node:child_process'",
   'process.env.FSUSBLOG_DEBUG_BACKEND_URL',
@@ -147,7 +148,8 @@ requireIncludes('tests/frontend/support/playwright/routeAuditFixtures.ts', [
   'resolvePublicFixtureFile'
 ])
 requireIncludes('tests/frontend/support/playwright/testSession.ts', [
-  'resolveSessionFixtureFile'
+  'resolveSessionFixtureFile',
+  'resolveWorkerTestSession'
 ])
 requireIncludes('tests/frontend/support/session-fixtures.mjs', [
   'resolveAuthFixtureDirectory'
@@ -171,7 +173,8 @@ requireIncludes('tools/test/legacy-test.sh', [
   'run_backend_build_governance_lane',
   'run_backend_unit_lane',
   'run_backend_fast_summary_lane',
-  'run_frontend_property_model_perf_lane'
+  'run_frontend_property_model_perf_lane',
+  '--value "session-prefix=${FSUSBLOG_TEST_SESSION_PREFIX:-pw}"'
 ])
 requireIncludes('tools/frontend/build.mjs', [
   'FSUSBLOG_VALIDATE_GENERATED_ONLY',
@@ -220,8 +223,14 @@ requireIncludes('tools/test/bundles/bundle-steps.mjs', [
 ])
 requireIncludes('tools/test/bundles/run-bundle.mjs', [
   'createBrowserLaneProxySet',
+  'FSUSBLOG_TEST_SESSION_PREFIX',
+  'FSUSBLOG_FIXTURE_ROOT',
+  'PLAYWRIGHT_OUTPUT_DIR',
   "schema: 'fsusblog.runtime-browser-admission.v1'",
   'blockedBySlotMs'
+])
+requireIncludes('tools/test/lanes/cross-browser-smoke.sh', [
+  'PLAYWRIGHT_OUTPUT_DIR="${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/cross-browser}"'
 ])
 requireSectionIncludes('tools/test/bundles/run-bundle.mjs', "commandStep('privacy-zk-contract-prebuild',", "commandStep('privacy-zk-contract',", [
   "commandStep('privacy-zk-contract-prebuild', 'tools/test/lanes/privacy-zk-comment-matrix.sh contract-prebuild'",

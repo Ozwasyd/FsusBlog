@@ -15,6 +15,7 @@ import {
   runtimeSteps
 } from '../../tools/test/bundles/bundle-steps.mjs'
 import { parseRuntimeEnvironment } from '../../tools/test/bundles/runtime-environment.mjs'
+import { resolveWorkerTestSession } from '../frontend/support/test-session.mjs'
 
 const byId = (steps) => new Map(steps.map((step) => [step.id, step]))
 
@@ -110,10 +111,26 @@ test('runtime bundle loads its generated environment only after bootstrap and be
 test('runtime browser runner binds isolated lane ports, process-group cleanup and admission evidence', () => {
   const source = readFileSync(new URL('../../tools/test/bundles/run-bundle.mjs', import.meta.url), 'utf8')
   assert.match(source, /createBrowserLaneProxySet[\s\S]*?FSUSBLOG_BROWSER_LANE_NAMESPACE[\s\S]*?proxy\.ports/u)
+  assert.match(source, /FSUSBLOG_TEST_SESSION_PREFIX[\s\S]*?FSUSBLOG_FIXTURE_ROOT[\s\S]*?PLAYWRIGHT_OUTPUT_DIR/u)
+  assert.match(source, /sessionPrefix[\s\S]*?fixtureRoot[\s\S]*?playwrightOutputRoot/u)
   assert.match(source, /finally \{[\s\S]*?await proxy\?\.close\(\)[\s\S]*?activeBrowserLanes\.delete/u)
   assert.match(source, /terminateProcessGroup\(child, terminationGraceMs\)/u)
   assert.match(source, /fsusblog\.runtime-browser-admission\.v1[\s\S]*?blockedBySlotMs[\s\S]*?resourceErrors/u)
   assert.match(source, /peakRssBytes[\s\S]*?peakBrowserProcessCount/u)
+})
+
+test('browser lane session prefixes isolate workers and preserve the worker suffix', () => {
+  assert.equal(resolveWorkerTestSession(3, {
+    FSUSBLOG_TEST_SESSION_PREFIX: 'Lane Runtime Alpha'
+  }), 'lane-runtime-alpha-3')
+  const bounded = resolveWorkerTestSession(27, {
+    FSUSBLOG_TEST_SESSION_PREFIX: 'lane-with-a-prefix-that-is-deliberately-longer-than-the-header-contract'
+  })
+  assert.match(bounded, /-27$/u)
+  assert.ok(bounded.length <= 41)
+
+  const crossBrowser = readFileSync(new URL('../../tools/test/lanes/cross-browser-smoke.sh', import.meta.url), 'utf8')
+  assert.match(crossBrowser, /PLAYWRIGHT_OUTPUT_DIR="\$\{PLAYWRIGHT_OUTPUT_DIR:-test-results\/playwright\/cross-browser\}"/u)
 })
 
 function deferred() {

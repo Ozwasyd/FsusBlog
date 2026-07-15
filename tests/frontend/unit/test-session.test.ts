@@ -42,6 +42,13 @@ describe('test session helpers', () => {
     expect(resolveTestSession()).toBe('pw-7')
   })
 
+  it('prefixes worker sessions for an independently admitted browser lane', () => {
+    process.env.FSUSBLOG_TEST_SESSION_ISOLATION = '1'
+    process.env.FSUSBLOG_TEST_SESSION_PREFIX = 'Lane Runtime Alpha'
+    process.env.TEST_PARALLEL_INDEX = '3'
+    expect(resolveTestSession()).toBe('lane-runtime-alpha-3')
+  })
+
   it('falls back to worker index 0 when both worker env vars are missing', () => {
     process.env.FSUSBLOG_TEST_SESSION_ISOLATION = '1'
     delete process.env.TEST_PARALLEL_INDEX

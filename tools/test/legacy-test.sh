@@ -320,6 +320,7 @@ prepare_auth_fixtures_once() {
     --path tools/test/legacy-test.sh \
     --value auth-fixtures-v2 \
     --value "namespace=${FSUSBLOG_TEST_NAMESPACE:-local}" \
+    --value "session-prefix=${FSUSBLOG_TEST_SESSION_PREFIX:-pw}" \
     --value "service-generation=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unbootstrapped}" \
     --secret-env FSUSBLOG_BASE_URL \
     --secret-env FSUSBLOG_DEBUG_BACKEND_URL \
@@ -386,8 +387,10 @@ prepare_session_fixtures_once() {
     --path tests/frontend/fixtures/prepare-playwright-sessions.mjs \
     --path tests/frontend/support/session-fixtures.mjs \
     --path tests/frontend/support/fixture-paths.mjs \
+    --path tests/frontend/support/test-session.mjs \
     --path tools/test/legacy-test.sh \
     --value "namespace=${FSUSBLOG_TEST_NAMESPACE:-local}" \
+    --value "session-prefix=${FSUSBLOG_TEST_SESSION_PREFIX:-pw}" \
     --value "service-generation=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-unbootstrapped}" \
     --value "playwright-workers=$workers" \
     --secret-env Jwt__SecretKey \
