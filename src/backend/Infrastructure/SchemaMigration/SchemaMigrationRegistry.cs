@@ -72,6 +72,7 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
         BuildPublicArticleListKeysetIndexMigration(),
         BuildArticleMutationOutboxEdgeMigration(),
         BuildArticleMutationOutboxClaimLeaseMigration(),
+        BuildActiveReleaseFenceDurableWitnessMigration(),
         BuildPublicArticleProjectionMigration(),
         BuildAssetLibraryArticleRefMigration(),
         BuildAuthoringWorkspaceTablesMigration(),
@@ -3026,6 +3027,34 @@ public sealed class SchemaMigrationRegistry : ISchemaMigrationRegistry
                 new CreateIndexStep(
                     "idx_article_mutation_outbox_claim",
                     "CREATE INDEX IF NOT EXISTS idx_article_mutation_outbox_claim ON article_mutation_outbox(status, claim_expires_at, id);")
+            ]);
+
+    private static ISchemaMigrationDescriptor BuildActiveReleaseFenceDurableWitnessMigration()
+        => new SchemaMigrationDescriptor(
+            "20260715-post-active-release-fence-durable-witness",
+            "Create the durable PostgreSQL witness for the active release generation fence.",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            Steps:
+            [
+                new EnsureTableStep(
+                    "sys_deployment_fence",
+                    """
+                    CREATE TABLE IF NOT EXISTS sys_deployment_fence (
+                        id smallint PRIMARY KEY,
+                        release_id varchar(96) NOT NULL,
+                        slot varchar(24) NOT NULL,
+                        generation bigint NOT NULL,
+                        image_digest varchar(160) NOT NULL,
+                        status varchar(24) NOT NULL,
+                        activated_at_utc timestamp NULL,
+                        revoked_at_utc timestamp NULL,
+                        updated_at_utc timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+                        CONSTRAINT ck_sys_deployment_fence_singleton CHECK (id = 1),
+                        CONSTRAINT ck_sys_deployment_fence_generation CHECK (generation > 0),
+                        CONSTRAINT ck_sys_deployment_fence_status CHECK (status IN ('active', 'revoked'))
+                    );
+                    """)
             ]);
 
     private static ISchemaMigrationDescriptor BuildAssetLibraryArticleRefMigration()

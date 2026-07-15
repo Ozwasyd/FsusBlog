@@ -51,7 +51,11 @@ public static class ActiveReleaseFenceServiceCollectionExtensions
 {
     public static IServiceCollection AddActiveReleaseFencing(this IServiceCollection services)
     {
-        services.TryAddSingleton<IActiveReleaseFenceStore, RedisActiveReleaseFenceStore>();
+        services.TryAddSingleton<RedisActiveReleaseFenceStore>();
+        services.TryAddSingleton<IActiveReleaseFenceReplicaStore>(static provider =>
+            provider.GetRequiredService<RedisActiveReleaseFenceStore>());
+        services.TryAddSingleton<IActiveReleaseFenceDurableWitness, SqlActiveReleaseFenceWitness>();
+        services.TryAddSingleton<IActiveReleaseFenceStore, DurableActiveReleaseFenceStore>();
         services.TryAddSingleton<IActiveReleaseFence, ActiveReleaseFence>();
         services.TryAddSingleton<IActiveReleaseExecutionContextAccessor, ActiveReleaseExecutionContextAccessor>();
         services.TryAddSingleton<IActiveReleaseCommitGuard, ActiveReleaseCommitGuard>();

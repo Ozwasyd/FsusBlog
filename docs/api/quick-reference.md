@@ -401,7 +401,7 @@
 | GET | `/api/ops/deployment/status` | 👑🚦 loopback | 发布运行态、generation、普通 HTTP/notification/background 独立计数与 drain blockers；要求 `system.config` |
 | POST | `/api/ops/deployment/activate` | 👑🚦 loopback | 以 `releaseId + slot + generation` CAS 激活 Ready Candidate；幂等；要求 `system.config` |
 | POST | `/api/ops/deployment/drain` | 👑🚦 loopback | 以 `releaseId + slot + generation` CAS 开始排空；幂等，立即使 readiness 503；要求 `system.config` |
-| GET | `/api/ops/deployment/fence/status` | 👑🚦 loopback | 校验 Redis active-release fence 与本地 release/slot/generation 所有权；要求 `system.config` |
+| GET | `/api/ops/deployment/fence/status` | 👑🚦 loopback | 对账 PostgreSQL durable witness + Redis mirror，并校验本地 release/slot/generation 所有权；要求 `system.config` |
 | POST | `/api/ops/deployment/fence/acquire` | 👑🚦 loopback | CAS 获取或单调推进 active-release fence；旧 generation/token 不得复用 |
 | POST | `/api/ops/deployment/fence/revoke` | 👑🚦 loopback | 精确撤销当前 fence 所有者；身份不匹配返回 409 |
 | GET | `/api/ops/deployment/notification-stream/restart/status` | 👑🚦 loopback | 读取当前 1012 restart epoch、原因与连接排空快照 |

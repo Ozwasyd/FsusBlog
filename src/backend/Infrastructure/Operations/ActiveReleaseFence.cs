@@ -88,9 +88,23 @@ public interface IActiveReleaseFenceStore
         CancellationToken cancellationToken = default);
 }
 
+public interface IActiveReleaseFenceReplicaStore : IActiveReleaseFenceStore
+{
+    Task ReconcileAsync(
+        ActiveReleaseFenceSnapshot snapshot,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class ActiveReleaseFenceStoreException(string errorCode, string message, Exception? innerException = null)
+    : InvalidOperationException(message, innerException)
+{
+    public string ErrorCode { get; } = errorCode;
+}
+
 public sealed class RedisActiveReleaseFenceStore(
     IConnectionMultiplexer redis,
-    IRuntimeKeyScope keyScope) : IActiveReleaseFenceStore
+    IRuntimeKeyScope keyScope) : IActiveReleaseFenceReplicaStore
 {
     private const string FenceKey = "fsus:deployment:active-release-fence:v1";
     private readonly IDatabase _database = redis.GetDatabase();
@@ -231,6 +245,75 @@ return result(1, 0, 'revoked', '', 'revoked', ARGV[4])
         return ParseOperation(raw, request.DryRun);
     }
 
+    public async Task ReconcileAsync(
+        ActiveReleaseFenceSnapshot snapshot,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        if (!snapshot.Exists)
+        {
+            return;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        const string script = """
+local exists = redis.call('EXISTS', KEYS[1])
+local current_generation = tonumber(redis.call('HGET', KEYS[1], 'generation') or '0')
+local current_release = redis.call('HGET', KEYS[1], 'release_id') or ''
+local current_slot = redis.call('HGET', KEYS[1], 'slot') or ''
+local current_digest = redis.call('HGET', KEYS[1], 'image_digest') or ''
+local current_status = redis.call('HGET', KEYS[1], 'status') or 'missing'
+local target_generation = tonumber(ARGV[3])
+
+if exists == 1 and current_generation > target_generation then
+  return 'newer'
+end
+if exists == 1 and current_generation == target_generation then
+  if current_release ~= ARGV[1] or current_slot ~= ARGV[2] or current_digest ~= ARGV[4] then
+    return 'diverged'
+  end
+  if current_status == 'revoked' and ARGV[5] == 'active' then
+    return 'revoked-dominates'
+  end
+  if current_status == ARGV[5] then
+    return 'current'
+  end
+end
+
+redis.call('HSET', KEYS[1],
+  'release_id', ARGV[1],
+  'slot', ARGV[2],
+  'generation', ARGV[3],
+  'image_digest', ARGV[4],
+  'status', ARGV[5],
+  'activated_at_unix_ms', ARGV[6],
+  'revoked_at_unix_ms', ARGV[7])
+return exists == 0 and 'restored' or 'updated'
+""";
+        RedisResult raw = await _database.ScriptEvaluateAsync(
+                script,
+                [Key()],
+                [
+                    Normalize(snapshot.ReleaseId),
+                    Normalize(snapshot.Slot),
+                    snapshot.Generation,
+                    Normalize(snapshot.ImageDigest),
+                    Normalize(snapshot.Status),
+                    snapshot.ActivatedAtUtc?.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    snapshot.RevokedAtUtc?.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    now.ToUnixTimeMilliseconds()
+                ])
+            .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        string result = raw.ToString() ?? string.Empty;
+        if (result is "diverged" or "newer")
+        {
+            throw new ActiveReleaseFenceStoreException(
+                "active_release_fence_witness_diverged",
+                $"Redis active release fence reconciliation rejected the durable snapshot: {result}.");
+        }
+    }
+
     private RedisKey Key() => keyScope.PrefixKey(FenceKey);
 
     private static ActiveReleaseFenceOperationResult ParseOperation(RedisResult raw, bool dryRun)
@@ -360,8 +443,6 @@ public sealed class ActiveReleaseFence(
 {
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly ReleaseIdentitySnapshot _local = releaseIdentity.Current;
-    private readonly TimeSpan _refreshInterval = TimeSpan.FromMilliseconds(Math.Clamp(
-        configuration.GetValue("ActiveReleaseFence:RefreshIntervalMs", 1000), 100, 30_000));
     private readonly string _processInstanceId = $"{Environment.MachineName}-{Environment.ProcessId}-{Guid.NewGuid():N}";
     private ActiveReleaseFenceRuntimeSnapshot _current = Unavailable(TimeProvider.System.GetUtcNow(), "active_release_fence_not_refreshed");
 
@@ -391,17 +472,18 @@ public sealed class ActiveReleaseFence(
         }
         catch (Exception ex)
         {
+            string errorCode = StoreErrorCode(ex);
             logger.LogWarning(ex, "active-release-fence-acquire-store-unavailable");
             ActiveReleaseFenceRuntimeSnapshot unavailable = Unavailable(
                 timeProvider.GetUtcNow(),
-                "active_release_fence_store_unavailable");
+                errorCode);
             Volatile.Write(ref _current, unavailable);
-            ActiveReleaseFenceMetrics.RecordOperation("acquire", "rejected", "store_unavailable");
+            ActiveReleaseFenceMetrics.RecordOperation("acquire", "rejected", errorCode);
             return new ActiveReleaseFenceOperationResult(
                 false,
                 false,
                 "rejected",
-                "active_release_fence_store_unavailable",
+                errorCode,
                 request.DryRun,
                 unavailable.Fence);
         }
@@ -431,17 +513,18 @@ public sealed class ActiveReleaseFence(
         }
         catch (Exception ex)
         {
+            string errorCode = StoreErrorCode(ex);
             logger.LogWarning(ex, "active-release-fence-revoke-store-unavailable");
             ActiveReleaseFenceRuntimeSnapshot unavailable = Unavailable(
                 timeProvider.GetUtcNow(),
-                "active_release_fence_store_unavailable");
+                errorCode);
             Volatile.Write(ref _current, unavailable);
-            ActiveReleaseFenceMetrics.RecordOperation("revoke", "rejected", "store_unavailable");
+            ActiveReleaseFenceMetrics.RecordOperation("revoke", "rejected", errorCode);
             return new ActiveReleaseFenceOperationResult(
                 false,
                 false,
                 "rejected",
-                "active_release_fence_store_unavailable",
+                errorCode,
                 request.DryRun,
                 unavailable.Fence);
         }
@@ -458,7 +541,7 @@ public sealed class ActiveReleaseFence(
         CancellationToken cancellationToken = default)
     {
         ActiveReleaseFenceRuntimeSnapshot cached = Current;
-        if (!forceStoreRead && cached.StoreReachable && timeProvider.GetUtcNow() - cached.RefreshedAtUtc < _refreshInterval)
+        if (!forceStoreRead && cached.StoreReachable && timeProvider.GetUtcNow() - cached.RefreshedAtUtc < RefreshInterval())
         {
             return cached;
         }
@@ -467,7 +550,7 @@ public sealed class ActiveReleaseFence(
         try
         {
             cached = Current;
-            if (!forceStoreRead && cached.StoreReachable && timeProvider.GetUtcNow() - cached.RefreshedAtUtc < _refreshInterval)
+            if (!forceStoreRead && cached.StoreReachable && timeProvider.GetUtcNow() - cached.RefreshedAtUtc < RefreshInterval())
             {
                 return cached;
             }
@@ -499,9 +582,10 @@ public sealed class ActiveReleaseFence(
             }
             catch (Exception ex)
             {
+                string errorCode = StoreErrorCode(ex);
                 logger.LogWarning(ex, "active-release-fence-refresh-failed");
-                ActiveReleaseFenceMetrics.RecordOperation("refresh", "rejected", "store_unavailable");
-                ActiveReleaseFenceRuntimeSnapshot unavailable = Unavailable(timeProvider.GetUtcNow(), "active_release_fence_store_unavailable");
+                ActiveReleaseFenceMetrics.RecordOperation("refresh", "rejected", errorCode);
+                ActiveReleaseFenceRuntimeSnapshot unavailable = Unavailable(timeProvider.GetUtcNow(), errorCode);
                 Volatile.Write(ref _current, unavailable);
                 return unavailable;
             }
@@ -618,9 +702,21 @@ public sealed class ActiveReleaseFence(
     }
 
     private bool UseSyntheticLocalFence()
-        => !environment.IsProduction()
+        => environment.IsDevelopment()
+            && configuration.GetValue("ActiveReleaseFence:AllowSyntheticLocalFence", false)
             && !_local.Configured
             && string.Equals(_local.ReleaseSlot, "local", StringComparison.Ordinal);
+
+    private TimeSpan RefreshInterval()
+        => TimeSpan.FromMilliseconds(Math.Clamp(
+            configuration.GetValue("ActiveReleaseFence:RefreshIntervalMs", 1000),
+            100,
+            30_000));
+
+    private static string StoreErrorCode(Exception exception)
+        => exception is ActiveReleaseFenceStoreException storeException
+            ? storeException.ErrorCode
+            : "active_release_fence_store_unavailable";
 
     private ActiveReleaseFenceOperationResult Rejected(string errorCode, bool dryRun)
         => new(false, false, "rejected", errorCode, dryRun, Current.Fence);
@@ -642,8 +738,6 @@ public sealed class ActiveReleaseFenceRefreshWorker(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        TimeSpan interval = TimeSpan.FromMilliseconds(Math.Clamp(
-            configuration.GetValue("ActiveReleaseFence:RefreshIntervalMs", 1000), 100, 30_000));
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -659,6 +753,10 @@ public sealed class ActiveReleaseFenceRefreshWorker(
                 logger.LogWarning(ex, "active-release-fence-refresh-loop-failed");
             }
 
+            TimeSpan interval = TimeSpan.FromMilliseconds(Math.Clamp(
+                configuration.GetValue("ActiveReleaseFence:RefreshIntervalMs", 1000),
+                100,
+                30_000));
             await Task.Delay(interval, timeProvider, stoppingToken).ConfigureAwait(false);
         }
     }
@@ -669,12 +767,25 @@ public static class ActiveReleaseFenceMetrics
     private static readonly Meter Meter = new(FsusObservability.MeterName, "1.0.0");
     private static readonly Counter<long> Operations = Meter.CreateCounter<long>("fsus.active_release_fence.operations");
     private static readonly Counter<long> Eligibility = Meter.CreateCounter<long>("fsus.active_release_fence.eligibility");
+    private static readonly Counter<long> WitnessReconcile = Meter.CreateCounter<long>("fsus.active_release_fence.witness_reconcile");
+    private static readonly Histogram<long> WitnessGenerationGap = Meter.CreateHistogram<long>("fsus.active_release_fence.witness_generation_gap");
 
     public static void RecordOperation(string operation, string result, string reason)
         => Operations.Add(1, new("operation", operation), new("result", result), new("reason", NormalizeReason(reason)));
 
     public static void RecordEligibility(string result, string reason)
         => Eligibility.Add(1, new("result", result), new("reason", NormalizeReason(reason)));
+
+    public static void RecordWitnessReconcile(string result, string reason, long generationGap = 0)
+    {
+        WitnessReconcile.Add(1, new("result", result), new("reason", NormalizeReason(reason)));
+        WitnessGenerationGap.Record(
+            Math.Abs(generationGap),
+            new KeyValuePair<string, object?>[]
+            {
+                new("result", result)
+            });
+    }
 
     private static string NormalizeReason(string? reason)
         => string.IsNullOrWhiteSpace(reason) ? "unspecified" : reason.Trim().ToLowerInvariant();

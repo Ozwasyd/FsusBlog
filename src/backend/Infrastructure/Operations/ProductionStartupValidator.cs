@@ -324,6 +324,7 @@ public static class ProductionStartupValidator
         ValidateBuiltInAntiSpamRuntime(configuration, enforceProductionRules, errors);
         ValidateCrawlerRangeUrls(configuration, enforceProductionRules, errors);
         ValidateReleaseIdentity(configuration, enforceProductionRules, errors);
+        ValidateActiveReleaseFenceSettings(configuration, enforceProductionRules, errors);
         ValidateZkProdSettings(configuration, enforceProductionRules, zkProdReadiness ?? ZkProdRuntimeReadiness.Missing, errors);
 
         return new ProductionStartupValidationReport(SchemaVersion, enforceProductionRules, requirements, errors);
@@ -338,6 +339,18 @@ public static class ProductionStartupValidator
         foreach (string error in ReleaseIdentityProvider.Validate(snapshot, enforceProductionRules))
         {
             errors.Add($"Release identity invalid: {error}.");
+        }
+    }
+
+    private static void ValidateActiveReleaseFenceSettings(
+        IConfiguration configuration,
+        bool enforceProductionRules,
+        List<string> errors)
+    {
+        if (enforceProductionRules
+            && configuration.GetValue("ActiveReleaseFence:AllowSyntheticLocalFence", false))
+        {
+            errors.Add("ActiveReleaseFence:AllowSyntheticLocalFence must be false outside Development.");
         }
     }
 

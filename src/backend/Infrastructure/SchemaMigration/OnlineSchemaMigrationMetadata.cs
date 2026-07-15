@@ -210,6 +210,28 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                 ]));
 
         result.Add(
+            "20260715-post-active-release-fence-durable-witness",
+            new OnlineSchemaMigrationMetadata(
+                "20260715-post-active-release-fence-durable-witness",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaReleaseRange(LegacyMinimumRelease, ProtocolMaximumRelease),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtRelease: "20260715-active-release-fence-durable-witness",
+                ContractAfterRelease: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "active_release_fence_witness_reconcile"
+                ]));
+
+        result.Add(
             AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId,
             new OnlineSchemaMigrationMetadata(
                 AccountSubjectHashOnlineBackfillHandler.ExpandMigrationId,
