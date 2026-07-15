@@ -650,7 +650,7 @@ public class ArticleService(
                     article.PublishedAt,
                     article.ScheduledPublishAt,
                     rights);
-                await RecordArticleMutationOutboxAsync(id, "created", rightsSnapshotId);
+                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Created, rightsSnapshotId);
                 return id;
             });
 
@@ -1143,7 +1143,7 @@ public class ArticleService(
                     publishedAt,
                     scheduledPublishAt,
                     rights);
-                await RecordArticleMutationOutboxAsync(id, "updated", rightsSnapshotId);
+                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Updated, rightsSnapshotId);
             });
 
             mutationCommitted = result.IsSuccess && articleUpdated;
@@ -1364,7 +1364,7 @@ public class ArticleService(
                 if (updated > 0)
                 {
                     success = true;
-                    await RecordArticleMutationOutboxAsync(id, "deleted");
+                    await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Deleted);
                 }
             });
             ct.ThrowIfCancellationRequested();
@@ -1418,7 +1418,7 @@ public class ArticleService(
             if (updated > 0)
             {
                 success = true;
-                await RecordArticleMutationOutboxAsync(id, "restored");
+                await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.Restored);
             }
         });
         ct.ThrowIfCancellationRequested();
@@ -1459,7 +1459,7 @@ public class ArticleService(
             await _db.Deleteable<Comment>().Where(c => c.ArticleId == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleTag>().Where(at => at.ArticleId == id).ExecuteCommandAsync();
             await _db.Deleteable<ArticleBody>().Where(it => it.ArticleId == id).ExecuteCommandAsync();
-            await RecordArticleMutationOutboxAsync(id, "permanently-deleted");
+            await RecordArticleMutationOutboxAsync(id, ArticleMutationEventTypes.PermanentlyDeleted);
             return await _db.Ado.ExecuteCommandAsync(
                 """
                 DELETE FROM article
@@ -1520,7 +1520,7 @@ public class ArticleService(
                 await _db.Deleteable<ArticleBody>().Where(it => chunk.Contains(it.ArticleId)).ExecuteCommandAsync();
                 foreach (int articleId in chunk)
                 {
-                    await RecordArticleMutationOutboxAsync(articleId, "trash-cleared");
+                    await RecordArticleMutationOutboxAsync(articleId, ArticleMutationEventTypes.TrashCleared);
                 }
                 await _db.Deleteable<Article>()
                     .Where(it => chunk.Contains(it.Id) && it.IsDeleted)

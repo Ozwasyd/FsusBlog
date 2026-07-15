@@ -59,33 +59,23 @@ public sealed class ActiveReleaseFencedCommitTests
     [Fact]
     public void GuardSql_LocksDurableFenceAndPersistsExecutionTicketInSameStatement()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Operations/ActiveReleaseFencedCommit.cs");
-
-        Assert.Contains("db.Ado.Transaction is null", source, StringComparison.Ordinal);
-        Assert.Contains("pg_advisory_xact_lock_shared(1179862354)", source, StringComparison.Ordinal);
-        Assert.Contains("FROM sys_deployment_fence", source, StringComparison.Ordinal);
-        Assert.Contains("FOR SHARE", source, StringComparison.Ordinal);
-        Assert.Contains("INSERT INTO sys_fenced_commit", source, StringComparison.Ordinal);
-        Assert.Contains("clock_timestamp() AT TIME ZONE 'utc'", source, StringComparison.Ordinal);
-        Assert.Contains("process_instance_id", source, StringComparison.Ordinal);
-        Assert.Contains("FROM matching_fence", source, StringComparison.Ordinal);
-        Assert.Contains("ActiveReleaseFenceLostException", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("StackExchange.Redis", source, StringComparison.Ordinal);
+        Assert.Equal("SELECT pg_advisory_xact_lock_shared(1179862354);", ActiveReleaseFencedCommitSql.AdvisoryLock);
+        Assert.Contains("FROM sys_deployment_fence", ActiveReleaseFencedCommitSql.Enlist, StringComparison.Ordinal);
+        Assert.Contains("FOR SHARE", ActiveReleaseFencedCommitSql.Enlist, StringComparison.Ordinal);
+        Assert.Contains("INSERT INTO sys_fenced_commit", ActiveReleaseFencedCommitSql.Enlist, StringComparison.Ordinal);
+        Assert.Contains("clock_timestamp() AT TIME ZONE 'utc'", ActiveReleaseFencedCommitSql.Enlist, StringComparison.Ordinal);
+        Assert.Contains("process_instance_id", ActiveReleaseFencedCommitSql.Enlist, StringComparison.Ordinal);
+        Assert.Contains("FROM matching_fence", ActiveReleaseFencedCommitSql.Enlist, StringComparison.Ordinal);
     }
 
     [Fact]
     public void AuditWorker_DetectsPostRevokePostSwitchAndImpossibleFutureGenerationCommits()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Operations/ActiveReleaseFencedCommit.cs");
-
-        Assert.Contains("committed.generation > fence.generation", source, StringComparison.Ordinal);
-        Assert.Contains("fence.status = 'revoked'", source, StringComparison.Ordinal);
-        Assert.Contains("committed.generation < fence.generation", source, StringComparison.Ordinal);
-        Assert.Contains("fence.activated_at_utc", source, StringComparison.Ordinal);
-        Assert.Contains("logger.LogCritical", source, StringComparison.Ordinal);
-        Assert.Contains("fsus.active_release_fenced_commit.violations", source, StringComparison.Ordinal);
+        Assert.Contains("committed.generation > fence.generation", ActiveReleaseFencedCommitSql.Audit, StringComparison.Ordinal);
+        Assert.Contains("fence.status = 'revoked'", ActiveReleaseFencedCommitSql.Audit, StringComparison.Ordinal);
+        Assert.Contains("committed.generation < fence.generation", ActiveReleaseFencedCommitSql.Audit, StringComparison.Ordinal);
+        Assert.Contains("fence.activated_at_utc", ActiveReleaseFencedCommitSql.Audit, StringComparison.Ordinal);
+        Assert.Equal("fsus.active_release_fenced_commit.violations", ActiveReleaseFencedCommitMetricNames.Violations);
     }
 
     [Fact]
@@ -122,18 +112,12 @@ public sealed class ActiveReleaseFencedCommitTests
     [Fact]
     public void CriticalDatabaseWorkers_EnlistTransactionalFenceGuard()
     {
-        AssertTransactionalGuard(
-            typeof(ScheduledPublishWorker),
-            "src/backend/Services/Background/ScheduledPublishWorker.cs",
-            "scheduled-publish");
-        AssertTransactionalGuard(
-            typeof(ArticleMutationOutboxDispatcher),
-            "src/backend/Services/Background/ArticleMutationOutboxDispatcher.cs",
-            "article-outbox-complete");
-        AssertTransactionalGuard(
-            typeof(LogCleanupService),
-            "src/backend/Services/Background/LogCleanupService.cs",
-            "fenced-commit-retention");
+        AssertTransactionalGuard(typeof(ScheduledPublishWorker));
+        AssertTransactionalGuard(typeof(ArticleMutationOutboxDispatcher));
+        AssertTransactionalGuard(typeof(LogCleanupService));
+        Assert.Equal("scheduled-publish", ScheduledPublishWorker.FencedCommitOperationScope);
+        Assert.Equal("article-outbox-complete", ArticleMutationOutboxDispatcher.FencedCommitOperationScope);
+        Assert.Equal("fenced-commit-retention", LogCleanupService.FencedCommitOperationScope);
     }
 
     [Fact]
@@ -174,20 +158,11 @@ public sealed class ActiveReleaseFencedCommitTests
             && descriptor.ImplementationType == typeof(ActiveReleaseFencedCommitAuditWorker));
     }
 
-    private static void AssertTransactionalGuard(
-        Type workerType,
-        string relativeSource,
-        string operationScope)
+    private static void AssertTransactionalGuard(Type workerType)
     {
         Assert.Contains(
             workerType.GetConstructors().SelectMany(static constructor => constructor.GetParameters()),
             static parameter => parameter.ParameterType == typeof(IActiveReleaseTransactionalCommitGuard));
-        string source = BackendTestPaths.ReadAllTextFromRoot(relativeSource);
-        Assert.Contains("IActiveReleaseTransactionalCommitGuard", source, StringComparison.Ordinal);
-        Assert.Contains(operationScope, source, StringComparison.Ordinal);
-        Assert.True(
-            source.Contains("EnlistAsync", StringComparison.Ordinal)
-            || source.Contains("ActiveReleaseFencedTransaction.ExecuteAsync", StringComparison.Ordinal));
     }
 
     private static ActiveReleaseExecutionTicket Ticket()

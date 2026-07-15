@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -111,18 +113,43 @@ public sealed class SchemaMigrationDdlPrimitivesTests
     }
 
     [Fact]
-    public void Runner_ExecutesTransactionalDescriptorsThroughSingleTransactionWrapper()
+    public async Task Runner_ExecutesTransactionalDescriptorsThroughSingleTransactionWrapper()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "SchemaMigration",
-            "SchemaMigrationRunner.cs");
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IAdo ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        var events = new List<string>();
+        ado.UseTranAsync(Arg.Any<Func<Task>>()).Returns(async call =>
+        {
+            events.Add("begin");
+            await call.Arg<Func<Task>>()();
+            events.Add("commit");
+            return new DbResult<bool> { IsSuccess = true };
+        });
+        var descriptor = new SchemaMigrationDescriptor(
+            "transaction-wrapper",
+            "executes every step in one transaction",
+            SchemaMigrationPhase.PostCodeFirst,
+            Transactional: true,
+            [
+                new EnsureTableStep("first_step", "CREATE TABLE IF NOT EXISTS first_step (id bigint);"),
+                new EnsureTableStep("second_step", "CREATE TABLE IF NOT EXISTS second_step (id bigint);")
+            ]);
 
-        Assert.Contains("if (descriptor.Transactional)", source, StringComparison.Ordinal);
-        Assert.Contains("_db.Ado.UseTranAsync", source, StringComparison.Ordinal);
-        Assert.Contains("descriptor.Steps", source, StringComparison.Ordinal);
+        await SchemaMigrationTransactionExecutor.ExecuteAsync(
+            db,
+            descriptor,
+            (step, _) =>
+            {
+                events.Add(step.Fingerprint);
+                return Task.CompletedTask;
+            },
+            CancellationToken.None);
+
+        Assert.Equal(
+            ["begin", descriptor.Steps[0].Fingerprint, descriptor.Steps[1].Fingerprint, "commit"],
+            events);
+        await ado.Received(1).UseTranAsync(Arg.Any<Func<Task>>());
     }
 
     [Theory]

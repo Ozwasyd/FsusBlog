@@ -30,6 +30,87 @@ public interface IActiveReleaseTransactionalCommitGuard
         CancellationToken cancellationToken = default);
 }
 
+internal static class ActiveReleaseFencedCommitSql
+{
+    internal const string AdvisoryLock = "SELECT pg_advisory_xact_lock_shared(1179862354);";
+
+    internal const string Enlist = """
+        WITH matching_fence AS MATERIALIZED (
+            SELECT release_id,
+                   slot,
+                   generation,
+                   image_digest
+            FROM sys_deployment_fence
+            WHERE id = 1
+              AND status = 'active'
+              AND release_id = @ReleaseId
+              AND slot = @Slot
+              AND generation = @Generation
+              AND image_digest = @ImageDigest
+            FOR SHARE
+        ), persisted_token AS (
+            INSERT INTO sys_fenced_commit (
+                commit_token,
+                operation_scope,
+                mutation_key,
+                release_id,
+                slot,
+                generation,
+                image_digest,
+                process_instance_id,
+                enlisted_at_utc)
+            SELECT @CommitToken,
+                   @OperationScope,
+                   @MutationKey,
+                   release_id,
+                   slot,
+                   generation,
+                   image_digest,
+                   @ProcessInstanceId,
+                   clock_timestamp() AT TIME ZONE 'utc'
+            FROM matching_fence
+            RETURNING commit_token, generation, enlisted_at_utc
+        )
+        SELECT commit_token, generation, enlisted_at_utc
+        FROM persisted_token;
+        """;
+
+    internal const string Audit = """
+        SELECT commit_token,
+               operation_scope,
+               mutation_key,
+               release_id,
+               slot,
+               generation,
+               enlisted_at_utc
+        FROM sys_fenced_commit AS committed
+        CROSS JOIN sys_deployment_fence AS fence
+        WHERE committed.enlisted_at_utc >= @CutoffUtc
+          AND fence.id = 1
+          AND (
+              committed.generation > fence.generation
+              OR (
+                  committed.generation = fence.generation
+                  AND (
+                      committed.release_id <> fence.release_id
+                      OR committed.slot <> fence.slot
+                      OR committed.image_digest <> fence.image_digest
+                      OR (
+                          fence.status = 'revoked'
+                          AND committed.enlisted_at_utc >= COALESCE(fence.revoked_at_utc, fence.updated_at_utc)
+                      )
+                  )
+              )
+              OR (
+                  committed.generation < fence.generation
+                  AND committed.enlisted_at_utc >= COALESCE(fence.activated_at_utc, fence.updated_at_utc)
+              )
+          )
+        ORDER BY committed.enlisted_at_utc DESC, committed.commit_token
+        LIMIT @BatchSize;
+        """;
+}
+
 public sealed class ActiveReleaseTransactionalCommitGuard(
     IActiveReleaseExecutionContextAccessor executionContext,
     IConfiguration configuration) : IActiveReleaseTransactionalCommitGuard
@@ -70,52 +151,10 @@ public sealed class ActiveReleaseTransactionalCommitGuard(
 
         cancellationToken.ThrowIfCancellationRequested();
         string commitToken = Guid.NewGuid().ToString("N");
-        await db.Ado.ExecuteCommandAsync(
-            "SELECT pg_advisory_xact_lock_shared(1179862354);").ConfigureAwait(false);
+        await db.Ado.ExecuteCommandAsync(ActiveReleaseFencedCommitSql.AdvisoryLock).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        const string sql = """
-            WITH matching_fence AS MATERIALIZED (
-                SELECT release_id,
-                       slot,
-                       generation,
-                       image_digest
-                FROM sys_deployment_fence
-                WHERE id = 1
-                  AND status = 'active'
-                  AND release_id = @ReleaseId
-                  AND slot = @Slot
-                  AND generation = @Generation
-                  AND image_digest = @ImageDigest
-                FOR SHARE
-            ), persisted_token AS (
-                INSERT INTO sys_fenced_commit (
-                    commit_token,
-                    operation_scope,
-                    mutation_key,
-                    release_id,
-                    slot,
-                    generation,
-                    image_digest,
-                    process_instance_id,
-                    enlisted_at_utc)
-                SELECT @CommitToken,
-                       @OperationScope,
-                       @MutationKey,
-                       release_id,
-                       slot,
-                       generation,
-                       image_digest,
-                       @ProcessInstanceId,
-                       clock_timestamp() AT TIME ZONE 'utc'
-                FROM matching_fence
-                RETURNING commit_token, generation, enlisted_at_utc
-            )
-            SELECT commit_token, generation, enlisted_at_utc
-            FROM persisted_token;
-            """;
-
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            sql,
+            ActiveReleaseFencedCommitSql.Enlist,
             new SugarParameter[]
             {
                 new("@ReleaseId", ticket.ReleaseId),
@@ -248,44 +287,9 @@ public sealed class ActiveReleaseFencedCommitAuditWorker(
             configuration.GetValue("ActiveReleaseFencedCommitAudit:BatchSize", 100),
             1,
             1000);
-        const string sql = """
-            SELECT commit_token,
-                   operation_scope,
-                   mutation_key,
-                   release_id,
-                   slot,
-                   generation,
-                   enlisted_at_utc
-            FROM sys_fenced_commit AS committed
-            CROSS JOIN sys_deployment_fence AS fence
-            WHERE committed.enlisted_at_utc >= @CutoffUtc
-              AND fence.id = 1
-              AND (
-                  committed.generation > fence.generation
-                  OR (
-                      committed.generation = fence.generation
-                      AND (
-                          committed.release_id <> fence.release_id
-                          OR committed.slot <> fence.slot
-                          OR committed.image_digest <> fence.image_digest
-                          OR (
-                              fence.status = 'revoked'
-                              AND committed.enlisted_at_utc >= COALESCE(fence.revoked_at_utc, fence.updated_at_utc)
-                          )
-                      )
-                  )
-                  OR (
-                      committed.generation < fence.generation
-                      AND committed.enlisted_at_utc >= COALESCE(fence.activated_at_utc, fence.updated_at_utc)
-                  )
-              )
-            ORDER BY committed.enlisted_at_utc DESC, committed.commit_token
-            LIMIT @BatchSize;
-            """;
-
         var violations = new List<ActiveReleaseFencedCommitViolation>();
         using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            sql,
+            ActiveReleaseFencedCommitSql.Audit,
             new SugarParameter[]
             {
                 new("@CutoffUtc", cutoffUtc),
@@ -347,15 +351,22 @@ public sealed class ActiveReleaseFencedCommitAuditWorker(
         DateTimeOffset EnlistedAtUtc);
 }
 
+internal static class ActiveReleaseFencedCommitMetricNames
+{
+    internal const string Enlistments = "fsus.active_release_fenced_commit.enlistments";
+    internal const string Audits = "fsus.active_release_fenced_commit.audits";
+    internal const string Violations = "fsus.active_release_fenced_commit.violations";
+}
+
 public static class ActiveReleaseFencedCommitMetrics
 {
     private static readonly Meter Meter = new(FsusObservability.MeterName, "1.0.0");
     private static readonly Counter<long> Enlistments = Meter.CreateCounter<long>(
-        "fsus.active_release_fenced_commit.enlistments");
+        ActiveReleaseFencedCommitMetricNames.Enlistments);
     private static readonly Counter<long> Audits = Meter.CreateCounter<long>(
-        "fsus.active_release_fenced_commit.audits");
+        ActiveReleaseFencedCommitMetricNames.Audits);
     private static readonly Counter<long> Violations = Meter.CreateCounter<long>(
-        "fsus.active_release_fenced_commit.violations");
+        ActiveReleaseFencedCommitMetricNames.Violations);
 
     public static void RecordEnlist(string result, string operationScope)
         => Enlistments.Add(1, new("result", result), new("operation_scope", operationScope));

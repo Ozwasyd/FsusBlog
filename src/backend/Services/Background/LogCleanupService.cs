@@ -24,6 +24,7 @@ public class LogCleanupService(
     IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
+    internal const string FencedCommitOperationScope = "fenced-commit-retention";
     private const int ChunkSize = 5000;
     private const int MaxChunksPerCycle = 200;
     private const int RumRetentionDays = 14;
@@ -168,7 +169,7 @@ public class LogCleanupService(
         Task<int> fencedCommitTask = CleanupWithScopedDbAsync(
             (db, scopedToken) => CleanupWithActiveReleaseGuardAsync(
                 db,
-                "fenced-commit-retention",
+                FencedCommitOperationScope,
                 CleanupFencedCommitTokensSql,
                 fencedCommitExpireDate,
                 scopedToken),

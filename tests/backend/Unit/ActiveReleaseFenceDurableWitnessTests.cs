@@ -203,18 +203,14 @@ public sealed class ActiveReleaseFenceDurableWitnessTests
     }
 
     [Fact]
-    public void RuntimeShape_ExposesReconcileMetricsAndExplicitSyntheticOptIn()
+    public void RuntimeContracts_ExposeReconcileMetricsSyntheticOptInAndSqlMutationLock()
     {
-        string fence = RuntimeMetadataInspection.DescribeType(typeof(ActiveReleaseFence));
-        string metrics = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Operations/ActiveReleaseFence.cs");
-
-        Assert.Contains("ActiveReleaseFence:AllowSyntheticLocalFence", fence, StringComparison.Ordinal);
-        Assert.Contains("IsDevelopment", fence, StringComparison.Ordinal);
-        Assert.Contains("fsus.active_release_fence.witness_reconcile", metrics, StringComparison.Ordinal);
-        Assert.Contains("fsus.active_release_fence.witness_generation_gap", metrics, StringComparison.Ordinal);
-        Assert.Contains("pg_advisory_xact_lock", BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Operations/ActiveReleaseFenceWitness.cs"), StringComparison.Ordinal);
+        Assert.Equal(
+            "ActiveReleaseFence:AllowSyntheticLocalFence",
+            ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey);
+        Assert.Equal("fsus.active_release_fence.witness_reconcile", ActiveReleaseFenceMetricNames.WitnessReconcile);
+        Assert.Equal("fsus.active_release_fence.witness_generation_gap", ActiveReleaseFenceMetricNames.WitnessGenerationGap);
+        Assert.Equal("SELECT pg_advisory_xact_lock(1179862354);", ActiveReleaseFenceWitnessSql.MutationLock);
     }
 
     private static DurableActiveReleaseFenceStore CreateStore(

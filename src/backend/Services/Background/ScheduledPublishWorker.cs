@@ -18,6 +18,7 @@ public sealed class ScheduledPublishWorker(
     IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null) : BackgroundService
 {
+    internal const string FencedCommitOperationScope = "scheduled-publish";
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -128,7 +129,7 @@ public sealed class ScheduledPublishWorker(
                     await mutationSideEffects
                         .CommitPublicMutationFenceAsync(
                             null,
-                            "scheduled-published",
+                            ArticleMutationEventTypes.ScheduledPublished,
                             CancellationToken.None)
                         .ConfigureAwait(false);
 
@@ -238,7 +239,7 @@ public sealed class ScheduledPublishWorker(
                 $"scheduled-publish:{now:O}:{claimedArticleIds.Count}:{claimedArticleIds[0]}:{claimedArticleIds[^1]}");
             await transactionalCommitGuard.EnlistAsync(
                 db,
-                "scheduled-publish",
+                FencedCommitOperationScope,
                 mutationKey,
                 cancellationToken).ConfigureAwait(false);
         });
@@ -313,7 +314,7 @@ public sealed class ScheduledPublishWorker(
         {
             EventId = Guid.NewGuid().ToString("N"),
             AggregateId = articleId,
-            EventType = "scheduled-published",
+            EventType = ArticleMutationEventTypes.ScheduledPublished,
             PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"scheduled-published\"}}",
             Status = "pending",
             RetryCount = 0,

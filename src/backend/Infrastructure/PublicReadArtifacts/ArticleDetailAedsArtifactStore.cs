@@ -40,6 +40,47 @@ public interface IArticleDetailAedsArtifactProjector
     Task RemoveAsync(int articleId, CancellationToken cancellationToken = default);
 }
 
+internal static class ArticleDetailProjectionCommitSequence
+{
+    internal static async Task PublishAsync(
+        Func<Task> upsertProjection,
+        Func<Task<bool>> verifyShadowParity,
+        Func<Task> writeArtifact)
+    {
+        ArgumentNullException.ThrowIfNull(upsertProjection);
+        ArgumentNullException.ThrowIfNull(verifyShadowParity);
+        ArgumentNullException.ThrowIfNull(writeArtifact);
+
+        await upsertProjection().ConfigureAwait(false);
+        if (!await verifyShadowParity().ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("public_article_projection_shadow_mismatch");
+        }
+
+        await writeArtifact().ConfigureAwait(false);
+    }
+
+    internal static async Task MarkUnavailableAsync(
+        Func<Task> markProjectionUnavailable,
+        Func<Task> removeArtifact)
+    {
+        ArgumentNullException.ThrowIfNull(markProjectionUnavailable);
+        ArgumentNullException.ThrowIfNull(removeArtifact);
+
+        await markProjectionUnavailable().ConfigureAwait(false);
+        await removeArtifact().ConfigureAwait(false);
+    }
+}
+
+internal static class PublicArticleProjectionBackfillPolicy
+{
+    internal static int ResolveParallelism(int itemCount, int ratePerSecond, int backgroundGateLimit)
+        => Math.Clamp(Math.Min(ratePerSecond, backgroundGateLimit), 1, Math.Max(1, itemCount));
+
+    internal static int ResolveBatchSize(int backgroundGateLimit)
+        => Math.Clamp(backgroundGateLimit * 32, 32, 512);
+}
+
 public sealed record ArticleDetailAedsArtifactMaintenanceResult(
     int Scanned,
     int Rebuilt,
@@ -445,11 +486,11 @@ public sealed class ArticleDetailAedsArtifactMaintenanceService(
     private int ResolveBackfillParallelism(int itemCount, int ratePerSecond)
     {
         int gateLimit = ResolveBackgroundGateLimit();
-        return Math.Clamp(Math.Min(ratePerSecond, gateLimit), 1, Math.Max(1, itemCount));
+        return PublicArticleProjectionBackfillPolicy.ResolveParallelism(itemCount, ratePerSecond, gateLimit);
     }
 
     private int ResolveProjectionBackfillBatchSize()
-        => Math.Clamp(ResolveBackgroundGateLimit() * 32, 32, 512);
+        => PublicArticleProjectionBackfillPolicy.ResolveBatchSize(ResolveBackgroundGateLimit());
 
     private int ResolveBackgroundGateLimit()
         => dbGate is IClassifiedDbConcurrencyGate classified
@@ -968,8 +1009,9 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 ArticleDetailReadModel? article = await LoadArticleDetailFromDbAsync(articleId, ct).ConfigureAwait(false);
                 if (article is null)
                 {
-                    await publicProjection.MarkUnavailableAsync(articleId, "not-public", ct).ConfigureAwait(false);
-                    await store.RemoveAsync(articleId, ct).ConfigureAwait(false);
+                    await ArticleDetailProjectionCommitSequence.MarkUnavailableAsync(
+                        () => publicProjection.MarkUnavailableAsync(articleId, "not-public", ct),
+                        () => store.RemoveAsync(articleId, ct)).ConfigureAwait(false);
                     return true;
                 }
 
@@ -977,8 +1019,9 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 {
                     logger.LogWarning("article_detail_aeds_rights_missing {ArticleId}", articleId);
                     FsusObservability.RecordOperation("public_read_artifact", "article_detail_aeds", "rights_missing", TimeSpan.Zero);
-                    await publicProjection.MarkUnavailableAsync(articleId, "rights-missing", ct).ConfigureAwait(false);
-                    await store.RemoveAsync(articleId, ct).ConfigureAwait(false);
+                    await ArticleDetailProjectionCommitSequence.MarkUnavailableAsync(
+                        () => publicProjection.MarkUnavailableAsync(articleId, "rights-missing", ct),
+                        () => store.RemoveAsync(articleId, ct)).ConfigureAwait(false);
                     throw new InvalidOperationException($"article_detail_aeds_rights_missing:{articleId}");
                 }
 
@@ -986,15 +1029,12 @@ public sealed class ArticleDetailAedsArtifactProjector(
                 byte[] frame = aeds.Encode(AedsFrameType.ArticleDetail, payload);
                 string contentHash = PublicArticleProjectionStore.CreateContentHash(frame);
                 string etag = PublicArticleProjectionStore.CreateETag(frame);
-                await publicProjection.UpsertAsync(
-                    new PublicArticleProjectionWrite(articleId, frame, etag, contentHash, DateTimeOffset.UtcNow),
-                    ct).ConfigureAwait(false);
-                bool shadowParity = await publicProjection.VerifyShadowParityAsync(articleId, frame, ct).ConfigureAwait(false);
-                if (!shadowParity)
-                {
-                    throw new InvalidOperationException($"public_article_projection_shadow_mismatch:{articleId}");
-                }
-                await store.WriteAsync(articleId, frame, ct).ConfigureAwait(false);
+                await ArticleDetailProjectionCommitSequence.PublishAsync(
+                    () => publicProjection.UpsertAsync(
+                        new PublicArticleProjectionWrite(articleId, frame, etag, contentHash, DateTimeOffset.UtcNow),
+                        ct),
+                    () => publicProjection.VerifyShadowParityAsync(articleId, frame, ct),
+                    () => store.WriteAsync(articleId, frame, ct)).ConfigureAwait(false);
                 return true;
             },
             _ => Task.FromException<bool>(new TimeoutException($"db-gate-timeout:public-article-projection-build:{articleId}")),
@@ -1002,8 +1042,9 @@ public sealed class ArticleDetailAedsArtifactProjector(
 
     public async Task RemoveAsync(int articleId, CancellationToken cancellationToken = default)
     {
-        await publicProjection.MarkUnavailableAsync(articleId, "removed", cancellationToken).ConfigureAwait(false);
-        await store.RemoveAsync(articleId, cancellationToken).ConfigureAwait(false);
+        await ArticleDetailProjectionCommitSequence.MarkUnavailableAsync(
+            () => publicProjection.MarkUnavailableAsync(articleId, "removed", cancellationToken),
+            () => store.RemoveAsync(articleId, cancellationToken)).ConfigureAwait(false);
     }
 
     private async Task<ArticleDetailReadModel?> LoadArticleDetailFromDbAsync(int id, CancellationToken ct)

@@ -49,6 +49,16 @@ public interface IPublicArticleProjectionStore
         CancellationToken cancellationToken = default);
 }
 
+internal static class PublicArticleProjectionReadContract
+{
+    internal const string EnabledConfigurationKey = "Database:PublicArticleProjection:Enabled";
+    internal const CommandBehavior Behavior = CommandBehavior.SequentialAccess | CommandBehavior.SingleRow;
+    internal const int VersionOrdinal = 0;
+    internal const int FrameOrdinal = 1;
+    internal const int ETagOrdinal = 2;
+    internal const int UpdatedAtOrdinal = 3;
+}
+
 public sealed record PublicArticleProjectionRuntimeSnapshot(
     int MaxPoolSize,
     int Active,
@@ -291,7 +301,7 @@ public sealed class PublicArticleProjectionStore(
         LIMIT 1;
         """;
 
-    private const string UpsertSql = """
+    internal const string UpsertSql = """
         INSERT INTO public_article_projection (
             article_id,
             version,
@@ -319,7 +329,7 @@ public sealed class PublicArticleProjectionStore(
             projection_schema_version = EXCLUDED.projection_schema_version;
         """;
 
-    private const string MarkUnavailableSql = """
+    internal const string MarkUnavailableSql = """
         INSERT INTO public_article_projection (
             article_id,
             version,
@@ -347,7 +357,7 @@ public sealed class PublicArticleProjectionStore(
             projection_schema_version = EXCLUDED.projection_schema_version;
         """;
 
-    private const string RecordShadowMismatchSql = """
+    internal const string RecordShadowMismatchSql = """
         INSERT INTO public_article_projection_shadow_mismatch (
             article_id,
             expected_hash,
@@ -358,7 +368,7 @@ public sealed class PublicArticleProjectionStore(
         VALUES (@ArticleId, @ExpectedHash, @ActualHash, @ProjectionVersion, @Reason, now() AT TIME ZONE 'utc');
         """;
 
-    private const string ShadowReadSql = """
+    internal const string ShadowReadSql = """
         SELECT version, aeds_payload
         FROM public_article_projection
         WHERE article_id = @ArticleId
@@ -375,7 +385,7 @@ public sealed class PublicArticleProjectionStore(
             return Task.FromResult(new PublicArticleProjectionReadResult(PublicArticleProjectionReadStatus.NotFound, 0, default, null, null));
         }
 
-        if (!configuration.GetValue("Database:PublicArticleProjection:Enabled", true))
+        if (!configuration.GetValue(PublicArticleProjectionReadContract.EnabledConfigurationKey, true))
         {
             return Task.FromResult(new PublicArticleProjectionReadResult(
                 PublicArticleProjectionReadStatus.Unavailable,
@@ -524,7 +534,7 @@ public sealed class PublicArticleProjectionStore(
                 command.Parameters.Add(new NpgsqlParameter<int> { TypedValue = articleId });
                 await command.PrepareAsync(cancellationToken).ConfigureAwait(false);
                 await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(
-                    CommandBehavior.SequentialAccess | CommandBehavior.SingleRow,
+                    PublicArticleProjectionReadContract.Behavior,
                     cancellationToken).ConfigureAwait(false);
                 if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                 {
@@ -532,10 +542,12 @@ public sealed class PublicArticleProjectionStore(
                     return new PublicArticleProjectionReadResult(status, 0, default, null, null);
                 }
 
-                long version = reader.GetInt64(0);
-                byte[] frame = await reader.GetFieldValueAsync<byte[]>(1, cancellationToken).ConfigureAwait(false);
-                string etag = reader.GetString(2);
-                DateTime updatedAt = reader.GetDateTime(3);
+                long version = reader.GetInt64(PublicArticleProjectionReadContract.VersionOrdinal);
+                byte[] frame = await reader.GetFieldValueAsync<byte[]>(
+                    PublicArticleProjectionReadContract.FrameOrdinal,
+                    cancellationToken).ConfigureAwait(false);
+                string etag = reader.GetString(PublicArticleProjectionReadContract.ETagOrdinal);
+                DateTime updatedAt = reader.GetDateTime(PublicArticleProjectionReadContract.UpdatedAtOrdinal);
                 if (!TryValidateFrame(frame, etag, out string? validationError))
                 {
                     status = PublicArticleProjectionReadStatus.Invalid;

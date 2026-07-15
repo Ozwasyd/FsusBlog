@@ -409,9 +409,9 @@ public static class ProductionStartupValidator
         List<string> errors)
     {
         if (enforceProductionRules
-            && configuration.GetValue("ActiveReleaseFence:AllowSyntheticLocalFence", false))
+            && configuration.GetValue(ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey, false))
         {
-            errors.Add("ActiveReleaseFence:AllowSyntheticLocalFence must be false outside Development.");
+            errors.Add($"{ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey} must be false outside Development.");
         }
 
         if (!enforceProductionRules)

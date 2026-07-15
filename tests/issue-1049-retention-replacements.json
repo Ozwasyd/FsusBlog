@@ -349,8 +349,8 @@
       "path": "tests/frontend/unit/api/readProof.test.ts",
       "replacementTestIds": [
         "node-script:tests/frontend/checks/static/check-frontend-backend-api-parity.mjs",
-        "vitest:tests/frontend/unit/api/readProof.test.ts#requests-challenge-with-an-aeds-request-frame-and-device-a7041a809b",
-        "vitest:tests/frontend/unit/api/readProof.test.ts#submits-proof-with-an-aeds-request-frame-and-device-fing-1bc46276e8"
+        "vitest:tests/frontend/unit/api/readProof.test.ts#requests-challenge-without-a-stable-cross-article-finger-f7240d45d1",
+        "vitest:tests/frontend/unit/api/readProof.test.ts#submits-proof-without-a-stable-cross-article-fingerprint-42f7945dba"
       ],
       "reason": "API parity and actual AEDS challenge/submission transport replace a source search for JSON fallback."
     },

@@ -364,7 +364,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicHotArtifactProjector_DeltaRebuildsOnlyAffectedListScopes",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning",
+        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_InvalidatesEveryPaginatedListingIdentity",
         "shell:tools/test/lanes/backend-benchmark-regression.sh"
       ],
       "reason": "Affected listing invalidation is behavior-owned while delta rebuild cost belongs to #1042."
@@ -373,7 +373,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.PublicAotInvalidation_BatchesRouteRemovalsThroughCacheInterface",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_BumpsListingVersionsWithoutPrefixScanning"
+        "xunit:tests/backend/Unit/PublicAotInvalidationTrackerTests.cs#PublicAotInvalidationTrackerTests.InvalidateArticleMutationAsync_InvalidatesEveryPaginatedListingIdentity"
       ],
       "reason": "The recording cache observes exact removals, version bumps, and scheduled routes."
     },
@@ -437,7 +437,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_ReadsV3FrameAndRejectsLegacyArticleDetailFrame",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_AcceptsV3FrameAndRejectsLegacyArticleDetailFrame"
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_AcceptsCurrentV4AndReadCompatibleV3FramesAndRejectsRetiredPayload"
       ],
       "reason": "V3 acceptance and legacy write rejection moved intact."
     },
@@ -453,7 +453,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactStore_RejectsNonV3PayloadMagic",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_RejectsNonV3PayloadMagic"
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.WriteAsync_RejectsUnsupportedPayloadMagic"
       ],
       "reason": "Non-V3 payload magic rejection moved intact and now asserts no file is written."
     },
@@ -461,7 +461,7 @@
       "id": "xunit:tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs#PublicAotArtifactPipelineHotPathContractTests.ArticleDetailAedsArtifactMaintenanceService_ClearLegacyPublicArtifactsRemovesOnlyNonV3Frames",
       "path": "tests/backend/Unit/PublicAotArtifactPipelineHotPathContractTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.ClearLegacyPublicArtifactsAsync_RemovesOnlyNonV3Frames"
+        "xunit:tests/backend/Unit/ArticleDetailAedsArtifactStoreBehaviorTests.cs#ArticleDetailAedsArtifactStoreBehaviorTests.ClearLegacyPublicArtifactsAsync_PreservesSupportedV3AndV4Frames"
       ],
       "reason": "Filesystem cleanup behavior moved intact with an explicit zero-failure assertion."
     },

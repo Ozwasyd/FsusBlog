@@ -25,28 +25,18 @@ public sealed class AedsProtocolCrossLanguageTests
     [Fact]
     public void GeneratedContracts_CoverEveryFrameTypeAndTheExactV2HeaderLayout()
     {
+        AssertGeneratedProtocolIsInSync();
         Dictionary<string, ushort> coreFrameTypes = Enum.GetValues<CoreFrameType>()
             .ToDictionary(static value => value.ToString(), static value => (ushort)value, StringComparer.Ordinal);
         Dictionary<string, ushort> sharedFrameTypes = Enum.GetValues<FsusBlog.Shared.AedsFrameType>()
             .ToDictionary(static value => value.ToString(), static value => (ushort)value, StringComparer.Ordinal);
-        string cppHeader = File.ReadAllText(BackendTestPaths.FromRoot("src/frontend/wasm/aeds/include/aeds_frame.hpp"));
-        Dictionary<string, ushort> cppFrameTypes = Regex.Matches(
-                cppHeader,
-                @"^\s{2}(?<name>[A-Z][A-Za-z0-9]*) = (?<value>\d+),$",
-                RegexOptions.Multiline | RegexOptions.CultureInvariant)
-            .ToDictionary(
-                static match => match.Groups["name"].Value,
-                static match => ushort.Parse(match.Groups["value"].Value, System.Globalization.CultureInfo.InvariantCulture),
-                StringComparer.Ordinal);
 
         Assert.Equal(AedsProtocolMetadata.FrameTypes.Count, coreFrameTypes.Count);
         Assert.Equal(coreFrameTypes.Count, sharedFrameTypes.Count);
-        Assert.Equal(coreFrameTypes.Count, cppFrameTypes.Count);
         foreach ((string name, ushort value) in AedsProtocolMetadata.FrameTypes)
         {
             Assert.Equal(value, coreFrameTypes[name]);
             Assert.Equal(value, sharedFrameTypes[name]);
-            Assert.Equal(value, cppFrameTypes[name]);
         }
         Assert.False(File.Exists(BackendTestPaths.FromRoot("src/core/Algorithms/AedsFrameHeader.cs")));
 
@@ -760,6 +750,25 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.True(string.IsNullOrWhiteSpace(stderr), stderr);
         Assert.False(string.IsNullOrWhiteSpace(stdout));
         return stdout;
+    }
+
+    private static void AssertGeneratedProtocolIsInSync()
+    {
+        var startInfo = new ProcessStartInfo("node")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        startInfo.ArgumentList.Add(BackendTestPaths.FromRoot("tools/frontend/generate-aeds-protocol.mjs"));
+        startInfo.ArgumentList.Add("--check");
+
+        using Process process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Unable to verify generated AEDS protocol surfaces.");
+        string stdout = process.StandardOutput.ReadToEnd();
+        string stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        Assert.True(process.ExitCode == 0, $"{stdout}{Environment.NewLine}{stderr}");
     }
 
     private static byte[] ReadProtocolFixtureBytes(string fileName)

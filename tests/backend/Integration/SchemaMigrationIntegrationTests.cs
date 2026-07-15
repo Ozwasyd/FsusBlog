@@ -360,6 +360,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
             ArticleMutationReplayEdges.SearchProjection,
             ArticleMutationReplayEdges.ArticleDetailAeds,
             ArticleMutationReplayEdges.TaxonomyProjection,
+            ArticleMutationReplayEdges.PublicArtifactRevocation,
             ArticleMutationReplayEdges.PublicHotRead
         };
         coordinator.ReplayOutboxAsync(77, "updated", Arg.Any<string>(), Arg.Any<IReadOnlySet<string>>(), Arg.Any<CancellationToken>())
@@ -2080,6 +2081,7 @@ public sealed class SchemaMigrationIntegrationTests(PostgresSchemaMigrationFixtu
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.ClearProviders());
+        services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
             .AddInMemoryCollection(
             [

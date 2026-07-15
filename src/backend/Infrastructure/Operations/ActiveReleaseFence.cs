@@ -703,7 +703,7 @@ public sealed class ActiveReleaseFence(
 
     private bool UseSyntheticLocalFence()
         => environment.IsDevelopment()
-            && configuration.GetValue("ActiveReleaseFence:AllowSyntheticLocalFence", false)
+            && configuration.GetValue(ActiveReleaseFenceAvailabilityPolicy.AllowSyntheticLocalFenceKey, false)
             && !_local.Configured
             && string.Equals(_local.ReleaseSlot, "local", StringComparison.Ordinal);
 
@@ -839,17 +839,29 @@ public sealed class ActiveReleaseFenceRefreshWorker(
     }
 }
 
+internal static class ActiveReleaseFenceMetricNames
+{
+    internal const string Operations = "fsus.active_release_fence.operations";
+    internal const string Eligibility = "fsus.active_release_fence.eligibility";
+    internal const string WitnessReconcile = "fsus.active_release_fence.witness_reconcile";
+    internal const string WitnessGenerationGap = "fsus.active_release_fence.witness_generation_gap";
+    internal const string RefreshFailures = "fsus.active_release_fence.refresh_failures";
+    internal const string ConsecutiveRefreshFailures = "fsus.active_release_fence.refresh_consecutive_failures";
+    internal const string RefreshStaleSeconds = "fsus.active_release_fence.refresh_stale_seconds";
+    internal const string RefreshShutdowns = "fsus.active_release_fence.refresh_shutdowns";
+}
+
 public static class ActiveReleaseFenceMetrics
 {
     private static readonly Meter Meter = new(FsusObservability.MeterName, "1.0.0");
-    private static readonly Counter<long> Operations = Meter.CreateCounter<long>("fsus.active_release_fence.operations");
-    private static readonly Counter<long> Eligibility = Meter.CreateCounter<long>("fsus.active_release_fence.eligibility");
-    private static readonly Counter<long> WitnessReconcile = Meter.CreateCounter<long>("fsus.active_release_fence.witness_reconcile");
-    private static readonly Histogram<long> WitnessGenerationGap = Meter.CreateHistogram<long>("fsus.active_release_fence.witness_generation_gap");
-    private static readonly Counter<long> RefreshFailures = Meter.CreateCounter<long>("fsus.active_release_fence.refresh_failures");
-    private static readonly Histogram<long> ConsecutiveRefreshFailures = Meter.CreateHistogram<long>("fsus.active_release_fence.refresh_consecutive_failures");
-    private static readonly Histogram<double> RefreshStaleSeconds = Meter.CreateHistogram<double>("fsus.active_release_fence.refresh_stale_seconds");
-    private static readonly Counter<long> RefreshShutdowns = Meter.CreateCounter<long>("fsus.active_release_fence.refresh_shutdowns");
+    private static readonly Counter<long> Operations = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.Operations);
+    private static readonly Counter<long> Eligibility = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.Eligibility);
+    private static readonly Counter<long> WitnessReconcile = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.WitnessReconcile);
+    private static readonly Histogram<long> WitnessGenerationGap = Meter.CreateHistogram<long>(ActiveReleaseFenceMetricNames.WitnessGenerationGap);
+    private static readonly Counter<long> RefreshFailures = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.RefreshFailures);
+    private static readonly Histogram<long> ConsecutiveRefreshFailures = Meter.CreateHistogram<long>(ActiveReleaseFenceMetricNames.ConsecutiveRefreshFailures);
+    private static readonly Histogram<double> RefreshStaleSeconds = Meter.CreateHistogram<double>(ActiveReleaseFenceMetricNames.RefreshStaleSeconds);
+    private static readonly Counter<long> RefreshShutdowns = Meter.CreateCounter<long>(ActiveReleaseFenceMetricNames.RefreshShutdowns);
 
     public static void RecordOperation(string operation, string result, string reason)
         => Operations.Add(1, new("operation", operation), new("result", result), new("reason", NormalizeReason(reason)));

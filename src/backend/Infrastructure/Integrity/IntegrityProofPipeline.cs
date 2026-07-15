@@ -126,7 +126,9 @@ public static class IntegrityProofOutboxPlanner
     internal static PublishProofPublicationState ResolvePublicationState(string eventType)
         => NormalizeEventType(eventType) switch
         {
-            "deleted" or "permanently-deleted" or "trash-cleared" => PublishProofPublicationState.Deleted,
+            ArticleMutationEventTypes.Deleted
+                or ArticleMutationEventTypes.PermanentlyDeleted
+                or ArticleMutationEventTypes.TrashCleared => PublishProofPublicationState.Deleted,
             "archived" => PublishProofPublicationState.Archived,
             "scheduled" => PublishProofPublicationState.Scheduled,
             _ => PublishProofPublicationState.Public
@@ -315,7 +317,7 @@ public sealed class IntegrityProofScheduler(
         {
             EventId = Guid.NewGuid().ToString("N"),
             AggregateId = articleId,
-            EventType = "rights-proof-updated",
+            EventType = ArticleMutationEventTypes.RightsProofUpdated,
             PayloadJson = $"{{\"articleId\":{articleId},\"eventType\":\"rights-proof-updated\"}}",
             Status = "pending",
             RetryCount = 0,

@@ -451,7 +451,7 @@ public static partial class BinaryEndpoints
                 await InsertTaxonomyProjectionOutboxAsync(
                     db,
                     affectedArticleIds,
-                    "category-updated",
+                    ArticleMutationEventTypes.CategoryUpdated,
                     cancellationToken);
             }
         });
@@ -533,7 +533,7 @@ public static partial class BinaryEndpoints
                 await InsertTaxonomyProjectionOutboxAsync(
                     db,
                     affectedArticleIds,
-                    "tag-updated",
+                    ArticleMutationEventTypes.TagUpdated,
                     cancellationToken);
             }
         });

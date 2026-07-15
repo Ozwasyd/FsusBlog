@@ -21,6 +21,13 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
 
+internal static class PublicArticleProjectionAdminActions
+{
+    internal const string Status = "public-article-projection-backfill-status";
+    internal const string Pause = "public-article-projection-backfill-pause";
+    internal const string Resume = "public-article-projection-backfill-resume";
+}
+
 public sealed class AdminOperationsService(
     ISqlSugarClient db,
     IWebHostEnvironment environment,
@@ -316,7 +323,7 @@ public sealed class AdminOperationsService(
                     await articleDetailAedsMaintenance.RebuildArticleDetailAedsV3Async(all, request.ArticleId, cancellationToken);
                 return ActionResult(action, result.Failed == 0 ? "ok" : "degraded", result.ToDetail());
             }
-            case "public-article-projection-backfill-status":
+            case PublicArticleProjectionAdminActions.Status:
             {
                 PublicArticleProjectionBackfillState state =
                     await articleDetailAedsMaintenance.GetPublicProjectionBackfillStateAsync(cancellationToken);
@@ -325,10 +332,10 @@ public sealed class AdminOperationsService(
                     state.State,
                     $"lastArticleId={state.LastArticleId}, ratePerSecond={state.RatePerSecond}, rebuilt={state.RebuiltCount}, failed={state.FailedCount}, updatedAt={state.UpdatedAtUtc:O}");
             }
-            case "public-article-projection-backfill-pause":
+            case PublicArticleProjectionAdminActions.Pause:
                 await articleDetailAedsMaintenance.PausePublicProjectionBackfillAsync(cancellationToken);
                 return ActionResult(action, "paused", "public article projection backfill paused at the durable watermark");
-            case "public-article-projection-backfill-resume":
+            case PublicArticleProjectionAdminActions.Resume:
             {
                 ArticleDetailAedsArtifactMaintenanceResult result =
                     await articleDetailAedsMaintenance.ResumePublicProjectionBackfillAsync(cancellationToken);

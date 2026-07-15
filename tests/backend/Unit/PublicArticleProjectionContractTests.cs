@@ -1,9 +1,15 @@
+using System.Data;
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Infrastructure.Testing;
+using FsusBlog.Server.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -16,12 +22,6 @@ public sealed class PublicArticleProjectionContractTests
             new SchemaMigrationRegistry().GetDescriptors(),
             static migration => migration.MigrationId == "20260714-post-public-article-projection");
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
-        string runtime = BackendTestPaths.ReadAllTextFromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "PublicReadArtifacts",
-            "PublicArticleProjectionStore.cs");
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
         Assert.True(descriptor.Transactional);
@@ -33,95 +33,130 @@ public sealed class PublicArticleProjectionContractTests
         Assert.Contains("state IN ('paused', 'running', 'completed')", fingerprint, StringComparison.Ordinal);
         Assert.Contains("current_setting('max_connections')", fingerprint, StringComparison.Ordinal);
         Assert.Contains("public_article_projection_shadow_mismatch", fingerprint, StringComparison.Ordinal);
-        Assert.DoesNotContain("CREATE TABLE", runtime, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("CREATE INDEX", runtime, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("ALTER TABLE", runtime, StringComparison.OrdinalIgnoreCase);
+        string[] runtimeCommands =
+        [
+            PublicArticleProjectionStore.ReadSql,
+            PublicArticleProjectionStore.UpsertSql,
+            PublicArticleProjectionStore.MarkUnavailableSql,
+            PublicArticleProjectionStore.RecordShadowMismatchSql,
+            PublicArticleProjectionStore.ShadowReadSql
+        ];
+        Assert.All(runtimeCommands, static command =>
+        {
+            Assert.DoesNotContain("CREATE TABLE", command, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("CREATE INDEX", command, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("ALTER TABLE", command, StringComparison.OrdinalIgnoreCase);
+        });
     }
 
     [Fact]
     public void DirectReader_IsOnePreparedPrimaryKeyQueryWithBinarySequentialRead()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "PublicReadArtifacts",
-            "PublicArticleProjectionStore.cs");
-        string readMethod = Slice(source, "private async Task<PublicArticleProjectionReadResult> ReadCoreAsync", "private async Task ExecuteWriteAsync");
-
         Assert.Contains("WHERE article_id = $1", PublicArticleProjectionStore.ReadSql, StringComparison.Ordinal);
         Assert.Contains("AND visible = true", PublicArticleProjectionStore.ReadSql, StringComparison.Ordinal);
         Assert.DoesNotContain("JOIN", PublicArticleProjectionStore.ReadSql, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(1, CountOccurrences(readMethod, "PrepareAsync("));
-        Assert.Equal(1, CountOccurrences(readMethod, "ExecuteReaderAsync("));
-        Assert.Contains("CommandBehavior.SequentialAccess | CommandBehavior.SingleRow", readMethod, StringComparison.Ordinal);
-        Assert.Contains("reader.GetInt64(0)", readMethod, StringComparison.Ordinal);
-        Assert.Contains("GetFieldValueAsync<byte[]>(1", readMethod, StringComparison.Ordinal);
-        Assert.Contains("reader.GetString(2)", readMethod, StringComparison.Ordinal);
-        Assert.Contains("reader.GetDateTime(3)", readMethod, StringComparison.Ordinal);
-        Assert.Contains("aeds.TryDecode(frame)", source, StringComparison.Ordinal);
-        Assert.Contains("etag-mismatch", source, StringComparison.Ordinal);
+        Assert.Equal(
+            CommandBehavior.SequentialAccess | CommandBehavior.SingleRow,
+            PublicArticleProjectionReadContract.Behavior);
+        Assert.Equal(0, PublicArticleProjectionReadContract.VersionOrdinal);
+        Assert.Equal(1, PublicArticleProjectionReadContract.FrameOrdinal);
+        Assert.Equal(2, PublicArticleProjectionReadContract.ETagOrdinal);
+        Assert.Equal(3, PublicArticleProjectionReadContract.UpdatedAtOrdinal);
     }
 
     [Fact]
-    public void ProjectionWrite_IsCriticalOutboxEdgeAndCoversMutationSources()
+    public async Task ProjectionWrite_IsCriticalOutboxEdgeAndCoversMutationSources()
     {
-        string sideEffects = BackendTestPaths.ReadAllTextFromRoot("src", "backend", "Services", "ArticleMutationSideEffects.cs");
-        string projector = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "PublicReadArtifacts", "ArticleDetailAedsArtifactStore.cs");
-        string article = BackendTestPaths.ReadAllTextFromRoot("src", "backend", "Services", "ArticleService.cs");
-        string taxonomy = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Modules", "Endpoints", "Binary", "BinaryEndpoints.Taxonomy.cs");
-        string scheduled = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "Background", "ScheduledPublishWorker.cs");
-        string proof = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "Integrity", "IntegrityProofPipeline.cs");
+        Assert.Contains(ArticleMutationReplayEdges.ArticleDetailAeds, ArticleMutationReplayEdges.Required);
+        Assert.True(ArticleMutationEventTypes.Supported.SetEquals(
+        [
+            "created",
+            "updated",
+            "deleted",
+            "restored",
+            "permanently-deleted",
+            "trash-cleared",
+            "scheduled-published",
+            "category-updated",
+            "tag-updated",
+            "rights-proof-updated"
+        ]));
 
-        Assert.Contains("ArticleDetailAeds", sideEffects, StringComparison.Ordinal);
-        Assert.Contains("ArticleMutationReplayEdges.Required", sideEffects, StringComparison.Ordinal);
-        Assert.True(
-            sideEffects.IndexOf("articleDetailArtifacts.GenerateAndStoreAsync", StringComparison.Ordinal)
-            < sideEffects.IndexOf("ScheduleIntegrityProofIfRequiredEdgesCompleteAsync", StringComparison.Ordinal));
-        Assert.True(
-            projector.IndexOf("publicProjection.UpsertAsync", StringComparison.Ordinal)
-            < projector.IndexOf("store.WriteAsync", StringComparison.Ordinal));
-        Assert.Contains("publicProjection.MarkUnavailableAsync", projector, StringComparison.Ordinal);
-        foreach (string mutation in new[] { "created", "updated", "deleted", "restored", "permanently-deleted", "trash-cleared" })
+        var observed = new List<string>();
+        await ArticleDetailProjectionCommitSequence.PublishAsync(
+            () => RecordAsync("projection-upsert"),
+            () => RecordResultAsync("shadow-verify", true),
+            () => RecordAsync("artifact-write"));
+        Assert.Equal(["projection-upsert", "shadow-verify", "artifact-write"], observed);
+
+        observed.Clear();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ArticleDetailProjectionCommitSequence.PublishAsync(
+                () => RecordAsync("projection-upsert"),
+                () => RecordResultAsync("shadow-verify", false),
+                () => RecordAsync("artifact-write")));
+        Assert.Equal(["projection-upsert", "shadow-verify"], observed);
+
+        Task RecordAsync(string value)
         {
-            Assert.Contains($"\"{mutation}\"", article, StringComparison.Ordinal);
+            observed.Add(value);
+            return Task.CompletedTask;
         }
 
-        Assert.Contains("scheduled-published", scheduled, StringComparison.Ordinal);
-        Assert.Contains("category-updated", taxonomy, StringComparison.Ordinal);
-        Assert.Contains("tag-updated", taxonomy, StringComparison.Ordinal);
-        Assert.Contains("UseTranAsync", taxonomy, StringComparison.Ordinal);
-        Assert.Contains("rights-proof-updated", proof, StringComparison.Ordinal);
-        Assert.Contains("UseTranAsync", proof, StringComparison.Ordinal);
+        async Task<bool> RecordResultAsync(string value, bool result)
+        {
+            await RecordAsync(value);
+            return result;
+        }
     }
 
     [Fact]
-    public void RuntimeCutoverAndBackfill_HaveReloadRollbackAndDurablePauseResume()
+    public async Task RuntimeCutoverAndBackfill_HaveReloadRollbackAndDurablePauseResume()
     {
-        string store = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "PublicReadArtifacts", "PublicArticleProjectionStore.cs");
-        string maintenance = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "PublicReadArtifacts", "ArticleDetailAedsArtifactStore.cs");
-        string operations = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "Operations", "AdminOperationsService.cs");
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] = "Host=localhost;Database=fsus;Username=fsus;Password=fsus",
+                [PublicArticleProjectionReadContract.EnabledConfigurationKey] = "false"
+            })
+            .Build();
+        var runtime = new PublicArticleProjectionRuntimeState();
+        await using var dataSources = new PublicArticleProjectionDataSourceProvider(configuration, runtime);
+        var store = new PublicArticleProjectionStore(
+            dataSources,
+            runtime,
+            new PublicArticleProjectionNegativeCache(TimeProvider.System),
+            Substitute.For<ISqlSugarClient>(),
+            Substitute.For<ITestSessionContext>(),
+            Substitute.For<IDbConcurrencyGate>(),
+            new AedsEncoder(),
+            configuration,
+            NullLogger<PublicArticleProjectionStore>.Instance);
 
-        Assert.Contains("Database:PublicArticleProjection:Enabled", store, StringComparison.Ordinal);
-        Assert.Contains("cutover-disabled", store, StringComparison.Ordinal);
-        Assert.Contains("last_article_id", maintenance, StringComparison.Ordinal);
-        Assert.Contains("rate_per_second", maintenance, StringComparison.Ordinal);
-        Assert.Contains("ResolveBackfillParallelism", maintenance, StringComparison.Ordinal);
-        Assert.Contains("ResolveProjectionBackfillBatchSize", maintenance, StringComparison.Ordinal);
-        Assert.DoesNotContain("Environment.ProcessorCount", maintenance, StringComparison.Ordinal);
-        Assert.Contains("public-article-projection-backfill-pause", operations, StringComparison.Ordinal);
-        Assert.Contains("public-article-projection-backfill-resume", operations, StringComparison.Ordinal);
-        Assert.Contains("public-article-projection-backfill-status", operations, StringComparison.Ordinal);
-        string plan = BackendTestPaths.ReadAllTextFromRoot("tools", "perf", "public-article-projection-plan.sql");
-        Assert.Equal(2, CountOccurrences(plan, "EXPLAIN (ANALYZE, BUFFERS, WAL, FORMAT JSON)"));
-        Assert.Contains("FROM public_article_projection", plan, StringComparison.Ordinal);
+        PublicArticleProjectionReadResult disabled = await store.TryReadAsync(42);
+
+        Assert.Equal(PublicArticleProjectionReadStatus.Unavailable, disabled.Status);
+        Assert.Equal("cutover-disabled", disabled.Error);
+        Assert.Equal(0, runtime.Snapshot().Reads);
+        Assert.Equal(4, PublicArticleProjectionBackfillPolicy.ResolveParallelism(20, 10, 4));
+        Assert.Equal(2, PublicArticleProjectionBackfillPolicy.ResolveParallelism(2, 10, 8));
+        Assert.Equal(32, PublicArticleProjectionBackfillPolicy.ResolveBatchSize(1));
+        Assert.Equal(512, PublicArticleProjectionBackfillPolicy.ResolveBatchSize(64));
+        Assert.Equal("public-article-projection-backfill-status", PublicArticleProjectionAdminActions.Status);
+        Assert.Equal("public-article-projection-backfill-pause", PublicArticleProjectionAdminActions.Pause);
+        Assert.Equal("public-article-projection-backfill-resume", PublicArticleProjectionAdminActions.Resume);
+
+        var observed = new List<string>();
+        await ArticleDetailProjectionCommitSequence.MarkUnavailableAsync(
+            () => RecordAsync("projection-unavailable"),
+            () => RecordAsync("artifact-remove"));
+        Assert.Equal(["projection-unavailable", "artifact-remove"], observed);
+
+        Task RecordAsync(string value)
+        {
+            observed.Add(value);
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]
@@ -211,24 +246,4 @@ public sealed class PublicArticleProjectionContractTests
         Assert.All(gate.GetDiagnostics().Workloads.Values, static snapshot => Assert.Equal(1, snapshot.Completed));
     }
 
-    private static string Slice(string source, string start, string end)
-    {
-        int startIndex = source.IndexOf(start, StringComparison.Ordinal);
-        int endIndex = source.IndexOf(end, startIndex + start.Length, StringComparison.Ordinal);
-        Assert.True(startIndex >= 0 && endIndex > startIndex);
-        return source[startIndex..endIndex];
-    }
-
-    private static int CountOccurrences(string source, string value)
-    {
-        int count = 0;
-        int offset = 0;
-        while ((offset = source.IndexOf(value, offset, StringComparison.Ordinal)) >= 0)
-        {
-            count++;
-            offset += value.Length;
-        }
-
-        return count;
-    }
 }

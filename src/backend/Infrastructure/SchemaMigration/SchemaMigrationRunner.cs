@@ -17,6 +17,40 @@ internal sealed record SchemaMigrationHistoryEntry(
     string AppVersion,
     bool Succeeded);
 
+internal static class SchemaMigrationTransactionExecutor
+{
+    internal static async Task ExecuteAsync(
+        ISqlSugarClient db,
+        ISchemaMigrationDescriptor descriptor,
+        Func<SchemaMigrationStep, CancellationToken, Task> executeStep,
+        CancellationToken cancellationToken)
+    {
+        if (descriptor.Transactional)
+        {
+            var result = await db.Ado.UseTranAsync(async () =>
+            {
+                for (int i = 0; i < descriptor.Steps.Count; i++)
+                {
+                    await executeStep(descriptor.Steps[i], cancellationToken).ConfigureAwait(false);
+                }
+            }).ConfigureAwait(false);
+
+            if (!result.IsSuccess)
+            {
+                throw new InvalidOperationException(
+                    $"Schema migration {descriptor.MigrationId} failed.",
+                    result.ErrorException);
+            }
+            return;
+        }
+
+        for (int i = 0; i < descriptor.Steps.Count; i++)
+        {
+            await executeStep(descriptor.Steps[i], cancellationToken).ConfigureAwait(false);
+        }
+    }
+}
+
 public sealed class SchemaMigrationRunner(
     ISqlSugarClient db,
     ISchemaMigrationRegistry registry,
@@ -75,6 +109,8 @@ public sealed class SchemaMigrationRunner(
                 "author_rum_page_type_stats",
                 "author_rum_aot_source_stats",
                 "author_aot_stats",
+                "sys_deployment_fence",
+                "sys_fenced_commit",
                 "public_article_projection",
                 "public_article_projection_backfill",
                 "public_article_projection_shadow_mismatch"
@@ -113,30 +149,11 @@ public sealed class SchemaMigrationRunner(
                 descriptor.Phase,
                 descriptor.Steps.Count);
 
-            if (descriptor.Transactional)
-            {
-                var result = await _db.Ado.UseTranAsync(async () =>
-                {
-                    for (int i = 0; i < descriptor.Steps.Count; i++)
-                    {
-                        await ExecuteStepAsync(descriptor.Steps[i], descriptor, cancellationToken).ConfigureAwait(false);
-                    }
-                }).ConfigureAwait(false);
-
-                if (!result.IsSuccess)
-                {
-                    throw new InvalidOperationException(
-                        $"Schema migration {descriptor.MigrationId} failed.",
-                        result.ErrorException);
-                }
-            }
-            else
-            {
-                for (int i = 0; i < descriptor.Steps.Count; i++)
-                {
-                    await ExecuteStepAsync(descriptor.Steps[i], descriptor, cancellationToken).ConfigureAwait(false);
-                }
-            }
+            await SchemaMigrationTransactionExecutor.ExecuteAsync(
+                _db,
+                descriptor,
+                (step, token) => ExecuteStepAsync(step, descriptor, token),
+                cancellationToken).ConfigureAwait(false);
 
             executedDescriptors.Add(descriptor);
         }

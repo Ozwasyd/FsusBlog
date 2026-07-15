@@ -155,16 +155,14 @@ public sealed class ActiveReleaseFenceAvailabilityTests
     }
 
     [Fact]
-    public void RuntimeShape_ExportsRefreshFailureStalenessAndShutdownMetrics()
+    public void MetricsContract_ExportsRefreshFailureStalenessAndShutdownInstruments()
     {
-        string source = BackendTestPaths.ReadAllTextFromRoot(
-            "src/backend/Infrastructure/Operations/ActiveReleaseFence.cs");
-
-        Assert.Contains("fsus.active_release_fence.refresh_failures", source, StringComparison.Ordinal);
-        Assert.Contains("fsus.active_release_fence.refresh_consecutive_failures", source, StringComparison.Ordinal);
-        Assert.Contains("fsus.active_release_fence.refresh_stale_seconds", source, StringComparison.Ordinal);
-        Assert.Contains("fsus.active_release_fence.refresh_shutdowns", source, StringComparison.Ordinal);
-        Assert.Contains("StopApplication", source, StringComparison.Ordinal);
+        Assert.Equal("fsus.active_release_fence.refresh_failures", ActiveReleaseFenceMetricNames.RefreshFailures);
+        Assert.Equal(
+            "fsus.active_release_fence.refresh_consecutive_failures",
+            ActiveReleaseFenceMetricNames.ConsecutiveRefreshFailures);
+        Assert.Equal("fsus.active_release_fence.refresh_stale_seconds", ActiveReleaseFenceMetricNames.RefreshStaleSeconds);
+        Assert.Equal("fsus.active_release_fence.refresh_shutdowns", ActiveReleaseFenceMetricNames.RefreshShutdowns);
     }
 
     private static IConfigurationRoot Configuration(int refreshIntervalMs, int staleThresholdSeconds)

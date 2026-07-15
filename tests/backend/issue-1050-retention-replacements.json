@@ -77,7 +77,7 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_ValidArticleProof_WritesSingleHumanReadEvent",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ValidArticleProofWritesExactlyOneEventAndUsesBoundedLeases"
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ValidArticleProofWritesOneAggregateContributionAndUsesBoundedLeases"
       ],
       "reason": "The moved behavior additionally proves one event only plus the replay and viewer lease TTLs observed through the cache contract."
     },
@@ -85,7 +85,7 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_AuthenticatedAccount_DoesNotWriteUserIdToVisitLog",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.AuthenticatedSubmission_PersistsOnlyAnonymousViewerAndProofDimensions"
+        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.TwentyArticleReads_PersistOnlyUnorderedHourlyAndDwellAggregates"
       ],
       "reason": "An authenticated submission is projected, inserted into PostgreSQL, queried, reflected, and serialized to prove no reversible account identifier is persisted."
     },
@@ -93,8 +93,8 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.HumanReadAndStats_SourceDoNotUseVisitLogUserIdAsIdentityDimension",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.AuthenticatedSubmission_PersistsOnlyAnonymousViewerAndProofDimensions",
-        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.StatsContracts_SerializeOnlyAggregateReadAndAnonymousViewerDimensions",
+        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.TwentyArticleReads_PersistOnlyUnorderedHourlyAndDwellAggregates",
+        "xunit:tests/backend/Unit/HumanReadProofPersistencePrivacyTests.cs#HumanReadProofPersistencePrivacyTests.StatsContracts_KeepCompatibilityFieldButCannotExposeViewerIdentity",
         "shell:tools/check-historical-residue.sh",
         "node-script:tests/frontend/checks/static/check-historical-residue-fixture.mjs"
       ],
@@ -116,7 +116,7 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_ReplayedProof_DoesNotWriteSecondEvent",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ReplayedProofDoesNotWriteSecondEvent"
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_ReplayedProofDoesNotWriteSecondAggregateContribution"
       ],
       "reason": "Replay rejection and single-write behavior moved to the submission behavior file."
     },
@@ -124,7 +124,7 @@
       "id": "xunit:tests/backend/Unit/HumanReadProofServiceTests.cs#HumanReadProofServiceTests.SubmitAsync_TamperedRoute_DoesNotWriteEvent",
       "path": "tests/backend/Unit/HumanReadProofServiceTests.cs",
       "replacementTestIds": [
-        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_TamperedRouteDoesNotWriteEvent",
+        "xunit:tests/backend/Unit/HumanReadProofSubmissionBehaviorTests.cs#HumanReadProofSubmissionBehaviorTests.SubmitAsync_TamperedRouteDoesNotWriteAggregateContribution",
         "xunit:tests/backend/Unit/HumanReadProofRequestBindingTests.cs#HumanReadProofRequestBindingTests.SubmitAsync_ChangedScopeAndArticleAreRejected"
       ],
       "reason": "Route, scope, and article binding are now direct token-submission behavior."

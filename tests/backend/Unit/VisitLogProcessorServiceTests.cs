@@ -135,19 +135,29 @@ public sealed class VisitLogProcessorServiceTests
     }
 
     [Fact]
-    public void Source_PersistenceWritesOnlyAggregateTables()
+    public async Task Persistence_WritesOnlyAggregateTables()
     {
-        string source = File.ReadAllText(Path.Combine(
-            FindRepositoryRoot(),
-            "src/backend/Services/VisitLog/VisitLogProcessorService.cs"));
+        ISqlSugarClient db = Substitute.For<ISqlSugarClient>();
+        IAdo ado = Substitute.For<IAdo>();
+        db.Ado.Returns(ado);
+        string? executedSql = null;
+        ado.ExecuteCommandAsync(
+                Arg.Do<string>(sql => executedSql = sql),
+                Arg.Any<SugarParameter[]>())
+            .Returns(Task.FromResult(1));
 
-        Assert.Contains("article_read_hourly_aggregate", source, StringComparison.Ordinal);
-        Assert.Contains("read_dwell_daily_aggregate", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Insertable(batch)", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("sys_visit_log", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("viewer_key_hash", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("proof_id", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("route_key", source, StringComparison.OrdinalIgnoreCase);
+        await VisitLogProcessorService.PersistAggregatesAsync(
+            db,
+            [CreateMessage()],
+            CancellationToken.None);
+
+        Assert.NotNull(executedSql);
+        Assert.Contains("article_read_hourly_aggregate", executedSql, StringComparison.Ordinal);
+        Assert.Contains("read_dwell_daily_aggregate", executedSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("sys_visit_log", executedSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("viewer_key_hash", executedSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("proof_id", executedSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("route_key", executedSql, StringComparison.OrdinalIgnoreCase);
     }
 
     private static VisitLogMessage CreateMessage()
@@ -176,14 +186,4 @@ public sealed class VisitLogProcessorServiceTests
         await task.ConfigureAwait(false);
     }
 
-    private static string FindRepositoryRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "FsusBlog.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
-    }
 }

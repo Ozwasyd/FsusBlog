@@ -12,6 +12,11 @@ public interface IActiveReleaseFenceDurableWitness : IActiveReleaseFenceStore
         CancellationToken cancellationToken = default);
 }
 
+internal static class ActiveReleaseFenceWitnessSql
+{
+    internal const string MutationLock = "SELECT pg_advisory_xact_lock(1179862354);";
+}
+
 internal static class ActiveReleaseFenceTransitions
 {
     public static ActiveReleaseFenceOperationResult Acquire(
@@ -343,7 +348,7 @@ public sealed class SqlActiveReleaseFenceWitness(IServiceScopeFactory scopeFacto
             new SugarParameter("@UpdatedAtUtc", DateTime.UtcNow));
 
     private static Task<int> AcquireMutationLockAsync(ISqlSugarClient db)
-        => db.Ado.ExecuteCommandAsync("SELECT pg_advisory_xact_lock(1179862354);");
+        => db.Ado.ExecuteCommandAsync(ActiveReleaseFenceWitnessSql.MutationLock);
 
     private static object DbTimestamp(DateTimeOffset? value)
         => value.HasValue ? value.Value.UtcDateTime : DBNull.Value;

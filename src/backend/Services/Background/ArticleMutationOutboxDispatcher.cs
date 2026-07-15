@@ -19,6 +19,7 @@ public sealed class ArticleMutationOutboxDispatcher(
     IActiveReleaseCommitGuard? activeReleaseCommitGuard = null,
     IConfiguration? configuration = null) : BackgroundService
 {
+    internal const string FencedCommitOperationScope = "article-outbox-complete";
     private const int BatchSize = 50;
     private const int PoisonRetryThreshold = 10;
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
@@ -228,10 +229,10 @@ public sealed class ArticleMutationOutboxDispatcher(
             DateTime processedAt = timeProvider.GetUtcNow().UtcDateTime;
             await EnsureCurrentGenerationAsync(cancellationToken).ConfigureAwait(false);
             int completedRows = await dbGate.ExecuteAsync(
-                "article-outbox-complete",
+                FencedCommitOperationScope,
                 gateCt => ExecuteFencedMutationAsync(
                     db,
-                    "article-outbox-complete",
+                    FencedCommitOperationScope,
                     $"{item.Id}:{item.ClaimToken}",
                     _ => db.Ado.ExecuteCommandAsync(
                         BuildCompleteSql(),

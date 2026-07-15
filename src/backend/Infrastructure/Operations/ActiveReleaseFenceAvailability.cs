@@ -4,6 +4,7 @@ namespace FsusBlog.Server.Infrastructure.Operations;
 
 public static class ActiveReleaseFenceAvailabilityPolicy
 {
+    public const string AllowSyntheticLocalFenceKey = "ActiveReleaseFence:AllowSyntheticLocalFence";
     public const string RefreshIntervalKey = "ActiveReleaseFence:RefreshIntervalMs";
     public const string StaleThresholdKey = "ActiveReleaseFence:StaleThresholdSeconds";
     public const int MinimumRefreshIntervalMs = 100;

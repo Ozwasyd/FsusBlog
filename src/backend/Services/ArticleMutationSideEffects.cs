@@ -78,6 +78,34 @@ public static class ArticleMutationReplayEdges
     };
 }
 
+internal static class ArticleMutationEventTypes
+{
+    internal const string Created = "created";
+    internal const string Updated = "updated";
+    internal const string Deleted = "deleted";
+    internal const string Restored = "restored";
+    internal const string PermanentlyDeleted = "permanently-deleted";
+    internal const string TrashCleared = "trash-cleared";
+    internal const string ScheduledPublished = "scheduled-published";
+    internal const string CategoryUpdated = "category-updated";
+    internal const string TagUpdated = "tag-updated";
+    internal const string RightsProofUpdated = "rights-proof-updated";
+
+    internal static readonly IReadOnlySet<string> Supported = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Created,
+        Updated,
+        Deleted,
+        Restored,
+        PermanentlyDeleted,
+        TrashCleared,
+        ScheduledPublished,
+        CategoryUpdated,
+        TagUpdated,
+        RightsProofUpdated
+    };
+}
+
 public static class ArticleMutationDeliveryKey
 {
     public static string Build(string outboxEventId, string edgeName)
@@ -489,7 +517,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
         async Task ScheduleIntegrityProofIfRequiredEdgesCompleteAsync(string normalized)
         {
-            if (string.Equals(normalized, "rights-proof-updated", StringComparison.Ordinal))
+            if (string.Equals(normalized, ArticleMutationEventTypes.RightsProofUpdated, StringComparison.Ordinal))
             {
                 return;
             }
@@ -507,7 +535,9 @@ public sealed class ArticleMutationSideEffectCoordinator(
         try
         {
             string normalized = TextHelpers.LowerTrimmed(eventType) ?? string.Empty;
-            if (normalized is "deleted" or "permanently-deleted" or "trash-cleared")
+            if (normalized is ArticleMutationEventTypes.Deleted
+                or ArticleMutationEventTypes.PermanentlyDeleted
+                or ArticleMutationEventTypes.TrashCleared)
             {
                 return await ReplayDeletedArticleEdgesAsync(normalized).ConfigureAwait(false);
             }
@@ -520,8 +550,8 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
             string action = normalized switch
             {
-                "created" => "Created",
-                "restored" => "Restored",
+                ArticleMutationEventTypes.Created => "Created",
+                ArticleMutationEventTypes.Restored => "Restored",
                 _ => "Updated"
             };
 
@@ -544,10 +574,12 @@ public sealed class ArticleMutationSideEffectCoordinator(
                         async () =>
                         {
                             await EnsurePublicHotUpdateQueuedAsync(
-                                    normalized is "created" or "scheduled-published" ? null : articleId,
+                                    normalized is ArticleMutationEventTypes.Created or ArticleMutationEventTypes.ScheduledPublished
+                                        ? null
+                                        : articleId,
                                     $"outbox-{normalized}")
                                 .ConfigureAwait(false);
-                            if (normalized == "restored")
+                            if (normalized == ArticleMutationEventTypes.Restored)
                             {
                                 await _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), articleId, article.Views)
                                     .ConfigureAwait(false);
