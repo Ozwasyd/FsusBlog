@@ -137,6 +137,8 @@ internal static class PublicHotReadResidentAccounting
     private const int MapObjectUpperBoundBytes = 96;
     private const int EntryObjectUpperBoundBytes = 40;
     private const int LogicalArtifactObjectUpperBoundBytes = 48;
+    private const int BinaryIntegrityMetadataBytes = 3 * sizeof(ulong) * 2;
+    private const int HtmlIntegrityMetadataBytes = 2 * sizeof(ulong) * 2;
 
     internal static PublicHotReadResidentBreakdown Calculate(
         IEnumerable<KeyValuePair<int, PublicBinaryArtifact>> articles,
@@ -288,6 +290,7 @@ internal static class PublicHotReadResidentAccounting
             ArtifactCount++;
             ObjectCount++;
             long metadataBytes = LogicalArtifactObjectUpperBoundBytes
+                + BinaryIntegrityMetadataBytes
                 + AddMetadataString(artifact.ETag)
                 + AddMetadataString(artifact.CacheControl)
                 + AddMetadataString(artifact.BrotliETag)
@@ -307,6 +310,7 @@ internal static class PublicHotReadResidentAccounting
             long keyBytes = EstimateStringBytes(key)
                 + EntryObjectUpperBoundBytes
                 + LogicalArtifactObjectUpperBoundBytes
+                + HtmlIntegrityMetadataBytes
                 + AddMetadataString(artifact.ContentType)
                 + AddMetadataString(artifact.ETag)
                 + AddMetadataString(artifact.CacheControl);

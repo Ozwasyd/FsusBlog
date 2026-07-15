@@ -4,6 +4,7 @@ using FsusBlog.Server.Infrastructure.CoreBridge.Gateways;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Privacy;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
@@ -51,6 +52,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleResponsibilityManifestService, ArticleResponsibilityManifestService>();
         services.AddScoped<IArticleResponsibilityAuthoringService, ArticleResponsibilityAuthoringService>();
         services.AddScoped<IIntegrityAdminConsoleService, IntegrityAdminConsoleService>();
+        services.AddScoped<IPublicMutationFenceLease, PostgresPublicMutationFenceLease>();
         services.AddScoped<IArticleMutationSideEffectCoordinator, ArticleMutationSideEffectCoordinator>();
         services.AddScoped<IArticleEndpointService, ArticleEndpointService>();
         services.AddScoped<ICommentEndpointService>(sp => sp.GetRequiredService<CommentService>());

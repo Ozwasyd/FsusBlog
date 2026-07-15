@@ -394,6 +394,8 @@ L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，
 
 L0 snapshot 发布是受预算保护的原子操作。候选在可见前核算 raw/br/gzip、HTML/template、key/index、对象/数组/LOH 与当前 snapshot overlap；任一分项超过配置时汇总全部原因并保留旧 snapshot。`runtime.publicHotRead` 是受保护的诊断契约，匿名 readiness 不公开容量细节。article detail admission 使用访问热度与最近发布的分段 Top-K 并受 resident bytes 二次约束；未 admission 或 eviction 的文章仍走原 binary endpoint/cache 回退，不能变成文本 API 或语义降级。请求从 snapshot 的 `ReadOnlyMemory<byte>` slice 直接写出，不因统计或 eviction 增加 body copy。
 
+publication sanity 还绑定 `visibilityCutoffUtc` age、AEDS v2 schema/CRC/frame type、压缩表示可逆性和进程内 HMAC。candidate 先做廉价的 publication evidence/age 检查，再做 resident budget 拒绝，最后校验全部 binary raw/br/gzip、HTML body 与实际 CSP nonce template bytes；HMAC context 包含 route/list key、artifact/frame/version、ETag/cache/encoding 及 HTML renderer/template metadata。成功后每个 binary 请求只校验将要写出的一个 variant，HTML 同时校验 body/template。超过 `PublicHotRead:MaxSnapshotAge`、future cutoff、schema 错误或 HMAC 不匹配时不发送 artifact bytes，恢复已有 request feature 后进入原 canonical endpoint；后台在 age 上限一半处排队刷新。该检查保持 L0 零 PostgreSQL/零 Redis：DB mutation 在 commit 前先持有 runtime-scope/article owner advisory lock并建立 `TransitionPending` tombstone，durable outbox 在 commit 后 CAS-promote 同一 generation，且 `public-artifact-revocation` stage 固定先于 fast path；active tombstone 返回 410，直到新 snapshot 发布并完成对应 generation。writer 崩溃后的 recovery 必须先成功取得同一 PostgreSQL advisory lock，不能用超时猜测事务已结束。process-local HMAC 只保护发布后 backing array 的内存完整性，不声明跨实例签名或 WORM；Redis Pub/Sub 没有 subscriber ACK，因此跨节点传播线性化和 snapshot 收敛仍分别以 #399、#400 为权威验收。
+
 状态码与 frame 目录见 [`schemas-and-errors.md#aedsframetype-枚举`](schemas-and-errors.md#aedsframetype-枚举)。
 
 ### AOT 路由 vs 真实公开 URL

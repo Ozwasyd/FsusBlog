@@ -203,6 +203,7 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
             services.AddHostedService<PublicHotReadMetricFlushWorker>();
             services.AddHostedService<PublicHotReadStartupWarmupService>();
             services.AddHostedService<PublicArtifactRevocationSubscriber>();
+            services.AddHostedService<PublicMutationFenceRecoveryWorker>();
             services.AddHostedService<PublicHotArtifactUpdateWorker>();
         }
         services.AddScoped<IPublicHotArtifactProjector, PublicHotArtifactProjector>();

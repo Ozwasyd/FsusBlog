@@ -19,6 +19,18 @@ namespace FsusBlog.Server.Services;
 
 public interface IArticleMutationSideEffectCoordinator
 {
+    Task BeginPublicMutationFenceAsync(int? articleId, CancellationToken cancellationToken = default);
+
+    Task CommitPublicMutationFenceAsync(
+        int? articleId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
+    Task RecoverAbortedPublicMutationFenceAsync(
+        int? articleId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
     Task AfterCreatedAsync(Article article, int articleId, ArticleListItemResponse? preview);
 
     Task AfterUpdatedAsync(int articleId, ArticleListItemResponse? preview);
@@ -152,6 +164,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
     ITaxonomyCountProjectionService taxonomyProjection,
     IArticleDetailAedsArtifactProjector articleDetailArtifacts,
     IPublicArtifactRevocationCoordinator publicArtifactRevocations,
+    IPublicMutationFenceLease mutationFenceLease,
     PublicHotArtifactUpdateQueue publicHotUpdates,
     IIntegrityProofScheduler integrityProofScheduler,
     ArticleRealtimeNotifier realtimeNotifier,
@@ -160,16 +173,119 @@ public sealed class ArticleMutationSideEffectCoordinator(
 {
     private readonly IDatabase _redis = redisConnection.GetDatabase();
 
+    public async Task BeginPublicMutationFenceAsync(
+        int? articleId,
+        CancellationToken cancellationToken = default)
+    {
+        int lockKey = NormalizeFenceKey(articleId);
+        await mutationFenceLease.AcquireAsync(lockKey, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (articleId is > 0)
+            {
+                await publicArtifactRevocations
+                    .BeginArticleMutationFenceAsync(articleId.Value, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await publicArtifactRevocations
+                    .BeginGlobalMutationFenceAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            await ReleaseMutationFenceLeaseAsync(lockKey).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    public Task CommitPublicMutationFenceAsync(
+        int? articleId,
+        string reason,
+        CancellationToken cancellationToken = default)
+        => PromoteAndReleasePublicMutationFenceAsync(articleId, reason, cancellationToken);
+
+    public Task RecoverAbortedPublicMutationFenceAsync(
+        int? articleId,
+        string reason,
+        CancellationToken cancellationToken = default)
+        => PromoteAndReleasePublicMutationFenceAsync(articleId, reason, cancellationToken);
+
+    private async Task PromoteAndReleasePublicMutationFenceAsync(
+        int? articleId,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (articleId is > 0)
+            {
+                await publicArtifactRevocations
+                    .RevokeArticleAsync(articleId.Value, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await publicArtifactRevocations
+                    .RevokeAllAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            string normalized = string.IsNullOrWhiteSpace(reason) ? "mutation-fence-committed" : reason;
+            PublicHotArtifactEnqueueResult result = publicHotUpdates.Enqueue(
+                articleId is > 0 ? articleId : null,
+                normalized);
+            if (!result.Accepted)
+            {
+                logger.LogWarning(
+                    "public-hot-read-mutation-fence-rebuild-enqueue-failed {ArticleId} {Reason} {Status}",
+                    articleId,
+                    normalized,
+                    result.Status);
+            }
+        }
+        finally
+        {
+            await ReleaseMutationFenceLeaseAsync(NormalizeFenceKey(articleId)).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ReleaseMutationFenceLeaseAsync(int articleId)
+    {
+        try
+        {
+            await mutationFenceLease.ReleaseAsync(articleId, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "public-mutation-fence-lease-release-failed {ArticleId}", articleId);
+        }
+    }
+
+    private static int NormalizeFenceKey(int? articleId) => articleId is > 0 ? articleId.Value : 0;
+
     public Task AfterCreatedAsync(Article article, int articleId, ArticleListItemResponse? preview)
         => ExecuteAsync(
             async () =>
             {
                 article.Id = articleId;
+                bool isPublic = ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow);
+                if (isPublic)
+                {
+                    await CommitPublicMutationFenceAsync(
+                            null,
+                            "article-created",
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.ProjectAsync(article),
                     () => taxonomyProjection.ReconcileArticleAsync(articleId),
                     () => articleDetailArtifacts.GenerateAndStoreAsync(articleId),
-                    () => QueuePublicHotUpdateAsync(articleId, "article-created"),
+                    () => QueuePublicHotUpdateAsync(isPublic ? null : articleId, "article-created"),
                     () => realtimeNotifier.PushChangedAsync(articleId, "Created", preview));
             },
             "article-create-sync");
@@ -178,15 +294,19 @@ public sealed class ArticleMutationSideEffectCoordinator(
         => ExecuteAsync(
             async () =>
             {
+                try
+                {
+                    await publicArtifactRevocations.RevokeArticleAsync(articleId).ConfigureAwait(false);
+                }
+                finally
+                {
+                    await ReleaseMutationFenceLeaseAsync(articleId).ConfigureAwait(false);
+                }
+
                 Article? article = await LoadArticleWithContentAsync(articleId);
                 if (article is null)
                 {
                     return;
-                }
-
-                if (!ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow))
-                {
-                    await publicArtifactRevocations.RevokeArticleAsync(articleId).ConfigureAwait(false);
                 }
 
                 await RunSideEffectsSequentiallyAsync(
@@ -202,7 +322,14 @@ public sealed class ArticleMutationSideEffectCoordinator(
         => ExecuteAsync(
             async () =>
             {
-                await publicArtifactRevocations.RevokeArticleAsync(articleId).ConfigureAwait(false);
+                try
+                {
+                    await publicArtifactRevocations.RevokeArticleAsync(articleId).ConfigureAwait(false);
+                }
+                finally
+                {
+                    await ReleaseMutationFenceLeaseAsync(articleId).ConfigureAwait(false);
+                }
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.DeleteAsync(articleId),
                     () => taxonomyProjection.ReconcileArticleAsync(articleId),
@@ -400,9 +527,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
             if (!await RunEdgeAsync(
                         ArticleMutationReplayEdges.PublicArtifactRevocation,
-                        () => ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow)
-                            ? Task.CompletedTask
-                            : publicArtifactRevocations.RevokeArticleAsync(articleId, cancellationToken))
+                        () => publicArtifactRevocations.RevokeArticleAsync(articleId, cancellationToken))
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.ProjectAsync(article))
                     .ConfigureAwait(false)
@@ -418,7 +543,10 @@ public sealed class ArticleMutationSideEffectCoordinator(
                         ArticleMutationReplayEdges.PublicHotRead,
                         async () =>
                         {
-                            await EnsurePublicHotUpdateQueuedAsync(articleId, $"outbox-{normalized}").ConfigureAwait(false);
+                            await EnsurePublicHotUpdateQueuedAsync(
+                                    normalized is "created" or "scheduled-published" ? null : articleId,
+                                    $"outbox-{normalized}")
+                                .ConfigureAwait(false);
                             if (normalized == "restored")
                             {
                                 await _redis.SortedSetAddAsync(RedisKey("blog:top_articles"), articleId, article.Views)

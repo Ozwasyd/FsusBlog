@@ -67,6 +67,73 @@ public sealed class ArticleRightsWritePathTests(
     }
 
     [Fact]
+    public async Task CreateAsync_PublishedArticleEstablishesGlobalFenceBeforeInsert()
+    {
+        using SqlSugarClient db = classDatabase.CreateClient();
+        CreateTables(db);
+        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        sideEffects
+            .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Assert.Equal(0, db.Queryable<Article>().Count());
+                return Task.CompletedTask;
+            });
+        ArticleService service = CreateService(db, sideEffects);
+
+        int articleId = await service.CreateAsync(new CreateArticleRequest
+        {
+            Title = "Fenced article",
+            Content = "# body",
+            Summary = "summary",
+            CategoryId = 1,
+            TagIds = [],
+            Status = ArticleStatus.Published
+        });
+
+        Assert.True(articleId > 0);
+        await sideEffects.Received(1)
+            .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>());
+        await sideEffects.DidNotReceive()
+            .RecoverAbortedPublicMutationFenceAsync(
+                null,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenGlobalFenceFails_WritesNoArticleOrOutbox()
+    {
+        using SqlSugarClient db = classDatabase.CreateClient();
+        CreateTables(db);
+        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        sideEffects
+            .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("global tombstone unavailable")));
+        ArticleService service = CreateService(db, sideEffects);
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CreateAsync(new CreateArticleRequest
+            {
+                Title = "must not exist",
+                Content = "# body",
+                Summary = "summary",
+                CategoryId = 1,
+                TagIds = [],
+                Status = ArticleStatus.Published
+            }));
+
+        Assert.Equal("global tombstone unavailable", error.Message);
+        Assert.Equal(0, db.Queryable<Article>().Count());
+        Assert.Equal(0, db.Queryable<ArticleMutationOutboxEvent>().Count());
+        await sideEffects.DidNotReceive()
+            .RecoverAbortedPublicMutationFenceAsync(
+                null,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task CreateAsync_UsesDefaultRightsWhenRequestOmitsRights()
     {
         using SqlSugarClient db = classDatabase.CreateClient();
@@ -262,7 +329,9 @@ public sealed class ArticleRightsWritePathTests(
             typeof(ArticleRightsSnapshot),
             typeof(ArticleRightsProof));
 
-    private static ArticleService CreateService(SqlSugarClient db)
+    private static ArticleService CreateService(
+        SqlSugarClient db,
+        IArticleMutationSideEffectCoordinator? mutationSideEffects = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
@@ -279,7 +348,7 @@ public sealed class ArticleRightsWritePathTests(
             _logger: NullLogger<ArticleService>.Instance,
             _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
-            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _mutationSideEffects: mutationSideEffects ?? Substitute.For<IArticleMutationSideEffectCoordinator>(),
             _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
     }
 }

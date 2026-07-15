@@ -3,8 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FASTPATH_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs"
+SANITY_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSanity.cs"
 RESIDENCY_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadResidency.cs"
 PROJECTOR_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs"
+REVOCATION_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicArtifactRevocation.cs"
+MUTATION_FENCE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicMutationFenceLease.cs"
+MUTATION_SIDE_EFFECTS_FILE="$ROOT_DIR/src/backend/Services/ArticleMutationSideEffects.cs"
 EARLY_DATA_PLANE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadEarlyDataPlane.cs"
 ROUTE_SECURITY_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadRouteSecurityCatalog.cs"
 SECURITY_GATE_FILE="$ROOT_DIR/src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSecurityGateMiddleware.cs"
@@ -34,13 +38,14 @@ const correlation = block.indexOf('ObservabilityCorrelationMiddleware');
 const classifier = block.indexOf('UseFsusPublicHotReadClassifier');
 const limiter = block.indexOf('UseFsusPublicHotReadRateLimiter');
 const gate = block.indexOf('UseFsusPublicHotReadSecurityGate');
+const revocation = block.indexOf('UseFsusPublicArtifactRevocation');
 const core = block.indexOf('UseFsusCoreMiddlewares');
 const fast = block.indexOf('UseFsusPublicHotReadFastPath');
 const restore = block.indexOf('UseFsusPublicHotReadFallbackRestore');
 const endpoint = block.indexOf('UseFsusEndpointPipeline');
-if ([core, correlation, classifier, limiter, gate, fast, restore, endpoint].some(index => index < 0)
-    || !(core < correlation && correlation < classifier && classifier < limiter && limiter < gate && gate < fast && fast < restore && restore < endpoint)) {
-  console.error('[public-hot-read] trace/classifier/rate/security/writer must run before the generic endpoint pipeline');
+if ([core, correlation, classifier, limiter, gate, revocation, fast, restore, endpoint].some(index => index < 0)
+    || !(core < correlation && correlation < classifier && classifier < limiter && limiter < gate && gate < revocation && revocation < fast && fast < restore && restore < endpoint)) {
+  console.error('[public-hot-read] trace/classifier/rate/security/revocation/writer must run before the generic endpoint pipeline');
   process.exit(1);
 }
 
@@ -111,6 +116,110 @@ for (const token of [
 ]) {
   if (!projector.includes(token)) {
     console.error(`[public-hot-read] projector visibility gate is incomplete: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking post-publish sanity and fallback boundary"
+node - "$FASTPATH_FILE" "$SANITY_FILE" "$PROJECTOR_FILE" <<'NODE'
+const fs = require('node:fs');
+const [fastPathFile, sanityFile, projectorFile] = process.argv.slice(2);
+const fastPath = fs.readFileSync(fastPathFile, 'utf8');
+const sanity = fs.readFileSync(sanityFile, 'utf8');
+const projector = fs.readFileSync(projectorFile, 'utf8');
+for (const token of [
+  'MaxSnapshotAge',
+  'TryGetRequestSnapshot',
+  'PublicHotReadArtifactIntegrity.IsSnapshotValid(next)',
+  'PublicHotReadArtifactIntegrity.IsValid(variant, artifact, integrityContext)',
+  'PublicArtifactIntegrityContext.ForHtml(routeKey)',
+  'counters.SanityFallback()',
+  'return next(ctx)'
+]) {
+  if (!fastPath.includes(token)) {
+    console.error(`[public-hot-read] missing sanity fallback token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'hmac-sha256-128-process-memory-v2',
+  'RandomNumberGenerator.GetBytes(32)',
+  'IncrementalHash.CreateHMAC',
+  'IsSnapshotValid',
+  'LooksLikeExpectedAedsFrame',
+  'BrotliDecoder.TryDecompress',
+  'GZipStream',
+  'TemplateIntegrityTag',
+  'CspNonceTemplate?.IntegrityBytes',
+  'PublicArtifactIntegrityContext'
+]) {
+  if (!sanity.includes(token)) {
+    console.error(`[public-hot-read] missing integrity token: ${token}`);
+    process.exit(1);
+  }
+}
+const budgetIndex = fastPath.indexOf('PublicHotReadResidentAccounting.ValidateCandidate');
+const integrityIndex = fastPath.indexOf('PublicHotReadArtifactIntegrity.IsSnapshotValid(next)');
+if (budgetIndex < 0 || integrityIndex < 0 || budgetIndex >= integrityIndex) {
+  console.error('[public-hot-read] cheap resident budget must reject before full snapshot integrity/schema validation');
+  process.exit(1);
+}
+for (const token of [
+  'store.SnapshotRefreshInterval',
+  'store.ShouldRefreshSnapshot()',
+  'sanity-age-refresh',
+  'CreateAsyncScope()'
+]) {
+  if (!projector.includes(token)) {
+    console.error(`[public-hot-read] missing bounded refresh token: ${token}`);
+    process.exit(1);
+  }
+}
+NODE
+
+echo "[public-hot-read] checking pre-commit mutation fence and owner recovery"
+node - "$REVOCATION_FILE" "$MUTATION_FENCE_FILE" "$MUTATION_SIDE_EFFECTS_FILE" <<'NODE'
+const fs = require('node:fs');
+const [revocationFile, fenceFile, sideEffectsFile] = process.argv.slice(2);
+const revocation = fs.readFileSync(revocationFile, 'utf8');
+const fence = fs.readFileSync(fenceFile, 'utf8');
+const sideEffects = fs.readFileSync(sideEffectsFile, 'utf8');
+for (const token of [
+  'TransitionPending=true',
+  'MarkTransitionCommittedAsync',
+  'RecoverPendingMutationFenceAsync',
+  'tombstone.TransitionPending',
+  'tombstone.Generation > maximumGeneration'
+]) {
+  if (!revocation.includes(token)) {
+    console.error(`[public-hot-read] missing revocation transition token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'IRuntimeKeyScope',
+  'PrefixKey(LockScopeKey)',
+  'pg_try_advisory_lock(hashtext(@lock_scope), @article_id)',
+  'pg_advisory_unlock(hashtext(@lock_scope), @article_id)',
+  'NpgsqlConnection.ClearPool',
+  'PublicMutationFenceRecoveryWorker',
+  'RecoverPendingMutationFenceAsync'
+]) {
+  if (!fence.includes(token)) {
+    console.error(`[public-hot-read] missing mutation owner recovery token: ${token}`);
+    process.exit(1);
+  }
+}
+for (const token of [
+  'BeginPublicMutationFenceAsync',
+  'CommitPublicMutationFenceAsync',
+  'RecoverAbortedPublicMutationFenceAsync',
+  'mutationFenceLease.AcquireAsync',
+  'mutationFenceLease.ReleaseAsync'
+]) {
+  if (!sideEffects.includes(token)) {
+    console.error(`[public-hot-read] missing mutation side-effect fence token: ${token}`);
     process.exit(1);
   }
 }
@@ -189,7 +298,9 @@ for (const token of [
   'GC.GetGCMemoryInfo().TotalAvailableMemoryBytes',
   'LohEligibleArrayBytes',
   'SnapshotOverlapBytes',
-  'MaxArticleResidentBytes'
+  'MaxArticleResidentBytes',
+  'BinaryIntegrityMetadataBytes',
+  'HtmlIntegrityMetadataBytes'
 ]) {
   if (!residency.includes(token)) {
     console.error(`[public-hot-read] missing resident accounting token: ${token}`);

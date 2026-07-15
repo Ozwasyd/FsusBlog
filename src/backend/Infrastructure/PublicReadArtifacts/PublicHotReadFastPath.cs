@@ -60,12 +60,16 @@ public readonly record struct PublicBinaryArtifact(
     ReadOnlyMemory<byte> BrotliFrame = default,
     string BrotliETag = "",
     ReadOnlyMemory<byte> GzipFrame = default,
-    string GzipETag = "");
+    string GzipETag = "",
+    PublicArtifactIntegrityTag FrameIntegrityTag = default,
+    PublicArtifactIntegrityTag BrotliIntegrityTag = default,
+    PublicArtifactIntegrityTag GzipIntegrityTag = default);
 
 public readonly record struct PublicBinaryArtifactVariant(
     ReadOnlyMemory<byte> Frame,
     string ETag,
-    string ContentEncoding);
+    string ContentEncoding,
+    PublicArtifactIntegrityTag IntegrityTag = default);
 
 internal enum PublicHotReadRouteKind : byte
 {
@@ -93,7 +97,9 @@ public readonly record struct PublicHtmlArtifact(
     string CacheControl,
     CspNonceUtf8Template? CspNonceTemplate = null,
     string RendererVersion = "",
-    string FrontendAssetVersion = "")
+    string FrontendAssetVersion = "",
+    PublicArtifactIntegrityTag IntegrityTag = default,
+    PublicArtifactIntegrityTag TemplateIntegrityTag = default)
 {
     public bool RequiresCspNonceMutation => CspNonceTemplate is not null;
 
@@ -133,6 +139,7 @@ public sealed class PublicHotReadOptions
     public int MaxRetiringSnapshots { get; set; }
     public long MaxRetiringBytes { get; set; }
     public TimeSpan RetiringSnapshotDeadline { get; set; }
+    public TimeSpan MaxSnapshotAge { get; set; } = TimeSpan.FromMinutes(5);
     public long MaxArticleResidentBytes { get; set; }
     public int MaxArtifactObjects { get; set; }
     public int ArticleAdmissionRecentPercent { get; set; } = 40;
@@ -142,7 +149,6 @@ public sealed class PublicHotReadOptions
     public int ExpectedBrotliClientSharePercent { get; set; } = 80;
     public int ExpectedGzipClientSharePercent { get; set; } = 15;
     public int MinResidentVariantClientSharePercent { get; set; } = 5;
-    public bool ValidateFramesOnPublish { get; set; } = true;
     public bool FailOpenWhenNotReady { get; set; }
     public bool EnableDiagnosticHeaders { get; set; }
 }
@@ -255,12 +261,34 @@ public sealed class PublicHotReadSnapshot
     {
         Version = version;
         PublicationEvidence = publicationEvidence;
-        _articleFramesById = articleFramesById;
-        _listFrames = listFrames;
-        _categoryFrame = categoryFrame;
-        _tagFrame = tagFrame;
-        _htmlBaseByPath = htmlBaseByPath;
-        _htmlOverlayByPath = htmlOverlayByPath;
+        _articleFramesById = articleFramesById.ToFrozenDictionary(
+            static pair => pair.Key,
+            static pair => PublicHotReadArtifactIntegrity.Seal(
+                pair.Value,
+                PublicArtifactIntegrityContext.ForArticle(pair.Key)));
+        _listFrames = listFrames.ToFrozenDictionary(
+            static pair => pair.Key,
+            static pair => PublicHotReadArtifactIntegrity.Seal(
+                pair.Value,
+                PublicArtifactIntegrityContext.ForList(pair.Key)));
+        _categoryFrame = PublicHotReadArtifactIntegrity.Seal(
+            categoryFrame,
+            PublicArtifactIntegrityContext.ForCategory());
+        _tagFrame = PublicHotReadArtifactIntegrity.Seal(
+            tagFrame,
+            PublicArtifactIntegrityContext.ForTag());
+        _htmlBaseByPath = htmlBaseByPath.ToFrozenDictionary(
+            static pair => pair.Key,
+            static pair => PublicHotReadArtifactIntegrity.Seal(
+                pair.Value,
+                PublicArtifactIntegrityContext.ForHtml(pair.Key)),
+            StringComparer.Ordinal);
+        _htmlOverlayByPath = htmlOverlayByPath.ToFrozenDictionary(
+            static pair => pair.Key,
+            static pair => PublicHotReadArtifactIntegrity.Seal(
+                pair.Value,
+                PublicArtifactIntegrityContext.ForHtml(pair.Key)),
+            StringComparer.Ordinal);
         _htmlRemovedPaths = htmlRemovedPaths;
         _htmlFrameCount = htmlFrameCount;
         PublicArticleCount = Math.Max(publicArticleCount, articleFramesById.Count);
@@ -452,6 +480,7 @@ public sealed class PublicHotReadSnapshot
 
 public sealed class PublicHotReadStore
 {
+    private static readonly TimeSpan MinimumSnapshotAge = TimeSpan.FromSeconds(2);
     private static readonly Meter RetiringMeter = new("FsusBlog.PublicHotRead.Retiring", "1.0.0");
     private static readonly Counter<long> RetiringPrunedCounter =
         RetiringMeter.CreateCounter<long>("fsus.public_hot.retiring.evictions");
@@ -468,6 +497,7 @@ public sealed class PublicHotReadStore
     private readonly List<RetiringSnapshotReference> _retiringSnapshots = [];
     private readonly PublicHotReadRetiringLimits _retiringLimits;
     private readonly TimeProvider _timeProvider;
+    private readonly TimeSpan _maxSnapshotAge;
     private long _retiringPrunedCount;
     private long _lastSnapshotOverlapBytes;
     private IReadOnlyList<string> _lastBudgetViolations = Array.Empty<string>();
@@ -486,6 +516,14 @@ public sealed class PublicHotReadStore
         _budgetLimits = PublicHotReadBudgetLimits.Resolve(value);
         _retiringLimits = PublicHotReadRetiringLimits.Resolve(value, _budgetLimits);
         _timeProvider = timeProvider ?? TimeProvider.System;
+        if (value.MaxSnapshotAge < MinimumSnapshotAge)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(value.MaxSnapshotAge),
+                value.MaxSnapshotAge,
+                $"Snapshot age must be at least {MinimumSnapshotAge}.");
+        }
+        _maxSnapshotAge = value.MaxSnapshotAge;
         _compressionPolicy = CompressionPolicy(value);
         _runtime = new PublicHotReadRuntimeSnapshot(
             nameof(PublicHotReadState.NotStarted),
@@ -552,6 +590,17 @@ public sealed class PublicHotReadStore
                 throw new InvalidOperationException(
                     $"public hot-read publication evidence is invalid for snapshot {next.Version}");
             }
+            DateTimeOffset visibilityCutoff = next.PublicationEvidence.VisibilityCutoffUtc!.Value;
+            if (visibilityCutoff > now)
+            {
+                SetLifecycleStageLocked("sanity-future-cutoff-rejected");
+                throw new InvalidOperationException($"public hot-read snapshot cutoff is in the future: {visibilityCutoff:O}");
+            }
+            if (now - visibilityCutoff > _maxSnapshotAge)
+            {
+                SetLifecycleStageLocked("sanity-age-rejected");
+                throw new InvalidOperationException($"public hot-read snapshot age exceeded: {visibilityCutoff:O}");
+            }
 
             RetiringState retiringState = CollectRetiringStateLocked();
             long retiringBytes = retiringState.ResidentBytes;
@@ -595,6 +644,12 @@ public sealed class PublicHotReadStore
                     "PublicHotReadBudgetViolation");
                 throw new InvalidOperationException(
                     $"public hot-read candidate budget exceeded: {string.Join(", ", violations)}");
+            }
+            if (!PublicHotReadArtifactIntegrity.IsSnapshotValid(next))
+            {
+                SetLifecycleStageLocked("sanity-integrity-rejected");
+                throw new InvalidOperationException(
+                    $"public hot-read snapshot integrity or schema invalid: {PublicHotReadArtifactIntegrity.Algorithm}");
             }
 
             SetLifecycleStageLocked("admit");
@@ -664,6 +719,41 @@ public sealed class PublicHotReadStore
     }
 
     public bool IsReady => IsReadyFast;
+
+    internal bool TryGetRequestSnapshot(out PublicHotReadSnapshot snapshot, out string reason)
+    {
+        snapshot = Current;
+        if (!IsReadyFast || snapshot.Version <= 0)
+        {
+            reason = "not-ready";
+            return false;
+        }
+
+        DateTimeOffset? cutoff = snapshot.PublicationEvidence.VisibilityCutoffUtc;
+        DateTimeOffset now = _timeProvider.GetUtcNow();
+        if (!cutoff.HasValue || cutoff.Value > now || now - cutoff.Value > _maxSnapshotAge)
+        {
+            reason = cutoff > now ? "future-cutoff" : "stale";
+            return false;
+        }
+
+        reason = "ok";
+        return true;
+    }
+
+    internal bool ShouldRefreshSnapshot()
+    {
+        PublicHotReadSnapshot snapshot = Current;
+        DateTimeOffset? cutoff = snapshot.PublicationEvidence.VisibilityCutoffUtc;
+        DateTimeOffset now = _timeProvider.GetUtcNow();
+        return !IsReadyFast
+            || !cutoff.HasValue
+            || cutoff.Value > now
+            || now - cutoff.Value >= TimeSpan.FromTicks(_maxSnapshotAge.Ticks / 2);
+    }
+
+    internal TimeSpan SnapshotRefreshInterval
+        => TimeSpan.FromTicks(_maxSnapshotAge.Ticks / 2);
 
     internal PublicHotReadRetiringRuntimeSnapshot RetiringSnapshotForTests()
     {
@@ -1097,18 +1187,25 @@ public static class PublicHotReadFastPath
             return WriteStatus(ctx, StatusCodes.Status503ServiceUnavailable, isDevelopment);
         }
 
-        PublicHotReadSnapshot snapshot = store.Current;
+        if (!store.TryGetRequestSnapshot(out PublicHotReadSnapshot snapshot, out string snapshotState))
+        {
+            if (!string.Equals(snapshotState, "not-ready", StringComparison.Ordinal))
+            {
+                counters.SanityFallback();
+            }
+            return next(ctx);
+        }
         if (classified)
         {
             return route.Kind switch
             {
-                PublicHotReadRouteKind.Category => ServeCategory(ctx, snapshot, counters, options, isDevelopment),
-                PublicHotReadRouteKind.Tag => ServeTag(ctx, snapshot, counters, options, isDevelopment),
+                PublicHotReadRouteKind.Category => ServeCategory(ctx, next, snapshot, counters, options, isDevelopment),
+                PublicHotReadRouteKind.Tag => ServeTag(ctx, next, snapshot, counters, options, isDevelopment),
                 PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, next, snapshot, counters, route.ArticleId, options, isDevelopment),
-                PublicHotReadRouteKind.ArticleList => ServeList(ctx, snapshot, counters, route.ListKey, options, isDevelopment),
-                PublicHotReadRouteKind.ArticleHot => ServeList(ctx, snapshot, counters, route.ListKey, options, isDevelopment),
-                PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, snapshot, counters, route.ListKey, options, isDevelopment),
-                PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, snapshot, counters, route.HtmlRouteKey, options, isDevelopment),
+                PublicHotReadRouteKind.ArticleList => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment),
+                PublicHotReadRouteKind.ArticleHot => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment),
+                PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment),
+                PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment),
                 PublicHotReadRouteKind.PublicHtml => ServePublicHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment),
                 _ => WriteRejected(ctx, counters, isDevelopment)
             };
@@ -1248,15 +1345,24 @@ public static class PublicHotReadFastPath
             return next(ctx);
         }
 
-        counters.ArticleHit(artifact.Frame.Length);
         string artifactKey = options.EnableDiagnosticHeaders
             ? articleId.ToString(System.Globalization.CultureInfo.InvariantCulture)
             : string.Empty;
-        return WriteBinaryFrame(ctx, artifact, counters, options, "article", artifactKey, isDevelopment);
+        return WriteBinaryFrame(
+            ctx,
+            next,
+            artifact,
+            PublicArtifactIntegrityContext.ForArticle(articleId),
+            counters,
+            options,
+            "article",
+            artifactKey,
+            isDevelopment);
     }
 
     private static Task ServeList(
         HttpContext ctx,
+        RequestDelegate next,
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         in PublicListKey key,
@@ -1269,13 +1375,22 @@ public static class PublicHotReadFastPath
             return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
         }
 
-        counters.ListHit(artifact.Frame.Length);
         string artifactKey = options.EnableDiagnosticHeaders ? key.ToString() : string.Empty;
-        return WriteBinaryFrame(ctx, artifact, counters, options, PublicListArtifactKind(key.Kind), artifactKey, isDevelopment);
+        return WriteBinaryFrame(
+            ctx,
+            next,
+            artifact,
+            PublicArtifactIntegrityContext.ForList(key),
+            counters,
+            options,
+            PublicListArtifactKind(key.Kind),
+            artifactKey,
+            isDevelopment);
     }
 
     private static Task ServeCategory(
         HttpContext ctx,
+        RequestDelegate next,
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         PublicHotReadOptions options,
@@ -1287,12 +1402,21 @@ public static class PublicHotReadFastPath
             return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
         }
 
-        counters.ListHit(artifact.Frame.Length);
-        return WriteBinaryFrame(ctx, artifact, counters, options, "category", "all", isDevelopment);
+        return WriteBinaryFrame(
+            ctx,
+            next,
+            artifact,
+            PublicArtifactIntegrityContext.ForCategory(),
+            counters,
+            options,
+            "category",
+            "all",
+            isDevelopment);
     }
 
     private static Task ServeTag(
         HttpContext ctx,
+        RequestDelegate next,
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         PublicHotReadOptions options,
@@ -1304,12 +1428,21 @@ public static class PublicHotReadFastPath
             return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
         }
 
-        counters.ListHit(artifact.Frame.Length);
-        return WriteBinaryFrame(ctx, artifact, counters, options, "tag", "all", isDevelopment);
+        return WriteBinaryFrame(
+            ctx,
+            next,
+            artifact,
+            PublicArtifactIntegrityContext.ForTag(),
+            counters,
+            options,
+            "tag",
+            "all",
+            isDevelopment);
     }
 
     private static Task ServeHtml(
         HttpContext ctx,
+        RequestDelegate next,
         PublicHotReadSnapshot snapshot,
         PublicHotReadCounters counters,
         string routeKey,
@@ -1320,6 +1453,15 @@ public static class PublicHotReadFastPath
         {
             counters.HtmlMiss();
             return WriteStatus(ctx, StatusCodes.Status404NotFound, isDevelopment);
+        }
+
+        if (!PublicHotReadArtifactIntegrity.IsValid(
+                html,
+                PublicArtifactIntegrityContext.ForHtml(routeKey)))
+        {
+            counters.SanityFallback();
+            counters.Rejected();
+            return next(ctx);
         }
 
         counters.HtmlHit(html.Bytes.Length);
@@ -1424,12 +1566,14 @@ public static class PublicHotReadFastPath
             return next(ctx);
         }
 
-        return ServeHtml(ctx, snapshot, counters, routeKey, options, isDevelopment);
+        return ServeHtml(ctx, next, snapshot, counters, routeKey, options, isDevelopment);
     }
 
     private static Task WriteBinaryFrame(
         HttpContext ctx,
+        RequestDelegate next,
         PublicBinaryArtifact artifact,
+        in PublicArtifactIntegrityContext integrityContext,
         PublicHotReadCounters counters,
         PublicHotReadOptions options,
         string artifactKind,
@@ -1439,6 +1583,20 @@ public static class PublicHotReadFastPath
         if (!TrySelectBinaryVariant(ctx.Request, artifact, out PublicBinaryArtifactVariant variant))
         {
             return WriteStatus(ctx, StatusCodes.Status406NotAcceptable, isDevelopment);
+        }
+        if (!PublicHotReadArtifactIntegrity.IsValid(variant, artifact, integrityContext))
+        {
+            counters.SanityFallback();
+            counters.Rejected();
+            return next(ctx);
+        }
+        if (string.Equals(artifactKind, "article", StringComparison.Ordinal))
+        {
+            counters.ArticleHit(artifact.Frame.Length);
+        }
+        else
+        {
+            counters.ListHit(artifact.Frame.Length);
         }
         counters.VariantSelected(variant.ContentEncoding);
 
@@ -1523,19 +1681,19 @@ public static class PublicHotReadFastPath
         double best = -1;
         if (identity > 0 && !artifact.Frame.IsEmpty)
         {
-            variant = new PublicBinaryArtifactVariant(artifact.Frame, artifact.ETag, string.Empty);
+            variant = new PublicBinaryArtifactVariant(artifact.Frame, artifact.ETag, string.Empty, artifact.FrameIntegrityTag);
             best = identity;
         }
 
         if (gzip > best && gzip > 0 && !artifact.GzipFrame.IsEmpty)
         {
-            variant = new PublicBinaryArtifactVariant(artifact.GzipFrame, artifact.GzipETag, "gzip");
+            variant = new PublicBinaryArtifactVariant(artifact.GzipFrame, artifact.GzipETag, "gzip", artifact.GzipIntegrityTag);
             best = gzip;
         }
 
         if (br >= best && br > 0 && !artifact.BrotliFrame.IsEmpty)
         {
-            variant = new PublicBinaryArtifactVariant(artifact.BrotliFrame, artifact.BrotliETag, "br");
+            variant = new PublicBinaryArtifactVariant(artifact.BrotliFrame, artifact.BrotliETag, "br", artifact.BrotliIntegrityTag);
             best = br;
         }
 
@@ -1593,7 +1751,7 @@ public static class PublicHotReadFastPath
     {
         if (!artifact.BrotliFrame.IsEmpty)
         {
-            variant = new PublicBinaryArtifactVariant(artifact.BrotliFrame, artifact.BrotliETag, "br");
+            variant = new PublicBinaryArtifactVariant(artifact.BrotliFrame, artifact.BrotliETag, "br", artifact.BrotliIntegrityTag);
             return true;
         }
 
@@ -1604,7 +1762,7 @@ public static class PublicHotReadFastPath
     {
         if (!artifact.GzipFrame.IsEmpty)
         {
-            variant = new PublicBinaryArtifactVariant(artifact.GzipFrame, artifact.GzipETag, "gzip");
+            variant = new PublicBinaryArtifactVariant(artifact.GzipFrame, artifact.GzipETag, "gzip", artifact.GzipIntegrityTag);
             return true;
         }
 
@@ -1619,7 +1777,7 @@ public static class PublicHotReadFastPath
             return false;
         }
 
-        variant = new PublicBinaryArtifactVariant(artifact.Frame, artifact.ETag, string.Empty);
+        variant = new PublicBinaryArtifactVariant(artifact.Frame, artifact.ETag, string.Empty, artifact.FrameIntegrityTag);
         return true;
     }
 
@@ -2343,7 +2501,8 @@ public readonly record struct PublicHotReadCounterSnapshot(
     long Bytes,
     long IdentityVariant,
     long BrotliVariant,
-    long GzipVariant);
+    long GzipVariant,
+    long SanityFallback);
 
 public sealed class PublicHotReadCounters
 {
@@ -2398,6 +2557,7 @@ public sealed class PublicHotReadCounters
 
     public void HtmlMiss() => Interlocked.Increment(ref PickStripe().HtmlMiss);
     public void Rejected() => Interlocked.Increment(ref PickStripe().Rejected);
+    public void SanityFallback() => Interlocked.Increment(ref PickStripe().SanityFallback);
     public void VariantSelected(string contentEncoding)
     {
         if (!ShouldRecordHit())
@@ -2439,6 +2599,7 @@ public sealed class PublicHotReadCounters
         long identityVariant = 0;
         long brotliVariant = 0;
         long gzipVariant = 0;
+        long sanityFallback = 0;
 
         foreach (CounterStripe stripe in _stripes)
         {
@@ -2453,6 +2614,7 @@ public sealed class PublicHotReadCounters
             identityVariant += reset ? Interlocked.Exchange(ref stripe.IdentityVariant, 0) : Volatile.Read(ref stripe.IdentityVariant);
             brotliVariant += reset ? Interlocked.Exchange(ref stripe.BrotliVariant, 0) : Volatile.Read(ref stripe.BrotliVariant);
             gzipVariant += reset ? Interlocked.Exchange(ref stripe.GzipVariant, 0) : Volatile.Read(ref stripe.GzipVariant);
+            sanityFallback += reset ? Interlocked.Exchange(ref stripe.SanityFallback, 0) : Volatile.Read(ref stripe.SanityFallback);
         }
 
         return new PublicHotReadCounterSnapshot(
@@ -2466,7 +2628,8 @@ public sealed class PublicHotReadCounters
             bytes,
             identityVariant,
             brotliVariant,
-            gzipVariant);
+            gzipVariant,
+            sanityFallback);
     }
 
     private CounterStripe PickStripe()
@@ -2509,6 +2672,7 @@ public sealed class PublicHotReadCounters
         [FieldOffset(64)] public long IdentityVariant;
         [FieldOffset(72)] public long BrotliVariant;
         [FieldOffset(80)] public long GzipVariant;
+        [FieldOffset(88)] public long SanityFallback;
     }
 }
 
@@ -2528,6 +2692,7 @@ public sealed class PublicHotReadMetricFlushWorker(
     private static readonly Counter<long> IdentityVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.identity");
     private static readonly Counter<long> BrotliVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.br");
     private static readonly Counter<long> GzipVariantCounter = Meter.CreateCounter<long>("fsus.hotread.encoding.gzip");
+    private static readonly Counter<long> SanityFallbackCounter = Meter.CreateCounter<long>("fsus.hotread.sanity.fallback");
     private static readonly Counter<long> SensitivePrefixBypassCounter =
         Meter.CreateCounter<long>("fsus.hotread.classifier.sensitive_bypass");
     private static readonly Counter<long> CredentialBypassCounter =
@@ -2564,6 +2729,7 @@ public sealed class PublicHotReadMetricFlushWorker(
         AddIfPositive(IdentityVariantCounter, snapshot.IdentityVariant);
         AddIfPositive(BrotliVariantCounter, snapshot.BrotliVariant);
         AddIfPositive(GzipVariantCounter, snapshot.GzipVariant);
+        AddIfPositive(SanityFallbackCounter, snapshot.SanityFallback);
         AddIfPositive(SensitivePrefixBypassCounter, sensitivePrefixBypass);
         AddIfPositive(CredentialBypassCounter, credentialBypass);
         if (snapshot.Rejected > 0)
@@ -2753,7 +2919,7 @@ internal static class PublicHotReadBinaryArtifactFactory
             throw new InvalidOperationException($"public hot-read frame too large: {frameType} {frame.Length} bytes");
         }
 
-        if (options.ValidateFramesOnPublish && !LooksLikeExpectedAedsFrame(frame, frameType))
+        if (!LooksLikeExpectedAedsFrame(frame, frameType))
         {
             throw new InvalidOperationException($"public hot-read frame validation failed: {frameType}");
         }

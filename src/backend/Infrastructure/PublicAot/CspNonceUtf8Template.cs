@@ -71,6 +71,8 @@ public sealed class CspNonceUtf8Template
 
     public IReadOnlyList<string> StaticInlineSha256Sources => _staticInlineSha256Sources;
 
+    internal ReadOnlyMemory<byte> IntegrityBytes => _templateBytes;
+
     internal static CspNonceUtf8Template? Compile(string html, string artifactIdentity)
     {
         ArgumentNullException.ThrowIfNull(html);

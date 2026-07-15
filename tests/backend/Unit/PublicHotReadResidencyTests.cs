@@ -177,7 +177,7 @@ public sealed class PublicHotReadResidencyTests
     [Fact]
     public void Publish_RejectsWhenAReaderPinsRetiringSnapshotPastDeadline()
     {
-        var clock = new MutableTimeProvider(DateTimeOffset.Parse("2026-07-15T12:00:00Z"));
+        var clock = new MutableTimeProvider(DateTimeOffset.UtcNow.AddSeconds(1));
         PublicHotReadSnapshot first = Snapshot(1, 1, Artifact(128, 0, 0, 1));
         PublicHotReadSnapshot second = Snapshot(2, 2, Artifact(128, 0, 0, 2));
         PublicHotReadSnapshot third = Snapshot(3, 3, Artifact(128, 0, 0, 3));
@@ -370,8 +370,9 @@ public sealed class PublicHotReadResidencyTests
     [Fact]
     public async Task AtomicSwap_ConcurrentReadersSeeOnlyCompleteReadonlyFramesWithoutSliceCopy()
     {
-        byte[] firstBytes = Enumerable.Repeat((byte)1, 1024).ToArray();
-        byte[] secondBytes = Enumerable.Repeat((byte)2, 1024).ToArray();
+        var encoder = new AedsEncoder();
+        byte[] firstBytes = encoder.Encode(AedsFrameType.ArticleDetail, Enumerable.Repeat((byte)1, 1024).ToArray());
+        byte[] secondBytes = encoder.Encode(AedsFrameType.ArticleDetail, Enumerable.Repeat((byte)2, 1024).ToArray());
         PublicHotReadSnapshot first = Snapshot(1, 42, new PublicBinaryArtifact(firstBytes, "\"1\"", "public", 1, AedsFrameType.ArticleDetail));
         PublicHotReadSnapshot second = Snapshot(2, 42, new PublicBinaryArtifact(secondBytes, "\"2\"", "public", 2, AedsFrameType.ArticleDetail));
         var store = new PublicHotReadStore();
@@ -385,8 +386,8 @@ public sealed class PublicHotReadResidencyTests
             {
                 PublicHotReadSnapshot current = store.Current;
                 if (!current.TryGetArticle(42, out PublicBinaryArtifact artifact)
-                    || (artifact.Frame.Span[0] != 1 && artifact.Frame.Span[0] != 2)
-                    || artifact.Frame.Span.IndexOfAnyExcept(artifact.Frame.Span[0]) >= 0)
+                    || (!artifact.Frame.Span.SequenceEqual(firstBytes)
+                        && !artifact.Frame.Span.SequenceEqual(secondBytes)))
                 {
                     lock (failureGate) failures.Add("partial-frame");
                 }
@@ -415,8 +416,12 @@ public sealed class PublicHotReadResidencyTests
             PublicHotReadPublicationEvidence.CreateVerified(version, DateTimeOffset.UtcNow));
 
     private static PublicBinaryArtifact Artifact(int raw, int brotli, int gzip, long version)
-        => new(
-            new byte[raw],
+    {
+        byte[] frame = new AedsEncoder().Encode(
+            AedsFrameType.ArticleDetail,
+            new byte[Math.Max(0, raw - AedsFrameHeader.Size)]);
+        return new(
+            frame,
             $"\"raw-{version}\"",
             "public,max-age=60",
             version,
@@ -425,6 +430,7 @@ public sealed class PublicHotReadResidencyTests
             brotli > 0 ? $"\"br-{version}\"" : string.Empty,
             new byte[gzip],
             gzip > 0 ? $"\"gzip-{version}\"" : string.Empty);
+    }
 
     private static PublicHotReadOptions RetiringOptions(
         int maxSnapshots,
@@ -440,7 +446,8 @@ public sealed class PublicHotReadResidencyTests
             MaxArtifactObjects = 10_000,
             MaxRetiringSnapshots = maxSnapshots,
             MaxRetiringBytes = maxBytes,
-            RetiringSnapshotDeadline = deadline
+            RetiringSnapshotDeadline = deadline,
+            MaxSnapshotAge = TimeSpan.FromHours(1)
         };
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

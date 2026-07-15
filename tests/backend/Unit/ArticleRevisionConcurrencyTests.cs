@@ -166,6 +166,128 @@ public sealed class ArticleRevisionConcurrencyTests(
     }
 
     [Fact]
+    public async Task UpdateAsync_PublicArticleEstablishesFenceBeforeDatabaseMutation()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        int articleId = await SeedArticleAsync(setupDb);
+        await SeedBodyAsync(setupDb, articleId, "# before fence");
+        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        sideEffects
+            .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                Article beforeCommit = await setupDb.Queryable<Article>().InSingleAsync(articleId);
+                ArticleBody bodyBeforeCommit = await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId);
+                Assert.Equal("Title", beforeCommit.Title);
+                Assert.Equal("# before fence", bodyBeforeCommit.MarkdownContent);
+            });
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb, sideEffects);
+
+        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "After fence",
+            Summary = "changed",
+            Content = "# after fence",
+            CategoryId = 1,
+            TagIds = [],
+            Status = ArticleStatus.Published
+        });
+
+        Assert.True(updated);
+        Assert.Equal("After fence", (await setupDb.Queryable<Article>().InSingleAsync(articleId)).Title);
+        await sideEffects.Received(1)
+            .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>());
+        await sideEffects.DidNotReceive()
+            .RecoverAbortedPublicMutationFenceAsync(
+                articleId,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WhenFenceFails_DoesNotChangePublishedArticle()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        int articleId = await SeedArticleAsync(setupDb);
+        await SeedBodyAsync(setupDb, articleId, "# unchanged");
+        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        sideEffects
+            .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("durable tombstone unavailable")));
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb, sideEffects);
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.UpdateAsync(articleId, new UpdateArticleRequest
+            {
+                Title = "must not commit",
+                Summary = "changed",
+                Content = "# must not commit",
+                CategoryId = 1,
+                TagIds = [],
+                Status = ArticleStatus.Published
+            }));
+
+        Assert.Equal("durable tombstone unavailable", error.Message);
+        Assert.Equal("Title", (await setupDb.Queryable<Article>().InSingleAsync(articleId)).Title);
+        Assert.Equal("# unchanged", (await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId)).MarkdownContent);
+        Assert.Empty(await setupDb.Queryable<ArticleMutationOutboxEvent>().ToListAsync());
+        await sideEffects.DidNotReceive()
+            .RecoverAbortedPublicMutationFenceAsync(
+                articleId,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RowVersionLossAfterFence_QueuesRebuildBeforeReturningFalse()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedTaxonomyAsync(setupDb);
+        int articleId = await SeedArticleAsync(setupDb);
+        await SeedBodyAsync(setupDb, articleId, "# unchanged");
+        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        sideEffects
+            .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                await setupDb.Ado.ExecuteCommandAsync(
+                    "UPDATE article SET views = views + 1 WHERE id = @ArticleId;",
+                    new SugarParameter("@ArticleId", articleId));
+            });
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb, sideEffects);
+
+        bool updated = await service.UpdateAsync(articleId, new UpdateArticleRequest
+        {
+            Title = "stale writer",
+            Summary = "changed",
+            Content = "# stale writer",
+            CategoryId = 1,
+            TagIds = [],
+            Status = ArticleStatus.Published
+        });
+
+        Assert.False(updated);
+        Assert.Equal("Title", (await setupDb.Queryable<Article>().InSingleAsync(articleId)).Title);
+        Assert.Equal("# unchanged", (await setupDb.Queryable<ArticleBody>().InSingleAsync(articleId)).MarkdownContent);
+        await sideEffects.Received(1)
+            .RecoverAbortedPublicMutationFenceAsync(
+                articleId,
+                "article-update-fence-aborted",
+                CancellationToken.None);
+    }
+
+    [Fact]
     public async Task UpdateAsync_MetadataOnlyChangePreservesBodyUpdatedAtAndFirstPublishedAt()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -395,7 +517,9 @@ public sealed class ArticleRevisionConcurrencyTests(
             typeof(ArticleRightsSnapshot),
             typeof(ArticleMutationOutboxEvent));
 
-    private static ArticleService CreateService(SqlSugarClient db)
+    private static ArticleService CreateService(
+        SqlSugarClient db,
+        IArticleMutationSideEffectCoordinator? mutationSideEffects = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
@@ -412,7 +536,7 @@ public sealed class ArticleRevisionConcurrencyTests(
             _logger: NullLogger<ArticleService>.Instance,
             _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
-            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _mutationSideEffects: mutationSideEffects ?? Substitute.For<IArticleMutationSideEffectCoordinator>(),
             _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
     }
 }

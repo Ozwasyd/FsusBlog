@@ -106,11 +106,35 @@ public sealed class PublicArtifactRevocationTests
         Assert.True(state.Published[1].PurgeConfirmed);
         Assert.All(state.Published, static revoke => Assert.Equal("revoke", revoke.Action));
 
+        DefaultHttpContext blocked = CreateContext("/api/binary/article/42.aeds");
+        bool oldSnapshotReached = false;
+        await PublicArtifactRevocationMiddleware.TryHandleAsync(
+            blocked,
+            _ =>
+            {
+                oldSnapshotReached = true;
+                return Task.CompletedTask;
+            },
+            registry);
+        Assert.False(oldSnapshotReached);
+        Assert.Equal(StatusCodes.Status410Gone, blocked.Response.StatusCode);
+
         await coordinator.CompleteRebuildAsync([42], coordinator.CurrentGeneration);
 
         Assert.False(registry.TryGet(42, out _));
         Assert.Equal(tombstone with { PurgeConfirmed = true }, Assert.Single(state.Cleared));
         Assert.DoesNotContain(state.Published, static message => message.Action == "clear");
+        DefaultHttpContext rebuilt = CreateContext("/api/binary/article/42.aeds");
+        bool rebuiltSnapshotReached = false;
+        await PublicArtifactRevocationMiddleware.TryHandleAsync(
+            rebuilt,
+            _ =>
+            {
+                rebuiltSnapshotReached = true;
+                return Task.CompletedTask;
+            },
+            registry);
+        Assert.True(rebuiltSnapshotReached);
     }
 
     [Fact]
@@ -163,6 +187,81 @@ public sealed class PublicArtifactRevocationTests
         Assert.Equal(tombstone, active);
         Assert.Equal("revoke", Assert.Single(state.Published).Action);
         Assert.Empty(state.Cleared);
+    }
+
+    [Fact]
+    public async Task Coordinator_PreCommitFenceCannotClearUntilCommitPromotesSameGeneration()
+    {
+        var tombstone = new PublicArtifactTombstone(42, 25, 100);
+        var state = new FakeStateStore(tombstone);
+        var registry = new PublicArtifactRevocationRegistry();
+        var coordinator = new PublicArtifactRevocationCoordinator(state, registry, new FakeCdnPurger());
+
+        await coordinator.BeginArticleMutationFenceAsync(42);
+
+        Assert.True(registry.TryGet(42, out PublicArtifactTombstone pending));
+        Assert.True(pending.PurgeConfirmed);
+        Assert.True(pending.TransitionPending);
+        await coordinator.CompleteRebuildAsync([42], coordinator.CurrentGeneration);
+        Assert.True(registry.TryGet(42, out _));
+        Assert.Empty(state.Cleared);
+
+        await coordinator.RevokeArticleAsync(42);
+        Assert.True(registry.TryGet(42, out PublicArtifactTombstone committed));
+        Assert.False(committed.TransitionPending);
+        Assert.Equal(pending.Generation, committed.Generation);
+
+        await coordinator.CompleteRebuildAsync([42], coordinator.CurrentGeneration);
+        Assert.False(registry.TryGet(42, out _));
+        Assert.Equal(committed, Assert.Single(state.Cleared));
+    }
+
+    [Fact]
+    public async Task Coordinator_RecoveryPromotesExactPendingGenerationForRebuild()
+    {
+        var pending = new PublicArtifactTombstone(
+            42,
+            26,
+            100,
+            PurgeConfirmed: true,
+            TransitionPending: true);
+        var state = new FakeStateStore(pending);
+        var registry = new PublicArtifactRevocationRegistry();
+        registry.Apply(pending);
+        var coordinator = new PublicArtifactRevocationCoordinator(state, registry, new FakeCdnPurger());
+
+        bool recovered = await coordinator.RecoverPendingMutationFenceAsync(pending);
+
+        Assert.True(recovered);
+        Assert.True(registry.TryGet(42, out PublicArtifactTombstone committed));
+        Assert.Equal(26, committed.Generation);
+        Assert.False(committed.TransitionPending);
+        PublicArtifactRevocationMessage message = Assert.Single(state.Published);
+        Assert.Equal(26, message.Generation);
+        Assert.False(message.TransitionPending);
+    }
+
+    [Fact]
+    public async Task Coordinator_RecoveryCannotOverwriteNewerGeneration()
+    {
+        var stale = new PublicArtifactTombstone(
+            42,
+            26,
+            100,
+            PurgeConfirmed: true,
+            TransitionPending: true);
+        var newer = stale with { Generation = 27, RevokedAtUnixMilliseconds = 200 };
+        var state = new FakeStateStore(newer);
+        var registry = new PublicArtifactRevocationRegistry();
+        registry.Apply(newer);
+        var coordinator = new PublicArtifactRevocationCoordinator(state, registry, new FakeCdnPurger());
+
+        bool recovered = await coordinator.RecoverPendingMutationFenceAsync(stale);
+
+        Assert.False(recovered);
+        Assert.True(registry.TryGet(42, out PublicArtifactTombstone active));
+        Assert.Equal(newer, active);
+        Assert.Empty(state.Published);
     }
 
     [Fact]
@@ -244,11 +343,36 @@ public sealed class PublicArtifactRevocationTests
 
     private sealed class FakeStateStore(PublicArtifactTombstone tombstone) : IPublicArtifactRevocationStateStore
     {
+        private PublicArtifactTombstone _current = tombstone;
         public List<PublicArtifactRevocationMessage> Published { get; } = [];
         public List<PublicArtifactTombstone> Cleared { get; } = [];
 
+        public Task<PublicArtifactTombstone> BeginMutationFenceAsync(
+            int articleId,
+            CancellationToken cancellationToken)
+        {
+            _current = _current with { ArticleId = articleId, TransitionPending = true };
+            return Task.FromResult(_current);
+        }
+
         public Task<PublicArtifactTombstone> RevokeArticleAsync(int articleId, CancellationToken cancellationToken)
-            => Task.FromResult(tombstone with { ArticleId = articleId });
+        {
+            _current = _current with { ArticleId = articleId };
+            return Task.FromResult(_current);
+        }
+
+        public Task<PublicArtifactTombstone?> MarkTransitionCommittedAsync(
+            PublicArtifactTombstone value,
+            CancellationToken cancellationToken)
+        {
+            if (_current.Generation != value.Generation)
+            {
+                return Task.FromResult<PublicArtifactTombstone?>(null);
+            }
+
+            _current = value with { TransitionPending = false };
+            return Task.FromResult<PublicArtifactTombstone?>(_current);
+        }
 
         public Task<IReadOnlyList<PublicArtifactTombstone>> LoadActiveAsync(CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<PublicArtifactTombstone>>([]);
@@ -256,7 +380,10 @@ public sealed class PublicArtifactRevocationTests
         public Task<PublicArtifactTombstone> ConfirmPurgeAsync(
             PublicArtifactTombstone value,
             CancellationToken cancellationToken)
-            => Task.FromResult(value with { PurgeConfirmed = true });
+        {
+            _current = value with { PurgeConfirmed = true };
+            return Task.FromResult(_current);
+        }
 
         public Task<bool> ClearAsync(PublicArtifactTombstone value, CancellationToken cancellationToken)
         {

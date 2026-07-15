@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Frozen;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -189,7 +190,18 @@ public sealed class CspNonceUtf8TemplateTests
         PublicHtmlArtifact artifact = PublicHotReadHtmlArtifactFactory.FromHtml(
             "<html><head></head><body><script>budget()</script></body></html>",
             "public,max-age=60");
-        PublicHotReadSnapshot snapshot = PublicHotReadSnapshot.Empty.WithHtml("html:home", artifact);
+        var html = new Dictionary<string, PublicHtmlArtifact>(StringComparer.Ordinal)
+        {
+            ["html:home"] = artifact
+        }.ToFrozenDictionary(StringComparer.Ordinal);
+        var snapshot = new PublicHotReadSnapshot(
+            1,
+            FrozenDictionary<int, PublicBinaryArtifact>.Empty,
+            FrozenDictionary<PublicListKey, PublicBinaryArtifact>.Empty,
+            default,
+            default,
+            html,
+            PublicHotReadPublicationEvidence.CreateVerified(1, DateTimeOffset.UtcNow));
         var store = new PublicHotReadStore(options: Options.Create(new PublicHotReadOptions
         {
             MaxResidentBytes = snapshot.ResidentBytes - 1

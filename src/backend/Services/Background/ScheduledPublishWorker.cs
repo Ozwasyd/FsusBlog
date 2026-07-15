@@ -54,22 +54,58 @@ public sealed class ScheduledPublishWorker(
                     await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
                     ISqlSugarClient db = scope.ServiceProvider.GetRequiredService<ISqlSugarClient>();
                     IDbConcurrencyGate dbGate = scope.ServiceProvider.GetRequiredService<IDbConcurrencyGate>();
+                    IArticleMutationSideEffectCoordinator mutationSideEffects =
+                        scope.ServiceProvider.GetRequiredService<IArticleMutationSideEffectCoordinator>();
                     DateTime now = timeProvider.GetUtcNow().UtcDateTime;
                     if (activeReleaseCommitGuard is not null)
                     {
                         await activeReleaseCommitGuard.EnsureCurrentAsync(cancellationToken).ConfigureAwait(false);
                     }
 
-                    ScheduledPublishBatchCommit commit = await dbGate.ExecuteAsync(
-                        "scheduled-publish-batch-commit",
-                        gateCt => ClaimDueArticlesAsync(
-                            db,
-                            now,
-                            logger,
-                            transactionalCommitGuard,
-                            gateCt),
-                        _ => Task.FromResult(ScheduledPublishBatchCommit.Timeout),
+                    IReadOnlyList<int> candidates = await dbGate.ExecuteAsync(
+                        "scheduled-publish-fence-candidates",
+                        gateCt => LoadDueArticleIdsAsync(db, now, gateCt),
+                        _ => Task.FromResult<IReadOnlyList<int>>(Array.Empty<int>()),
                         cancellationToken);
+                    if (candidates.Count == 0)
+                    {
+                        runtimeState.ReportResult(0, 0, 0);
+                        resultForMetrics = "empty";
+                        return 0;
+                    }
+
+                    ScheduledPublishBatchCommit commit = ScheduledPublishBatchCommit.Timeout;
+                    bool fenceEstablished = false;
+                    try
+                    {
+                        await mutationSideEffects
+                            .BeginPublicMutationFenceAsync(null, cancellationToken)
+                            .ConfigureAwait(false);
+                        fenceEstablished = true;
+
+                        commit = await dbGate.ExecuteAsync(
+                            "scheduled-publish-batch-commit",
+                            gateCt => ClaimDueArticlesAsync(
+                                db,
+                                now,
+                                candidates,
+                                logger,
+                                transactionalCommitGuard,
+                                gateCt),
+                            _ => Task.FromResult(ScheduledPublishBatchCommit.Timeout),
+                            cancellationToken);
+                    }
+                    finally
+                    {
+                        if (fenceEstablished && (!commit.Committed || commit.ClaimedArticleIds.Count == 0))
+                        {
+                            await RecoverAbortedFenceAsync(
+                                    mutationSideEffects,
+                                    logger)
+                                .ConfigureAwait(false);
+                        }
+                    }
+
                     if (!commit.Committed)
                     {
                         runtimeState.ReportResult(0, 1, 1, "batch_commit_failed");
@@ -86,6 +122,13 @@ public sealed class ScheduledPublishWorker(
                         resultForMetrics = "empty";
                         return 0;
                     }
+
+                    await mutationSideEffects
+                        .CommitPublicMutationFenceAsync(
+                            null,
+                            "scheduled-published",
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
 
                     int published = commit.ClaimedArticleIds.Count;
                     int backlog = await dbGate.ExecuteAsync(
@@ -131,6 +174,7 @@ public sealed class ScheduledPublishWorker(
     private static async Task<ScheduledPublishBatchCommit> ClaimDueArticlesAsync(
         ISqlSugarClient db,
         DateTime now,
+        IReadOnlyList<int> candidateArticleIds,
         ILogger<ScheduledPublishWorker> logger,
         IActiveReleaseTransactionalCommitGuard transactionalCommitGuard,
         CancellationToken cancellationToken)
@@ -148,7 +192,8 @@ public sealed class ScheduledPublishWorker(
                        WHERE id IN (
                            SELECT id
                            FROM article
-                           WHERE isdeleted = false
+                           WHERE id IN (@CandidateArticleIds)
+                             AND isdeleted = false
                              AND status = @ScheduledStatus
                              AND scheduled_publish_at <= @Now
                            ORDER BY scheduled_publish_at, id
@@ -162,6 +207,7 @@ public sealed class ScheduledPublishWorker(
                            new("@PublishedStatus", (int)ArticleStatus.Published),
                            new("@Now", now),
                            new("@ScheduledStatus", (int)ArticleStatus.Scheduled),
+                           new("@CandidateArticleIds", candidateArticleIds.ToArray()),
                            new("@BatchSize", 100)
                        }))
             {
@@ -200,6 +246,54 @@ public sealed class ScheduledPublishWorker(
             committed ? claimedArticleIds : [],
             committed,
             committed ? insertedOutboxEvents : 0);
+    }
+
+    private static async Task<IReadOnlyList<int>> LoadDueArticleIdsAsync(
+        ISqlSugarClient db,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var articleIds = new List<int>(100);
+        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            """
+            SELECT id
+            FROM article
+            WHERE isdeleted = false
+              AND status = @ScheduledStatus
+              AND scheduled_publish_at <= @Now
+            ORDER BY scheduled_publish_at, id
+            LIMIT @BatchSize;
+            """,
+            new SugarParameter("@ScheduledStatus", (int)ArticleStatus.Scheduled),
+            new SugarParameter("@Now", now),
+            new SugarParameter("@BatchSize", 100));
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            articleIds.Add(reader.ReadInt32("id"));
+        }
+
+        return articleIds;
+    }
+
+    private static async Task RecoverAbortedFenceAsync(
+        IArticleMutationSideEffectCoordinator mutationSideEffects,
+        ILogger<ScheduledPublishWorker> logger)
+    {
+        try
+        {
+            await mutationSideEffects
+                .RecoverAbortedPublicMutationFenceAsync(
+                    null,
+                    "scheduled-publish-fence-aborted",
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Failed to queue rebuild for aborted scheduled publish fence");
+        }
     }
 
     private static async Task<int> EstimateBacklogAsync(ISqlSugarClient db, DateTime now, CancellationToken cancellationToken)

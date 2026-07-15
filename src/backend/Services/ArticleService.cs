@@ -76,6 +76,24 @@ public class ArticleService(
     private CancellationToken ResolveCancellationToken(CancellationToken cancellationToken)
         => cancellationToken.CanBeCanceled ? cancellationToken : Ct;
 
+    private async Task RecoverAbortedPublicMutationFenceAsync(int? articleId, string reason)
+    {
+        try
+        {
+            await _mutationSideEffects
+                .RecoverAbortedPublicMutationFenceAsync(articleId, reason, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to queue rebuild for aborted public mutation fence {ArticleId} {Reason}",
+                articleId,
+                reason);
+        }
+    }
+
     public async ValueTask IncreaseViewCountAsync(int id)
         => await IncreaseViewCountAsync(id, 1);
 
@@ -600,52 +618,72 @@ public class ArticleService(
             Content = content
         };
 
-        var result = await _db.Ado.UseTranAsync(async () => {
-            int id = await _db.Insertable(article).ExecuteReturnIdentityAsync();
-            await _db.Insertable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = DateTime.UtcNow }).ExecuteCommandAsync();
-            if (tagIds.Count > 0)
-            {
-                await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
-            }
-            ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "initial publish");
-            long rightsSnapshotId = await SaveArticleRightsAsync(
-                id,
-                revision,
-                title,
-                content,
-                safeSummary,
-                coverImageUrl,
-                dto.CategoryId,
-                tagIds,
-                status,
-                article.PublishedAt,
-                article.ScheduledPublishAt,
-                rights);
-            await RecordArticleMutationOutboxAsync(id, "created", rightsSnapshotId);
-            return id;
-        });
-
-        ct.ThrowIfCancellationRequested();
-        if (result.IsSuccess && result.Data == 0)
+        bool requiresPublicFence = ArticlePublication.IsPubliclyVisible(article, now);
+        bool fenceEstablished = false;
+        bool mutationCommitted = false;
+        try
         {
+            if (requiresPublicFence)
+            {
+                await _mutationSideEffects.BeginPublicMutationFenceAsync(null, ct).ConfigureAwait(false);
+                fenceEstablished = true;
+            }
+
+            var result = await _db.Ado.UseTranAsync(async () => {
+                int id = await _db.Insertable(article).ExecuteReturnIdentityAsync();
+                await _db.Insertable(new ArticleBody { ArticleId = id, MarkdownContent = content, UpdatedAt = DateTime.UtcNow }).ExecuteCommandAsync();
+                if (tagIds.Count > 0)
+                {
+                    await _db.Insertable(BuildArticleTags(id, tagIds)).ExecuteCommandAsync();
+                }
+                ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "initial publish");
+                long rightsSnapshotId = await SaveArticleRightsAsync(
+                    id,
+                    revision,
+                    title,
+                    content,
+                    safeSummary,
+                    coverImageUrl,
+                    dto.CategoryId,
+                    tagIds,
+                    status,
+                    article.PublishedAt,
+                    article.ScheduledPublishAt,
+                    rights);
+                await RecordArticleMutationOutboxAsync(id, "created", rightsSnapshotId);
+                return id;
+            });
+
+            mutationCommitted = result.IsSuccess && result.Data > 0;
+            ct.ThrowIfCancellationRequested();
+            if (result.IsSuccess && result.Data == 0)
+            {
+                return 0;
+            }
+
+            if (result.IsSuccess)
+            {
+                await InvalidateCache();
+                ct.ThrowIfCancellationRequested();
+                await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create");
+                ct.ThrowIfCancellationRequested();
+                ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(result.Data);
+                ct.ThrowIfCancellationRequested();
+
+                await _mutationSideEffects.AfterCreatedAsync(article, result.Data, realtimePreview);
+
+                return result.Data;
+            }
+            _logger.LogError("创建文章失败 | DbError: {Error}", result.ErrorMessage);
             return 0;
         }
-
-        if (result.IsSuccess)
+        finally
         {
-            await InvalidateCache();
-            ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotAsync(null, [dto.CategoryId], tagIds, "create");
-            ct.ThrowIfCancellationRequested();
-            ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(result.Data);
-            ct.ThrowIfCancellationRequested();
-
-            await _mutationSideEffects.AfterCreatedAsync(article, result.Data, realtimePreview);
-
-            return result.Data;
+            if (fenceEstablished && !mutationCommitted)
+            {
+                await RecoverAbortedPublicMutationFenceAsync(null, "article-create-fence-aborted").ConfigureAwait(false);
+            }
         }
-        _logger.LogError("创建文章失败 | DbError: {Error}", result.ErrorMessage);
-        return 0;
     }
 
     private static ArticleStatus NormalizeWriteStatus(ArticleStatus requested, DateTime? scheduledPublishAt, DateTime utcNow)
@@ -1045,65 +1083,95 @@ public class ArticleService(
         DateTime? scheduledPublishAt = status == ArticleStatus.Scheduled ? dto.ScheduledPublishAt : null;
         DateTime? publishedAt = state.PublishedAt ?? (status == ArticleStatus.Published ? now : null);
         DateTime? archivedAt = status == ArticleStatus.Archived ? now : null;
-
-        bool articleUpdated = false;
-        var result = await _db.Ado.UseTranAsync(async () =>
-        {
-            bool updated = await TryUpdateArticleRowAsync(
-                state,
-                id,
-                title,
-                safeSummary,
-                coverImageUrl,
-                dto.CategoryId,
+        bool requiresPublicFence = ArticlePublication.IsPubliclyVisible(
+                state.Status,
+                isDeleted: false,
+                publishedAt: state.PublishedAt,
+                scheduledPublishAt: null,
+                utcNow: now)
+            || ArticlePublication.IsPubliclyVisible(
                 status,
-                scheduledPublishAt,
-                publishedAt,
-                archivedAt,
-                false,
-                null);
-            if (!updated)
+                isDeleted: false,
+                publishedAt: publishedAt,
+                scheduledPublishAt: scheduledPublishAt,
+                utcNow: now);
+        bool fenceEstablished = false;
+        bool mutationCommitted = false;
+        try
+        {
+            if (requiresPublicFence)
             {
-                return;
+                await _mutationSideEffects.BeginPublicMutationFenceAsync(id, ct).ConfigureAwait(false);
+                fenceEstablished = true;
             }
 
-            articleUpdated = true;
-            await UpsertArticleBodyAsync(id, content, now);
-            await ApplyArticleTagsAsync(id, tagIds);
-            ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "article updated");
-            long rightsSnapshotId = await SaveArticleRightsAsync(
-                id,
-                revision,
-                title,
-                content,
-                safeSummary,
-                coverImageUrl,
-                dto.CategoryId,
-                tagIds,
-                status,
-                publishedAt,
-                scheduledPublishAt,
-                rights);
-            await RecordArticleMutationOutboxAsync(id, "updated", rightsSnapshotId);
-        });
+            bool articleUpdated = false;
+            var result = await _db.Ado.UseTranAsync(async () =>
+            {
+                bool updated = await TryUpdateArticleRowAsync(
+                    state,
+                    id,
+                    title,
+                    safeSummary,
+                    coverImageUrl,
+                    dto.CategoryId,
+                    status,
+                    scheduledPublishAt,
+                    publishedAt,
+                    archivedAt,
+                    false,
+                    null);
+                if (!updated)
+                {
+                    return;
+                }
 
-        ct.ThrowIfCancellationRequested();
-        if (result.IsSuccess && articleUpdated)
-        {
-            await InvalidateCache(id);
+                articleUpdated = true;
+                await UpsertArticleBodyAsync(id, content, now);
+                await ApplyArticleTagsAsync(id, tagIds);
+                ArticleRevisionCoordinates revision = await SaveArticleRevisionAsync(id, title, content, safeSummary, coverImageUrl, dto.CategoryId, tagIds, "article updated");
+                long rightsSnapshotId = await SaveArticleRightsAsync(
+                    id,
+                    revision,
+                    title,
+                    content,
+                    safeSummary,
+                    coverImageUrl,
+                    dto.CategoryId,
+                    tagIds,
+                    status,
+                    publishedAt,
+                    scheduledPublishAt,
+                    rights);
+                await RecordArticleMutationOutboxAsync(id, "updated", rightsSnapshotId);
+            });
+
+            mutationCommitted = result.IsSuccess && articleUpdated;
             ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotAsync(
-                id,
-                MergeIds([state.CategoryId], [dto.CategoryId]),
-                MergeIds(state.TagIds, tagIds),
-                "update");
-            ct.ThrowIfCancellationRequested();
-            ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
-            ct.ThrowIfCancellationRequested();
-            await _mutationSideEffects.AfterUpdatedAsync(id, realtimePreview);
-            return true;
+            if (mutationCommitted)
+            {
+                await InvalidateCache(id);
+                ct.ThrowIfCancellationRequested();
+                await InvalidatePublicAotAsync(
+                    id,
+                    MergeIds([state.CategoryId], [dto.CategoryId]),
+                    MergeIds(state.TagIds, tagIds),
+                    "update");
+                ct.ThrowIfCancellationRequested();
+                ArticleListItemResponse? realtimePreview = await LoadRealtimePreviewAsync(id);
+                ct.ThrowIfCancellationRequested();
+                await _mutationSideEffects.AfterUpdatedAsync(id, realtimePreview);
+                return true;
+            }
+            return false;
         }
-        return false;
+        finally
+        {
+            if (fenceEstablished && !mutationCommitted)
+            {
+                await RecoverAbortedPublicMutationFenceAsync(id, "article-update-fence-aborted").ConfigureAwait(false);
+            }
+        }
     }
 
     private async Task<ArticleUpdateState?> LoadArticleUpdateStateAsync(int articleId)
@@ -1270,40 +1338,54 @@ public class ArticleService(
         }
 
         DateTime now = DateTime.UtcNow;
-        bool success = false;
-        var result = await _db.Ado.UseTranAsync(async () =>
+        bool fenceEstablished = false;
+        bool mutationCommitted = false;
+        try
         {
-            int updated = await _db.Ado.ExecuteCommandAsync(
-                """
-                UPDATE article
-                SET isdeleted = true,
-                    status = @Status,
-                    deleted_at = CAST(@DeletedAt AS timestamp)
-                WHERE id = @ArticleId
-                  AND isdeleted = false
-                  AND xmin::text = @RowVersion;
-                """,
-                new SugarParameter("@ArticleId", id),
-                new SugarParameter("@Status", (int)ArticleStatus.Deleted),
-                new SugarParameter("@DeletedAt", now),
-                new SugarParameter("@RowVersion", state.RowVersion));
-            if (updated > 0)
+            await _mutationSideEffects.BeginPublicMutationFenceAsync(id, ct).ConfigureAwait(false);
+            fenceEstablished = true;
+            bool success = false;
+            var result = await _db.Ado.UseTranAsync(async () =>
             {
-                success = true;
-                await RecordArticleMutationOutboxAsync(id, "deleted");
+                int updated = await _db.Ado.ExecuteCommandAsync(
+                    """
+                    UPDATE article
+                    SET isdeleted = true,
+                        status = @Status,
+                        deleted_at = CAST(@DeletedAt AS timestamp)
+                    WHERE id = @ArticleId
+                      AND isdeleted = false
+                      AND xmin::text = @RowVersion;
+                    """,
+                    new SugarParameter("@ArticleId", id),
+                    new SugarParameter("@Status", (int)ArticleStatus.Deleted),
+                    new SugarParameter("@DeletedAt", now),
+                    new SugarParameter("@RowVersion", state.RowVersion));
+                if (updated > 0)
+                {
+                    success = true;
+                    await RecordArticleMutationOutboxAsync(id, "deleted");
+                }
+            });
+            ct.ThrowIfCancellationRequested();
+            mutationCommitted = result.IsSuccess && success;
+            if (mutationCommitted)
+            {
+                await InvalidateCache(id);
+                ct.ThrowIfCancellationRequested();
+                await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete");
+                ct.ThrowIfCancellationRequested();
+                await _mutationSideEffects.AfterDeletedAsync(id);
             }
-        });
-        ct.ThrowIfCancellationRequested();
-        success = result.IsSuccess && success;
-        if (success)
-        {
-            await InvalidateCache(id);
-            ct.ThrowIfCancellationRequested();
-            await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "delete");
-            ct.ThrowIfCancellationRequested();
-            await _mutationSideEffects.AfterDeletedAsync(id);
+            return mutationCommitted;
         }
-        return success;
+        finally
+        {
+            if (fenceEstablished && !mutationCommitted)
+            {
+                await RecoverAbortedPublicMutationFenceAsync(id, "article-delete-fence-aborted").ConfigureAwait(false);
+            }
+        }
     }
 
     public async Task<bool> RestoreAsync(int id, CancellationToken cancellationToken = default)

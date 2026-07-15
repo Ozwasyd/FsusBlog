@@ -1253,6 +1253,7 @@ public sealed class PublicHotArtifactProjector(
 public sealed class PublicHotReadStartupWarmupService(
     IServiceScopeFactory scopeFactory,
     PublicHotReadStore store,
+    PublicHotArtifactUpdateQueue updateQueue,
     ILogger<PublicHotReadStartupWarmupService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -1260,11 +1261,29 @@ public sealed class PublicHotReadStartupWarmupService(
         try
         {
             store.BeginBuild("startup");
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-            var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
-            PublicHotReadSnapshot snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
+            PublicHotReadSnapshot snapshot;
+            await using (AsyncServiceScope scope = scopeFactory.CreateAsyncScope())
+            {
+                var projector = scope.ServiceProvider.GetRequiredService<IPublicHotArtifactProjector>();
+                snapshot = await projector.BuildInitialSnapshotAsync(stoppingToken).ConfigureAwait(false);
+            }
             store.Publish(snapshot);
             logger.LogInformation("public-hot-read-snapshot-ready {Version}", snapshot.Version);
+
+            using var timer = new PeriodicTimer(store.SnapshotRefreshInterval);
+            while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
+            {
+                if (!store.ShouldRefreshSnapshot())
+                {
+                    continue;
+                }
+
+                PublicHotArtifactEnqueueResult result = updateQueue.Enqueue(null, "sanity-age-refresh");
+                if (!result.Accepted)
+                {
+                    logger.LogWarning("public-hot-read-sanity-refresh-enqueue-failed {Status}", result.Status);
+                }
+            }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

@@ -17,9 +17,15 @@ public sealed class PublicArtifactRevocationOptions
     public string CdnPurgeBearerToken { get; set; } = string.Empty;
     public string CloudflareZoneId { get; set; } = string.Empty;
     public bool PurgeAllOnArticleRevocation { get; set; } = true;
+    public int MutationFenceRecoveryIntervalSeconds { get; set; } = 5;
 
     public bool IsValid()
     {
+        if (MutationFenceRecoveryIntervalSeconds is < 1 or > 300)
+        {
+            return false;
+        }
+
         if (!CdnPurgeEnabled)
         {
             return true;
@@ -46,7 +52,8 @@ public readonly record struct PublicArtifactTombstone(
     int ArticleId,
     long Generation,
     long RevokedAtUnixMilliseconds,
-    bool PurgeConfirmed = false)
+    bool PurgeConfirmed = false,
+    bool TransitionPending = false)
 {
     public string Marker => $"g{Generation.ToString(CultureInfo.InvariantCulture)}";
 }
@@ -56,12 +63,13 @@ public sealed record PublicArtifactRevocationMessage(
     int ArticleId,
     long Generation,
     long RevokedAtUnixMilliseconds,
-    bool PurgeConfirmed = false)
+    bool PurgeConfirmed = false,
+    bool TransitionPending = false)
 {
     internal const string Channel = "fsus:public-artifact-revocation:v1";
 
     internal PublicArtifactTombstone Tombstone
-        => new(ArticleId, Generation, RevokedAtUnixMilliseconds, PurgeConfirmed);
+        => new(ArticleId, Generation, RevokedAtUnixMilliseconds, PurgeConfirmed, TransitionPending);
 }
 
 public sealed class PublicArtifactRevocationRegistry
@@ -98,10 +106,7 @@ public sealed class PublicArtifactRevocationRegistry
         _active.AddOrUpdate(
             tombstone.ArticleId,
             tombstone,
-            (_, current) => current.Generation > tombstone.Generation
-                || (current.Generation == tombstone.Generation && current.PurgeConfirmed)
-                    ? current
-                    : tombstone);
+            (_, current) => Merge(current, tombstone));
         AdvanceGeneration(tombstone.Generation);
     }
 
@@ -150,6 +155,22 @@ public sealed class PublicArtifactRevocationRegistry
     public IReadOnlyList<PublicArtifactTombstone> Snapshot()
         => _active.Values.OrderBy(static item => item.Generation).ToArray();
 
+    private static PublicArtifactTombstone Merge(
+        PublicArtifactTombstone current,
+        PublicArtifactTombstone incoming)
+    {
+        if (current.Generation != incoming.Generation)
+        {
+            return current.Generation > incoming.Generation ? current : incoming;
+        }
+
+        return current with
+        {
+            PurgeConfirmed = current.PurgeConfirmed || incoming.PurgeConfirmed,
+            TransitionPending = current.TransitionPending && incoming.TransitionPending
+        };
+    }
+
     private void AdvanceGeneration(long generation)
     {
         long current = Volatile.Read(ref _generation);
@@ -167,7 +188,11 @@ public sealed class PublicArtifactRevocationRegistry
 
 public interface IPublicArtifactRevocationStateStore
 {
+    Task<PublicArtifactTombstone> BeginMutationFenceAsync(int articleId, CancellationToken cancellationToken);
     Task<PublicArtifactTombstone> RevokeArticleAsync(int articleId, CancellationToken cancellationToken);
+    Task<PublicArtifactTombstone?> MarkTransitionCommittedAsync(
+        PublicArtifactTombstone tombstone,
+        CancellationToken cancellationToken);
     Task<PublicArtifactTombstone> ConfirmPurgeAsync(PublicArtifactTombstone tombstone, CancellationToken cancellationToken);
     Task<IReadOnlyList<PublicArtifactTombstone>> LoadActiveAsync(CancellationToken cancellationToken);
     Task<bool> ClearAsync(PublicArtifactTombstone tombstone, CancellationToken cancellationToken);
@@ -180,12 +205,52 @@ public sealed class RedisPublicArtifactRevocationStateStore(
 {
     private const string GenerationKey = "public-hot-read:revocation:generation";
     private const string TombstoneHashKey = "public-hot-read:revocation:tombstones";
+    private static readonly LuaScript BeginTransition = LuaScript.Prepare(
+        "if redis.call('HEXISTS', @hash, @field) == 1 then return ''; end; " +
+        "local generation = redis.call('INCR', @generationKey); " +
+        "local payload = cjson.encode({" +
+        "ArticleId=tonumber(@articleId)," +
+        "Generation=generation," +
+        "RevokedAtUnixMilliseconds=tonumber(@revokedAt)," +
+        "PurgeConfirmed=false," +
+        "TransitionPending=true}); " +
+        "redis.call('HSET', @hash, @field, payload); return payload;");
+    private static readonly LuaScript CompareAndSet = LuaScript.Prepare(
+        "local value = redis.call('HGET', @hash, @field); " +
+        "if not value then return 0; end; " +
+        "local decoded = cjson.decode(value); " +
+        "if tonumber(decoded.Generation) ~= tonumber(@generation) then return 0; end; " +
+        "redis.call('HSET', @hash, @field, @replacement); return 1;");
     private static readonly LuaScript CompareAndDelete = LuaScript.Prepare(
         "local value = redis.call('HGET', @hash, @field); " +
         "if not value then return 1; end; " +
-        "if value == @expected then redis.call('HDEL', @hash, @field); return 1; end; return 0;");
+        "local decoded = cjson.decode(value); " +
+        "if tonumber(decoded.Generation) ~= tonumber(@generation) then return 0; end; " +
+        "redis.call('HDEL', @hash, @field); return 1;");
     private readonly IDatabase _database = redis.GetDatabase();
     private readonly ISubscriber _subscriber = redis.GetSubscriber();
+
+    public async Task<PublicArtifactTombstone> BeginMutationFenceAsync(
+        int articleId,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RedisResult result = await _database.ScriptEvaluateAsync(
+                BeginTransition,
+                new
+                {
+                    generationKey = (RedisKey)runtimeKeyScope.PrefixKey(GenerationKey),
+                    hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
+                    field = (RedisValue)articleId.ToString(CultureInfo.InvariantCulture),
+                    articleId,
+                    revokedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                })
+            .ConfigureAwait(false);
+        string payload = result.ToString();
+        return TryParse(payload, out PublicArtifactTombstone tombstone)
+            ? tombstone
+            : throw new InvalidOperationException("public artifact mutation fence is already active");
+    }
 
     public async Task<PublicArtifactTombstone> RevokeArticleAsync(int articleId, CancellationToken cancellationToken)
     {
@@ -223,6 +288,30 @@ public sealed class RedisPublicArtifactRevocationStateStore(
             .ToArray();
     }
 
+    public async Task<PublicArtifactTombstone?> MarkTransitionCommittedAsync(
+        PublicArtifactTombstone tombstone,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!tombstone.TransitionPending)
+        {
+            return tombstone;
+        }
+
+        PublicArtifactTombstone committed = tombstone with { TransitionPending = false };
+        RedisResult result = await _database.ScriptEvaluateAsync(
+                CompareAndSet,
+                new
+                {
+                    hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
+                    field = (RedisValue)tombstone.ArticleId.ToString(CultureInfo.InvariantCulture),
+                    generation = tombstone.Generation,
+                    replacement = (RedisValue)JsonSerializer.Serialize(committed)
+                })
+            .ConfigureAwait(false);
+        return (long)result == 1 ? committed : null;
+    }
+
     public async Task<PublicArtifactTombstone> ConfirmPurgeAsync(
         PublicArtifactTombstone tombstone,
         CancellationToken cancellationToken)
@@ -233,7 +322,6 @@ public sealed class RedisPublicArtifactRevocationStateStore(
             return tombstone;
         }
 
-        PublicArtifactTombstone confirmed = tombstone with { PurgeConfirmed = true };
         RedisKey hashKey = runtimeKeyScope.PrefixKey(TombstoneHashKey);
         RedisValue field = tombstone.ArticleId.ToString(CultureInfo.InvariantCulture);
         RedisValue current = await _database.HashGetAsync(hashKey, field).ConfigureAwait(false);
@@ -248,21 +336,34 @@ public sealed class RedisPublicArtifactRevocationStateStore(
             return persisted;
         }
 
-        await _database.HashSetAsync(hashKey, field, JsonSerializer.Serialize(confirmed)).ConfigureAwait(false);
+        PublicArtifactTombstone confirmed = persisted with { PurgeConfirmed = true };
+        RedisResult updated = await _database.ScriptEvaluateAsync(
+                CompareAndSet,
+                new
+                {
+                    hash = hashKey,
+                    field,
+                    generation = tombstone.Generation,
+                    replacement = (RedisValue)JsonSerializer.Serialize(confirmed)
+                })
+            .ConfigureAwait(false);
+        if ((long)updated != 1)
+        {
+            throw new InvalidOperationException("public artifact tombstone changed before CDN purge confirmation");
+        }
         return confirmed;
     }
 
     public async Task<bool> ClearAsync(PublicArtifactTombstone tombstone, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string expected = JsonSerializer.Serialize(tombstone);
         RedisResult result = await _database.ScriptEvaluateAsync(
                 CompareAndDelete,
                 new
                 {
                     hash = (RedisKey)runtimeKeyScope.PrefixKey(TombstoneHashKey),
                     field = (RedisValue)tombstone.ArticleId.ToString(CultureInfo.InvariantCulture),
-                    expected = (RedisValue)expected
+                    generation = tombstone.Generation
                 })
             .ConfigureAwait(false);
         return (long)result == 1;
@@ -361,6 +462,11 @@ public sealed class HttpPublicArtifactCdnPurger(
 public interface IPublicArtifactRevocationCoordinator
 {
     long CurrentGeneration { get; }
+    Task BeginArticleMutationFenceAsync(int articleId, CancellationToken cancellationToken = default);
+    Task BeginGlobalMutationFenceAsync(CancellationToken cancellationToken = default);
+    Task<bool> RecoverPendingMutationFenceAsync(
+        PublicArtifactTombstone tombstone,
+        CancellationToken cancellationToken = default);
     Task RevokeArticleAsync(int articleId, CancellationToken cancellationToken = default);
     Task RevokeAllAsync(CancellationToken cancellationToken = default);
     Task CompleteRebuildAsync(
@@ -376,11 +482,56 @@ public sealed class PublicArtifactRevocationCoordinator(
 {
     public long CurrentGeneration => registry.CurrentGeneration;
 
+    public Task BeginArticleMutationFenceAsync(int articleId, CancellationToken cancellationToken = default)
+        => RevokeAsync(articleId, transitionPending: true, cancellationToken: cancellationToken);
+
+    public Task BeginGlobalMutationFenceAsync(CancellationToken cancellationToken = default)
+        => RevokeAsync(0, transitionPending: true, cancellationToken: cancellationToken);
+
+    public async Task<bool> RecoverPendingMutationFenceAsync(
+        PublicArtifactTombstone tombstone,
+        CancellationToken cancellationToken = default)
+    {
+        if (!tombstone.TransitionPending)
+        {
+            return false;
+        }
+
+        registry.Apply(tombstone);
+        if (!tombstone.PurgeConfirmed)
+        {
+            try
+            {
+                await PublishAsync(tombstone, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // The confirmed notification below remains authoritative.
+            }
+
+            await cdnPurger.PurgeAsync(tombstone, cancellationToken).ConfigureAwait(false);
+            tombstone = await stateStore.ConfirmPurgeAsync(tombstone, cancellationToken).ConfigureAwait(false);
+            registry.Apply(tombstone);
+        }
+
+        PublicArtifactTombstone? committed = await stateStore
+            .MarkTransitionCommittedAsync(tombstone, cancellationToken)
+            .ConfigureAwait(false);
+        if (committed is null)
+        {
+            return false;
+        }
+
+        registry.Apply(committed.Value);
+        await PublishAsync(committed.Value, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
     public Task RevokeArticleAsync(int articleId, CancellationToken cancellationToken = default)
-        => RevokeAsync(articleId, cancellationToken);
+        => RevokeAsync(articleId, transitionPending: false, cancellationToken: cancellationToken);
 
     public Task RevokeAllAsync(CancellationToken cancellationToken = default)
-        => RevokeAsync(0, cancellationToken);
+        => RevokeAsync(0, transitionPending: false, cancellationToken: cancellationToken);
 
     public async Task CompleteRebuildAsync(
         IReadOnlyCollection<int>? articleIds,
@@ -390,7 +541,9 @@ public sealed class PublicArtifactRevocationCoordinator(
         HashSet<int>? selected = articleIds is null ? null : articleIds.ToHashSet();
         foreach (PublicArtifactTombstone tombstone in registry.Snapshot())
         {
-            if (!tombstone.PurgeConfirmed || tombstone.Generation > maximumGeneration)
+            if (!tombstone.PurgeConfirmed
+                || tombstone.TransitionPending
+                || tombstone.Generation > maximumGeneration)
             {
                 continue;
             }
@@ -414,11 +567,21 @@ public sealed class PublicArtifactRevocationCoordinator(
         }
     }
 
-    private async Task RevokeAsync(int articleId, CancellationToken cancellationToken)
+    private async Task RevokeAsync(
+        int articleId,
+        bool transitionPending,
+        CancellationToken cancellationToken)
     {
-        PublicArtifactTombstone tombstone = await stateStore
-            .RevokeArticleAsync(articleId, cancellationToken)
-            .ConfigureAwait(false);
+        PublicArtifactTombstone tombstone = transitionPending
+            ? await stateStore.BeginMutationFenceAsync(articleId, cancellationToken).ConfigureAwait(false)
+            : await stateStore.RevokeArticleAsync(articleId, cancellationToken).ConfigureAwait(false);
+        if (!transitionPending && tombstone.TransitionPending)
+        {
+            tombstone = await stateStore
+                    .MarkTransitionCommittedAsync(tombstone, cancellationToken)
+                    .ConfigureAwait(false)
+                ?? throw new InvalidOperationException("public artifact mutation fence changed before commit");
+        }
         registry.Apply(tombstone);
         if (!tombstone.PurgeConfirmed)
         {
@@ -447,7 +610,8 @@ public sealed class PublicArtifactRevocationCoordinator(
                 tombstone.ArticleId,
                 tombstone.Generation,
                 tombstone.RevokedAtUnixMilliseconds,
-                tombstone.PurgeConfirmed),
+                tombstone.PurgeConfirmed,
+                tombstone.TransitionPending),
             cancellationToken);
 }
 
@@ -507,7 +671,7 @@ public sealed class PublicArtifactRevocationSubscriber(
 
     private void QueueRebuildWhenConfirmed(PublicArtifactTombstone tombstone)
     {
-        if (!tombstone.PurgeConfirmed)
+        if (!tombstone.PurgeConfirmed || tombstone.TransitionPending)
         {
             return;
         }
@@ -524,6 +688,7 @@ public sealed class PublicArtifactRevocationSubscriber(
                 result.Status);
         }
     }
+
 }
 
 public static class PublicArtifactRevocationExtensions

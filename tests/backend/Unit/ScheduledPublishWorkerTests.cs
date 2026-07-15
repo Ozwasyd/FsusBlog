@@ -4,6 +4,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -77,6 +78,64 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
     }
 
     [Fact]
+    public async Task PublishDueArticlesAsync_EstablishesDurableFenceBeforePublishingRow()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        int dueArticleId = InsertScheduledArticle(db, "fenced", DateTime.UtcNow.AddMinutes(-5));
+        var coordinator = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        coordinator
+            .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>())
+            .Returns(async _ =>
+            {
+                Article beforeCommit = await db.Queryable<Article>().InSingleAsync(dueArticleId);
+                Assert.Equal(ArticleStatus.Scheduled, beforeCommit.Status);
+            });
+        using ServiceProvider provider = CreateWorkerProvider(db, coordinator);
+        var worker = CreateWorker(provider);
+
+        int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
+
+        Assert.Equal(1, published);
+        Assert.Equal(ArticleStatus.Published, (await db.Queryable<Article>().InSingleAsync(dueArticleId)).Status);
+        await coordinator.Received(1)
+            .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>());
+        await coordinator.Received(1)
+            .CommitPublicMutationFenceAsync(
+                null,
+                "scheduled-published",
+                CancellationToken.None);
+        await coordinator.DidNotReceive()
+            .RecoverAbortedPublicMutationFenceAsync(
+                null,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PublishDueArticlesAsync_WhenFenceFails_LeavesRowScheduledAndWritesNoOutbox()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        int dueArticleId = InsertScheduledArticle(db, "fence failure", DateTime.UtcNow.AddMinutes(-5));
+        var coordinator = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        coordinator
+            .BeginPublicMutationFenceAsync(null, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("revocation unavailable")));
+        using ServiceProvider provider = CreateWorkerProvider(db, coordinator);
+        var worker = CreateWorker(provider);
+
+        int published = await worker.PublishDueArticlesAsync(CancellationToken.None);
+
+        Assert.Equal(0, published);
+        Assert.Equal(ArticleStatus.Scheduled, (await db.Queryable<Article>().InSingleAsync(dueArticleId)).Status);
+        Assert.Empty(await db.Queryable<ArticleMutationOutboxEvent>().ToListAsync());
+        await coordinator.DidNotReceive()
+            .RecoverAbortedPublicMutationFenceAsync(
+                null,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task PublishDueArticlesAsync_WhenScopeCreationFails_ReportsDegradedRuntimeState()
     {
         var scopeFactory = Substitute.For<IServiceScopeFactory>();
@@ -118,11 +177,14 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
             IsDeleted = false
         }).ExecuteReturnIdentity();
 
-    private static ServiceProvider CreateWorkerProvider(ISqlSugarClient db)
+    private static ServiceProvider CreateWorkerProvider(
+        ISqlSugarClient db,
+        IArticleMutationSideEffectCoordinator? mutationSideEffects = null)
         => new ServiceCollection()
             .AddSingleton(db)
             .AddSingleton<ISqlSugarClient>(db)
             .AddSingleton<IDbConcurrencyGate, ImmediateDbConcurrencyGate>()
+            .AddSingleton(mutationSideEffects ?? Substitute.For<IArticleMutationSideEffectCoordinator>())
             .BuildServiceProvider();
 
     private static ScheduledPublishWorker CreateWorker(

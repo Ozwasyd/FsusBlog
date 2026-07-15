@@ -92,6 +92,42 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    public async Task DeleteAsync_EstablishesFenceBeforeDeleteAndFailsClosedWhenFenceIsUnavailable()
+    {
+        string connectionString = classDatabase.ConnectionString;
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        SeedTaxonomy(setupDb);
+        int articleId = SeedArticle(setupDb, isDeleted: false, status: ArticleStatus.Published);
+        var sideEffects = Substitute.For<IArticleMutationSideEffectCoordinator>();
+        sideEffects
+            .BeginPublicMutationFenceAsync(articleId, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Article beforeCommit = LoadArticle(setupDb, articleId);
+                Assert.False(beforeCommit.IsDeleted);
+                Assert.Equal(ArticleStatus.Published, beforeCommit.Status);
+                return Task.FromException(new InvalidOperationException("revocation unavailable"));
+            });
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        ArticleService service = CreateService(serviceDb, sideEffects);
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.DeleteAsync(articleId));
+
+        Assert.Equal("revocation unavailable", error.Message);
+        Article afterFailure = LoadArticle(setupDb, articleId);
+        Assert.False(afterFailure.IsDeleted);
+        Assert.Equal(ArticleStatus.Published, afterFailure.Status);
+        Assert.Empty(setupDb.Queryable<ArticleMutationOutboxEvent>().ToList());
+        await sideEffects.DidNotReceive()
+            .RecoverAbortedPublicMutationFenceAsync(
+                articleId,
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task DeleteAsync_ConcurrentWritersAllowExactlyOneStateTransition()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -264,7 +300,9 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         return articleId;
     }
 
-    private static ArticleService CreateService(SqlSugarClient db)
+    private static ArticleService CreateService(
+        SqlSugarClient db,
+        IArticleMutationSideEffectCoordinator? mutationSideEffects = null)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
@@ -283,7 +321,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             _logger: NullLogger<ArticleService>.Instance,
             _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
-            _mutationSideEffects: Substitute.For<IArticleMutationSideEffectCoordinator>(),
+            _mutationSideEffects: mutationSideEffects ?? Substitute.For<IArticleMutationSideEffectCoordinator>(),
             _viewWriteBuffer: Substitute.For<IArticleViewWriteBuffer>());
     }
 
