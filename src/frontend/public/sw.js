@@ -4,10 +4,9 @@ const FRONTEND_BUILD_ID = /^[0-9A-Za-z][0-9A-Za-z._-]{5,127}$/.test(BUILD_ID_CAN
   ? BUILD_ID_CANDIDATE
   : ''
 const CACHE_NAMESPACE = FRONTEND_BUILD_ID ? `:${FRONTEND_BUILD_ID}` : ''
-const STATIC_CACHE = `fsus-static-v4${CACHE_NAMESPACE}`
-const SHELL_CACHE = `fsus-shell-v5${CACHE_NAMESPACE}`
-const SEARCH_CACHE = `fsus-search-v4${CACHE_NAMESPACE}`
-const SEARCH_META_CACHE = `fsus-search-meta-v4${CACHE_NAMESPACE}`
+const STATIC_CACHE = `fsus-static-v5${CACHE_NAMESPACE}`
+const SHELL_CACHE = `fsus-shell-v6${CACHE_NAMESPACE}`
+const SEARCH_CACHE = `fsus-search-v5${CACHE_NAMESPACE}`
 const SEARCH_PUBLIC_BASE = FRONTEND_BUILD_ID
   ? `/release-derived/${FRONTEND_BUILD_ID}/search`
   : '/search'
@@ -22,6 +21,7 @@ const DOTNET_EPOCH_OFFSET_MS = 62135596800000
 const TEXT_DECODER = new TextDecoder()
 let searchIndexUpdatePromise = null
 let lastSearchManifestCheckAt = 0
+let currentSearchVersion = null
 const searchIndexTelemetry = {
   manifestCheckCount: 0,
   singleFlightJoinCount: 0,
@@ -54,6 +54,26 @@ const PUBLIC_SHELL_PATHS = [
 const STATIC_ASSET_PATTERN = /\.(?:css|js|mjs|wasm|woff2?|ttf|otf|eot|ico|svg|png|jpe?g|webp|avif)$/i
 const WASM_RUNTIME_ASSET_PATTERN = /^\/wasm\/[^/]+\.(?:js|wasm|json)$/i
 const IMMUTABLE_RELEASE_WASM_ASSET_PATTERN = /^\/release-assets\/[0-9A-Za-z][0-9A-Za-z._-]{5,127}\/wasm\/[^/]+\.(?:js|wasm|json)$/i
+const PRIVATE_OR_SENSITIVE_PATHS = [
+  /^\/api(?:\/|$)/i,
+  /^\/(?:user|admin|login|account|manage|author|private)(?:\/|$)/i,
+  /^\/notifications?(?:\/|$)/i
+]
+const EXPLICIT_PUBLIC_STATIC_PATHS = [
+  /^\/assets\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
+  /^\/release-assets\/[0-9A-Za-z][0-9A-Za-z._-]{5,127}\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
+  /^\/favicon\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
+  /^\/wasm\/[0-9A-Za-z][0-9A-Za-z._/-]*$/i,
+  /^\/favicon\.ico$/i
+]
+const PRIVATE_BROWSER_CACHE_NAME_PATTERN = /^fsus-(?:shell|search|search-meta)-/i
+const SENSITIVE_REQUEST_HEADERS = [
+  'Authorization',
+  'X-Fsus-Access-Token',
+  'X-Fsus-Bearer-Token',
+  'X-Fsus-Session-Id',
+  'X-Fsus-Mfa-Proof'
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting())
@@ -72,7 +92,13 @@ self.addEventListener('message', (event) => {
     return
   }
 
-  event.waitUntil(handleControlMessage(message))
+  event.waitUntil(handleControlMessage(message).then((result) => {
+    event.ports?.[0]?.postMessage({
+      type: 'control-complete',
+      controlType: message.type,
+      result
+    })
+  }))
 })
 
 self.addEventListener('fetch', (event) => {
@@ -86,8 +112,11 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  if (url.pathname.startsWith('/api/binary/')) {
-    event.respondWith(handleBinaryApiRequest(request))
+  if (isPrivateOrSensitiveRequest(request, url)) {
+    const failureKind = url.pathname.startsWith('/api/binary/')
+      ? 'binary-network-unavailable'
+      : 'private-network-unavailable'
+    event.respondWith(networkOnlyRequest(request, failureKind))
     return
   }
 
@@ -116,7 +145,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  if (STATIC_ASSET_PATTERN.test(url.pathname)) {
+  if (isExplicitPublicStaticRequest(url)) {
     event.respondWith(cacheFirstStatic(request))
     return
   }
@@ -133,16 +162,22 @@ async function handleControlMessage(message) {
           deletedCount: result.deletedCount
         })
       }
-      break
+      return result
     case 'search-index.updated':
       await ensureLatestSearchIndex({ force: true })
-      break
+      return { updated: true }
     case 'asset.clear':
       await clearNamedCache(message.cache, message.keys ?? null)
       await broadcast({ type: 'cache-cleared', cache: message.cache ?? null })
-      break
+      return { cleared: true }
+    case 'privacy.clear':
+      {
+        const result = await clearPrivateBrowserStateCaches()
+        await broadcast({ type: 'private-state-cleared' })
+        return result
+      }
     default:
-      break
+      return { ignored: true }
   }
 }
 
@@ -165,27 +200,42 @@ function isPublicShellRequest(request, url) {
   return PUBLIC_SHELL_PATHS.some((pattern) => pattern.test(url.pathname))
 }
 
-async function handleBinaryApiRequest(request) {
+function isPrivateOrSensitiveRequest(request, url) {
+  if (PRIVATE_OR_SENSITIVE_PATHS.some((pattern) => pattern.test(url.pathname))) {
+    return true
+  }
+
+  if (request.cache === 'no-store') {
+    return true
+  }
+
+  return SENSITIVE_REQUEST_HEADERS.some((header) => request.headers.has(header))
+}
+
+function isExplicitPublicStaticRequest(url) {
+  return STATIC_ASSET_PATTERN.test(url.pathname)
+    && EXPLICIT_PUBLIC_STATIC_PATHS.some((pattern) => pattern.test(url.pathname))
+}
+
+async function networkOnlyRequest(request, failureKind) {
   try {
-    // Binary API artifacts stay network pass-through; server headers own browser cache policy.
-    return await fetch(request)
+    // Sensitive requests retain credentials but bypass both Service Worker and HTTP caches.
+    return await fetch(request, { cache: 'no-store' })
   } catch {
-    return networkErrorResponse('binary-network-unavailable')
+    return networkErrorResponse(failureKind)
   }
 }
 
 async function cacheFirstStatic(request) {
   const cache = await caches.open(STATIC_CACHE)
-  const cached = await cache.match(request)
+  const cached = await matchCacheableResponse(cache, request, { requireImmutable: true })
   if (cached) {
     return cached
   }
 
   try {
     const response = await fetch(request)
-    if (response.ok) {
-      await putCacheEntry(cache, request, response)
-    }
+    await putCacheEntry(cache, request, response, { requireImmutable: true })
     return response
   } catch {
     return networkErrorResponse('static-network-unavailable')
@@ -194,19 +244,69 @@ async function cacheFirstStatic(request) {
 
 async function networkFirstStatic(request) {
   try {
-    return await fetch(request)
+    const response = await fetch(request)
+    const cache = await caches.open(STATIC_CACHE)
+    await putCacheEntry(cache, request, response, { requireImmutable: true })
+    return response
   } catch {
     const cache = await caches.open(STATIC_CACHE)
-    return (await cache.match(request)) ?? networkErrorResponse('static-network-unavailable')
+    return (await matchCacheableResponse(cache, request, { requireImmutable: true }))
+      ?? networkErrorResponse('static-network-unavailable')
   }
 }
 
-async function putCacheEntry(cache, request, response) {
+function responseCanEnterCache(response, options = {}) {
+  if (!response?.ok || response.type === 'opaque') {
+    return false
+  }
+
+  const cacheControl = (response.headers.get('Cache-Control') ?? '').toLowerCase()
+  const directives = new Set(cacheControl
+    .split(',')
+    .map((item) => item.trim().split('=', 1)[0].trim())
+    .filter(Boolean))
+  if (directives.has('no-store') || directives.has('private')) {
+    return false
+  }
+
+  const vary = (response.headers.get('Vary') ?? '').toLowerCase()
+  if (vary === '*' || /(?:^|,)\s*(?:cookie|authorization)\s*(?:,|$)/i.test(vary)) {
+    return false
+  }
+
+  if (response.headers.has('Set-Cookie') || !directives.has('public')) {
+    return false
+  }
+
+  return options.requireImmutable !== true || directives.has('immutable')
+}
+
+async function matchCacheableResponse(cache, request, options = {}) {
+  const cached = await cache.match(request)
+  if (!cached) {
+    return null
+  }
+
+  if (responseCanEnterCache(cached, options)) {
+    return cached
+  }
+
+  await cache.delete(request)
+  return null
+}
+
+async function putCacheEntry(cache, request, response, options = {}) {
+  if (!responseCanEnterCache(response, options)) {
+    return false
+  }
+
   try {
     await cache.put(request, response.clone())
+    return true
   } catch {
     // Some browsers reject Cache API writes for module/Wasm-adjacent responses.
     // The network response is still valid and should not fail the intercepted fetch.
+    return false
   }
 }
 
@@ -215,12 +315,10 @@ async function networkFirstShell(request) {
   try {
     // Public shell HTML must be fresh to keep SSR markup and SPA bundle in sync.
     const network = await fetch(request, { cache: 'no-store' })
-    if (network.ok) {
-      await cache.put(request, network.clone())
-    }
+    await putCacheEntry(cache, request, network)
     return network
   } catch {
-    const cached = await cache.match(request)
+    const cached = await matchCacheableResponse(cache, request)
     if (cached) {
       return withOfflineStaleHeaders(cached)
     }
@@ -242,7 +340,7 @@ function withOfflineStaleHeaders(response) {
 
 async function handleSearchAliasRequest(request) {
   const cache = await caches.open(SEARCH_CACHE)
-  const cached = await cache.match(SEARCH_ALIAS_PATH)
+  const cached = await matchCacheableResponse(cache, SEARCH_ALIAS_PATH, { requireImmutable: true })
   if (cached) {
     void ensureLatestSearchIndex()
     return cached
@@ -254,15 +352,13 @@ async function handleSearchAliasRequest(request) {
 
 async function cacheSearchAsset(request) {
   const cache = await caches.open(SEARCH_CACHE)
-  const cached = await cache.match(request)
+  const cached = await matchCacheableResponse(cache, request, { requireImmutable: true })
   if (cached) {
     return cached
   }
 
   const response = await fetch(request)
-  if (response.ok) {
-    await cache.put(request, response.clone())
-  }
+  await putCacheEntry(cache, request, response, { requireImmutable: true })
   return response
 }
 
@@ -305,7 +401,8 @@ async function ensureLatestSearchIndexCore() {
       return
     }
 
-    await storeSearchAssets(manifest, manifestBytes)
+    await storeSearchAssets(manifest)
+    currentSearchVersion = manifest.currentVersion
     await broadcast({ type: 'search-index-ready', version: manifest.currentVersion })
   } catch (error) {
     lastSearchManifestCheckAt = 0
@@ -315,11 +412,8 @@ async function ensureLatestSearchIndexCore() {
   }
 }
 
-async function storeSearchAssets(manifest, manifestBytes) {
+async function storeSearchAssets(manifest) {
   const searchCache = await caches.open(SEARCH_CACHE)
-  await searchCache.put(SEARCH_MANIFEST_PATH, new Response(manifestBytes.slice(0), {
-    headers: { 'Content-Type': AEDS_BINARY_MEDIA_TYPE, 'Cache-Control': 'no-store' }
-  }))
 
   const eagerRoles = new Set([
     ...(Array.isArray(manifest.initialRoles) ? manifest.initialRoles : []),
@@ -349,13 +443,12 @@ async function storeSearchShard(searchCache, currentVersion, shard) {
 
   const fullBytes = new Uint8Array(await fullResponse.arrayBuffer())
   await verifySha256(fullBytes, shard.fullSha256, 'search_full_hash_mismatch')
-  await searchCache.put(shard.fullUrl, new Response(fullBytes.slice(0), {
-    headers: {
-      'Content-Type': AEDS_BINARY_MEDIA_TYPE,
-      'Cache-Control': 'public,max-age=31536000,immutable',
-      'X-Fsus-Search-Version': currentVersion
-    }
-  }))
+  const fullStored = await putCacheEntry(searchCache, shard.fullUrl, new Response(fullBytes.slice(0), {
+    headers: copySearchAssetHeaders(fullResponse.headers, currentVersion)
+  }), { requireImmutable: true })
+  if (!fullStored) {
+    throw new Error('search_full_not_public_immutable')
+  }
 
   if (shard.patchUrl) {
     const patchResponse = await fetch(shard.patchUrl, { cache: 'no-store' })
@@ -365,15 +458,24 @@ async function storeSearchShard(searchCache, currentVersion, shard) {
         await verifySha256(patchBytes, shard.patchSha256, 'search_patch_hash_mismatch')
       }
 
-      await searchCache.put(shard.patchUrl, new Response(patchBytes.slice(0), {
-        headers: {
-          'Content-Type': AEDS_BINARY_MEDIA_TYPE,
-          'Cache-Control': 'public,max-age=31536000,immutable',
-          'X-Fsus-Search-Version': currentVersion
-        }
-      }))
+      const patchStored = await putCacheEntry(searchCache, shard.patchUrl, new Response(patchBytes.slice(0), {
+        headers: copySearchAssetHeaders(patchResponse.headers, currentVersion)
+      }), { requireImmutable: true })
+      if (!patchStored) {
+        throw new Error('search_patch_not_public_immutable')
+      }
     }
   }
+}
+
+function copySearchAssetHeaders(sourceHeaders, currentVersion) {
+  const headers = new Headers()
+  const contentType = sourceHeaders.get('Content-Type')
+  const cacheControl = sourceHeaders.get('Cache-Control')
+  if (contentType) headers.set('Content-Type', contentType)
+  if (cacheControl) headers.set('Cache-Control', cacheControl)
+  headers.set('X-Fsus-Search-Version', currentVersion)
+  return headers
 }
 
 async function pruneStaleSearchShards(searchCache, manifest) {
@@ -433,18 +535,7 @@ function recordSearchIndexTelemetry(name, value = 1) {
 }
 
 async function readSearchMeta() {
-  const cache = await caches.open(SEARCH_CACHE)
-  const response = await cache.match(SEARCH_MANIFEST_PATH)
-  if (!response) {
-    return null
-  }
-
-  try {
-    const manifest = decodeSearchManifest(new Uint8Array(await response.arrayBuffer()))
-    return { currentVersion: manifest.currentVersion, updatedAt: manifest.generatedAt }
-  } catch {
-    return null
-  }
+  return currentSearchVersion ? { currentVersion: currentSearchVersion } : null
 }
 
 function decodeSearchManifest(bytes) {
@@ -622,13 +713,46 @@ async function clearNamedCache(cacheName, keys) {
 }
 
 async function clearLegacyFsusCaches() {
-  const keep = new Set([STATIC_CACHE, SHELL_CACHE, SEARCH_CACHE, SEARCH_META_CACHE])
+  const keep = new Set([STATIC_CACHE, SHELL_CACHE, SEARCH_CACHE])
   const keys = await caches.keys()
   await Promise.all(
     keys
       .filter((key) => key.startsWith('fsus-') && !keep.has(key))
       .map((key) => caches.delete(key))
   )
+}
+
+async function clearPrivateBrowserStateCaches() {
+  const cacheNames = await caches.keys()
+  let deletedCacheCount = 0
+  let deletedEntryCount = 0
+
+  await Promise.all(cacheNames.map(async (cacheName) => {
+    if (PRIVATE_BROWSER_CACHE_NAME_PATTERN.test(cacheName)) {
+      if (await caches.delete(cacheName)) {
+        deletedCacheCount += 1
+      }
+      return
+    }
+
+    if (!cacheName.startsWith('fsus-')) {
+      return
+    }
+
+    const cache = await caches.open(cacheName)
+    const requests = await cache.keys()
+    await Promise.all(requests.map(async (request) => {
+      const url = new URL(request.url)
+      if (PRIVATE_OR_SENSITIVE_PATHS.some((pattern) => pattern.test(url.pathname))
+        && await cache.delete(request)) {
+        deletedEntryCount += 1
+      }
+    }))
+  }))
+
+  currentSearchVersion = null
+  lastSearchManifestCheckAt = 0
+  return { deletedCacheCount, deletedEntryCount }
 }
 
 async function broadcast(message) {

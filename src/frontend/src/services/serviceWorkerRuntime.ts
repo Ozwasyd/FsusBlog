@@ -6,11 +6,15 @@ export type SwControlMessage =
   | { type: 'shell.invalidate'; scope?: string | null }
   | { type: 'search-index.updated'; version: string; manifestUrl?: string; generatedAt?: string }
   | { type: 'asset.clear'; cache: string; keys?: string[] | null }
+  | { type: 'privacy.clear'; reason: PrivateBrowserStateClearReason }
+
+export type PrivateBrowserStateClearReason = 'logout' | 'session-expired' | 'shared-device'
 
 type SwRuntimeMessage =
   | { type: 'search-index-ready'; version: string }
   | { type: 'shell-updated'; scope?: string | null }
   | { type: 'cache-cleared'; cache?: string | null }
+  | { type: 'private-state-cleared' }
 
 type SwMessageListener = (message: SwRuntimeMessage) => void
 
@@ -27,6 +31,8 @@ type ServiceWorkerIdleWindow = Window & typeof globalThis & {
 
 const SERVICE_WORKER_UPDATE_IDLE_TIMEOUT_MS = 30_000
 const SERVICE_WORKER_UPDATE_FALLBACK_DELAY_MS = 1_500
+const PRIVATE_BROWSER_CACHE_NAME_PATTERN = /^fsus-(?:shell|search|search-meta)-/i
+const PRIVATE_OR_SENSITIVE_PATH_PATTERN = /^\/(?:api(?:\/|$)|user(?:\/|$)|admin(?:\/|$)|login(?:\/|$)|account(?:\/|$)|manage(?:\/|$)|author(?:\/|$)|private(?:\/|$)|notifications?(?:\/|$))/i
 
 function bindListener(): void {
   if (listenerBound || typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -157,7 +163,77 @@ export function postSwControlMessage(message: SwControlMessage): void {
     return
   }
 
-  navigator.serviceWorker.controller?.postMessage(message)
+  void postSwControlMessageToAllWorkers(message)
+}
+
+async function postSwControlMessageToAllWorkers(message: SwControlMessage): Promise<void> {
+  const workers = new Set<ServiceWorker>()
+  if (navigator.serviceWorker.controller) {
+    workers.add(navigator.serviceWorker.controller)
+  }
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations()
+    for (const registration of registrations) {
+      if (registration.active) workers.add(registration.active)
+      if (registration.waiting) workers.add(registration.waiting)
+      if (registration.installing) workers.add(registration.installing)
+    }
+  } catch (error) {
+    emitTelemetry('service_worker_control_targets_failed', {
+      error: error instanceof Error ? error.message : String(error)
+    }, 'warn')
+  }
+
+  for (const worker of workers) {
+    try {
+      worker.postMessage(message)
+    } catch (error) {
+      emitTelemetry('service_worker_control_message_failed', {
+        type: message.type,
+        error: error instanceof Error ? error.message : String(error)
+      }, 'warn')
+    }
+  }
+}
+
+export async function clearPrivateBrowserState(reason: PrivateBrowserStateClearReason): Promise<void> {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if ('serviceWorker' in navigator) {
+    await postSwControlMessageToAllWorkers({ type: 'privacy.clear', reason })
+  }
+
+  if (typeof caches === 'undefined') {
+    return
+  }
+
+  try {
+    const cacheNames = await caches.keys()
+    await Promise.all(cacheNames.map(async (cacheName) => {
+      if (PRIVATE_BROWSER_CACHE_NAME_PATTERN.test(cacheName)) {
+        await caches.delete(cacheName)
+        return
+      }
+
+      if (!cacheName.startsWith('fsus-')) {
+        return
+      }
+
+      const cache = await caches.open(cacheName)
+      const requests = await cache.keys()
+      await Promise.all(requests
+        .filter((request) => PRIVATE_OR_SENSITIVE_PATH_PATTERN.test(new URL(request.url).pathname))
+        .map((request) => cache.delete(request)))
+    }))
+  } catch (error) {
+    emitTelemetry('service_worker_private_state_clear_failed', {
+      reason,
+      error: error instanceof Error ? error.message : String(error)
+    }, 'warn')
+  }
 }
 
 export function forwardCacheControlPayload(payload: CacheControlPayload): void {

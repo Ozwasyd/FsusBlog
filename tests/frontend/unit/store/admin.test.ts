@@ -11,6 +11,12 @@ vi.mock('@/api/auth', () => ({
   getAdminMe: vi.fn()
 }))
 
+vi.mock('@/services/serviceWorkerRuntime', () => ({
+  clearPrivateBrowserState: vi.fn().mockResolvedValue(undefined)
+}))
+
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+
 describe('useAdminStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -269,6 +275,23 @@ describe('useAdminStore', () => {
     expect(store.canManage).toBe(true)
     expect(store.adminPrincipal?.id).toBe('admin-principal')
     warnSpy.mockRestore()
+  })
+
+  it('clears shared-device browser state on admin logout', async () => {
+    const store = useAdminStore()
+    store.setAdminPrincipal({
+      id: 'admin-principal',
+      displayName: 'Security Admin',
+      source: 'independent',
+      permissions: ['admin.manage'],
+      adminSessionStatus: 'active'
+    })
+
+    await store.logout()
+
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout')
+    expect(store.adminState).toBe('missing')
+    expect(store.adminPrincipal).toBeNull()
   })
 
   it('derives anonymous comment policy states for manage workspace controls', () => {

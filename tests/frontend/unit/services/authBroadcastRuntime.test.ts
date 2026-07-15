@@ -16,6 +16,12 @@ vi.mock('@/services/notificationStreamRuntime', () => ({
   }
 }))
 
+vi.mock('@/services/serviceWorkerRuntime', () => ({
+  clearPrivateBrowserState: vi.fn().mockResolvedValue(undefined)
+}))
+
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
+
 class MockBroadcastChannel {
   static instances: MockBroadcastChannel[] = []
   public messages: unknown[] = []
@@ -147,6 +153,7 @@ describe('authBroadcastRuntime', () => {
     expect(userStore.userInfo).toBeNull()
     expect(adminStore.adminState).toBe('missing')
     expect(adminStore.adminPrincipal).toBeNull()
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('logout')
   })
 
   it('expired event stops authenticated runtime', () => {
@@ -158,6 +165,18 @@ describe('authBroadcastRuntime', () => {
 
     expect(userStore.accountState).toBe('guest')
     expect(notificationStreamRuntime.stop).toHaveBeenCalledWith(true)
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('session-expired')
+  })
+
+  it('clears the sending tab before broadcasting session expiry', () => {
+    createRuntimePinia()
+
+    authBroadcastRuntime.broadcastExpired()
+
+    expect(clearPrivateBrowserState).toHaveBeenCalledWith('session-expired')
+    expect(MockBroadcastChannel.instances[0]?.messages).toEqual([
+      expect.objectContaining({ type: 'expired' })
+    ])
   })
 
   it('localStorage fallback dispatches and receives events', () => {

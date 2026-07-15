@@ -3,6 +3,7 @@ import { notificationStreamRuntime } from '@/services/notificationStreamRuntime'
 import { useAdminStore } from '@/store/admin'
 import { useNotificationStreamStore } from '@/store/notificationStream'
 import { useUserStore } from '@/store/user'
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 
 export type AuthBroadcastEvent =
   | { type: 'login'; at: number }
@@ -84,6 +85,7 @@ class AuthBroadcastRuntime {
   }
 
   broadcastExpired(): void {
+    void clearPrivateBrowserState('session-expired')
     this.broadcast(createEvent('expired'))
   }
 
@@ -112,6 +114,7 @@ class AuthBroadcastRuntime {
 
     userStore.markGuest()
     adminStore.markMissing()
+    void clearPrivateBrowserState(event.type === 'expired' ? 'session-expired' : 'logout')
     this.stopAuthenticatedRuntime()
   }
 

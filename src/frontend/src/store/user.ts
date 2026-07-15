@@ -6,6 +6,7 @@ import { useNotificationStreamStore } from '@/store/notificationStream'
 import { isAbortError } from '@/utils/errors'
 import { getKnownErrorInfo, isAuthFailureError } from '@/utils/errorKinds'
 import { clearLocalFixtureSession } from '@/services/localFixtureSession'
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 
 function createMemoryStorage(): Storage {
     const store = new Map<string, string>()
@@ -175,6 +176,7 @@ export const useUserStore = defineStore('user', () => {
         } finally {
             clearLocalFixtureSession()
             markGuest()
+            await clearPrivateBrowserState('logout')
             await broadcastLogoutAcrossTabs()
             isLoggingOut.value = false;
             notificationStreamStore.dispose()

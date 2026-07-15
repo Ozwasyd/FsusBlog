@@ -48,7 +48,13 @@ assert(!shellPathBlock.includes('/admin'), 'service worker must not cache admin 
 assert(!shellPathBlock.includes('/login'), 'service worker must not cache login shells')
 assert(sw.includes("headers.set('X-Fsus-Offline-Stale', '1')"), 'offline shell responses must be marked stale')
 assert(sw.includes("headers.set('Cache-Control', 'no-store')"), 'offline stale shell responses must not be re-cached by HTTP caches')
-assert(sw.includes("url.pathname.startsWith('/api/binary/')"), 'binary API requests must stay outside shell cache handling')
+assert(sw.includes('const PRIVATE_OR_SENSITIVE_PATHS'), 'service worker must define a private and sensitive path denylist')
+assert(sw.includes('/^\\/api(?:\\/|$)/i'), 'all API routes must stay network-only')
+assert(sw.includes('isPrivateOrSensitiveRequest(request, url)'), 'fetch handling must apply the sensitive request gate before cache routing')
+assert(sw.includes("fetch(request, { cache: 'no-store' })"), 'sensitive requests must bypass the HTTP cache while retaining their original credentials')
+assert(sw.includes('const EXPLICIT_PUBLIC_STATIC_PATHS'), 'static caching must use an explicit public path allowlist')
+assert(sw.includes('isExplicitPublicStaticRequest(url)'), 'a matching file extension alone must not make a request cacheable')
+assert(sw.includes("directives.has('no-store') || directives.has('private')"), 'private and no-store responses must not enter Cache Storage')
 assert(sw.includes('clearLegacyFsusCaches'), 'service worker activate must clear legacy fsus caches')
 assert(sw.includes("key.startsWith('fsus-') && !keep.has(key)"), 'service worker must preserve only current cache names')
 assert(sw.includes("case 'shell.invalidate':"), 'service worker must support explicit shell invalidation')
@@ -63,11 +69,14 @@ assert(sw.includes('shellCacheSizeBefore'), 'shell invalidation telemetry must r
 assert(sw.includes('shellCacheSizeAfter'), 'shell invalidation telemetry must record cache size after')
 assert(sw.includes("case 'search-index.updated':"), 'service worker must support search index refresh messages')
 assert(sw.includes("case 'asset.clear':"), 'service worker must support targeted cache clearing')
-assert(sw.includes("networkErrorResponse('binary-network-unavailable')"), 'binary API offline failures must not be cached as shells')
+assert(sw.includes("? 'binary-network-unavailable'"), 'binary API offline failures must not be cached as shells')
+assert(sw.includes("case 'privacy.clear':"), 'service worker must support shared-device browser state cleanup')
+assert(sw.includes('clearPrivateBrowserStateCaches'), 'privacy cleanup must delete offline history and sensitive legacy entries')
+assert(sw.includes("type: 'private-state-cleared'"), 'privacy cleanup must notify every controlled tab')
 assert(sw.includes("fetch(request, { cache: 'no-store' })"), 'public shell network refresh must bypass HTTP cache')
 assert(sw.includes('WASM_RUNTIME_ASSET_PATTERN'), 'service worker must detect Wasm runtime assets separately')
 assert(sw.includes('networkFirstStatic(request)'), 'Wasm runtime assets must stay network-first')
-assert(sw.includes('putCacheEntry(cache, request, response)'), 'static cache writes must not fail intercepted responses')
+assert(sw.includes('putCacheEntry(cache, request, response, { requireImmutable: true })'), 'static cache writes must require public immutable responses')
 assert(sw.includes('SEARCH_MANIFEST_MIN_CHECK_INTERVAL_MS'), 'search index manifest checks must be TTL throttled')
 assert(sw.includes('let searchIndexUpdatePromise = null'), 'search index refresh must use single-flight promise state')
 assert(sw.includes('.finally(() =>') && sw.includes('searchIndexUpdatePromise = null'), 'search index single-flight promise must clear after settle')
@@ -89,6 +98,8 @@ class MemoryCache {
       const request = new Request(new URL(path, 'https://example.test').href)
       return [request.url, request]
     }))
+    this.responses = new Map()
+    this.puts = []
   }
 
   async keys() {
@@ -99,7 +110,22 @@ class MemoryCache {
     const url = typeof request === 'string' ? new URL(request, 'https://example.test').href : request.url
     const existed = this.entries.has(url)
     this.entries.delete(url)
+    this.responses.delete(url)
     return existed
+  }
+
+  async match(request) {
+    const url = typeof request === 'string' ? new URL(request, 'https://example.test').href : request.url
+    return this.responses.get(url)
+  }
+
+  async put(request, response) {
+    const normalizedRequest = typeof request === 'string'
+      ? new Request(new URL(request, 'https://example.test').href)
+      : request
+    this.entries.set(normalizedRequest.url, normalizedRequest)
+    this.responses.set(normalizedRequest.url, response)
+    this.puts.push(normalizedRequest.url)
   }
 
   has(path) {
@@ -107,7 +133,8 @@ class MemoryCache {
   }
 }
 
-async function runShellInvalidationBehaviorCheck(scope, initialPaths) {
+function createServiceWorkerContext(initialPaths = []) {
+  const handlers = new Map()
   const context = {
     TextDecoder,
     URL,
@@ -122,15 +149,19 @@ async function runShellInvalidationBehaviorCheck(scope, initialPaths) {
     Set,
     Map,
     console,
+    fetch: async () => new Response('ok', {
+      headers: { 'Cache-Control': 'private,no-store' }
+    }),
     self: {
       location: { origin: 'https://example.test', href: 'https://example.test/sw.js?build=test-build' },
-      addEventListener() {},
+      addEventListener(type, handler) { handlers.set(type, handler) },
       skipWaiting: async () => {},
       clients: { claim: async () => {}, matchAll: async () => [] },
       crypto: { subtle: { digest: async () => new ArrayBuffer(32) } }
     }
   }
   context.__cache = new MemoryCache(initialPaths)
+  context.__handlers = handlers
   context.caches = {
     open: async () => context.__cache,
     keys: async () => [],
@@ -138,8 +169,61 @@ async function runShellInvalidationBehaviorCheck(scope, initialPaths) {
   }
   const sandbox = vm.createContext(context)
   vm.runInContext(sw, sandbox, { filename: 'sw.js' })
+  return { context, sandbox }
+}
+
+async function runShellInvalidationBehaviorCheck(scope, initialPaths) {
+  const { context, sandbox } = createServiceWorkerContext(initialPaths)
   const result = await vm.runInContext(`invalidateShellCache(${JSON.stringify(scope)})`, sandbox)
   return { result, cache: context.__cache }
+}
+
+async function runSensitiveFetchBehaviorCheck(path) {
+  const { context } = createServiceWorkerContext()
+  let responsePromise = null
+  let fetchOptions = null
+  context.fetch = async (_request, options) => {
+    fetchOptions = options
+    return new Response('sensitive', {
+      headers: { 'Cache-Control': 'private,no-store' }
+    })
+  }
+  context.__handlers.get('fetch')({
+    request: new Request(new URL(path, 'https://example.test').href),
+    respondWith(promise) { responsePromise = promise }
+  })
+  assert(responsePromise, `${path} must be intercepted as network-only`)
+  await responsePromise
+  assert(fetchOptions?.cache === 'no-store', `${path} must bypass the HTTP cache`)
+  assert(context.__cache.puts.length === 0, `${path} must never enter Cache Storage`)
+}
+
+for (const sensitivePath of [
+  '/api/binary/auth/me.aeds',
+  '/api/notifications/stream/preflight',
+  '/user/manage/profile',
+  '/admin/dashboard',
+  '/login',
+  '/private/avatar.png'
+]) {
+  await runSensitiveFetchBehaviorCheck(sensitivePath)
+}
+
+{
+  const { sandbox } = createServiceWorkerContext()
+  const privateResponseCacheable = vm.runInContext("responseCanEnterCache(new Response('private', { headers: { 'Cache-Control': 'private,max-age=60' } }))", sandbox)
+  const noStoreResponseCacheable = vm.runInContext("responseCanEnterCache(new Response('secret', { headers: { 'Cache-Control': 'public,no-store' } }))", sandbox)
+  const mutableResponseCacheable = vm.runInContext("responseCanEnterCache(new Response('asset', { headers: { 'Cache-Control': 'public,max-age=60' } }), { requireImmutable: true })", sandbox)
+  const immutableResponseCacheable = vm.runInContext("responseCanEnterCache(new Response('asset', { headers: { 'Cache-Control': 'public,max-age=31536000,immutable' } }), { requireImmutable: true })", sandbox)
+  const explicitAsset = vm.runInContext("isExplicitPublicStaticRequest(new URL('https://example.test/assets/app.abcdef.js'))", sandbox)
+  const disguisedPrivateAsset = vm.runInContext("isExplicitPublicStaticRequest(new URL('https://example.test/private/account.png'))", sandbox)
+
+  assert(!privateResponseCacheable, 'private responses must not enter Cache Storage')
+  assert(!noStoreResponseCacheable, 'no-store responses must not enter Cache Storage')
+  assert(!mutableResponseCacheable, 'mutable responses must not enter the immutable asset cache')
+  assert(immutableResponseCacheable, 'explicit public immutable assets must remain cacheable')
+  assert(explicitAsset, 'hashed public assets must remain cacheable')
+  assert(!disguisedPrivateAsset, 'a private route with a static extension must not become cacheable')
 }
 
 {

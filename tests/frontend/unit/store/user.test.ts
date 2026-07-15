@@ -13,6 +13,10 @@ vi.mock('@/services/notificationStreamRuntime', () => ({
   }
 }))
 
+vi.mock('@/services/serviceWorkerRuntime', () => ({
+  clearPrivateBrowserState: vi.fn().mockResolvedValue(undefined)
+}))
+
 vi.mock('@/store/notificationStream', () => ({
   useNotificationStreamStore: vi.fn().mockReturnValue({
     dispose: vi.fn(),
@@ -22,8 +26,10 @@ vi.mock('@/store/notificationStream', () => ({
 }))
 
 import { getMe, logout as logoutApi } from '@/api/auth'
+import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime'
 const mockGetMe = vi.mocked(getMe)
 const mockLogout = vi.mocked(logoutApi)
+const mockClearPrivateBrowserState = vi.mocked(clearPrivateBrowserState)
 
 describe('useUserStore', () => {
   beforeEach(() => {
@@ -254,6 +260,7 @@ describe('useUserStore', () => {
     store.markAuthenticated(anonymousUser(1) as never)
     await store.logout()
     expect(mockLogout).toHaveBeenCalled()
+    expect(mockClearPrivateBrowserState).toHaveBeenCalledWith('logout')
     expect(store.userInfo).toBeNull()
     expect(store.accountState).toBe('guest')
   })
