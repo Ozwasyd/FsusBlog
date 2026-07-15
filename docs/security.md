@@ -34,6 +34,10 @@ ASP.NET Core Data Protection 使用独立 X.509 RSA 证书保护共享 key ring 
 
 AEDS pooled response buffer 采用敏感优先分类：未知 frame 以及 auth、session、MFA、Passkey、匿名凭证、admin/private、错误响应一律 `clearArray:true`；只有 `AedsFrameSensitivity` 中逐项登记的公开 immutable response frame 可以在 `Seal(frameType)` 后跳过最终清零。writer 扩容时尚未得知 frame type，因此被替换的中间 buffer 始终清零。新增 frame 若未同步进入公开白名单会保守清零，禁止全局 `clearArray:false`。若运行中怀疑公开 frame 分类或缓存所有权异常，通过现有 cache action/version invalidation 清除对应 raw frame 与 PublicHotRead snapshot，使请求回落到 L2/dynamic rebuild；敏感和未知 frame 不受该降级影响，不需要重启或放宽清零边界。
 
+公开 immutable artifact 的“已生成”不等于“永久可公开”。文章删除、永久删除、清空回收站或转为 Draft/Scheduled/Archived 时，mutation 链必须在异步 projector 前持久化 generation tombstone。各 edge 先通过 Redis Pub/Sub 加载未确认 marker 并立即 fail closed；只有 CDN purge receipt 已持久化的 confirmed marker 才触发本地 rebuild。命中 marker 的公开 artifact 一律返回无 body `410 Gone`、`no-store`、`X-Fsus-Generation` 和 `X-Fsus-Revoked`，并移除 validator/encoding header。CDN purge 使用 generation 幂等键；provider 不可用时 mutation/outbox 报错重试，本机与已收到通知的 edge 继续 fail closed。bearer token、删除原因、文章标题、账号、IP 与请求路径不得进入 tombstone、响应头或 Pub/Sub payload。
+
+撤回 marker 只允许由成功发布替代 snapshot 的 worker 以 generation compare-delete 清除；旧 worker、重复 outbox 或乱序 clear 不得清除较新撤回。`PublicHotRead:Enabled=false` 只是无重启 fast-path 降级开关，独立 revocation middleware 仍然生效。生产验证除本机 410 smoke 外，还必须核对 CDN provider request/receipt 与另一 edge 节点收到 revoke/clear 通知；没有 provider receipt 时只能声明 origin fail closed，不能宣称 CDN 已清除。
+
 ## HTTPS 响应压缩隔离
 
 通用 `ResponseCompressionMiddleware` 默认不压缩任何 endpoint。只有同时带 `AllowAnonymous` 与 `PublicResponseCompressionMetadata` 的公开 GET/HEAD endpoint，且最终响应为 `200`、显式 `Cache-Control: public`、安全 `Vary`、无 `Set-Cookie` / `Content-Disposition` / 既有 `Content-Encoding` 时，才允许进入 Brotli/Gzip。当前白名单只有 feed、sitemap、robots 与公开 integrity manifest；允许媒体类型固定为 `application/atom+xml`、`application/feed+json`、`application/json`、`application/rss+xml`、`application/xml`、`text/plain`。

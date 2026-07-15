@@ -379,6 +379,10 @@ L0 classifier 是 deny-first + allowlist：`/api` 与 `/api/binary` 下 `auth`�
 
 ### L0 artifact HTTP 语义
 
+文章删除、永久删除、清空回收站或更新为不可公开状态时，写路径必须先在 Redis 建立带单调 `generation` 的 tombstone，并先发布未确认 marker 让 edge 立即 fail closed；CDN purge 成功且 receipt 状态持久化后，再发布 confirmed marker，允许各 edge 异步重建 artifact。任一 active tombstone 会让公开 artifact 路由立即返回 `410 Gone`，响应固定 `Cache-Control: no-store, no-cache, must-revalidate`、`X-Fsus-Generation` 与 `X-Fsus-Revoked`，不返回 body、`ETag` 或 `Content-Encoding`。每个 edge 的重建 worker 只有在本机新 snapshot 原子发布成功后，才按 generation compare-delete 共享 tombstone 并清除本机 marker；不得广播全局 clear，让尚未完成重建的 edge 提前恢复。CDN purge 或重建失败都保持 fail closed。未撤回的 artifact 响应携带当前 `X-Fsus-Generation`，便于 CDN/edge 对账。
+
+撤回门禁是独立 pipeline stage，不依赖 `PublicHotRead:Enabled`。需要无重启降级 fast path 时可以把该开关热更新为 `false`，请求回到常规 endpoint，但 active tombstone 仍先返回 410，不能通过关闭 L0 绕过撤回。CDN provider 支持 `PublicArtifactRevocation:CdnProvider=Cloudflare` 直连 zone purge API，或用 `Generic` + `CdnPurgeEndpoint` 接入其它 HTTPS purge gateway；启用时配置会在启动阶段校验。bearer token 仅进入 Authorization header，不进入 marker、响应头、Pub/Sub payload 或日志。
+
 L0 artifact 只接受 `GET`/`HEAD`；`OPTIONS` 在同源场景下返回 `405`，不在 fast path 上注入 CORS。Binary artifact 接受空 `Accept`、`*/*` 或 `application/octet-stream`；HTML artifact 只接受空 `Accept`、`*/*` 或 `text/html`；不匹配时返回 `406`。快照未进入 `Ready` 状态时返回 `503` + `Retry-After: 1`，除非显式启用 `PublicHotRead:FailOpenWhenNotReady` 降级到常规管线。`400`/`404`/`405`/`406`/`416`/`503` 等 L0 负响应固定 `Cache-Control: no-store`，`Range` 请求返回 `416`。`.aeds` 命中声明 `Accept-Ranges: none`，并可按 artifact 预生成 raw/br/gzip variant 返回 `Content-Encoding`、`Vary: Accept-Encoding` 和 variant-aware `ETag`；`If-None-Match` 命中当前 variant 时返回 `304`。HTML artifact 在发布期编译 CSP nonce UTF-8 template；请求只写预计算 segment/slot，不保留原始 placeholder，也不重新扫描整页。
 
 L0 snapshot 发布是受预算保护的原子操作。候选在可见前核算 raw/br/gzip、HTML/template、key/index、对象/数组/LOH 与当前 snapshot overlap；任一分项超过配置时汇总全部原因并保留旧 snapshot。`runtime.publicHotRead` 是受保护的诊断契约，匿名 readiness 不公开容量细节。article detail admission 使用访问热度与最近发布的分段 Top-K 并受 resident bytes 二次约束；未 admission 或 eviction 的文章仍走原 binary endpoint/cache 回退，不能变成文本 API 或语义降级。请求从 snapshot 的 `ReadOnlyMemory<byte>` slice 直接写出，不因统计或 eviction 增加 body copy。

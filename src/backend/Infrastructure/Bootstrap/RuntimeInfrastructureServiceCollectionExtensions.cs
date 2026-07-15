@@ -182,17 +182,26 @@ internal static class RuntimeInfrastructureServiceCollectionExtensions
     private static IServiceCollection AddPublicReadArtifactRuntime(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<PublicHotReadOptions>(configuration.GetSection("PublicHotRead"));
+        services.AddOptions<PublicArtifactRevocationOptions>()
+            .Bind(configuration.GetSection("PublicArtifactRevocation"))
+            .Validate(static options => options.IsValid(), "PublicArtifactRevocation CDN provider configuration is invalid")
+            .ValidateOnStart();
         services.Configure<PublicAotHtmlArtifactOptions>(configuration.GetSection("PublicAot"));
         services.AddSingleton<PublicHotReadEarlyDataPlaneRuntimeState>();
         services.AddSingleton<PublicHotReadClassifierCounters>();
         services.AddSingleton<PublicHotReadStore>();
         services.AddSingleton<PublicHotReadCounters>();
+        services.AddSingleton<PublicArtifactRevocationRegistry>();
+        services.AddSingleton<IPublicArtifactRevocationStateStore, RedisPublicArtifactRevocationStateStore>();
+        services.AddSingleton<IPublicArtifactCdnPurger, HttpPublicArtifactCdnPurger>();
+        services.AddSingleton<IPublicArtifactRevocationCoordinator, PublicArtifactRevocationCoordinator>();
         services.AddScoped<PublicReadSecurityGate>();
         services.AddSingleton<PublicHotArtifactUpdateQueue>();
         if (!OpenApiExportMode.IsEnabled(configuration))
         {
             services.AddHostedService<PublicHotReadMetricFlushWorker>();
             services.AddHostedService<PublicHotReadStartupWarmupService>();
+            services.AddHostedService<PublicArtifactRevocationSubscriber>();
             services.AddHostedService<PublicHotArtifactUpdateWorker>();
         }
         services.AddScoped<IPublicHotArtifactProjector, PublicHotArtifactProjector>();

@@ -169,7 +169,7 @@ Notification stream preflight 与 WebSocket 握手失败会在 `X-Fsus-Notificat
 
 ## 负响应
 
-L0 artifact fast path 的负响应不写 AEDS frame body，固定 `Cache-Control: no-store`，避免缓存未就绪、方法不匹配或内容协商失败结果。`400` / `404` / `405` / `406` / `416` / `503` 的语义以 [design.md#l0-artifact-http-语义](design.md#l0-artifact-http-语义) 和 `PublicHotReadFastPath` 为准；`503` 默认带 `Retry-After: 1`，`Range` 请求返回 `416` 并声明 `Accept-Ranges: none`。这些负响应必须带公开 HTML artifact 同款静态浏览器安全头，包括 `Content-Security-Policy`、`X-Frame-Options`、`X-Content-Type-Options`、`Referrer-Policy`、`Permissions-Policy`、COEP、COOP 和 CORP。
+L0 artifact fast path 的负响应不写 AEDS frame body，固定 `Cache-Control: no-store`，避免缓存未就绪、方法不匹配或内容协商失败结果。`400` / `404` / `405` / `406` / `416` / `503` 的语义以 [design.md#l0-artifact-http-语义](design.md#l0-artifact-http-语义) 和 `PublicHotReadFastPath` 为准；active revocation tombstone 使用 `410 Gone`、`Cache-Control: no-store, no-cache, must-revalidate`、`X-Fsus-Generation: <decimal>` 与 `X-Fsus-Revoked: g<generation>`，不带 body、ETag 或 Content-Encoding。`503` 默认带 `Retry-After: 1`，`Range` 请求返回 `416` 并声明 `Accept-Ranges: none`。这些负响应必须带公开 HTML artifact 同款静态浏览器安全头，包括 `Content-Security-Policy`、`X-Frame-Options`、`X-Content-Type-Options`、`Referrer-Policy`、`Permissions-Policy`、COEP、COOP 和 CORP。
 
 常规 AEDS binary 端点的业务失败使用 `AedsFrameType.ApiError = 251`；notification stream preflight / WebSocket 握手失败还会写 `X-Fsus-Notification-Stream-Error-Code` 与 `X-Fsus-Notification-Stream-Status-Code`。
 

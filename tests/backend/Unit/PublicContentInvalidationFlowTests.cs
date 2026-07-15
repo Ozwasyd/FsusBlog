@@ -85,7 +85,9 @@ public sealed class PublicContentInvalidationFlowTests
 
         Assert.Equal("search-projection", ArticleMutationReplayEdges.SearchProjection);
         Assert.Equal("article-detail-aeds", ArticleMutationReplayEdges.ArticleDetailAeds);
+        Assert.Equal("public-artifact-revocation", ArticleMutationReplayEdges.PublicArtifactRevocation);
         Assert.Equal("public-hot-read", ArticleMutationReplayEdges.PublicHotRead);
+        Assert.Contains(ArticleMutationReplayEdges.PublicArtifactRevocation, ArticleMutationReplayEdges.Required);
         Assert.Equal(typeof(IReadOnlySet<string>), typeof(IArticleMutationSideEffectCoordinator)
             .GetMethod(nameof(IArticleMutationSideEffectCoordinator.ReplayOutboxAsync))!.GetParameters()[3].ParameterType);
         Assert.NotNull(typeof(ArticleMutationReplayResult).GetProperty(nameof(ArticleMutationReplayResult.CompletedEdges)));
@@ -148,6 +150,7 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Contains("required", queueRuntime, StringComparison.Ordinal);
         Assert.Contains("best-effort", queueRuntime, StringComparison.Ordinal);
         Assert.Contains("EnsurePublicHotUpdateQueuedAsync", replayRuntime, StringComparison.Ordinal);
+        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeArticleAsync", replayRuntime, StringComparison.Ordinal);
         Assert.Contains("InvalidOperationException", ensureRuntime, StringComparison.Ordinal);
     }
 
@@ -162,7 +165,33 @@ public sealed class PublicContentInvalidationFlowTests
         Assert.Contains("CollectUpdate", worker, StringComparison.Ordinal);
         Assert.Contains("HashSet`1.Enumerator", worker, StringComparison.Ordinal);
         Assert.Contains("IPublicHotArtifactProjector.RebuildAfterArticleMutationAsync", worker, StringComparison.Ordinal);
+        Assert.Contains("IPublicArtifactRevocationCoordinator.CompleteRebuildAsync", worker, StringComparison.Ordinal);
+        Assert.Contains(
+            "PublicHotArtifactUpdateQueue.Enqueue",
+            RuntimeMetadataInspection.DescribeMethods(typeof(PublicArtifactRevocationSubscriber), "QueueRebuildWhenConfirmed"),
+            StringComparison.Ordinal);
         Assert.DoesNotContain("Nullable`1.GetValueOrDefault", worker, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArticleDeletionFlows_RevokeArtifactsBeforeAsynchronousRebuild()
+    {
+        string deleted = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleMutationSideEffectCoordinator),
+            nameof(ArticleMutationSideEffectCoordinator.AfterDeletedAsync));
+        string permanentlyDeleted = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleMutationSideEffectCoordinator),
+            nameof(ArticleMutationSideEffectCoordinator.AfterPermanentlyDeletedAsync));
+        string trashCleared = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleMutationSideEffectCoordinator),
+            nameof(ArticleMutationSideEffectCoordinator.AfterTrashClearedAsync));
+
+        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeArticleAsync", deleted, StringComparison.Ordinal);
+        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeArticleAsync", permanentlyDeleted, StringComparison.Ordinal);
+        Assert.Contains("IPublicArtifactRevocationCoordinator.RevokeAllAsync", trashCleared, StringComparison.Ordinal);
+        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", deleted, StringComparison.Ordinal);
+        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", permanentlyDeleted, StringComparison.Ordinal);
+        Assert.Contains("PublicHotArtifactUpdateQueue.Enqueue", trashCleared, StringComparison.Ordinal);
     }
 
     [Fact]

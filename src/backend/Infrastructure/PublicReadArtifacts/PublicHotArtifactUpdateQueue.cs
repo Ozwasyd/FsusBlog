@@ -78,6 +78,7 @@ public sealed class PublicHotArtifactUpdateQueue
 public sealed class PublicHotArtifactUpdateWorker(
     PublicHotArtifactUpdateQueue queue,
     PublicHotReadStore store,
+    IPublicArtifactRevocationCoordinator revocations,
     IServiceScopeFactory scopeFactory,
     IOptions<PublicHotReadOptions> options,
     ILogger<PublicHotArtifactUpdateWorker> logger) : BackgroundService
@@ -124,6 +125,7 @@ public sealed class PublicHotArtifactUpdateWorker(
                 _lastViewProjectionRefreshUtc = now;
             }
 
+            long maximumRevocationGeneration = revocations.CurrentGeneration;
             store.BeginBuild(reason);
             try
             {
@@ -151,6 +153,15 @@ public sealed class PublicHotArtifactUpdateWorker(
                 }
 
                 store.Publish(snapshot);
+                if ((dirtyReason & PublicHotArtifactDirtyReason.Content) != 0)
+                {
+                    await revocations
+                        .CompleteRebuildAsync(
+                            requiresFullRebuild ? null : articleIds,
+                            maximumRevocationGeneration,
+                            stoppingToken)
+                        .ConfigureAwait(false);
+                }
                 logger.LogInformation("public-hot-read-snapshot-updated {Version} {Reason} {Coalesced}", snapshot.Version, reason, coalesced);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

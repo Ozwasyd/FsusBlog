@@ -115,6 +115,7 @@ public static class WebApplicationCompositionExtensions
         new("public-hot-read-classifier", static app => app.UseFsusPublicHotReadClassifier()),
         new("public-hot-read-rate-limiter", static app => app.UseFsusPublicHotReadRateLimiter()),
         new("public-read-security-gate", static app => app.UseFsusPublicHotReadSecurityGate()),
+        new("public-artifact-revocation", static app => app.UseFsusPublicArtifactRevocation()),
         new("public-hot-read-fast-path", static app => app.UseFsusPublicHotReadFastPath()),
         new("public-hot-read-fallback-restore", static app => app.UseFsusPublicHotReadFallbackRestore()),
         new("endpoint-pipeline", static app => app.UseFsusEndpointPipeline()),

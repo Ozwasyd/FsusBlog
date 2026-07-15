@@ -49,6 +49,7 @@ public static class ArticleMutationReplayEdges
     public const string SearchProjection = "search-projection";
     public const string ArticleDetailAeds = "article-detail-aeds";
     public const string TaxonomyProjection = "taxonomy-projection";
+    public const string PublicArtifactRevocation = "public-artifact-revocation";
     public const string PublicHotRead = "public-hot-read";
     public const string IntegrityProof = "integrity-proof";
     public const string Notification = "notification";
@@ -60,6 +61,7 @@ public static class ArticleMutationReplayEdges
         SearchProjection,
         ArticleDetailAeds,
         TaxonomyProjection,
+        PublicArtifactRevocation,
         PublicHotRead
     };
 }
@@ -149,6 +151,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
     ArticleSearchProjector searchProjector,
     ITaxonomyCountProjectionService taxonomyProjection,
     IArticleDetailAedsArtifactProjector articleDetailArtifacts,
+    IPublicArtifactRevocationCoordinator publicArtifactRevocations,
     PublicHotArtifactUpdateQueue publicHotUpdates,
     IIntegrityProofScheduler integrityProofScheduler,
     ArticleRealtimeNotifier realtimeNotifier,
@@ -181,6 +184,11 @@ public sealed class ArticleMutationSideEffectCoordinator(
                     return;
                 }
 
+                if (!ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow))
+                {
+                    await publicArtifactRevocations.RevokeArticleAsync(articleId).ConfigureAwait(false);
+                }
+
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.ProjectAsync(article),
                     () => taxonomyProjection.ReconcileArticleAsync(articleId),
@@ -194,6 +202,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
         => ExecuteAsync(
             async () =>
             {
+                await publicArtifactRevocations.RevokeArticleAsync(articleId).ConfigureAwait(false);
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.DeleteAsync(articleId),
                     () => taxonomyProjection.ReconcileArticleAsync(articleId),
@@ -228,6 +237,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
         => ExecuteAsync(
             async () =>
             {
+                await publicArtifactRevocations.RevokeArticleAsync(articleId, cancellationToken).ConfigureAwait(false);
                 await RunSideEffectsSequentiallyAsync(
                     () => searchProjector.DeleteAsync(articleId),
                     () => taxonomyProjection.ReconcileArticleAsync(articleId, cancellationToken),
@@ -247,6 +257,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
         => ExecuteAsync(
             async () =>
             {
+                await publicArtifactRevocations.RevokeAllAsync(cancellationToken).ConfigureAwait(false);
                 foreach (int[] chunk in articleIds.Chunk(128))
                 {
                     foreach (int articleId in chunk)
@@ -387,7 +398,13 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 _ => "Updated"
             };
 
-            if (!await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.ProjectAsync(article))
+            if (!await RunEdgeAsync(
+                        ArticleMutationReplayEdges.PublicArtifactRevocation,
+                        () => ArticlePublication.IsPubliclyVisible(article, DateTime.UtcNow)
+                            ? Task.CompletedTask
+                            : publicArtifactRevocations.RevokeArticleAsync(articleId, cancellationToken))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.ProjectAsync(article))
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(
                         ArticleMutationReplayEdges.TaxonomyProjection,
@@ -443,7 +460,11 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
         async Task<ArticleMutationReplayResult> ReplayDeletedArticleEdgesAsync(string normalized)
         {
-            if (!await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.DeleteAsync(articleId))
+            if (!await RunEdgeAsync(
+                        ArticleMutationReplayEdges.PublicArtifactRevocation,
+                        () => publicArtifactRevocations.RevokeArticleAsync(articleId, cancellationToken))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.DeleteAsync(articleId))
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(
                         ArticleMutationReplayEdges.TaxonomyProjection,
@@ -484,7 +505,11 @@ public sealed class ArticleMutationSideEffectCoordinator(
 
         async Task<ArticleMutationReplayResult> ReplayMissingArticleEdgesAsync(string normalized)
         {
-            if (!await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.DeleteAsync(articleId))
+            if (!await RunEdgeAsync(
+                        ArticleMutationReplayEdges.PublicArtifactRevocation,
+                        () => publicArtifactRevocations.RevokeArticleAsync(articleId, cancellationToken))
+                    .ConfigureAwait(false)
+                || !await RunEdgeAsync(ArticleMutationReplayEdges.SearchProjection, () => searchProjector.DeleteAsync(articleId))
                     .ConfigureAwait(false)
                 || !await RunEdgeAsync(
                         ArticleMutationReplayEdges.TaxonomyProjection,
