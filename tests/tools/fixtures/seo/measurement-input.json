@@ -1,0 +1,140 @@
+{
+  "schema": "fsusblog.seo.measurement-fixture.v1",
+  "inventory": {
+    "schema": "fsusblog.seo.url-inventory-input.v1",
+    "site": "https://fsus.blog/",
+    "urls": [
+      {
+        "canonicalUrl": "/article/1",
+        "sitemapIncluded": true,
+        "sitemapSource": "https://fsus.blog/sitemap.xml",
+        "lastmod": "2026-07-12T00:00:00Z",
+        "declaredCanonical": "/article/1",
+        "expectedIndexable": true,
+        "aotSource": "public-aot",
+        "aotState": "ready",
+        "responseStatus": 200,
+        "soft404": true,
+        "internalLinks": []
+      },
+      {
+        "canonicalUrl": "/article/1",
+        "sitemapIncluded": true,
+        "sitemapSource": "https://fsus.blog/sitemap.xml",
+        "lastmod": "2026-07-11T00:00:00Z",
+        "declaredCanonical": "/article/1",
+        "expectedIndexable": true,
+        "aotSource": "server-redirect",
+        "aotState": "redirected",
+        "responseStatus": 200,
+        "redirectSource": "https://fsus.blog/article/1-old",
+        "finalUrl": "https://fsus.blog/article/1",
+        "soft404": false,
+        "internalLinks": []
+      },
+      {
+        "canonicalUrl": "/article/2",
+        "sitemapIncluded": true,
+        "sitemapSource": "https://fsus.blog/sitemap.xml",
+        "lastmod": "2026-07-01T00:00:00Z",
+        "declaredCanonical": "/article/2",
+        "expectedIndexable": true,
+        "aotSource": "cold-fallback",
+        "aotState": "cold",
+        "responseStatus": 503,
+        "soft404": false,
+        "internalLinks": []
+      }
+    ]
+  },
+  "searchConsole": {
+    "schema": "fsusblog.seo.search-console-snapshot.v1",
+    "status": "ok",
+    "source": "google-search-console-api",
+    "generatedAt": "2026-07-15T00:00:00.000Z",
+    "dataCutoff": "2026-07-12",
+    "coverage": {
+      "realtime": false,
+      "searchAnalytics": "complete-for-api-response",
+      "urlInspection": "sampled-complete"
+    },
+    "rows": [
+      {
+        "date": "2026-07-12",
+        "page": "https://fsus.blog/article/1",
+        "query": "alpha",
+        "device": "MOBILE",
+        "country": "chn",
+        "clicks": 0,
+        "impressions": 4,
+        "ctr": 0,
+        "position": 8
+      }
+    ],
+    "sitemaps": [],
+    "inspections": [
+      {
+        "inspectionUrl": "https://fsus.blog/article/1",
+        "verdict": "PASS",
+        "coverageState": "Indexed",
+        "googleCanonical": "https://fsus.blog/article/99",
+        "lastCrawlTime": "2026-07-10T00:00:00Z"
+      },
+      {
+        "inspectionUrl": "https://fsus.blog/article/2",
+        "verdict": "NEUTRAL",
+        "coverageState": "Discovered - currently not indexed",
+        "googleCanonical": null,
+        "lastCrawlTime": null
+      }
+    ],
+    "errors": []
+  },
+  "crawler": {
+    "schema": "fsusblog.seo.verified-crawler-snapshot.v1",
+    "status": "ok",
+    "source": "verified-production-access-log",
+    "generatedAt": "2026-07-15T00:00:00.000Z",
+    "coverage": {
+      "inputEvents": 3,
+      "verifiedEvents": 3,
+      "rejectedEvents": 0
+    },
+    "events": [
+      {
+        "timestamp": "2026-07-11T00:00:00Z",
+        "url": "https://fsus.blog/article/1",
+        "canonicalUrl": "https://fsus.blog/article/1",
+        "requestCanonical": true,
+        "status": 200,
+        "responseSource": "public-aot",
+        "release": "v1",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "timestamp": "2026-07-11T01:00:00Z",
+        "url": "https://fsus.blog/article/1?utm=sha256-redacted",
+        "canonicalUrl": "https://fsus.blog/article/1",
+        "requestCanonical": false,
+        "status": 200,
+        "responseSource": "public-aot",
+        "release": "v1",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "timestamp": "2026-07-11T02:00:00Z",
+        "url": "https://fsus.blog/extra-path",
+        "canonicalUrl": "https://fsus.blog/extra-path",
+        "requestCanonical": true,
+        "status": 404,
+        "responseSource": "server",
+        "release": "v1",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "rejectedByReason": {},
+    "privacy": {
+      "rawIpRetained": false
+    }
+  }
+}
